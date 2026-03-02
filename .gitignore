@@ -180,8 +180,14 @@ cython_debug/
 .cursorignore
 .cursorindexingignore
 
+## TESTING
+# Ignore local test artifacts that intentionally start with the `_test_` prefix.
+# This keeps quick experiments and scratch files out of version control.
+_test_*
+
 ## VS Code
 #  VS Code specific template is maintained in a separate VisualStudioCode.gitignore that can
 #  be found at
 
 .vscode
+.pylintrc
