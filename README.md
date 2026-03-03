@@ -141,14 +141,3 @@ Milestone M8: Zauber DB + KP-Kosten + MW-Anzeige
 - [ ] MW/Kosten/Probeanzeigen
 - [ ] KP-Verbrauch tracken (KP_used)
 
----
-
-## Debug/Explain (Qualität)
-Optional, aber empfehlenswert:
-- [ ] Snapshot enthält pro Wert eine Liste “warum?” (sources + before/after)
-- [ ] Vergleichbarkeit mit Beispielcharakteren aus dem GRW
-
----
-
-## Nächster Schritt (konkret)
-- Phase 2: `compute_snapshot()` minimal bauen (Attribute → Mods → VW/SR/GW).

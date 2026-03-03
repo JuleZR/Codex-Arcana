@@ -6,6 +6,8 @@ from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes.fields import GenericForeignKey
 
 class Attribute(models.Model):
+    """Primary character attribute with a human-readable and short code."""
+
     name = models.CharField(max_length=100, unique=True)
     short_name = models.CharField(max_length=4, unique=True)
     
@@ -14,6 +16,8 @@ class Attribute(models.Model):
 
 
 class SkillCategory(models.Model):
+    """Top-level grouping for related skills."""
+
     name = models.CharField(max_length=100, unique=True)
     slug = models.SlugField(max_length=100, unique=True)
     
@@ -21,6 +25,8 @@ class SkillCategory(models.Model):
         return self.name
 
 class Skill(models.Model):
+    """Character skill tied to one category and one governing attribute."""
+
     name = models.CharField(max_length=100, unique=True)
     slug = models.SlugField(max_length=100, unique=True)
     category = models.ForeignKey(SkillCategory, on_delete=models.PROTECT)
@@ -35,6 +41,8 @@ class Skill(models.Model):
 
 
 class Race(models.Model):
+    """Playable race entry used for character creation and constraints."""
+
     name = models.CharField(max_length=100, unique=True)
     slug = models.SlugField(max_length=100, unique=True)
     description = models.TextField(blank=True)
@@ -44,6 +52,8 @@ class Race(models.Model):
 
 
 class RaceAttributeLimit(models.Model):
+    """Per-race minimum and maximum values for one attribute."""
+
     race = models.ForeignKey(Race, on_delete=models.CASCADE)
     attribute = models.ForeignKey(Attribute, on_delete=models.PROTECT)
     min_value = models.IntegerField()
@@ -56,6 +66,11 @@ class RaceAttributeLimit(models.Model):
         ]
 
     def clean(self):
+        """Validate that configured bounds are logically ordered.
+
+        Raises:
+            ValidationError: If ``min_value`` is greater than ``max_value``.
+        """
         if self.min_value > self.max_value:
             raise ValidationError("min_value must be <= max_value")
 
@@ -64,6 +79,8 @@ class RaceAttributeLimit(models.Model):
 
 
 class Character(models.Model):
+    """Player-owned character with race and derived rule engine access."""
+
     owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     name = models.CharField(max_length=100)
     race = models.ForeignKey(Race, on_delete=models.PROTECT)
@@ -79,10 +96,17 @@ class Character(models.Model):
     
     @property
     def engine(self):
+        """Build a transient rule engine for this character instance.
+
+        Returns:
+            CharacterEngine: Rule calculation helper bound to this character.
+        """
         from .engine.engine import CharacterEngine
         return CharacterEngine(self)
     
 class CharacterAttribute(models.Model):
+    """Stored base value for one character attribute pair."""
+
     character = models.ForeignKey(Character, on_delete=models.CASCADE)
     attribute = models.ForeignKey(Attribute, on_delete=models.PROTECT)
     base_value = models.IntegerField()
@@ -98,6 +122,8 @@ class CharacterAttribute(models.Model):
 
 
 class CharacterSkill(models.Model):
+    """Stored level value for one character skill pair."""
+
     character = models.ForeignKey(Character, on_delete=models.CASCADE)
     skill = models.ForeignKey(Skill, on_delete=models.PROTECT)
     level = models.IntegerField(default=0, validators=[MinValueValidator(0), MaxValueValidator(10)])
@@ -113,6 +139,8 @@ class CharacterSkill(models.Model):
 
 
 class SchoolType(models.Model):
+    """Domain grouping for schools and progression rule definitions."""
+
     name = models.CharField(max_length=100, unique=True)
     slug = models.SlugField(max_length=100, unique=True)
 
@@ -121,6 +149,8 @@ class SchoolType(models.Model):
 
 
 class School(models.Model):
+    """Trainable school assigned to a school type."""
+
     name = models.CharField(max_length=100, unique=True)
     slug = models.SlugField(max_length=100, unique=True)
     type = models.ForeignKey(SchoolType, on_delete=models.PROTECT)
@@ -131,6 +161,8 @@ class School(models.Model):
 
 
 class CharacterSchool(models.Model):
+    """Character membership and level within one school."""
+
     character = models.ForeignKey(
         "Character",
         on_delete=models.CASCADE,
@@ -158,6 +190,8 @@ class CharacterSchool(models.Model):
 
 
 class ProgressionRule(models.Model):
+    """Level-based reward rule for a school type."""
+
     school_type = models.ForeignKey(SchoolType, on_delete=models.CASCADE)
     min_level = models.PositiveBigIntegerField(default=1)
     grant_kind = models.CharField(max_length=30, choices=[
@@ -174,6 +208,7 @@ class ProgressionRule(models.Model):
         return f"{self.school_type} level {self.min_level}+ grants {self.amount} {self.grant_kind}"
     
 class Modifier(models.Model):
+    """Generic modifier resolved from a source model to a target token."""
 
     class TargetKind(models.TextChoices):
         SKILL = "skill", "Skill"
@@ -244,10 +279,7 @@ class Modifier(models.Model):
         return f"{self.source} → {self.target_kind}:{self.target_slug}"
 
 class Technique(models.Model):
-    """
-    A technique that can be learned through a school.
-    Not every technique modifies numeric values (many are narrative/utility).
-    """
+    """Technique learned through a school at a required school level."""
 
     slug = models.SlugField(max_length=120, unique=True)
     name = models.CharField(max_length=200)
