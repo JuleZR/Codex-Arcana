@@ -63,10 +63,10 @@ Milestone M2: Snapshot liefert Attribute final + Mods + VW/SR/GW
 - [x] `compute_snapshot(character)` (minimal)
 - [x] Attribut-Finalwerte = Base (erstmal ohne Mods)
 - [x] Eigenschafts-Mod: `mod = final_value - 5`
-- [ ] Widerstandswerte:
-  - [ ] VW = 14 + GE_mod + WA_mod (+ GK_mod später)
-  - [ ] SR = 14 + ST_mod + KON_mod
-  - [ ] GW = 14 + INT_mod + WILL_mod
+- [X] Widerstandswerte:
+  - [X] VW = 14 + GE_mod + WA_mod (+ GK_mod später)
+  - [X] SR = 14 + ST_mod + KON_mod
+  - [X] GW = 14 + INT_mod + WILL_mod
 
 Definition of Done:
 - Snapshot liefert `attr.*` inklusive `value` & `mod`
