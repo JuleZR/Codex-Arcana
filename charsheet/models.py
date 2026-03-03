@@ -174,10 +174,29 @@ class ProgressionRule(models.Model):
         return f"{self.school_type} level {self.min_level}+ grants {self.amount} {self.grant_kind}"
     
 class Modifier(models.Model):
-    """
-    Generic numeric modifier from an arbitrary source object (school/technique/race/...)
-    to a target (skill or category).
-    """
+
+    class TargetKind(models.TextChoices):
+        SKILL = "skill", "Skill"
+        CATEGORY = "category", "Category"
+        STAT = "stat", "Stat"
+
+    class Mode(models.TextChoices):
+        FLAT = "flat", "Flat"
+        SCALED = "scaled", "Scaled"
+
+    class ScaleSource(models.TextChoices):
+        SCHOOL_LEVEL = "school_level", "School level"
+        # später:
+        FAME_TOTAL = "fame_total", "Fame total"
+
+    class RoundMode(models.TextChoices):
+        FLOOR = "floor", "Floor"
+        CEIL = "ceil", "Ceil"
+
+    class CapMode(models.TextChoices):
+        NONE = "none", "None"
+        MIN = "min", "Min"
+        MAX = "max", "Max"
 
     # Source (generic)
     source_content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
@@ -185,30 +204,45 @@ class Modifier(models.Model):
     source = GenericForeignKey("source_content_type", "source_object_id")
 
     # Target
-    TARGET_SKILL = "skill"
-    TARGET_CATEGORY = "category"
-    TARGET_CHOICES = [
-        (TARGET_SKILL, "Skill"),
-        (TARGET_CATEGORY, "Category"),
-    ]
-    target_kind = models.CharField(max_length=30, choices=TARGET_CHOICES)
+    target_kind = models.CharField(max_length=30, choices=TargetKind.choices)
     target_slug = models.CharField(max_length=120)
 
-    value = models.SmallIntegerField()
+    # Value / Scaling
+    mode = models.CharField(max_length=20, choices=Mode.choices, default=Mode.FLAT)
 
-    # Optional condition: needs school level >= x (only meaningful if source is a School)
+    value = models.SmallIntegerField(default=0)  # für FLAT
+
+    scale_source = models.CharField(
+        max_length=30,
+        choices=ScaleSource.choices,
+        null=True,
+        blank=True,
+    )
+    scale_school = models.ForeignKey(
+        "School",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="scale_modifiers",
+        help_text="Only used if scale_source == school_level",
+    )
+    mul = models.SmallIntegerField(default=1)
+    div = models.PositiveSmallIntegerField(default=1)
+    round_mode = models.CharField(max_length=10, choices=RoundMode.choices, default=RoundMode.FLOOR)
+
+    cap_mode = models.CharField(max_length=10, choices=CapMode.choices, default=CapMode.NONE)
+    cap_source = models.CharField(
+        max_length=30,
+        choices=ScaleSource.choices,
+        null=True,
+        blank=True,
+    )
+
     min_school_level = models.PositiveSmallIntegerField(null=True, blank=True)
 
-    class Meta:
-        indexes = [
-            models.Index(fields=["source_content_type", "source_object_id"]),
-            models.Index(fields=["target_kind", "target_slug"]),
-        ]
+    def __str__(self):
+        return f"{self.source} → {self.target_kind}:{self.target_slug}"
 
-    def __str__(self) -> str:
-        src = f"{self.source_content_type.model}:{self.source_object_id}"
-        return f"{src} -> {self.value} to {self.target_kind} {self.target_slug}"
-    
 class Technique(models.Model):
     """
     A technique that can be learned through a school.

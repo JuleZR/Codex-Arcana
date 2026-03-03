@@ -1,17 +1,68 @@
-"""
-CharacterEngine handles all rule-related calculations
-based on the Character model data.
-"""
+"""Rule calculation helpers for character model instances."""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, TypedDict
+
+from charsheet.models import Modifier
+
+if TYPE_CHECKING:
+    from charsheet.models import Character, ProgressionRule
+
+
+class SkillInfo(TypedDict):
+    """Typed representation of character skill metadata."""
+
+    level: int
+    category: str
+    attribute: str
+
+
+class SkillBreakdown(TypedDict):
+    """Typed representation of one skill calculation breakdown."""
+
+    skill_slug: str
+    level: int
+    base_attribute: str
+    attribute_value: int
+    attribute_modifier: int
+    base: int
+    modifiers: int
+    total: int
+
+
+class SkillError(TypedDict):
+    """Typed error payload for unresolved skills."""
+
+    skill_slug: str
+    error: str
+
+
+class ActiveProgressionRule(TypedDict):
+    """Typed representation of an active progression rule entry."""
+
+    school_slug: str
+    school_level: int
+    rule: ProgressionRule
+
 
 class CharacterEngine:
-    """Run character rules calculations using data from a Character model."""
+    """Calculate derived character values from persisted model data."""
 
-    def __init__(self, character):
-        """Initialize the engine with a character instance."""
+    def __init__(self, character: Character) -> None:
+        """Initialize the engine.
+
+        Args:
+            character: Character model instance used as the data source.
+        """
         self.character = character
 
-    def attributes(self):
-        """Return a mapping of attribute short names to base values."""
+    def attributes(self) -> dict[str, int]:
+        """Return base attributes keyed by attribute short name.
+
+        Returns:
+            dict[str, int]: Mapping like ``{"ST": 7, "DEX": 5}``.
+        """
         qs = (
             self.character.characterattribute_set
             .select_related("attribute")
@@ -21,8 +72,13 @@ class CharacterEngine:
             for ca in qs
         }
 
-    def skills(self):
-        """Return skill metadata keyed by skill slug for this character."""
+    def skills(self) -> dict[str, SkillInfo]:
+        """Return skill metadata keyed by skill slug.
+
+        Returns:
+            dict[str, dict]: Metadata per skill with keys ``level``,
+            ``category``, and ``attribute``.
+        """
         qs = (
             self.character.characterskill_set
             .select_related("skill", "skill__category")
@@ -37,29 +93,30 @@ class CharacterEngine:
         }
         
     def attribute_modifier(self, short_name: str) -> int:
-        """
-        Return the modifier for a given attribute.
+        """Return the modifier for one attribute.
 
-        IMPORTANT:
-        This method currently contains a placeholder formula.
-        Replace it with your Arcane Codex modifier rule.
+        Note:
+            The formula is currently a placeholder and should be replaced
+            with the Arcane Codex rule.
 
-        Parameters:
-            short_name (str): Attribute short name (e.g. "ST", "CHA").
+        Args:
+            short_name: Attribute short name (for example ``"ST"`` or ``"CHA"``).
 
         Returns:
-            int: The calculated modifier.
+            int: Calculated modifier value.
         """
         value = self.attributes().get(short_name, 0)
         
         return value -5
     
     def skill_total(self, skill_slug: str) -> int:
-        """
-        Calculate the total value of a skill.
+        """Calculate skill total from level and attribute modifier.
 
-        The total is defined as:
-            skill level + base attribute modifier
+        Args:
+            skill_slug: Skill identifier.
+
+        Returns:
+            int: ``skill level + base attribute modifier``, or ``0`` if missing.
         """
         skills = self.skills()
         if skill_slug not in skills:
@@ -72,9 +129,15 @@ class CharacterEngine:
         mod = int(self.attribute_modifier(attr_short))
         return level + mod
     
-    def skill_breakdown(self, skill_slug: str) -> dict:
-        """
-        Explain how a skill total is calculated (base + modifiers).
+    def skill_breakdown(self, skill_slug: str) -> SkillBreakdown | SkillError:
+        """Return a detailed breakdown for one skill calculation.
+
+        Args:
+            skill_slug: Skill identifier.
+
+        Returns:
+            dict: Breakdown with level, attribute, base, modifiers, and total.
+            Returns an error payload if the skill is not found.
         """
         skills = self.skills()
         if skill_slug not in skills:
@@ -103,13 +166,13 @@ class CharacterEngine:
         }
 
     def _skill_base(self, skill_slug: str) -> int:
-        """
-        Calculate the base value of a skill (without external modifiers).
-    
-        Base is defined as:
-            skill level + base attribute modifier
-    
-        Returns 0 if the skill is not present on the character.
+        """Calculate base skill value without external modifiers.
+
+        Args:
+            skill_slug: Skill identifier.
+
+        Returns:
+            int: ``skill level + base attribute modifier``, or ``0`` if missing.
         """
         skills = self.skills()
         if skill_slug not in skills:
@@ -124,42 +187,38 @@ class CharacterEngine:
 
 
     def _skill_modifiers(self, skill_slug: str) -> int:
-        """
-        Calculate additional modifiers from external sources.
+        """Calculate external modifiers affecting a skill.
 
-        Intended sources (later):
-          - race bonuses (single skills or skill groups/categories)
-          - school/technique bonuses
-          - traits, equipment, situational effects
+        Args:
+            skill_slug: Skill identifier.
 
-        For now: returns 0.
+        Returns:
+            int: Sum of external modifiers. Currently always ``0``.
         """
         return 0
 
 
     def skill_total(self, skill_slug: str) -> int:
-        """
-        Calculate the final total of a skill.
+        """Calculate final skill total as base plus external modifiers.
 
-        Total is defined as:
-            base skill value + external modifiers
+        Args:
+            skill_slug: Skill identifier.
+
+        Returns:
+            int: Final skill total.
         """
         return int(self._skill_base(skill_slug)) + int(self._skill_modifiers(skill_slug))
 
-    def active_progression_rules(self) -> list[dict]:
-        """
-        Return all progression rules currently active for the character,
-        based on their schools and school levels.
-    
+    def active_progression_rules(self) -> list[ActiveProgressionRule]:
+        """Return progression rules active for the character's current schools.
+
         Returns:
-            list of dicts with:
-                - school_slug
-                - school_level
-                - rule (ProgressionRule instance)
+            list[dict]: Each entry contains ``school_slug``, ``school_level``,
+            and ``rule``.
         """
         from charsheet.models import CharacterSchool, ProgressionRule
     
-        result = []
+        result: list[ActiveProgressionRule] = []
     
         character_schools = (
             CharacterSchool.objects
@@ -184,3 +243,127 @@ class CharacterEngine:
                 })
     
         return result
+    
+    def calculate_initiative(self) -> int:
+        """Calculate initiative.
+
+        Returns:
+            int: ``DEX modifier + all stat modifiers for 'initiative'``.
+        """
+        dex_mod = self.attribute_modifier("DEX")
+        mods = Modifier.objects.filter(
+            target_kind=Modifier.TargetKind.STAT,
+            target_slug="initiative",
+        )
+        misc = sum(mod.value for mod in mods)
+        
+        return dex_mod + misc
+    
+    def calculate_arcane_power(self) -> int:
+        """Calculate arcane power from WILL, schools, and stat modifiers.
+
+        School levels are counted for types with slug ``"magic"`` and
+        ``"divine"``.
+
+        Returns:
+            int: Arcane power total.
+        """
+        willpower = self.attributes().get("WILL", 0)
+        school_levels = sum(
+            cs.level for cs in self.character.schools
+            .select_related("school__type")
+            .filter(school__type__slug__in=["magic", "divine"])
+                )
+        
+        misc = sum(
+            m.value for m in Modifier.objects.filter(
+            target_kind=Modifier.TargetKind.STAT,
+            target_slug="arcane_power",
+                )
+        )
+
+        return willpower + school_levels + misc
+    
+    def calculate_potential(self) -> int:
+        """Calculate potential from WILL.
+
+        Returns:
+            int: Integer floor of ``WILL / 2``.
+        """
+        willpower = self.attributes().get("WILL", 0)
+        return willpower // 2
+    
+    def wound_thresholds(self) -> dict[int, tuple[str, int]]:
+        """Build wound threshold map with labels and penalties.
+
+        Returns:
+            dict[int, tuple[str, int]]: Mapping of threshold value to
+            ``(stage_name, penalty)``.
+        """
+        constitution: int = self.attributes().get("CON", 0)
+        additional_stages = sum(
+            m.value for m in Modifier.objects.filter(
+                target_kind=Modifier.TargetKind.STAT,
+                target_slug="wound_stage",
+            )
+        )
+        amount_threshold: int = 6 + additional_stages
+        
+        ignore_stages = sum(
+            m.value for m in Modifier.objects.filter(
+                target_kind=Modifier.TargetKind.STAT,
+                target_slug="wound_penalty_ignore",
+            )
+        )
+        
+        stage_numbers = [n*constitution for n in range(1, amount_threshold + 1)]
+        stage_names = [
+            "Angeschlagen", "Verletzt",
+            "Verwundet", "Schwer verwundet",
+            "Außer Gefecht", "Koma"
+        ]
+        stage_penalty = [0, -2, -4, -6, 0, 0]
+        
+        if ignore_stages:
+            stage_penalty = [0, 0, 0, 0, 0, 0]
+        
+        missing = max(0, len(stage_numbers) - len(stage_names))
+        stages = [""] * missing + stage_names
+        penalties = [0] * missing + stage_penalty
+        
+        return {
+            n: (s, p) for n, s, p in zip(stage_numbers, stages, penalties)
+        }
+
+    def calculate_defense(self, mod1: str, mod2: str, slug:str) -> int:
+        """Calculate a defense value from two attributes and stat modifiers.
+
+        Args:
+            mod1: First attribute short name.
+            mod2: Second attribute short name.
+            slug: Stat modifier slug to include.
+
+        Returns:
+            int: ``14 + modifier(mod1) + modifier(mod2) + misc``.
+        """
+        mod1_val = self.attribute_modifier(mod1)
+        mod2_val = self.attribute_modifier(mod2)
+        misc = sum(
+            m.value for m in Modifier.objects.filter(
+                target_kind=Modifier.TargetKind.STAT,
+                target_slug=slug,
+            )
+        )
+        return 14 + mod1_val + mod2_val + misc
+    
+    def vw(self) -> int:
+        """Calculate VW defense value."""
+        return self.calculate_defense("GE", "WA", "vw")
+    
+    def gw(self) -> int:
+        """Calculate GW defense value."""
+        return self.calculate_defense("INT", "WILL", "gw")
+    
+    def sr(self) -> int:
+        """Calculate SR defense value."""
+        return self.calculate_defense("ST", "KON", "sr")

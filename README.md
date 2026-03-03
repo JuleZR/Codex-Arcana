@@ -41,14 +41,14 @@ Admin/UI:
 ### Phase 1: Fundament (Datenmodell)
 Milestone M1: Charakterdaten speicherbar und editierbar
 
-- [✅] Attribute (St, Kon, Ge, Wa, Int, Will, Cha)
-- [✅] SkillCategory
-- [✅] Skill (base_attribute, category)
-- [✅] Race
-- [✅] RaceAttributeLimit (race, attribute, max_value)
-- [✅] Character (name, owner, race, …)
-- [✅] CharacterAttribute (character, attribute, base_value)
-- [✅] CharacterSkill (character, skill, rank)
+- [x] Attribute (St, Kon, Ge, Wa, Int, Will, Cha)
+- [x] SkillCategory
+- [x] Skill (base_attribute, category)
+- [x] Race
+- [x] RaceAttributeLimit (race, attribute, max_value)
+- [x] Character (name, owner, race, …)
+- [x] CharacterAttribute (character, attribute, base_value)
+- [x] CharacterSkill (character, skill, rank)
 
 Definition of Done:
 - Admin/Inlines funktionieren
@@ -59,10 +59,10 @@ Definition of Done:
 ### Phase 2: Erste Engine (nur Kernwerte)
 Milestone M2: Snapshot liefert Attribute final + Mods + VW/SR/GW
 
-- [✅] Engine-Modul anlegen: `charsheet/engine/` oder `charsheet/engine.py`
-- [✅] `compute_snapshot(character)` (minimal)
-- [✅] Attribut-Finalwerte = Base (erstmal ohne Mods)
-- [✅] Eigenschafts-Mod: `mod = final_value - 5`
+- [x] Engine-Modul anlegen: `charsheet/engine/` oder `charsheet/engine.py`
+- [x] `compute_snapshot(character)` (minimal)
+- [x] Attribut-Finalwerte = Base (erstmal ohne Mods)
+- [x] Eigenschafts-Mod: `mod = final_value - 5`
 - [ ] Widerstandswerte:
   - [ ] VW = 14 + GE_mod + WA_mod (+ GK_mod später)
   - [ ] SR = 14 + ST_mod + KON_mod

@@ -1,5 +1,4 @@
 from django.contrib import admin
-from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes.admin import GenericTabularInline
 
 from .models import (
@@ -40,7 +39,21 @@ class ModifierInline(GenericTabularInline):
     ct_fk_field = "source_object_id"
     extra = 0
     show_change_link = True
-    fields = ("target_kind", "target_slug", "value", "min_school_level")
+    fields = (
+        "target_kind",
+        "target_slug",
+        "mode",
+        "value",
+        "scale_source",
+        "scale_school",
+        "mul",
+        "div",
+        "round_mode",
+        "cap_mode",
+        "cap_source",
+        "min_school_level",
+    )
+    autocomplete_fields = ("scale_school",)
 
 
 class CharacterAttributeInline(admin.TabularInline):
@@ -107,12 +120,20 @@ class SkillCategoryAdmin(admin.ModelAdmin):
 
 @admin.register(Skill)
 class SkillAdmin(admin.ModelAdmin):
-    list_display = ("name", "slug", "category", "attribute")
+    list_display = ("name", "slug", "category", "category_slug", "attribute", "attribute_short_name")
     search_fields = ("name", "slug")
     list_filter = ("category", "attribute")
     ordering = ("category", "name")
     autocomplete_fields = ("category", "attribute")
     list_select_related = ("category", "attribute")
+
+    @admin.display(ordering="category__slug", description="Category Slug")
+    def category_slug(self, obj):
+        return obj.category.slug
+
+    @admin.display(ordering="attribute__short_name", description="Attribute Short")
+    def attribute_short_name(self, obj):
+        return obj.attribute.short_name
 
 
 @admin.register(Race)
@@ -135,13 +156,17 @@ class RaceAttributeLimitAdmin(admin.ModelAdmin):
 
 @admin.register(Character)
 class CharacterAdmin(admin.ModelAdmin):
-    list_display = ("name", "owner", "race")
+    list_display = ("name", "owner", "race", "race_slug")
     search_fields = ("name", "owner__username", "owner__email", "race__name")
     list_filter = ("race",)
     ordering = ("name",)
     inlines = (CharacterAttributeInline, CharacterSkillInline, CharacterSchoolInline)
     autocomplete_fields = ("owner", "race")
     list_select_related = ("owner", "race")
+
+    @admin.display(ordering="race__slug", description="Race Slug")
+    def race_slug(self, obj):
+        return obj.race.slug
 
 
 @admin.register(CharacterAttribute)
@@ -156,12 +181,20 @@ class CharacterAttributeAdmin(admin.ModelAdmin):
 
 @admin.register(CharacterSkill)
 class CharacterSkillAdmin(admin.ModelAdmin):
-    list_display = ("character", "skill", "level")
+    list_display = ("character", "skill", "skill_category", "skill_attribute", "level")
     search_fields = ("character__name", "skill__name", "skill__slug")
     list_filter = ("skill__category", "skill__attribute")
     ordering = ("character", "skill")
     autocomplete_fields = ("character", "skill")
     list_select_related = ("character", "skill", "skill__category", "skill__attribute")
+
+    @admin.display(ordering="skill__category__name", description="Skill Category")
+    def skill_category(self, obj):
+        return obj.skill.category
+
+    @admin.display(ordering="skill__attribute__name", description="Skill Attribute")
+    def skill_attribute(self, obj):
+        return obj.skill.attribute
 
 
 @admin.register(SchoolType)
@@ -174,7 +207,7 @@ class SchoolTypeAdmin(admin.ModelAdmin):
 
 @admin.register(School)
 class SchoolAdmin(admin.ModelAdmin):
-    list_display = ("name", "slug", "type")
+    list_display = ("name", "slug", "type", "type_slug")
     search_fields = ("name", "slug", "type__name")
     list_filter = ("type",)
     ordering = ("type", "name")
@@ -182,15 +215,23 @@ class SchoolAdmin(admin.ModelAdmin):
     autocomplete_fields = ("type",)
     list_select_related = ("type",)
 
+    @admin.display(ordering="type__slug", description="Type Slug")
+    def type_slug(self, obj):
+        return obj.type.slug
+
 
 @admin.register(CharacterSchool)
 class CharacterSchoolAdmin(admin.ModelAdmin):
-    list_display = ("character", "school", "level")
+    list_display = ("character", "school", "school_type", "level")
     search_fields = ("character__name", "school__name", "school__slug")
     list_filter = ("school__type", "school")
     ordering = ("character", "school")
     autocomplete_fields = ("character", "school")
     list_select_related = ("character", "school", "school__type")
+
+    @admin.display(ordering="school__type__name", description="School Type")
+    def school_type(self, obj):
+        return obj.school.type
 
 
 @admin.register(ProgressionRule)
@@ -207,14 +248,23 @@ class ProgressionRuleAdmin(admin.ModelAdmin):
 class ModifierAdmin(admin.ModelAdmin):
     list_display = (
         "display_source",
+        "mode",
         "target_kind",
         "target_slug",
         "value",
+        "scale_source",
+        "scale_school",
+        "mul",
+        "div",
+        "round_mode",
+        "cap_mode",
+        "cap_source",
         "min_school_level",
     )
-    list_filter = ("source_content_type", "target_kind")
+    list_filter = ("source_content_type", "mode", "target_kind", "scale_source", "cap_mode")
     search_fields = ("target_slug",)
     ordering = ("source_content_type", "source_object_id", "target_kind", "target_slug")
+    autocomplete_fields = ("scale_school",)
 
     @admin.display(description="Source")
     def display_source(self, obj):
@@ -224,10 +274,14 @@ class ModifierAdmin(admin.ModelAdmin):
 
 @admin.register(Technique)
 class TechniqueAdmin(admin.ModelAdmin):
-    list_display = ("name", "slug", "school", "level")
+    list_display = ("name", "slug", "school", "school_type", "level")
     search_fields = ("name", "slug", "school__name", "school__slug")
     list_filter = ("school", "school__type", "level")
     ordering = ("school", "level", "name")
     autocomplete_fields = ("school",)
     list_select_related = ("school", "school__type")
     inlines = (ModifierInline,)
+
+    @admin.display(ordering="school__type__name", description="School Type")
+    def school_type(self, obj):
+        return obj.school.type
