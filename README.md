@@ -50,10 +50,6 @@ Milestone M1: Charakterdaten speicherbar und editierbar
 - [x] CharacterAttribute (character, attribute, base_value)
 - [x] CharacterSkill (character, skill, rank)
 
-Definition of Done:
-- Admin/Inlines funktionieren
-- Attribute/Skills lassen sich pro Charakter pflegen
-
 ---
 
 ### Phase 2: Erste Engine (nur Kernwerte)
@@ -68,21 +64,14 @@ Milestone M2: Snapshot liefert Attribute final + Mods + VW/SR/GW
   - [X] SR = 14 + ST_mod + KON_mod
   - [X] GW = 14 + INT_mod + WILL_mod
 
-Definition of Done:
-- Snapshot liefert `attr.*` inklusive `value` & `mod`
-- Snapshot liefert `derived.VW/SR/GW`
-
 ---
 
 ### Phase 3: Wunden & Zustände (erste echte Abzüge)
 Milestone M3: Wunden beeinflussen Werte zuverlässig
 
-- [ ] Damage/Wunden am Charakter speichern (z.B. current_damage)
-- [ ] Wundstufen berechnen
-- [ ] Abzüge als Snapshot-Regeln anwenden (z.B. auf alle Aktionen/INI)
-
-Definition of Done:
-- Änderung des Schadens ändert Snapshot sofort und nachvollziehbar
+- [x] Damage/Wunden am Charakter speichern (z.B. current_damage)
+- [x] Wundstufen berechnen
+- [x] Abzüge als Snapshot-Regeln anwenden (z.B. auf alle Aktionen/INI)
 
 ---
 
@@ -95,9 +84,6 @@ Milestone M4: GRS/BEL/MS korrekt + Auswirkungen auf Werte
 - [ ] Mindeststärke = GRS / 2
 - [ ] “mit Belastung” Anzeige (Skills/Probenwert - BEL) als Snapshot-View
 
-Definition of Done:
-- Auswahl anderer Rüstung ändert GRS/BEL/MS + betroffene Werte
-
 ---
 
 ### Phase 5: Charaktererschaffung (Punktkauf-Flow)
@@ -108,20 +94,15 @@ Milestone M5: Regelkonforme Erstellung mit Validierung
 - [ ] Sprachen: sprechen 1/2/3, lesen+1, schreiben+1
 - [ ] Validierung: Race-Limits, Budget nicht negativ, Ranggrenzen
 
-Definition of Done:
-- UI/Backend verhindert ungültige Builds
-
 ---
 
 ### Phase 6: Schulen & Ressourcen (KP)
 Milestone M6: Schulen-Stufen + KP_max
 
-- [ ] School, CharacterSchool
-- [ ] KP_max berechnen (WILL_mod + Schulstufen + Mods)
-- [ ] (optional) Aspekte für Kleriker
+- [x] School, CharacterSchool
+- [X] KP_max berechnen (WILL_mod + Schulstufen + Mods)
+- [X] (optional) Aspekte für Kleriker
 
-Definition of Done:
-- Schulen beeinflussen Snapshot zuverlässig
 
 ---
 
@@ -137,7 +118,7 @@ Milestone M7: Waffenwerte und Anzeige im Bogen
 ### Phase 8: Magie (optional, später)
 Milestone M8: Zauber DB + KP-Kosten + MW-Anzeige
 
-- [ ] Spell Modell + Zuordnung zu Schule/Aspekt
+- [X] Spell Modell + Zuordnung zu Schule/Aspekt
 - [ ] MW/Kosten/Probeanzeigen
 - [ ] KP-Verbrauch tracken (KP_used)
 

@@ -1,3 +1,5 @@
+"""Database models for characters, progression, and modifiers."""
+
 from django.db import models
 from django.conf import settings
 from django.core.exceptions import ValidationError
@@ -84,6 +86,8 @@ class Character(models.Model):
     owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     name = models.CharField(max_length=100)
     race = models.ForeignKey(Race, on_delete=models.PROTECT)
+    
+    current_damage = models.PositiveBigIntegerField(default=0)
     
     class Meta:
         ordering = ["name"]
@@ -211,24 +215,29 @@ class Modifier(models.Model):
     """Generic modifier resolved from a source model to a target token."""
 
     class TargetKind(models.TextChoices):
+        """Supported modifier targets."""
         SKILL = "skill", "Skill"
         CATEGORY = "category", "Category"
         STAT = "stat", "Stat"
 
     class Mode(models.TextChoices):
+        """Supported modifier calculation modes."""
         FLAT = "flat", "Flat"
         SCALED = "scaled", "Scaled"
 
     class ScaleSource(models.TextChoices):
+        """Available scaling source definitions."""
         SCHOOL_LEVEL = "school_level", "School level"
         # später:
         FAME_TOTAL = "fame_total", "Fame total"
 
     class RoundMode(models.TextChoices):
+        """Rounding modes for scaled modifier values."""
         FLOOR = "floor", "Floor"
         CEIL = "ceil", "Ceil"
 
     class CapMode(models.TextChoices):
+        """Capping strategies for scaled modifier values."""
         NONE = "none", "None"
         MIN = "min", "Min"
         MAX = "max", "Max"

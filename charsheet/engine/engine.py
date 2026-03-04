@@ -50,11 +50,6 @@ class CharacterEngine:
     """Calculate derived character values from persisted model data."""
 
     def __init__(self, character: Character) -> None:
-        """Initialize the engine.
-
-        Args:
-            character: Character model instance used as the data source.
-        """
         self.character = character
 
     def attributes(self) -> dict[str, int]:
@@ -187,15 +182,25 @@ class CharacterEngine:
 
 
     def _skill_modifiers(self, skill_slug: str) -> int:
-        """Calculate external modifiers affecting a skill.
+        """Collect and sum all external modifiers for one skill.
 
         Args:
             skill_slug: Skill identifier.
 
         Returns:
-            int: Sum of external modifiers. Currently always ``0``.
+            int: Summed modifier value including wound penalty.
         """
-        return 0
+        skill_mods = Modifier.objects.filter(
+            target_kind=Modifier.TargetKind.SKILL,
+            target_slug=skill_slug
+        )
+        #TODO: Add other modifiers    
+        modifier = [
+            self.current_wound_penalty(),
+            ]
+        
+        modifier.extend(m.value for m in skill_mods)
+        return sum(modifier)
 
 
     def skill_total(self, skill_slug: str) -> int:
@@ -256,6 +261,7 @@ class CharacterEngine:
             target_slug="initiative",
         )
         misc = sum(mod.value for mod in mods)
+        misc += self.current_wound_penalty()
         
         return dex_mod + misc
     
@@ -367,3 +373,23 @@ class CharacterEngine:
     def sr(self) -> int:
         """Calculate SR defense value."""
         return self.calculate_defense("ST", "KON", "sr")
+
+    def current_wound_stage(self) -> tuple[str, int]:
+       """Return current wound stage label and its penalty.
+
+       Returns:
+           tuple[str, int]: ``(stage_name, penalty)`` for current damage.
+       """
+       wound_dict = self.wound_thresholds()
+       
+       t_numbers = [t for t in wound_dict.keys()]
+       if self.character.current_damage >= t_numbers[-1]:
+           return ("tot", 0)
+       
+       for key in t_numbers:
+           if self.character.current_damage < key:
+               return wound_dict[key]
+           
+    def current_wound_penalty(self):
+        """Return only the active wound penalty value."""
+        return self.current_wound_stage()[1]

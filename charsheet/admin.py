@@ -1,3 +1,5 @@
+"""Django admin configuration for character sheet domain models."""
+
 from django.contrib import admin
 from django.contrib.contenttypes.admin import GenericTabularInline
 
@@ -20,6 +22,8 @@ from .models import (
 
 
 class SkillInline(admin.TabularInline):
+    """Inline editor for skills within a category."""
+
     model = Skill
     extra = 0
     show_change_link = True
@@ -27,6 +31,8 @@ class SkillInline(admin.TabularInline):
 
 
 class RaceAttributeLimitInline(admin.TabularInline):
+    """Inline editor for race-specific attribute limits."""
+
     model = RaceAttributeLimit
     extra = 0
     show_change_link = True
@@ -34,6 +40,8 @@ class RaceAttributeLimitInline(admin.TabularInline):
 
 
 class ModifierInline(GenericTabularInline):
+    """Generic inline editor for modifiers attached to source models."""
+
     model = Modifier
     ct_field = "source_content_type"
     ct_fk_field = "source_object_id"
@@ -57,6 +65,8 @@ class ModifierInline(GenericTabularInline):
 
 
 class CharacterAttributeInline(admin.TabularInline):
+    """Inline editor for a character's base attributes."""
+
     model = CharacterAttribute
     extra = 0
     show_change_link = True
@@ -64,6 +74,8 @@ class CharacterAttributeInline(admin.TabularInline):
 
 
 class CharacterSkillInline(admin.TabularInline):
+    """Inline editor for a character's skill levels."""
+
     model = CharacterSkill
     extra = 0
     show_change_link = True
@@ -71,6 +83,8 @@ class CharacterSkillInline(admin.TabularInline):
 
 
 class CharacterSchoolInline(admin.TabularInline):
+    """Inline editor for a character's learned schools."""
+
     model = CharacterSchool
     extra = 0
     show_change_link = True
@@ -78,24 +92,32 @@ class CharacterSchoolInline(admin.TabularInline):
 
 
 class SchoolInline(admin.TabularInline):
+    """Inline editor for schools inside a school type."""
+
     model = School
     extra = 0
     show_change_link = True
 
 
 class TechniqueInline(admin.TabularInline):
+    """Inline editor for techniques belonging to one school."""
+
     model = Technique
     extra = 0
     show_change_link = True
 
 
 class ProgressionRuleInline(admin.TabularInline):
+    """Inline editor for school type progression rules."""
+
     model = ProgressionRule
     extra = 0
     show_change_link = True
 
 
 class SchoolCharacterInline(admin.TabularInline):
+    """Inline editor for character-school relations from the school side."""
+
     model = CharacterSchool
     fk_name = "school"
     extra = 0
@@ -105,6 +127,8 @@ class SchoolCharacterInline(admin.TabularInline):
 
 @admin.register(Attribute)
 class AttributeAdmin(admin.ModelAdmin):
+    """Admin configuration for attributes."""
+
     list_display = ("name", "short_name")
     search_fields = ("name", "short_name")
     ordering = ("name",)
@@ -112,6 +136,8 @@ class AttributeAdmin(admin.ModelAdmin):
 
 @admin.register(SkillCategory)
 class SkillCategoryAdmin(admin.ModelAdmin):
+    """Admin configuration for skill categories."""
+
     list_display = ("name", "slug")
     search_fields = ("name", "slug")
     ordering = ("name",)
@@ -120,6 +146,8 @@ class SkillCategoryAdmin(admin.ModelAdmin):
 
 @admin.register(Skill)
 class SkillAdmin(admin.ModelAdmin):
+    """Admin configuration for skills."""
+
     list_display = ("name", "slug", "category", "category_slug", "attribute", "attribute_short_name")
     search_fields = ("name", "slug")
     list_filter = ("category", "attribute")
@@ -129,15 +157,19 @@ class SkillAdmin(admin.ModelAdmin):
 
     @admin.display(ordering="category__slug", description="Category Slug")
     def category_slug(self, obj):
+        """Return the related category slug for list display."""
         return obj.category.slug
 
     @admin.display(ordering="attribute__short_name", description="Attribute Short")
     def attribute_short_name(self, obj):
+        """Return the related attribute short name for list display."""
         return obj.attribute.short_name
 
 
 @admin.register(Race)
 class RaceAdmin(admin.ModelAdmin):
+    """Admin configuration for races."""
+
     list_display = ("name", "slug")
     search_fields = ("name", "slug")
     ordering = ("name",)
@@ -146,6 +178,8 @@ class RaceAdmin(admin.ModelAdmin):
 
 @admin.register(RaceAttributeLimit)
 class RaceAttributeLimitAdmin(admin.ModelAdmin):
+    """Admin configuration for race attribute limits."""
+
     list_display = ("race", "attribute", "min_value", "max_value")
     search_fields = ("race__name", "attribute__name")
     list_filter = ("race", "attribute")
@@ -156,6 +190,8 @@ class RaceAttributeLimitAdmin(admin.ModelAdmin):
 
 @admin.register(Character)
 class CharacterAdmin(admin.ModelAdmin):
+    """Admin configuration for characters."""
+
     list_display = ("name", "owner", "race", "race_slug")
     search_fields = ("name", "owner__username", "owner__email", "race__name")
     list_filter = ("race",)
@@ -166,11 +202,14 @@ class CharacterAdmin(admin.ModelAdmin):
 
     @admin.display(ordering="race__slug", description="Race Slug")
     def race_slug(self, obj):
+        """Return the related race slug for list display."""
         return obj.race.slug
 
 
 @admin.register(CharacterAttribute)
 class CharacterAttributeAdmin(admin.ModelAdmin):
+    """Admin configuration for character attributes."""
+
     list_display = ("character", "attribute", "base_value")
     search_fields = ("character__name", "attribute__name")
     list_filter = ("attribute",)
@@ -181,6 +220,8 @@ class CharacterAttributeAdmin(admin.ModelAdmin):
 
 @admin.register(CharacterSkill)
 class CharacterSkillAdmin(admin.ModelAdmin):
+    """Admin configuration for character skills."""
+
     list_display = ("character", "skill", "skill_category", "skill_attribute", "level")
     search_fields = ("character__name", "skill__name", "skill__slug")
     list_filter = ("skill__category", "skill__attribute")
@@ -190,15 +231,19 @@ class CharacterSkillAdmin(admin.ModelAdmin):
 
     @admin.display(ordering="skill__category__name", description="Skill Category")
     def skill_category(self, obj):
+        """Return the related skill category for list display."""
         return obj.skill.category
 
     @admin.display(ordering="skill__attribute__name", description="Skill Attribute")
     def skill_attribute(self, obj):
+        """Return the related skill attribute for list display."""
         return obj.skill.attribute
 
 
 @admin.register(SchoolType)
 class SchoolTypeAdmin(admin.ModelAdmin):
+    """Admin configuration for school types."""
+
     list_display = ("name", "slug")
     search_fields = ("name", "slug")
     ordering = ("name",)
@@ -207,6 +252,8 @@ class SchoolTypeAdmin(admin.ModelAdmin):
 
 @admin.register(School)
 class SchoolAdmin(admin.ModelAdmin):
+    """Admin configuration for schools."""
+
     list_display = ("name", "slug", "type", "type_slug")
     search_fields = ("name", "slug", "type__name")
     list_filter = ("type",)
@@ -217,11 +264,14 @@ class SchoolAdmin(admin.ModelAdmin):
 
     @admin.display(ordering="type__slug", description="Type Slug")
     def type_slug(self, obj):
+        """Return the related school type slug for list display."""
         return obj.type.slug
 
 
 @admin.register(CharacterSchool)
 class CharacterSchoolAdmin(admin.ModelAdmin):
+    """Admin configuration for character schools."""
+
     list_display = ("character", "school", "school_type", "level")
     search_fields = ("character__name", "school__name", "school__slug")
     list_filter = ("school__type", "school")
@@ -231,11 +281,14 @@ class CharacterSchoolAdmin(admin.ModelAdmin):
 
     @admin.display(ordering="school__type__name", description="School Type")
     def school_type(self, obj):
+        """Return the related school type for list display."""
         return obj.school.type
 
 
 @admin.register(ProgressionRule)
 class ProgressionRuleAdmin(admin.ModelAdmin):
+    """Admin configuration for progression rules."""
+
     list_display = ("school_type", "min_level", "grant_kind", "amount")
     search_fields = ("school_type__name", "grant_kind")
     list_filter = ("school_type", "grant_kind")
@@ -246,6 +299,8 @@ class ProgressionRuleAdmin(admin.ModelAdmin):
 
 @admin.register(Modifier)
 class ModifierAdmin(admin.ModelAdmin):
+    """Admin configuration for generic modifiers."""
+
     list_display = (
         "display_source",
         "mode",
@@ -268,12 +323,15 @@ class ModifierAdmin(admin.ModelAdmin):
 
     @admin.display(description="Source")
     def display_source(self, obj):
+        """Render a readable source label and detect broken generic relations."""
         if obj.source is None:
             return f"{obj.source_content_type} #{obj.source_object_id} (missing)"
         return str(obj.source)
 
 @admin.register(Technique)
 class TechniqueAdmin(admin.ModelAdmin):
+    """Admin configuration for techniques."""
+
     list_display = ("name", "slug", "school", "school_type", "level")
     search_fields = ("name", "slug", "school__name", "school__slug")
     list_filter = ("school", "school__type", "level")
@@ -284,4 +342,5 @@ class TechniqueAdmin(admin.ModelAdmin):
 
     @admin.display(ordering="school__type__name", description="School Type")
     def school_type(self, obj):
+        """Return the related school type for list display."""
         return obj.school.type
