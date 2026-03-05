@@ -4,11 +4,14 @@ from django.contrib import admin
 from django.contrib.contenttypes.admin import GenericTabularInline
 
 from .models import (
+    ArmorStats,
     Attribute,
     Character,
     CharacterAttribute,
+    CharacterItem,
     CharacterSchool,
     CharacterSkill,
+    Item,
     Modifier,
     ProgressionRule,
     Race,
@@ -91,6 +94,16 @@ class CharacterSchoolInline(admin.TabularInline):
     autocomplete_fields = ("school",)
 
 
+class CharacterItemInline(admin.TabularInline):
+    """Inline editor for a character's inventory entries."""
+
+    model = CharacterItem
+    fk_name = "owner"
+    extra = 0
+    show_change_link = True
+    autocomplete_fields = ("item",)
+
+
 class SchoolInline(admin.TabularInline):
     """Inline editor for schools inside a school type."""
 
@@ -123,6 +136,25 @@ class SchoolCharacterInline(admin.TabularInline):
     extra = 0
     show_change_link = True
     autocomplete_fields = ("character",)
+
+
+class ArmorStatsInline(admin.StackedInline):
+    """Inline editor for one-to-one armor stats on an item."""
+
+    model = ArmorStats
+    extra = 0
+    max_num = 1
+    can_delete = True
+
+
+class ItemCharacterInline(admin.TabularInline):
+    """Inline editor for character ownership entries from the item side."""
+
+    model = CharacterItem
+    fk_name = "item"
+    extra = 0
+    show_change_link = True
+    autocomplete_fields = ("owner",)
 
 
 @admin.register(Attribute)
@@ -196,7 +228,7 @@ class CharacterAdmin(admin.ModelAdmin):
     search_fields = ("name", "owner__username", "owner__email", "race__name")
     list_filter = ("race",)
     ordering = ("name",)
-    inlines = (CharacterAttributeInline, CharacterSkillInline, CharacterSchoolInline)
+    inlines = (CharacterAttributeInline, CharacterSkillInline, CharacterSchoolInline, CharacterItemInline)
     autocomplete_fields = ("owner", "race")
     list_select_related = ("owner", "race")
 
@@ -344,3 +376,52 @@ class TechniqueAdmin(admin.ModelAdmin):
     def school_type(self, obj):
         """Return the related school type for list display."""
         return obj.school.type
+
+
+@admin.register(Item)
+class ItemAdmin(admin.ModelAdmin):
+    """Admin configuration for items."""
+
+    list_display = ("name", "slug", "item_type", "stackable")
+    search_fields = ("name", "slug", "item_type")
+    list_filter = ("item_type", "stackable")
+    ordering = ("item_type", "name")
+    inlines = (ArmorStatsInline, ItemCharacterInline)
+
+
+@admin.register(CharacterItem)
+class CharacterItemAdmin(admin.ModelAdmin):
+    """Admin configuration for character inventory entries."""
+
+    list_display = ("owner", "owner_race", "item", "item_type", "amount", "equipped")
+    search_fields = ("owner__name", "item__name", "item__slug")
+    list_filter = ("equipped", "item__item_type", "owner__race")
+    ordering = ("owner", "item")
+    autocomplete_fields = ("owner", "item")
+    list_select_related = ("owner", "owner__race", "item")
+
+    @admin.display(ordering="owner__race__name", description="Owner Race")
+    def owner_race(self, obj):
+        """Return the owning character race for list display."""
+        return obj.owner.race
+
+    @admin.display(ordering="item__item_type", description="Item Type")
+    def item_type(self, obj):
+        """Return the related item type for list display."""
+        return obj.item.item_type
+
+
+@admin.register(ArmorStats)
+class ArmorStatsAdmin(admin.ModelAdmin):
+    """Admin configuration for armor stat blocks."""
+
+    list_display = ("item", "item_slug", "rs_head", "rs_torso", "rs_arm_left", "rs_arm_right", "rs_leg_left", "rs_leg_right")
+    search_fields = ("item__name", "item__slug")
+    ordering = ("item__name",)
+    autocomplete_fields = ("item",)
+    list_select_related = ("item",)
+
+    @admin.display(ordering="item__slug", description="Item Slug")
+    def item_slug(self, obj):
+        """Return the related item slug for list display."""
+        return obj.item.slug

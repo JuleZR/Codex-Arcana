@@ -312,3 +312,60 @@ class Technique(models.Model):
     def __str__(self) -> str:
         return f"{self.school.slug} L{self.level}: {self.name}"
     
+class Item(models.Model):
+    class ItemType(models.TextChoices):
+        ARMOR = "armor", "Armor"
+        WEAPON = "weapon", "Weapon"
+        MISC = "misc", "Misc"
+
+    name = models.CharField(max_length=200)
+    slug = models.SlugField(max_length=120, unique=True)
+    
+    item_type = models.CharField(max_length=20, choices=ItemType.choices)
+    description = models.TextField(null=True, blank=True)
+    
+    stackable = models.BooleanField(default=True)
+    def clean(self):
+        super().clean()
+        if self.item_type == self.ItemType.ARMOR and self.stackable:
+            raise ValidationError({"stackable": "Type: ARMOR can't be stackable."})
+            
+    def __str__(self):
+        return f"{self.item_type.upper()}: {self.name}"
+
+class CharacterItem(models.Model):
+    item = models.ForeignKey(Item, on_delete=models.CASCADE)
+    owner = models.ForeignKey(Character, on_delete=models.CASCADE)
+    amount = models.PositiveIntegerField(default=1)
+    equipped = models.BooleanField(default=False)
+    
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["owner", "item"],
+                name = "unique_item_per_character"
+            )
+        ]
+    def clean(self):
+        super().clean()
+        if not self.item.stackable and self.amount != 1:
+            raise ValidationError({"amount": "Item is flagged non stackable. amount must be 1" })
+        if self.item.item_type == self.item.ItemType.ARMOR and self.amount != 1:
+            raise ValidationError({"amount": "Type: ARMOR is not stackable, amount must be 1"})
+        if self.item.stackable and self.equipped:
+            raise ValidationError({"equipped": "Stackable Items can't be equipped"})
+
+class ArmorStats(models.Model):
+    item = models.OneToOneField(Item, on_delete=models.CASCADE)
+    
+    rs_head = models.PositiveIntegerField(default=0)
+    rs_torso = models.PositiveIntegerField(default=0)
+    rs_arm_left = models.PositiveIntegerField(default=0)
+    rs_arm_right = models.PositiveIntegerField(default=0)
+    rs_leg_left = models.PositiveIntegerField(default=0)
+    rs_leg_right = models.PositiveIntegerField(default=0)
+    
+    def clean(self):
+        super().clean()
+        if self.item.item_type != Item.ItemType.ARMOR:
+            ValidationError({"item_type": "Non armor items can't have ArmorStats"})
