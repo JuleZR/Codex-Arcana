@@ -10,7 +10,7 @@ Der aktuelle Stand ist ein Backend mit Admin-Oberflaeche und Regel-Engine fuer z
 - Django-Projekt laeuft mit PostgreSQL.
 - Datenmodell ist ueber Migrationen aufgebaut.
 - Django-Admin ist fuer die Kernmodelle eingerichtet.
-- Codebasis ist durchgaengig mit Docstrings dokumentiert (ohne `__dunder__`-Methoden).
+- Codebasis ist durchgaengig mit Docstrings dokumentiert
 
 ### Fachlich umgesetzt
 - Charakterstamm: `Character`, `Race`, Attribute, Skills.
@@ -59,11 +59,11 @@ Danach ist das Admin-Backend unter `http://127.0.0.1:8000/admin/` erreichbar.
 - [x] Grundlegendes Inventar inkl. Ruestungswerten
 - [x] Basis-Ruestungsberechnung (`GRS`, `BEL`, `MS`)
 - [x] Docstring-Dokumentation der Projektmodule
+- [x] Ruestungsregeln vervollstaendigen (Belastung, Mindeststaerke, Auswirkungen auf Proben)
 
 ### Als naechstes
-- [ ] Ruestungsregeln vervollstaendigen (Belastung, Mindeststaerke, Auswirkungen auf Proben)
 - [ ] Charaktererschaffung mit Budget-/Regelvalidierung (CP/EP-Flow)
 - [ ] Waffenmodell und Kampfwerte erweitern
-- [ ] Magiefluss erweitern (Kosten, Verbrauch, Anzeige)
+- [ ] Magiesystem erweitern (Kosten, Verbrauch, Anzeige)
 - [ ] Tests ausbauen (Modelle, Engine, Admin)
 - [ ] Benutzeroberflaeche ausserhalb des Django-Admins aufbauen

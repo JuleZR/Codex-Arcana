@@ -191,3 +191,5 @@ _test_*
 
 .vscode
 .pylintrc
+*.scss
+*.css.map

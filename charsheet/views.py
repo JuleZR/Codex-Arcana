@@ -1,1 +1,4 @@
-"""Views for the character sheet app."""
+from django.shortcuts import render
+
+def sheet(request):
+    return render(request, "charsheet/charsheet.html")
