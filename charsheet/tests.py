@@ -1,3 +1,1 @@
-from django.test import TestCase
-
-# Create your tests here.
+"""Test module placeholder for the character sheet app."""

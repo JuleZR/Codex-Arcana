@@ -1,10 +1,10 @@
 """Rule calculation helpers for character model instances."""
 
 from __future__ import annotations
-
 from typing import TYPE_CHECKING, TypedDict
+from django.db.models import QuerySet
+from charsheet.models import Modifier, CharacterItem, Item
 
-from charsheet.models import Modifier
 
 if TYPE_CHECKING:
     from charsheet.models import Character, ProgressionRule
@@ -194,9 +194,10 @@ class CharacterEngine:
             target_kind=Modifier.TargetKind.SKILL,
             target_slug=skill_slug
         )
-        #TODO: Add other modifiers    
+        #TODO: Add other modifiers
         modifier = [
             self.current_wound_penalty(),
+            -self.get_bel()
             ]
         
         modifier.extend(m.value for m in skill_mods)
@@ -393,3 +394,41 @@ class CharacterEngine:
     def current_wound_penalty(self):
         """Return only the active wound penalty value."""
         return self.current_wound_stage()[1]
+
+    def equipped_armor_items(character) -> QuerySet:
+        """Return equipped armor inventory rows for a given character."""
+
+        return (
+            CharacterItem.objects.filter(
+                owner = character,
+                equipped = True,
+                item__item_type = Item.ItemType.ARMOR
+            )
+        )
+    
+    def get_grs(self) -> int:
+        """Calculate total armor rating from equipped armor items."""
+
+        total = 0
+        summed_up = 0
+        for armor in self.equipped_armor_items(self.character):
+            stats = armor.item.armorstats
+            
+            if stats.rs_total:
+                total += stats.rs_total
+            else:
+                summed_up += stats.rs_sum()
+        
+        return total + (summed_up // 6)
+    
+    def get_bel(self) -> int:
+        """Calculate armor burden, honoring armor-penalty ignore effects."""
+
+        if self.has_slug("armor_penalty_ignore"):
+            return 0
+        return self.get_grs() // 3
+            
+    def get_ms(self) -> int:
+        """Calculate minimum strength requirement from current armor rating."""
+
+        return self.get_grs() // 2

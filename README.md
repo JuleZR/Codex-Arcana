@@ -2,7 +2,7 @@
 
 Digitales Verwaltungssystem fuer das Pen-and-Paper-Rollenspiel **Arcane Codex**, umgesetzt mit Django.
 
-Der aktuelle Stand ist ein entwicklungsnahes Backend mit Admin-Oberflaeche und Regel-Engine fuer zentrale Charakterwerte.
+Der aktuelle Stand ist ein Backend mit Admin-Oberflaeche und Regel-Engine fuer zentrale Charakterwerte.
 
 ## Was aktuell funktioniert
 
@@ -10,6 +10,7 @@ Der aktuelle Stand ist ein entwicklungsnahes Backend mit Admin-Oberflaeche und R
 - Django-Projekt laeuft mit PostgreSQL.
 - Datenmodell ist ueber Migrationen aufgebaut.
 - Django-Admin ist fuer die Kernmodelle eingerichtet.
+- Codebasis ist durchgaengig mit Docstrings dokumentiert (ohne `__dunder__`-Methoden).
 
 ### Fachlich umgesetzt
 - Charakterstamm: `Character`, `Race`, Attribute, Skills.
@@ -25,6 +26,7 @@ Der aktuelle Stand ist ein entwicklungsnahes Backend mit Admin-Oberflaeche und R
 - Initiative.
 - Magiebezogene Werte (`arcane_power`, `potential`).
 - Wundstufen und aktive Wundabzuege.
+- Ruestungswerte (`GRS`, `BEL`, `MS`) auf Basis ausgeruesteter Ruestung.
 
 ## Schnellstart (Entwicklung)
 
@@ -55,6 +57,8 @@ Danach ist das Admin-Backend unter `http://127.0.0.1:8000/admin/` erreichbar.
 - [x] Wundsystem mit Penalty-Logik
 - [x] Schulen, Techniken und Progressionsregeln
 - [x] Grundlegendes Inventar inkl. Ruestungswerten
+- [x] Basis-Ruestungsberechnung (`GRS`, `BEL`, `MS`)
+- [x] Docstring-Dokumentation der Projektmodule
 
 ### Als naechstes
 - [ ] Ruestungsregeln vervollstaendigen (Belastung, Mindeststaerke, Auswirkungen auf Proben)

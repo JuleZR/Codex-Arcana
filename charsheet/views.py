@@ -1,3 +1,1 @@
-from django.shortcuts import render
-
-# Create your views here.
+"""Views for the character sheet app."""

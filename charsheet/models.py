@@ -36,6 +36,8 @@ class Skill(models.Model):
     description = models.TextField(blank=True)
 
     class Meta:
+        """Default ordering for skill listings."""
+
         ordering = ['category', 'name']
 
     def __str__(self):
@@ -62,6 +64,8 @@ class RaceAttributeLimit(models.Model):
     max_value = models.IntegerField()
     
     class Meta:
+        """Enforce one limit tuple per race/attribute pair."""
+
         ordering = ["race", "attribute"]
         constraints = [
             models.UniqueConstraint(fields=["race", "attribute"], name="uniq_race_attribute_limit")
@@ -90,6 +94,8 @@ class Character(models.Model):
     current_damage = models.PositiveBigIntegerField(default=0)
     
     class Meta:
+        """Set stable ordering and owner/name uniqueness."""
+
         ordering = ["name"]
         constraints = [
             models.UniqueConstraint(fields=["owner", "name"], name="uniq_character_owner_name")
@@ -116,6 +122,8 @@ class CharacterAttribute(models.Model):
     base_value = models.IntegerField()
 
     class Meta:
+        """Prevent duplicate attribute rows per character."""
+
         ordering = ["character", "attribute"]
         constraints = [
             models.UniqueConstraint(fields=["character", "attribute"], name="uniq_character_attribute")
@@ -133,6 +141,8 @@ class CharacterSkill(models.Model):
     level = models.IntegerField(default=0, validators=[MinValueValidator(0), MaxValueValidator(10)])
 
     class Meta:
+        """Prevent duplicate skill rows per character."""
+
         ordering = ["character", "skill"]
         constraints = [
             models.UniqueConstraint(fields=["character", "skill"], name="uniq_character_skill")
@@ -182,6 +192,8 @@ class CharacterSchool(models.Model):
     level = models.PositiveSmallIntegerField(default=1)
 
     class Meta:
+        """Ensure one entry per character and school."""
+
         constraints = [
             models.UniqueConstraint(
                 fields=["character", "school"],
@@ -304,6 +316,8 @@ class Technique(models.Model):
     description = models.TextField(blank=True, default="")  # Regel-/Flufftext, z.B. "Der Schwur"
 
     class Meta:
+        """Keep technique lists grouped by school and level."""
+
         ordering = ["school__name", "level", "name"]
         constraints = [
             models.UniqueConstraint(fields=["school", "level", "name"], name="uniq_technique_school_level_name"),
@@ -313,7 +327,11 @@ class Technique(models.Model):
         return f"{self.school.slug} L{self.level}: {self.name}"
     
 class Item(models.Model):
+    """Inventory item with type and stackability rules."""
+
     class ItemType(models.TextChoices):
+        """Supported item categories."""
+
         ARMOR = "armor", "Armor"
         WEAPON = "weapon", "Weapon"
         MISC = "misc", "Misc"
@@ -325,7 +343,10 @@ class Item(models.Model):
     description = models.TextField(null=True, blank=True)
     
     stackable = models.BooleanField(default=True)
+
     def clean(self):
+        """Validate constraints between item type and stackability."""
+
         super().clean()
         if self.item_type == self.ItemType.ARMOR and self.stackable:
             raise ValidationError({"stackable": "Type: ARMOR can't be stackable."})
@@ -334,12 +355,16 @@ class Item(models.Model):
         return f"{self.item_type.upper()}: {self.name}"
 
 class CharacterItem(models.Model):
+    """Inventory ownership relation between a character and an item."""
+
     item = models.ForeignKey(Item, on_delete=models.CASCADE)
     owner = models.ForeignKey(Character, on_delete=models.CASCADE)
     amount = models.PositiveIntegerField(default=1)
     equipped = models.BooleanField(default=False)
     
     class Meta:
+        """Disallow duplicate item ownership rows per character."""
+
         constraints = [
             models.UniqueConstraint(
                 fields=["owner", "item"],
@@ -347,6 +372,8 @@ class CharacterItem(models.Model):
             )
         ]
     def clean(self):
+        """Validate amount and equip constraints against item settings."""
+
         super().clean()
         if not self.item.stackable and self.amount != 1:
             raise ValidationError({"amount": "Item is flagged non stackable. amount must be 1" })
@@ -354,8 +381,13 @@ class CharacterItem(models.Model):
             raise ValidationError({"amount": "Type: ARMOR is not stackable, amount must be 1"})
         if self.item.stackable and self.equipped:
             raise ValidationError({"equipped": "Stackable Items can't be equipped"})
+        
+    def __str__(self):
+        return f"{self.owner} owns {self.item}"
 
 class ArmorStats(models.Model):
+    """Armor protection values as either zone-based stats or one total value."""
+
     item = models.OneToOneField(Item, on_delete=models.CASCADE)
     
     rs_head = models.PositiveIntegerField(default=0)
@@ -365,7 +397,34 @@ class ArmorStats(models.Model):
     rs_leg_left = models.PositiveIntegerField(default=0)
     rs_leg_right = models.PositiveIntegerField(default=0)
     
+    rs_total = models.PositiveIntegerField(default=0)
+
+    def rs_sum(self):
+        """Return the summed RS value across all explicit armor zones."""
+
+        rs_fields = [
+            f.name for f in self._meta.concrete_fields
+            if f.name.startswith("rs_") and f.name != "rs_total"
+        ]
+
+        return sum(getattr(self, f) for f in rs_fields)
+
     def clean(self):
+        """Validate armor linkage and exclusive RS input strategy."""
+
         super().clean()
+
         if self.item.item_type != Item.ItemType.ARMOR:
-            ValidationError({"item_type": "Non armor items can't have ArmorStats"})
+            raise ValidationError({"item_type": "Non armor items can't have ArmorStats"})
+
+        zones_sum = self.rs_sum()
+
+        if zones_sum == 0 and not self.rs_total:
+            raise ValidationError("Armor must have at either total or zone RS")
+        
+        if zones_sum > 0 and self.rs_total:
+            raise ValidationError("Armor must have either total or zone RS")
+    
+    def __str__(self):
+        return f"{self.item}: {self.rs_sum // 6}{self.rs_total}"
+    
