@@ -1,5 +1,5 @@
-<!DOCTYPE html>
-<html lang="en">
+﻿<!DOCTYPE html>
+<html lang="de">
   {% load static %}
   <head>
     <meta charset="UTF-8">
@@ -8,18 +8,122 @@
     <link rel="stylesheet" href="{% static 'css/charsheet.css' %}">
   </head>
   <body>
-    <main>
-    <div class="page">
-      <h1>SEITE 1</h1>
+    <main class="book-spread">
+      <article class="page">
+        <section class="p1_top">
+          <div class="char_info_wrapper">
+            <div class="char_info_box">
+              <table class="char_info_table" aria-label="Charakterinformation">
+                <tbody>
+                  <tr class="char_info_row_title">
+                    <td class="char_title" colspan="6"><h1>Charakterinformation</h1></td>
+                  </tr>
+                  <tr>
+                    <td class="label">Name</td>
+                    <td class="value" colspan="5"></td>
+                  </tr>
+                  <tr>
+                    <td class="label">Geschlecht</td>
+                    <td class="value">m</td>
+                    <td class="label">Rasse</td>
+                    <td class="value wide">Mensch</td>
+                    <td class="label">Alter</td>
+                    <td class="value"></td>
+                  </tr>
+                  <tr>
+                    <td class="label">Größe</td>
+                    <td class="value"></td>
+                    <td class="label">Größenklasse (GK)</td>
+                    <td class="value">M</td>
+                    <td class="label">GK-Mod.</td>
+                    <td class="value"></td>
+                  </tr>
+                  <tr>
+                    <td class="label">Hautfarbe</td>
+                    <td class="value">oliv-bronze</td>
+                    <td class="label">Haarfarbe</td>
+                    <td class="value">schwarz</td>
+                    <td class="label">Augenfarbe</td>
+                    <td class="value">schwarz</td>
+                  </tr>
+                  <tr>
+                    <td class="label">Herkunftsland</td>
+                    <td class="value">Vagothia</td>
+                    <td class="label">Gewicht</td>
+                    <td class="value"></td>
+                    <td class="label">Religion</td>
+                    <td class="value"></td>
+                  </tr>
+                  <tr>
+                    <td class="label">Aussehen</td>
+                    <td class="value" colspan="5"></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
 
-    </div>
-    <div class="page">
-      <h1>SEITE 2</h1>
-    </div>
+        <section class="p1_bottom_left">
+          <div class="attribute_wrapper">
+            <table class="attribute_table" aria-label="Eigenschaften">
+              <thead>
+                <tr>
+                  <th class="a_header">Eigenschaften</th>
+                  <th class="a_h_value">Wert</th>
+                  <th class="a_h_value bm">Bonus/<br>Malus</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="attribute">Stärke (St)</td>
+                  <td class="value">8</td>
+                  <td class="mod"><span class="mod-badge">+3</span></td>
+                </tr>
+                <tr>
+                  <td class="attribute">Konstitution (Kon)</td>
+                  <td class="value">8</td>
+                  <td class="mod"><span class="mod-badge">+3</span></td>
+                </tr>
+                <tr>
+                  <td class="attribute">Geschick (Ge)</td>
+                  <td class="value">8</td>
+                  <td class="mod"><span class="mod-badge">+3</span></td>
+                </tr>
+                <tr>
+                  <td class="attribute">Wahrnehmung (Wa)</td>
+                  <td class="value">8</td>
+                  <td class="mod"><span class="mod-badge">+3</span></td>
+                </tr>
+                <tr>
+                  <td class="attribute">Intelligenz (Int)</td>
+                  <td class="value">8</td>
+                  <td class="mod"><span class="mod-badge">+3</span></td>
+                </tr>
+                <tr>
+                  <td class="attribute">Willenskraft (Will)</td>
+                  <td class="value">8</td>
+                  <td class="mod"><span class="mod-badge">+3</span></td>
+                </tr>
+                <tr>
+                  <td class="attribute">Charisma (Cha)</td>
+                  <td class="value">8</td>
+                  <td class="mod"><span class="mod-badge">+3</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="p1_bottom_right"></section>
+      </article>
+
+      <article class="page page--secondary">
+        <h1>Seite 2</h1>
+      </article>
     </main>
 
-
-    <div aria-hidden="true">
+    <div aria-hidden="true" class="firefly-layer">
       <div class="firefly"></div>
       <div class="firefly"></div>
       <div class="firefly"></div>

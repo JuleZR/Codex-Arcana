@@ -427,7 +427,7 @@ class CharacterEngine:
         if self.has_slug("armor_penalty_ignore"):
             return 0
         return self.get_grs() // 3
-            
+
     def get_ms(self) -> int:
         """Calculate minimum strength requirement from current armor rating."""
 

@@ -2,6 +2,8 @@
 
 from django.contrib import admin
 from django.contrib.contenttypes.admin import GenericTabularInline
+from django.http import JsonResponse
+from django.urls import path, reverse
 
 from .models import (
     ArmorStats,
@@ -21,6 +23,8 @@ from .models import (
     Skill,
     SkillCategory,
     Technique,
+    Trait,
+    CharacterTrait,
 )
 
 
@@ -76,6 +80,16 @@ class CharacterAttributeInline(admin.TabularInline):
     autocomplete_fields = ("attribute",)
 
 
+class AttributeCharacterInline(admin.TabularInline):
+    """Inline editor for character attributes from the attribute side."""
+
+    model = CharacterAttribute
+    fk_name = "attribute"
+    extra = 0
+    show_change_link = True
+    autocomplete_fields = ("character",)
+
+
 class CharacterSkillInline(admin.TabularInline):
     """Inline editor for a character's skill levels."""
 
@@ -83,6 +97,16 @@ class CharacterSkillInline(admin.TabularInline):
     extra = 0
     show_change_link = True
     autocomplete_fields = ("skill",)
+
+
+class SkillCharacterInline(admin.TabularInline):
+    """Inline editor for character skills from the skill side."""
+
+    model = CharacterSkill
+    fk_name = "skill"
+    extra = 0
+    show_change_link = True
+    autocomplete_fields = ("character",)
 
 
 class CharacterSchoolInline(admin.TabularInline):
@@ -157,6 +181,71 @@ class ItemCharacterInline(admin.TabularInline):
     autocomplete_fields = ("owner",)
 
 
+class CharacterTraitInline(admin.TabularInline):
+    """Inline editor for character trait ownership."""
+
+    model = CharacterTrait
+    fk_name = "owner"
+    extra = 0
+    show_change_link = True
+    autocomplete_fields = ("trait",)
+    fields = ("trait", "trait_level", "trait_min_level", "trait_max_level", "trait_points_per_level")
+    readonly_fields = ("trait_min_level", "trait_max_level", "trait_points_per_level")
+
+    @admin.display(description="Min Level")
+    def trait_min_level(self, obj):
+        """Show the trait minimum level for quick reference."""
+        if not obj or not obj.trait_id:
+            return "-"
+        return obj.trait.min_level
+
+    @admin.display(description="Max Level")
+    def trait_max_level(self, obj):
+        """Show the trait maximum level for quick reference."""
+        if not obj or not obj.trait_id:
+            return "-"
+        return obj.trait.max_level
+
+    @admin.display(description="Points/Level")
+    def trait_points_per_level(self, obj):
+        """Show trait point cost per level for quick reference."""
+        if not obj or not obj.trait_id:
+            return "-"
+        return obj.trait.points_per_level
+
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        """Attach metadata endpoint URL to the trait field widget for JS updates."""
+        formfield = super().formfield_for_foreignkey(db_field, request, **kwargs)
+        if db_field.name == "trait":
+            formfield.widget.attrs["data-trait-meta-url-template"] = reverse(
+                "admin:charsheet_character_trait_meta", args=[0]
+            )
+        return formfield
+
+    class Media:
+        js = ("charsheet/js/character_trait_inline.js",)
+
+
+class TraitCharacterInline(admin.TabularInline):
+    """Inline editor for trait ownership from the trait side."""
+
+    model = CharacterTrait
+    fk_name = "trait"
+    extra = 0
+    show_change_link = True
+    autocomplete_fields = ("owner",)
+
+
+class RaceAttributeLimitByAttributeInline(admin.TabularInline):
+    """Inline editor for race limits from the attribute side."""
+
+    model = RaceAttributeLimit
+    fk_name = "attribute"
+    extra = 0
+    show_change_link = True
+    autocomplete_fields = ("race",)
+
+
 @admin.register(Attribute)
 class AttributeAdmin(admin.ModelAdmin):
     """Admin configuration for attributes."""
@@ -164,6 +253,7 @@ class AttributeAdmin(admin.ModelAdmin):
     list_display = ("name", "short_name")
     search_fields = ("name", "short_name")
     ordering = ("name",)
+    inlines = (SkillInline, RaceAttributeLimitByAttributeInline, AttributeCharacterInline)
 
 
 @admin.register(SkillCategory)
@@ -186,6 +276,7 @@ class SkillAdmin(admin.ModelAdmin):
     ordering = ("category", "name")
     autocomplete_fields = ("category", "attribute")
     list_select_related = ("category", "attribute")
+    inlines = (SkillCharacterInline,)
 
     @admin.display(ordering="category__slug", description="Category Slug")
     def category_slug(self, obj):
@@ -228,7 +319,13 @@ class CharacterAdmin(admin.ModelAdmin):
     search_fields = ("name", "owner__username", "owner__email", "race__name")
     list_filter = ("race",)
     ordering = ("name",)
-    inlines = (CharacterAttributeInline, CharacterSkillInline, CharacterSchoolInline, CharacterItemInline)
+    inlines = (
+        CharacterAttributeInline,
+        CharacterSkillInline,
+        CharacterSchoolInline,
+        CharacterItemInline,
+        CharacterTraitInline,
+    )
     autocomplete_fields = ("owner", "race")
     list_select_related = ("owner", "race")
 
@@ -236,6 +333,32 @@ class CharacterAdmin(admin.ModelAdmin):
     def race_slug(self, obj):
         """Return the related race slug for list display."""
         return obj.race.slug
+
+    def get_urls(self):
+        """Expose lightweight admin API endpoints for inline trait metadata."""
+        custom_urls = [
+            path(
+                "trait-meta/<int:trait_id>/",
+                self.admin_site.admin_view(self.trait_meta_view),
+                name="charsheet_character_trait_meta",
+            )
+        ]
+        return custom_urls + super().get_urls()
+
+    def trait_meta_view(self, request, trait_id):
+        """Return selected trait metadata for inline display updates."""
+        try:
+            trait = Trait.objects.only("min_level", "max_level", "points_per_level").get(pk=trait_id)
+        except Trait.DoesNotExist:
+            return JsonResponse({"error": "Trait not found"}, status=404)
+
+        return JsonResponse(
+            {
+                "min_level": trait.min_level,
+                "max_level": trait.max_level,
+                "points_per_level": trait.points_per_level,
+            }
+        )
 
 
 @admin.register(CharacterAttribute)
@@ -425,3 +548,21 @@ class ArmorStatsAdmin(admin.ModelAdmin):
     def item_slug(self, obj):
         """Return the related item slug for list display."""
         return obj.item.slug
+
+@admin.register(Trait)
+class TraitAdmin(admin.ModelAdmin):
+    list_display = ("name", "slug", "trait_type","min_level", "max_level", "points_per_level")
+    search_fields = ("name", "slug")
+    list_filter = ("trait_type",)
+    ordering = ("trait_type", "name")
+    inlines = (ModifierInline, TraitCharacterInline)
+    
+@admin.register(CharacterTrait)
+class CharacterTraitAdmin(admin.ModelAdmin):
+    list_display = ("owner", "trait", "trait_type", "trait_level")
+    list_filter = ("trait__trait_type",)
+    search_fields = ("owner__name", "trait__name", "trait__slug")
+    autocomplete_fields = ("owner", "trait")
+
+    def trait_type(self, obj):
+        return obj.trait.trait_type

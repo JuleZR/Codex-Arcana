@@ -242,6 +242,7 @@ class Modifier(models.Model):
         SCHOOL_LEVEL = "school_level", "School level"
         # später:
         FAME_TOTAL = "fame_total", "Fame total"
+        TRAIT_LVL = "trait_level", "Trait Level"
 
     class RoundMode(models.TextChoices):
         """Rounding modes for scaled modifier values."""
@@ -428,3 +429,51 @@ class ArmorStats(models.Model):
     def __str__(self):
         return f"{self.item}: {self.rs_sum // 6}{self.rs_total}"
     
+class Trait(models.Model):
+    class TraitType(models.TextChoices):
+        ADV = "advantage", "Advantage"
+        DIS = "disadvantage", "Disadvantage"
+    
+    name = models.CharField(max_length=200, unique=True)
+    slug = models.SlugField(max_length=50, unique=True)
+    trait_type = models.CharField(max_length=20, choices=TraitType.choices)
+    description = models.TextField()
+    
+    min_level = models.PositiveIntegerField(default=1)
+    max_level = models.PositiveIntegerField(default=1)
+    points_per_level = models.PositiveIntegerField(default=1)
+    
+    def clean(self):
+        super().clean()
+        if self.max_level < self.min_level:
+            raise ValidationError("Max level < min level is prohibited.")
+
+    def __str__(self):
+        return self.name
+
+class CharacterTrait(models.Model):
+    trait = models.ForeignKey(Trait, on_delete=models.CASCADE)
+    owner = models.ForeignKey(Character, on_delete=models.CASCADE)
+    trait_level = models.PositiveIntegerField(default=1)
+       
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["owner", "trait"],
+                name="unique_trait_per_character"
+            )
+        ]
+    
+    def clean(self):
+        super().clean()
+        if self.trait_level > self.trait.max_level:
+            raise ValidationError(
+                {"trait_level": "You can't purchase more levels of a trait than max level"}
+                )
+        if self.trait_level < self.trait.min_level:
+            raise ValidationError(
+                {"trait_level": f"Level must be at least {self.trait.min_level}."}
+            )
+    
+    def __str__(self):
+        return f"{self.owner}: {self.trait} ({self.trait_level})"

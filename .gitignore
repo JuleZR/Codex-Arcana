@@ -193,3 +193,4 @@ _test_*
 .pylintrc
 *.scss
 *.css.map
+MILESTONES.md
