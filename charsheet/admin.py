@@ -11,9 +11,11 @@ from .models import (
     Character,
     CharacterAttribute,
     CharacterItem,
+    CharacterLanguage,
     CharacterSchool,
     CharacterSkill,
     Item,
+    Language,
     Modifier,
     ProgressionRule,
     Race,
@@ -248,6 +250,16 @@ class CharacterTraitInline(admin.TabularInline):
         js = ("charsheet/js/character_trait_inline.js",)
 
 
+class CharacterLanguageInline(admin.TabularInline):
+    """Inline editor for character language proficiency entries."""
+
+    model = CharacterLanguage
+    fk_name = "owner"
+    extra = 0
+    show_change_link = True
+    autocomplete_fields = ("language",)
+
+
 class TraitCharacterInline(admin.TabularInline):
     """Inline editor for trait ownership from the trait side."""
 
@@ -266,6 +278,16 @@ class RaceAttributeLimitByAttributeInline(admin.TabularInline):
     extra = 0
     show_change_link = True
     autocomplete_fields = ("race",)
+
+
+class LanguageCharacterInline(admin.TabularInline):
+    """Inline editor for character-language relations from the language side."""
+
+    model = CharacterLanguage
+    fk_name = "language"
+    extra = 0
+    show_change_link = True
+    autocomplete_fields = ("owner",)
 
 
 @admin.register(Attribute)
@@ -319,6 +341,29 @@ class RaceAdmin(admin.ModelAdmin):
     search_fields = ("name", "slug")
     ordering = ("name",)
     inlines = (RaceAttributeLimitInline, ModifierInline)
+    fieldsets = (
+        (
+            "Race",
+            {
+                "fields": (
+                    "name",
+                    "slug",
+                    "description",
+                    "combat_speed",
+                    "march_speed",
+                    "sprint_speed",
+                    "swimming_speed",
+                    "can_fly",
+                    "combat_fly_speed",
+                    "march_fly_speed",
+                    "sprint_fly_speed",
+                )
+            },
+        ),
+    )
+
+    class Media:
+        js = ("charsheet/js/race_admin.js",)
 
 
 @admin.register(RaceAttributeLimit)
@@ -372,6 +417,7 @@ class CharacterAdmin(admin.ModelAdmin):
         CharacterSchoolInline,
         CharacterItemInline,
         CharacterTraitInline,
+        CharacterLanguageInline,
     )
     autocomplete_fields = ("owner", "race")
     list_select_related = ("owner", "race")
@@ -634,3 +680,21 @@ class CharacterTraitAdmin(admin.ModelAdmin):
 
     def trait_type(self, obj):
         return obj.trait.trait_type
+
+
+@admin.register(Language)
+class LanguageAdmin(admin.ModelAdmin):
+    list_display = ("name", "slug", "max_level")
+    search_fields = ("name", "slug")
+    ordering = ("name",)
+    inlines = (LanguageCharacterInline,)
+
+
+@admin.register(CharacterLanguage)
+class CharacterLanguageAdmin(admin.ModelAdmin):
+    list_display = ("owner", "language", "levels", "can_write", "is_mother_tongue")
+    search_fields = ("owner__name", "language__name", "language__slug")
+    list_filter = ("can_write", "is_mother_tongue", "language")
+    ordering = ("owner", "language")
+    autocomplete_fields = ("owner", "language")
+    list_select_related = ("owner", "language")

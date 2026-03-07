@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, TypedDict
 from django.db.models import QuerySet
 from charsheet.models import (
     Modifier, CharacterItem, Item, CharacterTrait,
-    CharacterSchool
+    CharacterSchool, Technique, Trait
     )
 
 
@@ -184,6 +184,44 @@ class CharacterEngine:
         return level + mod
 
     def _resolve_modifiers(self, slug: str) -> int:
+        def _active_source_for_character(modifier: Modifier) -> bool:
+            source = modifier.source
+            if source is None:
+                return False
+
+            # Trait-bound modifiers only apply if the character owns the trait.
+            if isinstance(source, Trait):
+                if not self.character.charactertrait_set.filter(trait=source).exists():
+                    return False
+
+            # Technique-bound modifiers only apply if the character has the
+            # corresponding school at least at the technique level.
+            if isinstance(source, Technique):
+                if not self.character.schools.filter(
+                    school=source.school,
+                    level__gte=source.level,
+                ).exists():
+                    return False
+
+            # Optional explicit school gate (e.g. "only from school level 9").
+            if modifier.min_school_level is not None:
+                gate_school = modifier.scale_school
+                if gate_school is None and isinstance(source, Technique):
+                    gate_school = source.school
+
+                if gate_school is None:
+                    return False
+
+                try:
+                    owned_school = self.character.schools.get(school=gate_school)
+                except CharacterSchool.DoesNotExist:
+                    return False
+
+                if owned_school.level < modifier.min_school_level:
+                    return False
+
+            return True
+
         total = 0
         mods = Modifier.objects.filter(
             target_kind=Modifier.TargetKind.STAT,
@@ -191,6 +229,9 @@ class CharacterEngine:
         ).select_related("source_content_type")
         
         for mod in mods:
+            if not _active_source_for_character(mod):
+                continue
+
             if mod.mode == Modifier.Mode.FLAT:
                 total += mod.value
                 continue
@@ -332,11 +373,9 @@ class CharacterEngine:
             dict[int, tuple[str, int]]: Mapping of threshold value to
             ``(stage_name, penalty)``.
         """
-        constitution: int = self.attributes().get("CON", 0)
+        constitution: int = self.attributes().get("KON", 0)
         additional_stages = self._resolve_modifiers("wound_stage")
         amount_threshold: int = 6 + additional_stages
-        
-        ignore_stages = self._resolve_modifiers("wound_penalty_ignore")
         
         stage_numbers = [n*constitution for n in range(1, amount_threshold + 1)]
         stage_names = [
@@ -346,11 +385,8 @@ class CharacterEngine:
         ]
         stage_penalty = [0, -2, -4, -6, 0, 0]
         
-        if ignore_stages:
-            stage_penalty = [0, 0, 0, 0, 0, 0]
-        
         missing = max(0, len(stage_numbers) - len(stage_names))
-        stages = [""] * missing + stage_names
+        stages = ["-"] * missing + stage_names
         penalties = [0] * missing + stage_penalty
         
         return {
@@ -385,25 +421,56 @@ class CharacterEngine:
         """Calculate SR defense value."""
         return self.calculate_defense("ST", "KON", "sr")
 
-    def current_wound_stage(self) -> tuple[str, int]:
-       """Return current wound stage label and its penalty.
+    def current_wound_stage(self) -> tuple[str, int | None]:
+        """Return current wound stage label and its penalty.
 
-       Returns:
-           tuple[str, int]: ``(stage_name, penalty)`` for current damage.
-       """
-       wound_dict = self.wound_thresholds()
-       
-       t_numbers = [t for t in wound_dict.keys()]
-       if self.character.current_damage >= t_numbers[-1]:
-           return ("tot", 0)
-       
-       for key in t_numbers:
-           if self.character.current_damage < key:
-               return wound_dict[key]
-           
+        Returns:
+            tuple[str, int | None]: ``(stage_name, penalty)`` for current damage.
+            If no wound stage is active yet, returns ``("-", None)``.
+        """
+        wound_dict = self.wound_thresholds()
+        t_numbers = sorted(wound_dict.keys())
+
+        if not t_numbers:
+            return ("-", None)
+
+        damage = self.character.current_damage
+
+        if damage < t_numbers[0]:
+            return ("-", None)
+
+        if damage > t_numbers[-1]:
+            return ("Tod", 0)
+
+        current_stage: tuple[str, int | None] = ("-", None)
+        for key in t_numbers:
+            if damage >= key:
+                stage_name, penalty = wound_dict[key]
+                current_stage = (stage_name, penalty)
+            else:
+                break
+
+        return current_stage
+            
     def current_wound_penalty(self):
         """Return only the active wound penalty value."""
-        return self.current_wound_stage()[1]
+        penalty = self.current_wound_stage()[1]
+        if penalty is None:
+            return 0
+        if self.is_wound_penalty_ignored():
+            return 0
+        return penalty
+
+    def current_wound_penalty_raw(self) -> int:
+        """Return active wound penalty without applying ignore effects."""
+        penalty = self.current_wound_stage()[1]
+        if penalty is None:
+            return 0
+        return penalty
+
+    def is_wound_penalty_ignored(self) -> bool:
+        """Return whether wound penalties are currently ignored."""
+        return bool(self._resolve_modifiers("wound_penalty_ignore"))
 
     def equipped_armor_items(self) -> QuerySet:
         """Return equipped armor inventory rows for a given character."""
@@ -447,3 +514,12 @@ class CharacterEngine:
     
     def get_dmg_modifier_sum(self, slug: str) -> int:
         return self._resolve_modifiers(slug)
+
+    def km_to_coins(self) -> tuple[int, int, int]:
+        player_km = self.character.money
+        
+        gm = player_km // 100
+        sm = (player_km % 100) // 10
+        km = player_km % 10
+        
+        return gm, sm, km

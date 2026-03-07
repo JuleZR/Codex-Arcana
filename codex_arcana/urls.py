@@ -23,6 +23,8 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("sheet/", views.sheet, name="sheet"),
     path("character/<int:character_id>/", views.character_sheet, name="character_sheet"),
+    path("character/<int:character_id>/adjust-damage/", views.adjust_current_damage, name="adjust_current_damage"),
+    path("character/<int:character_id>/adjust-money/", views.adjust_money, name="adjust_money"),
     path("character-item/<int:pk>/toggle-equip/", views.toggle_equip, name="toggle_equip"),
 ]
 

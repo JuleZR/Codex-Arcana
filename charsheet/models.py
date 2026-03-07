@@ -50,7 +50,17 @@ class Race(models.Model):
     name = models.CharField(max_length=100, unique=True)
     slug = models.SlugField(max_length=100, unique=True)
     description = models.TextField(blank=True)
-
+    
+    combat_speed = models.IntegerField(default=0, validators=[MinValueValidator(0)])
+    march_speed = models.IntegerField(default=0, validators=[MinValueValidator(0)])
+    sprint_speed = models.IntegerField(default=0, validators=[MinValueValidator(0)])
+    swimming_speed = models.IntegerField(default=0, validators=[MinValueValidator(0)])
+    
+    can_fly = models.BooleanField(default=False)
+    combat_fly_speed = models.IntegerField(default=0, validators=[MinValueValidator(0)], null=True, blank=True)
+    march_fly_speed = models.IntegerField(default=0, validators=[MinValueValidator(0)], null=True, blank=True)
+    sprint_fly_speed = models.IntegerField(default=0, validators=[MinValueValidator(0)], null=True, blank=True)
+    
     def __str__(self):
         return self.name
 
@@ -104,8 +114,11 @@ class Character(models.Model):
     country_of_origin = models.CharField(max_length=25, null=True, blank=True)
     weight = models.IntegerField(default=60, null=True, blank=True)
     religion = models.CharField(max_length=25, null=True, blank=True)
-    appearance = models.TextField(max_length=55, null=True, blank=True)
-        
+    appearance = models.TextField(max_length=85, null=True, blank=True)
+    
+    money = models.IntegerField(default=0, validators=[MinValueValidator(0)])
+    current_experience = models.IntegerField(default=0, validators=[MinValueValidator(0)])
+    
     current_damage = models.PositiveBigIntegerField(default=0)
     
     class Meta:
@@ -519,3 +532,44 @@ class CharacterTrait(models.Model):
     
     def __str__(self):
         return f"{self.owner}: {self.trait} ({self.trait_level})"
+    
+class Language(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    slug = models.SlugField(max_length=50, unique=True)
+    
+    max_level = models.PositiveIntegerField(default=3)
+    
+    def __str__(self):
+        return self.name
+
+class CharacterLanguage(models.Model):
+    language = models.ForeignKey(Language, on_delete=models.PROTECT)
+    owner = models.ForeignKey(Character, on_delete=models.PROTECT)
+    
+    levels = models.PositiveIntegerField(default=1, validators=[MinValueValidator(1)])
+    
+    can_write = models.BooleanField(default=False)
+    is_mother_tongue = models.BooleanField(default=False)
+    
+    class Meta:
+        constraints = [models.UniqueConstraint(
+            fields = ["owner", "language"],
+            name= "unique_language_per_charater"
+            )
+        ]
+    
+    def clean(self):
+        super().clean()
+        if self.levels > self.language.max_level:
+            raise ValidationError(
+                {"levels" : "levels can't be greater dan max_level"}
+            )
+        if self.is_mother_tongue and self.levels != self.language.max_level:
+            raise ValidationError(
+                {"levels": "Levels of mother tongue must be max_ level"}
+            )
+    
+    def __str__(self):
+        return f"{self.owner} speaks {self.language.name} {'(Mother tongue)' if self.is_mother_tongue else ''}"
+    
+    

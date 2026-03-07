@@ -1,7 +1,8 @@
 from __future__ import annotations
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
-from .models import Character, CharacterItem, CharacterTrait, Technique
+from .models import Character, CharacterItem, CharacterLanguage, CharacterTrait, Technique
 
 
 ATTRIBUTE_ORDER = [
@@ -19,6 +20,10 @@ def _format_modifier(value: int) -> str:
     if value > 0:
         return f"+{value}"
     return str(value)
+
+
+def _format_thousands(value: int) -> str:
+    return f"{value:,}".replace(",", ".")
 
 
 def character_sheet(request, character_id: int):
@@ -50,6 +55,7 @@ def character_sheet(request, character_id: int):
         skill_rows.append(
             {
                 "name": cs.skill.name,
+                "description": cs.skill.description,
                 "attribute": cs.skill.attribute.short_name,
                 "attribute_mod": _format_modifier(breakdown["attribute_modifier"]),
                 "rank": cs.level,
@@ -83,15 +89,20 @@ def character_sheet(request, character_id: int):
     )
     
     weapon_rows: list[dict] = []
+    bel_value = engine.get_bel()
     for weapon in weapon_items:
         dmg_slug = weapon.item.weaponstats.damage_source.slug
         dmg_mod = engine.get_dmg_modifier_sum(dmg_slug)
+        bel_malus = -bel_value
+        with_bel = dmg_mod + bel_malus
 
         weapon_rows.append({
             "character_item": weapon,
             "item": weapon.item,
             "stats": weapon.item.weaponstats,
-            "dmg_mod": _format_modifier(dmg_mod)
+            "dmg_mod": _format_modifier(dmg_mod),
+            "bel_malus": _format_modifier(bel_malus),
+            "with_bel": _format_modifier(with_bel),
         })
 
 
@@ -122,6 +133,53 @@ def character_sheet(request, character_id: int):
                     }
                 )
 
+    current_wound_stage, _current_wound_penalty_stage = engine.current_wound_stage()
+    current_wound_penalty = engine.current_wound_penalty_raw()
+    current_wound_penalty_display = (
+        "-"
+        if current_wound_stage == "-"
+        else _format_modifier(current_wound_penalty)
+    )
+
+    wound_thresholds = engine.wound_thresholds()
+    wound_threshold_rows = [
+        {"threshold": threshold, "stage": stage, "penalty": penalty}
+        for threshold, (stage, penalty) in sorted(wound_thresholds.items())
+    ]
+    wallet_gold, wallet_silver, wallet_copper = engine.km_to_coins()
+    race = character.race
+    fly_value = "-"
+    if race.can_fly:
+        combat_fly = race.combat_fly_speed if race.combat_fly_speed is not None else 0
+        march_fly = race.march_fly_speed if race.march_fly_speed is not None else 0
+        sprint_fly = race.sprint_fly_speed if race.sprint_fly_speed is not None else 0
+        fly_value = f"{combat_fly} | {march_fly} | {sprint_fly}"
+    movement_ground = {
+        "combat": race.combat_speed,
+        "march": race.march_speed,
+        "sprint": race.sprint_speed,
+        "swim": race.swimming_speed,
+        "fly": fly_value,
+    }
+
+    language_entries = (
+        CharacterLanguage.objects
+        .filter(owner=character)
+        .select_related("language")
+        .order_by("-is_mother_tongue", "language__name")
+    )
+    language_rows: list[dict] = []
+    for entry in language_entries:
+        level_count = max(0, min(3, entry.levels))
+        language_rows.append(
+            {
+                "name": entry.language.name,
+                "level_1": level_count >= 1,
+                "level_2": level_count >= 2,
+                "level_3": level_count >= 3,
+                "can_write": bool(entry.can_write),
+            }
+        )
     context = {
         "character": character,
         "attributes": attributes,
@@ -137,6 +195,17 @@ def character_sheet(request, character_id: int):
         "initiative_with_bel_display": _format_modifier(
             engine.calculate_initiative() - engine.get_bel()
             ),
+        "current_wound_stage": current_wound_stage,
+        "current_wound_penalty": current_wound_penalty_display,
+        "is_wound_penalty_ignored": engine.is_wound_penalty_ignored(),
+        "current_damage_max": max(wound_thresholds.keys()) if wound_thresholds else 0,
+        "wound_threshold_rows": wound_threshold_rows,
+        "wallet_gold": wallet_gold,
+        "wallet_silver": wallet_silver,
+        "wallet_copper": wallet_copper,
+        "wallet_total_ks": _format_thousands(character.money),
+        "movement_ground": movement_ground,
+        "language_rows": language_rows,
     }
 
     return render(request, "charsheet/charsheet.html", context)
@@ -158,3 +227,62 @@ def toggle_equip(request, pk):
     ci.save(update_fields=["equipped"])
 
     return redirect("character_sheet", character_id=ci.owner_id)
+
+
+@require_POST
+def adjust_current_damage(request, character_id: int):
+    character = get_object_or_404(Character, pk=character_id)
+    action = request.POST.get("action")
+    try:
+        amount = max(1, int(request.POST.get("amount", "1")))
+    except (TypeError, ValueError):
+        amount = 1
+
+    if action == "damage":
+        character.current_damage += amount
+    elif action == "heal":
+        character.current_damage = max(0, character.current_damage - amount)
+
+    character.save(update_fields=["current_damage"])
+
+    is_ajax = (
+        request.headers.get("x-requested-with") == "XMLHttpRequest"
+        or request.META.get("HTTP_X_REQUESTED_WITH") == "XMLHttpRequest"
+        or "application/json" in request.headers.get("accept", "")
+        or request.POST.get("ajax") == "1"
+    )
+    if is_ajax:
+        engine = character.engine
+        wound_stage, _ = engine.current_wound_stage()
+        wound_penalty_display = (
+            "-"
+            if wound_stage == "-"
+            else _format_modifier(engine.current_wound_penalty_raw())
+        )
+        wound_thresholds = engine.wound_thresholds()
+        return JsonResponse(
+            {
+                "current_damage": character.current_damage,
+                "current_wound_stage": wound_stage,
+                "current_wound_penalty": wound_penalty_display,
+                "is_wound_penalty_ignored": engine.is_wound_penalty_ignored(),
+                "current_damage_max": max(wound_thresholds.keys()) if wound_thresholds else 0,
+            }
+        )
+
+    return redirect("character_sheet", character_id=character_id)
+
+
+@require_POST
+def adjust_money(request, character_id: int):
+    character = get_object_or_404(Character, pk=character_id)
+    try:
+        delta = int(request.POST.get("delta", "0"))
+    except (TypeError, ValueError):
+        delta = 0
+
+    if delta:
+        character.money = max(0, character.money + delta)
+        character.save(update_fields=["money"])
+
+    return redirect("character_sheet", character_id=character_id)

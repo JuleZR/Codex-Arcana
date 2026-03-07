@@ -166,43 +166,24 @@
             <div class="language_scale" aria-hidden="true">
               <span class="language_scale_spacer"></span>
               <span class="language_scale_labels">
-                <span title="Rudimentär">1</span>
-                <span title="Gebrochen">2</span>
-                <span title="Fließend">3</span>
-                <span title="Lesen und Schreiben">LS</span>
+                <span class="tooltip_target" data-tooltip-side="right" data-tooltip="Rudimentär">R</span>
+                <span class="tooltip_target" data-tooltip-side="right" data-tooltip="Gebrochen">G</span>
+                <span class="tooltip_target" data-tooltip-side="right" data-tooltip="Fließend">F</span>
+                <span class="tooltip_target" data-tooltip-side="right" data-tooltip="Lesen und Schreiben">L/S</span>
               </span>
             </div>
             <ul class="language_list" aria-label="Sprachen und Werte">
-              <li>
-                <span class="language_name"></span>
-                <span class="language_dots" aria-hidden="true">
-                  <span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot literacy_dot"></span>
-                </span>
-              </li>
-              <li>
-                <span class="language_name"></span>
-                <span class="language_dots" aria-hidden="true">
-                  <span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot literacy_dot"></span>
-                </span>
-              </li>
-              <li>
-                <span class="language_name"></span>
-                <span class="language_dots" aria-hidden="true">
-                  <span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot literacy_dot"></span>
-                </span>
-              </li>
-              <li>
-                <span class="language_name"></span>
-                <span class="language_dots" aria-hidden="true">
-                  <span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot literacy_dot"></span>
-                </span>
-              </li>
-              <li>
-                <span class="language_name"></span>
-                <span class="language_dots" aria-hidden="true">
-                  <span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot literacy_dot"></span>
-                </span>
-              </li>
+              {% for row in language_rows %}
+                <li>
+                  <span class="language_name">{{ row.name }}</span>
+                  <span class="language_dots" aria-hidden="true">
+                    <span class="dot{% if row.level_1 %} is-filled{% endif %}"></span>
+                    <span class="dot{% if row.level_2 %} is-filled{% endif %}"></span>
+                    <span class="dot{% if row.level_3 %} is-filled{% endif %}"></span>
+                    <span class="dot literacy_dot{% if row.can_write %} is-filled{% endif %}"></span>
+                  </span>
+                </li>
+              {% endfor %}
             </ul>
           </div>
         </section>
@@ -228,7 +209,7 @@
               </thead>
               <tbody>
                 {% for row in skill_rows %}
-                  <tr>
+                  <tr class="tooltip_target" data-tooltip-side="left" data-tooltip="{{ row.description|default:'Keine Beschreibung' }}">
                     <td class="skill_name">{{ row.name }}</td>
                     <td class="skill_prop">{{ row.attribute }}</td>
                     <td>{{ row.attribute_mod }}</td>
@@ -248,7 +229,7 @@
               <div class="trait_col">
                 <h3>Vorzüge</h3>
                 {% for trait in advantages %}
-                  <span class="trait_line">{{ trait.trait.name }}{% if trait.trait_level > 1 %} ({{ trait.trait_level }}){% endif %}</span>
+                  <span class="trait_line tooltip_target" data-tooltip-side="left" data-tooltip="{{ trait.trait.description|default:'Keine Beschreibung' }}">{{ trait.trait.name }} ({% widthratio trait.trait_level 1 trait.trait.points_per_level %})</span>
                 {% empty %}
                   <span class="trait_line"></span><span class="trait_line"></span><span class="trait_line"></span><span class="trait_line"></span>
                 {% endfor %}
@@ -256,7 +237,7 @@
               <div class="trait_col">
                 <h3>Schwächen</h3>
                 {% for trait in disadvantages %}
-                  <span class="trait_line">{{ trait.trait.name }}{% if trait.trait_level > 1 %} ({{ trait.trait_level }}){% endif %}</span>
+                  <span class="trait_line tooltip_target" data-tooltip-side="left" data-tooltip="{{ trait.trait.description|default:'Keine Beschreibung' }}">{{ trait.trait.name }} ({% widthratio trait.trait_level 1 trait.trait.points_per_level %})</span>
                 {% empty %}
                   <span class="trait_line"></span><span class="trait_line"></span><span class="trait_line"></span><span class="trait_line"></span>
                 {% endfor %}
@@ -297,8 +278,63 @@
               </div>
             </div>
 
+            <div class="p2_panel p2_damage">
+              <h2>Schaden</h2>
+              <div class="damage_display">
+                <div class="damage_circle_wrap" aria-label="Aktueller Schaden und Wundstufen-Malus">
+                  <span class="damage_circle">
+                    <span class="damage_current_value">{{ character.current_damage }}</span>
+                  </span>
+                  <span class="damage_max_circle">{{ current_damage_max }}</span>
+                  <span class="wound_penalty_circle{% if is_wound_penalty_ignored %} is-disabled{% endif %}">{{ current_wound_penalty }}</span>
+                </div>
+                <p class="wound_stage_text">{{ current_wound_stage }}</p>
+              </div>
+              <form method="post" action="{% url 'adjust_current_damage' character.id %}" class="damage_actions">
+                {% csrf_token %}
+                <input type="hidden" name="action" class="damage_action_input" value="">
+                <input type="hidden" name="amount" class="damage_amount_input" value="1">
+                <div class="damage_actions_table" role="group" aria-label="Schadensanpassung">
+                  <span class="damage_actions_head">Heal</span>
+                  <span class="damage_actions_head">Damage</span>
+                  <button type="button" data-action="heal" data-amount="1" class="damage_action_btn">-1</button>
+                  <button type="button" data-action="damage" data-amount="1" class="damage_action_btn">+1</button>
+                  <button type="button" data-action="heal" data-amount="5" class="damage_action_btn">-5</button>
+                  <button type="button" data-action="damage" data-amount="5" class="damage_action_btn">+5</button>
+                  <button type="button" data-action="heal" data-amount="10" class="damage_action_btn">-10</button>
+                  <button type="button" data-action="damage" data-amount="10" class="damage_action_btn">+10</button>
+                </div>
+              </form>
+            </div>
+
+            <div class="p2_panel p2_wallet">
+              <div class="wallet_header">
+                <h2 class="wallet_title">Geldbörse</h2>
+                <div class="wallet_inline_tooltip" aria-live="polite">
+                  <span>{{ wallet_total_ks }}</span>
+                  <span class="wallet_coin wallet_coin--copper wallet_coin--inline" aria-hidden="true"></span>
+                </div>
+              </div>
+              <div class="wallet_rows" aria-label="Münzwerte">
+                <div class="wallet_row">
+                  <span class="wallet_value">{{ wallet_gold }}</span>
+                  <span class="wallet_coin wallet_coin--gold js-wallet-coin" aria-hidden="true"></span>
+                </div>
+                <div class="wallet_row">
+                  <span class="wallet_value">{{ wallet_silver }}</span>
+                  <span class="wallet_coin wallet_coin--silver js-wallet-coin" aria-hidden="true"></span>
+                </div>
+                <div class="wallet_row">
+                  <span class="wallet_value">{{ wallet_copper }}</span>
+                  <span class="wallet_coin wallet_coin--copper js-wallet-coin" aria-hidden="true"></span>
+                </div>
+              </div>
+            </div>
+
             <div class="p2_panel p2_fill">
-              <h2>Ausrüstung</h2>
+              <div class="p2_panel_header">
+                <h2>Ausrüstung</h2>
+              </div>
               <div class="panel_scroll inventory_scroll">
                 <ul class="p2_lines">
                   {% for item in inventory_items %}
@@ -394,7 +430,12 @@
 
             <div class="p2_panel">
               <div class="move_row">
-                <span class="move_title">Bewegung</span><span>-</span><span>-</span><span>-</span><span>-</span><span>-</span>
+                <span class="move_title">Bewegung</span>
+                <span>{{ movement_ground.combat }}</span>
+                <span>{{ movement_ground.march }}</span>
+                <span>{{ movement_ground.sprint }}</span>
+                <span>{{ movement_ground.swim }}</span>
+                <span>{{ movement_ground.fly }}</span>
               </div>
               <div class="move_labels">
                 <span class="move_spacer" aria-hidden="true"></span>
@@ -419,7 +460,14 @@
                 <table class="weapons_table" aria-label="Waffen">
                   <thead>
                     <tr>
-                      <th></th><th>Schaden</th><th>Größe</th><th>Min.St.</th><th>Nachladezeit</th><th>Reichweite</th><th>Fertigkeit</th><th>mit Bel.</th>
+                      <th></th>
+                      <th>Scha&shy;den</th>
+                      <th>Grö&shy;ße</th>
+                      <th>Min.-<wbr>St.</th>
+                      <th>Nach&shy;lade&shy;zeit</th>
+                      <th>Reich&shy;weite</th>
+                      <th>Fer&shy;tig&shy;keit</th>
+                      <th>mit Bel.</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -447,8 +495,11 @@
                         <td>-</td>
                         <td>{{ row.dmg_mod|default:"-" }}</td>
                         <td>
-                          <span class="pill{% if not row.character_item.equipped %} empty{% endif %}">
-                            {% if row.character_item.equipped %}A{% endif %}
+                          <span
+                            class="pill{% if not row.character_item.equipped %} empty{% endif %}"
+                            title="Berechnung: {{ row.dmg_mod }} + (Bel. {{ row.bel_malus }}) = {{ row.with_bel }}"
+                          >
+                            {% if row.character_item.equipped %}{{ row.with_bel }}{% endif %}
                           </span>
                         </td>
                       </tr>
@@ -461,6 +512,70 @@
         </section>
       </article>
     </main>
+    {{ wound_threshold_rows|json_script:"wound-thresholds-data" }}
+    <button type="button" class="right-sidebar__launcher" id="rightSidebarLauncher" aria-expanded="false" aria-controls="rightSidebar">
+      <span class="right-sidebar__toggle-label">TOOLS</span>
+    </button>
+    <aside class="right-sidebar" id="rightSidebar" aria-label="Seitenleiste">
+      <div class="right-sidebar__inner">
+        <button type="button" class="right-sidebar__close" id="rightSidebarClose" aria-label="Sidebar schließen">×</button>
+        <h2>Tools</h2>
+        <button type="button" class="sidebar-orb-btn" id="paydayTrigger" aria-label="Zahlungsverkehr öffnen">
+          <span class="sidebar-orb" aria-hidden="true">
+            <span class="sidebar-orb-core">
+              <img src="{% static 'img/payday.png' %}" alt="">
+            </span>
+          </span>
+          <span class="sidebar-orb-label">Zahlungsverkehr</span>
+        </button>
+        <button type="button" class="sidebar-orb-btn" id="shopScaleTrigger" aria-label="Shop öffnen">
+          <span class="sidebar-orb" aria-hidden="true">
+            <span class="sidebar-orb-core">
+              <img src="{% static 'img/waage.png' %}" alt="">
+            </span>
+          </span>
+          <span class="sidebar-orb-label">Shop</span>
+        </button>
+        <button type="button" class="sidebar-orb-btn" id="learnMenuTrigger" aria-label="Lernmenü öffnen">
+          <span class="sidebar-orb" aria-hidden="true">
+            <span class="sidebar-orb-core">
+              <img src="{% static 'img/nook.png' %}" alt="">
+            </span>
+          </span>
+          <span class="sidebar-orb-label">Lernmenü</span>
+        </button>
+        <button type="button" class="sidebar-orb-btn" id="xpGainTrigger" aria-label="Erfahrung hinzufügen">
+          <span class="sidebar-orb" aria-hidden="true">
+            <span class="sidebar-orb-core">
+              <img src="{% static 'img/lorbeer.png' %}" alt="">
+            </span>
+          </span>
+          <span class="sidebar-orb-label">Erfahrung</span>
+        </button>
+      </div>
+    </aside>
+    <section class="payday-window" id="paydayWindow" aria-hidden="true">
+      <div class="payday-window__titlebar" id="paydayWindowHandle">
+        <h3 class="payday-window__title">Zahlungsverkehr</h3>
+        <button type="button" class="payday-window__close" id="paydayWindowClose" aria-label="Zahlungsverkehr schließen">x</button>
+      </div>
+      <div class="payday-window__body">
+        <form method="post" action="{% url 'adjust_money' character.id %}" class="wallet_adjust_form wallet_adjust_form--popup">
+          {% csrf_token %}
+          <input
+            type="number"
+            name="delta"
+            class="wallet_delta_input"
+            step="1"
+            value="0"
+            placeholder="+ / -"
+            aria-label="Geldänderung positiv oder negativ"
+          >
+          <span class="wallet_unit">KS</span>
+          <button type="submit" class="wallet_apply_btn">Anwenden</button>
+        </form>
+      </div>
+    </section>
 
     <div aria-hidden="true" class="firefly-layer">
       {% for _ in '123456789012345' %}<div class="firefly"></div>{% endfor %}
