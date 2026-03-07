@@ -25,6 +25,8 @@ from .models import (
     Technique,
     Trait,
     CharacterTrait,
+    DamageSource,
+    WeaponStats,
 )
 
 
@@ -171,6 +173,26 @@ class ArmorStatsInline(admin.StackedInline):
     can_delete = True
 
 
+class WeaponStatsInline(admin.StackedInline):
+    """Inline editor for one-to-one weapon stats on an item."""
+
+    model = WeaponStats
+    extra = 0
+    max_num = 1
+    can_delete = True
+    autocomplete_fields = ("damage_source",)
+
+
+class WeaponStatsByDamageSourceInline(admin.TabularInline):
+    """Inline editor for weapon stats from the damage source side."""
+
+    model = WeaponStats
+    fk_name = "damage_source"
+    extra = 0
+    show_change_link = True
+    autocomplete_fields = ("item",)
+
+
 class ItemCharacterInline(admin.TabularInline):
     """Inline editor for character ownership entries from the item side."""
 
@@ -315,10 +337,35 @@ class RaceAttributeLimitAdmin(admin.ModelAdmin):
 class CharacterAdmin(admin.ModelAdmin):
     """Admin configuration for characters."""
 
-    list_display = ("name", "owner", "race", "race_slug")
-    search_fields = ("name", "owner__username", "owner__email", "race__name")
-    list_filter = ("race",)
+    list_display = (
+        "id",
+        "name",
+        "owner",
+        "race",
+        "gender",
+        "age",
+        "country_of_origin",
+        "race_slug",
+    )
+    search_fields = (
+        "name",
+        "owner__username",
+        "owner__email",
+        "race__name",
+        "country_of_origin",
+        "religion",
+    )
+    list_filter = ("race", "gender")
     ordering = ("name",)
+    readonly_fields = ("id",)
+    fieldsets = (
+        ("Basis", {"fields": ("id", "owner", "name", "race", "gender", "age")}),
+        (
+            "Körper & Herkunft",
+            {"fields": ("height", "weight", "skin_color", "hair_color", "eye_color", "country_of_origin")},
+        ),
+        ("Weitere Angaben", {"fields": ("religion", "appearance", "current_damage")}),
+    )
     inlines = (
         CharacterAttributeInline,
         CharacterSkillInline,
@@ -509,7 +556,7 @@ class ItemAdmin(admin.ModelAdmin):
     search_fields = ("name", "slug", "item_type")
     list_filter = ("item_type", "stackable")
     ordering = ("item_type", "name")
-    inlines = (ArmorStatsInline, ItemCharacterInline)
+    inlines = (ArmorStatsInline, WeaponStatsInline, ItemCharacterInline)
 
 
 @admin.register(CharacterItem)
@@ -547,6 +594,27 @@ class ArmorStatsAdmin(admin.ModelAdmin):
     @admin.display(ordering="item__slug", description="Item Slug")
     def item_slug(self, obj):
         """Return the related item slug for list display."""
+        return obj.item.slug
+
+
+@admin.register(DamageSource)
+class DamageSourceAdmin(admin.ModelAdmin):
+    list_display = ("name", "short_name", "slug")
+    search_fields = ("name", "short_name", "slug")
+    ordering = ("name",)
+    inlines = (WeaponStatsByDamageSourceInline,)
+
+
+@admin.register(WeaponStats)
+class WeaponStatsAdmin(admin.ModelAdmin):
+    list_display = ("item", "item_slug", "damage", "damage_source", "min_st")
+    search_fields = ("item__name", "item__slug", "damage_source__name")
+    ordering = ("item__name",)
+    autocomplete_fields = ("item", "damage_source")
+    list_select_related = ("item", "damage_source")
+
+    @admin.display(ordering="item__slug", description="Item Slug")
+    def item_slug(self, obj):
         return obj.item.slug
 
 @admin.register(Trait)

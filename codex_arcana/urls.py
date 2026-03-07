@@ -22,5 +22,7 @@ from charsheet import views
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("sheet/", views.sheet, name="sheet"),
+    path("character/<int:character_id>/", views.character_sheet, name="character_sheet"),
+    path("character-item/<int:pk>/toggle-equip/", views.toggle_equip, name="toggle_equip"),
 ]
 

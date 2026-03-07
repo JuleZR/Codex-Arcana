@@ -1,10 +1,10 @@
-﻿<!DOCTYPE html>
+﻿{% load static %}
+<!DOCTYPE html>
 <html lang="de">
-  {% load static %}
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Codex Arcana</title>
+    <title>{{ character.name }} | Codex Arcana</title>
     <link rel="stylesheet" href="{% static 'css/charsheet.css' %}">
   </head>
   <body>
@@ -20,43 +20,43 @@
                   </tr>
                   <tr>
                     <td class="label">Name</td>
-                    <td class="value" colspan="5"></td>
+                    <td class="value" colspan="5">{{ character.name }}</td>
                   </tr>
                   <tr>
                     <td class="label">Geschlecht</td>
-                    <td class="value">m</td>
+                    <td class="value">{{ character.get_gender_display|default:"-" }}</td>
                     <td class="label">Rasse</td>
-                    <td class="value wide">Mensch</td>
+                    <td class="value wide">{{ character.race.name }}</td>
                     <td class="label">Alter</td>
-                    <td class="value"></td>
+                    <td class="value">{{ character.age|default:"-" }}</td>
                   </tr>
                   <tr>
                     <td class="label">Größe</td>
-                    <td class="value"></td>
+                    <td class="value">{% if character.height %}{{ character.height }} cm{% else %}-{% endif %}</td>
                     <td class="label">Größenklasse (GK)</td>
-                    <td class="value">M</td>
+                    <td class="value">-</td>
                     <td class="label">GK-Mod.</td>
-                    <td class="value"></td>
+                    <td class="value">-</td>
                   </tr>
                   <tr>
                     <td class="label">Hautfarbe</td>
-                    <td class="value">oliv-bronze</td>
+                    <td class="value">{{ character.skin_color|default:"-" }}</td>
                     <td class="label">Haarfarbe</td>
-                    <td class="value">schwarz</td>
+                    <td class="value">{{ character.hair_color|default:"-" }}</td>
                     <td class="label">Augenfarbe</td>
-                    <td class="value">schwarz</td>
+                    <td class="value">{{ character.eye_color|default:"-" }}</td>
                   </tr>
                   <tr>
                     <td class="label">Herkunftsland</td>
-                    <td class="value">Vagothia</td>
+                    <td class="value">{{ character.country_of_origin|default:"-" }}</td>
                     <td class="label">Gewicht</td>
-                    <td class="value"></td>
+                    <td class="value">{% if character.weight %}{{ character.weight }} kg{% else %}-{% endif %}</td>
                     <td class="label">Religion</td>
-                    <td class="value"></td>
+                    <td class="value">{{ character.religion|default:"-" }}</td>
                   </tr>
                   <tr>
                     <td class="label">Aussehen</td>
-                    <td class="value" colspan="5"></td>
+                    <td class="value" colspan="5">{{ character.appearance|default:"-" }}</td>
                   </tr>
                 </tbody>
               </table>
@@ -77,68 +77,395 @@
               <tbody>
                 <tr>
                   <td class="attribute">Stärke (St)</td>
-                  <td class="value">8</td>
-                  <td class="mod"><span class="mod-badge">+3</span></td>
+                  <td class="value">{{ attributes.ST|default:0 }}</td>
+                  <td class="mod"><span class="mod-badge">{{ attr_mods.ST }}</span></td>
                 </tr>
                 <tr>
                   <td class="attribute">Konstitution (Kon)</td>
-                  <td class="value">8</td>
-                  <td class="mod"><span class="mod-badge">+3</span></td>
+                  <td class="value">{{ attributes.KON|default:0 }}</td>
+                  <td class="mod"><span class="mod-badge">{{ attr_mods.KON }}</span></td>
                 </tr>
                 <tr>
                   <td class="attribute">Geschick (Ge)</td>
-                  <td class="value">8</td>
-                  <td class="mod"><span class="mod-badge">+3</span></td>
+                  <td class="value">{{ attributes.GE|default:0 }}</td>
+                  <td class="mod"><span class="mod-badge">{{ attr_mods.GE }}</span></td>
                 </tr>
                 <tr>
                   <td class="attribute">Wahrnehmung (Wa)</td>
-                  <td class="value">8</td>
-                  <td class="mod"><span class="mod-badge">+3</span></td>
+                  <td class="value">{{ attributes.WA|default:0 }}</td>
+                  <td class="mod"><span class="mod-badge">{{ attr_mods.WA }}</span></td>
                 </tr>
                 <tr>
                   <td class="attribute">Intelligenz (Int)</td>
-                  <td class="value">8</td>
-                  <td class="mod"><span class="mod-badge">+3</span></td>
+                  <td class="value">{{ attributes.INT|default:0 }}</td>
+                  <td class="mod"><span class="mod-badge">{{ attr_mods.INT }}</span></td>
                 </tr>
                 <tr>
                   <td class="attribute">Willenskraft (Will)</td>
-                  <td class="value">8</td>
-                  <td class="mod"><span class="mod-badge">+3</span></td>
+                  <td class="value">{{ attributes.WILL|default:0 }}</td>
+                  <td class="mod"><span class="mod-badge">{{ attr_mods.WILL }}</span></td>
                 </tr>
                 <tr>
                   <td class="attribute">Charisma (Cha)</td>
-                  <td class="value">8</td>
-                  <td class="mod"><span class="mod-badge">+3</span></td>
+                  <td class="value">{{ attributes.CHA|default:0 }}</td>
+                  <td class="mod"><span class="mod-badge">{{ attr_mods.CHA }}</span></td>
                 </tr>
               </tbody>
             </table>
           </div>
+
+          <div class="exp_wrapper">
+            <h2>Erfahrung</h2>
+            <div class="exp_rows" aria-label="Erfahrungspunkte">
+              <div class="exp_row">
+                <span class="exp_label">Gesamt</span>
+                <span class="exp_value"></span>
+              </div>
+              <div class="exp_row">
+                <span class="exp_label">Aktuell</span>
+                <span class="exp_value"></span>
+              </div>
+            </div>
+          </div>
+
+          <div class="fame_wrapper">
+            <div class="fame_header">
+              <h2>Ruhm</h2>
+              <div class="fame_total_wrap">
+                <span class="rank_total_input"></span>
+                <span class="fame_total_label">Gesamtrang</span>
+              </div>
+            </div>
+            <div class="fame_rank_inputs" aria-label="Rangwerte">
+              <span class="rank_input"></span>
+              <span class="rank_input"></span>
+              <span class="rank_input"></span>
+            </div>
+            <div class="fame_ranks" aria-label="Rangfelder">
+              <span>Persönlicher Rang</span>
+              <span>Opferrang</span>
+              <span>Artefaktrang</span>
+            </div>
+            <div class="fame_dots" aria-label="Ruhmpunkte">
+              {% for _ in '1234567890' %}<span class="dot"></span>{% endfor %}
+            </div>
+            <p class="fame_hint">Ruhmpunkte 10 - 1 Persönlicher Rang</p>
+          </div>
+
+          <div class="reputation_wrapper">
+            <h2>Ruf</h2>
+            <ul class="reputation_list" aria-label="Rufbereiche">
+              <li><span class="reputation_label">Persönlich</span><span class="reputation_line"></span></li>
+              <li><span class="reputation_label">Gruppe</span><span class="reputation_line"></span></li>
+              <li><span class="reputation_label">Artefakt</span><span class="reputation_line"></span></li>
+            </ul>
+          </div>
+
+          <div class="language_wrapper">
+            <h2>Sprachen</h2>
+            <div class="language_scale" aria-hidden="true">
+              <span class="language_scale_spacer"></span>
+              <span class="language_scale_labels">
+                <span title="Rudimentär">1</span>
+                <span title="Gebrochen">2</span>
+                <span title="Fließend">3</span>
+                <span title="Lesen und Schreiben">LS</span>
+              </span>
+            </div>
+            <ul class="language_list" aria-label="Sprachen und Werte">
+              <li>
+                <span class="language_name"></span>
+                <span class="language_dots" aria-hidden="true">
+                  <span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot literacy_dot"></span>
+                </span>
+              </li>
+              <li>
+                <span class="language_name"></span>
+                <span class="language_dots" aria-hidden="true">
+                  <span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot literacy_dot"></span>
+                </span>
+              </li>
+              <li>
+                <span class="language_name"></span>
+                <span class="language_dots" aria-hidden="true">
+                  <span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot literacy_dot"></span>
+                </span>
+              </li>
+              <li>
+                <span class="language_name"></span>
+                <span class="language_dots" aria-hidden="true">
+                  <span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot literacy_dot"></span>
+                </span>
+              </li>
+              <li>
+                <span class="language_name"></span>
+                <span class="language_dots" aria-hidden="true">
+                  <span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot literacy_dot"></span>
+                </span>
+              </li>
+            </ul>
+          </div>
         </section>
 
-        <section class="p1_bottom_right"></section>
+        <section class="p1_bottom_right">
+          <div class="load_wrapper" aria-label="Belastung">
+            <span class="load_label">Belastung (Bel.)</span>
+            <span class="load_value">{{ character.engine.get_bel }}</span>
+          </div>
+
+          <div class="skills_wrapper">
+            <table class="skills_table" aria-label="Fertigkeiten">
+              <thead>
+                <tr class="skills_title_row">
+                  <th class="skills_title">Fertigkeiten</th>
+                  <th>Eigen-<br>schaft</th>
+                  <th>Bonus/<br>Malus</th>
+                  <th>Rang</th>
+                  <th>Mod.</th>
+                  <th>Wert</th>
+                  <th>mit Bel.</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for row in skill_rows %}
+                  <tr>
+                    <td class="skill_name">{{ row.name }}</td>
+                    <td class="skill_prop">{{ row.attribute }}</td>
+                    <td>{{ row.attribute_mod }}</td>
+                    <td>{{ row.rank }}</td>
+                    <td>{{ row.misc_mod }}</td>
+                    <td>{{ row.total }}</td>
+                    <td><span class="bel_dot">{{ row.total }}</span></td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+
+          <div class="traits_wrapper">
+            <h2>Vorzüge und Schwächen</h2>
+            <div class="traits_columns">
+              <div class="trait_col">
+                <h3>Vorzüge</h3>
+                {% for trait in advantages %}
+                  <span class="trait_line">{{ trait.trait.name }}{% if trait.trait_level > 1 %} ({{ trait.trait_level }}){% endif %}</span>
+                {% empty %}
+                  <span class="trait_line"></span><span class="trait_line"></span><span class="trait_line"></span><span class="trait_line"></span>
+                {% endfor %}
+              </div>
+              <div class="trait_col">
+                <h3>Schwächen</h3>
+                {% for trait in disadvantages %}
+                  <span class="trait_line">{{ trait.trait.name }}{% if trait.trait_level > 1 %} ({{ trait.trait_level }}){% endif %}</span>
+                {% empty %}
+                  <span class="trait_line"></span><span class="trait_line"></span><span class="trait_line"></span><span class="trait_line"></span>
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+        </section>
       </article>
 
       <article class="page page--secondary">
-        <h1>Seite 2</h1>
+        <section class="p2_layout">
+          <aside class="p2_left_col">
+            <div class="p2_panel p2_core_stats">
+              <div class="core_cols" aria-hidden="true"><span>Wert</span><span>mit Bel.</span></div>
+              <div class="core_item">
+                <div class="core_main">
+                  <span class="core_name">Initiative</span>
+                  <span class="core_value">{{ initiative_display }}</span>
+                  <span class="core_value">{{ initiative_with_bel_display }}</span>
+                </div>
+                <div class="core_formula">Ge-Bonus/Malus + Mod.</div>
+              </div>
+              <div class="core_item">
+                <div class="core_main single"><span class="core_name">Verteidigungswert (VW)</span><span class="core_value">{{ character.engine.vw }}</span></div>
+                <div class="core_formula">14 + Ge-Bonus/Malus + Wa-Bonus/Malus + GK + Mod.</div>
+              </div>
+              <div class="core_item">
+                <div class="core_main single"><span class="core_name">Schockresistenz (SR)</span><span class="core_value">{{ character.engine.sr }}</span></div>
+                <div class="core_formula">14 + St-Bonus/Malus + Kon-Bonus/Malus + Mod.</div>
+              </div>
+              <div class="core_item">
+                <div class="core_main single"><span class="core_name">Geistiger Widerstand (GW)</span><span class="core_value">{{ character.engine.gw }}</span></div>
+                <div class="core_formula">14 + Int-Bonus/Malus + Will-Bonus/Malus + Mod.</div>
+              </div>
+              <div class="core_item">
+                <div class="core_main single"><span class="core_name">Arkane Macht (KP)</span><span class="core_value">{{ character.engine.calculate_arcane_power }}</span></div>
+                <div class="core_formula">Will + Stufen in Schulen + Mod.</div>
+              </div>
+            </div>
+
+            <div class="p2_panel p2_fill">
+              <h2>Ausrüstung</h2>
+              <div class="panel_scroll inventory_scroll">
+                <ul class="p2_lines">
+                  {% for item in inventory_items %}
+                    <li class="inv_row tooltip_target" data-tooltip-side="right" data-tooltip="{{ item.item.description|default:'Keine Beschreibung' }}">
+                      <span class="inv_name">{{ item.item.name }}{% if item.amount > 1 %} ({{ item.amount }}){% endif %}</span>
+                      {% if item.item.item_type == "armor" or item.item.item_type == "weapon" %}
+                        <form method="post" action="{% url 'toggle_equip' item.pk %}" class="equip_form">
+                          {% csrf_token %}
+                          <button type="submit" class="equip_toggle{% if item.equipped %} is-equipped{% endif %}" title="{% if item.equipped %}Ablegen{% else %}Anlegen{% endif %}">
+                            {% if item.equipped %}-{% else %}+{% endif %}
+                          </button>
+                        </form>
+                      {% endif %}
+                    </li>
+                  {% endfor %}
+                </ul>
+              </div>
+            </div>
+          </aside>
+
+          <section class="p2_right_col">
+            <div class="p2_panel">
+              <h2>Rüstung</h2>
+              <ul class="armor_worn">
+                {% for armor in equipped_armor %}
+                  <li>{{ armor.item.name }}</li>
+                {% empty %}
+                  <li></li>
+                {% endfor %}
+              </ul>
+              <ul class="armor_stats">
+                <li><span>Gesamtrüstungsschutz</span><span class="pill">{{ character.engine.get_grs }}</span></li>
+                <li><span>Belastung (Bel.)</span><span class="pill">{{ character.engine.get_bel }}</span></li>
+                <li><span>Mindeststärke</span><span class="pill">{{ character.engine.get_ms }}</span></li>
+              </ul>
+            </div>
+
+            <div class="p2_panel">
+              <div class="body_grid">
+                <ul class="body_side body_side--left">
+                  <li class="zone_group">
+                    <div class="zone_main"><span>Schild (-4)</span><span class="pill empty"></span></div>
+                    <ul class="zone_sub zone_checks">
+                      <li><span class="checkbox"></span><span>links</span></li>
+                      <li><span class="checkbox"></span><span>rechts</span></li>
+                    </ul>
+                  </li>
+                  <li class="zone_group">
+                    <div class="zone_main"><span>Rechter Arm (-4)</span><span class="pill empty"></span></div>
+                    <ul class="zone_sub">
+                      <li><span>Rechte Hand (-8)</span><span class="pill empty"></span></li>
+                    </ul>
+                  </li>
+                  <li class="zone_group">
+                    <div class="zone_main"><span>Rechtes Bein (-3)</span><span class="pill empty"></span></div>
+                    <ul class="zone_sub">
+                      <li><span>Rechter Fuß (-8)</span><span class="pill empty"></span></li>
+                    </ul>
+                  </li>
+                </ul>
+                <div class="body_center" aria-hidden="true"></div>
+                <ul class="body_side body_side--right">
+                  <li class="zone_group">
+                    <div class="zone_main"><span>Kopf (-6)</span><span class="pill empty"></span></div>
+                    <ul class="zone_sub">
+                      <li><span>Gesicht (-8)</span><span class="pill empty"></span></li>
+                      <li><span>Augen (-9 / -14)</span><span class="pill empty"></span></li>
+                      <li><span>Hals (-10)</span><span class="pill empty"></span></li>
+                    </ul>
+                  </li>
+                  <li class="zone_group">
+                    <div class="zone_main"><span>Torso (-2)</span><span class="pill empty"></span></div>
+                    <ul class="zone_sub">
+                      <li><span>Organe (-10)</span><span class="pill empty"></span></li>
+                      <li><span>Weichteile (-8)</span><span class="pill empty"></span></li>
+                    </ul>
+                  </li>
+                  <li class="zone_group">
+                    <div class="zone_main"><span>Linker Arm (-4)</span><span class="pill empty"></span></div>
+                    <ul class="zone_sub">
+                      <li><span>Linke Hand (-8)</span><span class="pill empty"></span></li>
+                    </ul>
+                  </li>
+                  <li class="zone_group">
+                    <div class="zone_main"><span>Linkes Bein (-3)</span><span class="pill empty"></span></div>
+                    <ul class="zone_sub">
+                      <li><span>Linker Fuß (-8)</span><span class="pill empty"></span></li>
+                    </ul>
+                  </li>
+                </ul>
+              </div>
+            </div>
+
+            <div class="p2_panel">
+              <div class="move_row">
+                <span class="move_title">Bewegung</span><span>-</span><span>-</span><span>-</span><span>-</span><span>-</span>
+              </div>
+              <div class="move_labels">
+                <span class="move_spacer" aria-hidden="true"></span>
+                <span>Kampf</span><span>Marsch</span><span>Sprint</span><span>Schwimmend</span><span>Fliegend</span>
+              </div>
+            </div>
+
+            <div class="p2_panel p2_schools">
+              <h2>Kampf- und Magieschulen</h2>
+              <div class="panel_scroll schools_scroll">
+                <ul class="p2_lines p2_short_lines">
+                  {% for row in school_technique_rows %}
+                    <li class="school_row_with_tooltip tooltip_target" data-tooltip-side="left" data-tooltip="{{ row.description|default:'Keine Beschreibung' }}">{{ row.level }} - {{ row.school_name }} - {{ row.technique_name }}</li>
+                  {% endfor %}
+                </ul>
+              </div>
+            </div>
+
+            <div class="p2_panel p2_weapons">
+              <h2>Waffen</h2>
+              <div class="panel_scroll weapons_scroll">
+                <table class="weapons_table" aria-label="Waffen">
+                  <thead>
+                    <tr>
+                      <th></th><th>Schaden</th><th>Größe</th><th>Min.St.</th><th>Nachladezeit</th><th>Reichweite</th><th>Fertigkeit</th><th>mit Bel.</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for row in weapon_rows %}
+                      <tr class="tooltip_target" data-tooltip-side="left" data-tooltip="{{ row.item.description|default:'Keine Beschreibung' }}">
+                        <td>
+                          <div class="weapon_name_cell">
+                            <form method="post" action="{% url 'toggle_equip' row.character_item.pk %}" class="equip_form">
+                              {% csrf_token %}
+                              <button
+                                type="submit"
+                                class="equip_toggle{% if row.character_item.equipped %} is-equipped{% endif %}"
+                                title="{% if row.character_item.equipped %}Ablegen{% else %}Anlegen{% endif %}"
+                              >
+                                {% if row.character_item.equipped %}-{% else %}+{% endif %}
+                              </button>
+                            </form>
+                            <span class="weapon_name">{{ row.item.name }}</span>
+                          </div>
+                        </td>
+                        <td>{{ row.stats.damage|default:"-" }}</td>
+                        <td>-</td>
+                        <td>{{ row.stats.min_st|default:"-" }}</td>
+                        <td>-</td>
+                        <td>-</td>
+                        <td>{{ row.dmg_mod|default:"-" }}</td>
+                        <td>
+                          <span class="pill{% if not row.character_item.equipped %} empty{% endif %}">
+                            {% if row.character_item.equipped %}A{% endif %}
+                          </span>
+                        </td>
+                      </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+        </section>
       </article>
     </main>
 
     <div aria-hidden="true" class="firefly-layer">
-      <div class="firefly"></div>
-      <div class="firefly"></div>
-      <div class="firefly"></div>
-      <div class="firefly"></div>
-      <div class="firefly"></div>
-      <div class="firefly"></div>
-      <div class="firefly"></div>
-      <div class="firefly"></div>
-      <div class="firefly"></div>
-      <div class="firefly"></div>
-      <div class="firefly"></div>
-      <div class="firefly"></div>
-      <div class="firefly"></div>
-      <div class="firefly"></div>
-      <div class="firefly"></div>
+      {% for _ in '123456789012345' %}<div class="firefly"></div>{% endfor %}
     </div>
+    <script src="{% static 'js/charsheet_tooltips.js' %}"></script>
   </body>
 </html>
+

@@ -86,11 +86,26 @@ class RaceAttributeLimit(models.Model):
 
 class Character(models.Model):
     """Player-owned character with race and derived rule engine access."""
+    class Gender(models.TextChoices):
+        M = "männlich", "Männlich"
+        W = "weiblich", "Weiblich"
 
     owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     name = models.CharField(max_length=100)
     race = models.ForeignKey(Race, on_delete=models.PROTECT)
-    
+    gender = models.CharField(max_length=15, choices=Gender, null=True, blank=True)
+    age = models.PositiveIntegerField(default=20, null=True, blank=True)
+    height = models.IntegerField(default=170)
+    # TODO: Race depending height class
+    # TODO: height class mod (?)
+    skin_color = models.CharField(max_length=25, null=True, blank=True)
+    hair_color = models.CharField(max_length=25, null=True, blank=True)
+    eye_color = models.CharField(max_length=25, null=True, blank=True)
+    country_of_origin = models.CharField(max_length=25, null=True, blank=True)
+    weight = models.IntegerField(default=60, null=True, blank=True)
+    religion = models.CharField(max_length=25, null=True, blank=True)
+    appearance = models.TextField(max_length=55, null=True, blank=True)
+        
     current_damage = models.PositiveBigIntegerField(default=0)
     
     class Meta:
@@ -340,6 +355,8 @@ class Item(models.Model):
     name = models.CharField(max_length=200)
     slug = models.SlugField(max_length=120, unique=True)
     
+    price = models.IntegerField(default=1)
+    
     item_type = models.CharField(max_length=20, choices=ItemType.choices)
     description = models.TextField(null=True, blank=True)
     
@@ -427,8 +444,33 @@ class ArmorStats(models.Model):
             raise ValidationError("Armor must have either total or zone RS")
     
     def __str__(self):
-        return f"{self.item}: {self.rs_sum // 6}{self.rs_total}"
+        return f"{self.item}: {self.rs_sum() // 6}{self.rs_total}"
+
+class DamageSource(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    short_name = models.CharField(max_length=50, unique=True)
+    slug = models.SlugField(max_length=50, unique=True)
     
+    def __str__(self):
+        return self.name
+
+class WeaponStats(models.Model):
+    item = models.OneToOneField(Item, on_delete=models.CASCADE)
+    damage = models.CharField(max_length=20)
+    damage_source = models.ForeignKey(DamageSource, on_delete=models.PROTECT)
+    
+    min_st = models.PositiveIntegerField(default=1, validators=[MinValueValidator(1)])
+
+    # TODO: GK
+    
+    def clean(self):
+        super().clean()
+        if self.item.item_type != Item.ItemType.WEAPON:
+            raise ValidationError({"item_type": "Non weapon items can't have WeaponStats"})
+
+    def __str__(self):
+        return f"{self.item}: DMG {self.damage} ({self.damage_source})"
+
 class Trait(models.Model):
     class TraitType(models.TextChoices):
         ADV = "advantage", "Advantage"

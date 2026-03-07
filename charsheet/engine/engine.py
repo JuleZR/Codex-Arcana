@@ -3,7 +3,10 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING, TypedDict
 from django.db.models import QuerySet
-from charsheet.models import Modifier, CharacterItem, Item
+from charsheet.models import (
+    Modifier, CharacterItem, Item, CharacterTrait,
+    CharacterSchool
+    )
 
 
 if TYPE_CHECKING:
@@ -180,6 +183,42 @@ class CharacterEngine:
     
         return level + mod
 
+    def _resolve_modifiers(self, slug: str) -> int:
+        total = 0
+        mods = Modifier.objects.filter(
+            target_kind=Modifier.TargetKind.STAT,
+            target_slug=slug,
+        ).select_related("source_content_type")
+        
+        for mod in mods:
+            if mod.mode == Modifier.Mode.FLAT:
+                total += mod.value
+                continue
+            if mod.mode == Modifier.Mode.SCALED:
+                if mod.scale_source == Modifier.ScaleSource.TRAIT_LVL:
+                    trait = mod.source
+                    try:
+                        owned = self.character.charactertrait_set.get(trait=trait)
+                    except CharacterTrait.DoesNotExist:
+                        continue
+
+                    level = owned.trait_level
+                    value = (level * mod.value * mod.mul) // mod.div
+                    total += value
+
+            if mod.scale_source == Modifier.ScaleSource.SCHOOL_LEVEL:
+                school = mod.scale_school
+                try:
+                    owned = self.character.schools.get(school=mod.scale_school)
+                except CharacterSchool.DoesNotExist:
+                    continue
+                
+                level = owned.level
+                value = (level * mod.value) // mod.div
+                
+                total += value
+
+        return total
 
     def _skill_modifiers(self, skill_slug: str) -> int:
         """Collect and sum all external modifiers for one skill.
@@ -190,17 +229,14 @@ class CharacterEngine:
         Returns:
             int: Summed modifier value including wound penalty.
         """
-        skill_mods = Modifier.objects.filter(
-            target_kind=Modifier.TargetKind.SKILL,
-            target_slug=skill_slug
-        )
+        skill_mods = self._resolve_modifiers(skill_slug)
         #TODO: Add other modifiers
         modifier = [
             self.current_wound_penalty(),
-            -self.get_bel()
+            - self.get_bel(),
+            + skill_mods,
             ]
         
-        modifier.extend(m.value for m in skill_mods)
         return sum(modifier)
 
 
@@ -229,7 +265,7 @@ class CharacterEngine:
         character_schools = (
             CharacterSchool.objects
             .filter(character=self.character)
-            .select_related("school", "school__school_type")
+            .select_related("school", "school__type")
         )
     
         for cs in character_schools:
@@ -256,15 +292,11 @@ class CharacterEngine:
         Returns:
             int: ``DEX modifier + all stat modifiers for 'initiative'``.
         """
-        dex_mod = self.attribute_modifier("DEX")
-        mods = Modifier.objects.filter(
-            target_kind=Modifier.TargetKind.STAT,
-            target_slug="initiative",
-        )
-        misc = sum(mod.value for mod in mods)
+        ge_mod = self.attribute_modifier("GE")
+        misc =  self._resolve_modifiers('initiative')
         misc += self.current_wound_penalty()
         
-        return dex_mod + misc
+        return ge_mod + misc
     
     def calculate_arcane_power(self) -> int:
         """Calculate arcane power from WILL, schools, and stat modifiers.
@@ -276,18 +308,11 @@ class CharacterEngine:
             int: Arcane power total.
         """
         willpower = self.attributes().get("WILL", 0)
-        school_levels = sum(
-            cs.level for cs in self.character.schools
-            .select_related("school__type")
-            .filter(school__type__slug__in=["magic", "divine"])
-                )
-        
-        misc = sum(
-            m.value for m in Modifier.objects.filter(
-            target_kind=Modifier.TargetKind.STAT,
-            target_slug="arcane_power",
-                )
-        )
+        school_levels = sum(cs.level for cs 
+                            in self.character.schools
+                            .select_related("school__type").all()
+                            )
+        misc = self._resolve_modifiers("arcane_power")
 
         return willpower + school_levels + misc
     
@@ -308,20 +333,10 @@ class CharacterEngine:
             ``(stage_name, penalty)``.
         """
         constitution: int = self.attributes().get("CON", 0)
-        additional_stages = sum(
-            m.value for m in Modifier.objects.filter(
-                target_kind=Modifier.TargetKind.STAT,
-                target_slug="wound_stage",
-            )
-        )
+        additional_stages = self._resolve_modifiers("wound_stage")
         amount_threshold: int = 6 + additional_stages
         
-        ignore_stages = sum(
-            m.value for m in Modifier.objects.filter(
-                target_kind=Modifier.TargetKind.STAT,
-                target_slug="wound_penalty_ignore",
-            )
-        )
+        ignore_stages = self._resolve_modifiers("wound_penalty_ignore")
         
         stage_numbers = [n*constitution for n in range(1, amount_threshold + 1)]
         stage_names = [
@@ -355,12 +370,7 @@ class CharacterEngine:
         """
         mod1_val = self.attribute_modifier(mod1)
         mod2_val = self.attribute_modifier(mod2)
-        misc = sum(
-            m.value for m in Modifier.objects.filter(
-                target_kind=Modifier.TargetKind.STAT,
-                target_slug=slug,
-            )
-        )
+        misc =  self._resolve_modifiers(slug)
         return 14 + mod1_val + mod2_val + misc
     
     def vw(self) -> int:
@@ -395,12 +405,12 @@ class CharacterEngine:
         """Return only the active wound penalty value."""
         return self.current_wound_stage()[1]
 
-    def equipped_armor_items(character) -> QuerySet:
+    def equipped_armor_items(self) -> QuerySet:
         """Return equipped armor inventory rows for a given character."""
 
         return (
             CharacterItem.objects.filter(
-                owner = character,
+                owner = self.character,
                 equipped = True,
                 item__item_type = Item.ItemType.ARMOR
             )
@@ -410,21 +420,23 @@ class CharacterEngine:
         """Calculate total armor rating from equipped armor items."""
 
         total = 0
-        summed_up = 0
-        for armor in self.equipped_armor_items(self.character):
+        zone_sum = 0
+        
+        for armor in self.equipped_armor_items():
             stats = armor.item.armorstats
             
-            if stats.rs_total:
+            if stats.rs_total > 0:
                 total += stats.rs_total
             else:
-                summed_up += stats.rs_sum()
+                zone_sum += stats.rs_sum()
         
-        return total + (summed_up // 6)
+        return total + (zone_sum // 6)
     
+
     def get_bel(self) -> int:
         """Calculate armor burden, honoring armor-penalty ignore effects."""
 
-        if self.has_slug("armor_penalty_ignore"):
+        if self._resolve_modifiers("armor_penalty_ignore"):
             return 0
         return self.get_grs() // 3
 
@@ -432,3 +444,6 @@ class CharacterEngine:
         """Calculate minimum strength requirement from current armor rating."""
 
         return self.get_grs() // 2
+    
+    def get_dmg_modifier_sum(self, slug: str) -> int:
+        return self._resolve_modifiers(slug)
