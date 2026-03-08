@@ -6,12 +6,13 @@ from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes.fields import GenericForeignKey
+from .constants import *
 
 class Attribute(models.Model):
     """Primary character attribute with a human-readable and short code."""
 
     name = models.CharField(max_length=100, unique=True)
-    short_name = models.CharField(max_length=4, unique=True)
+    short_name = models.CharField(max_length=4, unique=True, choices=ATTRIBUTE_CODE_CHOICES)
     
     def __str__(self):
         return f"{self.name} ({self.short_name})"
@@ -21,7 +22,7 @@ class SkillCategory(models.Model):
     """Top-level grouping for related skills."""
 
     name = models.CharField(max_length=100, unique=True)
-    slug = models.SlugField(max_length=100, unique=True)
+    slug = models.SlugField(max_length=100, unique=True, choices=SKILL_CATEGORY_CHOICES)
     
     def __str__(self) -> str:
         return self.name
@@ -43,12 +44,10 @@ class Skill(models.Model):
     def __str__(self):
         return self.name
 
-
 class Race(models.Model):
     """Playable race entry used for character creation and constraints."""
 
     name = models.CharField(max_length=100, unique=True)
-    slug = models.SlugField(max_length=100, unique=True)
     description = models.TextField(blank=True)
     
     combat_speed = models.IntegerField(default=0, validators=[MinValueValidator(0)])
@@ -61,9 +60,14 @@ class Race(models.Model):
     march_fly_speed = models.IntegerField(default=0, validators=[MinValueValidator(0)], null=True, blank=True)
     sprint_fly_speed = models.IntegerField(default=0, validators=[MinValueValidator(0)], null=True, blank=True)
     
+    phase_1_points = models.PositiveIntegerField(default=40)
+    phase_2_points = models.PositiveIntegerField(default=50)
+    phase_3_points = models.PositiveIntegerField(default=20, validators=[MaxValueValidator(20)])
+    phase_4_points = models.PositiveIntegerField(default=30)
+    
+    
     def __str__(self):
         return self.name
-
 
 class RaceAttributeLimit(models.Model):
     """Per-race minimum and maximum values for one attribute."""
@@ -93,7 +97,6 @@ class RaceAttributeLimit(models.Model):
     def __str__(self):
         return f"{self.race} - {self.attribute}: {self.min_value} to {self.max_value}"
 
-
 class Character(models.Model):
     """Player-owned character with race and derived rule engine access."""
     class Gender(models.TextChoices):
@@ -117,7 +120,8 @@ class Character(models.Model):
     appearance = models.TextField(max_length=85, null=True, blank=True)
     
     money = models.IntegerField(default=0, validators=[MinValueValidator(0)])
-    current_experience = models.IntegerField(default=0, validators=[MinValueValidator(0)])
+    overall_experience = models.PositiveIntegerField(default=0)
+    current_experience = models.PositiveIntegerField(default=0)
     
     current_damage = models.PositiveBigIntegerField(default=0)
     
@@ -160,7 +164,6 @@ class CharacterAttribute(models.Model):
     def __str__(self):
         return f"{self.character} - {self.attribute}: {self.base_value}"
 
-
 class CharacterSkill(models.Model):
     """Stored level value for one character skill pair."""
 
@@ -179,28 +182,24 @@ class CharacterSkill(models.Model):
     def __str__(self):
         return f"{self.character} learned {self.skill}: {self.level}"
 
-
 class SchoolType(models.Model):
     """Domain grouping for schools and progression rule definitions."""
 
     name = models.CharField(max_length=100, unique=True)
-    slug = models.SlugField(max_length=100, unique=True)
+    slug = models.SlugField(max_length=100, unique=True, choices=SCHOOL_TYPE_CHOICES)
 
     def __str__(self):
         return self.name
-
 
 class School(models.Model):
     """Trainable school assigned to a school type."""
 
     name = models.CharField(max_length=100, unique=True)
-    slug = models.SlugField(max_length=100, unique=True)
     type = models.ForeignKey(SchoolType, on_delete=models.PROTECT)
     description = models.TextField(blank=True)
 
     def __str__(self):
         return self.name
-
 
 class CharacterSchool(models.Model):
     """Character membership and level within one school."""
@@ -230,8 +229,7 @@ class CharacterSchool(models.Model):
         ]
 
     def __str__(self) -> str:
-        return f"{self.character.name} – {self.school.slug} (L{self.level})"
-
+        return f"{self.character.name} - {self.school.name} (L{self.level})"
 
 class ProgressionRule(models.Model):
     """Level-based reward rule for a school type."""
@@ -268,7 +266,6 @@ class Modifier(models.Model):
     class ScaleSource(models.TextChoices):
         """Available scaling source definitions."""
         SCHOOL_LEVEL = "school_level", "School level"
-        # später:
         FAME_TOTAL = "fame_total", "Fame total"
         TRAIT_LVL = "trait_level", "Trait Level"
 
@@ -312,7 +309,7 @@ class Modifier(models.Model):
         help_text="Only used if scale_source == school_level",
     )
     mul = models.SmallIntegerField(default=1)
-    div = models.PositiveSmallIntegerField(default=1)
+    div = models.PositiveSmallIntegerField(default=1, validators=[MinValueValidator(1)])
     round_mode = models.CharField(max_length=10, choices=RoundMode.choices, default=RoundMode.FLOOR)
 
     cap_mode = models.CharField(max_length=10, choices=CapMode.choices, default=CapMode.NONE)
@@ -324,14 +321,39 @@ class Modifier(models.Model):
     )
 
     min_school_level = models.PositiveSmallIntegerField(null=True, blank=True)
+    def clean(self):
+        super().clean()
+        if self.target_kind == self.TargetKind.STAT:
+            if self.target_slug not in VALID_STAT_SLUGS:
+                raise ValidationError(
+                    {"target_slug": "Invalid target slug for kind STAT"}
+                )
+        elif self.target_kind == self.TargetKind.SKILL:
+            if not Skill.objects.filter(slug=self.target_slug).exists():
+                raise ValidationError(
+                    {"target_slug": "Invalid target slug for kind SKILL. Slug in skill slugs not found."}
+                )
+        elif self.target_kind == self.TargetKind.CATEGORY:
+            if not SkillCategory.objects.filter(slug=self.target_slug).exists():
+                raise ValidationError(
+                    {"target_slug": "Invalid target slug for kind CATEGORY. Slug in skill category slugs not found."}
+                )
+                
+        if self.mode == self.Mode.FLAT and self.scale_source:
+            raise ValidationError (
+                {"scale_source": "In mode FLAT scale source must be blank"}
+            )
+        elif self.mode == self.Mode.SCALED and not self.scale_source:
+            raise ValidationError (
+                {"scale_source": "In mode SCALES scale source must be set"}
+            )
 
     def __str__(self):
         return f"{self.source} → {self.target_kind}:{self.target_slug}"
 
 class Technique(models.Model):
     """Technique learned through a school at a required school level."""
-
-    slug = models.SlugField(max_length=120, unique=True)
+    
     name = models.CharField(max_length=200)
 
     school = models.ForeignKey(
@@ -353,7 +375,7 @@ class Technique(models.Model):
         ]
 
     def __str__(self) -> str:
-        return f"{self.school.slug} L{self.level}: {self.name}"
+        return f" {self.school.name} ({self.level})"
     
 class Item(models.Model):
     """Inventory item with type and stackability rules."""
@@ -365,14 +387,10 @@ class Item(models.Model):
         WEAPON = "weapon", "Weapon"
         MISC = "misc", "Misc"
 
-    name = models.CharField(max_length=200)
-    slug = models.SlugField(max_length=120, unique=True)
-    
+    name = models.CharField(max_length=200, unique=True)
     price = models.IntegerField(default=1)
-    
     item_type = models.CharField(max_length=20, choices=ItemType.choices)
     description = models.TextField(null=True, blank=True)
-    
     stackable = models.BooleanField(default=True)
 
     def clean(self):
@@ -572,4 +590,15 @@ class CharacterLanguage(models.Model):
     def __str__(self):
         return f"{self.owner} speaks {self.language.name} {'(Mother tongue)' if self.is_mother_tongue else ''}"
     
-    
+class CharacterCreationDraft(models.Model):
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+            related_name="character_drafts"
+            )
+    race = models.ForeignKey(Race, on_delete=models.CASCADE)
+    current_phase = models.PositiveIntegerField(
+        default=1, 
+        validators=[MaxValueValidator(4)]
+        )
+    state = models.JSONField(default=dict, blank=True)

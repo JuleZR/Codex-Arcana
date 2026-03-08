@@ -25,6 +25,10 @@ urlpatterns = [
     path("character/<int:character_id>/", views.character_sheet, name="character_sheet"),
     path("character/<int:character_id>/adjust-damage/", views.adjust_current_damage, name="adjust_current_damage"),
     path("character/<int:character_id>/adjust-money/", views.adjust_money, name="adjust_money"),
+    path("character/<int:character_id>/adjust-experience/", views.adjust_experience, name="adjust_experience"),
+    path("character/<int:character_id>/shop-item/create/", views.create_shop_item, name="create_shop_item"),
+    path("character/<int:character_id>/shop/buy/", views.buy_shop_cart, name="buy_shop_cart"),
     path("character-item/<int:pk>/toggle-equip/", views.toggle_equip, name="toggle_equip"),
+    path("character-item/<int:pk>/consume/", views.consume_item, name="consume_item"),
 ]
 

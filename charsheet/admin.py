@@ -1,7 +1,7 @@
 """Django admin configuration for character sheet domain models."""
 
 from django.contrib import admin
-from django.contrib.contenttypes.admin import GenericTabularInline
+from django.contrib.contenttypes.admin import GenericStackedInline
 from django.http import JsonResponse
 from django.urls import path, reverse
 
@@ -50,7 +50,7 @@ class RaceAttributeLimitInline(admin.TabularInline):
     autocomplete_fields = ("attribute",)
 
 
-class ModifierInline(GenericTabularInline):
+class ModifierInline(GenericStackedInline):
     """Generic inline editor for modifiers attached to source models."""
 
     model = Modifier
@@ -58,19 +58,11 @@ class ModifierInline(GenericTabularInline):
     ct_fk_field = "source_object_id"
     extra = 0
     show_change_link = True
-    fields = (
-        "target_kind",
-        "target_slug",
-        "mode",
-        "value",
-        "scale_source",
-        "scale_school",
-        "mul",
-        "div",
-        "round_mode",
-        "cap_mode",
-        "cap_source",
-        "min_school_level",
+    fieldsets = (
+        ("Target", {"fields": (("target_kind", "target_slug"),)}),
+        ("Value", {"fields": (("mode", "value"),)}),
+        ("Scaling", {"fields": (("scale_source", "scale_school"), ("mul", "div", "round_mode"))}),
+        ("Cap", {"fields": (("cap_mode", "cap_source"), "min_school_level")}),
     )
     autocomplete_fields = ("scale_school",)
 
@@ -297,7 +289,6 @@ class AttributeAdmin(admin.ModelAdmin):
     list_display = ("name", "short_name")
     search_fields = ("name", "short_name")
     ordering = ("name",)
-    inlines = (SkillInline, RaceAttributeLimitByAttributeInline, AttributeCharacterInline)
 
 
 @admin.register(SkillCategory)
@@ -337,8 +328,8 @@ class SkillAdmin(admin.ModelAdmin):
 class RaceAdmin(admin.ModelAdmin):
     """Admin configuration for races."""
 
-    list_display = ("name", "slug")
-    search_fields = ("name", "slug")
+    list_display = ("name", "movement_summary", "can_fly")
+    search_fields = ("name", "description")
     ordering = ("name",)
     inlines = (RaceAttributeLimitInline, ModifierInline)
     fieldsets = (
@@ -347,7 +338,6 @@ class RaceAdmin(admin.ModelAdmin):
             {
                 "fields": (
                     "name",
-                    "slug",
                     "description",
                     "combat_speed",
                     "march_speed",
@@ -364,6 +354,10 @@ class RaceAdmin(admin.ModelAdmin):
 
     class Media:
         js = ("charsheet/js/race_admin.js",)
+
+    @admin.display(description="Movement")
+    def movement_summary(self, obj):
+        return f"G:{obj.combat_speed}/{obj.march_speed}/{obj.sprint_speed} S:{obj.swimming_speed}"
 
 
 @admin.register(RaceAttributeLimit)
@@ -388,10 +382,10 @@ class CharacterAdmin(admin.ModelAdmin):
         "owner",
         "race",
         "gender",
-        "age",
-        "country_of_origin",
-        "race_slug",
+        "current_damage",
+        "money",
     )
+    list_display_links = ("name",)
     search_fields = (
         "name",
         "owner__username",
@@ -421,11 +415,6 @@ class CharacterAdmin(admin.ModelAdmin):
     )
     autocomplete_fields = ("owner", "race")
     list_select_related = ("owner", "race")
-
-    @admin.display(ordering="race__slug", description="Race Slug")
-    def race_slug(self, obj):
-        """Return the related race slug for list display."""
-        return obj.race.slug
 
     def get_urls(self):
         """Expose lightweight admin API endpoints for inline trait metadata."""
@@ -502,8 +491,8 @@ class SchoolTypeAdmin(admin.ModelAdmin):
 class SchoolAdmin(admin.ModelAdmin):
     """Admin configuration for schools."""
 
-    list_display = ("name", "slug", "type", "type_slug")
-    search_fields = ("name", "slug", "type__name")
+    list_display = ("name", "type", "type_slug")
+    search_fields = ("name", "type__name", "type__slug")
     list_filter = ("type",)
     ordering = ("type", "name")
     inlines = (TechniqueInline, SchoolCharacterInline, ModifierInline)
@@ -521,7 +510,7 @@ class CharacterSchoolAdmin(admin.ModelAdmin):
     """Admin configuration for character schools."""
 
     list_display = ("character", "school", "school_type", "level")
-    search_fields = ("character__name", "school__name", "school__slug")
+    search_fields = ("character__name", "school__name", "school__type__name")
     list_filter = ("school__type", "school")
     ordering = ("character", "school")
     autocomplete_fields = ("character", "school")
@@ -580,8 +569,8 @@ class ModifierAdmin(admin.ModelAdmin):
 class TechniqueAdmin(admin.ModelAdmin):
     """Admin configuration for techniques."""
 
-    list_display = ("name", "slug", "school", "school_type", "level")
-    search_fields = ("name", "slug", "school__name", "school__slug")
+    list_display = ("name", "school", "school_type", "level")
+    search_fields = ("name", "school__name", "school__type__name")
     list_filter = ("school", "school__type", "level")
     ordering = ("school", "level", "name")
     autocomplete_fields = ("school",)
@@ -598,8 +587,8 @@ class TechniqueAdmin(admin.ModelAdmin):
 class ItemAdmin(admin.ModelAdmin):
     """Admin configuration for items."""
 
-    list_display = ("name", "slug", "item_type", "stackable")
-    search_fields = ("name", "slug", "item_type")
+    list_display = ("name", "item_type", "price", "stackable")
+    search_fields = ("name", "item_type")
     list_filter = ("item_type", "stackable")
     ordering = ("item_type", "name")
     inlines = (ArmorStatsInline, WeaponStatsInline, ItemCharacterInline)
@@ -610,7 +599,7 @@ class CharacterItemAdmin(admin.ModelAdmin):
     """Admin configuration for character inventory entries."""
 
     list_display = ("owner", "owner_race", "item", "item_type", "amount", "equipped")
-    search_fields = ("owner__name", "item__name", "item__slug")
+    search_fields = ("owner__name", "item__name")
     list_filter = ("equipped", "item__item_type", "owner__race")
     ordering = ("owner", "item")
     autocomplete_fields = ("owner", "item")
@@ -631,16 +620,19 @@ class CharacterItemAdmin(admin.ModelAdmin):
 class ArmorStatsAdmin(admin.ModelAdmin):
     """Admin configuration for armor stat blocks."""
 
-    list_display = ("item", "item_slug", "rs_head", "rs_torso", "rs_arm_left", "rs_arm_right", "rs_leg_left", "rs_leg_right")
-    search_fields = ("item__name", "item__slug")
+    list_display = ("item", "rs_total", "rs_zone_sum", "rs_zone_average")
+    search_fields = ("item__name",)
     ordering = ("item__name",)
     autocomplete_fields = ("item",)
     list_select_related = ("item",)
 
-    @admin.display(ordering="item__slug", description="Item Slug")
-    def item_slug(self, obj):
-        """Return the related item slug for list display."""
-        return obj.item.slug
+    @admin.display(description="Zone Sum")
+    def rs_zone_sum(self, obj):
+        return obj.rs_sum()
+
+    @admin.display(description="Zone Avg")
+    def rs_zone_average(self, obj):
+        return obj.rs_sum() // 6
 
 
 @admin.register(DamageSource)
@@ -653,15 +645,11 @@ class DamageSourceAdmin(admin.ModelAdmin):
 
 @admin.register(WeaponStats)
 class WeaponStatsAdmin(admin.ModelAdmin):
-    list_display = ("item", "item_slug", "damage", "damage_source", "min_st")
-    search_fields = ("item__name", "item__slug", "damage_source__name")
+    list_display = ("item", "damage", "damage_source", "min_st")
+    search_fields = ("item__name", "damage_source__name")
     ordering = ("item__name",)
     autocomplete_fields = ("item", "damage_source")
     list_select_related = ("item", "damage_source")
-
-    @admin.display(ordering="item__slug", description="Item Slug")
-    def item_slug(self, obj):
-        return obj.item.slug
 
 @admin.register(Trait)
 class TraitAdmin(admin.ModelAdmin):
@@ -678,6 +666,7 @@ class CharacterTraitAdmin(admin.ModelAdmin):
     search_fields = ("owner__name", "trait__name", "trait__slug")
     autocomplete_fields = ("owner", "trait")
 
+    @admin.display(ordering="trait__trait_type", description="Trait Type")
     def trait_type(self, obj):
         return obj.trait.trait_type
 

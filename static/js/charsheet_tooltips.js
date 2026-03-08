@@ -3,9 +3,26 @@ document.addEventListener("DOMContentLoaded", () => {
   const launcher = document.getElementById("rightSidebarLauncher");
   const closeBtn = document.getElementById("rightSidebarClose");
   const paydayTrigger = document.getElementById("paydayTrigger");
+  const shopScaleTrigger = document.getElementById("shopScaleTrigger");
+  const learnMenuTrigger = document.getElementById("learnMenuTrigger");
+  const xpGainTrigger = document.getElementById("xpGainTrigger");
+  const shopAddItemBtn = document.getElementById("shopAddItemBtn");
   const paydayWindow = document.getElementById("paydayWindow");
   const paydayWindowClose = document.getElementById("paydayWindowClose");
   const paydayWindowHandle = document.getElementById("paydayWindowHandle");
+  const xpWindow = document.getElementById("xpWindow");
+  const xpWindowClose = document.getElementById("xpWindowClose");
+  const xpWindowHandle = document.getElementById("xpWindowHandle");
+  const shopWindow = document.getElementById("shopWindow");
+  const shopWindowClose = document.getElementById("shopWindowClose");
+  const shopWindowHandle = document.getElementById("shopWindowHandle");
+  const shopItemWindow = document.getElementById("shopItemWindow");
+  const shopItemWindowClose = document.getElementById("shopItemWindowClose");
+  const shopItemWindowHandle = document.getElementById("shopItemWindowHandle");
+  const shopItemCancelBtn = document.getElementById("shopItemCancelBtn");
+  const learnWindow = document.getElementById("learnWindow");
+  const learnWindowClose = document.getElementById("learnWindowClose");
+  const learnWindowHandle = document.getElementById("learnWindowHandle");
   if (!sidebar || !launcher || !closeBtn) {
     return;
   }
@@ -23,73 +40,491 @@ document.addEventListener("DOMContentLoaded", () => {
     setOpenState(false);
   });
 
-  if (!paydayTrigger || !paydayWindow || !paydayWindowClose || !paydayWindowHandle) {
+  const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
+  const placeWindow = (win, left, top) => {
+    const rect = win.getBoundingClientRect();
+    const maxLeft = Math.max(12, window.innerWidth - rect.width - 12);
+    const maxTop = Math.max(12, window.innerHeight - rect.height - 12);
+    win.style.left = `${clamp(left, 12, maxLeft)}px`;
+    win.style.top = `${clamp(top, 12, maxTop)}px`;
+  };
+
+  const setupFloatingWindow = (trigger, win, close, handle, startTop, storageKey) => {
+    if (!trigger || !win || !close || !handle) {
+      return;
+    }
+
+    const loadState = () => {
+      try {
+        const raw = window.localStorage.getItem(storageKey);
+        return raw ? JSON.parse(raw) : null;
+      } catch (_error) {
+        return null;
+      }
+    };
+    const saveState = (state) => {
+      try {
+        window.localStorage.setItem(storageKey, JSON.stringify(state));
+      } catch (_error) {
+        // no-op
+      }
+    };
+    const readWindowState = () => {
+      const left = Number.parseFloat(win.style.left || "");
+      const top = Number.parseFloat(win.style.top || "");
+      return {
+        isOpen: win.classList.contains("is-open"),
+        left: Number.isFinite(left) ? left : null,
+        top: Number.isFinite(top) ? top : null,
+      };
+    };
+
+    let dragPointerId = null;
+    let dragOffsetX = 0;
+    let dragOffsetY = 0;
+
+    const persistedState = loadState();
+    if (persistedState && Number.isFinite(persistedState.left) && Number.isFinite(persistedState.top)) {
+      placeWindow(win, persistedState.left, persistedState.top);
+    }
+    if (persistedState && persistedState.isOpen) {
+      win.classList.add("is-open");
+      win.setAttribute("aria-hidden", "false");
+    }
+
+    trigger.addEventListener("click", () => {
+      win.classList.add("is-open");
+      win.setAttribute("aria-hidden", "false");
+      const rect = win.getBoundingClientRect();
+      const saved = loadState();
+      if (saved && Number.isFinite(saved.left) && Number.isFinite(saved.top)) {
+        placeWindow(win, saved.left, saved.top);
+      } else {
+        const startLeft = window.innerWidth - rect.width - 176;
+        placeWindow(win, startLeft, startTop);
+      }
+      saveState(readWindowState());
+    });
+
+    close.addEventListener("click", () => {
+      win.classList.remove("is-open");
+      win.setAttribute("aria-hidden", "true");
+      saveState(readWindowState());
+    });
+    close.addEventListener("pointerdown", (event) => {
+      event.stopPropagation();
+    });
+
+    handle.addEventListener("pointerdown", (event) => {
+      if (event.button !== 0) {
+        return;
+      }
+      const rect = win.getBoundingClientRect();
+      dragPointerId = event.pointerId;
+      dragOffsetX = event.clientX - rect.left;
+      dragOffsetY = event.clientY - rect.top;
+      handle.setPointerCapture(event.pointerId);
+      win.classList.add("is-dragging");
+    });
+
+    handle.addEventListener("pointermove", (event) => {
+      if (dragPointerId !== event.pointerId) {
+        return;
+      }
+      placeWindow(win, event.clientX - dragOffsetX, event.clientY - dragOffsetY);
+      saveState(readWindowState());
+    });
+
+    const stopDragging = (event) => {
+      if (dragPointerId !== event.pointerId) {
+        return;
+      }
+      win.classList.remove("is-dragging");
+      try {
+        handle.releasePointerCapture(event.pointerId);
+      } catch (_error) {
+        // no-op
+      }
+      dragPointerId = null;
+      saveState(readWindowState());
+    };
+    handle.addEventListener("pointerup", stopDragging);
+    handle.addEventListener("pointercancel", stopDragging);
+  };
+
+  setupFloatingWindow(paydayTrigger, paydayWindow, paydayWindowClose, paydayWindowHandle, 118, "charsheet.paydayWindow");
+  setupFloatingWindow(xpGainTrigger, xpWindow, xpWindowClose, xpWindowHandle, 174, "charsheet.xpWindow");
+  setupFloatingWindow(shopScaleTrigger, shopWindow, shopWindowClose, shopWindowHandle, 92, "charsheet.shopWindow");
+  setupFloatingWindow(shopAddItemBtn, shopItemWindow, shopItemWindowClose, shopItemWindowHandle, 128, "charsheet.shopItemWindow");
+  setupFloatingWindow(learnMenuTrigger, learnWindow, learnWindowClose, learnWindowHandle, 138, "charsheet.learnWindow");
+
+  if (shopItemCancelBtn && shopItemWindow) {
+    shopItemCancelBtn.addEventListener("click", () => {
+      shopItemWindow.classList.remove("is-open");
+      shopItemWindow.setAttribute("aria-hidden", "true");
+      try {
+        const left = Number.parseFloat(shopItemWindow.style.left || "");
+        const top = Number.parseFloat(shopItemWindow.style.top || "");
+        window.localStorage.setItem("charsheet.shopItemWindow", JSON.stringify({
+          isOpen: false,
+          left: Number.isFinite(left) ? left : null,
+          top: Number.isFinite(top) ? top : null,
+        }));
+      } catch (_error) {
+        // no-op
+      }
+    });
+  }
+});
+
+document.addEventListener("DOMContentLoaded", () => {
+  const typeSelect = document.getElementById("shopItemTypeSelect");
+  const armorFields = document.getElementById("shopItemArmorFields");
+  const weaponFields = document.getElementById("shopItemWeaponFields");
+  if (!typeSelect || !armorFields || !weaponFields) {
     return;
   }
 
-  const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
-  const placePaydayWindow = (left, top) => {
-    const rect = paydayWindow.getBoundingClientRect();
-    const maxLeft = Math.max(12, window.innerWidth - rect.width - 12);
-    const maxTop = Math.max(12, window.innerHeight - rect.height - 12);
-    paydayWindow.style.left = `${clamp(left, 12, maxLeft)}px`;
-    paydayWindow.style.top = `${clamp(top, 12, maxTop)}px`;
+  const armorInput = armorFields.querySelector("input[name='armor_rs_total']");
+  const stackableRow = document.getElementById("shopItemStackableRow");
+  const stackableInput = document.getElementById("shopItemStackableInput");
+  const armorModeInputs = armorFields.querySelectorAll("input[name='armor_mode']");
+  const armorTotalFields = document.getElementById("shopArmorTotalFields");
+  const armorZoneFields = document.getElementById("shopArmorZoneFields");
+  const armorZoneInputs = armorFields.querySelectorAll(
+    "input[name='armor_rs_head'], input[name='armor_rs_torso'], input[name='armor_rs_arm_left'], input[name='armor_rs_arm_right'], input[name='armor_rs_leg_left'], input[name='armor_rs_leg_right']"
+  );
+  const weaponDamageInput = weaponFields.querySelector("input[name='weapon_damage']");
+  const weaponDamageSourceSelect = weaponFields.querySelector("select[name='weapon_damage_source']");
+  const weaponMinStInput = weaponFields.querySelector("input[name='weapon_min_st']");
+
+  const syncArmorModeFields = () => {
+    if (!armorTotalFields || !armorZoneFields) {
+      return;
+    }
+    const selectedModeInput = armorFields.querySelector("input[name='armor_mode']:checked");
+    const mode = selectedModeInput ? selectedModeInput.value : "total";
+    const totalMode = mode === "total";
+
+    armorTotalFields.hidden = !totalMode;
+    armorZoneFields.hidden = totalMode;
+    if (armorInput) {
+      armorInput.required = totalMode;
+    }
+    armorZoneInputs.forEach((input) => {
+      input.required = !totalMode;
+    });
   };
 
-  let dragPointerId = null;
-  let dragOffsetX = 0;
-  let dragOffsetY = 0;
+  const syncItemTypeFields = () => {
+    const value = String(typeSelect.value || "");
+    const isArmor = value === "armor";
+    const isWeapon = value === "weapon";
 
-  paydayTrigger.addEventListener("click", () => {
-    paydayWindow.classList.add("is-open");
-    paydayWindow.setAttribute("aria-hidden", "false");
-    const rect = paydayWindow.getBoundingClientRect();
-    const startLeft = window.innerWidth - rect.width - 176;
-    const startTop = 118;
-    placePaydayWindow(startLeft, startTop);
-  });
+    armorFields.hidden = !isArmor;
+    weaponFields.hidden = !isWeapon;
 
-  paydayWindowClose.addEventListener("click", () => {
-    paydayWindow.classList.remove("is-open");
-    paydayWindow.setAttribute("aria-hidden", "true");
-  });
-  paydayWindowClose.addEventListener("pointerdown", (event) => {
-    event.stopPropagation();
-  });
+    if (armorInput) {
+      armorInput.required = isArmor;
+    }
+    if (weaponDamageInput) {
+      weaponDamageInput.required = isWeapon;
+    }
+    if (weaponDamageSourceSelect) {
+      weaponDamageSourceSelect.required = isWeapon;
+    }
+    if (weaponMinStInput) {
+      weaponMinStInput.required = isWeapon;
+    }
 
-  paydayWindowHandle.addEventListener("pointerdown", (event) => {
-    if (event.button !== 0) {
+    if (stackableRow && stackableInput) {
+      const lockStackableOff = isArmor || isWeapon;
+      stackableRow.hidden = lockStackableOff;
+      stackableInput.disabled = lockStackableOff;
+      if (lockStackableOff) {
+        stackableInput.checked = false;
+      }
+    }
+
+    if (isArmor) {
+      syncArmorModeFields();
+    } else {
+      if (armorTotalFields) {
+        armorTotalFields.hidden = false;
+      }
+      if (armorZoneFields) {
+        armorZoneFields.hidden = true;
+      }
+      if (armorInput) {
+        armorInput.required = false;
+      }
+      armorZoneInputs.forEach((input) => {
+        input.required = false;
+      });
+    }
+  };
+
+  armorModeInputs.forEach((input) => {
+    input.addEventListener("change", syncArmorModeFields);
+  });
+  typeSelect.addEventListener("change", syncItemTypeFields);
+  syncItemTypeFields();
+});
+
+document.addEventListener("DOMContentLoaded", () => {
+  const filterInput = document.getElementById("shopFilterInput");
+  const groups = document.querySelectorAll("[data-shop-group]");
+  if (!filterInput || !groups.length) {
+    return;
+  }
+
+  const applyFilter = () => {
+    const query = (filterInput.value || "").trim().toLowerCase();
+    groups.forEach((group) => {
+      const rows = group.querySelectorAll("[data-shop-item]");
+      let hasMatch = false;
+      rows.forEach((row) => {
+        const haystack = (row.getAttribute("data-shop-search") || "").toLowerCase();
+        const isMatch = !query || haystack.includes(query);
+        row.hidden = !isMatch;
+        if (isMatch) {
+          hasMatch = true;
+        }
+      });
+      group.hidden = !hasMatch;
+      if (query && hasMatch) {
+        group.open = true;
+      }
+    });
+  };
+
+  filterInput.addEventListener("input", applyFilter);
+  applyFilter();
+});
+
+document.addEventListener("DOMContentLoaded", () => {
+  const shopList = document.querySelector(".shop_list_scroll");
+  const cartWrapper = document.querySelector(".shop_cart_wrapper");
+  const cartBody = document.getElementById("shopCartBody");
+  const subtotalEl = document.getElementById("shopCartSubtotal");
+  const finalEl = document.getElementById("shopCartFinal");
+  const balanceEl = document.getElementById("shopCartBalance");
+  const discountInput = document.getElementById("shopDiscountInput");
+  const discountDecBtn = document.getElementById("shopDiscountDec");
+  const discountIncBtn = document.getElementById("shopDiscountInc");
+  const buyBtn = document.getElementById("shopBuyBtn");
+  if (
+    !shopList || !cartWrapper || !cartBody || !subtotalEl || !finalEl || !balanceEl ||
+    !discountInput || !discountDecBtn || !discountIncBtn || !buyBtn
+  ) {
+    return;
+  }
+
+  const baseBalance = Number.parseInt(cartWrapper.getAttribute("data-shop-balance") || "0", 10) || 0;
+  const buyUrl = String(cartWrapper.getAttribute("data-buy-url") || "");
+  const cart = new Map();
+
+  const readInt = (value, fallback = 0) => {
+    const parsed = Number.parseInt(String(value ?? "").trim(), 10);
+    return Number.isNaN(parsed) ? fallback : parsed;
+  };
+  const fmtNumber = (value) => Number(value || 0).toLocaleString("de-DE");
+  const fmtKs = (value) => `${fmtNumber(value)} KS`;
+  const getCsrfToken = () => {
+    const cookie = document.cookie
+      .split(";")
+      .map((part) => part.trim())
+      .find((part) => part.startsWith("csrftoken="));
+    return cookie ? decodeURIComponent(cookie.split("=")[1]) : "";
+  };
+
+  const render = () => {
+    let subtotal = 0;
+    const rows = [];
+    cart.forEach((entry) => {
+      const lineTotal = entry.price * entry.qty;
+      subtotal += lineTotal;
+      rows.push(`
+        <tr data-cart-id="${entry.id}">
+          <td>${entry.name}</td>
+          <td>
+            <div class="shop_qty_stepper">
+              <button type="button" class="shop_step_btn" data-cart-qty-dec aria-label="Menge verringern">-</button>
+              <input type="text" class="shop_cart_qty_input" value="${entry.qty}" data-cart-qty inputmode="numeric" aria-label="Menge">
+              <button type="button" class="shop_step_btn" data-cart-qty-inc aria-label="Menge erhöhen">+</button>
+            </div>
+          </td>
+          <td>${fmtKs(entry.price)}</td>
+          <td>${fmtKs(lineTotal)}</td>
+          <td><button type="button" class="shop_cart_remove_btn" data-cart-remove>×</button></td>
+        </tr>
+      `);
+    });
+
+    cartBody.innerHTML = rows.length
+      ? rows.join("")
+      : '<tr class="shop_cart_empty_row"><td colspan="5">Noch keine Items ausgewählt.</td></tr>';
+
+    const discountPercent = Math.min(100, Math.max(0, readInt(discountInput.value, 0)));
+    if (readInt(discountInput.value, 0) !== discountPercent) {
+      discountInput.value = String(discountPercent);
+    }
+    const finalPrice = Math.max(0, Math.round(subtotal * (100 - discountPercent) / 100));
+    const simulatedBalance = baseBalance - finalPrice;
+
+    subtotalEl.textContent = fmtKs(subtotal);
+    finalEl.textContent = fmtKs(finalPrice);
+    balanceEl.textContent = fmtKs(simulatedBalance);
+    balanceEl.classList.toggle("is-negative", simulatedBalance < 0);
+  };
+
+  shopList.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) {
       return;
     }
-    const rect = paydayWindow.getBoundingClientRect();
-    dragPointerId = event.pointerId;
-    dragOffsetX = event.clientX - rect.left;
-    dragOffsetY = event.clientY - rect.top;
-    paydayWindowHandle.setPointerCapture(event.pointerId);
-    paydayWindow.classList.add("is-dragging");
-  });
-
-  paydayWindowHandle.addEventListener("pointermove", (event) => {
-    if (dragPointerId !== event.pointerId) {
+    if (!target.classList.contains("shop_pick_btn")) {
       return;
     }
-    placePaydayWindow(event.clientX - dragOffsetX, event.clientY - dragOffsetY);
-  });
 
-  const stopDragging = (event) => {
-    if (dragPointerId !== event.pointerId) {
+    const row = target.closest("[data-shop-item]");
+    if (!(row instanceof HTMLElement)) {
       return;
     }
-    paydayWindow.classList.remove("is-dragging");
+    const id = row.getAttribute("data-shop-id") || "";
+    const name = row.getAttribute("data-shop-name") || "";
+    const price = readInt(row.getAttribute("data-shop-price"), 0);
+    if (!id || !name || price < 0) {
+      return;
+    }
+
+    const existing = cart.get(id);
+    if (existing) {
+      existing.qty += 1;
+    } else {
+      cart.set(id, { id, name, price, qty: 1 });
+    }
+    render();
+  });
+
+  cartBody.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) {
+      return;
+    }
+    if (target.hasAttribute("data-cart-qty-dec") || target.hasAttribute("data-cart-qty-inc")) {
+      const row = target.closest("[data-cart-id]");
+      if (!(row instanceof HTMLElement)) {
+        return;
+      }
+      const id = row.getAttribute("data-cart-id") || "";
+      const entry = cart.get(id);
+      if (!entry) {
+        return;
+      }
+      const delta = target.hasAttribute("data-cart-qty-inc") ? 1 : -1;
+      entry.qty = Math.max(1, entry.qty + delta);
+      render();
+      return;
+    }
+    if (!target.hasAttribute("data-cart-remove")) {
+      return;
+    }
+    const row = target.closest("[data-cart-id]");
+    if (!(row instanceof HTMLElement)) {
+      return;
+    }
+    const id = row.getAttribute("data-cart-id") || "";
+    if (!id) {
+      return;
+    }
+    cart.delete(id);
+    render();
+  });
+
+  cartBody.addEventListener("input", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLInputElement) || !target.hasAttribute("data-cart-qty")) {
+      return;
+    }
+    const row = target.closest("[data-cart-id]");
+    if (!(row instanceof HTMLElement)) {
+      return;
+    }
+    const id = row.getAttribute("data-cart-id") || "";
+    const entry = cart.get(id);
+    if (!entry) {
+      return;
+    }
+    entry.qty = Math.max(1, readInt(target.value, 1));
+    render();
+  });
+
+  discountInput.addEventListener("input", render);
+  discountDecBtn.addEventListener("click", () => {
+    discountInput.value = String(Math.max(0, readInt(discountInput.value, 0) - 5));
+    render();
+  });
+  discountIncBtn.addEventListener("click", () => {
+    discountInput.value = String(Math.min(100, readInt(discountInput.value, 0) + 5));
+    render();
+  });
+
+  buyBtn.addEventListener("click", async () => {
+    if (!buyUrl || !cart.size) {
+      return;
+    }
+    const items = Array.from(cart.values()).map((entry) => ({
+      id: entry.id,
+      qty: entry.qty,
+    }));
+    const payload = {
+      items,
+      discount: readInt(discountInput.value, 0),
+    };
+
     try {
-      paydayWindowHandle.releasePointerCapture(event.pointerId);
+      const response = await fetch(buyUrl, {
+        method: "POST",
+        credentials: "same-origin",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRFToken": getCsrfToken(),
+          Accept: "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+      const data = await response.json();
+      if (data && data.ok) {
+        const shopWindow = document.getElementById("shopWindow");
+        if (shopWindow) {
+          shopWindow.classList.remove("is-open");
+          shopWindow.setAttribute("aria-hidden", "true");
+          try {
+            const left = Number.parseFloat(shopWindow.style.left || "");
+            const top = Number.parseFloat(shopWindow.style.top || "");
+            window.localStorage.setItem("charsheet.shopWindow", JSON.stringify({
+              isOpen: false,
+              left: Number.isFinite(left) ? left : null,
+              top: Number.isFinite(top) ? top : null,
+            }));
+          } catch (_error) {
+            // no-op
+          }
+        }
+        window.location.reload();
+        return;
+      }
+      if (data && data.error === "insufficient_funds") {
+        balanceEl.classList.remove("is-fail-flash");
+        void balanceEl.offsetWidth;
+        balanceEl.classList.add("is-fail-flash");
+      }
     } catch (_error) {
-      // no-op
+      // no-op for now
     }
-    dragPointerId = null;
-  };
-  paydayWindowHandle.addEventListener("pointerup", stopDragging);
-  paydayWindowHandle.addEventListener("pointercancel", stopDragging);
+  });
+  render();
 });
 
 document.addEventListener("DOMContentLoaded", () => {

@@ -119,11 +119,11 @@
             <div class="exp_rows" aria-label="Erfahrungspunkte">
               <div class="exp_row">
                 <span class="exp_label">Gesamt</span>
-                <span class="exp_value"></span>
+                <span class="exp_value">{{ character.overall_experience }}</span>
               </div>
               <div class="exp_row">
                 <span class="exp_label">Aktuell</span>
-                <span class="exp_value"></span>
+                <span class="exp_value">{{ character.current_experience }}</span>
               </div>
             </div>
           </div>
@@ -318,16 +318,17 @@
               <div class="wallet_rows" aria-label="Münzwerte">
                 <div class="wallet_row">
                   <span class="wallet_value">{{ wallet_gold }}</span>
-                  <span class="wallet_coin wallet_coin--gold js-wallet-coin" aria-hidden="true"></span>
+                  <span class="wallet_coin wallet_coin--gold" aria-hidden="true"></span>
                 </div>
                 <div class="wallet_row">
                   <span class="wallet_value">{{ wallet_silver }}</span>
-                  <span class="wallet_coin wallet_coin--silver js-wallet-coin" aria-hidden="true"></span>
+                  <span class="wallet_coin wallet_coin--silver" aria-hidden="true"></span>
                 </div>
                 <div class="wallet_row">
                   <span class="wallet_value">{{ wallet_copper }}</span>
-                  <span class="wallet_coin wallet_coin--copper js-wallet-coin" aria-hidden="true"></span>
+                  <span class="wallet_coin wallet_coin--copper" aria-hidden="true"></span>
                 </div>
+                <div class="wallet_rows_hover_hitbox js-wallet-coin" aria-hidden="true"></div>
               </div>
             </div>
 
@@ -338,9 +339,16 @@
               <div class="panel_scroll inventory_scroll">
                 <ul class="p2_lines">
                   {% for item in inventory_items %}
-                    <li class="inv_row tooltip_target" data-tooltip-side="right" data-tooltip="{{ item.item.description|default:'Keine Beschreibung' }}">
-                      <span class="inv_name">{{ item.item.name }}{% if item.amount > 1 %} ({{ item.amount }}){% endif %}</span>
-                      {% if item.item.item_type == "armor" or item.item.item_type == "weapon" %}
+                    <li class="inv_row tooltip_target{% if item.equipped %} is-equipped{% endif %}" data-tooltip-side="right" data-tooltip="{{ item.item.description|default:'Keine Beschreibung' }}">
+                      <span class="inv_name">{% if item.item.stackable %}{{ item.amount }}x {% endif %}{{ item.item.name }}</span>
+                      {% if item.item.stackable %}
+                        <form method="post" action="{% url 'consume_item' item.pk %}" class="equip_form">
+                          {% csrf_token %}
+                          <button type="submit" class="equip_toggle" title="Verbrauchen">
+                            C
+                          </button>
+                        </form>
+                      {% elif item.item.item_type == "armor" or item.item.item_type == "weapon" %}
                         <form method="post" action="{% url 'toggle_equip' item.pk %}" class="equip_form">
                           {% csrf_token %}
                           <button type="submit" class="equip_toggle{% if item.equipped %} is-equipped{% endif %}" title="{% if item.equipped %}Ablegen{% else %}Anlegen{% endif %}">
@@ -360,7 +368,13 @@
               <h2>Rüstung</h2>
               <ul class="armor_worn">
                 {% for armor in equipped_armor %}
-                  <li>{{ armor.item.name }}</li>
+                  <li class="armor_row">
+                    <span>{{ armor.item.name }}</span>
+                    <form method="post" action="{% url 'toggle_equip' armor.pk %}" class="equip_form">
+                      {% csrf_token %}
+                      <button type="submit" class="equip_toggle is-equipped" title="Ablegen">-</button>
+                    </form>
+                  </li>
                 {% empty %}
                   <li></li>
                 {% endfor %}
@@ -488,7 +502,7 @@
                             <span class="weapon_name">{{ row.item.name }}</span>
                           </div>
                         </td>
-                        <td>{{ row.stats.damage|default:"-" }}</td>
+                        <td class="weapon_damage">{{ row.stats.damage|default:"-" }}</td>
                         <td>-</td>
                         <td>{{ row.stats.min_st|default:"-" }}</td>
                         <td>-</td>
@@ -575,6 +589,250 @@
           <button type="submit" class="wallet_apply_btn">Anwenden</button>
         </form>
       </div>
+    </section>
+    <section class="payday-window" id="xpWindow" aria-hidden="true">
+      <div class="payday-window__titlebar" id="xpWindowHandle">
+        <h3 class="payday-window__title">Erfahrung</h3>
+        <button type="button" class="payday-window__close" id="xpWindowClose" aria-label="Erfahrung schließen">x</button>
+      </div>
+      <div class="payday-window__body">
+        <form method="post" action="{% url 'adjust_experience' character.id %}" class="wallet_adjust_form wallet_adjust_form--popup">
+          {% csrf_token %}
+          <input
+            type="number"
+            name="delta"
+            class="wallet_delta_input"
+            step="1"
+            value="0"
+            placeholder="+ / -"
+            aria-label="Erfahrungsänderung positiv oder negativ"
+          >
+          <span class="wallet_unit">EP</span>
+          <button type="submit" class="wallet_apply_btn">Anwenden</button>
+        </form>
+      </div>
+    </section>
+    <section class="payday-window payday-window--large" id="shopWindow" aria-hidden="true">
+      <div class="payday-window__titlebar" id="shopWindowHandle">
+        <h3 class="payday-window__title">Shop</h3>
+        <button type="button" class="payday-window__close" id="shopWindowClose" aria-label="Shop schließen">x</button>
+      </div>
+      <div class="payday-window__body shop-window__body">
+        <div class="shop_window_layout">
+          <div class="shop_panel">
+            <div class="shop_panel_header">
+              <h2>Kaufbare Items</h2>
+            </div>
+            <div class="shop_toolbar">
+              <input
+                type="text"
+                id="shopFilterInput"
+                class="shop_filter_input"
+                placeholder="Item suchen..."
+                aria-label="Shop-Items filtern"
+              >
+              <button
+                type="button"
+                id="shopAddItemBtn"
+                class="shop_add_btn"
+                title="Neues Item anlegen (folgt)"
+                aria-label="Neues Item anlegen (folgt)"
+              >
+                +
+              </button>
+            </div>
+            <div class="shop_list_scroll" aria-label="Kaufbare Items">
+              {% for group in shop_item_groups %}
+              <details class="shop_group" data-shop-group>
+                  <summary>
+                    <span>{{ group.label }}</span>
+                    <span class="shop_group_count">{{ group.items|length }}</span>
+                  </summary>
+                  <table class="shop_table">
+                    <tbody>
+                      {% for item in group.items %}
+                        <tr
+                          data-shop-item
+                          data-shop-search="{{ item.name|lower }} {{ group.label|lower }} {{ item.description|default:''|lower }}"
+                          data-shop-id="{{ item.id }}"
+                          data-shop-name="{{ item.name|escape }}"
+                          data-shop-price="{{ item.price }}"
+                        >
+                          <td class="shop_item_name">{{ item.name }}</td>
+                          <td class="shop_item_price">{{ item.price }} KS</td>
+                          <td class="shop_item_action">
+                            <button type="button" class="shop_pick_btn" title="Zum Warenkorb">+</button>
+                          </td>
+                        </tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                </details>
+              {% empty %}
+                <p class="shop_empty">Keine kaufbaren Items vorhanden.</p>
+              {% endfor %}
+            </div>
+          </div>
+          <div class="shop_panel">
+            <div class="shop_panel_header">
+              <h2>Warenkorb</h2>
+            </div>
+            <div class="shop_cart_wrapper" data-shop-balance="{{ character.money }}" data-buy-url="{% url 'buy_shop_cart' character.id %}">
+              <div class="shop_cart_scroll">
+                <table class="shop_cart_table">
+                  <thead>
+                    <tr>
+                      <th>Item</th>
+                      <th>Menge</th>
+                      <th>Einzel</th>
+                      <th>Summe</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody id="shopCartBody">
+                    <tr class="shop_cart_empty_row">
+                      <td colspan="5">Noch keine Items ausgewählt.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="shop_cart_totals">
+                <div class="shop_cart_total_row">
+                  <span>Gesamtpreis</span>
+                  <span id="shopCartSubtotal">0 KS</span>
+                </div>
+                <div class="shop_cart_total_row shop_cart_discount_row">
+                  <label for="shopDiscountInput">Rabatt</label>
+                  <div class="shop_discount_input_wrap">
+                    <button type="button" class="shop_step_btn" id="shopDiscountDec" aria-label="Rabatt verringern">-</button>
+                    <input type="text" id="shopDiscountInput" inputmode="numeric" value="0" aria-label="Rabatt in Prozent">
+                    <button type="button" class="shop_step_btn" id="shopDiscountInc" aria-label="Rabatt erhöhen">+</button>
+                    <span>%</span>
+                  </div>
+                </div>
+                <div class="shop_cart_total_row">
+                  <span>Endpreis</span>
+                  <span id="shopCartFinal">0 KS</span>
+                </div>
+                <div class="shop_cart_total_row">
+                  <span>Kontostand (simuliert)</span>
+                  <span id="shopCartBalance">{{ character.money }} KS</span>
+                </div>
+                <div class="shop_cart_actions">
+                  <button type="button" id="shopBuyBtn" class="shop_buy_btn">Kaufen</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+    <section class="payday-window payday-window--item-create" id="shopItemWindow" aria-hidden="true">
+      <div class="payday-window__titlebar" id="shopItemWindowHandle">
+        <h3 class="payday-window__title">Neues Item anlegen</h3>
+        <button type="button" class="payday-window__close" id="shopItemWindowClose" aria-label="Item-Fenster schließen">x</button>
+      </div>
+      <div class="payday-window__body">
+        <form method="post" action="{% url 'create_shop_item' character.id %}" class="shop_item_form">
+          {% csrf_token %}
+          <label class="shop_item_form_row">
+            <span>Name</span>
+            <input type="text" name="name" required maxlength="200">
+          </label>
+          <label class="shop_item_form_row">
+            <span>Preis (KS)</span>
+            <input type="number" name="price" min="0" step="1" value="0" required>
+          </label>
+          <label class="shop_item_form_row">
+            <span>Kategorie</span>
+            <select name="item_type" id="shopItemTypeSelect" required>
+              {% for key, label in shop_item_form_type_choices %}
+                <option value="{{ key }}"{% if key == "misc" %} selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <div class="shop_item_form_conditional" id="shopItemArmorFields" hidden>
+            <div class="shop_item_form_row">
+              <span>Rüstungsmodus</span>
+              <div class="shop_item_form_radio_row">
+                <label><input type="radio" name="armor_mode" value="total" checked> Gesamt</label>
+                <label><input type="radio" name="armor_mode" value="zones"> Zonen</label>
+              </div>
+            </div>
+            <div id="shopArmorTotalFields">
+              <label class="shop_item_form_row">
+                <span>Rüstungsschutz gesamt (RS)</span>
+                <input type="number" name="armor_rs_total" min="1" step="1" value="1">
+              </label>
+            </div>
+            <div id="shopArmorZoneFields" hidden>
+              <div class="shop_item_form_grid">
+                <label class="shop_item_form_row">
+                  <span>RS Kopf</span>
+                  <input type="number" name="armor_rs_head" min="0" step="1" value="0">
+                </label>
+                <label class="shop_item_form_row">
+                  <span>RS Torso</span>
+                  <input type="number" name="armor_rs_torso" min="0" step="1" value="0">
+                </label>
+                <label class="shop_item_form_row">
+                  <span>RS Arm links</span>
+                  <input type="number" name="armor_rs_arm_left" min="0" step="1" value="0">
+                </label>
+                <label class="shop_item_form_row">
+                  <span>RS Arm rechts</span>
+                  <input type="number" name="armor_rs_arm_right" min="0" step="1" value="0">
+                </label>
+                <label class="shop_item_form_row">
+                  <span>RS Bein links</span>
+                  <input type="number" name="armor_rs_leg_left" min="0" step="1" value="0">
+                </label>
+                <label class="shop_item_form_row">
+                  <span>RS Bein rechts</span>
+                  <input type="number" name="armor_rs_leg_right" min="0" step="1" value="0">
+                </label>
+              </div>
+            </div>
+          </div>
+          <div class="shop_item_form_conditional" id="shopItemWeaponFields" hidden>
+            <label class="shop_item_form_row">
+              <span>Schaden</span>
+              <input type="text" name="weapon_damage" maxlength="20" placeholder="z. B. 1W6+2">
+            </label>
+            <label class="shop_item_form_row">
+              <span>Schadensquelle</span>
+              <select name="weapon_damage_source">
+                {% for ds in shop_damage_sources %}
+                  <option value="{{ ds.id }}">{{ ds.name }}</option>
+                {% endfor %}
+              </select>
+            </label>
+            <label class="shop_item_form_row">
+              <span>Min. Stärke</span>
+              <input type="number" name="weapon_min_st" min="1" step="1" value="1">
+            </label>
+          </div>
+          <label class="shop_item_form_row">
+            <span>Beschreibung</span>
+            <textarea name="description" rows="4" maxlength="1000"></textarea>
+          </label>
+          <label class="shop_item_form_check" id="shopItemStackableRow">
+            <input type="checkbox" name="stackable" id="shopItemStackableInput" checked>
+            <span>Stackbar</span>
+          </label>
+          <div class="shop_item_form_actions">
+            <button type="button" id="shopItemCancelBtn" class="shop_item_cancel_btn">Abbrechen</button>
+            <button type="submit" class="shop_item_save_btn">Speichern</button>
+          </div>
+        </form>
+      </div>
+    </section>
+    <section class="payday-window payday-window--large" id="learnWindow" aria-hidden="true">
+      <div class="payday-window__titlebar" id="learnWindowHandle">
+        <h3 class="payday-window__title">Lernmenü</h3>
+        <button type="button" class="payday-window__close" id="learnWindowClose" aria-label="Lernmenü schließen">x</button>
+      </div>
+      <div class="payday-window__body"></div>
     </section>
 
     <div aria-hidden="true" class="firefly-layer">

@@ -3,9 +3,18 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING, TypedDict
 from django.db.models import QuerySet
+from charsheet.constants import (
+    ATTR_GE, ATTR_WILL, ATTR_KON, 
+    ATTR_INT, ATTR_ST, ATTR_WA,
+    INITIATIVE, ARCANE_POWER,
+    WOUND_PENALTY_IGNORE, WOUND_STAGE,
+    DEFENSE_GW, DEFENSE_SR, DEFENSE_VW,
+    ARMOR_PENALTY_IGNORE
+)
 from charsheet.models import (
     Modifier, CharacterItem, Item, CharacterTrait,
-    CharacterSchool, Technique, Trait
+    CharacterSchool, Technique, Trait,
+    CharacterCreationDraft
     )
 
 
@@ -280,7 +289,6 @@ class CharacterEngine:
         
         return sum(modifier)
 
-
     def skill_total(self, skill_slug: str) -> int:
         """Calculate final skill total as base plus external modifiers.
 
@@ -320,7 +328,7 @@ class CharacterEngine:
     
             for rule in rules:
                 result.append({
-                    "school_slug": cs.school.slug,
+                    "school_name": cs.school.name,
                     "school_level": level,
                     "rule": rule,
                 })
@@ -333,8 +341,8 @@ class CharacterEngine:
         Returns:
             int: ``DEX modifier + all stat modifiers for 'initiative'``.
         """
-        ge_mod = self.attribute_modifier("GE")
-        misc =  self._resolve_modifiers('initiative')
+        ge_mod = self.attribute_modifier(ATTR_GE)
+        misc =  self._resolve_modifiers(INITIATIVE)
         misc += self.current_wound_penalty()
         
         return ge_mod + misc
@@ -348,12 +356,12 @@ class CharacterEngine:
         Returns:
             int: Arcane power total.
         """
-        willpower = self.attributes().get("WILL", 0)
+        willpower = self.attributes().get(ATTR_WILL, 0)
         school_levels = sum(cs.level for cs 
                             in self.character.schools
                             .select_related("school__type").all()
                             )
-        misc = self._resolve_modifiers("arcane_power")
+        misc = self._resolve_modifiers(ARCANE_POWER)
 
         return willpower + school_levels + misc
     
@@ -363,7 +371,7 @@ class CharacterEngine:
         Returns:
             int: Integer floor of ``WILL / 2``.
         """
-        willpower = self.attributes().get("WILL", 0)
+        willpower = self.attributes().get(ATTR_WILL, 0)
         return willpower // 2
     
     def wound_thresholds(self) -> dict[int, tuple[str, int]]:
@@ -373,8 +381,8 @@ class CharacterEngine:
             dict[int, tuple[str, int]]: Mapping of threshold value to
             ``(stage_name, penalty)``.
         """
-        constitution: int = self.attributes().get("KON", 0)
-        additional_stages = self._resolve_modifiers("wound_stage")
+        constitution: int = self.attributes().get(ATTR_KON, 0)
+        additional_stages = self._resolve_modifiers(WOUND_STAGE)
         amount_threshold: int = 6 + additional_stages
         
         stage_numbers = [n*constitution for n in range(1, amount_threshold + 1)]
@@ -411,15 +419,15 @@ class CharacterEngine:
     
     def vw(self) -> int:
         """Calculate VW defense value."""
-        return self.calculate_defense("GE", "WA", "vw")
+        return self.calculate_defense(ATTR_GE, ATTR_WA, DEFENSE_VW)
     
     def gw(self) -> int:
         """Calculate GW defense value."""
-        return self.calculate_defense("INT", "WILL", "gw")
+        return self.calculate_defense(ATTR_INT, ATTR_WILL, DEFENSE_GW)
     
     def sr(self) -> int:
         """Calculate SR defense value."""
-        return self.calculate_defense("ST", "KON", "sr")
+        return self.calculate_defense(ATTR_ST, ATTR_KON, DEFENSE_SR)
 
     def current_wound_stage(self) -> tuple[str, int | None]:
         """Return current wound stage label and its penalty.
@@ -470,7 +478,7 @@ class CharacterEngine:
 
     def is_wound_penalty_ignored(self) -> bool:
         """Return whether wound penalties are currently ignored."""
-        return bool(self._resolve_modifiers("wound_penalty_ignore"))
+        return bool(self._resolve_modifiers(WOUND_PENALTY_IGNORE))
 
     def equipped_armor_items(self) -> QuerySet:
         """Return equipped armor inventory rows for a given character."""
@@ -499,11 +507,10 @@ class CharacterEngine:
         
         return total + (zone_sum // 6)
     
-
     def get_bel(self) -> int:
         """Calculate armor burden, honoring armor-penalty ignore effects."""
 
-        if self._resolve_modifiers("armor_penalty_ignore"):
+        if self._resolve_modifiers(ARMOR_PENALTY_IGNORE):
             return 0
         return self.get_grs() // 3
 
@@ -523,3 +530,150 @@ class CharacterEngine:
         km = player_km % 10
         
         return gm, sm, km
+
+class CharacterCreationEngine:
+    def __init__(self, draft: CharacterCreationDraft):
+        self.draft = draft
+        self.race = draft.race
+        self.state = draft.state
+    
+    def get_phase(self, phase: str) -> dict:
+        return self.state.get(phase, {})
+    
+    # Phase 1
+    def phase_1_attributes(self) -> dict:
+        return self.get_phase("phase_1").get("attributes", {})
+    
+    def calc_attribute_cost(
+        self, target_level: int, max_value: int
+        ) -> int:
+        
+        threshold = max_value - 2
+        
+        if target_level <= threshold:
+            return target_level
+        
+        cost = threshold
+        for _ in range(threshold +1 , target_level +1):
+            cost += 2
+        
+        return cost
+       
+    def attribute_min_max_limits(self) -> dict[str, dict[str, int]]:
+        return {
+            limit.attribute.short_name: {
+                "min": limit.min_value,
+                "max": limit.max_value,
+            }
+            for limit in self.race.raceattributelimit_set.select_related("attribute").all()
+        }
+        
+    def is_phase_1_attribute_in_range(self) -> bool:
+        attrs = self.phase_1_attributes()
+        limits = self.attribute_min_max_limits()
+        
+        for name, value in attrs.items():
+            min_val = limits[name]["min"]
+            max_val = limits[name]["max"]
+            
+            if value < min_val:
+                return False
+            
+            if value > max_val:
+                return False
+        
+        return True
+    
+    def sum_phase_1_attribute_costs(self) -> int:
+        attrs = self.phase_1_attributes()
+        limits = self.attribute_min_max_limits()
+        
+        return sum(
+            self.calc_attribute_cost(value, limits[name][max])
+            for name, value in attrs.items()
+        )
+    
+    def validate_phase_1(self) -> bool:
+        return (
+            self.is_phase_1_attribute_in_range()
+            and self.sum_phase_1_attribute_costs() == self.race.phase_1_points
+            )
+        
+    # Phase 2
+    def phase_2_skills(self) -> dict:
+        phase = self.get_phase("phase_2")
+        return phase.get("skills", {})
+    
+    def calc_skill_cost(self, target_level: int) -> int:
+        if target_level <= 5:
+            return target_level
+        cost = 5
+        for _ in range(6, target_level +1):
+            cost += 2
+
+        return cost
+
+    def sum_phase_2_skill_cost(self) -> int:
+        skills = self.phase_2_skills()
+        
+        return sum(
+            self.calc_skill_cost(level)
+            for level in skills.values()
+        )
+        
+    def phase_2_languages(self) -> dict:
+        phase = self.get_phase("phase_2")
+        return phase.get("languages", {})
+    
+    def calc_language_cost(
+        self, level: int, write: bool, mother: bool
+        ) -> int:
+        if mother:
+            cost = 0
+        else:
+            cost = level
+        
+        if write:
+            cost += 1
+        
+        return cost
+    
+    def sum_phase_2_language_cost(self) -> int:
+        languages = self.phase_2_languages()
+        
+        return sum(
+            self.calc_language_cost(
+                lang["level"],
+                lang.get("write", False),
+                lang.get("mother", False),
+            )
+            for lang in languages.values()
+        )
+    
+    def validate_phase_2(self) -> bool:
+        total = self.sum_phase_2_skill_cost + self.sum_phase_2_language_cost
+        return total == self.race.phase_2_points
+    
+    # Phase 3
+    def phase_3_disadvantages(self) -> dict:
+        phase = self.get_phase("phase_3")
+        return phase.get("disadvantages", {})
+
+    def calc_disadvantage_cost(self, slug: str, level: int) -> int:
+        trait = Trait.objects.get(slug=slug)
+        return level * trait.points_per_level
+    
+    def sum_phase_3_disadvantage_cost(self) -> int:
+        disadvantages = self.phase_3_disadvantages()
+        
+        return sum(
+            self.calc_disadvantage_cost(slug, level)
+            for slug, level in disadvantages.items()
+        )
+    
+    def validate_phase_3(self) -> bool:
+        return self.sum_phase_3_disadvantage_cost <= self.race.phase_3_points
+    
+    # Phase 4
+    def phase_4(self) -> dict:
+        return self.get_phase("phase_4")
