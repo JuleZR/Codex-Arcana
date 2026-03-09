@@ -1,0 +1,51 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{% static 'css/login.css' %}">
+    <title>Codex Arcana - Login</title>
+  </head>
+  <body>
+    <div class="login_scene">
+      <img class="login_graphic" src="{% static 'img/codexarcana.png' %}" alt="Codex Arcana">
+      <section class="login_box" aria-label="Login">
+        <h1>Anmeldung</h1>
+        <form method="post" class="login_form">
+          {% csrf_token %}
+          {% if form.non_field_errors %}
+            <div class="login_errors">
+              Benutzername oder Passwort ist nicht korrekt. Bitte prüfe deine Eingabe.
+            </div>
+          {% endif %}
+
+          <label class="login_label" for="id_username">Benutzername</label>
+          {{ form.username }}
+          {% if form.username.errors %}
+            <div class="field_error">{{ form.username.errors }}</div>
+          {% endif %}
+
+          <label class="login_label" for="id_password">Passwort</label>
+          {{ form.password }}
+          {% if form.password.errors %}
+            <div class="field_error">{{ form.password.errors }}</div>
+          {% endif %}
+
+          {% if next %}
+            <input type="hidden" name="next" value="{{ next }}">
+          {% endif %}
+
+          <button class="login_btn" type="submit">Login</button>
+        </form>
+        <section class="register">
+          Noch kein Konto? Bitte kontaktiere den Betreiber.
+        </section>
+      </section>
+    </div>
+    <!-- Firefly -->
+    <div aria-hidden="true" class="firefly-layer">
+      {% for _ in '123456789012345' %}<div class="firefly"></div>{% endfor %}
+    </div>
+  </body>
+</html>

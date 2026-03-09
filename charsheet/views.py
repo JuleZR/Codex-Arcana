@@ -1,11 +1,14 @@
 from __future__ import annotations
 import json
 from itertools import groupby
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST
 from django.db import transaction
+from django.db.models import Sum
 from .models import (
     Character,
     CharacterItem,
@@ -17,6 +20,7 @@ from .models import (
     WeaponStats,
     DamageSource,
 )
+from .forms import CharacterCreateForm
 
 
 ATTRIBUTE_ORDER = [
@@ -28,6 +32,20 @@ ATTRIBUTE_ORDER = [
     ("WILL", "Willenskraft (Will)"),
     ("CHA", "Charisma (Cha)"),
 ]
+
+
+def _legal_context() -> dict:
+    """Return legal page context from deployment-specific settings."""
+    legal = dict(getattr(settings, "LEGAL_INFO", {}) or {})
+    missing_required = not all(
+        [
+            (legal.get("operator_name") or "").strip(),
+            (legal.get("address") or "").strip(),
+            (legal.get("email") or "").strip(),
+        ]
+    )
+    legal["missing_required"] = missing_required
+    return {"legal": legal}
 
 
 def _format_modifier(value: int) -> str:
@@ -42,12 +60,28 @@ def _format_thousands(value: int) -> str:
     return f"{value:,}".replace(",", ".")
 
 
-def character_sheet(request, character_id: int):
-    """Render the complete character sheet view for one character."""
-    character = get_object_or_404(
+def _owned_character_or_404(request, character_id: int) -> Character:
+    """Return one character that belongs to the current authenticated user."""
+    return get_object_or_404(
         Character.objects.select_related("race", "owner"),
         pk=character_id,
+        owner=request.user,
     )
+
+
+def _owned_character_item_or_404(request, pk: int) -> CharacterItem:
+    """Return one inventory row whose character belongs to the current user."""
+    return get_object_or_404(
+        CharacterItem.objects.select_related("item", "owner"),
+        pk=pk,
+        owner__owner=request.user,
+    )
+
+
+@login_required
+def character_sheet(request, character_id: int):
+    """Render the complete character sheet view for one character."""
+    character = _owned_character_or_404(request, character_id)
 
     engine = character.engine
 
@@ -261,17 +295,62 @@ def character_sheet(request, character_id: int):
 
     return render(request, "charsheet/charsheet.html", context)
 
+@login_required
 def sheet(request):
     """Render the static character sheet template."""
     return render(request, "charsheet/charsheet.html")
 
+
+@login_required
+def dashboard(request):
+    """Render the user-specific dashboard with owned character overview."""
+    characters_qs = (
+        Character.objects
+        .filter(owner=request.user)
+        .select_related("race")
+        .order_by("name")
+    )
+    characters = list(characters_qs)
+    totals = characters_qs.aggregate(
+        total_money=Sum("money"),
+        total_current_experience=Sum("current_experience"),
+    )
+    context = {
+        "characters": characters,
+        "character_count": len(characters),
+        "total_money": totals.get("total_money") or 0,
+        "equipped_item_count": CharacterItem.objects.filter(
+            owner__owner=request.user,
+            equipped=True,
+        ).count(),
+    }
+    return render(request, "charsheet/dashboard.html", context)
+
+
+@login_required
+def create_character(request):
+    """Create a minimal character owned by the current user."""
+    if request.method == "POST":
+        form = CharacterCreateForm(request.POST)
+        if form.is_valid():
+            name = (form.cleaned_data.get("name") or "").strip()
+            if Character.objects.filter(owner=request.user, name=name).exists():
+                form.add_error("name", "Du hast bereits einen Charakter mit diesem Namen.")
+            else:
+                character = form.save(commit=False)
+                character.owner = request.user
+                character.save()
+                return redirect("character_sheet", character_id=character.id)
+    else:
+        form = CharacterCreateForm()
+
+    return render(request, "charsheet/create_character.html", {"form": form})
+
+@login_required
 @require_POST
 def toggle_equip(request, pk):
     """Toggle equipped state for one armor or weapon inventory entry."""
-    ci = get_object_or_404(
-        CharacterItem.objects.select_related("item"),
-        pk=pk,
-    )
+    ci = _owned_character_item_or_404(request, pk)
 
     if ci.item.item_type not in ("armor", "weapon"):
         return redirect("character_sheet", character_id=ci.owner_id)
@@ -282,13 +361,11 @@ def toggle_equip(request, pk):
     return redirect("character_sheet", character_id=ci.owner_id)
 
 
+@login_required
 @require_POST
 def consume_item(request, pk):
     """Consume one unit from a stackable inventory item."""
-    ci = get_object_or_404(
-        CharacterItem.objects.select_related("item"),
-        pk=pk,
-    )
+    ci = _owned_character_item_or_404(request, pk)
 
     owner_id = ci.owner_id
     if not ci.item.stackable:
@@ -303,10 +380,11 @@ def consume_item(request, pk):
     return redirect("character_sheet", character_id=owner_id)
 
 
+@login_required
 @require_POST
 def adjust_current_damage(request, character_id: int):
     """Increase or decrease current damage and return updated damage state."""
-    character = get_object_or_404(Character, pk=character_id)
+    character = _owned_character_or_404(request, character_id)
     action = request.POST.get("action")
     try:
         amount = max(1, int(request.POST.get("amount", "1")))
@@ -348,10 +426,11 @@ def adjust_current_damage(request, character_id: int):
     return redirect("character_sheet", character_id=character_id)
 
 
+@login_required
 @require_POST
 def adjust_money(request, character_id: int):
     """Apply a signed money delta while keeping balance non-negative."""
-    character = get_object_or_404(Character, pk=character_id)
+    character = _owned_character_or_404(request, character_id)
     try:
         delta = int(request.POST.get("delta", "0"))
     except (TypeError, ValueError):
@@ -364,10 +443,11 @@ def adjust_money(request, character_id: int):
     return redirect("character_sheet", character_id=character_id)
 
 
+@login_required
 @require_POST
 def adjust_experience(request, character_id: int):
     """Apply an experience delta to current and overall experience."""
-    character = get_object_or_404(Character, pk=character_id)
+    character = _owned_character_or_404(request, character_id)
     try:
         delta = int(request.POST.get("delta", "0"))
     except (TypeError, ValueError):
@@ -381,10 +461,11 @@ def adjust_experience(request, character_id: int):
     return redirect("character_sheet", character_id=character_id)
 
 
+@login_required
 @require_POST
 def create_shop_item(request, character_id: int):
     """Create a custom shop item and optional armor or weapon detail records."""
-    character = get_object_or_404(Character, pk=character_id)
+    character = _owned_character_or_404(request, character_id)
     name = (request.POST.get("name") or "").strip()
     if not name:
         return redirect("character_sheet", character_id=character.id)
@@ -457,10 +538,11 @@ def create_shop_item(request, character_id: int):
     return redirect("character_sheet", character_id=character.id)
 
 
+@login_required
 @require_POST
 def buy_shop_cart(request, character_id: int):
     """Buy all cart entries atomically and update inventory plus wallet."""
-    character = get_object_or_404(Character, pk=character_id)
+    character = _owned_character_or_404(request, character_id)
     try:
         payload = json.loads(request.body.decode("utf-8"))
     except (json.JSONDecodeError, UnicodeDecodeError):
@@ -520,3 +602,13 @@ def buy_shop_cart(request, character_id: int):
                 created.save()
 
     return JsonResponse({"ok": True, "new_money": character.money}, status=200)
+
+
+def impressum(request):
+    """Render imprint page using configurable operator metadata."""
+    return render(request, "legal/impressum.html", _legal_context())
+
+
+def datenschutz(request):
+    """Render privacy page with minimal data-processing information."""
+    return render(request, "legal/datenschutz.html", _legal_context())

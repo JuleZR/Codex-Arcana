@@ -18,9 +18,15 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path
 from charsheet import views
+from django.contrib.auth.views import LoginView, LogoutView
 
 urlpatterns = [
     path("admin/", admin.site.urls),
+    path("impressum/", views.impressum, name="impressum"),
+    path("datenschutz/", views.datenschutz, name="datenschutz"),
+    path("dashboard/", views.dashboard, name="dashboard"),
+    path("character/new/", views.create_character, name="create_character"),
+    path("logout/", LogoutView.as_view(next_page="login"), name="logout"),
     path("sheet/", views.sheet, name="sheet"),
     path("character/<int:character_id>/", views.character_sheet, name="character_sheet"),
     path("character/<int:character_id>/adjust-damage/", views.adjust_current_damage, name="adjust_current_damage"),
@@ -30,5 +36,6 @@ urlpatterns = [
     path("character/<int:character_id>/shop/buy/", views.buy_shop_cart, name="buy_shop_cart"),
     path("character-item/<int:pk>/toggle-equip/", views.toggle_equip, name="toggle_equip"),
     path("character-item/<int:pk>/consume/", views.consume_item, name="consume_item"),
+    path("", LoginView.as_view(template_name="registration/login.html", redirect_authenticated_user=True), name="login"),
 ]
 

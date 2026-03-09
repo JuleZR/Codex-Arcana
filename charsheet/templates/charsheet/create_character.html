@@ -1,0 +1,69 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neuer Charakter</title>
+    <link rel="stylesheet" href="{% static 'css/charsheet.css' %}">
+    <link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
+  </head>
+  <body>
+    <main class="book-spread dashboard_spread">
+      <article class="page dashboard_page dashboard_page--form" aria-label="Neuen Charakter erstellen">
+        <header class="dashboard_top">
+          <div class="dashboard_title_wrap">
+            <h1>Neuer Charakter</h1>
+            <p class="dashboard_subtitle">Lege einen Charakter an und springe direkt in den Bogen.</p>
+          </div>
+          <div class="dashboard_actions">
+            <a href="{% url 'dashboard' %}" class="dashboard_button">Zurück</a>
+          </div>
+        </header>
+
+        <section class="dashboard_panel form_panel">
+          <form method="post" class="character_form">
+            {% csrf_token %}
+
+            <div class="form_row">
+              <label for="{{ form.name.id_for_label }}">Name</label>
+              {{ form.name }}
+              {% if form.name.errors %}
+                <div class="form_error">{{ form.name.errors|striptags }}</div>
+              {% endif %}
+            </div>
+
+            <div class="form_row">
+              <label for="{{ form.race.id_for_label }}">Rasse</label>
+              {{ form.race }}
+              {% if form.race.errors %}
+                <div class="form_error">{{ form.race.errors|striptags }}</div>
+              {% endif %}
+            </div>
+
+            <div class="form_row">
+              <label for="{{ form.gender.id_for_label }}">Geschlecht</label>
+              {{ form.gender }}
+              {% if form.gender.errors %}
+                <div class="form_error">{{ form.gender.errors|striptags }}</div>
+              {% endif %}
+            </div>
+
+            {% if form.non_field_errors %}
+              <div class="form_error">{{ form.non_field_errors|striptags }}</div>
+            {% endif %}
+
+            <div class="form_actions">
+              <button type="submit" class="dashboard_button dashboard_button--primary">Charakter anlegen</button>
+              <a href="{% url 'dashboard' %}" class="dashboard_button">Abbrechen</a>
+            </div>
+          </form>
+        </section>
+      </article>
+    </main>
+
+    <div aria-hidden="true" class="firefly-layer">
+      {% for _ in '123456789012345' %}<div class="firefly"></div>{% endfor %}
+    </div>
+  </body>
+</html>

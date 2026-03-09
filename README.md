@@ -53,6 +53,21 @@ Die komplette projektspezifische Dokumentation liegt unter [`docs/`](docs/README
 - Datenmodell: [`docs/models.md`](docs/models.md)
 - Engine: [`docs/engine.md`](docs/engine.md)
 - Routen und Views: [`docs/routes.md`](docs/routes.md)
+- Rechtliches/Self-Hosting: [`docs/legal.md`](docs/legal.md)
+
+## Rechtliches fuer Self-Hosting
+Impressum und Datenschutz werden ueber konfigurierbare Betreiberdaten versorgt.
+Jeder Host setzt eigene Werte per Umgebungsvariablen:
+
+- `LEGAL_SITE_NAME`
+- `LEGAL_OPERATOR_NAME` (Pflicht)
+- `LEGAL_ADDRESS` (Pflicht)
+- `LEGAL_EMAIL` (Pflicht)
+- `LEGAL_PHONE` (optional)
+- `LEGAL_RESPONSIBLE_PERSON` (optional)
+- `LEGAL_REGISTER_ENTRY` (optional)
+- `LEGAL_VAT_ID` (optional)
+- `LEGAL_SUPERVISORY_AUTHORITY` (optional)
 
 ## Roadmap (kurz)
 - Charaktererschaffung mit vollem Budget-/Regel-Flow stabilisieren

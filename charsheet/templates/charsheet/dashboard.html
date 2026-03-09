@@ -1,0 +1,101 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard</title>
+    <link rel="stylesheet" href="{% static 'css/charsheet.css' %}">
+    <link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
+  </head>
+  <body>
+    <main class="book-spread dashboard_spread">
+      <article class="page dashboard_page" aria-label="Benutzerspezifisches Dashboard">
+        <section class="dashboard_layout">
+          <aside class="dashboard_panel dashboard_panel--sidebar" aria-label="Benutzerbereich">
+            <img class="dashboard_logo" src="{% static 'img/codexarcana.png' %}" alt="Logo">
+            <div class="dashboard_title_wrap">
+              <h1>Dashboard</h1>
+              <p class="dashboard_subtitle">Willkommen,<br>{{ request.user.get_username }}.</p>
+            </div>
+            <a href="{% url 'logout' %}" class="dashboard_button dashboard_button--sidebar">Abmelden</a>
+          </aside>
+
+          <section class="dashboard_panel dashboard_panel--main" aria-label="Charakterübersicht">
+            <div class="dashboard_panel_header">
+              <h2>Deine Charaktere</h2>
+              <div class="dashboard_header_actions">
+                <span>{{ character_count }} Eintrag{% if character_count != 1 %}e{% endif %}</span>
+                <a href="{% url 'create_character' %}" class="dashboard_button dashboard_button--small dashboard_button--primary" title="Neuen Charakter erstellen">
+                  <span aria-hidden="true">+</span>
+                  <span>Neuer Charakter</span>
+                </a>
+              </div>
+            </div>
+
+            {% if characters %}
+              <div class="dashboard_table_wrap">
+                <table class="dashboard_table">
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Rasse</th>
+                      <th>Geschlecht</th>
+                      <th>Geld (KS)</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for character in characters %}
+                      <tr>
+                        <td>{{ character.name }}</td>
+                        <td>{{ character.race.name }}</td>
+                        <td>{{ character.get_gender_display|default:"-" }}</td>
+                        <td>{{ character.money }}</td>
+                        <td class="dashboard_action_cell">
+                          <a class="dashboard_button dashboard_button--small" href="{% url 'character_sheet' character.id %}">
+                            Charakterbogen
+                          </a>
+                        </td>
+                      </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            {% else %}
+              <div class="dashboard_empty">
+                <p>Du hast aktuell noch keine Charaktere in diesem Account.</p>
+                {% if request.user.is_staff %}
+                  <p>Lege einen Charakter im Admin unter <code>Character</code> an und komme dann hierher zurück.</p>
+                  <a class="dashboard_button dashboard_button--small" href="{% url 'admin:index' %}">Zum Admin</a>
+                {% endif %}
+              </div>
+            {% endif %}
+          </section>
+
+          <aside class="dashboard_panel dashboard_panel--side" aria-label="Kennzahlen">
+            <h2>Kennzahlen</h2>
+            <dl class="dashboard_stats">
+              <div>
+                <dt>Charaktere</dt>
+                <dd>{{ character_count }}</dd>
+              </div>
+              <div>
+                <dt>Gesamtgeld (KS)</dt>
+                <dd>{{ total_money }}</dd>
+              </div>
+              <div>
+                <dt>Ausgerüstete Items</dt>
+                <dd>{{ equipped_item_count }}</dd>
+              </div>
+            </dl>
+          </aside>
+        </section>
+      </article>
+    </main>
+
+    <div aria-hidden="true" class="firefly-layer">
+      {% for _ in '123456789012345' %}<div class="firefly"></div>{% endfor %}
+    </div>
+  </body>
+</html>

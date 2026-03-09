@@ -8,6 +8,7 @@ Das Projekt ist ein klassisches Django-Monolith-Setup mit einer fachlichen Haupt
   - Projektkonfiguration (`settings.py`)
   - URL-Routing (`urls.py`)
   - WSGI/ASGI-Einstiegspunkte
+  - `LEGAL_INFO` fuer host-spezifische Impressum/Datenschutz-Angaben
 - `charsheet/`
   - `models.py`: Datenmodell und Validierung
   - `admin.py`: Admin-Konfiguration und Inlines
@@ -33,3 +34,4 @@ Das Projekt ist ein klassisches Django-Monolith-Setup mit einer fachlichen Haupt
 - Neue Entitaeten/Validierung: `charsheet/models.py`
 - Neue Admin-Workflows: `charsheet/admin.py`
 - Neue UI-Aktionen: `charsheet/views.py` + Template/JS
+- Rechtliche Inhalte/Datenschutztext: `charsheet/templates/legal/`

@@ -1,0 +1,63 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Impressum | {{ legal.site_name|default:"Codex Arcana" }}</title>
+    <link rel="stylesheet" href="{% static 'css/charsheet.css' %}">
+  </head>
+  <body>
+    <main class="book-spread book-spread--legal">
+      <article class="page page--legal" aria-label="Impressum">
+        <section class="legal_doc">
+          <h1>Impressum</h1>
+
+          <section class="legal_block">
+            <h2>Anbieterkennzeichnung gemäß Paragraf 5 DDG</h2>
+            <p><strong>{{ legal.site_name|default:"Codex Arcana" }}</strong></p>
+            {% if legal.operator_name %}<p>Anbieter: {{ legal.operator_name }}</p>{% endif %}
+            {% if legal.address %}<p>Anschrift: {{ legal.address|linebreaksbr }}</p>{% endif %}
+            {% if legal.email %}<p>E-Mail: <a href="mailto:{{ legal.email }}">{{ legal.email }}</a></p>{% endif %}
+            {% if legal.phone %}<p>Telefon: {{ legal.phone }}</p>{% endif %}
+          </section>
+
+          <section class="legal_block">
+            <h2>Verantwortlich für Inhalte</h2>
+            {% if legal.responsible_person %}
+              <p>Verantwortlich nach Paragraf 18 Abs. 2 MStV: {{ legal.responsible_person }}</p>
+            {% elif legal.operator_name %}
+              <p>Verantwortlich nach Paragraf 18 Abs. 2 MStV: {{ legal.operator_name }}</p>
+            {% endif %}
+          </section>
+
+          {% if legal.register_entry or legal.vat_id or legal.supervisory_authority %}
+            <section class="legal_block">
+              <h2>Weitere Angaben</h2>
+              {% if legal.register_entry %}<p>Registereintrag: {{ legal.register_entry }}</p>{% endif %}
+              {% if legal.vat_id %}<p>USt-IdNr.: {{ legal.vat_id }}</p>{% endif %}
+              {% if legal.supervisory_authority %}<p>Zuständige Aufsichtsbehörde: {{ legal.supervisory_authority }}</p>{% endif %}
+            </section>
+          {% endif %}
+
+          <section class="legal_block">
+            <h2>Kontakt für rechtliche Anliegen</h2>
+            {% if legal.email %}
+              <p>Rechtliche Anfragen können per E-Mail an <a href="mailto:{{ legal.email }}">{{ legal.email }}</a> gesendet werden.</p>
+            {% else %}
+              <p>Es ist keine Kontaktadresse hinterlegt.</p>
+            {% endif %}
+          </section>
+
+          {% if legal.missing_required %}
+            <section class="legal_block legal_block--warning">
+              <p><strong>Hinweis für Self-Hosting:</strong> Pflichtangaben fehlen. Bitte mindestens `LEGAL_OPERATOR_NAME`, `LEGAL_ADDRESS` und `LEGAL_EMAIL` in der Hosting-Umgebung setzen.</p>
+            </section>
+          {% endif %}
+
+          <p class="legal_actions"><a href="{% url 'login' %}">Zurück zum Login</a></p>
+        </section>
+      </article>
+    </main>
+  </body>
+</html>

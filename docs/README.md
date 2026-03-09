@@ -8,6 +8,7 @@ Diese Doku beschreibt Aufbau, Betrieb und Regel-Logik des Projekts.
 - [Datenmodell](models.md): wichtigste Modelle und Beziehungen
 - [Engine](engine.md): Berechnungslogik und zentrale Methoden
 - [Routen und Views](routes.md): HTTP-Endpunkte und Aufgaben der Views
+- [Rechtliches](legal.md): Impressum/Datenschutz und Self-Hosting-Konfiguration
 
 ## Zielgruppe
 - Entwickler, die das Projekt lokal starten und erweitern wollen

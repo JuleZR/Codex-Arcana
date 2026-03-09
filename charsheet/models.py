@@ -101,7 +101,7 @@ class Character(models.Model):
     """Player-owned character with race and derived rule engine access."""
     class Gender(models.TextChoices):
         """Allowed gender values for character profiles."""
-        M = "mÃ¤nnlich", "MÃ¤nnlich"
+        M = "männlich", "Männlich"
         W = "weiblich", "Weiblich"
 
     owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)

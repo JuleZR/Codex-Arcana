@@ -10,10 +10,32 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+
+def _load_dotenv(path: Path) -> None:
+    """Load simple KEY=VALUE pairs from a .env file into os.environ."""
+    if not path.exists():
+        return
+
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+
+        key, value = line.split("=", 1)
+        key = key.strip()
+        value = value.strip().strip("'").strip('"')
+
+        if key:
+            os.environ.setdefault(key, value)
+
+
+_load_dotenv(BASE_DIR / ".env")
 
 
 # Quick-start development settings - unsuitable for production
@@ -127,3 +149,19 @@ STATICFILES_DIRS = [BASE_DIR / "static",
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+LOGIN_REDIRECT_URL = "dashboard"
+LOGIN_URL = "login"
+
+# Legal/contact data displayed in public legal pages.
+# Override via environment variables for each self-hosted deployment.
+LEGAL_INFO = {
+    "site_name": os.getenv("LEGAL_SITE_NAME", "Codex Arcana"),
+    "operator_name": os.getenv("LEGAL_OPERATOR_NAME", ""),
+    "address": os.getenv("LEGAL_ADDRESS", "").replace("\\n", "\n"),
+    "email": os.getenv("LEGAL_EMAIL", ""),
+    "phone": os.getenv("LEGAL_PHONE", ""),
+    "responsible_person": os.getenv("LEGAL_RESPONSIBLE_PERSON", ""),
+    "vat_id": os.getenv("LEGAL_VAT_ID", ""),
+    "register_entry": os.getenv("LEGAL_REGISTER_ENTRY", ""),
+    "supervisory_authority": os.getenv("LEGAL_SUPERVISORY_AUTHORITY", ""),
+}

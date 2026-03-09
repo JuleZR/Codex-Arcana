@@ -32,6 +32,20 @@ python manage.py runserver
 ## Wichtige URLs
 - Admin: `http://127.0.0.1:8000/admin/`
 - Character Sheet: `http://127.0.0.1:8000/sheet/`
+- Impressum: `http://127.0.0.1:8000/impressum/`
+- Datenschutz: `http://127.0.0.1:8000/datenschutz/`
+
+## Self-Hosting: rechtliche Angaben konfigurieren
+Die Seiten `Impressum` und `Datenschutz` lesen Betreiberdaten aus `LEGAL_INFO`
+in `codex_arcana/settings.py`. Diese Werte sollten ueber Umgebungsvariablen
+gesetzt werden:
+
+- `LEGAL_SITE_NAME`
+- `LEGAL_OPERATOR_NAME`
+- `LEGAL_ADDRESS`
+- `LEGAL_EMAIL`
+- `LEGAL_PHONE` (optional)
+- `LEGAL_RESPONSIBLE_PERSON` (optional)
 
 ## Typische Entwicklerbefehle
 ```bash
