@@ -31,16 +31,19 @@ ATTRIBUTE_ORDER = [
 
 
 def _format_modifier(value: int) -> str:
+    """Format signed modifier values for UI display."""
     if value > 0:
         return f"+{value}"
     return str(value)
 
 
 def _format_thousands(value: int) -> str:
+    """Format integers with dot-separated thousands."""
     return f"{value:,}".replace(",", ".")
 
 
 def character_sheet(request, character_id: int):
+    """Render the complete character sheet view for one character."""
     character = get_object_or_404(
         Character.objects.select_related("race", "owner"),
         pk=character_id,
@@ -259,10 +262,12 @@ def character_sheet(request, character_id: int):
     return render(request, "charsheet/charsheet.html", context)
 
 def sheet(request):
+    """Render the static character sheet template."""
     return render(request, "charsheet/charsheet.html")
 
 @require_POST
 def toggle_equip(request, pk):
+    """Toggle equipped state for one armor or weapon inventory entry."""
     ci = get_object_or_404(
         CharacterItem.objects.select_related("item"),
         pk=pk,
@@ -279,6 +284,7 @@ def toggle_equip(request, pk):
 
 @require_POST
 def consume_item(request, pk):
+    """Consume one unit from a stackable inventory item."""
     ci = get_object_or_404(
         CharacterItem.objects.select_related("item"),
         pk=pk,
@@ -299,6 +305,7 @@ def consume_item(request, pk):
 
 @require_POST
 def adjust_current_damage(request, character_id: int):
+    """Increase or decrease current damage and return updated damage state."""
     character = get_object_or_404(Character, pk=character_id)
     action = request.POST.get("action")
     try:
@@ -343,6 +350,7 @@ def adjust_current_damage(request, character_id: int):
 
 @require_POST
 def adjust_money(request, character_id: int):
+    """Apply a signed money delta while keeping balance non-negative."""
     character = get_object_or_404(Character, pk=character_id)
     try:
         delta = int(request.POST.get("delta", "0"))
@@ -358,6 +366,7 @@ def adjust_money(request, character_id: int):
 
 @require_POST
 def adjust_experience(request, character_id: int):
+    """Apply an experience delta to current and overall experience."""
     character = get_object_or_404(Character, pk=character_id)
     try:
         delta = int(request.POST.get("delta", "0"))
@@ -374,6 +383,7 @@ def adjust_experience(request, character_id: int):
 
 @require_POST
 def create_shop_item(request, character_id: int):
+    """Create a custom shop item and optional armor or weapon detail records."""
     character = get_object_or_404(Character, pk=character_id)
     name = (request.POST.get("name") or "").strip()
     if not name:
@@ -449,6 +459,7 @@ def create_shop_item(request, character_id: int):
 
 @require_POST
 def buy_shop_cart(request, character_id: int):
+    """Buy all cart entries atomically and update inventory plus wallet."""
     character = get_object_or_404(Character, pk=character_id)
     try:
         payload = json.loads(request.body.decode("utf-8"))

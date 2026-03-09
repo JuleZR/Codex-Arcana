@@ -239,6 +239,7 @@ class CharacterTraitInline(admin.TabularInline):
         return formfield
 
     class Media:
+        """Load JavaScript that keeps trait metadata fields in sync."""
         js = ("charsheet/js/character_trait_inline.js",)
 
 
@@ -353,10 +354,12 @@ class RaceAdmin(admin.ModelAdmin):
     )
 
     class Media:
+        """Load JavaScript to toggle flying speed fields by race settings."""
         js = ("charsheet/js/race_admin.js",)
 
     @admin.display(description="Movement")
     def movement_summary(self, obj):
+        """Render ground and swim movement values in one compact column."""
         return f"G:{obj.combat_speed}/{obj.march_speed}/{obj.sprint_speed} S:{obj.swimming_speed}"
 
 
@@ -628,15 +631,18 @@ class ArmorStatsAdmin(admin.ModelAdmin):
 
     @admin.display(description="Zone Sum")
     def rs_zone_sum(self, obj):
+        """Return summed zone armor values for list display."""
         return obj.rs_sum()
 
     @admin.display(description="Zone Avg")
     def rs_zone_average(self, obj):
+        """Return average per-zone armor value for list display."""
         return obj.rs_sum() // 6
 
 
 @admin.register(DamageSource)
 class DamageSourceAdmin(admin.ModelAdmin):
+    """Admin configuration for weapon damage source definitions."""
     list_display = ("name", "short_name", "slug")
     search_fields = ("name", "short_name", "slug")
     ordering = ("name",)
@@ -645,6 +651,7 @@ class DamageSourceAdmin(admin.ModelAdmin):
 
 @admin.register(WeaponStats)
 class WeaponStatsAdmin(admin.ModelAdmin):
+    """Admin configuration for weapon stat records."""
     list_display = ("item", "damage", "damage_source", "min_st")
     search_fields = ("item__name", "damage_source__name")
     ordering = ("item__name",)
@@ -653,6 +660,7 @@ class WeaponStatsAdmin(admin.ModelAdmin):
 
 @admin.register(Trait)
 class TraitAdmin(admin.ModelAdmin):
+    """Admin configuration for traits and their level boundaries."""
     list_display = ("name", "slug", "trait_type","min_level", "max_level", "points_per_level")
     search_fields = ("name", "slug")
     list_filter = ("trait_type",)
@@ -661,6 +669,7 @@ class TraitAdmin(admin.ModelAdmin):
     
 @admin.register(CharacterTrait)
 class CharacterTraitAdmin(admin.ModelAdmin):
+    """Admin configuration for character-owned trait levels."""
     list_display = ("owner", "trait", "trait_type", "trait_level")
     list_filter = ("trait__trait_type",)
     search_fields = ("owner__name", "trait__name", "trait__slug")
@@ -668,11 +677,13 @@ class CharacterTraitAdmin(admin.ModelAdmin):
 
     @admin.display(ordering="trait__trait_type", description="Trait Type")
     def trait_type(self, obj):
+        """Return trait category for list display and sorting."""
         return obj.trait.trait_type
 
 
 @admin.register(Language)
 class LanguageAdmin(admin.ModelAdmin):
+    """Admin configuration for language definitions."""
     list_display = ("name", "slug", "max_level")
     search_fields = ("name", "slug")
     ordering = ("name",)
@@ -681,6 +692,7 @@ class LanguageAdmin(admin.ModelAdmin):
 
 @admin.register(CharacterLanguage)
 class CharacterLanguageAdmin(admin.ModelAdmin):
+    """Admin configuration for character language proficiency entries."""
     list_display = ("owner", "language", "levels", "can_write", "is_mother_tongue")
     search_fields = ("owner__name", "language__name", "language__slug")
     list_filter = ("can_write", "is_mother_tongue", "language")

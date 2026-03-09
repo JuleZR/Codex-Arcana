@@ -2,40 +2,23 @@
 
 Digitales Verwaltungssystem fuer das Pen-and-Paper-Rollenspiel **Arcane Codex**, umgesetzt mit Django.
 
-Der aktuelle Stand ist ein Backend mit Admin-Oberflaeche und Regel-Engine fuer zentrale Charakterwerte.
+Der Fokus liegt aktuell auf Charakterverwaltung, Regelberechnungen und einer spielbaren Character-Sheet-Oberflaeche.
 
-## Was aktuell funktioniert
+## Projektstatus
+- Django-Projekt mit PostgreSQL laeuft lokal.
+- Kernmodelle und Migrationen sind vorhanden.
+- Django-Admin ist fuer die wichtigsten Entitaeten konfiguriert.
+- Character Sheet zeigt Werte, Inventar, Waffen, Ruestung, Sprachen, Traits und Shop-Funktionen.
+- Engine berechnet zentrale Regelwerte (Attribute, Skills, Initiative, Abwehr, Wunden, Ruestung).
 
-### Projektstatus
-- Django-Projekt laeuft mit PostgreSQL.
-- Datenmodell ist ueber Migrationen aufgebaut.
-- Django-Admin ist fuer die Kernmodelle eingerichtet.
-- Codebasis ist durchgaengig mit Docstrings dokumentiert
-
-### Fachlich umgesetzt
-- Charakterstamm: `Character`, `Race`, Attribute, Skills.
-- Regelgrenzen: Race-Attribute-Limits und Validierungen.
-- Schulen/Progression: `SchoolType`, `School`, `CharacterSchool`, `ProgressionRule`, `Technique`.
-- Modifikatoren: generisches `Modifier`-Modell fuer Skill/Category/Stat.
-- Inventar: `Item`, `CharacterItem`, `ArmorStats`.
-
-### Berechnungen in der Engine
-- Attribut-Modifikatoren.
-- Skill-Gesamtwerte inkl. externer Modifikatoren.
-- Abwehrwerte (`VW`, `GW`, `SR`).
-- Initiative.
-- Magiebezogene Werte (`arcane_power`, `potential`).
-- Wundstufen und aktive Wundabzuege.
-- Ruestungswerte (`GRS`, `BEL`, `MS`) auf Basis ausgeruesteter Ruestung.
-
-## Schnellstart (Entwicklung)
+## Schnellstart
 
 ### Voraussetzungen
 - Python 3.x
-- PostgreSQL (lokal auf `localhost:5432`) oder per Docker
-- Installierte Python-Abhaengigkeiten in deiner Umgebung
+- PostgreSQL auf `localhost:5432` oder Docker
+- Installierte Python-Abhaengigkeiten (aktuell keine lock/requirements-Datei im Repo)
 
-### Datenbank starten (optional via Docker)
+### Datenbank via Docker starten (optional)
 ```bash
 docker compose up -d db
 ```
@@ -47,23 +30,32 @@ python manage.py createsuperuser
 python manage.py runserver
 ```
 
-Danach ist das Admin-Backend unter `http://127.0.0.1:8000/admin/` erreichbar.
+Danach:
+- Admin: `http://127.0.0.1:8000/admin/`
+- Character Sheet: `http://127.0.0.1:8000/sheet/`
 
-## Roadmap
+## Projektstruktur
+```text
+codex_arcana/              Django-Projektkonfiguration (settings, urls, wsgi/asgi)
+charsheet/                 Fachlogik (Modelle, Views, Admin, Engine)
+charsheet/engine/          Regel-Engine
+charsheet/templates/       Django-Templates fuer Character Sheet
+charsheet/static/          App-spezifische statische Assets
+static/                    Projektweite statische Assets
+docs/                      Projektdokumentation
+```
 
-### Bereits erreicht
-- [x] Kern-Datenmodell fuer Charaktere, Attribute, Skills und Rassen
-- [x] Erste regelbasierte Engine-Berechnungen
-- [x] Wundsystem mit Penalty-Logik
-- [x] Schulen, Techniken und Progressionsregeln
-- [x] Grundlegendes Inventar inkl. Ruestungswerten
-- [x] Basis-Ruestungsberechnung (`GRS`, `BEL`, `MS`)
-- [x] Docstring-Dokumentation der Projektmodule
-- [x] Ruestungsregeln vervollstaendigen (Belastung, Mindeststaerke, Auswirkungen auf Proben)
+## Dokumentation
+Die komplette projektspezifische Dokumentation liegt unter [`docs/`](docs/README.md).
 
-### Als naechstes
-- [ ] Charaktererschaffung mit Budget-/Regelvalidierung (CP/EP-Flow)
-- [ ] Waffenmodell und Kampfwerte erweitern
-- [ ] Magiesystem erweitern (Kosten, Verbrauch, Anzeige)
-- [ ] Tests ausbauen (Modelle, Engine, Admin)
-- [ ] Benutzeroberflaeche ausserhalb des Django-Admins aufbauen
+- Setup und Betrieb: [`docs/setup.md`](docs/setup.md)
+- Architektur: [`docs/architecture.md`](docs/architecture.md)
+- Datenmodell: [`docs/models.md`](docs/models.md)
+- Engine: [`docs/engine.md`](docs/engine.md)
+- Routen und Views: [`docs/routes.md`](docs/routes.md)
+
+## Roadmap (kurz)
+- Charaktererschaffung mit vollem Budget-/Regel-Flow stabilisieren
+- Waffen-/Kampfwerte weiter ausbauen
+- Testabdeckung fuer Models, Engine und Views erhoehen
+- UI und Nutzerfluss ausserhalb des Admins weiter ausbauen

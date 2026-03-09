@@ -100,7 +100,8 @@ class RaceAttributeLimit(models.Model):
 class Character(models.Model):
     """Player-owned character with race and derived rule engine access."""
     class Gender(models.TextChoices):
-        M = "männlich", "Männlich"
+        """Allowed gender values for character profiles."""
+        M = "mÃ¤nnlich", "MÃ¤nnlich"
         W = "weiblich", "Weiblich"
 
     owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
@@ -292,7 +293,7 @@ class Modifier(models.Model):
     # Value / Scaling
     mode = models.CharField(max_length=20, choices=Mode.choices, default=Mode.FLAT)
 
-    value = models.SmallIntegerField(default=0)  # für FLAT
+    value = models.SmallIntegerField(default=0)  # fÃ¼r FLAT
 
     scale_source = models.CharField(
         max_length=30,
@@ -322,6 +323,7 @@ class Modifier(models.Model):
 
     min_school_level = models.PositiveSmallIntegerField(null=True, blank=True)
     def clean(self):
+        """Validate target references and mode-dependent scaling configuration."""
         super().clean()
         if self.target_kind == self.TargetKind.STAT:
             if self.target_slug not in VALID_STAT_SLUGS:
@@ -349,7 +351,7 @@ class Modifier(models.Model):
             )
 
     def __str__(self):
-        return f"{self.source} → {self.target_kind}:{self.target_slug}"
+        return f"{self.source} â†’ {self.target_kind}:{self.target_slug}"
 
 class Technique(models.Model):
     """Technique learned through a school at a required school level."""
@@ -478,6 +480,7 @@ class ArmorStats(models.Model):
         return f"{self.item}: {self.rs_sum() // 6}{self.rs_total}"
 
 class DamageSource(models.Model):
+    """Damage category used for weapon stats and related modifiers."""
     name = models.CharField(max_length=100, unique=True)
     short_name = models.CharField(max_length=50, unique=True)
     slug = models.SlugField(max_length=50, unique=True)
@@ -486,6 +489,7 @@ class DamageSource(models.Model):
         return self.name
 
 class WeaponStats(models.Model):
+    """Weapon-specific stats attached to exactly one item."""
     item = models.OneToOneField(Item, on_delete=models.CASCADE)
     damage = models.CharField(max_length=20)
     damage_source = models.ForeignKey(DamageSource, on_delete=models.PROTECT)
@@ -495,6 +499,7 @@ class WeaponStats(models.Model):
     # TODO: GK
     
     def clean(self):
+        """Ensure weapon stats are only linked to weapon items."""
         super().clean()
         if self.item.item_type != Item.ItemType.WEAPON:
             raise ValidationError({"item_type": "Non weapon items can't have WeaponStats"})
@@ -503,7 +508,9 @@ class WeaponStats(models.Model):
         return f"{self.item}: DMG {self.damage} ({self.damage_source})"
 
 class Trait(models.Model):
+    """Advantage or disadvantage definition with level-based point cost."""
     class TraitType(models.TextChoices):
+        """Supported trait categories."""
         ADV = "advantage", "Advantage"
         DIS = "disadvantage", "Disadvantage"
     
@@ -517,6 +524,7 @@ class Trait(models.Model):
     points_per_level = models.PositiveIntegerField(default=1)
     
     def clean(self):
+        """Validate that configured level bounds are ordered correctly."""
         super().clean()
         if self.max_level < self.min_level:
             raise ValidationError("Max level < min level is prohibited.")
@@ -525,11 +533,13 @@ class Trait(models.Model):
         return self.name
 
 class CharacterTrait(models.Model):
+    """Purchased trait level for one character."""
     trait = models.ForeignKey(Trait, on_delete=models.CASCADE)
     owner = models.ForeignKey(Character, on_delete=models.CASCADE)
     trait_level = models.PositiveIntegerField(default=1)
        
     class Meta:
+        """Allow each trait at most once per character."""
         constraints = [
             models.UniqueConstraint(
                 fields=["owner", "trait"],
@@ -538,6 +548,7 @@ class CharacterTrait(models.Model):
         ]
     
     def clean(self):
+        """Validate purchased trait levels against trait limits."""
         super().clean()
         if self.trait_level > self.trait.max_level:
             raise ValidationError(
@@ -552,6 +563,7 @@ class CharacterTrait(models.Model):
         return f"{self.owner}: {self.trait} ({self.trait_level})"
     
 class Language(models.Model):
+    """Language definition with capped proficiency level."""
     name = models.CharField(max_length=100, unique=True)
     slug = models.SlugField(max_length=50, unique=True)
     
@@ -561,6 +573,7 @@ class Language(models.Model):
         return self.name
 
 class CharacterLanguage(models.Model):
+    """Language proficiency entry for one character."""
     language = models.ForeignKey(Language, on_delete=models.PROTECT)
     owner = models.ForeignKey(Character, on_delete=models.PROTECT)
     
@@ -570,6 +583,7 @@ class CharacterLanguage(models.Model):
     is_mother_tongue = models.BooleanField(default=False)
     
     class Meta:
+        """Allow each language at most once per character."""
         constraints = [models.UniqueConstraint(
             fields = ["owner", "language"],
             name= "unique_language_per_charater"
@@ -577,6 +591,7 @@ class CharacterLanguage(models.Model):
         ]
     
     def clean(self):
+        """Validate level bounds and mother-tongue consistency."""
         super().clean()
         if self.levels > self.language.max_level:
             raise ValidationError(
@@ -591,6 +606,7 @@ class CharacterLanguage(models.Model):
         return f"{self.owner} speaks {self.language.name} {'(Mother tongue)' if self.is_mother_tongue else ''}"
     
 class CharacterCreationDraft(models.Model):
+    """Persisted multi-phase character creation state per user."""
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -602,3 +618,4 @@ class CharacterCreationDraft(models.Model):
         validators=[MaxValueValidator(4)]
         )
     state = models.JSONField(default=dict, blank=True)
+
