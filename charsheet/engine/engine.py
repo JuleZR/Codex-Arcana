@@ -765,7 +765,7 @@ class CharacterCreationEngine:
         return self.sum_phase_3_disadvantage_cost()
 
     def calculate_phase_4_rest_budget(self) -> int:
-        return self.race.phase_4_points + self.sum_phase_3_disadvantage_cost()
+        return self.calculate_phase_4_budget() - self.sum_phase_4_advantages_cost()
 
     def phase_4_attribute_adds(self) -> dict[str, int]:
         adds = self.get_phase("phase_4").get("attribute_adds", {}) or {}
@@ -909,7 +909,7 @@ class CharacterCreationEngine:
 
         if self.sum_phase_4_advantages_cost() > self.calculate_phase_4_advantages_budget():
             return False
-        return self.sum_phase_4_rest_cost() <= self.calculate_phase_4_rest_budget()
+        return self.sum_phase_4_total_cost() <= self.calculate_phase_4_budget()
 
     def finalize_character(self) -> Character:
         if not (self.validate_phase_1() and self.validate_phase_2() and self.validate_phase_3() and self.validate_phase_4()):

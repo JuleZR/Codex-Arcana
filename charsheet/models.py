@@ -402,7 +402,8 @@ class Item(models.Model):
     description = models.TextField(null=True, blank=True)
     stackable = models.BooleanField(default=True)
     is_consumable = models.BooleanField(default=False)
-
+    # TODO: is loadable
+    
     def clean(self):
         """Validate constraints between item type and stackability."""
 

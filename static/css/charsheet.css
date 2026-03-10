@@ -1562,6 +1562,69 @@ body {
   font-weight: 600;
 }
 
+.inv_actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  position: relative;
+}
+
+.inv_menu {
+  position: relative;
+  display: inline-flex;
+}
+
+.inv_menu_trigger {
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.inv_menu_panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 35;
+  min-width: 132px;
+  display: grid;
+  gap: 3px;
+  padding: 5px;
+  border: 1px solid rgba(74, 55, 38, 0.45);
+  border-radius: 6px;
+  background: rgba(255, 246, 226, 0.98);
+  box-shadow:
+    0 5px 14px rgba(36, 24, 14, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+.inv_menu_panel[hidden] {
+  display: none !important;
+}
+
+.inv_menu_btn {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  border: 1px solid rgba(148, 106, 58, 0.56);
+  border-radius: 4px;
+  background: linear-gradient(145deg, rgba(255, 241, 205, 0.8), rgba(189, 137, 66, 0.7));
+  color: #2a1908;
+  padding: 4px 6px;
+  text-align: left;
+  font: inherit;
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+
+.inv_menu_btn:hover {
+  filter: brightness(1.05);
+}
+
+.inv_menu_btn--danger {
+  border-color: rgba(126, 54, 32, 0.62);
+  background: linear-gradient(145deg, rgba(246, 205, 188, 0.9), rgba(183, 87, 57, 0.8));
+  color: #2f1206;
+}
+
 .equip_form {
   margin: 0;
 }
@@ -1614,6 +1677,12 @@ body {
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.52),
     0 1px 1px rgba(36, 26, 16, 0.16);
+}
+
+.equip_toggle--remove {
+  background: linear-gradient(145deg, rgba(246, 205, 188, 0.9), rgba(183, 87, 57, 0.86));
+  border-color: rgba(126, 54, 32, 0.72);
+  color: #2f1206;
 }
 
 .armor_worn {
@@ -1837,6 +1906,36 @@ body {
   transform: translateY(0) scale(1);
 }
 
+.floating-tooltip p {
+  margin: 0;
+}
+
+.floating-tooltip p + p,
+.floating-tooltip p + table,
+.floating-tooltip table + p,
+.floating-tooltip table + table {
+  margin-top: 6px;
+}
+
+.floating-tooltip table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.95em;
+  white-space: normal;
+}
+
+.floating-tooltip th,
+.floating-tooltip td {
+  padding: 3px 6px;
+  border: 1px solid rgba(74, 55, 38, 0.24);
+  text-align: left;
+  vertical-align: top;
+}
+
+.floating-tooltip th {
+  background: rgba(120, 88, 58, 0.12);
+}
+
 .p2_schools {
   flex: 1 1 0;
   min-height: 0;
@@ -1952,10 +2051,10 @@ body {
 
 .weapons_table th:first-child,
 .weapons_table td:first-child {
-  width: 29%;
+  width: calc(29% + 68px);
   text-align: left;
   font-family: "Cormorant Garamond", Georgia, serif;
-  font-size: 1.1rem;
+  font-size: 0.98rem;
   padding-left: 6px;
 }
 
@@ -2039,9 +2138,28 @@ body {
   text-align: center;
 }
 
+.weapons_table th:nth-child(6),
+.weapons_table td:nth-child(6),
+.weapons_table th:nth-child(7),
+.weapons_table td:nth-child(7) {
+  width: 50px;
+  padding-left: 1px;
+  padding-right: 1px;
+}
+
+.weapons_table th:nth-child(8),
+.weapons_table td:nth-child(8) {
+  width: 44px;
+  padding-left: 1px;
+  padding-right: 1px;
+  text-align: center;
+}
+
 .weapons_table th:last-child,
 .weapons_table td:last-child {
-  width: 62px;
+  width: 42px;
+  padding-left: 1px;
+  padding-right: 1px;
 }
 
 .firefly-layer {
@@ -3027,72 +3145,70 @@ body {
 }
 
 .firefly {
-  position: absolute;
+  position: fixed;
   left: 50%;
   top: 50%;
-  width: 6px;
-  height: 6px;
-  animation: wander 22s linear infinite;
+  width: 0.4vw;
+  height: 0.4vw;
+  margin: -0.2vw 0 0 9.8vw;
+  pointer-events: none;
+  animation-name: var(--ff-move, firefly-move-fallback);
+  animation-duration: var(--ff-move-duration, 220s);
+  animation-timing-function: ease;
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
+  animation-delay: var(--ff-move-delay, 0s);
 }
 
 .firefly::before,
 .firefly::after {
   content: "";
   position: absolute;
-  inset: 0;
+  width: 100%;
+  height: 100%;
   border-radius: 50%;
+  transform-origin: -10vw;
 }
 
 .firefly::before {
   background: rgba(0, 0, 0, 0.38);
-  animation: spin 14s linear infinite;
+  opacity: 0.4;
+  animation: drift var(--ff-drift-duration, 14s) ease alternate infinite;
 }
 
 .firefly::after {
-  background: #7fb3ff;
-  box-shadow: 0 0 0 0 #7fb3ff;
+  background: var(--firefly-color, #7fb3ff);
+  box-shadow: 0 0 0 0 var(--firefly-color, #7fb3ff);
   opacity: 0;
-  animation: spin 14s linear infinite, glow 4.6s ease-in-out infinite;
+  animation:
+    drift var(--ff-drift-duration, 14s) ease alternate infinite,
+    flash var(--ff-flash-duration, 9000ms) ease infinite;
+  animation-delay: 0ms, var(--ff-flash-delay, 0ms);
 }
 
-.firefly:nth-child(odd) {
-  animation-duration: 28s;
+@keyframes firefly-move-fallback {
+  0% { transform: translateX(-36vw) translateY(-22vh) scale(0.5); }
+  25% { transform: translateX(25vw) translateY(-40vh) scale(0.9); }
+  50% { transform: translateX(40vw) translateY(25vh) scale(0.65); }
+  75% { transform: translateX(-28vw) translateY(40vh) scale(0.85); }
+  100% { transform: translateX(-36vw) translateY(-22vh) scale(0.5); }
 }
 
-.firefly:nth-child(3n) {
-  animation-duration: 18s;
+@keyframes drift {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
-.firefly:nth-child(4n) {
-  animation-delay: -6s;
-}
-
-.firefly:nth-child(5n) {
-  animation-delay: -10s;
-}
-
-@keyframes wander {
-  0% { transform: translate(-36vw, -22vh) scale(0.5); }
-  25% { transform: translate(25vw, -40vh) scale(0.9); }
-  50% { transform: translate(40vw, 25vh) scale(0.65); }
-  75% { transform: translate(-28vw, 40vh) scale(0.85); }
-  100% { transform: translate(-36vw, -22vh) scale(0.5); }
-}
-
-@keyframes spin {
-  from { transform: rotate(0deg) translateX(10px) rotate(0deg); }
-  to { transform: rotate(360deg) translateX(10px) rotate(-360deg); }
-}
-
-@keyframes glow {
+@keyframes flash {
   0%,
+  30%,
   100% {
     opacity: 0;
-    box-shadow: 0 0 0 0 #7fb3ff;
+    box-shadow: 0 0 0 0 var(--firefly-color, #7fb3ff);
   }
-  35% {
+  5% {
     opacity: 1;
-    box-shadow: 0 0 14px 3px #7fb3ff;
+    box-shadow: 0 0 1.8vw 0.4vw var(--firefly-color, #7fb3ff);
   }
 }
 

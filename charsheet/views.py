@@ -14,6 +14,7 @@ from django.contrib.auth.views import LogoutView
 from django.views.decorators.http import require_POST
 from django.db import transaction
 from django.db.models import Max, Sum
+from django.db.models.deletion import ProtectedError
 from django.utils import timezone
 from django.urls import reverse_lazy
 from .engine.engine import CharacterCreationEngine
@@ -332,7 +333,10 @@ def character_sheet(request, character_id: int):
         )
 
     attribute_limits = {
-        limit.attribute.short_name: int(limit.max_value)
+        limit.attribute.short_name: {
+            "min": int(limit.min_value),
+            "max": int(limit.max_value),
+        }
         for limit in character.race.raceattributelimit_set.select_related("attribute")
     }
     skill_levels = {entry.skill_id: entry.level for entry in character_skills}
@@ -353,7 +357,8 @@ def character_sheet(request, character_id: int):
                 "short_name": short_name,
                 "label": label,
                 "base_value": base_value,
-                "max_value": int(attribute_limits.get(short_name, base_value)),
+                "min_value": int(attribute_limits.get(short_name, {}).get("min", 0)),
+                "max_value": int(attribute_limits.get(short_name, {}).get("max", base_value)),
             }
         )
 
@@ -693,7 +698,14 @@ def delete_character(request, character_id: int):
     """Delete one owned character permanently."""
     character = _owned_character_or_404(request, character_id)
     name = character.name
-    character.delete()
+    try:
+        with transaction.atomic():
+            # CharacterLanguage uses PROTECT on owner; delete dependent entries first.
+            CharacterLanguage.objects.filter(owner=character).delete()
+            character.delete()
+    except ProtectedError:
+        messages.error(request, f"{name} konnte nicht geloescht werden (geschuetzte Verknuepfungen).")
+        return redirect("dashboard")
     messages.info(request, f"{name} wurde gelöscht.")
     return redirect("dashboard")
 
@@ -1099,6 +1111,25 @@ def consume_item(request, pk):
 
 @login_required
 @require_POST
+def remove_item(request, pk):
+    """Remove one unit or full stack from inventory, then redirect back to sheet."""
+    ci = _owned_character_item_or_404(request, pk)
+
+    owner_id = ci.owner_id
+    remove_all = str(request.POST.get("all", "0")).lower() in {"1", "true", "on", "yes"}
+    if remove_all:
+        ci.delete()
+    elif ci.item.stackable and ci.amount > 1:
+        ci.amount -= 1
+        ci.save(update_fields=["amount"])
+    else:
+        ci.delete()
+
+    return redirect("character_sheet", character_id=owner_id)
+
+
+@login_required
+@require_POST
 def adjust_current_damage(request, character_id: int):
     """Increase or decrease current damage and return updated damage state."""
     character = _owned_character_or_404(request, character_id)
@@ -1191,7 +1222,10 @@ def apply_learning(request, character_id: int):
             return default
 
     attribute_limits = {
-        limit.attribute.short_name: int(limit.max_value)
+        limit.attribute.short_name: {
+            "min": int(limit.min_value),
+            "max": int(limit.max_value),
+        }
         for limit in character.race.raceattributelimit_set.select_related("attribute")
     }
     attribute_rows = {
@@ -1224,37 +1258,45 @@ def apply_learning(request, character_id: int):
         messages.error(request, "Vorteile können nicht über EP gelernt werden.")
         return redirect("character_sheet", character_id=character.id)
 
-    for short_name, max_value in attribute_limits.items():
+    for short_name, bounds in attribute_limits.items():
         key = f"learn_attr_add_{short_name}"
         if key not in request.POST:
             continue
-        add = max(0, read_int(key, 0))
+        add = read_int(key, 0)
         base_row = attribute_rows.get(short_name)
         base_value = int(base_row.base_value if base_row else 0)
         target_value = base_value + add
+        min_value = int(bounds["min"])
+        max_value = int(bounds["max"])
+        if target_value < min_value:
+            messages.error(request, f"{short_name}: Zielwert ist unter dem Minimum.")
+            return redirect("character_sheet", character_id=character.id)
         if target_value > max_value:
             messages.error(request, f"{short_name}: Zielwert ist über dem Maximum.")
             return redirect("character_sheet", character_id=character.id)
-        if add <= 0:
+        if add == 0:
             continue
         step_cost = _calc_attribute_total_cost(target_value, max_value) - _calc_attribute_total_cost(base_value, max_value)
-        total_cost += max(0, step_cost)
+        total_cost += step_cost
         attr_plan[short_name] = add
 
     for slug in skill_defs.keys():
         key = f"learn_skill_add_{slug}"
         if key not in request.POST:
             continue
-        add = max(0, read_int(key, 0))
+        add = read_int(key, 0)
         base_value = int(skill_rows.get(slug).level if slug in skill_rows else 0)
         target_value = base_value + add
+        if target_value < 0:
+            messages.error(request, f"{skill_defs[slug].name}: Zielwert ist unter 0.")
+            return redirect("character_sheet", character_id=character.id)
         if target_value > 10:
             messages.error(request, f"{skill_defs[slug].name}: Zielwert ist über 10.")
             return redirect("character_sheet", character_id=character.id)
-        if add <= 0:
+        if add == 0:
             continue
         step_cost = _calc_skill_total_cost(target_value) - _calc_skill_total_cost(base_value)
-        total_cost += max(0, step_cost)
+        total_cost += step_cost
         skill_plan[slug] = add
 
     for slug, lang in language_defs.items():
@@ -1262,7 +1304,7 @@ def apply_learning(request, character_id: int):
         write_key = f"learn_lang_write_{slug}"
         if add_key not in request.POST and write_key not in request.POST:
             continue
-        add = max(0, read_int(add_key, 0))
+        add = read_int(add_key, 0)
         write_add = str(request.POST.get(write_key, "0")) in {"1", "true", "on"}
         base_row = language_rows.get(slug)
         base_level = int(base_row.levels if base_row else 0)
@@ -1270,35 +1312,44 @@ def apply_learning(request, character_id: int):
         base_mother = bool(base_row.is_mother_tongue if base_row else False)
         target_level = base_level + add
         target_write = base_write or write_add
+        if base_mother and target_level != int(lang.max_level):
+            messages.error(request, f"{lang.name}: Muttersprache kann nicht unter Maximallevel reduziert werden.")
+            return redirect("character_sheet", character_id=character.id)
+        if target_level < 0:
+            messages.error(request, f"{lang.name}: Zielwert ist unter 0.")
+            return redirect("character_sheet", character_id=character.id)
         if target_level > int(lang.max_level):
             messages.error(request, f"{lang.name}: Zielwert ist über dem Maximum.")
             return redirect("character_sheet", character_id=character.id)
         if target_write and target_level < 1:
             messages.error(request, f"{lang.name}: Schreiben benötigt mindestens Level 1.")
             return redirect("character_sheet", character_id=character.id)
-        if add <= 0 and not write_add:
+        if add == 0 and not write_add:
             continue
         step_cost = _calc_language_total_cost(target_level, target_write, base_mother) - _calc_language_total_cost(base_level, base_write, base_mother)
-        total_cost += max(0, step_cost)
+        total_cost += step_cost
         lang_plan[slug] = {"add": add, "write_add": write_add}
 
     for school_id in school_defs.keys():
         key = f"learn_school_add_{school_id}"
         if key not in request.POST:
             continue
-        add = max(0, read_int(key, 0))
+        add = read_int(key, 0)
         base_level = int(school_rows.get(school_id).level if school_id in school_rows else 0)
         target_level = base_level + add
         max_level = max(base_level, int(school_level_caps.get(int(school_id), DEFAULT_SCHOOL_MAX_LEVEL)))
+        if target_level < 0:
+            messages.error(request, f"{school_defs[school_id].name}: Zielwert ist unter 0.")
+            return redirect("character_sheet", character_id=character.id)
         if target_level > max_level:
             messages.error(request, f"{school_defs[school_id].name}: Zielwert ist über dem Maximum.")
             return redirect("character_sheet", character_id=character.id)
-        if add <= 0:
+        if add == 0:
             continue
         total_cost += add * 8
         school_plan[school_id] = add
 
-    if total_cost <= 0:
+    if total_cost == 0:
         messages.info(request, "Keine Lernkosten erkannt.")
         return redirect("character_sheet", character_id=character.id)
 
@@ -1318,11 +1369,18 @@ def apply_learning(request, character_id: int):
             skill = skill_defs[slug]
             skill_row = skill_rows.get(slug)
             if skill_row is None:
+                if add <= 0:
+                    continue
                 skill_row = CharacterSkill.objects.create(character=character, skill=skill, level=add)
                 skill_rows[slug] = skill_row
             else:
-                skill_row.level = int(skill_row.level) + add
-                skill_row.save(update_fields=["level"])
+                target_level = int(skill_row.level) + add
+                if target_level <= 0:
+                    skill_row.delete()
+                    skill_rows.pop(slug, None)
+                else:
+                    skill_row.level = target_level
+                    skill_row.save(update_fields=["level"])
 
         for slug, payload in lang_plan.items():
             add = int(payload["add"])
@@ -1340,7 +1398,13 @@ def apply_learning(request, character_id: int):
                 )
                 language_rows[slug] = lang_row
             else:
-                lang_row.levels = int(lang_row.levels) + add
+                target_level = int(lang_row.levels) + add
+                target_write = bool(lang_row.can_write) or write_add
+                if target_level <= 0 and not target_write and not bool(lang_row.is_mother_tongue):
+                    lang_row.delete()
+                    language_rows.pop(slug, None)
+                    continue
+                lang_row.levels = target_level
                 if write_add:
                     lang_row.can_write = True
                 lang_row.save(update_fields=["levels", "can_write"])
@@ -1348,6 +1412,8 @@ def apply_learning(request, character_id: int):
         for school_id, add in school_plan.items():
             school_row = school_rows.get(school_id)
             if school_row is None:
+                if add <= 0:
+                    continue
                 school_row = CharacterSchool.objects.create(
                     character=character,
                     school=school_defs[school_id],
@@ -1355,14 +1421,22 @@ def apply_learning(request, character_id: int):
                 )
                 school_rows[school_id] = school_row
             else:
-                school_row.level = int(school_row.level) + add
-                school_row.save(update_fields=["level"])
+                target_level = int(school_row.level) + add
+                if target_level <= 0:
+                    school_row.delete()
+                    school_rows.pop(school_id, None)
+                else:
+                    school_row.level = target_level
+                    school_row.save(update_fields=["level"])
 
         character.current_experience = max(0, int(character.current_experience) - total_cost)
         character.save(update_fields=["current_experience"])
 
     request.session["close_learn_window_once"] = True
-    messages.success(request, f"Lernen abgeschlossen: {total_cost} EP ausgegeben.")
+    if total_cost > 0:
+        messages.success(request, f"Lernen abgeschlossen: {total_cost} EP ausgegeben.")
+    else:
+        messages.success(request, f"Lernen abgeschlossen: {-total_cost} EP gutgeschrieben.")
     return redirect("character_sheet", character_id=character.id)
 
 
@@ -1383,8 +1457,12 @@ def create_shop_item(request, character_id: int):
     item_type = (request.POST.get("item_type") or "misc").strip()
     description = (request.POST.get("description") or "").strip()
     stackable = bool(request.POST.get("stackable"))
+    is_consumable = bool(request.POST.get("is_consumable"))
     if item_type in (Item.ItemType.ARMOR, Item.ItemType.WEAPON):
         stackable = False
+        is_consumable = False
+    if not stackable:
+        is_consumable = False
 
     item = Item(
         name=name,
@@ -1392,6 +1470,7 @@ def create_shop_item(request, character_id: int):
         item_type=item_type,
         description=description,
         stackable=stackable,
+        is_consumable=is_consumable,
     )
     try:
         item.full_clean()
@@ -1456,7 +1535,7 @@ def buy_shop_cart(request, character_id: int):
     cart_items = payload.get("items") or []
     discount = payload.get("discount") or 0
     try:
-        discount_percent = max(0, min(100, int(discount)))
+        discount_percent = max(-100, min(100, int(discount)))
     except (TypeError, ValueError):
         discount_percent = 0
 

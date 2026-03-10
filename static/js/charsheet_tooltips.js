@@ -1,22 +1,4 @@
 document.addEventListener("DOMContentLoaded", () => {
-  const weaponModeButtons = document.querySelectorAll(".weapon_mode_toggle");
-  weaponModeButtons.forEach((button) => {
-    button.addEventListener("click", () => {
-      const row = button.closest("tr");
-      const damageNode = row?.querySelector(".weapon_damage_value");
-      if (!damageNode) {
-        return;
-      }
-      const oneHanded = button.getAttribute("data-one-handed") || "-";
-      const twoHanded = button.getAttribute("data-two-handed") || oneHanded;
-      const isTwoHanded = button.getAttribute("data-mode") === "two";
-      const nextMode = isTwoHanded ? "one" : "two";
-      button.setAttribute("data-mode", nextMode);
-      button.textContent = nextMode === "two" ? "2H" : "1H";
-      damageNode.textContent = nextMode === "two" ? twoHanded : oneHanded;
-    });
-  });
-
   const sidebar = document.getElementById("rightSidebar");
   const launcher = document.getElementById("rightSidebarLauncher");
   const closeBtn = document.getElementById("rightSidebarClose");
@@ -253,6 +235,55 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 document.addEventListener("DOMContentLoaded", () => {
+  const fireflies = Array.from(document.querySelectorAll(".firefly-layer .firefly"));
+  if (!fireflies.length) {
+    return;
+  }
+
+  let seed = 948713;
+  const rand = () => {
+    seed = (seed * 1664525 + 1013904223) >>> 0;
+    return seed / 4294967296;
+  };
+  const randRange = (min, max) => min + (max - min) * rand();
+
+  const styleId = "firefly-generated-keyframes";
+  const existing = document.getElementById(styleId);
+  if (existing) {
+    existing.remove();
+  }
+
+  const keyframes = [];
+  fireflies.forEach((firefly, index) => {
+    const moveName = `firefly-move-${index + 1}`;
+    const stepCount = Math.floor(randRange(16, 29));
+    const frames = [];
+    for (let step = 0; step <= stepCount; step += 1) {
+      const percent = (step / stepCount) * 100;
+      const x = randRange(-49, 49).toFixed(2);
+      const y = randRange(-49, 49).toFixed(2);
+      const scale = randRange(0.26, 1).toFixed(2);
+      frames.push(
+        `${percent.toFixed(6)}% { transform: translateX(${x}vw) translateY(${y}vh) scale(${scale}); }`
+      );
+    }
+    keyframes.push(`@keyframes ${moveName} {\n${frames.join("\n")}\n}`);
+
+    firefly.style.setProperty("--ff-move", moveName);
+    firefly.style.setProperty("--ff-move-duration", `${Math.round(randRange(180, 320))}s`);
+    firefly.style.setProperty("--ff-move-delay", `-${Math.round(randRange(0, 300))}s`);
+    firefly.style.setProperty("--ff-drift-duration", `${randRange(9, 18).toFixed(3)}s`);
+    firefly.style.setProperty("--ff-flash-duration", `${Math.round(randRange(5200, 10800))}ms`);
+    firefly.style.setProperty("--ff-flash-delay", `${Math.round(randRange(0, 9000))}ms`);
+  });
+
+  const styleEl = document.createElement("style");
+  styleEl.id = styleId;
+  styleEl.textContent = keyframes.join("\n");
+  document.head.appendChild(styleEl);
+});
+
+document.addEventListener("DOMContentLoaded", () => {
   const typeSelect = document.getElementById("shopItemTypeSelect");
   const armorFields = document.getElementById("shopItemArmorFields");
   const weaponFields = document.getElementById("shopItemWeaponFields");
@@ -263,6 +294,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const armorInput = armorFields.querySelector("input[name='armor_rs_total']");
   const stackableRow = document.getElementById("shopItemStackableRow");
   const stackableInput = document.getElementById("shopItemStackableInput");
+  const consumableRow = document.getElementById("shopItemConsumableRow");
+  const consumableInput = document.getElementById("shopItemConsumableInput");
   const armorModeInputs = armorFields.querySelectorAll("input[name='armor_mode']");
   const armorTotalFields = document.getElementById("shopArmorTotalFields");
   const armorZoneFields = document.getElementById("shopArmorZoneFields");
@@ -295,6 +328,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const value = String(typeSelect.value || "");
     const isArmor = value === "armor";
     const isWeapon = value === "weapon";
+    const isMisc = value === "misc";
 
     armorFields.hidden = !isArmor;
     weaponFields.hidden = !isWeapon;
@@ -321,6 +355,15 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
+    if (consumableRow && consumableInput) {
+      consumableRow.hidden = !isMisc;
+      const allowConsumable = isMisc && !!(stackableInput && stackableInput.checked);
+      consumableInput.disabled = !allowConsumable;
+      if (!allowConsumable) {
+        consumableInput.checked = false;
+      }
+    }
+
     if (isArmor) {
       syncArmorModeFields();
     } else {
@@ -343,6 +386,9 @@ document.addEventListener("DOMContentLoaded", () => {
     input.addEventListener("change", syncArmorModeFields);
   });
   typeSelect.addEventListener("change", syncItemTypeFields);
+  if (stackableInput) {
+    stackableInput.addEventListener("change", syncItemTypeFields);
+  }
   syncItemTypeFields();
 });
 
@@ -440,7 +486,7 @@ document.addEventListener("DOMContentLoaded", () => {
       ? rows.join("")
       : '<tr class="shop_cart_empty_row"><td colspan="5">Noch keine Items ausgewählt.</td></tr>';
 
-    const discountPercent = Math.min(100, Math.max(0, readInt(discountInput.value, 0)));
+    const discountPercent = Math.min(100, Math.max(-100, readInt(discountInput.value, 0)));
     if (readInt(discountInput.value, 0) !== discountPercent) {
       discountInput.value = String(discountPercent);
     }
@@ -537,7 +583,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   discountInput.addEventListener("input", render);
   discountDecBtn.addEventListener("click", () => {
-    discountInput.value = String(Math.max(0, readInt(discountInput.value, 0) - 5));
+    discountInput.value = String(Math.max(-100, readInt(discountInput.value, 0) - 5));
     render();
   });
   discountIncBtn.addEventListener("click", () => {
@@ -675,10 +721,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (kind === "attr") {
       const base = readInt(row.getAttribute("data-base"), 0);
+      const min = readInt(row.getAttribute("data-min"), 0);
       const max = readInt(row.getAttribute("data-max"), 0);
+      const minAdd = Math.min(0, min - base);
       const maxAdd = Math.max(0, max - base);
       const hidden = row.querySelector("[data-learn-hidden]");
-      value = clamp(value, 0, maxAdd);
+      value = clamp(value, minAdd, maxAdd);
       cost = calcAttributeTotalCost(base + value, max) - calcAttributeTotalCost(base, max);
       if (hidden instanceof HTMLInputElement) {
         hidden.value = String(value);
@@ -686,12 +734,14 @@ document.addEventListener("DOMContentLoaded", () => {
       if (infoEl) {
         infoEl.textContent = `(${base + value})`;
       }
+      valueInput.min = String(minAdd);
       valueInput.max = String(maxAdd);
     } else if (kind === "skill") {
       const base = readInt(row.getAttribute("data-base"), 0);
+      const minAdd = -base;
       const maxAdd = Math.max(0, 10 - base);
       const hidden = row.querySelector("[data-learn-hidden]");
-      value = clamp(value, 0, maxAdd);
+      value = clamp(value, minAdd, maxAdd);
       cost = calcSkillCost(base + value) - calcSkillCost(base);
       if (hidden instanceof HTMLInputElement) {
         hidden.value = String(value);
@@ -699,9 +749,11 @@ document.addEventListener("DOMContentLoaded", () => {
       if (infoEl) {
         infoEl.textContent = `(${base + value})`;
       }
+      valueInput.min = String(minAdd);
       valueInput.max = String(maxAdd);
     } else if (kind === "lang") {
       const base = readInt(row.getAttribute("data-base"), 0);
+      const minAdd = -base;
       const max = readInt(row.getAttribute("data-max"), 0);
       const maxAdd = Math.max(0, max - base);
       const hidden = row.querySelector("[data-learn-hidden]");
@@ -710,7 +762,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const baseWrite = row.getAttribute("data-write") === "1";
       const mother = row.getAttribute("data-mother") === "1";
       let writeAdd = false;
-      value = clamp(value, 0, maxAdd);
+      value = clamp(value, minAdd, maxAdd);
       if (writeInput instanceof HTMLInputElement) {
         if (baseWrite) {
           writeInput.checked = true;
@@ -732,13 +784,15 @@ document.addEventListener("DOMContentLoaded", () => {
       if (infoEl) {
         infoEl.textContent = `(${base + value})`;
       }
+      valueInput.min = String(minAdd);
       valueInput.max = String(maxAdd);
     } else if (kind === "school") {
       const base = readInt(row.getAttribute("data-base"), 0);
+      const minAdd = -base;
       const max = readInt(row.getAttribute("data-max"), base);
       const maxAdd = Math.max(0, max - base);
       const hidden = row.querySelector("[data-learn-hidden]");
-      value = clamp(value, 0, maxAdd);
+      value = clamp(value, minAdd, maxAdd);
       cost = value * 8;
       if (hidden instanceof HTMLInputElement) {
         hidden.value = String(value);
@@ -746,6 +800,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (infoEl) {
         infoEl.textContent = `(${base + value})`;
       }
+      valueInput.min = String(minAdd);
       valueInput.max = String(maxAdd);
     }
 
@@ -839,19 +894,23 @@ document.addEventListener("DOMContentLoaded", () => {
     if (kind === "attr") {
       const shortName = source.getAttribute("data-short") || "";
       const base = readInt(source.getAttribute("data-base"), 0);
+      const min = readInt(source.getAttribute("data-min"), 0);
       const max = readInt(source.getAttribute("data-max"), 0);
+      const minAdd = Math.min(0, min - base);
       const maxAdd = Math.max(0, max - base);
-      if (maxAdd < 1) {
+      if (maxAdd < 1 && minAdd === 0) {
         return null;
       }
       row.setAttribute("data-base", String(base));
+      row.setAttribute("data-min", String(min));
       row.setAttribute("data-max", String(max));
+      const startAdd = maxAdd > 0 ? 1 : 0;
       row.innerHTML = `
-        <td><span>${safeName}</span> <span data-learn-level-info>(${base + 1})</span><input type="hidden" name="learn_attr_add_${shortName}" value="1" data-learn-hidden></td>
+        <td><span>${safeName}</span> <span data-learn-level-info>(${base + startAdd})</span><input type="hidden" name="learn_attr_add_${shortName}" value="${startAdd}" data-learn-hidden></td>
         <td>
           <div class="shop_qty_stepper">
             <button type="button" class="shop_step_btn" data-learn-step-dec aria-label="Wert verringern">-</button>
-            <input class="shop_cart_qty_input" type="number" min="0" max="${maxAdd}" value="1" data-learn-value>
+            <input class="shop_cart_qty_input" type="number" min="${minAdd}" max="${maxAdd}" value="${startAdd}" data-learn-value>
             <button type="button" class="shop_step_btn" data-learn-step-inc aria-label="Wert erhöhen">+</button>
           </div>
         </td>
@@ -864,17 +923,19 @@ document.addEventListener("DOMContentLoaded", () => {
     if (kind === "skill") {
       const slug = source.getAttribute("data-slug") || "";
       const base = readInt(source.getAttribute("data-base"), 0);
+      const minAdd = -base;
       const maxAdd = Math.max(0, 10 - base);
-      if (maxAdd < 1) {
+      if (maxAdd < 1 && minAdd === 0) {
         return null;
       }
       row.setAttribute("data-base", String(base));
+      const startAdd = maxAdd > 0 ? 1 : 0;
       row.innerHTML = `
-        <td><span>${safeName}</span> <span data-learn-level-info>(${base + 1})</span><input type="hidden" name="learn_skill_add_${slug}" value="1" data-learn-hidden></td>
+        <td><span>${safeName}</span> <span data-learn-level-info>(${base + startAdd})</span><input type="hidden" name="learn_skill_add_${slug}" value="${startAdd}" data-learn-hidden></td>
         <td>
           <div class="shop_qty_stepper">
             <button type="button" class="shop_step_btn" data-learn-step-dec aria-label="Wert verringern">-</button>
-            <input class="shop_cart_qty_input" type="number" min="0" max="${maxAdd}" value="1" data-learn-value>
+            <input class="shop_cart_qty_input" type="number" min="${minAdd}" max="${maxAdd}" value="${startAdd}" data-learn-value>
             <button type="button" class="shop_step_btn" data-learn-step-inc aria-label="Wert erhöhen">+</button>
           </div>
         </td>
@@ -887,11 +948,12 @@ document.addEventListener("DOMContentLoaded", () => {
     if (kind === "lang") {
       const slug = source.getAttribute("data-slug") || "";
       const base = readInt(source.getAttribute("data-base"), 0);
+      const minAdd = -base;
       const max = readInt(source.getAttribute("data-max"), 0);
       const maxAdd = Math.max(0, max - base);
       const baseWrite = source.getAttribute("data-write") === "1";
       const mother = source.getAttribute("data-mother") === "1";
-      if (maxAdd < 1 && baseWrite) {
+      if (maxAdd < 1 && minAdd === 0 && baseWrite) {
         return null;
       }
       const startAdd = maxAdd > 0 ? 1 : 0;
@@ -911,7 +973,7 @@ document.addEventListener("DOMContentLoaded", () => {
             <label class="learn_lang_write"><input type="checkbox" data-learn-lang-write ${baseWrite ? "checked disabled" : ""}> Schreiben</label>
             <div class="shop_qty_stepper">
               <button type="button" class="shop_step_btn" data-learn-step-dec aria-label="Wert verringern">-</button>
-              <input class="shop_cart_qty_input" type="number" min="0" max="${maxAdd}" value="${startAdd}" data-learn-value>
+              <input class="shop_cart_qty_input" type="number" min="${minAdd}" max="${maxAdd}" value="${startAdd}" data-learn-value>
               <button type="button" class="shop_step_btn" data-learn-step-inc aria-label="Wert erhöhen">+</button>
             </div>
           </div>
@@ -925,19 +987,21 @@ document.addEventListener("DOMContentLoaded", () => {
     if (kind === "school") {
       const schoolId = source.getAttribute("data-id") || "";
       const base = readInt(source.getAttribute("data-base"), 0);
+      const minAdd = -base;
       const max = readInt(source.getAttribute("data-max"), base);
       const maxAdd = Math.max(0, max - base);
-      if (maxAdd < 1) {
+      if (maxAdd < 1 && minAdd === 0) {
         return null;
       }
       row.setAttribute("data-base", String(base));
       row.setAttribute("data-max", String(max));
+      const startAdd = maxAdd > 0 ? 1 : 0;
       row.innerHTML = `
-        <td><span>${safeName}</span> <span data-learn-level-info>(${base + 1})</span><input type="hidden" name="learn_school_add_${schoolId}" value="1" data-learn-hidden></td>
+        <td><span>${safeName}</span> <span data-learn-level-info>(${base + startAdd})</span><input type="hidden" name="learn_school_add_${schoolId}" value="${startAdd}" data-learn-hidden></td>
         <td>
           <div class="shop_qty_stepper">
             <button type="button" class="shop_step_btn" data-learn-step-dec aria-label="Wert verringern">-</button>
-            <input class="shop_cart_qty_input" type="number" min="0" max="${maxAdd}" value="1" data-learn-value>
+            <input class="shop_cart_qty_input" type="number" min="${minAdd}" max="${maxAdd}" value="${startAdd}" data-learn-value>
             <button type="button" class="shop_step_btn" data-learn-step-inc aria-label="Wert erhöhen">+</button>
           </div>
         </td>
@@ -1018,6 +1082,23 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 document.addEventListener("DOMContentLoaded", () => {
+  const dbAnchors = document.querySelectorAll(".db_tooltip_anchor[data-db-tooltip]");
+  dbAnchors.forEach((anchor) => {
+    const text = anchor.getAttribute("data-db-tooltip") || "";
+    if (!text.trim()) {
+      return;
+    }
+    anchor.classList.add("tooltip_target");
+    if (!anchor.getAttribute("data-tooltip")) {
+      anchor.setAttribute("data-tooltip", text);
+    }
+    if (!anchor.getAttribute("data-tooltip-side")) {
+      anchor.setAttribute("data-tooltip-side", "right");
+    }
+    // Disable legacy CSS-only tooltip so only floating tooltip is shown.
+    anchor.removeAttribute("data-db-tooltip");
+  });
+
   const targets = document.querySelectorAll(".tooltip_target[data-tooltip]");
   if (!targets.length) {
     return;
@@ -1033,6 +1114,96 @@ document.addEventListener("DOMContentLoaded", () => {
   let pendingTarget = null;
   let showTimeoutId = null;
   let hideTimeoutId = null;
+
+  const escapeHtml = (value) => String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
+  const parseTableRow = (line) => {
+    const trimmed = String(line || "").trim();
+    if (!trimmed.includes("|")) {
+      return [];
+    }
+    const normalized = trimmed
+      .replace(/^\|/, "")
+      .replace(/\|$/, "");
+    return normalized.split("|").map((part) => part.trim());
+  };
+
+  const isTableDividerRow = (row) =>
+    row.length > 0 && row.every((cell) => /^:?-{2,}:?$/.test(cell));
+
+  const renderTooltipMarkup = (rawText) => {
+    const text = String(rawText || "").trim();
+    if (!text) {
+      return "";
+    }
+    const lines = text.split("\n");
+    const chunks = [];
+    let i = 0;
+
+    while (i < lines.length) {
+      const line = lines[i];
+      if (!line.trim()) {
+        i += 1;
+        continue;
+      }
+
+      const header = parseTableRow(line);
+      const divider = i + 1 < lines.length ? parseTableRow(lines[i + 1]) : [];
+      if (
+        header.length > 0 &&
+        header.length === divider.length &&
+        isTableDividerRow(divider)
+      ) {
+        let j = i + 2;
+        const bodyRows = [];
+        while (j < lines.length) {
+          const row = parseTableRow(lines[j]);
+          if (!row.length || row.length !== header.length) {
+            break;
+          }
+          bodyRows.push(row);
+          j += 1;
+        }
+
+        let tableHtml = "<table><thead><tr>";
+        header.forEach((cell) => {
+          tableHtml += `<th>${escapeHtml(cell)}</th>`;
+        });
+        tableHtml += "</tr></thead>";
+        if (bodyRows.length) {
+          tableHtml += "<tbody>";
+          bodyRows.forEach((row) => {
+            tableHtml += "<tr>";
+            row.forEach((cell) => {
+              tableHtml += `<td>${escapeHtml(cell)}</td>`;
+            });
+            tableHtml += "</tr>";
+          });
+          tableHtml += "</tbody>";
+        }
+        tableHtml += "</table>";
+        chunks.push(tableHtml);
+        i = j;
+        continue;
+      }
+
+      const paragraphLines = [];
+      let j = i;
+      while (j < lines.length && lines[j].trim()) {
+        paragraphLines.push(escapeHtml(lines[j]));
+        j += 1;
+      }
+      chunks.push(`<p>${paragraphLines.join("<br>")}</p>`);
+      i = j;
+    }
+
+    return chunks.join("");
+  };
 
   function clearShowTimer() {
     if (showTimeoutId) {
@@ -1106,7 +1277,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (pendingTarget !== target) {
           return;
         }
-        tooltip.textContent = text;
+        tooltip.innerHTML = renderTooltipMarkup(text);
         activeTarget = target;
         tooltip.classList.add("is-visible");
         positionTooltip(target);
@@ -1173,6 +1344,78 @@ document.addEventListener("DOMContentLoaded", () => {
   walletCoins.forEach((coin) => {
     coin.addEventListener("mouseenter", show);
     coin.addEventListener("mouseleave", hide);
+  });
+});
+
+document.addEventListener("DOMContentLoaded", () => {
+  const menus = Array.from(document.querySelectorAll(".inv_menu"));
+  if (!menus.length) {
+    return;
+  }
+
+  const closeMenu = (menu) => {
+    const trigger = menu.querySelector(".inv_menu_trigger");
+    const panel = menu.querySelector(".inv_menu_panel");
+    if (!(trigger instanceof HTMLButtonElement) || !(panel instanceof HTMLElement)) {
+      return;
+    }
+    panel.hidden = true;
+    trigger.setAttribute("aria-expanded", "false");
+  };
+
+  const openMenu = (menu) => {
+    menus.forEach((other) => {
+      if (other !== menu) {
+        closeMenu(other);
+      }
+    });
+    const trigger = menu.querySelector(".inv_menu_trigger");
+    const panel = menu.querySelector(".inv_menu_panel");
+    if (!(trigger instanceof HTMLButtonElement) || !(panel instanceof HTMLElement)) {
+      return;
+    }
+    panel.hidden = false;
+    trigger.setAttribute("aria-expanded", "true");
+  };
+
+  menus.forEach((menu) => {
+    const trigger = menu.querySelector(".inv_menu_trigger");
+    const panel = menu.querySelector(".inv_menu_panel");
+    if (!(trigger instanceof HTMLButtonElement) || !(panel instanceof HTMLElement)) {
+      return;
+    }
+
+    trigger.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (panel.hidden) {
+        openMenu(menu);
+      } else {
+        closeMenu(menu);
+      }
+    });
+
+    panel.addEventListener("click", (event) => {
+      event.stopPropagation();
+    });
+  });
+
+  document.addEventListener("click", () => {
+    menus.forEach(closeMenu);
+  });
+
+  const removeButtons = Array.from(document.querySelectorAll("[data-require-shift-delete]"));
+  removeButtons.forEach((button) => {
+    if (!(button instanceof HTMLButtonElement)) {
+      return;
+    }
+    button.addEventListener("click", (event) => {
+      if (event.shiftKey) {
+        return;
+      }
+      event.preventDefault();
+      window.alert("Zum Entfernen bitte Shift gedrueckt halten und erneut klicken.");
+    });
   });
 });
 

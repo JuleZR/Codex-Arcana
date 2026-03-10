@@ -149,7 +149,6 @@
                             <td class="dashboard_action_cell">
                               <div class="dashboard_actions_inline">
                                 <a class="dashboard_button dashboard_button--small" href="{% url 'character_sheet' row.character.id %}">Öffnen</a>
-                                <a class="dashboard_button dashboard_button--small" href="{% url 'edit_character' row.character.id %}">Bearbeiten</a>
                                 <form method="post" action="{% url 'archive_character' row.character.id %}">
                                   {% csrf_token %}
                                   <button type="submit" class="dashboard_button dashboard_button--small">Archivieren</button>
@@ -265,7 +264,8 @@
         };
 
         handle.addEventListener("pointerdown", function (event) {
-          if (event.button !== 0 || !win.classList.contains("is-open") || isInteractiveTarget(event.target)) {
+          const isPrimaryPointer = event.pointerType !== "mouse" || event.button === 0;
+          if (!isPrimaryPointer || !win.classList.contains("is-open") || isInteractiveTarget(event.target)) {
             return;
           }
           const rect = win.getBoundingClientRect();

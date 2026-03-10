@@ -45,6 +45,7 @@ urlpatterns = [
     path("character/<int:character_id>/shop/buy/", views.buy_shop_cart, name="buy_shop_cart"),
     path("character-item/<int:pk>/toggle-equip/", views.toggle_equip, name="toggle_equip"),
     path("character-item/<int:pk>/consume/", views.consume_item, name="consume_item"),
+    path("character-item/<int:pk>/remove/", views.remove_item, name="remove_item"),
     path("", LoginView.as_view(template_name="registration/login.html", redirect_authenticated_user=True), name="login"),
 ]
 

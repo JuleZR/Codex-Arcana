@@ -290,6 +290,7 @@ class AttributeAdmin(admin.ModelAdmin):
     list_display = ("name", "short_name")
     search_fields = ("name", "short_name")
     ordering = ("name",)
+    inlines = (RaceAttributeLimitByAttributeInline, AttributeCharacterInline)
 
 
 @admin.register(SkillCategory)
@@ -329,8 +330,17 @@ class SkillAdmin(admin.ModelAdmin):
 class RaceAdmin(admin.ModelAdmin):
     """Admin configuration for races."""
 
-    list_display = ("name", "movement_summary", "can_fly")
+    list_display = (
+        "name",
+        "movement_summary",
+        "phase_1_points",
+        "phase_2_points",
+        "phase_3_points",
+        "phase_4_points",
+        "can_fly",
+    )
     search_fields = ("name", "description")
+    list_filter = ("can_fly",)
     ordering = ("name",)
     inlines = (RaceAttributeLimitInline, ModifierInline)
     fieldsets = (
@@ -348,6 +358,17 @@ class RaceAdmin(admin.ModelAdmin):
                     "combat_fly_speed",
                     "march_fly_speed",
                     "sprint_fly_speed",
+                )
+            },
+        ),
+        (
+            "Phase Points",
+            {
+                "fields": (
+                    "phase_1_points",
+                    "phase_2_points",
+                    "phase_3_points",
+                    "phase_4_points",
                 )
             },
         ),
@@ -385,8 +406,11 @@ class CharacterAdmin(admin.ModelAdmin):
         "owner",
         "race",
         "gender",
+        "overall_experience",
+        "current_experience",
         "current_damage",
         "money",
+        "is_archived",
     )
     list_display_links = ("name",)
     search_fields = (
@@ -397,16 +421,22 @@ class CharacterAdmin(admin.ModelAdmin):
         "country_of_origin",
         "religion",
     )
-    list_filter = ("race", "gender")
+    list_filter = ("race", "gender", "is_archived")
     ordering = ("name",)
-    readonly_fields = ("id",)
+    readonly_fields = ("id", "last_opened_at")
     fieldsets = (
         ("Basis", {"fields": ("id", "owner", "name", "race", "gender", "age")}),
         (
             "Körper & Herkunft",
             {"fields": ("height", "weight", "skin_color", "hair_color", "eye_color", "country_of_origin")},
         ),
-        ("Weitere Angaben", {"fields": ("religion", "appearance", "current_damage")}),
+        ("Weitere Angaben", {"fields": ("religion", "appearance")}),
+        ("Status", {"fields": ("current_damage", "money", "overall_experience", "current_experience")}),
+        (
+            "Fame & Ranks",
+            {"fields": ("personal_fame_point", "personal_fame_rank", "sacrifice_rank", "artefact_rank")},
+        ),
+        ("Archive", {"fields": ("is_archived", "last_opened_at")}),
     )
     inlines = (
         CharacterAttributeInline,
@@ -674,6 +704,7 @@ class CharacterTraitAdmin(admin.ModelAdmin):
     list_filter = ("trait__trait_type",)
     search_fields = ("owner__name", "trait__name", "trait__slug")
     autocomplete_fields = ("owner", "trait")
+    list_select_related = ("owner", "trait")
 
     @admin.display(ordering="trait__trait_type", description="Trait Type")
     def trait_type(self, obj):

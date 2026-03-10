@@ -568,6 +568,7 @@
       {% for _ in '123456789012345' %}<div class="firefly"></div>{% endfor %}
     </div>
 
+    <script src="{% static 'js/charsheet_tooltips.js' %}"></script>
     <script>
       document.addEventListener("DOMContentLoaded", function () {
         const isEmbedded = window.self !== window.top;
@@ -602,7 +603,8 @@
           };
 
           handle.addEventListener("pointerdown", function (event) {
-            if (event.button !== 0 || isInteractiveTarget(event.target)) {
+            const isPrimaryPointer = event.pointerType !== "mouse" || event.button === 0;
+            if (!isPrimaryPointer || isInteractiveTarget(event.target)) {
               return;
             }
             const rect = win.getBoundingClientRect();
@@ -1226,7 +1228,8 @@
           };
 
           const initialRestBudget = toInt(phase4RestBudgetValue.textContent, 0);
-          const restBudgetBase = initialRestBudget;
+          const initialAdvSpent = toInt(phase4AdvSpentValue.textContent, 0);
+          const totalBudgetBase = initialRestBudget + initialAdvSpent;
 
           const clamp = function (value, min, max) {
             return Math.min(max, Math.max(min, value));
@@ -1467,7 +1470,7 @@
             });
 
             const advBudget = toInt(phase4AdvBudgetValue.textContent, 0);
-            const restBudget = restBudgetBase;
+            const restBudget = totalBudgetBase - advSpent;
             const advRemaining = advBudget - advSpent;
             const restRemaining = restBudget - restSpent;
             phase4RestBudgetValue.textContent = String(restBudget);
