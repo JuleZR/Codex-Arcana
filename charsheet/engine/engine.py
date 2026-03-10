@@ -1,7 +1,8 @@
-"""Rule calculation helpers for character model instances."""
+﻿"""Rule calculation helpers for character model instances."""
 
 from __future__ import annotations
 from typing import TYPE_CHECKING, TypedDict
+from django.db import transaction
 from django.db.models import QuerySet
 from charsheet.constants import (
     ATTR_GE, ATTR_WILL, ATTR_KON, 
@@ -15,7 +16,7 @@ from charsheet.models import (
     Modifier, CharacterItem, Item, CharacterTrait,
     CharacterSchool, Technique, Trait,
     CharacterCreationDraft, CharacterAttribute,
-    CharacterSkill, CharacterLanguage, Attribute, 
+    CharacterSkill, CharacterLanguage, Character, Attribute, 
     Skill, School, Language
     )
 
@@ -354,8 +355,8 @@ class CharacterEngine:
     def calculate_arcane_power(self) -> int:
         """Calculate arcane power from WILL, schools, and stat modifiers.
 
-        School levels are counted for types with slug ``"magic"`` and
-        ``"divine"``.
+        Note:
+            The current implementation sums levels from all owned schools.
 
         Returns:
             int: Arcane power total.
@@ -393,7 +394,7 @@ class CharacterEngine:
         stage_names = [
             "Angeschlagen", "Verletzt",
             "Verwundet", "Schwer verwundet",
-            "Außer Gefecht", "Koma"
+            "AuÃŸer Gefecht", "Koma"
         ]
         stage_penalty = [0, -2, -4, -6, 0, 0]
         
@@ -422,15 +423,27 @@ class CharacterEngine:
         return 14 + mod1_val + mod2_val + misc
     
     def vw(self) -> int:
-        """Calculate VW defense value."""
+        """Calculate ``VW`` defense value.
+
+        Returns:
+            int: Computed ``VW`` defense.
+        """
         return self.calculate_defense(ATTR_GE, ATTR_WA, DEFENSE_VW)
     
     def gw(self) -> int:
-        """Calculate GW defense value."""
+        """Calculate ``GW`` defense value.
+
+        Returns:
+            int: Computed ``GW`` defense.
+        """
         return self.calculate_defense(ATTR_INT, ATTR_WILL, DEFENSE_GW)
     
     def sr(self) -> int:
-        """Calculate SR defense value."""
+        """Calculate ``SR`` defense value.
+
+        Returns:
+            int: Computed ``SR`` defense.
+        """
         return self.calculate_defense(ATTR_ST, ATTR_KON, DEFENSE_SR)
 
     def current_wound_stage(self) -> tuple[str, int | None]:
@@ -464,8 +477,12 @@ class CharacterEngine:
 
         return current_stage
             
-    def current_wound_penalty(self):
-        """Return only the active wound penalty value."""
+    def current_wound_penalty(self) -> int:
+        """Return only the active wound penalty value.
+
+        Returns:
+            int: Active wound penalty, or ``0`` if no penalty applies.
+        """
         penalty = self.current_wound_stage()[1]
         if penalty is None:
             return 0
@@ -481,11 +498,19 @@ class CharacterEngine:
         return penalty
 
     def is_wound_penalty_ignored(self) -> bool:
-        """Return whether wound penalties are currently ignored."""
+        """Return whether wound penalties are currently ignored.
+
+        Returns:
+            bool: ``True`` when an ignore modifier is active, else ``False``.
+        """
         return bool(self._resolve_modifiers(WOUND_PENALTY_IGNORE))
 
     def equipped_armor_items(self) -> QuerySet:
-        """Return equipped armor inventory rows for a given character."""
+        """Return equipped armor inventory rows for this character.
+
+        Returns:
+            QuerySet: Equipped `CharacterItem` entries with armor items.
+        """
 
         return (
             CharacterItem.objects.filter(
@@ -496,7 +521,11 @@ class CharacterEngine:
         )
     
     def get_grs(self) -> int:
-        """Calculate total armor rating from equipped armor items."""
+        """Calculate total armor rating from equipped armor items.
+
+        Returns:
+            int: Combined armor value (``GRS``).
+        """
 
         total = 0
         zone_sum = 0
@@ -512,23 +541,43 @@ class CharacterEngine:
         return total + (zone_sum // 6)
     
     def get_bel(self) -> int:
-        """Calculate armor burden, honoring armor-penalty ignore effects."""
+        """Calculate armor burden, honoring ignore effects.
+
+        Returns:
+            int: Armor burden (``BEL``), or ``0`` if ignored.
+        """
 
         if self._resolve_modifiers(ARMOR_PENALTY_IGNORE):
             return 0
         return self.get_grs() // 3
 
     def get_ms(self) -> int:
-        """Calculate minimum strength requirement from current armor rating."""
+        """Calculate minimum strength requirement from current armor rating.
+
+        Returns:
+            int: Minimum strength requirement (``MS``).
+        """
 
         return self.get_grs() // 2
     
     def get_dmg_modifier_sum(self, slug: str) -> int:
-        """Return combined damage modifiers for the given damage source slug."""
-        return self._resolve_modifiers(slug)
+        """Return combined damage modifiers for the given damage source.
+
+        Args:
+            slug: Damage source slug.
+
+        Returns:
+            int: Summed modifier value for that damage source.
+        """
+        return self._resolve_modifiers(slug) + self.attribute_modifier(ATTR_ST)
+        
 
     def km_to_coins(self) -> tuple[int, int, int]:
-        """Convert copper-based money into gold, silver, and copper tuples."""
+        """Convert copper-based money into coin denominations.
+
+        Returns:
+            tuple[int, int, int]: ``(gold, silver, copper)``.
+        """
         player_km = self.character.money
         
         gm = player_km // 100
@@ -539,319 +588,264 @@ class CharacterEngine:
 
 class CharacterCreationEngine:
     """Rules engine for validating and materializing character creation drafts."""
+
     def __init__(self, draft: CharacterCreationDraft):
         self.draft = draft
         self.race = draft.race
-        self.state = draft.state
-    
+        self.state = draft.state or {}
+
     def get_phase(self, phase: str) -> dict:
         """Return one phase payload from the persisted draft state."""
-        return self.state.get(phase, {})
-    
+        return self.state.get(phase, {}) or {}
+
+    @staticmethod
+    def _to_int(value: object, default: int = 0) -> int:
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return default
+
     # Phase 1
-    def phase_1_attributes(self) -> dict:
-        """Return selected base attributes from phase 1."""
-        return self.get_phase("phase_1").get("attributes", {})
-    
-    def calc_attribute_cost(
-        self, target_level: int, max_value: int
-        ) -> int:
-        """Calculate phase-1 point cost for one attribute target value."""
-        
+    def phase_1_attributes(self) -> dict[str, int]:
+        attrs = self.get_phase("phase_1").get("attributes", {}) or {}
+        return {str(k): max(0, self._to_int(v, 0)) for k, v in attrs.items()}
+
+    def calc_attribute_cost(self, target_level: int, max_value: int) -> int:
         threshold = max_value - 2
-        
         if target_level <= threshold:
             return target_level
-        
         cost = threshold
-        for _ in range(threshold +1 , target_level +1):
+        for _ in range(threshold + 1, target_level + 1):
             cost += 2
-        
         return cost
-       
+
     def attribute_min_max_limits(self) -> dict[str, dict[str, int]]:
-        """Return race-specific min/max limits keyed by attribute short name."""
         return {
             limit.attribute.short_name: {
-                "min": limit.min_value,
-                "max": limit.max_value,
+                "min": int(limit.min_value),
+                "max": int(limit.max_value),
             }
-            for limit in self.race.raceattributelimit_set.select_related("attribute").all()
+            for limit in self.race.raceattributelimit_set.select_related("attribute")
         }
-        
+
     def is_phase_1_attribute_in_range(self) -> bool:
-        """Validate that all phase-1 attributes stay within race limits."""
         attrs = self.phase_1_attributes()
         limits = self.attribute_min_max_limits()
-        
-        for name, value in attrs.items():
-            min_val = limits[name]["min"]
-            max_val = limits[name]["max"]
-            
-            if value < min_val:
+        if not attrs:
+            return False
+        for short_name, value in attrs.items():
+            if short_name not in limits:
                 return False
-            
-            if value > max_val:
+            if value < limits[short_name]["min"] or value > limits[short_name]["max"]:
                 return False
-        
         return True
-    
+
     def sum_phase_1_attribute_costs(self) -> int:
-        """Sum total point spend for all phase-1 attributes."""
         attrs = self.phase_1_attributes()
         limits = self.attribute_min_max_limits()
-        
         return sum(
-            self.calc_attribute_cost(value, limits[name][max])
+            self.calc_attribute_cost(value, limits[name]["max"])
             for name, value in attrs.items()
+            if name in limits
         )
-    
+
     def validate_phase_1(self) -> bool:
-        """Validate phase 1 bounds and exact point budget usage."""
-        return (
-            self.is_phase_1_attribute_in_range()
-            and self.sum_phase_1_attribute_costs() == self.race.phase_1_points
-            )
-        
+        return self.is_phase_1_attribute_in_range() and (
+            self.sum_phase_1_attribute_costs() == self.race.phase_1_points
+        )
+
     # Phase 2
-    def phase_2_skills(self) -> dict:
-        """Return selected skill levels from phase 2."""
-        phase = self.get_phase("phase_2")
-        return phase.get("skills", {})
-    
+    def phase_2_skills(self) -> dict[str, int]:
+        skills = self.get_phase("phase_2").get("skills", {}) or {}
+        return {str(k): max(0, self._to_int(v, 0)) for k, v in skills.items()}
+
     def calc_skill_cost(self, target_level: int) -> int:
-        """Calculate point cost for one skill level target."""
         if target_level <= 5:
             return target_level
         cost = 5
-        for _ in range(6, target_level +1):
+        for _ in range(6, target_level + 1):
             cost += 2
-
         return cost
 
     def sum_phase_2_skill_cost(self) -> int:
-        """Sum total point spend for all phase-2 skills."""
-        skills = self.phase_2_skills()
-        
-        return sum(
-            self.calc_skill_cost(level)
-            for level in skills.values()
-        )
-        
-    def phase_2_languages(self) -> dict:
-        """Return selected languages from phase 2."""
-        phase = self.get_phase("phase_2")
-        return phase.get("languages", {})
-    
-    def calc_language_cost(
-        self, level: int, write: bool, mother: bool
-        ) -> int:
-        """Calculate phase-2 language cost including writing and mother tongue."""
-        if mother:
-            cost = 0
-        else:
-            cost = level
-        
-        if write:
-            cost += 1
-        
-        return cost
-    
+        return sum(self.calc_skill_cost(level) for level in self.phase_2_skills().values())
+
+    def phase_2_languages(self) -> dict[str, dict]:
+        languages = self.get_phase("phase_2").get("languages", {}) or {}
+        normalized: dict[str, dict] = {}
+        for slug, data in languages.items():
+            payload = data or {}
+            normalized[str(slug)] = {
+                "level": max(0, self._to_int(payload.get("level"), 0)),
+                "write": bool(payload.get("write")),
+                "mother": bool(payload.get("mother")),
+            }
+        return normalized
+
+    def calc_language_cost(self, level: int, write: bool, mother: bool) -> int:
+        base = 0 if mother else level
+        return base + (1 if write else 0)
+
     def sum_phase_2_language_cost(self) -> int:
-        """Sum total point spend for all phase-2 languages."""
-        languages = self.phase_2_languages()
-        
-        return sum(
-            self.calc_language_cost(
-                lang["level"],
-                lang.get("write", False),
-                lang.get("mother", False),
-            )
-            for lang in languages.values()
-        )
-    
+        total = 0
+        for lang in self.phase_2_languages().values():
+            total += self.calc_language_cost(lang["level"], lang["write"], lang["mother"])
+        return total
+
     def validate_phase_2(self) -> bool:
-        """Validate phase 2 by comparing total spend with race budget."""
-        total = self.sum_phase_2_skill_cost + self.sum_phase_2_language_cost
+        has_mother_tongue = False
+        for slug, data in self.phase_2_languages().items():
+            language = Language.objects.filter(slug=slug).first()
+            if language is None:
+                return False
+            level = data["level"]
+            if level > language.max_level:
+                return False
+            mother_level = min(3, language.max_level)
+            if data["mother"] and level != mother_level:
+                return False
+            if data["mother"]:
+                has_mother_tongue = True
+        if not has_mother_tongue:
+            return False
+        total = self.sum_phase_2_skill_cost() + self.sum_phase_2_language_cost()
         return total == self.race.phase_2_points
-    
+
     # Phase 3
-    def phase_3_disadvantages(self) -> dict:
-        """Return selected disadvantages from phase 3."""
-        phase = self.get_phase("phase_3")
-        return phase.get("disadvantages", {})
+    def phase_3_disadvantages(self) -> dict[str, int]:
+        disadvantages = self.get_phase("phase_3").get("disadvantages", {}) or {}
+        return {str(k): max(0, self._to_int(v, 0)) for k, v in disadvantages.items()}
 
     def calc_disadvantage_cost(self, slug: str, level: int) -> int:
-        """Calculate disadvantage points granted by one trait selection."""
-        trait = Trait.objects.get(slug=slug)
+        trait = Trait.objects.filter(slug=slug, trait_type=Trait.TraitType.DIS).first()
+        if trait is None:
+            return 0
+        if level < trait.min_level or level > trait.max_level:
+            return 0
         return level * trait.points_per_level
-    
+
     def sum_phase_3_disadvantage_cost(self) -> int:
-        """Sum all disadvantage points from phase 3."""
-        disadvantages = self.phase_3_disadvantages()
-        
         return sum(
             self.calc_disadvantage_cost(slug, level)
-            for slug, level in disadvantages.items()
+            for slug, level in self.phase_3_disadvantages().items()
         )
-    
-    def validate_phase_3(self) -> bool:
-        """Validate that phase-3 disadvantage points stay within limit."""
-        return self.sum_phase_3_disadvantage_cost <= self.race.phase_3_points
-    
-    # Phase 4
-    def phase_4_advantages(self) -> dict:
-        """Return selected advantages from phase 4."""
-        phase = self.get_phase("phase_4")
-        return phase.get("advantages", {})
-    
-    def calc_advantage_cost(self, slug: str, level: int) -> int:
-        """Calculate point cost for one advantage selection."""
-        trait = Trait.objects.get(slug=slug)
-        return level * trait.points_per_level
-    
-    def sum_phase_4_advantages_cost(self) -> int:
-        """Sum total point spend for phase-4 advantages."""
-        advantages = self.phase_4_advantages()
-        
-        return sum(
-            self.calc_advantage_cost(
-                self.calc_advantage_cost(slug, level)
-                for slug, level in advantages.items()
-            )
-        )
-        
-    def validate_advantages(self) -> bool:
-        """Validate that bought advantages do not exceed disadvantage points."""
-        return (self.sum_phase_4_advantages_cost() 
-                <= self.sum_phase_3_disadvantage_cost()
-        )
-        
-    def calculate_phase_4_budget(self) -> int:
-        """Calculate available phase-4 budget including disadvantage gain."""
-        return (
-            self.race.phase_4_points
-            + self.sum_phase_3_disadvantage_cost()
-        )
-    
-    def phase_4_attribute_adds(self) -> dict:
-        """Return attribute increases selected in phase 4."""
-        phase = self.get_phase("phase_4")
-        return phase.get("attribute_adds", {})
-    
-    def calc_attribute_add_cost(self, target_level: int, max_value: int) -> int:
-        """Calculate cumulative cost for raised attributes in phase 4."""
-        threshold = max_value - 2
 
+    def validate_phase_3(self) -> bool:
+        for slug, level in self.phase_3_disadvantages().items():
+            trait = Trait.objects.filter(slug=slug, trait_type=Trait.TraitType.DIS).first()
+            if trait is None:
+                return False
+            if level < trait.min_level or level > trait.max_level:
+                return False
+        return self.sum_phase_3_disadvantage_cost() <= self.race.phase_3_points
+
+    # Phase 4
+    def phase_4_advantages(self) -> dict[str, int]:
+        advantages = self.get_phase("phase_4").get("advantages", {}) or {}
+        return {str(k): max(0, self._to_int(v, 0)) for k, v in advantages.items()}
+
+    def calc_advantage_cost(self, slug: str, level: int) -> int:
+        trait = Trait.objects.filter(slug=slug, trait_type=Trait.TraitType.ADV).first()
+        if trait is None:
+            return 0
+        if level < trait.min_level or level > trait.max_level:
+            return 0
+        return level * trait.points_per_level
+
+    def sum_phase_4_advantages_cost(self) -> int:
+        return sum(
+            self.calc_advantage_cost(slug, level)
+            for slug, level in self.phase_4_advantages().items()
+        )
+
+    def calculate_phase_4_budget(self) -> int:
+        return self.race.phase_4_points + self.sum_phase_3_disadvantage_cost()
+
+    def calculate_phase_4_advantages_budget(self) -> int:
+        return self.sum_phase_3_disadvantage_cost()
+
+    def calculate_phase_4_rest_budget(self) -> int:
+        return self.race.phase_4_points + self.sum_phase_3_disadvantage_cost()
+
+    def phase_4_attribute_adds(self) -> dict[str, int]:
+        adds = self.get_phase("phase_4").get("attribute_adds", {}) or {}
+        return {str(k): max(0, self._to_int(v, 0)) for k, v in adds.items()}
+
+    def calc_attribute_add_cost(self, target_level: int, max_value: int) -> int:
+        threshold = max_value - 2
         if target_level <= threshold:
             return target_level * 10
-
         cost = threshold * 10
         for _ in range(threshold + 1, target_level + 1):
             cost += 20
+        return cost
 
-        return cost 
-    
     def sum_phase_4_attribute_cost(self) -> int:
-        """Sum incremental cost of all phase-4 attribute increases."""
         base_attrs = self.phase_1_attributes()
         attr_adds = self.phase_4_attribute_adds()
         limits = self.attribute_min_max_limits()
-        
-        total: int = 0
-        
+        total = 0
         for name, add in attr_adds.items():
-            start = base_attrs.get(name, 0)
+            if name not in limits:
+                continue
+            start = base_attrs.get(name, limits[name]["min"])
             end = start + add
             max_value = limits[name]["max"]
-            
-            total += (
-                self.calc_attribute_add_cost(end, max_value)
-                - self.calc_attribute_add_cost(start, max_value)
-            )
-        
+            total += self.calc_attribute_add_cost(end, max_value) - self.calc_attribute_add_cost(start, max_value)
         return total
-    
-    def phase_4_skill_adds(self) -> dict:
-        """Return skill increases selected in phase 4."""
-        phase = self.get_phase("phase_4")
-        return phase.get("skill_adds", {})
-    
+
+    def phase_4_skill_adds(self) -> dict[str, int]:
+        adds = self.get_phase("phase_4").get("skill_adds", {}) or {}
+        return {str(k): max(0, self._to_int(v, 0)) for k, v in adds.items()}
+
     def sum_phase_4_skill_cost(self) -> int:
-        """Sum incremental cost of all phase-4 skill increases."""
         base_skills = self.phase_2_skills()
-        skill_adds = self.phase_4_skill_adds()
-        
-        total: int = 0
-        
-        for name, add in skill_adds.items():
-            start = base_skills.get(name, 0)
+        total = 0
+        for slug, add in self.phase_4_skill_adds().items():
+            start = base_skills.get(slug, 0)
             end = start + add
-            
-            total += (
-                self.calc_skill_cost(end)
-                - self.calc_skill_cost(start)
-            )
+            total += self.calc_skill_cost(end) - self.calc_skill_cost(start)
         return total
-    
-    def phase_4_language_adds(self) -> dict:
-        """Return language increases selected in phase 4."""
-        phase = self.get_phase("phase_4")
-        return phase.get("language", {})
-    
+
+    def phase_4_language_adds(self) -> dict[str, int]:
+        adds = self.get_phase("phase_4").get("language_adds", {}) or {}
+        return {str(k): max(0, self._to_int(v, 0)) for k, v in adds.items()}
+
+    def phase_4_language_write_adds(self) -> dict[str, bool]:
+        write_adds = self.get_phase("phase_4").get("language_write_adds", {}) or {}
+        return {str(k): bool(v) for k, v in write_adds.items() if bool(v)}
+
     def sum_phase_4_language_adds(self) -> int:
-        """Sum incremental cost of all phase-4 language increases."""
         base_languages = self.phase_2_languages()
-        languages_add = self.phase_4_language_adds()
-        
-        total: int = 0
-        
-        for name, add in languages_add.items():
-            base: dict = base_languages.get(name, {})
-        
-            start = base.get("level", 0)
+        write_adds = self.phase_4_language_write_adds()
+        total = 0
+        language_slugs = set(base_languages.keys()) | set(self.phase_4_language_adds().keys()) | set(write_adds.keys())
+        for slug in language_slugs:
+            add = self.phase_4_language_adds().get(slug, 0)
+            base = base_languages.get(slug, {})
+            start = self._to_int(base.get("level"), 0)
             end = start + add
-        
-            write = base.get("write", False)
-            mother = base.get("mother", False)
-        
-            total += (
-                self.calc_language_cost(end, write, mother)
-                - self.calc_advantage_cost(start, write, mother)
-            )
-
+            base_write = bool(base.get("write"))
+            write = base_write or write_adds.get(slug, False)
+            mother = bool(base.get("mother"))
+            total += self.calc_language_cost(end, write, mother) - self.calc_language_cost(start, base_write, mother)
         return total
-    
-    def phase_4_schools(self) -> dict:
-        """Return school level purchases selected in phase 4."""
-        phase = self.get_phase("phase_4")
-        return phase.get("schools", {})
-    
+
+    def phase_4_schools(self) -> dict[str, int]:
+        schools = self.get_phase("phase_4").get("schools", {}) or {}
+        return {str(k): max(0, self._to_int(v, 0)) for k, v in schools.items()}
+
     def sum_phase_4_school_cost(self) -> int:
-        """Sum cost for phase-4 school levels."""
-        schools = self.phase_4_schools()
+        return sum(level * 8 for level in self.phase_4_schools().values())
 
-        return sum(
-            level * 8
-            for level in schools.values()
-        )
-        
-    def phase_4_aspects(self) -> dict:
-        """Return aspect level purchases selected in phase 4."""
-        phase = self.get_phase("phase_4")
-        return phase.get("aspects", {})
-    
+    def phase_4_aspects(self) -> dict[str, int]:
+        aspects = self.get_phase("phase_4").get("aspects", {}) or {}
+        return {str(k): max(0, self._to_int(v, 0)) for k, v in aspects.items()}
+
     def sum_phase_4_aspect_cost(self) -> int:
-        """Sum cost for phase-4 aspect levels."""
-        aspects = self.phase_4_aspects()
+        return sum(level * 4 for level in self.phase_4_aspects().values())
 
-        return sum(
-            level * 4
-            for level in aspects.values()
-        )
-        
     def sum_phase_4_total_cost(self) -> int:
-        """Return combined phase-4 spend across all configurable categories."""
         return (
             self.sum_phase_4_advantages_cost()
             + self.sum_phase_4_attribute_cost()
@@ -860,111 +854,142 @@ class CharacterCreationEngine:
             + self.sum_phase_4_school_cost()
             + self.sum_phase_4_aspect_cost()
         )
-    
-    def validate_phase_4(self) -> bool:
-        """Validate phase-4 spends against budget and advantage rules."""
-        total_cost = self.sum_phase_4_total_cost()
-        budget = self.calculate_phase_4_budget()
 
-        advantages_ok = (
-            self.sum_phase_4_advantages_cost()
-            <= self.sum_phase_3_disadvantage_cost()
+    def sum_phase_4_rest_cost(self) -> int:
+        return (
+            self.sum_phase_4_attribute_cost()
+            + self.sum_phase_4_skill_cost()
+            + self.sum_phase_4_language_adds()
+            + self.sum_phase_4_school_cost()
+            + self.sum_phase_4_aspect_cost()
         )
 
-        budget_ok = total_cost <= budget
+    def validate_phase_4(self) -> bool:
+        limits = self.attribute_min_max_limits()
+        base_attrs = self.phase_1_attributes()
+        for name, add in self.phase_4_attribute_adds().items():
+            if name not in limits:
+                return False
+            if base_attrs.get(name, limits[name]["min"]) + add > limits[name]["max"]:
+                return False
 
-        return advantages_ok and budget_ok
-    
+        for slug, level in self.phase_4_advantages().items():
+            trait = Trait.objects.filter(slug=slug, trait_type=Trait.TraitType.ADV).first()
+            if trait is None:
+                return False
+            if level < trait.min_level or level > trait.max_level:
+                return False
+
+        base_skills = self.phase_2_skills()
+        for slug, add in self.phase_4_skill_adds().items():
+            skill = Skill.objects.filter(slug=slug).first()
+            if skill is None:
+                return False
+            if base_skills.get(slug, 0) + add > 10:
+                return False
+
+        for slug, add in self.phase_4_language_adds().items():
+            language = Language.objects.filter(slug=slug).first()
+            if language is None:
+                return False
+            base_level = self.phase_2_languages().get(slug, {}).get("level", 0)
+            if base_level + add > language.max_level:
+                return False
+        for slug in self.phase_4_language_write_adds().keys():
+            language = Language.objects.filter(slug=slug).first()
+            if language is None:
+                return False
+            base_level = self._to_int(self.phase_2_languages().get(slug, {}).get("level"), 0)
+            if base_level + self.phase_4_language_adds().get(slug, 0) < 1:
+                return False
+
+        for school_id in self.phase_4_schools().keys():
+            if not School.objects.filter(pk=self._to_int(school_id, -1)).exists():
+                return False
+
+        if self.sum_phase_4_advantages_cost() > self.calculate_phase_4_advantages_budget():
+            return False
+        return self.sum_phase_4_rest_cost() <= self.calculate_phase_4_rest_budget()
+
     def finalize_character(self) -> Character:
-        """Create and persist the final character from a valid draft."""
-
-        if not (
-            self.validate_phase_1()
-            and self.validate_phase_2()
-            and self.validate_phase_3()
-            and self.validate_phase_4()
-        ):
+        if not (self.validate_phase_1() and self.validate_phase_2() and self.validate_phase_3() and self.validate_phase_4()):
             raise ValueError("Character creation is not valid")
 
-        character = Character.objects.create(
-            owner=self.draft.owner,
-            race=self.race
-        )
+        meta = self.state.get("meta", {}) or {}
+        name = (meta.get("name") or "").strip()
+        if not name:
+            raise ValueError("Character name is required")
+        gender = (meta.get("gender") or "").strip() or None
 
-        # Write Attributes
-        attrs = self.phase_1_attributes()
-
-        for name, value in attrs.items():
-            attribute = Attribute.objects.get(short_name=name)
-
-            CharacterAttribute.objects.create(
-                character=character,
-                attribute=attribute,
-                base_value=value
+        with transaction.atomic():
+            character = Character.objects.create(
+                owner=self.draft.owner,
+                name=name,
+                race=self.race,
+                gender=gender,
             )
-        
-        # Write Skills
-        skills = self.phase_2_skills()
 
-        for slug, level in skills.items():
-            skill = Skill.objects.get(slug=slug)
+            limits = self.attribute_min_max_limits()
+            attr_adds = self.phase_4_attribute_adds()
+            for short_name, base in self.phase_1_attributes().items():
+                if short_name not in limits:
+                    continue
+                final_value = base + attr_adds.get(short_name, 0)
+                final_value = min(final_value, limits[short_name]["max"])
+                attribute = Attribute.objects.filter(short_name=short_name).first()
+                if attribute:
+                    CharacterAttribute.objects.create(
+                        character=character,
+                        attribute=attribute,
+                        base_value=final_value,
+                    )
 
-            CharacterSkill.objects.create(
-                character=character,
-                skill=skill,
-                level=level
-            )
-            
-        # Wirte Languages
-        languages = self.phase_2_languages()
+            skill_adds = self.phase_4_skill_adds()
+            for slug, base in self.phase_2_skills().items():
+                skill = Skill.objects.filter(slug=slug).first()
+                if skill:
+                    CharacterSkill.objects.create(
+                        character=character,
+                        skill=skill,
+                        level=base + skill_adds.get(slug, 0),
+                    )
 
-        for slug, data in languages.items():
-            language = Language.objects.get(slug=slug)
+            lang_adds = self.phase_4_language_adds()
+            lang_write_adds = self.phase_4_language_write_adds()
+            base_languages = self.phase_2_languages()
+            language_slugs = set(base_languages.keys()) | set(lang_adds.keys()) | set(lang_write_adds.keys())
+            for slug in language_slugs:
+                data = base_languages.get(slug, {})
+                language = Language.objects.filter(slug=slug).first()
+                if not language:
+                    continue
+                levels = self._to_int(data.get("level"), 0) + lang_adds.get(slug, 0)
+                levels = min(levels, language.max_level)
+                if levels < 1:
+                    continue
+                base_write = data.get("write", False)
+                CharacterLanguage.objects.create(
+                    owner=character,
+                    language=language,
+                    levels=levels,
+                    can_write=bool(base_write or lang_write_adds.get(slug, False)),
+                    is_mother_tongue=data.get("mother", False),
+                )
 
-            CharacterLanguage.objects.create(
-                character=character,
-                language=language,
-                level=data["level"],
-                can_write=data.get("write", False),
-                is_mother_tongue=data.get("mother", False)
-            )
-        
-        # Write disadvantages
-        disadvantages = self.phase_3_disadvantages()
+            for slug, level in self.phase_3_disadvantages().items():
+                trait = Trait.objects.filter(slug=slug, trait_type=Trait.TraitType.DIS).first()
+                if trait and level > 0:
+                    CharacterTrait.objects.create(owner=character, trait=trait, trait_level=level)
 
-        for slug, level in disadvantages.items():
-            trait = Trait.objects.get(slug=slug)
+            for slug, level in self.phase_4_advantages().items():
+                trait = Trait.objects.filter(slug=slug, trait_type=Trait.TraitType.ADV).first()
+                if trait and level > 0:
+                    CharacterTrait.objects.create(owner=character, trait=trait, trait_level=level)
 
-            CharacterTrait.objects.create(
-                character=character,
-                trait=trait,
-                trait_level=level
-            )
-        
-        # Write advantages
-        advantages = self.phase_4_advantages()
+            for school_id, level in self.phase_4_schools().items():
+                school = School.objects.filter(pk=self._to_int(school_id, -1)).first()
+                if school and level > 0:
+                    CharacterSchool.objects.create(character=character, school=school, level=level)
 
-        for slug, level in advantages.items():
-            trait = Trait.objects.get(slug=slug)
-
-            CharacterTrait.objects.create(
-                character=character,
-                trait=trait,
-                trait_level=level
-            )
-            
-        # Wirte Schools
-        schools = self.phase_4_schools()
-
-        for slug, level in schools.items():
-            school = School.objects.get(slug=slug)
-
-            CharacterSchool.objects.create(
-                character=character,
-                school=school,
-                level=level
-            )
-        
-        self.draft.delete()
-
-        return character
+            self.draft.delete()
+            return character

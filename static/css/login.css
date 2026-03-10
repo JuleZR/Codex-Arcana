@@ -44,17 +44,17 @@ body {
 }
 
 .login_graphic {
-  width: 224%;
+  width: 252%;
   max-width: 1040px;
   height: auto;
   margin-bottom: -4px;
   filter: drop-shadow(0 10px 18px rgba(10, 8, 4, 0.45));
 }
 .login_box {
-  margin-top: -120px;
+  margin-top: -105px;
   position: relative;
   width: 100%;
-  padding: 28px 24px 20px;
+  padding: 43px 34px 35px;
   background: url("../img/pergamentbg.jpg") center/cover no-repeat;
   box-shadow: 0 18px 42px rgba(0, 0, 0, 0.4), 0 6px 14px rgba(20, 12, 6, 0.35), inset 0 0 0 1px rgba(74, 55, 38, 0.35);
   clip-path: polygon(0.8% 0.65%, 7% 0.05%, 15% 0.65%, 23% 0%, 31% 0.75%, 39% 0.05%, 47% 0.7%, 55% 0%, 63% 0.75%, 71% 0.05%, 79% 0.7%, 87% 0%, 95% 0.75%, 99.3% 0.8%, 99.98% 7%, 99.35% 15%, 99.98% 23%, 99.35% 31%, 99.98% 39%, 99.35% 47%, 99.98% 55%, 99.35% 63%, 99.98% 71%, 99.35% 79%, 99.98% 87%, 99.3% 95%, 99.2% 99.3%, 93% 99.95%, 85% 99.3%, 77% 99.98%, 69% 99.3%, 61% 99.95%, 53% 99.3%, 45% 99.98%, 37% 99.3%, 29% 99.95%, 21% 99.3%, 13% 99.98%, 5% 99.3%, 0.7% 99.2%, 0.02% 93%, 0.65% 85%, 0.02% 77%, 0.65% 69%, 0.02% 61%, 0.65% 53%, 0.02% 45%, 0.65% 37%, 0.02% 29%, 0.65% 21%, 0.02% 13%, 0.65% 5%);
@@ -62,10 +62,11 @@ body {
 }
 
 .login_box h1 {
+  font-family: "Cinzel", serif;
   margin-bottom: 14px;
   text-align: center;
   letter-spacing: 0.08em;
-  text-transform: uppercase;
+  text-transform: none;
   font-size: clamp(1.3rem, 2vw, 1.75rem);
   color: #3f2a12;
 }
@@ -87,11 +88,12 @@ body {
 .login_form input[type="password"] {
   width: 100%;
   padding: 10px 12px;
-  border: 1px solid rgba(95, 70, 39, 0.4);
+  border: 2px solid rgba(82, 58, 31, 0.55);
   border-radius: 8px;
   font-size: 1rem;
   background: rgba(255, 252, 246, 0.88);
   color: #24180b;
+  box-shadow: inset 0 1px 2px rgba(58, 40, 20, 0.14);
 }
 
 .l_field:focus,
@@ -112,6 +114,37 @@ body {
 .field_error ul {
   margin: 0;
   padding-left: 18px;
+}
+
+.login_notice_stack {
+  position: absolute;
+  left: 34px;
+  right: 34px;
+  top: 84px;
+  display: grid;
+  gap: 8px;
+  z-index: 6;
+  pointer-events: none;
+}
+
+.login_notice {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid rgba(79, 112, 79, 0.45);
+  border-radius: 8px;
+  background: rgba(228, 245, 226, 0.88);
+  color: #2d4b2d;
+  font-size: 0.95rem;
+  line-height: 1.25;
+  transition: opacity 0.35s ease, transform 0.35s ease, visibility 0.35s ease;
+  opacity: 1;
+  box-shadow: 0 8px 22px rgba(20, 12, 6, 0.28);
+}
+
+.login_notice.is-hidden {
+  opacity: 0;
+  transform: translateY(-6px);
+  visibility: hidden;
 }
 
 .login_btn {

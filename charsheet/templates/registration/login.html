@@ -4,6 +4,7 @@
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/x-icon" href="{% static 'img/favicon.ico' %}">
     <link rel="stylesheet" href="{% static 'css/login.css' %}">
     <title>Codex Arcana - Login</title>
   </head>
@@ -12,6 +13,13 @@
       <img class="login_graphic" src="{% static 'img/codexarcana.png' %}" alt="Codex Arcana">
       <section class="login_box" aria-label="Login">
         <h1>Anmeldung</h1>
+        {% if messages %}
+          <div class="login_notice_stack">
+            {% for message in messages %}
+              <div class="login_notice" data-autohide-message>{{ message }}</div>
+            {% endfor %}
+          </div>
+        {% endif %}
         <form method="post" class="login_form">
           {% csrf_token %}
           {% if form.non_field_errors %}
@@ -41,11 +49,23 @@
         <section class="register">
           Noch kein Konto? Bitte kontaktiere den Betreiber.
         </section>
+        <section class="legal_links" aria-label="Rechtliche Hinweise">
+          <a href="{% url 'impressum' %}">Impressum</a>
+          |
+          <a href="{% url 'datenschutz' %}">Datenschutz</a>
+        </section>
       </section>
     </div>
     <!-- Firefly -->
     <div aria-hidden="true" class="firefly-layer">
       {% for _ in '123456789012345' %}<div class="firefly"></div>{% endfor %}
     </div>
+    <script>
+      document.querySelectorAll("[data-autohide-message]").forEach(function (message) {
+        setTimeout(function () {
+          message.classList.add("is-hidden");
+        }, 2000);
+      });
+    </script>
   </body>
 </html>

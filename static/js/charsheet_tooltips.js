@@ -1,10 +1,29 @@
 document.addEventListener("DOMContentLoaded", () => {
+  const weaponModeButtons = document.querySelectorAll(".weapon_mode_toggle");
+  weaponModeButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      const row = button.closest("tr");
+      const damageNode = row?.querySelector(".weapon_damage_value");
+      if (!damageNode) {
+        return;
+      }
+      const oneHanded = button.getAttribute("data-one-handed") || "-";
+      const twoHanded = button.getAttribute("data-two-handed") || oneHanded;
+      const isTwoHanded = button.getAttribute("data-mode") === "two";
+      const nextMode = isTwoHanded ? "one" : "two";
+      button.setAttribute("data-mode", nextMode);
+      button.textContent = nextMode === "two" ? "2H" : "1H";
+      damageNode.textContent = nextMode === "two" ? twoHanded : oneHanded;
+    });
+  });
+
   const sidebar = document.getElementById("rightSidebar");
   const launcher = document.getElementById("rightSidebarLauncher");
   const closeBtn = document.getElementById("rightSidebarClose");
   const paydayTrigger = document.getElementById("paydayTrigger");
   const shopScaleTrigger = document.getElementById("shopScaleTrigger");
   const learnMenuTrigger = document.getElementById("learnMenuTrigger");
+  const charInfoEditTrigger = document.getElementById("charInfoEditTrigger");
   const xpGainTrigger = document.getElementById("xpGainTrigger");
   const shopAddItemBtn = document.getElementById("shopAddItemBtn");
   const paydayWindow = document.getElementById("paydayWindow");
@@ -23,6 +42,11 @@ document.addEventListener("DOMContentLoaded", () => {
   const learnWindow = document.getElementById("learnWindow");
   const learnWindowClose = document.getElementById("learnWindowClose");
   const learnWindowHandle = document.getElementById("learnWindowHandle");
+  const charInfoWindow = document.getElementById("charInfoWindow");
+  const charInfoWindowClose = document.getElementById("charInfoWindowClose");
+  const charInfoWindowHandle = document.getElementById("charInfoWindowHandle");
+  const charInfoCancelBtn = document.getElementById("charInfoCancelBtn");
+  const charInfoForm = document.getElementById("charInfoForm");
   if (!sidebar || !launcher || !closeBtn) {
     return;
   }
@@ -157,6 +181,23 @@ document.addEventListener("DOMContentLoaded", () => {
   setupFloatingWindow(shopScaleTrigger, shopWindow, shopWindowClose, shopWindowHandle, 92, "charsheet.shopWindow");
   setupFloatingWindow(shopAddItemBtn, shopItemWindow, shopItemWindowClose, shopItemWindowHandle, 128, "charsheet.shopItemWindow");
   setupFloatingWindow(learnMenuTrigger, learnWindow, learnWindowClose, learnWindowHandle, 138, "charsheet.learnWindow");
+  setupFloatingWindow(charInfoEditTrigger, charInfoWindow, charInfoWindowClose, charInfoWindowHandle, 132, "charsheet.charInfoWindow");
+
+  if (learnWindow && learnWindow.getAttribute("data-force-close") === "1") {
+    learnWindow.classList.remove("is-open");
+    learnWindow.setAttribute("aria-hidden", "true");
+    try {
+      const left = Number.parseFloat(learnWindow.style.left || "");
+      const top = Number.parseFloat(learnWindow.style.top || "");
+      window.localStorage.setItem("charsheet.learnWindow", JSON.stringify({
+        isOpen: false,
+        left: Number.isFinite(left) ? left : null,
+        top: Number.isFinite(top) ? top : null,
+      }));
+    } catch (_error) {
+      // no-op
+    }
+  }
 
   if (shopItemCancelBtn && shopItemWindow) {
     shopItemCancelBtn.addEventListener("click", () => {
@@ -166,6 +207,40 @@ document.addEventListener("DOMContentLoaded", () => {
         const left = Number.parseFloat(shopItemWindow.style.left || "");
         const top = Number.parseFloat(shopItemWindow.style.top || "");
         window.localStorage.setItem("charsheet.shopItemWindow", JSON.stringify({
+          isOpen: false,
+          left: Number.isFinite(left) ? left : null,
+          top: Number.isFinite(top) ? top : null,
+        }));
+      } catch (_error) {
+        // no-op
+      }
+    });
+  }
+
+  if (charInfoCancelBtn && charInfoWindow) {
+    charInfoCancelBtn.addEventListener("click", () => {
+      charInfoWindow.classList.remove("is-open");
+      charInfoWindow.setAttribute("aria-hidden", "true");
+      try {
+        const left = Number.parseFloat(charInfoWindow.style.left || "");
+        const top = Number.parseFloat(charInfoWindow.style.top || "");
+        window.localStorage.setItem("charsheet.charInfoWindow", JSON.stringify({
+          isOpen: false,
+          left: Number.isFinite(left) ? left : null,
+          top: Number.isFinite(top) ? top : null,
+        }));
+      } catch (_error) {
+        // no-op
+      }
+    });
+  }
+
+  if (charInfoForm) {
+    charInfoForm.addEventListener("submit", () => {
+      try {
+        const left = Number.parseFloat(charInfoWindow?.style.left || "");
+        const top = Number.parseFloat(charInfoWindow?.style.top || "");
+        window.localStorage.setItem("charsheet.charInfoWindow", JSON.stringify({
           isOpen: false,
           left: Number.isFinite(left) ? left : null,
           top: Number.isFinite(top) ? top : null,
@@ -383,7 +458,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!(target instanceof HTMLElement)) {
       return;
     }
-    if (!target.classList.contains("shop_pick_btn")) {
+    if (!target.hasAttribute("data-shop-pick")) {
       return;
     }
 
@@ -528,6 +603,421 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 document.addEventListener("DOMContentLoaded", () => {
+  const form = document.getElementById("learnForm");
+  const cartBody = document.getElementById("learnCartBody");
+  const budgetEl = document.getElementById("learnBudgetValue");
+  const spentEl = document.getElementById("learnSpentValue");
+  const remainingEl = document.getElementById("learnRemainingValue");
+  const validationHint = document.getElementById("learnValidationHint");
+  const applyBtn = document.getElementById("learnApplyBtn");
+  const filterInput = document.getElementById("learnFilterInput");
+  if (!form || !cartBody || !budgetEl || !spentEl || !remainingEl || !applyBtn) {
+    return;
+  }
+
+  const budget = Number.parseInt(form.getAttribute("data-learn-budget") || "0", 10) || 0;
+
+  const readInt = (value, fallback = 0) => {
+    const parsed = Number.parseInt(String(value ?? "").trim(), 10);
+    return Number.isNaN(parsed) ? fallback : parsed;
+  };
+  const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
+  const escapeHtml = (value) => String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
+  const calcSkillCost = (level) => {
+    if (level <= 5) {
+      return Math.max(0, level);
+    }
+    return 5 + ((Math.max(0, level) - 5) * 2);
+  };
+  const calcLanguageCost = (level, write, mother) => {
+    const base = mother ? 0 : Math.max(0, level);
+    return base + (write ? 1 : 0);
+  };
+  const calcAttributeTotalCost = (targetLevel, maxValue) => {
+    const level = Math.max(0, targetLevel);
+    const threshold = maxValue - 2;
+    if (level <= threshold) {
+      return level * 10;
+    }
+    let cost = threshold * 10;
+    for (let value = threshold + 1; value <= level; value += 1) {
+      cost += 20;
+    }
+    return cost;
+  };
+
+  const getRows = () => Array.from(cartBody.querySelectorAll("[data-learn-cart-item]"));
+  const ensureEmptyRow = () => {
+    const emptyRow = cartBody.querySelector("[data-learn-empty-row]");
+    if (emptyRow) {
+      emptyRow.hidden = getRows().length > 0;
+    }
+  };
+
+  const syncRow = (row) => {
+    const kind = row.getAttribute("data-kind") || "";
+    const valueInput = row.querySelector("[data-learn-value]");
+    const costCell = row.querySelector("[data-learn-cost]");
+    const infoEl = row.querySelector("[data-learn-level-info]");
+    if (!(valueInput instanceof HTMLInputElement) || !costCell) {
+      return { cost: 0, invalidWrite: false };
+    }
+
+    let value = readInt(valueInput.value, 0);
+    let cost = 0;
+    let invalidWrite = false;
+
+    if (kind === "attr") {
+      const base = readInt(row.getAttribute("data-base"), 0);
+      const max = readInt(row.getAttribute("data-max"), 0);
+      const maxAdd = Math.max(0, max - base);
+      const hidden = row.querySelector("[data-learn-hidden]");
+      value = clamp(value, 0, maxAdd);
+      cost = calcAttributeTotalCost(base + value, max) - calcAttributeTotalCost(base, max);
+      if (hidden instanceof HTMLInputElement) {
+        hidden.value = String(value);
+      }
+      if (infoEl) {
+        infoEl.textContent = `(${base + value})`;
+      }
+      valueInput.max = String(maxAdd);
+    } else if (kind === "skill") {
+      const base = readInt(row.getAttribute("data-base"), 0);
+      const maxAdd = Math.max(0, 10 - base);
+      const hidden = row.querySelector("[data-learn-hidden]");
+      value = clamp(value, 0, maxAdd);
+      cost = calcSkillCost(base + value) - calcSkillCost(base);
+      if (hidden instanceof HTMLInputElement) {
+        hidden.value = String(value);
+      }
+      if (infoEl) {
+        infoEl.textContent = `(${base + value})`;
+      }
+      valueInput.max = String(maxAdd);
+    } else if (kind === "lang") {
+      const base = readInt(row.getAttribute("data-base"), 0);
+      const max = readInt(row.getAttribute("data-max"), 0);
+      const maxAdd = Math.max(0, max - base);
+      const hidden = row.querySelector("[data-learn-hidden]");
+      const writeHidden = row.querySelector("[data-learn-lang-write-hidden]");
+      const writeInput = row.querySelector("[data-learn-lang-write]");
+      const baseWrite = row.getAttribute("data-write") === "1";
+      const mother = row.getAttribute("data-mother") === "1";
+      let writeAdd = false;
+      value = clamp(value, 0, maxAdd);
+      if (writeInput instanceof HTMLInputElement) {
+        if (baseWrite) {
+          writeInput.checked = true;
+          writeInput.disabled = true;
+          writeAdd = false;
+        } else {
+          writeAdd = writeInput.checked;
+        }
+      }
+      const write = baseWrite || writeAdd;
+      invalidWrite = write && base + value < 1;
+      cost = calcLanguageCost(base + value, write, mother) - calcLanguageCost(base, baseWrite, mother);
+      if (hidden instanceof HTMLInputElement) {
+        hidden.value = String(value);
+      }
+      if (writeHidden instanceof HTMLInputElement) {
+        writeHidden.value = writeAdd ? "1" : "0";
+      }
+      if (infoEl) {
+        infoEl.textContent = `(${base + value})`;
+      }
+      valueInput.max = String(maxAdd);
+    } else if (kind === "school") {
+      const base = readInt(row.getAttribute("data-base"), 0);
+      const max = readInt(row.getAttribute("data-max"), base);
+      const maxAdd = Math.max(0, max - base);
+      const hidden = row.querySelector("[data-learn-hidden]");
+      value = clamp(value, 0, maxAdd);
+      cost = value * 8;
+      if (hidden instanceof HTMLInputElement) {
+        hidden.value = String(value);
+      }
+      if (infoEl) {
+        infoEl.textContent = `(${base + value})`;
+      }
+      valueInput.max = String(maxAdd);
+    }
+
+    valueInput.value = String(value);
+    costCell.textContent = `${cost} EP`;
+    return { cost, invalidWrite };
+  };
+
+  const refreshTotals = () => {
+    let spent = 0;
+    let invalidWrite = false;
+    getRows().forEach((row) => {
+      const result = syncRow(row);
+      spent += result.cost;
+      invalidWrite = invalidWrite || result.invalidWrite;
+    });
+    const remaining = budget - spent;
+    budgetEl.textContent = `${budget} EP`;
+    spentEl.textContent = `${spent} EP`;
+    remainingEl.textContent = `${remaining} EP`;
+    remainingEl.classList.toggle("is-negative", remaining < 0);
+    const overBudget = remaining < 0;
+    applyBtn.disabled = false;
+    if (validationHint) {
+      const messages = [];
+      if (overBudget) {
+        messages.push("Zu wenig EP für die ausgewählten Lernschritte.");
+      }
+      if (invalidWrite) {
+        messages.push("Schreiben benötigt mindestens Sprachlevel 1.");
+      }
+      validationHint.hidden = messages.length === 0;
+      validationHint.textContent = messages.join(" ");
+    }
+    return { overBudget, invalidWrite };
+  };
+
+  const bindRow = (row) => {
+    const valueInput = row.querySelector("[data-learn-value]");
+    const removeBtn = row.querySelector("[data-learn-remove]");
+    const writeInput = row.querySelector("[data-learn-lang-write]");
+    const decBtn = row.querySelector("[data-learn-step-dec]");
+    const incBtn = row.querySelector("[data-learn-step-inc]");
+    if (valueInput instanceof HTMLInputElement) {
+      valueInput.addEventListener("input", refreshTotals);
+      valueInput.addEventListener("change", refreshTotals);
+    }
+    if (valueInput instanceof HTMLInputElement && decBtn instanceof HTMLButtonElement) {
+      decBtn.addEventListener("click", () => {
+        const current = readInt(valueInput.value, 0);
+        const min = readInt(valueInput.min, 0);
+        const max = valueInput.max ? readInt(valueInput.max, Number.MAX_SAFE_INTEGER) : Number.MAX_SAFE_INTEGER;
+        valueInput.value = String(clamp(current - 1, min, max));
+        refreshTotals();
+      });
+    }
+    if (valueInput instanceof HTMLInputElement && incBtn instanceof HTMLButtonElement) {
+      incBtn.addEventListener("click", () => {
+        const current = readInt(valueInput.value, 0);
+        const min = readInt(valueInput.min, 0);
+        const max = valueInput.max ? readInt(valueInput.max, Number.MAX_SAFE_INTEGER) : Number.MAX_SAFE_INTEGER;
+        valueInput.value = String(clamp(current + 1, min, max));
+        refreshTotals();
+      });
+    }
+    if (writeInput instanceof HTMLInputElement) {
+      writeInput.addEventListener("change", refreshTotals);
+    }
+    if (removeBtn instanceof HTMLButtonElement) {
+      removeBtn.addEventListener("click", () => {
+        row.remove();
+        ensureEmptyRow();
+        refreshTotals();
+      });
+    }
+  };
+
+  const createRowFromSource = (source) => {
+    const kind = source.getAttribute("data-kind") || "";
+    const key = source.getAttribute("data-key") || "";
+    const name = source.getAttribute("data-name") || key;
+    const safeName = escapeHtml(name);
+    if (!kind || !key) {
+      return null;
+    }
+    const row = document.createElement("tr");
+    row.setAttribute("data-learn-cart-item", "");
+    row.setAttribute("data-kind", kind);
+    row.setAttribute("data-key", key);
+
+    if (kind === "attr") {
+      const shortName = source.getAttribute("data-short") || "";
+      const base = readInt(source.getAttribute("data-base"), 0);
+      const max = readInt(source.getAttribute("data-max"), 0);
+      const maxAdd = Math.max(0, max - base);
+      if (maxAdd < 1) {
+        return null;
+      }
+      row.setAttribute("data-base", String(base));
+      row.setAttribute("data-max", String(max));
+      row.innerHTML = `
+        <td><span>${safeName}</span> <span data-learn-level-info>(${base + 1})</span><input type="hidden" name="learn_attr_add_${shortName}" value="1" data-learn-hidden></td>
+        <td>
+          <div class="shop_qty_stepper">
+            <button type="button" class="shop_step_btn" data-learn-step-dec aria-label="Wert verringern">-</button>
+            <input class="shop_cart_qty_input" type="number" min="0" max="${maxAdd}" value="1" data-learn-value>
+            <button type="button" class="shop_step_btn" data-learn-step-inc aria-label="Wert erhöhen">+</button>
+          </div>
+        </td>
+        <td data-learn-cost>0 EP</td>
+        <td><button type="button" class="shop_cart_remove_btn" data-learn-remove aria-label="Eintrag entfernen">×</button></td>
+      `;
+      return row;
+    }
+
+    if (kind === "skill") {
+      const slug = source.getAttribute("data-slug") || "";
+      const base = readInt(source.getAttribute("data-base"), 0);
+      const maxAdd = Math.max(0, 10 - base);
+      if (maxAdd < 1) {
+        return null;
+      }
+      row.setAttribute("data-base", String(base));
+      row.innerHTML = `
+        <td><span>${safeName}</span> <span data-learn-level-info>(${base + 1})</span><input type="hidden" name="learn_skill_add_${slug}" value="1" data-learn-hidden></td>
+        <td>
+          <div class="shop_qty_stepper">
+            <button type="button" class="shop_step_btn" data-learn-step-dec aria-label="Wert verringern">-</button>
+            <input class="shop_cart_qty_input" type="number" min="0" max="${maxAdd}" value="1" data-learn-value>
+            <button type="button" class="shop_step_btn" data-learn-step-inc aria-label="Wert erhöhen">+</button>
+          </div>
+        </td>
+        <td data-learn-cost>0 EP</td>
+        <td><button type="button" class="shop_cart_remove_btn" data-learn-remove aria-label="Eintrag entfernen">×</button></td>
+      `;
+      return row;
+    }
+
+    if (kind === "lang") {
+      const slug = source.getAttribute("data-slug") || "";
+      const base = readInt(source.getAttribute("data-base"), 0);
+      const max = readInt(source.getAttribute("data-max"), 0);
+      const maxAdd = Math.max(0, max - base);
+      const baseWrite = source.getAttribute("data-write") === "1";
+      const mother = source.getAttribute("data-mother") === "1";
+      if (maxAdd < 1 && baseWrite) {
+        return null;
+      }
+      const startAdd = maxAdd > 0 ? 1 : 0;
+      row.setAttribute("data-base", String(base));
+      row.setAttribute("data-max", String(max));
+      row.setAttribute("data-write", baseWrite ? "1" : "0");
+      row.setAttribute("data-mother", mother ? "1" : "0");
+      row.innerHTML = `
+        <td>
+          <span>${safeName}</span>
+          <span data-learn-level-info>(${base + startAdd})</span>
+          <input type="hidden" name="learn_lang_add_${slug}" value="${startAdd}" data-learn-hidden>
+          <input type="hidden" name="learn_lang_write_${slug}" value="0" data-learn-lang-write-hidden>
+        </td>
+        <td>
+          <div class="learn_lang_value_wrap">
+            <label class="learn_lang_write"><input type="checkbox" data-learn-lang-write ${baseWrite ? "checked disabled" : ""}> Schreiben</label>
+            <div class="shop_qty_stepper">
+              <button type="button" class="shop_step_btn" data-learn-step-dec aria-label="Wert verringern">-</button>
+              <input class="shop_cart_qty_input" type="number" min="0" max="${maxAdd}" value="${startAdd}" data-learn-value>
+              <button type="button" class="shop_step_btn" data-learn-step-inc aria-label="Wert erhöhen">+</button>
+            </div>
+          </div>
+        </td>
+        <td data-learn-cost>0 EP</td>
+        <td><button type="button" class="shop_cart_remove_btn" data-learn-remove aria-label="Eintrag entfernen">×</button></td>
+      `;
+      return row;
+    }
+
+    if (kind === "school") {
+      const schoolId = source.getAttribute("data-id") || "";
+      const base = readInt(source.getAttribute("data-base"), 0);
+      const max = readInt(source.getAttribute("data-max"), base);
+      const maxAdd = Math.max(0, max - base);
+      if (maxAdd < 1) {
+        return null;
+      }
+      row.setAttribute("data-base", String(base));
+      row.setAttribute("data-max", String(max));
+      row.innerHTML = `
+        <td><span>${safeName}</span> <span data-learn-level-info>(${base + 1})</span><input type="hidden" name="learn_school_add_${schoolId}" value="1" data-learn-hidden></td>
+        <td>
+          <div class="shop_qty_stepper">
+            <button type="button" class="shop_step_btn" data-learn-step-dec aria-label="Wert verringern">-</button>
+            <input class="shop_cart_qty_input" type="number" min="0" max="${maxAdd}" value="1" data-learn-value>
+            <button type="button" class="shop_step_btn" data-learn-step-inc aria-label="Wert erhöhen">+</button>
+          </div>
+        </td>
+        <td data-learn-cost>0 EP</td>
+        <td><button type="button" class="shop_cart_remove_btn" data-learn-remove aria-label="Eintrag entfernen">×</button></td>
+      `;
+      return row;
+    }
+    return null;
+  };
+
+  const addFromSource = (source) => {
+    const key = source.getAttribute("data-key") || "";
+    if (!key) {
+      return;
+    }
+    const existing = cartBody.querySelector(`[data-learn-cart-item][data-key="${key}"]`);
+    if (existing) {
+      const input = existing.querySelector("[data-learn-value]");
+      if (input instanceof HTMLInputElement) {
+        input.focus();
+      }
+      return;
+    }
+    const row = createRowFromSource(source);
+    if (!row) {
+      return;
+    }
+    cartBody.appendChild(row);
+    bindRow(row);
+    ensureEmptyRow();
+    refreshTotals();
+  };
+
+  Array.from(document.querySelectorAll("[data-learn-source]")).forEach((source) => {
+    source.addEventListener("click", () => {
+      addFromSource(source);
+    });
+    source.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        addFromSource(source);
+      }
+    });
+  });
+
+  if (filterInput instanceof HTMLInputElement) {
+    filterInput.addEventListener("input", () => {
+      const needle = String(filterInput.value || "").trim().toLowerCase();
+      const rows = Array.from(document.querySelectorAll("[data-learn-source]"));
+      rows.forEach((row) => {
+        const haystack = String(row.getAttribute("data-learn-search") || "").toLowerCase();
+        row.hidden = needle.length > 0 && !haystack.includes(needle);
+      });
+      Array.from(document.querySelectorAll("[data-learn-group]")).forEach((group) => {
+        const visible = Array.from(group.querySelectorAll("tr")).some((row) => !row.hidden);
+        group.hidden = !visible;
+      });
+    });
+  }
+
+  form.addEventListener("submit", (event) => {
+    const state = refreshTotals();
+    if (state.invalidWrite) {
+      event.preventDefault();
+      return;
+    }
+    if (state.overBudget) {
+      event.preventDefault();
+      remainingEl.classList.remove("is-fail-flash");
+      void remainingEl.offsetWidth;
+      remainingEl.classList.add("is-fail-flash");
+    }
+  });
+
+  ensureEmptyRow();
+  refreshTotals();
+});
+
+document.addEventListener("DOMContentLoaded", () => {
   const targets = document.querySelectorAll(".tooltip_target[data-tooltip]");
   if (!targets.length) {
     return;
@@ -594,7 +1084,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   targets.forEach((target) => {
     target.addEventListener("mouseenter", () => {
-      const text = target.getAttribute("data-tooltip") || "";
+      const text = (target.getAttribute("data-tooltip") || "")
+        .replace(/\r\n/g, "\n")
+        .replace(/\\n/g, "\n");
       if (!text.trim()) {
         return;
       }

@@ -124,7 +124,14 @@ class Character(models.Model):
     overall_experience = models.PositiveIntegerField(default=0)
     current_experience = models.PositiveIntegerField(default=0)
     
-    current_damage = models.PositiveBigIntegerField(default=0)
+    current_damage = models.PositiveIntegerField(default=0)
+    is_archived = models.BooleanField(default=False)
+    last_opened_at = models.DateTimeField(null=True, blank=True)
+    
+    personal_fame_point = models.PositiveIntegerField(default=0, validators=[MaxValueValidator(10)])
+    personal_fame_rank = models.PositiveIntegerField(default=0)
+    sacrifice_rank = models.PositiveIntegerField(default=0)
+    artefact_rank = models.PositiveIntegerField(default=0)
     
     class Meta:
         """Set stable ordering and owner/name uniqueness."""
@@ -394,6 +401,7 @@ class Item(models.Model):
     item_type = models.CharField(max_length=20, choices=ItemType.choices)
     description = models.TextField(null=True, blank=True)
     stackable = models.BooleanField(default=True)
+    is_consumable = models.BooleanField(default=False)
 
     def clean(self):
         """Validate constraints between item type and stackability."""
@@ -496,7 +504,15 @@ class WeaponStats(models.Model):
     
     min_st = models.PositiveIntegerField(default=1, validators=[MinValueValidator(1)])
 
-    # TODO: GK
+    class GK(models.TextChoices):
+        K = "K"
+        M = "M"
+        G = "G"
+        
+    weight_class = models.CharField(max_length=1, choices=GK.choices, default="M")
+    
+    two_handed = models.BooleanField(default=False)
+    two_handed_damage = models.CharField(max_length=20, null=True, blank=True)
     
     def clean(self):
         """Ensure weapon stats are only linked to weapon items."""

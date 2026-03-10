@@ -4,7 +4,8 @@
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard</title>
+    <link rel="icon" type="image/x-icon" href="{% static 'img/favicon.ico' %}">
+    <title>Dashboard | {{ request.user.get_username }}</title>
     <link rel="stylesheet" href="{% static 'css/charsheet.css' %}">
     <link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
   </head>
@@ -18,84 +19,328 @@
               <h1>Dashboard</h1>
               <p class="dashboard_subtitle">Willkommen,<br>{{ request.user.get_username }}.</p>
             </div>
-            <a href="{% url 'logout' %}" class="dashboard_button dashboard_button--sidebar">Abmelden</a>
-          </aside>
 
-          <section class="dashboard_panel dashboard_panel--main" aria-label="Charakterübersicht">
-            <div class="dashboard_panel_header">
-              <h2>Deine Charaktere</h2>
-              <div class="dashboard_header_actions">
-                <span>{{ character_count }} Eintrag{% if character_count != 1 %}e{% endif %}</span>
-                <a href="{% url 'create_character' %}" class="dashboard_button dashboard_button--small dashboard_button--primary" title="Neuen Charakter erstellen">
-                  <span aria-hidden="true">+</span>
-                  <span>Neuer Charakter</span>
-                </a>
-              </div>
+            <div class="dashboard_side_group" aria-label="Benutzeraktionen">
+              <div class="dashboard_side_title">Benutzer</div>
+              <button type="button" class="dashboard_button dashboard_button--sidebar" disabled>Kontoeinstellungen (optional)</button>
+              <form method="post" action="{% url 'app_logout' %}" class="dashboard_logout_link">
+                {% csrf_token %}
+                <button type="submit" class="dashboard_button dashboard_button--sidebar">Logout</button>
+              </form>
             </div>
 
-            {% if characters %}
-              <div class="dashboard_table_wrap">
-                <table class="dashboard_table">
-                  <thead>
-                    <tr>
-                      <th>Name</th>
-                      <th>Rasse</th>
-                      <th>Geschlecht</th>
-                      <th>Geld (KS)</th>
-                      <th></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {% for character in characters %}
-                      <tr>
-                        <td>{{ character.name }}</td>
-                        <td>{{ character.race.name }}</td>
-                        <td>{{ character.get_gender_display|default:"-" }}</td>
-                        <td>{{ character.money }}</td>
-                        <td class="dashboard_action_cell">
-                          <a class="dashboard_button dashboard_button--small" href="{% url 'character_sheet' character.id %}">
-                            Charakterbogen
-                          </a>
-                        </td>
-                      </tr>
-                    {% endfor %}
-                  </tbody>
-                </table>
-              </div>
-            {% else %}
-              <div class="dashboard_empty">
-                <p>Du hast aktuell noch keine Charaktere in diesem Account.</p>
-                {% if request.user.is_staff %}
-                  <p>Lege einen Charakter im Admin unter <code>Character</code> an und komme dann hierher zurück.</p>
-                  <a class="dashboard_button dashboard_button--small" href="{% url 'admin:index' %}">Zum Admin</a>
-                {% endif %}
-              </div>
-            {% endif %}
-          </section>
+            <div class="dashboard_side_group" id="zuletzt" aria-label="Zuletzt verwendete Charaktere">
+              <div class="dashboard_side_title">Zuletzt verwendet</div>
+              {% if recent_characters %}
+                <ul class="dashboard_list dashboard_list--compact">
+                  {% for character in recent_characters %}
+                    <li>
+                      <span>{{ character.name }}</span>
+                      <a class="dashboard_button dashboard_button--small" href="{% url 'character_sheet' character.id %}">Öffnen</a>
+                    </li>
+                  {% endfor %}
+                </ul>
+              {% else %}
+                <p class="dashboard_hint">Keine zuletzt geöffneten Charaktere.</p>
+              {% endif %}
+            </div>
 
-          <aside class="dashboard_panel dashboard_panel--side" aria-label="Kennzahlen">
-            <h2>Kennzahlen</h2>
-            <dl class="dashboard_stats">
-              <div>
-                <dt>Charaktere</dt>
-                <dd>{{ character_count }}</dd>
-              </div>
-              <div>
-                <dt>Gesamtgeld (KS)</dt>
-                <dd>{{ total_money }}</dd>
-              </div>
-              <div>
-                <dt>Ausgerüstete Items</dt>
-                <dd>{{ equipped_item_count }}</dd>
-              </div>
-            </dl>
+            <div class="dashboard_side_group" id="systemstatus" aria-label="Systemstatus">
+              <div class="dashboard_side_title">Systemstatus</div>
+              <dl class="dashboard_stats dashboard_stats--stack">
+                <div><dt>Items</dt><dd>{{ system_counts.items }}</dd></div>
+                <div><dt>Skills</dt><dd>{{ system_counts.skills }}</dd></div>
+                <div><dt>Schulen</dt><dd>{{ system_counts.schools }}</dd></div>
+                <div><dt>Sprachen</dt><dd>{{ system_counts.languages }}</dd></div>
+              </dl>
+            </div>
+
+            <div class="dashboard_side_group" id="hinweise" aria-label="Hinweise und Updates">
+              <div class="dashboard_side_title">Hinweise</div>
+              {% if warnings %}
+                <ul class="dashboard_warning_list">
+                  {% for warning in warnings %}
+                    <li class="dashboard_warning dashboard_warning--{{ warning.severity }}">{{ warning.text }}</li>
+                  {% endfor %}
+                </ul>
+              {% else %}
+                <p class="dashboard_hint">Keine offenen Hinweise.</p>
+              {% endif %}
+            </div>
+
+            <div class="dashboard_side_group" id="entwuerfe" aria-label="Offene Charakterentwürfe">
+              <div class="dashboard_side_title">Offene Entwürfe</div>
+              {% if draft_rows %}
+                <ul class="dashboard_list">
+                  {% for draft in draft_rows %}
+                    <li class="dashboard_draft_item">
+                      <span>{{ draft.name }} ({{ draft.race_name }}) | Phase {{ draft.phase }}/4</span>
+                      <div class="dashboard_draft_actions">
+                        <button type="button" class="dashboard_button dashboard_button--small" data-open-creation-window data-create-url="{% url 'create_character' %}?draft={{ draft.id }}">Fortsetzen</button>
+                        <form method="post" action="{% url 'delete_creation_draft' draft.id %}">
+                          {% csrf_token %}
+                          <button type="submit" class="dashboard_button dashboard_button--small">Verwerfen</button>
+                        </form>
+                      </div>
+                    </li>
+                  {% endfor %}
+                </ul>
+              {% else %}
+                <p class="dashboard_hint">Keine offenen Entwürfe.</p>
+              {% endif %}
+            </div>
           </aside>
+
+          <section class="dashboard_panel dashboard_panel--main" aria-label="Charakterübersicht und Schnellaktionen">
+            {% if messages %}
+              <section class="dashboard_messages" aria-label="Hinweise">
+                {% for message in messages %}
+                  <div class="dashboard_message" data-autohide-message>{{ message }}</div>
+                {% endfor %}
+              </section>
+            {% endif %}
+            <div class="dashboard_main_stack">
+              <section class="dashboard_active_block" aria-label="Aktive Charaktere">
+                <div class="dashboard_panel_header">
+                  <h2>Charakterverwaltung</h2>
+                  <div class="dashboard_header_actions">
+                    <span>{{ character_count }} aktiv</span>
+                    <button type="button" id="openCreationWindow" data-open-creation-window data-create-url="{% url 'create_character' %}" class="dashboard_button dashboard_button--small dashboard_button--primary">Neuer Charakter</button>
+                    <noscript>
+                      <a href="{% url 'create_character' %}" class="dashboard_button dashboard_button--small dashboard_button--primary">Neuer Charakter</a>
+                    </noscript>
+                  </div>
+                </div>
+
+                <dl class="dashboard_stats dashboard_stats--inline">
+                  <div>
+                    <dt>Gesamtgeld (KS)</dt>
+                    <dd>{{ total_money_display }}</dd>
+                  </div>
+                  <div>
+                    <dt>Ausgerüstete Items</dt>
+                    <dd>{{ equipped_item_count_display }}</dd>
+                  </div>
+                  <div>
+                    <dt>Charaktere</dt>
+                    <dd>{{ character_count_display }}</dd>
+                  </div>
+                </dl>
+
+                {% if character_rows %}
+                  <div class="dashboard_table_wrap dashboard_table_wrap--active">
+                    <table class="dashboard_table">
+                      <thead>
+                        <tr>
+                          <th>Name</th>
+                          <th>Rasse</th>
+                          <th>Erfahrung</th>
+                          <th>Zustand</th>
+                          <th>Aktionen</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {% for row in character_rows %}
+                          <tr>
+                            <td>{{ row.character.name }}</td>
+                            <td>{{ row.character.race.name }}</td>
+                            <td>{{ row.status.experience }}</td>
+                            <td>{{ row.status.condition }}</td>
+                            <td class="dashboard_action_cell">
+                              <div class="dashboard_actions_inline">
+                                <a class="dashboard_button dashboard_button--small" href="{% url 'character_sheet' row.character.id %}">Öffnen</a>
+                                <a class="dashboard_button dashboard_button--small" href="{% url 'edit_character' row.character.id %}">Bearbeiten</a>
+                                <form method="post" action="{% url 'archive_character' row.character.id %}">
+                                  {% csrf_token %}
+                                  <button type="submit" class="dashboard_button dashboard_button--small">Archivieren</button>
+                                </form>
+                                <form method="post" action="{% url 'delete_character' row.character.id %}" onsubmit="return confirm('Charakter wirklich löschen?');">
+                                  {% csrf_token %}
+                                  <button type="submit" class="dashboard_button dashboard_button--small dashboard_button--danger">Loeschen</button>
+                                </form>
+                              </div>
+                            </td>
+                          </tr>
+                        {% endfor %}
+                      </tbody>
+                    </table>
+                  </div>
+                {% else %}
+                  <div class="dashboard_empty">
+                    <p>Du hast aktuell noch keine aktiven Charaktere.</p>
+                  </div>
+                {% endif %}
+              </section>
+
+              <section class="dashboard_subpanel dashboard_subpanel--archive" aria-label="Archiv">
+                <h3>Archivierte Charaktere</h3>
+                <div class="dashboard_archive_scroll">
+                  {% if archived_characters %}
+                    <ul class="dashboard_list">
+                      {% for character in archived_characters %}
+                        <li>
+                          <span>{{ character.name }} ({{ character.race.name }})</span>
+                          <form method="post" action="{% url 'unarchive_character' character.id %}">
+                            {% csrf_token %}
+                            <button type="submit" class="dashboard_button dashboard_button--small">Reaktivieren</button>
+                          </form>
+                        </li>
+                      {% endfor %}
+                    </ul>
+                  {% else %}
+                    <p class="dashboard_hint">Archiv ist leer.</p>
+                  {% endif %}
+                </div>
+              </section>
+            </div>
+
+          </section>
         </section>
       </article>
     </main>
 
+    <div id="dashboardCreationBackdrop" class="dashboard_creation_backdrop" aria-hidden="true"></div>
+    <section class="payday-window payday-window--large creation_wizard_window dashboard_creation_window" id="dashboardCreationWindow" aria-hidden="true">
+      <div class="payday-window__titlebar" id="dashboardCreationHandle">
+        <h3 class="payday-window__title">Charakter erstellen</h3>
+        <button type="button" id="dashboardCreationClose" class="payday-window__close" aria-label="Fenster schließen">x</button>
+      </div>
+      <div class="payday-window__body creation_window_body dashboard_creation_body">
+        <iframe id="dashboardCreationFrame" class="dashboard_creation_iframe" data-src="{% url 'create_character' %}" title="Charaktererstellung"></iframe>
+      </div>
+    </section>
+
     <div aria-hidden="true" class="firefly-layer">
       {% for _ in '123456789012345' %}<div class="firefly"></div>{% endfor %}
     </div>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        document.querySelectorAll("[data-autohide-message]").forEach(function (message) {
+          setTimeout(function () {
+            message.classList.add("is-hidden");
+          }, 2000);
+        });
+
+        const openButtons = Array.from(document.querySelectorAll("[data-open-creation-window]"));
+        const win = document.getElementById("dashboardCreationWindow");
+        const handle = document.getElementById("dashboardCreationHandle");
+        const closeBtn = document.getElementById("dashboardCreationClose");
+        const backdrop = document.getElementById("dashboardCreationBackdrop");
+        const frame = document.getElementById("dashboardCreationFrame");
+        if (!openButtons.length || !win || !handle || !closeBtn || !backdrop || !frame) {
+          return;
+        }
+
+        const placeCentered = function () {
+          const rect = win.getBoundingClientRect();
+          const maxLeft = Math.max(12, window.innerWidth - rect.width - 12);
+          const maxTop = Math.max(12, window.innerHeight - rect.height - 12);
+          const left = Math.min(maxLeft, Math.max(12, (window.innerWidth - rect.width) / 2));
+          const top = Math.min(maxTop, 72);
+          win.style.left = left + "px";
+          win.style.top = top + "px";
+        };
+
+        const openWindow = function (url) {
+          const targetUrl = url || frame.dataset.src || "";
+          frame.setAttribute("src", targetUrl);
+          backdrop.classList.add("is-open");
+          win.classList.add("is-open");
+          win.setAttribute("aria-hidden", "false");
+          placeCentered();
+        };
+
+        const closeWindow = function () {
+          win.classList.remove("is-open");
+          win.setAttribute("aria-hidden", "true");
+          backdrop.classList.remove("is-open");
+        };
+
+        let dragPointerId = null;
+        let dragOffsetX = 0;
+        let dragOffsetY = 0;
+        const isInteractiveTarget = function (target) {
+          return Boolean(target && target.closest("button, a, input, select, textarea, label"));
+        };
+
+        handle.addEventListener("pointerdown", function (event) {
+          if (event.button !== 0 || !win.classList.contains("is-open") || isInteractiveTarget(event.target)) {
+            return;
+          }
+          const rect = win.getBoundingClientRect();
+          dragPointerId = event.pointerId;
+          dragOffsetX = event.clientX - rect.left;
+          dragOffsetY = event.clientY - rect.top;
+          handle.setPointerCapture(event.pointerId);
+          win.classList.add("is-dragging");
+        });
+
+        handle.addEventListener("pointermove", function (event) {
+          if (dragPointerId !== event.pointerId) {
+            return;
+          }
+          const rect = win.getBoundingClientRect();
+          const maxLeft = Math.max(12, window.innerWidth - rect.width - 12);
+          const maxTop = Math.max(12, window.innerHeight - rect.height - 12);
+          const left = Math.min(maxLeft, Math.max(12, event.clientX - dragOffsetX));
+          const top = Math.min(maxTop, Math.max(12, event.clientY - dragOffsetY));
+          win.style.left = left + "px";
+          win.style.top = top + "px";
+        });
+
+        const stopDragging = function (event) {
+          if (dragPointerId !== event.pointerId) {
+            return;
+          }
+          win.classList.remove("is-dragging");
+          try {
+            handle.releasePointerCapture(event.pointerId);
+          } catch (_error) {
+          }
+          dragPointerId = null;
+        };
+
+        handle.addEventListener("pointerup", stopDragging);
+        handle.addEventListener("pointercancel", stopDragging);
+
+        openButtons.forEach(function (button) {
+          button.addEventListener("click", function () {
+            openWindow(button.dataset.createUrl || frame.dataset.src || "");
+          });
+        });
+        closeBtn.addEventListener("click", closeWindow);
+        backdrop.addEventListener("click", closeWindow);
+        window.addEventListener("keydown", function (event) {
+          if (event.key === "Escape") {
+            closeWindow();
+          }
+        });
+
+        frame.addEventListener("load", function () {
+          try {
+            const href = frame.contentWindow.location.href;
+            const path = frame.contentWindow.location.pathname.toLowerCase();
+            if (!(path === "/character/new" || path === "/character/new/")) {
+              window.location.href = href;
+            }
+          } catch (_error) {
+          }
+        });
+
+        window.addEventListener("resize", function () {
+          if (!win.classList.contains("is-open")) {
+            return;
+          }
+          const rect = win.getBoundingClientRect();
+          const maxLeft = Math.max(12, window.innerWidth - rect.width - 12);
+          const maxTop = Math.max(12, window.innerHeight - rect.height - 12);
+          const left = Math.min(maxLeft, Math.max(12, rect.left));
+          const top = Math.min(maxTop, Math.max(12, rect.top));
+          win.style.left = left + "px";
+          win.style.top = top + "px";
+        });
+      });
+    </script>
   </body>
 </html>

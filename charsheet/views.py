@@ -1,26 +1,42 @@
 from __future__ import annotations
 import json
+import random
 from itertools import groupby
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.http import JsonResponse
+from django.http import HttpResponseRedirect
 from django.shortcuts import get_object_or_404, redirect, render
+from django.contrib import messages
+from django.contrib.auth import logout as auth_logout
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.views import LogoutView
 from django.views.decorators.http import require_POST
 from django.db import transaction
-from django.db.models import Sum
+from django.db.models import Max, Sum
+from django.utils import timezone
+from django.urls import reverse_lazy
+from .engine.engine import CharacterCreationEngine
 from .models import (
     Character,
+    CharacterAttribute,
     CharacterItem,
     CharacterLanguage,
+    CharacterSchool,
+    CharacterSkill,
     CharacterTrait,
+    Trait,
+    CharacterCreationDraft,
     Technique,
     Item,
+    Skill,
+    School,
+    Language,
     ArmorStats,
     WeaponStats,
     DamageSource,
 )
-from .forms import CharacterCreateForm
+from .forms import CharacterCreateForm, CharacterUpdateForm, CharacterInfoInlineForm
 
 
 ATTRIBUTE_ORDER = [
@@ -32,6 +48,7 @@ ATTRIBUTE_ORDER = [
     ("WILL", "Willenskraft (Will)"),
     ("CHA", "Charisma (Cha)"),
 ]
+DEFAULT_SCHOOL_MAX_LEVEL = 10
 
 
 def _legal_context() -> dict:
@@ -60,6 +77,48 @@ def _format_thousands(value: int) -> str:
     return f"{value:,}".replace(",", ".")
 
 
+def _calc_skill_total_cost(level: int) -> int:
+    """Return cumulative skill cost for one target level."""
+    if level <= 5:
+        return max(0, level)
+    return 5 + ((max(0, level) - 5) * 2)
+
+
+def _calc_language_total_cost(level: int, can_write: bool, is_mother_tongue: bool) -> int:
+    """Return cumulative language cost for one language state."""
+    base = 0 if is_mother_tongue else max(0, level)
+    return base + (1 if can_write else 0)
+
+
+def _calc_attribute_total_cost(target_level: int, max_value: int) -> int:
+    """Return cumulative attribute cost for one target level."""
+    level = max(0, target_level)
+    threshold = max_value - 2
+    if level <= threshold:
+        return level * 10
+    cost = threshold * 10
+    for _value in range(threshold + 1, level + 1):
+        cost += 20
+    return cost
+
+
+def _school_max_levels() -> dict[int, int]:
+    """Return dynamic school level caps based on highest technique level per school."""
+    caps: dict[int, int] = {}
+    rows = (
+        Technique.objects
+        .values("school_id")
+        .annotate(max_level=Max("level"))
+    )
+    for row in rows:
+        school_id = int(row.get("school_id") or 0)
+        if school_id <= 0:
+            continue
+        max_level = int(row.get("max_level") or DEFAULT_SCHOOL_MAX_LEVEL)
+        caps[school_id] = max(1, max_level)
+    return caps
+
+
 def _owned_character_or_404(request, character_id: int) -> Character:
     """Return one character that belongs to the current authenticated user."""
     return get_object_or_404(
@@ -78,10 +137,25 @@ def _owned_character_item_or_404(request, pk: int) -> CharacterItem:
     )
 
 
+def _character_dashboard_state(character: Character) -> dict[str, str]:
+    """Build one compact status payload for dashboard character rows."""
+    wound_stage, _penalty = character.engine.current_wound_stage()
+    if wound_stage == "-":
+        condition = "Unverletzt"
+    else:
+        condition = f"Wundstufe: {wound_stage}"
+    return {
+        "experience": f"{character.current_experience} / {character.overall_experience} EP",
+        "condition": condition,
+    }
+
+
 @login_required
 def character_sheet(request, character_id: int):
     """Render the complete character sheet view for one character."""
     character = _owned_character_or_404(request, character_id)
+    character.last_opened_at = timezone.now()
+    character.save(update_fields=["last_opened_at"])
 
     engine = character.engine
 
@@ -257,8 +331,78 @@ def character_sheet(request, character_id: int):
             }
         )
 
+    attribute_limits = {
+        limit.attribute.short_name: int(limit.max_value)
+        for limit in character.race.raceattributelimit_set.select_related("attribute")
+    }
+    skill_levels = {entry.skill_id: entry.level for entry in character_skills}
+    language_lookup = {
+        entry.language_id: {
+            "level": int(entry.levels),
+            "write": bool(entry.can_write),
+            "mother": bool(entry.is_mother_tongue),
+        }
+        for entry in language_entries
+    }
+
+    learn_attr_rows: list[dict] = []
+    for short_name, label in ATTRIBUTE_ORDER:
+        base_value = int(attributes.get(short_name, 0))
+        learn_attr_rows.append(
+            {
+                "short_name": short_name,
+                "label": label,
+                "base_value": base_value,
+                "max_value": int(attribute_limits.get(short_name, base_value)),
+            }
+        )
+
+    learn_skill_rows: list[dict] = []
+    for skill in Skill.objects.select_related("category", "attribute").order_by("category__name", "name"):
+        learn_skill_rows.append(
+            {
+                "slug": skill.slug,
+                "name": skill.name,
+                "description": (skill.description or "").replace("\r\n", "\n").replace("\r", "\n"),
+                "category_name": skill.category.name,
+                "base_level": int(skill_levels.get(skill.id, 0)),
+            }
+        )
+
+    learn_language_rows: list[dict] = []
+    for language in Language.objects.order_by("name"):
+        base_state = language_lookup.get(language.id, {"level": 0, "write": False, "mother": False})
+        learn_language_rows.append(
+            {
+                "slug": language.slug,
+                "name": language.name,
+                "base_level": int(base_state["level"]),
+                "max_level": int(language.max_level),
+                "base_write": bool(base_state["write"]),
+                "base_mother": bool(base_state["mother"]),
+            }
+        )
+
+    school_level_caps = _school_max_levels()
+    learn_school_rows: list[dict] = []
+    for school in School.objects.select_related("type").order_by("type__name", "name"):
+        base_level = int(school_levels.get(school.id, 0))
+        max_level = max(base_level, int(school_level_caps.get(school.id, DEFAULT_SCHOOL_MAX_LEVEL)))
+        learn_school_rows.append(
+            {
+                "id": school.id,
+                "name": school.name,
+                "description": (school.description or "").replace("\r\n", "\n").replace("\r", "\n"),
+                "type_name": school.type.name,
+                "base_level": base_level,
+                "max_level": max_level,
+            }
+        )
+
     context = {
         "character": character,
+        "char_info_form": CharacterInfoInlineForm(instance=character),
+        "fame_total_rank": int(character.personal_fame_rank) + int(character.sacrifice_rank) + int(character.artefact_rank),
         "attributes": attributes,
         "attr_mods": attr_mods,
         "skill_rows": skill_rows,
@@ -291,9 +435,62 @@ def character_sheet(request, character_id: int):
             ("armor", "Rüstungen"),
         ],
         "shop_damage_sources": DamageSource.objects.order_by("name"),
+        "learn_attr_rows": learn_attr_rows,
+        "learn_skill_rows": learn_skill_rows,
+        "learn_language_rows": learn_language_rows,
+        "learn_school_rows": learn_school_rows,
+        "close_learn_window_once": bool(request.session.pop("close_learn_window_once", False)),
     }
 
     return render(request, "charsheet/charsheet.html", context)
+
+
+@login_required
+@require_POST
+def adjust_personal_fame_point(request, character_id: int):
+    """Adjust personal fame points and convert 10 points into one personal fame rank."""
+    character = _owned_character_or_404(request, character_id)
+    try:
+        delta = int(request.POST.get("delta", "0"))
+    except (TypeError, ValueError):
+        delta = 0
+
+    if delta > 0:
+        for _ in range(delta):
+            character.personal_fame_point = int(character.personal_fame_point) + 1
+            if int(character.personal_fame_point) >= 10:
+                character.personal_fame_point = 0
+                character.personal_fame_rank = int(character.personal_fame_rank) + 1
+    elif delta < 0:
+        for _ in range(abs(delta)):
+            points = int(character.personal_fame_point)
+            rank = int(character.personal_fame_rank)
+            if points > 0:
+                character.personal_fame_point = points - 1
+            elif rank > 0:
+                character.personal_fame_rank = rank - 1
+                character.personal_fame_point = 9
+
+    character.save(update_fields=["personal_fame_point", "personal_fame_rank"])
+    return redirect("character_sheet", character_id=character.id)
+
+
+@login_required
+@require_POST
+def update_character_info(request, character_id: int):
+    """Update character info fields directly from the character-sheet inline form."""
+    character = _owned_character_or_404(request, character_id)
+    form = CharacterInfoInlineForm(request.POST, instance=character)
+    if form.is_valid():
+        name = (form.cleaned_data.get("name") or "").strip()
+        if Character.objects.filter(owner=request.user, name=name).exclude(pk=character.pk).exists():
+            messages.error(request, "Du hast bereits einen Charakter mit diesem Namen.")
+        else:
+            form.save()
+            messages.success(request, "Charakterinformation aktualisiert.")
+    else:
+        messages.error(request, "Charakterinformation konnte nicht gespeichert werden.")
+    return redirect("character_sheet", character_id=character.id)
 
 @login_required
 def sheet(request):
@@ -304,47 +501,567 @@ def sheet(request):
 @login_required
 def dashboard(request):
     """Render the user-specific dashboard with owned character overview."""
-    characters_qs = (
-        Character.objects
-        .filter(owner=request.user)
+    characters_qs = Character.objects.filter(
+        owner=request.user,
+        is_archived=False,
+    ).select_related("race")
+    characters = list(characters_qs.order_by("name"))
+    archived_characters = list(
+        Character.objects.filter(owner=request.user, is_archived=True)
         .select_related("race")
         .order_by("name")
     )
-    characters = list(characters_qs)
     totals = characters_qs.aggregate(
         total_money=Sum("money"),
         total_current_experience=Sum("current_experience"),
     )
+    character_rows = [
+        {
+            "character": character,
+            "status": _character_dashboard_state(character),
+        }
+        for character in characters
+    ]
+    recent_characters = list(
+        characters_qs.filter(last_opened_at__isnull=False)
+        .order_by("-last_opened_at")[:5]
+    )
+
+    warnings: list[dict] = []
+    for character in characters:
+        if character.current_experience > 0:
+            warnings.append(
+                {
+                    "severity": "warning",
+                    "text": f"{character.name}: {character.current_experience} unverteilte EP.",
+                }
+            )
+        if character.current_damage > 0:
+            stage, _ = character.engine.current_wound_stage()
+            if stage == "-":
+                warnings.append(
+                    {
+                        "severity": "warning",
+                        "text": f"{character.name}: {character.current_damage} aktueller Schaden.",
+                    }
+                )
+            else:
+                warnings.append(
+                    {
+                        "severity": "warning",
+                        "text": f"{character.name}: Wundstufe {stage} bei {character.current_damage} Schaden.",
+                    }
+                )
+
+    draft_count = CharacterCreationDraft.objects.filter(owner=request.user).count()
+    draft_rows = []
+    for draft in CharacterCreationDraft.objects.filter(owner=request.user).select_related("race").order_by("-id"):
+        meta = draft.state if isinstance(draft.state, dict) else {}
+        meta_name = str(meta.get("meta", {}).get("name", "")).strip() if isinstance(meta.get("meta", {}), dict) else ""
+        draft_rows.append(
+            {
+                "id": draft.id,
+                "name": meta_name or "(ohne Namen)",
+                "race_name": draft.race.name,
+                "phase": draft.current_phase,
+            }
+        )
+    if draft_count:
+        warnings.append(
+            {
+                "severity": "info",
+                "text": f"{draft_count} offene Schritte in der Charaktererstellung gefunden.",
+            }
+        )
+
+    search_query = (request.GET.get("q") or "").strip()
+    search_results = {}
+    if search_query:
+        search_results = {
+            "items": Item.objects.filter(name__icontains=search_query).order_by("name")[:8],
+            "skills": Skill.objects.filter(name__icontains=search_query).order_by("name")[:8],
+            "schools": School.objects.filter(name__icontains=search_query).order_by("name")[:8],
+            "languages": Language.objects.filter(name__icontains=search_query).order_by("name")[:8],
+        }
+
+    roll_count_raw = request.GET.get("roll_count")
+    roll_sides_raw = request.GET.get("roll_sides")
+    roll_data = None
+    if roll_count_raw and roll_sides_raw:
+        try:
+            roll_count = max(1, min(20, int(roll_count_raw)))
+            roll_sides = max(2, min(100, int(roll_sides_raw)))
+            rolls = [random.randint(1, roll_sides) for _ in range(roll_count)]
+            roll_data = {
+                "count": roll_count,
+                "sides": roll_sides,
+                "rolls": rolls,
+                "total": sum(rolls),
+            }
+        except (TypeError, ValueError):
+            roll_data = {"error": "Ungültige Würfelwerte."}
+
+    equipped_item_count = CharacterItem.objects.filter(
+        owner__owner=request.user,
+        equipped=True,
+    ).count()
+
     context = {
-        "characters": characters,
+        "character_rows": character_rows,
+        "archived_characters": archived_characters,
+        "recent_characters": recent_characters,
         "character_count": len(characters),
+        "character_count_display": _format_thousands(len(characters)),
         "total_money": totals.get("total_money") or 0,
-        "equipped_item_count": CharacterItem.objects.filter(
-            owner__owner=request.user,
-            equipped=True,
-        ).count(),
+        "total_money_display": _format_thousands(int(totals.get("total_money") or 0)),
+        "equipped_item_count": equipped_item_count,
+        "equipped_item_count_display": _format_thousands(equipped_item_count),
+        "system_counts": {
+            "items": Item.objects.count(),
+            "skills": Skill.objects.count(),
+            "schools": School.objects.count(),
+            "languages": Language.objects.count(),
+        },
+        "rulebook_preview": {
+            "items": Item.objects.order_by("name")[:6],
+            "skills": Skill.objects.order_by("name")[:6],
+            "schools": School.objects.order_by("name")[:6],
+            "languages": Language.objects.order_by("name")[:6],
+        },
+        "warnings": warnings,
+        "draft_rows": draft_rows,
+        "search_query": search_query,
+        "search_results": search_results,
+        "roll_data": roll_data,
     }
     return render(request, "charsheet/dashboard.html", context)
 
 
 @login_required
-def create_character(request):
-    """Create a minimal character owned by the current user."""
+def edit_character(request, character_id: int):
+    """Update one owned character from a dashboard action."""
+    character = _owned_character_or_404(request, character_id)
     if request.method == "POST":
+        form = CharacterUpdateForm(request.POST, instance=character)
+        if form.is_valid():
+            name = (form.cleaned_data.get("name") or "").strip()
+            if Character.objects.filter(owner=request.user, name=name).exclude(pk=character.pk).exists():
+                form.add_error("name", "Du hast bereits einen Charakter mit diesem Namen.")
+            else:
+                form.save()
+                messages.success(request, "Charakter aktualisiert.")
+                return redirect("dashboard")
+    else:
+        form = CharacterUpdateForm(instance=character)
+
+    return render(
+        request,
+        "charsheet/create_character.html",
+        {
+            "form": form,
+            "edit_mode": True,
+            "character": character,
+        },
+    )
+
+
+@login_required
+@require_POST
+def archive_character(request, character_id: int):
+    """Archive one owned character and hide it from active dashboard list."""
+    character = _owned_character_or_404(request, character_id)
+    character.is_archived = True
+    character.save(update_fields=["is_archived"])
+    messages.info(request, f"{character.name} wurde archiviert.")
+    return redirect("dashboard")
+
+
+@login_required
+@require_POST
+def unarchive_character(request, character_id: int):
+    """Restore one archived character back into active dashboard list."""
+    character = _owned_character_or_404(request, character_id)
+    character.is_archived = False
+    character.save(update_fields=["is_archived"])
+    messages.info(request, f"{character.name} ist wieder aktiv.")
+    return redirect("dashboard")
+
+
+@login_required
+@require_POST
+def delete_character(request, character_id: int):
+    """Delete one owned character permanently."""
+    character = _owned_character_or_404(request, character_id)
+    name = character.name
+    character.delete()
+    messages.info(request, f"{name} wurde gelöscht.")
+    return redirect("dashboard")
+
+
+@login_required
+@require_POST
+def delete_creation_draft(request, draft_id: int):
+    """Delete one owned character creation draft."""
+    draft = get_object_or_404(CharacterCreationDraft, pk=draft_id, owner=request.user)
+    draft_name = ""
+    if isinstance(draft.state, dict):
+        meta = draft.state.get("meta", {})
+        if isinstance(meta, dict):
+            draft_name = str(meta.get("name", "")).strip()
+    draft.delete()
+    if draft_name:
+        messages.info(request, f"Entwurf '{draft_name}' wurde verworfen.")
+    else:
+        messages.info(request, "Charakterentwurf wurde verworfen.")
+    return redirect("dashboard")
+
+
+class AppLogoutView(LogoutView):
+    """Log out current user and redirect to login with a short status message."""
+
+    next_page = reverse_lazy("login")
+
+    def post(self, request, *args, **kwargs):
+        auth_logout(request)
+        messages.info(request, "Sie wurden abgemeldet.")
+        return HttpResponseRedirect(self.get_success_url())
+
+
+@login_required
+def create_character(request):
+    """Create one character through the phase-based draft engine."""
+    draft_id = request.GET.get("draft") or request.POST.get("draft_id")
+    draft = None
+    if draft_id:
+        draft = CharacterCreationDraft.objects.filter(pk=draft_id, owner=request.user).first()
+    if request.method == "GET" and draft and request.GET.get("cancel_draft") == "1":
+        draft.delete()
+        messages.info(request, "Charaktererstellung wurde abgebrochen.")
+        return redirect("dashboard")
+
+    if request.method == "POST" and request.POST.get("start_creation") == "1":
         form = CharacterCreateForm(request.POST)
         if form.is_valid():
             name = (form.cleaned_data.get("name") or "").strip()
             if Character.objects.filter(owner=request.user, name=name).exists():
                 form.add_error("name", "Du hast bereits einen Charakter mit diesem Namen.")
             else:
-                character = form.save(commit=False)
-                character.owner = request.user
-                character.save()
-                return redirect("character_sheet", character_id=character.id)
-    else:
-        form = CharacterCreateForm()
+                draft = CharacterCreationDraft.objects.create(
+                    owner=request.user,
+                    race=form.cleaned_data["race"],
+                    current_phase=1,
+                    state={
+                        "meta": {
+                            "name": name,
+                            "gender": form.cleaned_data.get("gender") or "",
+                        }
+                    },
+                )
+                return redirect(f"{reverse_lazy('create_character')}?draft={draft.id}")
+    elif request.method == "POST" and draft:
+        state = dict(draft.state or {})
+        phase = int(draft.current_phase)
+        action = (request.POST.get("action") or "next").strip()
 
-    return render(request, "charsheet/create_character.html", {"form": form})
+        if phase == 1:
+            limits = draft.race.raceattributelimit_set.select_related("attribute")
+            attrs: dict[str, int] = {}
+            for limit in limits:
+                key = limit.attribute.short_name
+                posted = request.POST.get(f"attr_{key}", limit.min_value)
+                attrs[key] = max(0, int(posted or 0))
+            state["phase_1"] = {"attributes": attrs}
+        elif phase == 2:
+            skills_data: dict[str, int] = {}
+            for skill in Skill.objects.order_by("name"):
+                posted = int(request.POST.get(f"skill_{skill.slug}", "0") or 0)
+                if posted > 0:
+                    skills_data[skill.slug] = posted
+
+            language_data: dict[str, dict] = {}
+            for language in Language.objects.order_by("name"):
+                level = int(request.POST.get(f"lang_{language.slug}_level", "0") or 0)
+                write = bool(request.POST.get(f"lang_{language.slug}_write"))
+                mother = bool(request.POST.get(f"lang_{language.slug}_mother"))
+                if mother:
+                    level = min(3, language.max_level)
+                if level > 0 or write or mother:
+                    language_data[language.slug] = {
+                        "level": level,
+                        "write": write,
+                        "mother": mother,
+                    }
+            state["phase_2"] = {"skills": skills_data, "languages": language_data}
+        elif phase == 3:
+            disadvantages: dict[str, int] = {}
+            for trait in Trait.objects.filter(trait_type=Trait.TraitType.DIS).order_by("name"):
+                level = int(request.POST.get(f"dis_{trait.slug}", "0") or 0)
+                if level > 0:
+                    disadvantages[trait.slug] = level
+            state["phase_3"] = {"disadvantages": disadvantages}
+        elif phase == 4:
+            advantages: dict[str, int] = {}
+            for trait in Trait.objects.filter(trait_type=Trait.TraitType.ADV).order_by("name"):
+                level = int(request.POST.get(f"adv_{trait.slug}", "0") or 0)
+                if level > 0:
+                    advantages[trait.slug] = level
+
+            attribute_adds: dict[str, int] = {}
+            for short_name, _label in ATTRIBUTE_ORDER:
+                add = int(request.POST.get(f"attr_add_{short_name}", "0") or 0)
+                if add > 0:
+                    attribute_adds[short_name] = add
+
+            skill_adds: dict[str, int] = {}
+            for skill in Skill.objects.order_by("name"):
+                add = int(request.POST.get(f"skill_add_{skill.slug}", "0") or 0)
+                if add > 0:
+                    skill_adds[skill.slug] = add
+
+            language_adds: dict[str, int] = {}
+            language_write_adds: dict[str, bool] = {}
+            for language in Language.objects.order_by("name"):
+                add = int(request.POST.get(f"lang_add_{language.slug}", "0") or 0)
+                if add > 0:
+                    language_adds[language.slug] = add
+                write_add = bool(request.POST.get(f"lang_add_{language.slug}_write"))
+                if write_add:
+                    language_write_adds[language.slug] = True
+
+            schools: dict[str, int] = {}
+            for school in School.objects.order_by("name"):
+                level = int(request.POST.get(f"school_{school.id}", "0") or 0)
+                if level > 0:
+                    schools[str(school.id)] = level
+
+            state["phase_4"] = {
+                "advantages": advantages,
+                "attribute_adds": attribute_adds,
+                "skill_adds": skill_adds,
+                "language_adds": language_adds,
+                "language_write_adds": language_write_adds,
+                "schools": schools,
+            }
+
+        draft.state = state
+        draft.save(update_fields=["state"])
+        engine = CharacterCreationEngine(draft)
+
+        phase_validators = {
+            1: engine.validate_phase_1,
+            2: engine.validate_phase_2,
+            3: engine.validate_phase_3,
+            4: engine.validate_phase_4,
+        }
+
+        if action == "back":
+            draft.current_phase = max(1, phase - 1)
+            draft.save(update_fields=["current_phase"])
+            return redirect(f"{reverse_lazy('create_character')}?draft={draft.id}")
+
+        if action == "next":
+            if phase_validators[phase]():
+                draft.current_phase = min(4, phase + 1)
+                draft.save(update_fields=["current_phase"])
+            else:
+                messages.error(request, f"Phase {phase} ist ungültig. Bitte Punktverteilung prüfen.")
+            return redirect(f"{reverse_lazy('create_character')}?draft={draft.id}")
+
+        if action == "finalize":
+            if all([engine.validate_phase_1(), engine.validate_phase_2(), engine.validate_phase_3(), engine.validate_phase_4()]):
+                try:
+                    character = engine.finalize_character()
+                    return redirect("character_sheet", character_id=character.id)
+                except ValueError as exc:
+                    messages.error(request, str(exc))
+            else:
+                messages.error(request, "Charakter kann nicht finalisiert werden. Mindestens eine Phase ist ungültig.")
+            return redirect(f"{reverse_lazy('create_character')}?draft={draft.id}")
+
+    form = CharacterCreateForm()
+    if not draft:
+        return render(request, "charsheet/create_character.html", {"form": form})
+
+    engine = CharacterCreationEngine(draft)
+    limits = engine.attribute_min_max_limits()
+    phase_1_values = engine.phase_1_attributes()
+    phase_1_rows = []
+    for short_name, label in ATTRIBUTE_ORDER:
+        lim = limits.get(short_name, {"min": 0, "max": 0})
+        value = phase_1_values.get(short_name, lim["min"])
+        phase_1_rows.append(
+            {
+                "short_name": short_name,
+                "label": label,
+                "min": lim["min"],
+                "max": lim["max"],
+                "value": value,
+                "cost": engine.calc_attribute_cost(value, lim["max"]) if lim["max"] else 0,
+            }
+        )
+
+    phase_2_skills = engine.phase_2_skills()
+    phase_2_languages = engine.phase_2_languages()
+    phase_2_skill_rows = []
+    for skill in Skill.objects.select_related("category").order_by("category__name", "name"):
+        value = phase_2_skills.get(skill.slug, 0)
+        description = (skill.description or "").replace("\r\n", "\n").replace("\r", "\n")
+        phase_2_skill_rows.append(
+            {
+                "slug": skill.slug,
+                "name": skill.name,
+                "category_name": skill.category.name,
+                "category_slug": skill.category.slug,
+                "description": description,
+                "value": value,
+                "cost": engine.calc_skill_cost(value) if value > 0 else 0,
+            }
+        )
+    phase_2_language_rows = []
+    for language in Language.objects.order_by("name"):
+        entry = phase_2_languages.get(language.slug, {"level": 0, "write": False, "mother": False})
+        phase_2_language_rows.append(
+            {
+                "slug": language.slug,
+                "name": language.name,
+                "max_level": language.max_level,
+                "level": entry.get("level", 0),
+                "write": entry.get("write", False),
+                "mother": entry.get("mother", False),
+                "cost": engine.calc_language_cost(entry.get("level", 0), entry.get("write", False), entry.get("mother", False)),
+            }
+        )
+
+    phase_3_values = engine.phase_3_disadvantages()
+    phase_3_rows = []
+    for trait in Trait.objects.filter(trait_type=Trait.TraitType.DIS).order_by("name"):
+        description = (trait.description or "").replace("\r\n", "\n").replace("\r", "\n")
+        phase_3_rows.append(
+            {
+                "slug": trait.slug,
+                "name": trait.name,
+                "min_level": trait.min_level,
+                "max_level": trait.max_level,
+                "points_per_level": trait.points_per_level,
+                "description": description,
+                "value": phase_3_values.get(trait.slug, 0),
+            }
+        )
+
+    phase_4_values = engine.phase_4_advantages()
+    phase_4_attr_adds = engine.phase_4_attribute_adds()
+    phase_4_skill_adds = engine.phase_4_skill_adds()
+    phase_4_lang_adds = engine.phase_4_language_adds()
+    phase_4_lang_write_adds = engine.phase_4_language_write_adds()
+    phase_4_schools = engine.phase_4_schools()
+    phase_1_attr_values = engine.phase_1_attributes()
+    phase_1_limits = engine.attribute_min_max_limits()
+    phase_2_skill_values = engine.phase_2_skills()
+    phase_2_language_values = engine.phase_2_languages()
+
+    phase_4_adv_rows = []
+    for trait in Trait.objects.filter(trait_type=Trait.TraitType.ADV).order_by("name"):
+        description = (trait.description or "").replace("\r\n", "\n").replace("\r", "\n")
+        phase_4_adv_rows.append(
+            {
+                "slug": trait.slug,
+                "name": trait.name,
+                "min_level": trait.min_level,
+                "max_level": trait.max_level,
+                "points_per_level": trait.points_per_level,
+                "description": description,
+                "value": phase_4_values.get(trait.slug, 0),
+            }
+        )
+
+    phase_4_attr_rows = []
+    for short_name, label in ATTRIBUTE_ORDER:
+        limits = phase_1_limits.get(short_name, {"min": 0, "max": 0})
+        base_value = phase_1_attr_values.get(short_name, limits["min"])
+        add_value = phase_4_attr_adds.get(short_name, 0)
+        phase_4_attr_rows.append(
+            {
+                "short_name": short_name,
+                "label": label,
+                "base_value": base_value,
+                "max_value": limits["max"],
+                "value": add_value,
+            }
+        )
+    phase_4_skill_rows = []
+    for skill in Skill.objects.order_by("name"):
+        description = (skill.description or "").replace("\r\n", "\n").replace("\r", "\n")
+        phase_4_skill_rows.append(
+            {
+                "slug": skill.slug,
+                "name": skill.name,
+                "base_level": phase_2_skill_values.get(skill.slug, 0),
+                "description": description,
+                "value": phase_4_skill_adds.get(skill.slug, 0),
+            }
+        )
+    phase_4_language_rows = []
+    for language in Language.objects.order_by("name"):
+        base_payload = phase_2_language_values.get(language.slug, {"level": 0, "write": False, "mother": False})
+        phase_4_language_rows.append(
+            {
+                "slug": language.slug,
+                "name": language.name,
+                "max_level": language.max_level,
+                "base_level": int(base_payload.get("level", 0) or 0),
+                "base_write": bool(base_payload.get("write", False)),
+                "base_mother": bool(base_payload.get("mother", False)),
+                "write_add": bool(phase_4_lang_write_adds.get(language.slug, False)),
+                "value": phase_4_lang_adds.get(language.slug, 0),
+            }
+        )
+    phase_4_school_rows = []
+    for school in School.objects.order_by("name"):
+        description = (school.description or "").replace("\r\n", "\n").replace("\r", "\n")
+        phase_4_school_rows.append(
+            {
+                "id": school.id,
+                "name": school.name,
+                "description": description,
+                "value": phase_4_schools.get(str(school.id), 0),
+            }
+        )
+
+    return render(
+        request,
+        "charsheet/create_character.html",
+        {
+            "draft": draft,
+            "draft_phase": draft.current_phase,
+            "meta": draft.state.get("meta", {}),
+            "phase_1_rows": phase_1_rows,
+            "phase_1_spent": engine.sum_phase_1_attribute_costs(),
+            "phase_2_skill_rows": phase_2_skill_rows,
+            "phase_2_language_rows": phase_2_language_rows,
+            "phase_2_skill_spent": engine.sum_phase_2_skill_cost(),
+            "phase_2_language_spent": engine.sum_phase_2_language_cost(),
+            "phase_3_rows": phase_3_rows,
+            "phase_3_spent": engine.sum_phase_3_disadvantage_cost(),
+            "phase_4_adv_rows": phase_4_adv_rows,
+            "phase_4_attr_rows": phase_4_attr_rows,
+            "phase_4_skill_rows": phase_4_skill_rows,
+            "phase_4_language_rows": phase_4_language_rows,
+            "phase_4_school_rows": phase_4_school_rows,
+            "phase_4_spent": engine.sum_phase_4_total_cost(),
+            "phase_4_budget": engine.calculate_phase_4_budget(),
+            "phase_4_adv_spent": engine.sum_phase_4_advantages_cost(),
+            "phase_4_adv_budget": engine.calculate_phase_4_advantages_budget(),
+            "phase_4_rest_spent": engine.sum_phase_4_rest_cost(),
+            "phase_4_rest_budget": engine.calculate_phase_4_rest_budget(),
+            "phase_validity": {
+                1: engine.validate_phase_1(),
+                2: engine.validate_phase_2(),
+                3: engine.validate_phase_3(),
+                4: engine.validate_phase_4(),
+            },
+            "race": draft.race,
+        },
+    )
 
 @login_required
 @require_POST
@@ -368,7 +1085,7 @@ def consume_item(request, pk):
     ci = _owned_character_item_or_404(request, pk)
 
     owner_id = ci.owner_id
-    if not ci.item.stackable:
+    if not ci.item.stackable or not ci.item.is_consumable:
         return redirect("character_sheet", character_id=owner_id)
 
     if ci.amount > 1:
@@ -459,6 +1176,194 @@ def adjust_experience(request, character_id: int):
         character.save(update_fields=["current_experience", "overall_experience"])
 
     return redirect("character_sheet", character_id=character_id)
+
+
+@login_required
+@require_POST
+def apply_learning(request, character_id: int):
+    """Apply learn-menu upgrades by spending current experience points."""
+    character = _owned_character_or_404(request, character_id)
+
+    def read_int(name: str, default: int = 0) -> int:
+        try:
+            return int(request.POST.get(name, str(default)))
+        except (TypeError, ValueError):
+            return default
+
+    attribute_limits = {
+        limit.attribute.short_name: int(limit.max_value)
+        for limit in character.race.raceattributelimit_set.select_related("attribute")
+    }
+    attribute_rows = {
+        row.attribute.short_name: row
+        for row in CharacterAttribute.objects.filter(character=character).select_related("attribute")
+    }
+    skill_defs = {skill.slug: skill for skill in Skill.objects.all()}
+    skill_rows = {
+        row.skill.slug: row
+        for row in CharacterSkill.objects.filter(character=character).select_related("skill")
+    }
+    language_defs = {lang.slug: lang for lang in Language.objects.all()}
+    language_rows = {
+        row.language.slug: row
+        for row in CharacterLanguage.objects.filter(owner=character).select_related("language")
+    }
+    school_defs = {str(school.id): school for school in School.objects.all()}
+    school_rows = {
+        str(row.school_id): row
+        for row in CharacterSchool.objects.filter(character=character)
+    }
+    school_level_caps = _school_max_levels()
+    total_cost = 0
+    attr_plan: dict[str, int] = {}
+    skill_plan: dict[str, int] = {}
+    lang_plan: dict[str, dict[str, object]] = {}
+    school_plan: dict[str, int] = {}
+
+    if any(key.startswith("learn_adv_target_") for key in request.POST.keys()):
+        messages.error(request, "Vorteile können nicht über EP gelernt werden.")
+        return redirect("character_sheet", character_id=character.id)
+
+    for short_name, max_value in attribute_limits.items():
+        key = f"learn_attr_add_{short_name}"
+        if key not in request.POST:
+            continue
+        add = max(0, read_int(key, 0))
+        base_row = attribute_rows.get(short_name)
+        base_value = int(base_row.base_value if base_row else 0)
+        target_value = base_value + add
+        if target_value > max_value:
+            messages.error(request, f"{short_name}: Zielwert ist über dem Maximum.")
+            return redirect("character_sheet", character_id=character.id)
+        if add <= 0:
+            continue
+        step_cost = _calc_attribute_total_cost(target_value, max_value) - _calc_attribute_total_cost(base_value, max_value)
+        total_cost += max(0, step_cost)
+        attr_plan[short_name] = add
+
+    for slug in skill_defs.keys():
+        key = f"learn_skill_add_{slug}"
+        if key not in request.POST:
+            continue
+        add = max(0, read_int(key, 0))
+        base_value = int(skill_rows.get(slug).level if slug in skill_rows else 0)
+        target_value = base_value + add
+        if target_value > 10:
+            messages.error(request, f"{skill_defs[slug].name}: Zielwert ist über 10.")
+            return redirect("character_sheet", character_id=character.id)
+        if add <= 0:
+            continue
+        step_cost = _calc_skill_total_cost(target_value) - _calc_skill_total_cost(base_value)
+        total_cost += max(0, step_cost)
+        skill_plan[slug] = add
+
+    for slug, lang in language_defs.items():
+        add_key = f"learn_lang_add_{slug}"
+        write_key = f"learn_lang_write_{slug}"
+        if add_key not in request.POST and write_key not in request.POST:
+            continue
+        add = max(0, read_int(add_key, 0))
+        write_add = str(request.POST.get(write_key, "0")) in {"1", "true", "on"}
+        base_row = language_rows.get(slug)
+        base_level = int(base_row.levels if base_row else 0)
+        base_write = bool(base_row.can_write if base_row else False)
+        base_mother = bool(base_row.is_mother_tongue if base_row else False)
+        target_level = base_level + add
+        target_write = base_write or write_add
+        if target_level > int(lang.max_level):
+            messages.error(request, f"{lang.name}: Zielwert ist über dem Maximum.")
+            return redirect("character_sheet", character_id=character.id)
+        if target_write and target_level < 1:
+            messages.error(request, f"{lang.name}: Schreiben benötigt mindestens Level 1.")
+            return redirect("character_sheet", character_id=character.id)
+        if add <= 0 and not write_add:
+            continue
+        step_cost = _calc_language_total_cost(target_level, target_write, base_mother) - _calc_language_total_cost(base_level, base_write, base_mother)
+        total_cost += max(0, step_cost)
+        lang_plan[slug] = {"add": add, "write_add": write_add}
+
+    for school_id in school_defs.keys():
+        key = f"learn_school_add_{school_id}"
+        if key not in request.POST:
+            continue
+        add = max(0, read_int(key, 0))
+        base_level = int(school_rows.get(school_id).level if school_id in school_rows else 0)
+        target_level = base_level + add
+        max_level = max(base_level, int(school_level_caps.get(int(school_id), DEFAULT_SCHOOL_MAX_LEVEL)))
+        if target_level > max_level:
+            messages.error(request, f"{school_defs[school_id].name}: Zielwert ist über dem Maximum.")
+            return redirect("character_sheet", character_id=character.id)
+        if add <= 0:
+            continue
+        total_cost += add * 8
+        school_plan[school_id] = add
+
+    if total_cost <= 0:
+        messages.info(request, "Keine Lernkosten erkannt.")
+        return redirect("character_sheet", character_id=character.id)
+
+    if total_cost > int(character.current_experience):
+        messages.error(request, "Nicht genug aktuelle EP für diese Lernkosten.")
+        return redirect("character_sheet", character_id=character.id)
+
+    with transaction.atomic():
+        for short_name, add in attr_plan.items():
+            attr_row = attribute_rows.get(short_name)
+            if attr_row is None:
+                continue
+            attr_row.base_value = int(attr_row.base_value) + add
+            attr_row.save(update_fields=["base_value"])
+
+        for slug, add in skill_plan.items():
+            skill = skill_defs[slug]
+            skill_row = skill_rows.get(slug)
+            if skill_row is None:
+                skill_row = CharacterSkill.objects.create(character=character, skill=skill, level=add)
+                skill_rows[slug] = skill_row
+            else:
+                skill_row.level = int(skill_row.level) + add
+                skill_row.save(update_fields=["level"])
+
+        for slug, payload in lang_plan.items():
+            add = int(payload["add"])
+            write_add = bool(payload["write_add"])
+            lang_row = language_rows.get(slug)
+            if lang_row is None:
+                if add < 1:
+                    continue
+                lang_row = CharacterLanguage.objects.create(
+                    owner=character,
+                    language=language_defs[slug],
+                    levels=add,
+                    can_write=write_add,
+                    is_mother_tongue=False,
+                )
+                language_rows[slug] = lang_row
+            else:
+                lang_row.levels = int(lang_row.levels) + add
+                if write_add:
+                    lang_row.can_write = True
+                lang_row.save(update_fields=["levels", "can_write"])
+
+        for school_id, add in school_plan.items():
+            school_row = school_rows.get(school_id)
+            if school_row is None:
+                school_row = CharacterSchool.objects.create(
+                    character=character,
+                    school=school_defs[school_id],
+                    level=add,
+                )
+                school_rows[school_id] = school_row
+            else:
+                school_row.level = int(school_row.level) + add
+                school_row.save(update_fields=["level"])
+
+        character.current_experience = max(0, int(character.current_experience) - total_cost)
+        character.save(update_fields=["current_experience"])
+
+    request.session["close_learn_window_once"] = True
+    messages.success(request, f"Lernen abgeschlossen: {total_cost} EP ausgegeben.")
+    return redirect("character_sheet", character_id=character.id)
 
 
 @login_required

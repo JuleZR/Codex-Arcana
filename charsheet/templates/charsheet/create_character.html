@@ -4,60 +4,562 @@
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Neuer Charakter</title>
+    <link rel="icon" type="image/x-icon" href="{% static 'img/favicon.ico' %}">
+    <title>{% if edit_mode %}Charakter bearbeiten{% elif draft %}Charakter erstellen (Phasen){% else %}Neuer Charakter{% endif %}</title>
     <link rel="stylesheet" href="{% static 'css/charsheet.css' %}">
     <link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
   </head>
   <body>
     <main class="book-spread dashboard_spread">
-      <article class="page dashboard_page dashboard_page--form" aria-label="Neuen Charakter erstellen">
+      <article class="page dashboard_page dashboard_page--form" aria-label="Charaktererstellung">
         <header class="dashboard_top">
           <div class="dashboard_title_wrap">
-            <h1>Neuer Charakter</h1>
-            <p class="dashboard_subtitle">Lege einen Charakter an und springe direkt in den Bogen.</p>
+            {% if edit_mode %}
+              <h1>Charakter bearbeiten</h1>
+              <p class="dashboard_subtitle">Passe die Stammdaten von {{ character.name }} an.</p>
+            {% elif draft %}
+              <h1>Charaktererstellung nach Phasenmodell</h1>
+              <p class="dashboard_subtitle">{{ meta.name }} | {{ race.name }} | Phase {{ draft_phase }} von 4</p>
+            {% else %}
+              <h1>Neuer Charakter</h1>
+              <p class="dashboard_subtitle">Starte einen neuen Entwurf im Phasenmodell.</p>
+            {% endif %}
           </div>
           <div class="dashboard_actions">
-            <a href="{% url 'dashboard' %}" class="dashboard_button">Zurück</a>
+            <a href="{% if draft %}{% url 'create_character' %}?draft={{ draft.id }}&cancel_draft=1{% else %}{% url 'dashboard' %}{% endif %}" class="dashboard_button">Zurück</a>
           </div>
         </header>
 
-        <section class="dashboard_panel form_panel">
-          <form method="post" class="character_form">
-            {% csrf_token %}
-
-            <div class="form_row">
-              <label for="{{ form.name.id_for_label }}">Name</label>
-              {{ form.name }}
-              {% if form.name.errors %}
-                <div class="form_error">{{ form.name.errors|striptags }}</div>
+        <div class="creation_window_backdrop" aria-hidden="true"></div>
+        <section class="payday-window payday-window--large is-open creation_wizard_window" id="creationWindow" aria-hidden="false">
+          <div class="payday-window__titlebar" id="creationWindowHandle">
+            <h3 class="payday-window__title">
+              {% if edit_mode %}
+                Charakter bearbeiten
+              {% elif draft %}
+                Charakter erstellen: Phase {{ draft_phase }}
+              {% else %}
+                Neuer Charakter
               {% endif %}
-            </div>
-
-            <div class="form_row">
-              <label for="{{ form.race.id_for_label }}">Rasse</label>
-              {{ form.race }}
-              {% if form.race.errors %}
-                <div class="form_error">{{ form.race.errors|striptags }}</div>
-              {% endif %}
-            </div>
-
-            <div class="form_row">
-              <label for="{{ form.gender.id_for_label }}">Geschlecht</label>
-              {{ form.gender }}
-              {% if form.gender.errors %}
-                <div class="form_error">{{ form.gender.errors|striptags }}</div>
-              {% endif %}
-            </div>
-
-            {% if form.non_field_errors %}
-              <div class="form_error">{{ form.non_field_errors|striptags }}</div>
+            </h3>
+            <a href="{% if draft %}{% url 'create_character' %}?draft={{ draft.id }}&cancel_draft=1{% else %}{% url 'dashboard' %}{% endif %}" class="payday-window__close" aria-label="Fenster schließen">x</a>
+          </div>
+          <div class="payday-window__body creation_window_body">
+            {% if messages %}
+              {% for message in messages %}
+                <div class="form_error">{{ message }}</div>
+              {% endfor %}
             {% endif %}
 
-            <div class="form_actions">
-              <button type="submit" class="dashboard_button dashboard_button--primary">Charakter anlegen</button>
-              <a href="{% url 'dashboard' %}" class="dashboard_button">Abbrechen</a>
-            </div>
-          </form>
+            {% if edit_mode %}
+              <form method="post" class="character_form character_form--wizard{% if draft_phase == 2 or draft_phase == 3 %} character_form--phase2{% endif %}">
+                {% csrf_token %}
+                <div class="form_row">
+                  <label for="{{ form.name.id_for_label }}">Name</label>
+                  {{ form.name }}
+                  {% if form.name.errors %}<div class="form_error">{{ form.name.errors|striptags }}</div>{% endif %}
+                </div>
+                <div class="form_row">
+                  <label for="{{ form.race.id_for_label }}">Rasse</label>
+                  {{ form.race }}
+                  {% if form.race.errors %}<div class="form_error">{{ form.race.errors|striptags }}</div>{% endif %}
+                </div>
+                <div class="form_row">
+                  <label for="{{ form.gender.id_for_label }}">Geschlecht</label>
+                  {{ form.gender }}
+                  {% if form.gender.errors %}<div class="form_error">{{ form.gender.errors|striptags }}</div>{% endif %}
+                </div>
+                {% if form.non_field_errors %}<div class="form_error">{{ form.non_field_errors|striptags }}</div>{% endif %}
+                <div class="form_actions">
+                  <button type="submit" class="dashboard_button dashboard_button--primary">Aenderungen speichern</button>
+                  <a href="{% url 'dashboard' %}" class="dashboard_button">Abbrechen</a>
+                </div>
+              </form>
+
+            {% elif draft %}
+              <form method="post" class="character_form character_form--wizard{% if draft_phase >= 2 %} character_form--phase2{% endif %}">
+                {% csrf_token %}
+                <input type="hidden" name="draft_id" value="{{ draft.id }}">
+                <input type="hidden" name="phase" value="{{ draft_phase }}">
+
+                {% if draft_phase == 1 %}
+                  <h2>Phase 1: Attribute (Budget: <span id="phase1BudgetValue">{{ race.phase_1_points }}</span>)</h2>
+                  <div class="phase_points_grid phase_points_grid--phase1">
+                    <article class="phase_points_card">
+                      <h4>Budget</h4>
+                      <p class="phase_points_value">{{ race.phase_1_points }}</p>
+                    </article>
+                    <article class="phase_points_card">
+                      <h4>Verbrauch</h4>
+                      <p id="phase1SpentValue" class="phase_points_value phase_counter_value">{{ phase_1_spent }}</p>
+                    </article>
+                    <article class="phase_points_card">
+                      <h4>Rest</h4>
+                      <p id="phase1RemainingValue" class="phase_points_value">-</p>
+                    </article>
+                  </div>
+                  <div class="dashboard_table_wrap">
+                    <table class="dashboard_table">
+                      <thead><tr><th>Attribut</th><th>Min</th><th>Max</th><th>Wert</th><th>Kosten</th></tr></thead>
+                      <tbody>
+                        {% for row in phase_1_rows %}
+                          <tr>
+                            <td>{{ row.label }}</td>
+                            <td>{{ row.min }}</td>
+                            <td>{{ row.max }}</td>
+                            <td>
+                              <input class="dashboard_input" type="number" name="attr_{{ row.short_name }}" min="{{ row.min }}" max="{{ row.max }}" value="{{ row.value }}" data-phase1-input data-min="{{ row.min }}" data-max="{{ row.max }}">
+                            </td>
+                            <td data-phase1-cost>{{ row.cost }}</td>
+                          </tr>
+                        {% endfor %}
+                      </tbody>
+                    </table>
+                  </div>
+                {% elif draft_phase == 2 %}
+                  <h2>Phase 2: Skills & Sprachen (Budget: <span id="phase2BudgetValue">{{ race.phase_2_points }}</span>)</h2>
+                  <div class="phase_points_grid phase_points_grid--phase2">
+                    <article class="phase_points_card phase2_points_budget">
+                      <h4>Budget</h4>
+                      <p id="phase2BudgetCardValue" class="phase_points_value">{{ race.phase_2_points }}</p>
+                    </article>
+                    <article class="phase_points_card phase2_points_skills">
+                      <h4>Skills</h4>
+                      <p id="phase2SkillSpentValue" class="phase_points_value">{{ phase_2_skill_spent }}</p>
+                    </article>
+                    <article class="phase_points_card phase2_points_languages">
+                      <h4>Sprachen</h4>
+                      <p id="phase2LanguageSpentValue" class="phase_points_value">{{ phase_2_language_spent }}</p>
+                    </article>
+                    <article class="phase_points_card phase2_points_total">
+                      <h4>Gesamt</h4>
+                      <p id="phase2TotalSpentValue" class="phase_points_value phase_counter_value">{{ phase_2_skill_spent|add:phase_2_language_spent }}</p>
+                    </article>
+                    <article class="phase_points_card phase2_points_remaining">
+                      <h4>Rest</h4>
+                      <p id="phase2RemainingValue" class="phase_points_value">-</p>
+                    </article>
+                  </div>
+                  <p id="phase2ValidationHint" class="form_error" hidden></p>
+                  <section class="phase2_section_card">
+                    <h3>Fertigkeiten & Sprachen</h3>
+                    <div class="phase2_shop_layout">
+                      <section class="phase2_shop_panel">
+                        <div class="phase2_shop_toolbar">
+                          <input
+                            type="search"
+                            id="phase2MainFilterInput"
+                            class="dashboard_input phase2_filter_input"
+                            placeholder="Skills und Sprachen suchen..."
+                            aria-label="Skills und Sprachen suchen"
+                          >
+                        </div>
+                        <div class="phase2_shop_scroll" aria-label="Verfuegbare Eintraege">
+                          {% regroup phase_2_skill_rows by category_name as skill_groups %}
+                          {% for group in skill_groups %}
+                            <details class="phase2_shop_group" data-phase2-skill-group open>
+                              <summary>
+                                <span>Skill: {{ group.grouper }}</span>
+                                <span class="phase2_group_count">{{ group.list|length }}</span>
+                              </summary>
+                              <table class="dashboard_table phase2_shop_table">
+                                <tbody>
+                                  {% for row in group.list %}
+                                    <tr data-phase2-skill-source data-slug="{{ row.slug }}" data-name="{{ row.name }}" data-phase2-search="{{ row.name|lower }} {{ group.grouper|lower }} skill" tabindex="0" role="button" aria-label="{{ row.name }} hinzufuegen">
+                                      <td class="db_tooltip_anchor"{% if row.description %} data-db-tooltip="{{ row.description }}"{% endif %}>{{ row.name }}</td>
+                                    </tr>
+                                  {% endfor %}
+                                </tbody>
+                              </table>
+                            </details>
+                          {% endfor %}
+
+                          <details class="phase2_shop_group" data-phase2-lang-group open>
+                            <summary>
+                              <span>Sprachen</span>
+                              <span class="phase2_group_count">{{ phase_2_language_rows|length }}</span>
+                            </summary>
+                            <table class="dashboard_table phase2_shop_table">
+                              <tbody>
+                                {% for row in phase_2_language_rows %}
+                                  <tr data-phase2-lang-source data-slug="{{ row.slug }}" data-name="{{ row.name }}" data-max="{{ row.max_level }}" data-phase2-search="{{ row.name|lower }} sprache language" tabindex="0" role="button" aria-label="{{ row.name }} hinzufuegen">
+                                    <td>{{ row.name }}</td>
+                                    <td class="phase2_lang_meta">max {{ row.max_level }}</td>
+                                  </tr>
+                                {% endfor %}
+                              </tbody>
+                            </table>
+                          </details>
+                        </div>
+                      </section>
+
+                      <section class="phase2_shop_panel">
+                        <h4>Warenkorb</h4>
+                        <div class="phase2_shop_scroll">
+                          <h5 class="phase2_cart_title">Skills</h5>
+                          <table class="dashboard_table phase2_cart_table phase4_cart_table">
+                            <thead><tr><th>Skill</th><th>Level</th><th>Kosten</th><th></th></tr></thead>
+                            <tbody id="phase2SkillCartBody">
+                              {% for row in phase_2_skill_rows %}
+                                {% if row.value > 0 %}
+                                  <tr data-phase2-skill-cart-item data-slug="{{ row.slug }}">
+                                    <td>
+                                      {{ row.name }}
+                                      <input type="hidden" name="skill_{{ row.slug }}" value="{{ row.value }}" data-phase2-skill-hidden>
+                                    </td>
+                                    <td><input class="dashboard_input phase2_level_input" type="number" min="0" max="10" value="{{ row.value }}" data-phase2-skill-level></td>
+                                    <td data-phase2-skill-cost>{{ row.cost }}</td>
+                                    <td><button type="button" class="phase2_remove_x" data-phase2-skill-remove aria-label="Skill entfernen" title="Entfernen">X</button></td>
+                                  </tr>
+                                {% endif %}
+                              {% endfor %}
+                              <tr data-phase2-skill-cart-empty {% for row in phase_2_skill_rows %}{% if row.value > 0 %}hidden{% endif %}{% endfor %}>
+                                <td colspan="4" class="dashboard_hint">Keine Skills ausgewählt.</td>
+                              </tr>
+                            </tbody>
+                          </table>
+
+                          <h5 class="phase2_cart_title">Sprachen</h5>
+                          <table class="dashboard_table phase2_cart_table">
+                            <thead><tr><th>Sprache</th><th>Level</th><th>Schrift</th><th>Muttersprache</th><th>Kosten</th><th></th></tr></thead>
+                            <tbody id="phase2LanguageCartBody">
+                              {% for row in phase_2_language_rows %}
+                                {% if row.level > 0 or row.write or row.mother %}
+                                  <tr data-phase2-lang-cart-item data-slug="{{ row.slug }}" data-max="{{ row.max_level }}">
+                                    <td>{{ row.name }}</td>
+                                    <td><input class="dashboard_input phase2_level_input" type="number" min="0" max="{{ row.max_level }}" value="{{ row.level }}" name="lang_{{ row.slug }}_level" data-phase2-lang-level></td>
+                                    <td><input type="checkbox" name="lang_{{ row.slug }}_write" {% if row.write %}checked{% endif %} data-phase2-lang-write></td>
+                                    <td><input type="checkbox" name="lang_{{ row.slug }}_mother" {% if row.mother %}checked{% endif %} data-phase2-lang-mother></td>
+                                    <td data-phase2-lang-cost>{{ row.cost }}</td>
+                                    <td><button type="button" class="phase2_remove_x" data-phase2-lang-remove aria-label="Sprache entfernen" title="Entfernen">X</button></td>
+                                  </tr>
+                                {% endif %}
+                              {% endfor %}
+                              <tr data-phase2-lang-cart-empty {% for row in phase_2_language_rows %}{% if row.level > 0 or row.write or row.mother %}hidden{% endif %}{% endfor %}>
+                                <td colspan="6" class="dashboard_hint">Keine Sprachen ausgewählt.</td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+                      </section>
+                    </div>
+                  </section>
+                {% elif draft_phase == 3 %}
+                  <h2>Phase 3: Nachteile (Limit: <span id="phase3BudgetValue">{{ race.phase_3_points }}</span>)</h2>
+                  <div class="phase_points_grid phase_points_grid--phase1">
+                    <article class="phase_points_card">
+                      <h4>Limit</h4>
+                      <p class="phase_points_value">{{ race.phase_3_points }}</p>
+                    </article>
+                    <article class="phase_points_card">
+                      <h4>Verbrauch</h4>
+                      <p id="phase3SpentValue" class="phase_points_value phase_counter_value">{{ phase_3_spent }}</p>
+                    </article>
+                    <article class="phase_points_card">
+                      <h4>Rest</h4>
+                      <p id="phase3RemainingValue" class="phase_points_value">-</p>
+                    </article>
+                  </div>
+                  <p id="phase3ValidationHint" class="form_error" hidden></p>
+                  <section class="phase2_section_card">
+                    <h3>Nachteile</h3>
+                    <div class="phase2_shop_layout">
+                      <section class="phase2_shop_panel">
+                        <div class="phase2_shop_toolbar">
+                          <input
+                            type="search"
+                            id="phase3MainFilterInput"
+                            class="dashboard_input phase2_filter_input"
+                            placeholder="Nachteile suchen..."
+                            aria-label="Nachteile suchen"
+                          >
+                        </div>
+                        <div class="phase2_shop_scroll" aria-label="Verfuegbare Nachteile">
+                          <details class="phase2_shop_group" data-phase3-dis-group open>
+                            <summary>
+                              <span>Alle Nachteile</span>
+                              <span class="phase2_group_count">{{ phase_3_rows|length }}</span>
+                            </summary>
+                            <table class="dashboard_table phase2_shop_table">
+                              <tbody>
+                                {% for row in phase_3_rows %}
+                                  <tr data-phase3-dis-source data-slug="{{ row.slug }}" data-name="{{ row.name }}" data-max="{{ row.max_level }}" data-ppl="{{ row.points_per_level }}" data-phase3-search="{{ row.name|lower }} nachteil disadvantage" tabindex="0" role="button" aria-label="{{ row.name }} hinzufuegen">
+                                    <td class="db_tooltip_anchor"{% if row.description %} data-db-tooltip="{{ row.description }}"{% endif %}>{{ row.name }}</td>
+                                    <td class="phase2_lang_meta">max {{ row.max_level }} | {{ row.points_per_level }}/Lvl</td>
+                                  </tr>
+                                {% endfor %}
+                              </tbody>
+                            </table>
+                          </details>
+                        </div>
+                      </section>
+
+                      <section class="phase2_shop_panel">
+                        <h4>Warenkorb</h4>
+                        <div class="phase2_shop_scroll">
+                          <table class="dashboard_table phase2_cart_table">
+                            <thead><tr><th>Nachteil</th><th>Level</th><th>Kosten</th><th></th></tr></thead>
+                            <tbody id="phase3DisCartBody">
+                              {% for row in phase_3_rows %}
+                                {% if row.value > 0 %}
+                                  <tr data-phase3-dis-cart-item data-slug="{{ row.slug }}" data-max="{{ row.max_level }}" data-ppl="{{ row.points_per_level }}">
+                                    <td><span data-phase3-dis-label-base="{{ row.name }}">{{ row.name }}</span> <span data-phase3-dis-formula>({% widthratio row.value 1 row.points_per_level %})</span></td>
+                                    <td><input class="dashboard_input phase2_level_input" type="number" min="0" max="{{ row.max_level }}" value="{{ row.value }}" name="dis_{{ row.slug }}" data-phase3-dis-level></td>
+                                    <td data-phase3-dis-cost>{% widthratio row.value 1 row.points_per_level %}</td>
+                                    <td><button type="button" class="phase2_remove_x" data-phase3-dis-remove aria-label="Nachteil entfernen" title="Entfernen">X</button></td>
+                                  </tr>
+                                {% endif %}
+                              {% endfor %}
+                              <tr data-phase3-dis-cart-empty {% for row in phase_3_rows %}{% if row.value > 0 %}hidden{% endif %}{% endfor %}>
+                                <td colspan="4" class="dashboard_hint">Keine Nachteile ausgewählt.</td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+                      </section>
+                    </div>
+                  </section>
+                {% elif draft_phase == 4 %}
+                  <h2>Phase 4: Ausbau</h2>
+                  <div class="phase_points_grid phase_points_grid--phase4">
+                    <article class="phase_points_card phase4_points_adv_budget">
+                      <h4>Vorteile Budget</h4>
+                      <p id="phase4AdvBudgetValue" class="phase_points_value">{{ phase_4_adv_budget }}</p>
+                    </article>
+                    <article class="phase_points_card phase4_points_adv_spent">
+                      <h4>Vorteile Verbrauch</h4>
+                      <p id="phase4AdvSpentValue" class="phase_points_value phase_counter_value">{{ phase_4_adv_spent }}</p>
+                    </article>
+                    <article class="phase_points_card phase4_points_adv_remaining">
+                      <h4>Vorteile Rest</h4>
+                      <p id="phase4AdvRemainingValue" class="phase_points_value">-</p>
+                    </article>
+                    <article class="phase_points_card phase4_points_rest_budget">
+                      <h4>Ausbau Budget</h4>
+                      <p id="phase4RestBudgetValue" class="phase_points_value">{{ phase_4_rest_budget }}</p>
+                    </article>
+                    <article class="phase_points_card phase4_points_rest_spent">
+                      <h4>Ausbau Verbrauch</h4>
+                      <p id="phase4RestSpentValue" class="phase_points_value phase_counter_value">{{ phase_4_rest_spent }}</p>
+                    </article>
+                    <article class="phase_points_card phase4_points_rest_remaining">
+                      <h4>Ausbau Rest</h4>
+                      <p id="phase4RestRemainingValue" class="phase_points_value">-</p>
+                    </article>
+                  </div>
+                  <p id="phase4ValidationHint" class="form_error" hidden></p>
+                  <section class="phase2_section_card">
+                    <h3>Ausbau-Shop</h3>
+                    <div class="phase2_shop_layout">
+                      <section class="phase2_shop_panel">
+                        <div class="phase2_shop_toolbar">
+                          <input
+                            type="search"
+                            id="phase4MainFilterInput"
+                            class="dashboard_input phase2_filter_input"
+                            placeholder="Ausbau suchen..."
+                            aria-label="Ausbau suchen"
+                          >
+                        </div>
+                        <div class="phase2_shop_scroll" aria-label="Verfuegbarer Ausbau">
+                          <details class="phase2_shop_group" data-phase4-group open>
+                            <summary>
+                              <span>Vorteile</span>
+                              <span class="phase2_group_count">{{ phase_4_adv_rows|length }}</span>
+                            </summary>
+                            <table class="dashboard_table phase2_shop_table">
+                              <tbody>
+                                {% for row in phase_4_adv_rows %}
+                                  <tr data-phase4-source data-kind="adv" data-key="adv:{{ row.slug }}" data-slug="{{ row.slug }}" data-name="{{ row.name }}" data-min="{{ row.min_level }}" data-max="{{ row.max_level }}" data-ppl="{{ row.points_per_level }}" data-phase4-search="{{ row.name|lower }} vorteil" tabindex="0" role="button" aria-label="{{ row.name }} hinzufuegen">
+                                    <td class="db_tooltip_anchor"{% if row.description %} data-db-tooltip="{{ row.description }}"{% endif %}>{{ row.name }}</td>
+                                    <td class="phase2_lang_meta">min {{ row.min_level }} | max {{ row.max_level }} | {{ row.points_per_level }}/Lvl</td>
+                                  </tr>
+                                {% endfor %}
+                              </tbody>
+                            </table>
+                          </details>
+                          <details class="phase2_shop_group" data-phase4-group open>
+                            <summary>
+                              <span>Eigenschaftverbessserung</span>
+                              <span class="phase2_group_count">{{ phase_4_attr_rows|length }}</span>
+                            </summary>
+                            <table class="dashboard_table phase2_shop_table">
+                              <tbody>
+                                {% for row in phase_4_attr_rows %}
+                                  <tr data-phase4-source data-kind="attr" data-key="attr:{{ row.short_name }}" data-short="{{ row.short_name }}" data-name="{{ row.label }}" data-base="{{ row.base_value }}" data-max="{{ row.max_value }}" data-phase4-search="{{ row.label|lower }} attribut add" tabindex="0" role="button" aria-label="{{ row.label }} hinzufuegen">
+                                    <td>{{ row.label }}</td>
+                                    <td class="phase2_lang_meta">Basis {{ row.base_value }} | Max {{ row.max_value }}</td>
+                                  </tr>
+                                {% endfor %}
+                              </tbody>
+                            </table>
+                          </details>
+                          <details class="phase2_shop_group" data-phase4-group open>
+                            <summary>
+                              <span>Fertigkeitsverbesserungen</span>
+                              <span class="phase2_group_count">{{ phase_4_skill_rows|length }}</span>
+                            </summary>
+                            <table class="dashboard_table phase2_shop_table">
+                              <tbody>
+                                {% for row in phase_4_skill_rows %}
+                                  <tr data-phase4-source data-kind="skill" data-key="skill:{{ row.slug }}" data-slug="{{ row.slug }}" data-name="{{ row.name }}" data-base="{{ row.base_level }}" data-phase4-search="{{ row.name|lower }} skill add" tabindex="0" role="button" aria-label="{{ row.name }} hinzufuegen">
+                                    <td class="db_tooltip_anchor"{% if row.description %} data-db-tooltip="{{ row.description }}"{% endif %}>{{ row.name }}</td>
+                                    <td class="phase2_lang_meta">Basis {{ row.base_level }}</td>
+                                  </tr>
+                                {% endfor %}
+                              </tbody>
+                            </table>
+                          </details>
+                          <details class="phase2_shop_group" data-phase4-group open>
+                            <summary>
+                              <span>Sprachverbesserungen</span>
+                              <span class="phase2_group_count">{{ phase_4_language_rows|length }}</span>
+                            </summary>
+                            <table class="dashboard_table phase2_shop_table">
+                              <tbody>
+                                {% for row in phase_4_language_rows %}
+                                  <tr data-phase4-source data-kind="lang" data-key="lang:{{ row.slug }}" data-slug="{{ row.slug }}" data-name="{{ row.name }}" data-base="{{ row.base_level }}" data-max="{{ row.max_level }}" data-write="{% if row.base_write %}1{% else %}0{% endif %}" data-mother="{% if row.base_mother %}1{% else %}0{% endif %}" data-phase4-search="{{ row.name|lower }} sprache add" tabindex="0" role="button" aria-label="{{ row.name }} hinzufuegen">
+                                    <td>{{ row.name }}</td>
+                                    <td class="phase2_lang_meta">Basis {{ row.base_level }} | Max {{ row.max_level }}{% if row.base_write %} | Schrift: ja{% endif %}</td>
+                                  </tr>
+                                {% endfor %}
+                              </tbody>
+                            </table>
+                          </details>
+                          <details class="phase2_shop_group" data-phase4-group open>
+                            <summary>
+                              <span>Schulen</span>
+                              <span class="phase2_group_count">{{ phase_4_school_rows|length }}</span>
+                            </summary>
+                            <table class="dashboard_table phase2_shop_table">
+                              <tbody>
+                                {% for row in phase_4_school_rows %}
+                                  <tr data-phase4-source data-kind="school" data-key="school:{{ row.id }}" data-id="{{ row.id }}" data-name="{{ row.name }}" data-phase4-search="{{ row.name|lower }} schule school" tabindex="0" role="button" aria-label="{{ row.name }} hinzufuegen">
+                                    <td class="db_tooltip_anchor"{% if row.description %} data-db-tooltip="{{ row.description }}"{% endif %}>{{ row.name }}</td>
+                                    <td class="phase2_lang_meta">8 Punkte / Level</td>
+                                  </tr>
+                                {% endfor %}
+                              </tbody>
+                            </table>
+                          </details>
+                        </div>
+                      </section>
+                      <section class="phase2_shop_panel">
+                        <h4>Warenkorb</h4>
+                        <div class="phase2_shop_scroll">
+                          <table class="dashboard_table phase2_cart_table">
+                            <thead><tr><th>Eintrag</th><th>Wert</th><th>Kosten</th><th></th></tr></thead>
+                            <tbody id="phase4CartBody">
+                                {% for row in phase_4_adv_rows %}
+                                  {% if row.value > 0 %}
+                                    <tr data-phase4-cart-item data-key="adv:{{ row.slug }}" data-kind="adv" data-min="{{ row.min_level }}" data-max="{{ row.max_level }}" data-ppl="{{ row.points_per_level }}">
+                                      <td><span data-phase4-adv-label-base="{{ row.name }}">{{ row.name }}</span> <span data-phase4-adv-formula>({% widthratio row.value 1 row.points_per_level %})</span> <input type="hidden" name="adv_{{ row.slug }}" value="{{ row.value }}" data-phase4-hidden></td>
+                                      <td><input class="dashboard_input phase2_level_input" type="number" min="0" max="{{ row.max_level }}" value="{{ row.value }}" data-phase4-value></td>
+                                      <td data-phase4-cost>{% widthratio row.value 1 row.points_per_level %}</td>
+                                      <td><button type="button" class="phase2_remove_x" data-phase4-remove aria-label="Eintrag entfernen" title="Entfernen">X</button></td>
+                                    </tr>
+                                  {% endif %}
+                                {% endfor %}
+                              {% for row in phase_4_attr_rows %}
+                                {% if row.value > 0 %}
+                                  <tr data-phase4-cart-item data-key="attr:{{ row.short_name }}" data-kind="attr" data-base="{{ row.base_value }}" data-max="{{ row.max_value }}">
+                                    <td><span data-phase4-attr-label-base="{{ row.label }}">{{ row.label }}</span> <span data-phase4-attr-level-info>({{ row.base_value|add:row.value }})</span> <input type="hidden" name="attr_add_{{ row.short_name }}" value="{{ row.value }}" data-phase4-hidden></td>
+                                    <td><input class="dashboard_input phase2_level_input" type="number" min="0" max="{{ row.max_value }}" value="{{ row.value }}" data-phase4-value><div class="phase4_target_hint" data-phase4-target></div></td>
+                                    <td data-phase4-cost>0</td>
+                                    <td><button type="button" class="phase2_remove_x" data-phase4-remove aria-label="Eintrag entfernen" title="Entfernen">X</button></td>
+                                  </tr>
+                                {% endif %}
+                              {% endfor %}
+                              {% for row in phase_4_skill_rows %}
+                                {% if row.value > 0 or row.base_level > 0 %}
+                                  <tr data-phase4-cart-item data-key="skill:{{ row.slug }}" data-kind="skill" data-base="{{ row.base_level }}" data-max-final="10"{% if row.base_level > 0 %} data-locked="1"{% endif %}>
+                                    <td><span data-phase4-skill-label-base="{{ row.name }}">{{ row.name }}</span> <span data-phase4-skill-level-info>({{ row.base_level|add:row.value }})</span> <input type="hidden" name="skill_add_{{ row.slug }}" value="{{ row.value }}" data-phase4-hidden></td>
+                                    <td><input class="dashboard_input phase2_level_input" type="number" min="0" max="10" value="{{ row.value }}" data-phase4-value><div class="phase4_target_hint" data-phase4-target></div></td>
+                                    <td data-phase4-cost>0</td>
+                                    <td>{% if row.base_level > 0 %}<span class="phase4_locked_marker" title="Aus Phase 2 übernommen">*</span>{% else %}<button type="button" class="phase2_remove_x" data-phase4-remove aria-label="Eintrag entfernen" title="Entfernen">X</button>{% endif %}</td>
+                                  </tr>
+                                {% endif %}
+                              {% endfor %}
+                              {% for row in phase_4_language_rows %}
+                                {% if row.value > 0 or row.base_level > 0 or row.write_add %}
+                                  <tr data-phase4-cart-item data-key="lang:{{ row.slug }}" data-kind="lang" data-base="{{ row.base_level }}" data-max="{{ row.max_level }}" data-write="{% if row.base_write %}1{% else %}0{% endif %}" data-write-add="{% if row.write_add %}1{% else %}0{% endif %}" data-mother="{% if row.base_mother %}1{% else %}0{% endif %}"{% if row.base_level > 0 or row.base_write or row.base_mother %} data-locked="1"{% endif %}>
+                                    <td><span data-phase4-lang-label-base="{{ row.name }}">{{ row.name }}</span> <span data-phase4-lang-level-info>({{ row.base_level|add:row.value }})</span> <input type="hidden" name="lang_add_{{ row.slug }}" value="{{ row.value }}" data-phase4-hidden></td>
+                                    <td>
+                                      <div class="phase4_lang_controls">
+                                        <label class="phase4_write_toggle"><input type="checkbox" name="lang_add_{{ row.slug }}_write" data-phase4-lang-write {% if row.base_write or row.write_add %}checked{% endif %} {% if row.base_write %}disabled{% endif %}> Schreiben</label>
+                                        <input class="dashboard_input phase2_level_input" type="number" min="0" max="{{ row.max_level }}" value="{{ row.value }}" data-phase4-value>
+                                      </div>
+                                      <input type="hidden" value="{% if row.write_add %}1{% else %}0{% endif %}" data-phase4-lang-write-hidden>
+                                      <div class="phase4_target_hint" data-phase4-target></div>
+                                    </td>
+                                    <td data-phase4-cost>0</td>
+                                    <td>{% if row.base_level > 0 or row.base_write or row.base_mother %}<span class="phase4_locked_marker" title="Aus Phase 2 übernommen">*</span>{% else %}<button type="button" class="phase2_remove_x" data-phase4-remove aria-label="Eintrag entfernen" title="Entfernen">X</button>{% endif %}</td>
+                                  </tr>
+                                {% endif %}
+                              {% endfor %}
+                              {% for row in phase_4_school_rows %}
+                                {% if row.value > 0 %}
+                                  <tr data-phase4-cart-item data-key="school:{{ row.id }}" data-kind="school">
+                                    <td>{{ row.name }} <input type="hidden" name="school_{{ row.id }}" value="{{ row.value }}" data-phase4-hidden></td>
+                                    <td><input class="dashboard_input phase2_level_input" type="number" min="0" value="{{ row.value }}" data-phase4-value></td>
+                                    <td data-phase4-cost>0</td>
+                                    <td><button type="button" class="phase2_remove_x" data-phase4-remove aria-label="Eintrag entfernen" title="Entfernen">X</button></td>
+                                  </tr>
+                                {% endif %}
+                              {% endfor %}
+                              <tr data-phase4-cart-empty>
+                                <td colspan="4" class="dashboard_hint">Kein Ausbau ausgewählt.</td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+                      </section>
+                    </div>
+                  </section>
+                {% endif %}
+
+                <div class="form_actions">
+                  {% if draft_phase > 1 %}
+                    <button type="submit" name="action" value="back" class="dashboard_button">Zurück</button>
+                  {% endif %}
+                  {% if draft_phase < 4 %}
+                    <button type="submit" name="action" value="next" class="dashboard_button dashboard_button--primary">Phase speichern & weiter</button>
+                  {% else %}
+                    <button type="submit" name="action" value="finalize" class="dashboard_button dashboard_button--primary">Charakter finalisieren</button>
+                  {% endif %}
+                  <a href="{% url 'create_character' %}?draft={{ draft.id }}&cancel_draft=1" class="dashboard_button">Abbrechen</a>
+                </div>
+              </form>
+
+            {% else %}
+              <form method="post" class="character_form">
+                {% csrf_token %}
+                <input type="hidden" name="start_creation" value="1">
+
+                <div class="form_row">
+                  <label for="{{ form.name.id_for_label }}">Name</label>
+                  {{ form.name }}
+                  {% if form.name.errors %}<div class="form_error">{{ form.name.errors|striptags }}</div>{% endif %}
+                </div>
+                <div class="form_row">
+                  <label for="{{ form.race.id_for_label }}">Rasse</label>
+                  {{ form.race }}
+                  {% if form.race.errors %}<div class="form_error">{{ form.race.errors|striptags }}</div>{% endif %}
+                </div>
+                <div class="form_row">
+                  <label for="{{ form.gender.id_for_label }}">Geschlecht</label>
+                  {{ form.gender }}
+                  {% if form.gender.errors %}<div class="form_error">{{ form.gender.errors|striptags }}</div>{% endif %}
+                </div>
+
+                {% if form.non_field_errors %}<div class="form_error">{{ form.non_field_errors|striptags }}</div>{% endif %}
+                <div class="form_actions">
+                  <button type="submit" class="dashboard_button dashboard_button--primary">Phasenentwurf starten</button>
+                  <a href="{% url 'dashboard' %}" class="dashboard_button">Abbrechen</a>
+                </div>
+              </form>
+            {% endif %}
+          </div>
         </section>
       </article>
     </main>
@@ -65,5 +567,1156 @@
     <div aria-hidden="true" class="firefly-layer">
       {% for _ in '123456789012345' %}<div class="firefly"></div>{% endfor %}
     </div>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        const isEmbedded = window.self !== window.top;
+        if (isEmbedded) {
+          document.body.classList.add("embedded-creation");
+        }
+
+        const win = document.getElementById("creationWindow");
+        const handle = document.getElementById("creationWindowHandle");
+        if (!win || !handle) {
+          return;
+        }
+
+        if (!isEmbedded) {
+          const placeCentered = function () {
+            const rect = win.getBoundingClientRect();
+            const maxLeft = Math.max(12, window.innerWidth - rect.width - 12);
+            const maxTop = Math.max(12, window.innerHeight - rect.height - 12);
+            const left = Math.min(maxLeft, Math.max(12, (window.innerWidth - rect.width) / 2));
+            const top = Math.min(maxTop, 72);
+            win.style.left = left + "px";
+            win.style.top = top + "px";
+          };
+
+          placeCentered();
+
+          let dragPointerId = null;
+          let dragOffsetX = 0;
+          let dragOffsetY = 0;
+          const isInteractiveTarget = function (target) {
+            return Boolean(target && target.closest("button, a, input, select, textarea, label"));
+          };
+
+          handle.addEventListener("pointerdown", function (event) {
+            if (event.button !== 0 || isInteractiveTarget(event.target)) {
+              return;
+            }
+            const rect = win.getBoundingClientRect();
+            dragPointerId = event.pointerId;
+            dragOffsetX = event.clientX - rect.left;
+            dragOffsetY = event.clientY - rect.top;
+            handle.setPointerCapture(event.pointerId);
+            win.classList.add("is-dragging");
+          });
+
+          handle.addEventListener("pointermove", function (event) {
+            if (dragPointerId !== event.pointerId) {
+              return;
+            }
+            const rect = win.getBoundingClientRect();
+            const maxLeft = Math.max(12, window.innerWidth - rect.width - 12);
+            const maxTop = Math.max(12, window.innerHeight - rect.height - 12);
+            const left = Math.min(maxLeft, Math.max(12, event.clientX - dragOffsetX));
+            const top = Math.min(maxTop, Math.max(12, event.clientY - dragOffsetY));
+            win.style.left = left + "px";
+            win.style.top = top + "px";
+          });
+
+          const stopDragging = function (event) {
+            if (dragPointerId !== event.pointerId) {
+              return;
+            }
+            win.classList.remove("is-dragging");
+            try {
+              handle.releasePointerCapture(event.pointerId);
+            } catch (_error) {
+            }
+            dragPointerId = null;
+          };
+
+          handle.addEventListener("pointerup", stopDragging);
+          handle.addEventListener("pointercancel", stopDragging);
+
+          window.addEventListener("resize", function () {
+            const rect = win.getBoundingClientRect();
+            const maxLeft = Math.max(12, window.innerWidth - rect.width - 12);
+            const maxTop = Math.max(12, window.innerHeight - rect.height - 12);
+            const left = Math.min(maxLeft, Math.max(12, rect.left));
+            const top = Math.min(maxTop, Math.max(12, rect.top));
+            win.style.left = left + "px";
+            win.style.top = top + "px";
+          });
+        }
+
+        const phase1Inputs = Array.from(document.querySelectorAll("[data-phase1-input]"));
+        const phase1SpentValue = document.getElementById("phase1SpentValue");
+        const phase1BudgetValue = document.getElementById("phase1BudgetValue");
+        const phase1RemainingValue = document.getElementById("phase1RemainingValue");
+        if (phase1Inputs.length && phase1SpentValue && phase1BudgetValue && phase1RemainingValue) {
+          const calcAttributeCost = function (targetLevel, maxValue) {
+            const threshold = maxValue - 2;
+            if (targetLevel <= threshold) {
+              return targetLevel;
+            }
+            return threshold + ((targetLevel - threshold) * 2);
+          };
+
+          const clamp = function (value, min, max) {
+            return Math.min(max, Math.max(min, value));
+          };
+
+          const recalculatePhase1Spent = function () {
+            let spent = 0;
+            phase1Inputs.forEach(function (input) {
+              const minValue = Number.parseInt(input.dataset.min || input.min || "0", 10);
+              const maxValue = Number.parseInt(input.dataset.max || input.max || "0", 10);
+              const fallback = Number.isNaN(minValue) ? 0 : minValue;
+              const current = Number.parseInt(input.value, 10);
+              const safeValue = clamp(Number.isNaN(current) ? fallback : current, fallback, Number.isNaN(maxValue) ? fallback : maxValue);
+              input.value = String(safeValue);
+
+              const cost = maxValue > 0 ? calcAttributeCost(safeValue, maxValue) : 0;
+              spent += cost;
+
+              const row = input.closest("tr");
+              const costCell = row ? row.querySelector("[data-phase1-cost]") : null;
+              if (costCell) {
+                costCell.textContent = String(cost);
+              }
+            });
+
+            const budget = Number.parseInt(phase1BudgetValue.textContent || "0", 10) || 0;
+            const remaining = budget - spent;
+            phase1SpentValue.textContent = String(spent);
+            phase1RemainingValue.textContent = String(remaining);
+            phase1SpentValue.classList.toggle("is-under", spent < budget);
+            phase1SpentValue.classList.toggle("is-over", spent > budget);
+            phase1SpentValue.classList.toggle("is-equal", spent === budget);
+            phase1RemainingValue.classList.toggle("is-over", remaining < 0);
+            phase1RemainingValue.classList.toggle("is-equal", remaining === 0);
+            phase1RemainingValue.classList.toggle("is-under", remaining > 0);
+          };
+
+          phase1Inputs.forEach(function (input) {
+            input.addEventListener("input", recalculatePhase1Spent);
+            input.addEventListener("change", recalculatePhase1Spent);
+          });
+
+          recalculatePhase1Spent();
+        }
+
+        const phase2SkillCartBody = document.getElementById("phase2SkillCartBody");
+        const phase2LanguageCartBody = document.getElementById("phase2LanguageCartBody");
+        const phase2SkillSpentValue = document.getElementById("phase2SkillSpentValue");
+        const phase2LanguageSpentValue = document.getElementById("phase2LanguageSpentValue");
+        const phase2TotalSpentValue = document.getElementById("phase2TotalSpentValue");
+        const phase2BudgetValue = document.getElementById("phase2BudgetValue");
+        const phase2RemainingValue = document.getElementById("phase2RemainingValue");
+        const phase2ValidationHint = document.getElementById("phase2ValidationHint");
+        const phase2NextButton = document.querySelector('button[name="action"][value="next"]');
+        if (phase2SkillCartBody && phase2LanguageCartBody && phase2SkillSpentValue && phase2LanguageSpentValue && phase2TotalSpentValue && phase2BudgetValue && phase2RemainingValue) {
+          const toInt = function (value, fallback) {
+            const parsed = Number.parseInt(value, 10);
+            return Number.isNaN(parsed) ? fallback : parsed;
+          };
+
+          const clamp = function (value, min, max) {
+            return Math.min(max, Math.max(min, value));
+          };
+
+          const calcSkillCost = function (level) {
+            if (level <= 5) {
+              return level;
+            }
+            return 5 + ((level - 5) * 2);
+          };
+
+          const calcLanguageCost = function (level, write, mother) {
+            const base = mother ? 0 : level;
+            return base + (write ? 1 : 0);
+          };
+
+          const escapeHtml = function (value) {
+            return String(value)
+              .replace(/&/g, "&amp;")
+              .replace(/</g, "&lt;")
+              .replace(/>/g, "&gt;")
+              .replace(/"/g, "&quot;")
+              .replace(/'/g, "&#39;");
+          };
+
+          const getSkillRows = function () {
+            return Array.from(phase2SkillCartBody.querySelectorAll("[data-phase2-skill-cart-item]"));
+          };
+
+          const getLanguageRows = function () {
+            return Array.from(phase2LanguageCartBody.querySelectorAll("[data-phase2-lang-cart-item]"));
+          };
+
+          const syncSkillRow = function (row) {
+            const levelInput = row.querySelector("[data-phase2-skill-level]");
+            const hiddenInput = row.querySelector("[data-phase2-skill-hidden]");
+            const costCell = row.querySelector("[data-phase2-skill-cost]");
+            if (!levelInput || !hiddenInput || !costCell) {
+              return 0;
+            }
+            const level = clamp(toInt(levelInput.value, 0), 0, 10);
+            levelInput.value = String(level);
+            hiddenInput.value = String(level);
+            const cost = calcSkillCost(level);
+            costCell.textContent = String(cost);
+            return cost;
+          };
+
+          const syncLanguageRow = function (row) {
+            const maxLevel = toInt(row.dataset.max || "0", 0);
+            const motherLevel = Math.min(3, maxLevel);
+            const levelInput = row.querySelector("[data-phase2-lang-level]");
+            const writeInput = row.querySelector("[data-phase2-lang-write]");
+            const motherInput = row.querySelector("[data-phase2-lang-mother]");
+            const costCell = row.querySelector("[data-phase2-lang-cost]");
+            if (!levelInput || !writeInput || !motherInput || !costCell) {
+              return 0;
+            }
+            let level = clamp(toInt(levelInput.value, 0), 0, maxLevel);
+            if (motherInput.checked) {
+              level = motherLevel;
+              levelInput.value = String(level);
+            } else if (level !== motherLevel) {
+              motherInput.checked = false;
+            }
+            const cost = calcLanguageCost(level, writeInput.checked, motherInput.checked);
+            costCell.textContent = String(cost);
+            return cost;
+          };
+
+          const ensureEmptyRows = function () {
+            const skillEmpty = phase2SkillCartBody.querySelector("[data-phase2-skill-cart-empty]");
+            if (skillEmpty) {
+              skillEmpty.hidden = getSkillRows().length > 0;
+            }
+            const langEmpty = phase2LanguageCartBody.querySelector("[data-phase2-lang-cart-empty]");
+            if (langEmpty) {
+              langEmpty.hidden = getLanguageRows().length > 0;
+            }
+          };
+
+          const refreshPhase2Totals = function () {
+            let skillSpent = 0;
+            getSkillRows().forEach(function (row) {
+              skillSpent += syncSkillRow(row);
+            });
+
+            let langSpent = 0;
+            let hasMotherTongue = false;
+            getLanguageRows().forEach(function (row) {
+              langSpent += syncLanguageRow(row);
+              const motherInput = row.querySelector("[data-phase2-lang-mother]");
+              if (motherInput && motherInput.checked) {
+                hasMotherTongue = true;
+              }
+            });
+
+            const total = skillSpent + langSpent;
+            const budget = toInt(phase2BudgetValue.textContent, 0);
+            const remaining = budget - total;
+            phase2SkillSpentValue.textContent = String(skillSpent);
+            phase2LanguageSpentValue.textContent = String(langSpent);
+            phase2TotalSpentValue.textContent = String(total);
+            phase2RemainingValue.textContent = String(remaining);
+            phase2TotalSpentValue.classList.toggle("is-under", total < budget);
+            phase2TotalSpentValue.classList.toggle("is-over", total > budget);
+            phase2TotalSpentValue.classList.toggle("is-equal", total === budget);
+            phase2RemainingValue.classList.toggle("is-over", remaining < 0);
+            phase2RemainingValue.classList.toggle("is-equal", remaining === 0);
+            phase2RemainingValue.classList.toggle("is-under", remaining > 0);
+
+            const overBudget = total > budget;
+            if (phase2NextButton) {
+              phase2NextButton.disabled = overBudget || !hasMotherTongue;
+            }
+            if (phase2ValidationHint) {
+              const messages = [];
+              if (overBudget) {
+                messages.push("Zu viele Punkte verbraucht.");
+              }
+              if (!hasMotherTongue) {
+                messages.push("Mindestens eine Muttersprache ist erforderlich.");
+              }
+              phase2ValidationHint.hidden = messages.length === 0;
+              phase2ValidationHint.textContent = messages.join(" ");
+            }
+          };
+
+          const bindSkillRow = function (row) {
+            const levelInput = row.querySelector("[data-phase2-skill-level]");
+            const removeBtn = row.querySelector("[data-phase2-skill-remove]");
+            if (levelInput) {
+              levelInput.addEventListener("input", refreshPhase2Totals);
+              levelInput.addEventListener("change", refreshPhase2Totals);
+            }
+            if (removeBtn) {
+              removeBtn.addEventListener("click", function () {
+                row.remove();
+                ensureEmptyRows();
+                refreshPhase2Totals();
+              });
+            }
+          };
+
+          const bindLanguageRow = function (row) {
+            const levelInput = row.querySelector("[data-phase2-lang-level]");
+            const writeInput = row.querySelector("[data-phase2-lang-write]");
+            const motherInput = row.querySelector("[data-phase2-lang-mother]");
+            const removeBtn = row.querySelector("[data-phase2-lang-remove]");
+            if (levelInput) {
+              levelInput.addEventListener("input", function () {
+                if (motherInput && motherInput.checked) {
+                  motherInput.checked = false;
+                }
+                refreshPhase2Totals();
+              });
+              levelInput.addEventListener("change", function () {
+                if (motherInput && motherInput.checked) {
+                  motherInput.checked = false;
+                }
+                refreshPhase2Totals();
+              });
+            }
+            if (writeInput) {
+              writeInput.addEventListener("change", refreshPhase2Totals);
+            }
+            if (motherInput) {
+              motherInput.addEventListener("change", function () {
+                refreshPhase2Totals();
+              });
+            }
+            if (removeBtn) {
+              removeBtn.addEventListener("click", function () {
+                row.remove();
+                ensureEmptyRows();
+                refreshPhase2Totals();
+              });
+            }
+          };
+
+          const createSkillRow = function (slug, name, level) {
+            const safeName = escapeHtml(name);
+            const row = document.createElement("tr");
+            row.setAttribute("data-phase2-skill-cart-item", "");
+            row.dataset.slug = slug;
+            row.innerHTML = `
+              <td>${safeName}<input type="hidden" name="skill_${slug}" value="${level}" data-phase2-skill-hidden></td>
+              <td><input class="dashboard_input phase2_level_input" type="number" min="0" max="10" value="${level}" data-phase2-skill-level></td>
+              <td data-phase2-skill-cost>0</td>
+              <td><button type="button" class="phase2_remove_x" data-phase2-skill-remove aria-label="Skill entfernen" title="Entfernen">X</button></td>
+            `;
+            return row;
+          };
+
+          const createLanguageRow = function (slug, name, maxLevel) {
+            const safeName = escapeHtml(name);
+            const row = document.createElement("tr");
+            row.setAttribute("data-phase2-lang-cart-item", "");
+            row.dataset.slug = slug;
+            row.dataset.max = String(maxLevel);
+            row.innerHTML = `
+              <td>${safeName}</td>
+              <td><input class="dashboard_input phase2_level_input" type="number" min="0" max="${maxLevel}" value="0" name="lang_${slug}_level" data-phase2-lang-level></td>
+              <td><input type="checkbox" name="lang_${slug}_write" data-phase2-lang-write></td>
+              <td><input type="checkbox" name="lang_${slug}_mother" data-phase2-lang-mother></td>
+              <td data-phase2-lang-cost>0</td>
+              <td><button type="button" class="phase2_remove_x" data-phase2-lang-remove aria-label="Sprache entfernen" title="Entfernen">X</button></td>
+            `;
+            return row;
+          };
+
+          const addSkillFromSource = function (source) {
+              if (!source) {
+                return;
+              }
+              const slug = source.dataset.slug || "";
+              const name = source.dataset.name || slug;
+              if (!slug) {
+                return;
+              }
+              const existing = phase2SkillCartBody.querySelector(`[data-phase2-skill-cart-item][data-slug="${slug}"]`);
+              if (existing) {
+                const levelInput = existing.querySelector("[data-phase2-skill-level]");
+                if (levelInput) {
+                  levelInput.focus();
+                }
+                return;
+              }
+              const row = createSkillRow(slug, name, 1);
+              phase2SkillCartBody.appendChild(row);
+              bindSkillRow(row);
+              ensureEmptyRows();
+              refreshPhase2Totals();
+          };
+
+          Array.from(document.querySelectorAll("[data-phase2-skill-source]")).forEach(function (source) {
+            source.addEventListener("click", function () {
+              addSkillFromSource(source);
+            });
+            source.addEventListener("keydown", function (event) {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                addSkillFromSource(source);
+              }
+            });
+          });
+
+          const addLanguageFromSource = function (source) {
+              if (!source) {
+                return;
+              }
+              const slug = source.dataset.slug || "";
+              const name = source.dataset.name || slug;
+              const maxLevel = toInt(source.dataset.max, 0);
+              if (!slug) {
+                return;
+              }
+              const existing = phase2LanguageCartBody.querySelector(`[data-phase2-lang-cart-item][data-slug="${slug}"]`);
+              if (existing) {
+                const levelInput = existing.querySelector("[data-phase2-lang-level]");
+                if (levelInput) {
+                  levelInput.focus();
+                }
+                return;
+              }
+              const row = createLanguageRow(slug, name, maxLevel);
+              phase2LanguageCartBody.appendChild(row);
+              bindLanguageRow(row);
+              ensureEmptyRows();
+              refreshPhase2Totals();
+          };
+
+          Array.from(document.querySelectorAll("[data-phase2-lang-source]")).forEach(function (source) {
+            source.addEventListener("click", function () {
+              addLanguageFromSource(source);
+            });
+            source.addEventListener("keydown", function (event) {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                addLanguageFromSource(source);
+              }
+            });
+          });
+
+          Array.from(document.querySelectorAll("[data-phase2-skill-cart-item]")).forEach(bindSkillRow);
+          Array.from(document.querySelectorAll("[data-phase2-lang-cart-item]")).forEach(bindLanguageRow);
+
+          const setupMainCatalogFilter = function () {
+            const input = document.getElementById("phase2MainFilterInput");
+            if (!input) {
+              return;
+            }
+            input.addEventListener("input", function () {
+              const needle = (input.value || "").trim().toLowerCase();
+              const rows = Array.from(document.querySelectorAll("[data-phase2-skill-source], [data-phase2-lang-source]"));
+              rows.forEach(function (row) {
+                const haystack = (row.dataset.phase2Search || "").toLowerCase();
+                row.hidden = needle.length > 0 && !haystack.includes(needle);
+              });
+
+              Array.from(document.querySelectorAll("[data-phase2-skill-group], [data-phase2-lang-group]")).forEach(function (group) {
+                const visible = Array.from(group.querySelectorAll("tr")).some(function (row) {
+                  return !row.hidden;
+                });
+                group.hidden = !visible;
+              });
+            });
+          };
+
+          setupMainCatalogFilter();
+
+          ensureEmptyRows();
+          refreshPhase2Totals();
+        }
+
+        const phase3DisCartBody = document.getElementById("phase3DisCartBody");
+        const phase3BudgetValue = document.getElementById("phase3BudgetValue");
+        const phase3SpentValue = document.getElementById("phase3SpentValue");
+        const phase3RemainingValue = document.getElementById("phase3RemainingValue");
+        const phase3ValidationHint = document.getElementById("phase3ValidationHint");
+        const phase3NextButton = document.querySelector('button[name="action"][value="next"]');
+        if (phase3DisCartBody && phase3BudgetValue && phase3SpentValue && phase3RemainingValue) {
+          const toInt = function (value, fallback) {
+            const parsed = Number.parseInt(value, 10);
+            return Number.isNaN(parsed) ? fallback : parsed;
+          };
+
+          const clamp = function (value, min, max) {
+            return Math.min(max, Math.max(min, value));
+          };
+
+          const getDisRows = function () {
+            return Array.from(phase3DisCartBody.querySelectorAll("[data-phase3-dis-cart-item]"));
+          };
+
+          const syncDisRow = function (row) {
+            const maxLevel = toInt(row.dataset.max || "0", 0);
+            const ppl = toInt(row.dataset.ppl || "0", 0);
+            const levelInput = row.querySelector("[data-phase3-dis-level]");
+            const costCell = row.querySelector("[data-phase3-dis-cost]");
+            const labelBaseEl = row.querySelector("[data-phase3-dis-label-base]");
+            const formulaEl = row.querySelector("[data-phase3-dis-formula]");
+            if (!levelInput || !costCell) {
+              return 0;
+            }
+            const level = clamp(toInt(levelInput.value, 0), 0, maxLevel);
+            levelInput.value = String(level);
+            const cost = level * ppl;
+            if (labelBaseEl && formulaEl) {
+              formulaEl.textContent = `(${cost})`;
+            }
+            costCell.textContent = String(cost);
+            return cost;
+          };
+
+          const ensurePhase3EmptyRow = function () {
+            const emptyRow = phase3DisCartBody.querySelector("[data-phase3-dis-cart-empty]");
+            if (emptyRow) {
+              emptyRow.hidden = getDisRows().length > 0;
+            }
+          };
+
+          const refreshPhase3Totals = function () {
+            let spent = 0;
+            getDisRows().forEach(function (row) {
+              spent += syncDisRow(row);
+            });
+            const budget = toInt(phase3BudgetValue.textContent, 0);
+            const remaining = budget - spent;
+            phase3SpentValue.textContent = String(spent);
+            phase3RemainingValue.textContent = String(remaining);
+            phase3SpentValue.classList.toggle("is-under", spent < budget);
+            phase3SpentValue.classList.toggle("is-over", spent > budget);
+            phase3SpentValue.classList.toggle("is-equal", spent === budget);
+            phase3RemainingValue.classList.toggle("is-over", remaining < 0);
+            phase3RemainingValue.classList.toggle("is-equal", remaining === 0);
+            phase3RemainingValue.classList.toggle("is-under", remaining > 0);
+
+            if (phase3NextButton) {
+              phase3NextButton.disabled = spent > budget;
+            }
+            if (phase3ValidationHint) {
+              phase3ValidationHint.hidden = spent <= budget;
+              phase3ValidationHint.textContent = spent > budget ? "Zu viele Punkte gesammelt." : "";
+            }
+          };
+
+          const bindDisRow = function (row) {
+            const levelInput = row.querySelector("[data-phase3-dis-level]");
+            const removeBtn = row.querySelector("[data-phase3-dis-remove]");
+            if (levelInput) {
+              levelInput.addEventListener("input", refreshPhase3Totals);
+              levelInput.addEventListener("change", refreshPhase3Totals);
+            }
+            if (removeBtn) {
+              removeBtn.addEventListener("click", function () {
+                row.remove();
+                ensurePhase3EmptyRow();
+                refreshPhase3Totals();
+              });
+            }
+          };
+
+          const createDisRow = function (slug, name, maxLevel, ppl) {
+            const safeName = String(name)
+              .replace(/&/g, "&amp;")
+              .replace(/</g, "&lt;")
+              .replace(/>/g, "&gt;")
+              .replace(/"/g, "&quot;")
+              .replace(/'/g, "&#39;");
+            const row = document.createElement("tr");
+            row.setAttribute("data-phase3-dis-cart-item", "");
+            row.dataset.slug = slug;
+            row.dataset.max = String(maxLevel);
+            row.dataset.ppl = String(ppl);
+            row.innerHTML = `
+              <td><span data-phase3-dis-label-base="${safeName}">${safeName}</span> <span data-phase3-dis-formula>(${ppl})</span></td>
+              <td><input class="dashboard_input phase2_level_input" type="number" min="0" max="${maxLevel}" value="1" name="dis_${slug}" data-phase3-dis-level></td>
+              <td data-phase3-dis-cost>0</td>
+              <td><button type="button" class="phase2_remove_x" data-phase3-dis-remove aria-label="Nachteil entfernen" title="Entfernen">X</button></td>
+            `;
+            return row;
+          };
+
+          const addDisFromSource = function (source) {
+            if (!source) {
+              return;
+            }
+            const slug = source.dataset.slug || "";
+            const name = source.dataset.name || slug;
+            const maxLevel = toInt(source.dataset.max, 0);
+            const ppl = toInt(source.dataset.ppl, 0);
+            if (!slug) {
+              return;
+            }
+            const existing = phase3DisCartBody.querySelector(`[data-phase3-dis-cart-item][data-slug="${slug}"]`);
+            if (existing) {
+              const levelInput = existing.querySelector("[data-phase3-dis-level]");
+              if (levelInput) {
+                levelInput.focus();
+              }
+              return;
+            }
+            const row = createDisRow(slug, name, maxLevel, ppl);
+            phase3DisCartBody.appendChild(row);
+            bindDisRow(row);
+            ensurePhase3EmptyRow();
+            refreshPhase3Totals();
+          };
+
+          Array.from(document.querySelectorAll("[data-phase3-dis-source]")).forEach(function (source) {
+            source.addEventListener("click", function () {
+              addDisFromSource(source);
+            });
+            source.addEventListener("keydown", function (event) {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                addDisFromSource(source);
+              }
+            });
+          });
+
+          Array.from(document.querySelectorAll("[data-phase3-dis-cart-item]")).forEach(bindDisRow);
+
+          const phase3FilterInput = document.getElementById("phase3MainFilterInput");
+          if (phase3FilterInput) {
+            phase3FilterInput.addEventListener("input", function () {
+              const needle = (phase3FilterInput.value || "").trim().toLowerCase();
+              const rows = Array.from(document.querySelectorAll("[data-phase3-dis-source]"));
+              rows.forEach(function (row) {
+                const haystack = (row.dataset.phase3Search || "").toLowerCase();
+                row.hidden = needle.length > 0 && !haystack.includes(needle);
+              });
+              Array.from(document.querySelectorAll("[data-phase3-dis-group]")).forEach(function (group) {
+                const visible = Array.from(group.querySelectorAll("tr")).some(function (row) {
+                  return !row.hidden;
+                });
+                group.hidden = !visible;
+              });
+            });
+          }
+
+          ensurePhase3EmptyRow();
+          refreshPhase3Totals();
+        }
+
+        const phase4CartBody = document.getElementById("phase4CartBody");
+        const phase4AdvBudgetValue = document.getElementById("phase4AdvBudgetValue");
+        const phase4AdvSpentValue = document.getElementById("phase4AdvSpentValue");
+        const phase4AdvRemainingValue = document.getElementById("phase4AdvRemainingValue");
+        const phase4RestBudgetValue = document.getElementById("phase4RestBudgetValue");
+        const phase4RestSpentValue = document.getElementById("phase4RestSpentValue");
+        const phase4RestRemainingValue = document.getElementById("phase4RestRemainingValue");
+        const phase4ValidationHint = document.getElementById("phase4ValidationHint");
+        const phase4FinalizeButton = document.querySelector('button[name="action"][value="finalize"]');
+        if (phase4CartBody && phase4AdvBudgetValue && phase4AdvSpentValue && phase4AdvRemainingValue && phase4RestBudgetValue && phase4RestSpentValue && phase4RestRemainingValue) {
+          const toInt = function (value, fallback) {
+            const parsed = Number.parseInt(value, 10);
+            return Number.isNaN(parsed) ? fallback : parsed;
+          };
+
+          const initialRestBudget = toInt(phase4RestBudgetValue.textContent, 0);
+          const restBudgetBase = initialRestBudget;
+
+          const clamp = function (value, min, max) {
+            return Math.min(max, Math.max(min, value));
+          };
+
+          const calcSkillCost = function (level) {
+            if (level <= 5) {
+              return level;
+            }
+            return 5 + ((level - 5) * 2);
+          };
+
+          const calcLanguageCost = function (level, write, mother) {
+            const base = mother ? 0 : level;
+            return base + (write ? 1 : 0);
+          };
+
+          const calcAttributeTotalCost = function (targetLevel, maxValue) {
+            const threshold = maxValue - 2;
+            if (targetLevel <= threshold) {
+              return targetLevel * 10;
+            }
+            let cost = threshold * 10;
+            for (let level = threshold + 1; level <= targetLevel; level += 1) {
+              cost += 20;
+            }
+            return cost;
+          };
+
+          const escapeHtml = function (value) {
+            return String(value)
+              .replace(/&/g, "&amp;")
+              .replace(/</g, "&lt;")
+              .replace(/>/g, "&gt;")
+              .replace(/"/g, "&quot;")
+              .replace(/'/g, "&#39;");
+          };
+
+          const getRows = function () {
+            return Array.from(phase4CartBody.querySelectorAll("[data-phase4-cart-item]"));
+          };
+
+          const getCategoryLabel = function (kind) {
+            if (kind === "adv") {
+              return "Vorteile";
+            }
+            if (kind === "attr") {
+              return "Eigenschaftverbessserung";
+            }
+            if (kind === "skill") {
+              return "Fertigkeitsverbesserungen";
+            }
+            if (kind === "lang") {
+              return "Sprachverbesserungen";
+            }
+            if (kind === "school") {
+              return "Schulen";
+            }
+            return "Sonstiges";
+          };
+
+          const categoryOrder = ["adv", "attr", "skill", "lang", "school"];
+
+          const organizeCartByCategory = function () {
+            Array.from(phase4CartBody.querySelectorAll("[data-phase4-category-row]")).forEach(function (row) {
+              row.remove();
+            });
+            const emptyRow = phase4CartBody.querySelector("[data-phase4-cart-empty]");
+            const rows = getRows();
+            if (!rows.length) {
+              if (emptyRow) {
+                phase4CartBody.appendChild(emptyRow);
+              }
+              return;
+            }
+
+            const grouped = {};
+            rows.forEach(function (row) {
+              const kind = row.dataset.kind || "other";
+              if (!grouped[kind]) {
+                grouped[kind] = [];
+              }
+              grouped[kind].push(row);
+            });
+
+            categoryOrder.forEach(function (kind) {
+              const bucket = grouped[kind] || [];
+              if (!bucket.length) {
+                return;
+              }
+              const categoryRow = document.createElement("tr");
+              categoryRow.setAttribute("data-phase4-category-row", "");
+              categoryRow.className = "phase4_category_row";
+              categoryRow.innerHTML = `<td colspan="4">${getCategoryLabel(kind)}</td>`;
+              phase4CartBody.appendChild(categoryRow);
+              bucket.forEach(function (row) {
+                phase4CartBody.appendChild(row);
+              });
+              delete grouped[kind];
+            });
+
+            Object.keys(grouped).forEach(function (kind) {
+              const bucket = grouped[kind];
+              if (!bucket || !bucket.length) {
+                return;
+              }
+              const categoryRow = document.createElement("tr");
+              categoryRow.setAttribute("data-phase4-category-row", "");
+              categoryRow.className = "phase4_category_row";
+              categoryRow.innerHTML = `<td colspan="4">${getCategoryLabel(kind)}</td>`;
+              phase4CartBody.appendChild(categoryRow);
+              bucket.forEach(function (row) {
+                phase4CartBody.appendChild(row);
+              });
+            });
+
+            if (emptyRow) {
+              phase4CartBody.appendChild(emptyRow);
+            }
+          };
+
+          const ensureEmptyRow = function () {
+            const emptyRow = phase4CartBody.querySelector("[data-phase4-cart-empty]");
+            if (emptyRow) {
+              emptyRow.hidden = getRows().length > 0;
+            }
+            organizeCartByCategory();
+          };
+
+          const syncRow = function (row) {
+            const kind = row.dataset.kind || "";
+            const input = row.querySelector("[data-phase4-value]");
+            const hidden = row.querySelector("[data-phase4-hidden]");
+            const costCell = row.querySelector("[data-phase4-cost]");
+            const targetEl = row.querySelector("[data-phase4-target]");
+            if (!input || !hidden || !costCell) {
+              return 0;
+            }
+
+            let value = toInt(input.value, 0);
+            let cost = 0;
+
+            if (kind === "adv") {
+              const min = toInt(row.dataset.min, 0);
+              const max = toInt(row.dataset.max, 0);
+              const ppl = toInt(row.dataset.ppl, 0);
+              const formulaEl = row.querySelector("[data-phase4-adv-formula]");
+              value = clamp(value, 0, max);
+              if (value > 0 && value < min) {
+                value = min;
+              }
+              cost = value > 0 ? value * ppl : 0;
+              if (formulaEl) {
+                formulaEl.textContent = `(${cost})`;
+              }
+            } else if (kind === "attr") {
+              const base = toInt(row.dataset.base, 0);
+              const max = toInt(row.dataset.max, 0);
+              const maxAdd = Math.max(0, max - base);
+              const levelInfoEl = row.querySelector("[data-phase4-attr-level-info]");
+              value = clamp(value, 0, maxAdd);
+              cost = calcAttributeTotalCost(base + value, max) - calcAttributeTotalCost(base, max);
+              if (levelInfoEl) {
+                levelInfoEl.textContent = `(${base + value})`;
+              }
+              if (targetEl) {
+                targetEl.textContent = "";
+              }
+            } else if (kind === "skill") {
+              const base = toInt(row.dataset.base, 0);
+              const maxFinal = toInt(row.dataset.maxFinal || "10", 10);
+              const maxAdd = Math.max(0, maxFinal - base);
+              const levelInfoEl = row.querySelector("[data-phase4-skill-level-info]");
+              value = clamp(value, 0, maxAdd);
+              if (input) {
+                input.max = String(maxAdd);
+              }
+              cost = calcSkillCost(base + value) - calcSkillCost(base);
+              if (levelInfoEl) {
+                levelInfoEl.textContent = `(${base + value})`;
+              }
+              if (targetEl) {
+                targetEl.textContent = "";
+              }
+            } else if (kind === "lang") {
+              const base = toInt(row.dataset.base, 0);
+              const max = toInt(row.dataset.max, 0);
+              const maxAdd = Math.max(0, max - base);
+              const levelInfoEl = row.querySelector("[data-phase4-lang-level-info]");
+              const baseWrite = row.dataset.write === "1";
+              const writeInput = row.querySelector("[data-phase4-lang-write]");
+              const writeHidden = row.querySelector("[data-phase4-lang-write-hidden]");
+              let writeAdd = row.dataset.writeAdd === "1";
+              if (writeInput) {
+                if (baseWrite) {
+                  writeInput.checked = true;
+                  writeInput.disabled = true;
+                  writeAdd = false;
+                } else {
+                  writeAdd = writeInput.checked;
+                }
+              }
+              row.dataset.writeAdd = writeAdd ? "1" : "0";
+              if (writeHidden) {
+                writeHidden.value = writeAdd ? "1" : "0";
+              }
+              const write = baseWrite || writeAdd;
+              const mother = row.dataset.mother === "1";
+              value = clamp(value, 0, maxAdd);
+              cost = calcLanguageCost(base + value, write, mother) - calcLanguageCost(base, baseWrite, mother);
+              if (levelInfoEl) {
+                levelInfoEl.textContent = `(${base + value})`;
+              }
+              if (targetEl) {
+                targetEl.textContent = "";
+              }
+            } else if (kind === "school") {
+              value = Math.max(0, value);
+              cost = value * 8;
+            }
+
+            input.value = String(value);
+            hidden.value = String(value);
+            costCell.textContent = String(cost);
+            return cost;
+          };
+
+          const refreshTotals = function () {
+            let advSpent = 0;
+            let restSpent = 0;
+            getRows().forEach(function (row) {
+              const rowCost = syncRow(row);
+              if ((row.dataset.kind || "") === "adv") {
+                advSpent += rowCost;
+              } else {
+                restSpent += rowCost;
+              }
+            });
+
+            const advBudget = toInt(phase4AdvBudgetValue.textContent, 0);
+            const restBudget = restBudgetBase;
+            const advRemaining = advBudget - advSpent;
+            const restRemaining = restBudget - restSpent;
+            phase4RestBudgetValue.textContent = String(restBudget);
+            phase4AdvSpentValue.textContent = String(advSpent);
+            phase4RestSpentValue.textContent = String(restSpent);
+            phase4AdvRemainingValue.textContent = String(advRemaining);
+            phase4RestRemainingValue.textContent = String(restRemaining);
+            phase4AdvSpentValue.classList.toggle("is-under", advSpent < advBudget);
+            phase4AdvSpentValue.classList.toggle("is-over", advSpent > advBudget);
+            phase4AdvSpentValue.classList.toggle("is-equal", advSpent === advBudget);
+            phase4AdvRemainingValue.classList.toggle("is-over", advRemaining < 0);
+            phase4AdvRemainingValue.classList.toggle("is-equal", advRemaining === 0);
+            phase4AdvRemainingValue.classList.toggle("is-under", advRemaining > 0);
+            phase4RestSpentValue.classList.toggle("is-under", restSpent < restBudget);
+            phase4RestSpentValue.classList.toggle("is-over", restSpent > restBudget);
+            phase4RestSpentValue.classList.toggle("is-equal", restSpent === restBudget);
+            phase4RestRemainingValue.classList.toggle("is-over", restRemaining < 0);
+            phase4RestRemainingValue.classList.toggle("is-equal", restRemaining === 0);
+            phase4RestRemainingValue.classList.toggle("is-under", restRemaining > 0);
+
+            const overAdvBudget = advSpent > advBudget;
+            const overRestBudget = restSpent > restBudget;
+            const invalidLangWrite = getRows().some(function (row) {
+              if ((row.dataset.kind || "") !== "lang") {
+                return false;
+              }
+              const base = toInt(row.dataset.base, 0);
+              const addInput = row.querySelector("[data-phase4-value]");
+              const add = toInt(addInput ? addInput.value : "0", 0);
+              const baseWrite = row.dataset.write === "1";
+              const writeInput = row.querySelector("[data-phase4-lang-write]");
+              const write = baseWrite || Boolean(writeInput && writeInput.checked);
+              return write && (base + add < 1);
+            });
+
+            if (phase4FinalizeButton) {
+              phase4FinalizeButton.disabled = overAdvBudget || overRestBudget || invalidLangWrite;
+            }
+            if (phase4ValidationHint) {
+              const messages = [];
+              if (overAdvBudget) {
+                messages.push("Vorteilsbudget überschritten.");
+              }
+              if (overRestBudget) {
+                messages.push("Ausbaubudget überschritten.");
+              }
+              if (invalidLangWrite) {
+                messages.push("Schreiben benötigt mindestens Sprachlevel 1.");
+              }
+              phase4ValidationHint.hidden = messages.length === 0;
+              phase4ValidationHint.textContent = messages.join(" ");
+            }
+          };
+
+          const bindRow = function (row) {
+            const input = row.querySelector("[data-phase4-value]");
+            const removeBtn = row.querySelector("[data-phase4-remove]");
+            const langWriteInput = row.querySelector("[data-phase4-lang-write]");
+            if (input) {
+              input.addEventListener("input", refreshTotals);
+              input.addEventListener("change", refreshTotals);
+            }
+            if (langWriteInput) {
+              langWriteInput.addEventListener("change", refreshTotals);
+            }
+            if (removeBtn) {
+              removeBtn.addEventListener("click", function () {
+                row.remove();
+                ensureEmptyRow();
+                refreshTotals();
+              });
+            }
+          };
+
+          const createRowFromSource = function (source) {
+            const kind = source.dataset.kind || "";
+            const key = source.dataset.key || "";
+            const name = source.dataset.name || key;
+            const safeName = escapeHtml(name);
+            if (!kind || !key) {
+              return null;
+            }
+
+            const row = document.createElement("tr");
+            row.setAttribute("data-phase4-cart-item", "");
+            row.dataset.kind = kind;
+            row.dataset.key = key;
+
+            if (kind === "adv") {
+              const slug = source.dataset.slug || "";
+              const min = toInt(source.dataset.min, 0);
+              const max = toInt(source.dataset.max, 0);
+              const ppl = toInt(source.dataset.ppl, 0);
+              row.dataset.min = String(min);
+              row.dataset.max = String(max);
+              row.dataset.ppl = String(ppl);
+              row.innerHTML = `
+                <td><span data-phase4-adv-label-base="${safeName}">${safeName}</span> <span data-phase4-adv-formula>(0)</span> <input type="hidden" name="adv_${slug}" value="${min}" data-phase4-hidden></td>
+                <td><input class="dashboard_input phase2_level_input" type="number" min="0" max="${max}" value="${min}" data-phase4-value></td>
+                <td data-phase4-cost>0</td>
+                <td><button type="button" class="phase2_remove_x" data-phase4-remove aria-label="Eintrag entfernen" title="Entfernen">X</button></td>
+              `;
+              return row;
+            }
+
+            if (kind === "attr") {
+              const shortName = source.dataset.short || "";
+              const base = toInt(source.dataset.base, 0);
+              const max = toInt(source.dataset.max, 0);
+              const maxAdd = Math.max(0, max - base);
+              row.dataset.base = String(base);
+              row.dataset.max = String(max);
+              row.innerHTML = `
+                <td><span data-phase4-attr-label-base="${safeName}">${safeName}</span> <span data-phase4-attr-level-info>(${base + 1})</span> <input type="hidden" name="attr_add_${shortName}" value="1" data-phase4-hidden></td>
+                <td><input class="dashboard_input phase2_level_input" type="number" min="0" max="${maxAdd}" value="1" data-phase4-value><div class="phase4_target_hint" data-phase4-target></div></td>
+                <td data-phase4-cost>0</td>
+                <td><button type="button" class="phase2_remove_x" data-phase4-remove aria-label="Eintrag entfernen" title="Entfernen">X</button></td>
+              `;
+              return row;
+            }
+
+            if (kind === "skill") {
+              const slug = source.dataset.slug || "";
+              const base = toInt(source.dataset.base, 0);
+              const maxFinal = 10;
+              const maxAdd = Math.max(0, maxFinal - base);
+              row.dataset.base = String(base);
+              row.dataset.maxFinal = String(maxFinal);
+              if (base > 0) {
+                row.dataset.locked = "1";
+              }
+              row.innerHTML = `
+                <td><span data-phase4-skill-label-base="${safeName}">${safeName}</span> <span data-phase4-skill-level-info>(${base + Math.min(1, maxAdd)})</span> <input type="hidden" name="skill_add_${slug}" value="1" data-phase4-hidden></td>
+                <td><input class="dashboard_input phase2_level_input" type="number" min="0" max="${maxAdd}" value="${Math.min(1, maxAdd)}" data-phase4-value><div class="phase4_target_hint" data-phase4-target></div></td>
+                <td data-phase4-cost>0</td>
+                <td>${base > 0 ? '<span class="phase4_locked_marker" title="Aus Phase 2 übernommen">*</span>' : '<button type="button" class="phase2_remove_x" data-phase4-remove aria-label="Eintrag entfernen" title="Entfernen">X</button>'}</td>
+              `;
+              return row;
+            }
+
+            if (kind === "lang") {
+              const slug = source.dataset.slug || "";
+              const base = toInt(source.dataset.base, 0);
+              const max = toInt(source.dataset.max, 0);
+              const maxAdd = Math.max(0, max - base);
+              row.dataset.base = String(base);
+              row.dataset.max = String(max);
+              row.dataset.write = source.dataset.write === "1" ? "1" : "0";
+              row.dataset.writeAdd = "0";
+              row.dataset.mother = source.dataset.mother === "1" ? "1" : "0";
+              const isLocked = base > 0 || row.dataset.write === "1" || row.dataset.mother === "1";
+              if (isLocked) {
+                row.dataset.locked = "1";
+              }
+              const writeDisabled = row.dataset.write === "1" ? "disabled" : "";
+              const writeChecked = row.dataset.write === "1" ? "checked" : "";
+              row.innerHTML = `
+                <td><span data-phase4-lang-label-base="${safeName}">${safeName}</span> <span data-phase4-lang-level-info>(${base + Math.min(1, maxAdd)})</span> <input type="hidden" name="lang_add_${slug}" value="1" data-phase4-hidden></td>
+                <td>
+                  <div class="phase4_lang_controls">
+                    <label class="phase4_write_toggle"><input type="checkbox" name="lang_add_${slug}_write" data-phase4-lang-write ${writeChecked} ${writeDisabled}> Schreiben</label>
+                    <input class="dashboard_input phase2_level_input" type="number" min="0" max="${maxAdd}" value="1" data-phase4-value>
+                  </div>
+                  <input type="hidden" value="0" data-phase4-lang-write-hidden>
+                  <div class="phase4_target_hint" data-phase4-target></div>
+                </td>
+                <td data-phase4-cost>0</td>
+                <td>${isLocked ? '<span class="phase4_locked_marker" title="Aus Phase 2 übernommen">*</span>' : '<button type="button" class="phase2_remove_x" data-phase4-remove aria-label="Eintrag entfernen" title="Entfernen">X</button>'}</td>
+              `;
+              return row;
+            }
+
+            if (kind === "school") {
+              const schoolId = source.dataset.id || "";
+              row.innerHTML = `
+                <td>${safeName}<input type="hidden" name="school_${schoolId}" value="1" data-phase4-hidden></td>
+                <td><input class="dashboard_input phase2_level_input" type="number" min="0" value="1" data-phase4-value></td>
+                <td data-phase4-cost>0</td>
+                <td><button type="button" class="phase2_remove_x" data-phase4-remove aria-label="Eintrag entfernen" title="Entfernen">X</button></td>
+              `;
+              return row;
+            }
+
+            return null;
+          };
+
+          const addFromSource = function (source) {
+            if (!source) {
+              return;
+            }
+            const key = source.dataset.key || "";
+            if (!key) {
+              return;
+            }
+            const existing = phase4CartBody.querySelector(`[data-phase4-cart-item][data-key="${key}"]`);
+            if (existing) {
+              const input = existing.querySelector("[data-phase4-value]");
+              if (input) {
+                input.focus();
+              }
+              return;
+            }
+
+            const row = createRowFromSource(source);
+            if (!row) {
+              return;
+            }
+            phase4CartBody.appendChild(row);
+            bindRow(row);
+            ensureEmptyRow();
+            refreshTotals();
+          };
+
+          Array.from(document.querySelectorAll("[data-phase4-source]")).forEach(function (source) {
+            source.addEventListener("click", function () {
+              addFromSource(source);
+            });
+            source.addEventListener("keydown", function (event) {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                addFromSource(source);
+              }
+            });
+          });
+
+          Array.from(document.querySelectorAll("[data-phase4-cart-item]")).forEach(bindRow);
+
+          const phase4FilterInput = document.getElementById("phase4MainFilterInput");
+          if (phase4FilterInput) {
+            phase4FilterInput.addEventListener("input", function () {
+              const needle = (phase4FilterInput.value || "").trim().toLowerCase();
+              const rows = Array.from(document.querySelectorAll("[data-phase4-source]"));
+              rows.forEach(function (row) {
+                const haystack = (row.dataset.phase4Search || "").toLowerCase();
+                row.hidden = needle.length > 0 && !haystack.includes(needle);
+              });
+              Array.from(document.querySelectorAll("[data-phase4-group]")).forEach(function (group) {
+                const visible = Array.from(group.querySelectorAll("tr")).some(function (row) {
+                  return !row.hidden;
+                });
+                group.hidden = !visible;
+              });
+            });
+          }
+
+          ensureEmptyRow();
+          refreshTotals();
+        }
+      });
+    </script>
   </body>
 </html>

@@ -18,20 +18,29 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path
 from charsheet import views
-from django.contrib.auth.views import LoginView, LogoutView
+from django.contrib.auth.views import LoginView
 
 urlpatterns = [
+    path("admin/logout/", views.AppLogoutView.as_view(), name="admin_logout_override"),
     path("admin/", admin.site.urls),
     path("impressum/", views.impressum, name="impressum"),
     path("datenschutz/", views.datenschutz, name="datenschutz"),
     path("dashboard/", views.dashboard, name="dashboard"),
     path("character/new/", views.create_character, name="create_character"),
-    path("logout/", LogoutView.as_view(next_page="login"), name="logout"),
+    path("character/<int:character_id>/edit/", views.edit_character, name="edit_character"),
+    path("character/<int:character_id>/archive/", views.archive_character, name="archive_character"),
+    path("character/<int:character_id>/unarchive/", views.unarchive_character, name="unarchive_character"),
+    path("character/<int:character_id>/delete/", views.delete_character, name="delete_character"),
+    path("character/draft/<int:draft_id>/delete/", views.delete_creation_draft, name="delete_creation_draft"),
+    path("app/logout/", views.AppLogoutView.as_view(), name="app_logout"),
     path("sheet/", views.sheet, name="sheet"),
     path("character/<int:character_id>/", views.character_sheet, name="character_sheet"),
+    path("character/<int:character_id>/info/update/", views.update_character_info, name="update_character_info"),
+    path("character/<int:character_id>/adjust-personal-fame-point/", views.adjust_personal_fame_point, name="adjust_personal_fame_point"),
     path("character/<int:character_id>/adjust-damage/", views.adjust_current_damage, name="adjust_current_damage"),
     path("character/<int:character_id>/adjust-money/", views.adjust_money, name="adjust_money"),
     path("character/<int:character_id>/adjust-experience/", views.adjust_experience, name="adjust_experience"),
+    path("character/<int:character_id>/learn/apply/", views.apply_learning, name="apply_learning"),
     path("character/<int:character_id>/shop-item/create/", views.create_shop_item, name="create_shop_item"),
     path("character/<int:character_id>/shop/buy/", views.buy_shop_cart, name="buy_shop_cart"),
     path("character-item/<int:pk>/toggle-equip/", views.toggle_equip, name="toggle_equip"),

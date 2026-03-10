@@ -151,6 +151,7 @@ STATICFILES_DIRS = [BASE_DIR / "static",
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 LOGIN_REDIRECT_URL = "dashboard"
 LOGIN_URL = "login"
+X_FRAME_OPTIONS = "SAMEORIGIN"
 
 # Legal/contact data displayed in public legal pages.
 # Override via environment variables for each self-hosted deployment.

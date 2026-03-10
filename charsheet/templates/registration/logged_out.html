@@ -1,0 +1,37 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="refresh" content="3;url={% url 'login' %}">
+    <link rel="icon" type="image/x-icon" href="{% static 'img/favicon.ico' %}">
+    <link rel="stylesheet" href="{% static 'css/login.css' %}">
+    <title>Codex Arcana - Abmeldung</title>
+  </head>
+  <body>
+    <div class="login_scene">
+      <img class="login_graphic" src="{% static 'img/codexarcana.png' %}" alt="Codex Arcana">
+      <section class="login_box" aria-label="Abmeldung">
+        <h1>Abgemeldet</h1>
+        <div class="register">
+          Du wurdest erfolgreich ausgeloggt.
+        </div>
+        <div class="register">
+          Du wirst automatisch zum Login weitergeleitet.
+        </div>
+        <a class="login_btn" href="{% url 'login' %}" style="display:block;text-align:center;margin-top:14px;">Jetzt zum Login</a>
+      </section>
+    </div>
+
+    <div aria-hidden="true" class="firefly-layer">
+      {% for _ in '123456789012345' %}<div class="firefly"></div>{% endfor %}
+    </div>
+
+    <script>
+      setTimeout(function () {
+        window.location.href = "{% url 'login' %}";
+      }, 3000);
+    </script>
+  </body>
+</html>

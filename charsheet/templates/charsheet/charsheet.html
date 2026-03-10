@@ -4,10 +4,27 @@
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/x-icon" href="{% static 'img/favicon.ico' %}">
     <title>{{ character.name }} | Codex Arcana</title>
     <link rel="stylesheet" href="{% static 'css/charsheet.css' %}">
   </head>
   <body>
+    <a class="sheet_back_link" href="{% url 'dashboard' %}" aria-label="Zurück zum Dashboard" title="Zurück zum Dashboard">
+      <svg class="sheet_back_icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <defs>
+          <linearGradient id="sheetBackGold" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#fff1b8" />
+            <stop offset="22%" stop-color="#f5d774" />
+            <stop offset="52%" stop-color="#d3a43d" />
+            <stop offset="78%" stop-color="#9f6f20" />
+            <stop offset="100%" stop-color="#7a5217" />
+          </linearGradient>
+        </defs>
+        <path d="M18.6 7.4A8.2 8.2 0 1 0 11.4 20.2" />
+        <path d="M18.6 7.4L15.7 7.1" />
+        <path d="M18.6 7.4L17.0 4.9" />
+      </svg>
+    </a>
     <main class="book-spread">
       <article class="page">
         <section class="p1_top">
@@ -16,7 +33,17 @@
               <table class="char_info_table" aria-label="Charakterinformation">
                 <tbody>
                   <tr class="char_info_row_title">
-                    <td class="char_title" colspan="6"><h1>Charakterinformation</h1></td>
+                    <td class="char_title" colspan="6">
+                      <div class="char_info_title_wrap">
+                        <h1>Charakterinformation</h1>
+                        <button type="button" class="char_info_edit_btn" id="charInfoEditTrigger" aria-label="Charakterinformation bearbeiten" title="Charakterinformation bearbeiten">
+                          <svg class="char_info_edit_icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                            <path d="M4 20h4l10-10-4-4L4 16v4z"></path>
+                            <path d="M13.8 6.2l4 4"></path>
+                          </svg>
+                        </button>
+                      </div>
+                    </td>
                   </tr>
                   <tr>
                     <td class="label">Name</td>
@@ -132,23 +159,30 @@
             <div class="fame_header">
               <h2>Ruhm</h2>
               <div class="fame_total_wrap">
-                <span class="rank_total_input"></span>
+                <span class="rank_total_input">{% if fame_total_rank == 0 %}-{% else %}{{ fame_total_rank }}{% endif %}</span>
                 <span class="fame_total_label">Gesamtrang</span>
               </div>
             </div>
             <div class="fame_rank_inputs" aria-label="Rangwerte">
-              <span class="rank_input"></span>
-              <span class="rank_input"></span>
-              <span class="rank_input"></span>
+              <span class="rank_input">{% if character.personal_fame_rank == 0 %}-{% else %}{{ character.personal_fame_rank }}{% endif %}</span>
+              <span class="rank_input">{% if character.sacrifice_rank == 0 %}-{% else %}{{ character.sacrifice_rank }}{% endif %}</span>
+              <span class="rank_input">{% if character.artefact_rank == 0 %}-{% else %}{{ character.artefact_rank }}{% endif %}</span>
             </div>
             <div class="fame_ranks" aria-label="Rangfelder">
               <span>Persönlicher Rang</span>
               <span>Opferrang</span>
               <span>Artefaktrang</span>
             </div>
-            <div class="fame_dots" aria-label="Ruhmpunkte">
-              {% for _ in '1234567890' %}<span class="dot"></span>{% endfor %}
-            </div>
+            <form method="post" action="{% url 'adjust_personal_fame_point' character.id %}" class="fame_adjust_form">
+              {% csrf_token %}
+              <button type="submit" name="delta" value="-1" class="fame_step_btn" aria-label="Ruhmpunkt verringern">-</button>
+              <div class="fame_dots" aria-label="Ruhmpunkte">
+                {% for _ in '1234567890' %}
+                  <span class="dot{% if forloop.counter <= character.personal_fame_point %} is-filled{% endif %}"></span>
+                {% endfor %}
+              </div>
+              <button type="submit" name="delta" value="1" class="fame_step_btn" aria-label="Ruhmpunkt erhöhen">+</button>
+            </form>
             <p class="fame_hint">Ruhmpunkte 10 - 1 Persönlicher Rang</p>
           </div>
 
@@ -341,7 +375,7 @@
                   {% for item in inventory_items %}
                     <li class="inv_row tooltip_target{% if item.equipped %} is-equipped{% endif %}" data-tooltip-side="right" data-tooltip="{{ item.item.description|default:'Keine Beschreibung' }}">
                       <span class="inv_name">{% if item.item.stackable %}{{ item.amount }}x {% endif %}{{ item.item.name }}</span>
-                      {% if item.item.stackable %}
+                      {% if item.item.stackable and item.item.is_consumable %}
                         <form method="post" action="{% url 'consume_item' item.pk %}" class="equip_form">
                           {% csrf_token %}
                           <button type="submit" class="equip_toggle" title="Verbrauchen">
@@ -478,6 +512,7 @@
                       <th>Scha&shy;den</th>
                       <th>GK</th>
                       <th>Min.-<wbr>St.</th>
+                      <th></th>
                       <th>Nach&shy;lade&shy;zeit</th>
                       <th>Reich&shy;weite</th>
                       <th>Fer&shy;tig&shy;keit</th>
@@ -502,9 +537,25 @@
                             <span class="weapon_name">{{ row.item.name }}</span>
                           </div>
                         </td>
-                        <td class="weapon_damage">{{ row.stats.damage|default:"-" }}</td>
-                        <td>-</td>
+                        <td class="weapon_damage">
+                          <span class="weapon_damage_value">{{ row.stats.damage|default:"-" }}</span>
+                        </td>
+                        <td>{{ row.stats.weight_class|default:"-" }}</td>
                         <td>{{ row.stats.min_st|default:"-" }}</td>
+                        <td class="weapon_mode_col">
+                          {% if row.stats.two_handed and row.stats.two_handed_damage %}
+                            <button
+                              type="button"
+                              class="weapon_mode_toggle"
+                              data-one-handed="{{ row.stats.damage|default:'-' }}"
+                              data-two-handed="{{ row.stats.two_handed_damage }}"
+                              data-mode="one"
+                              title="Ein- oder zweihändig umschalten"
+                            >
+                              1H
+                            </button>
+                          {% endif %}
+                        </td>
                         <td>-</td>
                         <td>-</td>
                         <td>{{ row.dmg_mod|default:"-" }}</td>
@@ -658,11 +709,12 @@
                           data-shop-name="{{ item.name|escape }}"
                           data-shop-price="{{ item.price }}"
                         >
-                          <td class="shop_item_name">{{ item.name }}</td>
-                          <td class="shop_item_price">{{ item.price }} KS</td>
-                          <td class="shop_item_action">
-                            <button type="button" class="shop_pick_btn" title="Zum Warenkorb">+</button>
+                          <td class="shop_item_name">
+                            <button type="button" class="shop_item_name_btn" data-shop-pick title="Zum Warenkorb">
+                              {{ item.name }}
+                            </button>
                           </td>
+                          <td class="shop_item_price">{{ item.price }} KS</td>
                         </tr>
                       {% endfor %}
                     </tbody>
@@ -715,7 +767,7 @@
                   <span id="shopCartFinal">0 KS</span>
                 </div>
                 <div class="shop_cart_total_row">
-                  <span>Kontostand (simuliert)</span>
+                  <span>Neuer Kassenstand</span>
                   <span id="shopCartBalance">{{ character.money }} KS</span>
                 </div>
                 <div class="shop_cart_actions">
@@ -827,19 +879,209 @@
         </form>
       </div>
     </section>
-    <section class="payday-window payday-window--large" id="learnWindow" aria-hidden="true">
+    <section class="payday-window payday-window--item-create" id="charInfoWindow" aria-hidden="true">
+      <div class="payday-window__titlebar" id="charInfoWindowHandle">
+        <h3 class="payday-window__title">Charakterinfo bearbeiten</h3>
+        <button type="button" class="payday-window__close" id="charInfoWindowClose" aria-label="Fenster schließen">x</button>
+      </div>
+      <div class="payday-window__body">
+        <form method="post" action="{% url 'update_character_info' character.id %}" id="charInfoForm" class="shop_item_form">
+          {% csrf_token %}
+          <div class="shop_item_form_grid">
+            <label class="shop_item_form_row">
+              <span>Name</span>
+              {{ char_info_form.name }}
+            </label>
+            <label class="shop_item_form_row">
+              <span>Geschlecht</span>
+              {{ char_info_form.gender }}
+            </label>
+            <label class="shop_item_form_row">
+              <span>Alter</span>
+              {{ char_info_form.age }}
+            </label>
+            <label class="shop_item_form_row">
+              <span>Größe (cm)</span>
+              {{ char_info_form.height }}
+            </label>
+            <label class="shop_item_form_row">
+              <span>Gewicht (kg)</span>
+              {{ char_info_form.weight }}
+            </label>
+            <label class="shop_item_form_row">
+              <span>Herkunftsland</span>
+              {{ char_info_form.country_of_origin }}
+            </label>
+            <label class="shop_item_form_row">
+              <span>Hautfarbe</span>
+              {{ char_info_form.skin_color }}
+            </label>
+            <label class="shop_item_form_row">
+              <span>Haarfarbe</span>
+              {{ char_info_form.hair_color }}
+            </label>
+            <label class="shop_item_form_row">
+              <span>Augenfarbe</span>
+              {{ char_info_form.eye_color }}
+            </label>
+            <label class="shop_item_form_row">
+              <span>Religion</span>
+              {{ char_info_form.religion }}
+            </label>
+          </div>
+          <label class="shop_item_form_row">
+            <span>Aussehen</span>
+            {{ char_info_form.appearance }}
+          </label>
+          <div class="shop_item_form_actions">
+            <button type="button" id="charInfoCancelBtn" class="shop_item_cancel_btn">Abbrechen</button>
+            <button type="submit" class="shop_item_save_btn">Speichern</button>
+          </div>
+        </form>
+      </div>
+    </section>
+    <section class="payday-window payday-window--large" id="learnWindow" aria-hidden="true" data-force-close="{% if close_learn_window_once %}1{% else %}0{% endif %}">
       <div class="payday-window__titlebar" id="learnWindowHandle">
         <h3 class="payday-window__title">Lernmenü</h3>
         <button type="button" class="payday-window__close" id="learnWindowClose" aria-label="Lernmenü schließen">x</button>
       </div>
-      <div class="payday-window__body"></div>
-    </section>
+      <div class="payday-window__body shop-window__body learn-window__body">
+        <form method="post" action="{% url 'apply_learning' character.id %}" id="learnForm" class="learn_form" data-learn-budget="{{ character.current_experience }}">
+          {% csrf_token %}
+          <div class="learn_budget_grid">
+            <div class="shop_cart_total_row">
+              <span>EP Budget</span>
+              <span id="learnBudgetValue">{{ character.current_experience }} EP</span>
+            </div>
+            <div class="shop_cart_total_row">
+              <span>Verbrauch</span>
+              <span id="learnSpentValue">0 EP</span>
+            </div>
+            <div class="shop_cart_total_row">
+              <span>Rest</span>
+              <span id="learnRemainingValue">{{ character.current_experience }} EP</span>
+            </div>
+          </div>
+          <p id="learnValidationHint" class="form_error learn_validation_hint" hidden></p>
+          <div class="shop_window_layout learn_window_layout">
+            <div class="shop_panel">
+              <div class="shop_panel_header">
+                <h2>Lernoptionen</h2>
+              </div>
+              <div class="shop_toolbar learn_toolbar">
+                <input
+                  type="search"
+                  id="learnFilterInput"
+                  class="shop_filter_input"
+                  placeholder="Lernen suchen..."
+                  aria-label="Lernoptionen filtern"
+                >
+              </div>
+              <div class="shop_list_scroll" aria-label="Lernoptionen">
+                <details class="shop_group" data-learn-group open>
+                  <summary><span>Eigenschaften</span><span class="shop_group_count">{{ learn_attr_rows|length }}</span></summary>
+                  <table class="shop_table">
+                    <tbody>
+                      {% for row in learn_attr_rows %}
+                        <tr data-learn-source data-kind="attr" data-key="attr:{{ row.short_name }}" data-short="{{ row.short_name }}" data-name="{{ row.label }}" data-base="{{ row.base_value }}" data-max="{{ row.max_value }}" data-learn-search="{{ row.label|lower }} eigenschaft attribut" tabindex="0" role="button" aria-label="{{ row.label }} steigern">
+                          <td class="shop_item_name">{{ row.label }}</td>
+                          <td class="shop_item_price">Basis {{ row.base_value }} | Max {{ row.max_value }}</td>
+                        </tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                </details>
 
-    <footer class="legal_footer">
-      <a href="{% url 'impressum' %}">Impressum</a>
-      <span>|</span>
-      <a href="{% url 'datenschutz' %}">Datenschutz</a>
-    </footer>
+                <details class="shop_group" data-learn-group open>
+                  <summary><span>Skills</span><span class="shop_group_count">{{ learn_skill_rows|length }}</span></summary>
+                  {% regroup learn_skill_rows by category_name as learn_skill_groups %}
+                  {% for group in learn_skill_groups %}
+                    <details class="shop_group learn_subgroup" data-learn-group open>
+                      <summary><span>{{ group.grouper }}</span><span class="shop_group_count">{{ group.list|length }}</span></summary>
+                      <table class="shop_table">
+                        <tbody>
+                          {% for row in group.list %}
+                            <tr data-learn-source data-kind="skill" data-key="skill:{{ row.slug }}" data-slug="{{ row.slug }}" data-name="{{ row.name }}" data-base="{{ row.base_level }}" data-learn-search="{{ row.name|lower }} {{ group.grouper|lower }} skill" tabindex="0" role="button" aria-label="{{ row.name }} steigern">
+                              <td class="shop_item_name">{{ row.name }}</td>
+                              <td class="shop_item_price">Basis {{ row.base_level }}</td>
+                            </tr>
+                          {% endfor %}
+                        </tbody>
+                      </table>
+                    </details>
+                  {% endfor %}
+                </details>
+
+                <details class="shop_group" data-learn-group open>
+                  <summary><span>Sprachen</span><span class="shop_group_count">{{ learn_language_rows|length }}</span></summary>
+                  <details class="shop_group learn_subgroup" data-learn-group open>
+                    <summary><span>Alle</span><span class="shop_group_count">{{ learn_language_rows|length }}</span></summary>
+                    <table class="shop_table">
+                      <tbody>
+                        {% for row in learn_language_rows %}
+                          <tr data-learn-source data-kind="lang" data-key="lang:{{ row.slug }}" data-slug="{{ row.slug }}" data-name="{{ row.name }}" data-base="{{ row.base_level }}" data-max="{{ row.max_level }}" data-write="{% if row.base_write %}1{% else %}0{% endif %}" data-mother="{% if row.base_mother %}1{% else %}0{% endif %}" data-learn-search="{{ row.name|lower }} sprache language" tabindex="0" role="button" aria-label="{{ row.name }} steigern">
+                            <td class="shop_item_name">{{ row.name }}</td>
+                            <td class="shop_item_price">Basis {{ row.base_level }} | Max {{ row.max_level }}{% if row.base_write %} | Schrift{% endif %}</td>
+                          </tr>
+                        {% endfor %}
+                      </tbody>
+                    </table>
+                  </details>
+                </details>
+
+                <details class="shop_group" data-learn-group open>
+                  <summary><span>Schulen</span><span class="shop_group_count">{{ learn_school_rows|length }}</span></summary>
+                  {% regroup learn_school_rows by type_name as learn_school_groups %}
+                  {% for group in learn_school_groups %}
+                    <details class="shop_group learn_subgroup" data-learn-group open>
+                      <summary><span>{{ group.grouper }}</span><span class="shop_group_count">{{ group.list|length }}</span></summary>
+                      <table class="shop_table">
+                        <tbody>
+                          {% for row in group.list %}
+                            <tr data-learn-source data-kind="school" data-key="school:{{ row.id }}" data-id="{{ row.id }}" data-name="{{ row.name }}" data-base="{{ row.base_level }}" data-max="{{ row.max_level }}" data-learn-search="{{ row.name|lower }} {{ group.grouper|lower }} schule" tabindex="0" role="button" aria-label="{{ row.name }} steigern">
+                              <td class="shop_item_name">{{ row.name }}</td>
+                              <td class="shop_item_price">Basis {{ row.base_level }} | Max {{ row.max_level }}</td>
+                            </tr>
+                          {% endfor %}
+                        </tbody>
+                      </table>
+                    </details>
+                  {% endfor %}
+                </details>
+              </div>
+            </div>
+
+            <div class="shop_panel">
+              <div class="shop_panel_header">
+                <h2>Lern-Warenkorb</h2>
+              </div>
+              <div class="shop_cart_wrapper">
+                <div class="shop_cart_scroll">
+                  <table class="shop_cart_table">
+                    <thead>
+                      <tr>
+                        <th>Eintrag</th>
+                        <th>Wert</th>
+                        <th>Kosten</th>
+                        <th></th>
+                      </tr>
+                    </thead>
+                    <tbody id="learnCartBody">
+                      <tr class="shop_cart_empty_row" data-learn-empty-row>
+                        <td colspan="4">Noch kein Lernschritt gewählt.</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                <div class="shop_cart_actions">
+                  <button type="submit" id="learnApplyBtn" class="shop_buy_btn">Lernen anwenden</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </form>
+      </div>
+    </section>
 
     <div aria-hidden="true" class="firefly-layer">
       {% for _ in '123456789012345' %}<div class="firefly"></div>{% endfor %}
