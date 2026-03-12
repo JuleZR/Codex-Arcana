@@ -9,6 +9,7 @@ from django.http import HttpResponseRedirect
 from django.shortcuts import get_object_or_404, redirect, render
 from django.contrib import messages
 from django.contrib.auth import logout as auth_logout
+from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LogoutView
 from django.views.decorators.http import require_POST
@@ -17,7 +18,8 @@ from django.db.models import Max, Sum
 from django.db.models.deletion import ProtectedError
 from django.utils import timezone
 from django.urls import reverse_lazy
-from .engine.engine import CharacterCreationEngine
+from .engine import CharacterCreationEngine
+from django.views.generic import TemplateView
 from .models import (
     Character,
     CharacterAttribute,
@@ -37,7 +39,7 @@ from .models import (
     WeaponStats,
     DamageSource,
 )
-from .forms import CharacterCreateForm, CharacterUpdateForm, CharacterInfoInlineForm
+from .forms import AccountSettingsForm, CharacterCreateForm, CharacterUpdateForm, CharacterInfoInlineForm
 
 
 ATTRIBUTE_ORDER = [
@@ -725,6 +727,27 @@ def delete_creation_draft(request, draft_id: int):
         messages.info(request, f"Entwurf '{draft_name}' wurde verworfen.")
     else:
         messages.info(request, "Charakterentwurf wurde verworfen.")
+    return redirect("dashboard")
+
+
+@login_required
+@require_POST
+def update_account_settings(request):
+    """Update current user's username/email and optionally password."""
+    form = AccountSettingsForm(request.user, request.POST)
+    if not form.is_valid():
+        for field_errors in form.errors.values():
+            for error in field_errors:
+                messages.error(request, error)
+        return redirect("dashboard")
+
+    changed, password_changed = form.save()
+    if password_changed:
+        update_session_auth_hash(request, request.user)
+    if changed:
+        messages.success(request, "Kontoeinstellungen gespeichert.")
+    else:
+        messages.info(request, "Keine Änderungen erkannt.")
     return redirect("dashboard")
 
 

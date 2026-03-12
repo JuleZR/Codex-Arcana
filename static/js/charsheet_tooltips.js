@@ -1,19 +1,11 @@
 document.addEventListener("DOMContentLoaded", () => {
-  const sidebar = document.getElementById("rightSidebar");
-  const launcher = document.getElementById("rightSidebarLauncher");
-  const closeBtn = document.getElementById("rightSidebarClose");
-  const paydayTrigger = document.getElementById("paydayTrigger");
+  const leftTools = document.getElementById("leftTools");
+  const leftToolsToggle = document.getElementById("leftToolsToggle");
   const shopScaleTrigger = document.getElementById("shopScaleTrigger");
   const learnMenuTrigger = document.getElementById("learnMenuTrigger");
+  const diaryTrigger = document.getElementById("diaryTrigger");
   const charInfoEditTrigger = document.getElementById("charInfoEditTrigger");
-  const xpGainTrigger = document.getElementById("xpGainTrigger");
   const shopAddItemBtn = document.getElementById("shopAddItemBtn");
-  const paydayWindow = document.getElementById("paydayWindow");
-  const paydayWindowClose = document.getElementById("paydayWindowClose");
-  const paydayWindowHandle = document.getElementById("paydayWindowHandle");
-  const xpWindow = document.getElementById("xpWindow");
-  const xpWindowClose = document.getElementById("xpWindowClose");
-  const xpWindowHandle = document.getElementById("xpWindowHandle");
   const shopWindow = document.getElementById("shopWindow");
   const shopWindowClose = document.getElementById("shopWindowClose");
   const shopWindowHandle = document.getElementById("shopWindowHandle");
@@ -24,27 +16,449 @@ document.addEventListener("DOMContentLoaded", () => {
   const learnWindow = document.getElementById("learnWindow");
   const learnWindowClose = document.getElementById("learnWindowClose");
   const learnWindowHandle = document.getElementById("learnWindowHandle");
+  const diaryWindow = document.getElementById("diaryWindow");
+  const diaryWindowClose = document.getElementById("diaryWindowClose");
+  const diaryWindowHandle = document.getElementById("diaryWindowHandle");
+  const diaryNotesList = document.getElementById("diaryNotesList");
+  const diaryPrevBtn = document.getElementById("diaryPrevBtn");
+  const diaryNextBtn = document.getElementById("diaryNextBtn");
+  const diaryPageStatus = document.getElementById("diaryPageStatus");
+  const diaryForm = document.getElementById("diaryForm");
+  const diaryInput = document.getElementById("diaryInput");
+  const diaryDateInput = document.getElementById("diaryDateInput");
   const charInfoWindow = document.getElementById("charInfoWindow");
   const charInfoWindowClose = document.getElementById("charInfoWindowClose");
   const charInfoWindowHandle = document.getElementById("charInfoWindowHandle");
   const charInfoCancelBtn = document.getElementById("charInfoCancelBtn");
   const charInfoForm = document.getElementById("charInfoForm");
-  if (!sidebar || !launcher || !closeBtn) {
-    return;
+  const reputationWrapper = document.querySelector(".reputation_wrapper");
+  const reputationList = document.getElementById("reputationList");
+  const reputationEditBtn = document.getElementById("reputationEditBtn");
+  if (leftTools && leftToolsToggle) {
+    const leftToolsStorageKey = "charsheet.leftTools.isOpen";
+    const readLeftToolsState = () => {
+      try {
+        const raw = window.localStorage.getItem(leftToolsStorageKey);
+        if (raw === "true") {
+          return true;
+        }
+        if (raw === "false") {
+          return false;
+        }
+      } catch (_error) {
+        // no-op
+      }
+      return document.documentElement.getAttribute("data-left-tools-open") === "1";
+    };
+    const saveLeftToolsState = (isOpen) => {
+      try {
+        window.localStorage.setItem(leftToolsStorageKey, String(isOpen));
+      } catch (_error) {
+        // no-op
+      }
+    };
+    const setToolsOpenState = (isOpen) => {
+      leftTools.classList.toggle("is-open", isOpen);
+      leftToolsToggle.setAttribute("aria-expanded", String(isOpen));
+      document.documentElement.setAttribute("data-left-tools-open", isOpen ? "1" : "0");
+      saveLeftToolsState(isOpen);
+    };
+    setToolsOpenState(readLeftToolsState());
+    leftToolsToggle.addEventListener("click", () => {
+      const willOpen = !leftTools.classList.contains("is-open");
+      setToolsOpenState(willOpen);
+    });
+    leftToolsToggle.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" && event.key !== " ") {
+        return;
+      }
+      event.preventDefault();
+      const willOpen = !leftTools.classList.contains("is-open");
+      setToolsOpenState(willOpen);
+    });
   }
 
-  const setOpenState = (isOpen) => {
-    sidebar.classList.toggle("is-open", isOpen);
-    launcher.setAttribute("aria-expanded", String(isOpen));
-    launcher.classList.toggle("is-open", isOpen);
-  };
+  const moneyXpInputs = Array.from(document.querySelectorAll(".left-tools__delta_input"));
+  if (moneyXpInputs.length) {
+    const formatGroupedValue = (rawValue) => {
+      const raw = String(rawValue || "").trim();
+      const sign = raw.startsWith("-") ? "-" : raw.startsWith("+") ? "+" : "";
+      const digits = raw.replace(/[^\d]/g, "");
+      if (!digits) {
+        return sign;
+      }
+      const grouped = Number.parseInt(digits, 10).toLocaleString("de-DE");
+      return `${sign}${grouped}`;
+    };
+    const parseGroupedValue = (rawValue) => {
+      const raw = String(rawValue || "").trim();
+      const sign = raw.startsWith("-") ? "-" : "";
+      const digits = raw.replace(/[^\d]/g, "");
+      if (!digits) {
+        return "0";
+      }
+      return `${sign}${digits}`;
+    };
 
-  launcher.addEventListener("click", () => {
-    setOpenState(true);
-  });
-  closeBtn.addEventListener("click", () => {
-    setOpenState(false);
-  });
+    moneyXpInputs.forEach((input) => {
+      input.value = formatGroupedValue(input.value);
+      input.addEventListener("input", () => {
+        input.value = formatGroupedValue(input.value);
+      });
+      input.addEventListener("blur", () => {
+        if (!input.value || input.value === "+" || input.value === "-") {
+          input.value = "0";
+          return;
+        }
+        input.value = formatGroupedValue(input.value);
+      });
+
+      const form = input.closest("form");
+      if (form) {
+        form.addEventListener("submit", () => {
+          input.value = parseGroupedValue(input.value);
+        });
+      }
+    });
+  }
+
+  if (reputationWrapper && reputationList && reputationEditBtn) {
+    const reputationInputs = Array.from(reputationList.querySelectorAll(".reputation_input"));
+    const characterId = reputationList.dataset.characterId || "0";
+    const storageKey = `charsheet.reputation.${characterId}`;
+    const readReputation = () => {
+      try {
+        const raw = window.localStorage.getItem(storageKey);
+        return raw ? JSON.parse(raw) : {};
+      } catch (_error) {
+        return {};
+      }
+    };
+    const saveReputation = () => {
+      const payload = {};
+      reputationInputs.forEach((input) => {
+        const key = input.dataset.reputationKey || "";
+        if (key) {
+          payload[key] = input.value || "";
+        }
+      });
+      try {
+        window.localStorage.setItem(storageKey, JSON.stringify(payload));
+      } catch (_error) {
+        // no-op
+      }
+    };
+    const setEditMode = (isEditing) => {
+      reputationWrapper.classList.toggle("is-editing", isEditing);
+      reputationInputs.forEach((input) => {
+        input.readOnly = !isEditing;
+      });
+      reputationEditBtn.setAttribute("aria-pressed", String(isEditing));
+      if (isEditing && reputationInputs.length) {
+        reputationInputs[0].focus();
+      }
+      if (!isEditing) {
+        saveReputation();
+      }
+    };
+
+    const persisted = readReputation();
+    reputationInputs.forEach((input) => {
+      const key = input.dataset.reputationKey || "";
+      input.value = key && Object.prototype.hasOwnProperty.call(persisted, key) ? (persisted[key] || "") : "";
+      input.addEventListener("input", () => {
+        if (reputationWrapper.classList.contains("is-editing")) {
+          saveReputation();
+        }
+      });
+    });
+
+    setEditMode(false);
+    reputationEditBtn.addEventListener("click", () => {
+      const willEdit = !reputationWrapper.classList.contains("is-editing");
+      setEditMode(willEdit);
+    });
+  }
+
+  if (diaryWindow && diaryNotesList && diaryForm && diaryInput && diaryDateInput && diaryPrevBtn && diaryNextBtn && diaryPageStatus) {
+    const diaryMeta = diaryWindow.querySelector("[data-character-id]");
+    const characterId = diaryMeta?.dataset.characterId || "0";
+    const characterName = (diaryMeta?.dataset.characterName || "").trim();
+    const diaryStorageKey = `charsheet.diary.${characterId}`;
+    const diaryPageStorageKey = `charsheet.diary.page.${characterId}`;
+    let currentPageIndex = 0;
+    const createEntryId = () => {
+      if (window.crypto && typeof window.crypto.randomUUID === "function") {
+        return window.crypto.randomUUID();
+      }
+      return `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+    };
+    const loadRawNotes = () => {
+      try {
+        const raw = window.localStorage.getItem(diaryStorageKey);
+        const parsed = raw ? JSON.parse(raw) : [];
+        return Array.isArray(parsed) ? parsed : [];
+      } catch (_error) {
+        return [];
+      }
+    };
+    const saveNotes = (notes) => {
+      try {
+        window.localStorage.setItem(diaryStorageKey, JSON.stringify(notes));
+      } catch (_error) {
+        // no-op
+      }
+    };
+    const readPageIndex = () => {
+      try {
+        const raw = window.localStorage.getItem(diaryPageStorageKey);
+        const parsed = Number.parseInt(String(raw || ""), 10);
+        return Number.isNaN(parsed) ? 0 : parsed;
+      } catch (_error) {
+        return 0;
+      }
+    };
+    const savePageIndex = (index) => {
+      try {
+        window.localStorage.setItem(diaryPageStorageKey, String(index));
+      } catch (_error) {
+        // no-op
+      }
+    };
+    const toYmd = (date) => {
+      const year = String(date.getFullYear());
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+      return `${year}-${month}-${day}`;
+    };
+    const parseDiaryDate = (rawValue) => {
+      const raw = String(rawValue || "").trim();
+      if (!raw) {
+        return null;
+      }
+      const ymdMatch = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (ymdMatch) {
+        const year = Number.parseInt(ymdMatch[1], 10);
+        const month = Number.parseInt(ymdMatch[2], 10);
+        const day = Number.parseInt(ymdMatch[3], 10);
+        const date = new Date(year, month - 1, day);
+        if (!Number.isNaN(date.getTime())) {
+          return date;
+        }
+      }
+      const parsed = new Date(raw);
+      if (Number.isNaN(parsed.getTime())) {
+        return null;
+      }
+      return new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
+    };
+    const normalizeDiaryDate = (rawValue) => {
+      const parsed = parseDiaryDate(rawValue);
+      return parsed ? toYmd(parsed) : toYmd(new Date());
+    };
+    const readNotes = () => {
+      const rawNotes = loadRawNotes();
+      let hasChanges = false;
+      const notes = rawNotes
+        .map((entry, index) => {
+          if (!entry || typeof entry !== "object") {
+            hasChanges = true;
+            return null;
+          }
+          const text = String(entry.text || "").trim();
+          if (!text) {
+            hasChanges = true;
+            return null;
+          }
+          const createdAtRaw = typeof entry.createdAt === "string" ? entry.createdAt : "";
+          const createdAt = normalizeDiaryDate(createdAtRaw);
+          const id = typeof entry.id === "string" && entry.id
+            ? entry.id
+            : `legacy-${index}-${createdAt}`;
+          if (id !== entry.id || createdAt !== createdAtRaw) {
+            hasChanges = true;
+          }
+          return { id, text, createdAt };
+        })
+        .filter(Boolean);
+      if (hasChanges) {
+        saveNotes(notes);
+      }
+      return notes;
+    };
+    const formatTimestamp = (rawDate) => {
+      const date = parseDiaryDate(rawDate);
+      if (!date) {
+        return "";
+      }
+      const weekdays = ["Son", "Mon", "Die", "Mit", "Don", "Fre", "Sam"];
+      const weekday = weekdays[date.getDay()] || "";
+      const day = String(date.getDate()).padStart(2, "0");
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const year = String(date.getFullYear());
+      return `${weekday} ${day}.${month}.${year}`;
+    };
+    let isDiaryTurning = false;
+    const setPagerState = (totalPages) => {
+      diaryPageStatus.textContent = totalPages ? `Seite ${currentPageIndex + 1} / ${totalPages}` : "Seite 0 / 0";
+      diaryPrevBtn.disabled = isDiaryTurning || currentPageIndex <= 0;
+      diaryNextBtn.disabled = isDiaryTurning || currentPageIndex >= Math.max(0, totalPages - 1);
+    };
+    const buildNoteCard = (entry) => {
+      const card = document.createElement("article");
+      card.className = "diary_note";
+      card.dataset.diaryId = entry.id;
+
+      const header = document.createElement("div");
+      header.className = "diary_note_header";
+
+      const time = document.createElement("time");
+      time.className = "diary_note_time";
+      time.dateTime = entry.createdAt || "";
+      time.textContent = formatTimestamp(entry.createdAt || "");
+
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.className = "diary_note_delete";
+      remove.textContent = "x";
+      remove.setAttribute("aria-label", `Eintrag vom ${formatTimestamp(entry.createdAt || "")} loeschen`);
+      remove.title = "Eintrag loeschen";
+      remove.dataset.diaryDelete = entry.id;
+      header.appendChild(remove);
+      header.appendChild(time);
+      card.appendChild(header);
+
+      const text = document.createElement("p");
+      text.className = "diary_note_text";
+      const bodyText = entry.text || "";
+      text.textContent = characterName ? `${bodyText}\n\n- ${characterName}` : bodyText;
+      card.appendChild(text);
+      return card;
+    };
+    const renderNotes = () => {
+      const notes = readNotes();
+      const totalPages = notes.length;
+      const maxIndex = Math.max(0, totalPages - 1);
+      currentPageIndex = Math.min(Math.max(currentPageIndex, 0), maxIndex);
+      savePageIndex(currentPageIndex);
+      diaryNotesList.innerHTML = "";
+      if (!totalPages) {
+        const empty = document.createElement("p");
+        empty.className = "diary_note_empty";
+        empty.textContent = "Noch keine Notizen vorhanden.";
+        diaryNotesList.appendChild(empty);
+        setPagerState(0);
+        return;
+      }
+      const entry = notes[currentPageIndex];
+      diaryNotesList.appendChild(buildNoteCard(entry));
+      setPagerState(totalPages);
+    };
+    const animateTurnTo = (targetIndex) => {
+      const notes = readNotes();
+      const totalPages = notes.length;
+      if (!totalPages || isDiaryTurning) {
+        return;
+      }
+      const maxIndex = Math.max(0, totalPages - 1);
+      const nextIndex = Math.min(Math.max(targetIndex, 0), maxIndex);
+      if (nextIndex === currentPageIndex) {
+        return;
+      }
+      const currentCard = diaryNotesList.querySelector(".diary_note");
+      if (!(currentCard instanceof HTMLElement)) {
+        currentPageIndex = nextIndex;
+        renderNotes();
+        return;
+      }
+
+      isDiaryTurning = true;
+      setPagerState(totalPages);
+      const outAnimation = currentCard.animate([
+        { opacity: 1 },
+        { opacity: 0.06 },
+      ], {
+        duration: 170,
+        easing: "ease-out",
+        fill: "forwards",
+      });
+
+      outAnimation.onfinish = () => {
+        currentPageIndex = nextIndex;
+        renderNotes();
+        const incomingCard = diaryNotesList.querySelector(".diary_note");
+        if (!(incomingCard instanceof HTMLElement)) {
+          isDiaryTurning = false;
+          setPagerState(readNotes().length);
+          return;
+        }
+        const inAnimation = incomingCard.animate([
+          { opacity: 0.12 },
+          { opacity: 1 },
+        ], {
+          duration: 190,
+          easing: "ease-in",
+          fill: "forwards",
+        });
+        inAnimation.onfinish = () => {
+          isDiaryTurning = false;
+          setPagerState(readNotes().length);
+        };
+      };
+    };
+
+    currentPageIndex = readPageIndex();
+    diaryDateInput.value = toYmd(new Date());
+    renderNotes();
+    diaryForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const text = diaryInput.value.trim();
+      if (!text) {
+        return;
+      }
+      const notes = readNotes();
+      notes.push({
+        id: createEntryId(),
+        text,
+        createdAt: normalizeDiaryDate(diaryDateInput.value),
+      });
+      saveNotes(notes.slice(-400));
+      currentPageIndex = Math.max(0, notes.length - 1);
+      diaryInput.value = "";
+      renderNotes();
+      diaryInput.focus();
+    });
+
+    diaryNotesList.addEventListener("click", (event) => {
+      if (isDiaryTurning) {
+        return;
+      }
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) {
+        return;
+      }
+      const id = target.dataset.diaryDelete;
+      if (!id) {
+        return;
+      }
+      const previousNotes = readNotes();
+      const deletedIndex = previousNotes.findIndex((entry) => entry.id === id);
+      const notes = previousNotes.filter((entry) => entry.id !== id);
+      if (deletedIndex !== -1 && currentPageIndex >= deletedIndex) {
+        currentPageIndex = Math.max(0, currentPageIndex - 1);
+      }
+      saveNotes(notes);
+      renderNotes();
+    });
+
+    diaryPrevBtn.addEventListener("click", () => {
+      animateTurnTo(currentPageIndex - 1);
+    });
+
+    diaryNextBtn.addEventListener("click", () => {
+      animateTurnTo(currentPageIndex + 1);
+    });
+  }
 
   const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
   const placeWindow = (win, left, top) => {
@@ -158,11 +572,10 @@ document.addEventListener("DOMContentLoaded", () => {
     handle.addEventListener("pointercancel", stopDragging);
   };
 
-  setupFloatingWindow(paydayTrigger, paydayWindow, paydayWindowClose, paydayWindowHandle, 118, "charsheet.paydayWindow");
-  setupFloatingWindow(xpGainTrigger, xpWindow, xpWindowClose, xpWindowHandle, 174, "charsheet.xpWindow");
   setupFloatingWindow(shopScaleTrigger, shopWindow, shopWindowClose, shopWindowHandle, 92, "charsheet.shopWindow");
   setupFloatingWindow(shopAddItemBtn, shopItemWindow, shopItemWindowClose, shopItemWindowHandle, 128, "charsheet.shopItemWindow");
   setupFloatingWindow(learnMenuTrigger, learnWindow, learnWindowClose, learnWindowHandle, 138, "charsheet.learnWindow");
+  setupFloatingWindow(diaryTrigger, diaryWindow, diaryWindowClose, diaryWindowHandle, 86, "charsheet.diaryWindow");
   setupFloatingWindow(charInfoEditTrigger, charInfoWindow, charInfoWindowClose, charInfoWindowHandle, 132, "charsheet.charInfoWindow");
 
   if (learnWindow && learnWindow.getAttribute("data-force-close") === "1") {

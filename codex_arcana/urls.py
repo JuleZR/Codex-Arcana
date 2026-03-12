@@ -26,6 +26,7 @@ urlpatterns = [
     path("impressum/", views.impressum, name="impressum"),
     path("datenschutz/", views.datenschutz, name="datenschutz"),
     path("dashboard/", views.dashboard, name="dashboard"),
+    path("dashboard/account/update/", views.update_account_settings, name="update_account_settings"),
     path("character/new/", views.create_character, name="create_character"),
     path("character/<int:character_id>/edit/", views.edit_character, name="edit_character"),
     path("character/<int:character_id>/archive/", views.archive_character, name="archive_character"),
@@ -48,4 +49,3 @@ urlpatterns = [
     path("character-item/<int:pk>/remove/", views.remove_item, name="remove_item"),
     path("", LoginView.as_view(template_name="registration/login.html", redirect_authenticated_user=True), name="login"),
 ]
-

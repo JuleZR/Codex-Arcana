@@ -6,25 +6,85 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" type="image/x-icon" href="{% static 'img/favicon.ico' %}">
     <title>{{ character.name }} | Codex Arcana</title>
+    <script>
+      (function () {
+        try {
+          var raw = window.localStorage.getItem("charsheet.leftTools.isOpen");
+          document.documentElement.setAttribute("data-left-tools-open", raw === "false" ? "0" : "1");
+        } catch (_error) {
+          document.documentElement.setAttribute("data-left-tools-open", "1");
+        }
+      })();
+    </script>
     <link rel="stylesheet" href="{% static 'css/charsheet.css' %}">
   </head>
   <body>
-    <a class="sheet_back_link" href="{% url 'dashboard' %}" aria-label="Zurück zum Dashboard" title="Zurück zum Dashboard">
-      <svg class="sheet_back_icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-        <defs>
-          <linearGradient id="sheetBackGold" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stop-color="#fff1b8" />
-            <stop offset="22%" stop-color="#f5d774" />
-            <stop offset="52%" stop-color="#d3a43d" />
-            <stop offset="78%" stop-color="#9f6f20" />
-            <stop offset="100%" stop-color="#7a5217" />
-          </linearGradient>
-        </defs>
-        <path d="M18.6 7.4A8.2 8.2 0 1 0 11.4 20.2" />
-        <path d="M18.6 7.4L15.7 7.1" />
-        <path d="M18.6 7.4L17.0 4.9" />
-      </svg>
-    </a>
+    <aside class="left-tools" id="leftTools" aria-label="Toolleiste">
+      <div class="left-tools__toggle" id="leftToolsToggle" role="button" tabindex="0" aria-expanded="false" aria-controls="leftTools">TOOLS</div>
+      <div class="left-tools__inner">
+        <section class="left-tools__group" aria-label="Ressourcen">
+          <h3>Geld</h3>
+          <form method="post" action="{% url 'adjust_money' character.id %}" class="left-tools__form">
+            {% csrf_token %}
+            <label class="left-tools__input_wrap">
+              <input
+                type="text"
+                inputmode="numeric"
+                name="delta"
+                class="wallet_delta_input left-tools__delta_input"
+                step="1"
+                value="0"
+                placeholder="+ / -"
+                aria-label="Geldänderung positiv oder negativ"
+              >
+              <span class="left-tools__unit_inset" aria-hidden="true">KS</span>
+            </label>
+            <button type="submit" class="wallet_apply_btn left-tools__apply">Anwenden</button>
+          </form>
+        </section>
+
+        <section class="left-tools__group" aria-label="Erfahrung">
+          <h3>Erfahrung</h3>
+          <form method="post" action="{% url 'adjust_experience' character.id %}" class="left-tools__form">
+            {% csrf_token %}
+            <label class="left-tools__input_wrap">
+              <input
+                type="text"
+                inputmode="numeric"
+                name="delta"
+                class="wallet_delta_input left-tools__delta_input"
+                step="1"
+                value="0"
+                placeholder="+ / -"
+                aria-label="Erfahrungsänderung positiv oder negativ"
+              >
+              <span class="left-tools__unit_inset" aria-hidden="true">EP</span>
+            </label>
+            <button type="submit" class="wallet_apply_btn left-tools__apply">Anwenden</button>
+          </form>
+        </section>
+
+        <section class="left-tools__group left-tools__group--actions" aria-label="Aktionen">
+          <div class="left-tools__icon-grid">
+            <button type="button" class="left-tools__image_btn" id="learnMenuTrigger" aria-label="Lernmenü öffnen" title="Lernmenü">
+              <img src="{% static 'img/bayleaf.png' %}" alt="" aria-hidden="true">
+            </button>
+            <button type="button" class="left-tools__image_btn" id="shopScaleTrigger" aria-label="Shop öffnen" title="Shop">
+              <img src="{% static 'img/balance.png' %}" alt="" aria-hidden="true">
+            </button>
+            <button type="button" class="left-tools__image_btn" id="diceMenuTrigger" aria-label="Würfelmenü (folgt)" title="Würfelmenü (folgt)" disabled>
+              <img src="{% static 'img/dice.png' %}" alt="" aria-hidden="true">
+            </button>
+            <button type="button" class="left-tools__image_btn" id="diaryTrigger" aria-label="Notizbuch öffnen" title="Notizbuch">
+              <img src="{% static 'img/book.png' %}" alt="" aria-hidden="true">
+            </button>
+          </div>
+          <a class="left-tools__image_btn left-tools__image_btn--dashboard" href="{% url 'dashboard' %}" aria-label="Zurück zum Dashboard" title="Dashboard">
+            <img src="{% static 'img/scroll.png' %}" alt="" aria-hidden="true">
+          </a>
+        </section>
+      </div>
+    </aside>
     <main class="book-spread">
       <article class="page">
         <section class="p1_top">
@@ -187,11 +247,28 @@
           </div>
 
           <div class="reputation_wrapper">
-            <h2>Ruf</h2>
-            <ul class="reputation_list" aria-label="Rufbereiche">
-              <li><span class="reputation_label">Persönlich</span><span class="reputation_line"></span></li>
-              <li><span class="reputation_label">Gruppe</span><span class="reputation_line"></span></li>
-              <li><span class="reputation_label">Artefakt</span><span class="reputation_line"></span></li>
+            <div class="reputation_header">
+              <h2>Ruf</h2>
+              <button type="button" class="reputation_edit_btn" id="reputationEditBtn" aria-label="Ruftexte bearbeiten" title="Ruftexte bearbeiten">
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <path d="M4 20h4l10-10-4-4L4 16v4z"></path>
+                  <path d="M13.8 6.2l4 4"></path>
+                </svg>
+              </button>
+            </div>
+            <ul class="reputation_list" id="reputationList" data-character-id="{{ character.id }}" aria-label="Rufbereiche">
+              <li>
+                <span class="reputation_label">Persönlich</span>
+                <input type="text" class="reputation_input" data-reputation-key="personal" maxlength="60" readonly>
+              </li>
+              <li>
+                <span class="reputation_label">Gruppe</span>
+                <input type="text" class="reputation_input" data-reputation-key="group" maxlength="60" readonly>
+              </li>
+              <li>
+                <span class="reputation_label">Artefakt</span>
+                <input type="text" class="reputation_input" data-reputation-key="artefact" maxlength="60" readonly>
+              </li>
             </ul>
           </div>
 
@@ -596,91 +673,6 @@
       </article>
     </main>
     {{ wound_threshold_rows|json_script:"wound-thresholds-data" }}
-    <button type="button" class="right-sidebar__launcher" id="rightSidebarLauncher" aria-expanded="false" aria-controls="rightSidebar">
-      <span class="right-sidebar__toggle-label">TOOLS</span>
-    </button>
-    <aside class="right-sidebar" id="rightSidebar" aria-label="Seitenleiste">
-      <div class="right-sidebar__inner">
-        <button type="button" class="right-sidebar__close" id="rightSidebarClose" aria-label="Sidebar schließen">×</button>
-        <h2>Tools</h2>
-        <button type="button" class="sidebar-orb-btn" id="paydayTrigger" aria-label="Zahlungsverkehr öffnen">
-          <span class="sidebar-orb" aria-hidden="true">
-            <span class="sidebar-orb-core">
-              <img src="{% static 'img/payday.png' %}" alt="">
-            </span>
-          </span>
-          <span class="sidebar-orb-label">Zahlungsverkehr</span>
-        </button>
-        <button type="button" class="sidebar-orb-btn" id="shopScaleTrigger" aria-label="Shop öffnen">
-          <span class="sidebar-orb" aria-hidden="true">
-            <span class="sidebar-orb-core">
-              <img src="{% static 'img/waage.png' %}" alt="">
-            </span>
-          </span>
-          <span class="sidebar-orb-label">Shop</span>
-        </button>
-        <button type="button" class="sidebar-orb-btn" id="learnMenuTrigger" aria-label="Lernmenü öffnen">
-          <span class="sidebar-orb" aria-hidden="true">
-            <span class="sidebar-orb-core">
-              <img src="{% static 'img/nook.png' %}" alt="">
-            </span>
-          </span>
-          <span class="sidebar-orb-label">Lernmenü</span>
-        </button>
-        <button type="button" class="sidebar-orb-btn" id="xpGainTrigger" aria-label="Erfahrung hinzufügen">
-          <span class="sidebar-orb" aria-hidden="true">
-            <span class="sidebar-orb-core">
-              <img src="{% static 'img/lorbeer.png' %}" alt="">
-            </span>
-          </span>
-          <span class="sidebar-orb-label">Erfahrung</span>
-        </button>
-      </div>
-    </aside>
-    <section class="payday-window" id="paydayWindow" aria-hidden="true">
-      <div class="payday-window__titlebar" id="paydayWindowHandle">
-        <h3 class="payday-window__title">Zahlungsverkehr</h3>
-        <button type="button" class="payday-window__close" id="paydayWindowClose" aria-label="Zahlungsverkehr schließen">x</button>
-      </div>
-      <div class="payday-window__body">
-        <form method="post" action="{% url 'adjust_money' character.id %}" class="wallet_adjust_form wallet_adjust_form--popup">
-          {% csrf_token %}
-          <input
-            type="number"
-            name="delta"
-            class="wallet_delta_input"
-            step="1"
-            value="0"
-            placeholder="+ / -"
-            aria-label="Geldänderung positiv oder negativ"
-          >
-          <span class="wallet_unit">KS</span>
-          <button type="submit" class="wallet_apply_btn">Anwenden</button>
-        </form>
-      </div>
-    </section>
-    <section class="payday-window" id="xpWindow" aria-hidden="true">
-      <div class="payday-window__titlebar" id="xpWindowHandle">
-        <h3 class="payday-window__title">Erfahrung</h3>
-        <button type="button" class="payday-window__close" id="xpWindowClose" aria-label="Erfahrung schließen">x</button>
-      </div>
-      <div class="payday-window__body">
-        <form method="post" action="{% url 'adjust_experience' character.id %}" class="wallet_adjust_form wallet_adjust_form--popup">
-          {% csrf_token %}
-          <input
-            type="number"
-            name="delta"
-            class="wallet_delta_input"
-            step="1"
-            value="0"
-            placeholder="+ / -"
-            aria-label="Erfahrungsänderung positiv oder negativ"
-          >
-          <span class="wallet_unit">EP</span>
-          <button type="submit" class="wallet_apply_btn">Anwenden</button>
-        </form>
-      </div>
-    </section>
     <section class="payday-window payday-window--large" id="shopWindow" aria-hidden="true">
       <div class="payday-window__titlebar" id="shopWindowHandle">
         <h3 class="payday-window__title">Shop</h3>
@@ -795,6 +787,32 @@
             </div>
           </div>
         </div>
+      </div>
+    </section>
+    <section class="payday-window payday-window--large" id="diaryWindow" aria-hidden="true">
+      <div class="payday-window__titlebar" id="diaryWindowHandle">
+        <h3 class="payday-window__title">Tagebuch</h3>
+        <button type="button" class="payday-window__close" id="diaryWindowClose" aria-label="Tagebuch schließen">x</button>
+      </div>
+      <div class="payday-window__body diary-window__body" data-character-id="{{ character.id }}" data-character-name="{{ character.name|escape }}">
+        <div class="diary_notes_panel">
+          <div class="diary_notes_list" id="diaryNotesList" aria-live="polite"></div>
+          <div class="diary_pager" aria-label="Tagebuch blättern">
+            <button type="button" class="diary_pager_btn" id="diaryPrevBtn" aria-label="Vorherige Seite">&lt;</button>
+            <span class="diary_pager_status" id="diaryPageStatus">Seite 0 / 0</span>
+            <button type="button" class="diary_pager_btn" id="diaryNextBtn" aria-label="Nächste Seite">&gt;</button>
+          </div>
+        </div>
+        <form class="diary_form" id="diaryForm">
+          <div class="diary_date_row">
+            <label for="diaryDateInput" class="diary_form_label">Datum</label>
+            <input type="date" id="diaryDateInput" class="diary_date_input" aria-label="Eintragsdatum">
+            <div class="diary_form_actions diary_form_actions--inline">
+              <button type="submit" class="shop_item_save_btn">Speichern</button>
+            </div>
+          </div>
+          <textarea id="diaryInput" class="diary_input" rows="3" maxlength="2000" placeholder="Heute ist passiert..."></textarea>
+        </form>
       </div>
     </section>
     <section class="payday-window payday-window--item-create" id="shopItemWindow" aria-hidden="true">

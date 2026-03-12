@@ -17,7 +17,6 @@ class Attribute(models.Model):
     def __str__(self):
         return f"{self.name} ({self.short_name})"
 
-
 class SkillCategory(models.Model):
     """Top-level grouping for related skills."""
 
@@ -64,6 +63,9 @@ class Race(models.Model):
     phase_2_points = models.PositiveIntegerField(default=50)
     phase_3_points = models.PositiveIntegerField(default=20, validators=[MaxValueValidator(20)])
     phase_4_points = models.PositiveIntegerField(default=30)
+    
+    class HeightClass:
+        ...
     
     
     def __str__(self):
@@ -151,7 +153,7 @@ class Character(models.Model):
         Returns:
             CharacterEngine: Rule calculation helper bound to this character.
         """
-        from .engine.engine import CharacterEngine
+        from .engine import CharacterEngine
         return CharacterEngine(self)
     
 class CharacterAttribute(models.Model):
@@ -635,4 +637,3 @@ class CharacterCreationDraft(models.Model):
         validators=[MaxValueValidator(4)]
         )
     state = models.JSONField(default=dict, blank=True)
-

@@ -1,6 +1,7 @@
 """Forms for user-facing character actions."""
 
 from django import forms
+from django.contrib.auth.password_validation import validate_password
 
 from .models import Character
 
@@ -59,3 +60,91 @@ class CharacterInfoInlineForm(forms.ModelForm):
             "religion": forms.TextInput(attrs={"class": "dashboard_input", "maxlength": 25}),
             "appearance": forms.Textarea(attrs={"class": "dashboard_input", "maxlength": 85, "rows": 3}),
         }
+
+
+class AccountSettingsForm(forms.Form):
+    """Update the authenticated user's basic account settings."""
+
+    username = forms.CharField(
+        max_length=150,
+        widget=forms.TextInput(attrs={"class": "dashboard_input", "autocomplete": "username"}),
+    )
+    email = forms.EmailField(
+        required=False,
+        widget=forms.EmailInput(attrs={"class": "dashboard_input", "autocomplete": "email"}),
+    )
+    current_password = forms.CharField(
+        required=False,
+        strip=False,
+        widget=forms.PasswordInput(attrs={"class": "dashboard_input", "autocomplete": "current-password"}),
+    )
+    new_password1 = forms.CharField(
+        required=False,
+        strip=False,
+        widget=forms.PasswordInput(attrs={"class": "dashboard_input", "autocomplete": "new-password"}),
+    )
+    new_password2 = forms.CharField(
+        required=False,
+        strip=False,
+        widget=forms.PasswordInput(attrs={"class": "dashboard_input", "autocomplete": "new-password"}),
+    )
+
+    def __init__(self, user, *args, **kwargs):
+        self.user = user
+        super().__init__(*args, **kwargs)
+        if not self.is_bound:
+            self.fields["username"].initial = user.get_username()
+            self.fields["email"].initial = user.email or ""
+
+    def clean_username(self):
+        username = (self.cleaned_data.get("username") or "").strip()
+        if not username:
+            raise forms.ValidationError("Benutzername darf nicht leer sein.")
+        duplicate_qs = type(self.user).objects.filter(username__iexact=username).exclude(pk=self.user.pk)
+        if duplicate_qs.exists():
+            raise forms.ValidationError("Dieser Benutzername ist bereits vergeben.")
+        return username
+
+    def clean(self):
+        cleaned = super().clean()
+        current_password = cleaned.get("current_password") or ""
+        new_password1 = cleaned.get("new_password1") or ""
+        new_password2 = cleaned.get("new_password2") or ""
+        wants_password_change = bool(current_password or new_password1 or new_password2)
+        if not wants_password_change:
+            return cleaned
+
+        if not current_password:
+            self.add_error("current_password", "Bitte aktuelles Passwort angeben.")
+            return cleaned
+        if not self.user.check_password(current_password):
+            self.add_error("current_password", "Aktuelles Passwort ist falsch.")
+            return cleaned
+        if not new_password1:
+            self.add_error("new_password1", "Bitte neues Passwort eingeben.")
+            return cleaned
+        if new_password1 != new_password2:
+            self.add_error("new_password2", "Die neuen Passwörter stimmen nicht überein.")
+            return cleaned
+        validate_password(new_password1, self.user)
+        return cleaned
+
+    def save(self):
+        """Persist updates and return whether password changed."""
+        username = self.cleaned_data["username"]
+        email = self.cleaned_data.get("email") or ""
+        password_changed = bool(self.cleaned_data.get("new_password1"))
+
+        changed = False
+        if self.user.username != username:
+            self.user.username = username
+            changed = True
+        if (self.user.email or "") != email:
+            self.user.email = email
+            changed = True
+        if password_changed:
+            self.user.set_password(self.cleaned_data["new_password1"])
+            changed = True
+        if changed:
+            self.user.save()
+        return changed, password_changed

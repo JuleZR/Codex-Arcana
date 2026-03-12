@@ -1,18 +1,18 @@
 # Datenmodell
 
-## Kernentitaeten
+## Kernentitäten
 
 ## Charakterbasis
 - `Character`: Spielercharakter (Owner, Rasse, Stammdaten, Geld, EP, Schaden)
 - `Race`: Rassendefinition inkl. Bewegungswerte und Phasen-Budgets
 - `Attribute`: Basisattribute (z. B. ST, GE, INT)
 - `CharacterAttribute`: Attributwert je Charakter
-- `SkillCategory`: Gruppierung fuer Skills
+- `SkillCategory`: Gruppierung für Skills
 - `Skill`: Fertigkeit inkl. Leitattribut und Kategorie
 - `CharacterSkill`: Skill-Rang je Charakter
 
 ## Schulen und Progression
-- `SchoolType`: Oberkategorie fuer Schulen
+- `SchoolType`: Oberkategorie für Schulen
 - `School`: konkrete Schule
 - `CharacterSchool`: Schulstufe je Charakter
 - `ProgressionRule`: regelbasierte Freischaltungen pro Schultyp und Mindestlevel
@@ -28,10 +28,10 @@
 
 ## Inventar und Kampfnahe Daten
 - `Item`: Gegenstand (Typ, Preis, Stackbarkeit, Beschreibung)
-- `CharacterItem`: Besitzrelation Item <-> Charakter (Menge, ausgeruestet)
-- `ArmorStats`: Ruestungswerte (Gesamt oder Zonenwerte)
-- `DamageSource`: Schadensart/-quelle fuer Waffen
-- `WeaponStats`: Waffenwerte (Schaden, Schadensquelle, Mindeststaerke)
+- `CharacterItem`: Besitzrelation Item <-> Charakter (Menge, ausgerüstet)
+- `ArmorStats`: Rüstungswerte (Gesamt oder Zonenwerte)
+- `DamageSource`: Schadensart/-quelle für Waffen
+- `WeaponStats`: Waffenwerte (Schaden, Schadensquelle, Mindeststärke)
 
 ## Traits und Sprachen
 - `Trait`: Vorteil/Nachteil mit Levelgrenzen und Punktkosten
@@ -40,11 +40,11 @@
 - `CharacterLanguage`: Sprachlevel/Schrift/Muttersprache je Charakter
 
 ## Charaktererschaffung
-- `CharacterCreationDraft`: persistierter Zustand fuer mehrphasige Charaktererschaffung
+- `CharacterCreationDraft`: persistierter Zustand für mehrphasige Charaktererschaffung
 
 ## Wichtige Modellregeln (Beispiele)
-- Race-Attribute-Limits muessen `min_value <= max_value` sein.
-- Nicht-stackbare Items duerfen nur Menge `1` haben.
-- `ArmorStats` duerfen nur an Items vom Typ `armor` haengen.
-- `WeaponStats` duerfen nur an Items vom Typ `weapon` haengen.
+- Race-Attribute-Limits müssen `min_value <= max_value` sein.
+- Nicht-stackbare Items dürfen nur Menge `1` haben.
+- `ArmorStats` dürfen nur an Items vom Typ `armor` hängen.
+- `WeaponStats` dürfen nur an Items vom Typ `weapon` hängen.
 - Trait- und Sprachlevel werden gegen jeweilige Grenzen validiert.

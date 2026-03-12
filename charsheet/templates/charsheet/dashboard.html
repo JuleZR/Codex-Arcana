@@ -22,7 +22,7 @@
 
             <div class="dashboard_side_group" aria-label="Benutzeraktionen">
               <div class="dashboard_side_title">Benutzer</div>
-              <button type="button" class="dashboard_button dashboard_button--sidebar" disabled>Kontoeinstellungen (optional)</button>
+              <button type="button" class="dashboard_button dashboard_button--sidebar" id="openAccountSettings">Kontoeinstellungen</button>
               <form method="post" action="{% url 'app_logout' %}" class="dashboard_logout_link">
                 {% csrf_token %}
                 <button type="submit" class="dashboard_button dashboard_button--sidebar">Logout</button>
@@ -209,6 +209,43 @@
       </div>
     </section>
 
+    <div id="dashboardAccountBackdrop" class="dashboard_creation_backdrop dashboard_account_backdrop" aria-hidden="true"></div>
+    <section class="payday-window dashboard_account_window" id="dashboardAccountWindow" aria-hidden="true">
+      <div class="payday-window__titlebar" id="dashboardAccountHandle">
+        <h3 class="payday-window__title">Kontoeinstellungen</h3>
+        <button type="button" id="dashboardAccountClose" class="payday-window__close" aria-label="Fenster schließen">x</button>
+      </div>
+      <div class="payday-window__body dashboard_account_body">
+        <form method="post" action="{% url 'update_account_settings' %}" class="dashboard_account_form">
+          {% csrf_token %}
+          <label class="form_row">
+            <span>Benutzername</span>
+            <input class="dashboard_input" type="text" name="username" value="{{ request.user.get_username }}" required maxlength="150" autocomplete="username">
+          </label>
+          <label class="form_row">
+            <span>E-Mail (optional)</span>
+            <input class="dashboard_input" type="email" name="email" value="{{ request.user.email|default:'' }}" autocomplete="email">
+          </label>
+          <label class="form_row">
+            <span>Aktuelles Passwort</span>
+            <input class="dashboard_input" type="password" name="current_password" autocomplete="current-password">
+          </label>
+          <label class="form_row">
+            <span>Neues Passwort</span>
+            <input class="dashboard_input" type="password" name="new_password1" autocomplete="new-password">
+          </label>
+          <label class="form_row">
+            <span>Neues Passwort wiederholen</span>
+            <input class="dashboard_input" type="password" name="new_password2" autocomplete="new-password">
+          </label>
+          <div class="dashboard_account_actions">
+            <button type="button" id="dashboardAccountCancel" class="dashboard_button dashboard_button--small">Abbrechen</button>
+            <button type="submit" class="dashboard_button dashboard_button--small dashboard_button--primary">Speichern</button>
+          </div>
+        </form>
+      </div>
+    </section>
+
     <div aria-hidden="true" class="firefly-layer">
       {% for _ in '123456789012345' %}<div class="firefly"></div>{% endfor %}
     </div>
@@ -227,6 +264,12 @@
         const closeBtn = document.getElementById("dashboardCreationClose");
         const backdrop = document.getElementById("dashboardCreationBackdrop");
         const frame = document.getElementById("dashboardCreationFrame");
+        const openAccountBtn = document.getElementById("openAccountSettings");
+        const accountWin = document.getElementById("dashboardAccountWindow");
+        const accountHandle = document.getElementById("dashboardAccountHandle");
+        const accountCloseBtn = document.getElementById("dashboardAccountClose");
+        const accountCancelBtn = document.getElementById("dashboardAccountCancel");
+        const accountBackdrop = document.getElementById("dashboardAccountBackdrop");
         if (!openButtons.length || !win || !handle || !closeBtn || !backdrop || !frame) {
           return;
         }
@@ -330,16 +373,112 @@
 
         window.addEventListener("resize", function () {
           if (!win.classList.contains("is-open")) {
-            return;
+            if (!accountWin || !accountWin.classList.contains("is-open")) {
+              return;
+            }
           }
-          const rect = win.getBoundingClientRect();
-          const maxLeft = Math.max(12, window.innerWidth - rect.width - 12);
-          const maxTop = Math.max(12, window.innerHeight - rect.height - 12);
-          const left = Math.min(maxLeft, Math.max(12, rect.left));
-          const top = Math.min(maxTop, Math.max(12, rect.top));
-          win.style.left = left + "px";
-          win.style.top = top + "px";
+          if (win.classList.contains("is-open")) {
+            const rect = win.getBoundingClientRect();
+            const maxLeft = Math.max(12, window.innerWidth - rect.width - 12);
+            const maxTop = Math.max(12, window.innerHeight - rect.height - 12);
+            const left = Math.min(maxLeft, Math.max(12, rect.left));
+            const top = Math.min(maxTop, Math.max(12, rect.top));
+            win.style.left = left + "px";
+            win.style.top = top + "px";
+          }
+          if (accountWin && accountWin.classList.contains("is-open")) {
+            const rect = accountWin.getBoundingClientRect();
+            const maxLeft = Math.max(12, window.innerWidth - rect.width - 12);
+            const maxTop = Math.max(12, window.innerHeight - rect.height - 12);
+            const left = Math.min(maxLeft, Math.max(12, rect.left));
+            const top = Math.min(maxTop, Math.max(12, rect.top));
+            accountWin.style.left = left + "px";
+            accountWin.style.top = top + "px";
+          }
         });
+
+        if (openAccountBtn && accountWin && accountHandle && accountCloseBtn && accountCancelBtn && accountBackdrop) {
+          const placeAccountCentered = function () {
+            const rect = accountWin.getBoundingClientRect();
+            const maxLeft = Math.max(12, window.innerWidth - rect.width - 12);
+            const maxTop = Math.max(12, window.innerHeight - rect.height - 12);
+            const left = Math.min(maxLeft, Math.max(12, (window.innerWidth - rect.width) / 2));
+            const top = Math.min(maxTop, 92);
+            accountWin.style.left = left + "px";
+            accountWin.style.top = top + "px";
+          };
+
+          const openAccountWindow = function () {
+            accountBackdrop.classList.add("is-open");
+            accountWin.classList.add("is-open");
+            accountWin.setAttribute("aria-hidden", "false");
+            placeAccountCentered();
+          };
+
+          const closeAccountWindow = function () {
+            accountWin.classList.remove("is-open");
+            accountWin.setAttribute("aria-hidden", "true");
+            accountBackdrop.classList.remove("is-open");
+          };
+
+          let accountDragPointerId = null;
+          let accountDragOffsetX = 0;
+          let accountDragOffsetY = 0;
+          const accountIsInteractiveTarget = function (target) {
+            return Boolean(target && target.closest("button, a, input, select, textarea, label"));
+          };
+
+          accountHandle.addEventListener("pointerdown", function (event) {
+            const isPrimaryPointer = event.pointerType !== "mouse" || event.button === 0;
+            if (!isPrimaryPointer || !accountWin.classList.contains("is-open") || accountIsInteractiveTarget(event.target)) {
+              return;
+            }
+            const rect = accountWin.getBoundingClientRect();
+            accountDragPointerId = event.pointerId;
+            accountDragOffsetX = event.clientX - rect.left;
+            accountDragOffsetY = event.clientY - rect.top;
+            accountHandle.setPointerCapture(event.pointerId);
+            accountWin.classList.add("is-dragging");
+          });
+
+          accountHandle.addEventListener("pointermove", function (event) {
+            if (accountDragPointerId !== event.pointerId) {
+              return;
+            }
+            const rect = accountWin.getBoundingClientRect();
+            const maxLeft = Math.max(12, window.innerWidth - rect.width - 12);
+            const maxTop = Math.max(12, window.innerHeight - rect.height - 12);
+            const left = Math.min(maxLeft, Math.max(12, event.clientX - accountDragOffsetX));
+            const top = Math.min(maxTop, Math.max(12, event.clientY - accountDragOffsetY));
+            accountWin.style.left = left + "px";
+            accountWin.style.top = top + "px";
+          });
+
+          const stopAccountDragging = function (event) {
+            if (accountDragPointerId !== event.pointerId) {
+              return;
+            }
+            accountWin.classList.remove("is-dragging");
+            try {
+              accountHandle.releasePointerCapture(event.pointerId);
+            } catch (_error) {
+            }
+            accountDragPointerId = null;
+          };
+
+          accountHandle.addEventListener("pointerup", stopAccountDragging);
+          accountHandle.addEventListener("pointercancel", stopAccountDragging);
+
+          openAccountBtn.addEventListener("click", openAccountWindow);
+          accountCloseBtn.addEventListener("click", closeAccountWindow);
+          accountCancelBtn.addEventListener("click", closeAccountWindow);
+          accountBackdrop.addEventListener("click", closeAccountWindow);
+          window.addEventListener("keydown", function (event) {
+            if (event.key === "Escape") {
+              closeAccountWindow();
+            }
+          });
+        }
       });
     </script>
   </body>

@@ -16,5 +16,5 @@ Diese Doku beschreibt Aufbau, Betrieb und Regel-Logik des Projekts.
 
 ## Pflege
 - Neue fachliche Features immer in den passenden Doku-Dateien nachziehen.
-- Bei API-/Route-Aenderungen immer `routes.md` aktualisieren.
-- Bei Modell- oder Regel-Aenderungen immer `models.md`/`engine.md` aktualisieren.
+- Bei API-/Route-Änderungen immer `routes.md` aktualisieren.
+- Bei Modell- oder Regel-Änderungen immer `models.md`/`engine.md` aktualisieren.

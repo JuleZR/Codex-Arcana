@@ -521,6 +521,34 @@
   background: rgba(255, 247, 228, 0.84);
 }
 
+.dashboard_account_backdrop {
+  z-index: 6;
+}
+
+.dashboard_account_window {
+  width: min(520px, calc(100vw - 28px));
+  z-index: 7;
+}
+
+.dashboard_account_window .dashboard_account_body {
+  padding: 12px;
+  height: auto;
+  max-height: min(620px, calc(100vh - 120px));
+  overflow: auto;
+}
+
+.dashboard_account_form {
+  display: grid;
+  gap: 8px;
+}
+
+.dashboard_account_actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 6px;
+}
+
 .character_form {
   display: grid;
   gap: 10px;

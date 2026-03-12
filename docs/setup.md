@@ -5,7 +5,10 @@
 - PostgreSQL
 - Optional: Docker / Docker Compose
 
-Hinweis: Aktuell liegt keine `requirements.txt` oder `pyproject.toml` im Repo. Die Python-Abhaengigkeiten muessen in deiner Umgebung bereits vorhanden sein.
+## Abhängigkeiten installieren
+```bash
+python -m pip install -r requirements.txt
+```
 
 ## Datenbank
 
@@ -30,6 +33,8 @@ python manage.py runserver
 ```
 
 ## Wichtige URLs
+- Login: `http://127.0.0.1:8000/`
+- Dashboard: `http://127.0.0.1:8000/dashboard/`
 - Admin: `http://127.0.0.1:8000/admin/`
 - Character Sheet: `http://127.0.0.1:8000/sheet/`
 - Impressum: `http://127.0.0.1:8000/impressum/`
@@ -37,7 +42,7 @@ python manage.py runserver
 
 ## Self-Hosting: rechtliche Angaben konfigurieren
 Die Seiten `Impressum` und `Datenschutz` lesen Betreiberdaten aus `LEGAL_INFO`
-in `codex_arcana/settings.py`. Diese Werte sollten ueber Umgebungsvariablen
+in `codex_arcana/settings.py`. Diese Werte sollten über Umgebungsvariablen
 gesetzt werden:
 
 - `LEGAL_SITE_NAME`
