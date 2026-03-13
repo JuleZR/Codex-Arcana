@@ -31,6 +31,7 @@ from charsheet.models import (
     CharacterItem,
     CharacterSchool,
     CharacterSchoolPath,
+    CharacterSpecialization,
     CharacterTechniqueChoice,
     Item,
     Modifier,
@@ -38,7 +39,10 @@ from charsheet.models import (
     Race,
     School,
     SchoolPath,
+    Specialization,
     Technique,
+    TechniqueChoiceBlock,
+    TechniqueChoiceDefinition,
     TechniqueExclusion,
     TechniqueRequirement,
     Trait,
@@ -88,6 +92,35 @@ class ActiveProgressionRule(TypedDict):
     rule: ProgressionRule
 
 
+class TechniqueChoiceBlockState(TypedDict):
+    """Resolved status data for one generic technique choice block."""
+
+    block_id: int
+    block_name: str | None
+    block_description: str | None
+    school_id: int
+    school_name: str
+    school_level: int
+    level: int | None
+    path_id: int | None
+    path_name: str | None
+    selected_path_id: int | None
+    selected_path_name: str | None
+    min_choices: int
+    max_choices: int
+    learned_choice_count: int
+    available_choice_count: int
+    remaining_required_choices: int
+    remaining_optional_choices: int
+    active: bool
+    open: bool
+    fulfilled: bool
+    violated: bool
+    technique_ids: list[int]
+    learned_technique_ids: list[int]
+    available_technique_ids: list[int]
+
+
 class TechniqueActivationData(TypedDict):
     """Prepared activation metadata for active or situational techniques."""
 
@@ -110,6 +143,9 @@ class TechniqueState(TypedDict):
     required_level_met: bool
     path_id: int | None
     path_name: str | None
+    choice_block_id: int | None
+    choice_block_name: str | None
+    choice_block_description: str | None
     selected_path_id: int | None
     selected_path_name: str | None
     choice_target_kind: str
@@ -124,6 +160,7 @@ class TechniqueState(TypedDict):
     acquisition_type: str
     technique_type: str
     support_level: str
+    specialization_slot_grants: int
     engine_resolves_effects: bool
     is_choice_placeholder: bool
     choice_group: str | None
@@ -177,6 +214,52 @@ class CharacterEngine:
         return {entry.school_id: entry for entry in qs}
 
     @cached_property
+    def _specialization_entries_by_school_id(self) -> dict[int, list[CharacterSpecialization]]:
+        """Cache learned character specializations keyed by school id."""
+        grouped: DefaultDict[int, list[CharacterSpecialization]] = defaultdict(list)
+        queryset = (
+            self.character.learned_specializations.select_related(
+                "specialization",
+                "specialization__school",
+                "source_technique",
+            )
+            .order_by(
+                "specialization__school__name",
+                "specialization__sort_order",
+                "specialization__name",
+                "id",
+            )
+        )
+        for entry in queryset:
+            grouped[entry.specialization.school_id].append(entry)
+        return dict(grouped)
+
+    @cached_property
+    def _learned_specialization_ids_by_school_id(self) -> dict[int, set[int]]:
+        """Cache learned specialization ids per school for fast exclusion checks."""
+        return {
+            school_id: {entry.specialization_id for entry in entries}
+            for school_id, entries in self._specialization_entries_by_school_id.items()
+        }
+
+    @cached_property
+    def _specialization_definitions_by_school_id(self) -> dict[int, list[Specialization]]:
+        """Cache specialization definitions of learned schools keyed by school id."""
+        school_ids = list(self._school_entries.keys())
+        if not school_ids:
+            return {}
+
+        grouped: DefaultDict[int, list[Specialization]] = defaultdict(list)
+        queryset = (
+            Specialization.objects.filter(school_id__in=school_ids)
+            .select_related("school")
+            .order_by("school__name", "sort_order", "name")
+        )
+        for specialization in queryset:
+            grouped[specialization.school_id].append(specialization)
+        return dict(grouped)
+
+    @cached_property
     def _manual_learned_technique_ids(self) -> set[int]:
         """Cache explicitly learned technique ids."""
         return set(
@@ -190,13 +273,28 @@ class CharacterEngine:
         queryset = (
             self.character.technique_choices.select_related(
                 "technique",
+                "definition",
                 "selected_skill",
                 "selected_skill_family",
+                "selected_skill_category",
+                "selected_item",
+                "selected_specialization",
+                "selected_content_type",
             )
             .order_by("technique__school__name", "technique__level", "technique__name", "id")
         )
         for choice in queryset:
             grouped[choice.technique_id].append(choice)
+        return dict(grouped)
+
+    @cached_property
+    def _technique_choices_by_definition_id(self) -> dict[int, list[CharacterTechniqueChoice]]:
+        """Cache persisted technique choices grouped by explicit choice definition id."""
+        grouped: DefaultDict[int, list[CharacterTechniqueChoice]] = defaultdict(list)
+        for choices in self._technique_choices_by_technique_id.values():
+            for choice in choices:
+                if choice.definition_id is not None:
+                    grouped[choice.definition_id].append(choice)
         return dict(grouped)
 
     @cached_property
@@ -207,6 +305,7 @@ class CharacterEngine:
             for technique in self._character_school_technique_list
             if technique.choice_bonus_value
             and technique.choice_target_kind != Technique.ChoiceTargetKind.NONE
+            and not self._technique_has_explicit_choice_definitions(technique)
         ]
 
     @cached_property
@@ -293,15 +392,23 @@ class CharacterEngine:
 
         return list(
             Modifier.objects.filter(source_filter)
-            .select_related("scale_school", "source_content_type")
+            .select_related(
+                "scale_school",
+                "source_content_type",
+                "target_skill",
+                "target_skill_category",
+                "target_item",
+                "target_specialization",
+                "target_content_type",
+            )
         )
 
     @cached_property
     def _modifiers_by_target(self) -> dict[ModifierTargetKey, list[Modifier]]:
-        """Group modifiers by target kind and slug for O(1) resolver access."""
+        """Group modifiers by canonical target identifiers for O(1) resolver access."""
         grouped: DefaultDict[ModifierTargetKey, list[Modifier]] = defaultdict(list)
         for modifier in self._all_modifiers:
-            grouped[(modifier.target_kind, modifier.target_slug)].append(modifier)
+            grouped[(modifier.target_kind, modifier.target_identifier())].append(modifier)
         return dict(grouped)
 
     @cached_property
@@ -372,14 +479,16 @@ class CharacterEngine:
             "technique__school",
             "technique__path",
         )
+        choice_definition_queryset = TechniqueChoiceDefinition.objects.order_by("sort_order", "name", "id")
 
         return list(
             Technique.objects.filter(school_id__in=school_ids)
-            .select_related("school", "path")
+            .select_related("school", "path", "choice_block", "choice_block__path")
             .prefetch_related(
                 Prefetch("requirements", queryset=requirement_queryset),
                 Prefetch("exclusions", queryset=exclusions_queryset),
                 Prefetch("excluded_by", queryset=excluded_by_queryset),
+                Prefetch("choice_definitions", queryset=choice_definition_queryset),
             )
             .order_by("school__name", "level", "name")
         )
@@ -407,6 +516,47 @@ class CharacterEngine:
     def _technique_state_map(self) -> dict[int, TechniqueState]:
         """Index cached technique states by technique id."""
         return {state["technique_id"]: state for state in self._technique_states_cache}
+
+    @cached_property
+    def _technique_choice_blocks_by_id(self) -> dict[int, TechniqueChoiceBlock]:
+        """Load choice blocks of learned schools keyed by block id."""
+        school_ids = list(self._school_entries.keys())
+        if not school_ids:
+            return {}
+        return {
+            block.id: block
+            for block in TechniqueChoiceBlock.objects.filter(school_id__in=school_ids)
+            .select_related("school", "path")
+            .order_by("school__name", "level", "sort_order", "name", "id")
+        }
+
+    @cached_property
+    def _techniques_by_choice_block_id(self) -> dict[int, list[Technique]]:
+        """Group learned-school techniques by explicit choice block."""
+        grouped: DefaultDict[int, list[Technique]] = defaultdict(list)
+        for technique in self._character_school_technique_list:
+            if technique.choice_block_id is not None:
+                grouped[technique.choice_block_id].append(technique)
+        return dict(grouped)
+
+    @cached_property
+    def _choice_block_states_cache(self) -> list[TechniqueChoiceBlockState]:
+        """Build rule states for all choice blocks of learned schools."""
+        return [self._build_choice_block_state(block) for block in self._technique_choice_blocks_by_id.values()]
+
+    @cached_property
+    def _specialization_slot_counts_by_school_id(self) -> dict[int, int]:
+        """Cache granted specialization slots per school from explicit CharacterTechnique rows."""
+        totals: DefaultDict[int, int] = defaultdict(int)
+        queryset = (
+            self.character.learned_techniques.select_related("technique", "technique__school")
+            .order_by("technique__school__name", "technique__level", "technique__name", "id")
+        )
+        for learned_technique in queryset:
+            if learned_technique.technique.specialization_slot_grants <= 0:
+                continue
+            totals[learned_technique.technique.school_id] += learned_technique.technique.specialization_slot_grants
+        return dict(totals)
 
     @cached_property
     def _progression_rules_by_type(self) -> dict[int, list[ProgressionRule]]:
@@ -444,6 +594,74 @@ class CharacterEngine:
         school_id = self._coerce_school_id(school)
         entry = self._selected_paths.get(school_id)
         return entry.path if entry else None
+
+    def specialization_slot_count(self, school: School | Technique | CharacterSchool | int) -> int:
+        """Return how many specialization slots explicit learned techniques grant for one school."""
+        school_id = self._coerce_school_id(school)
+        return self._specialization_slot_counts_by_school_id.get(school_id, 0)
+
+    def character_specializations(self, school: School | Technique | CharacterSchool | int) -> list[CharacterSpecialization]:
+        """Return all learned specializations of the character for one school."""
+        school_id = self._coerce_school_id(school)
+        return list(self._specialization_entries_by_school_id.get(school_id, []))
+
+    def open_specialization_slot_count(self, school: School | Technique | CharacterSchool | int) -> int:
+        """Return the number of still-unfilled specialization slots for one school."""
+        school_id = self._coerce_school_id(school)
+        total_slots = self.specialization_slot_count(school_id)
+        filled_slots = len(self._specialization_entries_by_school_id.get(school_id, []))
+        return max(0, total_slots - filled_slots)
+
+    def available_specializations(self, school: School | Technique | CharacterSchool | int) -> list[Specialization]:
+        """Return active, not-yet-learned specializations of one learned school."""
+        school_id = self._coerce_school_id(school)
+        if school_id not in self._school_entries:
+            return []
+
+        learned_ids = self._learned_specialization_ids_by_school_id.get(school_id, set())
+        return [
+            specialization
+            for specialization in self._specialization_definitions_by_school_id.get(school_id, [])
+            if specialization.is_active and specialization.id not in learned_ids
+        ]
+
+    def technique_choice_blocks(
+        self,
+        school: School | Technique | CharacterSchool | int | None = None,
+    ) -> list[TechniqueChoiceBlockState]:
+        """Return generic technique choice block states for one school or all learned schools."""
+        if school is None:
+            return list(self._choice_block_states_cache)
+        school_id = self._coerce_school_id(school)
+        return [state for state in self._choice_block_states_cache if state["school_id"] == school_id]
+
+    def active_technique_choice_blocks(
+        self,
+        school: School | Technique | CharacterSchool | int | None = None,
+    ) -> list[TechniqueChoiceBlockState]:
+        """Return choice blocks that are currently active for the character."""
+        return [state for state in self.technique_choice_blocks(school) if state["active"]]
+
+    def open_technique_choice_blocks(
+        self,
+        school: School | Technique | CharacterSchool | int | None = None,
+    ) -> list[TechniqueChoiceBlockState]:
+        """Return active choice blocks that still need additional learned techniques."""
+        return [state for state in self.technique_choice_blocks(school) if state["open"]]
+
+    def fulfilled_technique_choice_blocks(
+        self,
+        school: School | Technique | CharacterSchool | int | None = None,
+    ) -> list[TechniqueChoiceBlockState]:
+        """Return active choice blocks whose current learned count is inside the valid window."""
+        return [state for state in self.technique_choice_blocks(school) if state["fulfilled"]]
+
+    def violated_technique_choice_blocks(
+        self,
+        school: School | Technique | CharacterSchool | int | None = None,
+    ) -> list[TechniqueChoiceBlockState]:
+        """Return choice blocks whose learned techniques exceed the configured maximum."""
+        return [state for state in self.technique_choice_blocks(school) if state["violated"]]
 
     def has_technique_learned(self, technique: Technique | int) -> bool:
         """Return whether a technique counts as learned for the character."""
@@ -510,6 +728,37 @@ class CharacterEngine:
     def is_technique_choice_complete(self, technique: Technique | int) -> bool:
         """Return whether a technique's persistent build choices are fully configured."""
         return self._is_technique_choice_complete(self._coerce_technique(technique))
+
+    def modifier_total_for_skill(self, skill_slug: str) -> int:
+        """Return all direct skill modifiers for one exact skill slug."""
+        return self._resolve_target_modifiers(Modifier.TargetKind.SKILL, skill_slug)
+
+    def modifier_total_for_skill_category(self, category_slug: str) -> int:
+        """Return all modifiers that target one whole skill category."""
+        return self._resolve_target_modifiers(Modifier.TargetKind.CATEGORY, category_slug)
+
+    def modifier_total_for_stat(self, slug: str) -> int:
+        """Return all modifiers that target one derived stat slug."""
+        return self._resolve_target_modifiers(Modifier.TargetKind.STAT, slug)
+
+    def modifier_total_for_item(self, item: Item | int) -> int:
+        """Return all modifiers that target one specific item."""
+        item_id = item.id if isinstance(item, Item) else int(item)
+        return self._resolve_target_modifiers(Modifier.TargetKind.ITEM, str(item_id))
+
+    def modifier_total_for_item_category(self, item_category: str) -> int:
+        """Return all modifiers that target one item category key."""
+        return self._resolve_target_modifiers(Modifier.TargetKind.ITEM_CATEGORY, item_category)
+
+    def modifier_total_for_specialization(self, specialization: Specialization | int) -> int:
+        """Return all modifiers that target one school specialization."""
+        specialization_id = specialization.id if isinstance(specialization, Specialization) else int(specialization)
+        return self._resolve_target_modifiers(Modifier.TargetKind.SPECIALIZATION, str(specialization_id))
+
+    def modifier_total_for_entity(self, entity: Model) -> int:
+        """Return all modifiers that target one arbitrary persisted game entity."""
+        content_type = ContentType.objects.get_for_model(entity, for_concrete_model=False)
+        return self._resolve_target_modifiers(Modifier.TargetKind.ENTITY, f"{content_type.id}:{entity.pk}")
 
     def attribute_modifier(self, short_name: str) -> int:
         """Convert a base attribute value into its system modifier."""
@@ -620,6 +869,11 @@ class CharacterEngine:
             "required_level_met": required_level_met,
             "path_id": technique.path_id,
             "path_name": technique.path.name if technique.path_id else None,
+            "choice_block_id": technique.choice_block_id,
+            "choice_block_name": technique.choice_block.name if technique.choice_block_id and technique.choice_block.name else None,
+            "choice_block_description": (
+                technique.choice_block.description if technique.choice_block_id and technique.choice_block.description else None
+            ),
             "selected_path_id": selected_path.id if selected_path else None,
             "selected_path_name": selected_path.name if selected_path else None,
             "choice_target_kind": technique.choice_target_kind,
@@ -634,6 +888,7 @@ class CharacterEngine:
             "acquisition_type": technique.acquisition_type,
             "technique_type": technique.technique_type,
             "support_level": technique.support_level,
+            "specialization_slot_grants": technique.specialization_slot_grants,
             "engine_resolves_effects": engine_resolves_effects,
             "is_choice_placeholder": technique.is_choice_placeholder,
             "choice_group": technique.choice_group or None,
@@ -647,6 +902,61 @@ class CharacterEngine:
             "activation": activation,
         }
 
+    def _build_choice_block_state(self, block: TechniqueChoiceBlock) -> TechniqueChoiceBlockState:
+        """Resolve active/open/fulfilled/violated state for one technique choice block."""
+        school_level = self.school_level(block.school_id)
+        selected_path = self.selected_school_path(block.school_id)
+        techniques = self._techniques_by_choice_block_id.get(block.id, [])
+        technique_ids = [technique.id for technique in techniques]
+        learned_technique_ids = [
+            technique.id
+            for technique in techniques
+            if self._technique_state_map.get(technique.id, {}).get("learned")
+        ]
+        available_technique_ids = [
+            technique.id
+            for technique in techniques
+            if self._technique_state_map.get(technique.id, {}).get("available")
+            and technique.id not in learned_technique_ids
+        ]
+        active = school_level > 0
+        if block.level is not None:
+            active = active and school_level >= block.level
+        if block.path_id is not None:
+            active = active and selected_path is not None and selected_path.id == block.path_id
+
+        learned_choice_count = len(learned_technique_ids)
+        open_block = active and learned_choice_count < block.min_choices
+        fulfilled = active and block.min_choices <= learned_choice_count <= block.max_choices
+        violated = active and learned_choice_count > block.max_choices
+
+        return {
+            "block_id": block.id,
+            "block_name": block.name or None,
+            "block_description": block.description or None,
+            "school_id": block.school_id,
+            "school_name": block.school.name,
+            "school_level": school_level,
+            "level": block.level,
+            "path_id": block.path_id,
+            "path_name": block.path.name if block.path_id else None,
+            "selected_path_id": selected_path.id if selected_path else None,
+            "selected_path_name": selected_path.name if selected_path else None,
+            "min_choices": block.min_choices,
+            "max_choices": block.max_choices,
+            "learned_choice_count": learned_choice_count,
+            "available_choice_count": len(available_technique_ids),
+            "remaining_required_choices": max(0, block.min_choices - learned_choice_count),
+            "remaining_optional_choices": max(0, block.max_choices - learned_choice_count),
+            "active": active,
+            "open": open_block,
+            "fulfilled": fulfilled,
+            "violated": violated,
+            "technique_ids": technique_ids,
+            "learned_technique_ids": learned_technique_ids,
+            "available_technique_ids": available_technique_ids,
+        }
+
     def _skill_modifiers(self, skill_slug: str) -> int:
         """Resolve wound, armor, direct skill, and category modifiers."""
         info = self.skills().get(skill_slug)
@@ -657,11 +967,11 @@ class CharacterEngine:
         modifier_parts = [
             self.current_wound_penalty(),
             -self.get_bel(),
-            self._resolve_target_modifiers(Modifier.TargetKind.SKILL, skill_slug),
+            self.modifier_total_for_skill(skill_slug),
         ]
         if category_slug:
             modifier_parts.append(
-                self._resolve_target_modifiers(Modifier.TargetKind.CATEGORY, category_slug)
+                self.modifier_total_for_skill_category(category_slug)
             )
         if skill_id is not None:
             modifier_parts.append(self._resolve_choice_skill_bonus(skill_id, family_id))
@@ -669,7 +979,7 @@ class CharacterEngine:
 
     def _resolve_stat_modifiers(self, slug: str) -> int:
         """Resolve all stat-targeting modifiers for one stat slug."""
-        return self._resolve_target_modifiers(Modifier.TargetKind.STAT, slug)
+        return self.modifier_total_for_stat(slug)
 
     def _resolve_target_modifiers(self, target_kind: str, target_slug: str) -> int:
         """Sum all active modifiers for a concrete target kind and slug."""
@@ -755,9 +1065,26 @@ class CharacterEngine:
 
     def _is_technique_choice_complete(self, technique: Technique) -> bool:
         """Check whether the configured persistent technique choices are fully stored."""
+        if self._technique_has_explicit_choice_definitions(technique):
+            for definition in self._active_technique_choice_definitions(technique):
+                selected_count = len(self._technique_choices_by_definition_id.get(definition.id, []))
+                if selected_count > definition.max_choices:
+                    return False
+                if definition.is_required and selected_count < definition.min_choices:
+                    return False
+            return True
         if technique.choice_target_kind == Technique.ChoiceTargetKind.NONE:
             return True
-        return len(self.technique_choices(technique)) >= technique.choice_limit
+        legacy_choices = [choice for choice in self.technique_choices(technique) if choice.definition_id is None]
+        return len(legacy_choices) >= technique.choice_limit
+
+    def _technique_has_explicit_choice_definitions(self, technique: Technique) -> bool:
+        """Return whether a technique uses definition rows instead of the legacy single-choice fields."""
+        return bool(self._active_technique_choice_definitions(technique))
+
+    def _active_technique_choice_definitions(self, technique: Technique) -> list[TechniqueChoiceDefinition]:
+        """Return active choice definitions for one technique."""
+        return [definition for definition in technique.choice_definitions.all() if definition.is_active]
 
     def _modifier_school_gate_is_open(self, modifier: Modifier) -> bool:
         """Check optional minimum school-level gating for a modifier."""

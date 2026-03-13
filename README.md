@@ -152,3 +152,9 @@ Konfigurierbare Betreiberdaten per Umgebungsvariablen:
 - `LEGAL_REGISTER_ENTRY` (optional)
 - `LEGAL_VAT_ID` (optional)
 - `LEGAL_SUPERVISORY_AUTHORITY` (optional)
+
+## Lizenz
+
+Dieses Projekt steht unter der GNU General Public License v3.0. Siehe `LICENSE`.
+
+Separate Drittlizenzen, z. B. fuer eingebundene Schriftarten unter `static/fonts/`, bleiben davon unberuehrt.

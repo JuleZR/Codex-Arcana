@@ -14,6 +14,7 @@ from charsheet.models import (
     Character,
     CharacterAttribute,
     CharacterSchool,
+    CharacterSpecialization,
     CharacterSkill,
     CharacterTechnique,
     CharacterTechniqueChoice,
@@ -21,10 +22,14 @@ from charsheet.models import (
     Race,
     School,
     SchoolType,
+    Specialization,
     Skill,
     SkillCategory,
     SkillFamily,
+    Item,
     Technique,
+    TechniqueChoiceBlock,
+    TechniqueChoiceDefinition,
 )
 
 
@@ -284,3 +289,191 @@ class TechniqueSupportLevelTests(TestCase):
         self.assertEqual(engine.skill_total("music"), 6)
         self.assertEqual(engine.skill_total("oratory"), 5)
         self.assertEqual(engine.skill_total("duel"), 2)
+
+    def test_choice_definitions_drive_completion_for_multiple_decisions(self):
+        """Explicit choice definitions can require multiple different stored decisions for one technique."""
+        technique = Technique.objects.create(
+            school=self.school,
+            name="Composer's Discipline",
+            level=1,
+            technique_type=Technique.TechniqueType.PASSIVE,
+            support_level=Technique.SupportLevel.COMPUTED,
+            selection_notes="Pick a practiced skill and name the composition style.",
+        )
+        skill_definition = TechniqueChoiceDefinition.objects.create(
+            technique=technique,
+            name="Skill Focus",
+            target_kind=Technique.ChoiceTargetKind.SKILL,
+            description="Choose one practiced performance skill.",
+        )
+        text_definition = TechniqueChoiceDefinition.objects.create(
+            technique=technique,
+            name="Style Name",
+            target_kind=Technique.ChoiceTargetKind.TEXT,
+            description="Write down the named style of the composition.",
+        )
+
+        engine = CharacterEngine(self.character)
+        self.assertFalse(engine.is_technique_choice_complete(technique))
+
+        CharacterTechniqueChoice.objects.create(
+            character=self.character,
+            technique=technique,
+            definition=skill_definition,
+            selected_skill=self.music,
+        )
+        self.assertFalse(CharacterEngine(self.character).is_technique_choice_complete(technique))
+
+        CharacterTechniqueChoice.objects.create(
+            character=self.character,
+            technique=technique,
+            definition=text_definition,
+            selected_text="Kriegslied",
+        )
+        self.assertTrue(CharacterEngine(self.character).is_technique_choice_complete(technique))
+
+    def test_choice_block_state_tracks_open_fulfilled_and_violated(self):
+        """Generic choice blocks should report whether required technique picks are still open or already broken."""
+        block = TechniqueChoiceBlock.objects.create(
+            school=self.school,
+            name="Stufe-2-Wahl",
+            level=2,
+            min_choices=1,
+            max_choices=1,
+            description="Waehle genau eine Technik aus diesem Block.",
+        )
+        first = Technique.objects.create(
+            school=self.school,
+            name="Verse A",
+            level=2,
+            acquisition_type=Technique.AcquisitionType.CHOICE,
+            support_level=Technique.SupportLevel.STRUCTURED,
+            choice_block=block,
+        )
+        second = Technique.objects.create(
+            school=self.school,
+            name="Verse B",
+            level=2,
+            acquisition_type=Technique.AcquisitionType.CHOICE,
+            support_level=Technique.SupportLevel.STRUCTURED,
+            choice_block=block,
+        )
+
+        block_state = CharacterEngine(self.character).technique_choice_blocks(self.school)[0]
+        self.assertTrue(block_state["active"])
+        self.assertTrue(block_state["open"])
+        self.assertFalse(block_state["fulfilled"])
+        self.assertFalse(block_state["violated"])
+
+        CharacterTechnique.objects.create(character=self.character, technique=first)
+        block_state = CharacterEngine(self.character).technique_choice_blocks(self.school)[0]
+        self.assertFalse(block_state["open"])
+        self.assertTrue(block_state["fulfilled"])
+        self.assertFalse(block_state["violated"])
+
+        CharacterTechnique.objects.create(character=self.character, technique=second)
+        block_state = CharacterEngine(self.character).technique_choice_blocks(self.school)[0]
+        self.assertFalse(block_state["open"])
+        self.assertFalse(block_state["fulfilled"])
+        self.assertTrue(block_state["violated"])
+
+    def test_choice_definition_accepts_school_specialization_targets(self):
+        """Specialization targets stay generic but still validate against the technique school."""
+        other_school = School.objects.create(name="Blade College", type=self.school_type)
+        allowed_specialization = Specialization.objects.create(
+            school=self.school,
+            name="Heroic Ballad",
+            slug="heroic-ballad",
+            support_level=Specialization.SupportLevel.STRUCTURED,
+        )
+        blocked_specialization = Specialization.objects.create(
+            school=other_school,
+            name="Blade Choir",
+            slug="blade-choir",
+            support_level=Specialization.SupportLevel.STRUCTURED,
+        )
+        technique = Technique.objects.create(
+            school=self.school,
+            name="Awakened Talent",
+            level=2,
+            support_level=Technique.SupportLevel.DESCRIPTIVE,
+            selection_notes="Choose one school specialization.",
+        )
+        definition = TechniqueChoiceDefinition.objects.create(
+            technique=technique,
+            name="School Specialization",
+            target_kind=Technique.ChoiceTargetKind.SPECIALIZATION,
+        )
+
+        valid_choice = CharacterTechniqueChoice(
+            character=self.character,
+            technique=technique,
+            definition=definition,
+            selected_specialization=allowed_specialization,
+        )
+        valid_choice.full_clean()
+
+        invalid_choice = CharacterTechniqueChoice(
+            character=self.character,
+            technique=technique,
+            definition=definition,
+            selected_specialization=blocked_specialization,
+        )
+        with self.assertRaises(ValidationError):
+            invalid_choice.full_clean()
+
+    def test_engine_resolves_generic_modifier_targets(self):
+        """Item, item-category, specialization, and generic entity modifier targets should resolve through the engine."""
+        school_ct = ContentType.objects.get_for_model(School, for_concrete_model=False)
+        item_ct = ContentType.objects.get_for_model(Item, for_concrete_model=False)
+        lute = Item.objects.create(name="Battle Lute", item_type=Item.ItemType.MISC)
+        specialization = Specialization.objects.create(
+            school=self.school,
+            name="Silver Voice",
+            slug="silver-voice",
+            support_level=Specialization.SupportLevel.STRUCTURED,
+        )
+        CharacterSpecialization.objects.create(
+            character=self.character,
+            specialization=specialization,
+        )
+        Modifier.objects.create(
+            source_content_type=school_ct,
+            source_object_id=self.school.id,
+            target_kind=Modifier.TargetKind.ITEM,
+            target_item=lute,
+            mode=Modifier.Mode.FLAT,
+            value=2,
+        )
+        Modifier.objects.create(
+            source_content_type=school_ct,
+            source_object_id=self.school.id,
+            target_kind=Modifier.TargetKind.ITEM_CATEGORY,
+            target_slug=Item.ItemType.MISC,
+            mode=Modifier.Mode.FLAT,
+            value=3,
+        )
+        Modifier.objects.create(
+            source_content_type=school_ct,
+            source_object_id=self.school.id,
+            target_kind=Modifier.TargetKind.SPECIALIZATION,
+            target_specialization=specialization,
+            mode=Modifier.Mode.FLAT,
+            value=4,
+        )
+        Modifier.objects.create(
+            source_content_type=school_ct,
+            source_object_id=self.school.id,
+            target_kind=Modifier.TargetKind.ENTITY,
+            target_content_type=item_ct,
+            target_object_id=lute.id,
+            mode=Modifier.Mode.FLAT,
+            value=5,
+        )
+
+        engine = CharacterEngine(self.character)
+
+        self.assertEqual(engine.modifier_total_for_item(lute), 2)
+        self.assertEqual(engine.modifier_total_for_item_category(Item.ItemType.MISC), 3)
+        self.assertEqual(engine.modifier_total_for_specialization(specialization), 4)
+        self.assertEqual(engine.modifier_total_for_entity(lute), 5)

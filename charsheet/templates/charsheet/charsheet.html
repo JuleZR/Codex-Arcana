@@ -8,81 +8,98 @@
     <title>{{ character.name }} | Codex Arcana</title>
     <script>
       (function () {
-        try {
-          var raw = window.localStorage.getItem("charsheet.leftTools.isOpen");
-          document.documentElement.setAttribute("data-left-tools-open", raw === "false" ? "0" : "1");
-        } catch (_error) {
-          document.documentElement.setAttribute("data-left-tools-open", "1");
-        }
+        document.documentElement.setAttribute("data-left-tools-open", "0");
       })();
     </script>
     <link rel="stylesheet" href="{% static 'css/charsheet.css' %}">
   </head>
   <body>
-    <aside class="left-tools" id="leftTools" aria-label="Toolleiste">
-      <div class="left-tools__toggle" id="leftToolsToggle" role="button" tabindex="0" aria-expanded="false" aria-controls="leftTools">TOOLS</div>
+    <button
+      type="button"
+      class="left-tools__launcher"
+      id="leftToolsToggle"
+      aria-expanded="false"
+      aria-controls="leftTools"
+      aria-label="Werkzeugleiste öffnen"
+      title="Werkzeugleiste öffnen"
+    >
+      <span class="left-tools__launcher_glow" aria-hidden="true"></span>
+      <span class="left-tools__launcher_core" aria-hidden="true">
+        <span class="left-tools__launcher_rune">d10</span>
+        <span class="left-tools__launcher_word">Arcana</span>
+      </span>
+    </button>
+    <aside class="left-tools" id="leftTools" aria-label="Werkzeugleiste">
       <div class="left-tools__inner">
-        <section class="left-tools__group" aria-label="Ressourcen">
-          <h3>Geld</h3>
-          <form method="post" action="{% url 'adjust_money' character.id %}" class="left-tools__form">
-            {% csrf_token %}
-            <label class="left-tools__input_wrap">
-              <input
-                type="text"
-                inputmode="numeric"
-                name="delta"
-                class="wallet_delta_input left-tools__delta_input"
-                step="1"
-                value="0"
-                placeholder="+ / -"
-                aria-label="Geldänderung positiv oder negativ"
-              >
-              <span class="left-tools__unit_inset" aria-hidden="true">KS</span>
-            </label>
-            <button type="submit" class="wallet_apply_btn left-tools__apply">Anwenden</button>
-          </form>
-        </section>
-
-        <section class="left-tools__group" aria-label="Erfahrung">
-          <h3>Erfahrung</h3>
-          <form method="post" action="{% url 'adjust_experience' character.id %}" class="left-tools__form">
-            {% csrf_token %}
-            <label class="left-tools__input_wrap">
-              <input
-                type="text"
-                inputmode="numeric"
-                name="delta"
-                class="wallet_delta_input left-tools__delta_input"
-                step="1"
-                value="0"
-                placeholder="+ / -"
-                aria-label="Erfahrungsänderung positiv oder negativ"
-              >
-              <span class="left-tools__unit_inset" aria-hidden="true">EP</span>
-            </label>
-            <button type="submit" class="wallet_apply_btn left-tools__apply">Anwenden</button>
-          </form>
-        </section>
-
-        <section class="left-tools__group left-tools__group--actions" aria-label="Aktionen">
-          <div class="left-tools__icon-grid">
-            <button type="button" class="left-tools__image_btn" id="learnMenuTrigger" aria-label="Lernmenü öffnen" title="Lernmenü">
+        <div class="left-tools__cluster left-tools__cluster--actions">
+          <button type="button" class="left-tools__icon_btn" id="learnMenuTrigger" aria-label="Lernmenü öffnen" title="Lernen">
+            <span class="left-tools__icon_frame">
               <img src="{% static 'img/bayleaf.png' %}" alt="" aria-hidden="true">
-            </button>
-            <button type="button" class="left-tools__image_btn" id="shopScaleTrigger" aria-label="Shop öffnen" title="Shop">
+            </span>
+            <span class="left-tools__icon_label">Lernen</span>
+          </button>
+          <button type="button" class="left-tools__icon_btn" id="shopScaleTrigger" aria-label="Shop öffnen" title="Shop">
+            <span class="left-tools__icon_frame">
               <img src="{% static 'img/balance.png' %}" alt="" aria-hidden="true">
-            </button>
-            <button type="button" class="left-tools__image_btn" id="diceMenuTrigger" aria-label="Würfelmenü (folgt)" title="Würfelmenü (folgt)" disabled>
-              <img src="{% static 'img/dice.png' %}" alt="" aria-hidden="true">
-            </button>
-            <button type="button" class="left-tools__image_btn" id="diaryTrigger" aria-label="Notizbuch öffnen" title="Notizbuch">
+            </span>
+            <span class="left-tools__icon_label">Shop</span>
+          </button>
+          <button type="button" class="left-tools__icon_btn" id="diaryTrigger" aria-label="Chronik öffnen" title="Chronik">
+            <span class="left-tools__icon_frame">
               <img src="{% static 'img/book.png' %}" alt="" aria-hidden="true">
-            </button>
-          </div>
-          <a class="left-tools__image_btn left-tools__image_btn--dashboard" href="{% url 'dashboard' %}" aria-label="Zurück zum Dashboard" title="Dashboard">
-            <img src="{% static 'img/scroll.png' %}" alt="" aria-hidden="true">
+            </span>
+            <span class="left-tools__icon_label">Chronik</span>
+          </button>
+          <a class="left-tools__icon_btn left-tools__icon_btn--link" href="{% url 'dashboard' %}" aria-label="Zum Dashboard" title="Dashboard">
+            <span class="left-tools__icon_frame">
+              <img src="{% static 'img/scroll.png' %}" alt="" aria-hidden="true">
+            </span>
+            <span class="left-tools__icon_label">Codex</span>
           </a>
-        </section>
+        </div>
+
+        <div class="left-tools__cluster left-tools__cluster--resources">
+          <section class="left-tools__group left-tools__group--resource" aria-label="Geld">
+            <h3>Geld</h3>
+            <form method="post" action="{% url 'adjust_money' character.id %}" class="left-tools__form">
+              {% csrf_token %}
+              <label class="left-tools__input_wrap">
+                <input
+                  type="text"
+                  inputmode="numeric"
+                  name="delta"
+                  class="wallet_delta_input left-tools__delta_input"
+                  step="1"
+                  value="0"
+                  placeholder="+ / -"
+                  aria-label="Geldänderung positiv oder negativ"
+                >
+                <span class="left-tools__unit_inset" aria-hidden="true">KS</span>
+              </label>
+              <button type="submit" class="wallet_apply_btn left-tools__apply">OK</button>
+            </form>
+          </section>
+          <section class="left-tools__group left-tools__group--resource" aria-label="Erfahrung">
+            <h3>Erfahrung</h3>
+            <form method="post" action="{% url 'adjust_experience' character.id %}" class="left-tools__form">
+              {% csrf_token %}
+              <label class="left-tools__input_wrap">
+                <input
+                  type="text"
+                  inputmode="numeric"
+                  name="delta"
+                  class="wallet_delta_input left-tools__delta_input"
+                  step="1"
+                  value="0"
+                  placeholder="+ / -"
+                  aria-label="Erfahrungsänderung positiv oder negativ"
+                >
+                <span class="left-tools__unit_inset" aria-hidden="true">EP</span>
+              </label>
+              <button type="submit" class="wallet_apply_btn left-tools__apply">OK</button>
+            </form>
+          </section>
+        </div>
       </div>
     </aside>
     <main class="book-spread">

@@ -35,44 +35,16 @@ document.addEventListener("DOMContentLoaded", () => {
   const reputationList = document.getElementById("reputationList");
   const reputationEditBtn = document.getElementById("reputationEditBtn");
   if (leftTools && leftToolsToggle) {
-    const leftToolsStorageKey = "charsheet.leftTools.isOpen";
-    const readLeftToolsState = () => {
-      try {
-        const raw = window.localStorage.getItem(leftToolsStorageKey);
-        if (raw === "true") {
-          return true;
-        }
-        if (raw === "false") {
-          return false;
-        }
-      } catch (_error) {
-        // no-op
-      }
-      return document.documentElement.getAttribute("data-left-tools-open") === "1";
-    };
-    const saveLeftToolsState = (isOpen) => {
-      try {
-        window.localStorage.setItem(leftToolsStorageKey, String(isOpen));
-      } catch (_error) {
-        // no-op
-      }
-    };
     const setToolsOpenState = (isOpen) => {
       leftTools.classList.toggle("is-open", isOpen);
+      leftToolsToggle.classList.toggle("is-open", isOpen);
       leftToolsToggle.setAttribute("aria-expanded", String(isOpen));
+      leftToolsToggle.setAttribute("aria-label", isOpen ? "Werkzeugleiste schlie\u00dfen" : "Werkzeugleiste \u00f6ffnen");
+      leftToolsToggle.setAttribute("title", isOpen ? "Werkzeugleiste schlie\u00dfen" : "Werkzeugleiste \u00f6ffnen");
       document.documentElement.setAttribute("data-left-tools-open", isOpen ? "1" : "0");
-      saveLeftToolsState(isOpen);
     };
-    setToolsOpenState(readLeftToolsState());
+    setToolsOpenState(false);
     leftToolsToggle.addEventListener("click", () => {
-      const willOpen = !leftTools.classList.contains("is-open");
-      setToolsOpenState(willOpen);
-    });
-    leftToolsToggle.addEventListener("keydown", (event) => {
-      if (event.key !== "Enter" && event.key !== " ") {
-        return;
-      }
-      event.preventDefault();
       const willOpen = !leftTools.classList.contains("is-open");
       setToolsOpenState(willOpen);
     });
