@@ -10,10 +10,16 @@ from .models import (
     Attribute,
     Character,
     CharacterAttribute,
+    CharacterDiaryEntry,
     CharacterItem,
     CharacterLanguage,
     CharacterSchool,
+    CharacterSchoolPath,
     CharacterSkill,
+    CharacterTechnique,
+    CharacterTechniqueChoice,
+    CharacterTrait,
+    DamageSource,
     Item,
     Language,
     Modifier,
@@ -21,15 +27,43 @@ from .models import (
     Race,
     RaceAttributeLimit,
     School,
+    SchoolPath,
     SchoolType,
     Skill,
     SkillCategory,
+    SkillFamily,
     Technique,
+    TechniqueExclusion,
+    TechniqueRequirement,
     Trait,
-    CharacterTrait,
-    DamageSource,
     WeaponStats,
 )
+
+ArmorStats._meta.verbose_name = "Armor Stats"
+ArmorStats._meta.verbose_name_plural = "Armor Stats"
+WeaponStats._meta.verbose_name = "Weapon Stats"
+WeaponStats._meta.verbose_name_plural = "Weapon Stats"
+
+
+def _label_skill_family_field(formfield):
+    """Render skill family choices with readable labels in admin widgets."""
+    if formfield is not None:
+        formfield.label_from_instance = lambda obj: f"{obj.name} ({obj.slug})"
+    return formfield
+
+
+def _format_technique_choice_context(technique):
+    """Return compact editor-facing choice guidance for a technique."""
+    if technique is None:
+        return "-"
+    parts = []
+    if technique.choice_group:
+        parts.append(f"Group: {technique.choice_group}")
+    if technique.selection_notes:
+        parts.append(technique.selection_notes)
+    if not parts and technique.choice_target_kind != Technique.ChoiceTargetKind.NONE:
+        parts.append("Persistent choice without extra editor notes.")
+    return " | ".join(parts) if parts else "-"
 
 
 class SkillInline(admin.TabularInline):
@@ -39,6 +73,23 @@ class SkillInline(admin.TabularInline):
     extra = 0
     show_change_link = True
     autocomplete_fields = ("attribute",)
+
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        """Use readable labels for optional skill family relations."""
+        formfield = super().formfield_for_foreignkey(db_field, request, **kwargs)
+        if db_field.name == "family":
+            return _label_skill_family_field(formfield)
+        return formfield
+
+
+class SkillFamilySkillInline(admin.TabularInline):
+    """Inline editor for skills from the family side."""
+
+    model = Skill
+    fk_name = "family"
+    extra = 0
+    show_change_link = True
+    autocomplete_fields = ("category", "attribute")
 
 
 class RaceAttributeLimitInline(admin.TabularInline):
@@ -114,6 +165,118 @@ class CharacterSchoolInline(admin.TabularInline):
     autocomplete_fields = ("school",)
 
 
+class CharacterSchoolPathInline(admin.TabularInline):
+    """Inline editor for a character's chosen school paths."""
+
+    model = CharacterSchoolPath
+    extra = 0
+    show_change_link = True
+    autocomplete_fields = ("school", "path")
+
+
+class CharacterTechniqueInline(admin.TabularInline):
+    """Inline editor for a character's explicitly learned techniques."""
+
+    model = CharacterTechnique
+    extra = 0
+    show_change_link = True
+    autocomplete_fields = ("technique",)
+    fields = (
+        "technique",
+        "technique_school",
+        "technique_level",
+        "technique_support_level",
+        "technique_choice_context",
+        "learned_at",
+        "notes",
+    )
+    readonly_fields = (
+        "technique_school",
+        "technique_level",
+        "technique_support_level",
+        "technique_choice_context",
+    )
+
+    @admin.display(description="School")
+    def technique_school(self, obj):
+        """Show the technique's school for faster editing context."""
+        if not obj or not obj.technique_id:
+            return "-"
+        return obj.technique.school
+
+    @admin.display(description="Level")
+    def technique_level(self, obj):
+        """Show the technique's school level requirement."""
+        if not obj or not obj.technique_id:
+            return "-"
+        return obj.technique.level
+
+    @admin.display(description="Support")
+    def technique_support_level(self, obj):
+        """Show how fully the engine supports the linked technique."""
+        if not obj or not obj.technique_id:
+            return "-"
+        return obj.technique.support_level
+
+    @admin.display(description="Choice Notes")
+    def technique_choice_context(self, obj):
+        """Show persistent choice guidance for the linked technique."""
+        if not obj or not obj.technique_id:
+            return "-"
+        return _format_technique_choice_context(obj.technique)
+
+
+class CharacterTechniqueChoiceInline(admin.TabularInline):
+    """Inline editor for persistent character technique choices."""
+
+    model = CharacterTechniqueChoice
+    fk_name = "character"
+    extra = 0
+    show_change_link = True
+    autocomplete_fields = ("technique", "selected_skill", "selected_skill_family")
+    fields = (
+        "technique",
+        "technique_school",
+        "choice_target_kind",
+        "technique_choice_context",
+        "selected_skill",
+        "selected_skill_family",
+    )
+    readonly_fields = ("technique_school", "choice_target_kind", "technique_choice_context")
+
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        """Limit choice rows to real choice techniques and readable family labels."""
+        if db_field.name == "technique":
+            kwargs["queryset"] = Technique.objects.exclude(
+                choice_target_kind=Technique.ChoiceTargetKind.NONE
+            ).select_related("school", "path")
+        formfield = super().formfield_for_foreignkey(db_field, request, **kwargs)
+        if db_field.name == "selected_skill_family":
+            return _label_skill_family_field(formfield)
+        return formfield
+
+    @admin.display(description="School")
+    def technique_school(self, obj):
+        """Show the owning school of the selected technique."""
+        if not obj or not obj.technique_id:
+            return "-"
+        return obj.technique.school
+
+    @admin.display(description="Target")
+    def choice_target_kind(self, obj):
+        """Show which persistent target type the technique expects."""
+        if not obj or not obj.technique_id:
+            return "-"
+        return obj.technique.choice_target_kind
+
+    @admin.display(description="Choice Notes")
+    def technique_choice_context(self, obj):
+        """Show editor-facing notes for the linked choice technique."""
+        if not obj or not obj.technique_id:
+            return "-"
+        return _format_technique_choice_context(obj.technique)
+
+
 class CharacterItemInline(admin.TabularInline):
     """Inline editor for a character's inventory entries."""
 
@@ -138,6 +301,25 @@ class TechniqueInline(admin.TabularInline):
     model = Technique
     extra = 0
     show_change_link = True
+    autocomplete_fields = ("path",)
+    fields = (
+        "name",
+        "level",
+        "path",
+        "technique_type",
+        "acquisition_type",
+        "support_level",
+        "is_choice_placeholder",
+        "choice_group",
+        "selection_notes",
+        "choice_target_kind",
+        "choice_limit",
+        "choice_bonus_value",
+        "action_type",
+        "usage_type",
+        "activation_cost",
+        "activation_cost_resource",
+    )
 
 
 class ProgressionRuleInline(admin.TabularInline):
@@ -162,6 +344,7 @@ class ArmorStatsInline(admin.StackedInline):
     """Inline editor for one-to-one armor stats on an item."""
 
     model = ArmorStats
+    verbose_name_plural = "Armor Stats"
     extra = 0
     max_num = 1
     can_delete = True
@@ -171,10 +354,48 @@ class WeaponStatsInline(admin.StackedInline):
     """Inline editor for one-to-one weapon stats on an item."""
 
     model = WeaponStats
+    verbose_name_plural = "Weapon Stats"
     extra = 0
     max_num = 1
     can_delete = True
     autocomplete_fields = ("damage_source",)
+
+
+class SchoolPathInline(admin.TabularInline):
+    """Inline editor for specialization paths belonging to one school."""
+
+    model = SchoolPath
+    extra = 0
+    show_change_link = True
+
+
+class TechniqueRequirementInline(admin.TabularInline):
+    """Inline editor for structured technique requirements."""
+
+    model = TechniqueRequirement
+    fk_name = "technique"
+    extra = 0
+    show_change_link = True
+    autocomplete_fields = ("required_technique", "required_path", "required_skill", "required_trait")
+    fields = (
+        "minimum_school_level",
+        "required_technique",
+        "required_path",
+        "required_skill",
+        "required_skill_level",
+        "required_trait",
+        "required_trait_level",
+    )
+
+
+class TechniqueExclusionInline(admin.TabularInline):
+    """Inline editor for techniques excluded by the current technique."""
+
+    model = TechniqueExclusion
+    fk_name = "technique"
+    extra = 0
+    show_change_link = True
+    autocomplete_fields = ("excluded_technique",)
 
 
 class WeaponStatsByDamageSourceInline(admin.TabularInline):
@@ -253,6 +474,18 @@ class CharacterLanguageInline(admin.TabularInline):
     autocomplete_fields = ("language",)
 
 
+class CharacterDiaryEntryInline(admin.TabularInline):
+    """Inline editor for one character's diary roll entries."""
+
+    model = CharacterDiaryEntry
+    fk_name = "character"
+    extra = 0
+    show_change_link = True
+    fields = ("order_index", "entry_date", "is_fixed", "updated_at", "text")
+    readonly_fields = ("updated_at",)
+    ordering = ("order_index", "id")
+
+
 class TraitCharacterInline(admin.TabularInline):
     """Inline editor for trait ownership from the trait side."""
 
@@ -303,22 +536,62 @@ class SkillCategoryAdmin(admin.ModelAdmin):
     inlines = (SkillInline,)
 
 
+@admin.register(SkillFamily)
+class SkillFamilyAdmin(admin.ModelAdmin):
+    """Admin configuration for skill families."""
+
+    list_display = ("name", "slug")
+    search_fields = ("name", "slug")
+    ordering = ("name",)
+    inlines = (SkillFamilySkillInline,)
+
+
 @admin.register(Skill)
 class SkillAdmin(admin.ModelAdmin):
     """Admin configuration for skills."""
 
-    list_display = ("name", "slug", "category", "category_slug", "attribute", "attribute_short_name")
-    search_fields = ("name", "slug")
+    list_display = (
+        "name",
+        "slug",
+        "category",
+        "category_slug",
+        "family_name",
+        "family_slug",
+        "attribute",
+        "attribute_short_name",
+    )
+    search_fields = ("name", "slug", "family__name", "family__slug")
     list_filter = ("category", "attribute")
     ordering = ("category", "name")
     autocomplete_fields = ("category", "attribute")
-    list_select_related = ("category", "attribute")
+    list_select_related = ("category", "family", "attribute")
     inlines = (SkillCharacterInline,)
+
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        """Use readable labels for optional skill family relations."""
+        formfield = super().formfield_for_foreignkey(db_field, request, **kwargs)
+        if db_field.name == "family":
+            return _label_skill_family_field(formfield)
+        return formfield
 
     @admin.display(ordering="category__slug", description="Category Slug")
     def category_slug(self, obj):
         """Return the related category slug for list display."""
         return obj.category.slug
+
+    @admin.display(ordering="family__name", description="Family")
+    def family_name(self, obj):
+        """Return the related family name for list display."""
+        if obj.family_id is None:
+            return "-"
+        return obj.family.name
+
+    @admin.display(ordering="family__slug", description="Family Slug")
+    def family_slug(self, obj):
+        """Return the related family slug for list display."""
+        if obj.family_id is None:
+            return "-"
+        return obj.family.slug
 
     @admin.display(ordering="attribute__short_name", description="Attribute Short")
     def attribute_short_name(self, obj):
@@ -332,6 +605,7 @@ class RaceAdmin(admin.ModelAdmin):
 
     list_display = (
         "name",
+        "size_class",
         "movement_summary",
         "phase_1_points",
         "phase_2_points",
@@ -340,7 +614,7 @@ class RaceAdmin(admin.ModelAdmin):
         "can_fly",
     )
     search_fields = ("name", "description")
-    list_filter = ("can_fly",)
+    list_filter = ("size_class", "can_fly")
     ordering = ("name",)
     inlines = (RaceAttributeLimitInline, ModifierInline)
     fieldsets = (
@@ -350,6 +624,7 @@ class RaceAdmin(admin.ModelAdmin):
                 "fields": (
                     "name",
                     "description",
+                    "size_class",
                     "combat_speed",
                     "march_speed",
                     "sprint_speed",
@@ -442,9 +717,13 @@ class CharacterAdmin(admin.ModelAdmin):
         CharacterAttributeInline,
         CharacterSkillInline,
         CharacterSchoolInline,
+        CharacterSchoolPathInline,
+        CharacterTechniqueInline,
+        CharacterTechniqueChoiceInline,
         CharacterItemInline,
         CharacterTraitInline,
         CharacterLanguageInline,
+        CharacterDiaryEntryInline,
     )
     autocomplete_fields = ("owner", "race")
     list_select_related = ("owner", "race")
@@ -528,7 +807,7 @@ class SchoolAdmin(admin.ModelAdmin):
     search_fields = ("name", "type__name", "type__slug")
     list_filter = ("type",)
     ordering = ("type", "name")
-    inlines = (TechniqueInline, SchoolCharacterInline, ModifierInline)
+    inlines = (SchoolPathInline, TechniqueInline, SchoolCharacterInline, ModifierInline)
     autocomplete_fields = ("type",)
     list_select_related = ("type",)
 
@@ -598,22 +877,107 @@ class ModifierAdmin(admin.ModelAdmin):
             return f"{obj.source_content_type} #{obj.source_object_id} (missing)"
         return str(obj.source)
 
+
 @admin.register(Technique)
 class TechniqueAdmin(admin.ModelAdmin):
-    """Admin configuration for techniques."""
+    """Admin configuration for techniques, including support and choice metadata."""
 
-    list_display = ("name", "school", "school_type", "level")
-    search_fields = ("name", "school__name", "school__type__name")
-    list_filter = ("school", "school__type", "level")
+    list_display = (
+        "name",
+        "school",
+        "school_type",
+        "path",
+        "level",
+        "technique_type",
+        "acquisition_type",
+        "support_level",
+        "choice_marker",
+        "choice_group",
+        "choice_target_kind",
+        "choice_limit",
+        "choice_bonus_value",
+        "action_type",
+        "usage_type",
+        "activation_cost",
+        "activation_cost_resource",
+    )
+    search_fields = (
+        "name",
+        "school__name",
+        "school__type__name",
+        "choice_group",
+        "selection_notes",
+        "description",
+    )
+    list_filter = (
+        "school",
+        "school__type",
+        "path",
+        "level",
+        "technique_type",
+        "acquisition_type",
+        "support_level",
+        "is_choice_placeholder",
+        "choice_target_kind",
+        "action_type",
+        "usage_type",
+    )
     ordering = ("school", "level", "name")
-    autocomplete_fields = ("school",)
-    list_select_related = ("school", "school__type")
-    inlines = (ModifierInline,)
+    autocomplete_fields = ("school", "path")
+    list_select_related = ("school", "school__type", "path")
+    inlines = (TechniqueRequirementInline, TechniqueExclusionInline, ModifierInline)
+    fieldsets = (
+        (
+            "Technique",
+            {
+                "fields": (
+                    ("school", "path"),
+                    ("name", "level"),
+                    "description",
+                )
+            },
+        ),
+        (
+            "Classification",
+            {
+                "fields": (
+                    ("technique_type", "acquisition_type"),
+                    "support_level",
+                )
+            },
+        ),
+        (
+            "Choice Handling",
+            {
+                "fields": (
+                    "is_choice_placeholder",
+                    "choice_group",
+                    "selection_notes",
+                    ("choice_target_kind", "choice_limit"),
+                    "choice_bonus_value",
+                )
+            },
+        ),
+        (
+            "Activation",
+            {
+                "fields": (
+                    ("action_type", "usage_type"),
+                    ("activation_cost", "activation_cost_resource"),
+                )
+            },
+        ),
+    )
 
     @admin.display(ordering="school__type__name", description="School Type")
     def school_type(self, obj):
         """Return the related school type for list display."""
         return obj.school.type
+
+    @admin.display(boolean=True, description="Choice")
+    def choice_marker(self, obj):
+        """Flag choice rows and editorial choice-group metadata without adding rule logic."""
+        return bool(obj.is_choice_placeholder or obj.choice_group)
 
 
 @admin.register(Item)
@@ -670,6 +1034,267 @@ class ArmorStatsAdmin(admin.ModelAdmin):
         return obj.rs_sum() // 6
 
 
+@admin.register(SchoolPath)
+class SchoolPathAdmin(admin.ModelAdmin):
+    """Admin configuration for school specialization paths."""
+
+    list_display = ("name", "school", "school_type")
+    search_fields = ("name", "school__name", "school__type__name")
+    list_filter = ("school__type", "school")
+    ordering = ("school", "name")
+    autocomplete_fields = ("school",)
+    list_select_related = ("school", "school__type")
+
+    @admin.display(ordering="school__type__name", description="School Type")
+    def school_type(self, obj):
+        """Return the linked school type for list display."""
+        return obj.school.type
+
+
+@admin.register(CharacterSchoolPath)
+class CharacterSchoolPathAdmin(admin.ModelAdmin):
+    """Admin configuration for chosen character school paths."""
+
+    list_display = ("character", "school", "school_type", "path")
+    search_fields = ("character__name", "school__name", "school__type__name", "path__name")
+    list_filter = ("school__type", "school", "path")
+    ordering = ("character", "school", "path")
+    autocomplete_fields = ("character", "school", "path")
+    list_select_related = ("character", "school", "school__type", "path")
+
+    @admin.display(ordering="school__type__name", description="School Type")
+    def school_type(self, obj):
+        """Return the linked school type for list display."""
+        return obj.school.type
+
+
+@admin.register(CharacterTechnique)
+class CharacterTechniqueAdmin(admin.ModelAdmin):
+    """Admin configuration for explicitly learned character techniques."""
+
+    list_display = (
+        "character",
+        "technique",
+        "technique_school",
+        "technique_path",
+        "technique_level",
+        "technique_support_level",
+        "learned_at",
+    )
+    search_fields = (
+        "character__name",
+        "technique__name",
+        "technique__school__name",
+        "technique__path__name",
+        "technique__choice_group",
+        "technique__selection_notes",
+    )
+    list_filter = (
+        "technique__school__type",
+        "technique__school",
+        "technique__path",
+        "technique__level",
+        "technique__support_level",
+        "technique__is_choice_placeholder",
+    )
+    ordering = ("character", "technique__school", "technique__level", "technique__name")
+    autocomplete_fields = ("character", "technique")
+    list_select_related = ("character", "technique", "technique__school", "technique__school__type", "technique__path")
+
+    @admin.display(ordering="technique__school__name", description="School")
+    def technique_school(self, obj):
+        """Return the technique's school for list display."""
+        return obj.technique.school
+
+    @admin.display(ordering="technique__path__name", description="Path")
+    def technique_path(self, obj):
+        """Return the linked school path if present."""
+        return obj.technique.path or "-"
+
+    @admin.display(ordering="technique__level", description="Level")
+    def technique_level(self, obj):
+        """Return the technique's minimum school level."""
+        return obj.technique.level
+
+    @admin.display(ordering="technique__support_level", description="Support")
+    def technique_support_level(self, obj):
+        """Return how strongly the engine supports the chosen technique."""
+        return obj.technique.support_level
+
+
+@admin.register(CharacterTechniqueChoice)
+class CharacterTechniqueChoiceAdmin(admin.ModelAdmin):
+    """Admin configuration for persistent character technique choices."""
+
+    list_display = (
+        "character",
+        "technique",
+        "technique_school",
+        "technique_level",
+        "choice_target_kind",
+        "technique_choice_context",
+        "selected_skill",
+        "selected_skill_family",
+    )
+    search_fields = (
+        "character__name",
+        "technique__name",
+        "technique__school__name",
+        "selected_skill__name",
+        "selected_skill_family__name",
+    )
+    list_filter = (
+        "technique__school__type",
+        "technique__school",
+        "technique__choice_target_kind",
+    )
+    ordering = ("character", "technique__school", "technique__level", "technique__name")
+    autocomplete_fields = ("character", "technique", "selected_skill", "selected_skill_family")
+    list_select_related = (
+        "character",
+        "technique",
+        "technique__school",
+        "technique__school__type",
+        "selected_skill",
+        "selected_skill_family",
+    )
+    fieldsets = (
+        (
+            "Choice",
+            {
+                "fields": (
+                    ("character", "technique"),
+                    ("technique_level", "choice_target_kind"),
+                    "technique_choice_context",
+                    ("selected_skill", "selected_skill_family"),
+                )
+            },
+        ),
+    )
+
+    readonly_fields = ("technique_level", "choice_target_kind", "technique_choice_context")
+
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        """Limit technique selection to real choice techniques in the dedicated admin."""
+        if db_field.name == "technique":
+            kwargs["queryset"] = Technique.objects.exclude(
+                choice_target_kind=Technique.ChoiceTargetKind.NONE
+            ).select_related("school", "path")
+        formfield = super().formfield_for_foreignkey(db_field, request, **kwargs)
+        if db_field.name == "selected_skill_family":
+            return _label_skill_family_field(formfield)
+        return formfield
+
+    @admin.display(ordering="technique__school__name", description="School")
+    def technique_school(self, obj):
+        """Return the school that owns the selected technique."""
+        return obj.technique.school
+
+    @admin.display(ordering="technique__level", description="Level")
+    def technique_level(self, obj):
+        """Return the required school level of the selected technique."""
+        return obj.technique.level
+
+    @admin.display(ordering="technique__choice_target_kind", description="Target")
+    def choice_target_kind(self, obj):
+        """Return which persistent target kind the technique expects."""
+        return obj.technique.choice_target_kind
+
+    @admin.display(description="Choice Notes")
+    def technique_choice_context(self, obj):
+        """Return editor-facing guidance for persistent technique choices."""
+        return _format_technique_choice_context(obj.technique)
+
+
+@admin.register(TechniqueRequirement)
+class TechniqueRequirementAdmin(admin.ModelAdmin):
+    """Admin configuration for structured technique requirements."""
+
+    list_display = ("technique", "requirement_kind", "requirement_value")
+    search_fields = (
+        "technique__name",
+        "required_technique__name",
+        "required_path__name",
+        "required_skill__name",
+        "required_trait__name",
+    )
+    list_filter = ("technique__school__type", "technique__school")
+    ordering = ("technique__school", "technique__level", "technique__name")
+    autocomplete_fields = ("technique", "required_technique", "required_path", "required_skill", "required_trait")
+    list_select_related = (
+        "technique",
+        "technique__school",
+        "technique__school__type",
+        "required_technique",
+        "required_path",
+        "required_skill",
+        "required_trait",
+    )
+
+    @admin.display(description="Requirement Type")
+    def requirement_kind(self, obj):
+        """Render the active requirement type for quick scanning."""
+        if obj.minimum_school_level is not None:
+            return "School Level"
+        if obj.required_technique_id:
+            return "Technique"
+        if obj.required_path_id:
+            return "School Path"
+        if obj.required_skill_id:
+            return "Skill"
+        if obj.required_trait_id:
+            return "Trait"
+        return "-"
+
+    @admin.display(description="Requirement Value")
+    def requirement_value(self, obj):
+        """Render the linked requirement payload compactly."""
+        if obj.minimum_school_level is not None:
+            return obj.minimum_school_level
+        if obj.required_technique_id:
+            return obj.required_technique
+        if obj.required_path_id:
+            return obj.required_path
+        if obj.required_skill_id:
+            return f"{obj.required_skill} {obj.required_skill_level}+"
+        if obj.required_trait_id:
+            return f"{obj.required_trait} {obj.required_trait_level}+"
+        return "-"
+
+
+@admin.register(TechniqueExclusion)
+class TechniqueExclusionAdmin(admin.ModelAdmin):
+    """Admin configuration for mutually exclusive techniques."""
+
+    list_display = ("technique", "technique_school", "excluded_technique", "excluded_school")
+    search_fields = (
+        "technique__name",
+        "technique__school__name",
+        "excluded_technique__name",
+        "excluded_technique__school__name",
+    )
+    list_filter = ("technique__school__type", "technique__school", "excluded_technique__school")
+    ordering = ("technique__school", "technique__name", "excluded_technique__name")
+    autocomplete_fields = ("technique", "excluded_technique")
+    list_select_related = (
+        "technique",
+        "technique__school",
+        "technique__school__type",
+        "excluded_technique",
+        "excluded_technique__school",
+    )
+
+    @admin.display(ordering="technique__school__name", description="Technique School")
+    def technique_school(self, obj):
+        """Return the source technique school for list display."""
+        return obj.technique.school
+
+    @admin.display(ordering="excluded_technique__school__name", description="Excluded School")
+    def excluded_school(self, obj):
+        """Return the excluded technique school for list display."""
+        return obj.excluded_technique.school
+
+
 @admin.register(DamageSource)
 class DamageSourceAdmin(admin.ModelAdmin):
     """Admin configuration for weapon damage source definitions."""
@@ -682,7 +1307,7 @@ class DamageSourceAdmin(admin.ModelAdmin):
 @admin.register(WeaponStats)
 class WeaponStatsAdmin(admin.ModelAdmin):
     """Admin configuration for weapon stat records."""
-    list_display = ("item", "damage", "damage_source", "min_st")
+    list_display = ("item", "damage", "two_handed_damage", "damage_source", "min_st", "size_class", "two_handed")
     search_fields = ("item__name", "damage_source__name")
     ordering = ("item__name",)
     autocomplete_fields = ("item", "damage_source")
@@ -730,3 +1355,15 @@ class CharacterLanguageAdmin(admin.ModelAdmin):
     ordering = ("owner", "language")
     autocomplete_fields = ("owner", "language")
     list_select_related = ("owner", "language")
+
+
+@admin.register(CharacterDiaryEntry)
+class CharacterDiaryEntryAdmin(admin.ModelAdmin):
+    """Admin configuration for persisted diary roll entries."""
+
+    list_display = ("character", "order_index", "entry_date", "is_fixed", "updated_at")
+    search_fields = ("character__name", "text")
+    list_filter = ("is_fixed", "entry_date")
+    ordering = ("character", "order_index", "id")
+    autocomplete_fields = ("character",)
+    list_select_related = ("character",)

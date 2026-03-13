@@ -1,6 +1,7 @@
 from __future__ import annotations
 import json
 import random
+from datetime import date as date_cls
 from itertools import groupby
 from django.conf import settings
 from django.core.exceptions import ValidationError
@@ -20,9 +21,11 @@ from django.utils import timezone
 from django.urls import reverse_lazy
 from .engine import CharacterCreationEngine
 from django.views.generic import TemplateView
+from .constants import GK_MODS
 from .models import (
     Character,
     CharacterAttribute,
+    CharacterDiaryEntry,
     CharacterItem,
     CharacterLanguage,
     CharacterSchool,
@@ -52,6 +55,7 @@ ATTRIBUTE_ORDER = [
     ("CHA", "Charisma (Cha)"),
 ]
 DEFAULT_SCHOOL_MAX_LEVEL = 10
+DIARY_ENTRY_CHAR_LIMIT = 2200
 
 
 def _legal_context() -> dict:
@@ -138,6 +142,123 @@ def _owned_character_item_or_404(request, pk: int) -> CharacterItem:
         pk=pk,
         owner__owner=request.user,
     )
+
+
+def _owned_diary_entry_or_404(request, character_id: int, entry_id: int) -> tuple[Character, CharacterDiaryEntry]:
+    """Return one diary entry that belongs to one owned character."""
+    character = _owned_character_or_404(request, character_id)
+    entry = get_object_or_404(
+        CharacterDiaryEntry.objects.select_related("character"),
+        pk=entry_id,
+        character=character,
+    )
+    return character, entry
+
+
+def _parse_iso_date(raw_value) -> date_cls | None:
+    """Parse one HTML date input value into a Python date."""
+    raw = str(raw_value or "").strip()
+    if not raw:
+        return None
+    try:
+        return date_cls.fromisoformat(raw)
+    except ValueError:
+        return None
+
+
+def _normalize_diary_entries(character: Character) -> list[CharacterDiaryEntry]:
+    """Guarantee stable order and exactly one empty editable tail entry per character."""
+    with transaction.atomic():
+        entries = list(
+            CharacterDiaryEntry.objects
+            .select_for_update()
+            .filter(character=character)
+            .order_by("order_index", "id")
+        )
+        if not entries:
+            CharacterDiaryEntry.objects.create(
+                character=character,
+                order_index=0,
+                text="",
+                entry_date=None,
+                is_fixed=False,
+            )
+            return list(
+                CharacterDiaryEntry.objects
+                .filter(character=character)
+                .order_by("order_index", "id")
+            )
+
+        trailing_blank_entries: list[CharacterDiaryEntry] = []
+        for entry in reversed(entries):
+            if entry.is_fixed or (entry.text or "").strip():
+                break
+            trailing_blank_entries.append(entry)
+        trailing_blank_entries.reverse()
+
+        if not trailing_blank_entries:
+            entries.append(
+                CharacterDiaryEntry.objects.create(
+                    character=character,
+                    order_index=len(entries),
+                    text="",
+                    entry_date=None,
+                    is_fixed=False,
+                )
+            )
+        elif len(trailing_blank_entries) > 1:
+            stale_entries = trailing_blank_entries[:-1]
+            CharacterDiaryEntry.objects.filter(pk__in=[entry.pk for entry in stale_entries]).delete()
+            entries = entries[:len(entries) - len(trailing_blank_entries)] + [trailing_blank_entries[-1]]
+
+        dirty_entries: list[CharacterDiaryEntry] = []
+        for index, entry in enumerate(entries):
+            if entry.order_index != index:
+                entry.order_index = index
+                dirty_entries.append(entry)
+        if dirty_entries:
+            CharacterDiaryEntry.objects.bulk_update(dirty_entries, ["order_index"])
+
+        return list(
+            CharacterDiaryEntry.objects
+            .filter(character=character)
+            .order_by("order_index", "id")
+        )
+
+
+def _serialize_diary_entry(entry: CharacterDiaryEntry) -> dict[str, object]:
+    """Return one diary entry payload for the character-sheet frontend."""
+    return {
+        "id": entry.id,
+        "order_index": entry.order_index,
+        "text": entry.text,
+        "entry_date": entry.entry_date.isoformat() if entry.entry_date else "",
+        "is_fixed": bool(entry.is_fixed),
+        "is_empty": entry.is_empty,
+        "created_at": entry.created_at.isoformat(),
+        "updated_at": entry.updated_at.isoformat(),
+    }
+
+
+def _diary_payload(character: Character, *, current_entry_id: int | None = None) -> dict[str, object]:
+    """Return normalized diary state payload for one character."""
+    entries = _normalize_diary_entries(character)
+    if current_entry_id is None and entries:
+        current_entry_id = entries[-1].id
+    return {
+        "ok": True,
+        "entries": [_serialize_diary_entry(entry) for entry in entries],
+        "current_entry_id": current_entry_id,
+    }
+
+
+def _read_json_payload(request) -> dict[str, object]:
+    """Parse one JSON request body into a dictionary."""
+    try:
+        payload = json.loads(request.body.decode("utf-8")) if request.body else {}
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return {}
+    return payload if isinstance(payload, dict) else {}
 
 
 def _character_dashboard_state(character: Character) -> dict[str, str]:
@@ -278,6 +399,12 @@ def character_sheet(request, character_id: int):
     ]
     wallet_gold, wallet_silver, wallet_copper = engine.km_to_coins()
     race = character.race
+    size_class = getattr(race, "size_class", None) or getattr(race, "height_class", "-") or "-"
+    size_class_mod = (
+        _format_modifier(int(GK_MODS[size_class]))
+        if size_class in GK_MODS
+        else "-"
+    )
     fly_value = "-"
     if race.can_fly:
         combat_fly = race.combat_fly_speed if race.combat_fly_speed is not None else 0
@@ -432,6 +559,8 @@ def character_sheet(request, character_id: int):
         "wallet_silver": wallet_silver,
         "wallet_copper": wallet_copper,
         "wallet_total_ks": _format_thousands(character.money),
+        "size_class": size_class,
+        "size_class_mod": size_class_mod,
         "movement_ground": movement_ground,
         "language_rows": language_rows,
         "shop_item_groups": shop_item_groups,
@@ -450,6 +579,138 @@ def character_sheet(request, character_id: int):
     }
 
     return render(request, "charsheet/charsheet.html", context)
+
+
+@login_required
+def character_diary_entries_api(request, character_id: int):
+    """Return normalized diary-roll entries for one owned character as JSON."""
+    if request.method != "GET":
+        return JsonResponse({"ok": False, "error": "method_not_allowed"}, status=405)
+    character = _owned_character_or_404(request, character_id)
+    return JsonResponse(_diary_payload(character))
+
+
+@login_required
+@require_POST
+def edit_character_diary_entry(request, character_id: int, entry_id: int):
+    """Switch one fixed diary entry into explicit edit mode."""
+    character, entry = _owned_diary_entry_or_404(request, character_id, entry_id)
+    if entry.is_fixed:
+        entry.is_fixed = False
+        entry.save(update_fields=["is_fixed", "updated_at"])
+    return JsonResponse(_diary_payload(character, current_entry_id=entry.id))
+
+
+@login_required
+@require_POST
+def save_character_diary_entry(request, character_id: int, entry_id: int):
+    """Persist one editable diary entry without fixing it yet."""
+    character, entry = _owned_diary_entry_or_404(request, character_id, entry_id)
+    if entry.is_fixed:
+        return JsonResponse({"ok": False, "error": "entry_fixed"}, status=409)
+
+    payload = _read_json_payload(request)
+    text = str(payload.get("text", entry.text or ""))
+    if len(text) > DIARY_ENTRY_CHAR_LIMIT:
+        return JsonResponse({"ok": False, "error": "text_too_long"}, status=400)
+
+    update_fields = ["text", "updated_at"]
+    entry.text = text
+    if entry.entry_date is None:
+        requested_date = _parse_iso_date(payload.get("entry_date"))
+        if requested_date is not None:
+            entry.entry_date = requested_date
+            update_fields.append("entry_date")
+    entry.save(update_fields=update_fields)
+    return JsonResponse(_diary_payload(character, current_entry_id=entry.id))
+
+
+@login_required
+@require_POST
+def fix_character_diary_entry(request, character_id: int, entry_id: int):
+    """Finalize one diary entry, freeze its date, and append a fresh tail draft if needed."""
+    character, entry = _owned_diary_entry_or_404(request, character_id, entry_id)
+    payload = _read_json_payload(request)
+    text = str(payload.get("text", entry.text or ""))
+    if len(text) > DIARY_ENTRY_CHAR_LIMIT:
+        return JsonResponse({"ok": False, "error": "text_too_long"}, status=400)
+    if not text.strip():
+        return JsonResponse({"ok": False, "error": "empty_entry"}, status=400)
+
+    entry.text = text
+    entry.is_fixed = True
+    if entry.entry_date is None:
+        entry.entry_date = _parse_iso_date(payload.get("entry_date")) or timezone.localdate()
+        entry.save(update_fields=["text", "is_fixed", "entry_date", "updated_at"])
+    else:
+        entry.save(update_fields=["text", "is_fixed", "updated_at"])
+    return JsonResponse(_diary_payload(character, current_entry_id=entry.id))
+
+
+@login_required
+@require_POST
+def delete_character_diary_entry(request, character_id: int, entry_id: int):
+    """Delete one diary entry and keep the remaining roll normalized."""
+    character, entry = _owned_diary_entry_or_404(request, character_id, entry_id)
+    target_index = int(entry.order_index)
+    entry.delete()
+    entries = _normalize_diary_entries(character)
+    fallback_index = min(target_index, max(0, len(entries) - 1))
+    current_entry_id = entries[fallback_index].id if entries else None
+    return JsonResponse(_diary_payload(character, current_entry_id=current_entry_id))
+
+
+@login_required
+@require_POST
+def import_legacy_character_diary(request, character_id: int):
+    """Import one legacy browser-local diary payload into the persistent diary model."""
+    character = _owned_character_or_404(request, character_id)
+    payload = _read_json_payload(request)
+    raw_entries = payload.get("entries")
+    if not isinstance(raw_entries, list):
+        return JsonResponse({"ok": False, "error": "invalid_payload"}, status=400)
+
+    existing_entries = _normalize_diary_entries(character)
+    has_real_server_entries = any(entry.is_fixed or not entry.is_empty for entry in existing_entries)
+    if has_real_server_entries:
+        return JsonResponse({"ok": False, "error": "server_diary_not_empty"}, status=409)
+
+    import_rows: list[CharacterDiaryEntry] = []
+    for index, raw_entry in enumerate(raw_entries):
+        if not isinstance(raw_entry, dict):
+            continue
+        text = str(raw_entry.get("text", ""))
+        if len(text) > DIARY_ENTRY_CHAR_LIMIT:
+            text = text[:DIARY_ENTRY_CHAR_LIMIT]
+        if not text.strip():
+            continue
+        entry_date = _parse_iso_date(raw_entry.get("entry_date") or raw_entry.get("createdAt"))
+        legacy_saved = raw_entry.get("isSaved")
+        legacy_fixed = raw_entry.get("is_fixed")
+        if isinstance(legacy_saved, bool):
+            is_fixed = legacy_saved
+        elif isinstance(legacy_fixed, bool):
+            is_fixed = legacy_fixed
+        else:
+            is_fixed = True
+        import_rows.append(
+            CharacterDiaryEntry(
+                character=character,
+                order_index=index,
+                text=text,
+                entry_date=entry_date,
+                is_fixed=is_fixed,
+            )
+        )
+
+    if not import_rows:
+        return JsonResponse({"ok": False, "error": "no_legacy_entries"}, status=400)
+
+    with transaction.atomic():
+        CharacterDiaryEntry.objects.filter(character=character).delete()
+        CharacterDiaryEntry.objects.bulk_create(import_rows)
+
+    return JsonResponse(_diary_payload(character))
 
 
 @login_required

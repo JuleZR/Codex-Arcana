@@ -86,3 +86,37 @@ SKILL_CATEGORY_CHOICES = [
     (SKILL_COMBAT, "Waffenfertigkeiten"),
     (SKILL_KNOWLEDGE, "Wissensfertigkeiten"),
 ]
+
+GK_VERYFINE = "S"
+GK_FINE = "F"
+GK_TINY = "W"
+GK_SMALL = "K"
+GK_AVERAGE = "M"
+GK_LARGE = "G"
+GK_HUGE = "R"
+GK_GIANT = "Gi"
+GK_COLOSSAL = "Kol"
+
+GK_CHOICES = [
+    (GK_VERYFINE, GK_VERYFINE),
+    (GK_FINE, GK_FINE),
+    (GK_TINY, GK_TINY),
+    (GK_SMALL, GK_SMALL),
+    (GK_AVERAGE, GK_AVERAGE),
+    (GK_LARGE, GK_LARGE),
+    (GK_HUGE, GK_HUGE),
+    (GK_GIANT, GK_GIANT),
+    (GK_COLOSSAL, GK_COLOSSAL),
+]
+
+GK_MODS = {
+    GK_VERYFINE: 8,
+    GK_FINE: 4,
+    GK_TINY: 2,
+    GK_SMALL: 1,
+    GK_AVERAGE: 0,
+    GK_LARGE: -1,
+    GK_HUGE: -2,
+    GK_GIANT: -4,
+    GK_COLOSSAL: -8,
+}

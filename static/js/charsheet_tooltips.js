@@ -19,13 +19,13 @@ document.addEventListener("DOMContentLoaded", () => {
   const diaryWindow = document.getElementById("diaryWindow");
   const diaryWindowClose = document.getElementById("diaryWindowClose");
   const diaryWindowHandle = document.getElementById("diaryWindowHandle");
-  const diaryNotesList = document.getElementById("diaryNotesList");
   const diaryPrevBtn = document.getElementById("diaryPrevBtn");
   const diaryNextBtn = document.getElementById("diaryNextBtn");
   const diaryPageStatus = document.getElementById("diaryPageStatus");
   const diaryForm = document.getElementById("diaryForm");
   const diaryInput = document.getElementById("diaryInput");
   const diaryDateInput = document.getElementById("diaryDateInput");
+  const diaryDeleteBtn = document.getElementById("diaryDeleteBtn");
   const charInfoWindow = document.getElementById("charInfoWindow");
   const charInfoWindowClose = document.getElementById("charInfoWindowClose");
   const charInfoWindowHandle = document.getElementById("charInfoWindowHandle");
@@ -180,50 +180,21 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  if (diaryWindow && diaryNotesList && diaryForm && diaryInput && diaryDateInput && diaryPrevBtn && diaryNextBtn && diaryPageStatus) {
+  if (diaryWindow && diaryForm && diaryInput && diaryDateInput && diaryPrevBtn && diaryNextBtn && diaryPageStatus && diaryDeleteBtn) {
     const diaryMeta = diaryWindow.querySelector("[data-character-id]");
     const characterId = diaryMeta?.dataset.characterId || "0";
-    const characterName = (diaryMeta?.dataset.characterName || "").trim();
     const diaryStorageKey = `charsheet.diary.${characterId}`;
     const diaryPageStorageKey = `charsheet.diary.page.${characterId}`;
+    const PAGE_CHAR_LIMIT = 1850;
     let currentPageIndex = 0;
+    let isDiaryTurning = false;
+    let isProgrammaticDiaryUpdate = false;
+
     const createEntryId = () => {
       if (window.crypto && typeof window.crypto.randomUUID === "function") {
         return window.crypto.randomUUID();
       }
       return `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
-    };
-    const loadRawNotes = () => {
-      try {
-        const raw = window.localStorage.getItem(diaryStorageKey);
-        const parsed = raw ? JSON.parse(raw) : [];
-        return Array.isArray(parsed) ? parsed : [];
-      } catch (_error) {
-        return [];
-      }
-    };
-    const saveNotes = (notes) => {
-      try {
-        window.localStorage.setItem(diaryStorageKey, JSON.stringify(notes));
-      } catch (_error) {
-        // no-op
-      }
-    };
-    const readPageIndex = () => {
-      try {
-        const raw = window.localStorage.getItem(diaryPageStorageKey);
-        const parsed = Number.parseInt(String(raw || ""), 10);
-        return Number.isNaN(parsed) ? 0 : parsed;
-      } catch (_error) {
-        return 0;
-      }
-    };
-    const savePageIndex = (index) => {
-      try {
-        window.localStorage.setItem(diaryPageStorageKey, String(index));
-      } catch (_error) {
-        // no-op
-      }
     };
     const toYmd = (date) => {
       const year = String(date.getFullYear());
@@ -256,36 +227,6 @@ document.addEventListener("DOMContentLoaded", () => {
       const parsed = parseDiaryDate(rawValue);
       return parsed ? toYmd(parsed) : toYmd(new Date());
     };
-    const readNotes = () => {
-      const rawNotes = loadRawNotes();
-      let hasChanges = false;
-      const notes = rawNotes
-        .map((entry, index) => {
-          if (!entry || typeof entry !== "object") {
-            hasChanges = true;
-            return null;
-          }
-          const text = String(entry.text || "").trim();
-          if (!text) {
-            hasChanges = true;
-            return null;
-          }
-          const createdAtRaw = typeof entry.createdAt === "string" ? entry.createdAt : "";
-          const createdAt = normalizeDiaryDate(createdAtRaw);
-          const id = typeof entry.id === "string" && entry.id
-            ? entry.id
-            : `legacy-${index}-${createdAt}`;
-          if (id !== entry.id || createdAt !== createdAtRaw) {
-            hasChanges = true;
-          }
-          return { id, text, createdAt };
-        })
-        .filter(Boolean);
-      if (hasChanges) {
-        saveNotes(notes);
-      }
-      return notes;
-    };
     const formatTimestamp = (rawDate) => {
       const date = parseDiaryDate(rawDate);
       if (!date) {
@@ -298,165 +239,219 @@ document.addEventListener("DOMContentLoaded", () => {
       const year = String(date.getFullYear());
       return `${weekday} ${day}.${month}.${year}`;
     };
-    let isDiaryTurning = false;
+    const loadRawPages = () => {
+      try {
+        const raw = window.localStorage.getItem(diaryStorageKey);
+        const parsed = raw ? JSON.parse(raw) : [];
+        return Array.isArray(parsed) ? parsed : [];
+      } catch (_error) {
+        return [];
+      }
+    };
+    const savePages = (pages) => {
+      try {
+        window.localStorage.setItem(diaryStorageKey, JSON.stringify(pages));
+      } catch (_error) {
+        // no-op
+      }
+    };
+    const readPageIndex = () => {
+      try {
+        const raw = window.localStorage.getItem(diaryPageStorageKey);
+        const parsed = Number.parseInt(String(raw || ""), 10);
+        return Number.isNaN(parsed) ? 0 : parsed;
+      } catch (_error) {
+        return 0;
+      }
+    };
+    const savePageIndex = (index) => {
+      try {
+        window.localStorage.setItem(diaryPageStorageKey, String(index));
+      } catch (_error) {
+        // no-op
+      }
+    };
+    const createBlankPage = (dateValue) => ({
+      id: createEntryId(),
+      text: "",
+      createdAt: normalizeDiaryDate(dateValue),
+    });
+    const ensurePages = (pages) => {
+      const safePages = Array.isArray(pages) ? pages : [];
+      if (!safePages.length) {
+        safePages.push(createBlankPage(new Date()));
+      }
+      return safePages;
+    };
+    const readPages = () => {
+      const rawPages = loadRawPages();
+      let hasChanges = false;
+      const pages = rawPages
+        .map((entry, index) => {
+          if (!entry || typeof entry !== "object") {
+            hasChanges = true;
+            return null;
+          }
+          const id = typeof entry.id === "string" && entry.id ? entry.id : `legacy-${index}`;
+          const text = typeof entry.text === "string" ? entry.text : "";
+          const createdAt = normalizeDiaryDate(entry.createdAt);
+          if (id !== entry.id || text !== entry.text || createdAt !== entry.createdAt) {
+            hasChanges = true;
+          }
+          return { id, text, createdAt };
+        })
+        .filter(Boolean);
+      ensurePages(pages);
+      if (hasChanges || !rawPages.length) {
+        savePages(pages);
+      }
+      return pages;
+    };
+    const getCurrentPages = () => {
+      const pages = readPages();
+      currentPageIndex = Math.min(Math.max(currentPageIndex, 0), Math.max(0, pages.length - 1));
+      return pages;
+    };
     const setPagerState = (totalPages) => {
-      diaryPageStatus.textContent = totalPages ? `Seite ${currentPageIndex + 1} / ${totalPages}` : "Seite 0 / 0";
+      diaryPageStatus.textContent = `Seite ${currentPageIndex + 1} / ${Math.max(totalPages, 1)}`;
       diaryPrevBtn.disabled = isDiaryTurning || currentPageIndex <= 0;
-      diaryNextBtn.disabled = isDiaryTurning || currentPageIndex >= Math.max(0, totalPages - 1);
+      diaryNextBtn.disabled = isDiaryTurning || currentPageIndex >= totalPages - 1;
+      diaryDeleteBtn.disabled = totalPages <= 1 && !diaryInput.value.trim();
     };
-    const buildNoteCard = (entry) => {
-      const card = document.createElement("article");
-      card.className = "diary_note";
-      card.dataset.diaryId = entry.id;
-
-      const header = document.createElement("div");
-      header.className = "diary_note_header";
-
-      const time = document.createElement("time");
-      time.className = "diary_note_time";
-      time.dateTime = entry.createdAt || "";
-      time.textContent = formatTimestamp(entry.createdAt || "");
-
-      const remove = document.createElement("button");
-      remove.type = "button";
-      remove.className = "diary_note_delete";
-      remove.textContent = "x";
-      remove.setAttribute("aria-label", `Eintrag vom ${formatTimestamp(entry.createdAt || "")} loeschen`);
-      remove.title = "Eintrag loeschen";
-      remove.dataset.diaryDelete = entry.id;
-      header.appendChild(remove);
-      header.appendChild(time);
-      card.appendChild(header);
-
-      const text = document.createElement("p");
-      text.className = "diary_note_text";
-      const bodyText = entry.text || "";
-      text.textContent = characterName ? `${bodyText}\n\n- ${characterName}` : bodyText;
-      card.appendChild(text);
-      return card;
-    };
-    const renderNotes = () => {
-      const notes = readNotes();
-      const totalPages = notes.length;
-      const maxIndex = Math.max(0, totalPages - 1);
-      currentPageIndex = Math.min(Math.max(currentPageIndex, 0), maxIndex);
+    const renderPage = () => {
+      const pages = getCurrentPages();
+      const currentPage = pages[currentPageIndex];
+      isProgrammaticDiaryUpdate = true;
+      diaryInput.value = currentPage.text || "";
+      diaryDateInput.value = currentPage.createdAt || toYmd(new Date());
+      diaryDeleteBtn.setAttribute("aria-label", `Seite ${currentPageIndex + 1} loeschen`);
+      diaryDeleteBtn.title = `${formatTimestamp(currentPage.createdAt)} loeschen`;
+      isProgrammaticDiaryUpdate = false;
       savePageIndex(currentPageIndex);
-      diaryNotesList.innerHTML = "";
-      if (!totalPages) {
-        const empty = document.createElement("p");
-        empty.className = "diary_note_empty";
-        empty.textContent = "Noch keine Notizen vorhanden.";
-        diaryNotesList.appendChild(empty);
-        setPagerState(0);
-        return;
-      }
-      const entry = notes[currentPageIndex];
-      diaryNotesList.appendChild(buildNoteCard(entry));
-      setPagerState(totalPages);
+      setPagerState(pages.length);
     };
-    const animateTurnTo = (targetIndex) => {
-      const notes = readNotes();
-      const totalPages = notes.length;
-      if (!totalPages || isDiaryTurning) {
+    const persistCurrentPage = () => {
+      const pages = getCurrentPages();
+      const page = pages[currentPageIndex];
+      page.text = diaryInput.value;
+      page.createdAt = normalizeDiaryDate(diaryDateInput.value);
+      savePages(pages);
+      setPagerState(pages.length);
+      return pages;
+    };
+    const moveToPage = (targetIndex) => {
+      const pages = readPages();
+      const nextIndex = Math.min(Math.max(targetIndex, 0), pages.length - 1);
+      if (nextIndex === currentPageIndex || isDiaryTurning) {
         return;
       }
-      const maxIndex = Math.max(0, totalPages - 1);
-      const nextIndex = Math.min(Math.max(targetIndex, 0), maxIndex);
-      if (nextIndex === currentPageIndex) {
-        return;
-      }
-      const currentCard = diaryNotesList.querySelector(".diary_note");
-      if (!(currentCard instanceof HTMLElement)) {
-        currentPageIndex = nextIndex;
-        renderNotes();
-        return;
-      }
-
+      persistCurrentPage();
       isDiaryTurning = true;
-      setPagerState(totalPages);
-      const outAnimation = currentCard.animate([
-        { opacity: 1 },
-        { opacity: 0.06 },
+      setPagerState(pages.length);
+      diaryForm.animate([
+        { opacity: 1, transform: "rotateY(0deg) scale(1)" },
+        { opacity: 0.55, transform: `rotateY(${nextIndex > currentPageIndex ? "-8deg" : "8deg"}) scale(0.995)` },
+        { opacity: 1, transform: "rotateY(0deg) scale(1)" },
       ], {
-        duration: 170,
-        easing: "ease-out",
-        fill: "forwards",
-      });
-
-      outAnimation.onfinish = () => {
+        duration: 230,
+        easing: "ease-in-out",
+      }).onfinish = () => {
         currentPageIndex = nextIndex;
-        renderNotes();
-        const incomingCard = diaryNotesList.querySelector(".diary_note");
-        if (!(incomingCard instanceof HTMLElement)) {
-          isDiaryTurning = false;
-          setPagerState(readNotes().length);
-          return;
-        }
-        const inAnimation = incomingCard.animate([
-          { opacity: 0.12 },
-          { opacity: 1 },
-        ], {
-          duration: 190,
-          easing: "ease-in",
-          fill: "forwards",
-        });
-        inAnimation.onfinish = () => {
-          isDiaryTurning = false;
-          setPagerState(readNotes().length);
-        };
+        isDiaryTurning = false;
+        renderPage();
       };
+    };
+    const carryOverflowForward = () => {
+      let pages = getCurrentPages();
+      let pageIndex = currentPageIndex;
+      let changed = false;
+      while (pageIndex < pages.length) {
+        const page = pages[pageIndex];
+        if ((page.text || "").length <= PAGE_CHAR_LIMIT) {
+          pageIndex += 1;
+          continue;
+        }
+        const overflow = page.text.slice(PAGE_CHAR_LIMIT);
+        page.text = page.text.slice(0, PAGE_CHAR_LIMIT).trimEnd();
+        const nextPage = pages[pageIndex + 1] || createBlankPage(page.createdAt);
+        nextPage.text = `${overflow.trimStart()}${nextPage.text ? `
+${nextPage.text}` : ""}`.trim();
+        if (!pages[pageIndex + 1]) {
+          pages.splice(pageIndex + 1, 0, nextPage);
+        } else {
+          pages[pageIndex + 1] = nextPage;
+        }
+        changed = true;
+        pageIndex += 1;
+      }
+      if (changed) {
+        savePages(pages);
+      }
+      return changed;
     };
 
     currentPageIndex = readPageIndex();
-    diaryDateInput.value = toYmd(new Date());
-    renderNotes();
-    diaryForm.addEventListener("submit", (event) => {
-      event.preventDefault();
-      const text = diaryInput.value.trim();
-      if (!text) {
+    renderPage();
+
+    diaryInput.addEventListener("input", () => {
+      if (isProgrammaticDiaryUpdate) {
         return;
       }
-      const notes = readNotes();
-      notes.push({
-        id: createEntryId(),
-        text,
-        createdAt: normalizeDiaryDate(diaryDateInput.value),
-      });
-      saveNotes(notes.slice(-400));
-      currentPageIndex = Math.max(0, notes.length - 1);
-      diaryInput.value = "";
-      renderNotes();
+      persistCurrentPage();
+      if (diaryInput.value.length <= PAGE_CHAR_LIMIT) {
+        return;
+      }
+      const previousIndex = currentPageIndex;
+      carryOverflowForward();
+      currentPageIndex = Math.min(previousIndex + 1, readPages().length - 1);
+      renderPage();
       diaryInput.focus();
+      diaryInput.setSelectionRange(0, 0);
     });
 
-    diaryNotesList.addEventListener("click", (event) => {
-      if (isDiaryTurning) {
+    diaryDateInput.addEventListener("change", () => {
+      if (isProgrammaticDiaryUpdate) {
         return;
       }
-      const target = event.target;
-      if (!(target instanceof HTMLElement)) {
+      persistCurrentPage();
+    });
+
+    diaryForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const pages = persistCurrentPage();
+      if (currentPageIndex === pages.length - 1) {
+        pages.push(createBlankPage(diaryDateInput.value));
+        savePages(pages);
+      }
+      moveToPage(Math.min(currentPageIndex + 1, readPages().length - 1));
+    });
+
+    diaryDeleteBtn.addEventListener("click", () => {
+      const pages = getCurrentPages();
+      if (pages.length <= 1) {
+        pages[0] = createBlankPage(diaryDateInput.value);
+        savePages(pages);
+        currentPageIndex = 0;
+        renderPage();
         return;
       }
-      const id = target.dataset.diaryDelete;
-      if (!id) {
-        return;
-      }
-      const previousNotes = readNotes();
-      const deletedIndex = previousNotes.findIndex((entry) => entry.id === id);
-      const notes = previousNotes.filter((entry) => entry.id !== id);
-      if (deletedIndex !== -1 && currentPageIndex >= deletedIndex) {
-        currentPageIndex = Math.max(0, currentPageIndex - 1);
-      }
-      saveNotes(notes);
-      renderNotes();
+      pages.splice(currentPageIndex, 1);
+      currentPageIndex = Math.min(currentPageIndex, pages.length - 1);
+      savePages(pages);
+      renderPage();
     });
 
     diaryPrevBtn.addEventListener("click", () => {
-      animateTurnTo(currentPageIndex - 1);
+      moveToPage(currentPageIndex - 1);
     });
 
     diaryNextBtn.addEventListener("click", () => {
-      animateTurnTo(currentPageIndex + 1);
+      const pages = persistCurrentPage();
+      if (currentPageIndex >= pages.length - 1 && diaryInput.value.trim()) {
+        pages.push(createBlankPage(diaryDateInput.value));
+        savePages(pages);
+      }
+      moveToPage(Math.min(currentPageIndex + 1, readPages().length - 1));
     });
   }
 
