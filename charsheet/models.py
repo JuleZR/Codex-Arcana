@@ -29,23 +29,12 @@ class SkillCategory(models.Model):
     def __str__(self) -> str:
         return self.name
 
-
-class SkillFamily(models.Model):
-    """A reusable grouping for skills that can be chosen as a permanent focus."""
-
-    name = models.CharField(max_length=100, unique=True)
-    slug = models.SlugField(max_length=100, unique=True)
-
-    def __str__(self) -> str:
-        return self.name
-
 class Skill(models.Model):
     """A learnable skill linked to one category and one governing attribute."""
 
     name = models.CharField(max_length=100, unique=True)
     slug = models.SlugField(max_length=100, unique=True)
     category = models.ForeignKey(SkillCategory, on_delete=models.PROTECT)
-    family = models.ForeignKey(SkillFamily, on_delete=models.PROTECT, null=True, blank=True)
     attribute = models.ForeignKey(Attribute, on_delete=models.PROTECT)
     description = models.TextField(blank=True)
     requires_specification = models.BooleanField(default=False)
@@ -333,9 +322,9 @@ class Specialization(models.Model):
     class SupportLevel(models.TextChoices):
         """Describe how fully the engine can resolve a specialization's rules."""
 
-        COMPUTED = "computed", "Computed"
-        STRUCTURED = "structured", "Structured"
-        DESCRIPTIVE = "descriptive", "Descriptive"
+        COMPUTED = "computed", "Automated"
+        STRUCTURED = "structured", "Partially Automated"
+        DESCRIPTIVE = "descriptive", "Manual (Rule Text Only)"
 
     school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="specializations")
     name = models.CharField(max_length=100)
@@ -836,16 +825,15 @@ class Technique(models.Model):
     class SupportLevel(models.TextChoices):
         """Describe how fully the engine can resolve a technique's rules."""
 
-        COMPUTED = "computed", "Computed"
-        STRUCTURED = "structured", "Structured"
-        DESCRIPTIVE = "descriptive", "Descriptive"
+        COMPUTED = "computed", "Automated"
+        STRUCTURED = "structured", "Partially Automated"
+        DESCRIPTIVE = "descriptive", "Manual (Rule Text Only)"
 
     class ChoiceTargetKind(models.TextChoices):
         """Describe which persistent build choice, if any, a technique requires."""
 
         NONE = "none", "None"
         SKILL = "skill", "Skill"
-        SKILL_FAMILY = "skill_family", "Skill Family"
         SKILL_CATEGORY = "skill_category", "Skill Category"
         ITEM = "item", "Item"
         ITEM_CATEGORY = "item_category", "Item Category"
@@ -902,7 +890,7 @@ class Technique(models.Model):
     )
     choice_bonus_value = models.SmallIntegerField(
         default=0,
-        help_text="Fixed computed bonus applied to the chosen skill or skill family.",
+        help_text="Fixed computed bonus applied to the chosen skill.",
     )
     specialization_slot_grants = models.PositiveSmallIntegerField(
         default=0,
@@ -1227,13 +1215,6 @@ class CharacterTechniqueChoice(models.Model):
         blank=True,
         related_name="character_technique_choices",
     )
-    selected_skill_family = models.ForeignKey(
-        SkillFamily,
-        on_delete=models.PROTECT,
-        null=True,
-        blank=True,
-        related_name="character_technique_choices",
-    )
     selected_skill_category = models.ForeignKey(
         SkillCategory,
         on_delete=models.PROTECT,
@@ -1276,11 +1257,6 @@ class CharacterTechniqueChoice(models.Model):
                 name="uniq_character_technique_selected_skill",
             ),
             models.UniqueConstraint(
-                fields=["character", "technique", "selected_skill_family"],
-                condition=models.Q(selected_skill_family__isnull=False),
-                name="uniq_character_technique_selected_family",
-            ),
-            models.UniqueConstraint(
                 fields=["character", "technique", "definition", "selected_skill_category"],
                 condition=models.Q(selected_skill_category__isnull=False),
                 name="uniq_character_technique_selected_category",
@@ -1316,7 +1292,6 @@ class CharacterTechniqueChoice(models.Model):
             raise ValidationError({"selected_content_type": "Select a content type when using another entity."})
         populated_targets = [
             self.selected_skill_id is not None,
-            self.selected_skill_family_id is not None,
             self.selected_skill_category_id is not None,
             self.selected_item_id is not None,
             bool(self.selected_item_category),
@@ -1389,7 +1364,6 @@ class CharacterTechniqueChoice(models.Model):
         allowed_item_categories = {choice for choice, _label in Item.ItemType.choices}
         target_field_by_kind = {
             Technique.ChoiceTargetKind.SKILL: "selected_skill",
-            Technique.ChoiceTargetKind.SKILL_FAMILY: "selected_skill_family",
             Technique.ChoiceTargetKind.SKILL_CATEGORY: "selected_skill_category",
             Technique.ChoiceTargetKind.ITEM: "selected_item",
             Technique.ChoiceTargetKind.ITEM_CATEGORY: "selected_item_category",
@@ -1420,7 +1394,6 @@ class CharacterTechniqueChoice(models.Model):
 
         disallowed_fields = {
             "selected_skill",
-            "selected_skill_family",
             "selected_skill_category",
             "selected_item",
             "selected_item_category",
@@ -1442,8 +1415,6 @@ class CharacterTechniqueChoice(models.Model):
         """Return a readable label for the chosen target."""
         if self.selected_skill_id:
             return self.selected_skill.name
-        if self.selected_skill_family_id:
-            return self.selected_skill_family.name
         if self.selected_skill_category_id:
             return self.selected_skill_category.name
         if self.selected_item_id:
@@ -1466,22 +1437,31 @@ class Item(models.Model):
     """Inventory item that may be owned, stacked, or equipped."""
 
     class ItemType(models.TextChoices):
-        ARMOR = "armor", "Armor"
-        WEAPON = "weapon", "Weapon"
+        ARMOR = "armor", "Rüstung"
+        WEAPON = "weapon", "Waffe"
+        SHIELD = "shield", "Schild"
+        CONSUM = "consumable", "verbrauchbar"
         MISC = "misc", "Misc"
 
     name = models.CharField(max_length=200, unique=True)
     price = models.IntegerField(default=1)
     item_type = models.CharField(max_length=20, choices=ItemType.choices)
     description = models.TextField(null=True, blank=True)
+    
     stackable = models.BooleanField(default=True)
     is_consumable = models.BooleanField(default=False)
-
+    
+    default_quality = models.CharField(max_length=20, choices=QUALITY_CHOICES, default=QUALITY_COMMON)
+    weight = models.DecimalField(max_digits=6, decimal_places=2, default=0)
+    size_class = models.CharField(max_length=5, choices=GK_CHOICES, default=GK_AVERAGE)
+    
     def clean(self):
         """Prevent invalid stackable armor definitions."""
         super().clean()
-        if self.item_type == self.ItemType.ARMOR and self.stackable:
-            raise ValidationError({"stackable": "Type: ARMOR can't be stackable."})
+        if self.item_type in {
+            self.ItemType.ARMOR, self.ItemType.SHIELD, self.ItemType.WEAPON
+            } and self.stackable:
+            raise ValidationError({"stackable": f"Type: {self.item_type.upper()} can't be stackable."})   
 
     def __str__(self):
         return f"{self.item_type.upper()}: {self.name}"
@@ -1494,19 +1474,13 @@ class CharacterItem(models.Model):
     owner = models.ForeignKey(Character, on_delete=models.CASCADE)
     amount = models.PositiveIntegerField(default=1)
     equipped = models.BooleanField(default=False)
-
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(fields=["owner", "item"], name="unique_item_per_character")
-        ]
+    quality = models.CharField(max_length=20, choices=QUALITY_CHOICES, default=QUALITY_COMMON)
 
     def clean(self):
         """Enforce stackability and equipment consistency."""
         super().clean()
         if not self.item.stackable and self.amount != 1:
             raise ValidationError({"amount": "Item is flagged non stackable. amount must be 1"})
-        if self.item.item_type == self.item.ItemType.ARMOR and self.amount != 1:
-            raise ValidationError({"amount": "Type: ARMOR is not stackable, amount must be 1"})
         if self.item.stackable and self.equipped:
             raise ValidationError({"equipped": "Stackable Items can't be equipped"})
 
@@ -1527,6 +1501,9 @@ class ArmorStats(models.Model):
     rs_leg_right = models.PositiveIntegerField(default=0)
 
     rs_total = models.PositiveIntegerField(default=0)
+    
+    encumbrance = models.PositiveIntegerField(default=0)
+    min_st = models.PositiveIntegerField(default=1)
 
     def rs_sum(self):
         """Sum all zone-based armor values without using rs_total."""
@@ -1549,8 +1526,24 @@ class ArmorStats(models.Model):
             raise ValidationError("Armor must have either total or zone RS")
 
     def __str__(self):
-        return f"{self.item}: {self.rs_sum() // 6}{self.rs_total}"
+        if self.rs_total:
+            return f"{self.item}: RS {self.rs_total}"
+        return f"{self.item}: RS {self.rs_sum()}"
 
+class ShieldStats(models.Model):
+    item = models.OneToOneField(Item, on_delete=models.CASCADE)
+
+    rs = models.PositiveIntegerField(default=0)
+    encumbrance = models.PositiveIntegerField(default=0)
+    min_st = models.PositiveIntegerField(default=1)
+    
+    def clean(self):
+        super().clean()
+        if self.item.item_type != Item.ItemType.SHIELD:
+            raise ValidationError("Shield must be type SHIELD")
+        
+    def __str__(self):
+        return f"{self.item}: RS {self.rs}"
 
 class DamageSource(models.Model):
     """Damage type or source used by weapon definitions."""
@@ -1567,23 +1560,78 @@ class WeaponStats(models.Model):
     """Weapon-specific combat data attached to an item."""
 
     item = models.OneToOneField(Item, on_delete=models.CASCADE)
-    damage = models.CharField(max_length=20)
     damage_source = models.ForeignKey(DamageSource, on_delete=models.PROTECT)
     min_st = models.PositiveIntegerField(default=1, validators=[MinValueValidator(1)])
+    
+    # damage = models.CharField(max_length=20)
+    
+    damage_dice_amount = models.PositiveIntegerField(default=1)
+    damage_dice_faces = models.PositiveIntegerField(default=10,)
+    damage_flat_bonus = models.PositiveIntegerField(default=0)
+       
+    wield_mode = models.CharField(max_length=2, choices=WIELD_MODES, default=ONE_HANDED)
 
-    size_class = models.CharField(max_length=5, choices=GK_CHOICES, default=GK_AVERAGE)
-    two_handed = models.BooleanField(default=False)
-    two_handed_damage = models.CharField(max_length=20, null=True, blank=True)
+    h2_dice_amount = models.PositiveIntegerField(null=True, blank=True)
+    h2_dice_faces = models.PositiveIntegerField(null=True, blank=True)
+    h2_flat_bonus = models.PositiveIntegerField(null=True, blank=True)
+
+    @property
+    def two_handed(self) -> bool:
+        """Return whether this weapon has a dedicated two-handed profile."""
+        return self.wield_mode in {TWO_HANDED, VERSATILE}
+
+    @property
+    def damage(self) -> str:
+        """Return one-handed/base damage in classic dice notation."""
+        damage = f"{self.damage_dice_amount}w{self.damage_dice_faces}"
+        if self.damage_flat_bonus:
+            damage += f"{self.damage_flat_bonus:+d}"
+        return damage
+
+    @property
+    def two_handed_damage(self) -> str | None:
+        """Return two-handed damage in dice notation if available."""
+        if not self.two_handed or self.h2_dice_amount is None or self.h2_dice_faces is None:
+            return None
+        damage = f"{self.h2_dice_amount}w{self.h2_dice_faces}"
+        if self.h2_flat_bonus:
+            damage += f"{self.h2_flat_bonus:+d}"
+        return damage
+
+    @property
+    def size_class(self) -> str:
+        """Expose item size class for admin list display convenience."""
+        return self.item.size_class
 
     def clean(self):
-        """Ensure weapon stats are only attached to weapon items."""
         super().clean()
+
         if self.item.item_type != Item.ItemType.WEAPON:
-            raise ValidationError({"item_type": "Non weapon items can't have WeaponStats"})
+            raise ValidationError({"item": "Non-weapon items can't have WeaponStats"})
+
+        has_h2_values = (
+            self.h2_dice_amount is not None
+            or self.h2_dice_faces is not None
+            or self.h2_flat_bonus is not None
+        )
+        if self.two_handed:
+            if self.h2_dice_amount is None or self.h2_dice_faces is None:
+                raise ValidationError("Two-handed weapons need h2_dice_amount and h2_dice_faces.")
+        elif has_h2_values:
+            raise ValidationError("Non-two-handed weapons must not define two-handed damage values.")
 
     def __str__(self):
-        return f"{self.item}: DMG {self.damage} ({self.damage_source})"
+        base = f"{self.damage_dice_amount}w{self.damage_dice_faces}"
+        if self.damage_flat_bonus:
+            base += f"{self.damage_flat_bonus:+d}"
 
+        if self.two_handed and self.h2_dice_amount and self.h2_dice_faces:
+            alt = f"{self.h2_dice_amount}w{self.h2_dice_faces}"
+            if self.h2_flat_bonus:
+                alt += f"{self.h2_flat_bonus:+d}"
+            return f"{self.item}: DMG {base} / 2H {alt} ({self.damage_source})"
+
+        return f"{self.item}: DMG {base} ({self.damage_source})"
 
 class Trait(models.Model):
     """Advantage or disadvantage definition with level bounds."""

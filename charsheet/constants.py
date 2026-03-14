@@ -1,5 +1,4 @@
 # STAT Slugs
-
 INITIATIVE = "initiative"
 ARCANE_POWER = "arcane_power"
 WOUND_STAGE = "wound_stage"
@@ -32,7 +31,6 @@ VALID_STAT_SLUGS = {
 }
 
 # School SLugs
-
 SCHOOL_MAGIC = "magic"
 SCHOOL_DIVINE = "divine"
 SCHOOL_COMBAT = "combat"
@@ -50,7 +48,6 @@ VALID_SCHOOL_TYPE_SLUGS = {
 }
 
 # Attribute Codes
-
 ATTR_GE = "GE"
 ATTR_WA = "WA"
 ATTR_INT = "INT"
@@ -70,7 +67,6 @@ ATTRIBUTE_CODE_CHOICES = [
 ]
 
 # Skill Category Slugs
-
 SKILL_FINE_MOTOR = "skill_fine_motor"
 SKILL_GROSS_MOTOR = "skill_gross_motor"
 SKILL_CRAFT = "skill_craft"
@@ -87,6 +83,7 @@ SKILL_CATEGORY_CHOICES = [
     (SKILL_KNOWLEDGE, "Wissensfertigkeiten"),
 ]
 
+# SIZE CLASSES
 GK_VERYFINE = "S"
 GK_FINE = "F"
 GK_TINY = "W"
@@ -120,3 +117,73 @@ GK_MODS = {
     GK_GIANT: -4,
     GK_COLOSSAL: -8,
 }
+
+# ITEM QUALITES
+QUALITY_WRETCHED = "wretched"
+QUALITY_VERY_POOR = "very_poor"
+QUALITY_POOR = "poor"
+QUALITY_COMMON = "common"
+QUALITY_FINE = "fine"
+QUALITY_EXCELLENT = "excellent"
+QUALITY_LEGENDARY = "legendary"
+
+QUALITY_CHOICES = [
+    (QUALITY_WRETCHED, "Extrem schlechte Qualität"),
+    (QUALITY_VERY_POOR, "Sehr schlechte Qualität"),
+    (QUALITY_POOR, "Schlechte Qualität"),
+    (QUALITY_COMMON, "Normale Qualität"),
+    (QUALITY_FINE, "Gute Qualität"),
+    (QUALITY_EXCELLENT, "Exzellente Qualität"),
+    (QUALITY_LEGENDARY, "Legendäre Qualität")
+]
+
+QUALITY_PRICE_MODS = {
+    QUALITY_WRETCHED: 0.25,
+    QUALITY_VERY_POOR: 0.5,
+    QUALITY_POOR: 0.75,
+    QUALITY_COMMON: 1,
+    QUALITY_FINE: 2,
+    QUALITY_EXCELLENT: 5,
+    QUALITY_LEGENDARY: 20,
+}
+
+QUALITY_STEPS_FROM_COMMON = {
+    QUALITY_WRETCHED: -3,
+    QUALITY_VERY_POOR: -2,
+    QUALITY_POOR: -1,
+    QUALITY_COMMON: 0,
+    QUALITY_FINE: 1,
+    QUALITY_EXCELLENT: 2,
+    QUALITY_LEGENDARY: 3,
+}
+
+QUALITY_BEL_MODS = {
+    QUALITY_WRETCHED: 3,
+    QUALITY_VERY_POOR: 2,
+    QUALITY_POOR: 1,
+    QUALITY_COMMON: 0,
+    QUALITY_FINE: 0,
+    QUALITY_EXCELLENT: -1,
+    QUALITY_LEGENDARY: -2,
+}
+
+QUALITY_COLOR_MAP = {
+    QUALITY_WRETCHED: "#DD2828",
+    QUALITY_VERY_POOR: "#7A7A7A",
+    QUALITY_POOR: "#000000",
+    QUALITY_COMMON: "#33CC33",
+    QUALITY_FINE: "#0000FF",
+    QUALITY_EXCELLENT: "#CC00CC",
+    QUALITY_LEGENDARY: "#FF9933",
+}
+
+# Wield Modes
+ONE_HANDED = "1h"
+TWO_HANDED = "2h"
+VERSATILE = "vh"
+
+WIELD_MODES = (
+    (ONE_HANDED, "Einhändig"),
+    (TWO_HANDED, "Zweihändig"),
+    (VERSATILE, "Ein- und Zweihändig"),
+)

@@ -25,7 +25,6 @@ from charsheet.models import (
     Specialization,
     Skill,
     SkillCategory,
-    SkillFamily,
     Item,
     Technique,
     TechniqueChoiceBlock,
@@ -51,19 +50,16 @@ class TechniqueSupportLevelTests(TestCase):
         self.ge = Attribute.objects.create(name="Geschicklichkeit", short_name=ATTR_GE)
         CharacterAttribute.objects.create(character=self.character, attribute=self.ge, base_value=5)
         self.skill_category = SkillCategory.objects.create(name="Combat", slug=SKILL_COMBAT)
-        self.skill_family = SkillFamily.objects.create(name="Songs", slug="songs")
         self.music = Skill.objects.create(
             name="Music",
             slug="music",
             category=self.skill_category,
-            family=self.skill_family,
             attribute=self.ge,
         )
         self.oratory = Skill.objects.create(
             name="Oratory",
             slug="oratory",
             category=self.skill_category,
-            family=self.skill_family,
             attribute=self.ge,
         )
         self.duel = Skill.objects.create(
@@ -264,31 +260,6 @@ class TechniqueSupportLevelTests(TestCase):
         self.assertTrue(engine.is_technique_choice_complete(technique))
         self.assertEqual(engine.skill_total("music"), 7)
         self.assertEqual(engine.skill_total("oratory"), 3)
-
-    def test_engine_applies_choice_bonus_to_selected_skill_family(self):
-        """Computed passive techniques can grant a fixed bonus to a chosen skill family."""
-        technique = Technique.objects.create(
-            school=self.school,
-            name="Inspired Discipline",
-            level=1,
-            technique_type=Technique.TechniqueType.PASSIVE,
-            support_level=Technique.SupportLevel.COMPUTED,
-            choice_target_kind=Technique.ChoiceTargetKind.SKILL_FAMILY,
-            choice_bonus_value=2,
-            selection_notes="Choose one skill family.",
-        )
-        CharacterTechnique.objects.create(character=self.character, technique=technique)
-        CharacterTechniqueChoice.objects.create(
-            character=self.character,
-            technique=technique,
-            selected_skill_family=self.skill_family,
-        )
-
-        engine = CharacterEngine(self.character)
-
-        self.assertEqual(engine.skill_total("music"), 6)
-        self.assertEqual(engine.skill_total("oratory"), 5)
-        self.assertEqual(engine.skill_total("duel"), 2)
 
     def test_choice_definitions_drive_completion_for_multiple_decisions(self):
         """Explicit choice definitions can require multiple different stored decisions for one technique."""

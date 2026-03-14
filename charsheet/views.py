@@ -2,7 +2,6 @@ from __future__ import annotations
 import json
 import random
 from datetime import date as date_cls
-from itertools import groupby
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.http import JsonResponse
@@ -19,9 +18,9 @@ from django.db.models import Max, Sum
 from django.db.models.deletion import ProtectedError
 from django.utils import timezone
 from django.urls import reverse_lazy
-from .engine import CharacterCreationEngine
+from .engine import CharacterCreationEngine, ItemEngine
 from django.views.generic import TemplateView
-from .constants import GK_MODS
+from .constants import GK_MODS, QUALITY_CHOICES, QUALITY_COLOR_MAP
 from .models import (
     Character,
     CharacterAttribute,
@@ -39,6 +38,7 @@ from .models import (
     School,
     Language,
     ArmorStats,
+    ShieldStats,
     WeaponStats,
     DamageSource,
 )
@@ -56,6 +56,7 @@ ATTRIBUTE_ORDER = [
 ]
 DEFAULT_SCHOOL_MAX_LEVEL = 10
 DIARY_ENTRY_CHAR_LIMIT = 2200
+QUALITY_LABELS = dict(QUALITY_CHOICES)
 
 
 def _legal_context() -> dict:
@@ -82,6 +83,16 @@ def _format_modifier(value: int) -> str:
 def _format_thousands(value: int) -> str:
     """Format integers with dot-separated thousands."""
     return f"{value:,}".replace(",", ".")
+
+
+def _quality_payload(quality: str) -> dict[str, str]:
+    """Return normalized quality metadata for templates and JSON responses."""
+    resolved_quality = ItemEngine.normalize_quality(quality)
+    return {
+        "value": resolved_quality,
+        "label": QUALITY_LABELS.get(resolved_quality, QUALITY_LABELS[ItemEngine.normalize_quality(None)]),
+        "color": QUALITY_COLOR_MAP.get(resolved_quality, QUALITY_COLOR_MAP[ItemEngine.normalize_quality(None)]),
+    }
 
 
 def _calc_skill_total_cost(level: int) -> int:
@@ -328,36 +339,40 @@ def character_sheet(request, character_id: int):
         .select_related("item")
         .order_by("item__name")
     )
-    
-    weapon_items = CharacterItem.objects.filter(
-        owner=character,
-        item__item_type="weapon",
-        equipped=True,
-    ).select_related(
-        "item",
-        "item__weaponstats",
-        "item__weaponstats__damage_source",
-    )
-    
+    inventory_rows: list[dict] = []
+    for character_item in inventory_items:
+        item_engine = ItemEngine(character_item)
+        quality = _quality_payload(item_engine.get_effective_quality())
+        inventory_rows.append(
+            {
+                "character_item": character_item,
+                "item": character_item.item,
+                "quality": quality["value"],
+                "quality_label": quality["label"],
+                "quality_color": quality["color"],
+            }
+        )
+
     weapon_rows: list[dict] = []
-    bel_value = engine.get_bel()
-    for weapon in weapon_items:
-        dmg_slug = weapon.item.weaponstats.damage_source.slug
-        dmg_mod = engine.get_dmg_modifier_sum(dmg_slug)
-        bel = -bel_value
-        with_bel = dmg_mod + bel
+    for row in engine.equipped_weapon_rows():
+        quality = _quality_payload(str(row["quality"]))
+        row["quality_label"] = quality["label"]
+        row["quality_color"] = quality["color"]
+        weapon_rows.append(row)
 
-        weapon_rows.append({
-            "character_item": weapon,
-            "item": weapon.item,
-            "stats": weapon.item.weaponstats,
-            "dmg_mod": _format_modifier(dmg_mod),
-            "bel": _format_modifier(bel),
-            "with_bel": _format_modifier(with_bel),
-        })
+    equipped_armor: list[dict] = []
+    for row in engine.equipped_armor_rows():
+        quality = _quality_payload(str(row["quality"]))
+        row["quality_label"] = quality["label"]
+        row["quality_color"] = quality["color"]
+        equipped_armor.append(row)
 
-
-    equipped_armor = engine.equipped_armor_items().select_related("item")
+    equipped_shields: list[dict] = []
+    for row in engine.equipped_shield_rows():
+        quality = _quality_payload(str(row["quality"]))
+        row["quality_label"] = quality["label"]
+        row["quality_color"] = quality["color"]
+        equipped_shields.append(row)
 
     schools = (
         character.schools
@@ -439,14 +454,73 @@ def character_sheet(request, character_id: int):
         )
 
     buyable_items = Item.objects.order_by("item_type", "name")
-    grouped_items: dict[str, list[Item]] = {}
-    for item_type, items_iter in groupby(buyable_items, key=lambda item: item.item_type):
-        grouped_items[item_type] = list(items_iter)
+    grouped_items: dict[str, list[dict]] = {}
+    for item in buyable_items:
+        item_engine = ItemEngine(item)
+        quality = _quality_payload(item_engine.get_effective_quality())
+        stats_payload: dict[str, object] = {
+            "item_type": item.item_type,
+            "size_class": item.size_class,
+            "weight": str(item.weight),
+            "min_st": None,
+        }
+        weapon_stats = getattr(item, "weaponstats", None)
+        if weapon_stats is not None:
+            stats_payload.update(
+                {
+                    "damage_dice_amount": weapon_stats.damage_dice_amount,
+                    "damage_dice_faces": weapon_stats.damage_dice_faces,
+                    "damage_flat_bonus": weapon_stats.damage_flat_bonus,
+                    "h2_dice_amount": weapon_stats.h2_dice_amount,
+                    "h2_dice_faces": weapon_stats.h2_dice_faces,
+                    "h2_flat_bonus": weapon_stats.h2_flat_bonus,
+                    "wield_mode": weapon_stats.wield_mode,
+                    "min_st": weapon_stats.min_st,
+                    "damage_source": weapon_stats.damage_source.short_name,
+                }
+            )
+        armor_stats = getattr(item, "armorstats", None)
+        if armor_stats is not None:
+            stats_payload.update(
+                {
+                    "armor_rs": item_engine.get_armor_rs_raw() or 0,
+                    "armor_bel": armor_stats.encumbrance,
+                    "armor_min_st": armor_stats.min_st,
+                    "min_st": armor_stats.min_st,
+                }
+            )
+        shield_stats = getattr(item, "shieldstats", None)
+        if shield_stats is not None:
+            stats_payload.update(
+                {
+                    "shield_rs": shield_stats.rs,
+                    "shield_bel": shield_stats.encumbrance,
+                    "shield_min_st": shield_stats.min_st,
+                    "min_st": shield_stats.min_st,
+                }
+            )
+        grouped_items.setdefault(item.item_type, []).append(
+            {
+                "id": item.id,
+                "name": item.name,
+                "description": item.description or "",
+                "item_type": item.item_type,
+                "stackable": bool(item.stackable),
+                "base_price": int(item.price),
+                "default_price": item_engine.get_price(),
+                "default_quality": quality["value"],
+                "default_quality_label": quality["label"],
+                "default_quality_color": quality["color"],
+                "stats": stats_payload,
+            }
+        )
 
     category_order = [
-        ("weapon", "Waffen"),
-        ("armor", "Rüstungen"),
-        ("misc", "Sonstiges"),
+        (Item.ItemType.WEAPON, "Waffen"),
+        (Item.ItemType.ARMOR, "Rüstungen"),
+        (Item.ItemType.SHIELD, "Schilde"),
+        (Item.ItemType.CONSUM, "Verbrauchbar"),
+        (Item.ItemType.MISC, "Sonstiges"),
     ]
     shop_item_groups: list[dict] = []
     for item_type, label in category_order:
@@ -533,6 +607,15 @@ def character_sheet(request, character_id: int):
             }
         )
 
+    shop_quality_choices = [
+        {
+            "value": value,
+            "label": label,
+            "color": QUALITY_COLOR_MAP.get(value, QUALITY_COLOR_MAP[ItemEngine.normalize_quality(None)]),
+        }
+        for value, label in QUALITY_CHOICES
+    ]
+
     context = {
         "character": character,
         "char_info_form": CharacterInfoInlineForm(instance=character),
@@ -543,9 +626,11 @@ def character_sheet(request, character_id: int):
         "advantages": advantages,
         "disadvantages": disadvantages,
         "inventory_items": inventory_items,
+        "inventory_rows": inventory_rows,
         "weapon_rows": weapon_rows,
         "school_technique_rows": school_technique_rows,
         "equipped_armor": equipped_armor,
+        "equipped_shields": equipped_shields,
         "initiative_display": _format_modifier(engine.calculate_initiative()),
         "initiative_with_bel_display": _format_modifier(
             engine.calculate_initiative() - engine.get_bel()
@@ -564,11 +649,14 @@ def character_sheet(request, character_id: int):
         "movement_ground": movement_ground,
         "language_rows": language_rows,
         "shop_item_groups": shop_item_groups,
+        "shop_quality_choices": shop_quality_choices,
         "shop_item_type_choices": category_order,
         "shop_item_form_type_choices": [
-            ("misc", "Sonstiges"),
-            ("weapon", "Waffen"),
-            ("armor", "Rüstungen"),
+            (Item.ItemType.MISC, "Sonstiges"),
+            (Item.ItemType.CONSUM, "Verbrauchbar"),
+            (Item.ItemType.WEAPON, "Waffen"),
+            (Item.ItemType.ARMOR, "Rüstungen"),
+            (Item.ItemType.SHIELD, "Schilde"),
         ],
         "shop_damage_sources": DamageSource.objects.order_by("name"),
         "learn_attr_rows": learn_attr_rows,
@@ -1362,10 +1450,10 @@ def create_character(request):
 @login_required
 @require_POST
 def toggle_equip(request, pk):
-    """Toggle equipped state for one armor or weapon inventory entry."""
+    """Toggle equipped state for one armor, shield, or weapon inventory entry."""
     ci = _owned_character_item_or_404(request, pk)
 
-    if ci.item.item_type not in ("armor", "weapon"):
+    if ci.item.item_type not in (Item.ItemType.ARMOR, Item.ItemType.SHIELD, Item.ItemType.WEAPON):
         return redirect("character_sheet", character_id=ci.owner_id)
 
     ci.equipped = not ci.equipped
@@ -1381,7 +1469,7 @@ def consume_item(request, pk):
     ci = _owned_character_item_or_404(request, pk)
 
     owner_id = ci.owner_id
-    if not ci.item.stackable or not ci.item.is_consumable:
+    if not ci.item.stackable or ci.item.item_type != Item.ItemType.CONSUM:
         return redirect("character_sheet", character_id=owner_id)
 
     if ci.amount > 1:
@@ -1733,18 +1821,30 @@ def create_shop_item(request, character_id: int):
     if not name:
         return redirect("character_sheet", character_id=character.id)
 
-    try:
-        price = int(request.POST.get("price", "0"))
-    except (TypeError, ValueError):
-        price = 0
+    def read_int(name: str, default: int = 0, *, minimum: int | None = None) -> int:
+        try:
+            value = int(request.POST.get(name, str(default)) or default)
+        except (TypeError, ValueError):
+            value = default
+        if minimum is not None:
+            value = max(minimum, value)
+        return value
 
-    item_type = (request.POST.get("item_type") or "misc").strip()
+    def read_quality(name: str, default: str) -> str:
+        raw_quality = str(request.POST.get(name, default) or default)
+        return ItemEngine.normalize_quality(raw_quality)
+
+    price = read_int("price", 0, minimum=0)
+    item_type = (request.POST.get("item_type") or Item.ItemType.MISC).strip()
     description = (request.POST.get("description") or "").strip()
     stackable = bool(request.POST.get("stackable"))
-    is_consumable = bool(request.POST.get("is_consumable"))
-    if item_type in (Item.ItemType.ARMOR, Item.ItemType.WEAPON):
+    default_quality = read_quality("default_quality", ItemEngine.normalize_quality(None))
+    weight = read_int("weight", 0, minimum=0)
+    size_class = str(request.POST.get("size_class") or "M")
+    is_consumable = item_type == Item.ItemType.CONSUM
+
+    if item_type in (Item.ItemType.ARMOR, Item.ItemType.WEAPON, Item.ItemType.SHIELD):
         stackable = False
-        is_consumable = False
     if not stackable:
         is_consumable = False
 
@@ -1755,6 +1855,9 @@ def create_shop_item(request, character_id: int):
         description=description,
         stackable=stackable,
         is_consumable=is_consumable,
+        default_quality=default_quality,
+        weight=weight,
+        size_class=size_class,
     )
     try:
         item.full_clean()
@@ -1762,43 +1865,65 @@ def create_shop_item(request, character_id: int):
 
         if item.item_type == Item.ItemType.ARMOR:
             armor_mode = (request.POST.get("armor_mode") or "total").strip()
+            armor_encumbrance = read_int("armor_encumbrance", 0, minimum=0)
+            armor_min_st = read_int("armor_min_st", 1, minimum=1)
             if armor_mode == "zones":
                 armor_stats = ArmorStats(
                     item=item,
                     rs_total=0,
-                    rs_head=max(0, int(request.POST.get("armor_rs_head", "0") or 0)),
-                    rs_torso=max(0, int(request.POST.get("armor_rs_torso", "0") or 0)),
-                    rs_arm_left=max(0, int(request.POST.get("armor_rs_arm_left", "0") or 0)),
-                    rs_arm_right=max(0, int(request.POST.get("armor_rs_arm_right", "0") or 0)),
-                    rs_leg_left=max(0, int(request.POST.get("armor_rs_leg_left", "0") or 0)),
-                    rs_leg_right=max(0, int(request.POST.get("armor_rs_leg_right", "0") or 0)),
+                    rs_head=read_int("armor_rs_head", 0, minimum=0),
+                    rs_torso=read_int("armor_rs_torso", 0, minimum=0),
+                    rs_arm_left=read_int("armor_rs_arm_left", 0, minimum=0),
+                    rs_arm_right=read_int("armor_rs_arm_right", 0, minimum=0),
+                    rs_leg_left=read_int("armor_rs_leg_left", 0, minimum=0),
+                    rs_leg_right=read_int("armor_rs_leg_right", 0, minimum=0),
+                    encumbrance=armor_encumbrance,
+                    min_st=armor_min_st,
                 )
             else:
                 armor_stats = ArmorStats(
                     item=item,
-                    rs_total=max(0, int(request.POST.get("armor_rs_total", "0") or 0)),
+                    rs_total=read_int("armor_rs_total", 0, minimum=0),
                     rs_head=0,
                     rs_torso=0,
                     rs_arm_left=0,
                     rs_arm_right=0,
                     rs_leg_left=0,
                     rs_leg_right=0,
+                    encumbrance=armor_encumbrance,
+                    min_st=armor_min_st,
                 )
             armor_stats.full_clean()
             armor_stats.save()
         elif item.item_type == Item.ItemType.WEAPON:
-            damage = (request.POST.get("weapon_damage") or "").strip()
-            min_st = max(1, int(request.POST.get("weapon_min_st", "1") or 1))
-            damage_source_id = int(request.POST.get("weapon_damage_source", "0") or 0)
+            min_st = read_int("weapon_min_st", 1, minimum=1)
+            damage_source_id = read_int("weapon_damage_source", 0, minimum=0)
+            wield_mode = str(request.POST.get("weapon_wield_mode") or "1h")
+            h2_enabled = wield_mode in {"2h", "vh"}
             damage_source = DamageSource.objects.get(pk=damage_source_id)
             weapon_stats = WeaponStats(
                 item=item,
-                damage=damage,
                 damage_source=damage_source,
                 min_st=min_st,
+                damage_dice_amount=read_int("weapon_damage_dice_amount", 1, minimum=1),
+                damage_dice_faces=read_int("weapon_damage_dice_faces", 10, minimum=2),
+                damage_flat_bonus=read_int("weapon_damage_flat_bonus", 0, minimum=0),
+                wield_mode=wield_mode,
+                h2_dice_amount=read_int("weapon_h2_dice_amount", 0, minimum=1) if h2_enabled else None,
+                h2_dice_faces=read_int("weapon_h2_dice_faces", 0, minimum=2) if h2_enabled else None,
+                h2_flat_bonus=read_int("weapon_h2_flat_bonus", 0, minimum=0) if h2_enabled else None,
             )
             weapon_stats.full_clean()
             weapon_stats.save()
+        elif item.item_type == Item.ItemType.SHIELD:
+            shield_stats = ShieldStats(
+                item=item,
+                rs=read_int("shield_rs", 0, minimum=0),
+                encumbrance=read_int("shield_encumbrance", 0, minimum=0),
+                min_st=read_int("shield_min_st", 1, minimum=1),
+            )
+            shield_stats.full_clean()
+            shield_stats.save()
     except (ValidationError, ValueError, DamageSource.DoesNotExist):
         if item.pk:
             item.delete()
@@ -1826,7 +1951,7 @@ def buy_shop_cart(request, character_id: int):
     if not isinstance(cart_items, list) or not cart_items:
         return JsonResponse({"ok": False, "error": "empty_cart"}, status=400)
 
-    normalized: list[tuple[Item, int]] = []
+    normalized: list[tuple[Item, int, str]] = []
     subtotal = 0
     for entry in cart_items:
         try:
@@ -1840,10 +1965,11 @@ def buy_shop_cart(request, character_id: int):
         item = Item.objects.filter(pk=item_id).first()
         if item is None:
             return JsonResponse({"ok": False, "error": "item_not_found"}, status=400)
+        quality = ItemEngine.normalize_quality(str(entry.get("quality") or item.default_quality))
         if not item.stackable and qty != 1:
             return JsonResponse({"ok": False, "error": "non_stackable_qty"}, status=400)
-        normalized.append((item, qty))
-        subtotal += item.price * qty
+        normalized.append((item, qty, quality))
+        subtotal += ItemEngine.price_for_item_and_quality(item, quality) * qty
 
     final_price = max(0, round(subtotal * (100 - discount_percent) / 100))
     if final_price > character.money:
@@ -1852,24 +1978,24 @@ def buy_shop_cart(request, character_id: int):
     with transaction.atomic():
         character.money -= final_price
         character.save(update_fields=["money"])
-        for item, qty in normalized:
-            existing = CharacterItem.objects.filter(owner=character, item=item).first()
-            if existing:
-                if item.stackable:
+        for item, qty, quality in normalized:
+            if item.stackable:
+                existing = CharacterItem.objects.filter(owner=character, item=item, quality=quality).first()
+                if existing:
                     existing.amount += qty
                     existing.full_clean()
                     existing.save(update_fields=["amount"])
                 else:
-                    existing.amount = 1
-                    existing.full_clean()
-                    existing.save(update_fields=["amount"])
+                    created = CharacterItem(owner=character, item=item, amount=qty, equipped=False, quality=quality)
+                    created.full_clean()
+                    created.save()
             else:
-                amount = qty if item.stackable else 1
-                created = CharacterItem(owner=character, item=item, amount=amount, equipped=False)
-                created.full_clean()
-                created.save()
+                for _ in range(qty):
+                    created = CharacterItem(owner=character, item=item, amount=1, equipped=False, quality=quality)
+                    created.full_clean()
+                    created.save()
 
-    return JsonResponse({"ok": True, "new_money": character.money}, status=200)
+    return JsonResponse({"ok": True, "new_money": character.money, "spent": final_price}, status=200)
 
 
 def impressum(request):

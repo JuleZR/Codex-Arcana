@@ -667,24 +667,28 @@ document.addEventListener("DOMContentLoaded", () => {
   const typeSelect = document.getElementById("shopItemTypeSelect");
   const armorFields = document.getElementById("shopItemArmorFields");
   const weaponFields = document.getElementById("shopItemWeaponFields");
-  if (!typeSelect || !armorFields || !weaponFields) {
+  const shieldFields = document.getElementById("shopItemShieldFields");
+  if (!typeSelect || !armorFields || !weaponFields || !shieldFields) {
     return;
   }
 
   const armorInput = armorFields.querySelector("input[name='armor_rs_total']");
   const stackableRow = document.getElementById("shopItemStackableRow");
   const stackableInput = document.getElementById("shopItemStackableInput");
-  const consumableRow = document.getElementById("shopItemConsumableRow");
-  const consumableInput = document.getElementById("shopItemConsumableInput");
   const armorModeInputs = armorFields.querySelectorAll("input[name='armor_mode']");
   const armorTotalFields = document.getElementById("shopArmorTotalFields");
   const armorZoneFields = document.getElementById("shopArmorZoneFields");
   const armorZoneInputs = armorFields.querySelectorAll(
     "input[name='armor_rs_head'], input[name='armor_rs_torso'], input[name='armor_rs_arm_left'], input[name='armor_rs_arm_right'], input[name='armor_rs_leg_left'], input[name='armor_rs_leg_right']"
   );
-  const weaponDamageInput = weaponFields.querySelector("input[name='weapon_damage']");
+  const weaponDamageAmountInput = weaponFields.querySelector("input[name='weapon_damage_dice_amount']");
+  const weaponDamageFacesInput = weaponFields.querySelector("input[name='weapon_damage_dice_faces']");
   const weaponDamageSourceSelect = weaponFields.querySelector("select[name='weapon_damage_source']");
   const weaponMinStInput = weaponFields.querySelector("input[name='weapon_min_st']");
+  const weaponWieldModeSelect = document.getElementById("shopWeaponWieldMode");
+  const weaponTwoHandFields = document.getElementById("shopWeaponTwoHandFields");
+  const weaponH2AmountInput = weaponFields.querySelector("input[name='weapon_h2_dice_amount']");
+  const weaponH2FacesInput = weaponFields.querySelector("input[name='weapon_h2_dice_faces']");
 
   const syncArmorModeFields = () => {
     if (!armorTotalFields || !armorZoneFields) {
@@ -704,20 +708,39 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   };
 
+  const syncWeaponWieldModeFields = () => {
+    if (!weaponWieldModeSelect || !weaponTwoHandFields) {
+      return;
+    }
+    const mode = String(weaponWieldModeSelect.value || "1h");
+    const hasTwoHandProfile = mode === "2h" || mode === "vh";
+    weaponTwoHandFields.hidden = !hasTwoHandProfile;
+    if (weaponH2AmountInput) {
+      weaponH2AmountInput.required = hasTwoHandProfile;
+    }
+    if (weaponH2FacesInput) {
+      weaponH2FacesInput.required = hasTwoHandProfile;
+    }
+  };
+
   const syncItemTypeFields = () => {
     const value = String(typeSelect.value || "");
     const isArmor = value === "armor";
     const isWeapon = value === "weapon";
-    const isMisc = value === "misc";
+    const isShield = value === "shield";
 
     armorFields.hidden = !isArmor;
     weaponFields.hidden = !isWeapon;
+    shieldFields.hidden = !isShield;
 
     if (armorInput) {
       armorInput.required = isArmor;
     }
-    if (weaponDamageInput) {
-      weaponDamageInput.required = isWeapon;
+    if (weaponDamageAmountInput) {
+      weaponDamageAmountInput.required = isWeapon;
+    }
+    if (weaponDamageFacesInput) {
+      weaponDamageFacesInput.required = isWeapon;
     }
     if (weaponDamageSourceSelect) {
       weaponDamageSourceSelect.required = isWeapon;
@@ -727,20 +750,11 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (stackableRow && stackableInput) {
-      const lockStackableOff = isArmor || isWeapon;
+      const lockStackableOff = isArmor || isWeapon || isShield;
       stackableRow.hidden = lockStackableOff;
       stackableInput.disabled = lockStackableOff;
       if (lockStackableOff) {
         stackableInput.checked = false;
-      }
-    }
-
-    if (consumableRow && consumableInput) {
-      consumableRow.hidden = !isMisc;
-      const allowConsumable = isMisc && !!(stackableInput && stackableInput.checked);
-      consumableInput.disabled = !allowConsumable;
-      if (!allowConsumable) {
-        consumableInput.checked = false;
       }
     }
 
@@ -760,18 +774,32 @@ document.addEventListener("DOMContentLoaded", () => {
         input.required = false;
       });
     }
+
+    if (isWeapon) {
+      syncWeaponWieldModeFields();
+    } else if (weaponTwoHandFields) {
+      weaponTwoHandFields.hidden = true;
+      if (weaponH2AmountInput) {
+        weaponH2AmountInput.required = false;
+      }
+      if (weaponH2FacesInput) {
+        weaponH2FacesInput.required = false;
+      }
+    }
   };
 
   armorModeInputs.forEach((input) => {
     input.addEventListener("change", syncArmorModeFields);
   });
+  if (weaponWieldModeSelect) {
+    weaponWieldModeSelect.addEventListener("change", syncWeaponWieldModeFields);
+  }
   typeSelect.addEventListener("change", syncItemTypeFields);
   if (stackableInput) {
     stackableInput.addEventListener("change", syncItemTypeFields);
   }
   syncItemTypeFields();
 });
-
 document.addEventListener("DOMContentLoaded", () => {
   const filterInput = document.getElementById("shopFilterInput");
   const groups = document.querySelectorAll("[data-shop-group]");
@@ -821,16 +849,74 @@ document.addEventListener("DOMContentLoaded", () => {
     return;
   }
 
+  const QUALITY_ORDER = ["wretched", "very_poor", "poor", "common", "fine", "excellent", "legendary"];
+  const QUALITY_LABELS = {
+    wretched: "Extrem schlecht",
+    very_poor: "Sehr schlecht",
+    poor: "Schlecht",
+    common: "Normal",
+    fine: "Gut",
+    excellent: "Exzellent",
+    legendary: "Legendär",
+  };
+  const QUALITY_COLORS = {
+    wretched: "#DD2828",
+    very_poor: "#7A7A7A",
+    poor: "#000000",
+    common: "#33CC33",
+    fine: "#0000FF",
+    excellent: "#CC00CC",
+    legendary: "#FF9933",
+  };
+  const QUALITY_PRICE_MODS = {
+    wretched: 0.25,
+    very_poor: 0.5,
+    poor: 0.75,
+    common: 1,
+    fine: 2,
+    excellent: 5,
+    legendary: 20,
+  };
+  const QUALITY_DAMAGE_MODS = {
+    wretched: -3,
+    very_poor: -2,
+    poor: -1,
+    common: 0,
+    fine: 0,
+    excellent: 1,
+    legendary: 1,
+  };
+  const QUALITY_BEL_MODS = {
+    wretched: 3,
+    very_poor: 2,
+    poor: 1,
+    common: 0,
+    fine: 0,
+    excellent: -1,
+    legendary: -2,
+  };
+
   const baseBalance = Number.parseInt(cartWrapper.getAttribute("data-shop-balance") || "0", 10) || 0;
   const buyUrl = String(cartWrapper.getAttribute("data-buy-url") || "");
   const cart = new Map();
+  let cartCounter = 0;
 
   const readInt = (value, fallback = 0) => {
     const parsed = Number.parseInt(String(value ?? "").trim(), 10);
     return Number.isNaN(parsed) ? fallback : parsed;
   };
+  const readOptionalInt = (value) => {
+    const parsed = Number.parseInt(String(value ?? "").trim(), 10);
+    return Number.isNaN(parsed) ? null : parsed;
+  };
   const fmtNumber = (value) => Number(value || 0).toLocaleString("de-DE");
   const fmtKs = (value) => `${fmtNumber(value)} KS`;
+  const escapeHtml = (value) => String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&#39;");
   const getCsrfToken = () => {
     const cookie = document.cookie
       .split(";")
@@ -838,33 +924,127 @@ document.addEventListener("DOMContentLoaded", () => {
       .find((part) => part.startsWith("csrftoken="));
     return cookie ? decodeURIComponent(cookie.split("=")[1]) : "";
   };
+  const normalizeQuality = (quality) => {
+    const normalized = String(quality || "common");
+    return QUALITY_ORDER.includes(normalized) ? normalized : "common";
+  };
+  const shiftQuality = (quality, delta) => {
+    const index = QUALITY_ORDER.indexOf(normalizeQuality(quality));
+    const nextIndex = Math.min(Math.max(index + delta, 0), QUALITY_ORDER.length - 1);
+    return QUALITY_ORDER[nextIndex];
+  };
+  const isQualityAdjustableType = (itemType) => itemType === "weapon" || itemType === "armor" || itemType === "shield";
+  const buildDamageLabel = (amount, faces, flat) => {
+    if (!amount || !faces) {
+      return "-";
+    }
+    const bonus = readInt(flat, 0);
+    return `${amount}w${faces}${bonus ? `${bonus >= 0 ? "+" : ""}${bonus}` : ""}`;
+  };
+  const unitPriceForEntry = (entry) => {
+    const mod = QUALITY_PRICE_MODS[normalizeQuality(entry.quality)] ?? 1;
+    return Math.max(0, Math.round(entry.basePrice * mod));
+  };
+  const computedValueLabel = (entry) => {
+    const quality = normalizeQuality(entry.quality);
+    if (entry.itemType === "weapon") {
+      const damageBonus = QUALITY_DAMAGE_MODS[quality] ?? 0;
+      const oneHandFlat = readInt(entry.stats.damageFlatBonus, 0) + damageBonus;
+      const oneHand = buildDamageLabel(entry.stats.damageDiceAmount, entry.stats.damageDiceFaces, oneHandFlat);
+      const twoHandAvailable = entry.stats.h2DiceAmount && entry.stats.h2DiceFaces;
+      if (twoHandAvailable) {
+        const twoHandFlat = readInt(entry.stats.h2FlatBonus, 0) + damageBonus;
+        const twoHand = buildDamageLabel(entry.stats.h2DiceAmount, entry.stats.h2DiceFaces, twoHandFlat);
+        return `1H ${oneHand} / 2H ${twoHand}`;
+      }
+      return oneHand;
+    }
+    if (entry.itemType === "armor") {
+      const bel = Math.max(0, readInt(entry.stats.armorBel, 0) + (QUALITY_BEL_MODS[quality] ?? 0));
+      return `RS ${readInt(entry.stats.armorRs, 0)} | Bel ${bel}`;
+    }
+    if (entry.itemType === "shield") {
+      return `RS ${readInt(entry.stats.shieldRs, 0)} | Bel ${readInt(entry.stats.shieldBel, 0)}`;
+    }
+    return "-";
+  };
+  const qualityBadge = (quality) => {
+    const normalized = normalizeQuality(quality);
+    const label = QUALITY_LABELS[normalized] || QUALITY_LABELS.common;
+    const color = QUALITY_COLORS[normalized] || QUALITY_COLORS.common;
+    return `<span class="shop_quality_value shop_quality_dot" style="--quality-color: ${color};" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}">&#11044;</span>`;
+  };
+  const createEntryKey = () => {
+    cartCounter += 1;
+    return `cart-${cartCounter}`;
+  };
+  const parseRowPayload = (row) => {
+    const payload = {
+      id: row.getAttribute("data-shop-id") || "",
+      name: row.getAttribute("data-shop-name") || "",
+      itemType: row.getAttribute("data-shop-item-type") || "misc",
+      stackable: row.getAttribute("data-shop-stackable") === "1",
+      basePrice: readInt(row.getAttribute("data-shop-base-price"), 0),
+      quality: normalizeQuality(row.getAttribute("data-shop-quality") || "common"),
+      stats: {
+        damageDiceAmount: readOptionalInt(row.getAttribute("data-shop-damage-dice-amount")),
+        damageDiceFaces: readOptionalInt(row.getAttribute("data-shop-damage-dice-faces")),
+        damageFlatBonus: readOptionalInt(row.getAttribute("data-shop-damage-flat-bonus")),
+        h2DiceAmount: readOptionalInt(row.getAttribute("data-shop-h2-dice-amount")),
+        h2DiceFaces: readOptionalInt(row.getAttribute("data-shop-h2-dice-faces")),
+        h2FlatBonus: readOptionalInt(row.getAttribute("data-shop-h2-flat-bonus")),
+        wieldMode: row.getAttribute("data-shop-wield-mode") || "",
+        armorRs: readOptionalInt(row.getAttribute("data-shop-armor-rs")),
+        armorBel: readOptionalInt(row.getAttribute("data-shop-armor-bel")),
+        shieldRs: readOptionalInt(row.getAttribute("data-shop-shield-rs")),
+        shieldBel: readOptionalInt(row.getAttribute("data-shop-shield-bel")),
+      },
+    };
+    return payload;
+  };
 
   const render = () => {
     let subtotal = 0;
     const rows = [];
-    cart.forEach((entry) => {
-      const lineTotal = entry.price * entry.qty;
+    cart.forEach((entry, cartKey) => {
+      const unitPrice = unitPriceForEntry(entry);
+      const lineTotal = unitPrice * entry.qty;
       subtotal += lineTotal;
+      const qualityIndex = QUALITY_ORDER.indexOf(normalizeQuality(entry.quality));
+      const qualityAdjustable = isQualityAdjustableType(entry.itemType);
+      const disableDown = !qualityAdjustable || qualityIndex <= 0 ? "disabled" : "";
+      const disableUp = !qualityAdjustable || qualityIndex >= QUALITY_ORDER.length - 1 ? "disabled" : "";
+      const qualityControls = qualityAdjustable
+        ? `<div class="shop_quality_stepper">
+              <button type="button" class="shop_step_btn" data-cart-quality-dec aria-label="Qualit?t senken" ${disableDown}>&#9660;</button>
+              ${qualityBadge(entry.quality)}
+              <button type="button" class="shop_step_btn" data-cart-quality-inc aria-label="Qualit?t erh?hen" ${disableUp}>&#9650;</button>
+            </div>`
+        : "";
+      const qtyControls = entry.stackable
+        ? `<div class="shop_qty_stepper">
+            <button type="button" class="shop_step_btn" data-cart-qty-dec aria-label="Menge verringern">-</button>
+            <input type="text" class="shop_cart_qty_input" value="${entry.qty}" data-cart-qty inputmode="numeric" aria-label="Menge">
+            <button type="button" class="shop_step_btn" data-cart-qty-inc aria-label="Menge erhöhen">+</button>
+          </div>`
+        : `<span class="shop_cart_qty_fixed">1</span>`;
       rows.push(`
-        <tr data-cart-id="${entry.id}">
-          <td>${entry.name}</td>
+        <tr data-cart-key="${cartKey}">
+          <td>${escapeHtml(entry.name)}</td>
           <td>
-            <div class="shop_qty_stepper">
-              <button type="button" class="shop_step_btn" data-cart-qty-dec aria-label="Menge verringern">-</button>
-              <input type="text" class="shop_cart_qty_input" value="${entry.qty}" data-cart-qty inputmode="numeric" aria-label="Menge">
-              <button type="button" class="shop_step_btn" data-cart-qty-inc aria-label="Menge erhöhen">+</button>
-            </div>
+            ${qualityControls}
           </td>
-          <td>${fmtKs(entry.price)}</td>
+          <td>${qtyControls}</td>
+          <td>${fmtKs(unitPrice)}</td>
           <td>${fmtKs(lineTotal)}</td>
-          <td><button type="button" class="shop_cart_remove_btn" data-cart-remove>×</button></td>
+          <td><button type="button" class="shop_cart_remove_btn" data-cart-remove>x</button></td>
         </tr>
       `);
     });
 
     cartBody.innerHTML = rows.length
       ? rows.join("")
-      : '<tr class="shop_cart_empty_row"><td colspan="5">Noch keine Items ausgewählt.</td></tr>';
+      : '<tr class="shop_cart_empty_row"><td colspan="6">Noch keine Items ausgewählt.</td></tr>';
 
     const discountPercent = Math.min(100, Math.max(-100, readInt(discountInput.value, 0)));
     if (readInt(discountInput.value, 0) !== discountPercent) {
@@ -881,29 +1061,40 @@ document.addEventListener("DOMContentLoaded", () => {
 
   shopList.addEventListener("click", (event) => {
     const target = event.target;
-    if (!(target instanceof HTMLElement)) {
+    if (!(target instanceof HTMLElement) || !target.hasAttribute("data-shop-pick")) {
       return;
     }
-    if (!target.hasAttribute("data-shop-pick")) {
-      return;
-    }
-
     const row = target.closest("[data-shop-item]");
     if (!(row instanceof HTMLElement)) {
       return;
     }
-    const id = row.getAttribute("data-shop-id") || "";
-    const name = row.getAttribute("data-shop-name") || "";
-    const price = readInt(row.getAttribute("data-shop-price"), 0);
-    if (!id || !name || price < 0) {
+
+    const payload = parseRowPayload(row);
+    if (!payload.id || !payload.name || payload.basePrice < 0) {
       return;
     }
 
-    const existing = cart.get(id);
-    if (existing) {
-      existing.qty += 1;
-    } else {
-      cart.set(id, { id, name, price, qty: 1 });
+    let merged = false;
+    if (payload.stackable) {
+      for (const entry of cart.values()) {
+        if (entry.id === payload.id && normalizeQuality(entry.quality) === normalizeQuality(payload.quality)) {
+          entry.qty += 1;
+          merged = true;
+          break;
+        }
+      }
+    }
+    if (!merged) {
+      cart.set(createEntryKey(), {
+        id: payload.id,
+        name: payload.name,
+        itemType: payload.itemType,
+        stackable: payload.stackable,
+        basePrice: payload.basePrice,
+        quality: payload.quality,
+        qty: 1,
+        stats: payload.stats,
+      });
     }
     render();
   });
@@ -913,14 +1104,18 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!(target instanceof HTMLElement)) {
       return;
     }
+    const row = target.closest("[data-cart-key]");
+    if (!(row instanceof HTMLElement)) {
+      return;
+    }
+    const cartKey = row.getAttribute("data-cart-key") || "";
+    const entry = cart.get(cartKey);
+    if (!entry) {
+      return;
+    }
+
     if (target.hasAttribute("data-cart-qty-dec") || target.hasAttribute("data-cart-qty-inc")) {
-      const row = target.closest("[data-cart-id]");
-      if (!(row instanceof HTMLElement)) {
-        return;
-      }
-      const id = row.getAttribute("data-cart-id") || "";
-      const entry = cart.get(id);
-      if (!entry) {
+      if (!entry.stackable) {
         return;
       }
       const delta = target.hasAttribute("data-cart-qty-inc") ? 1 : -1;
@@ -928,19 +1123,37 @@ document.addEventListener("DOMContentLoaded", () => {
       render();
       return;
     }
-    if (!target.hasAttribute("data-cart-remove")) {
+
+    if (target.hasAttribute("data-cart-quality-dec") || target.hasAttribute("data-cart-quality-inc")) {
+      if (!isQualityAdjustableType(entry.itemType)) {
+        return;
+      }
+      const delta = target.hasAttribute("data-cart-quality-inc") ? 1 : -1;
+      const nextQuality = shiftQuality(entry.quality, delta);
+      if (nextQuality === entry.quality) {
+        return;
+      }
+      entry.quality = nextQuality;
+      if (entry.stackable) {
+        for (const [otherKey, otherEntry] of cart.entries()) {
+          if (otherKey === cartKey) {
+            continue;
+          }
+          if (otherEntry.id === entry.id && normalizeQuality(otherEntry.quality) === normalizeQuality(entry.quality)) {
+            otherEntry.qty += entry.qty;
+            cart.delete(cartKey);
+            break;
+          }
+        }
+      }
+      render();
       return;
     }
-    const row = target.closest("[data-cart-id]");
-    if (!(row instanceof HTMLElement)) {
-      return;
+
+    if (target.hasAttribute("data-cart-remove")) {
+      cart.delete(cartKey);
+      render();
     }
-    const id = row.getAttribute("data-cart-id") || "";
-    if (!id) {
-      return;
-    }
-    cart.delete(id);
-    render();
   });
 
   cartBody.addEventListener("input", (event) => {
@@ -948,13 +1161,13 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!(target instanceof HTMLInputElement) || !target.hasAttribute("data-cart-qty")) {
       return;
     }
-    const row = target.closest("[data-cart-id]");
+    const row = target.closest("[data-cart-key]");
     if (!(row instanceof HTMLElement)) {
       return;
     }
-    const id = row.getAttribute("data-cart-id") || "";
-    const entry = cart.get(id);
-    if (!entry) {
+    const cartKey = row.getAttribute("data-cart-key") || "";
+    const entry = cart.get(cartKey);
+    if (!entry || !entry.stackable) {
       return;
     }
     entry.qty = Math.max(1, readInt(target.value, 1));
@@ -977,7 +1190,8 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     const items = Array.from(cart.values()).map((entry) => ({
       id: entry.id,
-      qty: entry.qty,
+      qty: entry.stackable ? entry.qty : 1,
+      quality: normalizeQuality(entry.quality),
     }));
     const payload = {
       items,
@@ -1025,9 +1239,9 @@ document.addEventListener("DOMContentLoaded", () => {
       // no-op for now
     }
   });
+
   render();
 });
-
 document.addEventListener("DOMContentLoaded", () => {
   const form = document.getElementById("learnForm");
   const cartBody = document.getElementById("learnCartBody");
@@ -1295,7 +1509,7 @@ document.addEventListener("DOMContentLoaded", () => {
           </div>
         </td>
         <td data-learn-cost>0 EP</td>
-        <td><button type="button" class="shop_cart_remove_btn" data-learn-remove aria-label="Eintrag entfernen">×</button></td>
+        <td><button type="button" class="shop_cart_remove_btn" data-learn-remove aria-label="Eintrag entfernen">x</button></td>
       `;
       return row;
     }
@@ -1320,7 +1534,7 @@ document.addEventListener("DOMContentLoaded", () => {
           </div>
         </td>
         <td data-learn-cost>0 EP</td>
-        <td><button type="button" class="shop_cart_remove_btn" data-learn-remove aria-label="Eintrag entfernen">×</button></td>
+        <td><button type="button" class="shop_cart_remove_btn" data-learn-remove aria-label="Eintrag entfernen">x</button></td>
       `;
       return row;
     }
@@ -1359,7 +1573,7 @@ document.addEventListener("DOMContentLoaded", () => {
           </div>
         </td>
         <td data-learn-cost>0 EP</td>
-        <td><button type="button" class="shop_cart_remove_btn" data-learn-remove aria-label="Eintrag entfernen">×</button></td>
+        <td><button type="button" class="shop_cart_remove_btn" data-learn-remove aria-label="Eintrag entfernen">x</button></td>
       `;
       return row;
     }
@@ -1386,7 +1600,7 @@ document.addEventListener("DOMContentLoaded", () => {
           </div>
         </td>
         <td data-learn-cost>0 EP</td>
-        <td><button type="button" class="shop_cart_remove_btn" data-learn-remove aria-label="Eintrag entfernen">×</button></td>
+        <td><button type="button" class="shop_cart_remove_btn" data-learn-remove aria-label="Eintrag entfernen">x</button></td>
       `;
       return row;
     }
@@ -1516,6 +1730,17 @@ document.addEventListener("DOMContentLoaded", () => {
   const isTableDividerRow = (row) =>
     row.length > 0 && row.every((cell) => /^:?-{2,}:?$/.test(cell));
 
+  const parseQualityLine = (line) => {
+    const match = String(line || "").trim().match(/^\[\[QUALITY:(.+?)\|(.+?)\]\]$/);
+    if (!match) {
+      return null;
+    }
+    return {
+      label: match[1].trim(),
+      color: match[2].trim(),
+    };
+  };
+
   const renderTooltipMarkup = (rawText) => {
     const text = String(rawText || "").trim();
     if (!text) {
@@ -1529,6 +1754,18 @@ document.addEventListener("DOMContentLoaded", () => {
       const line = lines[i];
       if (!line.trim()) {
         i += 1;
+        continue;
+      }
+
+      const qualityMeta = parseQualityLine(line);
+      if (qualityMeta) {
+        chunks.push(
+          `<p class="tooltip_quality_line"><span class="tooltip_quality_badge" style="--tooltip-quality-color: ${escapeHtml(qualityMeta.color)};">Qualität: ${escapeHtml(qualityMeta.label)}</span></p>`
+        );
+        i += 1;
+        while (i < lines.length && !lines[i].trim()) {
+          i += 1;
+        }
         continue;
       }
 
@@ -1794,7 +2031,7 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
       event.preventDefault();
-      window.alert("Zum Entfernen bitte Shift gedrueckt halten und erneut klicken.");
+      window.alert("Zum Entfernen bitte Shift gedrückt halten und erneut klicken.");
     });
   });
 });
@@ -1949,3 +2186,11 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 });
+
+
+
+
+
+
+
+

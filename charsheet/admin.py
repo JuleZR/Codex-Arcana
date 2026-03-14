@@ -5,11 +5,13 @@ from copy import deepcopy
 
 from django.contrib import admin
 from django.contrib.contenttypes.admin import GenericStackedInline
-from django.http import JsonResponse
+from django.http import HttpResponseRedirect, JsonResponse
 from django.db.models import Q
 from django.urls import path, reverse
 from django.utils.html import format_html, format_html_join
 
+from .constants import QUALITY_COLOR_MAP
+from .engine.item_engine import ItemEngine
 from .models import (
     ArmorStats,
     Attribute,
@@ -35,10 +37,10 @@ from .models import (
     School,
     SchoolPath,
     SchoolType,
+    ShieldStats,
     Specialization,
     Skill,
     SkillCategory,
-    SkillFamily,
     Technique,
     TechniqueChoiceBlock,
     TechniqueChoiceDefinition,
@@ -50,8 +52,21 @@ from .models import (
 
 ArmorStats._meta.verbose_name = "Armor Stats"
 ArmorStats._meta.verbose_name_plural = "Armor Stats"
+ShieldStats._meta.verbose_name = "Shield Stats"
+ShieldStats._meta.verbose_name_plural = "Shield Stats"
 WeaponStats._meta.verbose_name = "Weapon Stats"
 WeaponStats._meta.verbose_name_plural = "Weapon Stats"
+
+
+def _quality_badge(quality: str):
+    """Render one quality key with configured RPG color coding."""
+    resolved_quality = ItemEngine.normalize_quality(quality)
+    color = QUALITY_COLOR_MAP.get(resolved_quality, QUALITY_COLOR_MAP[ItemEngine.normalize_quality(None)])
+    return format_html(
+        '<strong style="color:{};text-shadow:-0.75px -0.75px 0 #000,0.75px -0.75px 0 #000,-0.75px 0.75px 0 #000,0.75px 0.75px 0 #000;">{}</strong>',
+        color,
+        resolved_quality,
+    )
 
 
 def _merge_help_text(existing, extra):
@@ -83,6 +98,27 @@ def _apply_field_labels(base_fields, labels):
             field.label = label
 
 
+def _apply_monospace_description_fields(base_fields):
+    """Render description-like text fields in monospace for easier rule text editing."""
+    mono_stack = (
+        "'Fira Code', 'Cascadia Code', 'Consolas', 'SFMono-Regular', "
+        "'Liberation Mono', 'Courier New', monospace"
+    )
+    for field_name, field in (base_fields or {}).items():
+        if "description" not in field_name.lower():
+            continue
+        widget = getattr(field, "widget", None)
+        if widget is None:
+            continue
+        attrs = widget.attrs
+        existing_style = (attrs.get("style") or "").strip()
+        mono_style = f"font-family: {mono_stack};"
+        if mono_stack not in existing_style:
+            attrs["style"] = f"{existing_style} {mono_style}".strip()
+        if field_name.lower() == "description":
+            attrs.setdefault("rows", 6)
+
+
 def _install_admin_help(admin_cls, *, help_texts=None, fieldset_descriptions=None, labels=None):
     """Patch a ModelAdmin so friendly help text appears in the Django admin."""
     if help_texts or labels:
@@ -92,6 +128,7 @@ def _install_admin_help(admin_cls, *, help_texts=None, fieldset_descriptions=Non
             form = original_get_form(self, request, obj, change=change, **kwargs)
             _apply_help_texts(form.base_fields, help_texts)
             _apply_field_labels(form.base_fields, labels)
+            _apply_monospace_description_fields(form.base_fields)
             return form
 
         admin_cls.get_form = get_form
@@ -125,6 +162,7 @@ def _install_inline_help(inline_cls, *, help_texts=None, fieldset_descriptions=N
             formset = original_get_formset(self, request, obj, **kwargs)
             _apply_help_texts(formset.form.base_fields, help_texts)
             _apply_field_labels(formset.form.base_fields, labels)
+            _apply_monospace_description_fields(formset.form.base_fields)
             return formset
 
         inline_cls.get_formset = get_formset
@@ -147,14 +185,6 @@ def _install_inline_help(inline_cls, *, help_texts=None, fieldset_descriptions=N
             return enriched
 
         inline_cls.get_fieldsets = get_fieldsets
-
-
-def _label_skill_family_field(formfield):
-    """Render skill family choices with readable labels in admin widgets."""
-    if formfield is not None:
-        formfield.label_from_instance = lambda obj: f"{obj.name} ({obj.slug})"
-    return formfield
-
 
 def _format_technique_choice_context(technique):
     """Return compact editor-facing choice guidance for a technique."""
@@ -434,21 +464,9 @@ class SkillInline(admin.TabularInline):
     autocomplete_fields = ("attribute",)
 
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
-        """Use readable labels for optional skill family relations."""
+        """Return default foreign key form fields for skill inlines."""
         formfield = super().formfield_for_foreignkey(db_field, request, **kwargs)
-        if db_field.name == "family":
-            return _label_skill_family_field(formfield)
         return formfield
-
-
-class SkillFamilySkillInline(admin.TabularInline):
-    """Inline editor for skills from the family side."""
-
-    model = Skill
-    fk_name = "family"
-    extra = 0
-    show_change_link = True
-    autocomplete_fields = ("category", "attribute")
 
 
 class RaceAttributeLimitInline(admin.TabularInline):
@@ -595,7 +613,7 @@ class CharacterTechniqueInline(admin.TabularInline):
         """Show how fully the engine supports the linked technique."""
         if not obj or not obj.technique_id:
             return "-"
-        return obj.technique.support_level
+        return obj.technique.get_support_level_display()
 
     @admin.display(description="Choice Notes")
     def technique_choice_context(self, obj):
@@ -617,7 +635,6 @@ class CharacterTechniqueChoiceInline(admin.StackedInline):
         "technique",
         "definition",
         "selected_skill",
-        "selected_skill_family",
         "selected_skill_category",
         "selected_item",
         "selected_specialization",
@@ -637,7 +654,7 @@ class CharacterTechniqueChoiceInline(admin.StackedInline):
             "Gewaehltes Ziel",
             {
                 "fields": (
-                    ("selected_skill", "selected_skill_family"),
+                    ("selected_skill"),
                     ("selected_skill_category", "selected_specialization"),
                     ("selected_item", "selected_item_category"),
                     "selected_text",
@@ -649,7 +666,7 @@ class CharacterTechniqueChoiceInline(admin.StackedInline):
     readonly_fields = ("technique_school", "choice_target_kind", "technique_choice_context")
 
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
-        """Limit choice rows to real choice techniques and readable family labels."""
+        """Limit choice rows to techniques that persist explicit choices."""
         if db_field.name == "technique":
             kwargs["queryset"] = (
                 Technique.objects.filter(
@@ -661,8 +678,6 @@ class CharacterTechniqueChoiceInline(admin.StackedInline):
                 .order_by("school__name", "level", "name")
             )
         formfield = super().formfield_for_foreignkey(db_field, request, **kwargs)
-        if db_field.name == "selected_skill_family":
-            return _label_skill_family_field(formfield)
         return formfield
 
     @admin.display(description="School")
@@ -723,6 +738,7 @@ class CharacterItemInline(admin.TabularInline):
     extra = 0
     show_change_link = True
     autocomplete_fields = ("item",)
+    fields = ("item", "amount", "quality", "equipped")
 
 
 class SchoolInline(admin.TabularInline):
@@ -859,6 +875,16 @@ class ArmorStatsInline(admin.StackedInline):
     can_delete = True
 
 
+class ShieldStatsInline(admin.StackedInline):
+    """Inline editor for one-to-one shield stats on an item."""
+
+    model = ShieldStats
+    verbose_name_plural = "Shield Stats"
+    extra = 0
+    max_num = 1
+    can_delete = True
+
+
 class WeaponStatsInline(admin.StackedInline):
     """Inline editor for one-to-one weapon stats on an item."""
 
@@ -948,6 +974,7 @@ class ItemCharacterInline(admin.TabularInline):
     extra = 0
     show_change_link = True
     autocomplete_fields = ("owner",)
+    fields = ("owner", "amount", "quality", "equipped")
 
 
 class CharacterTraitInline(admin.TabularInline):
@@ -1068,16 +1095,6 @@ class SkillCategoryAdmin(admin.ModelAdmin):
     inlines = (SkillInline,)
 
 
-@admin.register(SkillFamily)
-class SkillFamilyAdmin(admin.ModelAdmin):
-    """Admin configuration for skill families."""
-
-    list_display = ("name", "slug")
-    search_fields = ("name", "slug")
-    ordering = ("name",)
-    inlines = (SkillFamilySkillInline,)
-
-
 @admin.register(Skill)
 class SkillAdmin(admin.ModelAdmin):
     """Admin configuration for skills."""
@@ -1087,43 +1104,25 @@ class SkillAdmin(admin.ModelAdmin):
         "slug",
         "category",
         "category_slug",
-        "family_name",
-        "family_slug",
         "attribute",
         "attribute_short_name",
     )
-    search_fields = ("name", "slug", "family__name", "family__slug")
+    search_fields = ("name", "slug")
     list_filter = ("category", "attribute")
     ordering = ("category", "name")
     autocomplete_fields = ("category", "attribute")
-    list_select_related = ("category", "family", "attribute")
+    list_select_related = ("category", "attribute")
     inlines = (SkillCharacterInline,)
 
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
-        """Use readable labels for optional skill family relations."""
+        """Return default foreign key form fields for skills."""
         formfield = super().formfield_for_foreignkey(db_field, request, **kwargs)
-        if db_field.name == "family":
-            return _label_skill_family_field(formfield)
         return formfield
 
     @admin.display(ordering="category__slug", description="Category Slug")
     def category_slug(self, obj):
         """Return the related category slug for list display."""
         return obj.category.slug
-
-    @admin.display(ordering="family__name", description="Family")
-    def family_name(self, obj):
-        """Return the related family name for list display."""
-        if obj.family_id is None:
-            return "-"
-        return obj.family.name
-
-    @admin.display(ordering="family__slug", description="Family Slug")
-    def family_slug(self, obj):
-        """Return the related family slug for list display."""
-        if obj.family_id is None:
-            return "-"
-        return obj.family.slug
 
     @admin.display(ordering="attribute__short_name", description="Attribute Short")
     def attribute_short_name(self, obj):
@@ -1638,20 +1637,44 @@ class TechniqueAdmin(admin.ModelAdmin):
 class ItemAdmin(admin.ModelAdmin):
     """Admin configuration for items."""
 
-    list_display = ("name", "item_type", "price", "stackable")
-    search_fields = ("name", "item_type")
-    list_filter = ("item_type", "stackable")
+    list_display = (
+        "name",
+        "item_type",
+        "quality_preview",
+        "price",
+        "size_class",
+        "weight",
+        "stackable",
+        "is_consumable",
+    )
+    search_fields = ("name", "description", "item_type")
+    list_filter = ("item_type", "default_quality", "stackable", "is_consumable", "size_class")
     ordering = ("item_type", "name")
-    inlines = (ArmorStatsInline, WeaponStatsInline, ItemCharacterInline)
+    inlines = (ArmorStatsInline, ShieldStatsInline, WeaponStatsInline, ItemCharacterInline)
+
+    @admin.display(ordering="default_quality", description="Quality")
+    def quality_preview(self, obj):
+        """Render default quality with RPG item coloring."""
+        return _quality_badge(obj.default_quality)
 
 
 @admin.register(CharacterItem)
 class CharacterItemAdmin(admin.ModelAdmin):
     """Admin configuration for character inventory entries."""
 
-    list_display = ("owner", "owner_race", "item", "item_type", "amount", "equipped")
-    search_fields = ("owner__name", "item__name")
-    list_filter = ("equipped", "item__item_type", "owner__race")
+    list_display = (
+        "owner",
+        "owner_race",
+        "item",
+        "item_type",
+        "quality_preview",
+        "amount",
+        "equipped",
+        "base_price",
+        "effective_price",
+    )
+    search_fields = ("owner__name", "item__name", "item__description")
+    list_filter = ("equipped", "quality", "item__item_type", "owner__race", "item__size_class")
     ordering = ("owner", "item")
     autocomplete_fields = ("owner", "item")
     list_select_related = ("owner", "owner__race", "item")
@@ -1666,16 +1689,45 @@ class CharacterItemAdmin(admin.ModelAdmin):
         """Return the related item type for list display."""
         return obj.item.item_type
 
+    @admin.display(ordering="quality", description="Quality")
+    def quality_preview(self, obj):
+        """Render effective inventory quality with RPG item coloring."""
+        return _quality_badge(obj.quality)
+
+    @admin.display(ordering="item__price", description="Base Price")
+    def base_price(self, obj):
+        """Return unmodified item base price."""
+        return obj.item.price
+
+    @admin.display(description="Price (Quality)")
+    def effective_price(self, obj):
+        """Return quality-adjusted price resolved via ItemEngine."""
+        return ItemEngine(obj).get_price()
+
 
 @admin.register(ArmorStats)
 class ArmorStatsAdmin(admin.ModelAdmin):
     """Admin configuration for armor stat blocks."""
 
-    list_display = ("item", "rs_total", "rs_zone_sum", "rs_zone_average")
+    list_display = (
+        "item",
+        "item_quality",
+        "rs_total",
+        "rs_zone_sum",
+        "rs_zone_average",
+        "encumbrance",
+        "min_st",
+    )
     search_fields = ("item__name",)
+    list_filter = ("item__default_quality", "item__size_class")
     ordering = ("item__name",)
     autocomplete_fields = ("item",)
     list_select_related = ("item",)
+
+    @admin.display(ordering="item__default_quality", description="Item Quality")
+    def item_quality(self, obj):
+        """Render linked item default quality with RPG color coding."""
+        return _quality_badge(obj.item.default_quality)
 
     @admin.display(description="Zone Sum")
     def rs_zone_sum(self, obj):
@@ -1686,6 +1738,23 @@ class ArmorStatsAdmin(admin.ModelAdmin):
     def rs_zone_average(self, obj):
         """Return average per-zone armor value for list display."""
         return obj.rs_sum() // 6
+
+
+@admin.register(ShieldStats)
+class ShieldStatsAdmin(admin.ModelAdmin):
+    """Admin configuration for shield stat blocks."""
+
+    list_display = ("item", "item_quality", "rs", "encumbrance", "min_st")
+    search_fields = ("item__name",)
+    list_filter = ("item__default_quality", "item__size_class")
+    ordering = ("item__name",)
+    autocomplete_fields = ("item",)
+    list_select_related = ("item",)
+
+    @admin.display(ordering="item__default_quality", description="Item Quality")
+    def item_quality(self, obj):
+        """Render linked item default quality with RPG color coding."""
+        return _quality_badge(obj.item.default_quality)
 
 
 @admin.register(SchoolPath)
@@ -1929,7 +1998,7 @@ class CharacterTechniqueAdmin(admin.ModelAdmin):
     @admin.display(ordering="technique__support_level", description="Support")
     def technique_support_level(self, obj):
         """Return how strongly the engine supports the chosen technique."""
-        return obj.technique.support_level
+        return obj.technique.get_support_level_display()
 
 
 @admin.register(CharacterTechniqueChoice)
@@ -1951,7 +2020,6 @@ class CharacterTechniqueChoiceAdmin(admin.ModelAdmin):
         "technique__name",
         "technique__school__name",
         "selected_skill__name",
-        "selected_skill_family__name",
         "selected_skill_category__name",
         "selected_item__name",
         "selected_specialization__name",
@@ -1969,7 +2037,6 @@ class CharacterTechniqueChoiceAdmin(admin.ModelAdmin):
         "technique",
         "definition",
         "selected_skill",
-        "selected_skill_family",
         "selected_skill_category",
         "selected_item",
         "selected_specialization",
@@ -1981,7 +2048,6 @@ class CharacterTechniqueChoiceAdmin(admin.ModelAdmin):
         "technique__school__type",
         "definition",
         "selected_skill",
-        "selected_skill_family",
         "selected_skill_category",
         "selected_item",
         "selected_specialization",
@@ -2002,7 +2068,7 @@ class CharacterTechniqueChoiceAdmin(admin.ModelAdmin):
             "Gewaehltes Ziel",
             {
                 "fields": (
-                    ("selected_skill", "selected_skill_family"),
+                    ("selected_skill"),
                     ("selected_skill_category", "selected_specialization"),
                     ("selected_item", "selected_item_category"),
                     "selected_text",
@@ -2013,6 +2079,20 @@ class CharacterTechniqueChoiceAdmin(admin.ModelAdmin):
     )
 
     readonly_fields = ("technique_level", "choice_target_kind", "technique_choice_context")
+
+    def changelist_view(self, request, extra_context=None):
+        """Drop stale legacy filter keys that reference removed family fields."""
+        stale_keys = [key for key in request.GET.keys() if key.startswith("selected_skill_family")]
+        if stale_keys:
+            params = request.GET.copy()
+            for key in stale_keys:
+                params.pop(key, None)
+            redirect_url = request.path
+            query_string = params.urlencode()
+            if query_string:
+                redirect_url = f"{redirect_url}?{query_string}"
+            return HttpResponseRedirect(redirect_url)
+        return super().changelist_view(request, extra_context=extra_context)
 
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
         """Limit technique selection to real choice techniques in the dedicated admin."""
@@ -2027,8 +2107,6 @@ class CharacterTechniqueChoiceAdmin(admin.ModelAdmin):
                 .order_by("school__name", "level", "name")
             )
         formfield = super().formfield_for_foreignkey(db_field, request, **kwargs)
-        if db_field.name == "selected_skill_family":
-            return _label_skill_family_field(formfield)
         return formfield
 
     @admin.display(ordering="technique__school__name", description="School")
@@ -2160,11 +2238,38 @@ class DamageSourceAdmin(admin.ModelAdmin):
 @admin.register(WeaponStats)
 class WeaponStatsAdmin(admin.ModelAdmin):
     """Admin configuration for weapon stat records."""
-    list_display = ("item", "damage", "two_handed_damage", "damage_source", "min_st", "size_class", "two_handed")
+
+    list_display = (
+        "item",
+        "item_quality",
+        "base_damage",
+        "quality_damage",
+        "two_handed_damage",
+        "wield_mode",
+        "damage_source",
+        "min_st",
+        "size_class",
+    )
     search_fields = ("item__name", "damage_source__name")
+    list_filter = ("wield_mode", "damage_source", "item__default_quality", "item__size_class")
     ordering = ("item__name",)
     autocomplete_fields = ("item", "damage_source")
     list_select_related = ("item", "damage_source")
+
+    @admin.display(ordering="item__default_quality", description="Item Quality")
+    def item_quality(self, obj):
+        """Render linked item default quality with RPG color coding."""
+        return _quality_badge(obj.item.default_quality)
+
+    @admin.display(description="Base Damage")
+    def base_damage(self, obj):
+        """Render raw one-handed damage without quality modifiers."""
+        return obj.damage
+
+    @admin.display(description="Damage (Quality)")
+    def quality_damage(self, obj):
+        """Render quality-adjusted one-handed damage through ItemEngine."""
+        return ItemEngine(obj.item).get_one_handed_damage_label()
 
 @admin.register(Trait)
 class TraitAdmin(admin.ModelAdmin):
@@ -2259,7 +2364,7 @@ MODIFIER_CHOICE_HELP = {
 TECHNIQUE_CHOICE_HELP = {
     "technique_type": "Passive = dauerhafter Effekt, Active = aktiv eingesetzte Technik, Situational = nur in bestimmten Situationen relevant.",
     "acquisition_type": "Automatic = wird direkt gelernt, Choice = wird aus mehreren Optionen ausgewaehlt.",
-    "support_level": "Computed = die Engine kann die Regel direkt berechnen, Structured = die Regel ist strukturiert hinterlegt, Descriptive = die Regel ist vor allem als Beschreibung erfasst.",
+    "support_level": "Automated = die Engine berechnet die Regel vollstaendig, Partially Automated = Teile sind strukturiert und auswertbar, Manual (Rule Text Only) = nur Regeltext, keine automatische Berechnung.",
     "choice_target_kind": "Einfachmodus fuer eine einzelne dauerhafte Wahl. Fuer mehrere getrennte Entscheidungen bitte die Inline-Wahlentscheidungen nutzen.",
     "choice_group": "Reine UI-/Importmetadaten. Diese Gruppe erzeugt keine Regelmechanik.",
     "specialization_slot_grants": "So viele Spezialisierungs-Slots entstehen, sobald die Technik wirklich gelernt wurde. Nur verfuegbare Techniken zaehlen nicht.",
@@ -2282,7 +2387,7 @@ TECHNIQUE_CHOICE_DEFINITION_HELP = {
 }
 
 SPECIALIZATION_CHOICE_HELP = {
-    "support_level": "Computed = die Engine kann die Regel direkt berechnen, Structured = die Regel ist strukturiert hinterlegt, Descriptive = die Regel ist nur beschreibend erfasst.",
+    "support_level": "Automated = die Engine berechnet die Regel vollstaendig, Partially Automated = Teile sind strukturiert und auswertbar, Manual (Rule Text Only) = nur Regeltext, keine automatische Berechnung.",
 }
 
 SCHOOL_ADMIN_LABELS = {
@@ -2334,11 +2439,17 @@ SPECIALIZATION_LABELS = {
 }
 
 ITEM_CHOICE_HELP = {
-    "item_type": "Armor = protective gear, Weapon = offensive gear, Misc = everything else.",
+    "item_type": "Armor = Ruestung, Shield = Schild, Weapon = Waffe, Consumable = verbrauchbares Item, Misc = sonstige Gegenstaende.",
+    "default_quality": "Standardqualitaet des Items; wird verwendet, wenn keine inventarspezifische Qualitaet gesetzt wurde.",
 }
 
 WEAPON_CHOICE_HELP = {
     "size_class": "Use the same size-class scale as races and bodies: smaller codes are lighter/smaller, larger codes are heavier/larger.",
+}
+
+SHIELD_CHOICE_HELP = {
+    "encumbrance": "Belastung (Bel.) des Schilds.",
+    "min_st": "Mindeststaerke zum Fuehren des Schilds.",
 }
 
 TRAIT_CHOICE_HELP = {
@@ -2356,6 +2467,7 @@ _install_inline_help(
 _install_inline_help(TechniqueChoiceDefinitionInline, help_texts=TECHNIQUE_CHOICE_DEFINITION_HELP)
 _install_inline_help(SpecializationInline, help_texts=SPECIALIZATION_CHOICE_HELP, labels=SPECIALIZATION_LABELS)
 _install_inline_help(WeaponStatsInline, help_texts=WEAPON_CHOICE_HELP)
+_install_inline_help(ShieldStatsInline, help_texts=SHIELD_CHOICE_HELP)
 
 _install_admin_help(AttributeAdmin, help_texts=ATTRIBUTE_CHOICE_HELP)
 _install_admin_help(SkillCategoryAdmin, help_texts=SKILL_CATEGORY_CHOICE_HELP)
@@ -2375,4 +2487,5 @@ _install_admin_help(TechniqueChoiceDefinitionAdmin, help_texts=TECHNIQUE_CHOICE_
 _install_admin_help(SpecializationAdmin, help_texts=SPECIALIZATION_CHOICE_HELP, labels=SPECIALIZATION_LABELS)
 _install_admin_help(ItemAdmin, help_texts=ITEM_CHOICE_HELP)
 _install_admin_help(WeaponStatsAdmin, help_texts=WEAPON_CHOICE_HELP)
+_install_admin_help(ShieldStatsAdmin, help_texts=SHIELD_CHOICE_HELP)
 _install_admin_help(TraitAdmin, help_texts=TRAIT_CHOICE_HELP)

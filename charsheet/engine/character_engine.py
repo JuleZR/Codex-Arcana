@@ -10,6 +10,8 @@ from typing import DefaultDict, TypeAlias, TypedDict
 from django.contrib.contenttypes.models import ContentType
 from django.db.models import Model, Prefetch, Q, QuerySet
 
+from .item_engine import ItemEngine
+
 from charsheet.constants import (
     ARCANE_POWER,
     ARMOR_PENALTY_IGNORE,
@@ -60,7 +62,6 @@ class SkillInfo(TypedDict):
     level: int
     category: str
     attribute: str
-    family_id: int | None
 
 
 class SkillBreakdown(TypedDict):
@@ -188,7 +189,6 @@ class CharacterEngine:
             "skill",
             "skill__category",
             "skill__attribute",
-            "skill__family",
         )
         return {
             entry.skill.slug: {
@@ -196,7 +196,6 @@ class CharacterEngine:
                 "level": entry.level,
                 "category": entry.skill.category.slug,
                 "attribute": entry.skill.attribute.short_name,
-                "family_id": entry.skill.family_id,
             }
             for entry in qs
         }
@@ -275,7 +274,6 @@ class CharacterEngine:
                 "technique",
                 "definition",
                 "selected_skill",
-                "selected_skill_family",
                 "selected_skill_category",
                 "selected_item",
                 "selected_specialization",
@@ -325,25 +323,6 @@ class CharacterEngine:
             for choice in self.technique_choices(technique):
                 if choice.selected_skill_id is not None:
                     totals[choice.selected_skill_id] += technique.choice_bonus_value
-        return dict(totals)
-
-    @cached_property
-    def _choice_skill_bonus_by_family_id(self) -> dict[int, int]:
-        """Index fixed choice-based bonuses by selected skill family id."""
-        totals: DefaultDict[int, int] = defaultdict(int)
-        for technique in self._choice_bonus_techniques:
-            state = self._technique_state_map.get(technique.id)
-            if state is None or not (
-                state["learned"]
-                and state["available"]
-                and state["engine_resolves_effects"]
-            ):
-                continue
-            if technique.choice_target_kind != Technique.ChoiceTargetKind.SKILL_FAMILY:
-                continue
-            for choice in self.technique_choices(technique):
-                if choice.selected_skill_family_id is not None:
-                    totals[choice.selected_skill_family_id] += technique.choice_bonus_value
         return dict(totals)
 
     @cached_property
@@ -956,25 +935,46 @@ class CharacterEngine:
             "learned_technique_ids": learned_technique_ids,
             "available_technique_ids": available_technique_ids,
         }
-
+    
+    def equipped_weapon_items(self) -> QuerySet:
+        """Return all currently equipped weapons with required relations loaded."""
+        return (
+            CharacterItem.objects.filter(
+                owner=self.character,
+                equipped=True,
+                item__item_type=Item.ItemType.WEAPON,
+            )
+            .select_related(
+                "item",
+                "item__weaponstats",
+                "item__weaponstats__damage_source",
+            )
+        )
+    
+    def weapon_quality_skill_modifier(self) -> int:
+        weapon = self.equipped_weapon_items().first()
+        if not weapon:
+            return 0
+        return ItemEngine(weapon).get_weapon_maneuver_quality_bonus()
+    
     def _skill_modifiers(self, skill_slug: str) -> int:
         """Resolve wound, armor, direct skill, and category modifiers."""
         info = self.skills().get(skill_slug)
         category_slug = info["category"] if info else None
         skill_id = info["skill_id"] if info else None
-        family_id = info["family_id"] if info else None
 
         modifier_parts = [
             self.current_wound_penalty(),
             -self.get_bel(),
             self.modifier_total_for_skill(skill_slug),
+            self.weapon_quality_skill_modifier()
         ]
         if category_slug:
             modifier_parts.append(
                 self.modifier_total_for_skill_category(category_slug)
             )
         if skill_id is not None:
-            modifier_parts.append(self._resolve_choice_skill_bonus(skill_id, family_id))
+            modifier_parts.append(self._resolve_choice_skill_bonus(skill_id))
         return sum(modifier_parts)
 
     def _resolve_stat_modifiers(self, slug: str) -> int:
@@ -992,12 +992,9 @@ class CharacterEngine:
             total += self._modifier_value(modifier, learned_stack, available_stack)
         return total
 
-    def _resolve_choice_skill_bonus(self, skill_id: int, family_id: int | None) -> int:
+    def _resolve_choice_skill_bonus(self, skill_id: int) -> int:
         """Resolve fixed computed bonuses granted by persistent technique choices."""
-        total = self._choice_skill_bonus_by_skill_id.get(skill_id, 0)
-        if family_id is not None:
-            total += self._choice_skill_bonus_by_family_id.get(family_id, 0)
-        return total
+        return self._choice_skill_bonus_by_skill_id.get(skill_id, 0)
 
     def _modifier_value(
         self,
@@ -1460,29 +1457,116 @@ class CharacterEngine:
 
     def equipped_armor_items(self) -> QuerySet:
         """Return all currently equipped armor items of the character."""
-        return CharacterItem.objects.filter(
-            owner=self.character,
-            equipped=True,
-            item__item_type=Item.ItemType.ARMOR,
+        return (
+            CharacterItem.objects.filter(
+                owner=self.character,
+                equipped=True,
+                item__item_type=Item.ItemType.ARMOR,
+            )
+            .select_related("item", "item__armorstats")
+        )
+    
+    def equipped_shield_items(self) -> QuerySet:
+        """Return all currently equipped shields of the character."""
+        return (
+            CharacterItem.objects.filter(
+                owner=self.character,
+                equipped=True,
+                item__item_type=Item.ItemType.SHIELD,
+            )
+            .select_related("item", "item__shieldstats")
         )
 
+    def equipped_weapon_rows(self) -> list[dict]:
+        """Return character-sheet-ready weapon rows resolved through ItemEngine."""
+        rows: list[dict] = []
+        bel_malus = -self.get_bel()
+        for character_item in self.equipped_weapon_items():
+            item_engine = ItemEngine(character_item)
+            weapon_stats = getattr(character_item.item, "weaponstats", None)
+            damage_source_slug = getattr(getattr(weapon_stats, "damage_source", None), "slug", "")
+            dmg_mod = self.get_dmg_modifier_sum(damage_source_slug) if damage_source_slug else self.attribute_modifier(ATTR_ST)
+            rows.append(
+                {
+                    "character_item": character_item,
+                    "item": character_item.item,
+                    "quality": item_engine.get_effective_quality(),
+                    "quality_color": item_engine.get_quality_color(),
+                    "dmg_mod": dmg_mod,
+                    "dmg_mod_display": f"{dmg_mod:+d}" if dmg_mod else "0",
+                    "bel_malus": bel_malus,
+                    "bel_malus_display": f"{bel_malus:+d}" if bel_malus else "0",
+                    "with_bel": dmg_mod + bel_malus,
+                    "with_bel_display": f"{(dmg_mod + bel_malus):+d}" if (dmg_mod + bel_malus) else "0",
+                    "wield_mode": item_engine.get_weapon_wield_mode(),
+                    "size_class": item_engine.get_size_class(),
+                    "min_st": item_engine.get_weapon_min_st(),
+                    "one_handed_damage": item_engine.get_one_handed_damage_label(),
+                    "two_handed_damage": item_engine.get_two_handed_damage_label(),
+                    "quality_damage_bonus": item_engine.get_weapon_damage_quality_bonus(),
+                    "quality_maneuver_bonus": item_engine.get_weapon_maneuver_quality_bonus(),
+                }
+            )
+        return rows
+
+    def equipped_armor_rows(self) -> list[dict]:
+        """Return equipped armor rows resolved through ItemEngine."""
+        rows: list[dict] = []
+        for character_item in self.equipped_armor_items():
+            item_engine = ItemEngine(character_item)
+            rows.append(
+                {
+                    "character_item": character_item,
+                    "item": character_item.item,
+                    "quality": item_engine.get_effective_quality(),
+                    "quality_color": item_engine.get_quality_color(),
+                    "rs": item_engine.get_armor_rs_raw() or 0,
+                    "bel_raw": item_engine.get_armor_bel_raw() or 0,
+                    "bel_effective": item_engine.get_armor_encumbrance(),
+                    "min_st": item_engine.get_armor_min_st(),
+                }
+            )
+        return rows
+
+    def equipped_shield_rows(self) -> list[dict]:
+        """Return equipped shield rows resolved through ItemEngine."""
+        rows: list[dict] = []
+        for character_item in self.equipped_shield_items():
+            item_engine = ItemEngine(character_item)
+            rows.append(
+                {
+                    "character_item": character_item,
+                    "item": character_item.item,
+                    "quality": item_engine.get_effective_quality(),
+                    "quality_color": item_engine.get_quality_color(),
+                    "rs": item_engine.get_effective_shield_rs() or 0,
+                    "bel_raw": item_engine.get_shield_bel_raw() or 0,
+                    "bel_effective": item_engine.get_shield_encumbrance(),
+                    "min_st": item_engine.get_shield_min_st(),
+                }
+            )
+        return rows
+        
     def get_grs(self) -> int:
         """Calculate the total armor rating from equipped armor."""
         total = 0
-        zone_sum = 0
         for armor in self.equipped_armor_items():
-            stats = armor.item.armorstats
-            if stats.rs_total > 0:
-                total += stats.rs_total
-            else:
-                zone_sum += stats.rs_sum()
-        return total + (zone_sum // 6)
+            total += ItemEngine(armor).get_armor_rs_raw() or 0
+        return total
 
     def get_bel(self) -> int:
         """Calculate the armor encumbrance value."""
         if self._resolve_stat_modifiers(ARMOR_PENALTY_IGNORE):
             return 0
-        return self.get_grs() // 3
+        armor_bel = 0
+        for armor in self.equipped_armor_items():
+            armor_bel += ItemEngine(armor).get_armor_encumbrance() or 0
+        
+        shield_bel = 0
+        for shield in self.equipped_shield_items():
+            shield_bel += ItemEngine(shield).get_shield_encumbrance() or 0
+            
+        return armor_bel + shield_bel
 
     def get_ms(self) -> int:
         """Calculate the movement penalty derived from armor."""

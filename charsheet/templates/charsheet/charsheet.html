@@ -1,4 +1,4 @@
-﻿{% load static %}
+{% load static %}
 <!DOCTYPE html>
 <html lang="de">
   <head>
@@ -11,7 +11,7 @@
         document.documentElement.setAttribute("data-left-tools-open", "0");
       })();
     </script>
-    <link rel="stylesheet" href="{% static 'css/charsheet.css' %}">
+    <link rel="stylesheet" href="{% static 'css/charsheet.css' %}?v=20260314b">
   </head>
   <body>
     <button
@@ -466,26 +466,28 @@
               </div>
               <div class="panel_scroll inventory_scroll">
                 <ul class="p2_lines">
-                  {% for item in inventory_items %}
-                    <li class="inv_row tooltip_target{% if item.equipped %} is-equipped{% endif %}" data-tooltip-side="right" data-tooltip="{{ item.item.description|default:'Keine Beschreibung' }}">
-                      <span class="inv_name">{% if item.item.stackable %}{{ item.amount }}x {% endif %}{{ item.item.name }}</span>
+                  {% for row in inventory_rows %}
+                    <li class="inv_row{% if row.character_item.equipped %} is-equipped{% endif %}{% if row.item.item_type == 'armor' or row.item.item_type == 'weapon' or row.item.item_type == 'shield' or row.item.description %} tooltip_target{% endif %}"{% if row.item.item_type == 'armor' or row.item.item_type == 'weapon' or row.item.item_type == 'shield' or row.item.description %} data-tooltip-side="right" data-tooltip="{% if row.item.item_type == 'armor' or row.item.item_type == 'weapon' or row.item.item_type == 'shield' %}[[QUALITY:{{ row.quality_label }}|{{ row.quality_color }}]]\n\n{% endif %}{{ row.item.description|default:'' }}"{% endif %}>
+                      <span class="inv_name">
+                        {% if row.item.stackable %}{{ row.character_item.amount }}x {% endif %}{{ row.item.name }}
+                      </span>
                       <span class="inv_actions">
                         <span class="inv_menu">
-                          <button type="button" class="equip_toggle inv_menu_trigger" aria-haspopup="true" aria-expanded="false" title="Item-Aktionen">⋯</button>
+                          <button type="button" class="equip_toggle inv_menu_trigger" aria-haspopup="true" aria-expanded="false" title="Item-Aktionen">&#8942;</button>
                           <span class="inv_menu_panel" hidden>
-                            {% if item.item.stackable and item.item.is_consumable %}
-                              <form method="post" action="{% url 'consume_item' item.pk %}" class="equip_form">
+                            {% if row.item.stackable and row.item.item_type == "consumable" %}
+                              <form method="post" action="{% url 'consume_item' row.character_item.pk %}" class="equip_form">
                                 {% csrf_token %}
                                 <button type="submit" class="inv_menu_btn">Verbrauchen</button>
                               </form>
                             {% endif %}
-                            {% if item.item.item_type == "armor" or item.item.item_type == "weapon" %}
-                              <form method="post" action="{% url 'toggle_equip' item.pk %}" class="equip_form">
+                            {% if row.item.item_type == "armor" or row.item.item_type == "weapon" or row.item.item_type == "shield" %}
+                              <form method="post" action="{% url 'toggle_equip' row.character_item.pk %}" class="equip_form">
                                 {% csrf_token %}
-                                <button type="submit" class="inv_menu_btn">{% if item.equipped %}Ablegen{% else %}Anlegen{% endif %}</button>
+                                <button type="submit" class="inv_menu_btn">{% if row.character_item.equipped %}Ablegen{% else %}Anlegen{% endif %}</button>
                               </form>
                             {% endif %}
-                            <form method="post" action="{% url 'remove_item' item.pk %}" class="equip_form">
+                            <form method="post" action="{% url 'remove_item' row.character_item.pk %}" class="equip_form">
                               {% csrf_token %}
                               <input type="hidden" name="all" value="1">
                               <button type="submit" class="inv_menu_btn inv_menu_btn--danger" data-require-shift-delete title="Nur mit Shift-Klick">Stack löschen</button>
@@ -505,16 +507,32 @@
               <h2>Rüstung</h2>
               <ul class="armor_worn">
                 {% for armor in equipped_armor %}
-                  <li class="armor_row">
-                    <span>{{ armor.item.name }}</span>
-                    <form method="post" action="{% url 'toggle_equip' armor.pk %}" class="equip_form">
+                  <li class="armor_row tooltip_target" data-tooltip-side="left" data-tooltip="[[QUALITY:{{ armor.quality_label }}|{{ armor.quality_color }}]]\n\n{{ armor.item.description|default:'' }}">
+                    <span>
+                      <span class="quality_marker" style="--quality-color: {{ armor.quality_color }};" aria-hidden="true"></span>
+                      {{ armor.item.name }} (RS {{ armor.rs }} | Bel {{ armor.bel_effective }} | Min-St {{ armor.min_st|default:"-" }})
+                    </span>
+                    <form method="post" action="{% url 'toggle_equip' armor.character_item.pk %}" class="equip_form">
                       {% csrf_token %}
                       <button type="submit" class="equip_toggle is-equipped" title="Ablegen">-</button>
                     </form>
                   </li>
-                {% empty %}
-                  <li></li>
                 {% endfor %}
+                {% for shield in equipped_shields %}
+                  <li class="armor_row tooltip_target" data-tooltip-side="left" data-tooltip="[[QUALITY:{{ shield.quality_label }}|{{ shield.quality_color }}]]\n\n{{ shield.item.description|default:'' }}">
+                    <span>
+                      <span class="quality_marker" style="--quality-color: {{ shield.quality_color }};" aria-hidden="true"></span>
+                      {{ shield.item.name }} (Schild-RS {{ shield.rs }} | Bel {{ shield.bel_effective }} | Min-St {{ shield.min_st|default:"-" }})
+                    </span>
+                    <form method="post" action="{% url 'toggle_equip' shield.character_item.pk %}" class="equip_form">
+                      {% csrf_token %}
+                      <button type="submit" class="equip_toggle is-equipped" title="Ablegen">-</button>
+                    </form>
+                  </li>
+                {% endfor %}
+                {% if not equipped_armor and not equipped_shields %}
+                  <li></li>
+                {% endif %}
               </ul>
               <ul class="armor_stats">
                 <li><span>Gesamtrüstungsschutz</span><span class="pill">{{ character.engine.get_grs }}</span></li>
@@ -624,7 +642,7 @@
                   </thead>
                   <tbody>
                     {% for row in weapon_rows %}
-                      <tr class="tooltip_target" data-tooltip-side="left" data-tooltip="{{ row.item.description|default:'Keine Beschreibung' }}">
+                      <tr class="tooltip_target" data-tooltip-side="left" data-tooltip="[[QUALITY:{{ row.quality_label }}|{{ row.quality_color }}]]\n\n{{ row.item.description|default:'' }}">
                         <td>
                           <div class="weapon_name_cell">
                             <form method="post" action="{% url 'toggle_equip' row.character_item.pk %}" class="equip_form">
@@ -637,45 +655,47 @@
                                 {% if row.character_item.equipped %}-{% else %}+{% endif %}
                               </button>
                             </form>
-                            <span class="weapon_name">{{ row.item.name }}</span>
+                            <span class="weapon_name">
+                              {{ row.item.name }}
+                            </span>
                           </div>
                         </td>
                         <td class="weapon_damage">
-                          <span class="weapon_damage_value">{{ row.stats.damage|default:"-" }}</span>
+                          <span class="weapon_damage_value">{{ row.one_handed_damage|default:"-" }}</span>
                         </td>
-                        <td>{% firstof row.stats.size_class row.stats.weight_class "-" %}</td>
-                        <td>{{ row.stats.min_st|default:"-" }}</td>
+                        <td>{{ row.size_class|default:"-" }}</td>
+                        <td>{{ row.min_st|default:"-" }}</td>
                         <td class="weapon_mode_col">1 H</td>
                         <td>-</td>
                         <td>-</td>
-                        <td>{{ row.dmg_mod|default:"-" }}</td>
+                        <td title="Qualitäts-Manövermodifikator: {{ row.quality_maneuver_bonus|default:0 }}">{{ row.dmg_mod_display|default:"-" }}</td>
                         <td>
                           <span
                             class="pill{% if not row.character_item.equipped %} empty{% endif %}"
-                            title="Berechnung: {{ row.dmg_mod }} + (Bel. {{ row.bel_malus }}) = {{ row.with_bel }}"
+                            title="Berechnung: {{ row.dmg_mod_display }} + (Bel. {{ row.bel_malus_display }}) = {{ row.with_bel_display }}"
                           >
-                            {% if row.character_item.equipped %}{{ row.with_bel }}{% endif %}
+                            {% if row.character_item.equipped %}{{ row.with_bel_display }}{% endif %}
                           </span>
                         </td>
                       </tr>
-                      {% if row.stats.two_handed and row.stats.two_handed_damage %}
+                      {% if row.two_handed_damage %}
                         <tr>
                           <td></td>
                           <td class="weapon_damage">
-                            <span class="weapon_damage_value">{{ row.stats.two_handed_damage }}</span>
+                            <span class="weapon_damage_value">{{ row.two_handed_damage }}</span>
                           </td>
-                          <td>{% firstof row.stats.size_class row.stats.weight_class "-" %}</td>
-                          <td>{{ row.stats.min_st|default:"-" }}</td>
+                          <td>{{ row.size_class|default:"-" }}</td>
+                          <td>{{ row.min_st|default:"-" }}</td>
                           <td class="weapon_mode_col">2 H</td>
                           <td>-</td>
                           <td>-</td>
-                          <td>{{ row.dmg_mod|default:"-" }}</td>
+                          <td title="Qualitäts-Manövermodifikator: {{ row.quality_maneuver_bonus|default:0 }}">{{ row.dmg_mod_display|default:"-" }}</td>
                           <td>
                             <span
                               class="pill{% if not row.character_item.equipped %} empty{% endif %}"
-                              title="Berechnung: {{ row.dmg_mod }} + (Bel. {{ row.bel_malus }}) = {{ row.with_bel }}"
+                              title="Berechnung: {{ row.dmg_mod_display }} + (Bel. {{ row.bel_malus_display }}) = {{ row.with_bel_display }}"
                             >
-                              {% if row.character_item.equipped %}{{ row.with_bel }}{% endif %}
+                              {% if row.character_item.equipped %}{{ row.with_bel_display }}{% endif %}
                             </span>
                           </td>
                         </tr>
@@ -734,14 +754,30 @@
                           data-shop-search="{{ item.name|lower }} {{ group.label|lower }} {{ item.description|default:''|lower }}"
                           data-shop-id="{{ item.id }}"
                           data-shop-name="{{ item.name|escape }}"
-                          data-shop-price="{{ item.price }}"
+                          data-shop-item-type="{{ item.item_type }}"
+                          data-shop-stackable="{% if item.stackable %}1{% else %}0{% endif %}"
+                          data-shop-base-price="{{ item.base_price }}"
+                          data-shop-default-price="{{ item.default_price }}"
+                          data-shop-quality="{{ item.default_quality }}"
+                          data-shop-damage-dice-amount="{{ item.stats.damage_dice_amount|default:'' }}"
+                          data-shop-damage-dice-faces="{{ item.stats.damage_dice_faces|default:'' }}"
+                          data-shop-damage-flat-bonus="{{ item.stats.damage_flat_bonus|default:'' }}"
+                          data-shop-h2-dice-amount="{{ item.stats.h2_dice_amount|default_if_none:'' }}"
+                          data-shop-h2-dice-faces="{{ item.stats.h2_dice_faces|default_if_none:'' }}"
+                          data-shop-h2-flat-bonus="{{ item.stats.h2_flat_bonus|default_if_none:'' }}"
+                          data-shop-wield-mode="{{ item.stats.wield_mode|default:'' }}"
+                          data-shop-armor-rs="{{ item.stats.armor_rs|default:'' }}"
+                          data-shop-armor-bel="{{ item.stats.armor_bel|default:'' }}"
+                          data-shop-shield-rs="{{ item.stats.shield_rs|default:'' }}"
+                          data-shop-shield-bel="{{ item.stats.shield_bel|default:'' }}"
+                          data-shop-min-st="{{ item.stats.min_st|default_if_none:'' }}"
                         >
                           <td class="shop_item_name">
                             <button type="button" class="shop_item_name_btn" data-shop-pick title="Zum Warenkorb">
                               {{ item.name }}
                             </button>
                           </td>
-                          <td class="shop_item_price">{{ item.price }} KS</td>
+                          <td class="shop_item_price">{{ item.default_price }} KS</td>
                         </tr>
                       {% endfor %}
                     </tbody>
@@ -759,22 +795,23 @@
             <div class="shop_cart_wrapper" data-shop-balance="{{ character.money }}" data-buy-url="{% url 'buy_shop_cart' character.id %}">
               <div class="shop_cart_scroll">
                 <table class="shop_cart_table">
-                  <thead>
-                    <tr>
-                      <th>Item</th>
-                      <th>Menge</th>
-                      <th>Einzel</th>
-                      <th>Summe</th>
-                      <th></th>
-                    </tr>
-                  </thead>
-                  <tbody id="shopCartBody">
-                    <tr class="shop_cart_empty_row">
-                      <td colspan="5">Noch keine Items ausgewählt.</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
+                    <thead>
+                      <tr>
+                        <th>Item</th>
+                        <th>Qualität</th>
+                        <th>Menge</th>
+                        <th>Einzel</th>
+                        <th>Summe</th>
+                        <th></th>
+                      </tr>
+                    </thead>
+                    <tbody id="shopCartBody">
+                      <tr class="shop_cart_empty_row">
+                        <td colspan="6">Noch keine Items ausgewählt.</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
               <div class="shop_cart_totals">
                 <div class="shop_cart_total_row">
                   <span>Gesamtpreis</span>
@@ -907,6 +944,34 @@
               {% endfor %}
             </select>
           </label>
+          <label class="shop_item_form_row">
+            <span>Qualität (Standard)</span>
+            <select name="default_quality" id="shopItemQualitySelect" required>
+              {% for quality in shop_quality_choices %}
+                <option value="{{ quality.value }}" style="color: {{ quality.color }};"{% if quality.value == "common" %} selected{% endif %}>{{ quality.label }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <div class="shop_item_form_grid">
+            <label class="shop_item_form_row">
+              <span>Gewicht</span>
+              <input type="number" name="weight" min="0" step="1" value="0">
+            </label>
+            <label class="shop_item_form_row">
+              <span>Größenklasse</span>
+              <select name="size_class">
+                <option value="S">S</option>
+                <option value="F">F</option>
+                <option value="W">W</option>
+                <option value="K">K</option>
+                <option value="M" selected>M</option>
+                <option value="G">G</option>
+                <option value="R">R</option>
+                <option value="Gi">Gi</option>
+                <option value="Kol">Kol</option>
+              </select>
+            </label>
+          </div>
           <div class="shop_item_form_conditional" id="shopItemArmorFields" hidden>
             <div class="shop_item_form_row">
               <span>Rüstungsmodus</span>
@@ -949,12 +1014,56 @@
                 </label>
               </div>
             </div>
+            <div class="shop_item_form_grid">
+              <label class="shop_item_form_row">
+                <span>Belastung</span>
+                <input type="number" name="armor_encumbrance" min="0" step="1" value="0">
+              </label>
+              <label class="shop_item_form_row">
+                <span>Min. Stärke</span>
+                <input type="number" name="armor_min_st" min="1" step="1" value="1">
+              </label>
+            </div>
           </div>
           <div class="shop_item_form_conditional" id="shopItemWeaponFields" hidden>
-            <label class="shop_item_form_row">
-              <span>Schaden</span>
-              <input type="text" name="weapon_damage" maxlength="20" placeholder="z. B. 1W6+2">
-            </label>
+            <div class="shop_item_form_grid">
+              <label class="shop_item_form_row">
+                <span>Schaden Würfelanzahl</span>
+                <input type="number" name="weapon_damage_dice_amount" min="1" step="1" value="1">
+              </label>
+              <label class="shop_item_form_row">
+                <span>Schaden Würfelseiten</span>
+                <input type="number" name="weapon_damage_dice_faces" min="2" step="1" value="10">
+              </label>
+              <label class="shop_item_form_row">
+                <span>Schaden Flat-Bonus</span>
+                <input type="number" name="weapon_damage_flat_bonus" min="0" step="1" value="0">
+              </label>
+              <label class="shop_item_form_row">
+                <span>Waffengriff</span>
+                <select name="weapon_wield_mode" id="shopWeaponWieldMode">
+                  <option value="1h">Einhändig</option>
+                  <option value="2h">Zweihändig</option>
+                  <option value="vh">Ein- und Zweihändig</option>
+                </select>
+              </label>
+            </div>
+            <div id="shopWeaponTwoHandFields" hidden>
+              <div class="shop_item_form_grid">
+                <label class="shop_item_form_row">
+                  <span>2H Würfelanzahl</span>
+                  <input type="number" name="weapon_h2_dice_amount" min="1" step="1" value="1">
+                </label>
+                <label class="shop_item_form_row">
+                  <span>2H Würfelseiten</span>
+                  <input type="number" name="weapon_h2_dice_faces" min="2" step="1" value="10">
+                </label>
+                <label class="shop_item_form_row">
+                  <span>2H Flat-Bonus</span>
+                  <input type="number" name="weapon_h2_flat_bonus" min="0" step="1" value="0">
+                </label>
+              </div>
+            </div>
             <label class="shop_item_form_row">
               <span>Schadensquelle</span>
               <select name="weapon_damage_source">
@@ -964,9 +1073,25 @@
               </select>
             </label>
             <label class="shop_item_form_row">
-              <span>Min. Stärke</span>
-              <input type="number" name="weapon_min_st" min="1" step="1" value="1">
-            </label>
+                <span>Min. Stärke</span>
+                <input type="number" name="weapon_min_st" min="1" step="1" value="1">
+              </label>
+            </div>
+          <div class="shop_item_form_conditional" id="shopItemShieldFields" hidden>
+            <div class="shop_item_form_grid">
+              <label class="shop_item_form_row">
+                <span>Schild-RS</span>
+                <input type="number" name="shield_rs" min="0" step="1" value="0">
+              </label>
+              <label class="shop_item_form_row">
+                <span>Belastung</span>
+                <input type="number" name="shield_encumbrance" min="0" step="1" value="0">
+              </label>
+              <label class="shop_item_form_row">
+                <span>Min. Stärke</span>
+                <input type="number" name="shield_min_st" min="1" step="1" value="1">
+              </label>
+            </div>
           </div>
           <label class="shop_item_form_row">
             <span>Beschreibung</span>
@@ -975,10 +1100,6 @@
           <label class="shop_item_form_check" id="shopItemStackableRow">
             <input type="checkbox" name="stackable" id="shopItemStackableInput" checked>
             <span>Stackbar</span>
-          </label>
-          <label class="shop_item_form_check" id="shopItemConsumableRow">
-            <input type="checkbox" name="is_consumable" id="shopItemConsumableInput">
-            <span>Consumable</span>
           </label>
           <div class="shop_item_form_actions">
             <button type="button" id="shopItemCancelBtn" class="shop_item_cancel_btn">Abbrechen</button>
@@ -1169,7 +1290,6 @@
                     <thead>
                       <tr>
                         <th>Eintrag</th>
-                        <th>Wert</th>
                         <th>Kosten</th>
                         <th></th>
                       </tr>
@@ -1612,4 +1732,3 @@
     </script>
   </body>
 </html>
-

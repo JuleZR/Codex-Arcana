@@ -545,7 +545,10 @@ html[data-left-tools-open="1"] .left-tools {
 .page {
   width: min(var(--page-width), 46vw);
   height: var(--page-height);
-  background: url("/static/img/pergamentbg.jpg") center / cover no-repeat;
+  background:
+    linear-gradient(180deg, rgba(242, 239, 232, 0.66), rgba(227, 222, 212, 0.62)),
+    url("/static/img/pergamentbg.jpg") center / cover no-repeat;
+  background-blend-mode: multiply, normal;
   box-shadow:
     0 10px 30px var(--paper-shadow),
     inset 0 0 0 1px rgba(74, 55, 38, 0.35);
@@ -605,7 +608,7 @@ html[data-left-tools-open="1"] .left-tools {
   height: 100%;
   border: 1px solid rgba(74, 55, 38, 0.28);
   border-radius: 6px;
-  background: linear-gradient(180deg, rgba(251, 240, 213, 0.52), rgba(238, 221, 186, 0.42));
+  background: linear-gradient(180deg, rgba(248, 243, 230, 0.56), rgba(235, 228, 212, 0.48));
   box-shadow: inset 0 0 0 1px rgba(255, 248, 228, 0.35);
   overflow: hidden;
   padding: 6px 8px;
@@ -716,7 +719,7 @@ html[data-left-tools-open="1"] .left-tools {
   height: auto;
   border: 1px solid rgba(74, 55, 38, 0.34);
   border-radius: 6px;
-  background: linear-gradient(180deg, rgba(251, 240, 213, 0.58), rgba(238, 221, 186, 0.48));
+  background: linear-gradient(180deg, rgba(248, 243, 230, 0.6), rgba(235, 228, 212, 0.52));
   box-shadow:
     inset 0 0 0 1px rgba(255, 248, 228, 0.42),
     0 1px 3px rgba(0, 0, 0, 0.08);
@@ -823,7 +826,7 @@ html[data-left-tools-open="1"] .left-tools {
   margin-top: 6px;
   border: 1px solid rgba(74, 55, 38, 0.34);
   border-radius: 6px;
-  background: linear-gradient(180deg, rgba(251, 240, 213, 0.54), rgba(238, 221, 186, 0.44));
+  background: linear-gradient(180deg, rgba(248, 243, 230, 0.56), rgba(235, 228, 212, 0.48));
   box-shadow:
     inset 0 0 0 1px rgba(255, 248, 228, 0.42),
     0 1px 3px rgba(0, 0, 0, 0.08);
@@ -906,7 +909,7 @@ html[data-left-tools-open="1"] .left-tools {
 .fame_total_wrap {
   display: grid;
   justify-items: center;
-  gap: 2px;
+  gap: 1px;
 }
 
 .rank_input,
@@ -1178,7 +1181,7 @@ html[data-left-tools-open="1"] .left-tools {
   margin: 0;
   border: 1px solid rgba(74, 55, 38, 0.35);
   border-radius: 6px;
-  background: linear-gradient(180deg, rgba(251, 240, 213, 0.50), rgba(238, 221, 186, 0.40));
+  background: linear-gradient(180deg, rgba(248, 243, 230, 0.52), rgba(235, 228, 212, 0.44));
   box-shadow:
     inset 0 0 0 1px rgba(255, 248, 228, 0.36),
     0 1px 3px rgba(0, 0, 0, 0.08);
@@ -1369,6 +1372,10 @@ html[data-left-tools-open="1"] .left-tools {
 .page--secondary {
   padding: 8px;
   position: relative;
+  background:
+    linear-gradient(180deg, rgba(248, 245, 236, 0.72), rgba(233, 228, 216, 0.66)),
+    url("/static/img/pergamentbg.jpg") center / cover no-repeat;
+  background-blend-mode: multiply, normal;
 }
 
 .page--secondary::before {
@@ -1376,8 +1383,8 @@ html[data-left-tools-open="1"] .left-tools {
   position: absolute;
   inset: 0;
   background: url("/static/img/arcane_codex_logo.svg") center 50% / 80% no-repeat;
-  mix-blend-mode: multiply;
-  opacity: 0.2;
+  mix-blend-mode: normal;
+  opacity: 0.06;
   pointer-events: none;
 }
 
@@ -1403,8 +1410,8 @@ html[data-left-tools-open="1"] .left-tools {
   border: 1px solid rgba(114, 80, 46, 0.34);
   border-radius: 8px;
   background:
-    radial-gradient(ellipse at 50% -10%, rgba(255, 246, 222, 0.2), rgba(255, 246, 222, 0) 34%),
-    linear-gradient(180deg, rgba(222, 194, 146, 0.42) 0%, rgba(205, 168, 118, 0.34) 28%, rgba(193, 155, 108, 0.3) 58%, rgba(172, 132, 90, 0.32) 100%);
+    radial-gradient(ellipse at 50% -10%, rgba(255, 249, 236, 0.2), rgba(255, 249, 236, 0) 34%),
+    linear-gradient(180deg, rgba(236, 227, 208, 0.42) 0%, rgba(226, 214, 192, 0.36) 28%, rgba(216, 202, 178, 0.34) 58%, rgba(200, 186, 162, 0.34) 100%);
   box-shadow:
     inset 0 1px 0 rgba(255, 246, 222, 0.56),
     inset 0 0 0 1px rgba(255, 243, 214, 0.18),
@@ -1462,7 +1469,7 @@ html[data-left-tools-open="1"] .left-tools {
 
 .p2_core_stats {
   border: 1px solid rgba(74, 55, 38, 0.36);
-  background: linear-gradient(180deg, rgba(251, 240, 213, 0.58), rgba(238, 221, 186, 0.50));
+  background: linear-gradient(180deg, rgba(246, 240, 226, 0.58), rgba(234, 226, 211, 0.52));
 }
 
 .core_cols {
@@ -2087,6 +2094,27 @@ html[data-left-tools-open="1"] .left-tools {
   font-weight: 600;
 }
 
+.quality_marker {
+  display: inline-block;
+  width: 0.62em;
+  height: 0.62em;
+  margin-right: 0.36em;
+  border-radius: 50%;
+  background: var(--quality-color, #777);
+  border: 1px solid rgba(139, 106, 74, 0.74);
+  box-shadow:
+    0 0 0 1px rgba(247, 235, 208, 0.74),
+    0 0 1px rgba(92, 64, 37, 0.35);
+  vertical-align: 0.02em;
+  flex: 0 0 auto;
+}
+
+.weapon_name .quality_marker {
+  width: 0.56em;
+  height: 0.56em;
+  vertical-align: 0.01em;
+}
+
 .inv_actions {
   display: inline-flex;
   align-items: center;
@@ -2198,12 +2226,21 @@ html[data-left-tools-open="1"] .left-tools {
 }
 
 .equip_toggle.is-equipped {
+  width: 16px;
+  min-width: 16px;
+  max-width: 16px;
+  height: 16px;
+  min-height: 16px;
+  max-height: 16px;
   background: linear-gradient(145deg, rgba(238, 230, 209, 0.9), rgba(199, 183, 151, 0.84));
-  color: rgba(56, 42, 25, 0.82);
-  border-color: rgba(123, 100, 71, 0.58);
+  color: rgba(56, 42, 25, 0.74);
+  border-color: rgba(123, 100, 71, 0.46);
+  font-size: 0.66rem;
+  opacity: 0.76;
+  margin-left: -4px;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.52),
-    0 1px 1px rgba(36, 26, 16, 0.16);
+    inset 0 1px 0 rgba(255, 255, 255, 0.44),
+    0 1px 1px rgba(36, 26, 16, 0.1);
 }
 
 .equip_toggle--remove {
@@ -2234,8 +2271,12 @@ html[data-left-tools-open="1"] .left-tools {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 6px;
+  gap: 2px;
   min-width: 0;
+}
+
+.armor_worn li.armor_row .equip_toggle.is-equipped {
+  margin-left: -8px;
 }
 
 .armor_stats {
@@ -2435,6 +2476,25 @@ html[data-left-tools-open="1"] .left-tools {
 
 .floating-tooltip p {
   margin: 0;
+}
+
+.floating-tooltip .tooltip_quality_line {
+  margin: 0 0 8px;
+  padding: 0 2px;
+}
+
+.floating-tooltip .tooltip_quality_badge {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(95, 67, 40, 0.42);
+  background: var(--tooltip-quality-color, rgba(236, 221, 188, 0.9));
+  color: #101010;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  text-align: left;
 }
 
 .floating-tooltip p + p,
@@ -4095,27 +4155,52 @@ html[data-left-tools-open="1"] .left-tools {
   text-align: left;
 }
 
-.shop_cart_table td:nth-child(2),
 .shop_cart_table td:nth-child(3),
 .shop_cart_table td:nth-child(4),
 .shop_cart_table td:nth-child(5),
-.shop_cart_table th:nth-child(2),
+.shop_cart_table td:nth-child(6),
 .shop_cart_table th:nth-child(3),
 .shop_cart_table th:nth-child(4),
-.shop_cart_table th:nth-child(5) {
+.shop_cart_table th:nth-child(5),
+.shop_cart_table th:nth-child(6) {
   text-align: right;
 }
 
-.shop_cart_table th:nth-child(3),
 .shop_cart_table th:nth-child(4),
-.shop_cart_table td:nth-child(3),
-.shop_cart_table td:nth-child(4) {
+.shop_cart_table th:nth-child(5),
+.shop_cart_table td:nth-child(4),
+.shop_cart_table td:nth-child(5) {
   white-space: nowrap;
+}
+
+.shop_cart_table th:nth-child(3),
+.shop_cart_table td:nth-child(3) {
+  width: 82px;
 }
 
 .shop_cart_table th:nth-child(2),
 .shop_cart_table td:nth-child(2) {
-  width: 82px;
+  width: 52px;
+}
+
+.shop_cart_table th:nth-child(4),
+.shop_cart_table td:nth-child(4) {
+  width: 94px;
+}
+
+.shop_cart_table th:nth-child(5),
+.shop_cart_table td:nth-child(5) {
+  width: 112px;
+}
+
+.shop_cart_table th:nth-child(6),
+.shop_cart_table td:nth-child(6) {
+  width: 30px;
+}
+
+.shop_cart_table th:nth-child(1),
+.shop_cart_table td:nth-child(1) {
+  width: auto;
 }
 
 .shop_cart_remove_btn {
@@ -4174,6 +4259,68 @@ html[data-left-tools-open="1"] .left-tools {
   grid-template-columns: auto 30px auto;
   align-items: center;
   gap: 2px;
+}
+
+.shop_qty_stepper .shop_step_btn {
+  width: 14px;
+  height: 14px;
+  font-size: 0.62rem;
+}
+
+.shop_quality_stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 0px;
+  min-width: max-content;
+  white-space: nowrap;
+}
+
+.shop_quality_stepper .shop_step_btn[disabled] {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.shop_quality_value {
+  display: inline-block;
+  text-align: center;
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.shop_quality_dot {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  min-width: 18px;
+  color: var(--quality-color, #777);
+  font-size: 1rem;
+  line-height: 1;
+  cursor: help;
+}
+
+
+.shop_quality_stepper .shop_step_btn {
+  width: 16px;
+  height: 16px;
+  font-size: 0.66rem;
+}
+
+.shop_cart_qty_fixed {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 20px;
+  min-height: 22px;
+  font-weight: 600;
+}
+
+.shop_cart_value_cell {
+  text-align: left !important;
+  white-space: nowrap;
+  font-size: 0.76rem;
 }
 
 .shop_cart_qty_input,
@@ -4724,6 +4871,51 @@ html[data-left-tools-open="1"] .left-tools {
   }
 }
 
+/* Final spread tone harmonization (kept at file end so it wins the cascade) */
+.page {
+  background:
+    linear-gradient(180deg, rgba(242, 240, 234, 0.72), rgba(230, 226, 216, 0.68)),
+    url("/static/img/pergamentbg.jpg") center / cover no-repeat !important;
+  background-blend-mode: multiply, normal !important;
+}
+
+.page:first-child,
+.page.page--secondary {
+  position: relative;
+}
+
+.page:first-child::after,
+.page.page--secondary::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background: rgba(252, 250, 244, 0.14);
+}
+
+.page.page--secondary::after {
+  background: rgba(252, 250, 244, 0.2);
+}
+
+.page:first-child > *,
+.page.page--secondary > * {
+  position: relative;
+  z-index: 1;
+}
+
+.char_info_box,
+.attribute_wrapper,
+.exp_wrapper,
+.fame_wrapper,
+.reputation_wrapper,
+.language_wrapper,
+.p1_bottom_right,
+.p2_panel,
+.p2_core_stats {
+  background: linear-gradient(180deg, rgba(247, 243, 232, 0.62), rgba(236, 230, 216, 0.54)) !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .firefly,
   .firefly::before,
@@ -4731,5 +4923,3 @@ html[data-left-tools-open="1"] .left-tools {
     animation: none;
   }
 }
-
-
