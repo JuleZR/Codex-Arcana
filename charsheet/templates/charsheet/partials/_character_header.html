@@ -1,0 +1,314 @@
+<article class="page">
+  <section class="p1_top">
+    <div class="char_info_wrapper">
+      <div class="char_info_box">
+        <table class="char_info_table" aria-label="Charakterinformation">
+          <tbody>
+            <tr class="char_info_row_title">
+              <td class="char_title" colspan="6">
+                <div class="char_info_title_wrap">
+                  <h1>Charakterinformation</h1>
+                  <button type="button" class="char_info_edit_btn" id="charInfoEditTrigger" aria-label="Charakterinformation bearbeiten" title="Charakterinformation bearbeiten">
+                    <svg class="char_info_edit_icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                      <path d="M4 20h4l10-10-4-4L4 16v4z"></path>
+                      <path d="M13.8 6.2l4 4"></path>
+                    </svg>
+                  </button>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td class="label">Name</td>
+              <td class="value" colspan="5">{{ character.name }}</td>
+            </tr>
+            <tr>
+              <td class="label">Geschlecht</td>
+              <td class="value">{{ character.get_gender_display|default:"-" }}</td>
+              <td class="label">Rasse</td>
+              <td class="value wide">{{ character.race.name }}</td>
+              <td class="label">Alter</td>
+              <td class="value">{{ character.age|default:"-" }}</td>
+            </tr>
+            <tr>
+              <td class="label">Gr&ouml;&szlig;e</td>
+              <td class="value">{% if character.height %}{{ character.height }} cm{% else %}-{% endif %}</td>
+              <td class="label">Gr&ouml;&szlig;enklasse (GK)</td>
+              <td class="value">{{ size_class }}</td>
+              <td class="label">GK-Mod.</td>
+              <td class="value">{{ size_class_mod }}</td>
+            </tr>
+            <tr>
+              <td class="label">Hautfarbe</td>
+              <td class="value">{{ character.skin_color|default:"-" }}</td>
+              <td class="label">Haarfarbe</td>
+              <td class="value">{{ character.hair_color|default:"-" }}</td>
+              <td class="label">Augenfarbe</td>
+              <td class="value">{{ character.eye_color|default:"-" }}</td>
+            </tr>
+            <tr>
+              <td class="label">Herkunftsland</td>
+              <td class="value">{{ character.country_of_origin|default:"-" }}</td>
+              <td class="label">Gewicht</td>
+              <td class="value">{% if character.weight %}{{ character.weight }} kg{% else %}-{% endif %}</td>
+              <td class="label">Religion</td>
+              <td class="value">{{ character.religion|default:"-" }}</td>
+            </tr>
+            <tr>
+              <td class="label">Aussehen</td>
+              <td class="value" colspan="5">{{ character.appearance|default:"-" }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="p1_bottom_left">
+    <div class="attribute_wrapper">
+      <table class="attribute_table" aria-label="Eigenschaften">
+        <thead>
+          <tr>
+            <th class="a_header">Eigenschaften</th>
+            <th class="a_h_value">Wert</th>
+            <th class="a_h_value bm">Bonus/<br>Malus</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in attribute_rows %}
+            <tr>
+              <td class="attribute">{{ row.label }}</td>
+              <td class="value">{{ row.value }}</td>
+              <td class="mod"><span class="mod-badge">{{ row.modifier }}</span></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="exp_wrapper">
+      <h2>Erfahrung</h2>
+      <div class="exp_rows" aria-label="Erfahrungspunkte">
+        <div class="exp_row">
+          <span class="exp_label">Gesamt</span>
+          <span class="exp_value">{{ character.overall_experience }}</span>
+        </div>
+        <div class="exp_row">
+          <span class="exp_label">Aktuell</span>
+          <span class="exp_value">{{ character.current_experience }}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="fame_wrapper">
+      <div class="fame_header">
+        <h2>Ruhm</h2>
+        <div class="fame_total_wrap">
+          <span class="rank_total_input">{% if fame_total_rank == 0 %}-{% else %}{{ fame_total_rank }}{% endif %}</span>
+          <span class="fame_total_label">Gesamtrang</span>
+        </div>
+      </div>
+      <div class="fame_rank_inputs" aria-label="Rangwerte">
+        <span class="rank_input">{% if character.personal_fame_rank == 0 %}-{% else %}{{ character.personal_fame_rank }}{% endif %}</span>
+        <span class="rank_input">{% if character.sacrifice_rank == 0 %}-{% else %}{{ character.sacrifice_rank }}{% endif %}</span>
+        <span class="rank_input">{% if character.artefact_rank == 0 %}-{% else %}{{ character.artefact_rank }}{% endif %}</span>
+      </div>
+      <div class="fame_ranks" aria-label="Rangfelder">
+        <span>Pers&ouml;nlicher Rang</span>
+        <span>Opferrang</span>
+        <span>Artefaktrang</span>
+      </div>
+      <form method="post" action="{% url 'adjust_personal_fame_point' character.id %}" class="fame_adjust_form">
+        {% csrf_token %}
+        <button type="submit" name="delta" value="-1" class="fame_step_btn" aria-label="Ruhmpunkt verringern">-</button>
+        <div class="fame_dots" aria-label="Ruhmpunkte">
+          {% for _ in '1234567890' %}
+            <span class="dot{% if forloop.counter <= character.personal_fame_point %} is-filled{% endif %}"></span>
+          {% endfor %}
+        </div>
+        <button type="submit" name="delta" value="1" class="fame_step_btn" aria-label="Ruhmpunkt erh&ouml;hen">+</button>
+      </form>
+      <p class="fame_hint">Ruhmpunkte 10 - 1 Pers&ouml;nlicher Rang</p>
+    </div>
+
+    <div class="reputation_wrapper">
+      <div class="reputation_header">
+        <h2>Ruf</h2>
+        <button type="button" class="reputation_edit_btn" id="reputationEditBtn" aria-label="Ruftexte bearbeiten" title="Ruftexte bearbeiten">
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M4 20h4l10-10-4-4L4 16v4z"></path>
+            <path d="M13.8 6.2l4 4"></path>
+          </svg>
+        </button>
+      </div>
+      <ul class="reputation_list" id="reputationList" data-character-id="{{ character.id }}" aria-label="Rufbereiche">
+        <li>
+          <span class="reputation_label">Pers&ouml;nlich</span>
+          <input type="text" class="reputation_input" data-reputation-key="personal" maxlength="60" readonly>
+        </li>
+        <li>
+          <span class="reputation_label">Gruppe</span>
+          <input type="text" class="reputation_input" data-reputation-key="group" maxlength="60" readonly>
+        </li>
+        <li>
+          <span class="reputation_label">Artefakt</span>
+          <input type="text" class="reputation_input" data-reputation-key="artefact" maxlength="60" readonly>
+        </li>
+      </ul>
+    </div>
+
+    <div class="language_wrapper">
+      <h2>Sprachen</h2>
+      <div class="language_scale" aria-hidden="true">
+        <span class="language_scale_spacer"></span>
+        <span class="language_scale_labels">
+          <span class="tooltip_target" data-tooltip-side="right" data-tooltip="Rudiment&auml;r">R</span>
+          <span class="tooltip_target" data-tooltip-side="right" data-tooltip="Gebrochen">G</span>
+          <span class="tooltip_target" data-tooltip-side="right" data-tooltip="Flie&szlig;end">F</span>
+          <span class="tooltip_target" data-tooltip-side="right" data-tooltip="Lesen und Schreiben">L/S</span>
+        </span>
+      </div>
+      <ul class="language_list" aria-label="Sprachen und Werte">
+        {% for row in language_rows %}
+          <li>
+            <span class="language_name">{{ row.name }}</span>
+            <span class="language_dots" aria-hidden="true">
+              <span class="dot{% if row.level_1 %} is-filled{% endif %}"></span>
+              <span class="dot{% if row.level_2 %} is-filled{% endif %}"></span>
+              <span class="dot{% if row.level_3 %} is-filled{% endif %}"></span>
+              <span class="dot literacy_dot{% if row.can_write %} is-filled{% endif %}"></span>
+            </span>
+          </li>
+        {% endfor %}
+      </ul>
+    </div>
+  </section>
+
+  <section class="p1_bottom_right">
+    <div class="load_wrapper" aria-label="Belastung">
+      <span class="load_label">Belastung (Bel.)</span>
+      <span class="load_value">{{ core_stats.load_value }}</span>
+    </div>
+
+    <div class="skills_wrapper">
+      <table class="skills_table" aria-label="Fertigkeiten">
+        <thead>
+          <tr class="skills_title_row">
+            <th class="skills_title">Fertigkeiten</th>
+            <th>Eigen-<br>schaft</th>
+            <th>Bonus/<br>Malus</th>
+            <th>Rang</th>
+            <th>Mod.</th>
+            <th>Wert</th>
+            <th>mit Bel.</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in skill_rows %}
+            <tr class="tooltip_target" data-tooltip-side="left" data-tooltip="{{ row.description|default:'Keine Beschreibung' }}">
+              <td class="skill_name">
+                <div class="skill_name_wrap">
+                  <span class="skill_name_text">{{ row.display_name }}</span>
+                  {% if row.can_edit_specification %}
+                    <button
+                      type="button"
+                      class="skill_spec_edit_btn"
+                      data-skill-spec-trigger
+                      data-skill-name="{{ row.name }}"
+                      data-specification="{{ row.specification }}"
+                      data-action="{% url 'update_skill_specification' character.id row.character_skill_id %}"
+                      aria-label="{{ row.name }} bearbeiten"
+                      title="{{ row.name }} bearbeiten"
+                    >
+                      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                        <path d="M4 20h4l10-10-4-4L4 16v4z"></path>
+                        <path d="M13.8 6.2l4 4"></path>
+                      </svg>
+                    </button>
+                  {% endif %}
+                </div>
+              </td>
+              <td class="skill_prop">{{ row.attribute }}</td>
+              <td>{{ row.attribute_mod }}</td>
+              <td>{{ row.rank }}</td>
+              <td>{{ row.misc_mod }}</td>
+              <td>{{ row.total }}</td>
+              <td><span class="bel_dot">{{ row.with_load_total }}</span></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="traits_wrapper">
+      <h2>Vorz&uuml;ge und Schw&auml;chen</h2>
+      <div class="traits_columns">
+        <div class="trait_col">
+          <h3>Vorz&uuml;ge</h3>
+          {% for trait in advantage_rows %}
+            <span class="trait_line tooltip_target" data-tooltip-side="left" data-tooltip="{{ trait.description|default:'Keine Beschreibung' }}">{{ trait.name }} ({{ trait.points }})</span>
+          {% empty %}
+            <span class="trait_line"></span><span class="trait_line"></span><span class="trait_line"></span><span class="trait_line"></span>
+          {% endfor %}
+        </div>
+        <div class="trait_col">
+          <h3>Schw&auml;chen</h3>
+          {% for trait in disadvantage_rows %}
+            <span class="trait_line tooltip_target" data-tooltip-side="left" data-tooltip="{{ trait.description|default:'Keine Beschreibung' }}">{{ trait.name }} ({{ trait.points }})</span>
+          {% empty %}
+            <span class="trait_line"></span><span class="trait_line"></span><span class="trait_line"></span><span class="trait_line"></span>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </section>
+</article>
+
+<section class="payday-window payday-window--item-create" id="charInfoWindow" aria-hidden="true">
+  <div class="payday-window__titlebar" id="charInfoWindowHandle">
+    <h3 class="payday-window__title">Charakterinfo bearbeiten</h3>
+    <button type="button" class="payday-window__close" id="charInfoWindowClose" aria-label="Fenster schlie&szlig;en">x</button>
+  </div>
+  <div class="payday-window__body">
+    <form method="post" action="{% url 'update_character_info' character.id %}" id="charInfoForm" class="shop_item_form">
+      {% csrf_token %}
+      <div class="shop_item_form_grid">
+        <label class="shop_item_form_row"><span>Name</span>{{ char_info_form.name }}</label>
+        <label class="shop_item_form_row"><span>Geschlecht</span>{{ char_info_form.gender }}</label>
+        <label class="shop_item_form_row"><span>Alter</span>{{ char_info_form.age }}</label>
+        <label class="shop_item_form_row"><span>Gr&ouml;&szlig;e (cm)</span>{{ char_info_form.height }}</label>
+        <label class="shop_item_form_row"><span>Gewicht (kg)</span>{{ char_info_form.weight }}</label>
+        <label class="shop_item_form_row"><span>Herkunftsland</span>{{ char_info_form.country_of_origin }}</label>
+        <label class="shop_item_form_row"><span>Hautfarbe</span>{{ char_info_form.skin_color }}</label>
+        <label class="shop_item_form_row"><span>Haarfarbe</span>{{ char_info_form.hair_color }}</label>
+        <label class="shop_item_form_row"><span>Augenfarbe</span>{{ char_info_form.eye_color }}</label>
+        <label class="shop_item_form_row"><span>Religion</span>{{ char_info_form.religion }}</label>
+      </div>
+      <label class="shop_item_form_row"><span>Aussehen</span>{{ char_info_form.appearance }}</label>
+      <div class="shop_item_form_actions">
+        <button type="button" id="charInfoCancelBtn" class="shop_item_cancel_btn">Abbrechen</button>
+        <button type="submit" class="shop_item_save_btn">Speichern</button>
+      </div>
+    </form>
+  </div>
+</section>
+
+<section class="payday-window payday-window--item-create" id="skillSpecWindow" aria-hidden="true">
+  <div class="payday-window__titlebar" id="skillSpecWindowHandle">
+    <h3 class="payday-window__title" id="skillSpecWindowTitle">Fertigkeit bearbeiten</h3>
+    <button type="button" class="payday-window__close" id="skillSpecWindowClose" aria-label="Fenster schlie&szlig;en">x</button>
+  </div>
+  <div class="payday-window__body">
+    <form method="post" action="" id="skillSpecForm" class="shop_item_form">
+      {% csrf_token %}
+      <label class="shop_item_form_row skill_spec_form_row">
+        <span>Bezeichnung</span>
+        {{ skill_specification_form.specification }}
+      </label>
+      <p class="skill_spec_hint">Bitte ein einzelnes Wort eintragen, z. B. den konkreten Beruf.</p>
+      <div class="shop_item_form_actions">
+        <button type="button" id="skillSpecCancelBtn" class="shop_item_cancel_btn">Abbrechen</button>
+        <button type="submit" class="shop_item_save_btn">Speichern</button>
+      </div>
+    </form>
+  </div>
+</section>

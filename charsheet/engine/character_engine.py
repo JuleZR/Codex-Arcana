@@ -8,29 +8,11 @@ from functools import cached_property
 from typing import DefaultDict, TypeAlias, TypedDict
 
 from django.contrib.contenttypes.models import ContentType
-from django.db.models import Model, Prefetch, Q, QuerySet
+from django.db.models import Model, Prefetch, Q
 
-from .item_engine import ItemEngine
-
-from charsheet.constants import (
-    ARCANE_POWER,
-    ARMOR_PENALTY_IGNORE,
-    ATTR_GE,
-    ATTR_INT,
-    ATTR_KON,
-    ATTR_ST,
-    ATTR_WA,
-    ATTR_WILL,
-    DEFENSE_GW,
-    DEFENSE_SR,
-    DEFENSE_VW,
-    INITIATIVE,
-    WOUND_PENALTY_IGNORE,
-    WOUND_STAGE,
-)
+from . import character_combat, character_equipment, character_progression
 from charsheet.models import (
     Character,
-    CharacterItem,
     CharacterSchool,
     CharacterSchoolPath,
     CharacterSpecialization,
@@ -175,6 +157,10 @@ class CharacterEngine:
 
     def __init__(self, character: Character) -> None:
         self.character = character
+        self._technique_learned_cache: dict[int, bool] = {}
+        self._technique_available_cache: dict[int, bool] = {}
+        self._technique_requirement_cache: dict[int, bool] = {}
+        self._technique_exclusion_cache: dict[int, bool] = {}
 
     @cached_property
     def _attributes_map(self) -> dict[str, int]:
@@ -417,26 +403,6 @@ class CharacterEngine:
         return loaded_sources
 
     @cached_property
-    def _technique_learned_cache(self) -> dict[int, bool]:
-        """Memoize resolved learned-state checks across recursive technique logic."""
-        return {}
-
-    @cached_property
-    def _technique_available_cache(self) -> dict[int, bool]:
-        """Memoize resolved availability checks across recursive technique logic."""
-        return {}
-
-    @cached_property
-    def _technique_requirement_cache(self) -> dict[int, bool]:
-        """Memoize structured requirement checks for techniques."""
-        return {}
-
-    @cached_property
-    def _technique_exclusion_cache(self) -> dict[int, bool]:
-        """Memoize exclusion checks against already learned techniques."""
-        return {}
-
-    @cached_property
     def _character_school_technique_list(self) -> list[Technique]:
         """Load all techniques of learned schools with required relations eagerly loaded."""
         school_ids = list(self._school_entries.keys())
@@ -562,85 +528,47 @@ class CharacterEngine:
         """Return the character's learned skills and their metadata."""
         return dict(self._skills_map)
 
-    def school_level(self, school: School | Technique | CharacterSchool | int) -> int:
-        """Return the learned level for a school-like input."""
-        school_id = self._coerce_school_id(school)
-        entry = self._school_entries.get(school_id)
-        return entry.level if entry else 0
+    # Grouped domain methods live in sibling modules to keep this class readable.
+    school_level = character_progression.school_level
+    selected_school_path = character_progression.selected_school_path
+    specialization_slot_count = character_progression.specialization_slot_count
+    character_specializations = character_progression.character_specializations
+    open_specialization_slot_count = character_progression.open_specialization_slot_count
+    available_specializations = character_progression.available_specializations
+    technique_choice_blocks = character_progression.technique_choice_blocks
+    active_technique_choice_blocks = character_progression.active_technique_choice_blocks
+    open_technique_choice_blocks = character_progression.open_technique_choice_blocks
+    fulfilled_technique_choice_blocks = character_progression.fulfilled_technique_choice_blocks
+    violated_technique_choice_blocks = character_progression.violated_technique_choice_blocks
+    _build_choice_block_state = character_progression.build_choice_block_state
+    active_progression_rules = character_progression.active_progression_rules
 
-    def selected_school_path(self, school: School | Technique | CharacterSchool | int) -> SchoolPath | None:
-        """Return the selected path for a school if one exists."""
-        school_id = self._coerce_school_id(school)
-        entry = self._selected_paths.get(school_id)
-        return entry.path if entry else None
+    fame_total = character_combat.fame_total
+    calculate_initiative = character_combat.calculate_initiative
+    calculate_arcane_power = character_combat.calculate_arcane_power
+    calculate_potential = character_combat.calculate_potential
+    wound_thresholds = character_combat.wound_thresholds
+    calculate_defense = character_combat.calculate_defense
+    vw = character_combat.vw
+    gw = character_combat.gw
+    sr = character_combat.sr
+    current_wound_stage = character_combat.current_wound_stage
+    current_wound_penalty = character_combat.current_wound_penalty
+    current_wound_penalty_raw = character_combat.current_wound_penalty_raw
+    is_wound_penalty_ignored = character_combat.is_wound_penalty_ignored
 
-    def specialization_slot_count(self, school: School | Technique | CharacterSchool | int) -> int:
-        """Return how many specialization slots explicit learned techniques grant for one school."""
-        school_id = self._coerce_school_id(school)
-        return self._specialization_slot_counts_by_school_id.get(school_id, 0)
-
-    def character_specializations(self, school: School | Technique | CharacterSchool | int) -> list[CharacterSpecialization]:
-        """Return all learned specializations of the character for one school."""
-        school_id = self._coerce_school_id(school)
-        return list(self._specialization_entries_by_school_id.get(school_id, []))
-
-    def open_specialization_slot_count(self, school: School | Technique | CharacterSchool | int) -> int:
-        """Return the number of still-unfilled specialization slots for one school."""
-        school_id = self._coerce_school_id(school)
-        total_slots = self.specialization_slot_count(school_id)
-        filled_slots = len(self._specialization_entries_by_school_id.get(school_id, []))
-        return max(0, total_slots - filled_slots)
-
-    def available_specializations(self, school: School | Technique | CharacterSchool | int) -> list[Specialization]:
-        """Return active, not-yet-learned specializations of one learned school."""
-        school_id = self._coerce_school_id(school)
-        if school_id not in self._school_entries:
-            return []
-
-        learned_ids = self._learned_specialization_ids_by_school_id.get(school_id, set())
-        return [
-            specialization
-            for specialization in self._specialization_definitions_by_school_id.get(school_id, [])
-            if specialization.is_active and specialization.id not in learned_ids
-        ]
-
-    def technique_choice_blocks(
-        self,
-        school: School | Technique | CharacterSchool | int | None = None,
-    ) -> list[TechniqueChoiceBlockState]:
-        """Return generic technique choice block states for one school or all learned schools."""
-        if school is None:
-            return list(self._choice_block_states_cache)
-        school_id = self._coerce_school_id(school)
-        return [state for state in self._choice_block_states_cache if state["school_id"] == school_id]
-
-    def active_technique_choice_blocks(
-        self,
-        school: School | Technique | CharacterSchool | int | None = None,
-    ) -> list[TechniqueChoiceBlockState]:
-        """Return choice blocks that are currently active for the character."""
-        return [state for state in self.technique_choice_blocks(school) if state["active"]]
-
-    def open_technique_choice_blocks(
-        self,
-        school: School | Technique | CharacterSchool | int | None = None,
-    ) -> list[TechniqueChoiceBlockState]:
-        """Return active choice blocks that still need additional learned techniques."""
-        return [state for state in self.technique_choice_blocks(school) if state["open"]]
-
-    def fulfilled_technique_choice_blocks(
-        self,
-        school: School | Technique | CharacterSchool | int | None = None,
-    ) -> list[TechniqueChoiceBlockState]:
-        """Return active choice blocks whose current learned count is inside the valid window."""
-        return [state for state in self.technique_choice_blocks(school) if state["fulfilled"]]
-
-    def violated_technique_choice_blocks(
-        self,
-        school: School | Technique | CharacterSchool | int | None = None,
-    ) -> list[TechniqueChoiceBlockState]:
-        """Return choice blocks whose learned techniques exceed the configured maximum."""
-        return [state for state in self.technique_choice_blocks(school) if state["violated"]]
+    equipped_weapon_items = character_equipment.equipped_weapon_items
+    equipped_armor_items = character_equipment.equipped_armor_items
+    equipped_shield_items = character_equipment.equipped_shield_items
+    weapon_quality_skill_modifier = character_equipment.weapon_quality_skill_modifier
+    equipped_weapon_rows = character_equipment.equipped_weapon_rows
+    equipped_armor_rows = character_equipment.equipped_armor_rows
+    equipped_shield_rows = character_equipment.equipped_shield_rows
+    get_grs = character_equipment.get_grs
+    get_bel = character_equipment.get_bel
+    get_ms = character_equipment.get_ms
+    get_dmg_modifier_sum = character_equipment.get_dmg_modifier_sum
+    km_to_coins = character_equipment.km_to_coins
 
     def has_technique_learned(self, technique: Technique | int) -> bool:
         """Return whether a technique counts as learned for the character."""
@@ -881,82 +809,6 @@ class CharacterEngine:
             "activation": activation,
         }
 
-    def _build_choice_block_state(self, block: TechniqueChoiceBlock) -> TechniqueChoiceBlockState:
-        """Resolve active/open/fulfilled/violated state for one technique choice block."""
-        school_level = self.school_level(block.school_id)
-        selected_path = self.selected_school_path(block.school_id)
-        techniques = self._techniques_by_choice_block_id.get(block.id, [])
-        technique_ids = [technique.id for technique in techniques]
-        learned_technique_ids = [
-            technique.id
-            for technique in techniques
-            if self._technique_state_map.get(technique.id, {}).get("learned")
-        ]
-        available_technique_ids = [
-            technique.id
-            for technique in techniques
-            if self._technique_state_map.get(technique.id, {}).get("available")
-            and technique.id not in learned_technique_ids
-        ]
-        active = school_level > 0
-        if block.level is not None:
-            active = active and school_level >= block.level
-        if block.path_id is not None:
-            active = active and selected_path is not None and selected_path.id == block.path_id
-
-        learned_choice_count = len(learned_technique_ids)
-        open_block = active and learned_choice_count < block.min_choices
-        fulfilled = active and block.min_choices <= learned_choice_count <= block.max_choices
-        violated = active and learned_choice_count > block.max_choices
-
-        return {
-            "block_id": block.id,
-            "block_name": block.name or None,
-            "block_description": block.description or None,
-            "school_id": block.school_id,
-            "school_name": block.school.name,
-            "school_level": school_level,
-            "level": block.level,
-            "path_id": block.path_id,
-            "path_name": block.path.name if block.path_id else None,
-            "selected_path_id": selected_path.id if selected_path else None,
-            "selected_path_name": selected_path.name if selected_path else None,
-            "min_choices": block.min_choices,
-            "max_choices": block.max_choices,
-            "learned_choice_count": learned_choice_count,
-            "available_choice_count": len(available_technique_ids),
-            "remaining_required_choices": max(0, block.min_choices - learned_choice_count),
-            "remaining_optional_choices": max(0, block.max_choices - learned_choice_count),
-            "active": active,
-            "open": open_block,
-            "fulfilled": fulfilled,
-            "violated": violated,
-            "technique_ids": technique_ids,
-            "learned_technique_ids": learned_technique_ids,
-            "available_technique_ids": available_technique_ids,
-        }
-    
-    def equipped_weapon_items(self) -> QuerySet:
-        """Return all currently equipped weapons with required relations loaded."""
-        return (
-            CharacterItem.objects.filter(
-                owner=self.character,
-                equipped=True,
-                item__item_type=Item.ItemType.WEAPON,
-            )
-            .select_related(
-                "item",
-                "item__weaponstats",
-                "item__weaponstats__damage_source",
-            )
-        )
-    
-    def weapon_quality_skill_modifier(self) -> int:
-        weapon = self.equipped_weapon_items().first()
-        if not weapon:
-            return 0
-        return ItemEngine(weapon).get_weapon_maneuver_quality_bonus()
-    
     def _skill_modifiers(self, skill_slug: str) -> int:
         """Resolve wound, armor, direct skill, and category modifiers."""
         info = self.skills().get(skill_slug)
@@ -1323,263 +1175,3 @@ class CharacterEngine:
         )
         self._technique_exclusion_cache[technique.id] = resolved
         return resolved
-
-    def active_progression_rules(self) -> list[ActiveProgressionRule]:
-        """Return all progression rules activated by the character's schools."""
-        result: list[ActiveProgressionRule] = []
-        for entry in self._school_entries.values():
-            rules = self._progression_rules_by_type.get(entry.school.type_id, [])
-            for rule in rules:
-                if rule.min_level > entry.level:
-                    continue
-                result.append(
-                    {
-                        "school_id": entry.school_id,
-                        "school_name": entry.school.name,
-                        "school_level": entry.level,
-                        "rule": rule,
-                    }
-                )
-        return result
-
-    def fame_total(self) -> int:
-        """Return the combined fame-related score used by scaling rules."""
-        return (
-            self.character.personal_fame_point
-            + self.character.personal_fame_rank
-            + self.character.sacrifice_rank
-            + self.character.artefact_rank
-        )
-
-    def calculate_initiative(self) -> int:
-        """Calculate the character's initiative value."""
-        return self.attribute_modifier(ATTR_GE) + self.current_wound_penalty() + self._resolve_stat_modifiers(INITIATIVE)
-
-    def calculate_arcane_power(self) -> int:
-        """Calculate the character's arcane power value."""
-        willpower = self.attributes().get(ATTR_WILL, 0)
-        school_levels = sum(entry.level for entry in self._school_entries.values())
-        return willpower + school_levels + self._resolve_stat_modifiers(ARCANE_POWER)
-
-    def calculate_potential(self) -> int:
-        """Calculate the character's potential value."""
-        willpower = self.attributes().get(ATTR_WILL, 0)
-        return willpower // 2
-
-    def wound_thresholds(self) -> dict[int, tuple[str, int]]:
-        """Build the wound-stage threshold table for the current character."""
-        constitution = self.attributes().get(ATTR_KON, 0)
-        additional_stages = self._resolve_stat_modifiers(WOUND_STAGE)
-        amount_threshold = 6 + additional_stages
-
-        stage_numbers = [number * constitution for number in range(1, amount_threshold + 1)]
-        stage_names = [
-            "Angeschlagen",
-            "Verletzt",
-            "Verwundet",
-            "Schwer verwundet",
-            "Ausser Gefecht",
-            "Koma",
-        ]
-        stage_penalties = [0, -2, -4, -6, 0, 0]
-
-        missing = max(0, len(stage_numbers) - len(stage_names))
-        stages = ["-"] * missing + stage_names
-        penalties = [0] * missing + stage_penalties
-
-        return {
-            threshold: (stage, penalty)
-            for threshold, stage, penalty in zip(stage_numbers, stages, penalties)
-        }
-
-    def calculate_defense(self, mod1: str, mod2: str, slug: str) -> int:
-        """Resolve one defense value from two attributes and stat modifiers."""
-        return (
-            14
-            + self.attribute_modifier(mod1)
-            + self.attribute_modifier(mod2)
-            + self._resolve_stat_modifiers(slug)
-        )
-
-    def vw(self) -> int:
-        """Return the avoidance defense."""
-        return self.calculate_defense(ATTR_GE, ATTR_WA, DEFENSE_VW)
-
-    def gw(self) -> int:
-        """Return the mental resistance defense."""
-        return self.calculate_defense(ATTR_INT, ATTR_WILL, DEFENSE_GW)
-
-    def sr(self) -> int:
-        """Return the physical resistance defense."""
-        return self.calculate_defense(ATTR_ST, ATTR_KON, DEFENSE_SR)
-
-    def current_wound_stage(self) -> tuple[str, int | None]:
-        """Return the current wound stage and its raw penalty."""
-        wound_dict = self.wound_thresholds()
-        threshold_numbers = sorted(wound_dict.keys())
-        if not threshold_numbers:
-            return ("-", None)
-
-        damage = self.character.current_damage
-        if damage < threshold_numbers[0]:
-            return ("-", None)
-        if damage > threshold_numbers[-1]:
-            return ("Tod", 0)
-
-        current_stage: tuple[str, int | None] = ("-", None)
-        for threshold in threshold_numbers:
-            if damage >= threshold:
-                stage_name, penalty = wound_dict[threshold]
-                current_stage = (stage_name, penalty)
-            else:
-                break
-        return current_stage
-
-    def current_wound_penalty(self) -> int:
-        """Return the effective wound penalty after ignore effects."""
-        penalty = self.current_wound_stage()[1]
-        if penalty is None:
-            return 0
-        if self.is_wound_penalty_ignored():
-            return 0
-        return penalty
-
-    def current_wound_penalty_raw(self) -> int:
-        """Return the raw wound penalty without ignore effects."""
-        penalty = self.current_wound_stage()[1]
-        if penalty is None:
-            return 0
-        return penalty
-
-    def is_wound_penalty_ignored(self) -> bool:
-        """Return whether wound penalties are currently ignored."""
-        return bool(self._resolve_stat_modifiers(WOUND_PENALTY_IGNORE))
-
-    def equipped_armor_items(self) -> QuerySet:
-        """Return all currently equipped armor items of the character."""
-        return (
-            CharacterItem.objects.filter(
-                owner=self.character,
-                equipped=True,
-                item__item_type=Item.ItemType.ARMOR,
-            )
-            .select_related("item", "item__armorstats")
-        )
-    
-    def equipped_shield_items(self) -> QuerySet:
-        """Return all currently equipped shields of the character."""
-        return (
-            CharacterItem.objects.filter(
-                owner=self.character,
-                equipped=True,
-                item__item_type=Item.ItemType.SHIELD,
-            )
-            .select_related("item", "item__shieldstats")
-        )
-
-    def equipped_weapon_rows(self) -> list[dict]:
-        """Return character-sheet-ready weapon rows resolved through ItemEngine."""
-        rows: list[dict] = []
-        bel_malus = -self.get_bel()
-        for character_item in self.equipped_weapon_items():
-            item_engine = ItemEngine(character_item)
-            weapon_stats = getattr(character_item.item, "weaponstats", None)
-            damage_source_slug = getattr(getattr(weapon_stats, "damage_source", None), "slug", "")
-            dmg_mod = self.get_dmg_modifier_sum(damage_source_slug) if damage_source_slug else self.attribute_modifier(ATTR_ST)
-            rows.append(
-                {
-                    "character_item": character_item,
-                    "item": character_item.item,
-                    "quality": item_engine.get_effective_quality(),
-                    "quality_color": item_engine.get_quality_color(),
-                    "dmg_mod": dmg_mod,
-                    "dmg_mod_display": f"{dmg_mod:+d}" if dmg_mod else "0",
-                    "bel_malus": bel_malus,
-                    "bel_malus_display": f"{bel_malus:+d}" if bel_malus else "0",
-                    "with_bel": dmg_mod + bel_malus,
-                    "with_bel_display": f"{(dmg_mod + bel_malus):+d}" if (dmg_mod + bel_malus) else "0",
-                    "wield_mode": item_engine.get_weapon_wield_mode(),
-                    "size_class": item_engine.get_size_class(),
-                    "min_st": item_engine.get_weapon_min_st(),
-                    "one_handed_damage": item_engine.get_one_handed_damage_label(),
-                    "two_handed_damage": item_engine.get_two_handed_damage_label(),
-                    "quality_damage_bonus": item_engine.get_weapon_damage_quality_bonus(),
-                    "quality_maneuver_bonus": item_engine.get_weapon_maneuver_quality_bonus(),
-                }
-            )
-        return rows
-
-    def equipped_armor_rows(self) -> list[dict]:
-        """Return equipped armor rows resolved through ItemEngine."""
-        rows: list[dict] = []
-        for character_item in self.equipped_armor_items():
-            item_engine = ItemEngine(character_item)
-            rows.append(
-                {
-                    "character_item": character_item,
-                    "item": character_item.item,
-                    "quality": item_engine.get_effective_quality(),
-                    "quality_color": item_engine.get_quality_color(),
-                    "rs": item_engine.get_armor_rs_raw() or 0,
-                    "bel_raw": item_engine.get_armor_bel_raw() or 0,
-                    "bel_effective": item_engine.get_armor_encumbrance(),
-                    "min_st": item_engine.get_armor_min_st(),
-                }
-            )
-        return rows
-
-    def equipped_shield_rows(self) -> list[dict]:
-        """Return equipped shield rows resolved through ItemEngine."""
-        rows: list[dict] = []
-        for character_item in self.equipped_shield_items():
-            item_engine = ItemEngine(character_item)
-            rows.append(
-                {
-                    "character_item": character_item,
-                    "item": character_item.item,
-                    "quality": item_engine.get_effective_quality(),
-                    "quality_color": item_engine.get_quality_color(),
-                    "rs": item_engine.get_effective_shield_rs() or 0,
-                    "bel_raw": item_engine.get_shield_bel_raw() or 0,
-                    "bel_effective": item_engine.get_shield_encumbrance(),
-                    "min_st": item_engine.get_shield_min_st(),
-                }
-            )
-        return rows
-        
-    def get_grs(self) -> int:
-        """Calculate the total armor rating from equipped armor."""
-        total = 0
-        for armor in self.equipped_armor_items():
-            total += ItemEngine(armor).get_armor_rs_raw() or 0
-        return total
-
-    def get_bel(self) -> int:
-        """Calculate the armor encumbrance value."""
-        if self._resolve_stat_modifiers(ARMOR_PENALTY_IGNORE):
-            return 0
-        armor_bel = 0
-        for armor in self.equipped_armor_items():
-            armor_bel += ItemEngine(armor).get_armor_encumbrance() or 0
-        
-        shield_bel = 0
-        for shield in self.equipped_shield_items():
-            shield_bel += ItemEngine(shield).get_shield_encumbrance() or 0
-            
-        return armor_bel + shield_bel
-
-    def get_ms(self) -> int:
-        """Calculate the movement penalty derived from armor."""
-        return self.get_grs() // 2
-
-    def get_dmg_modifier_sum(self, slug: str) -> int:
-        """Return the total damage modifier for one damage-related stat slug."""
-        return self._resolve_stat_modifiers(slug) + self.attribute_modifier(ATTR_ST)
-
-    def km_to_coins(self) -> tuple[int, int, int]:
-        """Split stored copper-equivalent money into coin denominations."""
-        player_km = self.character.money
-        gm = player_km // 100
-        sm = (player_km % 100) // 10
-        km = player_km % 10
-        return gm, sm, km

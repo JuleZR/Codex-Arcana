@@ -1,0 +1,243 @@
+<section class="payday-window payday-window--large" id="shopWindow" aria-hidden="true">
+  <div class="payday-window__titlebar" id="shopWindowHandle">
+    <h3 class="payday-window__title">Shop</h3>
+    <button type="button" class="payday-window__close" id="shopWindowClose" aria-label="Shop schlie&szlig;en">x</button>
+  </div>
+  <div class="payday-window__body shop-window__body">
+    <div class="shop_window_layout">
+      <div class="shop_panel">
+        <div class="shop_panel_header">
+          <h2>Kaufbare Items</h2>
+        </div>
+        <div class="shop_toolbar">
+          <input
+            type="text"
+            id="shopFilterInput"
+            class="shop_filter_input"
+            placeholder="Item suchen..."
+            aria-label="Shop-Items filtern"
+          >
+          <button type="button" id="shopAddItemBtn" class="shop_add_btn" title="Neues Item anlegen" aria-label="Neues Item anlegen">+</button>
+        </div>
+        <div class="shop_list_scroll" aria-label="Kaufbare Items">
+          {% for group in shop_item_groups %}
+            <details class="shop_group" data-shop-group>
+              <summary>
+                <span>{{ group.label }}</span>
+                <span class="shop_group_count">{{ group.items|length }}</span>
+              </summary>
+              <table class="shop_table">
+                <tbody>
+                  {% for item in group.items %}
+                    <tr
+                      data-shop-item
+                      data-shop-search="{{ item.name|lower }} {{ group.label|lower }} {{ item.description|default:''|lower }}"
+                      data-shop-id="{{ item.id }}"
+                      data-shop-name="{{ item.name|escape }}"
+                      data-shop-item-type="{{ item.item_type }}"
+                      data-shop-stackable="{% if item.stackable %}1{% else %}0{% endif %}"
+                      data-shop-base-price="{{ item.base_price }}"
+                      data-shop-default-price="{{ item.default_price }}"
+                      data-shop-quality="{{ item.default_quality }}"
+                      data-shop-damage-dice-amount="{{ item.stats.damage_dice_amount|default:'' }}"
+                      data-shop-damage-dice-faces="{{ item.stats.damage_dice_faces|default:'' }}"
+                      data-shop-damage-flat-bonus="{{ item.stats.damage_flat_bonus|default:'' }}"
+                      data-shop-h2-dice-amount="{{ item.stats.h2_dice_amount|default_if_none:'' }}"
+                      data-shop-h2-dice-faces="{{ item.stats.h2_dice_faces|default_if_none:'' }}"
+                      data-shop-h2-flat-bonus="{{ item.stats.h2_flat_bonus|default_if_none:'' }}"
+                      data-shop-wield-mode="{{ item.stats.wield_mode|default:'' }}"
+                      data-shop-armor-rs="{{ item.stats.armor_rs|default:'' }}"
+                      data-shop-armor-bel="{{ item.stats.armor_bel|default:'' }}"
+                      data-shop-shield-rs="{{ item.stats.shield_rs|default:'' }}"
+                      data-shop-shield-bel="{{ item.stats.shield_bel|default:'' }}"
+                      data-shop-min-st="{{ item.stats.min_st|default_if_none:'' }}"
+                    >
+                      <td class="shop_item_name">
+                        <button type="button" class="shop_item_name_btn" data-shop-pick title="Zum Warenkorb">{{ item.name }}</button>
+                      </td>
+                      <td class="shop_item_price">{{ item.default_price }} KS</td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </details>
+          {% empty %}
+            <p class="shop_empty">Keine kaufbaren Items vorhanden.</p>
+          {% endfor %}
+        </div>
+      </div>
+      <div class="shop_panel">
+        <div class="shop_panel_header">
+          <h2>Warenkorb</h2>
+        </div>
+        <div class="shop_cart_wrapper" data-shop-balance="{{ character.money }}" data-buy-url="{% url 'buy_shop_cart' character.id %}">
+          <div class="shop_cart_scroll">
+            <table class="shop_cart_table">
+              <thead>
+                <tr>
+                  <th>Item</th>
+                  <th>Qualit&auml;t</th>
+                  <th>Menge</th>
+                  <th>Einzel</th>
+                  <th>Summe</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="shopCartBody">
+                <tr class="shop_cart_empty_row">
+                  <td colspan="6">Noch keine Items ausgew&auml;hlt.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="shop_cart_totals">
+            <div class="shop_cart_total_row">
+              <span>Gesamtpreis</span>
+              <span id="shopCartSubtotal">0 KS</span>
+            </div>
+            <div class="shop_cart_total_row shop_cart_discount_row">
+              <label for="shopDiscountInput">Rabatt</label>
+              <div class="shop_discount_input_wrap">
+                <button type="button" class="shop_step_btn" id="shopDiscountDec" aria-label="Rabatt verringern">-</button>
+                <input type="text" id="shopDiscountInput" inputmode="numeric" value="0" aria-label="Rabatt in Prozent">
+                <button type="button" class="shop_step_btn" id="shopDiscountInc" aria-label="Rabatt erh&ouml;hen">+</button>
+                <span>%</span>
+              </div>
+            </div>
+            <div class="shop_cart_total_row">
+              <span>Endpreis</span>
+              <span id="shopCartFinal">0 KS</span>
+            </div>
+            <div class="shop_cart_total_row">
+              <span>Neuer Kassenstand</span>
+              <span id="shopCartBalance">{{ character.money }} KS</span>
+            </div>
+            <div class="shop_cart_actions">
+              <button type="button" id="shopBuyBtn" class="shop_buy_btn">Kaufen</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="payday-window payday-window--item-create" id="shopItemWindow" aria-hidden="true">
+  <div class="payday-window__titlebar" id="shopItemWindowHandle">
+    <h3 class="payday-window__title">Neues Item anlegen</h3>
+    <button type="button" class="payday-window__close" id="shopItemWindowClose" aria-label="Item-Fenster schlie&szlig;en">x</button>
+  </div>
+  <div class="payday-window__body">
+    <form method="post" action="{% url 'create_shop_item' character.id %}" class="shop_item_form">
+      {% csrf_token %}
+      <label class="shop_item_form_row"><span>Name</span><input type="text" name="name" required maxlength="200"></label>
+      <label class="shop_item_form_row"><span>Preis (KS)</span><input type="number" name="price" min="0" step="1" value="0" required></label>
+      <label class="shop_item_form_row">
+        <span>Kategorie</span>
+        <select name="item_type" id="shopItemTypeSelect" required>
+          {% for key, label in shop_item_form_type_choices %}
+            <option value="{{ key }}"{% if key == "misc" %} selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label class="shop_item_form_row">
+        <span>Qualit&auml;t (Standard)</span>
+        <select name="default_quality" id="shopItemQualitySelect" required>
+          {% for quality in shop_quality_choices %}
+            <option value="{{ quality.value }}" style="color: {{ quality.color }};"{% if quality.value == "common" %} selected{% endif %}>{{ quality.label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <div class="shop_item_form_grid">
+        <label class="shop_item_form_row"><span>Gewicht</span><input type="number" name="weight" min="0" step="1" value="0"></label>
+        <label class="shop_item_form_row">
+          <span>Gr&ouml;&szlig;enklasse</span>
+          <select name="size_class">
+            <option value="S">S</option>
+            <option value="F">F</option>
+            <option value="W">W</option>
+            <option value="K">K</option>
+            <option value="M" selected>M</option>
+            <option value="G">G</option>
+            <option value="R">R</option>
+            <option value="Gi">Gi</option>
+            <option value="Kol">Kol</option>
+          </select>
+        </label>
+      </div>
+      <div class="shop_item_form_conditional" id="shopItemArmorFields" hidden>
+        <div class="shop_item_form_row">
+          <span>R&uuml;stungsmodus</span>
+          <div class="shop_item_form_radio_row">
+            <label><input type="radio" name="armor_mode" value="total" checked> Gesamt</label>
+            <label><input type="radio" name="armor_mode" value="zones"> Zonen</label>
+          </div>
+        </div>
+        <div id="shopArmorTotalFields">
+          <label class="shop_item_form_row"><span>R&uuml;stungsschutz gesamt (RS)</span><input type="number" name="armor_rs_total" min="1" step="1" value="1"></label>
+        </div>
+        <div id="shopArmorZoneFields" hidden>
+          <div class="shop_item_form_grid">
+            <label class="shop_item_form_row"><span>RS Kopf</span><input type="number" name="armor_rs_head" min="0" step="1" value="0"></label>
+            <label class="shop_item_form_row"><span>RS Torso</span><input type="number" name="armor_rs_torso" min="0" step="1" value="0"></label>
+            <label class="shop_item_form_row"><span>RS Arm links</span><input type="number" name="armor_rs_arm_left" min="0" step="1" value="0"></label>
+            <label class="shop_item_form_row"><span>RS Arm rechts</span><input type="number" name="armor_rs_arm_right" min="0" step="1" value="0"></label>
+            <label class="shop_item_form_row"><span>RS Bein links</span><input type="number" name="armor_rs_leg_left" min="0" step="1" value="0"></label>
+            <label class="shop_item_form_row"><span>RS Bein rechts</span><input type="number" name="armor_rs_leg_right" min="0" step="1" value="0"></label>
+          </div>
+        </div>
+        <div class="shop_item_form_grid">
+          <label class="shop_item_form_row"><span>Belastung</span><input type="number" name="armor_encumbrance" min="0" step="1" value="0"></label>
+          <label class="shop_item_form_row"><span>Min. St&auml;rke</span><input type="number" name="armor_min_st" min="1" step="1" value="1"></label>
+        </div>
+      </div>
+      <div class="shop_item_form_conditional" id="shopItemWeaponFields" hidden>
+        <div class="shop_item_form_grid">
+          <label class="shop_item_form_row"><span>Schaden W&uuml;rfelanzahl</span><input type="number" name="weapon_damage_dice_amount" min="1" step="1" value="1"></label>
+          <label class="shop_item_form_row"><span>Schaden W&uuml;rfelseiten</span><input type="number" name="weapon_damage_dice_faces" min="2" step="1" value="10"></label>
+          <label class="shop_item_form_row"><span>Schaden Flat-Bonus</span><input type="number" name="weapon_damage_flat_bonus" min="0" step="1" value="0"></label>
+          <label class="shop_item_form_row">
+            <span>Waffengriff</span>
+            <select name="weapon_wield_mode" id="shopWeaponWieldMode">
+              <option value="1h">Einh&auml;ndig</option>
+              <option value="2h">Zweih&auml;ndig</option>
+              <option value="vh">Ein- und Zweih&auml;ndig</option>
+            </select>
+          </label>
+        </div>
+        <div id="shopWeaponTwoHandFields" hidden>
+          <div class="shop_item_form_grid">
+            <label class="shop_item_form_row"><span>2H W&uuml;rfelanzahl</span><input type="number" name="weapon_h2_dice_amount" min="1" step="1" value="1"></label>
+            <label class="shop_item_form_row"><span>2H W&uuml;rfelseiten</span><input type="number" name="weapon_h2_dice_faces" min="2" step="1" value="10"></label>
+            <label class="shop_item_form_row"><span>2H Flat-Bonus</span><input type="number" name="weapon_h2_flat_bonus" min="0" step="1" value="0"></label>
+          </div>
+        </div>
+        <label class="shop_item_form_row">
+          <span>Schadensquelle</span>
+          <select name="weapon_damage_source">
+            {% for ds in shop_damage_sources %}
+              <option value="{{ ds.id }}">{{ ds.name }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label class="shop_item_form_row"><span>Min. St&auml;rke</span><input type="number" name="weapon_min_st" min="1" step="1" value="1"></label>
+      </div>
+      <div class="shop_item_form_conditional" id="shopItemShieldFields" hidden>
+        <div class="shop_item_form_grid">
+          <label class="shop_item_form_row"><span>Schild-RS</span><input type="number" name="shield_rs" min="0" step="1" value="0"></label>
+          <label class="shop_item_form_row"><span>Belastung</span><input type="number" name="shield_encumbrance" min="0" step="1" value="0"></label>
+          <label class="shop_item_form_row"><span>Min. St&auml;rke</span><input type="number" name="shield_min_st" min="1" step="1" value="1"></label>
+        </div>
+      </div>
+      <label class="shop_item_form_row"><span>Beschreibung</span><textarea name="description" rows="4" maxlength="1000"></textarea></label>
+      <label class="shop_item_form_check" id="shopItemStackableRow">
+        <input type="checkbox" name="stackable" id="shopItemStackableInput" checked>
+        <span>Stackbar</span>
+      </label>
+      <div class="shop_item_form_actions">
+        <button type="button" id="shopItemCancelBtn" class="shop_item_cancel_btn">Abbrechen</button>
+        <button type="submit" class="shop_item_save_btn">Speichern</button>
+      </div>
+    </form>
+  </div>
+</section>

@@ -3,7 +3,6 @@ import json
 import random
 from datetime import date as date_cls
 from django.conf import settings
-from django.core.exceptions import ValidationError
 from django.http import JsonResponse
 from django.http import HttpResponseRedirect
 from django.shortcuts import get_object_or_404, redirect, render
@@ -14,35 +13,35 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LogoutView
 from django.views.decorators.http import require_POST
 from django.db import transaction
-from django.db.models import Max, Sum
+from django.db.models import Sum
 from django.db.models.deletion import ProtectedError
 from django.utils import timezone
 from django.urls import reverse_lazy
-from .engine import CharacterCreationEngine, ItemEngine
-from django.views.generic import TemplateView
-from .constants import GK_MODS, QUALITY_CHOICES, QUALITY_COLOR_MAP
+from .engine import CharacterCreationEngine
 from .models import (
     Character,
-    CharacterAttribute,
     CharacterDiaryEntry,
     CharacterItem,
     CharacterLanguage,
-    CharacterSchool,
     CharacterSkill,
-    CharacterTrait,
     Trait,
     CharacterCreationDraft,
-    Technique,
     Item,
     Skill,
     School,
     Language,
-    ArmorStats,
-    ShieldStats,
-    WeaponStats,
-    DamageSource,
 )
-from .forms import AccountSettingsForm, CharacterCreateForm, CharacterUpdateForm, CharacterInfoInlineForm
+from .forms import (
+    AccountSettingsForm,
+    CharacterCreateForm,
+    CharacterUpdateForm,
+    CharacterInfoInlineForm,
+    CharacterSkillSpecificationForm,
+)
+from .learning import process_learning_submission
+from .sheet_context import build_character_sheet_context
+from .shop import buy_shop_cart as buy_shop_cart_payload
+from .shop import create_custom_shop_item
 
 
 ATTRIBUTE_ORDER = [
@@ -54,9 +53,7 @@ ATTRIBUTE_ORDER = [
     ("WILL", "Willenskraft (Will)"),
     ("CHA", "Charisma (Cha)"),
 ]
-DEFAULT_SCHOOL_MAX_LEVEL = 10
 DIARY_ENTRY_CHAR_LIMIT = 2200
-QUALITY_LABELS = dict(QUALITY_CHOICES)
 
 
 def _legal_context() -> dict:
@@ -83,58 +80,6 @@ def _format_modifier(value: int) -> str:
 def _format_thousands(value: int) -> str:
     """Format integers with dot-separated thousands."""
     return f"{value:,}".replace(",", ".")
-
-
-def _quality_payload(quality: str) -> dict[str, str]:
-    """Return normalized quality metadata for templates and JSON responses."""
-    resolved_quality = ItemEngine.normalize_quality(quality)
-    return {
-        "value": resolved_quality,
-        "label": QUALITY_LABELS.get(resolved_quality, QUALITY_LABELS[ItemEngine.normalize_quality(None)]),
-        "color": QUALITY_COLOR_MAP.get(resolved_quality, QUALITY_COLOR_MAP[ItemEngine.normalize_quality(None)]),
-    }
-
-
-def _calc_skill_total_cost(level: int) -> int:
-    """Return cumulative skill cost for one target level."""
-    if level <= 5:
-        return max(0, level)
-    return 5 + ((max(0, level) - 5) * 2)
-
-
-def _calc_language_total_cost(level: int, can_write: bool, is_mother_tongue: bool) -> int:
-    """Return cumulative language cost for one language state."""
-    base = 0 if is_mother_tongue else max(0, level)
-    return base + (1 if can_write else 0)
-
-
-def _calc_attribute_total_cost(target_level: int, max_value: int) -> int:
-    """Return cumulative attribute cost for one target level."""
-    level = max(0, target_level)
-    threshold = max_value - 2
-    if level <= threshold:
-        return level * 10
-    cost = threshold * 10
-    for _value in range(threshold + 1, level + 1):
-        cost += 20
-    return cost
-
-
-def _school_max_levels() -> dict[int, int]:
-    """Return dynamic school level caps based on highest technique level per school."""
-    caps: dict[int, int] = {}
-    rows = (
-        Technique.objects
-        .values("school_id")
-        .annotate(max_level=Max("level"))
-    )
-    for row in rows:
-        school_id = int(row.get("school_id") or 0)
-        if school_id <= 0:
-            continue
-        max_level = int(row.get("max_level") or DEFAULT_SCHOOL_MAX_LEVEL)
-        caps[school_id] = max(1, max_level)
-    return caps
 
 
 def _owned_character_or_404(request, character_id: int) -> Character:
@@ -164,6 +109,17 @@ def _owned_diary_entry_or_404(request, character_id: int, entry_id: int) -> tupl
         character=character,
     )
     return character, entry
+
+
+def _owned_character_skill_or_404(request, character_id: int, character_skill_id: int) -> tuple[Character, CharacterSkill]:
+    """Return one learned skill row that belongs to one owned character."""
+    character = _owned_character_or_404(request, character_id)
+    character_skill = get_object_or_404(
+        CharacterSkill.objects.select_related("character", "skill"),
+        pk=character_skill_id,
+        character=character,
+    )
+    return character, character_skill
 
 
 def _parse_iso_date(raw_value) -> date_cls | None:
@@ -292,381 +248,13 @@ def character_sheet(request, character_id: int):
     character.last_opened_at = timezone.now()
     character.save(update_fields=["last_opened_at"])
 
-    engine = character.engine
-
-    attributes = engine.attributes()
-    attr_mods = {
-        short_name: _format_modifier(engine.attribute_modifier(short_name))
-        for short_name, _label in ATTRIBUTE_ORDER
-    }
-
-    skill_rows: list[dict] = []
-    character_skills = (
-        character.characterskill_set
-        .select_related("skill", "skill__attribute", "skill__category")
-        .order_by("skill__name")
+    context = build_character_sheet_context(
+        character,
+        close_learn_window_once=bool(request.session.pop("close_learn_window_once", False)),
     )
-
-    for cs in character_skills:
-        breakdown = engine.skill_breakdown(cs.skill.slug)
-        if "error" in breakdown:
-            continue
-
-        skill_rows.append(
-            {
-                "name": cs.skill.name,
-                "description": cs.skill.description,
-                "attribute": cs.skill.attribute.short_name,
-                "attribute_mod": _format_modifier(breakdown["attribute_modifier"]),
-                "rank": cs.level,
-                "misc_mod": _format_modifier(breakdown["modifiers"]),
-                "total": breakdown["total"],
-            }
-        )
-
-    traits_qs = (
-        CharacterTrait.objects
-        .filter(owner=character)
-        .select_related("trait")
-        .order_by("trait__trait_type", "trait__name")
-    )
-    advantages = traits_qs.filter(trait__trait_type=CharacterTrait.trait.field.model.TraitType.ADV) if False else traits_qs.filter(trait__trait_type="advantage")
-    disadvantages = traits_qs.filter(trait__trait_type="disadvantage")
-
-    inventory_items = (
-        CharacterItem.objects
-        .filter(owner=character, equipped=False)
-        .select_related("item")
-        .order_by("item__name")
-    )
-    inventory_rows: list[dict] = []
-    for character_item in inventory_items:
-        item_engine = ItemEngine(character_item)
-        quality = _quality_payload(item_engine.get_effective_quality())
-        inventory_rows.append(
-            {
-                "character_item": character_item,
-                "item": character_item.item,
-                "quality": quality["value"],
-                "quality_label": quality["label"],
-                "quality_color": quality["color"],
-            }
-        )
-
-    weapon_rows: list[dict] = []
-    for row in engine.equipped_weapon_rows():
-        quality = _quality_payload(str(row["quality"]))
-        row["quality_label"] = quality["label"]
-        row["quality_color"] = quality["color"]
-        weapon_rows.append(row)
-
-    equipped_armor: list[dict] = []
-    for row in engine.equipped_armor_rows():
-        quality = _quality_payload(str(row["quality"]))
-        row["quality_label"] = quality["label"]
-        row["quality_color"] = quality["color"]
-        equipped_armor.append(row)
-
-    equipped_shields: list[dict] = []
-    for row in engine.equipped_shield_rows():
-        quality = _quality_payload(str(row["quality"]))
-        row["quality_label"] = quality["label"]
-        row["quality_color"] = quality["color"]
-        equipped_shields.append(row)
-
-    schools = (
-        character.schools
-        .select_related("school", "school__type")
-        .order_by("school__type__name", "school__name")
-    )
-    school_levels = {entry.school_id: entry.level for entry in schools}
-    school_technique_rows: list[dict] = []
-    if school_levels:
-        techniques = (
-            Technique.objects
-            .filter(school_id__in=school_levels.keys())
-            .select_related("school")
-            .order_by("school__name", "level", "name")
-        )
-        for tech in techniques:
-            if tech.level <= school_levels.get(tech.school_id, 0):
-                school_technique_rows.append(
-                    {
-                        "level": tech.level,
-                        "school_name": tech.school.name,
-                        "technique_name": tech.name,
-                        "description": tech.description,
-                    }
-                )
-
-    current_wound_stage, _current_wound_penalty_stage = engine.current_wound_stage()
-    current_wound_penalty = engine.current_wound_penalty_raw()
-    current_wound_penalty_display = (
-        "-"
-        if current_wound_stage == "-"
-        else _format_modifier(current_wound_penalty)
-    )
-
-    wound_thresholds = engine.wound_thresholds()
-    wound_threshold_rows = [
-        {"threshold": threshold, "stage": stage, "penalty": penalty}
-        for threshold, (stage, penalty) in sorted(wound_thresholds.items())
-    ]
-    wallet_gold, wallet_silver, wallet_copper = engine.km_to_coins()
-    race = character.race
-    size_class = getattr(race, "size_class", None) or getattr(race, "height_class", "-") or "-"
-    size_class_mod = (
-        _format_modifier(int(GK_MODS[size_class]))
-        if size_class in GK_MODS
-        else "-"
-    )
-    fly_value = "-"
-    if race.can_fly:
-        combat_fly = race.combat_fly_speed if race.combat_fly_speed is not None else 0
-        march_fly = race.march_fly_speed if race.march_fly_speed is not None else 0
-        sprint_fly = race.sprint_fly_speed if race.sprint_fly_speed is not None else 0
-        fly_value = f"{combat_fly} | {march_fly} | {sprint_fly}"
-    movement_ground = {
-        "combat": race.combat_speed,
-        "march": race.march_speed,
-        "sprint": race.sprint_speed,
-        "swim": race.swimming_speed,
-        "fly": fly_value,
-    }
-
-    language_entries = (
-        CharacterLanguage.objects
-        .filter(owner=character)
-        .select_related("language")
-        .order_by("-is_mother_tongue", "language__name")
-    )
-    language_rows: list[dict] = []
-    for entry in language_entries:
-        level_count = max(0, min(3, entry.levels))
-        language_rows.append(
-            {
-                "name": entry.language.name,
-                "level_1": level_count >= 1,
-                "level_2": level_count >= 2,
-                "level_3": level_count >= 3,
-                "can_write": bool(entry.can_write),
-            }
-        )
-
-    buyable_items = Item.objects.order_by("item_type", "name")
-    grouped_items: dict[str, list[dict]] = {}
-    for item in buyable_items:
-        item_engine = ItemEngine(item)
-        quality = _quality_payload(item_engine.get_effective_quality())
-        stats_payload: dict[str, object] = {
-            "item_type": item.item_type,
-            "size_class": item.size_class,
-            "weight": str(item.weight),
-            "min_st": None,
-        }
-        weapon_stats = getattr(item, "weaponstats", None)
-        if weapon_stats is not None:
-            stats_payload.update(
-                {
-                    "damage_dice_amount": weapon_stats.damage_dice_amount,
-                    "damage_dice_faces": weapon_stats.damage_dice_faces,
-                    "damage_flat_bonus": weapon_stats.damage_flat_bonus,
-                    "h2_dice_amount": weapon_stats.h2_dice_amount,
-                    "h2_dice_faces": weapon_stats.h2_dice_faces,
-                    "h2_flat_bonus": weapon_stats.h2_flat_bonus,
-                    "wield_mode": weapon_stats.wield_mode,
-                    "min_st": weapon_stats.min_st,
-                    "damage_source": weapon_stats.damage_source.short_name,
-                }
-            )
-        armor_stats = getattr(item, "armorstats", None)
-        if armor_stats is not None:
-            stats_payload.update(
-                {
-                    "armor_rs": item_engine.get_armor_rs_raw() or 0,
-                    "armor_bel": armor_stats.encumbrance,
-                    "armor_min_st": armor_stats.min_st,
-                    "min_st": armor_stats.min_st,
-                }
-            )
-        shield_stats = getattr(item, "shieldstats", None)
-        if shield_stats is not None:
-            stats_payload.update(
-                {
-                    "shield_rs": shield_stats.rs,
-                    "shield_bel": shield_stats.encumbrance,
-                    "shield_min_st": shield_stats.min_st,
-                    "min_st": shield_stats.min_st,
-                }
-            )
-        grouped_items.setdefault(item.item_type, []).append(
-            {
-                "id": item.id,
-                "name": item.name,
-                "description": item.description or "",
-                "item_type": item.item_type,
-                "stackable": bool(item.stackable),
-                "base_price": int(item.price),
-                "default_price": item_engine.get_price(),
-                "default_quality": quality["value"],
-                "default_quality_label": quality["label"],
-                "default_quality_color": quality["color"],
-                "stats": stats_payload,
-            }
-        )
-
-    category_order = [
-        (Item.ItemType.WEAPON, "Waffen"),
-        (Item.ItemType.ARMOR, "Rüstungen"),
-        (Item.ItemType.SHIELD, "Schilde"),
-        (Item.ItemType.CONSUM, "Verbrauchbar"),
-        (Item.ItemType.MISC, "Sonstiges"),
-    ]
-    shop_item_groups: list[dict] = []
-    for item_type, label in category_order:
-        items = grouped_items.get(item_type, [])
-        if not items:
-            continue
-        shop_item_groups.append(
-            {
-                "key": item_type,
-                "label": label,
-                "items": items,
-            }
-        )
-
-    attribute_limits = {
-        limit.attribute.short_name: {
-            "min": int(limit.min_value),
-            "max": int(limit.max_value),
-        }
-        for limit in character.race.raceattributelimit_set.select_related("attribute")
-    }
-    skill_levels = {entry.skill_id: entry.level for entry in character_skills}
-    language_lookup = {
-        entry.language_id: {
-            "level": int(entry.levels),
-            "write": bool(entry.can_write),
-            "mother": bool(entry.is_mother_tongue),
-        }
-        for entry in language_entries
-    }
-
-    learn_attr_rows: list[dict] = []
-    for short_name, label in ATTRIBUTE_ORDER:
-        base_value = int(attributes.get(short_name, 0))
-        learn_attr_rows.append(
-            {
-                "short_name": short_name,
-                "label": label,
-                "base_value": base_value,
-                "min_value": int(attribute_limits.get(short_name, {}).get("min", 0)),
-                "max_value": int(attribute_limits.get(short_name, {}).get("max", base_value)),
-            }
-        )
-
-    learn_skill_rows: list[dict] = []
-    for skill in Skill.objects.select_related("category", "attribute").order_by("category__name", "name"):
-        learn_skill_rows.append(
-            {
-                "slug": skill.slug,
-                "name": skill.name,
-                "description": (skill.description or "").replace("\r\n", "\n").replace("\r", "\n"),
-                "category_name": skill.category.name,
-                "base_level": int(skill_levels.get(skill.id, 0)),
-            }
-        )
-
-    learn_language_rows: list[dict] = []
-    for language in Language.objects.order_by("name"):
-        base_state = language_lookup.get(language.id, {"level": 0, "write": False, "mother": False})
-        learn_language_rows.append(
-            {
-                "slug": language.slug,
-                "name": language.name,
-                "base_level": int(base_state["level"]),
-                "max_level": int(language.max_level),
-                "base_write": bool(base_state["write"]),
-                "base_mother": bool(base_state["mother"]),
-            }
-        )
-
-    school_level_caps = _school_max_levels()
-    learn_school_rows: list[dict] = []
-    for school in School.objects.select_related("type").order_by("type__name", "name"):
-        base_level = int(school_levels.get(school.id, 0))
-        max_level = max(base_level, int(school_level_caps.get(school.id, DEFAULT_SCHOOL_MAX_LEVEL)))
-        learn_school_rows.append(
-            {
-                "id": school.id,
-                "name": school.name,
-                "description": (school.description or "").replace("\r\n", "\n").replace("\r", "\n"),
-                "type_name": school.type.name,
-                "base_level": base_level,
-                "max_level": max_level,
-            }
-        )
-
-    shop_quality_choices = [
-        {
-            "value": value,
-            "label": label,
-            "color": QUALITY_COLOR_MAP.get(value, QUALITY_COLOR_MAP[ItemEngine.normalize_quality(None)]),
-        }
-        for value, label in QUALITY_CHOICES
-    ]
-
-    context = {
-        "character": character,
-        "char_info_form": CharacterInfoInlineForm(instance=character),
-        "fame_total_rank": int(character.personal_fame_rank) + int(character.sacrifice_rank) + int(character.artefact_rank),
-        "attributes": attributes,
-        "attr_mods": attr_mods,
-        "skill_rows": skill_rows,
-        "advantages": advantages,
-        "disadvantages": disadvantages,
-        "inventory_items": inventory_items,
-        "inventory_rows": inventory_rows,
-        "weapon_rows": weapon_rows,
-        "school_technique_rows": school_technique_rows,
-        "equipped_armor": equipped_armor,
-        "equipped_shields": equipped_shields,
-        "initiative_display": _format_modifier(engine.calculate_initiative()),
-        "initiative_with_bel_display": _format_modifier(
-            engine.calculate_initiative() - engine.get_bel()
-            ),
-        "current_wound_stage": current_wound_stage,
-        "current_wound_penalty": current_wound_penalty_display,
-        "is_wound_penalty_ignored": engine.is_wound_penalty_ignored(),
-        "current_damage_max": max(wound_thresholds.keys()) if wound_thresholds else 0,
-        "wound_threshold_rows": wound_threshold_rows,
-        "wallet_gold": wallet_gold,
-        "wallet_silver": wallet_silver,
-        "wallet_copper": wallet_copper,
-        "wallet_total_ks": _format_thousands(character.money),
-        "size_class": size_class,
-        "size_class_mod": size_class_mod,
-        "movement_ground": movement_ground,
-        "language_rows": language_rows,
-        "shop_item_groups": shop_item_groups,
-        "shop_quality_choices": shop_quality_choices,
-        "shop_item_type_choices": category_order,
-        "shop_item_form_type_choices": [
-            (Item.ItemType.MISC, "Sonstiges"),
-            (Item.ItemType.CONSUM, "Verbrauchbar"),
-            (Item.ItemType.WEAPON, "Waffen"),
-            (Item.ItemType.ARMOR, "Rüstungen"),
-            (Item.ItemType.SHIELD, "Schilde"),
-        ],
-        "shop_damage_sources": DamageSource.objects.order_by("name"),
-        "learn_attr_rows": learn_attr_rows,
-        "learn_skill_rows": learn_skill_rows,
-        "learn_language_rows": learn_language_rows,
-        "learn_school_rows": learn_school_rows,
-        "close_learn_window_once": bool(request.session.pop("close_learn_window_once", False)),
-    }
-
     return render(request, "charsheet/charsheet.html", context)
+
+
 
 
 @login_required
@@ -846,6 +434,24 @@ def update_character_info(request, character_id: int):
             messages.success(request, "Charakterinformation aktualisiert.")
     else:
         messages.error(request, "Charakterinformation konnte nicht gespeichert werden.")
+    return redirect("character_sheet", character_id=character.id)
+
+
+@login_required
+@require_POST
+def update_skill_specification(request, character_id: int, character_skill_id: int):
+    """Persist the specification text for one learned skill from the character sheet."""
+    character, character_skill = _owned_character_skill_or_404(request, character_id, character_skill_id)
+    if not character_skill.skill.requires_specification:
+        messages.error(request, "Diese Fertigkeit besitzt keine Spezifikation.")
+        return redirect("character_sheet", character_id=character.id)
+
+    form = CharacterSkillSpecificationForm(request.POST, instance=character_skill)
+    if form.is_valid():
+        form.save()
+        messages.success(request, f"{character_skill.skill.name} wurde aktualisiert.")
+    else:
+        messages.error(request, "Die Spezifikation konnte nicht gespeichert werden.")
     return redirect("character_sheet", character_id=character.id)
 
 @login_required
@@ -1587,229 +1193,16 @@ def apply_learning(request, character_id: int):
     """Apply learn-menu upgrades by spending current experience points."""
     character = _owned_character_or_404(request, character_id)
 
-    def read_int(name: str, default: int = 0) -> int:
-        try:
-            return int(request.POST.get(name, str(default)))
-        except (TypeError, ValueError):
-            return default
-
-    attribute_limits = {
-        limit.attribute.short_name: {
-            "min": int(limit.min_value),
-            "max": int(limit.max_value),
-        }
-        for limit in character.race.raceattributelimit_set.select_related("attribute")
-    }
-    attribute_rows = {
-        row.attribute.short_name: row
-        for row in CharacterAttribute.objects.filter(character=character).select_related("attribute")
-    }
-    skill_defs = {skill.slug: skill for skill in Skill.objects.all()}
-    skill_rows = {
-        row.skill.slug: row
-        for row in CharacterSkill.objects.filter(character=character).select_related("skill")
-    }
-    language_defs = {lang.slug: lang for lang in Language.objects.all()}
-    language_rows = {
-        row.language.slug: row
-        for row in CharacterLanguage.objects.filter(owner=character).select_related("language")
-    }
-    school_defs = {str(school.id): school for school in School.objects.all()}
-    school_rows = {
-        str(row.school_id): row
-        for row in CharacterSchool.objects.filter(character=character)
-    }
-    school_level_caps = _school_max_levels()
-    total_cost = 0
-    attr_plan: dict[str, int] = {}
-    skill_plan: dict[str, int] = {}
-    lang_plan: dict[str, dict[str, object]] = {}
-    school_plan: dict[str, int] = {}
-
-    if any(key.startswith("learn_adv_target_") for key in request.POST.keys()):
-        messages.error(request, "Vorteile können nicht über EP gelernt werden.")
-        return redirect("character_sheet", character_id=character.id)
-
-    for short_name, bounds in attribute_limits.items():
-        key = f"learn_attr_add_{short_name}"
-        if key not in request.POST:
-            continue
-        add = read_int(key, 0)
-        base_row = attribute_rows.get(short_name)
-        base_value = int(base_row.base_value if base_row else 0)
-        target_value = base_value + add
-        min_value = int(bounds["min"])
-        max_value = int(bounds["max"])
-        if target_value < min_value:
-            messages.error(request, f"{short_name}: Zielwert ist unter dem Minimum.")
-            return redirect("character_sheet", character_id=character.id)
-        if target_value > max_value:
-            messages.error(request, f"{short_name}: Zielwert ist über dem Maximum.")
-            return redirect("character_sheet", character_id=character.id)
-        if add == 0:
-            continue
-        step_cost = _calc_attribute_total_cost(target_value, max_value) - _calc_attribute_total_cost(base_value, max_value)
-        total_cost += step_cost
-        attr_plan[short_name] = add
-
-    for slug in skill_defs.keys():
-        key = f"learn_skill_add_{slug}"
-        if key not in request.POST:
-            continue
-        add = read_int(key, 0)
-        base_value = int(skill_rows.get(slug).level if slug in skill_rows else 0)
-        target_value = base_value + add
-        if target_value < 0:
-            messages.error(request, f"{skill_defs[slug].name}: Zielwert ist unter 0.")
-            return redirect("character_sheet", character_id=character.id)
-        if target_value > 10:
-            messages.error(request, f"{skill_defs[slug].name}: Zielwert ist über 10.")
-            return redirect("character_sheet", character_id=character.id)
-        if add == 0:
-            continue
-        step_cost = _calc_skill_total_cost(target_value) - _calc_skill_total_cost(base_value)
-        total_cost += step_cost
-        skill_plan[slug] = add
-
-    for slug, lang in language_defs.items():
-        add_key = f"learn_lang_add_{slug}"
-        write_key = f"learn_lang_write_{slug}"
-        if add_key not in request.POST and write_key not in request.POST:
-            continue
-        add = read_int(add_key, 0)
-        write_add = str(request.POST.get(write_key, "0")) in {"1", "true", "on"}
-        base_row = language_rows.get(slug)
-        base_level = int(base_row.levels if base_row else 0)
-        base_write = bool(base_row.can_write if base_row else False)
-        base_mother = bool(base_row.is_mother_tongue if base_row else False)
-        target_level = base_level + add
-        target_write = base_write or write_add
-        if base_mother and target_level != int(lang.max_level):
-            messages.error(request, f"{lang.name}: Muttersprache kann nicht unter Maximallevel reduziert werden.")
-            return redirect("character_sheet", character_id=character.id)
-        if target_level < 0:
-            messages.error(request, f"{lang.name}: Zielwert ist unter 0.")
-            return redirect("character_sheet", character_id=character.id)
-        if target_level > int(lang.max_level):
-            messages.error(request, f"{lang.name}: Zielwert ist über dem Maximum.")
-            return redirect("character_sheet", character_id=character.id)
-        if target_write and target_level < 1:
-            messages.error(request, f"{lang.name}: Schreiben benötigt mindestens Level 1.")
-            return redirect("character_sheet", character_id=character.id)
-        if add == 0 and not write_add:
-            continue
-        step_cost = _calc_language_total_cost(target_level, target_write, base_mother) - _calc_language_total_cost(base_level, base_write, base_mother)
-        total_cost += step_cost
-        lang_plan[slug] = {"add": add, "write_add": write_add}
-
-    for school_id in school_defs.keys():
-        key = f"learn_school_add_{school_id}"
-        if key not in request.POST:
-            continue
-        add = read_int(key, 0)
-        base_level = int(school_rows.get(school_id).level if school_id in school_rows else 0)
-        target_level = base_level + add
-        max_level = max(base_level, int(school_level_caps.get(int(school_id), DEFAULT_SCHOOL_MAX_LEVEL)))
-        if target_level < 0:
-            messages.error(request, f"{school_defs[school_id].name}: Zielwert ist unter 0.")
-            return redirect("character_sheet", character_id=character.id)
-        if target_level > max_level:
-            messages.error(request, f"{school_defs[school_id].name}: Zielwert ist über dem Maximum.")
-            return redirect("character_sheet", character_id=character.id)
-        if add == 0:
-            continue
-        total_cost += add * 8
-        school_plan[school_id] = add
-
-    if total_cost == 0:
-        messages.info(request, "Keine Lernkosten erkannt.")
-        return redirect("character_sheet", character_id=character.id)
-
-    if total_cost > int(character.current_experience):
-        messages.error(request, "Nicht genug aktuelle EP für diese Lernkosten.")
-        return redirect("character_sheet", character_id=character.id)
-
-    with transaction.atomic():
-        for short_name, add in attr_plan.items():
-            attr_row = attribute_rows.get(short_name)
-            if attr_row is None:
-                continue
-            attr_row.base_value = int(attr_row.base_value) + add
-            attr_row.save(update_fields=["base_value"])
-
-        for slug, add in skill_plan.items():
-            skill = skill_defs[slug]
-            skill_row = skill_rows.get(slug)
-            if skill_row is None:
-                if add <= 0:
-                    continue
-                skill_row = CharacterSkill.objects.create(character=character, skill=skill, level=add)
-                skill_rows[slug] = skill_row
-            else:
-                target_level = int(skill_row.level) + add
-                if target_level <= 0:
-                    skill_row.delete()
-                    skill_rows.pop(slug, None)
-                else:
-                    skill_row.level = target_level
-                    skill_row.save(update_fields=["level"])
-
-        for slug, payload in lang_plan.items():
-            add = int(payload["add"])
-            write_add = bool(payload["write_add"])
-            lang_row = language_rows.get(slug)
-            if lang_row is None:
-                if add < 1:
-                    continue
-                lang_row = CharacterLanguage.objects.create(
-                    owner=character,
-                    language=language_defs[slug],
-                    levels=add,
-                    can_write=write_add,
-                    is_mother_tongue=False,
-                )
-                language_rows[slug] = lang_row
-            else:
-                target_level = int(lang_row.levels) + add
-                target_write = bool(lang_row.can_write) or write_add
-                if target_level <= 0 and not target_write and not bool(lang_row.is_mother_tongue):
-                    lang_row.delete()
-                    language_rows.pop(slug, None)
-                    continue
-                lang_row.levels = target_level
-                if write_add:
-                    lang_row.can_write = True
-                lang_row.save(update_fields=["levels", "can_write"])
-
-        for school_id, add in school_plan.items():
-            school_row = school_rows.get(school_id)
-            if school_row is None:
-                if add <= 0:
-                    continue
-                school_row = CharacterSchool.objects.create(
-                    character=character,
-                    school=school_defs[school_id],
-                    level=add,
-                )
-                school_rows[school_id] = school_row
-            else:
-                target_level = int(school_row.level) + add
-                if target_level <= 0:
-                    school_row.delete()
-                    school_rows.pop(school_id, None)
-                else:
-                    school_row.level = target_level
-                    school_row.save(update_fields=["level"])
-
-        character.current_experience = max(0, int(character.current_experience) - total_cost)
-        character.save(update_fields=["current_experience"])
-
+    level, message = process_learning_submission(character, request.POST)
     request.session["close_learn_window_once"] = True
-    if total_cost > 0:
-        messages.success(request, f"Lernen abgeschlossen: {total_cost} EP ausgegeben.")
+    if level == "error":
+        messages.error(request, message)
+    elif level == "info":
+        messages.info(request, message)
     else:
-        messages.success(request, f"Lernen abgeschlossen: {-total_cost} EP gutgeschrieben.")
+        messages.success(request, message)
     return redirect("character_sheet", character_id=character.id)
+
 
 
 @login_required
@@ -1817,118 +1210,9 @@ def apply_learning(request, character_id: int):
 def create_shop_item(request, character_id: int):
     """Create a custom shop item and optional armor or weapon detail records."""
     character = _owned_character_or_404(request, character_id)
-    name = (request.POST.get("name") or "").strip()
-    if not name:
-        return redirect("character_sheet", character_id=character.id)
-
-    def read_int(name: str, default: int = 0, *, minimum: int | None = None) -> int:
-        try:
-            value = int(request.POST.get(name, str(default)) or default)
-        except (TypeError, ValueError):
-            value = default
-        if minimum is not None:
-            value = max(minimum, value)
-        return value
-
-    def read_quality(name: str, default: str) -> str:
-        raw_quality = str(request.POST.get(name, default) or default)
-        return ItemEngine.normalize_quality(raw_quality)
-
-    price = read_int("price", 0, minimum=0)
-    item_type = (request.POST.get("item_type") or Item.ItemType.MISC).strip()
-    description = (request.POST.get("description") or "").strip()
-    stackable = bool(request.POST.get("stackable"))
-    default_quality = read_quality("default_quality", ItemEngine.normalize_quality(None))
-    weight = read_int("weight", 0, minimum=0)
-    size_class = str(request.POST.get("size_class") or "M")
-    is_consumable = item_type == Item.ItemType.CONSUM
-
-    if item_type in (Item.ItemType.ARMOR, Item.ItemType.WEAPON, Item.ItemType.SHIELD):
-        stackable = False
-    if not stackable:
-        is_consumable = False
-
-    item = Item(
-        name=name,
-        price=max(0, price),
-        item_type=item_type,
-        description=description,
-        stackable=stackable,
-        is_consumable=is_consumable,
-        default_quality=default_quality,
-        weight=weight,
-        size_class=size_class,
-    )
-    try:
-        item.full_clean()
-        item.save()
-
-        if item.item_type == Item.ItemType.ARMOR:
-            armor_mode = (request.POST.get("armor_mode") or "total").strip()
-            armor_encumbrance = read_int("armor_encumbrance", 0, minimum=0)
-            armor_min_st = read_int("armor_min_st", 1, minimum=1)
-            if armor_mode == "zones":
-                armor_stats = ArmorStats(
-                    item=item,
-                    rs_total=0,
-                    rs_head=read_int("armor_rs_head", 0, minimum=0),
-                    rs_torso=read_int("armor_rs_torso", 0, minimum=0),
-                    rs_arm_left=read_int("armor_rs_arm_left", 0, minimum=0),
-                    rs_arm_right=read_int("armor_rs_arm_right", 0, minimum=0),
-                    rs_leg_left=read_int("armor_rs_leg_left", 0, minimum=0),
-                    rs_leg_right=read_int("armor_rs_leg_right", 0, minimum=0),
-                    encumbrance=armor_encumbrance,
-                    min_st=armor_min_st,
-                )
-            else:
-                armor_stats = ArmorStats(
-                    item=item,
-                    rs_total=read_int("armor_rs_total", 0, minimum=0),
-                    rs_head=0,
-                    rs_torso=0,
-                    rs_arm_left=0,
-                    rs_arm_right=0,
-                    rs_leg_left=0,
-                    rs_leg_right=0,
-                    encumbrance=armor_encumbrance,
-                    min_st=armor_min_st,
-                )
-            armor_stats.full_clean()
-            armor_stats.save()
-        elif item.item_type == Item.ItemType.WEAPON:
-            min_st = read_int("weapon_min_st", 1, minimum=1)
-            damage_source_id = read_int("weapon_damage_source", 0, minimum=0)
-            wield_mode = str(request.POST.get("weapon_wield_mode") or "1h")
-            h2_enabled = wield_mode in {"2h", "vh"}
-            damage_source = DamageSource.objects.get(pk=damage_source_id)
-            weapon_stats = WeaponStats(
-                item=item,
-                damage_source=damage_source,
-                min_st=min_st,
-                damage_dice_amount=read_int("weapon_damage_dice_amount", 1, minimum=1),
-                damage_dice_faces=read_int("weapon_damage_dice_faces", 10, minimum=2),
-                damage_flat_bonus=read_int("weapon_damage_flat_bonus", 0, minimum=0),
-                wield_mode=wield_mode,
-                h2_dice_amount=read_int("weapon_h2_dice_amount", 0, minimum=1) if h2_enabled else None,
-                h2_dice_faces=read_int("weapon_h2_dice_faces", 0, minimum=2) if h2_enabled else None,
-                h2_flat_bonus=read_int("weapon_h2_flat_bonus", 0, minimum=0) if h2_enabled else None,
-            )
-            weapon_stats.full_clean()
-            weapon_stats.save()
-        elif item.item_type == Item.ItemType.SHIELD:
-            shield_stats = ShieldStats(
-                item=item,
-                rs=read_int("shield_rs", 0, minimum=0),
-                encumbrance=read_int("shield_encumbrance", 0, minimum=0),
-                min_st=read_int("shield_min_st", 1, minimum=1),
-            )
-            shield_stats.full_clean()
-            shield_stats.save()
-    except (ValidationError, ValueError, DamageSource.DoesNotExist):
-        if item.pk:
-            item.delete()
-
+    create_custom_shop_item(request.POST)
     return redirect("character_sheet", character_id=character.id)
+
 
 
 @login_required
@@ -1936,66 +1220,12 @@ def create_shop_item(request, character_id: int):
 def buy_shop_cart(request, character_id: int):
     """Buy all cart entries atomically and update inventory plus wallet."""
     character = _owned_character_or_404(request, character_id)
-    try:
-        payload = json.loads(request.body.decode("utf-8"))
-    except (json.JSONDecodeError, UnicodeDecodeError):
+    payload = _read_json_payload(request)
+    if not payload:
         return JsonResponse({"ok": False, "error": "invalid_payload"}, status=400)
+    response_payload, status_code = buy_shop_cart_payload(character, payload)
+    return JsonResponse(response_payload, status=status_code)
 
-    cart_items = payload.get("items") or []
-    discount = payload.get("discount") or 0
-    try:
-        discount_percent = max(-100, min(100, int(discount)))
-    except (TypeError, ValueError):
-        discount_percent = 0
-
-    if not isinstance(cart_items, list) or not cart_items:
-        return JsonResponse({"ok": False, "error": "empty_cart"}, status=400)
-
-    normalized: list[tuple[Item, int, str]] = []
-    subtotal = 0
-    for entry in cart_items:
-        try:
-            item_id = int(entry.get("id"))
-            qty = int(entry.get("qty"))
-        except (TypeError, ValueError, AttributeError):
-            return JsonResponse({"ok": False, "error": "invalid_item"}, status=400)
-        if qty < 1:
-            return JsonResponse({"ok": False, "error": "invalid_qty"}, status=400)
-
-        item = Item.objects.filter(pk=item_id).first()
-        if item is None:
-            return JsonResponse({"ok": False, "error": "item_not_found"}, status=400)
-        quality = ItemEngine.normalize_quality(str(entry.get("quality") or item.default_quality))
-        if not item.stackable and qty != 1:
-            return JsonResponse({"ok": False, "error": "non_stackable_qty"}, status=400)
-        normalized.append((item, qty, quality))
-        subtotal += ItemEngine.price_for_item_and_quality(item, quality) * qty
-
-    final_price = max(0, round(subtotal * (100 - discount_percent) / 100))
-    if final_price > character.money:
-        return JsonResponse({"ok": False, "error": "insufficient_funds"}, status=200)
-
-    with transaction.atomic():
-        character.money -= final_price
-        character.save(update_fields=["money"])
-        for item, qty, quality in normalized:
-            if item.stackable:
-                existing = CharacterItem.objects.filter(owner=character, item=item, quality=quality).first()
-                if existing:
-                    existing.amount += qty
-                    existing.full_clean()
-                    existing.save(update_fields=["amount"])
-                else:
-                    created = CharacterItem(owner=character, item=item, amount=qty, equipped=False, quality=quality)
-                    created.full_clean()
-                    created.save()
-            else:
-                for _ in range(qty):
-                    created = CharacterItem(owner=character, item=item, amount=1, equipped=False, quality=quality)
-                    created.full_clean()
-                    created.save()
-
-    return JsonResponse({"ok": True, "new_money": character.money, "spent": final_price}, status=200)
 
 
 def impressum(request):

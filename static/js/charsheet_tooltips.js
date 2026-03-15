@@ -31,6 +31,14 @@ document.addEventListener("DOMContentLoaded", () => {
   const charInfoWindowHandle = document.getElementById("charInfoWindowHandle");
   const charInfoCancelBtn = document.getElementById("charInfoCancelBtn");
   const charInfoForm = document.getElementById("charInfoForm");
+  const skillSpecTriggers = Array.from(document.querySelectorAll("[data-skill-spec-trigger]"));
+  const skillSpecWindow = document.getElementById("skillSpecWindow");
+  const skillSpecWindowClose = document.getElementById("skillSpecWindowClose");
+  const skillSpecWindowHandle = document.getElementById("skillSpecWindowHandle");
+  const skillSpecWindowTitle = document.getElementById("skillSpecWindowTitle");
+  const skillSpecCancelBtn = document.getElementById("skillSpecCancelBtn");
+  const skillSpecForm = document.getElementById("skillSpecForm");
+  const skillSpecInput = document.getElementById("id_specification");
   const reputationWrapper = document.querySelector(".reputation_wrapper");
   const reputationList = document.getElementById("reputationList");
   const reputationEditBtn = document.getElementById("reputationEditBtn");
@@ -611,6 +619,118 @@ ${nextPage.text}` : ""}`.trim();
         // no-op
       }
     });
+  }
+
+  if (skillSpecWindow && skillSpecWindowClose && skillSpecWindowHandle && skillSpecForm && skillSpecInput) {
+    const storageKey = "charsheet.skillSpecWindow";
+    const loadState = () => {
+      try {
+        const raw = window.localStorage.getItem(storageKey);
+        return raw ? JSON.parse(raw) : null;
+      } catch (_error) {
+        return null;
+      }
+    };
+    const saveState = () => {
+      try {
+        const left = Number.parseFloat(skillSpecWindow.style.left || "");
+        const top = Number.parseFloat(skillSpecWindow.style.top || "");
+        window.localStorage.setItem(storageKey, JSON.stringify({
+          left: Number.isFinite(left) ? left : null,
+          top: Number.isFinite(top) ? top : null,
+        }));
+      } catch (_error) {
+        // no-op
+      }
+    };
+    const closeSkillSpecWindow = () => {
+      skillSpecWindow.classList.remove("is-open");
+      skillSpecWindow.setAttribute("aria-hidden", "true");
+      saveState();
+    };
+    const openSkillSpecWindow = () => {
+      skillSpecWindow.classList.add("is-open");
+      skillSpecWindow.setAttribute("aria-hidden", "false");
+      const rect = skillSpecWindow.getBoundingClientRect();
+      const saved = loadState();
+      if (saved && Number.isFinite(saved.left) && Number.isFinite(saved.top)) {
+        placeWindow(skillSpecWindow, saved.left, saved.top);
+      } else {
+        const startLeft = window.innerWidth - rect.width - 212;
+        placeWindow(skillSpecWindow, startLeft, 168);
+      }
+      saveState();
+    };
+
+    let dragPointerId = null;
+    let dragOffsetX = 0;
+    let dragOffsetY = 0;
+
+    const persistedState = loadState();
+    if (persistedState && Number.isFinite(persistedState.left) && Number.isFinite(persistedState.top)) {
+      placeWindow(skillSpecWindow, persistedState.left, persistedState.top);
+    }
+
+    skillSpecTriggers.forEach((trigger) => {
+      trigger.addEventListener("click", () => {
+        const skillName = trigger.dataset.skillName || "Fertigkeit";
+        const specification = trigger.dataset.specification || "";
+        const action = trigger.dataset.action || "";
+        skillSpecWindowTitle.textContent = `${skillName} bearbeiten`;
+        skillSpecForm.action = action;
+        skillSpecInput.value = specification;
+        openSkillSpecWindow();
+        window.setTimeout(() => {
+          skillSpecInput.focus();
+          skillSpecInput.select();
+        }, 0);
+      });
+    });
+
+    skillSpecWindowClose.addEventListener("click", closeSkillSpecWindow);
+    skillSpecWindowClose.addEventListener("pointerdown", (event) => {
+      event.stopPropagation();
+    });
+    if (skillSpecCancelBtn) {
+      skillSpecCancelBtn.addEventListener("click", closeSkillSpecWindow);
+    }
+    skillSpecForm.addEventListener("submit", saveState);
+
+    skillSpecWindowHandle.addEventListener("pointerdown", (event) => {
+      if (event.button !== 0) {
+        return;
+      }
+      const rect = skillSpecWindow.getBoundingClientRect();
+      dragPointerId = event.pointerId;
+      dragOffsetX = event.clientX - rect.left;
+      dragOffsetY = event.clientY - rect.top;
+      skillSpecWindowHandle.setPointerCapture(event.pointerId);
+      skillSpecWindow.classList.add("is-dragging");
+    });
+
+    skillSpecWindowHandle.addEventListener("pointermove", (event) => {
+      if (dragPointerId !== event.pointerId) {
+        return;
+      }
+      placeWindow(skillSpecWindow, event.clientX - dragOffsetX, event.clientY - dragOffsetY);
+      saveState();
+    });
+
+    const stopDragging = (event) => {
+      if (dragPointerId !== event.pointerId) {
+        return;
+      }
+      skillSpecWindow.classList.remove("is-dragging");
+      try {
+        skillSpecWindowHandle.releasePointerCapture(event.pointerId);
+      } catch (_error) {
+        // no-op
+      }
+      dragPointerId = null;
+      saveState();
+    };
+    skillSpecWindowHandle.addEventListener("pointerup", stopDragging);
+    skillSpecWindowHandle.addEventListener("pointercancel", stopDragging);
   }
 });
 
@@ -2186,6 +2306,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 });
+
 
 
 

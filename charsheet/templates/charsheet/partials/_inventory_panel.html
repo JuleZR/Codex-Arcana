@@ -1,0 +1,38 @@
+<div class="p2_panel p2_fill">
+  <div class="p2_panel_header">
+    <h2>Ausr&uuml;stung</h2>
+  </div>
+  <div class="panel_scroll inventory_scroll">
+    <ul class="p2_lines">
+      {% for row in inventory_rows %}
+        <li class="inv_row{% if row.tooltip_text %} tooltip_target{% endif %}"{% if row.tooltip_text %} data-tooltip-side="right" data-tooltip="{{ row.tooltip_text }}"{% endif %}>
+          <span class="inv_name">{{ row.display_name }}</span>
+          <span class="inv_actions">
+            <span class="inv_menu">
+              <button type="button" class="equip_toggle inv_menu_trigger" aria-haspopup="true" aria-expanded="false" title="Item-Aktionen">&#8942;</button>
+              <span class="inv_menu_panel" hidden>
+                {% if row.can_consume %}
+                  <form method="post" action="{% url 'consume_item' row.character_item.pk %}" class="equip_form">
+                    {% csrf_token %}
+                    <button type="submit" class="inv_menu_btn">Verbrauchen</button>
+                  </form>
+                {% endif %}
+                {% if row.can_equip %}
+                  <form method="post" action="{% url 'toggle_equip' row.character_item.pk %}" class="equip_form">
+                    {% csrf_token %}
+                    <button type="submit" class="inv_menu_btn">{{ row.equip_label }}</button>
+                  </form>
+                {% endif %}
+                <form method="post" action="{% url 'remove_item' row.character_item.pk %}" class="equip_form">
+                  {% csrf_token %}
+                  <input type="hidden" name="all" value="1">
+                  <button type="submit" class="inv_menu_btn inv_menu_btn--danger" data-require-shift-delete title="Nur mit Shift-Klick">Stack l&ouml;schen</button>
+                </form>
+              </span>
+            </span>
+          </span>
+        </li>
+      {% endfor %}
+    </ul>
+  </div>
+</div>

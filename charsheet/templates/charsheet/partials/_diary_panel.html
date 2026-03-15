@@ -1,0 +1,77 @@
+<section class="payday-window payday-window--large" id="diaryWindow" aria-hidden="true">
+  <div class="payday-window__titlebar" id="diaryWindowHandle">
+    <h3 class="payday-window__title">Tagebuch</h3>
+    <button type="button" class="payday-window__close" id="diaryWindowClose" aria-label="Tagebuch schlie&szlig;en">x</button>
+  </div>
+  <div
+    class="payday-window__body diary-window__body"
+    data-character-id="{{ character.id }}"
+    data-character-name="{{ character.name|escape }}"
+    data-diary-list-url="{% url 'character_diary_entries_api' character.id %}"
+    data-diary-import-url="{% url 'import_legacy_character_diary' character.id %}"
+  >
+    <section class="diary-roll" id="diaryRoll" aria-label="Pergamentrolle">
+      <div class="diary-roll__viewport" id="diaryRollViewport">
+        <article class="diary-roll__entry" id="diaryRollEntry" data-entry-id="">
+          <div class="diary-roll__crest" aria-hidden="true"></div>
+          <div class="diary-roll__statusbar">
+            <span class="diary-roll__counter" id="diaryRollCounter">Eintrag 1 / 1</span>
+            <span class="diary-roll__hint" id="diaryRollHint">Lade Rolle...</span>
+          </div>
+
+          <div class="diary-roll__toolbar">
+            <button type="button" class="diary-roll__nav" id="diaryRollPrevBtn" aria-label="Vorherigen Eintrag anzeigen" title="Vorheriger Eintrag">
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M7 14l5-5 5 5"></path>
+              </svg>
+            </button>
+
+            <div class="diary-roll__actions">
+              <button type="button" class="diary-roll__icon-btn" id="diaryRollModeBtn" aria-label="Eintrag bearbeiten">
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <path d="M4 20h4l10-10-4-4L4 16v4z"></path>
+                  <path d="M13.8 6.2l4 4"></path>
+                </svg>
+              </button>
+              <button type="button" class="diary-roll__icon-btn diary-roll__icon-btn--danger" id="diaryRollDeleteBtn" aria-label="Eintrag l&ouml;schen" title="Eintrag l&ouml;schen">
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <path d="M5 7h14"></path>
+                  <path d="M9 7V5h6v2"></path>
+                  <path d="M8 7l1 12h6l1-12"></path>
+                </svg>
+              </button>
+            </div>
+
+            <button type="button" class="diary-roll__nav" id="diaryRollNextBtn" aria-label="N&auml;chsten Eintrag anzeigen" title="N&auml;chster Eintrag">
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M7 10l5 5 5-5"></path>
+              </svg>
+            </button>
+          </div>
+
+          <div class="diary-roll__segment" id="diaryRollSegment">
+            <div class="diary-roll__entry-head">
+              <div class="diary-roll__entry-meta">
+                <p class="diary-roll__entry-title" id="diaryRollEntryTitle">Neuer Eintrag</p>
+                <div class="diary-roll__date-wrap">
+                  <label for="diaryRollDateInput" class="diary-roll__label">Datum</label>
+                  <span id="diaryRollDateDisplay" class="diary-roll__date-display" aria-live="polite"></span>
+                  <input type="date" id="diaryRollDateInput" class="diary-roll__date-input" aria-label="Eintragsdatum">
+                </div>
+              </div>
+              <p class="diary-roll__entry-state" id="diaryRollEntryState">Entwurf</p>
+            </div>
+
+            <textarea
+              id="diaryRollInput"
+              class="diary-roll__input"
+              maxlength="2200"
+              placeholder="Die Tinte wartet auf den n&auml;chsten Abschnitt..."
+              aria-label="Tagebucheintrag"
+            ></textarea>
+          </div>
+        </article>
+      </div>
+    </section>
+  </div>
+</section>

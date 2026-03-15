@@ -3,7 +3,7 @@
 from django import forms
 from django.contrib.auth.password_validation import validate_password
 
-from .models import Character
+from .models import Character, CharacterSkill
 
 
 class CharacterCreateForm(forms.ModelForm):
@@ -60,6 +60,37 @@ class CharacterInfoInlineForm(forms.ModelForm):
             "religion": forms.TextInput(attrs={"class": "dashboard_input", "maxlength": 25}),
             "appearance": forms.Textarea(attrs={"class": "dashboard_input", "maxlength": 85, "rows": 3}),
         }
+
+
+class CharacterSkillSpecificationForm(forms.ModelForm):
+    """Edit the one-word specification for learned skills such as Beruf."""
+
+    class Meta:
+        model = CharacterSkill
+        fields = ["specification"]
+        widgets = {
+            "specification": forms.TextInput(
+                attrs={
+                    "class": "dashboard_input",
+                    "maxlength": 25,
+                    "autocomplete": "off",
+                    "placeholder": "z. B. Schmied",
+                }
+            ),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance.pk and self.instance.specification == "*":
+            self.initial["specification"] = ""
+
+    def clean_specification(self):
+        specification = (self.cleaned_data.get("specification") or "").strip()
+        if not specification:
+            return "*"
+        if len(specification.split()) != 1:
+            raise forms.ValidationError("Bitte nur ein einzelnes Wort eintragen.")
+        return specification
 
 
 class AccountSettingsForm(forms.Form):
