@@ -2,9 +2,9 @@
 
 Die URL-Definitionen liegen zentral in `codex_arcana/urls.py`. Nahezu alle fachlichen Endpunkte werden direkt von `charsheet.views` bedient.
 
-## Grundsaetzliche View-Konventionen
+## Grundsätzliche View-Konventionen
 
-- charakterbezogene Routen pruefen Eigentum immer ueber Hilfsfunktionen wie `_owned_character_or_404(...)`
+- charakterbezogene Routen prüfen Eigentum immer über Hilfsfunktionen wie `_owned_character_or_404(...)`
 - klassische Formularaktionen enden fast immer mit Redirect zur passenden Seite
 - interaktive Frontend-Bereiche wie Shop oder Tagebuch nutzen JSON-Antworten
 - fast alle fachlichen Endpunkte setzen einen eingeloggten Benutzer voraus
@@ -13,7 +13,7 @@ Die URL-Definitionen liegen zentral in `codex_arcana/urls.py`. Nahezu alle fachl
 
 ### `GET /`
 
-Login-Seite ueber Djangos `LoginView`.
+Login-Seite über Djangos `LoginView`.
 
 ### `GET /dashboard/`
 
@@ -22,13 +22,13 @@ Benutzerspezifisches Dashboard. Die View sammelt:
 - aktive Charaktere
 - archivierte Charaktere
 - Drafts der Charaktererstellung
-- aggregierte Summen fuer Geld und EP
+- aggregierte Summen für Geld und EP
 - Warnungen zu unverteilten EP und Schaden
-- zuletzt geoeffnete Charaktere
+- zuletzt geöffnete Charaktere
 
 ### `GET|POST /character/new/`
 
-Mehrphasige Charaktererstellung. Die View uebernimmt gleichzeitig:
+Mehrphasige Charaktererstellung. Die View übernimmt gleichzeitig:
 
 - Start eines neuen Drafts
 - Navigation zwischen Phasen
@@ -38,27 +38,27 @@ Mehrphasige Charaktererstellung. Die View uebernimmt gleichzeitig:
 
 ### `GET|POST /character/<character_id>/edit/`
 
-Bearbeitung eines vorhandenen Charakters ueber denselben Phasenansatz wie bei der Erstellung. Die Route ist fuer eigene Charaktere reserviert.
+Bearbeitung eines vorhandenen Charakters über denselben Phasenansatz wie bei der Erstellung. Die Route ist für eigene Charaktere reserviert.
 
 ### `GET /sheet/`
 
-Rendert das Character-Sheet-Template ohne echten Charakterkontext. Praktisch eher ein technischer oder historischer Endpunkt; das eigentliche Arbeiten laeuft ueber die charakterbezogene Sheet-Route.
+Rendert das Character-Sheet-Template ohne echten Charakterkontext. Praktisch eher ein technischer oder historischer Endpunkt; das eigentliche Arbeiten läuft über die charakterbezogene Sheet-Route.
 
 ### `GET /character/<character_id>/`
 
-Vollstaendiges Character Sheet fuer einen eigenen Charakter. Die View:
+Vollständiges Character Sheet für einen eigenen Charakter. Die View:
 
 - aktualisiert `last_opened_at`
-- baut den kompletten Sheet-Kontext ueber `build_character_sheet_context(...)`
-- schliesst auf Wunsch das Lernfenster nach erfolgreichem Lernvorgang
+- baut den kompletten Sheet-Kontext über `build_character_sheet_context(...)`
+- schließt auf Wunsch das Lernfenster nach erfolgreichem Lernvorgang
 
 ### `GET /impressum/`
 
-Oeffentliche Seite mit Betreiberangaben aus `LEGAL_INFO`.
+Öffentliche Seite mit Betreiberangaben aus `LEGAL_INFO`.
 
 ### `GET /datenschutz/`
 
-Oeffentliche Datenschutzseite mit denselben konfigurierbaren Betreiberdaten.
+Öffentliche Datenschutzseite mit denselben konfigurierbaren Betreiberdaten.
 
 ## Konto- und Sitzungsaktionen
 
@@ -68,11 +68,11 @@ Aktualisiert Benutzername, E-Mail und optional Passwort. Nutzt `AccountSettingsF
 
 ### `POST /app/logout/`
 
-Allgemeiner Logout fuer die Anwendung.
+Allgemeiner Logout für die Anwendung.
 
 ### `POST /admin/logout/`
 
-Logout-Override fuer den Django-Admin.
+Logout-Override für den Django-Admin.
 
 ## Charakterverwaltung
 
@@ -86,7 +86,7 @@ Reaktiviert einen archivierten Charakter.
 
 ### `POST /character/<character_id>/delete/`
 
-Loescht einen Charakter. Schutzfaelle wie `ProtectedError` werden in der View behandelt.
+Löscht einen Charakter. Schutzfälle wie `ProtectedError` werden in der View behandelt.
 
 ### `POST /character/draft/<draft_id>/delete/`
 
@@ -96,7 +96,7 @@ Verwirft einen laufenden Erstellungsentwurf.
 
 ### `POST /character/<character_id>/info/update/`
 
-Speichert die Stammdaten des Charakters ueber `CharacterInfoInlineForm`.
+Speichert die Stammdaten des Charakters über `CharacterInfoInlineForm`.
 
 ### `POST /character/<character_id>/skills/<character_skill_id>/specification/update/`
 
@@ -104,11 +104,11 @@ Aktualisiert die Spezifikation einer Fertigkeit, sofern die Skilldefinition `req
 
 ### `POST /character/<character_id>/adjust-personal-fame-point/`
 
-Erhoeht oder verringert persoenliche Ruhmpunkte. Der Endpunkt rechnet jeweils 10 Punkte in einen Rang um beziehungsweise wieder zurueck.
+Erhöht oder verringert persönliche Ruhmpunkte. Der Endpunkt rechnet jeweils 10 Punkte in einen Rang um beziehungsweise wieder zurück.
 
 ### `POST /character/<character_id>/adjust-damage/`
 
-Erhoeht oder heilt aktuellen Schaden.
+Erhöht oder heilt aktuellen Schaden.
 
 Antwortverhalten:
 
@@ -117,21 +117,21 @@ Antwortverhalten:
 
 ### `POST /character/<character_id>/adjust-money/`
 
-Wendet eine Delta-Aenderung auf das Geld an, aber nie unter 0.
+Wendet eine Delta-Änderung auf das Geld an, aber nie unter 0.
 
 ### `POST /character/<character_id>/adjust-experience/`
 
-Wendet eine Delta-Aenderung auf aktuelle und gesamte Erfahrung an, ebenfalls nie unter 0.
+Wendet eine Delta-Änderung auf aktuelle und gesamte Erfahrung an, ebenfalls nie unter 0.
 
 ### `POST /character/<character_id>/learn/apply/`
 
-Delegiert an `process_learning_submission(...)`. Der Endpunkt gibt keine JSON-Antwort, sondern setzt Messages und einen Session-Flag fuer das UI.
+Delegiert an `process_learning_submission(...)`. Der Endpunkt gibt keine JSON-Antwort, sondern setzt Messages und einen Session-Flag für das UI.
 
-## Inventar und Ausruestung
+## Inventar und Ausrüstung
 
 ### `POST /character-item/<pk>/toggle-equip/`
 
-Legt Waffen, Ruestungen oder Schilde an oder ab.
+Legt Waffen, Rüstungen oder Schilde an oder ab.
 
 ### `POST /character-item/<pk>/consume/`
 
@@ -139,13 +139,13 @@ Verbraucht ein stackbares Consumable-Item.
 
 ### `POST /character-item/<pk>/remove/`
 
-Entfernt ein Item oder reduziert einen Stack um eins. Mit `all` kann der gesamte Stack geloescht werden.
+Entfernt ein Item oder reduziert einen Stack um eins. Mit `all` kann der gesamte Stack gelöscht werden.
 
 ## Shop-Endpunkte
 
 ### `POST /character/<character_id>/shop-item/create/`
 
-Erzeugt ein benutzerdefiniertes Basis-Item. Je nach Itemtyp koennen zusaetzlich `ArmorStats`, `WeaponStats` oder `ShieldStats` erzeugt werden.
+Erzeugt ein benutzerdefiniertes Basis-Item. Je nach Itemtyp können zusätzlich `ArmorStats`, `WeaponStats` oder `ShieldStats` erzeugt werden.
 
 ### `POST /character/<character_id>/shop/buy/`
 
@@ -163,7 +163,7 @@ Antwortet mit JSON:
 
 ## Tagebuch-Endpunkte
 
-Das Tagebuch ist einer der am staerksten interaktiven Bereiche im Character Sheet und arbeitet komplett servergestuetzt.
+Das Tagebuch ist einer der am stärksten interaktiven Bereiche im Character Sheet und arbeitet komplett servergestützt.
 
 ### `GET /character/<character_id>/diary/`
 
@@ -171,7 +171,7 @@ Liefert den normalisierten Tagebuchzustand als JSON.
 
 ### `POST /character/<character_id>/diary/import-legacy/`
 
-Importiert alte Browser-lokale Tagebuchdaten in persistente `CharacterDiaryEntry`-Datensaetze. Der Import wird verweigert, sobald serverseitig bereits echte Eintraege existieren.
+Importiert alte Browser-lokale Tagebuchdaten in persistente `CharacterDiaryEntry`-Datensätze. Der Import wird verweigert, sobald serverseitig bereits echte Einträge existieren.
 
 ### `POST /character/<character_id>/diary/<entry_id>/edit/`
 
@@ -183,14 +183,14 @@ Speichert Text und optional ein Datum, fixiert den Eintrag aber noch nicht.
 
 ### `POST /character/<character_id>/diary/<entry_id>/fix/`
 
-Finalisiert den Eintrag, friert das Datum ein und sorgt anschliessend wieder fuer genau eine leere Abschlusszeile.
+Finalisiert den Eintrag, friert das Datum ein und sorgt anschließend wieder für genau eine leere Abschlusszeile.
 
 ### `POST /character/<character_id>/diary/<entry_id>/delete/`
 
-Loescht einen Eintrag und liefert den neu normalisierten Zustand zurueck.
+Löscht einen Eintrag und liefert den neu normalisierten Zustand zurück.
 
 ## Hinweise zur Pflege
 
 - Bei neuen JSON-Endpunkten sowohl Payload als auch Fehlercodes dokumentieren.
 - Wenn ein Endpunkt zwischen Redirect und JSON umschaltet, dieses Verhalten explizit festhalten.
-- Bei neuen Character-Sheet-Panels zuerst pruefen, ob die Route wirklich neu sein muss oder ob sie in einen bestehenden Workflow gehoert.
+- Bei neuen Character-Sheet-Panels zuerst prüfen, ob die Route wirklich neu sein muss oder ob sie in einen bestehenden Workflow gehört.

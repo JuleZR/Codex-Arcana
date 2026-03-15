@@ -4,11 +4,11 @@
 
 - Python 3.x
 - PostgreSQL
-- optional Docker / Docker Compose fuer die Datenbank
+- optional Docker / Docker Compose für die Datenbank
 
-## Python-Abhaengigkeiten
+## Python-Abhängigkeiten
 
-Die Anwendung nutzt aktuell nur wenige Kernabhaengigkeiten:
+Die Anwendung nutzt aktuell nur wenige Kernabhängigkeiten:
 
 - `Django==5.2.11`
 - `psycopg2-binary==2.9.11`
@@ -43,7 +43,7 @@ docker compose up -d db
 
 ## `.env`-Datei
 
-`settings.py` laedt eine einfache `.env`-Datei aus dem Projektwurzelverzeichnis. Unterstuetzt werden einfache `KEY=VALUE`-Zeilen. Aktuell ist das vor allem fuer die rechtlichen Angaben relevant.
+`settings.py` lädt eine einfache `.env`-Datei aus dem Projektwurzelverzeichnis. Unterstützt werden einfache `KEY=VALUE`-Zeilen. Aktuell ist das vor allem für die rechtlichen Angaben relevant.
 
 ## Django initialisieren
 
@@ -56,16 +56,16 @@ python manage.py runserver
 ## Wichtige URLs
 
 - Login: `http://127.0.0.1:8000/`
-- Dashboard: `http://127.0.0.1:8000/dashboard/`
 - Admin: `http://127.0.0.1:8000/admin/`
-- Character-Erstellung: `http://127.0.0.1:8000/character/new/`
 - Character Sheet eines Charakters: `http://127.0.0.1:8000/character/<id>/`
 - Impressum: `http://127.0.0.1:8000/impressum/`
 - Datenschutz: `http://127.0.0.1:8000/datenschutz/`
 
-## Rechtliche Angaben fuer Self-Hosting
+Hinweis: `Dashboard` und `Character-Erstellung` sind technische Routen, aber nicht als direkte Einstiegspunkte in der Doku hervorgehoben. Der normale Start erfolgt über den Login und danach über die Navigation in der App.
 
-Die Seiten `Impressum` und `Datenschutz` lesen Betreiberinformationen aus `LEGAL_INFO` in `codex_arcana/settings.py`. Diese Werte koennen per Umgebungsvariable oder `.env` gesetzt werden:
+## Rechtliche Angaben für Self-Hosting
+
+Die Seiten `Impressum` und `Datenschutz` lesen Betreiberinformationen aus `LEGAL_INFO` in `codex_arcana/settings.py`. Diese Werte können per Umgebungsvariable oder `.env` gesetzt werden:
 
 - `LEGAL_SITE_NAME`
 - `LEGAL_OPERATOR_NAME`
@@ -89,9 +89,9 @@ python manage.py shell
 python manage.py test
 ```
 
-## Hinweise fuer lokale Entwicklung
+## Hinweise für lokale Entwicklung
 
 - `DEBUG` steht derzeit fest auf `True`.
 - `TIME_ZONE` ist aktuell auf `UTC` gesetzt.
 - Die Login-Seite liegt auf `/`, der Redirect nach erfolgreichem Login geht auf `dashboard`.
-- Fuer das Character Sheet ist `/sheet/` nicht der normale Einstieg; gearbeitet wird ueblicherweise ueber `/character/<id>/`.
+- Für das Character Sheet ist `/sheet/` nicht der normale Einstieg; gearbeitet wird üblicherweise über `/character/<id>/`.
