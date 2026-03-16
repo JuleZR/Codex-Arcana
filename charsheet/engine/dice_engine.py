@@ -20,16 +20,27 @@ class DiceEngine():
         Returns:
             list[int]: One random result per configured roll.
         """
-        rolls: list[int] = []
-        for _ in range(self.dice_rolls):
-            rolls.append(randint(1, self.dice_sides))
-        
-        return rolls
+        return [randint(1, self.dice_sides) for _ in range(self.dice_rolls)]
     
-    def roll_sum(self) -> int:
-        """Return the summed total of one full dice roll sequence.
+    def roll(self) -> dict:
+        rolls = self.roll_dice()
+        return  {
+            "sides": self.dice_sides,
+            "count": self.dice_rolls,
+            "rolls": rolls,
+            "total": sum(rolls)
+        } 
+        
+    def roll_100(self) -> dict:
+        tens = 10 * randint(0, 9)
+        ones = randint(1, 10)
+        
+        total = tens + ones
 
-        Returns:
-            int: Sum of all values returned by ``roll_dice()``.
-        """
-        return sum/(self.roll_dice())
+        return {
+            "sides": 100,
+            "count": 1,
+            "tens": tens,
+            "ones": ones,
+            "total": total
+        }

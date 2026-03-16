@@ -11,9 +11,27 @@
         document.documentElement.setAttribute("data-left-tools-open", "0");
       })();
     </script>
+    {% if request.user.settings.dddice_enabled %}
+    {{ dddice_config|json_script:"dddice-config" }}
+    <script type="importmap">
+    {
+      "imports": {
+        "dddice-js": "/node_modules/dddice-js/dist/dddice.js"
+      }
+    }
+    </script>
+    <script type="module" src="{% static 'js/dddice.js' %}"></script>
+    {% endif %}
     <link rel="stylesheet" href="{% static 'css/charsheet.css' %}?v=20260314b">
   </head>
+  
   <body>
+    {% if request.user.settings.dddice_enabled %}
+    <button id="roll-1d10"></button>
+    <button id="roll-2d10"></button>
+    <canvas id="dddice" width="500" height="300"></canvas>
+    <div id="roll-result"></div>
+    {% endif %}
     <button
       type="button"
       class="left-tools__launcher"

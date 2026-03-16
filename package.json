@@ -1,0 +1,27 @@
+{
+  "name": "codex_arcana",
+  "version": "1.0.0",
+  "description": "<p align=\"center\">   <img src=\"static/img/codexarcana.png\" alt=\"Codex Arcana Logo\" width=\"560\"> </p>",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/JuleZR/Codex-Arcana.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/JuleZR/Codex-Arcana/issues"
+  },
+  "homepage": "https://github.com/JuleZR/Codex-Arcana#readme",
+  "dependencies": {
+    "dddice-js": "^0.19.34-974"
+  }
+}

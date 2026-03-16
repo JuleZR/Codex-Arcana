@@ -18,6 +18,7 @@ from django.db.models.deletion import ProtectedError
 from django.utils import timezone
 from django.urls import reverse_lazy
 from .engine import CharacterCreationEngine
+from .engine.dice_engine import DiceEngine
 from .models import (
     Character,
     CharacterDiaryEntry,
@@ -31,12 +32,14 @@ from .models import (
     School,
     Language,
 )
+from .models.user import UserSettings
 from .forms import (
     AccountSettingsForm,
     CharacterCreateForm,
     CharacterUpdateForm,
     CharacterInfoInlineForm,
     CharacterSkillSpecificationForm,
+    UserSettingsForm
 )
 from .learning import process_learning_submission
 from .sheet_context import build_character_sheet_context
@@ -54,6 +57,66 @@ ATTRIBUTE_ORDER = [
     ("CHA", "Charisma (Cha)"),
 ]
 DIARY_ENTRY_CHAR_LIMIT = 2200
+
+
+@login_required
+@require_POST
+def update_account_settings(request):
+    user_settings, _ = UserSettings.objects.get_or_create(user=request.user)
+
+    account_form = AccountSettingsForm(request.user, request.POST)
+    settings_form = UserSettingsForm(request.POST, instance=user_settings)
+
+    account_valid = account_form.is_valid()
+    settings_valid = settings_form.is_valid()
+
+    if not account_valid or not settings_valid:
+        for field_errors in account_form.errors.values():
+            for error in field_errors:
+                messages.error(request, error)
+        for field_errors in settings_form.errors.values():
+            for error in field_errors:
+                messages.error(request, error)
+        return redirect("dashboard")
+
+    changed, password_changed = account_form.save()
+    settings_changed = settings_form.has_changed()
+    settings_form.save()
+
+    if password_changed:
+        update_session_auth_hash(request, request.user)
+
+    if changed or settings_changed:
+        messages.success(request, "Kontoeinstellungen gespeichert.")
+    else:
+        messages.info(request, "Keine Änderungen erkannt.")
+
+    return redirect("dashboard")
+
+
+@require_POST
+def roll_dice_view(request):
+    try:
+        data = json.loads(request.body or "{}")
+        sides = int(data.get("sides", 10))
+        count = int(data.get("count", 2))
+
+        if sides < 2 or count < 1:
+            return JsonResponse(
+                {"error": "Invalid dice configuration."},
+                status=400,
+            )
+
+        engine = DiceEngine(dice_sides=sides, dice_rolls=count)
+        result = engine.roll()
+
+        return JsonResponse(result)
+
+    except (ValueError, TypeError, json.JSONDecodeError):
+        return JsonResponse(
+            {"error": "Invalid request body."},
+            status=400,
+        )
 
 
 def _legal_context() -> dict:
@@ -248,10 +311,21 @@ def character_sheet(request, character_id: int):
     character.last_opened_at = timezone.now()
     character.save(update_fields=["last_opened_at"])
 
+    user_settings, _ = UserSettings.objects.get_or_create(user=request.user)
+
     context = build_character_sheet_context(
         character,
         close_learn_window_once=bool(request.session.pop("close_learn_window_once", False)),
     )
+
+    context["dddice_enabled"] = user_settings.dddice_enabled
+    context["dddice_config"] = {
+        "apiKey": user_settings.dddice_api_key,
+        "roomId": user_settings.dddice_room_id,
+        "roomPassword": user_settings.dddice_room_password,
+        "themeId": user_settings.dddice_theme_id,
+    }
+
     return render(request, "charsheet/charsheet.html", context)
 
 
@@ -683,28 +757,6 @@ def delete_creation_draft(request, draft_id: int):
     else:
         messages.info(request, "Charakterentwurf wurde verworfen.")
     return redirect("dashboard")
-
-
-@login_required
-@require_POST
-def update_account_settings(request):
-    """Update current user's username/email and optionally password."""
-    form = AccountSettingsForm(request.user, request.POST)
-    if not form.is_valid():
-        for field_errors in form.errors.values():
-            for error in field_errors:
-                messages.error(request, error)
-        return redirect("dashboard")
-
-    changed, password_changed = form.save()
-    if password_changed:
-        update_session_auth_hash(request, request.user)
-    if changed:
-        messages.success(request, "Kontoeinstellungen gespeichert.")
-    else:
-        messages.info(request, "Keine Änderungen erkannt.")
-    return redirect("dashboard")
-
 
 class AppLogoutView(LogoutView):
     """Log out current user and redirect to login with a short status message."""

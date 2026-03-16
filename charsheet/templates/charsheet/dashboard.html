@@ -8,6 +8,10 @@
     <title>Dashboard | {{ request.user.get_username }}</title>
     <link rel="stylesheet" href="{% static 'css/charsheet.css' %}">
     <link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
+    {% if request.user.settings.dddice_enabled %}
+    <script type="module" src="{% static 'js/dddice.js' %}?v=1"></script>
+    {% endif %}
+
   </head>
   <body>
     <main class="book-spread dashboard_spread">
@@ -238,6 +242,60 @@
             <span>Neues Passwort wiederholen</span>
             <input class="dashboard_input" type="password" name="new_password2" autocomplete="new-password">
           </label>
+          <hr class="dashboard_account_divider">
+
+          <label class="form_row">
+            <span>DDDdice aktivieren</span>
+            <input type="checkbox" name="dddice_enabled" id="id_dddice_enabled"
+                   {% if request.user.settings.dddice_enabled %}checked{% endif %}>
+          </label>
+            <div id="dddice_fields">
+            
+              <label class="form_row">
+                <span>DDDdice API Key</span>
+                <input class="dashboard_input"
+                       type="password"
+                       name="dddice_api_key"
+                       id="id_dddice_api_key"
+                       value="{{ request.user.settings.dddice_api_key|default:'' }}">
+              </label>
+            
+              <label class="form_row">
+                <span>DDDdice Room ID</span>
+                <input class="dashboard_input"
+                       type="text"
+                       name="dddice_room_id"
+                       id="id_dddice_room_id"
+                       value="{{ request.user.settings.dddice_room_id|default:'' }}">
+              </label>
+            
+              <label class="form_row">
+                <span>DDDdice Room Passwort (optional)</span>
+                <input class="dashboard_input"
+                       type="password"
+                       name="dddice_room_password"
+                       id="id_dddice_room_password"
+                       value="{{ request.user.settings.dddice_room_password|default:'' }}">
+              </label>
+              <label class="form_row">
+              <span>DDDdice Würfelset</span>
+                <div class="dice_set_row">
+                    <select class="dashboard_input"
+                            name="dddice_theme_id"
+                            id="id_dddice_theme"
+                            data-current-value="{{ request.user.settings.dddice_theme_id|default:'' }}">
+                      <option value="">– Würfelsets laden –</option>
+                    </select>
+                  <button type="button"
+                  id="dddice_refresh_sets"
+                  class="dice_refresh_button"
+                  title="Würfelsets aktualisieren">
+                  ⟳     
+                  </button>
+                </div>
+              </label>
+            </div>
+
           <div class="dashboard_account_actions">
             <button type="button" id="dashboardAccountCancel" class="dashboard_button dashboard_button--small">Abbrechen</button>
             <button type="submit" class="dashboard_button dashboard_button--small dashboard_button--primary">Speichern</button>
@@ -252,6 +310,23 @@
 
     <script>
       document.addEventListener("DOMContentLoaded", function () {
+        const dddiceCheckbox = document.getElementById("id_dddice_enabled");
+        const dddiceFields = document.getElementById("dddice_fields");
+
+        function updateDDDdiceFields() {
+          if (!dddiceCheckbox || !dddiceFields) return;
+        
+          if (dddiceCheckbox.checked) {
+            dddiceFields.style.display = "";
+          } else {
+            dddiceFields.style.display = "none";
+          }
+        }
+
+if (dddiceCheckbox) {
+  dddiceCheckbox.addEventListener("change", updateDDDdiceFields);
+  updateDDDdiceFields();
+}
         document.querySelectorAll("[data-autohide-message]").forEach(function (message) {
           setTimeout(function () {
             message.classList.add("is-hidden");

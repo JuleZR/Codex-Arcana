@@ -819,7 +819,6 @@ class CharacterEngine:
             self.current_wound_penalty(),
             -self.get_bel(),
             self.modifier_total_for_skill(skill_slug),
-            self.weapon_quality_skill_modifier()
         ]
         if category_slug:
             modifier_parts.append(

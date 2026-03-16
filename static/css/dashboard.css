@@ -1199,3 +1199,25 @@ body.embedded-creation .character_form {
     overflow: hidden;
   }
 }
+
+
+.dice_set_row{
+  display:flex;
+  gap:8px;
+  align-items:center;
+}
+
+.dice_refresh_button{
+  width:34px;
+  height:34px;
+  border:0;
+  border-radius:6px;
+  cursor:pointer;
+  font-size:16px;
+  background:#2c2c2c;
+  color:#ddd;
+}
+
+.dice_refresh_button:hover{
+  background:#3a3a3a;
+}

@@ -55,4 +55,5 @@ urlpatterns = [
     path("character-item/<int:pk>/consume/", views.consume_item, name="consume_item"),
     path("character-item/<int:pk>/remove/", views.remove_item, name="remove_item"),
     path("", LoginView.as_view(template_name="registration/login.html", redirect_authenticated_user=True), name="login"),
+    path("api/roll/", views.roll_dice_view, name="roll_dice"),
 ]

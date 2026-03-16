@@ -2,10 +2,40 @@
 
 from django import forms
 from django.contrib.auth.password_validation import validate_password
-
 from .models import Character, CharacterSkill
+from .models.user import UserSettings
+from django.contrib.auth import get_user_model
 
 
+class UserSettingsForm(forms.ModelForm):
+    class Meta:
+        model = UserSettings
+        fields = [
+            "dddice_enabled",
+            "dddice_api_key",
+            "dddice_room_id",
+            "dddice_room_password",
+            "dddice_dice_box",
+            "dddice_theme_id",
+        ]
+        widgets = {
+            "dddice_room_password": forms.PasswordInput(render_value=True),
+        }
+
+    def clean(self):
+        cleaned_data = super().clean()
+
+        dddice_enabled = cleaned_data.get("dddice_enabled")
+        dddice_api_key = (cleaned_data.get("dddice_api_key") or "").strip()
+        dddice_room_id = (cleaned_data.get("dddice_room_id") or "").strip()
+
+        if dddice_enabled:
+            if not dddice_api_key:
+                self.add_error("dddice_api_key", "Bitte einen API Key hinterlegen.")
+            if not dddice_room_id:
+                self.add_error("dddice_room_id", "Bitte eine Room ID hinterlegen.")
+
+        return cleaned_data
 class CharacterCreateForm(forms.ModelForm):
     """Minimal character creation form for dashboard usage."""
 
@@ -131,7 +161,10 @@ class AccountSettingsForm(forms.Form):
         username = (self.cleaned_data.get("username") or "").strip()
         if not username:
             raise forms.ValidationError("Benutzername darf nicht leer sein.")
-        duplicate_qs = type(self.user).objects.filter(username__iexact=username).exclude(pk=self.user.pk)
+        
+        User = get_user_model()
+        
+        duplicate_qs = User.objects.filter(username__iexact=username).exclude(pk=self.user.pk)
         if duplicate_qs.exists():
             raise forms.ValidationError("Dieser Benutzername ist bereits vergeben.")
         return username

@@ -317,6 +317,151 @@ Die öffentlichen Seiten `Impressum` und `Datenschutz` lesen ihre Betreiberdaten
 - `LEGAL_VAT_ID`
 - `LEGAL_SUPERVISORY_AUTHORITY`
 
+## 🎲 DDDice Integration
+
+Codex Arcana verwendet **DDDice** zur Darstellung von animierten 3D-Würfeln im Browser.
+
+Die eigentliche Würfelmechanik wird vollständig **serverseitig im Backend berechnet**.  
+DDDice dient ausschließlich dazu, das Ergebnis visuell als Würfelwurf darzustellen.
+
+Dadurch bleibt das Würfelsystem:
+
+- regelkonform zum Arcane-Codex-Regelwerk  
+- deterministisch und serverseitig kontrolliert  
+- nicht clientseitig manipulierbar  
+- visuell ansprechend durch 3D-Würfelanimationen  
+
+---
+
+### 1. Warum Codex Arcana DDDice verwendet
+
+Codex Arcana nutzt DDDice, um eine visuelle Darstellung von Würfelwürfen zu ermöglichen, ohne die eigentliche Spiellogik in den Browser zu verlagern.
+
+Die Berechnung der Würfelergebnisse erfolgt ausschließlich im Backend.  
+DDDice erhält lediglich das bereits berechnete Ergebnis und stellt dieses als 3D-Würfelwurf dar.
+
+Dieses Design hat mehrere Vorteile:
+
+- Würfelergebnisse können nicht clientseitig manipuliert werden  
+- Die Spiellogik bleibt vollständig unter Kontrolle des Servers  
+- Die Benutzeroberfläche erhält dennoch eine realistische Würfelanimation  
+- Das System bleibt flexibel für eigene Regelmechaniken  
+
+---
+
+### 2. Funktionsweise
+
+Die Integration trennt **Spiellogik** und **Visualisierung**.
+
+Ablauf eines Würfelwurfs:
+
+1. Der Benutzer klickt im Interface auf einen Würfelbutton (z. B. `1d10` oder `2d10`)
+2. Das Frontend sendet einen Request an das Backend
+3. Das Backend berechnet den Würfelwurf nach den Spielregeln
+4. Das Ergebnis wird als JSON an das Frontend zurückgegeben
+5. DDDice visualisiert den Wurf mit genau diesen Ergebnissen
+
+Beispiel eines Backend-Responses:
+
+```json
+{
+  "sides": 10,
+  "count": 2,
+  "rolls": [7, 8],
+  "total": 15
+}
+```
+
+Das Frontend übergibt diese Werte anschließend an die DDDice-Engine, die daraus eine 3D-Animation erzeugt.
+
+---
+
+### 3. Einrichtung
+
+Damit die Integration funktioniert, sind einige Schritte notwendig.
+
+#### 3.1 DDDice Account und API Key
+
+Ein API-Key kann im DDDice Dashboard erstellt werden: https://dddice.com
+
+---
+
+#### 3.2 Dice Room erstellen
+
+DDDice verwendet sogenannte **Rooms**, über die Würfelwürfe zwischen den Clients synchronisiert werden.
+
+Für die Verbindung werden mindestens folgende Angaben benötigt:
+
+- `API_KEY`
+- `ROOM_SLUG`
+
+Ist der Raum passwortgeschützt (empfohlen), wird zusätzlich benötigt:
+
+- `ROOM_PASSCODE`
+
+---
+
+#### 3.3 Frontend konfigurieren
+
+Die Konfiguration der DDDice-Integration erfolgt über das **Dashboard**.
+
+1. Öffne im Dashboard die **Kontoeinstellungen**.
+2. Aktiviere die Option **„DDDice aktivieren“**.
+3. Trage anschließend die erforderlichen Verbindungsdaten ein:
+
+- `API_KEY`
+- `ROOM_SLUG`
+- optional: `ROOM_PASSCODE` (falls der Raum passwortgeschützt ist)
+
+4. Wähle anschließend ein **Dice Set** aus.
+
+Falls kein Dice Set angezeigt wird:
+
+- auf **„Aktualisieren“** klicken, um verfügbare Sets neu zu laden  
+- oder im eigenen **DDDice Account prüfen**, ob bereits ein Dice Set hinterlegt ist
+
+⚠️ **Wichtig**:  
+Das gewählte Dice Set muss **sowohl `d10` als auch `d10x` unterstützen**, da diese Würfeltypen von Codex Arcana verwendet werden.
+
+Nach dem Speichern der Einstellungen kann Codex Arcana die Verbindung zu DDDice herstellen und Würfelwürfe visualisieren.
+
+---
+
+### 3.4 Würfelergebnis darstellen
+
+Nachdem das Backend einen Wurf berechnet hat, wird das Ergebnis an DDDice übergeben.
+
+```javascript
+await dddice.roll({
+  dice: [
+    { type: "d10", value: 7 },
+    { type: "d10", value: 8 }
+  ]
+});
+```
+
+DDDice rendert anschließend eine vollständige 3D-Würfelanimation auf dem `charsheet`
+
+---
+
+#### Rechtliche Hinweise
+
+Codex Arcana verwendet **DDDice** zur Darstellung von 3D-Würfeln im Browser.
+
+DDDice ist ein externer Dienst eines Drittanbieters und unterliegt dessen eigenen Nutzungsbedingungen:
+
+https://dddice.com
+
+Die DDDice-Integration ist standardmäßig deaktiviert und muss im **Dashboard unter Kontoeinstellungen** ausdrücklich aktiviert werden.
+
+Nur wenn die Option **„DDDice aktivieren“** gesetzt ist, wird die entsprechende Integration geladen und eine Verbindung zu den Servern von DDDice aufgebaut. Dabei können technisch notwendige Verbindungsdaten (z. B. die IP-Adresse) an den Anbieter übermittelt werden.
+
+Ist die Option deaktiviert, wird die DDDice-Integration nicht geladen und es findet keine Verbindung zu den Servern von DDDice statt.
+
+Alle Rechte an der DDDice-Engine sowie deren API verbleiben beim jeweiligen Rechteinhaber.
+
+---
+
 ## Lizenz
 
 Das Projekt steht unter der GNU General Public License v3.0. Details stehen in `LICENSE`.
