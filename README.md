@@ -34,7 +34,7 @@ Codex Arcana is a Django-based management system for the pen-and-paper role-play
 - Django 5.2  
 - PostgreSQL 16  
 - Django Templates  
-- Global assets in `static/`, app-specific assets in `charsheet/static/`  
+- Global assets in `static/`
 
 ---
 
