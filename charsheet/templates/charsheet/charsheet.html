@@ -24,11 +24,31 @@
     {% endif %}
     <link rel="stylesheet" href="{% static 'css/charsheet.css' %}?v=20260314b">
   </head>
-  
+
+<div class="fan_menu">
+    <input class="fan_button" type="checkbox">
+    <nav>
+    <a href="#">
+        <button class="menu-btn" id="roll-2d10">
+          <img src="{% static '/img/2d10.png' %}">
+        </button>
+    </a>
+    <a href="#">
+        <button class="menu-btn" id="roll-1d10">
+          <img src="{% static '/img/1d10.png' %}">
+        </button>
+    </a>
+    <a href="#">
+        <button class="menu-btn" id=roll-1d100>
+          <img src="{% static '/img/1d100.png' %}">
+        </button>
+    </a>
+</nav>
+</div>
+
+
   <body>
     {% if request.user.settings.dddice_enabled %}
-    <button id="roll-1d10"></button>
-    <button id="roll-2d10"></button>
     <canvas id="dddice" width="500" height="300"></canvas>
     <div id="roll-result"></div>
     {% endif %}

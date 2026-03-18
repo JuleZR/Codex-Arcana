@@ -55,6 +55,7 @@ ATTR_WILL = "WILL"
 ATTR_ST = "ST"
 ATTR_KON = "KON"
 ATTR_CHA = "CHA"
+ATTR_SPEC = "spz."
 
 ATTRIBUTE_CODE_CHOICES = [
     (ATTR_GE, "Geschicklichkeit"),
@@ -63,7 +64,8 @@ ATTRIBUTE_CODE_CHOICES = [
     (ATTR_WILL, "Willenskraft"),
     (ATTR_ST, "Stärke"),
     (ATTR_KON, "Konstitution"),
-    (ATTR_CHA, "Charisma")
+    (ATTR_CHA, "Charisma"),
+    (ATTR_SPEC, "Spezial")
 ]
 
 # Skill Category Slugs

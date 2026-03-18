@@ -4556,49 +4556,6 @@ html[data-left-tools-open="1"] .left-tools {
     transform:translate(-50%,0);
 }
 
-#roll-1d10 {
-  background: url("/static/img/1d10.png") center no-repeat;
-  height: 80px;
-  width: 80px;
-  border: 0;
-  background-size: 80px 80px;
-  position: fixed;
-  display: inline-flex;
-  left:50%;
-  top:20%;
-  transform:translate(-50%,40px);
-  z-index: 2000;
-  transform-origin: center;
-}
-
-#roll-2d10 {
-  background: url("/static/img/2d10.png") center no-repeat;
-  height: 100px;
-  width: 100px;
-  border: 0;
-  background-size: 100px 100px;
-  transform-origin: center;
-  position: fixed;
-  display: inline-flex;
-  left:50%;
-  top: 10%;
-  transform:translate(-50%,40px);
-  z-index: 2000;
-}
-
-@keyframes shake {
-  0%   { transform: translate(-50%, 40px) translateX(0); }
-  20%  { transform: translate(-50%, 40px) translateX(-3px) rotate(-2deg); }
-  40%  { transform: translate(-50%, 40px) translateX(3px) rotate(2deg); }
-  60%  { transform: translate(-50%, 40px) translateX(-2px) rotate(-1deg); }
-  80%  { transform: translate(-50%, 40px) translateX(2px) rotate(1deg); }
-  100% { transform: translate(-50%, 40px) translateX(0); }
-}
-
-#roll-2d10:hover, #roll-1d10:hover {
-  animation: shake 0.5s infinite;
-}
-
 
 .firefly {
   position: fixed;
@@ -5121,3 +5078,174 @@ html[data-left-tools-open="1"] .left-tools {
     animation: none;
   }
 }
+
+
+/*************** FAN MENU *********************/
+
+.fan_menu {
+    bottom: 0;
+    display: flex;
+    height: 150px;
+    justify-content: center;
+    position: fixed;
+    width: 100%;
+    transform: scale(1.5);
+    z-index: 1000;
+}
+
+
+.fan_button {
+    appearance: none;
+    border-radius: 30px;
+    height: 40px;
+    left: 50%;
+    margin: 0;
+    padding: 0;
+    position: absolute;
+    top: 83%;
+    transform: translate(-50%, -50%);
+    transition: transform 150ms ease;
+    width: 40px;
+    z-index: 2;
+    background:
+    radial-gradient(circle at 30% 25%,
+        #f2c078 0%,
+        #c28a4a 12%,
+        #9a6432 22%,
+        #6e4321 35%,
+        #3e2412 55%,
+        #1f1209 75%,
+        #0f0804 100%
+    ),
+    radial-gradient(circle at 70% 75%,
+        rgba(255, 200, 120, 0.15) 0%,
+        rgba(255, 160, 80, 0.08) 25%,
+        rgba(0,0,0,0) 60%
+    ),
+    linear-gradient(
+        135deg,
+        #2a160b 0%,
+        #5a3419 25%,
+        #8a552a 45%,
+        #6b3e1d 60%,
+        #3a1f0f 80%,
+        #140904 100%
+    );
+  box-shadow:
+    inset 0 2px 3px rgba(255, 220, 160, 0.15),
+    inset 0 -10px 15px rgba(0,0,0,0.7),
+    inset 6px 6px 10px rgba(255,180,100,0.08),
+    inset -6px -6px 12px rgba(0,0,0,0.5),
+    0 4px 10px rgba(0,0,0,0.6);
+    transition: filter 1.4s ease-in-out transform 1.2 ease-in-out;
+}
+
+
+
+.fan_button:checked {
+    transform: translate(-50%, -50%) scale(1.2);
+    filter: drop-shadow(0 0 15px rgba(214,168,92,0.5));
+}
+
+.fan_button:checked ~ nav {
+    /*box-shadow: 0 0 2rem 0 rgba(0, 0, 0, 0.25);*/
+    transform: rotate(0);
+}
+
+.fan_button:not(:checked):hover {
+    transform: translate(-50%, -50%) scale(1.2);
+    filter: drop-shadow(0 0 15px rgba(214,168,92,0.5));
+}
+
+.fan_button:focus {
+    outline: 0;
+}
+
+.fan_button:after {
+    height: 30px;
+    width: 4px;
+}
+
+.fan_button:before {
+    height: 4px;
+    width: 30px;
+    content: "";
+    position: absolute;
+    top: 2px;
+    left: 14px;
+    width: 24px;
+    height: 22px;
+    border-radius: 50%;
+
+    background: radial-gradient(
+        ellipse at center,
+        rgba(255,255,255,1) 0%,
+        rgba(255,255,255,0.45) 15%,
+        rgba(255,255,255,0) 100%
+    );
+
+    filter: blur(1.4px);
+    opacity: 0.9;
+    pointer-events: none;
+}
+
+nav {
+    align-items: center;
+    background: transparent;
+    border-top-left-radius: 75px;
+    border-top-right-radius: 75px;
+    display: flex;
+    height: 75px;
+    justify-content: space-around;
+    transform-origin: bottom;
+    transform: rotate(-180deg);
+    transition: transform 500ms ease-in-out, box-shadow 250ms ease-in 100ms;
+    width: 150px;
+    position: absolute;
+    bottom: 16%;
+}
+
+nav a {
+    display: block;
+    height: 40px;
+    line-height: 40px;
+    margin-top: 30px;
+    text-align: center;
+    text-decoration: none;
+    width: 40px;
+}
+
+nav a:nth-child(1) {
+    rotate: 15deg;
+}
+nav a:nth-child(2) {
+    margin-top: -45px;
+}
+nav a:nth-child(3) {
+    rotate: -15deg;
+}
+
+.menu-btn {
+    width: 40px;
+    height: 40px;
+    border: none;
+    color: white;
+    font-size: 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: visible;
+    background: none;
+}
+
+.menu-btn img {
+  height: 50px;
+  width: 50px;
+  transition: transform 0.4s ease-in-out;
+}
+
+.menu-btn img:hover {
+  transform: scale(1.4)
+}
+
