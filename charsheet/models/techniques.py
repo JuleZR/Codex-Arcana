@@ -142,6 +142,13 @@ class Modifier(models.Model):
         blank=True,
         related_name="modifiers",
     )
+    target_choice_definition = models.ForeignKey(
+        "TechniqueChoiceDefinition",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="targeting_modifiers",
+    )
     target_content_type = models.ForeignKey(
         ContentType,
         on_delete=models.CASCADE,
@@ -187,6 +194,25 @@ class Modifier(models.Model):
             raise ValidationError({"target_object_id": "Set an object id when a target content type is selected."})
         if self.target_object_id is not None and not self.target_content_type_id:
             raise ValidationError({"target_content_type": "Select a content type when a target object id is set."})
+        if self.target_choice_definition_id:
+            expected_kind = self.target_choice_definition.target_kind
+            choice_kind_mapping = {
+                Technique.ChoiceTargetKind.SKILL: self.TargetKind.SKILL,
+                Technique.ChoiceTargetKind.SKILL_CATEGORY: self.TargetKind.CATEGORY,
+                Technique.ChoiceTargetKind.ITEM: self.TargetKind.ITEM,
+                Technique.ChoiceTargetKind.ITEM_CATEGORY: self.TargetKind.ITEM_CATEGORY,
+                Technique.ChoiceTargetKind.SPECIALIZATION: self.TargetKind.SPECIALIZATION,
+                Technique.ChoiceTargetKind.ENTITY: self.TargetKind.ENTITY,
+            }
+            mapped_kind = choice_kind_mapping.get(expected_kind)
+            if mapped_kind is None:
+                raise ValidationError(
+                    {"target_choice_definition": "The selected choice definition target kind is not supported by modifiers."}
+                )
+            if self.target_kind != mapped_kind:
+                raise ValidationError(
+                    {"target_choice_definition": "The choice definition target kind must match the modifier target kind."}
+                )
 
         if self.target_kind == self.TargetKind.STAT:
             if self.target_slug not in VALID_STAT_SLUGS:
@@ -205,7 +231,7 @@ class Modifier(models.Model):
                 label="SKILL",
                 slug_field="target_slug",
                 slug_validator=lambda slug: Skill.objects.filter(slug=slug).exists(),
-                object_fields=("target_skill",),
+                object_fields=("target_skill", "target_choice_definition"),
             )
             self._require_empty_target_fields(
                 "SKILL",
@@ -354,17 +380,27 @@ class Modifier(models.Model):
 
     def target_display(self) -> str:
         """Return a readable label for the configured target."""
+        if self.target_choice_definition_id:
+            choice_label = self.target_choice_definition.name
+        else:
+            choice_label = ""
         if self.target_kind == self.TargetKind.SKILL:
-            return self.target_skill.name if self.target_skill_id else self.target_slug
+            value = self.target_skill.name if self.target_skill_id else self.target_slug
+            return f"{value} [{choice_label}]" if choice_label else value
         if self.target_kind == self.TargetKind.CATEGORY:
-            return self.target_skill_category.name if self.target_skill_category_id else self.target_slug
+            value = self.target_skill_category.name if self.target_skill_category_id else self.target_slug
+            return f"{value} [{choice_label}]" if choice_label else value
         if self.target_kind == self.TargetKind.ITEM and self.target_item_id:
-            return self.target_item.name
+            value = self.target_item.name
+            return f"{value} [{choice_label}]" if choice_label else value
         if self.target_kind == self.TargetKind.SPECIALIZATION and self.target_specialization_id:
-            return self.target_specialization.name
+            value = self.target_specialization.name
+            return f"{value} [{choice_label}]" if choice_label else value
         if self.target_kind == self.TargetKind.ENTITY and self.target is not None:
-            return str(self.target)
-        return self.target_slug or "-"
+            value = str(self.target)
+            return f"{value} [{choice_label}]" if choice_label else value
+        value = self.target_slug or "-"
+        return f"{value} [{choice_label}]" if choice_label else value
 
     def __str__(self):
         return f"{self.source} -> {self.target_kind}:{self.target_display()}"
@@ -470,11 +506,20 @@ class Technique(models.Model):
             "learned and currently available."
         ),
     )
+    target_choice_definition = models.ForeignKey(
+        "TechniqueChoiceDefinition",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="targeting_techniques",
+    )
     action_type = models.CharField(max_length=20, choices=ActionType.choices, null=True, blank=True)
     usage_type = models.CharField(max_length=20, choices=UsageType.choices, null=True, blank=True)
     activation_cost = models.PositiveSmallIntegerField(null=True, blank=True)
     activation_cost_resource = models.CharField(max_length=50, blank=True, default="")
     description = models.TextField(blank=True, default="")
+    
+    has_specification = models.BooleanField(default=False)
 
     class Meta:
         ordering = ["school__name", "level", "name"]
@@ -704,6 +749,18 @@ class TechniqueChoiceDefinition(models.Model):
         default=True,
         help_text="If enabled, the technique stays incomplete until this decision reaches min_choices.",
     )
+    allowed_skill_category = models.ForeignKey(
+        SkillCategory,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="technique_choice_definitions",
+        )
+    allowed_skill_family = models.SlugField(
+        max_length=50,
+        blank=True,
+        default=""
+        )
     sort_order = models.PositiveSmallIntegerField(default=0)
     is_active = models.BooleanField(default=True)
 
@@ -726,6 +783,15 @@ class TechniqueChoiceDefinition(models.Model):
             raise ValidationError({"max_choices": "max_choices must be greater than or equal to min_choices."})
         if not self.is_required and self.min_choices != 0:
             raise ValidationError({"min_choices": "Optional choice definitions must use min_choices = 0."})
+        if self.target_kind != Technique.ChoiceTargetKind.SKILL:
+            if self.allowed_skill_category_id:
+                raise ValidationError({
+                    "allowed_skill_category": "This filter is only valid for skill choices."
+                })
+            if self.allowed_skill_family:
+                raise ValidationError({
+                    "allowed_skill_family": "This filter is only valid for skill choices."
+                })
 
     def __str__(self) -> str:
         return f"{self.technique.name}: {self.name}"
@@ -738,6 +804,7 @@ class CharacterTechnique(models.Model):
     technique = models.ForeignKey(Technique, on_delete=models.CASCADE, related_name="character_techniques")
     learned_at = models.DateTimeField(null=True, blank=True)
     notes = models.TextField(blank=True)
+    specification_value = models.CharField(max_length=100, blank=True, default="")
 
     class Meta:
         ordering = ["character", "technique__school__name", "technique__level", "technique__name"]
@@ -878,6 +945,26 @@ class CharacterTechniqueChoice(models.Model):
         if self.technique_id and expected_kind == Technique.ChoiceTargetKind.NONE:
             raise ValidationError({"technique": "This technique does not store persistent character choices."})
         self._validate_target_kind(expected_kind)
+        if (
+            self.definition_id
+            and expected_kind == Technique.ChoiceTargetKind.SKILL
+            and self.selected_skill_id
+        ):
+            if (
+                self.definition.allowed_skill_category_id
+                and self.selected_skill.category_id != self.definition.allowed_skill_category_id
+            ):
+                raise ValidationError({
+                    "selected_skill": "The selected skill does not belong to the allowed skill category."
+                })
+
+            if (
+                self.definition.allowed_skill_family
+                and self.selected_skill.family != self.definition.allowed_skill_family
+            ):
+                raise ValidationError({
+                    "selected_skill": "The selected skill does not belong to the allowed skill family."
+                })
         if self.character_id and self.technique_id:
             if not CharacterSchool.objects.filter(
                 character_id=self.character_id,
@@ -920,6 +1007,20 @@ class CharacterTechniqueChoice(models.Model):
             )
             if not self.definition_id and existing_count >= self.technique.choice_limit:
                 raise ValidationError({"technique": "The configured choice limit for this technique has already been reached."})
+        if self.definition_id and self.character_id:
+            existing = CharacterTechniqueChoice.objects.filter(
+                character=self.character,
+                technique=self.technique,
+                definition=self.definition,
+            )
+
+            if self.pk:
+                existing = existing.exclude(pk=self.pk)
+
+            if self.definition.max_choices and existing.count() >= self.definition.max_choices:
+                raise ValidationError(
+                    "Maximum number of choices for this technique definition exceeded."
+                )
 
     def _expected_target_kind(self):
         """Return the target kind enforced by the definition or legacy technique fields."""

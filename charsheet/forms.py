@@ -2,7 +2,7 @@
 
 from django import forms
 from django.contrib.auth.password_validation import validate_password
-from .models import Character, CharacterSkill
+from .models import Character, CharacterSkill, CharacterTechnique
 from .models.user import UserSettings
 from django.contrib.auth import get_user_model
 
@@ -36,6 +36,8 @@ class UserSettingsForm(forms.ModelForm):
                 self.add_error("dddice_room_id", "Bitte eine Room ID hinterlegen.")
 
         return cleaned_data
+
+
 class CharacterCreateForm(forms.ModelForm):
     """Minimal character creation form for dashboard usage."""
 
@@ -123,6 +125,32 @@ class CharacterSkillSpecificationForm(forms.ModelForm):
         return specification
 
 
+class CharacterTechniqueSpecificationForm(forms.ModelForm):
+    """Edit the one-word specification for learned techniques on the character sheet."""
+
+    class Meta:
+        model = CharacterTechnique
+        fields = ["specification_value"]
+        widgets = {
+            "specification_value": forms.TextInput(
+                attrs={
+                    "class": "dashboard_input",
+                    "maxlength": 100,
+                    "autocomplete": "off",
+                    "placeholder": "z. B. Feuerschwert",
+                }
+            ),
+        }
+
+    def clean_specification_value(self):
+        specification_value = (self.cleaned_data.get("specification_value") or "").strip()
+        if not specification_value:
+            return ""
+        if len(specification_value.split()) != 1:
+            raise forms.ValidationError("Bitte nur ein einzelnes Wort eintragen.")
+        return specification_value
+
+
 class AccountSettingsForm(forms.Form):
     """Update the authenticated user's basic account settings."""
 
@@ -161,9 +189,9 @@ class AccountSettingsForm(forms.Form):
         username = (self.cleaned_data.get("username") or "").strip()
         if not username:
             raise forms.ValidationError("Benutzername darf nicht leer sein.")
-        
+
         User = get_user_model()
-        
+
         duplicate_qs = User.objects.filter(username__iexact=username).exclude(pk=self.user.pk)
         if duplicate_qs.exists():
             raise forms.ValidationError("Dieser Benutzername ist bereits vergeben.")

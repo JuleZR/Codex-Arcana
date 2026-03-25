@@ -44,6 +44,7 @@ urlpatterns = [
     path("character/<int:character_id>/diary/<int:entry_id>/delete/", views.delete_character_diary_entry, name="delete_character_diary_entry"),
     path("character/<int:character_id>/info/update/", views.update_character_info, name="update_character_info"),
     path("character/<int:character_id>/skills/<int:character_skill_id>/specification/update/", views.update_skill_specification, name="update_skill_specification"),
+    path("character/<int:character_id>/techniques/<int:technique_id>/specification/update/", views.update_technique_specification, name="update_technique_specification"),
     path("character/<int:character_id>/adjust-personal-fame-point/", views.adjust_personal_fame_point, name="adjust_personal_fame_point"),
     path("character/<int:character_id>/adjust-damage/", views.adjust_current_damage, name="adjust_current_damage"),
     path("character/<int:character_id>/adjust-money/", views.adjust_money, name="adjust_money"),

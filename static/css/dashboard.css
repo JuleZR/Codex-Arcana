@@ -93,6 +93,7 @@
 }
 
 .dashboard_panel--main {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -234,12 +235,19 @@
 }
 
 .dashboard_messages {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  right: 10px;
+  z-index: 12;
   display: grid;
   gap: 8px;
+  justify-items: center;
+  pointer-events: none;
 }
 
 .dashboard_message {
-  width: 100%;
+  width: min(100%, 720px);
   padding: 10px 12px;
   border: 1px solid rgba(79, 112, 79, 0.45);
   border-radius: 8px;
@@ -250,6 +258,7 @@
   transition: opacity 0.35s ease, transform 0.35s ease, visibility 0.35s ease;
   opacity: 1;
   box-shadow: 0 8px 22px rgba(20, 12, 6, 0.28);
+  pointer-events: auto;
 }
 
 .dashboard_message.is-hidden {

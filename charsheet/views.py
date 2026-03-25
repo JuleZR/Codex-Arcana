@@ -25,12 +25,14 @@ from .models import (
     CharacterItem,
     CharacterLanguage,
     CharacterSkill,
+    CharacterTechnique,
     Trait,
     CharacterCreationDraft,
     Item,
     Skill,
     School,
     Language,
+    Technique,
 )
 from .models.user import UserSettings
 from .forms import (
@@ -39,6 +41,7 @@ from .forms import (
     CharacterUpdateForm,
     CharacterInfoInlineForm,
     CharacterSkillSpecificationForm,
+    CharacterTechniqueSpecificationForm,
     UserSettingsForm
 )
 from .learning import process_learning_submission
@@ -183,6 +186,21 @@ def _owned_character_skill_or_404(request, character_id: int, character_skill_id
         character=character,
     )
     return character, character_skill
+
+
+def _owned_technique_for_character_or_404(
+    request,
+    character_id: int,
+    technique_id: int,
+) -> tuple[Character, Technique]:
+    """Return one technique that belongs to one owned character's learned schools."""
+    character = _owned_character_or_404(request, character_id)
+    technique = get_object_or_404(
+        Technique.objects.select_related("school", "path"),
+        pk=technique_id,
+        school_id__in=character.schools.values_list("school_id", flat=True),
+    )
+    return character, technique
 
 
 def _parse_iso_date(raw_value) -> date_cls | None:
@@ -526,6 +544,32 @@ def update_skill_specification(request, character_id: int, character_skill_id: i
         messages.success(request, f"{character_skill.skill.name} wurde aktualisiert.")
     else:
         messages.error(request, "Die Spezifikation konnte nicht gespeichert werden.")
+    return redirect("character_sheet", character_id=character.id)
+
+
+@login_required
+@require_POST
+def update_technique_specification(request, character_id: int, technique_id: int):
+    """Persist the specification text for one learned technique from the character sheet."""
+    character, technique = _owned_technique_for_character_or_404(
+        request,
+        character_id,
+        technique_id,
+    )
+    if not technique.has_specification:
+        messages.error(request, "Diese Technik besitzt keine Spezifikation.")
+        return redirect("character_sheet", character_id=character.id)
+
+    character_technique, _created = CharacterTechnique.objects.get_or_create(
+        character=character,
+        technique=technique,
+    )
+    form = CharacterTechniqueSpecificationForm(request.POST, instance=character_technique)
+    if form.is_valid():
+        form.save()
+        messages.success(request, f"{technique.name} wurde aktualisiert.")
+    else:
+        messages.error(request, "Die Technik-Spezifikation konnte nicht gespeichert werden.")
     return redirect("character_sheet", character_id=character.id)
 
 @login_required

@@ -17,6 +17,7 @@ from .models import (
     Attribute,
     Character,
     CharacterAttribute,
+    CharacterCreationDraft,
     CharacterDiaryEntry,
     CharacterItem,
     CharacterLanguage,
@@ -49,6 +50,7 @@ from .models import (
     Trait,
     WeaponStats,
 )
+from .models.user import UserSettings
 
 ArmorStats._meta.verbose_name = "Armor Stats"
 ArmorStats._meta.verbose_name_plural = "Armor Stats"
@@ -205,23 +207,23 @@ def _format_technique_requirements(technique):
     rows = []
     for requirement in technique.requirements.all():
         if requirement.minimum_school_level is not None:
-            rows.append(f"Schulstufe {requirement.minimum_school_level}+")
+            rows.append(f"School Level {requirement.minimum_school_level}+")
         elif requirement.required_technique_id is not None:
-            rows.append(f"Technik: {requirement.required_technique.name}")
+            rows.append(f"Technique: {requirement.required_technique.name}")
         elif requirement.required_path_id is not None:
-            rows.append(f"Pfad: {requirement.required_path.name}")
+            rows.append(f"Path: {requirement.required_path.name}")
         elif requirement.required_skill_id is not None:
-            rows.append(f"Fertigkeit: {requirement.required_skill.name} {requirement.required_skill_level}+")
+            rows.append(f"Skill: {requirement.required_skill.name} {requirement.required_skill_level}+")
         elif requirement.required_trait_id is not None:
-            rows.append(f"Eigenschaft: {requirement.required_trait.name} {requirement.required_trait_level}+")
-    return rows or ["Keine"]
+            rows.append(f"Trait: {requirement.required_trait.name} {requirement.required_trait_level}+")
+    return rows or ["None"]
 
 
 def _format_technique_exclusions(technique):
     """Return readable names of excluded techniques."""
     rows = {relation.excluded_technique.name for relation in technique.exclusions.all()}
     rows.update(relation.technique.name for relation in technique.excluded_by.all())
-    return sorted(rows) or ["Keine"]
+    return sorted(rows) or ["None"]
 
 
 def _format_technique_choice_definitions(technique):
@@ -235,16 +237,16 @@ def _format_technique_choice_definitions(technique):
         rows.append(f"{definition.name}: {definition.get_target_kind_display()} [{range_label}]{description}")
     if not rows and technique.choice_target_kind != Technique.ChoiceTargetKind.NONE:
         rows.append(
-            f"Legacy-Entscheidung: {technique.get_choice_target_kind_display()} [{technique.choice_limit}]"
+            f"Legacy Choice: {technique.get_choice_target_kind_display()} [{technique.choice_limit}]"
         )
-    return rows or ["Keine"]
+    return rows or ["None"]
 
 
 def _format_choice_group_notice(technique):
     """Explain that choice_group is informational only."""
     if not technique or not technique.choice_group:
         return "-"
-    return f"{technique.choice_group} (nur Anzeige/Import, keine Regelmechanik)"
+    return f"{technique.choice_group} (display/import metadata only, no rules logic)"
 
 
 def _format_technique_rule_context_html(technique):
@@ -252,15 +254,15 @@ def _format_technique_rule_context_html(technique):
     if technique is None:
         return "-"
     rows = [
-        ("Schule", technique.school.name),
-        ("Stufe", technique.level),
-        ("Pfad", technique.path.name if technique.path_id else "Alle Pfade"),
-        ("Erwerbsart", technique.get_acquisition_type_display()),
+        ("School", technique.school.name),
+        ("Level", technique.level),
+        ("Path", technique.path.name if technique.path_id else "All Paths"),
+        ("Acquisition", technique.get_acquisition_type_display()),
         ("Support", technique.get_support_level_display()),
-        ("Voraussetzungen", ", ".join(_format_technique_requirements(technique))),
-        ("Ausschluesse", ", ".join(_format_technique_exclusions(technique))),
-        ("Wahlentscheidungen", ", ".join(_format_technique_choice_definitions(technique))),
-        ("Spezialisierungs-Slots", technique.specialization_slot_grants or 0),
+        ("Requirements", ", ".join(_format_technique_requirements(technique))),
+        ("Exclusions", ", ".join(_format_technique_exclusions(technique))),
+        ("Choice Definitions", ", ".join(_format_technique_choice_definitions(technique))),
+        ("Specialization Slots", technique.specialization_slot_grants or 0),
         ("choice_group", _format_choice_group_notice(technique)),
     ]
     return format_html(
@@ -276,14 +278,14 @@ def _format_technique_rule_context_html(technique):
 def _format_school_rulebook_guide_html():
     """Show the recommended rulebook-oriented editing order for one school."""
     sections = (
-        ("1. Schule", "Grunddaten und Kurzbeschreibung der Schule pflegen."),
-        ("2. Schulpfade", "Optionale Pfade der Schule anlegen, falls das Regelwerk welche vorsieht."),
-        ("3. Techniken nach Stufe", "Techniken in der Lesereihenfolge Schule -> Stufe -> Pfad -> Technik erfassen."),
-        ("4. Technikvoraussetzungen", "Auf der einzelnen Technik werden Mindeststufen, Pfade, Techniken, Fertigkeiten oder Eigenschaften hinterlegt."),
-        ("5. Technik-Ausschluesse", "Auf der einzelnen Technik festhalten, welche anderen Techniken sie regeltechnisch ausschliesst."),
-        ("6. Wahlentscheidungen einer Technik", "Auf der einzelnen Technik speichern, welche dauerhaften Entscheidungen noch getroffen werden muessen."),
-        ("7. Spezialisierungs-Slots", "Slots entstehen nur durch tatsaechlich gelernte Techniken mit specialization_slot_grants."),
-        ("8. Spezialisierungen", "Schulgebundene Spezialisierungen separat pflegen; sie sind keine Techniken."),
+        ("1. School", "Maintain the school's base data and short description."),
+        ("2. School Paths", "Create optional paths for the school if the rules require them."),
+        ("3. Techniques by Level", "Enter techniques in rulebook order: school -> level -> path -> technique."),
+        ("4. Technique Requirements", "Store minimum levels, paths, techniques, skills, or traits on each technique."),
+        ("5. Technique Exclusions", "Record which other techniques are excluded by each technique."),
+        ("6. Technique Choices", "Store any persistent choices that still need to be made for a technique."),
+        ("7. Specialization Slots", "Slots only come from actually learned techniques with specialization_slot_grants."),
+        ("8. Specializations", "Maintain school-bound specializations separately; they are not techniques."),
     )
     return format_html(
         "<div>{}</div>",
@@ -298,7 +300,7 @@ def _format_school_rulebook_guide_html():
 def _format_school_path_overview_html(school):
     """Summarize the configured paths of one school in rulebook terms."""
     if not school or not getattr(school, "pk", None):
-        return "Nach dem ersten Speichern erscheinen hier die angelegten Schulpfade."
+        return "Configured school paths will appear here after the first save."
 
     path_rows = []
     for path in school.paths.all():
@@ -308,13 +310,13 @@ def _format_school_path_overview_html(school):
         path_rows.append((path.name, technique_count, block_count, description))
 
     if not path_rows:
-        return "Keine Schulpfade gepflegt."
+        return "No school paths configured."
 
     return format_html(
         "<div>{}</div>",
         format_html_join(
             "",
-            "<div><strong>{}</strong>: {} Techniken, {} Wahlbloecke{}</div>",
+            "<div><strong>{}</strong>: {} techniques, {} choice blocks{}</div>",
             path_rows,
         ),
     )
@@ -323,7 +325,7 @@ def _format_school_path_overview_html(school):
 def _format_school_choice_block_overview_html(school):
     """Summarize school-level choice blocks so the rulebook structure is visible."""
     if not school or not getattr(school, "pk", None):
-        return "Nach dem ersten Speichern erscheinen hier die vorhandenen Wahlbloecke."
+        return "Configured choice blocks will appear here after the first save."
 
     blocks = list(
         school.technique_choice_blocks.select_related("path").prefetch_related("techniques").order_by(
@@ -334,14 +336,14 @@ def _format_school_choice_block_overview_html(school):
         )
     )
     if not blocks:
-        return "Keine Wahlbloecke gepflegt."
+        return "No choice blocks configured."
 
     block_rows = []
     for block in blocks:
-        level = f"Stufe {block.level}" if block.level is not None else "stufenunabhaengig"
-        path = block.path.name if block.path_id else "alle Pfade"
-        techniques = ", ".join(block.techniques.order_by("name").values_list("name", flat=True)) or "noch keine"
-        label = block.name or "Unbenannter Wahlblock"
+        level = f"Level {block.level}" if block.level is not None else "no fixed level"
+        path = block.path.name if block.path_id else "all paths"
+        techniques = ", ".join(block.techniques.order_by("name").values_list("name", flat=True)) or "none yet"
+        label = block.name or "Unnamed Choice Block"
         description = f" | {block.description}" if block.description else ""
         block_rows.append((label, level, path, block.min_choices, block.max_choices, techniques, description))
 
@@ -350,8 +352,8 @@ def _format_school_choice_block_overview_html(school):
         format_html_join(
             "",
             (
-                "<div><strong>{}</strong>: {} | Pfad: {} | Wahlumfang: {}-{} | "
-                "Techniken: {}{}</div>"
+                "<div><strong>{}</strong>: {} | Path: {} | Choice Range: {}-{} | "
+                "Techniques: {}{}</div>"
             ),
             block_rows,
         ),
@@ -361,7 +363,7 @@ def _format_school_choice_block_overview_html(school):
 def _format_school_technique_overview_html(school):
     """Render techniques grouped by level to mirror the rulebook reading order."""
     if not school or not getattr(school, "pk", None):
-        return "Nach dem ersten Speichern erscheinen hier die Techniken gruppiert nach Schulstufe."
+        return "Techniques grouped by school level will appear here after the first save."
 
     techniques = list(
         school.techniques.select_related("path", "choice_block")
@@ -377,7 +379,7 @@ def _format_school_technique_overview_html(school):
         .order_by("level", "path__name", "name")
     )
     if not techniques:
-        return "Keine Techniken gepflegt."
+        return "No techniques configured."
 
     grouped_techniques = defaultdict(list)
     for technique in techniques:
@@ -387,7 +389,7 @@ def _format_school_technique_overview_html(school):
     for level in sorted(grouped_techniques):
         rows = []
         for technique in grouped_techniques[level]:
-            path_name = technique.path.name if technique.path_id else "Alle Pfade"
+            path_name = technique.path.name if technique.path_id else "All Paths"
             choice_block = technique.choice_block.name if technique.choice_block_id and technique.choice_block.name else "-"
             rows.append(
                 (
@@ -405,13 +407,13 @@ def _format_school_technique_overview_html(school):
 
         level_blocks.append(
             format_html(
-                "<div><h4 style='margin:0.75em 0 0.25em;'>Stufe {}</h4>{}</div>",
+                "<div><h4 style='margin:0.75em 0 0.25em;'>Level {}</h4>{}</div>",
                 level,
                 format_html_join(
                     "",
                     (
-                        "<div style='margin-left:1rem;'><strong>{}</strong>: Pfad {} | Erwerb {} | "
-                        "Wahlblock {} | Voraussetzungen {} | Ausschluesse {} | Entscheidungen {} | "
+                        "<div style='margin-left:1rem;'><strong>{}</strong>: Path {} | Acquisition {} | "
+                        "Choice Block {} | Requirements {} | Exclusions {} | Choices {} | "
                         "Slots {} | Support {}</div>"
                     ),
                     rows,
@@ -425,15 +427,15 @@ def _format_school_technique_overview_html(school):
 def _format_school_specialization_overview_html(school):
     """Summarize school-bound specializations in a compact rulebook view."""
     if not school or not getattr(school, "pk", None):
-        return "Nach dem ersten Speichern erscheinen hier die Spezialisierungen der Schule."
+        return "School specializations appear here after the first save."
 
     specializations = list(school.specializations.order_by("sort_order", "name"))
     if not specializations:
-        return "Keine Spezialisierungen gepflegt."
+        return "No specializations configured."
 
     spec_rows = []
     for specialization in specializations:
-        active_state = "aktiv" if specialization.is_active else "inaktiv"
+        active_state = "active" if specialization.is_active else "inactive"
         description = f" | {specialization.description}" if specialization.description else ""
         spec_rows.append(
             (
@@ -482,7 +484,7 @@ class ModifierInline(GenericStackedInline):
     """Generic inline editor for modifiers attached to source models."""
 
     model = Modifier
-    verbose_name_plural = "Regelmodifikatoren"
+    verbose_name_plural = "Rule Modifiers"
     ct_field = "source_content_type"
     ct_fk_field = "source_object_id"
     extra = 0
@@ -496,6 +498,7 @@ class ModifierInline(GenericStackedInline):
                     ("target_kind", "target_slug"),
                     ("target_skill", "target_skill_category"),
                     ("target_item", "target_specialization"),
+                    "target_choice_definition",
                     ("target_content_type", "target_object_id"),
                 )
             },
@@ -510,6 +513,7 @@ class ModifierInline(GenericStackedInline):
         "target_skill_category",
         "target_item",
         "target_specialization",
+        "target_choice_definition",
     )
 
 
@@ -564,7 +568,7 @@ class CharacterSchoolPathInline(admin.TabularInline):
     """Inline editor for a character's chosen school paths."""
 
     model = CharacterSchoolPath
-    verbose_name_plural = "Schulpfade"
+    verbose_name_plural = "School Paths"
     extra = 0
     show_change_link = True
     autocomplete_fields = ("school", "path")
@@ -574,7 +578,7 @@ class CharacterTechniqueInline(admin.TabularInline):
     """Inline editor for a character's explicitly learned techniques."""
 
     model = CharacterTechnique
-    verbose_name_plural = "Gelernte Techniken"
+    verbose_name_plural = "Learned Techniques"
     extra = 0
     show_change_link = True
     autocomplete_fields = ("technique",)
@@ -583,14 +587,17 @@ class CharacterTechniqueInline(admin.TabularInline):
         "technique_school",
         "technique_level",
         "technique_support_level",
+        "technique_has_specification",
         "technique_choice_context",
         "learned_at",
+        "specification_value",
         "notes",
     )
     readonly_fields = (
         "technique_school",
         "technique_level",
         "technique_support_level",
+        "technique_has_specification",
         "technique_choice_context",
     )
 
@@ -615,6 +622,13 @@ class CharacterTechniqueInline(admin.TabularInline):
             return "-"
         return obj.technique.get_support_level_display()
 
+    @admin.display(boolean=True, description="Spec?")
+    def technique_has_specification(self, obj):
+        """Show whether the linked technique expects a specification value."""
+        if not obj or not obj.technique_id:
+            return False
+        return obj.technique.has_specification
+
     @admin.display(description="Choice Notes")
     def technique_choice_context(self, obj):
         """Show persistent choice guidance for the linked technique."""
@@ -627,7 +641,7 @@ class CharacterTechniqueChoiceInline(admin.StackedInline):
     """Inline editor for persistent character technique choices."""
 
     model = CharacterTechniqueChoice
-    verbose_name_plural = "Technik-Wahlentscheidungen"
+    verbose_name_plural = "Technique Choices"
     fk_name = "character"
     extra = 0
     show_change_link = True
@@ -641,7 +655,7 @@ class CharacterTechniqueChoiceInline(admin.StackedInline):
     )
     fieldsets = (
         (
-            "Technik",
+            "Technique",
             {
                 "fields": (
                     ("technique", "definition"),
@@ -651,7 +665,7 @@ class CharacterTechniqueChoiceInline(admin.StackedInline):
             },
         ),
         (
-            "Gewaehltes Ziel",
+            "Selected Target",
             {
                 "fields": (
                     ("selected_skill"),
@@ -708,7 +722,7 @@ class CharacterSpecializationInline(admin.TabularInline):
     """Inline editor for school-bound character specializations."""
 
     model = CharacterSpecialization
-    verbose_name_plural = "Spezialisierungen"
+    verbose_name_plural = "Specializations"
     fk_name = "character"
     extra = 0
     show_change_link = True
@@ -753,16 +767,18 @@ class TechniqueInline(admin.TabularInline):
     """Inline editor for techniques belonging to one school."""
 
     model = Technique
-    verbose_name_plural = "Techniken nach Stufe"
+    verbose_name_plural = "Techniques by Level"
     extra = 0
     show_change_link = True
-    autocomplete_fields = ("path", "choice_block")
+    autocomplete_fields = ("path", "choice_block", "target_choice_definition")
     fields = (
         "name",
         "level",
         "path",
         "acquisition_type",
+        "has_specification",
         "choice_block",
+        "target_choice_definition",
         "specialization_slot_grants",
         "support_level",
         "inline_rule_hint",
@@ -775,7 +791,7 @@ class TechniqueInline(admin.TabularInline):
         return (
             super()
             .get_queryset(request)
-            .select_related("school", "path", "choice_block")
+            .select_related("school", "path", "choice_block", "target_choice_definition")
             .prefetch_related(
                 "requirements__required_technique",
                 "requirements__required_path",
@@ -787,31 +803,31 @@ class TechniqueInline(admin.TabularInline):
             )
         )
 
-    @admin.display(description="Kurzinfo")
+    @admin.display(description="Summary")
     def inline_rule_hint(self, obj):
         """Show only the most important rule hints in the school overview."""
         if not obj or not obj.pk:
             return "-"
         parts = []
         requirements = ", ".join(_format_technique_requirements(obj))
-        if requirements != "Keine":
-            parts.append(f"Voraussetzungen: {requirements}")
+        if requirements != "None":
+            parts.append(f"Requirements: {requirements}")
         exclusions = ", ".join(_format_technique_exclusions(obj))
-        if exclusions != "Keine":
-            parts.append(f"Ausschluesse: {exclusions}")
+        if exclusions != "None":
+            parts.append(f"Exclusions: {exclusions}")
         choices = ", ".join(_format_technique_choice_definitions(obj))
-        if choices != "Keine":
-            parts.append(f"Entscheidungen: {choices}")
+        if choices != "None":
+            parts.append(f"Choices: {choices}")
         if obj.choice_group:
-            parts.append("choice_group nur fuer Anzeige/Import")
-        return " | ".join(parts) if parts else "Details ueber den Aendern-Link."
+            parts.append("choice_group is display/import metadata only")
+        return " | ".join(parts) if parts else "See details via the change link."
 
 
 class TechniqueChoiceBlockInline(admin.TabularInline):
     """Inline editor for generic school-level technique choice blocks."""
 
     model = TechniqueChoiceBlock
-    verbose_name_plural = "Technik-Wahlbloecke"
+    verbose_name_plural = "Technique Choice Blocks"
     extra = 0
     show_change_link = True
     autocomplete_fields = ("path",)
@@ -823,22 +839,22 @@ class TechniqueChoiceBlockInline(admin.TabularInline):
         """Prefetch related techniques for readable block summaries."""
         return super().get_queryset(request).select_related("school", "path").prefetch_related("techniques")
 
-    @admin.display(description="Kurzinfo")
+    @admin.display(description="Summary")
     def block_hint(self, obj):
         """Keep the choice block overview compact and understandable."""
         if not obj or not obj.pk:
             return "-"
-        techniques = ", ".join(obj.techniques.order_by("level", "name").values_list("name", flat=True)) or "noch keine Techniken"
+        techniques = ", ".join(obj.techniques.order_by("level", "name").values_list("name", flat=True)) or "no techniques yet"
         if obj.description:
-            return f"{obj.description} | Techniken: {techniques}"
-        return f"Techniken: {techniques}"
+            return f"{obj.description} | Techniques: {techniques}"
+        return f"Techniques: {techniques}"
 
 
 class SpecializationInline(admin.TabularInline):
     """Inline editor for school-bound specializations."""
 
     model = Specialization
-    verbose_name_plural = "Spezialisierungen"
+    verbose_name_plural = "Specializations"
     extra = 0
     show_change_link = True
     fields = ("name", "slug", "support_level", "sort_order", "is_active")
@@ -858,7 +874,7 @@ class SchoolCharacterInline(admin.TabularInline):
 
     model = CharacterSchool
     fk_name = "school"
-    verbose_name_plural = "Zugeordnete Charaktere"
+    verbose_name_plural = "Assigned Characters"
     extra = 0
     show_change_link = True
     autocomplete_fields = ("character",)
@@ -900,7 +916,7 @@ class SchoolPathInline(admin.TabularInline):
     """Inline editor for specialization paths belonging to one school."""
 
     model = SchoolPath
-    verbose_name_plural = "Schulpfade"
+    verbose_name_plural = "School Paths"
     extra = 0
     show_change_link = True
 
@@ -909,7 +925,7 @@ class TechniqueRequirementInline(admin.TabularInline):
     """Inline editor for structured technique requirements."""
 
     model = TechniqueRequirement
-    verbose_name_plural = "Technikvoraussetzungen"
+    verbose_name_plural = "Technique Requirements"
     fk_name = "technique"
     extra = 0
     show_change_link = True
@@ -929,7 +945,7 @@ class TechniqueExclusionInline(admin.TabularInline):
     """Inline editor for techniques excluded by the current technique."""
 
     model = TechniqueExclusion
-    verbose_name_plural = "Technik-Ausschluesse"
+    verbose_name_plural = "Technique Exclusions"
     fk_name = "technique"
     extra = 0
     show_change_link = True
@@ -940,7 +956,7 @@ class TechniqueChoiceDefinitionInline(admin.TabularInline):
     """Inline editor for persistent technique choice definitions."""
 
     model = TechniqueChoiceDefinition
-    verbose_name_plural = "Wahlentscheidungen"
+    verbose_name_plural = "Choice Definitions"
     fk_name = "technique"
     extra = 0
     show_change_link = True
@@ -1231,12 +1247,12 @@ class CharacterAdmin(admin.ModelAdmin):
     ordering = ("name",)
     readonly_fields = ("id", "last_opened_at")
     fieldsets = (
-        ("Basis", {"fields": ("id", "owner", "name", "race", "gender", "age")}),
+        ("Basics", {"fields": ("id", "owner", "name", "race", "gender", "age")}),
         (
-            "Körper & Herkunft",
+            "Body & Origin",
             {"fields": ("height", "weight", "skin_color", "hair_color", "eye_color", "country_of_origin")},
         ),
-        ("Weitere Angaben", {"fields": ("religion", "appearance")}),
+        ("Additional Details", {"fields": ("religion", "appearance")}),
         ("Status", {"fields": ("current_damage", "money", "overall_experience", "current_experience")}),
         (
             "Fame & Ranks",
@@ -1299,6 +1315,42 @@ class CharacterAttributeAdmin(admin.ModelAdmin):
     list_select_related = ("character", "attribute")
 
 
+@admin.register(CharacterCreationDraft)
+class CharacterCreationDraftAdmin(admin.ModelAdmin):
+    """Admin configuration for persisted character creation drafts."""
+
+    list_display = ("id", "draft_name", "owner", "race", "current_phase", "state_sections")
+    list_display_links = ("id", "draft_name")
+    search_fields = ("owner__username", "owner__email", "race__name", "state")
+    list_filter = ("current_phase", "race")
+    ordering = ("owner", "-id")
+    readonly_fields = ("draft_name",)
+    fieldsets = (
+        ("Basis", {"fields": ("owner", "race", "current_phase", "draft_name")}),
+        ("Status", {"fields": ("state",)}),
+    )
+    autocomplete_fields = ("owner", "race")
+    list_select_related = ("owner", "race")
+
+    @admin.display(description="Name")
+    def draft_name(self, obj):
+        """Render the draft character name stored in JSON metadata."""
+        if not isinstance(obj.state, dict):
+            return "-"
+        meta = obj.state.get("meta", {})
+        if not isinstance(meta, dict):
+            return "-"
+        return str(meta.get("name", "")).strip() or "(ohne Namen)"
+
+    @admin.display(description="Gefuellte Bereiche")
+    def state_sections(self, obj):
+        """Show which draft state sections already contain data."""
+        if not isinstance(obj.state, dict):
+            return "-"
+        section_names = sorted(key for key, value in obj.state.items() if value not in (None, "", {}, []))
+        return ", ".join(section_names) if section_names else "-"
+
+
 @admin.register(CharacterSkill)
 class CharacterSkillAdmin(admin.ModelAdmin):
     """Admin configuration for character skills."""
@@ -1342,20 +1394,20 @@ class SchoolAdmin(admin.ModelAdmin):
     readonly_fields = ("rulebook_editor_guide",)
     fieldsets = (
         (
-            "Schule",
+            "School",
             {
                 "fields": (
                     ("name", "type"),
                     "description",
                 ),
-                "description": "Regelbuchorientierter Einstiegspunkt. Von hier aus werden Pfade, Wahlbloecke, Techniken und Spezialisierungen gepflegt.",
+                "description": "Rulebook-oriented entry point. Paths, choice blocks, techniques, and specializations are maintained from here.",
             },
         ),
         (
-            "Pflegehinweis",
+            "Editing Guide",
             {
                 "fields": ("rulebook_editor_guide",),
-                "description": "Erst Grunddaten speichern, danach die Inlines von oben nach unten pflegen.",
+                "description": "Save the base data first, then maintain the inlines from top to bottom.",
             },
         ),
     )
@@ -1370,32 +1422,32 @@ class SchoolAdmin(admin.ModelAdmin):
     autocomplete_fields = ("type",)
     list_select_related = ("type",)
 
-    @admin.display(ordering="type__slug", description="Schultyp-Schluessel")
+    @admin.display(ordering="type__slug", description="School Type Key")
     def type_slug(self, obj):
         """Return the related school type slug for list display."""
         return obj.type.slug
 
-    @admin.display(description="Pflegereihenfolge")
+    @admin.display(description="Editing Order")
     def rulebook_editor_guide(self, obj):
         """Explain the recommended rulebook-oriented editing order."""
         return _format_school_rulebook_guide_html()
 
-    @admin.display(ordering="name", description="Pfade")
+    @admin.display(ordering="name", description="Paths")
     def path_count(self, obj):
         """Return how many paths are configured for the school."""
         return obj.paths.count()
 
-    @admin.display(ordering="name", description="Wahlbloecke")
+    @admin.display(ordering="name", description="Choice Blocks")
     def choice_block_count(self, obj):
         """Return how many choice blocks are configured for the school."""
         return obj.technique_choice_blocks.count()
 
-    @admin.display(ordering="name", description="Techniken")
+    @admin.display(ordering="name", description="Techniques")
     def technique_count(self, obj):
         """Return how many techniques are configured for the school."""
         return obj.techniques.count()
 
-    @admin.display(ordering="name", description="Spezialisierungen")
+    @admin.display(ordering="name", description="Specializations")
     def specialization_count(self, obj):
         """Return how many specializations are configured for the school."""
         return obj.specializations.count()
@@ -1439,6 +1491,7 @@ class ModifierAdmin(admin.ModelAdmin):
         "mode",
         "target_kind",
         "target_display_value",
+        "target_choice_definition",
         "value",
         "scale_source",
         "scale_school",
@@ -1450,10 +1503,56 @@ class ModifierAdmin(admin.ModelAdmin):
         "min_school_level",
     )
     list_filter = ("source_content_type", "mode", "target_kind", "scale_source", "cap_mode")
-    search_fields = ("target_slug", "target_skill__name", "target_skill_category__name", "target_item__name", "target_specialization__name")
+    search_fields = (
+        "target_slug",
+        "target_skill__name",
+        "target_skill_category__name",
+        "target_item__name",
+        "target_specialization__name",
+        "target_choice_definition__name",
+    )
     ordering = ("source_content_type", "source_object_id", "target_kind", "target_slug")
-    autocomplete_fields = ("scale_school", "target_skill", "target_skill_category", "target_item", "target_specialization")
-    list_select_related = ("scale_school", "target_skill", "target_skill_category", "target_item", "target_specialization")
+    autocomplete_fields = (
+        "scale_school",
+        "target_skill",
+        "target_skill_category",
+        "target_item",
+        "target_specialization",
+        "target_choice_definition",
+    )
+    list_select_related = (
+        "scale_school",
+        "target_skill",
+        "target_skill_category",
+        "target_item",
+        "target_specialization",
+        "target_choice_definition",
+    )
+    fieldsets = (
+        (
+            "Source",
+            {
+                "fields": (
+                    ("source_content_type", "source_object_id"),
+                )
+            },
+        ),
+        (
+            "Target",
+            {
+                "fields": (
+                    ("target_kind", "target_slug"),
+                    ("target_skill", "target_skill_category"),
+                    ("target_item", "target_specialization"),
+                    "target_choice_definition",
+                    ("target_content_type", "target_object_id"),
+                )
+            },
+        ),
+        ("Value", {"fields": (("mode", "value"),)}),
+        ("Scaling", {"fields": (("scale_source", "scale_school"), ("mul", "div", "round_mode"))}),
+        ("Limits", {"fields": (("cap_mode", "cap_source"), "min_school_level")}),
+    )
 
     @admin.display(description="Source")
     def display_source(self, obj):
@@ -1478,7 +1577,9 @@ class TechniqueAdmin(admin.ModelAdmin):
         "path",
         "level",
         "acquisition_type",
+        "has_specification",
         "choice_block",
+        "target_choice_definition",
         "specialization_slot_grants",
         "support_level",
         "choice_marker",
@@ -1488,6 +1589,7 @@ class TechniqueAdmin(admin.ModelAdmin):
         "school__name",
         "school__type__name",
         "choice_block__name",
+        "target_choice_definition__name",
         "choice_group",
         "selection_notes",
         "description",
@@ -1502,18 +1604,19 @@ class TechniqueAdmin(admin.ModelAdmin):
         "acquisition_type",
         "support_level",
         "is_choice_placeholder",
+        "has_specification",
         "choice_target_kind",
         "specialization_slot_grants",
         "action_type",
         "usage_type",
     )
     ordering = ("school", "level", "name")
-    autocomplete_fields = ("school", "path", "choice_block")
-    list_select_related = ("school", "school__type", "path", "choice_block")
+    autocomplete_fields = ("school", "path", "choice_block", "target_choice_definition")
+    list_select_related = ("school", "school__type", "path", "choice_block", "target_choice_definition")
     inlines = (TechniqueRequirementInline, TechniqueExclusionInline, TechniqueChoiceDefinitionInline, ModifierInline)
     fieldsets = (
         (
-            "Grunddaten",
+            "Basics",
             {
                 "fields": (
                     "rulebook_position",
@@ -1522,21 +1625,22 @@ class TechniqueAdmin(admin.ModelAdmin):
                     "choice_block",
                     "description",
                 ),
-                "description": "Hier wird festgelegt, wo die Technik im Regelwerk der Schule steht.",
+                "description": "Defines where this technique belongs in the school's rulebook structure.",
             },
         ),
         (
-            "Einordnung und Erwerb",
+            "Classification and Acquisition",
             {
                 "fields": (
                     ("technique_type", "acquisition_type"),
+                    "has_specification",
                     "support_level",
                 ),
-                "description": "Die Begriffe hier ordnen die Technik fuer Regelwerk, Admin und Engine ein.",
+                "description": "These fields classify the technique for rulebook, admin, and engine use.",
             },
         ),
         (
-            "Wahlen und Spezialisierungen",
+            "Choices and Specializations",
             {
                 "fields": (
                     "is_choice_placeholder",
@@ -1544,25 +1648,26 @@ class TechniqueAdmin(admin.ModelAdmin):
                     "choice_group_notice",
                     "selection_notes",
                     ("choice_target_kind", "choice_limit"),
+                    "target_choice_definition",
                     "choice_bonus_value",
                     "specialization_slot_grants",
                 ),
-                "description": "choice_group dient nur der Anzeige und Organisation. Verbindliche Wahlregeln kommen aus Wahlblock und Wahlentscheidungen.",
+                "description": "choice_group is only used for display and organization. Binding choice rules come from the choice block and choice definitions.",
             },
         ),
         (
-            "Einsatz",
+            "Usage",
             {
                 "fields": (
                     ("action_type", "usage_type"),
                     ("activation_cost", "activation_cost_resource"),
                 ),
                 "classes": ("collapse",),
-                "description": "Nur fuer Techniken mit aktivem Einsatz relevant.",
+                "description": "Relevant only for techniques with active use.",
             },
         ),
         (
-            "Zusammenfassung",
+            "Summary",
             {
                 "fields": (
                     "requirement_summary",
@@ -1570,7 +1675,7 @@ class TechniqueAdmin(admin.ModelAdmin):
                     "choice_definition_summary",
                     "rule_context_preview",
                 ),
-                "description": "Diese Zusammenfassung hilft beim Gegenlesen gegen das Regelwerk.",
+                "description": "This summary helps when checking the entry against the rulebook.",
             },
         ),
     )
@@ -1583,49 +1688,49 @@ class TechniqueAdmin(admin.ModelAdmin):
         "rule_context_preview",
     )
 
-    @admin.display(ordering="school__type__name", description="Schultyp")
+    @admin.display(ordering="school__type__name", description="School Type")
     def school_type(self, obj):
         """Return the related school type for list display."""
         return obj.school.type
 
-    @admin.display(ordering="level", description="Regelwerk")
+    @admin.display(ordering="level", description="Rulebook")
     def rulebook_position(self, obj):
         """Render the rulebook position in school -> level -> path order."""
-        path_name = obj.path.name if obj.path_id else "Alle Pfade"
+        path_name = obj.path.name if obj.path_id else "All Paths"
         return f"{obj.school.name} -> {obj.level} -> {path_name}"
 
-    @admin.display(boolean=True, description="Wahl?")
+    @admin.display(boolean=True, description="Choice?")
     def choice_marker(self, obj):
         """Flag choice rows and editorial choice-group metadata without adding rule logic."""
         return bool(obj.is_choice_placeholder or obj.choice_group)
 
-    @admin.display(description="Hinweis zu choice_group")
+    @admin.display(description="choice_group Note")
     def choice_group_notice(self, obj):
         """Explain that choice_group is metadata only."""
         return _format_choice_group_notice(obj)
 
-    @admin.display(description="Regelkontext")
+    @admin.display(description="Rule Context")
     def rule_context_preview(self, obj):
         """Render a readable rule-context preview for the technique page."""
         if not obj or not obj.pk:
             return "-"
         return _format_technique_rule_context_html(obj)
 
-    @admin.display(description="Voraussetzungen")
+    @admin.display(description="Requirements")
     def requirement_summary(self, obj):
         """Summarize technique requirements for the detail page."""
         if not obj or not obj.pk:
             return "-"
         return ", ".join(_format_technique_requirements(obj))
 
-    @admin.display(description="Ausschluesse")
+    @admin.display(description="Exclusions")
     def exclusion_summary(self, obj):
         """Summarize technique exclusions for the detail page."""
         if not obj or not obj.pk:
             return "-"
         return ", ".join(_format_technique_exclusions(obj))
 
-    @admin.display(description="Wahlentscheidungen")
+    @admin.display(description="Choice Definitions")
     def choice_definition_summary(self, obj):
         """Summarize technique choice definitions for the detail page."""
         if not obj or not obj.pk:
@@ -1811,7 +1916,7 @@ class TechniqueChoiceBlockAdmin(admin.ModelAdmin):
     readonly_fields = ("rulebook_scope_preview", "assigned_techniques")
     fieldsets = (
         (
-            "Wahlblock",
+            "Choice Block",
             {
                 "fields": (
                     ("school", "path"),
@@ -1820,45 +1925,45 @@ class TechniqueChoiceBlockAdmin(admin.ModelAdmin):
                     ("min_choices", "max_choices"),
                     "description",
                 ),
-                "description": "Ein Wahlblock beschreibt eine echte Wahlstelle im Regelwerk. Techniken derselben choice_group sind dadurch nicht automatisch exklusiv.",
+                "description": "A choice block describes a real choice point in the rulebook. Techniques sharing the same choice_group are not automatically exclusive because of that.",
             },
         ),
         (
-            "Uebersicht",
+            "Overview",
             {
                 "fields": ("rulebook_scope_preview", "assigned_techniques"),
-                "description": "Hier siehst du, wo der Block im Regelwerk sitzt und welche Techniken dazugehoeren.",
+                "description": "Shows where the block sits in the rulebook and which techniques belong to it.",
             },
         ),
     )
 
-    @admin.display(ordering="school__type__name", description="Schultyp")
+    @admin.display(ordering="school__type__name", description="School Type")
     def school_type(self, obj):
         """Return the linked school type for list display."""
         return obj.school.type
 
-    @admin.display(ordering="level", description="Stufe / Pfad")
+    @admin.display(ordering="level", description="Level / Path")
     def rulebook_scope(self, obj):
         """Render the choice-block position in rulebook terms for list views."""
-        level = f"Stufe {obj.level}" if obj.level is not None else "ohne feste Stufe"
-        path = obj.path.name if obj.path_id else "alle Pfade"
+        level = f"Level {obj.level}" if obj.level is not None else "no fixed level"
+        path = obj.path.name if obj.path_id else "all paths"
         return f"{level} | {path}"
 
-    @admin.display(description="Regelwerk-Position")
+    @admin.display(description="Rulebook Position")
     def rulebook_scope_preview(self, obj):
         """Render the full rulebook scope on the detail page."""
         if not obj or not getattr(obj, "school_id", None):
             return "-"
         return f"{obj.school.name} -> {self.rulebook_scope(obj)}"
 
-    @admin.display(description="Zugeordnete Techniken")
+    @admin.display(description="Assigned Techniques")
     def assigned_techniques(self, obj):
         """Show all techniques assigned to this choice block."""
         if not obj or not obj.pk:
             return "-"
-        return ", ".join(obj.techniques.order_by("level", "name").values_list("name", flat=True)) or "Noch keine"
+        return ", ".join(obj.techniques.order_by("level", "name").values_list("name", flat=True)) or "None yet"
 
-    @admin.display(ordering="name", description="Techniken")
+    @admin.display(ordering="name", description="Techniques")
     def technique_count(self, obj):
         """Return how many techniques currently belong to the block."""
         return obj.techniques.count()
@@ -1868,17 +1973,89 @@ class TechniqueChoiceBlockAdmin(admin.ModelAdmin):
 class TechniqueChoiceDefinitionAdmin(admin.ModelAdmin):
     """Admin configuration for persistent technique choice definitions."""
 
-    list_display = ("name", "technique", "technique_school", "target_kind", "min_choices", "max_choices", "is_required", "is_active")
-    search_fields = ("name", "description", "technique__name", "technique__school__name")
+    list_display = (
+        "name",
+        "technique",
+        "technique_school",
+        "target_kind",
+        "targeting_technique_count",
+        "min_choices",
+        "max_choices",
+        "is_required",
+        "is_active",
+    )
+    search_fields = (
+        "name",
+        "description",
+        "technique__name",
+        "technique__school__name",
+        "targeting_techniques__name",
+        "targeting_modifiers__target_slug",
+        "targeting_modifiers__target_skill__name",
+        "targeting_modifiers__target_skill_category__name",
+        "targeting_modifiers__target_item__name",
+        "targeting_modifiers__target_specialization__name",
+    )
     list_filter = ("technique__school__type", "technique__school", "target_kind", "is_required", "is_active")
     ordering = ("technique__school", "technique__level", "technique__name", "sort_order", "name")
     autocomplete_fields = ("technique",)
     list_select_related = ("technique", "technique__school", "technique__school__type")
+    readonly_fields = ("targeting_techniques", "targeting_modifiers")
+    fieldsets = (
+        (
+            "Choice Definition",
+            {
+                "fields": (
+                    "technique",
+                    "name",
+                    "target_kind",
+                    "description",
+                    ("min_choices", "max_choices", "is_required"),
+                    ("allowed_skill_category", "allowed_skill_family"),
+                    ("sort_order", "is_active"),
+                ),
+            },
+        ),
+        (
+            "Links",
+            {
+                "fields": ("targeting_techniques", "targeting_modifiers"),
+                "description": "Shows techniques and modifiers that explicitly point to this choice definition.",
+            },
+        ),
+    )
 
     @admin.display(ordering="technique__school__name", description="School")
     def technique_school(self, obj):
         """Return the owning technique school for list display."""
         return obj.technique.school
+
+    @admin.display(description="Linked Techniques")
+    def targeting_techniques(self, obj):
+        """Show techniques that explicitly reference this choice definition."""
+        if not obj or not obj.pk:
+            return "-"
+        return ", ".join(
+            obj.targeting_techniques.select_related("school").order_by("school__name", "level", "name").values_list("name", flat=True)
+        ) or "None"
+
+    @admin.display(description="Techniques")
+    def targeting_technique_count(self, obj):
+        """Return how many techniques point to this choice definition."""
+        return obj.targeting_techniques.count()
+
+    @admin.display(description="Linked Modifiers")
+    def targeting_modifiers(self, obj):
+        """Show modifiers that explicitly reference this choice definition."""
+        if not obj or not obj.pk:
+            return "-"
+        modifiers = obj.targeting_modifiers.select_related(
+            "target_skill",
+            "target_skill_category",
+            "target_item",
+            "target_specialization",
+        ).order_by("target_kind", "target_slug", "id")
+        return ", ".join(f"{modifier.target_kind}: {modifier.target_display()}" for modifier in modifiers) or "None"
 
 
 @admin.register(Specialization)
@@ -1893,7 +2070,7 @@ class SpecializationAdmin(admin.ModelAdmin):
     list_select_related = ("school", "school__type")
     fieldsets = (
         (
-            "Spezialisierung",
+            "Specialization",
             {
                 "fields": (
                     ("school", "sort_order"),
@@ -1902,12 +2079,12 @@ class SpecializationAdmin(admin.ModelAdmin):
                     "is_active",
                     "description",
                 ),
-                "description": "Spezialisierungen sind eigene Schulentscheidungen. Sie werden getrennt von Techniken gepflegt.",
+                "description": "Specializations are separate school-bound choices and are maintained independently from techniques.",
             },
         ),
     )
 
-    @admin.display(ordering="school__type__name", description="Schultyp")
+    @admin.display(ordering="school__type__name", description="School Type")
     def school_type(self, obj):
         """Return the linked school type for list display."""
         return obj.school.type
@@ -1958,6 +2135,7 @@ class CharacterTechniqueAdmin(admin.ModelAdmin):
         "technique_path",
         "technique_level",
         "technique_support_level",
+        "specification_value",
         "learned_at",
     )
     search_fields = (
@@ -1967,6 +2145,7 @@ class CharacterTechniqueAdmin(admin.ModelAdmin):
         "technique__path__name",
         "technique__choice_group",
         "technique__selection_notes",
+        "specification_value",
     )
     list_filter = (
         "technique__school__type",
@@ -1975,6 +2154,7 @@ class CharacterTechniqueAdmin(admin.ModelAdmin):
         "technique__level",
         "technique__support_level",
         "technique__is_choice_placeholder",
+        "technique__has_specification",
     )
     ordering = ("character", "technique__school", "technique__level", "technique__name")
     autocomplete_fields = ("character", "technique")
@@ -2054,7 +2234,7 @@ class CharacterTechniqueChoiceAdmin(admin.ModelAdmin):
     )
     fieldsets = (
         (
-            "Technik",
+            "Technique",
             {
                 "fields": (
                     ("character", "technique"),
@@ -2065,7 +2245,7 @@ class CharacterTechniqueChoiceAdmin(admin.ModelAdmin):
             },
         ),
         (
-            "Gewaehltes Ziel",
+            "Selected Target",
             {
                 "fields": (
                     ("selected_skill"),
@@ -2327,6 +2507,34 @@ class CharacterDiaryEntryAdmin(admin.ModelAdmin):
     list_select_related = ("character",)
 
 
+@admin.register(UserSettings)
+class UserSettingsAdmin(admin.ModelAdmin):
+    """Admin configuration for per-user sheet integration settings."""
+
+    list_display = ("user", "dddice_enabled", "dddice_room_id", "dddice_dice_box", "dddice_theme_id")
+    search_fields = ("user__username", "user__email", "dddice_room_id", "dddice_dice_box", "dddice_theme_id")
+    list_filter = ("dddice_enabled",)
+    ordering = ("user",)
+    fieldsets = (
+        ("Benutzer", {"fields": ("user",)}),
+        (
+            "dddice",
+            {
+                "fields": (
+                    "dddice_enabled",
+                    "dddice_api_key",
+                    "dddice_room_id",
+                    "dddice_room_password",
+                    "dddice_dice_box",
+                    "dddice_theme_id",
+                )
+            },
+        ),
+    )
+    autocomplete_fields = ("user",)
+    list_select_related = ("user",)
+
+
 ATTRIBUTE_CHOICE_HELP = {
     "short_name": "Pick the canonical attribute code used by the rules and sheet.",
 }
@@ -2344,7 +2552,7 @@ CHARACTER_CHOICE_HELP = {
 }
 
 SCHOOL_TYPE_CHOICE_HELP = {
-    "slug": "Magic = arkane Schulen, Divine = goettliche Schulen, Combat = Kampfschulen.",
+    "slug": "Magic = arcane schools, Divine = divine schools, Combat = combat schools.",
 }
 
 PROGRESSION_RULE_CHOICE_HELP = {
@@ -2352,95 +2560,100 @@ PROGRESSION_RULE_CHOICE_HELP = {
 }
 
 MODIFIER_CHOICE_HELP = {
-    "target_kind": "Skill = eine genaue Fertigkeit, Skill Category = eine ganze Fertigkeitskategorie, Stat = ein abgeleiteter Wert, Item/Item Category = Gegenstand oder Gegenstandskategorie, Specialization = schulgebundene Spezialisierung, Other Entity = beliebige andere Spielentitaet.",
+    "target_kind": "Skill = one specific skill, Skill Category = one entire skill category, Stat = a derived stat, Item/Item Category = an item or item category, Specialization = a school-bound specialization, Other Entity = any other game entity.",
+    "target_choice_definition": "Optional choice definition link. If set, the modifier target kind must match the choice definition target kind.",
     "mode": "Flat = fixed value, Scaled = value is calculated from another source.",
     "scale_source": "School level = scales with a school level, Fame total = scales with total fame rank, Trait level = scales with the source trait level.",
     "round_mode": "Floor = round down after division, Ceil = round up after division.",
     "cap_mode": "None = no cap, Min = do not go below the cap value, Max = do not go above the cap value.",
     "cap_source": "Uses the same source types as scaling, but only to define the cap value.",
-    "target_slug": "Fuer Stats und Kategorien wird hier der Regelschluessel eingetragen. Bei Skill/Category kann alternativ das jeweilige Objektfeld genutzt werden.",
+    "target_slug": "For stats and categories, enter the rule key here. For Skill/Category targets, you can use the related object field instead.",
 }
 
 TECHNIQUE_CHOICE_HELP = {
-    "technique_type": "Passive = dauerhafter Effekt, Active = aktiv eingesetzte Technik, Situational = nur in bestimmten Situationen relevant.",
-    "acquisition_type": "Automatic = wird direkt gelernt, Choice = wird aus mehreren Optionen ausgewaehlt.",
-    "support_level": "Automated = die Engine berechnet die Regel vollstaendig, Partially Automated = Teile sind strukturiert und auswertbar, Manual (Rule Text Only) = nur Regeltext, keine automatische Berechnung.",
-    "choice_target_kind": "Einfachmodus fuer eine einzelne dauerhafte Wahl. Fuer mehrere getrennte Entscheidungen bitte die Inline-Wahlentscheidungen nutzen.",
-    "choice_group": "Reine UI-/Importmetadaten. Diese Gruppe erzeugt keine Regelmechanik.",
-    "specialization_slot_grants": "So viele Spezialisierungs-Slots entstehen, sobald die Technik wirklich gelernt wurde. Nur verfuegbare Techniken zaehlen nicht.",
-    "action_type": "Action = normale Aktion, Reaction = Reaktion, Free = freie Handlung, Preparation = Vorbereitung.",
-    "usage_type": "At Will = beliebig oft, Per Scene = einmal pro Szene, Per Combat = einmal pro Kampf, Per Day = einmal pro Tag.",
-    "choice_block": "Optionaler Wahlblock, wenn die Technik zu einer echten Wahlstelle des Regelwerks gehoert.",
-    "selection_notes": "Kurzer Klartext-Hinweis, was bei dieser Technik konkret gewaehlt oder beachtet werden muss.",
+    "technique_type": "Passive = persistent effect, Active = technique used actively, Situational = only relevant in specific situations.",
+    "acquisition_type": "Automatic = learned directly, Choice = selected from multiple options.",
+    "support_level": "Automated = the engine evaluates the rule fully, Partially Automated = parts are structured and evaluable, Manual (Rule Text Only) = rule text only with no automatic calculation.",
+    "choice_target_kind": "Simple mode for a single persistent choice. For multiple separate decisions, use the inline choice definitions instead.",
+    "choice_group": "Pure UI/import metadata. This group does not create any rule mechanics.",
+    "specialization_slot_grants": "How many specialization slots become available once the technique is actually learned. Techniques that are only available do not count.",
+    "action_type": "Action = standard action, Reaction = reaction, Free = free action, Preparation = preparation.",
+    "usage_type": "At Will = unlimited use, Per Scene = once per scene, Per Combat = once per combat, Per Day = once per day.",
+    "choice_block": "Optional choice block if the technique belongs to a real rulebook choice point.",
+    "selection_notes": "Short plain-language note describing what must be selected or observed for this technique.",
+    "target_choice_definition": "Optional target definition if this technique explicitly points to a specific choice definition of another technique.",
 }
 
 TECHNIQUE_CHOICE_BLOCK_HELP = {
-    "name": "Kurzer Name des Wahlblocks, damit die Regelstelle im Admin wiedergefunden wird.",
-    "min_choices": "Wie viele Techniken aus diesem Block mindestens gelernt werden muessen.",
-    "max_choices": "Wie viele Techniken aus diesem Block hoechstens gelernt werden duerfen.",
+    "name": "Short name of the choice block so the rulebook location can be found again in the admin.",
+    "min_choices": "How many techniques from this block must be learned at minimum.",
+    "max_choices": "How many techniques from this block may be learned at most.",
 }
 
 TECHNIQUE_CHOICE_DEFINITION_HELP = {
-    "target_kind": "Definiert, welches Ziel diese Technikentscheidung dauerhaft speichert.",
-    "min_choices": "Wie viele Auswahlen fuer diese eine Entscheidung mindestens gespeichert werden muessen.",
-    "max_choices": "Wie viele Auswahlen fuer diese eine Entscheidung maximal gespeichert werden duerfen.",
+    "target_kind": "Defines which kind of target this technique decision stores persistently.",
+    "min_choices": "How many selections must be stored for this single decision at minimum.",
+    "max_choices": "How many selections may be stored for this single decision at maximum.",
+    "allowed_skill_category": "Optional filter restricting skill choices to one specific skill category.",
+    "allowed_skill_family": "Optional filter restricting skill choices to one specific skill family.",
 }
 
 SPECIALIZATION_CHOICE_HELP = {
-    "support_level": "Automated = die Engine berechnet die Regel vollstaendig, Partially Automated = Teile sind strukturiert und auswertbar, Manual (Rule Text Only) = nur Regeltext, keine automatische Berechnung.",
+    "support_level": "Automated = the engine evaluates the rule fully, Partially Automated = parts are structured and evaluable, Manual (Rule Text Only) = rule text only with no automatic calculation.",
 }
 
 SCHOOL_ADMIN_LABELS = {
-    "type": "Schultyp",
-    "description": "Beschreibung",
+    "type": "School Type",
+    "description": "Description",
 }
 
 TECHNIQUE_LABELS = {
-    "school": "Schule",
-    "path": "Pfad",
-    "level": "Stufe",
-    "choice_block": "Wahlblock",
-    "technique_type": "Technikart",
-    "acquisition_type": "Erwerbsart",
-    "support_level": "Regelunterstuetzung",
-    "is_choice_placeholder": "Platzhalter fuer Wahl",
-    "choice_group": "Organisationsgruppe",
-    "selection_notes": "Hinweistext",
-    "choice_target_kind": "Ziel der Wahl",
-    "choice_limit": "Anzahl Wahlen",
-    "choice_bonus_value": "Fester Bonus",
-    "specialization_slot_grants": "Spezialisierungs-Slots",
-    "action_type": "Aktionsart",
-    "usage_type": "Nutzungsart",
-    "activation_cost": "Kosten",
-    "activation_cost_resource": "Kostenart",
-    "description": "Regeltext / Beschreibung",
+    "school": "School",
+    "path": "Path",
+    "level": "Level",
+    "choice_block": "Choice Block",
+    "technique_type": "Technique Type",
+    "acquisition_type": "Acquisition Type",
+    "support_level": "Rule Support",
+    "is_choice_placeholder": "Choice Placeholder",
+    "choice_group": "Organization Group",
+    "selection_notes": "Selection Notes",
+    "choice_target_kind": "Choice Target",
+    "choice_limit": "Choice Count",
+    "target_choice_definition": "Target Choice Definition",
+    "choice_bonus_value": "Fixed Bonus",
+    "specialization_slot_grants": "Specialization Slots",
+    "action_type": "Action Type",
+    "usage_type": "Usage Type",
+    "activation_cost": "Cost",
+    "activation_cost_resource": "Cost Resource",
+    "description": "Rule Text / Description",
 }
 
 TECHNIQUE_CHOICE_BLOCK_LABELS = {
-    "school": "Schule",
-    "path": "Pfad",
-    "level": "Stufe",
-    "name": "Bezeichnung",
-    "sort_order": "Sortierung",
-    "min_choices": "Min. Wahlen",
-    "max_choices": "Max. Wahlen",
-    "description": "Regeltext / Beschreibung",
+    "school": "School",
+    "path": "Path",
+    "level": "Level",
+    "name": "Name",
+    "sort_order": "Sort Order",
+    "min_choices": "Min. Choices",
+    "max_choices": "Max. Choices",
+    "description": "Rule Text / Description",
 }
 
 SPECIALIZATION_LABELS = {
-    "school": "Schule",
+    "school": "School",
     "name": "Name",
-    "slug": "Schluessel",
-    "support_level": "Regelunterstuetzung",
-    "sort_order": "Sortierung",
-    "is_active": "Aktiv",
-    "description": "Regeltext / Beschreibung",
+    "slug": "Key",
+    "support_level": "Rule Support",
+    "sort_order": "Sort Order",
+    "is_active": "Active",
+    "description": "Rule Text / Description",
 }
 
 ITEM_CHOICE_HELP = {
-    "item_type": "Armor = Ruestung, Shield = Schild, Weapon = Waffe, Consumable = verbrauchbares Item, Misc = sonstige Gegenstaende.",
-    "default_quality": "Standardqualitaet des Items; wird verwendet, wenn keine inventarspezifische Qualitaet gesetzt wurde.",
+    "item_type": "Armor = armor, Shield = shield, Weapon = weapon, Consumable = consumable item, Misc = miscellaneous item.",
+    "default_quality": "Default item quality; used when no inventory-specific quality has been set.",
 }
 
 WEAPON_CHOICE_HELP = {
@@ -2448,8 +2661,8 @@ WEAPON_CHOICE_HELP = {
 }
 
 SHIELD_CHOICE_HELP = {
-    "encumbrance": "Belastung (Bel.) des Schilds.",
-    "min_st": "Mindeststaerke zum Fuehren des Schilds.",
+    "encumbrance": "Shield encumbrance.",
+    "min_st": "Minimum strength required to use the shield.",
 }
 
 TRAIT_CHOICE_HELP = {

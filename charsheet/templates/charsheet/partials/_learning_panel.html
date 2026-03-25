@@ -26,6 +26,7 @@
           <div class="shop_panel_header">
             <h2>Lernoptionen</h2>
           </div>
+
           <div class="shop_toolbar learn_toolbar">
             <input
               type="search"
@@ -35,75 +36,201 @@
               aria-label="Lernoptionen filtern"
             >
           </div>
-          <div class="shop_list_scroll" aria-label="Lernoptionen">
-            <details class="shop_group" data-learn-group open>
-              <summary><span>Eigenschaften</span><span class="shop_group_count">{{ learn_attr_rows|length }}</span></summary>
-              <table class="shop_table">
-                <tbody>
-                  {% for row in learn_attr_rows %}
-                    <tr data-learn-source data-kind="attr" data-key="attr:{{ row.short_name }}" data-short="{{ row.short_name }}" data-name="{{ row.label }}" data-base="{{ row.base_value }}" data-min="{{ row.min_value }}" data-max="{{ row.max_value }}" data-learn-search="{{ row.label|lower }} eigenschaft attribut" tabindex="0" role="button" aria-label="{{ row.label }} steigern">
-                      <td class="shop_item_name">{{ row.label }}</td>
-                      <td class="shop_item_price">Basis {{ row.base_value }} | Min {{ row.min_value }} | Max {{ row.max_value }}</td>
-                    </tr>
+
+          <div class="shop_list_scroll learn_list_scroll" aria-label="Lernoptionen">
+            <div class="learn_tabs" data-tabs>
+              <div class="learn_tabs__list" role="tablist" aria-label="Lernkategorien">
+                <button
+                  type="button"
+                  class="learn_tabs__tab"
+                  id="learn-tab-attributes"
+                  role="tab"
+                  aria-selected="true"
+                  aria-controls="learn-panel-attributes"
+                  data-tab-target="learn-panel-attributes"
+                >
+                  Attribute
+                </button>
+                <button
+                  type="button"
+                  class="learn_tabs__tab"
+                  id="learn-tab-traits"
+                  role="tab"
+                  aria-selected="false"
+                  aria-controls="learn-panel-traits"
+                  data-tab-target="learn-panel-traits"
+                  tabindex="-1"
+                >
+                  Vor- & Nachteile
+                </button>
+                <button
+                  type="button"
+                  class="learn_tabs__tab"
+                  id="learn-tab-skills"
+                  role="tab"
+                  aria-selected="false"
+                  aria-controls="learn-panel-skills"
+                  data-tab-target="learn-panel-skills"
+                  tabindex="-1"
+                >
+                  Fertigkeiten
+                </button>
+                <button
+                  type="button"
+                  class="learn_tabs__tab"
+                  id="learn-tab-languages"
+                  role="tab"
+                  aria-selected="false"
+                  aria-controls="learn-panel-languages"
+                  data-tab-target="learn-panel-languages"
+                  tabindex="-1"
+                >
+                  Sprachen
+                </button>
+                <button
+                  type="button"
+                  class="learn_tabs__tab"
+                  id="learn-tab-schools"
+                  role="tab"
+                  aria-selected="false"
+                  aria-controls="learn-panel-schools"
+                  data-tab-target="learn-panel-schools"
+                  tabindex="-1"
+                >
+                  Schulen
+                </button>
+              </div>
+
+              <section
+                class="learn_tabs__panel"
+                id="learn-panel-attributes"
+                role="tabpanel"
+                aria-labelledby="learn-tab-attributes"
+                data-tab-panel
+              >
+                <details class="shop_group" data-learn-group open>
+                  <summary><span>Eigenschaften</span><span class="shop_group_count">{{ learn_attr_rows|length }}</span></summary>
+                  <table class="shop_table">
+                    <tbody>
+                      {% for row in learn_attr_rows %}
+                        <tr data-learn-source data-kind="attr" data-key="attr:{{ row.short_name }}" data-short="{{ row.short_name }}" data-name="{{ row.label }}" data-base="{{ row.base_value }}" data-min="{{ row.min_value }}" data-max="{{ row.max_value }}" data-learn-search="{{ row.label|lower }} eigenschaft attribut" tabindex="0" role="button" aria-label="{{ row.label }} steigern">
+                          <td class="shop_item_name">{{ row.label }}</td>
+                          <td class="shop_item_price">Basis {{ row.base_value }} | Min {{ row.min_value }} | Max {{ row.max_value }}</td>
+                        </tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                </details>
+              </section>
+
+              <section
+                class="learn_tabs__panel"
+                id="learn-panel-traits"
+                role="tabpanel"
+                aria-labelledby="learn-tab-traits"
+                data-tab-panel
+                hidden
+              >
+                <details class="shop_group" data-learn-group open>
+                  <summary><span>Vor- & Nachteile</span><span class="shop_group_count">{{ learn_trait_count }}</span></summary>
+                  <p class="learn_traits_note">Vor- und Nachteile werden derzeit nicht ueber EP im Lernmenue gelernt.</p>
+                  {% for group in learn_trait_groups %}
+                    <details class="shop_group learn_subgroup" data-learn-group open>
+                      <summary><span>{{ group.name }}</span><span class="shop_group_count">{{ group.rows|length }}</span></summary>
+                      <table class="shop_table">
+                        <tbody>
+                          {% for row in group.rows %}
+                            <tr>
+                              <td class="shop_item_name">{{ row.name }}</td>
+                              <td class="shop_item_price">Aktuell {{ row.base_level }} | Min {{ row.min_level }} | Max {{ row.max_level }} | {{ row.points_per_level }} GP/Stufe</td>
+                            </tr>
+                          {% endfor %}
+                        </tbody>
+                      </table>
+                    </details>
                   {% endfor %}
-                </tbody>
-              </table>
-            </details>
+                </details>
+              </section>
 
-            <details class="shop_group" data-learn-group open>
-              <summary><span>Skills</span><span class="shop_group_count">{{ learn_skill_count }}</span></summary>
-              {% for group in learn_skill_groups %}
-                <details class="shop_group learn_subgroup" data-learn-group open>
-                  <summary><span>{{ group.name }}</span><span class="shop_group_count">{{ group.rows|length }}</span></summary>
+              <section
+                class="learn_tabs__panel"
+                id="learn-panel-skills"
+                role="tabpanel"
+                aria-labelledby="learn-tab-skills"
+                data-tab-panel
+                hidden
+              >
+                <details class="shop_group" data-learn-group open>
+                  <summary><span>Fertigkeiten</span><span class="shop_group_count">{{ learn_skill_count }}</span></summary>
+                  {% for group in learn_skill_groups %}
+                    <details class="shop_group learn_subgroup" data-learn-group open>
+                      <summary><span>{{ group.name }}</span><span class="shop_group_count">{{ group.rows|length }}</span></summary>
+                      <table class="shop_table">
+                        <tbody>
+                          {% for row in group.rows %}
+                            <tr data-learn-source data-kind="skill" data-key="skill:{{ row.slug }}" data-slug="{{ row.slug }}" data-name="{{ row.name }}" data-base="{{ row.base_level }}" data-learn-search="{{ row.name|lower }} {{ group.name|lower }} skill fertigkeit" tabindex="0" role="button" aria-label="{{ row.name }} steigern">
+                              <td class="shop_item_name">{{ row.name }}</td>
+                              <td class="shop_item_price">Basis {{ row.base_level }}</td>
+                            </tr>
+                          {% endfor %}
+                        </tbody>
+                      </table>
+                    </details>
+                  {% endfor %}
+                </details>
+              </section>
+
+              <section
+                class="learn_tabs__panel"
+                id="learn-panel-languages"
+                role="tabpanel"
+                aria-labelledby="learn-tab-languages"
+                data-tab-panel
+                hidden
+              >
+                <details class="shop_group" data-learn-group open>
+                  <summary><span>Sprachen</span><span class="shop_group_count">{{ learn_language_rows|length }}</span></summary>
                   <table class="shop_table">
                     <tbody>
-                      {% for row in group.rows %}
-                        <tr data-learn-source data-kind="skill" data-key="skill:{{ row.slug }}" data-slug="{{ row.slug }}" data-name="{{ row.name }}" data-base="{{ row.base_level }}" data-learn-search="{{ row.name|lower }} {{ group.name|lower }} skill" tabindex="0" role="button" aria-label="{{ row.name }} steigern">
+                      {% for row in learn_language_rows %}
+                        <tr data-learn-source data-kind="lang" data-key="lang:{{ row.slug }}" data-slug="{{ row.slug }}" data-name="{{ row.name }}" data-base="{{ row.base_level }}" data-max="{{ row.max_level }}" data-write="{% if row.base_write %}1{% else %}0{% endif %}" data-mother="{% if row.base_mother %}1{% else %}0{% endif %}" data-learn-search="{{ row.name|lower }} sprache language" tabindex="0" role="button" aria-label="{{ row.name }} steigern">
                           <td class="shop_item_name">{{ row.name }}</td>
-                          <td class="shop_item_price">Basis {{ row.base_level }}</td>
+                          <td class="shop_item_price">Basis {{ row.base_level }} | Max {{ row.max_level }}{% if row.base_write %} | Schrift{% endif %}</td>
                         </tr>
                       {% endfor %}
                     </tbody>
                   </table>
                 </details>
-              {% endfor %}
-            </details>
+              </section>
 
-            <details class="shop_group" data-learn-group open>
-              <summary><span>Sprachen</span><span class="shop_group_count">{{ learn_language_rows|length }}</span></summary>
-              <details class="shop_group learn_subgroup" data-learn-group open>
-                <summary><span>Alle</span><span class="shop_group_count">{{ learn_language_rows|length }}</span></summary>
-                <table class="shop_table">
-                  <tbody>
-                    {% for row in learn_language_rows %}
-                      <tr data-learn-source data-kind="lang" data-key="lang:{{ row.slug }}" data-slug="{{ row.slug }}" data-name="{{ row.name }}" data-base="{{ row.base_level }}" data-max="{{ row.max_level }}" data-write="{% if row.base_write %}1{% else %}0{% endif %}" data-mother="{% if row.base_mother %}1{% else %}0{% endif %}" data-learn-search="{{ row.name|lower }} sprache language" tabindex="0" role="button" aria-label="{{ row.name }} steigern">
-                        <td class="shop_item_name">{{ row.name }}</td>
-                        <td class="shop_item_price">Basis {{ row.base_level }} | Max {{ row.max_level }}{% if row.base_write %} | Schrift{% endif %}</td>
-                      </tr>
-                    {% endfor %}
-                  </tbody>
-                </table>
-              </details>
-            </details>
-
-            <details class="shop_group" data-learn-group open>
-              <summary><span>Schulen</span><span class="shop_group_count">{{ learn_school_count }}</span></summary>
-              {% for group in learn_school_groups %}
-                <details class="shop_group learn_subgroup" data-learn-group open>
-                  <summary><span>{{ group.name }}</span><span class="shop_group_count">{{ group.rows|length }}</span></summary>
-                  <table class="shop_table">
-                    <tbody>
-                      {% for row in group.rows %}
-                        <tr data-learn-source data-kind="school" data-key="school:{{ row.id }}" data-id="{{ row.id }}" data-name="{{ row.name }}" data-base="{{ row.base_level }}" data-max="{{ row.max_level }}" data-learn-search="{{ row.name|lower }} {{ group.name|lower }} schule" tabindex="0" role="button" aria-label="{{ row.name }} steigern">
-                          <td class="shop_item_name">{{ row.name }}</td>
-                          <td class="shop_item_price">Basis {{ row.base_level }} | Max {{ row.max_level }}</td>
-                        </tr>
-                      {% endfor %}
-                    </tbody>
-                  </table>
+              <section
+                class="learn_tabs__panel"
+                id="learn-panel-schools"
+                role="tabpanel"
+                aria-labelledby="learn-tab-schools"
+                data-tab-panel
+                hidden
+              >
+                <details class="shop_group" data-learn-group open>
+                  <summary><span>Schulen</span><span class="shop_group_count">{{ learn_school_count }}</span></summary>
+                  {% for group in learn_school_groups %}
+                    <details class="shop_group learn_subgroup" data-learn-group open>
+                      <summary><span>{{ group.name }}</span><span class="shop_group_count">{{ group.rows|length }}</span></summary>
+                      <table class="shop_table">
+                        <tbody>
+                          {% for row in group.rows %}
+                            <tr data-learn-source data-kind="school" data-key="school:{{ row.id }}" data-id="{{ row.id }}" data-name="{{ row.name }}" data-base="{{ row.base_level }}" data-max="{{ row.max_level }}" data-learn-search="{{ row.name|lower }} {{ group.name|lower }} schule" tabindex="0" role="button" aria-label="{{ row.name }} steigern">
+                              <td class="shop_item_name">{{ row.name }}</td>
+                              <td class="shop_item_price">Basis {{ row.base_level }} | Max {{ row.max_level }}</td>
+                            </tr>
+                          {% endfor %}
+                        </tbody>
+                      </table>
+                    </details>
+                  {% endfor %}
                 </details>
-              {% endfor %}
-            </details>
+              </section>
+            </div>
           </div>
         </div>
 
@@ -117,6 +244,7 @@
                 <thead>
                   <tr>
                     <th>Eintrag</th>
+                    <th>Wert</th>
                     <th>Kosten</th>
                     <th></th>
                   </tr>
@@ -128,6 +256,7 @@
                 </tbody>
               </table>
             </div>
+            <div id="learnPendingChoiceInputs"></div>
             <div class="shop_cart_actions">
               <button type="submit" id="learnApplyBtn" class="shop_buy_btn">Lernen anwenden</button>
             </div>
@@ -137,3 +266,25 @@
     </form>
   </div>
 </section>
+
+<section class="payday-window payday-window--item-create learn_choice_window" id="learnChoiceWindow" aria-hidden="true">
+  <div class="payday-window__titlebar" id="learnChoiceWindowHandle">
+    <h3 class="payday-window__title" id="learnChoiceWindowTitle">Ausstehende Entscheidung</h3>
+    <button type="button" class="payday-window__close" id="learnChoiceWindowClose" aria-label="Choice-Fenster schlie&szlig;en">x</button>
+  </div>
+  <div class="payday-window__body learn_choice_window_body">
+    <form id="learnChoiceForm" class="learn_choice_form" novalidate>
+      <p class="learn_choice_window_intro" id="learnChoiceWindowIntro"></p>
+      <div class="learn_choice_decision_list" id="learnChoiceDecisionList"></div>
+
+      <p class="form_error learn_choice_hint" id="learnChoiceHint" hidden></p>
+
+      <div class="learn_choice_actions">
+        <button type="submit" id="learnChoiceConfirmBtn" class="shop_buy_btn">Auswahl uebernehmen</button>
+        <button type="button" id="learnChoiceCancelBtn" class="shop_item_cancel_btn">Schliessen</button>
+      </div>
+    </form>
+  </div>
+</section>
+
+{{ learn_pending_decisions|json_script:"learn-pending-decisions-data" }}

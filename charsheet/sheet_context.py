@@ -6,14 +6,18 @@ from collections import OrderedDict
 
 from charsheet.constants import GK_MODS, QUALITY_CHOICES, QUALITY_COLOR_MAP
 from charsheet.engine import ItemEngine
-from charsheet.forms import CharacterInfoInlineForm, CharacterSkillSpecificationForm
+from charsheet.forms import (
+    CharacterInfoInlineForm,
+    CharacterSkillSpecificationForm,
+    CharacterTechniqueSpecificationForm,
+)
+from charsheet.learning_progression import build_learning_progression_context
 from charsheet.learning_rules import DEFAULT_SCHOOL_MAX_LEVEL, school_max_levels
 from charsheet.models import (
     Character,
     CharacterItem,
     CharacterLanguage,
-    CharacterSchool,
-    CharacterSkill,
+    CharacterTechnique,
     CharacterTrait,
     DamageSource,
     Item,
@@ -240,7 +244,7 @@ def _build_armor_rows(engine) -> list[dict]:
     return armor_rows
 
 
-def _build_school_technique_rows(character: Character) -> tuple[list[dict], dict[int, int]]:
+def _build_school_technique_rows(character: Character, engine) -> tuple[list[dict], dict[int, int]]:
     """Build visible learned technique rows for the school panel."""
     schools = (
         character.schools
@@ -249,6 +253,14 @@ def _build_school_technique_rows(character: Character) -> tuple[list[dict], dict
     )
     school_levels = {entry.school_id: entry.level for entry in schools}
     school_technique_rows: list[dict] = []
+    learned_techniques_by_technique_id = {
+        entry.technique_id: entry
+        for entry in (
+            CharacterTechnique.objects
+            .filter(character=character)
+            .select_related("technique")
+        )
+    }
     if school_levels:
         techniques = (
             Technique.objects
@@ -258,12 +270,48 @@ def _build_school_technique_rows(character: Character) -> tuple[list[dict], dict
         )
         for technique in techniques:
             if technique.level <= school_levels.get(technique.school_id, 0):
+                learned_technique = learned_techniques_by_technique_id.get(technique.id)
+                specification_value = ((learned_technique.specification_value if learned_technique else "") or "").strip()
+                entry_name = technique.name
+                if technique.has_specification:
+                    entry_name = f"{technique.name}: {specification_value or '*'}"
                 school_technique_rows.append(
                     {
+                        "kind": "technique",
                         "level": technique.level,
                         "school_name": technique.school.name,
-                        "technique_name": technique.name,
+                        "entry_name": entry_name,
                         "description": technique.description,
+                        "can_edit_specification": bool(technique.has_specification),
+                        "specification_value": specification_value,
+                        "technique_id": technique.id,
+                    }
+                )
+    for school_entry in schools:
+        for specialization_entry in engine.character_specializations(school_entry.school_id):
+            specialization = specialization_entry.specialization
+            school_technique_rows.append(
+                {
+                    "kind": "specialization",
+                    "level": "Spez.",
+                    "school_name": school_entry.school.name,
+                    "entry_name": specialization.name,
+                    "description": specialization.description,
+                }
+            )
+    if school_levels:
+        for technique in techniques:
+            for choice in engine.technique_choices(technique):
+                if choice.selected_specialization_id is None:
+                    continue
+                school_technique_rows.append(
+                    {
+                        "kind": "technique_specialization",
+                        "level": "Spez.",
+                        "school_name": technique.school.name,
+                        "entry_name": f"{choice.selected_specialization.name} ({technique.name})",
+                        "display_name": f"{choice.selected_specialization.name} ({technique.name})",
+                        "description": choice.selected_specialization.description,
                     }
                 )
     return school_technique_rows, school_levels
@@ -371,7 +419,13 @@ def _build_shop_item_groups() -> list[dict]:
     ]
 
 
-def _build_learning_rows(character: Character, attributes: dict[str, int], character_skills, language_entries, school_levels: dict[int, int]) -> dict[str, object]:
+def _build_learning_rows(
+    character: Character,
+    attributes: dict[str, int],
+    character_skills,
+    language_entries,
+    school_levels: dict[int, int],
+        ) -> dict[str, object]:
     """Build prepared learning rows grouped for the learning window."""
     attribute_limits = {
         limit.attribute.short_name: {
@@ -388,6 +442,10 @@ def _build_learning_rows(character: Character, attributes: dict[str, int], chara
             "mother": bool(entry.is_mother_tongue),
         }
         for entry in language_entries
+    }
+    trait_levels = {
+        entry.trait_id: int(entry.trait_level)
+        for entry in CharacterTrait.objects.filter(owner=character).select_related("trait")
     }
 
     learn_attr_rows: list[dict] = []
@@ -444,8 +502,27 @@ def _build_learning_rows(character: Character, attributes: dict[str, int], chara
             }
         )
 
+    trait_groups: OrderedDict[str, list[dict]] = OrderedDict()
+    for trait in Trait.objects.order_by("trait_type", "name"):
+        group_name = "Vorteile" if trait.trait_type == Trait.TraitType.ADV else "Nachteile"
+        trait_groups.setdefault(group_name, []).append(
+            {
+                "slug": trait.slug,
+                "name": trait.name,
+                "description": (trait.description or "").replace("\r\n", "\n").replace("\r", "\n"),
+                "base_level": int(trait_levels.get(trait.id, 0)),
+                "min_level": int(trait.min_level),
+                "max_level": int(trait.max_level),
+                "points_per_level": int(trait.points_per_level),
+            }
+        )
+
     return {
         "learn_attr_rows": learn_attr_rows,
+        "learn_trait_groups": [
+            {"name": group_name, "rows": rows}
+            for group_name, rows in trait_groups.items()
+        ],
         "learn_skill_groups": [
             {"name": category_name, "rows": rows}
             for category_name, rows in skill_groups.items()
@@ -480,7 +557,7 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
     inventory_rows = _build_inventory_rows(character)
     weapon_rows = _build_weapon_rows(engine)
     armor_rows = _build_armor_rows(engine)
-    school_technique_rows, school_levels = _build_school_technique_rows(character)
+    school_technique_rows, school_levels = _build_school_technique_rows(character, engine)
     language_rows, language_entries = _build_language_rows(character)
 
     load_value = engine.get_bel()
@@ -528,6 +605,7 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
         language_entries,
         school_levels,
     )
+    learning_progression_context = build_learning_progression_context(character, engine=engine)
     shop_quality_choices = [
         {
             "value": value,
@@ -541,6 +619,7 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
         "character": character,
         "char_info_form": CharacterInfoInlineForm(instance=character),
         "skill_specification_form": CharacterSkillSpecificationForm(),
+        "technique_specification_form": CharacterTechniqueSpecificationForm(),
         "fame_total_rank": int(character.personal_fame_rank) + int(character.sacrifice_rank) + int(character.artefact_rank),
         "attributes": attributes,
         "attr_mods": attr_mods,
@@ -588,6 +667,8 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
         "shop_damage_sources": DamageSource.objects.order_by("name"),
         "close_learn_window_once": close_learn_window_once,
         "learn_skill_count": sum(len(group["rows"]) for group in learning_context["learn_skill_groups"]),
+        "learn_trait_count": sum(len(group["rows"]) for group in learning_context["learn_trait_groups"]),
         "learn_school_count": sum(len(group["rows"]) for group in learning_context["learn_school_groups"]),
         **learning_context,
+        **learning_progression_context,
     }

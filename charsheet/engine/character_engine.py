@@ -289,7 +289,6 @@ class CharacterEngine:
             for technique in self._character_school_technique_list
             if technique.choice_bonus_value
             and technique.choice_target_kind != Technique.ChoiceTargetKind.NONE
-            and not self._technique_has_explicit_choice_definitions(technique)
         ]
 
     @cached_property
@@ -826,6 +825,7 @@ class CharacterEngine:
             )
         if skill_id is not None:
             modifier_parts.append(self._resolve_choice_skill_bonus(skill_id))
+            modifier_parts.append(self._resolve_choice_skill_modifiers(skill_id))
         return sum(modifier_parts)
 
     def _resolve_stat_modifiers(self, slug: str) -> int:
@@ -841,6 +841,37 @@ class CharacterEngine:
 
         for modifier in modifiers:
             total += self._modifier_value(modifier, learned_stack, available_stack)
+        return total
+
+    def _resolve_choice_skill_modifiers(self, skill_id: int) -> int:
+        """
+        Resolve modifier rows that target a skill via a persisted technique
+        choice.
+        """
+        learned_stack = set()
+        available_stack = set()
+
+        modifiers = [
+            modifier
+            for modifier in self._all_modifiers
+            if modifier.target_kind == Modifier.TargetKind.SKILL
+            and modifier.target_choice_definition_id
+            ]
+
+        total = 0
+
+        for modifier in modifiers:
+            choices = self._technique_choices_by_definition_id.get(
+                modifier.target_choice_definition_id, []
+            )
+            for choice in choices:
+                if choice.selected_skill_id != skill_id:
+                    continue
+                if not self._modifier_source_is_active(modifier, learned_stack, available_stack):
+                    continue
+                total += self._modifier_value(modifier, learned_stack, available_stack)
+                break
+
         return total
 
     def _resolve_choice_skill_bonus(self, skill_id: int) -> int:

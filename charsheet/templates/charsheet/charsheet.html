@@ -1,54 +1,53 @@
 {% load static %}
-<!DOCTYPE html>
+<!doctype html>
 <html lang="de">
   <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="icon" type="image/x-icon" href="{% static 'img/favicon.ico' %}">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link
+      rel="icon"
+      type="image/x-icon"
+      href="{% static 'img/favicon.ico' %}"
+    />
     <title>{{ character.name }} | Codex Arcana</title>
     <script>
       (function () {
         document.documentElement.setAttribute("data-left-tools-open", "0");
       })();
     </script>
-    {% if request.user.settings.dddice_enabled %}
+    {% if request.user.settings.dddice_enabled %} 
     {{ dddice_config|json_script:"dddice-config" }}
     <script type="importmap">
-    {
-      "imports": {
-        "dddice-js": "/node_modules/dddice-js/dist/dddice.js"
+      {
+        "imports": {
+          "dddice-js": "/node_modules/dddice-js/dist/dddice.js"
+        }
       }
-    }
     </script>
     <script type="module" src="{% static 'js/dddice.js' %}"></script>
     {% endif %}
-    <link rel="stylesheet" href="{% static 'css/charsheet.css' %}?v=20260314b">
+    <link
+      rel="stylesheet"
+      href="{% static 'css/charsheet.css' %}"
+    />
   </head>
-
-<div class="fan_menu">
-    <input class="fan_button" type="checkbox">
-    <nav>
-    <a href="#">
-        <button class="menu-btn" id="roll-2d10">
-          <img src="{% static '/img/2d10.png' %}">
-        </button>
-    </a>
-    <a href="#">
-        <button class="menu-btn" id="roll-1d10">
-          <img src="{% static '/img/1d10.png' %}">
-        </button>
-    </a>
-    <a href="#">
-        <button class="menu-btn" id=roll-1d100>
-          <img src="{% static '/img/1d100.png' %}">
-        </button>
-    </a>
-</nav>
-</div>
-
-
   <body>
     {% if request.user.settings.dddice_enabled %}
+
+    <div class="fan_menu">
+      <input class="fan_button" type="checkbox" />
+      <nav>
+        <a href="#">
+          <button class="menu-btn" id="roll-2d10">2d10</button>
+        </a>
+        <a href="#">
+          <button class="menu-btn" id="roll-1d10">1d10</button>
+        </a>
+        <a href="#">
+          <button class="menu-btn" id="roll-1d100">1d100</button>
+        </a>
+      </nav>
+    </div>
     <canvas id="dddice" width="500" height="300"></canvas>
     <div id="roll-result"></div>
     {% endif %}
@@ -67,39 +66,103 @@
         <span class="left-tools__launcher_word">Arcana</span>
       </span>
     </button>
+    <div
+      class="charsheet-top-pending-choice"
+      id="learnPendingChoiceNotice"
+      {% if not learn_has_pending_choices %}hidden{% endif %}
+      data-pending-choice-notice
+    >
+      <button
+        type="button"
+        class="learn_choice_notice_trigger charsheet-top-pending-choice__trigger"
+        id="learnPendingChoiceTrigger"
+        aria-label="Offene Entscheidung erneut oeffnen"
+        title="Offene Entscheidung erneut oeffnen"
+      >
+        <span class="learn_choice_notice_icon" aria-hidden="true">&#x26A0;&#xFE0E;</span>
+        <span class="learn_choice_notice_text">ausstehende Entscheidung</span>
+        <span class="learn_choice_notice_icon" aria-hidden="true">&#x26A0;&#xFE0E;</span>
+      </button>
+    </div>
     <aside class="left-tools" id="leftTools" aria-label="Werkzeugleiste">
       <div class="left-tools__inner">
         <div class="left-tools__cluster left-tools__cluster--actions">
-          <button type="button" class="left-tools__icon_btn" id="learnMenuTrigger" aria-label="Lernmen&uuml; &ouml;ffnen" title="Lernen">
+          <button
+            type="button"
+            class="left-tools__icon_btn"
+            id="learnMenuTrigger"
+            aria-label="Lernmen&uuml; &ouml;ffnen"
+            title="Lernen"
+          >
             <span class="left-tools__icon_frame">
-              <img src="{% static 'img/bayleaf.png' %}" alt="" aria-hidden="true">
+              <img
+                src="{% static 'img/bayleaf.png' %}"
+                alt=""
+                aria-hidden="true"
+              />
             </span>
             <span class="left-tools__icon_label">Lernen</span>
           </button>
-          <button type="button" class="left-tools__icon_btn" id="shopScaleTrigger" aria-label="Shop &ouml;ffnen" title="Shop">
+          <button
+            type="button"
+            class="left-tools__icon_btn"
+            id="shopScaleTrigger"
+            aria-label="Shop &ouml;ffnen"
+            title="Shop"
+          >
             <span class="left-tools__icon_frame">
-              <img src="{% static 'img/balance.png' %}" alt="" aria-hidden="true">
+              <img
+                src="{% static 'img/balance.png' %}"
+                alt=""
+                aria-hidden="true"
+              />
             </span>
             <span class="left-tools__icon_label">Shop</span>
           </button>
-          <button type="button" class="left-tools__icon_btn" id="diaryTrigger" aria-label="Chronik &ouml;ffnen" title="Chronik">
+          <button
+            type="button"
+            class="left-tools__icon_btn"
+            id="diaryTrigger"
+            aria-label="Chronik &ouml;ffnen"
+            title="Chronik"
+          >
             <span class="left-tools__icon_frame">
-              <img src="{% static 'img/book.png' %}" alt="" aria-hidden="true">
+              <img
+                src="{% static 'img/book.png' %}"
+                alt=""
+                aria-hidden="true"
+              />
             </span>
             <span class="left-tools__icon_label">Chronik</span>
           </button>
-          <a class="left-tools__icon_btn left-tools__icon_btn--link" href="{% url 'dashboard' %}" aria-label="Zum Dashboard" title="Dashboard">
+          <a
+            class="left-tools__icon_btn left-tools__icon_btn--link"
+            href="{% url 'dashboard' %}"
+            aria-label="Zum Dashboard"
+            title="Dashboard"
+          >
             <span class="left-tools__icon_frame">
-              <img src="{% static 'img/scroll.png' %}" alt="" aria-hidden="true">
+              <img
+                src="{% static 'img/scroll.png' %}"
+                alt=""
+                aria-hidden="true"
+              />
             </span>
             <span class="left-tools__icon_label">Codex</span>
           </a>
         </div>
 
         <div class="left-tools__cluster left-tools__cluster--resources">
-          <section class="left-tools__group left-tools__group--resource" aria-label="Geld">
+          <section
+            class="left-tools__group left-tools__group--resource"
+            aria-label="Geld"
+          >
             <h3>Geld</h3>
-            <form method="post" action="{% url 'adjust_money' character.id %}" class="left-tools__form">
+            <form
+              method="post"
+              action="{% url 'adjust_money' character.id %}"
+              class="left-tools__form"
+            >
               {% csrf_token %}
               <label class="left-tools__input_wrap">
                 <input
@@ -111,15 +174,26 @@
                   value="0"
                   placeholder="+ / -"
                   aria-label="Geld&auml;nderung positiv oder negativ"
+                />
+                <span class="left-tools__unit_inset" aria-hidden="true"
+                  >KS</span
                 >
-                <span class="left-tools__unit_inset" aria-hidden="true">KS</span>
               </label>
-              <button type="submit" class="wallet_apply_btn left-tools__apply">OK</button>
+              <button type="submit" class="wallet_apply_btn left-tools__apply">
+                OK
+              </button>
             </form>
           </section>
-          <section class="left-tools__group left-tools__group--resource" aria-label="Erfahrung">
+          <section
+            class="left-tools__group left-tools__group--resource"
+            aria-label="Erfahrung"
+          >
             <h3>Erfahrung</h3>
-            <form method="post" action="{% url 'adjust_experience' character.id %}" class="left-tools__form">
+            <form
+              method="post"
+              action="{% url 'adjust_experience' character.id %}"
+              class="left-tools__form"
+            >
               {% csrf_token %}
               <label class="left-tools__input_wrap">
                 <input
@@ -131,10 +205,14 @@
                   value="0"
                   placeholder="+ / -"
                   aria-label="Erfahrungs&auml;nderung positiv oder negativ"
+                />
+                <span class="left-tools__unit_inset" aria-hidden="true"
+                  >EP</span
                 >
-                <span class="left-tools__unit_inset" aria-hidden="true">EP</span>
               </label>
-              <button type="submit" class="wallet_apply_btn left-tools__apply">OK</button>
+              <button type="submit" class="wallet_apply_btn left-tools__apply">
+                OK
+              </button>
             </form>
           </section>
         </div>
@@ -148,29 +226,53 @@
         <section class="p2_layout">
           <aside class="p2_left_col">
             <div class="p2_panel p2_core_stats">
-              <div class="core_cols" aria-hidden="true"><span>Wert</span><span>mit Bel.</span></div>
+              <div class="core_cols" aria-hidden="true">
+                <span>Wert</span><span>mit Bel.</span>
+              </div>
               <div class="core_item">
                 <div class="core_main">
                   <span class="core_name">Initiative</span>
-                  <span class="core_value">{{ core_stats.initiative_display }}</span>
-                  <span class="core_value">{{ core_stats.initiative_with_load_display }}</span>
+                  <span class="core_value"
+                    >{{ core_stats.initiative_display }}</span
+                  >
+                  <span class="core_value"
+                    >{{ core_stats.initiative_with_load_display }}</span
+                  >
                 </div>
                 <div class="core_formula">Ge-Bonus/Malus + Mod.</div>
               </div>
               <div class="core_item">
-                <div class="core_main single"><span class="core_name">Verteidigungswert (VW)</span><span class="core_value">{{ core_stats.vw }}</span></div>
-                <div class="core_formula">14 + Ge-Bonus/Malus + Wa-Bonus/Malus + GK + Mod.</div>
+                <div class="core_main single">
+                  <span class="core_name">Verteidigungswert (VW)</span
+                  ><span class="core_value">{{ core_stats.vw }}</span>
+                </div>
+                <div class="core_formula">
+                  14 + Ge-Bonus/Malus + Wa-Bonus/Malus + GK + Mod.
+                </div>
               </div>
               <div class="core_item">
-                <div class="core_main single"><span class="core_name">Schockresistenz (SR)</span><span class="core_value">{{ core_stats.sr }}</span></div>
-                <div class="core_formula">14 + St-Bonus/Malus + Kon-Bonus/Malus + Mod.</div>
+                <div class="core_main single">
+                  <span class="core_name">Schockresistenz (SR)</span
+                  ><span class="core_value">{{ core_stats.sr }}</span>
+                </div>
+                <div class="core_formula">
+                  14 + St-Bonus/Malus + Kon-Bonus/Malus + Mod.
+                </div>
               </div>
               <div class="core_item">
-                <div class="core_main single"><span class="core_name">Geistiger Widerstand (GW)</span><span class="core_value">{{ core_stats.gw }}</span></div>
-                <div class="core_formula">14 + Int-Bonus/Malus + Will-Bonus/Malus + Mod.</div>
+                <div class="core_main single">
+                  <span class="core_name">Geistiger Widerstand (GW)</span
+                  ><span class="core_value">{{ core_stats.gw }}</span>
+                </div>
+                <div class="core_formula">
+                  14 + Int-Bonus/Malus + Will-Bonus/Malus + Mod.
+                </div>
               </div>
               <div class="core_item">
-                <div class="core_main single"><span class="core_name">Arkane Macht (KP)</span><span class="core_value">{{ core_stats.arcane_power }}</span></div>
+                <div class="core_main single">
+                  <span class="core_name">Arkane Macht (KP)</span
+                  ><span class="core_value">{{ core_stats.arcane_power }}</span>
+                </div>
                 <div class="core_formula">Will + Stufen in Schulen + Mod.</div>
               </div>
             </div>
@@ -178,28 +280,98 @@
             <div class="p2_panel p2_damage">
               <h2>Schaden</h2>
               <div class="damage_display">
-                <div class="damage_circle_wrap" aria-label="Aktueller Schaden und Wundstufen-Malus">
+                <div
+                  class="damage_circle_wrap"
+                  aria-label="Aktueller Schaden und Wundstufen-Malus"
+                >
                   <span class="damage_circle">
-                    <span class="damage_current_value">{{ character.current_damage }}</span>
+                    <span class="damage_current_value"
+                      >{{ character.current_damage }}</span
+                    >
                   </span>
-                  <span class="damage_max_circle">{{ current_damage_max }}</span>
-                  <span class="wound_penalty_circle{% if is_wound_penalty_ignored %} is-disabled{% endif %}">{{ current_wound_penalty }}</span>
+                  <span class="damage_max_circle"
+                    >{{ current_damage_max }}</span
+                  >
+                  <span
+                    class="wound_penalty_circle{% if is_wound_penalty_ignored %} is-disabled{% endif %}"
+                    >{{ current_wound_penalty }}</span
+                  >
                 </div>
                 <p class="wound_stage_text">{{ current_wound_stage }}</p>
               </div>
-              <form method="post" action="{% url 'adjust_current_damage' character.id %}" class="damage_actions">
+              <form
+                method="post"
+                action="{% url 'adjust_current_damage' character.id %}"
+                class="damage_actions"
+              >
                 {% csrf_token %}
-                <input type="hidden" name="action" class="damage_action_input" value="">
-                <input type="hidden" name="amount" class="damage_amount_input" value="1">
-                <div class="damage_actions_table" role="group" aria-label="Schadensanpassung">
+                <input
+                  type="hidden"
+                  name="action"
+                  class="damage_action_input"
+                  value=""
+                />
+                <input
+                  type="hidden"
+                  name="amount"
+                  class="damage_amount_input"
+                  value="1"
+                />
+                <div
+                  class="damage_actions_table"
+                  role="group"
+                  aria-label="Schadensanpassung"
+                >
                   <span class="damage_actions_head">Heal</span>
                   <span class="damage_actions_head">Damage</span>
-                  <button type="button" data-action="heal" data-amount="1" class="damage_action_btn">-1</button>
-                  <button type="button" data-action="damage" data-amount="1" class="damage_action_btn">+1</button>
-                  <button type="button" data-action="heal" data-amount="5" class="damage_action_btn">-5</button>
-                  <button type="button" data-action="damage" data-amount="5" class="damage_action_btn">+5</button>
-                  <button type="button" data-action="heal" data-amount="10" class="damage_action_btn">-10</button>
-                  <button type="button" data-action="damage" data-amount="10" class="damage_action_btn">+10</button>
+                  <button
+                    type="button"
+                    data-action="heal"
+                    data-amount="1"
+                    class="damage_action_btn"
+                  >
+                    -1
+                  </button>
+                  <button
+                    type="button"
+                    data-action="damage"
+                    data-amount="1"
+                    class="damage_action_btn"
+                  >
+                    +1
+                  </button>
+                  <button
+                    type="button"
+                    data-action="heal"
+                    data-amount="5"
+                    class="damage_action_btn"
+                  >
+                    -5
+                  </button>
+                  <button
+                    type="button"
+                    data-action="damage"
+                    data-amount="5"
+                    class="damage_action_btn"
+                  >
+                    +5
+                  </button>
+                  <button
+                    type="button"
+                    data-action="heal"
+                    data-amount="10"
+                    class="damage_action_btn"
+                  >
+                    -10
+                  </button>
+                  <button
+                    type="button"
+                    data-action="damage"
+                    data-amount="10"
+                    class="damage_action_btn"
+                  >
+                    +10
+                  </button>
                 </div>
               </form>
             </div>
@@ -209,23 +381,38 @@
                 <h2 class="wallet_title">Geldb&ouml;rse</h2>
                 <div class="wallet_inline_tooltip" aria-live="polite">
                   <span>{{ wallet_total_ks }}</span>
-                  <span class="wallet_coin wallet_coin--copper wallet_coin--inline" aria-hidden="true"></span>
+                  <span
+                    class="wallet_coin wallet_coin--copper wallet_coin--inline"
+                    aria-hidden="true"
+                  ></span>
                 </div>
               </div>
               <div class="wallet_rows" aria-label="M&uuml;nzwerte">
                 <div class="wallet_row">
                   <span class="wallet_value">{{ wallet_gold }}</span>
-                  <span class="wallet_coin wallet_coin--gold" aria-hidden="true"></span>
+                  <span
+                    class="wallet_coin wallet_coin--gold"
+                    aria-hidden="true"
+                  ></span>
                 </div>
                 <div class="wallet_row">
                   <span class="wallet_value">{{ wallet_silver }}</span>
-                  <span class="wallet_coin wallet_coin--silver" aria-hidden="true"></span>
+                  <span
+                    class="wallet_coin wallet_coin--silver"
+                    aria-hidden="true"
+                  ></span>
                 </div>
                 <div class="wallet_row">
                   <span class="wallet_value">{{ wallet_copper }}</span>
-                  <span class="wallet_coin wallet_coin--copper" aria-hidden="true"></span>
+                  <span
+                    class="wallet_coin wallet_coin--copper"
+                    aria-hidden="true"
+                  ></span>
                 </div>
-                <div class="wallet_rows_hover_hitbox js-wallet-coin" aria-hidden="true"></div>
+                <div
+                  class="wallet_rows_hover_hitbox js-wallet-coin"
+                  aria-hidden="true"
+                ></div>
               </div>
             </div>
 
@@ -239,52 +426,96 @@
               <div class="body_grid">
                 <ul class="body_side body_side--left">
                   <li class="zone_group">
-                    <div class="zone_main"><span>Schild (-4)</span><span class="pill empty"></span></div>
+                    <div class="zone_main">
+                      <span>Schild (-4)</span><span class="pill empty"></span>
+                    </div>
                     <ul class="zone_sub zone_checks">
                       <li><span class="checkbox"></span><span>links</span></li>
                       <li><span class="checkbox"></span><span>rechts</span></li>
                     </ul>
                   </li>
                   <li class="zone_group">
-                    <div class="zone_main"><span>Rechter Arm (-4)</span><span class="pill empty"></span></div>
+                    <div class="zone_main">
+                      <span>Rechter Arm (-4)</span
+                      ><span class="pill empty"></span>
+                    </div>
                     <ul class="zone_sub">
-                      <li><span>Rechte Hand (-8)</span><span class="pill empty"></span></li>
+                      <li>
+                        <span>Rechte Hand (-8)</span
+                        ><span class="pill empty"></span>
+                      </li>
                     </ul>
                   </li>
                   <li class="zone_group">
-                    <div class="zone_main"><span>Rechtes Bein (-3)</span><span class="pill empty"></span></div>
+                    <div class="zone_main">
+                      <span>Rechtes Bein (-3)</span
+                      ><span class="pill empty"></span>
+                    </div>
                     <ul class="zone_sub">
-                      <li><span>Rechter Fu&szlig; (-8)</span><span class="pill empty"></span></li>
+                      <li>
+                        <span>Rechter Fu&szlig; (-8)</span
+                        ><span class="pill empty"></span>
+                      </li>
                     </ul>
                   </li>
                 </ul>
                 <div class="body_center" aria-hidden="true"></div>
                 <ul class="body_side body_side--right">
                   <li class="zone_group">
-                    <div class="zone_main"><span>Kopf (-6)</span><span class="pill empty"></span></div>
+                    <div class="zone_main">
+                      <span>Kopf (-6)</span><span class="pill empty"></span>
+                    </div>
                     <ul class="zone_sub">
-                      <li><span>Gesicht (-8)</span><span class="pill empty"></span></li>
-                      <li><span>Augen (-9 / -14)</span><span class="pill empty"></span></li>
-                      <li><span>Hals (-10)</span><span class="pill empty"></span></li>
+                      <li>
+                        <span>Gesicht (-8)</span
+                        ><span class="pill empty"></span>
+                      </li>
+                      <li>
+                        <span>Augen (-9 / -14)</span
+                        ><span class="pill empty"></span>
+                      </li>
+                      <li>
+                        <span>Hals (-10)</span><span class="pill empty"></span>
+                      </li>
                     </ul>
                   </li>
                   <li class="zone_group">
-                    <div class="zone_main"><span>Torso (-2)</span><span class="pill empty"></span></div>
+                    <div class="zone_main">
+                      <span>Torso (-2)</span><span class="pill empty"></span>
+                    </div>
                     <ul class="zone_sub">
-                      <li><span>Organe (-10)</span><span class="pill empty"></span></li>
-                      <li><span>Weichteile (-8)</span><span class="pill empty"></span></li>
+                      <li>
+                        <span>Organe (-10)</span
+                        ><span class="pill empty"></span>
+                      </li>
+                      <li>
+                        <span>Weichteile (-8)</span
+                        ><span class="pill empty"></span>
+                      </li>
                     </ul>
                   </li>
                   <li class="zone_group">
-                    <div class="zone_main"><span>Linker Arm (-4)</span><span class="pill empty"></span></div>
+                    <div class="zone_main">
+                      <span>Linker Arm (-4)</span
+                      ><span class="pill empty"></span>
+                    </div>
                     <ul class="zone_sub">
-                      <li><span>Linke Hand (-8)</span><span class="pill empty"></span></li>
+                      <li>
+                        <span>Linke Hand (-8)</span
+                        ><span class="pill empty"></span>
+                      </li>
                     </ul>
                   </li>
                   <li class="zone_group">
-                    <div class="zone_main"><span>Linkes Bein (-3)</span><span class="pill empty"></span></div>
+                    <div class="zone_main">
+                      <span>Linkes Bein (-3)</span
+                      ><span class="pill empty"></span>
+                    </div>
                     <ul class="zone_sub">
-                      <li><span>Linker Fu&szlig; (-8)</span><span class="pill empty"></span></li>
+                      <li>
+                        <span>Linker Fu&szlig; (-8)</span
+                        ><span class="pill empty"></span>
+                      </li>
                     </ul>
                   </li>
                 </ul>
@@ -302,7 +533,8 @@
               </div>
               <div class="move_labels">
                 <span class="move_spacer" aria-hidden="true"></span>
-                <span>Kampf</span><span>Marsch</span><span>Sprint</span><span>Schwimmend</span><span>Fliegend</span>
+                <span>Kampf</span><span>Marsch</span><span>Sprint</span
+                ><span>Schwimmend</span><span>Fliegend</span>
               </div>
             </div>
 
@@ -311,7 +543,32 @@
               <div class="panel_scroll schools_scroll">
                 <ul class="p2_lines p2_short_lines">
                   {% for row in school_technique_rows %}
-                    <li class="school_row_with_tooltip tooltip_target" data-tooltip-side="left" data-tooltip="{{ row.description|default:'Keine Beschreibung' }}">{{ row.level }} - {{ row.school_name }} - {{ row.technique_name }}</li>
+                  <li
+                    class="school_row_with_tooltip tooltip_target"
+                    data-tooltip-side="left"
+                    data-tooltip="{{ row.description|default:'Keine Beschreibung' }}"
+                  >
+                    <div class="skill_name_wrap">
+                      <span class="skill_name_text">{{ row.level }} - {{ row.school_name }} - {{ row.entry_name }}</span>
+                      {% if row.can_edit_specification %}
+                        <button
+                          type="button"
+                          class="skill_spec_edit_btn"
+                          data-technique-spec-trigger
+                          data-technique-name="{{ row.entry_name }}"
+                          data-specification-value="{{ row.specification_value }}"
+                          data-action="{% url 'update_technique_specification' character.id row.technique_id %}"
+                          aria-label="{{ row.entry_name }} bearbeiten"
+                          title="{{ row.entry_name }} bearbeiten"
+                        >
+                          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                            <path d="M4 20h4l10-10-4-4L4 16v4z"></path>
+                            <path d="M13.8 6.2l4 4"></path>
+                          </svg>
+                        </button>
+                      {% endif %}
+                    </div>
+                  </li>
                   {% endfor %}
                 </ul>
               </div>
@@ -323,17 +580,18 @@
       </article>
     </main>
 
-    {{ wound_threshold_rows|json_script:"wound-thresholds-data" }}
-    {% include "charsheet/partials/_shop_panel.html" %}
-    {% include "charsheet/partials/_learning_panel.html" %}
+    {{ wound_threshold_rows|json_script:"wound-thresholds-data" }} 
+    {% include "charsheet/partials/_shop_panel.html" %} 
+    {% include "charsheet/partials/_learning_panel.html" %} 
     {% include "charsheet/partials/_diary_panel.html" %}
 
     <div aria-hidden="true" class="firefly-layer">
-      {% for _ in '123456789012345' %}<div class="firefly"></div>{% endfor %}
+      {% for _ in '123456789012345' %}
+      <div class="firefly"></div>
+      {% endfor %}
     </div>
 
-    <script src="{% static 'js/charsheet_tooltips.js' %}?v=20260315b"></script>
+    <script type="module" src="{% static 'js/charsheet/bootstrap.js' %}?v=20260320a"></script>
     <script src="{% static 'js/charsheet_diary.js' %}?v=20260315a"></script>
   </body>
 </html>
-

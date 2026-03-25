@@ -33,6 +33,7 @@ class Skill(models.Model):
     name = models.CharField(max_length=100, unique=True)
     slug = models.SlugField(max_length=100, unique=True)
     category = models.ForeignKey(SkillCategory, on_delete=models.PROTECT)
+    family = models.SlugField(max_length=50, blank=True)
     attribute = models.ForeignKey(Attribute, on_delete=models.PROTECT)
     description = models.TextField(blank=True)
     requires_specification = models.BooleanField(default=False)
