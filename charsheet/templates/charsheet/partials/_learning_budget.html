@@ -1,0 +1,17 @@
+<div class="sheet-window__metrics learn_budget_panel" id="learnBudgetPanel" data-learn-budget="{{ character.current_experience }}">
+  <div class="learn_budget_grid">
+    <div class="shop_cart_total_row">
+      <span>EP Budget</span>
+      <span id="learnBudgetValue">{{ character.current_experience }} EP</span>
+    </div>
+    <div class="shop_cart_total_row">
+      <span>Verbrauch</span>
+      <span id="learnSpentValue">0 EP</span>
+    </div>
+    <div class="shop_cart_total_row">
+      <span>Rest</span>
+      <span id="learnRemainingValue">{{ character.current_experience }} EP</span>
+    </div>
+  </div>
+  <p id="learnValidationHint" class="form_error learn_validation_hint" hidden></p>
+</div>

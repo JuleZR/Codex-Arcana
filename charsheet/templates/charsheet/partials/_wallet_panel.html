@@ -1,0 +1,24 @@
+<div class="p2_panel p2_wallet" id="sheetWalletPanel">
+  <div class="wallet_header">
+    <h2 class="wallet_title">Geldb&ouml;rse</h2>
+    <div class="wallet_inline_tooltip" aria-live="polite">
+      <span>{{ wallet_total_ks }}</span>
+      <span class="wallet_coin wallet_coin--copper wallet_coin--inline" aria-hidden="true"></span>
+    </div>
+  </div>
+  <div class="wallet_rows" aria-label="M&uuml;nzwerte">
+    <div class="wallet_row">
+      <span class="wallet_value">{{ wallet_gold }}</span>
+      <span class="wallet_coin wallet_coin--gold" aria-hidden="true"></span>
+    </div>
+    <div class="wallet_row">
+      <span class="wallet_value">{{ wallet_silver }}</span>
+      <span class="wallet_coin wallet_coin--silver" aria-hidden="true"></span>
+    </div>
+    <div class="wallet_row">
+      <span class="wallet_value">{{ wallet_copper }}</span>
+      <span class="wallet_coin wallet_coin--copper" aria-hidden="true"></span>
+    </div>
+    <div class="wallet_rows_hover_hitbox js-wallet-coin" aria-hidden="true"></div>
+  </div>
+</div>

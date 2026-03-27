@@ -1,0 +1,30 @@
+<div class="fame_wrapper" id="sheetFamePanel">
+  <div class="fame_header">
+    <h2>Ruhm</h2>
+    <div class="fame_total_wrap">
+      <span class="rank_total_input">{% if fame_total_rank == 0 %}-{% else %}{{ fame_total_rank }}{% endif %}</span>
+      <span class="fame_total_label">Gesamtrang</span>
+    </div>
+  </div>
+  <div class="fame_rank_inputs" aria-label="Rangwerte">
+    <span class="rank_input">{% if character.personal_fame_rank == 0 %}-{% else %}{{ character.personal_fame_rank }}{% endif %}</span>
+    <span class="rank_input">{% if character.sacrifice_rank == 0 %}-{% else %}{{ character.sacrifice_rank }}{% endif %}</span>
+    <span class="rank_input">{% if character.artefact_rank == 0 %}-{% else %}{{ character.artefact_rank }}{% endif %}</span>
+  </div>
+  <div class="fame_ranks" aria-label="Rangfelder">
+    <span>Pers&ouml;nlicher Rang</span>
+    <span>Opferrang</span>
+    <span>Artefaktrang</span>
+  </div>
+  <form method="post" action="{% url 'adjust_personal_fame_point' character.id %}" class="fame_adjust_form" data-sheet-action>
+    {% csrf_token %}
+    <button type="submit" name="delta" value="-1" class="fame_step_btn" aria-label="Ruhmpunkt verringern">-</button>
+    <div class="fame_dots" aria-label="Ruhmpunkte">
+      {% for _ in '1234567890' %}
+        <span class="dot{% if forloop.counter <= character.personal_fame_point %} is-filled{% endif %}"></span>
+      {% endfor %}
+    </div>
+    <button type="submit" name="delta" value="1" class="fame_step_btn" aria-label="Ruhmpunkt erh&ouml;hen">+</button>
+  </form>
+  <p class="fame_hint">Ruhmpunkte 10 - 1 Pers&ouml;nlicher Rang</p>
+</div>

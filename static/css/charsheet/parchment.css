@@ -1,0 +1,55 @@
+/* Shared parchment language and motion preferences */
+
+/* Final spread tone harmonization (kept at file end so it wins the cascade) */
+.page {
+  background:
+    linear-gradient(180deg, rgba(242, 240, 234, 0.72), rgba(230, 226, 216, 0.68)),
+    url("/static/img/pergamentbg.jpg") center / cover no-repeat !important;
+  background-blend-mode: multiply, normal !important;
+}
+
+.page:first-child,
+.page.page--secondary {
+  position: relative;
+}
+
+.page:first-child::after,
+.page.page--secondary::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background: rgba(252, 250, 244, 0.14);
+}
+
+.page.page--secondary::after {
+  background: rgba(252, 250, 244, 0.2);
+}
+
+.page:first-child > *,
+.page.page--secondary > * {
+  position: relative;
+  z-index: 1;
+}
+
+.char_info_box,
+.attribute_wrapper,
+.exp_wrapper,
+.fame_wrapper,
+.reputation_wrapper,
+.language_wrapper,
+.p1_bottom_right,
+.p2_panel,
+.p2_core_stats {
+  background: linear-gradient(180deg, rgba(247, 243, 232, 0.62), rgba(236, 230, 216, 0.54)) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .firefly,
+  .firefly::before,
+  .firefly::after {
+    animation: none;
+  }
+}
+

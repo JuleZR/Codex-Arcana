@@ -1,0 +1,116 @@
+<section class="payday-window payday-window--item-create learn_choice_window" id="learnChoiceWindow" aria-hidden="true">
+  <div class="payday-window__titlebar" id="learnChoiceWindowHandle">
+    <h3 class="payday-window__title" id="learnChoiceWindowTitle">
+      {% if learn_pending_decisions|length > 1 %}Ausstehende Entscheidungen{% else %}Ausstehende Entscheidung{% endif %}
+    </h3>
+    <button type="button" class="payday-window__close" id="learnChoiceWindowClose" aria-label="Choice-Fenster schließen">x</button>
+  </div>
+  <div class="payday-window__body learn_choice_window_body">
+    <form id="learnChoiceForm" class="learn_choice_form" novalidate>
+      <p class="learn_choice_window_intro" id="learnChoiceWindowIntro">
+        {% if learn_pending_decisions|length > 1 %}
+          Alle offenen Choices sind hier gebündelt und können in einem gemeinsamen Fenster bearbeitet werden.
+        {% else %}
+          Diese offene Choice wird als eigener Entscheidungsvorgang behandelt.
+        {% endif %}
+      </p>
+      <div class="learn_choice_decision_list" id="learnChoiceDecisionList">
+        {% for decision in learn_pending_decisions %}
+          <details
+            class="learn_choice_decision{% if not decision.supported %} is-unsupported{% endif %}"
+            data-choice-decision-id="{{ decision.decision_id }}"
+            data-choice-title="{{ decision.title }}"
+            data-choice-input-type="{{ decision.input_type }}"
+            data-choice-selection-group="{{ decision.selection_group_id }}"
+            {% if forloop.first %}open{% endif %}
+          >
+            <summary class="learn_choice_decision_toggle">
+              <div class="learn_choice_decision_toggle_text">
+                <span class="learn_choice_decision_title">{{ decision.title|default:"Ausstehende Entscheidung" }}</span>
+                <span class="learn_choice_decision_summary">{{ decision.summary|default:decision.prompt|default:"Auswahl treffen" }}</span>
+              </div>
+            </summary>
+
+            <div class="learn_choice_decision_body">
+              {% if decision.description %}
+                <p class="learn_choice_decision_description">{{ decision.description }}</p>
+              {% endif %}
+              <p class="learn_choice_decision_prompt">{{ decision.prompt|default:"Auswahl treffen" }}</p>
+
+              {% if decision.input_type == "unsupported" %}
+                <p class="learn_choice_decision_note">
+                  {{ decision.description|default:"Dieser Auswahltyp ist derzeit im Lernmenü noch nicht direkt belegbar." }}
+                </p>
+              {% elif decision.input_type == "text" %}
+                <div class="learn_choice_text_wrap">
+                  <label class="learn_choice_text_label" for="learnChoiceText-{{ decision.decision_id }}">Eintrag</label>
+                  <input
+                    type="text"
+                    id="learnChoiceText-{{ decision.decision_id }}"
+                    class="learn_inline_text learn_choice_text_input"
+                    autocomplete="off"
+                    placeholder="{{ decision.text_placeholder|default:'Eintrag' }}"
+                    data-choice-text-input
+                    data-choice-submit-name="{{ decision.text_submit_name }}"
+                  >
+                </div>
+              {% else %}
+                {% if decision.options|length > 5 %}
+                  <input
+                    type="search"
+                    class="learn_inline_text learn_choice_search_input"
+                    autocomplete="off"
+                    placeholder="Auswahl durchsuchen"
+                    aria-label="{{ decision.title|default:'Auswahl' }} durchsuchen"
+                    data-choice-search-input
+                  >
+                {% endif %}
+                <fieldset class="learn_choice_options" data-choice-options>
+                  {% for option in decision.options %}
+                    <label
+                      class="learn_choice_option"
+                      data-choice-search="{{ option.label }} {{ option.meta }} {{ option.description }}"
+                    >
+                      <input
+                        type="radio"
+                        name="learnChoiceSelection-{{ decision.decision_id }}"
+                        value="{{ option.id }}"
+                        data-choice-option-id="{{ option.id }}"
+                        data-choice-submit-name="{{ option.submit_name }}"
+                        data-choice-submit-value="{{ option.submit_value }}"
+                      >
+                      <span>
+                        <span class="learn_choice_option_title">{{ option.label }}</span>
+                        {% if option.meta %}
+                          <span class="learn_choice_option_meta">{{ option.meta }}</span>
+                        {% endif %}
+                        {% if option.description %}
+                          <span class="learn_choice_option_description">{{ option.description }}</span>
+                        {% endif %}
+                      </span>
+                    </label>
+                  {% endfor %}
+                </fieldset>
+                <p class="learn_choice_search_empty" data-choice-empty-state hidden>Keine passende Option gefunden.</p>
+              {% endif %}
+            </div>
+          </details>
+        {% endfor %}
+      </div>
+
+      <p class="form_error learn_choice_hint" id="learnChoiceHint" hidden></p>
+
+      <div class="learn_choice_actions">
+        <button
+          type="submit"
+          id="learnChoiceConfirmBtn"
+          class="shop_buy_btn"
+          {% if not learn_pending_decisions %}disabled{% endif %}
+        >
+          Auswahl übernehmen
+        </button>
+        <button type="button" id="learnChoiceCancelBtn" class="shop_item_cancel_btn">Schliessen</button>
+      </div>
+    </form>
+  </div>
+</section>

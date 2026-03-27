@@ -16,6 +16,7 @@ from django.db import transaction
 from django.db.models import Sum
 from django.db.models.deletion import ProtectedError
 from django.utils import timezone
+from django.template.loader import render_to_string
 from django.urls import reverse_lazy
 from .engine import CharacterCreationEngine
 from .engine.dice_engine import DiceEngine
@@ -60,6 +61,18 @@ ATTRIBUTE_ORDER = [
     ("CHA", "Charisma (Cha)"),
 ]
 DIARY_ENTRY_CHAR_LIMIT = 2200
+SHEET_PARTIAL_TEMPLATES = {
+    "load_panel": ("sheetLoadPanel", "charsheet/partials/_load_panel.html"),
+    "core_stats_panel": ("sheetCoreStatsPanel", "charsheet/partials/_core_stats_panel.html"),
+    "damage_panel": ("sheetDamagePanel", "charsheet/partials/_damage_panel.html"),
+    "wallet_panel": ("sheetWalletPanel", "charsheet/partials/_wallet_panel.html"),
+    "experience_panel": ("sheetExperiencePanel", "charsheet/partials/_experience_panel.html"),
+    "fame_panel": ("sheetFamePanel", "charsheet/partials/_fame_panel.html"),
+    "inventory_panel": ("sheetInventoryPanel", "charsheet/partials/_inventory_panel.html"),
+    "armor_panel": ("sheetArmorPanel", "charsheet/partials/_armor_panel.html"),
+    "weapon_panel": ("sheetWeaponPanel", "charsheet/partials/_weapon_table.html"),
+    "learning_budget": ("learnBudgetPanel", "charsheet/partials/_learning_budget.html"),
+}
 
 
 @login_required
@@ -309,6 +322,49 @@ def _read_json_payload(request) -> dict[str, object]:
     return payload if isinstance(payload, dict) else {}
 
 
+def _is_partial_request(request) -> bool:
+    """Return whether the caller expects JSON-wrapped rendered partials."""
+    return (
+        request.headers.get("x-requested-with") == "XMLHttpRequest"
+        or request.META.get("HTTP_X_REQUESTED_WITH") == "XMLHttpRequest"
+        or "application/json" in request.headers.get("accept", "")
+        or request.POST.get("ajax") == "1"
+    )
+
+
+def _build_sheet_context_for_request(request, character: Character, *, close_learn_window_once: bool = False) -> dict[str, object]:
+    """Build the full sheet context including request-specific dice settings."""
+    context = build_character_sheet_context(
+        character,
+        close_learn_window_once=close_learn_window_once,
+    )
+    user_settings, _ = UserSettings.objects.get_or_create(user=request.user)
+    context["dddice_enabled"] = user_settings.dddice_enabled
+    context["dddice_config"] = {
+        "apiKey": user_settings.dddice_api_key,
+        "roomId": user_settings.dddice_room_id,
+        "roomPassword": user_settings.dddice_room_password,
+        "themeId": user_settings.dddice_theme_id,
+    }
+    context["request"] = request
+    return context
+
+
+def _sheet_partials_response(request, character: Character, *partial_keys: str) -> JsonResponse:
+    """Render one or more server-truth sheet partials for targeted DOM replacement."""
+    context = _build_sheet_context_for_request(request, character)
+    partials: list[dict[str, str]] = []
+    for key in partial_keys:
+        target_id, template_name = SHEET_PARTIAL_TEMPLATES[key]
+        partials.append(
+            {
+                "target": target_id,
+                "html": render_to_string(template_name, context, request=request),
+            }
+        )
+    return JsonResponse({"ok": True, "partials": partials})
+
+
 def _character_dashboard_state(character: Character) -> dict[str, str]:
     """Build one compact status payload for dashboard character rows."""
     wound_stage, _penalty = character.engine.current_wound_stage()
@@ -328,21 +384,11 @@ def character_sheet(request, character_id: int):
     character = _owned_character_or_404(request, character_id)
     character.last_opened_at = timezone.now()
     character.save(update_fields=["last_opened_at"])
-
-    user_settings, _ = UserSettings.objects.get_or_create(user=request.user)
-
-    context = build_character_sheet_context(
+    context = _build_sheet_context_for_request(
+        request,
         character,
         close_learn_window_once=bool(request.session.pop("close_learn_window_once", False)),
     )
-
-    context["dddice_enabled"] = user_settings.dddice_enabled
-    context["dddice_config"] = {
-        "apiKey": user_settings.dddice_api_key,
-        "roomId": user_settings.dddice_room_id,
-        "roomPassword": user_settings.dddice_room_password,
-        "themeId": user_settings.dddice_theme_id,
-    }
 
     return render(request, "charsheet/charsheet.html", context)
 
@@ -508,6 +554,8 @@ def adjust_personal_fame_point(request, character_id: int):
                 character.personal_fame_point = 9
 
     character.save(update_fields=["personal_fame_point", "personal_fame_rank"])
+    if _is_partial_request(request):
+        return _sheet_partials_response(request, character, "fame_panel")
     return redirect("character_sheet", character_id=character.id)
 
 
@@ -1160,6 +1208,16 @@ def toggle_equip(request, pk):
 
     ci.equipped = not ci.equipped
     ci.save(update_fields=["equipped"])
+    if _is_partial_request(request):
+        return _sheet_partials_response(
+            request,
+            ci.owner,
+            "load_panel",
+            "core_stats_panel",
+            "inventory_panel",
+            "armor_panel",
+            "weapon_panel",
+        )
 
     return redirect("character_sheet", character_id=ci.owner_id)
 
@@ -1179,6 +1237,9 @@ def consume_item(request, pk):
         ci.save(update_fields=["amount"])
     else:
         ci.delete()
+    if _is_partial_request(request):
+        character = _owned_character_or_404(request, owner_id)
+        return _sheet_partials_response(request, character, "inventory_panel")
 
     return redirect("character_sheet", character_id=owner_id)
 
@@ -1198,6 +1259,9 @@ def remove_item(request, pk):
         ci.save(update_fields=["amount"])
     else:
         ci.delete()
+    if _is_partial_request(request):
+        character = _owned_character_or_404(request, owner_id)
+        return _sheet_partials_response(request, character, "inventory_panel")
 
     return redirect("character_sheet", character_id=owner_id)
 
@@ -1205,7 +1269,7 @@ def remove_item(request, pk):
 @login_required
 @require_POST
 def adjust_current_damage(request, character_id: int):
-    """Increase or decrease current damage and return updated damage state."""
+    """Increase or decrease current damage and return updated damage partials."""
     character = _owned_character_or_404(request, character_id)
     action = request.POST.get("action")
     try:
@@ -1220,30 +1284,8 @@ def adjust_current_damage(request, character_id: int):
 
     character.save(update_fields=["current_damage"])
 
-    is_ajax = (
-        request.headers.get("x-requested-with") == "XMLHttpRequest"
-        or request.META.get("HTTP_X_REQUESTED_WITH") == "XMLHttpRequest"
-        or "application/json" in request.headers.get("accept", "")
-        or request.POST.get("ajax") == "1"
-    )
-    if is_ajax:
-        engine = character.engine
-        wound_stage, _ = engine.current_wound_stage()
-        wound_penalty_display = (
-            "-"
-            if wound_stage == "-"
-            else _format_modifier(engine.current_wound_penalty_raw())
-        )
-        wound_thresholds = engine.wound_thresholds()
-        return JsonResponse(
-            {
-                "current_damage": character.current_damage,
-                "current_wound_stage": wound_stage,
-                "current_wound_penalty": wound_penalty_display,
-                "is_wound_penalty_ignored": engine.is_wound_penalty_ignored(),
-                "current_damage_max": max(wound_thresholds.keys()) if wound_thresholds else 0,
-            }
-        )
+    if _is_partial_request(request):
+        return _sheet_partials_response(request, character, "damage_panel")
 
     return redirect("character_sheet", character_id=character_id)
 
@@ -1262,6 +1304,8 @@ def adjust_money(request, character_id: int):
         character.money = max(0, character.money + delta)
         character.save(update_fields=["money"])
 
+    if _is_partial_request(request):
+        return _sheet_partials_response(request, character, "wallet_panel")
     return redirect("character_sheet", character_id=character_id)
 
 
@@ -1280,6 +1324,8 @@ def adjust_experience(request, character_id: int):
         character.overall_experience = max(0, character.overall_experience + delta)
         character.save(update_fields=["current_experience", "overall_experience"])
 
+    if _is_partial_request(request):
+        return _sheet_partials_response(request, character, "experience_panel", "learning_budget")
     return redirect("character_sheet", character_id=character_id)
 
 
@@ -1320,6 +1366,18 @@ def buy_shop_cart(request, character_id: int):
     if not payload:
         return JsonResponse({"ok": False, "error": "invalid_payload"}, status=400)
     response_payload, status_code = buy_shop_cart_payload(character, payload)
+    if response_payload.get("ok"):
+        context = _build_sheet_context_for_request(request, character)
+        response_payload["partials"] = [
+            {
+                "target": "sheetWalletPanel",
+                "html": render_to_string("charsheet/partials/_wallet_panel.html", context, request=request),
+            },
+            {
+                "target": "sheetInventoryPanel",
+                "html": render_to_string("charsheet/partials/_inventory_panel.html", context, request=request),
+            },
+        ]
     return JsonResponse(response_payload, status=status_code)
 
 

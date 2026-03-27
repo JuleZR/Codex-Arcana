@@ -1,0 +1,91 @@
+/* Dashboard responsive adjustments */
+
+@media (max-width: 1080px) {
+  .dashboard_layout {
+    grid-template-columns: 260px minmax(0, 1fr);
+  }
+
+  .dashboard_subgrid {
+    grid-template-columns: 1fr;
+  }
+
+  .phase2_shop_layout {
+    grid-template-columns: 1fr;
+  }
+
+  .phase_points_grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .phase_points_grid--phase2,
+  .phase_points_grid--phase4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-areas: none;
+  }
+}
+
+@media (max-width: 840px) {
+  .dashboard_spread {
+    padding: 12px;
+  }
+
+  .page.dashboard_page {
+    width: min(100vw - 24px, 1100px);
+    height: auto;
+    min-height: calc(100vh - 24px);
+    aspect-ratio: auto;
+    overflow: visible;
+  }
+
+  .dashboard_layout {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard_stats--inline,
+  .dashboard_search_grid {
+    grid-template-columns: 1fr;
+  }
+
+  .phase_points_grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .phase_points_grid--phase1,
+  .phase_points_grid--phase2,
+  .phase_points_grid--phase4 {
+    grid-template-columns: 1fr;
+    grid-template-areas: none;
+  }
+
+  .creation_wizard_window {
+    position: static;
+    width: 100%;
+    height: auto;
+    max-height: none;
+    aspect-ratio: auto;
+    left: auto;
+    top: auto;
+  }
+
+  .creation_wizard_window .creation_window_body {
+    height: auto;
+    overflow: visible;
+  }
+
+  .dashboard_creation_window {
+    position: fixed;
+    inset: 12px;
+    width: auto;
+    height: auto;
+    max-height: none;
+    aspect-ratio: auto;
+    left: auto;
+    top: auto;
+  }
+
+  .dashboard_creation_window .dashboard_creation_body {
+    height: calc(100% - 35px);
+    overflow: hidden;
+  }
+}
+

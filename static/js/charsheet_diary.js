@@ -126,7 +126,7 @@ document.addEventListener("DOMContentLoaded", () => {
       inputEl.value = "";
       counterEl.textContent = "Eintrag 0 / 0";
       titleEl.textContent = "Leere Rolle";
-      stateEl.textContent = "Kein Eintrag";
+      stateEl.textContent = entry.is_fixed ? "Fixiert" : (placeholder ? "Neue Schreib\u00e4che" : "Bearbeitungsmodus");
       setHint("Noch keine Rolle geladen.");
       setLoading(false);
       return;
@@ -150,7 +150,7 @@ document.addEventListener("DOMContentLoaded", () => {
     dateDisplayEl.hidden = !entry.is_fixed;
     dateInputEl.hidden = Boolean(entry.is_fixed);
     titleEl.textContent = placeholder ? "Neuer Eintrag" : `Eintrag ${entryNumber}`;
-    stateEl.textContent = entry.is_fixed ? "Fixiert" : (placeholder ? "Neue Schreibflaeche" : "Bearbeitungsmodus");
+    stateEl.textContent = entry.is_fixed ? "Fixiert" : (placeholder ? "Neue Schreib\u00e4che" : "Bearbeitungsmodus");
     counterEl.textContent = `Eintrag ${entryNumber} / ${totalEntries}`;
     modeBtn.innerHTML = entry.is_fixed ? editIcon : fixIcon;
     modeBtn.title = entry.is_fixed ? "Eintrag bewusst bearbeiten" : "Eintrag fixieren";
@@ -245,7 +245,7 @@ document.addEventListener("DOMContentLoaded", () => {
       return payload;
     }
 
-    setHint("Alte Tagebucheintraege werden uebernommen...", "editing");
+    setHint("Alte Tagebucheintr\u00e4ge werden \u00fcbernommen...", "editing");
     try {
       const importedPayload = await request(importUrl, {
         method: "POST",
@@ -254,7 +254,7 @@ document.addEventListener("DOMContentLoaded", () => {
       clearLegacyEntries();
       return importedPayload;
     } catch (_error) {
-      setHint("Die alten Tagebucheintraege konnten nicht automatisch uebernommen werden.", "error");
+      setHint("Die alten Tagebucheintr\u00e4ge konnten nicht automatisch \u00fcbernommen werden.", "error");
       return payload;
     }
   };
@@ -355,7 +355,7 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
     if (!String(inputEl.value || "").trim()) {
-      setHint("Leere Eintraege koennen nicht fixiert werden.", "error");
+      setHint("Leere Eintr\u00e4ge k\u00f6nnen nicht fixiert werden.", "error");
       return;
     }
     setLoading(true);
@@ -384,7 +384,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const payload = await request(entryUrl(entry.id, "delete"), { method: "POST", body: "{}" });
       applyPayload(payload);
     } catch (_error) {
-      setHint("Der Eintrag konnte nicht geloescht werden.", "error");
+      setHint("Der Eintrag konnte nicht gel\u00f6scht werden.", "error");
       setLoading(false);
     }
   };

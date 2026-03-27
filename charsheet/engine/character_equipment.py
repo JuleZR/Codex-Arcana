@@ -57,7 +57,7 @@ def weapon_quality_skill_modifier(engine) -> int:
 def equipped_weapon_rows(engine) -> list[dict]:
     """Return character-sheet-ready weapon rows with one prepared row per display profile."""
     rows: list[dict] = []
-    bel_malus = -engine.get_bel()
+    bel_malus = engine.load_penalty()
     for character_item in engine.equipped_weapon_items():
         item_engine = ItemEngine(character_item)
         weapon_stats = getattr(character_item.item, "weaponstats", None)
@@ -150,6 +150,12 @@ def get_bel(engine) -> int:
         shield_bel += ItemEngine(shield).get_shield_encumbrance() or 0
 
     return armor_bel + shield_bel
+
+
+def load_penalty(engine) -> int:
+    """Return encumbrance as a signed penalty that can be added to derived values."""
+    bel_value = int(engine.get_bel())
+    return bel_value if bel_value <= 0 else -bel_value
 
 
 def get_ms(engine) -> int:

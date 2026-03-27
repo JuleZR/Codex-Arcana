@@ -1,0 +1,865 @@
+/* Charsheet primary page: header, meta, stats, skills */
+
+.page:first-child {
+  position: relative;
+  display: grid;
+  grid-template-columns: 290px minmax(0, 1fr);
+  grid-template-rows: auto 1fr;
+  gap: var(--card-gap);
+  padding: var(--card-gap);
+}
+
+.page:first-child > * {
+  position: relative;
+  z-index: 2;
+}
+
+.page:first-child::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: url("/static/img/arcane_codex_logo.svg") center 56% / 74% no-repeat;
+  mix-blend-mode: multiply;
+  opacity: 0.30;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.p1_top {
+  grid-column: 1 / -1;
+  display: block;
+  align-self: start;
+  margin: 0;
+  padding: 0;
+}
+
+.char_info_wrapper {
+  min-width: 0;
+  padding: 0;
+}
+
+.char_info_box {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border: 1px solid rgba(74, 55, 38, 0.28);
+  border-radius: 6px;
+  background: linear-gradient(180deg, rgba(248, 243, 230, 0.56), rgba(235, 228, 212, 0.48));
+  box-shadow: inset 0 0 0 1px rgba(255, 248, 228, 0.35);
+  overflow: hidden;
+  padding: 6px 8px;
+}
+
+.char_info_table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0 4px;
+  table-layout: fixed;
+}
+
+.char_info_table td {
+  padding: 3px 5px;
+  height: 24px;
+}
+
+.char_info_table .char_title h1 {
+  margin: 0;
+  font-family: "Cormorant Garamond", serif;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--line);
+  letter-spacing: 0.24px;
+  padding-right: 0;
+}
+
+.char_info_title_wrap {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.char_info_edit_btn {
+  width: 20px;
+  height: 20px;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid rgba(74, 55, 38, 0.38);
+  border-radius: 4px;
+  background: rgba(255, 250, 236, 0.84);
+  color: #3f2d1f;
+  cursor: pointer;
+  padding: 0;
+}
+
+.char_info_edit_icon {
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.char_info_edit_btn:hover,
+.char_info_edit_btn:focus-visible {
+  color: #2f4e7a;
+  border-color: rgba(47, 78, 122, 0.5);
+}
+
+.char_info_table .char_info_row_title td {
+  height: 26px;
+  padding-top: 0;
+  padding-bottom: 1px;
+  border-bottom: 1px solid rgba(74, 55, 38, 0.26);
+}
+
+.char_info_table .label {
+  font-size: 0.67rem;
+  color: var(--ink-soft);
+  text-transform: none;
+  letter-spacing: 0.03em;
+  vertical-align: bottom;
+  white-space: nowrap;
+}
+
+.char_info_table .value {
+  border-bottom: 1px solid rgba(74, 55, 38, 0.52);
+  min-width: 0;
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-variant: normal;
+  font-variant-caps: normal;
+  text-transform: none;
+  font-weight: 600;
+  font-size: 0.94rem;
+  letter-spacing: 0.01em;
+  vertical-align: bottom;
+  background: rgba(255, 250, 236, 0.34);
+  padding-inline: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.p1_bottom_left {
+  grid-column: 1;
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+}
+
+.attribute_wrapper {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid rgba(74, 55, 38, 0.34);
+  border-radius: 6px;
+  background: linear-gradient(180deg, rgba(248, 243, 230, 0.6), rgba(235, 228, 212, 0.52));
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 248, 228, 0.42),
+    0 1px 3px rgba(0, 0, 0, 0.08);
+  padding: 6px 8px 9px;
+}
+
+.attribute_table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0 4px;
+}
+
+.attribute_table th,
+.attribute_table td {
+  padding: 3px 4px;
+}
+
+.attribute_table tbody tr {
+  height: calc(var(--stat-cell-size) + 1px);
+}
+
+.attribute_table .a_header {
+  text-align: left;
+  font-family: "Cormorant Garamond", Georgia, serif;
+  color: var(--line);
+  font-size: 1.26rem;
+  font-weight: 700;
+  line-height: 1;
+  padding: 2px 6px 6px;
+  border-bottom: 1px solid rgba(74, 55, 38, 0.32);
+}
+
+.attribute_table .a_h_value {
+  width: var(--stat-cell-size);
+  text-align: center;
+  font-size: 0.62rem;
+  color: var(--ink-soft);
+  vertical-align: middle;
+  border-bottom: 1px solid rgba(74, 55, 38, 0.32);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.attribute_table .a_h_value.bm {
+  width: var(--stat-cell-size);
+  font-weight: 700;
+}
+
+.attribute_table .attribute {
+  font-size: 0.84rem;
+  color: #3b2a1d;
+  border: 1px solid rgba(74, 55, 38, 0.24);
+  border-radius: 4px;
+  background: rgba(250, 241, 220, 0.78);
+  padding-left: 10px;
+  letter-spacing: 0.005em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.attribute_table .value {
+  width: var(--stat-cell-size);
+  height: var(--stat-cell-size);
+  min-width: var(--stat-cell-size);
+  padding: 0;
+  text-align: center;
+  vertical-align: middle;
+  border: 1px solid rgba(74, 55, 38, 0.28);
+  border-radius: 4px;
+  background: rgba(255, 250, 236, 0.36);
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.attribute_table .mod {
+  padding: 0;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.attribute_table .mod-badge {
+  display: grid;
+  place-items: center;
+  width: var(--stat-cell-size);
+  height: var(--stat-cell-size);
+  margin: 0 auto;
+  border: 1px solid rgba(74, 55, 38, 0.32);
+  border-radius: 4px;
+  background: rgba(247, 236, 208, 0.52);
+  color: #342112;
+  font-weight: 700;
+  font-family: "Cinzel", Georgia, serif;
+  font-size: 0.9rem;
+  letter-spacing: 0.01em;
+  line-height: 1;
+}
+
+.exp_wrapper,
+.fame_wrapper,
+.reputation_wrapper,
+.language_wrapper {
+  margin-top: 6px;
+  border: 1px solid rgba(74, 55, 38, 0.34);
+  border-radius: 6px;
+  background: linear-gradient(180deg, rgba(248, 243, 230, 0.56), rgba(235, 228, 212, 0.48));
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 248, 228, 0.42),
+    0 1px 3px rgba(0, 0, 0, 0.08);
+  padding: 6px 8px 8px;
+}
+
+.exp_wrapper {
+  margin-top: 8px;
+}
+
+.exp_wrapper h2,
+.fame_wrapper h2,
+.reputation_wrapper h2,
+.language_wrapper h2 {
+  margin: 0 0 6px;
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-size: 1.12rem;
+  font-weight: 700;
+  color: var(--line);
+}
+
+.fame_wrapper {
+  --rank-pill-width: 72px;
+  --rank-pill-height: 28px;
+}
+
+.exp_rows {
+  display: grid;
+  gap: 5px;
+}
+
+.exp_row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 56px;
+  align-items: center;
+  min-height: 24px;
+  border: 1px solid rgba(74, 55, 38, 0.26);
+  border-radius: 4px;
+  background: rgba(255, 248, 228, 0.34);
+  padding: 0 4px 0 7px;
+}
+
+.exp_label {
+  font-size: 0.74rem;
+  color: var(--ink-soft);
+  text-transform: none;
+  letter-spacing: 0.03em;
+}
+
+.exp_value {
+  display: grid;
+  place-items: center;
+  height: 20px;
+  border: 1px solid rgba(74, 55, 38, 0.38);
+  border-radius: 3px;
+  background: rgba(255, 250, 236, 0.72);
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.fame_rank_inputs {
+  display: grid;
+  grid-template-columns: repeat(3, var(--rank-pill-width));
+  justify-content: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.fame_header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.fame_header h2 {
+  margin: 0;
+}
+
+.fame_total_wrap {
+  display: grid;
+  justify-items: center;
+  gap: 1px;
+}
+
+.rank_input,
+.rank_total_input {
+  display: grid;
+  place-items: center;
+  width: var(--rank-pill-width);
+  height: var(--rank-pill-height);
+  border-radius: 999px;
+  border: 1px solid rgba(74, 55, 38, 0.46);
+  background: rgba(255, 250, 236, 0.78);
+  font-weight: 700;
+  text-align: center;
+  line-height: 1;
+}
+
+.rank_total_input {
+  border-width: 2px;
+  background: rgba(251, 239, 204, 0.86);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.45);
+}
+
+.fame_ranks {
+  display: grid;
+  grid-template-columns: repeat(3, var(--rank-pill-width));
+  justify-content: center;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+
+.fame_ranks span {
+  font-size: 0.62rem;
+  color: var(--ink-soft);
+  text-align: center;
+}
+
+.fame_total_label {
+  font-size: 0.61rem;
+  color: var(--ink-soft);
+  line-height: 1;
+}
+
+.fame_dots {
+  display: grid;
+  grid-template-columns: repeat(5, 14px);
+  gap: 6px;
+  justify-content: center;
+  margin-bottom: 5px;
+}
+
+.fame_adjust_form {
+  display: grid;
+  grid-template-columns: 24px auto 24px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.fame_step_btn {
+  width: 22px;
+  height: 22px;
+  border: 1px solid rgba(74, 55, 38, 0.42);
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(255, 252, 242, 0.95) 0%, rgba(240, 228, 201, 0.92) 100%);
+  color: #3f2d1f;
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+}
+
+.dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1px solid rgba(74, 55, 38, 0.52);
+  background: rgba(255, 250, 236, 0.92);
+}
+
+.fame_dots .dot.is-filled {
+  background:
+    radial-gradient(circle at 35% 30%, rgba(255, 246, 221, 0.96) 0%, rgba(223, 182, 102, 0.82) 34%, rgba(124, 86, 35, 0.9) 100%);
+  border-color: rgba(112, 79, 34, 0.76);
+}
+
+.fame_hint {
+  margin: 0;
+  font-size: 0.66rem;
+  text-align: center;
+  color: var(--ink-soft);
+}
+
+.reputation_header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.reputation_edit_btn {
+  width: 20px;
+  height: 20px;
+  border: 1px solid rgba(74, 55, 38, 0.35);
+  border-radius: 4px;
+  background: rgba(255, 250, 236, 0.76);
+  color: #3f2d1f;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  cursor: pointer;
+}
+
+.reputation_edit_btn svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.reputation_list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.reputation_list li {
+  display: grid;
+  grid-template-columns: 70px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  min-height: 26px;
+}
+
+.reputation_label {
+  font-size: 0.73rem;
+  color: #3f2d1f;
+}
+
+.reputation_input {
+  width: 100%;
+  min-height: 18px;
+  border: 0;
+  border-bottom: 1px solid rgba(74, 55, 38, 0.52);
+  background: transparent;
+  color: #3f2d1f;
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-size: 0.94rem;
+  padding: 0 2px;
+}
+
+.reputation_input[readonly] {
+  pointer-events: none;
+}
+
+.reputation_wrapper.is-editing .reputation_input[readonly] {
+  pointer-events: auto;
+}
+
+.reputation_wrapper.is-editing .reputation_input {
+  background: rgba(255, 250, 236, 0.44);
+}
+
+.reputation_wrapper.is-editing .reputation_edit_btn {
+  background: rgba(228, 199, 131, 0.8);
+}
+
+.language_wrapper {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.language_list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 2px;
+}
+
+.language_scale {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  margin: -4px 0 2px;
+}
+
+.language_scale_labels {
+  display: inline-grid;
+  grid-auto-flow: column;
+  gap: 5px;
+  align-items: center;
+}
+
+.language_scale_labels span {
+  position: relative;
+  width: 12px;
+  display: grid;
+  justify-items: center;
+  text-align: center;
+  white-space: nowrap;
+  font-size: 0.68rem;
+  line-height: 1;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+
+.language_scale_labels span::after {
+  content: "";
+  display: block;
+  width: 1px;
+  height: 5px;
+  margin-top: 2px;
+  background: rgba(74, 55, 38, 0.4);
+}
+
+.language_scale_labels span:last-child {
+  margin-left: 8px;
+  width: 16px;
+}
+
+.language_list li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  min-height: 24px;
+  border-bottom: 1px solid rgba(74, 55, 38, 0.42);
+}
+
+.language_name {
+  min-height: 20px;
+  font-size: 0.9rem;
+}
+
+.language_dots {
+  display: inline-grid;
+  grid-auto-flow: column;
+  gap: 5px;
+}
+
+.language_dots .dot {
+  width: 12px;
+  height: 12px;
+}
+
+.language_dots .dot.is-filled {
+  background:
+    radial-gradient(circle at 35% 30%, rgba(255, 246, 221, 0.96) 0%, rgba(223, 182, 102, 0.82) 34%, rgba(124, 86, 35, 0.9) 100%);
+  border-color: rgba(112, 79, 34, 0.76);
+}
+
+.language_dots .literacy_dot {
+  margin-left: 8px;
+}
+
+
+.p1_bottom_right {
+  grid-column: 2;
+  margin: 0;
+  border: 1px solid rgba(74, 55, 38, 0.35);
+  border-radius: 6px;
+  background: linear-gradient(180deg, rgba(248, 243, 230, 0.52), rgba(235, 228, 212, 0.44));
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 248, 228, 0.36),
+    0 1px 3px rgba(0, 0, 0, 0.08);
+  padding: 6px 8px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.load_wrapper {
+  display: grid;
+  grid-template-columns: 40% 11% 9% 9% 9% 9% 12%;
+  align-items: end;
+  column-gap: 0;
+  min-height: 24px;
+  padding-bottom: 0;
+  border-bottom: 1px solid rgba(74, 55, 38, 0.36);
+}
+
+.load_label {
+  grid-column: 1 / 7;
+  justify-self: end;
+  font-size: 0.72rem;
+  color: #3f2d1f;
+}
+
+.load_value {
+  grid-column: 7;
+  justify-self: center;
+  width: 44px;
+  display: block;
+  text-align: center;
+  font-weight: 700;
+  border-bottom: 1px solid rgba(74, 55, 38, 0.52);
+}
+
+.skills_wrapper {
+  border: 1px solid rgba(74, 55, 38, 0.30);
+  border-radius: 5px;
+  background: rgba(255, 248, 230, 0.24);
+  padding: 4px 4px 5px;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-gutter: stable both-edges;
+}
+
+.skills_table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.skills_table th,
+.skills_table td {
+  border-bottom: 1px solid rgba(74, 55, 38, 0.28);
+}
+
+.skills_table th {
+  font-size: 0.64rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+  padding: 1px 2px;
+  text-align: center;
+}
+
+.skills_table .skills_title_row th {
+  border-bottom: 1px solid rgba(74, 55, 38, 0.4);
+}
+
+.skills_table .skills_title {
+  text-align: left;
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--line);
+  padding-left: 4px;
+}
+
+.skills_table td {
+  height: 30px;
+  padding: 0 2px;
+  font-size: 0.84rem;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.skills_table th:first-child,
+.skills_table td:first-child {
+  width: 40%;
+  text-align: left;
+  padding-left: 3px;
+}
+
+.skills_table th:nth-child(2),
+.skills_table td:nth-child(2) {
+  width: 11%;
+}
+
+.skills_table th:nth-child(3),
+.skills_table td:nth-child(3),
+.skills_table th:nth-child(4),
+.skills_table td:nth-child(4),
+.skills_table th:nth-child(5),
+.skills_table td:nth-child(5),
+.skills_table th:nth-child(6),
+.skills_table td:nth-child(6) {
+  width: 9%;
+}
+
+.skills_table th:nth-child(7),
+.skills_table td:nth-child(7) {
+  width: 12%;
+}
+
+.skills_table td.skill_name {
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-size: 1rem;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.skill_name_wrap {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  min-width: 0;
+}
+
+.skill_name_text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.skill_spec_edit_btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid rgba(74, 55, 38, 0.32);
+  border-radius: 999px;
+  background: rgba(255, 252, 242, 0.82);
+  color: var(--ink-soft);
+  cursor: pointer;
+  flex: 0 0 auto;
+  transition: transform 140ms ease, border-color 140ms ease, background 140ms ease;
+}
+
+.skill_spec_edit_btn svg {
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.skill_spec_edit_btn:hover,
+.skill_spec_edit_btn:focus-visible {
+  border-color: rgba(138, 92, 42, 0.68);
+  background: rgba(255, 246, 220, 0.96);
+  transform: translateY(-1px);
+}
+
+.skill_spec_form_row {
+  margin-bottom: 10px;
+}
+
+.skill_spec_hint {
+  margin: 0 0 12px;
+  font-size: 0.86rem;
+  color: var(--ink-soft);
+}
+
+.skills_table td.skill_prop {
+  font-size: 0.84rem;
+  font-weight: 400;
+  text-align: left;
+  padding-left: 6px;
+  border-left: 1px solid rgba(74, 55, 38, 0.22);
+  border-right: 1px solid rgba(74, 55, 38, 0.22);
+  background: rgba(255, 250, 236, 0.34);
+}
+
+.bel_dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 24px;
+  line-height: 1;
+  vertical-align: middle;
+  border-radius: 999px;
+  border: 1px solid rgba(74, 55, 38, 0.34);
+  background: rgba(255, 250, 236, 0.84);
+  margin-top: 0;
+}
+
+.traits_wrapper {
+  border: 1px solid rgba(74, 55, 38, 0.30);
+  border-radius: 5px;
+  background: rgba(255, 248, 230, 0.24);
+  padding: 7px 7px 8px;
+  min-height: 170px;
+}
+
+.traits_wrapper h2 {
+  margin: 0 0 4px;
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--line);
+}
+
+.traits_columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.trait_col h3 {
+  margin: 0 0 2px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+
+.trait_line {
+  display: flex;
+  align-items: flex-end;
+  height: 22px;
+  border-bottom: 1px solid rgba(74, 55, 38, 0.52);
+  font-size: 0.76rem;
+  line-height: 1.2;
+  padding-bottom: 1px;
+}
+
+

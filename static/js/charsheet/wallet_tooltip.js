@@ -1,30 +1,43 @@
 export function initWalletTooltip() {
-  const walletTooltip = document.querySelector(".wallet_inline_tooltip");
-  const walletCoins = document.querySelectorAll(".js-wallet-coin");
-  if (!walletTooltip || !walletCoins.length) {
+  if (document.body.dataset.walletTooltipBound === "1") {
     return;
   }
+  document.body.dataset.walletTooltipBound = "1";
 
   let hideTimeoutId = null;
   const show = () => {
+    const tooltip = document.querySelector(".wallet_inline_tooltip");
+    if (!(tooltip instanceof HTMLElement)) {
+      return;
+    }
     if (hideTimeoutId) {
       window.clearTimeout(hideTimeoutId);
       hideTimeoutId = null;
     }
-    walletTooltip.classList.add("is-visible");
+    tooltip.classList.add("is-visible");
   };
   const hide = () => {
+    const tooltip = document.querySelector(".wallet_inline_tooltip");
+    if (!(tooltip instanceof HTMLElement)) {
+      return;
+    }
     if (hideTimeoutId) {
       window.clearTimeout(hideTimeoutId);
     }
     hideTimeoutId = window.setTimeout(() => {
-      walletTooltip.classList.remove("is-visible");
+      tooltip.classList.remove("is-visible");
       hideTimeoutId = null;
     }, 120);
   };
 
-  walletCoins.forEach((coin) => {
-    coin.addEventListener("mouseenter", show);
-    coin.addEventListener("mouseleave", hide);
+  document.addEventListener("mouseover", (event) => {
+    if (event.target instanceof Element && event.target.closest(".js-wallet-coin")) {
+      show();
+    }
+  });
+  document.addEventListener("mouseout", (event) => {
+    if (event.target instanceof Element && event.target.closest(".js-wallet-coin")) {
+      hide();
+    }
   });
 }

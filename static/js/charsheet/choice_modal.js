@@ -1,4 +1,4 @@
-export function createChoiceModalController({ decisions = [], hiddenInputContainer, windowController = null }) {
+export function createChoiceModalController({ hiddenInputContainer, windowController = null }) {
   const learningForm = hiddenInputContainer?.closest("form") || null;
   const modalWindow = document.getElementById("learnChoiceWindow");
   const titleEl = document.getElementById("learnChoiceWindowTitle");
@@ -39,6 +39,7 @@ export function createChoiceModalController({ decisions = [], hiddenInputContain
     modalWindow.setAttribute("aria-hidden", "false");
   };
 
+  const getSections = () => Array.from(decisionListEl.querySelectorAll("[data-choice-decision-id]"));
   const getDecisionInputs = (decisionId) => Array.from(hiddenInputContainer.querySelectorAll(`input[data-choice-decision-id="${decisionId}"]`));
   const clearDecisionInputs = (decisionId) => {
     getDecisionInputs(decisionId).forEach((input) => {
@@ -50,76 +51,111 @@ export function createChoiceModalController({ decisions = [], hiddenInputContain
     hintEl.hidden = !text;
   };
 
-  const getCurrentSelection = (decision) => {
-    const inputs = getDecisionInputs(decision.decision_id);
-    if (!inputs.length) {
-      return { optionId: "", text: "" };
-    }
-    if (decision.input_type === "text") {
-      return { optionId: "", text: inputs[0].value || "" };
-    }
-    const selectedInput = inputs[0];
-    const selectedOption = decision.options.find(
-      (option) => option.submit_name === selectedInput.name && String(option.submit_value) === String(selectedInput.value),
-    );
-    return {
-      optionId: selectedOption?.id || selectedInput.dataset.choiceOptionId || "",
-      text: "",
-    };
-  };
-
-  const getTakenOptionIds = (selectionGroupId, ignoredDecisionIds = []) => {
-    if (!selectionGroupId) {
-      return new Set();
-    }
-    const ignored = new Set(ignoredDecisionIds);
-    const taken = new Set();
-    hiddenInputContainer.querySelectorAll(`input[data-choice-selection-group="${selectionGroupId}"]`).forEach((input) => {
-      if (ignored.has(input.dataset.choiceDecisionId || "")) {
-        return;
-      }
-      if (input.dataset.choiceOptionId) {
-        taken.add(input.dataset.choiceOptionId);
-      }
-    });
-    return taken;
-  };
-
   const normalizeSearchText = (value) => String(value || "")
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "");
 
-  const isDecisionResolved = (decision) => {
-    if (decision.input_type === "unsupported") {
+  const getInputType = (section) => section.dataset.choiceInputType || "options";
+  const getDecisionId = (section) => section.dataset.choiceDecisionId || "";
+  const getDecisionTitle = (section) => section.dataset.choiceTitle || "Ausstehende Entscheidung";
+  const getSelectionGroupId = (section) => section.dataset.choiceSelectionGroup || "";
+
+  const isActionableSection = (section) => getInputType(section) !== "unsupported";
+  const isSectionResolvedByHidden = (section) => {
+    const inputs = getDecisionInputs(getDecisionId(section));
+    if (!inputs.length) {
       return false;
     }
-    const selection = getCurrentSelection(decision);
-    if (decision.input_type === "text") {
-      return Boolean(String(selection.text || "").trim());
+    if (getInputType(section) === "text") {
+      return Boolean(String(inputs[0].value || "").trim());
     }
-    return Boolean(selection.optionId);
+    return true;
   };
 
-  const getPendingDecisions = () => decisions.filter((decision) => !isDecisionResolved(decision));
-  const hasPendingChoices = () => getPendingDecisions().length > 0;
-  const emitPendingChange = () => {
-    document.dispatchEvent(new CustomEvent("learn:choices-updated", {
-      detail: { pendingCount: getPendingDecisions().length },
-    }));
+  const updateDecisionResolvedState = (section) => {
+    if (!(section instanceof HTMLElement)) {
+      return;
+    }
+    const inputType = getInputType(section);
+    let resolved = false;
+    if (inputType === "text") {
+      const input = section.querySelector("[data-choice-text-input]");
+      resolved = input instanceof HTMLInputElement
+        ? Boolean(String(input.value || "").trim())
+        : isSectionResolvedByHidden(section);
+    } else if (inputType === "unsupported") {
+      resolved = true;
+    } else {
+      resolved = Boolean(section.querySelector("input[type='radio']:checked")) || isSectionResolvedByHidden(section);
+    }
+    section.classList.toggle("is-resolved", resolved);
   };
 
-  const appendHiddenInput = ({ decision, option = null, value = "" }) => {
+  const appendHiddenInput = ({
+    decisionId,
+    selectionGroupId = "",
+    optionId = "",
+    submitName,
+    submitValue,
+  }) => {
     const input = document.createElement("input");
     input.type = "hidden";
-    input.name = option ? option.submit_name : decision.text_submit_name;
-    input.value = option ? option.submit_value : value;
-    input.dataset.choiceDecisionId = decision.decision_id;
-    input.dataset.choiceSelectionGroup = decision.selection_group_id || "";
-    if (option) {
-      input.dataset.choiceOptionId = option.id;
+    input.name = submitName;
+    input.value = submitValue;
+    input.dataset.choiceDecisionId = decisionId;
+    input.dataset.choiceSelectionGroup = selectionGroupId;
+    if (optionId) {
+      input.dataset.choiceOptionId = optionId;
     }
     hiddenInputContainer.appendChild(input);
+  };
+
+  const syncSectionFromHidden = (section) => {
+    const decisionId = getDecisionId(section);
+    const inputs = getDecisionInputs(decisionId);
+    const inputType = getInputType(section);
+    if (inputType === "text") {
+      const input = section.querySelector("[data-choice-text-input]");
+      if (input instanceof HTMLInputElement) {
+        input.value = inputs.length ? inputs[0].value || "" : "";
+      }
+      updateDecisionResolvedState(section);
+      return;
+    }
+
+    section.querySelectorAll("input[type='radio']").forEach((input) => {
+      if (input instanceof HTMLInputElement) {
+        input.checked = false;
+      }
+    });
+    inputs.forEach((hiddenInput) => {
+      const optionId = hiddenInput.dataset.choiceOptionId || "";
+      const match = section.querySelector(
+        `input[type='radio'][data-choice-option-id="${optionId}"]`,
+      );
+      if (match instanceof HTMLInputElement) {
+        match.checked = true;
+      }
+    });
+    updateDecisionResolvedState(section);
+  };
+
+  const syncFormFromHiddenInputs = () => {
+    getSections().forEach((section) => {
+      syncSectionFromHidden(section);
+    });
+  };
+
+  const getPendingSections = () => getSections().filter(
+    (section) => isActionableSection(section) && !isSectionResolvedByHidden(section),
+  );
+
+  const hasPendingChoices = () => getPendingSections().length > 0;
+  const emitPendingChange = () => {
+    document.dispatchEvent(new CustomEvent("learn:choices-updated", {
+      detail: { pendingCount: getPendingSections().length },
+    }));
   };
 
   const submitResolvedChoices = () => {
@@ -142,7 +178,7 @@ export function createChoiceModalController({ decisions = [], hiddenInputContain
     csrfClone.value = csrfInput.value;
     tempForm.appendChild(csrfClone);
 
-    Array.from(hiddenInputContainer.querySelectorAll('input[data-choice-decision-id]')).forEach((input) => {
+    Array.from(hiddenInputContainer.querySelectorAll("input[data-choice-decision-id]")).forEach((input) => {
       if (!(input instanceof HTMLInputElement) || !input.name) {
         return;
       }
@@ -158,278 +194,85 @@ export function createChoiceModalController({ decisions = [], hiddenInputContain
     return true;
   };
 
-  const buildOptionLabel = (decision, option, selectedOptionId, takenOptionIds) => {
-    const label = document.createElement("label");
-    label.className = "learn_choice_option";
-    label.dataset.choiceSearch = normalizeSearchText([
-      option.label || "",
-      option.meta || "",
-      option.description || "",
-    ].join(" "));
-
-    const input = document.createElement("input");
-    input.type = "radio";
-    input.name = `learnChoiceSelection-${decision.decision_id}`;
-    input.value = option.id;
-    input.checked = selectedOptionId === option.id;
-
-    const takenElsewhere = takenOptionIds.has(option.id) && selectedOptionId !== option.id;
-    if (takenElsewhere) {
-      input.disabled = true;
-      label.classList.add("is-disabled");
-    }
-
-    const body = document.createElement("span");
-    const title = document.createElement("span");
-    title.className = "learn_choice_option_title";
-    title.textContent = option.label;
-    body.appendChild(title);
-
-    if (option.meta) {
-      const meta = document.createElement("span");
-      meta.className = "learn_choice_option_meta";
-      meta.textContent = option.meta;
-      body.appendChild(meta);
-    }
-
-    if (option.description) {
-      const description = document.createElement("span");
-      description.className = "learn_choice_option_description";
-      description.textContent = option.description;
-      body.appendChild(description);
-    }
-
-    label.appendChild(input);
-    label.appendChild(body);
-    return label;
-  };
-
-  const isDecisionResolvedInSection = (section, decision) => {
-    if (!(section instanceof HTMLElement)) {
-      return isDecisionResolved(decision);
-    }
-    if (decision.input_type === "unsupported") {
-      return false;
-    }
-    if (decision.input_type === "text") {
-      const input = section.querySelector(`#learnChoiceText-${decision.decision_id}`);
-      if (input instanceof HTMLInputElement) {
-        return Boolean(String(input.value || "").trim());
-      }
-      return isDecisionResolved(decision);
-    }
-    const selectedInput = section.querySelector(`input[name="learnChoiceSelection-${decision.decision_id}"]:checked`);
-    if (selectedInput instanceof HTMLInputElement) {
-      return true;
-    }
-    return isDecisionResolved(decision);
-  };
-
-  const updateDecisionResolvedState = (section, decision) => {
-    if (!(section instanceof HTMLElement)) {
-      return;
-    }
-    section.classList.toggle("is-resolved", isDecisionResolvedInSection(section, decision));
-  };
-
-  const buildDecisionSection = (decision, pendingDecisionIds, index) => {
-    const section = document.createElement("details");
-    section.className = "learn_choice_decision";
-    section.dataset.choiceDecisionId = decision.decision_id;
-    section.open = index === 0;
-
-    const toggle = document.createElement("summary");
-    toggle.className = "learn_choice_decision_toggle";
-
-    const toggleText = document.createElement("div");
-    toggleText.className = "learn_choice_decision_toggle_text";
-
-    const title = document.createElement("span");
-    title.className = "learn_choice_decision_title";
-    title.textContent = decision.title || "Ausstehende Entscheidung";
-    toggleText.appendChild(title);
-
-    const summary = document.createElement("span");
-    summary.className = "learn_choice_decision_summary";
-    summary.textContent = decision.summary || decision.prompt || "Auswahl treffen";
-    toggleText.appendChild(summary);
-
-    toggle.appendChild(toggleText);
-    section.appendChild(toggle);
-
-    const body = document.createElement("div");
-    body.className = "learn_choice_decision_body";
-
-    if (decision.description) {
-      const description = document.createElement("p");
-      description.className = "learn_choice_decision_description";
-      description.textContent = decision.description;
-      body.appendChild(description);
-    }
-
-    const prompt = document.createElement("p");
-    prompt.className = "learn_choice_decision_prompt";
-    prompt.textContent = decision.prompt || "Auswahl treffen";
-    body.appendChild(prompt);
-
-    if (decision.input_type === "unsupported") {
-      section.classList.add("is-unsupported");
-      const note = document.createElement("p");
-      note.className = "learn_choice_decision_note";
-      note.textContent = decision.description || "Dieser Auswahltyp ist derzeit im Lernmenue noch nicht direkt belegbar.";
-      body.appendChild(note);
-      section.appendChild(body);
-      return section;
-    }
-
-    const selection = getCurrentSelection(decision);
-    const takenOptionIds = getTakenOptionIds(decision.selection_group_id || "", pendingDecisionIds);
-
-    if (decision.input_type === "text") {
-      const wrap = document.createElement("div");
-      wrap.className = "learn_choice_text_wrap";
-      const label = document.createElement("label");
-      label.className = "learn_choice_text_label";
-      label.htmlFor = `learnChoiceText-${decision.decision_id}`;
-      label.textContent = "Eintrag";
-      wrap.appendChild(label);
-
-      const input = document.createElement("input");
-      input.type = "text";
-      input.id = `learnChoiceText-${decision.decision_id}`;
-      input.className = "learn_inline_text learn_choice_text_input";
-      input.autocomplete = "off";
-      input.placeholder = decision.text_placeholder || "Eintrag";
-      input.value = selection.text || "";
-      input.addEventListener("input", () => {
-        updateDecisionResolvedState(section, decision);
-      });
-      wrap.appendChild(input);
-      body.appendChild(wrap);
-      section.appendChild(body);
-      updateDecisionResolvedState(section, decision);
-      return section;
-    }
-
-    let searchInput = null;
-    if (decision.options.length > 5) {
-      searchInput = document.createElement("input");
-      searchInput.type = "search";
-      searchInput.className = "learn_inline_text learn_choice_search_input";
-      searchInput.autocomplete = "off";
-      searchInput.placeholder = "Auswahl durchsuchen";
-      searchInput.setAttribute("aria-label", `${decision.title || "Auswahl"} durchsuchen`);
-      body.appendChild(searchInput);
-    }
-
-    const options = document.createElement("fieldset");
-    options.className = "learn_choice_options";
-    decision.options.forEach((option) => {
-      options.appendChild(buildOptionLabel(decision, option, selection.optionId, takenOptionIds));
-    });
-    const optionEntries = Array.from(options.querySelectorAll(".learn_choice_option"));
-    const emptyState = document.createElement("p");
-    emptyState.className = "learn_choice_search_empty";
-    emptyState.textContent = "Keine passende Option gefunden.";
-    emptyState.hidden = true;
-
-    if (searchInput instanceof HTMLInputElement) {
-      const applyOptionFilter = () => {
-        const needle = normalizeSearchText(String(searchInput.value || "").trim());
-        let visibleCount = 0;
-        optionEntries.forEach((entry) => {
-          if (!(entry instanceof HTMLElement)) {
-            return;
-          }
-          const haystack = entry.dataset.choiceSearch || "";
-          const matches = !needle || haystack.includes(needle);
-          entry.classList.toggle("is-filtered-out", !matches);
-          if (matches) {
-            visibleCount += 1;
-          }
-        });
-        emptyState.hidden = visibleCount > 0;
-      };
-      searchInput.addEventListener("input", applyOptionFilter);
-      searchInput.addEventListener("search", applyOptionFilter);
-      searchInput.addEventListener("change", applyOptionFilter);
-      applyOptionFilter();
-    }
-
-    options.addEventListener("change", () => {
-      updateDecisionResolvedState(section, decision);
-    });
-    body.appendChild(options);
-    body.appendChild(emptyState);
-    section.appendChild(body);
-    updateDecisionResolvedState(section, decision);
-    return section;
-  };
-
   const renderPendingDecisions = () => {
-    const pendingDecisions = getPendingDecisions();
-    const pendingDecisionIds = pendingDecisions.map((decision) => decision.decision_id);
-    titleEl.textContent = pendingDecisions.length > 1 ? "Ausstehende Entscheidungen" : "Ausstehende Entscheidung";
-    introEl.textContent = pendingDecisions.length > 1
+    syncFormFromHiddenInputs();
+    const pendingSections = [];
+    getSections().forEach((section) => {
+      const pending = isActionableSection(section) && !isSectionResolvedByHidden(section);
+      section.hidden = !pending;
+      if (pending) {
+        pendingSections.push(section);
+      }
+    });
+
+    if (pendingSections.length > 0) {
+      pendingSections.forEach((section, index) => {
+        section.open = index === 0;
+      });
+    }
+
+    titleEl.textContent = pendingSections.length > 1 ? "Ausstehende Entscheidungen" : "Ausstehende Entscheidung";
+    introEl.textContent = pendingSections.length > 1
       ? "Alle offenen Choices sind hier gebuendelt und koennen in einem gemeinsamen Fenster bearbeitet werden."
       : "Diese offene Choice wird als eigener Entscheidungsvorgang behandelt.";
-    decisionListEl.replaceChildren();
+    confirmBtn.disabled = pendingSections.length === 0;
     setHint("");
-
-    pendingDecisions.forEach((decision, index) => {
-      decisionListEl.appendChild(buildDecisionSection(decision, pendingDecisionIds, index));
-    });
-
-    confirmBtn.disabled = pendingDecisions.length === 0;
-    return pendingDecisions;
+    return pendingSections;
   };
 
-  const collectPendingValues = (pendingDecisions) => {
+  const collectPendingValues = (pendingSections) => {
     const results = [];
     const missing = [];
     const groupedSelections = new Map();
 
-    for (const decision of pendingDecisions) {
-      if (decision.input_type === "unsupported") {
-        continue;
-      }
+    for (const section of pendingSections) {
+      const inputType = getInputType(section);
+      const title = getDecisionTitle(section);
+      const decisionId = getDecisionId(section);
+      const selectionGroupId = getSelectionGroupId(section);
 
-      if (decision.input_type === "text") {
-        const input = formEl.querySelector(`#learnChoiceText-${decision.decision_id}`);
+      if (inputType === "text") {
+        const input = section.querySelector("[data-choice-text-input]");
         const value = input instanceof HTMLInputElement ? String(input.value || "").trim() : "";
         if (!value) {
-          missing.push(decision.title || "Ausstehende Entscheidung");
+          missing.push(title);
           continue;
         }
-        results.push({ decision, value });
+        results.push({
+          decisionId,
+          selectionGroupId,
+          submitName: input.dataset.choiceSubmitName || "",
+          submitValue: value,
+        });
         continue;
       }
 
-      const selectedInput = formEl.querySelector(`input[name="learnChoiceSelection-${decision.decision_id}"]:checked`);
+      const selectedInput = section.querySelector("input[type='radio']:checked");
       if (!(selectedInput instanceof HTMLInputElement)) {
-        missing.push(decision.title || "Ausstehende Entscheidung");
+        missing.push(title);
         continue;
       }
 
-      const option = decision.options.find((entry) => entry.id === selectedInput.value);
-      if (!option) {
-        missing.push(decision.title || "Ausstehende Entscheidung");
-        continue;
-      }
-
-      if (decision.selection_group_id) {
-        const existing = groupedSelections.get(decision.selection_group_id) || new Set();
-        if (existing.has(option.id)) {
+      const optionId = selectedInput.dataset.choiceOptionId || selectedInput.value;
+      if (selectionGroupId) {
+        const existing = groupedSelections.get(selectionGroupId) || new Set();
+        if (existing.has(optionId)) {
           return {
             ok: false,
             hint: "Dieselbe Option kann in einer gemeinsamen Choice-Gruppe nicht mehrfach gleichzeitig gewaehlt werden.",
           };
         }
-        existing.add(option.id);
-        groupedSelections.set(decision.selection_group_id, existing);
+        existing.add(optionId);
+        groupedSelections.set(selectionGroupId, existing);
       }
 
-      results.push({ decision, option });
+      results.push({
+        decisionId,
+        selectionGroupId,
+        optionId,
+        submitName: selectedInput.dataset.choiceSubmitName || "",
+        submitValue: selectedInput.dataset.choiceSubmitValue || selectedInput.value,
+      });
     }
 
     if (missing.length) {
@@ -443,23 +286,25 @@ export function createChoiceModalController({ decisions = [], hiddenInputContain
   };
 
   const applyPendingDecisions = () => {
-    const pendingDecisions = getPendingDecisions();
-    const collected = collectPendingValues(pendingDecisions);
+    const pendingSections = getPendingSections();
+    const collected = collectPendingValues(pendingSections);
     if (!collected.ok) {
       setHint(collected.hint || "Bitte alle offenen Entscheidungen ausfuellen.");
       return false;
     }
 
-    pendingDecisions.forEach((decision) => {
-      clearDecisionInputs(decision.decision_id);
+    pendingSections.forEach((section) => {
+      clearDecisionInputs(getDecisionId(section));
     });
 
     collected.results.forEach((entry) => {
-      if (entry.option) {
-        appendHiddenInput({ decision: entry.decision, option: entry.option });
-        return;
-      }
-      appendHiddenInput({ decision: entry.decision, value: entry.value || "" });
+      appendHiddenInput({
+        decisionId: entry.decisionId,
+        selectionGroupId: entry.selectionGroupId,
+        optionId: entry.optionId || "",
+        submitName: entry.submitName,
+        submitValue: entry.submitValue,
+      });
     });
 
     emitPendingChange();
@@ -473,14 +318,60 @@ export function createChoiceModalController({ decisions = [], hiddenInputContain
   };
 
   const openPendingChoices = () => {
-    const pendingDecisions = renderPendingDecisions();
-    if (!pendingDecisions.length) {
+    const pendingSections = renderPendingDecisions();
+    if (!pendingSections.length) {
       closeModal();
       return false;
     }
     openModal();
     return true;
   };
+
+  const bindSearchFilter = (section) => {
+    const searchInput = section.querySelector("[data-choice-search-input]");
+    const options = Array.from(section.querySelectorAll(".learn_choice_option"));
+    const emptyState = section.querySelector("[data-choice-empty-state]");
+    if (!(searchInput instanceof HTMLInputElement) || !options.length || !(emptyState instanceof HTMLElement)) {
+      return;
+    }
+
+    const applyOptionFilter = () => {
+      const needle = normalizeSearchText(String(searchInput.value || "").trim());
+      let visibleCount = 0;
+      options.forEach((entry) => {
+        if (!(entry instanceof HTMLElement)) {
+          return;
+        }
+        const haystack = normalizeSearchText(entry.dataset.choiceSearch || entry.textContent || "");
+        const matches = !needle || haystack.includes(needle);
+        entry.classList.toggle("is-filtered-out", !matches);
+        if (matches) {
+          visibleCount += 1;
+        }
+      });
+      emptyState.hidden = visibleCount > 0;
+    };
+
+    searchInput.addEventListener("input", applyOptionFilter);
+    searchInput.addEventListener("search", applyOptionFilter);
+    searchInput.addEventListener("change", applyOptionFilter);
+    applyOptionFilter();
+  };
+
+  getSections().forEach((section) => {
+    bindSearchFilter(section);
+    section.querySelectorAll("input[type='radio']").forEach((input) => {
+      input.addEventListener("change", () => {
+        updateDecisionResolvedState(section);
+      });
+    });
+    const textInput = section.querySelector("[data-choice-text-input]");
+    if (textInput instanceof HTMLInputElement) {
+      textInput.addEventListener("input", () => {
+        updateDecisionResolvedState(section);
+      });
+    }
+  });
 
   formEl.addEventListener("submit", (event) => {
     event.preventDefault();
@@ -491,18 +382,15 @@ export function createChoiceModalController({ decisions = [], hiddenInputContain
     closeModal();
   });
 
+  renderPendingDecisions();
   emitPendingChange();
 
   return {
     emitPendingChange,
-    getPendingDecisions,
+    getPendingDecisions: getPendingSections,
     hasPendingChoices,
     openDecision: openPendingChoices,
     openNextPendingChoice: openPendingChoices,
     openPendingChoices,
   };
 }
-
-
-
-

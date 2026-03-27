@@ -518,7 +518,7 @@ class Technique(models.Model):
     activation_cost = models.PositiveSmallIntegerField(null=True, blank=True)
     activation_cost_resource = models.CharField(max_length=50, blank=True, default="")
     description = models.TextField(blank=True, default="")
-    
+
     has_specification = models.BooleanField(default=False)
 
     class Meta:
@@ -1103,3 +1103,4 @@ class CharacterTechniqueChoice(models.Model):
 
     def __str__(self) -> str:
         return f"{self.character.name} -> {self.technique.name}: {self.selected_target_display()}"
+

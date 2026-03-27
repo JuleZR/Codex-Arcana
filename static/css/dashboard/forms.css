@@ -1,0 +1,185 @@
+/* Dashboard forms and account tools */
+
+.page.dashboard_page--form {
+  justify-content: flex-start;
+  position: relative;
+}
+
+.form_panel {
+  margin-top: 2px;
+}
+
+.creation_window_backdrop {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 20% 10%, rgba(255, 247, 228, 0.1), rgba(36, 26, 18, 0.25));
+  pointer-events: none;
+}
+
+.creation_wizard_window {
+  position: fixed;
+  width: min(1520px, calc(100vw - 20px), calc((100vh - 96px) * 1.41421356));
+  height: min(960px, calc(100vh - 96px), calc((100vw - 20px) / 1.41421356));
+  aspect-ratio: 1.41421356 / 1;
+  left: 10px;
+  top: 72px;
+  z-index: 6;
+}
+
+.creation_wizard_window .creation_window_body {
+  height: calc(100% - 35px);
+  max-height: none;
+  overflow: auto;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0.08));
+  backdrop-filter: blur(5px);
+}
+
+.dashboard_creation_backdrop {
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(circle at 20% 10%, rgba(255, 247, 228, 0.12), rgba(36, 26, 18, 0.46));
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 160ms ease, visibility 0s linear 160ms;
+  z-index: 5;
+}
+
+.dashboard_creation_backdrop.is-open {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transition: opacity 160ms ease;
+}
+
+.dashboard_creation_window {
+  z-index: 6;
+}
+
+.dashboard_creation_window .dashboard_creation_body {
+  padding: 0;
+  overflow: hidden;
+}
+
+.dashboard_creation_iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+  background: rgba(255, 247, 228, 0.84);
+}
+
+.dashboard_account_backdrop {
+  z-index: 6;
+}
+
+.dashboard_account_window {
+  width: min(520px, calc(100vw - 28px));
+  z-index: 7;
+}
+
+.dashboard_account_window .dashboard_account_body {
+  padding: 12px;
+  height: auto;
+  max-height: min(620px, calc(100vh - 120px));
+  overflow: auto;
+}
+
+.dashboard_account_form {
+  display: grid;
+  gap: 8px;
+}
+
+.dashboard_account_actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.character_form {
+  display: grid;
+  gap: 10px;
+  max-width: 520px;
+}
+
+.character_form--wizard {
+  max-width: none;
+  width: 100%;
+  grid-template-columns: 1fr;
+  align-content: start;
+}
+
+.character_form--phase2 {
+  max-width: none;
+  width: 100%;
+  grid-template-columns: 1fr;
+  align-content: start;
+}
+
+.character_form--phase2 .phase_points_grid,
+.character_form--phase2 .phase2_sections_grid,
+.character_form--phase2 .phase2_shop_layout {
+  width: 100%;
+}
+
+.form_row {
+  display: grid;
+  gap: 4px;
+}
+
+.form_row label {
+  font-size: 0.92rem;
+  color: rgba(63, 45, 31, 0.86);
+}
+
+.dashboard_input {
+  width: 100%;
+  min-height: 36px;
+  border: 1px solid rgba(74, 55, 38, 0.35);
+  border-radius: 7px;
+  padding: 7px 9px;
+  font: inherit;
+  color: #2f2114;
+  background: rgba(255, 251, 241, 0.9);
+}
+
+.dashboard_input:focus {
+  outline: 2px solid rgba(163, 120, 60, 0.38);
+  border-color: rgba(108, 76, 39, 0.52);
+}
+
+.form_actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.form_error {
+  color: #7a241a;
+  font-size: 0.9rem;
+}
+
+
+.dice_set_row{
+  display:flex;
+  gap:8px;
+  align-items:center;
+}
+
+.dice_refresh_button{
+  width:34px;
+  height:34px;
+  border:0;
+  border-radius:6px;
+  cursor:pointer;
+  font-size:16px;
+  background:#2c2c2c;
+  color:#ddd;
+}
+
+.dice_refresh_button:hover{
+  background:#3a3a3a;
+}
+

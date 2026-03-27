@@ -1,43 +1,33 @@
-<section class="payday-window payday-window--large" id="learnWindow" aria-hidden="true" data-force-close="{% if close_learn_window_once %}1{% else %}0{% endif %}">
-  <div class="payday-window__titlebar" id="learnWindowHandle">
-    <h3 class="payday-window__title">Lernmen&uuml;</h3>
-    <button type="button" class="payday-window__close" id="learnWindowClose" aria-label="Lernmen&uuml; schlie&szlig;en">x</button>
+<section class="payday-window payday-window--large sheet-window" id="learnWindow" aria-hidden="true" data-force-close="{% if close_learn_window_once %}1{% else %}0{% endif %}">
+  <div class="payday-window__titlebar sheet-window__header" id="learnWindowHandle">
+    <div class="sheet-window__heading">
+      <h3 class="payday-window__title sheet-window__title">Lernmenü</h3>
+    </div>
+    <div class="sheet-window__actions">
+      <button type="button" class="payday-window__close sheet-window__close" id="learnWindowClose" aria-label="Lernmenü schließen">x</button>
+    </div>
   </div>
-  <div class="payday-window__body shop-window__body learn-window__body">
-    <form method="post" action="{% url 'apply_learning' character.id %}" id="learnForm" class="learn_form" data-learn-budget="{{ character.current_experience }}">
+  <div class="payday-window__body sheet-window__body shop-window__body learn-window__body">
+    <form method="post" action="{% url 'apply_learning' character.id %}" id="learnForm" class="learn_form">
       {% csrf_token %}
-      <div class="learn_budget_grid">
-        <div class="shop_cart_total_row">
-          <span>EP Budget</span>
-          <span id="learnBudgetValue">{{ character.current_experience }} EP</span>
-        </div>
-        <div class="shop_cart_total_row">
-          <span>Verbrauch</span>
-          <span id="learnSpentValue">0 EP</span>
-        </div>
-        <div class="shop_cart_total_row">
-          <span>Rest</span>
-          <span id="learnRemainingValue">{{ character.current_experience }} EP</span>
-        </div>
-      </div>
-      <p id="learnValidationHint" class="form_error learn_validation_hint" hidden></p>
-      <div class="shop_window_layout learn_window_layout">
-        <div class="shop_panel">
-          <div class="shop_panel_header">
-            <h2>Lernoptionen</h2>
+      {% include "charsheet/partials/_learning_budget.html" %}
+      <div class="sheet-window__layout sheet-window__layout--split shop_window_layout learn_window_layout">
+        <section class="sheet-window__section shop_panel">
+          <div class="sheet-window__section-head shop_panel_header">
+            <h2 class="sheet-window__section-title">Lernoptionen</h2>
           </div>
 
-          <div class="shop_toolbar learn_toolbar">
+          <div class="sheet-window__toolbar shop_toolbar learn_toolbar">
             <input
               type="search"
               id="learnFilterInput"
-              class="shop_filter_input"
+              class="sheet-window__field shop_filter_input"
               placeholder="Lernoptionen filtern"
               aria-label="Lernoptionen filtern"
             >
           </div>
 
-          <div class="shop_list_scroll learn_list_scroll" aria-label="Lernoptionen">
+          <div class="sheet-window__surface sheet-window__surface--scroll shop_list_scroll learn_list_scroll" aria-label="Lernoptionen">
             <div class="learn_tabs" data-tabs>
               <div class="learn_tabs__list" role="tablist" aria-label="Lernkategorien">
                 <button
@@ -133,7 +123,7 @@
               >
                 <details class="shop_group" data-learn-group open>
                   <summary><span>Vor- & Nachteile</span><span class="shop_group_count">{{ learn_trait_count }}</span></summary>
-                  <p class="learn_traits_note">Vor- und Nachteile werden derzeit nicht ueber EP im Lernmenue gelernt.</p>
+                  <p class="learn_traits_note">Vor- und Nachteile werden derzeit nicht über EP im Lernmenü gelernt.</p>
                   {% for group in learn_trait_groups %}
                     <details class="shop_group learn_subgroup" data-learn-group open>
                       <summary><span>{{ group.name }}</span><span class="shop_group_count">{{ group.rows|length }}</span></summary>
@@ -232,14 +222,14 @@
               </section>
             </div>
           </div>
-        </div>
+        </section>
 
-        <div class="shop_panel">
-          <div class="shop_panel_header">
-            <h2>Lern-Warenkorb</h2>
+        <section class="sheet-window__section shop_panel">
+          <div class="sheet-window__section-head shop_panel_header">
+            <h2 class="sheet-window__section-title">Lern-Warenkorb</h2>
           </div>
-          <div class="shop_cart_wrapper">
-            <div class="shop_cart_scroll">
+          <div class="sheet-window__surface sheet-window__surface--work shop_cart_wrapper">
+            <div class="sheet-window__surface sheet-window__surface--table shop_cart_scroll">
               <table class="shop_cart_table">
                 <thead>
                   <tr>
@@ -251,40 +241,20 @@
                 </thead>
                 <tbody id="learnCartBody">
                   <tr class="shop_cart_empty_row" data-learn-empty-row>
-                    <td colspan="4">Noch kein Lernschritt gew&auml;hlt.</td>
+                    <td colspan="4">Noch kein Lernschritt gewählt.</td>
                   </tr>
                 </tbody>
               </table>
             </div>
             <div id="learnPendingChoiceInputs"></div>
-            <div class="shop_cart_actions">
+            <div class="sheet-window__footer shop_cart_actions">
               <button type="submit" id="learnApplyBtn" class="shop_buy_btn">Lernen anwenden</button>
             </div>
           </div>
-        </div>
+        </section>
       </div>
     </form>
   </div>
 </section>
 
-<section class="payday-window payday-window--item-create learn_choice_window" id="learnChoiceWindow" aria-hidden="true">
-  <div class="payday-window__titlebar" id="learnChoiceWindowHandle">
-    <h3 class="payday-window__title" id="learnChoiceWindowTitle">Ausstehende Entscheidung</h3>
-    <button type="button" class="payday-window__close" id="learnChoiceWindowClose" aria-label="Choice-Fenster schlie&szlig;en">x</button>
-  </div>
-  <div class="payday-window__body learn_choice_window_body">
-    <form id="learnChoiceForm" class="learn_choice_form" novalidate>
-      <p class="learn_choice_window_intro" id="learnChoiceWindowIntro"></p>
-      <div class="learn_choice_decision_list" id="learnChoiceDecisionList"></div>
-
-      <p class="form_error learn_choice_hint" id="learnChoiceHint" hidden></p>
-
-      <div class="learn_choice_actions">
-        <button type="submit" id="learnChoiceConfirmBtn" class="shop_buy_btn">Auswahl uebernehmen</button>
-        <button type="button" id="learnChoiceCancelBtn" class="shop_item_cancel_btn">Schliessen</button>
-      </div>
-    </form>
-  </div>
-</section>
-
-{{ learn_pending_decisions|json_script:"learn-pending-decisions-data" }}
+{% include "charsheet/partials/_learning_choice_window.html" %}

@@ -1,0 +1,114 @@
+{% load static %}
+<div class="sheet-side-stack" aria-label="Schnellzugriff und Würfel">
+  <aside class="left-tools sheet-window sheet-sidebar" id="leftTools" aria-label="Schnellzugriff">
+    <div class="left-tools__inner sheet-window__body sheet-sidebar__body">
+      <div class="left-tools__panel left-tools__panel--actions" aria-label="Schnellzugriff">
+        <button type="button" class="left-tools__icon_btn" id="learnMenuTrigger" aria-label="Lernmenü öffnen" title="Lernen">
+          <span class="left-tools__icon_frame">
+            <span class="left-tools__icon_symbol" aria-hidden="true">&#x2726;</span>
+          </span>
+          <span class="left-tools__icon_label">Lernen</span>
+        </button>
+        <button type="button" class="left-tools__icon_btn" id="shopScaleTrigger" aria-label="Shop öffnen" title="Shop">
+          <span class="left-tools__icon_frame">
+            <span class="left-tools__icon_symbol" aria-hidden="true">&#x2696;&#xFE0E;</span>
+          </span>
+          <span class="left-tools__icon_label">Shop</span>
+        </button>
+        <button type="button" class="left-tools__icon_btn" id="diaryTrigger" aria-label="Chronik öffnen" title="Chronik">
+          <span class="left-tools__icon_frame">
+            <span class="left-tools__icon_symbol" aria-hidden="true">&#x270E;</span>
+          </span>
+          <span class="left-tools__icon_label">Chronik</span>
+        </button>
+      </div>
+
+      <div class="left-tools__panel left-tools__panel--resources" aria-label="Ressourcen">
+        <section class="left-tools__group left-tools__group--resource" aria-label="Geld">
+          <h3>Geld</h3>
+          <form method="post" action="{% url 'adjust_money' character.id %}" class="left-tools__form" data-sheet-action data-reset-after-success>
+            {% csrf_token %}
+            <label class="left-tools__input_wrap">
+              <input
+                type="text"
+                inputmode="numeric"
+                name="delta"
+                class="wallet_delta_input left-tools__delta_input"
+                step="1"
+                value="0"
+                placeholder="+ / -"
+                aria-label="Geldänderung positiv oder negativ"
+              />
+              <span class="left-tools__unit_inset" aria-hidden="true">KS</span>
+            </label>
+            <button type="submit" class="wallet_apply_btn left-tools__apply" aria-label="Geldänderung bestätigen" title="Bestätigen">&#x2713;</button>
+          </form>
+        </section>
+
+        <section class="left-tools__group left-tools__group--resource" aria-label="Erfahrung">
+          <h3>Erfahrung</h3>
+          <form method="post" action="{% url 'adjust_experience' character.id %}" class="left-tools__form" data-sheet-action data-reset-after-success>
+            {% csrf_token %}
+            <label class="left-tools__input_wrap">
+              <input
+                type="text"
+                inputmode="numeric"
+                name="delta"
+                class="wallet_delta_input left-tools__delta_input"
+                step="1"
+                value="0"
+                placeholder="+ / -"
+                aria-label="Erfahrungsänderung positiv oder negativ"
+              />
+              <span class="left-tools__unit_inset" aria-hidden="true">EP</span>
+            </label>
+            <button type="submit" class="wallet_apply_btn left-tools__apply" aria-label="Erfahrungsänderung bestätigen" title="Bestätigen">&#x2713;</button>
+          </form>
+        </section>
+      </div>
+
+      <section
+        class="left-tools__panel left-tools__panel--notice"
+        id="learnPendingChoiceNotice"
+        {% if not learn_has_pending_choices %}hidden{% endif %}
+        data-pending-choice-notice
+        aria-label="Offene Entscheidung"
+      >
+        <button
+          type="button"
+          class="learn_choice_notice_trigger left-tools__notice_trigger"
+          id="learnPendingChoiceTrigger"
+          aria-label="Offene Entscheidung erneut öffnen"
+          title="Offene Entscheidung erneut öffnen"
+        >
+          <span class="learn_choice_notice_icon" aria-hidden="true">&#x26A0;&#xFE0E;</span>
+          <span class="learn_choice_notice_text">Ausstehende Entscheidung</span>
+        </button>
+      </section>
+
+      <a class="left-tools__icon_btn left-tools__icon_btn--link left-tools__icon_btn--exit left-tools__footer-link" href="{% url 'dashboard' %}" aria-label="Zum Dashboard" title="Dashboard">
+        <span class="left-tools__icon_frame">
+          <span class="left-tools__icon_symbol" aria-hidden="true">&#x21A9;&#xFE0E;</span>
+        </span>
+        <span class="left-tools__icon_label">Codex</span>
+      </a>
+    </div>
+  </aside>
+
+  {% if request.user.settings.dddice_enabled %}
+    <aside class="sheet-dice-dock sheet-window sheet-sidebar sheet-sidebar--dice" aria-label="Würfel-Schnellzugriff">
+      <div class="sheet-dice-dock__inner sheet-window__body sheet-sidebar__body">
+        <div class="left-tools__panel left-tools__panel--dice" aria-label="Würfel">
+          <button type="button" class="sheet-dice-dock__btn" id="roll-2d10" title="2D10 werfen">2D10</button>
+          <div class="sheet-dice-dock__row">
+            <button type="button" class="sheet-dice-dock__btn" id="roll-1d10" title="1W10 werfen">1D10</button>
+            <button type="button" class="sheet-dice-dock__btn" id="roll-1d100" title="1W100 werfen">1D100</button>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <canvas id="dddice" width="500" height="300"></canvas>
+    <div id="roll-result"></div>
+  {% endif %}
+</div>

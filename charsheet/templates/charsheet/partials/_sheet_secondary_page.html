@@ -1,0 +1,137 @@
+<article class="page page--secondary">
+  <section class="p2_layout">
+    <aside class="p2_left_col">
+      {% include "charsheet/partials/_core_stats_panel.html" %}
+      {% include "charsheet/partials/_damage_panel.html" %}
+      {% include "charsheet/partials/_wallet_panel.html" %}
+      {% include "charsheet/partials/_inventory_panel.html" %}
+    </aside>
+
+    <section class="p2_right_col">
+      {% include "charsheet/partials/_armor_panel.html" %}
+
+      <div class="p2_panel">
+        <div class="body_grid">
+          <ul class="body_side body_side--left">
+            <li class="zone_group">
+              <div class="zone_main">
+                <span>Schild (-4)</span><span class="pill empty"></span>
+              </div>
+              <ul class="zone_sub zone_checks">
+                <li><span class="checkbox"></span><span>links</span></li>
+                <li><span class="checkbox"></span><span>rechts</span></li>
+              </ul>
+            </li>
+            <li class="zone_group">
+              <div class="zone_main">
+                <span>Rechter Arm (-4)</span><span class="pill empty"></span>
+              </div>
+              <ul class="zone_sub">
+                <li><span>Rechte Hand (-8)</span><span class="pill empty"></span></li>
+              </ul>
+            </li>
+            <li class="zone_group">
+              <div class="zone_main">
+                <span>Rechtes Bein (-3)</span><span class="pill empty"></span>
+              </div>
+              <ul class="zone_sub">
+                <li><span>Rechter Fu&szlig; (-8)</span><span class="pill empty"></span></li>
+              </ul>
+            </li>
+          </ul>
+          <div class="body_center" aria-hidden="true"></div>
+          <ul class="body_side body_side--right">
+            <li class="zone_group">
+              <div class="zone_main">
+                <span>Kopf (-6)</span><span class="pill empty"></span>
+              </div>
+              <ul class="zone_sub">
+                <li><span>Gesicht (-8)</span><span class="pill empty"></span></li>
+                <li><span>Augen (-9 / -14)</span><span class="pill empty"></span></li>
+                <li><span>Hals (-10)</span><span class="pill empty"></span></li>
+              </ul>
+            </li>
+            <li class="zone_group">
+              <div class="zone_main">
+                <span>Torso (-2)</span><span class="pill empty"></span>
+              </div>
+              <ul class="zone_sub">
+                <li><span>Organe (-10)</span><span class="pill empty"></span></li>
+                <li><span>Weichteile (-8)</span><span class="pill empty"></span></li>
+              </ul>
+            </li>
+            <li class="zone_group">
+              <div class="zone_main">
+                <span>Linker Arm (-4)</span><span class="pill empty"></span>
+              </div>
+              <ul class="zone_sub">
+                <li><span>Linke Hand (-8)</span><span class="pill empty"></span></li>
+              </ul>
+            </li>
+            <li class="zone_group">
+              <div class="zone_main">
+                <span>Linkes Bein (-3)</span><span class="pill empty"></span>
+              </div>
+              <ul class="zone_sub">
+                <li><span>Linker Fu&szlig; (-8)</span><span class="pill empty"></span></li>
+              </ul>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="p2_panel">
+        <div class="move_row">
+          <span class="move_title">Bewegung</span>
+          <span>{{ movement_ground.combat }}</span>
+          <span>{{ movement_ground.march }}</span>
+          <span>{{ movement_ground.sprint }}</span>
+          <span>{{ movement_ground.swim }}</span>
+          <span>{{ movement_ground.fly }}</span>
+        </div>
+        <div class="move_labels">
+          <span class="move_spacer" aria-hidden="true"></span>
+          <span>Kampf</span><span>Marsch</span><span>Sprint</span><span>Schwimmend</span><span>Fliegend</span>
+        </div>
+      </div>
+
+      <div class="p2_panel p2_schools">
+        <h2>Kampf- und Magieschulen</h2>
+        <div class="panel_scroll schools_scroll">
+          <ul class="p2_lines p2_short_lines">
+            {% for row in school_technique_rows %}
+            <li
+              class="school_row_with_tooltip tooltip_target"
+              data-tooltip-side="left"
+              data-tooltip="{{ row.description|default:'Keine Beschreibung' }}"
+            >
+              <div class="skill_name_wrap">
+                <span class="skill_name_text">{{ row.level }} - {{ row.school_name }} - {{ row.entry_name }}</span>
+                {% if row.can_edit_specification %}
+                <button
+                  type="button"
+                  class="skill_spec_edit_btn"
+                  data-technique-spec-trigger
+                  data-technique-name="{{ row.entry_name }}"
+                  data-specification-value="{{ row.specification_value }}"
+                  data-action="{% url 'update_technique_specification' character.id row.technique_id %}"
+                  aria-label="{{ row.entry_name }} bearbeiten"
+                  title="{{ row.entry_name }} bearbeiten"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path d="M4 20h4l10-10-4-4L4 16v4z"></path>
+                    <path d="M13.8 6.2l4 4"></path>
+                  </svg>
+                </button>
+                {% endif %}
+              </div>
+            </li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+
+      {% include "charsheet/partials/_weapon_table.html" %}
+    </section>
+  </section>
+</article>

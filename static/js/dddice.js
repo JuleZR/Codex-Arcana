@@ -24,6 +24,7 @@ const SAVED_THEME_ID = dddiceConfig?.themeId ?? "";
 --------------------------------------------------- */
 
 const canvas = document.getElementById("dddice");
+const roll1d100Button = document.getElementById("roll-1d100");
 const roll1d10Button = document.getElementById("roll-1d10");
 const roll2d10Button = document.getElementById("roll-2d10");
 const resultDiv = document.getElementById("roll-result");
@@ -621,6 +622,13 @@ async function performRoll(sides = 10, count = 2) {
 --------------------------------------------------- */
 
 function bindRollButtons() {
+    if (roll1d100Button) {
+        roll1d100Button.addEventListener("click", (event) => {
+            event.preventDefault();
+            performRoll(100, 1);
+        });
+    }
+
     if (roll1d10Button) {
         roll1d10Button.addEventListener("click", (event) => {
             event.preventDefault();
@@ -697,3 +705,4 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     await autoLoadDiceThemes();
 });
+

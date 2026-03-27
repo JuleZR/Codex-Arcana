@@ -86,50 +86,9 @@
       </table>
     </div>
 
-    <div class="exp_wrapper">
-      <h2>Erfahrung</h2>
-      <div class="exp_rows" aria-label="Erfahrungspunkte">
-        <div class="exp_row">
-          <span class="exp_label">Gesamt</span>
-          <span class="exp_value">{{ character.overall_experience }}</span>
-        </div>
-        <div class="exp_row">
-          <span class="exp_label">Aktuell</span>
-          <span class="exp_value">{{ character.current_experience }}</span>
-        </div>
-      </div>
-    </div>
+    {% include "charsheet/partials/_experience_panel.html" %}
 
-    <div class="fame_wrapper">
-      <div class="fame_header">
-        <h2>Ruhm</h2>
-        <div class="fame_total_wrap">
-          <span class="rank_total_input">{% if fame_total_rank == 0 %}-{% else %}{{ fame_total_rank }}{% endif %}</span>
-          <span class="fame_total_label">Gesamtrang</span>
-        </div>
-      </div>
-      <div class="fame_rank_inputs" aria-label="Rangwerte">
-        <span class="rank_input">{% if character.personal_fame_rank == 0 %}-{% else %}{{ character.personal_fame_rank }}{% endif %}</span>
-        <span class="rank_input">{% if character.sacrifice_rank == 0 %}-{% else %}{{ character.sacrifice_rank }}{% endif %}</span>
-        <span class="rank_input">{% if character.artefact_rank == 0 %}-{% else %}{{ character.artefact_rank }}{% endif %}</span>
-      </div>
-      <div class="fame_ranks" aria-label="Rangfelder">
-        <span>Pers&ouml;nlicher Rang</span>
-        <span>Opferrang</span>
-        <span>Artefaktrang</span>
-      </div>
-      <form method="post" action="{% url 'adjust_personal_fame_point' character.id %}" class="fame_adjust_form">
-        {% csrf_token %}
-        <button type="submit" name="delta" value="-1" class="fame_step_btn" aria-label="Ruhmpunkt verringern">-</button>
-        <div class="fame_dots" aria-label="Ruhmpunkte">
-          {% for _ in '1234567890' %}
-            <span class="dot{% if forloop.counter <= character.personal_fame_point %} is-filled{% endif %}"></span>
-          {% endfor %}
-        </div>
-        <button type="submit" name="delta" value="1" class="fame_step_btn" aria-label="Ruhmpunkt erh&ouml;hen">+</button>
-      </form>
-      <p class="fame_hint">Ruhmpunkte 10 - 1 Pers&ouml;nlicher Rang</p>
-    </div>
+    {% include "charsheet/partials/_fame_panel.html" %}
 
     <div class="reputation_wrapper">
       <div class="reputation_header">
@@ -185,10 +144,7 @@
   </section>
 
   <section class="p1_bottom_right">
-    <div class="load_wrapper" aria-label="Belastung">
-      <span class="load_label">Belastung (Bel.)</span>
-      <span class="load_value">{{ core_stats.load_value }}</span>
-    </div>
+    {% include "charsheet/partials/_load_panel.html" %}
 
     <div class="skills_wrapper">
       <table class="skills_table" aria-label="Fertigkeiten">
@@ -263,129 +219,3 @@
     </div>
   </section>
 </article>
-
-<section class="payday-window payday-window--item-create" id="charInfoWindow" aria-hidden="true">
-  <div class="payday-window__titlebar" id="charInfoWindowHandle">
-    <h3 class="payday-window__title">Charakterinfo bearbeiten</h3>
-    <button type="button" class="payday-window__close" id="charInfoWindowClose" aria-label="Fenster schlie&szlig;en">x</button>
-  </div>
-  <div class="payday-window__body">
-    <form method="post" action="{% url 'update_character_info' character.id %}" id="charInfoForm" class="shop_item_form">
-      {% csrf_token %}
-      <div class="shop_item_form_grid">
-        <label class="shop_item_form_row"><span>Name</span>{{ char_info_form.name }}</label>
-        <label class="shop_item_form_row"><span>Geschlecht</span>{{ char_info_form.gender }}</label>
-        <label class="shop_item_form_row"><span>Alter</span>{{ char_info_form.age }}</label>
-        <label class="shop_item_form_row"><span>Gr&ouml;&szlig;e (cm)</span>{{ char_info_form.height }}</label>
-        <label class="shop_item_form_row"><span>Gewicht (kg)</span>{{ char_info_form.weight }}</label>
-        <label class="shop_item_form_row"><span>Herkunftsland</span>{{ char_info_form.country_of_origin }}</label>
-        <label class="shop_item_form_row"><span>Hautfarbe</span>{{ char_info_form.skin_color }}</label>
-        <label class="shop_item_form_row"><span>Haarfarbe</span>{{ char_info_form.hair_color }}</label>
-        <label class="shop_item_form_row"><span>Augenfarbe</span>{{ char_info_form.eye_color }}</label>
-        <label class="shop_item_form_row"><span>Religion</span>{{ char_info_form.religion }}</label>
-      </div>
-      <label class="shop_item_form_row"><span>Aussehen</span>{{ char_info_form.appearance }}</label>
-      <div class="shop_item_form_actions">
-        <button type="button" id="charInfoCancelBtn" class="shop_item_cancel_btn">Abbrechen</button>
-        <button type="submit" class="shop_item_save_btn">Speichern</button>
-      </div>
-    </form>
-  </div>
-</section>
-
-<section class="payday-window payday-window--item-create" id="skillSpecWindow" aria-hidden="true">
-  <div class="payday-window__titlebar" id="skillSpecWindowHandle">
-    <h3 class="payday-window__title" id="skillSpecWindowTitle">Fertigkeit bearbeiten</h3>
-    <button type="button" class="payday-window__close" id="skillSpecWindowClose" aria-label="Fenster schlie&szlig;en">x</button>
-  </div>
-  <div class="payday-window__body">
-    <form method="post" action="" id="skillSpecForm" class="shop_item_form">
-      {% csrf_token %}
-      <label class="shop_item_form_row skill_spec_form_row">
-        <span>Bezeichnung</span>
-        {{ skill_specification_form.specification }}
-      </label>
-      <p class="skill_spec_hint">Bitte ein einzelnes Wort eintragen, z. B. den konkreten Beruf.</p>
-      <div class="shop_item_form_actions">
-        <button type="button" id="skillSpecCancelBtn" class="shop_item_cancel_btn">Abbrechen</button>
-        <button type="submit" class="shop_item_save_btn">Speichern</button>
-      </div>
-    </form>
-  </div>
-</section>
-
-<section class="payday-window payday-window--item-create" id="techniqueSpecWindow" aria-hidden="true">
-  <div class="payday-window__titlebar" id="techniqueSpecWindowHandle">
-    <h3 class="payday-window__title" id="techniqueSpecWindowTitle">Technik bearbeiten</h3>
-    <button type="button" class="payday-window__close" id="techniqueSpecWindowClose" aria-label="Fenster schlie&szlig;en">x</button>
-  </div>
-  <div class="payday-window__body">
-    <form method="post" action="" id="techniqueSpecForm" class="shop_item_form">
-      {% csrf_token %}
-      <label class="shop_item_form_row skill_spec_form_row">
-        <span>Bezeichnung</span>
-        {{ technique_specification_form.specification_value }}
-      </label>
-      <p class="skill_spec_hint">Bitte ein einzelnes Wort eintragen, z. B. eine konkrete Auspr&auml;gung der Technik.</p>
-      <div class="shop_item_form_actions">
-        <button type="button" id="techniqueSpecCancelBtn" class="shop_item_cancel_btn">Abbrechen</button>
-        <button type="submit" class="shop_item_save_btn">Speichern</button>
-      </div>
-    </form>
-  </div>
-</section>
-
-<script type="module">
-  import { createFloatingWindowController } from "{% static 'js/charsheet/window_manager.js' %}";
-
-  const techniqueSpecWindow = document.getElementById("techniqueSpecWindow");
-  const techniqueSpecWindowClose = document.getElementById("techniqueSpecWindowClose");
-  const techniqueSpecWindowHandle = document.getElementById("techniqueSpecWindowHandle");
-  const techniqueSpecWindowTitle = document.getElementById("techniqueSpecWindowTitle");
-  const techniqueSpecCancelBtn = document.getElementById("techniqueSpecCancelBtn");
-  const techniqueSpecForm = document.getElementById("techniqueSpecForm");
-  const techniqueSpecInput = document.getElementById("id_specification_value");
-  const techniqueSpecTriggers = Array.from(document.querySelectorAll("[data-technique-spec-trigger]"));
-
-  if (
-    techniqueSpecWindow
-    && techniqueSpecWindowClose
-    && techniqueSpecWindowHandle
-    && techniqueSpecWindowTitle
-    && techniqueSpecForm
-    && techniqueSpecInput
-  ) {
-    const controller = createFloatingWindowController({
-      windowEl: techniqueSpecWindow,
-      closeButton: techniqueSpecWindowClose,
-      handle: techniqueSpecWindowHandle,
-      startTop: 214,
-      startRightInset: 148,
-      storageKey: "charsheet.techniqueSpecWindow",
-      allowPersistedOpen: false,
-    });
-
-    if (controller) {
-      techniqueSpecTriggers.forEach((trigger) => {
-        trigger.addEventListener("click", () => {
-          const techniqueName = trigger.dataset.techniqueName || "Technik";
-          techniqueSpecWindowTitle.textContent = `${techniqueName} bearbeiten`;
-          techniqueSpecForm.action = trigger.dataset.action || "";
-          techniqueSpecInput.value = trigger.dataset.specificationValue || "";
-          controller.open();
-          window.setTimeout(() => {
-            techniqueSpecInput.focus();
-            techniqueSpecInput.select();
-          }, 0);
-        });
-      });
-
-      techniqueSpecCancelBtn?.addEventListener("click", () => {
-        controller.close();
-      });
-      techniqueSpecForm.addEventListener("submit", () => {
-        controller.close();
-      });
-    }
-  }
-</script>

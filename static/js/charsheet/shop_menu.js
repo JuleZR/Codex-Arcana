@@ -1,4 +1,5 @@
 import { escapeHtml, getCsrfToken, readInt, saveJsonStorage } from "./utils.js";
+import { applySheetPartials } from "./partial_updates.js";
 
 export function initShopMenu() {
   const filterInput = document.getElementById("shopFilterInput");
@@ -82,7 +83,7 @@ export function initShopMenu() {
     legendary: 20,
   };
 
-  const baseBalance = readInt(cartWrapper.getAttribute("data-shop-balance") || "0", 0);
+  let baseBalance = readInt(cartWrapper.getAttribute("data-shop-balance") || "0", 0);
   const buyUrl = String(cartWrapper.getAttribute("data-buy-url") || "");
   const cart = new Map();
   let cartCounter = 0;
@@ -342,7 +343,11 @@ export function initShopMenu() {
           left: null,
           top: null,
         });
-        window.location.reload();
+        baseBalance = readInt(data.new_money, baseBalance);
+        cart.clear();
+        discountInput.value = "0";
+        applySheetPartials(data);
+        render();
         return;
       }
       if (data?.error === "insufficient_funds") {
@@ -357,3 +362,5 @@ export function initShopMenu() {
 
   render();
 }
+
+

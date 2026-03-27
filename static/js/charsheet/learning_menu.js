@@ -1,8 +1,8 @@
 import { createChoiceModalController } from "./choice_modal.js";
-import { clamp, escapeHtml, parseJsonScript, readInt } from "./utils.js";
+import { clamp, escapeHtml, readInt } from "./utils.js";
 
 function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, validationHint, applyBtn) {
-  const budget = readInt(form.getAttribute("data-learn-budget") || "0", 0);
+  const getBudget = () => readInt(document.getElementById("learnBudgetPanel")?.getAttribute("data-learn-budget") || "0", 0);
   const getRows = () => Array.from(cartBody.querySelectorAll("[data-learn-cart-item]"));
   const ensureEmptyRow = () => {
     const emptyRow = cartBody.querySelector("[data-learn-empty-row]");
@@ -136,12 +136,23 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
       spent += result.cost;
       invalidWrite = invalidWrite || result.invalidWrite;
     });
+    const budget = getBudget();
     const remaining = budget - spent;
-    budgetEl.textContent = `${budget} EP`;
-    spentEl.textContent = `${spent} EP`;
-    remainingEl.textContent = `${remaining} EP`;
-    remainingEl.classList.toggle("is-negative", remaining < 0);
-    if (validationHint) {
+    const liveBudgetEl = document.getElementById("learnBudgetValue");
+    const liveSpentEl = document.getElementById("learnSpentValue");
+    const liveRemainingEl = document.getElementById("learnRemainingValue");
+    const liveValidationHint = document.getElementById("learnValidationHint");
+    if (liveBudgetEl) {
+      liveBudgetEl.textContent = `${budget} EP`;
+    }
+    if (liveSpentEl) {
+      liveSpentEl.textContent = `${spent} EP`;
+    }
+    if (liveRemainingEl) {
+      liveRemainingEl.textContent = `${remaining} EP`;
+      liveRemainingEl.classList.toggle("is-negative", remaining < 0);
+    }
+    if (liveValidationHint) {
       const messages = [];
       if (remaining < 0) {
         messages.push("Zu wenig EP fuer die ausgewaehlten Lernschritte.");
@@ -149,8 +160,8 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
       if (invalidWrite) {
         messages.push("Schreiben benoetigt mindestens Sprachlevel 1.");
       }
-      validationHint.hidden = messages.length === 0;
-      validationHint.textContent = messages.join(" ");
+      liveValidationHint.hidden = messages.length === 0;
+      liveValidationHint.textContent = messages.join(" ");
     }
   };
 
@@ -369,6 +380,11 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
     });
   });
 
+  if (form.dataset.learnTotalsBound !== "1") {
+    document.addEventListener("learn:refresh-totals", refreshTotals);
+    form.dataset.learnTotalsBound = "1";
+  }
+
   refreshTotals();
 
   return { refreshTotals };
@@ -391,9 +407,7 @@ export function initLearningMenu({ choiceWindowController = null } = {}) {
   }
 
   const cartController = initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, validationHint, applyBtn);
-  const decisions = parseJsonScript("learn-pending-decisions-data", []);
   const choiceController = createChoiceModalController({
-    decisions,
     hiddenInputContainer,
     windowController: choiceWindowController,
   });
@@ -432,4 +446,8 @@ export function initLearningMenu({ choiceWindowController = null } = {}) {
 
   return { cartController, choiceController };
 }
+
+
+
+
 

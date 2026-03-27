@@ -1,0 +1,37 @@
+<div class="p2_panel p2_core_stats" id="sheetCoreStatsPanel">
+  <div class="core_cols" aria-hidden="true">
+    <span>Wert</span><span>mit Bel.</span>
+  </div>
+  <div class="core_item">
+    <div class="core_main">
+      <span class="core_name">Initiative</span>
+      <span class="core_value">{{ core_stats.initiative_display }}</span>
+      <span class="core_value">{{ core_stats.initiative_with_load_display }}</span>
+    </div>
+    <div class="core_formula">Ge-Bonus/Malus + Mod.</div>
+  </div>
+  <div class="core_item">
+    <div class="core_main single">
+      <span class="core_name">Verteidigungswert (VW)</span><span class="core_value">{{ core_stats.vw }}</span>
+    </div>
+    <div class="core_formula">14 + Ge-Bonus/Malus + Wa-Bonus/Malus + GK + Mod.</div>
+  </div>
+  <div class="core_item">
+    <div class="core_main single">
+      <span class="core_name">Schockresistenz (SR)</span><span class="core_value">{{ core_stats.sr }}</span>
+    </div>
+    <div class="core_formula">14 + St-Bonus/Malus + Kon-Bonus/Malus + Mod.</div>
+  </div>
+  <div class="core_item">
+    <div class="core_main single">
+      <span class="core_name">Geistiger Widerstand (GW)</span><span class="core_value">{{ core_stats.gw }}</span>
+    </div>
+    <div class="core_formula">14 + Int-Bonus/Malus + Will-Bonus/Malus + Mod.</div>
+  </div>
+  <div class="core_item">
+    <div class="core_main single">
+      <span class="core_name">Arkane Macht (KP)</span><span class="core_value">{{ core_stats.arcane_power }}</span>
+    </div>
+    <div class="core_formula">Will + Stufen in Schulen + Mod.</div>
+  </div>
+</div>

@@ -565,6 +565,7 @@ class CharacterEngine:
     equipped_shield_rows = character_equipment.equipped_shield_rows
     get_grs = character_equipment.get_grs
     get_bel = character_equipment.get_bel
+    load_penalty = character_equipment.load_penalty
     get_ms = character_equipment.get_ms
     get_dmg_modifier_sum = character_equipment.get_dmg_modifier_sum
     km_to_coins = character_equipment.km_to_coins
@@ -816,7 +817,7 @@ class CharacterEngine:
 
         modifier_parts = [
             self.current_wound_penalty(),
-            -self.get_bel(),
+            self.load_penalty(),
             self.modifier_total_for_skill(skill_slug),
         ]
         if category_slug:

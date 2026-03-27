@@ -8,7 +8,6 @@ export function initSkillSpecModal() {
   const skillSpecCancelBtn = document.getElementById("skillSpecCancelBtn");
   const skillSpecForm = document.getElementById("skillSpecForm");
   const skillSpecInput = document.getElementById("id_specification");
-  const skillSpecTriggers = Array.from(document.querySelectorAll("[data-skill-spec-trigger]"));
   if (
     !skillSpecWindow
     || !skillSpecWindowClose
@@ -19,6 +18,10 @@ export function initSkillSpecModal() {
   ) {
     return;
   }
+  if (skillSpecWindow.dataset.modalBound === "1") {
+    return;
+  }
+  skillSpecWindow.dataset.modalBound = "1";
 
   const controller = createFloatingWindowController({
     windowEl: skillSpecWindow,
@@ -33,18 +36,19 @@ export function initSkillSpecModal() {
     return;
   }
 
-  skillSpecTriggers.forEach((trigger) => {
-    trigger.addEventListener("click", () => {
-      const skillName = trigger.dataset.skillName || "Fertigkeit";
-      skillSpecWindowTitle.textContent = `${skillName} bearbeiten`;
-      skillSpecForm.action = trigger.dataset.action || "";
-      skillSpecInput.value = trigger.dataset.specification || "";
-      controller.open();
-      window.setTimeout(() => {
-        skillSpecInput.focus();
-        skillSpecInput.select();
-      }, 0);
-    });
+  document.addEventListener("click", (event) => {
+    const trigger = event.target instanceof Element ? event.target.closest("[data-skill-spec-trigger]") : null;
+    if (!(trigger instanceof HTMLElement)) {
+      return;
+    }
+    skillSpecWindowTitle.textContent = `${trigger.dataset.skillName || "Fertigkeit"} bearbeiten`;
+    skillSpecForm.action = trigger.dataset.action || "";
+    skillSpecInput.value = trigger.dataset.specification || "";
+    controller.open();
+    window.setTimeout(() => {
+      skillSpecInput.focus();
+      skillSpecInput.select();
+    }, 0);
   });
 
   skillSpecCancelBtn?.addEventListener("click", () => {

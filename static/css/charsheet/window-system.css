@@ -1,0 +1,904 @@
+/* Shared window system: common shell, header, body, sections, controls, sidebar alignment */
+
+:root {
+  --sheet-window-radius: 14px;
+  --sheet-window-header-height: 46px;
+  --sheet-window-space-xs: 8px;
+  --sheet-window-space-sm: 12px;
+  --sheet-window-space-md: 16px;
+  --sheet-window-space-lg: 20px;
+  --sheet-window-border: rgba(103, 75, 44, 0.34);
+  --sheet-window-border-strong: rgba(96, 69, 39, 0.52);
+  --sheet-window-paper-top: rgba(252, 248, 239, 0.92);
+  --sheet-window-paper-bottom: rgba(233, 224, 205, 0.78);
+  --sheet-window-paper-soft-top: rgba(250, 246, 237, 0.82);
+  --sheet-window-paper-soft-bottom: rgba(239, 231, 216, 0.62);
+  --sheet-window-surface-top: rgba(251, 247, 239, 0.88);
+  --sheet-window-surface-bottom: rgba(240, 233, 219, 0.64);
+  --sheet-window-shadow:
+    0 18px 36px rgba(0, 0, 0, 0.22),
+    0 8px 16px rgba(39, 24, 12, 0.1),
+    inset 0 1px 0 rgba(255, 248, 229, 0.84),
+    inset 0 0 0 1px rgba(255, 241, 212, 0.18);
+}
+
+.sheet-window.payday-window {
+  border: 1px solid var(--sheet-window-border-strong);
+  border-radius: var(--sheet-window-radius);
+  background:
+    linear-gradient(180deg, var(--sheet-window-paper-top), var(--sheet-window-paper-bottom)),
+    url("/static/img/pergamentbg.jpg") center / cover no-repeat;
+  box-shadow: var(--sheet-window-shadow);
+}
+
+.sheet-window.payday-window.is-open {
+  box-shadow:
+    0 24px 44px rgba(0, 0, 0, 0.24),
+    0 10px 22px rgba(39, 24, 12, 0.12),
+    inset 0 1px 0 rgba(255, 248, 229, 0.84),
+    inset 0 0 0 1px rgba(255, 241, 212, 0.2);
+}
+
+.sheet-window__header.payday-window__titlebar {
+  min-height: var(--sheet-window-header-height);
+  padding: 0 var(--sheet-window-space-md) 0 var(--sheet-window-space-lg);
+  border-bottom: 1px solid var(--sheet-window-border);
+  background:
+    linear-gradient(180deg, rgba(253, 249, 241, 0.86), rgba(240, 232, 216, 0.64)),
+    url("/static/img/pergamentbg.jpg") center / cover no-repeat;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 248, 229, 0.92),
+    inset 0 -1px 0 rgba(133, 100, 63, 0.1);
+}
+
+.sheet-window__heading {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.sheet-window__title.payday-window__title {
+  font-family: "Cinzel", Georgia, serif;
+  font-size: 0.92rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(76, 50, 27, 0.96);
+}
+
+.sheet-window__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sheet-window-space-xs);
+  flex: 0 0 auto;
+}
+
+.sheet-window__close.payday-window__close {
+  width: 24px;
+  height: 24px;
+  border: 1px solid rgba(101, 72, 43, 0.44);
+  border-radius: 7px;
+  background:
+    linear-gradient(180deg, rgba(255, 251, 241, 0.9), rgba(235, 221, 192, 0.76)),
+    url("/static/img/pergamentbg.jpg") center / cover no-repeat;
+  color: rgba(74, 49, 27, 0.92);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 244, 218, 0.72),
+    0 1px 2px rgba(41, 24, 11, 0.08);
+}
+
+.sheet-window__body.payday-window__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sheet-window-space-md);
+  padding: var(--sheet-window-space-md);
+}
+
+.sheet-window__layout {
+  display: grid;
+  gap: var(--sheet-window-space-md);
+  min-height: 0;
+  height: 100%;
+}
+
+.sheet-window__layout--split {
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+}
+
+.sheet-window__section {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border: 1px solid var(--sheet-window-border);
+  border-radius: calc(var(--sheet-window-radius) - 2px);
+  background:
+    linear-gradient(180deg, rgba(249, 244, 234, 0.72), rgba(238, 230, 214, 0.54)),
+    url("/static/img/pergamentbg.jpg") center / cover no-repeat;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 248, 229, 0.72),
+    inset 0 0 0 1px rgba(255, 247, 226, 0.14);
+  overflow: hidden;
+}
+
+.sheet-window__section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sheet-window-space-sm);
+  min-height: 42px;
+  padding: 0 var(--sheet-window-space-md);
+  border-bottom: 1px solid rgba(118, 88, 57, 0.18);
+  background:
+    linear-gradient(180deg, rgba(252, 248, 239, 0.78), rgba(239, 232, 217, 0.58));
+}
+
+.sheet-window__section-head--status {
+  min-height: 38px;
+  padding: 0 var(--sheet-window-space-sm);
+  background:
+    linear-gradient(180deg, rgba(251, 246, 237, 0.54), rgba(239, 231, 214, 0.36));
+}
+
+.sheet-window__section-title {
+  margin: 0;
+  font-family: "Cinzel", Georgia, serif;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(76, 50, 27, 0.96);
+}
+
+.sheet-window__toolbar {
+  display: grid;
+  align-items: center;
+  gap: var(--sheet-window-space-xs);
+  padding: var(--sheet-window-space-sm);
+  border-bottom: 1px solid rgba(118, 88, 57, 0.14);
+  background:
+    linear-gradient(180deg, rgba(250, 246, 237, 0.5), rgba(239, 231, 214, 0.32));
+}
+
+.sheet-window__surface {
+  min-height: 0;
+  border: 1px solid rgba(118, 88, 57, 0.18);
+  border-radius: 10px;
+  background:
+    linear-gradient(180deg, var(--sheet-window-surface-top), var(--sheet-window-surface-bottom)),
+    url("/static/img/pergamentbg.jpg") center / cover no-repeat;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.46),
+    inset 0 0 0 1px rgba(255, 247, 226, 0.12);
+}
+
+.sheet-window__surface--scroll,
+.sheet-window__surface--table {
+  flex: 1 1 auto;
+  overflow: hidden;
+}
+
+.sheet-window__surface--work,
+.sheet-window__surface--editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sheet-window-space-sm);
+  padding: var(--sheet-window-space-sm);
+}
+
+.sheet-window__surface--form {
+  background: linear-gradient(180deg, rgba(255, 251, 244, 0.5), rgba(246, 240, 228, 0.3));
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 250, 239, 0.34);
+  backdrop-filter: blur(3px);
+}
+
+.sheet-window--editor-modal .sheet-window__body {
+  gap: var(--sheet-window-space-sm);
+}
+
+.sheet-window__editor-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sheet-window-space-sm);
+}
+
+.sheet-window__surface--form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 12px;
+}
+
+.sheet-window--editor-modal#charInfoWindow {
+  width: min(560px, calc(100vw - 24px));
+}
+
+.sheet-window--editor-modal#charInfoWindow .sheet-window__surface--form-grid {
+  align-items: start;
+}
+
+.sheet-window .shop_item_form_row--compact {
+  gap: 3px;
+  font-size: 0.92rem;
+}
+
+.sheet-window .shop_item_form_row--compact span {
+  font-size: 0.82rem;
+  line-height: 1.1;
+}
+
+.sheet-window .skill_spec_form_row {
+  gap: 5px;
+}
+
+.sheet-window .skill_spec_form_row + .skill_spec_hint {
+  margin-top: 2px;
+}
+
+.sheet-window .skill_spec_hint {
+  margin: 0;
+  padding: 0;
+  font-size: 0.95rem;
+  line-height: 1.35;
+  color: rgba(88, 63, 38, 0.86);
+}
+
+.sheet-window__surface-body {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.sheet-window__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--sheet-window-space-sm);
+  padding-top: var(--sheet-window-space-sm);
+  border-top: 1px solid rgba(118, 88, 57, 0.14);
+}
+
+.sheet-window__metrics {
+  display: grid;
+  gap: var(--sheet-window-space-sm);
+  padding: 0;
+}
+
+.sheet-window__field,
+.sheet-window .shop_filter_input,
+.sheet-window .learn_inline_select,
+.sheet-window .learn_inline_text,
+.sheet-window .learn_choice_search_input,
+.sheet-window .learn_choice_text_input,
+.sheet-window .shop_cart_qty_input,
+.sheet-window .shop_discount_input_wrap input,
+.sheet-window .shop_item_form_row input,
+.sheet-window .shop_item_form_row select,
+.sheet-window .shop_item_form_row textarea {
+  border: 1px solid rgba(117, 88, 57, 0.34);
+  border-radius: 8px;
+  background: linear-gradient(180deg, rgba(255, 253, 248, 0.82), rgba(248, 241, 230, 0.6));
+  color: rgba(61, 42, 24, 0.96);
+  font-family: "Cormorant Garamond", Georgia, serif;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.44);
+}
+
+.sheet-window__field:focus,
+.sheet-window .shop_filter_input:focus,
+.sheet-window .learn_inline_select:focus,
+.sheet-window .learn_inline_text:focus,
+.sheet-window .learn_choice_search_input:focus,
+.sheet-window .learn_choice_text_input:focus,
+.sheet-window .shop_cart_qty_input:focus,
+.sheet-window .shop_discount_input_wrap input:focus,
+.sheet-window .shop_item_form_row input:focus,
+.sheet-window .shop_item_form_row select:focus,
+.sheet-window .shop_item_form_row textarea:focus {
+  outline: none;
+  border-color: rgba(132, 100, 65, 0.52);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.48),
+    0 0 0 2px rgba(180, 151, 113, 0.16);
+}
+
+.sheet-window__control,
+.sheet-window .shop_add_btn,
+.sheet-window .shop_pick_btn,
+.sheet-window .shop_step_btn,
+.sheet-window .shop_buy_btn,
+.sheet-window .shop_item_save_btn,
+.sheet-window .shop_item_cancel_btn {
+  border: 1px solid rgba(117, 88, 57, 0.38);
+  border-radius: 8px;
+  background: linear-gradient(180deg, rgba(255, 252, 246, 0.72), rgba(246, 239, 228, 0.5));
+  color: rgba(65, 45, 26, 0.96);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.42),
+    inset 0 0 0 1px rgba(255, 247, 226, 0.16);
+  backdrop-filter: blur(2px);
+}
+
+.sheet-window .shop_add_btn:hover,
+.sheet-window .shop_pick_btn:hover,
+.sheet-window .shop_step_btn:hover,
+.sheet-window .shop_buy_btn:hover,
+.sheet-window .shop_item_save_btn:hover,
+.sheet-window .shop_item_cancel_btn:hover,
+.sheet-window__control:hover,
+.sheet-window__control:focus-visible {
+  background: linear-gradient(180deg, rgba(255, 253, 248, 0.84), rgba(248, 241, 229, 0.66));
+}
+
+.sheet-window .shop-window__body,
+.sheet-window .learn-window__body,
+.sheet-window .learn_form,
+.sheet-window .learn_list_scroll,
+.sheet-window .learn_tabs {
+  min-height: 0;
+}
+
+.sheet-window .learn_budget_panel {
+  padding: 0;
+}
+
+.sheet-window .learn_budget_grid {
+  gap: var(--sheet-window-space-sm);
+}
+
+.sheet-window .learn_budget_grid .shop_cart_total_row {
+  min-height: 36px;
+  border: 1px solid rgba(114, 82, 49, 0.18);
+  border-radius: 10px;
+  background: linear-gradient(180deg, rgba(250, 246, 239, 0.82), rgba(241, 235, 223, 0.58));
+  padding: 0 12px;
+}
+
+.sheet-window .shop_panel_header,
+.sheet-window .shop_toolbar,
+.sheet-window .shop_list_scroll,
+.sheet-window .shop_cart_wrapper,
+.sheet-window .shop_cart_scroll {
+  margin: 0;
+}
+
+.sheet-window .shop_panel_header h2 {
+  margin: 0;
+}
+
+.sheet-window .shop_cart_wrapper {
+  padding: var(--sheet-window-space-sm);
+  gap: var(--sheet-window-space-sm);
+}
+
+.sheet-window .shop_cart_totals {
+  border: 1px solid rgba(118, 88, 57, 0.18);
+  border-radius: 10px;
+  background: linear-gradient(180deg, rgba(251, 247, 239, 0.86), rgba(240, 233, 219, 0.62));
+  padding: var(--sheet-window-space-sm) var(--sheet-window-space-md);
+}
+
+.sheet-window .shop_cart_total_row {
+  min-height: 32px;
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-size: 0.98rem;
+}
+
+.sheet-window .shop_cart_table th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: linear-gradient(180deg, rgba(248, 240, 221, 0.96), rgba(237, 226, 199, 0.92));
+  font-family: "Cinzel", Georgia, serif;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.sheet-window .shop_cart_table td,
+.sheet-window .shop_table td {
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-size: 1rem;
+}
+
+.sheet-window .shop_table td {
+  padding: 6px 12px;
+}
+
+.sheet-window .shop_group summary {
+  min-height: 34px;
+  padding: 6px 12px;
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-size: 1.06rem;
+  background: linear-gradient(180deg, rgba(248, 243, 233, 0.7), rgba(236, 229, 216, 0.5));
+}
+
+.sheet-window .shop_group_count {
+  min-width: 22px;
+  min-height: 22px;
+  background: rgba(255, 251, 242, 0.88);
+  color: rgba(80, 55, 31, 0.92);
+}
+
+.sheet-window .learn_tabs__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  padding: 6px 6px 0;
+  border-bottom: 1px solid rgba(112, 81, 48, 0.16);
+  background: transparent;
+  overflow-x: visible;
+}
+
+.sheet-window .learn_tabs__tab {
+  flex: 0 0 auto;
+  min-height: 28px;
+  border: 1px solid rgba(116, 84, 50, 0.22);
+  border-bottom: 0;
+  border-radius: 7px 7px 0 0;
+  background: linear-gradient(180deg, rgba(248, 243, 230, 0.62), rgba(235, 228, 212, 0.52));
+  color: rgba(72, 49, 28, 0.92);
+  padding: 5px 9px 6px;
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  text-transform: none;
+  white-space: nowrap;
+}
+
+.sheet-window .learn_tabs__tab:hover,
+.sheet-window .learn_tabs__tab:focus-visible {
+  color: rgba(79, 54, 30, 0.98);
+  transform: translateY(-1px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.56);
+}
+
+.sheet-window .learn_tabs__tab[aria-selected="true"] {
+  color: rgba(61, 41, 22, 0.98);
+  background: linear-gradient(180deg, rgba(255, 251, 241, 0.76), rgba(242, 234, 219, 0.66));
+  box-shadow:
+    0 -2px 7px rgba(100, 72, 41, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.72);
+}
+
+.sheet-window .learn_choice_decision_toggle,
+.sheet-window .learn_choice_option,
+.sheet-window .learn_choice_decision_body {
+  border-color: rgba(113, 82, 49, 0.2);
+  background: linear-gradient(180deg, rgba(249, 244, 235, 0.74), rgba(239, 231, 215, 0.54));
+}
+
+.sheet-window#diaryWindow {
+  width: min(880px, calc(100vw - 24px));
+}
+
+.sheet-window#diaryWindow .sheet-window__body {
+  height: min(760px, calc(100vh - 110px));
+  max-height: calc(100vh - 110px);
+  overflow: hidden;
+  padding: var(--sheet-window-space-md);
+}
+
+.sheet-window .diary-window__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+  align-items: stretch;
+  justify-content: stretch;
+}
+
+.sheet-window .diary-roll {
+  width: 100%;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.sheet-window .diary-roll__viewport {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.sheet-window .diary-roll__entry {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  padding: var(--sheet-window-space-sm);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.sheet-window .diary-roll__statusbar {
+  margin: 0 0 var(--sheet-window-space-sm);
+}
+
+.sheet-window .diary-roll__toolbar {
+  margin-bottom: var(--sheet-window-space-sm);
+}
+
+.sheet-window .diary-roll__segment {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  padding: var(--sheet-window-space-lg);
+  border: 1px solid rgba(114, 84, 50, 0.18);
+  border-radius: 10px;
+  background:
+    radial-gradient(circle at 50% -10%, rgba(255, 251, 237, 0.22), rgba(255, 251, 237, 0) 30%),
+    linear-gradient(90deg, rgba(145, 67, 54, 0.08), rgba(145, 67, 54, 0.03) 14px, rgba(145, 67, 54, 0) 18px),
+    linear-gradient(180deg, rgba(250, 245, 235, 0.64), rgba(239, 232, 218, 0.42));
+  box-shadow:
+    inset 0 14px 24px rgba(255, 251, 239, 0.14),
+    inset 0 -12px 18px rgba(127, 87, 45, 0.04);
+}
+
+.sheet-window .diary-roll__entry-head {
+  margin-bottom: var(--sheet-window-space-md);
+}
+
+.sheet-window .diary-roll__entry-title {
+  font-family: "Cinzel", Georgia, serif;
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.sheet-window .diary-roll__input {
+  flex: 1 1 auto;
+  min-height: 100%;
+  height: 100%;
+}
+
+.sheet-side-stack {
+  gap: var(--sheet-window-space-sm);
+}
+
+.sheet-sidebar.sheet-window {
+  position: relative;
+  border: 1px solid var(--sheet-window-border-strong);
+  border-radius: 0;
+  background:
+    linear-gradient(180deg, rgba(250, 246, 237, 0.28), rgba(226, 215, 196, 0.22)),
+    url("/static/img/pergamentbg.jpg") center / cover no-repeat;
+  box-shadow:
+    0 12px 22px rgba(20, 12, 5, 0.14),
+    0 4px 10px rgba(39, 24, 12, 0.08),
+    inset 0 1px 0 rgba(255, 248, 229, 0.8),
+    inset 0 0 0 1px rgba(255, 241, 212, 0.16);
+  clip-path: polygon(
+    0.45% 0.3%, 10% 0.1%, 18% 0.28%, 26% 0.1%, 34% 0.28%, 42% 0.12%, 50% 0.28%, 58% 0.12%,
+    66% 0.28%, 74% 0.1%, 82% 0.28%, 90% 0.12%, 97.8% 0.26%, 99.7% 2.8%, 99.9% 10%, 99.7% 18%,
+    99.92% 26%, 99.7% 34%, 99.92% 42%, 99.7% 50%, 99.92% 58%, 99.7% 66%, 99.92% 74%, 99.7% 82%,
+    99.92% 90%, 99.72% 97.4%, 97.5% 99.7%, 90% 99.9%, 82% 99.72%, 74% 99.9%, 66% 99.72%, 58% 99.9%,
+    50% 99.72%, 42% 99.9%, 34% 99.72%, 26% 99.9%, 18% 99.72%, 10% 99.88%, 2.4% 99.72%, 0.28% 97.4%,
+    0.08% 90%, 0.3% 82%, 0.08% 74%, 0.3% 66%, 0.08% 58%, 0.3% 50%, 0.08% 42%, 0.3% 34%,
+    0.08% 26%, 0.3% 18%, 0.08% 10%, 0.3% 2.8%
+  );
+  overflow: hidden;
+}
+
+.sheet-sidebar.sheet-window::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 8% 7%, rgba(255, 248, 231, 0.24), transparent 11%),
+    radial-gradient(circle at 92% 11%, rgba(131, 92, 58, 0.08), transparent 13%),
+    radial-gradient(circle at 11% 93%, rgba(121, 84, 52, 0.08), transparent 12%),
+    radial-gradient(circle at 88% 89%, rgba(255, 248, 231, 0.18), transparent 10%);
+  opacity: 0.75;
+}
+
+.left-tools.sheet-sidebar.sheet-window,
+.sheet-dice-dock.sheet-sidebar.sheet-window {
+  filter: none;
+}
+
+.sheet-sidebar__body.sheet-window__body {
+  gap: 8px;
+  padding: 8px;
+}
+
+.left-tools__inner.sheet-window__body.sheet-sidebar__body,
+.sheet-dice-dock__inner.sheet-window__body.sheet-sidebar__body {
+  min-height: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.left-tools__inner::before,
+.left-tools__inner::after {
+  display: none !important;
+}
+
+.left-tools__panel {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px 8px;
+  border: 1px solid rgba(74, 55, 38, 0.24);
+  border-radius: 6px;
+  background: linear-gradient(180deg, rgba(255, 251, 243, 0.52), rgba(248, 242, 231, 0.34));
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 250, 239, 0.34);
+  backdrop-filter: blur(3px);
+}
+
+.left-tools__panel--actions,
+.left-tools__panel--dice {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.left-tools__panel--resources {
+  gap: 0;
+}
+
+.left-tools__group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.left-tools__group--resource {
+  padding: 5px 1px 1px;
+  border: 0;
+  border-radius: 0;
+  background-color: transparent;
+  box-shadow: none;
+}
+
+.left-tools__group--resource + .left-tools__group--resource {
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(118, 88, 57, 0.12);
+}
+
+.left-tools__group h3 {
+  margin: 0;
+  padding: 0;
+  font-family: "Cinzel", Georgia, serif;
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(91, 63, 38, 0.78);
+}
+
+.sheet-sidebar .left-tools__icon_btn,
+.sheet-sidebar .left-tools__icon_btn--link,
+.sheet-sidebar .left-tools__apply,
+.sheet-sidebar .sheet-dice-dock__btn,
+.sheet-sidebar .left-tools__notice_trigger {
+  border: 1px solid rgba(103, 75, 44, 0.24);
+  border-radius: 8px;
+  background: linear-gradient(180deg, rgba(255, 252, 246, 0.72), rgba(246, 239, 228, 0.5));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 248, 229, 0.62),
+    inset 0 0 0 1px rgba(255, 247, 226, 0.16),
+    0 1px 2px rgba(57, 35, 17, 0.04);
+  backdrop-filter: blur(2px);
+}
+
+.sheet-sidebar .left-tools__icon_btn,
+.sheet-sidebar .left-tools__icon_btn--link,
+.sheet-sidebar .left-tools__apply,
+.sheet-sidebar .sheet-dice-dock__btn {
+  min-height: 34px;
+}
+
+.sheet-sidebar .left-tools__icon_btn:hover,
+.sheet-sidebar .left-tools__icon_btn:focus-visible,
+.sheet-sidebar .left-tools__icon_btn--link:hover,
+.sheet-sidebar .left-tools__icon_btn--link:focus-visible,
+.sheet-sidebar .left-tools__apply:hover,
+.sheet-sidebar .left-tools__apply:focus-visible,
+.sheet-sidebar .sheet-dice-dock__btn:hover,
+.sheet-sidebar .sheet-dice-dock__btn:focus-visible,
+.sheet-sidebar .left-tools__notice_trigger:hover,
+.sheet-sidebar .left-tools__notice_trigger:focus-visible {
+  background: linear-gradient(180deg, rgba(255, 253, 248, 0.84), rgba(248, 241, 229, 0.66));
+  border-color: rgba(117, 88, 57, 0.36);
+}
+
+.sheet-sidebar .left-tools__icon_frame {
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  min-height: 24px;
+  border: 1px solid rgba(118, 86, 53, 0.2);
+  border-radius: 7px;
+  background: rgba(255, 250, 239, 0.76);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.34);
+}
+
+.sheet-sidebar .left-tools__icon_btn,
+.sheet-sidebar .left-tools__icon_btn--link {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  align-items: center;
+  justify-content: start;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+  padding: 6px 8px;
+  border-radius: 8px;
+  text-align: left;
+}
+
+.sheet-sidebar .left-tools__icon_label {
+  display: block;
+  font-size: 0.98rem;
+  letter-spacing: 0.01em;
+  line-height: 1.1;
+  text-transform: none;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sheet-sidebar .left-tools__icon_symbol {
+  font-size: 0.9rem;
+}
+
+.left-tools__form {
+  grid-template-columns: minmax(0, 1fr) 32px;
+  gap: 4px;
+}
+
+.left-tools .wallet_delta_input.left-tools__delta_input,
+.left-tools__delta_input {
+  min-height: 32px;
+  padding: 0 22px 0 8px;
+  border: 1px solid rgba(108, 80, 50, 0.22);
+  border-radius: 7px;
+  font-size: 0.98rem;
+  background: rgba(255, 253, 248, 0.78);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.52);
+}
+
+.sheet-sidebar .left-tools__apply {
+  width: 32px;
+  min-height: 32px;
+  min-width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border-radius: 999px;
+  font-size: 1rem;
+  line-height: 1;
+  text-align: center;
+  overflow: visible;
+  aspect-ratio: 1 / 1;
+  justify-self: center;
+}
+
+.left-tools__footer-link {
+  order: 99;
+  margin-top: 2px;
+}
+
+.sheet-dice-dock__inner.sheet-window__body {
+  gap: 0;
+}
+
+.sheet-dice-dock__row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.sheet-dice-dock__btn {
+  width: 100%;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+}
+
+.left-tools__notice_trigger {
+  min-height: 36px;
+  padding: 7px 8px;
+}
+
+.left-tools__panel--notice .left-tools__notice_trigger {
+  border-color: #ff0000;
+  color: #ff0000;
+  animation: sheet-notice-alert 1.25s ease-in-out infinite;
+}
+
+.left-tools__panel--notice .learn_choice_notice_icon,
+.left-tools__panel--notice .learn_choice_notice_text {
+  color: #ff0000;
+  animation: sheet-notice-alert-text 1.25s ease-in-out infinite;
+}
+
+.left-tools__panel--notice .learn_choice_notice_icon {
+  font-size: 1.8rem;
+  line-height: 1;
+}
+
+.left-tools__panel--notice[hidden] {
+  display: none !important;
+}
+
+@keyframes sheet-notice-alert {
+  0%,
+  100% {
+    border-color: rgba(255, 0, 0, 0.38);
+    background: linear-gradient(180deg, rgba(255, 252, 246, 0.72), rgba(246, 239, 228, 0.5));
+    box-shadow:
+      inset 0 1px 0 rgba(255, 248, 229, 0.62),
+      inset 0 0 0 1px rgba(255, 247, 226, 0.16),
+      0 0 0 rgba(255, 0, 0, 0);
+  }
+
+  50% {
+    border-color: #ff0000;
+    background: linear-gradient(180deg, rgba(255, 236, 236, 0.86), rgba(248, 225, 225, 0.62));
+    box-shadow:
+      inset 0 1px 0 rgba(255, 248, 229, 0.62),
+      inset 0 0 0 1px rgba(255, 214, 214, 0.34),
+      0 0 8px rgba(255, 0, 0, 0.32),
+      0 0 14px rgba(255, 0, 0, 0.16);
+  }
+}
+
+@keyframes sheet-notice-alert-text {
+  0%,
+  100% {
+    color: rgba(255, 0, 0, 0.52);
+    text-shadow: 0 0 0 rgba(255, 0, 0, 0);
+  }
+
+  50% {
+    color: #ff0000;
+    text-shadow:
+      0 0 5px rgba(255, 0, 0, 0.24),
+      0 0 9px rgba(255, 0, 0, 0.12);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .left-tools__panel--notice .left-tools__notice_trigger,
+  .left-tools__panel--notice .learn_choice_notice_icon,
+  .left-tools__panel--notice .learn_choice_notice_text {
+    animation: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .sheet-window__layout--split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .sheet-window#diaryWindow .sheet-window__body {
+    overflow-y: auto;
+  }
+
+  .sheet-window .diary-roll__segment {
+    padding: var(--sheet-window-space-md);
+  }
+}

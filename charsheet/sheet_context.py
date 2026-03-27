@@ -77,7 +77,7 @@ def _format_item_tooltip(*, description: str, quality_label: str | None = None, 
     return description
 
 
-def _build_skill_rows(character: Character, engine) -> tuple[list[dict], object]:
+def _build_skill_rows(character: Character, engine, *, load_penalty: int) -> tuple[list[dict], object]:
     """Build prepared skill rows and return the queryset for reuse elsewhere."""
     skill_rows: list[dict] = []
     character_skills = (
@@ -109,8 +109,8 @@ def _build_skill_rows(character: Character, engine) -> tuple[list[dict], object]
                 "attribute": character_skill.skill.attribute.short_name,
                 "attribute_mod": format_modifier(breakdown["attribute_modifier"]),
                 "rank": character_skill.level,
-                "misc_mod": format_modifier(breakdown["modifiers"]),
-                "total": breakdown["total"],
+                "misc_mod": format_modifier(breakdown["modifiers"] - load_penalty),
+                "total": breakdown["total"] - load_penalty,
                 "with_load_total": breakdown["total"],
                 "can_edit_specification": character_skill.skill.requires_specification,
                 "specification": specification if specification != "*" else "",
@@ -552,7 +552,8 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
         }
         for short_name, label in ATTRIBUTE_ORDER
     ]
-    skill_rows, character_skills = _build_skill_rows(character, engine)
+    load_penalty = engine.load_penalty()
+    skill_rows, character_skills = _build_skill_rows(character, engine, load_penalty=load_penalty)
     advantage_rows, disadvantage_rows = _build_trait_rows(character)
     inventory_rows = _build_inventory_rows(character)
     weapon_rows = _build_weapon_rows(engine)
@@ -560,7 +561,6 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
     school_technique_rows, school_levels = _build_school_technique_rows(character, engine)
     language_rows, language_entries = _build_language_rows(character)
 
-    load_value = engine.get_bel()
     initiative_value = engine.calculate_initiative()
     current_wound_stage, _current_wound_penalty_stage = engine.current_wound_stage()
     current_wound_penalty = engine.current_wound_penalty_raw()
@@ -632,9 +632,9 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
         "armor_rows": armor_rows,
         "school_technique_rows": school_technique_rows,
         "core_stats": {
-            "load_value": load_value,
+            "load_value": load_penalty,
             "initiative_display": format_modifier(initiative_value),
-            "initiative_with_load_display": format_modifier(initiative_value - load_value),
+            "initiative_with_load_display": format_modifier(initiative_value + load_penalty),
             "vw": engine.vw(),
             "sr": engine.sr(),
             "gw": engine.gw(),
@@ -642,7 +642,7 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
         },
         "armor_summary": {
             "total_rs": engine.get_grs(),
-            "load_value": load_value,
+            "load_value": load_penalty,
             "minimum_strength": engine.get_ms(),
         },
         "current_wound_stage": current_wound_stage,
