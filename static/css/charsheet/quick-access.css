@@ -532,38 +532,84 @@ html[data-left-tools-open="1"] .left-tools {
   pointer-events: none;
 }
 
-#roll-result{
-    position:fixed;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-
-    top:30vh;
-    left:50%;
-    transform:translate(-50%,40px);
-
-   
-    font-size:60px;
-    font-weight:bold;
-    font-family: "Cinzel", serif;
-    color: #c9a36c;
-
-    padding:12px 26px;
-
-    width: 100px;
-    height: 100px;
-
-
-    opacity: 0;
-    transition:
-        transform .35s ease,
-        opacity .35s ease;
-    z-index: 2000;
+#roll-result {
+  position: fixed;
+  top: calc(var(--sheet-page-top) + clamp(72px, 12vh, 180px));
+  left: calc(50% + var(--sheet-page-width-effective) + (var(--page-gap) / 2) + 236px);
+  width: 512px;
+  height: 512px;
+  transform: translate(-50%, 40px);
+  opacity: 0;
+  transition:
+    transform .35s ease,
+    opacity .35s ease;
+  z-index: 2000;
+  pointer-events: none;
 }
 
-#roll-result.show{
-    opacity:1;
-    transform:translate(-50%,0);
+#roll-result.show {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+#roll-result::before {
+  content: "";
+  position: absolute;
+  inset: 42px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at center, rgba(52, 36, 94, 0.92) 0%, rgba(19, 12, 34, 0.96) 48%, rgba(0, 0, 0, 0.98) 100%);
+  box-shadow:
+    0 0 24px rgba(88, 74, 182, 0.35),
+    0 0 56px rgba(74, 111, 255, 0.18),
+    inset 0 0 28px rgba(125, 103, 255, 0.12);
+  pointer-events: none;
+}
+
+#magicCircle {
+  position: absolute;
+  inset: 0;
+  width: 512px;
+  height: 512px;
+  display: block;
+  filter:
+    drop-shadow(0 0 8px rgba(130, 112, 255, 0.75))
+    drop-shadow(0 0 18px rgba(89, 140, 255, 0.4))
+    drop-shadow(0 0 32px rgba(82, 48, 163, 0.28));
+}
+
+#roll-result-value {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 132px;
+  height: 132px;
+  transform: translate(calc(-50% + 4px), calc(-50% + 2px));
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 35% 30%, rgba(21, 16, 40, 0.96) 0%, rgba(10, 8, 20, 0.98) 62%, rgba(0, 0, 0, 1) 100%);
+  border: 1.5px solid rgba(147, 128, 255, 0.72);
+  box-shadow:
+    0 0 0 3px rgba(68, 54, 126, 0.34),
+    0 0 22px rgba(120, 102, 255, 0.18),
+    inset 0 0 20px rgba(120, 102, 255, 0.08);
+  color: #d6ccff;
+  font-family: Cinzel, Georgia, serif;
+  font-size: 64px;
+  font-weight: 700;
+  font-variant-numeric: lining-nums tabular-nums;
+  line-height: 1;
+  text-align: center;
+  text-shadow:
+    0 0 10px rgba(151, 132, 255, 0.42),
+    0 0 22px rgba(92, 128, 255, 0.18);
+  white-space: nowrap;
+  z-index: 2;
+  pointer-events: none;
 }
 
 
@@ -1780,20 +1826,6 @@ html[data-left-tools-open="1"] .left-tools {
   pointer-events: none;
 }
 
-#roll-result {
-  top: 30vh;
-  left: 50%;
-  width: 84px;
-  height: 84px;
-  padding: 10px 18px;
-  font-size: 2.6rem;
-  transform: translate(-50%, 40px);
-}
-
-#roll-result.show {
-  transform: translate(-50%, 0);
-}
-
 @media (max-width: 1480px) {
   :root {
     --sheet-side-panel-width: min(176px, calc(100vw - 32px));
@@ -1835,17 +1867,6 @@ html[data-left-tools-open="1"] .left-tools {
     width: var(--sheet-side-panel-width);
   }
 
-  #roll-result {
-    top: 30vh;
-    left: 50%;
-    right: auto;
-    bottom: auto;
-    transform: translate(-50%, 40px);
-  }
-
-  #roll-result.show {
-    transform: translate(-50%, 0);
-  }
 }
 
 @media (max-width: 900px) {
@@ -1885,10 +1906,6 @@ html[data-left-tools-open="1"] .left-tools {
     transform: translateX(-50%);
   }
 
-  #roll-result {
-    top: 30vh;
-    left: 50%;
-  }
 }
 
 /* Final side stack alignment */
@@ -1993,9 +2010,46 @@ html[data-left-tools-open="1"] .left-tools {
     left: var(--sheet-side-left);
     width: var(--sheet-side-panel-width);
   }
+
+  #roll-result {
+    width: 420px;
+    height: 420px;
+    left: calc(50% + var(--sheet-page-width-effective) + (var(--page-gap) / 2) + 184px);
+  }
+
+  #roll-result::before {
+    inset: 34px;
+  }
+
+  #magicCircle {
+    width: 420px;
+    height: 420px;
+  }
+
 }
 
 @media (max-width: 900px) {
+  #roll-result {
+    top: 24px;
+    left: 50%;
+    width: min(88vw, 420px);
+    height: min(88vw, 420px);
+    transform: translate(-50%, 20px);
+  }
+
+  #roll-result.show {
+    transform: translate(-50%, 0);
+  }
+
+  #roll-result::before {
+    inset: 28px;
+  }
+
+  #magicCircle {
+    width: min(88vw, 420px);
+    height: min(88vw, 420px);
+  }
+
   .sheet-side-stack {
     position: relative;
     top: auto;

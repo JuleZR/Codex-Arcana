@@ -109,6 +109,9 @@
     </aside>
 
     <canvas id="dddice" width="500" height="300"></canvas>
-    <div id="roll-result"></div>
+    <div id="roll-result" aria-live="polite" aria-atomic="true">
+      <svg id="magicCircle" width="512" height="512" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"></svg>
+      <span id="roll-result-value">0</span>
+    </div>
   {% endif %}
 </div>
