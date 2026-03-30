@@ -54,6 +54,7 @@ from .models import (
     Trait,
     WeaponStats,
 )
+from .models.items import WeaponFlag
 from .models.user import UserSettings
 
 ArmorStats._meta.verbose_name = "Armor Stats"
@@ -1032,7 +1033,19 @@ class WeaponStatsInline(admin.StackedInline):
     extra = 0
     max_num = 1
     can_delete = True
-    autocomplete_fields = ("damage_source",)
+    filter_horizontal = ("flags",)
+    fields = (
+        "min_st",
+        "damage_dice_amount",
+        "damage_dice_faces",
+        "damage_flat_bonus",
+        "damage_type",
+        "wield_mode",
+        "h2_dice_amount",
+        "h2_dice_faces",
+        "h2_flat_bonus",
+        "flags",
+    )
 
 
 class SchoolPathInline(admin.TabularInline):
@@ -1115,16 +1128,6 @@ class RaceChoiceDefinitionInline(admin.TabularInline):
         "is_active",
         "description",
     )
-
-
-class WeaponStatsByDamageSourceInline(admin.TabularInline):
-    """Inline editor for weapon stats from the damage source side."""
-
-    model = WeaponStats
-    fk_name = "damage_source"
-    extra = 0
-    show_change_link = True
-    autocomplete_fields = ("item",)
 
 
 class ItemCharacterInline(admin.TabularInline):
@@ -2787,7 +2790,20 @@ class DamageSourceAdmin(admin.ModelAdmin):
     list_display = ("name", "short_name", "slug")
     search_fields = ("name", "short_name", "slug")
     ordering = ("name",)
-    inlines = (WeaponStatsByDamageSourceInline,)
+
+
+@admin.register(WeaponFlag)
+class WeaponFlagAdmin(admin.ModelAdmin):
+    """Admin configuration for reusable weapon flag definitions."""
+
+    list_display = ("key", "label")
+    search_fields = ("key",)
+    ordering = ("key",)
+
+    @admin.display(ordering="key", description="Label")
+    def label(self, obj):
+        """Return the translated flag label for quick scanning."""
+        return obj.get_key_display()
 
 
 @admin.register(WeaponStats)
@@ -2801,15 +2817,17 @@ class WeaponStatsAdmin(admin.ModelAdmin):
         "quality_damage",
         "two_handed_damage",
         "wield_mode",
-        "damage_source",
+        "damage_type",
+        "flag_summary",
         "min_st",
         "size_class",
     )
-    search_fields = ("item__name", "damage_source__name")
-    list_filter = ("wield_mode", "damage_source", "item__default_quality", "item__size_class")
+    search_fields = ("item__name", "flags__key")
+    list_filter = ("wield_mode", "damage_type", "flags", "item__default_quality", "item__size_class")
     ordering = ("item__name",)
-    autocomplete_fields = ("item", "damage_source")
-    list_select_related = ("item", "damage_source")
+    autocomplete_fields = ("item",)
+    list_select_related = ("item",)
+    filter_horizontal = ("flags",)
 
     @admin.display(ordering="item__default_quality", description="Item Quality")
     def item_quality(self, obj):
@@ -2825,6 +2843,11 @@ class WeaponStatsAdmin(admin.ModelAdmin):
     def quality_damage(self, obj):
         """Render quality-adjusted one-handed damage through ItemEngine."""
         return ItemEngine(obj.item).get_one_handed_damage_label()
+
+    @admin.display(description="Flags")
+    def flag_summary(self, obj):
+        """Render assigned weapon flags compactly for list display."""
+        return ", ".join(obj.flags.order_by("key").values_list("key", flat=True)) or "-"
 
 @admin.register(Trait)
 class TraitAdmin(admin.ModelAdmin):
@@ -3049,12 +3072,19 @@ SPECIALIZATION_LABELS = {
 }
 
 ITEM_CHOICE_HELP = {
-    "item_type": "Armor = armor, Shield = shield, Weapon = weapon, Consumable = consumable item, Misc = miscellaneous item.",
+    "item_type": "Armor = armor, Shield = shield, Weapon = weapon, Consumable = consumable item, Ammo = ammunition, Misc = miscellaneous item.",
     "default_quality": "Default item quality; used when no inventory-specific quality has been set.",
+    "stackable": "Armor, shields, and weapons are validated as non-stackable.",
+    "is_consumable": "Marks items that are actively consumed on use; separate from stackability.",
 }
 
 WEAPON_CHOICE_HELP = {
-    "size_class": "Use the same size-class scale as races and bodies: smaller codes are lighter/smaller, larger codes are heavier/larger.",
+    "damage_type": "Deadly = lethal physical damage, Stun = non-lethal damage.",
+    "wield_mode": "1H = one-handed only, 2H = two-handed only, V/H = versatile with separate two-handed damage values.",
+    "h2_dice_amount": "Required for 2H and versatile weapons.",
+    "h2_dice_faces": "Required for 2H and versatile weapons.",
+    "h2_flat_bonus": "Optional flat bonus for the two-handed profile.",
+    "flags": "Optional weapon symbols or traits such as rulebook keywords.",
 }
 
 SHIELD_CHOICE_HELP = {

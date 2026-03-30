@@ -13,8 +13,10 @@ from ..constants import (
     TWO_HANDED,
     VERSATILE,
     WIELD_MODES,
+    DEADLY,
+    DAMAGE_TYPE_CHOICES,
+    WEAPON_SYMBOL_CHOICES
 )
-from .core import DamageSource
 
 
 class Item(models.Model):
@@ -114,22 +116,31 @@ class ShieldStats(models.Model):
         return f"{self.item}: RS {self.rs}"
 
 
+class WeaponFlag(models.Model):
+    key = models.CharField(max_length=50, choices=WEAPON_SYMBOL_CHOICES, unique=True)
+
+    def __str__(self):
+        return self.get_key_display()
+
+
 class WeaponStats(models.Model):
     """Weapon-specific combat data attached to an item."""
 
     item = models.OneToOneField(Item, on_delete=models.CASCADE)
-    damage_source = models.ForeignKey(DamageSource, on_delete=models.PROTECT)
     min_st = models.PositiveIntegerField(default=1, validators=[MinValueValidator(1)])
 
     damage_dice_amount = models.PositiveIntegerField(default=1)
     damage_dice_faces = models.PositiveIntegerField(default=10)
     damage_flat_bonus = models.PositiveIntegerField(default=0)
+    damage_type = models.CharField(max_length=1, default=DEADLY, choices=DAMAGE_TYPE_CHOICES)
 
     wield_mode = models.CharField(max_length=2, choices=WIELD_MODES, default=ONE_HANDED)
 
     h2_dice_amount = models.PositiveIntegerField(null=True, blank=True)
     h2_dice_faces = models.PositiveIntegerField(null=True, blank=True)
     h2_flat_bonus = models.PositiveIntegerField(null=True, blank=True)
+
+    flags = models.ManyToManyField(WeaponFlag, blank=True)
 
     @property
     def two_handed(self) -> bool:

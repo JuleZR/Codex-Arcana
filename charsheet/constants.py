@@ -192,3 +192,39 @@ WIELD_MODES = (
     (TWO_HANDED, "Zweihändig"),
     (VERSATILE, "Ein- und Zweihändig"),
 )
+
+# Weapon Damage Types
+NUMB = "B"
+DEADLY = "T"
+
+DAMAGE_TYPE_CHOICES = (
+    (NUMB, "B"),
+    (DEADLY, "T"),
+)
+
+# Weapon Symbols
+MOUNTED_TWO_HANDED = "mounted_two_handed"
+FIRST_ROUND_INIT = "first_round_init"
+CHAIN_FUMBLE = "chain_fumble"
+REQUIRES_DEX = "requires_dex"
+CAN_ENTANGLE = "can_entangle"
+DRAG_TARGET = "drag_target"
+CALTROP_EFFECT = "caltrop_effect"
+EXPLODE_ON_FUMBLE = "explode_on_fumble"
+SET_AGAINST_CHARGE = "set_against_charge"
+PARRY_BONUS = "parry_bonus"
+UNARMED_DAMAGE = "unarmed_damage"
+
+WEAPON_SYMBOL_CHOICES = (
+    (MOUNTED_TWO_HANDED, "-"),
+    (FIRST_ROUND_INIT, "I"),
+    (CHAIN_FUMBLE, "$"),
+    (REQUIRES_DEX, "(Ge)"),
+    (CAN_ENTANGLE, "^"),
+    (DRAG_TARGET, "^^"),
+    (CALTROP_EFFECT, "+"),
+    (EXPLODE_ON_FUMBLE, "#"),
+    (SET_AGAINST_CHARGE, "→"),
+    (PARRY_BONUS, "P"),
+    (UNARMED_DAMAGE, "*"),
+)
