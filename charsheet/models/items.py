@@ -17,6 +17,7 @@ from ..constants import (
     DAMAGE_TYPE_CHOICES,
     WEAPON_SYMBOL_CHOICES
 )
+from .core import DamageSource
 
 
 class Item(models.Model):
@@ -128,7 +129,7 @@ class WeaponStats(models.Model):
 
     item = models.OneToOneField(Item, on_delete=models.CASCADE)
     min_st = models.PositiveIntegerField(default=1, validators=[MinValueValidator(1)])
-
+    damage_source = models.ForeignKey(DamageSource, on_delete=models.PROTECT)
     damage_dice_amount = models.PositiveIntegerField(default=1)
     damage_dice_faces = models.PositiveIntegerField(default=10)
     damage_flat_bonus = models.PositiveIntegerField(default=0)
@@ -195,9 +196,9 @@ class WeaponStats(models.Model):
             alt = f"{self.h2_dice_amount}w{self.h2_dice_faces}"
             if self.h2_flat_bonus:
                 alt += f"{self.h2_flat_bonus:+d}"
-            return f"{self.item}: DMG {base} / 2H {alt} ({self.damage_source})"
+            return f"{self.item}: DMG {base} / 2H {alt} ({self.get_damage_type_display()})"
 
-        return f"{self.item}: DMG {base} ({self.damage_source})"
+        return f"{self.item}: DMG {base} ({self.get_damage_type_display()})"
 
 
 class RaceStartingItem(models.Model):

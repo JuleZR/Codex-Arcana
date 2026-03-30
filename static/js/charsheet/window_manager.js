@@ -178,6 +178,15 @@ export function initStandardFloatingWindows() {
       allowPersistedOpen: false,
       startRightInset: 222,
     }),
+    inventoryDeleteWarning: createFloatingWindowController({
+      windowEl: document.getElementById("inventoryDeleteWarningWindow"),
+      closeButton: document.getElementById("inventoryDeleteWarningWindowClose"),
+      handle: document.getElementById("inventoryDeleteWarningWindowHandle"),
+      startTop: 188,
+      storageKey: "charsheet.inventoryDeleteWarningWindow",
+      allowPersistedOpen: false,
+      startRightInset: 246,
+    }),
   };
 
   if (document.getElementById("learnWindow")?.getAttribute("data-force-close") === "1") {
@@ -192,6 +201,9 @@ export function initStandardFloatingWindows() {
   });
   document.getElementById("charInfoForm")?.addEventListener("submit", () => {
     controllers.charInfo?.close();
+  });
+  document.getElementById("inventoryDeleteWarningOkBtn")?.addEventListener("click", () => {
+    controllers.inventoryDeleteWarning?.close();
   });
 
   return controllers;

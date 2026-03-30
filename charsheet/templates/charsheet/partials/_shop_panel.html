@@ -217,10 +217,10 @@
           </div>
         </div>
         <label class="shop_item_form_row">
-          <span>Schadensquelle</span>
-          <select name="weapon_damage_source">
-            {% for ds in shop_damage_sources %}
-              <option value="{{ ds.id }}">{{ ds.name }}</option>
+          <span>Schadenstyp</span>
+          <select name="weapon_damage_type">
+            {% for value, label in shop_damage_type_choices %}
+              <option value="{{ value }}">{{ label }}</option>
             {% endfor %}
           </select>
         </label>

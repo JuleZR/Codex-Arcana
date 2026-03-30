@@ -1033,9 +1033,11 @@ class WeaponStatsInline(admin.StackedInline):
     extra = 0
     max_num = 1
     can_delete = True
+    autocomplete_fields = ("damage_source",)
     filter_horizontal = ("flags",)
     fields = (
         "min_st",
+        "damage_source",
         "damage_dice_amount",
         "damage_dice_faces",
         "damage_flat_bonus",
@@ -1046,6 +1048,16 @@ class WeaponStatsInline(admin.StackedInline):
         "h2_flat_bonus",
         "flags",
     )
+
+
+class WeaponStatsByDamageSourceInline(admin.TabularInline):
+    """Inline editor for weapon stats from the damage source side."""
+
+    model = WeaponStats
+    fk_name = "damage_source"
+    extra = 0
+    show_change_link = True
+    autocomplete_fields = ("item",)
 
 
 class SchoolPathInline(admin.TabularInline):
@@ -2790,6 +2802,7 @@ class DamageSourceAdmin(admin.ModelAdmin):
     list_display = ("name", "short_name", "slug")
     search_fields = ("name", "short_name", "slug")
     ordering = ("name",)
+    inlines = (WeaponStatsByDamageSourceInline,)
 
 
 @admin.register(WeaponFlag)
@@ -2817,16 +2830,17 @@ class WeaponStatsAdmin(admin.ModelAdmin):
         "quality_damage",
         "two_handed_damage",
         "wield_mode",
+        "damage_source",
         "damage_type",
         "flag_summary",
         "min_st",
         "size_class",
     )
-    search_fields = ("item__name", "flags__key")
-    list_filter = ("wield_mode", "damage_type", "flags", "item__default_quality", "item__size_class")
+    search_fields = ("item__name", "damage_source__name", "flags__key")
+    list_filter = ("wield_mode", "damage_source", "damage_type", "flags", "item__default_quality", "item__size_class")
     ordering = ("item__name",)
-    autocomplete_fields = ("item",)
-    list_select_related = ("item",)
+    autocomplete_fields = ("item", "damage_source")
+    list_select_related = ("item", "damage_source")
     filter_horizontal = ("flags",)
 
     @admin.display(ordering="item__default_quality", description="Item Quality")
@@ -3079,6 +3093,7 @@ ITEM_CHOICE_HELP = {
 }
 
 WEAPON_CHOICE_HELP = {
+    "damage_source": "Optional finer-grained damage source such as slash, thrust, projectile, or elemental source for modifier resolution.",
     "damage_type": "Deadly = lethal physical damage, Stun = non-lethal damage.",
     "wield_mode": "1H = one-handed only, 2H = two-handed only, V/H = versatile with separate two-handed damage values.",
     "h2_dice_amount": "Required for 2H and versatile weapons.",

@@ -29,7 +29,7 @@ onReady(() => {
   initLearningMenu({ choiceWindowController: windowControllers?.learnChoice || null });
   initTooltips();
   initWalletTooltip();
-  initInventoryMenu();
+  initInventoryMenu({ warningWindowController: windowControllers?.inventoryDeleteWarning || null });
   initSheetActions();
   initDamagePanel();
   initCharInfoCounter();

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections import OrderedDict
 
-from charsheet.constants import GK_MODS, QUALITY_CHOICES, QUALITY_COLOR_MAP
+from charsheet.constants import DAMAGE_TYPE_CHOICES, GK_MODS, QUALITY_CHOICES, QUALITY_COLOR_MAP
 from charsheet.engine import ItemEngine
 from charsheet.forms import (
     CharacterInfoInlineForm,
@@ -19,7 +19,6 @@ from charsheet.models import (
     CharacterLanguage,
     CharacterTechnique,
     CharacterTrait,
-    DamageSource,
     Item,
     Language,
     RaceTechnique,
@@ -28,7 +27,7 @@ from charsheet.models import (
     Technique,
     Trait,
 )
-from charsheet.view_utils import format_modifier, format_thousands, quality_payload
+from charsheet.view_utils import format_compact_number, format_modifier, format_thousands, quality_payload
 
 
 ATTRIBUTE_ORDER = [
@@ -391,7 +390,7 @@ def _build_shop_item_groups() -> list[dict]:
     grouped_items: dict[str, list[dict]] = {}
     buyable_items = (
         Item.objects
-        .select_related("weaponstats", "weaponstats__damage_source", "armorstats", "shieldstats")
+        .select_related("weaponstats", "armorstats", "shieldstats")
         .order_by("item_type", "name")
     )
     for item in buyable_items:
@@ -415,7 +414,7 @@ def _build_shop_item_groups() -> list[dict]:
                     "h2_flat_bonus": weapon_stats.h2_flat_bonus,
                     "wield_mode": weapon_stats.wield_mode,
                     "min_st": weapon_stats.min_st,
-                    "damage_source": weapon_stats.damage_source.short_name,
+                    "damage_type": weapon_stats.damage_type,
                 }
             )
         armor_stats = getattr(item, "armorstats", None)
@@ -635,12 +634,18 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
         combat_fly = race.combat_fly_speed if race.combat_fly_speed is not None else 0
         march_fly = race.march_fly_speed if race.march_fly_speed is not None else 0
         sprint_fly = race.sprint_fly_speed if race.sprint_fly_speed is not None else 0
-        fly_value = f"{combat_fly} | {march_fly} | {sprint_fly}"
+        fly_value = " | ".join(
+            (
+                format_compact_number(combat_fly),
+                format_compact_number(march_fly),
+                format_compact_number(sprint_fly),
+            )
+        )
     movement_ground = {
-        "combat": race.combat_speed,
-        "march": race.march_speed,
-        "sprint": race.sprint_speed,
-        "swim": race.swimming_speed,
+        "combat": format_compact_number(race.combat_speed),
+        "march": format_compact_number(race.march_speed),
+        "sprint": format_compact_number(race.sprint_speed),
+        "swim": format_compact_number(race.swimming_speed),
         "fly": fly_value,
     }
 
@@ -710,7 +715,7 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
             (item_type, dict(Item.ItemType.choices)[item_type])
             for item_type in SHOP_FORM_ORDER
         ],
-        "shop_damage_sources": DamageSource.objects.order_by("name"),
+        "shop_damage_type_choices": DAMAGE_TYPE_CHOICES,
         "close_learn_window_once": close_learn_window_once,
         "learn_skill_count": sum(len(group["rows"]) for group in learning_context["learn_skill_groups"]),
         "learn_trait_count": sum(len(group["rows"]) for group in learning_context["learn_trait_groups"]),

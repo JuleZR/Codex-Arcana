@@ -1,4 +1,4 @@
-export function initInventoryMenu() {
+export function initInventoryMenu({ warningWindowController = null } = {}) {
   if (document.body.dataset.inventoryMenuBound === "1") {
     return;
   }
@@ -51,9 +51,10 @@ export function initInventoryMenu() {
       return;
     }
     if (event.shiftKey) {
+      warningWindowController?.close?.();
       return;
     }
     event.preventDefault();
-    window.alert("Zum Entfernen bitte Shift gedrueckt halten und erneut klicken.");
+    warningWindowController?.open?.();
   });
 }

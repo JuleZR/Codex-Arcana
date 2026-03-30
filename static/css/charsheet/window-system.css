@@ -213,6 +213,14 @@
   width: min(560px, calc(100vw - 24px));
 }
 
+.sheet-window--editor-modal#inventoryDeleteWarningWindow {
+  width: min(320px, calc(100vw - 24px));
+}
+
+.sheet-window__actions--center {
+  justify-content: center;
+}
+
 .sheet-window--editor-modal#charInfoWindow .sheet-window__surface--form-grid {
   align-items: start;
 }

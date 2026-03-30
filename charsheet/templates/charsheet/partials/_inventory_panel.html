@@ -9,7 +9,7 @@
           <span class="inv_name">{{ row.display_name }}</span>
           <span class="inv_actions">
             <span class="inv_menu">
-              <button type="button" class="equip_toggle inv_menu_trigger" aria-haspopup="true" aria-expanded="false" title="Item-Aktionen">&#8942;</button>
+              <button type="button" class="inv_menu_trigger" aria-haspopup="true" aria-expanded="false" title="Item-Aktionen">&#8942;</button>
               <span class="inv_menu_panel" hidden>
                 {% if row.can_consume %}
                   <form method="post" action="{% url 'consume_item' row.character_item.pk %}" class="equip_form" data-sheet-action>
@@ -26,7 +26,7 @@
                 <form method="post" action="{% url 'remove_item' row.character_item.pk %}" class="equip_form" data-sheet-action>
                   {% csrf_token %}
                   <input type="hidden" name="all" value="1">
-                  <button type="submit" class="inv_menu_btn inv_menu_btn--danger" data-require-shift-delete title="Nur mit Shift-Klick">Stack löschen</button>
+                  <button type="submit" class="inv_menu_btn inv_menu_btn--danger" data-require-shift-delete title="Nur mit Shift-Klick">Entfernen</button>
                 </form>
               </span>
             </span>

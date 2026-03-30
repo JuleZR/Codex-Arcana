@@ -724,7 +724,7 @@
   background: rgba(255, 250, 236, 0.58);
   box-shadow: inset 0 0 0 1px rgba(255, 248, 230, 0.36);
   font-family: "Trebuchet MS", "Segoe UI", Tahoma, sans-serif;
-  font-size: 0.9rem;
+  font-size: 0.82rem;
   letter-spacing: 0.01em;
 }
 
@@ -745,7 +745,8 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-weight: 600;
+  font-size: 0.8rem;
+  font-weight: 500;
 }
 
 .quality_marker {
@@ -782,8 +783,46 @@
 }
 
 .inv_menu_trigger {
-  font-size: 1rem;
+  -webkit-appearance: none;
+  appearance: none;
+  box-sizing: border-box;
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
+  width: 20px;
+  min-width: 20px;
+  max-width: 20px;
+  height: 20px;
+  min-height: 20px;
+  max-height: 20px;
+  border-radius: 999px;
+  border: 1px solid rgba(126, 98, 63, 0.34);
+  background:
+    radial-gradient(ellipse at 50% -22%, rgba(255, 251, 241, 0.48), rgba(255, 251, 241, 0) 46%),
+    linear-gradient(180deg, rgba(248, 242, 229, 0.94), rgba(233, 223, 204, 0.88));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 250, 238, 0.72),
+    0 1px 2px rgba(45, 27, 13, 0.08);
+  color: rgba(92, 66, 41, 0.84);
+  font-size: 0.9rem;
   line-height: 1;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.inv_menu_trigger:hover {
+  background:
+    radial-gradient(ellipse at 50% -22%, rgba(255, 251, 241, 0.58), rgba(255, 251, 241, 0) 46%),
+    linear-gradient(180deg, rgba(251, 246, 235, 0.96), rgba(237, 227, 209, 0.9));
+}
+
+.inv_menu_trigger[aria-expanded="true"] {
+  background:
+    radial-gradient(ellipse at 50% -22%, rgba(255, 251, 241, 0.52), rgba(255, 251, 241, 0) 46%),
+    linear-gradient(180deg, rgba(241, 233, 217, 0.96), rgba(225, 213, 192, 0.9));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 250, 238, 0.68),
+    inset 0 0 0 1px rgba(126, 98, 63, 0.08);
 }
 
 .inv_menu_panel {
@@ -794,15 +833,15 @@
   min-width: 132px;
   display: grid;
   gap: 3px;
-  padding: 5px;
-  border: 1px solid rgba(109, 76, 43, 0.48);
+  padding: 6px;
+  border: 1px solid rgba(122, 92, 58, 0.32);
   border-radius: 8px;
   background:
-    radial-gradient(ellipse at 50% -10%, rgba(255, 246, 223, 0.24), rgba(255, 246, 223, 0) 34%),
-    linear-gradient(180deg, rgba(222, 193, 144, 0.96) 0%, rgba(199, 161, 112, 0.94) 34%, rgba(177, 137, 93, 0.94) 100%);
+    radial-gradient(ellipse at 50% -10%, rgba(255, 249, 233, 0.26), rgba(255, 249, 233, 0) 36%),
+    linear-gradient(180deg, rgba(244, 237, 224, 0.96), rgba(233, 224, 208, 0.92) 42%, rgba(222, 209, 189, 0.9) 100%);
   box-shadow:
-    0 8px 18px rgba(36, 24, 14, 0.18),
-    inset 0 1px 0 rgba(255, 246, 223, 0.58);
+    0 6px 14px rgba(36, 24, 14, 0.12),
+    inset 0 1px 0 rgba(255, 248, 232, 0.52);
 }
 
 .inv_menu_panel[hidden] {
@@ -813,25 +852,35 @@
   -webkit-appearance: none;
   appearance: none;
   width: 100%;
-  border: 1px solid rgba(148, 106, 58, 0.56);
-  border-radius: 4px;
-  background: linear-gradient(145deg, rgba(255, 241, 205, 0.8), rgba(189, 137, 66, 0.7));
-  color: #2a1908;
-  padding: 4px 6px;
-  text-align: left;
+  border: 1px solid rgba(126, 98, 63, 0.28);
+  border-radius: 999px;
+  background:
+    radial-gradient(ellipse at 50% -14%, rgba(255, 250, 239, 0.44), rgba(255, 250, 239, 0) 42%),
+    linear-gradient(180deg, rgba(247, 241, 229, 0.94), rgba(235, 226, 210, 0.9));
+  color: rgba(63, 43, 29, 0.92);
+  padding: 5px 10px;
+  text-align: center;
   font: inherit;
-  font-size: 0.88rem;
+  font-size: 0.78rem;
+  font-weight: 400;
   cursor: pointer;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 251, 241, 0.6),
+    0 1px 1px rgba(52, 33, 19, 0.05);
 }
 
 .inv_menu_btn:hover {
-  filter: brightness(1.05);
+  background:
+    radial-gradient(ellipse at 50% -14%, rgba(255, 250, 239, 0.52), rgba(255, 250, 239, 0) 42%),
+    linear-gradient(180deg, rgba(250, 245, 235, 0.96), rgba(239, 230, 214, 0.92));
 }
 
 .inv_menu_btn--danger {
-  border-color: rgba(126, 54, 32, 0.62);
-  background: linear-gradient(145deg, rgba(246, 205, 188, 0.9), rgba(183, 87, 57, 0.8));
-  color: #2f1206;
+  border-color: rgba(144, 88, 66, 0.3);
+  background:
+    radial-gradient(ellipse at 50% -14%, rgba(249, 236, 228, 0.4), rgba(249, 236, 228, 0) 42%),
+    linear-gradient(180deg, rgba(243, 231, 223, 0.94), rgba(230, 214, 204, 0.9));
+  color: rgba(98, 47, 30, 0.9);
 }
 
 .equip_form {
@@ -1062,7 +1111,7 @@
 
 .move_row .move_title {
   font-family: "Cormorant Garamond", Georgia, serif;
-  font-size: 1.34rem;
+  font-size: 1.16rem;
   text-align: left;
   line-height: 1;
   padding-left: 2px;
@@ -1075,14 +1124,14 @@
   border: 1px solid rgba(74, 55, 38, 0.3);
   border-radius: 999px;
   background: rgba(255, 250, 236, 0.64);
-  font-size: 1.02rem;
+  font-size: 0.88rem;
   font-weight: 700;
 }
 
 .move_labels {
   display: grid;
   grid-template-columns: minmax(0, 1fr) repeat(5, 1fr);
-  font-size: 0.63rem;
+  font-size: 0.58rem;
   color: var(--ink-soft);
   text-align: center;
   column-gap: 4px;
@@ -1094,7 +1143,7 @@
 
 .p2_short_lines li {
   min-height: 22px;
-  font-size: 1.1rem;
+  font-size: 1.02rem;
 }
 
 .school_row_with_tooltip {
@@ -1110,7 +1159,7 @@
   background: rgba(255, 250, 236, 0.96);
   color: var(--ink);
   font-family: "Trebuchet MS", "Segoe UI", Tahoma, sans-serif;
-  font-size: 0.95rem;
+  font-size: 0.88rem;
   line-height: 1.42;
   text-transform: none;
   letter-spacing: normal;
@@ -1146,35 +1195,67 @@
   display: block;
   width: 100%;
   box-sizing: border-box;
-  padding: 3px 8px;
+  padding: 4px 8px;
   border-radius: 999px;
-  border: 1px solid rgba(95, 67, 40, 0.42);
-  background: var(--tooltip-quality-color, rgba(236, 221, 188, 0.9));
-  color: #101010;
-  font-weight: 700;
+  border: 1px solid rgba(95, 67, 40, 0.28);
+  background:
+    linear-gradient(180deg, rgba(255, 250, 239, 0.42), rgba(255, 250, 239, 0) 52%),
+    linear-gradient(180deg, color-mix(in srgb, var(--tooltip-quality-color, rgba(236, 221, 188, 0.9)) 74%, white 20%), color-mix(in srgb, var(--tooltip-quality-color, rgba(236, 221, 188, 0.9)) 88%, rgba(110, 78, 46, 0.22) 12%));
+  color: rgba(34, 24, 16, 0.96);
+  font-weight: 600;
   letter-spacing: 0.01em;
   text-align: left;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 250, 238, 0.56),
+    0 1px 1px rgba(44, 27, 14, 0.06);
 }
 
 .floating-tooltip .tooltip_status_badge {
   display: block;
   width: 100%;
   box-sizing: border-box;
-  padding: 3px 8px;
+  padding: 4px 8px;
   border-radius: 999px;
-  border: 1px solid rgba(95, 67, 40, 0.42);
-  background: var(--tooltip-status-color, rgba(218, 192, 154, 0.9));
-  color: #101010;
-  font-weight: 700;
+  border: 1px solid rgba(95, 67, 40, 0.28);
+  background:
+    linear-gradient(180deg, rgba(255, 250, 239, 0.38), rgba(255, 250, 239, 0) 52%),
+    linear-gradient(180deg, color-mix(in srgb, var(--tooltip-status-color, rgba(218, 192, 154, 0.9)) 72%, white 22%), color-mix(in srgb, var(--tooltip-status-color, rgba(218, 192, 154, 0.9)) 88%, rgba(110, 78, 46, 0.18) 12%));
+  color: rgba(34, 24, 16, 0.96);
+  font-weight: 600;
   letter-spacing: 0.01em;
   text-align: left;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 250, 238, 0.52),
+    0 1px 1px rgba(44, 27, 14, 0.05);
 }
 
 .floating-tooltip p + p,
 .floating-tooltip p + table,
+.floating-tooltip p + ul,
+.floating-tooltip ul + p,
+.floating-tooltip ul + table,
 .floating-tooltip table + p,
+.floating-tooltip table + ul,
 .floating-tooltip table + table {
   margin-top: 8px;
+}
+
+.floating-tooltip ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.floating-tooltip li + li {
+  margin-top: 4px;
+}
+
+.floating-tooltip code {
+  padding: 0 4px;
+  border: 1px solid rgba(74, 55, 38, 0.18);
+  border-radius: 4px;
+  background: rgba(120, 88, 58, 0.08);
+  font-family: "Fira Code", "Cascadia Code", Consolas, monospace;
+  font-size: 0.92em;
 }
 
 .floating-tooltip table {
@@ -1223,7 +1304,7 @@
   );
   box-shadow: inset 0 0 0 1px rgba(255, 248, 230, 0.18);
   font-family: "Trebuchet MS", "Segoe UI", Tahoma, sans-serif;
-  font-size: 0.9rem;
+  font-size: 0.86rem;
   letter-spacing: 0.01em;
 }
 
@@ -1324,7 +1405,7 @@
   border: 1px solid rgba(74, 55, 38, 0.28);
   height: 26px;
   text-align: center;
-  font-size: 0.76rem;
+  font-size: 0.73rem;
   white-space: normal;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1336,7 +1417,7 @@
   top: 0;
   background: rgba(255, 248, 230, 0.42);
   color: var(--ink-soft);
-  font-size: 0.64rem;
+  font-size: 0.61rem;
   font-weight: 600;
   line-height: 1.1;
   hyphens: auto;
@@ -1359,7 +1440,7 @@
   width: calc(29% + 68px);
   text-align: left;
   font-family: "Cormorant Garamond", Georgia, serif;
-  font-size: 0.98rem;
+  font-size: 0.92rem;
   padding-left: 6px;
 }
 
@@ -1375,6 +1456,7 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  font-size: 0.88rem;
 }
 
 .weapon_mode_toggle {

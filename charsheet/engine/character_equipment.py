@@ -62,7 +62,8 @@ def equipped_weapon_rows(engine) -> list[dict]:
         item_engine = ItemEngine(character_item)
         weapon_stats = getattr(character_item.item, "weaponstats", None)
         damage_source_slug = getattr(getattr(weapon_stats, "damage_source", None), "slug", "")
-        dmg_mod = engine.get_dmg_modifier_sum(damage_source_slug) if damage_source_slug else engine.attribute_modifier(ATTR_ST)
+        damage_stat_slug = damage_source_slug or getattr(weapon_stats, "damage_type", "")
+        dmg_mod = engine.get_dmg_modifier_sum(damage_stat_slug) if damage_stat_slug else engine.attribute_modifier(ATTR_ST)
         for profile_index, profile in enumerate(item_engine.weapon_profiles()):
             rows.append(
                 {

@@ -28,6 +28,16 @@ function parseStatusLine(line) {
   return { label: match[1].trim(), color: match[2].trim() };
 }
 
+function renderInlineMarkdown(text) {
+  let html = escapeHtml(String(text || ""));
+  html = html.replace(/`([^`]+)`/g, "<code>$1</code>");
+  html = html.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+  html = html.replace(/__([^_]+)__/g, "<strong>$1</strong>");
+  html = html.replace(/(^|[\s(])\*([^*\n]+)\*(?=[\s).,!?:;]|$)/g, "$1<em>$2</em>");
+  html = html.replace(/(^|[\s(])_([^_\n]+)_(?=[\s).,!?:;]|$)/g, "$1<em>$2</em>");
+  return html;
+}
+
 function renderTooltipMarkup(rawText) {
   const text = String(rawText || "").trim();
   if (!text) {
@@ -47,7 +57,7 @@ function renderTooltipMarkup(rawText) {
     const qualityMeta = parseQualityLine(line);
     if (qualityMeta) {
       chunks.push(
-        `<p class="tooltip_quality_line"><span class="tooltip_quality_badge" style="--tooltip-quality-color: ${escapeHtml(qualityMeta.color)};">Qualitaet: ${escapeHtml(qualityMeta.label)}</span></p>`,
+        `<p class="tooltip_quality_line"><span class="tooltip_quality_badge" style="--tooltip-quality-color: ${escapeHtml(qualityMeta.color)};">Qualität: ${escapeHtml(qualityMeta.label)}</span></p>`,
       );
       index += 1;
       continue;
@@ -98,10 +108,24 @@ function renderTooltipMarkup(rawText) {
       continue;
     }
 
+    if (/^\s*[-*]\s+/.test(line)) {
+      const listItems = [];
+      let listIndex = index;
+      while (listIndex < lines.length && /^\s*[-*]\s+/.test(lines[listIndex])) {
+        listItems.push(lines[listIndex].replace(/^\s*[-*]\s+/, ""));
+        listIndex += 1;
+      }
+      chunks.push(
+        `<ul>${listItems.map((item) => `<li>${renderInlineMarkdown(item)}</li>`).join("")}</ul>`,
+      );
+      index = listIndex;
+      continue;
+    }
+
     const paragraphLines = [];
     let rowIndex = index;
     while (rowIndex < lines.length && lines[rowIndex].trim()) {
-      paragraphLines.push(escapeHtml(lines[rowIndex]));
+      paragraphLines.push(renderInlineMarkdown(lines[rowIndex]));
       rowIndex += 1;
     }
     chunks.push(`<p>${paragraphLines.join("<br>")}</p>`);
