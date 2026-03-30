@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from django.db.models import QuerySet
 
-from charsheet.constants import ARMOR_PENALTY_IGNORE, ATTR_ST
+from charsheet.constants import ARMOR_PENALTY_IGNORE, ATTR_ST, DEFENSE_RS
 from charsheet.models import CharacterItem, Item
 
 from .item_engine import ItemEngine
@@ -134,7 +134,7 @@ def get_grs(engine) -> int:
     total = 0
     for armor in engine.equipped_armor_items():
         total += ItemEngine(armor).get_armor_rs_raw() or 0
-    return total
+    return total + engine._resolve_stat_modifiers(DEFENSE_RS)
 
 
 def get_bel(engine) -> int:

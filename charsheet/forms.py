@@ -90,7 +90,7 @@ class CharacterInfoInlineForm(forms.ModelForm):
             "country_of_origin": forms.TextInput(attrs={"class": "dashboard_input", "maxlength": 25}),
             "weight": forms.NumberInput(attrs={"class": "dashboard_input", "min": 0, "step": 1}),
             "religion": forms.TextInput(attrs={"class": "dashboard_input", "maxlength": 25}),
-            "appearance": forms.Textarea(attrs={"class": "dashboard_input", "maxlength": 85, "rows": 3}),
+            "appearance": forms.Textarea(attrs={"class": "dashboard_input", "maxlength": 100, "rows": 3, "style": "resize: none;"}),
         }
 
 

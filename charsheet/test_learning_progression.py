@@ -1,20 +1,25 @@
 """Regression tests for progression-aware learning submissions."""
 
+from django.contrib.contenttypes.models import ContentType
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 
 from charsheet.constants import SCHOOL_COMBAT, SKILL_SOCIAL
 from charsheet.learning import process_learning_submission
-from charsheet.learning_progression import build_learning_progression_context, choice_field_name
+from charsheet.learning_progression import build_learning_progression_context, choice_field_name, race_choice_field_name
 from charsheet.models import (
     Attribute,
     Character,
+    CharacterRaceChoice,
     CharacterSchool,
     CharacterSchoolPath,
     CharacterSpecialization,
     CharacterTechnique,
     CharacterTechniqueChoice,
+    Modifier,
+    RaceChoiceDefinition,
     TechniqueChoiceBlock,
+    TechniqueChoiceDefinition,
     Race,
     School,
     SchoolPath,
@@ -142,7 +147,7 @@ class LearningProgressionSubmissionTests(TestCase):
         )
 
         self.assertEqual(level, "success")
-        self.assertIn("Technik-Auswahl", message)
+        self.assertIn("Auswahl", message)
         choice = CharacterTechniqueChoice.objects.get(character=self.character, technique=technique)
         self.assertEqual(choice.selected_skill_id, self.music.id)
 
@@ -173,9 +178,52 @@ class LearningProgressionSubmissionTests(TestCase):
         )
 
         self.assertEqual(level, "success")
-        self.assertIn("Technik-Auswahl", message)
+        self.assertIn("Auswahl", message)
         choice = CharacterTechniqueChoice.objects.get(character=self.character, technique=technique)
         self.assertEqual(choice.selected_specialization_id, specialization.id)
+
+    def test_learning_submission_can_store_race_skill_choice(self):
+        """Race choices should persist required skill picks through the learning form."""
+        craft = SkillCategory.objects.create(name="Craft", slug="craft")
+        leatherwork = Skill.objects.create(
+            name="Leatherwork",
+            slug="leatherwork",
+            category=craft,
+            attribute=self.attribute,
+            family="craft",
+        )
+        definition = RaceChoiceDefinition.objects.create(
+            race=self.race,
+            name="Craft Focus",
+            target_kind=Technique.ChoiceTargetKind.SKILL,
+            description="Choose one craft skill.",
+            allowed_skill_category=craft,
+        )
+        race_ct = ContentType.objects.get_for_model(Race, for_concrete_model=False)
+        Modifier.objects.create(
+            source_content_type=race_ct,
+            source_object_id=self.race.id,
+            target_kind=Modifier.TargetKind.SKILL,
+            target_race_choice_definition=definition,
+            mode=Modifier.Mode.FLAT,
+            value=2,
+        )
+
+        level, message = process_learning_submission(
+            self.character,
+            {
+                race_choice_field_name(Technique.ChoiceTargetKind.SKILL, definition.id): str(leatherwork.id),
+            },
+        )
+
+        self.assertEqual(level, "success")
+        self.assertIn("Auswahl", message)
+        choice = CharacterRaceChoice.objects.get(
+            character=self.character,
+            definition=definition,
+        )
+        self.assertEqual(choice.selected_skill_id, leatherwork.id)
+        self.assertEqual(self.character.get_engine(refresh=True)._resolve_choice_skill_modifiers(leatherwork.id), 2)
 
 
     def test_learning_context_exposes_pending_school_path_decision(self):
@@ -189,6 +237,31 @@ class LearningProgressionSubmissionTests(TestCase):
         self.assertEqual(decision["kind"], "school_path")
         self.assertEqual(decision["options"][0]["submit_name"], f"learn_school_path_{self.school.id}")
         self.assertEqual(decision["options"][0]["submit_value"], str(school_path.id))
+
+    def test_learning_context_exposes_pending_race_choice(self):
+        """Race choices with missing required selections should appear in the learning context."""
+        craft = SkillCategory.objects.create(name="Craft", slug="craft")
+        Skill.objects.create(
+            name="Stonework",
+            slug="stonework",
+            category=craft,
+            attribute=self.attribute,
+            family="craft",
+        )
+        definition = RaceChoiceDefinition.objects.create(
+            race=self.race,
+            name="Craft Focus",
+            target_kind=Technique.ChoiceTargetKind.SKILL,
+            description="Choose one craft skill.",
+            allowed_skill_category=craft,
+        )
+
+        context = build_learning_progression_context(self.character, engine=self.character.get_engine(refresh=True))
+
+        race_rows = [row for row in context["learn_choice_rows"] if row.get("choice_scope") == "race"]
+        self.assertEqual(len(race_rows), 1)
+        self.assertEqual(race_rows[0]["definition_id"], definition.id)
+        self.assertEqual(race_rows[0]["race_name"], self.race.name)
 
     def test_learning_context_groups_open_technique_block_as_single_pending_decision(self):
         """Technique choice blocks should arrive as one grouped modal decision with multiple options."""

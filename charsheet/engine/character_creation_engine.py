@@ -9,6 +9,7 @@ from charsheet.models import (
     Character,
     CharacterAttribute,
     CharacterCreationDraft,
+    CharacterItem,
     CharacterLanguage,
     CharacterSchool,
     CharacterSkill,
@@ -18,6 +19,7 @@ from charsheet.models import (
     Skill,
     Trait,
 )
+
 
 class CharacterCreationEngine:
     """Rules engine for validating and materializing character creation drafts."""
@@ -344,6 +346,28 @@ class CharacterCreationEngine:
             return False
         return self.sum_phase_4_total_cost() <= self.calculate_phase_4_budget()
 
+    @staticmethod
+    def grant_race_starting_items(character):
+        starters = character.race.starting_items.select_related("item")
+
+        for starter in starters:
+            character_item, created = CharacterItem.objects.get_or_create(
+                owner=character,
+                item=starter.item,
+                defaults={
+                    "amount": starter.amount,
+                    "quality": starter.quality or starter.item.default_quality,
+                    "equipped": True,
+                    "equip_locked": True,
+                },
+            )
+
+            if not created:
+                character_item.amount += starter.amount
+                character_item.equipped = True
+                character_item.equip_locked = True
+                character_item.save(update_fields=["amount", "equipped", "equip_locked"])
+
     def finalize_character(self) -> Character:
         if not (self.validate_phase_1() and self.validate_phase_2() and self.validate_phase_3() and self.validate_phase_4()):
             raise ValueError("Character creation is not valid")
@@ -424,5 +448,7 @@ class CharacterCreationEngine:
                 if school and level > 0:
                     CharacterSchool.objects.create(character=character, school=school, level=level)
 
+            self.grant_race_starting_items(character)
             self.draft.delete()
+
             return character

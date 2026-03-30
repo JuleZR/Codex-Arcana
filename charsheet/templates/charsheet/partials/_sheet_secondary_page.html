@@ -96,17 +96,23 @@
       </div>
 
       <div class="p2_panel p2_schools">
-        <h2>Kampf- und Magieschulen</h2>
+        <h2>Kampf-, Magieschulen & spez. Eigenschaften</h2>
         <div class="panel_scroll schools_scroll">
           <ul class="p2_lines p2_short_lines">
             {% for row in school_technique_rows %}
             <li
-              class="school_row_with_tooltip tooltip_target"
+              class="school_row_with_tooltip tooltip_target{% if row.kind == 'race_technique' %} school_row_with_tooltip--race{% endif %}{% if row.show_group_separator %} school_row_with_tooltip--separator{% endif %}"
               data-tooltip-side="left"
               data-tooltip="{{ row.description|default:'Keine Beschreibung' }}"
             >
               <div class="skill_name_wrap">
-                <span class="skill_name_text">{{ row.level }} - {{ row.school_name }} - {{ row.entry_name }}</span>
+                <span class="skill_name_text">
+                  {% if row.kind == 'race_technique' %}
+                  <span class="school_row_origin">{{ row.school_name }}</span> - {{ row.entry_name }}
+                  {% else %}
+                  {{ row.level }} - {{ row.school_name }} - {{ row.entry_name }}
+                  {% endif %}
+                </span>
                 {% if row.can_edit_specification %}
                 <button
                   type="button"

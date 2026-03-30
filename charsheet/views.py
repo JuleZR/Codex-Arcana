@@ -1206,8 +1206,13 @@ def toggle_equip(request, pk):
     if ci.item.item_type not in (Item.ItemType.ARMOR, Item.ItemType.SHIELD, Item.ItemType.WEAPON):
         return redirect("character_sheet", character_id=ci.owner_id)
 
-    ci.equipped = not ci.equipped
-    ci.save(update_fields=["equipped"])
+    if ci.equip_locked:
+        if not ci.equipped:
+            ci.equipped = True
+            ci.save(update_fields=["equipped"])
+    else:
+        ci.equipped = not ci.equipped
+        ci.save(update_fields=["equipped"])
     if _is_partial_request(request):
         return _sheet_partials_response(
             request,

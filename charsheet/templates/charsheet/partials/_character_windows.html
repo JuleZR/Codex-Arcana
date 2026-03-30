@@ -18,7 +18,11 @@
         <label class="shop_item_form_row shop_item_form_row--compact"><span>Augenfarbe</span>{{ char_info_form.eye_color }}</label>
         <label class="shop_item_form_row shop_item_form_row--compact"><span>Religion</span>{{ char_info_form.religion }}</label>
       </div>
-      <label class="shop_item_form_row sheet-window__surface sheet-window__surface--editor sheet-window__surface--form"><span>Aussehen</span>{{ char_info_form.appearance }}</label>
+      <label class="shop_item_form_row sheet-window__surface sheet-window__surface--editor sheet-window__surface--form">
+        <span>Aussehen</span>
+        {{ char_info_form.appearance }}
+        <span class="sheet_char_counter" data-char-count-for="id_appearance" aria-live="polite"></span>
+      </label>
       <div class="shop_item_form_actions">
         <button type="button" id="charInfoCancelBtn" class="shop_item_cancel_btn">Abbrechen</button>
         <button type="submit" class="shop_item_save_btn">Speichern</button>

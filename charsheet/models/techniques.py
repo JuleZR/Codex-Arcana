@@ -7,7 +7,7 @@ from django.core.validators import MinValueValidator
 from django.db import models
 
 from ..constants import VALID_STAT_SLUGS
-from .core import Skill, SkillCategory, Trait
+from .core import Skill, SkillCategory, Trait, Race
 from .items import Item
 from .progression import CharacterSchool, CharacterSchoolPath, School, SchoolPath, Specialization
 
@@ -149,6 +149,13 @@ class Modifier(models.Model):
         blank=True,
         related_name="targeting_modifiers",
     )
+    target_race_choice_definition = models.ForeignKey(
+        "RaceChoiceDefinition",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="targeting_modifiers",
+    )
     target_content_type = models.ForeignKey(
         ContentType,
         on_delete=models.CASCADE,
@@ -194,6 +201,14 @@ class Modifier(models.Model):
             raise ValidationError({"target_object_id": "Set an object id when a target content type is selected."})
         if self.target_object_id is not None and not self.target_content_type_id:
             raise ValidationError({"target_content_type": "Select a content type when a target object id is set."})
+        if self.target_choice_definition_id and self.target_race_choice_definition_id:
+            raise ValidationError(
+                {
+                    "target_race_choice_definition": (
+                        "Select either a technique choice definition or a race choice definition, not both."
+                    )
+                }
+            )
         if self.target_choice_definition_id:
             expected_kind = self.target_choice_definition.target_kind
             choice_kind_mapping = {
@@ -213,6 +228,25 @@ class Modifier(models.Model):
                 raise ValidationError(
                     {"target_choice_definition": "The choice definition target kind must match the modifier target kind."}
                 )
+        if self.target_race_choice_definition_id:
+            expected_kind = self.target_race_choice_definition.target_kind
+            choice_kind_mapping = {
+                Technique.ChoiceTargetKind.SKILL: self.TargetKind.SKILL,
+                Technique.ChoiceTargetKind.SKILL_CATEGORY: self.TargetKind.CATEGORY,
+                Technique.ChoiceTargetKind.ITEM: self.TargetKind.ITEM,
+                Technique.ChoiceTargetKind.ITEM_CATEGORY: self.TargetKind.ITEM_CATEGORY,
+                Technique.ChoiceTargetKind.SPECIALIZATION: self.TargetKind.SPECIALIZATION,
+                Technique.ChoiceTargetKind.ENTITY: self.TargetKind.ENTITY,
+            }
+            mapped_kind = choice_kind_mapping.get(expected_kind)
+            if mapped_kind is None:
+                raise ValidationError(
+                    {"target_race_choice_definition": "The selected race choice definition target kind is not supported."}
+                )
+            if self.target_kind != mapped_kind:
+                raise ValidationError(
+                    {"target_race_choice_definition": "The race choice definition target kind must match the modifier target kind."}
+                )
 
         if self.target_kind == self.TargetKind.STAT:
             if self.target_slug not in VALID_STAT_SLUGS:
@@ -223,6 +257,8 @@ class Modifier(models.Model):
                 "target_skill_category",
                 "target_item",
                 "target_specialization",
+                "target_choice_definition",
+                "target_race_choice_definition",
                 "target_content_type",
                 "target_object_id",
             )
@@ -231,7 +267,7 @@ class Modifier(models.Model):
                 label="SKILL",
                 slug_field="target_slug",
                 slug_validator=lambda slug: Skill.objects.filter(slug=slug).exists(),
-                object_fields=("target_skill", "target_choice_definition"),
+                object_fields=("target_skill", "target_choice_definition", "target_race_choice_definition"),
             )
             self._require_empty_target_fields(
                 "SKILL",
@@ -246,7 +282,7 @@ class Modifier(models.Model):
                 label="CATEGORY",
                 slug_field="target_slug",
                 slug_validator=lambda slug: SkillCategory.objects.filter(slug=slug).exists(),
-                object_fields=("target_skill_category",),
+                object_fields=("target_skill_category", "target_choice_definition", "target_race_choice_definition"),
             )
             self._require_empty_target_fields(
                 "CATEGORY",
@@ -257,8 +293,12 @@ class Modifier(models.Model):
                 "target_object_id",
             )
         elif self.target_kind == self.TargetKind.ITEM:
-            if self.target_item_id is None:
-                raise ValidationError({"target_item": "Select an item target for kind ITEM."})
+            self._validate_target_selector(
+                label="ITEM",
+                slug_field="target_slug",
+                slug_validator=lambda _slug: False,
+                object_fields=("target_item", "target_choice_definition", "target_race_choice_definition"),
+            )
             self._require_empty_target_fields(
                 "ITEM",
                 "target_slug",
@@ -269,7 +309,11 @@ class Modifier(models.Model):
                 "target_object_id",
             )
         elif self.target_kind == self.TargetKind.ITEM_CATEGORY:
-            if not self.target_slug or self.target_slug not in allowed_item_categories:
+            if (
+                not self.target_choice_definition_id
+                and not self.target_race_choice_definition_id
+                and (not self.target_slug or self.target_slug not in allowed_item_categories)
+            ):
                 raise ValidationError({"target_slug": "Invalid item category key for kind ITEM_CATEGORY."})
             self._require_empty_target_fields(
                 "ITEM_CATEGORY",
@@ -281,8 +325,12 @@ class Modifier(models.Model):
                 "target_object_id",
             )
         elif self.target_kind == self.TargetKind.SPECIALIZATION:
-            if self.target_specialization_id is None:
-                raise ValidationError({"target_specialization": "Select a specialization target for kind SPECIALIZATION."})
+            self._validate_target_selector(
+                label="SPECIALIZATION",
+                slug_field="target_slug",
+                slug_validator=lambda _slug: False,
+                object_fields=("target_specialization", "target_choice_definition", "target_race_choice_definition"),
+            )
             self._require_empty_target_fields(
                 "SPECIALIZATION",
                 "target_slug",
@@ -293,7 +341,11 @@ class Modifier(models.Model):
                 "target_object_id",
             )
         elif self.target_kind == self.TargetKind.ENTITY:
-            if not self.target_content_type_id or self.target_object_id is None:
+            if (
+                not self.target_choice_definition_id
+                and not self.target_race_choice_definition_id
+                and (not self.target_content_type_id or self.target_object_id is None)
+            ):
                 raise ValidationError(
                     {"target_content_type": "Select a content type and object id for kind ENTITY."}
                 )
@@ -382,6 +434,8 @@ class Modifier(models.Model):
         """Return a readable label for the configured target."""
         if self.target_choice_definition_id:
             choice_label = self.target_choice_definition.name
+        elif self.target_race_choice_definition_id:
+            choice_label = self.target_race_choice_definition.name
         else:
             choice_label = ""
         if self.target_kind == self.TargetKind.SKILL:
@@ -450,8 +504,8 @@ class Technique(models.Model):
         ENTITY = "entity", "Other Entity"
 
     name = models.CharField(max_length=200)
-    school = models.ForeignKey(School, on_delete=models.PROTECT, related_name="techniques")
-    level = models.PositiveSmallIntegerField()
+    school = models.ForeignKey(School, on_delete=models.PROTECT, related_name="techniques", blank=True, null=True)
+    level = models.PositiveSmallIntegerField(blank=True, null=True)
     path = models.ForeignKey(SchoolPath, on_delete=models.PROTECT, null=True, blank=True, related_name="techniques")
     choice_block = models.ForeignKey(
         TechniqueChoiceBlock,
@@ -533,10 +587,6 @@ class Technique(models.Model):
         if self.path_id and self.school_id and self.path.school_id != self.school_id:
             raise ValidationError({"path": "The selected path must belong to the technique school."})
         if self.choice_block_id:
-            if self.school_id and self.choice_block.school_id != self.school_id:
-                raise ValidationError({"choice_block": "The selected choice block must belong to the same school."})
-            if self.choice_block.level is not None and self.choice_block.level != self.level:
-                raise ValidationError({"choice_block": "A level-bound choice block must match the technique level."})
             if self.choice_block.path_id is not None and self.choice_block.path_id != self.path_id:
                 raise ValidationError({"choice_block": "A path-bound choice block must match the technique path."})
         if self.choice_target_kind == self.ChoiceTargetKind.NONE and self.choice_limit != 1:
@@ -587,8 +637,10 @@ class Technique(models.Model):
             raise ValidationError({"activation_cost": "Set an activation cost when a cost resource is defined."})
 
     def __str__(self) -> str:
-        path_suffix = f" [{self.path.name}]" if self.path_id else ""
-        return f"{self.school.name}: {self.name} (L{self.level}){path_suffix}"
+        school_name = self.school.name if self.school_id and self.school else "RaceSkill"
+        technique_name = self.name or "Unnamed Technique"
+        path_suffix = f" [{self.path.name}]" if self.path_id and self.path else ""
+        return f"{school_name}: {technique_name}{path_suffix}"
 
 
 class TechniqueRequirement(models.Model):
@@ -795,6 +847,83 @@ class TechniqueChoiceDefinition(models.Model):
 
     def __str__(self) -> str:
         return f"{self.technique.name}: {self.name}"
+
+
+class RaceChoiceDefinition(models.Model):
+    """A persistent decision that belongs directly to one race."""
+
+    race = models.ForeignKey(
+        Race,
+        on_delete=models.CASCADE,
+        related_name="choice_definitions",
+    )
+    name = models.CharField(
+        max_length=120,
+        help_text="Readable label that identifies this race choice in rulebook terms.",
+    )
+    target_kind = models.CharField(
+        max_length=20,
+        choices=Technique.ChoiceTargetKind.choices,
+        help_text="What kind of thing must be selected for this race decision.",
+    )
+    description = models.TextField(
+        blank=True,
+        default="",
+        help_text="Short rulebook prompt that explains what exactly must be chosen.",
+    )
+    min_choices = models.PositiveSmallIntegerField(
+        default=1,
+        validators=[MinValueValidator(0)],
+        help_text="Minimum number of stored selections required for this race decision.",
+    )
+    max_choices = models.PositiveSmallIntegerField(
+        default=1,
+        validators=[MinValueValidator(1)],
+        help_text="Maximum number of stored selections allowed for this race decision.",
+    )
+    is_required = models.BooleanField(
+        default=True,
+        help_text="If enabled, the race stays incomplete until this decision reaches min_choices.",
+    )
+    allowed_skill_category = models.ForeignKey(
+        SkillCategory,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="race_choice_definitions",
+    )
+    allowed_skill_family = models.SlugField(
+        max_length=50,
+        blank=True,
+        default="",
+    )
+    sort_order = models.PositiveSmallIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["race__name", "sort_order", "name", "id"]
+
+    def clean(self):
+        """Prevent empty or contradictory race decision definitions."""
+        super().clean()
+        if self.target_kind == Technique.ChoiceTargetKind.NONE:
+            raise ValidationError({"target_kind": "Choice definitions must point at a concrete target kind."})
+        if self.max_choices < self.min_choices:
+            raise ValidationError({"max_choices": "max_choices must be greater than or equal to min_choices."})
+        if not self.is_required and self.min_choices != 0:
+            raise ValidationError({"min_choices": "Optional choice definitions must use min_choices = 0."})
+        if self.target_kind != Technique.ChoiceTargetKind.SKILL:
+            if self.allowed_skill_category_id:
+                raise ValidationError({
+                    "allowed_skill_category": "This filter is only valid for skill choices."
+                })
+            if self.allowed_skill_family:
+                raise ValidationError({
+                    "allowed_skill_family": "This filter is only valid for skill choices."
+                })
+
+    def __str__(self) -> str:
+        return f"{self.race.name}: {self.name}"
 
 
 class CharacterTechnique(models.Model):
@@ -1104,3 +1233,230 @@ class CharacterTechniqueChoice(models.Model):
     def __str__(self) -> str:
         return f"{self.character.name} -> {self.technique.name}: {self.selected_target_display()}"
 
+
+class CharacterRaceChoice(models.Model):
+    """A persistent character-bound choice made for the active race."""
+
+    character = models.ForeignKey("Character", on_delete=models.CASCADE, related_name="race_choices")
+    definition = models.ForeignKey(
+        RaceChoiceDefinition,
+        on_delete=models.CASCADE,
+        related_name="character_choices",
+    )
+    selected_skill = models.ForeignKey(
+        Skill,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="character_race_choices",
+    )
+    selected_skill_category = models.ForeignKey(
+        SkillCategory,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="character_race_choices",
+    )
+    selected_item = models.ForeignKey(
+        "Item",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="character_race_choices",
+    )
+    selected_item_category = models.CharField(max_length=30, blank=True, default="")
+    selected_specialization = models.ForeignKey(
+        Specialization,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="character_race_choices",
+    )
+    selected_text = models.CharField(max_length=255, blank=True, default="")
+    selected_content_type = models.ForeignKey(
+        ContentType,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="character_race_choice_targets",
+    )
+    selected_object_id = models.PositiveBigIntegerField(null=True, blank=True)
+    selected_entity = GenericForeignKey("selected_content_type", "selected_object_id")
+
+    class Meta:
+        ordering = ["character__name", "definition__race__name", "definition__sort_order", "definition__name", "id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["character", "definition", "selected_skill"],
+                condition=models.Q(selected_skill__isnull=False),
+                name="uniq_character_race_choice_selected_skill",
+            ),
+            models.UniqueConstraint(
+                fields=["character", "definition", "selected_skill_category"],
+                condition=models.Q(selected_skill_category__isnull=False),
+                name="uniq_character_race_choice_selected_category",
+            ),
+            models.UniqueConstraint(
+                fields=["character", "definition", "selected_item"],
+                condition=models.Q(selected_item__isnull=False),
+                name="uniq_character_race_choice_selected_item",
+            ),
+            models.UniqueConstraint(
+                fields=["character", "definition", "selected_specialization"],
+                condition=models.Q(selected_specialization__isnull=False),
+                name="uniq_character_race_choice_selected_specialization",
+            ),
+            models.UniqueConstraint(
+                fields=["character", "definition", "selected_item_category"],
+                condition=~models.Q(selected_item_category=""),
+                name="uniq_character_race_choice_selected_item_category",
+            ),
+            models.UniqueConstraint(
+                fields=["character", "definition", "selected_content_type", "selected_object_id"],
+                condition=models.Q(selected_object_id__isnull=False),
+                name="uniq_character_race_choice_selected_entity",
+            ),
+        ]
+
+    def clean(self):
+        """Validate stored race choice targets with model-local checks only."""
+        super().clean()
+        if self.selected_content_type_id and self.selected_object_id is None:
+            raise ValidationError({"selected_object_id": "Set an object id when selecting another entity."})
+        if self.selected_object_id is not None and not self.selected_content_type_id:
+            raise ValidationError({"selected_content_type": "Select a content type when using another entity."})
+        populated_targets = [
+            self.selected_skill_id is not None,
+            self.selected_skill_category_id is not None,
+            self.selected_item_id is not None,
+            bool(self.selected_item_category),
+            self.selected_specialization_id is not None,
+            bool(self.selected_text),
+            self.selected_object_id is not None,
+        ]
+        if sum(populated_targets) != 1:
+            raise ValidationError("A race choice must select exactly one persistent target.")
+        if self.character_id and self.definition_id and self.character.race_id != self.definition.race_id:
+            raise ValidationError({"definition": "The selected race choice definition must belong to the character's race."})
+        expected_kind = self.definition.target_kind if self.definition_id else Technique.ChoiceTargetKind.NONE
+        if expected_kind == Technique.ChoiceTargetKind.NONE:
+            raise ValidationError({"definition": "This race choice definition must point at a concrete target kind."})
+        self._validate_target_kind(expected_kind)
+        if (
+            self.definition_id
+            and expected_kind == Technique.ChoiceTargetKind.SKILL
+            and self.selected_skill_id
+        ):
+            if (
+                self.definition.allowed_skill_category_id
+                and self.selected_skill.category_id != self.definition.allowed_skill_category_id
+            ):
+                raise ValidationError({
+                    "selected_skill": "The selected skill does not belong to the allowed skill category."
+                })
+            if (
+                self.definition.allowed_skill_family
+                and self.selected_skill.family != self.definition.allowed_skill_family
+            ):
+                raise ValidationError({
+                    "selected_skill": "The selected skill does not belong to the allowed skill family."
+                })
+        if self.definition_id and self.character_id:
+            existing = CharacterRaceChoice.objects.filter(
+                character=self.character,
+                definition=self.definition,
+            )
+            if self.pk:
+                existing = existing.exclude(pk=self.pk)
+            if self.definition.max_choices and existing.count() >= self.definition.max_choices:
+                raise ValidationError("Maximum number of choices for this race definition exceeded.")
+
+    def _validate_target_kind(self, expected_kind):
+        """Ensure the selected target fields match the configured race choice kind."""
+        errors = {}
+        allowed_item_categories = {choice for choice, _label in Item.ItemType.choices}
+        target_field_by_kind = {
+            Technique.ChoiceTargetKind.SKILL: "selected_skill",
+            Technique.ChoiceTargetKind.SKILL_CATEGORY: "selected_skill_category",
+            Technique.ChoiceTargetKind.ITEM: "selected_item",
+            Technique.ChoiceTargetKind.ITEM_CATEGORY: "selected_item_category",
+            Technique.ChoiceTargetKind.SPECIALIZATION: "selected_specialization",
+            Technique.ChoiceTargetKind.TEXT: "selected_text",
+            Technique.ChoiceTargetKind.ENTITY: "selected_content_type",
+        }
+        required_field = target_field_by_kind.get(expected_kind)
+        if required_field is None:
+            raise ValidationError({"definition": "Unsupported race choice target kind."})
+        if expected_kind == Technique.ChoiceTargetKind.ITEM_CATEGORY and (
+            not self.selected_item_category or self.selected_item_category not in allowed_item_categories
+        ):
+            errors["selected_item_category"] = "Select a valid item category."
+        elif expected_kind == Technique.ChoiceTargetKind.ENTITY:
+            if not self.selected_content_type_id or self.selected_object_id is None:
+                errors["selected_content_type"] = "This race choice requires another entity target."
+        elif expected_kind == Technique.ChoiceTargetKind.TEXT:
+            if not self.selected_text:
+                errors["selected_text"] = "This race choice requires a free-text choice."
+        elif getattr(self, f"{required_field}_id", None) is None and not getattr(self, required_field):
+            errors[required_field] = f"This race choice requires a {expected_kind.replace('_', ' ')} selection."
+
+        disallowed_fields = {
+            "selected_skill",
+            "selected_skill_category",
+            "selected_item",
+            "selected_item_category",
+            "selected_specialization",
+            "selected_text",
+            "selected_content_type",
+            "selected_object_id",
+        } - {required_field}
+        if expected_kind == Technique.ChoiceTargetKind.ENTITY:
+            disallowed_fields -= {"selected_object_id"}
+        for field_name in disallowed_fields:
+            value = getattr(self, field_name)
+            if value not in (None, "", 0):
+                errors[field_name] = "This field does not match the configured choice kind."
+        if errors:
+            raise ValidationError(errors)
+
+    def selected_target_display(self) -> str:
+        """Return a readable label for the chosen race target."""
+        if self.selected_skill_id:
+            return self.selected_skill.name
+        if self.selected_skill_category_id:
+            return self.selected_skill_category.name
+        if self.selected_item_id:
+            return self.selected_item.name
+        if self.selected_item_category:
+            return self.selected_item_category
+        if self.selected_specialization_id:
+            return self.selected_specialization.name
+        if self.selected_text:
+            return self.selected_text
+        if self.selected_entity is not None:
+            return str(self.selected_entity)
+        return "-"
+
+    def __str__(self) -> str:
+        return f"{self.character.name} -> {self.definition.name}: {self.selected_target_display()}"
+
+
+class RaceTechnique(models.Model):
+    race = models.ForeignKey(
+        Race,
+        on_delete=models.CASCADE,
+        related_name="techniques",
+    )
+    technique = models.ForeignKey(
+        Technique,
+        on_delete=models.CASCADE,
+        related_name="race_links",
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["race", "technique"],
+                name="uniq_race_technique",
+            )
+        ]

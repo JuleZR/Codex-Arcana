@@ -15,9 +15,20 @@ export function initSheetActions() {
     event.preventDefault();
 
     try {
+      const submitter = event.submitter instanceof HTMLElement ? event.submitter : null;
+      const formData = new FormData(form);
+      if (
+        submitter instanceof HTMLButtonElement ||
+        submitter instanceof HTMLInputElement
+      ) {
+        const submitterName = submitter.getAttribute("name");
+        if (submitterName) {
+          formData.append(submitterName, submitter.value);
+        }
+      }
       const response = await fetch(form.action, {
         method: form.method || "POST",
-        body: new FormData(form),
+        body: formData,
         headers: {
           "X-Requested-With": "XMLHttpRequest",
           Accept: "application/json",
@@ -40,4 +51,5 @@ export function initSheetActions() {
     }
   });
 }
+
 

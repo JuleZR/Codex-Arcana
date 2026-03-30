@@ -195,3 +195,5 @@ _test_*
 *.css.map
 MILESTONES.md
 _grw
+.tools
+.out

@@ -20,6 +20,14 @@ function parseQualityLine(line) {
   return { label: match[1].trim(), color: match[2].trim() };
 }
 
+function parseStatusLine(line) {
+  const match = String(line || "").trim().match(/^\[\[STATUS:(.+?)\|(.+?)\]\]$/);
+  if (!match) {
+    return null;
+  }
+  return { label: match[1].trim(), color: match[2].trim() };
+}
+
 function renderTooltipMarkup(rawText) {
   const text = String(rawText || "").trim();
   if (!text) {
@@ -40,6 +48,15 @@ function renderTooltipMarkup(rawText) {
     if (qualityMeta) {
       chunks.push(
         `<p class="tooltip_quality_line"><span class="tooltip_quality_badge" style="--tooltip-quality-color: ${escapeHtml(qualityMeta.color)};">Qualitaet: ${escapeHtml(qualityMeta.label)}</span></p>`,
+      );
+      index += 1;
+      continue;
+    }
+
+    const statusMeta = parseStatusLine(line);
+    if (statusMeta) {
+      chunks.push(
+        `<p class="tooltip_status_line"><span class="tooltip_status_badge" style="--tooltip-status-color: ${escapeHtml(statusMeta.color)};">${escapeHtml(statusMeta.label)}</span></p>`,
       );
       index += 1;
       continue;
@@ -240,3 +257,4 @@ export function initTooltips() {
     scheduleHide();
   });
 }
+

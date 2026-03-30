@@ -187,3 +187,26 @@ class WeaponStats(models.Model):
             return f"{self.item}: DMG {base} / 2H {alt} ({self.damage_source})"
 
         return f"{self.item}: DMG {base} ({self.damage_source})"
+
+
+class RaceStartingItem(models.Model):
+    race = models.ForeignKey("charsheet.Race", on_delete=models.CASCADE, related_name="starting_items")
+    item = models.ForeignKey("charsheet.Item", on_delete=models.CASCADE, related_name="race_starting_items")
+    amount = models.PositiveIntegerField(default=1)
+    quality = models.CharField(max_length=30, blank=True, default="")
+    equipped = models.BooleanField(default=False)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["race", "item"], name="uniq_race_starting_item")
+        ]
+
+    def clean(self):
+        super().clean()
+        if self.item.stackable:
+            raise ValidationError({"item": "Race items must not be stackable because they are always equipped."})
+        if self.item.item_type not in {Item.ItemType.WEAPON, Item.ItemType.ARMOR, Item.ItemType.SHIELD}:
+            raise ValidationError({"item": "Race items must be weapons, armor, or shields because they are always equipped."})
+
+    def __str__(self):
+        return f"{self.race} -> {self.item} x{self.amount}"

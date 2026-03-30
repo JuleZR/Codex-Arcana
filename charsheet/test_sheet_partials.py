@@ -60,6 +60,36 @@ class CharacterSheetPartialTests(TestCase):
         owned_item.refresh_from_db()
         self.assertTrue(owned_item.equipped)
 
+    def test_locked_equipment_cannot_be_unequipped(self):
+        armor = Item.objects.create(
+            name="Startpanzer",
+            price=50,
+            item_type=Item.ItemType.ARMOR,
+            stackable=False,
+            default_quality="common",
+        )
+        ArmorStats.objects.create(item=armor, rs_total=1, encumbrance=1, min_st=1)
+        owned_item = CharacterItem.objects.create(
+            owner=self.character,
+            item=armor,
+            amount=1,
+            equipped=True,
+            equip_locked=True,
+            quality="common",
+        )
+
+        response = self.client.post(
+            reverse("toggle_equip", args=[owned_item.id]),
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        owned_item.refresh_from_db()
+        self.assertTrue(owned_item.equipped)
+        payload = response.json()
+        armor_html = next(entry["html"] for entry in payload["partials"] if entry["target"] == "sheetArmorPanel")
+        self.assertIn("disabled", armor_html)
+
     def test_buy_shop_cart_returns_wallet_and_inventory_partials(self):
         item = Item.objects.create(
             name="Heilkraut",

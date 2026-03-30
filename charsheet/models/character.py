@@ -28,7 +28,7 @@ class Character(models.Model):
     country_of_origin = models.CharField(max_length=25, null=True, blank=True)
     weight = models.IntegerField(default=60, null=True, blank=True)
     religion = models.CharField(max_length=25, null=True, blank=True)
-    appearance = models.TextField(max_length=85, null=True, blank=True)
+    appearance = models.TextField(max_length=100, null=True, blank=True)
 
     money = models.IntegerField(default=0, validators=[MinValueValidator(0)])
     overall_experience = models.PositiveIntegerField(default=0)
@@ -142,6 +142,7 @@ class CharacterItem(models.Model):
     owner = models.ForeignKey(Character, on_delete=models.CASCADE)
     amount = models.PositiveIntegerField(default=1)
     equipped = models.BooleanField(default=False)
+    equip_locked = models.BooleanField(default=False)
     quality = models.CharField(max_length=20, choices=QUALITY_CHOICES, default=QUALITY_COMMON)
 
     def clean(self):
@@ -151,6 +152,8 @@ class CharacterItem(models.Model):
             raise ValidationError({"amount": "Item is flagged non stackable. amount must be 1"})
         if self.item.stackable and self.equipped:
             raise ValidationError({"equipped": "Stackable Items can't be equipped"})
+        if self.equip_locked and not self.equipped:
+            raise ValidationError({"equip_locked": "Locked equipment must remain equipped."})
 
     def __str__(self):
         return f"{self.owner} owns {self.item}"

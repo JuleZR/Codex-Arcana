@@ -13,6 +13,7 @@ import { initTooltips } from "./tooltip.js";
 import { initWalletTooltip } from "./wallet_tooltip.js";
 import { initInventoryMenu } from "./inventory_menu.js";
 import { initDamagePanel } from "./damage_panel.js";
+import { initCharInfoCounter } from "./char_info_counter.js";
 import { initSheetActions } from "./sheet_actions.js";
 
 onReady(() => {
@@ -31,10 +32,11 @@ onReady(() => {
   initInventoryMenu();
   initSheetActions();
   initDamagePanel();
+  initCharInfoCounter();
 
   document.addEventListener("charsheet:partials-applied", () => {
     initDamagePanel();
+    initCharInfoCounter();
     document.dispatchEvent(new Event("learn:refresh-totals"));
   });
 });
-

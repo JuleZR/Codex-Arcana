@@ -17,6 +17,7 @@ from charsheet.models import (
     Character,
     CharacterAttribute,
     CharacterLanguage,
+    CharacterRaceChoice,
     CharacterSchool,
     CharacterSchoolPath,
     CharacterSpecialization,
@@ -136,41 +137,46 @@ def _apply_progression_choices(character: Character, post_data) -> dict[str, int
         if not raw_value:
             continue
 
-        choice_payload: dict[str, object] = {
-            "character": character,
-            "technique_id": row["technique_id"],
-        }
-        if row["definition_id"] is not None:
+        choice_scope = row.get("choice_scope", "technique")
+        choice_label = row.get("technique_name") or row.get("race_name") or "Choice"
+        choice_payload: dict[str, object] = {"character": character}
+        choice_model = CharacterTechniqueChoice
+        if choice_scope == "race":
+            choice_model = CharacterRaceChoice
             choice_payload["definition_id"] = row["definition_id"]
+        else:
+            choice_payload["technique_id"] = row["technique_id"]
+            if row["definition_id"] is not None:
+                choice_payload["definition_id"] = row["definition_id"]
 
         target_kind = row["target_kind"]
         allowed_values = {str(option["value"]) for option in row["options"]}
         if target_kind == Technique.ChoiceTargetKind.SKILL:
             if raw_value not in allowed_values:
-                raise LearningSubmissionError(f"{row['technique_name']}: Ungueltige Fertigkeitswahl.")
+                raise LearningSubmissionError(f"{choice_label}: Ungueltige Fertigkeitswahl.")
             choice_payload["selected_skill_id"] = int(raw_value)
         elif target_kind == Technique.ChoiceTargetKind.SKILL_CATEGORY:
             if raw_value not in allowed_values:
-                raise LearningSubmissionError(f"{row['technique_name']}: Ungueltige Kategorienwahl.")
+                raise LearningSubmissionError(f"{choice_label}: Ungueltige Kategorienwahl.")
             choice_payload["selected_skill_category_id"] = int(raw_value)
         elif target_kind == Technique.ChoiceTargetKind.ITEM:
             if raw_value not in allowed_values:
-                raise LearningSubmissionError(f"{row['technique_name']}: Ungueltige Gegenstandswahl.")
+                raise LearningSubmissionError(f"{choice_label}: Ungueltige Gegenstandswahl.")
             choice_payload["selected_item_id"] = int(raw_value)
         elif target_kind == Technique.ChoiceTargetKind.ITEM_CATEGORY:
             if raw_value not in allowed_values:
-                raise LearningSubmissionError(f"{row['technique_name']}: Ungueltige Gegenstandskategorie.")
+                raise LearningSubmissionError(f"{choice_label}: Ungueltige Gegenstandskategorie.")
             choice_payload["selected_item_category"] = raw_value
         elif target_kind == Technique.ChoiceTargetKind.SPECIALIZATION:
             if raw_value not in allowed_values:
-                raise LearningSubmissionError(f"{row['technique_name']}: Ungueltige Spezialisierungswahl.")
+                raise LearningSubmissionError(f"{choice_label}: Ungueltige Spezialisierungswahl.")
             choice_payload["selected_specialization_id"] = int(raw_value)
         elif target_kind == Technique.ChoiceTargetKind.TEXT:
             choice_payload["selected_text"] = raw_value
         else:
             continue
 
-        choice_entry = CharacterTechniqueChoice(**choice_payload)
+        choice_entry = choice_model(**choice_payload)
         choice_entry.full_clean()
         choice_entry.save()
         summary["choices"] += 1
@@ -451,7 +457,7 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
     if progression_summary["specializations"]:
         parts.append(f"{progression_summary['specializations']} Spezialisierung(en) vergeben")
     if progression_summary["choices"]:
-        parts.append(f"{progression_summary['choices']} Technik-Auswahl(en) gespeichert")
+        parts.append(f"{progression_summary['choices']} Auswahl(en) gespeichert")
     if not parts:
         return "info", "Keine Lernkosten erkannt."
     return "success", f"Lernen abgeschlossen: {', '.join(parts)}."

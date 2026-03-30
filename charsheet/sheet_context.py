@@ -22,6 +22,7 @@ from charsheet.models import (
     DamageSource,
     Item,
     Language,
+    RaceTechnique,
     School,
     Skill,
     Technique,
@@ -68,12 +69,27 @@ QUALITY_TOOLTIP_TYPES = {Item.ItemType.ARMOR, Item.ItemType.WEAPON, Item.ItemTyp
 EQUIPPABLE_ITEM_TYPES = {Item.ItemType.ARMOR, Item.ItemType.WEAPON, Item.ItemType.SHIELD}
 
 
-def _format_item_tooltip(*, description: str, quality_label: str | None = None, quality_color: str | None = None) -> str:
+def _format_item_tooltip(
+    *,
+    description: str,
+    quality_label: str | None = None,
+    quality_color: str | None = None,
+    status_label: str | None = None,
+    status_color: str | None = None,
+) -> str:
     """Return the tooltip text used by item-related template rows."""
+    status_line = ""
+    if status_label and status_color:
+        status_line = f"[[STATUS:{status_label}|{status_color}]]"
     if quality_label and quality_color:
+        prefix = "\n".join(part for part in (status_line, f"[[QUALITY:{quality_label}|{quality_color}]]") if part)
         if description:
-            return f"[[QUALITY:{quality_label}|{quality_color}]]\n\n{description}"
-        return f"[[QUALITY:{quality_label}|{quality_color}]]"
+            return f"{prefix}\n\n{description}"
+        return prefix
+    if status_line:
+        if description:
+            return f"{status_line}\n\n{description}"
+        return status_line
     return description
 
 
@@ -201,6 +217,7 @@ def _build_weapon_rows(engine) -> list[dict]:
                     quality_label=quality["label"],
                     quality_color=quality["color"],
                 ),
+                "can_unequip": not row["character_item"].equip_locked,
             }
         )
     return weapon_rows
@@ -239,6 +256,7 @@ def _build_armor_rows(engine) -> list[dict]:
                     quality_label=quality["label"],
                     quality_color=quality["color"],
                 ),
+                "can_unequip": not row["character_item"].equip_locked,
             }
         )
     return armor_rows
@@ -246,7 +264,7 @@ def _build_armor_rows(engine) -> list[dict]:
 
 def _build_school_technique_rows(character: Character, engine) -> tuple[list[dict], dict[int, int]]:
     """Build visible learned technique rows for the school panel."""
-    schools = (
+    schools = list(
         character.schools
         .select_related("school", "school__type")
         .order_by("school__type__name", "school__name")
@@ -261,6 +279,32 @@ def _build_school_technique_rows(character: Character, engine) -> tuple[list[dic
             .select_related("technique")
         )
     }
+    race_techniques = (
+        RaceTechnique.objects
+        .filter(race=character.race)
+        .select_related("technique")
+        .order_by("technique__name")
+    )
+    for race_link in race_techniques:
+        technique = race_link.technique
+        learned_technique = learned_techniques_by_technique_id.get(technique.id)
+        specification_value = ((learned_technique.specification_value if learned_technique else "") or "").strip()
+        entry_name = technique.name
+        if technique.has_specification:
+            entry_name = f"{technique.name}: {specification_value or '*'}"
+        school_technique_rows.append(
+            {
+                "kind": "race_technique",
+                "level": "",
+                "school_name": character.race.name,
+                "entry_name": entry_name,
+                "description": technique.description,
+                "can_edit_specification": bool(technique.has_specification),
+                "specification_value": specification_value,
+                "technique_id": technique.id,
+            }
+        )
+    race_row_count = len(school_technique_rows)
     if school_levels:
         techniques = (
             Technique.objects
@@ -287,6 +331,8 @@ def _build_school_technique_rows(character: Character, engine) -> tuple[list[dic
                         "technique_id": technique.id,
                     }
                 )
+    if race_row_count and len(school_technique_rows) > race_row_count:
+        school_technique_rows[race_row_count - 1]["show_group_separator"] = True
     for school_entry in schools:
         for specialization_entry in engine.character_specializations(school_entry.school_id):
             specialization = specialization_entry.specialization

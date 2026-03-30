@@ -12,6 +12,7 @@ from charsheet.models import (
     CharacterTechnique,
     CharacterTechniqueChoice,
     Race,
+    RaceTechnique,
     School,
     SchoolType,
     Specialization,
@@ -58,6 +59,24 @@ class SchoolPanelTests(TestCase):
                 ("technique", "Bardenkampf", "Klingenlied"),
                 ("specialization", "Bardenkampf", "Duellant"),
             ],
+        )
+
+    def test_character_sheet_context_lists_race_techniques_first(self):
+        """Race techniques should be shown in the panel before school-based entries."""
+        race_technique = Technique.objects.create(
+            name="Nachtsicht",
+            description="Eine angeborene Rassenfaehigkeit.",
+        )
+        RaceTechnique.objects.create(race=self.race, technique=race_technique)
+
+        response = self.client.get(reverse("character_sheet", args=[self.character.id]))
+
+        self.assertEqual(response.status_code, 200)
+        rows = response.context["school_technique_rows"]
+        self.assertGreaterEqual(len(rows), 1)
+        self.assertEqual(
+            (rows[0]["kind"], rows[0]["level"], rows[0]["school_name"], rows[0]["entry_name"]),
+            ("race_technique", "", "Mensch", "Nachtsicht"),
         )
 
     def test_character_sheet_context_lists_technique_specialization_choices(self):

@@ -1104,14 +1104,14 @@
 .floating-tooltip {
   position: fixed;
   max-width: 360px;
-  padding: 7px 9px;
+  padding: 9px 11px;
   border: 1px solid rgba(74, 55, 38, 0.4);
   border-radius: 4px;
   background: rgba(255, 250, 236, 0.96);
   color: var(--ink);
   font-family: "Trebuchet MS", "Segoe UI", Tahoma, sans-serif;
-  font-size: 0.833em;
-  line-height: 1.28;
+  font-size: 0.95rem;
+  line-height: 1.42;
   text-transform: none;
   letter-spacing: normal;
   white-space: pre-line;
@@ -1137,6 +1137,11 @@
   padding: 0 2px;
 }
 
+.floating-tooltip .tooltip_status_line {
+  margin: 0 0 8px;
+  padding: 0 2px;
+}
+
 .floating-tooltip .tooltip_quality_badge {
   display: block;
   width: 100%;
@@ -1151,23 +1156,37 @@
   text-align: left;
 }
 
+.floating-tooltip .tooltip_status_badge {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(95, 67, 40, 0.42);
+  background: var(--tooltip-status-color, rgba(218, 192, 154, 0.9));
+  color: #101010;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  text-align: left;
+}
+
 .floating-tooltip p + p,
 .floating-tooltip p + table,
 .floating-tooltip table + p,
 .floating-tooltip table + table {
-  margin-top: 6px;
+  margin-top: 8px;
 }
 
 .floating-tooltip table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.95em;
+  font-size: 1em;
   white-space: normal;
 }
 
 .floating-tooltip th,
 .floating-tooltip td {
-  padding: 3px 6px;
+  padding: 4px 7px;
   border: 1px solid rgba(74, 55, 38, 0.24);
   text-align: left;
   vertical-align: top;
@@ -1210,6 +1229,51 @@
 
 .p2_schools .p2_lines li.school_row_with_tooltip:hover {
   background: rgba(255, 250, 236, 0.74);
+}
+
+.p2_schools .p2_lines li.school_row_with_tooltip--race {
+  background: linear-gradient(
+    180deg,
+    rgba(236, 220, 187, 0.34) 0%,
+    rgba(247, 238, 215, 0.56) 100%
+  );
+  border-color: rgba(126, 92, 46, 0.3);
+  box-shadow: inset 0 0 0 1px rgba(255, 244, 216, 0.16);
+}
+
+.p2_schools .p2_lines li.school_row_with_tooltip--race:hover {
+  background: linear-gradient(
+    180deg,
+    rgba(242, 226, 194, 0.52) 0%,
+    rgba(251, 244, 224, 0.82) 100%
+  );
+  border-color: rgba(133, 91, 37, 0.34);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 247, 224, 0.28),
+    0 1px 2px rgba(74, 55, 38, 0.08);
+}
+
+.p2_schools .p2_lines li.school_row_with_tooltip--race .skill_name_text {
+  color: #433022;
+}
+
+.p2_schools .p2_lines li.school_row_with_tooltip--separator {
+  margin-bottom: 12px;
+}
+
+.p2_schools .p2_lines li.school_row_with_tooltip--separator::after {
+  content: "";
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: -8px;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(122, 92, 58, 0), rgba(122, 92, 58, 0.28), rgba(122, 92, 58, 0));
+}
+
+.school_row_origin {
+  font-style: italic;
+  color: #7a5230;
 }
 
 .p2_weapons {

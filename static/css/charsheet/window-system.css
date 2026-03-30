@@ -243,6 +243,23 @@
   color: rgba(88, 63, 38, 0.86);
 }
 
+.sheet-window .sheet_char_counter {
+  align-self: flex-end;
+  margin-top: 2px;
+  font-size: 0.82rem;
+  line-height: 1.1;
+  color: rgba(88, 63, 38, 0.82);
+}
+
+.sheet-window .sheet_char_counter.is-near-limit {
+  color: rgba(132, 84, 28, 0.92);
+}
+
+.sheet-window .sheet_char_counter.is-at-limit {
+  color: rgba(148, 52, 36, 0.95);
+  font-weight: 700;
+}
+
 .sheet-window__surface-body {
   flex: 1 1 auto;
   min-height: 0;

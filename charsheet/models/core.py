@@ -54,7 +54,7 @@ class Race(models.Model):
     combat_speed = models.IntegerField(default=0, validators=[MinValueValidator(0)])
     march_speed = models.IntegerField(default=0, validators=[MinValueValidator(0)])
     sprint_speed = models.IntegerField(default=0, validators=[MinValueValidator(0)])
-    swimming_speed = models.IntegerField(default=0, validators=[MinValueValidator(0)])
+    swimming_speed = models.FloatField(default=0, validators=[MinValueValidator(0)])
 
     can_fly = models.BooleanField(default=False)
     combat_fly_speed = models.IntegerField(default=0, validators=[MinValueValidator(0)], null=True, blank=True)
@@ -66,7 +66,7 @@ class Race(models.Model):
     phase_3_points = models.PositiveIntegerField(default=20, validators=[MaxValueValidator(20)])
     phase_4_points = models.PositiveIntegerField(default=30)
 
-    size_class = models.CharField(GK_CHOICES, max_length=5, default=GK_AVERAGE)
+    size_class = models.CharField("SizeClass", max_length=5, choices=GK_CHOICES, default=GK_AVERAGE)
 
     def __str__(self):
         return self.name

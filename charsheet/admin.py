@@ -21,6 +21,7 @@ from .models import (
     CharacterDiaryEntry,
     CharacterItem,
     CharacterLanguage,
+    CharacterRaceChoice,
     CharacterSchool,
     CharacterSchoolPath,
     CharacterSpecialization,
@@ -35,6 +36,9 @@ from .models import (
     ProgressionRule,
     Race,
     RaceAttributeLimit,
+    RaceChoiceDefinition,
+    RaceStartingItem,
+    RaceTechnique,
     School,
     SchoolPath,
     SchoolType,
@@ -242,6 +246,20 @@ def _format_technique_choice_definitions(technique):
     return rows or ["None"]
 
 
+def _technique_source_label(technique, *, character=None):
+    """Return a readable owning source for school and race techniques."""
+    if technique is None:
+        return "-"
+    if technique.school_id:
+        return technique.school.name
+    if character is not None and getattr(character, "race_id", None):
+        return f"Race: {character.race.name}"
+    race_names = sorted(technique.race_links.values_list("race__name", flat=True).distinct())
+    if race_names:
+        return "Race: " + ", ".join(race_names)
+    return "Race Technique"
+
+
 def _format_choice_group_notice(technique):
     """Explain that choice_group is informational only."""
     if not technique or not technique.choice_group:
@@ -254,7 +272,7 @@ def _format_technique_rule_context_html(technique):
     if technique is None:
         return "-"
     rows = [
-        ("School", technique.school.name),
+        ("Source", _technique_source_label(technique)),
         ("Level", technique.level),
         ("Path", technique.path.name if technique.path_id else "All Paths"),
         ("Acquisition", technique.get_acquisition_type_display()),
@@ -480,6 +498,46 @@ class RaceAttributeLimitInline(admin.TabularInline):
     autocomplete_fields = ("attribute",)
 
 
+class RaceTechniqueInline(admin.TabularInline):
+    """Inline editor for techniques granted or linked by a race."""
+
+    model = RaceTechnique
+    extra = 0
+    show_change_link = True
+    autocomplete_fields = ("technique",)
+
+
+class RaceStartingItemInline(admin.TabularInline):
+    """Inline editor for race-based starter equipment."""
+
+    model = RaceStartingItem
+    extra = 0
+    show_change_link = True
+    autocomplete_fields = ("item",)
+    fields = ("item", "amount", "quality")
+
+
+class ItemRaceStartingInline(admin.TabularInline):
+    """Inline editor for races that start with one item."""
+
+    model = RaceStartingItem
+    fk_name = "item"
+    extra = 0
+    show_change_link = True
+    autocomplete_fields = ("race",)
+    fields = ("race", "amount", "quality")
+
+
+class TechniqueRaceInline(admin.TabularInline):
+    """Inline editor for race links on one technique."""
+
+    model = RaceTechnique
+    fk_name = "technique"
+    extra = 0
+    show_change_link = True
+    autocomplete_fields = ("race",)
+
+
 class ModifierInline(GenericStackedInline):
     """Generic inline editor for modifiers attached to source models."""
 
@@ -498,7 +556,7 @@ class ModifierInline(GenericStackedInline):
                     ("target_kind", "target_slug"),
                     ("target_skill", "target_skill_category"),
                     ("target_item", "target_specialization"),
-                    "target_choice_definition",
+                    ("target_choice_definition", "target_race_choice_definition"),
                     ("target_content_type", "target_object_id"),
                 )
             },
@@ -514,6 +572,7 @@ class ModifierInline(GenericStackedInline):
         "target_item",
         "target_specialization",
         "target_choice_definition",
+        "target_race_choice_definition",
     )
 
 
@@ -685,7 +744,8 @@ class CharacterTechniqueChoiceInline(admin.StackedInline):
             kwargs["queryset"] = (
                 Technique.objects.filter(
                     Q(choice_definitions__isnull=False)
-                    | ~Q(choice_target_kind=Technique.ChoiceTargetKind.NONE)
+                    | ~Q(choice_target_kind=Technique.ChoiceTargetKind.NONE),
+                    school__isnull=False,
                 )
                 .select_related("school", "path")
                 .distinct()
@@ -694,12 +754,12 @@ class CharacterTechniqueChoiceInline(admin.StackedInline):
         formfield = super().formfield_for_foreignkey(db_field, request, **kwargs)
         return formfield
 
-    @admin.display(description="School")
+    @admin.display(description="Source")
     def technique_school(self, obj):
-        """Show the owning school of the selected technique."""
+        """Show the owning source of the selected technique."""
         if not obj or not obj.technique_id:
             return "-"
-        return obj.technique.school
+        return _technique_source_label(obj.technique, character=obj.character)
 
     @admin.display(description="Target")
     def choice_target_kind(self, obj):
@@ -716,6 +776,69 @@ class CharacterTechniqueChoiceInline(admin.StackedInline):
         if not obj or not obj.technique_id:
             return "-"
         return _format_technique_choice_context(obj.technique)
+
+
+class CharacterRaceChoiceInline(admin.StackedInline):
+    """Inline editor for persistent character race choices."""
+
+    model = CharacterRaceChoice
+    verbose_name_plural = "Race Choices"
+    fk_name = "character"
+    extra = 0
+    show_change_link = True
+    autocomplete_fields = (
+        "definition",
+        "selected_skill",
+        "selected_skill_category",
+        "selected_item",
+        "selected_specialization",
+    )
+    fieldsets = (
+        (
+            "Race",
+            {
+                "fields": (
+                    ("race_name", "definition"),
+                    "choice_target_kind",
+                    "choice_context",
+                )
+            },
+        ),
+        (
+            "Selected Target",
+            {
+                "fields": (
+                    ("selected_skill",),
+                    ("selected_skill_category", "selected_specialization"),
+                    ("selected_item", "selected_item_category"),
+                    "selected_text",
+                    ("selected_content_type", "selected_object_id"),
+                )
+            },
+        ),
+    )
+    readonly_fields = ("race_name", "choice_target_kind", "choice_context")
+
+    @admin.display(description="Race")
+    def race_name(self, obj):
+        """Show the owning race of the selected choice definition."""
+        if not obj or not obj.definition_id:
+            return "-"
+        return obj.definition.race.name
+
+    @admin.display(description="Target")
+    def choice_target_kind(self, obj):
+        """Show which persistent target type the race choice expects."""
+        if not obj or not obj.definition_id:
+            return "-"
+        return obj.definition.get_target_kind_display()
+
+    @admin.display(description="Choice Notes")
+    def choice_context(self, obj):
+        """Show editor-facing notes for the linked race choice definition."""
+        if not obj or not obj.definition_id:
+            return "-"
+        return obj.definition.description or obj.definition.name
 
 
 class CharacterSpecializationInline(admin.TabularInline):
@@ -956,7 +1079,7 @@ class TechniqueChoiceDefinitionInline(admin.TabularInline):
     """Inline editor for persistent technique choice definitions."""
 
     model = TechniqueChoiceDefinition
-    verbose_name_plural = "Choice Definitions"
+    verbose_name_plural = "Technique Choice Definitions"
     fk_name = "technique"
     extra = 0
     show_change_link = True
@@ -966,6 +1089,28 @@ class TechniqueChoiceDefinitionInline(admin.TabularInline):
         "min_choices",
         "max_choices",
         "is_required",
+        "sort_order",
+        "is_active",
+        "description",
+    )
+
+
+class RaceChoiceDefinitionInline(admin.TabularInline):
+    """Inline editor for persistent race choice definitions."""
+
+    model = RaceChoiceDefinition
+    verbose_name_plural = "Race Choice Definitions"
+    fk_name = "race"
+    extra = 0
+    show_change_link = True
+    fields = (
+        "name",
+        "target_kind",
+        "min_choices",
+        "max_choices",
+        "is_required",
+        "allowed_skill_category",
+        "allowed_skill_family",
         "sort_order",
         "is_active",
         "description",
@@ -1163,7 +1308,13 @@ class RaceAdmin(admin.ModelAdmin):
     search_fields = ("name", "description")
     list_filter = ("size_class", "can_fly")
     ordering = ("name",)
-    inlines = (RaceAttributeLimitInline, ModifierInline)
+    inlines = (
+        RaceAttributeLimitInline,
+        RaceChoiceDefinitionInline,
+        RaceTechniqueInline,
+        RaceStartingItemInline,
+        ModifierInline,
+    )
     fieldsets = (
         (
             "Race",
@@ -1267,6 +1418,7 @@ class CharacterAdmin(admin.ModelAdmin):
         CharacterSchoolPathInline,
         CharacterTechniqueInline,
         CharacterTechniqueChoiceInline,
+        CharacterRaceChoiceInline,
         CharacterSpecializationInline,
         CharacterItemInline,
         CharacterTraitInline,
@@ -1492,6 +1644,7 @@ class ModifierAdmin(admin.ModelAdmin):
         "target_kind",
         "target_display_value",
         "target_choice_definition",
+        "target_race_choice_definition",
         "value",
         "scale_source",
         "scale_school",
@@ -1510,6 +1663,7 @@ class ModifierAdmin(admin.ModelAdmin):
         "target_item__name",
         "target_specialization__name",
         "target_choice_definition__name",
+        "target_race_choice_definition__name",
     )
     ordering = ("source_content_type", "source_object_id", "target_kind", "target_slug")
     autocomplete_fields = (
@@ -1519,6 +1673,7 @@ class ModifierAdmin(admin.ModelAdmin):
         "target_item",
         "target_specialization",
         "target_choice_definition",
+        "target_race_choice_definition",
     )
     list_select_related = (
         "scale_school",
@@ -1527,6 +1682,7 @@ class ModifierAdmin(admin.ModelAdmin):
         "target_item",
         "target_specialization",
         "target_choice_definition",
+        "target_race_choice_definition",
     )
     fieldsets = (
         (
@@ -1544,7 +1700,7 @@ class ModifierAdmin(admin.ModelAdmin):
                     ("target_kind", "target_slug"),
                     ("target_skill", "target_skill_category"),
                     ("target_item", "target_specialization"),
-                    "target_choice_definition",
+                    ("target_choice_definition", "target_race_choice_definition"),
                     ("target_content_type", "target_object_id"),
                 )
             },
@@ -1613,7 +1769,13 @@ class TechniqueAdmin(admin.ModelAdmin):
     ordering = ("school", "level", "name")
     autocomplete_fields = ("school", "path", "choice_block", "target_choice_definition")
     list_select_related = ("school", "school__type", "path", "choice_block", "target_choice_definition")
-    inlines = (TechniqueRequirementInline, TechniqueExclusionInline, TechniqueChoiceDefinitionInline, ModifierInline)
+    inlines = (
+        TechniqueRequirementInline,
+        TechniqueExclusionInline,
+        TechniqueChoiceDefinitionInline,
+        TechniqueRaceInline,
+        ModifierInline,
+    )
     fieldsets = (
         (
             "Basics",
@@ -1755,7 +1917,7 @@ class ItemAdmin(admin.ModelAdmin):
     search_fields = ("name", "description", "item_type")
     list_filter = ("item_type", "default_quality", "stackable", "is_consumable", "size_class")
     ordering = ("item_type", "name")
-    inlines = (ArmorStatsInline, ShieldStatsInline, WeaponStatsInline, ItemCharacterInline)
+    inlines = (ArmorStatsInline, ShieldStatsInline, WeaponStatsInline, ItemRaceStartingInline, ItemCharacterInline)
 
     @admin.display(ordering="default_quality", description="Quality")
     def quality_preview(self, obj):
@@ -2058,6 +2220,78 @@ class TechniqueChoiceDefinitionAdmin(admin.ModelAdmin):
         return ", ".join(f"{modifier.target_kind}: {modifier.target_display()}" for modifier in modifiers) or "None"
 
 
+@admin.register(RaceChoiceDefinition)
+class RaceChoiceDefinitionAdmin(admin.ModelAdmin):
+    """Admin configuration for persistent race choice definitions."""
+
+    list_display = (
+        "name",
+        "race",
+        "target_kind",
+        "targeting_modifier_count",
+        "min_choices",
+        "max_choices",
+        "is_required",
+        "is_active",
+    )
+    search_fields = (
+        "name",
+        "description",
+        "race__name",
+        "targeting_modifiers__target_slug",
+        "targeting_modifiers__target_skill__name",
+        "targeting_modifiers__target_skill_category__name",
+        "targeting_modifiers__target_item__name",
+        "targeting_modifiers__target_specialization__name",
+    )
+    list_filter = ("race", "target_kind", "is_required", "is_active")
+    ordering = ("race__name", "sort_order", "name")
+    autocomplete_fields = ("race",)
+    list_select_related = ("race",)
+    readonly_fields = ("targeting_modifiers",)
+    fieldsets = (
+        (
+            "Choice Definition",
+            {
+                "fields": (
+                    "race",
+                    "name",
+                    "target_kind",
+                    "description",
+                    ("min_choices", "max_choices", "is_required"),
+                    ("allowed_skill_category", "allowed_skill_family"),
+                    ("sort_order", "is_active"),
+                ),
+            },
+        ),
+        (
+            "Links",
+            {
+                "fields": ("targeting_modifiers",),
+                "description": "Shows modifiers that explicitly point to this race choice definition.",
+            },
+        ),
+    )
+
+    @admin.display(description="Linked Modifiers")
+    def targeting_modifiers(self, obj):
+        """Show modifiers that explicitly reference this race choice definition."""
+        if not obj or not obj.pk:
+            return "-"
+        modifiers = obj.targeting_modifiers.select_related(
+            "target_skill",
+            "target_skill_category",
+            "target_item",
+            "target_specialization",
+        ).order_by("target_kind", "target_slug", "id")
+        return ", ".join(f"{modifier.target_kind}: {modifier.target_display()}" for modifier in modifiers) or "None"
+
+    @admin.display(description="Modifiers")
+    def targeting_modifier_count(self, obj):
+        """Return how many modifiers point to this race choice definition."""
+        return obj.targeting_modifiers.count()
+
+
 @admin.register(Specialization)
 class SpecializationAdmin(admin.ModelAdmin):
     """Admin configuration for school-bound specializations."""
@@ -2181,6 +2415,55 @@ class CharacterTechniqueAdmin(admin.ModelAdmin):
         return obj.technique.get_support_level_display()
 
 
+@admin.register(RaceTechnique)
+class RaceTechniqueAdmin(admin.ModelAdmin):
+    """Admin configuration for race-technique assignments."""
+
+    list_display = ("race", "technique", "technique_school", "technique_path", "technique_level")
+    search_fields = ("race__name", "technique__name", "technique__school__name", "technique__path__name")
+    list_filter = ("race", "technique__school__type", "technique__school", "technique__path", "technique__level")
+    ordering = ("race__name", "technique__school__name", "technique__level", "technique__name")
+    autocomplete_fields = ("race", "technique")
+    list_select_related = ("race", "technique", "technique__school", "technique__school__type", "technique__path")
+
+    @admin.display(ordering="technique__school__name", description="School")
+    def technique_school(self, obj):
+        """Return the linked technique school for list display."""
+        return obj.technique.school
+
+    @admin.display(ordering="technique__path__name", description="Path")
+    def technique_path(self, obj):
+        """Return the linked technique path if present."""
+        return obj.technique.path or "-"
+
+    @admin.display(ordering="technique__level", description="Level")
+    def technique_level(self, obj):
+        """Return the linked technique level."""
+        return obj.technique.level
+
+
+@admin.register(RaceStartingItem)
+class RaceStartingItemAdmin(admin.ModelAdmin):
+    """Admin configuration for race-based starter equipment."""
+
+    list_display = ("race", "item", "item_type", "amount", "quality_preview")
+    search_fields = ("race__name", "item__name", "item__description")
+    list_filter = ("race", "item__item_type", "quality", "item__size_class")
+    ordering = ("race__name", "item__item_type", "item__name")
+    autocomplete_fields = ("race", "item")
+    list_select_related = ("race", "item")
+
+    @admin.display(ordering="item__item_type", description="Item Type")
+    def item_type(self, obj):
+        """Return the starter item's type for list display."""
+        return obj.item.item_type
+
+    @admin.display(ordering="quality", description="Quality")
+    def quality_preview(self, obj):
+        """Render starter quality, falling back to the item's default quality."""
+        return _quality_badge(obj.quality or obj.item.default_quality)
+
+
 @admin.register(CharacterTechniqueChoice)
 class CharacterTechniqueChoiceAdmin(admin.ModelAdmin):
     """Admin configuration for persistent character technique choices."""
@@ -2280,7 +2563,8 @@ class CharacterTechniqueChoiceAdmin(admin.ModelAdmin):
             kwargs["queryset"] = (
                 Technique.objects.filter(
                     Q(choice_definitions__isnull=False)
-                    | ~Q(choice_target_kind=Technique.ChoiceTargetKind.NONE)
+                    | ~Q(choice_target_kind=Technique.ChoiceTargetKind.NONE),
+                    school__isnull=False,
                 )
                 .select_related("school", "path")
                 .distinct()
@@ -2289,10 +2573,10 @@ class CharacterTechniqueChoiceAdmin(admin.ModelAdmin):
         formfield = super().formfield_for_foreignkey(db_field, request, **kwargs)
         return formfield
 
-    @admin.display(ordering="technique__school__name", description="School")
+    @admin.display(ordering="technique__school__name", description="Source")
     def technique_school(self, obj):
-        """Return the school that owns the selected technique."""
-        return obj.technique.school
+        """Return the owning source of the selected technique."""
+        return _technique_source_label(obj.technique, character=obj.character)
 
     @admin.display(ordering="technique__level", description="Level")
     def technique_level(self, obj):
@@ -2314,6 +2598,97 @@ class CharacterTechniqueChoiceAdmin(admin.ModelAdmin):
     @admin.display(description="Selection")
     def selected_target_value(self, obj):
         """Render the stored target in readable form."""
+        return obj.selected_target_display()
+
+
+@admin.register(CharacterRaceChoice)
+class CharacterRaceChoiceAdmin(admin.ModelAdmin):
+    """Admin configuration for persistent character race choices."""
+
+    list_display = (
+        "character",
+        "race_name",
+        "definition",
+        "choice_target_kind",
+        "choice_context",
+        "selected_target_value",
+    )
+    search_fields = (
+        "character__name",
+        "definition__name",
+        "definition__race__name",
+        "selected_skill__name",
+        "selected_skill_category__name",
+        "selected_item__name",
+        "selected_specialization__name",
+        "selected_text",
+    )
+    list_filter = (
+        "definition__race",
+        "definition__target_kind",
+    )
+    ordering = ("character", "definition__race__name", "definition__sort_order", "definition__name")
+    autocomplete_fields = (
+        "character",
+        "definition",
+        "selected_skill",
+        "selected_skill_category",
+        "selected_item",
+        "selected_specialization",
+    )
+    list_select_related = (
+        "character",
+        "definition",
+        "definition__race",
+        "selected_skill",
+        "selected_skill_category",
+        "selected_item",
+        "selected_specialization",
+    )
+    fieldsets = (
+        (
+            "Race",
+            {
+                "fields": (
+                    ("character", "definition"),
+                    "choice_target_kind",
+                    "choice_context",
+                )
+            },
+        ),
+        (
+            "Selected Target",
+            {
+                "fields": (
+                    ("selected_skill",),
+                    ("selected_skill_category", "selected_specialization"),
+                    ("selected_item", "selected_item_category"),
+                    "selected_text",
+                    ("selected_content_type", "selected_object_id"),
+                )
+            },
+        ),
+    )
+    readonly_fields = ("choice_target_kind", "choice_context")
+
+    @admin.display(ordering="definition__race__name", description="Race")
+    def race_name(self, obj):
+        """Return the owning race of the selected definition."""
+        return obj.definition.race.name
+
+    @admin.display(ordering="definition__target_kind", description="Target")
+    def choice_target_kind(self, obj):
+        """Return which persistent target kind the race choice expects."""
+        return obj.definition.get_target_kind_display()
+
+    @admin.display(description="Choice Notes")
+    def choice_context(self, obj):
+        """Return editor-facing guidance for persistent race choices."""
+        return obj.definition.description or obj.definition.name
+
+    @admin.display(description="Selection")
+    def selected_target_value(self, obj):
+        """Render the stored race target in readable form."""
         return obj.selected_target_display()
 
 
@@ -2562,6 +2937,7 @@ PROGRESSION_RULE_CHOICE_HELP = {
 MODIFIER_CHOICE_HELP = {
     "target_kind": "Skill = one specific skill, Skill Category = one entire skill category, Stat = a derived stat, Item/Item Category = an item or item category, Specialization = a school-bound specialization, Other Entity = any other game entity.",
     "target_choice_definition": "Optional choice definition link. If set, the modifier target kind must match the choice definition target kind.",
+    "target_race_choice_definition": "Optional race choice definition link. If set, the modifier target kind must match the race choice definition target kind.",
     "mode": "Flat = fixed value, Scaled = value is calculated from another source.",
     "scale_source": "School level = scales with a school level, Fame total = scales with total fame rank, Trait level = scales with the source trait level.",
     "round_mode": "Floor = round down after division, Ceil = round up after division.",
@@ -2598,6 +2974,14 @@ TECHNIQUE_CHOICE_DEFINITION_HELP = {
     "allowed_skill_family": "Optional filter restricting skill choices to one specific skill family.",
 }
 
+RACE_CHOICE_DEFINITION_HELP = {
+    "target_kind": "Defines which kind of target this race decision stores persistently.",
+    "min_choices": "How many selections must be stored for this single race decision at minimum.",
+    "max_choices": "How many selections may be stored for this single race decision at maximum.",
+    "allowed_skill_category": "Optional filter restricting skill choices to one specific skill category.",
+    "allowed_skill_family": "Optional filter restricting skill choices to one specific skill family.",
+}
+
 SPECIALIZATION_CHOICE_HELP = {
     "support_level": "Automated = the engine evaluates the rule fully, Partially Automated = parts are structured and evaluable, Manual (Rule Text Only) = rule text only with no automatic calculation.",
 }
@@ -2605,6 +2989,19 @@ SPECIALIZATION_CHOICE_HELP = {
 SCHOOL_ADMIN_LABELS = {
     "type": "School Type",
     "description": "Description",
+}
+
+RACE_ADMIN_LABELS = {
+    "size_class": "SizeClass",
+}
+
+MODIFIER_LABELS = {
+    "target_choice_definition": "Technique Choice Definition",
+    "target_race_choice_definition": "Race Choice Definition",
+}
+
+RACE_CHOICE_DEFINITION_LABELS = {
+    "race": "Race",
 }
 
 TECHNIQUE_LABELS = {
@@ -2669,7 +3066,7 @@ TRAIT_CHOICE_HELP = {
     "trait_type": "Advantage = beneficial trait, Disadvantage = drawback or penalty trait.",
 }
 
-_install_inline_help(ModifierInline, help_texts=MODIFIER_CHOICE_HELP)
+_install_inline_help(ModifierInline, help_texts=MODIFIER_CHOICE_HELP, labels=MODIFIER_LABELS)
 _install_inline_help(ProgressionRuleInline, help_texts=PROGRESSION_RULE_CHOICE_HELP)
 _install_inline_help(TechniqueInline, help_texts=TECHNIQUE_CHOICE_HELP, labels=TECHNIQUE_LABELS)
 _install_inline_help(
@@ -2678,17 +3075,18 @@ _install_inline_help(
     labels=TECHNIQUE_CHOICE_BLOCK_LABELS,
 )
 _install_inline_help(TechniqueChoiceDefinitionInline, help_texts=TECHNIQUE_CHOICE_DEFINITION_HELP)
+_install_inline_help(RaceChoiceDefinitionInline, help_texts=RACE_CHOICE_DEFINITION_HELP, labels=RACE_CHOICE_DEFINITION_LABELS)
 _install_inline_help(SpecializationInline, help_texts=SPECIALIZATION_CHOICE_HELP, labels=SPECIALIZATION_LABELS)
 _install_inline_help(WeaponStatsInline, help_texts=WEAPON_CHOICE_HELP)
 _install_inline_help(ShieldStatsInline, help_texts=SHIELD_CHOICE_HELP)
 
 _install_admin_help(AttributeAdmin, help_texts=ATTRIBUTE_CHOICE_HELP)
 _install_admin_help(SkillCategoryAdmin, help_texts=SKILL_CATEGORY_CHOICE_HELP)
-_install_admin_help(RaceAdmin, help_texts=SIZE_CLASS_HELP)
+_install_admin_help(RaceAdmin, help_texts=SIZE_CLASS_HELP, labels=RACE_ADMIN_LABELS)
 _install_admin_help(CharacterAdmin, help_texts=CHARACTER_CHOICE_HELP)
 _install_admin_help(SchoolTypeAdmin, help_texts=SCHOOL_TYPE_CHOICE_HELP)
 _install_admin_help(ProgressionRuleAdmin, help_texts=PROGRESSION_RULE_CHOICE_HELP)
-_install_admin_help(ModifierAdmin, help_texts=MODIFIER_CHOICE_HELP)
+_install_admin_help(ModifierAdmin, help_texts=MODIFIER_CHOICE_HELP, labels=MODIFIER_LABELS)
 _install_admin_help(SchoolAdmin, labels=SCHOOL_ADMIN_LABELS)
 _install_admin_help(TechniqueAdmin, help_texts=TECHNIQUE_CHOICE_HELP, labels=TECHNIQUE_LABELS)
 _install_admin_help(
@@ -2697,6 +3095,7 @@ _install_admin_help(
     labels=TECHNIQUE_CHOICE_BLOCK_LABELS,
 )
 _install_admin_help(TechniqueChoiceDefinitionAdmin, help_texts=TECHNIQUE_CHOICE_DEFINITION_HELP)
+_install_admin_help(RaceChoiceDefinitionAdmin, help_texts=RACE_CHOICE_DEFINITION_HELP, labels=RACE_CHOICE_DEFINITION_LABELS)
 _install_admin_help(SpecializationAdmin, help_texts=SPECIALIZATION_CHOICE_HELP, labels=SPECIALIZATION_LABELS)
 _install_admin_help(ItemAdmin, help_texts=ITEM_CHOICE_HELP)
 _install_admin_help(WeaponStatsAdmin, help_texts=WEAPON_CHOICE_HELP)

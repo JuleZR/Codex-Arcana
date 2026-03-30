@@ -7,6 +7,7 @@ ARMOR_PENALTY_IGNORE = "armor_penalty_ignore"
 DEFENSE_VW = "vw"
 DEFENSE_GW = "gw"
 DEFENSE_SR = "sr"
+DEFENSE_RS = "rs"
 
 STAT_SLUG_CHOICES = [
     (INITIATIVE, "Initiative"),
@@ -17,6 +18,7 @@ STAT_SLUG_CHOICES = [
     (DEFENSE_VW, "VW"),
     (DEFENSE_GW, "GW"),
     (DEFENSE_SR, "SR"),
+    (DEFENSE_RS, "RS"),
 ]
 
 VALID_STAT_SLUGS = {
@@ -28,6 +30,7 @@ VALID_STAT_SLUGS = {
     DEFENSE_VW,
     DEFENSE_GW,
     DEFENSE_SR,
+    DEFENSE_RS,
 }
 
 # School SLugs

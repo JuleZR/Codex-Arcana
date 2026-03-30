@@ -36,6 +36,14 @@ def choice_field_name(target_kind: str, technique_id: int, definition_id: int | 
     return f"{prefix}_{technique_id}_{suffix}"
 
 
+def race_choice_field_name(target_kind: str, definition_id: int) -> str:
+    """Return the POST field name for one race-choice target."""
+    prefix = CHOICE_FIELD_PREFIX_BY_KIND.get(target_kind)
+    if not prefix:
+        return ""
+    return f"{prefix}_race_{definition_id}"
+
+
 def _build_decision_option(
     *,
     option_id: str,
@@ -339,6 +347,7 @@ def build_learning_progression_context(character, *, engine) -> dict[str, object
                             item_category_options=item_category_options,
                             allowed_skill_category_id=definition.allowed_skill_category_id,
                             allowed_skill_family=definition.allowed_skill_family or "",
+                            group_name=technique.school.name,
                         )
                         if row is not None:
                             choice_groups.setdefault(technique.school.name, []).append(row)
@@ -360,22 +369,62 @@ def build_learning_progression_context(character, *, engine) -> dict[str, object
                         item_category_options=item_category_options,
                         allowed_skill_category_id=None,
                         allowed_skill_family="",
+                        group_name=technique.school.name,
                     )
                     if row is not None:
                         choice_groups.setdefault(technique.school.name, []).append(row)
+
+    race = character.race
+    if race is not None:
+        active_race_definitions = list(
+            race.choice_definitions.filter(is_active=True)
+            .select_related("allowed_skill_category")
+            .order_by("sort_order", "name", "id")
+        )
+        for definition in active_race_definitions:
+            existing_count = len(engine.race_choices(definition))
+            required_count = definition.min_choices if definition.is_required else 0
+            missing_count = max(0, required_count - existing_count)
+            for missing_index in range(missing_count):
+                row = _build_race_choice_row(
+                    race=race,
+                    target_kind=definition.target_kind,
+                    label=definition.name,
+                    description=definition.description or "",
+                    definition_id=definition.id,
+                    slot_index=missing_index,
+                    skill_definitions=skill_definitions,
+                    skill_categories=skill_categories,
+                    item_definitions=item_definitions,
+                    item_category_options=item_category_options,
+                    allowed_skill_category_id=definition.allowed_skill_category_id,
+                    allowed_skill_family=definition.allowed_skill_family or "",
+                )
+                if row is not None:
+                    choice_groups.setdefault(race.name, []).append(row)
 
     for row in [row for rows in choice_groups.values() for row in rows]:
         input_type = "text" if row.get("allows_text_input") else "options"
         if not row["supported"]:
             input_type = "unsupported"
+        decision_prefix = "race-choice" if row.get("choice_scope") == "race" else "technique-choice"
+        decision_kind = "race_choice" if row.get("choice_scope") == "race" else "technique_choice"
+        decision_title = (
+            f"Choice: {row['race_name']}"
+            if row.get("choice_scope") == "race"
+            else f"Choice: {row['technique_name']}"
+        )
+        selection_group_id = (
+            f"race-choice:{row['definition_id']}"
+            if row.get("choice_scope") == "race"
+            else f"technique-choice:{row['technique_id']}:{row['definition_id'] or 'legacy'}"
+        )
         if row.get("allows_text_input"):
             pending_decisions.append(
                 _build_pending_decision(
-                    decision_id=(
-                        f"technique-choice-{row['technique_id']}-{row['definition_id'] or 'legacy'}-{row['slot_index']}"
-                    ),
-                    kind="technique_choice",
-                    title=f"Choice: {row['technique_name']}",
+                    decision_id=f"{decision_prefix}-{row['definition_id'] or 'legacy'}-{row['slot_index']}",
+                    kind=decision_kind,
+                    title=decision_title,
                     summary=f"{row['label']} | {row['target_label']}",
                     description=row["description"],
                     prompt="Eintrag festlegen",
@@ -383,18 +432,16 @@ def build_learning_progression_context(character, *, engine) -> dict[str, object
                     text_submit_name=row["field_name"],
                     text_placeholder="Eintrag",
                     supported=row["supported"],
-                    selection_group_id=(
-                        f"technique-choice:{row['technique_id']}:{row['definition_id'] or 'legacy'}"
-                    ),
+                    selection_group_id=selection_group_id,
                 )
             )
             continue
 
         pending_decisions.append(
             _build_pending_decision(
-                decision_id=f"technique-choice-{row['technique_id']}-{row['definition_id'] or 'legacy'}-{row['slot_index']}",
-                kind="technique_choice",
-                title=f"Choice: {row['technique_name']}",
+                decision_id=f"{decision_prefix}-{row['definition_id'] or 'legacy'}-{row['slot_index']}",
+                kind=decision_kind,
+                title=decision_title,
                 summary=f"{row['label']} | {row['target_label']}",
                 description=(
                     row["description"]
@@ -403,7 +450,7 @@ def build_learning_progression_context(character, *, engine) -> dict[str, object
                 prompt="Auswahl treffen",
                 input_type=input_type,
                 supported=row["supported"],
-                selection_group_id=f"technique-choice:{row['technique_id']}:{row['definition_id'] or 'legacy'}",
+                selection_group_id=selection_group_id,
                 options=[
                     _build_decision_option(
                         option_id=str(option["value"]),
@@ -451,6 +498,7 @@ def _build_choice_row(
     item_category_options,
     allowed_skill_category_id: int | None,
     allowed_skill_family: str,
+    group_name: str,
 ) -> dict[str, object] | None:
     """Return one rendered choice row for a still-missing technique decision."""
     field_name = choice_field_name(target_kind, technique.id, definition_id)
@@ -463,12 +511,13 @@ def _build_choice_row(
             "technique_id": technique.id,
             "technique_name": technique.name,
             "school_id": technique.school_id,
-            "school_name": technique.school.name,
+            "school_name": group_name,
             "definition_id": definition_id,
             "label": label,
             "description": description,
             "slot_index": slot_index,
             "options": [],
+            "choice_scope": "technique",
         }
 
     options: list[dict[str, object]] = []
@@ -517,11 +566,96 @@ def _build_choice_row(
         "technique_id": technique.id,
         "technique_name": technique.name,
         "school_id": technique.school_id,
-        "school_name": technique.school.name,
+        "school_name": group_name,
         "definition_id": definition_id,
         "label": label,
         "description": description,
         "slot_index": slot_index,
         "options": options,
         "allows_text_input": target_kind == Technique.ChoiceTargetKind.TEXT,
+        "choice_scope": "technique",
+    }
+
+
+def _build_race_choice_row(
+    *,
+    race,
+    target_kind: str,
+    label: str,
+    description: str,
+    definition_id: int,
+    slot_index: int,
+    skill_definitions,
+    skill_categories,
+    item_definitions,
+    item_category_options,
+    allowed_skill_category_id: int | None,
+    allowed_skill_family: str,
+) -> dict[str, object] | None:
+    """Return one rendered choice row for a still-missing race decision."""
+    field_name = race_choice_field_name(target_kind, definition_id)
+    if not field_name:
+        return {
+            "field_name": "",
+            "supported": False,
+            "target_kind": target_kind,
+            "target_label": CHOICE_KIND_LABELS.get(target_kind, target_kind),
+            "definition_id": definition_id,
+            "label": label,
+            "description": description,
+            "slot_index": slot_index,
+            "options": [],
+            "race_id": race.id,
+            "race_name": race.name,
+            "school_name": race.name,
+            "choice_scope": "race",
+        }
+
+    options: list[dict[str, object]] = []
+    if target_kind == Technique.ChoiceTargetKind.SKILL:
+        filtered_skills = skill_definitions
+        if allowed_skill_category_id is not None:
+            filtered_skills = [
+                skill for skill in filtered_skills if skill.category_id == allowed_skill_category_id
+            ]
+        if allowed_skill_family:
+            filtered_skills = [skill for skill in filtered_skills if skill.family == allowed_skill_family]
+        options = [
+            {
+                "value": skill.id,
+                "label": skill.name,
+                "meta": skill.category.name,
+            }
+            for skill in filtered_skills
+        ]
+    elif target_kind == Technique.ChoiceTargetKind.SKILL_CATEGORY:
+        options = [{"value": category.id, "label": category.name, "meta": ""} for category in skill_categories]
+    elif target_kind == Technique.ChoiceTargetKind.ITEM:
+        options = [{"value": item.id, "label": item.name, "meta": item.get_item_type_display()} for item in item_definitions]
+    elif target_kind == Technique.ChoiceTargetKind.ITEM_CATEGORY:
+        options = [{"value": row["value"], "label": row["label"], "meta": ""} for row in item_category_options]
+    elif target_kind == Technique.ChoiceTargetKind.TEXT:
+        options = []
+
+    return {
+        "field_name": field_name,
+        "supported": target_kind in {
+            Technique.ChoiceTargetKind.SKILL,
+            Technique.ChoiceTargetKind.SKILL_CATEGORY,
+            Technique.ChoiceTargetKind.ITEM,
+            Technique.ChoiceTargetKind.ITEM_CATEGORY,
+            Technique.ChoiceTargetKind.TEXT,
+        },
+        "target_kind": target_kind,
+        "target_label": CHOICE_KIND_LABELS.get(target_kind, target_kind),
+        "definition_id": definition_id,
+        "label": label,
+        "description": description,
+        "slot_index": slot_index,
+        "options": options,
+        "allows_text_input": target_kind == Technique.ChoiceTargetKind.TEXT,
+        "race_id": race.id,
+        "race_name": race.name,
+        "school_name": race.name,
+        "choice_scope": "race",
     }

@@ -13,6 +13,7 @@ from django.db.models import Model, Prefetch, Q
 from . import character_combat, character_equipment, character_progression
 from charsheet.models import (
     Character,
+    CharacterRaceChoice,
     CharacterSchool,
     CharacterSchoolPath,
     CharacterSpecialization,
@@ -21,6 +22,8 @@ from charsheet.models import (
     Modifier,
     ProgressionRule,
     Race,
+    RaceChoiceDefinition,
+    RaceTechnique,
     School,
     SchoolPath,
     Specialization,
@@ -282,6 +285,26 @@ class CharacterEngine:
         return dict(grouped)
 
     @cached_property
+    def _race_choices_by_definition_id(self) -> dict[int, list[CharacterRaceChoice]]:
+        """Cache persisted race choices grouped by explicit race choice definition id."""
+        grouped: DefaultDict[int, list[CharacterRaceChoice]] = defaultdict(list)
+        queryset = (
+            self.character.race_choices.select_related(
+                "definition",
+                "definition__race",
+                "selected_skill",
+                "selected_skill_category",
+                "selected_item",
+                "selected_specialization",
+                "selected_content_type",
+            )
+            .order_by("definition__race__name", "definition__sort_order", "definition__name", "id")
+        )
+        for choice in queryset:
+            grouped[choice.definition_id].append(choice)
+        return dict(grouped)
+
+    @cached_property
     def _choice_bonus_techniques(self) -> list[Technique]:
         """Cache computed passive techniques with explicit choice bonuses; choice_group is ignored here."""
         return [
@@ -363,6 +386,8 @@ class CharacterEngine:
                 "target_skill_category",
                 "target_item",
                 "target_specialization",
+                "target_choice_definition",
+                "target_race_choice_definition",
                 "target_content_type",
             )
         )
@@ -442,9 +467,30 @@ class CharacterEngine:
         """Cache technique ids whose effects may be resolved automatically."""
         return {
             technique.id
-            for technique in self._character_school_technique_list
+            for technique in (
+                list(self._character_school_technique_list)
+                + list(self._race_technique_list)
+            )
             if self._technique_effect_is_computed(technique)
         }
+
+    @cached_property
+    def _race_technique_list(self) -> list[Technique]:
+        """Load all techniques granted directly by the character's race."""
+        return [
+            relation.technique
+            for relation in (
+                RaceTechnique.objects
+                .filter(race_id=self.character.race_id)
+                .select_related("technique")
+                .order_by("technique__name")
+            )
+        ]
+
+    @cached_property
+    def _race_technique_ids(self) -> set[int]:
+        """Cache technique ids that come from the character's race."""
+        return {technique.id for technique in self._race_technique_list}
 
     @cached_property
     def _techniques_by_id(self) -> dict[int, Technique]:
@@ -632,9 +678,24 @@ class CharacterEngine:
         technique_obj = self._coerce_technique(technique)
         return list(self._technique_choices_by_technique_id.get(technique_obj.id, []))
 
+    def race_choices(self, definition: RaceChoiceDefinition | int) -> list[CharacterRaceChoice]:
+        """Return all persisted character race choices for one definition."""
+        definition_id = definition.id if isinstance(definition, RaceChoiceDefinition) else int(definition)
+        return list(self._race_choices_by_definition_id.get(definition_id, []))
+
     def is_technique_choice_complete(self, technique: Technique | int) -> bool:
         """Return whether a technique's persistent build choices are fully configured."""
         return self._is_technique_choice_complete(self._coerce_technique(technique))
+
+    def is_race_choice_complete(self, definition: RaceChoiceDefinition | int) -> bool:
+        """Return whether one race definition has all required persisted selections."""
+        definition_obj = definition if isinstance(definition, RaceChoiceDefinition) else RaceChoiceDefinition.objects.get(pk=definition)
+        selected_count = len(self.race_choices(definition_obj))
+        if selected_count > definition_obj.max_choices:
+            return False
+        if definition_obj.is_required and selected_count < definition_obj.min_choices:
+            return False
+        return True
 
     def modifier_total_for_skill(self, skill_slug: str) -> int:
         """Return all direct skill modifiers for one exact skill slug."""
@@ -846,8 +907,8 @@ class CharacterEngine:
 
     def _resolve_choice_skill_modifiers(self, skill_id: int) -> int:
         """
-        Resolve modifier rows that target a skill via a persisted technique
-        choice.
+        Resolve modifier rows that target a skill via persisted technique or
+        race choices.
         """
         learned_stack = set()
         available_stack = set()
@@ -856,15 +917,23 @@ class CharacterEngine:
             modifier
             for modifier in self._all_modifiers
             if modifier.target_kind == Modifier.TargetKind.SKILL
-            and modifier.target_choice_definition_id
-            ]
+            and (
+                modifier.target_choice_definition_id
+                or modifier.target_race_choice_definition_id
+            )
+        ]
 
         total = 0
 
         for modifier in modifiers:
-            choices = self._technique_choices_by_definition_id.get(
-                modifier.target_choice_definition_id, []
-            )
+            if modifier.target_choice_definition_id:
+                choices = self._technique_choices_by_definition_id.get(
+                    modifier.target_choice_definition_id, []
+                )
+            else:
+                choices = self._race_choices_by_definition_id.get(
+                    modifier.target_race_choice_definition_id, []
+                )
             for choice in choices:
                 if choice.selected_skill_id != skill_id:
                     continue
@@ -930,6 +999,12 @@ class CharacterEngine:
         if isinstance(source, Trait):
             return source.id in self._trait_levels
         if isinstance(source, Technique):
+            if source.id in self._race_technique_ids:
+                return (
+                    self._technique_effect_is_computed(source)
+                    and self._is_technique_choice_complete(source)
+                    and source.technique_type == Technique.TechniqueType.PASSIVE
+                )
             return (
                 self._technique_effect_is_computed(source)
                 and self._is_technique_choice_complete(source)

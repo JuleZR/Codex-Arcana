@@ -20,7 +20,13 @@ from .core import (
     SkillCategory,
     Trait,
 )
-from .items import ArmorStats, Item, ShieldStats, WeaponStats
+from .items import (
+    ArmorStats,
+    Item,
+    ShieldStats,
+    WeaponStats,
+    RaceStartingItem
+)
 from .progression import (
     CharacterSchool,
     CharacterSchoolPath,
@@ -32,9 +38,12 @@ from .progression import (
     Specialization,
 )
 from .techniques import (
+    CharacterRaceChoice,
     CharacterTechnique,
     CharacterTechniqueChoice,
     Modifier,
+    RaceChoiceDefinition,
+    RaceTechnique,
     Technique,
     TechniqueChoiceBlock,
     TechniqueChoiceDefinition,
@@ -51,6 +60,7 @@ __all__ = [
     "CharacterDiaryEntry",
     "CharacterItem",
     "CharacterLanguage",
+    "CharacterRaceChoice",
     "CharacterSchool",
     "CharacterSchoolPath",
     "CharacterSkill",
@@ -65,6 +75,8 @@ __all__ = [
     "ProgressionRule",
     "Race",
     "RaceAttributeLimit",
+    "RaceChoiceDefinition",
+    "RaceTechnique",
     "School",
     "SchoolPath",
     "SchoolType",
@@ -79,4 +91,5 @@ __all__ = [
     "TechniqueRequirement",
     "Trait",
     "WeaponStats",
+    "RaceStartingItem",
 ]
