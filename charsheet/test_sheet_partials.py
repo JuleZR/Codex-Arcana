@@ -6,7 +6,7 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
 
-from charsheet.models import ArmorStats, Character, CharacterItem, Item, Race
+from charsheet.models import ArmorStats, Character, CharacterItem, Item, Race, Rune
 
 
 class CharacterSheetPartialTests(TestCase):
@@ -161,3 +161,60 @@ class CharacterSheetPartialTests(TestCase):
         self.assertEqual(payload["partials"][0]["target"], "sheetFamePanel")
         self.character.refresh_from_db()
         self.assertEqual(self.character.personal_fame_point, 1)
+
+    def test_update_character_item_runes_returns_equipment_partials(self):
+        """Rune retrofit should persist on CharacterItem and refresh the visible panels."""
+        armor = Item.objects.create(
+            name="Schuppenpanzer",
+            price=90,
+            item_type=Item.ItemType.ARMOR,
+            stackable=False,
+            default_quality="common",
+        )
+        ArmorStats.objects.create(item=armor, rs_total=2, encumbrance=1, min_st=1)
+        base_rune = Rune.objects.create(name="Basisrune", description="Schon am Gegenstand.")
+        extra_rune = Rune.objects.create(name="Nachrüstrune", description="Wird separat eingesetzt.")
+        armor.runes.add(base_rune)
+        owned_item = CharacterItem.objects.create(owner=self.character, item=armor, amount=1, equipped=False, quality="common")
+
+        response = self.client.post(
+            reverse("update_character_item_runes", args=[owned_item.id]),
+            {"runes": [str(base_rune.id), str(extra_rune.id)]},
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        targets = {entry["target"] for entry in payload["partials"]}
+        self.assertEqual(targets, {"sheetInventoryPanel", "sheetArmorPanel", "sheetWeaponPanel"})
+        owned_item.refresh_from_db()
+        self.assertEqual(list(owned_item.runes.values_list("name", flat=True)), ["Nachrüstrune"])
+        inventory_html = next(entry["html"] for entry in payload["partials"] if entry["target"] == "sheetInventoryPanel")
+        self.assertIn("[[RUNE:Basisrune||]]", inventory_html)
+        self.assertIn("[[RUNE:Nachr", inventory_html)
+
+    def test_update_character_item_runes_allows_misc_items(self):
+        """Misc items should also support rune retrofits and keep their tooltip content."""
+        misc_item = Item.objects.create(
+            name="Arkaner Fokus",
+            price=40,
+            item_type=Item.ItemType.MISC,
+            stackable=False,
+            default_quality="common",
+            description="Ein seltsamer Gegenstand.",
+        )
+        rune = Rune.objects.create(name="Speicherrune", description="Bindet Energie.")
+        owned_item = CharacterItem.objects.create(owner=self.character, item=misc_item, amount=1, equipped=False, quality="common")
+
+        response = self.client.post(
+            reverse("update_character_item_runes", args=[owned_item.id]),
+            {"runes": [str(rune.id)]},
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        owned_item.refresh_from_db()
+        self.assertEqual(list(owned_item.runes.values_list("name", flat=True)), ["Speicherrune"])
+        inventory_html = next(entry["html"] for entry in response.json()["partials"] if entry["target"] == "sheetInventoryPanel")
+        self.assertIn("Arkaner Fokus", inventory_html)
+        self.assertIn("[[RUNE:Speicherrune||]]", inventory_html)

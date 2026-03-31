@@ -6,8 +6,8 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
 
-from charsheet.constants import QUALITY_FINE, QUALITY_LEGENDARY
-from charsheet.models import Character, CharacterItem, Item, Race
+from charsheet.constants import DEADLY, QUALITY_FINE, QUALITY_LEGENDARY
+from charsheet.models import Character, CharacterItem, DamageSource, Item, Race, Rune, WeaponStats
 
 
 class ShopQualityPurchaseTests(TestCase):
@@ -24,6 +24,38 @@ class ShopQualityPurchaseTests(TestCase):
             money=10_000,
         )
         self.client.force_login(self.user)
+
+    def test_create_shop_item_persists_weapon_damage_source_and_runes(self):
+        """Custom shop creation should support weapon damage sources and base runes."""
+        rune = Rune.objects.create(name="Feuer", description="Setzt Klingen in Brand.")
+        damage_source = DamageSource.objects.create(name="Stärke", short_name="ST", slug="st")
+
+        response = self.client.post(
+            reverse("create_shop_item", kwargs={"character_id": self.character.id}),
+            {
+                "name": "Runenklinge",
+                "price": "250",
+                "item_type": Item.ItemType.WEAPON,
+                "default_quality": "common",
+                "weight": "2",
+                "size_class": "M",
+                "weapon_damage_dice_amount": "1",
+                "weapon_damage_dice_faces": "8",
+                "weapon_damage_flat_bonus": "-1",
+                "weapon_wield_mode": "1h",
+                "weapon_damage_source": str(damage_source.id),
+                "weapon_damage_type": DEADLY,
+                "weapon_min_st": "2",
+                "runes": [str(rune.id)],
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        item = Item.objects.get(name="Runenklinge")
+        self.assertEqual(list(item.runes.values_list("name", flat=True)), ["Feuer"])
+        weapon_stats = WeaponStats.objects.get(item=item)
+        self.assertEqual(weapon_stats.damage_source, damage_source)
+        self.assertEqual(weapon_stats.damage_flat_bonus, -1)
 
     def test_buy_shop_cart_uses_quality_price_and_persists_quality(self):
         """Legendary quality should multiply price and be stored on CharacterItem."""

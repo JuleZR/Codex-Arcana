@@ -19,9 +19,11 @@ from charsheet.models import (
     CharacterLanguage,
     CharacterTechnique,
     CharacterTrait,
+    DamageSource,
     Item,
     Language,
     RaceTechnique,
+    Rune,
     School,
     Skill,
     Technique,
@@ -66,7 +68,56 @@ SHOP_FORM_ORDER = [
 ]
 QUALITY_TOOLTIP_TYPES = {Item.ItemType.ARMOR, Item.ItemType.WEAPON, Item.ItemType.SHIELD}
 EQUIPPABLE_ITEM_TYPES = {Item.ItemType.ARMOR, Item.ItemType.WEAPON, Item.ItemType.SHIELD}
+RUNE_RETROFIT_ITEM_TYPES = {Item.ItemType.ARMOR, Item.ItemType.WEAPON, Item.ItemType.MISC}
 
+
+def _single_line(value: str) -> str:
+    """Collapse multiline text into one tooltip-friendly line."""
+    return " ".join(str(value or "").replace("\r", "\n").split())
+
+
+def _rune_image_url(rune: Rune) -> str:
+    """Return a tooltip-safe rune image URL when an image is present."""
+    image = getattr(rune, "image", None)
+    if not image:
+        return ""
+    try:
+        return _single_line(image.url)
+    except (ValueError, OSError):
+        return ""
+
+
+def _collect_rune_rows(*, item: Item, character_item: CharacterItem | None = None) -> list[dict[str, str]]:
+    """Return combined visible rune rows for tooltips without duplicate entries."""
+    rows: list[dict[str, str]] = []
+    seen_ids: set[int] = set()
+    for runes in (
+        item.runes.all(),
+        character_item.runes.all() if character_item is not None else [],
+    ):
+        for rune in runes:
+            if rune.id in seen_ids:
+                continue
+            seen_ids.add(rune.id)
+            rows.append(
+                {
+                    "name": rune.name,
+                    "description": "",
+                    "image": _rune_image_url(rune),
+                }
+            )
+    return rows
+
+
+def _format_rune_tooltip_block(*, item: Item, character_item: CharacterItem | None = None) -> str:
+    """Return compact rune markup for the tooltip renderer."""
+    rune_rows = _collect_rune_rows(item=item, character_item=character_item)
+    if not rune_rows:
+        return ""
+    lines: list[str] = []
+    for row in rune_rows:
+        lines.append(f"[[RUNE:{row['name']}|{row['description']}|{row['image']}]]")
+    return "\n".join(lines)
 
 def _format_item_tooltip(
     *,
@@ -75,21 +126,24 @@ def _format_item_tooltip(
     quality_color: str | None = None,
     status_label: str | None = None,
     status_color: str | None = None,
+    rune_block: str = "",
 ) -> str:
     """Return the tooltip text used by item-related template rows."""
+    body_parts = [part for part in (description, rune_block) if part]
+    body = "\n\n".join(body_parts)
     status_line = ""
     if status_label and status_color:
         status_line = f"[[STATUS:{status_label}|{status_color}]]"
     if quality_label and quality_color:
         prefix = "\n".join(part for part in (status_line, f"[[QUALITY:{quality_label}|{quality_color}]]") if part)
-        if description:
-            return f"{prefix}\n\n{description}"
+        if body:
+            return f"{prefix}\n\n{body}"
         return prefix
     if status_line:
-        if description:
-            return f"{status_line}\n\n{description}"
+        if body:
+            return f"{status_line}\n\n{body}"
         return status_line
-    return description
+    return body
 
 
 def _build_skill_rows(character: Character, engine, *, load_penalty: int) -> tuple[list[dict], object]:
@@ -164,6 +218,7 @@ def _build_inventory_rows(character: Character) -> list[dict]:
         CharacterItem.objects
         .filter(owner=character, equipped=False)
         .select_related("item")
+        .prefetch_related("item__runes", "runes")
         .order_by("item__name")
     )
     for character_item in inventory_items:
@@ -176,14 +231,21 @@ def _build_inventory_rows(character: Character) -> list[dict]:
                 description=item.description or "",
                 quality_label=quality["label"],
                 quality_color=quality["color"],
+                rune_block=_format_rune_tooltip_block(item=item, character_item=character_item),
             )
         elif item.description:
-            tooltip_text = item.description
+            tooltip_text = _format_item_tooltip(
+                description=item.description,
+                rune_block=_format_rune_tooltip_block(item=item, character_item=character_item),
+            )
+        elif item.runes.exists() or character_item.runes.exists():
+            tooltip_text = _format_rune_tooltip_block(item=item, character_item=character_item)
 
         inventory_rows.append(
             {
                 "character_item": character_item,
                 "item": item,
+                "has_runes": bool(item.runes.exists() or character_item.runes.exists()),
                 "display_name": (
                     f"{character_item.amount}x {item.name}"
                     if item.stackable
@@ -195,7 +257,11 @@ def _build_inventory_rows(character: Character) -> list[dict]:
                 "tooltip_text": tooltip_text,
                 "can_consume": item.stackable and item.item_type == Item.ItemType.CONSUM,
                 "can_equip": item.item_type in EQUIPPABLE_ITEM_TYPES,
+                "can_socket_runes": item.item_type in RUNE_RETROFIT_ITEM_TYPES,
                 "equip_label": "Anlegen",
+                "base_rune_ids": [rune.id for rune in item.runes.all()],
+                "base_rune_names": [rune.name for rune in item.runes.all()],
+                "extra_rune_ids": [rune.id for rune in character_item.runes.all()],
             }
         )
     return inventory_rows
@@ -215,8 +281,13 @@ def _build_weapon_rows(engine) -> list[dict]:
                     description=row["item"].description or "",
                     quality_label=quality["label"],
                     quality_color=quality["color"],
+                    rune_block=_format_rune_tooltip_block(item=row["item"], character_item=row["character_item"]),
                 ),
                 "can_unequip": not row["character_item"].equip_locked,
+                "can_socket_runes": row["item"].item_type in RUNE_RETROFIT_ITEM_TYPES,
+                "base_rune_ids": [rune.id for rune in row["item"].runes.all()],
+                "base_rune_names": [rune.name for rune in row["item"].runes.all()],
+                "extra_rune_ids": [rune.id for rune in row["character_item"].runes.all()],
             }
         )
     return weapon_rows
@@ -238,7 +309,12 @@ def _build_armor_rows(engine) -> list[dict]:
                     description=row["item"].description or "",
                     quality_label=quality["label"],
                     quality_color=quality["color"],
+                    rune_block=_format_rune_tooltip_block(item=row["item"], character_item=row["character_item"]),
                 ),
+                "can_socket_runes": row["item"].item_type in RUNE_RETROFIT_ITEM_TYPES,
+                "base_rune_ids": [rune.id for rune in row["item"].runes.all()],
+                "base_rune_names": [rune.name for rune in row["item"].runes.all()],
+                "extra_rune_ids": [rune.id for rune in row["character_item"].runes.all()],
             }
         )
     for row in engine.equipped_shield_rows():
@@ -254,8 +330,13 @@ def _build_armor_rows(engine) -> list[dict]:
                     description=row["item"].description or "",
                     quality_label=quality["label"],
                     quality_color=quality["color"],
+                    rune_block=_format_rune_tooltip_block(item=row["item"], character_item=row["character_item"]),
                 ),
                 "can_unequip": not row["character_item"].equip_locked,
+                "can_socket_runes": row["item"].item_type in RUNE_RETROFIT_ITEM_TYPES,
+                "base_rune_ids": [rune.id for rune in row["item"].runes.all()],
+                "base_rune_names": [rune.name for rune in row["item"].runes.all()],
+                "extra_rune_ids": [rune.id for rune in row["character_item"].runes.all()],
             }
         )
     return armor_rows
@@ -391,6 +472,7 @@ def _build_shop_item_groups() -> list[dict]:
     buyable_items = (
         Item.objects
         .select_related("weaponstats", "armorstats", "shieldstats")
+        .prefetch_related("runes")
         .order_by("item_type", "name")
     )
     for item in buyable_items:
@@ -450,6 +532,7 @@ def _build_shop_item_groups() -> list[dict]:
                 "default_quality_label": quality["label"],
                 "default_quality_color": quality["color"],
                 "stats": stats_payload,
+                "rune_ids": [rune.id for rune in item.runes.all()],
             }
         )
 
@@ -716,6 +799,16 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
             for item_type in SHOP_FORM_ORDER
         ],
         "shop_damage_type_choices": DAMAGE_TYPE_CHOICES,
+        "shop_damage_source_choices": DamageSource.objects.order_by("name"),
+        "shop_runes": Rune.objects.order_by("name"),
+        "rune_retrofit_choices": [
+            {
+                "id": rune.id,
+                "name": rune.name,
+                "description": _single_line(rune.description),
+            }
+            for rune in Rune.objects.order_by("name")
+        ],
         "close_learn_window_once": close_learn_window_once,
         "learn_skill_count": sum(len(group["rows"]) for group in learning_context["learn_skill_groups"]),
         "learn_trait_count": sum(len(group["rows"]) for group in learning_context["learn_trait_groups"]),

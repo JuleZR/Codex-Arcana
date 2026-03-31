@@ -7,14 +7,33 @@
           <span class="quality_marker" style="--quality-color: {{ row.quality_color }};" aria-hidden="true"></span>
           {{ row.summary }}
         </span>
-        {% if row.can_unequip %}
-          <form method="post" action="{% url 'toggle_equip' row.character_item.pk %}" class="equip_form" data-sheet-action>
-            {% csrf_token %}
-            <button type="submit" class="equip_toggle is-equipped" title="Ablegen">-</button>
-          </form>
-        {% else %}
-          <button type="button" class="equip_toggle is-equipped" title="Startausrüstung bleibt angelegt" disabled>-</button>
-        {% endif %}
+        <span class="armor_row_actions">
+          {% if row.can_socket_runes %}
+            <span class="inv_menu">
+              <button type="button" class="inv_menu_trigger" aria-haspopup="true" aria-expanded="false" title="Rüstungs-Aktionen">&#8942;</button>
+              <span class="inv_menu_panel" hidden>
+                <button
+                  type="button"
+                  class="inv_menu_btn"
+                  data-open-rune-window
+                  data-character-item-id="{{ row.character_item.pk }}"
+                  data-item-name="{{ row.item.name|escape }}"
+                  data-base-rune-ids="{% for rune_id in row.base_rune_ids %}{% if not forloop.first %},{% endif %}{{ rune_id }}{% endfor %}"
+                  data-extra-rune-ids="{% for rune_id in row.extra_rune_ids %}{% if not forloop.first %},{% endif %}{{ rune_id }}{% endfor %}"
+                  data-base-rune-names="{% for rune_name in row.base_rune_names %}{% if not forloop.first %}, {% endif %}{{ rune_name }}{% endfor %}"
+                >Runen</button>
+              </span>
+            </span>
+          {% endif %}
+          {% if row.can_unequip %}
+            <form method="post" action="{% url 'toggle_equip' row.character_item.pk %}" class="equip_form" data-sheet-action>
+              {% csrf_token %}
+              <button type="submit" class="equip_toggle is-equipped" title="Ablegen">-</button>
+            </form>
+          {% else %}
+            <button type="button" class="equip_toggle is-equipped" title="Startausrüstung bleibt angelegt" disabled>-</button>
+          {% endif %}
+        </span>
       </li>
     {% endfor %}
     {% if not armor_rows %}

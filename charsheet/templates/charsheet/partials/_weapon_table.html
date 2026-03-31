@@ -30,6 +30,23 @@
                     <button type="button" class="equip_toggle is-equipped" title="Startausrüstung bleibt angelegt" disabled>-</button>
                   {% endif %}
                   <span class="weapon_name">{{ row.item.name }}</span>
+                  {% if row.can_socket_runes %}
+                    <span class="inv_menu">
+                      <button type="button" class="inv_menu_trigger" aria-haspopup="true" aria-expanded="false" title="Waffen-Aktionen">&#8942;</button>
+                      <span class="inv_menu_panel" hidden>
+                        <button
+                          type="button"
+                          class="inv_menu_btn"
+                          data-open-rune-window
+                          data-character-item-id="{{ row.character_item.pk }}"
+                          data-item-name="{{ row.item.name|escape }}"
+                          data-base-rune-ids="{% for rune_id in row.base_rune_ids %}{% if not forloop.first %},{% endif %}{{ rune_id }}{% endfor %}"
+                          data-extra-rune-ids="{% for rune_id in row.extra_rune_ids %}{% if not forloop.first %},{% endif %}{{ rune_id }}{% endfor %}"
+                          data-base-rune-names="{% for rune_name in row.base_rune_names %}{% if not forloop.first %}, {% endif %}{{ rune_name }}{% endfor %}"
+                        >Runen</button>
+                      </span>
+                    </span>
+                  {% endif %}
                 </div>
               {% else %}
                 <div class="weapon_name_cell" aria-hidden="true"></div>

@@ -1,0 +1,28 @@
+{{ rune_retrofit_choices|json_script:"rune-retrofit-choices" }}
+<section class="payday-window payday-window--item-create sheet-window sheet-window--editor-modal rune_window" id="runeRetrofitWindow" aria-hidden="true">
+  <div class="payday-window__titlebar sheet-window__header" id="runeRetrofitWindowHandle">
+    <h3 class="payday-window__title sheet-window__title">Runen nachr?sten</h3>
+    <button type="button" class="payday-window__close" id="runeRetrofitWindowClose" aria-label="Runenfenster schlie?en">x</button>
+  </div>
+  <div class="payday-window__body sheet-window__body">
+    <form method="post" action="" id="runeRetrofitForm" class="shop_item_form sheet-window__editor-form" data-sheet-action data-close-window-on-success="1">
+      {% csrf_token %}
+      <div class="sheet-window__surface sheet-window__surface--editor sheet-window__surface--form rune_window_intro">
+        <p class="rune_window_lead">Zus?tzliche Runen f?r <strong id="runeRetrofitItemName">-</strong>.</p>
+        <p class="rune_window_note" id="runeRetrofitBaseInfo">Keine Basis-Runen vorhanden.</p>
+      </div>
+      <fieldset class="shop_item_form_fieldset sheet-window__surface sheet-window__surface--editor sheet-window__surface--form">
+        <legend>Nachr?st-Runen</legend>
+        <label class="shop_item_form_row rune_window_search_row">
+          <span>Suche</span>
+          <input type="search" id="runeRetrofitSearch" class="sheet-window__field rune_window_search_input" placeholder="Rune suchen...">
+        </label>
+        <div id="runeRetrofitOptions" class="shop_item_form_checklist rune_window_options"></div>
+      </fieldset>
+      <div class="shop_item_form_actions">
+        <button type="button" id="runeRetrofitCancelBtn" class="shop_item_cancel_btn">Abbrechen</button>
+        <button type="submit" class="shop_item_save_btn">Speichern</button>
+      </div>
+    </form>
+  </div>
+</section>

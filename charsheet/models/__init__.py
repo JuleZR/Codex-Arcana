@@ -23,6 +23,7 @@ from .core import (
 from .items import (
     ArmorStats,
     Item,
+    Rune,
     ShieldStats,
     WeaponStats,
     RaceStartingItem
@@ -77,6 +78,7 @@ __all__ = [
     "RaceAttributeLimit",
     "RaceChoiceDefinition",
     "RaceTechnique",
+    "Rune",
     "School",
     "SchoolPath",
     "SchoolType",

@@ -54,7 +54,7 @@ from .models import (
     Trait,
     WeaponStats,
 )
-from .models.items import WeaponFlag
+from .models.items import Rune, WeaponFlag
 from .models.user import UserSettings
 
 ArmorStats._meta.verbose_name = "Armor Stats"
@@ -1923,16 +1923,23 @@ class ItemAdmin(admin.ModelAdmin):
         "name",
         "item_type",
         "quality_preview",
+        "rune_summary",
         "price",
         "size_class",
         "weight",
         "stackable",
         "is_consumable",
     )
-    search_fields = ("name", "description", "item_type")
-    list_filter = ("item_type", "default_quality", "stackable", "is_consumable", "size_class")
+    search_fields = ("name", "description", "item_type", "runes__name")
+    list_filter = ("item_type", "default_quality", "stackable", "is_consumable", "size_class", "runes")
     ordering = ("item_type", "name")
     inlines = (ArmorStatsInline, ShieldStatsInline, WeaponStatsInline, ItemRaceStartingInline, ItemCharacterInline)
+    filter_horizontal = ("runes",)
+
+    @admin.display(description="Runes")
+    def rune_summary(self, obj):
+        """Render assigned runes compactly for list display."""
+        return ", ".join(obj.runes.order_by("name").values_list("name", flat=True)) or "-"
 
     @admin.display(ordering="default_quality", description="Quality")
     def quality_preview(self, obj):
@@ -2817,6 +2824,20 @@ class WeaponFlagAdmin(admin.ModelAdmin):
     def label(self, obj):
         """Return the translated flag label for quick scanning."""
         return obj.get_key_display()
+
+
+@admin.register(Rune)
+class RuneAdmin(admin.ModelAdmin):
+    """Admin configuration for reusable rune definitions."""
+
+    list_display = ("name", "image", "item_count")
+    search_fields = ("name", "description", "image")
+    ordering = ("name",)
+
+    @admin.display(description="Items")
+    def item_count(self, obj):
+        """Show how many items currently reference this rune."""
+        return obj.items.count()
 
 
 @admin.register(WeaponStats)

@@ -19,6 +19,8 @@ from django.contrib import admin
 from django.urls import path
 from charsheet import views
 from django.contrib.auth.views import LoginView
+from django.views.static import serve
+from django.conf import settings
 
 urlpatterns = [
     path("admin/logout/", views.AppLogoutView.as_view(), name="admin_logout_override"),
@@ -53,8 +55,10 @@ urlpatterns = [
     path("character/<int:character_id>/shop-item/create/", views.create_shop_item, name="create_shop_item"),
     path("character/<int:character_id>/shop/buy/", views.buy_shop_cart, name="buy_shop_cart"),
     path("character-item/<int:pk>/toggle-equip/", views.toggle_equip, name="toggle_equip"),
+    path("character-item/<int:pk>/runes/update/", views.update_character_item_runes, name="update_character_item_runes"),
     path("character-item/<int:pk>/consume/", views.consume_item, name="consume_item"),
     path("character-item/<int:pk>/remove/", views.remove_item, name="remove_item"),
     path("", LoginView.as_view(template_name="registration/login.html", redirect_authenticated_user=True), name="login"),
     path("api/roll/", views.roll_dice_view, name="roll_dice"),
+    path("media/<path:path>", serve, {"document_root": settings.MEDIA_ROOT}),
 ]

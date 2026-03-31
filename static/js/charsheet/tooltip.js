@@ -28,6 +28,18 @@ function parseStatusLine(line) {
   return { label: match[1].trim(), color: match[2].trim() };
 }
 
+function parseRuneLine(line) {
+  const match = String(line || "").trim().match(/^\[\[RUNE:(.*?)\|(.*?)\|(.*?)\]\]$/);
+  if (!match) {
+    return null;
+  }
+  return {
+    name: match[1].trim(),
+    description: match[2].trim(),
+    image: match[3].trim(),
+  };
+}
+
 function renderInlineMarkdown(text) {
   let html = escapeHtml(String(text || ""));
   html = html.replace(/`([^`]+)`/g, "<code>$1</code>");
@@ -36,6 +48,15 @@ function renderInlineMarkdown(text) {
   html = html.replace(/(^|[\s(])\*([^*\n]+)\*(?=[\s).,!?:;]|$)/g, "$1<em>$2</em>");
   html = html.replace(/(^|[\s(])_([^_\n]+)_(?=[\s).,!?:;]|$)/g, "$1<em>$2</em>");
   return html;
+}
+
+function renderRuneMarkup(runes) {
+  return `<div class="tooltip_rune_list">${runes.map((rune) => {
+    const imageHtml = rune.image
+      ? `<img class="tooltip_rune_image" src="${escapeHtml(rune.image)}" alt="">`
+      : '<span class="tooltip_rune_image tooltip_rune_image--placeholder" aria-hidden="true"></span>';
+    return `<div class="tooltip_rune_row">${imageHtml}<div class="tooltip_rune_name">${escapeHtml(rune.name || "Rune")}</div></div>`;
+  }).join("")}</div>`;
 }
 
 function renderTooltipMarkup(rawText) {
@@ -57,7 +78,7 @@ function renderTooltipMarkup(rawText) {
     const qualityMeta = parseQualityLine(line);
     if (qualityMeta) {
       chunks.push(
-        `<p class="tooltip_quality_line"><span class="tooltip_quality_badge" style="--tooltip-quality-color: ${escapeHtml(qualityMeta.color)};">Qualität: ${escapeHtml(qualityMeta.label)}</span></p>`,
+        `<p class="tooltip_quality_line"><span class="tooltip_quality_badge" style="--tooltip-quality-color: ${escapeHtml(qualityMeta.color)};">Qualitaet: ${escapeHtml(qualityMeta.label)}</span></p>`,
       );
       index += 1;
       continue;
@@ -69,6 +90,23 @@ function renderTooltipMarkup(rawText) {
         `<p class="tooltip_status_line"><span class="tooltip_status_badge" style="--tooltip-status-color: ${escapeHtml(statusMeta.color)};">${escapeHtml(statusMeta.label)}</span></p>`,
       );
       index += 1;
+      continue;
+    }
+
+    const runeMeta = parseRuneLine(line);
+    if (runeMeta) {
+      const runeRows = [];
+      let rowIndex = index;
+      while (rowIndex < lines.length) {
+        const runeRow = parseRuneLine(lines[rowIndex]);
+        if (!runeRow) {
+          break;
+        }
+        runeRows.push(runeRow);
+        rowIndex += 1;
+      }
+      chunks.push(renderRuneMarkup(runeRows));
+      index = rowIndex;
       continue;
     }
 
@@ -221,7 +259,9 @@ export function initTooltips() {
     if (!(target instanceof HTMLElement)) {
       return;
     }
-    const text = String(target.getAttribute("data-tooltip") || "").replace(/\r\n/g, "\n").replace(/\\n/g, "\n");
+    const text = String(target.getAttribute("data-tooltip") || "")
+      .replace(/\r\n/g, "\n")
+      .replace(/\\n/g, "\n");
     if (!text.trim()) {
       return;
     }
@@ -281,4 +321,3 @@ export function initTooltips() {
     scheduleHide();
   });
 }
-

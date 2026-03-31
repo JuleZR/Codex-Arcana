@@ -1,12 +1,17 @@
 <div class="p2_panel p2_fill" id="sheetInventoryPanel">
   <div class="p2_panel_header">
-    <h2>Ausrüstung</h2>
+    <h2>Ausr?stung</h2>
   </div>
   <div class="panel_scroll inventory_scroll">
     <ul class="p2_lines">
       {% for row in inventory_rows %}
         <li class="inv_row{% if row.tooltip_text %} tooltip_target{% endif %}"{% if row.tooltip_text %} data-tooltip-side="right" data-tooltip="{{ row.tooltip_text }}"{% endif %}>
-          <span class="inv_name">{{ row.display_name }}</span>
+          <span class="inv_name_wrap">
+            {% if row.has_runes %}
+              <span class="inv_rune_marker" aria-label="Runen vorhanden" title="Runen vorhanden">&#x16A0;</span>
+            {% endif %}
+            <span class="inv_name">{{ row.display_name }}</span>
+          </span>
           <span class="inv_actions">
             <span class="inv_menu">
               <button type="button" class="inv_menu_trigger" aria-haspopup="true" aria-expanded="false" title="Item-Aktionen">&#8942;</button>
@@ -22,6 +27,18 @@
                     {% csrf_token %}
                     <button type="submit" class="inv_menu_btn">{{ row.equip_label }}</button>
                   </form>
+                {% endif %}
+                {% if row.can_socket_runes %}
+                  <button
+                    type="button"
+                    class="inv_menu_btn"
+                    data-open-rune-window
+                    data-character-item-id="{{ row.character_item.pk }}"
+                    data-item-name="{{ row.item.name|escape }}"
+                    data-base-rune-ids="{% for rune_id in row.base_rune_ids %}{% if not forloop.first %},{% endif %}{{ rune_id }}{% endfor %}"
+                    data-extra-rune-ids="{% for rune_id in row.extra_rune_ids %}{% if not forloop.first %},{% endif %}{{ rune_id }}{% endfor %}"
+                    data-base-rune-names="{% for rune_name in row.base_rune_names %}{% if not forloop.first %}, {% endif %}{{ rune_name }}{% endfor %}"
+                  >Runen</button>
                 {% endif %}
                 <form method="post" action="{% url 'remove_item' row.character_item.pk %}" class="equip_form" data-sheet-action>
                   {% csrf_token %}

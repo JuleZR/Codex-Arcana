@@ -19,6 +19,7 @@ def equipped_weapon_items(engine) -> QuerySet:
             item__item_type=Item.ItemType.WEAPON,
         )
         .select_related("item", "item__weaponstats", "item__weaponstats__damage_source")
+        .prefetch_related("item__runes", "runes")
     )
 
 
@@ -31,6 +32,7 @@ def equipped_armor_items(engine) -> QuerySet:
             item__item_type=Item.ItemType.ARMOR,
         )
         .select_related("item", "item__armorstats")
+        .prefetch_related("item__runes", "runes")
     )
 
 
@@ -43,6 +45,7 @@ def equipped_shield_items(engine) -> QuerySet:
             item__item_type=Item.ItemType.SHIELD,
         )
         .select_related("item", "item__shieldstats")
+        .prefetch_related("item__runes", "runes")
     )
 
 

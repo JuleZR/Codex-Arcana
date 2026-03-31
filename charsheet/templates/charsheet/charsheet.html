@@ -36,6 +36,7 @@
 
     {{ wound_threshold_rows|json_script:"wound-thresholds-data" }} 
     {% include "charsheet/partials/_character_windows.html" %}
+    {% include "charsheet/partials/_rune_retrofit_window.html" %}
     {% include "charsheet/partials/_shop_panel.html" %} 
     {% include "charsheet/partials/_learning_panel.html" %} 
     {% include "charsheet/partials/_diary_panel.html" %}
@@ -46,7 +47,7 @@
       {% endfor %}
     </div>
 
-    <script type="module" src="{% static 'js/charsheet/bootstrap.js' %}?v=20260331a"></script>
+    <script type="module" src="{% static 'js/charsheet/bootstrap.js' %}?v=20260331e"></script>
     <script src="{% static 'js/charsheet_diary.js' %}?v=20260315a"></script>
   </body>
 </html>

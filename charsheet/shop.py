@@ -7,7 +7,7 @@ from django.db import transaction
 
 from charsheet.constants import DEADLY
 from charsheet.engine import ItemEngine
-from charsheet.models import ArmorStats, Character, CharacterItem, Item, ShieldStats, WeaponStats
+from charsheet.models import ArmorStats, Character, CharacterItem, DamageSource, Item, Rune, ShieldStats, WeaponStats
 
 
 def _read_int(post_data, name: str, default: int = 0, *, minimum: int | None = None) -> int:
@@ -27,6 +27,31 @@ def _read_quality(post_data, name: str, default: str) -> str:
     return ItemEngine.normalize_quality(raw_quality)
 
 
+def _read_many_values(post_data, name: str) -> list[str]:
+    """Read one POST multi-value field while also tolerating plain dict payloads."""
+    if hasattr(post_data, "getlist"):
+        return [str(value).strip() for value in post_data.getlist(name) if str(value).strip()]
+    raw_value = post_data.get(name, [])
+    if isinstance(raw_value, (list, tuple)):
+        return [str(value).strip() for value in raw_value if str(value).strip()]
+    if raw_value in (None, ""):
+        return []
+    return [str(raw_value).strip()]
+
+
+def _read_runes(post_data, name: str = "runes"):
+    """Resolve rune IDs from one POST-like payload."""
+    rune_ids = []
+    for raw_value in _read_many_values(post_data, name):
+        try:
+            rune_ids.append(int(raw_value))
+        except (TypeError, ValueError):
+            continue
+    if not rune_ids:
+        return Rune.objects.none()
+    return Rune.objects.filter(pk__in=sorted(set(rune_ids))).order_by("name")
+
+
 def create_custom_shop_item(post_data) -> bool:
     """Create one custom base item plus optional detail records."""
     name = (post_data.get("name") or "").strip()
@@ -41,87 +66,95 @@ def create_custom_shop_item(post_data) -> bool:
     weight = _read_int(post_data, "weight", 0, minimum=0)
     size_class = str(post_data.get("size_class") or "M")
     is_consumable = item_type == Item.ItemType.CONSUM
+    selected_runes = list(_read_runes(post_data))
 
     if item_type in (Item.ItemType.ARMOR, Item.ItemType.WEAPON, Item.ItemType.SHIELD):
         stackable = False
     if not stackable:
         is_consumable = False
 
-    item = Item(
-        name=name,
-        price=max(0, price),
-        item_type=item_type,
-        description=description,
-        stackable=stackable,
-        is_consumable=is_consumable,
-        default_quality=default_quality,
-        weight=weight,
-        size_class=size_class,
-    )
+    item = Item()
     try:
-        item.full_clean()
-        item.save()
+        with transaction.atomic():
+            item = Item(
+                name=name,
+                price=max(0, price),
+                item_type=item_type,
+                description=description,
+                stackable=stackable,
+                is_consumable=is_consumable,
+                default_quality=default_quality,
+                weight=weight,
+                size_class=size_class,
+            )
+            item.full_clean()
+            item.save()
+            if selected_runes:
+                item.runes.set(selected_runes)
 
-        if item.item_type == Item.ItemType.ARMOR:
-            armor_mode = (post_data.get("armor_mode") or "total").strip()
-            armor_encumbrance = _read_int(post_data, "armor_encumbrance", 0, minimum=0)
-            armor_min_st = _read_int(post_data, "armor_min_st", 1, minimum=1)
-            if armor_mode == "zones":
-                armor_stats = ArmorStats(
+            if item.item_type == Item.ItemType.ARMOR:
+                armor_mode = (post_data.get("armor_mode") or "total").strip()
+                armor_encumbrance = _read_int(post_data, "armor_encumbrance", 0, minimum=0)
+                armor_min_st = _read_int(post_data, "armor_min_st", 1, minimum=1)
+                if armor_mode == "zones":
+                    armor_stats = ArmorStats(
+                        item=item,
+                        rs_total=0,
+                        rs_head=_read_int(post_data, "armor_rs_head", 0, minimum=0),
+                        rs_torso=_read_int(post_data, "armor_rs_torso", 0, minimum=0),
+                        rs_arm_left=_read_int(post_data, "armor_rs_arm_left", 0, minimum=0),
+                        rs_arm_right=_read_int(post_data, "armor_rs_arm_right", 0, minimum=0),
+                        rs_leg_left=_read_int(post_data, "armor_rs_leg_left", 0, minimum=0),
+                        rs_leg_right=_read_int(post_data, "armor_rs_leg_right", 0, minimum=0),
+                        encumbrance=armor_encumbrance,
+                        min_st=armor_min_st,
+                    )
+                else:
+                    armor_stats = ArmorStats(
+                        item=item,
+                        rs_total=_read_int(post_data, "armor_rs_total", 0, minimum=0),
+                        rs_head=0,
+                        rs_torso=0,
+                        rs_arm_left=0,
+                        rs_arm_right=0,
+                        rs_leg_left=0,
+                        rs_leg_right=0,
+                        encumbrance=armor_encumbrance,
+                        min_st=armor_min_st,
+                    )
+                armor_stats.full_clean()
+                armor_stats.save()
+            elif item.item_type == Item.ItemType.WEAPON:
+                min_st = _read_int(post_data, "weapon_min_st", 1, minimum=1)
+                damage_type = str(post_data.get("weapon_damage_type") or DEADLY)
+                wield_mode = str(post_data.get("weapon_wield_mode") or "1h")
+                h2_enabled = wield_mode in {"2h", "vh"}
+                damage_source_id = _read_int(post_data, "weapon_damage_source", 0, minimum=1)
+                damage_source = DamageSource.objects.get(pk=damage_source_id)
+                weapon_stats = WeaponStats(
                     item=item,
-                    rs_total=0,
-                    rs_head=_read_int(post_data, "armor_rs_head", 0, minimum=0),
-                    rs_torso=_read_int(post_data, "armor_rs_torso", 0, minimum=0),
-                    rs_arm_left=_read_int(post_data, "armor_rs_arm_left", 0, minimum=0),
-                    rs_arm_right=_read_int(post_data, "armor_rs_arm_right", 0, minimum=0),
-                    rs_leg_left=_read_int(post_data, "armor_rs_leg_left", 0, minimum=0),
-                    rs_leg_right=_read_int(post_data, "armor_rs_leg_right", 0, minimum=0),
-                    encumbrance=armor_encumbrance,
-                    min_st=armor_min_st,
+                    min_st=min_st,
+                    damage_source=damage_source,
+                    damage_dice_amount=_read_int(post_data, "weapon_damage_dice_amount", 1, minimum=1),
+                    damage_dice_faces=_read_int(post_data, "weapon_damage_dice_faces", 10, minimum=2),
+                    damage_flat_bonus=_read_int(post_data, "weapon_damage_flat_bonus", 0),
+                    damage_type=damage_type,
+                    wield_mode=wield_mode,
+                    h2_dice_amount=_read_int(post_data, "weapon_h2_dice_amount", 0, minimum=1) if h2_enabled else None,
+                    h2_dice_faces=_read_int(post_data, "weapon_h2_dice_faces", 0, minimum=2) if h2_enabled else None,
+                    h2_flat_bonus=_read_int(post_data, "weapon_h2_flat_bonus", 0) if h2_enabled else None,
                 )
-            else:
-                armor_stats = ArmorStats(
+                weapon_stats.full_clean()
+                weapon_stats.save()
+            elif item.item_type == Item.ItemType.SHIELD:
+                shield_stats = ShieldStats(
                     item=item,
-                    rs_total=_read_int(post_data, "armor_rs_total", 0, minimum=0),
-                    rs_head=0,
-                    rs_torso=0,
-                    rs_arm_left=0,
-                    rs_arm_right=0,
-                    rs_leg_left=0,
-                    rs_leg_right=0,
-                    encumbrance=armor_encumbrance,
-                    min_st=armor_min_st,
+                    rs=_read_int(post_data, "shield_rs", 0, minimum=0),
+                    encumbrance=_read_int(post_data, "shield_encumbrance", 0, minimum=0),
+                    min_st=_read_int(post_data, "shield_min_st", 1, minimum=1),
                 )
-            armor_stats.full_clean()
-            armor_stats.save()
-        elif item.item_type == Item.ItemType.WEAPON:
-            min_st = _read_int(post_data, "weapon_min_st", 1, minimum=1)
-            damage_type = str(post_data.get("weapon_damage_type") or DEADLY)
-            wield_mode = str(post_data.get("weapon_wield_mode") or "1h")
-            h2_enabled = wield_mode in {"2h", "vh"}
-            weapon_stats = WeaponStats(
-                item=item,
-                min_st=min_st,
-                damage_dice_amount=_read_int(post_data, "weapon_damage_dice_amount", 1, minimum=1),
-                damage_dice_faces=_read_int(post_data, "weapon_damage_dice_faces", 10, minimum=2),
-                damage_flat_bonus=_read_int(post_data, "weapon_damage_flat_bonus", 0, minimum=0),
-                damage_type=damage_type,
-                wield_mode=wield_mode,
-                h2_dice_amount=_read_int(post_data, "weapon_h2_dice_amount", 0, minimum=1) if h2_enabled else None,
-                h2_dice_faces=_read_int(post_data, "weapon_h2_dice_faces", 0, minimum=2) if h2_enabled else None,
-                h2_flat_bonus=_read_int(post_data, "weapon_h2_flat_bonus", 0, minimum=0) if h2_enabled else None,
-            )
-            weapon_stats.full_clean()
-            weapon_stats.save()
-        elif item.item_type == Item.ItemType.SHIELD:
-            shield_stats = ShieldStats(
-                item=item,
-                rs=_read_int(post_data, "shield_rs", 0, minimum=0),
-                encumbrance=_read_int(post_data, "shield_encumbrance", 0, minimum=0),
-                min_st=_read_int(post_data, "shield_min_st", 1, minimum=1),
-            )
-            shield_stats.full_clean()
-            shield_stats.save()
+                shield_stats.full_clean()
+                shield_stats.save()
     except (ValidationError, ValueError, DamageSource.DoesNotExist):
         if item.pk:
             item.delete()

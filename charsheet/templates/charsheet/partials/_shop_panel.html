@@ -169,6 +169,19 @@
           </select>
         </label>
       </div>
+      {% if shop_runes %}
+        <fieldset class="shop_item_form_conditional shop_item_form_fieldset">
+          <legend>Basis-Runen</legend>
+          <div class="shop_item_form_checklist">
+            {% for rune in shop_runes %}
+              <label class="shop_item_form_checklist_item">
+                <input type="checkbox" name="runes" value="{{ rune.id }}">
+                <span>{{ rune.name }}</span>
+              </label>
+            {% endfor %}
+          </div>
+        </fieldset>
+      {% endif %}
       <div class="shop_item_form_conditional" id="shopItemArmorFields" hidden>
         <div class="shop_item_form_row">
           <span>Rüstungsmodus</span>
@@ -199,7 +212,7 @@
         <div class="shop_item_form_grid">
           <label class="shop_item_form_row"><span>Schaden Würfelanzahl</span><input type="number" name="weapon_damage_dice_amount" min="1" step="1" value="1"></label>
           <label class="shop_item_form_row"><span>Schaden Würfelseiten</span><input type="number" name="weapon_damage_dice_faces" min="2" step="1" value="10"></label>
-          <label class="shop_item_form_row"><span>Schaden Flat-Bonus</span><input type="number" name="weapon_damage_flat_bonus" min="0" step="1" value="0"></label>
+          <label class="shop_item_form_row"><span>Schaden Flat-Bonus</span><input type="number" name="weapon_damage_flat_bonus" step="1" value="0"></label>
           <label class="shop_item_form_row">
             <span>Waffengriff</span>
             <select name="weapon_wield_mode" id="shopWeaponWieldMode">
@@ -208,12 +221,20 @@
               <option value="vh">Ein- und Zweihändig</option>
             </select>
           </label>
+          <label class="shop_item_form_row">
+            <span>Schadensquelle</span>
+            <select name="weapon_damage_source" id="shopWeaponDamageSource">
+              {% for damage_source in shop_damage_source_choices %}
+                <option value="{{ damage_source.id }}">{{ damage_source.name }}</option>
+              {% endfor %}
+            </select>
+          </label>
         </div>
         <div id="shopWeaponTwoHandFields" hidden>
           <div class="shop_item_form_grid">
             <label class="shop_item_form_row"><span>2H Würfelanzahl</span><input type="number" name="weapon_h2_dice_amount" min="1" step="1" value="1"></label>
             <label class="shop_item_form_row"><span>2H Würfelseiten</span><input type="number" name="weapon_h2_dice_faces" min="2" step="1" value="10"></label>
-            <label class="shop_item_form_row"><span>2H Flat-Bonus</span><input type="number" name="weapon_h2_flat_bonus" min="0" step="1" value="0"></label>
+            <label class="shop_item_form_row"><span>2H Flat-Bonus</span><input type="number" name="weapon_h2_flat_bonus" step="1" value="0"></label>
           </div>
         </div>
         <label class="shop_item_form_row">

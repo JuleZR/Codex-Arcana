@@ -20,6 +20,15 @@ from ..constants import (
 from .core import DamageSource
 
 
+class Rune(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    description = models.TextField(blank=True)
+    image = models.ImageField(upload_to="runes/", blank=True, null=True)
+
+    def __str__(self):
+        return self.name
+
+
 class Item(models.Model):
     """Inventory item that may be owned, stacked, or equipped."""
 
@@ -42,6 +51,8 @@ class Item(models.Model):
     default_quality = models.CharField(max_length=20, choices=QUALITY_CHOICES, default=QUALITY_COMMON)
     weight = models.DecimalField(max_digits=6, decimal_places=2, default=0)
     size_class = models.CharField(max_length=5, choices=GK_CHOICES, default=GK_AVERAGE)
+
+    runes = models.ManyToManyField("Rune", blank=True, related_name="items")
 
     def clean(self):
         """Prevent invalid stackable armor definitions."""
@@ -132,14 +143,14 @@ class WeaponStats(models.Model):
     damage_source = models.ForeignKey(DamageSource, on_delete=models.PROTECT)
     damage_dice_amount = models.PositiveIntegerField(default=1)
     damage_dice_faces = models.PositiveIntegerField(default=10)
-    damage_flat_bonus = models.PositiveIntegerField(default=0)
+    damage_flat_bonus = models.IntegerField(default=0)
     damage_type = models.CharField(max_length=1, default=DEADLY, choices=DAMAGE_TYPE_CHOICES)
 
     wield_mode = models.CharField(max_length=2, choices=WIELD_MODES, default=ONE_HANDED)
 
     h2_dice_amount = models.PositiveIntegerField(null=True, blank=True)
     h2_dice_faces = models.PositiveIntegerField(null=True, blank=True)
-    h2_flat_bonus = models.PositiveIntegerField(null=True, blank=True)
+    h2_flat_bonus = models.IntegerField(null=True, blank=True)
 
     flags = models.ManyToManyField(WeaponFlag, blank=True)
 

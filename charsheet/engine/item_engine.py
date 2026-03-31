@@ -261,3 +261,9 @@ class ItemEngine:
         if not stats:
             return 0
         return stats.encumbrance
+
+    def get_weapon_flags(self) -> set[str]:
+        stats = self._get_weapon_stats()
+        if not stats:
+            return set()
+        return {flag.key for flag in stats.flags.all()}

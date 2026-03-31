@@ -27,13 +27,14 @@ from .models import (
     CharacterLanguage,
     CharacterSkill,
     CharacterTechnique,
-    Trait,
     CharacterCreationDraft,
     Item,
-    Skill,
-    School,
     Language,
+    Rune,
+    School,
+    Skill,
     Technique,
+    Trait,
 )
 from .models.user import UserSettings
 from .forms import (
@@ -173,7 +174,7 @@ def _owned_character_or_404(request, character_id: int) -> Character:
 def _owned_character_item_or_404(request, pk: int) -> CharacterItem:
     """Return one inventory row whose character belongs to the current user."""
     return get_object_or_404(
-        CharacterItem.objects.select_related("item", "owner"),
+        CharacterItem.objects.select_related("item", "owner").prefetch_related("item__runes", "runes"),
         pk=pk,
         owner__owner=request.user,
     )
@@ -391,8 +392,6 @@ def character_sheet(request, character_id: int):
     )
 
     return render(request, "charsheet/charsheet.html", context)
-
-
 
 
 @login_required
@@ -619,6 +618,7 @@ def update_technique_specification(request, character_id: int, technique_id: int
     else:
         messages.error(request, "Die Technik-Spezifikation konnte nicht gespeichert werden.")
     return redirect("character_sheet", character_id=character.id)
+
 
 @login_required
 def sheet(request):
@@ -849,6 +849,7 @@ def delete_creation_draft(request, draft_id: int):
     else:
         messages.info(request, "Charakterentwurf wurde verworfen.")
     return redirect("dashboard")
+
 
 class AppLogoutView(LogoutView):
     """Log out current user and redirect to login with a short status message."""
@@ -1197,6 +1198,7 @@ def create_character(request):
         },
     )
 
+
 @login_required
 @require_POST
 def toggle_equip(request, pk):
@@ -1351,7 +1353,6 @@ def apply_learning(request, character_id: int):
     return redirect("character_sheet", character_id=character.id)
 
 
-
 @login_required
 @require_POST
 def create_shop_item(request, character_id: int):
@@ -1360,6 +1361,35 @@ def create_shop_item(request, character_id: int):
     create_custom_shop_item(request.POST)
     return redirect("character_sheet", character_id=character.id)
 
+
+@login_required
+@require_POST
+def update_character_item_runes(request, pk: int):
+    """Persist rune retrofits for one owned supported inventory entry."""
+    character_item = _owned_character_item_or_404(request, pk)
+    if character_item.item.item_type not in {Item.ItemType.WEAPON, Item.ItemType.ARMOR, Item.ItemType.MISC}:
+        return redirect("character_sheet", character_id=character_item.owner_id)
+
+    selected_ids = []
+    for raw_value in request.POST.getlist("runes"):
+        try:
+            selected_ids.append(int(raw_value))
+        except (TypeError, ValueError):
+            continue
+
+    base_rune_ids = set(character_item.item.runes.values_list("id", flat=True))
+    available_runes = Rune.objects.filter(pk__in=sorted(set(selected_ids))).exclude(pk__in=base_rune_ids)
+    character_item.runes.set(available_runes)
+
+    if _is_partial_request(request):
+        return _sheet_partials_response(
+            request,
+            character_item.owner,
+            "inventory_panel",
+            "armor_panel",
+            "weapon_panel",
+        )
+    return redirect("character_sheet", character_id=character_item.owner_id)
 
 
 @login_required
@@ -1384,7 +1414,6 @@ def buy_shop_cart(request, character_id: int):
             },
         ]
     return JsonResponse(response_payload, status=status_code)
-
 
 
 def impressum(request):

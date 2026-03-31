@@ -749,6 +749,26 @@
   font-weight: 500;
 }
 
+.inv_name_wrap {
+  min-width: 0;
+  display: inline-grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 6px;
+}
+
+.inv_rune_marker {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.1rem;
+  color: rgba(122, 78, 24, 0.96);
+  font-family: "Noto Sans Runic", "Segoe UI Symbol", "Arial Unicode MS", serif;
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
 .quality_marker {
   display: inline-block;
   width: 0.62em;
@@ -1550,3 +1570,181 @@
 }
 
 
+.armor_row_actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.weapon_name_cell .inv_menu_trigger,
+.armor_row_actions .inv_menu_trigger {
+  width: 18px;
+  min-width: 18px;
+  max-width: 18px;
+  height: 18px;
+  min-height: 18px;
+  max-height: 18px;
+  font-size: 0.8rem;
+}
+
+.shop_item_form_fieldset {
+  margin: 0;
+  padding: 10px 12px 12px;
+  border: 1px solid rgba(122, 92, 58, 0.26);
+  border-radius: 10px;
+  background: rgba(255, 249, 236, 0.74);
+}
+
+.shop_item_form_fieldset legend {
+  padding: 0 6px;
+  font-family: "Cinzel", "Cormorant Garamond", serif;
+  font-size: 0.92rem;
+  letter-spacing: 0.04em;
+  color: rgba(71, 49, 31, 0.86);
+}
+
+.shop_item_form_checklist {
+  display: grid;
+  gap: 8px;
+}
+
+.shop_item_form_checklist_item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid rgba(109, 76, 43, 0.22);
+  border-radius: 8px;
+  background: rgba(255, 248, 230, 0.55);
+  cursor: pointer;
+}
+
+.shop_item_form_checklist_item:hover,
+.shop_item_form_checklist_item:focus-within {
+  border-color: rgba(74, 118, 164, 0.42);
+  box-shadow: 0 0 0 2px rgba(158, 203, 236, 0.18);
+}
+
+.shop_item_form_checklist_item input {
+  margin-top: 3px;
+}
+
+.rune_window {
+  width: min(560px, calc(100vw - 28px));
+}
+
+.rune_window_intro {
+  display: grid;
+  gap: 6px;
+}
+
+.rune_window_lead,
+.rune_window_note {
+  margin: 0;
+}
+
+.rune_window_note {
+  color: rgba(74, 55, 38, 0.76);
+  font-size: 0.92rem;
+}
+
+.rune_window_options {
+  max-height: min(44vh, 380px);
+  overflow-y: auto;
+}
+
+.rune_window_search_row {
+  margin-bottom: 10px;
+}
+
+.rune_window_search_input {
+  font-family: "Spectral", "Cormorant Garamond", Georgia, serif;
+  font-size: 1.05rem;
+}
+
+.rune_window_options {
+  display: grid;
+  gap: 10px;
+}
+
+.rune_option {
+  border: 1px solid rgba(109, 76, 43, 0.24);
+  border-radius: 10px;
+  background: rgba(255, 250, 240, 0.86);
+  overflow: hidden;
+}
+
+.rune_option_summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+.rune_option_summary::-webkit-details-marker {
+  display: none;
+}
+
+.rune_option_label {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  cursor: pointer;
+}
+
+.rune_option_label input {
+  margin: 0;
+}
+
+.rune_option_name {
+  font-family: "Spectral", "Iowan Old Style", "Palatino Linotype", serif;
+  font-size: 1.14rem;
+  font-weight: 600;
+  color: rgba(48, 33, 21, 0.94);
+  line-height: 1.25;
+}
+
+.rune_option_body {
+  padding: 0 14px 14px 42px;
+  border-top: 1px solid rgba(109, 76, 43, 0.14);
+  font-family: "Spectral", "Iowan Old Style", "Palatino Linotype", serif;
+  font-size: 1rem;
+  line-height: 1.55;
+  color: rgba(64, 47, 31, 0.9);
+}
+
+.floating-tooltip .tooltip_rune_list {
+  display: grid;
+  gap: 8px;
+}
+
+.floating-tooltip .tooltip_rune_row {
+  display: inline-grid;
+  justify-items: center;
+  gap: 3px;
+}
+
+.floating-tooltip .tooltip_rune_image {
+  width: 42px;
+  height: 42px;
+  object-fit: contain;
+  border-radius: 0;
+  border: 0;
+  background: transparent;
+}
+
+.floating-tooltip .tooltip_rune_image--placeholder {
+  display: none;
+}
+
+.floating-tooltip .tooltip_rune_name {
+  max-width: 72px;
+  font-size: 0.62rem;
+  line-height: 1;
+  text-align: center;
+  overflow-wrap: normal;
+  word-break: normal;
+  hyphens: auto;
+}
