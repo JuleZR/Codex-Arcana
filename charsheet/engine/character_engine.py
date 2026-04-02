@@ -381,6 +381,7 @@ class CharacterEngine:
             Modifier.objects.filter(source_filter)
             .select_related(
                 "scale_school",
+                "scale_skill",
                 "source_content_type",
                 "target_skill",
                 "target_skill_category",
@@ -1074,6 +1075,15 @@ class CharacterEngine:
             source = self._modifier_source(modifier)
             if isinstance(source, Trait):
                 return self._trait_levels.get(source.id)
+        if scale_source == Modifier.ScaleSource.SKILL_LEVEL:
+            if not modifier.scale_skill_id:
+                return None
+            skill_info = self.skills().get(modifier.scale_skill.slug)
+            return int(skill_info["level"]) if skill_info else 0
+        if scale_source == Modifier.ScaleSource.SKILL_TOTAL:
+            if not modifier.scale_skill_id:
+                return None
+            return self.skill_total(modifier.scale_skill.slug)
         return None
 
     def _modifier_source(self, modifier: Modifier) -> Model | None:

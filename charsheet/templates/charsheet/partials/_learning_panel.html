@@ -130,7 +130,7 @@
                       <table class="shop_table">
                         <tbody>
                           {% for row in group.rows %}
-                            <tr>
+                            <tr{% if row.description %} class="tooltip_target" data-tooltip-side="left" data-tooltip="{{ row.description }}"{% endif %}>
                               <td class="shop_item_name">{{ row.name }}</td>
                               <td class="shop_item_price">Aktuell {{ row.base_level }} | Min {{ row.min_level }} | Max {{ row.max_level }} | {{ row.points_per_level }} GP/Stufe</td>
                             </tr>
@@ -158,7 +158,7 @@
                       <table class="shop_table">
                         <tbody>
                           {% for row in group.rows %}
-                            <tr data-learn-source data-kind="skill" data-key="skill:{{ row.slug }}" data-slug="{{ row.slug }}" data-name="{{ row.name }}" data-base="{{ row.base_level }}" data-learn-search="{{ row.name|lower }} {{ group.name|lower }} skill fertigkeit" tabindex="0" role="button" aria-label="{{ row.name }} steigern">
+                            <tr data-learn-source data-kind="skill" data-key="skill:{{ row.slug }}" data-slug="{{ row.slug }}" data-name="{{ row.name }}" data-base="{{ row.base_level }}" data-learn-search="{{ row.name|lower }} {{ group.name|lower }} skill fertigkeit" tabindex="0" role="button" aria-label="{{ row.name }} steigern"{% if row.description %} class="tooltip_target" data-tooltip-side="left" data-tooltip="{{ row.description }}"{% endif %}>
                               <td class="shop_item_name">{{ row.name }}</td>
                               <td class="shop_item_price">Basis {{ row.base_level }}</td>
                             </tr>
@@ -209,7 +209,7 @@
                       <table class="shop_table">
                         <tbody>
                           {% for row in group.rows %}
-                            <tr data-learn-source data-kind="school" data-key="school:{{ row.id }}" data-id="{{ row.id }}" data-name="{{ row.name }}" data-base="{{ row.base_level }}" data-max="{{ row.max_level }}" data-learn-search="{{ row.name|lower }} {{ group.name|lower }} schule" tabindex="0" role="button" aria-label="{{ row.name }} steigern">
+                            <tr data-learn-source data-kind="school" data-key="school:{{ row.id }}" data-id="{{ row.id }}" data-name="{{ row.name }}" data-base="{{ row.base_level }}" data-max="{{ row.max_level }}" data-learn-search="{{ row.name|lower }} {{ group.name|lower }} schule" tabindex="0" role="button" aria-label="{{ row.name }} steigern"{% if row.description %} class="tooltip_target" data-tooltip-side="left" data-tooltip="{{ row.description }}"{% endif %}>
                               <td class="shop_item_name">{{ row.name }}</td>
                               <td class="shop_item_price">Basis {{ row.base_level }} | Max {{ row.max_level }}</td>
                             </tr>

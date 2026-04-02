@@ -284,10 +284,6 @@ def _build_weapon_rows(engine) -> list[dict]:
                     rune_block=_format_rune_tooltip_block(item=row["item"], character_item=row["character_item"]),
                 ),
                 "can_unequip": not row["character_item"].equip_locked,
-                "can_socket_runes": row["item"].item_type in RUNE_RETROFIT_ITEM_TYPES,
-                "base_rune_ids": [rune.id for rune in row["item"].runes.all()],
-                "base_rune_names": [rune.name for rune in row["item"].runes.all()],
-                "extra_rune_ids": [rune.id for rune in row["character_item"].runes.all()],
             }
         )
     return weapon_rows
@@ -311,10 +307,7 @@ def _build_armor_rows(engine) -> list[dict]:
                     quality_color=quality["color"],
                     rune_block=_format_rune_tooltip_block(item=row["item"], character_item=row["character_item"]),
                 ),
-                "can_socket_runes": row["item"].item_type in RUNE_RETROFIT_ITEM_TYPES,
-                "base_rune_ids": [rune.id for rune in row["item"].runes.all()],
-                "base_rune_names": [rune.name for rune in row["item"].runes.all()],
-                "extra_rune_ids": [rune.id for rune in row["character_item"].runes.all()],
+                "can_unequip": not row["character_item"].equip_locked,
             }
         )
     for row in engine.equipped_shield_rows():
@@ -333,10 +326,6 @@ def _build_armor_rows(engine) -> list[dict]:
                     rune_block=_format_rune_tooltip_block(item=row["item"], character_item=row["character_item"]),
                 ),
                 "can_unequip": not row["character_item"].equip_locked,
-                "can_socket_runes": row["item"].item_type in RUNE_RETROFIT_ITEM_TYPES,
-                "base_rune_ids": [rune.id for rune in row["item"].runes.all()],
-                "base_rune_names": [rune.name for rune in row["item"].runes.all()],
-                "extra_rune_ids": [rune.id for rune in row["character_item"].runes.all()],
             }
         )
     return armor_rows

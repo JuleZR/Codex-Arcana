@@ -97,13 +97,23 @@
 
       <div class="p2_panel p2_schools">
         <h2>Kampf-, Magieschulen & spez. Eigenschaften</h2>
+        <div class="schools_filter_row">
+          <input
+            type="search"
+            id="schoolsFilterInput"
+            class="schools_filter_input"
+            placeholder="Kampffähigkeiten filtern"
+            aria-label="Kampffähigkeiten filtern"
+          >
+        </div>
         <div class="panel_scroll schools_scroll">
-          <ul class="p2_lines p2_short_lines">
+          <ul class="p2_lines p2_short_lines" id="schoolsList">
             {% for row in school_technique_rows %}
             <li
               class="school_row_with_tooltip tooltip_target{% if row.kind == 'race_technique' %} school_row_with_tooltip--race{% endif %}{% if row.show_group_separator %} school_row_with_tooltip--separator{% endif %}"
               data-tooltip-side="left"
               data-tooltip="{{ row.description|default:'Keine Beschreibung' }}"
+              data-school-search="{% if row.kind == 'race_technique' %}{{ row.school_name|lower }} {{ row.entry_name|lower }}{% else %}{{ row.level }} {{ row.school_name|lower }} {{ row.entry_name|lower }}{% endif %}"
             >
               <div class="skill_name_wrap">
                 <span class="skill_name_text">
@@ -124,10 +134,7 @@
                   aria-label="{{ row.entry_name }} bearbeiten"
                   title="{{ row.entry_name }} bearbeiten"
                 >
-                  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                    <path d="M4 20h4l10-10-4-4L4 16v4z"></path>
-                    <path d="M13.8 6.2l4 4"></path>
-                  </svg>
+                  <span class="skill_spec_edit_emoji" aria-hidden="true">⋯</span>
                 </button>
                 {% endif %}
               </div>

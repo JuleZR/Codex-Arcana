@@ -133,6 +133,8 @@ Hier liegt der komplexeste Regelbereich:
 - verschiedene Zielarten
   zum Beispiel konkrete Skills, Skillkategorien, Stats, Items oder Spezialisierungen
 - flache und skalierte Werte
+- skillbasierte Skalierung fÃ¼r Stat-Ziele
+  zum Beispiel "addiere den Skillwert von Fertigkeit X auf VW oder Initiative"
 - optionale Caps, Rundungsmodi und Mindest-Schulstufen
 
 Dadurch kann die Engine viele Regeltexte datengetrieben auswerten, ohne für jede Technik oder jeden Trait eine Spezialbehandlung im Code zu benötigen.

@@ -94,6 +94,8 @@ class Modifier(models.Model):
         SCHOOL_LEVEL = "school_level", "School level"
         FAME_TOTAL = "fame_total", "Fame total"
         TRAIT_LVL = "trait_level", "Trait Level"
+        SKILL_LEVEL = "skill_level", "Skill level"
+        SKILL_TOTAL = "skill_total", "Skill total"
 
     class RoundMode(models.TextChoices):
         FLOOR = "floor", "Floor"
@@ -176,6 +178,14 @@ class Modifier(models.Model):
         on_delete=models.PROTECT,
         related_name="scale_modifiers",
         help_text="Only used if scale_source == school_level",
+    )
+    scale_skill = models.ForeignKey(
+        Skill,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="scale_modifiers",
+        help_text="Only used if scale_source or cap_source uses a skill-based value.",
     )
     mul = models.SmallIntegerField(default=1)
     div = models.PositiveSmallIntegerField(default=1, validators=[MinValueValidator(1)])
@@ -370,9 +380,23 @@ class Modifier(models.Model):
 
         source_model = self.source_content_type.model_class() if self.source_content_type_id else None
         source_is_school_bound = source_model in {School, Technique}
+        skill_scale_sources = {self.ScaleSource.SKILL_LEVEL, self.ScaleSource.SKILL_TOTAL}
 
         if self.scale_school_id and self.scale_source != self.ScaleSource.SCHOOL_LEVEL:
             raise ValidationError({"scale_school": "scale_school is only allowed for school-level scaling."})
+        if self.scale_skill_id and self.scale_source not in skill_scale_sources and self.cap_source not in skill_scale_sources:
+            raise ValidationError({"scale_skill": "scale_skill is only allowed for skill-based scaling or caps."})
+        if self.scale_source in skill_scale_sources and not self.scale_skill_id:
+            raise ValidationError({"scale_skill": "scale_skill is required for skill-based scaling."})
+        if self.cap_source in skill_scale_sources and not self.scale_skill_id:
+            raise ValidationError({"scale_skill": "scale_skill is required for skill-based caps."})
+        if (
+            self.target_kind != self.TargetKind.STAT
+            and (self.scale_source in skill_scale_sources or self.cap_source in skill_scale_sources)
+        ):
+            raise ValidationError(
+                {"target_kind": "Skill-based scaling and caps are currently only supported for stat targets."}
+            )
         if (
             self.scale_source == self.ScaleSource.SCHOOL_LEVEL
             and not self.scale_school_id

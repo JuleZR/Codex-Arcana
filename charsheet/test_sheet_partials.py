@@ -6,7 +6,7 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
 
-from charsheet.models import ArmorStats, Character, CharacterItem, Item, Race, Rune
+from charsheet.models import ArmorStats, Character, CharacterItem, DamageSource, Item, Race, Rune, WeaponStats
 
 
 class CharacterSheetPartialTests(TestCase):
@@ -218,3 +218,98 @@ class CharacterSheetPartialTests(TestCase):
         inventory_html = next(entry["html"] for entry in response.json()["partials"] if entry["target"] == "sheetInventoryPanel")
         self.assertIn("Arkaner Fokus", inventory_html)
         self.assertIn("[[RUNE:Speicherrune||]]", inventory_html)
+
+    def test_weapon_panel_does_not_render_action_menu_for_equipped_weapons(self):
+        """Equipped weapons should not show the inventory burger menu in the weapon panel."""
+        damage_source = DamageSource.objects.create(name="Klinge", short_name="Kli", slug="klinge")
+        weapon = Item.objects.create(
+            name="Langschwert",
+            price=80,
+            item_type=Item.ItemType.WEAPON,
+            stackable=False,
+            default_quality="common",
+        )
+        WeaponStats.objects.create(
+            item=weapon,
+            damage_source=damage_source,
+            damage_dice_amount=1,
+            damage_dice_faces=8,
+            damage_flat_bonus=0,
+            min_st=1,
+            wield_mode="1h",
+        )
+        owned_item = CharacterItem.objects.create(
+            owner=self.character,
+            item=weapon,
+            amount=1,
+            equipped=False,
+            quality="common",
+        )
+
+        response = self.client.post(
+            reverse("toggle_equip", args=[owned_item.id]),
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        weapon_html = next(entry["html"] for entry in response.json()["partials"] if entry["target"] == "sheetWeaponPanel")
+        self.assertIn("Langschwert", weapon_html)
+        self.assertNotIn("Waffen-Aktionen", weapon_html)
+        self.assertNotIn("data-open-rune-window", weapon_html)
+
+    def test_armor_panel_does_not_render_action_menu_for_equipped_armor(self):
+        """Equipped armor should not show the inventory burger menu in the armor panel."""
+        armor = Item.objects.create(
+            name="Schuppenpanzer",
+            price=90,
+            item_type=Item.ItemType.ARMOR,
+            stackable=False,
+            default_quality="common",
+        )
+        ArmorStats.objects.create(item=armor, rs_total=2, encumbrance=1, min_st=1)
+        owned_item = CharacterItem.objects.create(
+            owner=self.character,
+            item=armor,
+            amount=1,
+            equipped=False,
+            quality="common",
+        )
+
+        response = self.client.post(
+            reverse("toggle_equip", args=[owned_item.id]),
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        armor_html = next(entry["html"] for entry in response.json()["partials"] if entry["target"] == "sheetArmorPanel")
+        self.assertIn("Schuppenpanzer", armor_html)
+        self.assertNotIn("Rüstungs-Aktionen", armor_html)
+        self.assertNotIn("data-open-rune-window", armor_html)
+
+    def test_equipped_armor_renders_working_unequip_form(self):
+        """Equipped armor rows should render the active unequip form when not locked."""
+        armor = Item.objects.create(
+            name="Kettenhemd",
+            price=120,
+            item_type=Item.ItemType.ARMOR,
+            stackable=False,
+            default_quality="common",
+        )
+        ArmorStats.objects.create(item=armor, rs_total=3, encumbrance=2, min_st=2)
+        owned_item = CharacterItem.objects.create(
+            owner=self.character,
+            item=armor,
+            amount=1,
+            equipped=False,
+            quality="common",
+        )
+
+        response = self.client.post(
+            reverse("toggle_equip", args=[owned_item.id]),
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        armor_html = next(entry["html"] for entry in response.json()["partials"] if entry["target"] == "sheetArmorPanel")
+        self.assertIn(f'action="/character-item/{owned_item.id}/toggle-equip/"', armor_html)
+        self.assertNotIn("disabled", armor_html)

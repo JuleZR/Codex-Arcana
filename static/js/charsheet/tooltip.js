@@ -78,7 +78,7 @@ function renderTooltipMarkup(rawText) {
     const qualityMeta = parseQualityLine(line);
     if (qualityMeta) {
       chunks.push(
-        `<p class="tooltip_quality_line"><span class="tooltip_quality_badge" style="--tooltip-quality-color: ${escapeHtml(qualityMeta.color)};">Qualitaet: ${escapeHtml(qualityMeta.label)}</span></p>`,
+        `<p class="tooltip_quality_line"><span class="tooltip_quality_badge" style="--tooltip-quality-color: ${escapeHtml(qualityMeta.color)};">${escapeHtml(qualityMeta.label)}</span></p>`,
       );
       index += 1;
       continue;

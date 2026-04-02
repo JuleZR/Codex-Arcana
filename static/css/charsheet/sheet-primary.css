@@ -760,32 +760,35 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
+  width: 15px;
+  height: 15px;
+  min-width: 15px;
+  min-height: 15px;
   padding: 0;
-  border: 1px solid rgba(74, 55, 38, 0.32);
+  border: 1px solid rgba(113, 77, 42, 0.28);
   border-radius: 999px;
-  background: rgba(255, 252, 242, 0.82);
-  color: var(--ink-soft);
+  background:
+    linear-gradient(180deg, rgba(241, 220, 184, 0.64), rgba(178, 137, 91, 0.52));
+  color: #4d3320;
   cursor: pointer;
   flex: 0 0 auto;
-  transition: transform 140ms ease, border-color 140ms ease, background 140ms ease;
+  line-height: 1;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 245, 218, 0.48),
+    0 1px 2px rgba(45, 27, 13, 0.08);
+  transition: transform 140ms ease, color 140ms ease, border-color 140ms ease;
 }
 
-.skill_spec_edit_btn svg {
-  width: 12px;
-  height: 12px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.8;
-  stroke-linecap: round;
-  stroke-linejoin: round;
+.skill_spec_edit_emoji {
+  display: inline-block;
+  font-size: 0.52rem;
+  line-height: 1;
 }
 
 .skill_spec_edit_btn:hover,
 .skill_spec_edit_btn:focus-visible {
-  border-color: rgba(138, 92, 42, 0.68);
-  background: rgba(255, 246, 220, 0.96);
+  color: rgba(88, 56, 26, 0.96);
+  border-color: rgba(138, 92, 42, 0.46);
   transform: translateY(-1px);
 }
 

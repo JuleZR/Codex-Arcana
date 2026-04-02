@@ -563,11 +563,12 @@ class ModifierInline(GenericStackedInline):
             },
         ),
         ("Value", {"fields": (("mode", "value"),)}),
-        ("Scaling", {"fields": (("scale_source", "scale_school"), ("mul", "div", "round_mode"))}),
+        ("Scaling", {"fields": (("scale_source", "scale_school", "scale_skill"), ("mul", "div", "round_mode"))}),
         ("Cap", {"fields": (("cap_mode", "cap_source"), "min_school_level")}),
     )
     autocomplete_fields = (
         "scale_school",
+        "scale_skill",
         "target_skill",
         "target_skill_category",
         "target_item",
@@ -1663,6 +1664,7 @@ class ModifierAdmin(admin.ModelAdmin):
         "value",
         "scale_source",
         "scale_school",
+        "scale_skill",
         "mul",
         "div",
         "round_mode",
@@ -1673,6 +1675,7 @@ class ModifierAdmin(admin.ModelAdmin):
     list_filter = ("source_content_type", "mode", "target_kind", "scale_source", "cap_mode")
     search_fields = (
         "target_slug",
+        "scale_skill__name",
         "target_skill__name",
         "target_skill_category__name",
         "target_item__name",
@@ -1683,6 +1686,7 @@ class ModifierAdmin(admin.ModelAdmin):
     ordering = ("source_content_type", "source_object_id", "target_kind", "target_slug")
     autocomplete_fields = (
         "scale_school",
+        "scale_skill",
         "target_skill",
         "target_skill_category",
         "target_item",
@@ -1692,6 +1696,7 @@ class ModifierAdmin(admin.ModelAdmin):
     )
     list_select_related = (
         "scale_school",
+        "scale_skill",
         "target_skill",
         "target_skill_category",
         "target_item",
@@ -1721,7 +1726,7 @@ class ModifierAdmin(admin.ModelAdmin):
             },
         ),
         ("Value", {"fields": (("mode", "value"),)}),
-        ("Scaling", {"fields": (("scale_source", "scale_school"), ("mul", "div", "round_mode"))}),
+        ("Scaling", {"fields": (("scale_source", "scale_school", "scale_skill"), ("mul", "div", "round_mode"))}),
         ("Limits", {"fields": (("cap_mode", "cap_source"), "min_school_level")}),
     )
 
@@ -2997,10 +3002,11 @@ MODIFIER_CHOICE_HELP = {
     "target_choice_definition": "Optional choice definition link. If set, the modifier target kind must match the choice definition target kind.",
     "target_race_choice_definition": "Optional race choice definition link. If set, the modifier target kind must match the race choice definition target kind.",
     "mode": "Flat = fixed value, Scaled = value is calculated from another source.",
-    "scale_source": "School level = scales with a school level, Fame total = scales with total fame rank, Trait level = scales with the source trait level.",
+    "scale_source": "School level = scales with a school level, Fame total = scales with total fame rank, Trait level = scales with the source trait level, Skill level = uses the learned ranks of one skill, Skill total = uses the fully resolved value of one skill. Skill-based scaling is limited to stat targets.",
+    "scale_skill": "Required for skill-based scaling or caps. Choose which skill provides the learned level or full total.",
     "round_mode": "Floor = round down after division, Ceil = round up after division.",
     "cap_mode": "None = no cap, Min = do not go below the cap value, Max = do not go above the cap value.",
-    "cap_source": "Uses the same source types as scaling, but only to define the cap value.",
+    "cap_source": "Uses the same source types as scaling, but only to define the cap value. Skill-based caps also require scale_skill.",
     "target_slug": "For stats and categories, enter the rule key here. For Skill/Category targets, you can use the related object field instead.",
 }
 

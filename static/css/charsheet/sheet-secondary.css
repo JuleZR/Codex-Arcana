@@ -1372,6 +1372,45 @@
   background: linear-gradient(90deg, rgba(122, 92, 58, 0), rgba(122, 92, 58, 0.28), rgba(122, 92, 58, 0));
 }
 
+.p2_schools .skill_spec_edit_btn {
+  margin-left: 2px;
+}
+
+.p2_schools .skill_spec_edit_emoji {
+  font-size: 0.74rem;
+}
+
+.schools_filter_row {
+  padding: 4px 8px 6px;
+}
+
+.schools_filter_input {
+  width: 100%;
+  min-height: 28px;
+  border: 1px solid rgba(118, 88, 57, 0.28);
+  border-radius: 8px;
+  background: linear-gradient(180deg, rgba(255, 251, 241, 0.92), rgba(241, 233, 217, 0.78));
+  color: rgba(66, 45, 25, 0.96);
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-size: 0.94rem;
+  padding: 0 12px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 248, 229, 0.72),
+    0 1px 2px rgba(41, 24, 11, 0.06);
+}
+
+.schools_filter_input::placeholder {
+  color: rgba(107, 82, 56, 0.7);
+}
+
+.schools_filter_input:focus {
+  outline: none;
+  border-color: rgba(138, 92, 42, 0.54);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 248, 229, 0.82),
+    0 0 0 2px rgba(198, 164, 112, 0.16);
+}
+
 .school_row_origin {
   font-style: italic;
   color: #7a5230;

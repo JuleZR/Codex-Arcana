@@ -15,6 +15,7 @@ import { initInventoryMenu } from "./inventory_menu.js";
 import { initDamagePanel } from "./damage_panel.js";
 import { initCharInfoCounter } from "./char_info_counter.js";
 import { initSheetActions } from "./sheet_actions.js";
+import { initSchoolsPanel } from "./schools_panel.js";
 
 onReady(() => {
   initTabs();
@@ -33,10 +34,12 @@ onReady(() => {
   initSheetActions();
   initDamagePanel();
   initCharInfoCounter();
+  initSchoolsPanel();
 
   document.addEventListener("charsheet:partials-applied", () => {
     initDamagePanel();
     initCharInfoCounter();
+    initSchoolsPanel();
     document.dispatchEvent(new Event("learn:refresh-totals"));
   });
 });

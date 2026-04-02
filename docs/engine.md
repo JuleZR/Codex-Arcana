@@ -74,6 +74,7 @@ Die Engine wertet `Modifier` datengetrieben aus:
 - passende Modifier werden nach Zielart und Zielidentifier gruppiert
 - aktive Quellen werden geprüft
 - optional wird skaliert, gerundet und gecappt
+- skillbasierte Stat-Modifikatoren kÃ¶nnen dabei entweder den gelernten Skillrang oder den voll berechneten Skillwert verwenden
 - das Ergebnis fließt in Stats, Skills oder Ausrüstungswerte ein
 
 Aktive Quellen sind aktuell vor allem:

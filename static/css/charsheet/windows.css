@@ -219,11 +219,13 @@
 }
 
 #diaryWindow {
-  width: min(860px, calc(100vw - 24px));
+  --diary-paper-width: min(760px, calc((100vh - 120px) * 0.7071), calc(100vw - 72px));
+  --diary-paper-height: calc(var(--diary-paper-width) * 1.4142);
+  width: calc(var(--diary-paper-width) + 32px);
 }
 
 #diaryWindow .payday-window__body {
-  height: min(760px, calc(100vh - 110px));
+  height: var(--diary-paper-height);
   max-height: calc(100vh - 110px);
   overflow-y: auto;
   padding: 14px 16px 18px;
