@@ -10,7 +10,9 @@ from typing import DefaultDict, TypeAlias, TypedDict
 from django.contrib.contenttypes.models import ContentType
 from django.db.models import Model, Prefetch, Q
 
-from . import character_combat, character_equipment, character_progression
+from . import character_combat, character_equipment, character_learning, character_progression
+from .item_engine import ItemEngine
+from charsheet.modifiers import ModifierEngine, ModifierResolutionMode, TargetDomain
 from charsheet.models import (
     Character,
     CharacterRaceChoice,
@@ -158,8 +160,9 @@ class TechniqueState(TypedDict):
 class CharacterEngine:
     """Calculate derived character values from persisted model data."""
 
-    def __init__(self, character: Character) -> None:
+    def __init__(self, character: Character, *, modifier_resolution_mode: str | None = None) -> None:
         self.character = character
+        self.modifier_resolution_mode = ModifierResolutionMode.normalize(modifier_resolution_mode)
         self._technique_learned_cache: dict[int, bool] = {}
         self._technique_available_cache: dict[int, bool] = {}
         self._technique_requirement_cache: dict[int, bool] = {}
@@ -588,6 +591,11 @@ class CharacterEngine:
     violated_technique_choice_blocks = character_progression.violated_technique_choice_blocks
     _build_choice_block_state = character_progression.build_choice_block_state
     active_progression_rules = character_progression.active_progression_rules
+    build_trait_validator = character_learning.build_trait_validator
+    trait_rank_cost = character_learning.trait_rank_cost
+    validate_trait_target_level = character_learning.validate_trait_target_level
+    trait_learning_delta_cost = character_learning.trait_learning_delta_cost
+    validate_trait_selection = character_learning.validate_trait_selection
 
     fame_total = character_combat.fame_total
     calculate_initiative = character_combat.calculate_initiative
@@ -700,34 +708,111 @@ class CharacterEngine:
 
     def modifier_total_for_skill(self, skill_slug: str) -> int:
         """Return all direct skill modifiers for one exact skill slug."""
-        return self._resolve_target_modifiers(Modifier.TargetKind.SKILL, skill_slug)
+        return self.modifier_engine.resolve_numeric_total(TargetDomain.SKILL, skill_slug)
 
     def modifier_total_for_skill_category(self, category_slug: str) -> int:
         """Return all modifiers that target one whole skill category."""
-        return self._resolve_target_modifiers(Modifier.TargetKind.CATEGORY, category_slug)
+        return self.modifier_engine.resolve_numeric_total(TargetDomain.SKILL_CATEGORY, category_slug)
 
     def modifier_total_for_stat(self, slug: str) -> int:
         """Return all modifiers that target one derived stat slug."""
-        return self._resolve_target_modifiers(Modifier.TargetKind.STAT, slug)
+        if slug in {"wound_penalty_ignore", "armor_penalty_ignore", "shield_penalty_ignore"}:
+            target_domain = TargetDomain.RULE_FLAG
+        elif str(slug).startswith("dmg_"):
+            target_domain = TargetDomain.COMBAT
+        else:
+            target_domain = TargetDomain.DERIVED_STAT
+        return self.modifier_engine.resolve_numeric_total(target_domain, slug)
 
     def modifier_total_for_item(self, item: Item | int) -> int:
         """Return all modifiers that target one specific item."""
         item_id = item.id if isinstance(item, Item) else int(item)
-        return self._resolve_target_modifiers(Modifier.TargetKind.ITEM, str(item_id))
+        return self.modifier_engine.resolve_numeric_total(TargetDomain.ITEM, str(item_id))
 
     def modifier_total_for_item_category(self, item_category: str) -> int:
         """Return all modifiers that target one item category key."""
-        return self._resolve_target_modifiers(Modifier.TargetKind.ITEM_CATEGORY, item_category)
+        return self.modifier_engine.resolve_numeric_total(TargetDomain.ITEM_CATEGORY, item_category)
 
     def modifier_total_for_specialization(self, specialization: Specialization | int) -> int:
         """Return all modifiers that target one school specialization."""
         specialization_id = specialization.id if isinstance(specialization, Specialization) else int(specialization)
-        return self._resolve_target_modifiers(Modifier.TargetKind.SPECIALIZATION, str(specialization_id))
+        return self.modifier_engine.resolve_numeric_total(TargetDomain.SPECIALIZATION, str(specialization_id))
 
     def modifier_total_for_entity(self, entity: Model) -> int:
         """Return all modifiers that target one arbitrary persisted game entity."""
         content_type = ContentType.objects.get_for_model(entity, for_concrete_model=False)
-        return self._resolve_target_modifiers(Modifier.TargetKind.ENTITY, f"{content_type.id}:{entity.pk}")
+        return self.modifier_engine.resolve_numeric_total(TargetDomain.ENTITY, f"{content_type.id}:{entity.pk}")
+
+    def debug_legacy_modifier_total_for_skill(self, skill_slug: str) -> int:
+        """Return the legacy numeric result for one direct skill target for diagnostics."""
+        return self.modifier_engine.debug_legacy_numeric_total(TargetDomain.SKILL, skill_slug)
+
+    def debug_legacy_modifier_total_for_skill_category(self, category_slug: str) -> int:
+        """Return the legacy numeric result for one skill-category target for diagnostics."""
+        return self.modifier_engine.debug_legacy_numeric_total(TargetDomain.SKILL_CATEGORY, category_slug)
+
+    def debug_legacy_modifier_total_for_stat(self, slug: str) -> int:
+        """Return the legacy numeric result for one stat-like target for diagnostics."""
+        if slug in {"wound_penalty_ignore", "armor_penalty_ignore", "shield_penalty_ignore"}:
+            target_domain = TargetDomain.RULE_FLAG
+        elif str(slug).startswith("dmg_"):
+            target_domain = TargetDomain.COMBAT
+        else:
+            target_domain = TargetDomain.DERIVED_STAT
+        return self.modifier_engine.debug_legacy_numeric_total(target_domain, slug)
+
+    @cached_property
+    def modifier_engine(self) -> ModifierEngine:
+        """Return the central modifier engine bound to this character engine."""
+        return ModifierEngine(self, resolution_mode=self.modifier_resolution_mode)
+
+    def resolve_skill_value(self, skill_slug: str, context: dict | None = None) -> int:
+        """Resolve one skill through the central modifier engine."""
+        return self.modifier_engine.resolve_skill_value(skill_slug, context=context)
+
+    def resolve_attribute_bonus(self, attribute_slug: str, context: dict | None = None) -> int:
+        """Resolve attribute bonus modifiers through the central modifier engine."""
+        return self.modifier_engine.resolve_attribute_bonus(attribute_slug, context=context)
+
+    def resolve_derived_stat(self, stat_key: str, context: dict | None = None) -> int:
+        """Resolve one derived stat through the central modifier engine."""
+        return self.modifier_engine.resolve_derived_stat(stat_key, context=context)
+
+    def resolve_resource(self, resource_key: str, context: dict | None = None) -> int:
+        """Resolve one resource key through the central modifier engine."""
+        return self.modifier_engine.resolve_resource(resource_key, context=context)
+
+    def resolve_resistances(self, context: dict | None = None):
+        """Resolve resistance and immunity state through the central modifier engine."""
+        return self.modifier_engine.resolve_resistances(context=context)
+
+    def resolve_movement(self, context: dict | None = None):
+        """Resolve movement profile through the central modifier engine."""
+        return self.modifier_engine.resolve_movement(context=context)
+
+    def resolve_combat_profile(self, context: dict | None = None):
+        """Resolve combat profile through the central modifier engine."""
+        return self.modifier_engine.resolve_combat_profile(context=context)
+
+    def resolve_flags(self, context: dict | None = None) -> dict[str, bool]:
+        """Resolve boolean rule flags through the central modifier engine."""
+        return self.modifier_engine.resolve_flags(context=context)
+
+    def resolve_capabilities(self, context: dict | None = None) -> dict[str, bool]:
+        """Resolve capabilities through the central modifier engine."""
+        return self.modifier_engine.resolve_capabilities(context=context)
+
+    def resolve_social_profile(self, context: dict | None = None):
+        """Resolve social/legal profile through the central modifier engine."""
+        return self.modifier_engine.resolve_social_profile(context=context)
+
+    def explain_modifier_resolution(self, target_domain: str, target_key: str, context: dict | None = None) -> list[dict]:
+        """Return a debug breakdown for one central modifier target."""
+        return self.modifier_engine.explain_resolution((target_domain, target_key), context=context)
+
+    def modifier_resolution_comparisons(self):
+        """Return compare-mode rows collected by the central modifier engine."""
+        return self.modifier_engine.comparison_log()
 
     def attribute_modifier(self, short_name: str) -> int:
         """Convert a base attribute value into its system modifier."""
@@ -737,6 +822,40 @@ class CharacterEngine:
     def skill_total(self, skill_slug: str) -> int:
         """Return the final resolved value for one skill."""
         return int(self._skill_base(skill_slug)) + int(self._skill_modifiers(skill_slug))
+
+    def debug_legacy_skill_total(self, skill_slug: str) -> int:
+        """Return the legacy skill total for one skill for migration diagnostics."""
+        return int(self._skill_base(skill_slug)) + int(self._legacy_skill_modifiers(skill_slug))
+
+    def debug_legacy_calculate_initiative(self) -> int:
+        """Return the legacy initiative result for migration diagnostics."""
+        return self.attribute_modifier("GE") + self._debug_legacy_current_wound_penalty() + self.debug_legacy_modifier_total_for_stat("initiative")
+
+    def debug_legacy_calculate_arcane_power(self) -> int:
+        """Return the legacy arcane power result for migration diagnostics."""
+        willpower = self.attributes().get("WILL", 0)
+        school_levels = sum(entry.level for entry in self._school_entries.values())
+        return willpower + school_levels + self.debug_legacy_modifier_total_for_stat("arcane_power")
+
+    def debug_legacy_vw(self) -> int:
+        """Return the legacy VW result for migration diagnostics."""
+        return 14 + self.attribute_modifier("GE") + self.attribute_modifier("WA") + self.debug_legacy_modifier_total_for_stat("vw")
+
+    def debug_legacy_gw(self) -> int:
+        """Return the legacy GW result for migration diagnostics."""
+        return 14 + self.attribute_modifier("INT") + self.attribute_modifier("WILL") + self.debug_legacy_modifier_total_for_stat("gw")
+
+    def debug_legacy_sr(self) -> int:
+        """Return the legacy SR result for migration diagnostics."""
+        return 14 + self.attribute_modifier("ST") + self.attribute_modifier("KON") + self.debug_legacy_modifier_total_for_stat("sr")
+
+    def debug_legacy_get_grs(self) -> int:
+        """Return the legacy armor rating result for migration diagnostics."""
+        total = sum(
+            ItemEngine(armor).get_armor_rs_raw() or 0
+            for armor in self.equipped_armor_items()
+        )
+        return total + self.debug_legacy_modifier_total_for_stat("rs")
 
     def skill_breakdown(self, skill_slug: str) -> SkillBreakdown | SkillError:
         """Return a detailed breakdown of a skill calculation."""
@@ -773,6 +892,57 @@ class CharacterEngine:
 
         info = skills[skill_slug]
         return int(info["level"]) + int(self.attribute_modifier(info["attribute"]))
+
+    def _legacy_skill_modifiers(self, skill_slug: str) -> int:
+        """Resolve skill modifiers through the legacy numeric path for diagnostics only."""
+        info = self.skills().get(skill_slug)
+        category_slug = info["category"] if info else None
+        skill_id = info["skill_id"] if info else None
+
+        modifier_parts = [
+            self._debug_legacy_current_wound_penalty(),
+            self._debug_legacy_load_penalty(),
+            self.debug_legacy_modifier_total_for_skill(skill_slug),
+        ]
+        if category_slug:
+            modifier_parts.append(self.debug_legacy_modifier_total_for_skill_category(category_slug))
+        if skill_id is not None:
+            modifier_parts.append(self._resolve_choice_skill_bonus(skill_id))
+            modifier_parts.append(self._legacy_choice_skill_modifier_total(skill_id))
+        return sum(modifier_parts)
+
+    def _debug_legacy_is_wound_penalty_ignored(self) -> bool:
+        """Return the legacy rule-flag state for wound penalty ignore."""
+        return bool(self.debug_legacy_modifier_total_for_stat("wound_penalty_ignore"))
+
+    def _debug_legacy_current_wound_penalty(self) -> int:
+        """Return the effective legacy wound penalty for diagnostics."""
+        penalty = self.current_wound_stage()[1]
+        if penalty is None:
+            return 0
+        if self._debug_legacy_is_wound_penalty_ignored():
+            return 0
+        return penalty
+
+    def _debug_legacy_get_bel(self) -> int:
+        """Return the legacy armor encumbrance result for diagnostics."""
+        if self.debug_legacy_modifier_total_for_stat("armor_penalty_ignore"):
+            return 0
+
+        armor_bel = 0
+        for armor in self.equipped_armor_items():
+            armor_bel += ItemEngine(armor).get_armor_encumbrance() or 0
+
+        shield_bel = 0
+        for shield in self.equipped_shield_items():
+            shield_bel += ItemEngine(shield).get_shield_encumbrance() or 0
+
+        return armor_bel + shield_bel
+
+    def _debug_legacy_load_penalty(self) -> int:
+        """Return the legacy load penalty for diagnostics."""
+        bel_value = int(self._debug_legacy_get_bel())
+        return bel_value if bel_value <= 0 else -bel_value
 
     def _build_technique_state(
         self,
@@ -907,6 +1077,10 @@ class CharacterEngine:
         return total
 
     def _resolve_choice_skill_modifiers(self, skill_id: int) -> int:
+        """Resolve choice-bound skill modifiers through the central modifier engine."""
+        return self.modifier_engine.resolve_choice_skill_modifier_total(skill_id)
+
+    def _legacy_choice_skill_modifier_total(self, skill_id: int) -> int:
         """
         Resolve modifier rows that target a skill via persisted technique or
         race choices.

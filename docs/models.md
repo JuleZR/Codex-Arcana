@@ -1,164 +1,227 @@
-# Datenmodell
+# Data Model
 
-## Überblick
+## Overview
 
-Das Datenmodell wurde in mehrere Dateien unter `charsheet/models/` aufgeteilt. Die Aufteilung folgt nicht technischen, sondern fachlichen Grenzen. Das macht die aktuelle Struktur deutlich leichter wartbar als die frühere Einzeldatei.
+The persisted Django models are still split across `charsheet/models/` by domain, but the rule layer now distinguishes clearly between persisted source rows and typed modifier semantics.
 
-## Modellpakete
+## Model Packages
 
 ### `core.py`
 
-Enthält wiederverwendbare Stammdaten:
+Core definitions such as:
 
 - `Attribute`
-  Basisattribute wie `ST`, `GE`, `INT`
 - `SkillCategory`
-  Gruppen für Fertigkeiten und Kategorienmodifikatoren
 - `Skill`
-  Fertigkeitsdefinition mit Leitattribut, Kategorie und optionaler Spezifikation
 - `Race`
-  Rassendefinition inklusive Bewegung, Flugwerten und Punktebudgets für die Charaktererstellung
 - `RaceAttributeLimit`
-  Min-/Max-Werte pro Attribut und Rasse
 - `DamageSource`
-  Schadensarten für Waffen
 - `Trait`
-  Vorteile und Nachteile mit Levelgrenzen und Punktkosten
+- `TraitSemanticEffect`
 - `Language`
-  Sprachdefinition mit maximalem Level
 
 ### `character.py`
 
-Enthält den persistenten Charakterzustand:
+Character-owned runtime state such as:
 
 - `Character`
-  Stammdaten, Besitz, EP, Schaden, Archivstatus, Ruhmwerte und Engine-Zugriff
-- `CharacterDiaryEntry`
-  serverseitig persistente Tagebucheinträge inklusive Reihenfolge und Fixierungsstatus
 - `CharacterAttribute`
-  gekaufter Attributwert pro Charakter
 - `CharacterSkill`
-  Fertigkeitswert plus optionale Spezifikation pro Charakter
 - `CharacterItem`
-  Besitzrelation zwischen Charakter und Item inklusive Menge, Ausrüstungsstatus und Qualität
 - `CharacterTrait`
-  gekaufte Vorteil-/Nachteil-Stufe pro Charakter
 - `CharacterLanguage`
-  Sprachlevel, Schreiben und Muttersprache pro Charakter
 - `CharacterCreationDraft`
-  in Arbeit befindlicher Charakterentwurf mit `state`-JSON und aktueller Phase
+- `CharacterDiaryEntry`
 
 ### `items.py`
 
-Beschreibt Items und deren Detailtabellen:
+Item data:
 
 - `Item`
-  Basisgegenstand mit Typ, Preis, Größenklasse, Gewicht und Standardqualität
 - `ArmorStats`
-  Rüstungsdaten, entweder als Gesamt-RS oder zonenbasiert
 - `ShieldStats`
-  Schildwerte
 - `WeaponStats`
-  Waffenwerte inklusive Führungsart und optionalem Zweihandprofil
 
 ### `progression.py`
 
-Beschreibt Schul- und Spezialisierungsfortschritt:
+Progression and school state:
 
 - `SchoolType`
-  Oberkategorie einer Schule
 - `School`
-  konkrete Schule
 - `CharacterSchool`
-  gelernte Schulstufe eines Charakters
 - `SchoolPath`
-  Pfad oder Ausrichtung innerhalb einer Schule
 - `CharacterSchoolPath`
-  vom Charakter gewählter Pfad pro Schule
 - `Specialization`
-  definierte Spezialisierung innerhalb einer Schule
 - `CharacterSpecialization`
-  vom Charakter gelernte Spezialisierung
 - `ProgressionRule`
-  regelbasierte Freischaltung pro Schultyp und Mindeststufe
 
-### `techniqs.py`
+### `techniques.py`
 
-Hier liegt der komplexeste Regelbereich:
+Technique rules and character technique choices:
 
-- `TechniqChoiceBlock`
-  gruppiert Techniken, aus denen nur eine begrenzte Anzahl gelernt werden darf oder muss
+- `TechniqueChoiceBlock`
+- `Technique`
+- `TechniqueRequirement`
+- `TechniqueExclusion`
+- `TechniqueChoiceDefinition`
+- `CharacterTechnique`
+- `CharacterTechniqueChoice`
+- `RaceChoiceDefinition`
+- `CharacterRaceChoice`
+- `RaceTechnique`
+
+### `modifier.py`
+
+The legacy rule modifier model:
+
 - `Modifier`
-  generisches Modifikatorsystem mit flexibler Quelle und flexiblem Ziel
-- `Techniq`
-  Technikdefinition mit Schule, Stufe, Typ, Support-Level und optionalem Choice-Verhalten
-- `TechniqRequirement`
-  Voraussetzungen für Techniken
-- `TechniqExclusion`
-  gegenseitige Ausschlüsse
-- `TechniqChoiceDefinition`
-  explizite, persistente Auswahlpflichten für Techniken
-- `CharacterTechniq`
-  explizit gelernte Technik eines Charakters
-- `CharacterTechniqChoice`
-  konkret gespeicherte Auswahlentscheidung zu einer Technik
 
-## Wichtige Beziehungen
+This file is intentionally separate from `techniques.py` because `Modifier` is a cross-cutting concern: it can be sourced from races, traits, schools, and techniques alike.
 
-### Charakterkern
+## Persisted Legacy Modifier Rows
 
-- Ein `Character` gehört genau einem Benutzer und genau einer `Race`.
-- Ein `Character` besitzt viele `CharacterAttribute`, `CharacterSkill`, `CharacterLanguage`, `CharacterTrait` und `CharacterItem`.
-- Die Kombinationen sind über `UniqueConstraint`s abgesichert, damit es pro Charakter keine doppelten Einträge für dieselbe Fachentität gibt.
+The Django model `Modifier` lives in `charsheet/models/modifier.py`.
 
-### Schule, Technik und Spezialisierung
+It remains important because it stores existing rule content from:
 
-- Ein Charakter kann mehrere `CharacterSchool`-Einträge haben.
-- Zu einer gelernten Schule kann optional genau ein `CharacterSchoolPath` gewählt werden.
-- `Techniq` und `Specialization` sind immer an eine `School` gebunden.
-- `CharacterTechniq` und `CharacterSpecialization` setzen implizit voraus, dass der Charakter die jeweilige Schule kennt.
+- races
+- traits
+- schools
+- techniques
+- choice definitions
 
-### Items und Inventar
+However, `Modifier` is no longer the productive semantic model.
 
-- `CharacterItem` verbindet einen Charakter mit einem `Item`.
-- Itemdetails liegen in separaten 1:1-Tabellen (`ArmorStats`, `ShieldStats`, `WeaponStats`).
-- Die Qualität eines konkreten Besitzobjekts liegt auf `CharacterItem`, nicht auf dem Basismodell `Item`.
+It is now treated as persisted source data that is translated into typed modifiers by `LegacyModifierMigrationService`.
 
-## Das Modifikatorsystem
+New rule effects should use `TraitSemanticEffect` instead of adding rows to `Modifier`.
 
-`Modifier` ist das flexibelste Regelmodell im Projekt. Es erlaubt:
+## Typed Modifier Domain
 
-- verschiedene Quellen über `GenericForeignKey`
-  typische Quellen sind `Race`, `School`, `Trait` und `Techniq`
-- verschiedene Zielarten
-  zum Beispiel konkrete Skills, Skillkategorien, Stats, Items oder Spezialisierungen
-- flache und skalierte Werte
-- skillbasierte Skalierung fÃ¼r Stat-Ziele
-  zum Beispiel "addiere den Skillwert von Fertigkeit X auf VW oder Initiative"
-- optionale Caps, Rundungsmodi und Mindest-Schulstufen
+The productive rule semantics live in `charsheet/modifiers/`.
 
-Dadurch kann die Engine viele Regeltexte datengetrieben auswerten, ohne für jede Technik oder jeden Trait eine Spezialbehandlung im Code zu benötigen.
+## TraitSemanticEffect
 
-## Persistente UI- und Workflow-Daten
+`TraitSemanticEffect` is the persisted bridge between the admin and the new modifier engine.
 
-Nicht alle Modelle repräsentieren "klassische Regeln". Ein Teil stützt direkte Anwendungsvorgänge:
+In practical terms:
 
-- `CharacterCreationDraft`
-  speichert den mehrphasigen Erstellungszustand als JSON
-- `CharacterDiaryEntry`
-  speichert das Tagebuch serverseitig und ersetzt lokale Browser-only Daten
-- `CharacterTechniqChoice`
-  speichert dauerhafte Spielerentscheidungen für Techniken
+- `Trait` says which advantage or disadvantage exists
+- `TraitSemanticEffect` says what that trait actually does in rules terms
+- `ModifierEngine` materializes each effect row into a typed modifier at runtime
 
-## Wichtige Validierungsregeln
+This model exists so that editors can maintain semantic trait behavior in the admin without changing Python code for every new trait.
 
-- `RaceAttributeLimit` verlangt `min_val <= max_val`.
-- Nicht stackbare `CharacterItem`s dürfen nur `amount = 1` haben.
-- Stackbare Items dürfen nicht ausgerüstet sein.
-- `ArmorStats` sind nur für Items vom Typ `armor` gültig.
-- `ShieldStats` sind nur für Items vom Typ `shield` gültig.
-- `WeaponStats` sind nur für Items vom Typ `weapon` gültig.
-- Zweihanddaten in `WeaponStats` sind nur bei passenden Führungsarten erlaubt.
-- `CharacterTrait` und `CharacterLanguage` validieren gegen die Grenzen ihrer Stammdaten.
-- `CharacterSchoolPath` und `CharacterSpecialization` prüfen, ob der Charakter die zugrunde liegende Schule kennt.
-- `CharacterTechniqChoice` erzwingt genau ein Ziel und prüft, ob es zum konfigurierten Choice-Typ der Technik passt.
+Typical uses include:
+
+- creation-only economy effects such as `starting_funds`
+- rule flags such as blindness, muteness, or no bleeding
+- capability changes such as `can_see` or `can_walk_normally`
+- social tags and statuses
+- narrative or behavioral tags
+- conditional effects via `condition_set`
+
+Important fields:
+
+- `target_domain`
+- `target_key`
+- `operator`
+- `value`
+- `condition_set`
+- `metadata`
+
+Example mental model:
+
+- Trait: `Arm`
+- Semantic Effect: `economy / starting_funds / override / 0`
+- Condition: `{"applies_during_character_creation": true}`
+
+That means the disadvantage does not act like a generic numeric malus. It specifically overrides starting funds during character creation.
+
+### Base Layer
+
+- `BaseModifier`
+  - generic typed modifier carrier
+  - contains source, target, operator, scaling, priority, visibility, conditions, notes, and metadata
+- `ConditionSet`
+  - central applicability model
+
+### Typed Specializations
+
+- `SkillModifier`
+- `TraitModifier`
+- `DerivedStatModifier`
+- `ResourceModifier`
+- `ResistanceModifier`
+- `MovementModifier`
+- `CombatModifier`
+- `PerceptionModifier`
+- `EconomyModifier`
+- `SocialModifier`
+- `RuleFlagModifier`
+- `ConditionalModifier`
+- `ItemModifier`
+- `SpecializationModifier`
+- `EntityModifier`
+
+### Why This Split Exists
+
+Advantages and disadvantages in Arcane Codex are not only numeric.
+
+The typed modifier domain therefore separates:
+
+- numeric modifiers
+- rule flags
+- capabilities
+- resistances and immunities
+- movement and combat semantics
+- social and economy effects
+- behavioral and narrative tags
+- build-time validation rules
+
+## Build Validation Model
+
+Structured build validation lives beside the modifier domain:
+
+- `TraitBuildRule`
+- `CharacterBuildValidator`
+- `BuildValidationIssue`
+
+This layer handles creation-only concerns such as:
+
+- CP costs and refunds
+- rank ranges
+- repeatability
+- overlap and exclusivity
+- included disadvantages
+- disadvantage caps
+
+## Character and Engine Connection
+
+`Character` exposes `get_engine()` / `character.engine` as the main read-side entry point.
+
+The engine:
+
+- loads persisted model state
+- translates persisted legacy modifier rows into typed modifiers
+- loads persisted `TraitSemanticEffect` rows from traits
+- resolves all productive modifier outcomes through `ModifierEngine`
+
+## What Still Counts as Legacy
+
+The following elements still exist for continuity and editor workflows:
+
+- the persisted `Modifier` model
+- existing foreign keys and choice-definition relations pointing to `Modifier`
+- migration inventory and diagnostic reporting
+- debug-only legacy comparison helpers
+
+What no longer counts as legacy in production:
+
+- numeric modifier totals
+- skill modifier totals
+- derived stat modifier totals
+- combat damage modifier totals
+- choice-bound modifier totals
+
+Those now come from the typed modifier engine.

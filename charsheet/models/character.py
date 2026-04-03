@@ -57,13 +57,27 @@ class Character(models.Model):
         """Return the cached calculation engine for this character instance."""
         return self.get_engine()
 
-    def get_engine(self, *, refresh: bool = False):
+    def get_engine(self, *, refresh: bool = False, modifier_resolution_mode: str | None = None):
         """Return a reusable engine instance for repeated calculations."""
         cache_key = "_character_engine"
-        if refresh or cache_key not in self.__dict__:
+        cached_engine = self.__dict__.get(cache_key)
+        normalized_mode = None if modifier_resolution_mode is None else str(modifier_resolution_mode).lower()
+        cached_mode = getattr(cached_engine, "modifier_resolution_mode", None)
+        cached_mode_value = getattr(cached_mode, "value", cached_mode)
+        if (
+            refresh
+            or cached_engine is None
+            or (
+                modifier_resolution_mode is not None
+                and str(cached_mode_value or "").lower() != normalized_mode
+            )
+        ):
             from ..engine import CharacterEngine
 
-            self.__dict__[cache_key] = CharacterEngine(self)
+            self.__dict__[cache_key] = CharacterEngine(
+                self,
+                modifier_resolution_mode=modifier_resolution_mode,
+            )
         return self.__dict__[cache_key]
 
 

@@ -123,16 +123,15 @@
               >
                 <details class="shop_group" data-learn-group open>
                   <summary><span>Vor- & Nachteile</span><span class="shop_group_count">{{ learn_trait_count }}</span></summary>
-                  <p class="learn_traits_note">Vor- und Nachteile werden derzeit nicht über EP im Lernmenü gelernt.</p>
                   {% for group in learn_trait_groups %}
                     <details class="shop_group learn_subgroup" data-learn-group open>
                       <summary><span>{{ group.name }}</span><span class="shop_group_count">{{ group.rows|length }}</span></summary>
                       <table class="shop_table">
                         <tbody>
                           {% for row in group.rows %}
-                            <tr{% if row.description %} class="tooltip_target" data-tooltip-side="left" data-tooltip="{{ row.description }}"{% endif %}>
+                            <tr data-learn-source data-kind="trait" data-key="trait:{{ row.slug }}" data-slug="{{ row.slug }}" data-name="{{ row.name }}" data-trait-type="{{ row.trait_type }}" data-base="{{ row.base_level }}" data-min="{{ row.min_level }}" data-max="{{ row.max_level }}" data-ppl="{{ row.points_per_level }}" data-learn-search="{{ row.name|lower }} {{ group.name|lower }} vorteil nachteil trait" tabindex="0" role="button" aria-label="{{ row.name }} aendern"{% if row.description %} class="tooltip_target" data-tooltip-side="left" data-tooltip="{{ row.description }}"{% endif %}>
                               <td class="shop_item_name">{{ row.name }}</td>
-                              <td class="shop_item_price">Aktuell {{ row.base_level }} | Min {{ row.min_level }} | Max {{ row.max_level }} | {{ row.points_per_level }} GP/Stufe</td>
+                              <td class="shop_item_price">Aktuell {{ row.base_level }} | Min {{ row.min_level }} | Max {{ row.max_level }} | {{ row.points_per_level }} EP/Stufe</td>
                             </tr>
                           {% endfor %}
                         </tbody>

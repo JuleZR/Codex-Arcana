@@ -1,0 +1,134 @@
+@page {
+  size: A4 portrait;
+  margin: 0;
+}
+
+@media print {
+  :root {
+    --page-height: 297mm;
+    --page-width: 210mm;
+    --page-gap: 0;
+    --card-gap: 4px;
+    --stat-cell-size: 32px;
+  }
+
+  html,
+  body {
+    height: auto !important;
+    background: #fff !important;
+    overflow: visible !important;
+  }
+
+  body {
+    font-size: 10.5pt !important;
+    color: #000 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .sheet-side-stack,
+  .sheet-window,
+  .sheet-dice-dock,
+  #dddice,
+  #roll-result,
+  .firefly-layer,
+  .floating-tooltip {
+    display: none !important;
+  }
+
+  .book-spread {
+    min-height: 0 !important;
+    display: block !important;
+    width: auto !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  .page {
+    width: var(--page-width) !important;
+    height: var(--page-height) !important;
+    min-height: 0 !important;
+    max-width: none !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+    clip-path: none !important;
+    overflow: hidden !important;
+    break-after: page;
+    page-break-after: always;
+    page-break-inside: avoid;
+  }
+
+  .page:last-child {
+    break-after: auto;
+    page-break-after: auto;
+  }
+
+  .page:first-child::before,
+  .page--secondary::before {
+    opacity: 0.12 !important;
+  }
+
+  .page:first-child {
+    display: grid !important;
+    grid-template-columns: 290px minmax(0, 1fr) !important;
+    grid-template-rows: auto 1fr !important;
+    gap: var(--card-gap) !important;
+    padding: var(--card-gap) !important;
+  }
+
+  .p1_top {
+    grid-column: 1 / -1 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .p1_bottom_left {
+    grid-column: 1 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .p1_bottom_right {
+    grid-column: 2 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    min-height: 0 !important;
+  }
+
+  .page--secondary {
+    padding: 8px !important;
+  }
+
+  .p2_layout {
+    display: grid !important;
+    grid-template-columns: minmax(0, 32%) minmax(0, 68%) !important;
+    gap: 8px !important;
+    height: 100% !important;
+  }
+
+  .p2_left_col,
+  .p2_right_col {
+    min-height: 0 !important;
+    min-width: 0 !important;
+  }
+
+  .body_grid {
+    grid-template-columns: minmax(0, 1fr) 120px minmax(0, 1fr) !important;
+  }
+
+  .body_center {
+    min-height: 255px !important;
+  }
+
+  .skills_wrapper,
+  .language_list,
+  .inventory_scroll,
+  .schools_scroll,
+  .weapons_scroll {
+    overflow: hidden !important;
+  }
+
+  .weapons_table thead th {
+    position: static !important;
+  }
+}

@@ -153,6 +153,7 @@
                             <td class="dashboard_action_cell">
                               <div class="dashboard_actions_inline">
                                 <a class="dashboard_button dashboard_button--small" href="{% url 'character_sheet' row.character.id %}">Öffnen</a>
+                                <button type="button" class="dashboard_button dashboard_button--small" data-print-url="{% url 'character_sheet' row.character.id %}">Drucken</button>
                                 <form method="post" action="{% url 'archive_character' row.character.id %}">
                                   {% csrf_token %}
                                   <button type="submit" class="dashboard_button dashboard_button--small">Archivieren</button>
@@ -331,6 +332,122 @@ if (dddiceCheckbox) {
           setTimeout(function () {
             message.classList.add("is-hidden");
           }, 2000);
+        });
+
+        const printButtons = Array.from(document.querySelectorAll("[data-print-url]"));
+        let activePrintFrame = null;
+
+        const cleanupPrintFrame = function () {
+          if (activePrintFrame && activePrintFrame.parentNode) {
+            activePrintFrame.parentNode.removeChild(activePrintFrame);
+          }
+          activePrintFrame = null;
+        };
+
+        const cloneSheetMarkup = function (htmlText) {
+          const parser = new DOMParser();
+          const sourceDoc = parser.parseFromString(htmlText, "text/html");
+          sourceDoc.querySelectorAll("script").forEach(function (script) {
+            script.remove();
+          });
+          if (sourceDoc.body) {
+            sourceDoc.body.classList.add("print-popup-host");
+          }
+
+          const helperStyle = sourceDoc.createElement("style");
+          helperStyle.textContent = `
+@media screen {
+  html, body {
+    width: 100vw !important;
+    height: 100vh !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    background: #f3efe6 !important;
+  }
+
+  .book-spread {
+    min-height: 100vh !important;
+    width: 100vw !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    gap: 0 !important;
+    justify-content: flex-start !important;
+    align-items: flex-start !important;
+  }
+
+  .page {
+    margin: 0 !important;
+    box-shadow: none !important;
+    clip-path: none !important;
+  }
+}
+          `;
+          sourceDoc.head.appendChild(helperStyle);
+
+          return "<!DOCTYPE html>\n" + sourceDoc.documentElement.outerHTML;
+        };
+
+        const printViaIframe = function (url) {
+          cleanupPrintFrame();
+
+          const printFrame = document.createElement("iframe");
+          printFrame.setAttribute("aria-hidden", "true");
+          printFrame.tabIndex = -1;
+          printFrame.style.position = "fixed";
+          printFrame.style.left = "-10000px";
+          printFrame.style.top = "0";
+          printFrame.style.width = Math.max(window.innerWidth, 1400) + "px";
+          printFrame.style.height = Math.max(window.innerHeight, 1000) + "px";
+          printFrame.style.opacity = "0";
+          printFrame.style.pointerEvents = "none";
+          printFrame.style.border = "0";
+          activePrintFrame = printFrame;
+
+          printFrame.addEventListener("load", function () {
+            window.setTimeout(function () {
+              const printWindow = printFrame.contentWindow;
+              if (!printWindow) {
+                cleanupPrintFrame();
+                return;
+              }
+
+              let cleanedUp = false;
+              const finishPrint = function () {
+                if (cleanedUp) {
+                  return;
+                }
+                cleanedUp = true;
+                window.setTimeout(cleanupPrintFrame, 300);
+              };
+
+              try {
+                printWindow.addEventListener("afterprint", finishPrint, { once: true });
+              } catch (_error) {
+              }
+              window.addEventListener("focus", finishPrint, { once: true });
+              window.setTimeout(finishPrint, 60000);
+
+              printWindow.focus();
+              printWindow.print();
+            }, 700);
+          }, { once: true });
+
+          document.body.appendChild(printFrame);
+          printFrame.src = url;
+        };
+
+        const startCharacterPrint = function (url) {
+          if (!url) {
+            return;
+          }
+          printViaIframe(url);
+        };
+
+        printButtons.forEach(function (button) {
+          button.addEventListener("click", function () {
+            startCharacterPrint(button.getAttribute("data-print-url"));
+          });
         });
 
         const openButtons = Array.from(document.querySelectorAll("[data-open-creation-window]"));

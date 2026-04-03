@@ -22,12 +22,14 @@ from charsheet.models import (
     CharacterSchoolPath,
     CharacterSpecialization,
     CharacterSkill,
+    CharacterTrait,
     CharacterTechnique,
     CharacterTechniqueChoice,
     Language,
     School,
     Skill,
     Technique,
+    Trait,
 )
 
 
@@ -237,6 +239,7 @@ def _reset_invalid_school_progression(character: Character) -> None:
 
 def process_learning_submission(character: Character, post_data) -> tuple[str, str]:
     """Apply one learning-menu submission and return message level plus text."""
+    engine = character.get_engine(refresh=True)
     attribute_limits = {
         limit.attribute.short_name: {
             "min": int(limit.min_value),
@@ -258,6 +261,11 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
         row.language.slug: row
         for row in CharacterLanguage.objects.filter(owner=character).select_related("language")
     }
+    trait_defs = {trait.slug: trait for trait in Trait.objects.all()}
+    trait_rows = {
+        row.trait.slug: row
+        for row in CharacterTrait.objects.filter(owner=character).select_related("trait")
+    }
     school_defs = {str(school.id): school for school in School.objects.all()}
     school_rows = {
         str(row.school_id): row
@@ -267,13 +275,11 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
 
     total_cost = 0
     attr_plan: dict[str, int] = {}
+    trait_plan: dict[str, int] = {}
     skill_plan: dict[str, int] = {}
     language_plan: dict[str, dict[str, object]] = {}
     school_plan: dict[str, int] = {}
     has_progression_inputs = _has_progression_inputs(post_data)
-
-    if any(key.startswith("learn_adv_target_") for key in post_data.keys()):
-        return "error", "Vorteile koennen nicht ueber EP gelernt werden."
 
     for short_name, bounds in attribute_limits.items():
         key = f"learn_attr_add_{short_name}"
@@ -294,6 +300,44 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
         step_cost = calc_attribute_total_cost(target_value, max_value) - calc_attribute_total_cost(base_value, max_value)
         total_cost += step_cost
         attr_plan[short_name] = add
+
+    planned_advantages = {
+        slug: int(row.trait_level)
+        for slug, row in trait_rows.items()
+        if row.trait.trait_type == Trait.TraitType.ADV and int(row.trait_level) > 0
+    }
+    planned_disadvantages = {
+        slug: int(row.trait_level)
+        for slug, row in trait_rows.items()
+        if row.trait.trait_type == Trait.TraitType.DIS and int(row.trait_level) > 0
+    }
+
+    for slug, trait in trait_defs.items():
+        key = f"learn_trait_add_{slug}"
+        if key not in post_data:
+            continue
+        add = _read_int(post_data, key, 0)
+        base_level = int(trait_rows.get(slug).trait_level if slug in trait_rows else 0)
+        target_level = base_level + add
+        error = engine.validate_trait_target_level(trait, target_level)
+        if error:
+            return "error", error
+        if add == 0:
+            continue
+        total_cost += engine.trait_learning_delta_cost(trait, base_level, target_level)
+        trait_plan[slug] = target_level
+        target_map = planned_advantages if trait.trait_type == Trait.TraitType.ADV else planned_disadvantages
+        if target_level > 0:
+            target_map[slug] = target_level
+        else:
+            target_map.pop(slug, None)
+
+    advantage_issues = engine.validate_trait_selection(Trait.TraitType.ADV, planned_advantages)
+    if advantage_issues:
+        return "error", advantage_issues[0]
+    disadvantage_issues = engine.validate_trait_selection(Trait.TraitType.DIS, planned_disadvantages)
+    if disadvantage_issues:
+        return "error", disadvantage_issues[0]
 
     for slug, skill in skill_defs.items():
         key = f"learn_skill_add_{slug}"
@@ -357,7 +401,9 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
         total_cost += add * 8
         school_plan[school_id] = add
 
-    if total_cost == 0 and not has_progression_inputs:
+    has_ep_changes = any((attr_plan, trait_plan, skill_plan, language_plan, school_plan))
+
+    if total_cost == 0 and not has_ep_changes and not has_progression_inputs:
         return "info", "Keine Lernkosten erkannt."
 
     if total_cost > int(character.current_experience):
@@ -371,6 +417,21 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
                     continue
                 attr_row.base_value = int(attr_row.base_value) + add
                 attr_row.save(update_fields=["base_value"])
+
+            for slug, target_level in trait_plan.items():
+                trait = trait_defs[slug]
+                trait_row = trait_rows.get(slug)
+                if trait_row is None:
+                    if target_level <= 0:
+                        continue
+                    trait_row = CharacterTrait.objects.create(owner=character, trait=trait, trait_level=target_level)
+                    trait_rows[slug] = trait_row
+                elif target_level <= 0:
+                    trait_row.delete()
+                    trait_rows.pop(slug, None)
+                else:
+                    trait_row.trait_level = target_level
+                    trait_row.save(update_fields=["trait_level"])
 
             for slug, add in skill_plan.items():
                 skill = skill_defs[slug]
@@ -450,6 +511,8 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
     parts: list[str] = []
     if total_cost > 0:
         parts.append(f"{total_cost} EP ausgegeben")
+    elif total_cost < 0:
+        parts.append(f"{abs(total_cost)} EP erhalten")
     if progression_summary["paths"]:
         parts.append(f"{progression_summary['paths']} Pfadwahl(en) gespeichert")
     if progression_summary["techniques"]:
@@ -458,6 +521,8 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
         parts.append(f"{progression_summary['specializations']} Spezialisierung(en) vergeben")
     if progression_summary["choices"]:
         parts.append(f"{progression_summary['choices']} Auswahl(en) gespeichert")
+    if not parts and has_ep_changes:
+        parts.append("Aenderungen gespeichert")
     if not parts:
         return "info", "Keine Lernkosten erkannt."
     return "success", f"Lernen abgeschlossen: {', '.join(parts)}."

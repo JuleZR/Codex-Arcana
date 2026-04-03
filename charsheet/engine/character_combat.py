@@ -142,4 +142,4 @@ def current_wound_penalty_raw(engine) -> int:
 
 def is_wound_penalty_ignored(engine) -> bool:
     """Return whether wound penalties are currently ignored."""
-    return bool(engine._resolve_stat_modifiers(WOUND_PENALTY_IGNORE))
+    return bool(engine.resolve_flags().get(WOUND_PENALTY_IGNORE, False))

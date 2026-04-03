@@ -4,6 +4,10 @@ from __future__ import annotations
 
 from django.db import transaction
 
+from charsheet.modifiers import CharacterBuildValidator, TraitBuildRule
+from charsheet.modifiers.definitions import TargetDomain
+from charsheet.modifiers.engine import ModifierEngine
+from charsheet.modifiers.registry import build_trait_semantic_modifiers
 from charsheet.models import (
     Attribute,
     Character,
@@ -172,7 +176,11 @@ class CharacterCreationEngine:
                 return False
             if level < trait.min_level or level > trait.max_level:
                 return False
-        return self.sum_phase_3_disadvantage_cost() <= self.race.phase_3_points
+        validator = self._build_trait_validator(Trait.TraitType.DIS, max_disadvantage_cp=self.race.phase_3_points)
+        return (
+            self.sum_phase_3_disadvantage_cost() <= self.race.phase_3_points
+            and not validator.validate(self.phase_3_disadvantages())
+        )
 
     # Phase 4
     def phase_4_advantages(self) -> dict[str, int]:
@@ -344,7 +352,60 @@ class CharacterCreationEngine:
 
         if self.sum_phase_4_advantages_cost() > self.calculate_phase_4_advantages_budget():
             return False
+        validator = self._build_trait_validator(Trait.TraitType.ADV)
+        if validator.validate(self.phase_4_advantages()):
+            return False
         return self.sum_phase_4_total_cost() <= self.calculate_phase_4_budget()
+
+    def _build_trait_validator(self, trait_type: str, *, max_disadvantage_cp: int = 20) -> CharacterBuildValidator:
+        """Build a creation-time trait validator from persisted trait definitions."""
+        rules: dict[str, TraitBuildRule] = {}
+        for trait in Trait.objects.filter(trait_type=trait_type):
+            rules[trait.slug] = TraitBuildRule(
+                slug=trait.slug,
+                cp_cost=int(trait.points_per_level) if trait_type == Trait.TraitType.ADV else 0,
+                cp_refund=int(trait.points_per_level) if trait_type == Trait.TraitType.DIS else 0,
+                min_rank=int(trait.min_level),
+                max_rank=int(trait.max_level),
+                repeatable=int(trait.max_level) > 1,
+            )
+        return CharacterBuildValidator(rules=rules, max_disadvantage_cp=max_disadvantage_cp)
+
+    def _creation_trait_semantic_modifiers(self) -> list:
+        """Build semantic trait modifiers for creation-only resolution before CharacterTrait rows exist."""
+        modifiers: list = []
+        for slug, level in self.phase_3_disadvantages().items():
+            if level > 0:
+                trait = Trait.objects.filter(slug=slug, trait_type=Trait.TraitType.DIS).first()
+                modifiers.extend(
+                    build_trait_semantic_modifiers(
+                        trait_slug=slug,
+                        level=level,
+                        trait=trait,
+                        allow_persisted_lookup=False,
+                    )
+                )
+        for slug, level in self.phase_4_advantages().items():
+            if level > 0:
+                trait = Trait.objects.filter(slug=slug, trait_type=Trait.TraitType.ADV).first()
+                modifiers.extend(
+                    build_trait_semantic_modifiers(
+                        trait_slug=slug,
+                        level=level,
+                        trait=trait,
+                        allow_persisted_lookup=False,
+                    )
+                )
+        return modifiers
+
+    def resolve_creation_starting_funds(self) -> int:
+        """Resolve one-time starting funds from creation-only economy modifiers."""
+        engine = ModifierEngine(modifiers=self._creation_trait_semantic_modifiers())
+        return engine.resolve_numeric_total(
+            TargetDomain.ECONOMY,
+            "starting_funds",
+            context={"during_character_creation": True},
+        )
 
     @staticmethod
     def grant_race_starting_items(character):
@@ -447,6 +508,11 @@ class CharacterCreationEngine:
                 school = School.objects.filter(pk=self._to_int(school_id, -1)).first()
                 if school and level > 0:
                     CharacterSchool.objects.create(character=character, school=school, level=level)
+
+            starting_funds_delta = self.resolve_creation_starting_funds()
+            if starting_funds_delta:
+                character.money = max(0, int(character.money) + int(starting_funds_delta))
+                character.save(update_fields=["money"])
 
             self.grant_race_starting_items(character)
             self.draft.delete()
