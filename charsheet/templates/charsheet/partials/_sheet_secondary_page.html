@@ -113,16 +113,17 @@
               class="school_row_with_tooltip tooltip_target{% if row.kind == 'race_technique' %} school_row_with_tooltip--race{% endif %}{% if row.show_group_separator %} school_row_with_tooltip--separator{% endif %}"
               data-tooltip-side="left"
               data-tooltip="{{ row.description|default:'Keine Beschreibung' }}"
-              data-school-search="{% if row.kind == 'race_technique' %}{{ row.school_name|lower }} {{ row.entry_name|lower }}{% else %}{{ row.level }} {{ row.school_name|lower }} {{ row.entry_name|lower }}{% endif %}"
+              data-school-search="{% if row.kind == 'race_technique' %}{{ row.school_name|lower }} {{ row.entry_name|lower }}{% else %}{{ row.level }} {{ row.level_label|default:row.level }} {{ row.school_name|lower }} {{ row.entry_name|lower }}{% endif %}"
             >
-              <div class="skill_name_wrap">
-                <span class="skill_name_text">
+              <div class="skill_name_wrap school_row_layout">
+                <span class="school_row_label">
                   {% if row.kind == 'race_technique' %}
-                  <span class="school_row_origin">{{ row.school_name }}</span> - {{ row.entry_name }}
+                  <span class="school_row_origin">{{ row.school_name }}</span>
                   {% else %}
-                  {{ row.level }} - {{ row.school_name }} - {{ row.entry_name }}
+                  {{ row.school_name }} {{ row.level_label|default:row.level }}
                   {% endif %}
                 </span>
+                <span class="skill_name_text">{{ row.entry_name }}</span>
                 {% if row.can_edit_specification %}
                 <button
                   type="button"

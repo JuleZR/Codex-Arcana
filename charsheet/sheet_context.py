@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections import OrderedDict
 
-from charsheet.constants import DAMAGE_TYPE_CHOICES, GK_MODS, QUALITY_CHOICES, QUALITY_COLOR_MAP
+from charsheet.constants import ATTRIBUTE_ORDER, DAMAGE_TYPE_CHOICES, GK_MODS, QUALITY_CHOICES, QUALITY_COLOR_MAP
 from charsheet.engine import ItemEngine
 from charsheet.forms import (
     CharacterInfoInlineForm,
@@ -31,16 +31,6 @@ from charsheet.models import (
 )
 from charsheet.view_utils import format_compact_number, format_modifier, format_thousands, quality_payload
 
-
-ATTRIBUTE_ORDER = [
-    ("ST", "Stärke (St)"),
-    ("KON", "Konstitution (Kon)"),
-    ("GE", "Geschick (Ge)"),
-    ("WA", "Wahrnehmung (Wa)"),
-    ("INT", "Intelligenz (Int)"),
-    ("WILL", "Willenskraft (Will)"),
-    ("CHA", "Charisma (Cha)"),
-]
 
 SHOP_GROUP_LABELS = {
     Item.ItemType.WEAPON: "Waffen",
@@ -74,6 +64,34 @@ RUNE_RETROFIT_ITEM_TYPES = {Item.ItemType.ARMOR, Item.ItemType.WEAPON, Item.Item
 def _single_line(value: str) -> str:
     """Collapse multiline text into one tooltip-friendly line."""
     return " ".join(str(value or "").replace("\r", "\n").split())
+
+
+def _to_roman(value: int | None) -> str:
+    """Convert positive integers into Roman numerals for school level labels."""
+    number = int(value or 0)
+    if number <= 0:
+        return ""
+    numerals = (
+        (1000, "M"),
+        (900, "CM"),
+        (500, "D"),
+        (400, "CD"),
+        (100, "C"),
+        (90, "XC"),
+        (50, "L"),
+        (40, "XL"),
+        (10, "X"),
+        (9, "IX"),
+        (5, "V"),
+        (4, "IV"),
+        (1, "I"),
+    )
+    parts: list[str] = []
+    for arabic, roman in numerals:
+        while number >= arabic:
+            parts.append(roman)
+            number -= arabic
+    return "".join(parts)
 
 
 def _rune_image_url(rune: Rune) -> str:
@@ -392,6 +410,7 @@ def _build_school_technique_rows(character: Character, engine) -> tuple[list[dic
                     {
                         "kind": "technique",
                         "level": technique.level,
+                        "level_label": _to_roman(technique.level),
                         "school_name": technique.school.name,
                         "entry_name": entry_name,
                         "description": technique.description,
@@ -409,6 +428,7 @@ def _build_school_technique_rows(character: Character, engine) -> tuple[list[dic
                 {
                     "kind": "specialization",
                     "level": "Spez.",
+                    "level_label": "Spez.",
                     "school_name": school_entry.school.name,
                     "entry_name": specialization.name,
                     "description": specialization.description,
@@ -423,6 +443,7 @@ def _build_school_technique_rows(character: Character, engine) -> tuple[list[dic
                     {
                         "kind": "technique_specialization",
                         "level": "Spez.",
+                        "level_label": "Spez.",
                         "school_name": technique.school.name,
                         "entry_name": f"{choice.selected_specialization.name} ({technique.name})",
                         "display_name": f"{choice.selected_specialization.name} ({technique.name})",
@@ -701,11 +722,20 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
         if size_class in GK_MODS
         else "-"
     )
+    movement_profile = engine.resolve_movement()
+    ground_combat = int(race.combat_speed or 0) + int(movement_profile.values.get("ground_combat", 0))
+    ground_march = int(race.march_speed or 0) + int(movement_profile.values.get("ground_march", 0))
+    ground_sprint = int(race.sprint_speed or 0) + int(movement_profile.values.get("ground_sprint", 0))
+    swim_speed = int(race.swimming_speed or 0) + int(movement_profile.values.get("swim", 0))
     fly_value = "-"
-    if race.can_fly:
-        combat_fly = race.combat_fly_speed if race.combat_fly_speed is not None else 0
-        march_fly = race.march_fly_speed if race.march_fly_speed is not None else 0
-        sprint_fly = race.sprint_fly_speed if race.sprint_fly_speed is not None else 0
+    has_flight = race.can_fly or any(
+        key in movement_profile.values
+        for key in ("fly_combat", "fly_march", "fly_sprint")
+    )
+    if has_flight and "fly" not in movement_profile.blocked_modes:
+        combat_fly = int(race.combat_fly_speed or 0) + int(movement_profile.values.get("fly_combat", 0))
+        march_fly = int(race.march_fly_speed or 0) + int(movement_profile.values.get("fly_march", 0))
+        sprint_fly = int(race.sprint_fly_speed or 0) + int(movement_profile.values.get("fly_sprint", 0))
         fly_value = " | ".join(
             (
                 format_compact_number(combat_fly),
@@ -714,10 +744,10 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
             )
         )
     movement_ground = {
-        "combat": format_compact_number(race.combat_speed),
-        "march": format_compact_number(race.march_speed),
-        "sprint": format_compact_number(race.sprint_speed),
-        "swim": format_compact_number(race.swimming_speed),
+        "combat": format_compact_number(ground_combat),
+        "march": format_compact_number(ground_march),
+        "sprint": format_compact_number(ground_sprint),
+        "swim": format_compact_number(swim_speed),
         "fly": fly_value,
     }
 
