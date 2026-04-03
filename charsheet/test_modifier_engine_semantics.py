@@ -1,0 +1,192 @@
+"""Tests for the new semantic modifier engine layer."""
+
+from types import SimpleNamespace
+from unittest.mock import patch
+
+from django.test import SimpleTestCase
+
+from charsheet.engine.character_creation_engine import CharacterCreationEngine
+from charsheet.models import Trait, TraitSemanticEffect
+from charsheet.modifiers import (
+    CharacterBuildValidator,
+    EconomyModifier,
+    ModifierEngine,
+    ModifierOperator,
+    MovementModifier,
+    ResistanceModifier,
+    RuleFlagModifier,
+    SocialModifier,
+    TargetDomain,
+    TraitBuildRule,
+)
+from charsheet.modifiers.registry import build_trait_semantic_modifiers, riches_gold_value, riches_internal_money_value
+
+
+class ModifierEngineSemanticTests(SimpleTestCase):
+    """Verify semantic modifier domains beyond the legacy numeric system."""
+
+    def test_rule_flag_and_capability_modifiers_resolve(self):
+        engine = ModifierEngine(
+            modifiers=[
+                RuleFlagModifier(
+                    source_type="trait",
+                    source_id="blind",
+                    target_key="blind",
+                    operator=ModifierOperator.SET_FLAG,
+                    value=True,
+                ),
+                RuleFlagModifier(
+                    source_type="trait",
+                    source_id="blind",
+                    target_domain=TargetDomain.CAPABILITY,
+                    target_key="can_see",
+                    operator=ModifierOperator.REMOVE_CAPABILITY,
+                    value=False,
+                ),
+            ]
+        )
+
+        self.assertEqual(engine.resolve_flags(), {"blind": True})
+        self.assertEqual(engine.resolve_capabilities(), {"can_see": False})
+
+    def test_resistance_and_movement_profiles_resolve(self):
+        engine = ModifierEngine(
+            modifiers=[
+                ResistanceModifier(
+                    source_type="trait",
+                    source_id="heat_vulnerability",
+                    target_key="natural_heat",
+                    operator=ModifierOperator.GRANT_VULNERABILITY,
+                    value=6,
+                ),
+                MovementModifier(
+                    source_type="trait",
+                    source_id="gehbehinderung",
+                    target_key="ground_combat",
+                    operator=ModifierOperator.FLAT_SUB,
+                    value=2,
+                ),
+            ]
+        )
+
+        resistances = engine.resolve_resistances()
+        movement = engine.resolve_movement()
+
+        self.assertEqual(resistances.vulnerabilities["natural_heat"], 6)
+        self.assertEqual(movement.values["ground_combat"], -2)
+
+    def test_social_profile_and_behavioral_tags_resolve(self):
+        engine = ModifierEngine(
+            modifiers=[
+                SocialModifier(
+                    source_type="trait",
+                    source_id="adel",
+                    target_key="status",
+                    operator=ModifierOperator.CHANGE_SOCIAL_STATUS,
+                    value=4,
+                ),
+                SocialModifier(
+                    source_type="trait",
+                    source_id="gesucht",
+                    target_key="legal_status",
+                    operator=ModifierOperator.ADD_TAG,
+                    value="wanted",
+                ),
+            ]
+        )
+
+        profile = engine.resolve_social_profile()
+
+        self.assertEqual(profile.statuses["status"], 4)
+        self.assertIn("wanted", profile.tags)
+
+    def test_creation_only_riches_modifier_uses_table_and_only_applies_during_creation(self):
+        modifiers = build_trait_semantic_modifiers(
+            trait_slug="adv_riches",
+            level=9,
+            trait=Trait(name="Reichtuemer", slug="adv_riches", trait_type=Trait.TraitType.ADV, description=""),
+        )
+
+        self.assertEqual(len(modifiers), 1)
+        self.assertIsInstance(modifiers[0], EconomyModifier)
+        self.assertEqual(riches_gold_value(9), 12000)
+        self.assertEqual(riches_internal_money_value(9), 1200000)
+
+        engine = ModifierEngine(modifiers=modifiers)
+
+        self.assertEqual(
+            engine.resolve_numeric_total(
+                TargetDomain.ECONOMY,
+                "starting_funds",
+                context={"during_character_creation": True},
+            ),
+            1200000,
+        )
+        self.assertEqual(
+            engine.resolve_numeric_total(TargetDomain.ECONOMY, "starting_funds"),
+            0,
+        )
+
+    @patch("charsheet.engine.character_creation_engine.Trait.objects.filter")
+    def test_character_creation_engine_resolves_starting_funds_from_new_modifier_system(self, filter_mock):
+        filter_mock.return_value.first.return_value = None
+        draft = SimpleNamespace(
+            race=SimpleNamespace(),
+            state={
+                "phase_3": {"disadvantages": {}},
+                "phase_4": {"advantages": {"adv_riches": 8}},
+            },
+        )
+
+        engine = CharacterCreationEngine(draft)
+
+        self.assertEqual(engine.resolve_creation_starting_funds(), 800000)
+
+    def test_persisted_trait_semantic_effect_materializes_typed_modifier(self):
+        trait = Trait(name="Arm", slug="arm", trait_type=Trait.TraitType.DIS, description="")
+        effect = TraitSemanticEffect(
+            trait=trait,
+            target_domain=TargetDomain.ECONOMY,
+            target_key="starting_funds",
+            operator=ModifierOperator.OVERRIDE,
+            value="0",
+            condition_set={"applies_during_character_creation": True},
+            metadata={"currency": "KM"},
+        )
+
+        modifier = effect.to_modifier()
+
+        self.assertIsInstance(modifier, EconomyModifier)
+        self.assertEqual(modifier.target_key, "starting_funds")
+        self.assertEqual(modifier.value, 0)
+        self.assertTrue(modifier.condition_set.applies_during_character_creation)
+        self.assertEqual(modifier.metadata["currency"], "KM")
+
+
+class CharacterBuildValidatorTests(SimpleTestCase):
+    """Validate build-time exclusion and CP cap rules."""
+
+    def test_disadvantage_cp_cap_is_enforced(self):
+        validator = CharacterBuildValidator(
+            rules={
+                "blind": TraitBuildRule(slug="blind", cp_refund=20, min_rank=1, max_rank=1),
+                "phobie": TraitBuildRule(slug="phobie", cp_refund=3, min_rank=1, max_rank=1),
+            },
+            max_disadvantage_cp=20,
+        )
+
+        issues = validator.validate({"blind": 1, "phobie": 1})
+
+        self.assertTrue(any(issue.code == "disadvantage_cap_exceeded" for issue in issues))
+
+    def test_overlap_group_blocks_double_dipping(self):
+        validator = CharacterBuildValidator(
+            rules={
+                "blind": TraitBuildRule(slug="blind", cp_refund=20, overlap_groups=("sight",)),
+                "kurzsichtig": TraitBuildRule(slug="kurzsichtig", cp_refund=2, overlap_groups=("sight",)),
+            }
+        )
+
+        issues = validator.validate({"blind": 1, "kurzsichtig": 1})
+
+        self.assertTrue(any(issue.code == "overlap_group_conflict" for issue in issues))

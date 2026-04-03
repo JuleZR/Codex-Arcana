@@ -228,3 +228,81 @@ WEAPON_SYMBOL_CHOICES = (
     (PARRY_BONUS, "P"),
     (UNARMED_DAMAGE, "*"),
 )
+
+# Canonical attribute display order shared across context builders and views
+ATTRIBUTE_ORDER = [
+    ("ST", "Stärke (St)"),
+    ("KON", "Konstitution (Kon)"),
+    ("GE", "Geschick (Ge)"),
+    ("WA", "Wahrnehmung (Wa)"),
+    ("INT", "Intelligenz (Int)"),
+    ("WILL", "Willenskraft (Will)"),
+    ("CHA", "Charisma (Cha)"),
+]
+
+# Modifier system constants used by TraitSemanticEffect and the modifier engine
+
+TARGET_DOMAIN_CHOICES = (
+    ("skill", "skill"),
+    ("skill_category", "skill_category"),
+    ("trait", "trait"),
+    ("attribute", "attribute"),
+    ("derived_stat", "derived_stat"),
+    ("resource", "resource"),
+    ("resistance", "resistance"),
+    ("movement", "movement"),
+    ("combat", "combat"),
+    ("perception", "perception"),
+    ("economy", "economy"),
+    ("social", "social"),
+    ("rule_flag", "rule_flag"),
+    ("capability", "capability"),
+    ("behavior", "behavior"),
+    ("tag", "tag"),
+    ("metadata", "metadata"),
+    ("item", "item"),
+    ("item_category", "item_category"),
+    ("specialization", "specialization"),
+    ("entity", "entity"),
+)
+
+MODIFIER_OPERATOR_CHOICES = (
+    ("flat_add", "flat_add"),
+    ("flat_sub", "flat_sub"),
+    ("multiply", "multiply"),
+    ("override", "override"),
+    ("min_value", "min_value"),
+    ("max_value", "max_value"),
+    ("set_flag", "set_flag"),
+    ("unset_flag", "unset_flag"),
+    ("add_tag", "add_tag"),
+    ("remove_tag", "remove_tag"),
+    ("grant_capability", "grant_capability"),
+    ("remove_capability", "remove_capability"),
+    ("grant_immunity", "grant_immunity"),
+    ("grant_vulnerability", "grant_vulnerability"),
+    ("change_resource_cap", "change_resource_cap"),
+    ("change_starting_funds", "change_starting_funds"),
+    ("change_appearance_class", "change_appearance_class"),
+    ("change_social_status", "change_social_status"),
+    ("reroll_grant", "reroll_grant"),
+    ("reroll_forbid", "reroll_forbid"),
+    ("repeat_action_allowed", "repeat_action_allowed"),
+    ("action_cost_change", "action_cost_change"),
+    ("conditional_bonus", "conditional_bonus"),
+    ("conditional_penalty", "conditional_penalty"),
+)
+
+STACK_BEHAVIOR_CHOICES = (
+    ("stack", "stack"),
+    ("highest", "highest"),
+    ("lowest", "lowest"),
+    ("override", "override"),
+    ("unique_by_source", "unique_by_source"),
+)
+
+MODIFIER_VISIBILITY_CHOICES = (
+    ("public", "public"),
+    ("internal", "internal"),
+    ("story", "story"),
+)

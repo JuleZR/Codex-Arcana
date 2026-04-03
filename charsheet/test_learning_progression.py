@@ -10,6 +10,7 @@ from charsheet.learning_progression import build_learning_progression_context, c
 from charsheet.models import (
     Attribute,
     Character,
+    CharacterSkill,
     CharacterRaceChoice,
     CharacterSchool,
     CharacterSchoolPath,
@@ -28,6 +29,7 @@ from charsheet.models import (
     SkillCategory,
     Specialization,
     Technique,
+    Trait,
 )
 
 
@@ -151,6 +153,31 @@ class LearningProgressionSubmissionTests(TestCase):
         choice = CharacterTechniqueChoice.objects.get(character=self.character, technique=technique)
         self.assertEqual(choice.selected_skill_id, self.music.id)
 
+    def test_learning_submission_applies_zero_cost_skill_swap(self):
+        """A zero-sum skill reallocation should still be persisted."""
+        second_skill = Skill.objects.create(
+            name="Singing",
+            slug="singing",
+            category=self.skill_category,
+            family="performance",
+            attribute=self.attribute,
+        )
+        CharacterSkill.objects.create(character=self.character, skill=self.music, level=2)
+        CharacterSkill.objects.create(character=self.character, skill=second_skill, level=1)
+
+        level, message = process_learning_submission(
+            self.character,
+            {
+                "learn_skill_add_music": "-1",
+                "learn_skill_add_singing": "1",
+            },
+        )
+
+        self.assertEqual(level, "success")
+        self.assertIn("Aenderungen gespeichert", message)
+        self.assertEqual(CharacterSkill.objects.get(character=self.character, skill=self.music).level, 1)
+        self.assertEqual(CharacterSkill.objects.get(character=self.character, skill=second_skill).level, 2)
+
     def test_learning_submission_can_store_missing_specialization_choice(self):
         """Technique choices that point at school specializations should also be supported."""
         technique = Technique.objects.create(
@@ -224,6 +251,68 @@ class LearningProgressionSubmissionTests(TestCase):
         )
         self.assertEqual(choice.selected_skill_id, leatherwork.id)
         self.assertEqual(self.character.get_engine(refresh=True)._resolve_choice_skill_modifiers(leatherwork.id), 2)
+
+    def test_learning_submission_can_learn_advantage_via_ep(self):
+        """Advantages should be learnable via EP using engine-backed trait costs."""
+        advantage = Trait.objects.create(
+            name="Wealthy",
+            slug="wealthy",
+            trait_type=Trait.TraitType.ADV,
+            description="Own more than most.",
+            min_level=1,
+            max_level=2,
+            points_per_level=3,
+        )
+
+        level, message = process_learning_submission(
+            self.character,
+            {
+                f"learn_trait_add_{advantage.slug}": "1",
+            },
+        )
+
+        self.assertEqual(level, "success")
+        self.assertIn("3 EP ausgegeben", message)
+        self.character.refresh_from_db()
+        self.assertEqual(self.character.current_experience, 17)
+        self.assertEqual(self.character.charactertrait_set.get(trait=advantage).trait_level, 1)
+
+    def test_learning_submission_can_learn_and_unlearn_disadvantage_via_ep(self):
+        """Disadvantages should also cost EP in post-creation learning."""
+        disadvantage = Trait.objects.create(
+            name="Debt",
+            slug="debt",
+            trait_type=Trait.TraitType.DIS,
+            description="You owe dangerous people money.",
+            min_level=1,
+            max_level=2,
+            points_per_level=4,
+        )
+
+        level, message = process_learning_submission(
+            self.character,
+            {
+                f"learn_trait_add_{disadvantage.slug}": "1",
+            },
+        )
+
+        self.assertEqual(level, "success")
+        self.assertIn("4 EP ausgegeben", message)
+        self.character.refresh_from_db()
+        self.assertEqual(self.character.current_experience, 16)
+
+        level, message = process_learning_submission(
+            self.character,
+            {
+                f"learn_trait_add_{disadvantage.slug}": "-1",
+            },
+        )
+
+        self.assertEqual(level, "success")
+        self.assertIn("4 EP ausgegeben", message)
+        self.character.refresh_from_db()
+        self.assertEqual(self.character.current_experience, 12)
+        self.assertFalse(self.character.charactertrait_set.filter(trait=disadvantage).exists())
 
 
     def test_learning_context_exposes_pending_school_path_decision(self):

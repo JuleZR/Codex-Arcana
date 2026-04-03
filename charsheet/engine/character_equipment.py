@@ -143,7 +143,7 @@ def get_grs(engine) -> int:
 
 def get_bel(engine) -> int:
     """Calculate the armor encumbrance value."""
-    if engine._resolve_stat_modifiers(ARMOR_PENALTY_IGNORE):
+    if engine.resolve_flags().get(ARMOR_PENALTY_IGNORE, False):
         return 0
     armor_bel = 0
     for armor in engine.equipped_armor_items():

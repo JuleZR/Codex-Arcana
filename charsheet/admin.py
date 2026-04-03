@@ -12,6 +12,8 @@ from django.utils.html import format_html, format_html_join
 
 from .constants import QUALITY_COLOR_MAP
 from .engine.item_engine import ItemEngine
+from .modifiers.legacy import LegacyModifierAdapter
+from .modifiers.registry import build_trait_semantic_modifiers
 from .models import (
     ArmorStats,
     Attribute,
@@ -52,6 +54,7 @@ from .models import (
     TechniqueExclusion,
     TechniqueRequirement,
     Trait,
+    TraitSemanticEffect,
     WeaponStats,
 )
 from .models.items import Rune, WeaponFlag
@@ -73,6 +76,90 @@ def _quality_badge(quality: str):
         '<strong style="color:{};text-shadow:-0.75px -0.75px 0 #000,0.75px -0.75px 0 #000,-0.75px 0.75px 0 #000,0.75px 0.75px 0 #000;">{}</strong>',
         color,
         resolved_quality,
+    )
+
+
+def _render_readonly_lines(lines, *, empty_text="-"):
+    """Render a list of admin preview lines with compact HTML line breaks."""
+    normalized = tuple((str(line),) for line in lines if str(line or "").strip())
+    if not normalized:
+        return format_html('<span style="color:#666;">{}</span>', empty_text)
+    return format_html_join(format_html("<br>"), "{}", normalized)
+
+
+def _modifier_preview_line(modifier):
+    """Render one typed modifier in a compact human-readable form."""
+    value = modifier.value
+    if value is True:
+        value_label = "true"
+    elif value is False:
+        value_label = "false"
+    elif value in (None, ""):
+        value_label = "-"
+    else:
+        value_label = str(value)
+    return f"{modifier.target_domain}:{modifier.target_key} [{modifier.operator}] -> {value_label}"
+
+
+def _trait_semantic_preview(trait, *, level: int | None = None):
+    """Render semantic central-engine effects for one trait definition or ownership row."""
+    if trait is None:
+        return format_html('<span style="color:#666;">{}</span>', "-")
+    resolved_level = max(1, int(level or getattr(trait, "min_level", 1) or 1))
+    modifiers = build_trait_semantic_modifiers(trait_slug=trait.slug, level=resolved_level, trait=trait)
+    if not modifiers:
+        return format_html(
+            '<span style="color:#666;">{}</span>',
+            "No semantic effects configured yet. Add rows in the Semantic Effects section below.",
+        )
+    return _render_readonly_lines(_modifier_preview_line(modifier) for modifier in modifiers)
+
+
+def _trait_semantic_editing_path(trait):
+    """Render where new-system trait effects are maintained."""
+    if trait is None:
+        return format_html('<span style="color:#666;">{}</span>', "-")
+    if getattr(trait, "pk", None) is None:
+        return _render_readonly_lines(
+            (
+                "Save the trait first.",
+                "Then add rows in the Semantic Effects inline to define its new-system behavior.",
+            )
+        )
+    effect_count = getattr(getattr(trait, "semantic_effects", None), "count", lambda: 0)()
+    if effect_count:
+        return _render_readonly_lines(
+            (
+                "This trait uses persisted semantic effects from the admin-managed Semantic Effects rows.",
+                "Changes here are picked up directly by the new ModifierEngine.",
+            )
+        )
+    return _render_readonly_lines(
+        (
+            "No persisted semantic effects are configured yet.",
+            "Add rows in the Semantic Effects inline below to activate new-system behavior for this trait.",
+        )
+    )
+
+
+def _trait_build_rule_preview(trait):
+    """Render the current creation/build rule interpretation for one trait."""
+    if trait is None:
+        return format_html('<span style="color:#666;">{}</span>', "-")
+    rank_mode = "repeatable" if int(trait.max_level) > 1 else "single pick"
+    if trait.trait_type == Trait.TraitType.ADV:
+        cp_line = f"Costs {trait.points_per_level} CP per level during creation."
+    else:
+        cp_line = (
+            f"Refunds {trait.points_per_level} CP per level during creation and counts against the disadvantage cap."
+        )
+    return _render_readonly_lines(
+        (
+            f"Allowed ranks: {trait.min_level} to {trait.max_level}.",
+            cp_line,
+            f"Selection mode: {rank_mode}.",
+            "Creation-only trait logic is validated centrally in the CharacterCreationEngine.",
+        )
     )
 
 
@@ -549,6 +636,7 @@ class ModifierInline(GenericStackedInline):
     extra = 0
     show_change_link = True
     classes = ("collapse",)
+    readonly_fields = ("resolved_target_domain", "resolved_target_key", "central_engine_summary")
     fieldsets = (
         (
             "Target",
@@ -565,6 +653,16 @@ class ModifierInline(GenericStackedInline):
         ("Value", {"fields": (("mode", "value"),)}),
         ("Scaling", {"fields": (("scale_source", "scale_school", "scale_skill"), ("mul", "div", "round_mode"))}),
         ("Cap", {"fields": (("cap_mode", "cap_source"), "min_school_level")}),
+        (
+            "Central Engine Mapping",
+            {
+                "fields": (("resolved_target_domain", "resolved_target_key"), "central_engine_summary"),
+                "description": (
+                    "This editor still manages the legacy numeric modifier rows. "
+                    "The central ModifierEngine adapts them at runtime into the new target domains."
+                ),
+            },
+        ),
     )
     autocomplete_fields = (
         "scale_school",
@@ -576,6 +674,27 @@ class ModifierInline(GenericStackedInline):
         "target_choice_definition",
         "target_race_choice_definition",
     )
+
+    @admin.display(description="Central Domain")
+    def resolved_target_domain(self, obj):
+        """Show which new target domain the legacy row maps to."""
+        if not obj or not getattr(obj, "pk", None):
+            return "-"
+        return LegacyModifierAdapter.adapt(obj).target_domain
+
+    @admin.display(description="Central Key")
+    def resolved_target_key(self, obj):
+        """Show the central-engine target key produced by the legacy adapter."""
+        if not obj or not getattr(obj, "pk", None):
+            return "-"
+        return LegacyModifierAdapter.adapt(obj).target_key
+
+    @admin.display(description="Engine Summary")
+    def central_engine_summary(self, obj):
+        """Show how the central engine interprets the legacy row."""
+        if not obj or not getattr(obj, "pk", None):
+            return format_html('<span style="color:#666;">{}</span>', "Saved rows get central-engine details here.")
+        return _render_readonly_lines((_modifier_preview_line(LegacyModifierAdapter.adapt(obj)),))
 
 
 class CharacterAttributeInline(admin.TabularInline):
@@ -1162,8 +1281,15 @@ class CharacterTraitInline(admin.TabularInline):
     extra = 0
     show_change_link = True
     autocomplete_fields = ("trait",)
-    fields = ("trait", "trait_level", "trait_min_level", "trait_max_level", "trait_points_per_level")
-    readonly_fields = ("trait_min_level", "trait_max_level", "trait_points_per_level")
+    fields = (
+        "trait",
+        "trait_level",
+        "trait_min_level",
+        "trait_max_level",
+        "trait_points_per_level",
+        "trait_semantic_effects",
+    )
+    readonly_fields = ("trait_min_level", "trait_max_level", "trait_points_per_level", "trait_semantic_effects")
 
     @admin.display(description="Min Level")
     def trait_min_level(self, obj):
@@ -1185,6 +1311,13 @@ class CharacterTraitInline(admin.TabularInline):
         if not obj or not obj.trait_id:
             return "-"
         return obj.trait.points_per_level
+
+    @admin.display(description="Central Effects")
+    def trait_semantic_effects(self, obj):
+        """Preview semantic central-engine effects for the selected trait level."""
+        if not obj or not obj.trait_id:
+            return format_html('<span style="color:#666;">{}</span>', "Pick a trait and save to preview semantic effects.")
+        return _trait_semantic_preview(obj.trait, level=obj.trait_level)
 
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
         """Attach metadata endpoint URL to the trait field widget for JS updates."""
@@ -1230,6 +1363,48 @@ class TraitCharacterInline(admin.TabularInline):
     extra = 0
     show_change_link = True
     autocomplete_fields = ("owner",)
+
+
+class TraitSemanticEffectInline(admin.StackedInline):
+    """Inline editor for persisted new-system semantic trait effects."""
+
+    model = TraitSemanticEffect
+    extra = 0
+    show_change_link = True
+    fieldsets = (
+        (
+            "Target",
+            {
+                "fields": (
+                    ("sort_order", "active_flag", "priority"),
+                    ("target_domain", "target_key", "operator"),
+                    ("mode", "stack_behavior", "visibility"),
+                    ("hidden", "sheet_relevant"),
+                )
+            },
+        ),
+        (
+            "Values",
+            {
+                "fields": (
+                    ("value", "value_min", "value_max"),
+                    "formula",
+                    "notes",
+                    "rules_text",
+                )
+            },
+        ),
+        (
+            "Conditions And Metadata",
+            {
+                "fields": ("condition_set", "scaling", "metadata"),
+                "description": (
+                    "Use JSON objects for condition_set, scaling, and metadata. "
+                    "Example condition_set: {\"applies_during_character_creation\": true}"
+                ),
+            },
+        ),
+    )
 
 
 class RaceAttributeLimitByAttributeInline(admin.TabularInline):
@@ -1658,6 +1833,8 @@ class ModifierAdmin(admin.ModelAdmin):
         "display_source",
         "mode",
         "target_kind",
+        "resolved_target_domain",
+        "resolved_target_key",
         "target_display_value",
         "target_choice_definition",
         "target_race_choice_definition",
@@ -1704,6 +1881,7 @@ class ModifierAdmin(admin.ModelAdmin):
         "target_choice_definition",
         "target_race_choice_definition",
     )
+    readonly_fields = ("resolved_target_domain", "resolved_target_key", "central_engine_summary")
     fieldsets = (
         (
             "Source",
@@ -1728,6 +1906,16 @@ class ModifierAdmin(admin.ModelAdmin):
         ("Value", {"fields": (("mode", "value"),)}),
         ("Scaling", {"fields": (("scale_source", "scale_school", "scale_skill"), ("mul", "div", "round_mode"))}),
         ("Limits", {"fields": (("cap_mode", "cap_source"), "min_school_level")}),
+        (
+            "Central Engine Mapping",
+            {
+                "fields": (("resolved_target_domain", "resolved_target_key"), "central_engine_summary"),
+                "description": (
+                    "Legacy numeric modifiers remain supported for backward compatibility. "
+                    "The central ModifierEngine adapts them into the newer modifier domains at runtime."
+                ),
+            },
+        ),
     )
 
     @admin.display(description="Source")
@@ -1741,6 +1929,21 @@ class ModifierAdmin(admin.ModelAdmin):
     def target_display_value(self, obj):
         """Render the configured target in a rulebook-friendly way."""
         return obj.target_display()
+
+    @admin.display(description="Central Domain")
+    def resolved_target_domain(self, obj):
+        """Show which new target domain the legacy row maps to."""
+        return LegacyModifierAdapter.adapt(obj).target_domain
+
+    @admin.display(description="Central Key")
+    def resolved_target_key(self, obj):
+        """Show the central-engine target key produced by the legacy adapter."""
+        return LegacyModifierAdapter.adapt(obj).target_key
+
+    @admin.display(description="Engine Summary")
+    def central_engine_summary(self, obj):
+        """Show how the central engine interprets the legacy row."""
+        return _render_readonly_lines((_modifier_preview_line(LegacyModifierAdapter.adapt(obj)),))
 
 
 @admin.register(Technique)
@@ -2892,25 +3095,117 @@ class WeaponStatsAdmin(admin.ModelAdmin):
 @admin.register(Trait)
 class TraitAdmin(admin.ModelAdmin):
     """Admin configuration for traits and their level boundaries."""
-    list_display = ("name", "slug", "trait_type","min_level", "max_level", "points_per_level")
+    list_display = (
+        "name",
+        "slug",
+        "trait_type",
+        "min_level",
+        "max_level",
+        "points_per_level",
+        "rule_support_level",
+    )
     search_fields = ("name", "slug")
     list_filter = ("trait_type",)
     ordering = ("trait_type", "name")
-    inlines = (ModifierInline, TraitCharacterInline)
+    inlines = (TraitSemanticEffectInline, TraitCharacterInline)
+    readonly_fields = ("rule_support_level", "semantic_modifier_preview", "semantic_editing_path", "build_rule_preview")
+    fieldsets = (
+        (
+            "Trait",
+            {
+                "fields": (
+                    ("name", "slug"),
+                    ("trait_type", "points_per_level"),
+                    ("min_level", "max_level"),
+                    "description",
+                )
+            },
+        ),
+        (
+            "Central Rule Layer",
+            {
+                "fields": ("rule_support_level", "semantic_modifier_preview", "semantic_editing_path", "build_rule_preview"),
+                "description": (
+                    "Traits are no longer treated as pure +X/-Y containers. "
+                    "Semantic effects, flags, capabilities, social markers, and build rules are surfaced here. "
+                    "Legacy modifier rows are not edited on traits anymore; maintain new-system effects in the Semantic Effects inline."
+                ),
+            },
+        ),
+    )
+
+    @admin.display(description="Rule Support")
+    def rule_support_level(self, obj):
+        """Show whether the trait already has semantic central-engine support."""
+        if not obj:
+            return "-"
+        return "Semantic + Data" if build_trait_semantic_modifiers(trait_slug=obj.slug, level=max(1, obj.min_level)) else "Data / Legacy"
+
+    @admin.display(description="Semantic Effects")
+    def semantic_modifier_preview(self, obj):
+        """Preview semantic central-engine effects for the trait definition."""
+        return _trait_semantic_preview(obj, level=getattr(obj, "min_level", 1))
+
+    @admin.display(description="Editing Path")
+    def semantic_editing_path(self, obj):
+        """Show where semantic trait effects are maintained in the new system."""
+        return _trait_semantic_editing_path(obj)
+
+    @admin.display(description="Build Rules")
+    def build_rule_preview(self, obj):
+        """Show the current build/creation interpretation of the trait."""
+        return _trait_build_rule_preview(obj)
     
 @admin.register(CharacterTrait)
 class CharacterTraitAdmin(admin.ModelAdmin):
     """Admin configuration for character-owned trait levels."""
-    list_display = ("owner", "trait", "trait_type", "trait_level")
+    list_display = ("owner", "trait", "trait_type", "trait_level", "rule_support_level")
     list_filter = ("trait__trait_type",)
     search_fields = ("owner__name", "trait__name", "trait__slug")
     autocomplete_fields = ("owner", "trait")
     list_select_related = ("owner", "trait")
+    readonly_fields = (
+        "trait_type",
+        "rule_support_level",
+        "trait_semantic_effects",
+        "trait_semantic_editing_path",
+        "trait_build_rule_preview",
+    )
+    fields = (
+        "owner",
+        "trait",
+        "trait_level",
+        "trait_type",
+        "rule_support_level",
+        "trait_semantic_effects",
+        "trait_semantic_editing_path",
+        "trait_build_rule_preview",
+    )
 
     @admin.display(ordering="trait__trait_type", description="Trait Type")
     def trait_type(self, obj):
         """Return trait category for list display and sorting."""
         return obj.trait.trait_type
+
+    @admin.display(description="Rule Support")
+    def rule_support_level(self, obj):
+        """Show whether the owned trait already has semantic central-engine support."""
+        return "Semantic + Data" if build_trait_semantic_modifiers(trait_slug=obj.trait.slug, level=max(1, obj.trait_level)) else "Data / Legacy"
+
+    @admin.display(description="Central Effects")
+    def trait_semantic_effects(self, obj):
+        """Preview semantic central-engine effects for the owned trait level."""
+        return _trait_semantic_preview(obj.trait, level=obj.trait_level)
+
+    @admin.display(description="Editing Path")
+    def trait_semantic_editing_path(self, obj):
+        """Show where semantic trait effects are maintained in the new system."""
+        return _trait_semantic_editing_path(obj.trait)
+
+    @admin.display(description="Build Rules")
+    def trait_build_rule_preview(self, obj):
+        """Show the current build/creation interpretation of the owned trait."""
+        return _trait_build_rule_preview(obj.trait)
 
 
 @admin.register(Language)
@@ -2998,10 +3293,10 @@ PROGRESSION_RULE_CHOICE_HELP = {
 }
 
 MODIFIER_CHOICE_HELP = {
-    "target_kind": "Skill = one specific skill, Skill Category = one entire skill category, Stat = a derived stat, Item/Item Category = an item or item category, Specialization = a school-bound specialization, Other Entity = any other game entity.",
+    "target_kind": "Skill = one specific skill, Skill Category = one entire skill category, Stat = a derived stat, Item/Item Category = an item or item category, Specialization = a school-bound specialization, Other Entity = any other game entity. Persisted legacy rows are translated into the central modifier architecture; semantic trait effects live there as well.",
     "target_choice_definition": "Optional choice definition link. If set, the modifier target kind must match the choice definition target kind.",
     "target_race_choice_definition": "Optional race choice definition link. If set, the modifier target kind must match the race choice definition target kind.",
-    "mode": "Flat = fixed value, Scaled = value is calculated from another source.",
+    "mode": "Flat = fixed value, Scaled = value is calculated from another source. Persisted rows are translated into typed central-engine modifiers before they are resolved.",
     "scale_source": "School level = scales with a school level, Fame total = scales with total fame rank, Trait level = scales with the source trait level, Skill level = uses the learned ranks of one skill, Skill total = uses the fully resolved value of one skill. Skill-based scaling is limited to stat targets.",
     "scale_skill": "Required for skill-based scaling or caps. Choose which skill provides the learned level or full total.",
     "round_mode": "Floor = round down after division, Ceil = round up after division.",
@@ -3135,7 +3430,8 @@ SHIELD_CHOICE_HELP = {
 }
 
 TRAIT_CHOICE_HELP = {
-    "trait_type": "Advantage = beneficial trait, Disadvantage = drawback or penalty trait.",
+    "trait_type": "Advantage = beneficial trait, Disadvantage = drawback or penalty trait. Traits can now also project semantic effects such as flags, capabilities, social markers, or narrative constraints in the central modifier layer.",
+    "description": "Keep the full rules text here. The central modifier layer may add structured automation on top of this text, but it does not replace the complete rule wording.",
 }
 
 _install_inline_help(ModifierInline, help_texts=MODIFIER_CHOICE_HELP, labels=MODIFIER_LABELS)

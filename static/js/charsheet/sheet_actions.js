@@ -6,6 +6,18 @@ export function initSheetActions() {
   }
   document.body.dataset.sheetActionsBound = "1";
 
+  const searchParams = new URLSearchParams(window.location.search);
+  if (
+    window.top === window.self &&
+    searchParams.get("print") === "1" &&
+    document.body.dataset.printTriggered !== "1"
+  ) {
+    document.body.dataset.printTriggered = "1";
+    window.setTimeout(() => {
+      window.print();
+    }, 250);
+  }
+
   document.addEventListener("submit", async (event) => {
     const form = event.target;
     if (!(form instanceof HTMLFormElement) || !form.hasAttribute("data-sheet-action")) {

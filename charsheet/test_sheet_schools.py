@@ -61,6 +61,15 @@ class SchoolPanelTests(TestCase):
             ],
         )
 
+    def test_character_sheet_context_formats_school_levels_as_roman_numerals(self):
+        """School technique rows should expose a Roman numeral label for display."""
+        response = self.client.get(reverse("character_sheet", args=[self.character.id]))
+
+        self.assertEqual(response.status_code, 200)
+        row = next(row for row in response.context["school_technique_rows"] if row["kind"] == "technique")
+        self.assertEqual(row["level"], 2)
+        self.assertEqual(row["level_label"], "II")
+
     def test_character_sheet_context_lists_race_techniques_first(self):
         """Race techniques should be shown in the panel before school-based entries."""
         race_technique = Technique.objects.create(

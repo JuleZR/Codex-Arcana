@@ -1,177 +1,192 @@
 # Engine
 
-## Überblick
+## Overview
 
-Die Regel- und Berechnungslogik ist heute auf mehrere Dateien verteilt. Die wichtigste Fassade bleibt `CharacterEngine`, aber sie wird von spezialisierten Hilfsmodulen unterstützt.
+The rules layer is centered on `CharacterEngine`, but modifier semantics now live in the dedicated `ModifierEngine`. Productive calculations no longer resolve numeric effects directly from legacy `Modifier` rows.
 
-## Module im Engine-Paket
+## Engine Modules
 
-- `character_engine.py`
-  zentrale Fassade für abgeleitete Charakterwerte
-- `character_combat.py`
-  Initiative, Abwehr, Wunden, arkane Kraft und verwandte Kampfwerte
-- `character_equipment.py`
-  Waffen, Rüstung, Schild, Belastung, Schaden und Münzumrechnung
-- `character_progression.py`
-  Schulen, Pfade, Progressionsregeln, Technik-Choice-Blocks und Spezialisierungen
-- `character_creation_engine.py`
-  Draft-basierte Charaktererstellung über vier Phasen
-- `item_engine.py`
-  Preise, Qualitäten, Waffenschaden und Rüstungsableitungen
-- `dice_engine.py`
-  einfache Würfelhilfen
+- `charsheet/engine/character_engine.py`
+  - main facade for character calculations
+  - owns cached character state, technique state, and progression state
+  - delegates all modifier resolution to `ModifierEngine`
+- `charsheet/modifiers/engine.py`
+  - central modifier collector and resolver
+  - single source of truth for numeric modifier totals, flags, capabilities, resistances, movement, combat, and social state
+- `charsheet/engine/character_combat.py`
+  - combat formulas such as initiative, defenses, wound stages, and arcane power
+  - consumes `CharacterEngine` methods, not legacy modifier math
+- `charsheet/engine/character_equipment.py`
+  - armor, shields, encumbrance, weapon rows, and damage modifiers
+  - consumes `CharacterEngine` methods, not legacy modifier math
+- `charsheet/engine/character_progression.py`
+  - schools, paths, requirements, exclusions, and specialization availability
+- `charsheet/engine/character_creation_engine.py`
+  - draft-based creation flow
+  - uses `CharacterBuildValidator` for structured trait build validation
+  - resolves creation-only trait effects such as `starting_funds`
 
 ## CharacterEngine
 
-### Rolle
+### Role
 
-`CharacterEngine` ist die zentrale Recheninstanz für einen existierenden Charakter. Das `Character`-Modell stellt sie über `character.engine` bereit und cached sie für wiederholte Zugriffe innerhalb eines Requests.
+`CharacterEngine` is the read-side facade used by the sheet, combat helpers, and application services.
 
-### Was die Engine berechnet
+It is responsible for:
 
-- Attributwerte und Attributsmodifikatoren
-- Skillwerte inklusive Breakdown
-- Modifikatoren aus Rasse, Traits, Schulen und Techniken
-- Kampfwerte wie Initiative, `VW`, `GW`, `SR`
-- Wundstufen, Wundabzüge und Wundgrenzen
-- Rüstungs- und Belastungswerte
-- Waffenzeilen für die UI
-- Progressionsstatus für Schulen, Techniken und Spezialisierungen
+- loading and caching character attributes, skills, schools, techniques, and choices
+- exposing high-level methods such as `skill_total()`, `calculate_initiative()`, `vw()`, `get_grs()`
+- routing all modifier queries through `modifier_engine`
+- keeping templates free of modifier math
 
-### Wichtige interne Konzepte
+### Productive Modifier Flow
 
-#### 1. Cached Maps
+All productive modifier entry points now call `ModifierEngine`:
 
-Die Engine lädt viele Daten nur einmal und hält sie über `@cached_property`, zum Beispiel:
+- `modifier_total_for_skill()`
+- `modifier_total_for_skill_category()`
+- `modifier_total_for_stat()`
+- `modifier_total_for_item()`
+- `modifier_total_for_item_category()`
+- `modifier_total_for_specialization()`
+- `modifier_total_for_entity()`
+- `resolve_*()` helpers for skills, resources, resistances, movement, combat, flags, capabilities, and social state
 
-- Attribute nach `short_name`
-- Skills mit Kategorie und Leitattribut
-- gelernte Schulen
-- gewählte Schulpfade
-- gelernte Technik-Choices
-- relevante Modifikatoren
+There is no productive `legacy_only` mode anymore.
 
-Das reduziert Datenbankzugriffe und sorgt dafür, dass mehrere UI-Bereiche denselben konsistenten Snapshot verwenden.
+### Internal Debugging
 
-#### 2. Technikstatus statt Einzelabfragen
+`CharacterEngine` still exposes `debug_legacy_*` helpers for migration diagnostics and report generation. These methods are intentionally non-productive and exist only to compare the new engine against historic legacy arithmetic.
 
-Die heutige Engine arbeitet nicht nur mit "hat Technik X oder nicht", sondern baut für alle Techniken gelernter Schulen strukturierte Statusobjekte auf. Diese enthalten unter anderem:
+## ModifierEngine
 
-- ob die Schule bekannt ist
-- ob die Stufe erreicht ist
-- ob der Pfad passt
-- ob Voraussetzungen erfüllt sind
-- ob Ausschlüsse greifen
-- ob die Technik verfügbar, gelernt und regeltechnisch aktiv ist
-- ob persistente Choices vollständig vorliegen
+### Responsibilities
 
-Dadurch können Technik-, Modifier- und Spezialisierungslogik auf einem gemeinsamen Zustand aufbauen.
+`ModifierEngine` is the central rule-resolution layer for modifier semantics.
 
-#### 3. Modifikatorauflösung
+It:
 
-Die Engine wertet `Modifier` datengetrieben aus:
+- collects active typed modifiers
+- translates persisted legacy `Modifier` rows into typed modifiers via `LegacyModifierMigrationService`
+- loads persisted `TraitSemanticEffect` rows from traits
+- uses the trait registry only as a fallback for complex hard-coded cases
+- evaluates conditions
+- applies source activation and school gating
+- resolves numeric totals for target domains
+- resolves semantic outputs such as flags, capabilities, movement, resistance, combat, and social profiles
+- provides explainability via `explain_resolution()`
 
-- passende Modifier werden nach Zielart und Zielidentifier gruppiert
-- aktive Quellen werden geprüft
-- optional wird skaliert, gerundet und gecappt
-- skillbasierte Stat-Modifikatoren kÃ¶nnen dabei entweder den gelernten Skillrang oder den voll berechneten Skillwert verwenden
-- das Ergebnis fließt in Stats, Skills oder Ausrüstungswerte ein
+### Productive Data Sources
 
-Aktive Quellen sind aktuell vor allem:
+The productive engine works with typed modifiers only:
 
-- die Rasse des Charakters
-- gelernte Schulen
-- gekaufte Traits
-- passive, berechenbare und vollständig konfigurierte Techniken
+- migrated legacy rows from `LegacyModifierMigrationService`
+- persisted `TraitSemanticEffect` rows maintained in the admin
+- fallback semantic trait modifiers from `charsheet/modifiers/registry.py`
+- optionally injected modifiers for tests or future structured sources
 
-## CharacterEngine-Hilfsmodule
+Persisted legacy rows still exist as source data, but productive resolution uses their migrated typed representation and copied scaling metadata.
 
-### `character_combat.py`
+### Target Domains
 
-Liefert unter anderem:
+The central engine can resolve at least these domains:
 
-- `calculate_initiative`
-- `calculate_arcane_power`
-- `vw`, `gw`, `sr`
-- `wound_thresholds`
-- `current_wound_stage`
-- `current_wound_penalty`
+- `skill`
+- `skill_category`
+- `attribute`
+- `derived_stat`
+- `resource`
+- `resistance`
+- `movement`
+- `combat`
+- `perception`
+- `economy`
+- `social`
+- `rule_flag`
+- `capability`
+- `behavior`
+- `item`
+- `item_category`
+- `specialization`
+- `entity`
 
-Die Funktionen arbeiten auf Engine-Daten und kapseln Kampfregeln, damit `character_engine.py` nicht unnötig monolithisch wird.
+### Numeric vs Semantic Resolution
 
-### `character_equipment.py`
+Numeric targets use `resolve_numeric_total()` and are then consumed by `CharacterEngine` formulas.
 
-Liefert:
+Semantic targets are resolved via dedicated methods:
 
-- ausgerüstete Waffen-, Rüstungs- und Schild-Querysets
-- vorbereitete Anzeigezeilen für Waffen und Ausrüstung
-- `get_grs`, `get_bel`, `get_ms`
-- qualitätsabhängige Waffenmodifikatoren
-- Münzumrechnung
+- `resolve_resistances()`
+- `resolve_movement()`
+- `resolve_combat_profile()`
+- `resolve_flags()`
+- `resolve_capabilities()`
+- `resolve_social_profile()`
 
-### `character_progression.py`
+This is deliberate: advantages and disadvantages are not reduced to plain `+X/-Y`.
 
-Liefert:
+### Conditions
 
-- Schulstufen und ausgewählte Pfade
-- offene und belegte Spezialisierungsslots
-- verfügbare Spezialisierungen
-- Status für Technik-Choice-Blocks
-- aktive Progressionsregeln pro Schultyp
+Applicability is centralized in `ConditionSet`.
 
-## ItemEngine
+Supported condition families include:
 
-`ItemEngine` berechnet abgeleitete Werte für ein Basismodell `Item` oder für ein konkretes `CharacterItem`.
+- combat vs outside combat
+- wounded / unarmored
+- darkness / low light / heat / cold
+- target tags and weapon types
+- skill-bound situations
+- social interactions
+- character creation only
+- required or forbidden flags
 
-### Aufgaben
+### Stacking and Priority
 
-- Normalisierung und Darstellung von Itemqualitäten
-- qualitätsabhängige Preisberechnung
-- Gewichtsberechnung bei gestapelten Items
-- Ermittlung von Waffenprofilen
-- qualitätsabhängige Schadens- und Manöverboni
-- Rüstungs- und Schildwerte für Anzeige und Summenbildung
+The current numeric resolver supports:
 
-Wichtig ist die Trennung zwischen:
+- additive stacking as the default for migrated legacy modifiers
+- `unique_by_source` deduplication
+- numeric `override`
+- `min_value`
+- `max_value`
+- `multiply`
 
-- Basismodell `Item`
-  enthält Preis und Standardqualität
-- Besitzobjekt `CharacterItem`
-  enthält die konkrete Qualität im Inventar des Charakters
+Modifiers are processed in priority order. Legacy-mapped rows currently rely on additive behavior, which preserves the old system's effective outcomes.
 
-## CharacterCreationEngine
+### Explainability and Debug
 
-### Rolle
+`explain_resolution()` returns a breakdown for one target.
 
-Diese Engine verarbeitet `CharacterCreationDraft` und bildet den vierphasigen Erstellungsworkflow ab.
+`ModifierResolutionMode.COMPARE` is now debug-only:
 
-### Aufgaben
+- productive values still come from the new typed modifier layer
+- legacy values are calculated only as a diagnostic baseline
+- differences are recorded as `NumericResolutionComparison`
 
-- Lesen und Schreiben des JSON-Zustands pro Phase
-- Kostenberechnung für Attribute, Skills, Sprachen, Vor- und Nachteile sowie Schulen
-- Validierung jeder einzelnen Phase
-- Finalisierung in echte Charakterdaten
+There is no mode that makes legacy arithmetic authoritative again.
 
-### Typischer Ablauf
+## Combat, Equipment, and Sheet Integration
 
-1. Draft laden oder neu anlegen.
-2. Zustand der aktuellen Phase aus Formularfeldern in `draft.state` übernehmen.
-3. Passende `validate_phase_*`-Methode ausführen.
-4. Bei Erfolg zur nächsten Phase wechseln oder finalisieren.
-5. Beim Finalisieren echte Charaktermodelle erzeugen und den Draft verwerfen.
+The combat and equipment helper modules no longer interpret legacy modifier rows themselves.
 
-## Lernen außerhalb der Engine
+Instead they call `CharacterEngine` methods such as:
 
-Der EP-Lernworkflow liegt bewusst nicht direkt in `CharacterEngine`, sondern in `charsheet/learning.py`. Das Modul:
+- `modifier_total_for_stat()`
+- `current_wound_penalty()`
+- `get_grs()`
+- `get_bel()`
+- `get_dmg_modifier_sum()`
 
-- liest Lernziele aus POST-Daten
-- nutzt `learning_rules.py` für Kostenmodelle
-- validiert Ober- und Untergrenzen
-- schreibt Änderungen in einer Transaktion
-- reduziert `current_experience`
+`sheet_context.py` only consumes prepared engine outputs. It does not perform modifier calculations in templates.
 
-Das ist eine sinnvolle Trennung, weil Lernen ein mutierender Workflow ist, während `CharacterEngine` primär lesend und ableitend arbeitet.
+## Character Creation and Trait Validation
 
-## DiceEngine
+`CharacterCreationEngine` uses `CharacterBuildValidator` for structured build rules such as:
 
-`charsheet/engine/dice_engine.py` ist ein kleiner Hilfsbaustein für konfigurierbare Würfelwürfe und von der restlichen Character-Logik weitgehend unabhängig.
+- CP caps for disadvantages
+- overlap conflicts
+- mutually exclusive traits
+- included disadvantages
+- rank validation
+
+This is intentionally separate from numeric modifier resolution because many trait effects are social, anatomical, behavioral, or narrative rather than arithmetic.

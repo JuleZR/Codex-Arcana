@@ -1358,6 +1358,28 @@
   color: #433022;
 }
 
+.p2_schools .school_row_layout {
+  display: grid;
+  grid-template-columns: clamp(10rem, 34%, 14rem) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.p2_schools .school_row_label {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.p2_schools .school_row_layout .skill_name_text {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .p2_schools .p2_lines li.school_row_with_tooltip--separator {
   margin-bottom: 12px;
 }

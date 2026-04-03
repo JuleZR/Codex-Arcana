@@ -32,11 +32,6 @@ class School(models.Model):
     def __str__(self):
         return self.name
 
-    @property
-    def school_type(self):
-        """Backward-compatible alias for the school's type relation."""
-        return self.type
-
 
 class CharacterSchool(models.Model):
     """The learned level of a specific school for one character."""

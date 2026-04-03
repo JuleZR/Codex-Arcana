@@ -13,6 +13,13 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
 
   const calcSkillCost = (level) => (level <= 5 ? Math.max(0, level) : 5 + ((Math.max(0, level) - 5) * 2));
   const calcLanguageCost = (level, write, mother) => (mother ? 0 : Math.max(0, level)) + (write ? 1 : 0);
+  const calcTraitCost = (level, pointsPerLevel, traitType) => {
+    const rank = Math.max(0, level);
+    return rank * Math.max(0, pointsPerLevel);
+  };
+  const calcTraitDeltaCost = (base, value, pointsPerLevel, traitType) => (
+    Math.abs(value) * Math.max(0, pointsPerLevel)
+  );
   const calcAttributeTotalCost = (targetLevel, maxValue) => {
     const level = Math.max(0, targetLevel);
     const threshold = maxValue - 2;
@@ -48,6 +55,24 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
       const hidden = row.querySelector("[data-learn-hidden]");
       value = clamp(value, minAdd, maxAdd);
       cost = calcAttributeTotalCost(base + value, max) - calcAttributeTotalCost(base, max);
+      if (hidden instanceof HTMLInputElement) {
+        hidden.value = String(value);
+      }
+      if (infoEl) {
+        infoEl.textContent = `(${base + value})`;
+      }
+      valueInput.min = String(minAdd);
+      valueInput.max = String(maxAdd);
+    } else if (kind === "trait") {
+      const base = readInt(row.getAttribute("data-base"), 0);
+      const max = readInt(row.getAttribute("data-max"), 0);
+      const pointsPerLevel = readInt(row.getAttribute("data-ppl"), 0);
+      const traitType = row.getAttribute("data-trait-type") || "";
+      const minAdd = -base;
+      const maxAdd = Math.max(0, max - base);
+      const hidden = row.querySelector("[data-learn-hidden]");
+      value = clamp(value, minAdd, maxAdd);
+      cost = calcTraitDeltaCost(base, value, pointsPerLevel, traitType);
       if (hidden instanceof HTMLInputElement) {
         hidden.value = String(value);
       }
@@ -261,6 +286,37 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
       row.setAttribute("data-base", String(base));
       row.innerHTML = `
         <td><span>${safeName}</span> <span data-learn-level-info>(${base + startAdd})</span><input type="hidden" name="learn_skill_add_${slug}" value="${startAdd}" data-learn-hidden></td>
+        <td>
+          <div class="shop_qty_stepper">
+            <button type="button" class="shop_step_btn" data-learn-step-dec aria-label="Wert verringern">-</button>
+            <input class="shop_cart_qty_input" type="number" min="${minAdd}" max="${maxAdd}" value="${startAdd}" data-learn-value>
+            <button type="button" class="shop_step_btn" data-learn-step-inc aria-label="Wert erhoehen">+</button>
+          </div>
+        </td>
+        <td data-learn-cost>0 EP</td>
+        <td><button type="button" class="shop_cart_remove_btn" data-learn-remove aria-label="Eintrag entfernen">x</button></td>
+      `;
+      return row;
+    }
+
+    if (kind === "trait") {
+      const slug = source.getAttribute("data-slug") || "";
+      const base = readInt(source.getAttribute("data-base"), 0);
+      const max = readInt(source.getAttribute("data-max"), 0);
+      const pointsPerLevel = readInt(source.getAttribute("data-ppl"), 0);
+      const traitType = source.getAttribute("data-trait-type") || "";
+      const minAdd = -base;
+      const maxAdd = Math.max(0, max - base);
+      if (maxAdd < 1 && minAdd === 0) {
+        return null;
+      }
+      const startAdd = maxAdd > 0 ? 1 : 0;
+      row.setAttribute("data-base", String(base));
+      row.setAttribute("data-max", String(max));
+      row.setAttribute("data-ppl", String(pointsPerLevel));
+      row.setAttribute("data-trait-type", traitType);
+      row.innerHTML = `
+        <td><span>${safeName}</span> <span data-learn-level-info>(${base + startAdd})</span><input type="hidden" name="learn_trait_add_${slug}" value="${startAdd}" data-learn-hidden></td>
         <td>
           <div class="shop_qty_stepper">
             <button type="button" class="shop_step_btn" data-learn-step-dec aria-label="Wert verringern">-</button>

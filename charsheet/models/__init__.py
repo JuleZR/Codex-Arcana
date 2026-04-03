@@ -19,15 +19,17 @@ from .core import (
     Skill,
     SkillCategory,
     Trait,
+    TraitSemanticEffect,
 )
 from .items import (
     ArmorStats,
     Item,
+    RaceStartingItem,
     Rune,
     ShieldStats,
     WeaponStats,
-    RaceStartingItem
 )
+from .modifier import Modifier
 from .progression import (
     CharacterSchool,
     CharacterSchoolPath,
@@ -42,7 +44,6 @@ from .techniques import (
     CharacterRaceChoice,
     CharacterTechnique,
     CharacterTechniqueChoice,
-    Modifier,
     RaceChoiceDefinition,
     RaceTechnique,
     Technique,
@@ -92,6 +93,7 @@ __all__ = [
     "TechniqueExclusion",
     "TechniqueRequirement",
     "Trait",
+    "TraitSemanticEffect",
     "WeaponStats",
     "RaceStartingItem",
 ]

@@ -46,21 +46,14 @@ from .forms import (
     CharacterTechniqueSpecificationForm,
     UserSettingsForm
 )
+from .constants import ATTRIBUTE_ORDER
 from .learning import process_learning_submission
 from .sheet_context import build_character_sheet_context
 from .shop import buy_shop_cart as buy_shop_cart_payload
 from .shop import create_custom_shop_item
+from .view_utils import format_thousands
 
 
-ATTRIBUTE_ORDER = [
-    ("ST", "Stärke (St)"),
-    ("KON", "Konstitution (Kon)"),
-    ("GE", "Geschick (Ge)"),
-    ("WA", "Wahrnehmung (Wa)"),
-    ("INT", "Intelligenz (Int)"),
-    ("WILL", "Willenskraft (Will)"),
-    ("CHA", "Charisma (Cha)"),
-]
 DIARY_ENTRY_CHAR_LIMIT = 2200
 SHEET_PARTIAL_TEMPLATES = {
     "load_panel": ("sheetLoadPanel", "charsheet/partials/_load_panel.html"),
@@ -148,18 +141,6 @@ def _legal_context() -> dict:
     )
     legal["missing_required"] = missing_required
     return {"legal": legal}
-
-
-def _format_modifier(value: int) -> str:
-    """Format signed modifier values for UI display."""
-    if value > 0:
-        return f"+{value}"
-    return str(value)
-
-
-def _format_thousands(value: int) -> str:
-    """Format integers with dot-separated thousands."""
-    return f"{value:,}".replace(",", ".")
 
 
 def _owned_character_or_404(request, character_id: int) -> Character:
@@ -739,11 +720,11 @@ def dashboard(request):
         "archived_characters": archived_characters,
         "recent_characters": recent_characters,
         "character_count": len(characters),
-        "character_count_display": _format_thousands(len(characters)),
+        "character_count_display": format_thousands(len(characters)),
         "total_money": totals.get("total_money") or 0,
-        "total_money_display": _format_thousands(int(totals.get("total_money") or 0)),
+        "total_money_display": format_thousands(int(totals.get("total_money") or 0)),
         "equipped_item_count": equipped_item_count,
-        "equipped_item_count_display": _format_thousands(equipped_item_count),
+        "equipped_item_count_display": format_thousands(equipped_item_count),
         "system_counts": {
             "items": Item.objects.count(),
             "skills": Skill.objects.count(),
