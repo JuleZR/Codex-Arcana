@@ -73,7 +73,12 @@ def _quality_badge(quality: str):
     resolved_quality = ItemEngine.normalize_quality(quality)
     color = QUALITY_COLOR_MAP.get(resolved_quality, QUALITY_COLOR_MAP[ItemEngine.normalize_quality(None)])
     return format_html(
-        '<strong style="color:{};text-shadow:-0.75px -0.75px 0 #000,0.75px -0.75px 0 #000,-0.75px 0.75px 0 #000,0.75px 0.75px 0 #000;">{}</strong>',
+        (
+            '<strong style="color:{};'
+            "text-shadow:-0.75px -0.75px 0 #000,0.75px -0.75px 0 #000,"
+            "-0.75px 0.75px 0 #000,0.75px 0.75px 0 #000;"
+            '">{}</strong>'
+        ),
         color,
         resolved_quality,
     )
@@ -280,6 +285,7 @@ def _install_inline_help(inline_cls, *, help_texts=None, fieldset_descriptions=N
 
         inline_cls.get_fieldsets = get_fieldsets
 
+
 def _format_technique_choice_context(technique):
     """Return compact editor-facing choice guidance for a technique."""
     if technique is None:
@@ -324,7 +330,10 @@ def _format_technique_choice_definitions(technique):
     for definition in technique.choice_definitions.all():
         if not definition.is_active:
             continue
-        range_label = f"{definition.min_choices}-{definition.max_choices}" if definition.min_choices != definition.max_choices else str(definition.max_choices)
+        if definition.min_choices != definition.max_choices:
+            range_label = f"{definition.min_choices}-{definition.max_choices}"
+        else:
+            range_label = str(definition.max_choices)
         description = f" ({definition.description})" if definition.description else ""
         rows.append(f"{definition.name}: {definition.get_target_kind_display()} [{range_label}]{description}")
     if not rows and technique.choice_target_kind != Technique.ChoiceTargetKind.NONE:
@@ -409,11 +418,11 @@ def _format_school_path_overview_html(school):
         return "Configured school paths will appear here after the first save."
 
     path_rows = []
-    for path in school.paths.all():
-        technique_count = school.techniques.filter(path=path).count()
-        block_count = school.technique_choice_blocks.filter(path=path).count()
-        description = f" | {path.description}" if path.description else ""
-        path_rows.append((path.name, technique_count, block_count, description))
+    for school_path in school.paths.all():
+        technique_count = school.techniques.filter(path=school_path).count()
+        block_count = school.technique_choice_blocks.filter(path=school_path).count()
+        description = f" | {school_path.description}" if school_path.description else ""
+        path_rows.append((school_path.name, technique_count, block_count, description))
 
     if not path_rows:
         return "No school paths configured."
@@ -1743,7 +1752,10 @@ class SchoolAdmin(admin.ModelAdmin):
                     ("name", "type"),
                     "description",
                 ),
-                "description": "Rulebook-oriented entry point. Paths, choice blocks, techniques, and specializations are maintained from here.",
+                "description": (
+                    "Rulebook-oriented entry point. Paths, choice blocks, techniques, "
+                    "and specializations are maintained from here."
+                ),
             },
         ),
         (
@@ -2037,7 +2049,10 @@ class TechniqueAdmin(admin.ModelAdmin):
                     "choice_bonus_value",
                     "specialization_slot_grants",
                 ),
-                "description": "choice_group is only used for display and organization. Binding choice rules come from the choice block and choice definitions.",
+                "description": (
+                    "choice_group is only used for display and organization. Binding "
+                    "choice rules come from the choice block and choice definitions."
+                ),
             },
         ),
         (
@@ -2317,7 +2332,11 @@ class TechniqueChoiceBlockAdmin(admin.ModelAdmin):
                     ("min_choices", "max_choices"),
                     "description",
                 ),
-                "description": "A choice block describes a real choice point in the rulebook. Techniques sharing the same choice_group are not automatically exclusive because of that.",
+                "description": (
+                    "A choice block describes a real choice point in the rulebook. "
+                    "Techniques sharing the same choice_group are not automatically "
+                    "exclusive because of that."
+                ),
             },
         ),
         (
@@ -3092,6 +3111,7 @@ class WeaponStatsAdmin(admin.ModelAdmin):
         """Render assigned weapon flags compactly for list display."""
         return ", ".join(obj.flags.order_by("key").values_list("key", flat=True)) or "-"
 
+
 @admin.register(Trait)
 class TraitAdmin(admin.ModelAdmin):
     """Admin configuration for traits and their level boundaries."""
@@ -3155,7 +3175,8 @@ class TraitAdmin(admin.ModelAdmin):
     def build_rule_preview(self, obj):
         """Show the current build/creation interpretation of the trait."""
         return _trait_build_rule_preview(obj)
-    
+
+
 @admin.register(CharacterTrait)
 class CharacterTraitAdmin(admin.ModelAdmin):
     """Admin configuration for character-owned trait levels."""
@@ -3190,7 +3211,14 @@ class CharacterTraitAdmin(admin.ModelAdmin):
     @admin.display(description="Rule Support")
     def rule_support_level(self, obj):
         """Show whether the owned trait already has semantic central-engine support."""
-        return "Semantic + Data" if build_trait_semantic_modifiers(trait_slug=obj.trait.slug, level=max(1, obj.trait_level)) else "Data / Legacy"
+        return (
+            "Semantic + Data"
+            if build_trait_semantic_modifiers(
+                trait_slug=obj.trait.slug,
+                level=max(1, obj.trait_level),
+            )
+            else "Data / Legacy"
+        )
 
     @admin.display(description="Central Effects")
     def trait_semantic_effects(self, obj):
@@ -3289,34 +3317,76 @@ SCHOOL_TYPE_CHOICE_HELP = {
 }
 
 PROGRESSION_RULE_CHOICE_HELP = {
-    "grant_kind": "Technique Choice = grants selectable techniques, Spell Choice = grants selectable spells, Aspect Access = unlocks an aspect, Aspect Spell = grants a spell from an aspect.",
+    "grant_kind": (
+        "Technique Choice = grants selectable techniques, Spell Choice = grants "
+        "selectable spells, Aspect Access = unlocks an aspect, Aspect Spell = "
+        "grants a spell from an aspect."
+    ),
 }
 
 MODIFIER_CHOICE_HELP = {
-    "target_kind": "Skill = one specific skill, Skill Category = one entire skill category, Stat = a derived stat, Item/Item Category = an item or item category, Specialization = a school-bound specialization, Other Entity = any other game entity. Persisted legacy rows are translated into the central modifier architecture; semantic trait effects live there as well.",
-    "target_choice_definition": "Optional choice definition link. If set, the modifier target kind must match the choice definition target kind.",
-    "target_race_choice_definition": "Optional race choice definition link. If set, the modifier target kind must match the race choice definition target kind.",
-    "mode": "Flat = fixed value, Scaled = value is calculated from another source. Persisted rows are translated into typed central-engine modifiers before they are resolved.",
-    "scale_source": "School level = scales with a school level, Fame total = scales with total fame rank, Trait level = scales with the source trait level, Skill level = uses the learned ranks of one skill, Skill total = uses the fully resolved value of one skill. Skill-based scaling is limited to stat targets.",
+    "target_kind": (
+        "Skill = one specific skill, Skill Category = one entire skill category, "
+        "Stat = a derived stat, Item/Item Category = an item or item category, "
+        "Specialization = a school-bound specialization, Other Entity = any other "
+        "game entity. Persisted legacy rows are translated into the central "
+        "modifier architecture; semantic trait effects live there as well."
+    ),
+    "target_choice_definition": (
+        "Optional choice definition link. If set, the modifier target kind must "
+        "match the choice definition target kind."
+    ),
+    "target_race_choice_definition": (
+        "Optional race choice definition link. If set, the modifier target kind "
+        "must match the race choice definition target kind."
+    ),
+    "mode": (
+        "Flat = fixed value, Scaled = value is calculated from another source. "
+        "Persisted rows are translated into typed central-engine modifiers before "
+        "they are resolved."
+    ),
+    "scale_source": (
+        "School level = scales with a school level, Fame total = scales with total "
+        "fame rank, Trait level = scales with the source trait level, Skill level "
+        "= uses the learned ranks of one skill, Skill total = uses the fully "
+        "resolved value of one skill. Skill-based scaling is limited to stat "
+        "targets."
+    ),
     "scale_skill": "Required for skill-based scaling or caps. Choose which skill provides the learned level or full total.",
     "round_mode": "Floor = round down after division, Ceil = round up after division.",
     "cap_mode": "None = no cap, Min = do not go below the cap value, Max = do not go above the cap value.",
     "cap_source": "Uses the same source types as scaling, but only to define the cap value. Skill-based caps also require scale_skill.",
-    "target_slug": "For stats and categories, enter the rule key here. For Skill/Category targets, you can use the related object field instead.",
+    "target_slug": (
+        "For stats and categories, enter the rule key here. For Skill/Category "
+        "targets, you can use the related object field instead."
+    ),
 }
 
 TECHNIQUE_CHOICE_HELP = {
     "technique_type": "Passive = persistent effect, Active = technique used actively, Situational = only relevant in specific situations.",
     "acquisition_type": "Automatic = learned directly, Choice = selected from multiple options.",
-    "support_level": "Automated = the engine evaluates the rule fully, Partially Automated = parts are structured and evaluable, Manual (Rule Text Only) = rule text only with no automatic calculation.",
-    "choice_target_kind": "Simple mode for a single persistent choice. For multiple separate decisions, use the inline choice definitions instead.",
+    "support_level": (
+        "Automated = the engine evaluates the rule fully, Partially Automated = "
+        "parts are structured and evaluable, Manual (Rule Text Only) = rule text "
+        "only with no automatic calculation."
+    ),
+    "choice_target_kind": (
+        "Simple mode for a single persistent choice. For multiple separate "
+        "decisions, use the inline choice definitions instead."
+    ),
     "choice_group": "Pure UI/import metadata. This group does not create any rule mechanics.",
-    "specialization_slot_grants": "How many specialization slots become available once the technique is actually learned. Techniques that are only available do not count.",
+    "specialization_slot_grants": (
+        "How many specialization slots become available once the technique is "
+        "actually learned. Techniques that are only available do not count."
+    ),
     "action_type": "Action = standard action, Reaction = reaction, Free = free action, Preparation = preparation.",
     "usage_type": "At Will = unlimited use, Per Scene = once per scene, Per Combat = once per combat, Per Day = once per day.",
     "choice_block": "Optional choice block if the technique belongs to a real rulebook choice point.",
     "selection_notes": "Short plain-language note describing what must be selected or observed for this technique.",
-    "target_choice_definition": "Optional target definition if this technique explicitly points to a specific choice definition of another technique.",
+    "target_choice_definition": (
+        "Optional target definition if this technique explicitly points to a "
+        "specific choice definition of another technique."
+    ),
 }
 
 TECHNIQUE_CHOICE_BLOCK_HELP = {
@@ -3342,7 +3412,11 @@ RACE_CHOICE_DEFINITION_HELP = {
 }
 
 SPECIALIZATION_CHOICE_HELP = {
-    "support_level": "Automated = the engine evaluates the rule fully, Partially Automated = parts are structured and evaluable, Manual (Rule Text Only) = rule text only with no automatic calculation.",
+    "support_level": (
+        "Automated = the engine evaluates the rule fully, Partially Automated = "
+        "parts are structured and evaluable, Manual (Rule Text Only) = rule text "
+        "only with no automatic calculation."
+    ),
 }
 
 SCHOOL_ADMIN_LABELS = {
@@ -3408,7 +3482,10 @@ SPECIALIZATION_LABELS = {
 }
 
 ITEM_CHOICE_HELP = {
-    "item_type": "Armor = armor, Shield = shield, Weapon = weapon, Consumable = consumable item, Ammo = ammunition, Misc = miscellaneous item.",
+    "item_type": (
+        "Armor = armor, Shield = shield, Weapon = weapon, Consumable = consumable "
+        "item, Ammo = ammunition, Misc = miscellaneous item."
+    ),
     "default_quality": "Default item quality; used when no inventory-specific quality has been set.",
     "stackable": "Armor, shields, and weapons are validated as non-stackable.",
     "is_consumable": "Marks items that are actively consumed on use; separate from stackability.",
@@ -3430,8 +3507,16 @@ SHIELD_CHOICE_HELP = {
 }
 
 TRAIT_CHOICE_HELP = {
-    "trait_type": "Advantage = beneficial trait, Disadvantage = drawback or penalty trait. Traits can now also project semantic effects such as flags, capabilities, social markers, or narrative constraints in the central modifier layer.",
-    "description": "Keep the full rules text here. The central modifier layer may add structured automation on top of this text, but it does not replace the complete rule wording.",
+    "trait_type": (
+        "Advantage = beneficial trait, Disadvantage = drawback or penalty trait. "
+        "Traits can now also project semantic effects such as flags, capabilities, "
+        "social markers, or narrative constraints in the central modifier layer."
+    ),
+    "description": (
+        "Keep the full rules text here. The central modifier layer may add "
+        "structured automation on top of this text, but it does not replace the "
+        "complete rule wording."
+    ),
 }
 
 _install_inline_help(ModifierInline, help_texts=MODIFIER_CHOICE_HELP, labels=MODIFIER_LABELS)
