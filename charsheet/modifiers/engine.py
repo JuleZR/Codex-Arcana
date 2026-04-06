@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import math
 import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from functools import cached_property
 from typing import Any
 
 from charsheet.modifiers.definitions import BaseModifier, ModifierOperator, StackBehavior, TargetDomain
+from charsheet.constants import PROFICIENCY_GROUP_FOREIGN_LANGUAGES
 from charsheet.modifiers.legacy import LegacyModifierAdapter
 from charsheet.modifiers.migration import (
     LegacyModifierMigrationService,
@@ -33,6 +34,7 @@ class MovementProfile:
     """Resolved movement data from modifiers."""
 
     values: dict[str, int] = field(default_factory=dict)
+    multipliers: dict[str, float] = field(default_factory=dict)
     blocked_modes: set[str] = field(default_factory=set)
 
 
@@ -129,7 +131,8 @@ class ModifierEngine:
                     continue
                 collected.append(modifier)
             collected.extend(self._active_trait_modifiers)
-        return [modifier for modifier in collected if modifier is not None and modifier.applies(context)]
+        expanded = self._expand_choice_bound_modifiers(collected)
+        return [modifier for modifier in expanded if modifier is not None and modifier.applies(context)]
 
     def collect_legacy_modifiers(self, context: dict[str, Any] | None = None) -> list[BaseModifier]:
         """Return active legacy modifiers adapted for debug inspection only."""
@@ -190,6 +193,8 @@ class ModifierEngine:
             return self.character_engine.calculate_initiative()
         if stat_key == "arcane_power":
             return self.character_engine.calculate_arcane_power()
+        if stat_key == "potential":
+            return self.character_engine.calculate_potential()
         if stat_key == "vw":
             return self.character_engine.vw()
         if stat_key == "gw":
@@ -229,6 +234,11 @@ class ModifierEngine:
             if modifier.operator == ModifierOperator.UNSET_FLAG:
                 profile.blocked_modes.add(modifier.target_key)
                 continue
+            if modifier.operator == ModifierOperator.MULTIPLY:
+                profile.multipliers[modifier.target_key] = (
+                    profile.multipliers.get(modifier.target_key, 1.0) * float(self._resolve_numeric_modifier(modifier) or 1.0)
+                )
+                continue
             profile.values[modifier.target_key] = (
                 profile.values.get(modifier.target_key, 0) + int(self._resolve_numeric_modifier(modifier) or 0)
             )
@@ -247,6 +257,14 @@ class ModifierEngine:
                 profile.values.get(modifier.target_key, 0) + int(self._resolve_numeric_modifier(modifier) or 0)
             )
         return profile
+
+    def resolve_combat_value(self, target_key: str, context: dict[str, Any] | None = None) -> int:
+        """Resolve one numeric combat-profile value."""
+        return int(self.resolve_combat_profile(context=context).values.get(target_key, 0))
+
+    def resolve_perception_value(self, target_key: str, context: dict[str, Any] | None = None) -> int:
+        """Resolve one numeric perception-related modifier value."""
+        return self.resolve_numeric_total(TargetDomain.PERCEPTION, target_key, context=context)
 
     def resolve_flags(self, context: dict[str, Any] | None = None) -> dict[str, bool]:
         """Resolve boolean rule flags."""
@@ -336,7 +354,7 @@ class ModifierEngine:
         """Return the legacy choice-bound modifier total for one skill for diagnostics."""
         return self._legacy_choice_skill_modifier_total(skill_id)
 
-    def _resolve_numeric_modifier(self, modifier: BaseModifier) -> int | None:
+    def _resolve_numeric_modifier(self, modifier: BaseModifier) -> int | float | None:
         """Resolve the numeric contribution of one modifier from typed metadata only."""
         numeric_value = self._resolve_numeric_value(modifier)
         if numeric_value is None:
@@ -357,9 +375,11 @@ class ModifierEngine:
             ModifierOperator.CONDITIONAL_PENALTY,
         }:
             return -abs(int(numeric_value))
+        if modifier.operator == ModifierOperator.MULTIPLY:
+            return float(numeric_value)
         return int(numeric_value)
 
-    def _resolve_numeric_value(self, modifier: BaseModifier) -> int | None:
+    def _resolve_numeric_value(self, modifier: BaseModifier) -> int | float | None:
         """Resolve the numeric magnitude of one typed modifier before the operator sign is applied."""
         numeric_value = self._coerce_numeric(modifier.value)
         if numeric_value is None:
@@ -394,7 +414,7 @@ class ModifierEngine:
             numeric_value = max(numeric_value, self._coerce_numeric(modifier.value_min, default=numeric_value))
         if modifier.value_max is not None:
             numeric_value = min(numeric_value, self._coerce_numeric(modifier.value_max, default=numeric_value))
-        return int(numeric_value)
+        return numeric_value
 
     def _migrated_numeric_total(self, target_domain: str, target_key: str, context: dict[str, Any] | None = None) -> int:
         """Resolve one numeric target from migrated typed modifiers."""
@@ -504,6 +524,51 @@ class ModifierEngine:
         if gate_school_id is None:
             return False
         return self.character_engine.school_level(gate_school_id) >= int(min_school_level)
+
+    def _expand_choice_bound_modifiers(self, modifiers: list[BaseModifier]) -> list[BaseModifier]:
+        """Expand choice-bound modifiers into concrete target-key instances."""
+        expanded: list[BaseModifier] = []
+        for modifier in modifiers:
+            bound_targets = self._resolve_choice_bound_targets(modifier)
+            if not bound_targets:
+                expanded.append(modifier)
+                continue
+            for target_domain, target_key in bound_targets:
+                expanded.append(
+                    replace(
+                        modifier,
+                        target_domain=target_domain,
+                        target_key=target_key,
+                    )
+                )
+        return expanded
+
+    def _resolve_choice_bound_targets(self, modifier: BaseModifier) -> list[tuple[str, str]]:
+        """Resolve concrete targets for one choice-bound modifier, if any."""
+        if self.character_engine is None:
+            return []
+        choice_binding = modifier.metadata.get("choice_binding") or {}
+        if choice_binding.get("kind") != "trait_choice_definition":
+            return []
+        choices = self.character_engine._trait_choices_by_definition_id.get(int(choice_binding["id"]), [])
+        resolved_targets: list[tuple[str, str]] = []
+        for choice in choices:
+            target = choice.resolved_modifier_target()
+            if target is None:
+                continue
+            if target[0] == TargetDomain.PROFICIENCY_GROUP:
+                resolved_targets.extend(self._expand_proficiency_group_target(target[1]))
+                continue
+            if target[0] != modifier.target_domain and target[0] != "metadata":
+                continue
+            resolved_targets.append(target)
+        return resolved_targets
+
+    def _expand_proficiency_group_target(self, group_key: str) -> list[tuple[str, str]]:
+        """Map one proficiency-group key to concrete central modifier targets."""
+        if group_key == PROFICIENCY_GROUP_FOREIGN_LANGUAGES:
+            return [(TargetDomain.LANGUAGE, PROFICIENCY_GROUP_FOREIGN_LANGUAGES)]
+        return [(TargetDomain.SKILL_CATEGORY, group_key)]
 
     def _modifier_gate_school_id(self, modifier: BaseModifier) -> int | None:
         """Resolve which school drives school-level scaling or gating."""

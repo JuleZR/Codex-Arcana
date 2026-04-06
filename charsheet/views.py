@@ -1059,6 +1059,8 @@ def create_character(request):
                 "min_level": trait.min_level,
                 "max_level": trait.max_level,
                 "points_per_level": trait.points_per_level,
+                "points_display": trait.cost_display(),
+                "points_by_level": list(trait.cost_curve()),
                 "description": description,
                 "value": phase_3_values.get(trait.slug, 0),
             }
@@ -1085,6 +1087,8 @@ def create_character(request):
                 "min_level": trait.min_level,
                 "max_level": trait.max_level,
                 "points_per_level": trait.points_per_level,
+                "points_display": trait.cost_display(),
+                "points_by_level": list(trait.cost_curve()),
                 "description": description,
                 "value": phase_4_values.get(trait.slug, 0),
             }

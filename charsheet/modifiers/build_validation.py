@@ -12,6 +12,8 @@ class TraitBuildRule:
     slug: str
     cp_cost: int = 0
     cp_refund: int = 0
+    cp_cost_by_rank: tuple[int, ...] = ()
+    cp_refund_by_rank: tuple[int, ...] = ()
     min_rank: int = 0
     max_rank: int = 1
     repeatable: bool = False
@@ -21,6 +23,24 @@ class TraitBuildRule:
     overlap_groups: tuple[str, ...] = ()
     cap_groups: tuple[str, ...] = ()
     creation_only: bool = True
+
+    def total_cp_cost(self, rank: int) -> int:
+        """Return cumulative CP cost for the selected rank."""
+        value = int(rank)
+        if value <= 0:
+            return 0
+        if self.cp_cost_by_rank:
+            return int(sum(self.cp_cost_by_rank[:value]))
+        return self.cp_cost * value
+
+    def total_cp_refund(self, rank: int) -> int:
+        """Return cumulative CP refund for the selected rank."""
+        value = int(rank)
+        if value <= 0:
+            return 0
+        if self.cp_refund_by_rank:
+            return int(sum(self.cp_refund_by_rank[:value]))
+        return self.cp_refund * value
 
 
 @dataclass(slots=True)
@@ -43,6 +63,7 @@ class CharacterBuildValidator:
         """Return all detected issues for one build selection."""
         issues: list[BuildValidationIssue] = []
         normalized = {str(slug): int(level) for slug, level in selected_ranks.items() if int(level) > 0}
+        seen_mutual_pairs: set[tuple[str, str]] = set()
 
         total_refund = 0
         overlap_usage: dict[str, list[str]] = {}
@@ -66,14 +87,18 @@ class CharacterBuildValidator:
                         related_slugs=(slug,),
                     )
                 )
-            total_refund += rule.cp_refund * rank
+            total_refund += rule.total_cp_refund(rank)
             for other_slug in rule.mutually_exclusive_with:
                 if other_slug in normalized:
+                    pair = tuple(sorted((slug, other_slug)))
+                    if pair in seen_mutual_pairs:
+                        continue
+                    seen_mutual_pairs.add(pair)
                     issues.append(
                         BuildValidationIssue(
                             code="mutually_exclusive",
                             message=f"Traits '{slug}' and '{other_slug}' are mutually exclusive.",
-                            related_slugs=(slug, other_slug),
+                            related_slugs=pair,
                         )
                     )
             for contained_slug in rule.includes_other_disadvantages:

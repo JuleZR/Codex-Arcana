@@ -14,6 +14,8 @@ from charsheet.constants import (
     DEFENSE_SR,
     DEFENSE_VW,
     INITIATIVE,
+    POTENTIAL,
+    WOUND_PENALTY_MOD,
     WOUND_PENALTY_IGNORE,
     WOUND_STAGE,
 )
@@ -44,7 +46,7 @@ def calculate_arcane_power(engine) -> int:
 def calculate_potential(engine) -> int:
     """Calculate the character's potential value."""
     willpower = engine.attributes().get(ATTR_WILL, 0)
-    return willpower // 2
+    return willpower // 2 + engine._resolve_stat_modifiers(POTENTIAL)
 
 
 def wound_thresholds(engine) -> dict[int, tuple[str, int]]:
@@ -86,7 +88,12 @@ def calculate_defense(engine, mod1: str, mod2: str, slug: str) -> int:
 
 def vw(engine) -> int:
     """Return the avoidance defense."""
-    return engine.calculate_defense(ATTR_GE, ATTR_WA, DEFENSE_VW)
+    ge_bonus = engine.attribute_modifier(ATTR_GE)
+    wa_bonus = engine.attribute_modifier(ATTR_WA)
+    if engine.resolve_flags().get("suppress_positive_vw_attribute_bonuses", False):
+        ge_bonus = min(0, ge_bonus)
+        wa_bonus = min(0, wa_bonus)
+    return 14 + ge_bonus + wa_bonus + engine._resolve_stat_modifiers(DEFENSE_VW)
 
 
 def gw(engine) -> int:
@@ -129,7 +136,7 @@ def current_wound_penalty(engine) -> int:
         return 0
     if engine.is_wound_penalty_ignored():
         return 0
-    return penalty
+    return penalty + engine._resolve_stat_modifiers(WOUND_PENALTY_MOD)
 
 
 def current_wound_penalty_raw(engine) -> int:
@@ -137,7 +144,7 @@ def current_wound_penalty_raw(engine) -> int:
     penalty = engine.current_wound_stage()[1]
     if penalty is None:
         return 0
-    return penalty
+    return penalty + engine._resolve_stat_modifiers(WOUND_PENALTY_MOD)
 
 
 def is_wound_penalty_ignored(engine) -> bool:

@@ -137,7 +137,7 @@ class NumericResolutionComparison:
 class LegacyModifierMigrationService:
     """Inventory and map persisted legacy modifier rows into new typed modifiers."""
 
-    KNOWN_DERIVED_STATS = {"initiative", "arcane_power", "wound_stage", "vw", "gw", "sr", "rs"}
+    KNOWN_DERIVED_STATS = {"initiative", "arcane_power", "potential", "wound_stage", "wound_penalty_mod", "vw", "gw", "sr", "rs"}
     KNOWN_RULE_FLAGS = {"wound_penalty_ignore", "armor_penalty_ignore", "shield_penalty_ignore"}
     DAMAGE_SLUG_PREFIX = "dmg_"
 

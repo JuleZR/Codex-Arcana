@@ -275,6 +275,70 @@
   padding-right: 22px !important;
 }
 
+.shop_item_price--meta {
+  white-space: normal;
+  padding-right: 10px !important;
+  vertical-align: middle;
+}
+
+.shop_item_price--meta .learn_meta_inline {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+  margin-left: auto;
+  max-width: 100%;
+}
+
+.shop_item_price--meta .learn_meta_inline--attr {
+  display: inline-grid;
+  grid-template-columns: auto auto;
+  align-items: center;
+  column-gap: 10px;
+  row-gap: 1px;
+}
+
+.learn_meta_inline__row {
+  display: inline-flex;
+  justify-content: flex-end;
+  gap: 10px;
+  min-height: 1.05em;
+}
+
+.learn_meta_inline__item {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 3px;
+  white-space: nowrap;
+  font-family: "Trebuchet MS", "Segoe UI", Tahoma, sans-serif;
+}
+
+.learn_meta_inline__stack {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+}
+
+.learn_meta_inline__item--value {
+  align-self: center;
+}
+
+.learn_meta_label {
+  color: rgba(89, 63, 37, 0.8);
+  font-size: 0.66rem;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.learn_meta_value {
+  color: rgba(63, 43, 24, 0.98);
+  font-size: 0.84rem;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+}
+
 .learn_selection_meta,
 .learn_selection_note {
   margin-top: 2px;

@@ -283,9 +283,9 @@
                             <table class="dashboard_table phase2_shop_table">
                               <tbody>
                                 {% for row in phase_3_rows %}
-                                  <tr data-phase3-dis-source data-slug="{{ row.slug }}" data-name="{{ row.name }}" data-max="{{ row.max_level }}" data-ppl="{{ row.points_per_level }}" data-phase3-search="{{ row.name|lower }} nachteil disadvantage" tabindex="0" role="button" aria-label="{{ row.name }} hinzufuegen">
+                                  <tr data-phase3-dis-source data-slug="{{ row.slug }}" data-name="{{ row.name }}" data-max="{{ row.max_level }}" data-ppl="{{ row.points_per_level }}" data-point-curve="{% if row.points_by_level %}{{ row.points_by_level|join:',' }}{% endif %}" data-phase3-search="{{ row.name|lower }} nachteil disadvantage" tabindex="0" role="button" aria-label="{{ row.name }} hinzufuegen">
                                     <td class="db_tooltip_anchor"{% if row.description %} data-db-tooltip="{{ row.description }}"{% endif %}>{{ row.name }}</td>
-                                    <td class="phase2_lang_meta">max {{ row.max_level }} | {{ row.points_per_level }}/Lvl</td>
+                                    <td class="phase2_lang_meta">max {{ row.max_level }} | {{ row.points_display }}</td>
                                   </tr>
                                 {% endfor %}
                               </tbody>
@@ -302,10 +302,10 @@
                             <tbody id="phase3DisCartBody">
                               {% for row in phase_3_rows %}
                                 {% if row.value > 0 %}
-                                  <tr data-phase3-dis-cart-item data-slug="{{ row.slug }}" data-max="{{ row.max_level }}" data-ppl="{{ row.points_per_level }}">
-                                    <td><span data-phase3-dis-label-base="{{ row.name }}">{{ row.name }}</span> <span data-phase3-dis-formula>({% widthratio row.value 1 row.points_per_level %})</span></td>
+                                  <tr data-phase3-dis-cart-item data-slug="{{ row.slug }}" data-max="{{ row.max_level }}" data-ppl="{{ row.points_per_level }}" data-point-curve="{% if row.points_by_level %}{{ row.points_by_level|join:',' }}{% endif %}">
+                                    <td><span data-phase3-dis-label-base="{{ row.name }}">{{ row.name }}</span> <span data-phase3-dis-formula>({{ row.value|default:0 }})</span></td>
                                     <td><input class="dashboard_input phase2_level_input" type="number" min="0" max="{{ row.max_level }}" value="{{ row.value }}" name="dis_{{ row.slug }}" data-phase3-dis-level></td>
-                                    <td data-phase3-dis-cost>{% widthratio row.value 1 row.points_per_level %}</td>
+                                    <td data-phase3-dis-cost>0</td>
                                     <td><button type="button" class="phase2_remove_x" data-phase3-dis-remove aria-label="Nachteil entfernen" title="Entfernen">X</button></td>
                                   </tr>
                                 {% endif %}
@@ -370,9 +370,9 @@
                             <table class="dashboard_table phase2_shop_table">
                               <tbody>
                                 {% for row in phase_4_adv_rows %}
-                                  <tr data-phase4-source data-kind="adv" data-key="adv:{{ row.slug }}" data-slug="{{ row.slug }}" data-name="{{ row.name }}" data-min="{{ row.min_level }}" data-max="{{ row.max_level }}" data-ppl="{{ row.points_per_level }}" data-phase4-search="{{ row.name|lower }} vorteil" tabindex="0" role="button" aria-label="{{ row.name }} hinzufuegen">
+                                  <tr data-phase4-source data-kind="adv" data-key="adv:{{ row.slug }}" data-slug="{{ row.slug }}" data-name="{{ row.name }}" data-min="{{ row.min_level }}" data-max="{{ row.max_level }}" data-ppl="{{ row.points_per_level }}" data-point-curve="{% if row.points_by_level %}{{ row.points_by_level|join:',' }}{% endif %}" data-phase4-search="{{ row.name|lower }} vorteil" tabindex="0" role="button" aria-label="{{ row.name }} hinzufuegen">
                                     <td class="db_tooltip_anchor"{% if row.description %} data-db-tooltip="{{ row.description }}"{% endif %}>{{ row.name }}</td>
-                                    <td class="phase2_lang_meta">min {{ row.min_level }} | max {{ row.max_level }} | {{ row.points_per_level }}/Lvl</td>
+                                    <td class="phase2_lang_meta">min {{ row.min_level }} | max {{ row.max_level }} | {{ row.points_display }}</td>
                                   </tr>
                                 {% endfor %}
                               </tbody>
@@ -452,10 +452,10 @@
                             <tbody id="phase4CartBody">
                                 {% for row in phase_4_adv_rows %}
                                   {% if row.value > 0 %}
-                                    <tr data-phase4-cart-item data-key="adv:{{ row.slug }}" data-kind="adv" data-min="{{ row.min_level }}" data-max="{{ row.max_level }}" data-ppl="{{ row.points_per_level }}">
-                                      <td><span data-phase4-adv-label-base="{{ row.name }}">{{ row.name }}</span> <span data-phase4-adv-formula>({% widthratio row.value 1 row.points_per_level %})</span> <input type="hidden" name="adv_{{ row.slug }}" value="{{ row.value }}" data-phase4-hidden></td>
+                                    <tr data-phase4-cart-item data-key="adv:{{ row.slug }}" data-kind="adv" data-min="{{ row.min_level }}" data-max="{{ row.max_level }}" data-ppl="{{ row.points_per_level }}" data-point-curve="{% if row.points_by_level %}{{ row.points_by_level|join:',' }}{% endif %}">
+                                      <td><span data-phase4-adv-label-base="{{ row.name }}">{{ row.name }}</span> <span data-phase4-adv-formula>({{ row.value|default:0 }})</span> <input type="hidden" name="adv_{{ row.slug }}" value="{{ row.value }}" data-phase4-hidden></td>
                                       <td><input class="dashboard_input phase2_level_input" type="number" min="0" max="{{ row.max_level }}" value="{{ row.value }}" data-phase4-value></td>
-                                      <td data-phase4-cost>{% widthratio row.value 1 row.points_per_level %}</td>
+                                      <td data-phase4-cost>0</td>
                                       <td><button type="button" class="phase2_remove_x" data-phase4-remove aria-label="Eintrag entfernen" title="Entfernen">X</button></td>
                                     </tr>
                                   {% endif %}
@@ -1053,6 +1053,22 @@
             return Number.isNaN(parsed) ? fallback : parsed;
           };
 
+          const parsePointCurve = function (rawValue) {
+            return String(rawValue || "")
+              .split(",")
+              .map(function (part) { return Number.parseInt(part.trim(), 10); })
+              .filter(function (value) { return !Number.isNaN(value); });
+          };
+
+          const traitCostForLevel = function (level, ppl, pointCurveRaw) {
+            const safeLevel = Math.max(0, level);
+            const curve = parsePointCurve(pointCurveRaw);
+            if (curve.length) {
+              return curve.slice(0, safeLevel).reduce(function (sum, value) { return sum + value; }, 0);
+            }
+            return safeLevel * ppl;
+          };
+
           const clamp = function (value, min, max) {
             return Math.min(max, Math.max(min, value));
           };
@@ -1073,7 +1089,7 @@
             }
             const level = clamp(toInt(levelInput.value, 0), 0, maxLevel);
             levelInput.value = String(level);
-            const cost = level * ppl;
+            const cost = traitCostForLevel(level, ppl, row.dataset.pointCurve || "");
             if (labelBaseEl && formulaEl) {
               formulaEl.textContent = `(${cost})`;
             }
@@ -1129,7 +1145,7 @@
             }
           };
 
-          const createDisRow = function (slug, name, maxLevel, ppl) {
+          const createDisRow = function (slug, name, maxLevel, ppl, pointCurve) {
             const safeName = String(name)
               .replace(/&/g, "&amp;")
               .replace(/</g, "&lt;")
@@ -1141,8 +1157,9 @@
             row.dataset.slug = slug;
             row.dataset.max = String(maxLevel);
             row.dataset.ppl = String(ppl);
+            row.dataset.pointCurve = String(pointCurve || "");
             row.innerHTML = `
-              <td><span data-phase3-dis-label-base="${safeName}">${safeName}</span> <span data-phase3-dis-formula>(${ppl})</span></td>
+              <td><span data-phase3-dis-label-base="${safeName}">${safeName}</span> <span data-phase3-dis-formula>(0)</span></td>
               <td><input class="dashboard_input phase2_level_input" type="number" min="0" max="${maxLevel}" value="1" name="dis_${slug}" data-phase3-dis-level></td>
               <td data-phase3-dis-cost>0</td>
               <td><button type="button" class="phase2_remove_x" data-phase3-dis-remove aria-label="Nachteil entfernen" title="Entfernen">X</button></td>
@@ -1158,6 +1175,7 @@
             const name = source.dataset.name || slug;
             const maxLevel = toInt(source.dataset.max, 0);
             const ppl = toInt(source.dataset.ppl, 0);
+            const pointCurve = source.dataset.pointCurve || "";
             if (!slug) {
               return;
             }
@@ -1169,7 +1187,7 @@
               }
               return;
             }
-            const row = createDisRow(slug, name, maxLevel, ppl);
+            const row = createDisRow(slug, name, maxLevel, ppl, pointCurve);
             phase3DisCartBody.appendChild(row);
             bindDisRow(row);
             ensurePhase3EmptyRow();
@@ -1225,6 +1243,22 @@
           const toInt = function (value, fallback) {
             const parsed = Number.parseInt(value, 10);
             return Number.isNaN(parsed) ? fallback : parsed;
+          };
+
+          const parsePointCurve = function (rawValue) {
+            return String(rawValue || "")
+              .split(",")
+              .map(function (part) { return Number.parseInt(part.trim(), 10); })
+              .filter(function (value) { return !Number.isNaN(value); });
+          };
+
+          const traitCostForLevel = function (level, ppl, pointCurveRaw) {
+            const safeLevel = Math.max(0, level);
+            const curve = parsePointCurve(pointCurveRaw);
+            if (curve.length) {
+              return curve.slice(0, safeLevel).reduce(function (sum, value) { return sum + value; }, 0);
+            }
+            return safeLevel * ppl;
           };
 
           const initialRestBudget = toInt(phase4RestBudgetValue.textContent, 0);
@@ -1376,12 +1410,13 @@
               const min = toInt(row.dataset.min, 0);
               const max = toInt(row.dataset.max, 0);
               const ppl = toInt(row.dataset.ppl, 0);
+              const pointCurve = row.dataset.pointCurve || "";
               const formulaEl = row.querySelector("[data-phase4-adv-formula]");
               value = clamp(value, 0, max);
               if (value > 0 && value < min) {
                 value = min;
               }
-              cost = value > 0 ? value * ppl : 0;
+              cost = value > 0 ? traitCostForLevel(value, ppl, pointCurve) : 0;
               if (formulaEl) {
                 formulaEl.textContent = `(${cost})`;
               }
@@ -1564,9 +1599,11 @@
               const min = toInt(source.dataset.min, 0);
               const max = toInt(source.dataset.max, 0);
               const ppl = toInt(source.dataset.ppl, 0);
+              const pointCurve = source.dataset.pointCurve || "";
               row.dataset.min = String(min);
               row.dataset.max = String(max);
               row.dataset.ppl = String(ppl);
+              row.dataset.pointCurve = pointCurve;
               row.innerHTML = `
                 <td><span data-phase4-adv-label-base="${safeName}">${safeName}</span> <span data-phase4-adv-formula>(0)</span> <input type="hidden" name="adv_${slug}" value="${min}" data-phase4-hidden></td>
                 <td><input class="dashboard_input phase2_level_input" type="number" min="0" max="${max}" value="${min}" data-phase4-value></td>

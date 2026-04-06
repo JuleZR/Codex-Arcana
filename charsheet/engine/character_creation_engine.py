@@ -161,7 +161,7 @@ class CharacterCreationEngine:
             return 0
         if level < trait.min_level or level > trait.max_level:
             return 0
-        return level * trait.points_per_level
+        return trait.cost_for_level(level)
 
     def sum_phase_3_disadvantage_cost(self) -> int:
         return sum(
@@ -193,7 +193,7 @@ class CharacterCreationEngine:
             return 0
         if level < trait.min_level or level > trait.max_level:
             return 0
-        return level * trait.points_per_level
+        return trait.cost_for_level(level)
 
     def sum_phase_4_advantages_cost(self) -> int:
         return sum(
@@ -360,14 +360,31 @@ class CharacterCreationEngine:
     def _build_trait_validator(self, trait_type: str, *, max_disadvantage_cp: int = 20) -> CharacterBuildValidator:
         """Build a creation-time trait validator from persisted trait definitions."""
         rules: dict[str, TraitBuildRule] = {}
-        for trait in Trait.objects.filter(trait_type=trait_type):
+        trait_rows = Trait.objects.filter(trait_type=trait_type).prefetch_related(
+            "exclusions__excluded_trait",
+            "excluded_by__trait",
+        )
+        for trait in trait_rows:
+            mutually_exclusive = {
+                relation.excluded_trait.slug
+                for relation in trait.exclusions.all()
+                if relation.excluded_trait.trait_type == trait_type
+            }
+            mutually_exclusive.update(
+                relation.trait.slug
+                for relation in trait.excluded_by.all()
+                if relation.trait.trait_type == trait_type
+            )
             rules[trait.slug] = TraitBuildRule(
                 slug=trait.slug,
                 cp_cost=int(trait.points_per_level) if trait_type == Trait.TraitType.ADV else 0,
                 cp_refund=int(trait.points_per_level) if trait_type == Trait.TraitType.DIS else 0,
+                cp_cost_by_rank=tuple(trait.cost_curve()) if trait_type == Trait.TraitType.ADV else (),
+                cp_refund_by_rank=tuple(trait.cost_curve()) if trait_type == Trait.TraitType.DIS else (),
                 min_rank=int(trait.min_level),
                 max_rank=int(trait.max_level),
                 repeatable=int(trait.max_level) > 1,
+                mutually_exclusive_with=tuple(sorted(mutually_exclusive)),
             )
         return CharacterBuildValidator(rules=rules, max_disadvantage_cp=max_disadvantage_cp)
 

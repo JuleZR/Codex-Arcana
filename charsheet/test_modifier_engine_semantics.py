@@ -6,13 +6,15 @@ from unittest.mock import patch
 from django.test import SimpleTestCase
 
 from charsheet.engine.character_creation_engine import CharacterCreationEngine
-from charsheet.models import Trait, TraitSemanticEffect
+from charsheet.models import Attribute, CharacterTraitChoice, Trait, TraitChoiceDefinition, TraitSemanticEffect
 from charsheet.modifiers import (
+    CombatModifier,
     CharacterBuildValidator,
     EconomyModifier,
     ModifierEngine,
     ModifierOperator,
     MovementModifier,
+    PerceptionModifier,
     ResistanceModifier,
     RuleFlagModifier,
     SocialModifier,
@@ -28,6 +30,13 @@ class ModifierEngineSemanticTests(SimpleTestCase):
     def test_rule_flag_and_capability_modifiers_resolve(self):
         engine = ModifierEngine(
             modifiers=[
+                PerceptionModifier(
+                    source_type="trait",
+                    source_id="blind",
+                    target_key="vision_dependent_actions",
+                    operator=ModifierOperator.FLAT_SUB,
+                    value=6,
+                ),
                 RuleFlagModifier(
                     source_type="trait",
                     source_id="blind",
@@ -48,6 +57,7 @@ class ModifierEngineSemanticTests(SimpleTestCase):
 
         self.assertEqual(engine.resolve_flags(), {"blind": True})
         self.assertEqual(engine.resolve_capabilities(), {"can_see": False})
+        self.assertEqual(engine.resolve_perception_value("vision_dependent_actions"), -6)
 
     def test_resistance_and_movement_profiles_resolve(self):
         engine = ModifierEngine(
@@ -74,6 +84,31 @@ class ModifierEngineSemanticTests(SimpleTestCase):
 
         self.assertEqual(resistances.vulnerabilities["natural_heat"], 6)
         self.assertEqual(movement.values["ground_combat"], -2)
+
+    def test_movement_multiplier_and_combat_profile_value_resolve(self):
+        engine = ModifierEngine(
+            modifiers=[
+                MovementModifier(
+                    source_type="trait",
+                    source_id="beidseitige_laehmung",
+                    target_key="ground_combat",
+                    operator=ModifierOperator.MULTIPLY,
+                    value=0.25,
+                ),
+                CombatModifier(
+                    source_type="trait",
+                    source_id="beidseitige_laehmung",
+                    target_key="melee_maneuvers",
+                    operator=ModifierOperator.FLAT_SUB,
+                    value=6,
+                ),
+            ]
+        )
+
+        movement = engine.resolve_movement()
+
+        self.assertEqual(movement.multipliers["ground_combat"], 0.25)
+        self.assertEqual(engine.resolve_combat_value("melee_maneuvers"), -6)
 
     def test_social_profile_and_behavioral_tags_resolve(self):
         engine = ModifierEngine(
@@ -161,6 +196,38 @@ class ModifierEngineSemanticTests(SimpleTestCase):
         self.assertEqual(modifier.value, 0)
         self.assertTrue(modifier.condition_set.applies_during_character_creation)
         self.assertEqual(modifier.metadata["currency"], "KM")
+
+    def test_choice_bound_trait_semantic_effect_materializes_choice_binding_and_resolves_selected_attribute(self):
+        attribute = Attribute(name="Willenskraft", short_name="WILL")
+        trait = Trait(name="Erbaermliche Eigenschaft", slug="erbaermliche_eigenschaft", trait_type=Trait.TraitType.DIS, description="")
+        definition = TraitChoiceDefinition(
+            id=7,
+            trait=trait,
+            name="Waehle Eigenschaft",
+            target_kind=TraitChoiceDefinition.TargetKind.ATTRIBUTE,
+        )
+        effect = TraitSemanticEffect(
+            trait=trait,
+            target_choice_definition=definition,
+            target_domain=TargetDomain.ATTRIBUTE,
+            target_key="",
+            operator=ModifierOperator.FLAT_SUB,
+            value="1",
+        )
+
+        modifier = effect.to_modifier()
+
+        self.assertEqual(modifier.metadata["choice_binding"], {"kind": "trait_choice_definition", "id": 7})
+
+        choice = CharacterTraitChoice(
+            definition=definition,
+            selected_attribute=attribute,
+        )
+        engine = ModifierEngine(modifiers=[modifier])
+        engine.character_engine = SimpleNamespace(_all_modifiers=[], _trait_choices_by_definition_id={7: [choice]})
+        engine.__dict__["_active_trait_modifiers"] = []
+
+        self.assertEqual(engine.resolve_numeric_total(TargetDomain.ATTRIBUTE, "WILL"), -1)
 
 
 class CharacterBuildValidatorTests(SimpleTestCase):

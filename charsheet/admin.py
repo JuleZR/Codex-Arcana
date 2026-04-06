@@ -5,6 +5,7 @@ from copy import deepcopy
 
 from django.contrib import admin
 from django.contrib.contenttypes.admin import GenericStackedInline
+from django import forms
 from django.http import HttpResponseRedirect, JsonResponse
 from django.db.models import Q
 from django.urls import path, reverse
@@ -31,6 +32,7 @@ from .models import (
     CharacterTechnique,
     CharacterTechniqueChoice,
     CharacterTrait,
+    CharacterTraitChoice,
     DamageSource,
     Item,
     Language,
@@ -54,6 +56,8 @@ from .models import (
     TechniqueExclusion,
     TechniqueRequirement,
     Trait,
+    TraitChoiceDefinition,
+    TraitExclusion,
     TraitSemanticEffect,
     WeaponStats,
 )
@@ -152,17 +156,23 @@ def _trait_build_rule_preview(trait):
     if trait is None:
         return format_html('<span style="color:#666;">{}</span>', "-")
     rank_mode = "repeatable" if int(trait.max_level) > 1 else "single pick"
+    excluded_traits = {relation.excluded_trait.name for relation in trait.exclusions.all()}
+    excluded_traits.update(relation.trait.name for relation in trait.excluded_by.all())
+    exclusion_line = (
+        f"Mutually exclusive with: {', '.join(sorted(excluded_traits))}."
+        if excluded_traits
+        else "Mutually exclusive with: none."
+    )
     if trait.trait_type == Trait.TraitType.ADV:
-        cp_line = f"Costs {trait.points_per_level} CP per level during creation."
+        cp_line = f"Costs {trait.cost_display()} during creation."
     else:
-        cp_line = (
-            f"Refunds {trait.points_per_level} CP per level during creation and counts against the disadvantage cap."
-        )
+        cp_line = f"Refunds {trait.cost_display()} during creation and counts against the disadvantage cap."
     return _render_readonly_lines(
         (
             f"Allowed ranks: {trait.min_level} to {trait.max_level}.",
             cp_line,
             f"Selection mode: {rank_mode}.",
+            exclusion_line,
             "Creation-only trait logic is validated centrally in the CharacterCreationEngine.",
         )
     )
@@ -298,6 +308,24 @@ def _format_technique_choice_context(technique):
     if not parts and technique.choice_target_kind != Technique.ChoiceTargetKind.NONE:
         parts.append("Persistent choice without extra editor notes.")
     return " | ".join(parts) if parts else "-"
+
+
+def _format_trait_choice_context(definition):
+    """Return compact editor-facing guidance for a trait choice definition."""
+    if definition is None:
+        return "-"
+    parts = [definition.description or definition.name]
+    if definition.allowed_attribute_id:
+        parts.append(f"Allowed Attribute: {definition.allowed_attribute.short_name}")
+    if definition.allowed_skill_category_id:
+        parts.append(f"Allowed Skill Category: {definition.allowed_skill_category.slug}")
+    if definition.allowed_skill_family:
+        parts.append(f"Allowed Skill Family: {definition.allowed_skill_family}")
+    if definition.allowed_derived_stat:
+        parts.append(f"Allowed Derived Stat: {definition.get_allowed_derived_stat_display()}")
+    if definition.allowed_proficiency_group:
+        parts.append(f"Allowed Group: {definition.get_allowed_proficiency_group_display()}")
+    return " | ".join(part for part in parts if part) or "-"
 
 
 def _format_technique_requirements(technique):
@@ -1229,6 +1257,34 @@ class TechniqueExclusionInline(admin.TabularInline):
     autocomplete_fields = ("excluded_technique",)
 
 
+class TraitExclusionInline(admin.TabularInline):
+    """Inline editor for traits excluded by the current trait."""
+
+    model = TraitExclusion
+    verbose_name_plural = "Trait Exclusions"
+    fk_name = "trait"
+    extra = 0
+    show_change_link = True
+    autocomplete_fields = ("excluded_trait",)
+
+
+class TraitExcludedByInline(admin.TabularInline):
+    """Readonly inline showing exclusions defined on the opposite trait page."""
+
+    model = TraitExclusion
+    verbose_name_plural = "Excluded By Traits"
+    fk_name = "excluded_trait"
+    extra = 0
+    show_change_link = True
+    can_delete = False
+    fields = ("trait",)
+    readonly_fields = ("trait",)
+
+    def has_add_permission(self, request, obj=None):
+        """Block creating reverse rows from the readonly mirror inline."""
+        return False
+
+
 class TechniqueChoiceDefinitionInline(admin.TabularInline):
     """Inline editor for persistent technique choice definitions."""
 
@@ -1265,6 +1321,31 @@ class RaceChoiceDefinitionInline(admin.TabularInline):
         "is_required",
         "allowed_skill_category",
         "allowed_skill_family",
+        "sort_order",
+        "is_active",
+        "description",
+    )
+
+
+class TraitChoiceDefinitionInline(admin.TabularInline):
+    """Inline editor for persistent trait choice definitions."""
+
+    model = TraitChoiceDefinition
+    verbose_name_plural = "Trait Choice Definitions"
+    fk_name = "trait"
+    extra = 0
+    show_change_link = True
+    fields = (
+        "name",
+        "target_kind",
+        "min_choices",
+        "max_choices",
+        "is_required",
+        "allowed_attribute",
+        "allowed_skill_category",
+        "allowed_skill_family",
+        "allowed_derived_stat",
+        "allowed_proficiency_group",
         "sort_order",
         "is_active",
         "description",
@@ -1319,7 +1400,7 @@ class CharacterTraitInline(admin.TabularInline):
         """Show trait point cost per level for quick reference."""
         if not obj or not obj.trait_id:
             return "-"
-        return obj.trait.points_per_level
+        return obj.trait.cost_display()
 
     @admin.display(description="Central Effects")
     def trait_semantic_effects(self, obj):
@@ -1374,12 +1455,35 @@ class TraitCharacterInline(admin.TabularInline):
     autocomplete_fields = ("owner",)
 
 
+class TraitSemanticEffectInlineForm(forms.ModelForm):
+    """Admin form that allows choice-bound semantic effects without a fixed target key."""
+
+    class Meta:
+        model = TraitSemanticEffect
+        fields = "__all__"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["target_key"].required = False
+
+    def clean(self):
+        """Mirror the model rule in admin form validation with clearer field behavior."""
+        cleaned_data = super().clean()
+        target_key = str(cleaned_data.get("target_key") or "").strip()
+        target_choice_definition = cleaned_data.get("target_choice_definition")
+        if not target_choice_definition and not target_key:
+            self.add_error("target_key", "Set a target key unless the effect is bound to a trait choice definition.")
+        return cleaned_data
+
+
 class TraitSemanticEffectInline(admin.StackedInline):
     """Inline editor for persisted new-system semantic trait effects."""
 
     model = TraitSemanticEffect
+    form = TraitSemanticEffectInlineForm
     extra = 0
     show_change_link = True
+    autocomplete_fields = ("target_choice_definition",)
     fieldsets = (
         (
             "Target",
@@ -1387,6 +1491,7 @@ class TraitSemanticEffectInline(admin.StackedInline):
                 "fields": (
                     ("sort_order", "active_flag", "priority"),
                     ("target_domain", "target_key", "operator"),
+                    "target_choice_definition",
                     ("mode", "stack_behavior", "visibility"),
                     ("hidden", "sheet_relevant"),
                 )
@@ -1409,7 +1514,8 @@ class TraitSemanticEffectInline(admin.StackedInline):
                 "fields": ("condition_set", "scaling", "metadata"),
                 "description": (
                     "Use JSON objects for condition_set, scaling, and metadata. "
-                    "Example condition_set: {\"applies_during_character_creation\": true}"
+                    "Example condition_set: {\"applies_during_character_creation\": true}. "
+                    "For choice-bound trait effects, select a trait choice definition and leave target_key empty."
                 ),
             },
         ),
@@ -1642,7 +1748,7 @@ class CharacterAdmin(admin.ModelAdmin):
     def trait_meta_view(self, request, trait_id):
         """Return selected trait metadata for inline display updates."""
         try:
-            trait = Trait.objects.only("min_level", "max_level", "points_per_level").get(pk=trait_id)
+            trait = Trait.objects.only("min_level", "max_level", "points_per_level", "points_by_level").get(pk=trait_id)
         except Trait.DoesNotExist:
             return JsonResponse({"error": "Trait not found"}, status=404)
 
@@ -1650,7 +1756,7 @@ class CharacterAdmin(admin.ModelAdmin):
             {
                 "min_level": trait.min_level,
                 "max_level": trait.max_level,
-                "points_per_level": trait.points_per_level,
+                "points_per_level": trait.cost_display(),
             }
         )
 
@@ -2541,6 +2647,69 @@ class RaceChoiceDefinitionAdmin(admin.ModelAdmin):
         return obj.targeting_modifiers.count()
 
 
+@admin.register(TraitChoiceDefinition)
+class TraitChoiceDefinitionAdmin(admin.ModelAdmin):
+    """Admin configuration for persistent trait choice definitions."""
+
+    list_display = (
+        "name",
+        "trait",
+        "target_kind",
+        "semantic_effect_count",
+        "min_choices",
+        "max_choices",
+        "is_required",
+        "is_active",
+    )
+    search_fields = ("name", "description", "trait__name", "trait__slug")
+    list_filter = ("trait__trait_type", "trait", "target_kind", "is_required", "is_active")
+    ordering = ("trait__trait_type", "trait__name", "sort_order", "name")
+    autocomplete_fields = ("trait", "allowed_attribute", "allowed_skill_category")
+    list_select_related = ("trait", "allowed_attribute", "allowed_skill_category")
+    readonly_fields = ("linked_semantic_effects",)
+    fieldsets = (
+        (
+            "Choice Definition",
+            {
+                "fields": (
+                    "trait",
+                    "name",
+                    "target_kind",
+                    "description",
+                    ("min_choices", "max_choices", "is_required"),
+                    ("allowed_attribute", "allowed_skill_category", "allowed_skill_family"),
+                    "allowed_derived_stat",
+                    "allowed_proficiency_group",
+                    ("sort_order", "is_active"),
+                ),
+            },
+        ),
+        (
+            "Links",
+            {
+                "fields": ("linked_semantic_effects",),
+                "description": "Shows trait semantic effects that explicitly point to this choice definition.",
+            },
+        ),
+    )
+
+    @admin.display(description="Linked Effects")
+    def linked_semantic_effects(self, obj):
+        """Show semantic effects that explicitly reference this trait choice definition."""
+        if not obj or not obj.pk:
+            return "-"
+        effects = obj.semantic_effects.order_by("sort_order", "id")
+        return ", ".join(
+            f"{effect.target_domain}:{effect.target_key or '[choice-bound]'} [{effect.operator}]"
+            for effect in effects
+        ) or "None"
+
+    @admin.display(description="Effects")
+    def semantic_effect_count(self, obj):
+        """Return how many semantic effects point to this trait choice definition."""
+        return obj.semantic_effects.count()
+
+
 @admin.register(Specialization)
 class SpecializationAdmin(admin.ModelAdmin):
     """Admin configuration for school-bound specializations."""
@@ -2941,6 +3110,109 @@ class CharacterRaceChoiceAdmin(admin.ModelAdmin):
         return obj.selected_target_display()
 
 
+@admin.register(CharacterTraitChoice)
+class CharacterTraitChoiceAdmin(admin.ModelAdmin):
+    """Admin configuration for persistent character trait choices."""
+
+    list_display = (
+        "owner_name",
+        "trait_name",
+        "definition",
+        "choice_target_kind",
+        "choice_context",
+        "selected_target_value",
+    )
+    search_fields = (
+        "character_trait__owner__name",
+        "character_trait__trait__name",
+        "definition__name",
+        "selected_attribute__name",
+        "selected_skill__name",
+        "selected_skill_category__name",
+        "selected_derived_stat",
+        "selected_proficiency_group",
+        "selected_item__name",
+        "selected_specialization__name",
+        "selected_text",
+    )
+    list_filter = ("character_trait__trait", "definition__target_kind")
+    ordering = ("character_trait__owner__name", "character_trait__trait__name", "definition__sort_order", "definition__name")
+    autocomplete_fields = (
+        "character_trait",
+        "definition",
+        "selected_attribute",
+        "selected_skill",
+        "selected_skill_category",
+        "selected_item",
+        "selected_specialization",
+    )
+    list_select_related = (
+        "character_trait",
+        "character_trait__owner",
+        "character_trait__trait",
+        "definition",
+        "selected_attribute",
+        "selected_skill",
+        "selected_skill_category",
+        "selected_proficiency_group",
+        "selected_item",
+        "selected_specialization",
+    )
+    fieldsets = (
+        (
+            "Trait",
+            {
+                "fields": (
+                    ("character_trait", "definition"),
+                    "choice_target_kind",
+                    "choice_context",
+                )
+            },
+        ),
+        (
+            "Selected Target",
+            {
+                "fields": (
+                    "selected_attribute",
+                    ("selected_skill",),
+                    ("selected_skill_category", "selected_specialization"),
+                    "selected_derived_stat",
+                    "selected_proficiency_group",
+                    ("selected_item", "selected_item_category"),
+                    "selected_text",
+                    ("selected_content_type", "selected_object_id"),
+                )
+            },
+        ),
+    )
+    readonly_fields = ("choice_target_kind", "choice_context")
+
+    @admin.display(ordering="character_trait__owner__name", description="Character")
+    def owner_name(self, obj):
+        """Return the owning character name."""
+        return obj.character_trait.owner.name
+
+    @admin.display(ordering="character_trait__trait__name", description="Trait")
+    def trait_name(self, obj):
+        """Return the owning trait name."""
+        return obj.character_trait.trait.name
+
+    @admin.display(ordering="definition__target_kind", description="Target")
+    def choice_target_kind(self, obj):
+        """Return which persistent target kind the trait choice expects."""
+        return obj.definition.get_target_kind_display()
+
+    @admin.display(description="Choice Notes")
+    def choice_context(self, obj):
+        """Return editor-facing guidance for persistent trait choices."""
+        return _format_trait_choice_context(obj.definition)
+
+    @admin.display(description="Selection")
+    def selected_target_value(self, obj):
+        """Render the stored trait target in readable form."""
+        return obj.selected_target_display()
+
+
 @admin.register(TechniqueRequirement)
 class TechniqueRequirementAdmin(admin.ModelAdmin):
     """Admin configuration for structured technique requirements."""
@@ -3028,6 +3300,23 @@ class TechniqueExclusionAdmin(admin.ModelAdmin):
     def excluded_school(self, obj):
         """Return the excluded technique school for list display."""
         return obj.excluded_technique.school
+
+
+@admin.register(TraitExclusion)
+class TraitExclusionAdmin(admin.ModelAdmin):
+    """Admin configuration for mutually exclusive traits."""
+
+    list_display = ("trait", "trait_type", "excluded_trait")
+    search_fields = ("trait__name", "trait__slug", "excluded_trait__name", "excluded_trait__slug")
+    list_filter = ("trait__trait_type",)
+    ordering = ("trait__trait_type", "trait__name", "excluded_trait__name")
+    autocomplete_fields = ("trait", "excluded_trait")
+    list_select_related = ("trait", "excluded_trait")
+
+    @admin.display(ordering="trait__trait_type", description="Trait Type")
+    def trait_type(self, obj):
+        """Return the source trait type for list display."""
+        return obj.trait.trait_type
 
 
 @admin.register(DamageSource)
@@ -3121,13 +3410,19 @@ class TraitAdmin(admin.ModelAdmin):
         "trait_type",
         "min_level",
         "max_level",
-        "points_per_level",
+        "trait_cost_display",
         "rule_support_level",
     )
     search_fields = ("name", "slug")
     list_filter = ("trait_type",)
     ordering = ("trait_type", "name")
-    inlines = (TraitSemanticEffectInline, TraitCharacterInline)
+    inlines = (
+        TraitExclusionInline,
+        TraitExcludedByInline,
+        TraitChoiceDefinitionInline,
+        TraitSemanticEffectInline,
+        TraitCharacterInline,
+    )
     readonly_fields = ("rule_support_level", "semantic_modifier_preview", "semantic_editing_path", "build_rule_preview")
     fieldsets = (
         (
@@ -3136,6 +3431,7 @@ class TraitAdmin(admin.ModelAdmin):
                 "fields": (
                     ("name", "slug"),
                     ("trait_type", "points_per_level"),
+                    "points_by_level",
                     ("min_level", "max_level"),
                     "description",
                 )
@@ -3147,8 +3443,8 @@ class TraitAdmin(admin.ModelAdmin):
                 "fields": ("rule_support_level", "semantic_modifier_preview", "semantic_editing_path", "build_rule_preview"),
                 "description": (
                     "Traits are no longer treated as pure +X/-Y containers. "
-                    "Semantic effects, flags, capabilities, social markers, and build rules are surfaced here. "
-                    "Legacy modifier rows are not edited on traits anymore; maintain new-system effects in the Semantic Effects inline."
+                    "Semantic effects, flags, capabilities, social markers, trait-bound choices, and build rules are surfaced here. "
+                    "Legacy modifier rows are not edited on traits anymore; maintain new-system effects in the Choice Definitions and Semantic Effects inlines."
                 ),
             },
         ),
@@ -3160,6 +3456,11 @@ class TraitAdmin(admin.ModelAdmin):
         if not obj:
             return "-"
         return "Semantic + Data" if build_trait_semantic_modifiers(trait_slug=obj.slug, level=max(1, obj.min_level)) else "Data / Legacy"
+
+    @admin.display(description="Costs")
+    def trait_cost_display(self, obj):
+        """Show linear or explicit per-level trait costs."""
+        return obj.cost_display()
 
     @admin.display(description="Semantic Effects")
     def semantic_modifier_preview(self, obj):

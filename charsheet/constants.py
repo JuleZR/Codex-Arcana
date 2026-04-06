@@ -1,8 +1,10 @@
 # STAT Slugs
 INITIATIVE = "initiative"
 ARCANE_POWER = "arcane_power"
+POTENTIAL = "potential"
 WOUND_STAGE = "wound_stage"
 WOUND_PENALTY_IGNORE = "wound_penalty_ignore"
+WOUND_PENALTY_MOD = "wound_penalty_mod"
 ARMOR_PENALTY_IGNORE = "armor_penalty_ignore"
 DEFENSE_VW = "vw"
 DEFENSE_GW = "gw"
@@ -12,8 +14,10 @@ DEFENSE_RS = "rs"
 STAT_SLUG_CHOICES = [
     (INITIATIVE, "Initiative"),
     (ARCANE_POWER, "Arcane Power"),
+    (POTENTIAL, "Potential"),
     (WOUND_STAGE, "Wound Stage"),
     (WOUND_PENALTY_IGNORE, "Ignore Wound Penalty"),
+    (WOUND_PENALTY_MOD, "Wound Penalty Modifier"),
     (ARMOR_PENALTY_IGNORE, "Ignore Armor Penalty"),
     (DEFENSE_VW, "VW"),
     (DEFENSE_GW, "GW"),
@@ -24,8 +28,10 @@ STAT_SLUG_CHOICES = [
 VALID_STAT_SLUGS = {
     INITIATIVE,
     ARCANE_POWER,
+    POTENTIAL,
     WOUND_STAGE,
     WOUND_PENALTY_IGNORE,
+    WOUND_PENALTY_MOD,
     ARMOR_PENALTY_IGNORE,
     DEFENSE_VW,
     DEFENSE_GW,
@@ -86,6 +92,17 @@ SKILL_CATEGORY_CHOICES = [
     (SKILL_SOCIAL, "Soziale Fertigkeiten"),
     (SKILL_COMBAT, "Waffenfertigkeiten"),
     (SKILL_KNOWLEDGE, "Wissensfertigkeiten"),
+]
+
+PROFICIENCY_GROUP_FOREIGN_LANGUAGES = "foreign_languages"
+
+PROFICIENCY_GROUP_CHOICES = [
+    (SKILL_FINE_MOTOR, "Feinmotorische Fertigkeiten"),
+    (SKILL_GROSS_MOTOR, "Grobmotorische Fertigkeiten"),
+    (SKILL_SOCIAL, "Soziale Fertigkeiten"),
+    (SKILL_KNOWLEDGE, "Wissensfertigkeiten"),
+    (SKILL_COMBAT, "Waffenfertigkeiten"),
+    (PROFICIENCY_GROUP_FOREIGN_LANGUAGES, "Sprachen (außer Muttersprache)"),
 ]
 
 # SIZE CLASSES
@@ -245,6 +262,8 @@ ATTRIBUTE_ORDER = [
 TARGET_DOMAIN_CHOICES = (
     ("skill", "skill"),
     ("skill_category", "skill_category"),
+    ("language", "language"),
+    ("proficiency_group", "proficiency_group"),
     ("trait", "trait"),
     ("attribute", "attribute"),
     ("derived_stat", "derived_stat"),

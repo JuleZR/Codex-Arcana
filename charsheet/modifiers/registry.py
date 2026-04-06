@@ -10,6 +10,7 @@ from charsheet.modifiers.definitions import (
     DerivedStatModifier,
     EconomyModifier,
     ModifierOperator,
+    PerceptionModifier,
     ResourceModifier,
     ResistanceModifier,
     RuleFlagModifier,
@@ -34,6 +35,14 @@ def normalize_rule_slug(value: str) -> str:
 
 def _blind(level: int):
     return [
+        PerceptionModifier(
+            source_type="trait",
+            source_id="blind",
+            target_key="vision_dependent_actions",
+            operator=ModifierOperator.FLAT_SUB,
+            value=6,
+            notes="Blind applies a -6 penalty to actions that rely on visual perception.",
+        ),
         RuleFlagModifier(
             source_type="trait",
             source_id="blind",
@@ -50,6 +59,33 @@ def _blind(level: int):
             operator=ModifierOperator.REMOVE_CAPABILITY,
             value=False,
             notes="Complete loss of sight",
+        ),
+        RuleFlagModifier(
+            source_type="trait",
+            source_id="blind",
+            target_domain=TargetDomain.CAPABILITY,
+            target_key="can_read",
+            operator=ModifierOperator.REMOVE_CAPABILITY,
+            value=False,
+            notes="Reading requires sight.",
+        ),
+        RuleFlagModifier(
+            source_type="trait",
+            source_id="blind",
+            target_domain=TargetDomain.CAPABILITY,
+            target_key="can_make_ranged_attacks",
+            operator=ModifierOperator.REMOVE_CAPABILITY,
+            value=False,
+            notes="Ranged combat is impossible without further exceptional rules support.",
+        ),
+        RuleFlagModifier(
+            source_type="trait",
+            source_id="blind",
+            target_domain=TargetDomain.CAPABILITY,
+            target_key="can_target_distant_spells",
+            operator=ModifierOperator.REMOVE_CAPABILITY,
+            value=False,
+            notes="Targeted spells at range require sight.",
         ),
     ]
 

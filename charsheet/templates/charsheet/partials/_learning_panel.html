@@ -105,7 +105,18 @@
                       {% for row in learn_attr_rows %}
                         <tr data-learn-source data-kind="attr" data-key="attr:{{ row.short_name }}" data-short="{{ row.short_name }}" data-name="{{ row.label }}" data-base="{{ row.base_value }}" data-min="{{ row.min_value }}" data-max="{{ row.max_value }}" data-learn-search="{{ row.label|lower }} eigenschaft attribut" tabindex="0" role="button" aria-label="{{ row.label }} steigern">
                           <td class="shop_item_name">{{ row.label }}</td>
-                          <td class="shop_item_price">Basis {{ row.base_value }} | Min {{ row.min_value }} | Max {{ row.max_value }}</td>
+                          <td class="shop_item_price shop_item_price--meta">
+                            <span class="learn_meta_inline learn_meta_inline--attr" aria-label="Aktueller Wert {{ row.base_value }}, Minimum {{ row.min_value }}, Maximum {{ row.max_value }}">
+                              <span class="learn_meta_inline__item learn_meta_inline__item--value">
+                                <span class="learn_meta_label">Wert</span>
+                                <span class="learn_meta_value">{{ row.base_value }}</span>
+                              </span>
+                              <span class="learn_meta_inline__stack">
+                                <span class="learn_meta_inline__item"><span class="learn_meta_label">Min</span><span class="learn_meta_value">{{ row.min_value }}</span></span>
+                                <span class="learn_meta_inline__item"><span class="learn_meta_label">Max</span><span class="learn_meta_value">{{ row.max_value }}</span></span>
+                              </span>
+                            </span>
+                          </td>
                         </tr>
                       {% endfor %}
                     </tbody>
@@ -129,9 +140,20 @@
                       <table class="shop_table">
                         <tbody>
                           {% for row in group.rows %}
-                            <tr data-learn-source data-kind="trait" data-key="trait:{{ row.slug }}" data-slug="{{ row.slug }}" data-name="{{ row.name }}" data-trait-type="{{ row.trait_type }}" data-base="{{ row.base_level }}" data-min="{{ row.min_level }}" data-max="{{ row.max_level }}" data-ppl="{{ row.points_per_level }}" data-learn-search="{{ row.name|lower }} {{ group.name|lower }} vorteil nachteil trait" tabindex="0" role="button" aria-label="{{ row.name }} aendern"{% if row.description %} class="tooltip_target" data-tooltip-side="left" data-tooltip="{{ row.description }}"{% endif %}>
+                            <tr data-learn-source data-kind="trait" data-key="trait:{{ row.slug }}" data-slug="{{ row.slug }}" data-name="{{ row.name }}" data-trait-type="{{ row.trait_type }}" data-base="{{ row.base_level }}" data-min="{{ row.min_level }}" data-max="{{ row.max_level }}" data-ppl="{{ row.points_per_level }}" data-point-curve="{% if row.points_by_level %}{{ row.points_by_level|join:',' }}{% endif %}" data-learn-search="{{ row.name|lower }} {{ group.name|lower }} vorteil nachteil trait" tabindex="0" role="button" aria-label="{{ row.name }} aendern"{% if row.description %} class="tooltip_target" data-tooltip-side="left" data-tooltip="{{ row.description }}"{% endif %}>
                               <td class="shop_item_name">{{ row.name }}</td>
-                              <td class="shop_item_price">Aktuell {{ row.base_level }} | Min {{ row.min_level }} | Max {{ row.max_level }} | {{ row.points_per_level }} EP/Stufe</td>
+                              <td class="shop_item_price shop_item_price--meta">
+                                <span class="learn_meta_inline" aria-label="Aktuelles Level {{ row.base_level }}, Minimum {{ row.min_level }}, Maximum {{ row.max_level }}, {{ row.points_display }} EP">
+                                  <span class="learn_meta_inline__row">
+                                    <span class="learn_meta_inline__item"><span class="learn_meta_value">{{ row.base_level }}</span></span>
+                                    <span class="learn_meta_inline__item"><span class="learn_meta_label">EP</span><span class="learn_meta_value">{{ row.points_display|cut:'/Lvl' }}</span></span>
+                                  </span>
+                                  <span class="learn_meta_inline__row">
+                                    <span class="learn_meta_inline__item"><span class="learn_meta_label">Min</span><span class="learn_meta_value">{{ row.min_level }}</span></span>
+                                    <span class="learn_meta_inline__item"><span class="learn_meta_label">Max</span><span class="learn_meta_value">{{ row.max_level }}</span></span>
+                                  </span>
+                                </span>
+                              </td>
                             </tr>
                           {% endfor %}
                         </tbody>
@@ -159,7 +181,13 @@
                           {% for row in group.rows %}
                             <tr data-learn-source data-kind="skill" data-key="skill:{{ row.slug }}" data-slug="{{ row.slug }}" data-name="{{ row.name }}" data-base="{{ row.base_level }}" data-learn-search="{{ row.name|lower }} {{ group.name|lower }} skill fertigkeit" tabindex="0" role="button" aria-label="{{ row.name }} steigern"{% if row.description %} class="tooltip_target" data-tooltip-side="left" data-tooltip="{{ row.description }}"{% endif %}>
                               <td class="shop_item_name">{{ row.name }}</td>
-                              <td class="shop_item_price">Basis {{ row.base_level }}</td>
+                              <td class="shop_item_price shop_item_price--meta">
+                                <span class="learn_meta_inline" aria-label="Aktuelles Level {{ row.base_level }}">
+                                  <span class="learn_meta_inline__row">
+                                    <span class="learn_meta_inline__item"><span class="learn_meta_label">Lvl</span><span class="learn_meta_value">{{ row.base_level }}</span></span>
+                                  </span>
+                                </span>
+                              </td>
                             </tr>
                           {% endfor %}
                         </tbody>
@@ -184,7 +212,19 @@
                       {% for row in learn_language_rows %}
                         <tr data-learn-source data-kind="lang" data-key="lang:{{ row.slug }}" data-slug="{{ row.slug }}" data-name="{{ row.name }}" data-base="{{ row.base_level }}" data-max="{{ row.max_level }}" data-write="{% if row.base_write %}1{% else %}0{% endif %}" data-mother="{% if row.base_mother %}1{% else %}0{% endif %}" data-learn-search="{{ row.name|lower }} sprache language" tabindex="0" role="button" aria-label="{{ row.name }} steigern">
                           <td class="shop_item_name">{{ row.name }}</td>
-                          <td class="shop_item_price">Basis {{ row.base_level }} | Max {{ row.max_level }}{% if row.base_write %} | Schrift{% endif %}</td>
+                          <td class="shop_item_price shop_item_price--meta">
+                            <span class="learn_meta_inline" aria-label="Aktuelles Level {{ row.base_level }}, Maximum {{ row.max_level }}{% if row.base_write %}, Schrift vorhanden{% endif %}">
+                              <span class="learn_meta_inline__row">
+                                <span class="learn_meta_inline__item"><span class="learn_meta_label">Lvl</span><span class="learn_meta_value">{{ row.base_level }}</span></span>
+                                <span class="learn_meta_inline__item"><span class="learn_meta_label">Max</span><span class="learn_meta_value">{{ row.max_level }}</span></span>
+                              </span>
+                              {% if row.base_write %}
+                                <span class="learn_meta_inline__row">
+                                  <span class="learn_meta_inline__item"><span class="learn_meta_label">Lesen &amp; Schreiben</span><span class="learn_meta_value">Ja</span></span>
+                                </span>
+                              {% endif %}
+                            </span>
+                          </td>
                         </tr>
                       {% endfor %}
                     </tbody>
@@ -210,7 +250,16 @@
                           {% for row in group.rows %}
                             <tr data-learn-source data-kind="school" data-key="school:{{ row.id }}" data-id="{{ row.id }}" data-name="{{ row.name }}" data-base="{{ row.base_level }}" data-max="{{ row.max_level }}" data-learn-search="{{ row.name|lower }} {{ group.name|lower }} schule" tabindex="0" role="button" aria-label="{{ row.name }} steigern"{% if row.description %} class="tooltip_target" data-tooltip-side="left" data-tooltip="{{ row.description }}"{% endif %}>
                               <td class="shop_item_name">{{ row.name }}</td>
-                              <td class="shop_item_price">Basis {{ row.base_level }} | Max {{ row.max_level }}</td>
+                              <td class="shop_item_price shop_item_price--meta">
+                                <span class="learn_meta_inline" aria-label="Aktuelles Level {{ row.base_level }}, Maximum {{ row.max_level }}">
+                                  <span class="learn_meta_inline__row">
+                                    <span class="learn_meta_inline__item"><span class="learn_meta_label">Lvl</span><span class="learn_meta_value">{{ row.base_level }}</span></span>
+                                  </span>
+                                  <span class="learn_meta_inline__row">
+                                    <span class="learn_meta_inline__item"><span class="learn_meta_label">Max</span><span class="learn_meta_value">{{ row.max_level }}</span></span>
+                                  </span>
+                                </span>
+                              </td>
                             </tr>
                           {% endfor %}
                         </tbody>

@@ -8,7 +8,9 @@ from .character import (
     CharacterItem,
     CharacterLanguage,
     CharacterSkill,
+    CharacterTraitChoice,
     CharacterTrait,
+    TraitChoiceDefinition,
 )
 from .core import (
     Attribute,
@@ -19,6 +21,7 @@ from .core import (
     Skill,
     SkillCategory,
     Trait,
+    TraitExclusion,
     TraitSemanticEffect,
 )
 from .items import (
@@ -70,6 +73,7 @@ __all__ = [
     "CharacterTechnique",
     "CharacterTechniqueChoice",
     "CharacterTrait",
+    "CharacterTraitChoice",
     "DamageSource",
     "Item",
     "Language",
@@ -93,6 +97,8 @@ __all__ = [
     "TechniqueExclusion",
     "TechniqueRequirement",
     "Trait",
+    "TraitChoiceDefinition",
+    "TraitExclusion",
     "TraitSemanticEffect",
     "WeaponStats",
     "RaceStartingItem",

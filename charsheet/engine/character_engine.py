@@ -15,11 +15,13 @@ from .item_engine import ItemEngine
 from charsheet.modifiers import ModifierEngine, ModifierResolutionMode, TargetDomain
 from charsheet.models import (
     Character,
+    CharacterLanguage,
     CharacterRaceChoice,
     CharacterSchool,
     CharacterSchoolPath,
     CharacterSpecialization,
     CharacterTechniqueChoice,
+    CharacterTraitChoice,
     Item,
     Modifier,
     ProgressionRule,
@@ -193,6 +195,12 @@ class CharacterEngine:
         }
 
     @cached_property
+    def _languages_map(self) -> dict[str, CharacterLanguage]:
+        """Cache learned languages keyed by language slug."""
+        qs = self.character.characterlanguage_set.select_related("language")
+        return {entry.language.slug: entry for entry in qs}
+
+    @cached_property
     def _school_entries(self) -> dict[int, CharacterSchool]:
         """Cache learned schools keyed by school id."""
         qs = self.character.schools.select_related("school", "school__type")
@@ -302,6 +310,30 @@ class CharacterEngine:
                 "selected_content_type",
             )
             .order_by("definition__race__name", "definition__sort_order", "definition__name", "id")
+        )
+        for choice in queryset:
+            grouped[choice.definition_id].append(choice)
+        return dict(grouped)
+
+    @cached_property
+    def _trait_choices_by_definition_id(self) -> dict[int, list[CharacterTraitChoice]]:
+        """Cache persisted trait choices grouped by explicit trait choice definition id."""
+        grouped: DefaultDict[int, list[CharacterTraitChoice]] = defaultdict(list)
+        queryset = (
+            CharacterTraitChoice.objects.filter(character_trait__owner=self.character)
+            .select_related(
+                "character_trait",
+                "character_trait__owner",
+                "character_trait__trait",
+                "definition",
+                "selected_attribute",
+                "selected_skill",
+                "selected_skill_category",
+                "selected_item",
+                "selected_specialization",
+                "selected_content_type",
+            )
+            .order_by("character_trait__trait__name", "definition__sort_order", "id")
         )
         for choice in queryset:
             grouped[choice.definition_id].append(choice)
@@ -714,6 +746,10 @@ class CharacterEngine:
         """Return all modifiers that target one whole skill category."""
         return self.modifier_engine.resolve_numeric_total(TargetDomain.SKILL_CATEGORY, category_slug)
 
+    def modifier_total_for_language(self, language_key: str) -> int:
+        """Return all modifiers that target one concrete language or language grouping."""
+        return self.modifier_engine.resolve_numeric_total(TargetDomain.LANGUAGE, language_key)
+
     def modifier_total_for_stat(self, slug: str) -> int:
         """Return all modifiers that target one derived stat slug."""
         if slug in {"wound_penalty_ignore", "armor_penalty_ignore", "shield_penalty_ignore"}:
@@ -774,6 +810,24 @@ class CharacterEngine:
         """Resolve attribute bonus modifiers through the central modifier engine."""
         return self.modifier_engine.resolve_attribute_bonus(attribute_slug, context=context)
 
+    def resolve_language_level(self, language_slug: str) -> int:
+        """Resolve the effective spoken language level after language modifiers."""
+        entry = self._languages_map.get(language_slug)
+        if entry is None:
+            return 0
+        base_level = int(entry.levels)
+        modifier_parts = [self.modifier_total_for_language(language_slug)]
+        if not bool(entry.is_mother_tongue):
+            modifier_parts.append(self.modifier_total_for_language("foreign_languages"))
+        return max(0, base_level + sum(int(part) for part in modifier_parts))
+
+    def effective_language_write(self, language_slug: str) -> bool:
+        """Return whether the character can currently write the given language."""
+        entry = self._languages_map.get(language_slug)
+        if entry is None:
+            return False
+        return bool(entry.can_write)
+
     def resolve_derived_stat(self, stat_key: str, context: dict | None = None) -> int:
         """Resolve one derived stat through the central modifier engine."""
         return self.modifier_engine.resolve_derived_stat(stat_key, context=context)
@@ -793,6 +847,14 @@ class CharacterEngine:
     def resolve_combat_profile(self, context: dict | None = None):
         """Resolve combat profile through the central modifier engine."""
         return self.modifier_engine.resolve_combat_profile(context=context)
+
+    def resolve_combat_value(self, target_key: str, context: dict | None = None) -> int:
+        """Resolve one numeric combat-profile target through the central modifier engine."""
+        return self.modifier_engine.resolve_combat_value(target_key, context=context)
+
+    def resolve_perception_value(self, target_key: str, context: dict | None = None) -> int:
+        """Resolve one numeric perception target through the central modifier engine."""
+        return self.modifier_engine.resolve_perception_value(target_key, context=context)
 
     def resolve_flags(self, context: dict | None = None) -> dict[str, bool]:
         """Resolve boolean rule flags through the central modifier engine."""

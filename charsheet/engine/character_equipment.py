@@ -52,15 +52,15 @@ def equipped_shield_items(engine) -> QuerySet:
 def weapon_quality_skill_modifier(engine) -> int:
     """Return the maneuver quality modifier of the first equipped weapon."""
     weapon = engine.equipped_weapon_items().first()
-    if not weapon:
-        return 0
-    return ItemEngine(weapon).get_weapon_maneuver_quality_bonus()
+    quality_bonus = ItemEngine(weapon).get_weapon_maneuver_quality_bonus() if weapon else 0
+    return quality_bonus + engine.resolve_combat_value("melee_maneuvers")
 
 
 def equipped_weapon_rows(engine) -> list[dict]:
     """Return character-sheet-ready weapon rows with one prepared row per display profile."""
     rows: list[dict] = []
     bel_malus = engine.load_penalty()
+    maneuver_modifier = engine.resolve_combat_value("melee_maneuvers")
     for character_item in engine.equipped_weapon_items():
         item_engine = ItemEngine(character_item)
         weapon_stats = getattr(character_item.item, "weaponstats", None)
@@ -88,6 +88,8 @@ def equipped_weapon_rows(engine) -> list[dict]:
                     "is_primary_profile": profile_index == 0,
                     "quality_damage_bonus": item_engine.get_weapon_damage_quality_bonus(),
                     "quality_maneuver_bonus": item_engine.get_weapon_maneuver_quality_bonus(),
+                    "trait_maneuver_modifier": maneuver_modifier,
+                    "total_maneuver_modifier": item_engine.get_weapon_maneuver_quality_bonus() + maneuver_modifier,
                 }
             )
     return rows

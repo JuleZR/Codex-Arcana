@@ -45,6 +45,8 @@ class TargetDomain(StringEnum):
 
     SKILL = "skill"
     SKILL_CATEGORY = "skill_category"
+    LANGUAGE = "language"
+    PROFICIENCY_GROUP = "proficiency_group"
     TRAIT = "trait"
     ATTRIBUTE = "attribute"
     DERIVED_STAT = "derived_stat"
@@ -187,6 +189,22 @@ class SkillModifier(BaseModifier):
 
     def __init__(self, *args, **kwargs):
         kwargs.setdefault("target_domain", TargetDomain.SKILL)
+        super().__init__(*args, **kwargs)
+
+
+class LanguageModifier(BaseModifier):
+    """Modifier targeting one language or a language-like grouping."""
+
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault("target_domain", TargetDomain.LANGUAGE)
+        super().__init__(*args, **kwargs)
+
+
+class ProficiencyGroupModifier(BaseModifier):
+    """Modifier targeting a mixed proficiency group that expands into concrete targets."""
+
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault("target_domain", TargetDomain.PROFICIENCY_GROUP)
         super().__init__(*args, **kwargs)
 
 

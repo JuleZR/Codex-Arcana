@@ -220,7 +220,7 @@ def _build_trait_rows(character: Character) -> tuple[list[dict], list[dict]]:
         row = {
             "name": entry.trait.name,
             "description": entry.trait.description,
-            "points": entry.trait_level * entry.trait.points_per_level,
+            "points": entry.trait.cost_for_level(entry.trait_level),
         }
         if entry.trait.trait_type == Trait.TraitType.ADV:
             advantage_rows.append(row)
@@ -455,6 +455,7 @@ def _build_school_technique_rows(character: Character, engine) -> tuple[list[dic
 
 def _build_language_rows(character: Character) -> tuple[list[dict], object]:
     """Build the compact language display rows and keep the queryset for learning data."""
+    engine = character.engine
     language_entries = (
         CharacterLanguage.objects
         .filter(owner=character)
@@ -463,14 +464,14 @@ def _build_language_rows(character: Character) -> tuple[list[dict], object]:
     )
     language_rows: list[dict] = []
     for entry in language_entries:
-        level_count = max(0, min(3, entry.levels))
+        level_count = max(0, min(3, engine.resolve_language_level(entry.language.slug)))
         language_rows.append(
             {
                 "name": entry.language.name,
                 "level_1": level_count >= 1,
                 "level_2": level_count >= 2,
                 "level_3": level_count >= 3,
-                "can_write": bool(entry.can_write),
+                "can_write": bool(engine.effective_language_write(entry.language.slug)),
             }
         )
     return language_rows, language_entries
@@ -652,6 +653,8 @@ def _build_learning_rows(
                 "min_level": int(trait.min_level),
                 "max_level": int(trait.max_level),
                 "points_per_level": int(trait.points_per_level),
+                "points_display": trait.cost_display(),
+                "points_by_level": list(trait.cost_curve()),
             }
         )
 
@@ -723,19 +726,26 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
         else "-"
     )
     movement_profile = engine.resolve_movement()
-    ground_combat = int(race.combat_speed or 0) + int(movement_profile.values.get("ground_combat", 0))
-    ground_march = int(race.march_speed or 0) + int(movement_profile.values.get("ground_march", 0))
-    ground_sprint = int(race.sprint_speed or 0) + int(movement_profile.values.get("ground_sprint", 0))
-    swim_speed = int(race.swimming_speed or 0) + int(movement_profile.values.get("swim", 0))
+
+    def _resolve_movement_value(base_value, target_key):
+        base = int(base_value or 0)
+        multiplier = float(movement_profile.multipliers.get(target_key, 1.0))
+        additive = int(movement_profile.values.get(target_key, 0))
+        return max(0, int(base * multiplier) + additive)
+
+    ground_combat = _resolve_movement_value(race.combat_speed, "ground_combat")
+    ground_march = _resolve_movement_value(race.march_speed, "ground_march")
+    ground_sprint = _resolve_movement_value(race.sprint_speed, "ground_sprint")
+    swim_speed = _resolve_movement_value(race.swimming_speed, "swim")
     fly_value = "-"
     has_flight = race.can_fly or any(
         key in movement_profile.values
         for key in ("fly_combat", "fly_march", "fly_sprint")
     )
     if has_flight and "fly" not in movement_profile.blocked_modes:
-        combat_fly = int(race.combat_fly_speed or 0) + int(movement_profile.values.get("fly_combat", 0))
-        march_fly = int(race.march_fly_speed or 0) + int(movement_profile.values.get("fly_march", 0))
-        sprint_fly = int(race.sprint_fly_speed or 0) + int(movement_profile.values.get("fly_sprint", 0))
+        combat_fly = _resolve_movement_value(race.combat_fly_speed, "fly_combat")
+        march_fly = _resolve_movement_value(race.march_fly_speed, "fly_march")
+        sprint_fly = _resolve_movement_value(race.sprint_fly_speed, "fly_sprint")
         fly_value = " | ".join(
             (
                 format_compact_number(combat_fly),
