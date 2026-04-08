@@ -20,6 +20,7 @@ from django.template.loader import render_to_string
 from django.urls import reverse_lazy
 from .engine import CharacterCreationEngine
 from .engine.dice_engine import DiceEngine
+from .learning_progression import weapon_mastery_item_definitions
 from .models import (
     Character,
     CharacterDiaryEntry,
@@ -46,16 +47,17 @@ from .forms import (
     CharacterTechniqueSpecificationForm,
     UserSettingsForm
 )
-from .constants import ATTRIBUTE_ORDER
+from .constants import ATTRIBUTE_ORDER, RESOURCE_KEY_CHOICES
 from .learning import process_learning_submission
 from .sheet_context import build_character_sheet_context
 from .shop import buy_shop_cart as buy_shop_cart_payload
 from .shop import create_custom_shop_item
-from .view_utils import format_thousands
+from .view_utils import format_modifier, format_thousands
 
 
 DIARY_ENTRY_CHAR_LIMIT = 2200
 SHEET_PARTIAL_TEMPLATES = {
+    "character_header": ("sheetCharacterHeader", "charsheet/partials/_character_header.html"),
     "load_panel": ("sheetLoadPanel", "charsheet/partials/_load_panel.html"),
     "core_stats_panel": ("sheetCoreStatsPanel", "charsheet/partials/_core_stats_panel.html"),
     "damage_panel": ("sheetDamagePanel", "charsheet/partials/_damage_panel.html"),
@@ -910,17 +912,37 @@ def create_character(request):
             state["phase_2"] = {"skills": skills_data, "languages": language_data}
         elif phase == 3:
             disadvantages: dict[str, int] = {}
+            trait_choices: dict[str, dict[str, list[str]]] = {}
             for trait in Trait.objects.filter(trait_type=Trait.TraitType.DIS).order_by("name"):
                 level = int(request.POST.get(f"dis_{trait.slug}", "0") or 0)
                 if level > 0:
                     disadvantages[trait.slug] = level
-            state["phase_3"] = {"disadvantages": disadvantages}
+                    choice_payload: dict[str, list[str]] = {}
+                    for definition in trait.choice_definitions.filter(target_kind="attribute").order_by("sort_order", "id"):
+                        selected = (request.POST.get(f"dis_choice_{trait.slug}_{definition.id}") or "").strip()
+                        if selected:
+                            choice_payload[str(definition.id)] = [selected]
+                    if choice_payload:
+                        trait_choices[trait.slug] = choice_payload
+            state["phase_3"] = {"disadvantages": disadvantages, "trait_choices": trait_choices}
         elif phase == 4:
             advantages: dict[str, int] = {}
+            trait_choices: dict[str, dict[str, list[str]]] = {}
             for trait in Trait.objects.filter(trait_type=Trait.TraitType.ADV).order_by("name"):
                 level = int(request.POST.get(f"adv_{trait.slug}", "0") or 0)
                 if level > 0:
                     advantages[trait.slug] = level
+                    choice_payload: dict[str, list[str]] = {}
+                    for definition in trait.choice_definitions.filter(target_kind="attribute").order_by("sort_order", "id"):
+                        selected = (request.POST.get(f"adv_choice_{trait.slug}_{definition.id}") or "").strip()
+                        if selected:
+                            choice_payload[str(definition.id)] = [selected]
+                    for definition in trait.choice_definitions.filter(target_kind="resource").order_by("sort_order", "id"):
+                        selected = (request.POST.get(f"adv_choice_{trait.slug}_{definition.id}") or "").strip()
+                        if selected:
+                            choice_payload[str(definition.id)] = [selected]
+                    if choice_payload:
+                        trait_choices[trait.slug] = choice_payload
 
             attribute_adds: dict[str, int] = {}
             for short_name, _label in ATTRIBUTE_ORDER:
@@ -950,13 +972,42 @@ def create_character(request):
                 if level > 0:
                     schools[str(school.id)] = level
 
+            weapon_masteries_by_slot: dict[int, dict[str, object]] = {}
+            weapon_arcana_by_slot: dict[int, dict[str, object]] = {}
+            for key in request.POST.keys():
+                if str(key).startswith("wm_mastery_weapon_"):
+                    slot = str(key).rsplit("_", 1)[-1]
+                    slot_index = int(slot or 0)
+                    weapon_item_id = int(request.POST.get(key, "0") or 0)
+                    first_bonus_kind = str(request.POST.get(f"wm_mastery_first_{slot}", "") or "").strip().lower()
+                    if weapon_item_id > 0 or first_bonus_kind:
+                        weapon_masteries_by_slot[slot_index] = {
+                            "weapon_item_id": weapon_item_id,
+                            "first_bonus_kind": first_bonus_kind,
+                        }
+                elif str(key).startswith("wm_arcana_"):
+                    slot_index = int(str(key).rsplit("_", 1)[-1] or 0)
+                    raw_value = str(request.POST.get(key, "") or "").strip()
+                    if not raw_value:
+                        continue
+                    if raw_value == "bonus_capacity":
+                        weapon_arcana_by_slot[slot_index] = {"kind": "bonus_capacity", "rune_id": 0}
+                    elif raw_value.startswith("rune:"):
+                        weapon_arcana_by_slot[slot_index] = {"kind": "rune", "rune_id": int(raw_value.split(":", 1)[1])}
+
+            weapon_masteries = [weapon_masteries_by_slot[index] for index in sorted(weapon_masteries_by_slot)]
+            weapon_arcana = [weapon_arcana_by_slot[index] for index in sorted(weapon_arcana_by_slot)]
+
             state["phase_4"] = {
                 "advantages": advantages,
+                "trait_choices": trait_choices,
                 "attribute_adds": attribute_adds,
                 "skill_adds": skill_adds,
                 "language_adds": language_adds,
                 "language_write_adds": language_write_adds,
                 "schools": schools,
+                "weapon_masteries": weapon_masteries,
+                "weapon_arcana": weapon_arcana,
             }
 
         draft.state = state
@@ -1049,9 +1100,18 @@ def create_character(request):
         )
 
     phase_3_values = engine.phase_3_disadvantages()
+    phase_3_trait_choices = engine.phase_3_trait_choices()
     phase_3_rows = []
     for trait in Trait.objects.filter(trait_type=Trait.TraitType.DIS).order_by("name"):
         description = (trait.description or "").replace("\r\n", "\n").replace("\r", "\n")
+        attribute_choice_definitions = [
+            {
+                "id": definition.id,
+                "name": definition.name,
+                "selected": ((phase_3_trait_choices.get(trait.slug, {}).get(definition.id, [""]) or [""])[0]),
+            }
+            for definition in trait.choice_definitions.filter(target_kind="attribute").order_by("sort_order", "id")
+        ]
         phase_3_rows.append(
             {
                 "slug": trait.slug,
@@ -1063,10 +1123,13 @@ def create_character(request):
                 "points_by_level": list(trait.cost_curve()),
                 "description": description,
                 "value": phase_3_values.get(trait.slug, 0),
+                "attribute_choice_definitions": attribute_choice_definitions,
+                "attribute_choice_definitions_json": json.dumps(attribute_choice_definitions),
             }
         )
 
     phase_4_values = engine.phase_4_advantages()
+    phase_4_trait_choices = engine.phase_4_trait_choices()
     phase_4_attr_adds = engine.phase_4_attribute_adds()
     phase_4_skill_adds = engine.phase_4_skill_adds()
     phase_4_lang_adds = engine.phase_4_language_adds()
@@ -1080,6 +1143,32 @@ def create_character(request):
     phase_4_adv_rows = []
     for trait in Trait.objects.filter(trait_type=Trait.TraitType.ADV).order_by("name"):
         description = (trait.description or "").replace("\r\n", "\n").replace("\r", "\n")
+        attribute_choice_definitions = [
+            {
+                "id": definition.id,
+                "name": definition.name,
+                "selected": ((phase_4_trait_choices.get(trait.slug, {}).get(definition.id, [""]) or [""])[0]),
+            }
+            for definition in trait.choice_definitions.filter(target_kind="attribute").order_by("sort_order", "id")
+        ]
+        resource_choice_definitions = [
+            {
+                "id": definition.id,
+                "name": definition.name,
+                "selected": ((phase_4_trait_choices.get(trait.slug, {}).get(definition.id, [""]) or [""])[0]),
+                "options": (
+                    [
+                        {
+                            "value": definition.allowed_resource,
+                            "label": dict(RESOURCE_KEY_CHOICES).get(definition.allowed_resource, definition.allowed_resource),
+                        }
+                    ]
+                    if definition.allowed_resource
+                    else [{"value": value, "label": label} for value, label in RESOURCE_KEY_CHOICES]
+                ),
+            }
+            for definition in trait.choice_definitions.filter(target_kind="resource").order_by("sort_order", "id")
+        ]
         phase_4_adv_rows.append(
             {
                 "slug": trait.slug,
@@ -1089,6 +1178,10 @@ def create_character(request):
                 "points_per_level": trait.points_per_level,
                 "points_display": trait.cost_display(),
                 "points_by_level": list(trait.cost_curve()),
+                "attribute_choice_definitions": attribute_choice_definitions,
+                "attribute_choice_definitions_json": json.dumps(attribute_choice_definitions),
+                "resource_choice_definitions": resource_choice_definitions,
+                "resource_choice_definitions_json": json.dumps(resource_choice_definitions),
                 "description": description,
                 "value": phase_4_values.get(trait.slug, 0),
             }
@@ -1146,6 +1239,43 @@ def create_character(request):
                 "value": phase_4_schools.get(str(school.id), 0),
             }
         )
+    weapon_master_school = School.objects.filter(name__iexact="Waffenmeister").first()
+    phase_4_weapon_mastery_rows = []
+    if weapon_master_school is not None:
+        required_wm_count = min(phase_4_schools.get(str(weapon_master_school.id), 0), 10)
+        draft_weapon_masteries = engine.phase_4_weapon_masteries()
+        draft_weapon_arcana = engine.phase_4_weapon_mastery_arcana()
+        weapon_options = list(
+            weapon_mastery_item_definitions().values("id", "name")
+        )
+        rune_options = list(Rune.objects.order_by("name").values("id", "name"))
+        for slot_index in range(required_wm_count):
+            mastery_payload = draft_weapon_masteries[slot_index] if slot_index < len(draft_weapon_masteries) else {}
+            arcana_payload = draft_weapon_arcana[slot_index] if slot_index < len(draft_weapon_arcana) else {}
+            selected_arcana_value = (
+                "bonus_capacity"
+                if arcana_payload.get("kind") == "bonus_capacity"
+                else (f"rune:{arcana_payload.get('rune_id')}" if arcana_payload.get("kind") == "rune" and arcana_payload.get("rune_id") else "")
+            )
+            phase_4_weapon_mastery_rows.append(
+                {
+                    "slot": slot_index + 1,
+                    "weapon_name": f"wm_mastery_weapon_{slot_index + 1}",
+                    "first_name": f"wm_mastery_first_{slot_index + 1}",
+                    "selected_weapon_id": mastery_payload.get("weapon_item_id", 0),
+                    "selected_first_bonus_kind": mastery_payload.get("first_bonus_kind", ""),
+                    "weapon_options": weapon_options,
+                    "arcana_name": f"wm_arcana_{slot_index + 1}",
+                    "selected_value": selected_arcana_value,
+                    "rune_options": [
+                        {
+                            **rune,
+                            "selected": selected_arcana_value == f"rune:{rune['id']}",
+                        }
+                        for rune in rune_options
+                    ],
+                }
+            )
 
     return render(
         request,
@@ -1167,12 +1297,16 @@ def create_character(request):
             "phase_4_skill_rows": phase_4_skill_rows,
             "phase_4_language_rows": phase_4_language_rows,
             "phase_4_school_rows": phase_4_school_rows,
+            "phase_4_weapon_mastery_rows": phase_4_weapon_mastery_rows,
+            "phase_4_weapon_mastery_school": weapon_master_school,
             "phase_4_spent": engine.sum_phase_4_total_cost(),
             "phase_4_budget": engine.calculate_phase_4_budget(),
             "phase_4_adv_spent": engine.sum_phase_4_advantages_cost(),
             "phase_4_adv_budget": engine.calculate_phase_4_advantages_budget(),
             "phase_4_rest_spent": engine.sum_phase_4_rest_cost(),
             "phase_4_rest_budget": engine.calculate_phase_4_rest_budget(),
+            "attribute_order": ATTRIBUTE_ORDER,
+            "resource_key_choices": RESOURCE_KEY_CHOICES,
             "phase_validity": {
                 1: engine.validate_phase_1(),
                 2: engine.validate_phase_2(),
@@ -1187,10 +1321,10 @@ def create_character(request):
 @login_required
 @require_POST
 def toggle_equip(request, pk):
-    """Toggle equipped state for one armor, shield, or weapon inventory entry."""
+    """Toggle equipped state for one equippable inventory entry."""
     ci = _owned_character_item_or_404(request, pk)
 
-    if ci.item.item_type not in (Item.ItemType.ARMOR, Item.ItemType.SHIELD, Item.ItemType.WEAPON):
+    if ci.item.item_type not in (Item.ItemType.ARMOR, Item.ItemType.SHIELD, Item.ItemType.WEAPON, Item.ItemType.CLOTHING):
         return redirect("character_sheet", character_id=ci.owner_id)
 
     if ci.equip_locked:
@@ -1277,7 +1411,70 @@ def adjust_current_damage(request, character_id: int):
     character.save(update_fields=["current_damage"])
 
     if _is_partial_request(request):
-        return _sheet_partials_response(request, character, "damage_panel")
+        engine = character.engine
+        thresholds = engine.wound_thresholds()
+        current_stage, _raw_penalty = engine.current_wound_stage()
+        is_penalty_ignored = engine.is_wound_penalty_ignored()
+        effective_penalty = engine.current_wound_penalty()
+        context = _build_sheet_context_for_request(request, character)
+        partial_keys = ("character_header", "load_panel", "core_stats_panel", "armor_panel", "weapon_panel")
+        partials = []
+        for key in partial_keys:
+            target_id, template_name = SHEET_PARTIAL_TEMPLATES[key]
+            partials.append(
+                {
+                    "target": target_id,
+                    "html": render_to_string(template_name, context, request=request),
+                }
+            )
+        return JsonResponse(
+            {
+                "ok": True,
+                "current_damage": character.current_damage,
+                "current_damage_max": max(1, max(thresholds.keys(), default=0)),
+                "current_wound_stage": current_stage,
+                "current_wound_penalty": format_modifier(effective_penalty),
+                "is_wound_penalty_ignored": is_penalty_ignored,
+                "partials": partials,
+            }
+        )
+
+    return redirect("character_sheet", character_id=character_id)
+
+
+@login_required
+@require_POST
+def adjust_current_arcane_power(request, character_id: int):
+    """Increase or decrease current arcane power without a full sheet reload."""
+    character = _owned_character_or_404(request, character_id)
+    action = request.POST.get("action")
+    try:
+        amount = max(1, int(request.POST.get("amount", "1")))
+    except (TypeError, ValueError):
+        amount = 1
+
+    arcane_power_max = max(0, int(character.engine.calculate_arcane_power()))
+    current_arcane_power = character.current_arcane_power
+    if current_arcane_power is None:
+        current_arcane_power = arcane_power_max
+    current_arcane_power = max(0, min(int(current_arcane_power), arcane_power_max))
+
+    if action == "spend":
+        current_arcane_power = max(0, current_arcane_power - amount)
+    elif action == "restore":
+        current_arcane_power = min(arcane_power_max, current_arcane_power + amount)
+
+    character.current_arcane_power = current_arcane_power
+    character.save(update_fields=["current_arcane_power"])
+
+    if _is_partial_request(request):
+        return JsonResponse(
+            {
+                "ok": True,
+                "current_arcane_power": current_arcane_power,
+                "current_arcane_power_max": arcane_power_max,
+            }
+        )
 
     return redirect("character_sheet", character_id=character_id)
 

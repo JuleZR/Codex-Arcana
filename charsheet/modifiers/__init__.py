@@ -3,6 +3,7 @@
 from .build_validation import BuildValidationIssue, CharacterBuildValidator, TraitBuildRule
 from .definitions import (
     BaseModifier,
+    AttributeCapModifier,
     CombatModifier,
     ConditionSet,
     ConditionalModifier,
@@ -37,6 +38,7 @@ from .migration import (
 
 __all__ = [
     "BaseModifier",
+    "AttributeCapModifier",
     "BuildValidationIssue",
     "CharacterBuildValidator",
     "CombatModifier",

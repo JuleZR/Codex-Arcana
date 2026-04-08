@@ -283,7 +283,7 @@
                             <table class="dashboard_table phase2_shop_table">
                               <tbody>
                                 {% for row in phase_3_rows %}
-                                  <tr data-phase3-dis-source data-slug="{{ row.slug }}" data-name="{{ row.name }}" data-max="{{ row.max_level }}" data-ppl="{{ row.points_per_level }}" data-point-curve="{% if row.points_by_level %}{{ row.points_by_level|join:',' }}{% endif %}" data-phase3-search="{{ row.name|lower }} nachteil disadvantage" tabindex="0" role="button" aria-label="{{ row.name }} hinzufuegen">
+                                  <tr data-phase3-dis-source data-slug="{{ row.slug }}" data-name="{{ row.name }}" data-max="{{ row.max_level }}" data-ppl="{{ row.points_per_level }}" data-point-curve="{% if row.points_by_level %}{{ row.points_by_level|join:',' }}{% endif %}" data-attribute-choice-defs="{{ row.attribute_choice_definitions_json|escapejs }}" data-phase3-search="{{ row.name|lower }} nachteil disadvantage" tabindex="0" role="button" aria-label="{{ row.name }} hinzufuegen">
                                     <td class="db_tooltip_anchor"{% if row.description %} data-db-tooltip="{{ row.description }}"{% endif %}>{{ row.name }}</td>
                                     <td class="phase2_lang_meta">max {{ row.max_level }} | {{ row.points_display }}</td>
                                   </tr>
@@ -302,9 +302,9 @@
                             <tbody id="phase3DisCartBody">
                               {% for row in phase_3_rows %}
                                 {% if row.value > 0 %}
-                                  <tr data-phase3-dis-cart-item data-slug="{{ row.slug }}" data-max="{{ row.max_level }}" data-ppl="{{ row.points_per_level }}" data-point-curve="{% if row.points_by_level %}{{ row.points_by_level|join:',' }}{% endif %}">
+                                  <tr data-phase3-dis-cart-item data-slug="{{ row.slug }}" data-max="{{ row.max_level }}" data-ppl="{{ row.points_per_level }}" data-point-curve="{% if row.points_by_level %}{{ row.points_by_level|join:',' }}{% endif %}" data-attribute-choice-defs="{{ row.attribute_choice_definitions_json|escapejs }}">
                                     <td><span data-phase3-dis-label-base="{{ row.name }}">{{ row.name }}</span> <span data-phase3-dis-formula>({{ row.value|default:0 }})</span></td>
-                                    <td><input class="dashboard_input phase2_level_input" type="number" min="0" max="{{ row.max_level }}" value="{{ row.value }}" name="dis_{{ row.slug }}" data-phase3-dis-level></td>
+                                    <td><input class="dashboard_input phase2_level_input" type="number" min="0" max="{{ row.max_level }}" value="{{ row.value }}" name="dis_{{ row.slug }}" data-phase3-dis-level>{% for choice in row.attribute_choice_definitions %}<label class="phase4_choice_block"><span>{{ choice.name }}</span><select class="dashboard_input" name="dis_choice_{{ row.slug }}_{{ choice.id }}" data-phase3-dis-choice><option value=""></option>{% for short_name, label in attribute_order %}<option value="{{ short_name }}"{% if choice.selected == short_name %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>{% endfor %}</td>
                                     <td data-phase3-dis-cost>0</td>
                                     <td><button type="button" class="phase2_remove_x" data-phase3-dis-remove aria-label="Nachteil entfernen" title="Entfernen">X</button></td>
                                   </tr>
@@ -370,7 +370,7 @@
                             <table class="dashboard_table phase2_shop_table">
                               <tbody>
                                 {% for row in phase_4_adv_rows %}
-                                  <tr data-phase4-source data-kind="adv" data-key="adv:{{ row.slug }}" data-slug="{{ row.slug }}" data-name="{{ row.name }}" data-min="{{ row.min_level }}" data-max="{{ row.max_level }}" data-ppl="{{ row.points_per_level }}" data-point-curve="{% if row.points_by_level %}{{ row.points_by_level|join:',' }}{% endif %}" data-phase4-search="{{ row.name|lower }} vorteil" tabindex="0" role="button" aria-label="{{ row.name }} hinzufuegen">
+                                  <tr data-phase4-source data-kind="adv" data-key="adv:{{ row.slug }}" data-slug="{{ row.slug }}" data-name="{{ row.name }}" data-min="{{ row.min_level }}" data-max="{{ row.max_level }}" data-ppl="{{ row.points_per_level }}" data-point-curve="{% if row.points_by_level %}{{ row.points_by_level|join:',' }}{% endif %}" data-attribute-choice-defs="{{ row.attribute_choice_definitions_json|escapejs }}" data-resource-choice-defs="{{ row.resource_choice_definitions_json|escapejs }}" data-phase4-search="{{ row.name|lower }} vorteil" tabindex="0" role="button" aria-label="{{ row.name }} hinzufuegen">
                                     <td class="db_tooltip_anchor"{% if row.description %} data-db-tooltip="{{ row.description }}"{% endif %}>{{ row.name }}</td>
                                     <td class="phase2_lang_meta">min {{ row.min_level }} | max {{ row.max_level }} | {{ row.points_display }}</td>
                                   </tr>
@@ -452,9 +452,9 @@
                             <tbody id="phase4CartBody">
                                 {% for row in phase_4_adv_rows %}
                                   {% if row.value > 0 %}
-                                    <tr data-phase4-cart-item data-key="adv:{{ row.slug }}" data-kind="adv" data-min="{{ row.min_level }}" data-max="{{ row.max_level }}" data-ppl="{{ row.points_per_level }}" data-point-curve="{% if row.points_by_level %}{{ row.points_by_level|join:',' }}{% endif %}">
+                                    <tr data-phase4-cart-item data-key="adv:{{ row.slug }}" data-kind="adv" data-min="{{ row.min_level }}" data-max="{{ row.max_level }}" data-ppl="{{ row.points_per_level }}" data-point-curve="{% if row.points_by_level %}{{ row.points_by_level|join:',' }}{% endif %}" data-attribute-choice-defs="{{ row.attribute_choice_definitions_json|escapejs }}" data-resource-choice-defs="{{ row.resource_choice_definitions_json|escapejs }}">
                                       <td><span data-phase4-adv-label-base="{{ row.name }}">{{ row.name }}</span> <span data-phase4-adv-formula>({{ row.value|default:0 }})</span> <input type="hidden" name="adv_{{ row.slug }}" value="{{ row.value }}" data-phase4-hidden></td>
-                                      <td><input class="dashboard_input phase2_level_input" type="number" min="0" max="{{ row.max_level }}" value="{{ row.value }}" data-phase4-value></td>
+                                      <td><input class="dashboard_input phase2_level_input" type="number" min="0" max="{{ row.max_level }}" value="{{ row.value }}" data-phase4-value>{% for choice in row.attribute_choice_definitions %}<label class="phase4_choice_block"><span>{{ choice.name }}</span><select class="dashboard_input" name="adv_choice_{{ row.slug }}_{{ choice.id }}" data-phase4-adv-choice><option value=""></option>{% for short_name, label in attribute_order %}<option value="{{ short_name }}"{% if choice.selected == short_name %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>{% endfor %}{% for choice in row.resource_choice_definitions %}<label class="phase4_choice_block"><span>{{ choice.name }}</span><select class="dashboard_input" name="adv_choice_{{ row.slug }}_{{ choice.id }}" data-phase4-adv-choice><option value=""></option>{% for option in choice.options %}<option value="{{ option.value }}"{% if choice.selected == option.value %} selected{% endif %}>{{ option.label }}</option>{% endfor %}</select></label>{% endfor %}</td>
                                       <td data-phase4-cost>0</td>
                                       <td><button type="button" class="phase2_remove_x" data-phase4-remove aria-label="Eintrag entfernen" title="Entfernen">X</button></td>
                                     </tr>
@@ -515,6 +515,53 @@
                         </div>
                       </section>
                     </div>
+                    {% if phase_4_weapon_mastery_school and phase_4_weapon_mastery_rows %}
+                      <section class="phase2_section_card">
+                        <h4>{{ phase_4_weapon_mastery_school.name }}: Zusatzentscheidungen</h4>
+                        <p class="dashboard_hint">Fuer jede Stufe in Waffenmeister wird eine konkrete Waffe und eine arkane Meisterschaft festgelegt.</p>
+                        <table class="dashboard_table">
+                          <thead>
+                            <tr>
+                              <th>Slot</th>
+                              <th>Meisterwaffe</th>
+                              <th>Erster Bonus</th>
+                              <th>Arkanum</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {% for row in phase_4_weapon_mastery_rows %}
+                              <tr>
+                                <td>{{ row.slot }}</td>
+                                <td>
+                                  <select class="dashboard_input" name="{{ row.weapon_name }}">
+                                    <option value=""></option>
+                                    {% for option in row.weapon_options %}
+                                      <option value="{{ option.id }}"{% if row.selected_weapon_id == option.id %} selected{% endif %}>{{ option.name }}</option>
+                                    {% endfor %}
+                                  </select>
+                                </td>
+                                <td>
+                                  <select class="dashboard_input" name="{{ row.first_name }}">
+                                    <option value=""></option>
+                                    <option value="maneuver"{% if row.selected_first_bonus_kind == "maneuver" %} selected{% endif %}>Manoever zuerst</option>
+                                    <option value="damage"{% if row.selected_first_bonus_kind == "damage" %} selected{% endif %}>Schaden zuerst</option>
+                                  </select>
+                                </td>
+                                <td>
+                                  <select class="dashboard_input" name="{{ row.arcana_name }}">
+                                    <option value=""></option>
+                                    <option value="bonus_capacity"{% if row.selected_value == "bonus_capacity" %} selected{% endif %}>+1/+1 Bonuskapazitaet</option>
+                                    {% for rune in row.rune_options %}
+                                      <option value="rune:{{ rune.id }}"{% if rune.selected %} selected{% endif %}>Rune: {{ rune.name }}</option>
+                                    {% endfor %}
+                                  </select>
+                                </td>
+                              </tr>
+                            {% endfor %}
+                          </tbody>
+                        </table>
+                      </section>
+                    {% endif %}
                   </section>
                 {% endif %}
 
@@ -749,6 +796,33 @@
               .replace(/>/g, "&gt;")
               .replace(/"/g, "&quot;")
               .replace(/'/g, "&#39;");
+          };
+
+          const attributeOptions = [
+            {% for short_name, label in attribute_order %}
+              { value: "{{ short_name }}", label: "{{ label|escapejs }}" },
+            {% endfor %}
+          ];
+
+          const renderAttributeChoiceInputs = function (prefix, dataAttribute, slug, choiceDefs) {
+            return (choiceDefs || []).map(function (choiceDef) {
+              const optionsHtml = ['<option value=""></option>'].concat(attributeOptions.map(function (entry) {
+                const selected = choiceDef.selected === entry.value ? ' selected' : '';
+                return '<option value="' + entry.value + '"' + selected + '>' + escapeHtml(entry.label) + '</option>';
+              })).join('');
+              return '<label class="phase4_choice_block"><span>' + escapeHtml(choiceDef.name || 'Attribut') + '</span><select class="dashboard_input" name="' + prefix + '_choice_' + slug + '_' + choiceDef.id + '" ' + dataAttribute + '>' + optionsHtml + '</select></label>';
+            }).join('');
+          };
+
+          const renderResourceChoiceInputs = function (prefix, dataAttribute, slug, choiceDefs) {
+            return (choiceDefs || []).map(function (choiceDef) {
+              const localOptions = Array.isArray(choiceDef.options) ? choiceDef.options : [];
+              const optionsHtml = ['<option value=""></option>'].concat(localOptions.map(function (entry) {
+                const selected = choiceDef.selected === entry.value ? ' selected' : '';
+                return '<option value="' + entry.value + '"' + selected + '>' + escapeHtml(entry.label) + '</option>';
+              })).join('');
+              return '<label class="phase4_choice_block"><span>' + escapeHtml(choiceDef.name || 'Ressource') + '</span><select class="dashboard_input" name="' + prefix + '_choice_' + slug + '_' + choiceDef.id + '" ' + dataAttribute + '>' + optionsHtml + '</select></label>';
+            }).join('');
           };
 
           const getSkillRows = function () {
@@ -1145,7 +1219,7 @@
             }
           };
 
-          const createDisRow = function (slug, name, maxLevel, ppl, pointCurve) {
+          const createDisRow = function (slug, name, maxLevel, ppl, pointCurve, attributeChoiceDefs) {
             const safeName = String(name)
               .replace(/&/g, "&amp;")
               .replace(/</g, "&lt;")
@@ -1160,7 +1234,7 @@
             row.dataset.pointCurve = String(pointCurve || "");
             row.innerHTML = `
               <td><span data-phase3-dis-label-base="${safeName}">${safeName}</span> <span data-phase3-dis-formula>(0)</span></td>
-              <td><input class="dashboard_input phase2_level_input" type="number" min="0" max="${maxLevel}" value="1" name="dis_${slug}" data-phase3-dis-level></td>
+              <td><input class="dashboard_input phase2_level_input" type="number" min="0" max="${maxLevel}" value="1" name="dis_${slug}" data-phase3-dis-level>${renderAttributeChoiceInputs('dis', 'data-phase3-dis-choice', slug, attributeChoiceDefs)}</td>
               <td data-phase3-dis-cost>0</td>
               <td><button type="button" class="phase2_remove_x" data-phase3-dis-remove aria-label="Nachteil entfernen" title="Entfernen">X</button></td>
             `;
@@ -1176,6 +1250,7 @@
             const maxLevel = toInt(source.dataset.max, 0);
             const ppl = toInt(source.dataset.ppl, 0);
             const pointCurve = source.dataset.pointCurve || "";
+            const attributeChoiceDefs = safelyParseJsonArray(source.dataset.attributeChoiceDefs || "[]");
             if (!slug) {
               return;
             }
@@ -1187,7 +1262,7 @@
               }
               return;
             }
-            const row = createDisRow(slug, name, maxLevel, ppl, pointCurve);
+            const row = createDisRow(slug, name, maxLevel, ppl, pointCurve, attributeChoiceDefs);
             phase3DisCartBody.appendChild(row);
             bindDisRow(row);
             ensurePhase3EmptyRow();
@@ -1600,13 +1675,17 @@
               const max = toInt(source.dataset.max, 0);
               const ppl = toInt(source.dataset.ppl, 0);
               const pointCurve = source.dataset.pointCurve || "";
+              const attributeChoiceDefs = JSON.parse(source.dataset.attributeChoiceDefs || "[]");
+              const resourceChoiceDefs = JSON.parse(source.dataset.resourceChoiceDefs || "[]");
               row.dataset.min = String(min);
               row.dataset.max = String(max);
               row.dataset.ppl = String(ppl);
               row.dataset.pointCurve = pointCurve;
+              row.dataset.attributeChoiceDefs = JSON.stringify(attributeChoiceDefs);
+              row.dataset.resourceChoiceDefs = JSON.stringify(resourceChoiceDefs);
               row.innerHTML = `
                 <td><span data-phase4-adv-label-base="${safeName}">${safeName}</span> <span data-phase4-adv-formula>(0)</span> <input type="hidden" name="adv_${slug}" value="${min}" data-phase4-hidden></td>
-                <td><input class="dashboard_input phase2_level_input" type="number" min="0" max="${max}" value="${min}" data-phase4-value></td>
+                <td><input class="dashboard_input phase2_level_input" type="number" min="0" max="${max}" value="${min}" data-phase4-value>${renderAttributeChoiceInputs('adv', 'data-phase4-adv-choice', slug, attributeChoiceDefs)}${renderResourceChoiceInputs('adv', 'data-phase4-adv-choice', slug, resourceChoiceDefs)}</td>
                 <td data-phase4-cost>0</td>
                 <td><button type="button" class="phase2_remove_x" data-phase4-remove aria-label="Eintrag entfernen" title="Entfernen">X</button></td>
               `;

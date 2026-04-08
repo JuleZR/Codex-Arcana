@@ -759,6 +759,16 @@ class CharacterTechniqueChoice(models.Model):
             if self.pk:
                 existing = existing.exclude(pk=self.pk)
 
+        if self.character_id and self.selected_specialization_id:
+            duplicate_specialization_choice = CharacterTechniqueChoice.objects.filter(
+                character_id=self.character_id,
+                selected_specialization_id=self.selected_specialization_id,
+            ).exclude(pk=self.pk)
+            if duplicate_specialization_choice.exists():
+                raise ValidationError(
+                    {"selected_specialization": "This specialization has already been chosen for this character."}
+                )
+
             if self.definition.max_choices and existing.count() >= self.definition.max_choices:
                 raise ValidationError(
                     "Maximum number of choices for this technique definition exceeded."

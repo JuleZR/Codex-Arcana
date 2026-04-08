@@ -49,6 +49,7 @@ class TargetDomain(StringEnum):
     PROFICIENCY_GROUP = "proficiency_group"
     TRAIT = "trait"
     ATTRIBUTE = "attribute"
+    ATTRIBUTE_CAP = "attribute_cap"
     DERIVED_STAT = "derived_stat"
     RESOURCE = "resource"
     RESISTANCE = "resistance"
@@ -221,6 +222,14 @@ class DerivedStatModifier(BaseModifier):
 
     def __init__(self, *args, **kwargs):
         kwargs.setdefault("target_domain", TargetDomain.DERIVED_STAT)
+        super().__init__(*args, **kwargs)
+
+
+class AttributeCapModifier(BaseModifier):
+    """Modifier targeting one attribute's allowed maximum value."""
+
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault("target_domain", TargetDomain.ATTRIBUTE_CAP)
         super().__init__(*args, **kwargs)
 
 

@@ -597,9 +597,9 @@ class ModifierEngine:
             return self.character_engine.fame_total()
         if scale_source == "trait_level":
             source_id = self._coerce_source_id(modifier.source_id)
-            if source_id is None:
-                return None
-            return self.character_engine._trait_levels.get(source_id)
+            if source_id is not None:
+                return self.character_engine._trait_levels.get(source_id)
+            return self.character_engine._trait_levels_by_slug.get(str(modifier.source_id or ""))
         if scale_source == "skill_level":
             skill_id = modifier.scaling.get("scale_skill_id")
             if not skill_id:

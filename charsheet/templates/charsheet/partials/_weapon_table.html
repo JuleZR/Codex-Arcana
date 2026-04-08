@@ -17,7 +17,7 @@
       </thead>
       <tbody>
         {% for row in weapon_rows %}
-          <tr class="tooltip_target" data-tooltip-side="left" data-tooltip="{{ row.tooltip_text }}">
+          <tr>
             <td>
               {% if row.is_primary_profile %}
                 <div class="weapon_name_cell">
@@ -29,7 +29,7 @@
                   {% else %}
                     <button type="button" class="equip_toggle is-equipped" title="Startausrüstung bleibt angelegt" disabled>-</button>
                   {% endif %}
-                  <span class="weapon_name">{{ row.item.name }}</span>
+                  <span class="weapon_name{% if row.tooltip_text %} tooltip_target{% endif %}"{% if row.tooltip_text %} data-tooltip-side="left" data-tooltip="{{ row.tooltip_text }}"{% endif %}>{{ row.item.name }}</span>
                 </div>
               {% else %}
                 <div class="weapon_name_cell" aria-hidden="true"></div>
@@ -45,7 +45,7 @@
             <td>-</td>
             <td title="Qualit&auml;ts-Man&ouml;vermodifikator: {{ row.quality_maneuver_bonus|default:0 }}">{{ row.dmg_mod_display|default:"-" }}</td>
             <td>
-              <span class="pill" title="Berechnung: {{ row.dmg_mod_display }} + (Bel. {{ row.bel_malus_display }}) = {{ row.with_bel_display }}">
+              <span class="pill tooltip_target" data-tooltip-side="left" data-tooltip="{{ row.calculation_tooltip }}">
                 {{ row.with_bel_display }}
               </span>
             </td>

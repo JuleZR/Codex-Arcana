@@ -5,6 +5,7 @@ from unittest.mock import patch
 
 from django.test import SimpleTestCase
 
+from charsheet.engine.character_combat import fame_total
 from charsheet.engine.character_creation_engine import CharacterCreationEngine
 from charsheet.models import Attribute, CharacterTraitChoice, Trait, TraitChoiceDefinition, TraitSemanticEffect
 from charsheet.modifiers import (
@@ -109,6 +110,31 @@ class ModifierEngineSemanticTests(SimpleTestCase):
 
         self.assertEqual(movement.multipliers["ground_combat"], 0.25)
         self.assertEqual(engine.resolve_combat_value("melee_maneuvers"), -6)
+
+    def test_resource_modifier_can_increase_personal_fame_points_for_fame_total(self):
+        modifier_engine = ModifierEngine(
+            modifiers=[
+                EconomyModifier(
+                    source_type="trait",
+                    source_id="adel",
+                    target_domain=TargetDomain.RESOURCE,
+                    target_key="personal_fame_point",
+                    operator=ModifierOperator.FLAT_ADD,
+                    value=3,
+                ),
+            ]
+        )
+        engine = SimpleNamespace(
+            character=SimpleNamespace(
+                personal_fame_point=2,
+                personal_fame_rank=1,
+                sacrifice_rank=0,
+                artefact_rank=0,
+            ),
+            resolve_resource=lambda key: modifier_engine.resolve_resource(key),
+        )
+
+        self.assertEqual(fame_total(engine), 6)
 
     def test_social_profile_and_behavioral_tags_resolve(self):
         engine = ModifierEngine(

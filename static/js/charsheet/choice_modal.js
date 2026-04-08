@@ -60,6 +60,14 @@ export function createChoiceModalController({ hiddenInputContainer, windowContro
   const getDecisionId = (section) => section.dataset.choiceDecisionId || "";
   const getDecisionTitle = (section) => section.dataset.choiceTitle || "Ausstehende Entscheidung";
   const getSelectionGroupId = (section) => section.dataset.choiceSelectionGroup || "";
+  const getSectionOptionInputs = (section) => Array.from(section.querySelectorAll("input[type='radio']"));
+  const getSelectedOptionId = (section) => {
+    const selected = section.querySelector("input[type='radio']:checked");
+    if (!(selected instanceof HTMLInputElement)) {
+      return "";
+    }
+    return selected.dataset.choiceOptionId || selected.value || "";
+  };
 
   const isActionableSection = (section) => getInputType(section) !== "unsupported";
   const isSectionResolvedByHidden = (section) => {
@@ -147,6 +155,47 @@ export function createChoiceModalController({ hiddenInputContainer, windowContro
     });
   };
 
+  const updateGroupedOptionAvailability = () => {
+    const groupedSelections = new Map();
+
+    getSections().forEach((section) => {
+      const selectionGroupId = getSelectionGroupId(section);
+      if (!selectionGroupId || getInputType(section) !== "options") {
+        return;
+      }
+      const optionId = getSelectedOptionId(section);
+      if (!optionId) {
+        return;
+      }
+      const selectedIds = groupedSelections.get(selectionGroupId) || new Set();
+      selectedIds.add(optionId);
+      groupedSelections.set(selectionGroupId, selectedIds);
+    });
+
+    getSections().forEach((section) => {
+      const selectionGroupId = getSelectionGroupId(section);
+      const optionInputs = getSectionOptionInputs(section);
+      if (!selectionGroupId || !optionInputs.length) {
+        return;
+      }
+      const selectedIds = groupedSelections.get(selectionGroupId) || new Set();
+      const currentSelection = getSelectedOptionId(section);
+      optionInputs.forEach((input) => {
+        if (!(input instanceof HTMLInputElement)) {
+          return;
+        }
+        const optionId = input.dataset.choiceOptionId || input.value || "";
+        const shouldDisable = Boolean(optionId) && optionId !== currentSelection && selectedIds.has(optionId);
+        input.disabled = shouldDisable;
+        const label = input.closest(".learn_choice_option");
+        if (label instanceof HTMLElement) {
+          label.classList.toggle("is-disabled", shouldDisable);
+          label.setAttribute("aria-disabled", shouldDisable ? "true" : "false");
+        }
+      });
+    });
+  };
+
   const getPendingSections = () => getSections().filter(
     (section) => isActionableSection(section) && !isSectionResolvedByHidden(section),
   );
@@ -196,6 +245,7 @@ export function createChoiceModalController({ hiddenInputContainer, windowContro
 
   const renderPendingDecisions = () => {
     syncFormFromHiddenInputs();
+    updateGroupedOptionAvailability();
     const pendingSections = [];
     getSections().forEach((section) => {
       const pending = isActionableSection(section) && !isSectionResolvedByHidden(section);
@@ -363,6 +413,7 @@ export function createChoiceModalController({ hiddenInputContainer, windowContro
     section.querySelectorAll("input[type='radio']").forEach((input) => {
       input.addEventListener("change", () => {
         updateDecisionResolvedState(section);
+        updateGroupedOptionAvailability();
       });
     });
     const textInput = section.querySelector("[data-choice-text-input]");

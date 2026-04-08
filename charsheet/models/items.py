@@ -36,6 +36,7 @@ class Item(models.Model):
         ARMOR = "armor", "Rüstung"
         WEAPON = "weapon", "Waffe"
         SHIELD = "shield", "Schild"
+        CLOTHING = "clothing", "Kleidung"
         CONSUM = "consumable", "verbrauchbar"
         AMMO = "ammo", "Monition"
         MISC = "misc", "Misc"
@@ -61,6 +62,7 @@ class Item(models.Model):
             self.ItemType.ARMOR,
             self.ItemType.SHIELD,
             self.ItemType.WEAPON,
+            self.ItemType.CLOTHING,
         } and self.stackable:
             raise ValidationError({"stackable": f"Type: {self.item_type.upper()} can't be stackable."})
 
@@ -138,12 +140,21 @@ class WeaponFlag(models.Model):
 class WeaponStats(models.Model):
     """Weapon-specific combat data attached to an item."""
 
+    class DamageOperator(models.TextChoices):
+        NONE = "", "Kein Operator"
+        ADD = "+", "+"
+        SUBTRACT = "-", "-"
+        DIVIDE = "/", "/"
+
     item = models.OneToOneField(Item, on_delete=models.CASCADE)
     min_st = models.PositiveIntegerField(default=1, validators=[MinValueValidator(1)])
     damage_source = models.ForeignKey(DamageSource, on_delete=models.PROTECT)
     damage_dice_amount = models.PositiveIntegerField(default=1)
     damage_dice_faces = models.PositiveIntegerField(default=10)
     damage_flat_bonus = models.IntegerField(default=0)
+    damage_flat_operator = models.CharField(max_length=1, choices=DamageOperator.choices, default=DamageOperator.NONE, blank=True)
+    damage_bonus_attribute = models.CharField(max_length=20, blank=True, default="")
+    damage_bonus_mode = models.CharField(max_length=20, blank=True, default="flat")
     damage_type = models.CharField(max_length=1, default=DEADLY, choices=DAMAGE_TYPE_CHOICES)
 
     wield_mode = models.CharField(max_length=2, choices=WIELD_MODES, default=ONE_HANDED)
@@ -151,6 +162,7 @@ class WeaponStats(models.Model):
     h2_dice_amount = models.PositiveIntegerField(null=True, blank=True)
     h2_dice_faces = models.PositiveIntegerField(null=True, blank=True)
     h2_flat_bonus = models.IntegerField(null=True, blank=True)
+    h2_flat_operator = models.CharField(max_length=1, choices=DamageOperator.choices, default=DamageOperator.NONE, blank=True)
 
     flags = models.ManyToManyField(WeaponFlag, blank=True)
 
@@ -160,22 +172,47 @@ class WeaponStats(models.Model):
         return self.wield_mode in {TWO_HANDED, VERSATILE}
 
     @property
+    def has_alternate_two_handed_profile(self) -> bool:
+        """Return whether the weapon has a second, optional two-handed profile."""
+        return self.wield_mode == VERSATILE
+
+    @property
     def damage(self) -> str:
         """Return one-handed/base damage in classic dice notation."""
-        damage = f"{self.damage_dice_amount}w{self.damage_dice_faces}"
-        if self.damage_flat_bonus:
-            damage += f"{self.damage_flat_bonus:+d}"
-        return damage
+        return self.format_damage_label(
+            self.damage_dice_amount,
+            self.damage_dice_faces,
+            self.damage_flat_bonus,
+            self.damage_flat_operator,
+        )
 
     @property
     def two_handed_damage(self) -> str | None:
         """Return two-handed damage in dice notation if available."""
-        if not self.two_handed or self.h2_dice_amount is None or self.h2_dice_faces is None:
+        if not self.has_alternate_two_handed_profile or self.h2_dice_amount is None or self.h2_dice_faces is None:
             return None
-        damage = f"{self.h2_dice_amount}w{self.h2_dice_faces}"
-        if self.h2_flat_bonus:
-            damage += f"{self.h2_flat_bonus:+d}"
-        return damage
+        return self.format_damage_label(
+            self.h2_dice_amount,
+            self.h2_dice_faces,
+            self.h2_flat_bonus,
+            self.h2_flat_operator,
+        )
+
+    @classmethod
+    def format_damage_label(cls, dice_amount: int, dice_faces: int, bonus: int | None, operator: str | None) -> str:
+        """Return classic damage notation with a configurable operator."""
+        damage = f"{dice_amount}w{dice_faces}"
+        resolved_bonus = int(bonus or 0)
+        resolved_operator = str(operator or "")
+        if not resolved_bonus:
+            return damage
+        if resolved_operator == cls.DamageOperator.DIVIDE:
+            return f"{damage}/{resolved_bonus}"
+        if resolved_operator == cls.DamageOperator.SUBTRACT:
+            return f"{damage}-{resolved_bonus}"
+        if resolved_operator == cls.DamageOperator.ADD:
+            return f"{damage}+{resolved_bonus}"
+        return f"{damage}{resolved_bonus:+d}"
 
     @property
     def size_class(self) -> str:
@@ -191,8 +228,9 @@ class WeaponStats(models.Model):
             self.h2_dice_amount is not None
             or self.h2_dice_faces is not None
             or self.h2_flat_bonus is not None
+            or bool(self.h2_flat_operator)
         )
-        if self.two_handed:
+        if self.has_alternate_two_handed_profile:
             if self.h2_dice_amount is None or self.h2_dice_faces is None:
                 raise ValidationError("Two-handed weapons need h2_dice_amount and h2_dice_faces.")
         elif has_h2_values:
@@ -228,8 +266,8 @@ class RaceStartingItem(models.Model):
         super().clean()
         if self.item.stackable:
             raise ValidationError({"item": "Race items must not be stackable because they are always equipped."})
-        if self.item.item_type not in {Item.ItemType.WEAPON, Item.ItemType.ARMOR, Item.ItemType.SHIELD}:
-            raise ValidationError({"item": "Race items must be weapons, armor, or shields because they are always equipped."})
+        if self.item.item_type not in {Item.ItemType.WEAPON, Item.ItemType.ARMOR, Item.ItemType.SHIELD, Item.ItemType.CLOTHING}:
+            raise ValidationError({"item": "Race items must be equippable items because they are always equipped."})
 
     def __str__(self):
         return f"{self.race} -> {self.item} x{self.amount}"

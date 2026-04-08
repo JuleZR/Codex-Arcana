@@ -25,6 +25,8 @@ from charsheet.models import (
     CharacterTrait,
     CharacterTechnique,
     CharacterTechniqueChoice,
+    CharacterWeaponMastery,
+    CharacterWeaponMasteryArcana,
     Language,
     School,
     Skill,
@@ -56,6 +58,9 @@ def _has_progression_inputs(post_data) -> bool:
         "learn_school_path_",
         "learn_take_technique_",
         "learn_specialization_pick_",
+        "learn_weapon_mastery_weapon_",
+        "learn_weapon_mastery_side_",
+        "learn_weapon_mastery_arcana_",
         "learn_choice_",
     )
     return any(str(key).startswith(prefixes) for key in post_data.keys())
@@ -131,6 +136,77 @@ def _apply_progression_choices(character: Character, post_data) -> dict[str, int
 
     engine = character.get_engine(refresh=True)
     progression_context = build_learning_progression_context(character, engine=engine)
+
+    weapon_decisions_by_slot: dict[tuple[int, int], dict[str, object]] = {}
+    side_decisions_by_slot: dict[tuple[int, int], dict[str, object]] = {}
+    for decision in progression_context["learn_pending_decisions"]:
+        kind = decision.get("kind")
+        parts = str(decision.get("decision_id") or "").split("-")
+        if kind == "weapon_mastery_weapon" and len(parts) >= 5:
+            school_id = int(parts[3])
+            pick_order = int(parts[4])
+            weapon_decisions_by_slot[(school_id, pick_order)] = decision
+        elif kind == "weapon_mastery_side" and len(parts) >= 5:
+            school_id = int(parts[3])
+            pick_order = int(parts[4])
+            side_decisions_by_slot[(school_id, pick_order)] = decision
+
+    for slot_key, weapon_decision in weapon_decisions_by_slot.items():
+        school_id, pick_order = slot_key
+        side_decision = side_decisions_by_slot.get(slot_key)
+        if not weapon_decision.get("options") or side_decision is None or not side_decision.get("options"):
+            continue
+        raw_item_value = str(post_data.get(weapon_decision["options"][0]["submit_name"], "")).strip()
+        raw_side_value = str(post_data.get(side_decision["options"][0]["submit_name"], "")).strip()
+        if not raw_item_value and not raw_side_value:
+            continue
+        weapon_allowed_values = {str(option["submit_value"]) for option in weapon_decision["options"]}
+        side_allowed_values = {str(option["submit_value"]) for option in side_decision["options"]}
+        if raw_item_value not in weapon_allowed_values:
+            raise LearningSubmissionError(f"{weapon_decision['title']}: Ungueltige Waffenwahl.")
+        if raw_side_value not in side_allowed_values:
+            raise LearningSubmissionError(f"{side_decision['title']}: Ungueltige Bonuswahl.")
+        mastery_entry = CharacterWeaponMastery(
+            character=character,
+            school_id=school_id,
+            weapon_item_id=int(raw_item_value),
+            pick_order=pick_order,
+            first_bonus_kind=raw_side_value,
+        )
+        mastery_entry.full_clean()
+        mastery_entry.save()
+        summary["choices"] += 1
+
+    engine = character.get_engine(refresh=True)
+    progression_context = build_learning_progression_context(character, engine=engine)
+
+    for decision in progression_context["learn_pending_decisions"]:
+        if decision.get("kind") != "weapon_mastery_arcana":
+            continue
+        if not decision.get("options"):
+            continue
+        raw_value = str(post_data.get(decision["options"][0]["submit_name"], "")).strip()
+        if not raw_value:
+            continue
+        allowed_values = {str(option["submit_value"]) for option in decision["options"]}
+        if raw_value not in allowed_values:
+            raise LearningSubmissionError(f"{decision['title']}: Ungueltige Arkana-Wahl.")
+        school_id = int(str(decision["decision_id"]).split("-")[2])
+        payload = {
+            "character": character,
+            "school_id": school_id,
+        }
+        if raw_value == CharacterWeaponMasteryArcana.ArcanaKind.BONUS_CAPACITY:
+            payload["kind"] = CharacterWeaponMasteryArcana.ArcanaKind.BONUS_CAPACITY
+        elif raw_value.startswith("rune:"):
+            payload["kind"] = CharacterWeaponMasteryArcana.ArcanaKind.RUNE
+            payload["rune_id"] = int(raw_value.split(":", 1)[1])
+        else:
+            raise LearningSubmissionError(f"{decision['title']}: Ungueltige Arkana-Wahl.")
+        arcana_entry = CharacterWeaponMasteryArcana(**payload)
+        arcana_entry.full_clean()
+        arcana_entry.save()
+        summary["choices"] += 1
 
     for row in progression_context["learn_choice_rows"]:
         if not row["supported"]:
@@ -226,6 +302,12 @@ def _reset_invalid_school_progression(character: Character) -> None:
     CharacterSpecialization.objects.filter(character=character).exclude(
         specialization__school_id__in=learned_school_ids
     ).delete()
+    CharacterWeaponMastery.objects.filter(character=character).exclude(
+        school_id__in=learned_school_ids
+    ).delete()
+    CharacterWeaponMasteryArcana.objects.filter(character=character).exclude(
+        school_id__in=learned_school_ids
+    ).delete()
 
     engine = character.get_engine(refresh=True)
     for school_id in learned_school_ids:
@@ -236,6 +318,23 @@ def _reset_invalid_school_progression(character: Character) -> None:
         removable_ids = [entry.id for entry in specialization_entries[allowed_count:]]
         CharacterSpecialization.objects.filter(id__in=removable_ids).delete()
 
+    weapon_master_school = School.objects.filter(name__iexact="Waffenmeister").first()
+    if weapon_master_school and weapon_master_school.id in learned_school_ids:
+        school_entry = CharacterSchool.objects.filter(character=character, school=weapon_master_school).first()
+        allowed_count = min(int(getattr(school_entry, "level", 0) or 0), 10)
+        CharacterWeaponMastery.objects.filter(
+            character=character,
+            school=weapon_master_school,
+            pick_order__gt=allowed_count,
+        ).delete()
+        arcana_entries = list(
+            CharacterWeaponMasteryArcana.objects.filter(character=character, school=weapon_master_school).order_by("id")
+        )
+        if len(arcana_entries) > allowed_count:
+            CharacterWeaponMasteryArcana.objects.filter(
+                id__in=[entry.id for entry in arcana_entries[allowed_count:]]
+            ).delete()
+
 
 def process_learning_submission(character: Character, post_data) -> tuple[str, str]:
     """Apply one learning-menu submission and return message level plus text."""
@@ -243,7 +342,7 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
     attribute_limits = {
         limit.attribute.short_name: {
             "min": int(limit.min_value),
-            "max": int(limit.max_value),
+            "max": int(limit.max_value) + int(engine.resolve_attribute_cap_bonus(limit.attribute.short_name)),
         }
         for limit in character.race.raceattributelimit_set.select_related("attribute")
     }
@@ -338,6 +437,9 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
     disadvantage_issues = engine.validate_trait_selection(Trait.TraitType.DIS, planned_disadvantages)
     if disadvantage_issues:
         return "error", disadvantage_issues[0]
+    cross_type_issues = engine.validate_cross_type_trait_selection(planned_advantages, planned_disadvantages)
+    if cross_type_issues:
+        return "error", cross_type_issues[0]
 
     for slug, skill in skill_defs.items():
         key = f"learn_skill_add_{slug}"

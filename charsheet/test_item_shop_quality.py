@@ -7,6 +7,7 @@ from django.test import TestCase
 from django.urls import reverse
 
 from charsheet.constants import DEADLY, QUALITY_FINE, QUALITY_LEGENDARY
+from charsheet.engine import ItemEngine
 from charsheet.models import Character, CharacterItem, DamageSource, Item, Race, Rune, WeaponStats
 
 
@@ -41,7 +42,8 @@ class ShopQualityPurchaseTests(TestCase):
                 "size_class": "M",
                 "weapon_damage_dice_amount": "1",
                 "weapon_damage_dice_faces": "8",
-                "weapon_damage_flat_bonus": "-1",
+                "weapon_damage_flat_operator": "-",
+                "weapon_damage_flat_bonus": "1",
                 "weapon_wield_mode": "1h",
                 "weapon_damage_source": str(damage_source.id),
                 "weapon_damage_type": DEADLY,
@@ -55,7 +57,64 @@ class ShopQualityPurchaseTests(TestCase):
         self.assertEqual(list(item.runes.values_list("name", flat=True)), ["Feuer"])
         weapon_stats = WeaponStats.objects.get(item=item)
         self.assertEqual(weapon_stats.damage_source, damage_source)
-        self.assertEqual(weapon_stats.damage_flat_bonus, -1)
+        self.assertEqual(weapon_stats.damage_flat_operator, "-")
+        self.assertEqual(weapon_stats.damage_flat_bonus, 1)
+        self.assertEqual(ItemEngine(item).get_one_handed_damage_label(), "1w8-1")
+
+    def test_item_engine_formats_division_operator_damage(self):
+        """Damage labels should support slash operators such as 1w10/2."""
+        damage_source = DamageSource.objects.create(name="Wucht", short_name="W", slug="wucht_test")
+        item = Item.objects.create(
+            name="Testnetz",
+            price=50,
+            item_type=Item.ItemType.WEAPON,
+            stackable=False,
+            default_quality="common",
+        )
+        WeaponStats.objects.create(
+            item=item,
+            min_st=1,
+            damage_source=damage_source,
+            damage_dice_amount=1,
+            damage_dice_faces=10,
+            damage_flat_bonus=2,
+            damage_flat_operator="/",
+            damage_type="B",
+            wield_mode="1h",
+        )
+
+        self.assertEqual(ItemEngine(item).get_one_handed_damage_label(), "1w10/2")
+
+    def test_create_shop_item_allows_two_handed_weapon_without_extra_profile(self):
+        """Pure 2H weapons should use the base damage fields without requiring a second profile."""
+        damage_source = DamageSource.objects.create(name="Schnitt Test", short_name="SCH", slug="schnitt_test")
+
+        response = self.client.post(
+            reverse("create_shop_item", kwargs={"character_id": self.character.id}),
+            {
+                "name": "Zweihand-Testwaffe",
+                "price": "250",
+                "item_type": Item.ItemType.WEAPON,
+                "default_quality": "common",
+                "weight": "3",
+                "size_class": "G",
+                "weapon_damage_dice_amount": "2",
+                "weapon_damage_dice_faces": "10",
+                "weapon_damage_flat_operator": "+",
+                "weapon_damage_flat_bonus": "4",
+                "weapon_wield_mode": "2h",
+                "weapon_damage_source": str(damage_source.id),
+                "weapon_damage_type": DEADLY,
+                "weapon_min_st": "6",
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        item = Item.objects.get(name="Zweihand-Testwaffe")
+        weapon_stats = WeaponStats.objects.get(item=item)
+        self.assertEqual(weapon_stats.wield_mode, "2h")
+        self.assertEqual(ItemEngine(item).get_one_handed_damage_label(), "2w10+4")
+        self.assertIsNone(ItemEngine(item).get_two_handed_damage_label())
 
     def test_buy_shop_cart_uses_quality_price_and_persists_quality(self):
         """Legendary quality should multiply price and be stored on CharacterItem."""

@@ -4,7 +4,22 @@ from __future__ import annotations
 
 from collections import OrderedDict
 
-from charsheet.models import Item, Skill, SkillCategory, Specialization, Technique
+from charsheet.models import Item, Rune, Skill, SkillCategory, Specialization, Technique
+
+WEAPON_MASTERY_EXCLUDED_ITEM_NAMES = {
+    "Bissattacke",
+    "Schwanz",
+}
+
+
+def weapon_mastery_item_definitions():
+    """Return concrete weapon items that make sense for Waffenmeister choices."""
+    return (
+        Item.objects.filter(item_type=Item.ItemType.WEAPON, weaponstats__isnull=False)
+        .exclude(name__in=WEAPON_MASTERY_EXCLUDED_ITEM_NAMES)
+        .distinct()
+        .order_by("name")
+    )
 
 
 CHOICE_FIELD_PREFIX_BY_KIND = {
@@ -113,7 +128,9 @@ def build_learning_progression_context(character, *, engine) -> dict[str, object
     skill_definitions = list(Skill.objects.select_related("category").order_by("category__name", "name"))
     skill_categories = list(SkillCategory.objects.order_by("name"))
     item_definitions = list(Item.objects.order_by("name"))
+    weapon_item_definitions = list(weapon_mastery_item_definitions())
     item_category_options = [{"value": value, "label": label} for value, label in Item.ItemType.choices]
+    rune_definitions = list(Rune.objects.order_by("name"))
 
     for entry in learned_school_entries:
         school = entry.school
@@ -156,6 +173,124 @@ def build_learning_progression_context(character, *, engine) -> dict[str, object
                         )
                         for option in row["options"]
                     ],
+                )
+            )
+
+    weapon_master_school = engine._weapon_master_school
+    for entry in learned_school_entries:
+        school = entry.school
+        if weapon_master_school is None or school.id != weapon_master_school.id:
+            continue
+
+        mastered_entries = list(engine._weapon_mastery_entries_by_item_id.values())
+        required_mastery_count = min(int(entry.level), 10)
+        missing_mastery_count = max(0, required_mastery_count - len(mastered_entries))
+        used_weapon_ids = {mastery.weapon_item_id for mastery in mastered_entries}
+
+        for slot_offset in range(missing_mastery_count):
+            pick_order = len(mastered_entries) + slot_offset + 1
+            weapon_field_name = f"learn_weapon_mastery_weapon_{school.id}_{pick_order}"
+            side_field_name = f"learn_weapon_mastery_side_{school.id}_{pick_order}"
+            weapon_options = []
+            for item in weapon_item_definitions:
+                if item.id in used_weapon_ids:
+                    continue
+                weapon_options.append(
+                    _build_decision_option(
+                        option_id=str(item.id),
+                        label=item.name,
+                        meta="Waffe",
+                        description="Konkrete Waffe, die der Waffenmeister meistert.",
+                        submit_name=weapon_field_name,
+                        submit_value=str(item.id),
+                    )
+                )
+            pending_decisions.append(
+                _build_pending_decision(
+                    decision_id=f"weapon-mastery-weapon-{school.id}-{pick_order}",
+                    kind="weapon_mastery_weapon",
+                    title=f"Waffenmeister: Meisterwaffe {pick_order}",
+                    summary=f"{school.name} | Waffenwahl {pick_order} von {required_mastery_count}",
+                    description="Waehle die konkrete Waffe fuer diesen Meisterschaftsplatz.",
+                    prompt="Waffe waehlen",
+                    selection_group_id=f"weapon-mastery-weapon:{school.id}",
+                    options=weapon_options,
+                )
+            )
+            pending_decisions.append(
+                _build_pending_decision(
+                    decision_id=f"weapon-mastery-side-{school.id}-{pick_order}",
+                    kind="weapon_mastery_side",
+                    title=f"Waffenmeister: Bonusseite {pick_order}",
+                    summary=f"{school.name} | Startbonus {pick_order} von {required_mastery_count}",
+                    description="Lege fest, ob der erste Punkt dieser Waffe auf Manoever oder Schaden geht.",
+                    prompt="Startbonus waehlen",
+                    selection_group_id=f"weapon-mastery-side:{school.id}:{pick_order}",
+                    options=[
+                        _build_decision_option(
+                            option_id="maneuver",
+                            label="Manoever zuerst",
+                            meta="Startbonus",
+                            description="Der erste Punkt geht auf den Manoeverbonus.",
+                            submit_name=side_field_name,
+                            submit_value="maneuver",
+                        ),
+                        _build_decision_option(
+                            option_id="damage",
+                            label="Schaden zuerst",
+                            meta="Startbonus",
+                            description="Der erste Punkt geht auf den Schadensbonus.",
+                            submit_name=side_field_name,
+                            submit_value="damage",
+                        ),
+                    ],
+                )
+            )
+
+        required_arcana_count = min(int(entry.level), 10)
+        existing_arcana_entries = list(engine._weapon_mastery_arcana_entries)
+        missing_arcana_count = max(0, required_arcana_count - len(existing_arcana_entries))
+        used_rune_ids = {
+            entry.rune_id
+            for entry in existing_arcana_entries
+            if getattr(entry, "rune_id", None)
+        }
+        for slot_offset in range(missing_arcana_count):
+            arcana_index = len(existing_arcana_entries) + slot_offset + 1
+            field_name = f"learn_weapon_mastery_arcana_{school.id}_{arcana_index}"
+            options = [
+                _build_decision_option(
+                    option_id=f"bonus-{arcana_index}",
+                    label="+1/+1 Bonuskapazitaet",
+                    meta="Arkane Meisterschaft",
+                    description="Erhoeht die beherrschbare magische Bonuskapazitaet um +1/+1.",
+                    submit_name=field_name,
+                    submit_value="bonus_capacity",
+                )
+            ]
+            for rune in rune_definitions:
+                if rune.id in used_rune_ids:
+                    continue
+                options.append(
+                    _build_decision_option(
+                        option_id=f"rune-{rune.id}",
+                        label=rune.name,
+                        meta="Rune",
+                        description=rune.description or "",
+                        submit_name=field_name,
+                        submit_value=f"rune:{rune.id}",
+                    )
+                )
+            pending_decisions.append(
+                _build_pending_decision(
+                    decision_id=f"weapon-arcana-{school.id}-{arcana_index}",
+                    kind="weapon_mastery_arcana",
+                    title=f"Waffenmeister: Arkane Meisterschaft {arcana_index}",
+                    summary=f"{school.name} | Arkanum {arcana_index} von {required_arcana_count}",
+                    description="Waehle pro Schulstufe entweder eine neue Rune oder +1/+1 Bonuskapazitaet.",
+                    prompt="Arkanum waehlen",
+                    selection_group_id=f"weapon-arcana:{school.id}",
+                    options=options,
                 )
             )
 
@@ -544,6 +679,13 @@ def _build_choice_row(
     elif target_kind == Technique.ChoiceTargetKind.ITEM_CATEGORY:
         options = [{"value": row["value"], "label": row["label"], "meta": ""} for row in item_category_options]
     elif target_kind == Technique.ChoiceTargetKind.SPECIALIZATION:
+        used_specialization_ids = {
+            choice.selected_specialization_id
+            for choice in engine.character.technique_choices.filter(selected_specialization__isnull=False)
+        }
+        used_specialization_ids.update(
+            engine.character.learned_specializations.values_list("specialization_id", flat=True)
+        )
         options = [
             {
                 "value": specialization.id,
@@ -554,6 +696,7 @@ def _build_choice_row(
                 Specialization.objects.filter(school_id=technique.school_id, is_active=True)
                 .order_by("sort_order", "name")
             )
+            if specialization.id not in used_specialization_ids
         ]
     elif target_kind == Technique.ChoiceTargetKind.TEXT:
         options = []

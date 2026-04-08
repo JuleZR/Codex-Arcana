@@ -41,7 +41,7 @@ export function initItemForm() {
 
   const syncWeaponWieldModeFields = () => {
     const mode = String(weaponWieldModeSelect?.value || "1h");
-    const hasTwoHandProfile = mode === "2h" || mode === "vh";
+    const hasTwoHandProfile = mode === "vh";
     if (weaponTwoHandFields) {
       weaponTwoHandFields.hidden = !hasTwoHandProfile;
     }
@@ -122,3 +122,4 @@ export function initItemForm() {
   stackableInput?.addEventListener("change", syncItemTypeFields);
   syncItemTypeFields();
 }
+

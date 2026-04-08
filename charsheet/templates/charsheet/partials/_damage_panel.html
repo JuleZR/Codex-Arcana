@@ -1,28 +1,58 @@
 <div class="p2_panel p2_damage" id="sheetDamagePanel">
   <h2>Schaden</h2>
   <div class="damage_display">
-    <div class="damage_circle_wrap" aria-label="Aktueller Schaden und Wundstufen-Malus">
-      <span class="damage_circle">
-        <span class="damage_current_value">{{ character.current_damage }}</span>
-      </span>
-      <span class="damage_max_circle">{{ current_damage_max }}</span>
-      <span class="wound_penalty_circle{% if is_wound_penalty_ignored %} is-disabled{% endif %}">{{ current_wound_penalty }}</span>
+    <div
+      class="damage_gauge"
+      data-damage-value="{{ character.current_damage }}"
+      data-damage-max="{{ current_damage_max }}"
+      style="--needle-angle: {{ damage_gauge_needle_angle }}deg;"
+      aria-label="Aktueller Schaden, Wundstufe und Wundmalus"
+    >
+      <div class="damage_gauge_face">
+        <div class="damage_gauge_arc" aria-hidden="true" style="--arc-stops: {{ damage_gauge_gradient_stops }};"></div>
+        {% for segment in damage_gauge_segments %}
+          {% if segment.penalty_display %}
+            <span class="damage_gauge_segment_label" style="left: {{ segment.label_left }}; top: {{ segment.label_top }};">{{ segment.penalty_display }}</span>
+          {% endif %}
+        {% endfor %}
+        <div class="damage_gauge_needle_shell" aria-hidden="true">
+          <span class="damage_gauge_needle_arm"></span>
+        </div>
+        <div class="damage_gauge_center">
+          <span class="damage_readout_value"><span class="damage_readout_current">{{ character.current_damage }}</span><small>/{{ current_damage_max }}</small></span>
+        </div>
+      </div>
+      <div class="damage_state_row">
+        <button type="button" class="damage_step_btn damage_step_btn--decrease" data-action="heal" data-amount="1" aria-label="Schaden verringern">-</button>
+        <span class="damage_state_value damage_stage_value{% if is_wound_penalty_ignored %} is-disabled{% endif %}" data-stage="{{ current_wound_stage }}">
+          {% if current_wound_stage != "-" %}
+            {{ current_wound_stage }}
+          {% endif %}
+        </span>
+        <button type="button" class="damage_step_btn damage_step_btn--increase" data-action="damage" data-amount="1" aria-label="Schaden erh&ouml;hen">+</button>
+        <span class="damage_penalty_value visually-hidden">{{ current_wound_penalty }}</span>
+      </div>
+      <div class="arcane_meter" data-arcane-current="{{ current_arcane_power }}" data-arcane-max="{{ current_arcane_power_max }}" aria-label="Aktuelle arkane Macht">
+        <div class="arcane_meter_label">Arkane Macht</div>
+        <div class="arcane_meter_row">
+          <button type="button" class="damage_step_btn arcane_step_btn arcane_step_btn--decrease" data-action="spend" data-amount="1" aria-label="Arkane Macht verringern">-</button>
+          <div class="arcane_meter_track">
+            <div class="arcane_meter_fill" style="width: {{ arcane_meter_percent }}%;"></div>
+            <span class="arcane_meter_value"><span class="arcane_meter_current">{{ current_arcane_power }}</span></span>
+          </div>
+          <button type="button" class="damage_step_btn arcane_step_btn arcane_step_btn--increase" data-action="restore" data-amount="1" aria-label="Arkane Macht erh&ouml;hen">+</button>
+        </div>
+      </div>
     </div>
-    <p class="wound_stage_text">{{ current_wound_stage }}</p>
   </div>
-  <form method="post" action="{% url 'adjust_current_damage' character.id %}" class="damage_actions" data-sheet-action>
+  <form method="post" action="{% url 'adjust_current_damage' character.id %}" class="damage_actions">
     {% csrf_token %}
     <input type="hidden" name="action" class="damage_action_input" value="" />
     <input type="hidden" name="amount" class="damage_amount_input" value="1" />
-    <div class="damage_actions_table" role="group" aria-label="Schadensanpassung">
-      <span class="damage_actions_head">Heal</span>
-      <span class="damage_actions_head">Damage</span>
-      <button type="button" data-action="heal" data-amount="1" class="damage_action_btn">-1</button>
-      <button type="button" data-action="damage" data-amount="1" class="damage_action_btn">+1</button>
-      <button type="button" data-action="heal" data-amount="5" class="damage_action_btn">-5</button>
-      <button type="button" data-action="damage" data-amount="5" class="damage_action_btn">+5</button>
-      <button type="button" data-action="heal" data-amount="10" class="damage_action_btn">-10</button>
-      <button type="button" data-action="damage" data-amount="10" class="damage_action_btn">+10</button>
-    </div>
+  </form>
+  <form method="post" action="{% url 'adjust_current_arcane_power' character.id %}" class="arcane_actions">
+    {% csrf_token %}
+    <input type="hidden" name="action" class="arcane_action_input" value="" />
+    <input type="hidden" name="amount" class="arcane_amount_input" value="1" />
   </form>
 </div>

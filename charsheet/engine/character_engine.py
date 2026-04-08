@@ -20,6 +20,8 @@ from charsheet.models import (
     CharacterSchool,
     CharacterSchoolPath,
     CharacterSpecialization,
+    CharacterWeaponMastery,
+    CharacterWeaponMasteryArcana,
     CharacterTechniqueChoice,
     CharacterTraitChoice,
     Item,
@@ -213,6 +215,45 @@ class CharacterEngine:
         return {entry.school_id: entry for entry in qs}
 
     @cached_property
+    def _weapon_master_school(self) -> School | None:
+        """Return the Waffenmeister school definition when it exists."""
+        school = School.objects.filter(name__iexact="Waffenmeister").select_related("type").first()
+        return school
+
+    @cached_property
+    def _weapon_master_school_entry(self) -> CharacterSchool | None:
+        """Return the character's learned Waffenmeister school entry, if any."""
+        school = self._weapon_master_school
+        if school is None:
+            return None
+        return self._school_entries.get(school.id)
+
+    @cached_property
+    def _weapon_mastery_entries_by_item_id(self) -> dict[int, CharacterWeaponMastery]:
+        """Cache concrete weapon masteries keyed by weapon item id."""
+        school = self._weapon_master_school
+        if school is None:
+            return {}
+        queryset = (
+            self.character.weapon_masteries.filter(school=school)
+            .select_related("weapon_item", "school")
+            .order_by("pick_order", "weapon_item__name", "id")
+        )
+        return {entry.weapon_item_id: entry for entry in queryset}
+
+    @cached_property
+    def _weapon_mastery_arcana_entries(self) -> list[CharacterWeaponMasteryArcana]:
+        """Cache all persisted rune/bonus-capacity arcana purchases."""
+        school = self._weapon_master_school
+        if school is None:
+            return []
+        return list(
+            self.character.weapon_mastery_arcana_entries.filter(school=school)
+            .select_related("rune", "school")
+            .order_by("id")
+        )
+
+    @cached_property
     def _specialization_entries_by_school_id(self) -> dict[int, list[CharacterSpecialization]]:
         """Cache learned character specializations keyed by school id."""
         grouped: DefaultDict[int, list[CharacterSpecialization]] = defaultdict(list)
@@ -381,6 +422,14 @@ class CharacterEngine:
         """Cache learned trait levels keyed by trait id."""
         return {
             entry.trait_id: entry.trait_level
+            for entry in self.character.charactertrait_set.select_related("trait")
+        }
+
+    @cached_property
+    def _trait_levels_by_slug(self) -> dict[str, int]:
+        """Cache learned trait levels keyed by trait slug for semantic scaling."""
+        return {
+            entry.trait.slug: entry.trait_level
             for entry in self.character.charactertrait_set.select_related("trait")
         }
 
@@ -628,6 +677,7 @@ class CharacterEngine:
     validate_trait_target_level = character_learning.validate_trait_target_level
     trait_learning_delta_cost = character_learning.trait_learning_delta_cost
     validate_trait_selection = character_learning.validate_trait_selection
+    validate_cross_type_trait_selection = character_learning.validate_cross_type_trait_selection
 
     fame_total = character_combat.fame_total
     calculate_initiative = character_combat.calculate_initiative
@@ -645,10 +695,12 @@ class CharacterEngine:
 
     equipped_weapon_items = character_equipment.equipped_weapon_items
     equipped_armor_items = character_equipment.equipped_armor_items
+    equipped_clothing_items = character_equipment.equipped_clothing_items
     equipped_shield_items = character_equipment.equipped_shield_items
     weapon_quality_skill_modifier = character_equipment.weapon_quality_skill_modifier
     equipped_weapon_rows = character_equipment.equipped_weapon_rows
     equipped_armor_rows = character_equipment.equipped_armor_rows
+    equipped_clothing_rows = character_equipment.equipped_clothing_rows
     equipped_shield_rows = character_equipment.equipped_shield_rows
     get_grs = character_equipment.get_grs
     get_bel = character_equipment.get_bel
@@ -810,6 +862,10 @@ class CharacterEngine:
         """Resolve attribute bonus modifiers through the central modifier engine."""
         return self.modifier_engine.resolve_attribute_bonus(attribute_slug, context=context)
 
+    def resolve_attribute_cap_bonus(self, attribute_slug: str, context: dict | None = None) -> int:
+        """Resolve attribute-maximum modifiers through the central modifier engine."""
+        return self.modifier_engine.resolve_numeric_total(TargetDomain.ATTRIBUTE_CAP, attribute_slug, context=context)
+
     def resolve_language_level(self, language_slug: str) -> int:
         """Resolve the effective spoken language level after language modifiers."""
         entry = self._languages_map.get(language_slug)
@@ -884,6 +940,46 @@ class CharacterEngine:
     def skill_total(self, skill_slug: str) -> int:
         """Return the final resolved value for one skill."""
         return int(self._skill_base(skill_slug)) + int(self._skill_modifiers(skill_slug))
+
+    def weapon_mastery_for_item(self, item: Item | int | None) -> CharacterWeaponMastery | None:
+        """Return the mastered concrete weapon entry for one item, if learned."""
+        if item is None:
+            return None
+        item_id = item if isinstance(item, int) else getattr(item, "id", None)
+        if item_id is None:
+            return None
+        return self._weapon_mastery_entries_by_item_id.get(item_id)
+
+    def weapon_mastery_bonus_for_item(self, item: Item | int | None) -> tuple[int, int]:
+        """Return maneuver/damage bonuses from Waffenmeister for one concrete weapon."""
+        mastery = self.weapon_mastery_for_item(item)
+        school_entry = self._weapon_master_school_entry
+        if mastery is None or school_entry is None:
+            return 0, 0
+        return mastery.maneuver_damage_bonus(school_entry.level)
+
+    def weapon_mastery_quality_bonus_for_item(self, item: Item | int | None) -> int:
+        """Return the crafting quality-step bonus for one mastered weapon type."""
+        mastery = self.weapon_mastery_for_item(item)
+        if mastery is None:
+            return 0
+        return mastery.quality_step_bonus()
+
+    def weapon_mastery_arcana_bonus_capacity(self) -> int:
+        """Return how many +1/+1 bonus-capacity unlocks the character learned."""
+        return sum(
+            1
+            for entry in self._weapon_mastery_arcana_entries
+            if entry.kind == CharacterWeaponMasteryArcana.ArcanaKind.BONUS_CAPACITY
+        )
+
+    def weapon_mastery_arcana_runes(self) -> list:
+        """Return the runes learned through Waffenmeister arcana progression."""
+        return [
+            entry.rune
+            for entry in self._weapon_mastery_arcana_entries
+            if entry.kind == CharacterWeaponMasteryArcana.ArcanaKind.RUNE and entry.rune_id
+        ]
 
     def debug_legacy_skill_total(self, skill_slug: str) -> int:
         """Return the legacy skill total for one skill for migration diagnostics."""

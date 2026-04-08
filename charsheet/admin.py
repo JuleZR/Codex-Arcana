@@ -33,6 +33,8 @@ from .models import (
     CharacterTechniqueChoice,
     CharacterTrait,
     CharacterTraitChoice,
+    CharacterWeaponMastery,
+    CharacterWeaponMasteryArcana,
     DamageSource,
     Item,
     Language,
@@ -323,6 +325,8 @@ def _format_trait_choice_context(definition):
         parts.append(f"Allowed Skill Family: {definition.allowed_skill_family}")
     if definition.allowed_derived_stat:
         parts.append(f"Allowed Derived Stat: {definition.get_allowed_derived_stat_display()}")
+    if definition.allowed_resource:
+        parts.append(f"Allowed Resource: {definition.get_allowed_resource_display()}")
     if definition.allowed_proficiency_group:
         parts.append(f"Allowed Group: {definition.get_allowed_proficiency_group_display()}")
     return " | ".join(part for part in parts if part) or "-"
@@ -1197,11 +1201,13 @@ class WeaponStatsInline(admin.StackedInline):
         "damage_source",
         "damage_dice_amount",
         "damage_dice_faces",
+        "damage_flat_operator",
         "damage_flat_bonus",
         "damage_type",
         "wield_mode",
         "h2_dice_amount",
         "h2_dice_faces",
+        "h2_flat_operator",
         "h2_flat_bonus",
         "flags",
     )
@@ -1345,6 +1351,7 @@ class TraitChoiceDefinitionInline(admin.TabularInline):
         "allowed_skill_category",
         "allowed_skill_family",
         "allowed_derived_stat",
+        "allowed_resource",
         "allowed_proficiency_group",
         "sort_order",
         "is_active",
@@ -1929,6 +1936,41 @@ class CharacterSchoolAdmin(admin.ModelAdmin):
     def school_type(self, obj):
         """Return the related school type for list display."""
         return obj.school.type
+
+
+@admin.register(CharacterWeaponMastery)
+class CharacterWeaponMasteryAdmin(admin.ModelAdmin):
+    """Admin configuration for concrete Waffenmeister weapon picks."""
+
+    list_display = (
+        "character",
+        "school",
+        "weapon_item",
+        "pick_order",
+        "first_bonus_kind",
+    )
+    search_fields = ("character__name", "school__name", "weapon_item__name")
+    list_filter = ("school", "first_bonus_kind", "weapon_item__item_type")
+    ordering = ("character", "school", "pick_order", "weapon_item")
+    autocomplete_fields = ("character", "school", "weapon_item")
+    list_select_related = ("character", "school", "weapon_item")
+
+
+@admin.register(CharacterWeaponMasteryArcana)
+class CharacterWeaponMasteryArcanaAdmin(admin.ModelAdmin):
+    """Admin configuration for Waffenmeister rune and bonus-capacity progress."""
+
+    list_display = (
+        "character",
+        "school",
+        "kind",
+        "rune",
+    )
+    search_fields = ("character__name", "school__name", "rune__name")
+    list_filter = ("school", "kind")
+    ordering = ("character", "school", "kind", "rune")
+    autocomplete_fields = ("character", "school", "rune")
+    list_select_related = ("character", "school", "rune")
 
 
 @admin.register(ProgressionRule)
@@ -2679,6 +2721,7 @@ class TraitChoiceDefinitionAdmin(admin.ModelAdmin):
                     ("min_choices", "max_choices", "is_required"),
                     ("allowed_attribute", "allowed_skill_category", "allowed_skill_family"),
                     "allowed_derived_stat",
+                    "allowed_resource",
                     "allowed_proficiency_group",
                     ("sort_order", "is_active"),
                 ),
@@ -3130,6 +3173,7 @@ class CharacterTraitChoiceAdmin(admin.ModelAdmin):
         "selected_skill__name",
         "selected_skill_category__name",
         "selected_derived_stat",
+        "selected_resource",
         "selected_proficiency_group",
         "selected_item__name",
         "selected_specialization__name",
@@ -3154,7 +3198,6 @@ class CharacterTraitChoiceAdmin(admin.ModelAdmin):
         "selected_attribute",
         "selected_skill",
         "selected_skill_category",
-        "selected_proficiency_group",
         "selected_item",
         "selected_specialization",
     )
@@ -3177,6 +3220,7 @@ class CharacterTraitChoiceAdmin(admin.ModelAdmin):
                     ("selected_skill",),
                     ("selected_skill_category", "selected_specialization"),
                     "selected_derived_stat",
+                    "selected_resource",
                     "selected_proficiency_group",
                     ("selected_item", "selected_item_category"),
                     "selected_text",
@@ -3614,7 +3658,7 @@ CHARACTER_CHOICE_HELP = {
 }
 
 SCHOOL_TYPE_CHOICE_HELP = {
-    "slug": "Magic = arcane schools, Divine = divine schools, Combat = combat schools.",
+    "slug": "Magieschule = arkane Schulen, Klerikaler Aspekt = goettliche Schulen, Kampfschule = Kampfschulen.",
 }
 
 PROGRESSION_RULE_CHOICE_HELP = {

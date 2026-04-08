@@ -101,3 +101,80 @@ class TraitExclusionTests(TestCase):
         engine = CharacterCreationEngine(draft)
 
         self.assertFalse(engine.validate_phase_3())
+
+    def test_cross_type_exclusion_is_allowed_on_model_level(self):
+        """Advantages and disadvantages may exclude each other directly."""
+        advantage = Trait.objects.create(
+            name="Fearless",
+            slug="fearless",
+            trait_type=Trait.TraitType.ADV,
+            description="Unafraid.",
+        )
+        disadvantage = Trait.objects.create(
+            name="Fearful",
+            slug="fearful",
+            trait_type=Trait.TraitType.DIS,
+            description="Easily frightened.",
+        )
+
+        pair = TraitExclusion(trait=advantage, excluded_trait=disadvantage)
+        pair.full_clean()
+
+    def test_creation_engine_rejects_cross_type_exclusions(self):
+        """Creation validation should reject advantage/disadvantage exclusion pairs."""
+        advantage = Trait.objects.create(
+            name="Fearless",
+            slug="fearless",
+            trait_type=Trait.TraitType.ADV,
+            description="Unafraid.",
+            points_per_level=2,
+        )
+        disadvantage = Trait.objects.create(
+            name="Fearful",
+            slug="fearful",
+            trait_type=Trait.TraitType.DIS,
+            description="Easily frightened.",
+            points_per_level=2,
+        )
+        TraitExclusion.objects.create(trait=advantage, excluded_trait=disadvantage)
+        draft = SimpleNamespace(
+            race=self.race,
+            state={
+                "phase_3": {"disadvantages": {disadvantage.slug: 1}},
+                "phase_4": {"advantages": {advantage.slug: 1}},
+            },
+        )
+
+        engine = CharacterCreationEngine(draft)
+
+        self.assertFalse(engine.validate_phase_4())
+
+    def test_learning_submission_rejects_cross_type_exclusions(self):
+        """EP learning should reject an advantage that excludes an owned disadvantage."""
+        advantage = Trait.objects.create(
+            name="Fearless",
+            slug="fearless",
+            trait_type=Trait.TraitType.ADV,
+            description="Unafraid.",
+            points_per_level=2,
+        )
+        disadvantage = Trait.objects.create(
+            name="Fearful",
+            slug="fearful",
+            trait_type=Trait.TraitType.DIS,
+            description="Easily frightened.",
+            points_per_level=2,
+        )
+        TraitExclusion.objects.create(trait=advantage, excluded_trait=disadvantage)
+        CharacterTrait.objects.create(owner=self.character, trait=disadvantage, trait_level=1)
+
+        level, message = process_learning_submission(
+            self.character,
+            {
+                f"learn_trait_add_{advantage.slug}": "1",
+            },
+        )
+
+        self.assertEqual(level, "error")
+        self.assertIn("Fearless", message)
+        self.assertIn("Fearful", message)

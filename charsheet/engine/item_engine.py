@@ -134,20 +134,25 @@ class ItemEngine:
         return WEAPON_MANEUVER_QUALITY_BONUSES.get(self.get_effective_quality(), 0)
 
     def get_weapon_damage(self, wield_mode: str = ONE_HANDED):
-        """Return weapon damage tuple(s): (dice_amount, dice_faces, flat_bonus)."""
+        """Return weapon damage tuple(s): (dice_amount, dice_faces, flat_bonus, operator)."""
         stats = self._get_weapon_stats()
         if not stats:
             return None
 
+        quality_bonus = self.get_weapon_damage_quality_bonus()
+        base_bonus = stats.damage_flat_bonus or 0
+        h2_bonus = stats.h2_flat_bonus or 0
         base = (
             stats.damage_dice_amount,
             stats.damage_dice_faces,
-            (stats.damage_flat_bonus or 0) + self.get_weapon_damage_quality_bonus(),
+            base_bonus + quality_bonus if stats.damage_flat_operator != stats.DamageOperator.DIVIDE else base_bonus,
+            stats.damage_flat_operator,
         )
         two_handed = (
             stats.h2_dice_amount,
             stats.h2_dice_faces,
-            (stats.h2_flat_bonus or 0) + self.get_weapon_damage_quality_bonus(),
+            h2_bonus + quality_bonus if stats.h2_flat_operator != stats.DamageOperator.DIVIDE else h2_bonus,
+            stats.h2_flat_operator,
         )
 
         if wield_mode == ONE_HANDED:
@@ -167,11 +172,8 @@ class ItemEngine:
         """Format one damage tuple into dice notation for UI display."""
         if not damage_data:
             return "-"
-        dice_amount, dice_faces, flat_bonus = damage_data
-        label = f"{dice_amount}w{dice_faces}"
-        if flat_bonus:
-            label += f"{flat_bonus:+d}"
-        return label
+        dice_amount, dice_faces, flat_bonus, operator = damage_data
+        return WeaponStats.format_damage_label(dice_amount, dice_faces, flat_bonus, operator)
 
     def get_one_handed_damage_label(self) -> str:
         """Return one-handed or base damage label including quality modifier."""

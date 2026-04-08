@@ -1,6 +1,7 @@
 """School, specialization, and progression models."""
 
 from django.core.exceptions import ValidationError
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
 from ..constants import SCHOOL_TYPE_CHOICES
@@ -191,6 +192,147 @@ class CharacterSpecialization(models.Model):
 
     def __str__(self) -> str:
         return f"{self.character.name} - {self.specialization.school.name}: {self.specialization.name}"
+
+
+class CharacterWeaponMastery(models.Model):
+    """One mastered concrete weapon choice of a character's Waffenmeister school."""
+
+    class FirstBonusKind(models.TextChoices):
+        MANEUVER = "maneuver", "Manoever zuerst"
+        DAMAGE = "damage", "Schaden zuerst"
+
+    character = models.ForeignKey(
+        "Character",
+        on_delete=models.CASCADE,
+        related_name="weapon_masteries",
+    )
+    school = models.ForeignKey(
+        School,
+        on_delete=models.CASCADE,
+        related_name="character_weapon_masteries",
+    )
+    weapon_item = models.ForeignKey(
+        "charsheet.Item",
+        on_delete=models.PROTECT,
+        related_name="character_weapon_masteries",
+    )
+    pick_order = models.PositiveSmallIntegerField(
+        validators=[MinValueValidator(1), MaxValueValidator(10)],
+        help_text="The order in which this concrete weapon was chosen on school levels 1-10.",
+    )
+    first_bonus_kind = models.CharField(
+        max_length=20,
+        choices=FirstBonusKind.choices,
+        default=FirstBonusKind.MANEUVER,
+        help_text="Whether the first granted point on this weapon went to maneuver or damage.",
+    )
+    learned_at = models.DateTimeField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["character", "school__name", "pick_order", "weapon_item__name", "id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["character", "school", "pick_order"],
+                name="uniq_character_weapon_mastery_pick_order",
+            ),
+            models.UniqueConstraint(
+                fields=["character", "school", "weapon_item"],
+                name="uniq_character_weapon_mastery_weapon",
+            ),
+        ]
+
+    def clean(self):
+        """Validate school ownership and weapon-specific item selection."""
+        super().clean()
+        if self.weapon_item_id and self.weapon_item.item_type != self.weapon_item.ItemType.WEAPON:
+            raise ValidationError({"weapon_item": "Weapon mastery entries must point at weapon items."})
+        if (
+            self.character_id
+            and self.school_id
+            and not CharacterSchool.objects.filter(character_id=self.character_id, school_id=self.school_id).exists()
+        ):
+            raise ValidationError({"school": "A character can only track weapon masteries for learned schools."})
+
+    def progression_steps(self, school_level: int) -> int:
+        """Return how many school-level grants this mastery currently received."""
+        if school_level < self.pick_order:
+            return 0
+        return school_level - self.pick_order + 1
+
+    def maneuver_damage_bonus(self, school_level: int) -> tuple[int, int]:
+        """Resolve current maneuver/damage bonuses from school level and starting side."""
+        steps = self.progression_steps(school_level)
+        first_half = (steps + 1) // 2
+        second_half = steps // 2
+        if self.first_bonus_kind == self.FirstBonusKind.MANEUVER:
+            return first_half, second_half
+        return second_half, first_half
+
+    def quality_step_bonus(self) -> int:
+        """All mastered weapon types shift crafting quality up by one category."""
+        return 1
+
+    def __str__(self) -> str:
+        return f"{self.character.name} - {self.school.name}: #{self.pick_order} {self.weapon_item.name}"
+
+
+class CharacterWeaponMasteryArcana(models.Model):
+    """Persistent rune or bonus-capacity progress for Waffenmeister, also beyond level 10."""
+
+    class ArcanaKind(models.TextChoices):
+        RUNE = "rune", "Rune"
+        BONUS_CAPACITY = "bonus_capacity", "Bonuskapazitaet"
+
+    character = models.ForeignKey(
+        "Character",
+        on_delete=models.CASCADE,
+        related_name="weapon_mastery_arcana_entries",
+    )
+    school = models.ForeignKey(
+        School,
+        on_delete=models.CASCADE,
+        related_name="character_weapon_mastery_arcana_entries",
+    )
+    kind = models.CharField(max_length=30, choices=ArcanaKind.choices)
+    rune = models.ForeignKey(
+        "charsheet.Rune",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="weapon_mastery_arcana_entries",
+    )
+    learned_at = models.DateTimeField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["character", "school__name", "id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["character", "school", "rune"],
+                condition=models.Q(rune__isnull=False),
+                name="uniq_character_weapon_mastery_arcana_rune",
+            ),
+        ]
+
+    def clean(self):
+        """Keep kind/rune combinations and school ownership coherent."""
+        super().clean()
+        if self.kind == self.ArcanaKind.RUNE and self.rune_id is None:
+            raise ValidationError({"rune": "Rune arcana entries must reference a rune."})
+        if self.kind != self.ArcanaKind.RUNE and self.rune_id is not None:
+            raise ValidationError({"rune": "Only rune arcana entries may reference a rune."})
+        if (
+            self.character_id
+            and self.school_id
+            and not CharacterSchool.objects.filter(character_id=self.character_id, school_id=self.school_id).exists()
+        ):
+            raise ValidationError({"school": "A character can only track weapon arcana for learned schools."})
+
+    def __str__(self) -> str:
+        if self.kind == self.ArcanaKind.RUNE and self.rune_id:
+            return f"{self.character.name} - {self.school.name}: Rune {self.rune.name}"
+        return f"{self.character.name} - {self.school.name}: Bonuskapazitaet"
 
 
 class ProgressionRule(models.Model):

@@ -2158,10 +2158,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
 document.addEventListener("DOMContentLoaded", () => {
   const form = document.querySelector(".damage_actions");
-  const circleWrap = document.querySelector(".damage_circle_wrap");
+  const gauge = document.querySelector(".damage_gauge");
+  const needleArm = document.querySelector(".damage_gauge_needle_arm");
   const actionInput = document.querySelector(".damage_action_input");
   const amountInput = document.querySelector(".damage_amount_input");
-  if (!form || !circleWrap || !actionInput || !amountInput) {
+  if (!form || !gauge || !needleArm || !actionInput || !amountInput) {
     return;
   }
 
@@ -2169,10 +2170,10 @@ document.addEventListener("DOMContentLoaded", () => {
   if (!buttons.length) {
     return;
   }
-  const currentDamageEl = document.querySelector(".damage_current_value");
-  const maxDamageEl = document.querySelector(".damage_max_circle");
-  const woundPenaltyEl = document.querySelector(".wound_penalty_circle");
-  const woundStageEl = document.querySelector(".wound_stage_text");
+  const currentDamageEl = document.querySelector(".damage_readout_current");
+  const maxDamageEl = document.querySelector(".damage_readout_max");
+  const woundPenaltyEl = document.querySelector(".damage_penalty_value");
+  const woundStageEl = document.querySelector(".damage_stage_value");
   if (!currentDamageEl || !maxDamageEl || !woundPenaltyEl || !woundStageEl) {
     return;
   }
@@ -2191,20 +2192,6 @@ document.addEventListener("DOMContentLoaded", () => {
   let requestQueue = Promise.resolve();
   let isFallbackSubmitting = false;
   let localDamage = readInt(currentDamageEl.textContent, 0);
-
-  let glowTimeoutId = null;
-  function triggerGlow(action) {
-    circleWrap.classList.remove("effect-heal", "effect-damage");
-    void circleWrap.offsetWidth;
-    circleWrap.classList.add(action === "heal" ? "effect-heal" : "effect-damage");
-    if (glowTimeoutId) {
-      window.clearTimeout(glowTimeoutId);
-    }
-    glowTimeoutId = window.setTimeout(() => {
-      circleWrap.classList.remove("effect-heal", "effect-damage");
-      glowTimeoutId = null;
-    }, 460);
-  }
 
   function readInt(text, fallback = 0) {
     const parsed = Number.parseInt(String(text ?? "").trim(), 10);
@@ -2247,6 +2234,21 @@ document.addEventListener("DOMContentLoaded", () => {
     };
   }
 
+  function updateNeedle(damage, shouldAnimate = false) {
+    const maxDamage = Math.max(1, readInt(maxDamageEl.textContent, 1));
+    const clampedDamage = Math.max(0, Math.min(damage, maxDamage));
+    const rotation = 6 + (clampedDamage / maxDamage) * 168;
+    gauge.dataset.damageValue = String(clampedDamage);
+    gauge.dataset.damageMax = String(maxDamage);
+    if (shouldAnimate) {
+      gauge.classList.add("is-animating");
+      gauge.style.setProperty("--needle-angle", `${rotation}deg`);
+      return;
+    }
+    gauge.classList.remove("is-animating");
+    gauge.style.setProperty("--needle-angle", `${rotation}deg`);
+  }
+
   buttons.forEach((button) => {
     button.addEventListener("click", async () => {
       const action = button.getAttribute("data-action");
@@ -2257,7 +2259,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
       actionInput.value = action;
       amountInput.value = String(amount);
-      triggerGlow(action);
 
       // Optimistic UI update so value change feels immediate.
       localDamage = action === "damage"
@@ -2267,6 +2268,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const optimisticWound = computeWoundInfo(localDamage);
       woundStageEl.textContent = optimisticWound.stage;
       woundPenaltyEl.textContent = optimisticWound.penaltyDisplay;
+      updateNeedle(localDamage, true);
 
       const thisRequestVersion = requestVersion + 1;
       requestVersion = thisRequestVersion;
@@ -2297,6 +2299,7 @@ document.addEventListener("DOMContentLoaded", () => {
         woundStageEl.textContent = String(payload.current_wound_stage ?? woundStageEl.textContent);
         woundPenaltyEl.textContent = String(payload.current_wound_penalty ?? woundPenaltyEl.textContent);
         woundPenaltyEl.classList.toggle("is-disabled", Boolean(payload.is_wound_penalty_ignored));
+        updateNeedle(localDamage, true);
       }).catch((_error) => {
         if (!isFallbackSubmitting) {
           isFallbackSubmitting = true;
@@ -2306,6 +2309,16 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 });
+
+
+
+
+
+
+
+
+
+
 
 
 

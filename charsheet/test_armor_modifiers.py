@@ -63,3 +63,21 @@ class ArmorModifierTests(TestCase):
         engine = CharacterEngine(character)
         self.assertEqual(engine.modifier_total_for_stat(DEFENSE_RS), 1)
         self.assertEqual(engine.get_grs(), 1)
+
+    def test_equipped_clothing_does_not_affect_armor_values(self):
+        user = get_user_model().objects.create_user(username="clothestester", password="secret")
+        race = Race.objects.create(name="Mensch")
+        character = Character.objects.create(owner=user, name="Talea", race=race)
+        clothing = Item.objects.create(
+            name="Reisekleidung",
+            price=220,
+            item_type=Item.ItemType.CLOTHING,
+            stackable=False,
+            default_quality="common",
+        )
+        CharacterItem.objects.create(owner=character, item=clothing, amount=1, equipped=True, quality="common")
+
+        engine = CharacterEngine(character)
+        self.assertEqual(engine.get_grs(), 0)
+        self.assertEqual(engine.get_bel(), 0)
+        self.assertEqual(engine.get_ms(), 0)

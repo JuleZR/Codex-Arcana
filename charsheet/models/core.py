@@ -224,7 +224,7 @@ class TraitExclusion(models.Model):
         ]
 
     def clean(self):
-        """Block self-references, mirrored duplicates, and mixed-type exclusions."""
+        """Block self-references and mirrored duplicates."""
         super().clean()
         if self.trait_id and self.excluded_trait_id and self.trait_id == self.excluded_trait_id:
             raise ValidationError({"excluded_trait": "A trait cannot exclude itself."})
@@ -237,16 +237,6 @@ class TraitExclusion(models.Model):
             ).exists()
         ):
             raise ValidationError("This exclusion pair already exists in reverse order.")
-        if (
-            self.trait_id
-            and self.excluded_trait_id
-            and Trait.objects.filter(pk__in=(self.trait_id, self.excluded_trait_id))
-            .values_list("trait_type", flat=True)
-            .distinct()
-            .count()
-            > 1
-        ):
-            raise ValidationError("Only traits of the same type can exclude each other.")
 
     def __str__(self) -> str:
         return f"{self.trait.name} excludes {self.excluded_trait.name}"
@@ -354,6 +344,7 @@ class TraitSemanticEffect(models.Model):
     def to_modifier(self):
         """Materialize this persisted effect as one typed modifier instance."""
         from ..modifiers.definitions import (
+            AttributeCapModifier,
             BaseModifier,
             CombatModifier,
             ConditionSet,
@@ -376,6 +367,7 @@ class TraitSemanticEffect(models.Model):
             "trait": TraitModifier,
             "language": LanguageModifier,
             "proficiency_group": ProficiencyGroupModifier,
+            "attribute_cap": AttributeCapModifier,
             "derived_stat": DerivedStatModifier,
             "resource": ResourceModifier,
             "resistance": ResistanceModifier,

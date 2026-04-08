@@ -7,7 +7,7 @@ from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
-from ..constants import PROFICIENCY_GROUP_CHOICES, QUALITY_CHOICES, QUALITY_COMMON, STAT_SLUG_CHOICES
+from ..constants import PROFICIENCY_GROUP_CHOICES, QUALITY_CHOICES, QUALITY_COMMON, RESOURCE_KEY_CHOICES, STAT_SLUG_CHOICES
 from .core import Attribute, Language, Race, Skill, SkillCategory, Trait
 from .items import Item
 from .progression import Specialization
@@ -39,6 +39,7 @@ class Character(models.Model):
     current_experience = models.PositiveIntegerField(default=0)
 
     current_damage = models.PositiveIntegerField(default=0)
+    current_arcane_power = models.PositiveIntegerField(null=True, blank=True)
     is_archived = models.BooleanField(default=False)
     last_opened_at = models.DateTimeField(null=True, blank=True)
 
@@ -210,6 +211,7 @@ class TraitChoiceDefinition(models.Model):
         SKILL = "skill", "Skill"
         SKILL_CATEGORY = "skill_category", "Skill Category"
         DERIVED_STAT = "derived_stat", "Derived Stat"
+        RESOURCE = "resource", "Resource"
         PROFICIENCY_GROUP = "proficiency_group", "Proficiency Group"
         ITEM = "item", "Item"
         ITEM_CATEGORY = "item_category", "Item Category"
@@ -270,6 +272,7 @@ class TraitChoiceDefinition(models.Model):
         default="",
     )
     allowed_derived_stat = models.CharField(max_length=50, blank=True, default="", choices=STAT_SLUG_CHOICES)
+    allowed_resource = models.CharField(max_length=50, blank=True, default="", choices=RESOURCE_KEY_CHOICES)
     allowed_proficiency_group = models.CharField(max_length=50, blank=True, default="", choices=PROFICIENCY_GROUP_CHOICES)
     sort_order = models.PositiveSmallIntegerField(default=0)
     is_active = models.BooleanField(default=True)
@@ -293,6 +296,8 @@ class TraitChoiceDefinition(models.Model):
                 raise ValidationError({"allowed_skill_family": "This filter is only valid for skill choices."})
         if self.target_kind != self.TargetKind.DERIVED_STAT and self.allowed_derived_stat:
             raise ValidationError({"allowed_derived_stat": "This filter is only valid for derived-stat choices."})
+        if self.target_kind != self.TargetKind.RESOURCE and self.allowed_resource:
+            raise ValidationError({"allowed_resource": "This filter is only valid for resource choices."})
         if self.target_kind != self.TargetKind.PROFICIENCY_GROUP and self.allowed_proficiency_group:
             raise ValidationError({"allowed_proficiency_group": "This filter is only valid for proficiency-group choices."})
 
@@ -335,6 +340,7 @@ class CharacterTraitChoice(models.Model):
         related_name="character_trait_choices",
     )
     selected_derived_stat = models.CharField(max_length=50, blank=True, default="", choices=STAT_SLUG_CHOICES)
+    selected_resource = models.CharField(max_length=50, blank=True, default="", choices=RESOURCE_KEY_CHOICES)
     selected_proficiency_group = models.CharField(max_length=50, blank=True, default="", choices=PROFICIENCY_GROUP_CHOICES)
     selected_item = models.ForeignKey(
         Item,
@@ -462,6 +468,13 @@ class CharacterTraitChoice(models.Model):
             raise ValidationError({"selected_derived_stat": "The selected derived stat does not match the allowed derived stat."})
         if (
             self.definition_id
+            and self.definition.target_kind == TraitChoiceDefinition.TargetKind.RESOURCE
+            and self.definition.allowed_resource
+            and self.selected_resource != self.definition.allowed_resource
+        ):
+            raise ValidationError({"selected_resource": "The selected resource does not match the allowed resource."})
+        if (
+            self.definition_id
             and self.definition.target_kind == TraitChoiceDefinition.TargetKind.PROFICIENCY_GROUP
             and self.definition.allowed_proficiency_group
             and self.selected_proficiency_group != self.definition.allowed_proficiency_group
@@ -486,6 +499,7 @@ class CharacterTraitChoice(models.Model):
             TraitChoiceDefinition.TargetKind.SKILL: "selected_skill",
             TraitChoiceDefinition.TargetKind.SKILL_CATEGORY: "selected_skill_category",
             TraitChoiceDefinition.TargetKind.DERIVED_STAT: "selected_derived_stat",
+            TraitChoiceDefinition.TargetKind.RESOURCE: "selected_resource",
             TraitChoiceDefinition.TargetKind.PROFICIENCY_GROUP: "selected_proficiency_group",
             TraitChoiceDefinition.TargetKind.ITEM: "selected_item",
             TraitChoiceDefinition.TargetKind.ITEM_CATEGORY: "selected_item_category",
@@ -514,6 +528,7 @@ class CharacterTraitChoice(models.Model):
             "selected_skill",
             "selected_skill_category",
             "selected_derived_stat",
+            "selected_resource",
             "selected_proficiency_group",
             "selected_item",
             "selected_item_category",
@@ -551,6 +566,8 @@ class CharacterTraitChoice(models.Model):
             return self.selected_skill_category.name
         if self.selected_derived_stat:
             return dict(STAT_SLUG_CHOICES).get(self.selected_derived_stat, self.selected_derived_stat)
+        if self.selected_resource:
+            return dict(RESOURCE_KEY_CHOICES).get(self.selected_resource, self.selected_resource)
         if self.selected_proficiency_group:
             return dict(PROFICIENCY_GROUP_CHOICES).get(self.selected_proficiency_group, self.selected_proficiency_group)
         if self.selected_item is not None:
@@ -575,6 +592,8 @@ class CharacterTraitChoice(models.Model):
             return ("skill_category", self.selected_skill_category.slug)
         if self.selected_derived_stat:
             return ("derived_stat", self.selected_derived_stat)
+        if self.selected_resource:
+            return ("resource", self.selected_resource)
         if self.selected_proficiency_group:
             return ("proficiency_group", self.selected_proficiency_group)
         if self.selected_item is not None:

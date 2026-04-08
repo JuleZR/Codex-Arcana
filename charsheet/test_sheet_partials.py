@@ -30,7 +30,7 @@ class CharacterSheetPartialTests(TestCase):
         payload = response.json()
         self.assertTrue(payload["ok"])
         self.assertEqual(payload["partials"][0]["target"], "sheetDamagePanel")
-        self.assertIn("damage_current_value", payload["partials"][0]["html"])
+        self.assertIn("damage_gauge", payload["partials"][0]["html"])
         self.character.refresh_from_db()
         self.assertEqual(self.character.current_damage, 3)
 
@@ -59,6 +59,32 @@ class CharacterSheetPartialTests(TestCase):
         )
         owned_item.refresh_from_db()
         self.assertTrue(owned_item.equipped)
+
+    def test_core_stats_partial_renders_breakdown_tooltips(self):
+        """Core stat pills should expose the server-rendered breakdown tooltip text."""
+        armor = Item.objects.create(
+            name="Lederharnisch",
+            price=50,
+            item_type=Item.ItemType.ARMOR,
+            stackable=False,
+            default_quality="common",
+        )
+        ArmorStats.objects.create(item=armor, rs_total=1, encumbrance=1, min_st=1)
+        owned_item = CharacterItem.objects.create(owner=self.character, item=armor, amount=1, equipped=False, quality="common")
+
+        response = self.client.post(
+            reverse("toggle_equip", args=[owned_item.id]),
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        core_html = next(entry["html"] for entry in payload["partials"] if entry["target"] == "sheetCoreStatsPanel")
+        self.assertIn("tooltip_target", core_html)
+        self.assertIn("data-tooltip-side=\"right\"", core_html)
+        self.assertIn("GE-Bonus/Malus", core_html)
+        self.assertIn("Belastung", core_html)
+        self.assertIn("Stufen in Schulen", core_html)
 
     def test_locked_equipment_cannot_be_unequipped(self):
         armor = Item.objects.create(
@@ -201,6 +227,7 @@ class CharacterSheetPartialTests(TestCase):
             item_type=Item.ItemType.MISC,
             stackable=False,
             default_quality="common",
+            weight=2.5,
             description="Ein seltsamer Gegenstand.",
         )
         rune = Rune.objects.create(name="Speicherrune", description="Bindet Energie.")
@@ -256,6 +283,9 @@ class CharacterSheetPartialTests(TestCase):
         self.assertIn("Langschwert", weapon_html)
         self.assertNotIn("Waffen-Aktionen", weapon_html)
         self.assertNotIn("data-open-rune-window", weapon_html)
+        self.assertIn("data-tooltip", weapon_html)
+        self.assertIn("ST-Bonus/Malus", weapon_html)
+        self.assertNotIn("= Basis-Mod.", weapon_html)
 
     def test_armor_panel_does_not_render_action_menu_for_equipped_armor(self):
         """Equipped armor should not show the inventory burger menu in the armor panel."""
@@ -313,3 +343,34 @@ class CharacterSheetPartialTests(TestCase):
         armor_html = next(entry["html"] for entry in response.json()["partials"] if entry["target"] == "sheetArmorPanel")
         self.assertIn(f'action="/character-item/{owned_item.id}/toggle-equip/"', armor_html)
         self.assertNotIn("disabled", armor_html)
+
+    def test_equipped_clothing_renders_in_armor_panel_without_armor_stats(self):
+        """Equipped clothing should be wearable and listed without affecting armor stats."""
+        clothing = Item.objects.create(
+            name="Reisekleidung",
+            price=220,
+            item_type=Item.ItemType.CLOTHING,
+            stackable=False,
+            default_quality="common",
+            description="Unterwaesche, Hemd, Hose oder Rock, Struempfe, Kapuzenmantel, Lederstiefel und Guertel.",
+        )
+        owned_item = CharacterItem.objects.create(
+            owner=self.character,
+            item=clothing,
+            amount=1,
+            equipped=False,
+            quality="common",
+        )
+
+        response = self.client.post(
+            reverse("toggle_equip", args=[owned_item.id]),
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        inventory_html = next(entry["html"] for entry in payload["partials"] if entry["target"] == "sheetInventoryPanel")
+        armor_html = next(entry["html"] for entry in payload["partials"] if entry["target"] == "sheetArmorPanel")
+        self.assertNotIn("Reisekleidung", inventory_html)
+        self.assertIn("Reisekleidung (Kleidung)", armor_html)
+        self.assertIn('<span class="pill">0</span>', armor_html)

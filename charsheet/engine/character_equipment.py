@@ -36,6 +36,19 @@ def equipped_armor_items(engine) -> QuerySet:
     )
 
 
+def equipped_clothing_items(engine) -> QuerySet:
+    """Return all currently equipped clothing items of the character."""
+    return (
+        CharacterItem.objects.filter(
+            owner=engine.character,
+            equipped=True,
+            item__item_type=Item.ItemType.CLOTHING,
+        )
+        .select_related("item")
+        .prefetch_related("item__runes", "runes")
+    )
+
+
 def equipped_shield_items(engine) -> QuerySet:
     """Return all currently equipped shields of the character."""
     return (
@@ -66,7 +79,9 @@ def equipped_weapon_rows(engine) -> list[dict]:
         weapon_stats = getattr(character_item.item, "weaponstats", None)
         damage_source_slug = getattr(getattr(weapon_stats, "damage_source", None), "slug", "")
         damage_stat_slug = damage_source_slug or getattr(weapon_stats, "damage_type", "")
+        mastery_maneuver_bonus, mastery_damage_bonus = engine.weapon_mastery_bonus_for_item(character_item.item)
         dmg_mod = engine.get_dmg_modifier_sum(damage_stat_slug) if damage_stat_slug else engine.attribute_modifier(ATTR_ST)
+        total_damage_modifier = dmg_mod + mastery_damage_bonus
         for profile_index, profile in enumerate(item_engine.weapon_profiles()):
             rows.append(
                 {
@@ -74,12 +89,14 @@ def equipped_weapon_rows(engine) -> list[dict]:
                     "item": character_item.item,
                     "quality": item_engine.get_effective_quality(),
                     "quality_color": item_engine.get_quality_color(),
-                    "dmg_mod": dmg_mod,
-                    "dmg_mod_display": f"{dmg_mod:+d}" if dmg_mod else "0",
+                    "dmg_mod": total_damage_modifier,
+                    "dmg_mod_display": f"{total_damage_modifier:+d}" if total_damage_modifier else "0",
+                    "base_dmg_mod": dmg_mod,
+                    "base_dmg_mod_display": f"{dmg_mod:+d}" if dmg_mod else "0",
                     "bel_malus": bel_malus,
                     "bel_malus_display": f"{bel_malus:+d}" if bel_malus else "0",
-                    "with_bel": dmg_mod + bel_malus,
-                    "with_bel_display": f"{(dmg_mod + bel_malus):+d}" if (dmg_mod + bel_malus) else "0",
+                    "with_bel": total_damage_modifier + bel_malus,
+                    "with_bel_display": f"{(total_damage_modifier + bel_malus):+d}" if (total_damage_modifier + bel_malus) else "0",
                     "wield_mode": item_engine.get_weapon_wield_mode(),
                     "size_class": item_engine.get_size_class(),
                     "min_st": item_engine.get_weapon_min_st(),
@@ -88,8 +105,11 @@ def equipped_weapon_rows(engine) -> list[dict]:
                     "is_primary_profile": profile_index == 0,
                     "quality_damage_bonus": item_engine.get_weapon_damage_quality_bonus(),
                     "quality_maneuver_bonus": item_engine.get_weapon_maneuver_quality_bonus(),
+                    "weapon_mastery_damage_bonus": mastery_damage_bonus,
+                    "weapon_mastery_maneuver_bonus": mastery_maneuver_bonus,
+                    "weapon_mastery_quality_bonus": engine.weapon_mastery_quality_bonus_for_item(character_item.item),
                     "trait_maneuver_modifier": maneuver_modifier,
-                    "total_maneuver_modifier": item_engine.get_weapon_maneuver_quality_bonus() + maneuver_modifier,
+                    "total_maneuver_modifier": item_engine.get_weapon_maneuver_quality_bonus() + maneuver_modifier + mastery_maneuver_bonus,
                 }
             )
     return rows
@@ -130,6 +150,22 @@ def equipped_shield_rows(engine) -> list[dict]:
                 "bel_raw": item_engine.get_shield_bel_raw() or 0,
                 "bel_effective": item_engine.get_shield_encumbrance(),
                 "min_st": item_engine.get_shield_min_st(),
+            }
+        )
+    return rows
+
+
+def equipped_clothing_rows(engine) -> list[dict]:
+    """Return equipped clothing rows for the armor panel without combat stats."""
+    rows: list[dict] = []
+    for character_item in engine.equipped_clothing_items():
+        item_engine = ItemEngine(character_item)
+        rows.append(
+            {
+                "character_item": character_item,
+                "item": character_item.item,
+                "quality": item_engine.get_effective_quality(),
+                "quality_color": item_engine.get_quality_color(),
             }
         )
     return rows

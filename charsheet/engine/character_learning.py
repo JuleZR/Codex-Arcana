@@ -80,3 +80,40 @@ def validate_trait_selection(engine, trait_type: str, selected_levels: dict[str,
             message = message.replace(f"'{slug}'", f"'{name}'")
         messages.append(message)
     return messages
+
+
+def validate_cross_type_trait_selection(
+    engine,
+    selected_advantages: dict[str, int],
+    selected_disadvantages: dict[str, int],
+) -> list[str]:
+    """Validate exclusions between advantages and disadvantages."""
+    active_advantages = {slug for slug, level in selected_advantages.items() if int(level) > 0}
+    active_disadvantages = {slug for slug, level in selected_disadvantages.items() if int(level) > 0}
+    if not active_advantages or not active_disadvantages:
+        return []
+    selected_slugs = active_advantages | active_disadvantages
+    trait_rows = {
+        trait.slug: trait
+        for trait in Trait.objects.filter(slug__in=selected_slugs).prefetch_related(
+            "exclusions__excluded_trait",
+            "excluded_by__trait",
+        )
+    }
+    for slug, trait in trait_rows.items():
+        opposing_selection = active_disadvantages if trait.trait_type == Trait.TraitType.ADV else active_advantages
+        excluded_slugs = {
+            relation.excluded_trait.slug
+            for relation in trait.exclusions.all()
+        }
+        excluded_slugs.update(
+            relation.trait.slug
+            for relation in trait.excluded_by.all()
+        )
+        conflict = sorted(excluded_slugs & opposing_selection)
+        if conflict:
+            conflict_slug = conflict[0]
+            conflict_trait = trait_rows.get(conflict_slug) or Trait.objects.filter(slug=conflict_slug).first()
+            conflict_name = conflict_trait.name if conflict_trait else conflict_slug
+            return [f"'{trait.name}' und '{conflict_name}' schliessen sich gegenseitig aus."]
+    return []

@@ -27,6 +27,13 @@ def _read_quality(post_data, name: str, default: str) -> str:
     return ItemEngine.normalize_quality(raw_quality)
 
 
+def _read_damage_operator(post_data, name: str, default: str = "") -> str:
+    """Read one normalized damage operator from POST-like data."""
+    raw_value = str(post_data.get(name, default) or default).strip()
+    valid_values = {value for value, _label in WeaponStats.DamageOperator.choices}
+    return raw_value if raw_value in valid_values else default
+
+
 def _read_many_values(post_data, name: str) -> list[str]:
     """Read one POST multi-value field while also tolerating plain dict payloads."""
     if hasattr(post_data, "getlist"):
@@ -68,7 +75,7 @@ def create_custom_shop_item(post_data) -> bool:
     is_consumable = item_type == Item.ItemType.CONSUM
     selected_runes = list(_read_runes(post_data))
 
-    if item_type in (Item.ItemType.ARMOR, Item.ItemType.WEAPON, Item.ItemType.SHIELD):
+    if item_type in (Item.ItemType.ARMOR, Item.ItemType.WEAPON, Item.ItemType.SHIELD, Item.ItemType.CLOTHING):
         stackable = False
     if not stackable:
         is_consumable = False
@@ -128,7 +135,7 @@ def create_custom_shop_item(post_data) -> bool:
                 min_st = _read_int(post_data, "weapon_min_st", 1, minimum=1)
                 damage_type = str(post_data.get("weapon_damage_type") or DEADLY)
                 wield_mode = str(post_data.get("weapon_wield_mode") or "1h")
-                h2_enabled = wield_mode in {"2h", "vh"}
+                h2_enabled = wield_mode == "vh"
                 damage_source_id = _read_int(post_data, "weapon_damage_source", 0, minimum=1)
                 damage_source = DamageSource.objects.get(pk=damage_source_id)
                 weapon_stats = WeaponStats(
@@ -137,12 +144,14 @@ def create_custom_shop_item(post_data) -> bool:
                     damage_source=damage_source,
                     damage_dice_amount=_read_int(post_data, "weapon_damage_dice_amount", 1, minimum=1),
                     damage_dice_faces=_read_int(post_data, "weapon_damage_dice_faces", 10, minimum=2),
-                    damage_flat_bonus=_read_int(post_data, "weapon_damage_flat_bonus", 0),
+                    damage_flat_bonus=abs(_read_int(post_data, "weapon_damage_flat_bonus", 0)),
+                    damage_flat_operator=_read_damage_operator(post_data, "weapon_damage_flat_operator", ""),
                     damage_type=damage_type,
                     wield_mode=wield_mode,
                     h2_dice_amount=_read_int(post_data, "weapon_h2_dice_amount", 0, minimum=1) if h2_enabled else None,
                     h2_dice_faces=_read_int(post_data, "weapon_h2_dice_faces", 0, minimum=2) if h2_enabled else None,
-                    h2_flat_bonus=_read_int(post_data, "weapon_h2_flat_bonus", 0) if h2_enabled else None,
+                    h2_flat_bonus=abs(_read_int(post_data, "weapon_h2_flat_bonus", 0)) if h2_enabled else None,
+                    h2_flat_operator=_read_damage_operator(post_data, "weapon_h2_flat_operator", "") if h2_enabled else "",
                 )
                 weapon_stats.full_clean()
                 weapon_stats.save()

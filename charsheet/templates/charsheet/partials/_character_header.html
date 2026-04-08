@@ -1,5 +1,5 @@
 {% load static %}
-<article class="page">
+<article class="page" id="sheetCharacterHeader">
   <section class="p1_top">
     <div class="char_info_wrapper">
       <div class="char_info_box">
@@ -161,10 +161,10 @@
         </thead>
         <tbody>
           {% for row in skill_rows %}
-            <tr class="tooltip_target" data-tooltip-side="left" data-tooltip="{{ row.description|default:'Keine Beschreibung' }}">
+            <tr>
               <td class="skill_name">
                 <div class="skill_name_wrap">
-                  <span class="skill_name_text">{{ row.display_name }}</span>
+                  <span class="skill_name_text{% if row.description %} tooltip_target{% endif %}"{% if row.description %} data-tooltip-side="left" data-tooltip="{{ row.description|default:'Keine Beschreibung' }}"{% endif %}>{{ row.display_name }}</span>
                   {% if row.can_edit_specification %}
                     <button
                       type="button"
@@ -186,7 +186,7 @@
               <td>{{ row.rank }}</td>
               <td>{{ row.misc_mod }}</td>
               <td>{{ row.total }}</td>
-              <td><span class="bel_dot">{{ row.with_load_total }}</span></td>
+              <td><span class="bel_dot tooltip_target" data-tooltip-side="left" data-tooltip="{{ row.calculation_tooltip }}">{{ row.with_load_total }}</span></td>
             </tr>
           {% endfor %}
         </tbody>

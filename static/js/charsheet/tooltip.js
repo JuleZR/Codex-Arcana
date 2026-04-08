@@ -5,7 +5,34 @@ function parseTableRow(line) {
   if (!trimmed.includes("|")) {
     return [];
   }
-  return trimmed.replace(/^\|/, "").replace(/\|$/, "").split("|").map((part) => part.trim());
+  const content = trimmed.replace(/^\|/, "").replace(/\|$/, "");
+  const cells = [];
+  let current = "";
+  let escaped = false;
+
+  for (const char of content) {
+    if (escaped) {
+      current += char;
+      escaped = false;
+      continue;
+    }
+    if (char === "\\") {
+      escaped = true;
+      continue;
+    }
+    if (char === "|") {
+      cells.push(current.trim());
+      current = "";
+      continue;
+    }
+    current += char;
+  }
+
+  if (escaped) {
+    current += "\\";
+  }
+  cells.push(current.trim());
+  return cells;
 }
 
 function isTableDividerRow(row) {
@@ -42,6 +69,14 @@ function parseRuneLine(line) {
 
 function renderInlineMarkdown(text) {
   let html = escapeHtml(String(text || ""));
+  html = html.replace(
+    /\[\[QUALITY:(.+?)\|(.+?)\]\]/g,
+    '<span class="tooltip_quality_badge" style="--tooltip-quality-color: $2;">$1</span>',
+  );
+  html = html.replace(
+    /\[\[STATUS:(.+?)\|(.+?)\]\]/g,
+    '<span class="tooltip_status_badge" style="--tooltip-status-color: $2;">$1</span>',
+  );
   html = html.replace(/`([^`]+)`/g, "<code>$1</code>");
   html = html.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
   html = html.replace(/__([^_]+)__/g, "<strong>$1</strong>");
@@ -134,7 +169,7 @@ function renderTooltipMarkup(rawText) {
         bodyRows.forEach((row) => {
           tableHtml += "<tr>";
           row.forEach((cell) => {
-            tableHtml += `<td>${escapeHtml(cell)}</td>`;
+            tableHtml += `<td>${renderInlineMarkdown(cell)}</td>`;
           });
           tableHtml += "</tr>";
         });
@@ -321,3 +356,5 @@ export function initTooltips() {
     scheduleHide();
   });
 }
+
+

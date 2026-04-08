@@ -39,15 +39,15 @@ VALID_STAT_SLUGS = {
     DEFENSE_RS,
 }
 
-# School SLugs
-SCHOOL_MAGIC = "magic"
-SCHOOL_DIVINE = "divine"
-SCHOOL_COMBAT = "combat"
+# School Slugs
+SCHOOL_MAGIC = "school_magic"
+SCHOOL_DIVINE = "school_divine"
+SCHOOL_COMBAT = "school_combat"
 
 SCHOOL_TYPE_CHOICES = [
-    (SCHOOL_MAGIC, "Magic"),
-    (SCHOOL_DIVINE, "Divine"),
-    (SCHOOL_COMBAT, "Combat"),
+    (SCHOOL_MAGIC, "Magieschule"),
+    (SCHOOL_DIVINE, "Klerikaler Aspekt"),
+    (SCHOOL_COMBAT, "Kampfschule"),
 ]
 
 VALID_SCHOOL_TYPE_SLUGS = {
@@ -95,6 +95,12 @@ SKILL_CATEGORY_CHOICES = [
 ]
 
 PROFICIENCY_GROUP_FOREIGN_LANGUAGES = "foreign_languages"
+RESOURCE_KEY_CHOICES = [
+    ("personal_fame_point", "Persönliche Ruhmpunkte"),
+    ("personal_fame_rank", "Persönlicher Rang"),
+    ("artefact_rank", "Artefaktrang"),
+    ("sacrifice_rank", "Opferrang"),
+]
 
 PROFICIENCY_GROUP_CHOICES = [
     (SKILL_FINE_MOTOR, "Feinmotorische Fertigkeiten"),
@@ -266,6 +272,7 @@ TARGET_DOMAIN_CHOICES = (
     ("proficiency_group", "proficiency_group"),
     ("trait", "trait"),
     ("attribute", "attribute"),
+    ("attribute_cap", "attribute_cap"),
     ("derived_stat", "derived_stat"),
     ("resource", "resource"),
     ("resistance", "resistance"),

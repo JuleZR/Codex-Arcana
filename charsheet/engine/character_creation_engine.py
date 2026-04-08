@@ -8,21 +8,29 @@ from charsheet.modifiers import CharacterBuildValidator, TraitBuildRule
 from charsheet.modifiers.definitions import TargetDomain
 from charsheet.modifiers.engine import ModifierEngine
 from charsheet.modifiers.registry import build_trait_semantic_modifiers
+from charsheet.learning_progression import weapon_mastery_item_definitions
 from charsheet.models import (
     Attribute,
     Character,
     CharacterAttribute,
+    CharacterTraitChoice,
     CharacterCreationDraft,
     CharacterItem,
     CharacterLanguage,
     CharacterSchool,
     CharacterSkill,
     CharacterTrait,
+    CharacterWeaponMastery,
+    CharacterWeaponMasteryArcana,
+    Item,
     Language,
+    Rune,
     School,
     Skill,
+    TraitChoiceDefinition,
     Trait,
 )
+from charsheet.constants import RESOURCE_KEY_CHOICES
 
 
 class CharacterCreationEngine:
@@ -62,10 +70,188 @@ class CharacterCreationEngine:
         return {
             limit.attribute.short_name: {
                 "min": int(limit.min_value),
-                "max": int(limit.max_value),
+                "max": int(limit.max_value) + self.creation_attribute_cap_bonus(limit.attribute.short_name),
             }
             for limit in self.race.raceattributelimit_set.select_related("attribute")
         }
+
+    def _normalize_trait_choices(self, phase_key: str) -> dict[str, dict[int, list[str]]]:
+        """Return normalized draft-time trait choice selections keyed by trait slug and definition id."""
+        raw_choices = self.get_phase(phase_key).get("trait_choices", {}) or {}
+        normalized: dict[str, dict[int, list[str]]] = {}
+        for trait_slug, payload in raw_choices.items():
+            definition_map: dict[int, list[str]] = {}
+            for raw_definition_id, raw_values in (payload or {}).items():
+                definition_id = self._to_int(raw_definition_id, 0)
+                if definition_id <= 0:
+                    continue
+                if isinstance(raw_values, (list, tuple)):
+                    values = [str(value).strip() for value in raw_values if str(value).strip()]
+                else:
+                    single_value = str(raw_values or "").strip()
+                    values = [single_value] if single_value else []
+                if values:
+                    definition_map[definition_id] = values
+            if definition_map:
+                normalized[str(trait_slug)] = definition_map
+        return normalized
+
+    def phase_3_trait_choices(self) -> dict[str, dict[int, list[str]]]:
+        """Return normalized draft-time trait choices for selected phase-3 disadvantages."""
+        return self._normalize_trait_choices("phase_3")
+
+    def phase_4_trait_choices(self) -> dict[str, dict[int, list[str]]]:
+        """Return normalized draft-time trait choices for selected phase-4 advantages."""
+        return self._normalize_trait_choices("phase_4")
+
+    def _relevant_choice_definitions(self, trait: Trait, level: int) -> list[TraitChoiceDefinition]:
+        """Return the ordered trait choice definitions relevant for the selected rank."""
+        definitions = list(trait.choice_definitions.filter(is_active=True).order_by("sort_order", "id"))
+        if level <= 0:
+            return []
+        if len(definitions) > level:
+            return definitions[:level]
+        return definitions
+
+    def creation_attribute_cap_bonus(self, attribute_slug: str) -> int:
+        """Resolve draft-time maximum-attribute modifiers from selected phase-4 advantages."""
+        total = 0
+        choice_map = self.phase_4_trait_choices()
+        for slug, level in self.phase_4_advantages().items():
+            trait = Trait.objects.filter(slug=slug, trait_type=Trait.TraitType.ADV).first()
+            if trait is None or level <= 0:
+                continue
+            modifiers = build_trait_semantic_modifiers(trait_slug=slug, level=level, trait=trait)
+            trait_choices = choice_map.get(slug, {})
+            for modifier in modifiers:
+                if modifier.target_domain != TargetDomain.ATTRIBUTE_CAP:
+                    continue
+                choice_binding = modifier.metadata.get("choice_binding")
+                if choice_binding:
+                    selected_targets = trait_choices.get(int(choice_binding.get("id") or 0), [])
+                    if attribute_slug not in selected_targets:
+                        continue
+                elif str(modifier.target_key or "") != str(attribute_slug):
+                    continue
+                modifier_engine = ModifierEngine(modifiers=[modifier])
+                resolved = modifier_engine._resolve_numeric_modifier(modifier)
+                total += int(resolved or 0)
+        return int(total)
+
+    def _trait_choices_are_valid(self, phase_key: str, trait_type: str) -> bool:
+        """Validate required draft-time attribute choices for selected traits in one phase."""
+        selected_traits = self.phase_3_disadvantages() if phase_key == "phase_3" else self.phase_4_advantages()
+        choice_map = self.phase_3_trait_choices() if phase_key == "phase_3" else self.phase_4_trait_choices()
+        for slug, level in selected_traits.items():
+            if level <= 0:
+                continue
+            trait = Trait.objects.filter(slug=slug, trait_type=trait_type).first()
+            if trait is None:
+                return False
+            selected = choice_map.get(slug, {})
+            for definition in self._relevant_choice_definitions(trait, level):
+                if definition.target_kind != TraitChoiceDefinition.TargetKind.ATTRIBUTE:
+                    if definition.target_kind != TraitChoiceDefinition.TargetKind.RESOURCE:
+                        continue
+                values = selected.get(definition.id, [])
+                if definition.is_required and len(values) < int(definition.min_choices):
+                    return False
+                for value in values:
+                    if definition.target_kind == TraitChoiceDefinition.TargetKind.ATTRIBUTE:
+                        if not Attribute.objects.filter(short_name=value).exists():
+                            return False
+                    elif definition.target_kind == TraitChoiceDefinition.TargetKind.RESOURCE:
+                        valid_resources = {choice for choice, _label in RESOURCE_KEY_CHOICES}
+                        if value not in valid_resources:
+                            return False
+        return True
+
+    def _phase_3_trait_choices_are_valid(self) -> bool:
+        return self._trait_choices_are_valid("phase_3", Trait.TraitType.DIS)
+
+    def _phase_4_trait_choices_are_valid(self) -> bool:
+        return self._trait_choices_are_valid("phase_4", Trait.TraitType.ADV)
+
+    def _legendary_and_pitiful_attributes_conflict(self) -> bool:
+        """Block selecting the same attribute for legendary and pitiful attribute traits."""
+        pitiful_choices = self.phase_3_trait_choices().get("dis_pitiful_attribute", {})
+        legendary_choices = self.phase_4_trait_choices().get("adv_legendary_attribute", {})
+        if not pitiful_choices or not legendary_choices:
+            return False
+        pitiful_values = {value for values in pitiful_choices.values() for value in values if value}
+        legendary_values = {value for values in legendary_choices.values() for value in values if value}
+        return bool(pitiful_values & legendary_values)
+
+    def _pitiful_attribute_choices_are_valid(self) -> bool:
+        """Validate the special creation rules for Erbaermliche Eigenschaft."""
+        pitiful_level = self.phase_3_disadvantages().get("dis_pitiful_attribute", 0)
+        if pitiful_level <= 0:
+            return True
+        race_limits = {
+            limit.attribute.short_name: int(limit.min_value)
+            for limit in self.race.raceattributelimit_set.select_related("attribute")
+        }
+        base_attributes = self.phase_1_attributes()
+        relevant_choices = self.phase_3_trait_choices().get("dis_pitiful_attribute", {})
+        selected_attributes: list[str] = []
+        for values in relevant_choices.values():
+            for value in values:
+                if value:
+                    selected_attributes.append(str(value))
+        if len(selected_attributes) != pitiful_level:
+            return False
+        if len(set(selected_attributes)) != len(selected_attributes):
+            return False
+        for attribute_slug in selected_attributes:
+            race_min = race_limits.get(attribute_slug)
+            base_value = base_attributes.get(attribute_slug)
+            if race_min is None or base_value is None:
+                return False
+            if base_value != race_min:
+                return False
+            if base_value - 1 <= 0:
+                return False
+        return True
+
+    def _fame_resource_choice_is_valid(self) -> bool:
+        """Require exactly one fame path choice for the Ruhm advantage."""
+        fame_level = self.phase_4_advantages().get("adv_fame", 0)
+        if fame_level <= 0:
+            return True
+        selected_choices = self.phase_4_trait_choices().get("adv_fame", {})
+        selected_values = [value for values in selected_choices.values() for value in values if value]
+        return len(selected_values) == 1
+
+    def _has_cross_type_trait_exclusion(self) -> bool:
+        """Return whether selected advantages and disadvantages exclude each other."""
+        selected_advantages = {
+            slug for slug, level in self.phase_4_advantages().items()
+            if int(level) > 0
+        }
+        selected_disadvantages = {
+            slug for slug, level in self.phase_3_disadvantages().items()
+            if int(level) > 0
+        }
+        if not selected_advantages or not selected_disadvantages:
+            return False
+        selected_slugs = selected_advantages | selected_disadvantages
+        trait_rows = Trait.objects.filter(slug__in=selected_slugs).prefetch_related(
+            "exclusions__excluded_trait",
+            "excluded_by__trait",
+        )
+        for trait in trait_rows:
+            opposing_selection = selected_disadvantages if trait.trait_type == Trait.TraitType.ADV else selected_advantages
+            excluded_slugs = {
+                relation.excluded_trait.slug
+                for relation in trait.exclusions.all()
+            }
+            excluded_slugs.update(
+                relation.trait.slug
+                for relation in trait.excluded_by.all()
+            )
+            if excluded_slugs & opposing_selection:
+                return True
+        return False
 
     def is_phase_1_attribute_in_range(self) -> bool:
         attrs = self.phase_1_attributes()
@@ -179,6 +365,8 @@ class CharacterCreationEngine:
         validator = self._build_trait_validator(Trait.TraitType.DIS, max_disadvantage_cp=self.race.phase_3_points)
         return (
             self.sum_phase_3_disadvantage_cost() <= self.race.phase_3_points
+            and self._phase_3_trait_choices_are_valid()
+            and self._pitiful_attribute_choices_are_valid()
             and not validator.validate(self.phase_3_disadvantages())
         )
 
@@ -278,6 +466,92 @@ class CharacterCreationEngine:
         schools = self.get_phase("phase_4").get("schools", {}) or {}
         return {str(k): max(0, self._to_int(v, 0)) for k, v in schools.items()}
 
+    def phase_4_weapon_masteries(self) -> list[dict[str, object]]:
+        """Return normalized Waffenmeister weapon picks stored during phase 4."""
+        rows = self.get_phase("phase_4").get("weapon_masteries", []) or []
+        normalized: list[dict[str, object]] = []
+        for row in rows:
+            payload = row or {}
+            weapon_item_id = self._to_int(payload.get("weapon_item_id"), 0)
+            first_bonus_kind = str(payload.get("first_bonus_kind") or "").strip().lower()
+            if weapon_item_id <= 0:
+                continue
+            normalized.append(
+                {
+                    "weapon_item_id": weapon_item_id,
+                    "first_bonus_kind": first_bonus_kind,
+                }
+            )
+        return normalized
+
+    def phase_4_weapon_mastery_arcana(self) -> list[dict[str, object]]:
+        """Return normalized Waffenmeister arcana picks stored during phase 4."""
+        rows = self.get_phase("phase_4").get("weapon_arcana", []) or []
+        normalized: list[dict[str, object]] = []
+        for row in rows:
+            payload = row or {}
+            kind = str(payload.get("kind") or "").strip()
+            rune_id = self._to_int(payload.get("rune_id"), 0)
+            normalized.append(
+                {
+                    "kind": kind,
+                    "rune_id": rune_id,
+                }
+            )
+        return normalized
+
+    def _phase_4_waffenmeister_school(self):
+        """Return the Waffenmeister school referenced during creation when present."""
+        return School.objects.filter(name__iexact="Waffenmeister").first()
+
+    def _required_weapon_mastery_choice_count(self) -> int:
+        """Return how many mandatory Waffenmeister choices the draft currently needs."""
+        school = self._phase_4_waffenmeister_school()
+        if school is None:
+            return 0
+        return min(self.phase_4_schools().get(str(school.id), 0), 10)
+
+    def _phase_4_weapon_mastery_choices_are_valid(self) -> bool:
+        """Validate concrete weapon and arcana selections for Waffenmeister in phase 4."""
+        required_count = self._required_weapon_mastery_choice_count()
+        weapon_rows = self.phase_4_weapon_masteries()
+        arcana_rows = self.phase_4_weapon_mastery_arcana()
+        if required_count <= 0:
+            return not weapon_rows and not arcana_rows
+        if len(weapon_rows) != required_count or len(arcana_rows) != required_count:
+            return False
+
+        seen_weapon_ids: set[int] = set()
+        for row in weapon_rows:
+            weapon_item_id = int(row.get("weapon_item_id") or 0)
+            if weapon_item_id in seen_weapon_ids:
+                return False
+            if row.get("first_bonus_kind") not in {
+                CharacterWeaponMastery.FirstBonusKind.MANEUVER,
+                CharacterWeaponMastery.FirstBonusKind.DAMAGE,
+            }:
+                return False
+            if not weapon_mastery_item_definitions().filter(pk=weapon_item_id).exists():
+                return False
+            seen_weapon_ids.add(weapon_item_id)
+
+        seen_rune_ids: set[int] = set()
+        for row in arcana_rows:
+            kind = row.get("kind")
+            rune_id = int(row.get("rune_id") or 0)
+            if kind == CharacterWeaponMasteryArcana.ArcanaKind.BONUS_CAPACITY:
+                if rune_id:
+                    return False
+                continue
+            if kind != CharacterWeaponMasteryArcana.ArcanaKind.RUNE:
+                return False
+            if rune_id in seen_rune_ids or rune_id <= 0:
+                return False
+            if not Rune.objects.filter(pk=rune_id).exists():
+                return False
+            seen_rune_ids.add(rune_id)
+        return True
+
     def sum_phase_4_school_cost(self) -> int:
         return sum(level * 8 for level in self.phase_4_schools().values())
 
@@ -355,7 +629,18 @@ class CharacterCreationEngine:
         validator = self._build_trait_validator(Trait.TraitType.ADV)
         if validator.validate(self.phase_4_advantages()):
             return False
-        return self.sum_phase_4_total_cost() <= self.calculate_phase_4_budget()
+        if not self._phase_4_trait_choices_are_valid():
+            return False
+        if self._legendary_and_pitiful_attributes_conflict():
+            return False
+        if not self._fame_resource_choice_is_valid():
+            return False
+        if self._has_cross_type_trait_exclusion():
+            return False
+        return (
+            self.sum_phase_4_total_cost() <= self.calculate_phase_4_budget()
+            and self._phase_4_weapon_mastery_choices_are_valid()
+        )
 
     def _build_trait_validator(self, trait_type: str, *, max_disadvantage_cp: int = 20) -> CharacterBuildValidator:
         """Build a creation-time trait validator from persisted trait definitions."""
@@ -514,17 +799,85 @@ class CharacterCreationEngine:
             for slug, level in self.phase_3_disadvantages().items():
                 trait = Trait.objects.filter(slug=slug, trait_type=Trait.TraitType.DIS).first()
                 if trait and level > 0:
-                    CharacterTrait.objects.create(owner=character, trait=trait, trait_level=level)
+                    character_trait = CharacterTrait.objects.create(owner=character, trait=trait, trait_level=level)
+                    draft_choice_map = self.phase_3_trait_choices().get(slug, {})
+                    if draft_choice_map:
+                        definitions = {
+                            definition.id: definition
+                            for definition in trait.choice_definitions.all()
+                        }
+                        for definition_id, selected_values in draft_choice_map.items():
+                            definition = definitions.get(definition_id)
+                            if definition is None:
+                                continue
+                            for selected_value in selected_values:
+                                payload = {
+                                    "character_trait": character_trait,
+                                    "definition": definition,
+                                }
+                                if definition.target_kind == TraitChoiceDefinition.TargetKind.ATTRIBUTE:
+                                    payload["selected_attribute"] = Attribute.objects.filter(short_name=selected_value).first()
+                                elif definition.target_kind == TraitChoiceDefinition.TargetKind.RESOURCE:
+                                    payload["selected_resource"] = selected_value
+                                else:
+                                    continue
+                                if definition.target_kind == TraitChoiceDefinition.TargetKind.ATTRIBUTE and payload.get("selected_attribute") is None:
+                                    continue
+                                CharacterTraitChoice.objects.create(**payload)
 
             for slug, level in self.phase_4_advantages().items():
                 trait = Trait.objects.filter(slug=slug, trait_type=Trait.TraitType.ADV).first()
                 if trait and level > 0:
-                    CharacterTrait.objects.create(owner=character, trait=trait, trait_level=level)
+                    character_trait = CharacterTrait.objects.create(owner=character, trait=trait, trait_level=level)
+                    draft_choice_map = self.phase_4_trait_choices().get(slug, {})
+                    if draft_choice_map:
+                        definitions = {
+                            definition.id: definition
+                            for definition in trait.choice_definitions.all()
+                        }
+                        for definition_id, selected_values in draft_choice_map.items():
+                            definition = definitions.get(definition_id)
+                            if definition is None:
+                                continue
+                            for selected_value in selected_values:
+                                payload = {
+                                    "character_trait": character_trait,
+                                    "definition": definition,
+                                }
+                                if definition.target_kind == TraitChoiceDefinition.TargetKind.ATTRIBUTE:
+                                    payload["selected_attribute"] = Attribute.objects.filter(short_name=selected_value).first()
+                                elif definition.target_kind == TraitChoiceDefinition.TargetKind.RESOURCE:
+                                    payload["selected_resource"] = selected_value
+                                else:
+                                    continue
+                                if definition.target_kind == TraitChoiceDefinition.TargetKind.ATTRIBUTE and payload.get("selected_attribute") is None:
+                                    continue
+                                CharacterTraitChoice.objects.create(**payload)
 
             for school_id, level in self.phase_4_schools().items():
                 school = School.objects.filter(pk=self._to_int(school_id, -1)).first()
                 if school and level > 0:
                     CharacterSchool.objects.create(character=character, school=school, level=level)
+
+            weapon_master_school = self._phase_4_waffenmeister_school()
+            if weapon_master_school and self.phase_4_schools().get(str(weapon_master_school.id), 0) > 0:
+                for index, row in enumerate(self.phase_4_weapon_masteries(), start=1):
+                    CharacterWeaponMastery.objects.create(
+                        character=character,
+                        school=weapon_master_school,
+                        weapon_item_id=int(row["weapon_item_id"]),
+                        pick_order=index,
+                        first_bonus_kind=str(row["first_bonus_kind"]),
+                    )
+                for row in self.phase_4_weapon_mastery_arcana():
+                    payload = {
+                        "character": character,
+                        "school": weapon_master_school,
+                        "kind": str(row["kind"]),
+                    }
+                    if str(row["kind"]) == CharacterWeaponMasteryArcana.ArcanaKind.RUNE:
+                        payload["rune_id"] = int(row["rune_id"])
+                    CharacterWeaponMasteryArcana.objects.create(**payload)
 
             starting_funds_delta = self.resolve_creation_starting_funds()
             if starting_funds_delta:
