@@ -6,6 +6,7 @@ from collections import OrderedDict
 import math
 
 from charsheet.constants import (
+    ARMOR_PENALTY_IGNORE,
     ARCANE_POWER,
     ATTRIBUTE_ORDER,
     ATTR_GE,
@@ -16,12 +17,14 @@ from charsheet.constants import (
     ATTR_WILL,
     DAMAGE_TYPE_CHOICES,
     DEFENSE_GW,
+    DEFENSE_RS,
     DEFENSE_SR,
     DEFENSE_VW,
     GK_MODS,
     INITIATIVE,
     QUALITY_CHOICES,
     QUALITY_COLOR_MAP,
+    STAT_SLUG_CHOICES,
 )
 from charsheet.engine import ItemEngine
 from charsheet.forms import (
@@ -35,6 +38,7 @@ from charsheet.models import (
     Character,
     CharacterItem,
     CharacterLanguage,
+    RaceStartingItem,
     CharacterTechnique,
     CharacterTrait,
     DamageSource,
@@ -44,6 +48,8 @@ from charsheet.models import (
     Rune,
     School,
     Skill,
+    SkillCategory,
+    Specialization,
     Technique,
     Trait,
 )
@@ -256,6 +262,7 @@ SHOP_GROUP_LABELS = {
     Item.ItemType.ARMOR: "Rüstungen",
     Item.ItemType.SHIELD: "Schilde",
     Item.ItemType.CLOTHING: "Kleidung",
+    Item.ItemType.MAGIC_ITEM: "Magische Gegenstände",
     Item.ItemType.AMMO: "Munition",
     Item.ItemType.CONSUM: "Verbrauchbar",
     Item.ItemType.MISC: "Sonstiges",
@@ -265,6 +272,7 @@ SHOP_GROUP_ORDER = [
     Item.ItemType.ARMOR,
     Item.ItemType.SHIELD,
     Item.ItemType.CLOTHING,
+    Item.ItemType.MAGIC_ITEM,
     Item.ItemType.AMMO,
     Item.ItemType.CONSUM,
     Item.ItemType.MISC,
@@ -277,15 +285,29 @@ SHOP_FORM_ORDER = [
     Item.ItemType.ARMOR,
     Item.ItemType.SHIELD,
     Item.ItemType.CLOTHING,
+    Item.ItemType.MAGIC_ITEM,
 ]
-QUALITY_TOOLTIP_TYPES = {Item.ItemType.ARMOR, Item.ItemType.WEAPON, Item.ItemType.SHIELD, Item.ItemType.CLOTHING}
-EQUIPPABLE_ITEM_TYPES = {Item.ItemType.ARMOR, Item.ItemType.WEAPON, Item.ItemType.SHIELD, Item.ItemType.CLOTHING}
+QUALITY_TOOLTIP_TYPES = {
+    Item.ItemType.ARMOR,
+    Item.ItemType.WEAPON,
+    Item.ItemType.SHIELD,
+    Item.ItemType.CLOTHING,
+    Item.ItemType.MAGIC_ITEM,
+}
+EQUIPPABLE_ITEM_TYPES = {
+    Item.ItemType.ARMOR,
+    Item.ItemType.WEAPON,
+    Item.ItemType.SHIELD,
+    Item.ItemType.CLOTHING,
+    Item.ItemType.MAGIC_ITEM,
+}
 RUNE_RETROFIT_ITEM_TYPES = {Item.ItemType.ARMOR, Item.ItemType.WEAPON, Item.ItemType.MISC}
 MODIFIER_SOURCE_LABELS = {
     "race": "Rasse",
     "trait": "Merkmal",
     "school": "Schule",
     "technique": "Technik",
+    "item": "Magischer Gegenstand",
 }
 
 
@@ -348,7 +370,7 @@ def _collect_rune_rows(*, item: Item, character_item: CharacterItem | None = Non
             rows.append(
                 {
                     "name": rune.name,
-                    "description": "",
+                    "description": rune.description or "",
                     "image": _rune_image_url(rune),
                 }
             )
@@ -365,6 +387,7 @@ def _format_rune_tooltip_block(*, item: Item, character_item: CharacterItem | No
         lines.append(f"[[RUNE:{row['name']}|{row['description']}|{row['image']}]]")
     return "\n".join(lines)
 
+
 def _format_item_tooltip(
     *,
     description: str,
@@ -377,11 +400,11 @@ def _format_item_tooltip(
 ) -> str:
     """Return the tooltip text used by item-related template rows."""
     table_rows: list[tuple[str, object]] = list(detail_rows or [])
-    if quality_label:
-        table_rows.insert(0, ("Qualitaet", quality_label))
-    if status_label:
+    if quality_label and quality_color:
+        table_rows.insert(0, ("Qualitaet", f"[[QUALITY:{quality_label}|{quality_color}]]"))
+    if status_label and status_color:
         insert_at = 1 if quality_label else 0
-        table_rows.insert(insert_at, ("Status", status_label))
+        table_rows.insert(insert_at, ("Status", f"[[STATUS:{status_label}|{status_color}]]"))
 
     parts: list[str] = []
     table = _build_tooltip_table(table_rows)
@@ -394,6 +417,8 @@ def _format_item_tooltip(
     if rune_block:
         parts.append(rune_block)
     return "\n\n".join(parts)
+
+
 def _escape_tooltip_table_cell(value: object) -> str:
     """Escape tooltip table separators in markdown-style cells."""
     return str(value if value not in (None, "") else "-").replace("|", "\\|")
@@ -471,6 +496,14 @@ def _build_item_tooltip_rows(item_engine: ItemEngine, item: Item) -> list[tuple[
         min_st = item_engine.get_shield_min_st()
         if min_st is not None:
             rows.append(("Min-St", min_st))
+    elif item.item_type == Item.ItemType.MAGIC_ITEM:
+        effect_summary = getattr(getattr(item, "magicitemstats", None), "effect_summary", "")
+        if effect_summary:
+            rows.append(("Effekt", effect_summary))
+    elif getattr(item, "magicitemstats", None) is not None:
+        effect_summary = getattr(item.magicitemstats, "effect_summary", "")
+        if effect_summary:
+            rows.append(("Effekt", effect_summary))
 
     return rows
 
@@ -500,6 +533,33 @@ def _build_weapon_calculation_tooltip(engine, row: dict[str, object]) -> str:
             {"label": "= Gesamt", "value": row["with_bel_display"], "tone": "total"},
         ]
     )
+
+
+def _build_total_armor_tooltip(engine) -> str:
+    """Return a breakdown tooltip for the total armor protection value."""
+    raw_armor_total = sum(ItemEngine(armor).get_armor_rs_raw() or 0 for armor in engine.equipped_armor_items())
+    return _build_core_stat_tooltip(
+        [
+            {"label": "Ruestungen", "value": raw_armor_total},
+            *_build_modifier_breakdown_rows(engine, DEFENSE_RS),
+            {"label": "= Gesamt", "value": engine.get_grs(), "tone": "total"},
+        ]
+    )
+
+
+def _build_load_tooltip(engine) -> str:
+    """Return a breakdown tooltip for the effective encumbrance penalty."""
+    armor_load = sum(ItemEngine(armor).get_armor_encumbrance() or 0 for armor in engine.equipped_armor_items())
+    shield_load = sum(ItemEngine(shield).get_shield_encumbrance() or 0 for shield in engine.equipped_shield_items())
+    total_raw_load = armor_load + shield_load
+    rows: list[dict[str, object]] = [
+        {"label": "Ruestungen", "value": armor_load},
+        {"label": "Schilde", "value": shield_load},
+    ]
+    if engine.resolve_flags().get(ARMOR_PENALTY_IGNORE, False) and total_raw_load:
+        rows.append({"label": "Belastung ignorieren", "value": format_modifier(-total_raw_load), "source": "Effekt"})
+    rows.append({"label": "= Gesamt", "value": format_modifier(engine.load_penalty()), "tone": "total"})
+    return _build_core_stat_tooltip(rows)
 
 
 def _prettify_source_id(value: object) -> str:
@@ -548,7 +608,28 @@ def _resolve_modifier_source_name(engine, source_type: object, source_id: object
             technique = Technique.objects.filter(pk=int(source_id_text)).only("name").first()
             if technique is not None:
                 return technique.name
+    if source_type_text == "item" and source_id_text.isdigit():
+        item = Item.objects.filter(pk=int(source_id_text)).only("name").first()
+        if item is not None:
+            return item.name
     return _prettify_source_id(source_id_text or source_type_text)
+
+
+def _format_modifier_source_display(source_label: str, source_name: str) -> str:
+    """Combine source family and concrete source into one compact display label."""
+    source_label_text = str(source_label or "").strip()
+    source_name_text = str(source_name or "").strip()
+    if source_name_text and source_name_text.lower() != source_label_text.lower():
+        return f"{source_label_text}: {source_name_text}" if source_label_text else source_name_text
+    return source_label_text or source_name_text or "Unbekannt"
+
+
+def _clean_modifier_note_text(note_text: object) -> str:
+    """Hide generic migration notes that do not help the player-facing tooltip."""
+    text = str(note_text or "").strip()
+    if text.lower() == "mapped automatically from legacy modifier semantics.":
+        return ""
+    return text
 
 
 def _build_modifier_breakdown_rows(engine, stat_key: str) -> list[dict[str, object]]:
@@ -562,13 +643,16 @@ def _build_modifier_breakdown_rows(engine, stat_key: str) -> list[dict[str, obje
         source_type = str(entry.get("source_type") or "").strip().lower()
         source_label = MODIFIER_SOURCE_LABELS.get(source_type, _prettify_source_id(source_type))
         source_name = _resolve_modifier_source_name(engine, source_type, entry.get("source_id"))
-        group_key = (source_type, source_name or source_label)
+        source_display = _format_modifier_source_display(source_label, source_name)
+        note_text = _clean_modifier_note_text(entry.get("notes"))
+        row_label = note_text or source_name or source_label
+        group_key = (source_type, row_label)
         existing = grouped_rows.get(group_key)
         if existing is None:
             grouped_rows[group_key] = {
-                "label": source_name or source_label,
+                "label": row_label,
                 "value": int(resolved_value),
-                "source": source_label,
+                "source": source_display,
                 "tone": "modifier",
                 "count": 1,
             }
@@ -593,7 +677,12 @@ def _build_modifier_breakdown_rows(engine, stat_key: str) -> list[dict[str, obje
     return rows
 
 
-def _build_skill_modifier_rows(engine, skill_slug: str, *, skill_name: str, category_slug: str | None, skill_id: int | None) -> list[dict[str, object]]:
+def _build_skill_modifier_rows(
+    engine, skill_slug: str,
+    *,
+    skill_name: str,
+    category_slug: str | None,
+    skill_id: int | None) -> list[dict[str, object]]:
     """Return modifier rows for one skill calculation tooltip."""
     rows: list[dict[str, object]] = []
     for entry in engine.explain_modifier_resolution("skill", skill_slug):
@@ -603,11 +692,13 @@ def _build_skill_modifier_rows(engine, skill_slug: str, *, skill_name: str, cate
         source_type = str(entry.get("source_type") or "").strip().lower()
         source_label = MODIFIER_SOURCE_LABELS.get(source_type, _prettify_source_id(source_type))
         source_name = _resolve_modifier_source_name(engine, source_type, entry.get("source_id"))
+        source_display = _format_modifier_source_display(source_label, source_name)
+        note_text = _clean_modifier_note_text(entry.get("notes"))
         rows.append(
             {
-                "label": source_name or skill_name,
+                "label": note_text or source_name or skill_name,
                 "value": format_modifier(int(resolved_value)),
-                "source": source_label or "Fertigkeit",
+                "source": source_display,
                 "tone": "modifier",
             }
         )
@@ -619,11 +710,13 @@ def _build_skill_modifier_rows(engine, skill_slug: str, *, skill_name: str, cate
             source_type = str(entry.get("source_type") or "").strip().lower()
             source_label = MODIFIER_SOURCE_LABELS.get(source_type, _prettify_source_id(source_type))
             source_name = _resolve_modifier_source_name(engine, source_type, entry.get("source_id"))
+            source_display = _format_modifier_source_display(source_label, source_name)
+            note_text = _clean_modifier_note_text(entry.get("notes"))
             rows.append(
                 {
-                    "label": source_name or "Kategorie-Bonus",
+                    "label": note_text or source_name or "Kategorie-Bonus",
                     "value": format_modifier(int(resolved_value)),
-                    "source": source_label or "Kategorie",
+                    "source": source_display,
                     "tone": "modifier",
                 }
             )
@@ -738,9 +831,15 @@ def _build_trait_rows(character: Character) -> tuple[list[dict], list[dict]]:
     return advantage_rows, disadvantage_rows
 
 
+def _race_item_ids() -> set[int]:
+    """Return item ids that are reserved as race-starting equipment definitions."""
+    return set(RaceStartingItem.objects.values_list("item_id", flat=True))
+
+
 def _build_inventory_rows(character: Character) -> list[dict]:
     """Build prepared inventory rows for the unequipped inventory list."""
     inventory_rows: list[dict] = []
+    race_item_ids = _race_item_ids()
     inventory_items = (
         CharacterItem.objects
         .filter(owner=character, equipped=False)
@@ -750,42 +849,40 @@ def _build_inventory_rows(character: Character) -> list[dict]:
     )
     for character_item in inventory_items:
         item = character_item.item
+        is_race_item = item.id in race_item_ids
         item_engine = ItemEngine(character_item)
         quality = quality_payload(item_engine.get_effective_quality())
         tooltip_text = ""
-        if item.item_type in QUALITY_TOOLTIP_TYPES:
+        if not is_race_item and item.item_type in QUALITY_TOOLTIP_TYPES:
             tooltip_text = _format_item_tooltip(
                 description=item.description or "",
                 quality_label=quality["label"],
                 quality_color=quality["color"],
                 detail_rows=_build_item_tooltip_rows(item_engine, item),
-                rune_block=_format_rune_tooltip_block(item=item, character_item=character_item),
             )
         elif item.description:
             tooltip_text = _format_item_tooltip(
                 description=item.description,
                 detail_rows=_build_item_tooltip_rows(item_engine, item),
-                rune_block=_format_rune_tooltip_block(item=item, character_item=character_item),
             )
-        elif item.runes.exists() or character_item.runes.exists():
-            tooltip_text = _format_rune_tooltip_block(item=item, character_item=character_item)
 
         inventory_rows.append(
             {
                 "character_item": character_item,
                 "item": item,
                 "has_runes": bool(item.runes.exists() or character_item.runes.exists()),
+                "rune_rows": _collect_rune_rows(item=item, character_item=character_item),
                 "display_name": (
                     f"{character_item.amount}x {item.name}"
                     if item.stackable
                     else item.name
                 ),
-                "quality": quality["value"],
-                "quality_label": quality["label"],
-                "quality_color": quality["color"],
+                "quality": "" if is_race_item else quality["value"],
+                "quality_label": "" if is_race_item else quality["label"],
+                "quality_color": "" if is_race_item else quality["color"],
                 "tooltip_text": tooltip_text,
                 "can_consume": item.stackable and item.item_type == Item.ItemType.CONSUM,
-                "can_equip": item.item_type in EQUIPPABLE_ITEM_TYPES,
+                "can_equip": item.item_type in EQUIPPABLE_ITEM_TYPES or item.is_magic_effective,
                 "can_socket_runes": item.item_type in RUNE_RETROFIT_ITEM_TYPES,
                 "equip_label": "Anlegen",
                 "base_rune_ids": [rune.id for rune in item.runes.all()],
@@ -799,6 +896,7 @@ def _build_inventory_rows(character: Character) -> list[dict]:
 def _build_weapon_rows(engine) -> list[dict]:
     """Build prepared weapon rows with flattened display profiles."""
     weapon_rows: list[dict] = []
+    race_item_ids = _race_item_ids()
     raw_rows = engine.equipped_weapon_rows()
     profile_rows_by_item: OrderedDict[int, list[dict]] = OrderedDict()
     for row in raw_rows:
@@ -806,20 +904,22 @@ def _build_weapon_rows(engine) -> list[dict]:
         profile_rows_by_item.setdefault(character_item.pk, []).append(row)
 
     for row in raw_rows:
+        is_race_item = row["item"].id in race_item_ids
         quality = quality_payload(str(row["quality"]))
         profile_rows = profile_rows_by_item.get(row["character_item"].pk, [row])
         weapon_rows.append(
             {
                 **row,
-                "quality_label": quality["label"],
-                "quality_color": quality["color"],
+                "quality_label": "" if is_race_item else quality["label"],
+                "quality_color": "" if is_race_item else quality["color"],
                 "tooltip_text": _format_item_tooltip(
                     description=row["item"].description or "",
-                    quality_label=quality["label"],
-                    quality_color=quality["color"],
+                    quality_label="" if is_race_item else quality["label"],
+                    quality_color="" if is_race_item else quality["color"],
                     detail_rows=_build_item_tooltip_rows(ItemEngine(row["character_item"]), row["item"]),
-                    rune_block=_format_rune_tooltip_block(item=row["item"], character_item=row["character_item"]),
                 ),
+                "has_runes": bool(row["item"].runes.exists() or row["character_item"].runes.exists()),
+                "rune_rows": _collect_rune_rows(item=row["item"], character_item=row["character_item"]),
                 "calculation_tooltip": _build_weapon_calculation_tooltip(engine, row),
                 "can_unequip": not row["character_item"].equip_locked,
             }
@@ -830,19 +930,21 @@ def _build_weapon_rows(engine) -> list[dict]:
 def _build_armor_rows(engine) -> list[dict]:
     """Build prepared armor, clothing, and shield rows for the equipment panel."""
     armor_rows: list[dict] = []
+    race_item_ids = _race_item_ids()
     for row in engine.equipped_armor_rows():
+        is_race_item = row["item"].id in race_item_ids
         quality = quality_payload(str(row["quality"]))
         armor_rows.append(
             {
                 **row,
                 "kind": "armor",
-                "quality_label": quality["label"],
-                "quality_color": quality["color"],
+                "quality_label": "" if is_race_item else quality["label"],
+                "quality_color": "" if is_race_item else quality["color"],
                 "summary": f"{row['item'].name} (RS {row['rs']} | Bel {row['bel_effective']} | Min-St {row['min_st'] or '-'})",
                 "tooltip_text": _format_item_tooltip(
                     description=row["item"].description or "",
-                    quality_label=quality["label"],
-                    quality_color=quality["color"],
+                    quality_label="" if is_race_item else quality["label"],
+                    quality_color="" if is_race_item else quality["color"],
                     detail_rows=_build_item_tooltip_rows(ItemEngine(row["character_item"]), row["item"]),
                     rune_block=_format_rune_tooltip_block(item=row["item"], character_item=row["character_item"]),
                 ),
@@ -850,18 +952,39 @@ def _build_armor_rows(engine) -> list[dict]:
             }
         )
     for row in engine.equipped_clothing_rows():
+        is_race_item = row["item"].id in race_item_ids
         quality = quality_payload(str(row["quality"]))
         armor_rows.append(
             {
                 **row,
                 "kind": "clothing",
-                "quality_label": quality["label"],
-                "quality_color": quality["color"],
+                "quality_label": "" if is_race_item else quality["label"],
+                "quality_color": "" if is_race_item else quality["color"],
                 "summary": f"{row['item'].name} (Kleidung)",
                 "tooltip_text": _format_item_tooltip(
                     description=row["item"].description or "",
-                    quality_label=quality["label"],
-                    quality_color=quality["color"],
+                    quality_label="" if is_race_item else quality["label"],
+                    quality_color="" if is_race_item else quality["color"],
+                    detail_rows=_build_item_tooltip_rows(ItemEngine(row["character_item"]), row["item"]),
+                    rune_block=_format_rune_tooltip_block(item=row["item"], character_item=row["character_item"]),
+                ),
+                "can_unequip": not row["character_item"].equip_locked,
+            }
+        )
+    for row in engine.equipped_magic_item_rows():
+        is_race_item = row["item"].id in race_item_ids
+        quality = quality_payload(str(row["quality"]))
+        armor_rows.append(
+            {
+                **row,
+                "kind": "magic_item",
+                "quality_label": "" if is_race_item else quality["label"],
+                "quality_color": "" if is_race_item else quality["color"],
+                "summary": f"{row['item'].name} (Magischer Gegenstand)",
+                "tooltip_text": _format_item_tooltip(
+                    description=row["item"].description or "",
+                    quality_label="" if is_race_item else quality["label"],
+                    quality_color="" if is_race_item else quality["color"],
                     detail_rows=_build_item_tooltip_rows(ItemEngine(row["character_item"]), row["item"]),
                     rune_block=_format_rune_tooltip_block(item=row["item"], character_item=row["character_item"]),
                 ),
@@ -869,18 +992,19 @@ def _build_armor_rows(engine) -> list[dict]:
             }
         )
     for row in engine.equipped_shield_rows():
+        is_race_item = row["item"].id in race_item_ids
         quality = quality_payload(str(row["quality"]))
         armor_rows.append(
             {
                 **row,
                 "kind": "shield",
-                "quality_label": quality["label"],
-                "quality_color": quality["color"],
+                "quality_label": "" if is_race_item else quality["label"],
+                "quality_color": "" if is_race_item else quality["color"],
                 "summary": f"{row['item'].name} (Schild-RS {row['rs']} | Bel {row['bel_effective']} | Min-St {row['min_st'] or '-'})",
                 "tooltip_text": _format_item_tooltip(
                     description=row["item"].description or "",
-                    quality_label=quality["label"],
-                    quality_color=quality["color"],
+                    quality_label="" if is_race_item else quality["label"],
+                    quality_color="" if is_race_item else quality["color"],
                     detail_rows=_build_item_tooltip_rows(ItemEngine(row["character_item"]), row["item"]),
                     rune_block=_format_rune_tooltip_block(item=row["item"], character_item=row["character_item"]),
                 ),
@@ -899,6 +1023,8 @@ def _build_school_technique_rows(character: Character, engine) -> tuple[list[dic
     )
     school_levels = {entry.school_id: entry.level for entry in schools}
     school_technique_rows: list[dict] = []
+    technique_specialization_names: dict[int, list[str]] = {}
+    technique_specialization_descriptions: dict[int, list[str]] = {}
     learned_techniques_by_technique_id = {
         entry.technique_id: entry
         for entry in (
@@ -907,6 +1033,15 @@ def _build_school_technique_rows(character: Character, engine) -> tuple[list[dic
             .select_related("technique")
         )
     }
+    for choice in (
+        character.technique_choices
+        .filter(selected_specialization__isnull=False)
+        .select_related("technique", "selected_specialization")
+    ):
+        technique_specialization_names.setdefault(choice.technique_id, []).append(choice.selected_specialization.name)
+        description_text = (choice.selected_specialization.description or "").strip()
+        if description_text:
+            technique_specialization_descriptions.setdefault(choice.technique_id, []).append(description_text)
     race_techniques = (
         RaceTechnique.objects
         .filter(race=character.race)
@@ -943,10 +1078,20 @@ def _build_school_technique_rows(character: Character, engine) -> tuple[list[dic
         for technique in techniques:
             if technique.level <= school_levels.get(technique.school_id, 0):
                 learned_technique = learned_techniques_by_technique_id.get(technique.id)
+                if technique.acquisition_type == Technique.AcquisitionType.CHOICE and learned_technique is None:
+                    continue
                 specification_value = ((learned_technique.specification_value if learned_technique else "") or "").strip()
                 entry_name = technique.name
                 if technique.has_specification:
                     entry_name = f"{technique.name}: {specification_value or '*'}"
+                selected_specializations = technique_specialization_names.get(technique.id, [])
+                selected_specialization_descriptions = technique_specialization_descriptions.get(technique.id, [])
+                description_text = technique.description
+                if selected_specializations:
+                    rendered_specializations = ", ".join(selected_specializations)
+                    entry_name = f"{rendered_specializations} ({technique.name})"
+                    if selected_specialization_descriptions:
+                        description_text = "\n\n".join(selected_specialization_descriptions)
                 school_technique_rows.append(
                     {
                         "kind": "technique",
@@ -954,7 +1099,7 @@ def _build_school_technique_rows(character: Character, engine) -> tuple[list[dic
                         "level_label": _to_roman(technique.level),
                         "school_name": technique.school.name,
                         "entry_name": entry_name,
-                        "description": technique.description,
+                        "description": description_text,
                         "can_edit_specification": bool(technique.has_specification),
                         "specification_value": specification_value,
                         "technique_id": technique.id,
@@ -994,22 +1139,6 @@ def _build_school_technique_rows(character: Character, engine) -> tuple[list[dic
                     "description": "",
                 }
             )
-    if school_levels:
-        for technique in techniques:
-            for choice in engine.technique_choices(technique):
-                if choice.selected_specialization_id is None:
-                    continue
-                school_technique_rows.append(
-                    {
-                        "kind": "technique_specialization",
-                        "level": "Spez.",
-                        "level_label": "Spez.",
-                        "school_name": technique.school.name,
-                        "entry_name": f"{choice.selected_specialization.name} ({technique.name})",
-                        "display_name": f"{choice.selected_specialization.name} ({technique.name})",
-                        "description": choice.selected_specialization.description,
-                    }
-                )
     return school_technique_rows, school_levels
 
 
@@ -1040,13 +1169,16 @@ def _build_language_rows(character: Character) -> tuple[list[dict], object]:
 def _build_shop_item_groups() -> list[dict]:
     """Build grouped shop rows from all buyable items."""
     grouped_items: dict[str, list[dict]] = {}
+    race_item_ids = _race_item_ids()
     buyable_items = (
         Item.objects
-        .select_related("weaponstats", "armorstats", "shieldstats")
+        .select_related("weaponstats", "armorstats", "shieldstats", "magicitemstats")
         .prefetch_related("runes")
         .order_by("item_type", "name")
     )
     for item in buyable_items:
+        if item.id in race_item_ids:
+            continue
         item_engine = ItemEngine(item)
         quality = quality_payload(item_engine.get_effective_quality())
         stats_payload: dict[str, object] = {
@@ -1090,6 +1222,13 @@ def _build_shop_item_groups() -> list[dict]:
                     "shield_bel": shield_stats.encumbrance,
                     "shield_min_st": shield_stats.min_st,
                     "min_st": shield_stats.min_st,
+                }
+            )
+        magic_item_stats = getattr(item, "magicitemstats", None)
+        if magic_item_stats is not None:
+            stats_payload.update(
+                {
+                    "effect_summary": magic_item_stats.effect_summary,
                 }
             )
         grouped_items.setdefault(item.item_type, []).append(
@@ -1363,6 +1502,8 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
         school_levels,
     )
     learning_progression_context = build_learning_progression_context(character, engine=engine)
+    load_tooltip = _build_load_tooltip(engine)
+    total_armor_tooltip = _build_total_armor_tooltip(engine)
     shop_quality_choices = [
         {
             "value": value,
@@ -1393,6 +1534,7 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
         "school_technique_rows": school_technique_rows,
         "core_stats": {
             "load_value": load_penalty,
+            "load_tooltip": load_tooltip,
             "initiative_display": format_modifier(initiative_value),
             "initiative_with_load_display": format_modifier(initiative_value + load_penalty),
             "initiative_tooltip": _build_core_stat_tooltip(
@@ -1454,7 +1596,9 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
         },
         "armor_summary": {
             "total_rs": engine.get_grs(),
+            "total_rs_tooltip": total_armor_tooltip,
             "load_value": load_penalty,
+            "load_tooltip": load_tooltip,
             "minimum_strength": engine.get_ms(),
         },
         "current_wound_stage": current_wound_stage,
@@ -1481,9 +1625,25 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
         "shop_item_form_type_choices": [
             (item_type, dict(Item.ItemType.choices)[item_type])
             for item_type in SHOP_FORM_ORDER
+            if item_type != Item.ItemType.MAGIC_ITEM
         ],
         "shop_damage_type_choices": DAMAGE_TYPE_CHOICES,
         "shop_damage_source_choices": DamageSource.objects.order_by("name"),
+        "shop_modifier_target_kind_choices": [
+            ("", "Kein Effekt"),
+            ("stat", "Wert auf dem Bogen"),
+            ("skill", "Einzelne Fertigkeit"),
+            ("category", "Fertigkeitskategorie"),
+            ("item_category", "Alle Gegenstände eines Typs"),
+            ("specialization", "Spezialisierung"),
+        ],
+        "shop_modifier_stat_choices": STAT_SLUG_CHOICES,
+        "shop_modifier_skill_choices": Skill.objects.order_by("name"),
+        "shop_modifier_skill_category_choices": SkillCategory.objects.order_by("name"),
+        "shop_modifier_item_category_choices": [
+            (value, label) for value, label in Item.ItemType.choices if value != Item.ItemType.MAGIC_ITEM
+        ],
+        "shop_modifier_specialization_choices": Specialization.objects.order_by("name"),
         "shop_runes": Rune.objects.order_by("name"),
         "rune_retrofit_choices": [
             {

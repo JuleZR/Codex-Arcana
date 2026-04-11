@@ -13,12 +13,12 @@ DEFENSE_RS = "rs"
 
 STAT_SLUG_CHOICES = [
     (INITIATIVE, "Initiative"),
-    (ARCANE_POWER, "Arcane Power"),
-    (POTENTIAL, "Potential"),
-    (WOUND_STAGE, "Wound Stage"),
-    (WOUND_PENALTY_IGNORE, "Ignore Wound Penalty"),
-    (WOUND_PENALTY_MOD, "Wound Penalty Modifier"),
-    (ARMOR_PENALTY_IGNORE, "Ignore Armor Penalty"),
+    (ARCANE_POWER, "Arkane Macht"),
+    (POTENTIAL, "Potenzial"),
+    (WOUND_STAGE, "Wundstufe"),
+    (WOUND_PENALTY_IGNORE, "Wundmalus ignorieren"),
+    (WOUND_PENALTY_MOD, "Wundmalus ver\u00e4ndern"),
+    (ARMOR_PENALTY_IGNORE, "Belastung ignorieren"),
     (DEFENSE_VW, "VW"),
     (DEFENSE_GW, "GW"),
     (DEFENSE_SR, "SR"),
@@ -65,6 +65,7 @@ ATTR_ST = "ST"
 ATTR_KON = "KON"
 ATTR_CHA = "CHA"
 ATTR_SPEC = "spz."
+LEGENDARY_ATTRIBUTE_TRAIT_SLUG = "adv_legendary_attribute"
 
 ATTRIBUTE_CODE_CHOICES = [
     (ATTR_GE, "Geschicklichkeit"),
@@ -262,6 +263,13 @@ ATTRIBUTE_ORDER = [
     ("WILL", "Willenskraft (Will)"),
     ("CHA", "Charisma (Cha)"),
 ]
+
+def is_allowed_trait_attribute_choice(trait_slug: str | None, attribute_slug: str | None) -> bool:
+    """Return whether one attribute can be selected for a given trait choice."""
+    if str(trait_slug or "") == LEGENDARY_ATTRIBUTE_TRAIT_SLUG and str(attribute_slug or "") == ATTR_SPEC:
+        return False
+    return True
+
 
 # Modifier system constants used by TraitSemanticEffect and the modifier engine
 

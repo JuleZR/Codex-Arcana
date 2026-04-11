@@ -47,7 +47,7 @@ from .forms import (
     CharacterTechniqueSpecificationForm,
     UserSettingsForm
 )
-from .constants import ATTRIBUTE_ORDER, RESOURCE_KEY_CHOICES
+from .constants import ATTRIBUTE_ORDER, RESOURCE_KEY_CHOICES, is_allowed_trait_attribute_choice
 from .learning import process_learning_submission
 from .sheet_context import build_character_sheet_context
 from .shop import buy_shop_cart as buy_shop_cart_payload
@@ -1109,6 +1109,11 @@ def create_character(request):
                 "id": definition.id,
                 "name": definition.name,
                 "selected": ((phase_3_trait_choices.get(trait.slug, {}).get(definition.id, [""]) or [""])[0]),
+                "options": [
+                    {"value": short_name, "label": label}
+                    for short_name, label in ATTRIBUTE_ORDER
+                    if is_allowed_trait_attribute_choice(trait.slug, short_name)
+                ],
             }
             for definition in trait.choice_definitions.filter(target_kind="attribute").order_by("sort_order", "id")
         ]
@@ -1148,6 +1153,11 @@ def create_character(request):
                 "id": definition.id,
                 "name": definition.name,
                 "selected": ((phase_4_trait_choices.get(trait.slug, {}).get(definition.id, [""]) or [""])[0]),
+                "options": [
+                    {"value": short_name, "label": label}
+                    for short_name, label in ATTRIBUTE_ORDER
+                    if is_allowed_trait_attribute_choice(trait.slug, short_name)
+                ],
             }
             for definition in trait.choice_definitions.filter(target_kind="attribute").order_by("sort_order", "id")
         ]
@@ -1324,7 +1334,13 @@ def toggle_equip(request, pk):
     """Toggle equipped state for one equippable inventory entry."""
     ci = _owned_character_item_or_404(request, pk)
 
-    if ci.item.item_type not in (Item.ItemType.ARMOR, Item.ItemType.SHIELD, Item.ItemType.WEAPON, Item.ItemType.CLOTHING):
+    if ci.item.item_type not in (
+        Item.ItemType.ARMOR,
+        Item.ItemType.SHIELD,
+        Item.ItemType.WEAPON,
+        Item.ItemType.CLOTHING,
+        Item.ItemType.MAGIC_ITEM,
+    ) and not ci.item.is_magic_effective:
         return redirect("character_sheet", character_id=ci.owner_id)
 
     if ci.equip_locked:

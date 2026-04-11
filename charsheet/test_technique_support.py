@@ -194,6 +194,31 @@ class TechniqueSupportLevelTests(TestCase):
         with patch.object(Character, "get_engine", side_effect=AssertionError("clean() must not use CharacterEngine")):
             choice.full_clean()
 
+    def test_legacy_specialization_choice_validates_without_definition(self):
+        """Legacy technique choices with specializations must not assume a choice definition exists."""
+        technique = Technique.objects.create(
+            school=self.school,
+            name="Signature School",
+            level=1,
+            technique_type=Technique.TechniqueType.PASSIVE,
+            support_level=Technique.SupportLevel.COMPUTED,
+            choice_target_kind=Technique.ChoiceTargetKind.SPECIALIZATION,
+            choice_limit=1,
+        )
+        specialization = Specialization.objects.create(
+            school=self.school,
+            name="Echo Verse",
+            slug="echo-verse",
+            support_level=Specialization.SupportLevel.STRUCTURED,
+        )
+        choice = CharacterTechniqueChoice(
+            character=self.character,
+            technique=technique,
+            selected_specialization=specialization,
+        )
+
+        choice.full_clean()
+
     def test_choice_group_is_metadata_only(self):
         """Shared choice groups must not create hidden exclusivity or resolver logic."""
         first = Technique.objects.create(

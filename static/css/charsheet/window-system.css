@@ -354,7 +354,9 @@
 
 .sheet-window .shop-window__body,
 .sheet-window .learn-window__body,
+.sheet-window .learn_choice_window_body,
 .sheet-window .learn_form,
+.sheet-window .learn_choice_form,
 .sheet-window .learn_list_scroll,
 .sheet-window .learn_tabs {
   min-height: 0;
@@ -485,9 +487,9 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.72);
 }
 
-.sheet-window .learn_choice_decision_toggle,
+.sheet-window .learn_choice_nav_item,
 .sheet-window .learn_choice_option,
-.sheet-window .learn_choice_decision_body {
+.sheet-window .learn_choice_panel {
   border-color: rgba(113, 82, 49, 0.2);
   background: linear-gradient(180deg, rgba(249, 244, 235, 0.74), rgba(239, 231, 215, 0.54));
 }

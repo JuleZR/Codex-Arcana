@@ -37,6 +37,7 @@ onReady(() => {
   initSchoolsPanel();
 
   document.addEventListener("charsheet:partials-applied", () => {
+    initStandardFloatingWindows();
     initDamagePanel();
     initCharInfoCounter();
     initSchoolsPanel();

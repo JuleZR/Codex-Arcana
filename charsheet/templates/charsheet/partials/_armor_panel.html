@@ -2,9 +2,8 @@
   <h2>R&uuml;stung</h2>
   <ul class="armor_worn">
     {% for row in armor_rows %}
-      <li class="armor_row tooltip_target" data-tooltip-side="left" data-tooltip="{{ row.tooltip_text }}">
+      <li class="armor_row{% if row.quality_color %} quality_tinted_row{% endif %}{% if row.tooltip_text %} tooltip_target{% endif %}"{% if row.quality_color %} style="--row-quality-color: {{ row.quality_color }};"{% endif %}{% if row.tooltip_text %} data-tooltip-side="left" data-tooltip="{{ row.tooltip_text }}"{% endif %}>
         <span>
-          <span class="quality_marker" style="--quality-color: {{ row.quality_color }};" aria-hidden="true"></span>
           {{ row.summary }}
         </span>
         <span class="armor_row_actions">
@@ -13,8 +12,6 @@
               {% csrf_token %}
               <button type="submit" class="equip_toggle is-equipped" title="Ablegen">-</button>
             </form>
-          {% else %}
-            <button type="button" class="equip_toggle is-equipped" title="Startausrüstung bleibt angelegt" disabled>-</button>
           {% endif %}
         </span>
       </li>
@@ -24,8 +21,8 @@
     {% endif %}
   </ul>
   <ul class="armor_stats">
-    <li><span>Gesamtr&uuml;stungsschutz</span><span class="pill">{{ armor_summary.total_rs }}</span></li>
-    <li><span>Belastung (Bel.)</span><span class="pill">{{ armor_summary.load_value }}</span></li>
+    <li><span>Gesamtr&uuml;stungsschutz</span><span class="pill tooltip_target" data-tooltip-side="left" data-tooltip="{{ armor_summary.total_rs_tooltip }}">{{ armor_summary.total_rs }}</span></li>
+    <li><span>Belastung (Bel.)</span><span class="pill tooltip_target" data-tooltip-side="left" data-tooltip="{{ armor_summary.load_tooltip }}">{{ armor_summary.load_value }}</span></li>
     <li><span>Mindestst&auml;rke</span><span class="pill">{{ armor_summary.minimum_strength }}</span></li>
   </ul>
 </div>

@@ -1,4 +1,4 @@
-function parseIdList(rawValue) {
+﻿function parseIdList(rawValue) {
   return String(rawValue || "")
     .split(",")
     .map((value) => Number.parseInt(value.trim(), 10))
@@ -31,6 +31,8 @@ function closeMenu(menu) {
   }
   panel.hidden = true;
   trigger.setAttribute("aria-expanded", "false");
+  menu.classList.remove("is-open");
+  menu.closest(".inv_row")?.classList.remove("is-menu-open");
 }
 
 export function initInventoryMenu({ warningWindowController = null } = {}) {
@@ -47,6 +49,10 @@ export function initInventoryMenu({ warningWindowController = null } = {}) {
   const runeItemName = document.getElementById("runeRetrofitItemName");
   const runeBaseInfo = document.getElementById("runeRetrofitBaseInfo");
   const runeSearchInput = document.getElementById("runeRetrofitSearch");
+  const runeDropdown = document.getElementById("runeRetrofitDropdown");
+  const runeDropdownTrigger = document.getElementById("runeRetrofitDropdownTrigger");
+  const runeDropdownPanel = document.getElementById("runeRetrofitDropdownPanel");
+  const runeSelectionCount = document.getElementById("runeRetrofitSelectionCount");
 
   let runeChoices = [];
   try {
@@ -58,6 +64,23 @@ export function initInventoryMenu({ warningWindowController = null } = {}) {
   }
 
   let pendingRuneSubmit = false;
+
+  const syncRuneSelectionCount = () => {
+    if (!(runeSelectionCount instanceof HTMLElement) || !(runeOptions instanceof HTMLElement)) {
+      return;
+    }
+    const selectedCount = runeOptions.querySelectorAll("input[name='runes']:checked").length;
+    runeSelectionCount.textContent = String(selectedCount);
+  };
+
+  const toggleRuneDropdown = (forceOpen = null) => {
+    if (!(runeDropdownPanel instanceof HTMLElement) || !(runeDropdownTrigger instanceof HTMLButtonElement)) {
+      return;
+    }
+    const shouldOpen = forceOpen === null ? runeDropdownPanel.hidden : Boolean(forceOpen);
+    runeDropdownPanel.hidden = !shouldOpen;
+    runeDropdownTrigger.setAttribute("aria-expanded", shouldOpen ? "true" : "false");
+  };
 
   const openRuneWindow = () => {
     if (!(runeWindow instanceof HTMLElement)) {
@@ -79,6 +102,7 @@ export function initInventoryMenu({ warningWindowController = null } = {}) {
     if (runeSearchInput instanceof HTMLInputElement) {
       runeSearchInput.value = "";
     }
+    toggleRuneDropdown(false);
   };
 
   const filterRuneEntries = () => {
@@ -91,6 +115,27 @@ export function initInventoryMenu({ warningWindowController = null } = {}) {
       entry.hidden = query ? !haystack.includes(query) : false;
     });
   };
+
+  document.addEventListener("click", (event) => {
+    const toggleBtn = event.target instanceof Element
+      ? event.target.closest("[data-rune-toggle]")
+      : null;
+    if (toggleBtn instanceof HTMLButtonElement) {
+      event.preventDefault();
+      event.stopPropagation();
+      const controlsId = toggleBtn.getAttribute("aria-controls");
+      const list = controlsId
+        ? document.getElementById(controlsId)
+        : toggleBtn.closest(".inv_row")?.querySelector(".inv_rune_list");
+      if (list instanceof HTMLElement) {
+        const willOpen = list.hidden;
+        list.hidden = !willOpen;
+        toggleBtn.setAttribute("aria-expanded", willOpen ? "true" : "false");
+        toggleBtn.classList.toggle("is-open", willOpen);
+      }
+      return;
+    }
+  });
 
   document.addEventListener("click", (event) => {
     const target = event.target instanceof Element ? event.target : null;
@@ -110,6 +155,8 @@ export function initInventoryMenu({ warningWindowController = null } = {}) {
       if (panel instanceof HTMLElement && panel.hidden) {
         panel.hidden = false;
         trigger.setAttribute("aria-expanded", "true");
+        menu.classList.add("is-open");
+        menu.closest(".inv_row")?.classList.add("is-menu-open");
       } else {
         closeMenu(menu);
       }
@@ -118,6 +165,14 @@ export function initInventoryMenu({ warningWindowController = null } = {}) {
 
     if (target?.closest(".inv_menu_panel")) {
       return;
+    }
+
+    if (
+      runeDropdown instanceof HTMLElement &&
+      !target?.closest("#runeRetrofitDropdown") &&
+      runeWindow?.classList.contains("is-open")
+    ) {
+      toggleRuneDropdown(false);
     }
 
     document.querySelectorAll(".inv_menu").forEach((entry) => closeMenu(entry));
@@ -180,54 +235,50 @@ export function initInventoryMenu({ warningWindowController = null } = {}) {
       }
       availableCount += 1;
 
-      const details = document.createElement("details");
-      details.className = "rune_option";
-      details.dataset.runeSearch = `${rune.name || ""} ${rune.description || ""}`;
-
-      const summary = document.createElement("summary");
-      summary.className = "rune_option_summary";
-
       const label = document.createElement("label");
-      label.className = "rune_option_label";
-      label.addEventListener("click", (clickEvent) => {
-        clickEvent.stopPropagation();
-      });
+      label.className = "shop_item_form_checklist_item rune_option";
+      label.dataset.runeSearch = `${rune.name || ""} ${rune.description || ""}`;
 
       const input = document.createElement("input");
       input.type = "checkbox";
       input.name = "runes";
       input.value = String(rune.id);
       input.checked = extraRuneIds.has(Number(rune.id));
+      input.addEventListener("change", syncRuneSelectionCount);
+
+      const copy = document.createElement("span");
+      copy.className = "rune_option_copy";
 
       const name = document.createElement("span");
       name.className = "rune_option_name";
       name.textContent = rune.name || "Unbenannte Rune";
 
-      label.append(input, name);
-      summary.append(label);
-      details.append(summary);
-
-      const body = document.createElement("div");
+      const body = document.createElement("span");
       body.className = "rune_option_body";
       body.textContent = rune.description || "Keine Beschreibung vorhanden.";
-      details.append(body);
 
-      runeOptions.append(details);
+      copy.append(name, body);
+      label.append(input, copy);
+      runeOptions.append(label);
     });
 
     if (!availableCount) {
       const empty = document.createElement("p");
       empty.className = "shop_empty";
-      empty.textContent = "Keine weiteren Runen zum Nachruesten verfuegbar.";
+      empty.textContent = "Keine weiteren Runen zum Nachrüsten verfügbar.";
       runeOptions.append(empty);
     }
 
+    syncRuneSelectionCount();
     filterRuneEntries();
     openRuneWindow();
     closeMenu(button.closest(".inv_menu"));
   });
 
   runeSearchInput?.addEventListener("input", filterRuneEntries);
+  runeDropdownTrigger?.addEventListener("click", () => {
+    toggleRuneDropdown();
+  });
   runeCloseButton?.addEventListener("click", closeRuneWindow);
   runeCancelButton?.addEventListener("click", closeRuneWindow);
 

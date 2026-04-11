@@ -89,7 +89,7 @@ class SchoolPanelTests(TestCase):
         )
 
     def test_character_sheet_context_lists_technique_specialization_choices(self):
-        """Technique choices that store a specialization should also surface in the school panel."""
+        """Technique specialization choices should be shown in the owning technique row, not as a second row."""
         choice_technique = Technique.objects.create(
             school=self.school,
             level=3,
@@ -108,10 +108,13 @@ class SchoolPanelTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         rows = response.context["school_technique_rows"]
-        self.assertIn(
-            ("technique_specialization", "Bardenkampf", "Duellant (Bardenfokus)"),
-            [(row["kind"], row["school_name"], row["entry_name"]) for row in rows],
-        )
+        matching_rows = [
+            row for row in rows
+            if row["kind"] == "technique" and row["school_name"] == "Bardenkampf" and row["level"] == 3
+        ]
+        self.assertEqual(len(matching_rows), 1)
+        self.assertEqual(matching_rows[0]["entry_name"], "Duellant (Bardenfokus)")
+        self.assertFalse(any(row["kind"] == "technique_specialization" for row in rows))
 
     def test_character_sheet_context_marks_specification_techniques_as_editable(self):
         """Technique rows should expose editable specification state for learned techniques."""

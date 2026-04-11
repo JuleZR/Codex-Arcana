@@ -769,11 +769,6 @@ class CharacterTechniqueChoice(models.Model):
                     {"selected_specialization": "This specialization has already been chosen for this character."}
                 )
 
-            if self.definition.max_choices and existing.count() >= self.definition.max_choices:
-                raise ValidationError(
-                    "Maximum number of choices for this technique definition exceeded."
-                )
-
     def _expected_target_kind(self):
         """Return the target kind enforced by the definition or legacy technique fields."""
         if self.definition_id:

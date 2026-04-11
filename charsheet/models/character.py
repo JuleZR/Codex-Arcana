@@ -39,7 +39,7 @@ class Character(models.Model):
     current_experience = models.PositiveIntegerField(default=0)
 
     current_damage = models.PositiveIntegerField(default=0)
-    current_arcane_power = models.PositiveIntegerField(null=True, blank=True)
+    current_arcane_power = models.IntegerField(null=True, blank=True, default=0)
     is_archived = models.BooleanField(default=False)
     last_opened_at = models.DateTimeField(null=True, blank=True)
 

@@ -728,7 +728,7 @@
 }
 
 .damage_stage_value[data-stage="Ausser Gefecht"],
-.damage_stage_value[data-stage="Au?er Gefecht"] {
+.damage_stage_value[data-stage="Außer Gefecht"] {
   color: #8e2f2f;
 }
 
@@ -804,6 +804,7 @@
 }
 
 .p2_lines li.inv_row {
+  position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
@@ -817,6 +818,11 @@
   font-family: "Trebuchet MS", "Segoe UI", Tahoma, sans-serif;
   font-size: 0.82rem;
   letter-spacing: 0.01em;
+  overflow: visible;
+}
+
+.p2_lines li.inv_row.is-menu-open {
+  z-index: 45;
 }
 
 .p2_lines li.inv_row:hover {
@@ -842,10 +848,13 @@
 
 .inv_name_wrap {
   min-width: 0;
-  display: inline-grid;
+  width: 100%;
+  display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
   gap: 6px;
+  padding: 1px 6px 1px 2px;
+  border-radius: 5px;
 }
 
 .inv_rune_marker {
@@ -853,32 +862,94 @@
   align-items: center;
   justify-content: center;
   width: 1.1rem;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
   color: rgba(122, 78, 24, 0.96);
   font-family: "Noto Sans Runic", "Segoe UI Symbol", "Arial Unicode MS", serif;
   font-size: 0.95rem;
   font-weight: 700;
   line-height: 1;
+  opacity: 0.75;
+  transition: opacity 0.15s, color 0.15s;
 }
 
-.quality_marker {
-  display: inline-block;
-  width: 0.62em;
-  height: 0.62em;
-  margin-right: 0.36em;
-  border-radius: 50%;
-  background: var(--quality-color, #777);
-  border: 1px solid rgba(139, 106, 74, 0.74);
-  box-shadow:
-    0 0 0 1px rgba(247, 235, 208, 0.74),
-    0 0 1px rgba(92, 64, 37, 0.35);
-  vertical-align: 0.02em;
-  flex: 0 0 auto;
+.inv_rune_marker:hover,
+.inv_rune_marker.is-open {
+  opacity: 1;
+  color: rgba(160, 90, 10, 1);
 }
 
-.weapon_name .quality_marker {
-  width: 0.56em;
-  height: 0.56em;
-  vertical-align: 0.01em;
+.inv_rune_list {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 2px 0 4px 1.5rem;
+  list-style: none;
+  border-top: 1px solid rgba(122, 78, 24, 0.12);
+}
+
+.inv_rune_entry {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 4px;
+  font-family: "Trebuchet MS", "Segoe UI", Tahoma, sans-serif;
+  font-size: 0.82rem;
+  color: inherit;
+  cursor: default;
+  border-radius: 3px;
+  background: transparent;
+  transition: background 0.25s ease;
+}
+
+.inv_rune_img {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+  flex-shrink: 0;
+  opacity: 0.85;
+}
+
+.inv_rune_entry.tooltip_target {
+  cursor: help;
+}
+
+.inv_rune_entry:hover {
+  background: rgba(122, 78, 24, 0.04);
+}
+
+.quality_tinted_row {
+  background:
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--row-quality-color, rgba(0, 0, 0, 0)) 7%, rgba(255, 251, 243, 0.96) 93%) 0%,
+      rgba(255, 251, 243, 0) 28%
+    );
+}
+
+.p2_lines li.inv_row.quality_tinted_row::before {
+  content: "";
+  position: absolute;
+  top: 1px;
+  right: 42px;
+  bottom: 1px;
+  left: 1px;
+  border-radius: 5px;
+  background:
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--row-quality-color, rgba(0, 0, 0, 0)) 24%, rgba(255, 248, 235, 0.98) 76%) 0%,
+      color-mix(in srgb, var(--row-quality-color, rgba(0, 0, 0, 0)) 14%, rgba(255, 249, 238, 0.86) 86%) 58%,
+      rgba(255, 250, 240, 0) 100%
+    );
+  pointer-events: none;
+  z-index: 0;
+}
+
+.p2_lines li.inv_row.quality_tinted_row > * {
+  position: relative;
+  z-index: 1;
 }
 
 .inv_actions {
@@ -891,6 +962,10 @@
 .inv_menu {
   position: relative;
   display: inline-flex;
+}
+
+.inv_menu.is-open {
+  z-index: 40;
 }
 
 .inv_menu_trigger {
@@ -940,7 +1015,7 @@
   position: absolute;
   right: 0;
   top: calc(100% + 4px);
-  z-index: 35;
+  z-index: 1;
   min-width: 132px;
   display: grid;
   gap: 3px;
@@ -1082,11 +1157,39 @@
 }
 
 .armor_worn li.armor_row {
+  position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 2px;
   min-width: 0;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.armor_worn li.armor_row.quality_tinted_row {
+  background: transparent;
+}
+
+.armor_worn li.armor_row.quality_tinted_row::before {
+  content: "";
+  position: absolute;
+  inset: 1px 1px 1px 1px;
+  border-radius: 6px;
+  background:
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--row-quality-color, rgba(0, 0, 0, 0)) 24%, rgba(255, 248, 235, 0.98) 76%) 0%,
+      color-mix(in srgb, var(--row-quality-color, rgba(0, 0, 0, 0)) 14%, rgba(255, 249, 238, 0.86) 86%) 58%,
+      rgba(255, 250, 240, 0) 100%
+    );
+  pointer-events: none;
+  z-index: 0;
+}
+
+.armor_worn li.armor_row > * {
+  position: relative;
+  z-index: 1;
 }
 
 .armor_worn li.armor_row .equip_toggle.is-equipped {
@@ -1263,7 +1366,8 @@
 
 .floating-tooltip {
   position: fixed;
-  max-width: 360px;
+  width: max-content;
+  max-width: min(440px, calc(100vw - 24px));
   padding: 9px 11px;
   border: 1px solid rgba(74, 55, 38, 0.4);
   border-radius: 4px;
@@ -1305,6 +1409,7 @@
 .floating-tooltip .tooltip_quality_badge {
   display: inline-flex;
   align-items: center;
+  flex-wrap: nowrap;
   width: auto;
   max-width: 100%;
   box-sizing: border-box;
@@ -1320,9 +1425,32 @@
   line-height: 1.2;
   letter-spacing: 0.01em;
   text-align: left;
+  white-space: nowrap;
   box-shadow:
     inset 0 1px 0 rgba(255, 250, 238, 0.56),
     0 1px 1px rgba(44, 27, 14, 0.06);
+}
+
+.floating-tooltip .tooltip_quality_badge--poor {
+  background:
+    linear-gradient(180deg, rgba(255, 245, 233, 0.16), rgba(255, 245, 233, 0) 52%),
+    linear-gradient(180deg, rgba(88, 77, 70, 0.96), rgba(42, 35, 31, 0.98));
+  color: rgba(253, 246, 236, 0.98);
+  text-shadow: 0 1px 1px rgba(18, 12, 9, 0.38);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 245, 233, 0.18),
+    0 1px 1px rgba(25, 19, 16, 0.14);
+}
+
+.floating-tooltip .tooltip_quality_badge--fine {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.34), rgba(255, 255, 255, 0) 52%),
+    linear-gradient(180deg, rgba(103, 116, 255, 0.97), rgba(43, 53, 214, 0.99));
+  color: rgba(250, 248, 255, 0.98);
+  text-shadow: 0 1px 1px rgba(21, 27, 105, 0.34);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    0 1px 1px rgba(20, 29, 124, 0.16);
 }
 
 .floating-tooltip .tooltip_status_badge {
@@ -1378,7 +1506,7 @@
   border-collapse: collapse;
   font-size: 1em;
   white-space: normal;
-  table-layout: fixed;
+  table-layout: auto;
   background:
     linear-gradient(180deg, rgba(255, 252, 244, 0.92), rgba(245, 236, 214, 0.68));
   box-shadow: inset 0 0 0 1px rgba(132, 105, 74, 0.08);
@@ -1408,7 +1536,7 @@
 
 .floating-tooltip th:nth-child(3),
 .floating-tooltip td:nth-child(3) {
-  width: 90px;
+  min-width: 170px;
   color: rgba(108, 82, 54, 0.88);
 }
 
@@ -1621,6 +1749,14 @@
   background: rgba(255, 248, 230, 0.24);
 }
 
+.weapon_rune_row td {
+  height: auto;
+  overflow: visible;
+  padding: 2px 6px 6px;
+  text-align: left;
+  border-top: none;
+}
+
 .weapons_table thead th {
   position: sticky;
   top: 0;
@@ -1666,6 +1802,16 @@
   overflow: hidden;
   text-overflow: ellipsis;
   font-size: 0.88rem;
+}
+
+.weapons_table tr.quality_tinted_row td:first-child {
+  background:
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--row-quality-color, rgba(0, 0, 0, 0)) 24%, rgba(255, 248, 235, 0.98) 76%) 0%,
+      color-mix(in srgb, var(--row-quality-color, rgba(0, 0, 0, 0)) 14%, rgba(255, 249, 238, 0.86) 86%) 58%,
+      rgba(255, 250, 240, 0) 100%
+    );
 }
 
 .weapon_mode_toggle {
@@ -1784,12 +1930,59 @@
   background: rgba(255, 249, 236, 0.74);
 }
 
-.shop_item_form_fieldset legend {
-  padding: 0 6px;
+.shop_item_form_fieldset_title {
+  margin: 0 0 10px;
   font-family: "Cinzel", "Cormorant Garamond", serif;
   font-size: 0.92rem;
   letter-spacing: 0.04em;
   color: rgba(71, 49, 31, 0.86);
+}
+
+.shop_item_form_hint {
+  margin: -2px 0 2px;
+  color: rgba(74, 55, 38, 0.8);
+  font-size: 0.92rem;
+}
+
+.shop_magic_effect_list {
+  display: grid;
+  gap: 10px;
+}
+
+.shop_magic_effect_card {
+  display: grid;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid rgba(122, 92, 58, 0.2);
+  border-radius: 10px;
+  background: rgba(255, 249, 236, 0.58);
+}
+
+.shop_magic_effect_card_header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.shop_magic_effect_title {
+  margin: 0;
+  font-family: "Cinzel", "Cormorant Garamond", serif;
+  font-size: 0.9rem;
+  letter-spacing: 0.04em;
+  color: rgba(71, 49, 31, 0.86);
+}
+
+.shop_magic_effect_remove {
+  width: 22px;
+  min-width: 22px;
+  height: 22px;
+  min-height: 22px;
+}
+
+.shop_magic_effect_actions {
+  display: flex;
+  justify-content: flex-start;
 }
 
 .shop_item_form_checklist {
@@ -1819,6 +2012,66 @@
   margin-top: 3px;
 }
 
+.shop_item_rune_dropdown {
+  position: relative;
+  gap: 6px;
+}
+
+.shop_item_multi_select_trigger {
+  padding: 0 12px;
+  min-height: 36px;
+  border: 1px solid rgba(117, 88, 57, 0.34);
+  border-radius: 8px;
+  background: linear-gradient(180deg, rgba(255, 253, 248, 0.82), rgba(248, 241, 230, 0.6));
+  color: rgba(61, 42, 24, 0.96);
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-size: 1rem;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.44);
+}
+
+.shop_item_multi_select_trigger:hover,
+.shop_item_multi_select_trigger:focus-visible,
+.shop_item_rune_dropdown.is-open .shop_item_multi_select_trigger {
+  border-color: rgba(132, 100, 65, 0.52);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.48),
+    0 0 0 2px rgba(180, 151, 113, 0.16);
+}
+
+.shop_item_multi_select_value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shop_item_multi_select_meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.shop_item_multi_select_chevron {
+  color: rgba(90, 64, 39, 0.8);
+  font-size: 0.82rem;
+}
+
+.shop_item_multi_select_panel {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 40;
+  padding: 8px;
+  border: 1px solid rgba(117, 88, 57, 0.22);
+  border-radius: 8px;
+  background: rgba(255, 252, 245, 0.96);
+  box-shadow:
+    0 10px 22px rgba(39, 24, 12, 0.14),
+    0 3px 8px rgba(39, 24, 12, 0.08);
+}
+
 .rune_window {
   width: min(560px, calc(100vw - 28px));
 }
@@ -1843,6 +2096,50 @@
   overflow-y: auto;
 }
 
+.rune_dropdown {
+  display: grid;
+  gap: 10px;
+}
+
+.rune_dropdown_trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid rgba(109, 76, 43, 0.24);
+  border-radius: 10px;
+  background: rgba(255, 250, 240, 0.92);
+  color: rgba(48, 33, 21, 0.94);
+  font-family: "Spectral", "Iowan Old Style", "Palatino Linotype", serif;
+  font-size: 1rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.rune_dropdown_trigger:hover,
+.rune_dropdown_trigger:focus-visible {
+  border-color: rgba(74, 118, 164, 0.42);
+  box-shadow: 0 0 0 2px rgba(158, 203, 236, 0.18);
+}
+
+.rune_dropdown_trigger_count {
+  min-width: 1.9rem;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(109, 76, 43, 0.12);
+  font-weight: 700;
+  text-align: center;
+}
+
+.rune_dropdown_panel {
+  border: 1px solid rgba(109, 76, 43, 0.2);
+  border-radius: 12px;
+  background: rgba(255, 252, 245, 0.94);
+  padding: 10px;
+}
+
 .rune_window_search_row {
   margin-bottom: 10px;
 }
@@ -1853,38 +2150,19 @@
 }
 
 .rune_window_options {
+  max-height: min(30vh, 240px);
   display: grid;
   gap: 10px;
 }
 
 .rune_option {
-  border: 1px solid rgba(109, 76, 43, 0.24);
-  border-radius: 10px;
-  background: rgba(255, 250, 240, 0.86);
-  overflow: hidden;
-}
-
-.rune_option_summary {
-  list-style: none;
-  cursor: pointer;
-  padding: 0;
-}
-
-.rune_option_summary::-webkit-details-marker {
-  display: none;
-}
-
-.rune_option_label {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
-  cursor: pointer;
 }
 
-.rune_option_label input {
-  margin: 0;
+.rune_option_copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
 }
 
 .rune_option_name {
@@ -1896,12 +2174,11 @@
 }
 
 .rune_option_body {
-  padding: 0 14px 14px 42px;
-  border-top: 1px solid rgba(109, 76, 43, 0.14);
+  padding: 0;
   font-family: "Spectral", "Iowan Old Style", "Palatino Linotype", serif;
-  font-size: 1rem;
-  line-height: 1.55;
-  color: rgba(64, 47, 31, 0.9);
+  font-size: 0.95rem;
+  line-height: 1.45;
+  color: rgba(64, 47, 31, 0.82);
 }
 
 .floating-tooltip .tooltip_rune_list {

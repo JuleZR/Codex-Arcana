@@ -5,6 +5,7 @@ from django.core.exceptions import ValidationError
 from django.test import TestCase
 
 from charsheet.engine.character_creation_engine import CharacterCreationEngine
+from charsheet.sheet_context import _build_inventory_rows, _build_shop_item_groups
 from charsheet.models import Character, Item, Race, RaceStartingItem
 
 
@@ -43,3 +44,45 @@ class RaceStartingItemTests(TestCase):
 
         with self.assertRaisesMessage(ValidationError, "always equipped"):
             starter.full_clean()
+
+    def test_race_starting_items_hide_quality_in_inventory_rows(self):
+        user = get_user_model().objects.create_user(username="raceinventory", password="secret")
+        race = Race.objects.create(name="Bestie")
+        bite = Item.objects.create(
+            name="Bissattacke Qualität",
+            price=0,
+            item_type=Item.ItemType.WEAPON,
+            stackable=False,
+            default_quality="legendary",
+        )
+        RaceStartingItem.objects.create(race=race, item=bite, amount=1, equipped=False)
+        character = Character.objects.create(owner=user, name="Raka", race=race)
+
+        CharacterCreationEngine.grant_race_starting_items(character)
+        owned_item = character.characteritem_set.get(item=bite)
+        owned_item.equipped = False
+        owned_item.equip_locked = True
+        owned_item.save(update_fields=["equipped", "equip_locked"])
+
+        rows = _build_inventory_rows(character)
+
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["quality_label"], "")
+        self.assertEqual(rows[0]["quality_color"], "")
+        self.assertNotIn("[[QUALITY:", rows[0]["tooltip_text"])
+
+    def test_race_starting_items_are_hidden_from_shop_groups(self):
+        race = Race.objects.create(name="Bestie")
+        bite = Item.objects.create(
+            name="Bissattacke Shop",
+            price=0,
+            item_type=Item.ItemType.WEAPON,
+            stackable=False,
+            default_quality="legendary",
+        )
+        RaceStartingItem.objects.create(race=race, item=bite, amount=1, equipped=False)
+
+        groups = _build_shop_item_groups()
+        shop_item_names = [item["name"] for group in groups for item in group["items"]]
+
+        self.assertNotIn("Bissattacke Shop", shop_item_names)

@@ -559,6 +559,9 @@ class ModifierEngine:
             if target[0] == TargetDomain.PROFICIENCY_GROUP:
                 resolved_targets.extend(self._expand_proficiency_group_target(target[1]))
                 continue
+            if target[0] == TargetDomain.ATTRIBUTE and modifier.target_domain == TargetDomain.ATTRIBUTE_CAP:
+                resolved_targets.append((TargetDomain.ATTRIBUTE_CAP, target[1]))
+                continue
             if target[0] != modifier.target_domain and target[0] != "metadata":
                 continue
             resolved_targets.append(target)

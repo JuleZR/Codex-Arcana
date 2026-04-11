@@ -314,6 +314,8 @@ class LegacyModifierMigrationService:
         }
 
         modifier_cls = classification["modifier_cls"]
+        effect_note = (legacy_modifier.effect_description or "").strip()
+        note_text = effect_note or classification["migration_note"]
         return modifier_cls(
             source_type=str(legacy_modifier.source_content_type.model),
             source_id=str(legacy_modifier.source_object_id),
@@ -332,7 +334,7 @@ class LegacyModifierMigrationService:
                 "min_school_level": legacy_modifier.min_school_level,
             },
             operator=operator,
-            notes=classification["migration_note"],
+            notes=note_text,
             metadata=metadata,
         )
 

@@ -255,6 +255,35 @@ class ModifierEngineSemanticTests(SimpleTestCase):
 
         self.assertEqual(engine.resolve_numeric_total(TargetDomain.ATTRIBUTE, "WILL"), -1)
 
+    def test_choice_bound_trait_attribute_cap_effect_resolves_selected_attribute(self):
+        attribute = Attribute(name="Willenskraft", short_name="WILL")
+        trait = Trait(name="Legendaere Eigenschaft", slug="adv_legendary_attribute", trait_type=Trait.TraitType.ADV, description="")
+        definition = TraitChoiceDefinition(
+            id=8,
+            trait=trait,
+            name="Waehle Eigenschaft",
+            target_kind=TraitChoiceDefinition.TargetKind.ATTRIBUTE,
+        )
+        effect = TraitSemanticEffect(
+            trait=trait,
+            target_choice_definition=definition,
+            target_domain=TargetDomain.ATTRIBUTE_CAP,
+            target_key="",
+            operator=ModifierOperator.FLAT_ADD,
+            value="1",
+        )
+
+        modifier = effect.to_modifier()
+        choice = CharacterTraitChoice(
+            definition=definition,
+            selected_attribute=attribute,
+        )
+        engine = ModifierEngine(modifiers=[modifier])
+        engine.character_engine = SimpleNamespace(_all_modifiers=[], _trait_choices_by_definition_id={8: [choice]})
+        engine.__dict__["_active_trait_modifiers"] = []
+
+        self.assertEqual(engine.resolve_numeric_total(TargetDomain.ATTRIBUTE_CAP, "WILL"), 1)
+
 
 class CharacterBuildValidatorTests(SimpleTestCase):
     """Validate build-time exclusion and CP cap rules."""

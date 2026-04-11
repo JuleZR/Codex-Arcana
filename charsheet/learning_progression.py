@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from collections import OrderedDict
 
-from charsheet.models import Item, Rune, Skill, SkillCategory, Specialization, Technique
+from charsheet.constants import RESOURCE_KEY_CHOICES, is_allowed_trait_attribute_choice
+from charsheet.models import Attribute, CharacterTrait, Item, Rune, Skill, SkillCategory, Specialization, Technique, TraitChoiceDefinition
 
 WEAPON_MASTERY_EXCLUDED_ITEM_NAMES = {
     "Bissattacke",
@@ -23,6 +24,8 @@ def weapon_mastery_item_definitions():
 
 
 CHOICE_FIELD_PREFIX_BY_KIND = {
+    TraitChoiceDefinition.TargetKind.ATTRIBUTE: "learn_choice_attribute",
+    TraitChoiceDefinition.TargetKind.RESOURCE: "learn_choice_resource",
     Technique.ChoiceTargetKind.SKILL: "learn_choice_skill",
     Technique.ChoiceTargetKind.SKILL_CATEGORY: "learn_choice_skill_category",
     Technique.ChoiceTargetKind.ITEM: "learn_choice_item",
@@ -32,6 +35,8 @@ CHOICE_FIELD_PREFIX_BY_KIND = {
 }
 
 CHOICE_KIND_LABELS = {
+    TraitChoiceDefinition.TargetKind.ATTRIBUTE: "Attribut",
+    TraitChoiceDefinition.TargetKind.RESOURCE: "Ressource",
     Technique.ChoiceTargetKind.SKILL: "Fertigkeit",
     Technique.ChoiceTargetKind.SKILL_CATEGORY: "Fertigkeitskategorie",
     Technique.ChoiceTargetKind.ITEM: "Gegenstand",
@@ -57,6 +62,14 @@ def race_choice_field_name(target_kind: str, definition_id: int) -> str:
     if not prefix:
         return ""
     return f"{prefix}_race_{definition_id}"
+
+
+def trait_choice_field_name(target_kind: str, trait_id: int, definition_id: int) -> str:
+    """Return the POST field name for one trait-choice target."""
+    prefix = CHOICE_FIELD_PREFIX_BY_KIND.get(target_kind)
+    if not prefix:
+        return ""
+    return f"{prefix}_trait_{trait_id}_{definition_id}"
 
 
 def _build_decision_option(
@@ -131,6 +144,7 @@ def build_learning_progression_context(character, *, engine) -> dict[str, object
     weapon_item_definitions = list(weapon_mastery_item_definitions())
     item_category_options = [{"value": value, "label": label} for value, label in Item.ItemType.choices]
     rune_definitions = list(Rune.objects.order_by("name"))
+    attribute_definitions = list(Attribute.objects.order_by("name"))
 
     for entry in learned_school_entries:
         school = entry.school
@@ -363,6 +377,13 @@ def build_learning_progression_context(character, *, engine) -> dict[str, object
                 )
             )
 
+    # Fulfilled and violated blocks: their remaining available techniques must not appear as
+    # standalone single-technique choices, because the block requirement is already satisfied.
+    for block_state in list(engine.fulfilled_technique_choice_blocks()) + list(engine.violated_technique_choice_blocks()):
+        block_id = int(block_state["block_id"])
+        available_states = technique_states_by_block_id.get(block_id, [])
+        handled_technique_ids.update(int(state["technique_id"]) for state in available_states)
+
     for row in [row for rows in technique_groups.values() for row in rows]:
         if row["technique_id"] in handled_technique_ids:
             continue
@@ -538,26 +559,100 @@ def build_learning_progression_context(character, *, engine) -> dict[str, object
                 if row is not None:
                     choice_groups.setdefault(race.name, []).append(row)
 
+    trait_entries = list(
+        CharacterTrait.objects.filter(owner=character)
+        .select_related("trait")
+        .prefetch_related("trait__choice_definitions")
+        .order_by("trait__trait_type", "trait__name", "id")
+    )
+    for trait_entry in trait_entries:
+        trait = trait_entry.trait
+        active_trait_definitions = list(
+            trait.choice_definitions.filter(is_active=True).order_by("sort_order", "name", "id")
+        )
+        for definition in active_trait_definitions:
+            if definition.target_kind not in {
+                TraitChoiceDefinition.TargetKind.ATTRIBUTE,
+                TraitChoiceDefinition.TargetKind.RESOURCE,
+            }:
+                continue
+            existing_count = len(engine._trait_choices_by_definition_id.get(definition.id, []))
+            required_count = definition.min_choices if definition.is_required else 0
+            missing_count = max(0, required_count - existing_count)
+            if definition.target_kind == TraitChoiceDefinition.TargetKind.ATTRIBUTE:
+                options = [
+                    {
+                        "value": attribute.short_name,
+                        "label": attribute.name,
+                        "meta": attribute.short_name,
+                    }
+                    for attribute in attribute_definitions
+                    if is_allowed_trait_attribute_choice(trait.slug, attribute.short_name)
+                ]
+            else:
+                resource_options = (
+                    [(definition.allowed_resource, dict(RESOURCE_KEY_CHOICES).get(definition.allowed_resource, definition.allowed_resource))]
+                    if definition.allowed_resource
+                    else list(RESOURCE_KEY_CHOICES)
+                )
+                options = [
+                    {
+                        "value": value,
+                        "label": label,
+                        "meta": "",
+                    }
+                    for value, label in resource_options
+                ]
+
+            for missing_index in range(missing_count):
+                choice_groups.setdefault(trait.name, []).append(
+                    {
+                        "choice_scope": "trait",
+                        "trait_id": trait.id,
+                        "trait_name": trait.name,
+                        "trait_slug": trait.slug,
+                        "definition_id": definition.id,
+                        "target_kind": definition.target_kind,
+                        "target_label": CHOICE_KIND_LABELS.get(definition.target_kind, definition.target_kind),
+                        "label": definition.name,
+                        "description": definition.description or "",
+                        "field_name": trait_choice_field_name(definition.target_kind, trait.id, definition.id),
+                        "slot_index": missing_index,
+                        "supported": True,
+                        "options": options,
+                    }
+                )
+
     for row in [row for rows in choice_groups.values() for row in rows]:
         input_type = "text" if row.get("allows_text_input") else "options"
         if not row["supported"]:
             input_type = "unsupported"
-        decision_prefix = "race-choice" if row.get("choice_scope") == "race" else "technique-choice"
-        decision_kind = "race_choice" if row.get("choice_scope") == "race" else "technique_choice"
-        decision_title = (
-            f"Choice: {row['race_name']}"
-            if row.get("choice_scope") == "race"
-            else f"Choice: {row['technique_name']}"
-        )
-        selection_group_id = (
-            f"race-choice:{row['definition_id']}"
-            if row.get("choice_scope") == "race"
-            else f"technique-choice:{row['technique_id']}:{row['definition_id'] or 'legacy'}"
-        )
+        choice_scope = row.get("choice_scope")
+        if choice_scope == "race":
+            decision_prefix = "race-choice"
+            decision_kind = "race_choice"
+            decision_title = f"Choice: {row['race_name']}"
+            selection_group_id = f"race-choice:{row['definition_id']}"
+            decision_key = f"{row['definition_id']}-{row['slot_index']}"
+        elif choice_scope == "trait":
+            decision_prefix = "trait-choice"
+            decision_kind = "trait_choice"
+            decision_title = f"Choice: {row['trait_name']}"
+            selection_group_id = f"trait-choice:{row['trait_id']}:{row['definition_id']}"
+            decision_key = f"{row['trait_id']}-{row['definition_id']}-{row['slot_index']}"
+        else:
+            decision_prefix = "technique-choice"
+            decision_kind = "technique_choice"
+            decision_title = f"Choice: {row['technique_name']}"
+            if row["target_kind"] == Technique.ChoiceTargetKind.SPECIALIZATION:
+                selection_group_id = f"technique-specialization:{row['school_id']}"
+            else:
+                selection_group_id = f"technique-choice:{row['technique_id']}:{row['definition_id'] or 'legacy'}"
+            decision_key = f"{row['technique_id']}-{row['definition_id'] or 'legacy'}-{row['slot_index']}"
         if row.get("allows_text_input"):
             pending_decisions.append(
                 _build_pending_decision(
-                    decision_id=f"{decision_prefix}-{row['definition_id'] or 'legacy'}-{row['slot_index']}",
+                    decision_id=f"{decision_prefix}-{decision_key}",
                     kind=decision_kind,
                     title=decision_title,
                     summary=f"{row['label']} | {row['target_label']}",
@@ -574,7 +669,7 @@ def build_learning_progression_context(character, *, engine) -> dict[str, object
 
         pending_decisions.append(
             _build_pending_decision(
-                decision_id=f"{decision_prefix}-{row['definition_id'] or 'legacy'}-{row['slot_index']}",
+                decision_id=f"{decision_prefix}-{decision_key}",
                 kind=decision_kind,
                 title=decision_title,
                 summary=f"{row['label']} | {row['target_label']}",

@@ -1861,6 +1861,17 @@ document.addEventListener("DOMContentLoaded", () => {
     };
   };
 
+  const qualityBadgeToneClass = (qualityMeta) => {
+    const label = String(qualityMeta?.label || "").trim().toLowerCase();
+    if (label === "schlechte qualität") {
+      return " tooltip_quality_badge--poor";
+    }
+    if (label === "gute qualität") {
+      return " tooltip_quality_badge--fine";
+    }
+    return "";
+  };
+
   const renderTooltipMarkup = (rawText) => {
     const text = String(rawText || "").trim();
     if (!text) {
@@ -1880,7 +1891,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const qualityMeta = parseQualityLine(line);
       if (qualityMeta) {
         chunks.push(
-          `<p class="tooltip_quality_line"><span class="tooltip_quality_badge" style="--tooltip-quality-color: ${escapeHtml(qualityMeta.color)};">Qualität: ${escapeHtml(qualityMeta.label)}</span></p>`
+          `<p class="tooltip_quality_line"><span class="tooltip_quality_badge${qualityBadgeToneClass(qualityMeta)}" style="--tooltip-quality-color: ${escapeHtml(qualityMeta.color)};">Qualität: ${escapeHtml(qualityMeta.label)}</span></p>`
         );
         i += 1;
         while (i < lines.length && !lines[i].trim()) {

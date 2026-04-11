@@ -17,7 +17,7 @@
       </thead>
       <tbody>
         {% for row in weapon_rows %}
-          <tr>
+          <tr{% if row.quality_color %} class="quality_tinted_row" style="--row-quality-color: {{ row.quality_color }};"{% endif %}>
             <td>
               {% if row.is_primary_profile %}
                 <div class="weapon_name_cell">
@@ -26,10 +26,11 @@
                       {% csrf_token %}
                       <button type="submit" class="equip_toggle is-equipped" title="Ablegen">-</button>
                     </form>
-                  {% else %}
-                    <button type="button" class="equip_toggle is-equipped" title="Startausrüstung bleibt angelegt" disabled>-</button>
                   {% endif %}
                   <span class="weapon_name{% if row.tooltip_text %} tooltip_target{% endif %}"{% if row.tooltip_text %} data-tooltip-side="left" data-tooltip="{{ row.tooltip_text }}"{% endif %}>{{ row.item.name }}</span>
+                  {% if row.has_runes %}
+                    <button type="button" class="inv_rune_marker" data-rune-toggle aria-controls="weapon-rune-list-{{ row.character_item.pk }}" aria-expanded="false" aria-label="Runen anzeigen" title="Runen anzeigen">&#x16A0;</button>
+                  {% endif %}
                 </div>
               {% else %}
                 <div class="weapon_name_cell" aria-hidden="true"></div>
@@ -50,6 +51,19 @@
               </span>
             </td>
           </tr>
+          {% if row.is_primary_profile and row.has_runes %}
+            <tr class="weapon_rune_row" id="weapon-rune-list-{{ row.character_item.pk }}" hidden>
+              <td colspan="9">
+                <ul class="inv_rune_list">
+                  {% for rune in row.rune_rows %}
+                    <li class="inv_rune_entry{% if rune.description %} tooltip_target{% endif %}"{% if rune.description %} data-tooltip-side="left" data-tooltip="{{ rune.description|escape }}"{% endif %}>
+                      {% if rune.image %}<img class="inv_rune_img" src="{{ rune.image }}" alt="">{% endif %}{{ rune.name|escape }}
+                    </li>
+                  {% endfor %}
+                </ul>
+              </td>
+            </tr>
+          {% endif %}
         {% endfor %}
       </tbody>
     </table>

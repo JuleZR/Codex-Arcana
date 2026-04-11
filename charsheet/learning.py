@@ -14,6 +14,7 @@ from charsheet.learning_rules import (
     school_max_levels,
 )
 from charsheet.models import (
+    Attribute,
     Character,
     CharacterAttribute,
     CharacterLanguage,
@@ -22,6 +23,7 @@ from charsheet.models import (
     CharacterSchoolPath,
     CharacterSpecialization,
     CharacterSkill,
+    CharacterTraitChoice,
     CharacterTrait,
     CharacterTechnique,
     CharacterTechniqueChoice,
@@ -32,7 +34,9 @@ from charsheet.models import (
     Skill,
     Technique,
     Trait,
+    TraitChoiceDefinition,
 )
+from charsheet.constants import is_allowed_trait_attribute_choice
 
 
 def _read_int(post_data, name: str, default: int = 0) -> int:
@@ -208,19 +212,38 @@ def _apply_progression_choices(character: Character, post_data) -> dict[str, int
         arcana_entry.save()
         summary["choices"] += 1
 
+    # Track (field_name, raw_value) pairs already saved this submission to avoid
+    # processing duplicate field names when multiple open slots share the same name.
+    saved_field_name_values: set[tuple[str, str]] = set()
+
     for row in progression_context["learn_choice_rows"]:
         if not row["supported"]:
             continue
         raw_value = str(post_data.get(row["field_name"], "")).strip()
         if not raw_value:
             continue
+        dedup_key = (row["field_name"], raw_value)
+        if dedup_key in saved_field_name_values:
+            continue
+        saved_field_name_values.add(dedup_key)
 
         choice_scope = row.get("choice_scope", "technique")
-        choice_label = row.get("technique_name") or row.get("race_name") or "Choice"
+        choice_label = row.get("technique_name") or row.get("race_name") or row.get("trait_name") or "Choice"
         choice_payload: dict[str, object] = {"character": character}
         choice_model = CharacterTechniqueChoice
         if choice_scope == "race":
             choice_model = CharacterRaceChoice
+            choice_payload["definition_id"] = row["definition_id"]
+        elif choice_scope == "trait":
+            trait_row = CharacterTrait.objects.filter(
+                owner=character,
+                trait_id=row["trait_id"],
+            ).first()
+            if trait_row is None:
+                raise LearningSubmissionError(f"{choice_label}: Vorteil oder Schwaeche nicht gefunden.")
+            choice_model = CharacterTraitChoice
+            choice_payload.pop("character", None)
+            choice_payload["character_trait"] = trait_row
             choice_payload["definition_id"] = row["definition_id"]
         else:
             choice_payload["technique_id"] = row["technique_id"]
@@ -229,7 +252,20 @@ def _apply_progression_choices(character: Character, post_data) -> dict[str, int
 
         target_kind = row["target_kind"]
         allowed_values = {str(option["value"]) for option in row["options"]}
-        if target_kind == Technique.ChoiceTargetKind.SKILL:
+        if target_kind == TraitChoiceDefinition.TargetKind.ATTRIBUTE:
+            if raw_value not in allowed_values:
+                raise LearningSubmissionError(f"{choice_label}: Ungueltige Attributswahl.")
+            if choice_scope == "trait" and not is_allowed_trait_attribute_choice(row.get("trait_slug"), raw_value):
+                raise LearningSubmissionError(f"{choice_label}: Dieses Attribut ist fuer diese Auswahl nicht erlaubt.")
+            attribute = Attribute.objects.filter(short_name=raw_value).first()
+            if attribute is None:
+                raise LearningSubmissionError(f"{choice_label}: Attribut nicht gefunden.")
+            choice_payload["selected_attribute"] = attribute
+        elif target_kind == TraitChoiceDefinition.TargetKind.RESOURCE:
+            if raw_value not in allowed_values:
+                raise LearningSubmissionError(f"{choice_label}: Ungueltige Ressourcenwahl.")
+            choice_payload["selected_resource"] = raw_value
+        elif target_kind == Technique.ChoiceTargetKind.SKILL:
             if raw_value not in allowed_values:
                 raise LearningSubmissionError(f"{choice_label}: Ungueltige Fertigkeitswahl.")
             choice_payload["selected_skill_id"] = int(raw_value)

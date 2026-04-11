@@ -4,6 +4,7 @@ from collections import defaultdict
 from copy import deepcopy
 
 from django.contrib import admin
+from django.contrib.admin.helpers import ActionForm
 from django.contrib.contenttypes.admin import GenericStackedInline
 from django import forms
 from django.http import HttpResponseRedirect, JsonResponse
@@ -38,6 +39,7 @@ from .models import (
     DamageSource,
     Item,
     Language,
+    MagicItemStats,
     Modifier,
     ProgressionRule,
     Race,
@@ -72,6 +74,8 @@ ShieldStats._meta.verbose_name = "Shield Stats"
 ShieldStats._meta.verbose_name_plural = "Shield Stats"
 WeaponStats._meta.verbose_name = "Weapon Stats"
 WeaponStats._meta.verbose_name_plural = "Weapon Stats"
+MagicItemStats._meta.verbose_name = "Magic Item Stats"
+MagicItemStats._meta.verbose_name_plural = "Magic Item Stats"
 
 
 def _quality_badge(quality: str):
@@ -207,6 +211,16 @@ def _apply_field_labels(base_fields, labels):
         field = base_fields.get(field_name)
         if field is not None:
             field.label = label
+
+
+class ItemBulkActionForm(ActionForm):
+    """Extra controls for item list bulk actions."""
+
+    target_item_type = forms.ChoiceField(
+        label="Neue Kategorie",
+        required=False,
+        choices=(("", "Kategorie wählen"), *Item.ItemType.choices),
+    )
 
 
 def _apply_monospace_description_fields(base_fields):
@@ -691,7 +705,7 @@ class ModifierInline(GenericStackedInline):
                 )
             },
         ),
-        ("Value", {"fields": (("mode", "value"),)}),
+        ("Value", {"fields": (("mode", "value"), "effect_description")}),
         ("Scaling", {"fields": (("scale_source", "scale_school", "scale_skill"), ("mul", "div", "round_mode"))}),
         ("Cap", {"fields": (("cap_mode", "cap_source"), "min_school_level")}),
         (
@@ -1211,6 +1225,17 @@ class WeaponStatsInline(admin.StackedInline):
         "h2_flat_bonus",
         "flags",
     )
+
+
+class MagicItemStatsInline(admin.StackedInline):
+    """Inline editor for one-to-one magic-item stats on an item."""
+
+    model = MagicItemStats
+    verbose_name_plural = "Magic Item Stats"
+    extra = 0
+    max_num = 1
+    can_delete = True
+    fields = ("effect_summary",)
 
 
 class WeaponStatsByDamageSourceInline(admin.TabularInline):
@@ -2290,6 +2315,8 @@ class TechniqueAdmin(admin.ModelAdmin):
 class ItemAdmin(admin.ModelAdmin):
     """Admin configuration for items."""
 
+    action_form = ItemBulkActionForm
+    actions = ("change_item_type_action",)
     list_display = (
         "name",
         "item_type",
@@ -2304,7 +2331,15 @@ class ItemAdmin(admin.ModelAdmin):
     search_fields = ("name", "description", "item_type", "runes__name")
     list_filter = ("item_type", "default_quality", "stackable", "is_consumable", "size_class", "runes")
     ordering = ("item_type", "name")
-    inlines = (ArmorStatsInline, ShieldStatsInline, WeaponStatsInline, ItemRaceStartingInline, ItemCharacterInline)
+    inlines = (
+        ArmorStatsInline,
+        ShieldStatsInline,
+        WeaponStatsInline,
+        MagicItemStatsInline,
+        ModifierInline,
+        ItemRaceStartingInline,
+        ItemCharacterInline,
+    )
     filter_horizontal = ("runes",)
 
     @admin.display(description="Runes")
@@ -2316,6 +2351,26 @@ class ItemAdmin(admin.ModelAdmin):
     def quality_preview(self, obj):
         """Render default quality with RPG item coloring."""
         return _quality_badge(obj.default_quality)
+
+    @admin.action(description="Kategorie der ausgewählten Items ändern")
+    def change_item_type_action(self, request, queryset):
+        """Bulk-update the item category of the selected items."""
+        target_item_type = (request.POST.get("target_item_type") or "").strip()
+        valid_item_types = {value for value, _label in Item.ItemType.choices}
+        if target_item_type not in valid_item_types:
+            self.message_user(
+                request,
+                "Bitte oben in der Action-Leiste eine gültige Ziel-Kategorie auswählen.",
+                level="warning",
+            )
+            return
+
+        updated_count = queryset.exclude(item_type=target_item_type).update(item_type=target_item_type)
+        target_label = dict(Item.ItemType.choices).get(target_item_type, target_item_type)
+        self.message_user(
+            request,
+            f"{updated_count} Item(s) wurden auf die Kategorie '{target_label}' gesetzt.",
+        )
 
 
 @admin.register(CharacterItem)

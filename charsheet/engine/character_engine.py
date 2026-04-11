@@ -15,6 +15,7 @@ from .item_engine import ItemEngine
 from charsheet.modifiers import ModifierEngine, ModifierResolutionMode, TargetDomain
 from charsheet.models import (
     Character,
+    CharacterItem,
     CharacterLanguage,
     CharacterRaceChoice,
     CharacterSchool,
@@ -441,6 +442,15 @@ class CharacterEngine:
             School: set(self._school_entries.keys()),
             Trait: set(self._trait_levels.keys()),
             Technique: set(self._computed_technique_ids),
+            Item: set(
+                CharacterItem.objects.filter(
+                    owner=self.character,
+                    equipped=True,
+                )
+                .filter(
+                    Q(item__is_magic=True) | Q(item__item_type=Item.ItemType.MAGIC_ITEM)
+                ).values_list("item_id", flat=True)
+            ),
         }
         source_ids_by_model = {
             model_class: source_ids
@@ -696,11 +706,13 @@ class CharacterEngine:
     equipped_weapon_items = character_equipment.equipped_weapon_items
     equipped_armor_items = character_equipment.equipped_armor_items
     equipped_clothing_items = character_equipment.equipped_clothing_items
+    equipped_magic_item_items = character_equipment.equipped_magic_item_items
     equipped_shield_items = character_equipment.equipped_shield_items
     weapon_quality_skill_modifier = character_equipment.weapon_quality_skill_modifier
     equipped_weapon_rows = character_equipment.equipped_weapon_rows
     equipped_armor_rows = character_equipment.equipped_armor_rows
     equipped_clothing_rows = character_equipment.equipped_clothing_rows
+    equipped_magic_item_rows = character_equipment.equipped_magic_item_rows
     equipped_shield_rows = character_equipment.equipped_shield_rows
     get_grs = character_equipment.get_grs
     get_bel = character_equipment.get_bel
@@ -1345,6 +1357,14 @@ class CharacterEngine:
                 and self._has_technique_learned(source, learned_stack, available_stack)
                 and self._is_technique_available(source, learned_stack, available_stack)
             )
+        if isinstance(source, Item):
+            return CharacterItem.objects.filter(
+                owner=self.character,
+                equipped=True,
+                item_id=source.id,
+            ).filter(
+                Q(item__is_magic=True) | Q(item__item_type=Item.ItemType.MAGIC_ITEM)
+            ).exists()
         return False
 
     def _technique_effect_is_computed(self, technique: Technique) -> bool:

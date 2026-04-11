@@ -119,6 +119,7 @@ class Modifier(models.Model):
 
     # --- Value and scaling ---
 
+    effect_description = models.CharField(max_length=255, blank=True, default="")
     mode = models.CharField(max_length=20, choices=Mode.choices, default=Mode.FLAT)
     value = models.SmallIntegerField(default=0)
     scale_source = models.CharField(max_length=30, choices=ScaleSource.choices, null=True, blank=True)
@@ -447,4 +448,5 @@ class Modifier(models.Model):
         return f"{value} [{choice_label}]" if choice_label else value
 
     def __str__(self):
-        return f"{self.source} -> {self.target_kind}:{self.target_display()}"
+        effect_suffix = f" [{self.effect_description}]" if self.effect_description else ""
+        return f"{self.source} -> {self.target_kind}:{self.target_display()}{effect_suffix}"

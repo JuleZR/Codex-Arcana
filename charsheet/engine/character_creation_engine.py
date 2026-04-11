@@ -30,7 +30,7 @@ from charsheet.models import (
     TraitChoiceDefinition,
     Trait,
 )
-from charsheet.constants import RESOURCE_KEY_CHOICES
+from charsheet.constants import ATTR_SPEC, LEGENDARY_ATTRIBUTE_TRAIT_SLUG, RESOURCE_KEY_CHOICES, is_allowed_trait_attribute_choice
 
 
 class CharacterCreationEngine:
@@ -159,6 +159,8 @@ class CharacterCreationEngine:
                 for value in values:
                     if definition.target_kind == TraitChoiceDefinition.TargetKind.ATTRIBUTE:
                         if not Attribute.objects.filter(short_name=value).exists():
+                            return False
+                        if not is_allowed_trait_attribute_choice(trait.slug, value):
                             return False
                     elif definition.target_kind == TraitChoiceDefinition.TargetKind.RESOURCE:
                         valid_resources = {choice for choice, _label in RESOURCE_KEY_CHOICES}
@@ -885,6 +887,8 @@ class CharacterCreationEngine:
                 character.save(update_fields=["money"])
 
             self.grant_race_starting_items(character)
+            character.current_arcane_power = max(0, int(character.get_engine(refresh=True).calculate_arcane_power()))
+            character.save(update_fields=["current_arcane_power"])
             self.draft.delete()
 
             return character

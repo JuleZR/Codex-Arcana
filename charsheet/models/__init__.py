@@ -27,6 +27,7 @@ from .core import (
 from .items import (
     ArmorStats,
     Item,
+    MagicItemStats,
     RaceStartingItem,
     Rune,
     ShieldStats,
@@ -81,6 +82,7 @@ __all__ = [
     "DamageSource",
     "Item",
     "Language",
+    "MagicItemStats",
     "Modifier",
     "ProgressionRule",
     "Race",

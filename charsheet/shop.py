@@ -2,12 +2,29 @@
 
 from __future__ import annotations
 
+import json
+
+from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError
 from django.db import transaction
 
 from charsheet.constants import DEADLY
 from charsheet.engine import ItemEngine
-from charsheet.models import ArmorStats, Character, CharacterItem, DamageSource, Item, Rune, ShieldStats, WeaponStats
+from charsheet.models import (
+    ArmorStats,
+    Character,
+    CharacterItem,
+    DamageSource,
+    Item,
+    MagicItemStats,
+    Modifier,
+    Rune,
+    ShieldStats,
+    Skill,
+    SkillCategory,
+    Specialization,
+    WeaponStats,
+)
 
 
 def _read_int(post_data, name: str, default: int = 0, *, minimum: int | None = None) -> int:
@@ -46,6 +63,93 @@ def _read_many_values(post_data, name: str) -> list[str]:
     return [str(raw_value).strip()]
 
 
+def _build_magic_modifier_payload(target_kind: str, raw_value, row_data) -> dict[str, object] | None:
+    """Resolve one normalized magic-item modifier payload from raw row data."""
+    if not target_kind:
+        return None
+
+    try:
+        value = int(raw_value or 0)
+    except (TypeError, ValueError):
+        value = 0
+
+    payload: dict[str, object] = {
+        "target_kind": target_kind,
+        "value": value,
+        "effect_description": str(row_data.get("effect_description") or "").strip(),
+        "target_slug": "",
+        "target_skill": None,
+        "target_skill_category": None,
+        "target_item": None,
+        "target_specialization": None,
+    }
+
+    if target_kind == Modifier.TargetKind.STAT:
+        payload["target_slug"] = str(row_data.get("target_stat") or "").strip()
+    elif target_kind == Modifier.TargetKind.SKILL:
+        skill_id = max(1, int(row_data.get("target_skill") or 0))
+        payload["target_skill"] = Skill.objects.get(pk=skill_id)
+        payload["target_slug"] = payload["target_skill"].slug
+    elif target_kind == Modifier.TargetKind.CATEGORY:
+        category_id = max(1, int(row_data.get("target_skill_category") or 0))
+        payload["target_skill_category"] = SkillCategory.objects.get(pk=category_id)
+        payload["target_slug"] = payload["target_skill_category"].slug
+    elif target_kind == Modifier.TargetKind.ITEM_CATEGORY:
+        payload["target_slug"] = str(row_data.get("target_item_category") or "").strip()
+    elif target_kind == Modifier.TargetKind.SPECIALIZATION:
+        specialization_id = max(1, int(row_data.get("target_specialization") or 0))
+        payload["target_specialization"] = Specialization.objects.get(pk=specialization_id)
+    else:
+        raise ValidationError({"magic_modifier_target_kind": "Unsupported magic modifier target."})
+
+    return payload
+
+
+def _read_magic_modifier_payload(post_data) -> dict[str, object] | None:
+    """Read one optional legacy magic-item modifier definition from the shop form."""
+    return _build_magic_modifier_payload(
+        str(post_data.get("magic_modifier_target_kind") or "").strip(),
+        post_data.get("magic_modifier_value", 0),
+        {
+            "target_stat": post_data.get("magic_modifier_target_stat"),
+            "target_skill": post_data.get("magic_modifier_target_skill"),
+            "target_skill_category": post_data.get("magic_modifier_target_skill_category"),
+            "target_item_category": post_data.get("magic_modifier_target_item_category"),
+            "target_specialization": post_data.get("magic_modifier_target_specialization"),
+            "effect_description": post_data.get("magic_modifier_effect_description"),
+        },
+    )
+
+
+def _read_magic_modifier_payloads(post_data) -> list[dict[str, object]]:
+    """Read zero or more magic-item modifier definitions from the shop form."""
+    raw_payloads = str(post_data.get("magic_modifier_payloads") or "").strip()
+    if not raw_payloads:
+        legacy_payload = _read_magic_modifier_payload(post_data)
+        return [legacy_payload] if legacy_payload is not None else []
+
+    try:
+        decoded_payloads = json.loads(raw_payloads)
+    except json.JSONDecodeError as exc:
+        raise ValidationError({"magic_modifier_payloads": "Ungültige Magie-Effekte."}) from exc
+
+    if not isinstance(decoded_payloads, list):
+        raise ValidationError({"magic_modifier_payloads": "Ungültige Magie-Effekte."})
+
+    payloads: list[dict[str, object]] = []
+    for entry in decoded_payloads:
+        if not isinstance(entry, dict):
+            raise ValidationError({"magic_modifier_payloads": "Ungültige Magie-Effekte."})
+        payload = _build_magic_modifier_payload(
+            str(entry.get("target_kind") or "").strip(),
+            entry.get("value", 0),
+            entry,
+        )
+        if payload is not None:
+            payloads.append(payload)
+    return payloads
+
+
 def _read_runes(post_data, name: str = "runes"):
     """Resolve rune IDs from one POST-like payload."""
     rune_ids = []
@@ -69,13 +173,22 @@ def create_custom_shop_item(post_data) -> bool:
     item_type = (post_data.get("item_type") or Item.ItemType.MISC).strip()
     description = (post_data.get("description") or "").strip()
     stackable = bool(post_data.get("stackable"))
+    is_magic = bool(post_data.get("is_magic")) or item_type == Item.ItemType.MAGIC_ITEM
     default_quality = _read_quality(post_data, "default_quality", ItemEngine.normalize_quality(None))
     weight = _read_int(post_data, "weight", 0, minimum=0)
     size_class = str(post_data.get("size_class") or "M")
     is_consumable = item_type == Item.ItemType.CONSUM
     selected_runes = list(_read_runes(post_data))
+    magic_modifier_payloads = _read_magic_modifier_payloads(post_data) if is_magic else []
 
-    if item_type in (Item.ItemType.ARMOR, Item.ItemType.WEAPON, Item.ItemType.SHIELD, Item.ItemType.CLOTHING):
+    if item_type in (
+        Item.ItemType.ARMOR,
+        Item.ItemType.WEAPON,
+        Item.ItemType.SHIELD,
+        Item.ItemType.CLOTHING,
+    ):
+        stackable = False
+    if is_magic:
         stackable = False
     if not stackable:
         is_consumable = False
@@ -90,6 +203,7 @@ def create_custom_shop_item(post_data) -> bool:
                 description=description,
                 stackable=stackable,
                 is_consumable=is_consumable,
+                is_magic=is_magic,
                 default_quality=default_quality,
                 weight=weight,
                 size_class=size_class,
@@ -164,7 +278,39 @@ def create_custom_shop_item(post_data) -> bool:
                 )
                 shield_stats.full_clean()
                 shield_stats.save()
-    except (ValidationError, ValueError, DamageSource.DoesNotExist):
+            if item.is_magic_effective:
+                magic_item_stats = MagicItemStats(
+                    item=item,
+                    effect_summary=(post_data.get("magic_effect_summary") or "").strip(),
+                )
+                magic_item_stats.full_clean()
+                magic_item_stats.save()
+                for magic_modifier_payload in magic_modifier_payloads:
+                    item_ct = ContentType.objects.get_for_model(Item, for_concrete_model=False)
+                    modifier = Modifier(
+                        source_content_type=item_ct,
+                        source_object_id=item.id,
+                        target_kind=str(magic_modifier_payload["target_kind"]),
+                        target_slug=str(magic_modifier_payload["target_slug"] or ""),
+                        target_skill=magic_modifier_payload["target_skill"],
+                        target_skill_category=magic_modifier_payload["target_skill_category"],
+                        target_item=magic_modifier_payload["target_item"],
+                        target_specialization=magic_modifier_payload["target_specialization"],
+                        effect_description=str(magic_modifier_payload.get("effect_description") or ""),
+                        mode=Modifier.Mode.FLAT,
+                        value=int(magic_modifier_payload["value"]),
+                    )
+                    modifier.full_clean()
+                    modifier.save()
+    except (
+        ValidationError,
+        ValueError,
+        DamageSource.DoesNotExist,
+        Skill.DoesNotExist,
+        SkillCategory.DoesNotExist,
+        Specialization.DoesNotExist,
+        Item.DoesNotExist,
+    ):
         if item.pk:
             item.delete()
         return False

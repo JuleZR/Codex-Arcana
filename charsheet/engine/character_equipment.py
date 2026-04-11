@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from django.db.models import QuerySet
+from django.db.models import Q
 
 from charsheet.constants import ARMOR_PENALTY_IGNORE, ATTR_ST, DEFENSE_RS
 from charsheet.models import CharacterItem, Item
@@ -45,6 +46,21 @@ def equipped_clothing_items(engine) -> QuerySet:
             item__item_type=Item.ItemType.CLOTHING,
         )
         .select_related("item")
+        .prefetch_related("item__runes", "runes")
+    )
+
+
+def equipped_magic_item_items(engine) -> QuerySet:
+    """Return all currently equipped magic items of the character."""
+    return (
+        CharacterItem.objects.filter(
+            owner=engine.character,
+            equipped=True,
+        )
+        .filter(
+            Q(item__is_magic=True) | Q(item__item_type=Item.ItemType.MAGIC_ITEM)
+        )
+        .select_related("item", "item__magicitemstats")
         .prefetch_related("item__runes", "runes")
     )
 
@@ -166,6 +182,23 @@ def equipped_clothing_rows(engine) -> list[dict]:
                 "item": character_item.item,
                 "quality": item_engine.get_effective_quality(),
                 "quality_color": item_engine.get_quality_color(),
+            }
+        )
+    return rows
+
+
+def equipped_magic_item_rows(engine) -> list[dict]:
+    """Return equipped magic item rows for the armor panel without combat stats."""
+    rows: list[dict] = []
+    for character_item in engine.equipped_magic_item_items():
+        item_engine = ItemEngine(character_item)
+        rows.append(
+            {
+                "character_item": character_item,
+                "item": character_item.item,
+                "quality": item_engine.get_effective_quality(),
+                "quality_color": item_engine.get_quality_color(),
+                "effect_summary": getattr(getattr(character_item.item, "magicitemstats", None), "effect_summary", ""),
             }
         )
     return rows

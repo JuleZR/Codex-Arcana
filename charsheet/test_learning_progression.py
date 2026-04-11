@@ -6,7 +6,7 @@ from django.test import TestCase
 
 from charsheet.constants import SCHOOL_COMBAT, SKILL_SOCIAL
 from charsheet.learning import process_learning_submission
-from charsheet.learning_progression import build_learning_progression_context, choice_field_name, race_choice_field_name
+from charsheet.learning_progression import build_learning_progression_context, choice_field_name, race_choice_field_name, trait_choice_field_name
 from charsheet.models import (
     Attribute,
     Character,
@@ -17,6 +17,8 @@ from charsheet.models import (
     CharacterSpecialization,
     CharacterTechnique,
     CharacterTechniqueChoice,
+    CharacterTrait,
+    CharacterTraitChoice,
     Modifier,
     RaceChoiceDefinition,
     TechniqueChoiceBlock,
@@ -30,6 +32,7 @@ from charsheet.models import (
     Specialization,
     Technique,
     Trait,
+    TraitChoiceDefinition,
 )
 
 
@@ -209,6 +212,86 @@ class LearningProgressionSubmissionTests(TestCase):
         choice = CharacterTechniqueChoice.objects.get(character=self.character, technique=technique)
         self.assertEqual(choice.selected_specialization_id, specialization.id)
 
+    def test_learning_context_groups_parallel_specialization_choices(self):
+        """Parallel specialization slots should share one exclusivity group with unique decision ids."""
+        first_source = Technique.objects.create(
+            school=self.school,
+            name="Choir Doctrine",
+            level=1,
+            support_level=Technique.SupportLevel.STRUCTURED,
+            specialization_slot_grants=1,
+        )
+        second_source = Technique.objects.create(
+            school=self.school,
+            name="Stage Presence",
+            level=1,
+            support_level=Technique.SupportLevel.STRUCTURED,
+            specialization_slot_grants=1,
+        )
+        CharacterTechnique.objects.create(character=self.character, technique=first_source)
+        CharacterTechnique.objects.create(character=self.character, technique=second_source)
+        Specialization.objects.create(
+            school=self.school,
+            name="Echo Verse",
+            slug="echo-verse",
+            support_level=Specialization.SupportLevel.STRUCTURED,
+        )
+        Specialization.objects.create(
+            school=self.school,
+            name="Silver Voice",
+            slug="silver-voice",
+            support_level=Specialization.SupportLevel.STRUCTURED,
+        )
+
+        context = build_learning_progression_context(self.character, engine=self.character.get_engine(refresh=True))
+
+        pending = [decision for decision in context["learn_pending_decisions"] if decision["kind"] == "specialization"]
+        self.assertEqual(len(pending), 2)
+        self.assertNotEqual(pending[0]["decision_id"], pending[1]["decision_id"])
+        self.assertEqual(pending[0]["selection_group_id"], pending[1]["selection_group_id"])
+
+    def test_learning_context_groups_parallel_technique_specialization_choices_by_school(self):
+        """Technique-bound specialization choices in one school should share one exclusivity group."""
+        first_choice = Technique.objects.create(
+            school=self.school,
+            name="Erwachte Begabung",
+            level=2,
+            support_level=Technique.SupportLevel.STRUCTURED,
+            choice_target_kind=Technique.ChoiceTargetKind.SPECIALIZATION,
+            choice_limit=1,
+        )
+        second_choice = Technique.objects.create(
+            school=self.school,
+            name="Erwachte Begabung",
+            level=4,
+            support_level=Technique.SupportLevel.STRUCTURED,
+            choice_target_kind=Technique.ChoiceTargetKind.SPECIALIZATION,
+            choice_limit=1,
+        )
+        CharacterTechnique.objects.create(character=self.character, technique=first_choice)
+        CharacterTechnique.objects.create(character=self.character, technique=second_choice)
+        Specialization.objects.create(
+            school=self.school,
+            name="Agitator",
+            slug="agitator",
+            support_level=Specialization.SupportLevel.STRUCTURED,
+        )
+        Specialization.objects.create(
+            school=self.school,
+            name="Traumdeuter",
+            slug="traumdeuter",
+            support_level=Specialization.SupportLevel.STRUCTURED,
+        )
+
+        context = build_learning_progression_context(self.character, engine=self.character.get_engine(refresh=True))
+
+        pending = [decision for decision in context["learn_pending_decisions"] if decision["kind"] == "technique_choice"]
+        self.assertEqual(len(pending), 2)
+        self.assertEqual(
+            {decision["selection_group_id"] for decision in pending},
+            {f"technique-specialization:{self.school.id}"},
+        )
+
     def test_learning_submission_can_store_race_skill_choice(self):
         """Race choices should persist required skill picks through the learning form."""
         craft = SkillCategory.objects.create(name="Craft", slug="craft")
@@ -351,6 +434,88 @@ class LearningProgressionSubmissionTests(TestCase):
         self.assertEqual(len(race_rows), 1)
         self.assertEqual(race_rows[0]["definition_id"], definition.id)
         self.assertEqual(race_rows[0]["race_name"], self.race.name)
+
+    def test_learning_context_exposes_pending_trait_choice(self):
+        """Trait choices with missing required selections should appear in the learning context."""
+        trait = Trait.objects.create(
+            name="Legendary Attribute",
+            slug="adv_legendary_attribute",
+            trait_type=Trait.TraitType.ADV,
+            points_per_level=4,
+        )
+        trait_entry = CharacterTrait.objects.create(owner=self.character, trait=trait, trait_level=1)
+        definition = TraitChoiceDefinition.objects.create(
+            trait=trait,
+            name="Choose attribute",
+            target_kind=TraitChoiceDefinition.TargetKind.ATTRIBUTE,
+            description="Choose one legendary attribute.",
+        )
+        Attribute.objects.create(name="Spezial", short_name="spz.")
+
+        context = build_learning_progression_context(self.character, engine=self.character.get_engine(refresh=True))
+
+        trait_rows = [row for row in context["learn_choice_rows"] if row.get("choice_scope") == "trait"]
+        self.assertEqual(len(trait_rows), 1)
+        self.assertEqual(trait_rows[0]["trait_id"], trait.id)
+        self.assertEqual(trait_rows[0]["definition_id"], definition.id)
+        self.assertEqual(trait_rows[0]["field_name"], trait_choice_field_name(definition.target_kind, trait.id, definition.id))
+        self.assertNotIn("spz.", [option["value"] for option in trait_rows[0]["options"]])
+        self.assertEqual(trait_entry.choices.count(), 0)
+
+    def test_learning_submission_can_store_missing_trait_choice(self):
+        """Missing trait choices should be writable through the learning submission."""
+        trait = Trait.objects.create(
+            name="Legendary Attribute",
+            slug="adv_legendary_attribute",
+            trait_type=Trait.TraitType.ADV,
+            points_per_level=4,
+        )
+        CharacterTrait.objects.create(owner=self.character, trait=trait, trait_level=1)
+        definition = TraitChoiceDefinition.objects.create(
+            trait=trait,
+            name="Choose attribute",
+            target_kind=TraitChoiceDefinition.TargetKind.ATTRIBUTE,
+            description="Choose one legendary attribute.",
+        )
+
+        level, message = process_learning_submission(
+            self.character,
+            {
+                trait_choice_field_name(definition.target_kind, trait.id, definition.id): self.attribute.short_name,
+            },
+        )
+
+        self.assertEqual(level, "success")
+        self.assertIn("Auswahl", message)
+        choice = CharacterTraitChoice.objects.get(character_trait__owner=self.character, definition=definition)
+        self.assertEqual(choice.selected_attribute_id, self.attribute.id)
+
+    def test_learning_submission_rejects_special_attribute_for_legendary_attribute(self):
+        """Legendary Attribute must not allow the special attribute as a choice."""
+        special_attribute = Attribute.objects.create(name="Spezial", short_name="spz.")
+        trait = Trait.objects.create(
+            name="Legendary Attribute",
+            slug="adv_legendary_attribute",
+            trait_type=Trait.TraitType.ADV,
+            points_per_level=4,
+        )
+        CharacterTrait.objects.create(owner=self.character, trait=trait, trait_level=1)
+        definition = TraitChoiceDefinition.objects.create(
+            trait=trait,
+            name="Choose attribute",
+            target_kind=TraitChoiceDefinition.TargetKind.ATTRIBUTE,
+            description="Choose one legendary attribute.",
+        )
+
+        level, message = process_learning_submission(
+            self.character,
+            {
+                trait_choice_field_name(definition.target_kind, trait.id, definition.id): special_attribute.short_name,
+            },
+        )
+
+        self.assertEqual(level, "error")
+        self.assertIn("nicht erlaubt", message)
 
     def test_learning_context_groups_open_technique_block_as_single_pending_decision(self):
         """Technique choice blocks should arrive as one grouped modal decision with multiple options."""

@@ -1,14 +1,14 @@
 <div class="p2_panel p2_fill" id="sheetInventoryPanel">
   <div class="p2_panel_header">
-    <h2>Ausr?stung</h2>
+    <h2>Ausrüstung</h2>
   </div>
   <div class="panel_scroll inventory_scroll">
     <ul class="p2_lines">
       {% for row in inventory_rows %}
-        <li class="inv_row{% if row.tooltip_text %} tooltip_target{% endif %}"{% if row.tooltip_text %} data-tooltip-side="right" data-tooltip="{{ row.tooltip_text }}"{% endif %}>
+        <li class="inv_row{% if row.quality_color %} quality_tinted_row{% endif %}{% if row.tooltip_text %} tooltip_target{% endif %}"{% if row.quality_color %} style="--row-quality-color: {{ row.quality_color }};"{% endif %}{% if row.tooltip_text %} data-tooltip-side="right" data-tooltip="{{ row.tooltip_text }}"{% endif %}>
           <span class="inv_name_wrap">
             {% if row.has_runes %}
-              <span class="inv_rune_marker" aria-label="Runen vorhanden" title="Runen vorhanden">&#x16A0;</span>
+              <button type="button" class="inv_rune_marker" data-rune-toggle aria-expanded="false" aria-label="Runen anzeigen" title="Runen anzeigen">&#x16A0;</button>
             {% endif %}
             <span class="inv_name">{{ row.display_name }}</span>
           </span>
@@ -48,6 +48,15 @@
               </span>
             </span>
           </span>
+          {% if row.has_runes %}
+            <ul class="inv_rune_list" hidden>
+              {% for rune in row.rune_rows %}
+                <li class="inv_rune_entry{% if rune.description %} tooltip_target{% endif %}"{% if rune.description %} data-tooltip-side="right" data-tooltip="{{ rune.description|escape }}"{% endif %}>
+                  {% if rune.image %}<img class="inv_rune_img" src="{{ rune.image }}" alt="">{% endif %}{{ rune.name|escape }}
+                </li>
+              {% endfor %}
+            </ul>
+          {% endif %}
         </li>
       {% endfor %}
     </ul>

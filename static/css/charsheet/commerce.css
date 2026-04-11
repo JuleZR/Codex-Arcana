@@ -92,12 +92,21 @@
 .shop_list_scroll {
   flex: 1 1 auto;
   min-height: 0;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   margin: 0 8px 8px;
   border: 1px solid rgba(74, 55, 38, 0.28);
   border-radius: 6px;
   background: rgba(255, 248, 230, 0.2);
   padding: 0;
+}
+
+/* window-system.css loads later and sets .sheet-window__surface--scroll to overflow:hidden */
+.sheet-window .shop_list_scroll {
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .shop_group {
@@ -377,19 +386,21 @@
 }
 
 .learn_choice_window {
-  width: min(640px, calc(100vw - 28px));
+  width: min(980px, calc(100vw - 28px));
 }
 
 .learn_choice_window_body {
   padding: 12px;
-  max-height: min(72vh, 760px);
-  overflow-y: auto;
+  height: min(78vh, 760px);
+  min-height: 0;
+  overflow: hidden;
 }
 
 .learn_choice_form {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto auto;
-  gap: 12px;
+  grid-template-rows: minmax(0, 1fr);
+  height: 100%;
+  min-height: 0;
 }
 
 .learn_choice_window_intro,
@@ -406,86 +417,274 @@
   letter-spacing: 0.02em;
 }
 
-.learn_choice_decision_list {
+.learn_choice_layout {
   display: grid;
-  gap: 6px;
-  max-height: min(52vh, 560px);
+  grid-template-columns: minmax(240px, 290px) minmax(0, 1fr);
+  gap: 14px;
+  min-height: 0;
+}
+
+/* Override sheet-window__layout--split column ratio for the choice window */
+.learn_choice_window .learn_choice_layout {
+  grid-template-columns: minmax(240px, 290px) minmax(0, 1fr);
+}
+
+.learn_choice_sidebar,
+.learn_choice_detail_wrap {
+  min-height: 0;
+}
+
+.learn_choice_nav,
+.learn_choice_panel_list {
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
-  padding-right: 4px;
 }
 
-.learn_choice_decision {
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  overflow: visible;
-  box-shadow: none;
+/* window-system.css loads after commerce.css — use higher specificity to keep scrolling */
+.learn_choice_window .learn_choice_panel_list {
+  overflow-y: auto;
 }
 
-.learn_choice_decision_toggle {
-  list-style: none;
-  cursor: pointer;
-  padding: 10px 12px;
-  border: 1px solid rgba(109, 76, 43, 0.22);
-  border-radius: 8px;
-  background: rgba(246, 237, 221, 0.52);
-}
-
-.learn_choice_decision.is-resolved .learn_choice_decision_toggle {
-  border-color: rgba(58, 126, 72, 0.42);
-  background: linear-gradient(180deg, rgba(224, 244, 226, 0.92), rgba(194, 230, 198, 0.88));
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.76),
-    0 0 0 1px rgba(116, 179, 127, 0.16);
-}
-
-.learn_choice_decision.is-resolved .learn_choice_decision_title,
-.learn_choice_decision.is-resolved .learn_choice_decision_summary {
-  color: #24522f;
-}
-
-.learn_choice_decision[open] .learn_choice_decision_toggle {
-  border-bottom-left-radius: 0;
-  border-bottom-right-radius: 0;
-}
-
-.learn_choice_decision_toggle::-webkit-details-marker {
-  display: none;
-}
-
-.learn_choice_decision_toggle_text {
+.learn_choice_nav {
   display: grid;
-  gap: 2px;
+  align-content: start;
+  gap: 8px;
+  padding: 8px;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
-.learn_choice_decision_body {
-  display: grid;
-  gap: 10px;
-  padding: 10px 12px 12px;
-  border: 1px solid rgba(109, 76, 43, 0.16);
-  border-top: 0;
-  border-bottom-left-radius: 8px;
-  border-bottom-right-radius: 8px;
-  background: rgba(255, 251, 244, 0.82);
-}
-
-
-.learn_choice_decision_title {
-  display: block;
-  font-family: "Cormorant Garamond", Georgia, serif;
-  font-size: 1.18rem;
+.learn_choice_nav_count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border: 1px solid rgba(124, 89, 55, 0.28);
+  border-radius: 999px;
+  background: rgba(255, 250, 242, 0.76);
+  color: rgba(94, 52, 38, 0.88);
+  font-family: "Cinzel", Georgia, serif;
+  font-size: 0.72rem;
   font-weight: 700;
 }
 
-.learn_choice_decision_summary {
-  display: block;
-  color: rgba(65, 48, 32, 0.8);
-  font-size: 0.85rem;
+.learn_choice_nav_empty {
+  margin: 0;
+  padding: 12px;
+  color: rgba(80, 57, 33, 0.78);
+  font-style: italic;
+}
+
+.learn_choice_nav_item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 12px 11px;
+  border: 1px solid rgba(132, 88, 72, 0.34);
+  border-radius: 10px;
+  background: linear-gradient(180deg, rgba(255, 244, 240, 0.86), rgba(247, 225, 217, 0.72));
+  color: rgba(92, 43, 34, 0.96);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 120ms ease, box-shadow 120ms ease, background 120ms ease, color 120ms ease;
+}
+
+.learn_choice_nav_item:hover,
+.learn_choice_nav_item:focus-visible,
+.learn_choice_nav_item.is-active {
+  border-color: rgba(118, 85, 52, 0.42);
+  box-shadow: 0 0 0 2px rgba(191, 163, 125, 0.18);
+  outline: none;
+}
+
+.learn_choice_nav_item.is-pending,
+.learn_choice_window .learn_choice_nav_item.is-pending {
+  border-color: rgba(141, 79, 65, 0.44);
+  background: linear-gradient(180deg, rgba(255, 243, 239, 0.96), rgba(241, 214, 205, 0.86));
+}
+
+.learn_choice_nav_item.is-resolved,
+.learn_choice_window .learn_choice_nav_item.is-resolved {
+  border-color: rgba(82, 131, 82, 0.42);
+  background: linear-gradient(180deg, rgba(232, 247, 229, 0.96), rgba(203, 231, 201, 0.88));
+  color: #244729;
+}
+
+.learn_choice_nav_item.is-active.is-pending,
+.learn_choice_window .learn_choice_nav_item.is-active.is-pending {
+  box-shadow:
+    0 0 0 2px rgba(192, 138, 126, 0.22),
+    inset 3px 0 0 rgba(145, 67, 50, 0.78);
+}
+
+.learn_choice_nav_item.is-active.is-resolved,
+.learn_choice_window .learn_choice_nav_item.is-active.is-resolved {
+  box-shadow:
+    0 0 0 2px rgba(128, 183, 133, 0.2),
+    inset 3px 0 0 rgba(55, 118, 63, 0.78);
+}
+
+.learn_choice_nav_item.is-unsupported {
+  border-color: rgba(123, 104, 72, 0.28);
+  background: linear-gradient(180deg, rgba(246, 238, 223, 0.9), rgba(234, 223, 201, 0.82));
+  color: rgba(78, 59, 37, 0.9);
+}
+
+.learn_choice_nav_text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.learn_choice_nav_title {
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-size: 1.16rem;
+  font-weight: 700;
+}
+
+.learn_choice_nav_summary {
+  color: rgba(78, 57, 38, 0.82);
+  font-size: 0.84rem;
   line-height: 1.25;
 }
 
-.learn_choice_description,
-.learn_choice_prompt,
+.learn_choice_nav_item.is-resolved .learn_choice_nav_summary {
+  color: rgba(40, 82, 47, 0.86);
+}
+
+.learn_choice_nav_state,
+.learn_choice_panel_state {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 78px;
+  min-height: 28px;
+  padding: 0 10px;
+  border: 1px solid rgba(124, 89, 55, 0.24);
+  border-radius: 999px;
+  background: rgba(255, 250, 242, 0.76);
+  color: rgba(94, 52, 38, 0.88);
+  font-family: "Cinzel", Georgia, serif;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.learn_choice_nav_item.is-pending .learn_choice_nav_state,
+.learn_choice_panel.is-pending .learn_choice_panel_state {
+  border-color: rgba(153, 89, 72, 0.34);
+  background: rgba(255, 242, 238, 0.88);
+  color: rgba(134, 69, 53, 0.94);
+}
+
+.learn_choice_nav_item.is-resolved .learn_choice_nav_state,
+.learn_choice_panel.is-resolved .learn_choice_panel_state {
+  border-color: rgba(82, 131, 82, 0.28);
+  background: rgba(238, 249, 236, 0.92);
+  color: rgba(44, 105, 52, 0.94);
+}
+
+.learn_choice_panel_list {
+  padding: 12px;
+}
+
+.learn_choice_footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-shrink: 0;
+  min-height: 58px;
+  padding: 10px 16px;
+  border-top: 1px solid rgba(118, 88, 57, 0.18);
+  background: linear-gradient(180deg, rgba(251, 246, 237, 0.54), rgba(239, 231, 214, 0.36));
+}
+
+.learn_choice_panel {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 12px;
+  height: 100%;
+  border: 1px solid rgba(141, 79, 65, 0.36);
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(255, 246, 241, 0.92), rgba(248, 233, 227, 0.78));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.72),
+    0 10px 24px -20px rgba(82, 48, 31, 0.42);
+}
+
+.learn_choice_panel[hidden] {
+  display: none;
+}
+
+.learn_choice_panel.is-pending,
+.learn_choice_window .learn_choice_panel.is-pending {
+  border-color: rgba(141, 79, 65, 0.42);
+}
+
+.learn_choice_panel.is-resolved,
+.learn_choice_window .learn_choice_panel.is-resolved {
+  border-color: rgba(82, 131, 82, 0.36);
+  background: linear-gradient(180deg, rgba(241, 250, 239, 0.94), rgba(225, 242, 223, 0.84));
+}
+
+.learn_choice_panel.is-unsupported,
+.learn_choice_window .learn_choice_panel.is-unsupported {
+  border-color: rgba(123, 104, 72, 0.26);
+  background: linear-gradient(180deg, rgba(246, 238, 223, 0.9), rgba(234, 223, 201, 0.82));
+}
+
+.learn_choice_panel_header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 12px;
+  padding: 14px 16px 0;
+}
+
+.learn_choice_panel_heading {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.learn_choice_panel_title {
+  font-family: "Cinzel", Georgia, serif;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: rgba(86, 46, 31, 0.96);
+}
+
+.learn_choice_panel_summary {
+  color: rgba(82, 58, 39, 0.82);
+  font-size: 0.92rem;
+  line-height: 1.3;
+}
+
+.learn_choice_panel.is-resolved .learn_choice_panel_title,
+.learn_choice_panel.is-resolved .learn_choice_panel_summary {
+  color: rgba(39, 87, 47, 0.92);
+}
+
+.learn_choice_panel_body {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+  min-height: 0;
+  padding: 0 16px 16px;
+  overflow-y: auto;
+}
+
+.learn_choice_decision_description,
+.learn_choice_decision_prompt,
 .learn_choice_decision_note {
   font-size: 0.96rem;
   line-height: 1.3;
@@ -515,6 +714,7 @@
   border-radius: 8px;
   background: rgba(255, 248, 230, 0.52);
   cursor: pointer;
+  transition: border-color 120ms ease, box-shadow 120ms ease, background 120ms ease;
 }
 
 .learn_choice_option:hover,
@@ -527,12 +727,23 @@
   margin-top: 2px;
 }
 
+.learn_choice_option_text {
+  min-width: 0;
+}
+
+.learn_choice_option:has(input:checked) {
+  border-color: rgba(77, 130, 83, 0.44);
+  background: linear-gradient(180deg, rgba(233, 248, 231, 0.94), rgba(206, 234, 204, 0.84));
+  box-shadow: 0 0 0 2px rgba(136, 189, 141, 0.16);
+}
+
 .learn_choice_option.is-disabled {
   opacity: 0.52;
   cursor: not-allowed;
 }
 
-.learn_choice_option.is-filtered-out {
+.learn_choice_option.is-filtered-out,
+.learn_choice_option.is-group-hidden {
   display: none;
 }
 
@@ -583,6 +794,24 @@
   display: flex;
   justify-content: flex-end;
   gap: 8px;
+}
+
+@media (max-width: 860px) {
+  .learn_choice_window {
+    width: min(100vw - 18px, 720px);
+  }
+
+  .learn_choice_layout {
+    grid-template-columns: 1fr;
+  }
+
+  .learn_choice_nav {
+    max-height: 220px;
+  }
+
+  .learn_choice_panel {
+    min-height: 420px;
+  }
 }
 
 .shop_item_name_btn {
@@ -959,8 +1188,10 @@
 /* Final parchment treatment for shop and learning windows */
 .shop-window__body,
 .learn-window__body,
+.learn_choice_window_body,
 .shop_window_layout,
-.learn_window_layout {
+.learn_window_layout,
+.learn_choice_layout {
   background: transparent;
 }
 
@@ -1021,7 +1252,8 @@
 .shop_cart_wrapper,
 .shop_cart_scroll,
 .learn_list_scroll,
-.learn_choice_decision,
+.learn_choice_nav,
+.learn_choice_panel,
 .learn_choice_option {
   background:
     linear-gradient(180deg, rgba(250, 247, 240, 0.26), rgba(241, 235, 223, 0.2));
@@ -1159,24 +1391,11 @@
   box-shadow: 0 0 0 2px rgba(180, 151, 113, 0.18);
 }
 
-.learn_choice_decision_toggle,
+.learn_choice_nav_item,
 .learn_choice_option,
-.learn_choice_decision_body {
+.learn_choice_panel {
   border-color: rgba(113, 82, 49, 0.2);
   background: linear-gradient(180deg, rgba(249, 244, 235, 0.74), rgba(239, 231, 215, 0.54));
-}
-
-.learn_choice_decision.is-resolved .learn_choice_decision_toggle {
-  border-color: rgba(112, 93, 60, 0.28);
-  background: linear-gradient(180deg, rgba(246, 239, 224, 0.92), rgba(233, 224, 205, 0.84));
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.72),
-    0 0 0 1px rgba(142, 116, 79, 0.12);
-}
-
-.learn_choice_decision.is-resolved .learn_choice_decision_title,
-.learn_choice_decision.is-resolved .learn_choice_decision_summary {
-  color: rgba(71, 48, 28, 0.92);
 }
 
 .learn_choice_option:hover,

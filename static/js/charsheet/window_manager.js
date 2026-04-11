@@ -22,6 +22,15 @@ export function createFloatingWindowController({
     return null;
   }
 
+  const existingController = windowEl.__floatingWindowController;
+  if (existingController) {
+    if (trigger instanceof HTMLElement && !existingController.boundTriggers.has(trigger)) {
+      trigger.addEventListener("click", existingController.open);
+      existingController.boundTriggers.add(trigger);
+    }
+    return existingController;
+  }
+
   const readWindowState = () => {
     const left = Number.parseFloat(windowEl.style.left || "");
     const top = Number.parseFloat(windowEl.style.top || "");
@@ -119,12 +128,15 @@ export function createFloatingWindowController({
   handle.addEventListener("pointerup", stopDragging);
   handle.addEventListener("pointercancel", stopDragging);
 
-  return {
+  const controller = {
+    boundTriggers: new Set(trigger instanceof HTMLElement ? [trigger] : []),
     close,
     open,
     saveState,
     windowEl,
   };
+  windowEl.__floatingWindowController = controller;
+  return controller;
 }
 
 export function initStandardFloatingWindows() {

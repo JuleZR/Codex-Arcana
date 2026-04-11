@@ -81,3 +81,28 @@ class ArmorModifierTests(TestCase):
         self.assertEqual(engine.get_grs(), 0)
         self.assertEqual(engine.get_bel(), 0)
         self.assertEqual(engine.get_ms(), 0)
+
+    def test_equipped_magic_item_modifier_is_applied(self):
+        user = get_user_model().objects.create_user(username="magictester", password="secret")
+        race = Race.objects.create(name="Mensch")
+        character = Character.objects.create(owner=user, name="Selene", race=race)
+        magic_item = Item.objects.create(
+            name="Amulett des Schutzes",
+            price=500,
+            item_type=Item.ItemType.MAGIC_ITEM,
+            stackable=False,
+            default_quality="common",
+        )
+        CharacterItem.objects.create(owner=character, item=magic_item, amount=1, equipped=True, quality="common")
+
+        item_ct = ContentType.objects.get_for_model(Item, for_concrete_model=False)
+        Modifier.objects.create(
+            source_content_type=item_ct,
+            source_object_id=magic_item.id,
+            target_kind=Modifier.TargetKind.STAT,
+            target_slug=DEFENSE_RS,
+            mode=Modifier.Mode.FLAT,
+            value=3,
+        )
+
+        self.assertEqual(CharacterEngine(character).get_grs(), 3)

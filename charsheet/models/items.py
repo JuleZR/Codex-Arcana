@@ -37,6 +37,7 @@ class Item(models.Model):
         WEAPON = "weapon", "Waffe"
         SHIELD = "shield", "Schild"
         CLOTHING = "clothing", "Kleidung"
+        MAGIC_ITEM = "magic_item", "Magischer Gegenstand"
         CONSUM = "consumable", "verbrauchbar"
         AMMO = "ammo", "Monition"
         MISC = "misc", "Misc"
@@ -48,6 +49,7 @@ class Item(models.Model):
 
     stackable = models.BooleanField(default=True)
     is_consumable = models.BooleanField(default=False)
+    is_magic = models.BooleanField(default=False)
 
     default_quality = models.CharField(max_length=20, choices=QUALITY_CHOICES, default=QUALITY_COMMON)
     weight = models.DecimalField(max_digits=6, decimal_places=2, default=0)
@@ -65,9 +67,15 @@ class Item(models.Model):
             self.ItemType.CLOTHING,
         } and self.stackable:
             raise ValidationError({"stackable": f"Type: {self.item_type.upper()} can't be stackable."})
+        if (self.is_magic or self.item_type == self.ItemType.MAGIC_ITEM) and self.stackable:
+            raise ValidationError({"stackable": f"Type: {self.item_type.upper()} can't be stackable."})
 
     def __str__(self):
         return f"{self.item_type.upper()}: {self.name}"
+
+    @property
+    def is_magic_effective(self) -> bool:
+        return bool(self.is_magic or self.item_type == self.ItemType.MAGIC_ITEM)
 
 
 class ArmorStats(models.Model):
@@ -128,6 +136,22 @@ class ShieldStats(models.Model):
 
     def __str__(self):
         return f"{self.item}: RS {self.rs}"
+
+
+class MagicItemStats(models.Model):
+    """Magic-item specific metadata attached to one item."""
+
+    item = models.OneToOneField(Item, on_delete=models.CASCADE)
+    effect_summary = models.CharField(max_length=255, blank=True, default="")
+
+    def clean(self):
+        super().clean()
+        if not self.item.is_magic_effective:
+            raise ValidationError({"item": "Only magic items can have MagicItemStats."})
+
+    def __str__(self):
+        summary = f" - {self.effect_summary}" if self.effect_summary else ""
+        return f"{self.item}{summary}"
 
 
 class WeaponFlag(models.Model):
@@ -266,7 +290,13 @@ class RaceStartingItem(models.Model):
         super().clean()
         if self.item.stackable:
             raise ValidationError({"item": "Race items must not be stackable because they are always equipped."})
-        if self.item.item_type not in {Item.ItemType.WEAPON, Item.ItemType.ARMOR, Item.ItemType.SHIELD, Item.ItemType.CLOTHING}:
+        if self.item.item_type not in {
+            Item.ItemType.WEAPON,
+            Item.ItemType.ARMOR,
+            Item.ItemType.SHIELD,
+            Item.ItemType.CLOTHING,
+            Item.ItemType.MAGIC_ITEM,
+        }:
             raise ValidationError({"item": "Race items must be equippable items because they are always equipped."})
 
     def __str__(self):
