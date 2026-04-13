@@ -2,7 +2,7 @@
 
 from django import forms
 from django.contrib.auth.password_validation import validate_password
-from .models import Character, CharacterSkill, CharacterTechnique
+from .models import Character, CharacterItemRuneSpec, CharacterSkill, CharacterTechnique
 from .models.user import UserSettings
 from django.contrib.auth import get_user_model
 
@@ -123,6 +123,24 @@ class CharacterSkillSpecificationForm(forms.ModelForm):
         if len(specification.split()) != 1:
             raise forms.ValidationError("Bitte nur ein einzelnes Wort eintragen.")
         return specification
+
+
+class CharacterItemRuneSpecForm(forms.ModelForm):
+    """Edit the specialization text for one rune on an owned item."""
+
+    class Meta:
+        model = CharacterItemRuneSpec
+        fields = ["specification"]
+        widgets = {
+            "specification": forms.TextInput(
+                attrs={
+                    "class": "dashboard_input",
+                    "maxlength": 100,
+                    "autocomplete": "off",
+                    "placeholder": "z. B. Feuer",
+                }
+            ),
+        }
 
 
 class CharacterTechniqueSpecificationForm(forms.ModelForm):

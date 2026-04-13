@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 from collections import OrderedDict
+import json
 import math
+
+from django.contrib.contenttypes.models import ContentType
 
 from charsheet.constants import (
     ARMOR_PENALTY_IGNORE,
@@ -44,6 +47,7 @@ from charsheet.models import (
     DamageSource,
     Item,
     Language,
+    Modifier,
     RaceTechnique,
     Rune,
     School,
@@ -356,17 +360,12 @@ def _rune_image_url(rune: Rune) -> str:
 
 
 def _collect_rune_rows(*, item: Item, character_item: CharacterItem | None = None) -> list[dict[str, str]]:
-    """Return combined visible rune rows for tooltips without duplicate entries."""
+    """Return combined visible rune rows for tooltips, including specification text."""
     rows: list[dict[str, str]] = []
-    seen_ids: set[int] = set()
-    for runes in (
-        item.runes.all(),
-        character_item.runes.all() if character_item is not None else [],
-    ):
-        for rune in runes:
-            if rune.id in seen_ids:
-                continue
-            seen_ids.add(rune.id)
+    seen_base_ids: set[int] = set()
+    for rune in item.runes.all():
+        if rune.id not in seen_base_ids:
+            seen_base_ids.add(rune.id)
             rows.append(
                 {
                     "name": rune.name,
@@ -374,6 +373,88 @@ def _collect_rune_rows(*, item: Item, character_item: CharacterItem | None = Non
                     "image": _rune_image_url(rune),
                 }
             )
+    if character_item is not None:
+        specs = list(character_item.rune_specs.all())
+        if specs:
+            for spec in specs:
+                if spec.rune_id in seen_base_ids:
+                    continue
+                display_name = spec.rune.name
+                if spec.specification:
+                    display_name = f"{spec.rune.name}: {spec.specification}"
+                rows.append(
+                    {
+                        "name": display_name,
+                        "description": spec.rune.description or "",
+                        "image": _rune_image_url(spec.rune),
+                    }
+                )
+        else:
+            # Legacy fallback: use M2M when no spec records exist yet
+            for rune in character_item.runes.all():
+                if rune.id in seen_base_ids:
+                    continue
+                seen_base_ids.add(rune.id)
+                rows.append(
+                    {
+                        "name": rune.name,
+                        "description": rune.description or "",
+                        "image": _rune_image_url(rune),
+                    }
+                )
+    return rows
+
+
+def _serialize_modifier_payload(modifier: Modifier) -> dict[str, object]:
+    """Return one frontend-friendly magic modifier payload."""
+    target_display = ""
+    if modifier.target_kind == Modifier.TargetKind.STAT:
+        target_display = dict(STAT_SLUG_CHOICES).get(str(modifier.target_slug or ""), str(modifier.target_slug or ""))
+    elif modifier.target_kind == Modifier.TargetKind.SKILL and modifier.target_skill_id:
+        target_display = modifier.target_skill.name
+    elif modifier.target_kind == Modifier.TargetKind.CATEGORY and modifier.target_skill_category_id:
+        target_display = modifier.target_skill_category.name
+    elif modifier.target_kind == Modifier.TargetKind.ITEM_CATEGORY:
+        target_display = dict(Item.ItemType.choices).get(str(modifier.target_slug or ""), str(modifier.target_slug or ""))
+    elif modifier.target_kind == Modifier.TargetKind.SPECIALIZATION and modifier.target_specialization_id:
+        target_display = modifier.target_specialization.name
+    payload: dict[str, object] = {
+        "target_kind": str(modifier.target_kind),
+        "value": int(modifier.value),
+        "effect_description": str(modifier.effect_description or ""),
+        "target_display": target_display,
+    }
+    if modifier.target_kind == Modifier.TargetKind.STAT:
+        payload["target_stat"] = str(modifier.target_slug or "")
+    elif modifier.target_kind == Modifier.TargetKind.SKILL and modifier.target_skill_id:
+        payload["target_skill"] = str(modifier.target_skill_id)
+    elif modifier.target_kind == Modifier.TargetKind.CATEGORY and modifier.target_skill_category_id:
+        payload["target_skill_category"] = str(modifier.target_skill_category_id)
+    elif modifier.target_kind == Modifier.TargetKind.ITEM_CATEGORY:
+        payload["target_item_category"] = str(modifier.target_slug or "")
+    elif modifier.target_kind == Modifier.TargetKind.SPECIALIZATION and modifier.target_specialization_id:
+        payload["target_specialization"] = str(modifier.target_specialization_id)
+    return payload
+
+
+def _build_character_item_magic_tooltip_rows(*, effect_summary: str, modifier_payloads: list[dict[str, object]]) -> list[tuple[str, object]]:
+    """Return tooltip rows for magic effects stored on one owned item."""
+    rows: list[tuple[str, object]] = []
+    summary_line = _single_line(effect_summary)
+    if summary_line:
+        rows.append(("Effekt", summary_line))
+    for payload in modifier_payloads:
+        target_display = _single_line(str(payload.get("target_display") or "")) or "Ziel"
+        effect_description = _single_line(str(payload.get("effect_description") or ""))
+        try:
+            value = int(payload.get("value") or 0)
+        except (TypeError, ValueError):
+            value = 0
+        value_display = f"{value:+d} {target_display}"
+        if effect_description:
+            rows.append(("Magie", f"{effect_description} · {value_display}"))
+        else:
+            rows.append(("Magie", value_display))
     return rows
 
 
@@ -844,26 +925,53 @@ def _build_inventory_rows(character: Character) -> list[dict]:
         CharacterItem.objects
         .filter(owner=character, equipped=False)
         .select_related("item")
-        .prefetch_related("item__runes", "runes")
+        .prefetch_related("item__runes", "runes", "rune_specs__rune")
         .order_by("item__name")
     )
+    inventory_items = list(inventory_items)
+    character_item_content_type = ContentType.objects.get_for_model(CharacterItem, for_concrete_model=False)
+    modifiers_by_character_item_id: dict[int, list[dict[str, object]]] = {}
+    for modifier in (
+        Modifier.objects
+        .filter(
+            source_content_type=character_item_content_type,
+            source_object_id__in=[entry.id for entry in inventory_items],
+        )
+        .select_related("target_skill", "target_skill_category", "target_specialization")
+        .order_by("id")
+    ):
+        modifiers_by_character_item_id.setdefault(int(modifier.source_object_id), []).append(_serialize_modifier_payload(modifier))
     for character_item in inventory_items:
         item = character_item.item
         is_race_item = item.id in race_item_ids
         item_engine = ItemEngine(character_item)
         quality = quality_payload(item_engine.get_effective_quality())
+        magic_modifier_payloads = modifiers_by_character_item_id.get(character_item.id, [])
         tooltip_text = ""
+        item_description = character_item.description or item.description or ""
         if not is_race_item and item.item_type in QUALITY_TOOLTIP_TYPES:
             tooltip_text = _format_item_tooltip(
-                description=item.description or "",
+                description=item_description,
                 quality_label=quality["label"],
                 quality_color=quality["color"],
-                detail_rows=_build_item_tooltip_rows(item_engine, item),
+                detail_rows=(
+                    _build_item_tooltip_rows(item_engine, item)
+                    + _build_character_item_magic_tooltip_rows(
+                        effect_summary=character_item.magic_effect_summary or "",
+                        modifier_payloads=magic_modifier_payloads,
+                    )
+                ),
             )
-        elif item.description:
+        elif item_description:
             tooltip_text = _format_item_tooltip(
-                description=item.description,
-                detail_rows=_build_item_tooltip_rows(item_engine, item),
+                description=item_description,
+                detail_rows=(
+                    _build_item_tooltip_rows(item_engine, item)
+                    + _build_character_item_magic_tooltip_rows(
+                        effect_summary=character_item.magic_effect_summary or "",
+                        modifier_payloads=magic_modifier_payloads,
+                    )
+                ),
             )
 
         inventory_rows.append(
@@ -882,12 +990,25 @@ def _build_inventory_rows(character: Character) -> list[dict]:
                 "quality_color": "" if is_race_item else quality["color"],
                 "tooltip_text": tooltip_text,
                 "can_consume": item.stackable and item.item_type == Item.ItemType.CONSUM,
-                "can_equip": item.item_type in EQUIPPABLE_ITEM_TYPES or item.is_magic_effective,
+                "can_equip": item.item_type in EQUIPPABLE_ITEM_TYPES or character_item.is_magic_effective,
                 "can_socket_runes": item.item_type in RUNE_RETROFIT_ITEM_TYPES,
                 "equip_label": "Anlegen",
                 "base_rune_ids": [rune.id for rune in item.runes.all()],
                 "base_rune_names": [rune.name for rune in item.runes.all()],
                 "extra_rune_ids": [rune.id for rune in character_item.runes.all()],
+                "rune_specs_json": json.dumps([
+                    {
+                        "rune_id": spec.rune_id,
+                        "specification": spec.specification,
+                        "slot": spec.slot,
+                    }
+                    for spec in character_item.rune_specs.all()
+                ]),
+                "description": character_item.description or item.description or "",
+                "is_character_item_magic": bool(character_item.is_magic),
+                "magic_effect_summary": character_item.magic_effect_summary or "",
+                "magic_modifier_payloads": magic_modifier_payloads,
+                "magic_modifier_payloads_json": json.dumps(magic_modifier_payloads),
             }
         )
     return inventory_rows
@@ -1014,6 +1135,27 @@ def _build_armor_rows(engine) -> list[dict]:
     return armor_rows
 
 
+_SUPPORT_ICON_COMPUTED = "\u16C9"   # ᛉ — calculated by engine
+_SUPPORT_ICON_DESCRIPTIVE = "\u16A8"  # ᚨ — rule text only
+_SUPPORT_TOOLTIP_COMPUTED = (
+    "Automatisch berechnet\u2009\u2013\u2009"
+    "dieser Effekt wird vom System ermittelt und auf die relevanten Werte angewendet."
+)
+_SUPPORT_TOOLTIP_DESCRIPTIVE = (
+    "Regeltext\u2009\u2013\u2009"
+    "dieser Effekt wird nicht automatisch berechnet "
+    "und muss eigenst\u00e4ndig nachgehalten werden."
+)
+
+
+def _support_icon(support_level: str) -> tuple[str, str]:
+    """Return (icon, tooltip) for a technique's support_level value."""
+    from charsheet.models.techniques import Technique
+    if support_level == Technique.SupportLevel.DESCRIPTIVE:
+        return _SUPPORT_ICON_DESCRIPTIVE, _SUPPORT_TOOLTIP_DESCRIPTIVE
+    return _SUPPORT_ICON_COMPUTED, _SUPPORT_TOOLTIP_COMPUTED
+
+
 def _build_school_technique_rows(character: Character, engine) -> tuple[list[dict], dict[int, int]]:
     """Build visible learned technique rows for the school panel."""
     schools = list(
@@ -1055,6 +1197,7 @@ def _build_school_technique_rows(character: Character, engine) -> tuple[list[dic
         entry_name = technique.name
         if technique.has_specification:
             entry_name = f"{technique.name}: {specification_value or '*'}"
+        icon, icon_tooltip = _support_icon(technique.support_level)
         school_technique_rows.append(
             {
                 "kind": "race_technique",
@@ -1065,6 +1208,8 @@ def _build_school_technique_rows(character: Character, engine) -> tuple[list[dic
                 "can_edit_specification": bool(technique.has_specification),
                 "specification_value": specification_value,
                 "technique_id": technique.id,
+                "support_level_icon": icon,
+                "support_level_tooltip": icon_tooltip,
             }
         )
     race_row_count = len(school_technique_rows)
@@ -1077,6 +1222,12 @@ def _build_school_technique_rows(character: Character, engine) -> tuple[list[dic
         )
         for technique in techniques:
             if technique.level <= school_levels.get(technique.school_id, 0):
+                if (
+                    technique.school.name == "Bardenschule"
+                    and technique.level == 10
+                    and technique.name == "Erwachte Begabung"
+                ):
+                    continue
                 learned_technique = learned_techniques_by_technique_id.get(technique.id)
                 if technique.acquisition_type == Technique.AcquisitionType.CHOICE and learned_technique is None:
                     continue
@@ -1092,17 +1243,21 @@ def _build_school_technique_rows(character: Character, engine) -> tuple[list[dic
                     entry_name = f"{rendered_specializations} ({technique.name})"
                     if selected_specialization_descriptions:
                         description_text = "\n\n".join(selected_specialization_descriptions)
+                icon, icon_tooltip = _support_icon(technique.support_level)
                 school_technique_rows.append(
                     {
                         "kind": "technique",
                         "level": technique.level,
                         "level_label": _to_roman(technique.level),
                         "school_name": technique.school.name,
+                        "school_id": technique.school_id,
                         "entry_name": entry_name,
                         "description": description_text,
                         "can_edit_specification": bool(technique.has_specification),
                         "specification_value": specification_value,
                         "technique_id": technique.id,
+                        "support_level_icon": icon,
+                        "support_level_tooltip": icon_tooltip,
                     }
                 )
     if race_row_count and len(school_technique_rows) > race_row_count:
@@ -1116,8 +1271,11 @@ def _build_school_technique_rows(character: Character, engine) -> tuple[list[dic
                     "level": "Spez.",
                     "level_label": "Spez.",
                     "school_name": school_entry.school.name,
+                    "school_id": school_entry.school_id,
                     "entry_name": specialization.name,
                     "description": specialization.description,
+                    "support_level_icon": _SUPPORT_ICON_DESCRIPTIVE,
+                    "support_level_tooltip": _SUPPORT_TOOLTIP_DESCRIPTIVE,
                 }
             )
     weapon_master_school = engine._weapon_master_school
@@ -1135,11 +1293,46 @@ def _build_school_technique_rows(character: Character, engine) -> tuple[list[dic
                     "level": mastery.pick_order,
                     "level_label": _to_roman(mastery.pick_order),
                     "school_name": weapon_master_school.name,
+                    "school_id": weapon_master_school.id,
                     "entry_name": f"{mastery.weapon_item.name} ({maneuver_bonus} / {damage_bonus})",
                     "description": "",
+                    "support_level_icon": _SUPPORT_ICON_COMPUTED,
+                    "support_level_tooltip": _SUPPORT_TOOLTIP_COMPUTED,
                 }
             )
     return school_technique_rows, school_levels
+
+
+def _group_school_technique_rows(
+    school_technique_rows: list[dict],
+    school_levels: dict[int, int],
+) -> tuple[list[dict], list[dict]]:
+    """Split rows into race rows (flat) and school groups (collapsible).
+
+    Returns (race_rows, school_groups) where each group is:
+    {school_name, max_level, max_level_label, rows: [...]}.
+    """
+    race_rows: list[dict] = []
+    groups: OrderedDict[str, dict] = OrderedDict()
+
+    for row in school_technique_rows:
+        if row["kind"] == "race_technique":
+            race_rows.append(row)
+            continue
+        school_name = row["school_name"]
+        if school_name not in groups:
+            # Determine the character's current max level in this school.
+            school_id = row.get("school_id")
+            current_level = school_levels.get(school_id, 0) if school_id else 0
+            groups[school_name] = {
+                "school_name": school_name,
+                "max_level": current_level,
+                "max_level_label": _to_roman(current_level) if current_level else "",
+                "rows": [],
+            }
+        groups[school_name]["rows"].append(row)
+
+    return race_rows, list(groups.values())
 
 
 def _build_language_rows(character: Character) -> tuple[list[dict], object]:
@@ -1401,6 +1594,7 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
     weapon_rows = _build_weapon_rows(engine)
     armor_rows = _build_armor_rows(engine)
     school_technique_rows, school_levels = _build_school_technique_rows(character, engine)
+    school_race_rows, school_technique_groups = _group_school_technique_rows(school_technique_rows, school_levels)
     language_rows, language_entries = _build_language_rows(character)
 
     initiative_value = engine.calculate_initiative()
@@ -1532,6 +1726,8 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
         "weapon_rows": weapon_rows,
         "armor_rows": armor_rows,
         "school_technique_rows": school_technique_rows,
+        "school_race_rows": school_race_rows,
+        "school_technique_groups": school_technique_groups,
         "core_stats": {
             "load_value": load_penalty,
             "load_tooltip": load_tooltip,
@@ -1650,6 +1846,9 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
                 "id": rune.id,
                 "name": rune.name,
                 "description": _single_line(rune.description),
+                "has_specialization": rune.has_specialization,
+                "specialization_label": rune.specialization_label or "Bezeichnung",
+                "allow_multiple": rune.allow_multiple,
             }
             for rune in Rune.objects.order_by("name")
         ],

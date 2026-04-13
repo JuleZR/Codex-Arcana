@@ -6,7 +6,7 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
 
-from charsheet.constants import SCHOOL_COMBAT
+from charsheet.constants import DEFENSE_VW, SCHOOL_COMBAT
 from charsheet.models import (
     ArmorStats,
     Character,
@@ -16,6 +16,7 @@ from charsheet.models import (
     DamageSource,
     Item,
     MagicItemStats,
+    Modifier,
     Race,
     Rune,
     School,
@@ -269,7 +270,17 @@ class CharacterSheetPartialTests(TestCase):
         self.assertEqual(response.status_code, 200)
         payload = response.json()
         targets = {entry["target"] for entry in payload["partials"]}
-        self.assertEqual(targets, {"sheetInventoryPanel", "sheetArmorPanel", "sheetWeaponPanel"})
+        self.assertEqual(
+            targets,
+            {
+                "sheetWalletPanel",
+                "sheetExperiencePanel",
+                "learnBudgetPanel",
+                "sheetInventoryPanel",
+                "sheetArmorPanel",
+                "sheetWeaponPanel",
+            },
+        )
         owned_item.refresh_from_db()
         self.assertEqual(list(owned_item.runes.values_list("name", flat=True)), ["Nachrüstrune"])
         inventory_html = next(entry["html"] for entry in payload["partials"] if entry["target"] == "sheetInventoryPanel")
@@ -304,6 +315,85 @@ class CharacterSheetPartialTests(TestCase):
         self.assertIn("Arkaner Fokus", inventory_html)
         self.assertIn("inv_rune_entry", inventory_html)
         self.assertIn("Speicherrune", inventory_html)
+
+    def test_update_character_item_runes_applies_quality_magic_and_costs(self):
+        """The modification dialog should persist costs, quality, runes, and owned-item magic."""
+        self.character.current_experience = 12
+        self.character.money = 80
+        self.character.save(update_fields=["current_experience", "money"])
+        weapon = Item.objects.create(
+            name="Berdyche",
+            price=120,
+            item_type=Item.ItemType.WEAPON,
+            stackable=False,
+            default_quality="common",
+        )
+        damage_source = DamageSource.objects.create(name="Axt", short_name="Axt", slug="axt")
+        WeaponStats.objects.create(
+            item=weapon,
+            damage_source=damage_source,
+            damage_dice_amount=2,
+            damage_dice_faces=6,
+            damage_flat_bonus=0,
+            min_st=1,
+            wield_mode="2h",
+        )
+        base_rune = Rune.objects.create(name="Schärfe", description="Basis.")
+        extra_rune = Rune.objects.create(name="Frost", description="Kälte.")
+        weapon.runes.add(base_rune)
+        owned_item = CharacterItem.objects.create(owner=self.character, item=weapon, amount=1, equipped=False, quality="common")
+
+        response = self.client.post(
+            reverse("update_character_item_runes", args=[owned_item.id]),
+            {
+                "quality": "excellent",
+                "runes": [str(base_rune.id), str(extra_rune.id)],
+                "experience_cost": "3",
+                "money_cost": "15",
+                "description": "Knistert vor kalter Luft.",
+                "magic_modifier_payloads": json.dumps(
+                    [
+                        {
+                            "target_kind": Modifier.TargetKind.STAT,
+                            "target_stat": DEFENSE_VW,
+                            "value": 2,
+                            "effect_description": "Wachsamkeit",
+                        },
+                    ]
+                ),
+            },
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        targets = {entry["target"] for entry in payload["partials"]}
+        self.assertEqual(
+            targets,
+            {
+                "sheetWalletPanel",
+                "sheetExperiencePanel",
+                "learnBudgetPanel",
+                "sheetInventoryPanel",
+                "sheetArmorPanel",
+                "sheetWeaponPanel",
+            },
+        )
+        owned_item.refresh_from_db()
+        self.character.refresh_from_db()
+        self.assertEqual(owned_item.quality, "excellent")
+        self.assertTrue(owned_item.is_magic)
+        self.assertEqual(owned_item.description, "Knistert vor kalter Luft.")
+        self.assertEqual(list(owned_item.runes.values_list("name", flat=True)), ["Frost"])
+        self.assertEqual(self.character.current_experience, 9)
+        self.assertEqual(self.character.money, 65)
+        modifier = Modifier.objects.get(source_object_id=owned_item.id, source_content_type__model="characteritem")
+        self.assertEqual(modifier.target_slug, DEFENSE_VW)
+        self.assertEqual(modifier.value, 2)
+        inventory_html = next(entry["html"] for entry in payload["partials"] if entry["target"] == "sheetInventoryPanel")
+        self.assertIn("Knistert vor kalter Luft.", inventory_html)
+        self.assertIn("Wachsamkeit", inventory_html)
+        self.assertIn("&quot;target_kind&quot;: &quot;stat&quot;", inventory_html)
 
     def test_weapon_panel_does_not_render_action_menu_for_equipped_weapons(self):
         """Equipped weapons should not show the inventory burger menu in the weapon panel."""

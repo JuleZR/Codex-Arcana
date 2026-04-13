@@ -199,6 +199,15 @@ export function initStandardFloatingWindows() {
       allowPersistedOpen: false,
       startRightInset: 246,
     }),
+    runeRetrofit: createFloatingWindowController({
+      windowEl: document.getElementById("runeRetrofitWindow"),
+      closeButton: document.getElementById("runeRetrofitWindowClose"),
+      handle: document.getElementById("runeRetrofitWindowHandle"),
+      startTop: 116,
+      storageKey: "charsheet.runeRetrofitWindow",
+      allowPersistedOpen: false,
+      startRightInset: 214,
+    }),
   };
 
   if (document.getElementById("learnWindow")?.getAttribute("data-force-close") === "1") {

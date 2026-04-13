@@ -25,6 +25,7 @@ from .models import (
     Character,
     CharacterDiaryEntry,
     CharacterItem,
+    CharacterItemRuneSpec,
     CharacterLanguage,
     CharacterSkill,
     CharacterTechnique,
@@ -43,6 +44,7 @@ from .forms import (
     CharacterCreateForm,
     CharacterUpdateForm,
     CharacterInfoInlineForm,
+    CharacterItemRuneSpecForm,
     CharacterSkillSpecificationForm,
     CharacterTechniqueSpecificationForm,
     UserSettingsForm
@@ -50,7 +52,7 @@ from .forms import (
 from .constants import ATTRIBUTE_ORDER, RESOURCE_KEY_CHOICES, is_allowed_trait_attribute_choice
 from .learning import process_learning_submission
 from .sheet_context import build_character_sheet_context
-from .shop import buy_shop_cart as buy_shop_cart_payload
+from .shop import apply_character_item_modifications, buy_shop_cart as buy_shop_cart_payload
 from .shop import create_custom_shop_item
 from .view_utils import format_modifier, format_thousands
 
@@ -575,6 +577,33 @@ def update_skill_specification(request, character_id: int, character_skill_id: i
     else:
         messages.error(request, "Die Spezifikation konnte nicht gespeichert werden.")
     return redirect("character_sheet", character_id=character.id)
+
+
+@login_required
+@require_POST
+def update_rune_specification(request, character_item_id: int, rune_id: int):
+    """Persist the specialization text for one rune on an owned item."""
+    character_item = get_object_or_404(
+        CharacterItem.objects.select_related("owner", "item"),
+        pk=character_item_id,
+        owner__user=request.user,
+    )
+    rune = get_object_or_404(Rune, pk=rune_id, has_specialization=True)
+    if not character_item.runes.filter(pk=rune_id).exists() and not character_item.item.runes.filter(pk=rune_id).exists():
+        messages.error(request, "Diese Rune gehört nicht zu diesem Gegenstand.")
+        return redirect("character_sheet", character_id=character_item.owner_id)
+
+    spec, _created = CharacterItemRuneSpec.objects.get_or_create(
+        character_item=character_item,
+        rune=rune,
+    )
+    form = CharacterItemRuneSpecForm(request.POST, instance=spec)
+    if form.is_valid():
+        form.save()
+        messages.success(request, f"{rune.name} wurde aktualisiert.")
+    else:
+        messages.error(request, "Die Spezifikation konnte nicht gespeichert werden.")
+    return redirect("character_sheet", character_id=character_item.owner_id)
 
 
 @login_required
@@ -1563,26 +1592,24 @@ def create_shop_item(request, character_id: int):
 @login_required
 @require_POST
 def update_character_item_runes(request, pk: int):
-    """Persist rune retrofits for one owned supported inventory entry."""
+    """Persist one owned-item modification dialog for a supported inventory entry."""
     character_item = _owned_character_item_or_404(request, pk)
     if character_item.item.item_type not in {Item.ItemType.WEAPON, Item.ItemType.ARMOR, Item.ItemType.MISC}:
+        if _is_partial_request(request):
+            return JsonResponse({"ok": False, "error": "item_type_not_supported"}, status=400)
         return redirect("character_sheet", character_id=character_item.owner_id)
-
-    selected_ids = []
-    for raw_value in request.POST.getlist("runes"):
-        try:
-            selected_ids.append(int(raw_value))
-        except (TypeError, ValueError):
-            continue
-
-    base_rune_ids = set(character_item.item.runes.values_list("id", flat=True))
-    available_runes = Rune.objects.filter(pk__in=sorted(set(selected_ids))).exclude(pk__in=base_rune_ids)
-    character_item.runes.set(available_runes)
+    if not apply_character_item_modifications(character_item, request.POST):
+        if _is_partial_request(request):
+            return JsonResponse({"ok": False, "error": "modification_failed"}, status=400)
+        return redirect("character_sheet", character_id=character_item.owner_id)
 
     if _is_partial_request(request):
         return _sheet_partials_response(
             request,
             character_item.owner,
+            "wallet_panel",
+            "experience_panel",
+            "learning_budget",
             "inventory_panel",
             "armor_panel",
             "weapon_panel",

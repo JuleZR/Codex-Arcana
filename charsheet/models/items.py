@@ -24,6 +24,12 @@ class Rune(models.Model):
     name = models.CharField(max_length=100, unique=True)
     description = models.TextField(blank=True)
     image = models.ImageField(upload_to="runes/", blank=True, null=True)
+    has_specialization = models.BooleanField(default=False)
+    specialization_label = models.CharField(max_length=100, blank=True, default="")
+    allow_multiple = models.BooleanField(
+        default=False,
+        help_text="Erlaubt, diese Rune mehrfach auf denselben Gegenstand anzuwenden.",
+    )
 
     def __str__(self):
         return self.name

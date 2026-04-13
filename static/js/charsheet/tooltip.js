@@ -240,6 +240,13 @@ export function initTooltips() {
   let pendingTarget = null;
   let showTimeoutId = null;
   let hideTimeoutId = null;
+  let lastMouseX = 0;
+  let lastMouseY = 0;
+
+  document.addEventListener("mousemove", (event) => {
+    lastMouseX = event.clientX;
+    lastMouseY = event.clientY;
+  }, { passive: true });
 
   const clearShowTimer = () => {
     if (showTimeoutId) {
@@ -268,22 +275,33 @@ export function initTooltips() {
     const targetRect = target.getBoundingClientRect();
     const tooltipRect = tooltip.getBoundingClientRect();
     const preferredSide = target.getAttribute("data-tooltip-side") || "left";
-    let left = preferredSide === "right"
-      ? panelRect.right + gap
-      : panelRect.left - tooltipRect.width - gap;
 
-    if (left < viewportPadding || left + tooltipRect.width > window.innerWidth - viewportPadding) {
-      left = panelRect.right + gap;
-    }
-    if (left + tooltipRect.width > window.innerWidth - viewportPadding) {
-      left = panelRect.left - tooltipRect.width - gap;
+    let left;
+    let top;
+
+    if (preferredSide === "cursor-right") {
+      // Position relative to mouse cursor, right side preferred.
+      left = lastMouseX + gap + 4;
+      if (left + tooltipRect.width > window.innerWidth - viewportPadding) {
+        left = lastMouseX - tooltipRect.width - gap - 4;
+      }
+      top = lastMouseY - tooltipRect.height / 2;
+    } else {
+      left = preferredSide === "right"
+        ? panelRect.right + gap
+        : panelRect.left - tooltipRect.width - gap;
+
+      if (left < viewportPadding || left + tooltipRect.width > window.innerWidth - viewportPadding) {
+        left = panelRect.right + gap;
+      }
+      if (left + tooltipRect.width > window.innerWidth - viewportPadding) {
+        left = panelRect.left - tooltipRect.width - gap;
+      }
+      top = targetRect.top + (targetRect.height / 2) - (tooltipRect.height / 2);
     }
 
-    let top = targetRect.top + (targetRect.height / 2) - (tooltipRect.height / 2);
     const maxTop = window.innerHeight - tooltipRect.height - viewportPadding;
-    if (top > maxTop) {
-      top = maxTop;
-    }
+    if (top > maxTop) top = maxTop;
 
     tooltip.style.left = `${Math.max(viewportPadding, left)}px`;
     tooltip.style.top = `${Math.max(viewportPadding, top)}px`;

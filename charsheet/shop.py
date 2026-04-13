@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError
@@ -14,6 +15,7 @@ from charsheet.models import (
     ArmorStats,
     Character,
     CharacterItem,
+    CharacterItemRuneSpec,
     DamageSource,
     Item,
     MagicItemStats,
@@ -85,19 +87,31 @@ def _build_magic_modifier_payload(target_kind: str, raw_value, row_data) -> dict
     }
 
     if target_kind == Modifier.TargetKind.STAT:
-        payload["target_slug"] = str(row_data.get("target_stat") or "").strip()
+        target_slug = str(row_data.get("target_stat") or "").strip()
+        if not target_slug:
+            return None
+        payload["target_slug"] = target_slug
     elif target_kind == Modifier.TargetKind.SKILL:
-        skill_id = max(1, int(row_data.get("target_skill") or 0))
+        skill_id = int(row_data.get("target_skill") or 0)
+        if skill_id <= 0:
+            return None
         payload["target_skill"] = Skill.objects.get(pk=skill_id)
-        payload["target_slug"] = payload["target_skill"].slug
+        # target_slug must stay empty when target_skill FK is set (only one selector allowed)
     elif target_kind == Modifier.TargetKind.CATEGORY:
-        category_id = max(1, int(row_data.get("target_skill_category") or 0))
+        category_id = int(row_data.get("target_skill_category") or 0)
+        if category_id <= 0:
+            return None
         payload["target_skill_category"] = SkillCategory.objects.get(pk=category_id)
-        payload["target_slug"] = payload["target_skill_category"].slug
+        # target_slug must stay empty when target_skill_category FK is set (only one selector allowed)
     elif target_kind == Modifier.TargetKind.ITEM_CATEGORY:
-        payload["target_slug"] = str(row_data.get("target_item_category") or "").strip()
+        target_slug = str(row_data.get("target_item_category") or "").strip()
+        if not target_slug:
+            return None
+        payload["target_slug"] = target_slug
     elif target_kind == Modifier.TargetKind.SPECIALIZATION:
-        specialization_id = max(1, int(row_data.get("target_specialization") or 0))
+        specialization_id = int(row_data.get("target_specialization") or 0)
+        if specialization_id <= 0:
+            return None
         payload["target_specialization"] = Specialization.objects.get(pk=specialization_id)
     else:
         raise ValidationError({"magic_modifier_target_kind": "Unsupported magic modifier target."})
@@ -150,17 +164,169 @@ def _read_magic_modifier_payloads(post_data) -> list[dict[str, object]]:
     return payloads
 
 
-def _read_runes(post_data, name: str = "runes"):
-    """Resolve rune IDs from one POST-like payload."""
-    rune_ids = []
-    for raw_value in _read_many_values(post_data, name):
+def _read_rune_payloads(post_data) -> list[dict[str, object]]:
+    """Read rune payloads from POST data.
+
+    Returns a list of dicts with keys: rune_id (int), specification (str), slot (int).
+    Prefers the JSON ``rune_payloads`` field; falls back to legacy ``runes`` checkboxes.
+    """
+    raw = str(post_data.get("rune_payloads") or "").strip()
+    if raw:
+        try:
+            decoded = json.loads(raw)
+        except json.JSONDecodeError:
+            return []
+        if not isinstance(decoded, list):
+            return []
+        payloads: list[dict[str, object]] = []
+        for entry in decoded:
+            if not isinstance(entry, dict):
+                continue
+            try:
+                rune_id = int(entry.get("rune_id") or 0)
+            except (TypeError, ValueError):
+                continue
+            if rune_id <= 0:
+                continue
+            try:
+                slot = max(1, int(entry.get("slot") or 1))
+            except (TypeError, ValueError):
+                slot = 1
+            payloads.append({
+                "rune_id": rune_id,
+                "specification": str(entry.get("specification") or "").strip(),
+                "slot": slot,
+            })
+        return payloads
+
+    # Legacy fallback: plain rune checkboxes, no specification, slot=1
+    rune_ids: list[int] = []
+    for raw_value in _read_many_values(post_data, "runes"):
         try:
             rune_ids.append(int(raw_value))
         except (TypeError, ValueError):
             continue
-    if not rune_ids:
-        return Rune.objects.none()
-    return Rune.objects.filter(pk__in=sorted(set(rune_ids))).order_by("name")
+    return [{"rune_id": rune_id, "specification": "", "slot": 1} for rune_id in sorted(set(rune_ids))]
+
+
+def _save_magic_modifiers(*, source_model, source_id: int, magic_modifier_payloads: list[dict[str, object]]) -> None:
+    """Replace all legacy modifier rows for one magic source."""
+    source_content_type = ContentType.objects.get_for_model(source_model, for_concrete_model=False)
+    Modifier.objects.filter(
+        source_content_type=source_content_type,
+        source_object_id=source_id,
+    ).delete()
+    for magic_modifier_payload in magic_modifier_payloads:
+        modifier = Modifier(
+            source_content_type=source_content_type,
+            source_object_id=source_id,
+            target_kind=str(magic_modifier_payload["target_kind"]),
+            target_slug=str(magic_modifier_payload["target_slug"] or ""),
+            target_skill=magic_modifier_payload["target_skill"],
+            target_skill_category=magic_modifier_payload["target_skill_category"],
+            target_item=magic_modifier_payload["target_item"],
+            target_specialization=magic_modifier_payload["target_specialization"],
+            effect_description=str(magic_modifier_payload.get("effect_description") or ""),
+            mode=Modifier.Mode.FLAT,
+            value=int(magic_modifier_payload["value"]),
+        )
+        modifier.full_clean()
+        modifier.save()
+
+
+def apply_character_item_modifications(character_item: CharacterItem, post_data) -> bool:
+    """Persist one owned-item modification including quality, runes, magic, and costs."""
+    quality = _read_quality(post_data, "quality", character_item.quality or character_item.item.default_quality)
+    experience_cost = _read_int(post_data, "experience_cost", 0, minimum=0)
+    money_cost = _read_int(post_data, "money_cost", 0, minimum=0)
+    rune_payloads = _read_rune_payloads(post_data)
+    description = str(post_data.get("description") or "").strip()
+    magic_effect_summary = str(post_data.get("magic_effect_summary") or "").strip()
+    magic_modifier_payloads = _read_magic_modifier_payloads(post_data)
+    is_magic = bool(magic_modifier_payloads) or bool(magic_effect_summary)
+
+    base_rune_ids = set(character_item.item.runes.values_list("id", flat=True))
+
+    # Deduplicate (rune_id, slot) pairs and filter out base runes
+    seen_slots: set[tuple[int, int]] = set()
+    filtered_payloads: list[dict[str, object]] = []
+    for payload in rune_payloads:
+        rune_id = int(payload["rune_id"])
+        slot = int(payload["slot"])
+        if rune_id in base_rune_ids:
+            continue
+        key = (rune_id, slot)
+        if key in seen_slots:
+            continue
+        seen_slots.add(key)
+        filtered_payloads.append(payload)
+
+    # Fetch valid rune objects
+    payload_rune_ids = list({int(p["rune_id"]) for p in filtered_payloads})
+    runes_by_id = {rune.id: rune for rune in Rune.objects.filter(pk__in=payload_rune_ids)}
+
+    # Enforce allow_multiple: drop extra slots for runes that don't allow it
+    final_payloads: list[tuple[Rune, str, int]] = []
+    for payload in filtered_payloads:
+        rune = runes_by_id.get(int(payload["rune_id"]))
+        if rune is None:
+            continue
+        slot = int(payload["slot"])
+        if slot > 1 and not rune.allow_multiple:
+            continue
+        final_payloads.append((rune, str(payload["specification"]), slot))
+
+    unique_runes = list({rune.id: rune for rune, _spec, _slot in final_payloads}.values())
+
+    if experience_cost > int(character_item.owner.current_experience) or money_cost > int(character_item.owner.money):
+        return False
+
+    try:
+        with transaction.atomic():
+            character_item.quality = quality
+            character_item.runes.set(unique_runes)
+            character_item.description = description
+            character_item.is_magic = is_magic
+            character_item.magic_effect_summary = magic_effect_summary
+            character_item.full_clean()
+            character_item.save(update_fields=["quality", "description", "is_magic", "magic_effect_summary"])
+
+            # Replace rune spec records with the new payload
+            character_item.rune_specs.all().delete()
+            for rune, specification, slot in final_payloads:
+                CharacterItemRuneSpec.objects.create(
+                    character_item=character_item,
+                    rune=rune,
+                    specification=specification,
+                    slot=slot,
+                )
+
+            _save_magic_modifiers(
+                source_model=CharacterItem,
+                source_id=character_item.id,
+                magic_modifier_payloads=magic_modifier_payloads if is_magic else [],
+            )
+            if experience_cost or money_cost:
+                character = character_item.owner
+                character.current_experience = max(0, int(character.current_experience) - experience_cost)
+                character.money = max(0, int(character.money) - money_cost)
+                character.save(update_fields=["current_experience", "money"])
+    except (
+        ValidationError,
+        ValueError,
+        Skill.DoesNotExist,
+        SkillCategory.DoesNotExist,
+        Specialization.DoesNotExist,
+        Item.DoesNotExist,
+    ) as exc:
+        logging.getLogger(__name__).exception(
+            "apply_character_item_modifications failed for CharacterItem pk=%s: %s",
+            character_item.pk,
+            exc,
+        )
+        return False
+
+    return True
 
 
 def create_custom_shop_item(post_data) -> bool:
@@ -285,23 +451,11 @@ def create_custom_shop_item(post_data) -> bool:
                 )
                 magic_item_stats.full_clean()
                 magic_item_stats.save()
-                for magic_modifier_payload in magic_modifier_payloads:
-                    item_ct = ContentType.objects.get_for_model(Item, for_concrete_model=False)
-                    modifier = Modifier(
-                        source_content_type=item_ct,
-                        source_object_id=item.id,
-                        target_kind=str(magic_modifier_payload["target_kind"]),
-                        target_slug=str(magic_modifier_payload["target_slug"] or ""),
-                        target_skill=magic_modifier_payload["target_skill"],
-                        target_skill_category=magic_modifier_payload["target_skill_category"],
-                        target_item=magic_modifier_payload["target_item"],
-                        target_specialization=magic_modifier_payload["target_specialization"],
-                        effect_description=str(magic_modifier_payload.get("effect_description") or ""),
-                        mode=Modifier.Mode.FLAT,
-                        value=int(magic_modifier_payload["value"]),
-                    )
-                    modifier.full_clean()
-                    modifier.save()
+                _save_magic_modifiers(
+                    source_model=Item,
+                    source_id=item.id,
+                    magic_modifier_payloads=magic_modifier_payloads,
+                )
     except (
         ValidationError,
         ValueError,

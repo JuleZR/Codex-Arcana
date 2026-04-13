@@ -108,20 +108,18 @@
         </div>
         <div class="panel_scroll schools_scroll">
           <ul class="p2_lines p2_short_lines" id="schoolsList">
-            {% for row in school_technique_rows %}
+
+            {% comment %}── Charakter-Traits (Rassentechniken) ─────────────────────────────{% endcomment %}
+            {% for row in school_race_rows %}
             <li
-              class="school_row_with_tooltip tooltip_target{% if row.kind == 'race_technique' %} school_row_with_tooltip--race{% endif %}{% if row.show_group_separator %} school_row_with_tooltip--separator{% endif %}"
+              class="school_row_with_tooltip tooltip_target school_row_with_tooltip--race{% if row.show_group_separator %} school_row_with_tooltip--separator{% endif %}"
               data-tooltip-side="left"
               data-tooltip="{{ row.description|default:'Keine Beschreibung' }}"
-              data-school-search="{% if row.kind == 'race_technique' %}{{ row.school_name|lower }} {{ row.entry_name|lower }}{% else %}{{ row.level }} {{ row.level_label|default:row.level }} {{ row.school_name|lower }} {{ row.entry_name|lower }}{% endif %}"
+              data-school-search="{{ row.school_name|lower }} {{ row.entry_name|lower }}"
             >
               <div class="skill_name_wrap school_row_layout">
                 <span class="school_row_label">
-                  {% if row.kind == 'race_technique' %}
                   <span class="school_row_origin">{{ row.school_name }}</span>
-                  {% else %}
-                  {{ row.school_name }} {{ row.level_label|default:row.level }}
-                  {% endif %}
                 </span>
                 <span class="skill_name_text">{{ row.entry_name }}</span>
                 {% if row.can_edit_specification %}
@@ -138,9 +136,72 @@
                   <span class="skill_spec_edit_emoji" aria-hidden="true">⋯</span>
                 </button>
                 {% endif %}
+                <span
+                  class="school_support_icon tooltip_target"
+                  data-tooltip-side="cursor-right"
+                  data-tooltip="{{ row.support_level_tooltip }}"
+                  aria-label="{{ row.support_level_tooltip }}"
+                >{{ row.support_level_icon }}</span>
               </div>
             </li>
             {% endfor %}
+
+            {% comment %}── Kampfschulen (gruppiert & ausklappbar) ──────────────────────────{% endcomment %}
+            {% for group in school_technique_groups %}
+            <li class="school_group" data-school-group>
+              <button
+                type="button"
+                class="school_group_header school_row_with_tooltip"
+                data-school-group-toggle
+                aria-expanded="false"
+              >
+                <div class="skill_name_wrap school_row_layout school_row_layout--sub">
+                  <span class="skill_name_text">
+                    <span class="school_group_chevron" aria-hidden="true">▸</span>
+                    {{ group.school_name }}{% if group.max_level_label %} {{ group.max_level_label }}{% endif %}
+                  </span>
+                </div>
+              </button>
+              <ul class="school_group_rows" hidden>
+                {% for row in group.rows %}
+                <li
+                  class="school_row_with_tooltip tooltip_target"
+                  data-tooltip-side="left"
+                  data-tooltip="{{ row.description|default:'Keine Beschreibung' }}"
+                  data-school-search="{{ row.level }} {{ row.level_label|default:row.level }} {{ row.school_name|lower }} {{ row.entry_name|lower }}"
+                >
+                  <div class="skill_name_wrap school_row_layout school_row_layout--sub">
+                    <span class="skill_name_text">
+                      <span class="school_row_label--level">{{ row.level_label|default:row.level }}</span>
+                      {{ row.entry_name }}
+                    </span>
+                    {% if row.can_edit_specification %}
+                    <button
+                      type="button"
+                      class="skill_spec_edit_btn"
+                      data-technique-spec-trigger
+                      data-technique-name="{{ row.entry_name }}"
+                      data-specification-value="{{ row.specification_value }}"
+                      data-action="{% url 'update_technique_specification' character.id row.technique_id %}"
+                      aria-label="{{ row.entry_name }} bearbeiten"
+                      title="{{ row.entry_name }} bearbeiten"
+                    >
+                      <span class="skill_spec_edit_emoji" aria-hidden="true">⋯</span>
+                    </button>
+                    {% endif %}
+                    <span
+                      class="school_support_icon tooltip_target"
+                      data-tooltip-side="cursor-right"
+                      data-tooltip="{{ row.support_level_tooltip }}"
+                      aria-label="{{ row.support_level_tooltip }}"
+                    >{{ row.support_level_icon }}</span>
+                  </div>
+                </li>
+                {% endfor %}
+              </ul>
+            </li>
+            {% endfor %}
+
           </ul>
         </div>
       </div>

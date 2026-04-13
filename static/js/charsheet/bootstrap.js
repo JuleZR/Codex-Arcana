@@ -30,7 +30,10 @@ onReady(() => {
   initLearningMenu({ choiceWindowController: windowControllers?.learnChoice || null });
   initTooltips();
   initWalletTooltip();
-  initInventoryMenu({ warningWindowController: windowControllers?.inventoryDeleteWarning || null });
+  initInventoryMenu({
+    warningWindowController: windowControllers?.inventoryDeleteWarning || null,
+    modifyWindowController: windowControllers?.runeRetrofit || null,
+  });
   initSheetActions();
   initDamagePanel();
   initCharInfoCounter();

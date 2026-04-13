@@ -822,7 +822,8 @@
 }
 
 .p2_lines li.inv_row.is-menu-open {
-  z-index: 45;
+  isolation: isolate;
+  z-index: 1200;
 }
 
 .p2_lines li.inv_row:hover {
@@ -879,6 +880,51 @@
 .inv_rune_marker.is-open {
   opacity: 1;
   color: rgba(160, 90, 10, 1);
+}
+
+.inv_rune_shortcut {
+  -webkit-appearance: none;
+  appearance: none;
+  box-sizing: border-box;
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
+  width: 20px;
+  min-width: 20px;
+  max-width: 20px;
+  height: 20px;
+  min-height: 20px;
+  max-height: 20px;
+  border-radius: 999px;
+  border: 1px solid rgba(126, 98, 63, 0.34);
+  background:
+    radial-gradient(ellipse at 50% -22%, rgba(255, 251, 241, 0.48), rgba(255, 251, 241, 0) 46%),
+    linear-gradient(180deg, rgba(248, 242, 229, 0.94), rgba(233, 223, 204, 0.88));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 250, 238, 0.72),
+    0 1px 2px rgba(45, 27, 13, 0.08);
+  color: rgba(92, 66, 41, 0.84);
+  font-family: "Noto Sans Runic", "Segoe UI Symbol", "Arial Unicode MS", serif;
+  font-size: 0.82rem;
+  line-height: 1;
+  font-weight: 400;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.inv_rune_shortcut:hover {
+  background:
+    radial-gradient(ellipse at 50% -22%, rgba(255, 251, 241, 0.58), rgba(255, 251, 241, 0) 46%),
+    linear-gradient(180deg, rgba(251, 246, 235, 0.96), rgba(237, 227, 209, 0.9));
+}
+
+.inv_rune_shortcut.is-open {
+  background:
+    radial-gradient(ellipse at 50% -22%, rgba(255, 251, 241, 0.52), rgba(255, 251, 241, 0) 46%),
+    linear-gradient(180deg, rgba(241, 233, 217, 0.96), rgba(225, 213, 192, 0.9));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 250, 238, 0.68),
+    inset 0 2px 4px rgba(45, 27, 13, 0.12);
 }
 
 .inv_rune_list {
@@ -952,11 +998,16 @@
   z-index: 1;
 }
 
+.p2_lines li.inv_row.quality_tinted_row > .inv_actions {
+  z-index: 2;
+}
+
 .inv_actions {
   display: inline-flex;
   align-items: center;
   gap: 4px;
   position: relative;
+  z-index: 2;
 }
 
 .inv_menu {
@@ -965,7 +1016,7 @@
 }
 
 .inv_menu.is-open {
-  z-index: 40;
+  z-index: 1210;
 }
 
 .inv_menu_trigger {
@@ -1012,10 +1063,8 @@
 }
 
 .inv_menu_panel {
-  position: absolute;
-  right: 0;
-  top: calc(100% + 4px);
-  z-index: 1;
+  position: fixed;
+  z-index: 1220;
   min-width: 132px;
   display: grid;
   gap: 3px;
@@ -1367,7 +1416,7 @@
 .floating-tooltip {
   position: fixed;
   width: max-content;
-  max-width: min(440px, calc(100vw - 24px));
+  max-width: min(560px, calc(100vw - 24px));
   padding: 9px 11px;
   border: 1px solid rgba(74, 55, 38, 0.4);
   border-radius: 4px;
@@ -1568,7 +1617,8 @@
   border-bottom: 1px solid rgba(74, 55, 38, 0.28);
 }
 
-.p2_schools .p2_lines li.school_row_with_tooltip {
+.p2_schools .p2_lines li.school_row_with_tooltip,
+.p2_schools .p2_lines .school_group_header.school_row_with_tooltip {
   margin: 3px 4px;
   padding: 2px 8px 2px 10px;
   border: 1px solid rgba(74, 55, 38, 0.24);
@@ -1584,7 +1634,8 @@
   letter-spacing: 0.01em;
 }
 
-.p2_schools .p2_lines li.school_row_with_tooltip:hover {
+.p2_schools .p2_lines li.school_row_with_tooltip:hover,
+.p2_schools .p2_lines .school_group_header.school_row_with_tooltip:hover {
   background: rgba(255, 250, 236, 0.74);
 }
 
@@ -1616,7 +1667,7 @@
 
 .p2_schools .school_row_layout {
   display: grid;
-  grid-template-columns: clamp(10rem, 34%, 14rem) minmax(0, 1fr) auto;
+  grid-template-columns: clamp(10rem, 34%, 14rem) minmax(0, 1fr) auto auto;
   align-items: center;
   gap: 6px;
   min-width: 0;
@@ -1694,6 +1745,90 @@
   color: #7a5230;
 }
 
+/* ── School support-level icon (ᚨ / ᛉ) ────────────────────────────────── */
+.school_support_icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  grid-column: -2 / -1; /* always last column regardless of spec-edit button */
+  padding: 0 2px;
+  font-family: "Noto Sans Runic", "Segoe UI Symbol", "Arial Unicode MS", serif;
+  font-size: 0.88rem;
+  line-height: 1;
+  color: rgba(122, 78, 24, 0.55);
+  cursor: help;
+  flex-shrink: 0;
+  transition: color 0.15s;
+}
+
+.school_support_icon:hover {
+  color: rgba(122, 78, 24, 0.9);
+}
+
+/* ── Collapsible school groups ─────────────────────────────────────────── */
+.school_group {
+  display: contents; /* dissolve the wrapper box — button + rows appear as direct list children */
+}
+
+/* The group header button borrows .school_row_with_tooltip appearance.
+   box-sizing: border-box + calc(100% - 8px) matches a <li> with margin: 3px 4px exactly. */
+.school_group_header {
+  -webkit-appearance: none;
+  appearance: none;
+  display: block;
+  box-sizing: border-box;
+  width: calc(100% - 8px); /* 100% of parent minus left-margin(4px) + right-margin(4px) */
+  border: none;
+  background: none;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+}
+
+/* Chevron is inline before the school name */
+.school_group_chevron {
+  display: inline-block;
+  width: 1em;
+  font-size: 0.75em;
+  line-height: 1;
+  vertical-align: middle;
+  transition: transform 0.18s ease;
+  color: rgba(122, 78, 24, 0.7);
+}
+
+.school_group_header[aria-expanded="true"] .school_group_chevron {
+  transform: rotate(90deg);
+}
+
+.school_group_rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.school_group_rows[hidden] {
+  display: none;
+}
+
+.p2_schools .school_row_layout--sub {
+  grid-template-columns: minmax(0, 1fr) auto auto;
+}
+
+.school_row_label--level {
+  display: inline-block;
+  min-width: 1.4rem;
+  font-family: "Trebuchet MS", "Segoe UI", Tahoma, sans-serif;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: rgba(122, 78, 24, 0.72);
+  text-align: right;
+  margin-right: 6px;
+  white-space: nowrap;
+}
+
 .p2_weapons {
   margin-top: 0;
   flex: 1 1 0;
@@ -1709,6 +1844,7 @@
 .inventory_scroll {
   flex: 1 1 auto;
   min-height: 0;
+  overflow-x: visible;
   overflow-y: auto;
 }
 
@@ -1944,6 +2080,11 @@
   font-size: 0.92rem;
 }
 
+.shop_item_form_hint--error {
+  color: rgba(180, 40, 20, 0.9);
+  font-weight: 600;
+}
+
 .shop_magic_effect_list {
   display: grid;
   gap: 10px;
@@ -2073,7 +2214,11 @@
 }
 
 .rune_window {
-  width: min(560px, calc(100vw - 28px));
+  width: min(1040px, calc(100vw - 28px));
+}
+
+.rune_window_layout {
+  min-height: min(68vh, 700px);
 }
 
 .rune_window_intro {
@@ -2094,6 +2239,14 @@
 .rune_window_options {
   max-height: min(44vh, 380px);
   overflow-y: auto;
+}
+
+.rune_window .shop_item_form_panel_body {
+  gap: 12px;
+}
+
+.rune_window .shop_magic_effect_list {
+  min-height: 0;
 }
 
 .rune_dropdown {
@@ -2157,6 +2310,48 @@
 
 .rune_option {
   align-items: center;
+}
+
+.rune_option--multiple {
+  display: block;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(120, 90, 60, 0.12);
+}
+
+.rune_option--multiple:last-child {
+  border-bottom: none;
+}
+
+.rune_option_header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.rune_option_count {
+  min-width: 1.6em;
+  text-align: center;
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.rune_option_decrement,
+.rune_option_increment {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+}
+
+.rune_option_specs {
+  display: grid;
+  gap: 4px;
+  margin-top: 6px;
+  padding-left: 68px;
+}
+
+.rune_option_spec {
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .rune_option_copy {

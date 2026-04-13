@@ -52,6 +52,10 @@ export function initSheetActions() {
       }
       const payload = await response.json();
       if (!payload?.ok) {
+        if (form.hasAttribute("data-ajax-only")) {
+          form.dispatchEvent(new CustomEvent("sheet:action-failed", { bubbles: true, detail: payload }));
+          return;
+        }
         throw new Error("sheet action invalid");
       }
       applySheetPartials(payload);
@@ -59,6 +63,10 @@ export function initSheetActions() {
         form.reset();
       }
     } catch (_error) {
+      if (form.hasAttribute("data-ajax-only")) {
+        form.dispatchEvent(new CustomEvent("sheet:action-failed", { bubbles: true, detail: null }));
+        return;
+      }
       form.submit();
     }
   });

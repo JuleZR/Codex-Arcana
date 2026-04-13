@@ -1,38 +1,153 @@
 {{ rune_retrofit_choices|json_script:"rune-retrofit-choices" }}
-<section class="payday-window payday-window--item-create sheet-window sheet-window--editor-modal rune_window" id="runeRetrofitWindow" aria-hidden="true">
+<section class="payday-window payday-window--large sheet-window sheet-window--editor-modal rune_window" id="runeRetrofitWindow" aria-hidden="true">
   <div class="payday-window__titlebar sheet-window__header" id="runeRetrofitWindowHandle">
-    <h3 class="payday-window__title sheet-window__title">Runen nachrüsten</h3>
-    <button type="button" class="payday-window__close" id="runeRetrofitWindowClose" aria-label="Runenfenster schließen">x</button>
+    <h3 class="payday-window__title sheet-window__title">Modifizieren</h3>
+    <button type="button" class="payday-window__close" id="runeRetrofitWindowClose" aria-label="Modifizieren-Fenster schließen">x</button>
   </div>
   <div class="payday-window__body sheet-window__body">
-    <form method="post" action="" id="runeRetrofitForm" class="shop_item_form sheet-window__editor-form" data-sheet-action data-close-window-on-success="1">
+    <form method="post" action="" id="runeRetrofitForm" class="shop_item_form sheet-window__editor-form" data-sheet-action data-ajax-only data-close-window-on-success="1">
       {% csrf_token %}
-      <div class="sheet-window__surface sheet-window__surface--editor sheet-window__surface--form rune_window_intro">
-        <p class="rune_window_lead">Zusätzliche Runen für <strong id="runeRetrofitItemName">-</strong>.</p>
-        <p class="rune_window_note" id="runeRetrofitBaseInfo">Keine Basis-Runen vorhanden.</p>
-      </div>
-      <fieldset class="shop_item_form_fieldset sheet-window__surface sheet-window__surface--editor sheet-window__surface--form">
-        <legend>Nachrüst-Runen</legend>
-        <label class="shop_item_form_row rune_window_search_row">
-          <span>Suche</span>
-          <input type="search" id="runeRetrofitSearch" class="sheet-window__field rune_window_search_input" placeholder="Rune suchen...">
-        </label>
-        <div class="rune_dropdown" id="runeRetrofitDropdown">
-          <button
-            type="button"
-            class="rune_dropdown_trigger"
-            id="runeRetrofitDropdownTrigger"
-            aria-haspopup="true"
-            aria-expanded="false"
-          >
-            <span class="rune_dropdown_trigger_label">Runen auswählen</span>
-            <span class="rune_dropdown_trigger_count" id="runeRetrofitSelectionCount">0</span>
-          </button>
-          <div class="rune_dropdown_panel" id="runeRetrofitDropdownPanel" hidden>
-            <div id="runeRetrofitOptions" class="shop_item_form_checklist rune_window_options"></div>
+      <div class="shop_item_form_layout rune_window_layout">
+        <section class="shop_item_form_main shop_item_form_panel shop_panel">
+          <div class="shop_item_form_panel_header shop_panel_header">
+            <h2>Grunddaten</h2>
           </div>
-        </div>
-      </fieldset>
+          <div class="shop_item_form_panel_body">
+            <div class="sheet-window__surface sheet-window__surface--editor sheet-window__surface--form rune_window_intro">
+              <p class="rune_window_lead">Modifikationen für <strong id="runeRetrofitItemName">-</strong>.</p>
+              <p class="rune_window_note" id="runeRetrofitBaseInfo">Keine Basis-Runen vorhanden.</p>
+            </div>
+            <label class="shop_item_form_row">
+              <span>Qualität</span>
+              <select name="quality" id="runeRetrofitQuality">
+                {% for quality in shop_quality_choices %}
+                  <option value="{{ quality.value }}" style="color: {{ quality.color }};">{{ quality.label }}</option>
+                {% endfor %}
+              </select>
+            </label>
+            <div class="shop_item_form_grid shop_item_form_grid--equal">
+              <label class="shop_item_form_row">
+                <span>Kosten (EP)</span>
+                <input type="number" name="experience_cost" min="0" step="1" value="0">
+              </label>
+              <label class="shop_item_form_row">
+                <span>Kosten (KS)</span>
+                <input type="number" name="money_cost" min="0" step="1" value="0">
+              </label>
+            </div>
+            <div class="shop_item_form_fieldset">
+              <div class="shop_item_form_fieldset_title">Nachrüst-Runen</div>
+              <label class="shop_item_form_row rune_window_search_row">
+                <span>Suche</span>
+                <input type="search" id="runeRetrofitSearch" class="sheet-window__field rune_window_search_input" placeholder="Rune suchen...">
+              </label>
+              <div class="rune_dropdown" id="runeRetrofitDropdown">
+                <button
+                  type="button"
+                  class="rune_dropdown_trigger shop_item_multi_select_trigger"
+                  id="runeRetrofitDropdownTrigger"
+                  aria-haspopup="true"
+                  aria-expanded="false"
+                >
+                  <span class="shop_item_multi_select_value" id="runeRetrofitTriggerLabel">Keine Runen ausgewählt</span>
+                  <span class="shop_item_multi_select_meta">
+                    <span class="rune_dropdown_trigger_count" id="runeRetrofitSelectionCount">0</span>
+                    <span class="shop_item_multi_select_chevron" aria-hidden="true">&#9662;</span>
+                  </span>
+                </button>
+                <div class="rune_dropdown_panel" id="runeRetrofitDropdownPanel" hidden>
+                  <div id="runeRetrofitOptions" class="shop_item_form_checklist rune_window_options"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+        <section class="shop_item_form_details shop_item_form_panel shop_panel">
+          <div class="shop_item_form_panel_header shop_panel_header">
+            <h2>Magische Effekte</h2>
+          </div>
+          <div class="shop_item_form_panel_body">
+            <label class="shop_item_form_row">
+              <span>Beschreibung</span>
+              <textarea name="description" id="runeRetrofitDescription" rows="4" maxlength="1000" placeholder="Beschreibung des modifizierten Gegenstands"></textarea>
+            </label>
+            <p class="shop_item_form_hint">Die Effekte funktionieren wie bei magischen Gegenständen und gelten nur für dieses modifizierte Besitz-Item.</p>
+            <input type="hidden" name="rune_payloads" id="runeRetrofitRunePayloads" value="[]">
+      <input type="hidden" name="magic_modifier_payloads" id="runeRetrofitMagicModifierPayloads" value="[]">
+            <div class="shop_magic_effect_list" id="runeRetrofitMagicEffectsList"></div>
+            <div class="shop_magic_effect_actions">
+              <button type="button" class="shop_item_cancel_btn" id="runeRetrofitAddEffectBtn">Effekt hinzufügen</button>
+            </div>
+          </div>
+        </section>
+      </div>
+      <template id="runeRetrofitMagicEffectTemplate">
+        <section class="shop_magic_effect_card" data-magic-effect-row>
+          <div class="shop_magic_effect_card_header">
+            <h4 class="shop_magic_effect_title">Effekt</h4>
+            <button type="button" class="shop_step_btn shop_magic_effect_remove" data-remove-magic-effect aria-label="Effekt entfernen">-</button>
+          </div>
+          <div class="shop_item_form_grid">
+            <label class="shop_item_form_row">
+              <span>Was wird beeinflusst?</span>
+              <select data-magic-target-kind>
+                <option value="">Bitte wählen</option>
+                {% for value, label in shop_modifier_target_kind_choices %}
+                  <option value="{{ value }}">{{ label }}</option>
+                {% endfor %}
+              </select>
+            </label>
+            <label class="shop_item_form_row">
+              <span>Bonus oder Malus</span>
+              <input type="number" step="1" value="0" data-magic-value-input>
+            </label>
+          </div>
+          <label class="shop_item_form_row">
+            <span>Effektbeschreibung</span>
+            <input type="text" maxlength="255" placeholder="z. B. Schutz vor Feuer" data-magic-effect-description>
+          </label>
+          <label class="shop_item_form_row" data-magic-target-row="stat" hidden>
+            <span>Welcher Wert?</span>
+            <select data-magic-target-select="stat">
+              {% for value, label in shop_modifier_stat_choices %}
+                <option value="{{ value }}">{{ label }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label class="shop_item_form_row" data-magic-target-row="skill" hidden>
+            <span>Welche Fertigkeit?</span>
+            <select data-magic-target-select="skill">
+              {% for skill in shop_modifier_skill_choices %}
+                <option value="{{ skill.id }}">{{ skill.name }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label class="shop_item_form_row" data-magic-target-row="category" hidden>
+            <span>Welche Kategorie?</span>
+            <select data-magic-target-select="category">
+              {% for category in shop_modifier_skill_category_choices %}
+                <option value="{{ category.id }}">{{ category.name }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label class="shop_item_form_row" data-magic-target-row="item_category" hidden>
+            <span>Welcher Gegenstandstyp?</span>
+            <select data-magic-target-select="item_category">
+              {% for value, label in shop_modifier_item_category_choices %}
+                <option value="{{ value }}">{{ label }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label class="shop_item_form_row" data-magic-target-row="specialization" hidden>
+            <span>Welche Spezialisierung?</span>
+            <select data-magic-target-select="specialization">
+              {% for specialization in shop_modifier_specialization_choices %}
+                <option value="{{ specialization.id }}">{{ specialization.name }}</option>
+              {% endfor %}
+            </select>
+          </label>
+        </section>
+      </template>
       <div class="shop_item_form_actions">
         <button type="button" id="runeRetrofitCancelBtn" class="shop_item_cancel_btn">Abbrechen</button>
         <button type="submit" class="shop_item_save_btn">Speichern</button>

@@ -9,7 +9,7 @@ from django.db import models
 
 from ..constants import PROFICIENCY_GROUP_CHOICES, QUALITY_CHOICES, QUALITY_COMMON, RESOURCE_KEY_CHOICES, STAT_SLUG_CHOICES
 from .core import Attribute, Language, Race, Skill, SkillCategory, Trait
-from .items import Item
+from .items import Item, Rune
 from .progression import Specialization
 
 
@@ -164,6 +164,9 @@ class CharacterItem(models.Model):
     equip_locked = models.BooleanField(default=False)
     quality = models.CharField(max_length=20, choices=QUALITY_CHOICES, default=QUALITY_COMMON)
     runes = models.ManyToManyField("Rune", blank=True, related_name="character_items")
+    description = models.TextField(blank=True, default="")
+    is_magic = models.BooleanField(default=False)
+    magic_effect_summary = models.CharField(max_length=255, blank=True, default="")
 
     def clean(self):
         """Enforce stackability and equipment consistency."""
@@ -177,6 +180,32 @@ class CharacterItem(models.Model):
 
     def __str__(self):
         return f"{self.owner} owns {self.item}"
+
+    @property
+    def is_magic_effective(self) -> bool:
+        """Return whether this owned entry behaves as a magic item."""
+        return bool(self.is_magic or self.item.is_magic_effective)
+
+
+class CharacterItemRuneSpec(models.Model):
+    """Stores a character's chosen specialization text for one rune slot on one owned item."""
+
+    character_item = models.ForeignKey(CharacterItem, on_delete=models.CASCADE, related_name="rune_specs")
+    rune = models.ForeignKey(Rune, on_delete=models.CASCADE, related_name="character_item_specs")
+    specification = models.CharField(max_length=100, blank=True, default="")
+    slot = models.PositiveSmallIntegerField(
+        default=1,
+        help_text="Slot-Nummer für mehrfach angewandte Runen (allow_multiple). Beginnt bei 1.",
+    )
+
+    class Meta:
+        unique_together = [("character_item", "rune", "slot")]
+        ordering = ["rune__name", "slot"]
+
+    def __str__(self):
+        if self.specification:
+            return f"{self.rune.name} (Slot {self.slot}): {self.specification}"
+        return f"{self.rune.name} (Slot {self.slot})"
 
 
 class CharacterTrait(models.Model):

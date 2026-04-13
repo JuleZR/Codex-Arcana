@@ -451,6 +451,13 @@ class CharacterEngine:
                     Q(item__is_magic=True) | Q(item__item_type=Item.ItemType.MAGIC_ITEM)
                 ).values_list("item_id", flat=True)
             ),
+            CharacterItem: set(
+                CharacterItem.objects.filter(
+                    owner=self.character,
+                    equipped=True,
+                    is_magic=True,
+                ).values_list("id", flat=True)
+            ),
         }
         source_ids_by_model = {
             model_class: source_ids
@@ -999,7 +1006,11 @@ class CharacterEngine:
 
     def debug_legacy_calculate_initiative(self) -> int:
         """Return the legacy initiative result for migration diagnostics."""
-        return self.attribute_modifier("GE") + self._debug_legacy_current_wound_penalty() + self.debug_legacy_modifier_total_for_stat("initiative")
+        return (
+            self.attribute_modifier("GE")
+            + self._debug_legacy_current_wound_penalty()
+            + self.debug_legacy_modifier_total_for_stat("initiative")
+        )
 
     def debug_legacy_calculate_arcane_power(self) -> int:
         """Return the legacy arcane power result for migration diagnostics."""
@@ -1365,6 +1376,8 @@ class CharacterEngine:
             ).filter(
                 Q(item__is_magic=True) | Q(item__item_type=Item.ItemType.MAGIC_ITEM)
             ).exists()
+        if isinstance(source, CharacterItem):
+            return source.equipped and bool(source.is_magic)
         return False
 
     def _technique_effect_is_computed(self, technique: Technique) -> bool:
