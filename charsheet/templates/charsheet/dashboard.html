@@ -485,10 +485,25 @@ if (dddiceCheckbox) {
           placeCentered();
         };
 
+        const creationFrameHasDraft = function () {
+          try {
+            const href = frame.contentWindow.location.href;
+            const url = new URL(href, window.location.origin);
+            const path = url.pathname.toLowerCase();
+            return (path === "/character/new" || path === "/character/new/") && Boolean(url.searchParams.get("draft"));
+          } catch (_error) {
+            return false;
+          }
+        };
+
         const closeWindow = function () {
+          const shouldReloadDrafts = creationFrameHasDraft();
           win.classList.remove("is-open");
           win.setAttribute("aria-hidden", "true");
           backdrop.classList.remove("is-open");
+          if (shouldReloadDrafts) {
+            window.location.reload();
+          }
         };
 
         let dragPointerId = null;
