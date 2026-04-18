@@ -232,7 +232,7 @@ export function initDamagePanel() {
         }
 
         const payload = await response.json();
-        if (thisRequestVersion < lastAppliedResponseVersion) {
+        if (thisRequestVersion < requestVersion || thisRequestVersion < lastAppliedResponseVersion) {
           return;
         }
         lastAppliedResponseVersion = thisRequestVersion;
@@ -308,7 +308,7 @@ export function initDamagePanel() {
         }
 
         const payload = await response.json();
-        if (thisRequestVersion < lastAppliedArcaneResponseVersion) {
+        if (thisRequestVersion < arcaneRequestVersion || thisRequestVersion < lastAppliedArcaneResponseVersion) {
           return;
         }
         lastAppliedArcaneResponseVersion = thisRequestVersion;
