@@ -92,12 +92,14 @@ def _build_decision_option(
     submit_value: str,
     meta: str = "",
     description: str = "",
+    badge: str = "",
 ) -> dict[str, str]:
     """Return one serialized option for the choice modal payload."""
     return {
         "id": str(option_id),
         "label": label,
         "meta": meta,
+        "badge": badge,
         "description": description,
         "submit_name": submit_name,
         "submit_value": submit_value,
@@ -134,6 +136,15 @@ def _build_pending_decision(
         "supported": supported,
         "selection_group_id": selection_group_id,
     }
+
+
+def _spell_within_current_level(spell: Spell, *, school_levels: dict[int, int], aspect_levels: dict[int, int]) -> bool:
+    """Return whether a spell is legal for the character's current learned magic level."""
+    if spell.school_id:
+        return int(spell.grade) <= int(school_levels.get(spell.school_id, 0))
+    if spell.aspect_id:
+        return int(spell.grade) <= int(aspect_levels.get(spell.aspect_id, 0))
+    return True
 
 
 def build_learning_progression_context(character, *, engine) -> dict[str, object]:
@@ -294,9 +305,25 @@ def build_learning_progression_context(character, *, engine) -> dict[str, object
                 )
             )
 
+    arcane_school_levels = {
+        entry.school_id: int(entry.level)
+        for entry in magic_engine._arcane_school_entries()
+    }
+    aspect_levels = {
+        entry.aspect_id: int(entry.level)
+        for entry in magic_engine.get_character_aspects()
+    }
+
     for school_entry in magic_engine._arcane_school_entries():
         choice_state = magic_engine.get_available_arcane_spell_choices(school_entry.school)
-        options = choice_state["options"]
+        options = [
+            spell for spell in choice_state["options"]
+            if _spell_within_current_level(
+                spell,
+                school_levels=arcane_school_levels,
+                aspect_levels=aspect_levels,
+            )
+        ]
         for slot_index in range(int(choice_state["remaining"])):
             row = {
                 "field_name": f"learn_arcane_free_spell_{school_entry.school_id}_{slot_index}",
@@ -320,6 +347,7 @@ def build_learning_progression_context(character, *, engine) -> dict[str, object
                             option_id=str(spell.id),
                             label=spell.name,
                             meta=f"Grad {spell.grade}",
+                            badge=(spell.panel_badge_label or "").strip(),
                             description=spell.description or "",
                             submit_name=row["field_name"],
                             submit_value=str(spell.id),
@@ -331,7 +359,14 @@ def build_learning_progression_context(character, *, engine) -> dict[str, object
 
     for source_row in magic_engine.get_available_bonus_spells():
         source = source_row["source"]
-        options = source_row["options"]
+        options = [
+            spell for spell in source_row["options"]
+            if _spell_within_current_level(
+                spell,
+                school_levels=arcane_school_levels,
+                aspect_levels=aspect_levels,
+            )
+        ]
         for slot_index in range(int(source["remaining"])):
             row = {
                 "field_name": f"learn_bonus_spell_{source['id']}_{slot_index}",
@@ -354,6 +389,7 @@ def build_learning_progression_context(character, *, engine) -> dict[str, object
                             option_id=str(spell.id),
                             label=spell.name,
                             meta=f"{spell.school.name if spell.school_id else spell.aspect.name} | Grad {spell.grade}",
+                            badge=(spell.panel_badge_label or "").strip(),
                             description=spell.description or "",
                             submit_name=row["field_name"],
                             submit_value=str(spell.id),

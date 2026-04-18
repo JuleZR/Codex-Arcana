@@ -33,6 +33,83 @@ BONUS_SPELL_TRAIT_NAMES = (
 )
 
 
+def _to_roman(value: int | None) -> str:
+    """Return a compact roman numeral label used in grouped panel headers."""
+    number = int(value or 0)
+    mapping = (
+        (10, "X"),
+        (9, "IX"),
+        (5, "V"),
+        (4, "IV"),
+        (1, "I"),
+    )
+    if number <= 0:
+        return ""
+    result: list[str] = []
+    for arabic, roman in mapping:
+        while number >= arabic:
+            result.append(roman)
+            number -= arabic
+    return "".join(result)
+
+
+def _escape_tooltip_table_cell(value: object) -> str:
+    """Escape markdown-style table separators used by the shared tooltip renderer."""
+    return str(value if value not in (None, "") else "-").replace("|", "\\|")
+
+
+def _build_spell_tooltip(entry: CharacterSpell) -> str:
+    """Return a structured tooltip with spell facts followed by the description."""
+    spell = entry.spell
+    owner_label = "Basis"
+    if spell.school_id:
+        owner_label = spell.school.name
+    elif spell.aspect_id:
+        owner_label = spell.aspect.name
+
+    rows: list[tuple[str, object]] = [
+        ("Herkunft", owner_label),
+        ("Grad", spell.grade),
+        ("Quelle", MagicEngine._source_label_static(entry)),
+    ]
+    if spell.spell_attribute_id:
+        rows.append(("Attribut", spell.spell_attribute.name))
+    rows.append(("KP", f"{int(spell.kp_cost)} KP"))
+    if spell.cast_time:
+        rows.append(("Zauberzeit", spell.cast_time))
+    if spell.range_text:
+        rows.append(("Reichweite", spell.range_text))
+    if spell.duration_text:
+        rows.append(("Dauer", spell.duration_text))
+    if spell.resistance_text:
+        rows.append(("Widerstand", spell.resistance_text))
+
+    lines = [
+        "| Wert | Details |",
+        "| --- | --- |",
+    ]
+    lines.extend(
+        f"| {_escape_tooltip_table_cell(label)} | {_escape_tooltip_table_cell(value)} |"
+        for label, value in rows
+    )
+
+    description = str(spell.description or "").strip()
+    if description:
+        lines.append("")
+        lines.append(description)
+    return "\n".join(lines)
+
+
+def _spell_group_sort_key(group_kind: str, group_name: str) -> tuple[int, str]:
+    """Keep base spells first, then arcane schools, then divine aspects."""
+    order = {
+        "base": 0,
+        "arcane": 1,
+        "divine": 2,
+    }
+    return (order.get(group_kind, 99), group_name)
+
+
 class MagicEngine:
     """Resolve magic progression, known spells, and casting for one character."""
 
@@ -77,6 +154,7 @@ class MagicEngine:
                 "spell__school",
                 "spell__school__type",
                 "spell__aspect",
+                "spell__spell_attribute",
                 "bonus_source",
                 "bonus_source__trait",
             ).order_by("spell__school__name", "spell__aspect__name", "spell__grade", "spell__name")
@@ -413,9 +491,11 @@ class MagicEngine:
             if current_arcane_power is None:
                 current_arcane_power = calculated_arcane_power
             current_arcane_power = max(0, int(current_arcane_power))
-            if current_arcane_power < int(spell_obj.kp_cost):
+            spent_kp = int(spell_obj.kp_cost)
+            projected_arcane_power = current_arcane_power - spent_kp
+            if projected_arcane_power < 0:
                 return {"ok": False, "error": "not_enough_kp", "message": "Nicht genug KP fuer diesen Zauber."}
-            current_arcane_power -= int(spell_obj.kp_cost)
+            current_arcane_power = projected_arcane_power
             character.current_arcane_power = current_arcane_power
             character.save(update_fields=["current_arcane_power"])
             display_arcane_power_max = max(calculated_arcane_power, current_arcane_power)
@@ -425,11 +505,15 @@ class MagicEngine:
                 "spell_name": spell_obj.name,
                 "current_arcane_power": current_arcane_power,
                 "current_arcane_power_max": display_arcane_power_max,
-                "spent_kp": int(spell_obj.kp_cost),
+                "spent_kp": spent_kp,
             }
 
     def get_spell_panel_data(self) -> dict[str, object]:
         known_entries = self.get_known_spells()
+        arcane_school_levels = {
+            entry.school.name: int(entry.level)
+            for entry in self._arcane_school_entries()
+        }
         grouped_rows: dict[tuple[str, str], list[dict[str, object]]] = defaultdict(list)
         for entry in known_entries:
             spell = entry.spell
@@ -461,7 +545,9 @@ class MagicEngine:
                         CharacterSpell.SourceKind.DIVINE_EXTRA,
                     },
                     "source_label": self._source_label(entry),
+                    "badge_label": (spell.panel_badge_label or "").strip(),
                     "description": spell.description or "",
+                    "tooltip_text": _build_spell_tooltip(entry),
                     "castable_kind": "spell",
                 }
             )
@@ -469,9 +555,17 @@ class MagicEngine:
             {
                 "kind": group_kind,
                 "name": group_name,
+                "rank_label": (
+                    _to_roman(arcane_school_levels.get(group_name, 0))
+                    if group_kind == "arcane"
+                    else ""
+                ),
                 "rows": sorted(rows, key=lambda row: (row["level"], row["name"])),
             }
-            for (group_kind, group_name), rows in sorted(grouped_rows.items(), key=lambda item: (item[0][0], item[0][1]))
+            for (group_kind, group_name), rows in sorted(
+                grouped_rows.items(),
+                key=lambda item: _spell_group_sort_key(item[0][0], item[0][1]),
+            )
         ]
         has_entries = any(group["rows"] for group in groups)
         return {
@@ -490,6 +584,11 @@ class MagicEngine:
         }
 
     def _source_label(self, entry: CharacterSpell) -> str:
+        return self._source_label_static(entry)
+
+    @staticmethod
+    def _source_label_static(entry: CharacterSpell) -> str:
+        """Static helper so spell tooltips can reuse source labels without an engine instance."""
         if entry.source_kind == CharacterSpell.SourceKind.BASE:
             return "Basis"
         if entry.source_kind == CharacterSpell.SourceKind.ARCANE_FREE:

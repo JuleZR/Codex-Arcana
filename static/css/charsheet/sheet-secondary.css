@@ -303,16 +303,13 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  min-height: 160px;
-  max-height: 260px;
-  flex: 0 0 auto;
+  min-height: 0;
+  flex: 1 1 0;
 }
 
 .p2_spells .spell_panel_groups {
   flex: 1 1 auto;
   min-height: 0;
-  overflow-y: auto;
-  scrollbar-gutter: stable both-edges;
 }
 
 .spell_panel_header {
@@ -362,68 +359,131 @@
   color: #503722;
 }
 
+.spell_filter_row {
+  padding: 0 4px 6px;
+}
+
 .spell_panel_groups {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 8px;
+  align-items: stretch;
+  align-content: flex-start;
+  min-width: 0;
+}
+
+.spell_scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  border: 1px solid rgba(74, 55, 38, 0.3);
+  border-radius: 6px;
+  background: rgba(255, 248, 230, 0.24);
+  padding: 4px 0;
 }
 
 .spell_group {
-  border-bottom: 1px solid rgba(114, 80, 46, 0.14);
-  padding-bottom: 4px;
-  margin-bottom: 2px;
+  display: grid;
+  gap: 2px;
 }
 
 .spell_group:last-child {
-  border-bottom: none;
   margin-bottom: 0;
 }
 
 .spell_group_header {
+  -webkit-appearance: none;
+  appearance: none;
+  width: calc(100% - 8px);
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 4px 10px 2px;
+  margin: 0 4px;
+  min-height: 26px;
+  padding: 1px 8px;
+  border: 1px solid rgba(101, 73, 45, 0.3);
+  border-radius: 6px;
+  background: linear-gradient(
+    180deg,
+    rgba(244, 235, 214, 0.72) 0%,
+    rgba(234, 222, 197, 0.52) 100%
+  );
+  box-shadow:
+    inset 0 1px 0 rgba(255, 247, 226, 0.54),
+    inset 0 0 0 1px rgba(255, 244, 217, 0.18);
+  text-align: left;
+  cursor: pointer;
 }
 
-.spell_group_header h3 {
-  margin: 0;
+.spell_group_header:hover {
+  background: linear-gradient(
+    180deg,
+    rgba(247, 239, 219, 0.82) 0%,
+    rgba(237, 226, 203, 0.62) 100%
+  );
+}
+
+.spell_group_heading {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+}
+
+.spell_group_title {
   font-family: "Trebuchet MS", "Segoe UI", Tahoma, sans-serif;
-  font-size: 0.72rem;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--ink-soft);
+  font-size: 0.8rem;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  color: #433022;
 }
 
 .spell_group_kind {
-  font-size: 0.62rem;
+  font-size: 0.58rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--ink-soft);
+  color: rgba(102, 73, 44, 0.82);
+  white-space: nowrap;
 }
 
 .spell_group_rows {
   list-style: none;
   margin: 0;
   padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.spell_group_rows[hidden] {
+  display: none;
+}
+
+.spell_group_chevron {
+  display: inline-block;
+  width: 0.9em;
+  font-size: 0.62em;
+  line-height: 1;
+  color: rgba(122, 78, 24, 0.7);
+  transition: transform 0.18s ease;
+}
+
+.spell_group_header[aria-expanded="true"] .spell_group_chevron {
+  transform: rotate(90deg);
 }
 
 .spell_cast_button {
   width: calc(100% - 8px);
-  min-height: 1.8rem;
+  min-height: 26px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-columns: minmax(0, 1fr) 54px 48px 82px;
   gap: 0 6px;
   align-items: center;
   text-align: left;
   margin: 2px 4px;
-  padding: 3px 6px 3px 8px;
+  padding: 1px 8px;
   border: 1px solid rgba(74, 55, 38, 0.24);
-  border-radius: 4px;
+  border-radius: 6px;
   background: linear-gradient(
     180deg,
     rgba(255, 250, 236, 0.34) 0%,
@@ -447,33 +507,45 @@
 }
 
 .spell_cast_name {
-  font-size: 0.86rem;
-  font-weight: 600;
+  font-size: 0.8rem;
+  font-weight: 400;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .spell_cast_meta {
-  display: none;
+  font-size: 0.72rem;
+  color: rgba(122, 78, 24, 0.72);
+  white-space: nowrap;
+  font-weight: 400;
+  text-align: right;
 }
 
 .spell_cast_cost {
   font-weight: 700;
-  font-size: 0.78rem;
+  font-size: 0.74rem;
   white-space: nowrap;
+  text-align: right;
 }
 
 .spell_cast_source {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   border-radius: 999px;
   background: rgba(101, 72, 42, 0.08);
   padding: 1px 7px;
-  font-size: 0.62rem;
+  font-size: 0.56rem;
+  font-weight: 400;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   white-space: nowrap;
+  justify-self: end;
+}
+
+.spell_cast_source--hidden {
+  visibility: hidden;
 }
 
 .spell_cast_source--base {
@@ -482,6 +554,21 @@
 
 .spell_cast_source--bonus {
   background: rgba(90, 66, 32, 0.16);
+}
+
+.floating-tooltip p {
+  white-space: normal;
+}
+
+.floating-tooltip table + p {
+  padding: 8px 10px;
+  border: 1px solid rgba(119, 91, 58, 0.18);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.88);
+  color: rgba(51, 37, 24, 0.96);
+  font-size: 0.95rem;
+  line-height: 1.48;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
 }
 
 .p2_damage > h2 {
@@ -1934,11 +2021,14 @@
 }
 
 .schools_filter_row {
-  padding: 4px 8px 6px;
+  padding: 4px 0 6px;
 }
 
 .schools_filter_input {
+  box-sizing: border-box;
+  display: block;
   width: 100%;
+  margin: 0;
   min-height: 28px;
   border: 1px solid rgba(118, 88, 57, 0.28);
   border-radius: 8px;

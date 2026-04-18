@@ -102,7 +102,7 @@
                         <label
                           class="learn_choice_option"
                           data-choice-search="{{ option.label }} {{ option.meta }} {{ option.description }}"
-                        >
+                          >
                           <input
                             type="radio"
                             name="learnChoiceSelection-{{ decision.decision_id }}"
@@ -113,8 +113,15 @@
                           >
                           <span class="learn_choice_option_text">
                             <span class="learn_choice_option_title">{{ option.label }}</span>
-                            {% if option.meta %}
-                              <span class="learn_choice_option_meta">{{ option.meta }}</span>
+                            {% if option.meta or option.badge %}
+                              <span class="learn_choice_option_meta_row">
+                                {% if option.meta %}
+                                  <span class="learn_choice_option_meta">{{ option.meta }}</span>
+                                {% endif %}
+                                {% if option.badge %}
+                                  <span class="learn_choice_option_badge">{{ option.badge }}</span>
+                                {% endif %}
+                              </span>
                             {% endif %}
                             {% if option.description %}
                               <details class="learn_choice_option_details">

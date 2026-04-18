@@ -755,24 +755,67 @@
   font-weight: 700;
 }
 
+.learn_choice_option_meta_row,
 .learn_choice_option_meta,
 .learn_choice_option_details {
   margin-top: 4px;
 }
 
+.learn_choice_option_meta_row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.learn_choice_option_meta {
+  display: block;
+  color: rgba(98, 68, 40, 0.92);
+  font-size: 0.98rem;
+  line-height: 1.25;
+  letter-spacing: 0.01em;
+  font-family: "Cormorant Garamond", Georgia, serif;
+}
+
+.learn_choice_option_badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  min-height: 1.2rem;
+  padding: 1px 8px;
+  border: 1px solid rgba(133, 100, 64, 0.24);
+  border-radius: 999px;
+  background: rgba(101, 72, 42, 0.08);
+  color: rgba(88, 63, 38, 0.92);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
 .learn_choice_option_details_toggle {
   font-size: 0.78rem;
-  color: var(--ink-soft);
+  color: rgba(105, 74, 44, 0.9);
+  font-weight: 700;
   cursor: pointer;
   user-select: none;
+}
+
+.learn_choice_option_details[open] {
+  padding: 8px 10px;
+  border: 1px solid rgba(123, 92, 58, 0.18);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.92);
 }
 
 .learn_choice_option_description {
   display: block;
   margin-top: 4px;
-  color: rgba(65, 48, 32, 0.82);
-  font-size: 1rem;
-  line-height: 1.4;
+  color: rgba(49, 35, 23, 0.96);
+  font-size: 1.04rem;
+  line-height: 1.55;
   font-family: "Cormorant Garamond", Georgia, serif;
 }
 

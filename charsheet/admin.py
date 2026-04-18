@@ -3683,7 +3683,7 @@ class AspectAdmin(admin.ModelAdmin):
 
 @admin.register(Spell)
 class SpellAdmin(admin.ModelAdmin):
-    list_display = ("name", "spell_owner", "spell_family", "grade", "spell_attribute", "is_base_spell", "kp_cost")
+    list_display = ("name", "spell_owner", "spell_family", "grade", "panel_badge_label", "spell_attribute", "is_base_spell", "kp_cost")
     search_fields = ("name", "slug")
     list_filter = ("school", "aspect", "grade", "is_base_spell", "spell_attribute")
     ordering = ("school__name", "aspect__name", "grade", "name")

@@ -1338,6 +1338,7 @@ class Spell(models.Model):
     is_base_spell = models.BooleanField(default=False)
 
     description = models.TextField(blank=True, default="")
+    panel_badge_label = models.CharField(max_length=30, blank=True, default="Zauber")
     kp_cost = models.PositiveSmallIntegerField(default=0)
     cast_time = models.CharField(max_length=100, blank=True, default="")
     range_text = models.CharField(max_length=100, blank=True, default="")

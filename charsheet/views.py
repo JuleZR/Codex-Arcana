@@ -1548,6 +1548,7 @@ def cast_spell(request, character_id: int, spell_id: int):
         return redirect("character_sheet", character_id=character_id)
 
     if _is_partial_request(request):
+        character.refresh_from_db()
         context = _build_sheet_context_for_request(request, character)
         partials = []
         for key in ("damage_panel", "spell_panel"):

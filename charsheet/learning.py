@@ -150,9 +150,14 @@ def _apply_progression_choices(character: Character, post_data) -> dict[str, int
         allowed_ids = {str(option.id) for option in row["options"]}
         if raw_spell_id not in allowed_ids:
             raise LearningSubmissionError(f"{row['school_name']}: Ungueltige Zauberwahl.")
+        spell = Spell.objects.select_related("school", "aspect").filter(pk=int(raw_spell_id)).first()
+        if spell is None:
+            raise LearningSubmissionError("Zauber nicht gefunden.")
+        if spell.school_id and int(spell.grade) > int(row.get("school_level", 0) or 0):
+            raise LearningSubmissionError(f"{row['school_name']}: Zauber liegt ueber der aktuellen Stufe.")
         spell_entry = CharacterSpell(
             character=character,
-            spell_id=int(raw_spell_id),
+            spell=spell,
             source_kind=CharacterSpell.SourceKind.ARCANE_FREE,
         )
         spell_entry.full_clean()
@@ -185,6 +190,17 @@ def _apply_progression_choices(character: Character, post_data) -> dict[str, int
         spell = Spell.objects.select_related("school", "aspect").filter(pk=int(raw_spell_id)).first()
         if spell is None:
             raise LearningSubmissionError("Zauber nicht gefunden.")
+        if spell.school_id:
+            current_level = int(character.get_magic_engine(refresh=True)._school_level_map().get(spell.school_id, 0))
+            if int(spell.grade) > current_level:
+                raise LearningSubmissionError(f"{row['source_label']}: Zauber liegt ueber der aktuellen Stufe.")
+        elif spell.aspect_id:
+            aspect_levels = {
+                entry.aspect_id: int(entry.level)
+                for entry in character.get_magic_engine(refresh=True).get_character_aspects()
+            }
+            if int(spell.grade) > int(aspect_levels.get(spell.aspect_id, 0)):
+                raise LearningSubmissionError(f"{row['source_label']}: Zauber liegt ueber der aktuellen Stufe.")
         source_kind = CharacterSpell.SourceKind.ARCANE_BONUS if spell.school_id else CharacterSpell.SourceKind.DIVINE_BONUS
         spell_entry = CharacterSpell(
             character=character,

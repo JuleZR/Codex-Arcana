@@ -17,35 +17,56 @@
     </div>
   {% endif %}
 
-  <div class="spell_panel_groups">
-    {% for group in spell_panel_groups %}
-      <section class="spell_group">
-        <header class="spell_group_header">
-          <h3>{{ group.name }}</h3>
-          <span class="spell_group_kind">{% if group.kind == 'divine' %}Aspekt{% else %}Schule{% endif %}</span>
-        </header>
-        <ul class="spell_group_rows">
-          {% for row in group.rows %}
-            <li>
-              <button
-                type="button"
-                class="spell_cast_button tooltip_target"
-                data-tooltip-side="left"
-                data-tooltip="{{ row.description|default:'Keine Beschreibung' }}"
-                data-cast-spell-trigger
-                data-cast-url="{% url 'cast_spell' character.id row.spell_id %}"
-                data-spell-name="{{ row.name }}"
-                aria-label="{{ row.name }} wirken"
-              >
-                <span class="spell_cast_name">{{ row.name }}</span>
-                <span class="spell_cast_meta">{{ row.owner_name }}</span>
-                <span class="spell_cast_cost">{{ row.kp_cost }} KP</span>
-                <span class="spell_cast_source{% if row.is_bonus_spell %} spell_cast_source--bonus{% elif row.is_base_spell %} spell_cast_source--base{% endif %}">{{ row.source_label }}</span>
-              </button>
-            </li>
-          {% endfor %}
-        </ul>
-      </section>
-    {% endfor %}
+  <div class="schools_filter_row spell_filter_row">
+    <input
+      type="search"
+      id="spellFilterInput"
+      class="schools_filter_input spell_filter_input"
+      placeholder="Zauber filtern"
+      aria-label="Zauber filtern"
+    >
+  </div>
+
+  <div class="panel_scroll spell_scroll">
+    <div class="spell_panel_groups">
+      {% for group in spell_panel_groups %}
+        <section class="spell_group" data-spell-group>
+          <button
+            type="button"
+            class="spell_group_header school_row_with_tooltip"
+            data-spell-group-toggle
+            data-spell-group-name="{{ group.name }}"
+            aria-expanded="false"
+          >
+            <span class="spell_group_heading">
+              <span class="spell_group_chevron" aria-hidden="true">&#9656;</span>
+              <span class="spell_group_title">{{ group.name }}{% if group.rank_label %} {{ group.rank_label }}{% endif %}</span>
+            </span>
+            <span class="spell_group_kind">{% if group.kind == 'divine' %}Aspekt{% elif group.kind == 'base' %}Basis{% else %}Schule{% endif %}</span>
+          </button>
+          <ul class="spell_group_rows" hidden>
+            {% for row in group.rows %}
+              <li data-spell-search="{{ row.name|lower }} {{ group.name|lower }} {{ row.source_label|lower }} grad {{ row.level }} {{ row.kp_cost }} kp">
+                <button
+                  type="button"
+                  class="spell_cast_button tooltip_target"
+                  data-tooltip-side="cursor-right"
+                  data-tooltip="{{ row.tooltip_text|default:row.description|default:'Keine Beschreibung' }}"
+                  data-cast-spell-trigger
+                  data-cast-url="{% url 'cast_spell' character.id row.spell_id %}"
+                  data-spell-name="{{ row.name }}"
+                  aria-label="{{ row.name }} wirken"
+                >
+                  <span class="spell_cast_name">{{ row.name }}</span>
+                  <span class="spell_cast_meta">Grad {{ row.level }}</span>
+                  <span class="spell_cast_cost">{{ row.kp_cost }} KP</span>
+                  <span class="spell_cast_source{% if row.is_bonus_spell %} spell_cast_source--bonus{% elif row.is_base_spell %} spell_cast_source--base{% endif %}{% if not row.badge_label %} spell_cast_source--hidden{% endif %}">{{ row.badge_label }}</span>
+                </button>
+              </li>
+            {% endfor %}
+          </ul>
+        </section>
+      {% endfor %}
+    </div>
   </div>
 </div>

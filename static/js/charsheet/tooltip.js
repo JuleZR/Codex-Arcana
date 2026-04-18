@@ -246,6 +246,13 @@ export function initTooltips() {
   document.addEventListener("mousemove", (event) => {
     lastMouseX = event.clientX;
     lastMouseY = event.clientY;
+    if (
+      activeTarget
+      && (activeTarget.getAttribute("data-tooltip-side") || "left") === "cursor-right"
+      && tooltip.classList.contains("is-visible")
+    ) {
+      positionTooltip(activeTarget);
+    }
   }, { passive: true });
 
   const clearShowTimer = () => {
@@ -374,5 +381,4 @@ export function initTooltips() {
     scheduleHide();
   });
 }
-
 
