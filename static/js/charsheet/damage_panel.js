@@ -37,6 +37,7 @@ export function initDamagePanel() {
   let arcaneRequestQueue = Promise.resolve();
   let localDamage = readInt(gauge.dataset.damageValue || currentDamageEl.textContent, 0);
   let localArcane = readInt(arcaneMeter?.dataset.arcaneCurrent || currentArcaneEl?.textContent, 0);
+  let woundPenaltyIgnored = woundStageEl.classList.contains("is-disabled") || woundPenaltyEl.classList.contains("is-disabled");
 
   if (thresholdsScript) {
     try {
@@ -68,17 +69,17 @@ export function initDamagePanel() {
 
   function computeWoundInfo(damage) {
     if (!thresholdRows.length) {
-      return { stage: "-", penaltyDisplay: "-", isIgnored: false };
+      return { stage: "-", penaltyDisplay: "-", isIgnored: woundPenaltyIgnored };
     }
     const sorted = [...thresholdRows].sort((a, b) => a.threshold - b.threshold);
     const first = Number(sorted[0].threshold || 0);
     const last = Number(sorted[sorted.length - 1].threshold || 0);
 
     if (damage < first) {
-      return { stage: "-", penaltyDisplay: "-", isIgnored: false };
+      return { stage: "-", penaltyDisplay: "-", isIgnored: woundPenaltyIgnored };
     }
     if (damage > last) {
-      return { stage: "Tod", penaltyDisplay: "0", isIgnored: false };
+      return { stage: "Tod", penaltyDisplay: "0", isIgnored: woundPenaltyIgnored };
     }
 
     let current = sorted[0];
@@ -93,17 +94,18 @@ export function initDamagePanel() {
     return {
       stage: String(current.stage || "-"),
       penaltyDisplay: formatModifier(readInt(current.penalty, 0)),
-      isIgnored: false,
+      isIgnored: woundPenaltyIgnored,
     };
   }
 
   function applyWoundState(stage, penaltyDisplay, isIgnored = false) {
     const normalizedStage = String(stage || "-").trim() || "-";
+    woundPenaltyIgnored = Boolean(isIgnored);
     woundStageEl.textContent = composeStageLabel(stage, penaltyDisplay, isIgnored);
     woundStageEl.dataset.stage = normalizedStage;
     woundPenaltyEl.textContent = penaltyDisplay;
-    woundStageEl.classList.toggle("is-disabled", Boolean(isIgnored));
-    woundPenaltyEl.classList.toggle("is-disabled", Boolean(isIgnored));
+    woundStageEl.classList.toggle("is-disabled", woundPenaltyIgnored);
+    woundPenaltyEl.classList.toggle("is-disabled", woundPenaltyIgnored);
   }
 
   function computeRotation(value, maxValue) {
