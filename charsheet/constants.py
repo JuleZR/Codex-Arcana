@@ -40,18 +40,21 @@ VALID_STAT_SLUGS = {
 }
 
 # School Slugs
-SCHOOL_MAGIC = "school_magic"
-SCHOOL_DIVINE = "school_divine"
-SCHOOL_COMBAT = "school_combat"
+SCHOOL_ARCANE = "arcane"
+SCHOOL_DIVINE = "divine"
+SCHOOL_COMBAT = "combat"
+
+# Backward-compatible aliases used throughout the existing codebase and tests.
+SCHOOL_MAGIC = SCHOOL_ARCANE
 
 SCHOOL_TYPE_CHOICES = [
-    (SCHOOL_MAGIC, "Magieschule"),
-    (SCHOOL_DIVINE, "Klerikaler Aspekt"),
+    (SCHOOL_ARCANE, "Magieschule"),
+    (SCHOOL_DIVINE, "Klerikale Schule"),
     (SCHOOL_COMBAT, "Kampfschule"),
 ]
 
 VALID_SCHOOL_TYPE_SLUGS = {
-    SCHOOL_MAGIC,
+    SCHOOL_ARCANE,
     SCHOOL_DIVINE,
     SCHOOL_COMBAT,
 }

@@ -58,7 +58,18 @@ def equipped_magic_item_items(engine) -> QuerySet:
             equipped=True,
         )
         .filter(
-            Q(item__is_magic=True) | Q(item__item_type=Item.ItemType.MAGIC_ITEM)
+            Q(item__is_magic=True)
+            | Q(item__item_type=Item.ItemType.MAGIC_ITEM)
+            | Q(is_magic=True)
+            | Q(item__magicitemstats__isnull=False)
+        )
+        .exclude(
+            item__item_type__in=(
+                Item.ItemType.ARMOR,
+                Item.ItemType.WEAPON,
+                Item.ItemType.SHIELD,
+                Item.ItemType.CLOTHING,
+            )
         )
         .select_related("item", "item__magicitemstats")
         .prefetch_related("item__runes", "runes")

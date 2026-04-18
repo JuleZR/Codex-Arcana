@@ -23,6 +23,7 @@ Early alpha / prototype. Features, rules coverage, and data structures are still
 - character sheet with precomputed server-side context
 - inventory, equipment, quality, and pricing logic
 - learning and progression for attributes, skills, languages, schools, techniques, and specializations
+- integrated arcane and divine magic progression, spell knowledge synchronization, and spell casting with backend KP consumption
 - diary and other persistent character-side workflows
 - central typed modifier engine for rule effects
 
@@ -93,6 +94,20 @@ charsheet/
 docs/
 static/
 ```
+
+## Magic Integration
+
+Magic is integrated into the existing progression architecture instead of running as a parallel subsystem.
+
+- `SchoolType`, `School`, `CharacterSchool`, `SchoolPath`, `CharacterSchoolPath`, and `ProgressionRule` remain the foundation for arcane and divine schools
+- `charsheet/engine/magic_engine.py` is the dedicated orchestration layer for spell availability, divine aspect access, synchronization, bonus spell capacity, and casting validation
+- `CharacterSpell` persists the concrete spell a character knows together with its source such as base spell, arcane free choice, divine automatic grant, bonus spell, or manually learned extra spell
+- `CharacterSpellSource` tracks reusable bonus-spell capacity from traits such as `Zusatzzauber`
+- divine progression is modeled through `DivineEntity`, `DivineEntityAspect`, `CharacterDivineEntity`, and `CharacterAspect`
+- the character sheet exposes a parchment-style spell panel that only appears when the character has castable entries; the same visibility hook is prepared for future lesson-style entries
+- spell clicks never spend KP on the client alone; the backend validates ownership and current KP, performs the atomic spend, and returns refreshed partials for the sheet
+
+For deeper implementation notes, see `docs/models.md` and `docs/engine.md`.
 
 ## DDDice Integration
 

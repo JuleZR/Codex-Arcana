@@ -28,6 +28,7 @@ from .models import (
     CharacterItemRuneSpec,
     CharacterLanguage,
     CharacterSkill,
+    CharacterSpell,
     CharacterTechnique,
     CharacterCreationDraft,
     Item,
@@ -35,6 +36,7 @@ from .models import (
     Rune,
     School,
     Skill,
+    Spell,
     Technique,
     Trait,
 )
@@ -69,6 +71,7 @@ SHEET_PARTIAL_TEMPLATES = {
     "inventory_panel": ("sheetInventoryPanel", "charsheet/partials/_inventory_panel.html"),
     "armor_panel": ("sheetArmorPanel", "charsheet/partials/_armor_panel.html"),
     "weapon_panel": ("sheetWeaponPanel", "charsheet/partials/_weapon_table.html"),
+    "spell_panel": ("sheetSpellPanel", "charsheet/partials/_spell_panel.html"),
     "learning_budget": ("learnBudgetPanel", "charsheet/partials/_learning_budget.html"),
 }
 
@@ -320,6 +323,7 @@ def _is_partial_request(request) -> bool:
 
 def _build_sheet_context_for_request(request, character: Character, *, close_learn_window_once: bool = False) -> dict[str, object]:
     """Build the full sheet context including request-specific dice settings."""
+    character.get_magic_engine(refresh=True).sync_character_magic()
     context = build_character_sheet_context(
         character,
         close_learn_window_once=close_learn_window_once,
@@ -1498,11 +1502,12 @@ def adjust_current_arcane_power(request, character_id: int):
     except (TypeError, ValueError):
         amount = 1
 
-    arcane_power_max = max(0, int(character.engine.calculate_arcane_power()))
+    calculated_arcane_power = max(0, int(character.engine.calculate_arcane_power()))
     current_arcane_power = character.current_arcane_power
     if current_arcane_power is None:
-        current_arcane_power = arcane_power_max
-    current_arcane_power = max(0, min(int(current_arcane_power), arcane_power_max))
+        current_arcane_power = calculated_arcane_power
+    current_arcane_power = max(0, int(current_arcane_power))
+    arcane_power_max = max(calculated_arcane_power, current_arcane_power)
 
     if action == "spend":
         current_arcane_power = max(0, current_arcane_power - amount)
@@ -1521,6 +1526,41 @@ def adjust_current_arcane_power(request, character_id: int):
             }
         )
 
+    return redirect("character_sheet", character_id=character_id)
+
+
+@login_required
+@require_POST
+def cast_spell(request, character_id: int, spell_id: int):
+    """Cast one known spell and spend KP atomically via the magic engine."""
+    character = _owned_character_or_404(request, character_id)
+    known_spell = get_object_or_404(
+        CharacterSpell.objects.select_related("spell"),
+        character=character,
+        spell_id=spell_id,
+    )
+    result = character.get_magic_engine(refresh=True).cast_spell(known_spell.spell_id)
+    if not result.get("ok"):
+        status_code = 400 if result.get("error") in {"unknown_spell", "not_enough_kp", "spell_not_found"} else 409
+        if _is_partial_request(request):
+            return JsonResponse(result, status=status_code)
+        messages.error(request, str(result.get("message") or "Zauber konnte nicht gewirkt werden."))
+        return redirect("character_sheet", character_id=character_id)
+
+    if _is_partial_request(request):
+        context = _build_sheet_context_for_request(request, character)
+        partials = []
+        for key in ("damage_panel", "spell_panel"):
+            target_id, template_name = SHEET_PARTIAL_TEMPLATES[key]
+            partials.append(
+                {
+                    "target": target_id,
+                    "html": render_to_string(template_name, context, request=request),
+                }
+            )
+        return JsonResponse({**result, "partials": partials})
+
+    messages.success(request, f"{result['spell_name']} gewirkt ({result['spent_kp']} KP).")
     return redirect("character_sheet", character_id=character_id)
 
 

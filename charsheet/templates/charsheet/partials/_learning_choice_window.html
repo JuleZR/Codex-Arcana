@@ -117,7 +117,10 @@
                               <span class="learn_choice_option_meta">{{ option.meta }}</span>
                             {% endif %}
                             {% if option.description %}
-                              <span class="learn_choice_option_description">{{ option.description }}</span>
+                              <details class="learn_choice_option_details">
+                                <summary class="learn_choice_option_details_toggle">Beschreibung</summary>
+                                <span class="learn_choice_option_description">{{ option.description }}</span>
+                              </details>
                             {% endif %}
                           </span>
                         </label>

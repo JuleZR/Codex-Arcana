@@ -594,6 +594,104 @@ class CharacterSheetPartialTests(TestCase):
         self.assertIn("Amulett des Feuers (Magischer Gegenstand)", armor_html)
         self.assertIn("+2 VW gegen Feuerzauber", armor_html)
 
+    def test_equipped_modified_magic_misc_item_keeps_character_item_magic_effects(self):
+        """Owned magic effects on a mundane misc item should survive equipping and stay visible."""
+        trinket = Item.objects.create(
+            name="Knochenwuerfel",
+            price=15,
+            item_type=Item.ItemType.MISC,
+            stackable=False,
+            default_quality="common",
+            description="Ein alter Glueckswuerfel.",
+        )
+        owned_item = CharacterItem.objects.create(
+            owner=self.character,
+            item=trinket,
+            amount=1,
+            equipped=False,
+            quality="common",
+            is_magic=True,
+            magic_effect_summary="Leuchtet bei Gefahr.",
+            description="Summt leise in der Tasche.",
+        )
+        Modifier.objects.create(
+            source=owned_item,
+            target_kind=Modifier.TargetKind.STAT,
+            target_slug=DEFENSE_VW,
+            mode=Modifier.Mode.FLAT,
+            value=2,
+            effect_description="Warnsinn",
+        )
+
+        response = self.client.post(
+            reverse("toggle_equip", args=[owned_item.id]),
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        inventory_html = next(entry["html"] for entry in payload["partials"] if entry["target"] == "sheetInventoryPanel")
+        armor_html = next(entry["html"] for entry in payload["partials"] if entry["target"] == "sheetArmorPanel")
+        self.assertNotIn("Knochenwuerfel", inventory_html)
+        self.assertIn("Knochenwuerfel (Magischer Gegenstand)", armor_html)
+        self.assertIn("Leuchtet bei Gefahr.", armor_html)
+        self.assertIn("Warnsinn", armor_html)
+        self.assertIn("Summt leise in der Tasche.", armor_html)
+
+    def test_equipped_magic_weapon_keeps_character_item_magic_tooltip_without_duplicate_magic_panel_row(self):
+        """Magic retrofits on weapons should remain visible after equipping without duplicating the row."""
+        damage_source = DamageSource.objects.create(name="Klinge", short_name="Kli", slug="klinge_magic")
+        weapon = Item.objects.create(
+            name="Runenklinge",
+            price=180,
+            item_type=Item.ItemType.WEAPON,
+            stackable=False,
+            default_quality="common",
+            description="Eine schlichte Klinge.",
+        )
+        WeaponStats.objects.create(
+            item=weapon,
+            damage_source=damage_source,
+            damage_dice_amount=1,
+            damage_dice_faces=8,
+            damage_flat_bonus=0,
+            min_st=1,
+            wield_mode="1h",
+        )
+        owned_item = CharacterItem.objects.create(
+            owner=self.character,
+            item=weapon,
+            amount=1,
+            equipped=False,
+            quality="common",
+            is_magic=True,
+            magic_effect_summary="Kalt wie Mondlicht.",
+            description="Die Luft friert um die Schneide.",
+        )
+        Modifier.objects.create(
+            source=owned_item,
+            target_kind=Modifier.TargetKind.STAT,
+            target_slug=DEFENSE_VW,
+            mode=Modifier.Mode.FLAT,
+            value=1,
+            effect_description="Frostsinn",
+        )
+
+        response = self.client.post(
+            reverse("toggle_equip", args=[owned_item.id]),
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        weapon_html = next(entry["html"] for entry in payload["partials"] if entry["target"] == "sheetWeaponPanel")
+        armor_html = next(entry["html"] for entry in payload["partials"] if entry["target"] == "sheetArmorPanel")
+        self.assertIn("Runenklinge", weapon_html)
+        self.assertIn("Kalt wie Mondlicht.", weapon_html)
+        self.assertIn("Frostsinn", weapon_html)
+        self.assertIn("Die Luft friert um die Schneide.", weapon_html)
+        self.assertNotIn("Runenklinge (Magischer Gegenstand)", armor_html)
+
     def test_school_context_hides_unselected_choice_techniques(self):
         """School rows should only list choice techniques that were actually learned."""
         school_type = SchoolType.objects.create(name="Kampfschule", slug=SCHOOL_COMBAT)

@@ -146,6 +146,29 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
       }
       valueInput.min = String(minAdd);
       valueInput.max = String(maxAdd);
+    } else if (kind === "magic-spell") {
+      const hidden = row.querySelector("[data-learn-hidden]");
+      value = clamp(value, 0, 1);
+      cost = value * readInt(row.getAttribute("data-cost"), 2);
+      if (hidden instanceof HTMLInputElement) {
+        hidden.value = String(value);
+      }
+    } else if (kind === "magic-aspect") {
+      const base = readInt(row.getAttribute("data-base"), 0);
+      const minAdd = -base;
+      const max = readInt(row.getAttribute("data-max"), base);
+      const maxAdd = Math.max(0, max - base);
+      const hidden = row.querySelector("[data-learn-hidden]");
+      value = clamp(value, minAdd, maxAdd);
+      cost = Math.max(0, value) * readInt(row.getAttribute("data-cost-per-level"), 4);
+      if (hidden instanceof HTMLInputElement) {
+        hidden.value = String(value);
+      }
+      if (infoEl) {
+        infoEl.textContent = `(${base + value})`;
+      }
+      valueInput.min = String(minAdd);
+      valueInput.max = String(maxAdd);
     }
 
     valueInput.value = String(value);
@@ -385,6 +408,54 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
       row.setAttribute("data-max", String(max));
       row.innerHTML = `
         <td><span>${safeName}</span> <span data-learn-level-info>(${base + startAdd})</span><input type="hidden" name="learn_school_add_${schoolId}" value="${startAdd}" data-learn-hidden></td>
+        <td>
+          <div class="shop_qty_stepper">
+            <button type="button" class="shop_step_btn" data-learn-step-dec aria-label="Wert verringern">-</button>
+            <input class="shop_cart_qty_input" type="number" min="${minAdd}" max="${maxAdd}" value="${startAdd}" data-learn-value>
+            <button type="button" class="shop_step_btn" data-learn-step-inc aria-label="Wert erhoehen">+</button>
+          </div>
+        </td>
+        <td data-learn-cost>0 EP</td>
+        <td><button type="button" class="shop_cart_remove_btn" data-learn-remove aria-label="Eintrag entfernen">x</button></td>
+      `;
+      return row;
+    }
+
+    if (kind === "magic-spell") {
+      const spellId = source.getAttribute("data-id") || "";
+      const ownerName = source.getAttribute("data-owner-name") || "";
+      const level = readInt(source.getAttribute("data-level"), 1);
+      const cost = readInt(source.getAttribute("data-cost"), 2);
+      row.setAttribute("data-cost", String(cost));
+      row.innerHTML = `
+        <td><span>${safeName}</span> <span class="learn_meta_value">(${ownerName} | Grad ${level})</span><input type="hidden" name="learn_magic_spell_${spellId}" value="1" data-learn-hidden></td>
+        <td>
+          <div class="shop_qty_stepper">
+            <input class="shop_cart_qty_input" type="number" min="0" max="1" value="1" data-learn-value>
+          </div>
+        </td>
+        <td data-learn-cost>0 EP</td>
+        <td><button type="button" class="shop_cart_remove_btn" data-learn-remove aria-label="Eintrag entfernen">x</button></td>
+      `;
+      return row;
+    }
+
+    if (kind === "magic-aspect") {
+      const aspectId = source.getAttribute("data-id") || "";
+      const base = readInt(source.getAttribute("data-base"), 0);
+      const minAdd = -base;
+      const max = readInt(source.getAttribute("data-max"), base);
+      const maxAdd = Math.max(0, max - base);
+      const costPerLevel = readInt(source.getAttribute("data-cost-per-level"), 4);
+      if (maxAdd < 1 && minAdd === 0) {
+        return null;
+      }
+      const startAdd = maxAdd > 0 ? 1 : 0;
+      row.setAttribute("data-base", String(base));
+      row.setAttribute("data-max", String(max));
+      row.setAttribute("data-cost-per-level", String(costPerLevel));
+      row.innerHTML = `
+        <td><span>${safeName}</span> <span data-learn-level-info>(${base + startAdd})</span><input type="hidden" name="learn_magic_aspect_${aspectId}" value="${startAdd}" data-learn-hidden></td>
         <td>
           <div class="shop_qty_stepper">
             <button type="button" class="shop_step_btn" data-learn-step-dec aria-label="Wert verringern">-</button>

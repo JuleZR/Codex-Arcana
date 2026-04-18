@@ -85,6 +85,16 @@ class Character(models.Model):
             )
         return self.__dict__[cache_key]
 
+    def get_magic_engine(self, *, refresh: bool = False):
+        """Return a reusable magic engine instance for spell, aspect, and casting rules."""
+        cache_key = "_character_magic_engine"
+        cached_engine = self.__dict__.get(cache_key)
+        if refresh or cached_engine is None:
+            from ..engine.magic_engine import MagicEngine
+
+            self.__dict__[cache_key] = MagicEngine(self)
+        return self.__dict__[cache_key]
+
 
 class CharacterDiaryEntry(models.Model):
     """One persisted diary segment for a character's parchment-roll journal."""

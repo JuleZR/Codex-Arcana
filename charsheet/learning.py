@@ -14,13 +14,18 @@ from charsheet.learning_rules import (
     school_max_levels,
 )
 from charsheet.models import (
+    Aspect,
     Attribute,
     Character,
     CharacterAttribute,
+    CharacterAspect,
+    CharacterDivineEntity,
     CharacterLanguage,
     CharacterRaceChoice,
     CharacterSchool,
     CharacterSchoolPath,
+    CharacterSpell,
+    CharacterSpellSource,
     CharacterSpecialization,
     CharacterSkill,
     CharacterTraitChoice,
@@ -31,6 +36,7 @@ from charsheet.models import (
     CharacterWeaponMasteryArcana,
     Language,
     School,
+    Spell,
     Skill,
     Technique,
     Trait,
@@ -66,6 +72,10 @@ def _has_progression_inputs(post_data) -> bool:
         "learn_weapon_mastery_side_",
         "learn_weapon_mastery_arcana_",
         "learn_choice_",
+        "learn_base_spell_",
+        "learn_arcane_free_spell_",
+        "learn_bonus_spell_",
+        "learn_divine_entity",
     )
     return any(str(key).startswith(prefixes) for key in post_data.keys())
 
@@ -114,6 +124,77 @@ def _apply_progression_choices(character: Character, post_data) -> dict[str, int
 
     engine = character.get_engine(refresh=True)
     progression_context = build_learning_progression_context(character, engine=engine)
+
+    for row in progression_context["learn_divine_entity_rows"]:
+        raw_entity_id = str(post_data.get(row["field_name"], "")).strip()
+        if not raw_entity_id:
+            continue
+        allowed_ids = {str(option["id"]) for option in row["options"]}
+        if raw_entity_id not in allowed_ids:
+            raise LearningSubmissionError("Ungueltige Entitaetswahl.")
+        entity_binding, _created = CharacterDivineEntity.objects.update_or_create(
+            character=character,
+            defaults={"entity_id": int(raw_entity_id)},
+        )
+        entity_binding.full_clean()
+        entity_binding.save()
+        summary["choices"] += 1
+
+    engine = character.get_engine(refresh=True)
+    progression_context = build_learning_progression_context(character, engine=engine)
+
+    for row in progression_context["learn_arcane_free_spell_rows"]:
+        raw_spell_id = str(post_data.get(row["field_name"], "")).strip()
+        if not raw_spell_id:
+            continue
+        allowed_ids = {str(option.id) for option in row["options"]}
+        if raw_spell_id not in allowed_ids:
+            raise LearningSubmissionError(f"{row['school_name']}: Ungueltige Zauberwahl.")
+        spell_entry = CharacterSpell(
+            character=character,
+            spell_id=int(raw_spell_id),
+            source_kind=CharacterSpell.SourceKind.ARCANE_FREE,
+        )
+        spell_entry.full_clean()
+        spell_entry.save()
+        summary["choices"] += 1
+
+    for row in progression_context["learn_base_spell_rows"]:
+        raw_spell_id = str(post_data.get(row["field_name"], "")).strip()
+        if not raw_spell_id:
+            continue
+        allowed_ids = {str(spell.id) for spell in row["options"]}
+        if raw_spell_id not in allowed_ids:
+            raise LearningSubmissionError("Ungueltige Basiszauber-Auswahl.")
+        spell_entry = CharacterSpell(
+            character=character,
+            spell_id=int(raw_spell_id),
+            source_kind=CharacterSpell.SourceKind.BASE,
+        )
+        spell_entry.full_clean()
+        spell_entry.save()
+        summary["choices"] += 1
+
+    for row in progression_context["learn_bonus_spell_rows"]:
+        raw_spell_id = str(post_data.get(row["field_name"], "")).strip()
+        if not raw_spell_id:
+            continue
+        allowed_ids = {str(option.id) for option in row["options"]}
+        if raw_spell_id not in allowed_ids:
+            raise LearningSubmissionError(f"{row['source_label']}: Ungueltige Bonuszauberwahl.")
+        spell = Spell.objects.select_related("school", "aspect").filter(pk=int(raw_spell_id)).first()
+        if spell is None:
+            raise LearningSubmissionError("Zauber nicht gefunden.")
+        source_kind = CharacterSpell.SourceKind.ARCANE_BONUS if spell.school_id else CharacterSpell.SourceKind.DIVINE_BONUS
+        spell_entry = CharacterSpell(
+            character=character,
+            spell=spell,
+            source_kind=source_kind,
+            bonus_source_id=int(row["bonus_source_id"]),
+        )
+        spell_entry.full_clean()
+        spell_entry.save()
+        summary["choices"] += 1
 
     picked_specializations_by_school: dict[int, set[int]] = {}
     for row in progression_context["learn_specialization_rows"]:
@@ -374,7 +455,9 @@ def _reset_invalid_school_progression(character: Character) -> None:
 
 def process_learning_submission(character: Character, post_data) -> tuple[str, str]:
     """Apply one learning-menu submission and return message level plus text."""
+    character.get_magic_engine(refresh=True).sync_character_magic()
     engine = character.get_engine(refresh=True)
+    magic_engine = character.get_magic_engine(refresh=True)
     attribute_limits = {
         limit.attribute.short_name: {
             "min": int(limit.min_value),
@@ -414,6 +497,9 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
     skill_plan: dict[str, int] = {}
     language_plan: dict[str, dict[str, object]] = {}
     school_plan: dict[str, int] = {}
+    magic_spell_plan: set[int] = set()
+    base_spell_plan: set[int] = set()
+    magic_aspect_plan: dict[int, int] = {}
     has_progression_inputs = _has_progression_inputs(post_data)
 
     for short_name, bounds in attribute_limits.items():
@@ -539,7 +625,52 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
         total_cost += add * 8
         school_plan[school_id] = add
 
-    has_ep_changes = any((attr_plan, trait_plan, skill_plan, language_plan, school_plan))
+    known_spell_ids = set(CharacterSpell.objects.filter(character=character).values_list("spell_id", flat=True))
+    magic_groups = _build_learning_magic_groups(character)
+    legal_paid_spell_ids = {
+        row["spell_id"]
+        for group in magic_groups
+        for row in group["rows"]
+        if row["kind"] == "magic_spell"
+    }
+    legal_base_spell_ids = {
+        row["spell_id"]
+        for group in magic_groups
+        for row in group["rows"]
+        if row["kind"] == "base_spell"
+    }
+    legal_bonus_aspect_map = {
+        row["aspect_id"]: int(row["max_level"])
+        for group in magic_groups
+        for row in group["rows"]
+        if row["kind"] == "magic_aspect"
+    }
+    for key in post_data.keys():
+        if str(key).startswith("learn_magic_spell_"):
+            spell_id = _read_int(post_data, key, 0)
+            if spell_id < 0:
+                spell_id = int(str(key).split("_")[-1])
+            else:
+                spell_id = int(str(key).split("_")[-1])
+            selected = _read_int(post_data, key, 0)
+            if selected <= 0:
+                continue
+            if spell_id in known_spell_ids or spell_id not in legal_paid_spell_ids:
+                return "error", "Ungueltige Zusatzzauber-Auswahl."
+            total_cost += 2
+            magic_spell_plan.add(spell_id)
+        elif str(key).startswith("learn_magic_aspect_"):
+            aspect_id = int(str(key).split("_")[-1])
+            add = _read_int(post_data, key, 0)
+            if add <= 0:
+                continue
+            max_level = int(legal_bonus_aspect_map.get(aspect_id, 0))
+            if max_level <= 0 or add > max_level:
+                return "error", "Ungueltige Aspekt-Auswahl."
+            total_cost += add * 4
+            magic_aspect_plan[aspect_id] = add
+
+    has_ep_changes = any((attr_plan, trait_plan, skill_plan, language_plan, school_plan, magic_spell_plan, magic_aspect_plan))
 
     if total_cost == 0 and not has_ep_changes and not has_progression_inputs:
         return "info", "Keine Lernkosten erkannt."
@@ -635,6 +766,35 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
                         school_row.level = target_level
                         school_row.save(update_fields=["level"])
 
+            for aspect_id, add in magic_aspect_plan.items():
+                aspect = Aspect.objects.filter(pk=aspect_id).first()
+                if aspect is None:
+                    raise LearningSubmissionError("Aspekt nicht gefunden.")
+                aspect_entry = CharacterAspect(
+                    character=character,
+                    aspect=aspect,
+                    level=add,
+                    is_bonus_aspect=True,
+                )
+                aspect_entry.full_clean()
+                aspect_entry.save()
+
+            for spell_id in magic_spell_plan:
+                spell = Spell.objects.filter(pk=spell_id).select_related("school", "aspect").first()
+                if spell is None:
+                    raise LearningSubmissionError("Zauber nicht gefunden.")
+                source_kind = (
+                    CharacterSpell.SourceKind.ARCANE_EXTRA if spell.school_id else CharacterSpell.SourceKind.DIVINE_EXTRA
+                )
+                spell_entry = CharacterSpell(
+                    character=character,
+                    spell=spell,
+                    source_kind=source_kind,
+                )
+                spell_entry.full_clean()
+                spell_entry.save()
+
+            magic_engine.sync_character_magic()
             _reset_invalid_school_progression(character)
             character.current_experience = max(0, int(character.current_experience) - total_cost)
             character.save(update_fields=["current_experience"])
@@ -659,8 +819,67 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
         parts.append(f"{progression_summary['specializations']} Spezialisierung(en) vergeben")
     if progression_summary["choices"]:
         parts.append(f"{progression_summary['choices']} Auswahl(en) gespeichert")
+    if magic_aspect_plan:
+        parts.append(f"{sum(magic_aspect_plan.values())} Aspektstufe(n) gelernt")
+    if magic_spell_plan:
+        parts.append(f"{len(magic_spell_plan)} Zauber gelernt")
     if not parts and has_ep_changes:
         parts.append("Aenderungen gespeichert")
     if not parts:
         return "info", "Keine Lernkosten erkannt."
     return "success", f"Lernen abgeschlossen: {', '.join(parts)}."
+
+
+def _build_learning_magic_groups(character: Character) -> list[dict[str, object]]:
+    """Build the same legal magic rows used by the sheet context for learning validation."""
+    magic_engine = character.get_magic_engine(refresh=True)
+    magic_engine.sync_character_magic()
+    known_spell_ids = set(CharacterSpell.objects.filter(character=character).values_list("spell_id", flat=True))
+    groups: dict[str, list[dict[str, object]]] = {"Zusatzzauber": [], "Aspekte": []}
+
+    for school_entry in magic_engine._arcane_school_entries():
+        choice_state = magic_engine.get_available_arcane_spell_choices(school_entry.school)
+        free_choice_ids = {spell.id for spell in choice_state["options"]} if int(choice_state["remaining"]) > 0 else set()
+        for spell in Spell.objects.filter(school_id=school_entry.school_id, grade__lte=school_entry.level).exclude(id__in=known_spell_ids):
+            if spell.id in free_choice_ids:
+                continue
+            groups["Zusatzzauber"].append({"kind": "magic_spell", "spell_id": spell.id})
+
+    aspect_levels = {entry.aspect_id: int(entry.level) for entry in magic_engine.get_character_aspects()}
+    bonus_aspect_ids = {entry.aspect_id for entry in magic_engine.get_character_aspects() if entry.is_bonus_aspect}
+    for spell in Spell.objects.filter(aspect_id__in=aspect_levels.keys()).exclude(id__in=known_spell_ids):
+        if int(spell.grade) > int(aspect_levels.get(spell.aspect_id, 0)):
+            continue
+        if spell.is_base_spell and spell.aspect_id in bonus_aspect_ids:
+            continue
+        groups["Zusatzzauber"].append({"kind": "magic_spell", "spell_id": spell.id})
+
+    is_magic_user = bool(magic_engine._arcane_school_entries()) or CharacterAspect.objects.filter(character=character).exists()
+    if is_magic_user:
+        learned_universal_base_ids = set(
+            CharacterSpell.objects.filter(
+                character=character,
+                spell__is_base_spell=True,
+                spell__school__isnull=True,
+                spell__aspect__isnull=True,
+            ).values_list("spell_id", flat=True)
+        )
+        remaining_base_slots = max(0, 2 - len(learned_universal_base_ids))
+        if remaining_base_slots > 0:
+            groups["Basiszauber"] = [
+                {"kind": "base_spell", "spell_id": spell.id}
+                for spell in Spell.objects.filter(is_base_spell=True, school__isnull=True, aspect__isnull=True)
+                .exclude(id__in=learned_universal_base_ids)
+                .order_by("grade", "name")
+            ]
+
+    bonus_aspects = magic_engine.get_available_bonus_aspects()
+    for aspect in bonus_aspects["options"]:
+        groups["Aspekte"].append(
+            {
+                "kind": "magic_aspect",
+                "aspect_id": aspect.id,
+                "max_level": int(bonus_aspects["school_level"]),
+            }
+        )
+    return [{"name": name, "rows": rows} for name, rows in groups.items() if rows]

@@ -6,7 +6,7 @@ from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
 from django.db import models
 
-from .core import Skill, SkillCategory, Trait, Race
+from .core import Skill, SkillCategory, Trait, Race, Attribute
 from .items import Item
 from .progression import CharacterSchool, CharacterSchoolPath, School, SchoolPath, Specialization
 
@@ -1078,3 +1078,373 @@ class RaceTechnique(models.Model):
                 name="uniq_race_technique",
             )
         ]
+
+
+class Aspect(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    slug = models.SlugField(max_length=100, unique=True)
+    description = models.TextField(blank=True)
+
+    opposite = models.ForeignKey(
+        "self",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="opposed_by",
+    )
+
+    class Meta:
+        ordering = ["name"]
+
+    def clean(self):
+        super().clean()
+        if self.opposite_id and self.opposite_id == self.id:
+            raise ValidationError({"opposite": "An aspect cannot oppose itself."})
+
+    def __str__(self):
+        return self.name
+
+
+class DivineEntity(models.Model):
+    class EntityKind(models.TextChoices):
+        GOD = "god", "God"
+        ANCESTOR = "ancestor", "Ancestor Spirit"
+        TOTEM = "totem", "Totem / Power Animal"
+
+    name = models.CharField(max_length=120, unique=True)
+    slug = models.SlugField(max_length=120, unique=True)
+
+    school = models.ForeignKey(
+        School,
+        on_delete=models.CASCADE,
+        related_name="divine_entities",
+        help_text="The divine school through which this entity is worshipped.",
+    )
+
+    entity_kind = models.CharField(max_length=20, choices=EntityKind.choices)
+    description = models.TextField(blank=True, default="")
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
+class DivineEntityAspect(models.Model):
+    entity = models.ForeignKey(
+        DivineEntity,
+        on_delete=models.CASCADE,
+        related_name="aspects",
+    )
+    aspect = models.ForeignKey(
+        Aspect,
+        on_delete=models.CASCADE,
+        related_name="divine_entities",
+    )
+    is_starting_aspect = models.BooleanField(
+        default=True,
+        help_text="Marks one of the default aspects granted by the entity.",
+    )
+
+    class Meta:
+        ordering = ["entity__name", "aspect__name"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["entity", "aspect"],
+                name="uniq_divine_entity_aspect",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.entity.name}: {self.aspect.name}"
+
+
+class CharacterAspect(models.Model):
+    character = models.ForeignKey(
+        "Character",
+        on_delete=models.CASCADE,
+        related_name="aspect_entries",
+    )
+    aspect = models.ForeignKey(
+        Aspect,
+        on_delete=models.PROTECT,
+        related_name="character_entries",
+    )
+    level = models.PositiveSmallIntegerField(default=1)
+
+    source_entity = models.ForeignKey(
+        DivineEntity,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="granted_character_aspects",
+    )
+    is_bonus_aspect = models.BooleanField(
+        default=False,
+        help_text="True if this aspect was purchased separately instead of granted by entity.",
+    )
+
+    class Meta:
+        ordering = ["character", "aspect__name"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["character", "aspect"],
+                name="uniq_character_aspect",
+            )
+        ]
+
+    def clean(self):
+        super().clean()
+        if self.level < 1:
+            raise ValidationError({"level": "Aspect level must be at least 1."})
+
+        if self.character_id and self.source_entity_id:
+            if not CharacterSchool.objects.filter(
+                character_id=self.character_id,
+                school_id=self.source_entity.school_id,
+            ).exists():
+                raise ValidationError(
+                    {"source_entity": "The character does not know the school of the granting entity."}
+                )
+
+        if self.character_id and self.aspect_id:
+            opposite = self.aspect.opposite_id
+            if opposite and CharacterAspect.objects.exclude(pk=self.pk).filter(
+                character_id=self.character_id,
+                aspect_id=opposite,
+            ).exists():
+                raise ValidationError(
+                    {"aspect": "The character already knows the opposing aspect."}
+                )
+
+    def __str__(self):
+        return f"{self.character.name}: {self.aspect.name} {self.level}"
+
+
+class CharacterDivineEntity(models.Model):
+    character = models.OneToOneField(
+        "Character",
+        on_delete=models.CASCADE,
+        related_name="divine_entity_binding",
+    )
+    entity = models.ForeignKey(
+        DivineEntity,
+        on_delete=models.PROTECT,
+        related_name="followers",
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["character"],
+                name="uniq_character_divine_entity",
+            )
+        ]
+
+    def clean(self):
+        super().clean()
+        if (
+            self.character_id
+            and self.entity_id
+            and not CharacterSchool.objects.filter(
+                character_id=self.character_id,
+                school_id=self.entity.school_id,
+            ).exists()
+        ):
+            raise ValidationError(
+                {"entity": "A character can only bind to a divine entity of a learned school."}
+            )
+
+    def __str__(self):
+        return f"{self.character.name} -> {self.entity.name}"
+
+
+class CharacterSpellSource(models.Model):
+    class SourceKind(models.TextChoices):
+        TRAIT = "trait", "Trait"
+        ADMIN = "admin", "Admin"
+        MANUAL = "manual", "Manual"
+
+    character = models.ForeignKey(
+        "Character",
+        on_delete=models.CASCADE,
+        related_name="spell_bonus_sources",
+    )
+    source_kind = models.CharField(max_length=20, choices=SourceKind.choices, default=SourceKind.TRAIT)
+    trait = models.ForeignKey(
+        Trait,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="character_spell_sources",
+    )
+    label = models.CharField(max_length=120, blank=True, default="")
+    capacity = models.PositiveSmallIntegerField(default=1)
+    is_active = models.BooleanField(default=True)
+    notes = models.TextField(blank=True, default="")
+
+    class Meta:
+        ordering = ["character", "source_kind", "label", "id"]
+
+    def clean(self):
+        super().clean()
+        if self.capacity < 1:
+            raise ValidationError({"capacity": "Bonus spell capacity must be at least 1."})
+        if self.source_kind == self.SourceKind.TRAIT and self.trait_id is None:
+            raise ValidationError({"trait": "Trait-based bonus spell sources require a trait."})
+
+    def __str__(self):
+        label = self.label or (self.trait.name if self.trait_id else self.get_source_kind_display())
+        return f"{self.character.name}: {label} ({self.capacity})"
+
+
+class Spell(models.Model):
+    name = models.CharField(max_length=150)
+    slug = models.SlugField(max_length=150, unique=True)
+
+    school = models.ForeignKey(
+        School,
+        on_delete=models.CASCADE,
+        related_name="spells",
+        null=True,
+        blank=True,
+        help_text="Used for arcane spells.",
+    )
+    aspect = models.ForeignKey(
+        Aspect,
+        on_delete=models.CASCADE,
+        related_name="spells",
+        null=True,
+        blank=True,
+        help_text="Used for divine spells.",
+    )
+
+    spell_attribute = models.ForeignKey(
+        Attribute,
+        on_delete=models.PROTECT,
+        related_name="spells",
+        null=True,
+        blank=True,
+        )
+    grade = models.PositiveSmallIntegerField()
+    grade_adds_school_level = models.BooleanField(
+        default=False,
+        help_text=(
+            "Wenn aktiv, berechnet sich der effektive Grad als Grad + aktuelle Schulstufe des Charakters. "
+            "Z.B. Grad 2 bei Schulstufe 3 = effektiver Grad 5."
+        ),
+    )
+    is_base_spell = models.BooleanField(default=False)
+
+    description = models.TextField(blank=True, default="")
+    kp_cost = models.PositiveSmallIntegerField(default=0)
+    cast_time = models.CharField(max_length=100, blank=True, default="")
+    range_text = models.CharField(max_length=100, blank=True, default="")
+    duration_text = models.CharField(max_length=100, blank=True, default="")
+    resistance_text = models.CharField(max_length=100, blank=True, default="")
+
+    class Meta:
+        ordering = ["school__name", "aspect__name", "grade", "name"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["school", "slug"],
+                condition=models.Q(school__isnull=False),
+                name="uniq_spell_school_slug",
+            ),
+            models.UniqueConstraint(
+                fields=["aspect", "slug"],
+                condition=models.Q(aspect__isnull=False),
+                name="uniq_spell_aspect_slug",
+            ),
+        ]
+
+    def clean(self):
+        super().clean()
+        if not self.is_base_spell:
+            if not self.school_id and not self.aspect_id:
+                raise ValidationError("A spell must belong to either a school or an aspect.")
+            if self.school_id and self.aspect_id:
+                raise ValidationError("A spell cannot belong to both a school and an aspect.")
+
+    def __str__(self):
+        if self.school_id:
+            owner = self.school.name
+        elif self.aspect_id:
+            owner = self.aspect.name
+        else:
+            owner = "Basis"
+        return f"{owner} G{self.grade}: {self.name}"
+
+
+class CharacterSpell(models.Model):
+    class SourceKind(models.TextChoices):
+        ARCANE_FREE = "arcane_free", "Arcane Free Choice"
+        ARCANE_EXTRA = "arcane_extra", "Arcane Extra Spell"
+        ARCANE_BONUS = "arcane_bonus", "Arcane Bonus Spell"
+        DIVINE_GRANTED = "divine_granted", "Divine Granted"
+        DIVINE_EXTRA = "divine_extra", "Divine Extra Spell"
+        DIVINE_BONUS = "divine_bonus", "Divine Bonus Spell"
+        BASE = "base", "Base Spell"
+        MANUAL = "manual", "Manual"
+
+    character = models.ForeignKey(
+        "Character",
+        on_delete=models.CASCADE,
+        related_name="known_spells",
+    )
+    spell = models.ForeignKey(
+        Spell,
+        on_delete=models.PROTECT,
+        related_name="character_entries",
+    )
+    source_kind = models.CharField(
+        max_length=30,
+        choices=SourceKind.choices,
+        default=SourceKind.MANUAL,
+    )
+    bonus_source = models.ForeignKey(
+        CharacterSpellSource,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="granted_spells",
+    )
+    learned_at = models.DateTimeField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["character", "spell__name"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["character", "spell"],
+                name="uniq_character_spell",
+            )
+        ]
+
+    def clean(self):
+        super().clean()
+
+        if self.bonus_source_id and self.bonus_source.character_id != self.character_id:
+            raise ValidationError({"bonus_source": "Bonus spell source must belong to the same character."})
+
+        if self.character_id and self.spell_id and self.spell.school_id:
+            if not CharacterSchool.objects.filter(
+                character_id=self.character_id,
+                school_id=self.spell.school_id,
+            ).exists():
+                raise ValidationError(
+                    {"spell": "A character can only know arcane spells from learned schools."}
+                )
+
+        if self.character_id and self.spell_id and self.spell.aspect_id:
+            if not CharacterAspect.objects.filter(
+                character_id=self.character_id,
+                aspect_id=self.spell.aspect_id,
+            ).exists():
+                raise ValidationError(
+                    {"spell": "A character can only know divine spells from learned aspects."}
+                )
+
+    def __str__(self):
+        return f"{self.character.name} knows {self.spell.name}"

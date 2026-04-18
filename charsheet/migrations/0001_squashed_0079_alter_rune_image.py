@@ -843,7 +843,7 @@ class Migration(migrations.Migration):
                     "damage_source",
                     models.ForeignKey(
                         on_delete=django.db.models.deletion.PROTECT,
-                        to="charsheet.damagetype",
+                        to="charsheet.damagesource",
                     ),
                 ),
                 (

@@ -1,0 +1,51 @@
+<div class="p2_panel p2_spells panel_scroll" id="sheetSpellPanel">
+  <div class="spell_panel_header">
+    <h2>Zauber</h2>
+  </div>
+
+  {% if spell_panel_divine_summary.has_divine_magic %}
+    <div class="spell_panel_divine_summary">
+      <span class="spell_panel_divine_label">{{ spell_panel_divine_summary.school_name }} L{{ spell_panel_divine_summary.school_level }}</span>
+      <span class="spell_panel_divine_entity">{{ spell_panel_divine_summary.entity_name }}{% if spell_panel_divine_summary.entity_kind %} | {{ spell_panel_divine_summary.entity_kind }}{% endif %}</span>
+      {% if spell_panel_divine_summary.aspects %}
+        <span class="spell_panel_divine_aspects">
+          {% for aspect in spell_panel_divine_summary.aspects %}
+            <span class="spell_panel_meta_badge{% if aspect.is_bonus_aspect %} spell_panel_meta_badge--bonus{% endif %}">{{ aspect.name }} L{{ aspect.level }}</span>
+          {% endfor %}
+        </span>
+      {% endif %}
+    </div>
+  {% endif %}
+
+  <div class="spell_panel_groups">
+    {% for group in spell_panel_groups %}
+      <section class="spell_group">
+        <header class="spell_group_header">
+          <h3>{{ group.name }}</h3>
+          <span class="spell_group_kind">{% if group.kind == 'divine' %}Aspekt{% else %}Schule{% endif %}</span>
+        </header>
+        <ul class="spell_group_rows">
+          {% for row in group.rows %}
+            <li>
+              <button
+                type="button"
+                class="spell_cast_button tooltip_target"
+                data-tooltip-side="left"
+                data-tooltip="{{ row.description|default:'Keine Beschreibung' }}"
+                data-cast-spell-trigger
+                data-cast-url="{% url 'cast_spell' character.id row.spell_id %}"
+                data-spell-name="{{ row.name }}"
+                aria-label="{{ row.name }} wirken"
+              >
+                <span class="spell_cast_name">{{ row.name }}</span>
+                <span class="spell_cast_meta">{{ row.owner_name }}</span>
+                <span class="spell_cast_cost">{{ row.kp_cost }} KP</span>
+                <span class="spell_cast_source{% if row.is_bonus_spell %} spell_cast_source--bonus{% elif row.is_base_spell %} spell_cast_source--base{% endif %}">{{ row.source_label }}</span>
+              </button>
+            </li>
+          {% endfor %}
+        </ul>
+      </section>
+    {% endfor %}
+  </div>
+</div>

@@ -18,10 +18,13 @@ from .modifiers.legacy import LegacyModifierAdapter
 from .modifiers.registry import build_trait_semantic_modifiers
 from .models import (
     ArmorStats,
+    Aspect,
     Attribute,
     Character,
+    CharacterAspect,
     CharacterAttribute,
     CharacterCreationDraft,
+    CharacterDivineEntity,
     CharacterDiaryEntry,
     CharacterItem,
     CharacterLanguage,
@@ -30,6 +33,8 @@ from .models import (
     CharacterSchoolPath,
     CharacterSpecialization,
     CharacterSkill,
+    CharacterSpell,
+    CharacterSpellSource,
     CharacterTechnique,
     CharacterTechniqueChoice,
     CharacterTrait,
@@ -37,6 +42,8 @@ from .models import (
     CharacterWeaponMastery,
     CharacterWeaponMasteryArcana,
     DamageSource,
+    DivineEntity,
+    DivineEntityAspect,
     Item,
     Language,
     MagicItemStats,
@@ -52,6 +59,7 @@ from .models import (
     SchoolType,
     ShieldStats,
     Specialization,
+    Spell,
     Skill,
     SkillCategory,
     Technique,
@@ -3654,6 +3662,165 @@ class CharacterLanguageAdmin(admin.ModelAdmin):
     ordering = ("owner", "language")
     autocomplete_fields = ("owner", "language")
     list_select_related = ("owner", "language")
+
+
+class DivineEntityAspectInline(admin.TabularInline):
+    model = DivineEntityAspect
+    extra = 0
+    autocomplete_fields = ("aspect",)
+    fields = ("aspect", "is_starting_aspect")
+
+
+@admin.register(Aspect)
+class AspectAdmin(admin.ModelAdmin):
+    list_display = ("name", "slug", "opposite")
+    search_fields = ("name", "slug")
+    list_filter = ("opposite",)
+    ordering = ("name",)
+    autocomplete_fields = ("opposite",)
+    list_select_related = ("opposite",)
+
+
+@admin.register(Spell)
+class SpellAdmin(admin.ModelAdmin):
+    list_display = ("name", "spell_owner", "spell_family", "grade", "spell_attribute", "is_base_spell", "kp_cost")
+    search_fields = ("name", "slug")
+    list_filter = ("school", "aspect", "grade", "is_base_spell", "spell_attribute")
+    ordering = ("school__name", "aspect__name", "grade", "name")
+    autocomplete_fields = ("school", "aspect", "spell_attribute")
+    list_select_related = ("school", "school__type", "aspect", "spell_attribute")
+    exclude = ("attribute",)
+
+    @admin.display(description="Quelle")
+    def spell_owner(self, obj):
+        return obj.school or obj.aspect
+
+    @admin.display(description="Zauberart")
+    def spell_family(self, obj):
+        if obj.school_id:
+            return "Arkane Schule"
+        if obj.aspect_id:
+            return "Aspekt"
+        return "-"
+
+
+@admin.register(DivineEntity)
+class DivineEntityAdmin(admin.ModelAdmin):
+    list_display = ("name", "entity_kind", "school", "starting_aspect_count")
+    search_fields = ("name", "slug")
+    list_filter = ("entity_kind", "school")
+    ordering = ("name",)
+    autocomplete_fields = ("school",)
+    list_select_related = ("school", "school__type")
+    inlines = (DivineEntityAspectInline,)
+
+    @admin.display(description="Startaspekte")
+    def starting_aspect_count(self, obj):
+        return obj.aspects.filter(is_starting_aspect=True).count()
+
+
+@admin.register(DivineEntityAspect)
+class DivineEntityAspectAdmin(admin.ModelAdmin):
+    list_display = ("entity", "aspect", "is_starting_aspect")
+    search_fields = ("entity__name", "aspect__name", "aspect__slug")
+    list_filter = ("is_starting_aspect", "entity", "aspect")
+    ordering = ("entity__name", "aspect__name")
+    autocomplete_fields = ("entity", "aspect")
+    list_select_related = ("entity", "aspect")
+
+
+@admin.register(CharacterSpellSource)
+class CharacterSpellSourceAdmin(admin.ModelAdmin):
+    list_display = ("character", "label", "source_kind", "trait", "capacity", "used_slots", "remaining_slots", "is_active")
+    search_fields = ("character__name", "label", "trait__name", "trait__slug")
+    list_filter = ("source_kind", "is_active")
+    ordering = ("character__name", "source_kind", "label")
+    autocomplete_fields = ("character", "trait")
+    list_select_related = ("character", "trait")
+
+    @admin.display(description="Verbraucht")
+    def used_slots(self, obj):
+        return obj.granted_spells.count()
+
+    @admin.display(description="Frei")
+    def remaining_slots(self, obj):
+        return max(0, int(obj.capacity) - int(obj.granted_spells.count()))
+
+
+@admin.register(CharacterAspect)
+class CharacterAspectAdmin(admin.ModelAdmin):
+    list_display = ("character", "aspect", "level", "source_display", "entry_mode")
+    search_fields = ("character__name", "aspect__name", "aspect__slug", "source_entity__name")
+    list_filter = ("is_bonus_aspect", "source_entity", "aspect")
+    ordering = ("character__name", "aspect__name")
+    autocomplete_fields = ("character", "aspect", "source_entity")
+    list_select_related = ("character", "aspect", "source_entity")
+    readonly_fields = ("entry_mode",)
+
+    @admin.display(description="Quelle")
+    def source_display(self, obj):
+        return obj.source_entity or ("Bonusaspekt" if obj.is_bonus_aspect else "Automatisch")
+
+    @admin.display(description="Modus")
+    def entry_mode(self, obj):
+        return "Manuell/Bonus" if obj.is_bonus_aspect else "Automatisch"
+
+    def get_readonly_fields(self, request, obj=None):
+        readonly = list(super().get_readonly_fields(request, obj))
+        if obj is not None and not obj.is_bonus_aspect:
+            readonly.extend(["character", "aspect", "source_entity"])
+        return tuple(dict.fromkeys(readonly))
+
+
+@admin.register(CharacterDivineEntity)
+class CharacterDivineEntityAdmin(admin.ModelAdmin):
+    list_display = ("character", "entity", "entity_school", "entity_kind")
+    search_fields = ("character__name", "entity__name", "entity__slug")
+    list_filter = ("entity__entity_kind", "entity__school")
+    ordering = ("character__name",)
+    autocomplete_fields = ("character", "entity")
+    list_select_related = ("character", "entity", "entity__school")
+
+    @admin.display(description="Schule")
+    def entity_school(self, obj):
+        return obj.entity.school
+
+    @admin.display(description="Art")
+    def entity_kind(self, obj):
+        return obj.entity.get_entity_kind_display()
+
+
+@admin.register(CharacterSpell)
+class CharacterSpellAdmin(admin.ModelAdmin):
+    list_display = ("character", "spell", "spell_owner", "source_kind", "bonus_source", "entry_mode")
+    search_fields = ("character__name", "spell__name", "spell__slug", "bonus_source__label")
+    list_filter = ("source_kind", "spell__school", "spell__aspect", "bonus_source")
+    ordering = ("character__name", "spell__name")
+    autocomplete_fields = ("character", "spell", "bonus_source")
+    list_select_related = ("character", "spell", "spell__school", "spell__aspect", "bonus_source")
+    readonly_fields = ("entry_mode",)
+
+    @admin.display(description="Quelle")
+    def spell_owner(self, obj):
+        return obj.spell.school or obj.spell.aspect
+
+    @admin.display(description="Modus")
+    def entry_mode(self, obj):
+        automatic_kinds = {
+            CharacterSpell.SourceKind.BASE,
+            CharacterSpell.SourceKind.DIVINE_GRANTED,
+        }
+        return "Automatisch" if obj.source_kind in automatic_kinds else "Manuell/Auswahl"
+
+    def get_readonly_fields(self, request, obj=None):
+        readonly = list(super().get_readonly_fields(request, obj))
+        automatic_kinds = {
+            CharacterSpell.SourceKind.BASE,
+            CharacterSpell.SourceKind.DIVINE_GRANTED,
+        }
+        if obj is not None and obj.source_kind in automatic_kinds:
+            readonly.extend(["character", "spell", "source_kind", "bonus_source"])
+        return tuple(dict.fromkeys(readonly))
 
 
 @admin.register(CharacterDiaryEntry)

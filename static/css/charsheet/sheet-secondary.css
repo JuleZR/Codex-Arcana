@@ -1,5 +1,44 @@
 /* Charsheet secondary page: panels, inventory, armor, schools, weapons */
 
+.page-with-sidebar {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  gap: var(--page-gap, 8px);
+}
+
+.page--spells {
+  position: relative;
+  top: 0;
+  width: 19vw;
+  height: 100%;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  background:
+    linear-gradient(180deg, rgba(248, 245, 236, 0.72), rgba(233, 228, 216, 0.66)),
+    url("/static/img/pergamentbg.jpg") center / cover no-repeat;
+  background-blend-mode: multiply, normal;
+  box-shadow:
+    0 10px 30px var(--paper-shadow),
+    inset 0 0 0 1px rgba(74, 55, 38, 0.35);
+  clip-path: polygon(
+    0.35% 0.25%, 8% 0.1%, 16% 0.3%, 24% 0.1%, 32% 0.3%, 40% 0.1%, 48% 0.3%, 56% 0.1%,
+    64% 0.3%, 72% 0.1%, 80% 0.3%, 88% 0.1%, 96% 0.3%, 99.75% 0.35%, 99.95% 8%, 99.7% 16%,
+    99.95% 24%, 99.7% 32%, 99.95% 40%, 99.7% 48%, 99.95% 56%, 99.7% 64%, 99.95% 72%,
+    99.7% 80%, 99.95% 88%, 99.75% 96%, 99.65% 99.75%, 92% 99.9%, 84% 99.7%, 76% 99.9%,
+    68% 99.7%, 60% 99.9%, 52% 99.7%, 44% 99.9%, 36% 99.7%, 28% 99.9%, 20% 99.7%, 12% 99.9%,
+    4% 99.7%, 0.3% 99.75%, 0.1% 92%, 0.3% 84%, 0.1% 76%, 0.3% 68%, 0.1% 60%, 0.3% 52%,
+    0.1% 44%, 0.3% 36%, 0.1% 28%, 0.3% 20%, 0.1% 12%, 0.3% 4%
+  );
+}
+
+.page--spells .p2_panel {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+
 .page--secondary {
   padding: 8px;
   position: relative;
@@ -258,6 +297,191 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+.p2_spells {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 160px;
+  max-height: 260px;
+  flex: 0 0 auto;
+}
+
+.p2_spells .spell_panel_groups {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-gutter: stable both-edges;
+}
+
+.spell_panel_header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.spell_panel_intro {
+  margin: 2px 0 0;
+  color: var(--ink-soft);
+  font-size: 0.75rem;
+  font-family: "Cormorant Garamond", Georgia, serif;
+}
+
+.spell_panel_meta,
+.spell_panel_divine_aspects {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  justify-content: flex-end;
+}
+
+.spell_panel_meta_badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid rgba(114, 80, 46, 0.28);
+  border-radius: 999px;
+  background: rgba(255, 248, 232, 0.7);
+  padding: 2px 8px;
+  font-size: 0.62rem;
+  color: #5a3d28;
+}
+
+.spell_panel_meta_badge--bonus {
+  background: rgba(235, 226, 204, 0.92);
+}
+
+.spell_panel_divine_summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  font-size: 0.68rem;
+  color: #503722;
+}
+
+.spell_panel_groups {
+  display: grid;
+  gap: 8px;
+}
+
+.spell_group {
+  border-bottom: 1px solid rgba(114, 80, 46, 0.14);
+  padding-bottom: 4px;
+  margin-bottom: 2px;
+}
+
+.spell_group:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+}
+
+.spell_group_header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 10px 2px;
+}
+
+.spell_group_header h3 {
+  margin: 0;
+  font-family: "Trebuchet MS", "Segoe UI", Tahoma, sans-serif;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.spell_group_kind {
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.spell_group_rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.spell_cast_button {
+  width: calc(100% - 8px);
+  min-height: 1.8rem;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 0 6px;
+  align-items: center;
+  text-align: left;
+  margin: 2px 4px;
+  padding: 3px 6px 3px 8px;
+  border: 1px solid rgba(74, 55, 38, 0.24);
+  border-radius: 4px;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 250, 236, 0.34) 0%,
+    rgba(255, 246, 224, 0.2) 100%
+  );
+  box-shadow: inset 0 0 0 1px rgba(255, 248, 230, 0.18);
+  font-family: "Trebuchet MS", "Segoe UI", Tahoma, sans-serif;
+  font-size: 0.86rem;
+  letter-spacing: 0.01em;
+  color: #39271b;
+  cursor: pointer;
+}
+
+.spell_cast_button:hover {
+  background: rgba(255, 250, 236, 0.74);
+}
+
+.spell_cast_button:disabled {
+  opacity: 0.62;
+  cursor: wait;
+}
+
+.spell_cast_name {
+  font-size: 0.86rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.spell_cast_meta {
+  display: none;
+}
+
+.spell_cast_cost {
+  font-weight: 700;
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+.spell_cast_source {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  background: rgba(101, 72, 42, 0.08);
+  padding: 1px 7px;
+  font-size: 0.62rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.spell_cast_source--base {
+  background: rgba(130, 108, 53, 0.14);
+}
+
+.spell_cast_source--bonus {
+  background: rgba(90, 66, 32, 0.16);
 }
 
 .p2_damage > h2 {
@@ -1930,14 +2154,21 @@
   align-items: center;
   gap: 6px;
   min-width: 0;
+  width: 100%;
 }
 
 .weapon_name {
+  flex: 1 1 auto;
   min-width: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   font-size: 0.88rem;
+}
+
+.weapon_name_cell .inv_rune_marker {
+  margin-left: auto;
+  flex: 0 0 auto;
 }
 
 .weapons_table tr.quality_tinted_row td:first-child {

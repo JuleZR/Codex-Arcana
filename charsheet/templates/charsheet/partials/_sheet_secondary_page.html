@@ -10,6 +10,9 @@
     <section class="p2_right_col">
       {% include "charsheet/partials/_armor_panel.html" %}
 
+      {% if spell_panel_enabled %}
+        {% include "charsheet/partials/_spell_panel.html" %}
+      {% else %}
       <div class="p2_panel">
         <div class="body_grid">
           <ul class="body_side body_side--left">
@@ -79,6 +82,7 @@
           </ul>
         </div>
       </div>
+      {% endif %}
 
       <div class="p2_panel">
         <div class="move_row">

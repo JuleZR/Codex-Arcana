@@ -5,7 +5,19 @@ from __future__ import annotations
 from collections import OrderedDict
 
 from charsheet.constants import RESOURCE_KEY_CHOICES, is_allowed_trait_attribute_choice
-from charsheet.models import Attribute, CharacterTrait, Item, Rune, Skill, SkillCategory, Specialization, Technique, TraitChoiceDefinition
+from charsheet.models import (
+    Attribute,
+    CharacterTrait,
+    DivineEntity,
+    Item,
+    Rune,
+    Skill,
+    SkillCategory,
+    Spell,
+    Specialization,
+    Technique,
+    TraitChoiceDefinition,
+)
 
 WEAPON_MASTERY_EXCLUDED_ITEM_NAMES = {
     "Bissattacke",
@@ -130,7 +142,56 @@ def build_learning_progression_context(character, *, engine) -> dict[str, object
     technique_groups: OrderedDict[str, list[dict]] = OrderedDict()
     specialization_groups: OrderedDict[str, list[dict]] = OrderedDict()
     choice_groups: OrderedDict[str, list[dict]] = OrderedDict()
+    arcane_free_spell_groups: OrderedDict[str, list[dict]] = OrderedDict()
+    bonus_spell_groups: OrderedDict[str, list[dict]] = OrderedDict()
+    base_spell_rows: list[dict[str, object]] = []
+    divine_entity_rows: list[dict[str, object]] = []
     pending_decisions: list[dict[str, object]] = []
+    magic_engine = character.get_magic_engine(refresh=True)
+    magic_engine.sync_character_magic()
+
+    from charsheet.models import CharacterAspect, CharacterSpell as _CharacterSpell
+    _is_magic_user = bool(magic_engine._arcane_school_entries()) or CharacterAspect.objects.filter(character=character).exists()
+    if _is_magic_user:
+        _learned_base_ids = set(
+            _CharacterSpell.objects.filter(
+                character=character,
+                spell__is_base_spell=True,
+                spell__school__isnull=True,
+                spell__aspect__isnull=True,
+            ).values_list("spell_id", flat=True)
+        )
+        _remaining = max(0, 2 - len(_learned_base_ids))
+        _universal_spells = list(
+            Spell.objects.filter(is_base_spell=True, school__isnull=True, aspect__isnull=True)
+            .exclude(id__in=_learned_base_ids)
+            .order_by("grade", "name")
+        )
+        for _slot in range(_remaining):
+            _field = f"learn_base_spell_{_slot}"
+            base_spell_rows.append({"field_name": _field, "options": _universal_spells})
+            pending_decisions.append(
+                _build_pending_decision(
+                    decision_id=f"base-spell-{_slot}",
+                    kind="base_spell",
+                    title="Basiszauber",
+                    summary=f"Basiszauber {_slot + 1} von {_remaining} waehlen",
+                    description="Waehle einen der universellen Basiszauber (ohne Schule). Jeder Magiewirkende darf 2 davon lernen.",
+                    prompt="Basiszauber waehlen",
+                    selection_group_id="base-spell",
+                    options=[
+                        _build_decision_option(
+                            option_id=str(s.id),
+                            label=s.name,
+                            meta=f"Grad {s.grade}",
+                            description=s.description or "",
+                            submit_name=_field,
+                            submit_value=str(s.id),
+                        )
+                        for s in _universal_spells
+                    ],
+                )
+            )
 
     learned_school_entries = list(
         character.schools.select_related("school", "school__type").order_by("school__type__name", "school__name")
@@ -186,6 +247,118 @@ def build_learning_progression_context(character, *, engine) -> dict[str, object
                             submit_value=str(option["id"]),
                         )
                         for option in row["options"]
+                    ],
+                )
+            )
+
+    binding = magic_engine._divine_binding()
+    if binding is None:
+        divine_entities = list(
+            DivineEntity.objects.filter(school_id__in=[entry.school_id for entry in magic_engine._divine_school_entries()])
+            .select_related("school")
+            .order_by("school__name", "name")
+        )
+        if divine_entities:
+            row = {
+                "field_name": "learn_divine_entity",
+                "options": [
+                    {
+                        "id": entity.id,
+                        "name": entity.name,
+                        "description": entity.description or "",
+                        "school_name": entity.school.name,
+                    }
+                    for entity in divine_entities
+                ],
+            }
+            divine_entity_rows.append(row)
+            pending_decisions.append(
+                _build_pending_decision(
+                    decision_id="divine-entity",
+                    kind="divine_entity",
+                    title="Klerikale Entitaet",
+                    summary="Waehle die verehrte Entitaet",
+                    description="Diese Wahl bestimmt die automatisch gewaehrten Startaspekte.",
+                    prompt="Entitaet waehlen",
+                    options=[
+                        _build_decision_option(
+                            option_id=str(option["id"]),
+                            label=option["name"],
+                            meta=option["school_name"],
+                            description=option["description"],
+                            submit_name=row["field_name"],
+                            submit_value=str(option["id"]),
+                        )
+                        for option in row["options"]
+                    ],
+                )
+            )
+
+    for school_entry in magic_engine._arcane_school_entries():
+        choice_state = magic_engine.get_available_arcane_spell_choices(school_entry.school)
+        options = choice_state["options"]
+        for slot_index in range(int(choice_state["remaining"])):
+            row = {
+                "field_name": f"learn_arcane_free_spell_{school_entry.school_id}_{slot_index}",
+                "school_id": school_entry.school_id,
+                "school_name": choice_state["school_name"],
+                "school_level": choice_state["school_level"],
+                "options": options,
+            }
+            arcane_free_spell_groups.setdefault(choice_state["school_name"], []).append(row)
+            pending_decisions.append(
+                _build_pending_decision(
+                    decision_id=f"arcane-free-spell-{school_entry.school_id}-{slot_index}",
+                    kind="arcane_free_spell",
+                    title=f"Zauber: {choice_state['school_name']}",
+                    summary=f"Freier Zauber {slot_index + 1} von {choice_state['remaining']}",
+                    description="Waehle einen arkanen Zauber derselben oder niedrigeren Stufe.",
+                    prompt="Zauber waehlen",
+                    selection_group_id=f"arcane-free-spell:{school_entry.school_id}",
+                    options=[
+                        _build_decision_option(
+                            option_id=str(spell.id),
+                            label=spell.name,
+                            meta=f"Grad {spell.grade}",
+                            description=spell.description or "",
+                            submit_name=row["field_name"],
+                            submit_value=str(spell.id),
+                        )
+                        for spell in options
+                    ],
+                )
+            )
+
+    for source_row in magic_engine.get_available_bonus_spells():
+        source = source_row["source"]
+        options = source_row["options"]
+        for slot_index in range(int(source["remaining"])):
+            row = {
+                "field_name": f"learn_bonus_spell_{source['id']}_{slot_index}",
+                "bonus_source_id": source["id"],
+                "source_label": source["label"],
+                "options": options,
+            }
+            bonus_spell_groups.setdefault(source["label"], []).append(row)
+            pending_decisions.append(
+                _build_pending_decision(
+                    decision_id=f"bonus-spell-{source['id']}-{slot_index}",
+                    kind="bonus_spell",
+                    title=f"Bonuszauber: {source['label']}",
+                    summary=f"Freier Bonuszauber {slot_index + 1} von {source['remaining']}",
+                    description="Waehle einen legalen Zusatzzauber aus den verfuegbaren Schulen oder Aspekten.",
+                    prompt="Bonuszauber waehlen",
+                    selection_group_id=f"bonus-spell:{source['id']}",
+                    options=[
+                        _build_decision_option(
+                            option_id=str(spell.id),
+                            label=spell.name,
+                            meta=f"{spell.school.name if spell.school_id else spell.aspect.name} | Grad {spell.grade}",
+                            description=spell.description or "",
+                            submit_name=row["field_name"],
+                            submit_value=str(spell.id),
+                        )
+                        for spell in options
                     ],
                 )
             )
@@ -591,7 +764,8 @@ def build_learning_progression_context(character, *, engine) -> dict[str, object
                 ]
             else:
                 resource_options = (
-                    [(definition.allowed_resource, dict(RESOURCE_KEY_CHOICES).get(definition.allowed_resource, definition.allowed_resource))]
+                    [(definition.allowed_resource,
+                      dict(RESOURCE_KEY_CHOICES).get(definition.allowed_resource, definition.allowed_resource))]
                     if definition.allowed_resource
                     else list(RESOURCE_KEY_CHOICES)
                 )
@@ -701,6 +875,12 @@ def build_learning_progression_context(character, *, engine) -> dict[str, object
         "learn_technique_groups": [{"name": name, "rows": rows} for name, rows in technique_groups.items()],
         "learn_technique_rows": [row for rows in technique_groups.values() for row in rows],
         "learn_technique_count": sum(len(rows) for rows in technique_groups.values()),
+        "learn_divine_entity_rows": divine_entity_rows,
+        "learn_base_spell_rows": base_spell_rows,
+        "learn_arcane_free_spell_groups": [{"name": name, "rows": rows} for name, rows in arcane_free_spell_groups.items()],
+        "learn_arcane_free_spell_rows": [row for rows in arcane_free_spell_groups.values() for row in rows],
+        "learn_bonus_spell_groups": [{"name": name, "rows": rows} for name, rows in bonus_spell_groups.items()],
+        "learn_bonus_spell_rows": [row for rows in bonus_spell_groups.values() for row in rows],
         "learn_specialization_groups": [{"name": name, "rows": rows} for name, rows in specialization_groups.items()],
         "learn_specialization_rows": [row for rows in specialization_groups.values() for row in rows],
         "learn_specialization_count": sum(len(rows) for rows in specialization_groups.values()),

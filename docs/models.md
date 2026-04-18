@@ -69,6 +69,14 @@ Technique rules and character technique choices:
 - `RaceChoiceDefinition`
 - `CharacterRaceChoice`
 - `RaceTechnique`
+- `Aspect`
+- `Spell`
+- `DivineEntity`
+- `DivineEntityAspect`
+- `CharacterDivineEntity`
+- `CharacterAspect`
+- `CharacterSpell`
+- `CharacterSpellSource`
 
 ### `modifier.py`
 
@@ -200,12 +208,89 @@ This layer handles creation-only concerns such as:
 
 `Character` exposes `get_engine()` / `character.engine` as the main read-side entry point.
 
+For magic-specific workflows, `Character` also exposes `get_magic_engine()`.
+
 The engine:
 
 - loads persisted model state
 - translates persisted legacy modifier rows into typed modifiers
 - loads persisted `TraitSemanticEffect` rows from traits
 - resolves all productive modifier outcomes through `ModifierEngine`
+
+The magic engine:
+
+- resolves spell- and aspect-related progression from the same persisted school model the rest of the project uses
+- synchronizes automatic spell rows without collapsing manually learned or trait-granted rows
+- prepares spell-panel context for the sheet and learning UI
+- executes authoritative spell casting with KP validation
+
+## Magic Persistence
+
+The magic system extends the existing model graph rather than creating a parallel progression world.
+
+### `Aspect`
+
+Represents a divine aspect tree. Opposed aspects are modeled directly so the engine and admin can block illegal combinations.
+
+### `Spell`
+
+Represents one spell.
+
+Important constraints:
+
+- a spell belongs either to an arcane `school` or a divine `aspect`
+- a spell never belongs to both at the same time
+- `is_base_spell` marks automatically granted baseline spells used by synchronization logic
+
+### `DivineEntity` and `DivineEntityAspect`
+
+`DivineEntity` stores the worshipped clerical entity and its governing divine school.
+
+`DivineEntityAspect` maps which aspects an entity grants and which of them start unlocked at level 1. This is the persisted source for automatic clerical progression.
+
+### `CharacterDivineEntity`
+
+Stores which divine entity a character is currently bound to. This remains separate from `CharacterSchool` so the same school system can still represent level progression while the entity captures worship alignment.
+
+### `CharacterAspect`
+
+Stores aspect access on the character.
+
+The row distinguishes:
+
+- automatically granted entity aspects
+- manually purchased bonus aspects
+
+This allows synchronization to update automatic grants without deleting deliberate purchases.
+
+### `CharacterSpell`
+
+Stores one known spell for one character together with a persisted source kind.
+
+The source kind differentiates at least:
+
+- base spell
+- arcane free spell
+- arcane bonus spell
+- divine automatic spell
+- divine extra learned spell
+- divine bonus spell
+- manually learned extra spell
+
+This source is used by admin, learning UI, synchronization, and the spell panel.
+
+### `CharacterSpellSource`
+
+Stores persisted bonus-spell capacity, primarily for trait-based grants such as `Zusatzzauber`.
+
+It records:
+
+- where the bonus capacity came from
+- how much capacity exists
+- whether the source is active
+- which concrete `CharacterSpell` rows consume that capacity through `bonus_source`
+
+This keeps bonus spells distinct from normal free school picks and from automatic divine grants.
 
 ## What Still Counts as Legacy
 

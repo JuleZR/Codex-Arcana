@@ -25,6 +25,9 @@ The rules layer is centered on `CharacterEngine`, but modifier semantics now liv
   - draft-based creation flow
   - uses `CharacterBuildValidator` for structured trait build validation
   - resolves creation-only trait effects such as `starting_funds`
+- `charsheet/engine/magic_engine.py`
+  - dedicated service for arcane and divine spell progression
+  - keeps spell acquisition, synchronization, bonus capacity, and casting out of models and templates
 
 ## CharacterEngine
 
@@ -178,6 +181,64 @@ Instead they call `CharacterEngine` methods such as:
 - `get_dmg_modifier_sum()`
 
 `sheet_context.py` only consumes prepared engine outputs. It does not perform modifier calculations in templates.
+
+## MagicEngine
+
+### Role
+
+`MagicEngine` is the write- and read-side coordination layer for the productive magic system.
+
+It is intentionally separate from `CharacterEngine` because spell acquisition and divine synchronization have lifecycle effects that should not live in templates or model `save()` methods.
+
+### Responsibilities
+
+`MagicEngine` currently handles at least these concerns:
+
+- resolve learned arcane schools and their effective levels
+- resolve divine schools, the selected divine entity, and granted aspects
+- determine free arcane spell choices per school level
+- synchronize automatic spell knowledge such as base spells and divine aspect spells
+- preserve manual and trait-granted spell sources while removing invalid automatic rows
+- track bonus-spell capacity via persisted `CharacterSpellSource` rows
+- validate and execute spell casting with backend KP consumption
+- prepare server-side sheet context for the parchment spell panel
+
+### Arcane Rules
+
+Arcane schools stay part of the normal school progression system.
+
+The engine differentiates between:
+
+- available spells the character may choose
+- automatically known base spells
+- free spell picks gained from school levels
+- additional spells learned later for EP/CP
+- bonus spells granted by advantages such as `Zusatzzauber`
+
+### Divine Rules
+
+Divine schools also stay inside the normal progression model.
+
+The engine resolves:
+
+- the currently bound `DivineEntity`
+- starting aspects granted by that entity
+- automatic aspect scaling with divine school level
+- automatic spell knowledge for granted aspect levels
+- additional purchased aspects
+- blocking of opposite aspects
+
+### Casting Flow
+
+The productive casting flow is:
+
+1. sheet context renders server-prepared spell button metadata
+2. the client posts to the dedicated cast endpoint
+3. `MagicEngine.can_cast_spell()` validates ownership and KP
+4. `MagicEngine.cast_spell()` performs the authoritative spend
+5. the backend returns refreshed partials so KP and the spell panel stay in sync
+
+This keeps rule evaluation in Python and limits JavaScript to interaction and DOM refresh behavior.
 
 ## Character Creation and Trait Validation
 
