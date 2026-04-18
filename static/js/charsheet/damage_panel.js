@@ -39,6 +39,10 @@ export function initDamagePanel() {
   let localArcane = readInt(arcaneMeter?.dataset.arcaneCurrent || currentArcaneEl?.textContent, 0);
   let woundPenaltyIgnored = woundStageEl.classList.contains("is-disabled") || woundPenaltyEl.classList.contains("is-disabled");
 
+  window.__charsheetDamagePanel = {
+    flushPendingDamageRequests: () => requestQueue.catch(() => undefined),
+  };
+
   if (thresholdsScript) {
     try {
       thresholdRows = JSON.parse(thresholdsScript.textContent || "[]");

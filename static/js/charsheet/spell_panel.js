@@ -174,6 +174,9 @@ export function initSpellPanel() {
       saveSpellPanelState({ filterInput, groups });
       button.disabled = true;
       try {
+        if (typeof window.__charsheetDamagePanel?.flushPendingDamageRequests === "function") {
+          await window.__charsheetDamagePanel.flushPendingDamageRequests();
+        }
         const response = await fetch(url, {
           method: "POST",
           headers: {
