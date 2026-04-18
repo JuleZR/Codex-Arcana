@@ -8,7 +8,7 @@
   src:
     local("Cormorant Garamond"),
     local("CormorantGaramond"),
-    url("../fonts/cormorant_garamond/CormorantGaramond-wght.ttf") format("truetype");
+    url("/static/fonts/cormorant_garamond/CormorantGaramond-wght.ttf") format("truetype");
 }
 
 @font-face {
@@ -18,7 +18,7 @@
   font-display: swap;
   src:
     local("Cinzel"),
-    url("../fonts/cinzel/Cinzel-wght.ttf") format("truetype");
+    url("/static/fonts/cinzel/Cinzel-wght.ttf") format("truetype");
 }
 * {
   margin: 0;
@@ -28,7 +28,7 @@
 
 body {
   min-height: 100vh;
-  background: url("../img/forestbg.png") center/cover no-repeat fixed;
+  background: url("/static/img/forestbg.png") center/cover no-repeat fixed;
   font-family: "Cormorant Garamond", Georgia, serif;
   display: grid;
   place-items: center;
@@ -57,7 +57,7 @@ body {
   position: relative;
   width: 100%;
   padding: 43px 34px 35px;
-  background: url("../img/pergamentbg.jpg") center/cover no-repeat;
+  background: url("/static/img/pergamentbg.jpg") center/cover no-repeat;
   box-shadow: 0 18px 42px rgba(0, 0, 0, 0.4), 0 6px 14px rgba(20, 12, 6, 0.35), inset 0 0 0 1px rgba(74, 55, 38, 0.35);
   clip-path: polygon(0.8% 0.65%, 7% 0.05%, 15% 0.65%, 23% 0%, 31% 0.75%, 39% 0.05%, 47% 0.7%, 55% 0%, 63% 0.75%, 71% 0.05%, 79% 0.7%, 87% 0%, 95% 0.75%, 99.3% 0.8%, 99.98% 7%, 99.35% 15%, 99.98% 23%, 99.35% 31%, 99.98% 39%, 99.35% 47%, 99.98% 55%, 99.35% 63%, 99.98% 71%, 99.35% 79%, 99.98% 87%, 99.3% 95%, 99.2% 99.3%, 93% 99.95%, 85% 99.3%, 77% 99.98%, 69% 99.3%, 61% 99.95%, 53% 99.3%, 45% 99.98%, 37% 99.3%, 29% 99.95%, 21% 99.3%, 13% 99.98%, 5% 99.3%, 0.7% 99.2%, 0.02% 93%, 0.65% 85%, 0.02% 77%, 0.65% 69%, 0.02% 61%, 0.65% 53%, 0.02% 45%, 0.65% 37%, 0.02% 29%, 0.65% 21%, 0.02% 13%, 0.65% 5%);
   overflow: hidden;
