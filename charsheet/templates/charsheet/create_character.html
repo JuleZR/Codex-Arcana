@@ -758,6 +758,52 @@
           recalculatePhase1Spent();
         }
 
+        const escapeHtml = function (value) {
+          return String(value)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#39;");
+        };
+
+        const attributeOptions = [
+          {% for short_name, label in attribute_order %}
+            { value: "{{ short_name }}", label: "{{ label|escapejs }}" },
+          {% endfor %}
+        ];
+
+        const renderAttributeChoiceInputs = function (prefix, dataAttribute, slug, choiceDefs) {
+          return (choiceDefs || []).map(function (choiceDef) {
+            const localOptions = Array.isArray(choiceDef.options) && choiceDef.options.length ? choiceDef.options : attributeOptions;
+            const optionsHtml = ['<option value=""></option>'].concat(localOptions.map(function (entry) {
+              const selected = choiceDef.selected === entry.value ? ' selected' : '';
+              return '<option value="' + entry.value + '"' + selected + '>' + escapeHtml(entry.label) + '</option>';
+            })).join('');
+            return '<label class="phase4_choice_block"><span>' + escapeHtml(choiceDef.name || 'Attribut') + '</span><select class="dashboard_input" name="' + prefix + '_choice_' + slug + '_' + choiceDef.id + '" ' + dataAttribute + '>' + optionsHtml + '</select></label>';
+          }).join('');
+        };
+
+        const renderResourceChoiceInputs = function (prefix, dataAttribute, slug, choiceDefs) {
+          return (choiceDefs || []).map(function (choiceDef) {
+            const localOptions = Array.isArray(choiceDef.options) ? choiceDef.options : [];
+            const optionsHtml = ['<option value=""></option>'].concat(localOptions.map(function (entry) {
+              const selected = choiceDef.selected === entry.value ? ' selected' : '';
+              return '<option value="' + entry.value + '"' + selected + '>' + escapeHtml(entry.label) + '</option>';
+            })).join('');
+            return '<label class="phase4_choice_block"><span>' + escapeHtml(choiceDef.name || 'Ressource') + '</span><select class="dashboard_input" name="' + prefix + '_choice_' + slug + '_' + choiceDef.id + '" ' + dataAttribute + '>' + optionsHtml + '</select></label>';
+          }).join('');
+        };
+
+        const safelyParseJsonArray = function (rawValue) {
+          try {
+            const parsed = JSON.parse(rawValue || "[]");
+            return Array.isArray(parsed) ? parsed : [];
+          } catch (_error) {
+            return [];
+          }
+        };
+
         const phase2SkillCartBody = document.getElementById("phase2SkillCartBody");
         const phase2LanguageCartBody = document.getElementById("phase2LanguageCartBody");
         const phase2SkillSpentValue = document.getElementById("phase2SkillSpentValue");
@@ -787,52 +833,6 @@
           const calcLanguageCost = function (level, write, mother) {
             const base = mother ? 0 : level;
             return base + (write ? 1 : 0);
-          };
-
-          const escapeHtml = function (value) {
-            return String(value)
-              .replace(/&/g, "&amp;")
-              .replace(/</g, "&lt;")
-              .replace(/>/g, "&gt;")
-              .replace(/"/g, "&quot;")
-              .replace(/'/g, "&#39;");
-          };
-
-          const attributeOptions = [
-            {% for short_name, label in attribute_order %}
-              { value: "{{ short_name }}", label: "{{ label|escapejs }}" },
-            {% endfor %}
-          ];
-
-          const renderAttributeChoiceInputs = function (prefix, dataAttribute, slug, choiceDefs) {
-            return (choiceDefs || []).map(function (choiceDef) {
-              const localOptions = Array.isArray(choiceDef.options) && choiceDef.options.length ? choiceDef.options : attributeOptions;
-              const optionsHtml = ['<option value=""></option>'].concat(localOptions.map(function (entry) {
-                const selected = choiceDef.selected === entry.value ? ' selected' : '';
-                return '<option value="' + entry.value + '"' + selected + '>' + escapeHtml(entry.label) + '</option>';
-              })).join('');
-              return '<label class="phase4_choice_block"><span>' + escapeHtml(choiceDef.name || 'Attribut') + '</span><select class="dashboard_input" name="' + prefix + '_choice_' + slug + '_' + choiceDef.id + '" ' + dataAttribute + '>' + optionsHtml + '</select></label>';
-            }).join('');
-          };
-
-          const renderResourceChoiceInputs = function (prefix, dataAttribute, slug, choiceDefs) {
-            return (choiceDefs || []).map(function (choiceDef) {
-              const localOptions = Array.isArray(choiceDef.options) ? choiceDef.options : [];
-              const optionsHtml = ['<option value=""></option>'].concat(localOptions.map(function (entry) {
-                const selected = choiceDef.selected === entry.value ? ' selected' : '';
-                return '<option value="' + entry.value + '"' + selected + '>' + escapeHtml(entry.label) + '</option>';
-              })).join('');
-              return '<label class="phase4_choice_block"><span>' + escapeHtml(choiceDef.name || 'Ressource') + '</span><select class="dashboard_input" name="' + prefix + '_choice_' + slug + '_' + choiceDef.id + '" ' + dataAttribute + '>' + optionsHtml + '</select></label>';
-            }).join('');
-          };
-
-          const safelyParseJsonArray = function (rawValue) {
-            try {
-              const parsed = JSON.parse(rawValue || "[]");
-              return Array.isArray(parsed) ? parsed : [];
-            } catch (_error) {
-              return [];
-            }
           };
 
           const getSkillRows = function () {
