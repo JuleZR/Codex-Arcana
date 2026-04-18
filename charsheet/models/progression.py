@@ -25,6 +25,12 @@ class School(models.Model):
 
     name = models.CharField(max_length=100, unique=True)
     type = models.ForeignKey(SchoolType, on_delete=models.PROTECT)
+    panel_symbol = models.CharField(
+        max_length=8,
+        blank=True,
+        default="",
+        help_text="Optional short symbol shown in spell and school panels, for example a rune or glyph.",
+    )
     description = models.TextField(blank=True)
 
     class Meta:

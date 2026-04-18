@@ -40,6 +40,9 @@
           >
             <span class="spell_group_heading">
               <span class="spell_group_chevron" aria-hidden="true">&#9656;</span>
+              {% if group.symbol %}
+                <span class="spell_group_symbol" aria-hidden="true">{{ group.symbol }}</span>
+              {% endif %}
               <span class="spell_group_title">{{ group.name }}{% if group.rank_label %} {{ group.rank_label }}{% endif %}</span>
             </span>
             <span class="spell_group_kind">{% if group.kind == 'divine' %}Aspekt{% elif group.kind == 'base' %}Basis{% else %}Schule{% endif %}</span>
@@ -54,6 +57,7 @@
                   data-tooltip="{{ row.tooltip_text|default:row.description|default:'Keine Beschreibung' }}"
                   data-cast-spell-trigger
                   data-cast-url="{% url 'cast_spell' character.id row.spell_id %}"
+                  data-spell-kp-cost="{{ row.kp_cost }}"
                   data-spell-name="{{ row.name }}"
                   aria-label="{{ row.name }} wirken"
                 >

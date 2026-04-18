@@ -113,6 +113,16 @@ def _spell_group_sort_key(group_kind: str, group_name: str) -> tuple[int, str]:
 class MagicEngine:
     """Resolve magic progression, known spells, and casting for one character."""
 
+    @staticmethod
+    def _spell_group_symbol(group_kind: str, spell: Spell | None = None) -> str:
+        if group_kind == "arcane" and spell is not None and spell.school_id:
+            return str(getattr(spell.school, "panel_symbol", "") or "").strip() or "▶"
+        if group_kind == "divine":
+            return "✧"
+        if group_kind == "base":
+            return "✦"
+        return ""
+
     def __init__(self, character: Character) -> None:
         self.character = character
 
@@ -531,6 +541,7 @@ class MagicEngine:
                 owner_name = "Basiszauber"
             grouped_rows[(group_kind, group_name)].append(
                 {
+                    "_spell_obj": spell,
                     "spell_id": spell.id,
                     "name": spell.name,
                     "owner_name": owner_name,
@@ -555,12 +566,16 @@ class MagicEngine:
             {
                 "kind": group_kind,
                 "name": group_name,
+                "symbol": self._spell_group_symbol(group_kind, rows[0]["_spell_obj"]) if rows else "",
                 "rank_label": (
                     _to_roman(arcane_school_levels.get(group_name, 0))
                     if group_kind == "arcane"
                     else ""
                 ),
-                "rows": sorted(rows, key=lambda row: (row["level"], row["name"])),
+                "rows": sorted(
+                    [{key: value for key, value in row.items() if key != "_spell_obj"} for row in rows],
+                    key=lambda row: (row["level"], row["name"]),
+                ),
             }
             for (group_kind, group_name), rows in sorted(
                 grouped_rows.items(),

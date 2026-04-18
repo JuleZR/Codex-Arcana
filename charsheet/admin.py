@@ -1885,7 +1885,7 @@ class SchoolTypeAdmin(admin.ModelAdmin):
 class SchoolAdmin(admin.ModelAdmin):
     """Admin configuration for schools."""
 
-    list_display = ("name", "type", "type_slug", "path_count", "choice_block_count", "technique_count", "specialization_count")
+    list_display = ("name", "panel_symbol", "type", "type_slug", "path_count", "choice_block_count", "technique_count", "specialization_count")
     search_fields = ("name", "type__name", "type__slug")
     list_filter = ("type",)
     ordering = ("type", "name")
@@ -1895,7 +1895,7 @@ class SchoolAdmin(admin.ModelAdmin):
             "School",
             {
                 "fields": (
-                    ("name", "type"),
+                    ("name", "type", "panel_symbol"),
                     "description",
                 ),
                 "description": (
@@ -3988,6 +3988,7 @@ SPECIALIZATION_CHOICE_HELP = {
 
 SCHOOL_ADMIN_LABELS = {
     "type": "School Type",
+    "panel_symbol": "Panel Symbol",
     "description": "Description",
 }
 

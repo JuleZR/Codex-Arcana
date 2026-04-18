@@ -427,8 +427,20 @@
 .spell_group_heading {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
+  gap: 6px;
   min-width: 0;
+}
+
+.spell_group_symbol {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.1rem;
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1;
+  color: rgba(92, 56, 21, 0.92);
+  flex: 0 0 auto;
 }
 
 .spell_group_title {
@@ -466,6 +478,7 @@
   line-height: 1;
   color: rgba(122, 78, 24, 0.7);
   transition: transform 0.18s ease;
+  flex: 0 0 auto;
 }
 
 .spell_group_header[aria-expanded="true"] .spell_group_chevron {

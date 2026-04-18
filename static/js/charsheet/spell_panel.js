@@ -104,6 +104,40 @@ function applySpellFilter(input, rows, groups) {
   });
 }
 
+function readInt(value, fallback = 0) {
+  const parsed = Number.parseInt(String(value ?? "").trim(), 10);
+  return Number.isNaN(parsed) ? fallback : parsed;
+}
+
+function renderOptimisticArcaneMeter(nextValue) {
+  const arcaneMeter = document.querySelector("#sheetDamagePanel .arcane_meter");
+  const fill = arcaneMeter?.querySelector(".arcane_meter_fill");
+  const valueNode = arcaneMeter?.querySelector(".arcane_meter_current");
+  if (!(arcaneMeter instanceof HTMLElement) || !(fill instanceof HTMLElement) || !(valueNode instanceof HTMLElement)) {
+    return null;
+  }
+
+  const previous = {
+    current: readInt(arcaneMeter.dataset.arcaneCurrent, readInt(valueNode.textContent, 0)),
+    max: readInt(arcaneMeter.dataset.arcaneMax, 0),
+  };
+  const safeMax = Math.max(0, previous.max);
+  const clampedNext = Math.max(0, Math.min(readInt(nextValue, previous.current), safeMax));
+  const ratio = safeMax <= 0 ? 0 : (clampedNext / safeMax) * 100;
+
+  valueNode.textContent = String(clampedNext);
+  fill.style.width = `${ratio}%`;
+  arcaneMeter.dataset.arcaneCurrent = String(clampedNext);
+  return previous;
+}
+
+function rollbackOptimisticArcaneMeter(previous) {
+  if (!previous || typeof previous !== "object") {
+    return;
+  }
+  renderOptimisticArcaneMeter(readInt(previous.current, 0));
+}
+
 export function initSpellPanel() {
   const panel = document.getElementById("sheetSpellPanel");
   if (!panel || panel.dataset.spellPanelBound === "1") {
@@ -171,12 +205,18 @@ export function initSpellPanel() {
       if (!url || button.disabled) {
         return;
       }
+      const kpCost = readInt(button.getAttribute("data-spell-kp-cost"), 0);
+      const arcaneMeter = document.querySelector("#sheetDamagePanel .arcane_meter");
+      const currentArcanePower = readInt(
+        arcaneMeter?.dataset.arcaneCurrent,
+        readInt(document.querySelector("#sheetDamagePanel .arcane_meter_current")?.textContent, 0),
+      );
       saveSpellPanelState({ filterInput, groups });
       button.disabled = true;
+      const optimisticArcaneSnapshot = kpCost > 0
+        ? renderOptimisticArcaneMeter(currentArcanePower - kpCost)
+        : null;
       try {
-        if (typeof window.__charsheetDamagePanel?.flushPendingDamageRequests === "function") {
-          await window.__charsheetDamagePanel.flushPendingDamageRequests();
-        }
         const response = await fetch(url, {
           method: "POST",
           headers: {
@@ -188,6 +228,7 @@ export function initSpellPanel() {
         });
         const payload = await response.json();
         if (!response.ok || !payload?.ok) {
+          rollbackOptimisticArcaneMeter(optimisticArcaneSnapshot);
           window.alert(String(payload?.message || "Zauber konnte nicht gewirkt werden."));
           return;
         }
@@ -195,6 +236,7 @@ export function initSpellPanel() {
           applySheetPartials(payload);
         }
       } catch (_error) {
+        rollbackOptimisticArcaneMeter(optimisticArcaneSnapshot);
         window.alert("Zauber konnte nicht gewirkt werden.");
       } finally {
         button.disabled = false;
