@@ -111,8 +111,11 @@ body {
 }
 
 .legal_doc {
+  width: min(100%, clamp(42rem, 72vw, 58rem));
   max-width: none;
   margin: 0;
+  display: grid;
+  gap: 12px;
   color: var(--ink);
   line-height: 1.55;
   font-family: Georgia, "Times New Roman", serif;
@@ -123,7 +126,7 @@ body {
 }
 
 .legal_doc h1 {
-  margin: 0 0 14px;
+  margin: 0;
   font-family: Georgia, "Times New Roman", serif;
   font-size: clamp(1.8rem, 2.6vw, 2.2rem);
   font-weight: 700;
@@ -149,11 +152,12 @@ body {
 }
 
 .legal_actions {
-  margin-top: 16px;
+  margin-top: 4px;
 }
 
 .legal_block {
-  margin: 0 0 12px;
+  width: 100%;
+  margin: 0;
   padding: 10px 12px;
   border: 1px solid rgba(74, 55, 38, 0.22);
   border-radius: 6px;

@@ -53,3 +53,22 @@
   }
 }
 
+.page.page--legal {
+  position: relative;
+  display: block;
+  grid-template-columns: none;
+  grid-template-rows: none;
+  gap: 0;
+  padding: clamp(18px, 2.5vw, 32px);
+}
+
+.page.page--legal::before,
+.page.page--legal::after {
+  content: none;
+}
+
+.page.page--legal > * {
+  position: static;
+  z-index: auto;
+}
+
