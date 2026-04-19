@@ -17,6 +17,7 @@ import { initSpellPanel } from "./spell_panel.js";
 import { initCharInfoCounter } from "./char_info_counter.js";
 import { initSheetActions } from "./sheet_actions.js";
 import { initSchoolsPanel } from "./schools_panel.js";
+import { initMobileHud } from "./mobile_hud.js";
 
 onReady(() => {
   initTabs();
@@ -40,6 +41,7 @@ onReady(() => {
   initSpellPanel();
   initCharInfoCounter();
   initSchoolsPanel();
+  initMobileHud();
 
   document.addEventListener("charsheet:partials-applied", () => {
     initStandardFloatingWindows();

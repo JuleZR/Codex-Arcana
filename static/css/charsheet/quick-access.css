@@ -2064,3 +2064,134 @@ html[data-left-tools-open="1"] .left-tools {
   }
 }
 
+/* ═══════════════════════════════════════════════════════════════════════
+   SIDE-PANEL BURGER  (1181 px – 1900 px)
+   At mid-range viewports (e.g. Surface Pro 7 at 150 % DPI = 1824 px)
+   the side-stack would overlap the pages. Collapse it off-screen and
+   show a fixed hamburger tab at the left viewport edge.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* --burger-panel-w keeps the stack width and button offset in sync */
+:root {
+  --burger-panel-w: clamp(220px, 16vw, 260px);
+}
+
+/* Toggle button: hidden by default at all sizes */
+.left-tools__toggle {
+  display: none;
+}
+
+@media (min-width: 1181px) and (max-width: 1900px) {
+
+  /* ── Stack: slide off-screen to the left ─────────────────────────── */
+  .sheet-side-stack {
+    position: fixed !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: var(--burger-panel-w) !important;
+    height: 100dvh !important;
+    transform: translateX(-100%) !important;
+    transition: transform 280ms ease !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    background:
+      linear-gradient(180deg, rgba(242, 234, 216, 0.98), rgba(226, 214, 193, 0.98)),
+      url("/static/img/pergamentbg.jpg") center / cover no-repeat;
+    border-right: 1px solid rgba(103, 72, 43, 0.36);
+    box-shadow: 4px 0 22px rgba(20, 12, 5, 0.24);
+    z-index: 50 !important;
+    pointer-events: auto !important;
+    padding: 18px 10px !important;
+    box-sizing: border-box !important;
+    gap: 10px !important;
+  }
+
+  html[data-left-tools-open="1"] .sheet-side-stack {
+    transform: translateX(0) !important;
+  }
+
+  /* Inner panels fill the stack width */
+  .sheet-side-stack .left-tools,
+  .sheet-side-stack .sheet-dice-dock {
+    position: relative !important;
+    left: auto !important;
+    top: auto !important;
+    width: 100% !important;
+  }
+
+  /* ── Hamburger button: position:fixed so transform on stack has no effect ── */
+  .left-tools__toggle {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    position: fixed;
+    left: 0;
+    top: 220px;
+    width: 38px;
+    height: 52px;
+    padding: 0;
+    border: 1px solid rgba(103, 72, 43, 0.72);
+    border-left: none;
+    border-radius: 0 10px 10px 0;
+    background:
+      radial-gradient(ellipse at 20% 50%, rgba(255, 247, 229, 0.44), transparent 45%),
+      linear-gradient(180deg, rgba(222, 196, 150, 0.98), rgba(176, 133, 90, 0.98));
+    box-shadow:
+      2px 0 8px rgba(24, 14, 7, 0.22),
+      inset 0 1px 0 rgba(255, 247, 220, 0.6);
+    color: #4a3726;
+    cursor: pointer;
+    z-index: 55;
+    transition: left 280ms ease;
+  }
+
+  /* Move the tab to the right edge of the open panel */
+  html[data-left-tools-open="1"] .left-tools__toggle {
+    left: var(--burger-panel-w);
+    border-left: 1px solid rgba(103, 72, 43, 0.72);
+    border-right: none;
+    border-radius: 10px 0 0 10px;
+  }
+
+  .left-tools__toggle:hover,
+  .left-tools__toggle:focus-visible {
+    filter: brightness(1.06);
+  }
+
+  /* Three-bar icon */
+  .left-tools__toggle-bar {
+    display: block;
+    width: 16px;
+    height: 2px;
+    background: currentColor;
+    border-radius: 2px;
+    transition: transform 220ms ease, opacity 220ms ease;
+  }
+
+  /* Morph bars to × when panel is open */
+  html[data-left-tools-open="1"] .left-tools__toggle .left-tools__toggle-bar:nth-child(1) {
+    transform: translateY(7px) rotate(45deg);
+  }
+
+  html[data-left-tools-open="1"] .left-tools__toggle .left-tools__toggle-bar:nth-child(2) {
+    opacity: 0;
+    transform: scaleX(0);
+  }
+
+  html[data-left-tools-open="1"] .left-tools__toggle .left-tools__toggle-bar:nth-child(3) {
+    transform: translateY(-7px) rotate(-45deg);
+  }
+
+  /* ── Semi-transparent backdrop (click outside to close via JS) ──────── */
+  html[data-left-tools-open="1"] body::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.28);
+    z-index: 49;
+    pointer-events: auto;
+    cursor: default;
+  }
+}

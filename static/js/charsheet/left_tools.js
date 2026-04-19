@@ -15,6 +15,16 @@ export function initLeftTools() {
     leftToolsToggle.addEventListener("click", () => {
       setToolsOpenState(!leftTools.classList.contains("is-open"));
     });
+
+    // Close when clicking the backdrop — but not the toggle button itself
+    document.addEventListener("click", (e) => {
+      if (!leftTools.classList.contains("is-open")) return;
+      if (leftToolsToggle.contains(e.target)) return;
+      const stack = leftTools.closest(".sheet-side-stack");
+      if (stack && !stack.contains(e.target)) {
+        setToolsOpenState(false);
+      }
+    });
   }
 
   const moneyXpInputs = Array.from(document.querySelectorAll(".left-tools__delta_input"));

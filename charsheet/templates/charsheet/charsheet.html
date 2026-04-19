@@ -41,6 +41,29 @@
     {% include "charsheet/partials/_learning_panel.html" %} 
     {% include "charsheet/partials/_diary_panel.html" %}
 
+    <!-- Mobile status HUD: damage + arcane power bar, visible only on small screens -->
+    <div class="mobile-status-hud" id="mobileStatusHud" role="status" aria-label="Charakterstatus">
+      <div class="mobile-status-hud__section" aria-label="Schaden">
+        <span class="mobile-status-hud__icon" aria-hidden="true">⚔</span>
+        <div class="mobile-status-hud__bar-wrap" aria-hidden="true">
+          <div class="mobile-status-hud__fill mobile-status-hud__fill--damage"></div>
+        </div>
+        <span class="mobile-status-hud__val">
+          <span data-hud-damage-cur>-</span>/<span data-hud-damage-max>-</span>
+        </span>
+      </div>
+      <div class="mobile-status-hud__sep" aria-hidden="true"></div>
+      <div class="mobile-status-hud__section" aria-label="Arkane Macht">
+        <span class="mobile-status-hud__icon" aria-hidden="true">✦</span>
+        <div class="mobile-status-hud__bar-wrap" aria-hidden="true">
+          <div class="mobile-status-hud__fill mobile-status-hud__fill--arcane"></div>
+        </div>
+        <span class="mobile-status-hud__val">
+          <span data-hud-arcane-cur>-</span>/<span data-hud-arcane-max>-</span>
+        </span>
+      </div>
+    </div>
+
     <div aria-hidden="true" class="firefly-layer">
       {% for _ in '123456789012345' %}
       <div class="firefly"></div>

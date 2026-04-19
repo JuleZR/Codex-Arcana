@@ -1,5 +1,8 @@
 /* Dashboard responsive adjustments */
 
+/* ═══════════════════════════════════════════════════════════════════════
+   1080px  TABLET / SMALLER WINDOW
+   ═══════════════════════════════════════════════════════════════════════ */
 @media (max-width: 1080px) {
   .dashboard_layout {
     grid-template-columns: 260px minmax(0, 1fr);
@@ -24,23 +27,131 @@
   }
 }
 
+/* ═══════════════════════════════════════════════════════════════════════
+   840px  TABLET PORTRAIT / MOBILE
+   The dashboard page drops its landscape aspect-ratio and becomes a
+   scrollable vertical document. Sidebar stacks above main content.
+   ═══════════════════════════════════════════════════════════════════════ */
 @media (max-width: 840px) {
-  .dashboard_spread {
-    padding: 12px;
+  html {
+    overflow-x: hidden;
   }
 
+  .dashboard_spread {
+    padding: 12px;
+    align-items: flex-start;
+  }
+
+  /* Drop the fixed A4-landscape dimensions */
   .page.dashboard_page {
-    width: min(100vw - 24px, 1100px);
+    width: calc(100vw - 24px);
     height: auto;
-    min-height: calc(100vh - 24px);
+    min-height: 0;
+    max-height: none;
     aspect-ratio: auto;
+    overflow: visible;
+    padding: clamp(12px, 2vw, 20px);
+  }
+
+  /* Single-column stacked layout */
+  .dashboard_layout {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto;
+    gap: 10px;
+    height: auto;
+  }
+
+  /* Both panels: natural content height, scrollable */
+  .dashboard_panel {
+    height: auto;
+    min-height: 0;
     overflow: visible;
   }
 
-  .dashboard_layout {
-    grid-template-columns: 1fr;
+  .dashboard_panel--sidebar {
+    height: auto;
+    overflow: visible;
   }
 
+  .dashboard_panel--main {
+    height: auto;
+    min-height: 0;
+    overflow: visible;
+    position: relative;
+  }
+
+  /* Compact logo in sidebar */
+  .dashboard_logo {
+    max-height: 110px;
+  }
+
+  /* Main content stack: natural rows */
+  .dashboard_main_stack {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-height: 0;
+    flex: none;
+  }
+
+  .dashboard_active_block {
+    min-height: 0;
+    flex: none;
+  }
+
+  /* Panel header: wrap on small screens so buttons don't escape right */
+  .dashboard_panel_header {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .dashboard_header_actions {
+    flex-wrap: wrap;
+  }
+
+  /* Character table: on mobile show only Name + Aktionen columns.
+     Rasse (2), Erfahrung (3), Zustand (4) are hidden to prevent overflow. */
+  .dashboard_table thead th:nth-child(2),
+  .dashboard_table thead th:nth-child(3),
+  .dashboard_table thead th:nth-child(4),
+  .dashboard_table tbody td:nth-child(2),
+  .dashboard_table tbody td:nth-child(3),
+  .dashboard_table tbody td:nth-child(4) {
+    display: none;
+  }
+
+  /* With 2 columns the table fits without horizontal scroll */
+  .dashboard_table {
+    min-width: 0;
+    width: 100%;
+    table-layout: auto;
+  }
+
+  .dashboard_table_wrap {
+    overflow-x: visible;
+    overflow-y: auto;
+    max-height: min(400px, 45dvh);
+    min-height: 80px;
+  }
+
+  .dashboard_table_wrap--active {
+    flex: none;
+  }
+
+  /* Name column: allow text to wrap on very narrow screens */
+  .dashboard_table tbody td:first-child {
+    word-break: break-word;
+    min-width: 80px;
+  }
+
+  /* Action buttons: wrap naturally */
+  .dashboard_actions_inline {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  /* Stats: single column */
   .dashboard_stats--inline,
   .dashboard_search_grid {
     grid-template-columns: 1fr;
@@ -57,6 +168,12 @@
     grid-template-areas: none;
   }
 
+  /* Sidebar list items: allow wrapping so buttons don't overflow */
+  .dashboard_list li {
+    flex-wrap: wrap;
+  }
+
+  /* Creation wizard: full-screen overlay */
   .creation_wizard_window {
     position: static;
     width: 100%;
@@ -84,8 +201,141 @@
   }
 
   .dashboard_creation_window .dashboard_creation_body {
-    height: calc(100% - 35px);
+    height: calc(100% - 46px);
     overflow: hidden;
+  }
+
+  /* Account settings window: full-screen */
+  .dashboard_account_window {
+    position: fixed !important;
+    left: 12px !important;
+    top: 12px !important;
+    width: calc(100vw - 24px) !important;
+    max-height: calc(100dvh - 24px);
+  }
+
+  .dashboard_account_window .dashboard_account_body {
+    max-height: calc(100dvh - 24px - 46px);
+    overflow-y: auto;
   }
 }
 
+/* ═══════════════════════════════════════════════════════════════════════
+   600px  LARGE PHONE
+   ═══════════════════════════════════════════════════════════════════════ */
+@media (max-width: 600px) {
+  .dashboard_spread {
+    padding: 8px;
+  }
+
+  .page.dashboard_page {
+    width: calc(100vw - 16px);
+    padding: 10px;
+  }
+
+  .dashboard_title_wrap h1 {
+    font-size: clamp(1.3rem, 5vw, 1.7rem);
+  }
+
+  .dashboard_panel {
+    padding: 8px;
+  }
+
+  .dashboard_logo {
+    max-height: 84px;
+  }
+
+  .phase_points_grid,
+  .phase_points_grid--phase1,
+  .phase_points_grid--phase2,
+  .phase_points_grid--phase4 {
+    grid-template-columns: 1fr;
+    grid-template-areas: none;
+  }
+
+  /* Action buttons in the table: wrap gracefully */
+  .dashboard_button--small {
+    min-height: 36px;
+  }
+
+  .dashboard_table_wrap {
+    max-height: min(360px, 40dvh);
+  }
+
+  .dashboard_creation_window {
+    inset: 6px;
+  }
+
+  .dashboard_creation_window .dashboard_creation_body {
+    height: calc(100% - 46px);
+    overflow-y: auto;
+  }
+
+  .dashboard_account_window {
+    left: 6px !important;
+    top: 6px !important;
+    width: calc(100vw - 12px) !important;
+    max-height: calc(100dvh - 12px);
+  }
+
+  .dashboard_account_window .dashboard_account_body {
+    max-height: calc(100dvh - 12px - 46px);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   480px  NORMAL SMARTPHONES
+   ═══════════════════════════════════════════════════════════════════════ */
+@media (max-width: 480px) {
+  .dashboard_spread {
+    padding: 6px;
+  }
+
+  .page.dashboard_page {
+    width: calc(100vw - 12px);
+    padding: 8px;
+  }
+
+  .dashboard_logo {
+    max-height: 68px;
+  }
+
+  .dashboard_creation_window {
+    inset: 4px;
+    border-radius: 8px;
+  }
+
+  .dashboard_account_window {
+    left: 4px !important;
+    top: 4px !important;
+    width: calc(100vw - 8px) !important;
+    border-radius: 8px;
+    max-height: calc(100dvh - 8px);
+  }
+
+  .dashboard_account_window .dashboard_account_body {
+    max-height: calc(100dvh - 8px - 46px);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   LANDSCAPE / SHORT VIEWPORT
+   ═══════════════════════════════════════════════════════════════════════ */
+@media (max-height: 500px) and (max-width: 900px) {
+  .dashboard_spread {
+    padding: 6px;
+  }
+
+  .dashboard_logo {
+    max-height: 52px;
+  }
+
+  .dashboard_creation_window {
+    inset: 4px;
+  }
+
+  .dashboard_account_window {
+    top: 4px !important;
+    max-height: calc(100dvh - 8px);
+  }
+}

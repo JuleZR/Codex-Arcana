@@ -1,0 +1,121 @@
+/* Login responsive adjustments */
+
+/* ═══════════════════════════════════════════════════════════════════════
+   CORE FIX: The login_scene has transform: translateY(-150px) which works
+   beautifully on large screens. On small phones the combination of
+   place-items:center + this large negative offset can push the top of the
+   form above the visible viewport.
+   We progressively reduce / remove the offset as the viewport shrinks.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── 900px – large tablet ─────────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .login_scene {
+    transform: translateY(-80px);
+  }
+}
+
+/* ── 600px – large phone ──────────────────────────────────────────────── */
+@media (max-width: 600px) {
+  body {
+    /* Anchor the scene at the top so it never gets clipped above */
+    place-items: start center;
+    padding: 20px 16px 32px;
+  }
+
+  .login_scene {
+    /* Reduced offset: still visually lifts the logo above the box */
+    transform: translateY(-40px);
+    width: min(96vw, 460px);
+  }
+
+  /* Slightly smaller logo on small screens */
+  .login_graphic {
+    width: 230%;
+  }
+
+  .login_box {
+    margin-top: -88px;
+    padding: 38px 26px 28px;
+  }
+}
+
+/* ── 480px – normal smartphones ───────────────────────────────────────── */
+@media (max-width: 480px) {
+  body {
+    padding: 16px 12px 24px;
+  }
+
+  .login_scene {
+    transform: translateY(-20px);
+    width: calc(100vw - 24px);
+  }
+
+  .login_graphic {
+    width: 210%;
+  }
+
+  .login_box {
+    margin-top: -72px;
+    padding: 32px 20px 24px;
+  }
+
+  /* Comfortably tappable login button */
+  .login_btn {
+    min-height: 48px;
+    padding: 12px 16px;
+    font-size: 1rem;
+  }
+
+  /* Labels and inputs: readable size */
+  .login_label {
+    font-size: 1.05rem;
+  }
+
+  .login_form input[type="text"],
+  .login_form input[type="password"] {
+    min-height: 44px;
+    font-size: 1rem;
+  }
+}
+
+/* ── SHORT VIEWPORT / LANDSCAPE PHONE ─────────────────────────────────── */
+@media (max-height: 560px) {
+  body {
+    place-items: start center;
+    padding: 12px 16px 16px;
+    align-content: start;
+  }
+
+  .login_scene {
+    /* No offset: natural vertical flow so nothing is clipped */
+    transform: none;
+    width: min(96vw, 460px);
+  }
+
+  .login_graphic {
+    /* Compact logo on landscape phones */
+    width: 180%;
+    max-width: 640px;
+  }
+
+  .login_box {
+    margin-top: -50px;
+    padding: 28px 22px 22px;
+  }
+}
+
+/* ── VERY NARROW (≤360px) ─────────────────────────────────────────────── */
+@media (max-width: 360px) {
+  body {
+    padding: 12px 8px 20px;
+  }
+
+  .login_scene {
+    width: calc(100vw - 16px);
+  }
+
+  .login_box {
+    padding: 28px 16px 22px;
+  }
+}

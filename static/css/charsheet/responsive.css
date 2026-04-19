@@ -1,5 +1,39 @@
-/* Charsheet responsive adjustments for spread and sheet layout */
+/* Charsheet responsive adjustments – all breakpoints */
 
+/* ═══════════════════════════════════════════════════════════════════════
+   1181px – 1900px  TABLET  (Surface Pro 7 @ 150 % DPI = 1824 px, etc.)
+   The two-page side-by-side spread needs ~2000 px to avoid overflow.
+   At medium widths: stack pages vertically in A4 format with scroll-snap.
+   The side-panel burger (quick-access.css) hides the left-tools here.
+   ═══════════════════════════════════════════════════════════════════════ */
+@media (min-width: 1181px) and (max-width: 1900px) {
+  /* html is the actual document scroll container in all browsers */
+  html {
+    scroll-snap-type: y mandatory;
+  }
+
+  /* Stack pages vertically, centered at natural A4 width */
+  .book-spread {
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: center;
+    padding: 0;
+    gap: 0;
+  }
+
+  /* Each A4 page snaps to the top of the viewport */
+  .page {
+    flex-shrink: 0;
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   1180px  TABLET / NARROW WINDOW
+   Book pages go from side-by-side to stacked vertically.
+   Left-tools toolbar slides down from the top.
+   ═══════════════════════════════════════════════════════════════════════ */
 @media (max-width: 1180px) {
   .book-spread {
     align-items: flex-start;
@@ -70,7 +104,7 @@
   }
 
   .page {
-    width: min(var(--page-width), 96vw);
+    width: calc(100vw - 40px);
     height: auto;
     min-height: 980px;
   }
@@ -98,6 +132,14 @@
     padding: 0;
   }
 
+  /* Reset explicit grid-column so both columns stack in the single-column grid.
+     Without this, grid-column:2 on p1_bottom_right forces an implicit second track
+     that overflows the page. */
+  .p1_bottom_left,
+  .p1_bottom_right {
+    grid-column: 1 / -1;
+  }
+
   .p1_bottom_right {
     min-height: 260px;
   }
@@ -118,11 +160,135 @@
   .move_labels {
     margin-left: 0;
   }
+
+  /* ── Fix flex children that collapse when parent has auto height ────── */
+
+  /* Schools panel: remove "fill remaining space" so it shows content */
+  .p2_schools {
+    flex: 0 0 auto;
+  }
+
+  /* Schools scroll: bounded scrollable area so list is usable */
+  .schools_scroll {
+    flex: 0 0 auto;
+    overflow-y: auto;
+    min-height: 120px;
+    max-height: min(440px, 50vh);
+  }
+
+  /* Inventory scroll: same pattern */
+  .inventory_scroll {
+    flex: 0 0 auto;
+    overflow-y: auto;
+    min-height: 80px;
+    max-height: min(320px, 40vh);
+  }
+
+  /* Languages: let the list show fully rather than clip */
+  .language_wrapper {
+    flex: 0 0 auto;
+    overflow: visible;
+  }
+
+  .language_list {
+    overflow: visible;
+  }
+
+  /* Skills table: show all rows, scroll only horizontally for narrow widths */
+  .skills_wrapper {
+    flex: 0 0 auto;
+    overflow-y: auto;
+    min-height: 100px;
+    max-height: min(500px, 58vh);
+    overflow-x: auto;
+  }
+
+  /* Weapons scroll: same pattern as other scroll containers */
+  .weapons_scroll {
+    flex: 0 0 auto;
+    overflow-y: auto;
+    min-height: 60px;
+    max-height: min(300px, 38vh);
+  }
+
+  /* Attribute table: fixed layout prevents auto-layout from expanding beyond 100%
+     when white-space:nowrap is set on .attribute cells */
+  .attribute_table {
+    table-layout: fixed;
+    width: 100%;
+  }
+
+  /* Schools filter: constrain to panel width */
+  .schools_filter_input {
+    width: 100%;
+    box-sizing: border-box;
+    min-width: 0;
+  }
+
+  /* School row: remove the 10rem floor on the name column (too wide on ≤380px) */
+  .school_row_layout {
+    grid-template-columns: minmax(0, 34%) minmax(0, 1fr) auto auto;
+  }
 }
 
+/* ═══════════════════════════════════════════════════════════════════════
+   900px  TABLET PORTRAIT / NARROWER WINDOW
+   Tighten padding, ensure windows stay on screen.
+   ═══════════════════════════════════════════════════════════════════════ */
+@media (max-width: 900px) {
+  .book-spread {
+    padding: 28px 12px 24px;
+  }
+
+  .page {
+    width: calc(100vw - 24px);
+    min-height: 900px;
+  }
+
+  .left-tools {
+    width: calc(100vw - 20px);
+  }
+
+  /* Prevent windows from escaping the viewport */
+  .payday-window {
+    max-width: calc(100vw - 16px);
+    max-height: calc(100vh - 16px);
+  }
+
+  .payday-window--large .payday-window__body,
+  .payday-window--a4 .payday-window__body {
+    height: min(calc(100vh - 120px), 728px);
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  /* Tighten scroll caps on smaller tablets */
+  .schools_scroll {
+    max-height: min(380px, 45vh);
+  }
+
+  .inventory_scroll {
+    max-height: min(280px, 38vh);
+  }
+
+  .skills_wrapper {
+    max-height: min(460px, 55vh);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   760px  ORIGINAL MOBILE BREAKPOINT (kept + extended)
+   Left-tools panel goes nearly full-width.
+   Fix page overflow: use calc() not 96vw so horizontal padding is respected.
+   ═══════════════════════════════════════════════════════════════════════ */
 @media (max-width: 760px) {
   .book-spread {
-    padding-top: 32px;
+    padding: 32px 8px 24px;
+  }
+
+  .page {
+    width: calc(100vw - 16px);
+    min-height: 920px;
   }
 
   .left-tools {
@@ -201,4 +367,416 @@
   }
 }
 
+/* ═══════════════════════════════════════════════════════════════════════
+   600px  LARGE PHONE / SMALL TABLET
+   Tables get horizontal scroll containers.
+   Windows snap to screen edges.
+   Bottom padding for the mobile status HUD.
+   ═══════════════════════════════════════════════════════════════════════ */
+@media (max-width: 600px) {
+  .book-spread {
+    padding: 28px 6px 80px;
+  }
 
+  .page {
+    width: calc(100vw - 12px);
+    min-height: 860px;
+  }
+
+  /* char_info rows are hidden at 700px; keep box non-scrolling and table width auto */
+  .char_info_box {
+    overflow-x: visible;
+  }
+
+  .char_info_table {
+    min-width: 0;
+  }
+
+  /* Skills table: horizontal scroll */
+  .skills_wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .skills_table {
+    min-width: 420px;
+  }
+
+  /* Weapons table: allow horizontal scroll on mobile */
+  .weapons_scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .weapons_table {
+    min-width: 400px;
+  }
+
+  /* Page inner layout */
+  .page:first-child {
+    gap: 5px;
+    padding: 5px;
+  }
+
+  /* Windows: pin to screen edges */
+  .payday-window {
+    left: 6px !important;
+    top: 6px !important;
+    width: calc(100vw - 12px) !important;
+    max-height: calc(100dvh - 70px);
+    border-radius: 10px;
+  }
+
+  .payday-window--large,
+  .payday-window--a4,
+  .payday-window--item-create {
+    width: calc(100vw - 12px) !important;
+  }
+
+  .payday-window--large .payday-window__body {
+    height: auto;
+    max-height: calc(100dvh - 70px - 46px);
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  .payday-window--a4 .payday-window__body {
+    height: auto;
+    max-height: calc(100dvh - 70px - 46px);
+    overflow-y: auto;
+  }
+
+  /* Shop layout: stack the two panels on narrow screens */
+  .shop_window_layout {
+    grid-template-columns: 1fr;
+    height: auto;
+    overflow: visible;
+  }
+
+  .shop_panel {
+    height: auto;
+    min-height: 200px;
+  }
+
+  /* Experience and reputation text: readable on small screens */
+  .exp_wrapper h2,
+  .fame_wrapper h2,
+  .reputation_wrapper h2,
+  .language_wrapper h2 {
+    font-size: 1rem;
+  }
+
+  .exp_value {
+    font-size: 0.9rem;
+  }
+
+  /* Scroll caps for phones */
+  .schools_scroll {
+    max-height: min(320px, 42vh);
+  }
+
+  .inventory_scroll {
+    max-height: min(240px, 35vh);
+  }
+
+  .skills_wrapper {
+    max-height: min(380px, 48vh);
+  }
+
+  /* Icon buttons: comfortable touch targets */
+  .left-tools__icon_btn {
+    width: 48px;
+    min-width: 48px;
+    flex: 0 0 48px;
+    min-height: 48px;
+  }
+
+  .left-tools__inner {
+    padding: 10px 8px;
+    gap: 8px;
+  }
+
+  /* Damage / arcane step buttons: larger touch area */
+  .damage_step_btn,
+  .arcane_step_btn {
+    min-width: 36px;
+    min-height: 36px;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   480px  NORMAL SMARTPHONES
+   Final tightening: narrower tables, full-width pages, minimal padding.
+   ═══════════════════════════════════════════════════════════════════════ */
+@media (max-width: 480px) {
+  .book-spread {
+    padding: 26px 4px 80px;
+  }
+
+  .page {
+    width: calc(100vw - 8px);
+    min-height: 840px;
+  }
+
+  .page:first-child {
+    gap: 4px;
+    padding: 4px;
+  }
+
+  .p2_panel {
+    padding: 3px 4px;
+  }
+
+  .char_info_table {
+    min-width: 420px;
+  }
+
+  .skills_table {
+    min-width: 380px;
+  }
+
+  .weapons_table {
+    min-width: 360px;
+  }
+
+  /* Traits columns: stack vertically on narrow phones */
+  .traits_columns {
+    grid-template-columns: 1fr;
+  }
+
+  /* char_info: with rows hidden above, no min-width needed */
+  .char_info_table {
+    min-width: 0;
+  }
+
+  /* Windows: truly full bleed */
+  .payday-window {
+    left: 4px !important;
+    top: 4px !important;
+    width: calc(100vw - 8px) !important;
+    max-height: calc(100dvh - 60px);
+    border-radius: 8px;
+  }
+
+  .payday-window--large .payday-window__body,
+  .payday-window--a4 .payday-window__body {
+    max-height: calc(100dvh - 60px - 46px);
+  }
+
+  /* Left tools refinements */
+  .left-tools {
+    width: calc(100vw - 8px);
+  }
+
+  .left-tools__launcher {
+    width: 58px;
+    height: 19px;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   LANDSCAPE + SHORT VIEWPORT
+   Phones rotated to landscape: reduce top spacing, keep windows scrollable.
+   ═══════════════════════════════════════════════════════════════════════ */
+@media (max-height: 500px) and (max-width: 900px) {
+  .book-spread {
+    padding-top: 18px;
+  }
+
+  .left-tools {
+    top: 28px;
+  }
+
+  .left-tools__launcher {
+    height: 18px;
+  }
+
+  .payday-window {
+    top: 4px !important;
+    max-height: calc(100dvh - 12px);
+  }
+
+  .payday-window--large .payday-window__body,
+  .payday-window--a4 .payday-window__body {
+    max-height: calc(100dvh - 12px - 46px);
+    overflow-y: auto;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   GLOBAL HORIZONTAL OVERFLOW GUARD
+   Prevents any stray fixed/absolute element or table from creating a
+   horizontal scrollbar on small viewports.
+   ═══════════════════════════════════════════════════════════════════════ */
+@media (max-width: 900px) {
+  html {
+    overflow-x: hidden;
+  }
+
+  /* Safety clamp: pages must never exceed the viewport width */
+  .page {
+    max-width: 100vw;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   LANDSCAPE PHONES  (width > 700px but height short — e.g. 844×390)
+   Char-info rows are hidden at ≤700px for portrait; re-apply the same
+   hiding in landscape where width is wide but height is compact.
+   ═══════════════════════════════════════════════════════════════════════ */
+@media (max-width: 1180px) and (max-height: 700px) {
+  .char_info_table .char_info_row_title,
+  .char_info_table tbody tr:nth-child(n+3) {
+    display: none;
+  }
+
+  .char_info_box {
+    overflow-x: visible;
+  }
+
+  .char_info_table {
+    min-width: 0;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   DICE DEACTIVATION ON MOBILE
+   On small screens the dice dock, 3D canvas, and result overlay are
+   hidden entirely. Dice rolling is available on tablet/desktop only.
+   ═══════════════════════════════════════════════════════════════════════ */
+@media (max-width: 700px) {
+  .sheet-dice-dock {
+    display: none !important;
+  }
+
+  #dddice {
+    display: none !important;
+  }
+
+  #roll-result {
+    display: none !important;
+  }
+
+  /* Hide all char_info rows except the name row (2nd <tr>).
+     Row 1 = section heading, rows 3–7 = Geschlecht/Rasse/Alter, etc. */
+  .char_info_table .char_info_row_title,
+  .char_info_table tbody tr:nth-child(n+3) {
+    display: none;
+  }
+
+  /* With only the name row visible no horizontal scroll is needed */
+  .char_info_box {
+    overflow-x: visible;
+  }
+
+  .char_info_table {
+    min-width: 0;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   MOBILE STATUS HUD
+   Compact sticky bar at the bottom of small screens showing
+   current damage and arcane power (KP) at a glance.
+   Hidden on desktop, visible below 700px.
+   ═══════════════════════════════════════════════════════════════════════ */
+.mobile-status-hud {
+  display: none;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  height: 52px;
+  padding: 0 14px;
+  padding-bottom: env(safe-area-inset-bottom, 0);
+  background:
+    linear-gradient(180deg, rgba(50, 36, 20, 0.97), rgba(36, 26, 14, 0.99));
+  border-top: 1px solid rgba(180, 140, 80, 0.36);
+  box-shadow:
+    0 -3px 16px rgba(0, 0, 0, 0.42),
+    inset 0 1px 0 rgba(220, 175, 100, 0.1);
+  align-items: center;
+  gap: 10px;
+}
+
+@media (max-width: 700px) {
+  .mobile-status-hud {
+    display: flex;
+  }
+
+  /* Add bottom padding so page content is not hidden behind the HUD */
+  .book-spread {
+    padding-bottom: calc(60px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+.mobile-status-hud__section {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex: 1;
+  min-width: 0;
+}
+
+.mobile-status-hud__icon {
+  font-size: 0.88rem;
+  line-height: 1;
+  color: rgba(210, 178, 112, 0.88);
+  flex-shrink: 0;
+  width: 16px;
+  text-align: center;
+}
+
+.mobile-status-hud__label {
+  font-family: "Cinzel", Georgia, serif;
+  font-size: 0.58rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(180, 148, 90, 0.68);
+  flex-shrink: 0;
+}
+
+.mobile-status-hud__bar-wrap {
+  flex: 1;
+  min-width: 0;
+  height: 7px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.44);
+  overflow: hidden;
+  position: relative;
+}
+
+.mobile-status-hud__fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: 4px;
+  width: var(--hud-pct, 0%);
+  transition: width 260ms ease;
+}
+
+.mobile-status-hud__fill--damage {
+  background: linear-gradient(90deg, #7a2518, #c23a2b);
+}
+
+.mobile-status-hud__fill--arcane {
+  background: linear-gradient(90deg, #1a3560, #3568c0);
+}
+
+.mobile-status-hud__val {
+  font-family: "Cinzel", Georgia, serif;
+  font-size: 0.7rem;
+  letter-spacing: 0.03em;
+  color: rgba(228, 200, 148, 0.92);
+  flex-shrink: 0;
+  min-width: 38px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.mobile-status-hud__sep {
+  width: 1px;
+  height: 28px;
+  background: rgba(180, 140, 78, 0.26);
+  flex-shrink: 0;
+}
