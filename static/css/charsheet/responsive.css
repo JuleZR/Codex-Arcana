@@ -6,7 +6,7 @@
    At medium widths: stack pages vertically in A4 format with scroll-snap.
    The side-panel burger (quick-access.css) hides the left-tools here.
    ═══════════════════════════════════════════════════════════════════════ */
-@media (min-width: 1181px) and (max-width: 1900px) {
+@media (min-width: 1181px) and (max-width: 1900px) and (orientation: portrait) {
   /* html is the actual document scroll container in all browsers */
   html {
     scroll-snap-type: y mandatory;
@@ -39,7 +39,7 @@
    Book pages go from side-by-side to stacked vertically.
    Left-tools toolbar slides down from the top.
    ═══════════════════════════════════════════════════════════════════════ */
-@media (min-width: 901px) and (max-width: 1180px) {
+@media (min-width: 901px) and (max-width: 1180px) and (orientation: portrait) {
   html {
     scroll-snap-type: y mandatory;
   }
@@ -115,14 +115,20 @@
   }
 
   .page {
-    --tablet-page-height: 100dvh;
+    --tablet-page-slot: 100dvh;
+    --tablet-page-height: min(calc(var(--tablet-page-slot) - 72px), 920px);
     --tablet-page-width: min(calc(var(--tablet-page-height) * 0.707), calc(100vw - 40px));
     width: var(--tablet-page-width);
     height: var(--tablet-page-height);
     min-height: 0;
+    margin-bottom: max(0px, calc(var(--tablet-page-slot) - var(--tablet-page-height)));
     flex-shrink: 0;
     scroll-snap-align: start;
     scroll-snap-stop: always;
+  }
+
+  .page:last-child {
+    margin-bottom: 0;
   }
 
   .page:first-child {
@@ -157,6 +163,47 @@
 
   .weapons_scroll {
     max-height: min(340px, 36vh);
+  }
+}
+
+@media (min-width: 901px) and (max-width: 1900px) and (orientation: landscape) {
+  html {
+    scroll-snap-type: none;
+  }
+
+  .book-spread {
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    padding: 16px 20px;
+    gap: 20px;
+  }
+
+  .page {
+    --tablet-page-height: min(calc(100dvh - 32px), 940px);
+    --tablet-page-width: min(
+      calc(var(--tablet-page-height) * 0.707),
+      calc((100vw - 60px) / 2)
+    );
+    width: var(--tablet-page-width);
+    height: var(--tablet-page-height);
+    min-height: 0;
+    margin-bottom: 0;
+    flex-shrink: 1;
+  }
+
+  .page:first-child {
+    grid-template-columns: minmax(250px, 30%) minmax(0, 1fr);
+    grid-template-rows: auto 1fr;
+    gap: 6px;
+    padding: 6px;
+  }
+
+  .p1_bottom_left,
+  .p1_bottom_right,
+  .p2_panel,
+  .char_info_wrapper {
+    min-width: 0;
   }
 }
 
