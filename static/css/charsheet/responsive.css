@@ -23,10 +23,11 @@
 
   /* Each A4 page snaps to the top of the viewport */
   .page {
-    --tablet-page-width: min(calc(100vw - 96px), 860px);
+    --tablet-page-height: min(calc(100dvh - 32px), 940px);
+    --tablet-page-width: min(calc(var(--tablet-page-height) * 0.707), calc(100vw - 96px));
     width: var(--tablet-page-width);
-    height: auto;
-    min-height: max(var(--page-height), calc(var(--tablet-page-width) * 1.4142));
+    height: var(--tablet-page-height);
+    min-height: 0;
     flex-shrink: 0;
     scroll-snap-align: start;
     scroll-snap-stop: always;
@@ -114,10 +115,11 @@
   }
 
   .page {
-    --tablet-page-width: min(calc(100vw - 40px), 860px);
+    --tablet-page-height: min(calc(100dvh - 72px), 920px);
+    --tablet-page-width: min(calc(var(--tablet-page-height) * 0.707), calc(100vw - 40px));
     width: var(--tablet-page-width);
-    height: auto;
-    min-height: max(980px, calc(var(--tablet-page-width) * 1.4142));
+    height: var(--tablet-page-height);
+    min-height: 0;
     flex-shrink: 0;
     scroll-snap-align: start;
     scroll-snap-stop: always;
