@@ -1,13 +1,5 @@
 /* Login responsive adjustments */
 
-/* ═══════════════════════════════════════════════════════════════════════
-   CORE FIX: The login_scene has transform: translateY(-150px) which works
-   beautifully on large screens. On small phones the combination of
-   place-items:center + this large negative offset can push the top of the
-   form above the visible viewport.
-   We progressively reduce / remove the offset as the viewport shrinks.
-   ═══════════════════════════════════════════════════════════════════════ */
-
 /* ── 900px – large tablet ─────────────────────────────────────────────── */
 @media (max-width: 900px) {
   .login_scene {
@@ -17,21 +9,13 @@
 
 /* ── 600px – large phone ──────────────────────────────────────────────── */
 @media (max-width: 600px) {
-  body {
-    /* Anchor the scene at the top so it never gets clipped above */
-    place-items: start center;
-    padding: 20px 16px 32px;
-  }
-
   .login_scene {
-    /* Reduced offset: still visually lifts the logo above the box */
     transform: translateY(-40px);
     width: min(96vw, 460px);
   }
 
-  /* Slightly smaller logo on small screens */
   .login_graphic {
-    width: 230%;
+    width: 200%;
   }
 
   .login_box {
@@ -40,34 +24,56 @@
   }
 }
 
-/* ── 480px – normal smartphones ───────────────────────────────────────── */
+/* ── 480px – smartphones: no scroll, full-screen background, centered ─── */
 @media (max-width: 480px) {
+  html {
+    overflow: hidden;
+    height: 100dvh;
+  }
+
   body {
-    padding: 16px 12px 24px;
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+    background-attachment: scroll;
+    background-size: cover;
+    background-position: center;
+    place-items: center;
+    padding: 12px;
   }
 
   .login_scene {
-    transform: translateY(-20px);
-    width: calc(100vw - 24px);
+    transform: none;
+    width: min(92vw, 360px);
+    /* Prevent scene from overflowing vertically */
+    max-height: calc(100dvh - 24px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
   }
 
+  /* Logo: wider than container but capped at viewport width */
   .login_graphic {
-    width: 210%;
+    width: 150%;
+    max-width: min(480px, 95vw);
+    margin-bottom: 0;
+    flex-shrink: 0;
   }
 
   .login_box {
-    margin-top: -72px;
-    padding: 32px 20px 24px;
+    margin-top: 12px;
+    padding: 28px 20px 22px;
+    flex-shrink: 1;
+    min-height: 0;
   }
 
-  /* Comfortably tappable login button */
+  /* Tappable button */
   .login_btn {
     min-height: 48px;
     padding: 12px 16px;
     font-size: 1rem;
   }
 
-  /* Labels and inputs: readable size */
   .login_label {
     font-size: 1.05rem;
   }
@@ -82,33 +88,35 @@
 /* ── SHORT VIEWPORT / LANDSCAPE PHONE ─────────────────────────────────── */
 @media (max-height: 560px) {
   body {
-    place-items: start center;
-    padding: 12px 16px 16px;
-    align-content: start;
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+    background-attachment: scroll;
+    place-items: center;
+    padding: 8px 16px;
   }
 
   .login_scene {
-    /* No offset: natural vertical flow so nothing is clipped */
     transform: none;
     width: min(96vw, 460px);
   }
 
   .login_graphic {
-    /* Compact logo on landscape phones */
-    width: 180%;
-    max-width: 640px;
+    width: 60%;
+    max-width: 220px;
+    margin-bottom: 0;
   }
 
   .login_box {
-    margin-top: -50px;
-    padding: 28px 22px 22px;
+    margin-top: -12px;
+    padding: 22px 22px 18px;
   }
 }
 
 /* ── VERY NARROW (≤360px) ─────────────────────────────────────────────── */
 @media (max-width: 360px) {
   body {
-    padding: 12px 8px 20px;
+    padding: 8px;
   }
 
   .login_scene {
@@ -116,6 +124,6 @@
   }
 
   .login_box {
-    padding: 28px 16px 22px;
+    padding: 24px 14px 20px;
   }
 }

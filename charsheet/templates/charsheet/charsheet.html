@@ -45,22 +45,38 @@
     <div class="mobile-status-hud" id="mobileStatusHud" role="status" aria-label="Charakterstatus">
       <div class="mobile-status-hud__section" aria-label="Schaden">
         <span class="mobile-status-hud__icon" aria-hidden="true">⚔</span>
-        <div class="mobile-status-hud__bar-wrap" aria-hidden="true">
-          <div class="mobile-status-hud__fill mobile-status-hud__fill--damage"></div>
+        <div class="mobile-status-hud__content">
+          <div class="mobile-status-hud__row">
+            <div class="mobile-status-hud__bar-wrap mobile-status-hud__bar-wrap--damage" aria-hidden="true" style="--hud-damage-track-gradient: linear-gradient(90deg, {% for segment in damage_gauge_segments %}{{ segment.color }} {{ segment.start_percent }}%, {{ segment.color }} {{ segment.end_percent }}%{% if not forloop.last %}, {% endif %}{% endfor %});">
+              <div class="mobile-status-hud__fill mobile-status-hud__fill--damage"></div>
+            </div>
+            <span class="mobile-status-hud__val">
+              <span data-hud-damage-cur>{{ character.current_damage }}</span>/<span data-hud-damage-max>{{ current_damage_max }}</span>
+            </span>
+          </div>
+          <div class="mobile-status-hud__meta" data-hud-damage-meta>
+            <strong data-hud-wound-stage>{% if current_wound_stage != "-" %}{{ current_wound_stage }}{% else %}Unverletzt{% endif %}</strong>
+            <strong data-hud-wound-penalty>{% if current_wound_stage != "-" %}{{ current_wound_penalty }}{% else %}0{% endif %}</strong>
+          </div>
         </div>
-        <span class="mobile-status-hud__val">
-          <span data-hud-damage-cur>-</span>/<span data-hud-damage-max>-</span>
-        </span>
       </div>
       <div class="mobile-status-hud__sep" aria-hidden="true"></div>
       <div class="mobile-status-hud__section" aria-label="Arkane Macht">
         <span class="mobile-status-hud__icon" aria-hidden="true">✦</span>
-        <div class="mobile-status-hud__bar-wrap" aria-hidden="true">
-          <div class="mobile-status-hud__fill mobile-status-hud__fill--arcane"></div>
+        <div class="mobile-status-hud__content">
+          <div class="mobile-status-hud__row">
+            <div class="mobile-status-hud__bar-wrap" aria-hidden="true">
+              <div class="mobile-status-hud__fill mobile-status-hud__fill--arcane"></div>
+            </div>
+            <span class="mobile-status-hud__val">
+              <span data-hud-arcane-cur>{{ current_arcane_power }}</span>/<span data-hud-arcane-max>{{ current_arcane_power_max }}</span>
+            </span>
+          </div>
+          <div class="mobile-status-hud__meta mobile-status-hud__meta--spacer" aria-hidden="true">
+            <strong>&nbsp;</strong>
+            <strong>&nbsp;</strong>
+          </div>
         </div>
-        <span class="mobile-status-hud__val">
-          <span data-hud-arcane-cur>-</span>/<span data-hud-arcane-max>-</span>
-        </span>
       </div>
     </div>
 

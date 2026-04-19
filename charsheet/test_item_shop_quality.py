@@ -6,7 +6,7 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
 
-from charsheet.constants import DEADLY, DEFENSE_SR, QUALITY_FINE, QUALITY_LEGENDARY
+from charsheet.constants import DEADLY, DEFENSE_SR, QUALITY_FINE, QUALITY_LEGENDARY, QUALITY_POOR
 from charsheet.engine import ItemEngine
 from charsheet.constants import DEFENSE_VW
 from charsheet.models import Character, CharacterItem, DamageSource, Item, MagicItemStats, Modifier, Race, Rune, WeaponStats
@@ -85,6 +85,30 @@ class ShopQualityPurchaseTests(TestCase):
         )
 
         self.assertEqual(ItemEngine(item).get_one_handed_damage_label(), "1w10/2")
+
+    def test_item_engine_normalizes_negative_quality_adjusted_damage_bonus(self):
+        """Quality penalties should render as -X instead of malformed +-X strings."""
+        damage_source = DamageSource.objects.create(name="Klinge", short_name="Kli", slug="klinge_quality_test")
+        item = Item.objects.create(
+            name="Schartige Klinge",
+            price=50,
+            item_type=Item.ItemType.WEAPON,
+            stackable=False,
+            default_quality=QUALITY_POOR,
+        )
+        WeaponStats.objects.create(
+            item=item,
+            min_st=1,
+            damage_source=damage_source,
+            damage_dice_amount=2,
+            damage_dice_faces=10,
+            damage_flat_bonus=0,
+            damage_flat_operator="+",
+            damage_type=DEADLY,
+            wield_mode="1h",
+        )
+
+        self.assertEqual(ItemEngine(item).get_one_handed_damage_label(), "2w10-1")
 
     def test_create_shop_item_allows_two_handed_weapon_without_extra_profile(self):
         """Pure 2H weapons should use the base damage fields without requiring a second profile."""

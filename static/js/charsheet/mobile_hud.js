@@ -7,6 +7,9 @@ export function initMobileHud() {
   const damageCurEl = hud.querySelector("[data-hud-damage-cur]");
   const damageMaxEl = hud.querySelector("[data-hud-damage-max]");
   const damageFill  = hud.querySelector(".mobile-status-hud__fill--damage");
+  const woundStageHudEl = hud.querySelector("[data-hud-wound-stage]");
+  const woundPenaltyHudEl = hud.querySelector("[data-hud-wound-penalty]");
+  const damageMetaEl = hud.querySelector("[data-hud-damage-meta]");
   const arcaneCurEl = hud.querySelector("[data-hud-arcane-cur]");
   const arcaneMaxEl = hud.querySelector("[data-hud-arcane-max]");
   const arcaneFill  = hud.querySelector(".mobile-status-hud__fill--arcane");
@@ -22,13 +25,34 @@ export function initMobileHud() {
     el.style.setProperty("--hud-pct", `${pct.toFixed(1)}%`);
   }
 
+  function normalizeWoundStage(raw) {
+    const text = String(raw ?? "").trim();
+    return !text || text === "-" ? "Unverletzt" : text;
+  }
+
+  function normalizeWoundPenalty(raw) {
+    const text = String(raw ?? "").trim();
+    return !text || text === "-" ? "0" : text;
+  }
+
   function syncDamage() {
     const gauge = document.querySelector(".damage_gauge");
     if (!gauge) return;
+    const woundStageEl = document.querySelector(".damage_stage_value");
+    const woundPenaltyEl = document.querySelector(".damage_penalty_value");
     const cur = readInt(gauge.dataset.damageValue, 0);
     const max = readInt(gauge.dataset.damageMax, 1);
     if (damageCurEl) damageCurEl.textContent = cur;
     if (damageMaxEl) damageMaxEl.textContent = max;
+    if (woundStageHudEl) woundStageHudEl.textContent = normalizeWoundStage(woundStageEl?.textContent);
+    if (woundPenaltyHudEl) woundPenaltyHudEl.textContent = normalizeWoundPenalty(woundPenaltyEl?.textContent);
+    if (damageMetaEl) {
+      const isDisabled = Boolean(
+        woundStageEl?.classList.contains("is-disabled") ||
+        woundPenaltyEl?.classList.contains("is-disabled"),
+      );
+      damageMetaEl.classList.toggle("is-disabled", isDisabled);
+    }
     setPct(damageFill, cur, max);
   }
 

@@ -133,6 +133,23 @@ class ItemEngine:
         """Return the quality bonus or penalty applied to maneuver values."""
         return WEAPON_MANEUVER_QUALITY_BONUSES.get(self.get_effective_quality(), 0)
 
+    @staticmethod
+    def _apply_quality_to_damage_bonus(base_bonus: int, operator: str, quality_bonus: int) -> tuple[int, str]:
+        """Resolve a signed flat damage modifier back into magnitude plus operator."""
+        if operator == WeaponStats.DamageOperator.DIVIDE:
+            return base_bonus, operator
+
+        signed_bonus = int(base_bonus or 0)
+        if operator == WeaponStats.DamageOperator.SUBTRACT:
+            signed_bonus *= -1
+        signed_bonus += int(quality_bonus or 0)
+
+        if signed_bonus < 0:
+            return abs(signed_bonus), WeaponStats.DamageOperator.SUBTRACT
+        if signed_bonus > 0:
+            return signed_bonus, WeaponStats.DamageOperator.ADD
+        return 0, operator
+
     def get_weapon_damage(self, wield_mode: str = ONE_HANDED):
         """Return weapon damage tuple(s): (dice_amount, dice_faces, flat_bonus, operator)."""
         stats = self._get_weapon_stats()
@@ -142,17 +159,27 @@ class ItemEngine:
         quality_bonus = self.get_weapon_damage_quality_bonus()
         base_bonus = stats.damage_flat_bonus or 0
         h2_bonus = stats.h2_flat_bonus or 0
+        base_adjusted_bonus, base_adjusted_operator = self._apply_quality_to_damage_bonus(
+            base_bonus,
+            stats.damage_flat_operator,
+            quality_bonus,
+        )
+        h2_adjusted_bonus, h2_adjusted_operator = self._apply_quality_to_damage_bonus(
+            h2_bonus,
+            stats.h2_flat_operator,
+            quality_bonus,
+        )
         base = (
             stats.damage_dice_amount,
             stats.damage_dice_faces,
-            base_bonus + quality_bonus if stats.damage_flat_operator != stats.DamageOperator.DIVIDE else base_bonus,
-            stats.damage_flat_operator,
+            base_adjusted_bonus,
+            base_adjusted_operator,
         )
         two_handed = (
             stats.h2_dice_amount,
             stats.h2_dice_faces,
-            h2_bonus + quality_bonus if stats.h2_flat_operator != stats.DamageOperator.DIVIDE else h2_bonus,
-            stats.h2_flat_operator,
+            h2_adjusted_bonus,
+            h2_adjusted_operator,
         )
 
         if wield_mode == ONE_HANDED:
