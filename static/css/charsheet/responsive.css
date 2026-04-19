@@ -46,6 +46,7 @@
 
   body {
     overflow-y: auto;
+    scroll-snap-type: y mandatory;
   }
 
   .book-spread {
@@ -120,14 +121,17 @@
 
   .page {
     --tablet-page-slot: 100dvh;
-    --tablet-page-gap: 72px;
-    --tablet-page-height: min(calc(var(--tablet-page-slot) - var(--tablet-page-gap)), 920px);
-    --tablet-page-width: min(calc(var(--tablet-page-height) * 0.707), calc(100vw - 40px));
+    --tablet-page-max-width: calc(100vw - 40px);
+    --tablet-page-height: min(
+      calc(var(--tablet-page-slot) - 16px),
+      calc(var(--tablet-page-max-width) / 0.707)
+    );
+    --tablet-page-width: calc(var(--tablet-page-height) * 0.707);
     width: var(--tablet-page-width);
     height: var(--tablet-page-height);
     min-height: 0;
     margin-top: 0;
-    margin-bottom: var(--tablet-page-gap);
+    margin-bottom: max(0px, calc(var(--tablet-page-slot) - var(--tablet-page-height)));
     flex-shrink: 0;
     scroll-snap-align: start;
     scroll-snap-stop: always;
