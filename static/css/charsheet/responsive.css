@@ -23,6 +23,10 @@
 
   /* Each A4 page snaps to the top of the viewport */
   .page {
+    --tablet-page-width: min(calc(100vw - 96px), 860px);
+    width: var(--tablet-page-width);
+    height: auto;
+    min-height: max(var(--page-height), calc(var(--tablet-page-width) * 1.4142));
     flex-shrink: 0;
     scroll-snap-align: start;
     scroll-snap-stop: always;
@@ -34,7 +38,127 @@
    Book pages go from side-by-side to stacked vertically.
    Left-tools toolbar slides down from the top.
    ═══════════════════════════════════════════════════════════════════════ */
-@media (max-width: 1180px) {
+@media (min-width: 901px) and (max-width: 1180px) {
+  html {
+    scroll-snap-type: y mandatory;
+  }
+
+  .book-spread {
+    align-items: center;
+    flex-direction: column;
+    justify-content: flex-start;
+    padding: 32px 20px 24px;
+    gap: 18px;
+  }
+
+  .left-tools {
+    top: 56px;
+    width: calc(100vw - 24px);
+  }
+
+  .left-tools__launcher {
+    top: 0;
+    width: 70px;
+    height: 22px;
+  }
+
+  .charsheet-top-pending-choice {
+    top: 26px;
+    width: min(300px, calc(100vw - 32px));
+  }
+
+  .left-tools__inner {
+    display: flex;
+    align-items: stretch;
+    flex-direction: column;
+    padding: 14px;
+    gap: 12px;
+  }
+
+  .left-tools__cluster {
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .left-tools__cluster--actions,
+  .left-tools__cluster--resources {
+    justify-content: center;
+  }
+
+  .left-tools__cluster--actions {
+    flex: 1 1 auto;
+    width: 100%;
+    justify-content: flex-start;
+    gap: 6px;
+    margin-right: 0;
+    flex-wrap: wrap;
+  }
+
+  .left-tools__cluster--resources {
+    justify-self: auto;
+  }
+
+  .left-tools__group {
+    min-width: min(260px, calc(50% - 8px));
+  }
+
+  .left-tools__icon_btn {
+    width: 56px;
+    min-width: 56px;
+    flex: 0 0 56px;
+  }
+
+  .left-tools__form {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .page {
+    --tablet-page-width: min(calc(100vw - 40px), 860px);
+    width: var(--tablet-page-width);
+    height: auto;
+    min-height: max(980px, calc(var(--tablet-page-width) * 1.4142));
+    flex-shrink: 0;
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+  }
+
+  .page:first-child {
+    grid-template-columns: minmax(250px, 30%) minmax(0, 1fr);
+    grid-template-rows: auto 1fr;
+    gap: 6px;
+    padding: 6px;
+  }
+
+  .p1_bottom_left,
+  .p1_bottom_right,
+  .p2_panel,
+  .char_info_wrapper {
+    min-width: 0;
+  }
+
+  .body_grid {
+    gap: 6px;
+  }
+
+  .schools_scroll {
+    max-height: min(460px, 48vh);
+  }
+
+  .inventory_scroll {
+    max-height: min(340px, 38vh);
+  }
+
+  .skills_wrapper {
+    max-height: min(520px, 56vh);
+  }
+
+  .weapons_scroll {
+    max-height: min(340px, 36vh);
+  }
+}
+
+@media (max-width: 900px) {
   .book-spread {
     align-items: flex-start;
     flex-direction: column;
@@ -309,6 +433,55 @@
    Left-tools panel goes nearly full-width.
    Fix page overflow: use calc() not 96vw so horizontal padding is respected.
    ═══════════════════════════════════════════════════════════════════════ */
+@media (min-width: 901px) and (max-width: 1400px) and (orientation: landscape) {
+  .skills_table .skills_title {
+    font-size: 1.18rem;
+  }
+
+  .skills_table td {
+    font-size: 0.78rem;
+  }
+
+  .skills_table td.skill_name {
+    font-size: 0.92rem;
+  }
+
+  .skills_table td.skill_prop {
+    font-size: 0.78rem;
+  }
+
+  .p2_panel h2,
+  .exp_wrapper h2,
+  .fame_wrapper h2,
+  .reputation_wrapper h2,
+  .language_wrapper h2 {
+    font-size: 1rem;
+  }
+
+  .move_row .move_title {
+    font-size: 1.02rem;
+  }
+
+  .move_row span:not(.move_title) {
+    font-size: 0.8rem;
+  }
+
+  .move_labels {
+    font-size: 0.54rem;
+  }
+
+  .weapons_table th,
+  .weapons_table td {
+    font-size: 0.68rem;
+  }
+
+  .weapons_table th:first-child,
+  .weapons_table td:first-child,
+  .weapon_name {
+    font-size: 0.84rem;
+  }
+}
+
 @media (max-width: 760px) {
   .book-spread {
     padding: 32px 8px 24px;
