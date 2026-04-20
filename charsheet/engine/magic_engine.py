@@ -58,21 +58,7 @@ def _escape_tooltip_table_cell(value: object) -> str:
     return str(value if value not in (None, "") else "-").replace("|", "\\|")
 
 
-def _get_character_school_level(entry: CharacterSpell) -> int:
-    """Return the character's current level in the spell's school or aspect, or 0."""
-    if not entry.character_id:
-        return 0
-    spell = entry.spell
-    if spell.school_id:
-        cs = CharacterSchool.objects.filter(character_id=entry.character_id, school_id=spell.school_id).first()
-        return int(cs.level) if cs else 0
-    if spell.aspect_id:
-        ca = CharacterAspect.objects.filter(character_id=entry.character_id, aspect_id=spell.aspect_id).first()
-        return int(ca.level) if ca else 0
-    return 0
-
-
-def _build_spell_tooltip(entry: CharacterSpell) -> str:
+def _build_spell_tooltip(entry: CharacterSpell, *, school_levels: dict[int, int] | None = None, aspect_levels: dict[int, int] | None = None) -> str:
     """Return a structured tooltip with spell facts followed by the description."""
     spell = entry.spell
     attribute_label = "-"
@@ -88,7 +74,21 @@ def _build_spell_tooltip(entry: CharacterSpell) -> str:
         mw_label = str(int(spell.mw))
     resistance_label = str(spell.resistance_value or "-").strip() or "-"
 
-    school_level = _get_character_school_level(entry)
+    if spell.school_id and school_levels is not None:
+        school_level = school_levels.get(spell.school_id, 0)
+    elif spell.aspect_id and aspect_levels is not None:
+        school_level = aspect_levels.get(spell.aspect_id, 0)
+    elif entry.character_id:
+        if spell.school_id:
+            cs = CharacterSchool.objects.filter(character_id=entry.character_id, school_id=spell.school_id).first()
+            school_level = int(cs.level) if cs else 0
+        elif spell.aspect_id:
+            ca = CharacterAspect.objects.filter(character_id=entry.character_id, aspect_id=spell.aspect_id).first()
+            school_level = int(ca.level) if ca else 0
+        else:
+            school_level = 0
+    else:
+        school_level = 0
 
     rows: list[tuple[str, object]] = [
         ("Eigenschaft/Grad", f"{attribute_label}/{int(spell.grade)}"),
@@ -587,9 +587,15 @@ class MagicEngine:
 
     def get_spell_panel_data(self) -> dict[str, object]:
         known_entries = self.get_known_spells()
+        school_entries = self._school_entries()
         arcane_school_levels = {
             entry.school.name: int(entry.level)
-            for entry in self._arcane_school_entries()
+            for entry in school_entries
+            if entry.school.type.slug == SCHOOL_ARCANE
+        }
+        school_level_map: dict[int, int] = {entry.school_id: int(entry.level) for entry in school_entries}
+        aspect_level_map: dict[int, int] = {
+            entry.aspect_id: int(entry.level) for entry in self._aspect_entries()
         }
         grouped_rows: dict[tuple[str, str], list[dict[str, object]]] = defaultdict(list)
         for entry in known_entries:
@@ -625,7 +631,7 @@ class MagicEngine:
                     "source_label": self._source_label(entry),
                     "badge_label": (spell.panel_badge_label or "").strip(),
                     "description": spell.description or "",
-                    "tooltip_text": _build_spell_tooltip(entry),
+                    "tooltip_text": _build_spell_tooltip(entry, school_levels=school_level_map, aspect_levels=aspect_level_map),
                     "castable_kind": "spell",
                 }
             )

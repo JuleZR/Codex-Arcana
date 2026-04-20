@@ -36,7 +36,7 @@ from .models import (
     Rune,
     School,
     Skill,
-    Spell,
+
     Technique,
     Trait,
 )
@@ -321,9 +321,13 @@ def _is_partial_request(request) -> bool:
     )
 
 
-def _build_sheet_context_for_request(request, character: Character, *, close_learn_window_once: bool = False) -> dict[str, object]:
+def _build_sheet_context_for_request(
+    request, character: Character, *, close_learn_window_once: bool = False, skip_magic_sync: bool = False
+) -> dict[str, object]:
     """Build the full sheet context including request-specific dice settings."""
-    character.get_magic_engine(refresh=True).sync_character_magic()
+    skip_magic_sync = skip_magic_sync or request.session.pop("skip_magic_sync_once", False)
+    if not skip_magic_sync:
+        character.get_magic_engine(refresh=True).sync_character_magic()
     context = build_character_sheet_context(
         character,
         close_learn_window_once=close_learn_window_once,
@@ -1298,7 +1302,11 @@ def create_character(request):
             selected_arcana_value = (
                 "bonus_capacity"
                 if arcana_payload.get("kind") == "bonus_capacity"
-                else (f"rune:{arcana_payload.get('rune_id')}" if arcana_payload.get("kind") == "rune" and arcana_payload.get("rune_id") else "")
+                else (
+                    f"rune:{arcana_payload.get('rune_id')}"
+                    if arcana_payload.get("kind") == "rune" and arcana_payload.get("rune_id")
+                    else ""
+                )
             )
             phase_4_weapon_mastery_rows.append(
                 {
@@ -1612,6 +1620,7 @@ def apply_learning(request, character_id: int):
 
     level, message = process_learning_submission(character, request.POST)
     request.session["close_learn_window_once"] = True
+    request.session["skip_magic_sync_once"] = True
     if level == "error":
         messages.error(request, message)
     elif level == "info":
