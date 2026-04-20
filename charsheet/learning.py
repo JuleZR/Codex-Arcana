@@ -408,8 +408,8 @@ def _reset_invalid_school_progression(character: Character) -> None:
         technique__school_id__in=learned_school_ids
     ).delete()
 
+    engine = character.get_engine(refresh=True)
     while True:
-        engine = character.get_engine(refresh=True)
         invalid_technique_ids = [
             state["technique_id"]
             for state in engine.technique_states()
@@ -431,6 +431,7 @@ def _reset_invalid_school_progression(character: Character) -> None:
             character=character,
             technique_id__in=invalid_technique_ids,
         ).delete()
+        engine = character.get_engine(refresh=True)
 
     CharacterSpecialization.objects.filter(character=character).exclude(
         specialization__school_id__in=learned_school_ids
@@ -471,9 +472,9 @@ def _reset_invalid_school_progression(character: Character) -> None:
 
 def process_learning_submission(character: Character, post_data) -> tuple[str, str]:
     """Apply one learning-menu submission and return message level plus text."""
-    character.get_magic_engine(refresh=True).sync_character_magic()
-    engine = character.get_engine(refresh=True)
     magic_engine = character.get_magic_engine(refresh=True)
+    magic_engine.sync_character_magic()
+    engine = character.get_engine(refresh=True)
     attribute_limits = {
         limit.attribute.short_name: {
             "min": int(limit.min_value),
@@ -795,20 +796,24 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
                 aspect_entry.full_clean()
                 aspect_entry.save()
 
-            for spell_id in magic_spell_plan:
-                spell = Spell.objects.filter(pk=spell_id).select_related("school", "aspect").first()
-                if spell is None:
-                    raise LearningSubmissionError("Zauber nicht gefunden.")
-                source_kind = (
-                    CharacterSpell.SourceKind.ARCANE_EXTRA if spell.school_id else CharacterSpell.SourceKind.DIVINE_EXTRA
-                )
-                spell_entry = CharacterSpell(
-                    character=character,
-                    spell=spell,
-                    source_kind=source_kind,
-                )
-                spell_entry.full_clean()
-                spell_entry.save()
+            if magic_spell_plan:
+                spell_map = {
+                    s.id: s for s in Spell.objects.filter(pk__in=magic_spell_plan).select_related("school", "aspect")
+                }
+                for spell_id in magic_spell_plan:
+                    spell = spell_map.get(spell_id)
+                    if spell is None:
+                        raise LearningSubmissionError("Zauber nicht gefunden.")
+                    source_kind = (
+                        CharacterSpell.SourceKind.ARCANE_EXTRA if spell.school_id else CharacterSpell.SourceKind.DIVINE_EXTRA
+                    )
+                    spell_entry = CharacterSpell(
+                        character=character,
+                        spell=spell,
+                        source_kind=source_kind,
+                    )
+                    spell_entry.full_clean()
+                    spell_entry.save()
 
             magic_engine.sync_character_magic()
             _reset_invalid_school_progression(character)
