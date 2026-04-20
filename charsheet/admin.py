@@ -1914,7 +1914,7 @@ class SchoolAdmin(admin.ModelAdmin):
             "School",
             {
                 "fields": (
-                    ("name", "type", "panel_symbol"),
+                    ("name", "type", "panel_symbol", "max_level"),
                     "description",
                 ),
                 "description": (

@@ -31,6 +31,12 @@ class School(models.Model):
         default="",
         help_text="Optional short symbol shown in spell and school panels, for example a rune or glyph.",
     )
+    max_level = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        verbose_name="Max. Stufe",
+        help_text="Maximale lernbare Stufe. Überschreibt den automatisch berechneten Wert aus den Techniken.",
+    )
     description = models.TextField(blank=True)
 
     class Meta:

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from django.db.models import Max
 
-from charsheet.models import Technique
+from charsheet.models import School, Technique
 
 
 DEFAULT_SCHOOL_MAX_LEVEL = 10
@@ -36,13 +36,16 @@ def calc_attribute_total_cost(target_level: int, max_value: int) -> int:
 
 
 def school_max_levels() -> dict[int, int]:
-    """Return dynamic school level caps based on highest technique level per school."""
+    """Return school level caps — explicit max_level takes precedence over technique-derived cap."""
     caps: dict[int, int] = {}
+    # Technique-based caps
     rows = Technique.objects.values("school_id").annotate(max_level=Max("level"))
     for row in rows:
         school_id = int(row.get("school_id") or 0)
         if school_id <= 0:
             continue
-        max_level = int(row.get("max_level") or DEFAULT_SCHOOL_MAX_LEVEL)
-        caps[school_id] = max(1, max_level)
+        caps[school_id] = max(1, int(row.get("max_level") or DEFAULT_SCHOOL_MAX_LEVEL))
+    # Explicit overrides (also covers schools with no techniques)
+    for school in School.objects.filter(max_level__isnull=False).values("id", "max_level"):
+        caps[int(school["id"])] = max(1, int(school["max_level"]))
     return caps
