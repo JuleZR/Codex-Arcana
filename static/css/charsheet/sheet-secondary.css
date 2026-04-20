@@ -1903,7 +1903,9 @@
 
 .floating-tooltip th:nth-child(2),
 .floating-tooltip td:nth-child(2) {
-  width: 68px;
+  min-width: 90px;
+  max-width: 160px;
+  white-space: nowrap;
   text-align: right;
 }
 
@@ -1919,7 +1921,7 @@
 
 .floating-tooltip tbody tr:last-child td:first-child,
 .floating-tooltip tbody tr:last-child td:nth-child(2) {
-  font-weight: 700;
+  font-weight: 400;
 }
 
 .floating-tooltip tbody td strong {
