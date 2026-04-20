@@ -2,13 +2,8 @@
 
 from __future__ import annotations
 
-import logging
-import time as _perf_time
-
 from django.core.exceptions import ValidationError
 from django.db import transaction
-
-_perf_log = logging.getLogger("charsheet.perf")
 
 from charsheet.learning_progression import build_learning_progression_context
 from charsheet.learning_rules import (
@@ -30,7 +25,6 @@ from charsheet.models import (
     CharacterSchool,
     CharacterSchoolPath,
     CharacterSpell,
-    CharacterSpellSource,
     CharacterSpecialization,
     CharacterSkill,
     CharacterTraitChoice,
@@ -85,7 +79,7 @@ def _has_progression_inputs(post_data) -> bool:
     return any(str(key).startswith(prefixes) for key in post_data.keys())
 
 
-def _apply_progression_choices(character: Character, post_data) -> dict[str, int]:
+def _apply_progression_choices(character: Character, post_data, *, magic_engine) -> dict[str, int]:
     """Persist zero-cost progression decisions after EP spending has been applied."""
     summary = {
         "paths": 0,
@@ -479,11 +473,8 @@ def _reset_invalid_school_progression(character: Character) -> None:
 
 def process_learning_submission(character: Character, post_data) -> tuple[str, str]:
     """Apply one learning-menu submission and return message level plus text."""
-    _t0 = _perf_time.perf_counter()
     magic_engine = character.get_magic_engine(refresh=True)
     magic_engine.sync_character_magic()
-    _t1 = _perf_time.perf_counter()
-    _perf_log.warning("[LEARN PERF] sync_character_magic (pre): %.3fs", _t1 - _t0)
     engine = character.get_engine(refresh=True)
     attribute_limits = {
         limit.attribute.short_name: {
@@ -525,7 +516,6 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
     language_plan: dict[str, dict[str, object]] = {}
     school_plan: dict[str, int] = {}
     magic_spell_plan: set[int] = set()
-    base_spell_plan: set[int] = set()
     magic_aspect_plan: dict[int, int] = {}
     has_progression_inputs = _has_progression_inputs(post_data)
 
@@ -659,12 +649,6 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
         for group in magic_groups
         for row in group["rows"]
         if row["kind"] == "magic_spell"
-    }
-    legal_base_spell_ids = {
-        row["spell_id"]
-        for group in magic_groups
-        for row in group["rows"]
-        if row["kind"] == "base_spell"
     }
     legal_bonus_aspect_map = {
         row["aspect_id"]: int(row["max_level"])
@@ -825,19 +809,11 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
                     spell_entry.full_clean()
                     spell_entry.save()
 
-            _t2 = _perf_time.perf_counter()
             magic_engine.sync_character_magic()
-            _t3 = _perf_time.perf_counter()
-            _perf_log.warning("[LEARN PERF] sync_character_magic (post-write): %.3fs", _t3 - _t2)
             _reset_invalid_school_progression(character)
-            _t4 = _perf_time.perf_counter()
-            _perf_log.warning("[LEARN PERF] _reset_invalid_school_progression: %.3fs", _t4 - _t3)
             character.current_experience = max(0, int(character.current_experience) - total_cost)
             character.save(update_fields=["current_experience"])
-            progression_summary = _apply_progression_choices(character, post_data)
-            _t5 = _perf_time.perf_counter()
-            _perf_log.warning("[LEARN PERF] _apply_progression_choices: %.3fs", _t5 - _t4)
-            _perf_log.warning("[LEARN PERF] total submission: %.3fs", _t5 - _t0)
+            progression_summary = _apply_progression_choices(character, post_data, magic_engine=magic_engine)
     except LearningSubmissionError as exc:
         return "error", str(exc)
     except ValidationError as exc:

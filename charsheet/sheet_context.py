@@ -1720,25 +1720,15 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
         }
         for short_name, label in ATTRIBUTE_ORDER
     ]
-    import logging as _logging, time as _t
-    _pl = _logging.getLogger("charsheet.perf")
-    _s = _t.perf_counter()
     load_penalty = engine.load_penalty()
     skill_rows, character_skills = _build_skill_rows(character, engine, load_penalty=load_penalty)
-    _pl.warning("[CTX PERF] skill_rows: %.3fs", _t.perf_counter() - _s); _s = _t.perf_counter()
     advantage_rows, disadvantage_rows = _build_trait_rows(character)
-    _pl.warning("[CTX PERF] trait_rows: %.3fs", _t.perf_counter() - _s); _s = _t.perf_counter()
     inventory_rows = _build_inventory_rows(character)
-    _pl.warning("[CTX PERF] inventory_rows: %.3fs", _t.perf_counter() - _s); _s = _t.perf_counter()
     weapon_rows = _build_weapon_rows(engine)
-    _pl.warning("[CTX PERF] weapon_rows: %.3fs", _t.perf_counter() - _s); _s = _t.perf_counter()
     armor_rows = _build_armor_rows(engine)
-    _pl.warning("[CTX PERF] armor_rows: %.3fs", _t.perf_counter() - _s); _s = _t.perf_counter()
     school_technique_rows, school_levels = _build_school_technique_rows(character, engine)
-    _pl.warning("[CTX PERF] school_technique_rows: %.3fs", _t.perf_counter() - _s); _s = _t.perf_counter()
     school_race_rows, school_technique_groups = _group_school_technique_rows(school_technique_rows, school_levels)
     language_rows, language_entries = _build_language_rows(character)
-    _pl.warning("[CTX PERF] language_rows: %.3fs", _t.perf_counter() - _s); _s = _t.perf_counter()
 
     initiative_value = engine.calculate_initiative()
     initiative_stat_mod = engine._resolve_stat_modifiers(INITIATIVE)
@@ -1832,7 +1822,6 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
         "fly": fly_value,
     }
 
-    _pl.warning("[CTX PERF] stats/etc: %.3fs", _t.perf_counter() - _s); _s = _t.perf_counter()
     learning_context = _build_learning_rows(
         character,
         attributes,
@@ -1840,12 +1829,9 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
         language_entries,
         school_levels,
     )
-    _pl.warning("[CTX PERF] learning_rows: %.3fs", _t.perf_counter() - _s); _s = _t.perf_counter()
     learning_progression_context = build_learning_progression_context(character, engine=engine)
-    _pl.warning("[CTX PERF] learning_progression_context: %.3fs", _t.perf_counter() - _s); _s = _t.perf_counter()
     magic_engine = character.get_magic_engine()
     spell_panel_data = magic_engine.get_spell_panel_data()
-    _pl.warning("[CTX PERF] spell_panel_data: %.3fs", _t.perf_counter() - _s); _s = _t.perf_counter()
     load_tooltip = _build_load_tooltip(engine)
     total_armor_tooltip = _build_total_armor_tooltip(engine)
     shop_quality_choices = [
