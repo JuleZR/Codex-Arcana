@@ -1347,6 +1347,7 @@ class Spell(models.Model):
         METER = "m", "Meter"
         KM = "km", "Kilometer"
         TOUCH = "Berührung", "Berührung"
+        SELF = "selbst", "Selbst"
 
     range_number = models.PositiveIntegerField(null=True, blank=True, verbose_name="Reichweite")
     range_unit = models.CharField(
