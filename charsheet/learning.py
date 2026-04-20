@@ -94,6 +94,12 @@ def _apply_progression_choices(character: Character, post_data) -> dict[str, int
         "choices": 0,
     }
 
+    def _rebuild_if(dirty: bool) -> tuple:
+        if not dirty:
+            return engine, progression_context
+        new_engine = character.get_engine(refresh=True)
+        return new_engine, build_learning_progression_context(character, engine=new_engine)
+
     engine = character.get_engine(refresh=True)
     progression_context = build_learning_progression_context(character, engine=engine)
 
@@ -113,8 +119,7 @@ def _apply_progression_choices(character: Character, post_data) -> dict[str, int
         path_entry.save()
         summary["paths"] += 1
 
-    engine = character.get_engine(refresh=True)
-    progression_context = build_learning_progression_context(character, engine=engine)
+    engine, progression_context = _rebuild_if(summary["paths"] > 0)
 
     for row in progression_context["learn_technique_rows"]:
         if not _is_checked(post_data, row["field_name"]):
@@ -127,8 +132,7 @@ def _apply_progression_choices(character: Character, post_data) -> dict[str, int
         technique_entry.save()
         summary["techniques"] += 1
 
-    engine = character.get_engine(refresh=True)
-    progression_context = build_learning_progression_context(character, engine=engine)
+    engine, progression_context = _rebuild_if(summary["techniques"] > 0)
 
     for row in progression_context["learn_divine_entity_rows"]:
         raw_entity_id = str(post_data.get(row["field_name"], "")).strip()
@@ -145,8 +149,7 @@ def _apply_progression_choices(character: Character, post_data) -> dict[str, int
         entity_binding.save()
         summary["choices"] += 1
 
-    engine = character.get_engine(refresh=True)
-    progression_context = build_learning_progression_context(character, engine=engine)
+    engine, progression_context = _rebuild_if(summary["choices"] > 0)
 
     for row in progression_context["learn_arcane_free_spell_rows"]:
         raw_spell_id = str(post_data.get(row["field_name"], "")).strip()
@@ -196,13 +199,13 @@ def _apply_progression_choices(character: Character, post_data) -> dict[str, int
         if spell is None:
             raise LearningSubmissionError("Zauber nicht gefunden.")
         if spell.school_id:
-            current_level = int(character.get_magic_engine(refresh=True)._school_level_map().get(spell.school_id, 0))
+            current_level = int(magic_engine._school_level_map().get(spell.school_id, 0))
             if int(spell.grade) > current_level:
                 raise LearningSubmissionError(f"{row['source_label']}: Zauber liegt ueber der aktuellen Stufe.")
         elif spell.aspect_id:
             aspect_levels = {
                 entry.aspect_id: int(entry.level)
-                for entry in character.get_magic_engine(refresh=True).get_character_aspects()
+                for entry in magic_engine.get_character_aspects()
             }
             if int(spell.grade) > int(aspect_levels.get(spell.aspect_id, 0)):
                 raise LearningSubmissionError(f"{row['source_label']}: Zauber liegt ueber der aktuellen Stufe.")
@@ -240,8 +243,7 @@ def _apply_progression_choices(character: Character, post_data) -> dict[str, int
         school_picks.add(specialization_id)
         summary["specializations"] += 1
 
-    engine = character.get_engine(refresh=True)
-    progression_context = build_learning_progression_context(character, engine=engine)
+    engine, progression_context = _rebuild_if(summary["specializations"] > 0)
 
     weapon_decisions_by_slot: dict[tuple[int, int], dict[str, object]] = {}
     side_decisions_by_slot: dict[tuple[int, int], dict[str, object]] = {}

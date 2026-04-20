@@ -1542,8 +1542,7 @@ def _build_learning_rows(
         entry.trait_id: int(entry.trait_level)
         for entry in CharacterTrait.objects.filter(owner=character).select_related("trait")
     }
-    magic_engine = character.get_magic_engine(refresh=True)
-    magic_engine.sync_character_magic()
+    magic_engine = character.get_magic_engine()
 
     learn_attr_rows: list[dict] = []
     for short_name, label in ATTRIBUTE_ORDER:
@@ -1720,15 +1719,25 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
         }
         for short_name, label in ATTRIBUTE_ORDER
     ]
+    import logging as _logging, time as _t
+    _pl = _logging.getLogger("charsheet.perf")
+    _s = _t.perf_counter()
     load_penalty = engine.load_penalty()
     skill_rows, character_skills = _build_skill_rows(character, engine, load_penalty=load_penalty)
+    _pl.warning("[CTX PERF] skill_rows: %.3fs", _t.perf_counter() - _s); _s = _t.perf_counter()
     advantage_rows, disadvantage_rows = _build_trait_rows(character)
+    _pl.warning("[CTX PERF] trait_rows: %.3fs", _t.perf_counter() - _s); _s = _t.perf_counter()
     inventory_rows = _build_inventory_rows(character)
+    _pl.warning("[CTX PERF] inventory_rows: %.3fs", _t.perf_counter() - _s); _s = _t.perf_counter()
     weapon_rows = _build_weapon_rows(engine)
+    _pl.warning("[CTX PERF] weapon_rows: %.3fs", _t.perf_counter() - _s); _s = _t.perf_counter()
     armor_rows = _build_armor_rows(engine)
+    _pl.warning("[CTX PERF] armor_rows: %.3fs", _t.perf_counter() - _s); _s = _t.perf_counter()
     school_technique_rows, school_levels = _build_school_technique_rows(character, engine)
+    _pl.warning("[CTX PERF] school_technique_rows: %.3fs", _t.perf_counter() - _s); _s = _t.perf_counter()
     school_race_rows, school_technique_groups = _group_school_technique_rows(school_technique_rows, school_levels)
     language_rows, language_entries = _build_language_rows(character)
+    _pl.warning("[CTX PERF] language_rows: %.3fs", _t.perf_counter() - _s); _s = _t.perf_counter()
 
     initiative_value = engine.calculate_initiative()
     initiative_stat_mod = engine._resolve_stat_modifiers(INITIATIVE)
@@ -1830,7 +1839,7 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
         school_levels,
     )
     learning_progression_context = build_learning_progression_context(character, engine=engine)
-    magic_engine = character.get_magic_engine(refresh=True)
+    magic_engine = character.get_magic_engine()
     spell_panel_data = magic_engine.get_spell_panel_data()
     load_tooltip = _build_load_tooltip(engine)
     total_armor_tooltip = _build_total_armor_tooltip(engine)
