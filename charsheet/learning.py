@@ -472,8 +472,12 @@ def _reset_invalid_school_progression(character: Character) -> None:
 
 def process_learning_submission(character: Character, post_data) -> tuple[str, str]:
     """Apply one learning-menu submission and return message level plus text."""
+    import time as _time
+    _t0 = _time.perf_counter()
     magic_engine = character.get_magic_engine(refresh=True)
     magic_engine.sync_character_magic()
+    _t1 = _time.perf_counter()
+    print(f"[LEARN PERF] sync_character_magic: {_t1 - _t0:.3f}s")
     engine = character.get_engine(refresh=True)
     attribute_limits = {
         limit.attribute.short_name: {
@@ -815,11 +819,19 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
                     spell_entry.full_clean()
                     spell_entry.save()
 
+            _t2 = _time.perf_counter()
             magic_engine.sync_character_magic()
+            _t3 = _time.perf_counter()
+            print(f"[LEARN PERF] sync_character_magic (post-write): {_t3 - _t2:.3f}s")
             _reset_invalid_school_progression(character)
+            _t4 = _time.perf_counter()
+            print(f"[LEARN PERF] _reset_invalid_school_progression: {_t4 - _t3:.3f}s")
             character.current_experience = max(0, int(character.current_experience) - total_cost)
             character.save(update_fields=["current_experience"])
             progression_summary = _apply_progression_choices(character, post_data)
+            _t5 = _time.perf_counter()
+            print(f"[LEARN PERF] _apply_progression_choices: {_t5 - _t4:.3f}s")
+            print(f"[LEARN PERF] total submission: {_t5 - _t0:.3f}s")
     except LearningSubmissionError as exc:
         return "error", str(exc)
     except ValidationError as exc:
