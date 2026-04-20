@@ -81,7 +81,18 @@ def _build_spell_tooltip(entry: CharacterSpell) -> str:
     ]
     if spell.cast_time:
         rows.append(("Zeitaufwand", spell.cast_time))
-    if spell.range_text:
+    if spell.range_number is not None and spell.range_unit:
+        unit = spell.get_range_unit_display()
+        if spell.range_per_grade:
+            grade = int(spell.grade)
+            total = spell.range_number * grade
+            range_main = f"{total} {unit}"
+            range_note = f"Grad {grade} × {spell.range_number} {unit}"
+            rows.append(("Reichweite", range_main))
+            rows.append(("", range_note))
+        else:
+            rows.append(("Reichweite", f"{spell.range_number} {unit}"))
+    elif spell.range_text:
         rows.append(("Reichweite", spell.range_text))
     if spell.duration_text:
         rows.append(("Wirkungsdauer", spell.duration_text))

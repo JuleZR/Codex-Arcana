@@ -1341,7 +1341,22 @@ class Spell(models.Model):
     panel_badge_label = models.CharField(max_length=30, blank=True, default="Zauber")
     kp_cost = models.PositiveSmallIntegerField(default=0)
     cast_time = models.CharField(max_length=100, blank=True, default="")
-    range_text = models.CharField(max_length=100, blank=True, default="")
+    range_text = models.CharField(max_length=100, blank=True, default="")  # legacy
+
+    class RangeUnit(models.TextChoices):
+        METER = "m", "Meter"
+        KM = "km", "Kilometer"
+        TOUCH = "Berührung", "Berührung"
+
+    range_number = models.PositiveIntegerField(null=True, blank=True, verbose_name="Reichweite")
+    range_unit = models.CharField(
+        max_length=20,
+        blank=True,
+        default="",
+        choices=RangeUnit.choices,
+        verbose_name="Einheit",
+    )
+    range_per_grade = models.BooleanField(default=False, verbose_name="pro Stufe")
     duration_text = models.CharField(max_length=100, blank=True, default="")
     mw = models.PositiveSmallIntegerField("MW", null=True, blank=True)
     resistance_value = models.CharField("Widerstandswert", max_length=100, blank=True, default="")

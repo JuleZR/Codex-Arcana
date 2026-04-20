@@ -1901,7 +1901,10 @@ class SchoolTypeAdmin(admin.ModelAdmin):
 class SchoolAdmin(admin.ModelAdmin):
     """Admin configuration for schools."""
 
-    list_display = ("name", "panel_symbol", "type", "type_slug", "path_count", "choice_block_count", "technique_count", "specialization_count")
+    list_display = (
+        "name", "panel_symbol", "type", "type_slug",
+        "path_count", "choice_block_count", "technique_count", "specialization_count",
+    )
     search_fields = ("name", "type__name", "type__slug")
     list_filter = ("type",)
     ordering = ("type", "name")
@@ -3567,7 +3570,8 @@ class TraitAdmin(admin.ModelAdmin):
                 "description": (
                     "Traits are no longer treated as pure +X/-Y containers. "
                     "Semantic effects, flags, capabilities, social markers, trait-bound choices, and build rules are surfaced here. "
-                    "Legacy modifier rows are not edited on traits anymore; maintain new-system effects in the Choice Definitions and Semantic Effects inlines."
+                    "Legacy modifier rows are not edited on traits anymore; "
+                    "maintain new-system effects in the Choice Definitions and Semantic Effects inlines."
                 ),
             },
         ),
@@ -3723,7 +3727,7 @@ class SpellAdmin(admin.ModelAdmin):
                     ("spell_attribute", "grade"),
                     ("mw", "grade_adds_school_level", "resistance_value"),
                     ("kp_cost",),
-                    ("range_text",),
+                    ("range_number", "range_unit", "range_per_grade"),
                     ("cast_time",),
                     ("duration_text",),
                     "description",
