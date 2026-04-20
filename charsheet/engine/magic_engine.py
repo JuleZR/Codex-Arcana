@@ -111,7 +111,7 @@ def _build_spell_tooltip(entry: CharacterSpell) -> str:
     elif spell.range_text:
         rows.append(("Reichweite", spell.range_text))
 
-    if spell.duration_unit in ("sofort", "permanent"):
+    if spell.duration_unit in ("sofort", "permanent", "Szene"):
         rows.append(("Wirkungsdauer", spell.get_duration_unit_display()))
     elif spell.duration_number is not None and spell.duration_unit:
         unit = spell.get_duration_unit_display()

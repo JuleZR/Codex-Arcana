@@ -1373,6 +1373,7 @@ class Spell(models.Model):
     class DurationUnit(models.TextChoices):
         INSTANT = "sofort", "Sofort"
         ROUND = "Runde", "Runde"
+        SCENE = "Szene", "Szene"
         PERMANENT = "permanent", "Permanent"
         HOUR = "Stunde", "Stunde"
         MINUTE = "Minute", "Minute"
