@@ -127,7 +127,7 @@ def _build_spell_tooltip(entry: CharacterSpell) -> str:
         rows.append(("Reichweite", spell.range_text))
 
     def _duration_label(number, unit_key, per_grade) -> str | None:
-        if unit_key in ("sofort", "permanent", "Szene"):
+        if unit_key in ("sofort", "permanent", "Szene", "Konzentration"):
             from django.apps import apps
             return apps.get_model("charsheet", "Spell").DurationUnit(unit_key).label
         if number is not None and unit_key:

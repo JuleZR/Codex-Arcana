@@ -1375,6 +1375,7 @@ class Spell(models.Model):
         INSTANT = "sofort", "Sofort"
         ROUND = "Runde", "Runde"
         SCENE = "Szene", "Szene"
+        CONCENTRATION = "Konzentration", "Konzentration"
         PERMANENT = "permanent", "Permanent"
         HOUR = "Stunde", "Stunde"
         MINUTE = "Minute", "Minute"
