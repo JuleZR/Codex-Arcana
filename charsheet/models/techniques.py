@@ -1340,7 +1340,17 @@ class Spell(models.Model):
     description = models.TextField(blank=True, default="")
     panel_badge_label = models.CharField(max_length=30, blank=True, default="Zauber")
     kp_cost = models.PositiveSmallIntegerField(default=0)
-    cast_time = models.CharField(max_length=100, blank=True, default="")
+    cast_time = models.CharField(max_length=100, blank=True, default="")  # legacy
+
+    class CastTimeUnit(models.TextChoices):
+        ACTION = "Aktion", "Aktion"
+        MINUTE = "Minute", "Minute"
+        HOUR = "Stunde", "Stunde"
+
+    cast_time_number = models.PositiveIntegerField(null=True, blank=True, verbose_name="Zeitaufwand")
+    cast_time_unit = models.CharField(
+        max_length=20, blank=True, default="", choices=CastTimeUnit.choices, verbose_name="Einheit",
+    )
     range_text = models.CharField(max_length=100, blank=True, default="")  # legacy
 
     class RangeUnit(models.TextChoices):
@@ -1358,7 +1368,20 @@ class Spell(models.Model):
         verbose_name="Einheit",
     )
     range_per_grade = models.BooleanField(default=False, verbose_name="pro Stufe")
-    duration_text = models.CharField(max_length=100, blank=True, default="")
+    duration_text = models.CharField(max_length=100, blank=True, default="")  # legacy
+
+    class DurationUnit(models.TextChoices):
+        INSTANT = "sofort", "Sofort"
+        ROUND = "Runde", "Runde"
+        PERMANENT = "permanent", "Permanent"
+        HOUR = "Stunde", "Stunde"
+        MINUTE = "Minute", "Minute"
+
+    duration_number = models.PositiveIntegerField(null=True, blank=True, verbose_name="Wirkungsdauer")
+    duration_unit = models.CharField(
+        max_length=20, blank=True, default="", choices=DurationUnit.choices, verbose_name="Einheit",
+    )
+    duration_per_grade = models.BooleanField(default=False, verbose_name="pro Stufe")
     mw = models.PositiveSmallIntegerField("MW", null=True, blank=True)
     resistance_value = models.CharField("Widerstandswert", max_length=100, blank=True, default="")
 

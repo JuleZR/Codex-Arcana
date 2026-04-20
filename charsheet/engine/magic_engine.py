@@ -79,22 +79,51 @@ def _build_spell_tooltip(entry: CharacterSpell) -> str:
         ("MW/Widerstandswert", f"{mw_label}/{resistance_label}"),
         ("Kosten", f"{int(spell.kp_cost)} KP"),
     ]
-    if spell.cast_time:
+    _PLURAL = {
+        "Aktion": "Aktionen",
+        "Minute": "Minuten",
+        "Stunde": "Stunden",
+        "Runde": "Runden",
+    }
+
+    def _unit_label(unit_display: str, number: int) -> str:
+        if number != 1 and unit_display in _PLURAL:
+            return _PLURAL[unit_display]
+        return unit_display
+
+    if spell.cast_time_number is not None and spell.cast_time_unit:
+        unit = spell.get_cast_time_unit_display()
+        label = _unit_label(unit, spell.cast_time_number)
+        rows.append(("Zeitaufwand", f"{spell.cast_time_number} {label}"))
+    elif spell.cast_time:
         rows.append(("Zeitaufwand", spell.cast_time))
+
     if spell.range_number is not None and spell.range_unit:
         unit = spell.get_range_unit_display()
         if spell.range_per_grade:
             grade = int(spell.grade)
             total = spell.range_number * grade
-            range_main = f"{total} {unit}"
-            range_note = f"Grad {grade} × {spell.range_number} {unit}"
-            rows.append(("Reichweite", range_main))
-            rows.append(("", range_note))
+            range_unit_label = _unit_label(unit, total)
+            rows.append(("Reichweite", f"{total} {range_unit_label}"))
+            rows.append(("", f"Grad {grade} × {spell.range_number} {unit}"))
         else:
-            rows.append(("Reichweite", f"{spell.range_number} {unit}"))
+            rows.append(("Reichweite", f"{spell.range_number} {_unit_label(unit, spell.range_number)}"))
     elif spell.range_text:
         rows.append(("Reichweite", spell.range_text))
-    if spell.duration_text:
+
+    if spell.duration_unit in ("sofort", "permanent"):
+        rows.append(("Wirkungsdauer", spell.get_duration_unit_display()))
+    elif spell.duration_number is not None and spell.duration_unit:
+        unit = spell.get_duration_unit_display()
+        if spell.duration_per_grade:
+            grade = int(spell.grade)
+            total = spell.duration_number * grade
+            dur_label = _unit_label(unit, total)
+            rows.append(("Wirkungsdauer", f"{total} {dur_label}"))
+            rows.append(("", f"Grad {grade} × {spell.duration_number} {unit}"))
+        else:
+            rows.append(("Wirkungsdauer", f"{spell.duration_number} {_unit_label(unit, spell.duration_number)}"))
+    elif spell.duration_text:
         rows.append(("Wirkungsdauer", spell.duration_text))
 
     lines = [
