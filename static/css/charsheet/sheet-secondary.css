@@ -1928,6 +1928,13 @@
   color: #6a4122;
 }
 
+.floating-tooltip .tooltip_sub {
+  display: block;
+  font-size: 0.8em;
+  color: rgba(81, 58, 36, 0.55);
+  margin-top: 2px;
+}
+
 .p2_schools {
   flex: 1 1 0;
   min-height: 0;

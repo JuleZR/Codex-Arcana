@@ -104,8 +104,8 @@ def _build_spell_tooltip(entry: CharacterSpell) -> str:
             grade = int(spell.grade)
             total = spell.range_number * grade
             range_unit_label = _unit_label(unit, total)
-            rows.append(("Reichweite", f"{total} {range_unit_label}"))
-            rows.append(("", f"Grad {grade} × {spell.range_number} {unit}"))
+            note = f"[[SUB:Grad {grade} × {spell.range_number} {unit}]]"
+            rows.append(("Reichweite", f"{total} {range_unit_label} {note}"))
         else:
             rows.append(("Reichweite", f"{spell.range_number} {_unit_label(unit, spell.range_number)}"))
     elif spell.range_text:
@@ -119,8 +119,8 @@ def _build_spell_tooltip(entry: CharacterSpell) -> str:
             grade = int(spell.grade)
             total = spell.duration_number * grade
             dur_label = _unit_label(unit, total)
-            rows.append(("Wirkungsdauer", f"{total} {dur_label}"))
-            rows.append(("", f"Grad {grade} × {spell.duration_number} {unit}"))
+            note = f"[[SUB:Grad {grade} × {spell.duration_number} {unit}]]"
+            rows.append(("Wirkungsdauer", f"{total} {dur_label} {note}"))
         else:
             rows.append(("Wirkungsdauer", f"{spell.duration_number} {_unit_label(unit, spell.duration_number)}"))
     elif spell.duration_text:
