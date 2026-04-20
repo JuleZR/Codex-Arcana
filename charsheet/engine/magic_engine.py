@@ -58,6 +58,20 @@ def _escape_tooltip_table_cell(value: object) -> str:
     return str(value if value not in (None, "") else "-").replace("|", "\\|")
 
 
+def _get_character_school_level(entry: CharacterSpell) -> int:
+    """Return the character's current level in the spell's school or aspect, or 0."""
+    if not entry.character_id:
+        return 0
+    spell = entry.spell
+    if spell.school_id:
+        cs = CharacterSchool.objects.filter(character_id=entry.character_id, school_id=spell.school_id).first()
+        return int(cs.level) if cs else 0
+    if spell.aspect_id:
+        ca = CharacterAspect.objects.filter(character_id=entry.character_id, aspect_id=spell.aspect_id).first()
+        return int(ca.level) if ca else 0
+    return 0
+
+
 def _build_spell_tooltip(entry: CharacterSpell) -> str:
     """Return a structured tooltip with spell facts followed by the description."""
     spell = entry.spell
@@ -73,6 +87,8 @@ def _build_spell_tooltip(entry: CharacterSpell) -> str:
     else:
         mw_label = str(int(spell.mw))
     resistance_label = str(spell.resistance_value or "-").strip() or "-"
+
+    school_level = _get_character_school_level(entry)
 
     rows: list[tuple[str, object]] = [
         ("Eigenschaft/Grad", f"{attribute_label}/{int(spell.grade)}"),
@@ -101,10 +117,9 @@ def _build_spell_tooltip(entry: CharacterSpell) -> str:
     if spell.range_number is not None and spell.range_unit:
         unit = spell.get_range_unit_display()
         if spell.range_per_grade:
-            grade = int(spell.grade)
-            total = spell.range_number * grade
+            total = spell.range_number * school_level
             range_unit_label = _unit_label(unit, total)
-            note = f"[[SUB:Grad {grade} × {spell.range_number} {unit}]]"
+            note = f"[[SUB:Stufe {school_level} × {spell.range_number} {unit}]]"
             rows.append(("Reichweite", f"{total} {range_unit_label} {note}"))
         else:
             rows.append(("Reichweite", f"{spell.range_number} {_unit_label(unit, spell.range_number)}"))
@@ -116,10 +131,9 @@ def _build_spell_tooltip(entry: CharacterSpell) -> str:
     elif spell.duration_number is not None and spell.duration_unit:
         unit = spell.get_duration_unit_display()
         if spell.duration_per_grade:
-            grade = int(spell.grade)
-            total = spell.duration_number * grade
+            total = spell.duration_number * school_level
             dur_label = _unit_label(unit, total)
-            note = f"[[SUB:Grad {grade} × {spell.duration_number} {unit}]]"
+            note = f"[[SUB:Stufe {school_level} × {spell.duration_number} {unit}]]"
             rows.append(("Wirkungsdauer", f"{total} {dur_label} {note}"))
         else:
             rows.append(("Wirkungsdauer", f"{spell.duration_number} {_unit_label(unit, spell.duration_number)}"))
