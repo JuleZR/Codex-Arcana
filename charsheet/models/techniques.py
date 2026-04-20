@@ -1340,6 +1340,7 @@ class Spell(models.Model):
     description = models.TextField(blank=True, default="")
     panel_badge_label = models.CharField(max_length=30, blank=True, default="Zauber")
     kp_cost = models.PositiveSmallIntegerField(default=0)
+    ep_cost = models.PositiveSmallIntegerField(null=True, blank=True, verbose_name="EP-Kosten")
     cast_time = models.CharField(max_length=100, blank=True, default="")  # legacy
 
     class CastTimeUnit(models.TextChoices):
@@ -1383,6 +1384,11 @@ class Spell(models.Model):
         max_length=20, blank=True, default="", choices=DurationUnit.choices, verbose_name="Einheit",
     )
     duration_per_grade = models.BooleanField(default=False, verbose_name="pro Stufe")
+    duration2_number = models.PositiveIntegerField(null=True, blank=True, verbose_name="Wirkungsdauer 2")
+    duration2_unit = models.CharField(
+        max_length=20, blank=True, default="", choices=DurationUnit.choices, verbose_name="Einheit 2",
+    )
+    duration2_per_grade = models.BooleanField(default=False, verbose_name="pro Stufe")
     mw = models.PositiveSmallIntegerField("MW", null=True, blank=True)
     resistance_value = models.CharField("Widerstandswert", max_length=100, blank=True, default="")
 

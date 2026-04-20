@@ -93,7 +93,7 @@ def _build_spell_tooltip(entry: CharacterSpell) -> str:
     rows: list[tuple[str, object]] = [
         ("Eigenschaft/Grad", f"{attribute_label}/{int(spell.grade)}"),
         ("MW/Widerstandswert", f"{mw_label}/{resistance_label}"),
-        ("Kosten", f"{int(spell.kp_cost)} KP"),
+        ("Kosten", f"{int(spell.kp_cost)} KP" + (f" [[SUB:oder {int(spell.ep_cost)} EP]]" if spell.ep_cost else "")),
     ]
     _PLURAL = {
         "Aktion": "Aktionen",
@@ -126,17 +126,28 @@ def _build_spell_tooltip(entry: CharacterSpell) -> str:
     elif spell.range_text:
         rows.append(("Reichweite", spell.range_text))
 
-    if spell.duration_unit in ("sofort", "permanent", "Szene"):
-        rows.append(("Wirkungsdauer", spell.get_duration_unit_display()))
-    elif spell.duration_number is not None and spell.duration_unit:
-        unit = spell.get_duration_unit_display()
-        if spell.duration_per_grade:
-            total = spell.duration_number * school_level
-            dur_label = _unit_label(unit, total)
-            note = f"[[SUB:Stufe {school_level} × {spell.duration_number} {unit}]]"
-            rows.append(("Wirkungsdauer", f"{total} {dur_label} {note}"))
-        else:
-            rows.append(("Wirkungsdauer", f"{spell.duration_number} {_unit_label(unit, spell.duration_number)}"))
+    def _duration_label(number, unit_key, per_grade) -> str | None:
+        if unit_key in ("sofort", "permanent", "Szene"):
+            from django.apps import apps
+            return apps.get_model("charsheet", "Spell").DurationUnit(unit_key).label
+        if number is not None and unit_key:
+            from charsheet.models import Spell as _Spell
+            unit = _Spell.DurationUnit(unit_key).label
+            if per_grade:
+                total = number * school_level
+                note = f"[[SUB:Stufe {school_level} × {number} {unit}]]"
+                return f"{total} {_unit_label(unit, total)} {note}"
+            return f"{number} {_unit_label(unit, number)}"
+        return None
+
+    dur1 = _duration_label(spell.duration_number, spell.duration_unit, spell.duration_per_grade)
+    dur2 = _duration_label(spell.duration2_number, spell.duration2_unit, spell.duration2_per_grade)
+    if dur1 and dur2:
+        rows.append(("Wirkungsdauer", f"{dur1} [[SUB:oder {dur2}]]"))
+    elif dur1:
+        rows.append(("Wirkungsdauer", dur1))
+    elif dur2:
+        rows.append(("Wirkungsdauer", dur2))
     elif spell.duration_text:
         rows.append(("Wirkungsdauer", spell.duration_text))
 
