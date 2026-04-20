@@ -3721,7 +3721,7 @@ class SpellAdmin(admin.ModelAdmin):
                 "fields": (
                     ("name", "slug"),
                     ("spell_attribute", "grade"),
-                    ("mw", "resistance_value"),
+                    ("mw", "grade_adds_school_level", "resistance_value"),
                     ("kp_cost",),
                     ("range_text",),
                     ("cast_time",),
@@ -3734,7 +3734,7 @@ class SpellAdmin(admin.ModelAdmin):
             {
                 "classes": ("collapse",),
                 "fields": (
-                    ("panel_badge_label", "grade_adds_school_level"),
+                    ("panel_badge_label",),
                     ("duration_text",),
                 ),
             },

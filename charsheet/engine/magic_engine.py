@@ -66,7 +66,12 @@ def _build_spell_tooltip(entry: CharacterSpell) -> str:
         raw_attribute_label = spell.spell_attribute.short_name or spell.spell_attribute.name
         attribute_label = str(raw_attribute_label).title()
 
-    mw_label = "-" if spell.mw is None else str(int(spell.mw))
+    if spell.mw is None:
+        mw_label = "-"
+    elif spell.grade_adds_school_level:
+        mw_label = f"{int(spell.mw)} + Stufe"
+    else:
+        mw_label = str(int(spell.mw))
     resistance_label = str(spell.resistance_value or "-").strip() or "-"
 
     rows: list[tuple[str, object]] = [
