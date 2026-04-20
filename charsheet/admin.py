@@ -3719,23 +3719,14 @@ class SpellAdmin(admin.ModelAdmin):
             "Zauberdaten",
             {
                 "fields": (
-                    ("name", "slug"),
+                    ("name", "slug", "panel_badge_label"),
                     ("spell_attribute", "grade"),
                     ("mw", "grade_adds_school_level", "resistance_value"),
                     ("kp_cost",),
                     ("range_text",),
                     ("cast_time",),
-                    "description",
-                ),
-            },
-        ),
-        (
-            "Erweitert",
-            {
-                "classes": ("collapse",),
-                "fields": (
-                    ("panel_badge_label",),
                     ("duration_text",),
+                    "description",
                 ),
             },
         ),
