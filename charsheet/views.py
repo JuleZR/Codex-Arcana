@@ -325,21 +325,13 @@ def _build_sheet_context_for_request(
     request, character: Character, *, close_learn_window_once: bool = False, skip_magic_sync: bool = False
 ) -> dict[str, object]:
     """Build the full sheet context including request-specific dice settings."""
-    import logging as _logging
-    import time as _time
-    _perf_log = _logging.getLogger("charsheet.perf")
-    _t0 = _time.perf_counter()
     skip_magic_sync = skip_magic_sync or request.session.pop("skip_magic_sync_once", False)
     if not skip_magic_sync:
         character.get_magic_engine(refresh=True).sync_character_magic()
-    _t1 = _time.perf_counter()
-    _perf_log.warning("[SHEET PERF] sync (skipped=%s): %.3fs", skip_magic_sync, _t1 - _t0)
     context = build_character_sheet_context(
         character,
         close_learn_window_once=close_learn_window_once,
     )
-    _t2 = _time.perf_counter()
-    _perf_log.warning("[SHEET PERF] build_character_sheet_context: %.3fs", _t2 - _t1)
     user_settings, _ = UserSettings.objects.get_or_create(user=request.user)
     context["dddice_enabled"] = user_settings.dddice_enabled
     context["dddice_config"] = {
