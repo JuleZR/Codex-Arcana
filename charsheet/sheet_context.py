@@ -856,11 +856,12 @@ def _build_skill_rows(character: Character, engine, *, load_penalty: int) -> tup
         .select_related("skill", "skill__attribute", "skill__category")
         .order_by("skill__name")
     )
+    skills_map = engine.skills()
     for character_skill in character_skills:
         breakdown = engine.skill_breakdown(character_skill.skill.slug)
         if "error" in breakdown:
             continue
-        skill_info = engine.skills().get(character_skill.skill.slug, {})
+        skill_info = skills_map.get(character_skill.skill.slug, {})
         category_slug = skill_info.get("category")
         skill_id = skill_info.get("skill_id")
         specification = (character_skill.specification or "").strip()
@@ -1831,6 +1832,7 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
         "fly": fly_value,
     }
 
+    _pl.warning("[CTX PERF] stats/etc: %.3fs", _t.perf_counter() - _s); _s = _t.perf_counter()
     learning_context = _build_learning_rows(
         character,
         attributes,
@@ -1838,9 +1840,12 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
         language_entries,
         school_levels,
     )
+    _pl.warning("[CTX PERF] learning_rows: %.3fs", _t.perf_counter() - _s); _s = _t.perf_counter()
     learning_progression_context = build_learning_progression_context(character, engine=engine)
+    _pl.warning("[CTX PERF] learning_progression_context: %.3fs", _t.perf_counter() - _s); _s = _t.perf_counter()
     magic_engine = character.get_magic_engine()
     spell_panel_data = magic_engine.get_spell_panel_data()
+    _pl.warning("[CTX PERF] spell_panel_data: %.3fs", _t.perf_counter() - _s); _s = _t.perf_counter()
     load_tooltip = _build_load_tooltip(engine)
     total_armor_tooltip = _build_total_armor_tooltip(engine)
     shop_quality_choices = [

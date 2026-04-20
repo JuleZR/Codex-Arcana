@@ -70,6 +70,7 @@ class ModifierEngine:
             resolution_mode or os.getenv("CODEX_MODIFIER_MODE")
         )
         self._comparison_log: list[NumericResolutionComparison] = []
+        self._active_modifiers_cache: list[BaseModifier] | None = None
 
     @cached_property
     def _active_trait_modifiers(self) -> list[BaseModifier]:
@@ -116,6 +117,9 @@ class ModifierEngine:
 
     def collect_active_modifiers(self, character=None, context: dict[str, Any] | None = None) -> list[BaseModifier]:
         """Collect all active typed modifiers for the current character and context."""
+        if not context:
+            if self._active_modifiers_cache is not None:
+                return self._active_modifiers_cache
         context = context or {}
         collected = list(self._injected_modifiers)
         if self.character_engine is not None:
@@ -132,7 +136,10 @@ class ModifierEngine:
                 collected.append(modifier)
             collected.extend(self._active_trait_modifiers)
         expanded = self._expand_choice_bound_modifiers(collected)
-        return [modifier for modifier in expanded if modifier is not None and modifier.applies(context)]
+        result = [modifier for modifier in expanded if modifier is not None and modifier.applies(context)]
+        if not context:
+            self._active_modifiers_cache = result
+        return result
 
     def collect_legacy_modifiers(self, context: dict[str, Any] | None = None) -> list[BaseModifier]:
         """Return active legacy modifiers adapted for debug inspection only."""
