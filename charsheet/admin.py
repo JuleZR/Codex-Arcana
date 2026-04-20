@@ -3707,7 +3707,7 @@ class SpellAdmin(admin.ModelAdmin):
     search_fields = ("name", "slug")
     list_filter = ("school", "aspect", "grade", "is_base_spell", "spell_attribute")
     ordering = ("school__name", "aspect__name", "grade", "name")
-    autocomplete_fields = ("school", "aspect", "spell_attribute")
+    autocomplete_fields = ("aspect", "spell_attribute")
     list_select_related = ("school", "school__type", "aspect", "spell_attribute")
     exclude = ("attribute",)
     fieldsets = (
