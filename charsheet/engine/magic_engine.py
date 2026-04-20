@@ -61,28 +61,25 @@ def _escape_tooltip_table_cell(value: object) -> str:
 def _build_spell_tooltip(entry: CharacterSpell) -> str:
     """Return a structured tooltip with spell facts followed by the description."""
     spell = entry.spell
-    owner_label = "Basis"
-    if spell.school_id:
-        owner_label = spell.school.name
-    elif spell.aspect_id:
-        owner_label = spell.aspect.name
+    attribute_label = "-"
+    if spell.spell_attribute_id:
+        raw_attribute_label = spell.spell_attribute.short_name or spell.spell_attribute.name
+        attribute_label = str(raw_attribute_label).title()
+
+    mw_label = "-" if spell.mw is None else str(int(spell.mw))
+    resistance_label = str(spell.resistance_value or "-").strip() or "-"
 
     rows: list[tuple[str, object]] = [
-        ("Herkunft", owner_label),
-        ("Grad", spell.grade),
-        ("Quelle", MagicEngine._source_label_static(entry)),
+        ("Eigenschaft/Grad", f"{attribute_label}/{int(spell.grade)}"),
+        ("MW/Widerstandswert", f"{mw_label}/{resistance_label}"),
+        ("Kosten", f"{int(spell.kp_cost)} KP"),
     ]
-    if spell.spell_attribute_id:
-        rows.append(("Attribut", spell.spell_attribute.name))
-    rows.append(("KP", f"{int(spell.kp_cost)} KP"))
     if spell.cast_time:
-        rows.append(("Zauberzeit", spell.cast_time))
+        rows.append(("Zeitaufwand", spell.cast_time))
     if spell.range_text:
         rows.append(("Reichweite", spell.range_text))
     if spell.duration_text:
-        rows.append(("Dauer", spell.duration_text))
-    if spell.resistance_text:
-        rows.append(("Widerstand", spell.resistance_text))
+        rows.append(("Wirkungsdauer", spell.duration_text))
 
     lines = [
         "| Wert | Details |",

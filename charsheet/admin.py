@@ -7,6 +7,7 @@ from django.contrib import admin
 from django.contrib.admin.helpers import ActionForm
 from django.contrib.contenttypes.admin import GenericStackedInline
 from django import forms
+from django.core.exceptions import NON_FIELD_ERRORS, ValidationError
 from django.http import HttpResponseRedirect, JsonResponse
 from django.db.models import Q
 from django.urls import path, reverse
@@ -640,6 +641,20 @@ class SkillInline(admin.TabularInline):
         return formfield
 
 
+class InlineValidationSafeModelForm(forms.ModelForm):
+    """Remap hidden-field model validation errors into inline form non-field errors."""
+
+    def _update_errors(self, errors):
+        """Keep admin inline POSTs user-facing even when model.clean targets omitted fields."""
+        if hasattr(errors, "error_dict"):
+            normalized_errors = {}
+            for field_name, field_errors in errors.error_dict.items():
+                target_field = field_name if field_name in self.fields else NON_FIELD_ERRORS
+                normalized_errors.setdefault(target_field, []).extend(field_errors)
+            errors = ValidationError(normalized_errors)
+        return super()._update_errors(errors)
+
+
 class RaceAttributeLimitInline(admin.TabularInline):
     """Inline editor for race-specific attribute limits."""
 
@@ -1074,6 +1089,7 @@ class TechniqueInline(admin.TabularInline):
     """Inline editor for techniques belonging to one school."""
 
     model = Technique
+    form = InlineValidationSafeModelForm
     verbose_name_plural = "Techniques by Level"
     extra = 0
     show_change_link = True
@@ -3690,6 +3706,40 @@ class SpellAdmin(admin.ModelAdmin):
     autocomplete_fields = ("school", "aspect", "spell_attribute")
     list_select_related = ("school", "school__type", "aspect", "spell_attribute")
     exclude = ("attribute",)
+    fieldsets = (
+        (
+            "Quelle",
+            {
+                "fields": (
+                    ("school", "aspect", "is_base_spell"),
+                ),
+            },
+        ),
+        (
+            "Zauberdaten",
+            {
+                "fields": (
+                    ("name", "slug"),
+                    ("spell_attribute", "grade"),
+                    ("mw", "resistance_value"),
+                    ("kp_cost",),
+                    ("range_text",),
+                    ("cast_time",),
+                    "description",
+                ),
+            },
+        ),
+        (
+            "Erweitert",
+            {
+                "classes": ("collapse",),
+                "fields": (
+                    ("panel_badge_label", "grade_adds_school_level"),
+                    ("duration_text",),
+                ),
+            },
+        ),
+    )
 
     @admin.display(description="Quelle")
     def spell_owner(self, obj):

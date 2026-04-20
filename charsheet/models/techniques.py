@@ -1343,7 +1343,8 @@ class Spell(models.Model):
     cast_time = models.CharField(max_length=100, blank=True, default="")
     range_text = models.CharField(max_length=100, blank=True, default="")
     duration_text = models.CharField(max_length=100, blank=True, default="")
-    resistance_text = models.CharField(max_length=100, blank=True, default="")
+    mw = models.PositiveSmallIntegerField("MW", null=True, blank=True)
+    resistance_value = models.CharField("Widerstandswert", max_length=100, blank=True, default="")
 
     class Meta:
         ordering = ["school__name", "aspect__name", "grade", "name"]
