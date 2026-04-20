@@ -3737,6 +3737,13 @@ class SpellAdmin(admin.ModelAdmin):
         ),
     )
 
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        if db_field.name == "school":
+            kwargs["queryset"] = db_field.related_model.objects.filter(
+                type__slug="arcane"
+            ).select_related("type")
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
+
     @admin.display(description="Quelle")
     def spell_owner(self, obj):
         return obj.school or obj.aspect
