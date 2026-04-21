@@ -1,0 +1,128 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block extrastyle %}
+{{ block.super }}
+<link rel="stylesheet" href="{% static 'css/admin/index.css' %}">
+{% endblock %}
+
+{% block bodyclass %}{{ block.super }} ca-admin-dashboard{% endblock %}
+
+{% block nav-sidebar %}
+<div class="ca-admin-home__navlogo" aria-hidden="true">
+  <img class="ca-admin-home__navlogo-image" src="{% static 'img/codexarcana.png' %}" alt="">
+</div>
+{% include "admin/nav_sidebar.html" %}
+{% endblock %}
+
+{% block content %}
+<div class="ca-admin-home">
+  <section class="ca-admin-home__hero">
+    <div>
+      <h1>Administration</h1>
+    </div>
+    <div class="ca-admin-home__hero-actions">
+      <a class="button" href="{% url 'admin:password_change' %}">Passwort aendern</a>
+      <a class="button" href="{% url 'admin:logout' %}">Abmelden</a>
+    </div>
+  </section>
+
+  {% if app_list %}
+    <div class="ca-admin-home__sections">
+      {% for app in app_list %}
+        <section class="ca-admin-home__section">
+          <header class="ca-admin-home__section-head">
+            <div>
+              <p class="ca-admin-home__section-kicker">Verwaltung</p>
+              <h2>{{ app.name }}</h2>
+            </div>
+          </header>
+
+          {% regroup app.models by section_name as section_list %}
+          <div class="ca-admin-home__groups">
+            {% for section in section_list %}
+              <section class="ca-admin-home__group">
+                <div class="ca-admin-home__group-head">
+                  <h3>{{ section.grouper }}</h3>
+                  <span>{{ section.list|length }} Eintraege</span>
+                </div>
+
+                {% regroup section.list by is_secondary as visibility_groups %}
+
+                <div class="ca-admin-home__table" role="list">
+                  {% for visibility in visibility_groups %}
+                    {% if not visibility.grouper %}
+                      {% for model in visibility.list %}
+                        <div class="ca-admin-home__row" role="listitem">
+                          <div class="ca-admin-home__row-main">
+                            <div class="ca-admin-home__row-title">
+                              {% if model.admin_url %}
+                                <a href="{{ model.admin_url }}">{{ model.name }}</a>
+                              {% else %}
+                                {{ model.name }}
+                              {% endif %}
+                            </div>
+                            {% if model.object_name %}
+                              <div class="ca-admin-home__row-meta">{{ model.object_name }}</div>
+                            {% endif %}
+                          </div>
+
+                          <div class="ca-admin-home__row-actions">
+                            {% if model.admin_url %}
+                              <a class="button" href="{{ model.admin_url }}">Liste</a>
+                            {% endif %}
+                            {% if model.add_url %}
+                              <a class="button button-secondary" href="{{ model.add_url }}">Neu</a>
+                            {% endif %}
+                          </div>
+                        </div>
+                      {% endfor %}
+                    {% endif %}
+                  {% endfor %}
+                </div>
+
+                {% for visibility in visibility_groups %}
+                  {% if visibility.grouper %}
+                    <details class="ca-admin-home__secondary">
+                      <summary>Seltene Zuordnungs- und Detailmodelle einblenden</summary>
+                      <div class="ca-admin-home__table ca-admin-home__table--secondary" role="list">
+                        {% for model in visibility.list %}
+                          <div class="ca-admin-home__row ca-admin-home__row--secondary" role="listitem">
+                            <div class="ca-admin-home__row-main">
+                              <div class="ca-admin-home__row-title">
+                                {% if model.admin_url %}
+                                  <a href="{{ model.admin_url }}">{{ model.name }}</a>
+                                {% else %}
+                                  {{ model.name }}
+                                {% endif %}
+                              </div>
+                              {% if model.object_name %}
+                                <div class="ca-admin-home__row-meta">{{ model.object_name }}</div>
+                              {% endif %}
+                            </div>
+
+                            <div class="ca-admin-home__row-actions">
+                              {% if model.admin_url %}
+                                <a class="button" href="{{ model.admin_url }}">Liste</a>
+                              {% endif %}
+                              {% if model.add_url %}
+                                <a class="button button-secondary" href="{{ model.add_url }}">Neu</a>
+                              {% endif %}
+                            </div>
+                          </div>
+                        {% endfor %}
+                      </div>
+                    </details>
+                  {% endif %}
+                {% endfor %}
+              </section>
+            {% endfor %}
+          </div>
+        </section>
+      {% endfor %}
+    </div>
+  {% else %}
+    <p>{% translate "You do not have permission to view or edit anything." %}</p>
+  {% endif %}
+</div>
+{% endblock %}

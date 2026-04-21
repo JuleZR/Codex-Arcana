@@ -1,0 +1,214 @@
+.ca-admin-dashboard #container > .main {
+  flex-wrap: wrap;
+}
+
+.ca-admin-home__navlogo {
+  flex: 0 0 100%;
+  display: flex;
+  justify-content: flex-start;
+  padding: 0 0 0.35rem;
+}
+
+.ca-admin-home__navlogo-image {
+  display: block;
+  width: min(100%, 340px);
+  height: auto;
+}
+
+.ca-admin-home {
+  display: grid;
+  gap: 1.1rem;
+}
+
+.ca-admin-home__hero {
+  display: flex;
+  justify-content: space-between;
+  gap: 1.5rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--hairline-color, #e8e8e8);
+  border-radius: 14px;
+  background: var(--body-bg, #fff);
+  box-shadow: none;
+}
+
+.ca-admin-home__eyebrow,
+.ca-admin-home__section-kicker {
+  margin: 0 0 0.35rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--header-link-color, #ffc);
+}
+
+.ca-admin-home__hero h1,
+.ca-admin-home__section-head h2 {
+  margin: 0;
+  color: var(--body-fg, #333);
+}
+
+.ca-admin-home__intro,
+.ca-admin-home__section-note {
+  margin: 0.45rem 0 0;
+  max-width: 70ch;
+  color: var(--body-quiet-color, #666);
+}
+
+.ca-admin-home__hero-actions {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.ca-admin-home__sections {
+  display: grid;
+  gap: 1rem;
+}
+
+.ca-admin-home__section {
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--hairline-color, #e8e8e8);
+  border-radius: 14px;
+  background: var(--body-bg, #fff);
+  box-shadow: none;
+}
+
+.ca-admin-home__section-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-end;
+  margin-bottom: 1rem;
+  padding-bottom: 0.9rem;
+  border-bottom: 1px solid var(--hairline-color, #e8e8e8);
+}
+
+.ca-admin-home__groups {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.ca-admin-home__group {
+  display: grid;
+  gap: 0.6rem;
+  padding: 0.85rem 0.95rem 0.95rem;
+  border: 1px solid var(--hairline-color, #e8e8e8);
+  border-radius: 12px;
+  background: var(--darkened-bg, #f8f8f8);
+}
+
+.ca-admin-home__group-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+  padding-bottom: 0.45rem;
+  border-bottom: 1px solid var(--hairline-color, #e8e8e8);
+}
+
+.ca-admin-home__group-head h3 {
+  margin: 0;
+  font-size: 0.98rem;
+  color: var(--body-fg, #333);
+}
+
+.ca-admin-home__group-head span {
+  font-size: 0.82rem;
+  color: var(--body-quiet-color, #666);
+}
+
+.ca-admin-home__table {
+  display: grid;
+}
+
+.ca-admin-home__table--secondary {
+  margin-top: 0.4rem;
+}
+
+.ca-admin-home__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.55rem 0;
+  border-bottom: 1px solid var(--hairline-color, #e8e8e8);
+}
+
+.ca-admin-home__row:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.ca-admin-home__row:first-child {
+  padding-top: 0.1rem;
+}
+
+.ca-admin-home__row-main {
+  min-width: 0;
+}
+
+.ca-admin-home__row-title {
+  font-weight: 700;
+}
+
+.ca-admin-home__row-title a {
+  text-decoration: none;
+  color: var(--link-fg, #447e9b);
+}
+
+.ca-admin-home__row-meta {
+  margin-top: 0.18rem;
+  font-family: Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 0.8rem;
+  color: var(--body-quiet-color, #666);
+}
+
+.ca-admin-home__row-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.ca-admin-home__row-actions .button {
+  margin: 0;
+  min-width: 4.25rem;
+  text-align: center;
+}
+
+.ca-admin-home__secondary {
+  margin-top: 0.35rem;
+  border-top: 1px dashed var(--hairline-color, #e8e8e8);
+  padding-top: 0.55rem;
+}
+
+.ca-admin-home__secondary summary {
+  cursor: pointer;
+  color: var(--body-quiet-color, #666);
+  font-weight: 700;
+}
+
+.ca-admin-home__secondary[open] summary {
+  margin-bottom: 0.35rem;
+}
+
+.ca-admin-home__row--secondary {
+  opacity: 0.88;
+}
+
+@media (max-width: 900px) {
+  .ca-admin-home__hero,
+  .ca-admin-home__section-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .ca-admin-home__row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .ca-admin-home__row-actions {
+    width: 100%;
+  }
+}

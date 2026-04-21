@@ -14,6 +14,31 @@ from django.urls import path, reverse
 from django.utils.html import format_html, format_html_join
 
 from .constants import QUALITY_COLOR_MAP
+from .admin_help import (
+    ATTRIBUTE_CHOICE_HELP,
+    CHARACTER_CHOICE_HELP,
+    ITEM_CHOICE_HELP,
+    MODIFIER_CHOICE_HELP,
+    MODIFIER_LABELS,
+    PROGRESSION_RULE_CHOICE_HELP,
+    RACE_ADMIN_LABELS,
+    RACE_CHOICE_DEFINITION_HELP,
+    RACE_CHOICE_DEFINITION_LABELS,
+    SCHOOL_ADMIN_LABELS,
+    SCHOOL_TYPE_CHOICE_HELP,
+    SHIELD_CHOICE_HELP,
+    SIZE_CLASS_HELP,
+    SKILL_CATEGORY_CHOICE_HELP,
+    SPECIALIZATION_CHOICE_HELP,
+    SPECIALIZATION_LABELS,
+    TECHNIQUE_CHOICE_BLOCK_HELP,
+    TECHNIQUE_CHOICE_BLOCK_LABELS,
+    TECHNIQUE_CHOICE_DEFINITION_HELP,
+    TECHNIQUE_CHOICE_HELP,
+    TECHNIQUE_LABELS,
+    TRAIT_CHOICE_HELP,
+    WEAPON_CHOICE_HELP,
+)
 from .engine.item_engine import ItemEngine
 from .modifiers.legacy import LegacyModifierAdapter
 from .modifiers.registry import build_trait_semantic_modifiers
@@ -85,6 +110,197 @@ WeaponStats._meta.verbose_name = "Weapon Stats"
 WeaponStats._meta.verbose_name_plural = "Weapon Stats"
 MagicItemStats._meta.verbose_name = "Magic Item Stats"
 MagicItemStats._meta.verbose_name_plural = "Magic Item Stats"
+
+admin.site.site_header = "Codex Arcana Administration"
+admin.site.site_title = "Codex Arcana Admin"
+admin.site.index_title = "Regelwerk, Charaktere und Inhalte"
+
+ADMIN_MODEL_ORDER = {
+    "Character": 10,
+    "CharacterCreationDraft": 11,
+    "CharacterAttribute": 12,
+    "CharacterSkill": 13,
+    "CharacterSchool": 14,
+    "CharacterSchoolPath": 15,
+    "CharacterTechnique": 16,
+    "CharacterTechniqueChoice": 17,
+    "CharacterTrait": 18,
+    "CharacterTraitChoice": 19,
+    "CharacterRaceChoice": 20,
+    "CharacterSpecialization": 21,
+    "CharacterItem": 22,
+    "CharacterLanguage": 23,
+    "CharacterDiaryEntry": 24,
+    "CharacterAspect": 25,
+    "CharacterSpellSource": 26,
+    "CharacterSpell": 27,
+    "CharacterDivineEntity": 28,
+    "CharacterWeaponMastery": 29,
+    "CharacterWeaponMasteryArcana": 30,
+    "Race": 40,
+    "RaceAttributeLimit": 41,
+    "RaceTechnique": 42,
+    "RaceStartingItem": 43,
+    "RaceChoiceDefinition": 44,
+    "Attribute": 50,
+    "SkillCategory": 51,
+    "Skill": 52,
+    "Language": 53,
+    "Trait": 60,
+    "TraitExclusion": 61,
+    "TraitChoiceDefinition": 62,
+    "Modifier": 70,
+    "SchoolType": 80,
+    "School": 81,
+    "SchoolPath": 82,
+    "ProgressionRule": 83,
+    "TechniqueChoiceBlock": 84,
+    "TechniqueChoiceDefinition": 85,
+    "Technique": 86,
+    "TechniqueRequirement": 87,
+    "TechniqueExclusion": 88,
+    "Specialization": 89,
+    "Item": 100,
+    "ArmorStats": 101,
+    "ShieldStats": 102,
+    "WeaponStats": 103,
+    "MagicItemStats": 104,
+    "DamageSource": 105,
+    "WeaponFlag": 106,
+    "Rune": 107,
+    "Aspect": 120,
+    "Spell": 121,
+    "DivineEntity": 122,
+    "DivineEntityAspect": 123,
+    "UserSettings": 140,
+}
+
+ADMIN_MODEL_SECTIONS = {
+    "Character": (10, "Charaktere"),
+    "CharacterCreationDraft": (11, "Charaktere"),
+    "CharacterDiaryEntry": (12, "Charaktere"),
+    "CharacterAttribute": (20, "Charakterwerte"),
+    "CharacterSkill": (21, "Charakterwerte"),
+    "CharacterLanguage": (22, "Charakterwerte"),
+    "CharacterItem": (23, "Charakterwerte"),
+    "CharacterTrait": (24, "Charakterwerte"),
+    "CharacterSchool": (25, "Charakterwerte"),
+    "CharacterSchoolPath": (26, "Charakterwerte"),
+    "CharacterTechnique": (27, "Charakterwerte"),
+    "CharacterTechniqueChoice": (28, "Charakterwerte"),
+    "CharacterTraitChoice": (29, "Charakterwerte"),
+    "CharacterRaceChoice": (30, "Charakterwerte"),
+    "CharacterSpecialization": (31, "Charakterwerte"),
+    "CharacterAspect": (32, "Charakterwerte"),
+    "CharacterSpellSource": (33, "Charakterwerte"),
+    "CharacterSpell": (34, "Charakterwerte"),
+    "CharacterDivineEntity": (35, "Charakterwerte"),
+    "CharacterWeaponMastery": (36, "Charakterwerte"),
+    "CharacterWeaponMasteryArcana": (37, "Charakterwerte"),
+    "Race": (40, "Regelwerk: Herkunft"),
+    "RaceAttributeLimit": (41, "Regelwerk: Herkunft"),
+    "RaceTechnique": (42, "Regelwerk: Herkunft"),
+    "RaceStartingItem": (43, "Regelwerk: Herkunft"),
+    "RaceChoiceDefinition": (44, "Regelwerk: Herkunft"),
+    "Attribute": (50, "Regelwerk: Grundlagen"),
+    "SkillCategory": (51, "Regelwerk: Grundlagen"),
+    "Skill": (52, "Regelwerk: Grundlagen"),
+    "Language": (53, "Regelwerk: Grundlagen"),
+    "Trait": (60, "Regelwerk: Traits"),
+    "TraitExclusion": (61, "Regelwerk: Traits"),
+    "TraitChoiceDefinition": (62, "Regelwerk: Traits"),
+    "Modifier": (70, "Regelwerk: Engine"),
+    "SchoolType": (80, "Regelwerk: Schulen"),
+    "School": (81, "Regelwerk: Schulen"),
+    "SchoolPath": (82, "Regelwerk: Schulen"),
+    "ProgressionRule": (83, "Regelwerk: Schulen"),
+    "TechniqueChoiceBlock": (84, "Regelwerk: Schulen"),
+    "TechniqueChoiceDefinition": (85, "Regelwerk: Schulen"),
+    "Technique": (86, "Regelwerk: Schulen"),
+    "TechniqueRequirement": (87, "Regelwerk: Schulen"),
+    "TechniqueExclusion": (88, "Regelwerk: Schulen"),
+    "Specialization": (89, "Regelwerk: Schulen"),
+    "Item": (100, "Items und Kampf"),
+    "ArmorStats": (101, "Items und Kampf"),
+    "ShieldStats": (102, "Items und Kampf"),
+    "WeaponStats": (103, "Items und Kampf"),
+    "MagicItemStats": (104, "Items und Kampf"),
+    "DamageSource": (105, "Items und Kampf"),
+    "WeaponFlag": (106, "Items und Kampf"),
+    "Rune": (107, "Items und Kampf"),
+    "Aspect": (120, "Magie und Goettliches"),
+    "Spell": (121, "Magie und Goettliches"),
+    "DivineEntity": (122, "Magie und Goettliches"),
+    "DivineEntityAspect": (123, "Magie und Goettliches"),
+    "UserSettings": (140, "System"),
+}
+
+ADMIN_SECONDARY_MODELS = {
+    "CharacterAttribute",
+    "CharacterSkill",
+    "CharacterSchool",
+    "CharacterSchoolPath",
+    "CharacterTechnique",
+    "CharacterTechniqueChoice",
+    "CharacterTrait",
+    "CharacterTraitChoice",
+    "CharacterRaceChoice",
+    "CharacterSpecialization",
+    "CharacterItem",
+    "CharacterLanguage",
+    "CharacterAspect",
+    "CharacterSpellSource",
+    "CharacterSpell",
+    "CharacterDivineEntity",
+    "CharacterWeaponMastery",
+    "CharacterWeaponMasteryArcana",
+    "RaceAttributeLimit",
+    "RaceTechnique",
+    "RaceStartingItem",
+    "RaceChoiceDefinition",
+    "TraitExclusion",
+    "TraitChoiceDefinition",
+    "ProgressionRule",
+    "TechniqueChoiceBlock",
+    "TechniqueChoiceDefinition",
+    "TechniqueRequirement",
+    "TechniqueExclusion",
+    "ArmorStats",
+    "ShieldStats",
+    "WeaponStats",
+    "MagicItemStats",
+    "DivineEntityAspect",
+}
+
+_default_get_app_list = admin.site.get_app_list
+
+
+def _get_sorted_app_list(request, app_label=None):
+    """Keep the admin index and sidebar in a domain-oriented order."""
+    app_list = _default_get_app_list(request, app_label)
+    for app in app_list:
+        for model in app["models"]:
+            object_name = model.get("object_name")
+            section_rank, section_name = ADMIN_MODEL_SECTIONS.get(
+                object_name,
+                (999, "Weitere Bereiche"),
+            )
+            model["section_rank"] = section_rank
+            model["section_name"] = section_name
+            model["is_secondary"] = object_name in ADMIN_SECONDARY_MODELS
+        app["models"].sort(
+            key=lambda model: (
+                1 if model.get("is_secondary") else 0,
+                model.get("section_rank", 999),
+                ADMIN_MODEL_ORDER.get(model.get("object_name"), 999),
+                model.get("name", "").lower(),
+            )
+        )
+    app_list.sort(key=lambda app: (0 if app.get("app_label") == "charsheet" else 1, app.get("name", "").lower()))
+    return app_list
+
+
+admin.site.get_app_list = _get_sorted_app_list
 
 
 def _quality_badge(quality: str):
@@ -3943,230 +4159,6 @@ class UserSettingsAdmin(admin.ModelAdmin):
     autocomplete_fields = ("user",)
     list_select_related = ("user",)
 
-
-ATTRIBUTE_CHOICE_HELP = {
-    "short_name": "Pick the canonical attribute code used by the rules and sheet.",
-}
-
-SKILL_CATEGORY_CHOICE_HELP = {
-    "slug": "Pick the fixed category key. The German labels are the actual category buckets used in the game.",
-}
-
-SIZE_CLASS_HELP = {
-    "size_class": "Size class scale: S/F/W/K are smaller than average, M is average human size, G/R/Gi/Kol are progressively larger.",
-}
-
-CHARACTER_CHOICE_HELP = {
-    "gender": "Display value only. Use the option that should appear on the character sheet.",
-}
-
-SCHOOL_TYPE_CHOICE_HELP = {
-    "slug": "Magieschule = arkane Schulen, Klerikaler Aspekt = goettliche Schulen, Kampfschule = Kampfschulen.",
-}
-
-PROGRESSION_RULE_CHOICE_HELP = {
-    "grant_kind": (
-        "Technique Choice = grants selectable techniques, Spell Choice = grants "
-        "selectable spells, Aspect Access = unlocks an aspect, Aspect Spell = "
-        "grants a spell from an aspect."
-    ),
-}
-
-MODIFIER_CHOICE_HELP = {
-    "target_kind": (
-        "Skill = one specific skill, Skill Category = one entire skill category, "
-        "Stat = a derived stat, Item/Item Category = an item or item category, "
-        "Specialization = a school-bound specialization, Other Entity = any other "
-        "game entity. Persisted legacy rows are translated into the central "
-        "modifier architecture; semantic trait effects live there as well."
-    ),
-    "target_choice_definition": (
-        "Optional choice definition link. If set, the modifier target kind must "
-        "match the choice definition target kind."
-    ),
-    "target_race_choice_definition": (
-        "Optional race choice definition link. If set, the modifier target kind "
-        "must match the race choice definition target kind."
-    ),
-    "mode": (
-        "Flat = fixed value, Scaled = value is calculated from another source. "
-        "Persisted rows are translated into typed central-engine modifiers before "
-        "they are resolved."
-    ),
-    "scale_source": (
-        "School level = scales with a school level, Fame total = scales with total "
-        "fame rank, Trait level = scales with the source trait level, Skill level "
-        "= uses the learned ranks of one skill, Skill total = uses the fully "
-        "resolved value of one skill. Skill-based scaling is limited to stat "
-        "targets."
-    ),
-    "scale_skill": "Required for skill-based scaling or caps. Choose which skill provides the learned level or full total.",
-    "round_mode": "Floor = round down after division, Ceil = round up after division.",
-    "cap_mode": "None = no cap, Min = do not go below the cap value, Max = do not go above the cap value.",
-    "cap_source": "Uses the same source types as scaling, but only to define the cap value. Skill-based caps also require scale_skill.",
-    "target_slug": (
-        "For stats and categories, enter the rule key here. For Skill/Category "
-        "targets, you can use the related object field instead."
-    ),
-}
-
-TECHNIQUE_CHOICE_HELP = {
-    "technique_type": "Passive = persistent effect, Active = technique used actively, Situational = only relevant in specific situations.",
-    "acquisition_type": "Automatic = learned directly, Choice = selected from multiple options.",
-    "support_level": (
-        "Automated = the engine evaluates the rule fully, Partially Automated = "
-        "parts are structured and evaluable, Manual (Rule Text Only) = rule text "
-        "only with no automatic calculation."
-    ),
-    "choice_target_kind": (
-        "Simple mode for a single persistent choice. For multiple separate "
-        "decisions, use the inline choice definitions instead."
-    ),
-    "choice_group": "Pure UI/import metadata. This group does not create any rule mechanics.",
-    "specialization_slot_grants": (
-        "How many specialization slots become available once the technique is "
-        "actually learned. Techniques that are only available do not count."
-    ),
-    "action_type": "Action = standard action, Reaction = reaction, Free = free action, Preparation = preparation.",
-    "usage_type": "At Will = unlimited use, Per Scene = once per scene, Per Combat = once per combat, Per Day = once per day.",
-    "choice_block": "Optional choice block if the technique belongs to a real rulebook choice point.",
-    "selection_notes": "Short plain-language note describing what must be selected or observed for this technique.",
-    "target_choice_definition": (
-        "Optional target definition if this technique explicitly points to a "
-        "specific choice definition of another technique."
-    ),
-}
-
-TECHNIQUE_CHOICE_BLOCK_HELP = {
-    "name": "Short name of the choice block so the rulebook location can be found again in the admin.",
-    "min_choices": "How many techniques from this block must be learned at minimum.",
-    "max_choices": "How many techniques from this block may be learned at most.",
-}
-
-TECHNIQUE_CHOICE_DEFINITION_HELP = {
-    "target_kind": "Defines which kind of target this technique decision stores persistently.",
-    "min_choices": "How many selections must be stored for this single decision at minimum.",
-    "max_choices": "How many selections may be stored for this single decision at maximum.",
-    "allowed_skill_category": "Optional filter restricting skill choices to one specific skill category.",
-    "allowed_skill_family": "Optional filter restricting skill choices to one specific skill family.",
-}
-
-RACE_CHOICE_DEFINITION_HELP = {
-    "target_kind": "Defines which kind of target this race decision stores persistently.",
-    "min_choices": "How many selections must be stored for this single race decision at minimum.",
-    "max_choices": "How many selections may be stored for this single race decision at maximum.",
-    "allowed_skill_category": "Optional filter restricting skill choices to one specific skill category.",
-    "allowed_skill_family": "Optional filter restricting skill choices to one specific skill family.",
-}
-
-SPECIALIZATION_CHOICE_HELP = {
-    "support_level": (
-        "Automated = the engine evaluates the rule fully, Partially Automated = "
-        "parts are structured and evaluable, Manual (Rule Text Only) = rule text "
-        "only with no automatic calculation."
-    ),
-}
-
-SCHOOL_ADMIN_LABELS = {
-    "type": "School Type",
-    "panel_symbol": "Panel Symbol",
-    "description": "Description",
-}
-
-RACE_ADMIN_LABELS = {
-    "size_class": "SizeClass",
-}
-
-MODIFIER_LABELS = {
-    "target_choice_definition": "Technique Choice Definition",
-    "target_race_choice_definition": "Race Choice Definition",
-}
-
-RACE_CHOICE_DEFINITION_LABELS = {
-    "race": "Race",
-}
-
-TECHNIQUE_LABELS = {
-    "school": "School",
-    "path": "Path",
-    "level": "Level",
-    "choice_block": "Choice Block",
-    "technique_type": "Technique Type",
-    "acquisition_type": "Acquisition Type",
-    "support_level": "Rule Support",
-    "is_choice_placeholder": "Choice Placeholder",
-    "choice_group": "Organization Group",
-    "selection_notes": "Selection Notes",
-    "choice_target_kind": "Choice Target",
-    "choice_limit": "Choice Count",
-    "target_choice_definition": "Target Choice Definition",
-    "choice_bonus_value": "Fixed Bonus",
-    "specialization_slot_grants": "Specialization Slots",
-    "action_type": "Action Type",
-    "usage_type": "Usage Type",
-    "activation_cost": "Cost",
-    "activation_cost_resource": "Cost Resource",
-    "description": "Rule Text / Description",
-}
-
-TECHNIQUE_CHOICE_BLOCK_LABELS = {
-    "school": "School",
-    "path": "Path",
-    "level": "Level",
-    "name": "Name",
-    "sort_order": "Sort Order",
-    "min_choices": "Min. Choices",
-    "max_choices": "Max. Choices",
-    "description": "Rule Text / Description",
-}
-
-SPECIALIZATION_LABELS = {
-    "school": "School",
-    "name": "Name",
-    "slug": "Key",
-    "support_level": "Rule Support",
-    "sort_order": "Sort Order",
-    "is_active": "Active",
-    "description": "Rule Text / Description",
-}
-
-ITEM_CHOICE_HELP = {
-    "item_type": (
-        "Armor = armor, Shield = shield, Weapon = weapon, Consumable = consumable "
-        "item, Ammo = ammunition, Misc = miscellaneous item."
-    ),
-    "default_quality": "Default item quality; used when no inventory-specific quality has been set.",
-    "stackable": "Armor, shields, and weapons are validated as non-stackable.",
-    "is_consumable": "Marks items that are actively consumed on use; separate from stackability.",
-}
-
-WEAPON_CHOICE_HELP = {
-    "damage_source": "Optional finer-grained damage source such as slash, thrust, projectile, or elemental source for modifier resolution.",
-    "damage_type": "Deadly = lethal physical damage, Stun = non-lethal damage.",
-    "wield_mode": "1H = one-handed only, 2H = two-handed only, V/H = versatile with separate two-handed damage values.",
-    "h2_dice_amount": "Required for 2H and versatile weapons.",
-    "h2_dice_faces": "Required for 2H and versatile weapons.",
-    "h2_flat_bonus": "Optional flat bonus for the two-handed profile.",
-    "flags": "Optional weapon symbols or traits such as rulebook keywords.",
-}
-
-SHIELD_CHOICE_HELP = {
-    "encumbrance": "Shield encumbrance.",
-    "min_st": "Minimum strength required to use the shield.",
-}
-
-TRAIT_CHOICE_HELP = {
-    "trait_type": (
-        "Advantage = beneficial trait, Disadvantage = drawback or penalty trait. "
-        "Traits can now also project semantic effects such as flags, capabilities, "
-        "social markers, or narrative constraints in the central modifier layer."
-    ),
-    "description": (
-        "Keep the full rules text here. The central modifier layer may add "
-        "structured automation on top of this text, but it does not replace the "
-        "complete rule wording."
-    ),
-}
 
 _install_inline_help(ModifierInline, help_texts=MODIFIER_CHOICE_HELP, labels=MODIFIER_LABELS)
 _install_inline_help(ProgressionRuleInline, help_texts=PROGRESSION_RULE_CHOICE_HELP)
