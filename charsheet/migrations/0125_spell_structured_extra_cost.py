@@ -53,6 +53,10 @@ class Migration(migrations.Migration):
                         DROP COLUMN IF EXISTS extra_cost_value;
                     """,
                 ),
+                migrations.RunSQL(
+                    sql="ALTER TABLE charsheet_spell DROP COLUMN IF EXISTS extra_cost",
+                    reverse_sql="ALTER TABLE charsheet_spell ADD COLUMN IF NOT EXISTS extra_cost varchar(150) NOT NULL DEFAULT ''",
+                ),
             ],
             state_operations=[
                 migrations.AddField(
@@ -71,11 +75,11 @@ class Migration(migrations.Migration):
                     name="extra_cost_value",
                     field=models.PositiveSmallIntegerField(blank=True, null=True, verbose_name="Zusatzkosten-Wert"),
                 ),
+                migrations.RemoveField(
+                    model_name="spell",
+                    name="extra_cost",
+                ),
             ],
         ),
         migrations.RunPython(migrate_extra_cost_to_structured, migrations.RunPython.noop),
-        migrations.RunSQL(
-            sql="ALTER TABLE charsheet_spell DROP COLUMN IF EXISTS extra_cost",
-            reverse_sql="ALTER TABLE charsheet_spell ADD COLUMN IF NOT EXISTS extra_cost varchar(150) NOT NULL DEFAULT ''",
-        ),
     ]
