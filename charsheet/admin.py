@@ -1532,6 +1532,33 @@ class TraitSemanticEffectInlineForm(forms.ModelForm):
         return cleaned_data
 
 
+class SpellAdminForm(forms.ModelForm):
+    class Meta:
+        model = Spell
+        fields = "__all__"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["kp_cost"].required = False
+        self.fields["ep_cost"].required = False
+
+    def clean(self):
+        cleaned_data = super().clean()
+        kp_cost = cleaned_data.get("kp_cost")
+        ep_cost = cleaned_data.get("ep_cost")
+
+        if kp_cost in (None, ""):
+            cleaned_data["kp_cost"] = 0
+            kp_cost = 0
+
+        if not kp_cost and not ep_cost:
+            message = "Setze KP-Kosten oder EP-Kosten."
+            self.add_error("kp_cost", message)
+            self.add_error("ep_cost", message)
+
+        return cleaned_data
+
+
 class TraitSemanticEffectInline(admin.StackedInline):
     """Inline editor for persisted new-system semantic trait effects."""
 
@@ -3703,6 +3730,7 @@ class AspectAdmin(admin.ModelAdmin):
 
 @admin.register(Spell)
 class SpellAdmin(admin.ModelAdmin):
+    form = SpellAdminForm
     list_display = ("name", "spell_owner", "spell_family", "grade", "panel_badge_label", "spell_attribute", "is_base_spell", "kp_cost")
     search_fields = ("name", "slug")
     list_filter = ("school", "aspect", "grade", "is_base_spell", "spell_attribute")

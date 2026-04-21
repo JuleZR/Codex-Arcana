@@ -1339,7 +1339,7 @@ class Spell(models.Model):
 
     description = models.TextField(blank=True, default="")
     panel_badge_label = models.CharField(max_length=30, blank=True, default="Zauber")
-    kp_cost = models.PositiveSmallIntegerField(default=0)
+    kp_cost = models.PositiveSmallIntegerField(default=0, blank=True)
     ep_cost = models.PositiveSmallIntegerField(null=True, blank=True, verbose_name="EP-Kosten")
     cast_time = models.CharField(max_length=100, blank=True, default="")  # legacy
 
@@ -1415,6 +1415,13 @@ class Spell(models.Model):
                 raise ValidationError("A spell must belong to either a school or an aspect.")
             if self.school_id and self.aspect_id:
                 raise ValidationError("A spell cannot belong to both a school and an aspect.")
+        if not self.kp_cost and not self.ep_cost:
+            raise ValidationError(
+                {
+                    "kp_cost": "Setze KP-Kosten oder EP-Kosten.",
+                    "ep_cost": "Setze KP-Kosten oder EP-Kosten.",
+                }
+            )
 
     def __str__(self):
         if self.school_id:
