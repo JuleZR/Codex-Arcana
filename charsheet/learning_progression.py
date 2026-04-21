@@ -93,6 +93,7 @@ def _build_decision_option(
     meta: str = "",
     description: str = "",
     badge: str = "",
+    facts: str = "",
 ) -> dict[str, str]:
     """Return one serialized option for the choice modal payload."""
     return {
@@ -100,6 +101,7 @@ def _build_decision_option(
         "label": label,
         "meta": meta,
         "badge": badge,
+        "facts": facts,
         "description": description,
         "submit_name": submit_name,
         "submit_value": submit_value,
@@ -145,6 +147,76 @@ def _spell_within_current_level(spell: Spell, *, school_levels: dict[int, int], 
     if spell.aspect_id:
         return int(spell.grade) <= int(aspect_levels.get(spell.aspect_id, 0))
     return True
+
+
+def _spell_unit_label(unit_display: str, number: int) -> str:
+    plural_map = {
+        "Aktion": "Aktionen",
+        "Minute": "Minuten",
+        "Stunde": "Stunden",
+        "Tag": "Tage",
+        "Runde": "Runden",
+    }
+    if number != 1 and unit_display in plural_map:
+        return plural_map[unit_display]
+    return unit_display
+
+
+def _spell_cost_facts(spell: Spell) -> str:
+    parts = [f"{int(spell.kp_cost)} KP"]
+    if spell.ep_cost:
+        parts.append(f"oder {int(spell.ep_cost)} EP")
+    if spell.extra_cost_type == getattr(Spell.ExtraCostType, "WOUND_GRADE", "") and spell.extra_cost_value:
+        amount = int(spell.extra_cost_value)
+        parts.append(f"und {amount} {'Wundgrad' if amount == 1 else 'Wundgrade'}")
+    return " ".join(parts)
+
+
+def _spell_cast_time_facts(spell: Spell) -> str:
+    parts: list[str] = []
+    if spell.cast_time_number is not None and spell.cast_time_unit:
+        unit = Spell.CastTimeUnit(spell.cast_time_unit).label
+        parts.append(f"{spell.cast_time_number} {_spell_unit_label(unit, int(spell.cast_time_number))}")
+    if spell.cast_time2_number is not None and spell.cast_time2_unit:
+        unit = Spell.CastTimeUnit(spell.cast_time2_unit).label
+        parts.append(f"{spell.cast_time2_number} {_spell_unit_label(unit, int(spell.cast_time2_number))}")
+    return " oder ".join(parts) or str(spell.cast_time or "").strip() or "-"
+
+
+def _spell_range_facts(spell: Spell) -> str:
+    if spell.range_number is not None and spell.range_unit:
+        unit = Spell.RangeUnit(spell.range_unit).label
+        return f"{spell.range_number} {_spell_unit_label(unit, int(spell.range_number))}"
+    return str(spell.range_text or "").strip() or "-"
+
+
+def _spell_duration_facts(spell: Spell) -> str:
+    def _part(number, unit_key) -> str:
+        if unit_key in ("sofort", "permanent", "Szene", "Konzentration"):
+            return Spell.DurationUnit(unit_key).label
+        if number is not None and unit_key:
+            unit = Spell.DurationUnit(unit_key).label
+            return f"{number} {_spell_unit_label(unit, int(number))}"
+        return ""
+
+    parts = [part for part in [
+        _part(spell.duration_number, spell.duration_unit),
+        _part(spell.duration2_number, spell.duration2_unit),
+    ] if part]
+    return " oder ".join(parts) or str(spell.duration_text or "").strip() or "-"
+
+
+def _spell_choice_facts(spell: Spell) -> str:
+    mw_label = "-" if spell.mw is None else str(int(spell.mw))
+    resistance_label = str(spell.resistance_value or "-").strip() or "-"
+    return " | ".join([
+        f"Grad {int(spell.grade)}",
+        f"MW/RW {mw_label}/{resistance_label}",
+        f"Kosten {_spell_cost_facts(spell)}",
+        f"Zeitaufwand {_spell_cast_time_facts(spell)}",
+        f"Reichweite {_spell_range_facts(spell)}",
+        f"Wirkungsdauer {_spell_duration_facts(spell)}",
+    ])
 
 
 def build_learning_progression_context(character, *, engine) -> dict[str, object]:
@@ -195,6 +267,7 @@ def build_learning_progression_context(character, *, engine) -> dict[str, object
                             option_id=str(s.id),
                             label=s.name,
                             meta=f"Grad {s.grade}",
+                            facts=_spell_choice_facts(s),
                             description=s.description or "",
                             submit_name=_field,
                             submit_value=str(s.id),
@@ -348,6 +421,7 @@ def build_learning_progression_context(character, *, engine) -> dict[str, object
                             label=spell.name,
                             meta=f"Grad {spell.grade}",
                             badge=(spell.panel_badge_label or "").strip(),
+                            facts=_spell_choice_facts(spell),
                             description=spell.description or "",
                             submit_name=row["field_name"],
                             submit_value=str(spell.id),
@@ -390,6 +464,7 @@ def build_learning_progression_context(character, *, engine) -> dict[str, object
                             label=spell.name,
                             meta=f"{spell.school.name if spell.school_id else spell.aspect.name} | Grad {spell.grade}",
                             badge=(spell.panel_badge_label or "").strip(),
+                            facts=_spell_choice_facts(spell),
                             description=spell.description or "",
                             submit_name=row["field_name"],
                             submit_value=str(spell.id),

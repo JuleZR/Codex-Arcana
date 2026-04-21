@@ -123,9 +123,12 @@
                                 {% endif %}
                               </span>
                             {% endif %}
-                            {% if option.description %}
+                            {% if option.description or option.facts %}
                               <details class="learn_choice_option_details">
                                 <summary class="learn_choice_option_details_toggle">Beschreibung</summary>
+                                {% if option.facts %}
+                                  <span class="learn_choice_option_description">{{ option.facts }}</span>
+                                {% endif %}
                                 <span class="learn_choice_option_description">{{ option.description }}</span>
                               </details>
                             {% endif %}
