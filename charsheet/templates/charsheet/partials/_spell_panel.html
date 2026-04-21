@@ -49,7 +49,7 @@
           </button>
           <ul class="spell_group_rows" hidden>
             {% for row in group.rows %}
-              <li data-spell-search="{{ row.name|lower }} {{ group.name|lower }} {{ row.source_label|lower }} grad {{ row.level }} {{ row.kp_cost }} kp">
+              <li data-spell-search="{{ row.name|lower }} {{ group.name|lower }} {{ row.source_label|lower }} grad {{ row.level }} {{ row.kp_cost }} kp {{ row.cost_display|lower }}">
                 <button
                   type="button"
                   class="spell_cast_button tooltip_target"
@@ -63,7 +63,7 @@
                 >
                   <span class="spell_cast_name">{{ row.name }}</span>
                   <span class="spell_cast_meta">Grad {{ row.level }}</span>
-                  <span class="spell_cast_cost">{{ row.kp_cost }} KP</span>
+                  <span class="spell_cast_cost">{{ row.cost_display }}</span>
                   <span class="spell_cast_source{% if row.is_bonus_spell %} spell_cast_source--bonus{% elif row.is_base_spell %} spell_cast_source--base{% endif %}{% if not row.badge_label %} spell_cast_source--hidden{% endif %}">{{ row.badge_label }}</span>
                 </button>
               </li>

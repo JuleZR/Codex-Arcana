@@ -1341,6 +1341,7 @@ class Spell(models.Model):
     panel_badge_label = models.CharField(max_length=30, blank=True, default="Zauber")
     kp_cost = models.PositiveSmallIntegerField(default=0, blank=True)
     ep_cost = models.PositiveSmallIntegerField(null=True, blank=True, verbose_name="EP-Kosten")
+    extra_cost = models.CharField(max_length=150, blank=True, default="", verbose_name="Zusatzkosten")
     cast_time = models.CharField(max_length=100, blank=True, default="")  # legacy
 
     class CastTimeUnit(models.TextChoices):
@@ -1361,6 +1362,7 @@ class Spell(models.Model):
     class RangeUnit(models.TextChoices):
         METER = "m", "Meter"
         KM = "km", "Kilometer"
+        SIGHT = "Sichtweite", "Sichtweite"
         TOUCH = "Berührung", "Berührung"
         SELF = "selbst", "Selbst"
 
