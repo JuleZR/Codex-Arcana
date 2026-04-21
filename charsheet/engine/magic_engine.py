@@ -90,7 +90,11 @@ def _build_spell_tooltip(entry: CharacterSpell, *, school_levels: dict[int, int]
     else:
         school_level = 0
 
-    extra_cost = str(spell.extra_cost or "").strip()
+    extra_cost = ""
+    if spell.extra_cost_type == getattr(spell.ExtraCostType, "WOUND_GRADE", "") and spell.extra_cost_value:
+        amount = int(spell.extra_cost_value)
+        label = "Wundgrad" if amount == 1 else "Wundgrade"
+        extra_cost = f"{amount} {label}"
     cost_label = f"{int(spell.kp_cost)} KP" + (f" [[SUB:oder {int(spell.ep_cost)} EP]]" if spell.ep_cost else "")
     if extra_cost:
         cost_label += f" [[SUB:und {extra_cost}]]"
@@ -635,7 +639,15 @@ class MagicEngine:
                     "owner_name": owner_name,
                     "level": int(spell.grade),
                     "kp_cost": int(spell.kp_cost),
-                    "cost_display": f"{int(spell.kp_cost)} KP" + (f" + {str(spell.extra_cost).strip()}" if str(spell.extra_cost or "").strip() else ""),
+                    "cost_display": (
+                        f"{int(spell.kp_cost)} KP"
+                        + (
+                            f" + {int(spell.extra_cost_value)} "
+                            + ("Wundgrad" if int(spell.extra_cost_value) == 1 else "Wundgrade")
+                            if spell.extra_cost_type == getattr(spell.ExtraCostType, "WOUND_GRADE", "") and spell.extra_cost_value
+                            else ""
+                        )
+                    ),
                     "source_kind": entry.source_kind,
                     "is_base_spell": bool(spell.is_base_spell),
                     "is_bonus_spell": entry.source_kind in {

@@ -1341,7 +1341,18 @@ class Spell(models.Model):
     panel_badge_label = models.CharField(max_length=30, blank=True, default="Zauber")
     kp_cost = models.PositiveSmallIntegerField(default=0, blank=True)
     ep_cost = models.PositiveSmallIntegerField(null=True, blank=True, verbose_name="EP-Kosten")
-    extra_cost = models.CharField(max_length=150, blank=True, default="", verbose_name="Zusatzkosten")
+
+    class ExtraCostType(models.TextChoices):
+        WOUND_GRADE = "wound_grade", "Wundgrad"
+
+    extra_cost_type = models.CharField(
+        max_length=30,
+        blank=True,
+        default="",
+        choices=ExtraCostType.choices,
+        verbose_name="Zusatzkosten-Art",
+    )
+    extra_cost_value = models.PositiveSmallIntegerField(null=True, blank=True, verbose_name="Zusatzkosten-Wert")
     cast_time = models.CharField(max_length=100, blank=True, default="")  # legacy
 
     class CastTimeUnit(models.TextChoices):
