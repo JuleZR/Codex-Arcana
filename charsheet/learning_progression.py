@@ -124,6 +124,7 @@ def _build_pending_decision(
     text_placeholder: str = "",
     supported: bool = True,
     selection_group_id: str = "",
+    grade_filter_options: list[int] | None = None,
 ) -> dict[str, object]:
     """Return one structured pending decision for the learning modal flow."""
     return {
@@ -139,6 +140,7 @@ def _build_pending_decision(
         "text_placeholder": text_placeholder,
         "supported": supported,
         "selection_group_id": selection_group_id,
+        "grade_filter_options": grade_filter_options or [],
     }
 
 
@@ -221,6 +223,10 @@ def _spell_choice_facts(spell: Spell) -> list[dict[str, str]]:
     ]
 
 
+def _spell_grade_filter_options(spells: list[Spell]) -> list[int]:
+    return sorted({int(spell.grade) for spell in spells if getattr(spell, "grade", None) is not None})
+
+
 def build_learning_progression_context(character, *, engine) -> dict[str, object]:
     """Build open progression decisions for the learning window."""
     path_groups: OrderedDict[str, list[dict]] = OrderedDict()
@@ -264,6 +270,7 @@ def build_learning_progression_context(character, *, engine) -> dict[str, object
                     description="Waehle einen der universellen Basiszauber (ohne Schule). Jeder Magiewirkende darf 2 davon lernen.",
                     prompt="Basiszauber waehlen",
                     selection_group_id="base-spell",
+                    grade_filter_options=_spell_grade_filter_options(_universal_spells),
                     options=[
                         _build_decision_option(
                             option_id=str(s.id),
@@ -418,6 +425,7 @@ def build_learning_progression_context(character, *, engine) -> dict[str, object
                     description="Waehle einen arkanen Zauber derselben oder niedrigeren Stufe.",
                     prompt="Zauber waehlen",
                     selection_group_id=f"arcane-free-spell:{school_entry.school_id}",
+                    grade_filter_options=_spell_grade_filter_options(options),
                     options=[
                         _build_decision_option(
                             option_id=str(spell.id),
@@ -462,6 +470,7 @@ def build_learning_progression_context(character, *, engine) -> dict[str, object
                     description="Waehle einen legalen Zusatzzauber aus den verfuegbaren Schulen oder Aspekten.",
                     prompt="Bonuszauber waehlen",
                     selection_group_id=f"bonus-spell:{source['id']}",
+                    grade_filter_options=_spell_grade_filter_options(options),
                     options=[
                         _build_decision_option(
                             option_id=str(spell.id),

@@ -103,16 +103,9 @@
                         {% if decision.kind == "base_spell" or decision.kind == "arcane_free_spell" or decision.kind == "bonus_spell" %}
                           <select class="learn_inline_text learn_choice_grade_filter" data-choice-grade-filter aria-label="Nach Grad filtern">
                             <option value="">Alle Grade</option>
-                            <option value="1">Grad 1</option>
-                            <option value="2">Grad 2</option>
-                            <option value="3">Grad 3</option>
-                            <option value="4">Grad 4</option>
-                            <option value="5">Grad 5</option>
-                            <option value="6">Grad 6</option>
-                            <option value="7">Grad 7</option>
-                            <option value="8">Grad 8</option>
-                            <option value="9">Grad 9</option>
-                            <option value="10">Grad 10</option>
+                            {% for grade in decision.grade_filter_options %}
+                              <option value="{{ grade }}">Grad {{ grade }}</option>
+                            {% endfor %}
                           </select>
                         {% endif %}
                       </div>
