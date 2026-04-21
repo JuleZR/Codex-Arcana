@@ -90,18 +90,20 @@ def _build_decision_option(
     label: str,
     submit_name: str,
     submit_value: str,
+    grade: int | None = None,
     meta: str = "",
     description: str = "",
     badge: str = "",
-    facts: str = "",
-) -> dict[str, str]:
+    facts: list[dict[str, str]] | None = None,
+) -> dict[str, object]:
     """Return one serialized option for the choice modal payload."""
     return {
         "id": str(option_id),
         "label": label,
+        "grade": "" if grade is None else str(int(grade)),
         "meta": meta,
         "badge": badge,
-        "facts": facts,
+        "facts": facts or [],
         "description": description,
         "submit_name": submit_name,
         "submit_value": submit_value,
@@ -206,17 +208,17 @@ def _spell_duration_facts(spell: Spell) -> str:
     return " oder ".join(parts) or str(spell.duration_text or "").strip() or "-"
 
 
-def _spell_choice_facts(spell: Spell) -> str:
+def _spell_choice_facts(spell: Spell) -> list[dict[str, str]]:
     mw_label = "-" if spell.mw is None else str(int(spell.mw))
     resistance_label = str(spell.resistance_value or "-").strip() or "-"
-    return " | ".join([
-        f"Grad {int(spell.grade)}",
-        f"MW/RW {mw_label}/{resistance_label}",
-        f"Kosten {_spell_cost_facts(spell)}",
-        f"Zeitaufwand {_spell_cast_time_facts(spell)}",
-        f"Reichweite {_spell_range_facts(spell)}",
-        f"Wirkungsdauer {_spell_duration_facts(spell)}",
-    ])
+    return [
+        {"label": "Grad", "value": str(int(spell.grade))},
+        {"label": "MW/RW", "value": f"{mw_label}/{resistance_label}"},
+        {"label": "Kosten", "value": _spell_cost_facts(spell)},
+        {"label": "Zeitaufwand", "value": _spell_cast_time_facts(spell)},
+        {"label": "Reichweite", "value": _spell_range_facts(spell)},
+        {"label": "Wirkungsdauer", "value": _spell_duration_facts(spell)},
+    ]
 
 
 def build_learning_progression_context(character, *, engine) -> dict[str, object]:
@@ -266,6 +268,7 @@ def build_learning_progression_context(character, *, engine) -> dict[str, object
                         _build_decision_option(
                             option_id=str(s.id),
                             label=s.name,
+                            grade=int(s.grade),
                             meta=f"Grad {s.grade}",
                             facts=_spell_choice_facts(s),
                             description=s.description or "",
@@ -419,6 +422,7 @@ def build_learning_progression_context(character, *, engine) -> dict[str, object
                         _build_decision_option(
                             option_id=str(spell.id),
                             label=spell.name,
+                            grade=int(spell.grade),
                             meta=f"Grad {spell.grade}",
                             badge=(spell.panel_badge_label or "").strip(),
                             facts=_spell_choice_facts(spell),
@@ -462,6 +466,7 @@ def build_learning_progression_context(character, *, engine) -> dict[str, object
                         _build_decision_option(
                             option_id=str(spell.id),
                             label=spell.name,
+                            grade=int(spell.grade),
                             meta=f"{spell.school.name if spell.school_id else spell.aspect.name} | Grad {spell.grade}",
                             badge=(spell.panel_badge_label or "").strip(),
                             facts=_spell_choice_facts(spell),

@@ -819,9 +819,42 @@
   font-family: "Cormorant Garamond", Georgia, serif;
 }
 
+.learn_choice_option_fact_table {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 4px 12px;
+  margin-top: 4px;
+  align-items: start;
+}
+
+.learn_choice_option_fact_label {
+  color: rgba(105, 74, 44, 0.9);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.learn_choice_option_fact_value {
+  color: rgba(49, 35, 23, 0.96);
+  font-size: 0.95rem;
+  line-height: 1.4;
+}
+
 .learn_choice_text_wrap {
   display: grid;
   gap: 6px;
+}
+
+.learn_choice_filter_bar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.learn_choice_grade_filter {
+  min-width: 120px;
 }
 
 .learn_choice_search_empty {

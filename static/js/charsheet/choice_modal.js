@@ -495,6 +495,7 @@ export function createChoiceModalController({ hiddenInputContainer, windowContro
 
   const bindSearchFilter = (section) => {
     const searchInput = section.querySelector("[data-choice-search-input]");
+    const gradeFilter = section.querySelector("[data-choice-grade-filter]");
     const options = Array.from(section.querySelectorAll(".learn_choice_option"));
     const emptyState = section.querySelector("[data-choice-empty-state]");
     if (!options.length || !(emptyState instanceof HTMLElement)) {
@@ -505,6 +506,9 @@ export function createChoiceModalController({ hiddenInputContainer, windowContro
       const needle = searchInput instanceof HTMLInputElement
         ? normalizeSearchText(String(searchInput.value || "").trim())
         : "";
+      const selectedGrade = gradeFilter instanceof HTMLSelectElement
+        ? String(gradeFilter.value || "").trim()
+        : "";
       let visibleCount = 0;
       options.forEach((entry) => {
         if (!(entry instanceof HTMLElement)) {
@@ -512,8 +516,9 @@ export function createChoiceModalController({ hiddenInputContainer, windowContro
         }
         const hiddenByGroup = entry.classList.contains("is-group-hidden");
         const haystack = normalizeSearchText(entry.dataset.choiceSearch || entry.textContent || "");
-        const matches = !needle || haystack.includes(needle);
-        const shouldHide = hiddenByGroup || !matches;
+        const matchesText = !needle || haystack.includes(needle);
+        const matchesGrade = !selectedGrade || String(entry.dataset.choiceGrade || "") === selectedGrade;
+        const shouldHide = hiddenByGroup || !matchesText || !matchesGrade;
         entry.classList.toggle("is-filtered-out", shouldHide);
         if (!shouldHide) {
           visibleCount += 1;
@@ -527,6 +532,9 @@ export function createChoiceModalController({ hiddenInputContainer, windowContro
       searchInput.addEventListener("input", applyOptionFilter);
       searchInput.addEventListener("search", applyOptionFilter);
       searchInput.addEventListener("change", applyOptionFilter);
+    }
+    if (gradeFilter instanceof HTMLSelectElement) {
+      gradeFilter.addEventListener("change", applyOptionFilter);
     }
     applyOptionFilter();
   };
