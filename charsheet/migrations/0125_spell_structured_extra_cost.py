@@ -31,21 +31,47 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AddField(
-            model_name="spell",
-            name="extra_cost_type",
-            field=models.CharField(
-                blank=True,
-                choices=[("wound_grade", "Wundgrad")],
-                default="",
-                max_length=30,
-                verbose_name="Zusatzkosten-Art",
-            ),
-        ),
-        migrations.AddField(
-            model_name="spell",
-            name="extra_cost_value",
-            field=models.PositiveSmallIntegerField(blank=True, null=True, verbose_name="Zusatzkosten-Wert"),
+        migrations.SeparateDatabaseAndState(
+            database_operations=[
+                migrations.RunSQL(
+                    sql="""
+                        ALTER TABLE charsheet_spell
+                        ADD COLUMN IF NOT EXISTS extra_cost_type varchar(30) NOT NULL DEFAULT '';
+                    """,
+                    reverse_sql="""
+                        ALTER TABLE charsheet_spell
+                        DROP COLUMN IF EXISTS extra_cost_type;
+                    """,
+                ),
+                migrations.RunSQL(
+                    sql="""
+                        ALTER TABLE charsheet_spell
+                        ADD COLUMN IF NOT EXISTS extra_cost_value smallint NULL;
+                    """,
+                    reverse_sql="""
+                        ALTER TABLE charsheet_spell
+                        DROP COLUMN IF EXISTS extra_cost_value;
+                    """,
+                ),
+            ],
+            state_operations=[
+                migrations.AddField(
+                    model_name="spell",
+                    name="extra_cost_type",
+                    field=models.CharField(
+                        blank=True,
+                        choices=[("wound_grade", "Wundgrad")],
+                        default="",
+                        max_length=30,
+                        verbose_name="Zusatzkosten-Art",
+                    ),
+                ),
+                migrations.AddField(
+                    model_name="spell",
+                    name="extra_cost_value",
+                    field=models.PositiveSmallIntegerField(blank=True, null=True, verbose_name="Zusatzkosten-Wert"),
+                ),
+            ],
         ),
         migrations.RunPython(migrate_extra_cost_to_structured, migrations.RunPython.noop),
         migrations.RunSQL(
