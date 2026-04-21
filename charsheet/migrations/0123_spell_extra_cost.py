@@ -10,18 +10,7 @@ class Migration(migrations.Migration):
     operations = [
         migrations.AddField(
             model_name="spell",
-            name="extra_cost_type",
-            field=models.CharField(
-                blank=True,
-                choices=[("wound_grade", "Wundgrad")],
-                default="",
-                max_length=30,
-                verbose_name="Zusatzkosten-Art",
-            ),
-        ),
-        migrations.AddField(
-            model_name="spell",
-            name="extra_cost_value",
-            field=models.PositiveSmallIntegerField(blank=True, null=True, verbose_name="Zusatzkosten-Wert"),
+            name="extra_cost",
+            field=models.CharField(blank=True, default="", max_length=150, verbose_name="Zusatzkosten"),
         ),
     ]
