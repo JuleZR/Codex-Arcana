@@ -227,6 +227,13 @@ def _spell_grade_filter_options(spells: list[Spell]) -> list[int]:
     return sorted({int(spell.grade) for spell in spells if getattr(spell, "grade", None) is not None})
 
 
+def _school_grade_filter_options(school) -> list[int]:
+    max_level = int(getattr(school, "max_level", 0) or 0)
+    if max_level <= 0:
+        return []
+    return list(range(1, max_level + 1))
+
+
 def build_learning_progression_context(character, *, engine) -> dict[str, object]:
     """Build open progression decisions for the learning window."""
     path_groups: OrderedDict[str, list[dict]] = OrderedDict()
@@ -425,7 +432,7 @@ def build_learning_progression_context(character, *, engine) -> dict[str, object
                     description="Waehle einen arkanen Zauber derselben oder niedrigeren Stufe.",
                     prompt="Zauber waehlen",
                     selection_group_id=f"arcane-free-spell:{school_entry.school_id}",
-                    grade_filter_options=_spell_grade_filter_options(options),
+                    grade_filter_options=_school_grade_filter_options(school_entry.school) or _spell_grade_filter_options(options),
                     options=[
                         _build_decision_option(
                             option_id=str(spell.id),
