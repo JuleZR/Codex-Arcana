@@ -99,6 +99,7 @@ def _build_spell_tooltip(entry: CharacterSpell, *, school_levels: dict[int, int]
         "Aktion": "Aktionen",
         "Minute": "Minuten",
         "Stunde": "Stunden",
+        "Tag": "Tage",
         "Runde": "Runden",
     }
 

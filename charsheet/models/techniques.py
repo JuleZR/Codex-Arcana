@@ -1381,6 +1381,7 @@ class Spell(models.Model):
         SCENE = "Szene", "Szene"
         CONCENTRATION = "Konzentration", "Konzentration"
         PERMANENT = "permanent", "Permanent"
+        DAY = "Tag", "Tag"
         HOUR = "Stunde", "Stunde"
         MINUTE = "Minute", "Minute"
 
