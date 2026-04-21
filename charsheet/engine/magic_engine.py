@@ -107,10 +107,20 @@ def _build_spell_tooltip(entry: CharacterSpell, *, school_levels: dict[int, int]
             return _PLURAL[unit_display]
         return unit_display
 
-    if spell.cast_time_number is not None and spell.cast_time_unit:
-        unit = spell.get_cast_time_unit_display()
-        label = _unit_label(unit, spell.cast_time_number)
-        rows.append(("Zeitaufwand", f"{spell.cast_time_number} {label}"))
+    def _cast_time_label(number, unit_key) -> str | None:
+        if number is not None and unit_key:
+            unit = spell.CastTimeUnit(unit_key).label
+            return f"{number} {_unit_label(unit, number)}"
+        return None
+
+    cast_time1 = _cast_time_label(spell.cast_time_number, spell.cast_time_unit)
+    cast_time2 = _cast_time_label(spell.cast_time2_number, spell.cast_time2_unit)
+    if cast_time1 and cast_time2:
+        rows.append(("Zeitaufwand", f"{cast_time1} [[SUB:oder {cast_time2}]]"))
+    elif cast_time1:
+        rows.append(("Zeitaufwand", cast_time1))
+    elif cast_time2:
+        rows.append(("Zeitaufwand", cast_time2))
     elif spell.cast_time:
         rows.append(("Zeitaufwand", spell.cast_time))
 

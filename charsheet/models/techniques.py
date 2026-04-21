@@ -1352,6 +1352,10 @@ class Spell(models.Model):
     cast_time_unit = models.CharField(
         max_length=20, blank=True, default="", choices=CastTimeUnit.choices, verbose_name="Einheit",
     )
+    cast_time2_number = models.PositiveIntegerField(null=True, blank=True, verbose_name="Zeitaufwand 2")
+    cast_time2_unit = models.CharField(
+        max_length=20, blank=True, default="", choices=CastTimeUnit.choices, verbose_name="Einheit 2",
+    )
     range_text = models.CharField(max_length=100, blank=True, default="")  # legacy
 
     class RangeUnit(models.TextChoices):

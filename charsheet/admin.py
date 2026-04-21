@@ -3972,6 +3972,7 @@ class SpellAdmin(admin.ModelAdmin):
                     ("mw", "grade_adds_school_level", "resistance_value"),
                     ("kp_cost", "ep_cost"),
                     ("cast_time_number", "cast_time_unit"),
+                    ("cast_time2_number", "cast_time2_unit"),
                     ("range_number", "range_unit", "range_per_grade"),
                     ("duration_number", "duration_unit", "duration_per_grade"),
                     ("duration2_number", "duration2_unit", "duration2_per_grade"),
