@@ -1828,6 +1828,7 @@ document.addEventListener("DOMContentLoaded", () => {
   let pendingTarget = null;
   let showTimeoutId = null;
   let hideTimeoutId = null;
+  let lastPointerPosition = null;
 
   const escapeHtml = (value) => String(value)
     .replace(/&/g, "&amp;")
@@ -1972,37 +1973,39 @@ document.addEventListener("DOMContentLoaded", () => {
     }, HIDE_HOLD_MS);
   }
 
-  function positionTooltip(target) {
-    const gap = 10;
+  function clamp(value, min, max) {
+    return Math.min(Math.max(value, min), max);
+  }
+
+  function positionTooltip(target, pointerPosition = lastPointerPosition) {
+    const gap = 12;
     const viewportPadding = 8;
-    const panel = target.closest(".p2_panel");
-    const panelRect = (panel || target).getBoundingClientRect();
     const targetRect = target.getBoundingClientRect();
     const tooltipRect = tooltip.getBoundingClientRect();
-    const preferredSide = target.getAttribute("data-tooltip-side") || "left";
-    let left = preferredSide === "right"
-      ? panelRect.right + gap
-      : panelRect.left - tooltipRect.width - gap;
+    const anchorX = pointerPosition?.x ?? (targetRect.left + (targetRect.width / 2));
+    const anchorY = pointerPosition?.y ?? (targetRect.top + (targetRect.height / 2));
+    let left = anchorX + gap;
+    let top = anchorY + gap;
 
-    if (left < viewportPadding || left + tooltipRect.width > window.innerWidth - viewportPadding) {
-      left = panelRect.right + gap;
-    }
     if (left + tooltipRect.width > window.innerWidth - viewportPadding) {
-      left = panelRect.left - tooltipRect.width - gap;
+      left = anchorX - tooltipRect.width - gap;
+    }
+    if (left < viewportPadding) {
+      left = viewportPadding;
+    }
+    if (top + tooltipRect.height > window.innerHeight - viewportPadding) {
+      top = anchorY - tooltipRect.height - gap;
     }
 
-    let top = targetRect.top + (targetRect.height / 2) - (tooltipRect.height / 2);
+    const maxLeft = window.innerWidth - tooltipRect.width - viewportPadding;
     const maxTop = window.innerHeight - tooltipRect.height - viewportPadding;
-    if (top > maxTop) {
-      top = maxTop;
-    }
-
-    tooltip.style.left = `${Math.max(viewportPadding, left)}px`;
-    tooltip.style.top = `${Math.max(viewportPadding, top)}px`;
+    tooltip.style.left = `${clamp(left, viewportPadding, maxLeft)}px`;
+    tooltip.style.top = `${clamp(top, viewportPadding, maxTop)}px`;
   }
 
   targets.forEach((target) => {
-    target.addEventListener("mouseenter", () => {
+    target.addEventListener("mouseenter", (event) => {
+      lastPointerPosition = { x: event.clientX, y: event.clientY };
       const text = (target.getAttribute("data-tooltip") || "")
         .replace(/\r\n/g, "\n")
         .replace(/\\n/g, "\n");
@@ -2031,6 +2034,13 @@ document.addEventListener("DOMContentLoaded", () => {
         positionTooltip(target);
         showTimeoutId = null;
       }, SHOW_DELAY_MS);
+    });
+
+    target.addEventListener("mousemove", (event) => {
+      lastPointerPosition = { x: event.clientX, y: event.clientY };
+      if (activeTarget === target) {
+        positionTooltip(target, lastPointerPosition);
+      }
     });
 
     target.addEventListener("mouseleave", () => {

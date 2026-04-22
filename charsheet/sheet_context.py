@@ -544,10 +544,10 @@ def _build_tooltip_table(rows: list[tuple[str, object]]) -> str:
 
 
 def _build_core_stat_tooltip(rows: list[dict[str, object]]) -> str:
-    """Return one compact bookkeeping-style table for a derived combat stat."""
+    """Return one compact two-column table for a derived combat stat."""
     lines = [
-        "| Posten | Wert | Herkunft |",
-        "| --- | ---: | --- |",
+        "| Grundlage | Wert |",
+        "| --- | ---: |",
     ]
     for row in rows:
         if row.get("tone") != "total" and _is_zeroish_tooltip_value(row.get("value")):
@@ -555,13 +555,13 @@ def _build_core_stat_tooltip(rows: list[dict[str, object]]) -> str:
         label = str(row.get("label", "") or "-")
         value = str(row.get("value", "") or "0")
         source = str(row.get("source", "") or "")
-        if row.get("tone") == "modifier":
-            label = f"**{label}**"
+        if source:
+            label = f"{label} [[SUB:{source}]]"
         if row.get("tone") == "total":
             label = f"**{label}**"
             value = f"**{value}**"
         lines.append(
-            f"| {_escape_tooltip_table_cell(label)} | {_escape_tooltip_table_cell(f'`{value}`')} | {_escape_tooltip_table_cell(source or ' ')} |"
+            f"| {_escape_tooltip_table_cell(label)} | {_escape_tooltip_table_cell(f'`{value}`')} |"
         )
     return "\n".join(lines)
 
@@ -651,14 +651,58 @@ def _build_weapon_calculation_tooltip(engine, row: dict[str, object]) -> str:
 
 def _build_total_armor_tooltip(engine) -> str:
     """Return a breakdown tooltip for the total armor protection value."""
-    raw_armor_total = sum(ItemEngine(armor).get_armor_rs_raw() or 0 for armor in engine.equipped_armor_items())
+    armor_piece_rows = _build_armor_rs_piece_rows(engine)
     return _build_core_stat_tooltip(
         [
-            {"label": "Ruestungen", "value": raw_armor_total},
+            *armor_piece_rows,
             *_build_modifier_breakdown_rows(engine, DEFENSE_RS),
             {"label": "= Gesamt", "value": engine.get_grs(), "tone": "total"},
         ]
     )
+
+
+def _build_armor_rs_piece_rows(engine) -> list[dict[str, object]]:
+    """Return tooltip rows that explain each armor piece's RS formula."""
+    rows: list[dict[str, object]] = []
+    for row in engine.equipped_armor_rows():
+        armor_stats = getattr(row["item"], "armorstats", None)
+        piece_total = int(row.get("rs") or 0)
+        if armor_stats is None or piece_total == 0:
+            continue
+
+        if int(getattr(armor_stats, "rs_total", 0) or 0) > 0:
+            rows.append(
+                {
+                    "label": str(row["item"].name),
+                    "value": piece_total,
+                    "source": "Fester RS",
+                }
+            )
+            continue
+
+        zone_values = [
+            int(getattr(armor_stats, field_name, 0) or 0)
+            for field_name in (
+                "rs_head",
+                "rs_torso",
+                "rs_arm_left",
+                "rs_arm_right",
+                "rs_leg_left",
+                "rs_leg_right",
+            )
+        ]
+        zone_sum = sum(zone_values)
+        formula = " + ".join(str(value) for value in zone_values if value)
+        if not formula:
+            formula = "0"
+        rows.append(
+            {
+                "label": str(row["item"].name),
+                "value": piece_total,
+                "source": f"({formula}) / 6",
+            }
+        )
+    return rows
 
 
 def _build_load_tooltip(engine) -> str:
@@ -667,13 +711,25 @@ def _build_load_tooltip(engine) -> str:
     shield_load = sum(ItemEngine(shield).get_shield_encumbrance() or 0 for shield in engine.equipped_shield_items())
     total_raw_load = armor_load + shield_load
     rows: list[dict[str, object]] = [
-        {"label": "Ruestungen", "value": armor_load},
+        {"label": "Rüstungen", "value": armor_load},
         {"label": "Schilde", "value": shield_load},
     ]
     if engine.resolve_flags().get(ARMOR_PENALTY_IGNORE, False) and total_raw_load:
-        rows.append({"label": "Belastung ignorieren", "value": format_modifier(-total_raw_load), "source": "Effekt"})
+        rows.append(_build_rule_flag_tooltip_row(engine, ARMOR_PENALTY_IGNORE, format_modifier(-total_raw_load)))
     rows.append({"label": "= Gesamt", "value": format_modifier(engine.load_penalty()), "tone": "total"})
     return _build_core_stat_tooltip(rows)
+
+
+def _build_minimum_strength_tooltip(engine) -> str:
+    """Return a breakdown tooltip for the displayed armor minimum strength."""
+    total_rs = int(engine.get_grs())
+    minimum_strength = int(engine.get_ms())
+    return _build_core_stat_tooltip(
+        [
+            {"label": "Gesamtrüstungsschutz", "value": total_rs, "source": "RS"},
+            {"label": "Mindeststärke", "value": minimum_strength, "source": "RS / 2", "tone": "total"},
+        ]
+    )
 
 
 def _prettify_source_id(value: object) -> str:
@@ -729,6 +785,28 @@ def _resolve_modifier_source_name(engine, source_type: object, source_id: object
     return _prettify_source_id(source_id_text or source_type_text)
 
 
+def _resolve_modifier_source_detail(engine, source_type: object, source_id: object) -> str:
+    """Return an optional compact detail line for one modifier source."""
+    source_type_text = str(source_type or "").strip().lower()
+    source_id_text = str(source_id or "").strip()
+    if source_type_text != "technique":
+        return ""
+    technique = None
+    if source_id_text.isdigit():
+        technique = engine._techniques_by_id.get(int(source_id_text))
+        if technique is None:
+            technique = Technique.objects.filter(pk=int(source_id_text)).select_related("school").only(
+                "name", "level", "school__name"
+            ).first()
+    if technique is None:
+        return ""
+    school_name = str(getattr(getattr(technique, "school", None), "name", "") or "").strip()
+    technique_level = getattr(technique, "level", None)
+    if school_name and technique_level:
+        return f"{school_name} {_to_roman(int(technique_level))}"
+    return school_name
+
+
 def _format_modifier_source_display(source_label: str, source_name: str) -> str:
     """Return the most concrete readable source label available."""
     source_name_text = str(source_name or "").strip()
@@ -747,10 +825,34 @@ def _clean_modifier_note_text(note_text: object) -> str:
 
 def _build_modifier_breakdown_rows(engine, stat_key: str) -> list[dict[str, object]]:
     """Return ledger rows for each contributing modifier source."""
-    grouped_rows: OrderedDict[tuple[str, str], dict[str, object]] = OrderedDict()
     explanation = engine.explain_modifier_resolution("derived_stat", stat_key)
     if not explanation:
         explanation = _build_legacy_stat_modifier_explanation(engine, stat_key)
+    return _build_grouped_explanation_rows(engine, explanation)
+
+
+def _build_rule_flag_tooltip_row(engine, flag_key: str, value: object) -> dict[str, object]:
+    """Return one tooltip row for an active rule-flag effect."""
+    explanation = engine.explain_modifier_resolution("rule_flag", flag_key)
+    if not explanation:
+        return {"label": _prettify_source_id(flag_key), "value": value, "source": "Effekt"}
+    row_meta = _collect_explanation_source_metadata(engine, explanation)
+    if not row_meta:
+        return {"label": _prettify_source_id(flag_key), "value": value, "source": "Effekt"}
+
+    labels = [entry["label"] for entry in row_meta]
+    sources = [entry["source"] for entry in row_meta if entry["source"]]
+    return {
+        "label": ", ".join(labels),
+        "value": value,
+        "source": ", ".join(dict.fromkeys(sources)),
+    }
+
+
+def _collect_explanation_source_metadata(engine, explanation: list[dict[str, object]]) -> list[dict[str, str]]:
+    """Return readable unique source metadata from modifier explanation rows."""
+    source_rows: list[dict[str, str]] = []
+    seen_labels: set[str] = set()
     for entry in explanation:
         resolved_value = entry.get("resolved_value")
         if not isinstance(resolved_value, (int, float)) or int(resolved_value) == 0:
@@ -758,9 +860,38 @@ def _build_modifier_breakdown_rows(engine, stat_key: str) -> list[dict[str, obje
         source_type = str(entry.get("source_type") or "").strip().lower()
         source_label = MODIFIER_SOURCE_LABELS.get(source_type, _prettify_source_id(source_type))
         source_name = _resolve_modifier_source_name(engine, source_type, entry.get("source_id"))
+        source_detail = _resolve_modifier_source_detail(engine, source_type, entry.get("source_id"))
+        row_label = source_name or source_label or _prettify_source_id(source_type)
+        if row_label in seen_labels:
+            continue
+        seen_labels.add(row_label)
+        source_rows.append(
+            {
+                "label": row_label,
+                "source": source_detail or (source_label if source_label != row_label else ""),
+            }
+        )
+    return source_rows
+
+
+def _build_grouped_explanation_rows(engine, explanation: list[dict[str, object]]) -> list[dict[str, object]]:
+    """Return grouped tooltip rows from one modifier explanation payload."""
+    grouped_rows: OrderedDict[tuple[str, str], dict[str, object]] = OrderedDict()
+    for entry in explanation:
+        resolved_value = entry.get("resolved_value")
+        if not isinstance(resolved_value, (int, float)) or int(resolved_value) == 0:
+            continue
+        source_type = str(entry.get("source_type") or "").strip().lower()
+        source_label = MODIFIER_SOURCE_LABELS.get(source_type, _prettify_source_id(source_type))
+        source_name = _resolve_modifier_source_name(engine, source_type, entry.get("source_id"))
+        source_detail = _resolve_modifier_source_detail(engine, source_type, entry.get("source_id"))
         source_display = _format_modifier_source_display(source_label, source_name)
         note_text = _clean_modifier_note_text(entry.get("notes"))
         row_label = note_text or source_name or "Unbekannt"
+        if source_display.strip().casefold() == row_label.strip().casefold():
+            source_display = ""
+        if source_detail:
+            source_display = source_detail
         group_key = (source_type, row_label)
         existing = grouped_rows.get(group_key)
         if existing is None:
@@ -1869,6 +2000,7 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
     spell_panel_data = magic_engine.get_spell_panel_data()
     load_tooltip = _build_load_tooltip(engine)
     total_armor_tooltip = _build_total_armor_tooltip(engine)
+    minimum_strength_tooltip = _build_minimum_strength_tooltip(engine)
     shop_quality_choices = [
         {
             "value": value,
@@ -1967,6 +2099,7 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
             "load_value": load_penalty,
             "load_tooltip": load_tooltip,
             "minimum_strength": engine.get_ms(),
+            "minimum_strength_tooltip": minimum_strength_tooltip,
         },
         "current_wound_stage": current_wound_stage,
         "current_wound_penalty": current_wound_penalty_display,

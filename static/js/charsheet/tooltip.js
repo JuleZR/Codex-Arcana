@@ -278,8 +278,6 @@ export function initTooltips() {
   const positionTooltip = (target) => {
     const gap = 10;
     const viewportPadding = 8;
-    const panel = target.closest(".p2_panel");
-    const panelRect = (panel || target).getBoundingClientRect();
     const targetRect = target.getBoundingClientRect();
     const tooltipRect = tooltip.getBoundingClientRect();
     const preferredSide = target.getAttribute("data-tooltip-side") || "left";
@@ -287,26 +285,19 @@ export function initTooltips() {
     let left;
     let top;
 
-    if (preferredSide === "cursor-right") {
-      // Position relative to mouse cursor, right side preferred.
-      left = lastMouseX + gap + 4;
-      if (left + tooltipRect.width > window.innerWidth - viewportPadding) {
-        left = lastMouseX - tooltipRect.width - gap - 4;
-      }
-      top = lastMouseY - tooltipRect.height / 2;
+    if (preferredSide === "left") {
+      left = lastMouseX - tooltipRect.width - gap - 4;
     } else {
-      left = preferredSide === "right"
-        ? panelRect.right + gap
-        : panelRect.left - tooltipRect.width - gap;
-
-      if (left < viewportPadding || left + tooltipRect.width > window.innerWidth - viewportPadding) {
-        left = panelRect.right + gap;
-      }
-      if (left + tooltipRect.width > window.innerWidth - viewportPadding) {
-        left = panelRect.left - tooltipRect.width - gap;
-      }
-      top = targetRect.top + (targetRect.height / 2) - (tooltipRect.height / 2);
+      left = lastMouseX + gap + 4;
     }
+    if (left + tooltipRect.width > window.innerWidth - viewportPadding) {
+      left = lastMouseX - tooltipRect.width - gap - 4;
+    }
+    if (left < viewportPadding) {
+      left = lastMouseX + gap + 4;
+    }
+
+    top = lastMouseY - tooltipRect.height / 2;
 
     const maxTop = window.innerHeight - tooltipRect.height - viewportPadding;
     if (top > maxTop) top = maxTop;
@@ -382,4 +373,3 @@ export function initTooltips() {
     scheduleHide();
   });
 }
-
