@@ -986,6 +986,10 @@ function innerStar(r) {
 }
 
 function newCircle() {
+    if (!magicCircle) {
+        return;
+    }
+
     html = '';
     randomizeColor();
     let r = 0.9;
@@ -998,7 +1002,7 @@ function newCircle() {
     nextAnimate();
     innerStar(r);
     endAnimate();
-    document.getElementById('magicCircle').innerHTML = html;
+    magicCircle.innerHTML = html;
     const textArea = document.getElementById('textArea');
     if (textArea) {
         textArea.innerHTML = '<svg version="1.1" xmlns="http://www.w3.org/2000/svg" style="background-color:black" viewBox="0 0 512 512">' + html + '</svg>';
@@ -1139,6 +1143,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     bindSettingsControls();
     bindRollButtons();
     bindKeyboardShortcuts();
+
+    if (hasRollUI && hasRollConfig) {
+        try {
+            await initDice();
+        } catch (error) {
+            console.error("DDDdice konnte beim Seitenstart nicht initialisiert werden.", error);
+        }
+    }
 
     await autoLoadDiceThemes();
 });

@@ -696,6 +696,7 @@ class CharacterEngine:
     validate_trait_selection = character_learning.validate_trait_selection
     validate_cross_type_trait_selection = character_learning.validate_cross_type_trait_selection
 
+    auto_school_fame_points = character_combat.auto_school_fame_points
     fame_total = character_combat.fame_total
     calculate_initiative = character_combat.calculate_initiative
     calculate_arcane_power = character_combat.calculate_arcane_power

@@ -2010,15 +2010,35 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
         for value, label in QUALITY_CHOICES
     ]
 
+    manual_personal_fame_point = max(
+        0,
+        int(character.personal_fame_point) + int(engine.resolve_resource("personal_fame_point")),
+    )
+    base_personal_fame_rank = max(
+        0,
+        int(character.personal_fame_rank) + int(engine.resolve_resource("personal_fame_rank")),
+    )
+    effective_artefact_rank = max(
+        0,
+        int(character.artefact_rank) + int(engine.resolve_resource("artefact_rank")),
+    )
+    auto_school_fame_point = engine.auto_school_fame_points()
+    total_personal_fame_point = manual_personal_fame_point + auto_school_fame_point
+    effective_personal_fame_point = total_personal_fame_point % 10
+    effective_personal_fame_rank = base_personal_fame_rank + (total_personal_fame_point // 10)
+    fame_total_rank = effective_personal_fame_rank + int(character.sacrifice_rank) + effective_artefact_rank
+
     return {
         "character": character,
-        "effective_personal_fame_point": max(0, int(character.personal_fame_point) + int(engine.resolve_resource("personal_fame_point"))),
-        "effective_personal_fame_rank": max(0, int(character.personal_fame_rank) + int(engine.resolve_resource("personal_fame_rank"))),
-        "effective_artefact_rank": max(0, int(character.artefact_rank) + int(engine.resolve_resource("artefact_rank"))),
+        "effective_personal_fame_point": effective_personal_fame_point,
+        "effective_personal_fame_rank": effective_personal_fame_rank,
+        "effective_artefact_rank": effective_artefact_rank,
+        "auto_school_fame_point": auto_school_fame_point,
+        "manual_personal_fame_point": manual_personal_fame_point,
         "char_info_form": CharacterInfoInlineForm(instance=character),
         "skill_specification_form": CharacterSkillSpecificationForm(),
         "technique_specification_form": CharacterTechniqueSpecificationForm(),
-        "fame_total_rank": engine.fame_total() - max(0, int(character.personal_fame_point) + int(engine.resolve_resource("personal_fame_point"))),
+        "fame_total_rank": fame_total_rank,
         "attributes": attributes,
         "attr_mods": attr_mods,
         "attribute_rows": attribute_rows,

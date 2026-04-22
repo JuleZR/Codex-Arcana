@@ -1,4 +1,4 @@
-"""Combat- and wound-related CharacterEngine methods."""
+"""Combat-, fame-, and wound-related CharacterEngine methods."""
 
 from __future__ import annotations
 
@@ -25,10 +25,16 @@ def fame_total(engine) -> int:
     """Return the combined fame-related score used by scaling rules."""
     return (
         max(0, int(engine.character.personal_fame_point) + int(engine.resolve_resource("personal_fame_point")))
+        + engine.auto_school_fame_points()
         + max(0, int(engine.character.personal_fame_rank) + int(engine.resolve_resource("personal_fame_rank")))
         + engine.character.sacrifice_rank
         + max(0, int(engine.character.artefact_rank) + int(engine.resolve_resource("artefact_rank")))
     )
+
+
+def auto_school_fame_points(engine) -> int:
+    """Return the automatic fame points granted by learned school levels."""
+    return sum(max(0, int(entry.level)) for entry in engine._school_entries.values())
 
 
 def calculate_initiative(engine) -> int:

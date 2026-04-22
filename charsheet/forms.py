@@ -95,7 +95,7 @@ class CharacterInfoInlineForm(forms.ModelForm):
 
 
 class CharacterSkillSpecificationForm(forms.ModelForm):
-    """Edit the one-word specification for learned skills such as Beruf."""
+    """Edit the specification text for learned skills such as Beruf."""
 
     class Meta:
         model = CharacterSkill
@@ -120,9 +120,7 @@ class CharacterSkillSpecificationForm(forms.ModelForm):
         specification = (self.cleaned_data.get("specification") or "").strip()
         if not specification:
             return "*"
-        if len(specification.split()) != 1:
-            raise forms.ValidationError("Bitte nur ein einzelnes Wort eintragen.")
-        return specification
+        return " ".join(specification.split())
 
 
 class CharacterItemRuneSpecForm(forms.ModelForm):
@@ -144,7 +142,7 @@ class CharacterItemRuneSpecForm(forms.ModelForm):
 
 
 class CharacterTechniqueSpecificationForm(forms.ModelForm):
-    """Edit the one-word specification for learned techniques on the character sheet."""
+    """Edit the specification text for learned techniques on the character sheet."""
 
     class Meta:
         model = CharacterTechnique
@@ -164,9 +162,7 @@ class CharacterTechniqueSpecificationForm(forms.ModelForm):
         specification_value = (self.cleaned_data.get("specification_value") or "").strip()
         if not specification_value:
             return ""
-        if len(specification_value.split()) != 1:
-            raise forms.ValidationError("Bitte nur ein einzelnes Wort eintragen.")
-        return specification_value
+        return " ".join(specification_value.split())
 
 
 class AccountSettingsForm(forms.Form):
