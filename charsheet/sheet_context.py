@@ -550,6 +550,8 @@ def _build_core_stat_tooltip(rows: list[dict[str, object]]) -> str:
         "| --- | ---: | --- |",
     ]
     for row in rows:
+        if row.get("tone") != "total" and _is_zeroish_tooltip_value(row.get("value")):
+            continue
         label = str(row.get("label", "") or "-")
         value = str(row.get("value", "") or "0")
         source = str(row.get("source", "") or "")
@@ -562,6 +564,12 @@ def _build_core_stat_tooltip(rows: list[dict[str, object]]) -> str:
             f"| {_escape_tooltip_table_cell(label)} | {_escape_tooltip_table_cell(f'`{value}`')} | {_escape_tooltip_table_cell(source or ' ')} |"
         )
     return "\n".join(lines)
+
+
+def _is_zeroish_tooltip_value(value: object) -> bool:
+    """Return whether one tooltip value represents a visible zero contribution."""
+    text = str(value if value is not None else "").strip().replace("`", "")
+    return text in {"", "0", "+0", "-0", "0.0", "+0.0", "-0.0"}
 
 
 def _build_item_tooltip_rows(item_engine: ItemEngine, item: Item) -> list[tuple[str, object]]:
@@ -616,25 +624,14 @@ def _build_weapon_calculation_tooltip(engine, row: dict[str, object]) -> str:
     """Return a detailed damage-modifier ledger for one equipped weapon row."""
     weapon_stats = getattr(row["item"], "weaponstats", None)
     damage_source = getattr(weapon_stats, "damage_source", None)
-    damage_source_name = getattr(damage_source, "name", "") or "Schadensquelle"
     damage_source_slug = getattr(damage_source, "slug", "") or getattr(weapon_stats, "damage_type", "")
     strength_mod = engine.attribute_modifier(ATTR_ST)
-    source_mod = engine._resolve_stat_modifiers(damage_source_slug) if damage_source_slug else 0
     mastery_bonus = int(row.get("weapon_mastery_damage_bonus", 0) or 0)
     mastery_source = "Schule: Waffenmeister"
     weapon_master_school_entry = getattr(engine, "_weapon_master_school_entry", None)
     if weapon_master_school_entry is not None and getattr(weapon_master_school_entry, "school", None) is not None:
-        mastery_source = f"Schule: {weapon_master_school_entry.school.name}"
+        mastery_source = weapon_master_school_entry.school.name
     damage_modifier_rows = _build_modifier_breakdown_rows(engine, damage_source_slug) if damage_source_slug else []
-    if not damage_modifier_rows:
-        damage_modifier_rows = [
-            {
-                "label": f"{damage_source_name}-Mod.",
-                "value": format_modifier(source_mod),
-                "source": damage_source_name,
-                "tone": "modifier" if source_mod else "",
-            }
-        ]
 
     return _build_core_stat_tooltip(
         [
@@ -733,12 +730,11 @@ def _resolve_modifier_source_name(engine, source_type: object, source_id: object
 
 
 def _format_modifier_source_display(source_label: str, source_name: str) -> str:
-    """Combine source family and concrete source into one compact display label."""
-    source_label_text = str(source_label or "").strip()
+    """Return the most concrete readable source label available."""
     source_name_text = str(source_name or "").strip()
-    if source_name_text and source_name_text.lower() != source_label_text.lower():
-        return f"{source_label_text}: {source_name_text}" if source_label_text else source_name_text
-    return source_label_text or source_name_text or "Unbekannt"
+    if source_name_text:
+        return source_name_text
+    return "Unbekannt"
 
 
 def _clean_modifier_note_text(note_text: object) -> str:
@@ -753,6 +749,8 @@ def _build_modifier_breakdown_rows(engine, stat_key: str) -> list[dict[str, obje
     """Return ledger rows for each contributing modifier source."""
     grouped_rows: OrderedDict[tuple[str, str], dict[str, object]] = OrderedDict()
     explanation = engine.explain_modifier_resolution("derived_stat", stat_key)
+    if not explanation:
+        explanation = _build_legacy_stat_modifier_explanation(engine, stat_key)
     for entry in explanation:
         resolved_value = entry.get("resolved_value")
         if not isinstance(resolved_value, (int, float)) or int(resolved_value) == 0:
@@ -762,7 +760,7 @@ def _build_modifier_breakdown_rows(engine, stat_key: str) -> list[dict[str, obje
         source_name = _resolve_modifier_source_name(engine, source_type, entry.get("source_id"))
         source_display = _format_modifier_source_display(source_label, source_name)
         note_text = _clean_modifier_note_text(entry.get("notes"))
-        row_label = note_text or source_name or source_label
+        row_label = note_text or source_name or "Unbekannt"
         group_key = (source_type, row_label)
         existing = grouped_rows.get(group_key)
         if existing is None:
@@ -789,6 +787,30 @@ def _build_modifier_breakdown_rows(engine, stat_key: str) -> list[dict[str, obje
                 "value": format_modifier(int(row["value"])),
                 "source": row["source"],
                 "tone": row["tone"],
+            }
+        )
+    return rows
+
+
+def _build_legacy_stat_modifier_explanation(engine, stat_key: str) -> list[dict[str, object]]:
+    """Return a fallback breakdown from active legacy stat modifiers when new explanations are empty."""
+    modifiers = engine._modifiers_by_target.get((Modifier.TargetKind.STAT, stat_key), [])
+    if not modifiers:
+        return []
+
+    learned_stack: set[int] = set()
+    available_stack: set[int] = set()
+    rows: list[dict[str, object]] = []
+    for modifier in modifiers:
+        resolved_value = engine._modifier_value(modifier, learned_stack, available_stack)
+        if not isinstance(resolved_value, (int, float)) or int(resolved_value) == 0:
+            continue
+        rows.append(
+            {
+                "source_type": getattr(modifier.source_content_type, "model", ""),
+                "source_id": modifier.source_object_id,
+                "resolved_value": resolved_value,
+                "notes": getattr(modifier, "effect_description", ""),
             }
         )
     return rows
