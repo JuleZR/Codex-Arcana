@@ -1,4 +1,4 @@
-import { ThreeDDice, ThreeDDiceAPI } from "/static/js/vendor/dddice-latest.web.mjs";
+import { ThreeDDice, ThreeDDiceAPI } from "/static/js/vendor/dddice-latest.web.js";
 
 /* ---------------------------------------------------
    CONFIG
