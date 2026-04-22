@@ -617,20 +617,33 @@ def _build_weapon_calculation_tooltip(engine, row: dict[str, object]) -> str:
     weapon_stats = getattr(row["item"], "weaponstats", None)
     damage_source = getattr(weapon_stats, "damage_source", None)
     damage_source_name = getattr(damage_source, "name", "") or "Schadensquelle"
-    damage_source_short = getattr(damage_source, "short_name", "") or damage_source_name
     damage_source_slug = getattr(damage_source, "slug", "") or getattr(weapon_stats, "damage_type", "")
     strength_mod = engine.attribute_modifier(ATTR_ST)
     source_mod = engine._resolve_stat_modifiers(damage_source_slug) if damage_source_slug else 0
     mastery_bonus = int(row.get("weapon_mastery_damage_bonus", 0) or 0)
+    mastery_source = "Schule: Waffenmeister"
+    weapon_master_school_entry = getattr(engine, "_weapon_master_school_entry", None)
+    if weapon_master_school_entry is not None and getattr(weapon_master_school_entry, "school", None) is not None:
+        mastery_source = f"Schule: {weapon_master_school_entry.school.name}"
+    damage_modifier_rows = _build_modifier_breakdown_rows(engine, damage_source_slug) if damage_source_slug else []
+    if not damage_modifier_rows:
+        damage_modifier_rows = [
+            {
+                "label": f"{damage_source_name}-Mod.",
+                "value": format_modifier(source_mod),
+                "source": damage_source_name,
+                "tone": "modifier" if source_mod else "",
+            }
+        ]
 
     return _build_core_stat_tooltip(
         [
             {"label": "ST-Bonus/Malus", "value": format_modifier(strength_mod), "source": "ST"},
-            {"label": f"{damage_source_name}-Mod.", "value": format_modifier(source_mod), "source": damage_source_short},
+            *damage_modifier_rows,
             {
                 "label": "Waffenmeister",
                 "value": format_modifier(mastery_bonus),
-                "source": "Technik",
+                "source": mastery_source,
                 "tone": "modifier" if mastery_bonus else "",
             },
             {"label": "Belastung", "value": row["bel_malus_display"]},
