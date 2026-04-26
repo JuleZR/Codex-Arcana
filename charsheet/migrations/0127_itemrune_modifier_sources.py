@@ -22,7 +22,7 @@ def migrate_character_item_runes(apps, schema_editor):
     CharacterItem = apps.get_model("charsheet", "CharacterItem")
     ItemRune = apps.get_model("charsheet", "ItemRune")
 
-    for character_item in CharacterItem.objects.prefetch_related("item__runes", "runes").iterator():
+    for character_item in CharacterItem.objects.prefetch_related("item__runes", "runes").iterator(chunk_size=500):
         rune_ids = []
         rune_ids.extend(character_item.item.runes.values_list("id", flat=True))
         rune_ids.extend(character_item.runes.values_list("id", flat=True))
