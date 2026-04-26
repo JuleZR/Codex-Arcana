@@ -2604,15 +2604,14 @@ class ItemAdmin(admin.ModelAdmin):
         "name",
         "item_type",
         "quality_preview",
-        "rune_summary",
         "price",
         "size_class",
         "weight",
         "stackable",
         "is_consumable",
     )
-    search_fields = ("name", "description", "item_type", "runes__name")
-    list_filter = ("item_type", "default_quality", "stackable", "is_consumable", "size_class", "runes")
+    search_fields = ("name", "description", "item_type")
+    list_filter = ("item_type", "default_quality", "stackable", "is_consumable", "size_class")
     ordering = ("item_type", "name")
     inlines = (
         ArmorStatsInline,
@@ -2623,12 +2622,6 @@ class ItemAdmin(admin.ModelAdmin):
         ItemRaceStartingInline,
         ItemCharacterInline,
     )
-    filter_horizontal = ("runes",)
-
-    @admin.display(description="Runes")
-    def rune_summary(self, obj):
-        """Render assigned runes compactly for list display."""
-        return ", ".join(obj.runes.order_by("name").values_list("name", flat=True)) or "-"
 
     @admin.display(ordering="default_quality", description="Quality")
     def quality_preview(self, obj):
