@@ -165,7 +165,7 @@
                               <table class="dashboard_table phase2_shop_table">
                                 <tbody>
                                   {% for row in group.list %}
-                                    <tr data-phase2-skill-source data-slug="{{ row.slug }}" data-name="{{ row.name }}" data-phase2-search="{{ row.name|lower }} {{ group.grouper|lower }} skill" tabindex="0" role="button" aria-label="{{ row.name }} hinzufuegen">
+                                    <tr data-phase2-skill-source data-slug="{{ row.slug }}" data-name="{{ row.name }}" data-free-base="{{ row.free_base }}" data-min-level="{{ row.min_value }}" data-phase2-search="{{ row.name|lower }} {{ group.grouper|lower }} skill" tabindex="0" role="button" aria-label="{{ row.name }} hinzufuegen">
                                       <td class="db_tooltip_anchor"{% if row.description %} data-db-tooltip="{{ row.description }}"{% endif %}>{{ row.name }}</td>
                                     </tr>
                                   {% endfor %}
@@ -202,14 +202,14 @@
                             <tbody id="phase2SkillCartBody">
                               {% for row in phase_2_skill_rows %}
                                 {% if row.value > 0 %}
-                                  <tr data-phase2-skill-cart-item data-slug="{{ row.slug }}">
+                                  <tr data-phase2-skill-cart-item data-slug="{{ row.slug }}" data-free-base="{{ row.free_base }}" data-min-level="{{ row.min_value }}">
                                     <td>
                                       {{ row.name }}
                                       <input type="hidden" name="skill_{{ row.slug }}" value="{{ row.value }}" data-phase2-skill-hidden>
                                     </td>
-                                    <td><input class="dashboard_input phase2_level_input" type="number" min="0" max="10" value="{{ row.value }}" data-phase2-skill-level></td>
+                                    <td><input class="dashboard_input phase2_level_input" type="number" min="{{ row.min_value }}" max="10" value="{{ row.value }}" data-phase2-skill-level></td>
                                     <td data-phase2-skill-cost>{{ row.cost }}</td>
-                                    <td><button type="button" class="phase2_remove_x" data-phase2-skill-remove aria-label="Skill entfernen" title="Entfernen">X</button></td>
+                                    <td>{% if row.locked %}<span class="phase4_locked_marker" title="Kostenloser Grundwert">*</span>{% else %}<button type="button" class="phase2_remove_x" data-phase2-skill-remove aria-label="Skill entfernen" title="Entfernen">X</button>{% endif %}</td>
                                   </tr>
                                 {% endif %}
                               {% endfor %}
@@ -830,6 +830,10 @@
             return 5 + ((level - 5) * 2);
           };
 
+          const calcPhase2SkillCost = function (level, freeBase) {
+            return Math.max(0, calcSkillCost(level) - calcSkillCost(freeBase));
+          };
+
           const calcLanguageCost = function (level, write, mother) {
             const base = mother ? 0 : level;
             return base + (write ? 1 : 0);
@@ -850,10 +854,12 @@
             if (!levelInput || !hiddenInput || !costCell) {
               return 0;
             }
-            const level = clamp(toInt(levelInput.value, 0), 0, 10);
+            const minLevel = toInt(row.dataset.minLevel || "0", 0);
+            const freeBase = toInt(row.dataset.freeBase || "0", 0);
+            const level = clamp(toInt(levelInput.value, minLevel), minLevel, 10);
             levelInput.value = String(level);
             hiddenInput.value = String(level);
-            const cost = calcSkillCost(level);
+            const cost = calcPhase2SkillCost(level, freeBase);
             costCell.textContent = String(cost);
             return cost;
           };
@@ -990,16 +996,18 @@
             }
           };
 
-          const createSkillRow = function (slug, name, level) {
+          const createSkillRow = function (slug, name, level, freeBase, minLevel) {
             const safeName = escapeHtml(name);
             const row = document.createElement("tr");
             row.setAttribute("data-phase2-skill-cart-item", "");
             row.dataset.slug = slug;
+            row.dataset.freeBase = String(freeBase);
+            row.dataset.minLevel = String(minLevel);
             row.innerHTML = `
               <td>${safeName}<input type="hidden" name="skill_${slug}" value="${level}" data-phase2-skill-hidden></td>
-              <td><input class="dashboard_input phase2_level_input" type="number" min="0" max="10" value="${level}" data-phase2-skill-level></td>
+              <td><input class="dashboard_input phase2_level_input" type="number" min="${minLevel}" max="10" value="${level}" data-phase2-skill-level></td>
               <td data-phase2-skill-cost>0</td>
-              <td><button type="button" class="phase2_remove_x" data-phase2-skill-remove aria-label="Skill entfernen" title="Entfernen">X</button></td>
+              <td>${freeBase > 0 ? '<span class="phase4_locked_marker" title="Kostenloser Grundwert">*</span>' : '<button type="button" class="phase2_remove_x" data-phase2-skill-remove aria-label="Skill entfernen" title="Entfernen">X</button>'}</td>
             `;
             return row;
           };
@@ -1027,6 +1035,8 @@
               }
               const slug = source.dataset.slug || "";
               const name = source.dataset.name || slug;
+              const freeBase = toInt(source.dataset.freeBase || "0", 0);
+              const minLevel = toInt(source.dataset.minLevel || "0", 0);
               if (!slug) {
                 return;
               }
@@ -1038,7 +1048,8 @@
                 }
                 return;
               }
-              const row = createSkillRow(slug, name, 1);
+              const startLevel = Math.max(minLevel, freeBase > 0 ? freeBase : 1);
+              const row = createSkillRow(slug, name, startLevel, freeBase, minLevel);
               phase2SkillCartBody.appendChild(row);
               bindSkillRow(row);
               ensureEmptyRows();

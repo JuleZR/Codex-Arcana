@@ -36,6 +36,9 @@ from charsheet.constants import ATTR_SPEC, LEGENDARY_ATTRIBUTE_TRAIT_SLUG, RESOU
 class CharacterCreationEngine:
     """Rules engine for validating and materializing character creation drafts."""
 
+    FREE_LOCAL_KNOWLEDGE_SKILL_SLUG = "knw_local_knowledge"
+    FREE_LOCAL_KNOWLEDGE_LEVEL = 5
+
     def __init__(self, draft: CharacterCreationDraft):
         self.draft = draft
         self.race = draft.race
@@ -282,9 +285,18 @@ class CharacterCreationEngine:
         )
 
     # Phase 2
+    def phase_2_free_skills(self) -> dict[str, int]:
+        """Return free phase-2 base skills that do not consume creation points."""
+        return {
+            self.FREE_LOCAL_KNOWLEDGE_SKILL_SLUG: self.FREE_LOCAL_KNOWLEDGE_LEVEL,
+        }
+
     def phase_2_skills(self) -> dict[str, int]:
         skills = self.get_phase("phase_2").get("skills", {}) or {}
-        return {str(k): max(0, self._to_int(v, 0)) for k, v in skills.items()}
+        normalized = {str(k): max(0, self._to_int(v, 0)) for k, v in skills.items()}
+        for slug, free_level in self.phase_2_free_skills().items():
+            normalized[slug] = max(free_level, normalized.get(slug, 0))
+        return normalized
 
     def calc_skill_cost(self, target_level: int) -> int:
         if target_level <= 5:
@@ -294,8 +306,17 @@ class CharacterCreationEngine:
             cost += 2
         return cost
 
+    def calc_phase_2_skill_cost(self, skill_slug: str, target_level: int) -> int:
+        """Return the phase-2 purchase cost after subtracting free starting ranks."""
+        target = max(0, int(target_level))
+        free_level = int(self.phase_2_free_skills().get(str(skill_slug), 0))
+        return max(0, self.calc_skill_cost(target) - self.calc_skill_cost(free_level))
+
     def sum_phase_2_skill_cost(self) -> int:
-        return sum(self.calc_skill_cost(level) for level in self.phase_2_skills().values())
+        return sum(
+            self.calc_phase_2_skill_cost(slug, level)
+            for slug, level in self.phase_2_skills().items()
+        )
 
     def phase_2_languages(self) -> dict[str, dict]:
         languages = self.get_phase("phase_2").get("languages", {}) or {}

@@ -1110,6 +1110,7 @@ def create_character(request):
     for skill in Skill.objects.select_related("category").order_by("category__name", "name"):
         value = phase_2_skills.get(skill.slug, 0)
         description = (skill.description or "").replace("\r\n", "\n").replace("\r", "\n")
+        free_base = engine.phase_2_free_skills().get(skill.slug, 0)
         phase_2_skill_rows.append(
             {
                 "slug": skill.slug,
@@ -1118,7 +1119,10 @@ def create_character(request):
                 "category_slug": skill.category.slug,
                 "description": description,
                 "value": value,
-                "cost": engine.calc_skill_cost(value) if value > 0 else 0,
+                "cost": engine.calc_phase_2_skill_cost(skill.slug, value) if value > 0 else 0,
+                "free_base": free_base,
+                "min_value": free_base if free_base > 0 else 0,
+                "locked": free_base > 0,
             }
         )
     phase_2_language_rows = []

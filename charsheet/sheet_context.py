@@ -1051,14 +1051,12 @@ def _build_skill_rows(character: Character, engine, *, load_penalty: int) -> tup
         .select_related("skill", "skill__attribute", "skill__category")
         .order_by("skill__name")
     )
-    skills_map = engine.skills()
     for character_skill in character_skills:
-        breakdown = engine.skill_breakdown(character_skill.skill.slug)
-        if "error" in breakdown:
-            continue
-        skill_info = skills_map.get(character_skill.skill.slug, {})
-        category_slug = skill_info.get("category")
-        skill_id = skill_info.get("skill_id")
+        category_slug = character_skill.skill.category.slug
+        skill_id = character_skill.skill_id
+        attribute_modifier = int(engine.attribute_modifier(character_skill.skill.attribute.short_name))
+        raw_modifiers = int(engine._skill_modifiers(character_skill.skill.slug))
+        total_with_load = int(character_skill.level) + attribute_modifier + raw_modifiers
         specification = (character_skill.specification or "").strip()
         has_specification = (
             character_skill.skill.requires_specification
@@ -1067,7 +1065,7 @@ def _build_skill_rows(character: Character, engine, *, load_penalty: int) -> tup
         )
         display_name = character_skill.skill.name.rstrip(": ").strip()
         if character_skill.skill.requires_specification:
-            display_name = f"{display_name}: {specification if has_specification else '*'}"
+            display_name = f"{display_name} {specification if has_specification else '*'}"
         elif has_specification:
             display_name = f"{display_name} {specification}"
         skill_rows.append(
@@ -1077,14 +1075,14 @@ def _build_skill_rows(character: Character, engine, *, load_penalty: int) -> tup
                 "display_name": display_name,
                 "description": character_skill.skill.description,
                 "attribute": character_skill.skill.attribute.short_name,
-                "attribute_mod": format_modifier(breakdown["attribute_modifier"]),
+                "attribute_mod": format_modifier(attribute_modifier),
                 "rank": character_skill.level,
-                "misc_mod": format_modifier(breakdown["modifiers"] - load_penalty),
-                "total": breakdown["total"] - load_penalty,
-                "with_load_total": breakdown["total"],
+                "misc_mod": format_modifier(raw_modifiers - load_penalty),
+                "total": total_with_load - load_penalty,
+                "with_load_total": total_with_load,
                 "calculation_tooltip": _build_core_stat_tooltip(
                     [
-                        {"label": "Eigenschaft", "value": format_modifier(breakdown["attribute_modifier"]), "source": character_skill.skill.attribute.short_name},
+                        {"label": "Eigenschaft", "value": format_modifier(attribute_modifier), "source": character_skill.skill.attribute.short_name},
                         {"label": "Rang", "value": character_skill.level},
                         {
                             "label": "Wundmalus",
@@ -1098,7 +1096,7 @@ def _build_skill_rows(character: Character, engine, *, load_penalty: int) -> tup
                             skill_id=skill_id,
                         ),
                         {"label": "Belastung", "value": format_modifier(load_penalty)},
-                        {"label": "= Gesamt", "value": breakdown["total"], "tone": "total"},
+                        {"label": "= Gesamt", "value": total_with_load, "tone": "total"},
                     ]
                 ),
                 "can_edit_specification": character_skill.skill.requires_specification,

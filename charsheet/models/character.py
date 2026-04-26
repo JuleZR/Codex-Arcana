@@ -157,7 +157,10 @@ class CharacterSkill(models.Model):
     class Meta:
         ordering = ["character", "skill"]
         constraints = [
-            models.UniqueConstraint(fields=["character", "skill"], name="uniq_character_skill")
+            models.UniqueConstraint(
+                fields=["character", "skill", "specification"],
+                name="uniq_character_skill_specification",
+            )
         ]
 
     def __str__(self):

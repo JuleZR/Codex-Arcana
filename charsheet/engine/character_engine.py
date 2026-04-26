@@ -189,15 +189,18 @@ class CharacterEngine:
             "skill__category",
             "skill__attribute",
         )
-        return {
-            entry.skill.slug: {
+        skills: dict[str, SkillInfo] = {}
+        for entry in qs:
+            existing = skills.get(entry.skill.slug)
+            if existing is not None and int(existing["level"]) >= int(entry.level):
+                continue
+            skills[entry.skill.slug] = {
                 "skill_id": entry.skill_id,
                 "level": entry.level,
                 "category": entry.skill.category.slug,
                 "attribute": entry.skill.attribute.short_name,
             }
-            for entry in qs
-        }
+        return skills
 
     @cached_property
     def _languages_map(self) -> dict[str, CharacterLanguage]:
@@ -415,10 +418,10 @@ class CharacterEngine:
     @cached_property
     def _skill_levels_by_id(self) -> dict[int, int]:
         """Cache learned skill levels keyed by skill id for requirement checks."""
-        return {
-            entry.skill_id: entry.level
-            for entry in self.character.characterskill_set.only("skill_id", "level")
-        }
+        skill_levels: dict[int, int] = {}
+        for entry in self.character.characterskill_set.only("skill_id", "level"):
+            skill_levels[entry.skill_id] = max(skill_levels.get(entry.skill_id, 0), int(entry.level))
+        return skill_levels
 
     @cached_property
     def _trait_levels(self) -> dict[int, int]:
