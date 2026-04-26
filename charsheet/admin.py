@@ -1295,6 +1295,17 @@ class CharacterItemInline(admin.TabularInline):
     fields = ("item", "amount", "quality", "equipped")
 
 
+class ItemRuneInline(admin.TabularInline):
+    """Inline editor for runes attached to one concrete owned item."""
+
+    model = ItemRune
+    extra = 0
+    show_change_link = True
+    autocomplete_fields = ("rune",)
+    fields = ("rune", "crafter_level", "is_active", "allows_duplicate", "updated_at")
+    readonly_fields = ("allows_duplicate", "updated_at")
+
+
 class SchoolInline(admin.TabularInline):
     """Inline editor for schools inside a school type."""
 
@@ -2665,6 +2676,7 @@ class CharacterItemAdmin(admin.ModelAdmin):
     ordering = ("owner", "item")
     autocomplete_fields = ("owner", "item")
     list_select_related = ("owner", "owner__race", "item")
+    inlines = (ItemRuneInline,)
 
     @admin.display(ordering="owner__race__name", description="Owner Race")
     def owner_race(self, obj):
