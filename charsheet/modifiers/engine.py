@@ -502,7 +502,7 @@ class ModifierEngine:
         if source_type == "trait":
             return source_id is not None and source_id in self.character_engine._trait_levels
         if source_type == "rune":
-            return source_id is not None and source_id in self.character_engine._equipped_rune_ids
+            return source_id is not None and self.character_engine.is_rune_equipped(source_id)
         if source_type != "technique" or source_id is None:
             return True
 

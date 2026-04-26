@@ -447,6 +447,11 @@ class CharacterEngine:
         )
         return {int(rune_id) for rune_id in base_rune_ids | extra_rune_ids if rune_id is not None}
 
+    def is_rune_equipped(self, rune: Rune | int) -> bool:
+        """Return whether this rune is attached to any currently equipped owned item."""
+        rune_id = rune.id if isinstance(rune, Rune) else int(rune)
+        return rune_id in self._equipped_rune_ids
+
     @cached_property
     def _all_modifiers(self) -> list[Modifier]:
         """Load only modifiers whose sources are relevant for this character."""
@@ -1373,7 +1378,7 @@ class CharacterEngine:
         if isinstance(source, Trait):
             return source.id in self._trait_levels
         if isinstance(source, Rune):
-            return source.id in self._equipped_rune_ids
+            return self.is_rune_equipped(source)
         if isinstance(source, Technique):
             if source.id in self._race_technique_ids:
                 return (
