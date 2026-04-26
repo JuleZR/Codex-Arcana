@@ -40,6 +40,7 @@ class Modifier(models.Model):
         TRAIT_LVL = "trait_level", "Trait Level"
         SKILL_LEVEL = "skill_level", "Skill level"
         SKILL_TOTAL = "skill_total", "Skill total"
+        RUNE_CRAFTER_LEVEL = "rune_crafter_level", "Rune crafter level"
 
     class RoundMode(models.TextChoices):
         FLOOR = "floor", "Floor"
@@ -365,6 +366,11 @@ class Modifier(models.Model):
         source_model = self.source_content_type.model_class() if self.source_content_type_id else None
         source_is_school_bound = source_model in {School, Technique}
         skill_scale_sources = {self.ScaleSource.SKILL_LEVEL, self.ScaleSource.SKILL_TOTAL}
+        item_rune_scale_sources = {self.ScaleSource.RUNE_CRAFTER_LEVEL}
+        non_school_scale_sources = skill_scale_sources | item_rune_scale_sources | {
+            self.ScaleSource.FAME_TOTAL,
+            self.ScaleSource.TRAIT_LVL,
+        }
 
         if self.scale_school_id and self.scale_source != self.ScaleSource.SCHOOL_LEVEL:
             raise ValidationError({"scale_school": "scale_school is only allowed for school-level scaling."})
@@ -397,6 +403,7 @@ class Modifier(models.Model):
             self.min_school_level is not None
             and not self.scale_school_id
             and not source_is_school_bound
+            and self.scale_source not in non_school_scale_sources
         ):
             raise ValidationError({"min_school_level": "A school gate needs either scale_school or a school/technique source."})
         if self.cap_mode == self.CapMode.NONE and self.cap_source:

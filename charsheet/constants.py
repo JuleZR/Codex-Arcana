@@ -39,6 +39,9 @@ VALID_STAT_SLUGS = {
     DEFENSE_RS,
 }
 
+SOURCE_ITEM_RUNE = "item_rune"
+RUNE_CRAFTER_LEVEL = "rune_crafter_level"
+
 # School Slugs
 SCHOOL_ARCANE = "arcane"
 SCHOOL_DIVINE = "divine"

@@ -20,7 +20,7 @@ def equipped_weapon_items(engine) -> QuerySet:
             item__item_type=Item.ItemType.WEAPON,
         )
         .select_related("item", "item__weaponstats", "item__weaponstats__damage_source")
-        .prefetch_related("item__runes", "runes")
+        .prefetch_related("item__runes", "runes", "item_runes__rune")
     )
 
 
@@ -33,7 +33,7 @@ def equipped_armor_items(engine) -> QuerySet:
             item__item_type=Item.ItemType.ARMOR,
         )
         .select_related("item", "item__armorstats")
-        .prefetch_related("item__runes", "runes")
+        .prefetch_related("item__runes", "runes", "item_runes__rune")
     )
 
 
@@ -46,7 +46,7 @@ def equipped_clothing_items(engine) -> QuerySet:
             item__item_type=Item.ItemType.CLOTHING,
         )
         .select_related("item")
-        .prefetch_related("item__runes", "runes")
+        .prefetch_related("item__runes", "runes", "item_runes__rune")
     )
 
 
@@ -72,7 +72,7 @@ def equipped_magic_item_items(engine) -> QuerySet:
             )
         )
         .select_related("item", "item__magicitemstats")
-        .prefetch_related("item__runes", "runes")
+        .prefetch_related("item__runes", "runes", "item_runes__rune")
     )
 
 
@@ -85,7 +85,7 @@ def equipped_shield_items(engine) -> QuerySet:
             item__item_type=Item.ItemType.SHIELD,
         )
         .select_related("item", "item__shieldstats")
-        .prefetch_related("item__runes", "runes")
+        .prefetch_related("item__runes", "runes", "item_runes__rune")
     )
 
 

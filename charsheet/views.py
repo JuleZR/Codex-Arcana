@@ -162,7 +162,7 @@ def _owned_character_or_404(request, character_id: int) -> Character:
 def _owned_character_item_or_404(request, pk: int) -> CharacterItem:
     """Return one inventory row whose character belongs to the current user."""
     return get_object_or_404(
-        CharacterItem.objects.select_related("item", "owner").prefetch_related("item__runes", "runes"),
+        CharacterItem.objects.select_related("item", "owner").prefetch_related("item__runes", "runes", "item_runes__rune"),
         pk=pk,
         owner__owner=request.user,
     )

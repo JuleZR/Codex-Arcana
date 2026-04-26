@@ -9,7 +9,7 @@ from functools import cached_property
 from typing import Any
 
 from charsheet.modifiers.definitions import BaseModifier, ModifierOperator, StackBehavior, TargetDomain
-from charsheet.constants import PROFICIENCY_GROUP_FOREIGN_LANGUAGES
+from charsheet.constants import PROFICIENCY_GROUP_FOREIGN_LANGUAGES, RUNE_CRAFTER_LEVEL, SOURCE_ITEM_RUNE
 from charsheet.modifiers.legacy import LegacyModifierAdapter
 from charsheet.modifiers.migration import (
     LegacyModifierMigrationService,
@@ -93,6 +93,42 @@ class ModifierEngine:
         return modifiers
 
     @cached_property
+    def _active_item_rune_modifiers(self) -> list[BaseModifier]:
+        """Resolve active equipped ItemRune assignments into concrete modifiers."""
+        if self.character_engine is None:
+            return []
+        modifiers: list[BaseModifier] = []
+        for item_rune in self.character_engine._equipped_item_runes:
+            rune = item_rune.rune
+            for template in rune.modifier_templates.all():
+                modifier = LegacyModifierAdapter.adapt(template)
+                scaling = dict(modifier.scaling)
+                mode = modifier.mode
+                if rune.is_level_scaled and str(mode or "flat") == "scaled":
+                    scaling["scale_source"] = RUNE_CRAFTER_LEVEL
+                elif scaling.get("scale_source") == RUNE_CRAFTER_LEVEL:
+                    scaling["scale_source"] = None
+                if not rune.is_level_scaled and scaling.get("cap_source") == RUNE_CRAFTER_LEVEL:
+                    scaling["cap_source"] = None
+                modifiers.append(
+                    replace(
+                        modifier,
+                        source_type=SOURCE_ITEM_RUNE,
+                        source_id=str(item_rune.id),
+                        scaling=scaling,
+                        metadata={
+                            **modifier.metadata,
+                            "rune_id": rune.id,
+                            "rune_slug": rune.slug,
+                            "rune_name": rune.name,
+                            "item_rune_id": item_rune.id,
+                            "crafter_level": item_rune.crafter_level,
+                        },
+                    )
+                )
+        return modifiers
+
+    @cached_property
     def migration_service(self) -> LegacyModifierMigrationService:
         """Return the legacy inventory and migration service for this engine."""
         if self.character_engine is None:
@@ -135,6 +171,7 @@ class ModifierEngine:
                     continue
                 collected.append(modifier)
             collected.extend(self._active_trait_modifiers)
+            collected.extend(self._active_item_rune_modifiers)
         expanded = self._expand_choice_bound_modifiers(collected)
         result = [modifier for modifier in expanded if modifier is not None and modifier.applies(context)]
         if not context:
@@ -501,6 +538,10 @@ class ModifierEngine:
             return source_id is not None and self.character_engine.school_level(source_id) > 0
         if source_type == "trait":
             return source_id is not None and source_id in self.character_engine._trait_levels
+        if source_type == SOURCE_ITEM_RUNE:
+            return source_id is not None and any(
+                item_rune.id == source_id for item_rune in self.character_engine._equipped_item_runes
+            )
         if source_type == "rune":
             return source_id is not None and self.character_engine.is_rune_equipped(source_id)
         if source_type != "technique" or source_id is None:
@@ -612,6 +653,14 @@ class ModifierEngine:
             if source_id is not None:
                 return self.character_engine._trait_levels.get(source_id)
             return self.character_engine._trait_levels_by_slug.get(str(modifier.source_id or ""))
+        if scale_source == RUNE_CRAFTER_LEVEL:
+            item_rune_id = self._coerce_source_id(modifier.source_id)
+            if item_rune_id is None:
+                return None
+            for item_rune in self.character_engine._equipped_item_runes:
+                if int(item_rune.id) == item_rune_id:
+                    return int(item_rune.crafter_level)
+            return None
         if scale_source == "skill_level":
             skill_id = modifier.scaling.get("scale_skill_id")
             if not skill_id:

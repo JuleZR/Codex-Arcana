@@ -53,6 +53,7 @@ from .models import (
     CharacterDivineEntity,
     CharacterDiaryEntry,
     CharacterItem,
+    ItemRune,
     CharacterLanguage,
     CharacterRaceChoice,
     CharacterSchool,
@@ -129,14 +130,15 @@ ADMIN_MODEL_ORDER = {
     "CharacterRaceChoice": 20,
     "CharacterSpecialization": 21,
     "CharacterItem": 22,
-    "CharacterLanguage": 23,
-    "CharacterDiaryEntry": 24,
-    "CharacterAspect": 25,
-    "CharacterSpellSource": 26,
-    "CharacterSpell": 27,
-    "CharacterDivineEntity": 28,
-    "CharacterWeaponMastery": 29,
-    "CharacterWeaponMasteryArcana": 30,
+    "ItemRune": 23,
+    "CharacterLanguage": 24,
+    "CharacterDiaryEntry": 25,
+    "CharacterAspect": 26,
+    "CharacterSpellSource": 27,
+    "CharacterSpell": 28,
+    "CharacterDivineEntity": 29,
+    "CharacterWeaponMastery": 30,
+    "CharacterWeaponMasteryArcana": 31,
     "Race": 40,
     "RaceAttributeLimit": 41,
     "RaceTechnique": 42,
@@ -2690,6 +2692,26 @@ class CharacterItemAdmin(admin.ModelAdmin):
         return ItemEngine(obj).get_price()
 
 
+@admin.register(ItemRune)
+class ItemRuneAdmin(admin.ModelAdmin):
+    """Admin configuration for concrete rune assignments on owned items."""
+
+    list_display = (
+        "item",
+        "rune",
+        "crafter_level",
+        "is_active",
+        "allows_duplicate",
+        "updated_at",
+    )
+    search_fields = ("item__owner__name", "item__item__name", "rune__name", "rune__slug")
+    list_filter = ("is_active", "allows_duplicate", "rune__is_level_scaled", "rune__allow_multiple")
+    ordering = ("item__owner__name", "item__item__name", "rune__name", "id")
+    autocomplete_fields = ("item", "rune")
+    list_select_related = ("item", "item__owner", "item__item", "rune")
+    readonly_fields = ("allows_duplicate", "created_at", "updated_at")
+
+
 @admin.register(ArmorStats)
 class ArmorStatsAdmin(admin.ModelAdmin):
     """Admin configuration for armor stat blocks."""
@@ -3715,15 +3737,12 @@ class WeaponFlagAdmin(admin.ModelAdmin):
 class RuneAdmin(admin.ModelAdmin):
     """Admin configuration for reusable rune definitions."""
 
-    list_display = ("name", "image", "item_count")
-    search_fields = ("name", "description", "image")
+    list_display = ("name", "slug", "is_level_scaled", "allow_multiple")
+    search_fields = ("name", "slug", "description", "image")
+    list_filter = ("is_level_scaled", "allow_multiple")
     ordering = ("name",)
+    prepopulated_fields = {"slug": ("name",)}
     inlines = (ModifierInline,)
-
-    @admin.display(description="Items")
-    def item_count(self, obj):
-        """Show how many items currently reference this rune."""
-        return obj.items.count()
 
 
 @admin.register(WeaponStats)

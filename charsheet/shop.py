@@ -16,6 +16,7 @@ from charsheet.models import (
     Character,
     CharacterItem,
     CharacterItemRuneSpec,
+    ItemRune,
     DamageSource,
     Item,
     MagicItemStats,
@@ -27,6 +28,42 @@ from charsheet.models import (
     Specialization,
     WeaponStats,
 )
+
+
+def apply_rune_to_item(*, item: CharacterItem, rune: Rune, crafter_level: int) -> ItemRune:
+    """Apply or improve one rune assignment on a concrete owned item."""
+    allowed_item_types = set(rune.allowed_item_types or [])
+    if allowed_item_types and item.item.item_type not in allowed_item_types:
+        raise ValidationError({"rune": "Diese Rune ist fuer diesen Gegenstandstyp nicht erlaubt."})
+    if rune.allow_multiple:
+        return ItemRune.objects.create(
+            item=item,
+            rune=rune,
+            crafter_level=crafter_level,
+        )
+
+    item_rune, created = ItemRune.objects.get_or_create(
+        item=item,
+        rune=rune,
+        defaults={
+            "crafter_level": crafter_level,
+            "is_active": True,
+        },
+    )
+
+    if not created:
+        item_rune.crafter_level = crafter_level
+        item_rune.is_active = True
+        item_rune.save(
+            update_fields=[
+                "crafter_level",
+                "is_active",
+                "allows_duplicate",
+                "updated_at",
+            ]
+        )
+
+    return item_rune
 
 
 def _read_int(post_data, name: str, default: int = 0, *, minimum: int | None = None) -> int:
@@ -198,10 +235,15 @@ def _read_rune_payloads(post_data) -> list[dict[str, object]]:
                 slot = max(1, int(entry.get("slot") or 1))
             except (TypeError, ValueError):
                 slot = 1
+            try:
+                crafter_level = max(0, int(entry.get("crafter_level") or 0))
+            except (TypeError, ValueError):
+                crafter_level = 0
             payloads.append({
                 "rune_id": rune_id,
                 "specification": str(entry.get("specification") or "").strip(),
                 "slot": slot,
+                "crafter_level": crafter_level,
             })
         return payloads
 
@@ -212,7 +254,10 @@ def _read_rune_payloads(post_data) -> list[dict[str, object]]:
             rune_ids.append(int(raw_value))
         except (TypeError, ValueError):
             continue
-    return [{"rune_id": rune_id, "specification": "", "slot": 1} for rune_id in sorted(set(rune_ids))]
+    return [
+        {"rune_id": rune_id, "specification": "", "slot": 1, "crafter_level": 0}
+        for rune_id in sorted(set(rune_ids))
+    ]
 
 
 def _save_magic_modifiers(*, source_model, source_id: int, magic_modifier_payloads: list[dict[str, object]]) -> None:
@@ -272,17 +317,20 @@ def apply_character_item_modifications(character_item: CharacterItem, post_data)
     runes_by_id = {rune.id: rune for rune in Rune.objects.filter(pk__in=payload_rune_ids)}
 
     # Enforce allow_multiple: drop extra slots for runes that don't allow it
-    final_payloads: list[tuple[Rune, str, int]] = []
+    final_payloads: list[tuple[Rune, str, int, int]] = []
     for payload in filtered_payloads:
         rune = runes_by_id.get(int(payload["rune_id"]))
         if rune is None:
             continue
+        allowed_item_types = set(rune.allowed_item_types or [])
+        if allowed_item_types and character_item.item.item_type not in allowed_item_types:
+            continue
         slot = int(payload["slot"])
         if slot > 1 and not rune.allow_multiple:
             continue
-        final_payloads.append((rune, str(payload["specification"]), slot))
+        final_payloads.append((rune, str(payload["specification"]), slot, int(payload.get("crafter_level") or 0)))
 
-    unique_runes = list({rune.id: rune for rune, _spec, _slot in final_payloads}.values())
+    unique_runes = list({rune.id: rune for rune, _spec, _slot, _level in final_payloads}.values())
 
     if experience_cost > int(character_item.owner.current_experience) or money_cost > int(character_item.owner.money):
         return False
@@ -299,13 +347,22 @@ def apply_character_item_modifications(character_item: CharacterItem, post_data)
 
             # Replace rune spec records with the new payload
             character_item.rune_specs.all().delete()
-            for rune, specification, slot in final_payloads:
+            character_item.item_runes.filter(rune__allow_multiple=True).exclude(rune_id__in=base_rune_ids).delete()
+            selected_non_multiple_ids = {
+                rune.id for rune, _specification, _slot, _crafter_level in final_payloads if not rune.allow_multiple
+            }
+            protected_non_multiple_ids = selected_non_multiple_ids | base_rune_ids
+            character_item.item_runes.filter(rune__allow_multiple=False).exclude(
+                rune_id__in=protected_non_multiple_ids
+            ).update(is_active=False)
+            for rune, specification, slot, crafter_level in final_payloads:
                 CharacterItemRuneSpec.objects.create(
                     character_item=character_item,
                     rune=rune,
                     specification=specification,
                     slot=slot,
                 )
+                apply_rune_to_item(item=character_item, rune=rune, crafter_level=crafter_level)
 
             _save_magic_modifiers(
                 source_model=CharacterItem,
@@ -528,10 +585,14 @@ def buy_shop_cart(character: Character, payload: dict[str, object]) -> tuple[dic
                     created = CharacterItem(owner=character, item=item, amount=qty, equipped=False, quality=quality)
                     created.full_clean()
                     created.save()
+                    for rune in item.runes.all():
+                        apply_rune_to_item(item=created, rune=rune, crafter_level=0)
             else:
                 for _index in range(qty):
                     created = CharacterItem(owner=character, item=item, amount=1, equipped=False, quality=quality)
                     created.full_clean()
                     created.save()
+                    for rune in item.runes.all():
+                        apply_rune_to_item(item=created, rune=rune, crafter_level=0)
 
     return {"ok": True, "new_money": character.money, "spent": final_price}, 200

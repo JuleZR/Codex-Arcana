@@ -2,7 +2,9 @@
 
 from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
+from django.contrib.contenttypes.fields import GenericRelation
 from django.db import models
+from django.utils.text import slugify
 
 from ..constants import (
     GK_AVERAGE,
@@ -22,17 +24,47 @@ from .core import DamageSource
 
 class Rune(models.Model):
     name = models.CharField(max_length=100, unique=True)
+    slug = models.SlugField(max_length=120, unique=True)
     description = models.TextField(blank=True)
     image = models.ImageField(upload_to="runes/", blank=True, null=True)
     has_specialization = models.BooleanField(default=False)
     specialization_label = models.CharField(max_length=100, blank=True, default="")
+    allowed_item_types = models.JSONField(
+        blank=True,
+        default=list,
+        help_text="Leere Liste bedeutet: alle Item-Typen erlaubt.",
+    )
+    is_level_scaled = models.BooleanField(
+        default=False,
+        help_text="Wenn aktiv, skaliert der Effekt mit dem gespeicherten Waffenmeister-Level der ItemRune.",
+    )
     allow_multiple = models.BooleanField(
         default=False,
-        help_text="Erlaubt, diese Rune mehrfach auf denselben Gegenstand anzuwenden.",
+        help_text="Wenn aktiv, darf diese Rune mehrfach auf demselben Gegenstand angebracht werden.",
+    )
+    modifier_templates = GenericRelation(
+        "Modifier",
+        content_type_field="source_content_type",
+        object_id_field="source_object_id",
+        related_query_name="rune_template",
     )
 
     def __str__(self):
         return self.name
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            base_slug = (slugify(self.name) or "rune")[:110]
+            slug = base_slug
+            suffix = 2
+            existing = Rune.objects.all()
+            if self.pk:
+                existing = existing.exclude(pk=self.pk)
+            while existing.filter(slug=slug).exists():
+                slug = f"{base_slug}-{suffix}"
+                suffix += 1
+            self.slug = slug
+        super().save(*args, **kwargs)
 
 
 class Item(models.Model):

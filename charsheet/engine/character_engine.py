@@ -16,6 +16,7 @@ from charsheet.modifiers import ModifierEngine, ModifierResolutionMode, TargetDo
 from charsheet.models import (
     Character,
     CharacterItem,
+    ItemRune,
     CharacterLanguage,
     CharacterRaceChoice,
     CharacterSchool,
@@ -445,7 +446,17 @@ class CharacterEngine:
         extra_rune_ids = set(
             equipped_items.filter(runes__isnull=False).values_list("runes", flat=True)
         )
-        return {int(rune_id) for rune_id in base_rune_ids | extra_rune_ids if rune_id is not None}
+        assignment_rune_ids = set(self._equipped_item_runes.values_list("rune_id", flat=True))
+        return {int(rune_id) for rune_id in base_rune_ids | extra_rune_ids | assignment_rune_ids if rune_id is not None}
+
+    @cached_property
+    def _equipped_item_runes(self):
+        """Cache active concrete rune assignments on equipped items."""
+        return (
+            ItemRune.objects.filter(item__owner=self.character, item__equipped=True, is_active=True)
+            .select_related("item", "item__item", "rune")
+            .prefetch_related("rune__modifier_templates")
+        )
 
     def is_rune_equipped(self, rune: Rune | int) -> bool:
         """Return whether this rune is attached to any currently equipped owned item."""
@@ -476,7 +487,6 @@ class CharacterEngine:
                     is_magic=True,
                 ).values_list("id", flat=True)
             ),
-            Rune: set(self._equipped_rune_ids),
         }
         source_ids_by_model = {
             model_class: source_ids

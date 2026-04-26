@@ -197,6 +197,50 @@ class CharacterItem(models.Model):
         return bool(self.is_magic or self.item.is_magic_effective)
 
 
+class ItemRune(models.Model):
+    """Concrete rune assignment on one owned item, used as modifier source."""
+
+    item = models.ForeignKey(
+        CharacterItem,
+        on_delete=models.CASCADE,
+        related_name="item_runes",
+    )
+    rune = models.ForeignKey(
+        Rune,
+        on_delete=models.PROTECT,
+        related_name="item_assignments",
+    )
+    crafter_level = models.PositiveSmallIntegerField(
+        default=0,
+        help_text="Waffenmeister-Stufe beim Anbringen oder Verbessern dieser Rune.",
+    )
+    allows_duplicate = models.BooleanField(
+        default=False,
+        editable=False,
+    )
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["item", "rune__name", "id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["item", "rune"],
+                condition=models.Q(allows_duplicate=False),
+                name="unique_non_duplicate_rune_per_item",
+            )
+        ]
+
+    def save(self, *args, **kwargs):
+        self.allows_duplicate = self.rune.allow_multiple
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        level = f" L{self.crafter_level}" if self.crafter_level else ""
+        return f"{self.item} - {self.rune}{level}"
+
+
 class CharacterItemRuneSpec(models.Model):
     """Stores a character's chosen specialization text for one rune slot on one owned item."""
 

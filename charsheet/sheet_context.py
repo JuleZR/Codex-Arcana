@@ -28,6 +28,7 @@ from charsheet.constants import (
     QUALITY_CHOICES,
     QUALITY_COLOR_MAP,
     STAT_SLUG_CHOICES,
+    SOURCE_ITEM_RUNE,
 )
 from charsheet.engine import ItemEngine
 from charsheet.forms import (
@@ -40,6 +41,7 @@ from charsheet.learning_rules import DEFAULT_SCHOOL_MAX_LEVEL, school_max_levels
 from charsheet.models import (
     Character,
     CharacterItem,
+    ItemRune,
     CharacterLanguage,
     CharacterSpell,
     RaceStartingItem,
@@ -314,6 +316,7 @@ MODIFIER_SOURCE_LABELS = {
     "school": "Schule",
     "technique": "Technik",
     "item": "Magischer Gegenstand",
+    SOURCE_ITEM_RUNE: "Rune",
 }
 
 
@@ -376,34 +379,52 @@ def _collect_rune_rows(*, item: Item, character_item: CharacterItem | None = Non
                 }
             )
     if character_item is not None:
-        specs = list(character_item.rune_specs.all())
-        if specs:
-            for spec in specs:
-                if spec.rune_id in seen_base_ids:
+        item_runes = list(character_item.item_runes.all())
+        if item_runes:
+            for item_rune in item_runes:
+                if not item_rune.is_active or item_rune.rune_id in seen_base_ids:
                     continue
-                display_name = spec.rune.name
-                if spec.specification:
-                    display_name = f"{spec.rune.name}: {spec.specification}"
+                level_label = (
+                    f" (Waffenmeister {item_rune.crafter_level})"
+                    if item_rune.rune.is_level_scaled
+                    else ""
+                )
                 rows.append(
                     {
-                        "name": display_name,
-                        "description": spec.rune.description or "",
-                        "image": _rune_image_url(spec.rune),
+                        "name": f"{item_rune.rune.name}{level_label}",
+                        "description": item_rune.rune.description or "",
+                        "image": _rune_image_url(item_rune.rune),
                     }
                 )
         else:
-            # Legacy fallback: use M2M when no spec records exist yet
-            for rune in character_item.runes.all():
-                if rune.id in seen_base_ids:
-                    continue
-                seen_base_ids.add(rune.id)
-                rows.append(
-                    {
-                        "name": rune.name,
-                        "description": rune.description or "",
-                        "image": _rune_image_url(rune),
-                    }
-                )
+            specs = list(character_item.rune_specs.all())
+            if specs:
+                for spec in specs:
+                    if spec.rune_id in seen_base_ids:
+                        continue
+                    display_name = spec.rune.name
+                    if spec.specification:
+                        display_name = f"{spec.rune.name}: {spec.specification}"
+                    rows.append(
+                        {
+                            "name": display_name,
+                            "description": spec.rune.description or "",
+                            "image": _rune_image_url(spec.rune),
+                        }
+                    )
+            else:
+                # Legacy fallback: use M2M when no assignment/spec records exist yet
+                for rune in character_item.runes.all():
+                    if rune.id in seen_base_ids:
+                        continue
+                    seen_base_ids.add(rune.id)
+                    rows.append(
+                        {
+                            "name": rune.name,
+                            "description": rune.description or "",
+                            "image": _rune_image_url(rune),
+                        }
+                    )
     return rows
 
 
@@ -786,6 +807,10 @@ def _resolve_modifier_source_name(engine, source_type: object, source_id: object
         item = Item.objects.filter(pk=int(source_id_text)).only("name").first()
         if item is not None:
             return item.name
+    if source_type_text == SOURCE_ITEM_RUNE and source_id_text.isdigit():
+        item_rune = ItemRune.objects.filter(pk=int(source_id_text)).select_related("rune", "item__item").first()
+        if item_rune is not None:
+            return f"{item_rune.rune.name} auf {item_rune.item.item.name}"
     return _prettify_source_id(source_id_text or source_type_text)
 
 
@@ -1119,7 +1144,7 @@ def _build_inventory_rows(character: Character) -> list[dict]:
         CharacterItem.objects
         .filter(owner=character, equipped=False)
         .select_related("item")
-        .prefetch_related("item__runes", "runes", "rune_specs__rune")
+        .prefetch_related("item__runes", "runes", "rune_specs__rune", "item_runes__rune")
         .order_by("item__name")
     )
     inventory_items = list(inventory_items)
@@ -1161,7 +1186,7 @@ def _build_inventory_rows(character: Character) -> list[dict]:
             {
                 "character_item": character_item,
                 "item": item,
-                "has_runes": bool(item.runes.exists() or character_item.runes.exists()),
+                "has_runes": bool(item.runes.exists() or character_item.runes.exists() or character_item.item_runes.exists()),
                 "rune_rows": _collect_rune_rows(item=item, character_item=character_item),
                 "display_name": (
                     f"{character_item.amount}x {item.name}"
@@ -1178,15 +1203,31 @@ def _build_inventory_rows(character: Character) -> list[dict]:
                 "equip_label": "Anlegen",
                 "base_rune_ids": [rune.id for rune in item.runes.all()],
                 "base_rune_names": [rune.name for rune in item.runes.all()],
-                "extra_rune_ids": [rune.id for rune in character_item.runes.all()],
-                "rune_specs_json": json.dumps([
-                    {
-                        "rune_id": spec.rune_id,
-                        "specification": spec.specification,
-                        "slot": spec.slot,
-                    }
-                    for spec in character_item.rune_specs.all()
-                ]),
+                "extra_rune_ids": [
+                    item_rune.rune_id
+                    for item_rune in character_item.item_runes.all()
+                    if item_rune.is_active
+                ] or [rune.id for rune in character_item.runes.all()],
+                "rune_specs_json": json.dumps(
+                    [
+                        {
+                            "rune_id": item_rune.rune_id,
+                            "specification": "",
+                            "slot": index,
+                            "crafter_level": item_rune.crafter_level,
+                        }
+                        for index, item_rune in enumerate(character_item.item_runes.all(), start=1)
+                        if item_rune.is_active
+                    ]
+                    or [
+                        {
+                            "rune_id": spec.rune_id,
+                            "specification": spec.specification,
+                            "slot": spec.slot,
+                        }
+                        for spec in character_item.rune_specs.all()
+                    ]
+                ),
                 "description": character_item.description or item.description or "",
                 "is_character_item_magic": bool(character_item.is_magic),
                 "magic_effect_summary": character_item.magic_effect_summary or "",
@@ -1234,7 +1275,11 @@ def _build_weapon_rows(engine) -> list[dict]:
                         )
                     ),
                 ),
-                "has_runes": bool(row["item"].runes.exists() or row["character_item"].runes.exists()),
+                "has_runes": bool(
+                    row["item"].runes.exists()
+                    or row["character_item"].runes.exists()
+                    or row["character_item"].item_runes.exists()
+                ),
                 "rune_rows": _collect_rune_rows(item=row["item"], character_item=row["character_item"]),
                 "calculation_tooltip": _build_weapon_calculation_tooltip(engine, row),
                 "can_unequip": not row["character_item"].equip_locked,
