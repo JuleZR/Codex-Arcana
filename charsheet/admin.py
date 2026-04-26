@@ -3718,6 +3718,7 @@ class RuneAdmin(admin.ModelAdmin):
     list_display = ("name", "image", "item_count")
     search_fields = ("name", "description", "image")
     ordering = ("name",)
+    inlines = (ModifierInline,)
 
     @admin.display(description="Items")
     def item_count(self, obj):

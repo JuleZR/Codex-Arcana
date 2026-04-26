@@ -10,6 +10,7 @@ from typing import Any, Iterable
 from django.apps import apps
 
 from charsheet.modifiers.definitions import (
+    AttributeModifier,
     BaseModifier,
     CombatModifier,
     DerivedStatModifier,
@@ -21,6 +22,7 @@ from charsheet.modifiers.definitions import (
     SpecializationModifier,
     TargetDomain,
 )
+from charsheet.constants import ATTRIBUTE_CODE_CHOICES
 from charsheet.models import Modifier, Skill
 
 
@@ -140,6 +142,7 @@ class LegacyModifierMigrationService:
     KNOWN_DERIVED_STATS = {"initiative", "arcane_power", "potential", "wound_stage", "wound_penalty_mod", "vw", "gw", "sr", "rs"}
     KNOWN_RULE_FLAGS = {"wound_penalty_ignore", "armor_penalty_ignore", "shield_penalty_ignore"}
     DAMAGE_SLUG_PREFIX = "dmg_"
+    KNOWN_ATTRIBUTES = {value for value, _label in ATTRIBUTE_CODE_CHOICES}
 
     def __init__(self, legacy_modifiers: Iterable[Modifier] | None = None):
         self._legacy_modifiers = list(legacy_modifiers) if legacy_modifiers is not None else None
@@ -388,7 +391,11 @@ class LegacyModifierMigrationService:
             modifier_type = "SkillModifier"
 
         elif legacy_modifier.target_kind == Modifier.TargetKind.STAT:
-            if legacy_slug in self.KNOWN_DERIVED_STATS:
+            if legacy_slug in self.KNOWN_ATTRIBUTES:
+                target_domain = TargetDomain.ATTRIBUTE
+                modifier_cls = AttributeModifier
+                modifier_type = "AttributeModifier"
+            elif legacy_slug in self.KNOWN_DERIVED_STATS:
                 target_domain = TargetDomain.DERIVED_STAT
                 modifier_cls = DerivedStatModifier
                 modifier_type = "DerivedStatModifier"

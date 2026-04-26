@@ -217,6 +217,14 @@ class TraitModifier(BaseModifier):
         super().__init__(*args, **kwargs)
 
 
+class AttributeModifier(BaseModifier):
+    """Modifier targeting one base attribute value."""
+
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault("target_domain", TargetDomain.ATTRIBUTE)
+        super().__init__(*args, **kwargs)
+
+
 class DerivedStatModifier(BaseModifier):
     """Modifier targeting one derived stat such as initiative or VW."""
 

@@ -1710,10 +1710,11 @@ def _build_learning_rows(
         for entry in CharacterTrait.objects.filter(owner=character).select_related("trait")
     }
     magic_engine = character.get_magic_engine()
+    base_attributes = character.engine._attributes_map
 
     learn_attr_rows: list[dict] = []
     for short_name, label in ATTRIBUTE_ORDER:
-        base_value = int(attributes.get(short_name, 0))
+        base_value = int(base_attributes.get(short_name, 0))
         learn_attr_rows.append(
             {
                 "short_name": short_name,
@@ -2151,13 +2152,16 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
         "shop_damage_source_choices": DamageSource.objects.order_by("name"),
         "shop_modifier_target_kind_choices": [
             ("", "Kein Effekt"),
-            ("stat", "Wert auf dem Bogen"),
+            ("stat", "Attribut oder Wert auf dem Bogen"),
             ("skill", "Einzelne Fertigkeit"),
             ("category", "Fertigkeitskategorie"),
             ("item_category", "Alle Gegenstände eines Typs"),
             ("specialization", "Spezialisierung"),
         ],
-        "shop_modifier_stat_choices": STAT_SLUG_CHOICES,
+        "shop_modifier_stat_choices": [
+            *[(value, f"Attribut: {label}") for value, label in ATTRIBUTE_ORDER],
+            *STAT_SLUG_CHOICES,
+        ],
         "shop_modifier_skill_choices": Skill.objects.order_by("name"),
         "shop_modifier_skill_category_choices": SkillCategory.objects.order_by("name"),
         "shop_modifier_item_category_choices": [

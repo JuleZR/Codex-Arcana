@@ -345,6 +345,7 @@ class TraitSemanticEffect(models.Model):
         """Materialize this persisted effect as one typed modifier instance."""
         from ..modifiers.definitions import (
             AttributeCapModifier,
+            AttributeModifier,
             BaseModifier,
             CombatModifier,
             ConditionSet,
@@ -367,6 +368,7 @@ class TraitSemanticEffect(models.Model):
             "trait": TraitModifier,
             "language": LanguageModifier,
             "proficiency_group": ProficiencyGroupModifier,
+            "attribute": AttributeModifier,
             "attribute_cap": AttributeCapModifier,
             "derived_stat": DerivedStatModifier,
             "resource": ResourceModifier,

@@ -6,7 +6,7 @@ from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
 from django.db import models
 
-from ..constants import VALID_STAT_SLUGS
+from ..constants import ATTRIBUTE_CODE_CHOICES, VALID_STAT_SLUGS
 from .core import Skill, SkillCategory, Trait
 from .items import Item
 from .progression import School, Specialization
@@ -224,8 +224,10 @@ class Modifier(models.Model):
                 )
 
         # Per-kind target field validation.
+        valid_stat_or_attribute_slugs = VALID_STAT_SLUGS | {value for value, _label in ATTRIBUTE_CODE_CHOICES}
+
         if self.target_kind == self.TargetKind.STAT:
-            if self.target_slug not in VALID_STAT_SLUGS:
+            if self.target_slug not in valid_stat_or_attribute_slugs:
                 raise ValidationError({"target_slug": "Invalid target slug for kind STAT."})
             self._require_empty_target_fields(
                 "STAT",

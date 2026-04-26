@@ -501,6 +501,8 @@ class ModifierEngine:
             return source_id is not None and self.character_engine.school_level(source_id) > 0
         if source_type == "trait":
             return source_id is not None and source_id in self.character_engine._trait_levels
+        if source_type == "rune":
+            return source_id is not None and source_id in self.character_engine._equipped_rune_ids
         if source_type != "technique" or source_id is None:
             return True
 
@@ -660,6 +662,8 @@ class ModifierEngine:
             return self.character_engine._resolve_target_modifiers(Modifier.TargetKind.SKILL, target_key)
         if target_domain == TargetDomain.SKILL_CATEGORY:
             return self.character_engine._resolve_target_modifiers(Modifier.TargetKind.CATEGORY, target_key)
+        if target_domain == TargetDomain.ATTRIBUTE:
+            return self.character_engine._resolve_target_modifiers(Modifier.TargetKind.STAT, target_key)
         if target_domain in {TargetDomain.DERIVED_STAT, TargetDomain.RULE_FLAG}:
             return self.character_engine._resolve_target_modifiers(Modifier.TargetKind.STAT, target_key)
         if target_domain == TargetDomain.COMBAT:

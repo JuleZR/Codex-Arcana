@@ -31,6 +31,7 @@ from charsheet.models import (
     Race,
     RaceChoiceDefinition,
     RaceTechnique,
+    Rune,
     School,
     SchoolPath,
     Specialization,
@@ -435,6 +436,18 @@ class CharacterEngine:
         }
 
     @cached_property
+    def _equipped_rune_ids(self) -> set[int]:
+        """Cache rune ids attached to equipped base items or owned item modifications."""
+        equipped_items = CharacterItem.objects.filter(owner=self.character, equipped=True)
+        base_rune_ids = set(
+            equipped_items.filter(item__runes__isnull=False).values_list("item__runes", flat=True)
+        )
+        extra_rune_ids = set(
+            equipped_items.filter(runes__isnull=False).values_list("runes", flat=True)
+        )
+        return {int(rune_id) for rune_id in base_rune_ids | extra_rune_ids if rune_id is not None}
+
+    @cached_property
     def _all_modifiers(self) -> list[Modifier]:
         """Load only modifiers whose sources are relevant for this character."""
         source_ids_by_model: dict[type[Model], set[int]] = {
@@ -458,6 +471,7 @@ class CharacterEngine:
                     is_magic=True,
                 ).values_list("id", flat=True)
             ),
+            Rune: set(self._equipped_rune_ids),
         }
         source_ids_by_model = {
             model_class: source_ids
@@ -668,8 +682,11 @@ class CharacterEngine:
         return dict(grouped)
 
     def attributes(self) -> dict[str, int]:
-        """Return the character's base attributes."""
-        return dict(self._attributes_map)
+        """Return the character's effective attributes including active modifiers."""
+        return {
+            short_name: int(base_value) + int(self.resolve_attribute_bonus(short_name))
+            for short_name, base_value in self._attributes_map.items()
+        }
 
     def skills(self) -> dict[str, SkillInfo]:
         """Return the character's learned skills and their metadata."""
@@ -1355,6 +1372,8 @@ class CharacterEngine:
             return self.school_level(source) > 0
         if isinstance(source, Trait):
             return source.id in self._trait_levels
+        if isinstance(source, Rune):
+            return source.id in self._equipped_rune_ids
         if isinstance(source, Technique):
             if source.id in self._race_technique_ids:
                 return (
