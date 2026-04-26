@@ -437,7 +437,7 @@ class CharacterEngine:
 
     @cached_property
     def _equipped_rune_ids(self) -> set[int]:
-        """Cache rune ids attached to equipped base items or owned item modifications."""
+        """Cache unique rune ids attached to any equipped base item or owned item modification."""
         equipped_items = CharacterItem.objects.filter(owner=self.character, equipped=True)
         base_rune_ids = set(
             equipped_items.filter(item__runes__isnull=False).values_list("item__runes", flat=True)
