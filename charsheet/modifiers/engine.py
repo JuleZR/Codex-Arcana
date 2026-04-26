@@ -98,8 +98,14 @@ class ModifierEngine:
         if self.character_engine is None:
             return []
         modifiers: list[BaseModifier] = []
+        first_item_id_by_rune_id: dict[int, int] = {}
         for item_rune in self.character_engine._equipped_item_runes:
             rune = item_rune.rune
+            first_item_id = first_item_id_by_rune_id.get(rune.id)
+            if first_item_id is None:
+                first_item_id_by_rune_id[rune.id] = item_rune.item_id
+            elif first_item_id != item_rune.item_id:
+                continue
             for template in rune.modifier_templates.all():
                 modifier = LegacyModifierAdapter.adapt(template)
                 scaling = dict(modifier.scaling)
