@@ -1395,8 +1395,10 @@ def toggle_equip(request, pk):
         return _sheet_partials_response(
             request,
             ci.owner,
+            "character_header",
             "load_panel",
             "core_stats_panel",
+            "damage_panel",
             "inventory_panel",
             "armor_panel",
             "weapon_panel",
@@ -1657,6 +1659,10 @@ def update_character_item_runes(request, pk: int):
         return _sheet_partials_response(
             request,
             character_item.owner,
+            "character_header",
+            "load_panel",
+            "core_stats_panel",
+            "damage_panel",
             "wallet_panel",
             "experience_panel",
             "learning_budget",
