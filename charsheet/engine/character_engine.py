@@ -1040,7 +1040,7 @@ class CharacterEngine:
     def debug_legacy_calculate_initiative(self) -> int:
         """Return the legacy initiative result for migration diagnostics."""
         return (
-            self.attribute_modifier("GE")
+            self.attribute_modifier("WA")
             + self._debug_legacy_current_wound_penalty()
             + self.debug_legacy_modifier_total_for_stat("initiative")
         )

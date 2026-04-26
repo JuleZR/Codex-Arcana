@@ -1948,7 +1948,7 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
 
     initiative_value = engine.calculate_initiative()
     initiative_stat_mod = engine._resolve_stat_modifiers(INITIATIVE)
-    initiative_ge_mod = engine.attribute_modifier(ATTR_GE)
+    initiative_wa_mod = engine.attribute_modifier(ATTR_WA)
     initiative_wound_penalty = engine.current_wound_penalty()
     current_wound_stage, _current_wound_penalty_stage = engine.current_wound_stage()
     current_wound_penalty = engine.current_wound_penalty_raw()
@@ -2108,7 +2108,7 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
             "initiative_with_load_display": format_modifier(initiative_value + load_penalty),
             "initiative_tooltip": _build_core_stat_tooltip(
                 [
-                    {"label": "GE-Bonus/Malus", "value": format_modifier(initiative_ge_mod)},
+                    {"label": "WA-Bonus/Malus", "value": format_modifier(initiative_wa_mod)},
                     {"label": "Wundmalus", "value": format_modifier(initiative_wound_penalty)},
                     *_build_modifier_breakdown_rows(engine, INITIATIVE),
                     {"label": "= Gesamt", "value": format_modifier(initiative_value), "tone": "total"},
@@ -2116,7 +2116,7 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
             ),
             "initiative_with_load_tooltip": _build_core_stat_tooltip(
                 [
-                    {"label": "GE-Bonus/Malus", "value": format_modifier(initiative_ge_mod)},
+                    {"label": "WA-Bonus/Malus", "value": format_modifier(initiative_wa_mod)},
                     {"label": "Wundmalus", "value": format_modifier(initiative_wound_penalty)},
                     *_build_modifier_breakdown_rows(engine, INITIATIVE),
                     {"label": "Belastung", "value": format_modifier(load_penalty)},
