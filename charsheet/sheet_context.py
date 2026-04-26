@@ -410,7 +410,9 @@ def _collect_rune_rows(*, item: Item, character_item: CharacterItem | None = Non
 def _serialize_modifier_payload(modifier: Modifier) -> dict[str, object]:
     """Return one frontend-friendly magic modifier payload."""
     target_display = ""
-    if modifier.target_kind == Modifier.TargetKind.STAT:
+    if modifier.target_kind == Modifier.TargetKind.ATTRIBUTE:
+        target_display = dict(ATTRIBUTE_ORDER).get(str(modifier.target_slug or ""), str(modifier.target_slug or ""))
+    elif modifier.target_kind == Modifier.TargetKind.STAT:
         target_display = dict(STAT_SLUG_CHOICES).get(str(modifier.target_slug or ""), str(modifier.target_slug or ""))
     elif modifier.target_kind == Modifier.TargetKind.SKILL and modifier.target_skill_id:
         target_display = modifier.target_skill.name
@@ -426,7 +428,9 @@ def _serialize_modifier_payload(modifier: Modifier) -> dict[str, object]:
         "effect_description": str(modifier.effect_description or ""),
         "target_display": target_display,
     }
-    if modifier.target_kind == Modifier.TargetKind.STAT:
+    if modifier.target_kind == Modifier.TargetKind.ATTRIBUTE:
+        payload["target_attribute"] = str(modifier.target_slug or "")
+    elif modifier.target_kind == Modifier.TargetKind.STAT:
         payload["target_stat"] = str(modifier.target_slug or "")
     elif modifier.target_kind == Modifier.TargetKind.SKILL and modifier.target_skill_id:
         payload["target_skill"] = str(modifier.target_skill_id)
@@ -2152,16 +2156,15 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
         "shop_damage_source_choices": DamageSource.objects.order_by("name"),
         "shop_modifier_target_kind_choices": [
             ("", "Kein Effekt"),
-            ("stat", "Attribut oder Wert auf dem Bogen"),
+            ("attribute", "Attribut"),
+            ("stat", "Wert auf dem Bogen"),
             ("skill", "Einzelne Fertigkeit"),
             ("category", "Fertigkeitskategorie"),
             ("item_category", "Alle Gegenstände eines Typs"),
             ("specialization", "Spezialisierung"),
         ],
-        "shop_modifier_stat_choices": [
-            *[(value, f"Attribut: {label}") for value, label in ATTRIBUTE_ORDER],
-            *STAT_SLUG_CHOICES,
-        ],
+        "shop_modifier_attribute_choices": ATTRIBUTE_ORDER,
+        "shop_modifier_stat_choices": STAT_SLUG_CHOICES,
         "shop_modifier_skill_choices": Skill.objects.order_by("name"),
         "shop_modifier_skill_category_choices": SkillCategory.objects.order_by("name"),
         "shop_modifier_item_category_choices": [

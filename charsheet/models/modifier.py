@@ -23,6 +23,7 @@ class Modifier(models.Model):
     class TargetKind(models.TextChoices):
         SKILL = "skill", "Skill"
         CATEGORY = "category", "Skill Category"
+        ATTRIBUTE = "attribute", "Attribute"
         STAT = "stat", "Stat"
         ITEM = "item", "Item"
         ITEM_CATEGORY = "item_category", "Item Category"
@@ -226,7 +227,21 @@ class Modifier(models.Model):
         # Per-kind target field validation.
         valid_stat_or_attribute_slugs = VALID_STAT_SLUGS | {value for value, _label in ATTRIBUTE_CODE_CHOICES}
 
-        if self.target_kind == self.TargetKind.STAT:
+        if self.target_kind == self.TargetKind.ATTRIBUTE:
+            if self.target_slug not in {value for value, _label in ATTRIBUTE_CODE_CHOICES}:
+                raise ValidationError({"target_slug": "Invalid target slug for kind ATTRIBUTE."})
+            self._require_empty_target_fields(
+                "ATTRIBUTE",
+                "target_skill",
+                "target_skill_category",
+                "target_item",
+                "target_specialization",
+                "target_choice_definition",
+                "target_race_choice_definition",
+                "target_content_type",
+                "target_object_id",
+            )
+        elif self.target_kind == self.TargetKind.STAT:
             if self.target_slug not in valid_stat_or_attribute_slugs:
                 raise ValidationError({"target_slug": "Invalid target slug for kind STAT."})
             self._require_empty_target_fields(
@@ -360,11 +375,11 @@ class Modifier(models.Model):
         if self.cap_source in skill_scale_sources and not self.scale_skill_id:
             raise ValidationError({"scale_skill": "scale_skill is required for skill-based caps."})
         if (
-            self.target_kind != self.TargetKind.STAT
+            self.target_kind not in {self.TargetKind.ATTRIBUTE, self.TargetKind.STAT}
             and (self.scale_source in skill_scale_sources or self.cap_source in skill_scale_sources)
         ):
             raise ValidationError(
-                {"target_kind": "Skill-based scaling and caps are currently only supported for stat targets."}
+                {"target_kind": "Skill-based scaling and caps are currently only supported for attribute/stat targets."}
             )
         if (
             self.scale_source == self.ScaleSource.SCHOOL_LEVEL
@@ -411,6 +426,8 @@ class Modifier(models.Model):
 
     def target_identifier(self) -> str:
         """Return the canonical lookup identifier used by the modifier engine."""
+        if self.target_kind == self.TargetKind.ATTRIBUTE:
+            return self.target_slug
         if self.target_kind == self.TargetKind.SKILL:
             return self.target_skill.slug if self.target_skill_id else self.target_slug
         if self.target_kind == self.TargetKind.CATEGORY:
@@ -433,6 +450,9 @@ class Modifier(models.Model):
             choice_label = ""
         if self.target_kind == self.TargetKind.SKILL:
             value = self.target_skill.name if self.target_skill_id else self.target_slug
+            return f"{value} [{choice_label}]" if choice_label else value
+        if self.target_kind == self.TargetKind.ATTRIBUTE:
+            value = dict(ATTRIBUTE_CODE_CHOICES).get(self.target_slug, self.target_slug)
             return f"{value} [{choice_label}]" if choice_label else value
         if self.target_kind == self.TargetKind.CATEGORY:
             value = self.target_skill_category.name if self.target_skill_category_id else self.target_slug

@@ -171,13 +171,16 @@ export function initItemForm() {
         value,
         effect_description: effectDescription,
       };
+      const attributeSelect = row.querySelector("[data-magic-target-select='attribute']");
       const statSelect = row.querySelector("[data-magic-target-select='stat']");
       const skillSelect = row.querySelector("[data-magic-target-select='skill']");
       const categorySelect = row.querySelector("[data-magic-target-select='category']");
       const itemCategorySelect = row.querySelector("[data-magic-target-select='item_category']");
       const specializationSelect = row.querySelector("[data-magic-target-select='specialization']");
 
-      if (targetKind === "stat") {
+      if (targetKind === "attribute") {
+        payload.target_attribute = String(attributeSelect?.value || "").trim();
+      } else if (targetKind === "stat") {
         payload.target_stat = String(statSelect?.value || "").trim();
       } else if (targetKind === "skill") {
         payload.target_skill = String(skillSelect?.value || "").trim();

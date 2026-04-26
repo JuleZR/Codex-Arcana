@@ -106,7 +106,7 @@
               <div class="shop_discount_input_wrap">
                 <button type="button" class="shop_step_btn" id="shopDiscountDec" aria-label="Rabatt verringern">-</button>
                 <input type="text" id="shopDiscountInput" inputmode="numeric" value="0" aria-label="Rabatt in Prozent">
-                <button type="button" class="shop_step_btn" id="shopDiscountInc" aria-label="Rabatt erhÃ¶hen">+</button>
+                <button type="button" class="shop_step_btn" id="shopDiscountInc" aria-label="Rabatt erh&ouml;hen">+</button>
                 <span>%</span>
               </div>
             </div>
@@ -370,6 +370,14 @@
             <span>Welcher Wert?</span>
             <select data-magic-target-select="stat">
               {% for value, label in shop_modifier_stat_choices %}
+                <option value="{{ value }}">{{ label }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label class="shop_item_form_row" data-magic-target-row="attribute" hidden>
+            <span>Welches Attribut?</span>
+            <select data-magic-target-select="attribute">
+              {% for value, label in shop_modifier_attribute_choices %}
                 <option value="{{ value }}">{{ label }}</option>
               {% endfor %}
             </select>

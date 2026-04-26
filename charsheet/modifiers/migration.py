@@ -390,6 +390,11 @@ class LegacyModifierMigrationService:
             modifier_cls = SkillModifier
             modifier_type = "SkillModifier"
 
+        elif legacy_modifier.target_kind == Modifier.TargetKind.ATTRIBUTE:
+            target_domain = TargetDomain.ATTRIBUTE
+            modifier_cls = AttributeModifier
+            modifier_type = "AttributeModifier"
+
         elif legacy_modifier.target_kind == Modifier.TargetKind.STAT:
             if legacy_slug in self.KNOWN_ATTRIBUTES:
                 target_domain = TargetDomain.ATTRIBUTE

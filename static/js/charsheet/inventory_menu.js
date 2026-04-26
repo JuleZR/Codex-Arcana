@@ -270,7 +270,9 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
         value: String(row.querySelector("[data-magic-value-input]")?.value || "0").trim(),
         effect_description: String(row.querySelector("[data-magic-effect-description]")?.value || "").trim(),
       };
-      if (targetKind === "stat") {
+      if (targetKind === "attribute") {
+        payload.target_attribute = String(row.querySelector("[data-magic-target-select='attribute']")?.value || "").trim();
+      } else if (targetKind === "stat") {
         payload.target_stat = String(row.querySelector("[data-magic-target-select='stat']")?.value || "").trim();
       } else if (targetKind === "skill") {
         payload.target_skill = String(row.querySelector("[data-magic-target-select='skill']")?.value || "").trim();
@@ -330,6 +332,7 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
         descriptionInput.value = String(initialPayload.effect_description || "");
       }
       const targetFieldMap = {
+        attribute: "target_attribute",
         stat: "target_stat",
         skill: "target_skill",
         category: "target_skill_category",

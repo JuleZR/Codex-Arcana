@@ -114,6 +114,14 @@
               {% endfor %}
             </select>
           </label>
+          <label class="shop_item_form_row" data-magic-target-row="attribute" hidden>
+            <span>Welches Attribut?</span>
+            <select data-magic-target-select="attribute">
+              {% for value, label in shop_modifier_attribute_choices %}
+                <option value="{{ value }}">{{ label }}</option>
+              {% endfor %}
+            </select>
+          </label>
           <label class="shop_item_form_row" data-magic-target-row="skill" hidden>
             <span>Welche Fertigkeit?</span>
             <select data-magic-target-select="skill">

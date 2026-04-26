@@ -663,7 +663,10 @@ class ModifierEngine:
         if target_domain == TargetDomain.SKILL_CATEGORY:
             return self.character_engine._resolve_target_modifiers(Modifier.TargetKind.CATEGORY, target_key)
         if target_domain == TargetDomain.ATTRIBUTE:
-            return self.character_engine._resolve_target_modifiers(Modifier.TargetKind.STAT, target_key)
+            return (
+                self.character_engine._resolve_target_modifiers(Modifier.TargetKind.ATTRIBUTE, target_key)
+                + self.character_engine._resolve_target_modifiers(Modifier.TargetKind.STAT, target_key)
+            )
         if target_domain in {TargetDomain.DERIVED_STAT, TargetDomain.RULE_FLAG}:
             return self.character_engine._resolve_target_modifiers(Modifier.TargetKind.STAT, target_key)
         if target_domain == TargetDomain.COMBAT:

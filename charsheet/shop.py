@@ -86,7 +86,12 @@ def _build_magic_modifier_payload(target_kind: str, raw_value, row_data) -> dict
         "target_specialization": None,
     }
 
-    if target_kind == Modifier.TargetKind.STAT:
+    if target_kind == Modifier.TargetKind.ATTRIBUTE:
+        target_slug = str(row_data.get("target_attribute") or "").strip()
+        if not target_slug:
+            return None
+        payload["target_slug"] = target_slug
+    elif target_kind == Modifier.TargetKind.STAT:
         target_slug = str(row_data.get("target_stat") or "").strip()
         if not target_slug:
             return None
@@ -126,6 +131,7 @@ def _read_magic_modifier_payload(post_data) -> dict[str, object] | None:
         post_data.get("magic_modifier_value", 0),
         {
             "target_stat": post_data.get("magic_modifier_target_stat"),
+            "target_attribute": post_data.get("magic_modifier_target_attribute"),
             "target_skill": post_data.get("magic_modifier_target_skill"),
             "target_skill_category": post_data.get("magic_modifier_target_skill_category"),
             "target_item_category": post_data.get("magic_modifier_target_item_category"),
