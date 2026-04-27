@@ -92,7 +92,7 @@
               <span>Was wird beeinflusst?</span>
               <select data-magic-target-kind>
                 <option value="">Bitte wählen</option>
-                {% for value, label in shop_modifier_target_kind_choices %}
+                {% for value, label in item_modifier_target_kind_choices %}
                   <option value="{{ value }}">{{ label }}</option>
                 {% endfor %}
               </select>
@@ -135,22 +135,6 @@
             <select data-magic-target-select="category">
               {% for category in shop_modifier_skill_category_choices %}
                 <option value="{{ category.id }}">{{ category.name }}</option>
-              {% endfor %}
-            </select>
-          </label>
-          <label class="shop_item_form_row" data-magic-target-row="item_category" hidden>
-            <span>Welcher Gegenstandstyp?</span>
-            <select data-magic-target-select="item_category">
-              {% for value, label in shop_modifier_item_category_choices %}
-                <option value="{{ value }}">{{ label }}</option>
-              {% endfor %}
-            </select>
-          </label>
-          <label class="shop_item_form_row" data-magic-target-row="specialization" hidden>
-            <span>Welche Spezialisierung?</span>
-            <select data-magic-target-select="specialization">
-              {% for specialization in shop_modifier_specialization_choices %}
-                <option value="{{ specialization.id }}">{{ specialization.name }}</option>
               {% endfor %}
             </select>
           </label>

@@ -434,7 +434,13 @@ def _serialize_modifier_payload(modifier: Modifier) -> dict[str, object]:
     if modifier.target_kind == Modifier.TargetKind.ATTRIBUTE:
         target_display = dict(ATTRIBUTE_ORDER).get(str(modifier.target_slug or ""), str(modifier.target_slug or ""))
     elif modifier.target_kind == Modifier.TargetKind.STAT:
-        target_display = dict(STAT_SLUG_CHOICES).get(str(modifier.target_slug or ""), str(modifier.target_slug or ""))
+        if (
+            str(modifier.target_slug or "") == "melee_maneuvers"
+            and getattr(getattr(modifier, "source_content_type", None), "model", "") == "characteritem"
+        ):
+            target_display = "Manöver mit dieser Waffe"
+        else:
+            target_display = dict(STAT_SLUG_CHOICES).get(str(modifier.target_slug or ""), str(modifier.target_slug or ""))
     elif modifier.target_kind == Modifier.TargetKind.SKILL and modifier.target_skill_id:
         target_display = modifier.target_skill.name
     elif modifier.target_kind == Modifier.TargetKind.CATEGORY and modifier.target_skill_category_id:
@@ -452,7 +458,13 @@ def _serialize_modifier_payload(modifier: Modifier) -> dict[str, object]:
     if modifier.target_kind == Modifier.TargetKind.ATTRIBUTE:
         payload["target_attribute"] = str(modifier.target_slug or "")
     elif modifier.target_kind == Modifier.TargetKind.STAT:
-        payload["target_stat"] = str(modifier.target_slug or "")
+        if (
+            str(modifier.target_slug or "") == "melee_maneuvers"
+            and getattr(getattr(modifier, "source_content_type", None), "model", "") == "characteritem"
+        ):
+            payload["target_kind"] = "weapon_maneuver"
+        else:
+            payload["target_stat"] = str(modifier.target_slug or "")
     elif modifier.target_kind == Modifier.TargetKind.SKILL and modifier.target_skill_id:
         payload["target_skill"] = str(modifier.target_skill_id)
     elif modifier.target_kind == Modifier.TargetKind.CATEGORY and modifier.target_skill_category_id:
@@ -2373,6 +2385,14 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
             ("category", "Fertigkeitskategorie"),
             ("item_category", "Alle Gegenstände eines Typs"),
             ("specialization", "Spezialisierung"),
+        ],
+        "item_modifier_target_kind_choices": [
+            ("", "Kein Effekt"),
+            ("attribute", "Attribut"),
+            ("stat", "Wert auf dem Bogen"),
+            ("skill", "Einzelne Fertigkeit"),
+            ("category", "Fertigkeitskategorie"),
+            ("weapon_maneuver", "Bonus/Malus auf ManÃ¶ver mit dieser Waffe"),
         ],
         "shop_modifier_attribute_choices": ATTRIBUTE_ORDER,
         "shop_modifier_stat_choices": STAT_SLUG_CHOICES,

@@ -5,8 +5,8 @@ from __future__ import annotations
 from django.db.models import QuerySet
 from django.db.models import Q
 
-from charsheet.constants import ARMOR_PENALTY_IGNORE, ATTR_ST, DEFENSE_RS
-from charsheet.models import CharacterItem, Item
+from charsheet.constants import ARMOR_PENALTY_IGNORE, ATTR_ST, DEFENSE_RS, MELEE_MANEUVERS
+from charsheet.models import CharacterItem, Item, Modifier
 
 from .item_engine import ItemEngine
 
@@ -96,6 +96,24 @@ def weapon_quality_skill_modifier(engine) -> int:
     return quality_bonus + engine.resolve_combat_value("melee_maneuvers")
 
 
+def _character_item_specific_maneuver_modifier(engine, character_item: CharacterItem) -> int:
+    """Return item-bound maneuver modifiers that should only affect this equipped weapon."""
+    total = 0
+    learned_stack: set[int] = set()
+    available_stack: set[int] = set()
+    for modifier in engine._all_modifiers:
+        if modifier.target_kind != Modifier.TargetKind.STAT:
+            continue
+        if str(modifier.target_slug or "") != MELEE_MANEUVERS:
+            continue
+        if getattr(getattr(modifier, "source_content_type", None), "model", "") != "characteritem":
+            continue
+        if int(modifier.source_object_id or 0) != int(character_item.id):
+            continue
+        total += int(engine._modifier_value(modifier, learned_stack, available_stack) or 0)
+    return total
+
+
 def equipped_weapon_rows(engine) -> list[dict]:
     """Return character-sheet-ready weapon rows with one prepared row per display profile."""
     rows: list[dict] = []
@@ -107,6 +125,7 @@ def equipped_weapon_rows(engine) -> list[dict]:
         damage_source_slug = getattr(getattr(weapon_stats, "damage_source", None), "slug", "")
         damage_stat_slug = damage_source_slug or getattr(weapon_stats, "damage_type", "")
         mastery_maneuver_bonus, mastery_damage_bonus = engine.weapon_mastery_bonus_for_item(character_item.item)
+        item_specific_maneuver_modifier = _character_item_specific_maneuver_modifier(engine, character_item)
         dmg_mod = engine.get_dmg_modifier_sum(damage_stat_slug) if damage_stat_slug else engine.attribute_modifier(ATTR_ST)
         total_damage_modifier = dmg_mod + mastery_damage_bonus
         for profile_index, profile in enumerate(item_engine.weapon_profiles()):
@@ -136,7 +155,13 @@ def equipped_weapon_rows(engine) -> list[dict]:
                     "weapon_mastery_maneuver_bonus": mastery_maneuver_bonus,
                     "weapon_mastery_quality_bonus": engine.weapon_mastery_quality_bonus_for_item(character_item.item),
                     "trait_maneuver_modifier": maneuver_modifier,
-                    "total_maneuver_modifier": item_engine.get_weapon_maneuver_quality_bonus() + maneuver_modifier + mastery_maneuver_bonus,
+                    "item_maneuver_modifier": item_specific_maneuver_modifier,
+                    "total_maneuver_modifier": (
+                        item_engine.get_weapon_maneuver_quality_bonus()
+                        + maneuver_modifier
+                        + mastery_maneuver_bonus
+                        + item_specific_maneuver_modifier
+                    ),
                 }
             )
     return rows

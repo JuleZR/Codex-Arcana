@@ -86,6 +86,7 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
   const magicAddEffectButton = document.getElementById("runeRetrofitAddEffectBtn");
   const magicPayloadInput = document.getElementById("runeRetrofitMagicModifierPayloads");
   const runePayloadInput = document.getElementById("runeRetrofitRunePayloads");
+  let retrofitItemType = "";
 
   let runeChoices = [];
   try {
@@ -278,10 +279,6 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
         payload.target_skill = String(row.querySelector("[data-magic-target-select='skill']")?.value || "").trim();
       } else if (targetKind === "category") {
         payload.target_skill_category = String(row.querySelector("[data-magic-target-select='category']")?.value || "").trim();
-      } else if (targetKind === "item_category") {
-        payload.target_item_category = String(row.querySelector("[data-magic-target-select='item_category']")?.value || "").trim();
-      } else if (targetKind === "specialization") {
-        payload.target_specialization = String(row.querySelector("[data-magic-target-select='specialization']")?.value || "").trim();
       }
       payloads.push(payload);
     });
@@ -318,12 +315,22 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
       return null;
     }
     magicEffectsList.append(row);
+    const targetKindSelect = row.querySelector("[data-magic-target-kind]");
+    if (targetKindSelect instanceof HTMLSelectElement) {
+      const weaponOnlyOption = targetKindSelect.querySelector("option[value='weapon_maneuver']");
+      if (weaponOnlyOption instanceof HTMLOptionElement) {
+        weaponOnlyOption.hidden = retrofitItemType !== "weapon";
+        weaponOnlyOption.disabled = retrofitItemType !== "weapon";
+      }
+    }
     if (initialPayload && typeof initialPayload === "object") {
-      const targetKindSelect = row.querySelector("[data-magic-target-kind]");
       const valueInput = row.querySelector("[data-magic-value-input]");
       const descriptionInput = row.querySelector("[data-magic-effect-description]");
       if (targetKindSelect instanceof HTMLSelectElement) {
         targetKindSelect.value = String(initialPayload.target_kind || "");
+        if (retrofitItemType !== "weapon" && targetKindSelect.value === "weapon_maneuver") {
+          targetKindSelect.value = "";
+        }
       }
       if (valueInput instanceof HTMLInputElement) {
         valueInput.value = String(initialPayload.value ?? "0");
@@ -336,8 +343,6 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
         stat: "target_stat",
         skill: "target_skill",
         category: "target_skill_category",
-        item_category: "target_item_category",
-        specialization: "target_specialization",
       };
       Object.entries(targetFieldMap).forEach(([kind, fieldName]) => {
         const select = row.querySelector(`[data-magic-target-select='${kind}']`);
@@ -624,6 +629,7 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
       .map((value) => value.trim())
       .filter(Boolean);
     const description = String(button.getAttribute("data-description") || "");
+    retrofitItemType = String(button.getAttribute("data-item-type") || "");
     const magicModifierPayloads = parseJsonList(button.getAttribute("data-magic-modifier-payloads"));
 
     // Build spec map: rune_id → [{specification, slot}]

@@ -322,6 +322,7 @@ class LegacyModifierMigrationService:
         return modifier_cls(
             source_type=str(legacy_modifier.source_content_type.model),
             source_id=str(legacy_modifier.source_object_id),
+            target_domain=classification["target_domain"],
             target_key=self._migrated_target_key(legacy_modifier),
             mode=str(legacy_modifier.mode),
             value=magnitude,

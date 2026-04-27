@@ -9,7 +9,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError
 from django.db import transaction
 
-from charsheet.constants import DEADLY
+from charsheet.constants import DEADLY, MELEE_MANEUVERS
 from charsheet.engine import ItemEngine
 from charsheet.models import (
     ArmorStats,
@@ -146,6 +146,9 @@ def _build_magic_modifier_payload(target_kind: str, raw_value, row_data) -> dict
         if not target_slug:
             return None
         payload["target_slug"] = target_slug
+    elif target_kind == "weapon_maneuver":
+        payload["target_kind"] = Modifier.TargetKind.STAT
+        payload["target_slug"] = MELEE_MANEUVERS
     elif target_kind == Modifier.TargetKind.SKILL:
         skill_id = int(row_data.get("target_skill") or 0)
         if skill_id <= 0:
@@ -420,7 +423,9 @@ def create_custom_shop_item(post_data) -> bool:
     weight = _read_int(post_data, "weight", 0, minimum=0)
     size_class = str(post_data.get("size_class") or "M")
     is_consumable = item_type == Item.ItemType.CONSUM
-    selected_runes = list(_read_runes(post_data))
+    rune_payloads = _read_rune_payloads(post_data)
+    selected_rune_ids = sorted({int(payload["rune_id"]) for payload in rune_payloads if int(payload["rune_id"]) > 0})
+    selected_runes = list(Rune.objects.filter(pk__in=selected_rune_ids))
     selected_weapon_skill_ids = _read_skill_ids(post_data, "weapon_skills")
     magic_modifier_payloads = _read_magic_modifier_payloads(post_data) if is_magic else []
 

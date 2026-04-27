@@ -10,6 +10,7 @@ DEFENSE_VW = "vw"
 DEFENSE_GW = "gw"
 DEFENSE_SR = "sr"
 DEFENSE_RS = "rs"
+MELEE_MANEUVERS = "melee_maneuvers"
 
 STAT_SLUG_CHOICES = [
     (INITIATIVE, "Initiative"),
@@ -23,6 +24,7 @@ STAT_SLUG_CHOICES = [
     (DEFENSE_GW, "GW"),
     (DEFENSE_SR, "SR"),
     (DEFENSE_RS, "RS"),
+    (MELEE_MANEUVERS, "Manöver mit dieser Waffe"),
 ]
 
 VALID_STAT_SLUGS = {
@@ -37,6 +39,7 @@ VALID_STAT_SLUGS = {
     DEFENSE_GW,
     DEFENSE_SR,
     DEFENSE_RS,
+    MELEE_MANEUVERS,
 }
 
 SOURCE_ITEM_RUNE = "item_rune"
