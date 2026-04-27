@@ -1462,10 +1462,11 @@ class WeaponStatsInline(admin.StackedInline):
     max_num = 1
     can_delete = True
     autocomplete_fields = ("damage_source",)
-    filter_horizontal = ("flags",)
+    filter_horizontal = ("flags", "skills")
     fields = (
         "min_st",
         "damage_source",
+        "skills",
         "damage_dice_amount",
         "damage_dice_faces",
         "damage_flat_operator",
@@ -3762,17 +3763,18 @@ class WeaponStatsAdmin(admin.ModelAdmin):
         "two_handed_damage",
         "wield_mode",
         "damage_source",
+        "skill_summary",
         "damage_type",
         "flag_summary",
         "min_st",
         "size_class",
     )
-    search_fields = ("item__name", "damage_source__name", "flags__key")
+    search_fields = ("item__name", "damage_source__name", "flags__key", "skills__name", "skills__slug")
     list_filter = ("wield_mode", "damage_source", "damage_type", "flags", "item__default_quality", "item__size_class")
     ordering = ("item__name",)
     autocomplete_fields = ("item", "damage_source")
     list_select_related = ("item", "damage_source")
-    filter_horizontal = ("flags",)
+    filter_horizontal = ("flags", "skills")
 
     @admin.display(ordering="item__default_quality", description="Item Quality")
     def item_quality(self, obj):
@@ -3793,6 +3795,11 @@ class WeaponStatsAdmin(admin.ModelAdmin):
     def flag_summary(self, obj):
         """Render assigned weapon flags compactly for list display."""
         return ", ".join(obj.flags.order_by("key").values_list("key", flat=True)) or "-"
+
+    @admin.display(description="Skills")
+    def skill_summary(self, obj):
+        """Render assigned weapon skills compactly for list display."""
+        return ", ".join(obj.skills.order_by("name").values_list("name", flat=True)) or "-"
 
 
 @admin.register(Trait)

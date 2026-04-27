@@ -40,7 +40,7 @@
   opacity: 1;
   visibility: visible;
   pointer-events: auto;
-  transform: translateY(0);
+  transform: none;
   transition: opacity 160ms ease, transform 160ms ease;
 }
 
@@ -1244,7 +1244,6 @@
     inset 0 -1px 0 rgba(176, 216, 248, 0.36),
     0 0 0 1px rgba(124, 174, 214, 0.44),
     0 8px 16px -14px rgba(52, 88, 120, 0.5);
-  backdrop-filter: blur(3.2px) saturate(120%);
   transition: opacity 160ms ease;
   z-index: 0;
 }

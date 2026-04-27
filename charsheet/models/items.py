@@ -227,6 +227,12 @@ class WeaponStats(models.Model):
     h2_flat_operator = models.CharField(max_length=1, choices=DamageOperator.choices, default=DamageOperator.NONE, blank=True)
 
     flags = models.ManyToManyField(WeaponFlag, blank=True)
+    skills = models.ManyToManyField(
+        "Skill",
+        blank=True,
+        related_name="weapon_stats",
+        help_text="Alle Fertigkeiten, mit denen diese Waffe regeltechnisch gefuehrt werden kann.",
+    )
 
     @property
     def two_handed(self) -> bool:

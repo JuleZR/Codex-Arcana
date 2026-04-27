@@ -297,6 +297,22 @@
                 </select>
               </label>
             </div>
+            <div class="shop_item_form_fieldset">
+              <div class="shop_item_form_fieldset_title">Fertigkeiten</div>
+              <div class="shop_item_form_checklist rune_window_options">
+                {% for skill in shop_modifier_skill_choices %}
+                  <label class="shop_item_form_checklist_item">
+                    <input type="checkbox" name="weapon_skills" value="{{ skill.id }}">
+                    <span class="rune_option_copy">
+                      <span class="rune_option_name">{{ skill.name }}</span>
+                      {% if skill.category %}
+                        <span class="rune_option_body">{{ skill.category.name }}</span>
+                      {% endif %}
+                    </span>
+                  </label>
+                {% endfor %}
+              </div>
+            </div>
             <div id="shopWeaponTwoHandFields" hidden>
               <div class="shop_item_form_grid">
                 <div class="shop_item_form_row"><span>Zusatzprofil nur f&uuml;r EH/ZH-Waffen</span></div>

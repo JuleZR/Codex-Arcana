@@ -3,6 +3,7 @@ import { clamp, escapeHtml, readInt } from "./utils.js";
 
 function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, validationHint, applyBtn) {
   const getBudget = () => readInt(document.getElementById("learnBudgetPanel")?.getAttribute("data-learn-budget") || "0", 0);
+  let newSpecCounter = 0;
   const getRows = () => Array.from(cartBody.querySelectorAll("[data-learn-cart-item]"));
   const ensureEmptyRow = () => {
     const emptyRow = cartBody.querySelector("[data-learn-empty-row]");
@@ -81,9 +82,9 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
       }
       valueInput.min = String(minAdd);
       valueInput.max = String(maxAdd);
-    } else if (kind === "skill") {
+    } else if (kind === "skill" || kind === "skill-cs" || kind === "skill-new-spec") {
       const base = readInt(row.getAttribute("data-base"), 0);
-      const minAdd = -base;
+      const minAdd = kind === "skill-new-spec" ? 0 : -base;
       const maxAdd = Math.max(0, 10 - base);
       const hidden = row.querySelector("[data-learn-hidden]");
       value = clamp(value, minAdd, maxAdd);
@@ -259,7 +260,7 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
     const key = source.getAttribute("data-key") || "";
     const name = source.getAttribute("data-name") || key;
     const safeName = escapeHtml(name);
-    if (!kind || !key) {
+    if (!kind || (!key && kind !== "skill-new-spec")) {
       return null;
     }
 
@@ -313,6 +314,74 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
           <div class="shop_qty_stepper">
             <button type="button" class="shop_step_btn" data-learn-step-dec aria-label="Wert verringern">-</button>
             <input class="shop_cart_qty_input" type="number" min="${minAdd}" max="${maxAdd}" value="${startAdd}" data-learn-value>
+            <button type="button" class="shop_step_btn" data-learn-step-inc aria-label="Wert erhoehen">+</button>
+          </div>
+        </td>
+        <td data-learn-cost>0 EP</td>
+        <td><button type="button" class="shop_cart_remove_btn" data-learn-remove aria-label="Eintrag entfernen">x</button></td>
+      `;
+      return row;
+    }
+
+    if (kind === "skill-cs") {
+      const csId = source.getAttribute("data-cs-id") || "";
+      const base = readInt(source.getAttribute("data-base"), 0);
+      const minAdd = -base;
+      const maxAdd = Math.max(0, 10 - base);
+      if (maxAdd < 1 && minAdd === 0) {
+        return null;
+      }
+      const startAdd = maxAdd > 0 ? 1 : 0;
+      row.setAttribute("data-base", String(base));
+      row.innerHTML = `
+        <td><span>${safeName}</span> <span data-learn-level-info>(${base + startAdd})</span><input type="hidden" name="learn_skill_cs_${csId}" value="${startAdd}" data-learn-hidden></td>
+        <td>
+          <div class="shop_qty_stepper">
+            <button type="button" class="shop_step_btn" data-learn-step-dec aria-label="Wert verringern">-</button>
+            <input class="shop_cart_qty_input" type="number" min="${minAdd}" max="${maxAdd}" value="${startAdd}" data-learn-value>
+            <button type="button" class="shop_step_btn" data-learn-step-inc aria-label="Wert erhoehen">+</button>
+          </div>
+        </td>
+        <td data-learn-cost>0 EP</td>
+        <td><button type="button" class="shop_cart_remove_btn" data-learn-remove aria-label="Eintrag entfernen">x</button></td>
+      `;
+      return row;
+    }
+
+    if (kind === "skill-new-spec") {
+      const slug = source.getAttribute("data-slug") || "";
+      // eslint-disable-next-line no-alert
+      const spec = window.prompt(`Spezialisierung für "${name}" eingeben:`);
+      if (!spec || !spec.trim()) {
+        return null;
+      }
+      const specTrimmed = spec.trim();
+      const uniqueKey = `skill-new-spec:${slug}:${specTrimmed}`;
+      const existingInCart = cartBody.querySelector(`[data-learn-cart-item][data-key="${uniqueKey}"]`);
+      if (existingInCart) {
+        const input = existingInCart.querySelector("[data-learn-value]");
+        if (input instanceof HTMLInputElement) {
+          input.focus();
+        }
+        return null;
+      }
+      const idx = newSpecCounter;
+      newSpecCounter += 1;
+      const startAdd = 1;
+      row.setAttribute("data-key", uniqueKey);
+      row.setAttribute("data-base", "0");
+      row.innerHTML = `
+        <td>
+          <span>${escapeHtml(name)}: ${escapeHtml(specTrimmed)}</span>
+          <span data-learn-level-info>(${startAdd})</span>
+          <input type="hidden" name="learn_new_skill_slug_${idx}" value="${escapeHtml(slug)}">
+          <input type="hidden" name="learn_new_skill_spec_${idx}" value="${escapeHtml(specTrimmed)}">
+          <input type="hidden" name="learn_new_skill_level_${idx}" value="${startAdd}" data-learn-hidden>
+        </td>
+        <td>
+          <div class="shop_qty_stepper">
+            <button type="button" class="shop_step_btn" data-learn-step-dec aria-label="Wert verringern">-</button>
+            <input class="shop_cart_qty_input" type="number" min="0" max="10" value="${startAdd}" data-learn-value>
             <button type="button" class="shop_step_btn" data-learn-step-inc aria-label="Wert erhoehen">+</button>
           </div>
         </td>
@@ -474,16 +543,19 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
 
   const addFromSource = (source) => {
     const key = source.getAttribute("data-key") || "";
-    if (!key) {
+    const kind = source.getAttribute("data-kind") || "";
+    if (!key && kind !== "skill-new-spec") {
       return;
     }
-    const existing = cartBody.querySelector(`[data-learn-cart-item][data-key="${key}"]`);
-    if (existing) {
-      const input = existing.querySelector("[data-learn-value]");
-      if (input instanceof HTMLInputElement) {
-        input.focus();
+    if (key) {
+      const existing = cartBody.querySelector(`[data-learn-cart-item][data-key="${key}"]`);
+      if (existing) {
+        const input = existing.querySelector("[data-learn-value]");
+        if (input instanceof HTMLInputElement) {
+          input.focus();
+        }
+        return;
       }
-      return;
     }
     const row = createRowFromSource(source);
     if (!row) {

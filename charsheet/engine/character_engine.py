@@ -35,6 +35,7 @@ from charsheet.models import (
     Rune,
     School,
     SchoolPath,
+    Skill,
     Specialization,
     Technique,
     TechniqueChoiceBlock,
@@ -201,6 +202,14 @@ class CharacterEngine:
                 "attribute": entry.skill.attribute.short_name,
             }
         return skills
+
+    @cached_property
+    def _skill_definitions_by_slug(self) -> dict[str, Skill]:
+        """Cache all skill definitions keyed by slug for unlearned-skill resolution."""
+        return {
+            skill.slug: skill
+            for skill in Skill.objects.select_related("category", "attribute").order_by("slug")
+        }
 
     @cached_property
     def _languages_map(self) -> dict[str, CharacterLanguage]:
@@ -847,11 +856,21 @@ class CharacterEngine:
 
     def modifier_total_for_skill(self, skill_slug: str) -> int:
         """Return all direct skill modifiers for one exact skill slug."""
-        return self.modifier_engine.resolve_numeric_total(TargetDomain.SKILL, skill_slug)
+        value = self.modifier_engine.resolve_numeric_total(TargetDomain.SKILL, skill_slug)
+        if value == 0:
+            legacy_value = self.debug_legacy_modifier_total_for_skill(skill_slug)
+            if legacy_value != 0:
+                return legacy_value
+        return value
 
     def modifier_total_for_skill_category(self, category_slug: str) -> int:
         """Return all modifiers that target one whole skill category."""
-        return self.modifier_engine.resolve_numeric_total(TargetDomain.SKILL_CATEGORY, category_slug)
+        value = self.modifier_engine.resolve_numeric_total(TargetDomain.SKILL_CATEGORY, category_slug)
+        if value == 0:
+            legacy_value = self.debug_legacy_modifier_total_for_skill_category(category_slug)
+            if legacy_value != 0:
+                return legacy_value
+        return value
 
     def modifier_total_for_language(self, language_key: str) -> int:
         """Return all modifiers that target one concrete language or language grouping."""
@@ -1076,13 +1095,17 @@ class CharacterEngine:
 
     def skill_breakdown(self, skill_slug: str) -> SkillBreakdown | SkillError:
         """Return a detailed breakdown of a skill calculation."""
-        skills = self.skills()
-        if skill_slug not in skills:
+        skill_definition = self._skill_definitions_by_slug.get(skill_slug)
+        if skill_definition is None:
             return {"skill_slug": skill_slug, "error": "skill not found"}
 
-        info = skills[skill_slug]
-        attr_short = info["attribute"]
-        level = int(info["level"])
+        learned_info = self.skills().get(skill_slug)
+        attr_short = (
+            learned_info["attribute"]
+            if learned_info is not None
+            else skill_definition.attribute.short_name
+        )
+        level = int(learned_info["level"]) if learned_info is not None else 0
         attr_val = int(self.attributes().get(attr_short, 0))
         attr_mod = int(self.attribute_modifier(attr_short))
 
@@ -1104,11 +1127,14 @@ class CharacterEngine:
     def _skill_base(self, skill_slug: str) -> int:
         """Calculate the unmodified base value of a skill."""
         skills = self.skills()
-        if skill_slug not in skills:
-            return 0
+        if skill_slug in skills:
+            info = skills[skill_slug]
+            return int(info["level"]) + int(self.attribute_modifier(info["attribute"]))
 
-        info = skills[skill_slug]
-        return int(info["level"]) + int(self.attribute_modifier(info["attribute"]))
+        skill_definition = self._skill_definitions_by_slug.get(skill_slug)
+        if skill_definition is None:
+            return 0
+        return int(self.attribute_modifier(skill_definition.attribute.short_name))
 
     def _legacy_skill_modifiers(self, skill_slug: str) -> int:
         """Resolve skill modifiers through the legacy numeric path for diagnostics only."""
@@ -1261,8 +1287,13 @@ class CharacterEngine:
     def _skill_modifiers(self, skill_slug: str) -> int:
         """Resolve wound, armor, direct skill, and category modifiers."""
         info = self.skills().get(skill_slug)
-        category_slug = info["category"] if info else None
-        skill_id = info["skill_id"] if info else None
+        skill_definition = self._skill_definitions_by_slug.get(skill_slug)
+        category_slug = (
+            info["category"]
+            if info is not None
+            else getattr(getattr(skill_definition, "category", None), "slug", None)
+        )
+        skill_id = info["skill_id"] if info is not None else getattr(skill_definition, "id", None)
 
         modifier_parts = [
             self.current_wound_penalty(),
@@ -1295,7 +1326,12 @@ class CharacterEngine:
 
     def _resolve_choice_skill_modifiers(self, skill_id: int) -> int:
         """Resolve choice-bound skill modifiers through the central modifier engine."""
-        return self.modifier_engine.resolve_choice_skill_modifier_total(skill_id)
+        value = self.modifier_engine.resolve_choice_skill_modifier_total(skill_id)
+        if value == 0:
+            legacy_value = self._legacy_choice_skill_modifier_total(skill_id)
+            if legacy_value != 0:
+                return legacy_value
+        return value
 
     def _legacy_choice_skill_modifier_total(self, skill_id: int) -> int:
         """

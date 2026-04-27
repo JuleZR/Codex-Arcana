@@ -807,6 +807,10 @@ def _resolve_modifier_source_name(engine, source_type: object, source_id: object
         item = Item.objects.filter(pk=int(source_id_text)).only("name").first()
         if item is not None:
             return item.name
+    if source_type_text == "characteritem" and source_id_text.isdigit():
+        character_item = CharacterItem.objects.filter(pk=int(source_id_text)).select_related("item").first()
+        if character_item is not None:
+            return character_item.item.name
     if source_type_text == SOURCE_ITEM_RUNE and source_id_text.isdigit():
         item_rune = ItemRune.objects.filter(pk=int(source_id_text)).select_related("rune", "item__item").first()
         if item_rune is not None:
@@ -1043,67 +1047,207 @@ def _build_skill_modifier_rows(
     return rows
 
 
-def _build_skill_rows(character: Character, engine, *, load_penalty: int) -> tuple[list[dict], object]:
-    """Build prepared skill rows and return the queryset for reuse elsewhere."""
+def _build_skill_rows(character: Character, engine, *, load_penalty: int) -> tuple[list[dict], list[object], list[dict]]:
+    """Build visible skill rows plus skill-manager state for the sheet."""
+
+    def _build_display_name(skill: Skill, specification: str) -> str:
+        normalized_spec = (specification or "").strip()
+        has_specification = skill.requires_specification and normalized_spec and normalized_spec != "*"
+        display_name = skill.name.rstrip(": ").strip()
+        if skill.requires_specification:
+            return f"{display_name} {normalized_spec if has_specification else '*'}"
+        if has_specification:
+            return f"{display_name} {normalized_spec}"
+        return display_name
+
+    def _external_skill_bonus(skill: Skill) -> int:
+        return (
+            int(engine.modifier_total_for_skill(skill.slug))
+            + int(engine.modifier_total_for_skill_category(skill.category.slug))
+            + int(engine._resolve_choice_skill_bonus(skill.id))
+            + int(engine._resolve_choice_skill_modifiers(skill.id))
+        )
+
+    def _build_row(skill: Skill, character_skill=None) -> dict:
+        attribute_modifier = int(engine.attribute_modifier(skill.attribute.short_name))
+        raw_modifiers = int(engine._skill_modifiers(skill.slug))
+        rank = int(character_skill.level) if character_skill is not None else 0
+        total_with_load = rank + attribute_modifier + raw_modifiers
+        specification = ((character_skill.specification if character_skill is not None else "*") or "").strip()
+        return {
+            "row_kind": "skill",
+            "character_skill_id": character_skill.id if character_skill is not None else None,
+            "skill_id": skill.id,
+            "name": skill.name,
+            "display_name": _build_display_name(skill, specification),
+            "description": skill.description,
+            "attribute": skill.attribute.short_name,
+            "attribute_mod": format_modifier(attribute_modifier),
+            "attribute_mod_value": attribute_modifier,
+            "rank": rank,
+            "rank_value": rank,
+            "misc_mod": format_modifier(raw_modifiers - load_penalty),
+            "misc_mod_value": raw_modifiers - load_penalty,
+            "total": total_with_load - load_penalty,
+            "total_value": total_with_load - load_penalty,
+            "with_load_total": total_with_load,
+            "with_load_total_value": total_with_load,
+            "calculation_tooltip": _build_core_stat_tooltip(
+                [
+                    {"label": "Eigenschaft", "value": format_modifier(attribute_modifier), "source": skill.attribute.short_name},
+                    {"label": "Rang", "value": rank},
+                    {
+                        "label": "Wundmalus",
+                        "value": format_modifier(engine.current_wound_penalty()),
+                    },
+                    *_build_skill_modifier_rows(
+                        engine,
+                        skill.slug,
+                        skill_name=skill.name,
+                        category_slug=skill.category.slug,
+                        skill_id=skill.id,
+                    ),
+                    {"label": "Belastung", "value": format_modifier(load_penalty)},
+                    {"label": "= Gesamt", "value": total_with_load, "tone": "total"},
+                ]
+            ),
+            "can_edit_specification": skill.requires_specification and character_skill is not None,
+            "specification": "" if specification == "*" else specification,
+            "is_auto_visible": character_skill is None,
+        }
+
+    def _build_weapon_context_rows(base_row: dict) -> list[dict]:
+        skill_id = int(base_row["skill_id"])
+        rows: list[dict] = []
+        for weapon_row in equipped_weapon_rows:
+            if not weapon_row.get("is_primary_profile", False):
+                continue
+            weapon_stats = getattr(weapon_row["item"], "weaponstats", None)
+            if weapon_stats is None:
+                continue
+            linked_skill_ids = {entry.id for entry in weapon_stats.skills.all()}
+            if skill_id not in linked_skill_ids:
+                continue
+            maneuver_bonus = int(weapon_row.get("total_maneuver_modifier") or 0)
+            if maneuver_bonus == 0:
+                continue
+            mode_suffix = ""
+            if int(sum(1 for row in equipped_weapon_rows if row["character_item"].id == weapon_row["character_item"].id)) > 1:
+                mode_suffix = f" ({weapon_row['mode_label']})"
+            rows.append(
+                {
+                    "row_kind": "weapon_context",
+                    "skill_id": skill_id,
+                    "name": base_row["name"],
+                    "display_name": f"mit {weapon_row['item'].name}{mode_suffix}",
+                    "description": f"Manoeverbonus mit {weapon_row['item'].name}",
+                    "attribute": base_row["attribute"],
+                    "attribute_mod": base_row["attribute_mod"],
+                    "attribute_mod_value": int(base_row["attribute_mod_value"]),
+                    "rank": int(base_row["rank_value"]),
+                    "rank_value": int(base_row["rank_value"]),
+                    "misc_mod": format_modifier(int(base_row["misc_mod_value"]) + maneuver_bonus),
+                    "misc_mod_value": int(base_row["misc_mod_value"]) + maneuver_bonus,
+                    "total": int(base_row["total_value"]) + maneuver_bonus,
+                    "total_value": int(base_row["total_value"]) + maneuver_bonus,
+                    "with_load_total": int(base_row["with_load_total_value"]) + maneuver_bonus,
+                    "with_load_total_value": int(base_row["with_load_total_value"]) + maneuver_bonus,
+                    "calculation_tooltip": _build_core_stat_tooltip(
+                        [
+                            {"label": "Grundwert", "value": int(base_row["with_load_total_value"]), "source": base_row["display_name"]},
+                            {"label": "Manoeverbonus", "value": format_modifier(maneuver_bonus), "source": weapon_row["item"].name},
+                            {"label": "= Gesamt", "value": int(base_row["with_load_total_value"]) + maneuver_bonus, "tone": "total"},
+                        ]
+                    ),
+                    "can_edit_specification": False,
+                    "specification": "",
+                    "is_auto_visible": False,
+                }
+            )
+        rows.sort(key=lambda row: row["display_name"].lower())
+        return rows
+
     skill_rows: list[dict] = []
-    character_skills = (
+    character_skills = list(
         character.characterskill_set
         .select_related("skill", "skill__attribute", "skill__category")
-        .order_by("skill__name")
+        .order_by("skill__name", "specification", "id")
     )
+    skills_by_id = {
+        skill.id: skill
+        for skill in Skill.objects.select_related("category", "attribute").order_by("name", "id")
+    }
+    character_skills_by_skill_id: dict[int, list[object]] = {}
     for character_skill in character_skills:
-        category_slug = character_skill.skill.category.slug
-        skill_id = character_skill.skill_id
-        attribute_modifier = int(engine.attribute_modifier(character_skill.skill.attribute.short_name))
-        raw_modifiers = int(engine._skill_modifiers(character_skill.skill.slug))
-        total_with_load = int(character_skill.level) + attribute_modifier + raw_modifiers
-        specification = (character_skill.specification or "").strip()
-        has_specification = (
-            character_skill.skill.requires_specification
-            and specification
-            and specification != "*"
+        character_skills_by_skill_id.setdefault(character_skill.skill_id, []).append(character_skill)
+
+    weapon_skill_ids_with_bonus: set[int] = set()
+    equipped_weapon_rows = engine.equipped_weapon_rows()
+    for weapon_row in equipped_weapon_rows:
+        if not weapon_row.get("is_primary_profile", False):
+            continue
+        weapon_stats = getattr(weapon_row["item"], "weaponstats", None)
+        if weapon_stats is None:
+            continue
+        if int(weapon_row.get("total_maneuver_modifier") or 0) == 0:
+            continue
+        for skill in weapon_stats.skills.all():
+            weapon_skill_ids_with_bonus.add(skill.id)
+
+    for skill in skills_by_id.values():
+        rows_for_skill = character_skills_by_skill_id.get(skill.id, [])
+        if rows_for_skill:
+            for character_skill in rows_for_skill:
+                row = _build_row(skill, character_skill=character_skill)
+                skill_rows.append(row)
+                if not skill.requires_specification:
+                    skill_rows.extend(_build_weapon_context_rows(row))
+            continue
+        if _external_skill_bonus(skill) != 0 or skill.id in weapon_skill_ids_with_bonus:
+            row = _build_row(skill)
+            skill_rows.append(row)
+            if not skill.requires_specification:
+                skill_rows.extend(_build_weapon_context_rows(row))
+
+    skill_manager_rows: list[dict] = []
+    for skill in skills_by_id.values():
+        if skill.requires_specification:
+            continue
+        rows_for_skill = character_skills_by_skill_id.get(skill.id, [])
+        has_skill_row = bool(rows_for_skill)
+        has_skilled_row = any(int(row.level) > 0 for row in rows_for_skill)
+        if has_skilled_row:
+            continue
+        generic_row = next((row for row in rows_for_skill if (row.specification or "*") == "*"), None)
+        auto_visible = (not has_skill_row) and (
+            _external_skill_bonus(skill) != 0 or skill.id in weapon_skill_ids_with_bonus
         )
-        display_name = character_skill.skill.name.rstrip(": ").strip()
-        if character_skill.skill.requires_specification:
-            display_name = f"{display_name} {specification if has_specification else '*'}"
-        elif has_specification:
-            display_name = f"{display_name} {specification}"
-        skill_rows.append(
+        can_add = (not has_skill_row) and (not auto_visible)
+        can_remove = (
+            generic_row is not None
+            and int(generic_row.level) == 0
+            and not has_skilled_row
+            and not auto_visible
+        )
+        if auto_visible:
+            status_label = "Durch Bonus sichtbar"
+        elif has_skill_row:
+            status_label = "Eingeblendet"
+        else:
+            status_label = "Ausgeblendet"
+        skill_manager_rows.append(
             {
-                "character_skill_id": character_skill.id,
-                "name": character_skill.skill.name,
-                "display_name": display_name,
-                "description": character_skill.skill.description,
-                "attribute": character_skill.skill.attribute.short_name,
-                "attribute_mod": format_modifier(attribute_modifier),
-                "rank": character_skill.level,
-                "misc_mod": format_modifier(raw_modifiers - load_penalty),
-                "total": total_with_load - load_penalty,
-                "with_load_total": total_with_load,
-                "calculation_tooltip": _build_core_stat_tooltip(
-                    [
-                        {"label": "Eigenschaft", "value": format_modifier(attribute_modifier), "source": character_skill.skill.attribute.short_name},
-                        {"label": "Rang", "value": character_skill.level},
-                        {
-                            "label": "Wundmalus",
-                            "value": format_modifier(engine.current_wound_penalty()),
-                        },
-                        *_build_skill_modifier_rows(
-                            engine,
-                            character_skill.skill.slug,
-                            skill_name=character_skill.skill.name,
-                            category_slug=category_slug,
-                            skill_id=skill_id,
-                        ),
-                        {"label": "Belastung", "value": format_modifier(load_penalty)},
-                        {"label": "= Gesamt", "value": total_with_load, "tone": "total"},
-                    ]
-                ),
-                "can_edit_specification": character_skill.skill.requires_specification,
-                "specification": specification if specification != "*" else "",
+                "skill_id": skill.id,
+                "name": skill.name,
+                "category_name": skill.category.name,
+                "is_visible": has_skill_row or auto_visible,
+                "can_add": can_add,
+                "can_remove": can_remove,
+                "status_label": status_label,
             }
         )
-    return skill_rows, character_skills
+
+    return skill_rows, character_skills, skill_manager_rows
 
 
 def _build_trait_rows(character: Character) -> tuple[list[dict], list[dict]]:
@@ -1743,7 +1887,9 @@ def _build_learning_rows(
         }
         for limit in character.race.raceattributelimit_set.select_related("attribute")
     }
-    skill_levels = {entry.skill_id: entry.level for entry in character_skills}
+    character_skills_by_skill_id: dict[int, list] = {}
+    for _cs in character_skills:
+        character_skills_by_skill_id.setdefault(_cs.skill_id, []).append(_cs)
     language_lookup = {
         entry.language_id: {
             "level": int(entry.levels),
@@ -1774,14 +1920,35 @@ def _build_learning_rows(
 
     skill_groups: OrderedDict[str, list[dict]] = OrderedDict()
     for skill in Skill.objects.select_related("category", "attribute").order_by("category__name", "name"):
-        skill_groups.setdefault(skill.category.name, []).append(
-            {
-                "slug": skill.slug,
-                "name": skill.name,
-                "description": (skill.description or "").replace("\r\n", "\n").replace("\r", "\n"),
-                "base_level": int(skill_levels.get(skill.id, 0)),
-            }
-        )
+        cs_entries = character_skills_by_skill_id.get(skill.id, [])
+        desc = (skill.description or "").replace("\r\n", "\n").replace("\r", "\n")
+        if skill.requires_specification:
+            for cs in sorted(cs_entries, key=lambda x: (x.specification or "")):
+                spec = (cs.specification or "").strip()
+                if not spec or spec == "*":
+                    continue
+                skill_groups.setdefault(skill.category.name, []).append(
+                    {
+                        "slug": skill.slug,
+                        "name": f"{skill.name}: {spec}",
+                        "description": desc,
+                        "base_level": int(cs.level),
+                        "cs_id": cs.id,
+                        "spec": spec,
+                        "kind": "skill-cs",
+                    }
+                )
+        else:
+            base_level = int(cs_entries[0].level) if cs_entries else 0
+            skill_groups.setdefault(skill.category.name, []).append(
+                {
+                    "slug": skill.slug,
+                    "name": skill.name,
+                    "description": desc,
+                    "base_level": base_level,
+                    "kind": "skill",
+                }
+            )
 
     learn_language_rows: list[dict] = []
     for language in Language.objects.order_by("name"):
@@ -1935,7 +2102,7 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
         for short_name, label in ATTRIBUTE_ORDER
     ]
     load_penalty = engine.load_penalty()
-    skill_rows, character_skills = _build_skill_rows(character, engine, load_penalty=load_penalty)
+    skill_rows, character_skills, skill_manager_rows = _build_skill_rows(character, engine, load_penalty=load_penalty)
     advantage_rows, disadvantage_rows = _build_trait_rows(character)
     inventory_rows = _build_inventory_rows(character)
     weapon_rows = _build_weapon_rows(engine)
@@ -2091,6 +2258,7 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
         "attr_mods": attr_mods,
         "attribute_rows": attribute_rows,
         "skill_rows": skill_rows,
+        "skill_manager_rows": skill_manager_rows,
         "advantage_rows": advantage_rows,
         "disadvantage_rows": disadvantage_rows,
         "inventory_rows": inventory_rows,
@@ -2208,7 +2376,7 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
         ],
         "shop_modifier_attribute_choices": ATTRIBUTE_ORDER,
         "shop_modifier_stat_choices": STAT_SLUG_CHOICES,
-        "shop_modifier_skill_choices": Skill.objects.order_by("name"),
+        "shop_modifier_skill_choices": Skill.objects.select_related("category").order_by("name"),
         "shop_modifier_skill_category_choices": SkillCategory.objects.order_by("name"),
         "shop_modifier_item_category_choices": [
             (value, label) for value, label in Item.ItemType.choices if value != Item.ItemType.MAGIC_ITEM

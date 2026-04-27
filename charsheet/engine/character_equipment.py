@@ -20,7 +20,7 @@ def equipped_weapon_items(engine) -> QuerySet:
             item__item_type=Item.ItemType.WEAPON,
         )
         .select_related("item", "item__weaponstats", "item__weaponstats__damage_source")
-        .prefetch_related("item__runes", "runes", "item_runes__rune")
+        .prefetch_related("item__runes", "runes", "item_runes__rune", "item__weaponstats__skills")
     )
 
 

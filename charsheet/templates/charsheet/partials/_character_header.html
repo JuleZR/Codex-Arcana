@@ -161,8 +161,8 @@
         </thead>
         <tbody>
           {% for row in skill_rows %}
-            <tr>
-              <td class="skill_name">
+            <tr{% if row.row_kind == "weapon_context" %} class="skill_context_row"{% endif %}>
+              <td class="skill_name{% if row.row_kind == "weapon_context" %} skill_name--context{% endif %}">
                 <div class="skill_name_wrap">
                   <span class="skill_name_text{% if row.description %} tooltip_target{% endif %}"{% if row.description %} data-tooltip-side="left" data-tooltip="{{ row.description|default:'Keine Beschreibung' }}"{% endif %}>{{ row.display_name }}</span>
                   {% if row.can_edit_specification %}
@@ -178,6 +178,9 @@
                     >
                       <span class="skill_spec_edit_emoji" aria-hidden="true">⋯</span>
                     </button>
+                  {% endif %}
+                  {% if row.is_auto_visible %}
+                    <span class="skill_auto_badge" title="Automatisch eingeblendet, weil diese Fertigkeit aktuell einen Bonus oder Malus erhält.">auto</span>
                   {% endif %}
                 </div>
               </td>

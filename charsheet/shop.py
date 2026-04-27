@@ -102,6 +102,19 @@ def _read_many_values(post_data, name: str) -> list[str]:
     return [str(raw_value).strip()]
 
 
+def _read_skill_ids(post_data, name: str) -> list[int]:
+    """Read one multi-value skill field and return deduplicated integer ids."""
+    skill_ids: list[int] = []
+    for raw_value in _read_many_values(post_data, name):
+        try:
+            skill_id = int(raw_value)
+        except (TypeError, ValueError):
+            continue
+        if skill_id > 0 and skill_id not in skill_ids:
+            skill_ids.append(skill_id)
+    return skill_ids
+
+
 def _build_magic_modifier_payload(target_kind: str, raw_value, row_data) -> dict[str, object] | None:
     """Resolve one normalized magic-item modifier payload from raw row data."""
     if not target_kind:
@@ -408,6 +421,7 @@ def create_custom_shop_item(post_data) -> bool:
     size_class = str(post_data.get("size_class") or "M")
     is_consumable = item_type == Item.ItemType.CONSUM
     selected_runes = list(_read_runes(post_data))
+    selected_weapon_skill_ids = _read_skill_ids(post_data, "weapon_skills")
     magic_modifier_payloads = _read_magic_modifier_payloads(post_data) if is_magic else []
 
     if item_type in (
@@ -481,6 +495,9 @@ def create_custom_shop_item(post_data) -> bool:
                 h2_enabled = wield_mode == "vh"
                 damage_source_id = _read_int(post_data, "weapon_damage_source", 0, minimum=1)
                 damage_source = DamageSource.objects.get(pk=damage_source_id)
+                weapon_skills = list(Skill.objects.filter(pk__in=selected_weapon_skill_ids).order_by("name"))
+                if len(weapon_skills) != len(selected_weapon_skill_ids):
+                    raise ValidationError({"weapon_skills": "Mindestens eine ausgewaehlte Fertigkeit ist ungueltig."})
                 weapon_stats = WeaponStats(
                     item=item,
                     min_st=min_st,
@@ -498,6 +515,8 @@ def create_custom_shop_item(post_data) -> bool:
                 )
                 weapon_stats.full_clean()
                 weapon_stats.save()
+                if weapon_skills:
+                    weapon_stats.skills.set(weapon_skills)
             elif item.item_type == Item.ItemType.SHIELD:
                 shield_stats = ShieldStats(
                     item=item,

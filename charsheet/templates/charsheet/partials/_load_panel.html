@@ -1,4 +1,44 @@
 <div class="load_wrapper" id="sheetLoadPanel" aria-label="Belastung">
+  <details class="skill_manager skill_manager--load" data-preserve-open-id="skill-manager">
+    <summary class="skill_manager_toggle" aria-label="Fertigkeiten verwalten" title="Fertigkeiten verwalten">+</summary>
+    <div class="skill_manager_menu">
+      <div class="skill_manager_menu_header">Fertigkeiten verwalten</div>
+      <div class="skill_manager_search_wrap">
+        <input
+          type="search"
+          class="skill_manager_search"
+          placeholder="Fertigkeit suchen"
+          aria-label="Fertigkeit suchen"
+          data-skill-manager-search
+          data-preserve-value-id="skill-manager-search"
+        >
+      </div>
+      <div class="skill_manager_menu_list" role="menu" aria-label="Fertigkeiten verwalten" data-preserve-scroll-id="skill-manager-list">
+        {% for item in skill_manager_rows %}
+          <div class="skill_manager_item" data-skill-search="{{ item.name|lower }} {{ item.category_name|lower }} {{ item.status_label|lower }}">
+            <div class="skill_manager_item_text">
+              <span class="skill_manager_item_name">{{ item.name }}</span>
+              <span class="skill_manager_item_meta">{{ item.category_name }} · {{ item.status_label }}</span>
+            </div>
+            {% if item.can_add %}
+              <form method="post" action="{% url 'add_visible_skill' character.id item.skill_id %}" data-sheet-action data-ajax-only>
+                {% csrf_token %}
+                <button type="submit" class="skill_manager_action skill_manager_action--add" aria-label="{{ item.name }} einblenden" title="{{ item.name }} einblenden">+</button>
+              </form>
+            {% elif item.can_remove %}
+              <form method="post" action="{% url 'remove_visible_skill' character.id item.skill_id %}" data-sheet-action data-ajax-only>
+                {% csrf_token %}
+                <button type="submit" class="skill_manager_action skill_manager_action--remove" aria-label="{{ item.name }} ausblenden" title="{{ item.name }} ausblenden">−</button>
+              </form>
+            {% else %}
+              <span class="skill_manager_action skill_manager_action--locked" title="{{ item.status_label }}" aria-hidden="true">•</span>
+            {% endif %}
+          </div>
+        {% endfor %}
+        <div class="skill_manager_empty" hidden>Keine Fertigkeit gefunden.</div>
+      </div>
+    </div>
+  </details>
   <span class="load_label">Belastung (Bel.)</span>
   <span class="load_value tooltip_target" data-tooltip-side="cursor-right" data-tooltip="{{ core_stats.load_tooltip }}">{{ core_stats.load_value }}</span>
 </div>

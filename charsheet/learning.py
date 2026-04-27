@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 from django.core.exceptions import ValidationError
 from django.db import transaction
 
@@ -597,6 +599,64 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
         total_cost += step_cost
         skill_plan[slug] = add
 
+    cs_skill_plan: dict[int, int] = {}
+    cs_skill_rows: dict[int, object] = {}
+    for key in list(post_data.keys()):
+        if not str(key).startswith("learn_skill_cs_"):
+            continue
+        try:
+            cs_id = int(str(key)[len("learn_skill_cs_"):])
+        except ValueError:
+            continue
+        add = _read_int(post_data, key, 0)
+        if add == 0:
+            continue
+        cs_row = CharacterSkill.objects.filter(id=cs_id, character=character).select_related("skill").first()
+        if cs_row is None:
+            return "error", "Fertigkeit nicht gefunden."
+        base_value = int(cs_row.level)
+        target_value = base_value + add
+        spec_label = f"{cs_row.skill.name}: {cs_row.specification}"
+        if target_value < 0:
+            return "error", f"{spec_label}: Zielwert ist unter 0."
+        if target_value > 10:
+            return "error", f"{spec_label}: Zielwert ist ueber 10."
+        step_cost = calc_skill_total_cost(target_value) - calc_skill_total_cost(base_value)
+        total_cost += step_cost
+        cs_skill_plan[cs_id] = add
+        cs_skill_rows[cs_id] = cs_row
+
+    new_spec_plan: list[dict] = []
+    new_skill_data: dict[int, dict] = {}
+    for key in list(post_data.keys()):
+        m = re.match(r"^learn_new_skill_(slug|spec|level)_(\d+)$", str(key))
+        if not m:
+            continue
+        field = m.group(1)
+        n = int(m.group(2))
+        new_skill_data.setdefault(n, {})[field] = str(post_data.get(key, "")).strip()
+    for n, data in sorted(new_skill_data.items()):
+        slug = data.get("slug", "")
+        spec = data.get("spec", "").strip()
+        try:
+            level = int(data.get("level", "0") or "0")
+        except ValueError:
+            level = 0
+        if not slug or not spec or level <= 0:
+            continue
+        skill = skill_defs.get(slug)
+        if skill is None:
+            return "error", f"Fertigkeit '{slug}' nicht gefunden."
+        if not skill.requires_specification:
+            return "error", f"{skill.name}: Spezialisierung nicht erlaubt."
+        if level > 10:
+            return "error", f"{skill.name}: {spec}: Zielwert ist ueber 10."
+        if CharacterSkill.objects.filter(character=character, skill=skill, specification=spec).exists():
+            return "error", f"{skill.name}: {spec}: Eintrag existiert bereits."
+        step_cost = calc_skill_total_cost(level)
+        total_cost += step_cost
+        new_spec_plan.append({"skill": skill, "spec": spec, "level": level})
+
     for slug, language in language_defs.items():
         add_key = f"learn_lang_add_{slug}"
         write_key = f"learn_lang_write_{slug}"
@@ -681,7 +741,7 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
             total_cost += add * 4
             magic_aspect_plan[aspect_id] = add
 
-    has_ep_changes = any((attr_plan, trait_plan, skill_plan, language_plan, school_plan, magic_spell_plan, magic_aspect_plan))
+    has_ep_changes = any((attr_plan, trait_plan, skill_plan, cs_skill_plan, new_spec_plan, language_plan, school_plan, magic_spell_plan, magic_aspect_plan))
 
     if total_cost == 0 and not has_ep_changes and not has_progression_inputs:
         return "info", "Keine Lernkosten erkannt."
@@ -729,6 +789,23 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
                     else:
                         skill_row.level = target_level
                         skill_row.save(update_fields=["level"])
+
+            for cs_id, add in cs_skill_plan.items():
+                cs_row = cs_skill_rows[cs_id]
+                target_level = int(cs_row.level) + add
+                if target_level <= 0:
+                    cs_row.delete()
+                else:
+                    cs_row.level = target_level
+                    cs_row.save(update_fields=["level"])
+
+            for entry in new_spec_plan:
+                CharacterSkill.objects.create(
+                    character=character,
+                    skill=entry["skill"],
+                    level=entry["level"],
+                    specification=entry["spec"],
+                )
 
             for slug, payload in language_plan.items():
                 add = int(payload["add"])

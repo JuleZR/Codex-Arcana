@@ -589,6 +589,50 @@ def update_skill_specification(request, character_id: int, character_skill_id: i
 
 @login_required
 @require_POST
+def add_visible_skill(request, character_id: int, skill_id: int):
+    """Persist one unlearned skill so it stays visible in the sheet list."""
+    character = _owned_character_or_404(request, character_id)
+    skill = get_object_or_404(Skill.objects.select_related("category", "attribute"), pk=skill_id)
+    character_skill, created = CharacterSkill.objects.get_or_create(
+        character=character,
+        skill=skill,
+        specification="*",
+        defaults={"level": 0},
+    )
+    if created:
+        messages.success(request, f"{skill.name} wurde zur Liste hinzugefügt.")
+    else:
+        messages.info(request, f"{skill.name} ist bereits in der Liste vorhanden.")
+    if _is_partial_request(request):
+        return _sheet_partials_response(request, character, "character_header")
+    return redirect("character_sheet", character_id=character.id)
+
+
+@login_required
+@require_POST
+def remove_visible_skill(request, character_id: int, skill_id: int):
+    """Remove one manually shown unlearned skill from the sheet list."""
+    character = _owned_character_or_404(request, character_id)
+    skill = get_object_or_404(Skill, pk=skill_id)
+    character_skill = CharacterSkill.objects.filter(
+        character=character,
+        skill=skill,
+        specification="*",
+    ).first()
+    if character_skill is None:
+        messages.info(request, f"{skill.name} ist nicht manuell eingeblendet.")
+    elif int(character_skill.level) > 0:
+        messages.error(request, "Geskillte Fertigkeiten können nicht aus der Liste entfernt werden.")
+    else:
+        character_skill.delete()
+        messages.success(request, f"{skill.name} wurde aus der Liste entfernt.")
+    if _is_partial_request(request):
+        return _sheet_partials_response(request, character, "character_header")
+    return redirect("character_sheet", character_id=character.id)
+
+
+@login_required
+@require_POST
 def update_rune_specification(request, character_item_id: int, rune_id: int):
     """Persist the specialization text for one rune on an owned item."""
     character_item = get_object_or_404(

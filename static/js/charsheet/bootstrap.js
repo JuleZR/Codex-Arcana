@@ -18,6 +18,7 @@ import { initCharInfoCounter } from "./char_info_counter.js";
 import { initSheetActions } from "./sheet_actions.js";
 import { initSchoolsPanel } from "./schools_panel.js";
 import { initMobileHud } from "./mobile_hud.js";
+import { initSkillManager } from "./skill_manager.js";
 
 onReady(() => {
   initTabs();
@@ -37,6 +38,7 @@ onReady(() => {
     modifyWindowController: windowControllers?.runeRetrofit || null,
   });
   initSheetActions();
+  initSkillManager();
   initDamagePanel();
   initSpellPanel();
   initCharInfoCounter();

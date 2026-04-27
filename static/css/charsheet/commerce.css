@@ -160,7 +160,6 @@
     inset 0 -1px 0 rgba(180, 220, 255, 0.32),
     0 0 0 1px rgba(124, 174, 214, 0.45),
     0 8px 18px -14px rgba(52, 88, 120, 0.52);
-  backdrop-filter: blur(3.2px) saturate(120%);
   transition: opacity 160ms ease;
   z-index: 0;
 }
@@ -227,7 +226,6 @@
     inset 0 -1px 0 rgba(180, 220, 255, 0.32),
     0 0 0 1px rgba(124, 174, 214, 0.45),
     0 8px 18px -14px rgba(52, 88, 120, 0.52);
-  backdrop-filter: blur(3.2px) saturate(120%);
   transition: opacity 160ms ease;
 }
 
@@ -337,6 +335,19 @@
   color: rgba(89, 63, 37, 0.8);
   font-size: 0.66rem;
   line-height: 1;
+  white-space: nowrap;
+}
+
+.learn_spec_badge {
+  display: inline-block;
+  margin-left: 4px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: rgba(100, 140, 80, 0.18);
+  color: rgba(55, 100, 45, 0.9);
+  font-size: 0.7rem;
+  font-weight: 600;
+  vertical-align: middle;
   white-space: nowrap;
 }
 

@@ -179,16 +179,40 @@
                       <table class="shop_table">
                         <tbody>
                           {% for row in group.rows %}
-                            <tr data-learn-source data-kind="skill" data-key="skill:{{ row.slug }}" data-slug="{{ row.slug }}" data-name="{{ row.name }}" data-base="{{ row.base_level }}" data-learn-search="{{ row.name|lower }} {{ group.name|lower }} skill fertigkeit" tabindex="0" role="button" aria-label="{{ row.name }} steigern"{% if row.description %} class="tooltip_target" data-tooltip-side="left" data-tooltip="{{ row.description }}"{% endif %}>
-                              <td class="shop_item_name">{{ row.name }}</td>
-                              <td class="shop_item_price shop_item_price--meta">
-                                <span class="learn_meta_inline" aria-label="Aktuelles Level {{ row.base_level }}">
-                                  <span class="learn_meta_inline__row">
-                                    <span class="learn_meta_inline__item"><span class="learn_meta_label">Lvl</span><span class="learn_meta_value">{{ row.base_level }}</span></span>
+                            {% if row.kind == "skill-cs" %}
+                              <tr data-learn-source data-kind="skill-cs" data-key="skill-cs:{{ row.cs_id }}" data-cs-id="{{ row.cs_id }}" data-slug="{{ row.slug }}" data-name="{{ row.name }}" data-base="{{ row.base_level }}" data-learn-search="{{ row.name|lower }} {{ group.name|lower }} skill fertigkeit spezialisierung" tabindex="0" role="button" aria-label="{{ row.name }} steigern"{% if row.description %} class="tooltip_target" data-tooltip-side="left" data-tooltip="{{ row.description }}"{% endif %}>
+                                <td class="shop_item_name">{{ row.name }}</td>
+                                <td class="shop_item_price shop_item_price--meta">
+                                  <span class="learn_meta_inline" aria-label="Aktuelles Level {{ row.base_level }}">
+                                    <span class="learn_meta_inline__row">
+                                      <span class="learn_meta_inline__item"><span class="learn_meta_label">Lvl</span><span class="learn_meta_value">{{ row.base_level }}</span></span>
+                                    </span>
                                   </span>
-                                </span>
-                              </td>
-                            </tr>
+                                </td>
+                              </tr>
+                            {% elif row.kind == "skill-new-spec" %}
+                              <tr data-learn-source data-kind="skill-new-spec" data-slug="{{ row.slug }}" data-name="{{ row.name }}" data-learn-search="{{ row.name|lower }} {{ group.name|lower }} skill fertigkeit neu spezifikation" tabindex="0" role="button" aria-label="{{ row.name }} mit neuer Spezialisierung lernen"{% if row.description %} class="tooltip_target" data-tooltip-side="left" data-tooltip="{{ row.description }}"{% endif %}>
+                                <td class="shop_item_name">{{ row.name }} <span class="learn_spec_badge">+ Neu</span></td>
+                                <td class="shop_item_price shop_item_price--meta">
+                                  <span class="learn_meta_inline">
+                                    <span class="learn_meta_inline__row">
+                                      <span class="learn_meta_inline__item"><span class="learn_meta_label">Neue Spezialisierung</span></span>
+                                    </span>
+                                  </span>
+                                </td>
+                              </tr>
+                            {% else %}
+                              <tr data-learn-source data-kind="skill" data-key="skill:{{ row.slug }}" data-slug="{{ row.slug }}" data-name="{{ row.name }}" data-base="{{ row.base_level }}" data-learn-search="{{ row.name|lower }} {{ group.name|lower }} skill fertigkeit" tabindex="0" role="button" aria-label="{{ row.name }} steigern"{% if row.description %} class="tooltip_target" data-tooltip-side="left" data-tooltip="{{ row.description }}"{% endif %}>
+                                <td class="shop_item_name">{{ row.name }}</td>
+                                <td class="shop_item_price shop_item_price--meta">
+                                  <span class="learn_meta_inline" aria-label="Aktuelles Level {{ row.base_level }}">
+                                    <span class="learn_meta_inline__row">
+                                      <span class="learn_meta_inline__item"><span class="learn_meta_label">Lvl</span><span class="learn_meta_value">{{ row.base_level }}</span></span>
+                                    </span>
+                                  </span>
+                                </td>
+                              </tr>
+                            {% endif %}
                           {% endfor %}
                         </tbody>
                       </table>
