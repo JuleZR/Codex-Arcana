@@ -445,6 +445,21 @@ def _reset_invalid_school_progression(character: Character) -> None:
     CharacterWeaponMasteryArcana.objects.filter(character=character).exclude(
         school_id__in=learned_school_ids
     ).delete()
+    CharacterSpell.objects.filter(
+        character=character,
+        spell__school_id__isnull=False,
+    ).exclude(
+        spell__school_id__in=learned_school_ids
+    ).delete()
+    magic_engine = character.get_magic_engine(refresh=True)
+    school_level_map = magic_engine._school_level_map()
+    for school_id in learned_school_ids:
+        current_level = school_level_map.get(school_id, 0)
+        CharacterSpell.objects.filter(
+            character=character,
+            spell__school_id=school_id,
+            spell__grade__gt=current_level,
+        ).delete()
 
     engine = character.get_engine(refresh=True)
     for school_id in learned_school_ids:
