@@ -407,6 +407,13 @@ class MagicEngine:
                     "bonus_source": None,
                 }
 
+        if self._arcane_school_entries() or CharacterAspect.objects.filter(character=self.character).exists():
+            for spell in Spell.objects.filter(is_base_spell=True, school__isnull=True, aspect__isnull=True):
+                desired_auto_spells.setdefault(spell.id, {
+                    "source_kind": CharacterSpell.SourceKind.BASE,
+                    "bonus_source": None,
+                })
+
         existing_auto_entries = list(
             CharacterSpell.objects.filter(
                 character=self.character,
@@ -414,11 +421,6 @@ class MagicEngine:
                     CharacterSpell.SourceKind.BASE,
                     CharacterSpell.SourceKind.DIVINE_GRANTED,
                 ),
-            ).exclude(
-                # Universal base spells (no school, no aspect) are user-chosen and must not be
-                # managed by the automatic sync — only school- and aspect-bound entries are.
-                spell__school__isnull=True,
-                spell__aspect__isnull=True,
             ).select_related("spell")
         )
         existing_auto_by_spell_id = {entry.spell_id: entry for entry in existing_auto_entries}

@@ -73,7 +73,6 @@ def _has_progression_inputs(post_data) -> bool:
         "learn_weapon_mastery_side_",
         "learn_weapon_mastery_arcana_",
         "learn_choice_",
-        "learn_base_spell_",
         "learn_arcane_free_spell_",
         "learn_bonus_spell_",
         "learn_divine_entity",
@@ -163,22 +162,6 @@ def _apply_progression_choices(character: Character, post_data, *, magic_engine)
             character=character,
             spell=spell,
             source_kind=CharacterSpell.SourceKind.ARCANE_FREE,
-        )
-        spell_entry.full_clean()
-        spell_entry.save()
-        summary["choices"] += 1
-
-    for row in progression_context["learn_base_spell_rows"]:
-        raw_spell_id = str(post_data.get(row["field_name"], "")).strip()
-        if not raw_spell_id:
-            continue
-        allowed_ids = {str(spell.id) for spell in row["options"]}
-        if raw_spell_id not in allowed_ids:
-            raise LearningSubmissionError("Ungueltige Basiszauber-Auswahl.")
-        spell_entry = CharacterSpell(
-            character=character,
-            spell_id=int(raw_spell_id),
-            source_kind=CharacterSpell.SourceKind.BASE,
         )
         spell_entry.full_clean()
         spell_entry.save()
@@ -459,6 +442,14 @@ def _reset_invalid_school_progression(character: Character) -> None:
             character=character,
             spell__school_id=school_id,
             spell__grade__gt=current_level,
+        ).delete()
+    has_arcane = bool(magic_engine._arcane_school_entries())
+    has_divine = CharacterAspect.objects.filter(character=character).exists()
+    if not has_arcane and not has_divine:
+        CharacterSpell.objects.filter(
+            character=character,
+            spell__school__isnull=True,
+            spell__aspect__isnull=True,
         ).delete()
 
     engine = character.get_engine(refresh=True)
@@ -756,7 +747,10 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
             total_cost += add * 4
             magic_aspect_plan[aspect_id] = add
 
-    has_ep_changes = any((attr_plan, trait_plan, skill_plan, cs_skill_plan, new_spec_plan, language_plan, school_plan, magic_spell_plan, magic_aspect_plan))
+    has_ep_changes = any((
+        attr_plan, trait_plan, skill_plan, cs_skill_plan, new_spec_plan,
+        language_plan, school_plan, magic_spell_plan, magic_aspect_plan,
+    ))
 
     if total_cost == 0 and not has_ep_changes and not has_progression_inputs:
         return "info", "Keine Lernkosten erkannt."

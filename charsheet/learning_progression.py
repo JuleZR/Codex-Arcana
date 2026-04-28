@@ -248,51 +248,6 @@ def build_learning_progression_context(character, *, engine) -> dict[str, object
     magic_engine = character.get_magic_engine(refresh=True)
     magic_engine.sync_character_magic()
 
-    from charsheet.models import CharacterAspect, CharacterSpell as _CharacterSpell
-    _is_magic_user = bool(magic_engine._arcane_school_entries()) or CharacterAspect.objects.filter(character=character).exists()
-    if _is_magic_user:
-        _learned_base_ids = set(
-            _CharacterSpell.objects.filter(
-                character=character,
-                spell__is_base_spell=True,
-                spell__school__isnull=True,
-                spell__aspect__isnull=True,
-            ).values_list("spell_id", flat=True)
-        )
-        _remaining = max(0, 2 - len(_learned_base_ids))
-        _universal_spells = list(
-            Spell.objects.filter(is_base_spell=True, school__isnull=True, aspect__isnull=True)
-            .exclude(id__in=_learned_base_ids)
-            .order_by("grade", "name")
-        )
-        for _slot in range(_remaining):
-            _field = f"learn_base_spell_{_slot}"
-            base_spell_rows.append({"field_name": _field, "options": _universal_spells})
-            pending_decisions.append(
-                _build_pending_decision(
-                    decision_id=f"base-spell-{_slot}",
-                    kind="base_spell",
-                    title="Basiszauber",
-                    summary=f"Basiszauber {_slot + 1} von {_remaining} waehlen",
-                    description="Waehle einen der universellen Basiszauber (ohne Schule). Jeder Magiewirkende darf 2 davon lernen.",
-                    prompt="Basiszauber waehlen",
-                    selection_group_id="base-spell",
-                    grade_filter_options=_spell_grade_filter_options(_universal_spells),
-                    options=[
-                        _build_decision_option(
-                            option_id=str(s.id),
-                            label=s.name,
-                            grade=int(s.grade),
-                            meta=f"Grad {s.grade}",
-                            facts=_spell_choice_facts(s),
-                            description=s.description or "",
-                            submit_name=_field,
-                            submit_value=str(s.id),
-                        )
-                        for s in _universal_spells
-                    ],
-                )
-            )
 
     learned_school_entries = list(
         character.schools.select_related("school", "school__type").order_by("school__type__name", "school__name")
