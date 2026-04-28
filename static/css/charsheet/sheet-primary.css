@@ -522,7 +522,7 @@
   flex-direction: column;
   flex: 1 1 auto;
   min-height: 0;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .language_list {
@@ -619,6 +619,7 @@
 
 .p1_bottom_right {
   grid-column: 2;
+  align-self: stretch;
   margin: 0;
   border: 1px solid rgba(74, 55, 38, 0.35);
   border-radius: 6px;
@@ -630,6 +631,8 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
+  min-height: 0;
+  overflow: visible;
 }
 
 .load_wrapper {
@@ -665,10 +668,8 @@
   border-radius: 5px;
   background: rgba(255, 248, 230, 0.24);
   padding: 4px 4px 5px;
-  flex: 0 0 auto;
-  height: 420px;
-  min-height: 420px;
-  max-height: 420px;
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
   scrollbar-gutter: stable both-edges;
@@ -738,7 +739,7 @@
   left: -8px;
   width: 290px;
   max-height: 340px;
-  overflow: hidden;
+  overflow: visible;
   display: flex;
   flex-direction: column;
   border: 1px solid rgba(74, 55, 38, 0.35);
@@ -763,6 +764,10 @@
 }
 
 .skill_manager_search_wrap {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
   padding: 8px 10px 6px;
   border-bottom: 1px solid rgba(74, 55, 38, 0.14);
   background: rgba(255, 250, 241, 0.5);
@@ -792,10 +797,120 @@
     0 0 0 2px rgba(217, 195, 154, 0.28);
 }
 
+.skill_manager_filter {
+  position: relative;
+  align-self: start;
+}
+
+.skill_manager_filter_button {
+  position: relative;
+  display: grid;
+  place-items: center;
+  list-style: none;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid rgba(116, 88, 57, 0.24);
+  border-radius: 999px;
+  background: rgba(255, 252, 244, 0.92);
+  color: rgba(90, 63, 39, 0.76);
+  cursor: pointer;
+  padding: 0;
+  transition:
+    background-color 140ms ease,
+    color 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.skill_manager_filter_button:hover {
+  background: rgba(176, 145, 103, 0.14);
+  color: rgba(74, 51, 32, 0.92);
+}
+
+.skill_manager_filter_button::-webkit-details-marker {
+  display: none;
+}
+
+.skill_manager_filter_button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(217, 195, 154, 0.42);
+}
+
+.skill_manager_filter[open] .skill_manager_filter_button {
+  background: linear-gradient(180deg, rgba(238, 226, 196, 0.96), rgba(225, 207, 167, 0.96));
+  color: rgba(74, 51, 32, 0.98);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 252, 244, 0.82),
+    0 1px 2px rgba(88, 61, 34, 0.12);
+}
+
+.skill_manager_filter_menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 132px;
+  display: grid;
+  gap: 3px;
+  padding: 6px;
+  border: 1px solid rgba(74, 55, 38, 0.24);
+  border-radius: 10px;
+  background: linear-gradient(180deg, rgba(255, 250, 239, 0.98), rgba(240, 226, 196, 0.96));
+  box-shadow: 0 12px 24px rgba(48, 31, 15, 0.18);
+  z-index: 12;
+}
+
+.skill_manager_filter:not([open]) .skill_manager_filter_menu {
+  display: none;
+}
+
+.skill_manager_filter_option {
+  width: 100%;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: rgba(74, 51, 32, 0.88);
+  font-size: 0.72rem;
+  text-align: left;
+  cursor: pointer;
+  padding: 6px 8px;
+}
+
+.skill_manager_filter_option:hover,
+.skill_manager_filter_option:focus-visible {
+  outline: none;
+  background: rgba(176, 145, 103, 0.14);
+}
+
+.skill_manager_filter_option.is-active {
+  background: rgba(226, 207, 169, 0.42);
+  color: rgba(61, 42, 24, 0.98);
+  font-weight: 700;
+}
+
+.skill_manager_filter_icon {
+  position: relative;
+  display: block;
+  width: 14px;
+  height: 14px;
+}
+
+.skill_manager_filter_icon--funnel::before {
+  content: "";
+  position: absolute;
+  left: 1px;
+  top: 2px;
+  width: 12px;
+  height: 10px;
+  background: currentColor;
+  clip-path: polygon(0 0, 100% 0, 68% 42%, 68% 100%, 32% 100%, 32% 42%);
+}
+
 .skill_manager_menu_list {
   box-sizing: border-box;
   flex: 1 1 auto;
   min-height: 0;
+  max-height: 258px;
   overflow-y: auto;
   padding: 6px 6px 14px;
 }
@@ -901,6 +1016,10 @@ button.skill_manager_action {
   color: var(--ink-soft);
   padding: 1px 2px;
   text-align: center;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: rgba(255, 248, 230, 0.24);
 }
 
 .skills_table .skills_title_row th {

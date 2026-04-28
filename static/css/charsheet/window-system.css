@@ -112,9 +112,7 @@
   min-height: 0;
   border: 1px solid var(--sheet-window-border);
   border-radius: calc(var(--sheet-window-radius) - 2px);
-  background:
-    linear-gradient(180deg, rgba(249, 244, 234, 0.72), rgba(238, 230, 214, 0.54)),
-    url("/static/img/pergamentbg.jpg") center / cover no-repeat;
+  background: linear-gradient(180deg, rgba(249, 244, 234, 0.72), rgba(238, 230, 214, 0.54));
   box-shadow:
     inset 0 1px 0 rgba(255, 248, 229, 0.72),
     inset 0 0 0 1px rgba(255, 247, 226, 0.14);
@@ -165,9 +163,7 @@
   isolation: isolate;
   border: 1px solid rgba(118, 88, 57, 0.18);
   border-radius: 10px;
-  background:
-    linear-gradient(180deg, var(--sheet-window-surface-top), var(--sheet-window-surface-bottom)),
-    url("/static/img/pergamentbg.jpg") center / cover no-repeat;
+  background: linear-gradient(180deg, var(--sheet-window-surface-top), var(--sheet-window-surface-bottom));
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.46),
     inset 0 0 0 1px rgba(255, 247, 226, 0.12);
@@ -408,9 +404,6 @@
 }
 
 .sheet-window .shop_cart_table th {
-  position: sticky;
-  top: 0;
-  z-index: 2;
   background: linear-gradient(180deg, rgba(248, 240, 221, 0.96), rgba(237, 226, 199, 0.92));
   font-family: "Cinzel", Georgia, serif;
   font-size: 0.68rem;

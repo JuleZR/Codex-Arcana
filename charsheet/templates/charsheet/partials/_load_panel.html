@@ -12,10 +12,26 @@
           data-skill-manager-search
           data-preserve-value-id="skill-manager-search"
         >
+        <details class="skill_manager_filter" data-preserve-open-id="skill-manager-status-menu">
+          <input
+            type="hidden"
+            value="all"
+            data-skill-manager-status-filter
+            data-preserve-value-id="skill-manager-status-filter"
+          >
+          <summary class="skill_manager_filter_button" aria-label="Sichtbarkeitsstatus filtern" title="Sichtbarkeitsstatus filtern">
+            <span class="skill_manager_filter_icon skill_manager_filter_icon--funnel" aria-hidden="true"></span>
+          </summary>
+          <div class="skill_manager_filter_menu" role="menu" aria-label="Sichtbarkeitsstatus">
+            <button type="button" class="skill_manager_filter_option is-active" data-skill-manager-status-option="all" aria-pressed="true">Alle</button>
+            <button type="button" class="skill_manager_filter_option" data-skill-manager-status-option="visible" aria-pressed="false">Angezeigt</button>
+            <button type="button" class="skill_manager_filter_option" data-skill-manager-status-option="hidden" aria-pressed="false">Nicht angezeigt</button>
+          </div>
+        </details>
       </div>
       <div class="skill_manager_menu_list" role="menu" aria-label="Fertigkeiten verwalten" data-preserve-scroll-id="skill-manager-list">
         {% for item in skill_manager_rows %}
-          <div class="skill_manager_item" data-skill-search="{{ item.name|lower }} {{ item.category_name|lower }} {{ item.status_label|lower }}">
+          <div class="skill_manager_item" data-skill-search="{{ item.name|lower }} {{ item.category_name|lower }} {{ item.status_label|lower }}" data-skill-visibility="{% if item.is_visible %}visible{% else %}hidden{% endif %}">
             <div class="skill_manager_item_text">
               <span class="skill_manager_item_name">{{ item.name }}</span>
               <span class="skill_manager_item_meta">{{ item.category_name }} · {{ item.status_label }}</span>

@@ -1063,10 +1063,15 @@
 }
 
 .shop_cart_totals {
-  border: 1px solid rgba(74, 55, 38, 0.28);
-  border-radius: 6px;
-  background: rgba(255, 248, 230, 0.2);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   padding: 6px 8px;
+}
+
+.sheet-window .shop_cart_actions {
+  border-top: 0;
+  background: transparent;
 }
 
 .shop_cart_total_row {
@@ -1357,9 +1362,21 @@
 .learn_choice_panel,
 .learn_choice_option {
   isolation: isolate;
-  background:
-    linear-gradient(180deg, rgba(250, 247, 240, 0.26), rgba(241, 235, 223, 0.2));
-  border-color: rgba(118, 88, 57, 0.24);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.sheet-window .shop_list_scroll,
+.sheet-window .shop_cart_wrapper,
+.sheet-window .shop_cart_scroll,
+.sheet-window .learn_list_scroll,
+.sheet-window .learn_tabs__panel {
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
 }
 
 .shop_group summary {
@@ -1385,7 +1402,7 @@
 .shop_table td,
 .shop_cart_table th,
 .shop_cart_table td {
-  background: rgba(255, 251, 242, 0.3);
+  background: transparent;
   color: rgba(63, 43, 24, 0.96);
 }
 
@@ -1444,6 +1461,12 @@
 
 .shop_cart_total_row {
   min-height: 30px;
+}
+
+.shop_table tr[data-shop-item],
+.shop_table tr[data-learn-source],
+.shop_cart_table tbody tr {
+  background: rgba(255, 251, 242, 0.3);
 }
 
 .shop_add_btn,
@@ -1515,7 +1538,7 @@
   gap: 6px;
   padding: 8px 8px 6px;
   border-bottom: 1px solid rgba(112, 81, 48, 0.16);
-  background: linear-gradient(180deg, rgba(249, 245, 236, 0.48), rgba(239, 231, 215, 0.24));
+  background: transparent;
 }
 
 .learn_tabs__tab {
