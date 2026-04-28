@@ -14,6 +14,7 @@
   min-height: 0;
   display: flex;
   flex-direction: column;
+  isolation: isolate;
   background:
     linear-gradient(180deg, rgba(255, 250, 237, 0.8), rgba(244, 234, 211, 0.72));
   border: 1px solid rgba(120, 84, 48, 0.32);
@@ -1355,6 +1356,7 @@
 .learn_choice_nav,
 .learn_choice_panel,
 .learn_choice_option {
+  isolation: isolate;
   background:
     linear-gradient(180deg, rgba(250, 247, 240, 0.26), rgba(241, 235, 223, 0.2));
   border-color: rgba(118, 88, 57, 0.24);

@@ -665,9 +665,12 @@
   border-radius: 5px;
   background: rgba(255, 248, 230, 0.24);
   padding: 4px 4px 5px;
-  flex: 1 1 auto;
-  min-height: 0;
+  flex: 0 0 auto;
+  height: 420px;
+  min-height: 420px;
+  max-height: 420px;
   overflow-y: auto;
+  overflow-x: hidden;
   scrollbar-gutter: stable both-edges;
 }
 

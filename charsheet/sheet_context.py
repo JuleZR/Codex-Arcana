@@ -1143,15 +1143,12 @@ def _build_skill_rows(character: Character, engine, *, load_penalty: int) -> tup
             maneuver_bonus = int(weapon_row.get("total_maneuver_modifier") or 0)
             if maneuver_bonus == 0:
                 continue
-            mode_suffix = ""
-            if int(sum(1 for row in equipped_weapon_rows if row["character_item"].id == weapon_row["character_item"].id)) > 1:
-                mode_suffix = f" ({weapon_row['mode_label']})"
             rows.append(
                 {
                     "row_kind": "weapon_context",
                     "skill_id": skill_id,
                     "name": base_row["name"],
-                    "display_name": f"mit {weapon_row['item'].name}{mode_suffix}",
+                    "display_name": f"({weapon_row['item'].name})",
                     "description": f"Manoeverbonus mit {weapon_row['item'].name}",
                     "attribute": base_row["attribute"],
                     "attribute_mod": base_row["attribute_mod"],
@@ -1215,7 +1212,7 @@ def _build_skill_rows(character: Character, engine, *, load_penalty: int) -> tup
                 if not skill.requires_specification:
                     skill_rows.extend(_build_weapon_context_rows(row))
             continue
-        if _external_skill_bonus(skill) != 0 or skill.id in weapon_skill_ids_with_bonus:
+        if _external_skill_bonus(skill) != 0:
             row = _build_row(skill)
             skill_rows.append(row)
             if not skill.requires_specification:
@@ -1231,9 +1228,7 @@ def _build_skill_rows(character: Character, engine, *, load_penalty: int) -> tup
         if has_skilled_row:
             continue
         generic_row = next((row for row in rows_for_skill if (row.specification or "*") == "*"), None)
-        auto_visible = (not has_skill_row) and (
-            _external_skill_bonus(skill) != 0 or skill.id in weapon_skill_ids_with_bonus
-        )
+        auto_visible = (not has_skill_row) and (_external_skill_bonus(skill) != 0)
         can_add = (not has_skill_row) and (not auto_visible)
         can_remove = (
             generic_row is not None
