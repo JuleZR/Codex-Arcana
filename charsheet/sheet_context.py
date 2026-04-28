@@ -1148,7 +1148,7 @@ def _build_skill_rows(character: Character, engine, *, load_penalty: int) -> tup
                     "row_kind": "weapon_context",
                     "skill_id": skill_id,
                     "name": base_row["name"],
-                    "display_name": f"({weapon_row['item'].name})",
+                    "display_name": f"mit {weapon_row['item'].name}",
                     "description": f"Manoeverbonus mit {weapon_row['item'].name}",
                     "attribute": base_row["attribute"],
                     "attribute_mod": base_row["attribute_mod"],
