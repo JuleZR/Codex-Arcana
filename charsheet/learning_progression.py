@@ -369,6 +369,8 @@ def build_learning_progression_context(character, *, engine) -> dict[str, object
                 aspect_levels=aspect_levels,
             )
         ]
+        if not options:
+            continue
         for slot_index in range(int(choice_state["remaining"])):
             row = {
                 "field_name": f"learn_arcane_free_spell_{school_entry.school_id}_{slot_index}",
@@ -415,6 +417,8 @@ def build_learning_progression_context(character, *, engine) -> dict[str, object
                 aspect_levels=aspect_levels,
             )
         ]
+        if not options:
+            continue
         for slot_index in range(int(source["remaining"])):
             row = {
                 "field_name": f"learn_bonus_spell_{source['id']}_{slot_index}",

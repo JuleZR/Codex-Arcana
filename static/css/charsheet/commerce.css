@@ -459,10 +459,12 @@
 }
 
 .learn_choice_nav {
-  display: grid;
-  align-content: start;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
   gap: 8px;
   padding: 8px;
+  background: rgba(255, 251, 243, 0.42);
   overflow-x: hidden;
   overflow-y: auto;
 }
@@ -494,6 +496,7 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
+  flex: 0 0 auto;
   gap: 10px;
   width: 100%;
   padding: 12px 12px 11px;
@@ -1358,13 +1361,20 @@
 .shop_cart_wrapper,
 .shop_cart_scroll,
 .learn_list_scroll,
-.learn_choice_nav,
 .learn_choice_panel,
 .learn_choice_option {
   isolation: isolate;
   border: 0;
   border-radius: 0;
   background: transparent;
+  box-shadow: none;
+}
+
+.learn_choice_window .learn_choice_nav {
+  isolation: isolate;
+  border: 0;
+  border-radius: 0;
+  background: rgba(255, 251, 243, 0.42);
   box-shadow: none;
 }
 
