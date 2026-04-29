@@ -1511,9 +1511,22 @@
   color: #2f1206;
 }
 
+#sheetArmorPanel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.armor_scroll {
+  height: 24px;
+  margin: 0 0 4px;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
 .armor_worn {
   list-style: none;
-  margin: 0 0 4px;
+  margin: 0;
   padding: 0;
   display: flex;
   flex-wrap: wrap;
