@@ -1,26 +1,29 @@
 <div class="p2_panel" id="sheetArmorPanel">
   <h2>R&uuml;stung</h2>
-  <div class="panel_scroll armor_scroll">
-    <ul class="armor_worn">
-      {% for row in armor_rows %}
-        <li class="armor_row{% if row.quality_color %} quality_tinted_row{% endif %}{% if row.tooltip_text %} tooltip_target{% endif %}"{% if row.quality_color %} style="--row-quality-color: {{ row.quality_color }};"{% endif %}{% if row.tooltip_text %} data-tooltip-side="left" data-tooltip="{{ row.tooltip_text }}"{% endif %}>
-          <span>
-            {{ row.summary }}
-          </span>
-          <span class="armor_row_actions">
-            {% if row.can_unequip %}
-              <form method="post" action="{% url 'toggle_equip' row.character_item.pk %}" class="equip_form" data-sheet-action>
-                {% csrf_token %}
-                <button type="submit" class="equip_toggle is-equipped" title="Ablegen">-</button>
-              </form>
-            {% endif %}
-          </span>
-        </li>
-      {% endfor %}
-      {% if not armor_rows %}
-        <li></li>
-      {% endif %}
-    </ul>
+  <div class="armor_scroll_wrap">
+    <div class="panel_scroll armor_scroll" data-armor-scroll data-preserve-scroll-id="armor-worn-scroll">
+      <ul class="armor_worn">
+        {% for row in armor_rows %}
+          <li class="armor_row{% if row.quality_color %} quality_tinted_row{% endif %}{% if row.tooltip_text %} tooltip_target{% endif %}"{% if row.quality_color %} style="--row-quality-color: {{ row.quality_color }};"{% endif %}{% if row.tooltip_text %} data-tooltip-side="left" data-tooltip="{{ row.tooltip_text }}"{% endif %}>
+            <span>
+              {{ row.summary }}
+            </span>
+            <span class="armor_row_actions">
+              {% if row.can_unequip %}
+                <form method="post" action="{% url 'toggle_equip' row.character_item.pk %}" class="equip_form" data-sheet-action>
+                  {% csrf_token %}
+                  <button type="submit" class="equip_toggle is-equipped" title="Ablegen">-</button>
+                </form>
+              {% endif %}
+            </span>
+          </li>
+        {% endfor %}
+        {% if not armor_rows %}
+          <li></li>
+        {% endif %}
+      </ul>
+    </div>
+    <span class="armor_scroll_indicator" data-armor-scroll-indicator hidden aria-hidden="true">&#x2304;</span>
   </div>
   <ul class="armor_stats">
     <li><span>Gesamtr&uuml;stungsschutz</span><span class="pill tooltip_target" data-tooltip-side="cursor-right" data-tooltip="{{ armor_summary.total_rs_tooltip }}">{{ armor_summary.total_rs }}</span></li>

@@ -1517,11 +1517,31 @@
   min-height: 0;
 }
 
-.armor_scroll {
-  height: 24px;
+.armor_scroll_wrap {
+  position: relative;
   margin: 0 0 4px;
+}
+
+.armor_scroll {
+  height: 48px;
+  margin: 0;
   overflow-x: hidden;
   overflow-y: auto;
+}
+
+.armor_scroll_indicator {
+  position: absolute;
+  right: 4px;
+  bottom: 3px;
+  padding: 1px 6px;
+  border: 1px solid rgba(114, 80, 46, 0.38);
+  border-radius: 999px;
+  background: rgba(244, 234, 213, 0.92);
+  box-shadow: 0 1px 3px rgba(44, 27, 14, 0.12);
+  font-size: 0.62rem;
+  line-height: 1.1;
+  color: rgba(74, 55, 38, 0.88);
+  pointer-events: none;
 }
 
 .armor_worn {

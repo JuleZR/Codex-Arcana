@@ -19,6 +19,7 @@ import { initSheetActions } from "./sheet_actions.js";
 import { initSchoolsPanel } from "./schools_panel.js";
 import { initMobileHud } from "./mobile_hud.js";
 import { initSkillManager } from "./skill_manager.js";
+import { initArmorPanel } from "./armor_panel.js";
 
 onReady(() => {
   initTabs();
@@ -43,6 +44,7 @@ onReady(() => {
   initSpellPanel();
   initCharInfoCounter();
   initSchoolsPanel();
+  initArmorPanel();
   initMobileHud();
 
   document.addEventListener("charsheet:partials-applied", () => {
@@ -51,6 +53,7 @@ onReady(() => {
     initSpellPanel();
     initCharInfoCounter();
     initSchoolsPanel();
+    initArmorPanel();
     document.dispatchEvent(new Event("learn:refresh-totals"));
   });
 });
