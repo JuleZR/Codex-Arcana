@@ -69,6 +69,20 @@ class ItemEngine:
             return self.obj.item
         raise TypeError("ItemEngine expects Item or CharacterItem")
 
+    def _get_character_item(self) -> CharacterItem | None:
+        if isinstance(self.obj, CharacterItem):
+            return self.obj
+        return None
+
+    def _get_override_value(self, override_field: str, fallback):
+        character_item = self._get_character_item()
+        if character_item is None:
+            return fallback
+        override_value = getattr(character_item, override_field)
+        if override_value in (None, ""):
+            return fallback
+        return override_value
+
     def _get_weapon_stats(self) -> WeaponStats | None:
         return getattr(self._get_item(), "weaponstats", None)
 
@@ -91,39 +105,45 @@ class ItemEngine:
     def get_weight(self) -> Decimal:
         """Return base or stacked item weight."""
         item = self._get_item()
+        weight = self._get_override_value("weight_override", item.weight)
         if isinstance(self.obj, CharacterItem):
-            return item.weight * self.obj.amount
-        return item.weight
+            return weight * self.obj.amount
+        return weight
 
     def get_base_price(self) -> int:
         """Return the item's unmodified base price."""
-        return self._get_item().price
+        return int(self._get_override_value("price_override", self._get_item().price))
 
     def get_price(self) -> int:
         """Return the price for the effective quality."""
-        return self.price_for_item_and_quality(self._get_item(), self.get_effective_quality())
+        return self.get_price_for_quality(self.get_effective_quality())
 
     def get_price_for_quality(self, quality: str) -> int:
         """Return price for an arbitrary quality without mutating object state."""
-        return self.price_for_item_and_quality(self._get_item(), quality)
+        resolved_quality = self.normalize_quality(quality)
+        return int(self.get_base_price() * QUALITY_PRICE_MODS.get(resolved_quality, 1))
+
+    def get_name(self) -> str:
+        """Return the effective display name."""
+        return str(self._get_override_value("name_override", self._get_item().name))
 
     def get_size_class(self) -> str:
         """Return the stored item size class."""
-        return self._get_item().size_class
+        return str(self._get_override_value("size_class_override", self._get_item().size_class))
 
     def get_weapon_min_st(self) -> int | None:
         """Return the minimum strength needed for this weapon."""
         stats = self._get_weapon_stats()
         if not stats:
             return None
-        return stats.min_st
+        return int(self._get_override_value("weapon_min_st_override", stats.min_st))
 
     def get_weapon_wield_mode(self) -> str | None:
         """Return the configured wield mode code."""
         stats = self._get_weapon_stats()
         if not stats:
             return None
-        return stats.wield_mode
+        return str(self._get_override_value("weapon_wield_mode_override", stats.wield_mode))
 
     def get_weapon_damage_quality_bonus(self) -> int:
         """Return the flat quality bonus applied to weapon damage."""
@@ -157,27 +177,27 @@ class ItemEngine:
             return None
 
         quality_bonus = self.get_weapon_damage_quality_bonus()
-        base_bonus = stats.damage_flat_bonus or 0
-        h2_bonus = stats.h2_flat_bonus or 0
+        base_bonus = int(self._get_override_value("weapon_damage_flat_bonus_override", stats.damage_flat_bonus or 0))
+        h2_bonus = int(self._get_override_value("weapon_h2_flat_bonus_override", stats.h2_flat_bonus or 0))
         base_adjusted_bonus, base_adjusted_operator = self._apply_quality_to_damage_bonus(
             base_bonus,
-            stats.damage_flat_operator,
+            str(self._get_override_value("weapon_damage_flat_operator_override", stats.damage_flat_operator)),
             quality_bonus,
         )
         h2_adjusted_bonus, h2_adjusted_operator = self._apply_quality_to_damage_bonus(
             h2_bonus,
-            stats.h2_flat_operator,
+            str(self._get_override_value("weapon_h2_flat_operator_override", stats.h2_flat_operator)),
             quality_bonus,
         )
         base = (
-            stats.damage_dice_amount,
-            stats.damage_dice_faces,
+            int(self._get_override_value("weapon_damage_dice_amount_override", stats.damage_dice_amount)),
+            int(self._get_override_value("weapon_damage_dice_faces_override", stats.damage_dice_faces)),
             base_adjusted_bonus,
             base_adjusted_operator,
         )
         two_handed = (
-            stats.h2_dice_amount,
-            stats.h2_dice_faces,
+            self._get_override_value("weapon_h2_dice_amount_override", stats.h2_dice_amount),
+            self._get_override_value("weapon_h2_dice_faces_override", stats.h2_dice_faces),
             h2_adjusted_bonus,
             h2_adjusted_operator,
         )
@@ -238,58 +258,83 @@ class ItemEngine:
         stats = self._get_armor_stats()
         if not stats:
             return None
-        if stats.rs_total:
-            return stats.rs_total
-        return stats.rs_sum() // 6
+        rs_total = self._get_override_value("armor_rs_total_override", stats.rs_total)
+        if rs_total:
+            return int(rs_total)
+        zone_values = [
+            int(self._get_override_value("armor_rs_head_override", stats.rs_head)),
+            int(self._get_override_value("armor_rs_torso_override", stats.rs_torso)),
+            int(self._get_override_value("armor_rs_arm_left_override", stats.rs_arm_left)),
+            int(self._get_override_value("armor_rs_arm_right_override", stats.rs_arm_right)),
+            int(self._get_override_value("armor_rs_leg_left_override", stats.rs_leg_left)),
+            int(self._get_override_value("armor_rs_leg_right_override", stats.rs_leg_right)),
+        ]
+        return sum(zone_values) // 6
 
     def get_armor_min_st(self) -> int | None:
         """Return minimum strength for this armor."""
         stats = self._get_armor_stats()
         if not stats:
             return None
-        return stats.min_st
+        return int(self._get_override_value("armor_min_st_override", stats.min_st))
 
     def get_armor_bel_raw(self) -> int | None:
         """Return armor encumbrance without quality adjustments."""
         stats = self._get_armor_stats()
         if not stats:
             return None
-        return stats.encumbrance
+        return int(self._get_override_value("armor_encumbrance_override", stats.encumbrance))
 
     def get_armor_encumbrance(self) -> int:
         """Return armor encumbrance with quality adjustments."""
         stats = self._get_armor_stats()
         if not stats:
             return 0
-        return stats.encumbrance + QUALITY_BEL_MODS.get(self.get_effective_quality(), 0)
+        encumbrance = int(self._get_override_value("armor_encumbrance_override", stats.encumbrance))
+        return encumbrance + QUALITY_BEL_MODS.get(self.get_effective_quality(), 0)
 
     def get_shield_min_st(self) -> int | None:
         """Return minimum strength for this shield."""
         stats = self._get_shield_stats()
         if not stats:
             return None
-        return stats.min_st
+        return int(self._get_override_value("shield_min_st_override", stats.min_st))
 
     def get_shield_bel_raw(self) -> int | None:
         """Return shield encumbrance without extra modifiers."""
         stats = self._get_shield_stats()
         if not stats:
             return None
-        return stats.encumbrance
+        return int(self._get_override_value("shield_encumbrance_override", stats.encumbrance))
 
     def get_effective_shield_rs(self) -> int | None:
         """Return shield protection value."""
         stats = self._get_shield_stats()
         if not stats:
             return None
-        return stats.rs
+        return int(self._get_override_value("shield_rs_override", stats.rs))
 
     def get_shield_encumbrance(self) -> int:
         """Return shield encumbrance for display and totals."""
         stats = self._get_shield_stats()
         if not stats:
             return 0
-        return stats.encumbrance
+        return int(self._get_override_value("shield_encumbrance_override", stats.encumbrance))
+
+    def get_weapon_damage_source_slug(self) -> str:
+        """Return the effective weapon damage source slug."""
+        stats = self._get_weapon_stats()
+        if not stats:
+            return ""
+        damage_source = self._get_override_value("weapon_damage_source_override", getattr(stats, "damage_source", None))
+        return str(getattr(damage_source, "slug", "") or "")
+
+    def get_weapon_damage_type(self) -> str:
+        """Return the effective weapon damage type."""
+        stats = self._get_weapon_stats()
+        if not stats:
+            return ""
+        return str(self._get_override_value("weapon_damage_type_override", stats.damage_type) or "")
 
     def get_weapon_flags(self) -> set[str]:
         stats = self._get_weapon_stats()

@@ -2,7 +2,7 @@
 <section class="payday-window payday-window--large sheet-window sheet-window--editor-modal rune_window" id="runeRetrofitWindow" aria-hidden="true">
   <div class="payday-window__titlebar sheet-window__header" id="runeRetrofitWindowHandle">
     <h3 class="payday-window__title sheet-window__title">Modifizieren</h3>
-    <button type="button" class="payday-window__close" id="runeRetrofitWindowClose" aria-label="Modifizieren-Fenster schließen">x</button>
+    <button type="button" class="payday-window__close" id="runeRetrofitWindowClose" aria-label="Modifizieren-Fenster schlie&szlig;en">x</button>
   </div>
   <div class="payday-window__body sheet-window__body">
     <form method="post" action="" id="runeRetrofitForm" class="shop_item_form sheet-window__editor-form" data-sheet-action data-ajax-only data-close-window-on-success="1">
@@ -13,12 +13,30 @@
             <h2>Grunddaten</h2>
           </div>
           <div class="shop_item_form_panel_body">
-            <div class="sheet-window__surface sheet-window__surface--editor sheet-window__surface--form rune_window_intro">
-              <p class="rune_window_lead">Modifikationen für <strong id="runeRetrofitItemName">-</strong>.</p>
-              <p class="rune_window_note" id="runeRetrofitBaseInfo">Keine Basis-Runen vorhanden.</p>
+            <label class="shop_item_form_row">
+              <span>Name</span>
+              <input type="text" name="name" id="runeRetrofitCustomName" maxlength="200" placeholder="Name des Besitz-Items">
+            </label>
+            <div class="shop_item_form_grid shop_item_form_grid--equal">
+              <label class="shop_item_form_row">
+                <span>Preis (KM)</span>
+                <input type="number" name="price" id="runeRetrofitPrice" min="0" step="1" value="0">
+              </label>
+              <label class="shop_item_form_row">
+                <span>Gewicht</span>
+                <input type="number" name="weight" id="runeRetrofitWeight" min="0" step="0.01" value="0">
+              </label>
             </div>
             <label class="shop_item_form_row">
-              <span>Qualität</span>
+              <span>GK</span>
+              <select name="size_class" id="runeRetrofitSizeClass">
+                {% for value, label in shop_size_class_choices %}
+                  <option value="{{ value }}">{{ label }}</option>
+                {% endfor %}
+              </select>
+            </label>
+            <label class="shop_item_form_row">
+              <span>Qualit&auml;t</span>
               <select name="quality" id="runeRetrofitQuality">
                 {% for quality in shop_quality_choices %}
                   <option value="{{ quality.value }}" style="color: {{ quality.color }};">{{ quality.label }}</option>
@@ -36,7 +54,7 @@
               </label>
             </div>
             <div class="shop_item_form_fieldset">
-              <div class="shop_item_form_fieldset_title">Nachrüst-Runen</div>
+              <div class="shop_item_form_fieldset_title">Nachr&uuml;st-Runen</div>
               <label class="shop_item_form_row rune_window_search_row">
                 <span>Suche</span>
                 <input type="search" id="runeRetrofitSearch" class="sheet-window__field rune_window_search_input" placeholder="Rune suchen...">
@@ -49,7 +67,7 @@
                   aria-haspopup="true"
                   aria-expanded="false"
                 >
-                  <span class="shop_item_multi_select_value" id="runeRetrofitTriggerLabel">Keine Runen ausgewählt</span>
+                  <span class="shop_item_multi_select_value" id="runeRetrofitTriggerLabel">Keine Runen ausgew&auml;hlt</span>
                   <span class="shop_item_multi_select_meta">
                     <span class="rune_dropdown_trigger_count" id="runeRetrofitSelectionCount">0</span>
                     <span class="shop_item_multi_select_chevron" aria-hidden="true">&#9662;</span>
@@ -57,6 +75,96 @@
                 </button>
                 <div class="rune_dropdown_panel" id="runeRetrofitDropdownPanel" hidden>
                   <div id="runeRetrofitOptions" class="shop_item_form_checklist rune_window_options"></div>
+                </div>
+              </div>
+            </div>
+            <div class="shop_item_form_conditional" id="runeRetrofitArmorFields" hidden>
+              <div class="shop_item_form_fieldset">
+                <div class="shop_item_form_fieldset_title">R&uuml;stungswerte</div>
+                <label class="shop_item_form_row"><span>RS gesamt</span><input type="number" name="armor_rs_total" min="0" step="1" value="0"></label>
+                <div class="shop_item_form_grid">
+                  <label class="shop_item_form_row"><span>RS Kopf</span><input type="number" name="armor_rs_head" min="0" step="1" value="0"></label>
+                  <label class="shop_item_form_row"><span>RS Torso</span><input type="number" name="armor_rs_torso" min="0" step="1" value="0"></label>
+                  <label class="shop_item_form_row"><span>RS Arm links</span><input type="number" name="armor_rs_arm_left" min="0" step="1" value="0"></label>
+                  <label class="shop_item_form_row"><span>RS Arm rechts</span><input type="number" name="armor_rs_arm_right" min="0" step="1" value="0"></label>
+                  <label class="shop_item_form_row"><span>RS Bein links</span><input type="number" name="armor_rs_leg_left" min="0" step="1" value="0"></label>
+                  <label class="shop_item_form_row"><span>RS Bein rechts</span><input type="number" name="armor_rs_leg_right" min="0" step="1" value="0"></label>
+                </div>
+                <div class="shop_item_form_grid">
+                  <label class="shop_item_form_row"><span>Belastung</span><input type="number" name="armor_encumbrance" min="0" step="1" value="0"></label>
+                  <label class="shop_item_form_row"><span>Min. St&auml;rke</span><input type="number" name="armor_min_st" min="1" step="1" value="1"></label>
+                </div>
+              </div>
+            </div>
+            <div class="shop_item_form_conditional" id="runeRetrofitWeaponFields" hidden>
+              <div class="shop_item_form_fieldset">
+                <div class="shop_item_form_fieldset_title">Waffenwerte</div>
+                <div class="shop_item_form_grid">
+                  <label class="shop_item_form_row"><span>Schaden W&uuml;rfelanzahl</span><input type="number" name="weapon_damage_dice_amount" min="1" step="1" value="1"></label>
+                  <label class="shop_item_form_row"><span>Schaden W&uuml;rfelseiten</span><input type="number" name="weapon_damage_dice_faces" min="2" step="1" value="10"></label>
+                  <label class="shop_item_form_row">
+                    <span>Schaden Operator</span>
+                    <select name="weapon_damage_flat_operator">
+                      <option value="">Keiner</option>
+                      <option value="+">+</option>
+                      <option value="-">-</option>
+                      <option value="/">/</option>
+                    </select>
+                  </label>
+                  <label class="shop_item_form_row"><span>Schaden Wert</span><input type="number" name="weapon_damage_flat_bonus" step="1" value="0"></label>
+                  <label class="shop_item_form_row">
+                    <span>Waffengriff</span>
+                    <select name="weapon_wield_mode" id="runeRetrofitWeaponWieldMode">
+                      <option value="1h">Einh&auml;ndig</option>
+                      <option value="2h">Zweih&auml;ndig</option>
+                      <option value="vh">Ein- und Zweih&auml;ndig</option>
+                    </select>
+                  </label>
+                  <label class="shop_item_form_row">
+                    <span>Schadensquelle</span>
+                    <select name="weapon_damage_source">
+                      {% for damage_source in shop_damage_source_choices %}
+                        <option value="{{ damage_source.id }}">{{ damage_source.name }}</option>
+                      {% endfor %}
+                    </select>
+                  </label>
+                </div>
+                <div id="runeRetrofitWeaponTwoHandFields" hidden>
+                  <div class="shop_item_form_grid">
+                    <label class="shop_item_form_row"><span>2H W&uuml;rfelanzahl</span><input type="number" name="weapon_h2_dice_amount" min="1" step="1" value="1"></label>
+                    <label class="shop_item_form_row"><span>2H W&uuml;rfelseiten</span><input type="number" name="weapon_h2_dice_faces" min="2" step="1" value="10"></label>
+                    <label class="shop_item_form_row">
+                      <span>2H Operator</span>
+                      <select name="weapon_h2_flat_operator">
+                        <option value="">Keiner</option>
+                        <option value="+">+</option>
+                        <option value="-">-</option>
+                        <option value="/">/</option>
+                      </select>
+                    </label>
+                    <label class="shop_item_form_row"><span>2H Wert</span><input type="number" name="weapon_h2_flat_bonus" step="1" value="0"></label>
+                  </div>
+                </div>
+                <div class="shop_item_form_grid">
+                  <label class="shop_item_form_row">
+                    <span>Schadenstyp</span>
+                    <select name="weapon_damage_type">
+                      {% for value, label in shop_damage_type_choices %}
+                        <option value="{{ value }}">{{ label }}</option>
+                      {% endfor %}
+                    </select>
+                  </label>
+                  <label class="shop_item_form_row"><span>Min. St&auml;rke</span><input type="number" name="weapon_min_st" min="1" step="1" value="1"></label>
+                </div>
+              </div>
+            </div>
+            <div class="shop_item_form_conditional" id="runeRetrofitShieldFields" hidden>
+              <div class="shop_item_form_fieldset">
+                <div class="shop_item_form_fieldset_title">Schildwerte</div>
+                <div class="shop_item_form_grid">
+                  <label class="shop_item_form_row"><span>Schild-RS</span><input type="number" name="shield_rs" min="0" step="1" value="0"></label>
+                  <label class="shop_item_form_row"><span>Belastung</span><input type="number" name="shield_encumbrance" min="0" step="1" value="0"></label>
+                  <label class="shop_item_form_row"><span>Min. St&auml;rke</span><input type="number" name="shield_min_st" min="1" step="1" value="1"></label>
                 </div>
               </div>
             </div>
@@ -68,15 +176,19 @@
           </div>
           <div class="shop_item_form_panel_body">
             <label class="shop_item_form_row">
+              <span>Magischer Kurzeffekt</span>
+              <input type="text" name="magic_effect_summary" id="runeRetrofitMagicEffectSummary" maxlength="255" placeholder="z. B. Schutz vor Feuer">
+            </label>
+            <label class="shop_item_form_row">
               <span>Beschreibung</span>
               <textarea name="description" id="runeRetrofitDescription" rows="4" maxlength="1000" placeholder="Beschreibung des modifizierten Gegenstands"></textarea>
             </label>
-            <p class="shop_item_form_hint">Die Effekte funktionieren wie bei magischen Gegenständen und gelten nur für dieses modifizierte Besitz-Item.</p>
+            <p class="shop_item_form_hint">Die Effekte funktionieren wie bei magischen Gegenst&auml;nden und gelten nur f&uuml;r dieses modifizierte Besitz-Item.</p>
             <input type="hidden" name="rune_payloads" id="runeRetrofitRunePayloads" value="[]">
-      <input type="hidden" name="magic_modifier_payloads" id="runeRetrofitMagicModifierPayloads" value="[]">
+            <input type="hidden" name="magic_modifier_payloads" id="runeRetrofitMagicModifierPayloads" value="[]">
             <div class="shop_magic_effect_list" id="runeRetrofitMagicEffectsList"></div>
             <div class="shop_magic_effect_actions">
-              <button type="button" class="shop_item_cancel_btn" id="runeRetrofitAddEffectBtn">Effekt hinzufügen</button>
+              <button type="button" class="shop_item_cancel_btn" id="runeRetrofitAddEffectBtn">Effekt hinzuf&uuml;gen</button>
             </div>
           </div>
         </section>
@@ -91,7 +203,7 @@
             <label class="shop_item_form_row">
               <span>Was wird beeinflusst?</span>
               <select data-magic-target-kind>
-                <option value="">Bitte wählen</option>
+                <option value="">Bitte w&auml;hlen</option>
                 {% for value, label in item_modifier_target_kind_choices %}
                   <option value="{{ value }}">{{ label }}</option>
                 {% endfor %}

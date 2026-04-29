@@ -41,13 +41,14 @@
                     class="inv_menu_btn"
                     data-open-rune-window
                     data-character-item-id="{{ row.character_item.pk }}"
-                    data-item-name="{{ row.item.name|escape }}"
+                    data-item-name="{{ row.item_name|escape }}"
                     data-base-rune-ids="{% for rune_id in row.base_rune_ids %}{% if not forloop.first %},{% endif %}{{ rune_id }}{% endfor %}"
                     data-extra-rune-ids="{% for rune_id in row.extra_rune_ids %}{% if not forloop.first %},{% endif %}{{ rune_id }}{% endfor %}"
                     data-base-rune-names="{% for rune_name in row.base_rune_names %}{% if not forloop.first %}, {% endif %}{{ rune_name }}{% endfor %}"
                     data-current-quality="{{ row.quality }}"
                     data-item-type="{{ row.item.item_type }}"
                     data-description="{{ row.description|escape }}"
+                    data-modify-payload='{{ row.modify_payload_json|escape }}'
                     data-is-magic="{% if row.is_character_item_magic %}1{% else %}0{% endif %}"
                     data-magic-effect-summary="{{ row.magic_effect_summary|escape }}"
                     data-magic-modifier-payloads='{{ row.magic_modifier_payloads_json|escape }}'

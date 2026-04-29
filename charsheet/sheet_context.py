@@ -23,6 +23,7 @@ from charsheet.constants import (
     DEFENSE_RS,
     DEFENSE_SR,
     DEFENSE_VW,
+    GK_CHOICES,
     GK_MODS,
     INITIATIVE,
     QUALITY_CHOICES,
@@ -822,11 +823,11 @@ def _resolve_modifier_source_name(engine, source_type: object, source_id: object
     if source_type_text == "characteritem" and source_id_text.isdigit():
         character_item = CharacterItem.objects.filter(pk=int(source_id_text)).select_related("item").first()
         if character_item is not None:
-            return character_item.item.name
+            return character_item.effective_name
     if source_type_text == SOURCE_ITEM_RUNE and source_id_text.isdigit():
         item_rune = ItemRune.objects.filter(pk=int(source_id_text)).select_related("rune", "item__item").first()
         if item_rune is not None:
-            return f"{item_rune.rune.name} auf {item_rune.item.item.name}"
+            return f"{item_rune.rune.name} auf {item_rune.item.effective_name}"
     return _prettify_source_id(source_id_text or source_type_text)
 
 
@@ -1148,8 +1149,8 @@ def _build_skill_rows(character: Character, engine, *, load_penalty: int) -> tup
                     "row_kind": "weapon_context",
                     "skill_id": skill_id,
                     "name": base_row["name"],
-                    "display_name": f"mit {weapon_row['item'].name}",
-                    "description": f"Manoeverbonus mit {weapon_row['item'].name}",
+                    "display_name": f"mit {weapon_row['item_name']}",
+                    "description": f"Manoeverbonus mit {weapon_row['item_name']}",
                     "attribute": base_row["attribute"],
                     "attribute_mod": base_row["attribute_mod"],
                     "attribute_mod_value": int(base_row["attribute_mod_value"]),
@@ -1289,19 +1290,19 @@ def _build_inventory_rows(character: Character) -> list[dict]:
     """Build prepared inventory rows for the unequipped inventory list."""
     inventory_rows: list[dict] = []
     race_item_ids = _race_item_ids()
-    inventory_items = (
+    inventory_items = list(
         CharacterItem.objects
         .filter(owner=character, equipped=False)
-        .select_related("item")
+        .select_related("item", "item__weaponstats", "item__weaponstats__damage_source", "item__armorstats", "item__shieldstats")
         .prefetch_related("item__runes", "runes", "rune_specs__rune", "item_runes__rune")
-        .order_by("item__name")
     )
-    inventory_items = list(inventory_items)
+    inventory_items.sort(key=lambda entry: ItemEngine(entry).get_name().lower())
     modifiers_by_character_item_id = _load_character_item_modifier_payloads(inventory_items)
     for character_item in inventory_items:
         item = character_item.item
         is_race_item = item.id in race_item_ids
         item_engine = ItemEngine(character_item)
+        item_name = item_engine.get_name()
         quality = quality_payload(item_engine.get_effective_quality())
         magic_modifier_payloads = modifiers_by_character_item_id.get(character_item.id, [])
         tooltip_text = ""
@@ -1335,12 +1336,13 @@ def _build_inventory_rows(character: Character) -> list[dict]:
             {
                 "character_item": character_item,
                 "item": item,
+                "item_name": item_name,
                 "has_runes": bool(item.runes.exists() or character_item.runes.exists() or character_item.item_runes.exists()),
                 "rune_rows": _collect_rune_rows(item=item, character_item=character_item),
                 "display_name": (
-                    f"{character_item.amount}x {item.name}"
+                    f"{character_item.amount}x {item_name}"
                     if item.stackable
-                    else item.name
+                    else item_name
                 ),
                 "quality": "" if is_race_item else quality["value"],
                 "quality_label": "" if is_race_item else quality["label"],
@@ -1348,7 +1350,7 @@ def _build_inventory_rows(character: Character) -> list[dict]:
                 "tooltip_text": tooltip_text,
                 "can_consume": item.stackable and item.item_type == Item.ItemType.CONSUM,
                 "can_equip": item.item_type in EQUIPPABLE_ITEM_TYPES or character_item.is_magic_effective,
-                "can_socket_runes": item.item_type in RUNE_RETROFIT_ITEM_TYPES,
+                "can_socket_runes": True,
                 "equip_label": "Anlegen",
                 "base_rune_ids": [rune.id for rune in item.runes.all()],
                 "base_rune_names": [rune.name for rune in item.runes.all()],
@@ -1382,6 +1384,93 @@ def _build_inventory_rows(character: Character) -> list[dict]:
                 "magic_effect_summary": character_item.magic_effect_summary or "",
                 "magic_modifier_payloads": magic_modifier_payloads,
                 "magic_modifier_payloads_json": json.dumps(magic_modifier_payloads),
+                "modify_payload_json": json.dumps(
+                    {
+                        "name": item_name,
+                        "price": item_engine.get_base_price(),
+                        "weight": str(item_engine._get_override_value("weight_override", item.weight)),
+                        "size_class": item_engine.get_size_class(),
+                        "weapon_min_st": item_engine.get_weapon_min_st(),
+                        "weapon_damage_source": getattr(
+                            item_engine._get_override_value(
+                                "weapon_damage_source_override",
+                                getattr(getattr(item, "weaponstats", None), "damage_source", None),
+                            ),
+                            "id",
+                            "",
+                        ),
+                        "weapon_damage_dice_amount": item_engine._get_override_value(
+                            "weapon_damage_dice_amount_override",
+                            getattr(getattr(item, "weaponstats", None), "damage_dice_amount", ""),
+                        ),
+                        "weapon_damage_dice_faces": item_engine._get_override_value(
+                            "weapon_damage_dice_faces_override",
+                            getattr(getattr(item, "weaponstats", None), "damage_dice_faces", ""),
+                        ),
+                        "weapon_damage_flat_operator": item_engine._get_override_value(
+                            "weapon_damage_flat_operator_override",
+                            getattr(getattr(item, "weaponstats", None), "damage_flat_operator", ""),
+                        ),
+                        "weapon_damage_flat_bonus": item_engine._get_override_value(
+                            "weapon_damage_flat_bonus_override",
+                            getattr(getattr(item, "weaponstats", None), "damage_flat_bonus", ""),
+                        ),
+                        "weapon_wield_mode": item_engine.get_weapon_wield_mode(),
+                        "weapon_damage_type": item_engine.get_weapon_damage_type(),
+                        "weapon_h2_dice_amount": item_engine._get_override_value(
+                            "weapon_h2_dice_amount_override",
+                            getattr(getattr(item, "weaponstats", None), "h2_dice_amount", ""),
+                        ),
+                        "weapon_h2_dice_faces": item_engine._get_override_value(
+                            "weapon_h2_dice_faces_override",
+                            getattr(getattr(item, "weaponstats", None), "h2_dice_faces", ""),
+                        ),
+                        "weapon_h2_flat_operator": item_engine._get_override_value(
+                            "weapon_h2_flat_operator_override",
+                            getattr(getattr(item, "weaponstats", None), "h2_flat_operator", ""),
+                        ),
+                        "weapon_h2_flat_bonus": item_engine._get_override_value(
+                            "weapon_h2_flat_bonus_override",
+                            getattr(getattr(item, "weaponstats", None), "h2_flat_bonus", ""),
+                        ),
+                        "armor_rs_total": item_engine._get_override_value(
+                            "armor_rs_total_override",
+                            getattr(getattr(item, "armorstats", None), "rs_total", ""),
+                        ),
+                        "armor_rs_head": item_engine._get_override_value(
+                            "armor_rs_head_override",
+                            getattr(getattr(item, "armorstats", None), "rs_head", ""),
+                        ),
+                        "armor_rs_torso": item_engine._get_override_value(
+                            "armor_rs_torso_override",
+                            getattr(getattr(item, "armorstats", None), "rs_torso", ""),
+                        ),
+                        "armor_rs_arm_left": item_engine._get_override_value(
+                            "armor_rs_arm_left_override",
+                            getattr(getattr(item, "armorstats", None), "rs_arm_left", ""),
+                        ),
+                        "armor_rs_arm_right": item_engine._get_override_value(
+                            "armor_rs_arm_right_override",
+                            getattr(getattr(item, "armorstats", None), "rs_arm_right", ""),
+                        ),
+                        "armor_rs_leg_left": item_engine._get_override_value(
+                            "armor_rs_leg_left_override",
+                            getattr(getattr(item, "armorstats", None), "rs_leg_left", ""),
+                        ),
+                        "armor_rs_leg_right": item_engine._get_override_value(
+                            "armor_rs_leg_right_override",
+                            getattr(getattr(item, "armorstats", None), "rs_leg_right", ""),
+                        ),
+                        "armor_encumbrance": item_engine._get_override_value(
+                            "armor_encumbrance_override",
+                            getattr(getattr(item, "armorstats", None), "encumbrance", ""),
+                        ),
+                        "armor_min_st": item_engine.get_armor_min_st(),
+                        "shield_rs": item_engine.get_effective_shield_rs(),
+                        "shield_encumbrance": item_engine.get_shield_bel_raw(),
+                        "shield_min_st": item_engine.get_shield_min_st(),
+                    }
+                ),
             }
         )
     return inventory_rows
@@ -1461,7 +1550,7 @@ def _build_armor_rows(engine) -> list[dict]:
                 "kind": "armor",
                 "quality_label": "" if is_race_item else quality["label"],
                 "quality_color": "" if is_race_item else quality["color"],
-                "summary": f"{row['item'].name} (RS {row['rs']} | Bel {row['bel_effective']} | Min-St {row['min_st'] or '-'})",
+                "summary": f"{row['item_name']} (RS {row['rs']} | Bel {row['bel_effective']} | Min-St {row['min_st'] or '-'})",
                 "tooltip_text": _format_item_tooltip(
                     description=row["character_item"].description or row["item"].description or "",
                     quality_label="" if is_race_item else quality["label"],
@@ -1488,7 +1577,7 @@ def _build_armor_rows(engine) -> list[dict]:
                 "kind": "clothing",
                 "quality_label": "" if is_race_item else quality["label"],
                 "quality_color": "" if is_race_item else quality["color"],
-                "summary": f"{row['item'].name} (Kleidung)",
+                "summary": f"{row['item_name']} (Kleidung)",
                 "tooltip_text": _format_item_tooltip(
                     description=row["character_item"].description or row["item"].description or "",
                     quality_label="" if is_race_item else quality["label"],
@@ -1515,7 +1604,7 @@ def _build_armor_rows(engine) -> list[dict]:
                 "kind": "magic_item",
                 "quality_label": "" if is_race_item else quality["label"],
                 "quality_color": "" if is_race_item else quality["color"],
-                "summary": f"{row['item'].name} (Magischer Gegenstand)",
+                "summary": f"{row['item_name']} (Magischer Gegenstand)",
                 "tooltip_text": _format_item_tooltip(
                     description=row["character_item"].description or row["item"].description or "",
                     quality_label="" if is_race_item else quality["label"],
@@ -1542,7 +1631,7 @@ def _build_armor_rows(engine) -> list[dict]:
                 "kind": "shield",
                 "quality_label": "" if is_race_item else quality["label"],
                 "quality_color": "" if is_race_item else quality["color"],
-                "summary": f"{row['item'].name} (Schild-RS {row['rs']} | Bel {row['bel_effective']} | Min-St {row['min_st'] or '-'})",
+                "summary": f"{row['item_name']} (Schild-RS {row['rs']} | Bel {row['bel_effective']} | Min-St {row['min_st'] or '-'})",
                 "tooltip_text": _format_item_tooltip(
                     description=row["character_item"].description or row["item"].description or "",
                     quality_label="" if is_race_item else quality["label"],
@@ -2371,6 +2460,7 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
             if item_type != Item.ItemType.MAGIC_ITEM
         ],
         "shop_damage_type_choices": DAMAGE_TYPE_CHOICES,
+        "shop_size_class_choices": GK_CHOICES,
         "shop_damage_source_choices": DamageSource.objects.order_by("name"),
         "shop_modifier_target_kind_choices": [
             ("", "Kein Effekt"),

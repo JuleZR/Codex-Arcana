@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+from decimal import Decimal, InvalidOperation
 
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError
@@ -88,6 +89,16 @@ def _read_damage_operator(post_data, name: str, default: str = "") -> str:
     raw_value = str(post_data.get(name, default) or default).strip()
     valid_values = {value for value, _label in WeaponStats.DamageOperator.choices}
     return raw_value if raw_value in valid_values else default
+
+
+def _read_decimal(post_data, name: str, default: Decimal | int | str = 0) -> Decimal:
+    """Read one decimal value from POST-like data."""
+    raw_value = str(post_data.get(name, default) or default).strip()
+    try:
+        value = Decimal(raw_value)
+    except (InvalidOperation, TypeError, ValueError):
+        value = Decimal(default)
+    return max(Decimal("0"), value)
 
 
 def _read_many_values(post_data, name: str) -> list[str]:
@@ -303,6 +314,11 @@ def _save_magic_modifiers(*, source_model, source_id: int, magic_modifier_payloa
 
 def apply_character_item_modifications(character_item: CharacterItem, post_data) -> bool:
     """Persist one owned-item modification including quality, runes, magic, and costs."""
+    item = character_item.item
+    name = str(post_data.get("name") or "").strip() or item.name
+    price = _read_int(post_data, "price", item.price, minimum=0)
+    weight = _read_decimal(post_data, "weight", item.weight)
+    size_class = str(post_data.get("size_class") or item.size_class).strip() or item.size_class
     quality = _read_quality(post_data, "quality", character_item.quality or character_item.item.default_quality)
     experience_cost = _read_int(post_data, "experience_cost", 0, minimum=0)
     money_cost = _read_int(post_data, "money_cost", 0, minimum=0)
@@ -311,6 +327,14 @@ def apply_character_item_modifications(character_item: CharacterItem, post_data)
     magic_effect_summary = str(post_data.get("magic_effect_summary") or "").strip()
     magic_modifier_payloads = _read_magic_modifier_payloads(post_data)
     is_magic = bool(magic_modifier_payloads) or bool(magic_effect_summary)
+    weapon_stats = getattr(item, "weaponstats", None)
+    armor_stats = getattr(item, "armorstats", None)
+    shield_stats = getattr(item, "shieldstats", None)
+    weapon_damage_source = None
+    if weapon_stats is not None:
+        damage_source_id = _read_int(post_data, "weapon_damage_source", getattr(weapon_stats.damage_source, "id", 0), minimum=0)
+        if damage_source_id > 0:
+            weapon_damage_source = DamageSource.objects.get(pk=damage_source_id)
 
     base_rune_ids = set(character_item.item.runes.values_list("id", flat=True))
 
@@ -353,13 +377,76 @@ def apply_character_item_modifications(character_item: CharacterItem, post_data)
 
     try:
         with transaction.atomic():
+            character_item.name_override = name
+            character_item.price_override = price
+            character_item.weight_override = weight
+            character_item.size_class_override = size_class
             character_item.quality = quality
             character_item.runes.set(unique_runes)
             character_item.description = description
             character_item.is_magic = is_magic
             character_item.magic_effect_summary = magic_effect_summary
+            if weapon_stats is not None:
+                character_item.weapon_min_st_override = _read_int(post_data, "weapon_min_st", weapon_stats.min_st, minimum=1)
+                character_item.weapon_damage_source_override = weapon_damage_source
+                character_item.weapon_damage_dice_amount_override = _read_int(
+                    post_data, "weapon_damage_dice_amount", weapon_stats.damage_dice_amount, minimum=1
+                )
+                character_item.weapon_damage_dice_faces_override = _read_int(
+                    post_data, "weapon_damage_dice_faces", weapon_stats.damage_dice_faces, minimum=2
+                )
+                character_item.weapon_damage_flat_bonus_override = _read_int(
+                    post_data, "weapon_damage_flat_bonus", weapon_stats.damage_flat_bonus
+                )
+                character_item.weapon_damage_flat_operator_override = _read_damage_operator(
+                    post_data, "weapon_damage_flat_operator", weapon_stats.damage_flat_operator
+                )
+                character_item.weapon_damage_type_override = str(
+                    post_data.get("weapon_damage_type") or weapon_stats.damage_type
+                ).strip() or weapon_stats.damage_type
+                character_item.weapon_wield_mode_override = str(
+                    post_data.get("weapon_wield_mode") or weapon_stats.wield_mode
+                ).strip() or weapon_stats.wield_mode
+                character_item.weapon_h2_dice_amount_override = _read_int(
+                    post_data, "weapon_h2_dice_amount", weapon_stats.h2_dice_amount or 1, minimum=1
+                )
+                character_item.weapon_h2_dice_faces_override = _read_int(
+                    post_data, "weapon_h2_dice_faces", weapon_stats.h2_dice_faces or 2, minimum=2
+                )
+                character_item.weapon_h2_flat_bonus_override = _read_int(
+                    post_data, "weapon_h2_flat_bonus", weapon_stats.h2_flat_bonus or 0
+                )
+                character_item.weapon_h2_flat_operator_override = _read_damage_operator(
+                    post_data, "weapon_h2_flat_operator", weapon_stats.h2_flat_operator
+                )
+            if armor_stats is not None:
+                character_item.armor_rs_total_override = _read_int(post_data, "armor_rs_total", armor_stats.rs_total, minimum=0)
+                character_item.armor_rs_head_override = _read_int(post_data, "armor_rs_head", armor_stats.rs_head, minimum=0)
+                character_item.armor_rs_torso_override = _read_int(post_data, "armor_rs_torso", armor_stats.rs_torso, minimum=0)
+                character_item.armor_rs_arm_left_override = _read_int(
+                    post_data, "armor_rs_arm_left", armor_stats.rs_arm_left, minimum=0
+                )
+                character_item.armor_rs_arm_right_override = _read_int(
+                    post_data, "armor_rs_arm_right", armor_stats.rs_arm_right, minimum=0
+                )
+                character_item.armor_rs_leg_left_override = _read_int(
+                    post_data, "armor_rs_leg_left", armor_stats.rs_leg_left, minimum=0
+                )
+                character_item.armor_rs_leg_right_override = _read_int(
+                    post_data, "armor_rs_leg_right", armor_stats.rs_leg_right, minimum=0
+                )
+                character_item.armor_encumbrance_override = _read_int(
+                    post_data, "armor_encumbrance", armor_stats.encumbrance, minimum=0
+                )
+                character_item.armor_min_st_override = _read_int(post_data, "armor_min_st", armor_stats.min_st, minimum=1)
+            if shield_stats is not None:
+                character_item.shield_rs_override = _read_int(post_data, "shield_rs", shield_stats.rs, minimum=0)
+                character_item.shield_encumbrance_override = _read_int(
+                    post_data, "shield_encumbrance", shield_stats.encumbrance, minimum=0
+                )
+                character_item.shield_min_st_override = _read_int(post_data, "shield_min_st", shield_stats.min_st, minimum=1)
             character_item.full_clean()
-            character_item.save(update_fields=["quality", "description", "is_magic", "magic_effect_summary"])
+            character_item.save()
 
             # Replace rune spec records with the new payload
             character_item.rune_specs.all().delete()

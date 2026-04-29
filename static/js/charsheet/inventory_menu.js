@@ -16,6 +16,15 @@ function parseJsonList(rawValue) {
   }
 }
 
+function parseJsonObject(rawValue) {
+  try {
+    const parsed = JSON.parse(String(rawValue || "{}"));
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+  } catch (_error) {
+    return {};
+  }
+}
+
 function normalizeSearchValue(value) {
   return String(value || "").trim().toLowerCase();
 }
@@ -80,12 +89,22 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
   const runeQualitySelect = document.getElementById("runeRetrofitQuality");
   const runeExperienceCostInput = document.querySelector("#runeRetrofitForm input[name='experience_cost']");
   const runeMoneyCostInput = document.querySelector("#runeRetrofitForm input[name='money_cost']");
+  const runeNameInput = document.getElementById("runeRetrofitCustomName");
+  const runePriceInput = document.getElementById("runeRetrofitPrice");
+  const runeWeightInput = document.getElementById("runeRetrofitWeight");
+  const runeSizeClassSelect = document.getElementById("runeRetrofitSizeClass");
+  const runeMagicEffectSummaryInput = document.getElementById("runeRetrofitMagicEffectSummary");
   const runeDescriptionInput = document.getElementById("runeRetrofitDescription");
   const magicEffectsList = document.getElementById("runeRetrofitMagicEffectsList");
   const magicEffectTemplate = document.getElementById("runeRetrofitMagicEffectTemplate");
   const magicAddEffectButton = document.getElementById("runeRetrofitAddEffectBtn");
   const magicPayloadInput = document.getElementById("runeRetrofitMagicModifierPayloads");
   const runePayloadInput = document.getElementById("runeRetrofitRunePayloads");
+  const runeArmorFields = document.getElementById("runeRetrofitArmorFields");
+  const runeWeaponFields = document.getElementById("runeRetrofitWeaponFields");
+  const runeShieldFields = document.getElementById("runeRetrofitShieldFields");
+  const runeWeaponWieldMode = document.getElementById("runeRetrofitWeaponWieldMode");
+  const runeWeaponTwoHandFields = document.getElementById("runeRetrofitWeaponTwoHandFields");
   let retrofitItemType = "";
 
   let runeChoices = [];
@@ -225,6 +244,28 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
       const haystack = normalizeSearchValue(entry.dataset.runeSearch || "");
       entry.hidden = query ? !haystack.includes(query) : false;
     });
+  };
+
+  const setFormValue = (fieldName, value) => {
+    const field = runeForm?.elements?.namedItem?.(fieldName);
+    if (field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement || field instanceof HTMLSelectElement) {
+      field.value = value === null || value === undefined ? "" : String(value);
+    }
+  };
+
+  const syncRetrofitDetailSections = () => {
+    if (runeArmorFields instanceof HTMLElement) {
+      runeArmorFields.hidden = retrofitItemType !== "armor";
+    }
+    if (runeWeaponFields instanceof HTMLElement) {
+      runeWeaponFields.hidden = retrofitItemType !== "weapon";
+    }
+    if (runeShieldFields instanceof HTMLElement) {
+      runeShieldFields.hidden = retrofitItemType !== "shield";
+    }
+    if (runeWeaponTwoHandFields instanceof HTMLElement && runeWeaponWieldMode instanceof HTMLSelectElement) {
+      runeWeaponTwoHandFields.hidden = runeWeaponWieldMode.value === "1h";
+    }
   };
 
   // ── Magic effect rows ──────────────────────────────────────────────────────
@@ -629,8 +670,10 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
       .map((value) => value.trim())
       .filter(Boolean);
     const description = String(button.getAttribute("data-description") || "");
+    const magicEffectSummary = String(button.getAttribute("data-magic-effect-summary") || "");
     retrofitItemType = String(button.getAttribute("data-item-type") || "");
     const magicModifierPayloads = parseJsonList(button.getAttribute("data-magic-modifier-payloads"));
+    const modifyPayload = parseJsonObject(button.getAttribute("data-modify-payload"));
 
     // Build spec map: rune_id → [{specification, slot}]
     const rawRuneSpecs = parseJsonList(button.getAttribute("data-rune-specs"));
@@ -667,6 +710,21 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
     if (runeMoneyCostInput instanceof HTMLInputElement) {
       runeMoneyCostInput.value = "0";
     }
+    if (runeNameInput instanceof HTMLInputElement) {
+      runeNameInput.value = String(modifyPayload.name || itemName);
+    }
+    if (runePriceInput instanceof HTMLInputElement) {
+      runePriceInput.value = String(modifyPayload.price ?? "0");
+    }
+    if (runeWeightInput instanceof HTMLInputElement) {
+      runeWeightInput.value = String(modifyPayload.weight ?? "0");
+    }
+    if (runeSizeClassSelect instanceof HTMLSelectElement) {
+      runeSizeClassSelect.value = String(modifyPayload.size_class || "");
+    }
+    if (runeMagicEffectSummaryInput instanceof HTMLInputElement) {
+      runeMagicEffectSummaryInput.value = magicEffectSummary;
+    }
     if (runeDescriptionInput instanceof HTMLTextAreaElement) {
       runeDescriptionInput.value = description;
     }
@@ -697,6 +755,35 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
       runeOptions.append(buildRuneOption(rune, existingSlots));
     });
 
+    [
+      "weapon_min_st",
+      "weapon_damage_source",
+      "weapon_damage_dice_amount",
+      "weapon_damage_dice_faces",
+      "weapon_damage_flat_operator",
+      "weapon_damage_flat_bonus",
+      "weapon_wield_mode",
+      "weapon_damage_type",
+      "weapon_h2_dice_amount",
+      "weapon_h2_dice_faces",
+      "weapon_h2_flat_operator",
+      "weapon_h2_flat_bonus",
+      "armor_rs_total",
+      "armor_rs_head",
+      "armor_rs_torso",
+      "armor_rs_arm_left",
+      "armor_rs_arm_right",
+      "armor_rs_leg_left",
+      "armor_rs_leg_right",
+      "armor_encumbrance",
+      "armor_min_st",
+      "shield_rs",
+      "shield_encumbrance",
+      "shield_min_st",
+    ].forEach((fieldName) => {
+      setFormValue(fieldName, modifyPayload[fieldName]);
+    });
+
     if (!availableCount) {
       const empty = document.createElement("p");
       empty.className = "shop_empty";
@@ -705,6 +792,7 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
     }
 
     populateMagicEffects(magicModifierPayloads);
+    syncRetrofitDetailSections();
     syncRuneSelectionCount();
     serializeRunePayloads();
     filterRuneEntries();
@@ -716,6 +804,7 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
   runeDropdownTrigger?.addEventListener("click", () => {
     toggleRuneDropdown();
   });
+  runeWeaponWieldMode?.addEventListener("change", syncRetrofitDetailSections);
   runeCloseButton?.addEventListener("click", closeRuneWindow);
   runeCancelButton?.addEventListener("click", closeRuneWindow);
   magicAddEffectButton?.addEventListener("click", () => {

@@ -7,8 +7,17 @@ from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
-from ..constants import PROFICIENCY_GROUP_CHOICES, QUALITY_CHOICES, QUALITY_COMMON, RESOURCE_KEY_CHOICES, STAT_SLUG_CHOICES
-from .core import Attribute, Language, Race, Skill, SkillCategory, Trait
+from ..constants import (
+    DAMAGE_TYPE_CHOICES,
+    GK_CHOICES,
+    PROFICIENCY_GROUP_CHOICES,
+    QUALITY_CHOICES,
+    QUALITY_COMMON,
+    RESOURCE_KEY_CHOICES,
+    STAT_SLUG_CHOICES,
+    WIELD_MODES,
+)
+from .core import Attribute, DamageSource, Language, Race, Skill, SkillCategory, Trait
 from .items import Item, Rune
 from .progression import Specialization
 
@@ -180,6 +189,40 @@ class CharacterItem(models.Model):
     description = models.TextField(blank=True, default="")
     is_magic = models.BooleanField(default=False)
     magic_effect_summary = models.CharField(max_length=255, blank=True, default="")
+    name_override = models.CharField(max_length=200, blank=True, default="")
+    price_override = models.IntegerField(null=True, blank=True)
+    weight_override = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
+    size_class_override = models.CharField(max_length=5, choices=GK_CHOICES, blank=True, default="")
+    weapon_min_st_override = models.PositiveIntegerField(null=True, blank=True)
+    weapon_damage_source_override = models.ForeignKey(
+        DamageSource,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="character_item_weapon_overrides",
+    )
+    weapon_damage_dice_amount_override = models.PositiveIntegerField(null=True, blank=True)
+    weapon_damage_dice_faces_override = models.PositiveIntegerField(null=True, blank=True)
+    weapon_damage_flat_bonus_override = models.IntegerField(null=True, blank=True)
+    weapon_damage_flat_operator_override = models.CharField(max_length=1, blank=True, default="")
+    weapon_damage_type_override = models.CharField(max_length=1, choices=DAMAGE_TYPE_CHOICES, blank=True, default="")
+    weapon_wield_mode_override = models.CharField(max_length=2, choices=WIELD_MODES, blank=True, default="")
+    weapon_h2_dice_amount_override = models.PositiveIntegerField(null=True, blank=True)
+    weapon_h2_dice_faces_override = models.PositiveIntegerField(null=True, blank=True)
+    weapon_h2_flat_bonus_override = models.IntegerField(null=True, blank=True)
+    weapon_h2_flat_operator_override = models.CharField(max_length=1, blank=True, default="")
+    armor_rs_head_override = models.PositiveIntegerField(null=True, blank=True)
+    armor_rs_torso_override = models.PositiveIntegerField(null=True, blank=True)
+    armor_rs_arm_left_override = models.PositiveIntegerField(null=True, blank=True)
+    armor_rs_arm_right_override = models.PositiveIntegerField(null=True, blank=True)
+    armor_rs_leg_left_override = models.PositiveIntegerField(null=True, blank=True)
+    armor_rs_leg_right_override = models.PositiveIntegerField(null=True, blank=True)
+    armor_rs_total_override = models.PositiveIntegerField(null=True, blank=True)
+    armor_encumbrance_override = models.PositiveIntegerField(null=True, blank=True)
+    armor_min_st_override = models.PositiveIntegerField(null=True, blank=True)
+    shield_rs_override = models.PositiveIntegerField(null=True, blank=True)
+    shield_encumbrance_override = models.PositiveIntegerField(null=True, blank=True)
+    shield_min_st_override = models.PositiveIntegerField(null=True, blank=True)
 
     def clean(self):
         """Enforce stackability and equipment consistency."""
@@ -198,6 +241,16 @@ class CharacterItem(models.Model):
     def is_magic_effective(self) -> bool:
         """Return whether this owned entry behaves as a magic item."""
         return bool(self.is_magic or self.item.is_magic_effective)
+
+    @property
+    def effective_name(self) -> str:
+        return (self.name_override or "").strip() or self.item.name
+
+    def override_or_item_value(self, override_field: str, item_field: str):
+        override_value = getattr(self, override_field)
+        if override_value not in (None, ""):
+            return override_value
+        return getattr(self.item, item_field)
 
 
 class ItemRune(models.Model):

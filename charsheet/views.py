@@ -1694,10 +1694,6 @@ def create_shop_item(request, character_id: int):
 def update_character_item_runes(request, pk: int):
     """Persist one owned-item modification dialog for a supported inventory entry."""
     character_item = _owned_character_item_or_404(request, pk)
-    if character_item.item.item_type not in {Item.ItemType.WEAPON, Item.ItemType.ARMOR, Item.ItemType.MISC}:
-        if _is_partial_request(request):
-            return JsonResponse({"ok": False, "error": "item_type_not_supported"}, status=400)
-        return redirect("character_sheet", character_id=character_item.owner_id)
     if not apply_character_item_modifications(character_item, request.POST):
         if _is_partial_request(request):
             return JsonResponse({"ok": False, "error": "modification_failed"}, status=400)

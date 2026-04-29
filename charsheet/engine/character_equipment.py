@@ -121,9 +121,8 @@ def equipped_weapon_rows(engine) -> list[dict]:
     maneuver_modifier = engine.resolve_combat_value("melee_maneuvers")
     for character_item in engine.equipped_weapon_items():
         item_engine = ItemEngine(character_item)
-        weapon_stats = getattr(character_item.item, "weaponstats", None)
-        damage_source_slug = getattr(getattr(weapon_stats, "damage_source", None), "slug", "")
-        damage_stat_slug = damage_source_slug or getattr(weapon_stats, "damage_type", "")
+        damage_source_slug = item_engine.get_weapon_damage_source_slug()
+        damage_stat_slug = damage_source_slug or item_engine.get_weapon_damage_type()
         mastery_maneuver_bonus, mastery_damage_bonus = engine.weapon_mastery_bonus_for_item(character_item.item)
         item_specific_maneuver_modifier = _character_item_specific_maneuver_modifier(engine, character_item)
         dmg_mod = engine.get_dmg_modifier_sum(damage_stat_slug) if damage_stat_slug else engine.attribute_modifier(ATTR_ST)
@@ -133,6 +132,7 @@ def equipped_weapon_rows(engine) -> list[dict]:
                 {
                     "character_item": character_item,
                     "item": character_item.item,
+                    "item_name": item_engine.get_name(),
                     "quality": item_engine.get_effective_quality(),
                     "quality_color": item_engine.get_quality_color(),
                     "dmg_mod": total_damage_modifier,
@@ -176,6 +176,7 @@ def equipped_armor_rows(engine) -> list[dict]:
             {
                 "character_item": character_item,
                 "item": character_item.item,
+                "item_name": item_engine.get_name(),
                 "quality": item_engine.get_effective_quality(),
                 "quality_color": item_engine.get_quality_color(),
                 "rs": item_engine.get_armor_rs_raw() or 0,
@@ -196,6 +197,7 @@ def equipped_shield_rows(engine) -> list[dict]:
             {
                 "character_item": character_item,
                 "item": character_item.item,
+                "item_name": item_engine.get_name(),
                 "quality": item_engine.get_effective_quality(),
                 "quality_color": item_engine.get_quality_color(),
                 "rs": item_engine.get_effective_shield_rs() or 0,
@@ -216,6 +218,7 @@ def equipped_clothing_rows(engine) -> list[dict]:
             {
                 "character_item": character_item,
                 "item": character_item.item,
+                "item_name": item_engine.get_name(),
                 "quality": item_engine.get_effective_quality(),
                 "quality_color": item_engine.get_quality_color(),
             }
@@ -232,6 +235,7 @@ def equipped_magic_item_rows(engine) -> list[dict]:
             {
                 "character_item": character_item,
                 "item": character_item.item,
+                "item_name": item_engine.get_name(),
                 "quality": item_engine.get_effective_quality(),
                 "quality_color": item_engine.get_quality_color(),
                 "effect_summary": getattr(getattr(character_item.item, "magicitemstats", None), "effect_summary", ""),
