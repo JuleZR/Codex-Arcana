@@ -1054,10 +1054,16 @@ class CharacterEngine:
     def weapon_mastery_bonus_for_item(self, item: Item | int | None) -> tuple[int, int]:
         """Return maneuver/damage bonuses from Waffenmeister for one concrete weapon."""
         mastery = self.weapon_mastery_for_item(item)
+        return self.weapon_mastery_bonus_for_entry(mastery)
+
+    def weapon_mastery_bonus_for_entry(self, mastery: CharacterWeaponMastery | None) -> tuple[int, int]:
+        """Return maneuver/damage bonuses for one mastered weapon entry including arcana boosts."""
         school_entry = self._weapon_master_school_entry
         if mastery is None or school_entry is None:
             return 0, 0
-        return mastery.maneuver_damage_bonus(school_entry.level)
+        maneuver_bonus, damage_bonus = mastery.maneuver_damage_bonus(school_entry.level)
+        arcana_bonus = self.weapon_mastery_arcana_bonus_capacity()
+        return maneuver_bonus + arcana_bonus, damage_bonus + arcana_bonus
 
     def weapon_mastery_quality_bonus_for_item(self, item: Item | int | None) -> int:
         """Return the crafting quality-step bonus for one mastered weapon type."""
