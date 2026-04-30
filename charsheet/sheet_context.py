@@ -1830,8 +1830,8 @@ def _build_school_technique_rows(character: Character, engine) -> tuple[list[dic
     if weapon_master_school is not None and weapon_master_school.id in school_levels:
         school_level = school_levels.get(weapon_master_school.id, 0)
         mastered_entries = sorted(
-            engine._weapon_mastery_entries_by_item_id.values(),
-            key=lambda entry: (entry.pick_order, entry.weapon_item.name),
+            engine._weapon_mastery_entries_by_type.values(),
+            key=lambda entry: (entry.pick_order, entry.weapon_type_label()),
         )
         for mastery in mastered_entries:
             maneuver_bonus, damage_bonus = mastery.maneuver_damage_bonus(school_level)
@@ -1842,7 +1842,7 @@ def _build_school_technique_rows(character: Character, engine) -> tuple[list[dic
                     "level_label": _to_roman(mastery.pick_order),
                     "school_name": weapon_master_school.name,
                     "school_id": weapon_master_school.id,
-                    "entry_name": f"{mastery.weapon_item.name} ({maneuver_bonus} / {damage_bonus})",
+                    "entry_name": f"{mastery.weapon_type_label()} ({maneuver_bonus} / {damage_bonus})",
                     "description": "",
                     "support_level_icon": _SUPPORT_ICON_COMPUTED,
                     "support_level_tooltip": _SUPPORT_TOOLTIP_COMPUTED,

@@ -235,6 +235,63 @@ DAMAGE_TYPE_CHOICES = (
     (DEADLY, "T"),
 )
 
+# Weapon Types
+WEAPON_TYPE_UNSPECIFIED = ""
+WEAPON_TYPE_LONGSWORD = "longsword"
+WEAPON_TYPE_TWO_HANDED_SWORD = "two_handed_sword"
+WEAPON_TYPE_SHORTSWORD = "shortsword"
+WEAPON_TYPE_CURVED_SWORD = "curved_sword"
+WEAPON_TYPE_RAPIER = "rapier"
+WEAPON_TYPE_DAGGER = "dagger"
+WEAPON_TYPE_AXE = "axe"
+WEAPON_TYPE_TWO_HANDED_AXE = "two_handed_axe"
+WEAPON_TYPE_HAMMER = "hammer"
+WEAPON_TYPE_TWO_HANDED_HAMMER = "two_handed_hammer"
+WEAPON_TYPE_MACE = "mace"
+WEAPON_TYPE_FLAIL = "flail"
+WEAPON_TYPE_SPEAR = "spear"
+WEAPON_TYPE_LANCE = "lance"
+WEAPON_TYPE_POLEARM = "polearm"
+WEAPON_TYPE_STAFF = "staff"
+WEAPON_TYPE_CHAIN = "chain"
+WEAPON_TYPE_WHIP = "whip"
+WEAPON_TYPE_FIST = "fist"
+WEAPON_TYPE_BOW = "bow"
+WEAPON_TYPE_CROSSBOW = "crossbow"
+WEAPON_TYPE_BLOWGUN = "blowgun"
+WEAPON_TYPE_TRAP = "trap"
+WEAPON_TYPE_SPECIAL = "special"
+
+WEAPON_TYPE_CHOICES = (
+    (WEAPON_TYPE_UNSPECIFIED, "Nicht festgelegt"),
+    (WEAPON_TYPE_LONGSWORD, "Langschwert"),
+    (WEAPON_TYPE_TWO_HANDED_SWORD, "Zweihandschwert"),
+    (WEAPON_TYPE_SHORTSWORD, "Kurzschwert"),
+    (WEAPON_TYPE_CURVED_SWORD, "Krummschwert"),
+    (WEAPON_TYPE_RAPIER, "Degen / Rapier"),
+    (WEAPON_TYPE_DAGGER, "Dolch"),
+    (WEAPON_TYPE_AXE, "Axt"),
+    (WEAPON_TYPE_TWO_HANDED_AXE, "Zweihandaxt"),
+    (WEAPON_TYPE_HAMMER, "Hammer"),
+    (WEAPON_TYPE_TWO_HANDED_HAMMER, "Zweihandhammer"),
+    (WEAPON_TYPE_MACE, "Kolben / Keule"),
+    (WEAPON_TYPE_FLAIL, "Flegel / Geissel"),
+    (WEAPON_TYPE_SPEAR, "Speer"),
+    (WEAPON_TYPE_LANCE, "Lanze"),
+    (WEAPON_TYPE_POLEARM, "Stangenwaffe"),
+    (WEAPON_TYPE_STAFF, "Stab"),
+    (WEAPON_TYPE_CHAIN, "Kettenwaffe"),
+    (WEAPON_TYPE_WHIP, "Peitsche"),
+    (WEAPON_TYPE_FIST, "Faustwaffe / Unbewaffnet"),
+    (WEAPON_TYPE_BOW, "Bogen"),
+    (WEAPON_TYPE_CROSSBOW, "Armbrust"),
+    (WEAPON_TYPE_BLOWGUN, "Blasrohr"),
+    (WEAPON_TYPE_TRAP, "Netz / Falle"),
+    (WEAPON_TYPE_SPECIAL, "Sonderwaffe"),
+)
+
+WEAPON_TYPE_LABELS = dict(WEAPON_TYPE_CHOICES)
+
 # Weapon Symbols
 MOUNTED_TWO_HANDED = "mounted_two_handed"
 FIRST_ROUND_INIT = "first_round_init"

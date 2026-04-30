@@ -244,13 +244,30 @@ class CharacterEngine:
         return self._school_entries.get(school.id)
 
     @cached_property
-    def _weapon_mastery_entries_by_item_id(self) -> dict[int, CharacterWeaponMastery]:
-        """Cache concrete weapon masteries keyed by weapon item id."""
+    def _weapon_mastery_entries_by_type(self) -> dict[str, CharacterWeaponMastery]:
+        """Cache weapon masteries keyed by weapon type."""
         school = self._weapon_master_school
         if school is None:
             return {}
         queryset = (
             self.character.weapon_masteries.filter(school=school)
+            .select_related("weapon_item", "school")
+            .order_by("pick_order", "weapon_type", "weapon_item__name", "id")
+        )
+        return {
+            entry.effective_weapon_type(): entry
+            for entry in queryset
+            if entry.effective_weapon_type()
+        }
+
+    @cached_property
+    def _weapon_mastery_entries_by_item_id(self) -> dict[int, CharacterWeaponMastery]:
+        """Cache legacy concrete weapon masteries keyed by weapon item id."""
+        school = self._weapon_master_school
+        if school is None:
+            return {}
+        queryset = (
+            self.character.weapon_masteries.filter(school=school, weapon_item__isnull=False)
             .select_related("weapon_item", "school")
             .order_by("pick_order", "weapon_item__name", "id")
         )
@@ -1016,12 +1033,22 @@ class CharacterEngine:
         return int(self._skill_base(skill_slug)) + int(self._skill_modifiers(skill_slug))
 
     def weapon_mastery_for_item(self, item: Item | int | None) -> CharacterWeaponMastery | None:
-        """Return the mastered concrete weapon entry for one item, if learned."""
+        """Return the mastered weapon-type entry for one item, if learned."""
         if item is None:
             return None
-        item_id = item if isinstance(item, int) else getattr(item, "id", None)
-        if item_id is None:
+        if isinstance(item, int):
+            item_obj = Item.objects.select_related("weaponstats").filter(pk=item).first()
+        else:
+            item_obj = item
+        item_id = getattr(item_obj, "id", None)
+        if item_obj is None or item_id is None:
             return None
+        weapon_stats = getattr(item_obj, "weaponstats", None)
+        weapon_type = str(getattr(weapon_stats, "weapon_type", "") or "")
+        if weapon_type:
+            mastery = self._weapon_mastery_entries_by_type.get(weapon_type)
+            if mastery is not None:
+                return mastery
         return self._weapon_mastery_entries_by_item_id.get(item_id)
 
     def weapon_mastery_bonus_for_item(self, item: Item | int | None) -> tuple[int, int]:

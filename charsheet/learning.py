@@ -256,7 +256,7 @@ def _apply_progression_choices(character: Character, post_data, *, magic_engine)
         mastery_entry = CharacterWeaponMastery(
             character=character,
             school_id=school_id,
-            weapon_item_id=int(raw_item_value),
+            weapon_type=raw_item_value,
             pick_order=pick_order,
             first_bonus_kind=raw_side_value,
         )

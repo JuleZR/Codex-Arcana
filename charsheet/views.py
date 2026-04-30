@@ -20,7 +20,7 @@ from django.template.loader import render_to_string
 from django.urls import reverse_lazy
 from .engine import CharacterCreationEngine
 from .engine.dice_engine import DiceEngine
-from .learning_progression import weapon_mastery_item_definitions
+from .learning_progression import weapon_mastery_weapon_type_definitions
 from .models import (
     Character,
     CharacterDiaryEntry,
@@ -1059,11 +1059,11 @@ def create_character(request):
                 if str(key).startswith("wm_mastery_weapon_"):
                     slot = str(key).rsplit("_", 1)[-1]
                     slot_index = int(slot or 0)
-                    weapon_item_id = int(request.POST.get(key, "0") or 0)
+                    weapon_type = str(request.POST.get(key, "") or "").strip().lower()
                     first_bonus_kind = str(request.POST.get(f"wm_mastery_first_{slot}", "") or "").strip().lower()
-                    if weapon_item_id > 0 or first_bonus_kind:
+                    if weapon_type or first_bonus_kind:
                         weapon_masteries_by_slot[slot_index] = {
-                            "weapon_item_id": weapon_item_id,
+                            "weapon_type": weapon_type,
                             "first_bonus_kind": first_bonus_kind,
                         }
                 elif str(key).startswith("wm_arcana_"):
@@ -1340,9 +1340,7 @@ def create_character(request):
         required_wm_count = min(phase_4_schools.get(str(weapon_master_school.id), 0), 10)
         draft_weapon_masteries = engine.phase_4_weapon_masteries()
         draft_weapon_arcana = engine.phase_4_weapon_mastery_arcana()
-        weapon_options = list(
-            weapon_mastery_item_definitions().values("id", "name")
-        )
+        weapon_options = weapon_mastery_weapon_type_definitions()
         rune_options = list(Rune.objects.order_by("name").values("id", "name"))
         for slot_index in range(required_wm_count):
             mastery_payload = draft_weapon_masteries[slot_index] if slot_index < len(draft_weapon_masteries) else {}
@@ -1361,7 +1359,7 @@ def create_character(request):
                     "slot": slot_index + 1,
                     "weapon_name": f"wm_mastery_weapon_{slot_index + 1}",
                     "first_name": f"wm_mastery_first_{slot_index + 1}",
-                    "selected_weapon_id": mastery_payload.get("weapon_item_id", 0),
+                    "selected_weapon_id": mastery_payload.get("weapon_type", ""),
                     "selected_first_bonus_kind": mastery_payload.get("first_bonus_kind", ""),
                     "weapon_options": weapon_options,
                     "arcana_name": f"wm_arcana_{slot_index + 1}",

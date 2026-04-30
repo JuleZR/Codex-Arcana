@@ -17,7 +17,9 @@ from ..constants import (
     WIELD_MODES,
     DEADLY,
     DAMAGE_TYPE_CHOICES,
-    WEAPON_SYMBOL_CHOICES
+    WEAPON_SYMBOL_CHOICES,
+    WEAPON_TYPE_CHOICES,
+    WEAPON_TYPE_UNSPECIFIED,
 )
 from .core import DamageSource
 
@@ -218,6 +220,13 @@ class WeaponStats(models.Model):
     damage_bonus_attribute = models.CharField(max_length=20, blank=True, default="")
     damage_bonus_mode = models.CharField(max_length=20, blank=True, default="flat")
     damage_type = models.CharField(max_length=1, default=DEADLY, choices=DAMAGE_TYPE_CHOICES)
+    weapon_type = models.CharField(
+        max_length=30,
+        choices=WEAPON_TYPE_CHOICES,
+        default=WEAPON_TYPE_UNSPECIFIED,
+        blank=True,
+        help_text="Regeltechnischer Waffentyp fuer Waffenmeister und aehnliche Effekte.",
+    )
 
     wield_mode = models.CharField(max_length=2, choices=WIELD_MODES, default=ONE_HANDED)
 

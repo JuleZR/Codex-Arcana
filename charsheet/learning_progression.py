@@ -4,7 +4,12 @@ from __future__ import annotations
 
 from collections import OrderedDict
 
-from charsheet.constants import RESOURCE_KEY_CHOICES, is_allowed_trait_attribute_choice
+from charsheet.constants import (
+    RESOURCE_KEY_CHOICES,
+    WEAPON_TYPE_LABELS,
+    WEAPON_TYPE_UNSPECIFIED,
+    is_allowed_trait_attribute_choice,
+)
 from charsheet.models import (
     Attribute,
     CharacterTrait,
@@ -17,6 +22,7 @@ from charsheet.models import (
     Specialization,
     Technique,
     TraitChoiceDefinition,
+    WeaponStats,
 )
 
 WEAPON_MASTERY_EXCLUDED_ITEM_NAMES = {
@@ -25,14 +31,23 @@ WEAPON_MASTERY_EXCLUDED_ITEM_NAMES = {
 }
 
 
-def weapon_mastery_item_definitions():
-    """Return concrete weapon items that make sense for Waffenmeister choices."""
-    return (
-        Item.objects.filter(item_type=Item.ItemType.WEAPON, weaponstats__isnull=False)
-        .exclude(name__in=WEAPON_MASTERY_EXCLUDED_ITEM_NAMES)
+def weapon_mastery_weapon_type_definitions() -> list[dict[str, str]]:
+    """Return weapon-type options that exist on real weapon definitions."""
+    weapon_types = (
+        WeaponStats.objects.filter(item__item_type=Item.ItemType.WEAPON)
+        .exclude(item__name__in=WEAPON_MASTERY_EXCLUDED_ITEM_NAMES)
+        .exclude(weapon_type=WEAPON_TYPE_UNSPECIFIED)
+        .values_list("weapon_type", flat=True)
         .distinct()
-        .order_by("name")
+        .order_by("weapon_type")
     )
+    return [
+        {
+            "value": str(weapon_type),
+            "label": str(WEAPON_TYPE_LABELS.get(weapon_type, weapon_type)),
+        }
+        for weapon_type in weapon_types
+    ]
 
 
 CHOICE_FIELD_PREFIX_BY_KIND = {
@@ -258,7 +273,7 @@ def build_learning_progression_context(character, *, engine) -> dict[str, object
     skill_definitions = list(Skill.objects.select_related("category").order_by("category__name", "name"))
     skill_categories = list(SkillCategory.objects.order_by("name"))
     item_definitions = list(Item.objects.order_by("name"))
-    weapon_item_definitions = list(weapon_mastery_item_definitions())
+    weapon_type_definitions = weapon_mastery_weapon_type_definitions()
     item_category_options = [{"value": value, "label": label} for value, label in Item.ItemType.choices]
     rune_definitions = list(Rune.objects.order_by("name"))
     attribute_definitions = list(Attribute.objects.order_by("name"))
@@ -460,37 +475,38 @@ def build_learning_progression_context(character, *, engine) -> dict[str, object
         if weapon_master_school is None or school.id != weapon_master_school.id:
             continue
 
-        mastered_entries = list(engine._weapon_mastery_entries_by_item_id.values())
+        mastered_entries = list(engine._weapon_mastery_entries_by_type.values())
         required_mastery_count = min(int(entry.level), 10)
         missing_mastery_count = max(0, required_mastery_count - len(mastered_entries))
-        used_weapon_ids = {mastery.weapon_item_id for mastery in mastered_entries}
+        used_weapon_types = {mastery.effective_weapon_type() for mastery in mastered_entries}
 
         for slot_offset in range(missing_mastery_count):
             pick_order = len(mastered_entries) + slot_offset + 1
             weapon_field_name = f"learn_weapon_mastery_weapon_{school.id}_{pick_order}"
             side_field_name = f"learn_weapon_mastery_side_{school.id}_{pick_order}"
             weapon_options = []
-            for item in weapon_item_definitions:
-                if item.id in used_weapon_ids:
+            for weapon_type_row in weapon_type_definitions:
+                weapon_type = str(weapon_type_row["value"])
+                if weapon_type in used_weapon_types:
                     continue
                 weapon_options.append(
                     _build_decision_option(
-                        option_id=str(item.id),
-                        label=item.name,
-                        meta="Waffe",
-                        description="Konkrete Waffe, die der Waffenmeister meistert.",
+                        option_id=weapon_type,
+                        label=str(weapon_type_row["label"]),
+                        meta="Waffentyp",
+                        description="Waffentyp, den der Waffenmeister meistert.",
                         submit_name=weapon_field_name,
-                        submit_value=str(item.id),
+                        submit_value=weapon_type,
                     )
                 )
             pending_decisions.append(
                 _build_pending_decision(
                     decision_id=f"weapon-mastery-weapon-{school.id}-{pick_order}",
                     kind="weapon_mastery_weapon",
-                    title=f"Waffenmeister: Meisterwaffe {pick_order}",
-                    summary=f"{school.name} | Waffenwahl {pick_order} von {required_mastery_count}",
-                    description="Waehle die konkrete Waffe fuer diesen Meisterschaftsplatz.",
-                    prompt="Waffe waehlen",
+                    title=f"Waffenmeister: Waffentyp {pick_order}",
+                    summary=f"{school.name} | Typwahl {pick_order} von {required_mastery_count}",
+                    description="Waehle den Waffentyp fuer diesen Meisterschaftsplatz.",
+                    prompt="Waffentyp waehlen",
                     selection_group_id=f"weapon-mastery-weapon:{school.id}",
                     options=weapon_options,
                 )

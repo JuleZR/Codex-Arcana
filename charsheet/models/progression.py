@@ -4,7 +4,12 @@ from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
-from ..constants import SCHOOL_TYPE_CHOICES
+from ..constants import (
+    SCHOOL_TYPE_CHOICES,
+    WEAPON_TYPE_CHOICES,
+    WEAPON_TYPE_LABELS,
+    WEAPON_TYPE_UNSPECIFIED,
+)
 
 
 class SchoolType(models.Model):
@@ -207,7 +212,7 @@ class CharacterSpecialization(models.Model):
 
 
 class CharacterWeaponMastery(models.Model):
-    """One mastered concrete weapon choice of a character's Waffenmeister school."""
+    """One mastered weapon type choice of a character's Waffenmeister school."""
 
     class FirstBonusKind(models.TextChoices):
         MANEUVER = "maneuver", "Manoever zuerst"
@@ -223,10 +228,18 @@ class CharacterWeaponMastery(models.Model):
         on_delete=models.CASCADE,
         related_name="character_weapon_masteries",
     )
+    weapon_type = models.CharField(
+        max_length=30,
+        choices=WEAPON_TYPE_CHOICES,
+        default=WEAPON_TYPE_UNSPECIFIED,
+        help_text="Der regeltechnische Waffentyp, auf den diese Meisterschaft wirkt.",
+    )
     weapon_item = models.ForeignKey(
         "charsheet.Item",
         on_delete=models.PROTECT,
         related_name="character_weapon_masteries",
+        null=True,
+        blank=True,
     )
     pick_order = models.PositiveSmallIntegerField(
         validators=[MinValueValidator(1), MaxValueValidator(10)],
@@ -242,29 +255,49 @@ class CharacterWeaponMastery(models.Model):
     notes = models.TextField(blank=True)
 
     class Meta:
-        ordering = ["character", "school__name", "pick_order", "weapon_item__name", "id"]
+        ordering = ["character", "school__name", "pick_order", "weapon_type", "id"]
         constraints = [
             models.UniqueConstraint(
                 fields=["character", "school", "pick_order"],
                 name="uniq_character_weapon_mastery_pick_order",
             ),
             models.UniqueConstraint(
-                fields=["character", "school", "weapon_item"],
-                name="uniq_character_weapon_mastery_weapon",
+                fields=["character", "school", "weapon_type"],
+                name="uniq_character_weapon_mastery_weapon_type",
             ),
         ]
 
     def clean(self):
-        """Validate school ownership and weapon-specific item selection."""
+        """Validate school ownership and weapon-type specific item selection."""
         super().clean()
         if self.weapon_item_id and self.weapon_item.item_type != self.weapon_item.ItemType.WEAPON:
             raise ValidationError({"weapon_item": "Weapon mastery entries must point at weapon items."})
+        if self.weapon_type == WEAPON_TYPE_UNSPECIFIED and not self.weapon_item_id:
+            raise ValidationError({"weapon_type": "Weapon mastery entries need a concrete weapon type."})
         if (
             self.character_id
             and self.school_id
             and not CharacterSchool.objects.filter(character_id=self.character_id, school_id=self.school_id).exists()
         ):
             raise ValidationError({"school": "A character can only track weapon masteries for learned schools."})
+
+    def effective_weapon_type(self) -> str:
+        """Return the stored weapon type, falling back to one linked legacy item when needed."""
+        if self.weapon_type:
+            return str(self.weapon_type)
+        weapon_stats = getattr(self.weapon_item, "weaponstats", None)
+        if weapon_stats and weapon_stats.weapon_type:
+            return str(weapon_stats.weapon_type)
+        return WEAPON_TYPE_UNSPECIFIED
+
+    def weapon_type_label(self) -> str:
+        """Return the display label for this mastery's weapon type."""
+        weapon_type = self.effective_weapon_type()
+        if weapon_type:
+            return str(WEAPON_TYPE_LABELS.get(weapon_type, weapon_type))
+        if self.weapon_item_id:
+            return self.weapon_item.name
+        return "Nicht festgelegt"
 
     def progression_steps(self, school_level: int) -> int:
         """Return how many school-level grants this mastery currently received."""
@@ -286,7 +319,7 @@ class CharacterWeaponMastery(models.Model):
         return 1
 
     def __str__(self) -> str:
-        return f"{self.character.name} - {self.school.name}: #{self.pick_order} {self.weapon_item.name}"
+        return f"{self.character.name} - {self.school.name}: #{self.pick_order} {self.weapon_type_label()}"
 
 
 class CharacterWeaponMasteryArcana(models.Model):

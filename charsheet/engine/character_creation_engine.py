@@ -8,7 +8,7 @@ from charsheet.modifiers import CharacterBuildValidator, TraitBuildRule
 from charsheet.modifiers.definitions import TargetDomain
 from charsheet.modifiers.engine import ModifierEngine
 from charsheet.modifiers.registry import build_trait_semantic_modifiers
-from charsheet.learning_progression import weapon_mastery_item_definitions
+from charsheet.learning_progression import weapon_mastery_weapon_type_definitions
 from charsheet.models import (
     Attribute,
     Character,
@@ -490,18 +490,18 @@ class CharacterCreationEngine:
         return {str(k): max(0, self._to_int(v, 0)) for k, v in schools.items()}
 
     def phase_4_weapon_masteries(self) -> list[dict[str, object]]:
-        """Return normalized Waffenmeister weapon picks stored during phase 4."""
+        """Return normalized Waffenmeister weapon-type picks stored during phase 4."""
         rows = self.get_phase("phase_4").get("weapon_masteries", []) or []
         normalized: list[dict[str, object]] = []
         for row in rows:
             payload = row or {}
-            weapon_item_id = self._to_int(payload.get("weapon_item_id"), 0)
+            weapon_type = str(payload.get("weapon_type") or "").strip().lower()
             first_bonus_kind = str(payload.get("first_bonus_kind") or "").strip().lower()
-            if weapon_item_id <= 0:
+            if not weapon_type:
                 continue
             normalized.append(
                 {
-                    "weapon_item_id": weapon_item_id,
+                    "weapon_type": weapon_type,
                     "first_bonus_kind": first_bonus_kind,
                 }
             )
@@ -544,19 +544,23 @@ class CharacterCreationEngine:
         if len(weapon_rows) != required_count or len(arcana_rows) != required_count:
             return False
 
-        seen_weapon_ids: set[int] = set()
+        allowed_weapon_types = {
+            str(row["value"])
+            for row in weapon_mastery_weapon_type_definitions()
+        }
+        seen_weapon_types: set[str] = set()
         for row in weapon_rows:
-            weapon_item_id = int(row.get("weapon_item_id") or 0)
-            if weapon_item_id in seen_weapon_ids:
+            weapon_type = str(row.get("weapon_type") or "")
+            if weapon_type in seen_weapon_types:
                 return False
             if row.get("first_bonus_kind") not in {
                 CharacterWeaponMastery.FirstBonusKind.MANEUVER,
                 CharacterWeaponMastery.FirstBonusKind.DAMAGE,
             }:
                 return False
-            if not weapon_mastery_item_definitions().filter(pk=weapon_item_id).exists():
+            if weapon_type not in allowed_weapon_types:
                 return False
-            seen_weapon_ids.add(weapon_item_id)
+            seen_weapon_types.add(weapon_type)
 
         seen_rune_ids: set[int] = set()
         for row in arcana_rows:
@@ -888,7 +892,7 @@ class CharacterCreationEngine:
                     CharacterWeaponMastery.objects.create(
                         character=character,
                         school=weapon_master_school,
-                        weapon_item_id=int(row["weapon_item_id"]),
+                        weapon_type=str(row["weapon_type"]),
                         pick_order=index,
                         first_bonus_kind=str(row["first_bonus_kind"]),
                     )

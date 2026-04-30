@@ -518,12 +518,12 @@
                     {% if phase_4_weapon_mastery_school and phase_4_weapon_mastery_rows %}
                       <section class="phase2_section_card">
                         <h4>{{ phase_4_weapon_mastery_school.name }}: Zusatzentscheidungen</h4>
-                        <p class="dashboard_hint">Fuer jede Stufe in Waffenmeister wird eine konkrete Waffe und eine arkane Meisterschaft festgelegt.</p>
+                        <p class="dashboard_hint">Fuer jede Stufe in Waffenmeister wird ein Waffentyp und eine arkane Meisterschaft festgelegt.</p>
                         <table class="dashboard_table">
                           <thead>
                             <tr>
                               <th>Slot</th>
-                              <th>Meisterwaffe</th>
+                              <th>Waffentyp</th>
                               <th>Erster Bonus</th>
                               <th>Arkanum</th>
                             </tr>
@@ -536,7 +536,7 @@
                                   <select class="dashboard_input" name="{{ row.weapon_name }}">
                                     <option value=""></option>
                                     {% for option in row.weapon_options %}
-                                      <option value="{{ option.id }}"{% if row.selected_weapon_id == option.id %} selected{% endif %}>{{ option.name }}</option>
+                                      <option value="{{ option.value }}"{% if row.selected_weapon_id == option.value %} selected{% endif %}>{{ option.label }}</option>
                                     {% endfor %}
                                   </select>
                                 </td>

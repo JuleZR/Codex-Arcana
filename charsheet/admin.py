@@ -2249,18 +2249,19 @@ class CharacterSchoolAdmin(admin.ModelAdmin):
 
 @admin.register(CharacterWeaponMastery)
 class CharacterWeaponMasteryAdmin(admin.ModelAdmin):
-    """Admin configuration for concrete Waffenmeister weapon picks."""
+    """Admin configuration for weapon-type based Waffenmeister picks."""
 
     list_display = (
         "character",
         "school",
+        "weapon_type",
         "weapon_item",
         "pick_order",
         "first_bonus_kind",
     )
-    search_fields = ("character__name", "school__name", "weapon_item__name")
-    list_filter = ("school", "first_bonus_kind", "weapon_item__item_type")
-    ordering = ("character", "school", "pick_order", "weapon_item")
+    search_fields = ("character__name", "school__name", "weapon_type", "weapon_item__name")
+    list_filter = ("school", "first_bonus_kind", "weapon_type")
+    ordering = ("character", "school", "pick_order", "weapon_type")
     autocomplete_fields = ("character", "school", "weapon_item")
     list_select_related = ("character", "school", "weapon_item")
 
