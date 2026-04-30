@@ -241,6 +241,7 @@ WEAPON_TYPE_LONGSWORD = "longsword"
 WEAPON_TYPE_TWO_HANDED_SWORD = "two_handed_sword"
 WEAPON_TYPE_SHORTSWORD = "shortsword"
 WEAPON_TYPE_CURVED_SWORD = "curved_sword"
+WEAPON_TYPE_SHORT_CURVED = "short_curved"
 WEAPON_TYPE_RAPIER = "rapier"
 WEAPON_TYPE_DAGGER = "dagger"
 WEAPON_TYPE_AXE = "axe"
@@ -268,6 +269,7 @@ WEAPON_TYPE_CHOICES = (
     (WEAPON_TYPE_TWO_HANDED_SWORD, "Zweihandschwert"),
     (WEAPON_TYPE_SHORTSWORD, "Kurzschwert"),
     (WEAPON_TYPE_CURVED_SWORD, "Krummschwert"),
+    (WEAPON_TYPE_SHORT_CURVED, "Kurzkrummschwet"),
     (WEAPON_TYPE_RAPIER, "Degen / Rapier"),
     (WEAPON_TYPE_DAGGER, "Dolch"),
     (WEAPON_TYPE_AXE, "Axt"),
