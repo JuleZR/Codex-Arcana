@@ -1465,6 +1465,7 @@ class WeaponStatsInline(admin.StackedInline):
     filter_horizontal = ("flags", "skills")
     fields = (
         "min_st",
+        "weapon_type",
         "damage_source",
         "skills",
         "damage_dice_amount",
@@ -3776,6 +3777,24 @@ class WeaponStatsAdmin(admin.ModelAdmin):
     autocomplete_fields = ("item", "damage_source")
     list_select_related = ("item", "damage_source")
     filter_horizontal = ("flags", "skills")
+    fields = (
+        "item",
+        "min_st",
+        "weapon_type",
+        "damage_source",
+        "skills",
+        "damage_dice_amount",
+        "damage_dice_faces",
+        "damage_flat_operator",
+        "damage_flat_bonus",
+        "damage_type",
+        "wield_mode",
+        "h2_dice_amount",
+        "h2_dice_faces",
+        "h2_flat_operator",
+        "h2_flat_bonus",
+        "flags",
+    )
 
     @admin.display(ordering="item__default_quality", description="Item Quality")
     def item_quality(self, obj):
