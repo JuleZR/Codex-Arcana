@@ -11,10 +11,12 @@ def classify_weapon_type(name: str) -> str:
     normalized = (name or "").strip().lower()
     if not normalized:
         return WEAPON_TYPE_UNSPECIFIED
+    if "zweihänder" in normalized or "zweihandschwert" in normalized or "zweihandkhopesh" in normalized or "zweihandkrummschwert" in normalized or "claymore" in normalized:
+        return "two_handed_sword"
+    if "schwert" in normalized or "sing" in normalized:
+        return "longsword"
     if "langschwert" in normalized or "breitschwert" in normalized or "bastardschwert" in normalized:
         return "longsword"
-    if "zweihänder" in normalized or "zweihandkhopesh" in normalized or "zweihandkrummschwert" in normalized or "claymore" in normalized:
-        return "two_handed_sword"
     if "kurzschwert" in normalized:
         return "shortsword"
     if "khopesh" in normalized or "krummschwert" in normalized or "säbel" in normalized:
@@ -41,6 +43,10 @@ def classify_weapon_type(name: str) -> str:
         return "spear"
     if any(token in normalized for token in ("hellebarde", "glefe", "pike", "berdyche", "kriegsgabel", "gaffel", "haken", "stangenaxt")):
         return "polearm"
+    if "sense" in normalized:
+        return "polearm"
+    if "sichel" in normalized:
+        return "curved_sword"
     if "kampfstab" in normalized:
         return "staff"
     if "kette" in normalized or "mornabat" in normalized:

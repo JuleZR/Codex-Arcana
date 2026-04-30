@@ -330,6 +330,7 @@ ATTRIBUTE_ORDER = [
     ("CHA", "Charisma (Cha)"),
 ]
 
+
 def is_allowed_trait_attribute_choice(trait_slug: str | None, attribute_slug: str | None) -> bool:
     """Return whether one attribute can be selected for a given trait choice."""
     if str(trait_slug or "") == LEGENDARY_ATTRIBUTE_TRAIT_SLUG and str(attribute_slug or "") == ATTR_SPEC:
