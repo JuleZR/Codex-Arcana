@@ -37,6 +37,7 @@ from charsheet.forms import (
     CharacterSkillSpecificationForm,
     CharacterTechniqueSpecificationForm,
 )
+from charsheet.magic_effects import TEXT_TARGET_KIND, unpack_magic_effect_summary
 from charsheet.learning_progression import build_learning_progression_context
 from charsheet.learning_rules import DEFAULT_SCHOOL_MAX_LEVEL, school_max_levels
 from charsheet.models import (
@@ -477,13 +478,30 @@ def _serialize_modifier_payload(modifier: Modifier) -> dict[str, object]:
     return payload
 
 
+def _merge_magic_effect_payloads(
+    *, effect_summary: str, modifier_payloads: list[dict[str, object]]
+) -> tuple[str, list[dict[str, object]]]:
+    """Combine persisted numeric modifiers with text-only effects stored in the summary field."""
+    visible_summary, text_payloads = unpack_magic_effect_summary(effect_summary)
+    return visible_summary, [*modifier_payloads, *text_payloads]
+
+
 def _build_character_item_magic_tooltip_rows(*, effect_summary: str, modifier_payloads: list[dict[str, object]]) -> list[tuple[str, object]]:
     """Return tooltip rows for magic effects stored on one owned item."""
     rows: list[tuple[str, object]] = []
-    summary_line = _single_line(effect_summary)
+    summary_line, merged_payloads = _merge_magic_effect_payloads(
+        effect_summary=effect_summary,
+        modifier_payloads=modifier_payloads,
+    )
+    summary_line = _single_line(summary_line)
     if summary_line:
         rows.append(("Effekt", summary_line))
-    for payload in modifier_payloads:
+    for payload in merged_payloads:
+        if str(payload.get("target_kind") or "") == TEXT_TARGET_KIND:
+            effect_description = _single_line(str(payload.get("effect_description") or ""))
+            if effect_description:
+                rows.append(("Magie", effect_description))
+            continue
         target_display = _single_line(str(payload.get("target_display") or "")) or "Ziel"
         effect_description = _single_line(str(payload.get("effect_description") or ""))
         try:
@@ -647,13 +665,23 @@ def _build_item_tooltip_rows(item_engine: ItemEngine, item: Item) -> list[tuple[
         if min_st is not None:
             rows.append(("Min-St", min_st))
     elif item.item_type == Item.ItemType.MAGIC_ITEM:
-        effect_summary = getattr(getattr(item, "magicitemstats", None), "effect_summary", "")
+        effect_summary, text_payloads = unpack_magic_effect_summary(
+            getattr(getattr(item, "magicitemstats", None), "effect_summary", "")
+        )
         if effect_summary:
             rows.append(("Effekt", effect_summary))
+        for payload in text_payloads:
+            description = _single_line(str(payload.get("effect_description") or ""))
+            if description:
+                rows.append(("Magie", description))
     elif getattr(item, "magicitemstats", None) is not None:
-        effect_summary = getattr(item.magicitemstats, "effect_summary", "")
+        effect_summary, text_payloads = unpack_magic_effect_summary(getattr(item.magicitemstats, "effect_summary", ""))
         if effect_summary:
             rows.append(("Effekt", effect_summary))
+        for payload in text_payloads:
+            description = _single_line(str(payload.get("effect_description") or ""))
+            if description:
+                rows.append(("Magie", description))
 
     return rows
 
@@ -1304,7 +1332,11 @@ def _build_inventory_rows(character: Character) -> list[dict]:
         item_engine = ItemEngine(character_item)
         item_name = item_engine.get_name()
         quality = quality_payload(item_engine.get_effective_quality())
-        magic_modifier_payloads = modifiers_by_character_item_id.get(character_item.id, [])
+        stored_modifier_payloads = modifiers_by_character_item_id.get(character_item.id, [])
+        visible_magic_effect_summary, magic_modifier_payloads = _merge_magic_effect_payloads(
+            effect_summary=character_item.magic_effect_summary or "",
+            modifier_payloads=stored_modifier_payloads,
+        )
         tooltip_text = ""
         item_description = character_item.description or item.description or ""
         if not is_race_item and item.item_type in QUALITY_TOOLTIP_TYPES:
@@ -1315,7 +1347,7 @@ def _build_inventory_rows(character: Character) -> list[dict]:
                 detail_rows=(
                     _build_item_tooltip_rows(item_engine, item)
                     + _build_character_item_magic_tooltip_rows(
-                        effect_summary=character_item.magic_effect_summary or "",
+                        effect_summary=visible_magic_effect_summary,
                         modifier_payloads=magic_modifier_payloads,
                     )
                 ),
@@ -1326,7 +1358,7 @@ def _build_inventory_rows(character: Character) -> list[dict]:
                 detail_rows=(
                     _build_item_tooltip_rows(item_engine, item)
                     + _build_character_item_magic_tooltip_rows(
-                        effect_summary=character_item.magic_effect_summary or "",
+                        effect_summary=visible_magic_effect_summary,
                         modifier_payloads=magic_modifier_payloads,
                     )
                 ),
@@ -1381,7 +1413,7 @@ def _build_inventory_rows(character: Character) -> list[dict]:
                 ),
                 "description": character_item.description or item.description or "",
                 "is_character_item_magic": bool(character_item.is_magic),
-                "magic_effect_summary": character_item.magic_effect_summary or "",
+                "magic_effect_summary": visible_magic_effect_summary,
                 "magic_modifier_payloads": magic_modifier_payloads,
                 "magic_modifier_payloads_json": json.dumps(magic_modifier_payloads),
                 "modify_payload_json": json.dumps(
@@ -2463,7 +2495,7 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
         "shop_size_class_choices": GK_CHOICES,
         "shop_damage_source_choices": DamageSource.objects.order_by("name"),
         "shop_modifier_target_kind_choices": [
-            ("", "Kein Effekt"),
+            (TEXT_TARGET_KIND, "Text"),
             ("attribute", "Attribut"),
             ("stat", "Wert auf dem Bogen"),
             ("skill", "Einzelne Fertigkeit"),
@@ -2472,7 +2504,7 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
             ("specialization", "Spezialisierung"),
         ],
         "item_modifier_target_kind_choices": [
-            ("", "Kein Effekt"),
+            (TEXT_TARGET_KIND, "Text"),
             ("attribute", "Attribut"),
             ("stat", "Wert auf dem Bogen"),
             ("skill", "Einzelne Fertigkeit"),

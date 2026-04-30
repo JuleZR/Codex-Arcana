@@ -130,14 +130,16 @@ export function initItemForm() {
     }
     const targetKindSelect = row.querySelector("[data-magic-target-kind]");
     const valueInput = row.querySelector("[data-magic-value-input]");
+    const valueRow = valueInput?.closest(".shop_item_form_row");
     const selectedKind = String(targetKindSelect?.value || "");
+    const isTextOnly = selectedKind === "text";
 
     row.querySelectorAll("[data-magic-target-row]").forEach((targetRow) => {
       if (!(targetRow instanceof HTMLElement)) {
         return;
       }
       const rowKind = String(targetRow.dataset.magicTargetRow || "");
-      const isActive = selectedKind === rowKind;
+      const isActive = !isTextOnly && selectedKind === rowKind;
       targetRow.hidden = !isActive;
       const select = targetRow.querySelector("select");
       if (select) {
@@ -147,7 +149,13 @@ export function initItemForm() {
     });
 
     if (valueInput instanceof HTMLInputElement) {
-      valueInput.required = selectedKind !== "";
+      if (valueRow instanceof HTMLElement) {
+        valueRow.hidden = isTextOnly;
+      }
+      valueInput.required = selectedKind !== "" && !isTextOnly;
+      if (isTextOnly) {
+        valueInput.value = "0";
+      }
     }
   };
 
@@ -164,11 +172,12 @@ export function initItemForm() {
       if (!targetKind) {
         return;
       }
+      const isTextOnly = targetKind === "text";
       const value = String(row.querySelector("[data-magic-value-input]")?.value || "0").trim();
       const effectDescription = String(row.querySelector("[data-magic-effect-description]")?.value || "").trim();
       const payload = {
         target_kind: targetKind,
-        value,
+        value: isTextOnly ? "0" : value,
         effect_description: effectDescription,
       };
       const attributeSelect = row.querySelector("[data-magic-target-select='attribute']");

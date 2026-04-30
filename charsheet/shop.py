@@ -12,6 +12,7 @@ from django.db import transaction
 
 from charsheet.constants import DEADLY, MELEE_MANEUVERS
 from charsheet.engine import ItemEngine
+from charsheet.magic_effects import TEXT_TARGET_KIND, pack_magic_effect_summary
 from charsheet.models import (
     ArmorStats,
     Character,
@@ -147,7 +148,11 @@ def _build_magic_modifier_payload(target_kind: str, raw_value, row_data) -> dict
         "target_specialization": None,
     }
 
-    if target_kind == Modifier.TargetKind.ATTRIBUTE:
+    if target_kind == TEXT_TARGET_KIND:
+        if not payload["effect_description"]:
+            return None
+        payload["value"] = 0
+    elif target_kind == Modifier.TargetKind.ATTRIBUTE:
         target_slug = str(row_data.get("target_attribute") or "").strip()
         if not target_slug:
             return None
@@ -295,6 +300,8 @@ def _save_magic_modifiers(*, source_model, source_id: int, magic_modifier_payloa
         source_object_id=source_id,
     ).delete()
     for magic_modifier_payload in magic_modifier_payloads:
+        if str(magic_modifier_payload.get("target_kind") or "") == TEXT_TARGET_KIND:
+            continue
         modifier = Modifier(
             source_content_type=source_content_type,
             source_object_id=source_id,
@@ -324,9 +331,15 @@ def apply_character_item_modifications(character_item: CharacterItem, post_data)
     money_cost = _read_int(post_data, "money_cost", 0, minimum=0)
     rune_payloads = _read_rune_payloads(post_data)
     description = str(post_data.get("description") or "").strip()
-    magic_effect_summary = str(post_data.get("magic_effect_summary") or "").strip()
+    visible_magic_effect_summary = str(post_data.get("magic_effect_summary") or "").strip()
     magic_modifier_payloads = _read_magic_modifier_payloads(post_data)
-    is_magic = bool(magic_modifier_payloads) or bool(magic_effect_summary)
+    text_effect_descriptions = [
+        str(payload.get("effect_description") or "").strip()
+        for payload in magic_modifier_payloads
+        if str(payload.get("target_kind") or "") == TEXT_TARGET_KIND
+    ]
+    magic_effect_summary = pack_magic_effect_summary(visible_magic_effect_summary, text_effect_descriptions)
+    is_magic = bool(magic_modifier_payloads) or bool(visible_magic_effect_summary) or bool(text_effect_descriptions)
     weapon_stats = getattr(item, "weaponstats", None)
     armor_stats = getattr(item, "armorstats", None)
     shield_stats = getattr(item, "shieldstats", None)
@@ -515,6 +528,15 @@ def create_custom_shop_item(post_data) -> bool:
     selected_runes = list(Rune.objects.filter(pk__in=selected_rune_ids))
     selected_weapon_skill_ids = _read_skill_ids(post_data, "weapon_skills")
     magic_modifier_payloads = _read_magic_modifier_payloads(post_data) if is_magic else []
+    text_effect_descriptions = [
+        str(payload.get("effect_description") or "").strip()
+        for payload in magic_modifier_payloads
+        if str(payload.get("target_kind") or "") == TEXT_TARGET_KIND
+    ]
+    magic_effect_summary = pack_magic_effect_summary(
+        str(post_data.get("magic_effect_summary") or "").strip(),
+        text_effect_descriptions,
+    )
 
     if item_type in (
         Item.ItemType.ARMOR,
@@ -621,7 +643,7 @@ def create_custom_shop_item(post_data) -> bool:
             if item.is_magic_effective:
                 magic_item_stats = MagicItemStats(
                     item=item,
-                    effect_summary=(post_data.get("magic_effect_summary") or "").strip(),
+                    effect_summary=magic_effect_summary,
                 )
                 magic_item_stats.full_clean()
                 magic_item_stats.save()
