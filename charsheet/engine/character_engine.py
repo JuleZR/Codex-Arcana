@@ -12,6 +12,7 @@ from django.db.models import Model, Prefetch, Q
 
 from . import character_combat, character_equipment, character_learning, character_progression
 from .item_engine import ItemEngine
+from charsheet.constants import infer_weapon_type
 from charsheet.modifiers import ModifierEngine, ModifierResolutionMode, TargetDomain
 from charsheet.models import (
     Character,
@@ -1032,7 +1033,7 @@ class CharacterEngine:
         """Return the final resolved value for one skill."""
         return int(self._skill_base(skill_slug)) + int(self._skill_modifiers(skill_slug))
 
-    def weapon_mastery_for_item(self, item: Item | int | None) -> CharacterWeaponMastery | None:
+    def weapon_mastery_for_item(self, item: Item | CharacterItem | int | None) -> CharacterWeaponMastery | None:
         """Return the mastered weapon-type entry for one item, if learned."""
         if item is None:
             return None
@@ -1040,13 +1041,22 @@ class CharacterEngine:
             item_obj = Item.objects.select_related("weaponstats").filter(pk=item).first()
         else:
             item_obj = item
-        item_id = getattr(item_obj, "id", None)
-        if item_obj is None or item_id is None:
+        if item_obj is None:
             return None
-        weapon_stats = getattr(item_obj, "weaponstats", None)
-        weapon_type = str(getattr(weapon_stats, "weapon_type", "") or "")
+        effective_item = item_obj.item if isinstance(item_obj, CharacterItem) else item_obj
+        item_id = getattr(effective_item, "id", None)
+        if item_id is None:
+            return None
+        weapon_type = ItemEngine(item_obj).get_weapon_type()
         if weapon_type:
             mastery = self._weapon_mastery_entries_by_type.get(weapon_type)
+            if mastery is not None:
+                return mastery
+        inferred_weapon_type = infer_weapon_type(
+            ItemEngine(item_obj).get_name() if isinstance(item_obj, CharacterItem) else getattr(effective_item, "name", "")
+        )
+        if inferred_weapon_type:
+            mastery = self._weapon_mastery_entries_by_type.get(inferred_weapon_type)
             if mastery is not None:
                 return mastery
         return self._weapon_mastery_entries_by_item_id.get(item_id)
@@ -1057,13 +1067,11 @@ class CharacterEngine:
         return self.weapon_mastery_bonus_for_entry(mastery)
 
     def weapon_mastery_bonus_for_entry(self, mastery: CharacterWeaponMastery | None) -> tuple[int, int]:
-        """Return maneuver/damage bonuses for one mastered weapon entry including arcana boosts."""
+        """Return maneuver/damage bonuses for one mastered weapon entry from school level progression."""
         school_entry = self._weapon_master_school_entry
         if mastery is None or school_entry is None:
             return 0, 0
-        maneuver_bonus, damage_bonus = mastery.maneuver_damage_bonus(school_entry.level)
-        arcana_bonus = self.weapon_mastery_arcana_bonus_capacity()
-        return maneuver_bonus + arcana_bonus, damage_bonus + arcana_bonus
+        return mastery.maneuver_damage_bonus(school_entry.level)
 
     def weapon_mastery_quality_bonus_for_item(self, item: Item | int | None) -> int:
         """Return the crafting quality-step bonus for one mastered weapon type."""

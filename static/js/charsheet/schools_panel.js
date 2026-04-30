@@ -59,6 +59,39 @@ document.addEventListener("click", (event) => {
   btn.setAttribute("aria-expanded", willOpen ? "true" : "false");
 });
 
+export function initWmArcanaFilter() {
+  const input = document.getElementById("wmArcanaFilterInput");
+  const panel = document.getElementById("wmArcanaList");
+  if (!(input instanceof HTMLInputElement) || !(panel instanceof HTMLElement)) {
+    return;
+  }
+
+  if (input.dataset.wmFilterBound === "1") {
+    return;
+  }
+  input.dataset.wmFilterBound = "1";
+
+  const rows = Array.from(panel.querySelectorAll("[data-wm-search]"));
+  const sections = Array.from(panel.querySelectorAll("[data-wm-section]"));
+
+  const runFilter = () => {
+    const needle = normalizeText(input.value);
+    rows.forEach((row) => {
+      const haystack = normalizeText(row.getAttribute("data-wm-search"));
+      row.hidden = needle ? !haystack.includes(needle) : false;
+    });
+    sections.forEach((section) => {
+      const sectionRows = Array.from(section.querySelectorAll("[data-wm-search]"));
+      section.hidden = needle ? sectionRows.every((row) => row.hidden) : false;
+    });
+  };
+
+  input.addEventListener("input", runFilter);
+  input.addEventListener("search", runFilter);
+  input.addEventListener("change", runFilter);
+  runFilter();
+}
+
 export function initSchoolsPanel() {
   const input = document.getElementById("schoolsFilterInput");
   const list = document.getElementById("schoolsList");

@@ -100,6 +100,14 @@
               <div class="shop_item_form_fieldset">
                 <div class="shop_item_form_fieldset_title">Waffenwerte</div>
                 <div class="shop_item_form_grid">
+                  <label class="shop_item_form_row">
+                    <span>Waffentyp</span>
+                    <select name="weapon_type">
+                      {% for value, label in shop_weapon_type_choices %}
+                        <option value="{{ value }}">{{ label }}</option>
+                      {% endfor %}
+                    </select>
+                  </label>
                   <label class="shop_item_form_row"><span>Schaden W&uuml;rfelanzahl</span><input type="number" name="weapon_damage_dice_amount" min="1" step="1" value="1"></label>
                   <label class="shop_item_form_row"><span>Schaden W&uuml;rfelseiten</span><input type="number" name="weapon_damage_dice_faces" min="2" step="1" value="10"></label>
                   <label class="shop_item_form_row">
@@ -184,6 +192,7 @@
             <input type="hidden" name="magic_modifier_payloads" id="runeRetrofitMagicModifierPayloads" value="[]">
             <div class="shop_magic_effect_list" id="runeRetrofitMagicEffectsList"></div>
             <div class="shop_magic_effect_actions">
+              <button type="button" class="shop_item_cancel_btn" id="runeRetrofitAddPlusOneBtn">Waffenmeister-Bonus +1/+1</button>
               <button type="button" class="shop_item_cancel_btn" id="runeRetrofitAddEffectBtn">Effekt hinzuf&uuml;gen</button>
             </div>
           </div>

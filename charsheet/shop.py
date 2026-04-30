@@ -10,7 +10,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError
 from django.db import transaction
 
-from charsheet.constants import DEADLY, MELEE_MANEUVERS
+from charsheet.constants import DEADLY, MELEE_MANEUVERS, WEAPON_DAMAGE
 from charsheet.engine import ItemEngine
 from charsheet.magic_effects import TEXT_TARGET_KIND, pack_magic_effect_summary
 from charsheet.models import (
@@ -165,6 +165,9 @@ def _build_magic_modifier_payload(target_kind: str, raw_value, row_data) -> dict
     elif target_kind == "weapon_maneuver":
         payload["target_kind"] = Modifier.TargetKind.STAT
         payload["target_slug"] = MELEE_MANEUVERS
+    elif target_kind == "weapon_damage":
+        payload["target_kind"] = Modifier.TargetKind.STAT
+        payload["target_slug"] = WEAPON_DAMAGE
     elif target_kind == Modifier.TargetKind.SKILL:
         skill_id = int(row_data.get("target_skill") or 0)
         if skill_id <= 0:
@@ -400,6 +403,9 @@ def apply_character_item_modifications(character_item: CharacterItem, post_data)
             character_item.is_magic = is_magic
             character_item.magic_effect_summary = magic_effect_summary
             if weapon_stats is not None:
+                character_item.weapon_type_override = str(
+                    post_data.get("weapon_type") or getattr(weapon_stats, "weapon_type", "")
+                ).strip()
                 character_item.weapon_min_st_override = _read_int(post_data, "weapon_min_st", weapon_stats.min_st, minimum=1)
                 character_item.weapon_damage_source_override = weapon_damage_source
                 character_item.weapon_damage_dice_amount_override = _read_int(

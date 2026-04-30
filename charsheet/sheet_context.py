@@ -30,6 +30,7 @@ from charsheet.constants import (
     QUALITY_COLOR_MAP,
     STAT_SLUG_CHOICES,
     SOURCE_ITEM_RUNE,
+    WEAPON_TYPE_CHOICES,
 )
 from charsheet.engine import ItemEngine
 from charsheet.forms import (
@@ -43,6 +44,7 @@ from charsheet.learning_rules import DEFAULT_SCHOOL_MAX_LEVEL, school_max_levels
 from charsheet.models import (
     Character,
     CharacterItem,
+    CharacterWeaponMasteryArcana,
     ItemRune,
     CharacterLanguage,
     CharacterSpell,
@@ -693,6 +695,7 @@ def _build_weapon_calculation_tooltip(engine, row: dict[str, object]) -> str:
     damage_source_slug = getattr(damage_source, "slug", "") or getattr(weapon_stats, "damage_type", "")
     strength_mod = engine.attribute_modifier(ATTR_ST)
     mastery_bonus = int(row.get("weapon_mastery_damage_bonus", 0) or 0)
+    item_damage_bonus = int(row.get("item_damage_modifier", 0) or 0)
     mastery_source = "Schule: Waffenmeister"
     weapon_master_school_entry = getattr(engine, "_weapon_master_school_entry", None)
     if weapon_master_school_entry is not None and getattr(weapon_master_school_entry, "school", None) is not None:
@@ -709,10 +712,63 @@ def _build_weapon_calculation_tooltip(engine, row: dict[str, object]) -> str:
                 "source": mastery_source,
                 "tone": "modifier" if mastery_bonus else "",
             },
+            *(
+                [{
+                    "label": "Waffenmeistereffekt",
+                    "value": format_modifier(item_damage_bonus),
+                    "source": row["item"].name,
+                    "tone": "modifier",
+                }]
+                if item_damage_bonus
+                else []
+            ),
             {"label": "Belastung", "value": row["bel_malus_display"]},
             {"label": "= Gesamt", "value": row["with_bel_display"], "tone": "total"},
         ]
     )
+
+
+def _build_weapon_maneuver_breakdown_rows(engine, weapon_row: dict[str, object]) -> list[dict[str, object]]:
+    """Return source-separated maneuver modifier rows for one weapon context entry."""
+    rows: list[dict[str, object]] = []
+
+    quality_bonus = int(weapon_row.get("quality_maneuver_bonus", 0) or 0)
+    if quality_bonus:
+        rows.append({
+            "label": "Qualitaet",
+            "value": format_modifier(quality_bonus),
+            "source": weapon_row["item"].name,
+        })
+
+    combat_bonus = int(weapon_row.get("trait_maneuver_modifier", 0) or 0)
+    if combat_bonus:
+        rows.append({
+            "label": "Manoevermodifikatoren",
+            "value": format_modifier(combat_bonus),
+            "source": "Allgemein",
+        })
+
+    mastery_bonus = int(weapon_row.get("weapon_mastery_maneuver_bonus", 0) or 0)
+    if mastery_bonus:
+        mastery_source = "Schule: Waffenmeister"
+        weapon_master_school_entry = getattr(engine, "_weapon_master_school_entry", None)
+        if weapon_master_school_entry is not None and getattr(weapon_master_school_entry, "school", None) is not None:
+            mastery_source = weapon_master_school_entry.school.name
+        rows.append({
+            "label": "Waffenmeister",
+            "value": format_modifier(mastery_bonus),
+            "source": mastery_source,
+        })
+
+    item_bonus = int(weapon_row.get("item_maneuver_modifier", 0) or 0)
+    if item_bonus:
+        rows.append({
+            "label": "Waffeneffekt",
+            "value": format_modifier(item_bonus),
+            "source": weapon_row["item"].name,
+        })
+
+    return rows
 
 
 def _build_total_armor_tooltip(engine) -> str:
@@ -1172,6 +1228,7 @@ def _build_skill_rows(character: Character, engine, *, load_penalty: int) -> tup
             maneuver_bonus = int(weapon_row.get("total_maneuver_modifier") or 0)
             if maneuver_bonus == 0:
                 continue
+            maneuver_breakdown_rows = _build_weapon_maneuver_breakdown_rows(engine, weapon_row)
             rows.append(
                 {
                     "row_kind": "weapon_context",
@@ -1193,7 +1250,7 @@ def _build_skill_rows(character: Character, engine, *, load_penalty: int) -> tup
                     "calculation_tooltip": _build_core_stat_tooltip(
                         [
                             {"label": "Grundwert", "value": int(base_row["with_load_total_value"]), "source": base_row["display_name"]},
-                            {"label": "Manoeverbonus", "value": format_modifier(maneuver_bonus), "source": weapon_row["item"].name},
+                            *maneuver_breakdown_rows,
                             {"label": "= Gesamt", "value": int(base_row["with_load_total_value"]) + maneuver_bonus, "tone": "total"},
                         ]
                     ),
@@ -1422,6 +1479,7 @@ def _build_inventory_rows(character: Character) -> list[dict]:
                         "price": item_engine.get_base_price(),
                         "weight": str(item_engine._get_override_value("weight_override", item.weight)),
                         "size_class": item_engine.get_size_class(),
+                        "weapon_type": item_engine.get_weapon_type(),
                         "weapon_min_st": item_engine.get_weapon_min_st(),
                         "weapon_damage_source": getattr(
                             item_engine._get_override_value(
@@ -1833,7 +1891,7 @@ def _build_school_technique_rows(character: Character, engine) -> tuple[list[dic
             key=lambda entry: (entry.pick_order, entry.weapon_type_label()),
         )
         for mastery in mastered_entries:
-            maneuver_bonus, damage_bonus = engine.weapon_mastery_bonus_for_entry(mastery)
+            maneuver_bonus, damage_bonus = mastery.maneuver_damage_bonus(school_levels[weapon_master_school.id])
             school_technique_rows.append(
                 {
                     "kind": "weapon_mastery",
@@ -1880,6 +1938,46 @@ def _group_school_technique_rows(
         groups[school_name]["rows"].append(row)
 
     return race_rows, list(groups.values())
+
+
+def _build_weapon_mastery_arcana_panel(engine) -> dict | None:
+    """Build context for the weapon mastery arcana tab, or None when not applicable."""
+    weapon_master_school_entry = engine._weapon_master_school_entry
+    if weapon_master_school_entry is None:
+        return None
+    entries = engine._weapon_mastery_arcana_entries
+    mastered_entries = sorted(
+        engine._weapon_mastery_entries_by_type.values(),
+        key=lambda mastery: (mastery.pick_order, mastery.weapon_type_label()),
+    )
+    bonus_entries = []
+    rune_entries = []
+    for index, entry in enumerate(entries):
+        related_mastery = mastered_entries[index] if index < len(mastered_entries) else None
+        related_weapon_type = related_mastery.weapon_type_label() if related_mastery is not None else "Nicht festgelegt"
+        if entry.kind == CharacterWeaponMasteryArcana.ArcanaKind.RUNE and entry.rune_id:
+            rune_entries.append({
+                "kind": "rune",
+                "label": entry.rune.name,
+                "description": (entry.rune.description or "").strip(),
+                "image": str(entry.rune.image) if entry.rune.image else None,
+                "weapon_type_label": related_weapon_type,
+            })
+        elif entry.kind == CharacterWeaponMasteryArcana.ArcanaKind.BONUS_CAPACITY:
+            bonus_entries.append({
+                "kind": "bonus_capacity",
+                "label": "+1/+1 Bonuskapazität",
+                "description": "Erhöht die beherrschbare magische Bonuskapazität um +1/+1.",
+            })
+            bonus_entries[-1]["label"] = related_weapon_type
+            bonus_entries[-1]["description"] = (
+                f"Erhoeht die beherrschbare magische Bonuskapazitaet fuer {related_weapon_type} um +1/+1."
+            )
+    return {
+        "bonus_entries": bonus_entries,
+        "rune_entries": rune_entries,
+        "has_entries": bool(bonus_entries or rune_entries),
+    }
 
 
 def _build_language_rows(character: Character) -> tuple[list[dict], object]:
@@ -2237,6 +2335,7 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
     school_technique_rows, school_levels = _build_school_technique_rows(character, engine)
     school_race_rows, school_technique_groups = _group_school_technique_rows(school_technique_rows, school_levels)
     language_rows, language_entries = _build_language_rows(character)
+    weapon_mastery_arcana_panel = _build_weapon_mastery_arcana_panel(engine)
 
     initiative_value = engine.calculate_initiative()
     initiative_stat_mod = engine._resolve_stat_modifiers(INITIATIVE)
@@ -2508,7 +2607,27 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
             ("stat", "Wert auf dem Bogen"),
             ("skill", "Einzelne Fertigkeit"),
             ("category", "Fertigkeitskategorie"),
-            ("weapon_maneuver", "Bonus/Malus auf ManÃ¶ver mit dieser Waffe"),
+            ("weapon_maneuver", "Bonus/Malus auf Manöver mit dieser Waffe"),
+            ("weapon_damage", "Bonus/Malus auf Schaden mit dieser Waffe"),
+        ],
+        "shop_weapon_type_choices": WEAPON_TYPE_CHOICES,
+        "shop_modifier_target_kind_choices": [
+            (TEXT_TARGET_KIND, "Text"),
+            ("attribute", "Attribut"),
+            ("stat", "Wert auf dem Bogen"),
+            ("skill", "Einzelne Fertigkeit"),
+            ("category", "Fertigkeitskategorie"),
+            ("item_category", "Alle Gegenstände eines Typs"),
+            ("specialization", "Spezialisierung"),
+        ],
+        "item_modifier_target_kind_choices": [
+            (TEXT_TARGET_KIND, "Text"),
+            ("attribute", "Attribut"),
+            ("stat", "Wert auf dem Bogen"),
+            ("skill", "Einzelne Fertigkeit"),
+            ("category", "Fertigkeitskategorie"),
+            ("weapon_maneuver", "Bonus/Malus auf Manöver mit dieser Waffe"),
+            ("weapon_damage", "Bonus/Malus auf Schaden mit dieser Waffe"),
         ],
         "shop_modifier_attribute_choices": ATTRIBUTE_ORDER,
         "shop_modifier_stat_choices": STAT_SLUG_CHOICES,
@@ -2519,6 +2638,7 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
         ],
         "shop_modifier_specialization_choices": Specialization.objects.order_by("name"),
         "shop_runes": Rune.objects.order_by("name"),
+        "weapon_mastery_arcana_panel": weapon_mastery_arcana_panel,
         "spell_panel_enabled": bool(spell_panel_data["spell_panel_enabled"]),
         "spell_and_lessons_panel_enabled": bool(spell_panel_data["spell_and_lessons_panel_enabled"]),
         "has_castable_entries": bool(spell_panel_data["has_castable_entries"]),

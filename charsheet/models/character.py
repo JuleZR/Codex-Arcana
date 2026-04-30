@@ -15,6 +15,7 @@ from ..constants import (
     QUALITY_COMMON,
     RESOURCE_KEY_CHOICES,
     STAT_SLUG_CHOICES,
+    WEAPON_TYPE_CHOICES,
     WIELD_MODES,
 )
 from .core import Attribute, DamageSource, Language, Race, Skill, SkillCategory, Trait
@@ -193,6 +194,7 @@ class CharacterItem(models.Model):
     price_override = models.IntegerField(null=True, blank=True)
     weight_override = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
     size_class_override = models.CharField(max_length=5, choices=GK_CHOICES, blank=True, default="")
+    weapon_type_override = models.CharField(max_length=30, choices=WEAPON_TYPE_CHOICES, blank=True, default="")
     weapon_min_st_override = models.PositiveIntegerField(null=True, blank=True)
     weapon_damage_source_override = models.ForeignKey(
         DamageSource,

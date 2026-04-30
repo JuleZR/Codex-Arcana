@@ -138,6 +138,13 @@ class ItemEngine:
             return None
         return int(self._get_override_value("weapon_min_st_override", stats.min_st))
 
+    def get_weapon_type(self) -> str:
+        """Return the effective weapon type used for matching and UI."""
+        stats = self._get_weapon_stats()
+        if not stats:
+            return ""
+        return str(self._get_override_value("weapon_type_override", stats.weapon_type) or "")
+
     def get_weapon_wield_mode(self) -> str | None:
         """Return the configured wield mode code."""
         stats = self._get_weapon_stats()

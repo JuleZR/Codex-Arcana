@@ -2503,14 +2503,20 @@
   display: flex;
   flex: 0 0 auto;
   justify-content: flex-start;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
   width: 100%;
   position: relative;
   z-index: 0;
-  margin-top: 2px;
+  margin-top: 6px;
 }
 
 .shop_magic_effect_actions .shop_item_cancel_btn {
   position: static;
+  flex: 0 1 auto;
+  min-width: 0;
+  white-space: nowrap;
 }
 
 .shop_item_form_checklist {
@@ -2630,6 +2636,12 @@
 
 .rune_window .shop_magic_effect_list {
   min-height: 0;
+}
+
+.rune_window .shop_magic_effect_actions {
+  position: relative;
+  inset: auto;
+  transform: none;
 }
 
 .rune_dropdown {
@@ -2793,4 +2805,211 @@
   hyphens: auto;
 }
 
+/* ── Lower panel (body zones / spells / weapon mastery tabs) ────────── */
 
+.p2_lower_panel {
+  overflow: visible;
+}
+
+.p2_lower_panel--tabbed {
+  display: flex;
+  flex-direction: column;
+  height: 330px;
+}
+
+/* Alle Tabs füllen die verbleibende Höhe gleich (330px − Tab-Leiste) */
+.p2_lower_panel--tabbed [data-tab-panel] {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* Körper-Tab: kein Scroll */
+.p2_lower_panel__body_tab {
+  overflow: hidden;
+}
+
+/* Zauber-Tab: flex-Spalte, inneres spell_scroll übernimmt das Scrollen */
+.p2_lower_panel__spell_tab {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.p2_lower_panel__spell_tab .p2_spells {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* Waffenmeister-Tab: scrollt wenn Inhalt zu lang */
+.p2_lower_panel__wm_tab {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.p2_lower_panel__wm_tab .wm_arcana_scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-right: 4px;
+}
+
+[data-tab-panel][hidden] {
+  display: none !important;
+}
+
+/* ── Panel Tabs (lower panel + future use) ──────────────────────────── */
+
+.panel_tabs__list {
+  display: flex;
+  gap: 2px;
+  margin: 0 -6px 4px;
+  padding: 0 4px;
+  border-bottom: 1px solid rgba(114, 80, 46, 0.28);
+}
+
+.panel_tabs__tab {
+  padding: 3px 10px 4px;
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-size: 1.05rem;
+  color: rgba(74, 55, 38, 0.55);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.panel_tabs__tab:hover {
+  color: var(--line);
+}
+
+.panel_tabs__tab[aria-selected="true"] {
+  color: var(--line);
+  border-bottom-color: rgba(114, 80, 46, 0.55);
+}
+
+/* Weapon mastery arcana list */
+
+.wm_arcana_list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.wm_arcana_section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.wm_arcana_section_header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.wm_arcana_section_title {
+  font-size: 0.96rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.wm_arcana_list--bonus {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.wm_arcana_entry {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  min-height: 34px;
+  padding: 6px 10px;
+  font-size: 0.86rem;
+  border: 1px solid rgba(74, 55, 38, 0.18);
+  border-radius: 6px;
+  background: rgba(250, 244, 229, 0.46);
+}
+
+.wm_arcana_kind {
+  font-size: 0.74rem;
+  color: rgba(74, 55, 38, 0.55);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.wm_arcana_entry--bonus .wm_arcana_kind {
+  color: rgba(40, 100, 60, 0.7);
+}
+
+.wm_rune_grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+.wm_rune_card {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  min-height: 60px;
+  padding: 10px 12px;
+  border: 1px solid rgba(74, 55, 38, 0.18);
+  border-radius: 6px;
+  background: rgba(250, 244, 229, 0.46);
+}
+
+.wm_rune_card_media {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: rgba(74, 55, 38, 0.08);
+}
+
+.wm_rune_card_image {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+}
+
+.wm_rune_card_glyph {
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.wm_rune_card_copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.wm_rune_card_title {
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.wm_rune_card_kind {
+  font-size: 0.72rem;
+  color: rgba(80, 50, 120, 0.7);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.wm_arcana_empty {
+  font-size: 0.82rem;
+  color: rgba(74, 55, 38, 0.45);
+  padding: 4px 2px;
+  font-style: italic;
+}

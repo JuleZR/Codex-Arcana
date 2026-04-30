@@ -97,6 +97,7 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
   const magicEffectsList = document.getElementById("runeRetrofitMagicEffectsList");
   const magicEffectTemplate = document.getElementById("runeRetrofitMagicEffectTemplate");
   const magicAddEffectButton = document.getElementById("runeRetrofitAddEffectBtn");
+  const magicAddPlusOneButton = document.getElementById("runeRetrofitAddPlusOneBtn");
   const magicPayloadInput = document.getElementById("runeRetrofitMagicModifierPayloads");
   const runePayloadInput = document.getElementById("runeRetrofitRunePayloads");
   const runeArmorFields = document.getElementById("runeRetrofitArmorFields");
@@ -366,18 +367,20 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
     magicEffectsList.append(row);
     const targetKindSelect = row.querySelector("[data-magic-target-kind]");
     if (targetKindSelect instanceof HTMLSelectElement) {
-      const weaponOnlyOption = targetKindSelect.querySelector("option[value='weapon_maneuver']");
-      if (weaponOnlyOption instanceof HTMLOptionElement) {
-        weaponOnlyOption.hidden = retrofitItemType !== "weapon";
-        weaponOnlyOption.disabled = retrofitItemType !== "weapon";
-      }
+      ["weapon_maneuver", "weapon_damage"].forEach((optionValue) => {
+        const weaponOnlyOption = targetKindSelect.querySelector(`option[value='${optionValue}']`);
+        if (weaponOnlyOption instanceof HTMLOptionElement) {
+          weaponOnlyOption.hidden = retrofitItemType !== "weapon";
+          weaponOnlyOption.disabled = retrofitItemType !== "weapon";
+        }
+      });
     }
     if (initialPayload && typeof initialPayload === "object") {
       const valueInput = row.querySelector("[data-magic-value-input]");
       const descriptionInput = row.querySelector("[data-magic-effect-description]");
       if (targetKindSelect instanceof HTMLSelectElement) {
         targetKindSelect.value = String(initialPayload.target_kind || "");
-        if (retrofitItemType !== "weapon" && targetKindSelect.value === "weapon_maneuver") {
+        if (retrofitItemType !== "weapon" && ["weapon_maneuver", "weapon_damage"].includes(targetKindSelect.value)) {
           targetKindSelect.value = "";
         }
       }
@@ -760,6 +763,7 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
     });
 
     [
+      "weapon_type",
       "weapon_min_st",
       "weapon_damage_source",
       "weapon_damage_dice_amount",
@@ -797,6 +801,9 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
 
     populateMagicEffects(magicModifierPayloads);
     syncRetrofitDetailSections();
+    if (magicAddPlusOneButton instanceof HTMLButtonElement) {
+      magicAddPlusOneButton.hidden = retrofitItemType !== "weapon";
+    }
     syncRuneSelectionCount();
     serializeRunePayloads();
     filterRuneEntries();
@@ -813,6 +820,21 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
   runeCancelButton?.addEventListener("click", closeRuneWindow);
   magicAddEffectButton?.addEventListener("click", () => {
     addMagicEffectRow();
+  });
+  magicAddPlusOneButton?.addEventListener("click", () => {
+    if (retrofitItemType !== "weapon") {
+      return;
+    }
+    addMagicEffectRow({
+      target_kind: "weapon_maneuver",
+      value: 1,
+      effect_description: "Waffenmeister-Bonus +1/+1",
+    });
+    addMagicEffectRow({
+      target_kind: "weapon_damage",
+      value: 1,
+      effect_description: "Waffenmeister-Bonus +1/+1",
+    });
   });
 
   runeForm?.addEventListener("submit", () => {

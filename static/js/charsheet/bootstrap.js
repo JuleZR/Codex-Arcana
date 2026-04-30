@@ -16,7 +16,7 @@ import { initDamagePanel } from "./damage_panel.js";
 import { initSpellPanel } from "./spell_panel.js";
 import { initCharInfoCounter } from "./char_info_counter.js";
 import { initSheetActions } from "./sheet_actions.js";
-import { initSchoolsPanel } from "./schools_panel.js";
+import { initSchoolsPanel, initWmArcanaFilter } from "./schools_panel.js";
 import { initMobileHud } from "./mobile_hud.js";
 import { initSkillManager } from "./skill_manager.js";
 import { initArmorPanel } from "./armor_panel.js";
@@ -44,15 +44,18 @@ onReady(() => {
   initSpellPanel();
   initCharInfoCounter();
   initSchoolsPanel();
+  initWmArcanaFilter();
   initArmorPanel();
   initMobileHud();
 
   document.addEventListener("charsheet:partials-applied", () => {
+    initTabs();
     initStandardFloatingWindows();
     initDamagePanel();
     initSpellPanel();
     initCharInfoCounter();
     initSchoolsPanel();
+    initWmArcanaFilter();
     initArmorPanel();
     document.dispatchEvent(new Event("learn:refresh-totals"));
   });

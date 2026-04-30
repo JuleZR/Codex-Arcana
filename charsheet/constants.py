@@ -11,6 +11,7 @@ DEFENSE_GW = "gw"
 DEFENSE_SR = "sr"
 DEFENSE_RS = "rs"
 MELEE_MANEUVERS = "melee_maneuvers"
+WEAPON_DAMAGE = "weapon_damage"
 
 STAT_SLUG_CHOICES = [
     (INITIATIVE, "Initiative"),
@@ -25,6 +26,7 @@ STAT_SLUG_CHOICES = [
     (DEFENSE_SR, "SR"),
     (DEFENSE_RS, "RS"),
     (MELEE_MANEUVERS, "Manöver mit dieser Waffe"),
+    (WEAPON_DAMAGE, "Schaden mit dieser Waffe"),
 ]
 
 VALID_STAT_SLUGS = {
@@ -40,6 +42,7 @@ VALID_STAT_SLUGS = {
     DEFENSE_SR,
     DEFENSE_RS,
     MELEE_MANEUVERS,
+    WEAPON_DAMAGE,
 }
 
 SOURCE_ITEM_RUNE = "item_rune"
@@ -293,6 +296,70 @@ WEAPON_TYPE_CHOICES = (
 )
 
 WEAPON_TYPE_LABELS = dict(WEAPON_TYPE_CHOICES)
+
+
+def infer_weapon_type(name: str) -> str:
+    """Infer a weapon type from a weapon name for legacy or incomplete data."""
+    normalized = (name or "").strip().lower()
+    if not normalized:
+        return WEAPON_TYPE_UNSPECIFIED
+    if (
+        "zweihander" in normalized
+        or "zweihandschwert" in normalized
+        or "zweihandkhopesh" in normalized
+        or "zweihandkrummschwert" in normalized
+        or "claymore" in normalized
+    ):
+        return WEAPON_TYPE_TWO_HANDED_SWORD
+    if "kurzschwert" in normalized:
+        return WEAPON_TYPE_SHORTSWORD
+    if "khopesh" in normalized or "krummschwert" in normalized or "sabel" in normalized or "sidarr sing" in normalized:
+        return WEAPON_TYPE_CURVED_SWORD
+    if "langschwert" in normalized or "breitschwert" in normalized or "bastardschwert" in normalized:
+        return WEAPON_TYPE_LONGSWORD
+    if "schwert" in normalized or "sing" in normalized:
+        return WEAPON_TYPE_LONGSWORD
+    if "rapier" in normalized or "degen" in normalized or "florett" in normalized:
+        return WEAPON_TYPE_RAPIER
+    if any(token in normalized for token in ("dolch", "messer", "stilett", "main gauche", "khatar")):
+        return WEAPON_TYPE_DAGGER
+    if "zweihandstreitaxt" in normalized or "trollzweihandaxt" in normalized:
+        return WEAPON_TYPE_TWO_HANDED_AXE
+    if "axt" in normalized or "beil" in normalized:
+        return WEAPON_TYPE_AXE
+    if "zweihandkriegshammer" in normalized or "zweihandtrollkriegshammer" in normalized:
+        return WEAPON_TYPE_TWO_HANDED_HAMMER
+    if "kriegshammer" in normalized or "hammer" in normalized:
+        return WEAPON_TYPE_HAMMER
+    if "zweihandflegel" in normalized or "geissel" in normalized:
+        return WEAPON_TYPE_FLAIL
+    if any(token in normalized for token in ("streitkolben", "keule", "knuppel", "totschlager", "morgenstern")):
+        return WEAPON_TYPE_MACE
+    if "turnierlanze" in normalized or "lanze" in normalized:
+        return WEAPON_TYPE_LANCE
+    if "dreizack" in normalized or "speer" in normalized or "wurfspiess" in normalized or "wurfspie" in normalized:
+        return WEAPON_TYPE_SPEAR
+    if any(token in normalized for token in ("hellebarde", "glefe", "pike", "berdyche", "kriegsgabel", "gaffel", "haken", "stangenaxt", "sense")):
+        return WEAPON_TYPE_POLEARM
+    if "sichel" in normalized:
+        return WEAPON_TYPE_CURVED_SWORD
+    if "kampfstab" in normalized:
+        return WEAPON_TYPE_STAFF
+    if "kette" in normalized or "mornabat" in normalized:
+        return WEAPON_TYPE_CHAIN
+    if "peitsche" in normalized or "lasso" in normalized:
+        return WEAPON_TYPE_WHIP
+    if any(token in normalized for token in ("faust", "tritt", "cestus", "handschuh", "panzerschuh")):
+        return WEAPON_TYPE_FIST
+    if "armbrust" in normalized:
+        return WEAPON_TYPE_CROSSBOW
+    if "bogen" in normalized:
+        return WEAPON_TYPE_BOW
+    if "blasrohr" in normalized:
+        return WEAPON_TYPE_BLOWGUN
+    if any(token in normalized for token in ("netz", "fussangeln", "fangeisen", "spikes")):
+        return WEAPON_TYPE_TRAP
+    return WEAPON_TYPE_SPECIAL
 
 # Weapon Symbols
 MOUNTED_TWO_HANDED = "mounted_two_handed"
