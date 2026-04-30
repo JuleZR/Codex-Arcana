@@ -93,7 +93,6 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
   const runePriceInput = document.getElementById("runeRetrofitPrice");
   const runeWeightInput = document.getElementById("runeRetrofitWeight");
   const runeSizeClassSelect = document.getElementById("runeRetrofitSizeClass");
-  const runeMagicEffectSummaryInput = document.getElementById("runeRetrofitMagicEffectSummary");
   const runeDescriptionInput = document.getElementById("runeRetrofitDescription");
   const magicEffectsList = document.getElementById("runeRetrofitMagicEffectsList");
   const magicEffectTemplate = document.getElementById("runeRetrofitMagicEffectTemplate");
@@ -679,7 +678,6 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
       .map((value) => value.trim())
       .filter(Boolean);
     const description = String(button.getAttribute("data-description") || "");
-    const magicEffectSummary = String(button.getAttribute("data-magic-effect-summary") || "");
     retrofitItemType = String(button.getAttribute("data-item-type") || "");
     const magicModifierPayloads = parseJsonList(button.getAttribute("data-magic-modifier-payloads"));
     const modifyPayload = parseJsonObject(button.getAttribute("data-modify-payload"));
@@ -730,9 +728,6 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
     }
     if (runeSizeClassSelect instanceof HTMLSelectElement) {
       runeSizeClassSelect.value = String(modifyPayload.size_class || "");
-    }
-    if (runeMagicEffectSummaryInput instanceof HTMLInputElement) {
-      runeMagicEffectSummaryInput.value = magicEffectSummary;
     }
     if (runeDescriptionInput instanceof HTMLTextAreaElement) {
       runeDescriptionInput.value = description;
