@@ -33,6 +33,7 @@ from .items import (
     RaceStartingItem,
     Rune,
     ShieldStats,
+    WeaponType,
     WeaponStats,
 )
 from .modifier import Modifier
@@ -126,6 +127,7 @@ __all__ = [
     "TraitChoiceDefinition",
     "TraitExclusion",
     "TraitSemanticEffect",
+    "WeaponType",
     "WeaponStats",
     "RaceStartingItem",
 ]

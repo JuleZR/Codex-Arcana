@@ -26,11 +26,12 @@ from charsheet.constants import (
     GK_CHOICES,
     GK_MODS,
     INITIATIVE,
+    MELEE_MANEUVERS,
     QUALITY_CHOICES,
     QUALITY_COLOR_MAP,
     STAT_SLUG_CHOICES,
     SOURCE_ITEM_RUNE,
-    WEAPON_TYPE_CHOICES,
+    WEAPON_DAMAGE,
 )
 from charsheet.engine import ItemEngine
 from charsheet.forms import (
@@ -64,6 +65,7 @@ from charsheet.models import (
     Specialization,
     Technique,
     Trait,
+    WeaponType,
 )
 from charsheet.view_utils import format_compact_number, format_modifier, format_thousands, quality_payload
 
@@ -439,7 +441,7 @@ def _serialize_modifier_payload(modifier: Modifier) -> dict[str, object]:
         target_display = dict(ATTRIBUTE_ORDER).get(str(modifier.target_slug or ""), str(modifier.target_slug or ""))
     elif modifier.target_kind == Modifier.TargetKind.STAT:
         if (
-            str(modifier.target_slug or "") == "melee_maneuvers"
+            str(modifier.target_slug or "") == MELEE_MANEUVERS
             and getattr(getattr(modifier, "source_content_type", None), "model", "") == "characteritem"
         ):
             target_display = "Manöver mit dieser Waffe"
@@ -463,7 +465,7 @@ def _serialize_modifier_payload(modifier: Modifier) -> dict[str, object]:
         payload["target_attribute"] = str(modifier.target_slug or "")
     elif modifier.target_kind == Modifier.TargetKind.STAT:
         if (
-            str(modifier.target_slug or "") == "melee_maneuvers"
+            str(modifier.target_slug or "") == MELEE_MANEUVERS
             and getattr(getattr(modifier, "source_content_type", None), "model", "") == "characteritem"
         ):
             payload["target_kind"] = "weapon_maneuver"
@@ -478,6 +480,48 @@ def _serialize_modifier_payload(modifier: Modifier) -> dict[str, object]:
     elif modifier.target_kind == Modifier.TargetKind.SPECIALIZATION and modifier.target_specialization_id:
         payload["target_specialization"] = str(modifier.target_specialization_id)
     return payload
+
+
+def _collapse_weapon_mastery_bonus_payloads(modifier_payloads: list[dict[str, object]]) -> list[dict[str, object]]:
+    """Merge persisted maneuver/damage pairs back into one Waffenmeister row for the editor UI."""
+    collapsed_payloads: list[dict[str, object]] = []
+    consumed_indices: set[int] = set()
+    for index, payload in enumerate(modifier_payloads):
+        if index in consumed_indices:
+            continue
+        if str(payload.get("target_kind") or "") != "weapon_maneuver":
+            collapsed_payloads.append(payload)
+            continue
+        payload_value = int(payload.get("value", 0) or 0)
+        payload_description = str(payload.get("effect_description") or "").strip()
+        matching_index = None
+        for candidate_index in range(index + 1, len(modifier_payloads)):
+            if candidate_index in consumed_indices:
+                continue
+            candidate = modifier_payloads[candidate_index]
+            if str(candidate.get("target_kind") or "") != "stat":
+                continue
+            if str(candidate.get("target_stat") or "") != WEAPON_DAMAGE:
+                continue
+            if int(candidate.get("value", 0) or 0) != payload_value:
+                continue
+            if str(candidate.get("effect_description") or "").strip() != payload_description:
+                continue
+            matching_index = candidate_index
+            break
+        if matching_index is None:
+            collapsed_payloads.append(payload)
+            continue
+        consumed_indices.add(matching_index)
+        collapsed_payloads.append(
+            {
+                "target_kind": "weapon_mastery_bonus",
+                "value": payload_value,
+                "effect_description": payload_description or "Waffenmeister-Bonus +1/+1",
+                "target_display": "Waffenmeister-Bonus +1/+1",
+            }
+        )
+    return collapsed_payloads
 
 
 def _merge_magic_effect_payloads(
@@ -536,6 +580,8 @@ def _load_character_item_modifier_payloads(
         .order_by("id")
     ):
         modifiers_by_character_item_id.setdefault(int(modifier.source_object_id), []).append(_serialize_modifier_payload(modifier))
+    for character_item_id, payloads in list(modifiers_by_character_item_id.items()):
+        modifiers_by_character_item_id[character_item_id] = _collapse_weapon_mastery_bonus_payloads(payloads)
     return modifiers_by_character_item_id
 
 
@@ -2610,7 +2656,28 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
             ("weapon_maneuver", "Bonus/Malus auf Manöver mit dieser Waffe"),
             ("weapon_damage", "Bonus/Malus auf Schaden mit dieser Waffe"),
         ],
-        "shop_weapon_type_choices": WEAPON_TYPE_CHOICES,
+        "shop_weapon_type_choices": [
+            ("", "Nicht festgelegt"),
+            *[(weapon_type.slug, weapon_type.name) for weapon_type in WeaponType.objects.order_by("sort_order", "name")],
+        ],
+        "shop_modifier_target_kind_choices": [
+            (TEXT_TARGET_KIND, "Text"),
+            ("attribute", "Attribut"),
+            ("stat", "Wert auf dem Bogen"),
+            ("skill", "Einzelne Fertigkeit"),
+            ("category", "Fertigkeitskategorie"),
+            ("item_category", "Alle Gegenst\u00e4nde eines Typs"),
+            ("specialization", "Spezialisierung"),
+        ],
+        "item_modifier_target_kind_choices": [
+            (TEXT_TARGET_KIND, "Text"),
+            ("attribute", "Attribut"),
+            ("stat", "Wert auf dem Bogen"),
+            ("skill", "Einzelne Fertigkeit"),
+            ("category", "Fertigkeitskategorie"),
+            ("weapon_maneuver", "Bonus/Malus auf Manöver mit dieser Waffe"),
+            ("weapon_damage", "Bonus/Malus auf Schaden mit dieser Waffe"),
+        ],
         "shop_modifier_target_kind_choices": [
             (TEXT_TARGET_KIND, "Text"),
             ("attribute", "Attribut"),
@@ -2626,8 +2693,9 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
             ("stat", "Wert auf dem Bogen"),
             ("skill", "Einzelne Fertigkeit"),
             ("category", "Fertigkeitskategorie"),
-            ("weapon_maneuver", "Bonus/Malus auf Manöver mit dieser Waffe"),
-            ("weapon_damage", "Bonus/Malus auf Schaden mit dieser Waffe"),
+            ("weapon_maneuver", "Bonus/Malus auf Man\u00f6ver"),
+            ("weapon_damage", "Bonus/Malus auf Schaden"),
+            ("weapon_mastery_bonus", "Waffenmeister-Bonus +1/+1"),
         ],
         "shop_modifier_attribute_choices": ATTRIBUTE_ORDER,
         "shop_modifier_stat_choices": STAT_SLUG_CHOICES,

@@ -4,12 +4,7 @@ from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
-from ..constants import (
-    SCHOOL_TYPE_CHOICES,
-    WEAPON_TYPE_CHOICES,
-    WEAPON_TYPE_LABELS,
-    WEAPON_TYPE_UNSPECIFIED,
-)
+from ..constants import SCHOOL_TYPE_CHOICES
 
 
 class SchoolType(models.Model):
@@ -228,10 +223,12 @@ class CharacterWeaponMastery(models.Model):
         on_delete=models.CASCADE,
         related_name="character_weapon_masteries",
     )
-    weapon_type = models.CharField(
-        max_length=30,
-        choices=WEAPON_TYPE_CHOICES,
-        default=WEAPON_TYPE_UNSPECIFIED,
+    weapon_type = models.ForeignKey(
+        "charsheet.WeaponType",
+        on_delete=models.PROTECT,
+        related_name="character_masteries",
+        null=True,
+        blank=True,
         help_text="Der regeltechnische Waffentyp, auf den diese Meisterschaft wirkt.",
     )
     weapon_item = models.ForeignKey(
@@ -255,7 +252,7 @@ class CharacterWeaponMastery(models.Model):
     notes = models.TextField(blank=True)
 
     class Meta:
-        ordering = ["character", "school__name", "pick_order", "weapon_type", "id"]
+        ordering = ["character", "school__name", "pick_order", "weapon_type__name", "id"]
         constraints = [
             models.UniqueConstraint(
                 fields=["character", "school", "pick_order"],
@@ -272,7 +269,7 @@ class CharacterWeaponMastery(models.Model):
         super().clean()
         if self.weapon_item_id and self.weapon_item.item_type != self.weapon_item.ItemType.WEAPON:
             raise ValidationError({"weapon_item": "Weapon mastery entries must point at weapon items."})
-        if self.weapon_type == WEAPON_TYPE_UNSPECIFIED and not self.weapon_item_id:
+        if self.weapon_type_id is None and not self.weapon_item_id:
             raise ValidationError({"weapon_type": "Weapon mastery entries need a concrete weapon type."})
         if (
             self.character_id
@@ -283,18 +280,20 @@ class CharacterWeaponMastery(models.Model):
 
     def effective_weapon_type(self) -> str:
         """Return the stored weapon type, falling back to one linked legacy item when needed."""
-        if self.weapon_type:
-            return str(self.weapon_type)
+        if self.weapon_type_id:
+            return str(self.weapon_type.slug)
         weapon_stats = getattr(self.weapon_item, "weaponstats", None)
-        if weapon_stats and weapon_stats.weapon_type:
-            return str(weapon_stats.weapon_type)
-        return WEAPON_TYPE_UNSPECIFIED
+        if weapon_stats and weapon_stats.weapon_type_id:
+            return str(weapon_stats.weapon_type.slug)
+        return ""
 
     def weapon_type_label(self) -> str:
         """Return the display label for this mastery's weapon type."""
-        weapon_type = self.effective_weapon_type()
-        if weapon_type:
-            return str(WEAPON_TYPE_LABELS.get(weapon_type, weapon_type))
+        if self.weapon_type_id:
+            return str(self.weapon_type.name)
+        weapon_stats = getattr(self.weapon_item, "weaponstats", None)
+        if weapon_stats and weapon_stats.weapon_type_id:
+            return str(weapon_stats.weapon_type.name)
         if self.weapon_item_id:
             return self.weapon_item.name
         return "Nicht festgelegt"

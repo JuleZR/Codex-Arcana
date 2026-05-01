@@ -29,6 +29,7 @@ from charsheet.models import (
     Skill,
     TraitChoiceDefinition,
     Trait,
+    WeaponType,
 )
 from charsheet.constants import ATTR_SPEC, LEGENDARY_ATTRIBUTE_TRAIT_SLUG, RESOURCE_KEY_CHOICES, is_allowed_trait_attribute_choice
 
@@ -889,10 +890,13 @@ class CharacterCreationEngine:
             weapon_master_school = self._phase_4_waffenmeister_school()
             if weapon_master_school and self.phase_4_schools().get(str(weapon_master_school.id), 0) > 0:
                 for index, row in enumerate(self.phase_4_weapon_masteries(), start=1):
+                    weapon_type = WeaponType.objects.filter(slug=str(row["weapon_type"])).first()
+                    if weapon_type is None:
+                        continue
                     CharacterWeaponMastery.objects.create(
                         character=character,
                         school=weapon_master_school,
-                        weapon_type=str(row["weapon_type"]),
+                        weapon_type=weapon_type,
                         pick_order=index,
                         first_bonus_kind=str(row["first_bonus_kind"]),
                     )

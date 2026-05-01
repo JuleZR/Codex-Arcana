@@ -6,8 +6,6 @@ from collections import OrderedDict
 
 from charsheet.constants import (
     RESOURCE_KEY_CHOICES,
-    WEAPON_TYPE_LABELS,
-    WEAPON_TYPE_UNSPECIFIED,
     is_allowed_trait_attribute_choice,
 )
 from charsheet.models import (
@@ -22,7 +20,7 @@ from charsheet.models import (
     Specialization,
     Technique,
     TraitChoiceDefinition,
-    WeaponStats,
+    WeaponType,
 )
 
 WEAPON_MASTERY_EXCLUDED_ITEM_NAMES = {
@@ -34,17 +32,17 @@ WEAPON_MASTERY_EXCLUDED_ITEM_NAMES = {
 def weapon_mastery_weapon_type_definitions() -> list[dict[str, str]]:
     """Return weapon-type options that exist on real weapon definitions."""
     weapon_types = (
-        WeaponStats.objects.filter(item__item_type=Item.ItemType.WEAPON)
-        .exclude(item__name__in=WEAPON_MASTERY_EXCLUDED_ITEM_NAMES)
-        .exclude(weapon_type=WEAPON_TYPE_UNSPECIFIED)
-        .values_list("weapon_type", flat=True)
+        WeaponType.objects.filter(
+            weapon_stats__item__item_type=Item.ItemType.WEAPON,
+        )
+        .exclude(weapon_stats__item__name__in=WEAPON_MASTERY_EXCLUDED_ITEM_NAMES)
         .distinct()
-        .order_by("weapon_type")
+        .order_by("sort_order", "name")
     )
     return [
         {
-            "value": str(weapon_type),
-            "label": str(WEAPON_TYPE_LABELS.get(weapon_type, weapon_type)),
+            "value": str(weapon_type.slug),
+            "label": str(weapon_type.name),
         }
         for weapon_type in weapon_types
     ]

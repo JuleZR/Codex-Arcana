@@ -143,7 +143,8 @@ class ItemEngine:
         stats = self._get_weapon_stats()
         if not stats:
             return ""
-        return str(self._get_override_value("weapon_type_override", stats.weapon_type) or "")
+        weapon_type = self._get_override_value("weapon_type_override", stats.weapon_type)
+        return str(getattr(weapon_type, "slug", "") or "")
 
     def get_weapon_wield_mode(self) -> str | None:
         """Return the configured wield mode code."""

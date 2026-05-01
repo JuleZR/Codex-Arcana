@@ -238,71 +238,11 @@ DAMAGE_TYPE_CHOICES = (
     (DEADLY, "T"),
 )
 
-# Weapon Types
-WEAPON_TYPE_UNSPECIFIED = ""
-WEAPON_TYPE_LONGSWORD = "longsword"
-WEAPON_TYPE_TWO_HANDED_SWORD = "two_handed_sword"
-WEAPON_TYPE_SHORTSWORD = "shortsword"
-WEAPON_TYPE_CURVED_SWORD = "curved_sword"
-WEAPON_TYPE_SHORT_CURVED = "short_curved"
-WEAPON_TYPE_RAPIER = "rapier"
-WEAPON_TYPE_DAGGER = "dagger"
-WEAPON_TYPE_AXE = "axe"
-WEAPON_TYPE_TWO_HANDED_AXE = "two_handed_axe"
-WEAPON_TYPE_HAMMER = "hammer"
-WEAPON_TYPE_TWO_HANDED_HAMMER = "two_handed_hammer"
-WEAPON_TYPE_MACE = "mace"
-WEAPON_TYPE_FLAIL = "flail"
-WEAPON_TYPE_SPEAR = "spear"
-WEAPON_TYPE_LANCE = "lance"
-WEAPON_TYPE_POLEARM = "polearm"
-WEAPON_TYPE_STAFF = "staff"
-WEAPON_TYPE_CHAIN = "chain"
-WEAPON_TYPE_WHIP = "whip"
-WEAPON_TYPE_FIST = "fist"
-WEAPON_TYPE_BOW = "bow"
-WEAPON_TYPE_CROSSBOW = "crossbow"
-WEAPON_TYPE_BLOWGUN = "blowgun"
-WEAPON_TYPE_TRAP = "trap"
-WEAPON_TYPE_SPECIAL = "special"
-
-WEAPON_TYPE_CHOICES = (
-    (WEAPON_TYPE_UNSPECIFIED, "Nicht festgelegt"),
-    (WEAPON_TYPE_LONGSWORD, "Langschwert"),
-    (WEAPON_TYPE_TWO_HANDED_SWORD, "Zweihandschwert"),
-    (WEAPON_TYPE_SHORTSWORD, "Kurzschwert"),
-    (WEAPON_TYPE_CURVED_SWORD, "Krummschwert"),
-    (WEAPON_TYPE_SHORT_CURVED, "Kurzkrummschwet"),
-    (WEAPON_TYPE_RAPIER, "Degen / Rapier"),
-    (WEAPON_TYPE_DAGGER, "Dolch"),
-    (WEAPON_TYPE_AXE, "Axt"),
-    (WEAPON_TYPE_TWO_HANDED_AXE, "Zweihandaxt"),
-    (WEAPON_TYPE_HAMMER, "Hammer"),
-    (WEAPON_TYPE_TWO_HANDED_HAMMER, "Zweihandhammer"),
-    (WEAPON_TYPE_MACE, "Kolben / Keule"),
-    (WEAPON_TYPE_FLAIL, "Flegel / Geissel"),
-    (WEAPON_TYPE_SPEAR, "Speer"),
-    (WEAPON_TYPE_LANCE, "Lanze"),
-    (WEAPON_TYPE_POLEARM, "Stangenwaffe"),
-    (WEAPON_TYPE_STAFF, "Stab"),
-    (WEAPON_TYPE_CHAIN, "Kettenwaffe"),
-    (WEAPON_TYPE_WHIP, "Peitsche"),
-    (WEAPON_TYPE_FIST, "Faustwaffe / Unbewaffnet"),
-    (WEAPON_TYPE_BOW, "Bogen"),
-    (WEAPON_TYPE_CROSSBOW, "Armbrust"),
-    (WEAPON_TYPE_BLOWGUN, "Blasrohr"),
-    (WEAPON_TYPE_TRAP, "Netz / Falle"),
-    (WEAPON_TYPE_SPECIAL, "Sonderwaffe"),
-)
-
-WEAPON_TYPE_LABELS = dict(WEAPON_TYPE_CHOICES)
-
-
 def infer_weapon_type(name: str) -> str:
     """Infer a weapon type from a weapon name for legacy or incomplete data."""
     normalized = (name or "").strip().lower()
     if not normalized:
-        return WEAPON_TYPE_UNSPECIFIED
+        return ""
     if (
         "zweihander" in normalized
         or "zweihandschwert" in normalized
@@ -310,56 +250,56 @@ def infer_weapon_type(name: str) -> str:
         or "zweihandkrummschwert" in normalized
         or "claymore" in normalized
     ):
-        return WEAPON_TYPE_TWO_HANDED_SWORD
+        return "two_handed_sword"
     if "kurzschwert" in normalized:
-        return WEAPON_TYPE_SHORTSWORD
+        return "shortsword"
     if "khopesh" in normalized or "krummschwert" in normalized or "sabel" in normalized or "sidarr sing" in normalized:
-        return WEAPON_TYPE_CURVED_SWORD
+        return "curved_sword"
     if "langschwert" in normalized or "breitschwert" in normalized or "bastardschwert" in normalized:
-        return WEAPON_TYPE_LONGSWORD
+        return "longsword"
     if "schwert" in normalized or "sing" in normalized:
-        return WEAPON_TYPE_LONGSWORD
+        return "longsword"
     if "rapier" in normalized or "degen" in normalized or "florett" in normalized:
-        return WEAPON_TYPE_RAPIER
+        return "rapier"
     if any(token in normalized for token in ("dolch", "messer", "stilett", "main gauche", "khatar")):
-        return WEAPON_TYPE_DAGGER
+        return "dagger"
     if "zweihandstreitaxt" in normalized or "trollzweihandaxt" in normalized:
-        return WEAPON_TYPE_TWO_HANDED_AXE
+        return "two_handed_axe"
     if "axt" in normalized or "beil" in normalized:
-        return WEAPON_TYPE_AXE
+        return "axe"
     if "zweihandkriegshammer" in normalized or "zweihandtrollkriegshammer" in normalized:
-        return WEAPON_TYPE_TWO_HANDED_HAMMER
+        return "two_handed_hammer"
     if "kriegshammer" in normalized or "hammer" in normalized:
-        return WEAPON_TYPE_HAMMER
+        return "hammer"
     if "zweihandflegel" in normalized or "geissel" in normalized:
-        return WEAPON_TYPE_FLAIL
+        return "flail"
     if any(token in normalized for token in ("streitkolben", "keule", "knuppel", "totschlager", "morgenstern")):
-        return WEAPON_TYPE_MACE
+        return "mace"
     if "turnierlanze" in normalized or "lanze" in normalized:
-        return WEAPON_TYPE_LANCE
+        return "lance"
     if "dreizack" in normalized or "speer" in normalized or "wurfspiess" in normalized or "wurfspie" in normalized:
-        return WEAPON_TYPE_SPEAR
+        return "spear"
     if any(token in normalized for token in ("hellebarde", "glefe", "pike", "berdyche", "kriegsgabel", "gaffel", "haken", "stangenaxt", "sense")):
-        return WEAPON_TYPE_POLEARM
+        return "polearm"
     if "sichel" in normalized:
-        return WEAPON_TYPE_CURVED_SWORD
+        return "curved_sword"
     if "kampfstab" in normalized:
-        return WEAPON_TYPE_STAFF
+        return "staff"
     if "kette" in normalized or "mornabat" in normalized:
-        return WEAPON_TYPE_CHAIN
+        return "chain"
     if "peitsche" in normalized or "lasso" in normalized:
-        return WEAPON_TYPE_WHIP
+        return "whip"
     if any(token in normalized for token in ("faust", "tritt", "cestus", "handschuh", "panzerschuh")):
-        return WEAPON_TYPE_FIST
+        return "fist"
     if "armbrust" in normalized:
-        return WEAPON_TYPE_CROSSBOW
+        return "crossbow"
     if "bogen" in normalized:
-        return WEAPON_TYPE_BOW
+        return "bow"
     if "blasrohr" in normalized:
-        return WEAPON_TYPE_BLOWGUN
+        return "blowgun"
     if any(token in normalized for token in ("netz", "fussangeln", "fangeisen", "spikes")):
-        return WEAPON_TYPE_TRAP
-    return WEAPON_TYPE_SPECIAL
+        return "trap"
+    return "special"
 
 # Weapon Symbols
 MOUNTED_TWO_HANDED = "mounted_two_handed"

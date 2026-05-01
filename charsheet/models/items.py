@@ -18,8 +18,6 @@ from ..constants import (
     DEADLY,
     DAMAGE_TYPE_CHOICES,
     WEAPON_SYMBOL_CHOICES,
-    WEAPON_TYPE_CHOICES,
-    WEAPON_TYPE_UNSPECIFIED,
 )
 from .core import DamageSource
 
@@ -201,6 +199,20 @@ class WeaponFlag(models.Model):
         return self.get_key_display()
 
 
+class WeaponType(models.Model):
+    """Rule-level weapon type used by Waffenmeister and related effects."""
+
+    slug = models.SlugField(max_length=50, unique=True)
+    name = models.CharField(max_length=100, unique=True)
+    sort_order = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        ordering = ["sort_order", "name"]
+
+    def __str__(self):
+        return self.name
+
+
 class WeaponStats(models.Model):
     """Weapon-specific combat data attached to an item."""
 
@@ -220,10 +232,11 @@ class WeaponStats(models.Model):
     damage_bonus_attribute = models.CharField(max_length=20, blank=True, default="")
     damage_bonus_mode = models.CharField(max_length=20, blank=True, default="flat")
     damage_type = models.CharField(max_length=1, default=DEADLY, choices=DAMAGE_TYPE_CHOICES)
-    weapon_type = models.CharField(
-        max_length=30,
-        choices=WEAPON_TYPE_CHOICES,
-        default=WEAPON_TYPE_UNSPECIFIED,
+    weapon_type = models.ForeignKey(
+        "charsheet.WeaponType",
+        on_delete=models.PROTECT,
+        related_name="weapon_stats",
+        null=True,
         blank=True,
         help_text="Regeltechnischer Waffentyp fuer Waffenmeister und aehnliche Effekte.",
     )

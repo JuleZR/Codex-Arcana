@@ -182,17 +182,18 @@
           <div class="shop_item_form_panel_header shop_panel_header">
             <h2>Magische Effekte</h2>
           </div>
-          <div class="shop_item_form_panel_body">
-            <label class="shop_item_form_row">
-              <span>Beschreibung</span>
-              <textarea name="description" id="runeRetrofitDescription" rows="4" maxlength="1000" placeholder="Beschreibung des modifizierten Gegenstands"></textarea>
-            </label>
-            <p class="shop_item_form_hint">Die Effekte funktionieren wie bei magischen Gegenst&auml;nden und gelten nur f&uuml;r dieses modifizierte Besitz-Item.</p>
-            <input type="hidden" name="rune_payloads" id="runeRetrofitRunePayloads" value="[]">
-            <input type="hidden" name="magic_modifier_payloads" id="runeRetrofitMagicModifierPayloads" value="[]">
-            <div class="shop_magic_effect_list" id="runeRetrofitMagicEffectsList"></div>
+          <div class="shop_item_form_panel_body rune_window_magic_effects_body">
+            <div class="rune_window_magic_effects_scroll">
+              <label class="shop_item_form_row">
+                <span>Beschreibung</span>
+                <textarea name="description" id="runeRetrofitDescription" rows="4" maxlength="1000" placeholder="Beschreibung des modifizierten Gegenstands"></textarea>
+              </label>
+              <p class="shop_item_form_hint">Die Effekte funktionieren wie bei magischen Gegenst&auml;nden und gelten nur f&uuml;r dieses modifizierte Besitz-Item.</p>
+              <input type="hidden" name="rune_payloads" id="runeRetrofitRunePayloads" value="[]">
+              <input type="hidden" name="magic_modifier_payloads" id="runeRetrofitMagicModifierPayloads" value="[]">
+              <div class="shop_magic_effect_list" id="runeRetrofitMagicEffectsList"></div>
+            </div>
             <div class="shop_magic_effect_actions">
-              <button type="button" class="shop_item_cancel_btn" id="runeRetrofitAddPlusOneBtn">Waffenmeister-Bonus +1/+1</button>
               <button type="button" class="shop_item_cancel_btn" id="runeRetrofitAddEffectBtn">Effekt hinzuf&uuml;gen</button>
             </div>
           </div>

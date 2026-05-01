@@ -42,6 +42,7 @@ from charsheet.models import (
     Technique,
     Trait,
     TraitChoiceDefinition,
+    WeaponType,
 )
 from charsheet.constants import is_allowed_trait_attribute_choice
 
@@ -253,10 +254,13 @@ def _apply_progression_choices(character: Character, post_data, *, magic_engine)
             raise LearningSubmissionError(f"{weapon_decision['title']}: Ungueltige Waffenwahl.")
         if raw_side_value not in side_allowed_values:
             raise LearningSubmissionError(f"{side_decision['title']}: Ungueltige Bonuswahl.")
+        weapon_type = WeaponType.objects.filter(slug=raw_item_value).first()
+        if weapon_type is None:
+            raise LearningSubmissionError(f"{weapon_decision['title']}: Unbekannter Waffentyp.")
         mastery_entry = CharacterWeaponMastery(
             character=character,
             school_id=school_id,
-            weapon_type=raw_item_value,
+            weapon_type=weapon_type,
             pick_order=pick_order,
             first_bonus_kind=raw_side_value,
         )

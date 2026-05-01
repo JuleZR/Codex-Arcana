@@ -98,6 +98,7 @@ from .models import (
     TraitChoiceDefinition,
     TraitExclusion,
     TraitSemanticEffect,
+    WeaponType,
     WeaponStats,
 )
 from .models.items import Rune, WeaponFlag
@@ -2260,11 +2261,11 @@ class CharacterWeaponMasteryAdmin(admin.ModelAdmin):
         "pick_order",
         "first_bonus_kind",
     )
-    search_fields = ("character__name", "school__name", "weapon_type", "weapon_item__name")
+    search_fields = ("character__name", "school__name", "weapon_type__name", "weapon_type__slug", "weapon_item__name")
     list_filter = ("school", "first_bonus_kind", "weapon_type")
-    ordering = ("character", "school", "pick_order", "weapon_type")
-    autocomplete_fields = ("character", "school", "weapon_item")
-    list_select_related = ("character", "school", "weapon_item")
+    ordering = ("character", "school", "pick_order", "weapon_type__name")
+    autocomplete_fields = ("character", "school", "weapon_type", "weapon_item")
+    list_select_related = ("character", "school", "weapon_type", "weapon_item")
 
 
 @admin.register(CharacterWeaponMasteryArcana)
@@ -3771,11 +3772,11 @@ class WeaponStatsAdmin(admin.ModelAdmin):
         "min_st",
         "size_class",
     )
-    search_fields = ("item__name", "damage_source__name", "flags__key", "skills__name", "skills__slug")
-    list_filter = ("wield_mode", "damage_source", "damage_type", "flags", "item__default_quality", "item__size_class")
+    search_fields = ("item__name", "weapon_type__name", "weapon_type__slug", "damage_source__name", "flags__key", "skills__name", "skills__slug")
+    list_filter = ("weapon_type", "wield_mode", "damage_source", "damage_type", "flags", "item__default_quality", "item__size_class")
     ordering = ("item__name",)
-    autocomplete_fields = ("item", "damage_source")
-    list_select_related = ("item", "damage_source")
+    autocomplete_fields = ("item", "weapon_type", "damage_source")
+    list_select_related = ("item", "weapon_type", "damage_source")
     filter_horizontal = ("flags", "skills")
     fields = (
         "item",
@@ -3820,6 +3821,16 @@ class WeaponStatsAdmin(admin.ModelAdmin):
     def skill_summary(self, obj):
         """Render assigned weapon skills compactly for list display."""
         return ", ".join(obj.skills.order_by("name").values_list("name", flat=True)) or "-"
+
+
+@admin.register(WeaponType)
+class WeaponTypeAdmin(admin.ModelAdmin):
+    """Admin configuration for rule-level weapon types."""
+
+    list_display = ("name", "slug", "sort_order")
+    search_fields = ("name", "slug")
+    ordering = ("sort_order", "name")
+    prepopulated_fields = {"slug": ("name",)}
 
 
 @admin.register(Trait)

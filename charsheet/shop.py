@@ -28,8 +28,16 @@ from charsheet.models import (
     Skill,
     SkillCategory,
     Specialization,
+    WeaponType,
     WeaponStats,
 )
+
+
+def _read_weapon_type(raw_value) -> WeaponType | None:
+    slug = str(raw_value or "").strip().lower()
+    if not slug:
+        return None
+    return WeaponType.objects.filter(slug=slug).first()
 
 
 def apply_rune_to_item(*, item: CharacterItem, rune: Rune, crafter_level: int) -> ItemRune:
@@ -168,6 +176,9 @@ def _build_magic_modifier_payload(target_kind: str, raw_value, row_data) -> dict
     elif target_kind == "weapon_damage":
         payload["target_kind"] = Modifier.TargetKind.STAT
         payload["target_slug"] = WEAPON_DAMAGE
+    elif target_kind == "weapon_mastery_bonus":
+        payload["target_kind"] = "weapon_mastery_bonus"
+        payload["effect_description"] = payload["effect_description"] or "Waffenmeister-Bonus +1/+1"
     elif target_kind == Modifier.TargetKind.SKILL:
         skill_id = int(row_data.get("target_skill") or 0)
         if skill_id <= 0:
@@ -238,7 +249,35 @@ def _read_magic_modifier_payloads(post_data) -> list[dict[str, object]]:
             entry,
         )
         if payload is not None:
-            payloads.append(payload)
+            if payload.get("target_kind") == "weapon_mastery_bonus":
+                value = int(payload.get("value", 0) or 0)
+                effect_description = str(payload.get("effect_description") or "").strip()
+                payloads.extend(
+                    [
+                        {
+                            "target_kind": Modifier.TargetKind.STAT,
+                            "value": value,
+                            "effect_description": effect_description,
+                            "target_slug": MELEE_MANEUVERS,
+                            "target_skill": None,
+                            "target_skill_category": None,
+                            "target_item": None,
+                            "target_specialization": None,
+                        },
+                        {
+                            "target_kind": Modifier.TargetKind.STAT,
+                            "value": value,
+                            "effect_description": effect_description,
+                            "target_slug": WEAPON_DAMAGE,
+                            "target_skill": None,
+                            "target_skill_category": None,
+                            "target_item": None,
+                            "target_specialization": None,
+                        },
+                    ]
+                )
+            else:
+                payloads.append(payload)
     return payloads
 
 
@@ -403,9 +442,9 @@ def apply_character_item_modifications(character_item: CharacterItem, post_data)
             character_item.is_magic = is_magic
             character_item.magic_effect_summary = magic_effect_summary
             if weapon_stats is not None:
-                character_item.weapon_type_override = str(
-                    post_data.get("weapon_type") or getattr(weapon_stats, "weapon_type", "")
-                ).strip()
+                character_item.weapon_type_override = (
+                    _read_weapon_type(post_data.get("weapon_type")) or getattr(weapon_stats, "weapon_type", None)
+                )
                 character_item.weapon_min_st_override = _read_int(post_data, "weapon_min_st", weapon_stats.min_st, minimum=1)
                 character_item.weapon_damage_source_override = weapon_damage_source
                 character_item.weapon_damage_dice_amount_override = _read_int(
@@ -621,6 +660,7 @@ def create_custom_shop_item(post_data) -> bool:
                 weapon_stats = WeaponStats(
                     item=item,
                     min_st=min_st,
+                    weapon_type=_read_weapon_type(post_data.get("weapon_type")),
                     damage_source=damage_source,
                     damage_dice_amount=_read_int(post_data, "weapon_damage_dice_amount", 1, minimum=1),
                     damage_dice_faces=_read_int(post_data, "weapon_damage_dice_faces", 10, minimum=2),
