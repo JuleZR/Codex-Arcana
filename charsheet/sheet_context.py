@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict
 import json
 import math
 
@@ -370,25 +370,51 @@ def _rune_image_url(rune: Rune) -> str:
         return ""
 
 
+def _serialize_character_item_rune_specs(character_item: CharacterItem) -> list[dict[str, object]]:
+    """Return one frontend-friendly slot list with specialization and crafter level."""
+    active_item_runes = [item_rune for item_rune in character_item.item_runes.all() if item_rune.is_active]
+    rune_specs = list(character_item.rune_specs.all())
+    spec_lookup = {
+        (spec.rune_id, spec.slot): spec.specification
+        for spec in rune_specs
+    }
+    slot_counters: defaultdict[int, int] = defaultdict(int)
+    payloads: list[dict[str, object]] = []
+
+    for item_rune in active_item_runes:
+        slot_counters[item_rune.rune_id] += 1
+        slot = slot_counters[item_rune.rune_id]
+        payloads.append(
+            {
+                "rune_id": item_rune.rune_id,
+                "specification": spec_lookup.get((item_rune.rune_id, slot), ""),
+                "slot": slot,
+                "crafter_level": item_rune.crafter_level,
+            }
+        )
+
+    if payloads:
+        return payloads
+
+    return [
+        {
+            "rune_id": spec.rune_id,
+            "specification": spec.specification,
+            "slot": spec.slot,
+            "crafter_level": 0,
+        }
+        for spec in rune_specs
+    ]
+
+
 def _collect_rune_rows(*, item: Item, character_item: CharacterItem | None = None) -> list[dict[str, str]]:
     """Return combined visible rune rows for tooltips, including specification text."""
     rows: list[dict[str, str]] = []
-    seen_base_ids: set[int] = set()
-    for rune in item.runes.all():
-        if rune.id not in seen_base_ids:
-            seen_base_ids.add(rune.id)
-            rows.append(
-                {
-                    "name": rune.name,
-                    "description": rune.description or "",
-                    "image": _rune_image_url(rune),
-                }
-            )
     if character_item is not None:
         item_runes = list(character_item.item_runes.all())
         if item_runes:
             for item_rune in item_runes:
-                if not item_rune.is_active or item_rune.rune_id in seen_base_ids:
+                if not item_rune.is_active:
                     continue
                 level_label = (
                     f" (Waffenmeister {item_rune.crafter_level})"
@@ -402,35 +428,44 @@ def _collect_rune_rows(*, item: Item, character_item: CharacterItem | None = Non
                         "image": _rune_image_url(item_rune.rune),
                     }
                 )
-        else:
-            specs = list(character_item.rune_specs.all())
-            if specs:
-                for spec in specs:
-                    if spec.rune_id in seen_base_ids:
-                        continue
-                    display_name = spec.rune.name
-                    if spec.specification:
-                        display_name = f"{spec.rune.name}: {spec.specification}"
-                    rows.append(
-                        {
-                            "name": display_name,
-                            "description": spec.rune.description or "",
-                            "image": _rune_image_url(spec.rune),
-                        }
-                    )
-            else:
-                # Legacy fallback: use M2M when no assignment/spec records exist yet
-                for rune in character_item.runes.all():
-                    if rune.id in seen_base_ids:
-                        continue
-                    seen_base_ids.add(rune.id)
-                    rows.append(
-                        {
-                            "name": rune.name,
-                            "description": rune.description or "",
-                            "image": _rune_image_url(rune),
-                        }
-                    )
+            return rows
+
+        specs = list(character_item.rune_specs.all())
+        if specs:
+            for spec in specs:
+                display_name = spec.rune.name
+                if spec.specification:
+                    display_name = f"{spec.rune.name}: {spec.specification}"
+                rows.append(
+                    {
+                        "name": display_name,
+                        "description": spec.rune.description or "",
+                        "image": _rune_image_url(spec.rune),
+                    }
+                )
+            return rows
+
+        for rune in character_item.runes.all():
+            rows.append(
+                {
+                    "name": rune.name,
+                    "description": rune.description or "",
+                    "image": _rune_image_url(rune),
+                }
+            )
+        return rows
+
+    seen_base_ids: set[int] = set()
+    for rune in item.runes.all():
+        if rune.id not in seen_base_ids:
+            seen_base_ids.add(rune.id)
+            rows.append(
+                {
+                    "name": rune.name,
+                    "description": rune.description or "",
+                    "image": _rune_image_url(rune),
+                }
+            )
     return rows
 
 
@@ -1472,7 +1507,7 @@ def _build_inventory_rows(character: Character) -> list[dict]:
                 "character_item": character_item,
                 "item": item,
                 "item_name": item_name,
-                "has_runes": bool(item.runes.exists() or character_item.runes.exists() or character_item.item_runes.exists()),
+                "has_runes": bool(character_item.runes.exists() or character_item.item_runes.exists()),
                 "rune_rows": _collect_rune_rows(item=item, character_item=character_item),
                 "display_name": (
                     f"{character_item.amount}x {item_name}"
@@ -1487,33 +1522,12 @@ def _build_inventory_rows(character: Character) -> list[dict]:
                 "can_equip": item.item_type in EQUIPPABLE_ITEM_TYPES or character_item.is_magic_effective,
                 "can_socket_runes": True,
                 "equip_label": "Anlegen",
-                "base_rune_ids": [rune.id for rune in item.runes.all()],
-                "base_rune_names": [rune.name for rune in item.runes.all()],
                 "extra_rune_ids": [
                     item_rune.rune_id
                     for item_rune in character_item.item_runes.all()
                     if item_rune.is_active
                 ] or [rune.id for rune in character_item.runes.all()],
-                "rune_specs_json": json.dumps(
-                    [
-                        {
-                            "rune_id": item_rune.rune_id,
-                            "specification": "",
-                            "slot": index,
-                            "crafter_level": item_rune.crafter_level,
-                        }
-                        for index, item_rune in enumerate(character_item.item_runes.all(), start=1)
-                        if item_rune.is_active
-                    ]
-                    or [
-                        {
-                            "rune_id": spec.rune_id,
-                            "specification": spec.specification,
-                            "slot": spec.slot,
-                        }
-                        for spec in character_item.rune_specs.all()
-                    ]
-                ),
+                "rune_specs_json": json.dumps(_serialize_character_item_rune_specs(character_item)),
                 "description": character_item.description or item.description or "",
                 "is_character_item_magic": bool(character_item.is_magic),
                 "magic_effect_summary": visible_magic_effect_summary,
@@ -2718,6 +2732,7 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
                 "id": rune.id,
                 "name": rune.name,
                 "description": _single_line(rune.description),
+                "image": _rune_image_url(rune),
                 "has_specialization": rune.has_specialization,
                 "specialization_label": rune.specialization_label or "Bezeichnung",
                 "allow_multiple": rune.allow_multiple,

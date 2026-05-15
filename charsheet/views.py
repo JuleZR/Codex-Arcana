@@ -641,7 +641,10 @@ def update_rune_specification(request, character_item_id: int, rune_id: int):
         owner__user=request.user,
     )
     rune = get_object_or_404(Rune, pk=rune_id, has_specialization=True)
-    if not character_item.runes.filter(pk=rune_id).exists() and not character_item.item.runes.filter(pk=rune_id).exists():
+    if (
+        not character_item.runes.filter(pk=rune_id).exists()
+        and not character_item.item_runes.filter(rune_id=rune_id, is_active=True).exists()
+    ):
         messages.error(request, "Diese Rune gehört nicht zu diesem Gegenstand.")
         return redirect("character_sheet", character_id=character_item.owner_id)
 

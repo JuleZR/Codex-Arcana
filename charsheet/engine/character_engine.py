@@ -468,16 +468,13 @@ class CharacterEngine:
 
     @cached_property
     def _equipped_rune_ids(self) -> set[int]:
-        """Cache unique rune ids attached to any equipped base item or owned item modification."""
+        """Cache unique rune ids attached to equipped owned items."""
         equipped_items = CharacterItem.objects.filter(owner=self.character, equipped=True)
-        base_rune_ids = set(
-            equipped_items.filter(item__runes__isnull=False).values_list("item__runes", flat=True)
-        )
         extra_rune_ids = set(
             equipped_items.filter(runes__isnull=False).values_list("runes", flat=True)
         )
         assignment_rune_ids = set(self._equipped_item_runes.values_list("rune_id", flat=True))
-        return {int(rune_id) for rune_id in base_rune_ids | extra_rune_ids | assignment_rune_ids if rune_id is not None}
+        return {int(rune_id) for rune_id in extra_rune_ids | assignment_rune_ids if rune_id is not None}
 
     @cached_property
     def _equipped_item_runes(self):

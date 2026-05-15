@@ -108,6 +108,10 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
   const WEAPON_ONLY_MAGIC_TARGET_KINDS = ["weapon_maneuver", "weapon_damage", "weapon_mastery_bonus"];
   const WEAPON_MASTERY_BONUS_KIND = "weapon_mastery_bonus";
   const WEAPON_MASTERY_BONUS_DESCRIPTION = "Waffenmeister-Bonus +1/+1";
+  const MAX_RUNES_PER_ITEM = 5;
+  const DEFAULT_RUNE_CRAFTER_LEVEL = 1;
+  const MAX_RUNE_CRAFTER_LEVEL = 10;
+  let maxAdditionalRuneSlots = MAX_RUNES_PER_ITEM;
 
   let runeChoices = [];
   try {
@@ -144,26 +148,96 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
       }
       const allowMultiple = option.dataset.allowMultiple === "1";
       if (allowMultiple) {
-        option.querySelectorAll(".rune_option_spec").forEach((input, idx) => {
+        option.querySelectorAll("[data-rune-slot]").forEach((slotRow, idx) => {
+          const specInput = slotRow.querySelector(".rune_option_spec");
+          const crafterLevelInput = slotRow.querySelector(".rune_option_crafter_level");
           payloads.push({
             rune_id: runeId,
-            specification: String(input instanceof HTMLInputElement ? input.value : "").trim(),
+            specification: String(specInput instanceof HTMLInputElement ? specInput.value : "").trim(),
             slot: idx + 1,
+            crafter_level: normalizeCrafterLevel(crafterLevelInput instanceof HTMLInputElement ? crafterLevelInput.value : ""),
           });
         });
       } else {
         const checkbox = option.querySelector("input[type='checkbox']");
         if (checkbox instanceof HTMLInputElement && checkbox.checked) {
-          const specInput = option.querySelector(".rune_option_spec");
+          const slotRow = option.querySelector("[data-rune-slot]");
+          const specInput = slotRow?.querySelector(".rune_option_spec");
+          const crafterLevelInput = slotRow?.querySelector(".rune_option_crafter_level");
           payloads.push({
             rune_id: runeId,
             specification: String(specInput instanceof HTMLInputElement ? specInput.value : "").trim(),
             slot: 1,
+            crafter_level: normalizeCrafterLevel(crafterLevelInput instanceof HTMLInputElement ? crafterLevelInput.value : ""),
           });
         }
       }
     });
     runePayloadInput.value = JSON.stringify(payloads);
+  };
+
+  const normalizeCrafterLevel = (rawValue) => {
+    const parsed = Number.parseInt(String(rawValue || DEFAULT_RUNE_CRAFTER_LEVEL), 10);
+    if (!Number.isInteger(parsed)) {
+      return DEFAULT_RUNE_CRAFTER_LEVEL;
+    }
+    return Math.min(MAX_RUNE_CRAFTER_LEVEL, Math.max(DEFAULT_RUNE_CRAFTER_LEVEL, parsed));
+  };
+
+  const getSelectedRuneCount = () => {
+    if (!(runeOptions instanceof HTMLElement)) {
+      return 0;
+    }
+    let selectedCount = 0;
+    runeOptions.querySelectorAll(".rune_option").forEach((option) => {
+      if (!(option instanceof HTMLElement)) {
+        return;
+      }
+      const allowMultiple = option.dataset.allowMultiple === "1";
+      if (allowMultiple) {
+        const countEl = option.querySelector(".rune_option_count");
+        selectedCount += Number.parseInt(countEl?.textContent || "0", 10) || 0;
+        return;
+      }
+      const checkbox = option.querySelector("input[type='checkbox']");
+      if (checkbox instanceof HTMLInputElement && checkbox.checked) {
+        selectedCount += 1;
+      }
+    });
+    return selectedCount;
+  };
+
+  const syncRuneOptionAvailability = () => {
+    if (!(runeOptions instanceof HTMLElement)) {
+      return;
+    }
+    const selectedCount = getSelectedRuneCount();
+    const canAddMore = selectedCount < maxAdditionalRuneSlots;
+    runeOptions.querySelectorAll(".rune_option").forEach((option) => {
+      if (!(option instanceof HTMLElement)) {
+        return;
+      }
+      const allowMultiple = option.dataset.allowMultiple === "1";
+      if (allowMultiple) {
+        const countEl = option.querySelector(".rune_option_count");
+        const count = Number.parseInt(countEl?.textContent || "0", 10) || 0;
+        const incrementBtn = option.querySelector(".rune_option_increment");
+        const decrementBtn = option.querySelector(".rune_option_decrement");
+        if (incrementBtn instanceof HTMLButtonElement) {
+          incrementBtn.disabled = !canAddMore;
+          incrementBtn.title = canAddMore ? "" : `Maximal ${MAX_RUNES_PER_ITEM} Runen insgesamt`;
+        }
+        if (decrementBtn instanceof HTMLButtonElement) {
+          decrementBtn.disabled = count <= 0;
+        }
+        return;
+      }
+      const checkbox = option.querySelector("input[type='checkbox']");
+      if (checkbox instanceof HTMLInputElement && !checkbox.checked) {
+        checkbox.disabled = !canAddMore;
+        checkbox.title = canAddMore ? "" : `Maximal ${MAX_RUNES_PER_ITEM} Runen insgesamt`;
+      }
+    });
   };
 
   // ── Selection count / label ────────────────────────────────────────────────
@@ -199,6 +273,7 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
     });
 
     runeSelectionCount.textContent = String(selectedCount);
+    syncRuneOptionAvailability();
     if (!(runeTriggerLabel instanceof HTMLElement)) {
       return;
     }
@@ -220,6 +295,9 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
     runeDropdownPanel.hidden = !shouldOpen;
     runeDropdownTrigger.setAttribute("aria-expanded", shouldOpen ? "true" : "false");
     runeDropdown?.classList.toggle("is-open", shouldOpen);
+    if (shouldOpen) {
+      runeSearchInput?.focus();
+    }
   };
 
   const openRuneWindow = () => {
@@ -455,7 +533,7 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
     const hasSpec = Boolean(rune.has_specialization);
     const specLabel = String(rune.specialization_label || "Bezeichnung");
 
-    const wrapper = document.createElement(allowMultiple ? "div" : "label");
+    const wrapper = document.createElement("div");
     wrapper.className = "shop_item_form_checklist_item rune_option";
     if (allowMultiple) {
       wrapper.className += " rune_option--multiple";
@@ -464,10 +542,80 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
     wrapper.dataset.allowMultiple = allowMultiple ? "1" : "0";
     wrapper.dataset.runeSearch = `${rune.name || ""} ${rune.description || ""}`;
 
+    const buildSlotFields = (slot = {}) => {
+      const slotRow = document.createElement("div");
+      slotRow.className = "rune_option_slot";
+      slotRow.dataset.runeSlot = "1";
+
+      const fieldGroup = document.createElement("div");
+      fieldGroup.className = "rune_option_slot_fields";
+
+      const crafterWrap = document.createElement("div");
+      crafterWrap.className = "rune_option_crafter";
+      const crafterInput = document.createElement("input");
+      crafterInput.type = "number";
+      crafterInput.className = "rune_option_crafter_level sheet-window__field";
+      crafterInput.min = String(DEFAULT_RUNE_CRAFTER_LEVEL);
+      crafterInput.max = String(MAX_RUNE_CRAFTER_LEVEL);
+      crafterInput.step = "1";
+      crafterInput.setAttribute("aria-label", `${rune.name || "Rune"} Schmiedestufe`);
+      crafterInput.value = String(normalizeCrafterLevel(slot.crafter_level));
+      crafterInput.addEventListener("input", () => {
+        crafterInput.value = String(normalizeCrafterLevel(crafterInput.value));
+        serializeRunePayloads();
+      });
+      crafterWrap.append(crafterInput);
+      fieldGroup.append(crafterWrap);
+
+      if (hasSpec) {
+        const specInput = document.createElement("input");
+        specInput.type = "text";
+        specInput.className = "rune_option_spec sheet-window__field";
+        specInput.placeholder = specLabel;
+        specInput.maxLength = 100;
+        specInput.value = String(slot.specification || "");
+        specInput.addEventListener("input", serializeRunePayloads);
+        fieldGroup.append(specInput);
+      }
+
+      slotRow.append(fieldGroup);
+      return slotRow;
+    };
+
+    const buildRuneCopy = () => {
+      const copy = document.createElement("span");
+      copy.className = "rune_option_copy";
+
+      const image = document.createElement(rune.image ? "img" : "span");
+      image.className = rune.image ? "rune_option_image" : "rune_option_image rune_option_image--placeholder";
+      if (rune.image) {
+        image.src = rune.image;
+        image.alt = "";
+        image.loading = "lazy";
+      } else {
+        image.setAttribute("aria-hidden", "true");
+      }
+
+      const textWrap = document.createElement("span");
+      textWrap.className = "rune_option_text";
+      const nameSpan = document.createElement("span");
+      nameSpan.className = "rune_option_name";
+      nameSpan.textContent = rune.name || "Unbenannte Rune";
+      const bodySpan = document.createElement("span");
+      bodySpan.className = "rune_option_body";
+      bodySpan.textContent = rune.description || "Keine Beschreibung vorhanden.";
+      textWrap.append(nameSpan, bodySpan);
+      copy.append(image, textWrap);
+      return copy;
+    };
+
     if (allowMultiple) {
       // ── Counter UI ─────────────────────────────────────────────────────────
       const header = document.createElement("div");
       header.className = "rune_option_header";
+
+      const stepper = document.createElement("div");
+      stepper.className = "rune_option_stepper";
 
       const decrementBtn = document.createElement("button");
       decrementBtn.type = "button";
@@ -485,38 +633,21 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
       incrementBtn.textContent = "+";
       incrementBtn.setAttribute("aria-label", "Slot hinzufügen");
 
-      const copy = document.createElement("span");
-      copy.className = "rune_option_copy";
-      const nameSpan = document.createElement("span");
-      nameSpan.className = "rune_option_name";
-      nameSpan.textContent = rune.name || "Unbenannte Rune";
-      const bodySpan = document.createElement("span");
-      bodySpan.className = "rune_option_body";
-      bodySpan.textContent = rune.description || "Keine Beschreibung vorhanden.";
-      copy.append(nameSpan, bodySpan);
+      const copy = buildRuneCopy();
 
-      header.append(decrementBtn, countDisplay, incrementBtn, copy);
+      stepper.append(incrementBtn, countDisplay, decrementBtn);
+      header.append(stepper, copy);
 
       const specsContainer = document.createElement("div");
       specsContainer.className = "rune_option_specs";
 
-      const addSpecInput = (initialValue = "") => {
-        if (!hasSpec) {
-          return;
-        }
-        const specInput = document.createElement("input");
-        specInput.type = "text";
-        specInput.className = "rune_option_spec sheet-window__field";
-        specInput.placeholder = specLabel;
-        specInput.maxLength = 100;
-        specInput.value = initialValue;
-        specsContainer.append(specInput);
-        specInput.addEventListener("input", serializeRunePayloads);
+      const addSlotFields = (slot = {}) => {
+        specsContainer.append(buildSlotFields(slot));
       };
 
       // Pre-populate existing slots
       existingSlots.forEach((slot) => {
-        addSpecInput(slot.specification);
+        addSlotFields(slot);
       });
 
       decrementBtn.addEventListener("click", () => {
@@ -525,10 +656,8 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
           return;
         }
         countDisplay.textContent = String(current - 1);
-        if (hasSpec) {
-          const inputs = specsContainer.querySelectorAll(".rune_option_spec");
-          inputs[inputs.length - 1]?.remove();
-        }
+        const slotRows = specsContainer.querySelectorAll("[data-rune-slot]");
+        slotRows[slotRows.length - 1]?.remove();
         syncRuneSelectionCount();
         serializeRunePayloads();
       });
@@ -536,7 +665,7 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
       incrementBtn.addEventListener("click", () => {
         const current = Number.parseInt(countDisplay.textContent || "0", 10) || 0;
         countDisplay.textContent = String(current + 1);
-        addSpecInput();
+        addSlotFields();
         syncRuneSelectionCount();
         serializeRunePayloads();
       });
@@ -544,44 +673,37 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
       wrapper.append(header, specsContainer);
     } else {
       // ── Checkbox UI ────────────────────────────────────────────────────────
+      const checkRow = document.createElement("label");
+      checkRow.className = "rune_option_single";
+
       const input = document.createElement("input");
       input.type = "checkbox";
       input.value = String(runeId);
       input.checked = existingSlots.length > 0;
 
-      const copy = document.createElement("span");
-      copy.className = "rune_option_copy";
-      const nameSpan = document.createElement("span");
-      nameSpan.className = "rune_option_name";
-      nameSpan.textContent = rune.name || "Unbenannte Rune";
-      const bodySpan = document.createElement("span");
-      bodySpan.className = "rune_option_body";
-      bodySpan.textContent = rune.description || "Keine Beschreibung vorhanden.";
-      copy.append(nameSpan, bodySpan);
+      const copy = buildRuneCopy();
 
-      wrapper.append(input, copy);
+      checkRow.append(input, copy);
+      wrapper.append(checkRow);
 
-      let specInput = null;
-      if (hasSpec) {
-        specInput = document.createElement("input");
-        specInput.type = "text";
-        specInput.className = "rune_option_spec sheet-window__field";
-        specInput.placeholder = specLabel;
-        specInput.maxLength = 100;
-        specInput.hidden = !input.checked;
-        if (existingSlots.length > 0) {
-          specInput.value = existingSlots[0].specification;
-        }
-        wrapper.append(specInput);
-        specInput.addEventListener("input", serializeRunePayloads);
-      }
+      const slotRow = buildSlotFields(existingSlots[0] || {});
+      slotRow.classList.add("rune_option_slot--single");
+      slotRow.hidden = !input.checked;
+      wrapper.append(slotRow);
 
       input.addEventListener("change", () => {
-        if (specInput) {
-          specInput.hidden = !input.checked;
-          if (!input.checked) {
-            specInput.value = "";
-          }
+        slotRow.hidden = !input.checked;
+        if (!input.checked) {
+          slotRow.querySelectorAll("input").forEach((slotInput) => {
+            if (!(slotInput instanceof HTMLInputElement)) {
+              return;
+            }
+            if (slotInput.classList.contains("rune_option_crafter_level")) {
+              slotInput.value = String(DEFAULT_RUNE_CRAFTER_LEVEL);
+            } else {
+              slotInput.value = "";
+            }
+          });
         }
         syncRuneSelectionCount();
         serializeRunePayloads();
@@ -648,6 +770,7 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
     if (
       runeDropdown instanceof HTMLElement &&
       !target?.closest("#runeRetrofitDropdown") &&
+      !target?.closest(".rune_window_search_row") &&
       runeWindow?.classList.contains("is-open")
     ) {
       toggleRuneDropdown(false);
@@ -685,12 +808,7 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
 
     const characterItemId = button.getAttribute("data-character-item-id") || "";
     const itemName = button.getAttribute("data-item-name") || "-";
-    const baseRuneIds = new Set(parseIdList(button.getAttribute("data-base-rune-ids")));
     const currentQuality = String(button.getAttribute("data-current-quality") || "common");
-    const baseRuneNames = String(button.getAttribute("data-base-rune-names") || "")
-      .split(",")
-      .map((value) => value.trim())
-      .filter(Boolean);
     const description = String(button.getAttribute("data-description") || "");
     retrofitItemType = String(button.getAttribute("data-item-type") || "");
     const magicModifierPayloads = parseJsonList(button.getAttribute("data-magic-modifier-payloads"));
@@ -710,6 +828,7 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
       runeSpecsByRuneId[runeId].push({
         specification: String(spec.specification || ""),
         slot: Number(spec.slot || 1),
+        crafter_level: normalizeCrafterLevel(spec.crafter_level),
       });
     });
 
@@ -750,16 +869,12 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
       runeItemName.textContent = itemName;
     }
     if (runeBaseInfo instanceof HTMLElement) {
-      runeBaseInfo.textContent = baseRuneNames.length
-        ? `Basis-Runen: ${baseRuneNames.join(", ")}`
-        : "Keine Basis-Runen vorhanden.";
+      runeBaseInfo.textContent = `Maximal ${MAX_RUNES_PER_ITEM} Runen insgesamt.`;
     }
 
+    maxAdditionalRuneSlots = MAX_RUNES_PER_ITEM;
     let availableCount = 0;
     runeChoices.forEach((rune) => {
-      if (baseRuneIds.has(Number(rune?.id))) {
-        return;
-      }
       availableCount += 1;
 
       const runeId = Number(rune.id);
@@ -767,7 +882,7 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
 
       // Legacy: single checked slot without spec
       if (useLegacy && existingSlots.length === 0 && extraRuneIds.has(runeId)) {
-        existingSlots = [{ specification: "", slot: 1 }];
+        existingSlots = [{ specification: "", slot: 1, crafter_level: DEFAULT_RUNE_CRAFTER_LEVEL }];
       }
 
       runeOptions.append(buildRuneOption(rune, existingSlots));
@@ -806,7 +921,7 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
     if (!availableCount) {
       const empty = document.createElement("p");
       empty.className = "shop_empty";
-      empty.textContent = "Keine weiteren Runen zum Nachrüsten verfügbar.";
+      empty.textContent = "Keine Runen verfügbar.";
       runeOptions.append(empty);
     }
 

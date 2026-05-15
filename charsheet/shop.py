@@ -310,7 +310,7 @@ def _read_rune_payloads(post_data) -> list[dict[str, object]]:
             except (TypeError, ValueError):
                 slot = 1
             try:
-                crafter_level = max(0, int(entry.get("crafter_level") or 0))
+                crafter_level = min(10, max(0, int(entry.get("crafter_level") or 0)))
             except (TypeError, ValueError):
                 crafter_level = 0
             payloads.append({
@@ -391,16 +391,12 @@ def apply_character_item_modifications(character_item: CharacterItem, post_data)
         if damage_source_id > 0:
             weapon_damage_source = DamageSource.objects.get(pk=damage_source_id)
 
-    base_rune_ids = set(character_item.item.runes.values_list("id", flat=True))
-
-    # Deduplicate (rune_id, slot) pairs and filter out base runes
+    # Deduplicate (rune_id, slot) pairs
     seen_slots: set[tuple[int, int]] = set()
     filtered_payloads: list[dict[str, object]] = []
     for payload in rune_payloads:
         rune_id = int(payload["rune_id"])
         slot = int(payload["slot"])
-        if rune_id in base_rune_ids:
-            continue
         key = (rune_id, slot)
         if key in seen_slots:
             continue
@@ -424,6 +420,9 @@ def apply_character_item_modifications(character_item: CharacterItem, post_data)
         if slot > 1 and not rune.allow_multiple:
             continue
         final_payloads.append((rune, str(payload["specification"]), slot, int(payload.get("crafter_level") or 0)))
+
+    if len(final_payloads) > 5:
+        return False
 
     unique_runes = list({rune.id: rune for rune, _spec, _slot, _level in final_payloads}.values())
 
@@ -508,14 +507,8 @@ def apply_character_item_modifications(character_item: CharacterItem, post_data)
 
             # Replace rune spec records with the new payload
             character_item.rune_specs.all().delete()
-            character_item.item_runes.filter(rune__allow_multiple=True).exclude(rune_id__in=base_rune_ids).delete()
-            selected_non_multiple_ids = {
-                rune.id for rune, _specification, _slot, _crafter_level in final_payloads if not rune.allow_multiple
-            }
-            protected_non_multiple_ids = selected_non_multiple_ids | base_rune_ids
-            character_item.item_runes.filter(rune__allow_multiple=False).exclude(
-                rune_id__in=protected_non_multiple_ids
-            ).update(is_active=False)
+            character_item.item_runes.filter(rune__allow_multiple=True).delete()
+            character_item.item_runes.filter(rune__allow_multiple=False).update(is_active=False)
             for rune, specification, slot, crafter_level in final_payloads:
                 CharacterItemRuneSpec.objects.create(
                     character_item=character_item,
