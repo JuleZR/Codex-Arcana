@@ -67,9 +67,31 @@ function parseRuneLine(line) {
   };
 }
 
+function parseRuneSocketLine(line) {
+  const match = String(line || "").trim().match(/^\[\[RUNESOCKET:(.*?)::(.*?)\]\]$/);
+  if (!match) {
+    return null;
+  }
+  return {
+    name: match[1].trim(),
+    image: match[2].trim(),
+  };
+}
+
 function renderInlineMarkdown(text) {
   let html = escapeHtml(String(text || ""));
   html = html.replace(/\[\[EMPTY\]\]/g, "&nbsp;");
+  html = html.replace(
+    /\[\[RUNEINLINE:(.+?)::(.*?)\]\]/g,
+    (_match, name, image) => {
+      const safeName = escapeHtml(String(name || "").trim() || "Rune");
+      const safeImage = escapeHtml(String(image || "").trim());
+      const imageHtml = safeImage
+        ? `<img class="tooltip_rune_inline_image" src="${safeImage}" alt="">`
+        : '<span class="tooltip_rune_inline_image tooltip_rune_inline_image--placeholder" aria-hidden="true"></span>';
+      return `<span class="tooltip_rune_inline">${imageHtml}<span class="tooltip_rune_inline_name">${safeName}</span></span>`;
+    },
+  );
   html = html.replace(
     /\[\[QUALITY:(.+?)\|(.+?)\]\]/g,
     '<span class="tooltip_quality_badge" style="--tooltip-quality-color: $2;">$1</span>',
@@ -96,6 +118,16 @@ function renderRuneMarkup(runes) {
   }).join("")}</div>`;
 }
 
+function renderRuneSocketMarkup(runes) {
+  return `<div class="tooltip_rune_sockets">${runes.map((rune) => {
+    const safeName = escapeHtml(rune.name || "");
+    const imageHtml = rune.image
+      ? `<img class="tooltip_rune_socket_image" src="${escapeHtml(rune.image)}" alt="">`
+      : '<span class="tooltip_rune_socket_image tooltip_rune_socket_image--placeholder" aria-hidden="true"></span>';
+    return `<div class="tooltip_rune_socket"${safeName ? ` title="${safeName}"` : ""}>${imageHtml}</div>`;
+  }).join("")}</div>`;
+}
+
 function isEffectTableRow(row) {
   if (!Array.isArray(row) || row.length < 2) {
     return false;
@@ -109,7 +141,7 @@ function startsStructuredBlock(line, nextLine = "") {
   if (!trimmed) {
     return false;
   }
-  if (parseQualityLine(trimmed) || parseStatusLine(trimmed) || parseRuneLine(trimmed)) {
+  if (parseQualityLine(trimmed) || parseStatusLine(trimmed) || parseRuneLine(trimmed) || parseRuneSocketLine(trimmed)) {
     return true;
   }
   if (/^\s*[-*]\s+/.test(trimmed)) {
@@ -167,6 +199,23 @@ function renderTooltipMarkup(rawText) {
         rowIndex += 1;
       }
       chunks.push(renderRuneMarkup(runeRows));
+      index = rowIndex;
+      continue;
+    }
+
+    const runeSocketMeta = parseRuneSocketLine(line);
+    if (runeSocketMeta) {
+      const runeSockets = [];
+      let rowIndex = index;
+      while (rowIndex < lines.length) {
+        const runeSocketRow = parseRuneSocketLine(lines[rowIndex]);
+        if (!runeSocketRow) {
+          break;
+        }
+        runeSockets.push(runeSocketRow);
+        rowIndex += 1;
+      }
+      chunks.push(renderRuneSocketMarkup(runeSockets));
       index = rowIndex;
       continue;
     }

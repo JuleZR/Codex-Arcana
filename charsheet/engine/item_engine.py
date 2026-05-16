@@ -299,7 +299,7 @@ class ItemEngine:
         if not stats:
             return 0
         encumbrance = int(self._get_override_value("armor_encumbrance_override", stats.encumbrance))
-        return encumbrance + QUALITY_BEL_MODS.get(self.get_effective_quality(), 0)
+        return max(0, encumbrance + QUALITY_BEL_MODS.get(self.get_effective_quality(), 0))
 
     def get_shield_min_st(self) -> int | None:
         """Return minimum strength for this shield."""
@@ -327,7 +327,7 @@ class ItemEngine:
         stats = self._get_shield_stats()
         if not stats:
             return 0
-        return int(self._get_override_value("shield_encumbrance_override", stats.encumbrance))
+        return max(0, int(self._get_override_value("shield_encumbrance_override", stats.encumbrance)))
 
     def get_weapon_damage_source_slug(self) -> str:
         """Return the effective weapon damage source slug."""

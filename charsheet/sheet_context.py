@@ -631,13 +631,16 @@ def _load_character_item_modifier_payloads(
 
 
 def _format_rune_tooltip_block(*, item: Item, character_item: CharacterItem | None = None) -> str:
-    """Return compact rune markup for the tooltip renderer."""
+    """Return a five-socket rune block for the tooltip renderer."""
     rune_rows = _collect_rune_rows(item=item, character_item=character_item)
     if not rune_rows:
         return ""
+    socket_rows = list(rune_rows[:5])
+    while len(socket_rows) < 5:
+        socket_rows.append({"name": "", "image": ""})
     lines: list[str] = []
-    for row in rune_rows:
-        lines.append(f"[[RUNE:{row['name']}|{row['description']}|{row['image']}]]")
+    for row in socket_rows:
+        lines.append(f"[[RUNESOCKET:{row['name']}::{row['image']}]]")
     return "\n".join(lines)
 
 
