@@ -997,7 +997,7 @@ def _resolve_modifier_source_name(engine, source_type: object, source_id: object
     if source_type_text == SOURCE_ITEM_RUNE and source_id_text.isdigit():
         item_rune = ItemRune.objects.filter(pk=int(source_id_text)).select_related("rune", "item__item").first()
         if item_rune is not None:
-            return f"{item_rune.rune.name} auf {item_rune.item.effective_name}"
+            return item_rune.rune.name
     return _prettify_source_id(source_id_text or source_type_text)
 
 
@@ -1005,6 +1005,10 @@ def _resolve_modifier_source_detail(engine, source_type: object, source_id: obje
     """Return an optional compact detail line for one modifier source."""
     source_type_text = str(source_type or "").strip().lower()
     source_id_text = str(source_id or "").strip()
+    if source_type_text == SOURCE_ITEM_RUNE and source_id_text.isdigit():
+        item_rune = ItemRune.objects.filter(pk=int(source_id_text)).select_related("item__item").first()
+        if item_rune is not None:
+            return f"auf {item_rune.item.effective_name}"
     if source_type_text != "technique":
         return ""
     technique = None
