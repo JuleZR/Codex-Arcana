@@ -37,7 +37,12 @@ def unpack_magic_effect_summary(raw_summary: str | None) -> tuple[str, list[dict
 
     text_payloads: list[dict[str, object]] = []
     for entry in decoded_payload:
-        description = str(entry or "").strip()
+        if isinstance(entry, dict):
+            description = str(entry.get("effect_description") or "").strip()
+            display_order = int(entry.get("display_order") or 0)
+        else:
+            description = str(entry or "").strip()
+            display_order = 0
         if not description:
             continue
         text_payloads.append(
@@ -46,21 +51,37 @@ def unpack_magic_effect_summary(raw_summary: str | None) -> tuple[str, list[dict
                 "value": 0,
                 "effect_description": description,
                 "target_display": "Text",
+                "display_order": display_order,
             }
         )
 
     return summary[:marker_index].rstrip(), text_payloads
 
 
-def pack_magic_effect_summary(visible_summary: str | None, text_effect_descriptions: list[str]) -> str:
+def pack_magic_effect_summary(visible_summary: str | None, text_effect_descriptions: list[object]) -> str:
     """Store text-only effects inside the summary field without changing the visible text."""
     summary = str(visible_summary or "").strip()
-    cleaned_descriptions = [str(description).strip() for description in text_effect_descriptions if str(description).strip()]
-    if not cleaned_descriptions:
+    cleaned_payloads: list[dict[str, object]] = []
+    for entry in text_effect_descriptions:
+        if isinstance(entry, dict):
+            description = str(entry.get("effect_description") or "").strip()
+            display_order = int(entry.get("display_order") or 0)
+        else:
+            description = str(entry).strip()
+            display_order = 0
+        if not description:
+            continue
+        cleaned_payloads.append(
+            {
+                "effect_description": description,
+                "display_order": display_order,
+            }
+        )
+    if not cleaned_payloads:
         return summary
 
     encoded_payload = base64.urlsafe_b64encode(
-        json.dumps(cleaned_descriptions, ensure_ascii=True, separators=(",", ":")).encode("utf-8")
+        json.dumps(cleaned_payloads, ensure_ascii=True, separators=(",", ":")).encode("utf-8")
     ).decode("ascii").rstrip("=")
     if summary:
         return f"{summary} {_TEXT_EFFECT_MARKER}{encoded_payload}{_TEXT_EFFECT_SUFFIX}"

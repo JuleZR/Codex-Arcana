@@ -495,6 +495,7 @@ def _serialize_modifier_payload(modifier: Modifier) -> dict[str, object]:
         "value": int(modifier.value),
         "effect_description": str(modifier.effect_description or ""),
         "target_display": target_display,
+        "display_order": int(getattr(modifier, "display_order", 0) or 0),
     }
     if modifier.target_kind == Modifier.TargetKind.ATTRIBUTE:
         payload["target_attribute"] = str(modifier.target_slug or "")
@@ -554,6 +555,7 @@ def _collapse_weapon_mastery_bonus_payloads(modifier_payloads: list[dict[str, ob
                 "value": payload_value,
                 "effect_description": payload_description or "Waffenmeister-Bonus +1/+1",
                 "target_display": "Waffenmeister-Bonus +1/+1",
+                "display_order": int(payload.get("display_order", 0) or 0),
             }
         )
     return collapsed_payloads
@@ -564,24 +566,26 @@ def _merge_magic_effect_payloads(
 ) -> tuple[str, list[dict[str, object]]]:
     """Combine persisted numeric modifiers with text-only effects stored in the summary field."""
     visible_summary, text_payloads = unpack_magic_effect_summary(effect_summary)
-    return visible_summary, [*modifier_payloads, *text_payloads]
+    merged_payloads = [*modifier_payloads, *text_payloads]
+    merged_payloads.sort(key=lambda payload: (int(payload.get("display_order") or 0), str(payload.get("target_kind") or "")))
+    return visible_summary, merged_payloads
 
 
 def _build_character_item_magic_tooltip_rows(*, effect_summary: str, modifier_payloads: list[dict[str, object]]) -> list[tuple[str, object]]:
     """Return tooltip rows for magic effects stored on one owned item."""
-    rows: list[tuple[str, object]] = []
+    effect_lines: list[str] = []
     summary_line, merged_payloads = _merge_magic_effect_payloads(
         effect_summary=effect_summary,
         modifier_payloads=modifier_payloads,
     )
     summary_line = _single_line(summary_line)
     if summary_line:
-        rows.append(("Effekt", summary_line))
+        effect_lines.append(summary_line)
     for payload in merged_payloads:
         if str(payload.get("target_kind") or "") == TEXT_TARGET_KIND:
             effect_description = _single_line(str(payload.get("effect_description") or ""))
             if effect_description:
-                rows.append(("Magie", effect_description))
+                effect_lines.append(effect_description)
             continue
         target_display = _single_line(str(payload.get("target_display") or "")) or "Ziel"
         effect_description = _single_line(str(payload.get("effect_description") or ""))
@@ -591,10 +595,16 @@ def _build_character_item_magic_tooltip_rows(*, effect_summary: str, modifier_pa
             value = 0
         value_display = f"{value:+d} {target_display}"
         if effect_description:
-            rows.append(("Magie", f"{effect_description} · {value_display}"))
+            effect_lines.append(f"{effect_description} · {value_display}")
         else:
-            rows.append(("Magie", value_display))
-    return rows
+            effect_lines.append(value_display)
+    if not effect_lines:
+        return []
+    effect_label = "Effekte" if len(effect_lines) > 1 else "Effekt"
+    return [
+        (effect_label if index == 0 else "[[EMPTY]]", line)
+        for index, line in enumerate(effect_lines)
+    ]
 
 
 def _load_character_item_modifier_payloads(
@@ -612,7 +622,7 @@ def _load_character_item_modifier_payloads(
             source_object_id__in=[entry.id for entry in character_items],
         )
         .select_related("target_skill", "target_skill_category", "target_specialization")
-        .order_by("id")
+        .order_by("display_order", "id")
     ):
         modifiers_by_character_item_id.setdefault(int(modifier.source_object_id), []).append(_serialize_modifier_payload(modifier))
     for character_item_id, payloads in list(modifiers_by_character_item_id.items()):
@@ -654,9 +664,9 @@ def _format_item_tooltip(
     if table:
         parts.append(table)
 
-    description_line = _single_line(description)
-    if description_line:
-        parts.append(description_line)
+    description_block = str(description or "").strip()
+    if description_block:
+        parts.append(description_block)
     if rune_block:
         parts.append(rune_block)
     return "\n\n".join(parts)
@@ -782,6 +792,7 @@ def _build_weapon_calculation_tooltip(engine, row: dict[str, object]) -> str:
     if weapon_master_school_entry is not None and getattr(weapon_master_school_entry, "school", None) is not None:
         mastery_source = weapon_master_school_entry.school.name
     damage_modifier_rows = _build_modifier_breakdown_rows(engine, damage_source_slug) if damage_source_slug else []
+    item_damage_rows = _build_character_item_stat_modifier_rows(engine, row["character_item"], WEAPON_DAMAGE)
 
     return _build_core_stat_tooltip(
         [
@@ -793,16 +804,7 @@ def _build_weapon_calculation_tooltip(engine, row: dict[str, object]) -> str:
                 "source": mastery_source,
                 "tone": "modifier" if mastery_bonus else "",
             },
-            *(
-                [{
-                    "label": "Waffenmeistereffekt",
-                    "value": format_modifier(item_damage_bonus),
-                    "source": row["item"].name,
-                    "tone": "modifier",
-                }]
-                if item_damage_bonus
-                else []
-            ),
+            *item_damage_rows,
             {"label": "Belastung", "value": row["bel_malus_display"]},
             {"label": "= Gesamt", "value": row["with_bel_display"], "tone": "total"},
         ]
@@ -1158,6 +1160,35 @@ def _build_legacy_stat_modifier_explanation(engine, stat_key: str) -> list[dict[
     return rows
 
 
+def _build_character_item_stat_modifier_rows(engine, character_item: CharacterItem, stat_key: str) -> list[dict[str, object]]:
+    """Return grouped breakdown rows for one item-bound stat modifier source."""
+    modifiers = [
+        modifier
+        for modifier in engine._modifiers_by_target.get((Modifier.TargetKind.STAT, stat_key), [])
+        if getattr(getattr(modifier, "source_content_type", None), "model", "") == "characteritem"
+        and int(modifier.source_object_id or 0) == int(character_item.id)
+    ]
+    if not modifiers:
+        return []
+
+    learned_stack: set[int] = set()
+    available_stack: set[int] = set()
+    explanation: list[dict[str, object]] = []
+    for modifier in modifiers:
+        resolved_value = engine._modifier_value(modifier, learned_stack, available_stack)
+        if not isinstance(resolved_value, (int, float)) or int(resolved_value) == 0:
+            continue
+        explanation.append(
+            {
+                "source_type": getattr(modifier.source_content_type, "model", ""),
+                "source_id": modifier.source_object_id,
+                "resolved_value": resolved_value,
+                "notes": getattr(modifier, "effect_description", ""),
+            }
+        )
+    return _build_grouped_explanation_rows(engine, explanation)
+
+
 def _build_skill_modifier_rows(
     engine, skill_slug: str,
     *,
@@ -1501,6 +1532,11 @@ def _build_inventory_rows(character: Character) -> list[dict]:
                     )
                 ),
             )
+        active_rune_ids = [
+            item_rune.rune_id
+            for item_rune in character_item.item_runes.all()
+            if item_rune.is_active
+        ] or [rune.id for rune in character_item.runes.all()]
 
         inventory_rows.append(
             {
@@ -1522,11 +1558,7 @@ def _build_inventory_rows(character: Character) -> list[dict]:
                 "can_equip": item.item_type in EQUIPPABLE_ITEM_TYPES or character_item.is_magic_effective,
                 "can_socket_runes": True,
                 "equip_label": "Anlegen",
-                "extra_rune_ids": [
-                    item_rune.rune_id
-                    for item_rune in character_item.item_runes.all()
-                    if item_rune.is_active
-                ] or [rune.id for rune in character_item.runes.all()],
+                "extra_rune_ids": active_rune_ids,
                 "rune_specs_json": json.dumps(_serialize_character_item_rune_specs(character_item)),
                 "description": character_item.description or item.description or "",
                 "is_character_item_magic": bool(character_item.is_magic),

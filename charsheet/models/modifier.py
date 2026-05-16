@@ -122,6 +122,7 @@ class Modifier(models.Model):
     # --- Value and scaling ---
 
     effect_description = models.CharField(max_length=255, blank=True, default="")
+    display_order = models.PositiveIntegerField(default=0)
     mode = models.CharField(max_length=20, choices=Mode.choices, default=Mode.FLAT)
     value = models.SmallIntegerField(default=0)
     scale_source = models.CharField(max_length=30, choices=ScaleSource.choices, null=True, blank=True)

@@ -69,6 +69,7 @@ function parseRuneLine(line) {
 
 function renderInlineMarkdown(text) {
   let html = escapeHtml(String(text || ""));
+  html = html.replace(/\[\[EMPTY\]\]/g, "&nbsp;");
   html = html.replace(
     /\[\[QUALITY:(.+?)\|(.+?)\]\]/g,
     '<span class="tooltip_quality_badge" style="--tooltip-quality-color: $2;">$1</span>',
@@ -93,6 +94,30 @@ function renderRuneMarkup(runes) {
       : '<span class="tooltip_rune_image tooltip_rune_image--placeholder" aria-hidden="true"></span>';
     return `<div class="tooltip_rune_row">${imageHtml}<div class="tooltip_rune_name">${escapeHtml(rune.name || "Rune")}</div></div>`;
   }).join("")}</div>`;
+}
+
+function isEffectTableRow(row) {
+  if (!Array.isArray(row) || row.length < 2) {
+    return false;
+  }
+  const label = String(row[0] || "").trim();
+  return label === "Effekt" || label === "Effekte" || label === "" || label === "[[EMPTY]]";
+}
+
+function startsStructuredBlock(line, nextLine = "") {
+  const trimmed = String(line || "").trim();
+  if (!trimmed) {
+    return false;
+  }
+  if (parseQualityLine(trimmed) || parseStatusLine(trimmed) || parseRuneLine(trimmed)) {
+    return true;
+  }
+  if (/^\s*[-*]\s+/.test(trimmed)) {
+    return true;
+  }
+  const header = parseTableRow(trimmed);
+  const divider = parseTableRow(nextLine);
+  return header.length > 0 && header.length === divider.length && isTableDividerRow(divider);
 }
 
 function renderTooltipMarkup(rawText) {
@@ -165,15 +190,15 @@ function renderTooltipMarkup(rawText) {
         tableHtml += `<th>${escapeHtml(cell)}</th>`;
       });
       tableHtml += "</tr></thead>";
-      if (bodyRows.length) {
-        tableHtml += "<tbody>";
-        bodyRows.forEach((row) => {
-          tableHtml += "<tr>";
-          row.forEach((cell) => {
-            tableHtml += `<td>${renderInlineMarkdown(cell)}</td>`;
+        if (bodyRows.length) {
+          tableHtml += "<tbody>";
+          bodyRows.forEach((row) => {
+            tableHtml += isEffectTableRow(row) ? '<tr class="tooltip_effect_row">' : "<tr>";
+            row.forEach((cell) => {
+              tableHtml += `<td>${renderInlineMarkdown(cell)}</td>`;
+            });
+            tableHtml += "</tr>";
           });
-          tableHtml += "</tr>";
-        });
         tableHtml += "</tbody>";
       }
       tableHtml += "</table>";
@@ -198,8 +223,17 @@ function renderTooltipMarkup(rawText) {
 
     const paragraphLines = [];
     let rowIndex = index;
-    while (rowIndex < lines.length && lines[rowIndex].trim()) {
-      paragraphLines.push(renderInlineMarkdown(lines[rowIndex]));
+    while (rowIndex < lines.length) {
+      const currentLine = lines[rowIndex];
+      const nextLine = rowIndex + 1 < lines.length ? lines[rowIndex + 1] : "";
+      if (rowIndex > index && startsStructuredBlock(currentLine, nextLine)) {
+        break;
+      }
+      if (!String(currentLine).trim()) {
+        paragraphLines.push("");
+      } else {
+        paragraphLines.push(renderInlineMarkdown(currentLine));
+      }
       rowIndex += 1;
     }
     chunks.push(`<p>${paragraphLines.join("<br>")}</p>`);

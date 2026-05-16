@@ -1941,6 +1941,15 @@
   text-align: right;
 }
 
+.floating-tooltip tbody tr.tooltip_effect_row td:nth-child(2) {
+  min-width: 220px;
+  max-width: 320px;
+  text-align: left;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
 .floating-tooltip th:nth-child(3),
 .floating-tooltip td:nth-child(3) {
   min-width: 170px;
@@ -2674,6 +2683,62 @@
   min-height: 0;
 }
 
+.rune_window .shop_magic_effect_card {
+  position: relative;
+}
+
+.rune_window .shop_magic_effect_card.is-dragging {
+  opacity: 0.62;
+}
+
+.rune_window .shop_magic_effect_card.is-drop-before::before,
+.rune_window .shop_magic_effect_card.is-drop-after::after {
+  content: "";
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  height: 2px;
+  border-radius: 999px;
+  background: rgba(122, 77, 31, 0.75);
+  pointer-events: none;
+}
+
+.rune_window .shop_magic_effect_card.is-drop-before::before {
+  top: -4px;
+}
+
+.rune_window .shop_magic_effect_card.is-drop-after::after {
+  bottom: -4px;
+}
+
+.rune_window .shop_magic_effect_card_header {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.rune_window .shop_magic_effect_drag_handle {
+  width: 18px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: rgba(93, 66, 39, 0.58);
+  font-size: 1rem;
+  line-height: 1;
+  cursor: grab;
+}
+
+.rune_window .shop_magic_effect_drag_handle:hover,
+.rune_window .shop_magic_effect_drag_handle:focus-visible {
+  color: rgba(93, 66, 39, 0.88);
+}
+
+.rune_window .shop_magic_effect_drag_handle:active {
+  cursor: grabbing;
+}
+
 .rune_window .shop_magic_effect_actions {
   position: static;
   inset: auto;
@@ -2816,8 +2881,35 @@
   grid-column: 1 / -1;
 }
 
+.rune_option_single_toggle {
+  display: flex;
+  align-items: flex-start;
+  padding-top: 2px;
+}
+
+.rune_option_single_content {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr);
+  align-items: start;
+  column-gap: 8px;
+  row-gap: 6px;
+  min-width: 0;
+}
+
+.rune_option_single_content > .rune_option_image {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.rune_option_single_content > .rune_option_text {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+}
+
 .rune_option_slot--single {
-  grid-column: 2 / -1;
+  grid-column: 1;
+  grid-row: 2;
+  width: 38px;
 }
 
 .rune_option_slot_fields {

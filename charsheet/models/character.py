@@ -188,7 +188,7 @@ class CharacterItem(models.Model):
     runes = models.ManyToManyField("Rune", blank=True, related_name="character_items")
     description = models.TextField(blank=True, default="")
     is_magic = models.BooleanField(default=False)
-    magic_effect_summary = models.CharField(max_length=255, blank=True, default="")
+    magic_effect_summary = models.TextField(blank=True, default="")
     name_override = models.CharField(max_length=200, blank=True, default="")
     price_override = models.IntegerField(null=True, blank=True)
     weight_override = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)

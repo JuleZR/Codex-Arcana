@@ -444,6 +444,81 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
     });
   };
 
+  const clearMagicEffectDropMarkers = () => {
+    if (!(magicEffectsList instanceof HTMLElement)) {
+      return;
+    }
+    magicEffectsList.querySelectorAll(".is-drop-before, .is-drop-after").forEach((row) => {
+      if (row instanceof HTMLElement) {
+        row.classList.remove("is-drop-before", "is-drop-after");
+      }
+    });
+  };
+
+  let draggedMagicEffectRow = null;
+
+  const bindMagicEffectDragAndDrop = (row) => {
+    if (!(row instanceof HTMLElement)) {
+      return;
+    }
+    row.draggable = true;
+    const dragHandle = row.querySelector("[data-drag-magic-effect]");
+    dragHandle?.addEventListener("mousedown", () => {
+      row.dataset.dragArmed = "1";
+    });
+    dragHandle?.addEventListener("mouseup", () => {
+      delete row.dataset.dragArmed;
+    });
+    dragHandle?.addEventListener("mouseleave", () => {
+      delete row.dataset.dragArmed;
+    });
+    row.addEventListener("dragstart", (event) => {
+      if (row.dataset.dragArmed !== "1") {
+        event.preventDefault();
+        return;
+      }
+      draggedMagicEffectRow = row;
+      row.classList.add("is-dragging");
+      if (event.dataTransfer) {
+        event.dataTransfer.effectAllowed = "move";
+        event.dataTransfer.setData("text/plain", row.querySelector(".shop_magic_effect_title")?.textContent || "Effekt");
+      }
+    });
+    row.addEventListener("dragend", () => {
+      draggedMagicEffectRow = null;
+      delete row.dataset.dragArmed;
+      row.classList.remove("is-dragging");
+      clearMagicEffectDropMarkers();
+      syncMagicEffectRemoveButtons();
+      serializeMagicEffects();
+    });
+    row.addEventListener("dragover", (event) => {
+      if (!(magicEffectsList instanceof HTMLElement) || !(draggedMagicEffectRow instanceof HTMLElement) || draggedMagicEffectRow === row) {
+        return;
+      }
+      event.preventDefault();
+      clearMagicEffectDropMarkers();
+      const bounds = row.getBoundingClientRect();
+      const insertBefore = event.clientY < bounds.top + (bounds.height / 2);
+      row.classList.add(insertBefore ? "is-drop-before" : "is-drop-after");
+      if (insertBefore) {
+        if (draggedMagicEffectRow !== row.previousElementSibling) {
+          magicEffectsList.insertBefore(draggedMagicEffectRow, row);
+        }
+      } else if (draggedMagicEffectRow !== row.nextElementSibling) {
+        magicEffectsList.insertBefore(draggedMagicEffectRow, row.nextElementSibling);
+      }
+      syncMagicEffectRemoveButtons();
+      serializeMagicEffects();
+    });
+    row.addEventListener("drop", (event) => {
+      event.preventDefault();
+      clearMagicEffectDropMarkers();
+      syncMagicEffectRemoveButtons();
+      serializeMagicEffects();
+    });
+  };
+
   const addMagicEffectRow = (initialPayload = null) => {
     if (!(magicEffectsList instanceof HTMLElement) || !(magicEffectTemplate instanceof HTMLTemplateElement)) {
       return null;
@@ -506,6 +581,7 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
       syncMagicEffectRemoveButtons();
       serializeMagicEffects();
     });
+    bindMagicEffectDragAndDrop(row);
     syncMagicEffectRow(row);
     syncMagicEffectRemoveButtons();
     serializeMagicEffects();
@@ -673,23 +749,47 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
       wrapper.append(header, specsContainer);
     } else {
       // ── Checkbox UI ────────────────────────────────────────────────────────
-      const checkRow = document.createElement("label");
+      const checkRow = document.createElement("div");
       checkRow.className = "rune_option_single";
+
+      const toggleLabel = document.createElement("label");
+      toggleLabel.className = "rune_option_single_toggle";
 
       const input = document.createElement("input");
       input.type = "checkbox";
       input.value = String(runeId);
       input.checked = existingSlots.length > 0;
 
-      const copy = buildRuneCopy();
+      const content = document.createElement("div");
+      content.className = "rune_option_single_content";
+      const image = document.createElement(rune.image ? "img" : "span");
+      image.className = rune.image ? "rune_option_image" : "rune_option_image rune_option_image--placeholder";
+      if (rune.image) {
+        image.src = rune.image;
+        image.alt = "";
+        image.loading = "lazy";
+      } else {
+        image.setAttribute("aria-hidden", "true");
+      }
 
-      checkRow.append(input, copy);
-      wrapper.append(checkRow);
+      const textWrap = document.createElement("span");
+      textWrap.className = "rune_option_text";
+      const nameSpan = document.createElement("span");
+      nameSpan.className = "rune_option_name";
+      nameSpan.textContent = rune.name || "Unbenannte Rune";
+      const bodySpan = document.createElement("span");
+      bodySpan.className = "rune_option_body";
+      bodySpan.textContent = rune.description || "Keine Beschreibung vorhanden.";
+      textWrap.append(nameSpan, bodySpan);
 
       const slotRow = buildSlotFields(existingSlots[0] || {});
       slotRow.classList.add("rune_option_slot--single");
       slotRow.hidden = !input.checked;
-      wrapper.append(slotRow);
+
+      toggleLabel.append(input);
+      content.append(image, textWrap, slotRow);
+      checkRow.append(toggleLabel, content);
+      wrapper.append(checkRow);
 
       input.addEventListener("change", () => {
         slotRow.hidden = !input.checked;

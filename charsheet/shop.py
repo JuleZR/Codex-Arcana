@@ -149,6 +149,7 @@ def _build_magic_modifier_payload(target_kind: str, raw_value, row_data) -> dict
         "target_kind": target_kind,
         "value": value,
         "effect_description": str(row_data.get("effect_description") or "").strip(),
+        "display_order": int(row_data.get("display_order") or 0),
         "target_slug": "",
         "target_skill": None,
         "target_skill_category": None,
@@ -240,9 +241,11 @@ def _read_magic_modifier_payloads(post_data) -> list[dict[str, object]]:
         raise ValidationError({"magic_modifier_payloads": "Ungültige Magie-Effekte."})
 
     payloads: list[dict[str, object]] = []
-    for entry in decoded_payloads:
+    for index, entry in enumerate(decoded_payloads):
         if not isinstance(entry, dict):
             raise ValidationError({"magic_modifier_payloads": "Ungültige Magie-Effekte."})
+        entry = dict(entry)
+        entry["display_order"] = index
         payload = _build_magic_modifier_payload(
             str(entry.get("target_kind") or "").strip(),
             entry.get("value", 0),
@@ -258,6 +261,7 @@ def _read_magic_modifier_payloads(post_data) -> list[dict[str, object]]:
                             "target_kind": Modifier.TargetKind.STAT,
                             "value": value,
                             "effect_description": effect_description,
+                            "display_order": index,
                             "target_slug": MELEE_MANEUVERS,
                             "target_skill": None,
                             "target_skill_category": None,
@@ -268,6 +272,7 @@ def _read_magic_modifier_payloads(post_data) -> list[dict[str, object]]:
                             "target_kind": Modifier.TargetKind.STAT,
                             "value": value,
                             "effect_description": effect_description,
+                            "display_order": index,
                             "target_slug": WEAPON_DAMAGE,
                             "target_skill": None,
                             "target_skill_category": None,
@@ -354,6 +359,7 @@ def _save_magic_modifiers(*, source_model, source_id: int, magic_modifier_payloa
             target_item=magic_modifier_payload["target_item"],
             target_specialization=magic_modifier_payload["target_specialization"],
             effect_description=str(magic_modifier_payload.get("effect_description") or ""),
+            display_order=int(magic_modifier_payload.get("display_order") or 0),
             mode=Modifier.Mode.FLAT,
             value=int(magic_modifier_payload["value"]),
         )
@@ -376,9 +382,13 @@ def apply_character_item_modifications(character_item: CharacterItem, post_data)
     visible_magic_effect_summary = str(post_data.get("magic_effect_summary") or "").strip()
     magic_modifier_payloads = _read_magic_modifier_payloads(post_data)
     text_effect_descriptions = [
-        str(payload.get("effect_description") or "").strip()
+        {
+            "effect_description": str(payload.get("effect_description") or "").strip(),
+            "display_order": int(payload.get("display_order") or 0),
+        }
         for payload in magic_modifier_payloads
         if str(payload.get("target_kind") or "") == TEXT_TARGET_KIND
+        and str(payload.get("effect_description") or "").strip()
     ]
     magic_effect_summary = pack_magic_effect_summary(visible_magic_effect_summary, text_effect_descriptions)
     is_magic = bool(magic_modifier_payloads) or bool(visible_magic_effect_summary) or bool(text_effect_descriptions)
@@ -567,9 +577,13 @@ def create_custom_shop_item(post_data) -> bool:
     selected_weapon_skill_ids = _read_skill_ids(post_data, "weapon_skills")
     magic_modifier_payloads = _read_magic_modifier_payloads(post_data) if is_magic else []
     text_effect_descriptions = [
-        str(payload.get("effect_description") or "").strip()
+        {
+            "effect_description": str(payload.get("effect_description") or "").strip(),
+            "display_order": int(payload.get("display_order") or 0),
+        }
         for payload in magic_modifier_payloads
         if str(payload.get("target_kind") or "") == TEXT_TARGET_KIND
+        and str(payload.get("effect_description") or "").strip()
     ]
     magic_effect_summary = pack_magic_effect_summary(
         str(post_data.get("magic_effect_summary") or "").strip(),
