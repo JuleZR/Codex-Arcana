@@ -2055,7 +2055,7 @@ def _build_weapon_mastery_arcana_panel(engine) -> dict | None:
                 "kind": "rune",
                 "label": entry.rune.name,
                 "description": (entry.rune.description or "").strip(),
-                "image": str(entry.rune.image) if entry.rune.image else None,
+                "image": _rune_image_url(entry.rune),
                 "weapon_type_label": related_weapon_type,
             })
         elif entry.kind == CharacterWeaponMasteryArcana.ArcanaKind.BONUS_CAPACITY:
