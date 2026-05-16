@@ -461,19 +461,13 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
     if (!(row instanceof HTMLElement)) {
       return;
     }
-    row.draggable = true;
+    row.draggable = false;
     const dragHandle = row.querySelector("[data-drag-magic-effect]");
-    dragHandle?.addEventListener("mousedown", () => {
-      row.dataset.dragArmed = "1";
-    });
-    dragHandle?.addEventListener("mouseup", () => {
-      delete row.dataset.dragArmed;
-    });
-    dragHandle?.addEventListener("mouseleave", () => {
-      delete row.dataset.dragArmed;
-    });
-    row.addEventListener("dragstart", (event) => {
-      if (row.dataset.dragArmed !== "1") {
+    if (dragHandle instanceof HTMLElement) {
+      dragHandle.draggable = true;
+    }
+    dragHandle?.addEventListener("dragstart", (event) => {
+      if (!(dragHandle instanceof HTMLElement)) {
         event.preventDefault();
         return;
       }
@@ -484,9 +478,8 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
         event.dataTransfer.setData("text/plain", row.querySelector(".shop_magic_effect_title")?.textContent || "Effekt");
       }
     });
-    row.addEventListener("dragend", () => {
+    dragHandle?.addEventListener("dragend", () => {
       draggedMagicEffectRow = null;
-      delete row.dataset.dragArmed;
       row.classList.remove("is-dragging");
       clearMagicEffectDropMarkers();
       syncMagicEffectRemoveButtons();
