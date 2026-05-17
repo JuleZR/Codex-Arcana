@@ -13,6 +13,8 @@ from django.db import transaction
 from charsheet.constants import (
     DEADLY,
     MELEE_MANEUVERS,
+    TWO_HANDED,
+    VERSATILE,
     WEAPON_DAMAGE,
     WEAPON_MANEUVER_DAMAGE,
     WEAPON_MASTERY_BONUS,
@@ -680,7 +682,7 @@ def create_custom_shop_item(post_data, files_data=None) -> bool:
                 min_st = _read_int(post_data, "weapon_min_st", 1, minimum=1)
                 damage_type = str(post_data.get("weapon_damage_type") or DEADLY)
                 wield_mode = str(post_data.get("weapon_wield_mode") or "1h")
-                h2_enabled = wield_mode == "vh"
+                h2_enabled = wield_mode in {TWO_HANDED, VERSATILE}
                 damage_source_id = _read_int(post_data, "weapon_damage_source", 0, minimum=1)
                 damage_source = DamageSource.objects.get(pk=damage_source_id)
                 weapon_skills = list(Skill.objects.filter(pk__in=selected_weapon_skill_ids).order_by("name"))

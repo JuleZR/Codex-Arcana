@@ -264,6 +264,11 @@ class WeaponStats(models.Model):
         return self.wield_mode in {TWO_HANDED, VERSATILE}
 
     @property
+    def requires_two_handed_damage_profile(self) -> bool:
+        """Return whether two-handed damage values are required for this weapon."""
+        return self.wield_mode in {TWO_HANDED, VERSATILE}
+
+    @property
     def has_alternate_two_handed_profile(self) -> bool:
         """Return whether the weapon has a second, optional two-handed profile."""
         return self.wield_mode == VERSATILE
@@ -281,7 +286,7 @@ class WeaponStats(models.Model):
     @property
     def two_handed_damage(self) -> str | None:
         """Return two-handed damage in dice notation if available."""
-        if not self.has_alternate_two_handed_profile or self.h2_dice_amount is None or self.h2_dice_faces is None:
+        if not self.requires_two_handed_damage_profile or self.h2_dice_amount is None or self.h2_dice_faces is None:
             return None
         return self.format_damage_label(
             self.h2_dice_amount,
@@ -322,7 +327,7 @@ class WeaponStats(models.Model):
             or self.h2_flat_bonus is not None
             or bool(self.h2_flat_operator)
         )
-        if self.has_alternate_two_handed_profile:
+        if self.requires_two_handed_damage_profile:
             if self.h2_dice_amount is None or self.h2_dice_faces is None:
                 raise ValidationError("Two-handed weapons need h2_dice_amount and h2_dice_faces.")
         elif has_h2_values:
