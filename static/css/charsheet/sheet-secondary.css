@@ -1800,6 +1800,7 @@
 .floating-tooltip-card {
   --tooltip-card-accent: rgba(118, 85, 48, 0.88);
   --tooltip-card-media-width: clamp(180px, 30vw, 320px);
+  --tooltip-card-media-size: clamp(180px, 30vw, 320px);
   position: fixed;
   left: 16px;
   top: 16px;
@@ -1907,8 +1908,8 @@
 }
 
 .floating-tooltip-card__content.has-media {
-  grid-template-columns: minmax(180px, var(--tooltip-card-media-width)) minmax(320px, 1fr);
-  align-items: stretch;
+  grid-template-columns: minmax(180px, var(--tooltip-card-media-size)) minmax(320px, 1fr);
+  align-items: start;
 }
 
 .floating-tooltip-card__media,
@@ -1927,14 +1928,15 @@
 
 .floating-tooltip-card__media {
   overflow: hidden;
-  align-self: stretch;
-  width: 100%;
-  height: 100%;
+  align-self: start;
+  width: min(100%, var(--tooltip-card-media-size));
+  height: var(--tooltip-card-media-size);
   min-height: 0;
-  max-height: 100%;
+  max-height: var(--tooltip-card-media-size);
   display: grid;
   place-items: center;
-  padding: 10px;
+  aspect-ratio: 1 / 1;
+  padding: 8px;
 }
 
 .floating-tooltip-card__image {
@@ -1952,13 +1954,35 @@
 }
 
 .floating-tooltip-card__lore {
-  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px 22px;
 }
 
 .floating-tooltip-card__lore p {
   font-family: "Cormorant Garamond", Georgia, serif;
   font-size: 0.94rem;
   line-height: 1.42;
+}
+
+.floating-tooltip-card__section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.floating-tooltip-card__section_title {
+  margin: 0;
+  font-family: "Cinzel", Georgia, serif;
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(97, 68, 37, 0.88);
+}
+
+.floating-tooltip-card__section_body table {
+  margin: 0;
 }
 
 .floating-tooltip p {
@@ -2158,6 +2182,16 @@
 
 .floating-tooltip-card tbody tr:last-child td {
   border-bottom: 0;
+}
+
+.floating-tooltip-card__section_body td:first-child {
+  width: 128px;
+  color: rgba(97, 68, 37, 0.88);
+}
+
+.floating-tooltip-card__section_body td:nth-child(2) {
+  text-align: left;
+  white-space: normal;
 }
 
 .floating-tooltip-card tbody td strong {

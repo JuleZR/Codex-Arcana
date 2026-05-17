@@ -340,8 +340,77 @@ function normalizeInlineText(value) {
   return String(value || "").replace(/\s+/g, " ").trim();
 }
 
+function createTooltipCardTableMarkup(table, rows, { includeHead = true } = {}) {
+  if (!(table instanceof HTMLTableElement) || !Array.isArray(rows) || !rows.length) {
+    return "";
+  }
+  const headHtml = includeHead && table.tHead ? table.tHead.outerHTML : "";
+  const bodyHtml = `<tbody>${rows.map((row) => row.outerHTML).join("")}</tbody>`;
+  return `<table>${headHtml}${bodyHtml}</table>`;
+}
+
+function buildTooltipCardSections(markup) {
+  const template = document.createElement("template");
+  template.innerHTML = String(markup || "").trim();
+  const table = template.content.querySelector("table");
+  if (!(table instanceof HTMLTableElement) || !(table.tBodies[0] instanceof HTMLTableSectionElement)) {
+    return splitTooltipMarkup(markup);
+  }
+
+  const topRows = [];
+  const effectRows = [];
+  const runeRows = [];
+  Array.from(table.tBodies[0].rows).forEach((row) => {
+    if (row.classList.contains("tooltip_effect_row")) {
+      effectRows.push(row.cloneNode(true));
+      return;
+    }
+    if (row.classList.contains("tooltip_rune_comment_row")) {
+      runeRows.push(row.cloneNode(true));
+      return;
+    }
+    topRows.push(row.cloneNode(true));
+  });
+
+  const extras = [];
+  if (effectRows.length) {
+    extras.push(`
+      <section class="floating-tooltip-card__section">
+        <h4 class="floating-tooltip-card__section_title">Effekte</h4>
+        <div class="floating-tooltip-card__section_body">${createTooltipCardTableMarkup(table, effectRows, { includeHead: false })}</div>
+      </section>
+    `);
+  }
+  if (runeRows.length) {
+    extras.push(`
+      <section class="floating-tooltip-card__section">
+        <h4 class="floating-tooltip-card__section_title">Runen</h4>
+        <div class="floating-tooltip-card__section_body">${createTooltipCardTableMarkup(table, runeRows, { includeHead: false })}</div>
+      </section>
+    `);
+  }
+
+  Array.from(template.content.childNodes).forEach((node) => {
+    if (node === table) {
+      return;
+    }
+    if (node instanceof HTMLElement) {
+      extras.push(node.outerHTML);
+      return;
+    }
+    if (node.nodeType === Node.TEXT_NODE && String(node.textContent || "").trim()) {
+      extras.push(`<p>${escapeHtml(String(node.textContent || "").trim())}</p>`);
+    }
+  });
+
+  return {
+    leadHtml: createTooltipCardTableMarkup(table, topRows) || table.outerHTML,
+    extraHtml: extras.join(""),
+  };
+}
+
 function buildTooltipCardMarkup({ title, subtitle, image, accent, bodyMarkup }) {
-  const { leadHtml, loreHtml } = splitTooltipMarkup(bodyMarkup);
+  const { leadHtml, extraHtml } = buildTooltipCardSections(bodyMarkup);
   const safeTitle = escapeHtml(title || "Details");
   const safeSubtitle = escapeHtml(subtitle || "");
   const safeImage = escapeHtml(image || "");
@@ -362,7 +431,7 @@ function buildTooltipCardMarkup({ title, subtitle, image, accent, bodyMarkup }) 
         ${mediaHtml}
         <div class="floating-tooltip-card__details">${leadHtml || bodyMarkup}</div>
       </div>
-      ${loreHtml ? `<section class="floating-tooltip-card__lore">${loreHtml}</section>` : ""}
+      ${extraHtml ? `<section class="floating-tooltip-card__lore">${extraHtml}</section>` : ""}
     </div>
   `;
 }
@@ -379,10 +448,15 @@ function syncTooltipCardMediaHeight(card) {
   }
   const detailsHeight = details.offsetHeight;
   if (detailsHeight > 0) {
-    media.style.height = `${detailsHeight}px`;
-    media.style.maxHeight = `${detailsHeight}px`;
+    const clampedSize = Math.min(Math.max(detailsHeight, 180), 360);
+    card.style.setProperty("--tooltip-card-media-size", `${clampedSize}px`);
+    media.style.width = `${clampedSize}px`;
+    media.style.height = `${clampedSize}px`;
+    media.style.maxHeight = `${clampedSize}px`;
     return;
   }
+  card.style.removeProperty("--tooltip-card-media-size");
+  media.style.width = "";
   media.style.height = "";
   media.style.maxHeight = "";
 }
