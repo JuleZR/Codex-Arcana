@@ -178,7 +178,7 @@ class ItemEngine:
             return signed_bonus, WeaponStats.DamageOperator.ADD
         return 0, operator
 
-    def get_weapon_damage(self, wield_mode: str = ONE_HANDED):
+    def get_weapon_damage(self, wield_mode: str = ONE_HANDED, *, dice_amount_bonus: int = 0):
         """Return weapon damage tuple(s): (dice_amount, dice_faces, flat_bonus, operator)."""
         stats = self._get_weapon_stats()
         if not stats:
@@ -198,13 +198,17 @@ class ItemEngine:
             quality_bonus,
         )
         base = (
-            int(self._get_override_value("weapon_damage_dice_amount_override", stats.damage_dice_amount)),
+            max(1, int(self._get_override_value("weapon_damage_dice_amount_override", stats.damage_dice_amount)) + int(dice_amount_bonus or 0)),
             int(self._get_override_value("weapon_damage_dice_faces_override", stats.damage_dice_faces)),
             base_adjusted_bonus,
             base_adjusted_operator,
         )
         two_handed = (
-            self._get_override_value("weapon_h2_dice_amount_override", stats.h2_dice_amount),
+            (
+                max(1, int(self._get_override_value("weapon_h2_dice_amount_override", stats.h2_dice_amount)) + int(dice_amount_bonus or 0))
+                if self._get_override_value("weapon_h2_dice_amount_override", stats.h2_dice_amount) is not None
+                else None
+            ),
             self._get_override_value("weapon_h2_dice_faces_override", stats.h2_dice_faces),
             h2_adjusted_bonus,
             h2_adjusted_operator,
@@ -230,27 +234,27 @@ class ItemEngine:
         dice_amount, dice_faces, flat_bonus, operator = damage_data
         return WeaponStats.format_damage_label(dice_amount, dice_faces, flat_bonus, operator)
 
-    def get_one_handed_damage_label(self) -> str:
+    def get_one_handed_damage_label(self, *, dice_amount_bonus: int = 0) -> str:
         """Return one-handed or base damage label including quality modifier."""
-        return self.format_damage(self.get_weapon_damage(ONE_HANDED))
+        return self.format_damage(self.get_weapon_damage(ONE_HANDED, dice_amount_bonus=dice_amount_bonus))
 
-    def get_two_handed_damage_label(self) -> str | None:
+    def get_two_handed_damage_label(self, *, dice_amount_bonus: int = 0) -> str | None:
         """Return two-handed damage label including quality modifier."""
-        two_handed = self.get_weapon_damage(TWO_HANDED)
+        two_handed = self.get_weapon_damage(TWO_HANDED, dice_amount_bonus=dice_amount_bonus)
         if not two_handed:
             return None
         return self.format_damage(two_handed)
 
-    def weapon_profiles(self) -> list[dict[str, str]]:
+    def weapon_profiles(self, *, dice_amount_bonus: int = 0) -> list[dict[str, str]]:
         """Return prepared weapon display profiles for table rendering."""
         profiles = [
             {
                 "mode": ONE_HANDED,
                 "mode_label": "1 H",
-                "damage": self.get_one_handed_damage_label(),
+                "damage": self.get_one_handed_damage_label(dice_amount_bonus=dice_amount_bonus),
             }
         ]
-        two_handed_damage = self.get_two_handed_damage_label()
+        two_handed_damage = self.get_two_handed_damage_label(dice_amount_bonus=dice_amount_bonus)
         if two_handed_damage:
             profiles.append(
                 {

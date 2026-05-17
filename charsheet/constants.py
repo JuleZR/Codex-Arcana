@@ -12,6 +12,7 @@ DEFENSE_SR = "sr"
 DEFENSE_RS = "rs"
 MELEE_MANEUVERS = "melee_maneuvers"
 WEAPON_DAMAGE = "weapon_damage"
+WEAPON_DAMAGE_DICE = "weapon_damage_dice"
 WEAPON_MANEUVER_DAMAGE = "weapon_maneuver_damage"
 WEAPON_MASTERY_BONUS = "weapon_mastery_bonus"
 WEAPON_MASTERY_EFFECT_DESCRIPTION = "Waffenmeister-Bonus +1/+1"
@@ -30,6 +31,7 @@ STAT_SLUG_CHOICES = [
     (DEFENSE_RS, "RS"),
     (MELEE_MANEUVERS, "Manöver mit dieser Waffe"),
     (WEAPON_DAMAGE, "Schaden mit dieser Waffe"),
+    (WEAPON_DAMAGE_DICE, "Zusaetzliche Schadenswuerfel mit dieser Waffe"),
 ]
 
 VALID_STAT_SLUGS = {
@@ -46,6 +48,7 @@ VALID_STAT_SLUGS = {
     DEFENSE_RS,
     MELEE_MANEUVERS,
     WEAPON_DAMAGE,
+    WEAPON_DAMAGE_DICE,
 }
 
 SOURCE_ITEM_RUNE = "item_rune"

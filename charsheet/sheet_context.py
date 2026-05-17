@@ -32,6 +32,7 @@ from charsheet.constants import (
     STAT_SLUG_CHOICES,
     SOURCE_ITEM_RUNE,
     WEAPON_DAMAGE,
+    WEAPON_DAMAGE_DICE,
     WEAPON_MANEUVER_DAMAGE,
     WEAPON_MASTERY_BONUS,
     WEAPON_MASTERY_EFFECT_DESCRIPTION,
@@ -491,6 +492,8 @@ def _serialize_modifier_payload(modifier: Modifier) -> dict[str, object]:
             and getattr(getattr(modifier, "source_content_type", None), "model", "") == "characteritem"
         ):
             target_display = "Manöver mit dieser Waffe"
+        elif str(modifier.target_slug or "") == WEAPON_DAMAGE_DICE:
+            target_display = "+ X W10"
         else:
             target_display = dict(STAT_SLUG_CHOICES).get(str(modifier.target_slug or ""), str(modifier.target_slug or ""))
     elif modifier.target_kind == Modifier.TargetKind.SKILL and modifier.target_skill_id:
@@ -516,6 +519,8 @@ def _serialize_modifier_payload(modifier: Modifier) -> dict[str, object]:
             and getattr(getattr(modifier, "source_content_type", None), "model", "") == "characteritem"
         ):
             payload["target_kind"] = "weapon_maneuver"
+        elif str(modifier.target_slug or "") == WEAPON_DAMAGE_DICE:
+            payload["target_kind"] = "weapon_damage_dice"
         else:
             payload["target_stat"] = str(modifier.target_slug or "")
     elif modifier.target_kind == Modifier.TargetKind.SKILL and modifier.target_skill_id:
@@ -617,6 +622,8 @@ def _build_character_item_magic_tooltip_rows(*, effect_summary: str, modifier_pa
         if str(payload.get("target_kind") or "") in {WEAPON_MANEUVER_DAMAGE, WEAPON_MASTERY_BONUS}:
             formatted_value = format_modifier(value)
             value_display = f"{formatted_value}/{formatted_value}"
+        elif str(payload.get("target_kind") or "") == "weapon_damage_dice":
+            value_display = f"{value:+d} W10"
         else:
             value_display = f"{value:+d} {target_display}"
         if effect_description:
@@ -2859,6 +2866,7 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
             ("category", "Fertigkeitskategorie"),
             ("weapon_maneuver", "Bonus/Malus auf Man\u00f6ver"),
             ("weapon_damage", "Bonus/Malus auf Schaden"),
+            ("weapon_damage_dice", "+ X W10"),
             (WEAPON_MANEUVER_DAMAGE, "Bonus/Malus auf Manöver und Schaden"),
             (WEAPON_MASTERY_BONUS, WEAPON_MASTERY_EFFECT_DESCRIPTION),
         ],

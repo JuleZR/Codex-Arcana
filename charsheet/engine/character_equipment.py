@@ -5,7 +5,15 @@ from __future__ import annotations
 from django.db.models import QuerySet
 from django.db.models import Q
 
-from charsheet.constants import ARMOR_PENALTY_IGNORE, ATTR_ST, DEFENSE_RS, MELEE_MANEUVERS, SOURCE_ITEM_RUNE, WEAPON_DAMAGE
+from charsheet.constants import (
+    ARMOR_PENALTY_IGNORE,
+    ATTR_ST,
+    DEFENSE_RS,
+    MELEE_MANEUVERS,
+    SOURCE_ITEM_RUNE,
+    WEAPON_DAMAGE,
+    WEAPON_DAMAGE_DICE,
+)
 from charsheet.models import CharacterItem, Item, Modifier
 
 from .item_engine import ItemEngine
@@ -151,6 +159,43 @@ def _character_item_specific_damage_modifier(engine, character_item: CharacterIt
     return total
 
 
+def _character_item_specific_damage_dice_modifier(engine, character_item: CharacterItem) -> int:
+    """Return item-bound modifiers that increase this weapon's damage dice count."""
+    total = 0
+    learned_stack: set[int] = set()
+    available_stack: set[int] = set()
+    for modifier in engine._all_modifiers:
+        if modifier.target_kind != Modifier.TargetKind.STAT:
+            continue
+        if str(modifier.target_slug or "") != WEAPON_DAMAGE_DICE:
+            continue
+        if getattr(getattr(modifier, "source_content_type", None), "model", "") != "characteritem":
+            continue
+        if int(modifier.source_object_id or 0) != int(character_item.id):
+            continue
+        total += int(engine._modifier_value(modifier, learned_stack, available_stack) or 0)
+    equipped_item_rune_ids = {
+        int(item_rune.id)
+        for item_rune in engine._equipped_item_runes
+        if int(item_rune.item_id) == int(character_item.id)
+    }
+    if not equipped_item_rune_ids:
+        return total
+    for modifier in engine.modifier_engine._active_item_rune_modifiers:
+        if modifier.source_type != SOURCE_ITEM_RUNE:
+            continue
+        if str(modifier.target_key or "") != WEAPON_DAMAGE_DICE:
+            continue
+        try:
+            source_id = int(modifier.source_id)
+        except (TypeError, ValueError):
+            continue
+        if source_id not in equipped_item_rune_ids:
+            continue
+        total += int(engine.modifier_engine._resolve_numeric_modifier(modifier) or 0)
+    return total
+
+
 def equipped_weapon_rows(engine) -> list[dict]:
     """Return character-sheet-ready weapon rows with one prepared row per display profile."""
     rows: list[dict] = []
@@ -163,9 +208,12 @@ def equipped_weapon_rows(engine) -> list[dict]:
         mastery_maneuver_bonus, mastery_damage_bonus = engine.weapon_mastery_bonus_for_item(character_item)
         item_specific_maneuver_modifier = _character_item_specific_maneuver_modifier(engine, character_item)
         item_specific_damage_modifier = _character_item_specific_damage_modifier(engine, character_item)
+        item_specific_damage_dice_modifier = _character_item_specific_damage_dice_modifier(engine, character_item)
         dmg_mod = engine.get_dmg_modifier_sum(damage_stat_slug) if damage_stat_slug else engine.attribute_modifier(ATTR_ST)
         total_damage_modifier = dmg_mod + mastery_damage_bonus + item_specific_damage_modifier
-        for profile_index, profile in enumerate(item_engine.weapon_profiles()):
+        for profile_index, profile in enumerate(
+            item_engine.weapon_profiles(dice_amount_bonus=item_specific_damage_dice_modifier)
+        ):
             rows.append(
                 {
                     "character_item": character_item,
@@ -195,6 +243,7 @@ def equipped_weapon_rows(engine) -> list[dict]:
                     "trait_maneuver_modifier": maneuver_modifier,
                     "item_maneuver_modifier": item_specific_maneuver_modifier,
                     "item_damage_modifier": item_specific_damage_modifier,
+                    "item_damage_dice_modifier": item_specific_damage_dice_modifier,
                     "total_maneuver_modifier": (
                         item_engine.get_weapon_maneuver_quality_bonus()
                         + maneuver_modifier

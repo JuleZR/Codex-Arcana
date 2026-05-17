@@ -16,6 +16,7 @@ from charsheet.constants import (
     TWO_HANDED,
     VERSATILE,
     WEAPON_DAMAGE,
+    WEAPON_DAMAGE_DICE,
     WEAPON_MANEUVER_DAMAGE,
     WEAPON_MASTERY_BONUS,
     WEAPON_MASTERY_EFFECT_DESCRIPTION,
@@ -186,6 +187,9 @@ def _build_magic_modifier_payload(target_kind: str, raw_value, row_data) -> dict
     elif target_kind == "weapon_damage":
         payload["target_kind"] = Modifier.TargetKind.STAT
         payload["target_slug"] = WEAPON_DAMAGE
+    elif target_kind == "weapon_damage_dice":
+        payload["target_kind"] = Modifier.TargetKind.STAT
+        payload["target_slug"] = WEAPON_DAMAGE_DICE
     elif target_kind == WEAPON_MANEUVER_DAMAGE:
         payload["target_kind"] = WEAPON_MANEUVER_DAMAGE
     elif target_kind == WEAPON_MASTERY_BONUS:
