@@ -493,21 +493,22 @@ function syncTooltipCardMediaHeight(card) {
   const frame = card.querySelector(".floating-tooltip-card__frame");
   const detailsHeight = details.offsetHeight;
   const frameHeight = frame instanceof HTMLElement ? frame.offsetHeight : 0;
-  const preferredSize = frameHeight > 0
-    ? Math.round(frameHeight / 3)
-    : Math.round(detailsHeight * 0.72);
-  if (preferredSize > 0 || detailsHeight > 0) {
-    const clampedSize = Math.min(Math.max(preferredSize || detailsHeight, 150), 260);
-    card.style.setProperty("--tooltip-card-media-size", `${clampedSize}px`);
-    media.style.width = `${clampedSize}px`;
-    media.style.height = `${clampedSize}px`;
-    media.style.maxHeight = `${clampedSize}px`;
+  const preferredHeight = frameHeight > 0
+    ? Math.round(frameHeight * 0.4)
+    : Math.round(detailsHeight * 0.9);
+  if (preferredHeight > 0 || detailsHeight > 0) {
+    const clampedHeight = Math.min(Math.max(preferredHeight || detailsHeight, 180), 320);
+    const computedWidth = Math.round(clampedHeight / Math.SQRT2);
+    card.style.setProperty("--tooltip-card-media-height", `${clampedHeight}px`);
+    card.style.setProperty("--tooltip-card-media-width", `${computedWidth}px`);
+    media.style.width = `${computedWidth}px`;
+    media.style.height = `${clampedHeight}px`;
     return;
   }
-  card.style.removeProperty("--tooltip-card-media-size");
+  card.style.removeProperty("--tooltip-card-media-height");
+  card.style.removeProperty("--tooltip-card-media-width");
   media.style.width = "";
   media.style.height = "";
-  media.style.maxHeight = "";
 }
 
 export function initTooltips() {

@@ -1799,8 +1799,8 @@
 
 .floating-tooltip-card {
   --tooltip-card-accent: rgba(118, 85, 48, 0.88);
-  --tooltip-card-media-width: clamp(180px, 30vw, 320px);
-  --tooltip-card-media-size: clamp(150px, 22vw, 260px);
+  --tooltip-card-media-width: clamp(130px, 18vw, 220px);
+  --tooltip-card-media-height: clamp(190px, 26vw, 320px);
   position: fixed;
   left: 16px;
   top: 16px;
@@ -1908,7 +1908,7 @@
 }
 
 .floating-tooltip-card__content.has-media {
-  grid-template-columns: minmax(190px, var(--tooltip-card-media-size)) minmax(0, 1fr);
+  grid-template-columns: minmax(130px, var(--tooltip-card-media-width)) minmax(0, 1fr);
   align-items: start;
 }
 
@@ -1928,11 +1928,10 @@
 .floating-tooltip-card__media {
   overflow: hidden;
   align-self: start;
-  width: min(100%, var(--tooltip-card-media-size));
-  height: var(--tooltip-card-media-size);
+  width: min(100%, var(--tooltip-card-media-width));
+  height: var(--tooltip-card-media-height);
   min-height: 0;
-  max-height: var(--tooltip-card-media-size);
-  aspect-ratio: 1 / 1;
+  max-height: var(--tooltip-card-media-height);
   margin-top: 4px;
   background: transparent;
   border: 0;
