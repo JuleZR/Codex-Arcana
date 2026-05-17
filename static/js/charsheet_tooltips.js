@@ -1845,7 +1845,28 @@ document.addEventListener("DOMContentLoaded", () => {
     const normalized = trimmed
       .replace(/^\|/, "")
       .replace(/\|$/, "");
-    return normalized.split("|").map((part) => part.trim());
+    const cells = [];
+    let current = "";
+    let escaped = false;
+    for (const char of normalized) {
+      if (escaped) {
+        current += char;
+        escaped = false;
+        continue;
+      }
+      if (char === "\\") {
+        escaped = true;
+        continue;
+      }
+      if (char === "|") {
+        cells.push(current.trim());
+        current = "";
+        continue;
+      }
+      current += char;
+    }
+    cells.push(current.trim());
+    return cells;
   };
 
   const isTableDividerRow = (row) =>
@@ -1860,6 +1881,34 @@ document.addEventListener("DOMContentLoaded", () => {
       label: match[1].trim(),
       color: match[2].trim(),
     };
+  };
+
+  const parseRuneInline = (line) => {
+    const match = String(line || "").trim().match(/^\[\[RUNEINLINE:(.+?)\|(.*)\]\]$/);
+    if (!match) {
+      return null;
+    }
+    return {
+      name: match[1].trim(),
+      description: match[2].trim(),
+    };
+  };
+
+  const renderTooltipCell = (cell, columnIndex) => {
+    const rawCell = String(cell || "").trim();
+    if (rawCell === "[[EMPTY]]") {
+      return "";
+    }
+    const runeMeta = columnIndex === 1 ? parseRuneInline(rawCell) : null;
+    if (runeMeta) {
+      const safeName = escapeHtml(runeMeta.name);
+      const safeDescription = escapeHtml(runeMeta.description);
+      if (safeDescription) {
+        return `<span class="tooltip_rune_comment"><strong>${safeName} &middot;</strong> ${safeDescription}</span>`;
+      }
+      return `<span class="tooltip_rune_comment"><strong>${safeName}</strong></span>`;
+    }
+    return escapeHtml(rawCell);
   };
 
   const qualityBadgeToneClass = (qualityMeta) => {
@@ -1926,12 +1975,26 @@ document.addEventListener("DOMContentLoaded", () => {
         tableHtml += "</tr></thead>";
         if (bodyRows.length) {
           tableHtml += "<tbody>";
+          let previousRowKind = "";
           bodyRows.forEach((row) => {
-            tableHtml += "<tr>";
-            row.forEach((cell) => {
-              tableHtml += `<td>${escapeHtml(cell)}</td>`;
+            const firstCell = String(row[0] || "").trim();
+            let rowKind = "";
+            if (firstCell === "Effekte" || (firstCell === "[[EMPTY]]" && previousRowKind === "effect")) {
+              rowKind = "effect";
+            } else if (firstCell === "Runen" || parseRuneInline(row[1]) || (firstCell === "[[EMPTY]]" && previousRowKind === "rune")) {
+              rowKind = "rune";
+            }
+            const rowClass = rowKind === "effect"
+              ? ' class="tooltip_effect_row"'
+              : rowKind === "rune"
+                ? ' class="tooltip_rune_comment_row"'
+                : "";
+            tableHtml += `<tr${rowClass}>`;
+            row.forEach((cell, cellIndex) => {
+              tableHtml += `<td>${renderTooltipCell(cell, cellIndex)}</td>`;
             });
             tableHtml += "</tr>";
+            previousRowKind = rowKind;
           });
           tableHtml += "</tbody>";
         }

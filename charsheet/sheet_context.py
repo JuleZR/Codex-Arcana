@@ -606,7 +606,11 @@ def _build_character_item_magic_tooltip_rows(*, effect_summary: str, modifier_pa
             value = int(payload.get("value") or 0)
         except (TypeError, ValueError):
             value = 0
-        value_display = f"{value:+d} {target_display}"
+        if str(payload.get("target_kind") or "") in {WEAPON_MANEUVER_DAMAGE, WEAPON_MASTERY_BONUS}:
+            formatted_value = format_modifier(value)
+            value_display = f"{formatted_value}/{formatted_value}"
+        else:
+            value_display = f"{value:+d} {target_display}"
         if effect_description:
             effect_lines.append(f"{effect_description} · {value_display}")
         else:
@@ -643,18 +647,23 @@ def _load_character_item_modifier_payloads(
     return modifiers_by_character_item_id
 
 
-def _format_rune_tooltip_block(*, item: Item, character_item: CharacterItem | None = None) -> str:
-    """Return a five-socket rune block for the tooltip renderer."""
-    rune_rows = _collect_rune_rows(item=item, character_item=character_item)
-    if not rune_rows:
-        return ""
-    socket_rows = list(rune_rows[:5])
-    while len(socket_rows) < 5:
-        socket_rows.append({"name": "", "image": ""})
-    lines: list[str] = []
-    for row in socket_rows:
-        lines.append(f"[[RUNESOCKET:{row['name']}::{row['image']}]]")
-    return "\n".join(lines)
+def _build_character_item_rune_tooltip_rows(
+    *, item: Item, character_item: CharacterItem | None = None
+) -> list[tuple[str, object]]:
+    """Return tooltip rows for visible runes on one item."""
+    rune_lines: list[str] = []
+    for row in _collect_rune_rows(item=item, character_item=character_item):
+        rune_name = _single_line(str(row.get("name") or ""))
+        rune_description = _single_line(str(row.get("description") or ""))
+        if not rune_name:
+            continue
+        rune_lines.append(f"[[RUNEINLINE:{rune_name}|{rune_description}]]")
+    if not rune_lines:
+        return []
+    return [
+        ("Runen" if index == 0 else "[[EMPTY]]", line)
+        for index, line in enumerate(rune_lines)
+    ]
 
 
 def _format_item_tooltip(
@@ -665,7 +674,6 @@ def _format_item_tooltip(
     status_label: str | None = None,
     status_color: str | None = None,
     detail_rows: list[tuple[str, object]] | None = None,
-    rune_block: str = "",
 ) -> str:
     """Return the tooltip text used by item-related template rows."""
     table_rows: list[tuple[str, object]] = list(detail_rows or [])
@@ -683,8 +691,6 @@ def _format_item_tooltip(
     description_block = str(description or "").strip()
     if description_block:
         parts.append(description_block)
-    if rune_block:
-        parts.append(rune_block)
     return "\n\n".join(parts)
 
 
@@ -1206,6 +1212,34 @@ def _build_character_item_stat_modifier_rows(engine, character_item: CharacterIt
                 "notes": getattr(modifier, "effect_description", ""),
             }
         )
+    if stat_key == WEAPON_DAMAGE:
+        equipped_item_rune_ids = {
+            int(item_rune.id)
+            for item_rune in character_item.item_runes.all()
+            if item_rune.is_active
+        }
+        for modifier in engine.modifier_engine._active_item_rune_modifiers:
+            if str(getattr(modifier, "source_type", "") or "") != SOURCE_ITEM_RUNE:
+                continue
+            if str(getattr(modifier, "target_key", "") or "") != stat_key:
+                continue
+            try:
+                source_id = int(getattr(modifier, "source_id", ""))
+            except (TypeError, ValueError):
+                continue
+            if source_id not in equipped_item_rune_ids:
+                continue
+            resolved_value = engine.modifier_engine._resolve_numeric_modifier(modifier)
+            if not isinstance(resolved_value, (int, float)) or int(resolved_value) == 0:
+                continue
+            explanation.append(
+                {
+                    "source_type": SOURCE_ITEM_RUNE,
+                    "source_id": source_id,
+                    "resolved_value": resolved_value,
+                    "notes": getattr(modifier, "notes", ""),
+                }
+            )
     return _build_grouped_explanation_rows(engine, explanation)
 
 
@@ -1539,6 +1573,7 @@ def _build_inventory_rows(character: Character) -> list[dict]:
                         effect_summary=visible_magic_effect_summary,
                         modifier_payloads=magic_modifier_payloads,
                     )
+                    + _build_character_item_rune_tooltip_rows(item=item, character_item=character_item)
                 ),
             )
         elif item_description:
@@ -1550,6 +1585,7 @@ def _build_inventory_rows(character: Character) -> list[dict]:
                         effect_summary=visible_magic_effect_summary,
                         modifier_payloads=magic_modifier_payloads,
                     )
+                    + _build_character_item_rune_tooltip_rows(item=item, character_item=character_item)
                 ),
             )
         active_rune_ids = [
@@ -1713,6 +1749,10 @@ def _build_weapon_rows(engine) -> list[dict]:
                             effect_summary=row["character_item"].magic_effect_summary or "",
                             modifier_payloads=magic_modifier_payloads,
                         )
+                        + _build_character_item_rune_tooltip_rows(
+                            item=row["item"],
+                            character_item=row["character_item"],
+                        )
                     ),
                 ),
                 "has_runes": bool(
@@ -1763,8 +1803,11 @@ def _build_armor_rows(engine) -> list[dict]:
                             effect_summary=row["character_item"].magic_effect_summary or "",
                             modifier_payloads=magic_modifier_payloads,
                         )
+                        + _build_character_item_rune_tooltip_rows(
+                            item=row["item"],
+                            character_item=row["character_item"],
+                        )
                     ),
-                    rune_block=_format_rune_tooltip_block(item=row["item"], character_item=row["character_item"]),
                 ),
                 "can_unequip": not row["character_item"].equip_locked,
             }
@@ -1790,8 +1833,11 @@ def _build_armor_rows(engine) -> list[dict]:
                             effect_summary=row["character_item"].magic_effect_summary or "",
                             modifier_payloads=magic_modifier_payloads,
                         )
+                        + _build_character_item_rune_tooltip_rows(
+                            item=row["item"],
+                            character_item=row["character_item"],
+                        )
                     ),
-                    rune_block=_format_rune_tooltip_block(item=row["item"], character_item=row["character_item"]),
                 ),
                 "can_unequip": not row["character_item"].equip_locked,
             }
@@ -1817,8 +1863,11 @@ def _build_armor_rows(engine) -> list[dict]:
                             effect_summary=row["character_item"].magic_effect_summary or "",
                             modifier_payloads=magic_modifier_payloads,
                         )
+                        + _build_character_item_rune_tooltip_rows(
+                            item=row["item"],
+                            character_item=row["character_item"],
+                        )
                     ),
-                    rune_block=_format_rune_tooltip_block(item=row["item"], character_item=row["character_item"]),
                 ),
                 "can_unequip": not row["character_item"].equip_locked,
             }
@@ -1844,8 +1893,11 @@ def _build_armor_rows(engine) -> list[dict]:
                             effect_summary=row["character_item"].magic_effect_summary or "",
                             modifier_payloads=magic_modifier_payloads,
                         )
+                        + _build_character_item_rune_tooltip_rows(
+                            item=row["item"],
+                            character_item=row["character_item"],
+                        )
                     ),
-                    rune_block=_format_rune_tooltip_block(item=row["item"], character_item=row["character_item"]),
                 ),
                 "can_unequip": not row["character_item"].equip_locked,
             }

@@ -78,20 +78,28 @@ function parseRuneSocketLine(line) {
   };
 }
 
+function parseRuneInline(line) {
+  const match = String(line || "").trim().match(/^\[\[RUNEINLINE:(.+?)\|(.*)\]\]$/);
+  if (!match) {
+    return null;
+  }
+  return {
+    name: match[1].trim(),
+    description: match[2].trim(),
+  };
+}
+
 function renderInlineMarkdown(text) {
   let html = escapeHtml(String(text || ""));
   html = html.replace(/\[\[EMPTY\]\]/g, "&nbsp;");
-  html = html.replace(
-    /\[\[RUNEINLINE:(.+?)::(.*?)\]\]/g,
-    (_match, name, image) => {
-      const safeName = escapeHtml(String(name || "").trim() || "Rune");
-      const safeImage = escapeHtml(String(image || "").trim());
-      const imageHtml = safeImage
-        ? `<img class="tooltip_rune_inline_image" src="${safeImage}" alt="">`
-        : '<span class="tooltip_rune_inline_image tooltip_rune_inline_image--placeholder" aria-hidden="true"></span>';
-      return `<span class="tooltip_rune_inline">${imageHtml}<span class="tooltip_rune_inline_name">${safeName}</span></span>`;
-    },
-  );
+  html = html.replace(/\[\[RUNEINLINE:(.+?)\|(.*)\]\]/g, (_match, name, description) => {
+    const safeName = escapeHtml(String(name || "").trim() || "Rune");
+    const safeDescription = escapeHtml(String(description || "").trim());
+    if (safeDescription) {
+      return `<span class="tooltip_rune_comment"><strong>${safeName} &middot;</strong> ${safeDescription}</span>`;
+    }
+    return `<span class="tooltip_rune_comment"><strong>${safeName}</strong></span>`;
+  });
   html = html.replace(
     /\[\[QUALITY:(.+?)\|(.+?)\]\]/g,
     '<span class="tooltip_quality_badge" style="--tooltip-quality-color: $2;">$1</span>',
@@ -134,6 +142,14 @@ function isEffectTableRow(row) {
   }
   const label = String(row[0] || "").trim();
   return label === "Effekt" || label === "Effekte" || label === "" || label === "[[EMPTY]]";
+}
+
+function isRuneTableRow(row) {
+  if (!Array.isArray(row) || row.length < 2) {
+    return false;
+  }
+  const label = String(row[0] || "").trim();
+  return label === "Rune" || label === "Runen" || Boolean(parseRuneInline(row[1]));
 }
 
 function startsStructuredBlock(line, nextLine = "") {
@@ -242,7 +258,12 @@ function renderTooltipMarkup(rawText) {
         if (bodyRows.length) {
           tableHtml += "<tbody>";
           bodyRows.forEach((row) => {
-            tableHtml += isEffectTableRow(row) ? '<tr class="tooltip_effect_row">' : "<tr>";
+            const rowClass = isEffectTableRow(row)
+              ? "tooltip_effect_row"
+              : isRuneTableRow(row)
+                ? "tooltip_rune_comment_row"
+                : "";
+            tableHtml += rowClass ? `<tr class="${rowClass}">` : "<tr>";
             row.forEach((cell) => {
               tableHtml += `<td>${renderInlineMarkdown(cell)}</td>`;
             });

@@ -1950,6 +1950,15 @@
   word-break: break-word;
 }
 
+.floating-tooltip tbody tr.tooltip_rune_comment_row td:nth-child(2) {
+  min-width: 220px;
+  max-width: 320px;
+  text-align: left;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
 .floating-tooltip th:nth-child(3),
 .floating-tooltip td:nth-child(3) {
   min-width: 170px;
@@ -1967,6 +1976,10 @@
 
 .floating-tooltip tbody td strong {
   color: #6a4122;
+}
+
+.floating-tooltip .tooltip_rune_comment {
+  display: inline;
 }
 
 .floating-tooltip .tooltip_sub {
