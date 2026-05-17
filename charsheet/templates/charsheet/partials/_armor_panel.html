@@ -4,7 +4,7 @@
     <div class="panel_scroll armor_scroll" data-armor-scroll data-preserve-scroll-id="armor-worn-scroll">
       <ul class="armor_worn">
         {% for row in armor_rows %}
-          <li class="armor_row{% if row.quality_color %} quality_tinted_row{% endif %}{% if row.tooltip_text %} tooltip_target{% endif %}"{% if row.quality_color %} style="--row-quality-color: {{ row.quality_color }};"{% endif %}{% if row.tooltip_text %} data-tooltip-side="left" data-tooltip-mode="card" data-tooltip-title="{{ row.item_name|escape }}" data-tooltip-subtitle="{{ row.tooltip_subtitle|escape }}"{% if row.item.image %} data-tooltip-image="{{ row.item.image.url }}"{% endif %} data-tooltip-accent="{{ row.quality_color }}" data-tooltip="{{ row.tooltip_text }}"{% endif %}>
+          <li class="armor_row{% if row.quality_color %} quality_tinted_row{% endif %}{% if row.tooltip_text %} tooltip_target{% endif %}"{% if row.quality_color %} style="--row-quality-color: {{ row.quality_color }};"{% endif %}{% if row.tooltip_text %} data-tooltip-side="left" data-tooltip-mode="card" data-tooltip-title="{{ row.item_name|escape }}" data-tooltip-subtitle="{{ row.tooltip_subtitle|escape }}"{% if row.item_image_url %} data-tooltip-image="{{ row.item_image_url }}"{% endif %} data-tooltip-accent="{{ row.quality_color }}" data-tooltip="{{ row.tooltip_text }}"{% endif %}>
             <span>
               {{ row.summary }}
             </span>

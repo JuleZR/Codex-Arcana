@@ -187,6 +187,7 @@ class CharacterItem(models.Model):
     quality = models.CharField(max_length=20, choices=QUALITY_CHOICES, default=QUALITY_COMMON)
     runes = models.ManyToManyField("Rune", blank=True, related_name="character_items")
     description = models.TextField(blank=True, default="")
+    image_override = models.ImageField(upload_to="character_items/", blank=True, null=True)
     is_magic = models.BooleanField(default=False)
     magic_effect_summary = models.TextField(blank=True, default="")
     name_override = models.CharField(max_length=200, blank=True, default="")
@@ -252,6 +253,30 @@ class CharacterItem(models.Model):
     @property
     def effective_name(self) -> str:
         return (self.name_override or "").strip() or self.item.name
+
+    @property
+    def effective_image(self):
+        return self.image_override or self.item.image
+
+    @property
+    def effective_image_url(self) -> str:
+        image = self.effective_image
+        if not image:
+            return ""
+        try:
+            return str(image.url or "")
+        except (ValueError, AttributeError):
+            return ""
+
+    @property
+    def image_override_url(self) -> str:
+        image = self.image_override
+        if not image:
+            return ""
+        try:
+            return str(image.url or "")
+        except (ValueError, AttributeError):
+            return ""
 
     def override_or_item_value(self, override_field: str, item_field: str):
         override_value = getattr(self, override_field)

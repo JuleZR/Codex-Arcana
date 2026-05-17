@@ -27,7 +27,7 @@
                       <button type="submit" class="equip_toggle is-equipped" title="Ablegen">-</button>
                     </form>
                   {% endif %}
-                  <span class="weapon_name{% if row.tooltip_text %} tooltip_target{% endif %}"{% if row.tooltip_text %} data-tooltip-side="left" data-tooltip-mode="card" data-tooltip-title="{{ row.item_name|escape }}" data-tooltip-subtitle="{{ row.tooltip_subtitle|escape }}"{% if row.item.image %} data-tooltip-image="{{ row.item.image.url }}"{% endif %} data-tooltip-accent="{{ row.quality_color }}" data-tooltip="{{ row.tooltip_text }}"{% endif %}>{{ row.item_name }}</span>
+                  <span class="weapon_name{% if row.tooltip_text %} tooltip_target{% endif %}"{% if row.tooltip_text %} data-tooltip-side="left" data-tooltip-mode="card" data-tooltip-title="{{ row.item_name|escape }}" data-tooltip-subtitle="{{ row.tooltip_subtitle|escape }}"{% if row.item_image_url %} data-tooltip-image="{{ row.item_image_url }}"{% endif %} data-tooltip-accent="{{ row.quality_color }}" data-tooltip="{{ row.tooltip_text }}"{% endif %}>{{ row.item_name }}</span>
                   {% if row.has_runes %}
                     <button type="button" class="inv_rune_marker" data-rune-toggle aria-controls="weapon-rune-list-{{ row.character_item.pk }}" aria-expanded="false" aria-label="Runen anzeigen" title="Runen anzeigen">&#x16B1;</button>
                   {% endif %}

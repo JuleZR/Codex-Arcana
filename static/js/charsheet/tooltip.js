@@ -79,26 +79,47 @@ function parseRuneSocketLine(line) {
 }
 
 function parseRuneInline(line) {
-  const match = String(line || "").trim().match(/^\[\[RUNEINLINE:(.+?)\|(.*)\]\]$/);
+  const match = String(line || "").trim().match(/^\[\[RUNEINLINE:(.+?)\|(.*?)\|(.*?)\]\]$/);
   if (!match) {
-    return null;
+    const legacyMatch = String(line || "").trim().match(/^\[\[RUNEINLINE:(.+?)\|(.*)\]\]$/);
+    if (!legacyMatch) {
+      return null;
+    }
+    return {
+      name: legacyMatch[1].trim(),
+      description: legacyMatch[2].trim(),
+      image: "",
+    };
   }
   return {
     name: match[1].trim(),
     description: match[2].trim(),
+    image: match[3].trim(),
   };
 }
 
 function renderInlineMarkdown(text) {
   let html = escapeHtml(String(text || ""));
   html = html.replace(/\[\[EMPTY\]\]/g, "&nbsp;");
+  html = html.replace(/\[\[RUNEINLINE:(.+?)\|(.*?)\|(.*?)\]\]/g, (_match, name, description, image) => {
+    const safeName = escapeHtml(String(name || "").trim() || "Rune");
+    const safeDescription = escapeHtml(String(description || "").trim());
+    const safeImage = escapeHtml(String(image || "").trim());
+    const imageHtml = safeImage
+      ? `<img class="tooltip_rune_inline_image" src="${safeImage}" alt="">`
+      : '<span class="tooltip_rune_inline_image tooltip_rune_inline_image--placeholder" aria-hidden="true"></span>';
+    const copyHtml = safeDescription
+      ? `<span class="tooltip_rune_inline_name"><strong>${safeName} &middot;</strong> ${safeDescription}</span>`
+      : `<span class="tooltip_rune_inline_name"><strong>${safeName}</strong></span>`;
+    return `<span class="tooltip_rune_inline">${imageHtml}${copyHtml}</span>`;
+  });
   html = html.replace(/\[\[RUNEINLINE:(.+?)\|(.*)\]\]/g, (_match, name, description) => {
     const safeName = escapeHtml(String(name || "").trim() || "Rune");
     const safeDescription = escapeHtml(String(description || "").trim());
-    if (safeDescription) {
-      return `<span class="tooltip_rune_comment"><strong>${safeName} &middot;</strong> ${safeDescription}</span>`;
-    }
-    return `<span class="tooltip_rune_comment"><strong>${safeName}</strong></span>`;
+    const copyHtml = safeDescription
+      ? `<span class="tooltip_rune_inline_name"><strong>${safeName} &middot;</strong> ${safeDescription}</span>`
+      : `<span class="tooltip_rune_inline_name"><strong>${safeName}</strong></span>`;
+    return `<span class="tooltip_rune_inline"><span class="tooltip_rune_inline_image tooltip_rune_inline_image--placeholder" aria-hidden="true"></span>${copyHtml}</span>`;
   });
   html = html.replace(
     /\[\[QUALITY:(.+?)\|(.+?)\]\]/g,
@@ -397,24 +418,21 @@ function buildTooltipCardSections(markup) {
   });
 
   const extras = [];
-  if (effectRows.length) {
-    const normalizedEffectRows = normalizeTooltipSectionRows(effectRows, "Effekte");
-    extras.push(`
-      <section class="floating-tooltip-card__section">
-        <h4 class="floating-tooltip-card__section_title">Effekte</h4>
-        <div class="floating-tooltip-card__section_body">${createTooltipCardTableMarkup(table, normalizedEffectRows, { includeHead: false })}</div>
-      </section>
-    `);
-  }
-  if (runeRows.length) {
-    const normalizedRuneRows = normalizeTooltipSectionRows(runeRows, "Runen");
-    extras.push(`
-      <section class="floating-tooltip-card__section">
-        <h4 class="floating-tooltip-card__section_title">Runen</h4>
-        <div class="floating-tooltip-card__section_body">${createTooltipCardTableMarkup(table, normalizedRuneRows, { includeHead: false })}</div>
-      </section>
-    `);
-  }
+  const normalizedEffectRows = normalizeTooltipSectionRows(effectRows, "Effekte");
+  const normalizedRuneRows = normalizeTooltipSectionRows(runeRows, "Runen");
+  const emptySectionMarkup = '<p class="floating-tooltip-card__empty">Keine</p>';
+  extras.push(`
+    <section class="floating-tooltip-card__section">
+      <h4 class="floating-tooltip-card__section_title">Effekte</h4>
+      <div class="floating-tooltip-card__section_body">${createTooltipCardTableMarkup(table, normalizedEffectRows, { includeHead: false }) || emptySectionMarkup}</div>
+    </section>
+  `);
+  extras.push(`
+    <section class="floating-tooltip-card__section">
+      <h4 class="floating-tooltip-card__section_title">Runen</h4>
+      <div class="floating-tooltip-card__section_body">${createTooltipCardTableMarkup(table, normalizedRuneRows, { includeHead: false }) || emptySectionMarkup}</div>
+    </section>
+  `);
 
   Array.from(template.content.childNodes).forEach((node) => {
     if (node === table) {

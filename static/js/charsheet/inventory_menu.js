@@ -909,6 +909,7 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
     const currentQuality = String(button.getAttribute("data-current-quality") || "common");
     const description = String(button.getAttribute("data-description") || "");
     const itemImage = String(button.getAttribute("data-item-image") || "");
+    const itemImageOverride = String(button.getAttribute("data-item-image-override") || "");
     retrofitItemType = String(button.getAttribute("data-item-type") || "");
     const magicModifierPayloads = parseJsonList(button.getAttribute("data-magic-modifier-payloads"));
     const modifyPayload = parseJsonObject(button.getAttribute("data-modify-payload"));
@@ -976,7 +977,7 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
         runeImagePreviewImg.alt = `${itemName} Bild`;
         runeImagePreview.hidden = false;
         if (runeRemoveImageRow instanceof HTMLElement) {
-          runeRemoveImageRow.hidden = false;
+          runeRemoveImageRow.hidden = !itemImageOverride;
         }
       } else {
         runeImagePreviewImg.removeAttribute("src");

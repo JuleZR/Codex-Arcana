@@ -5,7 +5,7 @@
   <div class="panel_scroll inventory_scroll">
     <ul class="p2_lines">
       {% for row in inventory_rows %}
-        <li class="inv_row{% if row.quality_color %} quality_tinted_row{% endif %}{% if row.tooltip_text %} tooltip_target{% endif %}"{% if row.quality_color %} style="--row-quality-color: {{ row.quality_color }};"{% endif %}{% if row.tooltip_text %} data-tooltip-side="right" data-tooltip-mode="card" data-tooltip-title="{{ row.item_name|escape }}" data-tooltip-subtitle="{{ row.tooltip_subtitle|escape }}"{% if row.item.image %} data-tooltip-image="{{ row.item.image.url }}"{% endif %} data-tooltip-accent="{{ row.quality_color }}" data-tooltip="{{ row.tooltip_text }}"{% endif %}>
+        <li class="inv_row{% if row.quality_color %} quality_tinted_row{% endif %}{% if row.tooltip_text %} tooltip_target{% endif %}"{% if row.quality_color %} style="--row-quality-color: {{ row.quality_color }};"{% endif %}{% if row.tooltip_text %} data-tooltip-side="right" data-tooltip-mode="card" data-tooltip-title="{{ row.item_name|escape }}" data-tooltip-subtitle="{{ row.tooltip_subtitle|escape }}"{% if row.item_image_url %} data-tooltip-image="{{ row.item_image_url }}"{% endif %} data-tooltip-accent="{{ row.quality_color }}" data-tooltip="{{ row.tooltip_text }}"{% endif %}>
           <span class="inv_name_wrap">
             <span class="inv_name">{{ row.display_name }}</span>
           </span>
@@ -45,7 +45,8 @@
                     data-extra-rune-ids="{% for rune_id in row.extra_rune_ids %}{% if not forloop.first %},{% endif %}{{ rune_id }}{% endfor %}"
                     data-current-quality="{{ row.quality }}"
                     data-item-type="{{ row.item.item_type }}"
-                    {% if row.item.image %}data-item-image="{{ row.item.image.url }}"{% endif %}
+                    {% if row.item_image_url %}data-item-image="{{ row.item_image_url }}"{% endif %}
+                    {% if row.character_item.image_override_url %}data-item-image-override="{{ row.character_item.image_override_url }}"{% endif %}
                     data-description="{{ row.description|escape }}"
                     data-modify-payload='{{ row.modify_payload_json|escape }}'
                     data-is-magic="{% if row.is_character_item_magic %}1{% else %}0{% endif %}"

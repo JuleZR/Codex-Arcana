@@ -1800,11 +1800,11 @@
 .floating-tooltip-card {
   --tooltip-card-accent: rgba(118, 85, 48, 0.88);
   --tooltip-card-media-width: clamp(180px, 30vw, 320px);
-  --tooltip-card-media-size: clamp(180px, 30vw, 320px);
+  --tooltip-card-media-size: clamp(210px, 28vw, 290px);
   position: fixed;
   left: 16px;
   top: 16px;
-  width: min(920px, calc(100vw - 24px));
+  width: min(760px, calc(100vw - 24px));
   max-height: calc(100vh - 24px);
   overflow: auto;
   pointer-events: none;
@@ -1829,7 +1829,7 @@
   display: flex;
   flex-direction: column;
   gap: 14px;
-  padding: 14px;
+  padding: 16px 16px 18px;
   border: 1px solid rgba(95, 69, 42, 0.92);
   border-radius: 12px;
   background: linear-gradient(180deg, rgba(38, 27, 17, 0.96), rgba(20, 15, 11, 0.98));
@@ -1908,11 +1908,10 @@
 }
 
 .floating-tooltip-card__content.has-media {
-  grid-template-columns: minmax(180px, var(--tooltip-card-media-size)) minmax(320px, 1fr);
+  grid-template-columns: minmax(190px, var(--tooltip-card-media-size)) minmax(0, 1fr);
   align-items: start;
 }
 
-.floating-tooltip-card__media,
 .floating-tooltip-card__details,
 .floating-tooltip-card__lore {
   border: 1px solid rgba(145, 111, 67, 0.72);
@@ -1933,10 +1932,14 @@
   height: var(--tooltip-card-media-size);
   min-height: 0;
   max-height: var(--tooltip-card-media-size);
-  display: grid;
-  place-items: center;
   aspect-ratio: 1 / 1;
-  padding: 8px;
+  margin-top: 4px;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  position: relative;
+  clip-path: polygon(10% 2%, 90% 0%, 98% 12%, 100% 88%, 90% 100%, 12% 98%, 0% 88%, 2% 10%);
 }
 
 .floating-tooltip-card__image {
@@ -1947,10 +1950,24 @@
   max-height: 100%;
   object-fit: cover;
   background: rgba(28, 20, 12, 0.74);
+  filter: saturate(0.94) contrast(1.02);
+}
+
+.floating-tooltip-card__media::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border: 10px solid rgba(221, 194, 146, 0.9);
+  border-image: linear-gradient(180deg, rgba(245, 228, 197, 0.96), rgba(178, 142, 95, 0.92)) 1;
+  clip-path: inherit;
+  box-shadow:
+    inset 0 0 0 1px rgba(101, 68, 34, 0.22),
+    0 8px 18px rgba(0, 0, 0, 0.16);
 }
 
 .floating-tooltip-card__details {
-  padding: 12px;
+  padding: 12px 14px;
 }
 
 .floating-tooltip-card__lore {
@@ -1983,6 +2000,14 @@
 
 .floating-tooltip-card__section_body table {
   margin: 0;
+}
+
+.floating-tooltip-card__empty {
+  margin: 0;
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-size: 0.98rem;
+  font-style: italic;
+  color: rgba(97, 68, 37, 0.82);
 }
 
 .floating-tooltip p {
@@ -2196,6 +2221,31 @@
 
 .floating-tooltip-card tbody td strong {
   color: rgba(88, 48, 18, 0.98);
+}
+
+.floating-tooltip-card .tooltip_rune_inline {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  align-items: start;
+  gap: 8px;
+  max-width: 100%;
+}
+
+.floating-tooltip-card .tooltip_rune_inline_image {
+  width: 28px;
+  height: 28px;
+  object-fit: cover;
+  border-radius: 6px;
+  background: rgba(78, 58, 36, 0.14);
+  box-shadow: inset 0 0 0 1px rgba(103, 72, 39, 0.18);
+}
+
+.floating-tooltip-card .tooltip_rune_inline_image--placeholder {
+  display: none;
+}
+
+.floating-tooltip-card .tooltip_rune_inline_name {
+  min-width: 0;
 }
 
 .floating-tooltip-card ul {

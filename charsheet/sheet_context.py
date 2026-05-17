@@ -663,9 +663,10 @@ def _build_character_item_rune_tooltip_rows(
     for row in _collect_rune_rows(item=item, character_item=character_item):
         rune_name = _single_line(str(row.get("name") or ""))
         rune_description = _single_line(str(row.get("description") or ""))
+        rune_image = _single_line(str(row.get("image") or ""))
         if not rune_name:
             continue
-        rune_lines.append(f"[[RUNEINLINE:{rune_name}|{rune_description}]]")
+        rune_lines.append(f"[[RUNEINLINE:{rune_name}|{rune_description}|{rune_image}]]")
     if not rune_lines:
         return []
     return [
@@ -1545,6 +1546,11 @@ def _race_item_ids() -> set[int]:
     return set(RaceStartingItem.objects.values_list("item_id", flat=True))
 
 
+def _character_item_image_url(character_item: CharacterItem) -> str:
+    """Return the effective image URL for one owned item."""
+    return str(getattr(character_item, "effective_image_url", "") or "")
+
+
 def _build_inventory_rows(character: Character) -> list[dict]:
     """Build prepared inventory rows for the unequipped inventory list."""
     inventory_rows: list[dict] = []
@@ -1601,6 +1607,7 @@ def _build_inventory_rows(character: Character) -> list[dict]:
             for item_rune in character_item.item_runes.all()
             if item_rune.is_active
         ] or [rune.id for rune in character_item.runes.all()]
+        item_image_url = _character_item_image_url(character_item)
 
         inventory_rows.append(
             {
@@ -1620,6 +1627,7 @@ def _build_inventory_rows(character: Character) -> list[dict]:
                 "tooltip_subtitle": " - ".join(
                     part for part in [item.get_item_type_display(), "" if is_race_item else quality["label"]] if part
                 ),
+                "item_image_url": item_image_url,
                 "tooltip_text": tooltip_text,
                 "can_consume": item.stackable and item.item_type == Item.ItemType.CONSUM,
                 "can_equip": item.item_type in EQUIPPABLE_ITEM_TYPES or character_item.is_magic_effective,
@@ -1744,6 +1752,7 @@ def _build_weapon_rows(engine) -> list[dict]:
         profile_rows = profile_rows_by_item.get(row["character_item"].pk, [row])
         profile_index = rendered_profiles_by_item.get(row["character_item"].pk, 0)
         magic_modifier_payloads = modifiers_by_character_item_id.get(row["character_item"].id, [])
+        item_image_url = _character_item_image_url(row["character_item"])
         weapon_rows.append(
             {
                 **row,
@@ -1753,6 +1762,7 @@ def _build_weapon_rows(engine) -> list[dict]:
                 "tooltip_subtitle": " - ".join(
                     part for part in [row["item"].get_item_type_display(), "" if is_race_item else quality["label"]] if part
                 ),
+                "item_image_url": item_image_url,
                 "tooltip_text": _format_item_tooltip(
                     description=row["character_item"].description or row["item"].description or "",
                     quality_label="" if is_race_item else quality["label"],
@@ -1800,6 +1810,7 @@ def _build_armor_rows(engine) -> list[dict]:
         is_race_item = row["item"].id in race_item_ids
         quality = quality_payload(str(row["quality"]))
         magic_modifier_payloads = modifiers_by_character_item_id.get(row["character_item"].id, [])
+        item_image_url = _character_item_image_url(row["character_item"])
         armor_rows.append(
             {
                 **row,
@@ -1809,6 +1820,7 @@ def _build_armor_rows(engine) -> list[dict]:
                 "tooltip_subtitle": " - ".join(
                     part for part in [row["item"].get_item_type_display(), "" if is_race_item else quality["label"]] if part
                 ),
+                "item_image_url": item_image_url,
                 "summary": f"{row['item_name']} (RS {row['rs']} | Bel {row['bel_effective']} | Min-St {row['min_st'] or '-'})",
                 "tooltip_text": _format_item_tooltip(
                     description=row["character_item"].description or row["item"].description or "",
@@ -1833,6 +1845,7 @@ def _build_armor_rows(engine) -> list[dict]:
         is_race_item = row["item"].id in race_item_ids
         quality = quality_payload(str(row["quality"]))
         magic_modifier_payloads = modifiers_by_character_item_id.get(row["character_item"].id, [])
+        item_image_url = _character_item_image_url(row["character_item"])
         armor_rows.append(
             {
                 **row,
@@ -1842,6 +1855,7 @@ def _build_armor_rows(engine) -> list[dict]:
                 "tooltip_subtitle": " - ".join(
                     part for part in [row["item"].get_item_type_display(), "" if is_race_item else quality["label"]] if part
                 ),
+                "item_image_url": item_image_url,
                 "summary": f"{row['item_name']} (Kleidung)",
                 "tooltip_text": _format_item_tooltip(
                     description=row["character_item"].description or row["item"].description or "",
@@ -1866,6 +1880,7 @@ def _build_armor_rows(engine) -> list[dict]:
         is_race_item = row["item"].id in race_item_ids
         quality = quality_payload(str(row["quality"]))
         magic_modifier_payloads = modifiers_by_character_item_id.get(row["character_item"].id, [])
+        item_image_url = _character_item_image_url(row["character_item"])
         armor_rows.append(
             {
                 **row,
@@ -1875,6 +1890,7 @@ def _build_armor_rows(engine) -> list[dict]:
                 "tooltip_subtitle": " - ".join(
                     part for part in [row["item"].get_item_type_display(), "" if is_race_item else quality["label"]] if part
                 ),
+                "item_image_url": item_image_url,
                 "summary": f"{row['item_name']} (Magischer Gegenstand)",
                 "tooltip_text": _format_item_tooltip(
                     description=row["character_item"].description or row["item"].description or "",
@@ -1899,6 +1915,7 @@ def _build_armor_rows(engine) -> list[dict]:
         is_race_item = row["item"].id in race_item_ids
         quality = quality_payload(str(row["quality"]))
         magic_modifier_payloads = modifiers_by_character_item_id.get(row["character_item"].id, [])
+        item_image_url = _character_item_image_url(row["character_item"])
         armor_rows.append(
             {
                 **row,
@@ -1908,6 +1925,7 @@ def _build_armor_rows(engine) -> list[dict]:
                 "tooltip_subtitle": " - ".join(
                     part for part in [row["item"].get_item_type_display(), "" if is_race_item else quality["label"]] if part
                 ),
+                "item_image_url": item_image_url,
                 "summary": f"{row['item_name']} (Schild-RS {row['rs']} | Bel {row['bel_effective']} | Min-St {row['min_st'] or '-'})",
                 "tooltip_text": _format_item_tooltip(
                     description=row["character_item"].description or row["item"].description or "",

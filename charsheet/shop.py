@@ -452,15 +452,15 @@ def apply_character_item_modifications(character_item: CharacterItem, post_data,
 
     try:
         with transaction.atomic():
-            if remove_image and item.image:
-                item.image.delete(save=False)
-                item.image = None
-                item.full_clean()
-                item.save(update_fields=["image"])
+            if remove_image and character_item.image_override:
+                character_item.image_override.delete(save=False)
+                character_item.image_override = None
+                character_item.full_clean()
+                character_item.save(update_fields=["image_override"])
             if image:
-                item.image = image
-                item.full_clean()
-                item.save(update_fields=["image"])
+                character_item.image_override = image
+                character_item.full_clean()
+                character_item.save(update_fields=["image_override"])
             character_item.name_override = name
             character_item.price_override = price
             character_item.weight_override = weight
