@@ -26,6 +26,7 @@ class Rune(models.Model):
     name = models.CharField(max_length=100, unique=True)
     slug = models.SlugField(max_length=120, unique=True)
     description = models.TextField(blank=True)
+    short_description = models.CharField(max_length=255, blank=True, default="")
     image = models.ImageField(upload_to="runes/", blank=True, null=True)
     has_specialization = models.BooleanField(default=False)
     specialization_label = models.CharField(max_length=100, blank=True, default="")
@@ -84,6 +85,7 @@ class Item(models.Model):
     price = models.IntegerField(default=1)
     item_type = models.CharField(max_length=20, choices=ItemType.choices)
     description = models.TextField(null=True, blank=True)
+    image = models.ImageField(upload_to="items/", blank=True, null=True)
 
     stackable = models.BooleanField(default=True)
     is_consumable = models.BooleanField(default=False)

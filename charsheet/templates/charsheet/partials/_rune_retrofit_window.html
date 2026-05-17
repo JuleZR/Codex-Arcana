@@ -5,7 +5,7 @@
     <button type="button" class="payday-window__close" id="runeRetrofitWindowClose" aria-label="Modifizieren-Fenster schlie&szlig;en">x</button>
   </div>
   <div class="payday-window__body sheet-window__body">
-    <form method="post" action="" id="runeRetrofitForm" class="shop_item_form sheet-window__editor-form" data-sheet-action data-ajax-only data-close-window-on-success="1">
+    <form method="post" action="" id="runeRetrofitForm" class="shop_item_form sheet-window__editor-form" enctype="multipart/form-data" data-sheet-action data-ajax-only data-close-window-on-success="1">
       {% csrf_token %}
       <div class="shop_item_form_layout rune_window_layout">
         <section class="shop_item_form_main shop_item_form_panel shop_panel">
@@ -43,6 +43,18 @@
                 {% endfor %}
               </select>
             </label>
+            <div class="shop_item_form_row shop_item_form_row--image">
+              <span>Bild</span>
+              <div class="shop_item_image_preview" id="runeRetrofitImagePreview" hidden>
+                <img src="" alt="" id="runeRetrofitImagePreviewImg">
+              </div>
+              <label class="shop_item_form_check shop_item_form_check--inline" id="runeRetrofitImageRemoveRow" hidden>
+                <input type="checkbox" name="remove_image" id="runeRetrofitRemoveImageInput" value="1">
+                <span>Aktuelles Bild entfernen</span>
+              </label>
+              <input type="file" name="image" id="runeRetrofitImageInput" accept="image/*">
+              <small class="shop_item_form_meta">Optional. Leer lassen beh&auml;lt das aktuelle Bild.</small>
+            </div>
             <div class="shop_item_form_grid shop_item_form_grid--equal">
               <label class="shop_item_form_row">
                 <span>Kosten (EP)</span>

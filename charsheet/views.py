@@ -1686,7 +1686,7 @@ def apply_learning(request, character_id: int):
 def create_shop_item(request, character_id: int):
     """Create a custom shop item and optional armor or weapon detail records."""
     character = _owned_character_or_404(request, character_id)
-    create_custom_shop_item(request.POST)
+    create_custom_shop_item(request.POST, request.FILES)
     return redirect("character_sheet", character_id=character.id)
 
 
@@ -1695,7 +1695,7 @@ def create_shop_item(request, character_id: int):
 def update_character_item_runes(request, pk: int):
     """Persist one owned-item modification dialog for a supported inventory entry."""
     character_item = _owned_character_item_or_404(request, pk)
-    if not apply_character_item_modifications(character_item, request.POST):
+    if not apply_character_item_modifications(character_item, request.POST, request.FILES):
         if _is_partial_request(request):
             return JsonResponse({"ok": False, "error": "modification_failed"}, status=400)
         return redirect("character_sheet", character_id=character_item.owner_id)

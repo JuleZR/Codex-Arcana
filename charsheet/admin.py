@@ -3746,8 +3746,8 @@ class WeaponFlagAdmin(admin.ModelAdmin):
 class RuneAdmin(admin.ModelAdmin):
     """Admin configuration for reusable rune definitions."""
 
-    list_display = ("name", "slug", "is_level_scaled", "allow_multiple")
-    search_fields = ("name", "slug", "description", "image")
+    list_display = ("name", "slug", "short_description", "is_level_scaled", "allow_multiple")
+    search_fields = ("name", "slug", "short_description", "description", "image")
     list_filter = ("is_level_scaled", "allow_multiple")
     ordering = ("name",)
     prepopulated_fields = {"slug": ("name",)}

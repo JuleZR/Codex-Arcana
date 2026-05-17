@@ -94,6 +94,11 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
   const runeWeightInput = document.getElementById("runeRetrofitWeight");
   const runeSizeClassSelect = document.getElementById("runeRetrofitSizeClass");
   const runeDescriptionInput = document.getElementById("runeRetrofitDescription");
+  const runeImageInput = document.getElementById("runeRetrofitImageInput");
+  const runeImagePreview = document.getElementById("runeRetrofitImagePreview");
+  const runeImagePreviewImg = document.getElementById("runeRetrofitImagePreviewImg");
+  const runeRemoveImageInput = document.getElementById("runeRetrofitRemoveImageInput");
+  const runeRemoveImageRow = document.getElementById("runeRetrofitImageRemoveRow");
   const magicEffectsList = document.getElementById("runeRetrofitMagicEffectsList");
   const magicEffectTemplate = document.getElementById("runeRetrofitMagicEffectTemplate");
   const magicAddEffectButton = document.getElementById("runeRetrofitAddEffectBtn");
@@ -903,6 +908,7 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
     const itemName = button.getAttribute("data-item-name") || "-";
     const currentQuality = String(button.getAttribute("data-current-quality") || "common");
     const description = String(button.getAttribute("data-description") || "");
+    const itemImage = String(button.getAttribute("data-item-image") || "");
     retrofitItemType = String(button.getAttribute("data-item-type") || "");
     const magicModifierPayloads = parseJsonList(button.getAttribute("data-magic-modifier-payloads"));
     const modifyPayload = parseJsonObject(button.getAttribute("data-modify-payload"));
@@ -957,6 +963,29 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
     }
     if (runeDescriptionInput instanceof HTMLTextAreaElement) {
       runeDescriptionInput.value = description;
+    }
+    if (runeImageInput instanceof HTMLInputElement) {
+      runeImageInput.value = "";
+    }
+    if (runeRemoveImageInput instanceof HTMLInputElement) {
+      runeRemoveImageInput.checked = false;
+    }
+    if (runeImagePreview instanceof HTMLElement && runeImagePreviewImg instanceof HTMLImageElement) {
+      if (itemImage) {
+        runeImagePreviewImg.src = itemImage;
+        runeImagePreviewImg.alt = `${itemName} Bild`;
+        runeImagePreview.hidden = false;
+        if (runeRemoveImageRow instanceof HTMLElement) {
+          runeRemoveImageRow.hidden = false;
+        }
+      } else {
+        runeImagePreviewImg.removeAttribute("src");
+        runeImagePreviewImg.alt = "";
+        runeImagePreview.hidden = true;
+        if (runeRemoveImageRow instanceof HTMLElement) {
+          runeRemoveImageRow.hidden = true;
+        }
+      }
     }
     if (runeItemName instanceof HTMLElement) {
       runeItemName.textContent = itemName;
@@ -1028,6 +1057,12 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
   });
 
   runeSearchInput?.addEventListener("input", filterRuneEntries);
+  runeRemoveImageInput?.addEventListener("change", () => {
+    if (!(runeImagePreview instanceof HTMLElement) || !(runeRemoveImageInput instanceof HTMLInputElement)) {
+      return;
+    }
+    runeImagePreview.hidden = runeRemoveImageInput.checked;
+  });
   runeDropdownTrigger?.addEventListener("click", () => {
     toggleRuneDropdown();
   });

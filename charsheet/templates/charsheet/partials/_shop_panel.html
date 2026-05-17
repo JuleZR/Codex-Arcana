@@ -134,7 +134,7 @@
     <button type="button" class="payday-window__close" id="shopItemWindowClose" aria-label="Fenster zum Anlegen von Gegenst&auml;nden schlie&szlig;en">x</button>
   </div>
   <div class="payday-window__body sheet-window__body">
-    <form method="post" action="{% url 'create_shop_item' character.id %}" class="shop_item_form">
+    <form method="post" action="{% url 'create_shop_item' character.id %}" class="shop_item_form" enctype="multipart/form-data">
       {% csrf_token %}
       <div class="shop_item_form_layout">
         <section class="shop_item_form_main shop_item_form_panel shop_panel">
@@ -187,6 +187,11 @@
                 </select>
               </label>
             </div>
+            <label class="shop_item_form_row shop_item_form_row--image">
+              <span>Bild</span>
+              <input type="file" name="image" accept="image/*">
+              <small class="shop_item_form_meta">Optional. Wird in der Detailkarte links als Motiv angezeigt.</small>
+            </label>
             {% if shop_runes %}
               <div class="shop_item_form_conditional shop_item_form_fieldset">
                 <div class="shop_item_form_fieldset_title">Runen</div>

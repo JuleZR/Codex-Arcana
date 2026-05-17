@@ -427,7 +427,7 @@ def _collect_rune_rows(*, item: Item, character_item: CharacterItem | None = Non
                 rows.append(
                     {
                         "name": f"{item_rune.rune.name}{level_label}",
-                        "description": item_rune.rune.description or "",
+                        "description": _rune_card_description(item_rune.rune),
                         "image": _rune_image_url(item_rune.rune),
                     }
                 )
@@ -442,7 +442,7 @@ def _collect_rune_rows(*, item: Item, character_item: CharacterItem | None = Non
                 rows.append(
                     {
                         "name": display_name,
-                        "description": spec.rune.description or "",
+                        "description": _rune_card_description(spec.rune),
                         "image": _rune_image_url(spec.rune),
                     }
                 )
@@ -452,7 +452,7 @@ def _collect_rune_rows(*, item: Item, character_item: CharacterItem | None = Non
             rows.append(
                 {
                     "name": rune.name,
-                    "description": rune.description or "",
+                    "description": _rune_card_description(rune),
                     "image": _rune_image_url(rune),
                 }
             )
@@ -465,11 +465,19 @@ def _collect_rune_rows(*, item: Item, character_item: CharacterItem | None = Non
             rows.append(
                 {
                     "name": rune.name,
-                    "description": rune.description or "",
+                    "description": _rune_card_description(rune),
                     "image": _rune_image_url(rune),
                 }
             )
     return rows
+
+
+def _rune_card_description(rune: Rune) -> str:
+    """Prefer a rune's short description when present."""
+    short_description = str(getattr(rune, "short_description", "") or "").strip()
+    if short_description:
+        return short_description
+    return str(rune.description or "").strip()
 
 
 def _serialize_modifier_payload(modifier: Modifier) -> dict[str, object]:
@@ -1609,6 +1617,9 @@ def _build_inventory_rows(character: Character) -> list[dict]:
                 "quality": "" if is_race_item else quality["value"],
                 "quality_label": "" if is_race_item else quality["label"],
                 "quality_color": "" if is_race_item else quality["color"],
+                "tooltip_subtitle": " - ".join(
+                    part for part in [item.get_item_type_display(), "" if is_race_item else quality["label"]] if part
+                ),
                 "tooltip_text": tooltip_text,
                 "can_consume": item.stackable and item.item_type == Item.ItemType.CONSUM,
                 "can_equip": item.item_type in EQUIPPABLE_ITEM_TYPES or character_item.is_magic_effective,
@@ -1739,6 +1750,9 @@ def _build_weapon_rows(engine) -> list[dict]:
                 "is_last_profile": profile_index == (len(profile_rows) - 1),
                 "quality_label": "" if is_race_item else quality["label"],
                 "quality_color": "" if is_race_item else quality["color"],
+                "tooltip_subtitle": " - ".join(
+                    part for part in [row["item"].get_item_type_display(), "" if is_race_item else quality["label"]] if part
+                ),
                 "tooltip_text": _format_item_tooltip(
                     description=row["character_item"].description or row["item"].description or "",
                     quality_label="" if is_race_item else quality["label"],
@@ -1792,6 +1806,9 @@ def _build_armor_rows(engine) -> list[dict]:
                 "kind": "armor",
                 "quality_label": "" if is_race_item else quality["label"],
                 "quality_color": "" if is_race_item else quality["color"],
+                "tooltip_subtitle": " - ".join(
+                    part for part in [row["item"].get_item_type_display(), "" if is_race_item else quality["label"]] if part
+                ),
                 "summary": f"{row['item_name']} (RS {row['rs']} | Bel {row['bel_effective']} | Min-St {row['min_st'] or '-'})",
                 "tooltip_text": _format_item_tooltip(
                     description=row["character_item"].description or row["item"].description or "",
@@ -1822,6 +1839,9 @@ def _build_armor_rows(engine) -> list[dict]:
                 "kind": "clothing",
                 "quality_label": "" if is_race_item else quality["label"],
                 "quality_color": "" if is_race_item else quality["color"],
+                "tooltip_subtitle": " - ".join(
+                    part for part in [row["item"].get_item_type_display(), "" if is_race_item else quality["label"]] if part
+                ),
                 "summary": f"{row['item_name']} (Kleidung)",
                 "tooltip_text": _format_item_tooltip(
                     description=row["character_item"].description or row["item"].description or "",
@@ -1852,6 +1872,9 @@ def _build_armor_rows(engine) -> list[dict]:
                 "kind": "magic_item",
                 "quality_label": "" if is_race_item else quality["label"],
                 "quality_color": "" if is_race_item else quality["color"],
+                "tooltip_subtitle": " - ".join(
+                    part for part in [row["item"].get_item_type_display(), "" if is_race_item else quality["label"]] if part
+                ),
                 "summary": f"{row['item_name']} (Magischer Gegenstand)",
                 "tooltip_text": _format_item_tooltip(
                     description=row["character_item"].description or row["item"].description or "",
@@ -1882,6 +1905,9 @@ def _build_armor_rows(engine) -> list[dict]:
                 "kind": "shield",
                 "quality_label": "" if is_race_item else quality["label"],
                 "quality_color": "" if is_race_item else quality["color"],
+                "tooltip_subtitle": " - ".join(
+                    part for part in [row["item"].get_item_type_display(), "" if is_race_item else quality["label"]] if part
+                ),
                 "summary": f"{row['item_name']} (Schild-RS {row['rs']} | Bel {row['bel_effective']} | Min-St {row['min_st'] or '-'})",
                 "tooltip_text": _format_item_tooltip(
                     description=row["character_item"].description or row["item"].description or "",
@@ -2123,7 +2149,7 @@ def _build_weapon_mastery_arcana_panel(engine) -> dict | None:
             rune_entries.append({
                 "kind": "rune",
                 "label": entry.rune.name,
-                "description": (entry.rune.description or "").strip(),
+                "description": _rune_card_description(entry.rune),
                 "image": _rune_image_url(entry.rune),
                 "weapon_type_label": related_weapon_type,
             })
@@ -2838,7 +2864,7 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
             {
                 "id": rune.id,
                 "name": rune.name,
-                "description": _single_line(rune.description),
+                "description": _single_line(_rune_card_description(rune)),
                 "image": _rune_image_url(rune),
                 "has_specialization": rune.has_specialization,
                 "specialization_label": rune.specialization_label or "Bezeichnung",

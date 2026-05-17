@@ -376,7 +376,7 @@ def _save_magic_modifiers(*, source_model, source_id: int, magic_modifier_payloa
         modifier.save()
 
 
-def apply_character_item_modifications(character_item: CharacterItem, post_data) -> bool:
+def apply_character_item_modifications(character_item: CharacterItem, post_data, files_data=None) -> bool:
     """Persist one owned-item modification including quality, runes, magic, and costs."""
     item = character_item.item
     name = str(post_data.get("name") or "").strip() or item.name
@@ -386,6 +386,8 @@ def apply_character_item_modifications(character_item: CharacterItem, post_data)
     quality = _read_quality(post_data, "quality", character_item.quality or character_item.item.default_quality)
     experience_cost = _read_int(post_data, "experience_cost", 0, minimum=0)
     money_cost = _read_int(post_data, "money_cost", 0, minimum=0)
+    image = None if files_data is None else files_data.get("image")
+    remove_image = bool(post_data.get("remove_image"))
     rune_payloads = _read_rune_payloads(post_data)
     description = str(post_data.get("description") or "").strip()
     visible_magic_effect_summary = str(post_data.get("magic_effect_summary") or "").strip()
@@ -450,6 +452,15 @@ def apply_character_item_modifications(character_item: CharacterItem, post_data)
 
     try:
         with transaction.atomic():
+            if remove_image and item.image:
+                item.image.delete(save=False)
+                item.image = None
+                item.full_clean()
+                item.save(update_fields=["image"])
+            if image:
+                item.image = image
+                item.full_clean()
+                item.save(update_fields=["image"])
             character_item.name_override = name
             character_item.price_override = price
             character_item.weight_override = weight
@@ -565,7 +576,7 @@ def apply_character_item_modifications(character_item: CharacterItem, post_data)
     return True
 
 
-def create_custom_shop_item(post_data) -> bool:
+def create_custom_shop_item(post_data, files_data=None) -> bool:
     """Create one custom base item plus optional detail records."""
     name = (post_data.get("name") or "").strip()
     if not name:
@@ -580,6 +591,7 @@ def create_custom_shop_item(post_data) -> bool:
     weight = _read_int(post_data, "weight", 0, minimum=0)
     size_class = str(post_data.get("size_class") or "M")
     is_consumable = item_type == Item.ItemType.CONSUM
+    image = None if files_data is None else files_data.get("image")
     rune_payloads = _read_rune_payloads(post_data)
     selected_rune_ids = sorted({int(payload["rune_id"]) for payload in rune_payloads if int(payload["rune_id"]) > 0})
     selected_runes = list(Rune.objects.filter(pk__in=selected_rune_ids))
@@ -625,6 +637,7 @@ def create_custom_shop_item(post_data) -> bool:
                 default_quality=default_quality,
                 weight=weight,
                 size_class=size_class,
+                image=image,
             )
             item.full_clean()
             item.save()
