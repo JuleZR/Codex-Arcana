@@ -349,6 +349,17 @@ function createTooltipCardTableMarkup(table, rows, { includeHead = true } = {}) 
   return `<table>${headHtml}${bodyHtml}</table>`;
 }
 
+function normalizeTooltipSectionRows(rows, sectionLabel) {
+  return rows.map((row, index) => {
+    const clone = row.cloneNode(true);
+    const firstCell = clone.cells[0];
+    if (firstCell && normalizeInlineText(firstCell.textContent || "") === normalizeInlineText(sectionLabel) && index === 0) {
+      firstCell.innerHTML = "&nbsp;";
+    }
+    return clone;
+  });
+}
+
 function buildTooltipCardSections(markup) {
   const template = document.createElement("template");
   template.innerHTML = String(markup || "").trim();
@@ -374,18 +385,20 @@ function buildTooltipCardSections(markup) {
 
   const extras = [];
   if (effectRows.length) {
+    const normalizedEffectRows = normalizeTooltipSectionRows(effectRows, "Effekte");
     extras.push(`
       <section class="floating-tooltip-card__section">
         <h4 class="floating-tooltip-card__section_title">Effekte</h4>
-        <div class="floating-tooltip-card__section_body">${createTooltipCardTableMarkup(table, effectRows, { includeHead: false })}</div>
+        <div class="floating-tooltip-card__section_body">${createTooltipCardTableMarkup(table, normalizedEffectRows, { includeHead: false })}</div>
       </section>
     `);
   }
   if (runeRows.length) {
+    const normalizedRuneRows = normalizeTooltipSectionRows(runeRows, "Runen");
     extras.push(`
       <section class="floating-tooltip-card__section">
         <h4 class="floating-tooltip-card__section_title">Runen</h4>
-        <div class="floating-tooltip-card__section_body">${createTooltipCardTableMarkup(table, runeRows, { includeHead: false })}</div>
+        <div class="floating-tooltip-card__section_body">${createTooltipCardTableMarkup(table, normalizedRuneRows, { includeHead: false })}</div>
       </section>
     `);
   }
