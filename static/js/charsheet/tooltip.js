@@ -367,6 +367,26 @@ function buildTooltipCardMarkup({ title, subtitle, image, accent, bodyMarkup }) 
   `;
 }
 
+function syncTooltipCardMediaHeight(card) {
+  if (!(card instanceof HTMLElement)) {
+    return;
+  }
+  const content = card.querySelector(".floating-tooltip-card__content.has-media");
+  const media = card.querySelector(".floating-tooltip-card__media");
+  const details = card.querySelector(".floating-tooltip-card__details");
+  if (!(content instanceof HTMLElement) || !(media instanceof HTMLElement) || !(details instanceof HTMLElement)) {
+    return;
+  }
+  const detailsHeight = details.offsetHeight;
+  if (detailsHeight > 0) {
+    media.style.height = `${detailsHeight}px`;
+    media.style.maxHeight = `${detailsHeight}px`;
+    return;
+  }
+  media.style.height = "";
+  media.style.maxHeight = "";
+}
+
 export function initTooltips() {
   const dbAnchors = document.querySelectorAll(".db_tooltip_anchor[data-db-tooltip]");
   dbAnchors.forEach((anchor) => {
@@ -526,6 +546,15 @@ export function initTooltips() {
     });
     card.classList.add("is-visible");
     activeCardTarget = target;
+    syncTooltipCardMediaHeight(card);
+    const cardImage = card.querySelector(".floating-tooltip-card__image");
+    if (cardImage instanceof HTMLImageElement) {
+      if (cardImage.complete) {
+        syncTooltipCardMediaHeight(card);
+      } else {
+        cardImage.addEventListener("load", () => syncTooltipCardMediaHeight(card), { once: true });
+      }
+    }
     positionCardFromTarget(target);
   };
 
@@ -669,6 +698,7 @@ export function initTooltips() {
       positionTooltip(activeTarget);
     }
     if (activeCardTarget) {
+      syncTooltipCardMediaHeight(card);
       const left = Number.parseFloat(card.style.left || "0");
       const top = Number.parseFloat(card.style.top || "0");
       const clamped = clampCardPosition(left, top);
