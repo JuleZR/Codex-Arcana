@@ -12,6 +12,9 @@ DEFENSE_SR = "sr"
 DEFENSE_RS = "rs"
 MELEE_MANEUVERS = "melee_maneuvers"
 WEAPON_DAMAGE = "weapon_damage"
+WEAPON_MANEUVER_DAMAGE = "weapon_maneuver_damage"
+WEAPON_MASTERY_BONUS = "weapon_mastery_bonus"
+WEAPON_MASTERY_EFFECT_DESCRIPTION = "Waffenmeister-Bonus +1/+1"
 
 STAT_SLUG_CHOICES = [
     (INITIATIVE, "Initiative"),
@@ -238,6 +241,7 @@ DAMAGE_TYPE_CHOICES = (
     (DEADLY, "T"),
 )
 
+
 def infer_weapon_type(name: str) -> str:
     """Infer a weapon type from a weapon name for legacy or incomplete data."""
     normalized = (name or "").strip().lower()
@@ -300,6 +304,7 @@ def infer_weapon_type(name: str) -> str:
     if any(token in normalized for token in ("netz", "fussangeln", "fangeisen", "spikes")):
         return "trap"
     return "special"
+
 
 # Weapon Symbols
 MOUNTED_TWO_HANDED = "mounted_two_handed"

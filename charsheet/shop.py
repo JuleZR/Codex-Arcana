@@ -10,7 +10,14 @@ from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError
 from django.db import transaction
 
-from charsheet.constants import DEADLY, MELEE_MANEUVERS, WEAPON_DAMAGE
+from charsheet.constants import (
+    DEADLY,
+    MELEE_MANEUVERS,
+    WEAPON_DAMAGE,
+    WEAPON_MANEUVER_DAMAGE,
+    WEAPON_MASTERY_BONUS,
+    WEAPON_MASTERY_EFFECT_DESCRIPTION,
+)
 from charsheet.engine import ItemEngine
 from charsheet.magic_effects import TEXT_TARGET_KIND, pack_magic_effect_summary
 from charsheet.models import (
@@ -177,9 +184,11 @@ def _build_magic_modifier_payload(target_kind: str, raw_value, row_data) -> dict
     elif target_kind == "weapon_damage":
         payload["target_kind"] = Modifier.TargetKind.STAT
         payload["target_slug"] = WEAPON_DAMAGE
-    elif target_kind == "weapon_mastery_bonus":
-        payload["target_kind"] = "weapon_mastery_bonus"
-        payload["effect_description"] = payload["effect_description"] or "Waffenmeister-Bonus +1/+1"
+    elif target_kind == WEAPON_MANEUVER_DAMAGE:
+        payload["target_kind"] = WEAPON_MANEUVER_DAMAGE
+    elif target_kind == WEAPON_MASTERY_BONUS:
+        payload["target_kind"] = WEAPON_MASTERY_BONUS
+        payload["effect_description"] = payload["effect_description"] or WEAPON_MASTERY_EFFECT_DESCRIPTION
     elif target_kind == Modifier.TargetKind.SKILL:
         skill_id = int(row_data.get("target_skill") or 0)
         if skill_id <= 0:
@@ -252,7 +261,7 @@ def _read_magic_modifier_payloads(post_data) -> list[dict[str, object]]:
             entry,
         )
         if payload is not None:
-            if payload.get("target_kind") == "weapon_mastery_bonus":
+            if payload.get("target_kind") in {WEAPON_MANEUVER_DAMAGE, WEAPON_MASTERY_BONUS}:
                 value = int(payload.get("value", 0) or 0)
                 effect_description = str(payload.get("effect_description") or "").strip()
                 payloads.extend(

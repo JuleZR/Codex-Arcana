@@ -32,6 +32,9 @@ from charsheet.constants import (
     STAT_SLUG_CHOICES,
     SOURCE_ITEM_RUNE,
     WEAPON_DAMAGE,
+    WEAPON_MANEUVER_DAMAGE,
+    WEAPON_MASTERY_BONUS,
+    WEAPON_MASTERY_EFFECT_DESCRIPTION,
 )
 from charsheet.engine import ItemEngine
 from charsheet.forms import (
@@ -549,12 +552,22 @@ def _collapse_weapon_mastery_bonus_payloads(modifier_payloads: list[dict[str, ob
             collapsed_payloads.append(payload)
             continue
         consumed_indices.add(matching_index)
+        collapsed_target_kind = (
+            WEAPON_MASTERY_BONUS
+            if payload_description == WEAPON_MASTERY_EFFECT_DESCRIPTION
+            else WEAPON_MANEUVER_DAMAGE
+        )
+        collapsed_target_display = (
+            WEAPON_MASTERY_EFFECT_DESCRIPTION
+            if collapsed_target_kind == WEAPON_MASTERY_BONUS
+            else "Bonus/Malus auf Manöver und Schaden"
+        )
         collapsed_payloads.append(
             {
-                "target_kind": "weapon_mastery_bonus",
+                "target_kind": collapsed_target_kind,
                 "value": payload_value,
-                "effect_description": payload_description or "Waffenmeister-Bonus +1/+1",
-                "target_display": "Waffenmeister-Bonus +1/+1",
+                "effect_description": payload_description or collapsed_target_display,
+                "target_display": collapsed_target_display,
                 "display_order": int(payload.get("display_order", 0) or 0),
             }
         )
@@ -2708,6 +2721,7 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
             ("category", "Fertigkeitskategorie"),
             ("weapon_maneuver", "Bonus/Malus auf Manöver mit dieser Waffe"),
             ("weapon_damage", "Bonus/Malus auf Schaden mit dieser Waffe"),
+            (WEAPON_MANEUVER_DAMAGE, "Bonus/Malus auf Manöver und Schaden mit dieser Waffe"),
         ],
         "shop_weapon_type_choices": [
             ("", "Nicht festgelegt"),
@@ -2730,6 +2744,7 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
             ("category", "Fertigkeitskategorie"),
             ("weapon_maneuver", "Bonus/Malus auf Manöver mit dieser Waffe"),
             ("weapon_damage", "Bonus/Malus auf Schaden mit dieser Waffe"),
+            (WEAPON_MANEUVER_DAMAGE, "Bonus/Malus auf Manöver und Schaden mit dieser Waffe"),
         ],
         "shop_modifier_target_kind_choices": [
             (TEXT_TARGET_KIND, "Text"),
@@ -2748,7 +2763,8 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
             ("category", "Fertigkeitskategorie"),
             ("weapon_maneuver", "Bonus/Malus auf Man\u00f6ver"),
             ("weapon_damage", "Bonus/Malus auf Schaden"),
-            ("weapon_mastery_bonus", "Waffenmeister-Bonus +1/+1"),
+            (WEAPON_MANEUVER_DAMAGE, "Bonus/Malus auf Manöver und Schaden"),
+            (WEAPON_MASTERY_BONUS, WEAPON_MASTERY_EFFECT_DESCRIPTION),
         ],
         "shop_modifier_attribute_choices": ATTRIBUTE_ORDER,
         "shop_modifier_stat_choices": STAT_SLUG_CHOICES,
