@@ -1799,6 +1799,7 @@
 
 .floating-tooltip-card {
   --tooltip-card-accent: rgba(118, 85, 48, 0.88);
+  --tooltip-card-media-width: clamp(180px, 30vw, 320px);
   position: fixed;
   left: 16px;
   top: 16px;
@@ -1906,7 +1907,7 @@
 }
 
 .floating-tooltip-card__content.has-media {
-  grid-template-columns: minmax(280px, 1.05fr) minmax(320px, 0.95fr);
+  grid-template-columns: minmax(180px, var(--tooltip-card-media-width)) minmax(320px, 1fr);
   align-items: stretch;
 }
 
@@ -1927,11 +1928,13 @@
 .floating-tooltip-card__media {
   overflow: hidden;
   align-self: stretch;
+  width: 100%;
   height: 100%;
   min-height: 0;
   max-height: 100%;
   display: grid;
   place-items: center;
+  padding: 10px;
 }
 
 .floating-tooltip-card__image {
