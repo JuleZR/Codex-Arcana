@@ -490,9 +490,14 @@ function syncTooltipCardMediaHeight(card) {
   if (!(content instanceof HTMLElement) || !(media instanceof HTMLElement) || !(details instanceof HTMLElement)) {
     return;
   }
+  const frame = card.querySelector(".floating-tooltip-card__frame");
   const detailsHeight = details.offsetHeight;
-  if (detailsHeight > 0) {
-    const clampedSize = Math.min(Math.max(detailsHeight, 180), 360);
+  const frameHeight = frame instanceof HTMLElement ? frame.offsetHeight : 0;
+  const preferredSize = frameHeight > 0
+    ? Math.round(frameHeight / 3)
+    : Math.round(detailsHeight * 0.72);
+  if (preferredSize > 0 || detailsHeight > 0) {
+    const clampedSize = Math.min(Math.max(preferredSize || detailsHeight, 150), 260);
     card.style.setProperty("--tooltip-card-media-size", `${clampedSize}px`);
     media.style.width = `${clampedSize}px`;
     media.style.height = `${clampedSize}px`;

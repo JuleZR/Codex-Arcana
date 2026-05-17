@@ -1800,7 +1800,7 @@
 .floating-tooltip-card {
   --tooltip-card-accent: rgba(118, 85, 48, 0.88);
   --tooltip-card-media-width: clamp(180px, 30vw, 320px);
-  --tooltip-card-media-size: clamp(210px, 28vw, 290px);
+  --tooltip-card-media-size: clamp(150px, 22vw, 260px);
   position: fixed;
   left: 16px;
   top: 16px;
@@ -1940,6 +1940,7 @@
   box-shadow: none;
   position: relative;
   clip-path: polygon(10% 2%, 90% 0%, 98% 12%, 100% 88%, 90% 100%, 12% 98%, 0% 88%, 2% 10%);
+  isolation: isolate;
 }
 
 .floating-tooltip-card__image {
@@ -1949,6 +1950,7 @@
   min-height: 0;
   max-height: 100%;
   object-fit: cover;
+  object-position: center;
   background: rgba(28, 20, 12, 0.74);
   filter: saturate(0.94) contrast(1.02);
 }
@@ -1958,7 +1960,8 @@
   position: absolute;
   inset: 0;
   pointer-events: none;
-  border: 10px solid rgba(221, 194, 146, 0.9);
+  z-index: 1;
+  border: 8px solid rgba(221, 194, 146, 0.9);
   border-image: linear-gradient(180deg, rgba(245, 228, 197, 0.96), rgba(178, 142, 95, 0.92)) 1;
   clip-path: inherit;
   box-shadow:
