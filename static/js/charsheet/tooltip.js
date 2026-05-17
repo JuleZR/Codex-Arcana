@@ -371,15 +371,28 @@ function buildTooltipCardSections(markup) {
   const topRows = [];
   const effectRows = [];
   const runeRows = [];
+  let activeSection = "";
   Array.from(table.tBodies[0].rows).forEach((row) => {
-    if (row.classList.contains("tooltip_effect_row")) {
+    const label = normalizeInlineText(row.cells[0]?.textContent || "");
+    if (label === "Effekt" || label === "Effekte") {
+      activeSection = "effects";
       effectRows.push(row.cloneNode(true));
       return;
     }
-    if (row.classList.contains("tooltip_rune_comment_row")) {
+    if (label === "Rune" || label === "Runen") {
+      activeSection = "runes";
       runeRows.push(row.cloneNode(true));
       return;
     }
+    if (!label && activeSection === "effects") {
+      effectRows.push(row.cloneNode(true));
+      return;
+    }
+    if (!label && activeSection === "runes") {
+      runeRows.push(row.cloneNode(true));
+      return;
+    }
+    activeSection = "";
     topRows.push(row.cloneNode(true));
   });
 
