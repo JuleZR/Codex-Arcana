@@ -1,3 +1,4 @@
+import { applySheetPartials } from "./partial_updates.js";
 import { createFloatingWindowController } from "./window_manager.js";
 
 function parseIdList(rawValue) {
@@ -126,6 +127,7 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
   }
 
   let pendingRuneSubmit = false;
+  let draggedInventoryItemId = "";
   const floatingController = modifyWindowController || createFloatingWindowController({
     windowEl: runeWindow,
     closeButton: runeCloseButton,
@@ -1063,6 +1065,121 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
       return;
     }
     runeImagePreview.hidden = runeRemoveImageInput.checked;
+  });
+
+  document.addEventListener("dragstart", (event) => {
+    const handle = event.target instanceof Element ? event.target.closest("[data-drag-handle]") : null;
+    if (!(handle instanceof HTMLElement)) {
+      return;
+    }
+    const row = handle.closest("[data-inventory-row]");
+    if (!(row instanceof HTMLElement)) {
+      return;
+    }
+    draggedInventoryItemId = row.dataset.characterItemId || "";
+    row.classList.add("is-dragging");
+    document.body.classList.add("inventory-dragging");
+    const storage = document.querySelector("[data-inventory-storage]");
+    if (storage instanceof HTMLElement && storage.hidden) {
+      storage.hidden = false;
+      storage.classList.add("inventory_storage--drag-preview");
+    }
+    if (event.dataTransfer) {
+      event.dataTransfer.effectAllowed = "move";
+      event.dataTransfer.setData("text/plain", draggedInventoryItemId);
+    }
+  });
+
+  document.addEventListener("dragend", (event) => {
+    const handle = event.target instanceof Element ? event.target.closest("[data-drag-handle]") : null;
+    if (!(handle instanceof HTMLElement)) {
+      return;
+    }
+    draggedInventoryItemId = "";
+    document.body.classList.remove("inventory-dragging");
+    document.querySelectorAll("[data-inventory-row].is-dragging").forEach((row) => row.classList.remove("is-dragging"));
+    document.querySelectorAll("[data-inventory-zone].is-drag-over").forEach((zone) => zone.classList.remove("is-drag-over"));
+    const storage = document.querySelector("[data-inventory-storage]");
+    if (
+      storage instanceof HTMLElement &&
+      storage.classList.contains("inventory_storage--drag-preview") &&
+      !storage.querySelector("[data-inventory-row]")
+    ) {
+      storage.hidden = true;
+      storage.classList.remove("inventory_storage--drag-preview");
+    }
+  });
+
+  document.addEventListener("dragover", (event) => {
+    const zone = event.target instanceof Element ? event.target.closest("[data-inventory-zone]") : null;
+    if (!(zone instanceof HTMLElement) || !draggedInventoryItemId) {
+      return;
+    }
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+    document.querySelectorAll("[data-inventory-zone].is-drag-over").forEach((entry) => {
+      if (entry !== zone) {
+        entry.classList.remove("is-drag-over");
+      }
+    });
+    zone.classList.add("is-drag-over");
+  });
+
+  document.addEventListener("dragleave", (event) => {
+    const zone = event.target instanceof Element ? event.target.closest("[data-inventory-zone]") : null;
+    if (!(zone instanceof HTMLElement)) {
+      return;
+    }
+    const related = event.relatedTarget instanceof Element ? event.relatedTarget.closest("[data-inventory-zone]") : null;
+    if (related === zone) {
+      return;
+    }
+    zone.classList.remove("is-drag-over");
+  });
+
+  document.addEventListener("drop", async (event) => {
+    const zone = event.target instanceof Element ? event.target.closest("[data-inventory-zone]") : null;
+    if (!(zone instanceof HTMLElement) || !draggedInventoryItemId) {
+      return;
+    }
+    event.preventDefault();
+    zone.classList.remove("is-drag-over");
+    const row = document.querySelector(`[data-inventory-row][data-character-item-id="${draggedInventoryItemId}"]`);
+    if (!(row instanceof HTMLElement)) {
+      return;
+    }
+    const targetStored = zone.dataset.inventoryZone === "stored" ? "1" : "0";
+    if ((row.dataset.stored || "0") === targetStored) {
+      return;
+    }
+    const form = row.querySelector("[data-storage-form]");
+    const input = form?.querySelector("input[name='stored']");
+    if (!(form instanceof HTMLFormElement) || !(input instanceof HTMLInputElement)) {
+      return;
+    }
+    input.value = targetStored;
+    try {
+      const formData = new FormData(form);
+      const response = await fetch(form.action, {
+        method: form.method || "POST",
+        body: formData,
+        headers: {
+          "X-Requested-With": "XMLHttpRequest",
+          Accept: "application/json",
+        },
+        credentials: "same-origin",
+      });
+      if (!response.ok) {
+        throw new Error("inventory storage drop failed");
+      }
+      const payload = await response.json();
+      if (!payload?.ok) {
+        throw new Error("inventory storage payload invalid");
+      }
+      applySheetPartials(payload);
+    } catch (_error) {
+      form.requestSubmit();
+    }
   });
   runeDropdownTrigger?.addEventListener("click", () => {
     toggleRuneDropdown();

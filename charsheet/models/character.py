@@ -185,6 +185,7 @@ class CharacterItem(models.Model):
     amount = models.PositiveIntegerField(default=1)
     equipped = models.BooleanField(default=False)
     equip_locked = models.BooleanField(default=False)
+    stored = models.BooleanField(default=False)
     quality = models.CharField(max_length=20, choices=QUALITY_CHOICES, default=QUALITY_COMMON)
     runes = models.ManyToManyField("Rune", blank=True, related_name="character_items")
     description = models.TextField(blank=True, default="")

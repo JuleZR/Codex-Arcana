@@ -1681,6 +1681,7 @@ def _build_inventory_rows(character: Character) -> list[dict]:
                 ),
                 "item_image_url": item_image_url,
                 "tooltip_text": tooltip_text,
+                "is_stored": bool(character_item.stored),
                 "can_consume": item.stackable and item.item_type == Item.ItemType.CONSUM,
                 "can_equip": item.item_type in EQUIPPABLE_ITEM_TYPES or character_item.is_magic_effective,
                 "can_socket_runes": True,
@@ -1787,10 +1788,12 @@ def _build_inventory_rows(character: Character) -> list[dict]:
 
 
 def _build_inventory_total_weight_display(character: Character) -> str:
-    """Return the summed weight of all owned carried or equipped items."""
+    """Return the summed weight of all carried or equipped items."""
     total_weight = Decimal("0")
     character_items = CharacterItem.objects.filter(owner=character).select_related("item")
     for character_item in character_items:
+        if character_item.stored and not character_item.equipped:
+            continue
         total_weight += ItemEngine(character_item).get_weight()
     return format_compact_number(total_weight)
 
@@ -2650,6 +2653,8 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
     skill_rows, character_skills, skill_manager_rows = _build_skill_rows(character, engine, load_penalty=load_penalty)
     advantage_rows, disadvantage_rows = _build_trait_rows(character)
     inventory_rows = _build_inventory_rows(character)
+    carried_inventory_rows = [row for row in inventory_rows if not row.get("is_stored")]
+    stored_inventory_rows = [row for row in inventory_rows if row.get("is_stored")]
     inventory_total_weight_display = _build_inventory_total_weight_display(character)
     weapon_rows = _build_weapon_rows(engine)
     armor_rows = _build_armor_rows(engine)
@@ -2808,7 +2813,8 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
         "skill_manager_rows": skill_manager_rows,
         "advantage_rows": advantage_rows,
         "disadvantage_rows": disadvantage_rows,
-        "inventory_rows": inventory_rows,
+        "inventory_rows": carried_inventory_rows,
+        "stored_inventory_rows": stored_inventory_rows,
         "inventory_total_weight_display": inventory_total_weight_display,
         "weapon_rows": weapon_rows,
         "armor_rows": armor_rows,

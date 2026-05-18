@@ -1175,6 +1175,10 @@
   overflow: visible;
 }
 
+.p2_lines li.inv_row.is-dragging {
+  opacity: 0.5;
+}
+
 .p2_lines li.inv_row.is-menu-open {
   isolation: isolate;
   z-index: 1200;
@@ -1210,6 +1214,96 @@
   gap: 6px;
   padding: 1px 6px 1px 2px;
   border-radius: 5px;
+}
+
+.inv_drag_handle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  min-width: 14px;
+  height: 18px;
+  cursor: grab;
+  touch-action: none;
+}
+
+.inv_drag_handle:active {
+  cursor: grabbing;
+}
+
+.inv_drag_handle_dots {
+  position: relative;
+  display: block;
+  width: 3px;
+  height: 3px;
+  border-radius: 999px;
+  background: rgba(106, 78, 50, 0.78);
+  box-shadow:
+    0 -5px 0 rgba(106, 78, 50, 0.78),
+    0 5px 0 rgba(106, 78, 50, 0.78);
+}
+
+.inventory_list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.inventory_scroll > .inventory_list {
+  flex: 1 0 auto;
+}
+
+.inventory_storage {
+  position: sticky;
+  bottom: 0;
+  z-index: 4;
+  margin: 12px 4px 2px;
+  margin-top: auto;
+  padding: 7px 7px 4px;
+  border: 1px dashed rgba(120, 86, 47, 0.5);
+  border-radius: 9px;
+  background:
+    linear-gradient(180deg, rgba(246, 237, 218, 0.96), rgba(231, 216, 190, 0.92));
+  box-shadow:
+    0 -8px 16px rgba(245, 234, 212, 0.92),
+    0 1px 3px rgba(61, 40, 19, 0.08);
+}
+
+.inventory_storage--empty {
+  display: none;
+}
+
+.inventory_storage--drag-preview {
+  display: block;
+}
+
+.inventory_storage_header {
+  margin-bottom: 4px;
+  padding: 0 4px;
+}
+
+.inventory_storage_header h3 {
+  margin: 0;
+  font-family: "Trebuchet MS", "Segoe UI", Tahoma, sans-serif;
+  font-size: 0.63rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(90, 64, 39, 0.84);
+}
+
+.inventory_list--storage .inv_row {
+  background: rgba(241, 232, 210, 0.5);
+}
+
+[data-inventory-zone].is-drag-over {
+  outline: 2px solid rgba(147, 103, 51, 0.42);
+  outline-offset: 2px;
+}
+
+[data-inventory-zone="stored"].is-drag-over {
+  background:
+    linear-gradient(180deg, rgba(243, 228, 196, 0.34), rgba(225, 205, 170, 0.24));
 }
 
 .inv_rune_marker {
@@ -2590,6 +2684,8 @@
 }
 
 .inventory_scroll {
+  display: flex;
+  flex-direction: column;
   flex: 1 1 auto;
   min-height: 0;
   overflow-x: visible;

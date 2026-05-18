@@ -1458,6 +1458,29 @@ def toggle_equip(request, pk):
 
 @login_required
 @require_POST
+def set_item_storage(request, pk):
+    """Persist whether one inventory item is carried or stored."""
+    ci = _owned_character_item_or_404(request, pk)
+    if ci.equipped or ci.equip_locked:
+        return redirect("character_sheet", character_id=ci.owner_id)
+
+    ci.stored = str(request.POST.get("stored", "0")).lower() in {"1", "true", "on", "yes"}
+    ci.save(update_fields=["stored"])
+    if _is_partial_request(request):
+        return _sheet_partials_response(
+            request,
+            ci.owner,
+            "character_header",
+            "load_panel",
+            "core_stats_panel",
+            "inventory_panel",
+        )
+
+    return redirect("character_sheet", character_id=ci.owner_id)
+
+
+@login_required
+@require_POST
 def consume_item(request, pk):
     """Consume one unit from a stackable inventory item."""
     ci = _owned_character_item_or_404(request, pk)

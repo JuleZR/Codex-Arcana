@@ -59,6 +59,7 @@ urlpatterns = [
     path("character/<int:character_id>/shop-item/create/", views.create_shop_item, name="create_shop_item"),
     path("character/<int:character_id>/shop/buy/", views.buy_shop_cart, name="buy_shop_cart"),
     path("character-item/<int:pk>/toggle-equip/", views.toggle_equip, name="toggle_equip"),
+    path("character-item/<int:pk>/storage/", views.set_item_storage, name="set_item_storage"),
     path("character-item/<int:character_item_id>/rune/<int:rune_id>/specification/update/", views.update_rune_specification, name="update_rune_specification"),
     path("character-item/<int:pk>/runes/update/", views.update_character_item_runes, name="update_character_item_runes"),
     path("character-item/<int:pk>/consume/", views.consume_item, name="consume_item"),
