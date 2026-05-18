@@ -818,6 +818,15 @@
     max-height: min(240px, 35vh);
   }
 
+  #sheetInventoryPanel .p2_panel_header {
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+
+  #sheetInventoryPanel .inventory_total_weight {
+    margin-left: auto;
+  }
+
   .skills_wrapper {
     max-height: min(380px, 48vh);
   }

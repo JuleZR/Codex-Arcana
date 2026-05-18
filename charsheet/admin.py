@@ -1467,6 +1467,7 @@ class WeaponStatsInline(admin.StackedInline):
     fields = (
         "min_st",
         "weapon_type",
+        "maneuver_attribute_mode",
         "damage_source",
         "skills",
         "damage_dice_amount",
@@ -3753,6 +3754,19 @@ class RuneAdmin(admin.ModelAdmin):
     prepopulated_fields = {"slug": ("name",)}
     inlines = (ModifierInline,)
 
+    def get_form(self, request, obj=None, change=False, **kwargs):
+        """Render the short description as a larger textarea in the admin form."""
+        form = super().get_form(request, obj=obj, change=change, **kwargs)
+        short_description_field = form.base_fields.get("short_description")
+        if short_description_field is not None:
+            short_description_field.widget = forms.Textarea(
+                attrs={
+                    "rows": 4,
+                    "cols": 80,
+                }
+            )
+        return form
+
 
 @admin.register(WeaponStats)
 class WeaponStatsAdmin(admin.ModelAdmin):
@@ -3765,6 +3779,7 @@ class WeaponStatsAdmin(admin.ModelAdmin):
         "quality_damage",
         "two_handed_damage",
         "wield_mode",
+        "maneuver_attribute_mode",
         "damage_source",
         "skill_summary",
         "damage_type",
@@ -3782,6 +3797,7 @@ class WeaponStatsAdmin(admin.ModelAdmin):
         "item",
         "min_st",
         "weapon_type",
+        "maneuver_attribute_mode",
         "damage_source",
         "skills",
         "damage_dice_amount",

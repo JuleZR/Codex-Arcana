@@ -3,6 +3,8 @@
 from decimal import Decimal
 
 from charsheet.constants import (
+    ATTR_GE,
+    ATTR_ST,
     ONE_HANDED,
     QUALITY_BEL_MODS,
     QUALITY_CHOICES,
@@ -16,6 +18,9 @@ from charsheet.constants import (
     QUALITY_WRETCHED,
     TWO_HANDED,
     VERSATILE,
+    WEAPON_MANEUVER_ATTRIBUTE_BOTH,
+    WEAPON_MANEUVER_ATTRIBUTE_GE,
+    WEAPON_MANEUVER_ATTRIBUTE_ST,
 )
 from charsheet.models import ArmorStats, CharacterItem, Item, ShieldStats, WeaponStats
 
@@ -145,6 +150,37 @@ class ItemEngine:
             return ""
         weapon_type = self._get_override_value("weapon_type_override", stats.weapon_type)
         return str(getattr(weapon_type, "slug", "") or "")
+
+    def get_weapon_maneuver_attribute_mode(self) -> str:
+        """Return the active attribute mode for this weapon's maneuvers."""
+        stats = self._get_weapon_stats()
+        if not stats:
+            return WEAPON_MANEUVER_ATTRIBUTE_ST
+        return str(
+            self._get_override_value(
+                "weapon_maneuver_attribute_override",
+                getattr(stats, "maneuver_attribute_mode", WEAPON_MANEUVER_ATTRIBUTE_ST),
+            )
+            or WEAPON_MANEUVER_ATTRIBUTE_ST
+        )
+
+    def get_weapon_maneuver_attribute_codes(self) -> tuple[str, ...]:
+        """Return the attribute codes that add to this weapon's maneuvers."""
+        mode = self.get_weapon_maneuver_attribute_mode()
+        if mode == WEAPON_MANEUVER_ATTRIBUTE_GE:
+            return (ATTR_GE,)
+        if mode == WEAPON_MANEUVER_ATTRIBUTE_BOTH:
+            return (ATTR_ST, ATTR_GE)
+        return (ATTR_ST,)
+
+    def get_weapon_maneuver_attribute_label(self) -> str:
+        """Return the short label for the active maneuver attribute mode."""
+        labels = {
+            WEAPON_MANEUVER_ATTRIBUTE_ST: "ST",
+            WEAPON_MANEUVER_ATTRIBUTE_GE: "GE",
+            WEAPON_MANEUVER_ATTRIBUTE_BOTH: "ST oder GE",
+        }
+        return labels.get(self.get_weapon_maneuver_attribute_mode(), "ST")
 
     def get_weapon_wield_mode(self) -> str | None:
         """Return the configured wield mode code."""

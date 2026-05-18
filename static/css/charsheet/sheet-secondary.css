@@ -110,6 +110,36 @@
   margin: 0;
 }
 
+.inventory_total_weight {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 3px 10px;
+  border: 1px solid rgba(113, 77, 42, 0.34);
+  border-radius: 999px;
+  background: rgba(255, 248, 232, 0.78);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45);
+  color: #5d4129;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.inventory_total_weight__label {
+  font-family: "Trebuchet MS", "Segoe UI", Tahoma, sans-serif;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(93, 65, 41, 0.74);
+}
+
+.inventory_total_weight__value {
+  font-family: "Trebuchet MS", "Segoe UI", Tahoma, sans-serif;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #4d3320;
+}
+
 .inventory_shop_btn {
   width: 22px;
   height: 22px;
@@ -1933,7 +1963,9 @@
   min-height: 0;
   max-height: var(--tooltip-card-media-height);
   margin-top: 4px;
-  background: transparent;
+  background:
+    linear-gradient(180deg, rgba(230, 214, 183, 0.97), rgba(197, 173, 132, 0.95)),
+    url("/static/img/pergamentbg.jpg") center / cover no-repeat;
   border: 0;
   border-radius: 0;
   box-shadow: none;
@@ -1950,7 +1982,7 @@
   max-height: 100%;
   object-fit: cover;
   object-position: center;
-  background: rgba(28, 20, 12, 0.74);
+  background: transparent;
   filter: saturate(0.94) contrast(1.02);
 }
 
@@ -2231,6 +2263,11 @@
   align-items: start;
   gap: 8px;
   max-width: 100%;
+}
+
+.floating-tooltip-card .tooltip_rune_inline--no-image {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
 }
 
 .floating-tooltip-card .tooltip_rune_inline_image {
@@ -2644,6 +2681,11 @@
   width: 100%;
 }
 
+.weapon_name_cell--badgeonly {
+  justify-content: flex-end;
+  padding-right: 5px;
+}
+
 .weapon_name {
   flex: 1 1 auto;
   min-width: 0;
@@ -2654,8 +2696,27 @@
 }
 
 .weapon_name_cell .inv_rune_marker {
-  margin-left: auto;
   flex: 0 0 auto;
+  margin-right: 1px;
+}
+
+.weapon_mode_hint {
+  flex: 0 0 auto;
+  min-width: 18px;
+  text-align: right;
+  font-size: 0.68rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: rgba(92, 66, 34, 0.74);
+}
+
+.weapon_mode_hint--primary {
+  margin-left: 1px;
+  margin-right: 5px;
+}
+
+.weapon_mode_hint--badgeonly {
+  margin-right: 0;
 }
 
 .weapons_table tr.quality_tinted_row td:first-child {
@@ -3360,6 +3421,11 @@
   align-items: center;
   gap: 6px;
   max-width: 100%;
+}
+
+.floating-tooltip .tooltip_rune_inline--no-image {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
 }
 
 .floating-tooltip .tooltip_rune_inline_image {

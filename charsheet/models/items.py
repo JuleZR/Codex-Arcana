@@ -7,17 +7,23 @@ from django.db import models
 from django.utils.text import slugify
 
 from ..constants import (
+    ATTR_GE,
+    ATTR_ST,
+    DAMAGE_TYPE_CHOICES,
+    DEADLY,
     GK_AVERAGE,
     GK_CHOICES,
     ONE_HANDED,
-    QUALITY_CHOICES,
     QUALITY_COMMON,
+    QUALITY_CHOICES,
     TWO_HANDED,
     VERSATILE,
-    WIELD_MODES,
-    DEADLY,
-    DAMAGE_TYPE_CHOICES,
     WEAPON_SYMBOL_CHOICES,
+    WEAPON_MANEUVER_ATTRIBUTE_BOTH,
+    WEAPON_MANEUVER_ATTRIBUTE_CHOICES,
+    WEAPON_MANEUVER_ATTRIBUTE_GE,
+    WEAPON_MANEUVER_ATTRIBUTE_ST,
+    WIELD_MODES,
 )
 from .core import DamageSource
 
@@ -231,6 +237,12 @@ class WeaponStats(models.Model):
     damage_dice_faces = models.PositiveIntegerField(default=10)
     damage_flat_bonus = models.IntegerField(default=0)
     damage_flat_operator = models.CharField(max_length=1, choices=DamageOperator.choices, default=DamageOperator.NONE, blank=True)
+    maneuver_attribute_mode = models.CharField(
+        max_length=10,
+        choices=WEAPON_MANEUVER_ATTRIBUTE_CHOICES,
+        default=WEAPON_MANEUVER_ATTRIBUTE_ST,
+        help_text="Welcher Attributsmodifikator für Waffenmanöver und Waffenwürfe gilt.",
+    )
     damage_bonus_attribute = models.CharField(max_length=20, blank=True, default="")
     damage_bonus_mode = models.CharField(max_length=20, blank=True, default="flat")
     damage_type = models.CharField(max_length=1, default=DEADLY, choices=DAMAGE_TYPE_CHOICES)
@@ -282,6 +294,15 @@ class WeaponStats(models.Model):
             self.damage_flat_bonus,
             self.damage_flat_operator,
         )
+
+    @property
+    def maneuver_attribute_codes(self) -> tuple[str, ...]:
+        """Return the attribute codes that contribute to this weapon's maneuvers."""
+        if self.maneuver_attribute_mode == WEAPON_MANEUVER_ATTRIBUTE_GE:
+            return (ATTR_GE,)
+        if self.maneuver_attribute_mode == WEAPON_MANEUVER_ATTRIBUTE_BOTH:
+            return (ATTR_ST, ATTR_GE)
+        return (ATTR_ST,)
 
     @property
     def two_handed_damage(self) -> str | None:

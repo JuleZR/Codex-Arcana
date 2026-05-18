@@ -301,6 +301,14 @@
                   {% endfor %}
                 </select>
               </label>
+              <label class="shop_item_form_row">
+                <span>Waffenwurf</span>
+                <select name="weapon_maneuver_attribute">
+                  {% for value, label in shop_weapon_maneuver_attribute_choices %}
+                    <option value="{{ value }}">{{ label }}</option>
+                  {% endfor %}
+                </select>
+              </label>
             </div>
             <div class="shop_item_form_fieldset">
               <div class="shop_item_form_fieldset_title">Fertigkeiten</div>

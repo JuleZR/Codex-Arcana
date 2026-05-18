@@ -96,6 +96,15 @@ ATTRIBUTE_CODE_CHOICES = [
     (ATTR_SPEC, "Spezial")
 ]
 
+WEAPON_MANEUVER_ATTRIBUTE_ST = "st"
+WEAPON_MANEUVER_ATTRIBUTE_GE = "ge"
+WEAPON_MANEUVER_ATTRIBUTE_BOTH = "both"
+WEAPON_MANEUVER_ATTRIBUTE_CHOICES = [
+    (WEAPON_MANEUVER_ATTRIBUTE_ST, "Stärke"),
+    (WEAPON_MANEUVER_ATTRIBUTE_GE, "Geschicklichkeit"),
+    (WEAPON_MANEUVER_ATTRIBUTE_BOTH, "Stärke oder Geschicklichkeit"),
+]
+
 # Skill Category Slugs
 SKILL_FINE_MOTOR = "skill_fine_motor"
 SKILL_GROSS_MOTOR = "skill_gross_motor"

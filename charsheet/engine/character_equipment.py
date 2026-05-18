@@ -203,13 +203,36 @@ def equipped_weapon_rows(engine) -> list[dict]:
     maneuver_modifier = engine.resolve_combat_value("melee_maneuvers")
     for character_item in engine.equipped_weapon_items():
         item_engine = ItemEngine(character_item)
-        damage_source_slug = item_engine.get_weapon_damage_source_slug()
-        damage_stat_slug = damage_source_slug or item_engine.get_weapon_damage_type()
         mastery_maneuver_bonus, mastery_damage_bonus = engine.weapon_mastery_bonus_for_item(character_item)
         item_specific_maneuver_modifier = _character_item_specific_maneuver_modifier(engine, character_item)
         item_specific_damage_modifier = _character_item_specific_damage_modifier(engine, character_item)
         item_specific_damage_dice_modifier = _character_item_specific_damage_dice_modifier(engine, character_item)
-        dmg_mod = engine.get_dmg_modifier_sum(damage_stat_slug) if damage_stat_slug else engine.attribute_modifier(ATTR_ST)
+        maneuver_attribute_codes = item_engine.get_weapon_maneuver_attribute_codes()
+        common_maneuver_bonus = (
+            item_engine.get_weapon_maneuver_quality_bonus()
+            + maneuver_modifier
+            + mastery_maneuver_bonus
+            + item_specific_maneuver_modifier
+        )
+        maneuver_options = []
+        for attribute_code in maneuver_attribute_codes:
+            attribute_modifier = engine.attribute_modifier(attribute_code)
+            total_maneuver_modifier = attribute_modifier + common_maneuver_bonus
+            maneuver_options.append(
+                {
+                    "attribute_code": attribute_code,
+                    "attribute_modifier": attribute_modifier,
+                    "attribute_modifier_display": f"{attribute_modifier:+d}" if attribute_modifier else "0",
+                    "total_modifier": total_maneuver_modifier,
+                    "total_modifier_display": f"{total_maneuver_modifier:+d}" if total_maneuver_modifier else "0",
+                    "with_bel": total_maneuver_modifier + bel_malus,
+                    "with_bel_display": f"{(total_maneuver_modifier + bel_malus):+d}" if (total_maneuver_modifier + bel_malus) else "0",
+                }
+            )
+        primary_maneuver_option = maneuver_options[0]
+        damage_source_slug = item_engine.get_weapon_damage_source_slug()
+        damage_stat_slug = damage_source_slug or item_engine.get_weapon_damage_type()
+        dmg_mod = engine.get_dmg_modifier_sum(damage_stat_slug) if damage_stat_slug else 0
         total_damage_modifier = dmg_mod + mastery_damage_bonus + item_specific_damage_modifier
         for profile_index, profile in enumerate(
             item_engine.weapon_profiles(dice_amount_bonus=item_specific_damage_dice_modifier)
@@ -223,15 +246,27 @@ def equipped_weapon_rows(engine) -> list[dict]:
                     "quality_color": item_engine.get_quality_color(),
                     "dmg_mod": total_damage_modifier,
                     "dmg_mod_display": f"{total_damage_modifier:+d}" if total_damage_modifier else "0",
+                    "maneuver_options": maneuver_options,
+                    "maneuver_mod_display": " / ".join(
+                        f"{option['attribute_code']} {option['total_modifier_display']}"
+                        for option in maneuver_options
+                    ),
                     "base_dmg_mod": dmg_mod,
                     "base_dmg_mod_display": f"{dmg_mod:+d}" if dmg_mod else "0",
                     "bel_malus": bel_malus,
                     "bel_malus_display": f"{bel_malus:+d}" if bel_malus else "0",
                     "with_bel": total_damage_modifier + bel_malus,
                     "with_bel_display": f"{(total_damage_modifier + bel_malus):+d}" if (total_damage_modifier + bel_malus) else "0",
+                    "maneuver_with_bel_display": " / ".join(
+                        f"{option['attribute_code']} {option['with_bel_display']}"
+                        for option in maneuver_options
+                    ),
                     "wield_mode": item_engine.get_weapon_wield_mode(),
                     "size_class": item_engine.get_size_class(),
                     "min_st": item_engine.get_weapon_min_st(),
+                    "maneuver_attribute_mode": item_engine.get_weapon_maneuver_attribute_mode(),
+                    "maneuver_attribute_label": item_engine.get_weapon_maneuver_attribute_label(),
+                    "maneuver_attribute_modifier": primary_maneuver_option["attribute_modifier"],
                     "damage": profile["damage"],
                     "mode_label": profile["mode_label"],
                     "is_primary_profile": profile_index == 0,
@@ -244,12 +279,7 @@ def equipped_weapon_rows(engine) -> list[dict]:
                     "item_maneuver_modifier": item_specific_maneuver_modifier,
                     "item_damage_modifier": item_specific_damage_modifier,
                     "item_damage_dice_modifier": item_specific_damage_dice_modifier,
-                    "total_maneuver_modifier": (
-                        item_engine.get_weapon_maneuver_quality_bonus()
-                        + maneuver_modifier
-                        + mastery_maneuver_bonus
-                        + item_specific_maneuver_modifier
-                    ),
+                    "total_maneuver_modifier": primary_maneuver_option["total_modifier"],
                 }
             )
     return rows

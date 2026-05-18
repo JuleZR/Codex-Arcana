@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections import OrderedDict, defaultdict
+from decimal import Decimal
 import json
 import math
 
@@ -33,6 +34,7 @@ from charsheet.constants import (
     SOURCE_ITEM_RUNE,
     WEAPON_DAMAGE,
     WEAPON_DAMAGE_DICE,
+    WEAPON_MANEUVER_ATTRIBUTE_CHOICES,
     WEAPON_MANEUVER_DAMAGE,
     WEAPON_MASTERY_BONUS,
     WEAPON_MASTERY_EFFECT_DESCRIPTION,
@@ -473,6 +475,11 @@ def _collect_rune_rows(*, item: Item, character_item: CharacterItem | None = Non
     return rows
 
 
+def _character_item_has_visible_runes(*, item: Item, character_item: CharacterItem | None = None) -> bool:
+    """Return whether one item currently exposes any visible runes in the UI."""
+    return bool(_collect_rune_rows(item=item, character_item=character_item))
+
+
 def _rune_card_description(rune: Rune) -> str:
     """Prefer a rune's short description when present."""
     short_description = str(getattr(rune, "short_description", "") or "").strip()
@@ -776,6 +783,7 @@ def _build_item_tooltip_rows(item_engine: ItemEngine, item: Item) -> list[tuple[
         two_handed_damage = item_engine.get_two_handed_damage_label()
         if two_handed_damage:
             rows.append(("2H Schaden", two_handed_damage))
+        rows.append(("Waffenwurf", item_engine.get_weapon_maneuver_attribute_label()))
         min_st = item_engine.get_weapon_min_st()
         if min_st is not None:
             rows.append(("Min-St", min_st))
@@ -824,14 +832,12 @@ def _build_weapon_calculation_tooltip(engine, row: dict[str, object]) -> str:
     damage_source_slug = getattr(damage_source, "slug", "") or getattr(weapon_stats, "damage_type", "")
     strength_mod = engine.attribute_modifier(ATTR_ST)
     mastery_bonus = int(row.get("weapon_mastery_damage_bonus", 0) or 0)
-    item_damage_bonus = int(row.get("item_damage_modifier", 0) or 0)
     mastery_source = "Schule: Waffenmeister"
     weapon_master_school_entry = getattr(engine, "_weapon_master_school_entry", None)
     if weapon_master_school_entry is not None and getattr(weapon_master_school_entry, "school", None) is not None:
         mastery_source = weapon_master_school_entry.school.name
     damage_modifier_rows = _build_modifier_breakdown_rows(engine, damage_source_slug) if damage_source_slug else []
     item_damage_rows = _build_character_item_stat_modifier_rows(engine, row["character_item"], WEAPON_DAMAGE)
-
     return _build_core_stat_tooltip(
         [
             {"label": "ST-Bonus/Malus", "value": format_modifier(strength_mod), "source": "ST"},
@@ -1407,40 +1413,47 @@ def _build_skill_rows(character: Character, engine, *, load_penalty: int) -> tup
             linked_skill_ids = {entry.id for entry in weapon_stats.skills.all()}
             if skill_id not in linked_skill_ids:
                 continue
-            maneuver_bonus = int(weapon_row.get("total_maneuver_modifier") or 0)
-            if maneuver_bonus == 0:
-                continue
             maneuver_breakdown_rows = _build_weapon_maneuver_breakdown_rows(engine, weapon_row)
-            rows.append(
-                {
-                    "row_kind": "weapon_context",
-                    "skill_id": skill_id,
-                    "name": base_row["name"],
-                    "display_name": f"mit {weapon_row['item_name']}",
-                    "description": f"Manoeverbonus mit {weapon_row['item_name']}",
-                    "attribute": base_row["attribute"],
-                    "attribute_mod": base_row["attribute_mod"],
-                    "attribute_mod_value": int(base_row["attribute_mod_value"]),
-                    "rank": int(base_row["rank_value"]),
-                    "rank_value": int(base_row["rank_value"]),
-                    "misc_mod": format_modifier(int(base_row["misc_mod_value"]) + maneuver_bonus),
-                    "misc_mod_value": int(base_row["misc_mod_value"]) + maneuver_bonus,
-                    "total": int(base_row["total_value"]) + maneuver_bonus,
-                    "total_value": int(base_row["total_value"]) + maneuver_bonus,
-                    "with_load_total": int(base_row["with_load_total_value"]) + maneuver_bonus,
-                    "with_load_total_value": int(base_row["with_load_total_value"]) + maneuver_bonus,
-                    "calculation_tooltip": _build_core_stat_tooltip(
-                        [
-                            {"label": "Grundwert", "value": int(base_row["with_load_total_value"]), "source": base_row["display_name"]},
-                            *maneuver_breakdown_rows,
-                            {"label": "= Gesamt", "value": int(base_row["with_load_total_value"]) + maneuver_bonus, "tone": "total"},
-                        ]
-                    ),
-                    "can_edit_specification": False,
-                    "specification": "",
-                    "is_auto_visible": False,
-                }
-            )
+            for option in weapon_row.get("maneuver_options") or []:
+                maneuver_bonus = int(option.get("total_modifier") or 0)
+                if maneuver_bonus == 0:
+                    continue
+                rows.append(
+                    {
+                        "row_kind": "weapon_context",
+                        "skill_id": skill_id,
+                        "name": base_row["name"],
+                        "display_name": f"mit {weapon_row['item_name']} ({option['attribute_code']})",
+                        "description": f"Manöverbonus mit {weapon_row['item_name']} über {option['attribute_code']}",
+                        "weapon_attribute_code": option["attribute_code"],
+                        "attribute": base_row["attribute"],
+                        "attribute_mod": base_row["attribute_mod"],
+                        "attribute_mod_value": int(base_row["attribute_mod_value"]),
+                        "rank": int(base_row["rank_value"]),
+                        "rank_value": int(base_row["rank_value"]),
+                        "misc_mod": format_modifier(int(base_row["misc_mod_value"]) + maneuver_bonus),
+                        "misc_mod_value": int(base_row["misc_mod_value"]) + maneuver_bonus,
+                        "total": int(base_row["total_value"]) + maneuver_bonus,
+                        "total_value": int(base_row["total_value"]) + maneuver_bonus,
+                        "with_load_total": int(base_row["with_load_total_value"]) + maneuver_bonus,
+                        "with_load_total_value": int(base_row["with_load_total_value"]) + maneuver_bonus,
+                        "calculation_tooltip": _build_core_stat_tooltip(
+                            [
+                                {"label": "Grundwert", "value": int(base_row["with_load_total_value"]), "source": base_row["display_name"]},
+                                {
+                                    "label": f"{option['attribute_code']}-Bonus/Malus",
+                                    "value": format_modifier(int(option.get("attribute_modifier", 0) or 0)),
+                                    "source": option["attribute_code"],
+                                },
+                                *maneuver_breakdown_rows,
+                                {"label": "= Gesamt", "value": int(base_row["with_load_total_value"]) + maneuver_bonus, "tone": "total"},
+                            ]
+                        ),
+                        "can_edit_specification": False,
+                        "specification": "",
+                        "is_auto_visible": False,
+                    }
+                )
         rows.sort(key=lambda row: row["display_name"].lower())
         return rows
 
@@ -1466,7 +1479,7 @@ def _build_skill_rows(character: Character, engine, *, load_penalty: int) -> tup
         weapon_stats = getattr(weapon_row["item"], "weaponstats", None)
         if weapon_stats is None:
             continue
-        if int(weapon_row.get("total_maneuver_modifier") or 0) == 0:
+        if not any(int(option.get("total_modifier") or 0) != 0 for option in (weapon_row.get("maneuver_options") or [])):
             continue
         for skill in weapon_stats.skills.all():
             weapon_skill_ids_with_bonus.add(skill.id)
@@ -1478,13 +1491,45 @@ def _build_skill_rows(character: Character, engine, *, load_penalty: int) -> tup
                 row = _build_row(skill, character_skill=character_skill)
                 skill_rows.append(row)
                 if not skill.requires_specification:
-                    skill_rows.extend(_build_weapon_context_rows(row))
+                    weapon_context_rows = _build_weapon_context_rows(row)
+                    if weapon_context_rows:
+                        matching_attribute_rows = [
+                            entry
+                            for entry in weapon_context_rows
+                            if str(entry.get("weapon_attribute_code", "")) == str(row["attribute"])
+                        ]
+                        candidate_rows = matching_attribute_rows or weapon_context_rows
+                        best_weapon_row = max(
+                            candidate_rows,
+                            key=lambda entry: int(entry.get("with_load_total_value", 0) or 0),
+                        )
+                        best_weapon_row = dict(best_weapon_row)
+                        display_name = str(best_weapon_row.get("display_name", ""))
+                        if " (" in display_name and display_name.endswith(")"):
+                            best_weapon_row["display_name"] = display_name.rsplit(" (", 1)[0]
+                        skill_rows.append(best_weapon_row)
             continue
         if _external_skill_bonus(skill) != 0:
             row = _build_row(skill)
             skill_rows.append(row)
             if not skill.requires_specification:
-                skill_rows.extend(_build_weapon_context_rows(row))
+                weapon_context_rows = _build_weapon_context_rows(row)
+                if weapon_context_rows:
+                    matching_attribute_rows = [
+                        entry
+                        for entry in weapon_context_rows
+                        if str(entry.get("weapon_attribute_code", "")) == str(row["attribute"])
+                    ]
+                    candidate_rows = matching_attribute_rows or weapon_context_rows
+                    best_weapon_row = max(
+                        candidate_rows,
+                        key=lambda entry: int(entry.get("with_load_total_value", 0) or 0),
+                    )
+                    best_weapon_row = dict(best_weapon_row)
+                    display_name = str(best_weapon_row.get("display_name", ""))
+                    if " (" in display_name and display_name.endswith(")"):
+                        best_weapon_row["display_name"] = display_name.rsplit(" (", 1)[0]
+                    skill_rows.append(best_weapon_row)
 
     skill_manager_rows: list[dict] = []
     for skill in skills_by_id.values():
@@ -1621,7 +1666,7 @@ def _build_inventory_rows(character: Character) -> list[dict]:
                 "character_item": character_item,
                 "item": item,
                 "item_name": item_name,
-                "has_runes": bool(character_item.runes.exists() or character_item.item_runes.exists()),
+                "has_runes": _character_item_has_visible_runes(item=item, character_item=character_item),
                 "rune_rows": _collect_rune_rows(item=item, character_item=character_item),
                 "display_name": (
                     f"{character_item.amount}x {item_name}"
@@ -1655,6 +1700,7 @@ def _build_inventory_rows(character: Character) -> list[dict]:
                         "size_class": item_engine.get_size_class(),
                         "weapon_type": item_engine.get_weapon_type(),
                         "weapon_min_st": item_engine.get_weapon_min_st(),
+                        "weapon_maneuver_attribute": item_engine.get_weapon_maneuver_attribute_mode(),
                         "weapon_damage_source": getattr(
                             item_engine._get_override_value(
                                 "weapon_damage_source_override",
@@ -1740,6 +1786,15 @@ def _build_inventory_rows(character: Character) -> list[dict]:
     return inventory_rows
 
 
+def _build_inventory_total_weight_display(character: Character) -> str:
+    """Return the summed weight of all owned carried or equipped items."""
+    total_weight = Decimal("0")
+    character_items = CharacterItem.objects.filter(owner=character).select_related("item")
+    for character_item in character_items:
+        total_weight += ItemEngine(character_item).get_weight()
+    return format_compact_number(total_weight)
+
+
 def _build_weapon_rows(engine) -> list[dict]:
     """Build prepared weapon rows with flattened display profiles."""
     weapon_rows: list[dict] = []
@@ -1752,18 +1807,45 @@ def _build_weapon_rows(engine) -> list[dict]:
         character_item = row["character_item"]
         profile_rows_by_item.setdefault(character_item.pk, []).append(row)
 
-    rendered_profiles_by_item: dict[int, int] = {}
+    expanded_row_count_by_item: dict[int, int] = {}
+    for item_id, profile_rows in profile_rows_by_item.items():
+        expanded_row_count_by_item[item_id] = sum(
+            max(1, len(list(profile_row.get("maneuver_options") or [])))
+            for profile_row in profile_rows
+        )
+
+    rendered_rows_by_item: dict[int, int] = {}
     for row in raw_rows:
         is_race_item = row["item"].id in race_item_ids
         quality = quality_payload(str(row["quality"]))
-        profile_rows = profile_rows_by_item.get(row["character_item"].pk, [row])
-        profile_index = rendered_profiles_by_item.get(row["character_item"].pk, 0)
+        character_item_id = row["character_item"].pk
+        total_rendered_rows = rendered_rows_by_item.get(character_item_id, 0)
         magic_modifier_payloads = modifiers_by_character_item_id.get(row["character_item"].id, [])
         item_image_url = _character_item_image_url(row["character_item"])
-        weapon_rows.append(
-            {
+        display_options = list(row.get("maneuver_options") or [])
+        if not display_options:
+            display_options = [
+                {
+                    "attribute_code": str(row.get("maneuver_attribute_label") or "ST"),
+                    "attribute_modifier": int(row.get("maneuver_attribute_modifier", 0) or 0),
+                    "attribute_modifier_display": format_modifier(int(row.get("maneuver_attribute_modifier", 0) or 0)),
+                    "total_modifier": int(row.get("total_maneuver_modifier", 0) or 0),
+                    "total_modifier_display": str(row.get("maneuver_mod_display") or "0"),
+                    "with_bel": int(row.get("with_bel", 0) or 0),
+                    "with_bel_display": str(row.get("maneuver_with_bel_display") or "0"),
+                }
+            ]
+        for option_index, maneuver_option in enumerate(display_options):
+            rendered_row_index = total_rendered_rows + option_index
+            display_row = {
                 **row,
-                "is_last_profile": profile_index == (len(profile_rows) - 1),
+                "selected_maneuver_option": maneuver_option,
+                "maneuver_option_index": option_index,
+                "is_primary_profile": rendered_row_index == 0,
+                "is_last_profile": rendered_row_index == (expanded_row_count_by_item.get(character_item_id, 1) - 1),
+                "show_weapon_name": rendered_row_index == 0,
+                "weapon_display_name": row["item_name"],
+                "show_maneuver_badge": len(display_options) > 1,
                 "quality_label": "" if is_race_item else quality["label"],
                 "quality_color": "" if is_race_item else quality["color"],
                 "tooltip_subtitle": " - ".join(
@@ -1786,18 +1868,41 @@ def _build_weapon_rows(engine) -> list[dict]:
                         )
                     ),
                 ),
-                "has_runes": bool(
-                    row["item"].runes.exists()
-                    or row["character_item"].runes.exists()
-                    or row["character_item"].item_runes.exists()
+                "has_runes": _character_item_has_visible_runes(
+                    item=row["item"],
+                    character_item=row["character_item"],
                 ),
                 "rune_rows": _collect_rune_rows(item=row["item"], character_item=row["character_item"]),
-                "calculation_tooltip": _build_weapon_calculation_tooltip(engine, row),
+                "maneuver_mod_display": maneuver_option["total_modifier_display"],
+                "maneuver_with_bel_display": maneuver_option["with_bel_display"],
+                "maneuver_attribute_label": maneuver_option["attribute_code"],
+                "maneuver_attribute_modifier": int(maneuver_option.get("attribute_modifier", 0) or 0),
+                "total_maneuver_modifier": int(maneuver_option.get("total_modifier", 0) or 0),
+                "calculation_tooltip": "",
                 "can_unequip": not row["character_item"].equip_locked,
             }
+            display_row["calculation_tooltip"] = _build_weapon_calculation_tooltip(engine, display_row)
+            weapon_rows.append(display_row)
+        rendered_rows_by_item[character_item_id] = total_rendered_rows + len(display_options)
+    attribute_sort_order = {"ST": 0, "GE": 1}
+    sorted_weapon_rows: list[dict] = []
+    rows_by_character_item_id: OrderedDict[int, list[dict]] = OrderedDict()
+    for row in weapon_rows:
+        rows_by_character_item_id.setdefault(int(row["character_item"].pk), []).append(row)
+    for item_rows in rows_by_character_item_id.values():
+        item_rows.sort(
+            key=lambda entry: (
+                attribute_sort_order.get(str(entry.get("maneuver_attribute_label") or ""), 99),
+                str(entry.get("mode_label") or ""),
+                int(entry.get("maneuver_option_index", 0) or 0),
+            )
         )
-        rendered_profiles_by_item[row["character_item"].pk] = profile_index + 1
-    return weapon_rows
+        for index, entry in enumerate(item_rows):
+            entry["is_primary_profile"] = index == 0
+            entry["show_weapon_name"] = index == 0
+            entry["is_last_profile"] = index == (len(item_rows) - 1)
+        sorted_weapon_rows.extend(item_rows)
+    return sorted_weapon_rows
 
 
 def _build_armor_rows(engine) -> list[dict]:
@@ -2545,6 +2650,7 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
     skill_rows, character_skills, skill_manager_rows = _build_skill_rows(character, engine, load_penalty=load_penalty)
     advantage_rows, disadvantage_rows = _build_trait_rows(character)
     inventory_rows = _build_inventory_rows(character)
+    inventory_total_weight_display = _build_inventory_total_weight_display(character)
     weapon_rows = _build_weapon_rows(engine)
     armor_rows = _build_armor_rows(engine)
     school_technique_rows, school_levels = _build_school_technique_rows(character, engine)
@@ -2703,6 +2809,7 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
         "advantage_rows": advantage_rows,
         "disadvantage_rows": disadvantage_rows,
         "inventory_rows": inventory_rows,
+        "inventory_total_weight_display": inventory_total_weight_display,
         "weapon_rows": weapon_rows,
         "armor_rows": armor_rows,
         "school_technique_rows": school_technique_rows,
@@ -2807,6 +2914,7 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
         "shop_damage_type_choices": DAMAGE_TYPE_CHOICES,
         "shop_size_class_choices": GK_CHOICES,
         "shop_damage_source_choices": DamageSource.objects.order_by("name"),
+        "shop_weapon_maneuver_attribute_choices": WEAPON_MANEUVER_ATTRIBUTE_CHOICES,
         "shop_modifier_target_kind_choices": [
             (TEXT_TARGET_KIND, "Text"),
             ("attribute", "Attribut"),

@@ -111,7 +111,8 @@ function renderInlineMarkdown(text) {
     const copyHtml = safeDescription
       ? `<span class="tooltip_rune_inline_name"><strong>${safeName} &middot;</strong> ${safeDescription}</span>`
       : `<span class="tooltip_rune_inline_name"><strong>${safeName}</strong></span>`;
-    return `<span class="tooltip_rune_inline">${imageHtml}${copyHtml}</span>`;
+    const wrapperClass = safeImage ? "tooltip_rune_inline" : "tooltip_rune_inline tooltip_rune_inline--no-image";
+    return `<span class="${wrapperClass}">${imageHtml}${copyHtml}</span>`;
   });
   html = html.replace(/\[\[RUNEINLINE:(.+?)\|(.*)\]\]/g, (_match, name, description) => {
     const safeName = escapeHtml(String(name || "").trim() || "Rune");
@@ -119,7 +120,7 @@ function renderInlineMarkdown(text) {
     const copyHtml = safeDescription
       ? `<span class="tooltip_rune_inline_name"><strong>${safeName} &middot;</strong> ${safeDescription}</span>`
       : `<span class="tooltip_rune_inline_name"><strong>${safeName}</strong></span>`;
-    return `<span class="tooltip_rune_inline"><span class="tooltip_rune_inline_image tooltip_rune_inline_image--placeholder" aria-hidden="true"></span>${copyHtml}</span>`;
+    return `<span class="tooltip_rune_inline tooltip_rune_inline--no-image"><span class="tooltip_rune_inline_image tooltip_rune_inline_image--placeholder" aria-hidden="true"></span>${copyHtml}</span>`;
   });
   html = html.replace(
     /\[\[QUALITY:(.+?)\|(.+?)\]\]/g,

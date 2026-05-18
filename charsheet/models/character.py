@@ -15,6 +15,7 @@ from ..constants import (
     QUALITY_COMMON,
     RESOURCE_KEY_CHOICES,
     STAT_SLUG_CHOICES,
+    WEAPON_MANEUVER_ATTRIBUTE_CHOICES,
     WIELD_MODES,
 )
 from .core import Attribute, DamageSource, Language, Race, Skill, SkillCategory, Trait
@@ -202,6 +203,12 @@ class CharacterItem(models.Model):
         related_name="character_item_overrides",
     )
     weapon_min_st_override = models.PositiveIntegerField(null=True, blank=True)
+    weapon_maneuver_attribute_override = models.CharField(
+        max_length=10,
+        choices=WEAPON_MANEUVER_ATTRIBUTE_CHOICES,
+        blank=True,
+        default="",
+    )
     weapon_damage_source_override = models.ForeignKey(
         DamageSource,
         on_delete=models.PROTECT,

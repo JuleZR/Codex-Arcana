@@ -17,6 +17,8 @@ from charsheet.constants import (
     VERSATILE,
     WEAPON_DAMAGE,
     WEAPON_DAMAGE_DICE,
+    WEAPON_MANEUVER_ATTRIBUTE_CHOICES,
+    WEAPON_MANEUVER_ATTRIBUTE_ST,
     WEAPON_MANEUVER_DAMAGE,
     WEAPON_MASTERY_BONUS,
     WEAPON_MASTERY_EFFECT_DESCRIPTION,
@@ -107,6 +109,13 @@ def _read_damage_operator(post_data, name: str, default: str = "") -> str:
     """Read one normalized damage operator from POST-like data."""
     raw_value = str(post_data.get(name, default) or default).strip()
     valid_values = {value for value, _label in WeaponStats.DamageOperator.choices}
+    return raw_value if raw_value in valid_values else default
+
+
+def _read_weapon_maneuver_attribute(post_data, name: str, default: str = WEAPON_MANEUVER_ATTRIBUTE_ST) -> str:
+    """Read one normalized maneuver-attribute mode from POST-like data."""
+    raw_value = str(post_data.get(name, default) or default).strip()
+    valid_values = {value for value, _label in WEAPON_MANEUVER_ATTRIBUTE_CHOICES}
     return raw_value if raw_value in valid_values else default
 
 
@@ -481,6 +490,11 @@ def apply_character_item_modifications(character_item: CharacterItem, post_data,
                     _read_weapon_type(post_data.get("weapon_type")) or getattr(weapon_stats, "weapon_type", None)
                 )
                 character_item.weapon_min_st_override = _read_int(post_data, "weapon_min_st", weapon_stats.min_st, minimum=1)
+                character_item.weapon_maneuver_attribute_override = _read_weapon_maneuver_attribute(
+                    post_data,
+                    "weapon_maneuver_attribute",
+                    getattr(weapon_stats, "maneuver_attribute_mode", WEAPON_MANEUVER_ATTRIBUTE_ST),
+                )
                 character_item.weapon_damage_source_override = weapon_damage_source
                 character_item.weapon_damage_dice_amount_override = _read_int(
                     post_data, "weapon_damage_dice_amount", weapon_stats.damage_dice_amount, minimum=1
@@ -696,6 +710,7 @@ def create_custom_shop_item(post_data, files_data=None) -> bool:
                     item=item,
                     min_st=min_st,
                     weapon_type=_read_weapon_type(post_data.get("weapon_type")),
+                    maneuver_attribute_mode=_read_weapon_maneuver_attribute(post_data, "weapon_maneuver_attribute"),
                     damage_source=damage_source,
                     damage_dice_amount=_read_int(post_data, "weapon_damage_dice_amount", 1, minimum=1),
                     damage_dice_faces=_read_int(post_data, "weapon_damage_dice_faces", 10, minimum=2),
