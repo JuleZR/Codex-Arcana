@@ -267,6 +267,7 @@ def equipped_weapon_rows(engine) -> list[dict]:
                     "maneuver_attribute_mode": item_engine.get_weapon_maneuver_attribute_mode(),
                     "maneuver_attribute_label": item_engine.get_weapon_maneuver_attribute_label(),
                     "maneuver_attribute_modifier": primary_maneuver_option["attribute_modifier"],
+                    "mode": profile["mode"],
                     "damage": profile["damage"],
                     "mode_label": profile["mode_label"],
                     "is_primary_profile": profile_index == 0,

@@ -1,0 +1,758 @@
+/* Combat calculator redesign: second simplification pass */
+
+.payday-window--battle-calculator {
+  position: fixed !important;
+  left: 20px;
+  top: 20px;
+  right: auto;
+  bottom: auto;
+  width: min(980px, calc(100vw - 28px));
+  border-color: rgba(84, 60, 35, 0.96);
+  background:
+    linear-gradient(180deg, rgba(31, 22, 13, 0.9), rgba(77, 50, 26, 0.68)),
+    url("/static/img/pergamentbg.jpg") center / cover no-repeat;
+  box-shadow:
+    0 22px 48px rgba(0, 0, 0, 0.38),
+    0 8px 18px rgba(18, 10, 5, 0.2),
+    inset 0 1px 0 rgba(255, 227, 172, 0.12);
+}
+
+.combat-calculator__backdrop {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background:
+    radial-gradient(circle at 78% 24%, rgba(214, 195, 154, 0.18), rgba(0, 0, 0, 0) 26%),
+    radial-gradient(circle at 20% 72%, rgba(115, 85, 51, 0.16), rgba(0, 0, 0, 0) 32%),
+    linear-gradient(135deg, rgba(255, 239, 206, 0.06), rgba(0, 0, 0, 0));
+  pointer-events: none;
+  z-index: 0;
+}
+
+.combat-calculator__titlebar {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  min-height: 52px;
+  border-bottom-color: rgba(159, 118, 68, 0.16);
+  background:
+    linear-gradient(180deg, rgba(36, 25, 17, 0.94), rgba(73, 48, 25, 0.7)),
+    url("/static/img/pergamentbg.jpg") center / cover no-repeat;
+}
+
+.combat-calculator__title-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  min-height: 0;
+  padding: 0;
+}
+
+.combat-calculator__titlebar .payday-window__title {
+  line-height: 1;
+}
+
+.combat-calculator__window-subtitle {
+  display: none;
+}
+
+.combat-calculator {
+  position: relative;
+  z-index: 1;
+  padding: 16px;
+}
+
+.combat-calculator__flow {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.combat-calculator__input-column {
+  display: grid;
+  gap: 20px;
+}
+
+.combat-calculator__input-surface {
+  padding: 14px 16px 16px;
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, rgba(255, 248, 233, 0.62), rgba(248, 236, 207, 0.44)),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 248, 231, 0.5),
+    0 8px 18px rgba(27, 15, 8, 0.08);
+}
+
+.combat-calculator__stream-head,
+.combat-calculator__marginalia-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.combat-calculator__stream + .combat-calculator__stream {
+  margin-top: 10px;
+}
+
+.combat-calculator__stream-heading {
+  display: grid;
+  gap: 3px;
+}
+
+.combat-calculator__stream-heading--divided {
+  width: 100%;
+  gap: 9px;
+}
+
+.combat-calculator__stream-line {
+  width: 100%;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(110, 78, 42, 0.34), rgba(173, 132, 76, 0.18), rgba(0, 0, 0, 0));
+}
+
+.combat-calculator__inline-action {
+  flex: 0 0 auto;
+  min-height: 26px;
+  padding: 0 10px;
+  border: 1px solid rgba(122, 89, 54, 0.28);
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(255, 249, 237, 0.7), rgba(237, 221, 192, 0.45));
+  color: rgba(83, 57, 31, 0.88);
+  font-family: "Cinzel", Georgia, serif;
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: transform 120ms ease, border-color 120ms ease, color 120ms ease, background 120ms ease;
+}
+
+.combat-calculator__inline-action:hover {
+  transform: translateY(-1px);
+  border-color: rgba(122, 89, 54, 0.42);
+  color: rgba(58, 38, 20, 0.96);
+}
+
+.combat-calculator__eyebrow {
+  margin: 0 0 3px;
+  font-family: "Cinzel", Georgia, serif;
+  font-size: 0.66rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(108, 75, 41, 0.76);
+}
+
+.combat-calculator__stream-title {
+  margin: 0;
+  font-family: "Cinzel", Georgia, serif;
+  font-size: 1.08rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: rgba(49, 31, 15, 0.98);
+}
+
+.combat-calculator__field-block {
+  display: grid;
+  gap: 10px;
+}
+
+.combat-calculator__field-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.combat-calculator__dice-stack {
+  display: grid;
+  gap: 10px;
+}
+
+.combat-calculator__field-grid--damage {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.combat-calculator__field {
+  display: grid;
+  gap: 4px;
+}
+
+.combat-calculator__field--wide {
+  margin-bottom: 2px;
+}
+
+.combat-calculator__field span,
+.combat-calculator__result-label,
+.combat-calculator__modifier-title {
+  font-family: "Cinzel", Georgia, serif;
+  font-size: 0.73rem;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: rgba(76, 52, 27, 0.96);
+}
+
+.combat-calculator__field input,
+.combat-calculator__field select {
+  width: 100%;
+  min-height: 34px;
+  padding: 6px 11px;
+  border: 0;
+  border-bottom: 1px solid rgba(133, 96, 49, 0.28);
+  border-radius: 8px 8px 0 0;
+  background: linear-gradient(180deg, rgba(255, 250, 239, 0.7), rgba(247, 233, 204, 0.38));
+  color: rgba(47, 31, 16, 0.98);
+  font-family: "EB Garamond", "Cormorant Garamond", Georgia, serif;
+  font-size: 1.05rem;
+  font-weight: 600;
+  line-height: 1.1;
+  box-shadow: inset 0 -1px 0 rgba(119, 83, 42, 0.06);
+  transition:
+    border-color 140ms ease,
+    background 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.combat-calculator__field input:focus,
+.combat-calculator__field select:focus {
+  outline: none;
+  border-bottom-color: rgba(105, 131, 115, 0.62);
+  background: linear-gradient(180deg, rgba(255, 250, 239, 0.82), rgba(247, 233, 204, 0.52));
+  box-shadow: inset 0 -2px 0 rgba(105, 131, 115, 0.14);
+}
+
+.combat-calculator__field input::-webkit-outer-spin-button,
+.combat-calculator__field input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.combat-calculator__field input[type="number"] {
+  -moz-appearance: textfield;
+  text-align: center;
+}
+
+.combat-calculator__field--dice input {
+  min-height: 42px;
+  font-size: 1.2rem;
+}
+
+.combat-calculator__damage-die {
+  gap: 6px;
+}
+
+.combat-calculator__die-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.combat-calculator__die-label {
+  flex: 0 0 58px;
+  margin: 0;
+}
+
+.combat-calculator__die-button-grid {
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: nowrap;
+  gap: 10px;
+  align-items: center;
+  overflow-x: auto;
+  padding: 2px 0 4px;
+  scrollbar-width: none;
+}
+
+.combat-calculator__die-button-grid::-webkit-scrollbar {
+  display: none;
+}
+
+.combat-calculator__die-button {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: rgba(255, 249, 236, 0.22);
+  color: rgba(97, 70, 38, 0.72);
+  font-family: "Cinzel", Georgia, serif;
+  font-size: 0.82rem;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    transform 120ms ease,
+    color 120ms ease,
+    text-shadow 120ms ease,
+    border-color 120ms ease,
+    background 120ms ease;
+}
+
+.combat-calculator__die-button:hover {
+  transform: translateY(-1px);
+  color: rgba(67, 44, 22, 0.96);
+  border-color: rgba(126, 94, 57, 0.22);
+}
+
+.combat-calculator__die-button.is-selected {
+  color: rgba(55, 112, 99, 0.98);
+  border-color: rgba(85, 126, 114, 0.3);
+  background: rgba(139, 175, 165, 0.14);
+  text-shadow: 0 0 10px rgba(120, 166, 154, 0.22);
+}
+
+.combat-calculator__inline-pair {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr);
+  gap: 8px;
+}
+
+.combat-calculator__result-column {
+  position: relative;
+  min-height: 100%;
+  padding: 18px 16px 16px;
+  background:
+    radial-gradient(circle at 50% 18%, rgba(214, 198, 159, 0.24), rgba(0, 0, 0, 0) 50%),
+    linear-gradient(180deg, rgba(84, 57, 29, 0.12), rgba(0, 0, 0, 0) 22%),
+    linear-gradient(180deg, rgba(249, 241, 224, 0.74), rgba(227, 197, 146, 0.28));
+  border-left: 1px solid rgba(143, 105, 60, 0.14);
+}
+
+.combat-calculator__result-column.is-recalculating .combat-calculator__result-value {
+  animation: combat-calculator-pulse 320ms ease;
+}
+
+.combat-calculator__result-column.is-critical::after {
+  content: "";
+  position: absolute;
+  inset: 8px 0 auto 0;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(0, 0, 0, 0), rgba(176, 131, 72, 0.75), rgba(0, 0, 0, 0));
+  box-shadow: 0 0 12px rgba(176, 131, 72, 0.22);
+}
+
+.combat-calculator__sigil-shell {
+  position: absolute;
+  inset: 8px 12px 10px 12px;
+  pointer-events: none;
+  opacity: 0.52;
+}
+
+.combat-calculator__sigil-svg {
+  position: absolute;
+  top: 48px;
+  left: 50%;
+  width: 280px;
+  height: 280px;
+  transform: translateX(-50%);
+  filter: drop-shadow(0 0 8px rgba(255, 238, 201, 0.12));
+}
+
+.combat-calculator__sigil-ring {
+  fill: none;
+  transform-origin: 110px 110px;
+}
+
+.combat-calculator__sigil-ring--outer {
+  stroke: rgba(117, 123, 112, 0.16);
+  stroke-width: 1;
+  stroke-dasharray: 8 11;
+  animation: combat-calculator-sigil-spin 34s linear infinite;
+}
+
+.combat-calculator__sigil-ring--mid {
+  stroke: rgba(141, 108, 68, 0.14);
+  stroke-width: 1;
+  animation: combat-calculator-sigil-spin-reverse 26s linear infinite;
+}
+
+.combat-calculator__sigil-ring--inner {
+  stroke: rgba(126, 96, 58, 0.17);
+  stroke-width: 0.9;
+  stroke-dasharray: 2 5;
+  animation: combat-calculator-sigil-breathe 7s ease-in-out infinite;
+}
+
+.combat-calculator__dice-focus {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.combat-calculator__dice-focus-group {
+  display: grid;
+  gap: 6px;
+  justify-items: center;
+}
+
+.combat-calculator__dice-focus-label {
+  font-family: "Cinzel", Georgia, serif;
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(78, 55, 31, 0.92);
+}
+
+.combat-calculator__dice-focus-values {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.combat-calculator__die-plate {
+  min-width: 48px;
+  min-height: 48px;
+  display: inline-grid;
+  place-items: center;
+  padding: 8px 12px;
+  border: 1px solid rgba(133, 97, 55, 0.22);
+  border-radius: 14px;
+  background:
+    linear-gradient(180deg, rgba(255, 249, 237, 0.76), rgba(242, 227, 196, 0.34));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 244, 220, 0.48),
+    0 6px 12px rgba(28, 16, 8, 0.08);
+  font-family: "Cinzel", Georgia, serif;
+  font-size: 1.32rem;
+  color: rgba(47, 31, 16, 0.98);
+}
+
+.combat-calculator__result-rail {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.combat-calculator__result-group {
+  display: grid;
+  gap: 6px;
+  justify-items: center;
+  text-align: center;
+}
+
+.combat-calculator__result-group--hit .combat-calculator__result-value {
+  color: #255f56;
+}
+
+.combat-calculator__result-group--damage .combat-calculator__result-value {
+  color: #8c4d2a;
+}
+
+.combat-calculator__result-group.is-critical .combat-calculator__result-value {
+  text-shadow: 0 0 10px rgba(175, 133, 74, 0.18);
+}
+
+.combat-calculator__result-label,
+.combat-calculator__result-value,
+.combat-calculator__formula {
+  position: relative;
+  z-index: 1;
+}
+
+.combat-calculator__result-value {
+  position: relative;
+  display: inline-block;
+  min-width: 2ch;
+  overflow: hidden;
+  font-family: "Cinzel", Georgia, serif;
+  font-size: clamp(3rem, 4.6vw, 4.6rem);
+  line-height: 0.94;
+  font-weight: 700;
+  text-shadow: 0 1px 0 rgba(255, 245, 218, 0.28);
+}
+
+.combat-calculator__formula {
+  max-width: 28ch;
+  font-family: "EB Garamond", "Cormorant Garamond", Georgia, serif;
+  font-size: 1.02rem;
+  font-weight: 600;
+  color: rgba(66, 45, 24, 0.96);
+}
+
+.combat-calculator__result-divider {
+  width: 84px;
+  height: 1px;
+  margin: 0 auto;
+  background: linear-gradient(90deg, rgba(0, 0, 0, 0), rgba(125, 96, 58, 0.42), rgba(0, 0, 0, 0));
+}
+
+.combat-calculator__notes {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 6px;
+  margin-top: 18px;
+}
+
+.combat-calculator__result-note {
+  margin: 0;
+  font-family: "EB Garamond", "Cormorant Garamond", Georgia, serif;
+  font-size: 0.98rem;
+  font-weight: 600;
+  color: rgba(76, 53, 28, 0.9);
+}
+
+.combat-calculator__marginalia {
+  margin-top: 18px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(144, 106, 60, 0.16);
+}
+
+.combat-calculator__modifier-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.combat-calculator__modifier-list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 5px;
+}
+
+.combat-calculator__highlights {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 5px;
+}
+
+.combat-calculator__highlights li {
+  font-family: "EB Garamond", "Cormorant Garamond", Georgia, serif;
+  font-size: 1.06rem;
+  font-weight: 600;
+  color: rgba(61, 41, 22, 0.98);
+}
+
+.combat-calculator__highlights li::before {
+  content: "✦";
+  margin-right: 8px;
+  color: rgba(126, 96, 58, 0.78);
+}
+
+.combat-calculator__details {
+  margin-top: 12px;
+  position: static;
+  display: inline-block;
+}
+
+.combat-calculator__highlights li::before {
+  content: "✦";
+}
+
+.combat-calculator__details summary {
+  cursor: pointer;
+  list-style: none;
+  font-family: "Cinzel", Georgia, serif;
+  font-size: 0.76rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(98, 69, 38, 0.84);
+}
+
+.combat-calculator__details summary::-webkit-details-marker {
+  display: none;
+}
+
+.combat-calculator__details summary::after {
+  content: " +";
+}
+
+.combat-calculator__details[open] summary::after {
+  content: " -";
+}
+
+.combat-calculator__details .combat-calculator__modifier-columns {
+  display: none;
+}
+
+.combat-calculator__details[open] .combat-calculator__modifier-columns {
+  display: grid;
+  position: absolute;
+  top: 52px;
+  right: 0;
+  left: auto;
+  transform: translateX(calc(100% + 16px));
+  width: min(540px, 52vw);
+  min-height: 600px;
+  max-height: calc(100vh - 96px);
+  overflow-y: auto;
+  padding: 16px 18px;
+  margin-top: 0;
+  border: 1px solid rgba(144, 106, 60, 0.2);
+  border-radius: 14px;
+  background:
+    linear-gradient(180deg, rgba(251, 244, 228, 0.98), rgba(232, 207, 164, 0.94)),
+    url("/static/img/pergamentbg.jpg") center / cover no-repeat;
+  box-shadow:
+    0 18px 30px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 242, 212, 0.38);
+  z-index: 6;
+}
+
+.combat-calculator__modifier-item,
+.combat-calculator__modifier-empty {
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-size: 1rem;
+  color: rgba(68, 46, 23, 0.95);
+}
+
+.combat-calculator__modifier-item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 14px;
+  align-items: start;
+}
+
+.combat-calculator__modifier-main {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: baseline;
+}
+
+.combat-calculator__modifier-mark {
+  color: rgba(126, 96, 58, 0.78);
+}
+
+.combat-calculator__modifier-label {
+  color: rgba(66, 45, 24, 0.97);
+}
+
+.combat-calculator__modifier-source {
+  display: inline-block;
+  margin-left: 2px;
+  font-size: 0.88rem;
+  color: rgba(103, 77, 47, 0.74);
+  font-style: italic;
+}
+
+.combat-calculator__modifier-value {
+  font-family: "Cinzel", Georgia, serif;
+  font-size: 0.84rem;
+}
+
+.combat-calculator__modifier-item.is-positive .combat-calculator__modifier-value {
+  color: #255f56;
+}
+
+.combat-calculator__modifier-item.is-negative .combat-calculator__modifier-value {
+  color: #8f4a2b;
+}
+
+.combat-calculator__field.is-hidden {
+  display: none;
+}
+
+@keyframes combat-calculator-pulse {
+  0% {
+    opacity: 0.76;
+    transform: scale(0.97);
+  }
+
+  55% {
+    opacity: 1;
+    transform: scale(1.03);
+  }
+
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes combat-calculator-sigil-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes combat-calculator-sigil-spin-reverse {
+  from { transform: rotate(360deg); }
+  to { transform: rotate(0deg); }
+}
+
+@keyframes combat-calculator-sigil-breathe {
+  0%, 100% { opacity: 0.45; }
+  50% { opacity: 0.82; }
+}
+
+@keyframes combat-calculator-roll-impulse {
+  0%, 100% { transform: translateY(0); }
+  30% { transform: translateY(-1px) rotate(-1deg); }
+  60% { transform: translateY(1px) rotate(1deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .combat-calculator__result-column,
+  .combat-calculator__result-group,
+  .combat-calculator__sigil-ring {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+@media (max-width: 940px) {
+  .payday-window--battle-calculator {
+    width: min(860px, calc(100vw - 22px));
+  }
+
+  .combat-calculator__flow {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .combat-calculator__result-column {
+    border-left: 0;
+    border-top: 1px solid rgba(143, 105, 60, 0.14);
+    padding-top: 24px;
+  }
+}
+
+@media (max-width: 680px) {
+  .combat-calculator {
+    padding: 12px;
+  }
+
+  .combat-calculator__field-grid,
+  .combat-calculator__field-grid--damage,
+  .combat-calculator__modifier-columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .combat-calculator__details[open] .combat-calculator__modifier-columns {
+    position: static;
+    transform: none;
+    width: auto;
+    margin-top: 10px;
+  }
+}
+
+@media (max-width: 520px) {
+  .combat-calculator__inline-pair {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .combat-calculator__stream-head,
+  .combat-calculator__marginalia-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .combat-calculator__damage-die {
+    overflow-x: visible;
+  }
+
+  .combat-calculator__die-row {
+    align-items: flex-start;
+  }
+}

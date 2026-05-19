@@ -39,7 +39,7 @@ from charsheet.constants import (
     WEAPON_MASTERY_BONUS,
     WEAPON_MASTERY_EFFECT_DESCRIPTION,
 )
-from charsheet.engine import ItemEngine
+from charsheet.engine import BattleCalculatorEngine, ItemEngine
 from charsheet.forms import (
     CharacterInfoInlineForm,
     CharacterSkillSpecificationForm,
@@ -1366,6 +1366,9 @@ def _build_skill_rows(character: Character, engine, *, load_penalty: int) -> tup
             "name": skill.name,
             "display_name": _build_display_name(skill, specification),
             "description": skill.description,
+            "category_name": skill.category.name,
+            "category_slug": skill.category.slug,
+            "family": skill.family,
             "attribute": skill.attribute.short_name,
             "attribute_mod": format_modifier(attribute_modifier),
             "attribute_mod_value": attribute_modifier,
@@ -1416,8 +1419,6 @@ def _build_skill_rows(character: Character, engine, *, load_penalty: int) -> tup
             maneuver_breakdown_rows = _build_weapon_maneuver_breakdown_rows(engine, weapon_row)
             for option in weapon_row.get("maneuver_options") or []:
                 maneuver_bonus = int(option.get("total_modifier") or 0)
-                if maneuver_bonus == 0:
-                    continue
                 rows.append(
                     {
                         "row_kind": "weapon_context",
@@ -1499,15 +1500,18 @@ def _build_skill_rows(character: Character, engine, *, load_penalty: int) -> tup
                             if str(entry.get("weapon_attribute_code", "")) == str(row["attribute"])
                         ]
                         candidate_rows = matching_attribute_rows or weapon_context_rows
-                        best_weapon_row = max(
+                        for weapon_context_row in sorted(
                             candidate_rows,
-                            key=lambda entry: int(entry.get("with_load_total_value", 0) or 0),
-                        )
-                        best_weapon_row = dict(best_weapon_row)
-                        display_name = str(best_weapon_row.get("display_name", ""))
-                        if " (" in display_name and display_name.endswith(")"):
-                            best_weapon_row["display_name"] = display_name.rsplit(" (", 1)[0]
-                        skill_rows.append(best_weapon_row)
+                            key=lambda entry: (
+                                -int(entry.get("with_load_total_value", 0) or 0),
+                                str(entry.get("display_name", "")).lower(),
+                            ),
+                        ):
+                            weapon_context_row = dict(weapon_context_row)
+                            display_name = str(weapon_context_row.get("display_name", ""))
+                            if " (" in display_name and display_name.endswith(")"):
+                                weapon_context_row["display_name"] = display_name.rsplit(" (", 1)[0]
+                            skill_rows.append(weapon_context_row)
             continue
         if _external_skill_bonus(skill) != 0:
             row = _build_row(skill)
@@ -1521,15 +1525,18 @@ def _build_skill_rows(character: Character, engine, *, load_penalty: int) -> tup
                         if str(entry.get("weapon_attribute_code", "")) == str(row["attribute"])
                     ]
                     candidate_rows = matching_attribute_rows or weapon_context_rows
-                    best_weapon_row = max(
+                    for weapon_context_row in sorted(
                         candidate_rows,
-                        key=lambda entry: int(entry.get("with_load_total_value", 0) or 0),
-                    )
-                    best_weapon_row = dict(best_weapon_row)
-                    display_name = str(best_weapon_row.get("display_name", ""))
-                    if " (" in display_name and display_name.endswith(")"):
-                        best_weapon_row["display_name"] = display_name.rsplit(" (", 1)[0]
-                    skill_rows.append(best_weapon_row)
+                        key=lambda entry: (
+                            -int(entry.get("with_load_total_value", 0) or 0),
+                            str(entry.get("display_name", "")).lower(),
+                        ),
+                    ):
+                        weapon_context_row = dict(weapon_context_row)
+                        display_name = str(weapon_context_row.get("display_name", ""))
+                        if " (" in display_name and display_name.endswith(")"):
+                            weapon_context_row["display_name"] = display_name.rsplit(" (", 1)[0]
+                        skill_rows.append(weapon_context_row)
 
     skill_manager_rows: list[dict] = []
     for skill in skills_by_id.values():
@@ -2657,6 +2664,7 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
     stored_inventory_rows = [row for row in inventory_rows if row.get("is_stored")]
     inventory_total_weight_display = _build_inventory_total_weight_display(character)
     weapon_rows = _build_weapon_rows(engine)
+    battle_calculator_payload = BattleCalculatorEngine.build_payload(engine, skill_rows, weapon_rows)
     armor_rows = _build_armor_rows(engine)
     school_technique_rows, school_levels = _build_school_technique_rows(character, engine)
     school_race_rows, school_technique_groups = _group_school_technique_rows(school_technique_rows, school_levels)
@@ -2817,6 +2825,7 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
         "stored_inventory_rows": stored_inventory_rows,
         "inventory_total_weight_display": inventory_total_weight_display,
         "weapon_rows": weapon_rows,
+        "battle_calculator_payload": battle_calculator_payload,
         "armor_rows": armor_rows,
         "school_technique_rows": school_technique_rows,
         "school_race_rows": school_race_rows,

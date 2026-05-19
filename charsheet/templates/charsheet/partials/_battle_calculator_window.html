@@ -1,0 +1,179 @@
+<section class="payday-window payday-window--battle-calculator sheet-window" id="battleCalculatorWindow" aria-hidden="true">
+  <div class="combat-calculator__backdrop" aria-hidden="true"></div>
+  <div class="payday-window__titlebar sheet-window__header combat-calculator__titlebar" id="battleCalculatorWindowHandle">
+    <div class="combat-calculator__title-wrap">
+      <h3 class="payday-window__title sheet-window__title">Kampfrechner</h3>
+      <p class="combat-calculator__window-subtitle">Arkanes Analysewerkzeug für Treffer und Schaden</p>
+    </div>
+    <button type="button" class="payday-window__close" id="battleCalculatorWindowClose" aria-label="Fenster schließen">x</button>
+  </div>
+  <div class="payday-window__body combat-calculator" id="battleCalculatorRoot">
+    <div class="combat-calculator__flow">
+      <div class="combat-calculator__input-column">
+        <div class="combat-calculator__input-surface">
+        <section class="combat-calculator__stream" aria-labelledby="battleCalculatorAttackTitle">
+          <header class="combat-calculator__stream-head">
+            <div>
+              <h4 class="combat-calculator__stream-title" id="battleCalculatorAttackTitle">Trefferwurf</h4>
+            </div>
+            <button type="button" class="combat-calculator__inline-action" id="battleCalculatorAttackReset">Würfe reset</button>
+          </header>
+          <div class="combat-calculator__field-block">
+            <label class="combat-calculator__field combat-calculator__field--wide">
+              <span>Fertigkeit</span>
+              <select id="battleCalculatorAttackSkill"></select>
+            </label>
+            <div class="combat-calculator__dice-stack">
+              <div class="combat-calculator__field combat-calculator__field--dice combat-calculator__damage-die">
+                <div class="combat-calculator__die-row">
+                  <span class="combat-calculator__die-label">Wurf 1</span>
+                  <div class="combat-calculator__die-button-grid" id="battleCalculatorAttackDieOneButtons"></div>
+                </div>
+                <input type="hidden" id="battleCalculatorAttackDieOne" value="0" min="0" max="10" />
+              </div>
+              <div class="combat-calculator__field combat-calculator__field--dice combat-calculator__damage-die">
+                <div class="combat-calculator__die-row">
+                  <span class="combat-calculator__die-label">Wurf 2</span>
+                  <div class="combat-calculator__die-button-grid" id="battleCalculatorAttackDieTwoButtons"></div>
+                </div>
+                <input type="hidden" id="battleCalculatorAttackDieTwo" value="0" min="0" max="10" />
+              </div>
+            </div>
+            <div class="combat-calculator__field-grid">
+              <label class="combat-calculator__field">
+                <span>Manöverwert</span>
+                <input type="number" id="battleCalculatorManeuverValue" value="0" />
+              </label>
+              <label class="combat-calculator__field">
+                <span>Verwendete AP</span>
+                <input type="number" id="battleCalculatorUsedAp" value="0" />
+              </label>
+              <label class="combat-calculator__field">
+                <span>Angesagte Erfolge</span>
+                <input type="number" id="battleCalculatorAccumulatedSuccesses" value="0" min="0" />
+              </label>
+              <label class="combat-calculator__field">
+                <span>Mehrfachaktion</span>
+                <select id="battleCalculatorMultipleAction">
+                  <option value="0">Keine</option>
+                  <option value="4">2 Aktionen (-4)</option>
+                  <option value="8">3+ Aktionen (-8)</option>
+                </select>
+              </label>
+            </div>
+          </div>
+        </section>
+
+        <section class="combat-calculator__stream" aria-labelledby="battleCalculatorDamageTitle">
+          <header class="combat-calculator__stream-head">
+            <div class="combat-calculator__stream-heading combat-calculator__stream-heading--divided">
+              <div class="combat-calculator__stream-line" aria-hidden="true"></div>
+              <h4 class="combat-calculator__stream-title" id="battleCalculatorDamageTitle">Schadenswurf</h4>
+            </div>
+            <button type="button" class="combat-calculator__inline-action" id="battleCalculatorDamageReset">Würfe reset</button>
+          </header>
+          <div class="combat-calculator__field-block">
+            <label class="combat-calculator__field combat-calculator__field--wide">
+              <span>Waffe</span>
+              <select id="battleCalculatorWeapon"></select>
+            </label>
+            <div class="combat-calculator__field-grid combat-calculator__field-grid--damage">
+              <label class="combat-calculator__field" id="battleCalculatorDiceAmountField">
+                <span>Anzahl W10</span>
+                <input type="number" id="battleCalculatorDamageDiceAmount" value="1" min="1" />
+              </label>
+              <label class="combat-calculator__field" id="battleCalculatorBonusSuccessesField">
+                <span>+ Erfolge</span>
+                <input type="number" id="battleCalculatorBonusSuccesses" value="0" min="0" />
+              </label>
+            </div>
+            <div class="combat-calculator__dice-stack combat-calculator__dice-stack--damage" id="battleCalculatorDamageDiceList"></div>
+            <div class="combat-calculator__field-grid combat-calculator__field-grid--damage">
+              <label class="combat-calculator__field" id="battleCalculatorFlatBonusField">
+                <span>Waffenzusatz</span>
+                <div class="combat-calculator__inline-pair">
+                  <select id="battleCalculatorFlatOperator">
+                    <option value="+">+</option>
+                    <option value="-">-</option>
+                    <option value="/">/</option>
+                  </select>
+                  <input type="number" id="battleCalculatorFlatBonus" value="0" min="0" />
+                </div>
+              </label>
+              <label class="combat-calculator__field" id="battleCalculatorManualBonusField">
+                <span>+ Boni</span>
+                <input type="number" id="battleCalculatorManualBonus" value="0" />
+              </label>
+              <label class="combat-calculator__field" id="battleCalculatorMultiplierField">
+                <span>Multiplikator</span>
+                <input type="number" id="battleCalculatorMultiplier" value="1" min="1" />
+              </label>
+            </div>
+          </div>
+        </section>
+        </div>
+      </div>
+
+      <aside class="combat-calculator__result-column" id="battleCalculatorResultPanel">
+        <div class="combat-calculator__sigil-shell" aria-hidden="true">
+          <svg class="combat-calculator__sigil-svg" viewBox="0 0 220 220">
+            <circle class="combat-calculator__sigil-ring combat-calculator__sigil-ring--outer" cx="110" cy="110" r="88"></circle>
+            <circle class="combat-calculator__sigil-ring combat-calculator__sigil-ring--mid" cx="110" cy="110" r="66"></circle>
+            <circle class="combat-calculator__sigil-ring combat-calculator__sigil-ring--inner" cx="110" cy="110" r="44"></circle>
+          </svg>
+        </div>
+
+        <div class="combat-calculator__dice-focus">
+          <div class="combat-calculator__dice-focus-group">
+            <span class="combat-calculator__dice-focus-label">Trefferwurf</span>
+            <div class="combat-calculator__dice-focus-values">
+              <span class="combat-calculator__die-plate" id="battleCalculatorAttackDieOneDisplay">0</span>
+              <span class="combat-calculator__die-plate" id="battleCalculatorAttackDieTwoDisplay">0</span>
+            </div>
+          </div>
+          <div class="combat-calculator__dice-focus-group">
+            <span class="combat-calculator__dice-focus-label">Schadenswurf</span>
+            <div class="combat-calculator__dice-focus-values" id="battleCalculatorDamageDiceDisplay"></div>
+          </div>
+        </div>
+
+        <div class="combat-calculator__result-rail">
+          <div class="combat-calculator__result-group combat-calculator__result-group--hit" id="battleCalculatorAttackPanel">
+            <span class="combat-calculator__result-label">Trefferwert</span>
+            <strong class="combat-calculator__result-value" id="battleCalculatorAttackTotal">0</strong>
+            <span class="combat-calculator__formula" id="battleCalculatorAttackFormula"></span>
+          </div>
+
+          <div class="combat-calculator__result-divider" aria-hidden="true"></div>
+
+          <div class="combat-calculator__result-group combat-calculator__result-group--damage" id="battleCalculatorDamagePanel">
+            <span class="combat-calculator__result-label">Endschaden</span>
+            <strong class="combat-calculator__result-value" id="battleCalculatorDamageTotal">0</strong>
+            <span class="combat-calculator__formula" id="battleCalculatorDamageFormula"></span>
+          </div>
+        </div>
+
+        <section class="combat-calculator__marginalia" aria-labelledby="battleCalculatorModifiersTitle">
+          <header class="combat-calculator__marginalia-head">
+            <p class="combat-calculator__eyebrow">Aktive Effekte</p>
+            <h4 class="combat-calculator__stream-title visually-hidden" id="battleCalculatorModifiersTitle">Aktive Effekte</h4>
+          </header>
+          <ul class="combat-calculator__highlights" id="battleCalculatorModifierHighlights"></ul>
+          <details class="combat-calculator__details">
+            <summary>Details anzeigen</summary>
+            <div class="combat-calculator__modifier-columns">
+              <section>
+                <h5 class="combat-calculator__modifier-title">Treffer</h5>
+                <ul class="combat-calculator__modifier-list" id="battleCalculatorAttackModifiers"></ul>
+              </section>
+              <section>
+                <h5 class="combat-calculator__modifier-title">Schaden</h5>
+                <ul class="combat-calculator__modifier-list" id="battleCalculatorDamageModifiers"></ul>
+              </section>
+            </div>
+          </details>
+        </section>
+      </aside>
+    </div>
+  </div>
+</section>

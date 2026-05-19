@@ -20,6 +20,7 @@ import { initSchoolsPanel, initWmArcanaFilter } from "./schools_panel.js";
 import { initMobileHud } from "./mobile_hud.js";
 import { initSkillManager } from "./skill_manager.js";
 import { initArmorPanel } from "./armor_panel.js";
+import { initBattleCalculator } from "./battle_calculator.js";
 
 onReady(() => {
   initTabs();
@@ -46,6 +47,7 @@ onReady(() => {
   initSchoolsPanel();
   initWmArcanaFilter();
   initArmorPanel();
+  initBattleCalculator();
   initMobileHud();
 
   document.addEventListener("charsheet:partials-applied", () => {
@@ -57,6 +59,7 @@ onReady(() => {
     initSchoolsPanel();
     initWmArcanaFilter();
     initArmorPanel();
+    initBattleCalculator();
     document.dispatchEvent(new Event("learn:refresh-totals"));
   });
 });

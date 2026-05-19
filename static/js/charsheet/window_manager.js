@@ -173,6 +173,15 @@ export function initStandardFloatingWindows() {
       startTop: 86,
       storageKey: "charsheet.diaryWindow",
     }),
+    battleCalculator: createFloatingWindowController({
+      trigger: document.getElementById("battleCalculatorTrigger"),
+      windowEl: document.getElementById("battleCalculatorWindow"),
+      closeButton: document.getElementById("battleCalculatorWindowClose"),
+      handle: document.getElementById("battleCalculatorWindowHandle"),
+      startTop: 104,
+      storageKey: "charsheet.battleCalculatorWindow",
+      startRightInset: 196,
+    }),
     charInfo: createFloatingWindowController({
       trigger: document.getElementById("charInfoEditTrigger"),
       windowEl: document.getElementById("charInfoWindow"),

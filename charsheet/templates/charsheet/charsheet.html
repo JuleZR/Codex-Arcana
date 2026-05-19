@@ -35,11 +35,13 @@
     </main>
 
     {{ wound_threshold_rows|json_script:"wound-thresholds-data" }} 
+    {{ battle_calculator_payload|json_script:"battle-calculator-data" }}
     {% include "charsheet/partials/_character_windows.html" %}
     {% include "charsheet/partials/_rune_retrofit_window.html" %}
     {% include "charsheet/partials/_shop_panel.html" %} 
     {% include "charsheet/partials/_learning_panel.html" %} 
     {% include "charsheet/partials/_diary_panel.html" %}
+    {% include "charsheet/partials/_battle_calculator_window.html" %}
 
     <!-- Mobile status HUD: damage + arcane power bar, visible only on small screens -->
     <div class="mobile-status-hud" id="mobileStatusHud" role="status" aria-label="Charakterstatus">
