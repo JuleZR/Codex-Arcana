@@ -1,20 +1,36 @@
 <div class="p2_panel" id="sheetArmorPanel">
   <h2>R&uuml;stung</h2>
   <div class="armor_scroll_wrap">
-    <div class="panel_scroll armor_scroll" data-armor-scroll data-preserve-scroll-id="armor-worn-scroll">
+    <div class="panel_scroll armor_scroll inventory_drop_target" data-armor-scroll data-preserve-scroll-id="armor-worn-scroll" data-inventory-zone="equip-armor">
       <ul class="armor_worn">
         {% for row in armor_rows %}
-          <li class="armor_row{% if row.quality_color %} quality_tinted_row{% endif %}{% if row.tooltip_text %} tooltip_target{% endif %}"{% if row.quality_color %} style="--row-quality-color: {{ row.quality_color }};"{% endif %}{% if row.tooltip_text %} data-tooltip-side="left" data-tooltip-mode="card" data-tooltip-title="{{ row.item_name|escape }}" data-tooltip-subtitle="{{ row.tooltip_subtitle|escape }}"{% if row.item_image_url %} data-tooltip-image="{{ row.item_image_url }}"{% endif %} data-tooltip-accent="{{ row.quality_color }}" data-tooltip="{{ row.tooltip_text }}"{% endif %}>
-            <span>
+          <li class="armor_row{% if row.quality_color %} quality_tinted_row{% endif %}{% if row.tooltip_text %} tooltip_target{% endif %}"
+              data-equipped-row
+              data-character-item-id="{{ row.character_item.pk }}"
+              data-equipped="1"
+              data-equip-drop-zone="armor"
+              {% if row.quality_color %} style="--row-quality-color: {{ row.quality_color }};"{% endif %}
+              {% if row.tooltip_text %} data-tooltip-side="left" data-tooltip-mode="card" data-tooltip-title="{{ row.item_name|escape }}" data-tooltip-subtitle="{{ row.tooltip_subtitle|escape }}"{% if row.item_image_url %} data-tooltip-image="{{ row.item_image_url }}"{% endif %} data-tooltip-accent="{{ row.quality_color }}" data-tooltip="{{ row.tooltip_text }}"{% endif %}>
+            <span class="armor_row_label">
+              {% if row.can_unequip %}
+                <form method="post" action="{% url 'toggle_equip' row.character_item.pk %}" class="equip_form equip_form--inline" data-sheet-action data-equip-form>
+                  {% csrf_token %}
+                  <span
+                    class="equip_handle_anchor inv_drag_handle"
+                    tabindex="0"
+                    data-equip-handle-submit
+                    data-drag-handle
+                    draggable="true"
+                    aria-label="Ablegen"
+                    title="Ablegen"
+                  >
+                    <span class="inv_drag_handle_dots" aria-hidden="true"></span>
+                  </span>
+                </form>
+              {% endif %}
               {{ row.summary }}
             </span>
             <span class="armor_row_actions">
-              {% if row.can_unequip %}
-                <form method="post" action="{% url 'toggle_equip' row.character_item.pk %}" class="equip_form" data-sheet-action>
-                  {% csrf_token %}
-                  <button type="submit" class="equip_toggle is-equipped" title="Ablegen">-</button>
-                </form>
-              {% endif %}
             </span>
           </li>
         {% endfor %}

@@ -21,6 +21,7 @@ import { initMobileHud } from "./mobile_hud.js";
 import { initSkillManager } from "./skill_manager.js";
 import { initArmorPanel } from "./armor_panel.js";
 import { initBattleCalculator } from "./battle_calculator.js";
+import { initCarryLoadToggle } from "./carry_load_toggle.js";
 
 onReady(() => {
   initTabs();
@@ -48,6 +49,7 @@ onReady(() => {
   initWmArcanaFilter();
   initArmorPanel();
   initBattleCalculator();
+  initCarryLoadToggle();
   initMobileHud();
 
   document.addEventListener("charsheet:partials-applied", () => {
@@ -60,6 +62,7 @@ onReady(() => {
     initWmArcanaFilter();
     initArmorPanel();
     initBattleCalculator();
+    initCarryLoadToggle();
     document.dispatchEvent(new Event("learn:refresh-totals"));
   });
 });

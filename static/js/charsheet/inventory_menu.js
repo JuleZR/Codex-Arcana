@@ -30,6 +30,109 @@ function normalizeSearchValue(value) {
   return String(value || "").trim().toLowerCase();
 }
 
+function submitInventoryDropForm(form) {
+  if (!(form instanceof HTMLFormElement)) {
+    return Promise.resolve(false);
+  }
+  const formData = new FormData(form);
+  return fetch(form.action, {
+    method: form.method || "POST",
+    body: formData,
+    headers: {
+      "X-Requested-With": "XMLHttpRequest",
+      Accept: "application/json",
+    },
+    credentials: "same-origin",
+  }).then(async (response) => {
+    if (!response.ok) {
+      throw new Error("inventory drop request failed");
+    }
+    const payload = await response.json();
+    if (!payload?.ok) {
+      throw new Error("inventory drop payload invalid");
+    }
+    applySheetPartials(payload);
+    return true;
+  });
+}
+
+function resolveInventoryDropAction(zone, row) {
+  if (!(zone instanceof HTMLElement) || !(row instanceof HTMLElement)) {
+    return null;
+  }
+  const zoneType = String(zone.dataset.inventoryZone || "");
+  const rowStored = (row.dataset.stored || "0") === "1";
+  const rowEquipped = (row.dataset.equipped || "0") === "1";
+  const equipZone = String(row.dataset.equipDropZone || "");
+  if (zoneType === "stored") {
+    if (rowEquipped) {
+      return null;
+    }
+    if (rowStored) {
+      return null;
+    }
+    const form = row.querySelector("[data-storage-form]");
+    const input = form?.querySelector("input[name='stored']");
+    if (!(form instanceof HTMLFormElement) || !(input instanceof HTMLInputElement)) {
+      return null;
+    }
+    input.value = "1";
+    return { form, kind: "storage" };
+  }
+  if (zoneType === "carried") {
+    if (rowEquipped) {
+      const form = row.querySelector("[data-equip-form]");
+      if (!(form instanceof HTMLFormElement)) {
+        return null;
+      }
+      return { form, kind: "unequip" };
+    }
+    if (!rowStored) {
+      return null;
+    }
+    const form = row.querySelector("[data-storage-form]");
+    const input = form?.querySelector("input[name='stored']");
+    if (!(form instanceof HTMLFormElement) || !(input instanceof HTMLInputElement)) {
+      return null;
+    }
+    input.value = "0";
+    return { form, kind: "storage" };
+  }
+  if (zoneType === "equip-weapon" || zoneType === "equip-armor") {
+    const expectedZone = zoneType === "equip-weapon" ? "weapon" : "armor";
+    if (!equipZone || equipZone !== expectedZone) {
+      return null;
+    }
+    const form = row.querySelector("[data-equip-form]");
+    if (!(form instanceof HTMLFormElement)) {
+      return null;
+    }
+    return { form, kind: "equip" };
+  }
+  return null;
+}
+
+function updateAllowedDropZoneState(row) {
+  const zoneTypes = ["carried", "stored", "equip-weapon", "equip-armor"];
+  zoneTypes.forEach((zoneType) => {
+    const probe = document.createElement("div");
+    probe.dataset.inventoryZone = zoneType;
+    const allowed = Boolean(resolveInventoryDropAction(probe, row));
+    document.body.dataset[`dragAllow${zoneType.replace(/(^|-)([a-z])/g, (_m, _sep, char) => char.toUpperCase())}`] = allowed ? "1" : "0";
+  });
+}
+
+function clearAllowedDropZoneState() {
+  [
+    "dragAllowCarried",
+    "dragAllowStored",
+    "dragAllowEquipWeapon",
+    "dragAllowEquipArmor",
+  ].forEach((key) => {
+    delete document.body.dataset[key];
+  });
+}
+
 function closeMenu(menu) {
   if (!(menu instanceof HTMLElement)) {
     return;
@@ -1059,6 +1162,39 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
     closeMenu(button.closest(".inv_menu"));
   });
 
+  document.addEventListener("click", (event) => {
+    const handle = event.target instanceof Element
+      ? event.target.closest("[data-equip-handle-submit]")
+      : null;
+    if (!(handle instanceof HTMLElement)) {
+      return;
+    }
+    const form = handle.closest("form");
+    if (!(form instanceof HTMLFormElement)) {
+      return;
+    }
+    event.preventDefault();
+    form.requestSubmit();
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.key !== " ") {
+      return;
+    }
+    const handle = event.target instanceof Element
+      ? event.target.closest("[data-equip-handle-submit]")
+      : null;
+    if (!(handle instanceof HTMLElement)) {
+      return;
+    }
+    const form = handle.closest("form");
+    if (!(form instanceof HTMLFormElement)) {
+      return;
+    }
+    event.preventDefault();
+    form.requestSubmit();
+  });
+
   runeSearchInput?.addEventListener("input", filterRuneEntries);
   runeRemoveImageInput?.addEventListener("change", () => {
     if (!(runeImagePreview instanceof HTMLElement) || !(runeRemoveImageInput instanceof HTMLInputElement)) {
@@ -1072,13 +1208,15 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
     if (!(handle instanceof HTMLElement)) {
       return;
     }
-    const row = handle.closest("[data-inventory-row]");
+    const row = handle.closest("[data-inventory-row], [data-equipped-row]");
     if (!(row instanceof HTMLElement)) {
       return;
     }
     draggedInventoryItemId = row.dataset.characterItemId || "";
     row.classList.add("is-dragging");
     document.body.classList.add("inventory-dragging");
+    document.body.dataset.dragEquipDropZone = row.dataset.equipDropZone || "";
+    updateAllowedDropZoneState(row);
     const storage = document.querySelector("[data-inventory-storage]");
     if (storage instanceof HTMLElement && storage.hidden) {
       storage.hidden = false;
@@ -1097,7 +1235,11 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
     }
     draggedInventoryItemId = "";
     document.body.classList.remove("inventory-dragging");
-    document.querySelectorAll("[data-inventory-row].is-dragging").forEach((row) => row.classList.remove("is-dragging"));
+    delete document.body.dataset.dragEquipDropZone;
+    clearAllowedDropZoneState();
+    document
+      .querySelectorAll("[data-inventory-row].is-dragging, [data-equipped-row].is-dragging")
+      .forEach((row) => row.classList.remove("is-dragging"));
     document.querySelectorAll("[data-inventory-zone].is-drag-over").forEach((zone) => zone.classList.remove("is-drag-over"));
     const storage = document.querySelector("[data-inventory-storage]");
     if (
@@ -1113,6 +1255,17 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
   document.addEventListener("dragover", (event) => {
     const zone = event.target instanceof Element ? event.target.closest("[data-inventory-zone]") : null;
     if (!(zone instanceof HTMLElement) || !draggedInventoryItemId) {
+      return;
+    }
+    const row = document.querySelector(
+      `[data-inventory-row][data-character-item-id="${draggedInventoryItemId}"], [data-equipped-row][data-character-item-id="${draggedInventoryItemId}"]`,
+    );
+    if (!(row instanceof HTMLElement)) {
+      return;
+    }
+    const dropAction = resolveInventoryDropAction(zone, row);
+    if (!dropAction) {
+      zone.classList.remove("is-drag-over");
       return;
     }
     event.preventDefault();
@@ -1144,41 +1297,20 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
     }
     event.preventDefault();
     zone.classList.remove("is-drag-over");
-    const row = document.querySelector(`[data-inventory-row][data-character-item-id="${draggedInventoryItemId}"]`);
+    const row = document.querySelector(
+      `[data-inventory-row][data-character-item-id="${draggedInventoryItemId}"], [data-equipped-row][data-character-item-id="${draggedInventoryItemId}"]`,
+    );
     if (!(row instanceof HTMLElement)) {
       return;
     }
-    const targetStored = zone.dataset.inventoryZone === "stored" ? "1" : "0";
-    if ((row.dataset.stored || "0") === targetStored) {
+    const dropAction = resolveInventoryDropAction(zone, row);
+    if (!dropAction) {
       return;
     }
-    const form = row.querySelector("[data-storage-form]");
-    const input = form?.querySelector("input[name='stored']");
-    if (!(form instanceof HTMLFormElement) || !(input instanceof HTMLInputElement)) {
-      return;
-    }
-    input.value = targetStored;
     try {
-      const formData = new FormData(form);
-      const response = await fetch(form.action, {
-        method: form.method || "POST",
-        body: formData,
-        headers: {
-          "X-Requested-With": "XMLHttpRequest",
-          Accept: "application/json",
-        },
-        credentials: "same-origin",
-      });
-      if (!response.ok) {
-        throw new Error("inventory storage drop failed");
-      }
-      const payload = await response.json();
-      if (!payload?.ok) {
-        throw new Error("inventory storage payload invalid");
-      }
-      applySheetPartials(payload);
+      await submitInventoryDropForm(dropAction.form);
     } catch (_error) {
-      form.requestSubmit();
+      dropAction.form.requestSubmit();
     }
   });
   runeDropdownTrigger?.addEventListener("click", () => {

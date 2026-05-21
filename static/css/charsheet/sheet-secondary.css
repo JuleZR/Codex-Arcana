@@ -112,7 +112,7 @@
 
 .inventory_total_weight {
   display: inline-flex;
-  align-items: baseline;
+  align-items: center;
   gap: 6px;
   padding: 3px 10px;
   border: 1px solid rgba(113, 77, 42, 0.34);
@@ -122,6 +122,75 @@
   color: #5d4129;
   line-height: 1.1;
   white-space: nowrap;
+}
+
+.inventory_total_weight--toggle {
+  appearance: none;
+  cursor: pointer;
+  font: inherit;
+  transition:
+    transform 140ms ease,
+    box-shadow 140ms ease,
+    background 140ms ease,
+    border-color 140ms ease;
+}
+
+.inventory_total_weight--toggle:hover {
+  transform: translateY(-1px);
+  border-color: rgba(113, 77, 42, 0.5);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.52),
+    0 2px 6px rgba(74, 55, 38, 0.12);
+}
+
+.inventory_total_weight--toggle.is-active {
+  border-color: rgba(91, 112, 61, 0.52);
+  background: rgba(235, 244, 220, 0.92);
+  color: #405126;
+}
+
+.inventory_total_weight--toggle.is-active .inventory_total_weight__value {
+  color: #405126;
+}
+
+.inventory_total_weight--toggle.is-carry-light {
+  border-color: rgba(166, 128, 46, 0.58);
+  background: rgba(244, 233, 191, 0.94);
+  color: #6f5221;
+}
+
+.inventory_total_weight--toggle.is-carry-light .inventory_total_weight__value {
+  color: #6f5221;
+}
+
+.inventory_total_weight--toggle.is-carry-medium {
+  border-color: rgba(168, 103, 34, 0.62);
+  background: rgba(239, 214, 168, 0.95);
+  color: #76461d;
+}
+
+.inventory_total_weight--toggle.is-carry-medium .inventory_total_weight__value {
+  color: #76461d;
+}
+
+.inventory_total_weight--toggle.is-carry-heavy {
+  border-color: rgba(151, 74, 28, 0.66);
+  background: rgba(228, 191, 158, 0.96);
+  color: #6d3417;
+}
+
+.inventory_total_weight--toggle.is-carry-heavy .inventory_total_weight__value {
+  color: #6d3417;
+}
+
+.inventory_total_weight--toggle.is-carry-overloaded {
+  border-color: rgba(128, 47, 28, 0.7);
+  background: rgba(205, 156, 142, 0.97);
+  color: #5e2418;
+}
+
+.inventory_total_weight--toggle.is-carry-overloaded .inventory_total_weight__value {
+  color: #5e2418;
 }
 
 .inventory_total_weight__label {
@@ -138,6 +207,37 @@
   font-size: 0.82rem;
   font-weight: 700;
   color: #4d3320;
+}
+
+.inventory_total_weight__penalty {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "Trebuchet MS", "Segoe UI", Tahoma, sans-serif;
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1;
+  color: inherit;
+}
+
+.inventory_total_weight__penalty[hidden] {
+  display: none !important;
+}
+
+.inventory_total_weight__separator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 4px 0 6px;
+  font-family: "Trebuchet MS", "Segoe UI", Tahoma, sans-serif;
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1;
+  color: rgba(93, 65, 41, 0.68);
+}
+
+.inventory_total_weight__separator[hidden] {
+  display: none !important;
 }
 
 .inventory_shop_btn {
@@ -1253,6 +1353,47 @@
   flex: 1 0 auto;
 }
 
+.inventory_list--dropzone {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  box-sizing: border-box;
+}
+
+.inventory_list--dropzone::before {
+  content: "";
+  position: absolute;
+  inset: 2px 10px 2px 4px;
+  border: 1px dashed transparent;
+  border-radius: 10px;
+  pointer-events: none;
+  opacity: 0;
+  transition:
+    opacity 140ms ease,
+    border-color 140ms ease,
+    background 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.inventory_list--dropzone,
+.inventory_drop_target,
+.inventory_storage {
+  transition:
+    opacity 140ms ease,
+    outline-color 140ms ease,
+    outline-offset 140ms ease,
+    background 160ms ease,
+    box-shadow 160ms ease,
+    border-color 160ms ease;
+}
+
+.inventory_drop_target {
+  position: relative;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+}
+
 .inventory_storage {
   position: sticky;
   bottom: 0;
@@ -1297,13 +1438,66 @@
 }
 
 [data-inventory-zone].is-drag-over {
-  outline: 2px solid rgba(147, 103, 51, 0.42);
-  outline-offset: 2px;
+  box-shadow:
+    inset 0 0 0 2px rgba(147, 103, 51, 0.3),
+    inset 0 0 24px rgba(224, 196, 145, 0.22);
 }
 
 [data-inventory-zone="stored"].is-drag-over {
   background:
-    linear-gradient(180deg, rgba(243, 228, 196, 0.34), rgba(225, 205, 170, 0.24));
+    linear-gradient(180deg, rgba(218, 235, 210, 0.42), rgba(196, 221, 188, 0.28));
+}
+
+body.inventory-dragging[data-drag-allow-carried="1"] [data-inventory-zone="carried"] {
+  padding: 0;
+}
+
+body.inventory-dragging[data-drag-allow-carried="1"] [data-inventory-zone="carried"]::before {
+  opacity: 1;
+  border-color: rgba(105, 143, 95, 0.34);
+  background:
+    linear-gradient(180deg, rgba(225, 240, 218, 0.26), rgba(242, 249, 238, 0.16));
+  box-shadow:
+    inset 0 0 0 1px rgba(162, 197, 151, 0.28),
+    inset 0 0 36px rgba(168, 207, 158, 0.14);
+}
+
+[data-inventory-zone="stored"] {
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    opacity 140ms ease;
+}
+
+body.inventory-dragging[data-drag-allow-stored="1"] [data-inventory-zone="stored"] {
+  border-color: rgba(104, 141, 94, 0.3);
+  background:
+    linear-gradient(180deg, rgba(226, 241, 220, 0.16), rgba(241, 248, 238, 0.08));
+}
+
+[data-inventory-zone="carried"].is-drag-over {
+}
+
+[data-inventory-zone="carried"].is-drag-over::before {
+  border-color: rgba(90, 132, 80, 0.56);
+  background:
+    linear-gradient(180deg, rgba(213, 235, 204, 0.42), rgba(235, 246, 229, 0.24));
+}
+
+body.inventory-dragging[data-drag-allow-equip-armor="1"] [data-inventory-zone="equip-armor"],
+body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="equip-weapon"] {
+  border-color: rgba(104, 141, 94, 0.3);
+  border-style: dashed;
+  background:
+    linear-gradient(180deg, rgba(226, 241, 220, 0.16), rgba(241, 248, 238, 0.08));
+}
+
+[data-inventory-zone="equip-armor"].is-drag-over,
+[data-inventory-zone="equip-weapon"].is-drag-over {
+  background:
+    linear-gradient(180deg, rgba(213, 234, 205, 0.34), rgba(236, 246, 232, 0.18));
+  border-color: rgba(90, 132, 80, 0.52);
 }
 
 .inv_rune_marker {
@@ -1629,6 +1823,21 @@
     0 1px 1px rgba(36, 26, 16, 0.1);
 }
 
+.equip_form--inline {
+  display: inline-flex;
+  align-items: center;
+}
+
+.equip_handle_anchor {
+  cursor: pointer;
+  margin-right: 4px;
+}
+
+.equip_handle_anchor:focus-visible {
+  outline: 1px solid rgba(116, 77, 34, 0.9);
+  outline-offset: 1px;
+}
+
 .equip_toggle--remove {
   background: linear-gradient(145deg, rgba(246, 205, 188, 0.9), rgba(183, 87, 57, 0.86));
   border-color: rgba(126, 54, 32, 0.72);
@@ -1722,8 +1931,10 @@
   z-index: 1;
 }
 
-.armor_worn li.armor_row .equip_toggle.is-equipped {
-  margin-left: 6px;
+.armor_row_label {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
 }
 
 .armor_stats {
@@ -1928,9 +2139,9 @@
   position: fixed;
   left: 16px;
   top: 16px;
-  width: min(760px, calc(100vw - 24px));
-  max-height: calc(100vh - 24px);
-  overflow: auto;
+  width: min(760px, calc((100vh - 24px) / 1.4142), calc(100vw - 24px));
+  max-height: min(calc(760px * 1.4142), calc(100vh - 24px));
+  overflow: hidden;
   pointer-events: none;
   opacity: 0;
   transform: translateY(8px) scale(0.985);
@@ -1953,7 +2164,9 @@
   display: flex;
   flex-direction: column;
   gap: 14px;
+  max-height: min(calc(760px * 1.4142), calc(100vh - 24px));
   padding: 16px 16px 18px;
+  box-sizing: border-box;
   border: 1px solid rgba(95, 69, 42, 0.92);
   border-radius: 12px;
   background: linear-gradient(180deg, rgba(38, 27, 17, 0.96), rgba(20, 15, 11, 0.98));
@@ -1961,6 +2174,7 @@
     0 24px 54px rgba(0, 0, 0, 0.42),
     inset 0 0 0 1px rgba(196, 159, 107, 0.18);
   color: #ead9b1;
+  overflow: hidden;
 }
 
 .floating-tooltip-card__frame::before {
@@ -1994,19 +2208,24 @@
   margin: 0;
   font-family: "Cormorant Garamond", Georgia, serif;
   font-size: clamp(1.02rem, 1.45vw, 1.45rem);
-  line-height: 1.08;
-  letter-spacing: 0.015em;
+  line-height: 1.12;
+  letter-spacing: 0.03em;
   text-transform: none;
   font-weight: 600;
+  font-variant: small-caps;
+  font-variant-caps: small-caps;
   color: #e7d2a3;
 }
 
 .floating-tooltip-card__subtitle {
   margin: 6px 0 0;
-  font-family: "Cormorant Garamond", Georgia, serif;
-  font-size: 0.98rem;
-  line-height: 1.15;
-  letter-spacing: 0.04em;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 0.92rem;
+  line-height: 1.2;
+  letter-spacing: 0.01em;
+  text-transform: none;
+  font-variant: normal;
+  font-variant-caps: normal;
   color: color-mix(in srgb, var(--tooltip-card-accent) 64%, #f4dfac 36%);
 }
 
@@ -2028,7 +2247,10 @@
 .floating-tooltip-card__content {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
+  flex: 1 1 auto;
   gap: 14px;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .floating-tooltip-card__content.has-media {
@@ -2095,20 +2317,44 @@
 }
 
 .floating-tooltip-card__details {
+  min-height: 0;
+  overflow-y: auto;
   padding: 12px 14px;
+}
+
+.floating-tooltip-card__details,
+.floating-tooltip-card__details p,
+.floating-tooltip-card__details li,
+.floating-tooltip-card__details td,
+.floating-tooltip-card__details code,
+.floating-tooltip-card__details .tooltip_rune_inline_name {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1rem;
+  line-height: 1.5;
+  letter-spacing: 0;
+  text-transform: none;
+  font-variant: normal;
+  font-variant-caps: normal;
 }
 
 .floating-tooltip-card__lore {
   display: flex;
   flex-direction: column;
+  flex: 0 1 42%;
   gap: 14px;
+  min-height: 0;
+  overflow-y: auto;
   padding: 18px 22px;
 }
 
 .floating-tooltip-card__lore p {
-  font-family: "Cormorant Garamond", Georgia, serif;
-  font-size: 0.94rem;
-  line-height: 1.42;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1rem;
+  line-height: 1.5;
+  letter-spacing: 0;
+  text-transform: none;
+  font-variant: normal;
+  font-variant-caps: normal;
 }
 
 .floating-tooltip-card__section {
@@ -2119,10 +2365,12 @@
 
 .floating-tooltip-card__section_title {
   margin: 0;
-  font-family: "Cinzel", Georgia, serif;
-  font-size: 0.78rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 0.85rem;
+  letter-spacing: 0.01em;
+  text-transform: none;
+  font-variant: normal;
+  font-variant-caps: normal;
   color: rgba(97, 68, 37, 0.88);
 }
 
@@ -2296,9 +2544,11 @@
 .floating-tooltip-card table {
   width: 100%;
   border-collapse: collapse;
-  font-family: "Cormorant Garamond", Georgia, serif;
-  font-size: 0.92rem;
-  line-height: 1.24;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 0.95rem;
+  line-height: 1.3;
+  font-variant: normal;
+  font-variant-caps: normal;
   background: transparent;
 }
 
@@ -2311,10 +2561,12 @@
 }
 
 .floating-tooltip-card th {
-  font-family: "Cinzel", Georgia, serif;
-  font-size: 0.7rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 0.8rem;
+  letter-spacing: 0.01em;
+  text-transform: none;
+  font-variant: normal;
+  font-variant-caps: normal;
   color: rgba(97, 68, 37, 0.88);
 }
 

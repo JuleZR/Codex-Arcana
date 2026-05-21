@@ -1,18 +1,27 @@
 <div class="p2_panel p2_fill" id="sheetInventoryPanel">
   <div class="p2_panel_header">
     <h2>Ausr&uuml;stung</h2>
-    <div class="inventory_total_weight" aria-label="Gesamtgewicht aller mitgef&uuml;hrten und ausger&uuml;steten Gegenst&auml;nde">
+    <button
+      type="button"
+      class="inventory_total_weight inventory_total_weight--toggle"
+      aria-label="Traglast aus mitgef&uuml;hrtem Gewicht ein- oder ausschalten"
+      aria-pressed="false"
+      data-carry-load-toggle
+      data-carry-weight="{{ carry_load.weight }}"
+    >
+      <span class="inventory_total_weight__penalty" data-carry-load-penalty hidden></span>
+      <span class="inventory_total_weight__separator" data-carry-load-separator hidden>&middot;</span>
       <span class="inventory_total_weight__value">{{ inventory_total_weight_display }} kg</span>
-    </div>
+    </button>
   </div>
   <div class="panel_scroll inventory_scroll">
-    <ul class="p2_lines inventory_list" data-inventory-zone="carried">
+    <ul class="p2_lines inventory_list inventory_list--dropzone" data-inventory-zone="carried">
       {% include "charsheet/partials/_inventory_row_list.html" with rows=inventory_rows %}
     </ul>
     <section class="inventory_storage{% if not stored_inventory_rows %} inventory_storage--empty{% endif %}"
-             data-inventory-storage
-             data-inventory-zone="stored"
-             {% if not stored_inventory_rows %}hidden{% endif %}>
+              data-inventory-storage
+              data-inventory-zone="stored"
+              {% if not stored_inventory_rows %}hidden{% endif %}>
       <div class="inventory_storage_header">
         <h3>Karren / Lager / Pferd</h3>
       </div>

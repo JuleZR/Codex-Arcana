@@ -56,5 +56,14 @@
     </div>
   </details>
   <span class="load_label">Belastung (Bel.)</span>
-  <span class="load_value tooltip_target" data-tooltip-side="cursor-right" data-tooltip="{{ core_stats.load_tooltip }}">{{ core_stats.load_value }}</span>
+  <span
+    class="load_value tooltip_target"
+    data-tooltip-side="cursor-right"
+    data-tooltip="{{ core_stats.load_tooltip }}"
+    data-carry-load-display
+    data-format="modifier"
+    data-base-value="{{ core_stats.load_value }}"
+    data-tooltip-off="{{ core_stats.load_tooltip }}"
+    data-tooltip-on="{{ core_stats.load_tooltip_with_carry }}"
+  >{{ core_stats.load_value }}</span>
 </div>

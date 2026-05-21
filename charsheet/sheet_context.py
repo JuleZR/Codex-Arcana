@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from collections import OrderedDict, defaultdict
-from decimal import Decimal
 import json
 import math
 
@@ -431,6 +430,7 @@ def _collect_rune_rows(*, item: Item, character_item: CharacterItem | None = Non
                     {
                         "name": f"{item_rune.rune.name}{level_label}",
                         "description": _rune_card_description(item_rune.rune),
+                        "inline_description": _rune_inline_description(item_rune.rune),
                         "image": _rune_image_url(item_rune.rune),
                     }
                 )
@@ -446,6 +446,7 @@ def _collect_rune_rows(*, item: Item, character_item: CharacterItem | None = Non
                     {
                         "name": display_name,
                         "description": _rune_card_description(spec.rune),
+                        "inline_description": _rune_inline_description(spec.rune),
                         "image": _rune_image_url(spec.rune),
                     }
                 )
@@ -456,6 +457,7 @@ def _collect_rune_rows(*, item: Item, character_item: CharacterItem | None = Non
                 {
                     "name": rune.name,
                     "description": _rune_card_description(rune),
+                    "inline_description": _rune_inline_description(rune),
                     "image": _rune_image_url(rune),
                 }
             )
@@ -469,6 +471,7 @@ def _collect_rune_rows(*, item: Item, character_item: CharacterItem | None = Non
                 {
                     "name": rune.name,
                     "description": _rune_card_description(rune),
+                    "inline_description": _rune_inline_description(rune),
                     "image": _rune_image_url(rune),
                 }
             )
@@ -480,11 +483,16 @@ def _character_item_has_visible_runes(*, item: Item, character_item: CharacterIt
     return bool(_collect_rune_rows(item=item, character_item=character_item))
 
 
-def _rune_card_description(rune: Rune) -> str:
-    """Prefer a rune's short description when present."""
+def _rune_inline_description(rune: Rune) -> str:
+    """Prefer a rune's short description for inline item-card displays."""
     short_description = str(getattr(rune, "short_description", "") or "").strip()
     if short_description:
         return short_description
+    return str(rune.description or "").strip()
+
+
+def _rune_card_description(rune: Rune) -> str:
+    """Return the full rune description for standalone rune cards."""
     return str(rune.description or "").strip()
 
 
@@ -676,7 +684,7 @@ def _build_character_item_rune_tooltip_rows(
     rune_lines: list[str] = []
     for row in _collect_rune_rows(item=item, character_item=character_item):
         rune_name = _single_line(str(row.get("name") or ""))
-        rune_description = _single_line(str(row.get("description") or ""))
+        rune_description = _single_line(str(row.get("inline_description") or row.get("description") or ""))
         rune_image = _single_line(str(row.get("image") or ""))
         if not rune_name:
             continue
@@ -825,7 +833,13 @@ def _build_item_tooltip_rows(item_engine: ItemEngine, item: Item) -> list[tuple[
     return rows
 
 
-def _build_weapon_calculation_tooltip(engine, row: dict[str, object]) -> str:
+def _build_weapon_calculation_tooltip(
+    engine,
+    row: dict[str, object],
+    *,
+    extra_load_penalty: int = 0,
+    extra_load_label: str = "Traglast",
+) -> str:
     """Return a detailed damage-modifier ledger for one equipped weapon row."""
     weapon_stats = getattr(row["item"], "weaponstats", None)
     damage_source = getattr(weapon_stats, "damage_source", None)
@@ -838,21 +852,23 @@ def _build_weapon_calculation_tooltip(engine, row: dict[str, object]) -> str:
         mastery_source = weapon_master_school_entry.school.name
     damage_modifier_rows = _build_modifier_breakdown_rows(engine, damage_source_slug) if damage_source_slug else []
     item_damage_rows = _build_character_item_stat_modifier_rows(engine, row["character_item"], WEAPON_DAMAGE)
-    return _build_core_stat_tooltip(
-        [
-            {"label": "ST-Bonus/Malus", "value": format_modifier(strength_mod), "source": "ST"},
-            *damage_modifier_rows,
-            {
-                "label": "Waffenmeister",
-                "value": format_modifier(mastery_bonus),
-                "source": mastery_source,
-                "tone": "modifier" if mastery_bonus else "",
-            },
-            *item_damage_rows,
-            {"label": "Belastung", "value": row["bel_malus_display"]},
-            {"label": "= Gesamt", "value": row["with_bel_display"], "tone": "total"},
-        ]
-    )
+    rows = [
+        {"label": "ST-Bonus/Malus", "value": format_modifier(strength_mod), "source": "ST"},
+        *damage_modifier_rows,
+        {
+            "label": "Waffenmeister",
+            "value": format_modifier(mastery_bonus),
+            "source": mastery_source,
+            "tone": "modifier" if mastery_bonus else "",
+        },
+        *item_damage_rows,
+        {"label": "Belastung", "value": row["bel_malus_display"]},
+    ]
+    if extra_load_penalty:
+        rows.append({"label": extra_load_label, "value": format_modifier(extra_load_penalty)})
+    total_value = int(row.get("with_bel_value", 0) or 0) + int(extra_load_penalty or 0)
+    rows.append({"label": "= Gesamt", "value": format_modifier(total_value), "tone": "total"})
+    return _build_core_stat_tooltip(rows)
 
 
 def _build_weapon_maneuver_breakdown_rows(engine, weapon_row: dict[str, object]) -> list[dict[str, object]]:
@@ -966,6 +982,45 @@ def _build_load_tooltip(engine) -> str:
     if engine.resolve_flags().get(ARMOR_PENALTY_IGNORE, False) and total_raw_load:
         rows.append(_build_rule_flag_tooltip_row(engine, ARMOR_PENALTY_IGNORE, format_modifier(-total_raw_load)))
     rows.append({"label": "= Gesamt", "value": format_modifier(engine.load_penalty()), "tone": "total"})
+    return _build_core_stat_tooltip(rows)
+
+
+def _build_carry_load_tooltip(carry_state: dict[str, object], *, active: bool) -> str:
+    """Return a tooltip for the carried-weight toggle and its penalty table."""
+    weight = carry_state["weight"]
+    strength = int(carry_state["strength"])
+    penalty = int(carry_state["penalty"])
+    rows: list[dict[str, object]] = [
+        {"label": "Mitgeführt", "value": f"{format_compact_number(weight)} kg"},
+        {"label": "Zustand", "value": str(carry_state["state_label"])},
+        {"label": "Traglast", "value": "[[STATUS:Ein|#6d8f4e]]" if active else "[[STATUS:Aus|#8f6b4a]]"},
+        {"label": "Malus", "value": format_modifier(penalty if active else 0)},
+        {"label": "[[EMPTY]]", "value": "[[EMPTY]]"},
+        {"label": "Unbelastet", "value": f"unter {format_compact_number(int(carry_state['threshold_light']))} kg"},
+        {"label": "Leicht belastet", "value": f"ab {format_compact_number(int(carry_state['threshold_light']))} kg"},
+        {"label": "Bepackt", "value": f"ab {format_compact_number(int(carry_state['threshold_medium']))} kg"},
+        {"label": "Schwer bepackt", "value": f"ab {format_compact_number(int(carry_state['threshold_heavy']))} kg"},
+        {"label": "Überladen", "value": f"ab {format_compact_number(int(carry_state['threshold_overloaded']))} kg"},
+        {"label": "Stärke", "value": strength},
+    ]
+    return _build_core_stat_tooltip(rows)
+
+
+def _build_combined_load_tooltip(engine, carry_state: dict[str, object], *, carry_enabled: bool) -> str:
+    """Return a tooltip for armor/shield load plus optional carrying load."""
+    armor_load = sum(ItemEngine(armor).get_armor_encumbrance() or 0 for armor in engine.equipped_armor_items())
+    shield_load = sum(ItemEngine(shield).get_shield_encumbrance() or 0 for shield in engine.equipped_shield_items())
+    total_raw_load = armor_load + shield_load
+    carry_penalty = int(carry_state["penalty"]) if carry_enabled else 0
+    total_penalty = int(engine.load_penalty()) + carry_penalty
+    rows: list[dict[str, object]] = [
+        {"label": "Rüstungen", "value": armor_load},
+        {"label": "Schilde", "value": shield_load},
+        {"label": "Traglast", "value": format_modifier(carry_penalty), "source": str(carry_state["state_label"])},
+    ]
+    if engine.resolve_flags().get(ARMOR_PENALTY_IGNORE, False) and total_raw_load:
+        rows.append(_build_rule_flag_tooltip_row(engine, ARMOR_PENALTY_IGNORE, format_modifier(-total_raw_load)))
+    rows.append({"label": "= Gesamt", "value": format_modifier(total_penalty), "tone": "total"})
     return _build_core_stat_tooltip(rows)
 
 
@@ -1691,6 +1746,13 @@ def _build_inventory_rows(character: Character) -> list[dict]:
                 "is_stored": bool(character_item.stored),
                 "can_consume": item.stackable and item.item_type == Item.ItemType.CONSUM,
                 "can_equip": item.item_type in EQUIPPABLE_ITEM_TYPES or character_item.is_magic_effective,
+                "equip_drop_zone": (
+                    "weapon"
+                    if item.item_type == Item.ItemType.WEAPON
+                    else "armor"
+                    if (item.item_type in EQUIPPABLE_ITEM_TYPES or character_item.is_magic_effective)
+                    else ""
+                ),
                 "can_socket_runes": True,
                 "equip_label": "Anlegen",
                 "extra_rune_ids": active_rune_ids,
@@ -1795,13 +1857,8 @@ def _build_inventory_rows(character: Character) -> list[dict]:
 
 
 def _build_inventory_total_weight_display(character: Character) -> str:
-    """Return the summed weight of all carried or equipped items."""
-    total_weight = Decimal("0")
-    character_items = CharacterItem.objects.filter(owner=character).select_related("item")
-    for character_item in character_items:
-        if character_item.stored and not character_item.equipped:
-            continue
-        total_weight += ItemEngine(character_item).get_weight()
+    """Return the summed weight of all non-stored carried and equipped items."""
+    total_weight = ItemEngine.active_inventory_weight_for_character(character)
     return format_compact_number(total_weight)
 
 
@@ -1884,6 +1941,7 @@ def _build_weapon_rows(engine) -> list[dict]:
                 ),
                 "rune_rows": _collect_rune_rows(item=row["item"], character_item=row["character_item"]),
                 "maneuver_mod_display": maneuver_option["total_modifier_display"],
+                "with_bel_value": int(row.get("with_bel", 0) or 0),
                 "maneuver_with_bel_display": maneuver_option["with_bel_display"],
                 "maneuver_attribute_label": maneuver_option["attribute_code"],
                 "maneuver_attribute_modifier": int(maneuver_option.get("attribute_modifier", 0) or 0),
@@ -2657,13 +2715,29 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
         for short_name, label in ATTRIBUTE_ORDER
     ]
     load_penalty = engine.load_penalty()
+    carry_state = ItemEngine.carry_state_for_character(character)
+    carry_penalty = int(carry_state["penalty"])
     skill_rows, character_skills, skill_manager_rows = _build_skill_rows(character, engine, load_penalty=load_penalty)
+    for row in skill_rows:
+        if "with_load_total_value" not in row:
+            continue
+        base_with_load_total = int(row.get("with_load_total_value", 0) or 0)
+        row["carry_with_load_total_value"] = base_with_load_total + carry_penalty
+        row["carry_with_load_total"] = base_with_load_total + carry_penalty
     advantage_rows, disadvantage_rows = _build_trait_rows(character)
     inventory_rows = _build_inventory_rows(character)
     carried_inventory_rows = [row for row in inventory_rows if not row.get("is_stored")]
     stored_inventory_rows = [row for row in inventory_rows if row.get("is_stored")]
     inventory_total_weight_display = _build_inventory_total_weight_display(character)
     weapon_rows = _build_weapon_rows(engine)
+    for row in weapon_rows:
+        row["carry_with_bel_value"] = int(row.get("with_bel_value", 0) or 0) + carry_penalty
+        row["carry_with_bel_display"] = format_modifier(int(row["carry_with_bel_value"]))
+        row["carry_calculation_tooltip"] = _build_weapon_calculation_tooltip(
+            engine,
+            row,
+            extra_load_penalty=carry_penalty,
+        )
     battle_calculator_payload = BattleCalculatorEngine.build_payload(engine, skill_rows, weapon_rows)
     armor_rows = _build_armor_rows(engine)
     school_technique_rows, school_levels = _build_school_technique_rows(character, engine)
@@ -2774,8 +2848,11 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
     magic_engine = character.get_magic_engine()
     spell_panel_data = magic_engine.get_spell_panel_data()
     load_tooltip = _build_load_tooltip(engine)
+    load_tooltip_with_carry = _build_combined_load_tooltip(engine, carry_state, carry_enabled=True)
     total_armor_tooltip = _build_total_armor_tooltip(engine)
     minimum_strength_tooltip = _build_minimum_strength_tooltip(engine)
+    carry_toggle_tooltip = _build_carry_load_tooltip(carry_state, active=False)
+    carry_toggle_tooltip_active = _build_carry_load_tooltip(carry_state, active=True)
     shop_quality_choices = [
         {
             "value": value,
@@ -2824,6 +2901,14 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
         "inventory_rows": carried_inventory_rows,
         "stored_inventory_rows": stored_inventory_rows,
         "inventory_total_weight_display": inventory_total_weight_display,
+        "carry_load": {
+            "weight": str(carry_state["weight"]),
+            "weight_display": inventory_total_weight_display,
+            "penalty": carry_penalty,
+            "state_label": str(carry_state["state_label"]),
+            "tooltip": carry_toggle_tooltip,
+            "tooltip_active": carry_toggle_tooltip_active,
+        },
         "weapon_rows": weapon_rows,
         "battle_calculator_payload": battle_calculator_payload,
         "armor_rows": armor_rows,
@@ -2833,8 +2918,12 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
         "core_stats": {
             "load_value": load_penalty,
             "load_tooltip": load_tooltip,
+            "load_value_with_carry": load_penalty + carry_penalty,
+            "load_tooltip_with_carry": load_tooltip_with_carry,
             "initiative_display": format_modifier(initiative_value),
             "initiative_with_load_display": format_modifier(initiative_value + load_penalty),
+            "initiative_with_load_value": initiative_value + load_penalty,
+            "initiative_with_load_display_with_carry": format_modifier(initiative_value + load_penalty + carry_penalty),
             "initiative_tooltip": _build_core_stat_tooltip(
                 [
                     {"label": "WA-Bonus/Malus", "value": format_modifier(initiative_wa_mod)},
@@ -2850,6 +2939,20 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
                     *_build_modifier_breakdown_rows(engine, INITIATIVE),
                     {"label": "Belastung", "value": format_modifier(load_penalty)},
                     {"label": "= Gesamt", "value": format_modifier(initiative_value + load_penalty), "tone": "total"},
+                ]
+            ),
+            "initiative_with_load_tooltip_with_carry": _build_core_stat_tooltip(
+                [
+                    {"label": "WA-Bonus/Malus", "value": format_modifier(initiative_wa_mod)},
+                    {"label": "Wundmalus", "value": format_modifier(initiative_wound_penalty)},
+                    *_build_modifier_breakdown_rows(engine, INITIATIVE),
+                    {"label": "Rüstungsbelastung", "value": format_modifier(load_penalty)},
+                    {"label": "Traglast", "value": format_modifier(carry_penalty), "source": str(carry_state["state_label"])},
+                    {
+                        "label": "= Gesamt",
+                        "value": format_modifier(initiative_value + load_penalty + carry_penalty),
+                        "tone": "total",
+                    },
                 ]
             ),
             "vw": vw_value,
@@ -3013,7 +3116,7 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
             {
                 "id": rune.id,
                 "name": rune.name,
-                "description": _single_line(_rune_card_description(rune)),
+                "description": _single_line(_rune_inline_description(rune)),
                 "image": _rune_image_url(rune),
                 "has_specialization": rune.has_specialization,
                 "specialization_label": rune.specialization_label or "Bezeichnung",

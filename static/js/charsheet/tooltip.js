@@ -1,4 +1,4 @@
-import { escapeHtml } from "./utils.js";
+import { escapeHtml, loadJsonStorage, saveJsonStorage } from "./utils.js";
 
 function parseTableRow(line) {
   const trimmed = String(line || "").trim();
@@ -544,6 +544,7 @@ export function initTooltips() {
 
   const SHOW_DELAY_MS = 1100;
   const HIDE_HOLD_MS = 380;
+  const CARD_STORAGE_KEY = "charsheet.tooltipCard";
   let activeTarget = null;
   let activeCardTarget = null;
   let pendingTarget = null;
@@ -574,11 +575,53 @@ export function initTooltips() {
     }
   };
 
+  const readCardState = () => loadJsonStorage(CARD_STORAGE_KEY, null);
+
+  const buildCardTargetSignature = (target) => {
+    if (!(target instanceof HTMLElement)) {
+      return "";
+    }
+    const explicitId = String(target.getAttribute("data-tooltip-persist-id") || "").trim();
+    if (explicitId) {
+      return explicitId;
+    }
+    const title = normalizeInlineText(target.getAttribute("data-tooltip-title") || target.textContent || "");
+    const subtitle = normalizeInlineText(target.getAttribute("data-tooltip-subtitle") || "");
+    const image = String(target.getAttribute("data-tooltip-image") || "").trim();
+    const text = String(target.getAttribute("data-tooltip") || "")
+      .replace(/\r\n/g, "\n")
+      .replace(/\\n/g, "\n")
+      .trim();
+    return [title, subtitle, image, text].join("||");
+  };
+
+  const saveCardState = (target) => {
+    if (!(target instanceof HTMLElement)) {
+      saveJsonStorage(CARD_STORAGE_KEY, null);
+      return;
+    }
+    saveJsonStorage(CARD_STORAGE_KEY, {
+      signature: buildCardTargetSignature(target),
+    });
+  };
+
+  const findPersistedCardTarget = () => {
+    const persisted = readCardState();
+    const signature = String(persisted?.signature || "").trim();
+    if (!signature) {
+      return null;
+    }
+    return Array.from(document.querySelectorAll(".tooltip_target[data-tooltip][data-tooltip-mode='card']")).find((target) => (
+      target instanceof HTMLElement && buildCardTargetSignature(target) === signature
+    )) || null;
+  };
+
   const closeCard = () => {
     card.classList.remove("is-visible", "is-dragging");
     card.innerHTML = "";
     activeCardTarget = null;
     dragPointerId = null;
+    saveCardState(null);
   };
 
   const scheduleHide = () => {
@@ -671,6 +714,7 @@ export function initTooltips() {
     });
     card.classList.add("is-visible");
     activeCardTarget = target;
+    saveCardState(target);
     syncTooltipCardMediaHeight(card);
     const cardImage = card.querySelector(".floating-tooltip-card__image");
     if (cardImage instanceof HTMLImageElement) {
@@ -807,9 +851,6 @@ export function initTooltips() {
       openCard(target);
       return;
     }
-    if (card.classList.contains("is-visible") && !(event.target instanceof Node && card.contains(event.target))) {
-      closeCard();
-    }
   });
 
   window.addEventListener("scroll", () => {
@@ -842,4 +883,16 @@ export function initTooltips() {
       closeCard();
     }
   });
+
+  const restorePersistedCard = () => {
+    const target = findPersistedCardTarget();
+    if (!(target instanceof HTMLElement)) {
+      return;
+    }
+    closeCard();
+    openCard(target);
+  };
+
+  restorePersistedCard();
+  document.addEventListener("charsheet:partials-applied", restorePersistedCard);
 }

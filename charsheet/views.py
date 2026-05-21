@@ -1436,10 +1436,15 @@ def toggle_equip(request, pk):
     if ci.equip_locked:
         if not ci.equipped:
             ci.equipped = True
-            ci.save(update_fields=["equipped"])
+            ci.stored = False
+            ci.save(update_fields=["equipped", "stored"])
     else:
         ci.equipped = not ci.equipped
-        ci.save(update_fields=["equipped"])
+        update_fields = ["equipped"]
+        if ci.equipped and ci.stored:
+            ci.stored = False
+            update_fields.append("stored")
+        ci.save(update_fields=update_fields)
     if _is_partial_request(request):
         return _sheet_partials_response(
             request,
@@ -1496,7 +1501,14 @@ def consume_item(request, pk):
         ci.delete()
     if _is_partial_request(request):
         character = _owned_character_or_404(request, owner_id)
-        return _sheet_partials_response(request, character, "inventory_panel")
+        return _sheet_partials_response(
+            request,
+            character,
+            "character_header",
+            "load_panel",
+            "core_stats_panel",
+            "inventory_panel",
+        )
 
     return redirect("character_sheet", character_id=owner_id)
 
@@ -1518,7 +1530,14 @@ def remove_item(request, pk):
         ci.delete()
     if _is_partial_request(request):
         character = _owned_character_or_404(request, owner_id)
-        return _sheet_partials_response(request, character, "inventory_panel")
+        return _sheet_partials_response(
+            request,
+            character,
+            "character_header",
+            "load_panel",
+            "core_stats_panel",
+            "inventory_panel",
+        )
 
     return redirect("character_sheet", character_id=owner_id)
 
@@ -1753,6 +1772,18 @@ def buy_shop_cart(request, character_id: int):
     if response_payload.get("ok"):
         context = _build_sheet_context_for_request(request, character)
         response_payload["partials"] = [
+            {
+                "target": "sheetCharacterHeader",
+                "html": render_to_string("charsheet/partials/_character_header.html", context, request=request),
+            },
+            {
+                "target": "sheetLoadPanel",
+                "html": render_to_string("charsheet/partials/_load_panel.html", context, request=request),
+            },
+            {
+                "target": "sheetCoreStatsPanel",
+                "html": render_to_string("charsheet/partials/_core_stats_panel.html", context, request=request),
+            },
             {
                 "target": "sheetWalletPanel",
                 "html": render_to_string("charsheet/partials/_wallet_panel.html", context, request=request),

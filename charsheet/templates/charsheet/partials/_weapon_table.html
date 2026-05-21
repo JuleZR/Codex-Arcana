@@ -1,6 +1,6 @@
 <div class="p2_panel p2_weapons" id="sheetWeaponPanel">
   <h2>Waffen</h2>
-  <div class="panel_scroll weapons_scroll">
+  <div class="panel_scroll weapons_scroll inventory_drop_target" data-inventory-zone="equip-weapon">
     <table class="weapons_table" aria-label="Waffen">
       <thead>
         <tr>
@@ -17,14 +17,24 @@
       </thead>
       <tbody>
         {% for row in weapon_rows %}
-          <tr{% if row.quality_color %} class="quality_tinted_row" style="--row-quality-color: {{ row.quality_color }};"{% endif %}>
+          <tr{% if row.show_weapon_name %} data-equipped-row data-character-item-id="{{ row.character_item.pk }}" data-equipped="1" data-equip-drop-zone="weapon"{% endif %}{% if row.quality_color %} class="quality_tinted_row" style="--row-quality-color: {{ row.quality_color }};"{% endif %}>
             <td>
               {% if row.show_weapon_name %}
                 <div class="weapon_name_cell weapon_name_cell--primary">
                   {% if row.can_unequip %}
-                    <form method="post" action="{% url 'toggle_equip' row.character_item.pk %}" class="equip_form" data-sheet-action>
+                    <form method="post" action="{% url 'toggle_equip' row.character_item.pk %}" class="equip_form equip_form--inline" data-sheet-action data-equip-form>
                       {% csrf_token %}
-                      <button type="submit" class="equip_toggle is-equipped" title="Ablegen">-</button>
+                      <span
+                        class="equip_handle_anchor inv_drag_handle"
+                        tabindex="0"
+                        data-equip-handle-submit
+                        data-drag-handle
+                        draggable="true"
+                        aria-label="Ablegen"
+                        title="Ablegen"
+                      >
+                        <span class="inv_drag_handle_dots" aria-hidden="true"></span>
+                      </span>
                     </form>
                   {% endif %}
                   <span class="weapon_name{% if row.tooltip_text %} tooltip_target{% endif %}"{% if row.tooltip_text %} data-tooltip-side="left" data-tooltip-mode="card" data-tooltip-title="{{ row.item_name|escape }}" data-tooltip-subtitle="{{ row.tooltip_subtitle|escape }}"{% if row.item_image_url %} data-tooltip-image="{{ row.item_image_url }}"{% endif %} data-tooltip-accent="{{ row.quality_color }}" data-tooltip="{{ row.tooltip_text }}"{% endif %}>{{ row.weapon_display_name|default:row.item_name }}</span>
@@ -53,7 +63,16 @@
             <td>-</td>
             <td title="Schadensmodifikator: {{ row.dmg_mod_display|default:'0' }}">{{ row.dmg_mod_display|default:"-" }}</td>
             <td>
-              <span class="pill tooltip_target" data-tooltip-side="left" data-tooltip="{{ row.calculation_tooltip }}">
+              <span
+                class="pill tooltip_target"
+                data-tooltip-side="left"
+                data-tooltip="{{ row.calculation_tooltip }}"
+                data-carry-weapon-loaded-total
+                data-format="modifier"
+                data-base-value="{{ row.with_bel_value }}"
+                data-tooltip-off="{{ row.calculation_tooltip }}"
+                data-tooltip-on="{{ row.carry_calculation_tooltip }}"
+              >
                 {{ row.with_bel_display }}
               </span>
             </td>

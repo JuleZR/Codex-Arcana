@@ -3,12 +3,19 @@
       data-inventory-row
       data-character-item-id="{{ row.character_item.pk }}"
       data-stored="{% if row.is_stored %}1{% else %}0{% endif %}"
+      data-item-type="{{ row.item.item_type }}"
+      data-equip-drop-zone="{{ row.equip_drop_zone }}"
       {% if row.quality_color %} style="--row-quality-color: {{ row.quality_color }};"{% endif %}
       {% if row.tooltip_text %} data-tooltip-side="right" data-tooltip-mode="card" data-tooltip-title="{{ row.item_name|escape }}" data-tooltip-subtitle="{{ row.tooltip_subtitle|escape }}"{% if row.item_image_url %} data-tooltip-image="{{ row.item_image_url }}"{% endif %} data-tooltip-accent="{{ row.quality_color }}" data-tooltip="{{ row.tooltip_text }}"{% endif %}>
     <form method="post" action="{% url 'set_item_storage' row.character_item.pk %}" class="inv_storage_form" data-sheet-action data-storage-form hidden>
       {% csrf_token %}
       <input type="hidden" name="stored" value="{% if row.is_stored %}0{% else %}1{% endif %}">
     </form>
+    {% if row.can_equip %}
+      <form method="post" action="{% url 'toggle_equip' row.character_item.pk %}" class="inv_equip_form" data-sheet-action data-equip-form hidden>
+        {% csrf_token %}
+      </form>
+    {% endif %}
     <span class="inv_name_wrap">
       <span class="inv_drag_handle" draggable="true" data-drag-handle aria-label="Item verschieben" title="Zum Verschieben ziehen">
         <span class="inv_drag_handle_dots" aria-hidden="true"></span>

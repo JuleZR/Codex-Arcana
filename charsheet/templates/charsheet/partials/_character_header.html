@@ -76,9 +76,9 @@
         </thead>
         <tbody>
           {% for row in attribute_rows %}
-            <tr>
+            <tr data-attribute-short-name="{{ row.short_name }}">
               <td class="attribute">{{ row.label }}</td>
-              <td class="value">{{ row.value }}</td>
+              <td class="value" data-attribute-value>{{ row.value }}</td>
               <td class="mod"><span class="mod-badge">{{ row.modifier }}</span></td>
             </tr>
           {% endfor %}
@@ -186,7 +186,16 @@
               <td>{{ row.rank }}</td>
               <td>{{ row.misc_mod }}</td>
               <td>{{ row.total }}</td>
-              <td><span class="bel_dot tooltip_target" data-tooltip-side="left" data-tooltip="{{ row.calculation_tooltip }}">{{ row.with_load_total }}</span></td>
+              <td>
+                <span
+                  class="bel_dot tooltip_target"
+                  data-tooltip-side="left"
+                  data-tooltip="{{ row.calculation_tooltip }}"
+                  data-carry-skill-loaded-total
+                  data-base-value="{{ row.with_load_total }}"
+                  data-carry-value="{{ row.carry_with_load_total }}"
+                >{{ row.with_load_total }}</span>
+              </td>
             </tr>
           {% endfor %}
         </tbody>

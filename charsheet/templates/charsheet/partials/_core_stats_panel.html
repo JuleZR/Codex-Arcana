@@ -6,7 +6,16 @@
     <div class="core_main">
       <span class="core_name">Initiative</span>
       <span class="core_value tooltip_target" data-tooltip-side="right" data-tooltip="{{ core_stats.initiative_tooltip }}">{{ core_stats.initiative_display }}</span>
-      <span class="core_value tooltip_target" data-tooltip-side="right" data-tooltip="{{ core_stats.initiative_with_load_tooltip }}">{{ core_stats.initiative_with_load_display }}</span>
+      <span
+        class="core_value tooltip_target"
+        data-tooltip-side="right"
+        data-tooltip="{{ core_stats.initiative_with_load_tooltip }}"
+        data-carry-initiative-display
+        data-format="modifier"
+        data-base-value="{{ core_stats.initiative_with_load_value }}"
+        data-tooltip-off="{{ core_stats.initiative_with_load_tooltip }}"
+        data-tooltip-on="{{ core_stats.initiative_with_load_tooltip_with_carry }}"
+      >{{ core_stats.initiative_with_load_display }}</span>
     </div>
     <div class="core_formula">Wa-Bonus/Malus + Mod.</div>
   </div>

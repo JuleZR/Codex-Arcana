@@ -389,3 +389,87 @@ class ItemEngine:
         if not stats:
             return set()
         return {flag.key for flag in stats.flags.all()}
+
+    @classmethod
+    def total_weight_for_character(
+        cls,
+        character,
+        *,
+        include_stored: bool = True,
+        include_equipped: bool = True,
+    ) -> Decimal:
+        """Return the summed weight of the character's owned items."""
+        total_weight = Decimal("0")
+        character_items = CharacterItem.objects.filter(owner=character).select_related("item")
+        for character_item in character_items:
+            if not include_stored and character_item.stored:
+                continue
+            if not include_equipped and character_item.equipped:
+                continue
+            total_weight += cls(character_item).get_weight()
+        return total_weight
+
+    @classmethod
+    def active_inventory_weight_for_character(cls, character) -> Decimal:
+        """Return the weight of all non-stored items, including equipped ones."""
+        return cls.total_weight_for_character(
+            character,
+            include_stored=False,
+            include_equipped=True,
+        )
+
+    @classmethod
+    def carry_penalty_for_character(cls, character) -> int:
+        """Return the signed carrying penalty derived from active inventory weight."""
+        strength = int(character.get_engine().attributes().get(ATTR_ST, 0) or 0)
+        carried_weight = cls.active_inventory_weight_for_character(character)
+        if strength <= 0:
+            return -8 if carried_weight > 0 else 0
+
+        threshold_light = Decimal(strength * 2)
+        threshold_medium = Decimal(strength * 3)
+        threshold_heavy = Decimal(strength * 6)
+        threshold_overloaded = Decimal(strength * 8)
+
+        if carried_weight >= threshold_overloaded:
+            return -8
+        if carried_weight >= threshold_heavy:
+            return -4
+        if carried_weight >= threshold_medium:
+            return -2
+        if carried_weight >= threshold_light:
+            return -1
+        return 0
+
+    @classmethod
+    def carry_state_for_character(cls, character) -> dict[str, object]:
+        """Return carrying state data for all non-stored inventory weight."""
+        strength = int(character.get_engine().attributes().get(ATTR_ST, 0) or 0)
+        carried_weight = cls.active_inventory_weight_for_character(character)
+        penalty = cls.carry_penalty_for_character(character)
+        threshold_light = Decimal(strength * 2)
+        threshold_medium = Decimal(strength * 3)
+        threshold_heavy = Decimal(strength * 6)
+        threshold_overloaded = Decimal(strength * 8)
+
+        if penalty <= -8:
+            state_label = "Überladen"
+        elif penalty <= -4:
+            state_label = "Schwer bepackt"
+        elif penalty <= -2:
+            state_label = "Bepackt"
+        elif penalty <= -1:
+            state_label = "Leicht belastet"
+        else:
+            state_label = "Unbelastet"
+
+        return {
+            "strength": strength,
+            "weight": carried_weight,
+            "penalty": penalty,
+            "state_label": state_label,
+            "threshold_light": threshold_light,
+            "threshold_medium": threshold_medium,
+            "threshold_heavy": threshold_heavy,
+            "threshold_overloaded": threshold_overloaded,
+        }
