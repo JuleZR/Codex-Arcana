@@ -708,11 +708,8 @@ def _format_item_tooltip(
 ) -> str:
     """Return the tooltip text used by item-related template rows."""
     table_rows: list[tuple[str, object]] = list(detail_rows or [])
-    if quality_label and quality_color:
-        table_rows.insert(0, ("Qualitaet", f"[[QUALITY:{quality_label}|{quality_color}]]"))
     if status_label and status_color:
-        insert_at = 1 if quality_label else 0
-        table_rows.insert(insert_at, ("Status", f"[[STATUS:{status_label}|{status_color}]]"))
+        table_rows.insert(0, ("Status", f"[[STATUS:{status_label}|{status_color}]]"))
 
     parts: list[str] = []
     table = _build_tooltip_table(table_rows)
@@ -878,7 +875,7 @@ def _build_weapon_maneuver_breakdown_rows(engine, weapon_row: dict[str, object])
     quality_bonus = int(weapon_row.get("quality_maneuver_bonus", 0) or 0)
     if quality_bonus:
         rows.append({
-            "label": "Qualitaet",
+            "label": "Qualität",
             "value": format_modifier(quality_bonus),
             "source": weapon_row["item"].name,
         })
@@ -1768,6 +1765,8 @@ def _build_inventory_rows(character: Character) -> list[dict]:
                         "price": item_engine.get_base_price(),
                         "weight": str(item_engine._get_override_value("weight_override", item.weight)),
                         "size_class": item_engine.get_size_class(),
+                        "not_buyable": bool(item.not_buyable),
+                        "not_sellable": bool(item.not_sellable),
                         "weapon_type": item_engine.get_weapon_type(),
                         "weapon_min_st": item_engine.get_weapon_min_st(),
                         "weapon_maneuver_attribute": item_engine.get_weapon_maneuver_attribute_mode(),
@@ -2403,7 +2402,7 @@ def _build_shop_item_groups() -> list[dict]:
         .order_by("item_type", "name")
     )
     for item in buyable_items:
-        if item.id in race_item_ids:
+        if item.id in race_item_ids or item.not_buyable:
             continue
         item_engine = ItemEngine(item)
         quality = quality_payload(item_engine.get_effective_quality())
@@ -2471,6 +2470,47 @@ def _build_shop_item_groups() -> list[dict]:
                 "default_quality_color": quality["color"],
                 "stats": stats_payload,
                 "rune_ids": [rune.id for rune in item.runes.all()],
+            }
+        )
+
+    return [
+        {
+            "key": item_type,
+            "label": SHOP_GROUP_LABELS[item_type],
+            "items": grouped_items[item_type],
+        }
+        for item_type in SHOP_GROUP_ORDER
+        if grouped_items.get(item_type)
+    ]
+
+
+def _build_shop_sell_item_groups(character: Character) -> list[dict]:
+    """Build grouped sell rows from the character inventory."""
+    grouped_items: dict[str, list[dict]] = {}
+    inventory_items = (
+        CharacterItem.objects
+        .filter(owner=character)
+        .exclude(item__not_sellable=True)
+        .select_related("item")
+        .order_by("item__item_type", "item__name", "quality", "id")
+    )
+    for character_item in inventory_items:
+        item = character_item.item
+        item_engine = ItemEngine(character_item)
+        quality = quality_payload(item_engine.get_effective_quality())
+        grouped_items.setdefault(item.item_type, []).append(
+            {
+                "character_item_id": character_item.id,
+                "item_id": item.id,
+                "name": item_engine.get_name(),
+                "description": character_item.description or item.description or "",
+                "item_type": item.item_type,
+                "amount": int(character_item.amount),
+                "stackable": bool(item.stackable),
+                "quality": quality["value"],
+                "quality_label": quality["label"],
+                "quality_color": quality["color"],
+                "unit_price": item_engine.get_price(),
             }
         )
 
@@ -3023,6 +3063,7 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
         "movement_ground": movement_ground,
         "language_rows": language_rows,
         "shop_item_groups": _build_shop_item_groups(),
+        "shop_sell_item_groups": _build_shop_sell_item_groups(character),
         "shop_quality_choices": shop_quality_choices,
         "shop_item_form_type_choices": [
             (item_type, dict(Item.ItemType.choices)[item_type])
@@ -3039,6 +3080,11 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
             ("stat", "Wert auf dem Bogen"),
             ("skill", "Einzelne Fertigkeit"),
             ("category", "Fertigkeitskategorie"),
+            ("weapon_maneuver", "Bonus/Malus auf Manöver"),
+            ("weapon_damage", "Bonus/Malus auf Schaden"),
+            ("weapon_damage_dice", "+ X W10"),
+            (WEAPON_MANEUVER_DAMAGE, "Bonus/Malus auf Manöver und Schaden"),
+            (WEAPON_MASTERY_BONUS, WEAPON_MASTERY_EFFECT_DESCRIPTION),
             ("item_category", "Alle Gegenstände eines Typs"),
             ("specialization", "Spezialisierung"),
         ],

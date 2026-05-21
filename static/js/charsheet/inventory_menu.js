@@ -438,6 +438,10 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
 
   const setFormValue = (fieldName, value) => {
     const field = runeForm?.elements?.namedItem?.(fieldName);
+    if (field instanceof HTMLInputElement && field.type === "checkbox") {
+      field.checked = Boolean(value);
+      return;
+    }
     if (field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement || field instanceof HTMLSelectElement) {
       field.value = value === null || value === undefined ? "" : String(value);
     }
@@ -1142,6 +1146,8 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
       "shield_rs",
       "shield_encumbrance",
       "shield_min_st",
+      "not_buyable",
+      "not_sellable",
     ].forEach((fieldName) => {
       setFormValue(fieldName, modifyPayload[fieldName]);
     });

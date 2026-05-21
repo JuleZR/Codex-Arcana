@@ -1,55 +1,43 @@
 import { escapeHtml, getCsrfToken, readInt, saveJsonStorage } from "./utils.js";
-import { applySheetPartials } from "./partial_updates.js";
 
 export function initShopMenu() {
   const filterInput = document.getElementById("shopFilterInput");
-  const groups = document.querySelectorAll("[data-shop-group]");
-  if (filterInput && groups.length) {
-    const applyFilter = () => {
-      const query = String(filterInput.value || "").trim().toLowerCase();
-      groups.forEach((group) => {
-        const rows = group.querySelectorAll("[data-shop-item]");
-        let hasMatch = false;
-        rows.forEach((row) => {
-          const haystack = String(row.getAttribute("data-shop-search") || "").toLowerCase();
-          const isMatch = !query || haystack.includes(query);
-          row.hidden = !isMatch;
-          if (isMatch) {
-            hasMatch = true;
-          }
-        });
-        group.hidden = !hasMatch;
-        if (query && hasMatch) {
-          group.open = true;
-        }
-      });
-    };
-
-    filterInput.addEventListener("input", applyFilter);
-    applyFilter();
-  }
-
   const shopList = document.querySelector(".shop_list_scroll");
   const cartWrapper = document.querySelector(".shop_cart_wrapper");
   const cartBody = document.getElementById("shopCartBody");
   const subtotalEl = document.getElementById("shopCartSubtotal");
   const finalEl = document.getElementById("shopCartFinal");
+  const finalLabelEl = document.getElementById("shopCartFinalLabel");
   const balanceEl = document.getElementById("shopCartBalance");
+  const discountRow = document.querySelector(".shop_cart_discount_row");
   const discountInput = document.getElementById("shopDiscountInput");
   const discountDecBtn = document.getElementById("shopDiscountDec");
   const discountIncBtn = document.getElementById("shopDiscountInc");
-  const buyBtn = document.getElementById("shopBuyBtn");
+  const actionBtn = document.getElementById("shopActionBtn");
+  const addItemBtn = document.getElementById("shopAddItemBtn");
+  const buyModeBtn = document.getElementById("shop-tab-buy");
+  const sellModeBtn = document.getElementById("shop-tab-sell");
+  const listTitle = document.getElementById("shopListTitle");
+  const cartTitle = document.getElementById("shopCartTitle");
+  const modePanels = Array.from(document.querySelectorAll("[data-shop-mode-panel]"));
   if (
-    !shopList
+    !filterInput
+    || !shopList
     || !cartWrapper
     || !cartBody
     || !subtotalEl
     || !finalEl
+    || !finalLabelEl
     || !balanceEl
     || !discountInput
     || !discountDecBtn
     || !discountIncBtn
-    || !buyBtn
+    || !actionBtn
+    || !buyModeBtn
+    || !sellModeBtn
+    || !listTitle
+    || !cartTitle
+    || !modePanels.length
   ) {
     return;
   }
@@ -85,8 +73,11 @@ export function initShopMenu() {
 
   let baseBalance = readInt(cartWrapper.getAttribute("data-shop-balance") || "0", 0);
   const buyUrl = String(cartWrapper.getAttribute("data-buy-url") || "");
+  const sellUrl = String(cartWrapper.getAttribute("data-sell-url") || "");
+  const tradeUrl = String(cartWrapper.getAttribute("data-trade-url") || "");
   const cart = new Map();
   let cartCounter = 0;
+  let currentMode = "buy";
 
   const readOptionalInt = (value) => {
     const parsed = Number.parseInt(String(value ?? "").trim(), 10);
@@ -114,31 +105,95 @@ export function initShopMenu() {
     cartCounter += 1;
     return `cart-${cartCounter}`;
   };
-  const parseRowPayload = (row) => ({
-    id: row.getAttribute("data-shop-id") || "",
-    name: row.getAttribute("data-shop-name") || "",
-    itemType: row.getAttribute("data-shop-item-type") || "misc",
-    stackable: row.getAttribute("data-shop-stackable") === "1",
-    basePrice: readInt(row.getAttribute("data-shop-base-price"), 0),
-    quality: normalizeQuality(row.getAttribute("data-shop-quality") || "common"),
-    stats: {
-      damageDiceAmount: readOptionalInt(row.getAttribute("data-shop-damage-dice-amount")),
-      damageDiceFaces: readOptionalInt(row.getAttribute("data-shop-damage-dice-faces")),
-      damageFlatBonus: readOptionalInt(row.getAttribute("data-shop-damage-flat-bonus")),
-      h2DiceAmount: readOptionalInt(row.getAttribute("data-shop-h2-dice-amount")),
-      h2DiceFaces: readOptionalInt(row.getAttribute("data-shop-h2-dice-faces")),
-      h2FlatBonus: readOptionalInt(row.getAttribute("data-shop-h2-flat-bonus")),
-      armorRs: readOptionalInt(row.getAttribute("data-shop-armor-rs")),
-      armorBel: readOptionalInt(row.getAttribute("data-shop-armor-bel")),
-      shieldRs: readOptionalInt(row.getAttribute("data-shop-shield-rs")),
-      shieldBel: readOptionalInt(row.getAttribute("data-shop-shield-bel")),
-    },
-  });
+  const syncModeFromTabs = () => {
+    currentMode = sellModeBtn.getAttribute("aria-selected") === "true" ? "sell" : "buy";
+  };
+  const currentPanel = () => modePanels.find((panel) => panel.getAttribute("data-shop-mode-panel") === currentMode) || null;
+  const currentGroups = () => Array.from(currentPanel()?.querySelectorAll("[data-shop-group]") || []);
+  const cartHasBuyEntries = () => Array.from(cart.values()).some((entry) => entry.mode === "buy");
+  const cartHasSellEntries = () => Array.from(cart.values()).some((entry) => entry.mode === "sell");
+  const syncModeUi = () => {
+    const isSellMode = currentMode === "sell";
+    buyModeBtn.classList.toggle("is-active", !isSellMode);
+    buyModeBtn.setAttribute("aria-pressed", isSellMode ? "false" : "true");
+    sellModeBtn.classList.toggle("is-active", isSellMode);
+    sellModeBtn.setAttribute("aria-pressed", isSellMode ? "true" : "false");
+    modePanels.forEach((panel) => {
+      panel.hidden = panel.getAttribute("data-shop-mode-panel") !== currentMode;
+    });
+    if (addItemBtn instanceof HTMLElement) {
+      addItemBtn.hidden = isSellMode;
+    }
+    if (discountRow instanceof HTMLElement) {
+      discountRow.hidden = !cartHasBuyEntries();
+    }
+    listTitle.textContent = isSellMode ? "Verkaufbare Gegenstaende" : "Kaufbare Gegenstaende";
+    cartTitle.textContent = "Handelskorb";
+    finalLabelEl.textContent = "Saldo";
+    actionBtn.textContent = "Handeln";
+  };
   const unitPriceForEntry = (entry) => {
+    if (entry.mode === "sell") {
+      return Math.max(0, readInt(entry.unitPrice, 0));
+    }
     const mod = QUALITY_PRICE_MODS[normalizeQuality(entry.quality)] ?? 1;
     return Math.max(0, Math.round(entry.basePrice * mod));
   };
-
+  const parseRowPayload = (row) => {
+    const mode = String(row.getAttribute("data-shop-mode") || "buy");
+    if (mode === "sell") {
+      return {
+        mode,
+        characterItemId: row.getAttribute("data-character-item-id") || "",
+        name: row.getAttribute("data-shop-name") || "",
+        itemType: row.getAttribute("data-shop-item-type") || "misc",
+        stackable: row.getAttribute("data-shop-stackable") === "1",
+        availableQty: readInt(row.getAttribute("data-shop-available-qty"), 1),
+        quality: normalizeQuality(row.getAttribute("data-shop-quality") || "common"),
+        unitPrice: readInt(row.getAttribute("data-shop-unit-price"), 0),
+      };
+    }
+    return {
+      mode,
+      id: row.getAttribute("data-shop-id") || "",
+      name: row.getAttribute("data-shop-name") || "",
+      itemType: row.getAttribute("data-shop-item-type") || "misc",
+      stackable: row.getAttribute("data-shop-stackable") === "1",
+      basePrice: readInt(row.getAttribute("data-shop-base-price"), 0),
+      quality: normalizeQuality(row.getAttribute("data-shop-quality") || "common"),
+      stats: {
+        damageDiceAmount: readOptionalInt(row.getAttribute("data-shop-damage-dice-amount")),
+        damageDiceFaces: readOptionalInt(row.getAttribute("data-shop-damage-dice-faces")),
+        damageFlatBonus: readOptionalInt(row.getAttribute("data-shop-damage-flat-bonus")),
+        h2DiceAmount: readOptionalInt(row.getAttribute("data-shop-h2-dice-amount")),
+        h2DiceFaces: readOptionalInt(row.getAttribute("data-shop-h2-dice-faces")),
+        h2FlatBonus: readOptionalInt(row.getAttribute("data-shop-h2-flat-bonus")),
+        armorRs: readOptionalInt(row.getAttribute("data-shop-armor-rs")),
+        armorBel: readOptionalInt(row.getAttribute("data-shop-armor-bel")),
+        shieldRs: readOptionalInt(row.getAttribute("data-shop-shield-rs")),
+        shieldBel: readOptionalInt(row.getAttribute("data-shop-shield-bel")),
+      },
+    };
+  };
+  const applyFilter = () => {
+    const query = String(filterInput.value || "").trim().toLowerCase();
+    currentGroups().forEach((group) => {
+      const rows = group.querySelectorAll("[data-shop-item]");
+      let hasMatch = false;
+      rows.forEach((row) => {
+        const haystack = String(row.getAttribute("data-shop-search") || "").toLowerCase();
+        const isMatch = !query || haystack.includes(query);
+        row.hidden = !isMatch;
+        if (isMatch) {
+          hasMatch = true;
+        }
+      });
+      group.hidden = !hasMatch;
+      if (query && hasMatch) {
+        group.open = true;
+      }
+    });
+  };
   const render = () => {
     let subtotal = 0;
     const rows = [];
@@ -147,7 +202,7 @@ export function initShopMenu() {
       const lineTotal = unitPrice * entry.qty;
       subtotal += lineTotal;
       const qualityIndex = QUALITY_ORDER.indexOf(normalizeQuality(entry.quality));
-      const qualityAdjustable = isQualityAdjustableType(entry.itemType);
+      const qualityAdjustable = entry.mode === "buy" && isQualityAdjustableType(entry.itemType);
       const disableDown = !qualityAdjustable || qualityIndex <= 0 ? "disabled" : "";
       const disableUp = !qualityAdjustable || qualityIndex >= QUALITY_ORDER.length - 1 ? "disabled" : "";
       const qualityControls = qualityAdjustable
@@ -156,11 +211,14 @@ export function initShopMenu() {
             ${qualityBadge(entry.quality)}
             <button type="button" class="shop_step_btn" data-cart-quality-inc aria-label="Qualitaet erhoehen" ${disableUp}>&#9650;</button>
           </div>`
-        : "";
+        : entry.mode === "sell"
+          ? qualityBadge(entry.quality)
+          : "";
+      const qtyMax = entry.mode === "sell" ? Math.max(1, readInt(entry.availableQty, 1)) : null;
       const qtyControls = entry.stackable
         ? `<div class="shop_qty_stepper">
             <button type="button" class="shop_step_btn" data-cart-qty-dec aria-label="Menge verringern">-</button>
-            <input type="text" class="shop_cart_qty_input" value="${entry.qty}" data-cart-qty inputmode="numeric" aria-label="Menge">
+            <input type="text" class="shop_cart_qty_input" value="${entry.qty}" data-cart-qty inputmode="numeric" aria-label="Menge"${qtyMax ? ` max="${qtyMax}"` : ""}>
             <button type="button" class="shop_step_btn" data-cart-qty-inc aria-label="Menge erhoehen">+</button>
           </div>`
         : `<span class="shop_cart_qty_fixed">1</span>`;
@@ -178,20 +236,64 @@ export function initShopMenu() {
 
     cartBody.innerHTML = rows.length
       ? rows.join("")
-      : '<tr class="shop_cart_empty_row"><td colspan="6">Noch keine Items ausgewaehlt.</td></tr>';
+      : `<tr class="shop_cart_empty_row"><td colspan="6">${currentMode === "sell" ? "Noch keine Gegenstaende zum Verkauf ausgewaehlt." : "Noch keine Gegenstaende ausgewaehlt."}</td></tr>`;
 
-    const discountPercent = Math.min(100, Math.max(-100, readInt(discountInput.value, 0)));
-    if (readInt(discountInput.value, 0) !== discountPercent) {
+    const discountPercent = cartHasBuyEntries()
+      ? Math.min(100, Math.max(-100, readInt(discountInput.value, 0)))
+      : 0;
+    if (cartHasBuyEntries() && readInt(discountInput.value, 0) !== discountPercent) {
       discountInput.value = String(discountPercent);
     }
-    const finalPrice = Math.max(0, Math.round(subtotal * (100 - discountPercent) / 100));
-    const simulatedBalance = baseBalance - finalPrice;
+    const buySubtotal = Array.from(cart.values())
+      .filter((entry) => entry.mode === "buy")
+      .reduce((sum, entry) => sum + (unitPriceForEntry(entry) * entry.qty), 0);
+    const sellSubtotal = Array.from(cart.values())
+      .filter((entry) => entry.mode === "sell")
+      .reduce((sum, entry) => sum + (unitPriceForEntry(entry) * entry.qty), 0);
+    const discountedBuyTotal = Math.max(0, Math.round(buySubtotal * (100 - discountPercent) / 100));
+    const finalValue = discountedBuyTotal - sellSubtotal;
+    const simulatedBalance = baseBalance - finalValue;
 
     subtotalEl.textContent = fmtKs(subtotal);
-    finalEl.textContent = fmtKs(finalPrice);
+    finalEl.textContent = fmtKs(finalValue);
     balanceEl.textContent = fmtKs(simulatedBalance);
     balanceEl.classList.toggle("is-negative", simulatedBalance < 0);
   };
+  const switchMode = (nextMode) => {
+    if (nextMode !== "buy" && nextMode !== "sell") {
+      return;
+    }
+    currentMode = nextMode;
+    syncModeUi();
+    applyFilter();
+    render();
+  };
+  const closeShopWindow = () => {
+    document.getElementById("shopWindow")?.classList.remove("is-open");
+    document.getElementById("shopWindow")?.setAttribute("aria-hidden", "true");
+    saveJsonStorage("charsheet.shopWindow", {
+      isOpen: false,
+      left: null,
+      top: null,
+    });
+  };
+
+  filterInput.addEventListener("input", applyFilter);
+  [buyModeBtn, sellModeBtn].forEach((tabBtn) => {
+    tabBtn.addEventListener("click", () => {
+      syncModeFromTabs();
+      switchMode(currentMode);
+    });
+    tabBtn.addEventListener("keydown", (event) => {
+      if (!["ArrowRight", "ArrowLeft", "Home", "End"].includes(event.key)) {
+        return;
+      }
+      window.requestAnimationFrame(() => {
+        syncModeFromTabs();
+        switchMode(currentMode);
+      });
+    });
+  });
 
   shopList.addEventListener("click", (event) => {
     const target = event.target;
@@ -204,10 +306,27 @@ export function initShopMenu() {
     }
 
     const payload = parseRowPayload(row);
-    if (!payload.id || !payload.name || payload.basePrice < 0) {
+    if (payload.mode === "sell") {
+      if (!payload.characterItemId || !payload.name || payload.unitPrice < 0) {
+        return;
+      }
+      for (const entry of cart.values()) {
+        if (entry.characterItemId === payload.characterItemId) {
+          if (entry.stackable) {
+            entry.qty = Math.min(entry.availableQty, entry.qty + 1);
+          }
+          render();
+          return;
+        }
+      }
+      cart.set(createEntryKey(), { ...payload, qty: 1 });
+      render();
       return;
     }
 
+    if (!payload.id || !payload.name || payload.basePrice < 0) {
+      return;
+    }
     let merged = false;
     if (payload.stackable) {
       for (const entry of cart.values()) {
@@ -244,13 +363,14 @@ export function initShopMenu() {
         return;
       }
       const delta = target.hasAttribute("data-cart-qty-inc") ? 1 : -1;
-      entry.qty = Math.max(1, entry.qty + delta);
+      const maxQty = entry.mode === "sell" ? Math.max(1, readInt(entry.availableQty, 1)) : Number.MAX_SAFE_INTEGER;
+      entry.qty = Math.min(maxQty, Math.max(1, entry.qty + delta));
       render();
       return;
     }
 
     if (target.hasAttribute("data-cart-quality-dec") || target.hasAttribute("data-cart-quality-inc")) {
-      if (!isQualityAdjustableType(entry.itemType)) {
+      if (entry.mode !== "buy" || !isQualityAdjustableType(entry.itemType)) {
         return;
       }
       const delta = target.hasAttribute("data-cart-quality-inc") ? 1 : -1;
@@ -295,7 +415,8 @@ export function initShopMenu() {
     if (!entry || !entry.stackable) {
       return;
     }
-    entry.qty = Math.max(1, readInt(target.value, 1));
+    const maxQty = entry.mode === "sell" ? Math.max(1, readInt(entry.availableQty, 1)) : Number.MAX_SAFE_INTEGER;
+    entry.qty = Math.min(maxQty, Math.max(1, readInt(target.value, 1)));
     render();
   });
 
@@ -309,22 +430,31 @@ export function initShopMenu() {
     render();
   });
 
-  buyBtn.addEventListener("click", async () => {
-    if (!buyUrl || !cart.size) {
+  actionBtn.addEventListener("click", async () => {
+    const url = tradeUrl || (cartHasSellEntries() && !cartHasBuyEntries() ? sellUrl : buyUrl);
+    if (!url || !cart.size) {
       return;
     }
 
     const payload = {
-      items: Array.from(cart.values()).map((entry) => ({
-        id: entry.id,
-        qty: entry.stackable ? entry.qty : 1,
-        quality: normalizeQuality(entry.quality),
-      })),
+      buy_items: Array.from(cart.values())
+        .filter((entry) => entry.mode === "buy")
+        .map((entry) => ({
+          id: entry.id,
+          qty: entry.stackable ? entry.qty : 1,
+          quality: normalizeQuality(entry.quality),
+        })),
+      sell_items: Array.from(cart.values())
+        .filter((entry) => entry.mode === "sell")
+        .map((entry) => ({
+          character_item_id: entry.characterItemId,
+          qty: entry.stackable ? entry.qty : 1,
+        })),
       discount: readInt(discountInput.value, 0),
     };
 
     try {
-      const response = await fetch(buyUrl, {
+      const response = await fetch(url, {
         method: "POST",
         credentials: "same-origin",
         headers: {
@@ -336,18 +466,8 @@ export function initShopMenu() {
       });
       const data = await response.json();
       if (data?.ok) {
-        document.getElementById("shopWindow")?.classList.remove("is-open");
-        document.getElementById("shopWindow")?.setAttribute("aria-hidden", "true");
-        saveJsonStorage("charsheet.shopWindow", {
-          isOpen: false,
-          left: null,
-          top: null,
-        });
-        baseBalance = readInt(data.new_money, baseBalance);
-        cart.clear();
-        discountInput.value = "0";
-        applySheetPartials(data);
-        render();
+        closeShopWindow();
+        window.location.reload();
         return;
       }
       if (data?.error === "insufficient_funds") {
@@ -360,7 +480,8 @@ export function initShopMenu() {
     }
   });
 
+  syncModeFromTabs();
+  syncModeUi();
+  applyFilter();
   render();
 }
-
-

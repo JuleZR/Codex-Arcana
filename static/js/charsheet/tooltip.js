@@ -512,6 +512,29 @@ function syncTooltipCardMediaHeight(card) {
   media.style.height = "";
 }
 
+function syncTooltipCardLayout(card) {
+  if (!(card instanceof HTMLElement)) {
+    return;
+  }
+  const frame = card.querySelector(".floating-tooltip-card__frame");
+  const lore = card.querySelector(".floating-tooltip-card__lore");
+  if (!(frame instanceof HTMLElement) || !(lore instanceof HTMLElement)) {
+    return;
+  }
+
+  lore.style.maxHeight = "";
+
+  const maxFrameHeight = Math.min(760 * 1.4142, window.innerHeight - 24);
+  const naturalFrameHeight = frame.scrollHeight;
+  if (naturalFrameHeight <= maxFrameHeight + 1) {
+    return;
+  }
+
+  const nonLoreHeight = naturalFrameHeight - lore.scrollHeight;
+  const availableLoreHeight = Math.max(0, Math.floor(maxFrameHeight - nonLoreHeight));
+  lore.style.maxHeight = `${availableLoreHeight}px`;
+}
+
 export function initTooltips() {
   const dbAnchors = document.querySelectorAll(".db_tooltip_anchor[data-db-tooltip]");
   dbAnchors.forEach((anchor) => {
@@ -716,12 +739,17 @@ export function initTooltips() {
     activeCardTarget = target;
     saveCardState(target);
     syncTooltipCardMediaHeight(card);
+    syncTooltipCardLayout(card);
     const cardImage = card.querySelector(".floating-tooltip-card__image");
     if (cardImage instanceof HTMLImageElement) {
       if (cardImage.complete) {
         syncTooltipCardMediaHeight(card);
+        syncTooltipCardLayout(card);
       } else {
-        cardImage.addEventListener("load", () => syncTooltipCardMediaHeight(card), { once: true });
+        cardImage.addEventListener("load", () => {
+          syncTooltipCardMediaHeight(card);
+          syncTooltipCardLayout(card);
+        }, { once: true });
       }
     }
     positionCardFromTarget(target);
@@ -865,6 +893,7 @@ export function initTooltips() {
     }
     if (activeCardTarget) {
       syncTooltipCardMediaHeight(card);
+      syncTooltipCardLayout(card);
       const left = Number.parseFloat(card.style.left || "0");
       const top = Number.parseFloat(card.style.top || "0");
       const clamped = clampCardPosition(left, top);

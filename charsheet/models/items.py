@@ -96,6 +96,8 @@ class Item(models.Model):
     stackable = models.BooleanField(default=True)
     is_consumable = models.BooleanField(default=False)
     is_magic = models.BooleanField(default=False)
+    not_buyable = models.BooleanField(default=False)
+    not_sellable = models.BooleanField(default=False)
 
     default_quality = models.CharField(max_length=20, choices=QUALITY_CHOICES, default=QUALITY_COMMON)
     weight = models.DecimalField(max_digits=6, decimal_places=2, default=0)

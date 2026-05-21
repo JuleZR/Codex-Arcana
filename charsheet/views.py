@@ -54,7 +54,12 @@ from .forms import (
 from .constants import ATTRIBUTE_ORDER, RESOURCE_KEY_CHOICES, is_allowed_trait_attribute_choice
 from .learning import process_learning_submission
 from .sheet_context import build_character_sheet_context
-from .shop import apply_character_item_modifications, buy_shop_cart as buy_shop_cart_payload
+from .shop import (
+    apply_character_item_modifications,
+    buy_shop_cart as buy_shop_cart_payload,
+    sell_shop_cart as sell_shop_cart_payload,
+    trade_shop_cart as trade_shop_cart_payload,
+)
 from .shop import create_custom_shop_item
 from .view_utils import format_modifier, format_thousands
 
@@ -1793,6 +1798,30 @@ def buy_shop_cart(request, character_id: int):
                 "html": render_to_string("charsheet/partials/_inventory_panel.html", context, request=request),
             },
         ]
+    return JsonResponse(response_payload, status=status_code)
+
+
+@login_required
+@require_POST
+def sell_shop_cart(request, character_id: int):
+    """Sell all cart entries atomically and update inventory plus wallet."""
+    character = _owned_character_or_404(request, character_id)
+    payload = _read_json_payload(request)
+    if not payload:
+        return JsonResponse({"ok": False, "error": "invalid_payload"}, status=400)
+    response_payload, status_code = sell_shop_cart_payload(character, payload)
+    return JsonResponse(response_payload, status=status_code)
+
+
+@login_required
+@require_POST
+def trade_shop_cart(request, character_id: int):
+    """Process one mixed shop cart with buys and sells atomically."""
+    character = _owned_character_or_404(request, character_id)
+    payload = _read_json_payload(request)
+    if not payload:
+        return JsonResponse({"ok": False, "error": "invalid_payload"}, status=400)
+    response_payload, status_code = trade_shop_cart_payload(character, payload)
     return JsonResponse(response_payload, status=status_code)
 
 

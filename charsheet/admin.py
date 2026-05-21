@@ -2614,9 +2614,11 @@ class ItemAdmin(admin.ModelAdmin):
         "weight",
         "stackable",
         "is_consumable",
+        "not_buyable",
+        "not_sellable",
     )
     search_fields = ("name", "description", "item_type")
-    list_filter = ("item_type", "default_quality", "stackable", "is_consumable", "size_class")
+    list_filter = ("item_type", "default_quality", "stackable", "is_consumable", "not_buyable", "not_sellable", "size_class")
     ordering = ("item_type", "name")
     inlines = (
         ArmorStatsInline,

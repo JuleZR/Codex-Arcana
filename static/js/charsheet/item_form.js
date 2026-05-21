@@ -39,6 +39,9 @@ export function initItemForm() {
   const weaponTwoHandFields = document.getElementById("shopWeaponTwoHandFields");
   const weaponH2AmountInput = weaponFields.querySelector("input[name='weapon_h2_dice_amount']");
   const weaponH2FacesInput = weaponFields.querySelector("input[name='weapon_h2_dice_faces']");
+  const WEAPON_ONLY_MAGIC_TARGET_KINDS = ["weapon_maneuver", "weapon_damage", "weapon_damage_dice", "weapon_mastery_bonus"];
+  const WEAPON_MASTERY_BONUS_KIND = "weapon_mastery_bonus";
+  const WEAPON_MASTERY_BONUS_DESCRIPTION = "Waffenmeister-Bonus +1/+1";
 
   const syncArmorModeFields = () => {
     const selectedModeInput = armorFields.querySelector("input[name='armor_mode']:checked");
@@ -131,6 +134,7 @@ export function initItemForm() {
     const targetKindSelect = row.querySelector("[data-magic-target-kind]");
     const valueInput = row.querySelector("[data-magic-value-input]");
     const valueRow = valueInput?.closest(".shop_item_form_row");
+    const descriptionInput = row.querySelector("[data-magic-effect-description]");
     const selectedKind = String(targetKindSelect?.value || "");
     const isTextOnly = selectedKind === "text";
 
@@ -149,12 +153,21 @@ export function initItemForm() {
     });
 
     if (valueInput instanceof HTMLInputElement) {
+      valueInput.setCustomValidity("");
       if (valueRow instanceof HTMLElement) {
         valueRow.hidden = isTextOnly;
       }
       valueInput.required = selectedKind !== "" && !isTextOnly;
       if (isTextOnly) {
         valueInput.value = "0";
+      } else if (selectedKind === WEAPON_MASTERY_BONUS_KIND && String(valueInput.value || "").trim() === "") {
+        valueInput.value = "1";
+      }
+    }
+    if (descriptionInput instanceof HTMLInputElement && selectedKind === WEAPON_MASTERY_BONUS_KIND) {
+      const currentValue = String(descriptionInput.value || "").trim();
+      if (!currentValue || currentValue === WEAPON_MASTERY_BONUS_DESCRIPTION) {
+        descriptionInput.value = WEAPON_MASTERY_BONUS_DESCRIPTION;
       }
     }
   };
@@ -221,8 +234,76 @@ export function initItemForm() {
       }
       const removeButton = row.querySelector("[data-remove-magic-effect]");
       if (removeButton instanceof HTMLButtonElement) {
-        removeButton.hidden = rows.length <= 1;
+        removeButton.hidden = false;
       }
+    });
+  };
+
+  const clearMagicEffectDropMarkers = () => {
+    if (!(magicEffectsList instanceof HTMLElement)) {
+      return;
+    }
+    magicEffectsList.querySelectorAll(".is-drop-before, .is-drop-after").forEach((row) => {
+      if (row instanceof HTMLElement) {
+        row.classList.remove("is-drop-before", "is-drop-after");
+      }
+    });
+  };
+
+  let draggedMagicEffectRow = null;
+
+  const bindMagicEffectDragAndDrop = (row) => {
+    if (!(row instanceof HTMLElement)) {
+      return;
+    }
+    row.draggable = false;
+    const dragHandle = row.querySelector("[data-drag-magic-effect]");
+    if (dragHandle instanceof HTMLElement) {
+      dragHandle.draggable = true;
+    }
+    dragHandle?.addEventListener("dragstart", (event) => {
+      if (!(dragHandle instanceof HTMLElement)) {
+        event.preventDefault();
+        return;
+      }
+      draggedMagicEffectRow = row;
+      row.classList.add("is-dragging");
+      if (event.dataTransfer) {
+        event.dataTransfer.effectAllowed = "move";
+        event.dataTransfer.setData("text/plain", row.querySelector(".shop_magic_effect_title")?.textContent || "Effekt");
+      }
+    });
+    dragHandle?.addEventListener("dragend", () => {
+      draggedMagicEffectRow = null;
+      row.classList.remove("is-dragging");
+      clearMagicEffectDropMarkers();
+      syncMagicEffectRemoveButtons();
+      serializeMagicEffects();
+    });
+    row.addEventListener("dragover", (event) => {
+      if (!(magicEffectsList instanceof HTMLElement) || !(draggedMagicEffectRow instanceof HTMLElement) || draggedMagicEffectRow === row) {
+        return;
+      }
+      event.preventDefault();
+      clearMagicEffectDropMarkers();
+      const bounds = row.getBoundingClientRect();
+      const insertBefore = event.clientY < bounds.top + (bounds.height / 2);
+      row.classList.add(insertBefore ? "is-drop-before" : "is-drop-after");
+      if (insertBefore) {
+        if (draggedMagicEffectRow !== row.previousElementSibling) {
+          magicEffectsList.insertBefore(draggedMagicEffectRow, row);
+        }
+      } else if (draggedMagicEffectRow !== row.nextElementSibling) {
+        magicEffectsList.insertBefore(draggedMagicEffectRow, row.nextElementSibling);
+      }
+      syncMagicEffectRemoveButtons();
+      serializeMagicEffects();
+    });
+    row.addEventListener("drop", (event) => {
+      event.preventDefault();
+      clearMagicEffectDropMarkers();
+      syncMagicEffectRemoveButtons();
+      serializeMagicEffects();
     });
   };
 
@@ -234,6 +315,21 @@ export function initItemForm() {
     const row = fragment.querySelector("[data-magic-effect-row]");
     if (!(row instanceof HTMLElement)) {
       return null;
+    }
+    magicEffectsList.append(row);
+    const targetKindSelect = row.querySelector("[data-magic-target-kind]");
+    if (targetKindSelect instanceof HTMLSelectElement) {
+      WEAPON_ONLY_MAGIC_TARGET_KINDS.forEach((optionValue) => {
+        const weaponOnlyOption = targetKindSelect.querySelector(`option[value='${optionValue}']`);
+        if (weaponOnlyOption instanceof HTMLOptionElement) {
+          const isWeapon = String(typeSelect.value || "") === "weapon";
+          weaponOnlyOption.hidden = !isWeapon;
+          weaponOnlyOption.disabled = !isWeapon;
+        }
+      });
+      if (String(typeSelect.value || "") !== "weapon" && WEAPON_ONLY_MAGIC_TARGET_KINDS.includes(targetKindSelect.value)) {
+        targetKindSelect.value = "";
+      }
     }
 
     row.querySelector("[data-magic-target-kind]")?.addEventListener("change", () => {
@@ -247,14 +343,11 @@ export function initItemForm() {
     });
     row.querySelector("[data-remove-magic-effect]")?.addEventListener("click", () => {
       row.remove();
-      if (!magicEffectsList.querySelector("[data-magic-effect-row]")) {
-        addMagicEffectRow();
-      }
       syncMagicEffectRemoveButtons();
       serializeMagicEffects();
     });
 
-    magicEffectsList.append(row);
+    bindMagicEffectDragAndDrop(row);
     syncMagicEffectRow(row);
     syncMagicEffectRemoveButtons();
     serializeMagicEffects();
@@ -335,6 +428,19 @@ export function initItemForm() {
     if (isMagicItem) {
       ensureMagicEffectRow();
       magicEffectsList?.querySelectorAll("[data-magic-effect-row]").forEach((row) => {
+        const targetKindSelect = row.querySelector("[data-magic-target-kind]");
+        if (targetKindSelect instanceof HTMLSelectElement) {
+          WEAPON_ONLY_MAGIC_TARGET_KINDS.forEach((optionValue) => {
+            const weaponOnlyOption = targetKindSelect.querySelector(`option[value='${optionValue}']`);
+            if (weaponOnlyOption instanceof HTMLOptionElement) {
+              weaponOnlyOption.hidden = !isWeapon;
+              weaponOnlyOption.disabled = !isWeapon;
+            }
+          });
+          if (!isWeapon && WEAPON_ONLY_MAGIC_TARGET_KINDS.includes(targetKindSelect.value)) {
+            targetKindSelect.value = "";
+          }
+        }
         syncMagicEffectRow(row);
       });
       serializeMagicEffects();

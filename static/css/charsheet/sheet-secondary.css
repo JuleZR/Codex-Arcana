@@ -2247,7 +2247,7 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
 .floating-tooltip-card__content {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  flex: 1 1 auto;
+  flex: 0 0 auto;
   gap: 14px;
   min-height: 0;
   overflow: hidden;
@@ -2318,7 +2318,8 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
 
 .floating-tooltip-card__details {
   min-height: 0;
-  overflow-y: auto;
+  overflow: visible;
+  flex: 0 0 auto;
   padding: 12px 14px;
 }
 
@@ -2340,7 +2341,7 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
 .floating-tooltip-card__lore {
   display: flex;
   flex-direction: column;
-  flex: 0 1 42%;
+  flex: 0 1 auto;
   gap: 14px;
   min-height: 0;
   overflow-y: auto;

@@ -19,7 +19,7 @@
             </label>
             <div class="shop_item_form_grid shop_item_form_grid--equal">
               <label class="shop_item_form_row">
-                <span>Preis (KM)</span>
+                <span>Preis (KS)</span>
                 <input type="number" name="price" id="runeRetrofitPrice" min="0" step="1" value="0">
               </label>
               <label class="shop_item_form_row">
@@ -43,6 +43,16 @@
                 {% endfor %}
               </select>
             </label>
+            <div class="shop_item_form_grid shop_item_form_grid--equal">
+              <label class="shop_item_form_check">
+                <input type="checkbox" name="not_buyable" id="runeRetrofitNotBuyableInput" value="1">
+                <span>Nicht kaufbar</span>
+              </label>
+              <label class="shop_item_form_check">
+                <input type="checkbox" name="not_sellable" id="runeRetrofitNotSellableInput" value="1">
+                <span>Nicht verkaufbar</span>
+              </label>
+            </div>
             <div class="shop_item_form_row shop_item_form_row--image">
               <span>Bild</span>
               <div class="shop_item_image_preview" id="runeRetrofitImagePreview" hidden>

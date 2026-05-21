@@ -1526,6 +1526,77 @@
   box-shadow: 0 0 0 2px rgba(180, 151, 113, 0.18);
 }
 
+.shop_toolbar {
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  padding: 10px 12px 8px;
+  align-items: center;
+}
+
+.sheet-window .shop_filter_input {
+  min-height: 36px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background:
+    linear-gradient(180deg, rgba(255, 252, 245, 0.96), rgba(241, 232, 214, 0.82));
+  border-color: rgba(121, 88, 52, 0.28);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.72),
+    0 1px 1px rgba(108, 76, 44, 0.06);
+  font-size: 1rem;
+  letter-spacing: 0.01em;
+}
+
+.sheet-window .shop_filter_input::placeholder {
+  color: rgba(116, 84, 50, 0.56);
+}
+
+.sheet-window .shop_filter_input:focus {
+  border-color: rgba(140, 107, 68, 0.42);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.76),
+    0 0 0 3px rgba(196, 170, 126, 0.16);
+}
+
+.sheet-window .shop_add_btn {
+  width: 38px;
+  height: 38px;
+  justify-self: end;
+  align-self: center;
+  border-radius: 10px;
+  border: 1px solid rgba(118, 86, 49, 0.56);
+  background:
+    linear-gradient(180deg, rgba(255, 250, 239, 0.92), rgba(233, 220, 194, 0.9));
+  color: rgba(47, 109, 43, 0.98);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.72),
+    inset 0 -1px 0 rgba(181, 159, 124, 0.28),
+    0 2px 6px rgba(74, 51, 27, 0.1);
+  font-size: 1.45rem;
+  font-weight: 800;
+  line-height: 1;
+  text-shadow: 0 1px 0 rgba(243, 255, 241, 0.42);
+  transition:
+    background 150ms ease,
+    border-color 150ms ease,
+    box-shadow 150ms ease,
+    color 150ms ease,
+    transform 150ms ease;
+}
+
+.sheet-window .shop_add_btn:hover,
+.sheet-window .shop_add_btn:focus-visible {
+  background:
+    linear-gradient(180deg, rgba(255, 252, 244, 0.96), rgba(238, 226, 201, 0.94));
+  color: rgba(56, 121, 51, 0.98);
+  border-color: rgba(125, 93, 55, 0.62);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.76),
+    inset 0 -1px 0 rgba(186, 165, 130, 0.32),
+    0 3px 8px rgba(74, 51, 27, 0.12);
+  transform: translateY(-0.25px);
+}
+
 .learn_choice_nav_item,
 .learn_choice_option,
 .learn_choice_panel {

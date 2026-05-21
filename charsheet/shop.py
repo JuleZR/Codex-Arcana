@@ -401,6 +401,8 @@ def apply_character_item_modifications(character_item: CharacterItem, post_data,
     quality = _read_quality(post_data, "quality", character_item.quality or character_item.item.default_quality)
     experience_cost = _read_int(post_data, "experience_cost", 0, minimum=0)
     money_cost = _read_int(post_data, "money_cost", 0, minimum=0)
+    not_buyable = bool(post_data.get("not_buyable"))
+    not_sellable = bool(post_data.get("not_sellable"))
     image = None if files_data is None else files_data.get("image")
     remove_image = bool(post_data.get("remove_image"))
     rune_payloads = _read_rune_payloads(post_data)
@@ -467,6 +469,10 @@ def apply_character_item_modifications(character_item: CharacterItem, post_data,
 
     try:
         with transaction.atomic():
+            item.not_buyable = not_buyable
+            item.not_sellable = not_sellable
+            item.full_clean()
+            item.save(update_fields=["not_buyable", "not_sellable"])
             if remove_image and character_item.image_override:
                 character_item.image_override.delete(save=False)
                 character_item.image_override = None
@@ -607,8 +613,10 @@ def create_custom_shop_item(post_data, files_data=None) -> bool:
     description = (post_data.get("description") or "").strip()
     stackable = bool(post_data.get("stackable"))
     is_magic = bool(post_data.get("is_magic")) or item_type == Item.ItemType.MAGIC_ITEM
+    not_buyable = bool(post_data.get("not_buyable"))
+    not_sellable = bool(post_data.get("not_sellable"))
     default_quality = _read_quality(post_data, "default_quality", ItemEngine.normalize_quality(None))
-    weight = _read_int(post_data, "weight", 0, minimum=0)
+    weight = _read_decimal(post_data, "weight", 0)
     size_class = str(post_data.get("size_class") or "M")
     is_consumable = item_type == Item.ItemType.CONSUM
     image = None if files_data is None else files_data.get("image")
@@ -654,6 +662,8 @@ def create_custom_shop_item(post_data, files_data=None) -> bool:
                 stackable=stackable,
                 is_consumable=is_consumable,
                 is_magic=is_magic,
+                not_buyable=not_buyable,
+                not_sellable=not_sellable,
                 default_quality=default_quality,
                 weight=weight,
                 size_class=size_class,
@@ -790,6 +800,8 @@ def buy_shop_cart(character: Character, payload: dict[str, object]) -> tuple[dic
         item = Item.objects.filter(pk=item_id).first()
         if item is None:
             return {"ok": False, "error": "item_not_found"}, 400
+        if item.not_buyable:
+            return {"ok": False, "error": "item_not_buyable"}, 400
         quality = ItemEngine.normalize_quality(str(entry.get("quality") or item.default_quality))
         if not item.stackable and qty != 1:
             return {"ok": False, "error": "non_stackable_qty"}, 400
@@ -825,3 +837,172 @@ def buy_shop_cart(character: Character, payload: dict[str, object]) -> tuple[dic
                         apply_rune_to_item(item=created, rune=rune, crafter_level=0)
 
     return {"ok": True, "new_money": character.money, "spent": final_price}, 200
+
+
+def sell_shop_cart(character: Character, payload: dict[str, object]) -> tuple[dict[str, object], int]:
+    """Sell cart entries atomically and return JSON payload plus status code."""
+    cart_items = payload.get("items") or []
+    if not isinstance(cart_items, list) or not cart_items:
+        return {"ok": False, "error": "empty_cart"}, 400
+
+    requested_quantities: dict[int, int] = {}
+    for entry in cart_items:
+        try:
+            character_item_id = int(entry.get("character_item_id"))
+            qty = int(entry.get("qty"))
+        except (TypeError, ValueError, AttributeError):
+            return {"ok": False, "error": "invalid_item"}, 400
+        if character_item_id <= 0 or qty < 1:
+            return {"ok": False, "error": "invalid_qty"}, 400
+        requested_quantities[character_item_id] = requested_quantities.get(character_item_id, 0) + qty
+
+    character_items = {
+        item.id: item
+        for item in CharacterItem.objects.select_related("item", "owner").filter(
+            owner=character,
+            pk__in=requested_quantities.keys(),
+        )
+    }
+    if len(character_items) != len(requested_quantities):
+        return {"ok": False, "error": "item_not_found"}, 400
+
+    normalized: list[tuple[CharacterItem, int, int]] = []
+    payout = 0
+    for character_item_id, qty in requested_quantities.items():
+        character_item = character_items[character_item_id]
+        if character_item.item.not_sellable:
+            return {"ok": False, "error": "item_not_sellable"}, 400
+        if qty > character_item.amount:
+            return {"ok": False, "error": "invalid_qty"}, 400
+        unit_price = ItemEngine(character_item).get_price()
+        normalized.append((character_item, qty, unit_price))
+        payout += unit_price * qty
+
+    with transaction.atomic():
+        character.money += payout
+        character.save(update_fields=["money"])
+        for character_item, qty, _unit_price in normalized:
+            if qty >= character_item.amount:
+                character_item.delete()
+                continue
+            character_item.amount -= qty
+            character_item.full_clean()
+            character_item.save(update_fields=["amount"])
+
+    return {"ok": True, "new_money": character.money, "earned": payout}, 200
+
+
+def trade_shop_cart(character: Character, payload: dict[str, object]) -> tuple[dict[str, object], int]:
+    """Process one mixed buy/sell cart atomically and return JSON payload plus status code."""
+    buy_items = payload.get("buy_items") or []
+    sell_items = payload.get("sell_items") or []
+    discount = payload.get("discount") or 0
+
+    if not isinstance(buy_items, list) or not isinstance(sell_items, list) or (not buy_items and not sell_items):
+        return {"ok": False, "error": "empty_cart"}, 400
+
+    try:
+        discount_percent = max(-100, min(100, int(discount)))
+    except (TypeError, ValueError):
+        discount_percent = 0
+
+    normalized_buys: list[tuple[Item, int, str]] = []
+    buy_subtotal = 0
+    for entry in buy_items:
+        try:
+            item_id = int(entry.get("id"))
+            qty = int(entry.get("qty"))
+        except (TypeError, ValueError, AttributeError):
+            return {"ok": False, "error": "invalid_item"}, 400
+        if qty < 1:
+            return {"ok": False, "error": "invalid_qty"}, 400
+
+        item = Item.objects.filter(pk=item_id).first()
+        if item is None:
+            return {"ok": False, "error": "item_not_found"}, 400
+        if item.not_buyable:
+            return {"ok": False, "error": "item_not_buyable"}, 400
+        quality = ItemEngine.normalize_quality(str(entry.get("quality") or item.default_quality))
+        if not item.stackable and qty != 1:
+            return {"ok": False, "error": "non_stackable_qty"}, 400
+        normalized_buys.append((item, qty, quality))
+        buy_subtotal += ItemEngine.price_for_item_and_quality(item, quality) * qty
+
+    requested_sell_quantities: dict[int, int] = {}
+    for entry in sell_items:
+        try:
+            character_item_id = int(entry.get("character_item_id"))
+            qty = int(entry.get("qty"))
+        except (TypeError, ValueError, AttributeError):
+            return {"ok": False, "error": "invalid_item"}, 400
+        if character_item_id <= 0 or qty < 1:
+            return {"ok": False, "error": "invalid_qty"}, 400
+        requested_sell_quantities[character_item_id] = requested_sell_quantities.get(character_item_id, 0) + qty
+
+    character_items = {
+        item.id: item
+        for item in CharacterItem.objects.select_related("item", "owner").filter(
+            owner=character,
+            pk__in=requested_sell_quantities.keys(),
+        )
+    }
+    if len(character_items) != len(requested_sell_quantities):
+        return {"ok": False, "error": "item_not_found"}, 400
+
+    normalized_sells: list[tuple[CharacterItem, int, int]] = []
+    sell_total = 0
+    for character_item_id, qty in requested_sell_quantities.items():
+        character_item = character_items[character_item_id]
+        if character_item.item.not_sellable:
+            return {"ok": False, "error": "item_not_sellable"}, 400
+        if qty > character_item.amount:
+            return {"ok": False, "error": "invalid_qty"}, 400
+        unit_price = ItemEngine(character_item).get_price()
+        normalized_sells.append((character_item, qty, unit_price))
+        sell_total += unit_price * qty
+
+    buy_total = max(0, round(buy_subtotal * (100 - discount_percent) / 100))
+    net_total = buy_total - sell_total
+    if net_total > character.money:
+        return {"ok": False, "error": "insufficient_funds"}, 200
+
+    with transaction.atomic():
+        character.money = int(character.money) - buy_total + sell_total
+        character.save(update_fields=["money"])
+
+        for character_item, qty, _unit_price in normalized_sells:
+            if qty >= character_item.amount:
+                character_item.delete()
+            else:
+                character_item.amount -= qty
+                character_item.full_clean()
+                character_item.save(update_fields=["amount"])
+
+        for item, qty, quality in normalized_buys:
+            if item.stackable:
+                existing = CharacterItem.objects.filter(owner=character, item=item, quality=quality).first()
+                if existing:
+                    existing.amount += qty
+                    existing.full_clean()
+                    existing.save(update_fields=["amount"])
+                else:
+                    created = CharacterItem(owner=character, item=item, amount=qty, equipped=False, quality=quality)
+                    created.full_clean()
+                    created.save()
+                    for rune in item.runes.all():
+                        apply_rune_to_item(item=created, rune=rune, crafter_level=0)
+            else:
+                for _index in range(qty):
+                    created = CharacterItem(owner=character, item=item, amount=1, equipped=False, quality=quality)
+                    created.full_clean()
+                    created.save()
+                    for rune in item.runes.all():
+                        apply_rune_to_item(item=created, rune=rune, crafter_level=0)
+
+    return {
+        "ok": True,
+        "new_money": character.money,
+        "buy_total": buy_total,
+        "sell_total": sell_total,
+        "net_total": net_total,
+    }, 200
