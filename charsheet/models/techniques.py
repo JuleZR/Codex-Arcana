@@ -1373,6 +1373,7 @@ class Spell(models.Model):
     class RangeUnit(models.TextChoices):
         METER = "m", "Meter"
         KM = "km", "Kilometer"
+        SQUARE_KM = "km²", "Quadratkilometer"
         SIGHT = "Sichtweite", "Sichtweite"
         TOUCH = "Berührung", "Berührung"
         SELF = "selbst", "Selbst"
