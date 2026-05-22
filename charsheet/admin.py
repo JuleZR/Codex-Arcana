@@ -1792,6 +1792,9 @@ class SpellAdminForm(forms.ModelForm):
         model = Spell
         fields = "__all__"
 
+    class Media:
+        js = ("charsheet/js/admin_slug_autofill.js",)
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["kp_cost"].required = False

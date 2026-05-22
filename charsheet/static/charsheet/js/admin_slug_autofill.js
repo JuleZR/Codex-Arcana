@@ -1,9 +1,8 @@
 document.addEventListener("DOMContentLoaded", () => {
-  if (!document.body.classList.contains("add-form")) {
+  const slugInputs = document.querySelectorAll("input[data-autoslug-source]");
+  if (!slugInputs.length) {
     return;
   }
-
-  const slugInputs = document.querySelectorAll("input[data-autoslug-source]");
 
   const normalizeSlug = (value) =>
     value
