@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
+import re
 
 from django.db import models, transaction
 
@@ -108,6 +109,7 @@ def _build_spell_tooltip(entry: CharacterSpell, *, school_levels: dict[int, int]
         "Minute": "Minuten",
         "Stunde": "Stunden",
         "Tag": "Tage",
+        "Woche": "Wochen",
         "Runde": "Runden",
     }
 
@@ -159,6 +161,9 @@ def _build_spell_tooltip(entry: CharacterSpell, *, school_levels: dict[int, int]
             return f"{number} {_unit_label(unit, number)}"
         return None
 
+    def _normalize_duration_text(value: str) -> str:
+        return re.sub(r"\b([2-9]\d*)\s+Woche\b", r"\1 Wochen", value)
+
     dur1 = _duration_label(spell.duration_number, spell.duration_unit, spell.duration_per_grade)
     dur2 = _duration_label(spell.duration2_number, spell.duration2_unit, spell.duration2_per_grade)
     if dur1 and dur2:
@@ -168,7 +173,7 @@ def _build_spell_tooltip(entry: CharacterSpell, *, school_levels: dict[int, int]
     elif dur2:
         rows.append(("Wirkungsdauer", dur2))
     elif spell.duration_text:
-        rows.append(("Wirkungsdauer", spell.duration_text))
+        rows.append(("Wirkungsdauer", _normalize_duration_text(spell.duration_text)))
 
     lines = [
         "| Wert | Details |",
