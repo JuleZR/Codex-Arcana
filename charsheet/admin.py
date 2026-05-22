@@ -472,6 +472,28 @@ def _apply_monospace_description_fields(base_fields):
             attrs.setdefault("rows", 6)
 
 
+class AutoSlugAdminMixin:
+    """Autofill slug fields from names on add forms with underscore-separated keys."""
+
+    slug_source_field = "name"
+    slug_target_field = "slug"
+
+    class Media:
+        js = ("charsheet/js/admin_slug_autofill.js",)
+
+    def get_form(self, request, obj=None, change=False, **kwargs):
+        """Attach lightweight slug-autofill metadata only while creating new records."""
+        form = super().get_form(request, obj=obj, change=change, **kwargs)
+        if obj is not None:
+            return form
+        source_field = form.base_fields.get(self.slug_source_field)
+        target_field = form.base_fields.get(self.slug_target_field)
+        if source_field is None or target_field is None:
+            return form
+        target_field.widget.attrs["data-autoslug-source"] = self.slug_source_field
+        return form
+
+
 def _install_admin_help(admin_cls, *, help_texts=None, fieldset_descriptions=None, labels=None):
     """Patch a ModelAdmin so friendly help text appears in the Django admin."""
     if help_texts or labels:
@@ -1879,7 +1901,7 @@ class SkillCategoryAdmin(admin.ModelAdmin):
 
 
 @admin.register(Skill)
-class SkillAdmin(admin.ModelAdmin):
+class SkillAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
     """Admin configuration for skills."""
 
     list_display = (
@@ -3113,7 +3135,7 @@ class TraitChoiceDefinitionAdmin(admin.ModelAdmin):
 
 
 @admin.register(Specialization)
-class SpecializationAdmin(admin.ModelAdmin):
+class SpecializationAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
     """Admin configuration for school-bound specializations."""
 
     list_display = ("name", "school", "school_type", "slug", "support_level", "is_active", "sort_order")
@@ -3723,7 +3745,7 @@ class TraitExclusionAdmin(admin.ModelAdmin):
 
 
 @admin.register(DamageSource)
-class DamageSourceAdmin(admin.ModelAdmin):
+class DamageSourceAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
     """Admin configuration for weapon damage source definitions."""
     list_display = ("name", "short_name", "slug")
     search_fields = ("name", "short_name", "slug")
@@ -3746,14 +3768,13 @@ class WeaponFlagAdmin(admin.ModelAdmin):
 
 
 @admin.register(Rune)
-class RuneAdmin(admin.ModelAdmin):
+class RuneAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
     """Admin configuration for reusable rune definitions."""
 
     list_display = ("name", "slug", "short_description", "is_level_scaled", "allow_multiple")
     search_fields = ("name", "slug", "short_description", "description", "image")
     list_filter = ("is_level_scaled", "allow_multiple")
     ordering = ("name",)
-    prepopulated_fields = {"slug": ("name",)}
     inlines = (ModifierInline,)
 
     def get_form(self, request, obj=None, change=False, **kwargs):
@@ -3842,17 +3863,15 @@ class WeaponStatsAdmin(admin.ModelAdmin):
 
 
 @admin.register(WeaponType)
-class WeaponTypeAdmin(admin.ModelAdmin):
+class WeaponTypeAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
     """Admin configuration for rule-level weapon types."""
 
     list_display = ("name", "slug", "sort_order")
     search_fields = ("name", "slug")
     ordering = ("sort_order", "name")
-    prepopulated_fields = {"slug": ("name",)}
-
 
 @admin.register(Trait)
-class TraitAdmin(admin.ModelAdmin):
+class TraitAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
     """Admin configuration for traits and their level boundaries."""
     list_display = (
         "name",
@@ -3989,7 +4008,7 @@ class CharacterTraitAdmin(admin.ModelAdmin):
 
 
 @admin.register(Language)
-class LanguageAdmin(admin.ModelAdmin):
+class LanguageAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
     """Admin configuration for language definitions."""
     list_display = ("name", "slug", "max_level")
     search_fields = ("name", "slug")
@@ -4016,7 +4035,7 @@ class DivineEntityAspectInline(admin.TabularInline):
 
 
 @admin.register(Aspect)
-class AspectAdmin(admin.ModelAdmin):
+class AspectAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
     list_display = ("name", "slug", "opposite")
     search_fields = ("name", "slug")
     list_filter = ("opposite",)
@@ -4026,7 +4045,7 @@ class AspectAdmin(admin.ModelAdmin):
 
 
 @admin.register(Spell)
-class SpellAdmin(admin.ModelAdmin):
+class SpellAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
     form = SpellAdminForm
     list_display = ("name", "spell_owner", "spell_family", "grade", "panel_badge_label", "spell_attribute", "is_base_spell", "kp_cost")
     search_fields = ("name", "slug")
@@ -4085,7 +4104,7 @@ class SpellAdmin(admin.ModelAdmin):
 
 
 @admin.register(DivineEntity)
-class DivineEntityAdmin(admin.ModelAdmin):
+class DivineEntityAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
     list_display = ("name", "entity_kind", "school", "starting_aspect_count")
     search_fields = ("name", "slug")
     list_filter = ("entity_kind", "school")
