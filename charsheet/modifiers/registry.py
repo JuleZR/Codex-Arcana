@@ -208,6 +208,19 @@ def _regular_income(level: int):
     ]
 
 
+def _bonus_spell_slots(level: int):
+    return [
+        RuleFlagModifier(
+            source_type="trait",
+            source_id="zusatzzauber",
+            target_key="bonus_spell_slots_per_magic_level",
+            operator=ModifierOperator.SET_FLAG,
+            value=bool(level and level > 0),
+            notes="Zusatzzauber grants one additional spell-learning slot per magical school level.",
+        )
+    ]
+
+
 _RICHES_GM_BY_LEVEL = {
     1: 50,
     2: 100,
@@ -352,6 +365,10 @@ TRAIT_SEMANTIC_BUILDERS: dict[str, Callable[[int], list]] = {
     "reichtuemer": _riches,
     "regelmaessiges_einkommen": _regular_income,
     "adv_regularincome": _regular_income,
+    "zusatzzauber": _bonus_spell_slots,
+    "adv_zusatzzauber": _bonus_spell_slots,
+    "extra_spell": _bonus_spell_slots,
+    "adv_extra_spell": _bonus_spell_slots,
     "adel": _noble,
     "heldensohn": _noble,
     "gesuchter_verbrecher": _wanted,

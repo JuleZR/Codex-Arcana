@@ -7,25 +7,12 @@
       <button type="button" class="payday-window__close sheet-window__close" id="shopWindowClose" aria-label="Laden schlie&szlig;en">x</button>
     </div>
   </div>
-  <div class="payday-window__body sheet-window__body shop-window__body">
-    <div class="sheet-window__layout sheet-window__layout--split shop_window_layout">
-      <section class="sheet-window__section shop_panel">
-        <div class="sheet-window__section-head shop_panel_header">
-          <h2 class="sheet-window__section-title" id="shopListTitle">Kaufbare Gegenst&auml;nde</h2>
-        </div>
-        <div class="sheet-window__toolbar shop_toolbar">
-          <input
-            type="text"
-            id="shopFilterInput"
-            class="sheet-window__field shop_filter_input"
-            placeholder="Gegenstand suchen..."
-            aria-label="Gegenst&auml;nde filtern"
-          >
-          <button type="button" id="shopAddItemBtn" class="sheet-window__control shop_add_btn" title="Neuen Gegenstand anlegen" aria-label="Neuen Gegenstand anlegen">+</button>
-        </div>
-        <div class="sheet-window__surface sheet-window__surface--scroll shop_list_scroll" aria-label="Kaufbare Gegenst&auml;nde">
-          <div class="learn_tabs" data-tabs>
-            <div class="learn_tabs__list" role="tablist" aria-label="Handelsmodus">
+  <div class="payday-window__body sheet-window__body shop-window__body learn-window__body">
+    <div class="sheet-window__layout sheet-window__layout--split shop_window_layout learn_window_layout">
+      <div class="learn_tabs" data-tabs>
+        <section class="sheet-window__section shop_panel learn_nav_panel" aria-label="Handelsmodus">
+          <aside class="learn_tabs__sidebar">
+            <div class="learn_tabs__list" role="tablist" aria-label="Handelsmodus" aria-orientation="vertical">
               <button
                 type="button"
                 class="learn_tabs__tab"
@@ -36,7 +23,8 @@
                 data-tab-target="shop-panel-buy"
                 data-shop-mode-btn="buy"
               >
-                Kaufen
+                <span class="learn_tabs__icon_frame" aria-hidden="true"><span class="learn_tabs__icon">&#10010;</span></span>
+                <span class="learn_tabs__label">Kaufen</span>
               </button>
               <button
                 type="button"
@@ -49,171 +37,200 @@
                 data-shop-mode-btn="sell"
                 tabindex="-1"
               >
-                Verkaufen
+                <span class="learn_tabs__icon_frame" aria-hidden="true"><span class="learn_tabs__icon">&#8596;</span></span>
+                <span class="learn_tabs__label">Verkaufen</span>
               </button>
             </div>
-            <section
-              class="learn_tabs__panel"
-              id="shop-panel-buy"
-              role="tabpanel"
-              aria-labelledby="shop-tab-buy"
-              data-tab-panel
-              data-shop-mode-panel="buy"
-            >
-              {% for group in shop_item_groups %}
-                <details class="shop_group" data-shop-group open>
-                  <summary>
-                    <span>{{ group.label }}</span>
-                    <span class="shop_group_count">{{ group.items|length }}</span>
-                  </summary>
-                  <table class="shop_table">
-                    <tbody>
-                      {% for item in group.items %}
-                        <tr
-                          data-shop-item
-                          data-shop-mode="buy"
-                          data-shop-search="{{ item.name|lower }} {{ group.label|lower }} {{ item.description|default:''|lower }}"
-                          data-shop-id="{{ item.id }}"
-                          data-shop-name="{{ item.name|escape }}"
-                          data-shop-item-type="{{ item.item_type }}"
-                          data-shop-stackable="{% if item.stackable %}1{% else %}0{% endif %}"
-                          data-shop-base-price="{{ item.base_price }}"
-                          data-shop-default-price="{{ item.default_price }}"
-                          data-shop-quality="{{ item.default_quality }}"
-                          data-shop-damage-dice-amount="{{ item.stats.damage_dice_amount|default:'' }}"
-                          data-shop-damage-dice-faces="{{ item.stats.damage_dice_faces|default:'' }}"
-                          data-shop-damage-flat-operator="{{ item.stats.damage_flat_operator|default:'' }}"
-                          data-shop-damage-flat-bonus="{{ item.stats.damage_flat_bonus|default:'' }}"
-                          data-shop-h2-dice-amount="{{ item.stats.h2_dice_amount|default_if_none:'' }}"
-                          data-shop-h2-dice-faces="{{ item.stats.h2_dice_faces|default_if_none:'' }}"
-                          data-shop-h2-flat-operator="{{ item.stats.h2_flat_operator|default_if_none:'' }}"
-                          data-shop-h2-flat-bonus="{{ item.stats.h2_flat_bonus|default_if_none:'' }}"
-                          data-shop-wield-mode="{{ item.stats.wield_mode|default:'' }}"
-                          data-shop-armor-rs="{{ item.stats.armor_rs|default:'' }}"
-                          data-shop-armor-bel="{{ item.stats.armor_bel|default:'' }}"
-                          data-shop-shield-rs="{{ item.stats.shield_rs|default:'' }}"
-                          data-shop-shield-bel="{{ item.stats.shield_bel|default:'' }}"
-                          data-shop-min-st="{{ item.stats.min_st|default_if_none:'' }}"
-                        >
-                          <td class="shop_item_name">
-                            <button type="button" class="shop_item_name_btn" data-shop-pick title="Zum Warenkorb">{{ item.name }}</button>
-                          </td>
-                          <td class="shop_item_price">{{ item.default_price }} KS</td>
-                        </tr>
-                      {% endfor %}
-                    </tbody>
-                  </table>
-                </details>
-              {% empty %}
-                <p class="shop_empty">Keine kaufbaren Gegenst&auml;nde vorhanden.</p>
-              {% endfor %}
-            </section>
-            <section
-              class="learn_tabs__panel"
-              id="shop-panel-sell"
-              role="tabpanel"
-              aria-labelledby="shop-tab-sell"
-              data-tab-panel
-              data-shop-mode-panel="sell"
-              hidden
-            >
-              {% for group in shop_sell_item_groups %}
-                <details class="shop_group" data-shop-group>
-                  <summary>
-                    <span>{{ group.label }}</span>
-                    <span class="shop_group_count">{{ group.items|length }}</span>
-                  </summary>
-                  <table class="shop_table">
-                    <tbody>
-                      {% for item in group.items %}
-                        <tr
-                          data-shop-item
-                          data-shop-mode="sell"
-                          data-shop-search="{{ item.name|lower }} {{ group.label|lower }} {{ item.description|default:''|lower }} {{ item.quality_label|lower }}"
-                          data-character-item-id="{{ item.character_item_id }}"
-                          data-shop-name="{{ item.name|escape }}"
-                          data-shop-item-type="{{ item.item_type }}"
-                          data-shop-stackable="{% if item.stackable %}1{% else %}0{% endif %}"
-                          data-shop-available-qty="{{ item.amount }}"
-                          data-shop-unit-price="{{ item.unit_price }}"
-                          data-shop-quality="{{ item.quality }}"
-                        >
-                          <td class="shop_item_name">
-                            <button type="button" class="shop_item_name_btn" data-shop-pick title="Zum Warenkorb">{{ item.name }}</button>
-                          </td>
-                          <td class="shop_item_price">{{ item.unit_price }} KS</td>
-                        </tr>
-                      {% endfor %}
-                    </tbody>
-                  </table>
-                </details>
-              {% empty %}
-                <p class="shop_empty">Keine verkaufbaren Gegenst&auml;nde vorhanden.</p>
-              {% endfor %}
-            </section>
-          </div>
-        </div>
-      </section>
-      <section class="sheet-window__section shop_panel">
-        <div class="sheet-window__section-head shop_panel_header">
-          <h2 class="sheet-window__section-title" id="shopCartTitle">Warenkorb</h2>
-        </div>
-        <div class="sheet-window__surface sheet-window__surface--work shop_cart_wrapper" data-shop-balance="{{ character.money }}" data-buy-url="{% url 'buy_shop_cart' character.id %}" data-sell-url="{% url 'sell_shop_cart' character.id %}" data-trade-url="{% url 'trade_shop_cart' character.id %}">
-          <div class="sheet-window__surface sheet-window__surface--table shop_cart_scroll">
-            <table class="shop_cart_table">
-              <thead>
-                <tr>
-                  <th id="shopCartItemHeader">Gegenstand</th>
-                  <th>Qualit&auml;t</th>
-                  <th>Menge</th>
-                  <th>Einzel</th>
-                  <th>Summe</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody id="shopCartBody">
-                <tr class="shop_cart_empty_row">
-                  <td colspan="6">Noch keine Gegenst&auml;nde ausgew&auml;hlt.</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          <div class="shop_cart_totals">
-            <div class="shop_cart_total_row">
-              <span>Gesamtpreis</span>
-              <span id="shopCartSubtotal">0 KS</span>
+          </aside>
+        </section>
+
+        <section class="sheet-window__section shop_panel">
+          <div class="sheet-window__surface sheet-window__surface--scroll shop_list_scroll learn_list_scroll" aria-label="Kaufbare Gegenst&auml;nde">
+            <div class="learn_tabs__content">
+              <div class="learn_tabs__content_head">
+                <div class="sheet-window__section-head shop_panel_header">
+                  <h2 class="sheet-window__section-title" id="shopListTitle">Kaufbare Gegenst&auml;nde</h2>
+                </div>
+                <div class="sheet-window__toolbar shop_toolbar learn_toolbar">
+                  <input
+                    type="text"
+                    id="shopFilterInput"
+                    class="sheet-window__field shop_filter_input"
+                    placeholder="Gegenstand suchen..."
+                    aria-label="Gegenst&auml;nde filtern"
+                  >
+                  <button type="button" id="shopAddItemBtn" class="sheet-window__control shop_add_btn" title="Neuen Gegenstand anlegen" aria-label="Neuen Gegenstand anlegen">+</button>
+                </div>
+              </div>
+
+              <section
+                class="learn_tabs__panel"
+                id="shop-panel-buy"
+                role="tabpanel"
+                aria-labelledby="shop-tab-buy"
+                data-tab-panel
+                data-shop-mode-panel="buy"
+              >
+                {% for group in shop_item_groups %}
+                  <details class="shop_group" data-shop-group open>
+                    <summary>
+                      <span>{{ group.label }}</span>
+                      <span class="shop_group_count">{{ group.items|length }}</span>
+                    </summary>
+                    <table class="shop_table">
+                      <tbody>
+                        {% for item in group.items %}
+                          <tr
+                            data-shop-item
+                            data-shop-mode="buy"
+                            data-shop-search="{{ item.name|lower }} {{ group.label|lower }} {{ item.description|default:''|lower }}"
+                            data-shop-id="{{ item.id }}"
+                            data-shop-name="{{ item.name|escape }}"
+                            data-shop-item-type="{{ item.item_type }}"
+                            data-shop-stackable="{% if item.stackable %}1{% else %}0{% endif %}"
+                            data-shop-base-price="{{ item.base_price }}"
+                            data-shop-default-price="{{ item.default_price }}"
+                            data-shop-quality="{{ item.default_quality }}"
+                            data-shop-damage-dice-amount="{{ item.stats.damage_dice_amount|default:'' }}"
+                            data-shop-damage-dice-faces="{{ item.stats.damage_dice_faces|default:'' }}"
+                            data-shop-damage-flat-operator="{{ item.stats.damage_flat_operator|default:'' }}"
+                            data-shop-damage-flat-bonus="{{ item.stats.damage_flat_bonus|default:'' }}"
+                            data-shop-h2-dice-amount="{{ item.stats.h2_dice_amount|default_if_none:'' }}"
+                            data-shop-h2-dice-faces="{{ item.stats.h2_dice_faces|default_if_none:'' }}"
+                            data-shop-h2-flat-operator="{{ item.stats.h2_flat_operator|default_if_none:'' }}"
+                            data-shop-h2-flat-bonus="{{ item.stats.h2_flat_bonus|default_if_none:'' }}"
+                            data-shop-wield-mode="{{ item.stats.wield_mode|default:'' }}"
+                            data-shop-armor-rs="{{ item.stats.armor_rs|default:'' }}"
+                            data-shop-armor-bel="{{ item.stats.armor_bel|default:'' }}"
+                            data-shop-shield-rs="{{ item.stats.shield_rs|default:'' }}"
+                            data-shop-shield-bel="{{ item.stats.shield_bel|default:'' }}"
+                            data-shop-min-st="{{ item.stats.min_st|default_if_none:'' }}"
+                          >
+                            <td class="shop_item_name">
+                              <button type="button" class="shop_item_name_btn" data-shop-pick title="Zum Warenkorb">{{ item.name }}</button>
+                            </td>
+                            <td class="shop_item_price">{{ item.default_price }} KS</td>
+                          </tr>
+                        {% endfor %}
+                      </tbody>
+                    </table>
+                  </details>
+                {% empty %}
+                  <p class="shop_empty">Keine kaufbaren Gegenst&auml;nde vorhanden.</p>
+                {% endfor %}
+              </section>
+
+              <section
+                class="learn_tabs__panel"
+                id="shop-panel-sell"
+                role="tabpanel"
+                aria-labelledby="shop-tab-sell"
+                data-tab-panel
+                data-shop-mode-panel="sell"
+                hidden
+              >
+                {% for group in shop_sell_item_groups %}
+                  <details class="shop_group" data-shop-group>
+                    <summary>
+                      <span>{{ group.label }}</span>
+                      <span class="shop_group_count">{{ group.items|length }}</span>
+                    </summary>
+                    <table class="shop_table">
+                      <tbody>
+                        {% for item in group.items %}
+                          <tr
+                            data-shop-item
+                            data-shop-mode="sell"
+                            data-shop-search="{{ item.name|lower }} {{ group.label|lower }} {{ item.description|default:''|lower }} {{ item.quality_label|lower }}"
+                            data-character-item-id="{{ item.character_item_id }}"
+                            data-shop-name="{{ item.name|escape }}"
+                            data-shop-item-type="{{ item.item_type }}"
+                            data-shop-stackable="{% if item.stackable %}1{% else %}0{% endif %}"
+                            data-shop-available-qty="{{ item.amount }}"
+                            data-shop-unit-price="{{ item.unit_price }}"
+                            data-shop-quality="{{ item.quality }}"
+                          >
+                            <td class="shop_item_name">
+                              <button type="button" class="shop_item_name_btn" data-shop-pick title="Zum Warenkorb">{{ item.name }}</button>
+                            </td>
+                            <td class="shop_item_price">{{ item.unit_price }} KS</td>
+                          </tr>
+                        {% endfor %}
+                      </tbody>
+                    </table>
+                  </details>
+                {% empty %}
+                  <p class="shop_empty">Keine verkaufbaren Gegenst&auml;nde vorhanden.</p>
+                {% endfor %}
+              </section>
             </div>
-            <div class="shop_cart_total_row shop_cart_discount_row">
-              <label for="shopDiscountInput">Rabatt</label>
-              <div class="shop_discount_input_wrap">
-                <button type="button" class="shop_step_btn" id="shopDiscountDec" aria-label="Rabatt verringern">-</button>
-                <input type="text" id="shopDiscountInput" inputmode="numeric" value="0" aria-label="Rabatt in Prozent">
-                <button type="button" class="shop_step_btn" id="shopDiscountInc" aria-label="Rabatt erh&ouml;hen">+</button>
-                <span>%</span>
+          </div>
+        </section>
+        <section class="sheet-window__section shop_panel">
+          <div class="sheet-window__section-head shop_panel_header">
+            <h2 class="sheet-window__section-title" id="shopCartTitle">Warenkorb</h2>
+          </div>
+          <div class="sheet-window__surface sheet-window__surface--work shop_cart_wrapper" data-shop-balance="{{ character.money }}" data-buy-url="{% url 'buy_shop_cart' character.id %}" data-sell-url="{% url 'sell_shop_cart' character.id %}" data-trade-url="{% url 'trade_shop_cart' character.id %}">
+            <div class="sheet-window__surface sheet-window__surface--table shop_cart_scroll">
+              <table class="shop_cart_table">
+                <thead>
+                  <tr>
+                    <th id="shopCartItemHeader">Gegenstand</th>
+                    <th>Qualit&auml;t</th>
+                    <th>Menge</th>
+                    <th>Einzel</th>
+                    <th>Summe</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="shopCartBody">
+                  <tr class="shop_cart_empty_row">
+                    <td colspan="6">Noch keine Gegenst&auml;nde ausgew&auml;hlt.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="shop_cart_totals">
+              <div class="shop_cart_total_row">
+                <span>Gesamtpreis</span>
+                <span id="shopCartSubtotal">0 KS</span>
+              </div>
+              <div class="shop_cart_total_row shop_cart_discount_row">
+                <label for="shopDiscountInput">Rabatt</label>
+                <div class="shop_discount_input_wrap">
+                  <button type="button" class="shop_step_btn" id="shopDiscountDec" aria-label="Rabatt verringern">-</button>
+                  <input type="text" id="shopDiscountInput" inputmode="numeric" value="0" aria-label="Rabatt in Prozent">
+                  <button type="button" class="shop_step_btn" id="shopDiscountInc" aria-label="Rabatt erh&ouml;hen">+</button>
+                  <span>%</span>
+                </div>
+              </div>
+              <div class="shop_cart_total_row">
+                <span id="shopCartFinalLabel">Saldo</span>
+                <span id="shopCartFinal">0 KS</span>
+              </div>
+              <div class="shop_cart_total_row">
+                <span>Neuer Kassenstand</span>
+                <span id="shopCartBalance">{{ character.money }} KS</span>
+              </div>
+              <div class="sheet-window__footer shop_cart_actions">
+                <button type="button" id="shopActionBtn" class="wax_seal_btn" aria-label="Handeln" title="Handeln"><span class="wax_seal_btn__embossed" aria-hidden="true">&#10003;</span></button>
               </div>
             </div>
-            <div class="shop_cart_total_row">
-              <span id="shopCartFinalLabel">Saldo</span>
-              <span id="shopCartFinal">0 KS</span>
-            </div>
-            <div class="shop_cart_total_row">
-              <span>Neuer Kassenstand</span>
-              <span id="shopCartBalance">{{ character.money }} KS</span>
-            </div>
-            <div class="sheet-window__footer shop_cart_actions">
-              <button type="button" id="shopActionBtn" class="shop_buy_btn">Handeln</button>
-            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      </div>
     </div>
   </div>
 </section>
 
 <section class="payday-window payday-window--large sheet-window" id="shopItemWindow" aria-hidden="true">
   <div class="payday-window__titlebar sheet-window__header" id="shopItemWindowHandle">
-    <h3 class="payday-window__title">Neuen Gegenstand anlegen</h3>
-    <button type="button" class="payday-window__close" id="shopItemWindowClose" aria-label="Fenster zum Anlegen von Gegenst&auml;nden schlie&szlig;en">x</button>
+    <div class="sheet-window__heading">
+      <h3 class="payday-window__title sheet-window__title">Neuen Gegenstand anlegen</h3>
+    </div>
+    <div class="sheet-window__actions">
+      <button type="button" class="payday-window__close sheet-window__close" id="shopItemWindowClose" aria-label="Fenster zum Anlegen von Gegenst&auml;nden schlie&szlig;en">x</button>
+    </div>
   </div>
   <div class="payday-window__body sheet-window__body">
     <form method="post" action="{% url 'create_shop_item' character.id %}" class="shop_item_form" enctype="multipart/form-data">
@@ -323,7 +340,7 @@
             <label class="shop_item_form_row shop_item_form_row--description"><span>Beschreibung</span><textarea name="description" rows="4" maxlength="1000"></textarea></label>
           </div>
         </section>
-        <section class="shop_item_form_details shop_item_form_panel shop_panel">
+        <section class="shop_item_form_details shop_item_form_panel shop_panel rune_window_magic_effects_shell">
           <div class="shop_item_form_panel_header shop_panel_header">
             <h2>Details</h2>
           </div>
@@ -455,6 +472,7 @@
               </div>
             </div>
           </div>
+          <button type="submit" class="wax_seal_btn rune_window_save_seal" aria-label="Speichern" title="Speichern"><span class="wax_seal_btn__embossed" aria-hidden="true">&#10003;</span></button>
         </section>
       </div>
       <template id="shopMagicEffectTemplate">
@@ -532,10 +550,6 @@
           </label>
         </section>
       </template>
-      <div class="shop_item_form_actions">
-        <button type="button" id="shopItemCancelBtn" class="shop_item_cancel_btn">Abbrechen</button>
-        <button type="submit" class="shop_item_save_btn">Speichern</button>
-      </div>
     </form>
   </div>
 </section>

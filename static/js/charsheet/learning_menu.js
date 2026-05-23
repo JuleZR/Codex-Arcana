@@ -150,7 +150,7 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
     } else if (kind === "magic-spell") {
       const hidden = row.querySelector("[data-learn-hidden]");
       value = clamp(value, 0, 1);
-      cost = value * readInt(row.getAttribute("data-cost"), 2);
+      cost = 0;
       if (hidden instanceof HTMLInputElement) {
         hidden.value = String(value);
       }
@@ -173,23 +173,42 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
     }
 
     valueInput.value = String(value);
-    costCell.textContent = `${cost} EP`;
-    return { cost, invalidWrite };
+    if (kind === "magic-spell") {
+      const slotCost = readInt(row.getAttribute("data-slot-cost"), 1);
+      const costLabel = row.getAttribute("data-cost-label") || `${slotCost} Slot${slotCost === 1 ? "" : "s"}`;
+      costCell.textContent = value > 0 ? costLabel : "0";
+    } else {
+      costCell.textContent = `${cost} EP`;
+    }
+    return {
+      cost,
+      invalidWrite,
+      spellSlots: kind === "magic-spell" ? value * readInt(row.getAttribute("data-slot-cost"), 1) : 0,
+    };
   };
 
   const refreshTotals = () => {
     let spent = 0;
+    let spentSpellSlots = 0;
     let invalidWrite = false;
     getRows().forEach((row) => {
       const result = syncRow(row);
       spent += result.cost;
+      spentSpellSlots += result.spellSlots;
       invalidWrite = invalidWrite || result.invalidWrite;
     });
     const budget = getBudget();
     const remaining = budget - spent;
+    const spellSlotBudget = readInt(document.getElementById("learnBudgetPanel")?.getAttribute("data-learn-spell-slot-budget") || "0", 0);
+    const spellSlotSpentBase = readInt(document.getElementById("learnSpellSlotSpentValue")?.getAttribute("data-base-spent-slots") || "0", 0);
+    const spellSlotSpentTotal = spellSlotSpentBase + spentSpellSlots;
+    const spellSlotRemaining = spellSlotBudget - spellSlotSpentTotal;
     const liveBudgetEl = document.getElementById("learnBudgetValue");
     const liveSpentEl = document.getElementById("learnSpentValue");
     const liveRemainingEl = document.getElementById("learnRemainingValue");
+    const liveSpellSlotBudgetEl = document.getElementById("learnSpellSlotBudgetValue");
+    const liveSpellSlotSpentEl = document.getElementById("learnSpellSlotSpentValue");
+    const liveSpellSlotRemainingEl = document.getElementById("learnSpellSlotRemainingValue");
     const liveValidationHint = document.getElementById("learnValidationHint");
     if (liveBudgetEl) {
       liveBudgetEl.textContent = `${budget} EP`;
@@ -201,10 +220,24 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
       liveRemainingEl.textContent = `${remaining} EP`;
       liveRemainingEl.classList.toggle("is-negative", remaining < 0);
     }
+    if (liveSpellSlotBudgetEl) {
+      liveSpellSlotBudgetEl.textContent = `${spellSlotBudget}`;
+    }
+    if (liveSpellSlotSpentEl) {
+      liveSpellSlotSpentEl.textContent = `${spellSlotSpentTotal}`;
+      liveSpellSlotSpentEl.classList.toggle("is-negative", spellSlotRemaining < 0);
+    }
+    if (liveSpellSlotRemainingEl) {
+      liveSpellSlotRemainingEl.textContent = `${spellSlotRemaining}`;
+      liveSpellSlotRemainingEl.classList.toggle("is-negative", spellSlotRemaining < 0);
+    }
     if (liveValidationHint) {
       const messages = [];
       if (remaining < 0) {
         messages.push("Zu wenig EP fuer die ausgewaehlten Lernschritte.");
+      }
+      if (spellSlotRemaining < 0) {
+        messages.push("Zu viele Zauber-Slots ausgewaehlt.");
       }
       if (invalidWrite) {
         messages.push("Schreiben benoetigt mindestens Sprachlevel 1.");
@@ -493,17 +526,21 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
     if (kind === "magic-spell") {
       const spellId = source.getAttribute("data-id") || "";
       const ownerName = source.getAttribute("data-owner-name") || "";
+      const sourceLabel = source.getAttribute("data-source-label") || "";
+      const inputName = source.getAttribute("data-input-name") || `learn_magic_spell_${spellId}`;
       const level = readInt(source.getAttribute("data-level"), 1);
-      const cost = readInt(source.getAttribute("data-cost"), 2);
-      row.setAttribute("data-cost", String(cost));
+      const slotCost = readInt(source.getAttribute("data-slot-cost"), 1);
+      const costLabel = source.getAttribute("data-cost-label") || `${slotCost} Slot${slotCost === 1 ? "" : "s"}`;
+      row.setAttribute("data-slot-cost", String(slotCost));
+      row.setAttribute("data-cost-label", costLabel);
       row.innerHTML = `
-        <td><span>${safeName}</span> <span class="learn_meta_value">(${ownerName} | Grad ${level})</span><input type="hidden" name="learn_magic_spell_${spellId}" value="1" data-learn-hidden></td>
+        <td><span>${safeName}</span> <span class="learn_meta_value">(${ownerName} | Grad ${level}${sourceLabel ? ` | ${escapeHtml(sourceLabel)}` : ""})</span><input type="hidden" name="${escapeHtml(inputName)}" value="1" data-learn-hidden></td>
         <td>
           <div class="shop_qty_stepper">
             <input class="shop_cart_qty_input" type="number" min="0" max="1" value="1" data-learn-value>
           </div>
         </td>
-        <td data-learn-cost>0 EP</td>
+        <td data-learn-cost>${escapeHtml(costLabel)}</td>
         <td><button type="button" class="shop_cart_remove_btn" data-learn-remove aria-label="Eintrag entfernen">x</button></td>
       `;
       return row;
@@ -599,8 +636,10 @@ export function initLearningMenu({ choiceWindowController = null } = {}) {
   const applyBtn = document.getElementById("learnApplyBtn");
   const filterInput = document.getElementById("learnFilterInput");
   const hiddenInputContainer = document.getElementById("learnPendingChoiceInputs");
-  const pendingNotice = document.getElementById("learnPendingChoiceNotice");
-  const pendingTrigger = document.getElementById("learnPendingChoiceTrigger");
+  const pendingNotices = Array.from(document.querySelectorAll("[data-pending-choice-notice]"));
+  const pendingTriggers = Array.from(document.querySelectorAll("[data-pending-choice-trigger]"));
+  const centerPendingNotice = document.getElementById("learnPendingChoiceCenterNotice");
+  const sidebarPendingNotice = document.getElementById("learnPendingChoiceNotice");
   if (!form || !cartBody || !budgetEl || !spentEl || !remainingEl || !applyBtn || !hiddenInputContainer) {
     return null;
   }
@@ -612,15 +651,31 @@ export function initLearningMenu({ choiceWindowController = null } = {}) {
   });
 
   const syncPendingNotice = () => {
-    if (!pendingNotice) {
+    if (!pendingNotices.length) {
       return;
     }
     const hasPending = choiceController ? choiceController.hasPendingChoices() : false;
-    pendingNotice.hidden = !hasPending;
+    const sidebarEnabled = document.body.dataset.sidebarEnabled === "1";
+    pendingNotices.forEach((notice) => {
+      if (!(notice instanceof HTMLElement)) {
+        return;
+      }
+      notice.hidden = !hasPending;
+    });
+    if (sidebarPendingNotice instanceof HTMLElement) {
+      sidebarPendingNotice.style.display = hasPending ? "" : "none";
+    }
+    if (centerPendingNotice instanceof HTMLElement) {
+      const showCenterNotice = hasPending && !sidebarEnabled;
+      centerPendingNotice.hidden = !showCenterNotice;
+      centerPendingNotice.style.display = showCenterNotice ? "block" : "none";
+    }
   };
 
-  pendingTrigger?.addEventListener("click", () => {
-    choiceController?.openNextPendingChoice();
+  pendingTriggers.forEach((trigger) => {
+    trigger.addEventListener("click", () => {
+      choiceController?.openNextPendingChoice();
+    });
   });
   document.addEventListener("learn:choices-updated", syncPendingNotice);
   syncPendingNotice();

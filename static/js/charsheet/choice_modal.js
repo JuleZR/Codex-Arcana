@@ -53,7 +53,7 @@ export function createChoiceModalController({ hiddenInputContainer, windowContro
   const getDecisionInputs = (decisionId) => Array.from(hiddenInputContainer.querySelectorAll(`input[data-choice-decision-id="${decisionId}"]`));
   const getSelectionGroupId = (section) => section.dataset.choiceSelectionGroup || "";
   const getInputType = (section) => section.dataset.choiceInputType || "options";
-  const getDecisionTitle = (section) => section.dataset.choiceTitle || "Ausstehende Entscheidung";
+  const getDecisionTitle = (section) => section.dataset.choiceTitle || "Offene Wahl";
   const getSectionOptionInputs = (section) => Array.from(section.querySelectorAll("input[type='radio']"));
   const getNavItemByDecisionId = (decisionId) => navListEl.querySelector(`[data-choice-nav-id="${decisionId}"]`);
   const getPanelSummaryEl = (section) => section.querySelector("[data-choice-panel-summary]");
@@ -376,7 +376,7 @@ export function createChoiceModalController({ hiddenInputContainer, windowContro
 
     setActiveDecision(chooseBestActiveSection(pendingSections));
 
-    titleEl.textContent = pendingSections.length > 1 ? "Ausstehende Entscheidungen" : "Ausstehende Entscheidung";
+    titleEl.textContent = pendingSections.length > 1 ? "Offene Wahlen" : "Offene Wahl";
     if (introEl instanceof HTMLElement) {
       introEl.textContent = pendingSections.length > 1
         ? "Links siehst du alle offenen Choices. Rechts bearbeitest du die jeweils ausgewaehlte Entscheidung direkt."

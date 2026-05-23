@@ -26,66 +26,88 @@
       href="{% static 'css/charsheet.css' %}"
     />
   </head>
-  <body>
-    {% include "charsheet/partials/_left_tools.html" %}
+  <body class="charsheet-page" data-sidebar-enabled="{% if request.user.settings.sidebar_enabled %}1{% else %}0{% endif %}">
+    <div class="charsheet-app" id="charsheetApp">
+      {% include "charsheet/partials/_left_tools.html" %}
+      {% include "charsheet/partials/_context_radial_menu.html" %}
 
-    <main class="book-spread">
-      {% include "charsheet/partials/_character_header.html" %}
-      {% include "charsheet/partials/_sheet_secondary_page.html" %}
-    </main>
+      <main class="book-spread">
+        {% include "charsheet/partials/_character_header.html" %}
+        {% include "charsheet/partials/_sheet_secondary_page.html" %}
+      </main>
 
-    {{ wound_threshold_rows|json_script:"wound-thresholds-data" }} 
-    {{ battle_calculator_payload|json_script:"battle-calculator-data" }}
-    {% include "charsheet/partials/_character_windows.html" %}
-    {% include "charsheet/partials/_rune_retrofit_window.html" %}
-    {% include "charsheet/partials/_shop_panel.html" %} 
-    {% include "charsheet/partials/_learning_panel.html" %} 
-    {% include "charsheet/partials/_diary_panel.html" %}
-    {% include "charsheet/partials/_battle_calculator_window.html" %}
+      <section
+        class="charsheet-top-pending-choice"
+        id="learnPendingChoiceCenterNotice"
+        {% if not learn_has_pending_choices %}hidden{% endif %}
+        data-pending-choice-notice
+        aria-label="Offene Entscheidung"
+      >
+        <button
+          type="button"
+          class="learn_choice_notice_trigger charsheet-top-pending-choice__trigger"
+          data-pending-choice-trigger
+          aria-label="Offene Entscheidung erneut oeffnen"
+          title="Offene Entscheidung erneut oeffnen"
+        >
+          <span class="learn_choice_notice_icon" aria-hidden="true">&#x26A0;&#xFE0E;</span>
+          <span class="learn_choice_notice_text">Offene Wahl</span>
+        </button>
+      </section>
 
-    <!-- Mobile status HUD: damage + arcane power bar, visible only on small screens -->
-    <div class="mobile-status-hud" id="mobileStatusHud" role="status" aria-label="Charakterstatus">
-      <div class="mobile-status-hud__section" aria-label="Schaden">
-        <span class="mobile-status-hud__icon" aria-hidden="true">⚔</span>
-        <div class="mobile-status-hud__content">
-          <div class="mobile-status-hud__row">
-            <div class="mobile-status-hud__bar-wrap mobile-status-hud__bar-wrap--damage" aria-hidden="true" style="--hud-damage-track-gradient: linear-gradient(90deg, {% for segment in damage_gauge_segments %}{{ segment.color }} {{ segment.start_percent }}%, {{ segment.color }} {{ segment.end_percent }}%{% if not forloop.last %}, {% endif %}{% endfor %});">
-              <div class="mobile-status-hud__fill mobile-status-hud__fill--damage"></div>
+      {{ wound_threshold_rows|json_script:"wound-thresholds-data" }} 
+      {{ battle_calculator_payload|json_script:"battle-calculator-data" }}
+      {% include "charsheet/partials/_character_windows.html" %}
+      {% include "charsheet/partials/_rune_retrofit_window.html" %}
+      {% include "charsheet/partials/_shop_panel.html" %} 
+      {% include "charsheet/partials/_learning_panel.html" %} 
+      {% include "charsheet/partials/_diary_panel.html" %}
+      {% include "charsheet/partials/_battle_calculator_window.html" %}
+
+      <!-- Mobile status HUD: damage + arcane power bar, visible only on small screens -->
+      <div class="mobile-status-hud" id="mobileStatusHud" role="status" aria-label="Charakterstatus">
+        <div class="mobile-status-hud__section" aria-label="Schaden">
+          <span class="mobile-status-hud__icon" aria-hidden="true">&#x2694;&#xFE0E;</span>
+          <div class="mobile-status-hud__content">
+            <div class="mobile-status-hud__row">
+              <div class="mobile-status-hud__bar-wrap mobile-status-hud__bar-wrap--damage" aria-hidden="true" style="--hud-damage-track-gradient: linear-gradient(90deg, {% for segment in damage_gauge_segments %}{{ segment.color }} {{ segment.start_percent }}%, {{ segment.color }} {{ segment.end_percent }}%{% if not forloop.last %}, {% endif %}{% endfor %});">
+                <div class="mobile-status-hud__fill mobile-status-hud__fill--damage"></div>
+              </div>
+              <span class="mobile-status-hud__val">
+                <span data-hud-damage-cur>{{ character.current_damage }}</span>/<span data-hud-damage-max>{{ current_damage_max }}</span>
+              </span>
             </div>
-            <span class="mobile-status-hud__val">
-              <span data-hud-damage-cur>{{ character.current_damage }}</span>/<span data-hud-damage-max>{{ current_damage_max }}</span>
-            </span>
+            <div class="mobile-status-hud__meta" data-hud-damage-meta>
+              <strong data-hud-wound-stage>{% if current_wound_stage != "-" %}{{ current_wound_stage }}{% else %}Unverletzt{% endif %}</strong>
+              <strong data-hud-wound-penalty>{% if current_wound_stage != "-" %}{{ current_wound_penalty }}{% else %}0{% endif %}</strong>
+            </div>
           </div>
-          <div class="mobile-status-hud__meta" data-hud-damage-meta>
-            <strong data-hud-wound-stage>{% if current_wound_stage != "-" %}{{ current_wound_stage }}{% else %}Unverletzt{% endif %}</strong>
-            <strong data-hud-wound-penalty>{% if current_wound_stage != "-" %}{{ current_wound_penalty }}{% else %}0{% endif %}</strong>
+        </div>
+        <div class="mobile-status-hud__sep" aria-hidden="true"></div>
+        <div class="mobile-status-hud__section" aria-label="Arkane Macht">
+          <span class="mobile-status-hud__icon" aria-hidden="true">&#x2726;</span>
+          <div class="mobile-status-hud__content">
+            <div class="mobile-status-hud__row">
+              <div class="mobile-status-hud__bar-wrap" aria-hidden="true">
+                <div class="mobile-status-hud__fill mobile-status-hud__fill--arcane"></div>
+              </div>
+              <span class="mobile-status-hud__val">
+                <span data-hud-arcane-cur>{{ current_arcane_power }}</span>/<span data-hud-arcane-max>{{ current_arcane_power_max }}</span>
+              </span>
+            </div>
+            <div class="mobile-status-hud__meta mobile-status-hud__meta--spacer" aria-hidden="true">
+              <strong>&nbsp;</strong>
+              <strong>&nbsp;</strong>
+            </div>
           </div>
         </div>
       </div>
-      <div class="mobile-status-hud__sep" aria-hidden="true"></div>
-      <div class="mobile-status-hud__section" aria-label="Arkane Macht">
-        <span class="mobile-status-hud__icon" aria-hidden="true">✦</span>
-        <div class="mobile-status-hud__content">
-          <div class="mobile-status-hud__row">
-            <div class="mobile-status-hud__bar-wrap" aria-hidden="true">
-              <div class="mobile-status-hud__fill mobile-status-hud__fill--arcane"></div>
-            </div>
-            <span class="mobile-status-hud__val">
-              <span data-hud-arcane-cur>{{ current_arcane_power }}</span>/<span data-hud-arcane-max>{{ current_arcane_power_max }}</span>
-            </span>
-          </div>
-          <div class="mobile-status-hud__meta mobile-status-hud__meta--spacer" aria-hidden="true">
-            <strong>&nbsp;</strong>
-            <strong>&nbsp;</strong>
-          </div>
-        </div>
-      </div>
-    </div>
 
-    <div aria-hidden="true" class="firefly-layer">
-      {% for _ in '123456789012345' %}
-      <div class="firefly"></div>
-      {% endfor %}
+      <div aria-hidden="true" class="firefly-layer">
+        {% for _ in '123456789012345' %}
+        <div class="firefly"></div>
+        {% endfor %}
+      </div>
     </div>
 
     <script type="module" src="{% static 'js/charsheet/bootstrap.js' %}?v=20260521a"></script>

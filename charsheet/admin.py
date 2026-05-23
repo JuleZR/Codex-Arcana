@@ -4108,17 +4108,39 @@ class SpellAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
 
 @admin.register(DivineEntity)
 class DivineEntityAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
-    list_display = ("name", "entity_kind", "school", "starting_aspect_count")
+    list_display = (
+        "name",
+        "entity_kind",
+        "school",
+        "starting_aspect_count",
+        "has_symbol_image",
+        "grants_arcane_spell_choice_per_level",
+    )
     search_fields = ("name", "slug")
-    list_filter = ("entity_kind", "school")
+    list_filter = ("entity_kind", "school", "grants_arcane_spell_choice_per_level")
     ordering = ("name",)
     autocomplete_fields = ("school",)
     list_select_related = ("school", "school__type")
     inlines = (DivineEntityAspectInline,)
+    readonly_fields = ("symbol_image_preview",)
 
     @admin.display(description="Startaspekte")
     def starting_aspect_count(self, obj):
         return obj.aspects.filter(is_starting_aspect=True).count()
+
+    @admin.display(description="Symbol")
+    def has_symbol_image(self, obj):
+        return bool(obj.symbol_image)
+
+    @admin.display(description="Symbolvorschau")
+    def symbol_image_preview(self, obj):
+        if obj is None or not obj.symbol_image:
+            return format_html('<span style="color:#666;">{}</span>', "-")
+        return format_html(
+            '<img src="{}" alt="{}" style="max-width:96px; max-height:96px; border-radius:8px; border:1px solid #ccc; background:#fff; padding:4px;" />',
+            obj.symbol_image.url,
+            obj.name,
+        )
 
 
 @admin.register(DivineEntityAspect)
@@ -4194,13 +4216,13 @@ class CharacterDivineEntityAdmin(admin.ModelAdmin):
 
 @admin.register(CharacterSpell)
 class CharacterSpellAdmin(admin.ModelAdmin):
-    list_display = ("character", "spell", "spell_owner", "source_kind", "bonus_source", "entry_mode")
-    search_fields = ("character__name", "spell__name", "spell__slug", "bonus_source__label")
-    list_filter = ("source_kind", "spell__school", "spell__aspect", "bonus_source")
+    list_display = ("character", "spell", "spell_owner", "source_kind", "granted_by_entity", "bonus_source", "entry_mode")
+    search_fields = ("character__name", "spell__name", "spell__slug", "bonus_source__label", "granted_by_entity__name")
+    list_filter = ("source_kind", "spell__school", "spell__aspect", "bonus_source", "granted_by_entity")
     ordering = ("character__name", "spell__name")
-    autocomplete_fields = ("character", "spell", "bonus_source")
-    list_select_related = ("character", "spell", "spell__school", "spell__aspect", "bonus_source")
-    readonly_fields = ("entry_mode",)
+    autocomplete_fields = ("character", "spell", "bonus_source", "granted_by_entity")
+    list_select_related = ("character", "spell", "spell__school", "spell__aspect", "bonus_source", "granted_by_entity")
+    readonly_fields = ("entry_mode", "special_rule_flags")
 
     @admin.display(description="Quelle")
     def spell_owner(self, obj):
@@ -4211,17 +4233,41 @@ class CharacterSpellAdmin(admin.ModelAdmin):
         automatic_kinds = {
             CharacterSpell.SourceKind.BASE,
             CharacterSpell.SourceKind.DIVINE_GRANTED,
+            CharacterSpell.SourceKind.DIVINE_ARCANE_GRANTED,
         }
         return "Automatisch" if obj.source_kind in automatic_kinds else "Manuell/Auswahl"
+
+    @admin.display(description="Sonderregeln")
+    def special_rule_flags(self, obj):
+        lines = []
+        if obj.uses_divine_school_level:
+            lines.append("Nutzt goettliche Schulstufe")
+        if obj.ignore_critical_fumble_table:
+            lines.append("Ignoriert Fehlschlagstabelle")
+        if obj.granted_for_level:
+            lines.append(f"Freigeschaltet auf Stufe {int(obj.granted_for_level)}")
+        return _render_readonly_lines(lines)
 
     def get_readonly_fields(self, request, obj=None):
         readonly = list(super().get_readonly_fields(request, obj))
         automatic_kinds = {
             CharacterSpell.SourceKind.BASE,
             CharacterSpell.SourceKind.DIVINE_GRANTED,
+            CharacterSpell.SourceKind.DIVINE_ARCANE_GRANTED,
         }
         if obj is not None and obj.source_kind in automatic_kinds:
-            readonly.extend(["character", "spell", "source_kind", "bonus_source"])
+            readonly.extend(
+                [
+                    "character",
+                    "spell",
+                    "source_kind",
+                    "bonus_source",
+                    "granted_by_entity",
+                    "granted_for_level",
+                    "uses_divine_school_level",
+                    "ignore_critical_fumble_table",
+                ]
+            )
         return tuple(dict.fromkeys(readonly))
 
 
@@ -4241,12 +4287,18 @@ class CharacterDiaryEntryAdmin(admin.ModelAdmin):
 class UserSettingsAdmin(admin.ModelAdmin):
     """Admin configuration for per-user sheet integration settings."""
 
-    list_display = ("user", "dddice_enabled", "dddice_room_id", "dddice_dice_box", "dddice_theme_id")
+    list_display = ("user", "sidebar_enabled", "dddice_enabled", "dddice_room_id", "dddice_dice_box", "dddice_theme_id")
     search_fields = ("user__username", "user__email", "dddice_room_id", "dddice_dice_box", "dddice_theme_id")
-    list_filter = ("dddice_enabled",)
+    list_filter = ("sidebar_enabled", "dddice_enabled",)
     ordering = ("user",)
     fieldsets = (
         ("Benutzer", {"fields": ("user",)}),
+        (
+            "Charsheet",
+            {
+                "fields": ("sidebar_enabled",)
+            },
+        ),
         (
             "dddice",
             {

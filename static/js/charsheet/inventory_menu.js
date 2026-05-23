@@ -1338,7 +1338,7 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
 
   runeForm?.addEventListener("sheet:action-failed", () => {
     pendingRuneSubmit = false;
-    const saveBtn = runeForm?.querySelector(".shop_item_save_btn");
+    const saveBtn = runeForm?.querySelector(".rune_window_save_seal");
     if (saveBtn instanceof HTMLButtonElement) {
       saveBtn.disabled = false;
     }

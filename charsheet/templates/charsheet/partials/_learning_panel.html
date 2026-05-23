@@ -10,87 +10,114 @@
   <div class="payday-window__body sheet-window__body shop-window__body learn-window__body">
     <form method="post" action="{% url 'apply_learning' character.id %}" id="learnForm" class="learn_form">
       {% csrf_token %}
-      {% include "charsheet/partials/_learning_budget.html" %}
       <div class="sheet-window__layout sheet-window__layout--split shop_window_layout learn_window_layout">
-        <section class="sheet-window__section shop_panel">
-          <div class="sheet-window__section-head shop_panel_header">
-            <h2 class="sheet-window__section-title">Lernoptionen</h2>
-          </div>
+        <div class="learn_tabs" data-tabs>
+          <section class="sheet-window__section shop_panel learn_nav_panel" aria-label="Lernkategorien">
+            <aside class="learn_tabs__sidebar">
+              <div class="learn_tabs__list" role="tablist" aria-label="Lernkategorien" aria-orientation="vertical">
+                    <button
+                      type="button"
+                      class="learn_tabs__tab"
+                      id="learn-tab-attributes"
+                      role="tab"
+                      aria-selected="true"
+                      aria-controls="learn-panel-attributes"
+                      data-tab-target="learn-panel-attributes"
+                    >
+                      <span class="learn_tabs__icon_frame" aria-hidden="true"><span class="learn_tabs__icon">&#9672;</span></span>
+                      <span class="learn_tabs__label">Attribute</span>
+                    </button>
+                    <button
+                      type="button"
+                      class="learn_tabs__tab"
+                      id="learn-tab-traits"
+                      role="tab"
+                      aria-selected="false"
+                      aria-controls="learn-panel-traits"
+                      data-tab-target="learn-panel-traits"
+                      tabindex="-1"
+                    >
+                      <span class="learn_tabs__icon_frame" aria-hidden="true"><span class="learn_tabs__icon">&#9878;</span></span>
+                      <span class="learn_tabs__label">Vor- & Nachteile</span>
+                    </button>
+                    <button
+                      type="button"
+                      class="learn_tabs__tab"
+                      id="learn-tab-skills"
+                      role="tab"
+                      aria-selected="false"
+                      aria-controls="learn-panel-skills"
+                      data-tab-target="learn-panel-skills"
+                      tabindex="-1"
+                    >
+                      <span class="learn_tabs__icon_frame" aria-hidden="true"><span class="learn_tabs__icon">&#10022;</span></span>
+                      <span class="learn_tabs__label">Fertigkeiten</span>
+                    </button>
+                    <button
+                      type="button"
+                      class="learn_tabs__tab"
+                      id="learn-tab-languages"
+                      role="tab"
+                      aria-selected="false"
+                      aria-controls="learn-panel-languages"
+                      data-tab-target="learn-panel-languages"
+                      tabindex="-1"
+                    >
+                      <span class="learn_tabs__icon_frame" aria-hidden="true"><span class="learn_tabs__icon">&#9776;</span></span>
+                      <span class="learn_tabs__label">Sprachen</span>
+                    </button>
+                    <button
+                      type="button"
+                      class="learn_tabs__tab"
+                      id="learn-tab-schools"
+                      role="tab"
+                      aria-selected="false"
+                      aria-controls="learn-panel-schools"
+                      data-tab-target="learn-panel-schools"
+                      tabindex="-1"
+                    >
+                      <span class="learn_tabs__icon_frame" aria-hidden="true"><span class="learn_tabs__icon">&#8998;</span></span>
+                      <span class="learn_tabs__label">Schulen</span>
+                    </button>
+                    {% if learn_magic_tab_visible %}
+                      <button
+                        type="button"
+                        class="learn_tabs__tab"
+                        id="learn-tab-magic"
+                        role="tab"
+                        aria-selected="false"
+                        aria-controls="learn-panel-magic"
+                        data-tab-target="learn-panel-magic"
+                        tabindex="-1"
+                      >
+                        <span class="learn_tabs__icon_frame" aria-hidden="true"><span class="learn_tabs__icon">&#10023;</span></span>
+                        <span class="learn_tabs__label">Magie</span>
+                      </button>
+                    {% endif %}
+                  </div>
+            </aside>
+          </section>
 
-          <div class="sheet-window__toolbar shop_toolbar learn_toolbar">
-            <input
-              type="search"
-              id="learnFilterInput"
-              class="sheet-window__field shop_filter_input"
-              placeholder="Lernoptionen filtern"
-              aria-label="Lernoptionen filtern"
-            >
-          </div>
-
-          <div class="sheet-window__surface sheet-window__surface--scroll shop_list_scroll learn_list_scroll" aria-label="Lernoptionen">
-            <div class="learn_tabs" data-tabs>
-              <div class="learn_tabs__list" role="tablist" aria-label="Lernkategorien">
-                <button
-                  type="button"
-                  class="learn_tabs__tab"
-                  id="learn-tab-attributes"
-                  role="tab"
-                  aria-selected="true"
-                  aria-controls="learn-panel-attributes"
-                  data-tab-target="learn-panel-attributes"
-                >
-                  Attribute
-                </button>
-                <button
-                  type="button"
-                  class="learn_tabs__tab"
-                  id="learn-tab-traits"
-                  role="tab"
-                  aria-selected="false"
-                  aria-controls="learn-panel-traits"
-                  data-tab-target="learn-panel-traits"
-                  tabindex="-1"
-                >
-                  Vor- & Nachteile
-                </button>
-                <button
-                  type="button"
-                  class="learn_tabs__tab"
-                  id="learn-tab-skills"
-                  role="tab"
-                  aria-selected="false"
-                  aria-controls="learn-panel-skills"
-                  data-tab-target="learn-panel-skills"
-                  tabindex="-1"
-                >
-                  Fertigkeiten
-                </button>
-                <button
-                  type="button"
-                  class="learn_tabs__tab"
-                  id="learn-tab-languages"
-                  role="tab"
-                  aria-selected="false"
-                  aria-controls="learn-panel-languages"
-                  data-tab-target="learn-panel-languages"
-                  tabindex="-1"
-                >
-                  Sprachen
-                </button>
-                <button
-                  type="button"
-                  class="learn_tabs__tab"
-                  id="learn-tab-schools"
-                  role="tab"
-                  aria-selected="false"
-                  aria-controls="learn-panel-schools"
-                  data-tab-target="learn-panel-schools"
-                  tabindex="-1"
-                >
-                  Schulen
-                </button>
-              </div>
-
+          <section class="sheet-window__section shop_panel">
+            <div class="sheet-window__surface sheet-window__surface--scroll shop_list_scroll learn_list_scroll" aria-label="Lernoptionen">
+              <div class="learn_tabs__content">
+                  <div class="learn_tabs__content_head">
+                    <div class="sheet-window__section-head shop_panel_header">
+                      <h2 class="sheet-window__section-title">Lernoptionen</h2>
+                    </div>
+                  <div class="sheet-window__toolbar shop_toolbar learn_toolbar">
+                    <input
+                      type="search"
+                        id="learnFilterInput"
+                        class="sheet-window__field shop_filter_input"
+                        placeholder="Lernoptionen filtern"
+                        aria-label="Lernoptionen filtern"
+                      >
+                    </div>
+                    <div class="learn_options_budget" data-hide-on-tab="learn-panel-magic">
+                      {% include "charsheet/partials/_learning_budget.html" %}
+                    </div>
+                  </div>
               <section
                 class="learn_tabs__panel"
                 id="learn-panel-attributes"
@@ -292,9 +319,111 @@
                   {% endfor %}
                 </details>
               </section>
+              {% if learn_magic_tab_visible %}
+                <section
+                  class="learn_tabs__panel"
+                  id="learn-panel-magic"
+                  role="tabpanel"
+                  aria-labelledby="learn-tab-magic"
+                  data-tab-panel
+                  hidden
+                >
+                  <details class="shop_group" data-learn-group open>
+                    <summary><span>Magie</span><span class="shop_group_count">{{ learn_magic_count }}</span></summary>
+                    {% if learn_magic_slot_summary.total or learn_magic_slot_summary.spent or learn_magic_slot_summary.remaining %}
+                      <div class="learn_budget_grid learn_magic_budget" data-learn-magic-budget>
+                        <div class="shop_cart_total_row">
+                          <span>Zauber-Slots</span>
+                          <span id="learnSpellSlotBudgetValue">{{ learn_magic_slot_summary.total }}</span>
+                        </div>
+                        <div class="shop_cart_total_row">
+                          <span>Belegt</span>
+                          <span id="learnSpellSlotSpentValue" data-base-spent-slots="{{ learn_magic_slot_summary.spent }}">{{ learn_magic_slot_summary.spent }}</span>
+                        </div>
+                        <div class="shop_cart_total_row">
+                          <span>Verf&uuml;gbar</span>
+                          <span id="learnSpellSlotRemainingValue">{{ learn_magic_slot_summary.remaining }}</span>
+                        </div>
+                      </div>
+                    {% endif %}
+                    {% for group in learn_magic_groups %}
+                      <details class="shop_group learn_subgroup" data-learn-group open>
+                        <summary><span>{{ group.name }}</span><span class="shop_group_count">{{ group.rows|length }}</span></summary>
+                        <table class="shop_table">
+                          <tbody>
+                            {% for row in group.rows %}
+                              {% if row.kind == "magic_spell" %}
+                                <tr
+                                  data-learn-source
+                                  data-kind="magic-spell"
+                                  data-key="magic-spell:{{ row.cart_key|default:row.spell_id }}"
+                                  data-id="{{ row.spell_id }}"
+                                  data-name="{{ row.name }}"
+                                  data-owner-name="{{ row.owner_name }}"
+                                  data-source-label="{{ row.source_label|default:'' }}"
+                                  data-input-name="{{ row.input_name|default:'' }}"
+                                  data-level="{{ row.grade }}"
+                                  data-slot-cost="{{ row.slot_cost|default:1 }}"
+                                  data-cost-label="{{ row.cost_label|default:'1 Slot' }}"
+                                  data-learn-search="{{ row.search_tokens }}"
+                                  tabindex="0"
+                                  role="button"
+                                  aria-label="{{ row.name }} lernen"
+                                  {% if row.description %}class="tooltip_target" data-tooltip-side="left" data-tooltip="{{ row.description }}"{% endif %}
+                                >
+                                  <td class="shop_item_name">{{ row.name }}</td>
+                                  <td class="shop_item_price shop_item_price--meta">
+                                    <span class="learn_meta_inline" aria-label="{{ row.owner_name }}, Grad {{ row.grade }}, verbraucht einen Zauber-Slot">
+                                      <span class="learn_meta_inline__row">
+                                        <span class="learn_meta_inline__item"><span class="learn_meta_label">Quelle</span><span class="learn_meta_value">{{ row.owner_name }}</span></span>
+                                      </span>
+                                      <span class="learn_meta_inline__row">
+                                        <span class="learn_meta_inline__item"><span class="learn_meta_label">Grad</span><span class="learn_meta_value">{{ row.grade }}</span></span>
+                                        <span class="learn_meta_inline__item"><span class="learn_meta_label">Typ</span><span class="learn_meta_value">{{ row.source_label|default:"Zauber-Slot" }}</span></span>
+                                      </span>
+                                    </span>
+                                  </td>
+                                </tr>
+                              {% elif row.kind == "magic_aspect" %}
+                                <tr
+                                  data-learn-source
+                                  data-kind="magic-aspect"
+                                  data-key="magic-aspect:{{ row.aspect_id }}"
+                                  data-id="{{ row.aspect_id }}"
+                                  data-name="{{ row.name }}"
+                                  data-base="{{ row.base_level }}"
+                                  data-max="{{ row.max_level }}"
+                                  data-cost-per-level="{{ row.cost_per_level }}"
+                                  data-learn-search="{{ row.search_tokens }}"
+                                  tabindex="0"
+                                  role="button"
+                                  aria-label="{{ row.name }} lernen"
+                                  {% if row.description %}class="tooltip_target" data-tooltip-side="left" data-tooltip="{{ row.description }}"{% endif %}
+                                >
+                                  <td class="shop_item_name">{{ row.name }}</td>
+                                  <td class="shop_item_price shop_item_price--meta">
+                                    <span class="learn_meta_inline" aria-label="Aspekt, Maximum {{ row.max_level }}, {{ row.cost_per_level }} EP pro Stufe">
+                                      <span class="learn_meta_inline__row">
+                                        <span class="learn_meta_inline__item"><span class="learn_meta_label">Max</span><span class="learn_meta_value">{{ row.max_level }}</span></span>
+                                        <span class="learn_meta_inline__item"><span class="learn_meta_label">EP</span><span class="learn_meta_value">{{ row.cost_per_level }}/Lvl</span></span>
+                                      </span>
+                                    </span>
+                                  </td>
+                                </tr>
+                              {% endif %}
+                            {% endfor %}
+                          </tbody>
+                        </table>
+                      </details>
+                    {% empty %}
+                      <p class="shop_empty">Keine verf&uuml;gbaren Zauber oder Aspekte.</p>
+                    {% endfor %}
+                  </details>
+                </section>
+              {% endif %}
+              </div>
             </div>
-          </div>
-        </section>
+          </section>
 
         <section class="sheet-window__section shop_panel">
           <div class="sheet-window__section-head shop_panel_header">
@@ -320,7 +449,7 @@
             </div>
             <div id="learnPendingChoiceInputs"></div>
             <div class="sheet-window__footer shop_cart_actions">
-              <button type="submit" id="learnApplyBtn" class="shop_buy_btn">Lernen anwenden</button>
+              <button type="submit" id="learnApplyBtn" class="wax_seal_btn" aria-label="Lernen anwenden" title="Lernen anwenden"><span class="wax_seal_btn__embossed" aria-hidden="true">&#10003;</span></button>
             </div>
           </div>
         </section>

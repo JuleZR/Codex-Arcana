@@ -2,7 +2,7 @@
 
 .shop_window_layout {
   display: grid;
-  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 12px;
   flex: 1 1 auto;
   min-height: 0;
@@ -1305,14 +1305,24 @@
 }
 
 .shop_panel {
+  position: relative;
   background:
-    linear-gradient(180deg, rgba(248, 243, 230, 0.72), rgba(235, 228, 212, 0.58));
-  border-color: rgba(118, 88, 57, 0.28);
-  border-radius: 12px;
+    linear-gradient(180deg, rgba(245, 235, 211, 0.94), rgba(232, 216, 185, 0.92)),
+    url("/static/img/pergamentbg.jpg") center / cover no-repeat;
+  border: 1px solid rgba(94, 68, 39, 0.72);
+  border-radius: 0;
   box-shadow:
-    inset 0 1px 0 rgba(255, 248, 229, 0.62),
-    inset 0 0 0 1px rgba(255, 247, 226, 0.24),
-    0 6px 12px rgba(49, 30, 15, 0.08);
+    inset 0 1px 0 rgba(255, 245, 220, 0.64),
+    inset 0 0 0 1px rgba(212, 176, 118, 0.18),
+    0 10px 22px rgba(44, 28, 14, 0.12);
+}
+
+.shop_panel::before {
+  content: "";
+  position: absolute;
+  inset: 8px;
+  border: 1px solid rgba(170, 127, 72, 0.22);
+  pointer-events: none;
 }
 
 .shop_panel_header,
@@ -1616,39 +1626,1184 @@
 }
 
 .learn_tabs__list {
-  gap: 6px;
-  padding: 8px 8px 6px;
-  border-bottom: 1px solid rgba(112, 81, 48, 0.16);
+  gap: 0;
+  padding: 0;
+  border: 0;
   background: transparent;
 }
 
 .learn_tabs__tab {
-  min-height: 30px;
-  border: 1px solid rgba(116, 84, 50, 0.22);
-  border-radius: 8px;
-  background: linear-gradient(180deg, rgba(248, 243, 230, 0.68), rgba(235, 228, 212, 0.56));
-  color: rgba(72, 49, 28, 0.92);
-  padding: 6px 10px;
-  font-family: "Cinzel", Georgia, serif;
-  font-size: 0.66rem;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
+  border-radius: 0;
 }
 
-.learn_tabs__tab:hover,
-.learn_tabs__tab:focus-visible {
-  color: rgba(79, 54, 30, 0.98);
-  transform: none;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.56);
+.sheet-window .learn_window_layout {
+  display: block;
 }
 
-.learn_tabs__tab[aria-selected="true"] {
-  color: rgba(61, 41, 22, 0.98);
-  background: linear-gradient(180deg, rgba(255, 251, 241, 0.92), rgba(242, 234, 219, 0.74));
+.sheet-window .learn_tabs {
+  display: grid;
+  grid-template-columns: 132px minmax(0, 1fr) minmax(0, 1fr);
+  gap: 14px;
+  min-height: 0;
+  height: 100%;
+}
+
+#learnWindow.sheet-window.payday-window,
+#shopWindow.sheet-window.payday-window {
+  background:
+    radial-gradient(circle at 50% -10%, rgba(226, 195, 143, 0.16), transparent 34%),
+    linear-gradient(180deg, rgba(119, 86, 58, 0.985), rgba(78, 54, 37, 0.992));
+  border-color: rgba(100, 69, 43, 0.98);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.78),
-    0 1px 3px rgba(88, 60, 30, 0.08);
+    0 28px 54px rgba(22, 14, 9, 0.3),
+    inset 0 1px 0 rgba(234, 205, 160, 0.16),
+    inset 0 0 0 1px rgba(82, 56, 33, 0.34);
+}
+
+#learnWindow.sheet-window.payday-window::before,
+#shopWindow.sheet-window.payday-window::before {
+  border-color: rgba(182, 143, 90, 0.24);
+}
+
+#learnWindow.sheet-window.payday-window::after,
+#shopWindow.sheet-window.payday-window::after {
+  background: linear-gradient(90deg, transparent, rgba(222, 188, 128, 0.2), transparent);
+}
+
+.sheet-window .learn_nav_panel {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(207, 163, 99, 0.12), transparent 34%),
+    linear-gradient(180deg, rgba(56, 41, 31, 0.99), rgba(31, 23, 18, 0.995));
+  border: 1px solid rgba(88, 60, 35, 0.96);
+  box-shadow:
+    inset 0 0 0 1px rgba(156, 119, 74, 0.16),
+    inset 0 1px 0 rgba(255, 235, 190, 0.06),
+    0 18px 28px rgba(16, 11, 8, 0.22);
+}
+
+.sheet-window .learn_nav_panel::after {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  background:
+    linear-gradient(180deg, rgba(255, 241, 212, 0.03), transparent 20%, transparent 78%, rgba(198, 152, 92, 0.05)),
+    radial-gradient(circle at 50% 20%, rgba(255, 240, 208, 0.04), transparent 44%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.sheet-window .learn_nav_panel > * {
+  position: relative;
+  z-index: 1;
+}
+
+.learn-window__body .shop_panel:not(.learn_nav_panel) {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 16%, rgba(255, 252, 244, 0.78), transparent 42%),
+    radial-gradient(circle at 50% 100%, rgba(223, 197, 152, 0.09), transparent 44%),
+    linear-gradient(180deg, rgba(248, 241, 224, 0.975), rgba(236, 224, 198, 0.955)),
+    url("/static/img/pergamentbg.jpg") center / cover no-repeat;
+  border-color: rgba(150, 111, 67, 0.68);
+  box-shadow:
+    inset 0 0 0 1px rgba(226, 191, 132, 0.18),
+    inset 0 1px 0 rgba(255, 250, 236, 0.58),
+    0 14px 28px rgba(45, 29, 16, 0.09);
+}
+
+.learn-window__body .shop_panel:not(.learn_nav_panel)::before {
+  inset: 9px;
+  border-color: rgba(186, 145, 89, 0.14);
+}
+
+.learn-window__body .shop_panel:not(.learn_nav_panel)::after {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.2), transparent 14%, transparent 82%, rgba(181, 142, 90, 0.07)),
+    radial-gradient(circle at 50% 28%, rgba(255, 255, 255, 0.11), transparent 42%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.learn-window__body .shop_panel:not(.learn_nav_panel) > * {
+  position: relative;
+  z-index: 1;
+}
+
+.learn-window__body .shop_panel_header {
+  padding: 12px 15px 10px;
+  background:
+    linear-gradient(180deg, rgba(252, 248, 238, 0.52), rgba(238, 228, 206, 0.12));
+  border-bottom: 0 !important;
+  position: relative;
+}
+
+.learn-window__body .shop_panel_header h2 {
+  font-size: 0.96rem;
+  letter-spacing: 0.07em;
+  color: rgba(92, 61, 29, 0.96);
+}
+
+.learn-window__body .shop_panel_header::after {
+  content: "";
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: -2px;
+  height: 24px;
+  pointer-events: none;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(191, 152, 97, 0.12) 0%,
+      rgba(191, 152, 97, 0.045) 38%,
+      rgba(245, 236, 218, 0) 100%
+    );
+}
+
+.sheet-window .learn_nav_panel::before {
+  border-color: rgba(181, 137, 79, 0.24);
+}
+
+.sheet-window .learn_tabs__sidebar {
+  min-height: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 11px 9px 11px;
+  position: relative;
+  overflow: hidden;
+}
+
+.sheet-window .learn_tabs__sidebar::before {
+  content: "";
+  position: absolute;
+  inset: 10px;
+  border: 1px solid rgba(160, 121, 72, 0.2);
+  pointer-events: none;
+}
+
+.sheet-window .learn_tabs__sidebar::after {
+  content: "";
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 20px;
+  height: 92px;
+  background:
+    linear-gradient(180deg, transparent, rgba(185, 142, 84, 0.08) 30%, transparent 60%),
+    url("/static/img/arcane_codex_logo.svg") center bottom / contain no-repeat;
+  opacity: 0.12;
+  pointer-events: none;
+}
+
+.sheet-window .learn_tabs__list::before,
+.sheet-window .learn_tabs__list::after {
+  content: "";
+  display: block;
+  width: 48px;
+  height: 1px;
+  margin: 2px auto 6px;
+  background: linear-gradient(90deg, transparent, rgba(199, 159, 103, 0.72), transparent);
+  opacity: 0.72;
+}
+
+.sheet-window .learn_tabs__list::after {
+  margin: 8px auto 0;
+  opacity: 0.46;
+}
+
+.sheet-window .learn_tabs__list {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  flex: 1 1 auto;
+  position: relative;
+  z-index: 1;
+}
+
+.sheet-window .learn_tabs__content {
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.sheet-window .learn_tabs__content_head {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding-bottom: 10px;
+}
+
+.sheet-window .learn_tabs__tab {
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-rows: auto;
+  justify-items: center;
+  align-content: start;
+  gap: 5px;
+  width: 100%;
+  height: 85px;
+  min-height: 0;
+  padding: 5px 4px 4px;
+  border: 1px solid rgba(122, 91, 57, 0.82);
+  background:
+    linear-gradient(180deg, rgba(70, 52, 39, 0.988), rgba(45, 33, 25, 0.992)),
+    linear-gradient(90deg, rgba(188, 148, 92, 0.05), transparent 30%, transparent 70%, rgba(188, 148, 92, 0.05));
+  color: rgba(226, 201, 160, 0.96);
+  box-shadow:
+    inset 0 0 0 1px rgba(161, 122, 75, 0.13),
+    inset 0 1px 0 rgba(255, 231, 183, 0.05),
+    0 2px 10px rgba(12, 8, 6, 0.12);
+  text-align: center;
+  position: relative;
+}
+
+.sheet-window .learn_tabs__tab::before {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  border: 1px solid rgba(165, 125, 75, 0.09);
+  pointer-events: none;
+}
+
+.sheet-window .learn_tabs__icon_frame {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+}
+
+.sheet-window .learn_tabs__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  border: 1px solid rgba(170, 132, 81, 0.34);
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(174, 136, 83, 0.08), rgba(81, 58, 33, 0.04));
+  color: rgba(235, 211, 169, 0.94);
+  font-size: 1.28rem;
+  line-height: 1;
+  box-shadow: inset 0 1px 0 rgba(255, 243, 213, 0.08);
+}
+
+.sheet-window .learn_tabs__label {
+  display: block;
+  max-width: 84%;
+  overflow: hidden;
+  color: inherit;
+  font-family: "Cinzel", Georgia, serif;
+  font-size: 0.60rem;
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  margin-top: -1px;
+  text-shadow: 0 1px 0 rgba(18, 11, 8, 0.34);
+}
+
+.sheet-window .learn_tabs__tab:hover,
+.sheet-window .learn_tabs__tab:focus-visible {
+  transform: none;
+  color: rgba(242, 220, 184, 0.98);
+  border-color: rgba(171, 127, 79, 0.94);
+  background:
+    linear-gradient(180deg, rgba(83, 63, 46, 0.992), rgba(58, 43, 31, 0.994)),
+    linear-gradient(90deg, rgba(203, 163, 104, 0.06), transparent 30%, transparent 70%, rgba(203, 163, 104, 0.06));
+  box-shadow:
+    inset 0 0 0 1px rgba(188, 147, 95, 0.14),
+    inset 0 1px 0 rgba(255, 240, 210, 0.06),
+    0 8px 18px rgba(76, 49, 28, 0.14);
+}
+
+.sheet-window .learn_tabs__tab[aria-selected="true"] {
+  border-color: rgba(138, 88, 53, 0.96);
+  background:
+    linear-gradient(180deg, rgba(133, 77, 46, 0.992), rgba(89, 48, 28, 0.995)),
+    linear-gradient(90deg, rgba(228, 179, 116, 0.1), transparent 32%, transparent 68%, rgba(228, 179, 116, 0.1));
+  color: #f7e6c1;
+  box-shadow:
+    inset 0 0 0 1px rgba(203, 153, 96, 0.24),
+    inset 0 1px 0 rgba(255, 233, 192, 0.2),
+    inset 0 -1px 0 rgba(54, 22, 11, 0.42),
+    0 10px 22px rgba(57, 23, 12, 0.2);
+}
+
+.sheet-window .learn_tabs__tab[aria-selected="true"] .learn_tabs__icon {
+  border-color: rgba(227, 193, 137, 0.46);
+  background: linear-gradient(180deg, rgba(235, 196, 131, 0.18), rgba(133, 84, 39, 0.18));
+  color: #fff0d0;
+}
+
+.sheet-window .learn_tabs__panel {
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 auto;
+  padding-top: 0;
+}
+
+.sheet-window .learn_budget_panel {
+  margin-top: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  position: relative;
+  z-index: 1;
+}
+
+.sheet-window .learn_budget_panel::before {
+  display: none;
+}
+
+.sheet-window .learn_options_budget {
+  padding: 8px 14px 14px;
+  background:
+    linear-gradient(180deg, rgba(251, 246, 236, 0.28), rgba(238, 228, 208, 0.06));
+  position: relative;
+}
+
+.sheet-window .learn_options_budget::after {
+  content: "";
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: -4px;
+  height: 28px;
+  pointer-events: none;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(176, 138, 86, 0.08) 0%,
+      rgba(176, 138, 86, 0.025) 34%,
+      rgba(242, 233, 214, 0) 100%
+    );
+}
+
+.sheet-window .learn_budget_grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.sheet-window .learn_budget_grid .shop_cart_total_row {
+  min-height: 42px;
+  border: 1px solid rgba(154, 116, 72, 0.18);
+  border-radius: 14px;
+  background:
+    linear-gradient(180deg, rgba(252, 248, 241, 0.8), rgba(239, 229, 209, 0.56)),
+    radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.22), transparent 68%);
+  color: rgba(92, 65, 37, 0.96);
+  padding: 0 12px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.48),
+    0 3px 10px rgba(78, 52, 27, 0.04);
+}
+
+.sheet-window .learn_budget_grid .shop_cart_total_row span:first-child {
+  color: rgba(148, 112, 70, 0.9);
+}
+
+.sheet-window .learn_budget_grid .shop_cart_total_row span:last-child {
+  color: rgba(101, 69, 36, 0.98);
+  font-weight: 700;
+}
+
+.learn-window__body .shop_toolbar {
+  position: relative;
+  z-index: 1;
+  padding: 10px 14px 10px;
+  background:
+    linear-gradient(180deg, rgba(250, 246, 237, 0.28), rgba(239, 231, 214, 0.08));
+  border-bottom: 0;
+}
+
+.learn-window__body .shop_toolbar::after {
+  content: "";
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: -2px;
+  height: 18px;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(182, 144, 89, 0.06), rgba(182, 144, 89, 0));
+}
+
+.learn-window__body .shop_group {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.learn-window__body .shop_group > summary {
+  position: relative;
+  margin-left: 10px;
+  margin-right: 10px;
+  margin-bottom: 2px;
+  background:
+    linear-gradient(180deg, rgba(249, 243, 232, 0.48), rgba(237, 229, 214, 0.14));
+  box-shadow: none;
+}
+
+.learn-window__body .shop_group > summary::before {
+  content: "";
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: 0;
+  height: 14px;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(182, 144, 89, 0.08), rgba(182, 144, 89, 0));
+}
+
+.learn-window__body .shop_table {
+  width: calc(100% - 20px);
+  margin: 0 10px 8px;
+}
+
+.learn-window__body .shop_group > summary::after,
+.learn-window__body .shop_table tr[data-shop-item]::after,
+.learn-window__body .shop_table tr[data-learn-source]::after,
+.learn-window__body .shop_cart_table tbody tr::after {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    0 0 0 1px rgba(145, 114, 79, 0.14),
+    0 6px 14px -14px rgba(67, 46, 23, 0.24);
+}
+
+.learn-window__body .shop_table tr[data-shop-item],
+.learn-window__body .shop_table tr[data-learn-source],
+.learn-window__body .shop_cart_table tbody tr {
+  background: rgba(255, 250, 241, 0.18);
+}
+
+.learn-window__body .shop_cart_table thead {
+  position: relative;
+  z-index: 1;
+}
+
+.learn-window__body .shop_cart_table th {
+  background:
+    linear-gradient(180deg, rgba(249, 241, 223, 0.78), rgba(236, 225, 198, 0.54));
+  border-bottom-color: rgba(143, 108, 68, 0.12);
+}
+
+.learn-window__body .shop_cart_table td {
+  border-bottom-color: rgba(149, 114, 75, 0.12);
+}
+
+.learn-window__body .shop_cart_wrapper {
+  position: relative;
+}
+
+.learn-window__body .shop_cart_wrapper::after {
+  content: "";
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: 56px;
+  height: 32px;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 50% 100%, rgba(233, 221, 198, 0.34), transparent 72%),
+    linear-gradient(90deg, transparent, rgba(233, 221, 198, 0.18) 18%, rgba(233, 221, 198, 0.18) 82%, transparent);
+  z-index: 0;
+}
+
+.learn-window__body .shop_cart_scroll,
+.learn-window__body .shop_cart_actions {
+  position: relative;
+  z-index: 1;
+}
+
+.sheet-window .learn_validation_hint {
+  margin: 10px 4px 0;
+  color: #ab5d43;
+}
+
+.sheet-window .shop_cart_actions {
+  position: relative;
+  padding: 20px 4px 4px;
+  margin-top: auto;
+}
+
+.sheet-window .shop_cart_actions::before {
+  content: "";
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  top: 0;
+  height: 34px;
+  pointer-events: none;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(173, 136, 85, 0) 0%,
+      rgba(173, 136, 85, 0.035) 30%,
+      rgba(173, 136, 85, 0.09) 100%
+    );
+}
+
+.sheet-window .learn_magic_budget {
+  padding: 12px 12px 6px;
+}
+
+.sheet-window .learn_magic_budget .shop_cart_total_row span:first-child {
+  white-space: nowrap;
+}
+
+.sheet-window .learn_magic_budget .shop_cart_total_row span:last-child {
+  white-space: nowrap;
+}
+
+.sheet-window .wax_seal_btn {
+  width: 70px;
+  min-width: 70px;
+  height: 70px;
+  min-height: 70px;
+  padding: 0;
+  border: 0;
+  border-radius: 1.6rem 2.1rem 1.9rem 2.1rem;
+  background: #a33130;
+  color: #a33130;
+  border-color: #a33130;
+  box-shadow:
+    0 -2px 4px rgba(0, 0, 0, 0.2) inset,
+    0 3px 3px rgba(255, 226, 208, 0.4) inset,
+    0 1px 5px rgba(45, 11, 8, 0.72);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: flex-end;
+  position: relative;
+  overflow: visible;
+  z-index: 1;
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease,
+    background 160ms ease;
+}
+
+.sheet-window .wax_seal_btn::before {
+  content: "";
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  top: 103%;
+  left: 85%;
+  border-radius: 50%;
+  background: inherit;
+  box-shadow:
+    0 1px 3px rgba(30, 10, 10, 0.72),
+    0 3px 3px rgba(242, 214, 205, 0.24) inset;
+  pointer-events: none;
+  z-index: -1;
+}
+
+.sheet-window .wax_seal_btn::after {
+  content: "";
+  position: absolute;
+  width: 11px;
+  height: 11px;
+  top: 84%;
+  left: 94%;
+  border-radius: 1rem 0.9rem 0.95rem 0.8rem;
+  background: inherit;
+  box-shadow:
+    0 1px 3px rgba(30, 10, 10, 0.72),
+    0 3px 3px rgba(242, 214, 205, 0.24) inset;
+  pointer-events: none;
+  z-index: -1;
+}
+
+.sheet-window .wax_seal_btn__embossed {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 80%;
+  height: 80%;
+  border-radius: 50%;
+  background-image: linear-gradient(180deg, rgba(51, 51, 51, 0.24) 0%, rgba(51, 51, 51, 0.16) 100%);
+  box-shadow:
+    0 -2px 2px rgba(255, 224, 214, 0.08) inset,
+    0 3px 3px rgba(30, 12, 12, 0.16) inset,
+    0 1px 2px rgba(30, 12, 12, 0.58) inset;
+  color: rgba(126, 34, 31, 0.96);
+  font-family: "Cinzel", Georgia, serif;
+  font-size: 1.55rem;
+  font-weight: 700;
+  line-height: 1;
+  text-shadow:
+    0 1px 0 rgba(255, 214, 196, 0.22),
+    0 -1px 0 rgba(86, 18, 18, 0.46),
+    0 1px 2px rgba(24, 6, 6, 0.42);
+  position: relative;
+  transform: translateY(-0.5px);
+  z-index: 1;
+}
+
+.sheet-window .wax_seal_btn:hover,
+.sheet-window .wax_seal_btn:focus-visible {
+  background: #b13a37;
+  color: #b13a37;
+  box-shadow:
+    0 -2px 4px rgba(0, 0, 0, 0.22) inset,
+    0 3px 3px rgba(255, 232, 216, 0.42) inset,
+    0 2px 7px rgba(45, 11, 8, 0.76);
+  transform: translateY(-1px);
+}
+
+.sheet-window #learnApplyBtn.wax_seal_btn,
+.sheet-window #shopActionBtn.wax_seal_btn {
+  width: 70px !important;
+  min-width: 70px !important;
+  height: 70px !important;
+  min-height: 70px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 1.6rem 2.1rem 1.9rem 2.1rem !important;
+  background: #a33130 !important;
+  color: #a33130 !important;
+  box-shadow:
+    0 -2px 4px rgba(0, 0, 0, 0.2) inset,
+    0 3px 3px rgba(255, 226, 208, 0.4) inset,
+    0 1px 5px rgba(45, 11, 8, 0.72) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  align-self: flex-end !important;
+  position: relative !important;
+  overflow: visible !important;
+  font-size: 0 !important;
+  line-height: 0 !important;
+  text-indent: 0 !important;
+}
+
+.sheet-window #learnApplyBtn.wax_seal_btn::before,
+.sheet-window #shopActionBtn.wax_seal_btn::before {
+  content: "" !important;
+  position: absolute !important;
+  width: 6px !important;
+  height: 6px !important;
+  top: 103% !important;
+  left: 85% !important;
+  border-radius: 50% !important;
+  background: inherit !important;
+  box-shadow:
+    0 1px 3px rgba(30, 10, 10, 0.72),
+    0 3px 3px rgba(242, 214, 205, 0.24) inset !important;
+  pointer-events: none !important;
+  z-index: -1 !important;
+}
+
+.sheet-window #learnApplyBtn.wax_seal_btn::after,
+.sheet-window #shopActionBtn.wax_seal_btn::after {
+  content: "" !important;
+  position: absolute !important;
+  width: 11px !important;
+  height: 11px !important;
+  top: 84% !important;
+  left: 94% !important;
+  border-radius: 1rem 0.9rem 0.95rem 0.8rem !important;
+  background: inherit !important;
+  box-shadow:
+    0 1px 3px rgba(30, 10, 10, 0.72),
+    0 3px 3px rgba(242, 214, 205, 0.24) inset !important;
+  pointer-events: none !important;
+  z-index: -1 !important;
+}
+
+.sheet-window #learnApplyBtn.wax_seal_btn:hover,
+.sheet-window #learnApplyBtn.wax_seal_btn:focus-visible,
+.sheet-window #shopActionBtn.wax_seal_btn:hover,
+.sheet-window #shopActionBtn.wax_seal_btn:focus-visible {
+  background: #b13a37 !important;
+  color: #b13a37 !important;
+  box-shadow:
+    0 -2px 4px rgba(0, 0, 0, 0.22) inset,
+    0 3px 3px rgba(255, 232, 216, 0.42) inset,
+    0 2px 7px rgba(45, 11, 8, 0.76) !important;
+  transform: translateY(-1px) !important;
+}
+
+.sheet-window #learnApplyBtn.wax_seal_btn .wax_seal_btn__embossed,
+.sheet-window #shopActionBtn.wax_seal_btn .wax_seal_btn__embossed {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 80% !important;
+  height: 80% !important;
+  border-radius: 50% !important;
+  background-image: linear-gradient(180deg, rgba(51, 51, 51, 0.24) 0%, rgba(51, 51, 51, 0.16) 100%) !important;
+  box-shadow:
+    0 -2px 2px rgba(255, 224, 214, 0.08) inset,
+    0 3px 3px rgba(30, 12, 12, 0.16) inset,
+    0 1px 2px rgba(30, 12, 12, 0.58) inset !important;
+  color: rgba(126, 34, 31, 0.96) !important;
+  font-family: "Cinzel", Georgia, serif !important;
+  font-size: 1.55rem !important;
+  font-weight: 700 !important;
+  line-height: 1 !important;
+  text-shadow:
+    0 1px 0 rgba(255, 214, 196, 0.22),
+    0 -1px 0 rgba(86, 18, 18, 0.46),
+    0 1px 2px rgba(24, 6, 6, 0.42) !important;
+  position: relative !important;
+  transform: translateY(-0.5px) !important;
+  z-index: 1 !important;
+}
+
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) {
+  background:
+    radial-gradient(circle at 50% -8%, rgba(225, 194, 142, 0.14), transparent 36%),
+    linear-gradient(180deg, rgba(118, 86, 58, 0.985), rgba(78, 54, 37, 0.992));
+  border-color: rgba(99, 69, 43, 0.96);
+  box-shadow:
+    0 26px 50px rgba(22, 14, 9, 0.28),
+    inset 0 1px 0 rgba(234, 205, 160, 0.14),
+    inset 0 0 0 1px rgba(82, 56, 33, 0.3);
+}
+
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow)::before {
+  border-color: rgba(182, 143, 90, 0.2);
+}
+
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow)::after {
+  background: linear-gradient(90deg, transparent, rgba(222, 188, 128, 0.16), transparent);
+}
+
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .sheet-window__section,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_panel,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_item_form_panel {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 16%, rgba(255, 252, 244, 0.76), transparent 42%),
+    radial-gradient(circle at 50% 100%, rgba(223, 197, 152, 0.08), transparent 44%),
+    linear-gradient(180deg, rgba(248, 241, 224, 0.972), rgba(236, 224, 198, 0.952)),
+    url("/static/img/pergamentbg.jpg") center / cover no-repeat;
+  border-color: rgba(150, 111, 67, 0.62);
+  box-shadow:
+    inset 0 0 0 1px rgba(226, 191, 132, 0.16),
+    inset 0 1px 0 rgba(255, 250, 236, 0.56),
+    0 12px 24px rgba(45, 29, 16, 0.08);
+}
+
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_panel::before,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_item_form_panel::before {
+  inset: 9px;
+  border-color: rgba(186, 145, 89, 0.14);
+}
+
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_panel_header,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_item_form_panel_header,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .sheet-window__section-head {
+  position: relative;
+  background:
+    linear-gradient(180deg, rgba(252, 248, 238, 0.5), rgba(238, 228, 206, 0.12));
+  border-bottom: 0 !important;
+}
+
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_panel_header::after,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_item_form_panel_header::after,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .sheet-window__section-head::after {
+  content: "";
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: -2px;
+  height: 22px;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(191, 152, 97, 0.1), rgba(191, 152, 97, 0.035) 40%, rgba(245, 236, 218, 0) 100%);
+}
+
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_toolbar,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .sheet-window__toolbar {
+  position: relative;
+  padding: 10px 14px 10px;
+  background: linear-gradient(180deg, rgba(250, 246, 237, 0.26), rgba(239, 231, 214, 0.08));
+  border-bottom: 0;
+}
+
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_toolbar::after,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .sheet-window__toolbar::after {
+  content: "";
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: -2px;
+  height: 18px;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(182, 144, 89, 0.055), rgba(182, 144, 89, 0));
+}
+
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_list_scroll,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_cart_wrapper,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_cart_scroll,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .learn_choice_panel_list,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .learn_choice_nav,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_item_form_panel_body,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .sheet-window__surface--form {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .payday-window__body.sheet-window__body {
+  gap: 12px;
+}
+
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_window_layout,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .learn_choice_layout,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_item_form_layout {
+  gap: 14px;
+}
+
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_table,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_cart_table {
+  width: calc(100% - 20px);
+  margin: 0 10px 8px;
+}
+
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_group {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_group > summary {
+  position: relative;
+  margin: 0 10px 2px;
+  background: linear-gradient(180deg, rgba(249, 243, 232, 0.46), rgba(237, 229, 214, 0.12));
+  box-shadow: none;
+}
+
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_group > summary::before {
+  content: "";
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: 0;
+  height: 14px;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(182, 144, 89, 0.075), rgba(182, 144, 89, 0));
+}
+
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_group > summary::after,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_table tr[data-shop-item]::after,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_table tr[data-learn-source]::after,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_cart_table tbody tr::after {
+  background: linear-gradient(180deg, rgba(255, 251, 241, 0.62), rgba(242, 233, 212, 0.34));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.48),
+    0 0 0 1px rgba(145, 114, 79, 0.12),
+    0 6px 14px -14px rgba(67, 46, 23, 0.22);
+}
+
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_table tr[data-shop-item],
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_cart_table tbody tr,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .learn_choice_option,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .learn_choice_nav_item,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_item_form_checklist_item,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_magic_effect_card,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_item_form_fieldset,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_item_form_conditional {
+  background: rgba(255, 249, 239, 0.18);
+  border-color: rgba(145, 114, 79, 0.16);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.36),
+    0 6px 14px -16px rgba(67, 46, 23, 0.18);
+}
+
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .learn_choice_nav_item:hover,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .learn_choice_nav_item:focus-visible,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .learn_choice_option:hover,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .learn_choice_option:focus-within,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_item_form_checklist_item:hover,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_item_form_checklist_item:focus-within {
+  border-color: rgba(156, 118, 71, 0.28);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.42),
+    0 0 0 2px rgba(200, 171, 129, 0.12);
+}
+
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_cart_totals,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .sheet-window__metrics {
+  position: relative;
+  border: 1px solid rgba(150, 111, 67, 0.18);
+  border-radius: 14px;
+  background:
+    linear-gradient(180deg, rgba(252, 248, 241, 0.8), rgba(239, 229, 209, 0.56)),
+    radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.2), transparent 68%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.46),
+    0 3px 10px rgba(78, 52, 27, 0.04);
+}
+
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_cart_total_row {
+  min-height: 38px;
+}
+
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_cart_actions,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_item_form_actions,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .sheet-window__footer {
+  position: relative;
+  padding-top: 18px;
+  border-top: 0;
+}
+
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_cart_actions::before,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_item_form_actions::before,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .sheet-window__footer::before {
+  content: "";
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  top: 0;
+  height: 26px;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(173, 136, 85, 0), rgba(173, 136, 85, 0.03) 30%, rgba(173, 136, 85, 0.08) 100%);
+}
+
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_item_save_btn,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) #shopActionBtn {
+  border-color: rgba(124, 82, 48, 0.84);
+  background:
+    radial-gradient(circle at 50% 0%, rgba(255, 243, 217, 0.26), transparent 58%),
+    linear-gradient(180deg, rgba(165, 104, 59, 0.97), rgba(133, 79, 44, 0.99) 54%, rgba(111, 64, 36, 0.995));
+  color: #f7e8ca;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 242, 208, 0.28),
+    inset 0 -1px 0 rgba(81, 40, 19, 0.34),
+    0 8px 18px rgba(78, 43, 20, 0.12);
+}
+
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_item_cancel_btn,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_pick_btn,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_step_btn,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_add_btn {
+  background:
+    linear-gradient(180deg, rgba(255, 250, 239, 0.94), rgba(234, 220, 191, 0.92));
+  border-color: rgba(122, 90, 56, 0.32);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.58),
+    0 2px 8px rgba(74, 51, 27, 0.06);
+}
+
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_item_form_row input,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_item_form_row select,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_item_form_row textarea,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_item_multi_select_trigger,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .rune_dropdown_trigger {
+  border-radius: 10px;
+  background: linear-gradient(180deg, rgba(255, 252, 245, 0.94), rgba(241, 232, 214, 0.8));
+  border-color: rgba(121, 88, 52, 0.24);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    0 1px 1px rgba(108, 76, 44, 0.05);
+}
+
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_item_form_row input:focus,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_item_form_row select:focus,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_item_form_row textarea:focus,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .shop_item_multi_select_trigger:focus-visible,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .rune_dropdown_trigger:focus-visible {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.76),
+    0 0 0 3px rgba(196, 170, 126, 0.14);
+}
+
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .learn_tabs__list {
+  gap: 6px;
+  padding: 10px 10px 2px;
+  border-bottom: 0;
+  background: transparent;
+}
+
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .learn_tabs__tab {
+  min-height: 34px;
+  border: 1px solid rgba(145, 109, 67, 0.22);
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(252, 248, 241, 0.76), rgba(237, 227, 205, 0.44));
+  color: rgba(86, 58, 31, 0.92);
+  padding: 6px 12px;
+  font-family: "Cinzel", Georgia, serif;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.56),
+    0 2px 6px rgba(74, 51, 27, 0.04);
+}
+
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .learn_tabs__tab:hover,
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .learn_tabs__tab:focus-visible {
+  color: rgba(100, 67, 35, 0.98);
+  transform: none;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.62),
+    0 0 0 2px rgba(200, 171, 129, 0.12);
+}
+
+.sheet-window.payday-window:not(#learnWindow):not(#shopWindow):not(#diaryWindow):not(#battleCalculatorWindow) .learn_tabs__tab[aria-selected="true"] {
+  background: linear-gradient(180deg, rgba(255, 251, 241, 0.9), rgba(242, 234, 219, 0.68));
+  color: rgba(72, 49, 28, 0.98);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.72),
+    0 4px 10px rgba(88, 60, 30, 0.08);
+}
+
+#shopWindow .learn_tabs {
+  height: 100%;
+}
+
+#shopWindow .learn_tabs .learn_tabs__content {
+  min-width: 0;
+  min-height: 0;
+}
+
+#shopWindow .learn_tabs .learn_tabs__panel {
+  overflow-y: auto;
+}
+
+#runeRetrofitWindow .sheet-window__editor-form {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  height: 100%;
+  min-height: 0;
+}
+
+#runeRetrofitWindow .shop_item_form_layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.18fr);
+  gap: 14px;
+  align-items: stretch;
+  flex: 1 1 auto;
+  height: 100%;
+  min-height: 0;
+  padding-bottom: 0;
+}
+
+#runeRetrofitWindow .shop_item_form_panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  overflow: visible;
+}
+
+#runeRetrofitWindow .shop_item_form_panel_body {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+#runeRetrofitWindow .rune_window_magic_effects_shell {
+  position: relative;
+  overflow: visible;
+}
+
+#runeRetrofitWindow .rune_window_magic_effects_body {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+#runeRetrofitWindow .rune_window_magic_effects_scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+#runeRetrofitWindow .shop_magic_effect_actions {
+  margin-top: auto;
+}
+
+#runeRetrofitWindow .rune_window_save_seal {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  margin: 0;
+  transform: translate(0, 0);
+  z-index: 28;
+}
+
+#shopItemWindow .rune_window_magic_effects_shell {
+  position: relative;
+  overflow: visible;
+}
+
+#shopItemWindow .shop_item_form_panel_body {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+#shopItemWindow #shopItemMagicFields {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+
+#shopItemWindow .shop_magic_effect_actions {
+  margin-top: auto;
+}
+
+#shopItemWindow .rune_window_save_seal {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  margin: 0;
+  transform: translate(0, 0);
+  z-index: 28;
+}
+
+
+@media (max-width: 1100px) {
+  .sheet-window .learn_tabs {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .sheet-window .learn_tabs__sidebar::after {
+    display: none;
+  }
+
+  .sheet-window .learn_tabs__list {
+    flex-direction: row;
+    gap: 8px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    flex: 0 0 auto;
+  }
+
+  .sheet-window .learn_tabs__tab {
+    min-width: 90px;
+    aspect-ratio: 1 / 1;
+    min-height: 0;
+  }
+
+  .sheet-window .learn_budget_grid {
+    grid-template-columns: 1fr;
+  }
+
+  .sheet-window .learn_magic_budget {
+    grid-template-columns: 1fr;
+  }
 }
 
 

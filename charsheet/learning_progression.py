@@ -247,6 +247,128 @@ def _current_school_grade_filter_options(current_level: int) -> list[int]:
     return list(range(1, current_level + 1))
 
 
+def build_learning_magic_groups(character, *, magic_engine=None) -> list[dict[str, object]]:
+    """Build spell and aspect learning rows for the unified learning menu."""
+    engine = magic_engine or character.get_magic_engine(refresh=True)
+    engine.sync_character_magic()
+
+    groups: OrderedDict[str, list[dict[str, object]]] = OrderedDict()
+
+    for group in engine.get_spell_learning_options():
+        group_rows: list[dict[str, object]] = []
+        for row in group["rows"]:
+            spell_id = int(row["spell_id"])
+            group_rows.append(
+                {
+                    **row,
+                    "kind": "magic_spell",
+                    "cart_key": f"paid:{spell_id}",
+                    "input_name": f"learn_magic_spell_{spell_id}",
+                    "source_label": "Zauber-Slot",
+                    "slot_cost": 1,
+                    "cost_label": "1 Slot",
+                }
+            )
+        if group_rows:
+            groups[group["name"]] = group_rows
+
+    for school_entry in engine._arcane_school_entries():
+        choice_row = engine.get_available_arcane_spell_choices(school_entry.school)
+        if int(choice_row.get("remaining", 0) or 0) <= 0:
+            continue
+        group_name = f"{choice_row['school_name']} | Freizauber"
+        rows = groups.setdefault(group_name, [])
+        for spell in choice_row["options"]:
+            rows.append(
+                {
+                    "kind": "magic_spell",
+                    "spell_id": spell.id,
+                    "name": spell.name,
+                    "owner_name": choice_row["school_name"],
+                    "grade": int(spell.grade),
+                    "description": (spell.description or "").replace("\r\n", "\n").replace("\r", "\n"),
+                    "search_tokens": (
+                        f"{spell.name.lower()} {choice_row['school_name'].lower()} grad {int(spell.grade)} "
+                        "zauber freizauber arkane magie"
+                    ),
+                    "cart_key": f"arcane-free:{choice_row['school_id']}:{spell.id}",
+                    "input_name": f"learn_arcane_free_spell_{choice_row['school_id']}_{spell.id}",
+                    "source_label": f"Freizauber ({int(choice_row['remaining'])} offen)",
+                    "slot_cost": 0,
+                    "cost_label": "Frei",
+                }
+            )
+
+    for bonus_row in engine.get_available_bonus_spells():
+        source = bonus_row["source"]
+        if int(source.get("remaining", 0) or 0) <= 0:
+            continue
+        group_name = f"{source['label']} | Bonuszauber"
+        rows = groups.setdefault(group_name, [])
+        for spell in bonus_row["options"]:
+            owner_name = spell.school.name if spell.school_id else spell.aspect.name
+            rows.append(
+                {
+                    "kind": "magic_spell",
+                    "spell_id": spell.id,
+                    "name": spell.name,
+                    "owner_name": owner_name,
+                    "grade": int(spell.grade),
+                    "description": (spell.description or "").replace("\r\n", "\n").replace("\r", "\n"),
+                    "search_tokens": (
+                        f"{spell.name.lower()} {owner_name.lower()} grad {int(spell.grade)} "
+                        f"zauber bonus {str(source['label']).lower()}"
+                    ),
+                    "cart_key": f"bonus:{source['id']}:{spell.id}",
+                    "input_name": f"learn_bonus_spell_{source['id']}_{spell.id}",
+                    "source_label": f"Bonuszauber ({int(source['remaining'])} offen)",
+                    "slot_cost": 0,
+                    "cost_label": "Frei",
+                }
+            )
+
+    for grant_row in engine.get_divine_arcane_spell_choices():
+        group_name = f"{grant_row['entity_name']} | Arkane Gabe"
+        rows = groups.setdefault(group_name, [])
+        for spell in grant_row["options"]:
+            rows.append(
+                {
+                    "kind": "magic_spell",
+                    "spell_id": spell.id,
+                    "name": spell.name,
+                    "owner_name": spell.school.name,
+                    "grade": int(spell.grade),
+                    "description": (spell.description or "").replace("\r\n", "\n").replace("\r", "\n"),
+                    "search_tokens": (
+                        f"{spell.name.lower()} {spell.school.name.lower()} grad {int(spell.grade)} "
+                        f"zauber arkane gabe {grant_row['entity_name'].lower()}"
+                    ),
+                    "cart_key": f"divine-arcane:{grant_row['granted_level']}:{spell.id}",
+                    "input_name": f"learn_divine_arcane_spell_{grant_row['granted_level']}_{spell.id}",
+                    "source_label": f"Arkane Gabe Grad {int(grant_row['granted_level'])}",
+                    "slot_cost": 0,
+                    "cost_label": "Frei",
+                }
+            )
+
+    bonus_aspects = engine.get_available_bonus_aspects()
+    for aspect in bonus_aspects["options"]:
+        groups.setdefault("Aspekte", []).append(
+            {
+                "kind": "magic_aspect",
+                "aspect_id": aspect.id,
+                "name": aspect.name,
+                "base_level": 0,
+                "max_level": int(bonus_aspects["school_level"]),
+                "cost_per_level": 4,
+                "description": (aspect.description or "").replace("\r\n", "\n").replace("\r", "\n"),
+                "search_tokens": f"{aspect.name.lower()} aspekt klerikal magie",
+            }
+        )
+
+    return [{"name": name, "rows": rows} for name, rows in groups.items() if rows]
+
+
 def build_learning_progression_context(character, *, engine) -> dict[str, object]:
     """Build open progression decisions for the learning window."""
     path_groups: OrderedDict[str, list[dict]] = OrderedDict()
@@ -362,7 +484,6 @@ def build_learning_progression_context(character, *, engine) -> dict[str, object
                     ],
                 )
             )
-
     arcane_school_levels = {
         entry.school_id: int(entry.level)
         for entry in magic_engine._arcane_school_entries()
@@ -371,101 +492,6 @@ def build_learning_progression_context(character, *, engine) -> dict[str, object
         entry.aspect_id: int(entry.level)
         for entry in magic_engine.get_character_aspects()
     }
-
-    for school_entry in magic_engine._arcane_school_entries():
-        choice_state = magic_engine.get_available_arcane_spell_choices(school_entry.school)
-        options = [
-            spell for spell in choice_state["options"]
-            if _spell_within_current_level(
-                spell,
-                school_levels=arcane_school_levels,
-                aspect_levels=aspect_levels,
-            )
-        ]
-        if not options:
-            continue
-        for slot_index in range(int(choice_state["remaining"])):
-            row = {
-                "field_name": f"learn_arcane_free_spell_{school_entry.school_id}_{slot_index}",
-                "school_id": school_entry.school_id,
-                "school_name": choice_state["school_name"],
-                "school_level": choice_state["school_level"],
-                "options": options,
-            }
-            arcane_free_spell_groups.setdefault(choice_state["school_name"], []).append(row)
-            pending_decisions.append(
-                _build_pending_decision(
-                    decision_id=f"arcane-free-spell-{school_entry.school_id}-{slot_index}",
-                    kind="arcane_free_spell",
-                    title=f"Zauber: {choice_state['school_name']}",
-                    summary=f"Freier Zauber {slot_index + 1} von {choice_state['remaining']}",
-                    description="Waehle einen arkanen Zauber derselben oder niedrigeren Stufe.",
-                    prompt="Zauber waehlen",
-                    selection_group_id=f"arcane-free-spell:{school_entry.school_id}",
-                    grade_filter_options=_current_school_grade_filter_options(choice_state["school_level"]) or _spell_grade_filter_options(options),
-                    options=[
-                        _build_decision_option(
-                            option_id=str(spell.id),
-                            label=spell.name,
-                            grade=int(spell.grade),
-                            meta=f"Grad {spell.grade}",
-                            badge=(spell.panel_badge_label or "").strip(),
-                            facts=_spell_choice_facts(spell),
-                            description=spell.description or "",
-                            submit_name=row["field_name"],
-                            submit_value=str(spell.id),
-                        )
-                        for spell in options
-                    ],
-                )
-            )
-
-    for source_row in magic_engine.get_available_bonus_spells():
-        source = source_row["source"]
-        options = [
-            spell for spell in source_row["options"]
-            if _spell_within_current_level(
-                spell,
-                school_levels=arcane_school_levels,
-                aspect_levels=aspect_levels,
-            )
-        ]
-        if not options:
-            continue
-        for slot_index in range(int(source["remaining"])):
-            row = {
-                "field_name": f"learn_bonus_spell_{source['id']}_{slot_index}",
-                "bonus_source_id": source["id"],
-                "source_label": source["label"],
-                "options": options,
-            }
-            bonus_spell_groups.setdefault(source["label"], []).append(row)
-            pending_decisions.append(
-                _build_pending_decision(
-                    decision_id=f"bonus-spell-{source['id']}-{slot_index}",
-                    kind="bonus_spell",
-                    title=f"Bonuszauber: {source['label']}",
-                    summary=f"Freier Bonuszauber {slot_index + 1} von {source['remaining']}",
-                    description="Waehle einen legalen Zusatzzauber aus den verfuegbaren Schulen oder Aspekten.",
-                    prompt="Bonuszauber waehlen",
-                    selection_group_id=f"bonus-spell:{source['id']}",
-                    grade_filter_options=_spell_grade_filter_options(options),
-                    options=[
-                        _build_decision_option(
-                            option_id=str(spell.id),
-                            label=spell.name,
-                            grade=int(spell.grade),
-                            meta=f"{spell.school.name if spell.school_id else spell.aspect.name} | Grad {spell.grade}",
-                            badge=(spell.panel_badge_label or "").strip(),
-                            facts=_spell_choice_facts(spell),
-                            description=spell.description or "",
-                            submit_name=row["field_name"],
-                            submit_value=str(spell.id),
-                        )
-                        for spell in options
-                    ],
-                )
-            )
 
     weapon_master_school = engine._weapon_master_school
     for entry in learned_school_entries:

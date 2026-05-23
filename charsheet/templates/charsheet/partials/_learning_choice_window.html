@@ -2,7 +2,7 @@
   <div class="payday-window__titlebar sheet-window__header" id="learnChoiceWindowHandle">
     <div class="sheet-window__heading">
       <h3 class="payday-window__title sheet-window__title" id="learnChoiceWindowTitle">
-        {% if learn_pending_decisions|length > 1 %}Ausstehende Entscheidungen{% else %}Ausstehende Entscheidung{% endif %}
+        {% if learn_pending_decisions|length > 1 %}Offene Wahlen{% else %}Offene Wahl{% endif %}
       </h3>
     </div>
     <div class="sheet-window__actions">
@@ -26,7 +26,7 @@
                 data-choice-nav-id="{{ decision.decision_id }}"
               >
                 <span class="learn_choice_nav_text">
-                  <span class="learn_choice_nav_title">{{ decision.title|default:"Ausstehende Entscheidung" }}</span>
+                  <span class="learn_choice_nav_title">{{ decision.title|default:"Offene Wahl" }}</span>
                   <span class="learn_choice_nav_summary" data-choice-nav-summary>{{ decision.summary|default:decision.prompt|default:"Auswahl treffen" }}</span>
                 </span>
                 <span class="learn_choice_nav_state" data-choice-nav-state>
@@ -56,7 +56,7 @@
               >
                 <header class="learn_choice_panel_header">
                   <div class="learn_choice_panel_heading">
-                    <span class="learn_choice_panel_title">{{ decision.title|default:"Ausstehende Entscheidung" }}</span>
+                    <span class="learn_choice_panel_title">{{ decision.title|default:"Offene Wahl" }}</span>
                     <span class="learn_choice_panel_summary" data-choice-panel-summary>{{ decision.summary|default:decision.prompt|default:"Auswahl treffen" }}</span>
                   </div>
                   <span class="learn_choice_panel_state" data-choice-panel-state>

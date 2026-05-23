@@ -1,8 +1,12 @@
 {{ rune_retrofit_choices|json_script:"rune-retrofit-choices" }}
 <section class="payday-window payday-window--large sheet-window sheet-window--editor-modal rune_window" id="runeRetrofitWindow" aria-hidden="true">
   <div class="payday-window__titlebar sheet-window__header" id="runeRetrofitWindowHandle">
-    <h3 class="payday-window__title sheet-window__title">Modifizieren</h3>
-    <button type="button" class="payday-window__close" id="runeRetrofitWindowClose" aria-label="Modifizieren-Fenster schlie&szlig;en">x</button>
+    <div class="sheet-window__heading">
+      <h3 class="payday-window__title sheet-window__title">Modifizieren</h3>
+    </div>
+    <div class="sheet-window__actions">
+      <button type="button" class="payday-window__close sheet-window__close" id="runeRetrofitWindowClose" aria-label="Modifizieren-Fenster schlie&szlig;en">x</button>
+    </div>
   </div>
   <div class="payday-window__body sheet-window__body">
     <form method="post" action="" id="runeRetrofitForm" class="shop_item_form sheet-window__editor-form" enctype="multipart/form-data" data-sheet-action data-ajax-only data-close-window-on-success="1">
@@ -209,7 +213,7 @@
             </div>
           </div>
         </section>
-        <section class="shop_item_form_details shop_item_form_panel shop_panel">
+        <section class="shop_item_form_details shop_item_form_panel shop_panel rune_window_magic_effects_shell">
           <div class="shop_item_form_panel_header shop_panel_header">
             <h2>Magische Effekte</h2>
           </div>
@@ -228,6 +232,7 @@
               <button type="button" class="shop_item_cancel_btn" id="runeRetrofitAddEffectBtn">Effekt hinzuf&uuml;gen</button>
             </div>
           </div>
+          <button type="submit" class="wax_seal_btn rune_window_save_seal" aria-label="Speichern" title="Speichern"><span class="wax_seal_btn__embossed" aria-hidden="true">&#10003;</span></button>
         </section>
       </div>
       <template id="runeRetrofitMagicEffectTemplate">
@@ -289,10 +294,6 @@
           </label>
         </section>
       </template>
-      <div class="shop_item_form_actions">
-        <button type="button" id="runeRetrofitCancelBtn" class="shop_item_cancel_btn">Abbrechen</button>
-        <button type="submit" class="shop_item_save_btn">Speichern</button>
-      </div>
     </form>
   </div>
 </section>

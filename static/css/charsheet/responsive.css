@@ -484,7 +484,7 @@
 
   .payday-window--large .payday-window__body,
   .payday-window--a4 .payday-window__body {
-    height: min(calc(100vh - 120px), 728px);
+    height: min(calc(100vh - 104px), 728px);
     overflow-y: auto;
     overflow-x: hidden;
   }
@@ -774,14 +774,14 @@
 
   .payday-window--large .payday-window__body {
     height: auto;
-    max-height: calc(100dvh - 70px - 46px);
+    max-height: calc(100dvh - 70px - var(--sheet-window-frame-band, 28px));
     overflow-y: auto;
     overflow-x: hidden;
   }
 
   .payday-window--a4 .payday-window__body {
     height: auto;
-    max-height: calc(100dvh - 70px - 46px);
+    max-height: calc(100dvh - 70px - var(--sheet-window-frame-band, 28px));
     overflow-y: auto;
   }
 
@@ -914,7 +914,7 @@
 
   .payday-window--large .payday-window__body,
   .payday-window--a4 .payday-window__body {
-    max-height: calc(100dvh - 60px - 46px);
+    max-height: calc(100dvh - 60px - var(--sheet-window-frame-band, 28px));
   }
 
   /* Left tools refinements */
@@ -952,7 +952,7 @@
 
   .payday-window--large .payday-window__body,
   .payday-window--a4 .payday-window__body {
-    max-height: calc(100dvh - 12px - 46px);
+    max-height: calc(100dvh - 12px - var(--sheet-window-frame-band, 28px));
     overflow-y: auto;
   }
 }

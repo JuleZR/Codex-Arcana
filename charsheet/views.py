@@ -701,6 +701,7 @@ def sheet(request):
 @login_required
 def dashboard(request):
     """Render the user-specific dashboard with owned character overview."""
+    UserSettings.objects.get_or_create(user=request.user)
     characters_qs = Character.objects.filter(
         owner=request.user,
         is_archived=False,

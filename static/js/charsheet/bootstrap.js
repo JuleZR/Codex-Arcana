@@ -22,6 +22,7 @@ import { initSkillManager } from "./skill_manager.js";
 import { initArmorPanel } from "./armor_panel.js";
 import { initBattleCalculator } from "./battle_calculator.js";
 import { initCarryLoadToggle } from "./carry_load_toggle.js";
+import { initContextRadialMenu } from "./context_radial_menu.js";
 
 onReady(() => {
   initTabs();
@@ -51,6 +52,7 @@ onReady(() => {
   initBattleCalculator();
   initCarryLoadToggle();
   initMobileHud();
+  initContextRadialMenu();
 
   document.addEventListener("charsheet:partials-applied", () => {
     initTabs();

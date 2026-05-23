@@ -3,6 +3,7 @@ export function initTabs(root = document) {
   tabRoots.forEach((tabRoot) => {
     const tabs = Array.from(tabRoot.querySelectorAll("[role='tab'][data-tab-target]"));
     const panels = Array.from(tabRoot.querySelectorAll("[data-tab-panel]"));
+    const tabList = tabRoot.querySelector("[role='tablist']");
     if (!tabs.length || !panels.length) {
       return;
     }
@@ -17,6 +18,11 @@ export function initTabs(root = document) {
       panels.forEach((panel) => {
         panel.hidden = panel.id !== targetId;
       });
+      const conditionalBlocks = Array.from(tabRoot.querySelectorAll("[data-hide-on-tab]"));
+      conditionalBlocks.forEach((block) => {
+        const hiddenOnTab = block.getAttribute("data-hide-on-tab") || "";
+        block.hidden = hiddenOnTab === targetId;
+      });
     };
 
     tabs.forEach((tab) => {
@@ -29,10 +35,13 @@ export function initTabs(root = document) {
           return;
         }
 
+        const orientation = (tabList?.getAttribute("aria-orientation") || "horizontal").toLowerCase();
+        const nextKey = orientation === "vertical" ? "ArrowDown" : "ArrowRight";
+        const previousKey = orientation === "vertical" ? "ArrowUp" : "ArrowLeft";
         let nextIndex = currentIndex;
-        if (event.key === "ArrowRight") {
+        if (event.key === nextKey) {
           nextIndex = (currentIndex + 1) % tabs.length;
-        } else if (event.key === "ArrowLeft") {
+        } else if (event.key === previousKey) {
           nextIndex = (currentIndex - 1 + tabs.length) % tabs.length;
         } else if (event.key === "Home") {
           nextIndex = 0;

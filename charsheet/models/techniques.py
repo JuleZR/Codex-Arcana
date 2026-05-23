@@ -1123,6 +1123,19 @@ class DivineEntity(models.Model):
 
     entity_kind = models.CharField(max_length=20, choices=EntityKind.choices)
     description = models.TextField(blank=True, default="")
+    symbol_image = models.ImageField(
+        upload_to="divine_entities/",
+        blank=True,
+        null=True,
+        help_text="Optionales Symbolbild fuer diese goettliche Entitaet.",
+    )
+    grants_arcane_spell_choice_per_level = models.BooleanField(
+        default=False,
+        help_text=(
+            "Wenn aktiv, darf der Charakter pro Stufe in dieser goettlichen Schule "
+            "einen arkanen Zauber des exakt gleichen Grades waehlen."
+        ),
+    )
 
     class Meta:
         ordering = ["name"]
@@ -1459,6 +1472,7 @@ class CharacterSpell(models.Model):
         ARCANE_EXTRA = "arcane_extra", "Arcane Extra Spell"
         ARCANE_BONUS = "arcane_bonus", "Arcane Bonus Spell"
         DIVINE_GRANTED = "divine_granted", "Divine Granted"
+        DIVINE_ARCANE_GRANTED = "divine_arcane_granted", "Divine Arcane Granted"
         DIVINE_EXTRA = "divine_extra", "Divine Extra Spell"
         DIVINE_BONUS = "divine_bonus", "Divine Bonus Spell"
         BASE = "base", "Base Spell"
@@ -1486,6 +1500,26 @@ class CharacterSpell(models.Model):
         blank=True,
         related_name="granted_spells",
     )
+    granted_by_entity = models.ForeignKey(
+        DivineEntity,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="granted_arcane_spells",
+    )
+    granted_for_level = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        help_text="Stores the divine school level that unlocked this special granted spell.",
+    )
+    uses_divine_school_level = models.BooleanField(
+        default=False,
+        help_text="If true, this spell uses the granting divine entity's school level as effective casting level.",
+    )
+    ignore_critical_fumble_table = models.BooleanField(
+        default=False,
+        help_text="If true, critical failures with this spell skip the fumble table.",
+    )
     learned_at = models.DateTimeField(null=True, blank=True)
     notes = models.TextField(blank=True)
 
@@ -1504,8 +1538,47 @@ class CharacterSpell(models.Model):
         if self.bonus_source_id and self.bonus_source.character_id != self.character_id:
             raise ValidationError({"bonus_source": "Bonus spell source must belong to the same character."})
 
+        is_divine_arcane_grant = self.source_kind == self.SourceKind.DIVINE_ARCANE_GRANTED
+        if is_divine_arcane_grant:
+            if self.spell_id and not self.spell.school_id:
+                raise ValidationError({"spell": "This special divine grant must point to an arcane school spell."})
+            if self.granted_by_entity_id is None:
+                raise ValidationError({"granted_by_entity": "This special divine grant requires a granting entity."})
+            if not self.uses_divine_school_level:
+                raise ValidationError(
+                    {"uses_divine_school_level": "This special divine grant must use the divine school level."}
+                )
+            if not self.ignore_critical_fumble_table:
+                raise ValidationError(
+                    {
+                        "ignore_critical_fumble_table": (
+                            "This special divine grant must ignore the critical failure table."
+                        )
+                    }
+                )
+            if self.granted_for_level is None or int(self.granted_for_level) < 1:
+                raise ValidationError({"granted_for_level": "This special divine grant requires a granted level."})
+            if self.spell_id and self.granted_for_level is not None and int(self.spell.grade) != int(self.granted_for_level):
+                raise ValidationError(
+                    {"spell": "This special divine grant must use a spell whose grade matches the granted level."}
+                )
+            if self.character_id and self.granted_by_entity_id:
+                if not CharacterSchool.objects.filter(
+                    character_id=self.character_id,
+                    school_id=self.granted_by_entity.school_id,
+                ).exists():
+                    raise ValidationError(
+                        {"granted_by_entity": "The character does not know the divine school of the granting entity."}
+                    )
+            if self.character_id and self.granted_by_entity_id:
+                binding = CharacterDivineEntity.objects.filter(character_id=self.character_id).first()
+                if binding is None or binding.entity_id != self.granted_by_entity_id:
+                    raise ValidationError(
+                        {"granted_by_entity": "The granting entity must match the character's bound divine entity."}
+                    )
+
         if self.character_id and self.spell_id and self.spell.school_id:
-            if not CharacterSchool.objects.filter(
+            if (not is_divine_arcane_grant) and not CharacterSchool.objects.filter(
                 character_id=self.character_id,
                 school_id=self.spell.school_id,
             ).exists():

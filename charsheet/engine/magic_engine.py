@@ -16,6 +16,7 @@ from charsheet.models import (
     CharacterSchool,
     CharacterSpell,
     CharacterSpellSource,
+    School,
     Spell,
     Trait,
 )
@@ -32,6 +33,9 @@ BONUS_SPELL_TRAIT_NAMES = (
     "Zusatzzauber",
     "Extra Spell",
 )
+
+SPELL_LEARNING_SLOTS_PER_MAGIC_LEVEL = 2
+SPELL_LEARNING_BONUS_SLOTS_PER_MAGIC_LEVEL = 1
 
 
 def _to_roman(value: int | None) -> str:
@@ -59,6 +63,38 @@ def _escape_tooltip_table_cell(value: object) -> str:
     return str(value if value not in (None, "") else "-").replace("|", "\\|")
 
 
+def _effective_spell_level(
+    entry: CharacterSpell,
+    *,
+    school_levels: dict[int, int] | None = None,
+    aspect_levels: dict[int, int] | None = None,
+) -> int:
+    """Resolve the effective magic level used by this spell entry."""
+    spell = entry.spell
+    if entry.uses_divine_school_level and entry.granted_by_entity_id:
+        if school_levels is not None:
+            return int(school_levels.get(entry.granted_by_entity.school_id, 0))
+        if entry.character_id:
+            cs = CharacterSchool.objects.filter(
+                character_id=entry.character_id,
+                school_id=entry.granted_by_entity.school_id,
+            ).first()
+            return int(cs.level) if cs else 0
+        return 0
+    if spell.school_id and school_levels is not None:
+        return int(school_levels.get(spell.school_id, 0))
+    if spell.aspect_id and aspect_levels is not None:
+        return int(aspect_levels.get(spell.aspect_id, 0))
+    if entry.character_id:
+        if spell.school_id:
+            cs = CharacterSchool.objects.filter(character_id=entry.character_id, school_id=spell.school_id).first()
+            return int(cs.level) if cs else 0
+        if spell.aspect_id:
+            ca = CharacterAspect.objects.filter(character_id=entry.character_id, aspect_id=spell.aspect_id).first()
+            return int(ca.level) if ca else 0
+    return 0
+
+
 def _build_spell_tooltip(entry: CharacterSpell, *, school_levels: dict[int, int] | None = None, aspect_levels: dict[int, int] | None = None) -> str:
     """Return a structured tooltip with spell facts followed by the description."""
     spell = entry.spell
@@ -75,21 +111,7 @@ def _build_spell_tooltip(entry: CharacterSpell, *, school_levels: dict[int, int]
         mw_label = str(int(spell.mw))
     resistance_label = str(spell.resistance_value or "-").strip() or "-"
 
-    if spell.school_id and school_levels is not None:
-        school_level = school_levels.get(spell.school_id, 0)
-    elif spell.aspect_id and aspect_levels is not None:
-        school_level = aspect_levels.get(spell.aspect_id, 0)
-    elif entry.character_id:
-        if spell.school_id:
-            cs = CharacterSchool.objects.filter(character_id=entry.character_id, school_id=spell.school_id).first()
-            school_level = int(cs.level) if cs else 0
-        elif spell.aspect_id:
-            ca = CharacterAspect.objects.filter(character_id=entry.character_id, aspect_id=spell.aspect_id).first()
-            school_level = int(ca.level) if ca else 0
-        else:
-            school_level = 0
-    else:
-        school_level = 0
+    school_level = _effective_spell_level(entry, school_levels=school_levels, aspect_levels=aspect_levels)
 
     extra_cost = ""
     if spell.extra_cost_type == getattr(spell.ExtraCostType, "WOUND_GRADE", "") and spell.extra_cost_value:
@@ -217,6 +239,21 @@ class MagicEngine:
     def __init__(self, character: Character) -> None:
         self.character = character
 
+    @staticmethod
+    def _school_matches_magic_type(school_or_entry, expected_slug: str) -> bool:
+        """Handle small legacy naming differences in school type data."""
+        school = getattr(school_or_entry, "school", school_or_entry)
+        school_type = getattr(school, "type", None)
+        if school_type is None:
+            return False
+        slug = str(getattr(school_type, "slug", "") or "").strip().lower()
+        name = str(getattr(school_type, "name", "") or "").strip().lower()
+        if expected_slug == SCHOOL_ARCANE:
+            return slug == SCHOOL_ARCANE or "arkan" in name or "magie" in name or "magic" in name
+        if expected_slug == SCHOOL_DIVINE:
+            return slug == SCHOOL_DIVINE or "kler" in name or "divin" in name or "priest" in name
+        return False
+
     def _school_entries(self) -> list[CharacterSchool]:
         return list(
             self.character.schools.select_related("school", "school__type").order_by(
@@ -229,10 +266,18 @@ class MagicEngine:
         return {entry.school_id: int(entry.level) for entry in self._school_entries()}
 
     def _arcane_school_entries(self) -> list[CharacterSchool]:
-        return [entry for entry in self._school_entries() if entry.school.type.slug == SCHOOL_ARCANE]
+        return [entry for entry in self._school_entries() if self._school_matches_magic_type(entry, SCHOOL_ARCANE)]
 
     def _divine_school_entries(self) -> list[CharacterSchool]:
-        return [entry for entry in self._school_entries() if entry.school.type.slug == SCHOOL_DIVINE]
+        return [entry for entry in self._school_entries() if self._school_matches_magic_type(entry, SCHOOL_DIVINE)]
+
+    def _magic_school_entries(self) -> list[CharacterSchool]:
+        return [
+            entry
+            for entry in self._school_entries()
+            if self._school_matches_magic_type(entry, SCHOOL_ARCANE)
+            or self._school_matches_magic_type(entry, SCHOOL_DIVINE)
+        ]
 
     def _divine_binding(self) -> CharacterDivineEntity | None:
         return (
@@ -258,6 +303,8 @@ class MagicEngine:
                 "spell__spell_attribute",
                 "bonus_source",
                 "bonus_source__trait",
+                "granted_by_entity",
+                "granted_by_entity__school",
             ).order_by("spell__school__name", "spell__aspect__name", "spell__grade", "spell__name")
         )
 
@@ -273,6 +320,157 @@ class MagicEngine:
                 | models.Q(trait__name__in=BONUS_SPELL_TRAIT_NAMES)
             )
         )
+
+    def _has_bonus_spell_trait(self, *, planned_trait_levels: dict[str, int] | None = None) -> bool:
+        if planned_trait_levels is not None:
+            for slug, level in planned_trait_levels.items():
+                if slug in BONUS_SPELL_TRAIT_SLUGS and int(level or 0) > 0:
+                    return True
+            return False
+        return bool(
+            self.character.get_engine(refresh=True).resolve_flags().get("bonus_spell_slots_per_magic_level", False)
+        )
+
+    def project_spell_learning_slot_summary(
+        self,
+        *,
+        planned_school_levels: dict[int, int] | None = None,
+        planned_trait_levels: dict[str, int] | None = None,
+    ) -> dict[str, int | bool]:
+        if planned_school_levels is None:
+            magic_levels = sum(int(entry.level) for entry in self._magic_school_entries())
+        else:
+            magic_levels = 0
+            for entry in self._magic_school_entries():
+                magic_levels += max(0, int(planned_school_levels.get(entry.school_id, entry.level)))
+
+        has_bonus_trait = self._has_bonus_spell_trait(planned_trait_levels=planned_trait_levels)
+        slots_per_level = SPELL_LEARNING_SLOTS_PER_MAGIC_LEVEL + (
+            SPELL_LEARNING_BONUS_SLOTS_PER_MAGIC_LEVEL if has_bonus_trait else 0
+        )
+        total = max(0, magic_levels * slots_per_level)
+        spent = max(0, int(self.character.spent_spell_learning_slots or 0))
+        remaining = max(0, total - spent)
+        return {
+            "magic_levels": magic_levels,
+            "slots_per_level": slots_per_level,
+            "has_bonus_trait": has_bonus_trait,
+            "total": total,
+            "spent": spent,
+            "remaining": remaining,
+        }
+
+    def get_spell_learning_slot_summary(self) -> dict[str, int | bool]:
+        return self.project_spell_learning_slot_summary()
+
+    def get_spell_learning_options(self) -> list[dict[str, object]]:
+        known_spell_ids = set(self.character.known_spells.values_list("spell_id", flat=True))
+        groups: dict[str, list[dict[str, object]]] = {}
+
+        for school_entry in self._arcane_school_entries():
+            rows: list[dict[str, object]] = []
+            spells = (
+                Spell.objects.filter(
+                    school_id=school_entry.school_id,
+                    grade__lte=school_entry.level,
+                )
+                .exclude(id__in=known_spell_ids)
+                .order_by("grade", "name")
+            )
+            for spell in spells:
+                rows.append(
+                    {
+                        "kind": "magic_spell",
+                        "spell_id": spell.id,
+                        "name": spell.name,
+                        "owner_name": school_entry.school.name,
+                        "grade": int(spell.grade),
+                        "description": (spell.description or "").replace("\r\n", "\n").replace("\r", "\n"),
+                        "search_tokens": f"{spell.name.lower()} {school_entry.school.name.lower()} grad {int(spell.grade)} zauber arkane magie",
+                    }
+                )
+            if rows:
+                groups[school_entry.school.name] = rows
+
+        character_aspects = self.get_character_aspects()
+        aspect_levels = {entry.aspect_id: int(entry.level) for entry in character_aspects}
+        bonus_aspect_ids = {entry.aspect_id for entry in character_aspects if entry.is_bonus_aspect}
+        divine_rows_by_aspect: dict[str, list[dict[str, object]]] = {}
+        spells = (
+            Spell.objects.filter(aspect_id__in=aspect_levels.keys())
+            .exclude(id__in=known_spell_ids)
+            .select_related("aspect")
+            .order_by("aspect__name", "grade", "name")
+        )
+        for spell in spells:
+            if int(spell.grade) > int(aspect_levels.get(spell.aspect_id, 0)):
+                continue
+            if spell.is_base_spell and spell.aspect_id in bonus_aspect_ids:
+                continue
+            divine_rows_by_aspect.setdefault(spell.aspect.name, []).append(
+                {
+                    "kind": "magic_spell",
+                    "spell_id": spell.id,
+                    "name": spell.name,
+                    "owner_name": spell.aspect.name,
+                    "grade": int(spell.grade),
+                    "description": (spell.description or "").replace("\r\n", "\n").replace("\r", "\n"),
+                    "search_tokens": f"{spell.name.lower()} {spell.aspect.name.lower()} grad {int(spell.grade)} zauber aspekt klerikal",
+                }
+            )
+        groups.update(divine_rows_by_aspect)
+        return [{"name": group_name, "rows": rows} for group_name, rows in groups.items() if rows]
+
+    def get_divine_arcane_spell_choices(self) -> list[dict[str, object]]:
+        binding = self._divine_binding()
+        if binding is None or not binding.entity.grants_arcane_spell_choice_per_level:
+            return []
+        divine_level = int(self._school_level_map().get(binding.entity.school_id, 0))
+        if divine_level <= 0:
+            return []
+
+        known_spell_ids = set(self.character.known_spells.values_list("spell_id", flat=True))
+        existing_rows = (
+            CharacterSpell.objects.filter(
+                character=self.character,
+                source_kind=CharacterSpell.SourceKind.DIVINE_ARCANE_GRANTED,
+                granted_by_entity=binding.entity,
+            )
+            .select_related("spell")
+            .order_by("granted_for_level", "spell__name")
+        )
+        granted_levels = {int(entry.granted_for_level) for entry in existing_rows if entry.granted_for_level}
+        rows: list[dict[str, object]] = []
+        for granted_level in range(1, divine_level + 1):
+            if granted_level in granted_levels:
+                continue
+            options = list(
+                Spell.objects.filter(
+                    school_id__in=[
+                        school.id
+                        for school in School.objects.select_related("type").all()
+                        if self._school_matches_magic_type(school, SCHOOL_ARCANE)
+                    ],
+                    grade=granted_level,
+                )
+                .exclude(id__in=known_spell_ids)
+                .select_related("school")
+                .order_by("school__name", "name")
+            )
+            if not options:
+                continue
+            rows.append(
+                {
+                    "entity_id": binding.entity_id,
+                    "entity_name": binding.entity.name,
+                    "school_id": binding.entity.school_id,
+                    "school_name": binding.entity.school.name,
+                    "divine_level": divine_level,
+                    "granted_level": granted_level,
+                    "options": options,
+                }
+            )
+        return rows
 
     def _ensure_bonus_spell_sources(self) -> list[CharacterSpellSource]:
         source_ids_to_keep: set[int] = set()
@@ -368,6 +566,10 @@ class MagicEngine:
             ).exclude(source_entity__isnull=True)
             if removed_granted_aspects.exists():
                 removed_granted_aspects.delete()
+            CharacterSpell.objects.filter(
+                character=self.character,
+                source_kind=CharacterSpell.SourceKind.DIVINE_ARCANE_GRANTED,
+            ).delete()
 
         CharacterAspect.objects.filter(
             character=self.character,
@@ -384,6 +586,18 @@ class MagicEngine:
                     aspect_entry.full_clean()
                     aspect_entry.save(update_fields=["level"])
 
+        if binding is not None and divine_school_level > 0:
+            CharacterSpell.objects.filter(
+                character=self.character,
+                source_kind=CharacterSpell.SourceKind.DIVINE_ARCANE_GRANTED,
+            ).exclude(granted_by_entity_id=binding.entity_id).delete()
+            CharacterSpell.objects.filter(
+                character=self.character,
+                source_kind=CharacterSpell.SourceKind.DIVINE_ARCANE_GRANTED,
+                granted_by_entity_id=binding.entity_id,
+                granted_for_level__gt=divine_school_level,
+            ).delete()
+
         desired_auto_spells: dict[int, dict[str, object]] = {}
         for school_entry in self._arcane_school_entries():
             for spell in Spell.objects.filter(
@@ -397,12 +611,15 @@ class MagicEngine:
                 }
 
         for aspect_entry in CharacterAspect.objects.filter(character=self.character).select_related("aspect"):
+            # Clerical aspects learn their fixed aspect spell progression, not the
+            # full aspect spell list. Special exceptions such as Atherus are handled
+            # separately through dedicated divine-arcane grant rules.
             spell_queryset = Spell.objects.filter(
                 aspect_id=aspect_entry.aspect_id,
                 grade__lte=aspect_entry.level,
+                is_base_spell=True,
             )
             if aspect_entry.is_bonus_aspect:
-                spell_queryset = spell_queryset.filter(is_base_spell=True)
                 source_kind = CharacterSpell.SourceKind.BASE
             else:
                 source_kind = CharacterSpell.SourceKind.DIVINE_GRANTED
@@ -617,7 +834,7 @@ class MagicEngine:
         arcane_school_levels = {
             entry.school.name: int(entry.level)
             for entry in school_entries
-            if entry.school.type.slug == SCHOOL_ARCANE
+            if self._school_matches_magic_type(entry, SCHOOL_ARCANE)
         }
         school_level_map: dict[int, int] = {entry.school_id: int(entry.level) for entry in school_entries}
         aspect_level_map: dict[int, int] = {
@@ -626,7 +843,11 @@ class MagicEngine:
         grouped_rows: dict[tuple[str, str], list[dict[str, object]]] = defaultdict(list)
         for entry in known_entries:
             spell = entry.spell
-            if spell.school_id:
+            if entry.source_kind == CharacterSpell.SourceKind.DIVINE_ARCANE_GRANTED and entry.granted_by_entity_id:
+                group_kind = "divine"
+                group_name = entry.granted_by_entity.name
+                owner_name = spell.school.name
+            elif spell.school_id:
                 group_kind = "arcane"
                 group_name = spell.school.name
                 owner_name = spell.school.name
@@ -645,6 +866,11 @@ class MagicEngine:
                     "name": spell.name,
                     "owner_name": owner_name,
                     "level": int(spell.grade),
+                    "effective_level": _effective_spell_level(
+                        entry,
+                        school_levels=school_level_map,
+                        aspect_levels=aspect_level_map,
+                    ),
                     "kp_cost": int(spell.kp_cost),
                     "cost_display": (
                         f"{int(spell.kp_cost)} KP"
@@ -722,6 +948,10 @@ class MagicEngine:
             return entry.bonus_source.label if entry.bonus_source_id else "Bonuszauber"
         if entry.source_kind == CharacterSpell.SourceKind.DIVINE_GRANTED:
             return "Automatisch"
+        if entry.source_kind == CharacterSpell.SourceKind.DIVINE_ARCANE_GRANTED:
+            if entry.granted_by_entity_id:
+                return f"{entry.granted_by_entity.name}-Gabe"
+            return "Goettliche Arkangabe"
         if entry.source_kind == CharacterSpell.SourceKind.DIVINE_EXTRA:
             return "Zusatzzauber"
         if entry.source_kind == CharacterSpell.SourceKind.DIVINE_BONUS:

@@ -112,6 +112,11 @@ export function initShopMenu() {
   const currentGroups = () => Array.from(currentPanel()?.querySelectorAll("[data-shop-group]") || []);
   const cartHasBuyEntries = () => Array.from(cart.values()).some((entry) => entry.mode === "buy");
   const cartHasSellEntries = () => Array.from(cart.values()).some((entry) => entry.mode === "sell");
+  const syncActionSeal = () => {
+    actionBtn.innerHTML = '<span class="wax_seal_btn__embossed" aria-hidden="true">&#10003;</span>';
+    actionBtn.setAttribute("aria-label", "Handeln");
+    actionBtn.setAttribute("title", "Handeln");
+  };
   const syncModeUi = () => {
     const isSellMode = currentMode === "sell";
     buyModeBtn.classList.toggle("is-active", !isSellMode);
@@ -130,8 +135,9 @@ export function initShopMenu() {
     listTitle.textContent = isSellMode ? "Verkaufbare Gegenstaende" : "Kaufbare Gegenstaende";
     cartTitle.textContent = "Handelskorb";
     finalLabelEl.textContent = "Saldo";
-    actionBtn.textContent = "Handeln";
+    syncActionSeal();
   };
+  syncActionSeal();
   const unitPriceForEntry = (entry) => {
     if (entry.mode === "sell") {
       return Math.max(0, readInt(entry.unitPrice, 0));

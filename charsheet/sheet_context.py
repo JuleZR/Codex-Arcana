@@ -45,7 +45,7 @@ from charsheet.forms import (
     CharacterTechniqueSpecificationForm,
 )
 from charsheet.magic_effects import TEXT_TARGET_KIND, unpack_magic_effect_summary
-from charsheet.learning_progression import build_learning_progression_context
+from charsheet.learning_progression import build_learning_magic_groups, build_learning_progression_context
 from charsheet.learning_rules import DEFAULT_SCHOOL_MAX_LEVEL, school_max_levels
 from charsheet.models import (
     Character,
@@ -2651,69 +2651,18 @@ def _build_learning_rows(
         )
 
     magic_groups: OrderedDict[str, list[dict]] = OrderedDict()
-    known_spell_ids = set(CharacterSpell.objects.filter(character=character).values_list("spell_id", flat=True))
+    for group in build_learning_magic_groups(character, magic_engine=magic_engine):
+        magic_groups[group["name"]] = list(group["rows"])
 
-    for school_entry in magic_engine._arcane_school_entries():
-        choice_state = magic_engine.get_available_arcane_spell_choices(school_entry.school)
-        free_choice_ids = {spell.id for spell in choice_state["options"]} if int(choice_state["remaining"]) > 0 else set()
-        for spell in Spell.objects.filter(school_id=school_entry.school_id, grade__lte=school_entry.level).exclude(id__in=known_spell_ids).order_by(
-            "grade",
-            "name",
-        ):
-            if spell.id in free_choice_ids:
-                continue
-            magic_groups.setdefault("Zusatzzauber", []).append(
-                {
-                    "kind": "magic_spell",
-                    "spell_id": spell.id,
-                    "name": spell.name,
-                    "owner_name": school_entry.school.name,
-                    "base_level": int(spell.grade),
-                    "cost": 2,
-                    "description": (spell.description or "").replace("\r\n", "\n").replace("\r", "\n"),
-                    "search_tokens": f"{spell.name.lower()} {school_entry.school.name.lower()} zauber arkane magie",
-                }
-            )
-
-    character_aspects = magic_engine.get_character_aspects()
-    aspect_levels = {entry.aspect_id: int(entry.level) for entry in character_aspects}
-    bonus_aspect_ids = {entry.aspect_id for entry in character_aspects if entry.is_bonus_aspect}
-    for spell in Spell.objects.filter(aspect_id__in=aspect_levels.keys()).exclude(id__in=known_spell_ids).select_related("aspect").order_by(
-        "aspect__name",
-        "grade",
-        "name",
-    ):
-        if int(spell.grade) > int(aspect_levels.get(spell.aspect_id, 0)):
-            continue
-        if spell.is_base_spell and spell.aspect_id in bonus_aspect_ids:
-            continue
-        magic_groups.setdefault("Zusatzzauber", []).append(
-            {
-                "kind": "magic_spell",
-                "spell_id": spell.id,
-                "name": spell.name,
-                "owner_name": spell.aspect.name,
-                "base_level": int(spell.grade),
-                "cost": 2,
-                "description": (spell.description or "").replace("\r\n", "\n").replace("\r", "\n"),
-                "search_tokens": f"{spell.name.lower()} {spell.aspect.name.lower()} zauber aspekt klerikal",
-            }
+    magic_slot_summary = magic_engine.get_spell_learning_slot_summary()
+    has_magic_schools = any(
+        (
+            bool(magic_engine._magic_school_entries()),
+            bool(magic_groups),
+            bool(magic_engine._divine_binding()),
+            int(magic_slot_summary.get("total", 0) or 0) > 0,
         )
-
-    bonus_aspects = magic_engine.get_available_bonus_aspects()
-    for aspect in bonus_aspects["options"]:
-        magic_groups.setdefault("Aspekte", []).append(
-            {
-                "kind": "magic_aspect",
-                "aspect_id": aspect.id,
-                "name": aspect.name,
-                "base_level": 0,
-                "max_level": int(bonus_aspects["school_level"]),
-                "cost_per_level": 4,
-                "description": (aspect.description or "").replace("\r\n", "\n").replace("\r", "\n"),
-                "search_tokens": f"{aspect.name.lower()} aspekt klerikal magie",
-            }
-        )
+    )
 
     return {
         "learn_attr_rows": learn_attr_rows,
@@ -2734,6 +2683,8 @@ def _build_learning_rows(
             {"name": group_name, "rows": rows}
             for group_name, rows in magic_groups.items()
         ],
+        "learn_magic_tab_visible": has_magic_schools,
+        "learn_magic_slot_summary": magic_slot_summary,
     }
 
 
