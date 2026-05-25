@@ -331,8 +331,10 @@ def _build_sheet_context_for_request(
 ) -> dict[str, object]:
     """Build the full sheet context including request-specific dice settings."""
     skip_magic_sync = skip_magic_sync or request.session.pop("skip_magic_sync_once", False)
+    magic_engine = character.get_magic_engine(refresh=True)
     if not skip_magic_sync:
-        character.get_magic_engine(refresh=True).sync_character_magic()
+        magic_engine.sync_character_magic()
+    magic_engine.normalize_current_arcane_power(persist=True)
     context = build_character_sheet_context(
         character,
         close_learn_window_once=close_learn_window_once,
@@ -1834,3 +1836,11 @@ def impressum(request):
 def datenschutz(request):
     """Render privacy page with minimal data-processing information."""
     return render(request, "legal/datenschutz.html", _legal_context())
+
+# TODO Remnve after designing is finished
+# def test_character_card(request):
+#     return render(
+#         request,
+#         "charsheet/partials/_card.html",
+#         {},
+#     )

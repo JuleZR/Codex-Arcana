@@ -3,20 +3,6 @@
     <h2>Zauber</h2>
   </div>
 
-  {% if spell_panel_divine_summary.has_divine_magic %}
-    <div class="spell_panel_divine_summary">
-      <span class="spell_panel_divine_label">{{ spell_panel_divine_summary.school_name }} L{{ spell_panel_divine_summary.school_level }}</span>
-      <span class="spell_panel_divine_entity">{{ spell_panel_divine_summary.entity_name }}{% if spell_panel_divine_summary.entity_kind %} | {{ spell_panel_divine_summary.entity_kind }}{% endif %}</span>
-      {% if spell_panel_divine_summary.aspects %}
-        <span class="spell_panel_divine_aspects">
-          {% for aspect in spell_panel_divine_summary.aspects %}
-            <span class="spell_panel_meta_badge{% if aspect.is_bonus_aspect %} spell_panel_meta_badge--bonus{% endif %}">{{ aspect.name }} L{{ aspect.level }}</span>
-          {% endfor %}
-        </span>
-      {% endif %}
-    </div>
-  {% endif %}
-
   <div class="schools_filter_row spell_filter_row">
     <input
       type="search"

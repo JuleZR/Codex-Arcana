@@ -2358,6 +2358,92 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
   font-variant-caps: normal;
 }
 
+.floating-tooltip-card--skill {
+  z-index: 1200;
+}
+
+.floating-tooltip-card--skill .floating-tooltip-card__frame {
+  width: min(420px, calc(100vw - 28px));
+  max-height: min(560px, calc(100vh - 28px));
+  gap: 10px;
+  padding: 12px 12px 14px;
+  border-radius: 10px;
+}
+
+.floating-tooltip-card--skill .floating-tooltip-card__frame::before {
+  inset: 6px;
+  border-radius: 7px;
+}
+
+.floating-tooltip-card--skill .floating-tooltip-card__header {
+  gap: 8px;
+  padding: 0;
+}
+
+.floating-tooltip-card--skill .floating-tooltip-card__title {
+  font-size: 1.1rem;
+  line-height: 1.05;
+}
+
+.floating-tooltip-card--skill .floating-tooltip-card__subtitle {
+  margin-top: 3px;
+  font-size: 0.8rem;
+}
+
+.floating-tooltip-card--skill .floating-tooltip-card__close {
+  width: 24px;
+  height: 24px;
+  font-size: 0.82rem;
+}
+
+.floating-tooltip-card--skill .floating-tooltip-card__content {
+  gap: 10px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.floating-tooltip-card--skill .floating-tooltip-card__details {
+  padding: 10px 12px;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.floating-tooltip-card--skill .floating-tooltip-card__details,
+.floating-tooltip-card--skill .floating-tooltip-card__details p,
+.floating-tooltip-card--skill .floating-tooltip-card__details li,
+.floating-tooltip-card--skill .floating-tooltip-card__details td,
+.floating-tooltip-card--skill .floating-tooltip-card__details code,
+.floating-tooltip-card--skill .floating-tooltip-card__details .tooltip_rune_inline_name {
+  font-size: 0.88rem;
+  line-height: 1.35;
+  text-align: justify;
+  hyphens: auto;
+  -webkit-hyphens: auto;
+  -ms-hyphens: auto;
+  overflow-wrap: break-word;
+  word-break: normal;
+}
+
+.floating-tooltip-card--skill .floating-tooltip-card__lore {
+  gap: 10px;
+  padding: 12px 14px;
+  overflow-y: auto;
+}
+
+.floating-tooltip-card--skill .floating-tooltip-card__lore p,
+.floating-tooltip-card--skill .floating-tooltip-card__section_body,
+.floating-tooltip-card--skill .floating-tooltip-card__section_body td,
+.floating-tooltip-card--skill .floating-tooltip-card__section_body li {
+  font-size: 0.84rem;
+  line-height: 1.35;
+  text-align: justify;
+  hyphens: auto;
+  -webkit-hyphens: auto;
+  -ms-hyphens: auto;
+  overflow-wrap: break-word;
+  word-break: normal;
+}
+
 .floating-tooltip-card__section {
   display: flex;
   flex-direction: column;
@@ -2704,6 +2790,27 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
   box-shadow: inset 0 0 0 1px rgba(255, 248, 228, 0.3);
 }
 
+.schools_pinned_panel {
+  margin: 0 0 8px;
+  padding: 4px 0 0;
+  border-bottom: 1px solid rgba(122, 92, 58, 0.18);
+}
+
+.schools_pinned_heading {
+  margin: 0 0 4px;
+  font-family: "Trebuchet MS", "Segoe UI", Tahoma, sans-serif;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(122, 78, 24, 0.78);
+}
+
+.schools_pinned_list {
+  padding: 0;
+  margin: 0;
+}
+
 .p2_schools .p2_lines li {
   background: rgba(255, 248, 230, 0.24);
   border-bottom: 1px solid rgba(74, 55, 38, 0.28);
@@ -2759,7 +2866,7 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
 
 .p2_schools .school_row_layout {
   display: grid;
-  grid-template-columns: clamp(10rem, 34%, 14rem) minmax(0, 1fr) auto auto;
+  grid-template-columns: clamp(10rem, 34%, 14rem) minmax(0, 1fr) 1.35rem 1.35rem;
   align-items: center;
   gap: 6px;
   min-width: 0;
@@ -2794,6 +2901,10 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
 }
 
 .p2_schools .skill_spec_edit_btn {
+  grid-column: 3;
+  justify-self: end;
+  width: 1.35rem;
+  min-width: 1.35rem;
   margin-left: 2px;
 }
 
@@ -2840,6 +2951,15 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
   color: #7a5230;
 }
 
+.school_row_meta {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-style: italic;
+  color: #7a5230;
+}
+
 /* ── School support-level icon (ᚨ / ᛉ) ────────────────────────────────── */
 .school_support_icon {
   display: inline-flex;
@@ -2865,14 +2985,21 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
   display: contents; /* dissolve the wrapper box — button + rows appear as direct list children */
 }
 
-/* The group header button borrows .school_row_with_tooltip appearance.
-   box-sizing: border-box + calc(100% - 8px) matches a <li> with margin: 3px 4px exactly. */
 .school_group_header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  box-sizing: border-box;
+  width: calc(100% - 8px); /* 100% of parent minus left-margin(4px) + right-margin(4px) */
+}
+
+.school_group_toggle_btn {
   -webkit-appearance: none;
   appearance: none;
   display: block;
-  box-sizing: border-box;
-  width: calc(100% - 8px); /* 100% of parent minus left-margin(4px) + right-margin(4px) */
+  flex: 1 1 auto;
+  min-width: 0;
   border: none;
   background: none;
   padding: 0;
@@ -2894,7 +3021,7 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
   color: rgba(122, 78, 24, 0.7);
 }
 
-.school_group_header[aria-expanded="true"] .school_group_chevron {
+.school_group_toggle_btn[aria-expanded="true"] .school_group_chevron {
   transform: rotate(90deg);
 }
 
@@ -2909,7 +3036,72 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
 }
 
 .p2_schools .school_row_layout--sub {
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-columns: minmax(0, 1fr) 1.35rem 1.35rem;
+}
+
+.p2_schools .school_row_layout--sub .skill_spec_edit_btn {
+  grid-column: 2;
+}
+
+.p2_schools .school_row_layout:not(.school_row_layout--sub) .school_pin_btn {
+  grid-column: 4;
+}
+
+.p2_schools .school_row_layout--sub .school_pin_btn {
+  grid-column: 3;
+}
+
+.school_pin_btn {
+  -webkit-appearance: none;
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  justify-self: end;
+  width: 1.35rem;
+  min-width: 1.35rem;
+  height: 0.95rem;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: rgba(122, 78, 24, 0.38);
+  font-family: "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif;
+  font-size: 0.92rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: transform 0.14s ease, color 0.14s ease, opacity 0.14s ease;
+  opacity: 0.72;
+  vertical-align: middle;
+  overflow: visible;
+}
+
+.school_pin_btn > span {
+  display: block;
+  line-height: 1;
+  transform: translateY(-0.02rem);
+}
+
+.school_pin_btn:hover {
+  color: rgba(122, 78, 24, 0.82);
+  transform: translateY(-1px);
+  opacity: 1;
+}
+
+.school_pin_btn.is-active {
+  color: rgba(160, 88, 24, 0.96);
+  opacity: 1;
+}
+
+.school_pin_btn.is-active:hover {
+  transform: translateY(-1px);
+}
+
+.school_row_with_tooltip.is-pinned {
+  border-color: rgba(160, 88, 24, 0.34) !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 241, 210, 0.24),
+    0 0 0 1px rgba(160, 88, 24, 0.06);
 }
 
 .school_row_label--level {

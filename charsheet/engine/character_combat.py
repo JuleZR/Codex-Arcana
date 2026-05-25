@@ -46,7 +46,12 @@ def calculate_arcane_power(engine) -> int:
     """Calculate the character's arcane power value."""
     willpower = engine.attributes().get(ATTR_WILL, 0)
     school_levels = sum(entry.level for entry in engine._school_entries.values())
-    return willpower + school_levels + engine._resolve_stat_modifiers(ARCANE_POWER)
+    aspect_levels = sum(
+        int(entry.level)
+        for entry in engine.character.get_magic_engine(refresh=True).get_character_aspects()
+        if entry.is_bonus_aspect
+    )
+    return willpower + school_levels + aspect_levels + engine._resolve_stat_modifiers(ARCANE_POWER)
 
 
 def calculate_potential(engine) -> int:

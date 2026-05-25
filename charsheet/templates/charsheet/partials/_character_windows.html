@@ -4,30 +4,33 @@
     <button type="button" class="payday-window__close" id="charInfoWindowClose" aria-label="Fenster schließen">x</button>
   </div>
   <div class="payday-window__body sheet-window__body">
-    <form method="post" action="{% url 'update_character_info' character.id %}" id="charInfoForm" class="shop_item_form sheet-window__editor-form">
-      {% csrf_token %}
-      <div class="shop_item_form_grid sheet-window__surface sheet-window__surface--editor sheet-window__surface--form sheet-window__surface--form-grid">
-        <label class="shop_item_form_row shop_item_form_row--compact"><span>Name</span>{{ char_info_form.name }}</label>
-        <label class="shop_item_form_row shop_item_form_row--compact"><span>Geschlecht</span>{{ char_info_form.gender }}</label>
-        <label class="shop_item_form_row shop_item_form_row--compact"><span>Alter</span>{{ char_info_form.age }}</label>
-        <label class="shop_item_form_row shop_item_form_row--compact"><span>Gr&ouml;&szlig;e (cm)</span>{{ char_info_form.height }}</label>
-        <label class="shop_item_form_row shop_item_form_row--compact"><span>Gewicht (kg)</span>{{ char_info_form.weight }}</label>
-        <label class="shop_item_form_row shop_item_form_row--compact"><span>Herkunftsland</span>{{ char_info_form.country_of_origin }}</label>
-        <label class="shop_item_form_row shop_item_form_row--compact"><span>Hautfarbe</span>{{ char_info_form.skin_color }}</label>
-        <label class="shop_item_form_row shop_item_form_row--compact"><span>Haarfarbe</span>{{ char_info_form.hair_color }}</label>
-        <label class="shop_item_form_row shop_item_form_row--compact"><span>Augenfarbe</span>{{ char_info_form.eye_color }}</label>
-        <label class="shop_item_form_row shop_item_form_row--compact"><span>Religion</span>{{ char_info_form.religion }}</label>
+    <div class="sheet-window__editor-shell">
+      <div class="sheet-window__editor-pane">
+        <form method="post" action="{% url 'update_character_info' character.id %}" id="charInfoForm" class="shop_item_form sheet-window__editor-form">
+          {% csrf_token %}
+          <div class="shop_item_form_grid sheet-window__surface sheet-window__surface--editor sheet-window__surface--form sheet-window__surface--form-grid">
+            <label class="shop_item_form_row shop_item_form_row--compact"><span>Name</span>{{ char_info_form.name }}</label>
+            <label class="shop_item_form_row shop_item_form_row--compact"><span>Geschlecht</span>{{ char_info_form.gender }}</label>
+            <label class="shop_item_form_row shop_item_form_row--compact"><span>Alter</span>{{ char_info_form.age }}</label>
+            <label class="shop_item_form_row shop_item_form_row--compact"><span>Gr&ouml;&szlig;e (cm)</span>{{ char_info_form.height }}</label>
+            <label class="shop_item_form_row shop_item_form_row--compact"><span>Gewicht (kg)</span>{{ char_info_form.weight }}</label>
+            <label class="shop_item_form_row shop_item_form_row--compact"><span>Herkunftsland</span>{{ char_info_form.country_of_origin }}</label>
+            <label class="shop_item_form_row shop_item_form_row--compact"><span>Hautfarbe</span>{{ char_info_form.skin_color }}</label>
+            <label class="shop_item_form_row shop_item_form_row--compact"><span>Haarfarbe</span>{{ char_info_form.hair_color }}</label>
+            <label class="shop_item_form_row shop_item_form_row--compact"><span>Augenfarbe</span>{{ char_info_form.eye_color }}</label>
+            <label class="shop_item_form_row shop_item_form_row--compact"><span>Religion</span>{{ char_info_form.religion }}</label>
+          </div>
+          <label class="shop_item_form_row sheet-window__surface sheet-window__surface--editor sheet-window__surface--form">
+            <span>Aussehen</span>
+            {{ char_info_form.appearance }}
+            <span class="sheet_char_counter" data-char-count-for="id_appearance" aria-live="polite"></span>
+          </label>
+          <div class="shop_item_form_actions">
+            <button type="submit" class="wax_seal_btn" aria-label="Speichern" title="Speichern"><span class="wax_seal_btn__embossed" aria-hidden="true">&#10003;</span></button>
+          </div>
+        </form>
       </div>
-      <label class="shop_item_form_row sheet-window__surface sheet-window__surface--editor sheet-window__surface--form">
-        <span>Aussehen</span>
-        {{ char_info_form.appearance }}
-        <span class="sheet_char_counter" data-char-count-for="id_appearance" aria-live="polite"></span>
-      </label>
-      <div class="shop_item_form_actions">
-        <button type="button" id="charInfoCancelBtn" class="shop_item_cancel_btn">Abbrechen</button>
-        <button type="submit" class="shop_item_save_btn">Speichern</button>
-      </div>
-    </form>
+    </div>
   </div>
 </section>
 
@@ -37,11 +40,15 @@
     <button type="button" class="payday-window__close" id="inventoryDeleteWarningWindowClose" aria-label="Fenster schlie?en">x</button>
   </div>
   <div class="payday-window__body sheet-window__body">
-    <div class="sheet-window__surface sheet-window__surface--editor sheet-window__surface--form">
-      <p class="skill_spec_hint">Zum Entfernen eines Stapels bitte mit <strong>Shift</strong> klicken.</p>
-    </div>
-    <div class="shop_item_form_actions sheet-window__actions--center">
-      <button type="button" id="inventoryDeleteWarningOkBtn" class="shop_item_cancel_btn">OK</button>
+    <div class="sheet-window__editor-shell">
+      <div class="sheet-window__editor-pane">
+        <div class="sheet-window__surface sheet-window__surface--editor sheet-window__surface--form">
+          <p class="skill_spec_hint">Zum Entfernen eines Stapels bitte mit <strong>Shift</strong> klicken.</p>
+        </div>
+        <div class="shop_item_form_actions sheet-window__actions--center">
+          <button type="button" id="inventoryDeleteWarningOkBtn" class="wax_seal_btn" aria-label="Bestaetigen" title="Bestaetigen"><span class="wax_seal_btn__embossed" aria-hidden="true">&#10003;</span></button>
+        </div>
+      </div>
     </div>
   </div>
 </section>
@@ -52,20 +59,24 @@
     <button type="button" class="payday-window__close" id="skillSpecWindowClose" aria-label="Fenster schließen">x</button>
   </div>
   <div class="payday-window__body sheet-window__body">
-    <form method="post" action="" id="skillSpecForm" class="shop_item_form sheet-window__editor-form">
-      {% csrf_token %}
-      <div class="sheet-window__surface sheet-window__surface--editor sheet-window__surface--form">
-        <label class="shop_item_form_row skill_spec_form_row">
-          <span>Bezeichnung</span>
-          {{ skill_specification_form.specification }}
-        </label>
-        <p class="skill_spec_hint">Bitte ein einzelnes Wort eintragen, z. B. den konkreten Beruf.</p>
+    <div class="sheet-window__editor-shell">
+      <div class="sheet-window__editor-pane">
+        <form method="post" action="" id="skillSpecForm" class="shop_item_form sheet-window__editor-form">
+          {% csrf_token %}
+          <div class="sheet-window__surface sheet-window__surface--editor sheet-window__surface--form">
+            <label class="shop_item_form_row skill_spec_form_row">
+              <span>Bezeichnung</span>
+              {{ skill_specification_form.specification }}
+            </label>
+            <p class="skill_spec_hint">Bitte ein einzelnes Wort eintragen, z. B. den konkreten Beruf.</p>
+          </div>
+          <div class="shop_item_form_actions">
+            <button type="button" id="skillSpecCancelBtn" class="shop_item_cancel_btn">Abbrechen</button>
+            <button type="submit" class="shop_item_save_btn">Speichern</button>
+          </div>
+        </form>
       </div>
-      <div class="shop_item_form_actions">
-        <button type="button" id="skillSpecCancelBtn" class="shop_item_cancel_btn">Abbrechen</button>
-        <button type="submit" class="shop_item_save_btn">Speichern</button>
-      </div>
-    </form>
+    </div>
   </div>
 </section>
 
@@ -75,19 +86,22 @@
     <button type="button" class="payday-window__close" id="techniqueSpecWindowClose" aria-label="Fenster schließen">x</button>
   </div>
   <div class="payday-window__body sheet-window__body">
-    <form method="post" action="" id="techniqueSpecForm" class="shop_item_form sheet-window__editor-form">
-      {% csrf_token %}
-      <div class="sheet-window__surface sheet-window__surface--editor sheet-window__surface--form">
-        <label class="shop_item_form_row skill_spec_form_row">
-          <span>Bezeichnung</span>
-          {{ technique_specification_form.specification_value }}
-        </label>
-        <p class="skill_spec_hint">Bitte ein einzelnes Wort eintragen, z. B. eine konkrete Auspr&auml;gung der Technik.</p>
+    <div class="sheet-window__editor-shell">
+      <div class="sheet-window__editor-pane">
+        <form method="post" action="" id="techniqueSpecForm" class="shop_item_form sheet-window__editor-form">
+          {% csrf_token %}
+          <div class="sheet-window__surface sheet-window__surface--editor sheet-window__surface--form">
+            <label class="shop_item_form_row skill_spec_form_row">
+              <span>Bezeichnung</span>
+              {{ technique_specification_form.specification_value }}
+            </label>
+            <p class="skill_spec_hint">Bitte ein einzelnes Wort eintragen, z. B. eine konkrete Auspr&auml;gung der Technik.</p>
+          </div>
+          <div class="shop_item_form_actions">
+            <button type="submit" class="wax_seal_btn" aria-label="Speichern" title="Speichern"><span class="wax_seal_btn__embossed" aria-hidden="true">&#10003;</span></button>
+          </div>
+        </form>
       </div>
-      <div class="shop_item_form_actions">
-        <button type="button" id="techniqueSpecCancelBtn" class="shop_item_cancel_btn">Abbrechen</button>
-        <button type="submit" class="shop_item_save_btn">Speichern</button>
-      </div>
-    </form>
+    </div>
   </div>
 </section>

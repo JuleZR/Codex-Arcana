@@ -2776,12 +2776,19 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
     gw_value = engine.gw()
     willpower = attributes.get(ATTR_WILL, 0)
     school_level_total = sum(school_levels.values())
+    magic_engine = character.get_magic_engine()
+    aspect_level_total = sum(
+        int(entry.level)
+        for entry in magic_engine.get_character_aspects()
+        if entry.is_bonus_aspect
+    )
     arcane_power_value = engine.calculate_arcane_power()
     current_arcane_power = character.current_arcane_power
     if current_arcane_power is None:
         current_arcane_power = arcane_power_value
     current_arcane_power = max(0, int(current_arcane_power))
-    arcane_power_display_max = max(int(arcane_power_value), int(current_arcane_power))
+    current_arcane_power = min(current_arcane_power, int(arcane_power_value))
+    arcane_power_display_max = int(arcane_power_value)
     arcane_meter_percent = 0 if arcane_power_display_max <= 0 else (current_arcane_power / arcane_power_display_max) * 100.0
     vw_value = engine.vw()
 
@@ -2836,7 +2843,6 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
         school_levels,
     )
     learning_progression_context = build_learning_progression_context(character, engine=engine)
-    magic_engine = character.get_magic_engine()
     spell_panel_data = magic_engine.get_spell_panel_data()
     load_tooltip = _build_load_tooltip(engine)
     load_tooltip_with_carry = _build_combined_load_tooltip(engine, carry_state, carry_enabled=True)
@@ -2981,6 +2987,7 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
                 [
                     {"label": "Will", "value": willpower},
                     {"label": "Stufen in Schulen", "value": school_level_total},
+                    {"label": "Bonus-Aspektstufen", "value": aspect_level_total},
                     *_build_modifier_breakdown_rows(engine, ARCANE_POWER),
                     {"label": "= Gesamt", "value": arcane_power_value, "tone": "total"},
                 ]

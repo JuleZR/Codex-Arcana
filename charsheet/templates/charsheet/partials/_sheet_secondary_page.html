@@ -187,16 +187,50 @@
             aria-label="Kampffähigkeiten filtern"
           >
         </div>
+        <div class="schools_pinned_panel" id="schoolsPinnedPanel" hidden>
+          <ul class="p2_lines p2_short_lines schools_pinned_list" id="schoolsPinnedList"></ul>
+        </div>
         <div class="panel_scroll schools_scroll">
-          <ul class="p2_lines p2_short_lines" id="schoolsList">
+          <ul class="p2_lines p2_short_lines" id="schoolsList" data-character-id="{{ character.id }}">
 
             {% comment %}── Charakter-Traits (Rassentechniken) ─────────────────────────────{% endcomment %}
-            {% for row in school_race_rows %}
-            <li
-              class="school_row_with_tooltip tooltip_target school_row_with_tooltip--race{% if row.show_group_separator %} school_row_with_tooltip--separator{% endif %}"
-              data-tooltip-side="left"
-              data-tooltip="{{ row.description|default:'Keine Beschreibung' }}"
-              data-school-search="{{ row.school_name|lower }} {{ row.entry_name|lower }}"
+            {% if school_race_rows %}
+            <li class="school_group" data-school-group data-school-group-key="group:race-traits">
+              <div class="school_group_header school_row_with_tooltip">
+                <button
+                  type="button"
+                  class="school_group_toggle_btn"
+                  data-school-group-toggle
+                  aria-expanded="false"
+                >
+                  <span class="skill_name_text">
+                    <span class="school_group_chevron" aria-hidden="true">&#x25B8;</span>
+                    {{ character.race.name }}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  class="school_pin_btn school_pin_btn--group"
+                  data-school-group-pin-toggle
+                  aria-pressed="false"
+                  aria-label="{{ character.race.name }} immer aufgeklappt halten"
+                  title="{{ character.race.name }} immer aufgeklappt halten"
+                ><span aria-hidden="true">&#x25C7;</span></button>
+              </div>
+              <ul class="school_group_rows" hidden>
+                {% for row in school_race_rows %}
+                <li
+                  class="school_row_with_tooltip tooltip_target school_row_with_tooltip--race{% if row.show_group_separator %} school_row_with_tooltip--separator{% endif %}"
+                  data-tooltip-side="left"
+                  data-tooltip-mode="skill-card"
+                  data-tooltip-card-variant="skill"
+                  data-tooltip-title="{{ row.entry_name }}"
+                  data-tooltip-subtitle="{{ row.school_name }}"
+                  data-tooltip-card-key="race:{{ row.technique_id|default:row.entry_name|slugify }}"
+                  data-tooltip="{{ row.description|default:'Keine Beschreibung' }}"
+                  data-school-search="{{ row.school_name|lower }} {{ row.entry_name|lower }}"
+                  data-school-pin-item
+              data-school-pin-key="race:{{ row.technique_id|default:row.entry_name|slugify }}"
             >
               <div class="skill_name_wrap school_row_layout">
                 <span class="school_row_label">
@@ -214,42 +248,63 @@
                   aria-label="{{ row.entry_name }} bearbeiten"
                   title="{{ row.entry_name }} bearbeiten"
                 >
-                  <span class="skill_spec_edit_emoji" aria-hidden="true">⋯</span>
+                  <span class="skill_spec_edit_emoji" aria-hidden="true">&#x22EF;</span>
                 </button>
                 {% endif %}
-                <span
-                  class="school_support_icon tooltip_target"
-                  data-tooltip-side="cursor-right"
-                  data-tooltip="{{ row.support_level_tooltip }}"
-                  aria-label="{{ row.support_level_tooltip }}"
-                >{{ row.support_level_icon }}</span>
+                <button
+                  type="button"
+                  class="school_pin_btn"
+                  data-school-pin-toggle
+                  data-pin-label="{{ row.entry_name }}"
+                  aria-pressed="false"
+                  aria-label="{{ row.entry_name }} anheften"
+                  title="{{ row.entry_name }} anheften"
+                ><span aria-hidden="true">&#x25C7;</span></button>
               </div>
             </li>
-            {% endfor %}
+                {% endfor %}
+              </ul>
+            </li>
+            {% endif %}
 
             {% comment %}── Kampfschulen (gruppiert & ausklappbar) ──────────────────────────{% endcomment %}
             {% for group in school_technique_groups %}
-            <li class="school_group" data-school-group>
-              <button
-                type="button"
-                class="school_group_header school_row_with_tooltip"
-                data-school-group-toggle
-                aria-expanded="false"
-              >
-                <div class="skill_name_wrap school_row_layout school_row_layout--sub">
+            <li class="school_group" data-school-group data-school-group-key="group:{{ group.school_name|slugify }}">
+              <div class="school_group_header school_row_with_tooltip">
+                <button
+                  type="button"
+                  class="school_group_toggle_btn"
+                  data-school-group-toggle
+                  aria-expanded="false"
+                >
                   <span class="skill_name_text">
-                    <span class="school_group_chevron" aria-hidden="true">▸</span>
+                    <span class="school_group_chevron" aria-hidden="true">&#x25B8;</span>
                     {{ group.school_name }}{% if group.max_level_label %} {{ group.max_level_label }}{% endif %}
                   </span>
-                </div>
-              </button>
+                </button>
+                <button
+                  type="button"
+                  class="school_pin_btn school_pin_btn--group"
+                  data-school-group-pin-toggle
+                  aria-pressed="false"
+                  aria-label="{{ group.school_name }} immer aufgeklappt halten"
+                  title="{{ group.school_name }} immer aufgeklappt halten"
+                ><span aria-hidden="true">&#x25C7;</span></button>
+              </div>
               <ul class="school_group_rows" hidden>
                 {% for row in group.rows %}
                 <li
                   class="school_row_with_tooltip tooltip_target"
                   data-tooltip-side="left"
+                  data-tooltip-mode="skill-card"
+                  data-tooltip-card-variant="skill"
+                  data-tooltip-title="{{ row.entry_name }}"
+                  data-tooltip-subtitle="{{ row.school_name }}{% if row.level_label %} {{ row.level_label }}{% endif %}"
+                  data-tooltip-card-key="technique:{{ row.technique_id|default:row.entry_name|slugify }}"
                   data-tooltip="{{ row.description|default:'Keine Beschreibung' }}"
                   data-school-search="{{ row.level }} {{ row.level_label|default:row.level }} {{ row.school_name|lower }} {{ row.entry_name|lower }}"
+                  data-school-pin-item
+                  data-school-pin-key="technique:{{ row.technique_id|default:row.entry_name|slugify }}"
                 >
                   <div class="skill_name_wrap school_row_layout school_row_layout--sub">
                     <span class="skill_name_text">
@@ -267,21 +322,64 @@
                       aria-label="{{ row.entry_name }} bearbeiten"
                       title="{{ row.entry_name }} bearbeiten"
                     >
-                      <span class="skill_spec_edit_emoji" aria-hidden="true">⋯</span>
+                      <span class="skill_spec_edit_emoji" aria-hidden="true">&#x22EF;</span>
                     </button>
                     {% endif %}
-                    <span
-                      class="school_support_icon tooltip_target"
-                      data-tooltip-side="cursor-right"
-                      data-tooltip="{{ row.support_level_tooltip }}"
-                      aria-label="{{ row.support_level_tooltip }}"
-                    >{{ row.support_level_icon }}</span>
+                    <button
+                      type="button"
+                      class="school_pin_btn"
+                      data-school-pin-toggle
+                      data-pin-label="{{ row.entry_name }}"
+                      aria-pressed="false"
+                      aria-label="{{ row.entry_name }} anheften"
+                      title="{{ row.entry_name }} anheften"
+                    ><span aria-hidden="true">&#x25C7;</span></button>
                   </div>
                 </li>
                 {% endfor %}
               </ul>
             </li>
             {% endfor %}
+
+            {% for school in spell_panel_arcane_schools %}
+            <li
+              class="school_row_with_tooltip tooltip_target"
+              data-tooltip-side="left"
+              data-tooltip="Arkane Schule"
+              data-school-search="{{ school.name|lower }} {{ school.level }} arkane schule zauber"
+            >
+              <div class="skill_name_wrap school_row_layout">
+                <span class="school_row_label">
+                  {{ school.name }}{% if school.level_label %} {{ school.level_label }}{% endif %}
+                </span>
+                <span class="skill_name_text">Arkane Schule</span>
+              </div>
+            </li>
+            {% endfor %}
+
+            {% if spell_panel_divine_summary.has_divine_magic and spell_panel_divine_summary.school_level > 0 %}
+            <li
+              class="school_row_with_tooltip tooltip_target"
+              data-tooltip-side="left"
+              data-tooltip="{{ spell_panel_divine_summary.entity_name }}{% if spell_panel_divine_summary.entity_kind %} | {{ spell_panel_divine_summary.entity_kind }}{% endif %}{% if spell_panel_divine_summary.aspects %} [[SUB:Aspekte: {% for aspect in spell_panel_divine_summary.aspects %}{{ aspect.name }} L{{ aspect.level }}{% if not forloop.last %}, {% endif %}{% endfor %}]]{% endif %}"
+              data-school-search="{{ spell_panel_divine_summary.school_name|lower }} {{ spell_panel_divine_summary.entity_name|lower }} {{ spell_panel_divine_summary.entity_kind|lower }} {% for aspect in spell_panel_divine_summary.aspects %}{{ aspect.name|lower }} {{ aspect.level }} {% endfor %}"
+            >
+              <div class="skill_name_wrap school_row_layout">
+                <span class="school_row_label">
+                  {{ spell_panel_divine_summary.school_name }}{% if spell_panel_divine_summary.school_level_label %} {{ spell_panel_divine_summary.school_level_label }}{% endif %}
+                </span>
+                <span class="skill_name_text">
+                  {% if spell_panel_divine_summary.aspects %}
+                    {% for aspect in spell_panel_divine_summary.aspects %}
+                      {{ aspect.name }}{% if not forloop.last %}, {% endif %}
+                    {% endfor %}
+                  {% else %}
+                    {{ spell_panel_divine_summary.entity_name }}
+                  {% endif %}
+                </span>
+              </div>
+            </li>
+            {% endif %}
 
           </ul>
         </div>

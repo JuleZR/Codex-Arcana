@@ -492,6 +492,7 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
     magic_engine = character.get_magic_engine(refresh=True)
     magic_engine.sync_character_magic()
     engine = character.get_engine(refresh=True)
+    previous_arcane_power_max = max(0, int(engine.calculate_arcane_power()))
     attribute_limits = {
         limit.attribute.short_name: {
             "min": int(limit.min_value),
@@ -1040,6 +1041,12 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
             character.current_experience = max(0, int(character.current_experience) - total_cost)
             character.save(update_fields=["current_experience"])
             progression_summary = _apply_progression_choices(character, post_data, magic_engine=magic_engine)
+            refreshed_magic_engine = character.get_magic_engine(refresh=True)
+            refreshed_magic_engine.sync_character_magic()
+            refreshed_magic_engine.normalize_current_arcane_power(
+                previous_max=previous_arcane_power_max,
+                persist=True,
+            )
     except LearningSubmissionError as exc:
         return "error", str(exc)
     except ValidationError as exc:

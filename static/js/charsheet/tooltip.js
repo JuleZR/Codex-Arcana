@@ -535,6 +535,83 @@ function syncTooltipCardLayout(card) {
   lore.style.maxHeight = `${availableLoreHeight}px`;
 }
 
+function bindFloatingCardInteractions(card, { onClose } = {}) {
+  if (!(card instanceof HTMLElement) || card.dataset.tooltipCardBound === "1") {
+    return;
+  }
+  card.dataset.tooltipCardBound = "1";
+
+  let dragPointerId = null;
+  let dragOffsetX = 0;
+  let dragOffsetY = 0;
+
+  const clampPosition = (left, top) => {
+    const viewportPadding = 12;
+    const cardRect = card.getBoundingClientRect();
+    const maxLeft = Math.max(viewportPadding, window.innerWidth - cardRect.width - viewportPadding);
+    const maxTop = Math.max(viewportPadding, window.innerHeight - cardRect.height - viewportPadding);
+    return {
+      left: Math.min(Math.max(viewportPadding, left), maxLeft),
+      top: Math.min(Math.max(viewportPadding, top), maxTop),
+    };
+  };
+
+  card.addEventListener("click", (event) => {
+    const closeButton = event.target instanceof Element
+      ? event.target.closest("[data-tooltip-card-close]")
+      : null;
+    if (closeButton) {
+      onClose?.();
+      return;
+    }
+    event.stopPropagation();
+  });
+
+  card.addEventListener("pointerdown", (event) => {
+    const closeButton = event.target instanceof Element
+      ? event.target.closest("[data-tooltip-card-close]")
+      : null;
+    if (closeButton) {
+      return;
+    }
+    const handle = event.target instanceof Element
+      ? event.target.closest("[data-tooltip-card-drag-handle]")
+      : null;
+    if (!(handle instanceof HTMLElement)) {
+      return;
+    }
+    const rect = card.getBoundingClientRect();
+    dragPointerId = event.pointerId;
+    dragOffsetX = event.clientX - rect.left;
+    dragOffsetY = event.clientY - rect.top;
+    card.classList.add("is-dragging");
+    handle.setPointerCapture?.(event.pointerId);
+    event.preventDefault();
+  });
+
+  card.addEventListener("pointermove", (event) => {
+    if (dragPointerId !== event.pointerId) {
+      return;
+    }
+    const clamped = clampPosition(event.clientX - dragOffsetX, event.clientY - dragOffsetY);
+    card.style.left = `${clamped.left}px`;
+    card.style.top = `${clamped.top}px`;
+  });
+
+  const finishDrag = (event) => {
+    if (dragPointerId !== event.pointerId) {
+      return;
+    }
+    dragPointerId = null;
+    card.classList.remove("is-dragging");
+  };
+
+  card.addEventListener("pointerup", finishDrag);
+  card.addEventListener("pointercancel", finishDrag);
+
+  card._tooltipClampPosition = clampPosition;
+}
+
 export function initTooltips() {
   const dbAnchors = document.querySelectorAll(".db_tooltip_anchor[data-db-tooltip]");
   dbAnchors.forEach((anchor) => {
@@ -568,6 +645,7 @@ export function initTooltips() {
   const SHOW_DELAY_MS = 1100;
   const HIDE_HOLD_MS = 380;
   const CARD_STORAGE_KEY = "charsheet.tooltipCard";
+  const skillCards = new Map();
   let activeTarget = null;
   let activeCardTarget = null;
   let pendingTarget = null;
@@ -755,6 +833,92 @@ export function initTooltips() {
     positionCardFromTarget(target);
   };
 
+  const closeSkillCard = (key) => {
+    const entry = skillCards.get(key);
+    if (!entry) {
+      return;
+    }
+    entry.card.remove();
+    skillCards.delete(key);
+  };
+
+  const positionSkillCardFromTarget = (target, cardEl, stackIndex = 0) => {
+    const viewportPadding = 12;
+    const gap = 14;
+    const rect = target.getBoundingClientRect();
+    const cardRect = cardEl.getBoundingClientRect();
+    let left = rect.right + gap + Math.min(stackIndex, 5) * 18;
+    if (left + cardRect.width > window.innerWidth - viewportPadding) {
+      left = rect.left - cardRect.width - gap - Math.min(stackIndex, 5) * 18;
+    }
+    if (left < viewportPadding) {
+      left = Math.max(viewportPadding, (window.innerWidth - cardRect.width) / 2);
+    }
+    let top = rect.top + Math.min(stackIndex, 5) * 18;
+    if (top + cardRect.height > window.innerHeight - viewportPadding) {
+      top = window.innerHeight - cardRect.height - viewportPadding;
+    }
+    const clampPosition = typeof cardEl._tooltipClampPosition === "function"
+      ? cardEl._tooltipClampPosition
+      : ((nextLeft, nextTop) => ({ left: nextLeft, top: nextTop }));
+    const clamped = clampPosition(left, top);
+    cardEl.style.left = `${clamped.left}px`;
+    cardEl.style.top = `${clamped.top}px`;
+  };
+
+  const syncFloatingCard = (cardEl) => {
+    syncTooltipCardMediaHeight(cardEl);
+    syncTooltipCardLayout(cardEl);
+    const cardImage = cardEl.querySelector(".floating-tooltip-card__image");
+    if (cardImage instanceof HTMLImageElement && !cardImage.complete) {
+      cardImage.addEventListener("load", () => {
+        syncTooltipCardMediaHeight(cardEl);
+        syncTooltipCardLayout(cardEl);
+      }, { once: true });
+    }
+  };
+
+  const openSkillCard = (target) => {
+    const text = String(target.getAttribute("data-tooltip") || "")
+      .replace(/\r\n/g, "\n")
+      .replace(/\\n/g, "\n");
+    if (!text.trim()) {
+      return;
+    }
+    const key = String(
+      target.getAttribute("data-tooltip-card-key")
+      || target.getAttribute("data-tooltip-persist-id")
+      || buildCardTargetSignature(target),
+    ).trim();
+    if (!key) {
+      return;
+    }
+    if (skillCards.has(key)) {
+      closeSkillCard(key);
+      return;
+    }
+
+    const cardEl = document.createElement("div");
+    const variant = String(target.getAttribute("data-tooltip-card-variant") || "").trim();
+    cardEl.className = variant
+      ? `floating-tooltip-card floating-tooltip-card--${variant}`
+      : "floating-tooltip-card";
+    cardEl.dataset.tooltipCardKey = key;
+    cardEl.innerHTML = buildTooltipCardMarkup({
+      title: normalizeInlineText(target.getAttribute("data-tooltip-title") || target.textContent || "Details"),
+      subtitle: normalizeInlineText(target.getAttribute("data-tooltip-subtitle") || ""),
+      image: String(target.getAttribute("data-tooltip-image") || "").trim(),
+      accent: String(target.getAttribute("data-tooltip-accent") || "").trim(),
+      bodyMarkup: renderTooltipMarkup(text),
+    });
+    cardEl.classList.add("is-visible");
+    document.body.appendChild(cardEl);
+    bindFloatingCardInteractions(cardEl, { onClose: () => closeSkillCard(key) });
+    syncFloatingCard(cardEl);
+    positionSkillCardFromTarget(target, cardEl, skillCards.size);
+    skillCards.set(key, { card: cardEl, target });
+  };
+
   card.addEventListener("click", (event) => {
     const closeButton = event.target instanceof Element
       ? event.target.closest("[data-tooltip-card-close]")
@@ -859,6 +1023,22 @@ export function initTooltips() {
   });
 
   document.addEventListener("click", (event) => {
+    const skillCardTarget = event.target instanceof Element
+      ? event.target.closest(".tooltip_target[data-tooltip][data-tooltip-mode='skill-card']")
+      : null;
+    if (skillCardTarget instanceof HTMLElement) {
+      const nestedInteractive = event.target instanceof Element
+        ? event.target.closest("button, a, input, select, textarea, form")
+        : null;
+      if (nestedInteractive && nestedInteractive !== skillCardTarget) {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      openSkillCard(skillCardTarget);
+      return;
+    }
+
     const target = event.target instanceof Element
       ? event.target.closest(".tooltip_target[data-tooltip][data-tooltip-mode='card']")
       : null;
@@ -900,6 +1080,17 @@ export function initTooltips() {
       card.style.left = `${clamped.left}px`;
       card.style.top = `${clamped.top}px`;
     }
+    skillCards.forEach(({ card: skillCard }) => {
+      syncFloatingCard(skillCard);
+      const clampPosition = typeof skillCard._tooltipClampPosition === "function"
+        ? skillCard._tooltipClampPosition
+        : ((left, top) => ({ left, top }));
+      const left = Number.parseFloat(skillCard.style.left || "0");
+      const top = Number.parseFloat(skillCard.style.top || "0");
+      const clamped = clampPosition(left, top);
+      skillCard.style.left = `${clamped.left}px`;
+      skillCard.style.top = `${clamped.top}px`;
+    });
   });
 
   document.addEventListener("mouseleave", () => {
@@ -910,6 +1101,10 @@ export function initTooltips() {
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape" && card.classList.contains("is-visible")) {
       closeCard();
+      return;
+    }
+    if (event.key === "Escape" && skillCards.size) {
+      Array.from(skillCards.keys()).forEach((key) => closeSkillCard(key));
     }
   });
 
@@ -924,4 +1119,11 @@ export function initTooltips() {
 
   restorePersistedCard();
   document.addEventListener("charsheet:partials-applied", restorePersistedCard);
+  document.addEventListener("charsheet:partials-applied", () => {
+    skillCards.forEach(({ target }, key) => {
+      if (!document.body.contains(target)) {
+        closeSkillCard(key);
+      }
+    });
+  });
 }

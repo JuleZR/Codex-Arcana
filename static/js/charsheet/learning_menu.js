@@ -650,11 +650,22 @@ export function initLearningMenu({ choiceWindowController = null } = {}) {
     windowController: choiceWindowController,
   });
 
+  const getRenderedPendingChoiceCount = () => Array.from(
+    document.querySelectorAll("#learnChoicePanelList [data-choice-decision-id]"),
+  ).filter((section) => {
+    if (!(section instanceof HTMLElement)) {
+      return false;
+    }
+    return (section.dataset.choiceInputType || "options") !== "unsupported";
+  }).length;
+
   const syncPendingNotice = () => {
     if (!pendingNotices.length) {
       return;
     }
-    const hasPending = choiceController ? choiceController.hasPendingChoices() : false;
+    const hasPending = choiceController
+      ? choiceController.hasPendingChoices()
+      : getRenderedPendingChoiceCount() > 0;
     const sidebarEnabled = document.body.dataset.sidebarEnabled === "1";
     pendingNotices.forEach((notice) => {
       if (!(notice instanceof HTMLElement)) {
@@ -674,7 +685,10 @@ export function initLearningMenu({ choiceWindowController = null } = {}) {
 
   pendingTriggers.forEach((trigger) => {
     trigger.addEventListener("click", () => {
-      choiceController?.openNextPendingChoice();
+      const opened = choiceController?.openNextPendingChoice() || false;
+      if (!opened && choiceWindowController?.open) {
+        choiceWindowController.open();
+      }
     });
   });
   document.addEventListener("learn:choices-updated", syncPendingNotice);

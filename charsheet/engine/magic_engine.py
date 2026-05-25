@@ -760,6 +760,7 @@ class MagicEngine:
             "entity_kind": binding.entity.get_entity_kind_display() if binding else "",
             "school_name": binding.entity.school.name if binding else "",
             "school_level": self.character.engine.school_level(binding.entity.school_id) if binding else 0,
+            "school_level_label": _to_roman(self.character.engine.school_level(binding.entity.school_id)) if binding else "",
             "aspects": aspect_rows,
         }
 
@@ -783,16 +784,43 @@ class MagicEngine:
         )
         return {"school_level": school_level, "options": options}
 
+    def normalize_current_arcane_power(
+        self,
+        *,
+        previous_max: int | None = None,
+        persist: bool = True,
+    ) -> dict[str, int | bool]:
+        """Shift current KP alongside max changes and never allow values above max."""
+        current_max = max(0, int(self.character.get_engine(refresh=True).calculate_arcane_power()))
+        stored_current = self.character.current_arcane_power
+
+        if stored_current is None:
+            normalized_current = current_max
+        else:
+            normalized_current = max(0, int(stored_current))
+            if previous_max is not None:
+                max_delta = current_max - max(0, int(previous_max))
+                normalized_current += max_delta
+            normalized_current = min(normalized_current, current_max)
+
+        changed = stored_current is None or int(stored_current) != normalized_current
+        self.character.current_arcane_power = normalized_current
+        if persist and changed:
+            self.character.save(update_fields=["current_arcane_power"])
+
+        return {
+            "current_arcane_power": normalized_current,
+            "current_arcane_power_max": current_max,
+            "changed": changed,
+        }
+
     def can_cast_spell(self, spell) -> dict[str, object]:
         spell_obj = spell if isinstance(spell, Spell) else Spell.objects.select_related("school", "aspect").filter(pk=spell).first()
         if spell_obj is None:
             return {"ok": False, "error": "spell_not_found", "message": "Zauber nicht gefunden."}
         if not CharacterSpell.objects.filter(character=self.character, spell=spell_obj).exists():
             return {"ok": False, "error": "unknown_spell", "message": "Der Charakter kennt diesen Zauber nicht."}
-        current_arcane_power = self.character.current_arcane_power
-        current_arcane_power = int(
-            current_arcane_power if current_arcane_power is not None else self.character.engine.calculate_arcane_power()
-        )
+        current_arcane_power = int(self.normalize_current_arcane_power()["current_arcane_power"])
         if current_arcane_power < int(spell_obj.kp_cost):
             return {"ok": False, "error": "not_enough_kp", "message": "Nicht genug KP fuer diesen Zauber."}
         return {"ok": True, "spell": spell_obj, "current_arcane_power": current_arcane_power}
@@ -806,11 +834,9 @@ class MagicEngine:
             if not result["ok"]:
                 return result
             spell_obj = result["spell"]
-            calculated_arcane_power = max(0, int(character.engine.calculate_arcane_power()))
-            current_arcane_power = character.current_arcane_power
-            if current_arcane_power is None:
-                current_arcane_power = calculated_arcane_power
-            current_arcane_power = max(0, int(current_arcane_power))
+            normalized_arcane_power = engine.normalize_current_arcane_power(persist=False)
+            calculated_arcane_power = int(normalized_arcane_power["current_arcane_power_max"])
+            current_arcane_power = int(normalized_arcane_power["current_arcane_power"])
             spent_kp = int(spell_obj.kp_cost)
             projected_arcane_power = current_arcane_power - spent_kp
             if projected_arcane_power < 0:
@@ -926,6 +952,7 @@ class MagicEngine:
                 {
                     "name": entry.school.name,
                     "level": int(entry.level),
+                    "level_label": _to_roman(int(entry.level)),
                 }
                 for entry in self._arcane_school_entries()
             ],
