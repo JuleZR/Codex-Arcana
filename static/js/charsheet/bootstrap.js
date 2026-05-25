@@ -23,6 +23,7 @@ import { initArmorPanel } from "./armor_panel.js";
 import { initBattleCalculator } from "./battle_calculator.js";
 import { initCarryLoadToggle } from "./carry_load_toggle.js";
 import { initContextRadialMenu } from "./context_radial_menu.js";
+import { initRadialMenuGem } from "./radial_menu_gem.js";
 
 onReady(() => {
   initTabs();
@@ -52,6 +53,11 @@ onReady(() => {
   initBattleCalculator();
   initCarryLoadToggle();
   initMobileHud();
+  try {
+    initRadialMenuGem();
+  } catch (_error) {
+    // Keep the rest of the sheet interactive if the decorative gem fails.
+  }
   initContextRadialMenu();
 
   document.addEventListener("charsheet:partials-applied", () => {

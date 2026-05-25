@@ -29,6 +29,7 @@ urlpatterns = [
     path("datenschutz/", views.datenschutz, name="datenschutz"),
     path("dashboard/", views.dashboard, name="dashboard"),
     path("dashboard/account/update/", views.update_account_settings, name="update_account_settings"),
+    path("dashboard/account/sidebar-toggle/", views.toggle_sidebar_enabled, name="toggle_sidebar_enabled"),
     path("character/new/", views.create_character, name="create_character"),
     path("character/<int:character_id>/edit/", views.edit_character, name="edit_character"),
     path("character/<int:character_id>/archive/", views.archive_character, name="archive_character"),

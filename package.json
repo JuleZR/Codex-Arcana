@@ -22,6 +22,7 @@
   },
   "homepage": "https://github.com/JuleZR/Codex-Arcana#readme",
   "dependencies": {
-    "dddice-js": "^0.19.34-974"
+    "dddice-js": "^0.19.34-974",
+    "three": "^0.124.0"
   }
 }

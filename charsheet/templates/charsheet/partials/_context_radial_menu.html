@@ -7,8 +7,7 @@
   <div class="charsheet-radial-menu__backdrop" data-radial-menu-backdrop></div>
   <div class="charsheet-radial-menu__anchor" data-radial-menu-anchor>
     <div class="charsheet-radial-menu__core" aria-hidden="true">
-      <span class="charsheet-radial-menu__core_ring"></span>
-      <span class="charsheet-radial-menu__core_dot"></span>
+      <div class="charsheet-radial-menu__gem-world" id="radialMenuGemWorld"></div>
     </div>
     <div
       class="charsheet-radial-menu__items"
@@ -16,10 +15,36 @@
       role="menu"
       aria-label="Schnellzugriff"
     ></div>
-    <div
-      class="charsheet-radial-menu__resources"
-      data-radial-menu-resources
-      aria-label="Ressourcen"
-    ></div>
+    <div class="charsheet-radial-menu__footer" data-radial-menu-footer>
+      <div
+        class="charsheet-radial-menu__resources"
+        data-radial-menu-resources
+        aria-label="Ressourcen"
+      ></div>
+      <form
+        class="charsheet-radial-menu__sidebar-toggle"
+        data-radial-menu-sidebar-toggle
+        data-sheet-action
+        data-ajax-only
+        method="post"
+        action="{% url 'toggle_sidebar_enabled' %}"
+        aria-label="Sidebar-Anzeige"
+      >
+        {% csrf_token %}
+        <input type="hidden" name="sidebar_enabled" value="{% if request.user.settings.sidebar_enabled %}1{% else %}0{% endif %}" data-radial-menu-sidebar-input>
+        <button
+          type="submit"
+          class="charsheet-radial-menu__sidebar-toggle_button"
+          data-radial-menu-sidebar-button
+          aria-pressed="{% if request.user.settings.sidebar_enabled %}true{% else %}false{% endif %}"
+          title="Sidebar ein- oder ausblenden"
+        >
+          <span class="charsheet-radial-menu__sidebar-toggle_text">Sidebar anzeigen</span>
+          <span class="charsheet-radial-menu__sidebar-toggle_switch" aria-hidden="true">
+            <span class="charsheet-radial-menu__sidebar-toggle_knob"></span>
+          </span>
+        </button>
+      </form>
+    </div>
   </div>
 </div>

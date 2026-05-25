@@ -116,6 +116,17 @@ def update_account_settings(request):
     return redirect("dashboard")
 
 
+@login_required
+@require_POST
+def toggle_sidebar_enabled(request):
+    user_settings, _ = UserSettings.objects.get_or_create(user=request.user)
+    raw_value = str(request.POST.get("sidebar_enabled", "")).strip().lower()
+    sidebar_enabled = raw_value in {"1", "true", "on", "yes"}
+    user_settings.sidebar_enabled = sidebar_enabled
+    user_settings.save(update_fields=["sidebar_enabled"])
+    return JsonResponse({"ok": True, "sidebarEnabled": sidebar_enabled})
+
+
 @require_POST
 def roll_dice_view(request):
     try:

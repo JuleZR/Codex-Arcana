@@ -59,6 +59,9 @@ export function initSheetActions() {
         throw new Error("sheet action invalid");
       }
       applySheetPartials(payload);
+      if (form.hasAttribute("data-ajax-only")) {
+        form.dispatchEvent(new CustomEvent("sheet:action-success", { bubbles: true, detail: payload }));
+      }
       if (form.hasAttribute("data-reset-after-success")) {
         form.reset();
       }

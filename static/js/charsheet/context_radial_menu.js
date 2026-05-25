@@ -193,7 +193,11 @@ export function initContextRadialMenu() {
   const anchor = root?.querySelector("[data-radial-menu-anchor]");
   const itemsHost = root?.querySelector("[data-radial-menu-items]");
   const resourcesHost = root?.querySelector("[data-radial-menu-resources]");
+  const sidebarToggleForm = root?.querySelector("[data-radial-menu-sidebar-toggle]");
+  const sidebarToggleButton = root?.querySelector("[data-radial-menu-sidebar-button]");
+  const sidebarToggleInput = root?.querySelector("[data-radial-menu-sidebar-input]");
   const leftTools = document.getElementById("leftTools");
+  const leftToolsToggle = document.getElementById("leftToolsToggle");
   const mediaQuery = window.matchMedia(DISABLED_QUERY);
   if (
     !(root instanceof HTMLElement)
@@ -202,11 +206,42 @@ export function initContextRadialMenu() {
     || !(itemsHost instanceof HTMLElement)
     || !(resourcesHost instanceof HTMLElement)
     || !(leftTools instanceof HTMLElement)
+    || !(sidebarToggleForm instanceof HTMLFormElement)
+    || !(sidebarToggleButton instanceof HTMLButtonElement)
+    || !(sidebarToggleInput instanceof HTMLInputElement)
+    || !(leftToolsToggle instanceof HTMLButtonElement)
   ) {
     return;
   }
 
   let isOpen = false;
+
+  const syncSidebarToggleState = (isEnabled = document.body.dataset.sidebarEnabled === "1") => {
+    sidebarToggleInput.value = isEnabled ? "1" : "0";
+    sidebarToggleButton.setAttribute("aria-pressed", isEnabled ? "true" : "false");
+    sidebarToggleButton.classList.toggle("is-active", isEnabled);
+    sidebarToggleButton.setAttribute("title", isEnabled ? "Sidebar ausblenden" : "Sidebar einblenden");
+  };
+
+  const applySidebarEnabledState = (isEnabled) => {
+    document.body.dataset.sidebarEnabled = isEnabled ? "1" : "0";
+    if (isEnabled) {
+      document.documentElement.setAttribute("data-left-tools-open", "1");
+      leftTools.classList.add("is-open");
+      leftToolsToggle.classList.add("is-open");
+      leftToolsToggle.setAttribute("aria-expanded", "true");
+      leftToolsToggle.setAttribute("aria-label", "Werkzeugleiste schliessen");
+      leftToolsToggle.setAttribute("title", "Werkzeugleiste schliessen");
+    } else {
+      document.documentElement.setAttribute("data-left-tools-open", "0");
+      leftTools.classList.remove("is-open");
+      leftToolsToggle.classList.remove("is-open");
+      leftToolsToggle.setAttribute("aria-expanded", "false");
+      leftToolsToggle.setAttribute("aria-label", "Werkzeugleiste oeffnen");
+      leftToolsToggle.setAttribute("title", "Werkzeugleiste oeffnen");
+    }
+    syncSidebarToggleState(isEnabled);
+  };
 
   const closeMenu = () => {
     if (!isOpen) {
@@ -258,6 +293,7 @@ export function initContextRadialMenu() {
   };
 
   const openMenu = (clientX, clientY) => {
+    syncSidebarToggleState();
     const count = rebuildItems();
     if (!count) {
       return;
@@ -265,7 +301,7 @@ export function initContextRadialMenu() {
     const radius = count <= 4 ? 104 : count <= 6 ? 112 : 122;
     const horizontalPadding = radius + 68;
     const topPadding = radius + 68;
-    const bottomPadding = radius + 164;
+    const bottomPadding = radius + 212;
     const left = clampPosition(clientX, horizontalPadding, window.innerWidth - horizontalPadding);
     const top = clampPosition(clientY, topPadding, window.innerHeight - bottomPadding);
     anchor.style.left = `${left}px`;
@@ -276,24 +312,26 @@ export function initContextRadialMenu() {
     isOpen = true;
   };
 
-  document.addEventListener("contextmenu", (event) => {
+  appContainer.addEventListener("contextmenu", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
     if (!canOpenForEvent(event)) {
+      closeMenu();
       return;
     }
-    event.preventDefault();
     if (isOpen) {
       closeMenu();
       return;
     }
     openMenu(event.clientX, event.clientY);
-  });
+  }, true);
 
   document.addEventListener("pointerdown", (event) => {
     if (!isOpen) {
       return;
     }
     const target = event.target instanceof Element ? event.target : null;
-    if (target?.closest(".charsheet-radial-menu__item, .charsheet-radial-menu__anchor")) {
+    if (target?.closest(".charsheet-radial-menu__item, .charsheet-radial-menu__anchor, .charsheet-radial-menu__sidebar-toggle")) {
       return;
     }
     closeMenu();
@@ -324,5 +362,30 @@ export function initContextRadialMenu() {
     }
   });
 
+  leftToolsToggle.addEventListener("click", () => {
+    window.requestAnimationFrame(() => {
+      syncSidebarToggleState();
+    });
+  });
+
+  sidebarToggleForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const nextEnabled = sidebarToggleInput.value !== "1";
+    sidebarToggleInput.value = nextEnabled ? "1" : "0";
+    syncSidebarToggleState(nextEnabled);
+  });
+
+  sidebarToggleForm.addEventListener("sheet:action-failed", () => {
+    const currentEnabled = document.body.dataset.sidebarEnabled === "1";
+    syncSidebarToggleState(currentEnabled);
+  });
+
+  sidebarToggleForm.addEventListener("sheet:action-success", (event) => {
+    const nextEnabled = Boolean(event.detail?.sidebarEnabled);
+    applySidebarEnabledState(nextEnabled);
+    closeMenu();
+  });
+
+  syncSidebarToggleState();
   document.addEventListener("charsheet:partials-applied", closeMenu);
 }
