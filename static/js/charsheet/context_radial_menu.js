@@ -14,37 +14,19 @@ const BLOCKED_TARGET_SELECTOR = [
   ".wallet_inline_tooltip",
 ].join(", ");
 
-function polarPoint(angleDeg, radius, size) {
-  const radians = ((angleDeg - 90) * Math.PI) / 180;
-  const center = size / 2;
-  const x = center + Math.cos(radians) * radius;
-  const y = center + Math.sin(radians) * radius;
-  return `${((x / size) * 100).toFixed(3)}% ${((y / size) * 100).toFixed(3)}%`;
-}
-
-function buildSectorClipPath({
-  startAngle,
-  endAngle,
-  innerRadius,
-  outerRadius,
-  size,
-}) {
-  const span = endAngle - startAngle;
-  const steps = Math.max(6, Math.ceil(Math.abs(span) / 10));
-  const outerPoints = [];
-  const innerPoints = [];
-  for (let index = 0; index <= steps; index += 1) {
-    const progress = index / steps;
-    const angle = startAngle + span * progress;
-    outerPoints.push(polarPoint(angle, outerRadius, size));
-  }
-  for (let index = steps; index >= 0; index -= 1) {
-    const progress = index / steps;
-    const angle = startAngle + span * progress;
-    innerPoints.push(polarPoint(angle, innerRadius, size));
-  }
-  return `polygon(${outerPoints.concat(innerPoints).join(", ")})`;
-}
+const TEMPLATE_STAGE_SIZE = 420;
+const TEMPLATE_CANVAS_SIZE = 500;
+const TEMPLATE_BUTTON_SIZE = 100;
+const TEMPLATE_START_ANGLE = -100;
+const TEMPLATE_END_ANGLE = 100;
+const TEMPLATE_SLOT_ORDER = ["fight", "codex", "learn", "shop", "chronicle"];
+const SLOT_MATCHERS = [
+  { key: "learn", matcher: /learnmenutrigger|lernen|lernmen|offene\s+wahl/u },
+  { key: "codex", matcher: /dashboard|codex/u },
+  { key: "fight", matcher: /battlecalculatortrigger|kampf|kampfrechner/u },
+  { key: "shop", matcher: /shopscaletrigger|shop/u },
+  { key: "chronicle", matcher: /diarytrigger|chronik|tagebuch/u },
+];
 
 function isVisible(element) {
   if (!(element instanceof HTMLElement)) {
@@ -56,51 +38,46 @@ function isVisible(element) {
   return element.getClientRects().length > 0;
 }
 
-function createMenuItem(source, index) {
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = "charsheet-radial-menu__item";
-  button.setAttribute("role", "menuitem");
-  button.style.setProperty("--radial-item-delay", `${index * 22}ms`);
-
-  const content = document.createElement("span");
-  content.className = "charsheet-radial-menu__item_content";
-
-  const iconWrap = document.createElement("span");
-  iconWrap.className = "charsheet-radial-menu__item_icon";
-
-  const iconSource = source.querySelector(".left-tools__icon_symbol, .learn_choice_notice_icon");
-  const icon = document.createElement("span");
-  icon.className = "charsheet-radial-menu__item_icon_text";
-  icon.setAttribute("aria-hidden", "true");
-  icon.innerHTML = iconSource ? iconSource.innerHTML : "?";
-  iconWrap.appendChild(icon);
-
-  const labelSource = source.querySelector(".left-tools__icon_label, .learn_choice_notice_text");
-  const labelText = (labelSource?.textContent || source.getAttribute("title") || source.getAttribute("aria-label") || "")
-    .trim();
-  const label = document.createElement("span");
-  label.className = "charsheet-radial-menu__item_label";
-  label.textContent = labelText || "Aktion";
-
-  const ariaLabel = source.getAttribute("aria-label") || label.textContent;
-  button.setAttribute("aria-label", ariaLabel);
-  button.title = source.getAttribute("title") || label.textContent;
-  content.append(iconWrap, label);
-  button.append(content);
-  button.addEventListener("click", (event) => {
-    event.preventDefault();
-    source.click();
-  });
-  return button;
-}
-
 function collectSources(leftTools) {
   return SOURCE_SELECTORS.flatMap((selector) => Array.from(leftTools.querySelectorAll(selector)))
     .filter((element) => element instanceof HTMLElement)
     .filter((element) => !element.hasAttribute("disabled"))
     .filter((element) => !element.hidden)
     .filter((element) => element.getAttribute("aria-hidden") !== "true");
+}
+
+function getActionIdentity(source) {
+  return [
+    source.id,
+    source.getAttribute("data-action"),
+    source.getAttribute("aria-label"),
+    source.getAttribute("title"),
+    source.textContent,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+}
+
+function mapSourcesToSlots(sources) {
+  const mapped = new Map();
+  const used = new Set();
+
+  SLOT_MATCHERS.forEach(({ key, matcher }) => {
+    const source = sources.find((candidate) => {
+      if (used.has(candidate)) {
+        return false;
+      }
+      return matcher.test(getActionIdentity(candidate));
+    });
+    if (!source) {
+      return;
+    }
+    mapped.set(key, source);
+    used.add(source);
+  });
+
+  return mapped;
 }
 
 function clampPosition(value, minimum, maximum) {
@@ -127,6 +104,26 @@ function parseGroupedValue(rawValue) {
   return `${sign}${digits}`;
 }
 
+function formatDisplayValue(rawValue) {
+  const raw = String(rawValue || "").trim();
+  const digits = raw.replace(/[^\d]/g, "");
+  if (!digits) {
+    return raw || "0";
+  }
+  return Number.parseInt(digits, 10).toLocaleString("de-DE");
+}
+
+function readPanelText(selector) {
+  return document.querySelector(selector)?.textContent?.trim() || "";
+}
+
+function getResourceDisplayValues() {
+  return {
+    money: formatDisplayValue(readPanelText("#sheetWalletPanel .wallet_inline_tooltip span:first-child")),
+    experience: formatDisplayValue(readPanelText("#sheetExperiencePanel .exp_rows .exp_row:first-child .exp_value")),
+  };
+}
+
 function bindFormattedDeltaInput(input) {
   if (!(input instanceof HTMLInputElement) || input.dataset.radialBound === "1") {
     return;
@@ -148,102 +145,202 @@ function bindFormattedDeltaInput(input) {
   });
 }
 
-function rebuildResourcePanel(leftTools, host) {
-  host.replaceChildren();
+function rebuildResourcePanel(leftTools, host, slots) {
   const groups = Array.from(leftTools.querySelectorAll(".left-tools__panel--resources .left-tools__group--resource"));
+
+  Object.values(slots).forEach(({ slot, content }) => {
+    slot.hidden = true;
+    content.replaceChildren();
+  });
+
   groups.forEach((group) => {
     if (!(group instanceof HTMLElement) || group.hidden || group.getAttribute("aria-hidden") === "true") {
       return;
     }
+
+    const label = (group.getAttribute("aria-label") || "").trim().toLowerCase();
+    const kind = label === "geld" ? "money" : label === "erfahrung" ? "experience" : null;
+    if (!kind || !slots[kind]) {
+      return;
+    }
+
     const clone = group.cloneNode(true);
     clone.classList.add("charsheet-radial-menu__resource");
+
+    const heading = clone.querySelector("h3");
+    if (heading instanceof HTMLElement) {
+      heading.textContent = kind === "money" ? "Gold" : "EP";
+    }
+
     clone.querySelectorAll(".left-tools__delta_input").forEach((input) => {
       bindFormattedDeltaInput(input);
     });
-    host.appendChild(clone);
+
+    const form = clone.querySelector("form");
+    void form;
+
+    slots[kind].content.appendChild(clone);
+    slots[kind].slot.hidden = false;
   });
-  host.hidden = host.childElementCount === 0;
+
+  host.hidden = Object.values(slots).every(({ slot }) => slot.hidden);
 }
 
-function configureItemGeometry(item, count, index, geometry) {
-  const step = 360 / count;
-  const separatorDegrees = geometry.separatorDegrees;
-  const rawStart = index * step;
-  const rawEnd = rawStart + step;
-  const startAngle = rawStart + separatorDegrees / 2;
-  const endAngle = rawEnd - separatorDegrees / 2;
-  const midAngle = startAngle + (endAngle - startAngle) / 2;
-  const clipPath = buildSectorClipPath({
-    startAngle,
-    endAngle,
-    innerRadius: geometry.innerRadius,
-    outerRadius: geometry.outerRadius,
-    size: geometry.size,
+function createButtonContent(source) {
+  const content = document.createElement("span");
+  content.className = "charsheet-radial-menu__item_content";
+
+  const iconWrap = document.createElement("span");
+  iconWrap.className = "charsheet-radial-menu__item_icon";
+
+  const icon = document.createElement("span");
+  icon.className = "charsheet-radial-menu__item_icon_text";
+  icon.setAttribute("aria-hidden", "true");
+  icon.innerHTML = source.querySelector(".left-tools__icon_symbol, .learn_choice_notice_icon")?.innerHTML || "?";
+  iconWrap.appendChild(icon);
+
+  const label = document.createElement("span");
+  label.className = "charsheet-radial-menu__item_label";
+  label.textContent = (
+    source.querySelector(".left-tools__icon_label, .learn_choice_notice_text")?.textContent
+    || source.getAttribute("title")
+    || source.getAttribute("aria-label")
+    || "Aktion"
+  ).trim();
+
+  content.append(iconWrap, label);
+  return { content, labelText: label.textContent };
+}
+
+function hydrateButton(button, source, closeMenu) {
+  button.replaceChildren();
+
+  if (!(source instanceof HTMLElement)) {
+    button.hidden = true;
+    button.disabled = true;
+    button.removeAttribute("aria-label");
+    button.removeAttribute("title");
+    button.onclick = null;
+    return;
+  }
+
+  const { content, labelText } = createButtonContent(source);
+  button.hidden = false;
+  button.disabled = false;
+  button.appendChild(content);
+  button.setAttribute("aria-label", source.getAttribute("aria-label") || labelText);
+  button.setAttribute("title", source.getAttribute("title") || labelText);
+  button.onclick = (event) => {
+    event.preventDefault();
+    source.click();
+    closeMenu();
+  };
+}
+
+function layoutTemplateButtons(stage, buttons) {
+  if (!(stage instanceof HTMLElement) || !buttons.length) {
+    return;
+  }
+
+  const radius = (TEMPLATE_STAGE_SIZE / 2) - (TEMPLATE_BUTTON_SIZE / 2) + 30;
+  const step = buttons.length > 1
+    ? (TEMPLATE_END_ANGLE - TEMPLATE_START_ANGLE) / (buttons.length - 1)
+    : 0;
+
+  buttons.forEach((button, index) => {
+    const angle = TEMPLATE_START_ANGLE + (step * index);
+    button.style.setProperty("--angle", `${angle}deg`);
+    button.style.setProperty("--radius", `${radius}px`);
   });
-  const labelRadius = geometry.innerRadius + (geometry.outerRadius - geometry.innerRadius) * 0.56;
-  const contentPoint = polarPoint(midAngle, labelRadius, geometry.size).split(" ");
-  item.style.clipPath = clipPath;
-  item.style.setProperty("--content-x", contentPoint[0]);
-  item.style.setProperty("--content-y", contentPoint[1]);
+}
+
+function computeStageScale() {
+  return Math.min(
+    1,
+    (window.innerWidth - 24) / TEMPLATE_CANVAS_SIZE,
+    (window.innerHeight - 24) / TEMPLATE_CANVAS_SIZE,
+  );
+}
+
+function canOpenForEvent(event, mediaQuery, appContainer) {
+  if (mediaQuery.matches) {
+    return false;
+  }
+  const target = event.target instanceof Element ? event.target : null;
+  if (!target) {
+    return false;
+  }
+  if (!appContainer.contains(target)) {
+    return false;
+  }
+  if (target.closest(BLOCKED_TARGET_SELECTOR)) {
+    return false;
+  }
+  return true;
 }
 
 export function initContextRadialMenu() {
   const root = document.getElementById("contextRadialMenu");
   const appContainer = document.getElementById("charsheetApp");
   const anchor = root?.querySelector("[data-radial-menu-anchor]");
+  const stage = root?.querySelector(".menu-stage");
   const itemsHost = root?.querySelector("[data-radial-menu-items]");
   const resourcesHost = root?.querySelector("[data-radial-menu-resources]");
-  const sidebarToggleForm = root?.querySelector("[data-radial-menu-sidebar-toggle]");
-  const sidebarToggleButton = root?.querySelector("[data-radial-menu-sidebar-button]");
-  const sidebarToggleInput = root?.querySelector("[data-radial-menu-sidebar-input]");
+  const moneySlot = root?.querySelector("[data-radial-menu-resource-slot='money']");
+  const moneyContent = root?.querySelector("[data-radial-menu-resource-content='money']");
+  const experienceSlot = root?.querySelector("[data-radial-menu-resource-slot='experience']");
+  const experienceContent = root?.querySelector("[data-radial-menu-resource-content='experience']");
+  const pinButton = root?.querySelector("[data-radial-menu-pin-button]");
   const leftTools = document.getElementById("leftTools");
-  const leftToolsToggle = document.getElementById("leftToolsToggle");
   const mediaQuery = window.matchMedia(DISABLED_QUERY);
+
   if (
     !(root instanceof HTMLElement)
     || !(appContainer instanceof HTMLElement)
     || !(anchor instanceof HTMLElement)
+    || !(stage instanceof HTMLElement)
     || !(itemsHost instanceof HTMLElement)
     || !(resourcesHost instanceof HTMLElement)
+    || !(moneySlot instanceof HTMLElement)
+    || !(moneyContent instanceof HTMLElement)
+    || !(experienceSlot instanceof HTMLElement)
+    || !(experienceContent instanceof HTMLElement)
+    || !(pinButton instanceof HTMLButtonElement)
     || !(leftTools instanceof HTMLElement)
-    || !(sidebarToggleForm instanceof HTMLFormElement)
-    || !(sidebarToggleButton instanceof HTMLButtonElement)
-    || !(sidebarToggleInput instanceof HTMLInputElement)
-    || !(leftToolsToggle instanceof HTMLButtonElement)
   ) {
     return;
   }
 
+  const buttonBySlot = new Map(
+    Array.from(itemsHost.querySelectorAll("[data-radial-slot]"))
+      .filter((element) => element instanceof HTMLButtonElement)
+      .map((button) => [button.dataset.radialSlot || "", button]),
+  );
+  const orderedButtons = TEMPLATE_SLOT_ORDER
+    .map((slot) => buttonBySlot.get(slot))
+    .filter((button) => button instanceof HTMLButtonElement);
+
   let isOpen = false;
+  let isPinned = false;
+  let lastOpenPoint = null;
 
-  const syncSidebarToggleState = (isEnabled = document.body.dataset.sidebarEnabled === "1") => {
-    sidebarToggleInput.value = isEnabled ? "1" : "0";
-    sidebarToggleButton.setAttribute("aria-pressed", isEnabled ? "true" : "false");
-    sidebarToggleButton.classList.toggle("is-active", isEnabled);
-    sidebarToggleButton.setAttribute("title", isEnabled ? "Sidebar ausblenden" : "Sidebar einblenden");
-  };
-
-  const applySidebarEnabledState = (isEnabled) => {
-    document.body.dataset.sidebarEnabled = isEnabled ? "1" : "0";
-    if (isEnabled) {
-      document.documentElement.setAttribute("data-left-tools-open", "1");
-      leftTools.classList.add("is-open");
-      leftToolsToggle.classList.add("is-open");
-      leftToolsToggle.setAttribute("aria-expanded", "true");
-      leftToolsToggle.setAttribute("aria-label", "Werkzeugleiste schliessen");
-      leftToolsToggle.setAttribute("title", "Werkzeugleiste schliessen");
-    } else {
-      document.documentElement.setAttribute("data-left-tools-open", "0");
-      leftTools.classList.remove("is-open");
-      leftToolsToggle.classList.remove("is-open");
-      leftToolsToggle.setAttribute("aria-expanded", "false");
-      leftToolsToggle.setAttribute("aria-label", "Werkzeugleiste oeffnen");
-      leftToolsToggle.setAttribute("title", "Werkzeugleiste oeffnen");
-    }
-    syncSidebarToggleState(isEnabled);
+  const syncPinState = () => {
+    pinButton.setAttribute("aria-pressed", isPinned ? "true" : "false");
+    pinButton.classList.toggle("is-active", isPinned);
+    pinButton.setAttribute("title", isPinned ? "Fixierung loesen" : "Menue fixieren");
+    pinButton.setAttribute("aria-label", isPinned ? "Fixierung loesen" : "Menue fixieren");
   };
 
   const closeMenu = () => {
+    if (!isOpen || isPinned) {
+      return;
+    }
+    isOpen = false;
+    root.classList.remove("is-open");
+    root.setAttribute("aria-hidden", "true");
+  };
+
+  const forceCloseMenu = () => {
     if (!isOpen) {
       return;
     }
@@ -252,75 +349,72 @@ export function initContextRadialMenu() {
     root.setAttribute("aria-hidden", "true");
   };
 
-  const rebuildItems = () => {
-    itemsHost.replaceChildren();
+  const rebuildButtons = () => {
     const sources = collectSources(leftTools);
-    const count = sources.length;
-    if (!count) {
-      return 0;
-    }
-    const geometry = {
-      size: count <= 4 ? 280 : 300,
-      innerRadius: count <= 4 ? 52 : 56,
-      outerRadius: count <= 4 ? 134 : 144,
-      separatorDegrees: Math.min(3.8, 360 / count / 4.4),
-    };
-    itemsHost.style.setProperty("--radial-menu-size", `${geometry.size}px`);
-    sources.forEach((source, index) => {
-      const item = createMenuItem(source, index);
-      configureItemGeometry(item, count, index, geometry);
-      itemsHost.appendChild(item);
+    const mappedSources = mapSourcesToSlots(sources);
+
+    TEMPLATE_SLOT_ORDER.forEach((slotKey) => {
+      const button = buttonBySlot.get(slotKey);
+      if (!(button instanceof HTMLButtonElement)) {
+        return;
+      }
+      hydrateButton(button, mappedSources.get(slotKey) || null, closeMenu);
     });
-    rebuildResourcePanel(leftTools, resourcesHost);
-    return count;
+
+    layoutTemplateButtons(stage, orderedButtons);
+    return orderedButtons.some((button) => !button.hidden);
   };
 
-  const canOpenForEvent = (event) => {
-    if (mediaQuery.matches) {
-      return false;
-    }
-    const target = event.target instanceof Element ? event.target : null;
-    if (!target) {
-      return false;
-    }
-    if (!appContainer.contains(target)) {
-      return false;
-    }
-    if (target.closest(BLOCKED_TARGET_SELECTOR)) {
-      return false;
-    }
-    return true;
+  const rebuildResources = () => {
+    rebuildResourcePanel(leftTools, resourcesHost, {
+      money: { slot: moneySlot, content: moneyContent },
+      experience: { slot: experienceSlot, content: experienceContent },
+    });
+  };
+
+  const positionMenu = (clientX, clientY) => {
+    const scale = computeStageScale();
+    const halfWidth = (TEMPLATE_CANVAS_SIZE * scale) / 2;
+    const halfHeight = (TEMPLATE_CANVAS_SIZE * scale) / 2;
+    anchor.style.setProperty("--radial-stage-scale", String(scale));
+    anchor.style.left = `${clampPosition(clientX, halfWidth + 12, window.innerWidth - halfWidth - 12)}px`;
+    anchor.style.top = `${clampPosition(clientY, halfHeight + 12, window.innerHeight - halfHeight - 12)}px`;
   };
 
   const openMenu = (clientX, clientY) => {
-    syncSidebarToggleState();
-    const count = rebuildItems();
-    if (!count) {
+    const hasButtons = rebuildButtons();
+    rebuildResources();
+    if (!hasButtons) {
       return;
     }
-    const radius = count <= 4 ? 104 : count <= 6 ? 112 : 122;
-    const horizontalPadding = radius + 68;
-    const topPadding = radius + 68;
-    const bottomPadding = radius + 212;
-    const left = clampPosition(clientX, horizontalPadding, window.innerWidth - horizontalPadding);
-    const top = clampPosition(clientY, topPadding, window.innerHeight - bottomPadding);
-    anchor.style.left = `${left}px`;
-    anchor.style.top = `${top}px`;
-    anchor.style.setProperty("--radial-menu-radius", `${radius}px`);
+
+    lastOpenPoint = { x: clientX, y: clientY };
+    positionMenu(clientX, clientY);
     root.setAttribute("aria-hidden", "false");
     root.classList.add("is-open");
     isOpen = true;
+    syncPinState();
+  };
+
+  const repositionOpenMenu = () => {
+    if (!isOpen || !lastOpenPoint || mediaQuery.matches) {
+      return;
+    }
+    positionMenu(lastOpenPoint.x, lastOpenPoint.y);
   };
 
   appContainer.addEventListener("contextmenu", (event) => {
     event.preventDefault();
     event.stopPropagation();
-    if (!canOpenForEvent(event)) {
+
+    if (!canOpenForEvent(event, mediaQuery, appContainer)) {
       closeMenu();
       return;
     }
     if (isOpen) {
-      closeMenu();
+      if (!isPinned) {
+        closeMenu();
+      }
       return;
     }
     openMenu(event.clientX, event.clientY);
@@ -331,7 +425,7 @@ export function initContextRadialMenu() {
       return;
     }
     const target = event.target instanceof Element ? event.target : null;
-    if (target?.closest(".charsheet-radial-menu__item, .charsheet-radial-menu__anchor, .charsheet-radial-menu__sidebar-toggle")) {
+    if (target && anchor.contains(target)) {
       return;
     }
     closeMenu();
@@ -347,45 +441,24 @@ export function initContextRadialMenu() {
   window.addEventListener("resize", () => {
     if (mediaQuery.matches) {
       closeMenu();
+      return;
     }
+    repositionOpenMenu();
   });
   mediaQuery.addEventListener("change", () => {
     if (mediaQuery.matches) {
       closeMenu();
+      return;
     }
+    repositionOpenMenu();
   });
 
-  root.addEventListener("click", (event) => {
-    const target = event.target instanceof Element ? event.target.closest(".charsheet-radial-menu__item") : null;
-    if (target) {
-      closeMenu();
-    }
-  });
-
-  leftToolsToggle.addEventListener("click", () => {
-    window.requestAnimationFrame(() => {
-      syncSidebarToggleState();
-    });
-  });
-
-  sidebarToggleForm.addEventListener("submit", (event) => {
+  pinButton.addEventListener("click", (event) => {
     event.preventDefault();
-    const nextEnabled = sidebarToggleInput.value !== "1";
-    sidebarToggleInput.value = nextEnabled ? "1" : "0";
-    syncSidebarToggleState(nextEnabled);
+    isPinned = !isPinned;
+    syncPinState();
   });
 
-  sidebarToggleForm.addEventListener("sheet:action-failed", () => {
-    const currentEnabled = document.body.dataset.sidebarEnabled === "1";
-    syncSidebarToggleState(currentEnabled);
-  });
-
-  sidebarToggleForm.addEventListener("sheet:action-success", (event) => {
-    const nextEnabled = Boolean(event.detail?.sidebarEnabled);
-    applySidebarEnabledState(nextEnabled);
-    closeMenu();
-  });
-
-  syncSidebarToggleState();
-  document.addEventListener("charsheet:partials-applied", closeMenu);
+  document.addEventListener("charsheet:partials-applied", forceCloseMenu);
+  syncPinState();
 }

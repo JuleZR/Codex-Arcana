@@ -6,45 +6,124 @@
 >
   <div class="charsheet-radial-menu__backdrop" data-radial-menu-backdrop></div>
   <div class="charsheet-radial-menu__anchor" data-radial-menu-anchor>
-    <div class="charsheet-radial-menu__core" aria-hidden="true">
-      <div class="charsheet-radial-menu__gem-world" id="radialMenuGemWorld"></div>
-    </div>
-    <div
-      class="charsheet-radial-menu__items"
-      data-radial-menu-items
-      role="menu"
-      aria-label="Schnellzugriff"
-    ></div>
-    <div class="charsheet-radial-menu__footer" data-radial-menu-footer>
-      <div
-        class="charsheet-radial-menu__resources"
-        data-radial-menu-resources
-        aria-label="Ressourcen"
-      ></div>
-      <form
-        class="charsheet-radial-menu__sidebar-toggle"
-        data-radial-menu-sidebar-toggle
-        data-sheet-action
-        data-ajax-only
-        method="post"
-        action="{% url 'toggle_sidebar_enabled' %}"
-        aria-label="Sidebar-Anzeige"
-      >
-        {% csrf_token %}
-        <input type="hidden" name="sidebar_enabled" value="{% if request.user.settings.sidebar_enabled %}1{% else %}0{% endif %}" data-radial-menu-sidebar-input>
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+      <defs>
+        <radialGradient id="arcaneViolet" cx="30%" cy="30%" r="85%">
+          <stop offset="0%" stop-color="#6f5ad9" stop-opacity="1"></stop>
+          <stop offset="18%" stop-color="#4d2fa8" stop-opacity="1"></stop>
+          <stop offset="42%" stop-color="#29105f" stop-opacity="1"></stop>
+          <stop offset="68%" stop-color="#120522" stop-opacity="1"></stop>
+          <stop offset="100%" stop-color="#030006" stop-opacity="1"></stop>
+        </radialGradient>
+
+        <linearGradient id="goldGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#f8dd7a"></stop>
+          <stop offset="8%" stop-color="#d7a93a"></stop>
+          <stop offset="30%" stop-color="#8f6a22"></stop>
+          <stop offset="42%" stop-color="#5f4718"></stop>
+          <stop offset="100%" stop-color="#2d210b"></stop>
+        </linearGradient>
+      </defs>
+    </svg>
+
+    <div class="charsheet-radial-menu__menu_canvas menu-canvas">
+      <div class="charsheet-radial-menu__menu_stage menu-stage">
+        <div class="runecircle-outline">
+          <div class="runecircle-outer">
+            <svg class="rune-text" viewBox="0 0 400 400" aria-hidden="true" focusable="false">
+              <defs>
+                <path
+                  id="radialMenuRunePath"
+                  d="
+                    M 200,200
+                    m -180,0
+                    a 180,180 0 1,1 360,0
+                    a 180,180 0 1,1 -360,0
+                  "
+                ></path>
+              </defs>
+              <text class="rune-text__text">
+                <textPath href="#radialMenuRunePath" startOffset="0%">ᚠ ᚢ ᚦ ᚨ ᚱ ᚲ ✦</textPath>
+                <textPath href="#radialMenuRunePath" startOffset="14.2%">ᛉ ᛊ ᛏ ᛒ ᛖ ᛗ ✦</textPath>
+                <textPath href="#radialMenuRunePath" startOffset="28.4%">ᚷ ᚹ ᚺ ᚾ ᛁ ᛃ ✦</textPath>
+                <textPath href="#radialMenuRunePath" startOffset="42.6%">ᛇ ᛈ ᛉ ᛊ ᛏ ᛒ ✦</textPath>
+                <textPath href="#radialMenuRunePath" startOffset="56.8%">ᛖ ᛗ ᛚ ᛜ ᛞ ᛟ ✦</textPath>
+                <textPath href="#radialMenuRunePath" startOffset="71%">ᚠ ᚱ ᚲ ᚷ ᚹ ᚺ ✦</textPath>
+                <textPath href="#radialMenuRunePath" startOffset="85.2%">ᚾ ᛁ ᛃ ᛇ ᛈ ᛉ ✦</textPath>
+              </text>
+            </svg>
+            <div class="runecircle-inner">
+              <div class="charsheet-radial-menu__core">
+                <div class="charsheet-radial-menu__gem-world" id="radialMenuGemWorld"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="charsheet-radial-menu__items" data-radial-menu-items role="menu" aria-label="Kontextaktionen">
+          <button type="button" class="charsheet-radial-menu__item button" data-radial-slot="fight" role="menuitem"></button>
+          <button type="button" class="charsheet-radial-menu__item button" data-radial-slot="codex" role="menuitem"></button>
+          <button type="button" class="charsheet-radial-menu__item button" data-radial-slot="learn" role="menuitem"></button>
+          <button type="button" class="charsheet-radial-menu__item button" data-radial-slot="shop" role="menuitem"></button>
+          <button type="button" class="charsheet-radial-menu__item button" data-radial-slot="chronicle" role="menuitem"></button>
+        </div>
+
+        <div class="charsheet-radial-menu__resources" data-radial-menu-resources>
+          <div
+            class="charsheet-radial-menu__resource_slot charsheet-radial-menu__resource_slot--money"
+            data-radial-menu-resource-slot="money"
+          >
+            <svg
+              class="panel-shape panel-left"
+              viewBox="0 70 220 120"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <path
+                fill="url(#arcaneViolet)"
+                stroke="url(#goldGradient)"
+                class="panel-path"
+                d="m 42.246785,158.64813 c 27.428415,8.8805 37.413337,2.08193 53.28567,13.04306 -1.297832,4.18663 0.899607,7.8172 4.867285,11.16614 -2.448928,5.51781 -3.5819,9.4285 -0.636246,13.96561 -23.081278,1.6567 -51.858181,-11.97065 -57.516709,-38.17481 z"
+              ></path>
+            </svg>
+            <div class="charsheet-radial-menu__resource_content" data-radial-menu-resource-content="money"></div>
+          </div>
+
+          <div
+            class="charsheet-radial-menu__resource_slot charsheet-radial-menu__resource_slot--experience"
+            data-radial-menu-resource-slot="experience"
+          >
+            <svg
+              class="panel-shape panel-right"
+              viewBox="0 70 220 120"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <g transform="translate(220 0) scale(-1 1)">
+                <path
+                  fill="url(#arcaneViolet)"
+                  stroke="url(#goldGradient)"
+                  class="panel-path"
+                  d="m 42.246785,158.64813 c 27.428415,8.8805 37.413337,2.08193 53.28567,13.04306 -1.297832,4.18663 0.899607,7.8172 4.867285,11.16614 -2.448928,5.51781 -3.5819,9.4285 -0.636246,13.96561 -23.081278,1.6567 -51.858181,-11.97065 -57.516709,-38.17481 z"
+                ></path>
+              </g>
+            </svg>
+            <div class="charsheet-radial-menu__resource_content" data-radial-menu-resource-content="experience"></div>
+          </div>
+        </div>
+
         <button
-          type="submit"
-          class="charsheet-radial-menu__sidebar-toggle_button"
-          data-radial-menu-sidebar-button
-          aria-pressed="{% if request.user.settings.sidebar_enabled %}true{% else %}false{% endif %}"
-          title="Sidebar ein- oder ausblenden"
+          type="button"
+          class="charsheet-radial-menu__pin_button visibility_orb"
+          data-radial-menu-pin-button
+          aria-pressed="false"
+          aria-label="Menü fixieren"
+          title="Menü fixieren"
         >
-          <span class="charsheet-radial-menu__sidebar-toggle_text">Sidebar anzeigen</span>
-          <span class="charsheet-radial-menu__sidebar-toggle_switch" aria-hidden="true">
-            <span class="charsheet-radial-menu__sidebar-toggle_knob"></span>
-          </span>
+          <span aria-hidden="true">👁</span>
+          <span class="charsheet-radial-menu__sr_only">Fixieren</span>
         </button>
-      </form>
+      </div>
     </div>
   </div>
 </div>
