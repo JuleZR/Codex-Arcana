@@ -1,13 +1,39 @@
 <section class="payday-window payday-window--item-create sheet-window sheet-window--editor-modal" id="charInfoWindow" aria-hidden="true">
   <div class="payday-window__titlebar sheet-window__header" id="charInfoWindowHandle">
     <h3 class="payday-window__title sheet-window__title">Charakterinfo bearbeiten</h3>
-    <button type="button" class="payday-window__close" id="charInfoWindowClose" aria-label="Fenster schließen">x</button>
+    <button type="button" class="payday-window__close" id="charInfoWindowClose" aria-label="Fenster schlie&szlig;en">x</button>
   </div>
   <div class="payday-window__body sheet-window__body">
     <div class="sheet-window__editor-shell">
       <div class="sheet-window__editor-pane">
-        <form method="post" action="{% url 'update_character_info' character.id %}" id="charInfoForm" class="shop_item_form sheet-window__editor-form">
+        <form method="post" action="{% url 'update_character_info' character.id %}" enctype="multipart/form-data" id="charInfoForm" class="shop_item_form sheet-window__editor-form">
           {% csrf_token %}
+          <div class="sheet-window__surface sheet-window__surface--editor sheet-window__surface--form char_picture_editor">
+            <div class="char_picture_editor__header">
+              <span>Charakterbild</span>
+            </div>
+            <div class="char_picture_editor__layout">
+              <div class="char_picture_editor__preview">
+                <div class="char_picture_editor__preview_frame{% if character.char_picture %} has-image{% endif %}" id="charPicturePreviewFrame">
+                  {% if character.char_picture %}
+                    <img src="{{ character.char_picture.url }}" alt="{{ character.name }}" id="charPicturePreviewImage">
+                  {% else %}
+                    <div class="char_picture_editor__placeholder" id="charPicturePreviewPlaceholder">Kein Bild</div>
+                  {% endif %}
+                </div>
+              </div>
+              <div class="char_picture_editor__controls">
+                <div class="char_picture_editor__preview_actions">
+                  <label class="char_picture_editor__pick" for="charPictureInput">Bild wählen</label>
+                  <button type="button" class="shop_item_cancel_btn char_picture_editor__adjust" id="charPictureAdjustBtn"{% if not character.char_picture %} hidden{% endif %}>Bild anpassen</button>
+                  <button type="button" class="shop_item_cancel_btn char_picture_editor__remove" id="charPictureRemoveBtn"{% if not character.char_picture %} hidden{% endif %}>Bild löschen</button>
+                </div>
+              </div>
+            </div>
+            {{ char_info_form.char_picture_upload }}
+            {{ char_info_form.char_picture_cropped_data }}
+            {{ char_info_form.remove_char_picture }}
+          </div>
           <div class="shop_item_form_grid sheet-window__surface sheet-window__surface--editor sheet-window__surface--form sheet-window__surface--form-grid">
             <label class="shop_item_form_row shop_item_form_row--compact"><span>Name</span>{{ char_info_form.name }}</label>
             <label class="shop_item_form_row shop_item_form_row--compact"><span>Geschlecht</span>{{ char_info_form.gender }}</label>
@@ -29,6 +55,53 @@
             <button type="submit" class="wax_seal_btn" aria-label="Speichern" title="Speichern"><span class="wax_seal_btn__embossed" aria-hidden="true">&#10003;</span></button>
           </div>
         </form>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="payday-window payday-window--a4 sheet-window sheet-window--editor-modal" id="characterImageCropWindow" aria-hidden="true">
+  <div class="payday-window__titlebar sheet-window__header" id="characterImageCropWindowHandle">
+    <h3 class="payday-window__title sheet-window__title">Charakterbild zuschneiden</h3>
+    <button type="button" class="payday-window__close" id="characterImageCropWindowClose" aria-label="Fenster schlie&szlig;en">x</button>
+  </div>
+  <div class="payday-window__body sheet-window__body">
+    <div class="sheet-window__editor-shell">
+      <div class="sheet-window__editor-pane">
+        <div class="sheet-window__surface sheet-window__surface--editor sheet-window__surface--form char_picture_crop_window">
+          <div class="char_picture_crop_window__stage">
+            <img id="charPictureCropperImage" alt="Zuschneide-Vorschau">
+          </div>
+          <p class="char_picture_editor__hint">Wähle deinen Bildausschnitt frei. Das Seitenverhältnis bleibt dabei immer fest auf 4:5.</p>
+          <div class="shop_item_form_actions">
+            <button type="button" class="shop_item_cancel_btn" id="charPictureCropCancelBtn">Abbrechen</button>
+            <button type="button" class="shop_item_save_btn" id="charPictureCropApplyBtn">Übernehmen</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="payday-window payday-window--item-create sheet-window sheet-window--editor-modal" id="appearanceDetailWindow" aria-hidden="true">
+  <div class="payday-window__titlebar sheet-window__header" id="appearanceDetailWindowHandle">
+    <h3 class="payday-window__title sheet-window__title">Aussehen</h3>
+    <button type="button" class="payday-window__close" id="appearanceDetailWindowClose" aria-label="Fenster schlie&szlig;en">x</button>
+  </div>
+  <div class="payday-window__body sheet-window__body">
+    <div class="sheet-window__editor-shell">
+      <div class="sheet-window__editor-pane">
+        <div class="sheet-window__surface sheet-window__surface--editor sheet-window__surface--form character-appearance-card{% if character.char_picture %} character-appearance-card--with-image{% endif %}">
+          {% if character.char_picture %}
+            <figure class="character-appearance-card__portrait">
+              <img src="{{ character.char_picture.url }}" alt="{{ character.name }}">
+            </figure>
+          {% endif %}
+          <div class="character-appearance-card__body">
+            <h4 class="character-appearance-card__title">{{ character.name }}</h4>
+            <p class="character-appearance-card__text">{{ character.appearance|default:"-" }}</p>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -56,7 +129,7 @@
 <section class="payday-window payday-window--item-create sheet-window sheet-window--editor-modal" id="skillSpecWindow" aria-hidden="true">
   <div class="payday-window__titlebar sheet-window__header" id="skillSpecWindowHandle">
     <h3 class="payday-window__title sheet-window__title" id="skillSpecWindowTitle">Fertigkeit bearbeiten</h3>
-    <button type="button" class="payday-window__close" id="skillSpecWindowClose" aria-label="Fenster schließen">x</button>
+    <button type="button" class="payday-window__close" id="skillSpecWindowClose" aria-label="Fenster schlie&szlig;en">x</button>
   </div>
   <div class="payday-window__body sheet-window__body">
     <div class="sheet-window__editor-shell">
@@ -83,7 +156,7 @@
 <section class="payday-window payday-window--item-create sheet-window sheet-window--editor-modal" id="techniqueSpecWindow" aria-hidden="true">
   <div class="payday-window__titlebar sheet-window__header" id="techniqueSpecWindowHandle">
     <h3 class="payday-window__title sheet-window__title" id="techniqueSpecWindowTitle">Technik bearbeiten</h3>
-    <button type="button" class="payday-window__close" id="techniqueSpecWindowClose" aria-label="Fenster schließen">x</button>
+    <button type="button" class="payday-window__close" id="techniqueSpecWindowClose" aria-label="Fenster schlie&szlig;en">x</button>
   </div>
   <div class="payday-window__body sheet-window__body">
     <div class="sheet-window__editor-shell">

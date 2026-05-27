@@ -2,64 +2,85 @@
 <article class="page" id="sheetCharacterHeader">
   <section class="p1_top">
     <div class="char_info_wrapper">
-      <div class="char_info_box">
-        <table class="char_info_table" aria-label="Charakterinformation">
-          <tbody>
-            <tr class="char_info_row_title">
-              <td class="char_title" colspan="6">
-                <div class="char_info_title_wrap">
-                  <h1>Charakterinformation</h1>
-                  <button type="button" class="char_info_edit_btn" id="charInfoEditTrigger" aria-label="Charakterinformation bearbeiten" title="Charakterinformation bearbeiten">
-                    <svg class="char_info_edit_icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                      <path d="M4 20h4l10-10-4-4L4 16v4z"></path>
-                      <path d="M13.8 6.2l4 4"></path>
-                    </svg>
+      <div class="char_info_box{% if character.char_picture %} char_info_box--with-portrait{% endif %}">
+        {% if character.char_picture %}
+          <div class="char_info_portrait" aria-hidden="true">
+            <div class="char_info_portrait_frame">
+              <img src="{{ character.char_picture.url }}" alt="" loading="lazy">
+            </div>
+          </div>
+        {% endif %}
+        <div class="char_info_content">
+          <table class="char_info_table" aria-label="Charakterinformation">
+            <tbody>
+              <tr class="char_info_row_title">
+                <td class="char_title" colspan="6">
+                  <div class="char_info_title_wrap">
+                    <h1>Charakterinformation</h1>
+                    <button type="button" class="char_info_edit_btn" id="charInfoEditTrigger" aria-label="Charakterinformation bearbeiten" title="Charakterinformation bearbeiten">
+                      <svg class="char_info_edit_icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                        <path d="M4 20h4l10-10-4-4L4 16v4z"></path>
+                        <path d="M13.8 6.2l4 4"></path>
+                      </svg>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td class="label">Name</td>
+                <td class="value" colspan="5">{{ character.name }}</td>
+              </tr>
+              <tr>
+                <td class="label">Geschlecht</td>
+                <td class="value">{{ character.get_gender_display|default:"-" }}</td>
+                <td class="label">Rasse</td>
+                <td class="value wide">{{ character.race.name }}</td>
+                <td class="label">Alter</td>
+                <td class="value">{{ character.age|default:"-" }}</td>
+              </tr>
+              <tr>
+                <td class="label">Gr&ouml;&szlig;e</td>
+                <td class="value">{% if character.height %}{{ character.height }} cm{% else %}-{% endif %}</td>
+                <td class="label">Gr&ouml;&szlig;enklasse (GK)</td>
+                <td class="value">{{ size_class }}</td>
+                <td class="label">GK-Mod.</td>
+                <td class="value">{{ size_class_mod }}</td>
+              </tr>
+              <tr>
+                <td class="label">Hautfarbe</td>
+                <td class="value">{{ character.skin_color|default:"-" }}</td>
+                <td class="label">Haarfarbe</td>
+                <td class="value">{{ character.hair_color|default:"-" }}</td>
+                <td class="label">Augenfarbe</td>
+                <td class="value">{{ character.eye_color|default:"-" }}</td>
+              </tr>
+              <tr>
+                <td class="label">Herkunftsland</td>
+                <td class="value">{{ character.country_of_origin|default:"-" }}</td>
+                <td class="label">Gewicht</td>
+                <td class="value">{% if character.weight %}{{ character.weight }} kg{% else %}-{% endif %}</td>
+                <td class="label">Religion</td>
+                <td class="value">{{ character.religion|default:"-" }}</td>
+              </tr>
+              <tr>
+                <td class="label">Aussehen</td>
+                <td class="value value--appearance" colspan="5">
+                  <button
+                    type="button"
+                    class="char_info_appearance_trigger"
+                    id="appearanceDetailTrigger"
+                    aria-controls="appearanceDetailWindow"
+                    aria-haspopup="dialog"
+                    aria-label="Vollst&auml;ndiges Aussehen anzeigen"
+                    disabled
+                  >
+                    <span class="char_info_appearance_text" id="appearanceDetailPreview">{{ character.appearance|default:"-" }}</span>
                   </button>
-                </div>
-              </td>
-            </tr>
-            <tr>
-              <td class="label">Name</td>
-              <td class="value" colspan="5">{{ character.name }}</td>
-            </tr>
-            <tr>
-              <td class="label">Geschlecht</td>
-              <td class="value">{{ character.get_gender_display|default:"-" }}</td>
-              <td class="label">Rasse</td>
-              <td class="value wide">{{ character.race.name }}</td>
-              <td class="label">Alter</td>
-              <td class="value">{{ character.age|default:"-" }}</td>
-            </tr>
-            <tr>
-              <td class="label">Gr&ouml;&szlig;e</td>
-              <td class="value">{% if character.height %}{{ character.height }} cm{% else %}-{% endif %}</td>
-              <td class="label">Gr&ouml;&szlig;enklasse (GK)</td>
-              <td class="value">{{ size_class }}</td>
-              <td class="label">GK-Mod.</td>
-              <td class="value">{{ size_class_mod }}</td>
-            </tr>
-            <tr>
-              <td class="label">Hautfarbe</td>
-              <td class="value">{{ character.skin_color|default:"-" }}</td>
-              <td class="label">Haarfarbe</td>
-              <td class="value">{{ character.hair_color|default:"-" }}</td>
-              <td class="label">Augenfarbe</td>
-              <td class="value">{{ character.eye_color|default:"-" }}</td>
-            </tr>
-            <tr>
-              <td class="label">Herkunftsland</td>
-              <td class="value">{{ character.country_of_origin|default:"-" }}</td>
-              <td class="label">Gewicht</td>
-              <td class="value">{% if character.weight %}{{ character.weight }} kg{% else %}-{% endif %}</td>
-              <td class="label">Religion</td>
-              <td class="value">{{ character.religion|default:"-" }}</td>
-            </tr>
-            <tr>
-              <td class="label">Aussehen</td>
-              <td class="value" colspan="5">{{ character.appearance|default:"-" }}</td>
-            </tr>
-          </tbody>
-        </table>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   </section>

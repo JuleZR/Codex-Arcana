@@ -1,10 +1,18 @@
 """Forms for user-facing character actions."""
 
+import base64
+import binascii
+from io import BytesIO
+from uuid import uuid4
+
 from django import forms
+from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
+from django.core.files.base import ContentFile
+from PIL import Image, ImageOps
+
 from .models import Character, CharacterItemRuneSpec, CharacterSkill, CharacterTechnique
 from .models.user import UserSettings
-from django.contrib.auth import get_user_model
 
 
 class UserSettingsForm(forms.ModelForm):
@@ -65,6 +73,25 @@ class CharacterUpdateForm(CharacterCreateForm):
 class CharacterInfoInlineForm(forms.ModelForm):
     """Inline form for editing character info fields on the character sheet."""
 
+    char_picture_upload = forms.ImageField(
+        required=False,
+        widget=forms.FileInput(
+            attrs={
+                "class": "dashboard_input",
+                "accept": "image/*",
+                "id": "charPictureInput",
+            }
+        ),
+    )
+    char_picture_cropped_data = forms.CharField(
+        required=False,
+        widget=forms.HiddenInput(attrs={"id": "charPictureCroppedData"}),
+    )
+    remove_char_picture = forms.BooleanField(
+        required=False,
+        widget=forms.HiddenInput(attrs={"id": "charPictureRemoveFlag"}),
+    )
+
     class Meta:
         model = Character
         fields = [
@@ -91,8 +118,147 @@ class CharacterInfoInlineForm(forms.ModelForm):
             "country_of_origin": forms.TextInput(attrs={"class": "dashboard_input", "maxlength": 25}),
             "weight": forms.NumberInput(attrs={"class": "dashboard_input", "min": 0, "step": 1}),
             "religion": forms.TextInput(attrs={"class": "dashboard_input", "maxlength": 25}),
-            "appearance": forms.Textarea(attrs={"class": "dashboard_input", "maxlength": 100, "rows": 3, "style": "resize: none;"}),
+            "appearance": forms.Textarea(attrs={"class": "dashboard_input", "maxlength": 300, "rows": 3, "style": "resize: none;"}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._cropped_picture_content = None
+        self._uploaded_picture_content = None
+
+    @staticmethod
+    def _normalize_picture_bytes(raw_bytes):
+        try:
+            with Image.open(BytesIO(raw_bytes)) as image:
+                image = ImageOps.exif_transpose(image)
+                if image.mode not in ("RGB", "L"):
+                    background = Image.new("RGB", image.size, "#f3ead8")
+                    alpha_image = image.convert("RGBA")
+                    background.paste(alpha_image, mask=alpha_image.getchannel("A"))
+                    image = background
+                else:
+                    image = image.convert("RGB")
+
+                width, height = image.size
+                if width <= 0 or height <= 0:
+                    raise forms.ValidationError("Das hochgeladene Bild ist leer.")
+
+                target_ratio = 4 / 5
+                current_ratio = width / height
+
+                if current_ratio > target_ratio:
+                    crop_height = height
+                    crop_width = round(height * target_ratio)
+                else:
+                    crop_width = width
+                    crop_height = round(width / target_ratio)
+
+                crop_width = max(4, min(crop_width, width))
+                crop_height = max(5, min(crop_height, height))
+
+                left = max(0, (width - crop_width) // 2)
+                top = max(0, (height - crop_height) // 2)
+                image = image.crop((left, top, left + crop_width, top + crop_height))
+
+                if image.size != (800, 1000):
+                    image = image.resize((800, 1000), Image.Resampling.LANCZOS)
+
+                output = BytesIO()
+                image.save(output, format="JPEG", quality=92, optimize=True)
+        except OSError as error:
+            raise forms.ValidationError("Das Bild konnte nicht verarbeitet werden.") from error
+
+        return output.getvalue(), "jpg"
+
+    def clean_char_picture_cropped_data(self):
+        raw_value = (self.cleaned_data.get("char_picture_cropped_data") or "").strip()
+        if not raw_value:
+            return ""
+
+        if "," not in raw_value:
+            raise forms.ValidationError("Das zugeschnittene Bild konnte nicht gelesen werden.")
+
+        header, encoded = raw_value.split(",", 1)
+        if ";base64" not in header:
+            raise forms.ValidationError("Das zugeschnittene Bild ist ungültig.")
+
+        mime_type = header.split(":", 1)[-1].split(";", 1)[0].lower()
+        extension_by_mime = {
+            "image/jpeg": "jpg",
+            "image/png": "png",
+            "image/webp": "webp",
+        }
+        extension = extension_by_mime.get(mime_type)
+        if extension is None:
+            raise forms.ValidationError("Bitte ein Bild als JPG, PNG oder WEBP verwenden.")
+
+        try:
+            decoded = base64.b64decode(encoded)
+        except (ValueError, binascii.Error) as error:
+            raise forms.ValidationError("Das zugeschnittene Bild ist beschädigt.") from error
+
+        if not decoded:
+            raise forms.ValidationError("Das zugeschnittene Bild ist leer.")
+
+        try:
+            normalized_bytes, normalized_extension = self._normalize_picture_bytes(decoded)
+        except forms.ValidationError as error:
+            raise forms.ValidationError(error.message) from error
+
+        self._cropped_picture_content = (normalized_bytes, normalized_extension or extension)
+        return raw_value
+
+    def clean_char_picture_upload(self):
+        uploaded = self.cleaned_data.get("char_picture_upload")
+        if not uploaded:
+            return uploaded
+
+        try:
+            uploaded_bytes = uploaded.read()
+        finally:
+            uploaded.seek(0)
+
+        if not uploaded_bytes:
+            raise forms.ValidationError("Bitte ein gültiges Bild auswählen.")
+
+        normalized_bytes, normalized_extension = self._normalize_picture_bytes(uploaded_bytes)
+        self._uploaded_picture_content = (normalized_bytes, normalized_extension)
+        return uploaded
+
+    def save(self, commit=True):
+        character = super().save(commit=False)
+        remove_picture = bool(self.cleaned_data.get("remove_char_picture"))
+        safe_name = "".join(ch.lower() if ch.isalnum() else "-" for ch in (character.name or "character")).strip("-")
+        safe_name = safe_name or f"character-{character.pk or 'portrait'}"
+
+        if self._cropped_picture_content:
+            decoded, extension = self._cropped_picture_content
+            remove_picture = False
+            if character.char_picture:
+                character.char_picture.delete(save=False)
+            character.char_picture.save(
+                f"{safe_name}-portrait-{uuid4().hex[:10]}.{extension}",
+                ContentFile(decoded),
+                save=False,
+            )
+        elif self._uploaded_picture_content:
+            decoded, extension = self._uploaded_picture_content
+            remove_picture = False
+            if character.char_picture:
+                character.char_picture.delete(save=False)
+            character.char_picture.save(
+                f"{safe_name}-portrait-{uuid4().hex[:10]}.{extension}",
+                ContentFile(decoded),
+                save=False,
+            )
+        elif remove_picture and character.char_picture:
+            character.char_picture.delete(save=False)
+            character.char_picture = None
+
+        if commit:
+            character.save()
+            self.save_m2m()
+        return character
 
 
 class CharacterSkillSpecificationForm(forms.ModelForm):

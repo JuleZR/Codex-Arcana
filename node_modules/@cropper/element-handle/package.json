@@ -1,0 +1,70 @@
+{
+  "name": "@cropper/element-handle",
+  "version": "2.1.1",
+  "description": "A custom handle element for the Cropper.",
+  "main": "dist/element-handle.raw.js",
+  "module": "dist/element-handle.esm.raw.js",
+  "types": "dist/element-handle.d.ts",
+  "unpkg": "dist/element-handle.js",
+  "jsdelivr": "dist/element-handle.js",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/element-handle.d.ts",
+        "node": {
+          "production": "./dist/element-handle.esm.min.js",
+          "development": "./dist/element-handle.esm.js",
+          "default": "./dist/element-handle.esm.raw.js"
+        },
+        "default": "./dist/element-handle.esm.raw.js"
+      },
+      "require": {
+        "types": "./dist/element-handle.d.ts",
+        "node": {
+          "production": "./dist/element-handle.min.js",
+          "development": "./dist/element-handle.js",
+          "default": "./dist/element-handle.raw.js"
+        },
+        "default": "./dist/element-handle.raw.js"
+      }
+    },
+    "./dist/*": "./dist/*",
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "api-extractor": "api-extractor run --local --verbose",
+    "build": "npm run tsc && npm run api-extractor && npm run rollup",
+    "clean": "del-cli dist .temp",
+    "release": "npm run clean && npm run build",
+    "rollup": "rollup -c ../../rollup.config.js",
+    "tsc": "tsc --outDir ./.temp --declaration --emitDeclarationOnly"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/fengyuanchen/cropperjs.git",
+    "directory": "packages/element-handle"
+  },
+  "keywords": [
+    "handle",
+    "cropper",
+    "cropper.js",
+    "cropper-element",
+    "custom-element",
+    "web-component"
+  ],
+  "author": "Chen Fengyuan (https://chenfengyuan.com/)",
+  "license": "MIT",
+  "bugs": "https://github.com/fengyuanchen/cropperjs/issues",
+  "homepage": "https://github.com/fengyuanchen/cropperjs/tree/main/packages/element-handle/#readme",
+  "dependencies": {
+    "@cropper/element": "^2.1.1",
+    "@cropper/utils": "^2.1.1"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "gitHead": "0bbb4de016306245055fbf6cf8e3cfd885890968"
+}

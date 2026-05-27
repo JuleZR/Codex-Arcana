@@ -1,5 +1,4 @@
 """Character-owned models and draft state."""
-
 from django.conf import settings
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
@@ -32,6 +31,7 @@ class Character(models.Model):
 
     owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     name = models.CharField(max_length=100)
+    char_picture = models.ImageField(upload_to="characters/", blank=True, null=True)
     race = models.ForeignKey(Race, on_delete=models.PROTECT)
     gender = models.CharField(max_length=15, choices=Gender, null=True, blank=True)
     age = models.PositiveIntegerField(default=20, null=True, blank=True)
@@ -42,7 +42,7 @@ class Character(models.Model):
     country_of_origin = models.CharField(max_length=25, null=True, blank=True)
     weight = models.IntegerField(default=60, null=True, blank=True)
     religion = models.CharField(max_length=25, null=True, blank=True)
-    appearance = models.TextField(max_length=100, null=True, blank=True)
+    appearance = models.TextField(max_length=300, null=True, blank=True)
 
     money = models.IntegerField(default=0, validators=[MinValueValidator(0)])
     overall_experience = models.PositiveIntegerField(default=0)

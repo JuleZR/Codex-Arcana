@@ -246,6 +246,7 @@
 }
 
 #charInfoWindow.sheet-window.payday-window,
+#appearanceDetailWindow.sheet-window.payday-window,
 #inventoryDeleteWarningWindow.sheet-window.payday-window,
 #skillSpecWindow.sheet-window.payday-window,
 #techniqueSpecWindow.sheet-window.payday-window {
@@ -254,6 +255,7 @@
 }
 
 #charInfoWindow.sheet-window--editor-modal .sheet-window__body,
+#appearanceDetailWindow.sheet-window--editor-modal .sheet-window__body,
 #inventoryDeleteWarningWindow.sheet-window--editor-modal .sheet-window__body,
 #skillSpecWindow.sheet-window--editor-modal .sheet-window__body,
 #techniqueSpecWindow.sheet-window--editor-modal .sheet-window__body {
@@ -261,6 +263,7 @@
 }
 
 #charInfoWindow .sheet-window__editor-shell,
+#appearanceDetailWindow .sheet-window__editor-shell,
 #inventoryDeleteWarningWindow .sheet-window__editor-shell,
 #skillSpecWindow .sheet-window__editor-shell,
 #techniqueSpecWindow .sheet-window__editor-shell {
@@ -274,6 +277,7 @@
 }
 
 #charInfoWindow .sheet-window__editor-pane,
+#appearanceDetailWindow .sheet-window__editor-pane,
 #inventoryDeleteWarningWindow .sheet-window__editor-pane,
 #skillSpecWindow .sheet-window__editor-pane,
 #techniqueSpecWindow .sheet-window__editor-pane {
@@ -291,6 +295,7 @@
 }
 
 #charInfoWindow .sheet-window__surface--form,
+#appearanceDetailWindow .sheet-window__surface--form,
 #inventoryDeleteWarningWindow .sheet-window__surface--form,
 #skillSpecWindow .sheet-window__surface--form,
 #techniqueSpecWindow .sheet-window__surface--form {
@@ -306,6 +311,72 @@
 #skillSpecWindow .sheet-window__editor-form,
 #techniqueSpecWindow .sheet-window__editor-form {
   padding: 0;
+}
+
+#appearanceDetailWindow.payday-window--item-create {
+  width: min(640px, calc(100vw - 28px));
+}
+
+.character-appearance-card {
+  min-height: 0;
+}
+
+.character-appearance-card--with-image {
+  display: grid;
+  grid-template-columns: minmax(140px, 188px) minmax(0, 1fr);
+  align-items: start;
+  gap: 16px;
+}
+
+.character-appearance-card__portrait {
+  margin: 0;
+  aspect-ratio: 4 / 5;
+  border: 1px solid rgba(124, 93, 56, 0.3);
+  border-radius: 10px;
+  overflow: hidden;
+  background: rgba(255, 251, 244, 0.5);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 247, 226, 0.2),
+    0 3px 10px rgba(60, 38, 18, 0.12);
+}
+
+.character-appearance-card__portrait img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.character-appearance-card__body {
+  min-width: 0;
+}
+
+.character-appearance-card__title {
+  margin: 0 0 8px;
+  font-family: "Cinzel", Georgia, serif;
+  font-size: 0.92rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #4a3421;
+}
+
+.character-appearance-card__text {
+  margin: 0;
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-size: 1.08rem;
+  line-height: 1.35;
+  color: #3d2b1d;
+  white-space: pre-wrap;
+}
+
+@media (max-width: 700px) {
+  .character-appearance-card--with-image {
+    grid-template-columns: 1fr;
+  }
+
+  .character-appearance-card__portrait {
+    max-width: 180px;
+  }
 }
 
 #charInfoWindow .shop_item_form_actions {
@@ -329,6 +400,233 @@
 #charInfoWindow .shop_item_form_actions .wax_seal_btn:hover,
 #charInfoWindow .shop_item_form_actions .wax_seal_btn:focus-visible {
   transform: translateY(-15px);
+}
+
+.char_picture_editor {
+  gap: 12px;
+}
+
+.char_picture_editor__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  font-family: "Cinzel", Georgia, serif;
+  font-size: 0.76rem;
+  letter-spacing: 0.04em;
+  color: #4a3421;
+}
+
+.char_picture_editor__layout {
+  display: grid;
+  grid-template-columns: 180px minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.char_picture_editor__preview {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 180px;
+}
+
+.char_picture_editor__controls {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding-top: 4px;
+}
+
+#charPictureInput {
+  display: none;
+}
+
+.char_picture_editor__preview_frame {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  overflow: hidden;
+  border: 1px solid rgba(124, 93, 56, 0.32);
+  border-radius: 10px;
+  background:
+    linear-gradient(180deg, rgba(255, 252, 246, 0.78), rgba(239, 229, 211, 0.72));
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 247, 226, 0.24),
+    0 2px 8px rgba(57, 34, 16, 0.08);
+}
+
+.char_picture_editor__preview_frame img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.char_picture_editor__preview_frame.has-image .char_picture_editor__placeholder {
+  display: none;
+}
+
+.char_picture_editor__placeholder {
+  padding: 12px;
+  text-align: center;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(74, 52, 33, 0.62);
+}
+
+.char_picture_editor__preview_actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.char_picture_editor__pick {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 96px;
+  min-height: 30px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(74, 55, 38, 0.42);
+  background: rgba(255, 250, 236, 0.86);
+  color: #3f2d1f;
+  font-family: "Cinzel", Georgia, serif;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+}
+
+.char_picture_editor__pick:hover,
+.char_picture_editor__pick:focus-visible {
+  border-color: rgba(47, 78, 122, 0.46);
+  color: #2f4e7a;
+}
+
+.char_picture_editor__remove[hidden] {
+  display: none !important;
+}
+
+.char_picture_editor__hint {
+  margin: 0;
+  font-size: 0.7rem;
+  line-height: 1.45;
+  color: rgba(61, 43, 29, 0.82);
+}
+
+#characterImageCropWindow.sheet-window.payday-window {
+  width: min(540px, calc(100vw - 28px));
+  background:
+    linear-gradient(90deg, rgba(95, 66, 39, 0.98), rgba(121, 84, 49, 0.96)),
+    url("/static/img/pergamentbg.jpg") center / cover no-repeat;
+}
+
+#characterImageCropWindow.sheet-window--editor-modal .sheet-window__body {
+  padding: 12px;
+}
+
+#characterImageCropWindow .sheet-window__editor-shell {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 4px;
+  background: linear-gradient(180deg, rgba(232, 201, 146, 0.96), rgba(150, 104, 54, 0.9));
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 236, 200, 0.26),
+    0 8px 20px rgba(37, 21, 9, 0.12);
+}
+
+#characterImageCropWindow .sheet-window__editor-pane {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sheet-window-space-sm);
+  min-height: 0;
+  padding: 16px;
+  border: 1px solid rgba(214, 177, 116, 0.42);
+  background:
+    linear-gradient(180deg, rgba(255, 249, 238, 0.18), rgba(227, 206, 170, 0.08)),
+    url("/static/img/pergamentbg.jpg") center / cover no-repeat;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 247, 228, 0.24);
+}
+
+#characterImageCropWindow .sheet-window__surface--form {
+  background:
+    linear-gradient(180deg, rgba(255, 252, 246, 0.82), rgba(242, 233, 217, 0.68));
+  border-color: rgba(124, 93, 56, 0.26);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.54),
+    inset 0 0 0 1px rgba(255, 247, 226, 0.18);
+}
+
+.char_picture_crop_window {
+  min-height: 0;
+  align-items: center;
+}
+
+.char_picture_crop_window__stage {
+  width: min(100%, 380px);
+  aspect-ratio: 4 / 5;
+  min-height: 0;
+  border: 1px solid rgba(124, 93, 56, 0.28);
+  border-radius: 10px;
+  overflow: hidden;
+  background: rgba(34, 29, 22, 0.9);
+}
+
+.char_picture_crop_window__stage img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.char_picture_crop_window__stage cropper-canvas {
+  width: 100%;
+  height: 100%;
+  background: rgba(34, 29, 22, 0.9);
+}
+
+.char_picture_crop_window__stage cropper-image {
+  width: 100%;
+  height: 100%;
+}
+
+.char_picture_crop_window__stage cropper-selection {
+  border: 1px solid rgba(255, 255, 255, 0.92);
+  outline: 9999px solid rgba(0, 0, 0, 0.52);
+}
+
+.char_picture_crop_window__stage cropper-handle[action="move"] {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.char_picture_crop_window__stage cropper-handle[action$="-resize"] {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: #f5f0e2;
+  border: 1px solid rgba(84, 61, 34, 0.48);
+}
+
+@media (max-width: 700px) {
+  .char_picture_editor__layout {
+    grid-template-columns: 1fr;
+  }
+
+  .char_picture_editor__preview {
+    max-width: 220px;
+  }
+
+  .char_picture_crop_window__stage {
+    width: min(100%, 320px);
+  }
 }
 
 #techniqueSpecWindow .shop_item_form_actions .wax_seal_btn:hover,

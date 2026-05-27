@@ -574,7 +574,7 @@ def adjust_personal_fame_point(request, character_id: int):
 def update_character_info(request, character_id: int):
     """Update character info fields directly from the character-sheet inline form."""
     character = _owned_character_or_404(request, character_id)
-    form = CharacterInfoInlineForm(request.POST, instance=character)
+    form = CharacterInfoInlineForm(request.POST, request.FILES, instance=character)
     if form.is_valid():
         name = (form.cleaned_data.get("name") or "").strip()
         if Character.objects.filter(owner=request.user, name=name).exclude(pk=character.pk).exists():

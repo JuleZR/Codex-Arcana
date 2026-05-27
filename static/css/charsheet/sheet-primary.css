@@ -50,6 +50,47 @@
   padding: 6px 8px;
 }
 
+.char_info_box--with-portrait {
+  display: flex;
+  gap: 12px;
+  align-items: stretch;
+}
+
+.char_info_portrait {
+  align-self: stretch;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: stretch;
+  height: auto;
+  width: clamp(112px, 16vw, 156px);
+  margin: 2px 0;
+}
+
+.char_info_portrait_frame {
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  border: 1px solid rgba(74, 55, 38, 0.34);
+  border-radius: 8px;
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, rgba(255, 251, 241, 0.8), rgba(229, 216, 193, 0.72));
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 247, 226, 0.24),
+    0 2px 8px rgba(54, 35, 19, 0.12);
+}
+
+.char_info_portrait_frame img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.char_info_content {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
 .char_info_table {
   width: 100%;
   border-collapse: separate;
@@ -1134,6 +1175,44 @@ button.skill_manager_action {
 .skill_name_text {
   min-width: 0;
   overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.char_info_table .value--appearance {
+  padding-inline: 0;
+}
+
+.char_info_appearance_trigger {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  padding: 3px 4px 2px;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: default;
+}
+
+.char_info_appearance_trigger:disabled {
+  opacity: 1;
+}
+
+.char_info_appearance_trigger.is-interactive {
+  cursor: pointer;
+}
+
+.char_info_appearance_trigger.is-interactive:hover,
+.char_info_appearance_trigger.is-interactive:focus-visible {
+  color: #2f4e7a;
+  outline: none;
+}
+
+.char_info_appearance_text {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
   text-overflow: ellipsis;
 }
 

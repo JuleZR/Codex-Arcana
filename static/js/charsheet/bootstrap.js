@@ -24,6 +24,17 @@ import { initBattleCalculator } from "./battle_calculator.js";
 import { initCarryLoadToggle } from "./carry_load_toggle.js";
 import { initContextRadialMenu } from "./context_radial_menu.js";
 import { initRadialMenuGem } from "./radial_menu_gem.js";
+import { initCharacterAppearanceModal } from "./character_appearance_modal.js";
+
+function initCharacterImageEditorSafely() {
+  import("./character_image_editor.js?v=20260527c")
+    .then(({ initCharacterImageEditor }) => {
+      initCharacterImageEditor();
+    })
+    .catch((_error) => {
+      // Keep the rest of the sheet interactive if the optional image editor fails.
+    });
+}
 
 onReady(() => {
   initTabs();
@@ -52,7 +63,9 @@ onReady(() => {
   initArmorPanel();
   initBattleCalculator();
   initCarryLoadToggle();
+  initCharacterAppearanceModal();
   initMobileHud();
+  initCharacterImageEditorSafely();
   try {
     initRadialMenuGem();
   } catch (_error) {
@@ -71,6 +84,8 @@ onReady(() => {
     initArmorPanel();
     initBattleCalculator();
     initCarryLoadToggle();
+    initCharacterAppearanceModal();
     document.dispatchEvent(new Event("learn:refresh-totals"));
+    initCharacterImageEditorSafely();
   });
 });

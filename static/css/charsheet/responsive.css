@@ -999,6 +999,11 @@
    hidden entirely. Dice rolling is available on tablet/desktop only.
    ═══════════════════════════════════════════════════════════════════════ */
 @media (max-width: 700px) {
+  .char_info_box--with-portrait {
+    grid-template-columns: 84px minmax(0, 1fr);
+    gap: 10px;
+  }
+
   .sheet-dice-dock {
     display: none !important;
   }
