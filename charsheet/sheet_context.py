@@ -1337,7 +1337,7 @@ def _build_skill_modifier_rows(
     specification: str | None = None) -> list[dict[str, object]]:
     """Return modifier rows for one skill calculation tooltip."""
     rows: list[dict[str, object]] = []
-    for entry in engine.explain_modifier_resolution("skill", skill_slug):
+    for entry in engine.explain_modifier_resolution("skill", skill_slug, specification=specification):
         resolved_value = entry.get("resolved_value")
         if not isinstance(resolved_value, (int, float)) or int(resolved_value) == 0:
             continue
@@ -1409,17 +1409,20 @@ def _build_skill_rows(character: Character, engine, *, load_penalty: int) -> tup
             return f"{display_name} {normalized_spec}"
         return display_name
 
-    def _external_skill_bonus(skill: Skill) -> int:
+    def _external_skill_bonus(skill: Skill, specification: str | None = None) -> int:
         return (
-            int(engine.modifier_total_for_skill(skill.slug))
+            int(engine.modifier_total_for_skill(skill.slug, specification=specification))
             + int(engine.modifier_total_for_skill_category(skill.category.slug))
             + int(engine._resolve_choice_skill_bonus(skill.id))
-            + int(engine._resolve_choice_skill_modifiers(skill.id))
+            + int(engine._resolve_choice_skill_modifiers(skill.id, specification=specification))
         )
 
-    def _build_row(skill: Skill, character_skill=None) -> dict:
+    def _build_row(skill: Skill, character_skill=None, *, specification_override: str | None = None) -> dict:
         attribute_modifier = int(engine.attribute_modifier(skill.attribute.short_name))
-        specification = ((character_skill.specification if character_skill is not None else "*") or "").strip()
+        if specification_override is not None:
+            specification = (specification_override or "").strip() or "*"
+        else:
+            specification = ((character_skill.specification if character_skill is not None else "*") or "").strip()
         raw_modifiers = int(engine._skill_modifiers(skill.slug, specification=specification))
         rank = int(character_skill.level) if character_skill is not None else 0
         total_with_load = rank + attribute_modifier + raw_modifiers
@@ -1577,6 +1580,14 @@ def _build_skill_rows(character: Character, engine, *, load_penalty: int) -> tup
                             if " (" in display_name and display_name.endswith(")"):
                                 weapon_context_row["display_name"] = display_name.rsplit(" (", 1)[0]
                             skill_rows.append(weapon_context_row)
+            continue
+        if skill.requires_specification:
+            for specification in engine.modifier_skill_specifications(skill.id, skill.slug):
+                if not specification:
+                    continue
+                row = _build_row(skill, specification_override=specification)
+                if int(row["misc_mod_value"]) != 0:
+                    skill_rows.append(row)
             continue
         if _external_skill_bonus(skill) != 0:
             row = _build_row(skill)
@@ -2612,6 +2623,15 @@ def _build_learning_rows(
                         "kind": "skill-cs",
                     }
                 )
+            skill_groups.setdefault(skill.category.name, []).append(
+                {
+                    "slug": skill.slug,
+                    "name": skill.name,
+                    "description": desc,
+                    "base_level": 0,
+                    "kind": "skill-new-spec",
+                }
+            )
         else:
             base_level = int(cs_entries[0].level) if cs_entries else 0
             skill_groups.setdefault(skill.category.name, []).append(

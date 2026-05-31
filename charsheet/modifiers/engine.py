@@ -245,9 +245,21 @@ class ModifierEngine:
                 collected.append(LegacyModifierAdapter.adapt(legacy_modifier))
         return [modifier for modifier in collected if modifier.applies(context)]
 
-    def resolve_numeric_total(self, target_domain: str, target_key: str, context: dict[str, Any] | None = None) -> int:
+    def resolve_numeric_total(
+        self,
+        target_domain: str,
+        target_key: str,
+        context: dict[str, Any] | None = None,
+        *,
+        specification: str | None = None,
+    ) -> int:
         """Resolve the summed numeric result for one target."""
-        new_value = self._migrated_numeric_total(target_domain, target_key, context=context)
+        new_value = self._migrated_numeric_total(
+            target_domain,
+            target_key,
+            context=context,
+            specification=specification,
+        )
         if self.resolution_mode == ModifierResolutionMode.COMPARE:
             legacy_value = self._legacy_numeric_total(target_domain, target_key, context=context)
             self._append_comparison(
@@ -276,6 +288,39 @@ class ModifierEngine:
                 new_value=new_value,
             )
         return new_value
+
+    def skill_modifier_specifications(self, skill_id: int, skill_slug: str, context: dict[str, Any] | None = None) -> list[str]:
+        """Return non-generic skill specifications made visible by active skill modifiers."""
+        if self.character_engine is None:
+            return []
+
+        specifications: set[str] = set()
+        display_values: dict[str, str] = {}
+        for modifier in self.collect_active_modifiers(context=context):
+            if modifier.target_domain != TargetDomain.SKILL:
+                continue
+
+            expected = self._expected_skill_specification(modifier)
+            if not expected:
+                continue
+
+            if modifier.target_key == skill_slug:
+                specifications.add(expected)
+                display_values.setdefault(expected, self._display_skill_specification(modifier))
+                continue
+
+            choice_binding = modifier.metadata.get("choice_binding")
+            if not choice_binding:
+                continue
+            if choice_binding["kind"] == "technique_choice_definition":
+                choices = self.character_engine._technique_choices_by_definition_id.get(choice_binding["id"], [])
+            else:
+                choices = self.character_engine._race_choices_by_definition_id.get(choice_binding["id"], [])
+            if any(choice.selected_skill_id == skill_id for choice in choices):
+                specifications.add(expected)
+                display_values.setdefault(expected, self._display_skill_specification(modifier))
+
+        return sorted((display_values.get(specification) or specification for specification in specifications), key=str.casefold)
 
     def resolve_skill_value(self, skill_slug: str, context: dict[str, Any] | None = None) -> int:
         """Resolve one full skill value through the existing engine facade."""
@@ -406,7 +451,13 @@ class ModifierEngine:
                 profile.statuses[modifier.target_key] = modifier.value
         return profile
 
-    def explain_resolution(self, target: tuple[str, str], context: dict[str, Any] | None = None) -> list[dict[str, Any]]:
+    def explain_resolution(
+        self,
+        target: tuple[str, str],
+        context: dict[str, Any] | None = None,
+        *,
+        specification: str | None = None,
+    ) -> list[dict[str, Any]]:
         """Return a debuggable breakdown for one target."""
         target_domain, target_key = target
         rows: list[dict[str, Any]] = []
@@ -417,6 +468,12 @@ class ModifierEngine:
         for layer_name, modifiers in layer_entries:
             for modifier in modifiers:
                 if modifier.target_domain != target_domain or modifier.target_key != target_key:
+                    continue
+                if not self._modifier_matches_skill_specification(
+                    modifier,
+                    target_domain=target_domain,
+                    specification=specification,
+                ):
                     continue
                 rows.append(
                     {
@@ -518,12 +575,24 @@ class ModifierEngine:
             numeric_value = min(numeric_value, self._coerce_numeric(modifier.value_max, default=numeric_value))
         return numeric_value
 
-    def _migrated_numeric_total(self, target_domain: str, target_key: str, context: dict[str, Any] | None = None) -> int:
+    def _migrated_numeric_total(
+        self,
+        target_domain: str,
+        target_key: str,
+        context: dict[str, Any] | None = None,
+        *,
+        specification: str | None = None,
+    ) -> int:
         """Resolve one numeric target from migrated typed modifiers."""
         relevant_modifiers = [
             modifier
             for modifier in self.collect_active_modifiers(context=context)
             if modifier.target_domain == target_domain and modifier.target_key == target_key
+            and self._modifier_matches_skill_specification(
+                modifier,
+                target_domain=target_domain,
+                specification=specification,
+            )
         ]
 
         resolved_total = 0
@@ -583,7 +652,6 @@ class ModifierEngine:
                 choice.selected_skill_id == skill_id
                 and self._choice_skill_modifier_matches_specification(
                     modifier,
-                    choice=choice,
                     specification=specification,
                 )
                 for choice in choices
@@ -591,20 +659,34 @@ class ModifierEngine:
                 total += int(self._resolve_numeric_modifier(modifier) or 0)
         return total
 
-    def _choice_skill_modifier_matches_specification(
+    def _modifier_matches_skill_specification(
         self,
         modifier: BaseModifier,
         *,
-        choice,
+        target_domain: str,
         specification: str | None,
     ) -> bool:
-        """Return whether a choice-bound skill modifier applies to the current skill specification."""
-        expected = self._expected_skill_specification(modifier, choice=choice)
+        """Return whether a direct skill modifier applies to the current skill specification."""
+        if target_domain != TargetDomain.SKILL:
+            return True
+        expected = self._expected_skill_specification(modifier)
         if expected is None:
             return True
         return self._normalize_skill_specification(specification) == expected
 
-    def _expected_skill_specification(self, modifier: BaseModifier, *, choice) -> str | None:
+    def _choice_skill_modifier_matches_specification(
+        self,
+        modifier: BaseModifier,
+        *,
+        specification: str | None,
+    ) -> bool:
+        """Return whether a choice-bound skill modifier applies to the current skill specification."""
+        expected = self._expected_skill_specification(modifier)
+        if expected is None:
+            return True
+        return self._normalize_skill_specification(specification) == expected
+
+    def _expected_skill_specification(self, modifier: BaseModifier) -> str | None:
         """Resolve the optional skill specification gate for a choice-bound modifier."""
         metadata = modifier.metadata or {}
         fixed_specification = metadata.get("skill_specification")
@@ -628,6 +710,21 @@ class ModifierEngine:
         """Normalize skill specification text for exact matching."""
         text = " ".join(str(value or "").strip().split())
         return "" if text == "*" else text.casefold()
+
+    def _display_skill_specification(self, modifier: BaseModifier) -> str:
+        """Return the configured skill specification with original display casing when available."""
+        metadata = modifier.metadata or {}
+        fixed_specification = metadata.get("skill_specification")
+        if fixed_specification not in (None, ""):
+            return " ".join(str(fixed_specification or "").strip().split())
+
+        source_id = self._coerce_source_id(modifier.source_id)
+        if source_id is None or self.character_engine is None:
+            return ""
+        learned_technique = self.character_engine._learned_techniques_by_id.get(source_id)
+        if learned_technique is None:
+            return ""
+        return " ".join(str(learned_technique.specification_value or "").strip().split())
 
     def _modifier_source_is_active(
         self,

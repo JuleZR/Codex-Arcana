@@ -878,9 +878,13 @@ class CharacterEngine:
             return False
         return True
 
-    def modifier_total_for_skill(self, skill_slug: str) -> int:
+    def modifier_total_for_skill(self, skill_slug: str, *, specification: str | None = None) -> int:
         """Return all direct skill modifiers for one exact skill slug."""
-        value = self.modifier_engine.resolve_numeric_total(TargetDomain.SKILL, skill_slug)
+        value = self.modifier_engine.resolve_numeric_total(
+            TargetDomain.SKILL,
+            skill_slug,
+            specification=specification,
+        )
         if value == 0:
             legacy_value = self.debug_legacy_modifier_total_for_skill(skill_slug)
             if legacy_value != 0:
@@ -895,6 +899,10 @@ class CharacterEngine:
             if legacy_value != 0:
                 return legacy_value
         return value
+
+    def modifier_skill_specifications(self, skill_id: int, skill_slug: str) -> list[str]:
+        """Return skill specifications that are made visible by active modifiers."""
+        return self.modifier_engine.skill_modifier_specifications(skill_id, skill_slug)
 
     def modifier_total_for_language(self, language_key: str) -> int:
         """Return all modifiers that target one concrete language or language grouping."""
@@ -1022,9 +1030,20 @@ class CharacterEngine:
         """Resolve social/legal profile through the central modifier engine."""
         return self.modifier_engine.resolve_social_profile(context=context)
 
-    def explain_modifier_resolution(self, target_domain: str, target_key: str, context: dict | None = None) -> list[dict]:
+    def explain_modifier_resolution(
+        self,
+        target_domain: str,
+        target_key: str,
+        context: dict | None = None,
+        *,
+        specification: str | None = None,
+    ) -> list[dict]:
         """Return a debug breakdown for one central modifier target."""
-        return self.modifier_engine.explain_resolution((target_domain, target_key), context=context)
+        return self.modifier_engine.explain_resolution(
+            (target_domain, target_key),
+            context=context,
+            specification=specification,
+        )
 
     def modifier_resolution_comparisons(self):
         """Return compare-mode rows collected by the central modifier engine."""
@@ -1345,7 +1364,7 @@ class CharacterEngine:
         modifier_parts = [
             self.current_wound_penalty(),
             self.load_penalty(),
-            self.modifier_total_for_skill(skill_slug),
+            self.modifier_total_for_skill(skill_slug, specification=specification),
         ]
         if category_slug:
             modifier_parts.append(
