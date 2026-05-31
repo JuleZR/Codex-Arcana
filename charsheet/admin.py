@@ -1799,11 +1799,58 @@ class SpellAdminForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields["kp_cost"].required = False
         self.fields["ep_cost"].required = False
+        self.fields["duration_text"].label = "Wirkungsdauer Textlabel"
+        self.fields["duration_text"].help_text = (
+            "Optional statt einer numerischen Wirkungsdauer, z.B. "
+            "'bis zum Ende des Sturms'."
+        )
+        self.fields["duration_text"].widget.attrs.setdefault(
+            "placeholder",
+            "bis zum Ende des Sturms",
+        )
+
+    @staticmethod
+    def _duration_unit_requires_number(unit: str) -> bool:
+        return unit not in {
+            "",
+            Spell.DurationUnit.INSTANT,
+            Spell.DurationUnit.SCENE,
+            Spell.DurationUnit.CONCENTRATION,
+            Spell.DurationUnit.PERMANENT,
+        }
+
+    def _clean_duration_group(
+        self,
+        cleaned_data,
+        *,
+        number_field: str,
+        unit_field: str,
+        per_grade_field: str,
+    ) -> bool:
+        number = cleaned_data.get(number_field)
+        unit = cleaned_data.get(unit_field) or ""
+        per_grade = cleaned_data.get(per_grade_field)
+        has_number = number not in (None, "")
+        has_unit = bool(unit)
+
+        if has_number and not has_unit:
+            self.add_error(unit_field, "Waehle eine Einheit fuer die Wirkungsdauer.")
+        if has_unit and self._duration_unit_requires_number(unit) and not has_number:
+            self.add_error(number_field, "Setze einen Wert fuer diese Einheit.")
+        if per_grade and not (has_number and has_unit):
+            self.add_error(
+                per_grade_field,
+                "Pro Stufe benoetigt eine numerische Wirkungsdauer mit Einheit.",
+            )
+
+        return has_unit and (has_number or not self._duration_unit_requires_number(unit))
 
     def clean(self):
         cleaned_data = super().clean()
         kp_cost = cleaned_data.get("kp_cost")
         ep_cost = cleaned_data.get("ep_cost")
+        duration_text = str(cleaned_data.get("duration_text") or "").strip()
+        cleaned_data["duration_text"] = duration_text
 
         if kp_cost in (None, ""):
             cleaned_data["kp_cost"] = 0
@@ -1813,6 +1860,23 @@ class SpellAdminForm(forms.ModelForm):
             message = "Setze KP-Kosten oder EP-Kosten."
             self.add_error("kp_cost", message)
             self.add_error("ep_cost", message)
+
+        duration_complete = self._clean_duration_group(
+            cleaned_data,
+            number_field="duration_number",
+            unit_field="duration_unit",
+            per_grade_field="duration_per_grade",
+        )
+        self._clean_duration_group(
+            cleaned_data,
+            number_field="duration2_number",
+            unit_field="duration2_unit",
+            per_grade_field="duration2_per_grade",
+        )
+        if not duration_complete and not duration_text:
+            message = "Setze eine Wirkungsdauer oder ein Wirkungsdauer-Textlabel."
+            self.add_error("duration_number", message)
+            self.add_error("duration_text", message)
 
         return cleaned_data
 
@@ -4096,6 +4160,7 @@ class SpellAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
                     ("cast_time2_number", "cast_time2_unit"),
                     ("range_number", "range_unit", "range_per_grade"),
                     ("duration_number", "duration_unit", "duration_per_grade"),
+                    "duration_text",
                     ("duration2_number", "duration2_unit", "duration2_per_grade"),
                     "description",
                 ),
