@@ -64,8 +64,8 @@ body {
 .book-spread__divine-symbol {
   position: absolute;
   left: 50%;
-  top: 50%;
-  width: clamp(42px, calc(var(--page-gap) * 0.68), 86px);
+  top: calc(50% - (var(--page-height) * 0.41));
+  width: clamp(60px, calc(var(--page-gap) * 0.9), 122px);
   aspect-ratio: 1;
   transform: translate(-50%, -50%);
   display: grid;
