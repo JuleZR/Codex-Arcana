@@ -432,7 +432,7 @@
 .p2_spells {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
   min-height: 0;
   flex: 1 1 0;
 }
@@ -493,7 +493,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 0 4px 6px;
+  padding: 0 4px 2px;
 }
 
 .spell_filter_row .spell_filter_input {
@@ -669,6 +669,13 @@
   line-height: 1;
 }
 
+.spell_school_filter_symbol--all svg {
+  display: block;
+  width: 1.35rem;
+  height: 1.35rem;
+  fill: currentColor;
+}
+
 .spell_school_filter_image {
   display: block;
   width: 1.45rem !important;
@@ -700,7 +707,7 @@
   border: 1px solid rgba(74, 55, 38, 0.3);
   border-radius: 6px;
   background: rgba(255, 248, 230, 0.24);
-  padding: 4px 0;
+  padding: 2px 0;
 }
 
 .spell_group {
