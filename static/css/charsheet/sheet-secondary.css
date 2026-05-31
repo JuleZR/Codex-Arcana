@@ -533,6 +533,27 @@
   background: linear-gradient(180deg, rgba(255, 250, 236, 0.98), rgba(226, 205, 165, 0.72));
 }
 
+.spell_school_filter_trigger.is-filtered {
+  border-color: rgba(120, 64, 28, 0.74);
+  color: rgba(80, 39, 16, 0.98);
+  background: linear-gradient(180deg, rgba(248, 221, 171, 0.96), rgba(207, 151, 74, 0.74));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 242, 205, 0.78),
+    0 0 0 2px rgba(163, 98, 38, 0.2);
+}
+
+.spell_school_filter_trigger.is-filtered::after {
+  content: "";
+  position: absolute;
+  right: 4px;
+  top: 4px;
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: #7d3418;
+  box-shadow: 0 0 0 1px rgba(255, 244, 216, 0.92);
+}
+
 .spell_school_filter_trigger_icon,
 .spell_school_filter_trigger_icon svg {
   display: block;
@@ -693,6 +714,10 @@
     rgba(247, 239, 219, 0.82) 0%,
     rgba(237, 226, 203, 0.62) 100%
   );
+}
+
+.spell_panel--school-filtered .spell_group_header {
+  display: none !important;
 }
 
 .spell_group_heading {

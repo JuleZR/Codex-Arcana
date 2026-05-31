@@ -72,6 +72,7 @@ function applySpellFilter(input, rows, groups, selectedSchools = null, schoolNam
   const needle = normalizeText(input instanceof HTMLInputElement ? input.value : "");
   const selectedSchoolSet = selectedSchools instanceof Set ? selectedSchools : new Set();
   const allSchoolsSelected = schoolNames.length === 0 || selectedSchoolSet.size === schoolNames.length;
+  const schoolFilterActive = !allSchoolsSelected;
 
   rows.forEach((row) => {
     const haystack = normalizeText(row.getAttribute("data-spell-search"));
@@ -113,7 +114,7 @@ function applySpellFilter(input, rows, groups, selectedSchools = null, schoolNam
     if (anyVisible) {
       group.hidden = false;
       if (btn instanceof HTMLElement) {
-        btn.hidden = Boolean(needle) || !allSchoolsSelected;
+        btn.hidden = Boolean(needle) || schoolFilterActive;
         btn.setAttribute("aria-expanded", "true");
       }
       rowList.hidden = false;
@@ -216,6 +217,10 @@ export function initSpellPanel() {
 
   const applyCurrentFilters = () => {
     applySpellFilter(filterInput, rows, groups, activeSchoolFilters, schoolNames);
+    panel.classList.toggle("spell_panel--school-filtered", activeSchoolFilters.size !== schoolNames.length);
+    if (schoolFilterTrigger instanceof HTMLButtonElement) {
+      schoolFilterTrigger.classList.toggle("is-filtered", activeSchoolFilters.size !== schoolNames.length);
+    }
     if (filterInput instanceof HTMLInputElement && !String(filterInput.value || "").trim() && activeSchoolFilters.size === schoolNames.length) {
       restoreExpandedSpellGroups(groups, storedState.expandedGroups);
     }
@@ -224,6 +229,9 @@ export function initSpellPanel() {
   };
 
   syncSchoolFilterButtons();
+  if (schoolFilterTrigger instanceof HTMLButtonElement) {
+    schoolFilterTrigger.classList.toggle("is-filtered", activeSchoolFilters.size !== schoolNames.length);
+  }
 
   const closeSchoolFilterMenu = () => {
     if (schoolFilterPopover instanceof HTMLElement) {
@@ -231,6 +239,7 @@ export function initSpellPanel() {
     }
     if (schoolFilterTrigger instanceof HTMLButtonElement) {
       schoolFilterTrigger.classList.toggle("is-active", activeSchoolFilters.size !== schoolNames.length);
+      schoolFilterTrigger.classList.toggle("is-filtered", activeSchoolFilters.size !== schoolNames.length);
       schoolFilterTrigger.setAttribute("aria-expanded", "false");
     }
   };
@@ -265,8 +274,11 @@ export function initSpellPanel() {
     }
     button.addEventListener("click", () => {
       const filterName = String(button.getAttribute("data-spell-school-filter") || "all");
+      const wasAllSelected = activeSchoolFilters.size === schoolNames.length;
       if (filterName === "all") {
-        activeSchoolFilters = activeSchoolFilters.size === schoolNames.length ? new Set() : new Set(schoolNames);
+        activeSchoolFilters = wasAllSelected ? new Set() : new Set(schoolNames);
+      } else if (wasAllSelected) {
+        activeSchoolFilters = new Set([filterName]);
       } else if (activeSchoolFilters.has(filterName)) {
         activeSchoolFilters.delete(filterName);
       } else if (schoolNames.includes(filterName)) {
@@ -302,6 +314,10 @@ export function initSpellPanel() {
 
   if (filterInput instanceof HTMLInputElement) {
     applySpellFilter(filterInput, rows, groups, activeSchoolFilters, schoolNames);
+    panel.classList.toggle("spell_panel--school-filtered", activeSchoolFilters.size !== schoolNames.length);
+    if (schoolFilterTrigger instanceof HTMLButtonElement) {
+      schoolFilterTrigger.classList.toggle("is-filtered", activeSchoolFilters.size !== schoolNames.length);
+    }
     if (!String(filterInput.value || "").trim() && activeSchoolFilters.size === schoolNames.length) {
       restoreExpandedSpellGroups(groups, storedState.expandedGroups);
     }
