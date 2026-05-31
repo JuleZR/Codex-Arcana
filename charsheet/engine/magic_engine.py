@@ -120,7 +120,10 @@ def _build_spell_tooltip(entry: CharacterSpell, *, school_levels: dict[int, int]
         amount = int(spell.extra_cost_value)
         label = "Wundgrad" if amount == 1 else "Wundgrade"
         extra_cost = f"{amount} {label}"
-    cost_label = f"{int(spell.kp_cost)} KP" + (f" [[SUB:oder {int(spell.ep_cost)} EP]]" if spell.ep_cost else "")
+    kp_cost_label = str(spell.kp_cost_label or "").strip()
+    cost_label = f"{int(spell.kp_cost)} KP{kp_cost_label}"
+    if spell.ep_cost:
+        cost_label += f" [[SUB:oder {int(spell.ep_cost)} EP]]"
     if extra_cost:
         cost_label += f" [[SUB:und {extra_cost}]]"
     rows: list[tuple[str, object]] = [
@@ -915,7 +918,7 @@ class MagicEngine:
                     ),
                     "kp_cost": int(spell.kp_cost),
                     "cost_display": (
-                        f"{int(spell.kp_cost)} KP"
+                        f"{int(spell.kp_cost)} KP{str(spell.kp_cost_label or '').strip()}"
                         + (
                             f" + {int(spell.extra_cost_value)} "
                             + ("Wundgrad" if int(spell.extra_cost_value) == 1 else "Wundgrade")

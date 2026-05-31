@@ -1358,6 +1358,7 @@ class Spell(models.Model):
     description = models.TextField(blank=True, default="")
     panel_badge_label = models.CharField(max_length=30, blank=True, default="Zauber")
     kp_cost = models.PositiveSmallIntegerField(default=0, blank=True)
+    kp_cost_label = models.CharField("KP-Label", max_length=50, blank=True, default="")
     ep_cost = models.PositiveSmallIntegerField(null=True, blank=True, verbose_name="EP-Kosten")
 
     class ExtraCostType(models.TextChoices):
