@@ -3948,6 +3948,7 @@ class WeaponTypeAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
     search_fields = ("name", "slug")
     ordering = ("sort_order", "name")
 
+
 @admin.register(Trait)
 class TraitAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
     """Admin configuration for traits and their level boundaries."""
@@ -4114,12 +4115,54 @@ class DivineEntityAspectInline(admin.TabularInline):
 
 @admin.register(Aspect)
 class AspectAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
-    list_display = ("name", "slug", "opposite")
+    list_display = (
+        "name",
+        "slug",
+        "opposite",
+        "has_aspect_image",
+    )
     search_fields = ("name", "slug")
     list_filter = ("opposite",)
     ordering = ("name",)
     autocomplete_fields = ("opposite",)
     list_select_related = ("opposite",)
+    readonly_fields = ("aspect_image_preview",)
+
+    fieldsets = (
+        (None, {
+            "fields": (
+                "name",
+                "slug",
+                "opposite",
+            )
+        }),
+        ("Beschreibung", {
+            "fields": (
+                "description",
+            )
+        }),
+        ("Symbol", {
+            "fields": (
+                "aspect_image",
+                "aspect_image_preview",
+            )
+        }),
+    )
+
+    @admin.display(description="Symbol")
+    def has_aspect_image(self, obj):
+        return bool(obj.aspect_image)
+
+    @admin.display(description="Symbolvorschau")
+    def aspect_image_preview(self, obj):
+        if obj is None or not obj.aspect_image:
+            return format_html('<span style="color:#666;">{}</span>', "-")
+
+        return format_html(
+            '<img src="{}" alt="{}" style="max-width:96px; max-height:96px; border-radius:8px; border:1px solid #ccc; background:#fff; padding:4px;" />',
+            obj.aspect_image.url,
+            obj.name,
+        )
 
 
 @admin.register(Spell)
@@ -4203,6 +4246,39 @@ class DivineEntityAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
     list_select_related = ("school", "school__type")
     inlines = (DivineEntityAspectInline,)
     readonly_fields = ("symbol_image_preview",)
+
+    fieldsets = (
+        (None, {
+            "fields": (
+                "name",
+                "slug",
+                "school",
+                "entity_kind",
+            )
+        }),
+        ("Beschreibung", {
+            "fields": (
+                "divine_function",
+                "vow",
+                "description",
+                "goals",
+                "allies_and_enemies",
+                "worshippers",
+                "doctrines",
+            )
+        }),
+        ("Regeloptionen", {
+            "fields": (
+                "grants_arcane_spell_choice_per_level",
+            )
+        }),
+        ("Symbol", {
+            "fields": (
+                "symbol_image",
+                "symbol_image_preview",
+            )
+        }),
+    )
 
     @admin.display(description="Startaspekte")
     def starting_aspect_count(self, obj):

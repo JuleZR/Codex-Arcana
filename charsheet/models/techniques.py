@@ -1093,6 +1093,13 @@ class Aspect(models.Model):
         related_name="opposed_by",
     )
 
+    aspect_image = models.ImageField(
+        upload_to="aspects/",
+        blank=True,
+        null=True,
+        help_text="Optionales Symbolbild für diesen Aspekt.",
+    )
+
     class Meta:
         ordering = ["name"]
 
@@ -1122,7 +1129,15 @@ class DivineEntity(models.Model):
     )
 
     entity_kind = models.CharField(max_length=20, choices=EntityKind.choices)
+
+    divine_function = models.TextField(blank=True, default="")
+    vow = models.TextField(blank=True, default="")
     description = models.TextField(blank=True, default="")
+    goals = models.TextField(blank=True, default="")
+    allies_and_enemies = models.TextField(blank=True, default="")
+    worshippers = models.TextField(blank=True, default="")
+    doctrines = models.TextField(blank=True, default="")
+
     symbol_image = models.ImageField(
         upload_to="divine_entities/",
         blank=True,
