@@ -289,6 +289,60 @@ class ModifierEngine:
             )
         return new_value
 
+    def resolve_skill_rank_cap(
+        self,
+        skill_slug: str,
+        context: dict[str, Any] | None = None,
+        *,
+        specification: str | None = None,
+    ) -> int:
+        """Resolve the learnable maximum rank for one skill row."""
+        extra_cap = self._migrated_numeric_total(
+            TargetDomain.SKILL_RANK_CAP,
+            skill_slug,
+            context=context,
+            specification=specification,
+        )
+        return max(10, 10 + int(extra_cap))
+
+    def resolve_skill_rank_bonus(
+        self,
+        skill_slug: str,
+        context: dict[str, Any] | None = None,
+        *,
+        specification: str | None = None,
+    ) -> int:
+        """Resolve bonus ranks that count as skill ranks instead of misc modifiers."""
+        return int(
+            self._migrated_numeric_total(
+                TargetDomain.SKILL_RANK,
+                skill_slug,
+                context=context,
+                specification=specification,
+            )
+        )
+
+    def skill_rank_cap_metadata(
+        self,
+        skill_slug: str,
+        context: dict[str, Any] | None = None,
+        *,
+        specification: str | None = None,
+    ) -> dict[str, Any]:
+        """Return metadata for matching skill-rank-cap modifiers."""
+        metadata: dict[str, Any] = {}
+        for modifier in self.collect_active_modifiers(context=context):
+            if modifier.target_domain != TargetDomain.SKILL_RANK_CAP or modifier.target_key != skill_slug:
+                continue
+            if not self._modifier_matches_skill_specification(
+                modifier,
+                target_domain=TargetDomain.SKILL_RANK_CAP,
+                specification=specification,
+            ):
+                continue
+            metadata.update(modifier.metadata or {})
+        return metadata
+
     def skill_modifier_specifications(self, skill_id: int, skill_slug: str, context: dict[str, Any] | None = None) -> list[str]:
         """Return non-generic skill specifications made visible by active skill modifiers."""
         if self.character_engine is None:
@@ -297,7 +351,7 @@ class ModifierEngine:
         specifications: set[str] = set()
         display_values: dict[str, str] = {}
         for modifier in self.collect_active_modifiers(context=context):
-            if modifier.target_domain != TargetDomain.SKILL:
+            if modifier.target_domain not in {TargetDomain.SKILL, TargetDomain.SKILL_RANK, TargetDomain.SKILL_RANK_CAP}:
                 continue
 
             expected = self._expected_skill_specification(modifier)
@@ -667,7 +721,7 @@ class ModifierEngine:
         specification: str | None,
     ) -> bool:
         """Return whether a direct skill modifier applies to the current skill specification."""
-        if target_domain != TargetDomain.SKILL:
+        if target_domain not in {TargetDomain.SKILL, TargetDomain.SKILL_RANK, TargetDomain.SKILL_RANK_CAP}:
             return True
         expected = self._expected_skill_specification(modifier)
         if expected is None:

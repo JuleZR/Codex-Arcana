@@ -365,6 +365,8 @@ class TraitSemanticEffect(models.Model):
 
         modifier_map = {
             "skill": SkillModifier,
+            "skill_rank": SkillModifier,
+            "skill_rank_cap": SkillModifier,
             "trait": TraitModifier,
             "language": LanguageModifier,
             "proficiency_group": ProficiencyGroupModifier,

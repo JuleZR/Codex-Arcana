@@ -535,6 +535,19 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
     magic_aspect_plan: dict[int, int] = {}
     has_progression_inputs = _has_progression_inputs(post_data)
 
+    def _skill_rank_payload(skill, specification: str | None = None) -> tuple[int, int]:
+        max_level = int(engine.skill_rank_max(skill.slug, specification=specification))
+        metadata = engine.skill_rank_cap_metadata(skill.slug, specification=specification)
+        above_base_cost = int(metadata.get("above_base_cap_cost_ep") or metadata.get("above_base_cost_ep") or 2)
+        return max(10, max_level), max(0, above_base_cost)
+
+    def _skill_delta_cost(skill, base_value: int, target_value: int, specification: str | None = None) -> int:
+        _max_level, above_base_cost = _skill_rank_payload(skill, specification)
+        return (
+            calc_skill_total_cost(target_value, above_base_cost=above_base_cost)
+            - calc_skill_total_cost(base_value, above_base_cost=above_base_cost)
+        )
+
     for short_name, bounds in attribute_limits.items():
         key = f"learn_attr_add_{short_name}"
         if key not in post_data:
@@ -605,11 +618,12 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
         target_value = base_value + add
         if target_value < 0:
             return "error", f"{skill.name}: Zielwert ist unter 0."
-        if target_value > 10:
-            return "error", f"{skill.name}: Zielwert ist ueber 10."
+        max_level, _above_base_cost = _skill_rank_payload(skill)
+        if target_value > max_level:
+            return "error", f"{skill.name}: Zielwert ist ueber {max_level}."
         if add == 0:
             continue
-        step_cost = calc_skill_total_cost(target_value) - calc_skill_total_cost(base_value)
+        step_cost = _skill_delta_cost(skill, base_value, target_value)
         total_cost += step_cost
         skill_plan[slug] = add
 
@@ -633,9 +647,10 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
         spec_label = f"{cs_row.skill.name}: {cs_row.specification}"
         if target_value < 0:
             return "error", f"{spec_label}: Zielwert ist unter 0."
-        if target_value > 10:
-            return "error", f"{spec_label}: Zielwert ist ueber 10."
-        step_cost = calc_skill_total_cost(target_value) - calc_skill_total_cost(base_value)
+        max_level, _above_base_cost = _skill_rank_payload(cs_row.skill, cs_row.specification)
+        if target_value > max_level:
+            return "error", f"{spec_label}: Zielwert ist ueber {max_level}."
+        step_cost = _skill_delta_cost(cs_row.skill, base_value, target_value, cs_row.specification)
         total_cost += step_cost
         cs_skill_plan[cs_id] = add
         cs_skill_rows[cs_id] = cs_row
@@ -663,11 +678,12 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
             return "error", f"Fertigkeit '{slug}' nicht gefunden."
         if not skill.requires_specification:
             return "error", f"{skill.name}: Spezialisierung nicht erlaubt."
-        if level > 10:
-            return "error", f"{skill.name}: {spec}: Zielwert ist ueber 10."
+        max_level, _above_base_cost = _skill_rank_payload(skill, spec)
+        if level > max_level:
+            return "error", f"{skill.name}: {spec}: Zielwert ist ueber {max_level}."
         if CharacterSkill.objects.filter(character=character, skill=skill, specification=spec).exists():
             return "error", f"{skill.name}: {spec}: Eintrag existiert bereits."
-        step_cost = calc_skill_total_cost(level)
+        step_cost = _skill_delta_cost(skill, 0, level, spec)
         total_cost += step_cost
         new_spec_plan.append({"skill": skill, "spec": spec, "level": level})
 

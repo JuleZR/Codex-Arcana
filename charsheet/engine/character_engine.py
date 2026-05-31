@@ -904,6 +904,18 @@ class CharacterEngine:
         """Return skill specifications that are made visible by active modifiers."""
         return self.modifier_engine.skill_modifier_specifications(skill_id, skill_slug)
 
+    def skill_rank_max(self, skill_slug: str, *, specification: str | None = None) -> int:
+        """Return the learnable maximum rank for one skill row."""
+        return self.modifier_engine.resolve_skill_rank_cap(skill_slug, specification=specification)
+
+    def skill_rank_bonus(self, skill_slug: str, *, specification: str | None = None) -> int:
+        """Return granted ranks that count as skill ranks instead of misc modifiers."""
+        return self.modifier_engine.resolve_skill_rank_bonus(skill_slug, specification=specification)
+
+    def skill_rank_cap_metadata(self, skill_slug: str, *, specification: str | None = None) -> dict:
+        """Return metadata for matching skill-rank-cap effects."""
+        return self.modifier_engine.skill_rank_cap_metadata(skill_slug, specification=specification)
+
     def modifier_total_for_language(self, language_key: str) -> int:
         """Return all modifiers that target one concrete language or language grouping."""
         return self.modifier_engine.resolve_numeric_total(TargetDomain.LANGUAGE, language_key)

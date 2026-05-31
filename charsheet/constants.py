@@ -369,6 +369,8 @@ def is_allowed_trait_attribute_choice(trait_slug: str | None, attribute_slug: st
 TARGET_DOMAIN_CHOICES = (
     ("skill", "skill"),
     ("skill_category", "skill_category"),
+    ("skill_rank", "skill_rank"),
+    ("skill_rank_cap", "skill_rank_cap"),
     ("language", "language"),
     ("proficiency_group", "proficiency_group"),
     ("trait", "trait"),

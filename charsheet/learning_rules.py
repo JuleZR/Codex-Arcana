@@ -10,11 +10,17 @@ from charsheet.models import School, Technique
 DEFAULT_SCHOOL_MAX_LEVEL = 10
 
 
-def calc_skill_total_cost(level: int) -> int:
+def calc_skill_total_cost(level: int, *, base_cap: int = 10, above_base_cost: int = 2) -> int:
     """Return cumulative skill cost for one target level."""
-    if level <= 5:
-        return max(0, level)
-    return 5 + ((max(0, level) - 5) * 2)
+    normalized_level = max(0, level)
+    if normalized_level <= 5:
+        return normalized_level
+    regular_cap = max(5, int(base_cap))
+    regular_level = min(normalized_level, regular_cap)
+    cost = 5 + ((regular_level - 5) * 2)
+    if normalized_level > regular_cap:
+        cost += (normalized_level - regular_cap) * max(0, int(above_base_cost))
+    return cost
 
 
 def calc_language_total_cost(level: int, can_write: bool, is_mother_tongue: bool) -> int:

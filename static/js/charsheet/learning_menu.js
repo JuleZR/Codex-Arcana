@@ -12,7 +12,12 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
     }
   };
 
-  const calcSkillCost = (level) => (level <= 5 ? Math.max(0, level) : 5 + ((Math.max(0, level) - 5) * 2));
+  const calcSkillCost = (level, aboveBaseCost = 2) => {
+    const rank = Math.max(0, level);
+    const regularRank = Math.min(rank, 10);
+    const regularCost = regularRank <= 5 ? regularRank : 5 + ((regularRank - 5) * 2);
+    return regularCost + Math.max(0, rank - 10) * Math.max(0, aboveBaseCost);
+  };
   const calcLanguageCost = (level, write, mother) => (mother ? 0 : Math.max(0, level)) + (write ? 1 : 0);
   const calcTraitCost = (level, pointsPerLevel, traitType) => {
     const rank = Math.max(0, level);
@@ -84,11 +89,13 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
       valueInput.max = String(maxAdd);
     } else if (kind === "skill" || kind === "skill-cs" || kind === "skill-new-spec") {
       const base = readInt(row.getAttribute("data-base"), 0);
+      const max = readInt(row.getAttribute("data-max"), 10);
+      const aboveBaseCost = readInt(row.getAttribute("data-above-base-cost"), 2);
       const minAdd = kind === "skill-new-spec" ? 0 : -base;
-      const maxAdd = Math.max(0, 10 - base);
+      const maxAdd = Math.max(0, max - base);
       const hidden = row.querySelector("[data-learn-hidden]");
       value = clamp(value, minAdd, maxAdd);
-      cost = calcSkillCost(base + value) - calcSkillCost(base);
+      cost = calcSkillCost(base + value, aboveBaseCost) - calcSkillCost(base, aboveBaseCost);
       if (hidden instanceof HTMLInputElement) {
         hidden.value = String(value);
       }
@@ -334,13 +341,17 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
     if (kind === "skill") {
       const slug = source.getAttribute("data-slug") || "";
       const base = readInt(source.getAttribute("data-base"), 0);
+      const max = readInt(source.getAttribute("data-max"), 10);
+      const aboveBaseCost = readInt(source.getAttribute("data-above-base-cost"), 2);
       const minAdd = -base;
-      const maxAdd = Math.max(0, 10 - base);
+      const maxAdd = Math.max(0, max - base);
       if (maxAdd < 1 && minAdd === 0) {
         return null;
       }
       const startAdd = maxAdd > 0 ? 1 : 0;
       row.setAttribute("data-base", String(base));
+      row.setAttribute("data-max", String(max));
+      row.setAttribute("data-above-base-cost", String(aboveBaseCost));
       row.innerHTML = `
         <td><span>${safeName}</span> <span data-learn-level-info>(${base + startAdd})</span><input type="hidden" name="learn_skill_add_${slug}" value="${startAdd}" data-learn-hidden></td>
         <td>
@@ -359,13 +370,17 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
     if (kind === "skill-cs") {
       const csId = source.getAttribute("data-cs-id") || "";
       const base = readInt(source.getAttribute("data-base"), 0);
+      const max = readInt(source.getAttribute("data-max"), 10);
+      const aboveBaseCost = readInt(source.getAttribute("data-above-base-cost"), 2);
       const minAdd = -base;
-      const maxAdd = Math.max(0, 10 - base);
+      const maxAdd = Math.max(0, max - base);
       if (maxAdd < 1 && minAdd === 0) {
         return null;
       }
       const startAdd = maxAdd > 0 ? 1 : 0;
       row.setAttribute("data-base", String(base));
+      row.setAttribute("data-max", String(max));
+      row.setAttribute("data-above-base-cost", String(aboveBaseCost));
       row.innerHTML = `
         <td><span>${safeName}</span> <span data-learn-level-info>(${base + startAdd})</span><input type="hidden" name="learn_skill_cs_${csId}" value="${startAdd}" data-learn-hidden></td>
         <td>
@@ -383,6 +398,8 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
 
     if (kind === "skill-new-spec") {
       const slug = source.getAttribute("data-slug") || "";
+      const max = readInt(source.getAttribute("data-max"), 10);
+      const aboveBaseCost = readInt(source.getAttribute("data-above-base-cost"), 2);
       // eslint-disable-next-line no-alert
       const spec = window.prompt(`Spezialisierung für "${name}" eingeben:`);
       if (!spec || !spec.trim()) {
@@ -403,6 +420,8 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
       const startAdd = 1;
       row.setAttribute("data-key", uniqueKey);
       row.setAttribute("data-base", "0");
+      row.setAttribute("data-max", String(max));
+      row.setAttribute("data-above-base-cost", String(aboveBaseCost));
       row.innerHTML = `
         <td>
           <span>${escapeHtml(name)}: ${escapeHtml(specTrimmed)}</span>
@@ -414,7 +433,7 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
         <td>
           <div class="shop_qty_stepper">
             <button type="button" class="shop_step_btn" data-learn-step-dec aria-label="Wert verringern">-</button>
-            <input class="shop_cart_qty_input" type="number" min="0" max="10" value="${startAdd}" data-learn-value>
+            <input class="shop_cart_qty_input" type="number" min="0" max="${max}" value="${startAdd}" data-learn-value>
             <button type="button" class="shop_step_btn" data-learn-step-inc aria-label="Wert erhoehen">+</button>
           </div>
         </td>

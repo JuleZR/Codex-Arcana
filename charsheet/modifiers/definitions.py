@@ -45,6 +45,8 @@ class TargetDomain(StringEnum):
 
     SKILL = "skill"
     SKILL_CATEGORY = "skill_category"
+    SKILL_RANK = "skill_rank"
+    SKILL_RANK_CAP = "skill_rank_cap"
     LANGUAGE = "language"
     PROFICIENCY_GROUP = "proficiency_group"
     TRAIT = "trait"

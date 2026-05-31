@@ -580,6 +580,8 @@ class TechniqueSemanticEffect(models.Model):
         modifier_map = {
             "skill": SkillModifier,
             "skill_category": SkillModifier,
+            "skill_rank": SkillModifier,
+            "skill_rank_cap": SkillModifier,
             "trait": TraitModifier,
             "language": LanguageModifier,
             "proficiency_group": ProficiencyGroupModifier,

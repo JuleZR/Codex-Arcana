@@ -1478,7 +1478,9 @@ def _build_skill_rows(character: Character, engine, *, load_penalty: int) -> tup
         else:
             specification = ((character_skill.specification if character_skill is not None else "*") or "").strip()
         raw_modifiers = int(engine._skill_modifiers(skill.slug, specification=specification))
-        rank = int(character_skill.level) if character_skill is not None else 0
+        base_rank = int(character_skill.level) if character_skill is not None else 0
+        rank_bonus = int(engine.skill_rank_bonus(skill.slug, specification=specification))
+        rank = base_rank + rank_bonus
         total_with_load = rank + attribute_modifier + raw_modifiers
         return {
             "row_kind": "skill",
@@ -1495,6 +1497,8 @@ def _build_skill_rows(character: Character, engine, *, load_penalty: int) -> tup
             "attribute_mod_value": attribute_modifier,
             "rank": rank,
             "rank_value": rank,
+            "base_rank_value": base_rank,
+            "rank_bonus_value": rank_bonus,
             "misc_mod": format_modifier(raw_modifiers - load_penalty),
             "misc_mod_value": raw_modifiers - load_penalty,
             "total": total_with_load - load_penalty,
@@ -1504,7 +1508,12 @@ def _build_skill_rows(character: Character, engine, *, load_penalty: int) -> tup
             "calculation_tooltip": _build_core_stat_tooltip(
                 [
                     {"label": "Eigenschaft", "value": format_modifier(attribute_modifier), "source": skill.attribute.short_name},
-                    {"label": "Rang", "value": rank},
+                    {"label": "Rang", "value": base_rank},
+                    *(
+                        [{"label": "Rang-Bonus", "value": format_modifier(rank_bonus), "source": "Effekt"}]
+                        if rank_bonus
+                        else []
+                    ),
                     {
                         "label": "Wundmalus",
                         "value": format_modifier(engine.current_wound_penalty()),
@@ -2659,6 +2668,15 @@ def _build_learning_rows(
         )
 
     skill_groups: OrderedDict[str, list[dict]] = OrderedDict()
+    def _skill_rank_learning_payload(skill: Skill, specification: str | None = None) -> dict[str, int]:
+        max_level = int(character.engine.skill_rank_max(skill.slug, specification=specification))
+        metadata = character.engine.skill_rank_cap_metadata(skill.slug, specification=specification)
+        above_base_cost = int(metadata.get("above_base_cap_cost_ep") or metadata.get("above_base_cost_ep") or 2)
+        return {
+            "max_level": max(10, max_level),
+            "above_base_cost": max(0, above_base_cost),
+        }
+
     for skill in Skill.objects.select_related("category", "attribute").order_by("category__name", "name"):
         cs_entries = character_skills_by_skill_id.get(skill.id, [])
         desc = (skill.description or "").replace("\r\n", "\n").replace("\r", "\n")
@@ -2667,34 +2685,43 @@ def _build_learning_rows(
                 spec = (cs.specification or "").strip()
                 if not spec or spec == "*":
                     continue
+                rank_payload = _skill_rank_learning_payload(skill, spec)
                 skill_groups.setdefault(skill.category.name, []).append(
                     {
                         "slug": skill.slug,
                         "name": f"{skill.name}: {spec}",
                         "description": desc,
                         "base_level": int(cs.level),
+                        "max_level": rank_payload["max_level"],
+                        "above_base_cost": rank_payload["above_base_cost"],
                         "cs_id": cs.id,
                         "spec": spec,
                         "kind": "skill-cs",
                     }
                 )
+            rank_payload = _skill_rank_learning_payload(skill)
             skill_groups.setdefault(skill.category.name, []).append(
                 {
                     "slug": skill.slug,
                     "name": skill.name,
                     "description": desc,
                     "base_level": 0,
+                    "max_level": rank_payload["max_level"],
+                    "above_base_cost": rank_payload["above_base_cost"],
                     "kind": "skill-new-spec",
                 }
             )
         else:
             base_level = int(cs_entries[0].level) if cs_entries else 0
+            rank_payload = _skill_rank_learning_payload(skill)
             skill_groups.setdefault(skill.category.name, []).append(
                 {
                     "slug": skill.slug,
                     "name": skill.name,
                     "description": desc,
                     "base_level": base_level,
+                    "max_level": rank_payload["max_level"],
+                    "above_base_cost": rank_payload["above_base_cost"],
                     "kind": "skill",
                 }
             )
