@@ -15,7 +15,7 @@
         title="Zauberschulen filtern"
         aria-label="Zauberschulen filtern"
       >
-        <span class="spell_school_filter_trigger_icon" aria-hidden="true">
+        <span class="spell_school_filter_trigger_icon" data-spell-school-filter-trigger-icon aria-hidden="true">
           <svg viewBox="0 0 24 24" focusable="false">
             <path d="M4 5h16l-6.2 7.1v5.2l-3.6 1.8v-7L4 5Z"></path>
           </svg>
@@ -106,7 +106,7 @@
                   aria-label="{{ row.name }} wirken"
                 >
                   <span class="spell_cast_name">{{ row.name }}</span>
-                  <span class="spell_cast_meta">Grad {{ row.level }}</span>
+                  <span class="spell_cast_meta">Grad {{ row.grade_label|default:row.level }}</span>
                   <span class="spell_cast_cost">{{ row.cost_display }}</span>
                   <span class="spell_cast_source{% if row.is_bonus_spell %} spell_cast_source--bonus{% elif row.is_base_spell %} spell_cast_source--base{% endif %}{% if not row.badge_label %} spell_cast_source--hidden{% endif %}">{{ row.badge_label }}</span>
                 </button>

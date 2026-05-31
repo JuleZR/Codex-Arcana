@@ -1341,6 +1341,11 @@ class Spell(models.Model):
         blank=True,
         )
     grade = models.PositiveSmallIntegerField()
+    grade_adds_level = models.BooleanField(
+        default=False,
+        verbose_name="Grad + Stufe",
+        help_text="Wenn aktiv, wird der Grad in Anzeigen als Grad + aktuelle Stufe dargestellt.",
+    )
     grade_adds_school_level = models.BooleanField(
         default=False,
         help_text=(

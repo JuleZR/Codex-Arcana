@@ -224,10 +224,11 @@ def _spell_duration_facts(spell: Spell) -> str:
 
 
 def _spell_choice_facts(spell: Spell) -> list[dict[str, str]]:
+    grade_label = f"{int(spell.grade)} + Stufe" if spell.grade_adds_level else str(int(spell.grade))
     mw_label = "-" if spell.mw is None else str(int(spell.mw))
     resistance_label = str(spell.resistance_value or "-").strip() or "-"
     return [
-        {"label": "Grad", "value": str(int(spell.grade))},
+        {"label": "Grad", "value": grade_label},
         {"label": "MW/RW", "value": f"{mw_label}/{resistance_label}"},
         {"label": "Kosten", "value": _spell_cost_facts(spell)},
         {"label": "Zeitaufwand", "value": _spell_cast_time_facts(spell)},
@@ -286,6 +287,7 @@ def build_learning_magic_groups(character, *, magic_engine=None) -> list[dict[st
                     "name": spell.name,
                     "owner_name": choice_row["school_name"],
                     "grade": int(spell.grade),
+                    "grade_label": f"{int(spell.grade)} + Stufe" if spell.grade_adds_level else str(int(spell.grade)),
                     "description": (spell.description or "").replace("\r\n", "\n").replace("\r", "\n"),
                     "search_tokens": (
                         f"{spell.name.lower()} {choice_row['school_name'].lower()} grad {int(spell.grade)} "
@@ -314,6 +316,7 @@ def build_learning_magic_groups(character, *, magic_engine=None) -> list[dict[st
                     "name": spell.name,
                     "owner_name": owner_name,
                     "grade": int(spell.grade),
+                    "grade_label": f"{int(spell.grade)} + Stufe" if spell.grade_adds_level else str(int(spell.grade)),
                     "description": (spell.description or "").replace("\r\n", "\n").replace("\r", "\n"),
                     "search_tokens": (
                         f"{spell.name.lower()} {owner_name.lower()} grad {int(spell.grade)} "
@@ -338,6 +341,7 @@ def build_learning_magic_groups(character, *, magic_engine=None) -> list[dict[st
                     "name": spell.name,
                     "owner_name": spell.school.name,
                     "grade": int(spell.grade),
+                    "grade_label": f"{int(spell.grade)} + Stufe" if spell.grade_adds_level else str(int(spell.grade)),
                     "description": (spell.description or "").replace("\r\n", "\n").replace("\r", "\n"),
                     "search_tokens": (
                         f"{spell.name.lower()} {spell.school.name.lower()} grad {int(spell.grade)} "

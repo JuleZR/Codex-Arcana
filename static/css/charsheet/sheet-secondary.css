@@ -716,7 +716,7 @@
   );
 }
 
-.spell_panel--school-filtered .spell_group_header {
+.spell_panel--single-school-filtered .spell_group_header {
   display: none !important;
 }
 

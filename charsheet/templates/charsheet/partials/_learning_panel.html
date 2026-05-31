@@ -373,12 +373,12 @@
                                 >
                                   <td class="shop_item_name">{{ row.name }}</td>
                                   <td class="shop_item_price shop_item_price--meta">
-                                    <span class="learn_meta_inline" aria-label="{{ row.owner_name }}, Grad {{ row.grade }}, verbraucht einen Zauber-Slot">
+                                    <span class="learn_meta_inline" aria-label="{{ row.owner_name }}, Grad {{ row.grade_label|default:row.grade }}, verbraucht einen Zauber-Slot">
                                       <span class="learn_meta_inline__row">
                                         <span class="learn_meta_inline__item"><span class="learn_meta_label">Quelle</span><span class="learn_meta_value">{{ row.owner_name }}</span></span>
                                       </span>
                                       <span class="learn_meta_inline__row">
-                                        <span class="learn_meta_inline__item"><span class="learn_meta_label">Grad</span><span class="learn_meta_value">{{ row.grade }}</span></span>
+                                        <span class="learn_meta_inline__item"><span class="learn_meta_label">Grad</span><span class="learn_meta_value">{{ row.grade_label|default:row.grade }}</span></span>
                                         <span class="learn_meta_inline__item"><span class="learn_meta_label">Typ</span><span class="learn_meta_value">{{ row.source_label|default:"Zauber-Slot" }}</span></span>
                                       </span>
                                     </span>

@@ -4088,7 +4088,7 @@ class SpellAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
             {
                 "fields": (
                     ("name", "slug", "panel_badge_label"),
-                    ("spell_attribute", "grade"),
+                    ("spell_attribute", "grade", "grade_adds_level"),
                     ("mw", "grade_adds_school_level", "resistance_value"),
                     ("kp_cost", "ep_cost"),
                     ("extra_cost_type", "extra_cost_value"),

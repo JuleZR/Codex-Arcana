@@ -103,15 +103,17 @@ def _build_spell_tooltip(entry: CharacterSpell, *, school_levels: dict[int, int]
         raw_attribute_label = spell.spell_attribute.short_name or spell.spell_attribute.name
         attribute_label = str(raw_attribute_label).title()
 
+    school_level = _effective_spell_level(entry, school_levels=school_levels, aspect_levels=aspect_levels)
+
     if spell.mw is None:
         mw_label = "-"
     elif spell.grade_adds_school_level:
-        mw_label = f"{int(spell.mw)} + Stufe"
+        mw_label = str(int(spell.mw) + school_level)
     else:
         mw_label = str(int(spell.mw))
     resistance_label = str(spell.resistance_value or "-").strip() or "-"
 
-    school_level = _effective_spell_level(entry, school_levels=school_levels, aspect_levels=aspect_levels)
+    grade_label = str(int(spell.grade) + school_level) if spell.grade_adds_level else str(int(spell.grade))
 
     extra_cost = ""
     if spell.extra_cost_type == getattr(spell.ExtraCostType, "WOUND_GRADE", "") and spell.extra_cost_value:
@@ -122,7 +124,7 @@ def _build_spell_tooltip(entry: CharacterSpell, *, school_levels: dict[int, int]
     if extra_cost:
         cost_label += f" [[SUB:und {extra_cost}]]"
     rows: list[tuple[str, object]] = [
-        ("Eigenschaft/Grad", f"{attribute_label}/{int(spell.grade)}"),
+        ("Eigenschaft/Grad", f"{attribute_label}/{grade_label}"),
         ("MW/Widerstandswert", f"{mw_label}/{resistance_label}"),
         ("Kosten", cost_label),
     ]
@@ -397,6 +399,7 @@ class MagicEngine:
                         "name": spell.name,
                         "owner_name": school_entry.school.name,
                         "grade": int(spell.grade),
+                        "grade_label": f"{int(spell.grade)} + Stufe" if spell.grade_adds_level else str(int(spell.grade)),
                         "description": (spell.description or "").replace("\r\n", "\n").replace("\r", "\n"),
                         "search_tokens": f"{spell.name.lower()} {school_entry.school.name.lower()} grad {int(spell.grade)} zauber arkane magie",
                     }
@@ -426,6 +429,7 @@ class MagicEngine:
                     "name": spell.name,
                     "owner_name": spell.aspect.name,
                     "grade": int(spell.grade),
+                    "grade_label": f"{int(spell.grade)} + Stufe" if spell.grade_adds_level else str(int(spell.grade)),
                     "description": (spell.description or "").replace("\r\n", "\n").replace("\r", "\n"),
                     "search_tokens": f"{spell.name.lower()} {spell.aspect.name.lower()} grad {int(spell.grade)} zauber aspekt klerikal",
                 }
@@ -904,6 +908,7 @@ class MagicEngine:
                     "name": spell.name,
                     "owner_name": owner_name,
                     "level": int(spell.grade),
+                    "grade_label": f"{int(spell.grade)} + Stufe" if spell.grade_adds_level else str(int(spell.grade)),
                     "effective_level": _effective_spell_level(
                         entry,
                         school_levels=school_level_map,
