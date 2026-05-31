@@ -344,13 +344,9 @@ class TraitSemanticEffect(models.Model):
             raise ValidationError({"metadata": "Metadata must be a JSON object."})
         if self.target_choice_definition_id and self.target_choice_definition.trait_id != self.trait_id:
             raise ValidationError({"target_choice_definition": "The selected trait choice definition must belong to the same trait."})
-        if not self.target_choice_definition_id and not str(self.target_key or "").strip():
-            if not self.pk:
-                return
-            if not self.target_skills.exists():
-                raise ValidationError(
-                    {"target_key": "Set a target key, choose target skills, or bind the effect to a trait choice definition."}
-                )
+        # target_skills is an M2M field and is saved after model.clean().
+        # Admin form validation enforces that either target_key, target_skills,
+        # or target_choice_definition is provided.
 
     def to_modifier(self):
         """Materialize this persisted effect as one typed modifier instance."""

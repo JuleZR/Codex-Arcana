@@ -558,13 +558,9 @@ class TechniqueSemanticEffect(models.Model):
             raise ValidationError(
                 {"target_choice_definition": "The selected technique choice definition must belong to the same technique."}
             )
-        if not self.target_choice_definition_id and not str(self.target_key or "").strip():
-            if not self.pk:
-                return
-            if not self.target_skills.exists():
-                raise ValidationError(
-                    {"target_key": "Set a target key, choose target skills, or bind the effect to a technique choice definition."}
-                )
+        # target_skills is an M2M field and is saved after model.clean().
+        # Admin form validation enforces that either target_key, target_skills,
+        # or target_choice_definition is provided.
 
     def to_modifier(self):
         """Materialize this persisted effect as one typed modifier instance."""
