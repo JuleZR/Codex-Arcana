@@ -11,7 +11,6 @@ from charsheet.constants import (
 from charsheet.models import (
     Attribute,
     CharacterTrait,
-    DivineEntity,
     Item,
     Rune,
     Skill,
@@ -447,48 +446,6 @@ def build_learning_progression_context(character, *, engine) -> dict[str, object
                 )
             )
 
-    binding = magic_engine._divine_binding()
-    if binding is None:
-        divine_entities = list(
-            DivineEntity.objects.filter(school_id__in=[entry.school_id for entry in magic_engine._divine_school_entries()])
-            .select_related("school")
-            .order_by("school__name", "name")
-        )
-        if divine_entities:
-            row = {
-                "field_name": "learn_divine_entity",
-                "options": [
-                    {
-                        "id": entity.id,
-                        "name": entity.name,
-                        "description": entity.description or "",
-                        "school_name": entity.school.name,
-                    }
-                    for entity in divine_entities
-                ],
-            }
-            divine_entity_rows.append(row)
-            pending_decisions.append(
-                _build_pending_decision(
-                    decision_id="divine-entity",
-                    kind="divine_entity",
-                    title="Klerikale Entitaet",
-                    summary="Waehle die verehrte Entitaet",
-                    description="Diese Wahl bestimmt die automatisch gewaehrten Startaspekte.",
-                    prompt="Entitaet waehlen",
-                    options=[
-                        _build_decision_option(
-                            option_id=str(option["id"]),
-                            label=option["name"],
-                            meta=option["school_name"],
-                            description=option["description"],
-                            submit_name=row["field_name"],
-                            submit_value=str(option["id"]),
-                        )
-                        for option in row["options"]
-                    ],
-                )
-            )
     arcane_school_levels = {
         entry.school_id: int(entry.level)
         for entry in magic_engine._arcane_school_entries()

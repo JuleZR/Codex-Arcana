@@ -33,6 +33,11 @@
 
       <main class="book-spread">
         {% include "charsheet/partials/_character_header.html" %}
+        {% if selected_divine_symbol_url %}
+          <div class="book-spread__divine-symbol" aria-hidden="true">
+            <img src="{{ selected_divine_symbol_url }}" alt="">
+          </div>
+        {% endif %}
         {% include "charsheet/partials/_sheet_secondary_page.html" %}
       </main>
 

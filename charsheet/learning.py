@@ -22,7 +22,6 @@ from charsheet.models import (
     Character,
     CharacterAttribute,
     CharacterAspect,
-    CharacterDivineEntity,
     CharacterLanguage,
     CharacterRaceChoice,
     CharacterSchool,
@@ -78,7 +77,6 @@ def _has_progression_inputs(post_data) -> bool:
         "learn_arcane_free_spell_",
         "learn_bonus_spell_",
         "learn_divine_arcane_spell_",
-        "learn_divine_entity",
     )
     return any(str(key).startswith(prefixes) for key in post_data.keys())
 
@@ -131,23 +129,6 @@ def _apply_progression_choices(character: Character, post_data, *, magic_engine)
         summary["techniques"] += 1
 
     engine, progression_context = _rebuild_if(summary["techniques"] > 0)
-
-    for row in progression_context["learn_divine_entity_rows"]:
-        raw_entity_id = str(post_data.get(row["field_name"], "")).strip()
-        if not raw_entity_id:
-            continue
-        allowed_ids = {str(option["id"]) for option in row["options"]}
-        if raw_entity_id not in allowed_ids:
-            raise LearningSubmissionError("Ungueltige Entitaetswahl.")
-        entity_binding, _created = CharacterDivineEntity.objects.update_or_create(
-            character=character,
-            defaults={"entity_id": int(raw_entity_id)},
-        )
-        entity_binding.full_clean()
-        entity_binding.save()
-        summary["choices"] += 1
-
-    engine, progression_context = _rebuild_if(summary["choices"] > 0)
 
     for row in progression_context["learn_arcane_free_spell_rows"]:
         raw_spell_id = str(post_data.get(row["field_name"], "")).strip()

@@ -11,7 +11,7 @@ from django.contrib.auth.password_validation import validate_password
 from django.core.files.base import ContentFile
 from PIL import Image, ImageOps
 
-from .models import Character, CharacterItemRuneSpec, CharacterSkill, CharacterTechnique
+from .models import Character, CharacterDivineEntity, CharacterItemRuneSpec, CharacterSkill, CharacterTechnique, DivineEntity
 from .models.user import UserSettings
 
 
@@ -73,6 +73,12 @@ class CharacterUpdateForm(CharacterCreateForm):
 class CharacterInfoInlineForm(forms.ModelForm):
     """Inline form for editing character info fields on the character sheet."""
 
+    religion_entity = forms.ModelChoiceField(
+        queryset=DivineEntity.objects.none(),
+        required=False,
+        empty_label="",
+        widget=forms.Select(attrs={"class": "dashboard_input"}),
+    )
     char_picture_upload = forms.ImageField(
         required=False,
         widget=forms.FileInput(
@@ -104,7 +110,7 @@ class CharacterInfoInlineForm(forms.ModelForm):
             "eye_color",
             "country_of_origin",
             "weight",
-            "religion",
+            "religion_entity",
             "appearance",
         ]
         widgets = {
@@ -117,7 +123,6 @@ class CharacterInfoInlineForm(forms.ModelForm):
             "eye_color": forms.TextInput(attrs={"class": "dashboard_input", "maxlength": 25}),
             "country_of_origin": forms.TextInput(attrs={"class": "dashboard_input", "maxlength": 25}),
             "weight": forms.NumberInput(attrs={"class": "dashboard_input", "min": 0, "step": 1}),
-            "religion": forms.TextInput(attrs={"class": "dashboard_input", "maxlength": 25}),
             "appearance": forms.Textarea(attrs={"class": "dashboard_input", "maxlength": 300, "rows": 3, "style": "resize: none;"}),
         }
 
@@ -125,6 +130,16 @@ class CharacterInfoInlineForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self._cropped_picture_content = None
         self._uploaded_picture_content = None
+        self.fields["religion_entity"].queryset = DivineEntity.objects.order_by("name")
+
+        if self.instance and self.instance.pk:
+            binding = getattr(self.instance, "divine_entity_binding", None)
+            if binding is not None:
+                self.fields["religion_entity"].initial = binding.entity_id
+            elif self.instance.religion:
+                self.fields["religion_entity"].initial = (
+                    DivineEntity.objects.filter(name=self.instance.religion).values_list("pk", flat=True).first()
+                )
 
     @staticmethod
     def _normalize_picture_bytes(raw_bytes):
@@ -227,6 +242,8 @@ class CharacterInfoInlineForm(forms.ModelForm):
 
     def save(self, commit=True):
         character = super().save(commit=False)
+        selected_religion = self.cleaned_data.get("religion_entity")
+        character.religion = selected_religion.name if selected_religion else ""
         remove_picture = bool(self.cleaned_data.get("remove_char_picture"))
         safe_name = "".join(ch.lower() if ch.isalnum() else "-" for ch in (character.name or "character")).strip("-")
         safe_name = safe_name or f"character-{character.pk or 'portrait'}"
@@ -257,6 +274,13 @@ class CharacterInfoInlineForm(forms.ModelForm):
 
         if commit:
             character.save()
+            if selected_religion:
+                CharacterDivineEntity.objects.update_or_create(
+                    character=character,
+                    defaults={"entity": selected_religion},
+                )
+            else:
+                CharacterDivineEntity.objects.filter(character=character).delete()
             self.save_m2m()
         return character
 

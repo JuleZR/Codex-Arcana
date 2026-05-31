@@ -61,6 +61,30 @@ body {
   gap: var(--page-gap);
 }
 
+.book-spread__divine-symbol {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: clamp(42px, calc(var(--page-gap) * 0.68), 86px);
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  display: grid;
+  place-items: center;
+  z-index: 3;
+  pointer-events: none;
+  opacity: 0.9;
+  filter:
+    drop-shadow(0 8px 14px rgba(30, 18, 10, 0.28))
+    sepia(0.12);
+}
+
+.book-spread__divine-symbol img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
 
 .page {
   width: min(var(--page-width), 46vw);
