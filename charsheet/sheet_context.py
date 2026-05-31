@@ -3133,6 +3133,7 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
         "spell_and_lessons_panel_enabled": bool(spell_panel_data["spell_and_lessons_panel_enabled"]),
         "has_castable_entries": bool(spell_panel_data["has_castable_entries"]),
         "spell_panel_groups": spell_panel_data["groups"],
+        "spell_panel_arcane_filter_groups": spell_panel_data.get("arcane_filter_groups", []),
         "spell_panel_arcane_schools": spell_panel_data["arcane_schools"],
         "spell_panel_divine_summary": spell_panel_data["divine_summary"],
         "rune_retrofit_choices": [

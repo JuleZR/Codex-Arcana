@@ -3,6 +3,41 @@
     <h2>Zauber</h2>
   </div>
 
+  {% if spell_panel_arcane_filter_groups %}
+  <div class="spell_school_filter" role="toolbar" aria-label="Zauberschule filtern">
+    <button
+      type="button"
+      class="spell_school_filter_btn is-active"
+      data-spell-school-filter="all"
+      aria-pressed="true"
+      title="Alle Zauber"
+      aria-label="Alle Zauber anzeigen"
+    >
+      <span class="spell_school_filter_symbol" aria-hidden="true">&#8734;</span>
+    </button>
+    {% for school in spell_panel_arcane_filter_groups %}
+      <button
+        type="button"
+        class="spell_school_filter_btn"
+        data-spell-school-filter="{{ school.name }}"
+        aria-pressed="false"
+        title="{{ school.name }}"
+        aria-label="{{ school.name }} anzeigen"
+      >
+        <span class="spell_school_filter_symbol" aria-hidden="true">
+          {% if school.symbol_image_url %}
+            <img class="spell_school_filter_image" src="{{ school.symbol_image_url }}" alt="" width="18" height="18">
+          {% elif school.symbol %}
+            {{ school.symbol }}
+          {% else %}
+            &#9656;
+          {% endif %}
+        </span>
+      </button>
+    {% endfor %}
+  </div>
+  {% endif %}
+
   <div class="schools_filter_row spell_filter_row">
     <input
       type="search"
@@ -22,13 +57,14 @@
             class="spell_group_header school_row_with_tooltip"
             data-spell-group-toggle
             data-spell-group-name="{{ group.name }}"
+            data-spell-group-kind="{{ group.kind }}"
             aria-expanded="false"
           >
             <span class="spell_group_heading">
               <span class="spell_group_chevron" aria-hidden="true">&#9656;</span>
               {% if group.symbol_image_url %}
                 <span class="spell_group_symbol" aria-hidden="true">
-                  <img class="spell_group_symbol_image" src="{{ group.symbol_image_url }}" alt="">
+                  <img class="spell_group_symbol_image" src="{{ group.symbol_image_url }}" alt="" width="18" height="18">
                 </span>
               {% elif group.symbol %}
                 <span class="spell_group_symbol" aria-hidden="true">{{ group.symbol }}</span>

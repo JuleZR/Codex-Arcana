@@ -955,12 +955,22 @@ class MagicEngine:
                 key=lambda item: _spell_group_sort_key(item[0][0], item[0][1]),
             )
         ]
+        arcane_filter_groups = [
+            {
+                "name": group["name"],
+                "symbol": group["symbol"],
+                "symbol_image_url": group["symbol_image_url"],
+            }
+            for group in groups
+            if group["kind"] == "arcane" and group["rows"]
+        ]
         has_entries = any(group["rows"] for group in groups)
         return {
             "spell_panel_enabled": has_entries,
             "spell_and_lessons_panel_enabled": has_entries,
             "has_castable_entries": has_entries,
             "groups": groups,
+            "arcane_filter_groups": arcane_filter_groups if len(arcane_filter_groups) > 1 else [],
             "arcane_schools": [
                 {
                     "name": entry.school.name,
