@@ -1137,6 +1137,7 @@ class DivineEntity(models.Model):
     allies_and_enemies = models.TextField(blank=True, default="")
     worshippers = models.TextField(blank=True, default="")
     doctrines = models.TextField(blank=True, default="")
+    granted_abilities = models.TextField(blank=True, default="")
 
     symbol_image = models.ImageField(
         upload_to="divine_entities/",

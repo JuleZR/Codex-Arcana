@@ -4265,6 +4265,7 @@ class DivineEntityAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
                 "allies_and_enemies",
                 "worshippers",
                 "doctrines",
+                "granted_abilities",
             )
         }),
         ("Regeloptionen", {
@@ -4292,6 +4293,7 @@ class DivineEntityAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
     def symbol_image_preview(self, obj):
         if obj is None or not obj.symbol_image:
             return format_html('<span style="color:#666;">{}</span>', "-")
+
         return format_html(
             '<img src="{}" alt="{}" style="max-width:96px; max-height:96px; border-radius:8px; border:1px solid #ccc; background:#fff; padding:4px;" />',
             obj.symbol_image.url,
