@@ -1370,6 +1370,7 @@ class Spell(models.Model):
 
     class CastTimeUnit(models.TextChoices):
         ACTION = "Aktion", "Aktion"
+        ROUND = "Runde", "Runde"
         MINUTE = "Minute", "Minute"
         HOUR = "Stunde", "Stunde"
 
