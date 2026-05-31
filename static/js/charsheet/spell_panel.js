@@ -113,7 +113,7 @@ function applySpellFilter(input, rows, groups, selectedSchools = null, schoolNam
     if (anyVisible) {
       group.hidden = false;
       if (btn instanceof HTMLElement) {
-        btn.hidden = Boolean(needle) && allSchoolsSelected;
+        btn.hidden = Boolean(needle) || !allSchoolsSelected;
         btn.setAttribute("aria-expanded", "true");
       }
       rowList.hidden = false;
