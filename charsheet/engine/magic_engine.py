@@ -908,7 +908,6 @@ class MagicEngine:
                     "name": spell.name,
                     "owner_name": owner_name,
                     "level": int(spell.grade),
-                    "grade_label": f"{int(spell.grade)} + Stufe" if spell.grade_adds_level else str(int(spell.grade)),
                     "effective_level": _effective_spell_level(
                         entry,
                         school_levels=school_level_map,
@@ -939,6 +938,14 @@ class MagicEngine:
                     "castable_kind": "spell",
                 }
             )
+        for rows in grouped_rows.values():
+            for row in rows:
+                spell = row["_spell_obj"]
+                row["grade_label"] = (
+                    str(int(row["level"]) + int(row["effective_level"]))
+                    if spell.grade_adds_level
+                    else str(int(row["level"]))
+                )
         groups = [
             {
                 "kind": group_kind,

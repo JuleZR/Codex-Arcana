@@ -556,13 +556,41 @@
 
 .spell_school_filter_trigger_icon,
 .spell_school_filter_trigger_icon svg {
-  display: block;
-  width: 15px;
-  height: 15px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  min-width: 18px;
+  max-width: 18px;
+  height: 18px;
+  min-height: 18px;
+  max-height: 18px;
+  overflow: hidden;
 }
 
 .spell_school_filter_trigger_icon svg {
+  display: block;
+  width: 15px;
+  height: 15px;
   fill: currentColor;
+}
+
+.spell_school_filter_trigger_icon .spell_school_filter_symbol {
+  width: 18px;
+  min-width: 18px;
+  max-width: 18px;
+  height: 18px;
+  min-height: 18px;
+  max-height: 18px;
+}
+
+.spell_school_filter_trigger_icon .spell_school_filter_image {
+  width: 18px !important;
+  min-width: 18px !important;
+  max-width: 18px !important;
+  height: 18px !important;
+  min-height: 18px !important;
+  max-height: 18px !important;
 }
 
 .spell_school_filter_popover {
