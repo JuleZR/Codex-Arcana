@@ -94,6 +94,7 @@ from .models import (
     TechniqueChoiceDefinition,
     TechniqueExclusion,
     TechniqueRequirement,
+    TechniqueSemanticEffect,
     Trait,
     TraitChoiceDefinition,
     TraitExclusion,
@@ -1787,6 +1788,27 @@ class TraitSemanticEffectInlineForm(forms.ModelForm):
         return cleaned_data
 
 
+class TechniqueSemanticEffectInlineForm(forms.ModelForm):
+    """Admin form that allows choice-bound technique effects without a fixed target key."""
+
+    class Meta:
+        model = TechniqueSemanticEffect
+        fields = "__all__"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["target_key"].required = False
+
+    def clean(self):
+        """Mirror the model rule in admin form validation with clearer field behavior."""
+        cleaned_data = super().clean()
+        target_key = str(cleaned_data.get("target_key") or "").strip()
+        target_choice_definition = cleaned_data.get("target_choice_definition")
+        if not target_choice_definition and not target_key:
+            self.add_error("target_key", "Set a target key unless the effect is bound to a technique choice definition.")
+        return cleaned_data
+
+
 class SpellAdminForm(forms.ModelForm):
     class Meta:
         model = Spell
@@ -1919,6 +1941,17 @@ class TraitSemanticEffectInline(admin.StackedInline):
             },
         ),
     )
+
+
+class TechniqueSemanticEffectInline(admin.StackedInline):
+    """Inline editor for persisted new-system semantic technique effects."""
+
+    model = TechniqueSemanticEffect
+    form = TechniqueSemanticEffectInlineForm
+    extra = 0
+    show_change_link = True
+    autocomplete_fields = ("target_choice_definition",)
+    fieldsets = TraitSemanticEffectInline.fieldsets
 
 
 class RaceAttributeLimitByAttributeInline(admin.TabularInline):
@@ -2577,6 +2610,7 @@ class TechniqueAdmin(admin.ModelAdmin):
         TechniqueExclusionInline,
         TechniqueChoiceDefinitionInline,
         TechniqueRaceInline,
+        TechniqueSemanticEffectInline,
         ModifierInline,
     )
     fieldsets = (

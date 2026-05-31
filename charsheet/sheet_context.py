@@ -1333,7 +1333,8 @@ def _build_skill_modifier_rows(
     *,
     skill_name: str,
     category_slug: str | None,
-    skill_id: int | None) -> list[dict[str, object]]:
+    skill_id: int | None,
+    specification: str | None = None) -> list[dict[str, object]]:
     """Return modifier rows for one skill calculation tooltip."""
     rows: list[dict[str, object]] = []
     for entry in engine.explain_modifier_resolution("skill", skill_slug):
@@ -1382,7 +1383,7 @@ def _build_skill_modifier_rows(
                     "tone": "modifier",
                 }
             )
-        choice_modifiers = int(engine._resolve_choice_skill_modifiers(skill_id))
+        choice_modifiers = int(engine._resolve_choice_skill_modifiers(skill_id, specification=specification))
         if choice_modifiers:
             rows.append(
                 {
@@ -1418,10 +1419,10 @@ def _build_skill_rows(character: Character, engine, *, load_penalty: int) -> tup
 
     def _build_row(skill: Skill, character_skill=None) -> dict:
         attribute_modifier = int(engine.attribute_modifier(skill.attribute.short_name))
-        raw_modifiers = int(engine._skill_modifiers(skill.slug))
+        specification = ((character_skill.specification if character_skill is not None else "*") or "").strip()
+        raw_modifiers = int(engine._skill_modifiers(skill.slug, specification=specification))
         rank = int(character_skill.level) if character_skill is not None else 0
         total_with_load = rank + attribute_modifier + raw_modifiers
-        specification = ((character_skill.specification if character_skill is not None else "*") or "").strip()
         return {
             "row_kind": "skill",
             "character_skill_id": character_skill.id if character_skill is not None else None,
@@ -1457,6 +1458,7 @@ def _build_skill_rows(character: Character, engine, *, load_penalty: int) -> tup
                         skill_name=skill.name,
                         category_slug=skill.category.slug,
                         skill_id=skill.id,
+                        specification=specification,
                     ),
                     {"label": "Belastung", "value": format_modifier(load_penalty)},
                     {"label": "= Gesamt", "value": total_with_load, "tone": "total"},

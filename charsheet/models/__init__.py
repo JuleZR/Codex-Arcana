@@ -68,6 +68,7 @@ from .techniques import (
     TechniqueChoiceDefinition,
     TechniqueExclusion,
     TechniqueRequirement,
+    TechniqueSemanticEffect,
 )
 
 __all__ = [
@@ -123,6 +124,7 @@ __all__ = [
     "TechniqueChoiceDefinition",
     "TechniqueExclusion",
     "TechniqueRequirement",
+    "TechniqueSemanticEffect",
     "Trait",
     "TraitChoiceDefinition",
     "TraitExclusion",

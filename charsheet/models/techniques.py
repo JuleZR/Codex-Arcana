@@ -6,6 +6,12 @@ from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
 from django.db import models
 
+from ..constants import (
+    MODIFIER_OPERATOR_CHOICES,
+    MODIFIER_VISIBILITY_CHOICES,
+    STACK_BEHAVIOR_CHOICES,
+    TARGET_DOMAIN_CHOICES,
+)
 from .core import Skill, SkillCategory, Trait, Race, Attribute
 from .items import Item
 from .progression import CharacterSchool, CharacterSchoolPath, School, SchoolPath, Specialization
@@ -460,6 +466,167 @@ class TechniqueChoiceDefinition(models.Model):
 
     def __str__(self) -> str:
         return f"{self.technique.name}: {self.name}"
+
+
+class TechniqueSemanticEffect(models.Model):
+    """Persisted new-system semantic effect attached directly to one technique."""
+
+    technique = models.ForeignKey(Technique, on_delete=models.CASCADE, related_name="semantic_effects")
+    sort_order = models.PositiveIntegerField(default=0)
+    target_choice_definition = models.ForeignKey(
+        TechniqueChoiceDefinition,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="semantic_effects",
+    )
+
+    target_domain = models.CharField(max_length=40, choices=TARGET_DOMAIN_CHOICES, default="skill")
+    target_key = models.CharField(max_length=120, blank=True, default="")
+    operator = models.CharField(max_length=40, choices=MODIFIER_OPERATOR_CHOICES, default="flat_add")
+    mode = models.CharField(max_length=20, default="flat")
+
+    value = models.CharField(max_length=200, blank=True, default="")
+    value_min = models.IntegerField(null=True, blank=True)
+    value_max = models.IntegerField(null=True, blank=True)
+    formula = models.CharField(max_length=200, blank=True, default="")
+
+    scaling = models.JSONField(default=dict, blank=True)
+    stack_behavior = models.CharField(max_length=40, choices=STACK_BEHAVIOR_CHOICES, default="stack")
+    condition_set = models.JSONField(default=dict, blank=True)
+
+    active_flag = models.BooleanField(default=True)
+    priority = models.IntegerField(default=0)
+    notes = models.TextField(blank=True, default="")
+    rules_text = models.TextField(blank=True, default="")
+    visibility = models.CharField(max_length=20, choices=MODIFIER_VISIBILITY_CHOICES, default="public")
+    hidden = models.BooleanField(default=False)
+    sheet_relevant = models.BooleanField(default=True)
+    metadata = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        ordering = ["technique", "sort_order", "id"]
+
+    def __str__(self) -> str:
+        return f"{self.technique.name}: {self.target_domain}/{self.target_key} ({self.operator})"
+
+    @staticmethod
+    def _coerce_scalar(raw_value):
+        """Coerce admin-entered text values into bool, int, float, JSON, or plain text."""
+        import json
+
+        text = str(raw_value or "").strip()
+        if text == "":
+            return None
+        lowered = text.lower()
+        if lowered == "true":
+            return True
+        if lowered == "false":
+            return False
+        if lowered == "null":
+            return None
+        try:
+            return json.loads(text)
+        except (TypeError, ValueError, json.JSONDecodeError):
+            pass
+        try:
+            return int(text)
+        except (TypeError, ValueError):
+            pass
+        try:
+            return float(text)
+        except (TypeError, ValueError):
+            pass
+        return text
+
+    def clean(self):
+        """Validate JSON-like admin payloads before save."""
+        super().clean()
+        if self.scaling is not None and not isinstance(self.scaling, dict):
+            raise ValidationError({"scaling": "Scaling must be a JSON object."})
+        if self.condition_set is not None and not isinstance(self.condition_set, dict):
+            raise ValidationError({"condition_set": "Condition set must be a JSON object."})
+        if self.metadata is not None and not isinstance(self.metadata, dict):
+            raise ValidationError({"metadata": "Metadata must be a JSON object."})
+        if self.target_choice_definition_id and self.target_choice_definition.technique_id != self.technique_id:
+            raise ValidationError(
+                {"target_choice_definition": "The selected technique choice definition must belong to the same technique."}
+            )
+        if not self.target_choice_definition_id and not str(self.target_key or "").strip():
+            raise ValidationError({"target_key": "Set a target key unless the effect is bound to a technique choice definition."})
+
+    def to_modifier(self):
+        """Materialize this persisted effect as one typed modifier instance."""
+        from ..modifiers.definitions import (
+            AttributeCapModifier,
+            AttributeModifier,
+            BaseModifier,
+            CombatModifier,
+            ConditionSet,
+            DerivedStatModifier,
+            EconomyModifier,
+            LanguageModifier,
+            MovementModifier,
+            PerceptionModifier,
+            ProficiencyGroupModifier,
+            ResourceModifier,
+            ResistanceModifier,
+            RuleFlagModifier,
+            SkillModifier,
+            SocialModifier,
+            TraitModifier,
+        )
+
+        modifier_map = {
+            "skill": SkillModifier,
+            "skill_category": SkillModifier,
+            "trait": TraitModifier,
+            "language": LanguageModifier,
+            "proficiency_group": ProficiencyGroupModifier,
+            "attribute": AttributeModifier,
+            "attribute_cap": AttributeCapModifier,
+            "derived_stat": DerivedStatModifier,
+            "resource": ResourceModifier,
+            "resistance": ResistanceModifier,
+            "movement": MovementModifier,
+            "combat": CombatModifier,
+            "perception": PerceptionModifier,
+            "economy": EconomyModifier,
+            "social": SocialModifier,
+            "rule_flag": RuleFlagModifier,
+        }
+        modifier_cls = modifier_map.get(self.target_domain, BaseModifier)
+        metadata = dict(self.metadata or {})
+        if self.target_choice_definition_id:
+            metadata["choice_binding"] = {
+                "kind": "technique_choice_definition",
+                "id": int(self.target_choice_definition_id),
+            }
+        if self.technique.has_specification and "skill_specification_source" not in metadata:
+            metadata["skill_specification_source"] = "technique_specification"
+        return modifier_cls(
+            source_type="technique",
+            source_id=str(self.technique_id),
+            target_domain=self.target_domain,
+            target_key=self.target_key,
+            mode=self.mode,
+            value=self._coerce_scalar(self.value),
+            value_min=self.value_min,
+            value_max=self.value_max,
+            formula=self.formula,
+            scaling=dict(self.scaling or {}),
+            operator=self.operator,
+            stack_behavior=self.stack_behavior,
+            condition_set=ConditionSet(**dict(self.condition_set or {})),
+            active_flag=bool(self.active_flag),
+            priority=int(self.priority),
+            notes=self.notes,
+            rules_text=self.rules_text,
+            visibility=self.visibility,
+            hidden=bool(self.hidden),
+            sheet_relevant=bool(self.sheet_relevant),
+            metadata=metadata,
+        )
 
 
 class RaceChoiceDefinition(models.Model):

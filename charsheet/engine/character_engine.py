@@ -23,6 +23,7 @@ from charsheet.models import (
     CharacterSchool,
     CharacterSchoolPath,
     CharacterSpecialization,
+    CharacterTechnique,
     CharacterWeaponMastery,
     CharacterWeaponMasteryArcana,
     CharacterTechniqueChoice,
@@ -338,6 +339,14 @@ class CharacterEngine:
         return set(
             self.character.learned_techniques.values_list("technique_id", flat=True)
         )
+
+    @cached_property
+    def _learned_techniques_by_id(self) -> dict[int, CharacterTechnique]:
+        """Cache explicit learned technique rows keyed by technique id."""
+        return {
+            row.technique_id: row
+            for row in self.character.learned_techniques.select_related("technique")
+        }
 
     @cached_property
     def _technique_choices_by_technique_id(self) -> dict[int, list[CharacterTechniqueChoice]]:
@@ -1322,7 +1331,7 @@ class CharacterEngine:
             "activation": activation,
         }
 
-    def _skill_modifiers(self, skill_slug: str) -> int:
+    def _skill_modifiers(self, skill_slug: str, *, specification: str | None = None) -> int:
         """Resolve wound, armor, direct skill, and category modifiers."""
         info = self.skills().get(skill_slug)
         skill_definition = self._skill_definitions_by_slug.get(skill_slug)
@@ -1344,7 +1353,7 @@ class CharacterEngine:
             )
         if skill_id is not None:
             modifier_parts.append(self._resolve_choice_skill_bonus(skill_id))
-            modifier_parts.append(self._resolve_choice_skill_modifiers(skill_id))
+            modifier_parts.append(self._resolve_choice_skill_modifiers(skill_id, specification=specification))
         return sum(modifier_parts)
 
     def _resolve_stat_modifiers(self, slug: str) -> int:
@@ -1362,9 +1371,9 @@ class CharacterEngine:
             total += self._modifier_value(modifier, learned_stack, available_stack)
         return total
 
-    def _resolve_choice_skill_modifiers(self, skill_id: int) -> int:
+    def _resolve_choice_skill_modifiers(self, skill_id: int, *, specification: str | None = None) -> int:
         """Resolve choice-bound skill modifiers through the central modifier engine."""
-        value = self.modifier_engine.resolve_choice_skill_modifier_total(skill_id)
+        value = self.modifier_engine.resolve_choice_skill_modifier_total(skill_id, specification=specification)
         if value == 0:
             legacy_value = self._legacy_choice_skill_modifier_total(skill_id)
             if legacy_value != 0:

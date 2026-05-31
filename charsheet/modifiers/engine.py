@@ -17,7 +17,7 @@ from charsheet.modifiers.migration import (
     NumericResolutionComparison,
 )
 from charsheet.modifiers.registry import build_trait_semantic_modifiers
-from charsheet.models import Modifier, Skill
+from charsheet.models import Modifier, Skill, TechniqueSemanticEffect
 
 
 @dataclass(slots=True)
@@ -135,6 +135,51 @@ class ModifierEngine:
         return modifiers
 
     @cached_property
+    def _active_technique_semantic_modifiers(self) -> list[BaseModifier]:
+        """Build semantic modifiers from learned, available computed techniques."""
+        if self.character_engine is None:
+            return []
+
+        technique_ids = [
+            technique.id
+            for technique in (
+                list(self.character_engine._character_school_technique_list)
+                + list(self.character_engine._race_technique_list)
+            )
+        ]
+        if not technique_ids:
+            return []
+
+        learned_stack: set[int] = set()
+        available_stack: set[int] = set()
+        active_technique_ids = {
+            technique_id
+            for technique_id in technique_ids
+            if self._modifier_source_is_active(
+                BaseModifier(
+                    source_type="technique",
+                    source_id=str(technique_id),
+                    target_domain=TargetDomain.METADATA,
+                    target_key="active",
+                ),
+                learned_stack,
+                available_stack,
+            )
+        }
+        if not active_technique_ids:
+            return []
+
+        effects = (
+            TechniqueSemanticEffect.objects.filter(
+                technique_id__in=active_technique_ids,
+                active_flag=True,
+            )
+            .select_related("technique", "target_choice_definition")
+            .order_by("technique_id", "sort_order", "id")
+        )
+        return [effect.to_modifier() for effect in effects]
+
+    @cached_property
     def migration_service(self) -> LegacyModifierMigrationService:
         """Return the legacy inventory and migration service for this engine."""
         if self.character_engine is None:
@@ -177,6 +222,7 @@ class ModifierEngine:
                     continue
                 collected.append(modifier)
             collected.extend(self._active_trait_modifiers)
+            collected.extend(self._active_technique_semantic_modifiers)
             collected.extend(self._active_item_rune_modifiers)
         expanded = self._expand_choice_bound_modifiers(collected)
         result = [modifier for modifier in expanded if modifier is not None and modifier.applies(context)]
@@ -212,9 +258,15 @@ class ModifierEngine:
             )
         return new_value
 
-    def resolve_choice_skill_modifier_total(self, skill_id: int, context: dict[str, Any] | None = None) -> int:
+    def resolve_choice_skill_modifier_total(
+        self,
+        skill_id: int,
+        context: dict[str, Any] | None = None,
+        *,
+        specification: str | None = None,
+    ) -> int:
         """Resolve choice-bound skill modifiers according to the active debug mode."""
-        new_value = self._migrated_choice_skill_modifier_total(skill_id, context=context)
+        new_value = self._migrated_choice_skill_modifier_total(skill_id, context=context, specification=specification)
         if self.resolution_mode == ModifierResolutionMode.COMPARE:
             legacy_value = self._legacy_choice_skill_modifier_total(skill_id)
             self._append_comparison(
@@ -503,7 +555,13 @@ class ModifierEngine:
             resolved_total += int(resolved_value)
         return int(resolved_total)
 
-    def _migrated_choice_skill_modifier_total(self, skill_id: int, context: dict[str, Any] | None = None) -> int:
+    def _migrated_choice_skill_modifier_total(
+        self,
+        skill_id: int,
+        context: dict[str, Any] | None = None,
+        *,
+        specification: str | None = None,
+    ) -> int:
         """Resolve choice-bound skill modifiers from migrated typed modifiers."""
         if self.character_engine is None:
             return 0
@@ -521,9 +579,55 @@ class ModifierEngine:
             else:
                 choices = self.character_engine._race_choices_by_definition_id.get(choice_binding["id"], [])
 
-            if any(choice.selected_skill_id == skill_id for choice in choices):
+            if any(
+                choice.selected_skill_id == skill_id
+                and self._choice_skill_modifier_matches_specification(
+                    modifier,
+                    choice=choice,
+                    specification=specification,
+                )
+                for choice in choices
+            ):
                 total += int(self._resolve_numeric_modifier(modifier) or 0)
         return total
+
+    def _choice_skill_modifier_matches_specification(
+        self,
+        modifier: BaseModifier,
+        *,
+        choice,
+        specification: str | None,
+    ) -> bool:
+        """Return whether a choice-bound skill modifier applies to the current skill specification."""
+        expected = self._expected_skill_specification(modifier, choice=choice)
+        if expected is None:
+            return True
+        return self._normalize_skill_specification(specification) == expected
+
+    def _expected_skill_specification(self, modifier: BaseModifier, *, choice) -> str | None:
+        """Resolve the optional skill specification gate for a choice-bound modifier."""
+        metadata = modifier.metadata or {}
+        fixed_specification = metadata.get("skill_specification")
+        if fixed_specification not in (None, ""):
+            return self._normalize_skill_specification(fixed_specification)
+
+        source = str(metadata.get("skill_specification_source") or "").strip()
+        if source != "technique_specification":
+            return None
+
+        source_id = self._coerce_source_id(modifier.source_id)
+        if source_id is None or self.character_engine is None:
+            return None
+        learned_technique = self.character_engine._learned_techniques_by_id.get(source_id)
+        if learned_technique is None:
+            return None
+        normalized = self._normalize_skill_specification(learned_technique.specification_value)
+        return normalized or None
+
+    def _normalize_skill_specification(self, value: Any) -> str:
+        """Normalize skill specification text for exact matching."""
+        text = " ".join(str(value or "").strip().split())
+        return "" if text == "*" else text.casefold()
 
     def _modifier_source_is_active(
         self,
