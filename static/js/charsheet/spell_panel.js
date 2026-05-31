@@ -11,21 +11,22 @@ function loadSpellPanelState() {
   try {
     const raw = window.sessionStorage.getItem(SPELL_PANEL_STATE_KEY);
     if (!raw) {
-      return { filter: "", expandedGroups: [] };
+      return { filter: "", schoolFilter: "all", expandedGroups: [] };
     }
     const parsed = JSON.parse(raw);
     return {
       filter: String(parsed?.filter || ""),
+      schoolFilter: String(parsed?.schoolFilter || "all") || "all",
       expandedGroups: Array.isArray(parsed?.expandedGroups)
         ? parsed.expandedGroups.map((value) => String(value))
         : [],
     };
   } catch (_error) {
-    return { filter: "", expandedGroups: [] };
+    return { filter: "", schoolFilter: "all", expandedGroups: [] };
   }
 }
 
-function saveSpellPanelState({ filterInput = null, groups = [] }) {
+function saveSpellPanelState({ filterInput = null, schoolFilter = "all", groups = [] }) {
   try {
     const expandedGroups = groups
       .map((group) => {
@@ -39,6 +40,7 @@ function saveSpellPanelState({ filterInput = null, groups = [] }) {
       .filter(Boolean);
     window.sessionStorage.setItem(SPELL_PANEL_STATE_KEY, JSON.stringify({
       filter: filterInput instanceof HTMLInputElement ? String(filterInput.value || "") : "",
+      schoolFilter: String(schoolFilter || "all"),
       expandedGroups,
     }));
   } catch (_error) {
@@ -60,8 +62,9 @@ function restoreExpandedSpellGroups(groups, expandedGroupNames) {
   });
 }
 
-function applySpellFilter(input, rows, groups) {
-  const needle = normalizeText(input.value);
+function applySpellFilter(input, rows, groups, schoolFilter = "all") {
+  const needle = normalizeText(input instanceof HTMLInputElement ? input.value : "");
+  const activeSchool = String(schoolFilter || "all");
 
   rows.forEach((row) => {
     const haystack = normalizeText(row.getAttribute("data-spell-search"));
@@ -74,8 +77,21 @@ function applySpellFilter(input, rows, groups) {
     if (!(rowList instanceof HTMLElement)) {
       return;
     }
+    const groupName = String(btn?.getAttribute("data-spell-group-name") || "").trim();
+    const groupKind = String(btn?.getAttribute("data-spell-group-kind") || "").trim();
+    const schoolMatches = activeSchool === "all" || (groupKind === "arcane" && groupName === activeSchool);
 
-    if (!needle) {
+    if (!schoolMatches) {
+      group.hidden = true;
+      if (btn instanceof HTMLElement) {
+        btn.hidden = false;
+        btn.setAttribute("aria-expanded", "false");
+      }
+      rowList.hidden = true;
+      return;
+    }
+
+    if (!needle && activeSchool === "all") {
       group.hidden = false;
       if (btn instanceof HTMLElement) {
         btn.hidden = false;
@@ -90,7 +106,8 @@ function applySpellFilter(input, rows, groups) {
     if (anyVisible) {
       group.hidden = false;
       if (btn instanceof HTMLElement) {
-        btn.hidden = true;
+        btn.hidden = Boolean(needle);
+        btn.setAttribute("aria-expanded", "true");
       }
       rowList.hidden = false;
     } else {
@@ -146,9 +163,11 @@ export function initSpellPanel() {
   panel.dataset.spellPanelBound = "1";
 
   const filterInput = document.getElementById("spellFilterInput");
+  const schoolFilterButtons = Array.from(panel.querySelectorAll("[data-spell-school-filter]"));
   const groups = Array.from(panel.querySelectorAll("[data-spell-group]"));
   const rows = Array.from(panel.querySelectorAll("[data-spell-search]"));
   const storedState = loadSpellPanelState();
+  let activeSchoolFilter = storedState.schoolFilter || "all";
 
   if (filterInput instanceof HTMLInputElement && storedState.filter) {
     filterInput.value = storedState.filter;
@@ -156,16 +175,49 @@ export function initSpellPanel() {
 
   if (filterInput instanceof HTMLInputElement) {
     const runFilter = () => {
-      applySpellFilter(filterInput, rows, groups);
-      if (!String(filterInput.value || "").trim()) {
+      applySpellFilter(filterInput, rows, groups, activeSchoolFilter);
+      if (!String(filterInput.value || "").trim() && activeSchoolFilter === "all") {
         restoreExpandedSpellGroups(groups, storedState.expandedGroups);
       }
-      saveSpellPanelState({ filterInput, groups });
+      saveSpellPanelState({ filterInput, schoolFilter: activeSchoolFilter, groups });
     };
     filterInput.addEventListener("input", runFilter);
     filterInput.addEventListener("search", runFilter);
     filterInput.addEventListener("change", runFilter);
   }
+
+  const setActiveSchoolFilter = (nextFilter) => {
+    const requestedFilter = String(nextFilter || "all");
+    const hasRequestedFilter = requestedFilter === "all" || schoolFilterButtons.some((button) => (
+      button instanceof HTMLButtonElement
+      && String(button.getAttribute("data-spell-school-filter") || "all") === requestedFilter
+    ));
+    activeSchoolFilter = hasRequestedFilter ? requestedFilter : "all";
+    schoolFilterButtons.forEach((button) => {
+      if (!(button instanceof HTMLButtonElement)) {
+        return;
+      }
+      const isActive = String(button.getAttribute("data-spell-school-filter") || "all") === activeSchoolFilter;
+      button.classList.toggle("is-active", isActive);
+      button.setAttribute("aria-pressed", isActive ? "true" : "false");
+    });
+  };
+
+  setActiveSchoolFilter(activeSchoolFilter);
+
+  schoolFilterButtons.forEach((button) => {
+    if (!(button instanceof HTMLButtonElement)) {
+      return;
+    }
+    button.addEventListener("click", () => {
+      setActiveSchoolFilter(button.getAttribute("data-spell-school-filter") || "all");
+      applySpellFilter(filterInput, rows, groups, activeSchoolFilter);
+      if (filterInput instanceof HTMLInputElement && !String(filterInput.value || "").trim() && activeSchoolFilter === "all") {
+        restoreExpandedSpellGroups(groups, storedState.expandedGroups);
+      }
+      saveSpellPanelState({ filterInput, schoolFilter: activeSchoolFilter, groups });
+    });
+  });
 
   panel.querySelectorAll("[data-spell-group-toggle]").forEach((button) => {
     if (!(button instanceof HTMLButtonElement)) {
@@ -184,16 +236,16 @@ export function initSpellPanel() {
       const willOpen = rowList.hidden;
       rowList.hidden = !willOpen;
       button.setAttribute("aria-expanded", willOpen ? "true" : "false");
-      saveSpellPanelState({ filterInput, groups });
+      saveSpellPanelState({ filterInput, schoolFilter: activeSchoolFilter, groups });
     });
   });
 
   if (filterInput instanceof HTMLInputElement) {
-    applySpellFilter(filterInput, rows, groups);
-    if (!String(filterInput.value || "").trim()) {
+    applySpellFilter(filterInput, rows, groups, activeSchoolFilter);
+    if (!String(filterInput.value || "").trim() && activeSchoolFilter === "all") {
       restoreExpandedSpellGroups(groups, storedState.expandedGroups);
     }
-    saveSpellPanelState({ filterInput, groups });
+    saveSpellPanelState({ filterInput, schoolFilter: activeSchoolFilter, groups });
   }
 
   panel.querySelectorAll("[data-cast-spell-trigger]").forEach((button) => {
@@ -211,7 +263,7 @@ export function initSpellPanel() {
         arcaneMeter?.dataset.arcaneCurrent,
         readInt(document.querySelector("#sheetDamagePanel .arcane_meter_current")?.textContent, 0),
       );
-      saveSpellPanelState({ filterInput, groups });
+      saveSpellPanelState({ filterInput, schoolFilter: activeSchoolFilter, groups });
       button.disabled = true;
       const optimisticArcaneSnapshot = kpCost > 0
         ? renderOptimisticArcaneMeter(currentArcanePower - kpCost)
