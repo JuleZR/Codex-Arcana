@@ -489,15 +489,83 @@
   color: #503722;
 }
 
-.spell_school_filter {
+.spell_filter_row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 4px 6px;
+}
+
+.spell_filter_row .spell_filter_input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.spell_school_filter_menu {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.spell_school_filter_trigger {
+  -webkit-appearance: none;
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 28px;
+  min-width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid rgba(118, 88, 57, 0.28);
+  border-radius: 8px;
+  background: linear-gradient(180deg, rgba(255, 251, 241, 0.92), rgba(241, 233, 217, 0.78));
+  color: rgba(66, 45, 25, 0.92);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 248, 229, 0.72),
+    0 1px 2px rgba(41, 24, 11, 0.06);
+  cursor: pointer;
+}
+
+.spell_school_filter_trigger.is-active,
+.spell_school_filter_trigger:hover {
+  border-color: rgba(138, 92, 42, 0.54);
+  background: linear-gradient(180deg, rgba(255, 250, 236, 0.98), rgba(226, 205, 165, 0.72));
+}
+
+.spell_school_filter_trigger_icon,
+.spell_school_filter_trigger_icon svg {
+  display: block;
+  width: 15px;
+  height: 15px;
+}
+
+.spell_school_filter_trigger_icon svg {
+  fill: currentColor;
+}
+
+.spell_school_filter_popover {
+  position: absolute;
+  z-index: 30;
+  left: 0;
+  top: calc(100% + 5px);
   display: flex;
   align-items: center;
   gap: 5px;
-  padding: 1px 4px 6px;
+  max-width: min(360px, 72vw);
+  padding: 6px;
   overflow-x: auto;
   overflow-y: hidden;
   scrollbar-width: thin;
+  border: 1px solid rgba(101, 73, 45, 0.32);
+  border-radius: 8px;
+  background: rgba(247, 239, 219, 0.98);
+  box-shadow: 0 8px 20px rgba(49, 32, 17, 0.2);
   white-space: nowrap;
+}
+
+.spell_school_filter_popover[hidden] {
+  display: none;
 }
 
 .spell_school_filter_btn {
@@ -562,8 +630,8 @@
   object-fit: contain;
 }
 
-.spell_filter_row {
-  padding: 0 4px 6px;
+.spell_school_filter_name {
+  display: none;
 }
 
 .spell_panel_groups {

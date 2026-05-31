@@ -3,42 +3,60 @@
     <h2>Zauber</h2>
   </div>
 
-  {% if spell_panel_arcane_filter_groups %}
-  <div class="spell_school_filter" role="toolbar" aria-label="Zauberschule filtern">
-    <button
-      type="button"
-      class="spell_school_filter_btn is-active"
-      data-spell-school-filter="all"
-      aria-pressed="true"
-      title="Alle Zauber"
-      aria-label="Alle Zauber anzeigen"
-    >
-      <span class="spell_school_filter_symbol" aria-hidden="true">&#8734;</span>
-    </button>
-    {% for school in spell_panel_arcane_filter_groups %}
+  <div class="schools_filter_row spell_filter_row">
+    {% if spell_panel_arcane_filter_groups %}
+    <div class="spell_school_filter_menu" data-spell-school-filter-menu>
       <button
         type="button"
-        class="spell_school_filter_btn"
-        data-spell-school-filter="{{ school.name }}"
-        aria-pressed="false"
-        title="{{ school.name }}"
-        aria-label="{{ school.name }} anzeigen"
+        class="spell_school_filter_trigger"
+        data-spell-school-filter-trigger
+        aria-haspopup="true"
+        aria-expanded="false"
+        title="Zauberschulen filtern"
+        aria-label="Zauberschulen filtern"
       >
-        <span class="spell_school_filter_symbol" aria-hidden="true">
-          {% if school.symbol_image_url %}
-            <img class="spell_school_filter_image" src="{{ school.symbol_image_url }}" alt="" width="18" height="18">
-          {% elif school.symbol %}
-            {{ school.symbol }}
-          {% else %}
-            &#9656;
-          {% endif %}
+        <span class="spell_school_filter_trigger_icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" focusable="false">
+            <path d="M4 5h16l-6.2 7.1v5.2l-3.6 1.8v-7L4 5Z"></path>
+          </svg>
         </span>
       </button>
-    {% endfor %}
-  </div>
-  {% endif %}
-
-  <div class="schools_filter_row spell_filter_row">
+      <div class="spell_school_filter_popover" data-spell-school-filter-popover hidden>
+        <button
+          type="button"
+          class="spell_school_filter_btn is-active"
+          data-spell-school-filter="all"
+          aria-pressed="true"
+          title="Alle arkanen Schulen"
+          aria-label="Alle arkanen Schulen umschalten"
+        >
+          <span class="spell_school_filter_symbol" aria-hidden="true">&#8734;</span>
+          <span class="spell_school_filter_name">Alle</span>
+        </button>
+        {% for school in spell_panel_arcane_filter_groups %}
+          <button
+            type="button"
+            class="spell_school_filter_btn is-active"
+            data-spell-school-filter="{{ school.name }}"
+            aria-pressed="true"
+            title="{{ school.name }}"
+            aria-label="{{ school.name }} umschalten"
+          >
+            <span class="spell_school_filter_symbol" aria-hidden="true">
+              {% if school.symbol_image_url %}
+                <img class="spell_school_filter_image" src="{{ school.symbol_image_url }}" alt="" width="23" height="23">
+              {% elif school.symbol %}
+                {{ school.symbol }}
+              {% else %}
+                &#9656;
+              {% endif %}
+            </span>
+            <span class="spell_school_filter_name">{{ school.name }}</span>
+          </button>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
     <input
       type="search"
       id="spellFilterInput"
