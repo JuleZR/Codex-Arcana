@@ -50,6 +50,7 @@ from charsheet.learning_rules import DEFAULT_SCHOOL_MAX_LEVEL, school_max_levels
 from charsheet.models import (
     Character,
     CharacterItem,
+    CharacterSkill,
     CharacterWeaponMasteryArcana,
     ItemRune,
     CharacterLanguage,
@@ -1396,6 +1397,59 @@ def _build_skill_modifier_rows(
     return rows
 
 
+def _sync_modifier_granted_skill_specifications(character: Character, engine) -> None:
+    """Persist missing level-0 skill rows for active specification-bound skill modifiers."""
+    active_by_skill_id: dict[int, dict[str, str]] = defaultdict(dict)
+    for skill in Skill.objects.filter(requires_specification=True).only("id", "slug"):
+        for specification in engine.modifier_skill_specifications(skill.id, skill.slug):
+            normalized_specification = " ".join(str(specification or "").strip().split())
+            if not normalized_specification or normalized_specification == "*":
+                continue
+            active_by_skill_id[skill.id][normalized_specification.casefold()] = normalized_specification
+
+    existing_by_skill_id: dict[int, set[str]] = defaultdict(set)
+    stale_row_ids: list[int] = []
+    for row in (
+        CharacterSkill.objects
+        .filter(character=character, skill__requires_specification=True)
+        .select_related("skill")
+        .only("id", "skill_id", "skill__requires_specification", "level", "specification")
+    ):
+        normalized = " ".join(str(row.specification or "").strip().split()).casefold()
+        existing_by_skill_id[row.skill_id].add(normalized)
+        if not normalized or normalized == "*" or int(row.level) > 0:
+            continue
+        if normalized not in active_by_skill_id.get(row.skill_id, {}):
+            stale_row_ids.append(row.id)
+
+    changed_any = False
+    if stale_row_ids:
+        CharacterSkill.objects.filter(id__in=stale_row_ids, character=character, level=0).delete()
+        changed_any = True
+        stale_row_id_set = set(stale_row_ids)
+        existing_by_skill_id.clear()
+        for row in CharacterSkill.objects.filter(character=character).exclude(id__in=stale_row_id_set).only("skill_id", "specification"):
+            normalized = " ".join(str(row.specification or "").strip().split()).casefold()
+            existing_by_skill_id[row.skill_id].add(normalized)
+
+    for skill_id, specifications in active_by_skill_id.items():
+        for normalized_key, normalized_specification in specifications.items():
+            if normalized_key in existing_by_skill_id.get(skill_id, set()):
+                continue
+            CharacterSkill.objects.create(
+                character=character,
+                skill_id=skill_id,
+                level=0,
+                specification=normalized_specification,
+            )
+            existing_by_skill_id.setdefault(skill_id, set()).add(normalized_key)
+            changed_any = True
+
+    if changed_any:
+        engine.__dict__.pop("_skills_map", None)
+        engine.__dict__.pop("_skill_levels_by_id", None)
+
+
 def _build_skill_rows(character: Character, engine, *, load_penalty: int) -> tuple[list[dict], list[object], list[dict]]:
     """Build visible skill rows plus skill-manager state for the sheet."""
 
@@ -1527,6 +1581,7 @@ def _build_skill_rows(character: Character, engine, *, load_penalty: int) -> tup
         return rows
 
     skill_rows: list[dict] = []
+    _sync_modifier_granted_skill_specifications(character, engine)
     character_skills = list(
         character.characterskill_set
         .select_related("skill", "skill__attribute", "skill__category")
