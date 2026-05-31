@@ -31,6 +31,12 @@ class School(models.Model):
         default="",
         help_text="Optional short symbol shown in spell and school panels, for example a rune or glyph.",
     )
+    symbol_image = models.ImageField(
+        upload_to="schools/",
+        blank=True,
+        null=True,
+        help_text="Optionales Symbolbild fuer diese Schule. Wird im Charsheet bevorzugt vor dem Textsymbol angezeigt.",
+    )
     max_level = models.PositiveSmallIntegerField(
         null=True,
         blank=True,

@@ -375,6 +375,17 @@ def _rune_image_url(rune: Rune) -> str:
         return ""
 
 
+def _school_symbol_image_url(school: School) -> str:
+    """Return a sheet-safe school symbol image URL when one is present."""
+    image = getattr(school, "symbol_image", None)
+    if not image:
+        return ""
+    try:
+        return _single_line(image.url)
+    except (ValueError, OSError):
+        return ""
+
+
 def _serialize_character_item_rune_specs(character_item: CharacterItem) -> list[dict[str, object]]:
     """Return one frontend-friendly slot list with specialization and crafter level."""
     active_item_runes = [item_rune for item_rune in character_item.item_runes.all() if item_rune.is_active]
@@ -2244,6 +2255,8 @@ def _build_school_technique_rows(character: Character, engine) -> tuple[list[dic
                         "level_label": _to_roman(technique.level),
                         "school_name": technique.school.name,
                         "school_id": technique.school_id,
+                        "school_symbol": str(getattr(technique.school, "panel_symbol", "") or "").strip(),
+                        "school_symbol_image_url": _school_symbol_image_url(technique.school),
                         "entry_name": entry_name,
                         "description": description_text,
                         "can_edit_specification": bool(technique.has_specification),
@@ -2265,6 +2278,8 @@ def _build_school_technique_rows(character: Character, engine) -> tuple[list[dic
                     "level_label": "Spez.",
                     "school_name": school_entry.school.name,
                     "school_id": school_entry.school_id,
+                    "school_symbol": str(getattr(school_entry.school, "panel_symbol", "") or "").strip(),
+                    "school_symbol_image_url": _school_symbol_image_url(school_entry.school),
                     "entry_name": specialization.name,
                     "description": specialization.description,
                     "support_level_icon": _SUPPORT_ICON_DESCRIPTIVE,
@@ -2286,6 +2301,8 @@ def _build_school_technique_rows(character: Character, engine) -> tuple[list[dic
                     "level_label": _to_roman(mastery.pick_order),
                     "school_name": weapon_master_school.name,
                     "school_id": weapon_master_school.id,
+                    "school_symbol": str(getattr(weapon_master_school, "panel_symbol", "") or "").strip(),
+                    "school_symbol_image_url": _school_symbol_image_url(weapon_master_school),
                     "entry_name": f"{mastery.weapon_type_label()} ({maneuver_bonus} / {damage_bonus})",
                     "description": "",
                     "support_level_icon": _SUPPORT_ICON_COMPUTED,
@@ -2318,6 +2335,8 @@ def _group_school_technique_rows(
             current_level = school_levels.get(school_id, 0) if school_id else 0
             groups[school_name] = {
                 "school_name": school_name,
+                "symbol": str(row.get("school_symbol") or "").strip(),
+                "symbol_image_url": str(row.get("school_symbol_image_url") or "").strip(),
                 "max_level": current_level,
                 "max_level_label": _to_roman(current_level) if current_level else "",
                 "rows": [],

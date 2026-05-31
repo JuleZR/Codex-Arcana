@@ -236,6 +236,18 @@ class MagicEngine:
             return "✦"
         return ""
 
+    @staticmethod
+    def _spell_group_symbol_image_url(group_kind: str, spell: Spell | None = None) -> str:
+        if group_kind != "arcane" or spell is None or not spell.school_id:
+            return ""
+        image = getattr(spell.school, "symbol_image", None)
+        if not image:
+            return ""
+        try:
+            return str(image.url or "")
+        except ValueError:
+            return ""
+
     def __init__(self, character: Character) -> None:
         self.character = character
 
@@ -927,6 +939,7 @@ class MagicEngine:
                 "kind": group_kind,
                 "name": group_name,
                 "symbol": self._spell_group_symbol(group_kind, rows[0]["_spell_obj"]) if rows else "",
+                "symbol_image_url": self._spell_group_symbol_image_url(group_kind, rows[0]["_spell_obj"]) if rows else "",
                 "rank_label": (
                     _to_roman(arcane_school_levels.get(group_name, 0))
                     if group_kind == "arcane"

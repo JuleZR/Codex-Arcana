@@ -2187,19 +2187,20 @@ class SchoolAdmin(admin.ModelAdmin):
     """Admin configuration for schools."""
 
     list_display = (
-        "name", "panel_symbol", "type", "type_slug",
+        "name", "panel_symbol", "has_symbol_image", "type", "type_slug",
         "path_count", "choice_block_count", "technique_count", "specialization_count",
     )
     search_fields = ("name", "type__name", "type__slug")
     list_filter = ("type",)
     ordering = ("type", "name")
-    readonly_fields = ("rulebook_editor_guide",)
+    readonly_fields = ("symbol_image_preview", "rulebook_editor_guide")
     fieldsets = (
         (
             "School",
             {
                 "fields": (
                     ("name", "type", "panel_symbol", "max_level"),
+                    ("symbol_image", "symbol_image_preview"),
                     "description",
                 ),
                 "description": (
@@ -2236,6 +2237,22 @@ class SchoolAdmin(admin.ModelAdmin):
     def rulebook_editor_guide(self, obj):
         """Explain the recommended rulebook-oriented editing order."""
         return _format_school_rulebook_guide_html()
+
+    @admin.display(boolean=True, description="Bild")
+    def has_symbol_image(self, obj):
+        """Return whether the school has a custom panel image."""
+        return bool(obj.symbol_image)
+
+    @admin.display(description="Bildvorschau")
+    def symbol_image_preview(self, obj):
+        """Render a compact preview of the school symbol image."""
+        if obj is None or not obj.symbol_image:
+            return "-"
+        return format_html(
+            '<img src="{}" alt="{}" style="max-width:64px; max-height:64px; border-radius:6px; border:1px solid #ccc; background:#fff; padding:3px;" />',
+            obj.symbol_image.url,
+            obj.name,
+        )
 
     @admin.display(ordering="name", description="Paths")
     def path_count(self, obj):

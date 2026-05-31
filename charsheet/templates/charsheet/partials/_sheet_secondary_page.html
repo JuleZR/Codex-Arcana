@@ -279,6 +279,13 @@
                 >
                   <span class="skill_name_text">
                     <span class="school_group_chevron" aria-hidden="true">&#x25B8;</span>
+                    {% if group.symbol_image_url %}
+                      <span class="school_group_symbol" aria-hidden="true">
+                        <img class="school_group_symbol_image" src="{{ group.symbol_image_url }}" alt="">
+                      </span>
+                    {% elif group.symbol %}
+                      <span class="school_group_symbol" aria-hidden="true">{{ group.symbol }}</span>
+                    {% endif %}
                     {{ group.school_name }}{% if group.max_level_label %} {{ group.max_level_label }}{% endif %}
                   </span>
                 </button>

@@ -26,7 +26,11 @@
           >
             <span class="spell_group_heading">
               <span class="spell_group_chevron" aria-hidden="true">&#9656;</span>
-              {% if group.symbol %}
+              {% if group.symbol_image_url %}
+                <span class="spell_group_symbol" aria-hidden="true">
+                  <img class="spell_group_symbol_image" src="{{ group.symbol_image_url }}" alt="">
+                </span>
+              {% elif group.symbol %}
                 <span class="spell_group_symbol" aria-hidden="true">{{ group.symbol }}</span>
               {% endif %}
               <span class="spell_group_title">{{ group.name }}{% if group.rank_label %} {{ group.rank_label }}{% endif %}</span>
