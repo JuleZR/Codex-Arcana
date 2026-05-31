@@ -48,6 +48,7 @@ Legacy-`Modifier` bleiben fuer alte Daten erhalten. Neue Regeln sollten als Sema
 | `scaling` | JSON fuer skalierte Effekte. |
 | `metadata` | JSON fuer Zusatzregeln, z. B. Skill-Spezifikation oder Lernkosten ueber 10. |
 | `target_choice_definition` | Optional: Effect wirkt auf das Ergebnis einer Technik-Choice statt auf einen festen `target_key`. |
+| `target_skills` | Optional: Mehrfachauswahl konkreter Skills. Nutze das statt `target_key`, wenn derselbe Effect auf mehrere einzelne Fertigkeiten wirken soll. |
 
 ## Admin-Ablauf
 
@@ -58,7 +59,7 @@ Legacy-`Modifier` bleiben fuer alte Daten erhalten. Neue Regeln sollten als Sema
 3. Falls die Technik passiv dauerhaft wirken soll: `technique_type = Passive`.
 4. Falls eine konkrete Spezifikation an der gelernten Technik gebraucht wird: `has_specification = True`.
 5. Im Inline **Semantic Effects** eine neue Zeile anlegen.
-6. `target_domain`, `target_key`, `operator`, `mode`, `value` setzen.
+6. `target_domain`, `target_key` oder `target_skills`, `operator`, `mode`, `value` setzen.
 7. Bei skalierten Effekten `scaling` setzen.
 8. Bei spezifizierten Skills `metadata` setzen.
 
@@ -95,6 +96,38 @@ scaling: {"scale_source":"school_level","mul":1,"div":2,"round_mode":"floor"}
 `value` ist bei `scaled` der Basisfaktor. Bei Schullevel 4, `value=1`, `div=2` entsteht `floor(4 * 1 / 2) = 2`.
 
 ## Skill-Ziele
+
+Du hast drei praktische Ziel-Arten:
+
+- Einzelner Slug: `target_key = skill_job`.
+- Mehrere konkrete Skills: `target_skills` aus der Skill-Auswahl befuellen und `target_key` leer lassen.
+- Choice-Ziel: `target_choice_definition` setzen und `target_key` leer lassen.
+
+`target_skills` funktioniert fuer `skill`, `skill_rank` und `skill_rank_cap`. Damit kannst du z. B. Singen, Tanzen, Musizieren, Malen, Handwerk und Mode in einem einzigen Effect auswaehlen, sofern dieselbe Regel fuer alle gilt.
+
+Beispiel: alle ausgewaehlten Skills duerfen +1 ueber Maximum lernen:
+
+```text
+target_domain: skill_rank_cap
+target_key: leer lassen
+target_skills: Singen, Tanzen, Musizieren, Malen, Handwerk, Mode
+operator: flat_add
+mode: flat
+value: 1
+metadata: {"above_base_cap_cost_ep":8}
+```
+
+Wenn ein Skill eine Spezifikation braucht, z. B. `Handwerk: Bildhauer`, setzt du zusaetzlich:
+
+```json
+{"skill_specification":"Bildhauer"}
+```
+
+Bei einer Technik mit eigener Spezifikation wird fuer Skill-Effekte automatisch diese Technik-Spezifikation verwendet. Wenn der Effect trotz spezifizierter Technik auf unspezifizierte Skills wirken soll, setze:
+
+```json
+{"skill_specification_source":""}
+```
 
 ### `target_domain = skill`
 

@@ -175,6 +175,7 @@ class ModifierEngine:
                 active_flag=True,
             )
             .select_related("technique", "target_choice_definition")
+            .prefetch_related("target_skills")
             .order_by("technique_id", "sort_order", "id")
         )
         return [effect.to_modifier() for effect in effects]
@@ -332,7 +333,13 @@ class ModifierEngine:
         """Return metadata for matching skill-rank-cap modifiers."""
         metadata: dict[str, Any] = {}
         for modifier in self.collect_active_modifiers(context=context):
-            if modifier.target_domain != TargetDomain.SKILL_RANK_CAP or modifier.target_key != skill_slug:
+            if modifier.target_domain != TargetDomain.SKILL_RANK_CAP:
+                continue
+            if not self._modifier_matches_target_key(
+                modifier,
+                target_domain=TargetDomain.SKILL_RANK_CAP,
+                target_key=skill_slug,
+            ):
                 continue
             if not self._modifier_matches_skill_specification(
                 modifier,
@@ -358,7 +365,11 @@ class ModifierEngine:
             if not expected:
                 continue
 
-            if modifier.target_key == skill_slug:
+            if self._modifier_matches_target_key(
+                modifier,
+                target_domain=modifier.target_domain,
+                target_key=skill_slug,
+            ):
                 specifications.add(expected)
                 display_values.setdefault(expected, self._display_skill_specification(modifier))
                 continue
@@ -521,7 +532,13 @@ class ModifierEngine:
 
         for layer_name, modifiers in layer_entries:
             for modifier in modifiers:
-                if modifier.target_domain != target_domain or modifier.target_key != target_key:
+                if modifier.target_domain != target_domain:
+                    continue
+                if not self._modifier_matches_target_key(
+                    modifier,
+                    target_domain=target_domain,
+                    target_key=target_key,
+                ):
                     continue
                 if not self._modifier_matches_skill_specification(
                     modifier,
@@ -641,7 +658,8 @@ class ModifierEngine:
         relevant_modifiers = [
             modifier
             for modifier in self.collect_active_modifiers(context=context)
-            if modifier.target_domain == target_domain and modifier.target_key == target_key
+            if modifier.target_domain == target_domain
+            and self._modifier_matches_target_key(modifier, target_domain=target_domain, target_key=target_key)
             and self._modifier_matches_skill_specification(
                 modifier,
                 target_domain=target_domain,
@@ -677,6 +695,16 @@ class ModifierEngine:
 
             resolved_total += int(resolved_value)
         return int(resolved_total)
+
+    @staticmethod
+    def _modifier_matches_target_key(modifier: BaseModifier, *, target_domain: str, target_key: str) -> bool:
+        """Match direct target_key or concrete skill selections stored in metadata."""
+        if modifier.target_key == target_key:
+            return True
+        if target_domain not in {TargetDomain.SKILL, TargetDomain.SKILL_RANK, TargetDomain.SKILL_RANK_CAP}:
+            return False
+        selected_skill_slugs = modifier.metadata.get("target_skill_slugs") or []
+        return target_key in selected_skill_slugs
 
     def _migrated_choice_skill_modifier_total(
         self,

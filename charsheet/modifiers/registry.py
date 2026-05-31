@@ -342,7 +342,7 @@ def _persisted_trait_semantic_modifiers(*, trait=None, trait_slug: str = "") -> 
     if resolved_trait is None and trait_slug:
         resolved_trait = (
             Trait.objects.filter(slug=trait_slug)
-            .prefetch_related("semantic_effects")
+            .prefetch_related("semantic_effects", "semantic_effects__target_skills")
             .first()
         )
     if resolved_trait is None:

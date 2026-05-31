@@ -254,6 +254,12 @@ class TraitSemanticEffect(models.Model):
         blank=True,
         related_name="semantic_effects",
     )
+    target_skills = models.ManyToManyField(
+        "Skill",
+        blank=True,
+        related_name="trait_semantic_effects",
+        help_text="Optional concrete skill targets. Use this instead of target_key for multi-skill effects.",
+    )
 
     target_domain = models.CharField(
         max_length=40,
@@ -339,7 +345,12 @@ class TraitSemanticEffect(models.Model):
         if self.target_choice_definition_id and self.target_choice_definition.trait_id != self.trait_id:
             raise ValidationError({"target_choice_definition": "The selected trait choice definition must belong to the same trait."})
         if not self.target_choice_definition_id and not str(self.target_key or "").strip():
-            raise ValidationError({"target_key": "Set a target key unless the effect is bound to a trait choice definition."})
+            if not self.pk:
+                return
+            if not self.target_skills.exists():
+                raise ValidationError(
+                    {"target_key": "Set a target key, choose target skills, or bind the effect to a trait choice definition."}
+                )
 
     def to_modifier(self):
         """Materialize this persisted effect as one typed modifier instance."""
@@ -389,6 +400,10 @@ class TraitSemanticEffect(models.Model):
                 "kind": "trait_choice_definition",
                 "id": int(self.target_choice_definition_id),
             }
+        if self.pk:
+            selected_skill_slugs = list(self.target_skills.order_by("slug").values_list("slug", flat=True))
+            if selected_skill_slugs:
+                metadata["target_skill_slugs"] = selected_skill_slugs
         return modifier_cls(
             source_type="trait",
             source_id=self.trait.slug,

@@ -1783,8 +1783,13 @@ class TraitSemanticEffectInlineForm(forms.ModelForm):
         cleaned_data = super().clean()
         target_key = str(cleaned_data.get("target_key") or "").strip()
         target_choice_definition = cleaned_data.get("target_choice_definition")
-        if not target_choice_definition and not target_key:
-            self.add_error("target_key", "Set a target key unless the effect is bound to a trait choice definition.")
+        target_skills = cleaned_data.get("target_skills")
+        has_target_skills = bool(target_skills)
+        if not target_choice_definition and not target_key and not has_target_skills:
+            self.add_error(
+                "target_key",
+                "Set a target key, choose target skills, or bind the effect to a trait choice definition.",
+            )
         return cleaned_data
 
 
@@ -1804,8 +1809,13 @@ class TechniqueSemanticEffectInlineForm(forms.ModelForm):
         cleaned_data = super().clean()
         target_key = str(cleaned_data.get("target_key") or "").strip()
         target_choice_definition = cleaned_data.get("target_choice_definition")
-        if not target_choice_definition and not target_key:
-            self.add_error("target_key", "Set a target key unless the effect is bound to a technique choice definition.")
+        target_skills = cleaned_data.get("target_skills")
+        has_target_skills = bool(target_skills)
+        if not target_choice_definition and not target_key and not has_target_skills:
+            self.add_error(
+                "target_key",
+                "Set a target key, choose target skills, or bind the effect to a technique choice definition.",
+            )
         return cleaned_data
 
 
@@ -1904,7 +1914,7 @@ class TraitSemanticEffectInline(admin.StackedInline):
     form = TraitSemanticEffectInlineForm
     extra = 0
     show_change_link = True
-    autocomplete_fields = ("target_choice_definition",)
+    autocomplete_fields = ("target_choice_definition", "target_skills")
     fieldsets = (
         (
             "Target",
@@ -1913,6 +1923,7 @@ class TraitSemanticEffectInline(admin.StackedInline):
                     ("sort_order", "active_flag", "priority"),
                     ("target_domain", "target_key", "operator"),
                     "target_choice_definition",
+                    "target_skills",
                     ("mode", "stack_behavior", "visibility"),
                     ("hidden", "sheet_relevant"),
                 )
@@ -1950,7 +1961,7 @@ class TechniqueSemanticEffectInline(admin.StackedInline):
     form = TechniqueSemanticEffectInlineForm
     extra = 0
     show_change_link = True
-    autocomplete_fields = ("target_choice_definition",)
+    autocomplete_fields = ("target_choice_definition", "target_skills")
     fieldsets = TraitSemanticEffectInline.fieldsets
 
 

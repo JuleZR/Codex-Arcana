@@ -480,6 +480,12 @@ class TechniqueSemanticEffect(models.Model):
         blank=True,
         related_name="semantic_effects",
     )
+    target_skills = models.ManyToManyField(
+        Skill,
+        blank=True,
+        related_name="technique_semantic_effects",
+        help_text="Optional concrete skill targets. Use this instead of target_key for multi-skill effects.",
+    )
 
     target_domain = models.CharField(max_length=40, choices=TARGET_DOMAIN_CHOICES, default="skill")
     target_key = models.CharField(max_length=120, blank=True, default="")
@@ -553,7 +559,12 @@ class TechniqueSemanticEffect(models.Model):
                 {"target_choice_definition": "The selected technique choice definition must belong to the same technique."}
             )
         if not self.target_choice_definition_id and not str(self.target_key or "").strip():
-            raise ValidationError({"target_key": "Set a target key unless the effect is bound to a technique choice definition."})
+            if not self.pk:
+                return
+            if not self.target_skills.exists():
+                raise ValidationError(
+                    {"target_key": "Set a target key, choose target skills, or bind the effect to a technique choice definition."}
+                )
 
     def to_modifier(self):
         """Materialize this persisted effect as one typed modifier instance."""
@@ -604,6 +615,10 @@ class TechniqueSemanticEffect(models.Model):
                 "kind": "technique_choice_definition",
                 "id": int(self.target_choice_definition_id),
             }
+        if self.pk:
+            selected_skill_slugs = list(self.target_skills.order_by("slug").values_list("slug", flat=True))
+            if selected_skill_slugs:
+                metadata["target_skill_slugs"] = selected_skill_slugs
         if self.technique.has_specification and "skill_specification_source" not in metadata:
             metadata["skill_specification_source"] = "technique_specification"
         return modifier_cls(
