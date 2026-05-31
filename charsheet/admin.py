@@ -13,7 +13,7 @@ from django.db.models import Q
 from django.urls import path, reverse
 from django.utils.html import format_html, format_html_join
 
-from .constants import QUALITY_COLOR_MAP
+from .constants import QUALITY_COLOR_MAP, SCHOOL_ARCANE
 from .admin_help import (
     ATTRIBUTE_CHOICE_HELP,
     CHARACTER_CHOICE_HELP,
@@ -2245,11 +2245,11 @@ class SchoolAdmin(admin.ModelAdmin):
     """Admin configuration for schools."""
 
     list_display = (
-        "name", "panel_symbol", "has_symbol_image", "type", "type_slug",
+        "name", "panel_symbol", "has_symbol_image", "type", "type_slug", "opposite",
         "path_count", "choice_block_count", "technique_count", "specialization_count",
     )
-    search_fields = ("name", "type__name", "type__slug")
-    list_filter = ("type",)
+    search_fields = ("name", "type__name", "type__slug", "opposite__name")
+    list_filter = ("type", "opposite")
     ordering = ("type", "name")
     readonly_fields = ("symbol_image_preview", "rulebook_editor_guide")
     fieldsets = (
@@ -2257,7 +2257,8 @@ class SchoolAdmin(admin.ModelAdmin):
             "School",
             {
                 "fields": (
-                    ("name", "type", "panel_symbol", "max_level"),
+                    ("name", "type", "opposite"),
+                    ("panel_symbol", "max_level"),
                     ("symbol_image", "symbol_image_preview"),
                     "description",
                 ),
@@ -2283,13 +2284,19 @@ class SchoolAdmin(admin.ModelAdmin):
         SchoolCharacterInline,
         ModifierInline,
     )
-    autocomplete_fields = ("type",)
-    list_select_related = ("type",)
+    autocomplete_fields = ("type", "opposite")
+    list_select_related = ("type", "opposite")
 
     @admin.display(ordering="type__slug", description="School Type Key")
     def type_slug(self, obj):
         """Return the related school type slug for list display."""
         return obj.type.slug
+
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        """Limit opposite-school choices to magic schools."""
+        if db_field.name == "opposite":
+            kwargs["queryset"] = School.objects.filter(type__slug=SCHOOL_ARCANE).order_by("name")
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
     @admin.display(description="Editing Order")
     def rulebook_editor_guide(self, obj):

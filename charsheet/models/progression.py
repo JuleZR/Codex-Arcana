@@ -4,7 +4,7 @@ from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
-from ..constants import SCHOOL_TYPE_CHOICES
+from ..constants import SCHOOL_ARCANE, SCHOOL_TYPE_CHOICES
 
 
 class SchoolType(models.Model):
@@ -25,6 +25,15 @@ class School(models.Model):
 
     name = models.CharField(max_length=100, unique=True)
     type = models.ForeignKey(SchoolType, on_delete=models.PROTECT)
+    opposite = models.ForeignKey(
+        "self",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="opposed_by",
+        limit_choices_to={"type__slug": SCHOOL_ARCANE},
+        help_text="Optional opposite school, primarily for opposed elemental magic schools.",
+    )
     panel_symbol = models.CharField(
         max_length=8,
         blank=True,
@@ -47,6 +56,16 @@ class School(models.Model):
 
     class Meta:
         ordering = ["type__name", "name"]
+
+    def clean(self):
+        super().clean()
+        if self.opposite_id and self.opposite_id == self.id:
+            raise ValidationError({"opposite": "A school cannot oppose itself."})
+        if self.opposite_id:
+            if self.type_id and self.type.slug != SCHOOL_ARCANE:
+                raise ValidationError({"opposite": "Only magic schools can define an opposite school."})
+            if self.opposite.type.slug != SCHOOL_ARCANE:
+                raise ValidationError({"opposite": "Only magic schools can be selected as opposite schools."})
 
     def __str__(self):
         return self.name
