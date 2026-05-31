@@ -1914,7 +1914,8 @@ class TraitSemanticEffectInline(admin.StackedInline):
     form = TraitSemanticEffectInlineForm
     extra = 0
     show_change_link = True
-    autocomplete_fields = ("target_choice_definition", "target_skills")
+    autocomplete_fields = ("target_choice_definition",)
+    filter_horizontal = ("target_skills",)
     fieldsets = (
         (
             "Target",
@@ -1961,7 +1962,8 @@ class TechniqueSemanticEffectInline(admin.StackedInline):
     form = TechniqueSemanticEffectInlineForm
     extra = 0
     show_change_link = True
-    autocomplete_fields = ("target_choice_definition", "target_skills")
+    autocomplete_fields = ("target_choice_definition",)
+    filter_horizontal = ("target_skills",)
     fieldsets = TraitSemanticEffectInline.fieldsets
 
 
