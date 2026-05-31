@@ -72,6 +72,7 @@ function applySpellFilter(input, rows, groups, selectedSchools = null, schoolNam
   const needle = normalizeText(input instanceof HTMLInputElement ? input.value : "");
   const selectedSchoolSet = selectedSchools instanceof Set ? selectedSchools : new Set();
   const allSchoolsSelected = schoolNames.length === 0 || selectedSchoolSet.size === schoolNames.length;
+  const schoolFilterActive = !allSchoolsSelected;
   const singleSchoolFilterActive = selectedSchoolSet.size === 1 && !allSchoolsSelected;
 
   rows.forEach((row) => {
@@ -87,7 +88,7 @@ function applySpellFilter(input, rows, groups, selectedSchools = null, schoolNam
     }
     const groupName = String(btn?.getAttribute("data-spell-group-name") || "").trim();
     const groupKind = String(btn?.getAttribute("data-spell-group-kind") || "").trim();
-    const schoolMatches = allSchoolsSelected || (groupKind === "arcane" && selectedSchoolSet.has(groupName));
+    const schoolMatches = !schoolFilterActive || (groupKind === "arcane" && selectedSchoolSet.has(groupName));
 
     if (!schoolMatches) {
       group.hidden = true;
@@ -213,7 +214,9 @@ export function initSpellPanel() {
         return;
       }
       const filterName = String(button.getAttribute("data-spell-school-filter") || "all");
-      const isActive = filterName === "all" ? allSelected : activeSchoolFilters.has(filterName);
+      const isActive = filterName === "all"
+        ? allSelected
+        : (!allSelected && activeSchoolFilters.has(filterName));
       button.classList.toggle("is-active", isActive);
       button.setAttribute("aria-pressed", isActive ? "true" : "false");
     });
