@@ -296,9 +296,16 @@ def build_learning_magic_groups(character, *, magic_engine=None) -> list[dict[st
         if group_rows:
             groups[group["name"]] = group_rows
 
-    for grant_row in engine.get_divine_arcane_spell_choices():
-        group_name = f"{grant_row['entity_name']} | Arkane Gabe"
+    grant_rows = list(engine.get_divine_arcane_spell_choices())
+    grant_remaining_by_entity = {
+        int(row["entity_id"]): sum(1 for other in grant_rows if int(other["entity_id"]) == int(row["entity_id"]))
+        for row in grant_rows
+    }
+    for grant_row in grant_rows:
+        group_name = f"{grant_row['school_name']} | Arkane Gabe"
         rows = groups.setdefault(group_name, [])
+        slot_source_key = f"divine-arcane:{grant_row['entity_id']}"
+        source_remaining = int(grant_remaining_by_entity.get(int(grant_row["entity_id"]), 0))
         for spell in grant_row["options"]:
             rows.append(
                 {
@@ -307,6 +314,12 @@ def build_learning_magic_groups(character, *, magic_engine=None) -> list[dict[st
                     "name": spell.name,
                     "owner_name": spell.school.name,
                     **_spell_owner_symbol_data(spell),
+                    "filter_source_key": f"school:{spell.school_id}",
+                    "filter_source_name": spell.school.name,
+                    "slot_source_key": slot_source_key,
+                    "slot_source_name": f"{grant_row['school_name']} Arkane Gabe",
+                    "slot_source_remaining": source_remaining,
+                    "slot_source_cost": 1,
                     "grade": int(spell.grade),
                     "grade_label": f"{int(spell.grade)} + Stufe" if spell.grade_adds_level else str(int(spell.grade)),
                     "description": (spell.description or "").replace("\r\n", "\n").replace("\r", "\n"),

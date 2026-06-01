@@ -191,6 +191,9 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
       cost,
       invalidWrite,
       spellSlots: kind === "magic-spell" ? value * readInt(row.getAttribute("data-slot-cost"), 1) : 0,
+      spellSlotSourceCost: kind === "magic-spell"
+        ? value * readInt(row.getAttribute("data-slot-source-cost"), readInt(row.getAttribute("data-slot-cost"), 1))
+        : 0,
       spellSlotSourceKey: kind === "magic-spell" ? row.getAttribute("data-slot-source-key") || "" : "",
       spellSlotSourceName: kind === "magic-spell" ? row.getAttribute("data-slot-source-name") || "" : "",
       spellSlotSourceRemaining: kind === "magic-spell"
@@ -210,10 +213,10 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
       spent += result.cost;
       spentSpellSlots += result.spellSlots;
       invalidWrite = invalidWrite || result.invalidWrite;
-      if (result.spellSlots > 0 && result.spellSlotSourceKey) {
+      if (result.spellSlotSourceCost > 0 && result.spellSlotSourceKey) {
         spentSpellSlotsBySource.set(
           result.spellSlotSourceKey,
-          (spentSpellSlotsBySource.get(result.spellSlotSourceKey) || 0) + result.spellSlots,
+          (spentSpellSlotsBySource.get(result.spellSlotSourceKey) || 0) + result.spellSlotSourceCost,
         );
         spellSlotSourceLimits.set(result.spellSlotSourceKey, {
           name: result.spellSlotSourceName || result.spellSlotSourceKey,
@@ -599,6 +602,7 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
       const slotSourceKey = source.getAttribute("data-slot-source-key") || "";
       const slotSourceName = source.getAttribute("data-slot-source-name") || ownerName;
       const slotSourceRemaining = source.getAttribute("data-slot-source-remaining") || "0";
+      const slotSourceCost = source.getAttribute("data-slot-source-cost") || String(slotCost);
       const symbolMarkup = ownerSymbolImageUrl
         ? `<img class="learn_spell_symbol__image" src="${escapeHtml(ownerSymbolImageUrl)}" alt="" width="18" height="18">`
         : escapeHtml(ownerSymbol);
@@ -607,6 +611,7 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
       row.setAttribute("data-slot-source-key", slotSourceKey);
       row.setAttribute("data-slot-source-name", slotSourceName);
       row.setAttribute("data-slot-source-remaining", slotSourceRemaining);
+      row.setAttribute("data-slot-source-cost", slotSourceCost);
       row.innerHTML = `
         <td>
           <span>${safeName}</span>
@@ -864,7 +869,7 @@ export function initLearningMenu({ choiceWindowController = null } = {}) {
       const matchesText = needle.length === 0 || haystack.includes(needle);
       const matchesSource = !activeMagicSourceFilter
         || kind !== "magic-spell"
-        || String(row.getAttribute("data-slot-source-key") || "") === activeMagicSourceFilter;
+        || String(row.getAttribute("data-filter-source-key") || row.getAttribute("data-slot-source-key") || "") === activeMagicSourceFilter;
       const matchesGrade = !activeMagicGradeFilter
         || kind !== "magic-spell"
         || String(row.getAttribute("data-level") || "") === activeMagicGradeFilter;

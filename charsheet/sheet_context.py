@@ -2784,6 +2784,20 @@ def _build_learning_rows(
         for row in rows
         if row.get("kind") == "magic_spell" and row.get("grade") is not None
     })
+    learn_magic_source_filter_map: OrderedDict[str, dict[str, str]] = OrderedDict()
+    for rows in magic_groups.values():
+        for row in rows:
+            if row.get("kind") != "magic_spell":
+                continue
+            key = str(row.get("filter_source_key") or row.get("slot_source_key") or "")
+            if not key or key in learn_magic_source_filter_map:
+                continue
+            learn_magic_source_filter_map[key] = {
+                "key": key,
+                "name": str(row.get("filter_source_name") or row.get("owner_name") or ""),
+                "symbol": str(row.get("owner_symbol") or "*"),
+                "symbol_image_url": str(row.get("owner_symbol_image_url") or ""),
+            }
     has_magic_schools = any(
         (
             bool(magic_engine._magic_school_entries()),
@@ -2815,6 +2829,7 @@ def _build_learning_rows(
         "learn_magic_tab_visible": has_magic_schools,
         "learn_magic_slot_summary": magic_slot_summary,
         "learn_magic_grade_filters": learn_magic_grade_filters,
+        "learn_magic_source_filters": list(learn_magic_source_filter_map.values()),
     }
 
 

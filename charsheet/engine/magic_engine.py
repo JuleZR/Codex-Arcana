@@ -16,6 +16,7 @@ from charsheet.models import (
     CharacterSchool,
     CharacterSpell,
     CharacterSpellSource,
+    DivineEntity,
     School,
     Spell,
     Trait,
@@ -326,6 +327,25 @@ class MagicEngine:
             .first()
         )
 
+    def _divine_arcane_grant_entities(self) -> list[DivineEntity]:
+        learned_school_ids = {entry.school_id for entry in self._divine_school_entries()}
+        if not learned_school_ids:
+            return []
+        entities_by_id: dict[int, DivineEntity] = {}
+        binding = self._divine_binding()
+        if (
+            binding is not None
+            and binding.entity.grants_arcane_spell_choice_per_level
+            and binding.entity.school_id in learned_school_ids
+        ):
+            entities_by_id[binding.entity_id] = binding.entity
+        for entity in DivineEntity.objects.filter(
+            grants_arcane_spell_choice_per_level=True,
+            school_id__in=learned_school_ids,
+        ).select_related("school", "school__type"):
+            entities_by_id.setdefault(entity.id, entity)
+        return sorted(entities_by_id.values(), key=lambda entity: (entity.school.name, entity.name))
+
     def _aspect_entries(self) -> list[CharacterAspect]:
         return list(
             self.character.aspect_entries.select_related("aspect", "source_entity").order_by(
@@ -479,6 +499,29 @@ class MagicEngine:
 
         for source in sources.values():
             source["remaining"] = max(0, int(source["total"]) - int(source["spent"]))
+        for choice_row in self.get_divine_arcane_spell_choices():
+            key = f"divine-arcane:{choice_row['entity_id']}"
+            if key not in sources:
+                total = max(0, int(choice_row["divine_level"]))
+                spent = CharacterSpell.objects.filter(
+                    character=self.character,
+                    source_kind=CharacterSpell.SourceKind.DIVINE_ARCANE_GRANTED,
+                    granted_by_entity_id=int(choice_row["entity_id"]),
+                ).count()
+                sources[key] = {
+                    "key": key,
+                    "kind": "divine_arcane",
+                    "id": int(choice_row["entity_id"]),
+                    "name": f"{choice_row['school_name']} Arkane Gabe",
+                    "symbol": str(getattr(choice_row.get("school"), "panel_symbol", "") or "").strip() or "*",
+                    "symbol_image_url": str(choice_row.get("symbol_image_url") or ""),
+                    "level": int(choice_row["divine_level"]),
+                    "slots_per_level": 1,
+                    "total": total,
+                    "spent": spent,
+                    "remaining": 0,
+                }
+            sources[key]["remaining"] = int(sources[key]["remaining"]) + 1
         return sources
 
     def get_spell_learning_options(self) -> list[dict[str, object]]:
@@ -507,6 +550,8 @@ class MagicEngine:
                         "name": spell.name,
                         "owner_name": school_entry.school.name,
                         **self._spell_owner_symbol_data(spell),
+                        "filter_source_key": f"school:{spell.school_id}",
+                        "filter_source_name": spell.school.name,
                         "slot_source_key": str(slot_source.get("key", "")),
                         "slot_source_name": str(slot_source.get("name", school_entry.school.name)),
                         "slot_source_remaining": int(slot_source.get("remaining", 0) or 0),
@@ -544,6 +589,8 @@ class MagicEngine:
                     "name": spell.name,
                     "owner_name": spell.aspect.name,
                     **self._spell_owner_symbol_data(spell),
+                    "filter_source_key": f"aspect:{spell.aspect_id}",
+                    "filter_source_name": spell.aspect.name,
                     "slot_source_key": str(slot_source.get("key", "")),
                     "slot_source_name": str(slot_source.get("name", spell.aspect.name)),
                     "slot_source_remaining": int(slot_source.get("remaining", 0) or 0),
@@ -557,54 +604,57 @@ class MagicEngine:
         return [{"name": group_name, "rows": rows} for group_name, rows in groups.items() if rows]
 
     def get_divine_arcane_spell_choices(self) -> list[dict[str, object]]:
-        binding = self._divine_binding()
-        if binding is None or not binding.entity.grants_arcane_spell_choice_per_level:
-            return []
-        divine_level = int(self._school_level_map().get(binding.entity.school_id, 0))
-        if divine_level <= 0:
-            return []
-
         known_spell_ids = set(self.character.known_spells.values_list("spell_id", flat=True))
-        existing_rows = (
-            CharacterSpell.objects.filter(
-                character=self.character,
-                source_kind=CharacterSpell.SourceKind.DIVINE_ARCANE_GRANTED,
-                granted_by_entity=binding.entity,
-            )
-            .select_related("spell")
-            .order_by("granted_for_level", "spell__name")
-        )
-        granted_levels = {int(entry.granted_for_level) for entry in existing_rows if entry.granted_for_level}
         rows: list[dict[str, object]] = []
-        for granted_level in range(1, divine_level + 1):
-            if granted_level in granted_levels:
+        arcane_school_ids = [
+            school.id
+            for school in School.objects.select_related("type").all()
+            if self._school_matches_magic_type(school, SCHOOL_ARCANE)
+        ]
+        for entity in self._divine_arcane_grant_entities():
+            divine_level = int(self._school_level_map().get(entity.school_id, 0))
+            if divine_level <= 0:
                 continue
-            options = list(
-                Spell.objects.filter(
-                    school_id__in=[
-                        school.id
-                        for school in School.objects.select_related("type").all()
-                        if self._school_matches_magic_type(school, SCHOOL_ARCANE)
-                    ],
-                    grade=granted_level,
+            existing_rows = (
+                CharacterSpell.objects.filter(
+                    character=self.character,
+                    source_kind=CharacterSpell.SourceKind.DIVINE_ARCANE_GRANTED,
+                    granted_by_entity=entity,
                 )
-                .exclude(id__in=known_spell_ids)
-                .select_related("school")
-                .order_by("school__name", "name")
+                .select_related("spell")
+                .order_by("granted_for_level", "spell__name")
             )
-            if not options:
-                continue
-            rows.append(
-                {
-                    "entity_id": binding.entity_id,
-                    "entity_name": binding.entity.name,
-                    "school_id": binding.entity.school_id,
-                    "school_name": binding.entity.school.name,
-                    "divine_level": divine_level,
-                    "granted_level": granted_level,
-                    "options": options,
-                }
+            granted_levels = {int(entry.granted_for_level) for entry in existing_rows if entry.granted_for_level}
+            symbol_image_url = self._image_url(getattr(entity, "symbol_image", None)) or self._image_url(
+                getattr(entity.school, "symbol_image", None)
             )
+            for granted_level in range(1, divine_level + 1):
+                if granted_level in granted_levels:
+                    continue
+                options = list(
+                    Spell.objects.filter(
+                        school_id__in=arcane_school_ids,
+                        grade=granted_level,
+                    )
+                    .exclude(id__in=known_spell_ids)
+                    .select_related("school")
+                    .order_by("school__name", "name")
+                )
+                if not options:
+                    continue
+                rows.append(
+                    {
+                        "entity_id": entity.id,
+                        "entity_name": entity.name,
+                        "school_id": entity.school_id,
+                        "school": entity.school,
+                        "school_name": entity.school.name,
+                        "symbol_image_url": symbol_image_url,
+                        "divine_level": divine_level,
+                        "granted_level": granted_level,
+                        "options": options,
+                    }
+                )
         return rows
 
     def _ensure_bonus_spell_sources(self) -> list[CharacterSpellSource]:

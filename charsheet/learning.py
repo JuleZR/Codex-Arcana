@@ -35,6 +35,7 @@ from charsheet.models import (
     CharacterTechniqueChoice,
     CharacterWeaponMastery,
     CharacterWeaponMasteryArcana,
+    DivineEntity,
     Language,
     School,
     Spell,
@@ -888,28 +889,29 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
                 character.save(update_fields=["spent_spell_learning_slots"])
 
             if divine_arcane_spell_selection:
-                binding = magic_engine._divine_binding()
-                if binding is None or not binding.entity.grants_arcane_spell_choice_per_level:
-                    raise LearningSubmissionError("Keine passende goettliche Sonderregel fuer arkane Gaben gefunden.")
-                choice_rows = {
-                    int(row["granted_level"]): row
-                    for row in magic_engine.get_divine_arcane_spell_choices()
-                }
+                choice_rows = list(magic_engine.get_divine_arcane_spell_choices())
                 for granted_level, spell_id in divine_arcane_spell_selection.items():
-                    choice_row = choice_rows.get(int(granted_level))
+                    choice_row = next(
+                        (
+                            row for row in choice_rows
+                            if int(row["granted_level"]) == int(granted_level)
+                            and int(spell_id) in {int(spell.id) for spell in row["options"]}
+                        ),
+                        None,
+                    )
                     if choice_row is None:
                         raise LearningSubmissionError(f"Arkane Gabe Grad {granted_level}: Keine gueltige Auswahl verfuegbar.")
-                    legal_ids = {int(spell.id) for spell in choice_row["options"]}
-                    if int(spell_id) not in legal_ids:
-                        raise LearningSubmissionError(f"Arkane Gabe Grad {granted_level}: Ungueltige Zauberwahl.")
                     spell = Spell.objects.select_related("school", "aspect").filter(pk=int(spell_id)).first()
                     if spell is None:
                         raise LearningSubmissionError("Zauber nicht gefunden.")
+                    entity = DivineEntity.objects.filter(pk=int(choice_row["entity_id"])).first()
+                    if entity is None:
+                        raise LearningSubmissionError("Goettliche Quelle fuer arkane Gabe nicht gefunden.")
                     spell_entry = CharacterSpell(
                         character=character,
                         spell=spell,
                         source_kind=CharacterSpell.SourceKind.DIVINE_ARCANE_GRANTED,
-                        granted_by_entity=binding.entity,
+                        granted_by_entity=entity,
                         granted_for_level=int(granted_level),
                         uses_divine_school_level=True,
                         ignore_critical_fumble_table=True,

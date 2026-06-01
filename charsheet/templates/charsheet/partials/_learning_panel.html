@@ -145,8 +145,7 @@
                               </svg>
                             </span>
                           </button>
-                          {% for source in learn_magic_slot_summary.sources.values %}
-                            {% if source.total %}
+                          {% for source in learn_magic_source_filters %}
                               <button
                                 type="button"
                                 class="learn_magic_filter_btn"
@@ -163,7 +162,6 @@
                                   {% endif %}
                                 </span>
                               </button>
-                            {% endif %}
                           {% endfor %}
                         </div>
                       </div>
@@ -249,10 +247,8 @@
                 data-tab-panel
                 hidden
               >
-                <details class="shop_group" data-learn-group open>
-                  <summary><span>Vor- & Nachteile</span><span class="shop_group_count">{{ learn_trait_count }}</span></summary>
-                  {% for group in learn_trait_groups %}
-                    <details class="shop_group learn_subgroup" data-learn-group open>
+                {% for group in learn_trait_groups %}
+                  <details class="shop_group learn_subgroup" data-learn-group open>
                       <summary><span>{{ group.name }}</span><span class="shop_group_count">{{ group.rows|length }}</span></summary>
                       <table class="shop_table">
                         <tbody>
@@ -275,9 +271,8 @@
                           {% endfor %}
                         </tbody>
                       </table>
-                    </details>
-                  {% endfor %}
-                </details>
+                  </details>
+                {% endfor %}
               </section>
 
               <section
@@ -288,10 +283,8 @@
                 data-tab-panel
                 hidden
               >
-                <details class="shop_group" data-learn-group open>
-                  <summary><span>Fertigkeiten</span><span class="shop_group_count">{{ learn_skill_count }}</span></summary>
-                  {% for group in learn_skill_groups %}
-                    <details class="shop_group learn_subgroup" data-learn-group open>
+                {% for group in learn_skill_groups %}
+                  <details class="shop_group learn_subgroup" data-learn-group open>
                       <summary><span>{{ group.name }}</span><span class="shop_group_count">{{ group.rows|length }}</span></summary>
                       <table class="shop_table">
                         <tbody>
@@ -333,9 +326,8 @@
                           {% endfor %}
                         </tbody>
                       </table>
-                    </details>
-                  {% endfor %}
-                </details>
+                  </details>
+                {% endfor %}
               </section>
 
               <section
@@ -381,10 +373,8 @@
                 data-tab-panel
                 hidden
               >
-                <details class="shop_group" data-learn-group open>
-                  <summary><span>Schulen</span><span class="shop_group_count">{{ learn_school_count }}</span></summary>
-                  {% for group in learn_school_groups %}
-                    <details class="shop_group learn_subgroup" data-learn-group open>
+                {% for group in learn_school_groups %}
+                  <details class="shop_group learn_subgroup" data-learn-group open>
                       <summary><span>{{ group.name }}</span><span class="shop_group_count">{{ group.rows|length }}</span></summary>
                       <table class="shop_table">
                         <tbody>
@@ -405,9 +395,8 @@
                           {% endfor %}
                         </tbody>
                       </table>
-                    </details>
-                  {% endfor %}
-                </details>
+                  </details>
+                {% endfor %}
               </section>
               {% if learn_magic_tab_visible %}
                 <section
@@ -477,6 +466,8 @@
                                 data-slot-source-key="{{ row.slot_source_key|default:'' }}"
                                 data-slot-source-name="{{ row.slot_source_name|default:row.owner_name }}"
                                 data-slot-source-remaining="{{ row.slot_source_remaining|default:0 }}"
+                                data-slot-source-cost="{{ row.slot_source_cost|default:row.slot_cost|default:1 }}"
+                                data-filter-source-key="{{ row.filter_source_key|default:row.slot_source_key|default:'' }}"
                                 data-learn-search="{{ row.search_tokens }}"
                                 tabindex="0"
                                 role="button"

@@ -1878,6 +1878,9 @@
   flex-direction: column;
   gap: 0;
   padding-bottom: 10px;
+  position: relative;
+  z-index: 80;
+  overflow: visible;
 }
 
 .sheet-window .learn_tabs__tab {
@@ -2057,7 +2060,7 @@
 
 .learn-window__body .shop_toolbar {
   position: relative;
-  z-index: 1;
+  z-index: 90;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -2086,6 +2089,7 @@
 .learn_magic_filter_menu {
   position: relative;
   flex: 0 0 auto;
+  z-index: 100;
 }
 
 .learn_magic_filter_trigger {
@@ -2154,7 +2158,7 @@
 
 .learn_magic_filter_popover {
   position: absolute;
-  z-index: 40;
+  z-index: 1000;
   left: auto;
   right: 0;
   top: calc(100% + 5px);
@@ -2171,6 +2175,7 @@
   background: rgba(247, 239, 219, 0.98);
   box-shadow: 0 8px 20px rgba(49, 32, 17, 0.2);
   white-space: nowrap;
+  pointer-events: auto;
 }
 
 .learn_magic_filter_popover[hidden] {

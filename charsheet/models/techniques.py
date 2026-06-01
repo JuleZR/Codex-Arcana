@@ -1773,12 +1773,10 @@ class CharacterSpell(models.Model):
                     raise ValidationError(
                         {"granted_by_entity": "The character does not know the divine school of the granting entity."}
                     )
-            if self.character_id and self.granted_by_entity_id:
-                binding = CharacterDivineEntity.objects.filter(character_id=self.character_id).first()
-                if binding is None or binding.entity_id != self.granted_by_entity_id:
-                    raise ValidationError(
-                        {"granted_by_entity": "The granting entity must match the character's bound divine entity."}
-                    )
+            if self.granted_by_entity_id and not self.granted_by_entity.grants_arcane_spell_choice_per_level:
+                raise ValidationError(
+                    {"granted_by_entity": "The granting entity does not grant special arcane spell choices."}
+                )
 
         if self.character_id and self.spell_id and self.spell.school_id:
             if (not is_divine_arcane_grant) and not CharacterSchool.objects.filter(
