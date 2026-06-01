@@ -224,7 +224,13 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
     const budget = getBudget();
     const remaining = budget - spent;
     const spellSlotBudget = readInt(document.getElementById("learnBudgetPanel")?.getAttribute("data-learn-spell-slot-budget") || "0", 0);
-    const spellSlotSpentBase = readInt(document.getElementById("learnSpellSlotSpentValue")?.getAttribute("data-base-spent-slots") || "0", 0);
+    const magicBudgetPanel = document.querySelector("[data-learn-magic-budget]");
+    const spellSlotSpentBase = readInt(
+      magicBudgetPanel?.getAttribute("data-base-spent-slots")
+        || document.getElementById("learnSpellSlotSpentValue")?.getAttribute("data-base-spent-slots")
+        || "0",
+      0,
+    );
     const spellSlotSpentTotal = spellSlotSpentBase + spentSpellSlots;
     const spellSlotRemaining = spellSlotBudget - spellSlotSpentTotal;
     const liveBudgetEl = document.getElementById("learnBudgetValue");
@@ -255,6 +261,21 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
       liveSpellSlotRemainingEl.textContent = `${spellSlotRemaining}`;
       liveSpellSlotRemainingEl.classList.toggle("is-negative", spellSlotRemaining < 0);
     }
+    Array.from(document.querySelectorAll("[data-learn-slot-source-chip]")).forEach((chip) => {
+      if (!(chip instanceof HTMLElement)) {
+        return;
+      }
+      const sourceKey = chip.getAttribute("data-slot-source-key") || "";
+      const baseRemaining = readInt(chip.getAttribute("data-slot-source-remaining"), 0);
+      const selected = spentSpellSlotsBySource.get(sourceKey) || 0;
+      const sourceRemaining = baseRemaining - selected;
+      const countEl = chip.querySelector("[data-learn-slot-source-count]");
+      if (countEl) {
+        countEl.textContent = String(sourceRemaining);
+      }
+      chip.classList.toggle("is-negative", sourceRemaining < 0);
+      chip.classList.toggle("is-empty", sourceRemaining === 0);
+    });
     if (liveValidationHint) {
       const messages = [];
       if (remaining < 0) {
@@ -754,23 +775,179 @@ export function initLearningMenu({ choiceWindowController = null } = {}) {
   document.addEventListener("learn:choices-updated", syncPendingNotice);
   syncPendingNotice();
 
+  const sourceFilterMenu = document.querySelector("[data-learn-magic-source-filter-menu]");
+  const sourceFilterTrigger = document.querySelector("[data-learn-magic-source-filter-trigger]");
+  const sourceFilterTriggerIcon = document.querySelector("[data-learn-magic-source-filter-trigger-icon]");
+  const sourceFilterPopover = document.querySelector("[data-learn-magic-source-filter-popover]");
+  const sourceFilterButtons = Array.from(document.querySelectorAll("[data-learn-magic-source-filter]"));
+  const gradeFilterMenu = document.querySelector("[data-learn-magic-grade-filter-menu]");
+  const gradeFilterTrigger = document.querySelector("[data-learn-magic-grade-filter-trigger]");
+  const gradeFilterTriggerLabel = document.querySelector("[data-learn-magic-grade-filter-trigger-label]");
+  const gradeFilterPopover = document.querySelector("[data-learn-magic-grade-filter-popover]");
+  const gradeFilterButtons = Array.from(document.querySelectorAll("[data-learn-magic-grade-filter]"));
+  const defaultSourceFilterIcon = sourceFilterTriggerIcon instanceof HTMLElement
+    ? sourceFilterTriggerIcon.innerHTML
+    : "";
+  let activeMagicSourceFilter = "";
+  let activeMagicGradeFilter = "";
+
+  const closeMagicFilterMenus = () => {
+    if (sourceFilterPopover instanceof HTMLElement) {
+      sourceFilterPopover.hidden = true;
+    }
+    if (sourceFilterTrigger instanceof HTMLButtonElement) {
+      sourceFilterTrigger.setAttribute("aria-expanded", "false");
+    }
+    if (gradeFilterPopover instanceof HTMLElement) {
+      gradeFilterPopover.hidden = true;
+    }
+    if (gradeFilterTrigger instanceof HTMLButtonElement) {
+      gradeFilterTrigger.setAttribute("aria-expanded", "false");
+    }
+  };
+
+  const syncMagicFilterButtons = () => {
+    sourceFilterButtons.forEach((button) => {
+      if (!(button instanceof HTMLButtonElement)) {
+        return;
+      }
+      const value = String(button.getAttribute("data-learn-magic-source-filter") || "all");
+      const isActive = activeMagicSourceFilter ? value === activeMagicSourceFilter : value === "all";
+      button.classList.toggle("is-active", isActive);
+      button.setAttribute("aria-pressed", isActive ? "true" : "false");
+    });
+    gradeFilterButtons.forEach((button) => {
+      if (!(button instanceof HTMLButtonElement)) {
+        return;
+      }
+      const value = String(button.getAttribute("data-learn-magic-grade-filter") || "all");
+      const isActive = activeMagicGradeFilter ? value === activeMagicGradeFilter : value === "all";
+      button.classList.toggle("is-active", isActive);
+      button.setAttribute("aria-pressed", isActive ? "true" : "false");
+    });
+    if (sourceFilterTrigger instanceof HTMLButtonElement) {
+      sourceFilterTrigger.classList.toggle("is-filtered", Boolean(activeMagicSourceFilter));
+    }
+    if (sourceFilterTriggerIcon instanceof HTMLElement) {
+      if (!activeMagicSourceFilter) {
+        sourceFilterTriggerIcon.innerHTML = defaultSourceFilterIcon;
+      } else {
+        const selectedButton = sourceFilterButtons.find((button) => (
+          button instanceof HTMLButtonElement
+          && String(button.getAttribute("data-learn-magic-source-filter") || "") === activeMagicSourceFilter
+        ));
+        const selectedSymbol = selectedButton?.querySelector(".learn_magic_filter_symbol");
+        sourceFilterTriggerIcon.innerHTML = selectedSymbol instanceof HTMLElement
+          ? selectedSymbol.innerHTML
+          : defaultSourceFilterIcon;
+      }
+    }
+    if (gradeFilterTrigger instanceof HTMLButtonElement) {
+      gradeFilterTrigger.classList.toggle("is-filtered", Boolean(activeMagicGradeFilter));
+    }
+    if (gradeFilterTriggerLabel instanceof HTMLElement) {
+      gradeFilterTriggerLabel.textContent = activeMagicGradeFilter || "*";
+    }
+  };
+
+  const applyLearningFilters = () => {
+    const needle = filterInput instanceof HTMLInputElement
+      ? String(filterInput.value || "").trim().toLowerCase()
+      : "";
+    const rows = Array.from(document.querySelectorAll("[data-learn-source]"));
+    rows.forEach((row) => {
+      if (!(row instanceof HTMLElement)) {
+        return;
+      }
+      const haystack = String(row.getAttribute("data-learn-search") || "").toLowerCase();
+      const kind = row.getAttribute("data-kind") || "";
+      const matchesText = needle.length === 0 || haystack.includes(needle);
+      const matchesSource = !activeMagicSourceFilter
+        || kind !== "magic-spell"
+        || String(row.getAttribute("data-slot-source-key") || "") === activeMagicSourceFilter;
+      const matchesGrade = !activeMagicGradeFilter
+        || kind !== "magic-spell"
+        || String(row.getAttribute("data-level") || "") === activeMagicGradeFilter;
+      row.hidden = !(matchesText && matchesSource && matchesGrade);
+    });
+    Array.from(document.querySelectorAll("[data-learn-group]")).forEach((group) => {
+      const visible = Array.from(group.querySelectorAll("tr[data-learn-source]")).some((row) => !row.hidden);
+      group.hidden = !visible;
+      if ((needle || activeMagicSourceFilter || activeMagicGradeFilter) && visible && group instanceof HTMLDetailsElement) {
+        group.open = true;
+      }
+    });
+    syncMagicFilterButtons();
+  };
+
   if (filterInput instanceof HTMLInputElement) {
-    filterInput.addEventListener("input", () => {
-      const needle = String(filterInput.value || "").trim().toLowerCase();
-      const rows = Array.from(document.querySelectorAll("[data-learn-source]"));
-      rows.forEach((row) => {
-        const haystack = String(row.getAttribute("data-learn-search") || "").toLowerCase();
-        row.hidden = needle.length > 0 && !haystack.includes(needle);
-      });
-      Array.from(document.querySelectorAll("[data-learn-group]")).forEach((group) => {
-        const visible = Array.from(group.querySelectorAll("tr[data-learn-source]")).some((row) => !row.hidden);
-        group.hidden = !visible;
-        if (needle && visible && group instanceof HTMLDetailsElement) {
-          group.open = true;
-        }
-      });
+    filterInput.addEventListener("input", applyLearningFilters);
+  }
+
+  if (sourceFilterTrigger instanceof HTMLButtonElement && sourceFilterPopover instanceof HTMLElement) {
+    sourceFilterTrigger.addEventListener("click", (event) => {
+      event.stopPropagation();
+      const willOpen = sourceFilterPopover.hidden;
+      closeMagicFilterMenus();
+      sourceFilterPopover.hidden = !willOpen;
+      sourceFilterTrigger.setAttribute("aria-expanded", willOpen ? "true" : "false");
+    });
+    sourceFilterPopover.addEventListener("click", (event) => {
+      event.stopPropagation();
     });
   }
+
+  if (gradeFilterTrigger instanceof HTMLButtonElement && gradeFilterPopover instanceof HTMLElement) {
+    gradeFilterTrigger.addEventListener("click", (event) => {
+      event.stopPropagation();
+      const willOpen = gradeFilterPopover.hidden;
+      closeMagicFilterMenus();
+      gradeFilterPopover.hidden = !willOpen;
+      gradeFilterTrigger.setAttribute("aria-expanded", willOpen ? "true" : "false");
+    });
+    gradeFilterPopover.addEventListener("click", (event) => {
+      event.stopPropagation();
+    });
+  }
+
+  sourceFilterButtons.forEach((button) => {
+    if (!(button instanceof HTMLButtonElement)) {
+      return;
+    }
+    button.addEventListener("click", () => {
+      const value = String(button.getAttribute("data-learn-magic-source-filter") || "all");
+      activeMagicSourceFilter = value === "all" ? "" : value;
+      closeMagicFilterMenus();
+      applyLearningFilters();
+    });
+  });
+
+  gradeFilterButtons.forEach((button) => {
+    if (!(button instanceof HTMLButtonElement)) {
+      return;
+    }
+    button.addEventListener("click", () => {
+      const value = String(button.getAttribute("data-learn-magic-grade-filter") || "all");
+      activeMagicGradeFilter = value === "all" ? "" : value;
+      closeMagicFilterMenus();
+      applyLearningFilters();
+    });
+  });
+
+  document.addEventListener("click", (event) => {
+    const target = event.target;
+    const clickedSourceMenu = sourceFilterMenu instanceof HTMLElement && sourceFilterMenu.contains(target);
+    const clickedGradeMenu = gradeFilterMenu instanceof HTMLElement && gradeFilterMenu.contains(target);
+    if (!clickedSourceMenu && !clickedGradeMenu) {
+      closeMagicFilterMenus();
+    }
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      closeMagicFilterMenus();
+    }
+  });
+  syncMagicFilterButtons();
 
   return { cartController, choiceController };
 }

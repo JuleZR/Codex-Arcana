@@ -2075,6 +2075,167 @@
   background: linear-gradient(180deg, rgba(182, 144, 89, 0.06), rgba(182, 144, 89, 0));
 }
 
+.learn_magic_filter_menu {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.learn_magic_filter_trigger {
+  -webkit-appearance: none;
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 34px;
+  min-width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid rgba(118, 88, 57, 0.28);
+  border-radius: 8px;
+  background: linear-gradient(180deg, rgba(255, 251, 241, 0.92), rgba(241, 233, 217, 0.78));
+  color: rgba(66, 45, 25, 0.92);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 248, 229, 0.72),
+    0 1px 2px rgba(41, 24, 11, 0.06);
+  cursor: pointer;
+}
+
+.learn_magic_filter_trigger:hover,
+.learn_magic_filter_trigger.is-filtered {
+  border-color: rgba(120, 64, 28, 0.62);
+  background: linear-gradient(180deg, rgba(248, 221, 171, 0.96), rgba(207, 151, 74, 0.68));
+  color: rgba(80, 39, 16, 0.98);
+}
+
+.learn_magic_filter_trigger.is-filtered {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 242, 205, 0.78),
+    0 0 0 2px rgba(163, 98, 38, 0.16);
+}
+
+.learn_magic_filter_trigger_icon,
+.learn_magic_filter_trigger_icon svg,
+.learn_magic_filter_grade_icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  overflow: hidden;
+}
+
+.learn_magic_filter_trigger_icon svg {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+}
+
+.learn_magic_filter_trigger_icon .learn_magic_filter_symbol,
+.learn_magic_filter_trigger_icon .learn_magic_filter_image {
+  width: 20px !important;
+  height: 20px !important;
+}
+
+.learn_magic_filter_grade_icon {
+  font-family: "Trebuchet MS", "Segoe UI", Tahoma, sans-serif;
+  font-size: 0.84rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.learn_magic_filter_popover {
+  position: absolute;
+  z-index: 40;
+  left: 0;
+  top: calc(100% + 5px);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  max-width: min(360px, 72vw);
+  padding: 6px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  border: 1px solid rgba(101, 73, 45, 0.32);
+  border-radius: 8px;
+  background: rgba(247, 239, 219, 0.98);
+  box-shadow: 0 8px 20px rgba(49, 32, 17, 0.2);
+  white-space: nowrap;
+}
+
+.learn_magic_filter_popover[hidden] {
+  display: none;
+}
+
+.learn_magic_filter_btn,
+.learn_magic_grade_filter_btn {
+  -webkit-appearance: none;
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 2rem;
+  min-width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: 1px solid rgba(101, 73, 45, 0.32);
+  border-radius: 6px;
+  background: linear-gradient(180deg, rgba(255, 251, 241, 0.7), rgba(235, 224, 200, 0.46));
+  color: rgba(75, 50, 27, 0.9);
+  box-shadow: inset 0 1px 0 rgba(255, 248, 229, 0.56);
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.learn_magic_filter_btn:hover,
+.learn_magic_filter_btn.is-active,
+.learn_magic_grade_filter_btn:hover,
+.learn_magic_grade_filter_btn.is-active {
+  border-color: rgba(76, 118, 160, 0.66);
+  background: linear-gradient(180deg, rgba(228, 241, 251, 0.96), rgba(174, 206, 232, 0.72));
+  color: rgba(34, 67, 98, 0.98);
+}
+
+.learn_magic_filter_btn.is-active,
+.learn_magic_grade_filter_btn.is-active {
+  box-shadow:
+    inset 0 1px 0 rgba(246, 252, 255, 0.8),
+    0 0 0 2px rgba(91, 143, 190, 0.22);
+}
+
+.learn_magic_filter_symbol {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.45rem;
+  height: 1.45rem;
+  overflow: hidden;
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.learn_magic_filter_symbol--all svg {
+  width: 1.35rem;
+  height: 1.35rem;
+  fill: currentColor;
+}
+
+.learn_magic_filter_image {
+  display: block;
+  width: 1.45rem !important;
+  height: 1.45rem !important;
+  object-fit: contain;
+}
+
+.learn_magic_grade_filter_btn {
+  font-family: "Trebuchet MS", "Segoe UI", Tahoma, sans-serif;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
 .learn-window__body .shop_group {
   border: 0;
   background: transparent;
@@ -2191,15 +2352,56 @@
 }
 
 .sheet-window .learn_magic_budget {
-  padding: 12px 12px 6px;
+  padding: 10px 10px 4px;
+  overflow: hidden;
 }
 
-.sheet-window .learn_magic_budget .shop_cart_total_row span:first-child {
-  white-space: nowrap;
+.learn_magic_slot_sources {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 2px 2px 8px;
+  scrollbar-width: thin;
 }
 
-.sheet-window .learn_magic_budget .shop_cart_total_row span:last-child {
-  white-space: nowrap;
+.learn_magic_slot_source {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  min-width: 54px;
+  height: 34px;
+  padding: 0 9px;
+  border: 1px solid rgba(154, 116, 72, 0.22);
+  border-radius: 999px;
+  background:
+    linear-gradient(180deg, rgba(252, 248, 241, 0.88), rgba(239, 229, 209, 0.62)),
+    radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.24), transparent 68%);
+  color: rgba(82, 58, 33, 0.98);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.52),
+    0 3px 10px rgba(78, 52, 27, 0.05);
+}
+
+.learn_magic_slot_source.is-empty {
+  opacity: 0.62;
+}
+
+.learn_magic_slot_source.is-negative {
+  border-color: rgba(172, 64, 48, 0.42);
+  color: rgba(150, 43, 33, 0.98);
+}
+
+.learn_magic_slot_source__count {
+  min-width: 1.2em;
+  text-align: right;
+  font-family: "Trebuchet MS", "Segoe UI", Tahoma, sans-serif;
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1;
 }
 
 .sheet-window .wax_seal_btn {
@@ -2836,9 +3038,6 @@
     grid-template-columns: 1fr;
   }
 
-  .sheet-window .learn_magic_budget {
-    grid-template-columns: 1fr;
-  }
 }
 
 

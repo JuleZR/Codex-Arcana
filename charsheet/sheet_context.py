@@ -2778,6 +2778,12 @@ def _build_learning_rows(
         magic_groups[group["name"]] = list(group["rows"])
 
     magic_slot_summary = magic_engine.get_spell_learning_slot_summary()
+    learn_magic_grade_filters = sorted({
+        int(row["grade"])
+        for rows in magic_groups.values()
+        for row in rows
+        if row.get("kind") == "magic_spell" and row.get("grade") is not None
+    })
     has_magic_schools = any(
         (
             bool(magic_engine._magic_school_entries()),
@@ -2808,6 +2814,7 @@ def _build_learning_rows(
         ],
         "learn_magic_tab_visible": has_magic_schools,
         "learn_magic_slot_summary": magic_slot_summary,
+        "learn_magic_grade_filters": learn_magic_grade_filters,
     }
 
 

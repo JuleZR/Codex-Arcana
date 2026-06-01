@@ -481,6 +481,12 @@
   color: var(--ink-soft);
 }
 
+.fame_hint_manual,
+.fame_hint_rule {
+  display: block;
+  line-height: 1.08;
+}
+
 .reputation_header {
   display: flex;
   align-items: center;
