@@ -1849,9 +1849,9 @@ def datenschutz(request):
     return render(request, "legal/datenschutz.html", _legal_context())
 
 # TODO Remnve after designing is finished
-# def test_character_card(request):
-#     return render(
-#         request,
-#         "charsheet/partials/_card.html",
-#         {},
-#     )
+def test_character_card(request):
+    return render(
+        request,
+        "charsheet/partials/_card.html",
+        {},
+    )

@@ -545,15 +545,27 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
     if (kind === "magic-spell") {
       const spellId = source.getAttribute("data-id") || "";
       const ownerName = source.getAttribute("data-owner-name") || "";
-      const sourceLabel = source.getAttribute("data-source-label") || "";
+      const ownerSymbol = source.getAttribute("data-owner-symbol") || "*";
+      const ownerSymbolImageUrl = source.getAttribute("data-owner-symbol-image-url") || "";
       const inputName = source.getAttribute("data-input-name") || `learn_magic_spell_${spellId}`;
       const level = readInt(source.getAttribute("data-level"), 1);
+      const gradeLabel = source.getAttribute("data-grade-label") || String(level);
       const slotCost = readInt(source.getAttribute("data-slot-cost"), 1);
       const costLabel = source.getAttribute("data-cost-label") || `${slotCost} Slot${slotCost === 1 ? "" : "s"}`;
+      const symbolMarkup = ownerSymbolImageUrl
+        ? `<img class="learn_spell_symbol__image" src="${escapeHtml(ownerSymbolImageUrl)}" alt="" width="18" height="18">`
+        : escapeHtml(ownerSymbol);
       row.setAttribute("data-slot-cost", String(slotCost));
       row.setAttribute("data-cost-label", costLabel);
       row.innerHTML = `
-        <td><span>${safeName}</span> <span class="learn_meta_value">(${ownerName} | Grad ${level}${sourceLabel ? ` | ${escapeHtml(sourceLabel)}` : ""})</span><input type="hidden" name="${escapeHtml(inputName)}" value="1" data-learn-hidden></td>
+        <td>
+          <span>${safeName}</span>
+          <span class="learn_meta_value learn_cart_spell_meta" aria-label="${escapeHtml(ownerName)}, Grad ${escapeHtml(gradeLabel)}">
+            <span class="learn_spell_symbol" title="${escapeHtml(ownerName)}" aria-hidden="true">${symbolMarkup}</span>
+            <span class="learn_spell_grade">Grad ${escapeHtml(gradeLabel)}</span>
+          </span>
+          <input type="hidden" name="${escapeHtml(inputName)}" value="1" data-learn-hidden>
+        </td>
         <td>
           <div class="shop_qty_stepper">
             <input class="shop_cart_qty_input" type="number" min="0" max="1" value="1" data-learn-value>

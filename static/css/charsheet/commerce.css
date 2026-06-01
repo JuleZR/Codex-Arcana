@@ -306,6 +306,41 @@
   row-gap: 1px;
 }
 
+.shop_item_price--meta .learn_meta_inline--spell,
+.learn_cart_spell_meta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.learn_spell_symbol {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  flex: 0 0 22px;
+  font-family: "Trebuchet MS", "Segoe UI", Tahoma, sans-serif;
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1;
+  color: rgba(77, 54, 31, 0.9);
+}
+
+.learn_spell_symbol__image {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+}
+
+.learn_spell_grade {
+  font-family: "Trebuchet MS", "Segoe UI", Tahoma, sans-serif;
+  font-size: 0.78rem;
+  line-height: 1;
+  white-space: nowrap;
+}
+
 .learn_meta_inline__row {
   display: inline-flex;
   justify-content: flex-end;

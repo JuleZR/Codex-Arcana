@@ -70,5 +70,5 @@ urlpatterns = [
     path("", LoginView.as_view(template_name="registration/login.html", redirect_authenticated_user=True), name="login"),
     path("api/roll/", views.roll_dice_view, name="roll_dice"),
     path("media/<path:path>", serve, {"document_root": settings.MEDIA_ROOT}),
-    # path("debug/card/", views.test_character_card, name="test_card",),
+    path("debug/card/", views.test_character_card, name="test_card",),
 ]

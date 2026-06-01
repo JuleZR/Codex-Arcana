@@ -241,6 +241,29 @@ def _spell_grade_filter_options(spells: list[Spell]) -> list[int]:
     return sorted({int(spell.grade) for spell in spells if getattr(spell, "grade", None) is not None})
 
 
+def _safe_image_url(image) -> str:
+    if not image:
+        return ""
+    try:
+        return str(image.url or "")
+    except ValueError:
+        return ""
+
+
+def _spell_owner_symbol_data(spell: Spell) -> dict[str, str]:
+    if spell.school_id:
+        return {
+            "owner_symbol": str(getattr(spell.school, "panel_symbol", "") or "").strip() or "*",
+            "owner_symbol_image_url": _safe_image_url(getattr(spell.school, "symbol_image", None)),
+        }
+    if spell.aspect_id:
+        return {
+            "owner_symbol": str(spell.aspect.name or "?").strip()[:1] or "*",
+            "owner_symbol_image_url": _safe_image_url(getattr(spell.aspect, "aspect_image", None)),
+        }
+    return {"owner_symbol": "*", "owner_symbol_image_url": ""}
+
+
 def _current_school_grade_filter_options(current_level: int) -> list[int]:
     current_level = int(current_level or 0)
     if current_level <= 0:
@@ -286,6 +309,7 @@ def build_learning_magic_groups(character, *, magic_engine=None) -> list[dict[st
                     "spell_id": spell.id,
                     "name": spell.name,
                     "owner_name": choice_row["school_name"],
+                    **_spell_owner_symbol_data(spell),
                     "grade": int(spell.grade),
                     "grade_label": f"{int(spell.grade)} + Stufe" if spell.grade_adds_level else str(int(spell.grade)),
                     "description": (spell.description or "").replace("\r\n", "\n").replace("\r", "\n"),
@@ -301,35 +325,6 @@ def build_learning_magic_groups(character, *, magic_engine=None) -> list[dict[st
                 }
             )
 
-    for bonus_row in engine.get_available_bonus_spells():
-        source = bonus_row["source"]
-        if int(source.get("remaining", 0) or 0) <= 0:
-            continue
-        group_name = f"{source['label']} | Bonuszauber"
-        rows = groups.setdefault(group_name, [])
-        for spell in bonus_row["options"]:
-            owner_name = spell.school.name if spell.school_id else spell.aspect.name
-            rows.append(
-                {
-                    "kind": "magic_spell",
-                    "spell_id": spell.id,
-                    "name": spell.name,
-                    "owner_name": owner_name,
-                    "grade": int(spell.grade),
-                    "grade_label": f"{int(spell.grade)} + Stufe" if spell.grade_adds_level else str(int(spell.grade)),
-                    "description": (spell.description or "").replace("\r\n", "\n").replace("\r", "\n"),
-                    "search_tokens": (
-                        f"{spell.name.lower()} {owner_name.lower()} grad {int(spell.grade)} "
-                        f"zauber bonus {str(source['label']).lower()}"
-                    ),
-                    "cart_key": f"bonus:{source['id']}:{spell.id}",
-                    "input_name": f"learn_bonus_spell_{source['id']}_{spell.id}",
-                    "source_label": f"Bonuszauber ({int(source['remaining'])} offen)",
-                    "slot_cost": 0,
-                    "cost_label": "Frei",
-                }
-            )
-
     for grant_row in engine.get_divine_arcane_spell_choices():
         group_name = f"{grant_row['entity_name']} | Arkane Gabe"
         rows = groups.setdefault(group_name, [])
@@ -340,6 +335,7 @@ def build_learning_magic_groups(character, *, magic_engine=None) -> list[dict[st
                     "spell_id": spell.id,
                     "name": spell.name,
                     "owner_name": spell.school.name,
+                    **_spell_owner_symbol_data(spell),
                     "grade": int(spell.grade),
                     "grade_label": f"{int(spell.grade)} + Stufe" if spell.grade_adds_level else str(int(spell.grade)),
                     "description": (spell.description or "").replace("\r\n", "\n").replace("\r", "\n"),

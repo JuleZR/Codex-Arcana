@@ -1,59 +1,14 @@
 {% load static %}
 
-<link rel="stylesheet" href="{% static 'css/charsheet/_card.css' %}">
+<link  rel="stylesheet" href="{% static 'css/charsheet/_card.css' %}">
 
-<div class="character-card">
-    <div class="character-card__background">
-        <div class="character-card__frame">
-
-            <div class="character-card__header">
-                <h1 class="character-card__name">
-                    {{ character.name|default:"Unbekannt" }}
-                </h1>
-
-                <div class="character-card__symbols">
-                    <span class="character-card__symbol">
-                        X
-                    </span>
+<div class="holo">  
+    <div class="card">
+        <div class="info-container">
+            <div class="outer">
+                <div class="inner">
+                    <div class="nameplate">Altharus</div>
                 </div>
-            </div>
-
-            <div class="character-card__artwork">
-                {% if character.portrait %}
-                    <img src="{{ character.portrait.url }}" alt="{{ character.name }}">
-                {% else %}
-                    <div class="character-card__artwork-placeholder">
-                        🖾
-                    </div>
-                {% endif %}
-            </div>
-
-            <div class="character-card__type-line">
-                <span>
-                    {{ character.race.name|default:"Volk" }}
-                    —
-                    {{ character.school.name|default:"Pfad" }}
-                </span>
-
-                <span class="character-card__set-icon">
-                    <img
-                        src="{% static 'img/favicon.ico' %}"
-                        alt="Codex Arcana"
-                        class="character-card__set-icon-image"
-                    >
-                </span>
-            </div>
-
-            <div class="character-card__text-area">
-                <p class="character-card__description">
-                    {{ character.description|default:"Hier könnte später ein kurzer Charaktertext stehen." }}
-                </p>
-
-                <div class="character-card__divider"></div>
-
-                <p class="character-card__quote">
-                    „Ein Name im Codex ist mehr als Tinte auf Pergament.“
-                </p>
             </div>
         </div>
     </div>

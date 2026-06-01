@@ -253,6 +253,29 @@ class MagicEngine:
         except ValueError:
             return ""
 
+    @staticmethod
+    def _image_url(image) -> str:
+        if not image:
+            return ""
+        try:
+            return str(image.url or "")
+        except ValueError:
+            return ""
+
+    @classmethod
+    def _spell_owner_symbol_data(cls, spell: Spell) -> dict[str, str]:
+        if spell.school_id:
+            return {
+                "owner_symbol": str(getattr(spell.school, "panel_symbol", "") or "").strip() or "*",
+                "owner_symbol_image_url": cls._image_url(getattr(spell.school, "symbol_image", None)),
+            }
+        if spell.aspect_id:
+            return {
+                "owner_symbol": str(spell.aspect.name or "?").strip()[:1] or "*",
+                "owner_symbol_image_url": cls._image_url(getattr(spell.aspect, "aspect_image", None)),
+            }
+        return {"owner_symbol": "*", "owner_symbol_image_url": ""}
+
     def __init__(self, character: Character) -> None:
         self.character = character
 
@@ -401,6 +424,7 @@ class MagicEngine:
                         "spell_id": spell.id,
                         "name": spell.name,
                         "owner_name": school_entry.school.name,
+                        **self._spell_owner_symbol_data(spell),
                         "grade": int(spell.grade),
                         "grade_label": f"{int(spell.grade)} + Stufe" if spell.grade_adds_level else str(int(spell.grade)),
                         "description": (spell.description or "").replace("\r\n", "\n").replace("\r", "\n"),
@@ -431,6 +455,7 @@ class MagicEngine:
                     "spell_id": spell.id,
                     "name": spell.name,
                     "owner_name": spell.aspect.name,
+                    **self._spell_owner_symbol_data(spell),
                     "grade": int(spell.grade),
                     "grade_label": f"{int(spell.grade)} + Stufe" if spell.grade_adds_level else str(int(spell.grade)),
                     "description": (spell.description or "").replace("\r\n", "\n").replace("\r", "\n"),
