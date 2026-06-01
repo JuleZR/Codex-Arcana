@@ -106,6 +106,13 @@
                       <h2 class="sheet-window__section-title">Lernoptionen</h2>
                     </div>
                   <div class="sheet-window__toolbar shop_toolbar learn_toolbar">
+                    <input
+                      type="search"
+                        id="learnFilterInput"
+                        class="sheet-window__field shop_filter_input"
+                        placeholder="Lernoptionen filtern"
+                        aria-label="Lernoptionen filtern"
+                      >
                     {% if learn_magic_tab_visible %}
                       <div class="learn_magic_filter_menu" data-learn-magic-source-filter-menu>
                         <button
@@ -196,13 +203,6 @@
                         </div>
                       {% endif %}
                     {% endif %}
-                    <input
-                      type="search"
-                        id="learnFilterInput"
-                        class="sheet-window__field shop_filter_input"
-                        placeholder="Lernoptionen filtern"
-                        aria-label="Lernoptionen filtern"
-                      >
                     </div>
                     <div class="learn_options_budget" data-hide-on-tab="learn-panel-magic">
                       {% include "charsheet/partials/_learning_budget.html" %}

@@ -2058,10 +2058,18 @@
 .learn-window__body .shop_toolbar {
   position: relative;
   z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   padding: 10px 14px 10px;
   background:
     linear-gradient(180deg, rgba(250, 246, 237, 0.28), rgba(239, 231, 214, 0.08));
   border-bottom: 0;
+}
+
+.learn-window__body .learn_toolbar .shop_filter_input {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .learn-window__body .shop_toolbar::after {
@@ -2147,7 +2155,8 @@
 .learn_magic_filter_popover {
   position: absolute;
   z-index: 40;
-  left: 0;
+  left: auto;
+  right: 0;
   top: calc(100% + 5px);
   display: flex;
   align-items: center;
