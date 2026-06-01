@@ -401,13 +401,91 @@ class MagicEngine:
         }
 
     def get_spell_learning_slot_summary(self) -> dict[str, int | bool]:
-        return self.project_spell_learning_slot_summary()
+        summary = self.project_spell_learning_slot_summary()
+        source_summaries = self.get_spell_learning_slot_source_summaries()
+        total = sum(int(source["total"]) for source in source_summaries.values())
+        spent = sum(int(source["spent"]) for source in source_summaries.values())
+        summary.update(
+            {
+                "magic_levels": sum(int(source["level"]) for source in source_summaries.values()),
+                "total": total,
+                "spent": spent,
+                "remaining": max(0, total - spent),
+                "sources": source_summaries,
+            }
+        )
+        return summary
+
+    def get_spell_learning_slot_source_summaries(self) -> dict[str, dict[str, object]]:
+        has_bonus_trait = self._has_bonus_spell_trait()
+        slots_per_level = SPELL_LEARNING_SLOTS_PER_MAGIC_LEVEL + (
+            SPELL_LEARNING_BONUS_SLOTS_PER_MAGIC_LEVEL if has_bonus_trait else 0
+        )
+        sources: dict[str, dict[str, object]] = {}
+        for entry in self._arcane_school_entries():
+            key = f"school:{entry.school_id}"
+            level = max(0, int(entry.level))
+            sources[key] = {
+                "key": key,
+                "kind": "school",
+                "id": entry.school_id,
+                "name": entry.school.name,
+                "level": level,
+                "slots_per_level": slots_per_level,
+                "total": level * slots_per_level,
+                "spent": 0,
+                "remaining": level * slots_per_level,
+            }
+        for entry in self._aspect_entries():
+            key = f"aspect:{entry.aspect_id}"
+            level = max(0, int(entry.level))
+            sources[key] = {
+                "key": key,
+                "kind": "aspect",
+                "id": entry.aspect_id,
+                "name": entry.aspect.name,
+                "level": level,
+                "slots_per_level": slots_per_level,
+                "total": level * slots_per_level,
+                "spent": 0,
+                "remaining": level * slots_per_level,
+            }
+
+        slot_spells = CharacterSpell.objects.filter(
+            character=self.character,
+            source_kind__in=(
+                CharacterSpell.SourceKind.ARCANE_FREE,
+                CharacterSpell.SourceKind.ARCANE_EXTRA,
+                CharacterSpell.SourceKind.ARCANE_BONUS,
+                CharacterSpell.SourceKind.DIVINE_EXTRA,
+                CharacterSpell.SourceKind.DIVINE_BONUS,
+            ),
+        ).select_related("spell")
+        for entry in slot_spells:
+            spell = entry.spell
+            if spell.school_id:
+                key = f"school:{spell.school_id}"
+            elif spell.aspect_id:
+                key = f"aspect:{spell.aspect_id}"
+            else:
+                continue
+            if key not in sources:
+                continue
+            sources[key]["spent"] = int(sources[key]["spent"]) + 1
+
+        for source in sources.values():
+            source["remaining"] = max(0, int(source["total"]) - int(source["spent"]))
+        return sources
 
     def get_spell_learning_options(self) -> list[dict[str, object]]:
         known_spell_ids = set(self.character.known_spells.values_list("spell_id", flat=True))
         groups: dict[str, list[dict[str, object]]] = {}
+        slot_sources = self.get_spell_learning_slot_source_summaries()
 
         for school_entry in self._arcane_school_entries():
+            slot_source = slot_sources.get(f"school:{school_entry.school_id}", {})
+            if int(slot_source.get("remaining", 0) or 0) <= 0:
+                continue
             rows: list[dict[str, object]] = []
             spells = (
                 Spell.objects.filter(
@@ -425,6 +503,9 @@ class MagicEngine:
                         "name": spell.name,
                         "owner_name": school_entry.school.name,
                         **self._spell_owner_symbol_data(spell),
+                        "slot_source_key": str(slot_source.get("key", "")),
+                        "slot_source_name": str(slot_source.get("name", school_entry.school.name)),
+                        "slot_source_remaining": int(slot_source.get("remaining", 0) or 0),
                         "grade": int(spell.grade),
                         "grade_label": f"{int(spell.grade)} + Stufe" if spell.grade_adds_level else str(int(spell.grade)),
                         "description": (spell.description or "").replace("\r\n", "\n").replace("\r", "\n"),
@@ -449,6 +530,9 @@ class MagicEngine:
                 continue
             if spell.is_base_spell and spell.aspect_id in bonus_aspect_ids:
                 continue
+            slot_source = slot_sources.get(f"aspect:{spell.aspect_id}", {})
+            if int(slot_source.get("remaining", 0) or 0) <= 0:
+                continue
             divine_rows_by_aspect.setdefault(spell.aspect.name, []).append(
                 {
                     "kind": "magic_spell",
@@ -456,6 +540,9 @@ class MagicEngine:
                     "name": spell.name,
                     "owner_name": spell.aspect.name,
                     **self._spell_owner_symbol_data(spell),
+                    "slot_source_key": str(slot_source.get("key", "")),
+                    "slot_source_name": str(slot_source.get("name", spell.aspect.name)),
+                    "slot_source_remaining": int(slot_source.get("remaining", 0) or 0),
                     "grade": int(spell.grade),
                     "grade_label": f"{int(spell.grade)} + Stufe" if spell.grade_adds_level else str(int(spell.grade)),
                     "description": (spell.description or "").replace("\r\n", "\n").replace("\r", "\n"),

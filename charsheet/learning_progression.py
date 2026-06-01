@@ -296,35 +296,6 @@ def build_learning_magic_groups(character, *, magic_engine=None) -> list[dict[st
         if group_rows:
             groups[group["name"]] = group_rows
 
-    for school_entry in engine._arcane_school_entries():
-        choice_row = engine.get_available_arcane_spell_choices(school_entry.school)
-        if int(choice_row.get("remaining", 0) or 0) <= 0:
-            continue
-        group_name = f"{choice_row['school_name']} | Freizauber"
-        rows = groups.setdefault(group_name, [])
-        for spell in choice_row["options"]:
-            rows.append(
-                {
-                    "kind": "magic_spell",
-                    "spell_id": spell.id,
-                    "name": spell.name,
-                    "owner_name": choice_row["school_name"],
-                    **_spell_owner_symbol_data(spell),
-                    "grade": int(spell.grade),
-                    "grade_label": f"{int(spell.grade)} + Stufe" if spell.grade_adds_level else str(int(spell.grade)),
-                    "description": (spell.description or "").replace("\r\n", "\n").replace("\r", "\n"),
-                    "search_tokens": (
-                        f"{spell.name.lower()} {choice_row['school_name'].lower()} grad {int(spell.grade)} "
-                        "zauber freizauber arkane magie"
-                    ),
-                    "cart_key": f"arcane-free:{choice_row['school_id']}:{spell.id}",
-                    "input_name": f"learn_arcane_free_spell_{choice_row['school_id']}_{spell.id}",
-                    "source_label": f"Freizauber ({int(choice_row['remaining'])} offen)",
-                    "slot_cost": 0,
-                    "cost_label": "Frei",
-                }
-            )
-
     for grant_row in engine.get_divine_arcane_spell_choices():
         group_name = f"{grant_row['entity_name']} | Arkane Gabe"
         rows = groups.setdefault(group_name, [])

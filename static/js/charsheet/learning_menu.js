@@ -191,6 +191,11 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
       cost,
       invalidWrite,
       spellSlots: kind === "magic-spell" ? value * readInt(row.getAttribute("data-slot-cost"), 1) : 0,
+      spellSlotSourceKey: kind === "magic-spell" ? row.getAttribute("data-slot-source-key") || "" : "",
+      spellSlotSourceName: kind === "magic-spell" ? row.getAttribute("data-slot-source-name") || "" : "",
+      spellSlotSourceRemaining: kind === "magic-spell"
+        ? readInt(row.getAttribute("data-slot-source-remaining"), Number.MAX_SAFE_INTEGER)
+        : Number.MAX_SAFE_INTEGER,
     };
   };
 
@@ -198,11 +203,23 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
     let spent = 0;
     let spentSpellSlots = 0;
     let invalidWrite = false;
+    const spentSpellSlotsBySource = new Map();
+    const spellSlotSourceLimits = new Map();
     getRows().forEach((row) => {
       const result = syncRow(row);
       spent += result.cost;
       spentSpellSlots += result.spellSlots;
       invalidWrite = invalidWrite || result.invalidWrite;
+      if (result.spellSlots > 0 && result.spellSlotSourceKey) {
+        spentSpellSlotsBySource.set(
+          result.spellSlotSourceKey,
+          (spentSpellSlotsBySource.get(result.spellSlotSourceKey) || 0) + result.spellSlots,
+        );
+        spellSlotSourceLimits.set(result.spellSlotSourceKey, {
+          name: result.spellSlotSourceName || result.spellSlotSourceKey,
+          remaining: result.spellSlotSourceRemaining,
+        });
+      }
     });
     const budget = getBudget();
     const remaining = budget - spent;
@@ -246,6 +263,12 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
       if (spellSlotRemaining < 0) {
         messages.push("Zu viele Zauber-Slots ausgewaehlt.");
       }
+      Array.from(spentSpellSlotsBySource.entries()).forEach(([sourceKey, selected]) => {
+        const limit = spellSlotSourceLimits.get(sourceKey);
+        if (limit && selected > limit.remaining) {
+          messages.push(`${limit.name}: Zu viele gebundene Zauber-Slots ausgewaehlt.`);
+        }
+      });
       if (invalidWrite) {
         messages.push("Schreiben benoetigt mindestens Sprachlevel 1.");
       }
@@ -552,11 +575,17 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
       const gradeLabel = source.getAttribute("data-grade-label") || String(level);
       const slotCost = readInt(source.getAttribute("data-slot-cost"), 1);
       const costLabel = source.getAttribute("data-cost-label") || `${slotCost} Slot${slotCost === 1 ? "" : "s"}`;
+      const slotSourceKey = source.getAttribute("data-slot-source-key") || "";
+      const slotSourceName = source.getAttribute("data-slot-source-name") || ownerName;
+      const slotSourceRemaining = source.getAttribute("data-slot-source-remaining") || "0";
       const symbolMarkup = ownerSymbolImageUrl
         ? `<img class="learn_spell_symbol__image" src="${escapeHtml(ownerSymbolImageUrl)}" alt="" width="18" height="18">`
         : escapeHtml(ownerSymbol);
       row.setAttribute("data-slot-cost", String(slotCost));
       row.setAttribute("data-cost-label", costLabel);
+      row.setAttribute("data-slot-source-key", slotSourceKey);
+      row.setAttribute("data-slot-source-name", slotSourceName);
+      row.setAttribute("data-slot-source-remaining", slotSourceRemaining);
       row.innerHTML = `
         <td>
           <span>${safeName}</span>

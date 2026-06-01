@@ -74,8 +74,6 @@ def _has_progression_inputs(post_data) -> bool:
         "learn_weapon_mastery_side_",
         "learn_weapon_mastery_arcana_",
         "learn_choice_",
-        "learn_arcane_free_spell_",
-        "learn_bonus_spell_",
         "learn_divine_arcane_spell_",
     )
     return any(str(key).startswith(prefixes) for key in post_data.keys())
@@ -129,61 +127,6 @@ def _apply_progression_choices(character: Character, post_data, *, magic_engine)
         summary["techniques"] += 1
 
     engine, progression_context = _rebuild_if(summary["techniques"] > 0)
-
-    for row in progression_context["learn_arcane_free_spell_rows"]:
-        raw_spell_id = str(post_data.get(row["field_name"], "")).strip()
-        if not raw_spell_id:
-            continue
-        allowed_ids = {str(option.id) for option in row["options"]}
-        if raw_spell_id not in allowed_ids:
-            raise LearningSubmissionError(f"{row['school_name']}: Ungueltige Zauberwahl.")
-        spell = Spell.objects.select_related("school", "aspect").filter(pk=int(raw_spell_id)).first()
-        if spell is None:
-            raise LearningSubmissionError("Zauber nicht gefunden.")
-        if spell.school_id and int(spell.grade) > int(row.get("school_level", 0) or 0):
-            raise LearningSubmissionError(f"{row['school_name']}: Zauber liegt ueber der aktuellen Stufe.")
-        spell_entry = CharacterSpell(
-            character=character,
-            spell=spell,
-            source_kind=CharacterSpell.SourceKind.ARCANE_FREE,
-        )
-        spell_entry.full_clean()
-        spell_entry.save()
-        summary["choices"] += 1
-
-    for row in progression_context["learn_bonus_spell_rows"]:
-        raw_spell_id = str(post_data.get(row["field_name"], "")).strip()
-        if not raw_spell_id:
-            continue
-        allowed_ids = {str(option.id) for option in row["options"]}
-        if raw_spell_id not in allowed_ids:
-            raise LearningSubmissionError(f"{row['source_label']}: Ungueltige Bonuszauberwahl.")
-        spell = Spell.objects.select_related("school", "aspect").filter(pk=int(raw_spell_id)).first()
-        if spell is None:
-            raise LearningSubmissionError("Zauber nicht gefunden.")
-        if spell.school_id:
-            current_level = int(magic_engine._school_level_map().get(spell.school_id, 0))
-            if int(spell.grade) > current_level:
-                raise LearningSubmissionError(f"{row['source_label']}: Zauber liegt ueber der aktuellen Stufe.")
-        elif spell.aspect_id:
-            aspect_levels = {
-                entry.aspect_id: int(entry.level)
-                for entry in magic_engine.get_character_aspects()
-            }
-            if int(spell.grade) > int(aspect_levels.get(spell.aspect_id, 0)):
-                raise LearningSubmissionError(f"{row['source_label']}: Zauber liegt ueber der aktuellen Stufe.")
-        source_kind = CharacterSpell.SourceKind.ARCANE_BONUS if spell.school_id else CharacterSpell.SourceKind.DIVINE_BONUS
-        spell_entry = CharacterSpell(
-            character=character,
-            spell=spell,
-            source_kind=source_kind,
-            bonus_source_id=int(row["bonus_source_id"]),
-        )
-        spell_entry.full_clean()
-        spell_entry.save()
-        summary["choices"] += 1
-
-    engine, progression_context = _rebuild_if(summary["choices"] > 0)
 
     picked_specializations_by_school: dict[int, set[int]] = {}
     for row in progression_context["learn_specialization_rows"]:
@@ -714,8 +657,6 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
         school_plan[school_id] = add
 
     magic_spell_selection: set[int] = set()
-    arcane_free_spell_selection: dict[int, set[int]] = {}
-    bonus_spell_selection: dict[int, set[int]] = {}
     divine_arcane_spell_selection: dict[int, int] = {}
     legal_bonus_aspect_map = {
         row["aspect_id"]: int(row["max_level"])
@@ -730,20 +671,9 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
             if selected <= 0:
                 continue
             magic_spell_selection.add(spell_id)
-        elif str(key).startswith("learn_arcane_free_spell_"):
-            match = re.match(r"^learn_arcane_free_spell_(\d+)_(\d+)$", str(key))
-            if not match or _read_int(post_data, key, 0) <= 0:
-                continue
-            school_id = int(match.group(1))
-            spell_id = int(match.group(2))
-            arcane_free_spell_selection.setdefault(school_id, set()).add(spell_id)
-        elif str(key).startswith("learn_bonus_spell_"):
-            match = re.match(r"^learn_bonus_spell_(\d+)_(\d+)$", str(key))
-            if not match or _read_int(post_data, key, 0) <= 0:
-                continue
-            source_id = int(match.group(1))
-            spell_id = int(match.group(2))
-            bonus_spell_selection.setdefault(source_id, set()).add(spell_id)
+        elif str(key).startswith("learn_arcane_free_spell_") or str(key).startswith("learn_bonus_spell_"):
+            if _read_int(post_data, key, 0) > 0:
+                return "error", "Freizauber und Zusatzzauber werden nicht mehr separat gelernt."
         elif str(key).startswith("learn_divine_arcane_spell_"):
             match = re.match(r"^learn_divine_arcane_spell_(\d+)_(\d+)$", str(key))
             if not match or _read_int(post_data, key, 0) <= 0:
@@ -771,8 +701,6 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
 
     has_magic_selections = any((
         magic_spell_selection,
-        arcane_free_spell_selection,
-        bonus_spell_selection,
         divine_arcane_spell_selection,
     ))
 
@@ -905,19 +833,36 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
             magic_engine.sync_character_magic()
 
             if magic_spell_selection:
-                slot_summary = magic_engine.get_spell_learning_slot_summary()
-                if len(magic_spell_selection) > int(slot_summary["remaining"]):
-                    raise LearningSubmissionError("Nicht genug verfuegbare Zauber-Slots.")
-
-                legal_paid_spell_ids = {
-                    row["spell_id"]
+                legal_paid_spell_rows = {
+                    int(row["spell_id"]): row
                     for group in _build_learning_magic_groups(character, magic_engine=magic_engine)
                     for row in group["rows"]
-                    if row["kind"] == "magic_spell"
+                    if row["kind"] == "magic_spell" and int(row.get("slot_cost", 1) or 0) > 0
                 }
                 known_spell_ids = set(CharacterSpell.objects.filter(character=character).values_list("spell_id", flat=True))
-                if any(spell_id in known_spell_ids or spell_id not in legal_paid_spell_ids for spell_id in magic_spell_selection):
+                if any(spell_id in known_spell_ids or spell_id not in legal_paid_spell_rows for spell_id in magic_spell_selection):
                     raise LearningSubmissionError("Ungueltige Zauberauswahl.")
+
+                selected_slots_by_source: dict[str, int] = {}
+                source_limits: dict[str, tuple[str, int]] = {}
+                for spell_id in magic_spell_selection:
+                    row = legal_paid_spell_rows[int(spell_id)]
+                    source_key = str(row.get("slot_source_key") or "")
+                    if not source_key:
+                        raise LearningSubmissionError("Ungueltige Zauber-Slot-Quelle.")
+                    selected_slots_by_source[source_key] = selected_slots_by_source.get(source_key, 0) + int(
+                        row.get("slot_cost", 1) or 1
+                    )
+                    source_limits[source_key] = (
+                        str(row.get("slot_source_name") or "Zauberquelle"),
+                        int(row.get("slot_source_remaining", 0) or 0),
+                    )
+                for source_key, selected_count in selected_slots_by_source.items():
+                    source_name, remaining_count = source_limits[source_key]
+                    if selected_count > remaining_count:
+                        raise LearningSubmissionError(
+                            f"{source_name}: Nicht genug verfuegbare gebundene Zauber-Slots."
+                        )
 
                 spell_map = {
                     s.id: s for s in Spell.objects.filter(pk__in=magic_spell_selection).select_related("school", "aspect")
@@ -941,68 +886,6 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
                     magic_spell_selection
                 )
                 character.save(update_fields=["spent_spell_learning_slots"])
-
-            if arcane_free_spell_selection:
-                known_spell_ids = set(CharacterSpell.objects.filter(character=character).values_list("spell_id", flat=True))
-                for school_entry in magic_engine._arcane_school_entries():
-                    selected_ids = arcane_free_spell_selection.get(int(school_entry.school_id), set())
-                    if not selected_ids:
-                        continue
-                    choice_row = magic_engine.get_available_arcane_spell_choices(school_entry.school_id)
-                    if len(selected_ids) > int(choice_row["remaining"]):
-                        raise LearningSubmissionError(
-                            f"{choice_row['school_name']}: Zu viele Freizauber fuer die verfuegbaren offenen Slots."
-                        )
-                    legal_ids = {int(spell.id) for spell in choice_row["options"]}
-                    if any(spell_id not in legal_ids or spell_id in known_spell_ids for spell_id in selected_ids):
-                        raise LearningSubmissionError(f"{choice_row['school_name']}: Ungueltige Freizauberwahl.")
-                    for spell in Spell.objects.filter(pk__in=selected_ids).select_related("school", "aspect"):
-                        spell_entry = CharacterSpell(
-                            character=character,
-                            spell=spell,
-                            source_kind=CharacterSpell.SourceKind.ARCANE_FREE,
-                        )
-                        spell_entry.full_clean()
-                        spell_entry.save()
-                        known_spell_ids.add(spell.id)
-
-            if bonus_spell_selection:
-                known_spell_ids = set(CharacterSpell.objects.filter(character=character).values_list("spell_id", flat=True))
-                bonus_rows = {
-                    int(row["source"]["id"]): row
-                    for row in magic_engine.get_available_bonus_spells()
-                }
-                for source_id, selected_ids in bonus_spell_selection.items():
-                    bonus_row = bonus_rows.get(int(source_id))
-                    if bonus_row is None:
-                        raise LearningSubmissionError("Ungueltige Bonuszauberwahl.")
-                    if len(selected_ids) > int(bonus_row["source"]["remaining"]):
-                        raise LearningSubmissionError(
-                            f"{bonus_row['source']['label']}: Zu viele Bonuszauber fuer die verfuegbaren offenen Slots."
-                        )
-                    legal_ids = {int(spell.id) for spell in bonus_row["options"]}
-                    if any(spell_id not in legal_ids or spell_id in known_spell_ids for spell_id in selected_ids):
-                        raise LearningSubmissionError(f"{bonus_row['source']['label']}: Ungueltige Bonuszauberwahl.")
-                    spell_map = {
-                        spell.id: spell
-                        for spell in Spell.objects.filter(pk__in=selected_ids).select_related("school", "aspect")
-                    }
-                    for spell_id in selected_ids:
-                        spell = spell_map.get(int(spell_id))
-                        if spell is None:
-                            raise LearningSubmissionError("Zauber nicht gefunden.")
-                        source_kind = (
-                            CharacterSpell.SourceKind.ARCANE_BONUS if spell.school_id else CharacterSpell.SourceKind.DIVINE_BONUS
-                        )
-                        spell_entry = CharacterSpell(
-                            character=character,
-                            spell=spell,
-                            source_kind=source_kind,
-                            bonus_source_id=source_id,
-                        )
-                        spell_entry.full_clean()
-                        spell_entry.save()
-                        known_spell_ids.add(spell.id)
 
             if divine_arcane_spell_selection:
                 binding = magic_engine._divine_binding()
@@ -1068,8 +951,6 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
         parts.append(f"{sum(magic_aspect_plan.values())} Aspektstufe(n) gelernt")
     learned_spell_count = (
         len(magic_spell_selection)
-        + sum(len(values) for values in arcane_free_spell_selection.values())
-        + sum(len(values) for values in bonus_spell_selection.values())
         + len(divine_arcane_spell_selection)
     )
     if learned_spell_count:
