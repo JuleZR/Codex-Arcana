@@ -1,0 +1,265 @@
+.card-hand {
+  position: fixed;
+  inset: 0;
+  top: auto;
+  bottom: max(14px, env(safe-area-inset-bottom));
+  z-index: 90;
+  height: 58px;
+  font-family: "Cinzel", Georgia, serif;
+  pointer-events: none;
+}
+
+.card-hand__fan,
+.card-hand__tray,
+.card-hand__floating {
+  pointer-events: auto;
+}
+
+.card-hand__fan {
+  position: relative;
+  display: grid;
+  width: 82px;
+  height: 52px;
+  margin: 0 auto;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.card-hand::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: min(360px, calc(100vw - 24px));
+  height: 118px;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.card-hand__fan-card {
+  position: absolute;
+  bottom: 4px;
+  width: 30px;
+  height: 43px;
+  border: 1px solid rgba(238, 218, 162, 0.62);
+  border-radius: 7px;
+  background:
+    radial-gradient(circle at 50% 32%, rgba(238, 218, 162, 0.28), transparent 32%),
+    linear-gradient(160deg, #20140d, #080706 72%);
+  box-shadow: 0 6px 14px rgba(12, 8, 5, 0.42);
+  transform-origin: 50% 100%;
+}
+
+.card-hand__fan-card--left {
+  transform: translateX(-18px) rotate(-18deg);
+}
+
+.card-hand__fan-card--middle {
+  bottom: 7px;
+  transform: rotate(0deg);
+}
+
+.card-hand__fan-card--right {
+  transform: translateX(18px) rotate(18deg);
+}
+
+.card-hand__fan:hover .card-hand__fan-card,
+.card-hand.is-open .card-hand__fan-card {
+  box-shadow: 0 10px 22px rgba(12, 8, 5, 0.52);
+}
+
+.card-hand__count {
+  position: absolute;
+  right: 9px;
+  bottom: 0;
+  display: grid;
+  min-width: 18px;
+  height: 18px;
+  place-items: center;
+  border: 1px solid rgba(80, 55, 25, 0.5);
+  border-radius: 999px;
+  background: rgba(246, 232, 182, 0.95);
+  color: #23170d;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1;
+  box-shadow: 0 4px 12px rgba(12, 8, 5, 0.32);
+}
+
+.card-hand__tray {
+  position: absolute;
+  left: 50%;
+  bottom: 54px;
+  display: flex;
+  align-items: end;
+  justify-content: center;
+  width: min(520px, calc(100vw - 24px));
+  padding: 10px 14px 16px;
+  border: 1px solid rgba(55, 38, 22, 0.28);
+  border-radius: 12px;
+  background: rgba(236, 225, 199, 0.88);
+  box-shadow: 0 14px 34px rgba(10, 7, 5, 0.35);
+  transform: translateX(-50%);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+}
+
+.card-hand__tray[hidden],
+.card-hand__floating[hidden] {
+  display: none !important;
+}
+
+.card-hand.is-drop-target .card-hand__fan-card,
+.card-hand.is-drop-target .card-hand__tray {
+  border-color: rgba(255, 232, 166, 0.96);
+  box-shadow: 0 0 0 3px rgba(255, 232, 166, 0.22), 0 12px 28px rgba(12, 8, 5, 0.52);
+}
+
+.card-hand__mini-card {
+  display: grid;
+  width: 92px;
+  gap: 6px;
+  justify-items: center;
+  border: 0;
+  background: transparent;
+  color: #22170f;
+  cursor: pointer;
+  font: inherit;
+  touch-action: none;
+  user-select: none;
+}
+
+.card-hand__mini-card:hover {
+  transform: translateY(-5px);
+}
+
+.card-hand__mini-art {
+  display: block;
+  width: 64px;
+  aspect-ratio: 744 / 1039;
+  overflow: hidden;
+  border: 2px solid rgba(36, 25, 15, 0.82);
+  border-radius: 7px;
+  background: linear-gradient(160deg, #3a3027, #15100c);
+  box-shadow: 0 8px 16px rgba(12, 8, 5, 0.38);
+}
+
+.card-hand__mini-art img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.card-hand__mini-art--empty {
+  background:
+    radial-gradient(circle at 50% 35%, rgba(238, 218, 162, 0.2), transparent 36%),
+    linear-gradient(160deg, #3a3027, #15100c);
+}
+
+.card-hand__mini-title {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 11px;
+  font-weight: 760;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.card-hand__floating {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  width: min(390px, calc(100vw - 28px));
+  transform: translate(-50%, -50%);
+  filter: drop-shadow(0 22px 34px rgba(9, 6, 4, 0.45));
+}
+
+.card-hand__floating.is-dragging {
+  cursor: grabbing;
+}
+
+.card-hand__floating-card {
+  position: relative;
+}
+
+.card-hand__card-grabber {
+  position: absolute;
+  z-index: 12;
+  border: 0;
+  background: transparent;
+  cursor: grab;
+  touch-action: none;
+}
+
+.card-hand__card-grabber--top {
+  left: 8px;
+  right: 8px;
+  top: 0;
+  height: 24px;
+  border-radius: 18px 18px 0 0;
+}
+
+.card-hand__card-grabber--right {
+  top: 8px;
+  right: 0;
+  bottom: 8px;
+  width: 22px;
+  border-radius: 0 18px 18px 0;
+}
+
+.card-hand__card-grabber--bottom {
+  left: 8px;
+  right: 8px;
+  bottom: 0;
+  height: 24px;
+  border-radius: 0 0 18px 18px;
+}
+
+.card-hand__card-grabber--left {
+  top: 8px;
+  bottom: 8px;
+  left: 0;
+  width: 22px;
+  border-radius: 18px 0 0 18px;
+}
+
+.card-hand__floating.is-dragging .card-hand__card-grabber {
+  cursor: grabbing;
+}
+
+.card-hand__floating-card .card {
+  width: 100%;
+}
+
+@media (max-width: 900px) {
+  .card-hand {
+    bottom: max(8px, env(safe-area-inset-bottom));
+    height: 52px;
+  }
+
+  .card-hand::before {
+    height: 104px;
+  }
+
+  .card-hand__fan {
+    width: 74px;
+    height: 48px;
+  }
+
+  .card-hand__fan-card {
+    width: 28px;
+    height: 40px;
+  }
+
+  .card-hand__tray {
+    bottom: 50px;
+  }
+
+  .card-hand__floating {
+    width: min(340px, calc(100vw - 18px));
+  }
+}

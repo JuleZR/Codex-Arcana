@@ -6,8 +6,20 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>G&ouml;tterkarten-Enzyklop&auml;die</title>
 <link rel="stylesheet" href="{% static 'css/charsheet/_card.css' %}">
+<link rel="stylesheet" href="{% static 'css/charsheet/encyclopedia.css' %}">
 </head>
 <body class="encyclopedia-page">
+    <div aria-hidden="true" class="firefly-layer">
+        {% for _ in '123456789012345' %}
+        <div class="firefly"></div>
+        {% endfor %}
+    </div>
     {% include "charsheet/partials/_god_card_encyclopedia.html" %}
+    <script type="module" src="{% static 'js/charsheet/god_card.js' %}?v=20260602c"></script>
+    <script type="module">
+        import { initFireflies } from "{% static 'js/charsheet/fireflies.js' %}";
+
+        initFireflies();
+    </script>
 </body>
 </html>

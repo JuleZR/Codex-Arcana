@@ -17,122 +17,13 @@
     --card-gold: #c9aa55;
 }
 
-.encyclopedia-page {
-    min-height: 100vh;
-    margin: 0;
-    background: #f5f4f0;
-}
-
-.encyclopedia {
-    display: grid;
-    grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
-    gap: 24px;
-    align-items: start;
-    width: min(980px, calc(100vw - 32px));
-    margin: 0 auto;
-    padding: 24px 0;
-}
-
-.encyclopedia__topics {
-    grid-column: 1 / -1;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    align-items: center;
-    padding-bottom: 2px;
-    font-family: "Cinzel", Georgia, serif;
-}
-
-.encyclopedia__topic {
-    display: inline-flex;
-    align-items: center;
-    min-height: 34px;
-    padding: 0 13px;
-    border: 1px solid rgba(42, 36, 29, 0.18);
-    border-radius: 8px;
-    background: rgba(238, 233, 220, 0.62);
-    color: #1a1510;
-    font-size: 12px;
-    font-weight: 760;
-    text-decoration: none;
-    text-transform: uppercase;
-}
-
-.encyclopedia__topic.is-active {
-    background: rgba(255, 246, 218, 0.88);
-    box-shadow: inset 0 -2px 0 rgba(146, 101, 34, 0.82);
-}
-
-.encyclopedia__select {
-    display: none;
-}
-
-.encyclopedia__index {
-    max-height: calc(100vh - 48px);
-    overflow: auto;
-    border: 1px solid rgba(42, 36, 29, 0.18);
-    border-radius: 8px;
-    background: rgba(238, 233, 220, 0.72);
-    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.12);
-    backdrop-filter: blur(2px);
-    -webkit-backdrop-filter: blur(2px);
-}
-
-.encyclopedia__preview {
-    display: flex;
-    justify-content: center;
-}
-
-.encyclopedia-table {
-    width: 100%;
-    border-collapse: collapse;
-    color: #1a1510;
-    font-family: "Cormorant Garamond", Georgia, serif;
-}
-
-.encyclopedia-table th {
-    position: sticky;
-    top: 0;
-    z-index: 1;
-    padding: 10px 14px;
-    border-bottom: 1px solid rgba(42, 36, 29, 0.22);
-    background: rgba(233, 227, 210, 0.94);
-    font-family: "Cinzel", Georgia, serif;
-    font-size: 12px;
-    font-weight: 760;
-    text-align: left;
-    text-transform: uppercase;
-}
-
-.encyclopedia-table td {
-    border-bottom: 1px solid rgba(42, 36, 29, 0.11);
-}
-
-.encyclopedia-table tr:last-child td {
-    border-bottom: 0;
-}
-
-.encyclopedia-table a {
-    display: block;
-    padding: 8px 14px;
-    color: inherit;
-    font-size: 16px;
-    font-weight: 650;
-    line-height: 1.1;
-    text-decoration: none;
-}
-
-.encyclopedia-table tr:hover a,
-.encyclopedia-table tr.is-active a {
-    background: rgba(255, 246, 218, 0.82);
-}
-
-.encyclopedia-table tr.is-active a {
-    box-shadow: inset 3px 0 0 rgba(146, 101, 34, 0.82);
-}
-
 .card {
     position: relative;
+    --card-ability-font-size: 14.6px;
+    --card-vow-font-size: 13.6px;
+    --card-tabstop-font-size: 13.4px;
+    --card-roll-range-font-size: 10.5px;
+    --card-roll-result-font-size: 11.5px;
     width: min(420px, calc(100vw - 32px));
     aspect-ratio: 744 / 1039;
     padding: 0;
@@ -176,8 +67,8 @@
     z-index: 4;
     box-sizing: border-box;
     display: grid;
-    grid-template-rows: 42px minmax(0, 1fr) 39px 168px;
-    gap: 7px;
+    grid-template-rows: 42px minmax(0, 1fr) 36px 206px;
+    gap: 6px;
     height: 100%;
     padding: 18px;
     border-radius: 16px;
@@ -205,38 +96,75 @@
     display: flex;
     align-items: center;
     min-width: 0;
-    border: 1px solid rgba(42, 36, 29, 0.36);
-    border-radius: 9px / 12px;
-    background:
-        linear-gradient(180deg, rgba(255, 255, 255, 0.52), rgba(221, 216, 202, 0.42)),
-        rgba(233, 227, 210, 0.46);
-    box-shadow:
-        inset 0 0 0 1px rgba(255, 255, 255, 0.32),
-        inset 0 -18px 24px rgba(176, 163, 139, 0.14),
-        0 1px 5px rgba(0, 0, 0, 0.16);
-    backdrop-filter: blur(2px) saturate(1.08);
-    -webkit-backdrop-filter: blur(2px) saturate(1.08);
     hyphens: auto;
     overflow-wrap: break-word;
+}
+
+.card-typebar {
+    border: 1px solid rgba(255, 250, 235, 0.34);
+    border-radius: 9px / 12px;
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.44), rgba(226, 220, 204, 0.25)),
+        rgba(234, 229, 214, 0.36);
+    box-shadow:
+        inset 0 0 0 1px rgba(255, 255, 255, 0.28),
+        inset 0 -14px 22px rgba(255, 255, 255, 0.08),
+        0 1px 7px rgba(0, 0, 0, 0.2);
+    backdrop-filter: blur(9px) saturate(1.16);
+    -webkit-backdrop-filter: blur(9px) saturate(1.16);
 }
 
 .card-titlebar {
     justify-content: space-between;
     padding: 0 5px 0 11px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
 }
 
 .card-title {
     min-width: 0;
     margin: 0;
     overflow: hidden;
-    color: #100e0b;
-    font-size: 16.5px;
-    font-weight: 760;
+    color: var(--card-title-dynamic-color, #f7f0df);
+    font-size: 18px;
+    font-weight: 900;
     letter-spacing: 0;
     line-height: 1;
     text-overflow: ellipsis;
     white-space: nowrap;
-    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.52);
+    text-shadow: var(
+        --card-title-dynamic-shadow,
+        0 1px 0 rgba(0, 0, 0, 0.98),
+        0 -1px 0 rgba(0, 0, 0, 0.72),
+        1px 0 0 rgba(0, 0, 0, 0.82),
+        -1px 0 0 rgba(0, 0, 0, 0.82),
+        0 2px 4px rgba(0, 0, 0, 0.72),
+        0 0 10px rgba(0, 0, 0, 0.58)
+    );
+}
+
+.card[data-title-tone="dark"] .card-title {
+    --card-title-dynamic-color: #120f0b;
+    --card-title-dynamic-shadow:
+        0 1px 0 rgba(255, 255, 255, 0.88),
+        0 -1px 0 rgba(255, 255, 255, 0.5),
+        1px 0 0 rgba(255, 255, 255, 0.55),
+        -1px 0 0 rgba(255, 255, 255, 0.55),
+        0 2px 4px rgba(255, 246, 216, 0.52),
+        0 0 9px rgba(255, 246, 216, 0.58);
+}
+
+.card[data-title-tone="light"] .card-title {
+    --card-title-dynamic-color: #f8f0df;
+    --card-title-dynamic-shadow:
+        0 1px 0 rgba(0, 0, 0, 0.98),
+        0 -1px 0 rgba(0, 0, 0, 0.72),
+        1px 0 0 rgba(0, 0, 0, 0.82),
+        -1px 0 0 rgba(0, 0, 0, 0.82),
+        0 2px 4px rgba(0, 0, 0, 0.72),
+        0 0 10px rgba(0, 0, 0, 0.58);
 }
 
 .card-aspects {
@@ -335,9 +263,10 @@
 
 .card-typebar {
     justify-content: space-between;
-    padding: 0 8px 0 13px;
-    font-size: 16.5px;
-    font-weight: 760;
+    padding: 0 7px 0 11px;
+    font-size: 14.5px;
+    color: #100e0b;
+    font-weight: 880;
     line-height: 1;
     text-shadow: 0 1px 0 rgba(255, 255, 255, 0.52);
 }
@@ -352,9 +281,9 @@
 .card-setmark {
     display: block;
     flex: 0 0 auto;
-    width: 22px;
-    height: 22px;
-    margin-left: 7px;
+    width: 18px;
+    height: 18px;
+    margin-left: 5px;
     object-fit: contain;
     filter: drop-shadow(0 1px 0 #fff4cf) drop-shadow(0 1px 1px rgba(0, 0, 0, 0.45));
 }
@@ -364,20 +293,20 @@
     display: grid;
     align-content: start;
     grid-template-rows: minmax(0, 1fr) auto;
-    gap: 10px;
-    padding: 10px 12px 12px;
+    gap: 7px;
+    padding: 8px 10px 10px;
     overflow: hidden;
-    border: 1px solid rgba(42, 36, 29, 0.34);
+    border: 1px solid rgba(255, 250, 235, 0.34);
     border-radius: 6px;
     background:
-        linear-gradient(180deg, rgba(255, 255, 255, 0.52), rgba(221, 216, 202, 0.42)),
-        rgba(233, 227, 210, 0.46);
+        linear-gradient(180deg, rgba(255, 255, 255, 0.44), rgba(226, 220, 204, 0.25)),
+        rgba(234, 229, 214, 0.36);
     box-shadow:
-        inset 0 0 0 1px rgba(255, 255, 255, 0.32),
-        inset 0 -18px 24px rgba(176, 163, 139, 0.14),
-        0 1px 5px rgba(0, 0, 0, 0.16);
-    backdrop-filter: blur(2px) saturate(1.08);
-    -webkit-backdrop-filter: blur(2px) saturate(1.08);
+        inset 0 0 0 1px rgba(255, 255, 255, 0.28),
+        inset 0 -14px 22px rgba(255, 255, 255, 0.08),
+        0 1px 7px rgba(0, 0, 0, 0.2);
+    backdrop-filter: blur(9px) saturate(1.16);
+    -webkit-backdrop-filter: blur(9px) saturate(1.16);
 }
 
 .card-rules::before {
@@ -389,10 +318,10 @@
     z-index: 1;
     margin: 0;
     overflow: hidden;
-    color: #221d17;
-    font-size: 15px;
-    font-weight: 620;
-    line-height: 1.14;
+    color: #17120d;
+    font-size: var(--card-ability-font-size);
+    font-weight: 700;
+    line-height: 1.1;
     hyphens: auto;
     overflow-wrap: break-word;
 }
@@ -408,7 +337,7 @@
 .card-ability p + ol,
 .card-ability ul + p,
 .card-ability ol + p {
-    margin-top: 5px;
+    margin-top: 3px;
 }
 
 .card-ability ul,
@@ -428,65 +357,160 @@
     font-style: italic;
 }
 
-.card-ability table {
+.card-roll-strip {
     width: 100%;
-    margin: 5px 0 3px;
-    border-collapse: collapse;
-    table-layout: fixed;
-    font-size: 0.76em;
-    line-height: 1;
-}
-
-.card-ability th,
-.card-ability td {
-    padding: 2px 3px;
+    margin: 4px 0 2px;
+    overflow: hidden;
     border: 1px solid rgba(42, 36, 29, 0.18);
-    text-align: center;
-    vertical-align: middle;
-    overflow-wrap: anywhere;
-    hyphens: auto;
+    border-radius: 4px;
+    background: rgba(244, 238, 220, 0.34);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.26);
 }
 
-.card-ability th {
-    background: rgba(255, 255, 255, 0.18);
+.card-roll-strip__ranges,
+.card-roll-strip__results {
+    display: grid;
+    grid-auto-columns: minmax(0, 1fr);
+    grid-auto-flow: column;
+}
+
+.card-roll-strip__range,
+.card-roll-strip__result {
+    display: grid;
+    min-width: 0;
+    min-height: 15px;
+    place-items: center;
+    padding: 1px 2px;
+    border-right: 1px solid rgba(42, 36, 29, 0.14);
+    color: #17120d;
+    font-size: var(--card-roll-range-font-size);
     font-weight: 760;
+    line-height: 1;
+    text-align: center;
+    overflow-wrap: anywhere;
 }
 
-.card-ability td {
-    font-weight: 560;
+.card-roll-strip__range:last-child,
+.card-roll-strip__result:last-child {
+    border-right: 0;
+}
+
+.card-roll-strip__ranges {
+    border-bottom: 1px solid rgba(42, 36, 29, 0.14);
+    background: rgba(255, 255, 255, 0.22);
+}
+
+.card-roll-strip__result {
+    min-height: 18px;
+    font-family: "Cormorant Garamond", Georgia, serif;
+    font-size: var(--card-roll-result-font-size);
+    font-weight: 700;
+}
+
+.card-roll-list {
+    display: grid;
+    gap: 2px;
+    width: 100%;
+    margin: 4px 0 2px;
+    padding: 3px;
+    border: 1px solid rgba(42, 36, 29, 0.18);
+    border-radius: 4px;
+    background: rgba(244, 238, 220, 0.28);
+}
+
+.card-roll-list__row {
+    display: grid;
+    grid-template-columns: minmax(32px, 0.34fr) minmax(0, 1fr);
+    gap: 4px;
+    align-items: start;
+}
+
+.card-roll-list__range,
+.card-roll-list__result {
+    min-width: 0;
+    color: #17120d;
+    font-size: calc(var(--card-tabstop-font-size) * 0.88);
+    font-weight: 760;
+    line-height: 1.04;
+}
+
+.card-roll-list__range {
+    padding: 1px 4px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.24);
+    text-align: center;
+    white-space: nowrap;
+}
+
+.card-roll-list__result {
+    padding: 1px 0;
+    font-family: "Cormorant Garamond", Georgia, serif;
+    font-weight: 700;
+    overflow-wrap: anywhere;
+}
+
+.card-tabstops {
+    display: grid;
+    gap: 1px;
+    margin: 4px 0 2px;
+}
+
+.card-tabstop {
+    display: grid;
+    grid-template-columns: minmax(34px, max-content) minmax(0, 1fr);
+    gap: 7px;
+    align-items: baseline;
+}
+
+.card-tabstop__label,
+.card-tabstop__value {
+    min-width: 0;
+    color: #17120d;
+    font-size: var(--card-tabstop-font-size);
+    font-weight: 720;
+    line-height: 1.06;
+}
+
+.card-tabstop__label {
+    white-space: nowrap;
+}
+
+.card-tabstop__value {
+    font-weight: 760;
+    overflow-wrap: anywhere;
 }
 
 .card-vow {
     position: relative;
     z-index: 1;
     margin: 0;
-    padding-top: 9px;
+    padding-top: 6px;
     overflow: hidden;
     border-top: 0;
-    color: rgba(30, 25, 19, 0.92);
-    font-size: 14.8px;
+    color: rgba(18, 14, 10, 0.98);
+    font-size: var(--card-vow-font-size);
     font-style: italic;
-    font-weight: 540;
-    line-height: 1.12;
+    font-weight: 650;
+    line-height: 1.08;
     hyphens: auto;
     overflow-wrap: break-word;
 }
 
 .card-rules--with-ability.card-rules--with-vow {
-    grid-template-rows: minmax(0, 1fr) minmax(44px, auto);
-    gap: 7px;
+    grid-template-rows: minmax(0, 1fr) minmax(32px, auto);
+    gap: 5px;
 }
 
 .card-rules--with-ability.card-rules--with-vow .card-ability {
-    font-size: 14px;
-    line-height: 1.1;
+    font-size: calc(var(--card-ability-font-size) * 0.93);
+    line-height: 1.08;
 }
 
 .card-rules--with-ability.card-rules--with-vow .card-vow {
     position: relative;
-    padding-top: 7px;
-    font-size: 13.2px;
-    line-height: 1.08;
+    padding-top: 5px;
+    font-size: calc(var(--card-vow-font-size) * 0.91);
+    line-height: 1.05;
 }
 
 .card-rules--with-ability.card-rules--with-vow .card-vow::before {
@@ -506,87 +530,13 @@
 }
 
 @media (max-width: 900px) {
-    .encyclopedia {
-        grid-template-columns: 1fr;
-        gap: 14px;
-        box-sizing: border-box;
-        width: 100%;
-        padding: 12px 10px 18px;
-    }
-
-    .encyclopedia__topics {
-        gap: 6px;
-    }
-
-    .encyclopedia__topic {
-        min-height: 32px;
-        padding: 0 10px;
-        font-size: 11px;
-    }
-
-    .encyclopedia__index {
-        display: none;
-    }
-
-    .encyclopedia__select {
-        display: block;
-        width: 100%;
-        font-family: "Cinzel", Georgia, serif;
-    }
-
-    .encyclopedia__preview {
-        width: 100%;
-        min-width: 0;
-    }
-
-    .encyclopedia__select label {
-        display: block;
-        margin: 0 0 6px;
-        color: #201b14;
-        font-size: 11px;
-        font-weight: 760;
-        text-transform: uppercase;
-    }
-
-    .encyclopedia__select_row {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) auto;
-        gap: 8px;
-    }
-
-    .encyclopedia__select select,
-    .encyclopedia__select button {
-        min-height: 42px;
-        border: 1px solid rgba(42, 36, 29, 0.24);
-        border-radius: 8px;
-        background: rgba(238, 233, 220, 0.86);
-        color: #17120d;
-        font: inherit;
-        font-size: 14px;
-    }
-
-    .encyclopedia__select select {
-        min-width: 0;
-        padding: 0 10px;
-    }
-
-    .encyclopedia__select button {
-        padding: 0 12px;
-        font-size: 12px;
-        font-weight: 760;
-    }
-
-    .encyclopedia-table a {
-        font-size: 15px;
-    }
-
     .card {
         width: min(100%, 390px);
         border-radius: 18px;
     }
 
     .card-shell {
-        grid-template-rows: 38px minmax(0, 1fr) 36px 154px;
+        grid-template-rows: 38px minmax(0, 1fr) 34px 184px;
         gap: 6px;
         padding: 15px 14px;
     }
@@ -607,22 +557,22 @@
     }
 
     .card-rules {
-        padding: 9px 11px 11px;
+        padding: 8px 10px 10px;
     }
 
     .card-ability {
-        font-size: 13.5px;
+        font-size: 13px;
     }
 
     .card-vow {
-        font-size: 12.8px;
+        font-size: 12px;
     }
 
     .card-rules--with-ability.card-rules--with-vow .card-ability {
-        font-size: 12.6px;
+        font-size: 12.2px;
     }
 
     .card-rules--with-ability.card-rules--with-vow .card-vow {
-        font-size: 11.6px;
+        font-size: 11.2px;
     }
 }

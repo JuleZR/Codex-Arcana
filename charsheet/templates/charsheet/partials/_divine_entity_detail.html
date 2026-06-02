@@ -1,0 +1,102 @@
+{% load static card_markdown %}
+
+<article class="divine-detail" lang="de" aria-label="{% if divine_entity %}{{ divine_entity.name }}{% endif %} Detailansicht">
+    {% if divine_entity %}
+        <header class="divine-detail__header">
+            <div class="divine-detail__identity">
+                {% if divine_entity.symbol_image %}
+                    <img class="divine-detail__symbol" src="{{ divine_entity.symbol_image.url }}" alt="{{ divine_entity.name }} Symbol">
+                {% endif %}
+                <div>
+                    <h1>{{ divine_entity.name }}</h1>
+                    {% if divine_entity.pantheon %}
+                        <p class="divine-detail__subtitle">{{ divine_entity.pantheon }}</p>
+                    {% endif %}
+                </div>
+            </div>
+        </header>
+
+        {% if divine_entity.god_image %}
+            <figure class="divine-detail__image">
+                <img src="{{ divine_entity.god_image.url }}" alt="{{ divine_entity.name }}">
+            </figure>
+        {% endif %}
+
+        {% if divine_entity.description %}
+            <section class="divine-detail__lead" aria-label="Einleitung">
+                <div class="divine-detail__text">{{ divine_entity.description|linebreaks }}</div>
+            </section>
+        {% endif %}
+
+        <section class="divine-detail__section divine-detail__section--aspects">
+            <h2>Aspekte</h2>
+            <div class="divine-detail__aspects">
+                {% for entry in divine_entity.aspects.all %}
+                    {% if entry.aspect_id %}
+                        <span class="divine-detail__aspect{% if entry.is_starting_aspect %} is-starting{% endif %}">
+                            {% if entry.aspect.aspect_image %}
+                                <img src="{{ entry.aspect.aspect_image.url }}" alt="">
+                            {% endif %}
+                            <span>{{ entry.aspect.name }}</span>
+                        </span>
+                    {% endif %}
+                {% empty %}
+                    <p class="divine-detail__empty">Keine Aspekte hinterlegt.</p>
+                {% endfor %}
+            </div>
+        </section>
+
+        <div class="divine-detail__grid">
+            {% if divine_entity.divine_function %}
+                <section class="divine-detail__section">
+                    <h2>G&ouml;ttliche Funktion</h2>
+                    <div class="divine-detail__text">{{ divine_entity.divine_function|linebreaks }}</div>
+                </section>
+            {% endif %}
+
+            {% if divine_entity.vow %}
+                <section class="divine-detail__section">
+                    <h2>Eid</h2>
+                    <blockquote class="divine-detail__vow">&bdquo;{{ divine_entity.vow|linebreaksbr }}&ldquo;</blockquote>
+                </section>
+            {% endif %}
+
+            {% if divine_entity.goals %}
+                <section class="divine-detail__section">
+                    <h2>Ziele</h2>
+                    <div class="divine-detail__text">{{ divine_entity.goals|linebreaks }}</div>
+                </section>
+            {% endif %}
+
+            {% if divine_entity.allies_and_enemies %}
+                <section class="divine-detail__section">
+                    <h2>Verb&uuml;ndete &amp; Feinde</h2>
+                    <div class="divine-detail__text">{{ divine_entity.allies_and_enemies|linebreaks }}</div>
+                </section>
+            {% endif %}
+
+            {% if divine_entity.worshippers %}
+                <section class="divine-detail__section">
+                    <h2>Gl&auml;ubige</h2>
+                    <div class="divine-detail__text">{{ divine_entity.worshippers|linebreaks }}</div>
+                </section>
+            {% endif %}
+
+            {% if divine_entity.doctrines %}
+                <section class="divine-detail__section">
+                    <h2>Doktrinen</h2>
+                    <div class="divine-detail__text">{{ divine_entity.doctrines|linebreaks }}</div>
+                </section>
+            {% endif %}
+
+            {% if divine_entity.granted_abilities %}
+                <section class="divine-detail__section divine-detail__section--wide">
+                    <h2>Gew&auml;hrte F&auml;higkeiten</h2>
+                    <div class="divine-detail__text">{{ divine_entity.granted_abilities|linebreaks }}</div>
+                </section>
+            {% endif %}
+        </div>
+    {% else %}
+        <p class="divine-detail__empty">Keine Gottheit ausgew&auml;hlt.</p>
+    {% endif %}
+</article>

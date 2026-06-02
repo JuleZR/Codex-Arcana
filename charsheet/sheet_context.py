@@ -2992,8 +2992,15 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
     divine_binding = magic_engine._divine_binding()
     divine_entity = divine_binding.entity if divine_binding is not None else None
     divine_symbol_url = ""
+    divine_card_aspects = []
     if divine_entity is not None and divine_entity.symbol_image:
         divine_symbol_url = divine_entity.symbol_image.url
+    if divine_entity is not None:
+        divine_card_aspects = [
+            entry.aspect
+            for entry in divine_entity.aspects.all()
+            if entry.aspect_id and entry.is_starting_aspect
+        ]
     load_tooltip = _build_load_tooltip(engine)
     load_tooltip_with_carry = _build_combined_load_tooltip(engine, carry_state, carry_enabled=True)
     total_armor_tooltip = _build_total_armor_tooltip(engine)
@@ -3042,6 +3049,7 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
         "char_info_form": CharacterInfoInlineForm(instance=character),
         "selected_divine_entity": divine_entity,
         "selected_divine_symbol_url": divine_symbol_url,
+        "selected_divine_card_aspects": divine_card_aspects,
         "skill_specification_form": CharacterSkillSpecificationForm(),
         "technique_specification_form": CharacterTechniqueSpecificationForm(),
         "fame_total_rank": fame_total_rank,

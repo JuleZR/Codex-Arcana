@@ -1851,7 +1851,9 @@ def datenschutz(request):
 
 def encyclopedia(request):
     divine_entities = list(
-        DivineEntity.objects.prefetch_related("aspects__aspect").order_by("name")
+        DivineEntity.objects.select_related("school")
+        .prefetch_related("aspects__aspect")
+        .order_by("name")
     )
     selected_entity_id = request.GET.get("entity")
     divine_entity = None

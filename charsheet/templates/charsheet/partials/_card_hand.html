@@ -1,0 +1,43 @@
+{% if selected_divine_entity %}
+<section class="card-hand" data-card-hand data-card-hand-storage-key="codexArcana.cardHand.{{ character.pk }}.god.{{ selected_divine_entity.pk }}" aria-label="Kartenhand">
+  <button
+    type="button"
+    class="card-hand__fan"
+    data-card-hand-toggle
+    aria-expanded="false"
+    aria-controls="characterCardHandTray"
+    title="Kartenhand"
+  >
+    <span class="card-hand__fan-card card-hand__fan-card--left" aria-hidden="true"></span>
+    <span class="card-hand__fan-card card-hand__fan-card--middle" aria-hidden="true"></span>
+    <span class="card-hand__fan-card card-hand__fan-card--right" aria-hidden="true"></span>
+    <span class="card-hand__count">1</span>
+  </button>
+
+  <div class="card-hand__tray" id="characterCardHandTray" data-card-hand-tray hidden>
+    <button
+      type="button"
+      class="card-hand__mini-card"
+      data-card-hand-open-card
+      title="{{ selected_divine_entity.name }}"
+    >
+      <span class="card-hand__mini-art{% if not selected_divine_entity.god_image %} card-hand__mini-art--empty{% endif %}">
+        {% if selected_divine_entity.god_image %}
+          <img src="{{ selected_divine_entity.god_image.url }}" alt="">
+        {% endif %}
+      </span>
+      <span class="card-hand__mini-title">{{ selected_divine_entity.name }}</span>
+    </button>
+  </div>
+
+  <div class="card-hand__floating" data-card-hand-floating hidden>
+    <div class="card-hand__floating-card">
+      <span class="card-hand__card-grabber card-hand__card-grabber--top" data-card-hand-drag-handle aria-hidden="true"></span>
+      <span class="card-hand__card-grabber card-hand__card-grabber--right" data-card-hand-drag-handle aria-hidden="true"></span>
+      <span class="card-hand__card-grabber card-hand__card-grabber--bottom" data-card-hand-drag-handle aria-hidden="true"></span>
+      <span class="card-hand__card-grabber card-hand__card-grabber--left" data-card-hand-drag-handle aria-hidden="true"></span>
+      {% include "charsheet/partials/_god_card.html" with divine_entity=selected_divine_entity card_aspects=selected_divine_card_aspects %}
+    </div>
+  </div>
+</section>
+{% endif %}

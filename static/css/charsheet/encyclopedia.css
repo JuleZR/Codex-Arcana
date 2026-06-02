@@ -1,0 +1,503 @@
+:root {
+    --ink: #3f2d1f;
+    --encyclopedia-page-height: clamp(760px, calc(100vh - 64px), 1700px);
+    --encyclopedia-page-width: calc(var(--encyclopedia-page-height) * 0.707);
+    --encyclopedia-page-gap: clamp(20px, 6vw, 120px);
+}
+
+.encyclopedia-page {
+    height: 100vh;
+    margin: 0;
+    overflow: hidden;
+    background: url("/static/img/forestbg.png") center / cover no-repeat fixed;
+    color: var(--ink);
+    font-family: "Cinzel", Georgia, serif;
+}
+
+.encyclopedia {
+    --encyclopedia-sheet-width: min(var(--encyclopedia-page-width), 46vw);
+    --encyclopedia-panel-gap: 24px;
+    display: grid;
+    grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+    gap: var(--encyclopedia-panel-gap);
+    align-items: stretch;
+    box-sizing: border-box;
+    width: min(
+        calc((var(--encyclopedia-sheet-width) * 2) + var(--encyclopedia-page-gap)),
+        calc(100vw - 64px)
+    );
+    height: var(--encyclopedia-page-height);
+    margin: 32px auto;
+    padding: var(--encyclopedia-panel-gap);
+    position: relative;
+    z-index: 2;
+    overflow: hidden;
+    border: 1px solid rgba(74, 55, 38, 0.28);
+    border-radius: 18px;
+    background:
+        linear-gradient(180deg, rgba(242, 240, 234, 0.72), rgba(230, 226, 216, 0.68)),
+        url("/static/img/pergamentbg.jpg") center / cover no-repeat;
+    background-blend-mode: multiply, normal;
+    box-shadow:
+        0 14px 34px rgba(0, 0, 0, 0.18),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.36);
+}
+
+.firefly-layer {
+    position: fixed;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+}
+
+.firefly {
+    position: fixed;
+    left: 50%;
+    top: 50%;
+    width: 0.4vw;
+    height: 0.4vw;
+    margin: -0.2vw 0 0 9.8vw;
+    pointer-events: none;
+    animation-name: var(--ff-move, firefly-move-fallback);
+    animation-duration: var(--ff-move-duration, 220s);
+    animation-timing-function: ease;
+    animation-iteration-count: infinite;
+    animation-direction: alternate;
+    animation-delay: var(--ff-move-delay, 0s);
+}
+
+.firefly::before,
+.firefly::after {
+    content: "";
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    transform-origin: -10vw;
+}
+
+.firefly::before {
+    background: rgba(0, 0, 0, 0.38);
+    opacity: 0.4;
+    animation: drift var(--ff-drift-duration, 14s) ease alternate infinite;
+}
+
+.firefly::after {
+    background: var(--firefly-color, #7fb3ff);
+    box-shadow: 0 0 0 0 var(--firefly-color, #7fb3ff);
+    opacity: 0;
+    animation:
+        drift var(--ff-drift-duration, 14s) ease alternate infinite,
+        flash var(--ff-flash-duration, 9000ms) ease infinite;
+    animation-delay: 0ms, var(--ff-flash-delay, 0ms);
+}
+
+@keyframes firefly-move-fallback {
+    0% { transform: translateX(-36vw) translateY(-22vh) scale(0.5); }
+    25% { transform: translateX(25vw) translateY(-40vh) scale(0.9); }
+    50% { transform: translateX(40vw) translateY(25vh) scale(0.65); }
+    75% { transform: translateX(-28vw) translateY(40vh) scale(0.85); }
+    100% { transform: translateX(-36vw) translateY(-22vh) scale(0.5); }
+}
+
+@keyframes drift {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+@keyframes flash {
+    0%,
+    30%,
+    100% {
+        opacity: 0;
+        box-shadow: 0 0 0 0 var(--firefly-color, #7fb3ff);
+    }
+    5% {
+        opacity: 1;
+        box-shadow: 0 0 1.8vw 0.4vw var(--firefly-color, #7fb3ff);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .firefly,
+    .firefly::before,
+    .firefly::after {
+        animation: none;
+    }
+}
+
+.encyclopedia__topics {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 12px;
+    font-family: "Cinzel", Georgia, serif;
+}
+
+.encyclopedia__topic {
+    display: inline-flex;
+    align-items: center;
+    min-height: 34px;
+    padding: 0 13px;
+    border: 1px solid rgba(255, 255, 255, 0.42);
+    border-radius: 8px;
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.36), rgba(255, 255, 255, 0.08)),
+        rgba(255, 255, 255, 0.04);
+    color: #1a1510;
+    font-size: 12px;
+    font-weight: 760;
+    text-decoration: none;
+    text-transform: uppercase;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.78),
+        0 6px 18px rgba(0, 0, 0, 0.1);
+    backdrop-filter: blur(4px) saturate(1.14);
+    -webkit-backdrop-filter: blur(4px) saturate(1.14);
+}
+
+.encyclopedia__topic.is-active {
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.46), rgba(255, 246, 218, 0.1)),
+        rgba(255, 246, 218, 0.06);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.82),
+        inset 0 -2px 0 rgba(146, 101, 34, 0.72),
+        0 6px 18px rgba(0, 0, 0, 0.1);
+}
+
+.encyclopedia__select {
+    display: none;
+}
+
+.encyclopedia__index {
+    box-sizing: border-box;
+    width: 100%;
+    height: 100%;
+    max-height: 100%;
+    overflow: auto;
+    padding: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.58);
+    border-radius: 12px;
+    background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.035) 46%, rgba(255, 255, 255, 0.13)),
+        rgba(255, 255, 255, 0.025);
+    box-shadow:
+        0 16px 34px rgba(0, 0, 0, 0.12),
+        inset 0 1px 0 rgba(255, 255, 255, 0.86),
+        inset 0 -1px 0 rgba(74, 55, 38, 0.08);
+    backdrop-filter: blur(4px) saturate(1.12);
+    -webkit-backdrop-filter: blur(4px) saturate(1.12);
+}
+
+.encyclopedia__preview {
+    box-sizing: border-box;
+    display: flex;
+    align-self: stretch;
+    justify-content: stretch;
+    align-items: stretch;
+    min-width: 0;
+    height: 100%;
+    padding: 24px;
+    overflow: auto;
+    border: 1px solid rgba(255, 255, 255, 0.58);
+    border-radius: 12px;
+    background:
+        radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.42), transparent 40%),
+        linear-gradient(135deg, rgba(255, 255, 255, 0.28), rgba(255, 255, 255, 0.08) 48%, rgba(255, 255, 255, 0.18)),
+        rgba(255, 255, 255, 0.08);
+    box-shadow:
+        0 16px 34px rgba(0, 0, 0, 0.12),
+        inset 0 1px 0 rgba(255, 255, 255, 0.84),
+        inset 0 -1px 0 rgba(74, 55, 38, 0.08);
+    backdrop-filter: blur(4px) saturate(1.12);
+    -webkit-backdrop-filter: blur(4px) saturate(1.12);
+}
+
+.divine-detail {
+    display: block;
+    width: 100%;
+    max-width: none;
+    color: #24180f;
+    font-family: "Cormorant Garamond", Georgia, serif;
+}
+
+.divine-detail__header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 18px;
+    border-bottom: 1px solid rgba(74, 55, 38, 0.18);
+}
+
+.divine-detail__identity {
+    display: flex;
+    gap: 18px;
+    align-items: center;
+    min-width: 0;
+}
+
+.divine-detail__symbol {
+    width: 88px;
+    height: 88px;
+    flex: 0 0 auto;
+    object-fit: contain;
+    filter: drop-shadow(0 8px 14px rgba(0, 0, 0, 0.2));
+}
+
+.divine-detail__subtitle {
+    margin: 0;
+    color: rgba(36, 24, 15, 0.76);
+    font-family: "Cinzel", Georgia, serif;
+    font-size: 12.5px;
+    font-weight: 700;
+    letter-spacing: 0;
+    text-transform: uppercase;
+}
+
+.divine-detail h1 {
+    margin: 0 0 6px;
+    font-family: "Cinzel", Georgia, serif;
+    font-size: clamp(32px, 3vw, 48px);
+    line-height: 1;
+}
+
+.divine-detail h2,
+.divine-detail h3 {
+    margin: 0 0 10px;
+    color: #2f2115;
+    font-family: "Cinzel", Georgia, serif;
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: 0;
+    line-height: 1.2;
+    text-transform: none;
+}
+
+.divine-detail h3 {
+    font-size: 12px;
+}
+
+.divine-detail__facts {
+    display: grid;
+    gap: 8px;
+    margin: 0;
+}
+
+.divine-detail__facts div {
+    display: grid;
+    grid-template-columns: 92px minmax(0, 1fr);
+    gap: 10px;
+    align-items: baseline;
+    padding: 7px 9px;
+    border: 1px solid rgba(255, 255, 255, 0.24);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.divine-detail dt {
+    color: rgba(23, 18, 13, 0.62);
+    font-family: "Cinzel", Georgia, serif;
+    font-size: 10px;
+    font-weight: 760;
+    text-transform: uppercase;
+}
+
+.divine-detail dd {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 650;
+    line-height: 1.15;
+}
+
+.divine-detail__image {
+    float: right;
+    width: clamp(280px, 25%, 360px);
+    margin: 0 0 22px 34px;
+    padding: 0;
+    overflow: visible;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    line-height: 0;
+}
+
+.divine-detail__image img {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-height: 480px;
+    object-fit: contain;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+}
+
+.divine-detail__grid {
+    display: block;
+}
+
+.divine-detail__section {
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+}
+
+.divine-detail__grid .divine-detail__section {
+    margin: 0 0 24px;
+    padding-top: 0;
+    border-top: 0;
+}
+
+.divine-detail__lead {
+    margin: 0 0 24px;
+}
+
+.divine-detail__lead .divine-detail__text {
+    font-size: 20px;
+    line-height: 1.45;
+}
+
+.divine-detail__section--wide {
+    margin-bottom: 22px;
+}
+
+.divine-detail__section--aspects {
+    margin-bottom: 24px;
+    padding-bottom: 0;
+    border-bottom: 0;
+}
+
+.divine-detail__section h2 {
+    padding-bottom: 4px;
+    border-bottom: 1px solid rgba(74, 55, 38, 0.24);
+}
+
+.divine-detail__text {
+    color: rgba(28, 20, 13, 0.92);
+    font-size: 18.5px;
+    font-weight: 560;
+    line-height: 1.46;
+}
+
+.divine-detail__text p {
+    margin: 0 0 0.65em;
+}
+
+.divine-detail__text p:last-child {
+    margin-bottom: 0;
+}
+
+.divine-detail__vow {
+    margin: 0;
+    color: rgba(28, 20, 13, 0.9);
+    font-size: 19px;
+    font-style: italic;
+    font-weight: 560;
+    line-height: 1.46;
+}
+
+.divine-detail__aspects {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 18px;
+}
+
+.divine-detail__aspect {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: center;
+    justify-content: center;
+    min-width: 78px;
+    min-height: 82px;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    font-size: 15px;
+    font-weight: 700;
+    text-align: center;
+}
+
+.divine-detail__aspect.is-starting {
+    color: #24180f;
+}
+
+.divine-detail__aspect img {
+    width: 52px;
+    height: 52px;
+    object-fit: contain;
+}
+
+.divine-detail__empty {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 650;
+}
+
+.encyclopedia-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0 2px;
+    color: #1a1510;
+    font-family: "Cormorant Garamond", Georgia, serif;
+}
+
+.encyclopedia-table th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    padding: 10px 14px;
+    border: 1px solid rgba(255, 255, 255, 0.34);
+    border-radius: 8px 8px 4px 4px;
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.34), rgba(255, 255, 255, 0.08)),
+        rgba(255, 255, 255, 0.04);
+    font-family: "Cinzel", Georgia, serif;
+    font-size: 12px;
+    font-weight: 760;
+    text-align: left;
+    text-transform: uppercase;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+}
+
+.encyclopedia-table td {
+    border: 0;
+}
+
+.encyclopedia-table a {
+    display: block;
+    padding: 8px 14px;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.035)),
+        rgba(255, 255, 255, 0.02);
+    color: inherit;
+    font-size: 16px;
+    font-weight: 650;
+    line-height: 1.1;
+    text-decoration: none;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+}
+
+.encyclopedia-table tr:hover a,
+.encyclopedia-table tr.is-active a {
+    border-color: rgba(255, 255, 255, 0.4);
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.36), rgba(255, 246, 218, 0.08)),
+        rgba(255, 246, 218, 0.05);
+}
+
+.encyclopedia-table tr.is-active a {
+    box-shadow: inset 3px 0 0 rgba(146, 101, 34, 0.82);
+}
