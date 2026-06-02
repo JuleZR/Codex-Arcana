@@ -396,22 +396,30 @@
 
 .card-ability table {
     width: 100%;
-    margin: 4px 0 0;
+    margin: 5px 0 3px;
     border-collapse: collapse;
-    font-size: 0.9em;
-    line-height: 1.05;
+    table-layout: fixed;
+    font-size: 0.76em;
+    line-height: 1;
 }
 
 .card-ability th,
 .card-ability td {
-    padding: 2px 4px;
-    border: 1px solid rgba(42, 36, 29, 0.22);
-    vertical-align: top;
+    padding: 2px 3px;
+    border: 1px solid rgba(42, 36, 29, 0.18);
+    text-align: center;
+    vertical-align: middle;
+    overflow-wrap: anywhere;
+    hyphens: auto;
 }
 
 .card-ability th {
-    background: rgba(255, 255, 255, 0.22);
+    background: rgba(255, 255, 255, 0.18);
     font-weight: 760;
+}
+
+.card-ability td {
+    font-weight: 560;
 }
 
 .card-vow {
