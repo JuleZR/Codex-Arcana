@@ -56,7 +56,7 @@
     <section class="card-encyclopedia__preview" aria-label="G&ouml;tterkarte">
 {% endif %}
 
-<article class="card" aria-label="{% if divine_entity %}{{ divine_entity.card_name }}{% endif %} G&ouml;tterkarte">
+<article class="card" lang="de" aria-label="{% if divine_entity %}{{ divine_entity.card_name }}{% endif %} G&ouml;tterkarte">
     <figure class="card-art{% if not divine_entity or not divine_entity.god_image %} card-art--empty{% endif %}">
         {% if divine_entity and divine_entity.god_image %}
             <img src="{{ divine_entity.god_image.url }}" alt="{{ divine_entity.card_name }}">
