@@ -1,6 +1,18 @@
 {% load static %}
 
+{% if is_card_debug %}
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>G&ouml;tterkarten-Enzyklop&auml;die</title>
+{% endif %}
 <link rel="stylesheet" href="{% static 'css/charsheet/_card.css' %}">
+{% if is_card_debug %}
+</head>
+<body class="card-debug-page">
+{% endif %}
 
 {% if is_card_debug %}
 <main class="card-encyclopedia">
@@ -93,4 +105,6 @@
 {% if is_card_debug %}
     </section>
 </main>
+</body>
+</html>
 {% endif %}
