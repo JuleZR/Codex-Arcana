@@ -2356,11 +2356,12 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
   --tooltip-card-accent: rgba(118, 85, 48, 0.88);
   --tooltip-card-media-width: clamp(130px, 18vw, 220px);
   --tooltip-card-media-height: clamp(190px, 26vw, 320px);
+  --tooltip-card-max-height: min(calc(760px * 1.4142), calc(100vh - 24px));
   position: fixed;
   left: 16px;
   top: 16px;
   width: min(760px, calc((100vh - 24px) / 1.4142), calc(100vw - 24px));
-  max-height: min(calc(760px * 1.4142), calc(100vh - 24px));
+  max-height: var(--tooltip-card-max-height);
   overflow: hidden;
   pointer-events: none;
   opacity: 0;
@@ -2384,7 +2385,7 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
   display: flex;
   flex-direction: column;
   gap: 14px;
-  max-height: min(calc(760px * 1.4142), calc(100vh - 24px));
+  max-height: var(--tooltip-card-max-height);
   padding: 16px 16px 18px;
   box-sizing: border-box;
   border: 1px solid rgba(95, 69, 42, 0.92);
@@ -2561,7 +2562,7 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
 .floating-tooltip-card__lore {
   display: flex;
   flex-direction: column;
-  flex: 0 1 auto;
+  flex: 1 1 auto;
   gap: 14px;
   min-height: 0;
   overflow-y: auto;

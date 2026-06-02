@@ -3013,6 +3013,10 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
         0,
         int(character.personal_fame_point) + int(engine.resolve_resource("personal_fame_point")),
     )
+    manual_personal_fame_total = max(
+        0,
+        (int(character.personal_fame_rank) * 10) + int(character.personal_fame_point),
+    )
     base_personal_fame_rank = max(
         0,
         int(character.personal_fame_rank) + int(engine.resolve_resource("personal_fame_rank")),
@@ -3034,6 +3038,7 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
         "effective_artefact_rank": effective_artefact_rank,
         "auto_school_fame_point": auto_school_fame_point,
         "manual_personal_fame_point": manual_personal_fame_point,
+        "manual_personal_fame_total": manual_personal_fame_total,
         "char_info_form": CharacterInfoInlineForm(instance=character),
         "selected_divine_entity": divine_entity,
         "selected_divine_symbol_url": divine_symbol_url,

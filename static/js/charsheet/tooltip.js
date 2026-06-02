@@ -522,6 +522,7 @@ function syncTooltipCardLayout(card) {
     return;
   }
 
+  frame.style.height = "";
   lore.style.maxHeight = "";
 
   const maxFrameHeight = Math.min(760 * 1.4142, window.innerHeight - 24);
@@ -530,6 +531,7 @@ function syncTooltipCardLayout(card) {
     return;
   }
 
+  frame.style.height = `${Math.floor(maxFrameHeight)}px`;
   const nonLoreHeight = naturalFrameHeight - lore.scrollHeight;
   const availableLoreHeight = Math.max(0, Math.floor(maxFrameHeight - nonLoreHeight));
   lore.style.maxHeight = `${availableLoreHeight}px`;

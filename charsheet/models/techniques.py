@@ -1300,6 +1300,8 @@ class DivineEntity(models.Model):
 
     name = models.CharField(max_length=120, unique=True)
     slug = models.SlugField(max_length=120, unique=True)
+    card_name = models.CharField(max_length=160, blank=True, default="")
+    pantheon = models.CharField(max_length=160, blank=True, default="")
 
     school = models.ForeignKey(
         School,
@@ -1312,18 +1314,26 @@ class DivineEntity(models.Model):
 
     divine_function = models.TextField(blank=True, default="")
     vow = models.TextField(blank=True, default="")
+    fluff = models.TextField(blank=True, default="")
     description = models.TextField(blank=True, default="")
     goals = models.TextField(blank=True, default="")
     allies_and_enemies = models.TextField(blank=True, default="")
     worshippers = models.TextField(blank=True, default="")
     doctrines = models.TextField(blank=True, default="")
     granted_abilities = models.TextField(blank=True, default="")
+    g_ability = models.TextField(blank=True, default="")
 
     symbol_image = models.ImageField(
         upload_to="divine_entities/",
         blank=True,
         null=True,
         help_text="Optionales Symbolbild fuer diese goettliche Entitaet.",
+    )
+    god_image = models.ImageField(
+        upload_to="divine_entities/",
+        blank=True,
+        null=True,
+        help_text="Optionales Karten-/Gottheitenbild fuer diese goettliche Entitaet.",
     )
     grants_arcane_spell_choice_per_level = models.BooleanField(
         default=False,

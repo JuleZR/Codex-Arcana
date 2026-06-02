@@ -3,152 +3,509 @@
     src: url("/static/fonts/cormorant_garamond/CormorantGaramond-wght.ttf") format("truetype");
 }
 
+@font-face {
+    font-family: "Cinzel";
+    src: url("/static/fonts/cinzel/Cinzel-wght.ttf") format("truetype");
+}
+
 :root {
-    --gold-gradient: linear-gradient(
-        135deg,
-        #fff8d6 0%,
-        #f6e27a 12%,
-        #c9971a 25%,
-        #ffe89a 40%,
-        #b07a00 55%,
-        #f2d36b 70%,
-        #fff6cf 85%,
-        #c28d11 100%
-    );
+    --card-black: #171717;
+    --card-ink: #151310;
+    --card-paper: #eee9dc;
+    --card-paper-dark: #d0c4ad;
+    --card-line: rgba(42, 36, 29, 0.72);
+    --card-gold: #c9aa55;
+}
+
+.card-encyclopedia {
+    display: grid;
+    grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+    gap: 24px;
+    align-items: start;
+    width: min(980px, calc(100vw - 32px));
+    margin: 0 auto;
+    padding: 24px 0;
+}
+
+.card-encyclopedia__select {
+    display: none;
+}
+
+.card-encyclopedia__index {
+    max-height: calc(100vh - 48px);
+    overflow: auto;
+    border: 1px solid rgba(42, 36, 29, 0.18);
+    border-radius: 8px;
+    background: rgba(238, 233, 220, 0.72);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.12);
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+}
+
+.card-encyclopedia__preview {
+    display: flex;
+    justify-content: center;
+}
+
+.card-entity-table {
+    width: 100%;
+    border-collapse: collapse;
+    color: #1a1510;
+    font-family: "Cormorant Garamond", Georgia, serif;
+}
+
+.card-entity-table th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    padding: 10px 14px;
+    border-bottom: 1px solid rgba(42, 36, 29, 0.22);
+    background: rgba(233, 227, 210, 0.94);
+    font-family: "Cinzel", Georgia, serif;
+    font-size: 12px;
+    font-weight: 760;
+    text-align: left;
+    text-transform: uppercase;
+}
+
+.card-entity-table td {
+    border-bottom: 1px solid rgba(42, 36, 29, 0.11);
+}
+
+.card-entity-table tr:last-child td {
+    border-bottom: 0;
+}
+
+.card-entity-table a {
+    display: block;
+    padding: 8px 14px;
+    color: inherit;
+    font-size: 16px;
+    font-weight: 650;
+    line-height: 1.1;
+    text-decoration: none;
+}
+
+.card-entity-table tr:hover a,
+.card-entity-table tr.is-active a {
+    background: rgba(255, 246, 218, 0.82);
+}
+
+.card-entity-table tr.is-active a {
+    box-shadow: inset 3px 0 0 rgba(146, 101, 34, 0.82);
 }
 
 .card {
     position: relative;
-
-    width: 350px;
+    width: min(420px, calc(100vw - 32px));
     aspect-ratio: 744 / 1039;
-
+    padding: 0;
     overflow: hidden;
+    border: 0;
     border-radius: 20px;
+    background: transparent;
+    box-shadow: 0 18px 34px rgba(0, 0, 0, 0.34);
+    color: var(--card-ink);
+    font-family: "Cormorant Garamond", Georgia, serif;
+    isolation: isolate;
+}
 
+.card::before,
+.card::after {
+    content: "";
+    position: absolute;
+    pointer-events: none;
+}
+
+.card::before {
+    inset: 5px;
+    z-index: 3;
+    border: 0;
+    border-radius: 15px;
+    box-shadow: none;
+}
+
+.card::after {
+    inset: 0;
+    z-index: 5;
     background:
-        url("/static/img/Altharus.png")
-        center center / cover no-repeat;
-
-    box-shadow:
-        0 8px 20px rgba(0, 0, 0, 0.35);
+        linear-gradient(110deg, rgba(255, 255, 255, 0.24), transparent 21%, transparent 63%, rgba(255, 255, 255, 0.12)),
+        repeating-linear-gradient(95deg, rgba(255, 255, 255, 0.025) 0 1px, transparent 1px 8px);
+    mix-blend-mode: screen;
+    opacity: 0.42;
 }
 
-.info-container {
-    position: absolute;
-    inset: 0;
+.card-shell {
+    position: relative;
+    z-index: 4;
+    box-sizing: border-box;
+    display: grid;
+    grid-template-rows: 42px minmax(0, 1fr) 39px 168px;
+    gap: 7px;
+    height: 100%;
+    padding: 18px;
+    border-radius: 16px;
+    background:
+        linear-gradient(90deg, rgba(196, 147, 56, 0.24), transparent 6%, transparent 94%, rgba(196, 147, 56, 0.24)),
+        linear-gradient(180deg, rgba(5, 5, 5, 0.42), transparent 20%, transparent 64%, rgba(5, 5, 5, 0.52));
+    box-shadow: none;
 }
 
-.outer {
-    position: absolute;
-    inset: 0;
-
-    border-radius: 18px;
+.card-titlebar {
+    grid-row: 1;
 }
 
-.outer::before {
-    content: "";
-
-    position: absolute;
-    inset: 0;
-
-    padding: 3px;
-    border-radius: inherit;
-
-    background: var(--gold-gradient);
-
-    -webkit-mask:
-        linear-gradient(#fff 0 0) content-box,
-        linear-gradient(#fff 0 0);
-
-    -webkit-mask-composite: xor;
-    mask-composite: exclude;
-
-    pointer-events: none;
-    backdrop-filter: blur(3px);
+.card-typebar {
+    grid-row: 3;
 }
 
-.inner {
-    position: absolute;
-    inset: 10px;
-
-    border-radius: 12px;
+.card-rules {
+    grid-row: 4;
 }
 
-.inner::before {
-    content: "";
-    backdrop-filter: blur(3px);
-    position: absolute;
-    inset: 0;
-
-    padding: 5px;
-    border-radius: inherit;
-
-    background: var(--gold-gradient);
-
-    -webkit-mask:
-        linear-gradient(#fff 0 0) content-box,
-        linear-gradient(#fff 0 0);
-
-    -webkit-mask-composite: xor;
-    mask-composite: exclude;
-
-    pointer-events: none;
-}
-
-.nameplate {
-    position: absolute;
-
-    left: 50%;
-    bottom: 12px;
-
-    transform: translateX(-50%);
-
-    min-width: 180px;
-    max-width: calc(100% - 24px);
-    min-height: 46px;
-
+.card-titlebar,
+.card-typebar {
+    position: relative;
     display: flex;
     align-items: center;
-    justify-content: center;
-
-    padding: 0 20px;
-
-    border-radius: 10px;
-
-    background: var(--gold-gradient);
-
-    font-family: "Cormorant Garamond", Georgia, serif;
-    font-size: 29px;
-    font-weight: 700;
-
-    color: transparent;
-    backdrop-filter: blur(3px);
-
-    background-origin: border-box;
-    background-clip: text, padding-box;
-
-    -webkit-background-clip: text, padding-box;
-    -webkit-text-fill-color: transparent;
+    min-width: 0;
+    border: 1px solid rgba(42, 36, 29, 0.36);
+    border-radius: 9px / 12px;
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.52), rgba(221, 216, 202, 0.42)),
+        rgba(233, 227, 210, 0.46);
+    box-shadow:
+        inset 0 0 0 1px rgba(255, 255, 255, 0.32),
+        inset 0 -18px 24px rgba(176, 163, 139, 0.14),
+        0 1px 5px rgba(0, 0, 0, 0.16);
+    backdrop-filter: blur(2px) saturate(1.08);
+    -webkit-backdrop-filter: blur(2px) saturate(1.08);
 }
 
-.nameplate::before {
-    content: "";
+.card-titlebar {
+    justify-content: space-between;
+    padding: 0 5px 0 11px;
+}
 
+.card-title {
+    min-width: 0;
+    margin: 0;
+    overflow: hidden;
+    color: #100e0b;
+    font-size: 16.5px;
+    font-weight: 760;
+    letter-spacing: 0;
+    line-height: 1;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.52);
+}
+
+.card-aspects {
+    display: inline-flex;
+    flex: 0 0 auto;
+    gap: 2px;
+    align-items: center;
+    justify-content: flex-end;
+    margin-left: 5px;
+    max-width: 35%;
+    overflow: hidden;
+}
+
+.card-aspect-mark {
+    display: grid;
+    width: 24px;
+    height: 24px;
+    place-items: center;
+    padding: 0;
+    overflow: hidden;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    font-family: "Cinzel", Georgia, serif;
+    font-size: 8px;
+    font-weight: 700;
+    line-height: 1;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.card-aspect-mark img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    filter:
+        drop-shadow(0 1px 0 rgba(255, 255, 255, 0.45))
+        drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
+}
+
+.card-art {
     position: absolute;
     inset: 0;
+    z-index: 1;
+    margin: 0;
+    overflow: hidden;
+    border-radius: 17px;
+    background: #d8caa6;
+}
 
-    padding: 2px;
-    border-radius: inherit;
+.card-art--empty {
+    background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.18), transparent 32%),
+        linear-gradient(180deg, #9d9d9d, #6f6f6f);
+}
 
-    background: var(--gold-gradient);
-
-    -webkit-mask:
-        linear-gradient(#fff 0 0) content-box,
-        linear-gradient(#fff 0 0);
-
-    -webkit-mask-composite: xor;
-    mask-composite: exclude;
-
+.card-art::before,
+.card-art::after {
+    content: "";
+    position: absolute;
+    inset: 0;
     pointer-events: none;
+}
+
+.card-art::before {
+    z-index: 1;
+    background:
+        linear-gradient(90deg, rgba(217, 170, 78, 0.24), transparent 7%, transparent 93%, rgba(217, 170, 78, 0.24)),
+        linear-gradient(180deg, rgba(0, 0, 0, 0.18), transparent 26%, transparent 67%, rgba(0, 0, 0, 0.32)),
+        radial-gradient(circle at 50% 24%, rgba(255, 228, 143, 0.14), transparent 30%);
+}
+
+.card-art--empty::before {
+    background: none;
+}
+
+.card-art::after {
+    z-index: 2;
+    box-shadow: inset 0 0 28px rgba(0, 0, 0, 0.28);
+}
+
+.card-art--empty::after {
+    box-shadow: inset 0 0 22px rgba(0, 0, 0, 0.18);
+}
+
+.card-art img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: 50% 33%;
+    filter: saturate(1.08) contrast(1.04) brightness(1.03);
+}
+
+.card-typebar {
+    justify-content: space-between;
+    padding: 0 8px 0 13px;
+    font-size: 16.5px;
+    font-weight: 760;
+    line-height: 1;
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.52);
+}
+
+.card-typebar span:first-child {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.card-setmark {
+    display: block;
+    flex: 0 0 auto;
+    width: 22px;
+    height: 22px;
+    margin-left: 7px;
+    object-fit: contain;
+    filter: drop-shadow(0 1px 0 #fff4cf) drop-shadow(0 1px 1px rgba(0, 0, 0, 0.45));
+}
+
+.card-rules {
+    position: relative;
+    display: grid;
+    align-content: start;
+    grid-template-rows: minmax(0, 1fr) auto;
+    gap: 10px;
+    padding: 10px 12px 12px;
+    overflow: hidden;
+    border: 1px solid rgba(42, 36, 29, 0.34);
+    border-radius: 6px;
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.52), rgba(221, 216, 202, 0.42)),
+        rgba(233, 227, 210, 0.46);
+    box-shadow:
+        inset 0 0 0 1px rgba(255, 255, 255, 0.32),
+        inset 0 -18px 24px rgba(176, 163, 139, 0.14),
+        0 1px 5px rgba(0, 0, 0, 0.16);
+    backdrop-filter: blur(2px) saturate(1.08);
+    -webkit-backdrop-filter: blur(2px) saturate(1.08);
+}
+
+.card-rules::before {
+    content: none;
+}
+
+.card-ability {
+    position: relative;
+    z-index: 1;
+    margin: 0;
+    overflow: hidden;
+    color: #221d17;
+    font-size: 15px;
+    font-weight: 620;
+    line-height: 1.14;
+}
+
+.card-vow {
+    position: relative;
+    z-index: 1;
+    margin: 0;
+    padding-top: 9px;
+    overflow: hidden;
+    border-top: 0;
+    color: rgba(30, 25, 19, 0.92);
+    font-size: 14.8px;
+    font-style: italic;
+    font-weight: 540;
+    line-height: 1.12;
+}
+
+.card-rules--with-ability.card-rules--with-vow {
+    grid-template-rows: minmax(0, 1fr) minmax(44px, auto);
+    gap: 7px;
+}
+
+.card-rules--with-ability.card-rules--with-vow .card-ability {
+    font-size: 14px;
+    line-height: 1.1;
+}
+
+.card-rules--with-ability.card-rules--with-vow .card-vow {
+    position: relative;
+    padding-top: 7px;
+    font-size: 13.2px;
+    line-height: 1.08;
+}
+
+.card-rules--with-ability.card-rules--with-vow .card-vow::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 8%;
+    right: 8%;
+    height: 1px;
+    background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(42, 36, 29, 0.22) 22%,
+        rgba(42, 36, 29, 0.22) 78%,
+        transparent
+    );
+}
+
+@media (max-width: 700px) {
+    .card-encyclopedia {
+        grid-template-columns: 1fr;
+        gap: 14px;
+        width: min(100%, calc(100vw - 20px));
+        padding: 12px 0 18px;
+    }
+
+    .card-encyclopedia__index {
+        display: none;
+    }
+
+    .card-encyclopedia__select {
+        display: block;
+        width: 100%;
+        font-family: "Cinzel", Georgia, serif;
+    }
+
+    .card-encyclopedia__select label {
+        display: block;
+        margin: 0 0 6px;
+        color: #201b14;
+        font-size: 11px;
+        font-weight: 760;
+        text-transform: uppercase;
+    }
+
+    .card-encyclopedia__select_row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 8px;
+    }
+
+    .card-encyclopedia__select select,
+    .card-encyclopedia__select button {
+        min-height: 42px;
+        border: 1px solid rgba(42, 36, 29, 0.24);
+        border-radius: 8px;
+        background: rgba(238, 233, 220, 0.86);
+        color: #17120d;
+        font: inherit;
+        font-size: 14px;
+    }
+
+    .card-encyclopedia__select select {
+        min-width: 0;
+        padding: 0 10px;
+    }
+
+    .card-encyclopedia__select button {
+        padding: 0 12px;
+        font-size: 12px;
+        font-weight: 760;
+    }
+
+    .card-entity-table a {
+        font-size: 15px;
+    }
+
+    .card {
+        width: min(100%, 390px);
+        border-radius: 18px;
+    }
+
+    .card-shell {
+        grid-template-rows: 38px minmax(0, 1fr) 36px 154px;
+        gap: 6px;
+        padding: 15px 14px;
+    }
+
+    .card-title {
+        font-size: 14.5px;
+    }
+
+    .card-aspect-mark {
+        width: 22px;
+        height: 22px;
+        padding: 0;
+        font-size: 7px;
+    }
+
+    .card-typebar {
+        font-size: 14px;
+    }
+
+    .card-rules {
+        padding: 9px 11px 11px;
+    }
+
+    .card-ability {
+        font-size: 13.5px;
+    }
+
+    .card-vow {
+        font-size: 12.8px;
+    }
+
+    .card-rules--with-ability.card-rules--with-vow .card-ability {
+        font-size: 12.6px;
+    }
+
+    .card-rules--with-ability.card-rules--with-vow .card-vow {
+        font-size: 11.6px;
+    }
 }

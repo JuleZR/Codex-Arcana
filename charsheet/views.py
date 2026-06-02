@@ -31,6 +31,7 @@ from .models import (
     CharacterSpell,
     CharacterTechnique,
     CharacterCreationDraft,
+    DivineEntity,
     Item,
     Language,
     Rune,
@@ -1850,8 +1851,38 @@ def datenschutz(request):
 
 # TODO Remnve after designing is finished
 def test_character_card(request):
+    divine_entities = list(
+        DivineEntity.objects.prefetch_related("aspects__aspect").order_by("name")
+    )
+    selected_entity_id = request.GET.get("entity")
+    divine_entity = None
+    if selected_entity_id:
+        divine_entity = next(
+            (
+                entity
+                for entity in divine_entities
+                if str(entity.pk) == str(selected_entity_id)
+            ),
+            None,
+        )
+    if divine_entity is None and divine_entities:
+        divine_entity = divine_entities[0]
+
+    card_aspects = []
+    if divine_entity is not None:
+        card_aspects = [
+            entry.aspect
+            for entry in divine_entity.aspects.all()
+            if entry.aspect_id and entry.is_starting_aspect
+        ]
+
     return render(
         request,
         "charsheet/partials/_card.html",
-        {},
+        {
+            "divine_entity": divine_entity,
+            "divine_entities": divine_entities,
+            "card_aspects": card_aspects,
+            "is_card_debug": True,
+        },
     )

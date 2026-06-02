@@ -4289,17 +4289,19 @@ class DivineEntityAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
         "name",
         "entity_kind",
         "school",
+        "pantheon",
         "starting_aspect_count",
         "has_symbol_image",
+        "has_god_image",
         "grants_arcane_spell_choice_per_level",
     )
-    search_fields = ("name", "slug")
-    list_filter = ("entity_kind", "school", "grants_arcane_spell_choice_per_level")
+    search_fields = ("name", "slug", "card_name", "pantheon")
+    list_filter = ("entity_kind", "school", "pantheon", "grants_arcane_spell_choice_per_level")
     ordering = ("name",)
     autocomplete_fields = ("school",)
     list_select_related = ("school", "school__type")
     inlines = (DivineEntityAspectInline,)
-    readonly_fields = ("symbol_image_preview",)
+    readonly_fields = ("symbol_image_preview", "god_image_preview")
 
     fieldsets = (
         (None, {
@@ -4333,6 +4335,16 @@ class DivineEntityAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
                 "symbol_image_preview",
             )
         }),
+        ("Goetterkarte", {
+            "fields": (
+                "card_name",
+                "pantheon",
+                "god_image",
+                "god_image_preview",
+                "g_ability",
+                "fluff",
+            )
+        }),
     )
 
     @admin.display(description="Startaspekte")
@@ -4343,6 +4355,10 @@ class DivineEntityAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
     def has_symbol_image(self, obj):
         return bool(obj.symbol_image)
 
+    @admin.display(description="Goetterbild")
+    def has_god_image(self, obj):
+        return bool(obj.god_image)
+
     @admin.display(description="Symbolvorschau")
     def symbol_image_preview(self, obj):
         if obj is None or not obj.symbol_image:
@@ -4351,6 +4367,17 @@ class DivineEntityAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
         return format_html(
             '<img src="{}" alt="{}" style="max-width:96px; max-height:96px; border-radius:8px; border:1px solid #ccc; background:#fff; padding:4px;" />',
             obj.symbol_image.url,
+            obj.name,
+        )
+
+    @admin.display(description="Goetterbildvorschau")
+    def god_image_preview(self, obj):
+        if obj is None or not obj.god_image:
+            return format_html('<span style="color:#666;">{}</span>', "-")
+
+        return format_html(
+            '<img src="{}" alt="{}" style="max-width:160px; max-height:220px; border-radius:8px; border:1px solid #ccc; background:#fff; padding:4px;" />',
+            obj.god_image.url,
             obj.name,
         )
 
