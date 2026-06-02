@@ -17,13 +17,13 @@
     --card-gold: #c9aa55;
 }
 
-.card-debug-page {
+.encyclopedia-page {
     min-height: 100vh;
     margin: 0;
     background: #f5f4f0;
 }
 
-.card-encyclopedia {
+.encyclopedia {
     display: grid;
     grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
     gap: 24px;
@@ -33,11 +33,41 @@
     padding: 24px 0;
 }
 
-.card-encyclopedia__select {
+.encyclopedia__topics {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    padding-bottom: 2px;
+    font-family: "Cinzel", Georgia, serif;
+}
+
+.encyclopedia__topic {
+    display: inline-flex;
+    align-items: center;
+    min-height: 34px;
+    padding: 0 13px;
+    border: 1px solid rgba(42, 36, 29, 0.18);
+    border-radius: 8px;
+    background: rgba(238, 233, 220, 0.62);
+    color: #1a1510;
+    font-size: 12px;
+    font-weight: 760;
+    text-decoration: none;
+    text-transform: uppercase;
+}
+
+.encyclopedia__topic.is-active {
+    background: rgba(255, 246, 218, 0.88);
+    box-shadow: inset 0 -2px 0 rgba(146, 101, 34, 0.82);
+}
+
+.encyclopedia__select {
     display: none;
 }
 
-.card-encyclopedia__index {
+.encyclopedia__index {
     max-height: calc(100vh - 48px);
     overflow: auto;
     border: 1px solid rgba(42, 36, 29, 0.18);
@@ -48,19 +78,19 @@
     -webkit-backdrop-filter: blur(2px);
 }
 
-.card-encyclopedia__preview {
+.encyclopedia__preview {
     display: flex;
     justify-content: center;
 }
 
-.card-entity-table {
+.encyclopedia-table {
     width: 100%;
     border-collapse: collapse;
     color: #1a1510;
     font-family: "Cormorant Garamond", Georgia, serif;
 }
 
-.card-entity-table th {
+.encyclopedia-table th {
     position: sticky;
     top: 0;
     z-index: 1;
@@ -74,15 +104,15 @@
     text-transform: uppercase;
 }
 
-.card-entity-table td {
+.encyclopedia-table td {
     border-bottom: 1px solid rgba(42, 36, 29, 0.11);
 }
 
-.card-entity-table tr:last-child td {
+.encyclopedia-table tr:last-child td {
     border-bottom: 0;
 }
 
-.card-entity-table a {
+.encyclopedia-table a {
     display: block;
     padding: 8px 14px;
     color: inherit;
@@ -92,12 +122,12 @@
     text-decoration: none;
 }
 
-.card-entity-table tr:hover a,
-.card-entity-table tr.is-active a {
+.encyclopedia-table tr:hover a,
+.encyclopedia-table tr.is-active a {
     background: rgba(255, 246, 218, 0.82);
 }
 
-.card-entity-table tr.is-active a {
+.encyclopedia-table tr.is-active a {
     box-shadow: inset 3px 0 0 rgba(146, 101, 34, 0.82);
 }
 
@@ -476,7 +506,7 @@
 }
 
 @media (max-width: 900px) {
-    .card-encyclopedia {
+    .encyclopedia {
         grid-template-columns: 1fr;
         gap: 14px;
         box-sizing: border-box;
@@ -484,22 +514,32 @@
         padding: 12px 10px 18px;
     }
 
-    .card-encyclopedia__index {
+    .encyclopedia__topics {
+        gap: 6px;
+    }
+
+    .encyclopedia__topic {
+        min-height: 32px;
+        padding: 0 10px;
+        font-size: 11px;
+    }
+
+    .encyclopedia__index {
         display: none;
     }
 
-    .card-encyclopedia__select {
+    .encyclopedia__select {
         display: block;
         width: 100%;
         font-family: "Cinzel", Georgia, serif;
     }
 
-    .card-encyclopedia__preview {
+    .encyclopedia__preview {
         width: 100%;
         min-width: 0;
     }
 
-    .card-encyclopedia__select label {
+    .encyclopedia__select label {
         display: block;
         margin: 0 0 6px;
         color: #201b14;
@@ -508,14 +548,14 @@
         text-transform: uppercase;
     }
 
-    .card-encyclopedia__select_row {
+    .encyclopedia__select_row {
         display: grid;
         grid-template-columns: minmax(0, 1fr) auto;
         gap: 8px;
     }
 
-    .card-encyclopedia__select select,
-    .card-encyclopedia__select button {
+    .encyclopedia__select select,
+    .encyclopedia__select button {
         min-height: 42px;
         border: 1px solid rgba(42, 36, 29, 0.24);
         border-radius: 8px;
@@ -525,18 +565,18 @@
         font-size: 14px;
     }
 
-    .card-encyclopedia__select select {
+    .encyclopedia__select select {
         min-width: 0;
         padding: 0 10px;
     }
 
-    .card-encyclopedia__select button {
+    .encyclopedia__select button {
         padding: 0 12px;
         font-size: 12px;
         font-weight: 760;
     }
 
-    .card-entity-table a {
+    .encyclopedia-table a {
         font-size: 15px;
     }
 

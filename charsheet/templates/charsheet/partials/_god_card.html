@@ -1,0 +1,46 @@
+{% load static card_markdown %}
+
+<article class="card" lang="de" aria-label="{% if divine_entity %}{{ divine_entity.card_name }}{% endif %} G&ouml;tterkarte">
+    <figure class="card-art{% if not divine_entity or not divine_entity.god_image %} card-art--empty{% endif %}">
+        {% if divine_entity and divine_entity.god_image %}
+            <img src="{{ divine_entity.god_image.url }}" alt="{{ divine_entity.card_name }}">
+        {% endif %}
+    </figure>
+
+    <div class="card-shell">
+        <header class="card-titlebar">
+            <h1 class="card-title">{% if divine_entity %}{{ divine_entity.card_name }}{% endif %}</h1>
+            <div class="card-aspects" aria-label="Aspekte">
+                {% if card_aspects %}
+                    {% for aspect in card_aspects %}
+                        <span class="card-aspect-mark" title="{{ aspect.name }}">
+                            {% if aspect.aspect_image %}
+                                <img src="{{ aspect.aspect_image.url }}" alt="{{ aspect.name }}">
+                            {% else %}
+                                {{ aspect.name }}
+                            {% endif %}
+                        </span>
+                    {% endfor %}
+                {% endif %}
+            </div>
+        </header>
+
+        <section class="card-typebar">
+            <span>Gottheit{% if divine_entity and divine_entity.pantheon %} &mdash; {{ divine_entity.pantheon }}{% endif %}</span>
+            <img class="card-setmark" src="{% static 'img/favicon.ico' %}" alt="" aria-hidden="true">
+        </section>
+
+        <section class="card-rules{% if divine_entity and divine_entity.g_ability %} card-rules--with-ability{% endif %}{% if divine_entity and divine_entity.fluff %} card-rules--with-vow{% endif %}" aria-label="Kartentext">
+            {% if divine_entity and divine_entity.g_ability %}
+                <div class="card-ability">
+                    {{ divine_entity.g_ability|card_markdown }}
+                </div>
+            {% endif %}
+            {% if divine_entity and divine_entity.fluff %}
+                <blockquote class="card-vow">
+                    &bdquo;{{ divine_entity.fluff|linebreaksbr }}&ldquo;
+                </blockquote>
+            {% endif %}
+        </section>
+    </div>
+</article>

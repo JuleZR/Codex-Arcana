@@ -1849,8 +1849,7 @@ def datenschutz(request):
     """Render privacy page with minimal data-processing information."""
     return render(request, "legal/datenschutz.html", _legal_context())
 
-# TODO Remnve after designing is finished
-def test_character_card(request):
+def encyclopedia(request):
     divine_entities = list(
         DivineEntity.objects.prefetch_related("aspects__aspect").order_by("name")
     )
@@ -1878,11 +1877,18 @@ def test_character_card(request):
 
     return render(
         request,
-        "charsheet/partials/_card.html",
+        "charsheet/encyclopedia.html",
         {
             "divine_entity": divine_entity,
             "divine_entities": divine_entities,
             "card_aspects": card_aspects,
-            "is_card_debug": True,
+            "encyclopedia_sections": [
+                {
+                    "key": "divine_entities",
+                    "label": "Gottheiten",
+                    "url": request.path,
+                    "is_active": True,
+                },
+            ],
         },
     )

@@ -1,0 +1,56 @@
+<main class="encyclopedia" aria-label="{{ encyclopedia_title|default:'Enzyklop&auml;die' }}">
+    <nav class="encyclopedia__topics" aria-label="Themen">
+        {% if encyclopedia_sections %}
+            {% for section in encyclopedia_sections %}
+                {% if section.is_active %}
+                    <span class="encyclopedia__topic is-active" aria-current="page">{{ section.label }}</span>
+                {% else %}
+                    <a class="encyclopedia__topic" href="{{ section.url }}">{{ section.label }}</a>
+                {% endif %}
+            {% endfor %}
+        {% endif %}
+    </nav>
+
+    <form class="encyclopedia__select" method="get" aria-label="{{ encyclopedia_topic_label|default:'Eintrag' }} ausw&auml;hlen">
+        <label for="encyclopediaEntrySelect">{{ encyclopedia_topic_label|default:"Eintrag" }}</label>
+        <div class="encyclopedia__select_row">
+            <select id="encyclopediaEntrySelect" name="{{ encyclopedia_item_param|default:'entry' }}" onchange="this.form.submit()">
+                {% if encyclopedia_items %}
+                    {% for item in encyclopedia_items %}
+                        <option value="{{ item.pk }}"{% if encyclopedia_active_item and item.pk == encyclopedia_active_item.pk %} selected{% endif %}>{{ item.name }}</option>
+                    {% endfor %}
+                {% endif %}
+            </select>
+            <button type="submit">Anzeigen</button>
+        </div>
+    </form>
+
+    <aside class="encyclopedia__index" aria-label="{{ encyclopedia_topic_label|default:'Eintr&auml;ge' }}">
+        <table class="encyclopedia-table">
+            <thead>
+                <tr>
+                    <th>{{ encyclopedia_topic_label|default:"Eintrag" }}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if encyclopedia_items %}
+                    {% for item in encyclopedia_items %}
+                        <tr class="{% if encyclopedia_active_item and item.pk == encyclopedia_active_item.pk %}is-active{% endif %}">
+                            <td>
+                                <a href="?{{ encyclopedia_item_param|default:'entry' }}={{ item.pk }}">{{ item.name }}</a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr>
+                        <td>{{ encyclopedia_empty_message|default:"Keine Eintr&auml;ge vorhanden." }}</td>
+                    </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </aside>
+
+    <section class="encyclopedia__preview" aria-label="{{ encyclopedia_preview_label|default:'Vorschau' }}">
+        {% include encyclopedia_preview_template %}
+    </section>
+</main>
