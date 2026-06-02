@@ -1,4 +1,4 @@
-{% load static %}
+{% load static card_markdown %}
 
 {% if is_card_debug %}
 <!doctype html>
@@ -89,7 +89,7 @@
         <section class="card-rules{% if divine_entity and divine_entity.g_ability %} card-rules--with-ability{% endif %}{% if divine_entity and divine_entity.fluff %} card-rules--with-vow{% endif %}" aria-label="Kartentext">
             {% if divine_entity and divine_entity.g_ability %}
                 <div class="card-ability">
-                    {{ divine_entity.g_ability|linebreaksbr }}
+                    {{ divine_entity.g_ability|card_markdown }}
                 </div>
             {% endif %}
             {% if divine_entity and divine_entity.fluff %}

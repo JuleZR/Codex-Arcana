@@ -363,6 +363,57 @@
     line-height: 1.14;
 }
 
+.card-ability p,
+.card-ability ul,
+.card-ability ol {
+    margin: 0;
+}
+
+.card-ability p + p,
+.card-ability p + ul,
+.card-ability p + ol,
+.card-ability ul + p,
+.card-ability ol + p {
+    margin-top: 5px;
+}
+
+.card-ability ul,
+.card-ability ol {
+    padding-left: 18px;
+}
+
+.card-ability li + li {
+    margin-top: 2px;
+}
+
+.card-ability strong {
+    font-weight: 760;
+}
+
+.card-ability em {
+    font-style: italic;
+}
+
+.card-ability table {
+    width: 100%;
+    margin: 4px 0 0;
+    border-collapse: collapse;
+    font-size: 0.9em;
+    line-height: 1.05;
+}
+
+.card-ability th,
+.card-ability td {
+    padding: 2px 4px;
+    border: 1px solid rgba(42, 36, 29, 0.22);
+    vertical-align: top;
+}
+
+.card-ability th {
+    background: rgba(255, 255, 255, 0.22);
+    font-weight: 760;
+}
+
 .card-vow {
     position: relative;
     z-index: 1;
