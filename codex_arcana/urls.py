@@ -52,6 +52,7 @@ urlpatterns = [
     path("character/<int:character_id>/techniques/<int:technique_id>/specification/update/", views.update_technique_specification, name="update_technique_specification"),
     path("character/<int:character_id>/adjust-personal-fame-point/", views.adjust_personal_fame_point, name="adjust_personal_fame_point"),
     path("character/<int:character_id>/adjust-damage/", views.adjust_current_damage, name="adjust_current_damage"),
+    path("character-creature/<int:pk>/adjust-damage/", views.adjust_creature_damage, name="adjust_creature_damage"),
     path("character/<int:character_id>/adjust-arcane-power/", views.adjust_current_arcane_power, name="adjust_current_arcane_power"),
     path("character/<int:character_id>/spells/<int:spell_id>/cast/", views.cast_spell, name="cast_spell"),
     path("character/<int:character_id>/adjust-money/", views.adjust_money, name="adjust_money"),
@@ -69,6 +70,7 @@ urlpatterns = [
     path("character-item/<int:pk>/remove/", views.remove_item, name="remove_item"),
     path("", LoginView.as_view(template_name="registration/login.html", redirect_authenticated_user=True), name="login"),
     path("api/roll/", views.roll_dice_view, name="roll_dice"),
+    path("debug/card/", views.debug_creature_card, name="debug_creature_card"),
     path("media/<path:path>", serve, {"document_root": settings.MEDIA_ROOT}),
     path("encyclopedia/", views.encyclopedia, name="encyclopedia"),
 ]

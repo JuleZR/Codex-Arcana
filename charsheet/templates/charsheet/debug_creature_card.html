@@ -1,0 +1,23 @@
+{% load static %}
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Debug Creature Card</title>
+<link rel="stylesheet" href="{% static 'css/charsheet/_card.css' %}">
+<style>
+    body {
+        display: grid;
+        min-height: 100vh;
+        margin: 0;
+        padding: 28px;
+        place-items: center;
+        background: #161410;
+    }
+</style>
+</head>
+<body>
+    {% include "charsheet/partials/_creature_card.html" %}
+</body>
+</html>

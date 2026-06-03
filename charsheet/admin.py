@@ -12,6 +12,7 @@ from django.http import HttpResponseRedirect, JsonResponse
 from django.db.models import Q
 from django.urls import path, reverse
 from django.utils.html import format_html, format_html_join
+from django.utils.safestring import mark_safe
 
 from .constants import QUALITY_COLOR_MAP, SCHOOL_ARCANE
 from .admin_help import (
@@ -49,6 +50,11 @@ from .models import (
     Character,
     CharacterAspect,
     CharacterAttribute,
+    CharacterCreature,
+    CharacterCreatureItem,
+    CharacterCreatureSkill,
+    CharacterCreatureSpecialSkill,
+    CharacterCreatureTrait,
     CharacterCreationDraft,
     CharacterDivineEntity,
     CharacterDiaryEntry,
@@ -68,6 +74,12 @@ from .models import (
     CharacterTraitChoice,
     CharacterWeaponMastery,
     CharacterWeaponMasteryArcana,
+    Creature,
+    CreatureAttack,
+    CreatureSkill,
+    CreatureSpecialSkill,
+    CreatureSpecialSkillValue,
+    CreatureTrait,
     DamageSource,
     DivineEntity,
     DivineEntityAspect,
@@ -141,11 +153,22 @@ ADMIN_MODEL_ORDER = {
     "CharacterDivineEntity": 29,
     "CharacterWeaponMastery": 30,
     "CharacterWeaponMasteryArcana": 31,
+    "CharacterCreature": 32,
+    "CharacterCreatureItem": 33,
+    "CharacterCreatureSkill": 34,
+    "CharacterCreatureSpecialSkill": 35,
+    "CharacterCreatureTrait": 36,
     "Race": 40,
     "RaceAttributeLimit": 41,
     "RaceTechnique": 42,
     "RaceStartingItem": 43,
     "RaceChoiceDefinition": 44,
+    "Creature": 45,
+    "CreatureAttack": 46,
+    "CreatureSkill": 47,
+    "CreatureSpecialSkill": 48,
+    "CreatureSpecialSkillValue": 49,
+    "CreatureTrait": 50,
     "Attribute": 50,
     "SkillCategory": 51,
     "Skill": 52,
@@ -328,7 +351,7 @@ def _render_readonly_lines(lines, *, empty_text="-"):
     normalized = tuple((str(line),) for line in lines if str(line or "").strip())
     if not normalized:
         return format_html('<span style="color:#666;">{}</span>', empty_text)
-    return format_html_join(format_html("<br>"), "{}", normalized)
+    return format_html_join(mark_safe("<br>"), "{}", normalized)
 
 
 def _modifier_preview_line(modifier):
@@ -390,6 +413,21 @@ def _trait_build_rule_preview(trait):
     """Render the current creation/build rule interpretation for one trait."""
     if trait is None:
         return format_html('<span style="color:#666;">{}</span>', "-")
+    if getattr(trait, "pk", None) is None:
+        rank_mode = "repeatable" if int(trait.max_level) > 1 else "single pick"
+        if trait.trait_type == Trait.TraitType.ADV:
+            cp_line = f"Costs {trait.cost_display()} during creation."
+        else:
+            cp_line = f"Refunds {trait.cost_display()} during creation and counts against the disadvantage cap."
+        return _render_readonly_lines(
+            (
+                f"Allowed ranks: {trait.min_level} to {trait.max_level}.",
+                cp_line,
+                f"Selection mode: {rank_mode}.",
+                "Save the trait first to configure or preview mutual exclusions.",
+                "Creation-only trait logic is validated centrally in the CharacterCreationEngine.",
+            )
+        )
     rank_mode = "repeatable" if int(trait.max_level) > 1 else "single pick"
     excluded_traits = {relation.excluded_trait.name for relation in trait.exclusions.all()}
     excluded_traits.update(relation.trait.name for relation in trait.excluded_by.all())
@@ -4520,6 +4558,198 @@ class CharacterDiaryEntryAdmin(admin.ModelAdmin):
     ordering = ("character", "order_index", "id")
     autocomplete_fields = ("character",)
     list_select_related = ("character",)
+
+
+class CreatureAttackInline(admin.TabularInline):
+    model = CreatureAttack
+    extra = 0
+    fields = ("order", "name", "attack_value", "damage_dice_amount", "damage_dice_faces", "damage_flat_bonus", "damage_type", "notes")
+
+
+class CreatureSkillInline(admin.TabularInline):
+    model = CreatureSkill
+    extra = 0
+    fields = ("skill", "value", "notes")
+    autocomplete_fields = ("skill",)
+
+
+class CreatureSpecialSkillValueInline(admin.TabularInline):
+    model = CreatureSpecialSkillValue
+    extra = 0
+    fields = ("skill", "value", "notes")
+    autocomplete_fields = ("skill",)
+
+
+class CreatureTraitInline(admin.TabularInline):
+    model = CreatureTrait
+    extra = 0
+    fields = ("order", "trait", "name", "level", "description")
+    autocomplete_fields = ("trait",)
+
+
+@admin.register(Creature)
+class CreatureAdmin(admin.ModelAdmin):
+    list_display = ("name", "size_class", "initiative_override", "natural_rs", "organization")
+    search_fields = ("name", "slug", "card_name", "climate_and_occurrence", "organization")
+    list_filter = ("size_class",)
+    prepopulated_fields = {"slug": ("name",)}
+    inlines = (CreatureAttackInline, CreatureSkillInline, CreatureSpecialSkillValueInline, CreatureTraitInline)
+    fieldsets = (
+        ("Basis", {"fields": ("name", "slug", "card_name", "image", "description")}),
+        ("Groesse", {"fields": ("size_class", "size_modifier")}),
+        (
+            "Eigenschaften",
+            {
+                "fields": (
+                    "strength_mod",
+                    "constitution_mod",
+                    "dexterity_mod",
+                    "intelligence_mod",
+                    "perception_mod",
+                    "willpower_mod",
+                    "charisma_mod",
+                )
+            },
+        ),
+        ("Berechnete Werte / Overrides", {"fields": ("initiative_override", "vw_override", "sr_override", "gw_override", "fear_resistance_bonus", "natural_rs", "wound_step_override")}),
+        ("Bewegung", {"fields": ("combat_speed", "march_speed", "sprint_speed", "swimming_speed", "combat_fly_speed", "march_fly_speed", "sprint_fly_speed")}),
+        ("Vorkommen", {"fields": ("climate_and_occurrence", "organization")}),
+    )
+
+
+class CharacterCreatureItemInline(admin.TabularInline):
+    model = CharacterCreatureItem
+    extra = 0
+    fields = ("item", "amount", "equipped", "quality", "armor_rs_total_override", "armor_encumbrance_override", "armor_min_st_override", "notes")
+    autocomplete_fields = ("item",)
+
+
+class CharacterCreatureSkillInline(admin.TabularInline):
+    model = CharacterCreatureSkill
+    extra = 0
+    fields = ("skill", "value_override", "notes")
+    autocomplete_fields = ("skill",)
+
+
+class CharacterCreatureSpecialSkillInline(admin.TabularInline):
+    model = CharacterCreatureSpecialSkill
+    extra = 0
+    fields = ("skill", "value_override", "notes")
+    autocomplete_fields = ("skill",)
+
+
+class CharacterCreatureTraitInline(admin.TabularInline):
+    model = CharacterCreatureTrait
+    extra = 0
+    fields = ("order", "base_trait", "trait", "name", "level_override", "active", "description_override")
+    autocomplete_fields = ("base_trait", "trait")
+
+
+@admin.register(CharacterCreature)
+class CharacterCreatureAdmin(admin.ModelAdmin):
+    list_display = ("display_name", "owner", "creature", "active", "current_damage")
+    search_fields = ("name_override", "owner__name", "creature__name", "creature__slug")
+    list_filter = ("active", "creature__size_class")
+    autocomplete_fields = ("owner", "creature")
+    list_select_related = ("owner", "creature")
+    inlines = (
+        CharacterCreatureItemInline,
+        CharacterCreatureSkillInline,
+        CharacterCreatureSpecialSkillInline,
+        CharacterCreatureTraitInline,
+    )
+    fieldsets = (
+        ("Basis", {"fields": ("owner", "creature", "name_override", "image_override", "active", "current_damage", "notes")}),
+        ("Groesse", {"fields": ("size_class_override", "size_modifier_override")}),
+        (
+            "Eigenschafts-Overrides",
+            {
+                "fields": (
+                    "strength_mod_override",
+                    "constitution_mod_override",
+                    "dexterity_mod_override",
+                    "intelligence_mod_override",
+                    "perception_mod_override",
+                    "willpower_mod_override",
+                    "charisma_mod_override",
+                )
+            },
+        ),
+        ("Werte-Overrides", {"fields": ("initiative_override", "vw_override", "sr_override", "gw_override", "fear_resistance_bonus_override", "natural_rs_override", "wound_step_override")}),
+        ("Bewegungs-Overrides", {"fields": ("combat_speed_override", "march_speed_override", "sprint_speed_override", "swimming_speed_override", "combat_fly_speed_override", "march_fly_speed_override", "sprint_fly_speed_override")}),
+    )
+
+
+@admin.register(CharacterCreatureItem)
+class CharacterCreatureItemAdmin(admin.ModelAdmin):
+    list_display = ("creature", "item", "equipped", "quality", "amount")
+    search_fields = ("creature__name_override", "creature__creature__name", "item__name")
+    list_filter = ("equipped", "quality", "item__item_type")
+    autocomplete_fields = ("creature", "item")
+    list_select_related = ("creature", "creature__creature", "item")
+
+
+@admin.register(CreatureAttack)
+class CreatureAttackAdmin(admin.ModelAdmin):
+    list_display = ("creature", "name", "attack_value", "damage_dice_amount", "damage_dice_faces", "damage_flat_bonus", "damage_type")
+    search_fields = ("creature__name", "name")
+    autocomplete_fields = ("creature",)
+    list_select_related = ("creature",)
+
+
+@admin.register(CreatureSkill)
+class CreatureSkillAdmin(admin.ModelAdmin):
+    list_display = ("creature", "skill", "value")
+    search_fields = ("creature__name", "skill__name")
+    autocomplete_fields = ("creature", "skill")
+    list_select_related = ("creature", "skill")
+
+
+@admin.register(CreatureSpecialSkill)
+class CreatureSpecialSkillAdmin(admin.ModelAdmin):
+    list_display = ("name", "slug")
+    search_fields = ("name", "slug", "description")
+    prepopulated_fields = {"slug": ("name",)}
+
+
+@admin.register(CreatureSpecialSkillValue)
+class CreatureSpecialSkillValueAdmin(admin.ModelAdmin):
+    list_display = ("creature", "skill", "value")
+    search_fields = ("creature__name", "skill__name", "skill__slug")
+    autocomplete_fields = ("creature", "skill")
+    list_select_related = ("creature", "skill")
+
+
+@admin.register(CreatureTrait)
+class CreatureTraitAdmin(admin.ModelAdmin):
+    list_display = ("creature", "display_name", "level")
+    search_fields = ("creature__name", "name", "trait__name")
+    autocomplete_fields = ("creature", "trait")
+    list_select_related = ("creature", "trait")
+
+
+@admin.register(CharacterCreatureSkill)
+class CharacterCreatureSkillAdmin(admin.ModelAdmin):
+    list_display = ("creature", "skill", "value_override")
+    search_fields = ("creature__name_override", "creature__creature__name", "skill__name")
+    autocomplete_fields = ("creature", "skill")
+    list_select_related = ("creature", "creature__creature", "skill")
+
+
+@admin.register(CharacterCreatureSpecialSkill)
+class CharacterCreatureSpecialSkillAdmin(admin.ModelAdmin):
+    list_display = ("creature", "skill", "value_override")
+    search_fields = ("creature__name_override", "creature__creature__name", "skill__name", "skill__slug")
+    autocomplete_fields = ("creature", "skill")
+    list_select_related = ("creature", "creature__creature", "skill")
+
+
+@admin.register(CharacterCreatureTrait)
+class CharacterCreatureTraitAdmin(admin.ModelAdmin):
+    list_display = ("creature", "display_name", "level_override", "active")
+    search_fields = ("creature__name_override", "creature__creature__name", "name", "trait__name", "base_trait__name")
+    autocomplete_fields = ("creature", "base_trait", "trait")
+    list_select_related = ("creature", "creature__creature", "base_trait", "trait")
 
 
 @admin.register(UserSettings)

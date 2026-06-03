@@ -19,6 +19,7 @@ from django.utils import timezone
 from django.template.loader import render_to_string
 from django.urls import reverse_lazy
 from .engine import CharacterCreationEngine
+from .engine.creature_engine import CreatureEngine
 from .engine.dice_engine import DiceEngine
 from .learning_progression import weapon_mastery_weapon_type_definitions
 from .models import (
@@ -31,6 +32,8 @@ from .models import (
     CharacterSpell,
     CharacterTechnique,
     CharacterCreationDraft,
+    CharacterCreature,
+    Creature,
     DivineEntity,
     Item,
     Language,
@@ -180,6 +183,15 @@ def _owned_character_item_or_404(request, pk: int) -> CharacterItem:
     """Return one inventory row whose character belongs to the current user."""
     return get_object_or_404(
         CharacterItem.objects.select_related("item", "owner").prefetch_related("item__runes", "runes", "item_runes__rune"),
+        pk=pk,
+        owner__owner=request.user,
+    )
+
+
+def _owned_character_creature_or_404(request, pk: int) -> CharacterCreature:
+    """Return one creature instance whose character belongs to the current user."""
+    return get_object_or_404(
+        CharacterCreature.objects.select_related("owner", "owner__owner", "creature"),
         pk=pk,
         owner__owner=request.user,
     )
@@ -1614,6 +1626,30 @@ def adjust_current_damage(request, character_id: int):
 
 @login_required
 @require_POST
+def adjust_creature_damage(request, pk: int):
+    """Increase or decrease current damage on one owned creature instance."""
+    character_creature = _owned_character_creature_or_404(request, pk)
+    action = request.POST.get("action")
+    try:
+        amount = max(1, int(request.POST.get("amount", "1")))
+    except (TypeError, ValueError):
+        amount = 1
+
+    if action == "damage":
+        character_creature.current_damage += amount
+    elif action == "heal":
+        character_creature.current_damage = max(0, character_creature.current_damage - amount)
+
+    character_creature.save(update_fields=["current_damage"])
+
+    next_url = str(request.POST.get("next") or "").strip()
+    if next_url.startswith("/"):
+        return redirect(next_url)
+    return redirect(f"/debug/card/?instance={character_creature.pk}")
+
+
+@login_required
+@require_POST
 def adjust_current_arcane_power(request, character_id: int):
     """Increase or decrease current arcane power without a full sheet reload."""
     character = _owned_character_or_404(request, character_id)
@@ -1848,6 +1884,127 @@ def impressum(request):
 def datenschutz(request):
     """Render privacy page with minimal data-processing information."""
     return render(request, "legal/datenschutz.html", _legal_context())
+
+
+def debug_creature_card(request):
+    """Render a standalone creature card preview."""
+    creature_ref = str(request.GET.get("creature") or request.GET.get("slug") or "").strip()
+    instance_ref = str(request.GET.get("instance") or request.GET.get("character_creature") or "").strip()
+    source = None
+
+    if instance_ref:
+        queryset = CharacterCreature.objects.select_related("creature")
+        source = queryset.filter(pk=instance_ref).first() if instance_ref.isdigit() else None
+    elif creature_ref:
+        queryset = Creature.objects.all()
+        if creature_ref.isdigit():
+            source = queryset.filter(pk=creature_ref).first()
+        if source is None:
+            source = queryset.filter(slug=creature_ref).first()
+    else:
+        source = Creature.objects.order_by("name").first()
+
+    if source is not None:
+        creature_card = CreatureEngine(source).card_context()
+        if (
+            isinstance(source, CharacterCreature)
+            and request.user.is_authenticated
+            and source.owner.owner_id == request.user.id
+        ):
+            creature_card["adjust_damage_url"] = reverse_lazy("adjust_creature_damage", kwargs={"pk": source.pk})
+        return render(
+            request,
+            "charsheet/debug_creature_card.html",
+            {
+                "creature_card": creature_card,
+                "creature_debug_source": source,
+            },
+        )
+
+    creature_card = {
+        "name": "Baer, gross",
+        "creature_name": "Baer, gross",
+        "image": None,
+        "size_class": "G",
+        "size_modifier": -1,
+        "initiative": -1,
+        "vw": 12,
+        "sr": 29,
+        "gw": 10,
+        "gw_fear": 16,
+        "fear_bonus": 6,
+        "rs_natural": 3,
+        "rs_armor": 0,
+        "rs_total": 3,
+        "encumbrance": 0,
+        "attacks": [
+            {"name": "Biss", "attack_value": 3, "damage": "2w10+3 T", "notes": ""},
+            {"name": "Pranke", "attack_value": 6, "damage": "3w10 B", "notes": ""},
+            {"name": "Umklammerung", "attack_value": 4, "damage": "-", "notes": ""},
+        ],
+        "wounds": [
+            {"label": "0", "threshold": 12},
+            {"label": "-2", "threshold": 24},
+            {"label": "-4", "threshold": 36},
+            {"label": "-6", "threshold": 48},
+            {"label": "Ausser Gefecht", "threshold": 60},
+            {"label": "Koma", "threshold": 72},
+        ],
+        "current_damage": 0,
+        "wound_max": 72,
+        "wound_zone": {"label": "-", "threshold": 0, "penalty": 0},
+        "wound_penalty": 0,
+        "attributes": [
+            {"label": "ST", "value": 8, "display": "+8"},
+            {"label": "KON", "value": 7, "display": "+7"},
+            {"label": "GE", "value": 0, "display": "+0"},
+            {"label": "INT", "value": -5, "display": "-5"},
+            {"label": "WA", "value": -1, "display": "-1"},
+            {"label": "WILL", "value": 1, "display": "+1"},
+            {"label": "CHA", "value": None, "display": "-"},
+        ],
+        "skills": [
+            {"name": "Aufmerksamkeit", "value": 4},
+            {"name": "Ausdauer", "value": 8},
+            {"name": "Kraftakt", "value": 13},
+            {"name": "Spuren lesen", "value": 6},
+            {"name": "Verbergen", "value": 2},
+        ],
+        "special_skills": [],
+        "traits": [
+            {"name": "Festbeissen", "level": None},
+            {"name": "Furchtlos", "level": 6},
+        ],
+        "movement": {
+            "combat": 5,
+            "march": 10,
+            "sprint": 40,
+            "swim": 6,
+            "fly_combat": None,
+            "fly_march": None,
+            "fly_sprint": None,
+        },
+        "movement_display": {
+            "combat": "5",
+            "march": "10",
+            "sprint": "40",
+            "swim": "6",
+            "fly_combat": None,
+            "fly_march": None,
+            "fly_sprint": None,
+        },
+        "organization": "1",
+        "climate_and_occurrence": "Mediterrane, gemaessigte und kalte Klimazonen; Waelder, Ebenen, Huegel, Arktis; selten",
+    }
+    return render(
+        request,
+        "charsheet/debug_creature_card.html",
+        {
+            "creature_card": creature_card,
+            "creature_debug_source": None,
+        },
+    )
+
 
 def encyclopedia(request):
     divine_entities = list(
