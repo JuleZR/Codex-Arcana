@@ -783,7 +783,13 @@ def _is_zeroish_tooltip_value(value: object) -> bool:
     return text in {"", "0", "+0", "-0", "0.0", "+0.0", "-0.0"}
 
 
-def _build_item_tooltip_rows(item_engine: ItemEngine, item: Item) -> list[tuple[str, object]]:
+def _build_item_tooltip_rows(
+    item_engine: ItemEngine,
+    item: Item,
+    *,
+    armor_encumbrance: int | None = None,
+    shield_encumbrance: int | None = None,
+) -> list[tuple[str, object]]:
     """Return structured item values for inventory-like tooltips."""
     rows: list[tuple[str, object]] = [("Kaufpreis", f"{format_thousands(item_engine.get_price())} KM")]
 
@@ -808,7 +814,7 @@ def _build_item_tooltip_rows(item_engine: ItemEngine, item: Item) -> list[tuple[
         rs = item_engine.get_armor_rs_raw()
         if rs is not None:
             rows.append(("RS", rs))
-        rows.append(("Bel", item_engine.get_armor_encumbrance()))
+        rows.append(("Bel", item_engine.get_armor_encumbrance() if armor_encumbrance is None else armor_encumbrance))
         min_st = item_engine.get_armor_min_st()
         if min_st is not None:
             rows.append(("Min-St", min_st))
@@ -816,7 +822,7 @@ def _build_item_tooltip_rows(item_engine: ItemEngine, item: Item) -> list[tuple[
         rs = item_engine.get_effective_shield_rs()
         if rs is not None:
             rows.append(("RS", rs))
-        rows.append(("Bel", item_engine.get_shield_encumbrance()))
+        rows.append(("Bel", item_engine.get_shield_encumbrance() if shield_encumbrance is None else shield_encumbrance))
         min_st = item_engine.get_shield_min_st()
         if min_st is not None:
             rows.append(("Min-St", min_st))
@@ -981,8 +987,8 @@ def _build_armor_rs_piece_rows(engine) -> list[dict[str, object]]:
 
 def _build_load_tooltip(engine) -> str:
     """Return a breakdown tooltip for the effective encumbrance penalty."""
-    armor_load = sum(ItemEngine(armor).get_armor_encumbrance() or 0 for armor in engine.equipped_armor_items())
-    shield_load = sum(ItemEngine(shield).get_shield_encumbrance() or 0 for shield in engine.equipped_shield_items())
+    armor_load = sum(int(row["bel_effective"] or 0) for row in engine.equipped_armor_rows())
+    shield_load = sum(int(row["bel_effective"] or 0) for row in engine.equipped_shield_rows())
     total_raw_load = armor_load + shield_load
     rows: list[dict[str, object]] = [
         {"label": "Rüstungen", "value": armor_load},
@@ -1017,8 +1023,8 @@ def _build_carry_load_tooltip(carry_state: dict[str, object], *, active: bool) -
 
 def _build_combined_load_tooltip(engine, carry_state: dict[str, object], *, carry_enabled: bool) -> str:
     """Return a tooltip for armor/shield load plus optional carrying load."""
-    armor_load = sum(ItemEngine(armor).get_armor_encumbrance() or 0 for armor in engine.equipped_armor_items())
-    shield_load = sum(ItemEngine(shield).get_shield_encumbrance() or 0 for shield in engine.equipped_shield_items())
+    armor_load = sum(int(row["bel_effective"] or 0) for row in engine.equipped_armor_rows())
+    shield_load = sum(int(row["bel_effective"] or 0) for row in engine.equipped_shield_rows())
     total_raw_load = armor_load + shield_load
     carry_penalty = int(carry_state["penalty"]) if carry_enabled else 0
     total_penalty = int(engine.load_penalty()) + carry_penalty
@@ -2094,7 +2100,11 @@ def _build_armor_rows(engine) -> list[dict]:
                     quality_label="" if is_race_item else quality["label"],
                     quality_color="" if is_race_item else quality["color"],
                     detail_rows=(
-                        _build_item_tooltip_rows(ItemEngine(row["character_item"]), row["item"])
+                        _build_item_tooltip_rows(
+                            ItemEngine(row["character_item"]),
+                            row["item"],
+                            armor_encumbrance=int(row["bel_effective"] or 0),
+                        )
                         + _build_character_item_magic_tooltip_rows(
                             effect_summary=row["character_item"].magic_effect_summary or "",
                             modifier_payloads=magic_modifier_payloads,
@@ -2199,7 +2209,11 @@ def _build_armor_rows(engine) -> list[dict]:
                     quality_label="" if is_race_item else quality["label"],
                     quality_color="" if is_race_item else quality["color"],
                     detail_rows=(
-                        _build_item_tooltip_rows(ItemEngine(row["character_item"]), row["item"])
+                        _build_item_tooltip_rows(
+                            ItemEngine(row["character_item"]),
+                            row["item"],
+                            shield_encumbrance=int(row["bel_effective"] or 0),
+                        )
                         + _build_character_item_magic_tooltip_rows(
                             effect_summary=row["character_item"].magic_effect_summary or "",
                             modifier_payloads=magic_modifier_payloads,

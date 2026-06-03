@@ -31,7 +31,13 @@ from charsheet.models import (
     Trait,
     WeaponType,
 )
-from charsheet.constants import ATTR_SPEC, LEGENDARY_ATTRIBUTE_TRAIT_SLUG, RESOURCE_KEY_CHOICES, is_allowed_trait_attribute_choice
+from charsheet.constants import (
+    ATTR_SPEC,
+    LANGUAGE_LITERACY_MIN_LEVEL,
+    LEGENDARY_ATTRIBUTE_TRAIT_SLUG,
+    RESOURCE_KEY_CHOICES,
+    is_allowed_trait_attribute_choice,
+)
 
 
 class CharacterCreationEngine:
@@ -350,6 +356,8 @@ class CharacterCreationEngine:
             level = data["level"]
             if level > language.max_level:
                 return False
+            if data["write"] and level < LANGUAGE_LITERACY_MIN_LEVEL:
+                return False
             mother_level = min(3, language.max_level)
             if data["mother"] and level != mother_level:
                 return False
@@ -417,7 +425,7 @@ class CharacterCreationEngine:
         return self.race.phase_4_points + self.sum_phase_3_disadvantage_cost()
 
     def calculate_phase_4_advantages_budget(self) -> int:
-        return self.sum_phase_3_disadvantage_cost()
+        return self.calculate_phase_4_budget()
 
     def calculate_phase_4_rest_budget(self) -> int:
         return self.calculate_phase_4_budget() - self.sum_phase_4_advantages_cost()
@@ -645,7 +653,7 @@ class CharacterCreationEngine:
             if language is None:
                 return False
             base_level = self._to_int(self.phase_2_languages().get(slug, {}).get("level"), 0)
-            if base_level + self.phase_4_language_adds().get(slug, 0) < 1:
+            if base_level + self.phase_4_language_adds().get(slug, 0) < LANGUAGE_LITERACY_MIN_LEVEL:
                 return False
 
         for school_id in self.phase_4_schools().keys():

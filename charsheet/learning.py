@@ -45,7 +45,7 @@ from charsheet.models import (
     TraitChoiceDefinition,
     WeaponType,
 )
-from charsheet.constants import is_allowed_trait_attribute_choice
+from charsheet.constants import LANGUAGE_LITERACY_MIN_LEVEL, is_allowed_trait_attribute_choice
 
 
 def _read_int(post_data, name: str, default: int = 0) -> int:
@@ -618,27 +618,32 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
         if add_key not in post_data and write_key not in post_data:
             continue
         add = _read_int(post_data, add_key, 0)
-        write_add = str(post_data.get(write_key, "0")).lower() in {"1", "true", "on"}
+        raw_write_change = str(post_data.get(write_key, "0")).strip().lower()
+        write_change = (
+            1 if raw_write_change in {"1", "true", "on", "yes"}
+            else -1 if raw_write_change in {"-1", "false", "off", "no"}
+            else 0
+        )
         base_row = language_rows.get(slug)
         base_level = int(base_row.levels if base_row else 0)
         base_write = bool(base_row.can_write if base_row else False)
         base_mother = bool(base_row.is_mother_tongue if base_row else False)
         target_level = base_level + add
-        target_write = base_write or write_add
+        target_write = True if write_change > 0 else False if write_change < 0 else base_write
         if base_mother and target_level != int(language.max_level):
             return "error", f"{language.name}: Muttersprache kann nicht unter Maximallevel reduziert werden."
         if target_level < 0:
             return "error", f"{language.name}: Zielwert ist unter 0."
         if target_level > int(language.max_level):
             return "error", f"{language.name}: Zielwert ist ueber dem Maximum."
-        if target_write and target_level < 1:
-            return "error", f"{language.name}: Schreiben benoetigt mindestens Level 1."
-        if add == 0 and not write_add:
+        if target_write and target_level < LANGUAGE_LITERACY_MIN_LEVEL:
+            return "error", f"{language.name}: Lesen und Schreiben benoetigt Sprachlevel 3."
+        if add == 0 and target_write == base_write:
             continue
         step_cost = calc_language_total_cost(
             target_level, target_write, base_mother) - calc_language_total_cost(base_level, base_write, base_mother)
         total_cost += step_cost
-        language_plan[slug] = {"add": add, "write_add": write_add}
+        language_plan[slug] = {"add": add, "target_write": target_write}
 
     for school_id, school in school_defs.items():
         key = f"learn_school_add_{school_id}"
@@ -771,7 +776,7 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
 
             for slug, payload in language_plan.items():
                 add = int(payload["add"])
-                write_add = bool(payload["write_add"])
+                target_write = bool(payload["target_write"])
                 language_row = language_rows.get(slug)
                 if language_row is None:
                     if add < 1:
@@ -780,20 +785,18 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
                         owner=character,
                         language=language_defs[slug],
                         levels=add,
-                        can_write=write_add,
+                        can_write=target_write,
                         is_mother_tongue=False,
                     )
                     language_rows[slug] = language_row
                 else:
                     target_level = int(language_row.levels) + add
-                    target_write = bool(language_row.can_write) or write_add
                     if target_level <= 0 and not target_write and not bool(language_row.is_mother_tongue):
                         language_row.delete()
                         language_rows.pop(slug, None)
                         continue
                     language_row.levels = target_level
-                    if write_add:
-                        language_row.can_write = True
+                    language_row.can_write = target_write
                     language_row.save(update_fields=["levels", "can_write"])
 
             for school_id, add in school_plan.items():

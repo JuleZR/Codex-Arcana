@@ -10,6 +10,8 @@ DEFENSE_VW = "vw"
 DEFENSE_GW = "gw"
 DEFENSE_SR = "sr"
 DEFENSE_RS = "rs"
+ARMOR_ENCUMBRANCE = "armor_encumbrance"
+SHIELD_ENCUMBRANCE = "shield_encumbrance"
 MELEE_MANEUVERS = "melee_maneuvers"
 WEAPON_DAMAGE = "weapon_damage"
 WEAPON_DAMAGE_DICE = "weapon_damage_dice"
@@ -29,6 +31,8 @@ STAT_SLUG_CHOICES = [
     (DEFENSE_GW, "GW"),
     (DEFENSE_SR, "SR"),
     (DEFENSE_RS, "RS"),
+    (ARMOR_ENCUMBRANCE, "Belastung dieser R\u00FCstung"),
+    (SHIELD_ENCUMBRANCE, "Belastung dieses Schilds"),
     (MELEE_MANEUVERS, "Manöver mit dieser Waffe"),
     (WEAPON_DAMAGE, "Schaden mit dieser Waffe"),
     (WEAPON_DAMAGE_DICE, "Zusaetzliche Schadenswuerfel mit dieser Waffe"),
@@ -46,6 +50,8 @@ VALID_STAT_SLUGS = {
     DEFENSE_GW,
     DEFENSE_SR,
     DEFENSE_RS,
+    ARMOR_ENCUMBRANCE,
+    SHIELD_ENCUMBRANCE,
     MELEE_MANEUVERS,
     WEAPON_DAMAGE,
     WEAPON_DAMAGE_DICE,
@@ -123,6 +129,7 @@ SKILL_CATEGORY_CHOICES = [
 ]
 
 PROFICIENCY_GROUP_FOREIGN_LANGUAGES = "foreign_languages"
+LANGUAGE_LITERACY_MIN_LEVEL = 3
 RESOURCE_KEY_CHOICES = [
     ("personal_fame_point", "Persönliche Ruhmpunkte"),
     ("personal_fame_rank", "Persönlicher Rang"),

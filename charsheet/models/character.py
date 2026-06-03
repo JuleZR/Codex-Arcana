@@ -9,6 +9,7 @@ from django.db import models
 from ..constants import (
     DAMAGE_TYPE_CHOICES,
     GK_CHOICES,
+    LANGUAGE_LITERACY_MIN_LEVEL,
     PROFICIENCY_GROUP_CHOICES,
     QUALITY_CHOICES,
     QUALITY_COMMON,
@@ -811,6 +812,8 @@ class CharacterLanguage(models.Model):
         super().clean()
         if self.levels > self.language.max_level:
             raise ValidationError({"levels": "levels can't be greater dan max_level"})
+        if self.can_write and self.levels < LANGUAGE_LITERACY_MIN_LEVEL:
+            raise ValidationError({"can_write": "Reading and writing requires language level 3."})
         if self.is_mother_tongue and self.levels != self.language.max_level:
             raise ValidationError({"levels": "Levels of mother tongue must be max_ level"})
 

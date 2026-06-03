@@ -881,6 +881,12 @@
             } else if (level !== motherLevel) {
               motherInput.checked = false;
             }
+            if (level < 3) {
+              writeInput.checked = false;
+              writeInput.disabled = true;
+            } else {
+              writeInput.disabled = false;
+            }
             const cost = calcLanguageCost(level, writeInput.checked, motherInput.checked);
             costCell.textContent = String(cost);
             return cost;
@@ -905,8 +911,14 @@
 
             let langSpent = 0;
             let hasMotherTongue = false;
+            let invalidLangWrite = false;
             getLanguageRows().forEach(function (row) {
               langSpent += syncLanguageRow(row);
+              const levelInput = row.querySelector("[data-phase2-lang-level]");
+              const writeInput = row.querySelector("[data-phase2-lang-write]");
+              if (writeInput && writeInput.checked && toInt(levelInput ? levelInput.value : "0", 0) < 3) {
+                invalidLangWrite = true;
+              }
               const motherInput = row.querySelector("[data-phase2-lang-mother]");
               if (motherInput && motherInput.checked) {
                 hasMotherTongue = true;
@@ -929,7 +941,7 @@
 
             const overBudget = total > budget;
             if (phase2NextButton) {
-              phase2NextButton.disabled = overBudget || !hasMotherTongue;
+              phase2NextButton.disabled = overBudget || !hasMotherTongue || invalidLangWrite;
             }
             if (phase2ValidationHint) {
               const messages = [];
@@ -938,6 +950,9 @@
               }
               if (!hasMotherTongue) {
                 messages.push("Mindestens eine Muttersprache ist erforderlich.");
+              }
+              if (invalidLangWrite) {
+                messages.push("Lesen und Schreiben benoetigt Sprachlevel 3.");
               }
               phase2ValidationHint.hidden = messages.length === 0;
               phase2ValidationHint.textContent = messages.join(" ");
@@ -1554,12 +1569,15 @@
               const writeInput = row.querySelector("[data-phase4-lang-write]");
               const writeHidden = row.querySelector("[data-phase4-lang-write-hidden]");
               let writeAdd = row.dataset.writeAdd === "1";
+              value = clamp(value, 0, maxAdd);
+              const targetLevel = base + value;
               if (writeInput) {
-                if (baseWrite) {
-                  writeInput.checked = true;
+                if (targetLevel < 3 && !baseWrite) {
+                  writeInput.checked = false;
                   writeInput.disabled = true;
                   writeAdd = false;
                 } else {
+                  writeInput.disabled = false;
                   writeAdd = writeInput.checked;
                 }
               }
@@ -1569,7 +1587,6 @@
               }
               const write = baseWrite || writeAdd;
               const mother = row.dataset.mother === "1";
-              value = clamp(value, 0, maxAdd);
               cost = calcLanguageCost(base + value, write, mother) - calcLanguageCost(base, baseWrite, mother);
               if (levelInfoEl) {
                 levelInfoEl.textContent = `(${base + value})`;
@@ -1634,7 +1651,7 @@
               const baseWrite = row.dataset.write === "1";
               const writeInput = row.querySelector("[data-phase4-lang-write]");
               const write = baseWrite || Boolean(writeInput && writeInput.checked);
-              return write && (base + add < 1);
+              return write && (base + add < 3);
             });
 
             if (phase4FinalizeButton) {
@@ -1649,7 +1666,7 @@
                 messages.push("Ausbaubudget überschritten.");
               }
               if (invalidLangWrite) {
-                messages.push("Schreiben benötigt mindestens Sprachlevel 1.");
+                messages.push("Lesen und Schreiben benoetigt Sprachlevel 3.");
               }
               phase4ValidationHint.hidden = messages.length === 0;
               phase4ValidationHint.textContent = messages.join(" ");

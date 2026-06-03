@@ -7,9 +7,11 @@ from django.db.models import Q
 
 from charsheet.constants import (
     ARMOR_PENALTY_IGNORE,
+    ARMOR_ENCUMBRANCE,
     ATTR_ST,
     DEFENSE_RS,
     MELEE_MANEUVERS,
+    SHIELD_ENCUMBRANCE,
     SOURCE_ITEM_RUNE,
     WEAPON_DAMAGE,
     WEAPON_DAMAGE_DICE,
@@ -196,6 +198,48 @@ def _character_item_specific_damage_dice_modifier(engine, character_item: Charac
     return total
 
 
+def _character_item_specific_rune_modifier(engine, character_item: CharacterItem, target_key: str) -> int:
+    """Return rune modifiers that affect only the item they are socketed into."""
+    equipped_item_rune_ids = {
+        int(item_rune.id)
+        for item_rune in engine._equipped_item_runes
+        if int(item_rune.item_id) == int(character_item.id)
+    }
+    if not equipped_item_rune_ids:
+        return 0
+
+    total = 0
+    for modifier in engine.modifier_engine._active_item_rune_modifiers:
+        if modifier.source_type != SOURCE_ITEM_RUNE:
+            continue
+        if str(modifier.target_key or "") != target_key:
+            continue
+        try:
+            source_id = int(modifier.source_id)
+        except (TypeError, ValueError):
+            continue
+        if source_id not in equipped_item_rune_ids:
+            continue
+        total += int(engine.modifier_engine._resolve_numeric_modifier(modifier) or 0)
+    return total
+
+
+def _effective_armor_encumbrance(engine, character_item: CharacterItem) -> int:
+    return max(
+        0,
+        int(ItemEngine(character_item).get_armor_encumbrance() or 0)
+        + _character_item_specific_rune_modifier(engine, character_item, ARMOR_ENCUMBRANCE),
+    )
+
+
+def _effective_shield_encumbrance(engine, character_item: CharacterItem) -> int:
+    return max(
+        0,
+        int(ItemEngine(character_item).get_shield_encumbrance() or 0)
+        + _character_item_specific_rune_modifier(engine, character_item, SHIELD_ENCUMBRANCE),
+    )
+
+
 def equipped_weapon_rows(engine) -> list[dict]:
     """Return character-sheet-ready weapon rows with one prepared row per display profile."""
     rows: list[dict] = []
@@ -300,7 +344,7 @@ def equipped_armor_rows(engine) -> list[dict]:
                 "quality_color": item_engine.get_quality_color(),
                 "rs": item_engine.get_armor_rs_raw() or 0,
                 "bel_raw": item_engine.get_armor_bel_raw() or 0,
-                "bel_effective": item_engine.get_armor_encumbrance(),
+                "bel_effective": _effective_armor_encumbrance(engine, character_item),
                 "min_st": item_engine.get_armor_min_st(),
             }
         )
@@ -321,7 +365,7 @@ def equipped_shield_rows(engine) -> list[dict]:
                 "quality_color": item_engine.get_quality_color(),
                 "rs": item_engine.get_effective_shield_rs() or 0,
                 "bel_raw": item_engine.get_shield_bel_raw() or 0,
-                "bel_effective": item_engine.get_shield_encumbrance(),
+                "bel_effective": _effective_shield_encumbrance(engine, character_item),
                 "min_st": item_engine.get_shield_min_st(),
             }
         )
@@ -377,11 +421,11 @@ def get_bel(engine) -> int:
         return 0
     armor_bel = 0
     for armor in engine.equipped_armor_items():
-        armor_bel += ItemEngine(armor).get_armor_encumbrance() or 0
+        armor_bel += _effective_armor_encumbrance(engine, armor)
 
     shield_bel = 0
     for shield in engine.equipped_shield_items():
-        shield_bel += ItemEngine(shield).get_shield_encumbrance() or 0
+        shield_bel += _effective_shield_encumbrance(engine, shield)
 
     return armor_bel + shield_bel
 

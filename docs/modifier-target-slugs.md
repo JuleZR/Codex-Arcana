@@ -34,6 +34,8 @@ Für `target_domain=derived_stat` und Legacy-`target_kind=stat`.
 | `gw` | GW |
 | `sr` | SR |
 | `rs` | RS |
+| `armor_encumbrance` | Belastung der geruesteten Ruestung, auf der die Rune sitzt |
+| `shield_encumbrance` | Belastung des geruesteten Schilds, auf dem die Rune sitzt |
 
 ## Regel-Flags
 

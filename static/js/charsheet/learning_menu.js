@@ -1,6 +1,8 @@
 import { createChoiceModalController } from "./choice_modal.js";
 import { clamp, escapeHtml, readInt } from "./utils.js";
 
+const LANGUAGE_LITERACY_MIN_LEVEL = 3;
+
 function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, validationHint, applyBtn) {
   const getBudget = () => readInt(document.getElementById("learnBudgetPanel")?.getAttribute("data-learn-budget") || "0", 0);
   let newSpecCounter = 0;
@@ -114,27 +116,31 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
       const writeInput = row.querySelector("[data-learn-lang-write]");
       const baseWrite = row.getAttribute("data-write") === "1";
       const mother = row.getAttribute("data-mother") === "1";
-      let writeAdd = false;
       value = clamp(value, minAdd, maxAdd);
+      const targetLevel = base + value;
+      let targetWrite = baseWrite;
       if (writeInput instanceof HTMLInputElement) {
-        if (baseWrite) {
-          writeInput.checked = true;
+        if (targetLevel < LANGUAGE_LITERACY_MIN_LEVEL && !baseWrite) {
+          writeInput.checked = false;
           writeInput.disabled = true;
         } else {
-          writeAdd = writeInput.checked;
+          writeInput.disabled = false;
         }
+        if (baseWrite && !writeInput.dataset.learnWriteTouched) {
+          writeInput.checked = true;
+        }
+        targetWrite = writeInput.checked;
       }
-      const write = baseWrite || writeAdd;
-      invalidWrite = write && base + value < 1;
-      cost = calcLanguageCost(base + value, write, mother) - calcLanguageCost(base, baseWrite, mother);
+      invalidWrite = targetWrite && targetLevel < LANGUAGE_LITERACY_MIN_LEVEL;
+      cost = calcLanguageCost(targetLevel, targetWrite, mother) - calcLanguageCost(base, baseWrite, mother);
       if (hidden instanceof HTMLInputElement) {
         hidden.value = String(value);
       }
       if (writeHidden instanceof HTMLInputElement) {
-        writeHidden.value = writeAdd ? "1" : "0";
+        writeHidden.value = targetWrite === baseWrite ? "0" : targetWrite ? "1" : "-1";
       }
       if (infoEl) {
-        infoEl.textContent = `(${base + value})`;
+        infoEl.textContent = `(${targetLevel})`;
       }
       valueInput.min = String(minAdd);
       valueInput.max = String(maxAdd);
@@ -294,7 +300,7 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
         }
       });
       if (invalidWrite) {
-        messages.push("Schreiben benoetigt mindestens Sprachlevel 1.");
+        messages.push("Lesen und Schreiben benoetigt Sprachlevel 3.");
       }
       liveValidationHint.hidden = messages.length === 0;
       liveValidationHint.textContent = messages.join(" ");
@@ -331,7 +337,10 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
       });
     }
     if (writeInput instanceof HTMLInputElement) {
-      writeInput.addEventListener("change", refreshTotals);
+      writeInput.addEventListener("change", () => {
+        writeInput.dataset.learnWriteTouched = "1";
+        refreshTotals();
+      });
     }
     if (removeBtn instanceof HTMLButtonElement) {
       removeBtn.addEventListener("click", () => {
@@ -529,7 +538,7 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
       const maxAdd = Math.max(0, max - base);
       const baseWrite = source.getAttribute("data-write") === "1";
       const mother = source.getAttribute("data-mother") === "1";
-      if (maxAdd < 1 && minAdd === 0 && baseWrite) {
+      if (maxAdd < 1 && minAdd === 0 && !baseWrite) {
         return null;
       }
       const startAdd = maxAdd > 0 ? 1 : 0;
@@ -542,7 +551,7 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
           <div class="learn_lang_name_wrap">
             <span>${safeName}</span>
             <span data-learn-level-info>(${base + startAdd})</span>
-            <label class="learn_lang_write"><input type="checkbox" data-learn-lang-write ${baseWrite ? "checked disabled" : ""}> Schreiben</label>
+            <label class="learn_lang_write"><input type="checkbox" data-learn-lang-write ${baseWrite ? "checked" : ""}> Schreiben</label>
           </div>
           <input type="hidden" name="learn_lang_add_${slug}" value="${startAdd}" data-learn-hidden>
           <input type="hidden" name="learn_lang_write_${slug}" value="0" data-learn-lang-write-hidden>

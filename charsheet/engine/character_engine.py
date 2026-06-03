@@ -12,7 +12,7 @@ from django.db.models import Model, Prefetch, Q
 
 from . import character_combat, character_equipment, character_learning, character_progression
 from .item_engine import ItemEngine
-from charsheet.constants import infer_weapon_type
+from charsheet.constants import ATTR_SPEC, infer_weapon_type
 from charsheet.modifiers import ModifierEngine, ModifierResolutionMode, TargetDomain
 from charsheet.models import (
     Character,
@@ -1063,6 +1063,8 @@ class CharacterEngine:
 
     def attribute_modifier(self, short_name: str) -> int:
         """Convert a base attribute value into its system modifier."""
+        if short_name == ATTR_SPEC:
+            return 0
         value = self.attributes().get(short_name, 0)
         return value - 5
 

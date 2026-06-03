@@ -22,7 +22,7 @@ from charsheet.modifiers.definitions import (
     SpecializationModifier,
     TargetDomain,
 )
-from charsheet.constants import ATTRIBUTE_CODE_CHOICES
+from charsheet.constants import ARMOR_ENCUMBRANCE, ATTRIBUTE_CODE_CHOICES, SHIELD_ENCUMBRANCE
 from charsheet.models import Modifier, Skill
 
 
@@ -139,7 +139,19 @@ class NumericResolutionComparison:
 class LegacyModifierMigrationService:
     """Inventory and map persisted legacy modifier rows into new typed modifiers."""
 
-    KNOWN_DERIVED_STATS = {"initiative", "arcane_power", "potential", "wound_stage", "wound_penalty_mod", "vw", "gw", "sr", "rs"}
+    KNOWN_DERIVED_STATS = {
+        "initiative",
+        "arcane_power",
+        "potential",
+        "wound_stage",
+        "wound_penalty_mod",
+        "vw",
+        "gw",
+        "sr",
+        "rs",
+        ARMOR_ENCUMBRANCE,
+        SHIELD_ENCUMBRANCE,
+    }
     KNOWN_RULE_FLAGS = {"wound_penalty_ignore", "armor_penalty_ignore", "shield_penalty_ignore"}
     DAMAGE_SLUG_PREFIX = "dmg_"
     KNOWN_ATTRIBUTES = {value for value, _label in ATTRIBUTE_CODE_CHOICES}
