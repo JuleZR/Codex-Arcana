@@ -1585,7 +1585,13 @@ def adjust_current_damage(request, character_id: int):
     except (TypeError, ValueError):
         amount = 1
 
-    if action == "damage":
+    requested_current_damage = request.POST.get("current_damage")
+    if requested_current_damage is not None:
+        try:
+            character.current_damage = max(0, int(requested_current_damage))
+        except (TypeError, ValueError):
+            pass
+    elif action == "damage":
         character.current_damage += amount
     elif action == "heal":
         character.current_damage = max(0, character.current_damage - amount)
@@ -1598,17 +1604,18 @@ def adjust_current_damage(request, character_id: int):
         current_stage, _raw_penalty = engine.current_wound_stage()
         is_penalty_ignored = engine.is_wound_penalty_ignored()
         effective_penalty = engine.current_wound_penalty()
-        context = _build_sheet_context_for_request(request, character)
-        partial_keys = ("character_header", "load_panel", "core_stats_panel", "armor_panel", "weapon_panel")
         partials = []
-        for key in partial_keys:
-            target_id, template_name = SHEET_PARTIAL_TEMPLATES[key]
-            partials.append(
-                {
-                    "target": target_id,
-                    "html": render_to_string(template_name, context, request=request),
-                }
-            )
+        if request.POST.get("partials") != "0":
+            context = _build_sheet_context_for_request(request, character)
+            partial_keys = ("character_header", "load_panel", "core_stats_panel", "armor_panel", "weapon_panel")
+            for key in partial_keys:
+                target_id, template_name = SHEET_PARTIAL_TEMPLATES[key]
+                partials.append(
+                    {
+                        "target": target_id,
+                        "html": render_to_string(template_name, context, request=request),
+                    }
+                )
         return JsonResponse(
             {
                 "ok": True,
@@ -1666,7 +1673,13 @@ def adjust_current_arcane_power(request, character_id: int):
     current_arcane_power = max(0, int(current_arcane_power))
     arcane_power_max = max(calculated_arcane_power, current_arcane_power)
 
-    if action == "spend":
+    requested_current_arcane_power = request.POST.get("current_arcane_power")
+    if requested_current_arcane_power is not None:
+        try:
+            current_arcane_power = max(0, min(arcane_power_max, int(requested_current_arcane_power)))
+        except (TypeError, ValueError):
+            pass
+    elif action == "spend":
         current_arcane_power = max(0, current_arcane_power - amount)
     elif action == "restore":
         current_arcane_power = min(arcane_power_max, current_arcane_power + amount)

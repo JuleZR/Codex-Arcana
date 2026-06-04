@@ -37,10 +37,32 @@ export function initDamagePanel() {
   let arcaneRequestQueue = Promise.resolve();
   let localDamage = readInt(gauge.dataset.damageValue || currentDamageEl.textContent, 0);
   let localArcane = readInt(arcaneMeter?.dataset.arcaneCurrent || currentArcaneEl?.textContent, 0);
+  let pendingDamageDelta = 0;
+  let damageFlushTimer = null;
+  let damageDependentRefreshTimer = null;
+  let damageDependentRefreshInFlight = false;
+  let damageRequestInFlight = false;
+  let confirmedDamage = localDamage;
+  let pendingArcaneDelta = 0;
+  let arcaneFlushTimer = null;
+  let arcaneRequestInFlight = false;
+  let confirmedArcane = localArcane;
   let woundPenaltyIgnored = woundStageEl.classList.contains("is-disabled") || woundPenaltyEl.classList.contains("is-disabled");
 
   window.__charsheetDamagePanel = {
-    flushPendingDamageRequests: () => requestQueue.catch(() => undefined),
+    flushPendingDamageRequests: () => {
+      window.clearTimeout(damageFlushTimer);
+      flushDamageDelta();
+      window.clearTimeout(damageDependentRefreshTimer);
+      const dependentRefresh = refreshDamageDependents();
+      window.clearTimeout(arcaneFlushTimer);
+      flushArcaneDelta();
+      return Promise.all([
+        requestQueue.catch(() => undefined),
+        dependentRefresh.catch(() => undefined),
+        arcaneRequestQueue.catch(() => undefined),
+      ]);
+    },
   };
 
   if (thresholdsScript) {
@@ -183,6 +205,215 @@ export function initDamagePanel() {
     }
   }
 
+  function syncDamageDisplay(value, options = {}) {
+    const { animate = true, fromValue = null } = options;
+    currentDamageEl.textContent = String(value);
+    const optimisticWound = computeWoundInfo(value);
+    applyWoundState(optimisticWound.stage, optimisticWound.penaltyDisplay, optimisticWound.isIgnored);
+    renderNeedle(value, { animate, fromValue });
+    window.sessionStorage.setItem(storageKey, String(value));
+  }
+
+  function scheduleDamageFlush() {
+    window.clearTimeout(damageFlushTimer);
+    damageFlushTimer = window.setTimeout(flushDamageDelta, 160);
+  }
+
+  function scheduleDamageDependentRefresh(delay = 650) {
+    window.clearTimeout(damageDependentRefreshTimer);
+    damageDependentRefreshTimer = window.setTimeout(refreshDamageDependents, delay);
+  }
+
+  async function refreshDamageDependents() {
+    if (damageDependentRefreshInFlight) {
+      scheduleDamageDependentRefresh();
+      return;
+    }
+    if (damageRequestInFlight || pendingDamageDelta !== 0) {
+      scheduleDamageDependentRefresh();
+      return;
+    }
+
+    const refreshDamage = localDamage;
+    damageDependentRefreshInFlight = true;
+    actionInput.value = "set";
+    amountInput.value = "1";
+
+    const formData = new FormData(form);
+    formData.set("ajax", "1");
+    formData.set("partials", "1");
+    formData.set("current_damage", String(refreshDamage));
+
+    try {
+      const response = await fetch(requestUrl, {
+        method: "POST",
+        body: formData,
+        headers: {
+          "X-Requested-With": "XMLHttpRequest",
+          Accept: "application/json",
+        },
+        credentials: "same-origin",
+      });
+      if (!response.ok) {
+        throw new Error("damage dependent refresh failed");
+      }
+      const payload = await response.json();
+      const serverDamage = readInt(payload.current_damage, refreshDamage);
+      if (damageRequestInFlight || pendingDamageDelta !== 0 || serverDamage !== localDamage) {
+        scheduleDamageDependentRefresh();
+        return;
+      }
+
+      confirmedDamage = serverDamage;
+      gauge.dataset.damageMax = String(readInt(payload.current_damage_max, readInt(gauge.dataset.damageMax || "1", 1)));
+      applyWoundState(
+        String(payload.current_wound_stage ?? "-"),
+        String(payload.current_wound_penalty ?? "-"),
+        Boolean(payload.is_wound_penalty_ignored),
+      );
+      if (Array.isArray(payload.partials) && payload.partials.length) {
+        applySheetPartials(payload);
+      }
+    } catch (_error) {
+      scheduleDamageDependentRefresh(1200);
+    } finally {
+      damageDependentRefreshInFlight = false;
+    }
+  }
+
+  function flushDamageDelta() {
+    if (damageRequestInFlight || pendingDamageDelta === 0) {
+      return;
+    }
+
+    const targetDamage = localDamage;
+    pendingDamageDelta = 0;
+    damageRequestInFlight = true;
+
+    const thisRequestVersion = requestVersion + 1;
+    requestVersion = thisRequestVersion;
+    actionInput.value = "set";
+    amountInput.value = "1";
+
+    const formData = new FormData(form);
+    formData.set("ajax", "1");
+    formData.set("partials", "0");
+    formData.set("current_damage", String(targetDamage));
+
+    requestQueue = requestQueue.then(async () => {
+      const response = await fetch(requestUrl, {
+        method: "POST",
+        body: formData,
+        headers: {
+          "X-Requested-With": "XMLHttpRequest",
+          Accept: "application/json",
+        },
+        credentials: "same-origin",
+      });
+      if (!response.ok) {
+        throw new Error("damage update failed");
+      }
+
+      const payload = await response.json();
+      if (thisRequestVersion < lastAppliedResponseVersion) {
+        return;
+      }
+      lastAppliedResponseVersion = thisRequestVersion;
+
+      const previousServerDamage = localDamage;
+      confirmedDamage = readInt(payload.current_damage, targetDamage);
+      gauge.dataset.damageMax = String(readInt(payload.current_damage_max, readInt(gauge.dataset.damageMax || "1", 1)));
+
+      if (pendingDamageDelta === 0) {
+        localDamage = confirmedDamage;
+        currentDamageEl.textContent = String(localDamage);
+        applyWoundState(
+          String(payload.current_wound_stage ?? "-"),
+          String(payload.current_wound_penalty ?? "-"),
+          Boolean(payload.is_wound_penalty_ignored),
+        );
+        if (Array.isArray(payload.partials) && payload.partials.length) {
+          applySheetPartials(payload);
+        }
+        renderNeedle(localDamage, { animate: true, fromValue: previousServerDamage });
+        window.sessionStorage.setItem(storageKey, String(localDamage));
+      } else {
+        localDamage = Math.max(0, localDamage);
+        syncDamageDisplay(localDamage, { animate: false });
+      }
+    }).catch((_error) => {
+      pendingDamageDelta = localDamage - confirmedDamage;
+      syncDamageDisplay(localDamage, { animate: false });
+    }).finally(() => {
+      damageRequestInFlight = false;
+      if (pendingDamageDelta !== 0) {
+        scheduleDamageFlush();
+      } else {
+        scheduleDamageDependentRefresh();
+      }
+    });
+  }
+
+  function scheduleArcaneFlush() {
+    window.clearTimeout(arcaneFlushTimer);
+    arcaneFlushTimer = window.setTimeout(flushArcaneDelta, 160);
+  }
+
+  function flushArcaneDelta() {
+    if (arcaneRequestInFlight || pendingArcaneDelta === 0 || !arcaneForm) {
+      return;
+    }
+
+    const targetArcane = localArcane;
+    pendingArcaneDelta = 0;
+    arcaneRequestInFlight = true;
+
+    const thisRequestVersion = arcaneRequestVersion + 1;
+    arcaneRequestVersion = thisRequestVersion;
+    arcaneActionInput.value = "set";
+    arcaneAmountInput.value = "1";
+
+    const formData = new FormData(arcaneForm);
+    formData.set("ajax", "1");
+    formData.set("current_arcane_power", String(targetArcane));
+
+    arcaneRequestQueue = arcaneRequestQueue.then(async () => {
+      const response = await fetch(arcaneRequestUrl, {
+        method: "POST",
+        body: formData,
+        headers: {
+          "X-Requested-With": "XMLHttpRequest",
+          Accept: "application/json",
+        },
+        credentials: "same-origin",
+      });
+      if (!response.ok) {
+        throw new Error("arcane update failed");
+      }
+
+      const payload = await response.json();
+      if (thisRequestVersion < lastAppliedArcaneResponseVersion) {
+        return;
+      }
+      lastAppliedArcaneResponseVersion = thisRequestVersion;
+      const maxArcane = readInt(payload.current_arcane_power_max, readInt(arcaneMeter?.dataset.arcaneMax || "0", 0));
+      confirmedArcane = readInt(payload.current_arcane_power, targetArcane);
+      localArcane = pendingArcaneDelta === 0
+        ? confirmedArcane
+        : Math.max(0, Math.min(maxArcane, localArcane));
+      renderArcaneMeter(localArcane, maxArcane);
+    }).catch((_error) => {
+      const maxArcane = readInt(arcaneMeter?.dataset.arcaneMax || "0", 0);
+      pendingArcaneDelta = localArcane - confirmedArcane;
+      renderArcaneMeter(localArcane, maxArcane);
+    }).finally(() => {
+      arcaneRequestInFlight = false;
+      if (pendingArcaneDelta !== 0) {
+        scheduleArcaneFlush();
+      }
+    });
+  }
+
   const initialValue = localDamage;
   const previousValue = window.sessionStorage.getItem(storageKey);
   if (previousValue !== null && readInt(previousValue, initialValue) !== initialValue) {
@@ -204,67 +435,13 @@ export function initDamagePanel() {
         return;
       }
 
-      actionInput.value = action;
-      amountInput.value = String(amount);
-
       const previousDamage = localDamage;
-      localDamage = action === "damage"
-        ? localDamage + amount
-        : Math.max(0, localDamage - amount);
-
-      currentDamageEl.textContent = String(localDamage);
-      const optimisticWound = computeWoundInfo(localDamage);
-      applyWoundState(optimisticWound.stage, optimisticWound.penaltyDisplay, optimisticWound.isIgnored);
-      renderNeedle(localDamage, { animate: true, fromValue: previousDamage });
-      window.sessionStorage.setItem(storageKey, String(localDamage));
-
-      const thisRequestVersion = requestVersion + 1;
-      requestVersion = thisRequestVersion;
-      const formData = new FormData(form);
-      formData.set("ajax", "1");
-
-      requestQueue = requestQueue.then(async () => {
-        const response = await fetch(requestUrl, {
-          method: "POST",
-          body: formData,
-          headers: {
-            "X-Requested-With": "XMLHttpRequest",
-            Accept: "application/json",
-          },
-          credentials: "same-origin",
-        });
-        if (!response.ok) {
-          throw new Error("damage update failed");
-        }
-
-        const payload = await response.json();
-        if (thisRequestVersion < requestVersion || thisRequestVersion < lastAppliedResponseVersion) {
-          return;
-        }
-        lastAppliedResponseVersion = thisRequestVersion;
-
-        const previousServerDamage = localDamage;
-        localDamage = readInt(payload.current_damage, localDamage);
-        currentDamageEl.textContent = String(localDamage);
-        gauge.dataset.damageMax = String(readInt(payload.current_damage_max, readInt(gauge.dataset.damageMax || "1", 1)));
-        applyWoundState(
-          String(payload.current_wound_stage ?? "-"),
-          String(payload.current_wound_penalty ?? "-"),
-          Boolean(payload.is_wound_penalty_ignored),
-        );
-        if (Array.isArray(payload.partials) && payload.partials.length) {
-          applySheetPartials(payload);
-        }
-        renderNeedle(localDamage, { animate: true, fromValue: previousServerDamage });
-        window.sessionStorage.setItem(storageKey, String(localDamage));
-      }).catch((_error) => {
-        localDamage = previousDamage;
-        currentDamageEl.textContent = String(localDamage);
-        const rollbackWound = computeWoundInfo(localDamage);
-        applyWoundState(rollbackWound.stage, rollbackWound.penaltyDisplay, rollbackWound.isIgnored);
-        renderNeedle(localDamage, { animate: true, fromValue: readInt(gauge.dataset.damageValue || localDamage, localDamage) });
-        window.sessionStorage.setItem(storageKey, String(localDamage));
-      });
+      const delta = action === "damage" ? amount : -amount;
+      localDamage = Math.max(0, localDamage + delta);
+      pendingDamageDelta += localDamage - previousDamage;
+      syncDamageDisplay(localDamage, { animate: true, fromValue: previousDamage });
+      scheduleDamageFlush();
+      scheduleDamageDependentRefresh();
     });
   });
 
@@ -284,46 +461,13 @@ export function initDamagePanel() {
         return;
       }
 
-      arcaneActionInput.value = action;
-      arcaneAmountInput.value = String(amount);
-
       const maxArcane = readInt(arcaneMeter.dataset.arcaneMax || "0", 0);
       const previousArcane = localArcane;
-      localArcane = action === "restore"
-        ? Math.min(maxArcane, localArcane + amount)
-        : Math.max(0, localArcane - amount);
+      const delta = action === "restore" ? amount : -amount;
+      localArcane = Math.max(0, Math.min(maxArcane, localArcane + delta));
+      pendingArcaneDelta += localArcane - previousArcane;
       renderArcaneMeter(localArcane, maxArcane);
-
-      const thisRequestVersion = arcaneRequestVersion + 1;
-      arcaneRequestVersion = thisRequestVersion;
-      const formData = new FormData(arcaneForm);
-      formData.set("ajax", "1");
-
-      arcaneRequestQueue = arcaneRequestQueue.then(async () => {
-        const response = await fetch(arcaneRequestUrl, {
-          method: "POST",
-          body: formData,
-          headers: {
-            "X-Requested-With": "XMLHttpRequest",
-            Accept: "application/json",
-          },
-          credentials: "same-origin",
-        });
-        if (!response.ok) {
-          throw new Error("arcane update failed");
-        }
-
-        const payload = await response.json();
-        if (thisRequestVersion < arcaneRequestVersion || thisRequestVersion < lastAppliedArcaneResponseVersion) {
-          return;
-        }
-        lastAppliedArcaneResponseVersion = thisRequestVersion;
-        localArcane = readInt(payload.current_arcane_power, localArcane);
-        renderArcaneMeter(localArcane, readInt(payload.current_arcane_power_max, maxArcane));
-      }).catch((_error) => {
-        localArcane = previousArcane;
-        renderArcaneMeter(localArcane, maxArcane);
-      });
+      scheduleArcaneFlush();
     });
   });
 }
