@@ -29,6 +29,8 @@ from charsheet.constants import (
     MELEE_MANEUVERS,
     QUALITY_CHOICES,
     QUALITY_COLOR_MAP,
+    RULE_FLAG_CHOICES,
+    RULE_FLAG_TARGET_KIND,
     STAT_SLUG_CHOICES,
     SOURCE_ITEM_RUNE,
     WEAPON_DAMAGE,
@@ -511,7 +513,10 @@ def _rune_card_description(rune: Rune) -> str:
 def _serialize_modifier_payload(modifier: Modifier) -> dict[str, object]:
     """Return one frontend-friendly magic modifier payload."""
     target_display = ""
-    if modifier.target_kind == Modifier.TargetKind.ATTRIBUTE:
+    rule_flag_labels = dict(RULE_FLAG_CHOICES)
+    if modifier.target_kind == Modifier.TargetKind.STAT and str(modifier.target_slug or "") in rule_flag_labels:
+        target_display = rule_flag_labels[str(modifier.target_slug or "")]
+    elif modifier.target_kind == Modifier.TargetKind.ATTRIBUTE:
         target_display = dict(ATTRIBUTE_ORDER).get(str(modifier.target_slug or ""), str(modifier.target_slug or ""))
     elif modifier.target_kind == Modifier.TargetKind.STAT:
         if (
@@ -538,7 +543,10 @@ def _serialize_modifier_payload(modifier: Modifier) -> dict[str, object]:
         "target_display": target_display,
         "display_order": int(getattr(modifier, "display_order", 0) or 0),
     }
-    if modifier.target_kind == Modifier.TargetKind.ATTRIBUTE:
+    if modifier.target_kind == Modifier.TargetKind.STAT and str(modifier.target_slug or "") in rule_flag_labels:
+        payload["target_kind"] = RULE_FLAG_TARGET_KIND
+        payload["target_rule_flag"] = str(modifier.target_slug or "")
+    elif modifier.target_kind == Modifier.TargetKind.ATTRIBUTE:
         payload["target_attribute"] = str(modifier.target_slug or "")
     elif modifier.target_kind == Modifier.TargetKind.STAT:
         if (
@@ -646,7 +654,9 @@ def _build_character_item_magic_tooltip_rows(*, effect_summary: str, modifier_pa
             value = int(payload.get("value") or 0)
         except (TypeError, ValueError):
             value = 0
-        if str(payload.get("target_kind") or "") in {WEAPON_MANEUVER_DAMAGE, WEAPON_MASTERY_BONUS}:
+        if str(payload.get("target_kind") or "") == RULE_FLAG_TARGET_KIND:
+            value_display = target_display
+        elif str(payload.get("target_kind") or "") in {WEAPON_MANEUVER_DAMAGE, WEAPON_MASTERY_BONUS}:
             formatted_value = format_modifier(value)
             value_display = f"{formatted_value}/{formatted_value}"
         elif str(payload.get("target_kind") or "") == "weapon_damage_dice":
@@ -3213,6 +3223,7 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
         "shop_weapon_maneuver_attribute_choices": WEAPON_MANEUVER_ATTRIBUTE_CHOICES,
         "shop_modifier_target_kind_choices": [
             (TEXT_TARGET_KIND, "Text"),
+            (RULE_FLAG_TARGET_KIND, "Regel aktivieren"),
             ("attribute", "Attribut"),
             ("stat", "Wert auf dem Bogen"),
             ("skill", "Einzelne Fertigkeit"),
@@ -3227,6 +3238,7 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
         ],
         "item_modifier_target_kind_choices": [
             (TEXT_TARGET_KIND, "Text"),
+            (RULE_FLAG_TARGET_KIND, "Regel aktivieren"),
             ("attribute", "Attribut"),
             ("stat", "Wert auf dem Bogen"),
             ("skill", "Einzelne Fertigkeit"),
@@ -3241,6 +3253,7 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
         ],
         "shop_modifier_target_kind_choices": [
             (TEXT_TARGET_KIND, "Text"),
+            (RULE_FLAG_TARGET_KIND, "Regel aktivieren"),
             ("attribute", "Attribut"),
             ("stat", "Wert auf dem Bogen"),
             ("skill", "Einzelne Fertigkeit"),
@@ -3250,6 +3263,7 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
         ],
         "item_modifier_target_kind_choices": [
             (TEXT_TARGET_KIND, "Text"),
+            (RULE_FLAG_TARGET_KIND, "Regel aktivieren"),
             ("attribute", "Attribut"),
             ("stat", "Wert auf dem Bogen"),
             ("skill", "Einzelne Fertigkeit"),
@@ -3260,6 +3274,7 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
         ],
         "shop_modifier_target_kind_choices": [
             (TEXT_TARGET_KIND, "Text"),
+            (RULE_FLAG_TARGET_KIND, "Regel aktivieren"),
             ("attribute", "Attribut"),
             ("stat", "Wert auf dem Bogen"),
             ("skill", "Einzelne Fertigkeit"),
@@ -3269,6 +3284,7 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
         ],
         "item_modifier_target_kind_choices": [
             (TEXT_TARGET_KIND, "Text"),
+            (RULE_FLAG_TARGET_KIND, "Regel aktivieren"),
             ("attribute", "Attribut"),
             ("stat", "Wert auf dem Bogen"),
             ("skill", "Einzelne Fertigkeit"),
@@ -3281,6 +3297,7 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
         ],
         "shop_modifier_attribute_choices": ATTRIBUTE_ORDER,
         "shop_modifier_stat_choices": STAT_SLUG_CHOICES,
+        "shop_modifier_rule_flag_choices": RULE_FLAG_CHOICES,
         "shop_modifier_skill_choices": Skill.objects.select_related("category").order_by("name"),
         "shop_modifier_skill_category_choices": SkillCategory.objects.order_by("name"),
         "shop_modifier_item_category_choices": [

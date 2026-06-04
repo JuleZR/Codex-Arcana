@@ -133,10 +133,11 @@ export function initItemForm() {
     }
     const targetKindSelect = row.querySelector("[data-magic-target-kind]");
     const valueInput = row.querySelector("[data-magic-value-input]");
-    const valueRow = valueInput?.closest(".shop_item_form_row");
+    const valueRow = row.querySelector("[data-magic-value-row]") || valueInput?.closest(".shop_item_form_row");
     const descriptionInput = row.querySelector("[data-magic-effect-description]");
     const selectedKind = String(targetKindSelect?.value || "");
     const isTextOnly = selectedKind === "text";
+    const isRuleFlag = selectedKind === "rule_flag";
 
     row.querySelectorAll("[data-magic-target-row]").forEach((targetRow) => {
       if (!(targetRow instanceof HTMLElement)) {
@@ -155,10 +156,10 @@ export function initItemForm() {
     if (valueInput instanceof HTMLInputElement) {
       valueInput.setCustomValidity("");
       if (valueRow instanceof HTMLElement) {
-        valueRow.hidden = isTextOnly;
+        valueRow.hidden = isTextOnly || isRuleFlag;
       }
-      valueInput.required = selectedKind !== "" && !isTextOnly;
-      if (isTextOnly) {
+      valueInput.required = selectedKind !== "" && !isTextOnly && !isRuleFlag;
+      if (isTextOnly || isRuleFlag) {
         valueInput.value = "0";
       } else if (selectedKind === WEAPON_MASTERY_BONUS_KIND && String(valueInput.value || "").trim() === "") {
         valueInput.value = "1";
@@ -186,15 +187,17 @@ export function initItemForm() {
         return;
       }
       const isTextOnly = targetKind === "text";
+      const isRuleFlag = targetKind === "rule_flag";
       const value = String(row.querySelector("[data-magic-value-input]")?.value || "0").trim();
       const effectDescription = String(row.querySelector("[data-magic-effect-description]")?.value || "").trim();
       const payload = {
         target_kind: targetKind,
-        value: isTextOnly ? "0" : value,
+        value: isTextOnly || isRuleFlag ? "0" : value,
         effect_description: effectDescription,
       };
       const attributeSelect = row.querySelector("[data-magic-target-select='attribute']");
       const statSelect = row.querySelector("[data-magic-target-select='stat']");
+      const ruleFlagSelect = row.querySelector("[data-magic-target-select='rule_flag']");
       const skillSelect = row.querySelector("[data-magic-target-select='skill']");
       const categorySelect = row.querySelector("[data-magic-target-select='category']");
       const itemCategorySelect = row.querySelector("[data-magic-target-select='item_category']");
@@ -204,6 +207,8 @@ export function initItemForm() {
         payload.target_attribute = String(attributeSelect?.value || "").trim();
       } else if (targetKind === "stat") {
         payload.target_stat = String(statSelect?.value || "").trim();
+      } else if (targetKind === "rule_flag") {
+        payload.target_rule_flag = String(ruleFlagSelect?.value || "").trim();
       } else if (targetKind === "skill") {
         payload.target_skill = String(skillSelect?.value || "").trim();
       } else if (targetKind === "category") {
@@ -260,12 +265,20 @@ export function initItemForm() {
     const dragHandle = row.querySelector("[data-drag-magic-effect]");
     if (dragHandle instanceof HTMLElement) {
       dragHandle.draggable = true;
+      dragHandle.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+      });
+      dragHandle.addEventListener("pointerdown", (event) => {
+        event.stopPropagation();
+      });
     }
     dragHandle?.addEventListener("dragstart", (event) => {
       if (!(dragHandle instanceof HTMLElement)) {
         event.preventDefault();
         return;
       }
+      event.stopPropagation();
       draggedMagicEffectRow = row;
       row.classList.add("is-dragging");
       if (event.dataTransfer) {

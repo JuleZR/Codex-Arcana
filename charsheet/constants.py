@@ -6,6 +6,8 @@ WOUND_STAGE = "wound_stage"
 WOUND_PENALTY_IGNORE = "wound_penalty_ignore"
 WOUND_PENALTY_MOD = "wound_penalty_mod"
 ARMOR_PENALTY_IGNORE = "armor_penalty_ignore"
+SHIELD_PENALTY_IGNORE = "shield_penalty_ignore"
+RULE_FLAG_TARGET_KIND = "rule_flag"
 DEFENSE_VW = "vw"
 DEFENSE_GW = "gw"
 DEFENSE_SR = "sr"
@@ -24,9 +26,7 @@ STAT_SLUG_CHOICES = [
     (ARCANE_POWER, "Arkane Macht"),
     (POTENTIAL, "Potenzial"),
     (WOUND_STAGE, "Wundstufe"),
-    (WOUND_PENALTY_IGNORE, "Wundmalus ignorieren"),
     (WOUND_PENALTY_MOD, "Wundmalus ver\u00e4ndern"),
-    (ARMOR_PENALTY_IGNORE, "Belastung ignorieren"),
     (DEFENSE_VW, "VW"),
     (DEFENSE_GW, "GW"),
     (DEFENSE_SR, "SR"),
@@ -38,6 +38,12 @@ STAT_SLUG_CHOICES = [
     (WEAPON_DAMAGE_DICE, "Zusaetzliche Schadenswuerfel mit dieser Waffe"),
 ]
 
+RULE_FLAG_CHOICES = [
+    (WOUND_PENALTY_IGNORE, "Wundmalus ignorieren"),
+    (ARMOR_PENALTY_IGNORE, "Belastung ignorieren"),
+    (SHIELD_PENALTY_IGNORE, "Schildmalus ignorieren"),
+]
+
 VALID_STAT_SLUGS = {
     INITIATIVE,
     ARCANE_POWER,
@@ -46,6 +52,7 @@ VALID_STAT_SLUGS = {
     WOUND_PENALTY_IGNORE,
     WOUND_PENALTY_MOD,
     ARMOR_PENALTY_IGNORE,
+    SHIELD_PENALTY_IGNORE,
     DEFENSE_VW,
     DEFENSE_GW,
     DEFENSE_SR,

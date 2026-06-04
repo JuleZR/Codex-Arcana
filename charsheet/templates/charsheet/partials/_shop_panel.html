@@ -491,7 +491,7 @@
                 {% endfor %}
               </select>
             </label>
-            <label class="shop_item_form_row">
+            <label class="shop_item_form_row" data-magic-value-row>
               <span>Bonus oder Malus</span>
               <input type="number" step="1" value="0" data-magic-value-input>
             </label>
@@ -504,6 +504,14 @@
             <span>Welcher Wert?</span>
             <select data-magic-target-select="stat">
               {% for value, label in shop_modifier_stat_choices %}
+                <option value="{{ value }}">{{ label }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label class="shop_item_form_row" data-magic-target-row="rule_flag" hidden>
+            <span>Welche Regel?</span>
+            <select data-magic-target-select="rule_flag">
+              {% for value, label in shop_modifier_rule_flag_choices %}
                 <option value="{{ value }}">{{ label }}</option>
               {% endfor %}
             </select>

@@ -470,10 +470,11 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
     }
     const targetKindSelect = row.querySelector("[data-magic-target-kind]");
     const valueInput = row.querySelector("[data-magic-value-input]");
-    const valueRow = valueInput?.closest(".shop_item_form_row");
+    const valueRow = row.querySelector("[data-magic-value-row]") || valueInput?.closest(".shop_item_form_row");
     const descriptionInput = row.querySelector("[data-magic-effect-description]");
     const selectedKind = String(targetKindSelect?.value || "");
     const isTextOnly = selectedKind === "text";
+    const isRuleFlag = selectedKind === "rule_flag";
     row.querySelectorAll("[data-magic-target-row]").forEach((targetRow) => {
       if (!(targetRow instanceof HTMLElement)) {
         return;
@@ -489,9 +490,9 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
     if (valueInput instanceof HTMLInputElement) {
       valueInput.setCustomValidity("");
       if (valueRow instanceof HTMLElement) {
-        valueRow.hidden = isTextOnly;
+        valueRow.hidden = isTextOnly || isRuleFlag;
       }
-      if (isTextOnly) {
+      if (isTextOnly || isRuleFlag) {
         valueInput.value = "0";
       } else if (selectedKind === WEAPON_MASTERY_BONUS_KIND && String(valueInput.value || "").trim() === "") {
         valueInput.value = "1";
@@ -519,15 +520,18 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
         return;
       }
       const isTextOnly = targetKind === "text";
+      const isRuleFlag = targetKind === "rule_flag";
       const payload = {
         target_kind: targetKind,
-        value: isTextOnly ? "0" : String(row.querySelector("[data-magic-value-input]")?.value || "0").trim(),
+        value: isTextOnly || isRuleFlag ? "0" : String(row.querySelector("[data-magic-value-input]")?.value || "0").trim(),
         effect_description: String(row.querySelector("[data-magic-effect-description]")?.value || "").trim(),
       };
       if (targetKind === "attribute") {
         payload.target_attribute = String(row.querySelector("[data-magic-target-select='attribute']")?.value || "").trim();
       } else if (targetKind === "stat") {
         payload.target_stat = String(row.querySelector("[data-magic-target-select='stat']")?.value || "").trim();
+      } else if (targetKind === "rule_flag") {
+        payload.target_rule_flag = String(row.querySelector("[data-magic-target-select='rule_flag']")?.value || "").trim();
       } else if (targetKind === "skill") {
         payload.target_skill = String(row.querySelector("[data-magic-target-select='skill']")?.value || "").trim();
       } else if (targetKind === "category") {
@@ -579,12 +583,20 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
     const dragHandle = row.querySelector("[data-drag-magic-effect]");
     if (dragHandle instanceof HTMLElement) {
       dragHandle.draggable = true;
+      dragHandle.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+      });
+      dragHandle.addEventListener("pointerdown", (event) => {
+        event.stopPropagation();
+      });
     }
     dragHandle?.addEventListener("dragstart", (event) => {
       if (!(dragHandle instanceof HTMLElement)) {
         event.preventDefault();
         return;
       }
+      event.stopPropagation();
       draggedMagicEffectRow = row;
       row.classList.add("is-dragging");
       if (event.dataTransfer) {
@@ -664,6 +676,7 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
       const targetFieldMap = {
         attribute: "target_attribute",
         stat: "target_stat",
+        rule_flag: "target_rule_flag",
         skill: "target_skill",
         category: "target_skill_category",
       };
@@ -922,6 +935,13 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
 
   // ── Open rune window ───────────────────────────────────────────────────────
 
+  document.addEventListener("pointerdown", (event) => {
+    const target = event.target instanceof Element ? event.target : null;
+    if (target?.closest(".inv_menu_trigger")) {
+      event.stopPropagation();
+    }
+  }, true);
+
   document.addEventListener("click", (event) => {
     const toggleBtn = event.target instanceof Element
       ? event.target.closest("[data-rune-toggle]")
@@ -984,7 +1004,7 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
     }
 
     document.querySelectorAll(".inv_menu").forEach((entry) => closeMenu(entry));
-  });
+  }, true);
 
   document.addEventListener("click", (event) => {
     const button = event.target instanceof Element

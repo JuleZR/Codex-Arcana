@@ -13,6 +13,8 @@ from django.db import transaction
 from charsheet.constants import (
     DEADLY,
     MELEE_MANEUVERS,
+    RULE_FLAG_TARGET_KIND,
+    RULE_FLAG_CHOICES,
     TWO_HANDED,
     VERSATILE,
     WEAPON_DAMAGE,
@@ -176,10 +178,19 @@ def _build_magic_modifier_payload(target_kind: str, raw_value, row_data) -> dict
         "target_specialization": None,
     }
 
+    rule_flag_keys = {value for value, _label in RULE_FLAG_CHOICES}
+
     if target_kind == TEXT_TARGET_KIND:
         if not payload["effect_description"]:
             return None
         payload["value"] = 0
+    elif target_kind == RULE_FLAG_TARGET_KIND:
+        target_slug = str(row_data.get("target_rule_flag") or "").strip()
+        if target_slug not in rule_flag_keys:
+            return None
+        payload["target_kind"] = Modifier.TargetKind.STAT
+        payload["target_slug"] = target_slug
+        payload["value"] = 1
     elif target_kind == Modifier.TargetKind.ATTRIBUTE:
         target_slug = str(row_data.get("target_attribute") or "").strip()
         if not target_slug:
@@ -239,6 +250,7 @@ def _read_magic_modifier_payload(post_data) -> dict[str, object] | None:
         post_data.get("magic_modifier_value", 0),
         {
             "target_stat": post_data.get("magic_modifier_target_stat"),
+            "target_rule_flag": post_data.get("magic_modifier_target_rule_flag"),
             "target_attribute": post_data.get("magic_modifier_target_attribute"),
             "target_skill": post_data.get("magic_modifier_target_skill"),
             "target_skill_category": post_data.get("magic_modifier_target_skill_category"),
@@ -287,7 +299,7 @@ def _read_magic_modifier_payloads(post_data) -> list[dict[str, object]]:
                             "effect_description": effect_description,
                             "display_order": index,
                             "target_slug": MELEE_MANEUVERS,
-                            "target_skill": None,
+            "target_skill": None,
                             "target_skill_category": None,
                             "target_item": None,
                             "target_specialization": None,
