@@ -62,9 +62,18 @@ class ItemEngine:
 
     @classmethod
     def price_for_item_and_quality(cls, item: Item, quality: str | None) -> int:
-        """Return one quality-adjusted item price."""
+        """Return one item price adjusted relative to the item's default quality."""
         resolved_quality = cls.normalize_quality(quality)
-        return int(item.price * QUALITY_PRICE_MODS.get(resolved_quality, 1))
+        return int(item.price * cls._quality_price_multiplier(item.default_quality, resolved_quality))
+
+    @classmethod
+    def _quality_price_multiplier(cls, base_quality: str | None, effective_quality: str | None) -> float:
+        """Return the price factor from the stored base quality to another quality."""
+        base_mod = QUALITY_PRICE_MODS.get(cls.normalize_quality(base_quality), 1)
+        effective_mod = QUALITY_PRICE_MODS.get(cls.normalize_quality(effective_quality), 1)
+        if not base_mod:
+            return float(effective_mod)
+        return float(effective_mod) / float(base_mod)
 
     def _get_item(self) -> Item:
         """Return the underlying base item regardless of wrapper type."""
@@ -103,6 +112,10 @@ class ItemEngine:
             return self.normalize_quality(self.obj.quality)
         return self.normalize_quality(self._get_item().default_quality)
 
+    def get_base_quality(self) -> str:
+        """Return the quality already baked into the stored item stats."""
+        return self.normalize_quality(self._get_item().default_quality)
+
     def get_quality_color(self) -> str:
         """Return the UI color for the effective quality."""
         return self.quality_color(self.get_effective_quality())
@@ -126,7 +139,7 @@ class ItemEngine:
     def get_price_for_quality(self, quality: str) -> int:
         """Return price for an arbitrary quality without mutating object state."""
         resolved_quality = self.normalize_quality(quality)
-        return int(self.get_base_price() * QUALITY_PRICE_MODS.get(resolved_quality, 1))
+        return int(self.get_base_price() * self._quality_price_multiplier(self.get_base_quality(), resolved_quality))
 
     def get_name(self) -> str:
         """Return the effective display name."""
@@ -191,11 +204,17 @@ class ItemEngine:
 
     def get_weapon_damage_quality_bonus(self) -> int:
         """Return the flat quality bonus applied to weapon damage."""
-        return WEAPON_DAMAGE_QUALITY_BONUSES.get(self.get_effective_quality(), 0)
+        return self._quality_bonus_delta(WEAPON_DAMAGE_QUALITY_BONUSES)
 
     def get_weapon_maneuver_quality_bonus(self) -> int:
         """Return the quality bonus or penalty applied to maneuver values."""
-        return WEAPON_MANEUVER_QUALITY_BONUSES.get(self.get_effective_quality(), 0)
+        return self._quality_bonus_delta(WEAPON_MANEUVER_QUALITY_BONUSES)
+
+    def _quality_bonus_delta(self, bonus_map: dict[str, int]) -> int:
+        """Return only the quality bonus not already included in base item stats."""
+        effective_bonus = int(bonus_map.get(self.get_effective_quality(), 0) or 0)
+        base_bonus = int(bonus_map.get(self.get_base_quality(), 0) or 0)
+        return effective_bonus - base_bonus
 
     @staticmethod
     def _apply_quality_to_damage_bonus(base_bonus: int, operator: str, quality_bonus: int) -> tuple[int, str]:
@@ -339,7 +358,7 @@ class ItemEngine:
         if not stats:
             return 0
         encumbrance = int(self._get_override_value("armor_encumbrance_override", stats.encumbrance))
-        return max(0, encumbrance + QUALITY_BEL_MODS.get(self.get_effective_quality(), 0))
+        return max(0, encumbrance + self._quality_bonus_delta(QUALITY_BEL_MODS))
 
     def get_shield_min_st(self) -> int | None:
         """Return minimum strength for this shield."""

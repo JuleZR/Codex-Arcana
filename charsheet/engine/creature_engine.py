@@ -17,6 +17,7 @@ from charsheet.constants import (
     QUALITY_BEL_MODS,
 )
 from charsheet.models.creatures import ATTRIBUTE_FIELD_MAP, CharacterCreature, CharacterCreatureItem, Creature
+from .item_engine import ItemEngine
 
 
 WOUND_STAGE_LABELS = ("0", "-2", "-4", "-6", "Ausser Gefecht", "Koma")
@@ -203,7 +204,9 @@ class CreatureEngine:
             if creature_item.armor_encumbrance_override is not None
             else stats.encumbrance
         )
-        encumbrance += QUALITY_BEL_MODS.get(creature_item.quality, 0)
+        effective_quality = ItemEngine.normalize_quality(creature_item.quality)
+        base_quality = ItemEngine.normalize_quality(creature_item.item.default_quality)
+        encumbrance += int(QUALITY_BEL_MODS.get(effective_quality, 0) or 0) - int(QUALITY_BEL_MODS.get(base_quality, 0) or 0)
         return max(0, int(encumbrance))
 
     def armor_totals(self) -> CreatureArmorTotals:
