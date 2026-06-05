@@ -39,6 +39,10 @@ SPELL_LEARNING_SLOTS_PER_MAGIC_LEVEL = 2
 SPELL_LEARNING_BONUS_SLOTS_PER_MAGIC_LEVEL = 1
 
 
+def _aspect_spell_slot_source_key(aspect_id: int, grade: int) -> str:
+    return f"aspect:{int(aspect_id)}:grade:{int(grade)}"
+
+
 def _to_roman(value: int | None) -> str:
     """Return a compact roman numeral label used in grouped panel headers."""
     number = int(value or 0)
@@ -459,21 +463,23 @@ class MagicEngine:
                 "remaining": level * slots_per_level,
             }
         for entry in self._aspect_entries():
-            key = f"aspect:{entry.aspect_id}"
             level = max(0, int(entry.level))
-            sources[key] = {
-                "key": key,
-                "kind": "aspect",
-                "id": entry.aspect_id,
-                "name": entry.aspect.name,
-                "symbol": str(entry.aspect.name or "?").strip()[:1] or "*",
-                "symbol_image_url": self._image_url(getattr(entry.aspect, "aspect_image", None)),
-                "level": level,
-                "slots_per_level": slots_per_level,
-                "total": level * slots_per_level,
-                "spent": 0,
-                "remaining": level * slots_per_level,
-            }
+            for grade in range(1, level + 1):
+                key = _aspect_spell_slot_source_key(entry.aspect_id, grade)
+                sources[key] = {
+                    "key": key,
+                    "kind": "aspect",
+                    "id": entry.aspect_id,
+                    "grade": grade,
+                    "name": f"{entry.aspect.name} Grad {grade}",
+                    "symbol": str(entry.aspect.name or "?").strip()[:1] or "*",
+                    "symbol_image_url": self._image_url(getattr(entry.aspect, "aspect_image", None)),
+                    "level": 1,
+                    "slots_per_level": slots_per_level,
+                    "total": slots_per_level,
+                    "spent": 0,
+                    "remaining": slots_per_level,
+                }
 
         slot_spells = CharacterSpell.objects.filter(
             character=self.character,
@@ -490,7 +496,7 @@ class MagicEngine:
             if spell.school_id:
                 key = f"school:{spell.school_id}"
             elif spell.aspect_id:
-                key = f"aspect:{spell.aspect_id}"
+                key = _aspect_spell_slot_source_key(spell.aspect_id, spell.grade)
             else:
                 continue
             if key not in sources:
@@ -579,7 +585,7 @@ class MagicEngine:
                 continue
             if spell.is_base_spell and spell.aspect_id in bonus_aspect_ids:
                 continue
-            slot_source = slot_sources.get(f"aspect:{spell.aspect_id}", {})
+            slot_source = slot_sources.get(_aspect_spell_slot_source_key(spell.aspect_id, spell.grade), {})
             if int(slot_source.get("remaining", 0) or 0) <= 0:
                 continue
             divine_rows_by_aspect.setdefault(spell.aspect.name, []).append(
