@@ -180,9 +180,10 @@ def _spell_unit_label(unit_display: str, number: int) -> str:
 
 def _spell_cost_facts(spell: Spell) -> str:
     kp_cost_label = str(spell.kp_cost_label or "").strip()
+    ep_cost_label = str(spell.ep_cost_label or "").strip()
     parts = [f"{int(spell.kp_cost)} KP{kp_cost_label}"]
     if spell.ep_cost:
-        parts.append(f"oder {int(spell.ep_cost)} EP")
+        parts.append(f"oder {int(spell.ep_cost)} EP{ep_cost_label}")
     if spell.extra_cost_type == getattr(Spell.ExtraCostType, "WOUND_GRADE", "") and spell.extra_cost_value:
         amount = int(spell.extra_cost_value)
         parts.append(f"und {amount} {'Wundgrad' if amount == 1 else 'Wundgrade'}")

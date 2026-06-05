@@ -1566,6 +1566,7 @@ class Spell(models.Model):
     kp_cost = models.PositiveSmallIntegerField(default=0, blank=True)
     kp_cost_label = models.CharField("KP-Label", max_length=50, blank=True, default="")
     ep_cost = models.PositiveSmallIntegerField(null=True, blank=True, verbose_name="EP-Kosten")
+    ep_cost_label = models.CharField("EP-Label", max_length=50, blank=True, default="")
 
     class ExtraCostType(models.TextChoices):
         WOUND_GRADE = "wound_grade", "Wundgrad"

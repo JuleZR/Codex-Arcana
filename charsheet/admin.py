@@ -1912,8 +1912,10 @@ class SpellAdminForm(forms.ModelForm):
         kp_cost = cleaned_data.get("kp_cost")
         ep_cost = cleaned_data.get("ep_cost")
         kp_cost_label = str(cleaned_data.get("kp_cost_label") or "").strip()
+        ep_cost_label = str(cleaned_data.get("ep_cost_label") or "").strip()
         duration_text = str(cleaned_data.get("duration_text") or "").strip()
         cleaned_data["kp_cost_label"] = kp_cost_label
+        cleaned_data["ep_cost_label"] = ep_cost_label
         cleaned_data["duration_text"] = duration_text
 
         if kp_cost in (None, ""):
@@ -4283,7 +4285,7 @@ class SpellAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
                     ("name", "slug", "panel_badge_label"),
                     ("spell_attribute", "grade", "grade_adds_level"),
                     ("mw", "grade_adds_school_level", "resistance_value"),
-                    ("kp_cost", "kp_cost_label", "ep_cost"),
+                    ("kp_cost", "kp_cost_label", "ep_cost", "ep_cost_label"),
                     ("extra_cost_type", "extra_cost_value"),
                     ("cast_time_number", "cast_time_unit"),
                     ("cast_time2_number", "cast_time2_unit"),
