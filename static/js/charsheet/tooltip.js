@@ -525,7 +525,7 @@ function buildTooltipCardMarkup({ title, subtitle, image, accent, bodyMarkup, in
     : "";
   return `
     <div class="floating-tooltip-card__frame"${safeAccent ? ` style="--tooltip-card-accent: ${safeAccent};"` : ""}>
-      <div class="floating-tooltip-card__header" data-tooltip-card-drag-handle>
+      <div class="floating-tooltip-card__header${headerMediaHtml ? " has-header-media" : ""}" data-tooltip-card-drag-handle>
         ${headerMediaHtml}
         <div class="floating-tooltip-card__heading">
           <h3 class="floating-tooltip-card__title">${safeTitle}</h3>

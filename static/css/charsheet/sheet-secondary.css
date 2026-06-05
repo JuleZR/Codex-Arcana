@@ -2619,9 +2619,13 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
 
 .floating-tooltip-card--spell .floating-tooltip-card__header {
   display: grid;
-  grid-template-columns: 76px minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 12px;
+}
+
+.floating-tooltip-card--spell .floating-tooltip-card__header.has-header-media {
+  grid-template-columns: 76px minmax(0, 1fr) auto;
 }
 
 .floating-tooltip-card--spell .floating-tooltip-card__frame::before {
