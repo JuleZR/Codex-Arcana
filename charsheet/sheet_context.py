@@ -56,6 +56,7 @@ from charsheet.models import (
     CharacterItem,
     CharacterSkill,
     CharacterWeaponMasteryArcana,
+    DivineEntityAspect,
     ItemRune,
     CharacterLanguage,
     CharacterSpell,
@@ -156,6 +157,16 @@ def _spell_attribute_chart_maps() -> tuple[dict[int, str], dict[int, str]]:
             school_counts[int(spell.school_id)][code] += 1
         if spell.aspect_id:
             aspect_counts[int(spell.aspect_id)][code] += 1
+
+    linked_school_aspects: set[tuple[int, int]] = set(
+        DivineEntityAspect.objects.exclude(entity__school__isnull=True)
+        .exclude(aspect__isnull=True)
+        .values_list("entity__school_id", "aspect_id")
+        .distinct()
+    )
+    for school_id, aspect_id in linked_school_aspects:
+        for code, count in aspect_counts.get(int(aspect_id), {}).items():
+            school_counts[int(school_id)][code] += int(count or 0)
 
     return (
         {school_id: _spell_attribute_chart_line(counts) for school_id, counts in school_counts.items()},
