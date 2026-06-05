@@ -2856,15 +2856,43 @@ def _build_learning_rows(
         )
 
     spell_attribute_chart_by_school, spell_attribute_chart_by_aspect = _spell_attribute_chart_maps()
+    divine_binding = magic_engine._divine_binding()
+    divine_entity = divine_binding.entity if divine_binding is not None else None
+    divine_primary_symbol = ""
+    divine_primary_image_url = ""
+    divine_aspect_symbols: list[str] = []
+    divine_aspect_image_urls: list[str] = []
+    if divine_entity is not None:
+        divine_primary_symbol = str(divine_entity.name or "?").strip()[:1] or "?"
+        divine_primary_image_url = _image_field_url(divine_entity, "symbol_image")
+        if not divine_primary_image_url:
+            divine_primary_symbol = str(getattr(divine_entity.school, "panel_symbol", "") or divine_primary_symbol).strip()
+            divine_primary_image_url = _school_symbol_image_url(divine_entity.school)
+        for link in divine_entity.aspects.select_related("aspect").order_by("aspect__name"):
+            aspect = link.aspect
+            divine_aspect_symbols.append(str(aspect.name or "?").strip()[:1] or "?")
+            divine_aspect_image_urls.append(_aspect_image_url(aspect))
+
     school_level_caps = school_max_levels()
     school_groups: OrderedDict[str, list[dict]] = OrderedDict()
     for school in School.objects.select_related("type").order_by("type__name", "name"):
         base_level = int(school_levels.get(school.id, 0))
         max_level = max(base_level, int(school_level_caps.get(school.id, DEFAULT_SCHOOL_MAX_LEVEL)))
+        source_symbol = str(getattr(school, "panel_symbol", "") or "").strip()
+        source_image_url = _school_symbol_image_url(school)
+        secondary_symbols = ""
+        secondary_image_urls = ""
+        if divine_entity is not None and int(school.id) == int(divine_entity.school_id):
+            source_symbol = divine_primary_symbol
+            source_image_url = divine_primary_image_url
+            secondary_symbols = ";".join(divine_aspect_symbols)
+            secondary_image_urls = ";".join(divine_aspect_image_urls)
         description = _prepend_tooltip_source_symbol(
             school.description,
-            str(getattr(school, "panel_symbol", "") or "").strip(),
-            _school_symbol_image_url(school),
+            source_symbol,
+            source_image_url,
+            secondary_symbols,
+            secondary_image_urls,
         )
         description = _append_spell_attribute_chart(
             description,
@@ -2903,16 +2931,6 @@ def _build_learning_rows(
         aspect.id: aspect
         for aspect in Aspect.objects.all()
     }
-    divine_binding = magic_engine._divine_binding()
-    divine_entity = divine_binding.entity if divine_binding is not None else None
-    divine_primary_symbol = ""
-    divine_primary_image_url = ""
-    if divine_entity is not None:
-        divine_primary_symbol = str(divine_entity.name or "?").strip()[:1] or "?"
-        divine_primary_image_url = _image_field_url(divine_entity, "symbol_image")
-        if not divine_primary_image_url:
-            divine_primary_symbol = str(getattr(divine_entity.school, "panel_symbol", "") or divine_primary_symbol).strip()
-            divine_primary_image_url = _school_symbol_image_url(divine_entity.school)
     for group in build_learning_magic_groups(character, magic_engine=magic_engine):
         rows = []
         for row in group["rows"]:

@@ -75,18 +75,29 @@ function parseSpellAttributeChartLine(line) {
 }
 
 function parseSourceSymbolLine(line) {
-  const match = String(line || "").trim().match(/^\[\[SOURCESYMBOL:(.*?)\|(.*?)(?:\|(.*?)\|(.*?))?\]\]$/);
+  const match = String(line || "").trim().match(/^\[\[SOURCESYMBOL:(.*?)\]\]$/);
   if (!match) {
     return null;
   }
-  const symbol = String(match[1] || "").trim();
-  const image = String(match[2] || "").trim();
-  const secondarySymbol = String(match[3] || "").trim();
-  const secondaryImage = String(match[4] || "").trim();
-  if (!symbol && !image && !secondarySymbol && !secondaryImage) {
+  const parts = String(match[1] || "").split("|");
+  const symbol = String(parts[0] || "").trim();
+  const image = String(parts[1] || "").trim();
+  const secondarySymbols = String(parts[2] || "")
+    .split(";")
+    .map((value) => value.trim());
+  const secondaryImages = String(parts[3] || "")
+    .split(";")
+    .map((value) => value.trim());
+  const secondary = Array.from({ length: Math.max(secondarySymbols.length, secondaryImages.length) })
+    .map((_, index) => ({
+      symbol: secondarySymbols[index] || "",
+      image: secondaryImages[index] || "",
+    }))
+    .filter((entry) => entry.symbol || entry.image);
+  if (!symbol && !image && !secondary.length) {
     return null;
   }
-  return { symbol, image, secondarySymbol, secondaryImage };
+  return { symbol, image, secondary };
 }
 
 function parseRuneLine(line) {
@@ -213,11 +224,13 @@ function renderSourceSymbolMarkup(source) {
   const imageHtml = source.image
     ? `<img class="tooltip_source_symbol__image" src="${escapeHtml(source.image)}" alt="">`
     : escapeHtml(source.symbol || "");
-  const secondaryHtml = source.secondaryImage
-    ? `<img class="tooltip_source_symbol__secondary_image" src="${escapeHtml(source.secondaryImage)}" alt="">`
-    : escapeHtml(source.secondarySymbol || "");
-  const secondary = source.secondaryImage || source.secondarySymbol
-    ? `<span class="tooltip_source_symbol__secondary">${secondaryHtml}</span>`
+  const secondary = source.secondary?.length
+    ? `<span class="tooltip_source_symbol__secondary_list">${source.secondary.map((entry) => {
+      const secondaryHtml = entry.image
+        ? `<img class="tooltip_source_symbol__secondary_image" src="${escapeHtml(entry.image)}" alt="">`
+        : escapeHtml(entry.symbol || "");
+      return `<span class="tooltip_source_symbol__secondary">${secondaryHtml}</span>`;
+    }).join("")}</span>`
     : "";
   return `<span class="tooltip_source_symbol${secondary ? " tooltip_source_symbol--paired" : ""}" aria-hidden="true">${imageHtml}${secondary}</span>`;
 }
