@@ -263,6 +263,8 @@ class MagicEngine:
     def _spell_group_symbol(group_kind: str, spell: Spell | None = None) -> str:
         if group_kind == "arcane" and spell is not None and spell.school_id:
             return str(getattr(spell.school, "panel_symbol", "") or "").strip() or "▶"
+        if group_kind == "divine" and spell is not None and spell.aspect_id:
+            return str(spell.aspect.name or "?").strip()[:1] or "*"
         if group_kind == "divine":
             return "✧"
         if group_kind == "base":
@@ -271,9 +273,14 @@ class MagicEngine:
 
     @staticmethod
     def _spell_group_symbol_image_url(group_kind: str, spell: Spell | None = None) -> str:
-        if group_kind != "arcane" or spell is None or not spell.school_id:
+        if spell is None:
             return ""
-        image = getattr(spell.school, "symbol_image", None)
+        if group_kind == "arcane" and spell.school_id:
+            image = getattr(spell.school, "symbol_image", None)
+        elif group_kind == "divine" and spell.aspect_id:
+            image = getattr(spell.aspect, "aspect_image", None)
+        else:
+            image = None
         if not image:
             return ""
         try:
