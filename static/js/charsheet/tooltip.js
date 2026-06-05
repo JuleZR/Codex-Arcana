@@ -55,6 +55,25 @@ function parseStatusLine(line) {
   return { label: match[1].trim(), color: match[2].trim() };
 }
 
+function parseSpellAttributeChartLine(line) {
+  const match = String(line || "").trim().match(/^\[\[SPELLATTR:(.*?)\]\]$/);
+  if (!match) {
+    return null;
+  }
+  const entries = match[1].split(";")
+    .map((part) => {
+      const [rawLabel, rawCount] = String(part || "").split("=");
+      const label = String(rawLabel || "").trim();
+      const count = Number.parseInt(String(rawCount || "0").trim(), 10);
+      return {
+        label,
+        count: Number.isNaN(count) ? 0 : Math.max(0, count),
+      };
+    })
+    .filter((entry) => entry.label);
+  return entries.length ? entries : null;
+}
+
 function parseRuneLine(line) {
   const match = String(line || "").trim().match(/^\[\[RUNE:(.*?)\|(.*?)\|(.*?)\]\]$/);
   if (!match) {
@@ -158,6 +177,23 @@ function renderRuneSocketMarkup(runes) {
   }).join("")}</div>`;
 }
 
+function renderSpellAttributeChartMarkup(entries) {
+  const maxCount = Math.max(1, ...entries.map((entry) => entry.count));
+  const bars = entries.map((entry) => {
+    const height = entry.count > 0 ? Math.max(12, Math.round((entry.count / maxCount) * 100)) : 0;
+    const title = `${entry.label}: ${entry.count}`;
+    return `
+      <span class="tooltip_spell_attr_bar" title="${escapeHtml(title)}" aria-label="${escapeHtml(title)}">
+        <span class="tooltip_spell_attr_bar__track" aria-hidden="true">
+          <span class="tooltip_spell_attr_bar__fill" style="--spell-attr-height: ${height}%;"></span>
+        </span>
+        <span class="tooltip_spell_attr_bar__label">${escapeHtml(entry.label)}</span>
+      </span>
+    `;
+  }).join("");
+  return `<div class="tooltip_spell_attr_chart" role="img" aria-label="Spell-Attribute nach Haeufigkeit">${bars}</div>`;
+}
+
 function isEffectTableRow(row) {
   if (!Array.isArray(row) || row.length < 2) {
     return false;
@@ -179,7 +215,13 @@ function startsStructuredBlock(line, nextLine = "") {
   if (!trimmed) {
     return false;
   }
-  if (parseQualityLine(trimmed) || parseStatusLine(trimmed) || parseRuneLine(trimmed) || parseRuneSocketLine(trimmed)) {
+  if (
+    parseQualityLine(trimmed)
+    || parseStatusLine(trimmed)
+    || parseSpellAttributeChartLine(trimmed)
+    || parseRuneLine(trimmed)
+    || parseRuneSocketLine(trimmed)
+  ) {
     return true;
   }
   if (/^\s*[-*]\s+/.test(trimmed)) {
@@ -220,6 +262,13 @@ function renderTooltipMarkup(rawText) {
       chunks.push(
         `<p class="tooltip_status_line"><span class="tooltip_status_badge" style="--tooltip-status-color: ${escapeHtml(statusMeta.color)};">${escapeHtml(statusMeta.label)}</span></p>`,
       );
+      index += 1;
+      continue;
+    }
+
+    const spellAttributeChart = parseSpellAttributeChartLine(line);
+    if (spellAttributeChart) {
+      chunks.push(renderSpellAttributeChartMarkup(spellAttributeChart));
       index += 1;
       continue;
     }

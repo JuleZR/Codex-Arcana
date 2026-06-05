@@ -2352,6 +2352,78 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
   transform: translateY(0) scale(1);
 }
 
+.floating-tooltip .tooltip_spell_attr_chart,
+.floating-tooltip-card .tooltip_spell_attr_chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 7px;
+  min-width: 220px;
+  max-width: 100%;
+  height: 96px;
+  margin-top: 7px;
+  padding: 9px 10px 7px;
+  box-sizing: border-box;
+  border: 1px solid rgba(116, 82, 45, 0.18);
+  border-radius: 4px;
+  background:
+    linear-gradient(180deg, rgba(255, 251, 240, 0.38), rgba(143, 105, 62, 0.08)),
+    repeating-linear-gradient(0deg, rgba(93, 65, 36, 0.08) 0 1px, transparent 1px 18px);
+}
+
+.floating-tooltip .tooltip_spell_attr_bar,
+.floating-tooltip-card .tooltip_spell_attr_bar {
+  display: inline-flex;
+  flex: 1 1 0;
+  min-width: 18px;
+  max-width: 34px;
+  height: 100%;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+}
+
+.floating-tooltip .tooltip_spell_attr_bar__track,
+.floating-tooltip-card .tooltip_spell_attr_bar__track {
+  position: relative;
+  display: block;
+  width: 100%;
+  min-height: 54px;
+  flex: 1 1 auto;
+  border-radius: 3px 3px 2px 2px;
+  background: rgba(70, 49, 28, 0.1);
+  box-shadow: inset 0 0 0 1px rgba(82, 55, 31, 0.12);
+  overflow: hidden;
+}
+
+.floating-tooltip .tooltip_spell_attr_bar__fill,
+.floating-tooltip-card .tooltip_spell_attr_bar__fill {
+  position: absolute;
+  left: 3px;
+  right: 3px;
+  bottom: 0;
+  height: var(--spell-attr-height, 0%);
+  min-height: 0;
+  border-radius: 3px 3px 1px 1px;
+  background: linear-gradient(180deg, rgba(185, 143, 86, 0.96), rgba(117, 77, 38, 0.92));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 239, 184, 0.36),
+    0 -1px 4px rgba(82, 51, 23, 0.16);
+}
+
+.floating-tooltip .tooltip_spell_attr_bar__label,
+.floating-tooltip-card .tooltip_spell_attr_bar__label {
+  width: 100%;
+  overflow: hidden;
+  color: rgba(72, 49, 27, 0.92);
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .floating-tooltip-card {
   --tooltip-card-accent: rgba(118, 85, 48, 0.88);
   --tooltip-card-media-width: clamp(130px, 18vw, 220px);

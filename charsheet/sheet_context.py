@@ -91,6 +91,47 @@ _DAMAGE_GAUGE_TICK_INNER_MAJOR = 70
 _DAMAGE_GAUGE_TICK_INNER_MINOR = 76
 
 
+def _spell_attribute_chart_line(counts: dict[str, int]) -> str:
+    """Return compact tooltip markup for spell-attribute frequency bars."""
+    if not any(int(count or 0) > 0 for count in counts.values()):
+        return ""
+    ordered_codes = [short_name for short_name, _label in ATTRIBUTE_ORDER]
+    extras = sorted(code for code in counts if code not in ordered_codes)
+    entries = [
+        f"{code}={max(0, int(counts.get(code, 0) or 0))}"
+        for code in [*ordered_codes, *extras]
+    ]
+    return f"[[SPELLATTR:{';'.join(entries)}]]"
+
+
+def _append_spell_attribute_chart(description: str, chart_line: str) -> str:
+    description = str(description or "").replace("\r\n", "\n").replace("\r", "\n").strip()
+    chart_line = str(chart_line or "").strip()
+    if not chart_line:
+        return description
+    chart_block = f"**Spell-Attribute**\n{chart_line}"
+    return f"{description}\n\n{chart_block}" if description else chart_block
+
+
+def _spell_attribute_chart_maps() -> tuple[dict[int, str], dict[int, str]]:
+    school_counts: dict[int, dict[str, int]] = defaultdict(lambda: defaultdict(int))
+    aspect_counts: dict[int, dict[str, int]] = defaultdict(lambda: defaultdict(int))
+
+    for spell in Spell.objects.select_related("spell_attribute").exclude(spell_attribute__isnull=True):
+        code = str(spell.spell_attribute.short_name or spell.spell_attribute.name or "").strip()
+        if not code:
+            continue
+        if spell.school_id:
+            school_counts[int(spell.school_id)][code] += 1
+        if spell.aspect_id:
+            aspect_counts[int(spell.aspect_id)][code] += 1
+
+    return (
+        {school_id: _spell_attribute_chart_line(counts) for school_id, counts in school_counts.items()},
+        {aspect_id: _spell_attribute_chart_line(counts) for aspect_id, counts in aspect_counts.items()},
+    )
+
+
 def _damage_gauge_stage_label(stage: str) -> str:
     labels = {
         "-": "Stabil",
@@ -2764,16 +2805,21 @@ def _build_learning_rows(
             }
         )
 
+    spell_attribute_chart_by_school, spell_attribute_chart_by_aspect = _spell_attribute_chart_maps()
     school_level_caps = school_max_levels()
     school_groups: OrderedDict[str, list[dict]] = OrderedDict()
     for school in School.objects.select_related("type").order_by("type__name", "name"):
         base_level = int(school_levels.get(school.id, 0))
         max_level = max(base_level, int(school_level_caps.get(school.id, DEFAULT_SCHOOL_MAX_LEVEL)))
+        description = _append_spell_attribute_chart(
+            school.description,
+            spell_attribute_chart_by_school.get(int(school.id), ""),
+        )
         school_groups.setdefault(school.type.name, []).append(
             {
                 "id": school.id,
                 "name": school.name,
-                "description": (school.description or "").replace("\r\n", "\n").replace("\r", "\n"),
+                "description": description,
                 "type_name": school.type.name,
                 "base_level": base_level,
                 "max_level": max_level,
@@ -2799,7 +2845,18 @@ def _build_learning_rows(
 
     magic_groups: OrderedDict[str, list[dict]] = OrderedDict()
     for group in build_learning_magic_groups(character, magic_engine=magic_engine):
-        magic_groups[group["name"]] = list(group["rows"])
+        rows = []
+        for row in group["rows"]:
+            if row.get("kind") == "magic_aspect":
+                row = {
+                    **row,
+                    "description": _append_spell_attribute_chart(
+                        str(row.get("description") or ""),
+                        spell_attribute_chart_by_aspect.get(int(row.get("aspect_id") or 0), ""),
+                    ),
+                }
+            rows.append(row)
+        magic_groups[group["name"]] = rows
 
     magic_slot_summary = magic_engine.get_spell_learning_slot_summary()
     learn_magic_grade_filters = sorted({
