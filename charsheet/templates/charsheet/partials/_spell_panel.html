@@ -6,7 +6,22 @@
   <div class="schools_filter_row spell_filter_row">
     {% if spell_panel_arcane_filter_groups %}
     <div class="spell_school_filter_menu" data-spell-school-filter-menu>
-      <div class="spell_school_filter_popover spell_school_filter_popover--inline" data-spell-school-filter-popover>
+      <button
+        type="button"
+        class="spell_school_filter_trigger"
+        data-spell-school-filter-trigger
+        aria-haspopup="true"
+        aria-expanded="false"
+        title="Zauberschulen filtern"
+        aria-label="Zauberschulen filtern"
+      >
+        <span class="spell_school_filter_trigger_icon" data-spell-school-filter-trigger-icon aria-hidden="true">
+          <svg viewBox="0 0 24 24" focusable="false">
+            <path d="M4 5h16l-6.2 7.1v5.2l-3.6 1.8v-7L4 5Z"></path>
+          </svg>
+        </span>
+      </button>
+      <div class="spell_school_filter_popover" data-spell-school-filter-popover hidden>
         <button
           type="button"
           class="spell_school_filter_btn is-active"

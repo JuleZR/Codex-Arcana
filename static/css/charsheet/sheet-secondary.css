@@ -503,9 +503,7 @@
 
 .spell_school_filter_menu {
   position: relative;
-  flex: 0 1 auto;
-  min-width: 0;
-  max-width: min(240px, 46%);
+  flex: 0 0 auto;
 }
 
 .spell_school_filter_trigger {
@@ -617,18 +615,6 @@
 
 .spell_school_filter_popover[hidden] {
   display: none;
-}
-
-.spell_school_filter_popover--inline {
-  position: static;
-  z-index: auto;
-  flex: 0 1 auto;
-  max-width: 100%;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
 }
 
 .spell_school_filter_btn {

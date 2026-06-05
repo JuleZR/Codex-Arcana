@@ -292,7 +292,8 @@ export function initSpellPanel() {
       event.stopPropagation();
     });
     document.addEventListener("click", (event) => {
-      if (!panel.contains(event.target)) {
+      const schoolFilterMenu = schoolFilterTrigger.closest("[data-spell-school-filter-menu]");
+      if (!(schoolFilterMenu instanceof HTMLElement) || !schoolFilterMenu.contains(event.target)) {
         closeSchoolFilterMenu();
       }
     });
