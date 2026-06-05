@@ -1,3 +1,26 @@
+const TAB_STATE_PREFIX = "charsheet:tabs";
+
+function getTabStateKey(tabRoot) {
+  const key = String(tabRoot.getAttribute("data-tabs-key") || tabRoot.id || "tabs").trim() || "tabs";
+  return `${TAB_STATE_PREFIX}:${window.location.pathname}:${key}`;
+}
+
+function loadActiveTabId(tabRoot) {
+  try {
+    return window.sessionStorage.getItem(getTabStateKey(tabRoot)) || "";
+  } catch (_error) {
+    return "";
+  }
+}
+
+function saveActiveTabId(tabRoot, targetId) {
+  try {
+    window.sessionStorage.setItem(getTabStateKey(tabRoot), String(targetId || ""));
+  } catch (_error) {
+    // Keep tabs usable if browser storage is unavailable.
+  }
+}
+
 export function initTabs(root = document) {
   const tabRoots = Array.from(root.querySelectorAll("[data-tabs]"));
   tabRoots.forEach((tabRoot) => {
@@ -8,7 +31,9 @@ export function initTabs(root = document) {
       return;
     }
 
-    const activateTab = (tabToActivate) => {
+    const shouldRememberTab = tabs.length > 1;
+
+    const activateTab = (tabToActivate, { remember = true } = {}) => {
       const targetId = tabToActivate.getAttribute("data-tab-target") || "";
       tabs.forEach((tab) => {
         const isActive = tab === tabToActivate;
@@ -23,6 +48,9 @@ export function initTabs(root = document) {
         const hiddenOnTab = block.getAttribute("data-hide-on-tab") || "";
         block.hidden = hiddenOnTab === targetId;
       });
+      if (shouldRememberTab && remember) {
+        saveActiveTabId(tabRoot, targetId);
+      }
     };
 
     tabs.forEach((tab) => {
@@ -58,7 +86,10 @@ export function initTabs(root = document) {
       });
     });
 
-    const activeTab = tabs.find((tab) => tab.getAttribute("aria-selected") === "true") || tabs[0];
-    activateTab(activeTab);
+    const storedTabId = shouldRememberTab ? loadActiveTabId(tabRoot) : "";
+    const activeTab = tabs.find((tab) => tab.getAttribute("data-tab-target") === storedTabId)
+      || tabs.find((tab) => tab.getAttribute("aria-selected") === "true")
+      || tabs[0];
+    activateTab(activeTab, { remember: false });
   });
 }

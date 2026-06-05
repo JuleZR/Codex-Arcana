@@ -10,6 +10,9 @@
       href="{% static 'img/favicon.ico' %}"
     />
     <title>{{ character.name }} | Codex Arcana</title>
+    <script>
+      document.documentElement.classList.add("charsheet-tabs-preinit");
+    </script>
     {% if request.user.settings.dddice_enabled %} 
     {{ dddice_config|json_script:"dddice-config" }}
     <script type="importmap">
@@ -34,6 +37,46 @@
       <main class="book-spread">
         {% include "charsheet/partials/_character_header.html" %}
         {% include "charsheet/partials/_sheet_secondary_page.html" %}
+        <script>
+          (function () {
+            var tabRoots = document.querySelectorAll("[data-tabs][data-tabs-key]");
+            tabRoots.forEach(function (tabRoot) {
+              var tabs = Array.prototype.slice.call(tabRoot.querySelectorAll("[role='tab'][data-tab-target]"));
+              var panels = Array.prototype.slice.call(tabRoot.querySelectorAll("[data-tab-panel]"));
+              if (tabs.length <= 1 || !panels.length) {
+                return;
+              }
+              var key = String(tabRoot.getAttribute("data-tabs-key") || tabRoot.id || "tabs").trim() || "tabs";
+              var storedTabId = "";
+              try {
+                storedTabId = window.sessionStorage.getItem("charsheet:tabs:" + window.location.pathname + ":" + key) || "";
+              } catch (_error) {
+                storedTabId = "";
+              }
+              if (!storedTabId) {
+                return;
+              }
+              var activeTab = tabs.find(function (tab) {
+                return tab.getAttribute("data-tab-target") === storedTabId;
+              });
+              if (!activeTab) {
+                return;
+              }
+              tabs.forEach(function (tab) {
+                var isActive = tab === activeTab;
+                tab.setAttribute("aria-selected", String(isActive));
+                tab.tabIndex = isActive ? 0 : -1;
+              });
+              panels.forEach(function (panel) {
+                panel.hidden = panel.id !== storedTabId;
+              });
+              Array.prototype.slice.call(tabRoot.querySelectorAll("[data-hide-on-tab]")).forEach(function (block) {
+                block.hidden = (block.getAttribute("data-hide-on-tab") || "") === storedTabId;
+              });
+            });
+            document.documentElement.classList.remove("charsheet-tabs-preinit");
+          }());
+        </script>
       </main>
 
       <section

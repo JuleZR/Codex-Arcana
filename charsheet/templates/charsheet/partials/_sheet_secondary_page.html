@@ -11,7 +11,7 @@
       {% include "charsheet/partials/_armor_panel.html" %}
 
       {% comment %}── Unterer Kasten: Körperzonen + optionale Tabs ─────────────────────{% endcomment %}
-      <div class="p2_panel p2_lower_panel{% if spell_panel_enabled or weapon_mastery_arcana_panel %} p2_lower_panel--tabbed{% endif %}"{% if spell_panel_enabled or weapon_mastery_arcana_panel %} data-tabs{% endif %}>
+      <div class="p2_panel p2_lower_panel{% if spell_panel_enabled or weapon_mastery_arcana_panel %} p2_lower_panel--tabbed{% endif %}"{% if spell_panel_enabled or weapon_mastery_arcana_panel %} data-tabs data-tabs-key="lower-panel"{% endif %}>
         {% if spell_panel_enabled or weapon_mastery_arcana_panel %}
         <div class="panel_tabs__list" role="tablist" aria-label="Körper und Fähigkeiten">
           <button class="panel_tabs__tab" role="tab" aria-selected="true" data-tab-target="lowerPanelBody">Körper</button>
