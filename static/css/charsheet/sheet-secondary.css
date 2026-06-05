@@ -2565,11 +2565,12 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
 }
 
 .floating-tooltip-card__header {
+  position: relative;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
-  padding: 2px 2px 0;
+  padding: 2px 30px 0 2px;
   cursor: grab;
   user-select: none;
 }
@@ -2608,18 +2609,65 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
 }
 
 .floating-tooltip-card__close {
-  position: relative;
+  position: absolute;
+  top: -2px;
+  right: 0;
   z-index: 1;
-  width: 28px;
-  height: 28px;
-  border: 1px solid rgba(191, 154, 99, 0.5);
-  border-radius: 999px;
-  background: linear-gradient(180deg, rgba(88, 63, 37, 0.96), rgba(40, 27, 17, 0.98));
-  color: #f2dfb6;
-  font-family: "Cinzel", Georgia, serif;
-  font-size: 0.95rem;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: transparent;
   line-height: 1;
   cursor: pointer;
+  overflow: hidden;
+  text-indent: -9999px;
+  white-space: nowrap;
+}
+
+.floating-tooltip-card__close::before {
+  content: "✦";
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: rgba(213, 184, 133, 0.9);
+  font-size: 0.82rem;
+  line-height: 1;
+  text-indent: 0;
+  transition:
+    color 140ms ease,
+    opacity 140ms ease,
+    transform 140ms ease;
+}
+
+.floating-tooltip-card__close::after {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border: 1px solid rgba(173, 131, 79, 0.34);
+  border-radius: 999px;
+  opacity: 0.7;
+  transition:
+    opacity 140ms ease,
+    border-color 140ms ease,
+    transform 140ms ease;
+}
+
+.floating-tooltip-card__close:hover::before,
+.floating-tooltip-card__close:focus-visible::before {
+  color: rgba(238, 219, 184, 0.98);
+  transform: scale(1.06);
+}
+
+.floating-tooltip-card__close:hover::after,
+.floating-tooltip-card__close:focus-visible::after {
+  opacity: 1;
+  border-color: rgba(214, 174, 112, 0.52);
+  transform: scale(1.04);
 }
 
 .floating-tooltip-card__content {
@@ -2696,6 +2744,17 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
 
 .floating-tooltip-card--spell .floating-tooltip-card__frame {
   border-color: color-mix(in srgb, var(--tooltip-card-accent) 58%, rgba(95, 69, 42, 0.92) 42%);
+  background:
+    radial-gradient(
+      circle at 12% 10%,
+      color-mix(in srgb, var(--tooltip-card-accent) 26%, transparent 74%) 0%,
+      transparent 38%
+    ),
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--tooltip-card-accent) 18%, rgba(38, 27, 17, 0.96) 82%),
+      color-mix(in srgb, var(--tooltip-card-accent) 10%, rgba(20, 15, 11, 0.98) 90%)
+    );
   box-shadow:
     0 24px 54px rgba(0, 0, 0, 0.42),
     0 0 22px color-mix(in srgb, var(--tooltip-card-accent) 28%, transparent 72%),
@@ -2704,13 +2763,13 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
 
 .floating-tooltip-card--spell .floating-tooltip-card__header {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr);
   align-items: center;
   gap: 12px;
 }
 
 .floating-tooltip-card--spell .floating-tooltip-card__header.has-header-media {
-  grid-template-columns: 76px minmax(0, 1fr) auto;
+  grid-template-columns: 76px minmax(0, 1fr);
 }
 
 .floating-tooltip-card--spell .floating-tooltip-card__frame::before {
