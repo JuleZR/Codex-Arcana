@@ -50,6 +50,7 @@ from charsheet.magic_effects import TEXT_TARGET_KIND, unpack_magic_effect_summar
 from charsheet.learning_progression import build_learning_magic_groups, build_learning_progression_context
 from charsheet.learning_rules import DEFAULT_SCHOOL_MAX_LEVEL, school_max_levels
 from charsheet.models import (
+    Aspect,
     Character,
     CharacterItem,
     CharacterSkill,
@@ -104,12 +105,41 @@ def _spell_attribute_chart_line(counts: dict[str, int]) -> str:
     return f"[[SPELLATTR:{';'.join(entries)}]]"
 
 
+def _tooltip_source_symbol_line(
+    symbol: str = "",
+    image_url: str = "",
+    secondary_symbol: str = "",
+    secondary_image_url: str = "",
+) -> str:
+    symbol = str(symbol or "").strip()
+    image_url = str(image_url or "").strip()
+    secondary_symbol = str(secondary_symbol or "").strip()
+    secondary_image_url = str(secondary_image_url or "").strip()
+    if not symbol and not image_url and not secondary_symbol and not secondary_image_url:
+        return ""
+    return f"[[SOURCESYMBOL:{symbol}|{image_url}|{secondary_symbol}|{secondary_image_url}]]"
+
+
+def _prepend_tooltip_source_symbol(
+    description: str,
+    symbol: str = "",
+    image_url: str = "",
+    secondary_symbol: str = "",
+    secondary_image_url: str = "",
+) -> str:
+    description = str(description or "").replace("\r\n", "\n").replace("\r", "\n").strip()
+    symbol_line = _tooltip_source_symbol_line(symbol, image_url, secondary_symbol, secondary_image_url)
+    if not symbol_line:
+        return description
+    return f"{symbol_line}\n{description}" if description else symbol_line
+
+
 def _append_spell_attribute_chart(description: str, chart_line: str) -> str:
     description = str(description or "").replace("\r\n", "\n").replace("\r", "\n").strip()
     chart_line = str(chart_line or "").strip()
     if not chart_line:
         return description
-    chart_block = f"**Spell-Attribute**\n{chart_line}"
+    chart_block = f"**Prägende Eigenschaften**\n{chart_line}"
     return f"{description}\n\n{chart_block}" if description else chart_block
 
 
@@ -422,6 +452,26 @@ def _rune_image_url(rune: Rune) -> str:
 def _school_symbol_image_url(school: School) -> str:
     """Return a sheet-safe school symbol image URL when one is present."""
     image = getattr(school, "symbol_image", None)
+    if not image:
+        return ""
+    try:
+        return _single_line(image.url)
+    except (ValueError, OSError):
+        return ""
+
+
+def _aspect_image_url(aspect) -> str:
+    image = getattr(aspect, "aspect_image", None)
+    if not image:
+        return ""
+    try:
+        return _single_line(image.url)
+    except (ValueError, OSError):
+        return ""
+
+
+def _image_field_url(instance, field_name: str) -> str:
+    image = getattr(instance, field_name, None)
     if not image:
         return ""
     try:
@@ -2811,8 +2861,13 @@ def _build_learning_rows(
     for school in School.objects.select_related("type").order_by("type__name", "name"):
         base_level = int(school_levels.get(school.id, 0))
         max_level = max(base_level, int(school_level_caps.get(school.id, DEFAULT_SCHOOL_MAX_LEVEL)))
-        description = _append_spell_attribute_chart(
+        description = _prepend_tooltip_source_symbol(
             school.description,
+            str(getattr(school, "panel_symbol", "") or "").strip(),
+            _school_symbol_image_url(school),
+        )
+        description = _append_spell_attribute_chart(
+            description,
             spell_attribute_chart_by_school.get(int(school.id), ""),
         )
         school_groups.setdefault(school.type.name, []).append(
@@ -2844,15 +2899,38 @@ def _build_learning_rows(
         )
 
     magic_groups: OrderedDict[str, list[dict]] = OrderedDict()
+    aspect_by_id = {
+        aspect.id: aspect
+        for aspect in Aspect.objects.all()
+    }
+    divine_binding = magic_engine._divine_binding()
+    divine_entity = divine_binding.entity if divine_binding is not None else None
+    divine_primary_symbol = ""
+    divine_primary_image_url = ""
+    if divine_entity is not None:
+        divine_primary_symbol = str(divine_entity.name or "?").strip()[:1] or "?"
+        divine_primary_image_url = _image_field_url(divine_entity, "symbol_image")
+        if not divine_primary_image_url:
+            divine_primary_symbol = str(getattr(divine_entity.school, "panel_symbol", "") or divine_primary_symbol).strip()
+            divine_primary_image_url = _school_symbol_image_url(divine_entity.school)
     for group in build_learning_magic_groups(character, magic_engine=magic_engine):
         rows = []
         for row in group["rows"]:
             if row.get("kind") == "magic_aspect":
+                aspect_id = int(row.get("aspect_id") or 0)
+                aspect = aspect_by_id.get(aspect_id)
+                aspect_symbol = str(row.get("name") or "?").strip()[:1] or "?"
                 row = {
                     **row,
                     "description": _append_spell_attribute_chart(
-                        str(row.get("description") or ""),
-                        spell_attribute_chart_by_aspect.get(int(row.get("aspect_id") or 0), ""),
+                        _prepend_tooltip_source_symbol(
+                            str(row.get("description") or ""),
+                            divine_primary_symbol,
+                            divine_primary_image_url,
+                            aspect_symbol,
+                            _aspect_image_url(aspect) if aspect else "",
+                        ),
+                        spell_attribute_chart_by_aspect.get(aspect_id, ""),
                     ),
                 }
             rows.append(row)

@@ -74,6 +74,21 @@ function parseSpellAttributeChartLine(line) {
   return entries.length ? entries : null;
 }
 
+function parseSourceSymbolLine(line) {
+  const match = String(line || "").trim().match(/^\[\[SOURCESYMBOL:(.*?)\|(.*?)(?:\|(.*?)\|(.*?))?\]\]$/);
+  if (!match) {
+    return null;
+  }
+  const symbol = String(match[1] || "").trim();
+  const image = String(match[2] || "").trim();
+  const secondarySymbol = String(match[3] || "").trim();
+  const secondaryImage = String(match[4] || "").trim();
+  if (!symbol && !image && !secondarySymbol && !secondaryImage) {
+    return null;
+  }
+  return { symbol, image, secondarySymbol, secondaryImage };
+}
+
 function parseRuneLine(line) {
   const match = String(line || "").trim().match(/^\[\[RUNE:(.*?)\|(.*?)\|(.*?)\]\]$/);
   if (!match) {
@@ -191,7 +206,20 @@ function renderSpellAttributeChartMarkup(entries) {
       </span>
     `;
   }).join("");
-  return `<div class="tooltip_spell_attr_chart" role="img" aria-label="Spell-Attribute nach Haeufigkeit">${bars}</div>`;
+  return `<div class="tooltip_spell_attr_chart" role="img" aria-label="Praegende Eigenschaften nach Haeufigkeit">${bars}</div>`;
+}
+
+function renderSourceSymbolMarkup(source) {
+  const imageHtml = source.image
+    ? `<img class="tooltip_source_symbol__image" src="${escapeHtml(source.image)}" alt="">`
+    : escapeHtml(source.symbol || "");
+  const secondaryHtml = source.secondaryImage
+    ? `<img class="tooltip_source_symbol__secondary_image" src="${escapeHtml(source.secondaryImage)}" alt="">`
+    : escapeHtml(source.secondarySymbol || "");
+  const secondary = source.secondaryImage || source.secondarySymbol
+    ? `<span class="tooltip_source_symbol__secondary">${secondaryHtml}</span>`
+    : "";
+  return `<span class="tooltip_source_symbol${secondary ? " tooltip_source_symbol--paired" : ""}" aria-hidden="true">${imageHtml}${secondary}</span>`;
 }
 
 function isEffectTableRow(row) {
@@ -218,6 +246,7 @@ function startsStructuredBlock(line, nextLine = "") {
   if (
     parseQualityLine(trimmed)
     || parseStatusLine(trimmed)
+    || parseSourceSymbolLine(trimmed)
     || parseSpellAttributeChartLine(trimmed)
     || parseRuneLine(trimmed)
     || parseRuneSocketLine(trimmed)
@@ -262,6 +291,13 @@ function renderTooltipMarkup(rawText) {
       chunks.push(
         `<p class="tooltip_status_line"><span class="tooltip_status_badge" style="--tooltip-status-color: ${escapeHtml(statusMeta.color)};">${escapeHtml(statusMeta.label)}</span></p>`,
       );
+      index += 1;
+      continue;
+    }
+
+    const sourceSymbol = parseSourceSymbolLine(line);
+    if (sourceSymbol) {
+      chunks.push(renderSourceSymbolMarkup(sourceSymbol));
       index += 1;
       continue;
     }
