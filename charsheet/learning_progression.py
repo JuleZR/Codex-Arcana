@@ -220,10 +220,10 @@ def _spell_duration_facts(spell: Spell) -> str:
         return ""
 
     parts = [part for part in [
-        _part(spell.duration_number, spell.duration_unit),
-        _part(spell.duration2_number, spell.duration2_unit),
+        _part(spell.duration_number, spell.duration_unit) or str(spell.duration_text or "").strip(),
+        _part(spell.duration2_number, spell.duration2_unit) or str(spell.duration2_text or "").strip(),
     ] if part]
-    return " oder ".join(parts) or str(spell.duration_text or "").strip() or "-"
+    return " oder ".join(parts) or "-"
 
 
 def _spell_choice_facts(spell: Spell) -> list[dict[str, str]]:

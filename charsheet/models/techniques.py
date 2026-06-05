@@ -1643,6 +1643,7 @@ class Spell(models.Model):
         max_length=20, blank=True, default="", choices=DurationUnit.choices, verbose_name="Einheit 2",
     )
     duration2_per_grade = models.BooleanField(default=False, verbose_name="pro Stufe")
+    duration2_text = models.CharField(max_length=100, blank=True, default="")  # legacy
     mw = models.PositiveSmallIntegerField("MW", null=True, blank=True)
     resistance_value = models.CharField("Widerstandswert", max_length=100, blank=True, default="")
 

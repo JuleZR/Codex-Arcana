@@ -1870,6 +1870,7 @@ class SpellAdminForm(forms.ModelForm):
         self.fields["kp_cost"].required = False
         self.fields["ep_cost"].required = False
         self.fields["duration_text"].label = "Textlabel"
+        self.fields["duration2_text"].label = "Textlabel"
 
     @staticmethod
     def _duration_unit_requires_number(unit: str) -> bool:
@@ -1914,9 +1915,11 @@ class SpellAdminForm(forms.ModelForm):
         kp_cost_label = str(cleaned_data.get("kp_cost_label") or "").strip()
         ep_cost_label = str(cleaned_data.get("ep_cost_label") or "").strip()
         duration_text = str(cleaned_data.get("duration_text") or "").strip()
+        duration2_text = str(cleaned_data.get("duration2_text") or "").strip()
         cleaned_data["kp_cost_label"] = kp_cost_label
         cleaned_data["ep_cost_label"] = ep_cost_label
         cleaned_data["duration_text"] = duration_text
+        cleaned_data["duration2_text"] = duration2_text
 
         if kp_cost in (None, ""):
             cleaned_data["kp_cost"] = 0
@@ -1933,13 +1936,13 @@ class SpellAdminForm(forms.ModelForm):
             unit_field="duration_unit",
             per_grade_field="duration_per_grade",
         )
-        self._clean_duration_group(
+        duration2_complete = self._clean_duration_group(
             cleaned_data,
             number_field="duration2_number",
             unit_field="duration2_unit",
             per_grade_field="duration2_per_grade",
         )
-        if not duration_complete and not duration_text:
+        if not duration_complete and not duration2_complete and not duration_text and not duration2_text:
             message = "Setze eine Wirkungsdauer oder ein Wirkungsdauer-Textlabel."
             self.add_error("duration_number", message)
             self.add_error("duration_text", message)
@@ -4296,7 +4299,7 @@ class SpellAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
                         "duration_per_grade",
                         "duration_text",
                     ),
-                    ("duration2_number", "duration2_unit", "duration2_per_grade"),
+                    ("duration2_number", "duration2_unit", "duration2_per_grade", "duration2_text"),
                     "description",
                 ),
             },

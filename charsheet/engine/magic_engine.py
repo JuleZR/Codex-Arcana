@@ -202,14 +202,16 @@ def _build_spell_tooltip(entry: CharacterSpell, *, school_levels: dict[int, int]
 
     dur1 = _duration_label(spell.duration_number, spell.duration_unit, spell.duration_per_grade)
     dur2 = _duration_label(spell.duration2_number, spell.duration2_unit, spell.duration2_per_grade)
+    if not dur1 and spell.duration_text:
+        dur1 = _normalize_duration_text(spell.duration_text)
+    if not dur2 and spell.duration2_text:
+        dur2 = _normalize_duration_text(spell.duration2_text)
     if dur1 and dur2:
         rows.append(("Wirkungsdauer", f"{dur1} [[SUB:oder {dur2}]]"))
     elif dur1:
         rows.append(("Wirkungsdauer", dur1))
     elif dur2:
         rows.append(("Wirkungsdauer", dur2))
-    elif spell.duration_text:
-        rows.append(("Wirkungsdauer", _normalize_duration_text(spell.duration_text)))
 
     lines = [
         "| Wert | Details |",
