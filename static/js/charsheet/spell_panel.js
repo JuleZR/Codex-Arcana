@@ -356,7 +356,17 @@ export function initSpellPanel() {
     if (!(button instanceof HTMLButtonElement)) {
       return;
     }
-    button.addEventListener("click", async () => {
+    button.addEventListener("pointerdown", (event) => {
+      if (event.button === 1) {
+        event.preventDefault();
+      }
+    });
+    button.addEventListener("auxclick", async (event) => {
+      if (event.button !== 1) {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
       const url = button.getAttribute("data-cast-url") || "";
       if (!url || button.disabled) {
         return;

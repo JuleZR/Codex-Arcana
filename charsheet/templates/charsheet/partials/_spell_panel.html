@@ -104,12 +104,20 @@
                   type="button"
                   class="spell_cast_button tooltip_target"
                   data-tooltip-side="cursor-right"
+                  data-tooltip-mode="card"
+                  data-tooltip-card-variant="spell"
+                  data-tooltip-card-extra-sections="none"
+                  data-tooltip-title="{{ row.name|escape }}"
+                  data-tooltip-subtitle="{{ row.owner_name|default:group.name|escape }}"
+                  data-tooltip-image="{{ row.owner_symbol_image_url|default:group.symbol_image_url }}"
+                  data-tooltip-accent="{{ row.owner_accent|default:'#b98f56' }}"
+                  data-tooltip-persist-id="spell:{{ row.spell_id }}"
                   data-tooltip="{{ row.tooltip_text|default:row.description|default:'Keine Beschreibung' }}"
                   data-cast-spell-trigger
                   data-cast-url="{% url 'cast_spell' character.id row.spell_id %}"
                   data-spell-kp-cost="{{ row.kp_cost }}"
                   data-spell-name="{{ row.name }}"
-                  aria-label="{{ row.name }} wirken"
+                  aria-label="Details zu {{ row.name }} anzeigen"
                 >
                   <span class="spell_cast_name">{{ row.name }}</span>
                   <span class="spell_cast_meta">Grad {{ row.grade_label|default:row.level }}</span>

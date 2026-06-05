@@ -132,7 +132,8 @@ def _build_spell_tooltip(entry: CharacterSpell, *, school_levels: dict[int, int]
     if extra_cost:
         cost_label += f" [[SUB:und {extra_cost}]]"
     rows: list[tuple[str, object]] = [
-        ("Eigenschaft/Grad", f"{attribute_label}/{grade_label}"),
+        ("Eigenschaft", attribute_label),
+        ("Grad", grade_label),
         ("MW/Widerstandswert", f"{mw_label}/{resistance_label}"),
         ("Kosten", cost_label),
     ]
@@ -231,6 +232,27 @@ def _spell_group_sort_key(group_kind: str, group_name: str) -> tuple[int, str]:
         "divine": 2,
     }
     return (order.get(group_kind, 99), group_name)
+
+
+def _spell_owner_accent(name: str) -> str:
+    """Return a stable card accent that roughly matches common magic symbols."""
+    normalized = str(name or "").strip().lower()
+    accents = (
+        (("wasser", "eis", "frost", "kaelte", "kalte"), "#67bde8"),
+        (("feuer", "flamme", "brand"), "#d9793b"),
+        (("erde", "stein", "fels"), "#8d7a48"),
+        (("luft", "wind", "sturm"), "#a7c8d8"),
+        (("licht", "sonne"), "#e4c766"),
+        (("schatten", "nacht", "dunkel"), "#8d75bd"),
+        (("leben", "heil", "natur"), "#79b66a"),
+        (("tod", "nekro", "verfall"), "#9b8f78"),
+        (("blut", "krieg"), "#b45a4c"),
+        (("geist", "seele"), "#8bb7b0"),
+    )
+    for needles, color in accents:
+        if any(needle in normalized for needle in needles):
+            return color
+    return "#b98f56"
 
 
 class MagicEngine:
@@ -1060,6 +1082,7 @@ class MagicEngine:
         grouped_rows: dict[tuple[str, str], list[dict[str, object]]] = defaultdict(list)
         for entry in known_entries:
             spell = entry.spell
+            owner_symbol_data = self._spell_owner_symbol_data(spell)
             if entry.source_kind == CharacterSpell.SourceKind.DIVINE_ARCANE_GRANTED and entry.granted_by_entity_id:
                 group_kind = "divine"
                 group_name = entry.granted_by_entity.name
@@ -1108,6 +1131,9 @@ class MagicEngine:
                     },
                     "source_label": self._source_label(entry),
                     "badge_label": (spell.panel_badge_label or "").strip(),
+                    "owner_symbol": owner_symbol_data["owner_symbol"],
+                    "owner_symbol_image_url": owner_symbol_data["owner_symbol_image_url"],
+                    "owner_accent": _spell_owner_accent(owner_name),
                     "description": spell.description or "",
                     "tooltip_text": _build_spell_tooltip(entry, school_levels=school_level_map, aspect_levels=aspect_level_map),
                     "castable_kind": "spell",

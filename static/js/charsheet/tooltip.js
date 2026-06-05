@@ -382,7 +382,7 @@ function normalizeTooltipSectionRows(rows, sectionLabel) {
   });
 }
 
-function buildTooltipCardSections(markup) {
+function buildTooltipCardSections(markup, { includeExtraSections = true } = {}) {
   const template = document.createElement("template");
   template.innerHTML = String(markup || "").trim();
   const table = template.content.querySelector("table");
@@ -422,18 +422,20 @@ function buildTooltipCardSections(markup) {
   const normalizedEffectRows = normalizeTooltipSectionRows(effectRows, "Effekte");
   const normalizedRuneRows = normalizeTooltipSectionRows(runeRows, "Runen");
   const emptySectionMarkup = '<p class="floating-tooltip-card__empty">Keine</p>';
-  extras.push(`
-    <section class="floating-tooltip-card__section">
-      <h4 class="floating-tooltip-card__section_title">Effekte</h4>
-      <div class="floating-tooltip-card__section_body">${createTooltipCardTableMarkup(table, normalizedEffectRows, { includeHead: false }) || emptySectionMarkup}</div>
-    </section>
-  `);
-  extras.push(`
-    <section class="floating-tooltip-card__section">
-      <h4 class="floating-tooltip-card__section_title">Runen</h4>
-      <div class="floating-tooltip-card__section_body">${createTooltipCardTableMarkup(table, normalizedRuneRows, { includeHead: false }) || emptySectionMarkup}</div>
-    </section>
-  `);
+  if (includeExtraSections) {
+    extras.push(`
+      <section class="floating-tooltip-card__section">
+        <h4 class="floating-tooltip-card__section_title">Effekte</h4>
+        <div class="floating-tooltip-card__section_body">${createTooltipCardTableMarkup(table, normalizedEffectRows, { includeHead: false }) || emptySectionMarkup}</div>
+      </section>
+    `);
+    extras.push(`
+      <section class="floating-tooltip-card__section">
+        <h4 class="floating-tooltip-card__section_title">Runen</h4>
+        <div class="floating-tooltip-card__section_body">${createTooltipCardTableMarkup(table, normalizedRuneRows, { includeHead: false }) || emptySectionMarkup}</div>
+      </section>
+    `);
+  }
 
   Array.from(template.content.childNodes).forEach((node) => {
     if (node === table) {
@@ -454,25 +456,35 @@ function buildTooltipCardSections(markup) {
   };
 }
 
-function buildTooltipCardMarkup({ title, subtitle, image, accent, bodyMarkup }) {
-  const { leadHtml, extraHtml } = buildTooltipCardSections(bodyMarkup);
+function buildTooltipCardMarkup({ title, subtitle, image, accent, bodyMarkup, includeExtraSections = true }) {
+  const { leadHtml, extraHtml } = buildTooltipCardSections(bodyMarkup, { includeExtraSections });
+  const isSpellCard = !includeExtraSections && image;
   const safeTitle = escapeHtml(title || "Details");
-  const safeSubtitle = escapeHtml(subtitle || "");
+  const normalizedSubtitle = isSpellCard
+    ? String(subtitle || "").replace(/\s+[IVXLCDM]+$/i, "").trim()
+    : String(subtitle || "");
+  const safeSubtitle = escapeHtml(normalizedSubtitle);
   const safeImage = escapeHtml(image || "");
   const safeAccent = escapeHtml(accent || "");
+  const hasSpellImage = isSpellCard && safeImage;
+  const headerMediaHtml = hasSpellImage
+    ? `<div class="floating-tooltip-card__media floating-tooltip-card__media--header"><img class="floating-tooltip-card__image" src="${safeImage}" alt=""></div>`
+    : "";
   const mediaHtml = safeImage
+    && !isSpellCard
     ? `<div class="floating-tooltip-card__media"><img class="floating-tooltip-card__image" src="${safeImage}" alt=""></div>`
     : "";
   return `
     <div class="floating-tooltip-card__frame"${safeAccent ? ` style="--tooltip-card-accent: ${safeAccent};"` : ""}>
       <div class="floating-tooltip-card__header" data-tooltip-card-drag-handle>
+        ${headerMediaHtml}
         <div class="floating-tooltip-card__heading">
           <h3 class="floating-tooltip-card__title">${safeTitle}</h3>
           ${safeSubtitle ? `<p class="floating-tooltip-card__subtitle">${safeSubtitle}</p>` : ""}
         </div>
         <button type="button" class="floating-tooltip-card__close" data-tooltip-card-close aria-label="Details schließen">x</button>
       </div>
-      <div class="floating-tooltip-card__content${safeImage ? " has-media" : ""}">
+      <div class="floating-tooltip-card__content${mediaHtml ? " has-media" : ""}">
         ${mediaHtml}
         <div class="floating-tooltip-card__details">${leadHtml || bodyMarkup}</div>
       </div>
@@ -801,19 +813,28 @@ export function initTooltips() {
     card.style.top = `${clamped.top}px`;
   };
 
-  const openCard = (target) => {
+  const syncCardVariant = (cardEl, target) => {
+    const variant = String(target.getAttribute("data-tooltip-card-variant") || "").trim();
+    cardEl.className = variant
+      ? `floating-tooltip-card floating-tooltip-card--${variant}`
+      : "floating-tooltip-card";
+  };
+
+  const openCard = (target, { preservePosition = false, previousLeft = "", previousTop = "" } = {}) => {
     const text = String(target.getAttribute("data-tooltip") || "")
       .replace(/\r\n/g, "\n")
       .replace(/\\n/g, "\n");
     if (!text.trim()) {
       return;
     }
+    syncCardVariant(card, target);
     card.innerHTML = buildTooltipCardMarkup({
       title: normalizeInlineText(target.getAttribute("data-tooltip-title") || target.textContent || "Details"),
       subtitle: normalizeInlineText(target.getAttribute("data-tooltip-subtitle") || ""),
       image: String(target.getAttribute("data-tooltip-image") || "").trim(),
       accent: String(target.getAttribute("data-tooltip-accent") || "").trim(),
       bodyMarkup: renderTooltipMarkup(text),
+      includeExtraSections: String(target.getAttribute("data-tooltip-card-extra-sections") || "").trim() !== "none",
     });
     card.classList.add("is-visible");
     activeCardTarget = target;
@@ -831,6 +852,15 @@ export function initTooltips() {
           syncTooltipCardLayout(card);
         }, { once: true });
       }
+    }
+    if (preservePosition && previousLeft && previousTop) {
+      const clamped = clampCardPosition(
+        Number.parseFloat(previousLeft),
+        Number.parseFloat(previousTop),
+      );
+      card.style.left = `${clamped.left}px`;
+      card.style.top = `${clamped.top}px`;
+      return;
     }
     positionCardFromTarget(target);
   };
@@ -912,6 +942,7 @@ export function initTooltips() {
       image: String(target.getAttribute("data-tooltip-image") || "").trim(),
       accent: String(target.getAttribute("data-tooltip-accent") || "").trim(),
       bodyMarkup: renderTooltipMarkup(text),
+      includeExtraSections: String(target.getAttribute("data-tooltip-card-extra-sections") || "").trim() !== "none",
     });
     cardEl.classList.add("is-visible");
     document.body.appendChild(cardEl);
@@ -1115,8 +1146,14 @@ export function initTooltips() {
     if (!(target instanceof HTMLElement)) {
       return;
     }
-    closeCard();
-    openCard(target);
+    const preservePosition = (
+      card.classList.contains("is-visible")
+      && activeCardTarget instanceof HTMLElement
+      && buildCardTargetSignature(activeCardTarget) === buildCardTargetSignature(target)
+    );
+    const previousLeft = preservePosition ? card.style.left : "";
+    const previousTop = preservePosition ? card.style.top : "";
+    openCard(target, { preservePosition, previousLeft, previousTop });
   };
 
   restorePersistedCard();

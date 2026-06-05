@@ -2537,6 +2537,56 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
     0 8px 18px rgba(0, 0, 0, 0.16);
 }
 
+.floating-tooltip-card--spell .floating-tooltip-card__frame {
+  border-color: color-mix(in srgb, var(--tooltip-card-accent) 58%, rgba(95, 69, 42, 0.92) 42%);
+  box-shadow:
+    0 24px 54px rgba(0, 0, 0, 0.42),
+    0 0 22px color-mix(in srgb, var(--tooltip-card-accent) 28%, transparent 72%),
+    inset 0 0 0 1px color-mix(in srgb, var(--tooltip-card-accent) 30%, rgba(196, 159, 107, 0.18) 70%);
+}
+
+.floating-tooltip-card--spell .floating-tooltip-card__header {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.floating-tooltip-card--spell .floating-tooltip-card__frame::before {
+  border-color: color-mix(in srgb, var(--tooltip-card-accent) 42%, rgba(180, 143, 91, 0.3) 58%);
+}
+
+.floating-tooltip-card--spell .floating-tooltip-card__title {
+  color: color-mix(in srgb, var(--tooltip-card-accent) 42%, #ead9b1 58%);
+}
+
+.floating-tooltip-card--spell .floating-tooltip-card__subtitle {
+  color: color-mix(in srgb, var(--tooltip-card-accent) 74%, #f4dfac 26%);
+}
+
+.floating-tooltip-card--spell .floating-tooltip-card__media {
+  width: 72px !important;
+  height: 72px !important;
+  max-height: 72px;
+  margin: 0;
+  overflow: visible;
+  background: transparent;
+  clip-path: none;
+  isolation: auto;
+  filter: drop-shadow(0 0 8px color-mix(in srgb, var(--tooltip-card-accent) 52%, transparent 48%));
+}
+
+.floating-tooltip-card--spell .floating-tooltip-card__media::before {
+  content: none;
+}
+
+.floating-tooltip-card--spell .floating-tooltip-card__image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: none;
+}
+
 .floating-tooltip-card__details {
   min-height: 0;
   overflow: visible;
@@ -2883,6 +2933,14 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
   min-width: 120px;
   text-align: right;
   white-space: nowrap;
+}
+
+.floating-tooltip-card td .tooltip_sub {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.72em;
+  line-height: 1.15;
+  color: rgba(81, 58, 36, 0.58);
 }
 
 .floating-tooltip-card tbody tr.tooltip_effect_row td:nth-child(2),
