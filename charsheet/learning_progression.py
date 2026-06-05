@@ -205,6 +205,8 @@ def _spell_range_facts(spell: Spell) -> str:
     if spell.range_number is not None and spell.range_unit:
         unit = Spell.RangeUnit(spell.range_unit).label
         return f"{spell.range_number} {_spell_unit_label(unit, int(spell.range_number))}"
+    if spell.range_unit:
+        return Spell.RangeUnit(spell.range_unit).label
     return str(spell.range_text or "").strip() or "-"
 
 

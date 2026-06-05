@@ -178,6 +178,8 @@ def _build_spell_tooltip(entry: CharacterSpell, *, school_levels: dict[int, int]
             rows.append(("Reichweite", f"{total} {range_unit_label} {note}"))
         else:
             rows.append(("Reichweite", f"{spell.range_number} {_unit_label(unit, spell.range_number)}"))
+    elif spell.range_unit:
+        rows.append(("Reichweite", spell.get_range_unit_display()))
     elif spell.range_text:
         rows.append(("Reichweite", spell.range_text))
 
