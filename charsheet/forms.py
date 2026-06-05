@@ -252,6 +252,10 @@ class CharacterInfoInlineForm(forms.ModelForm):
         if not self.instance or not self.instance.pk:
             return selected_religion
 
+        locked_entity = locked_religion_entity(self.instance, repair=True)
+        if locked_entity is not None:
+            return locked_entity
+
         clerical_entries = active_clerical_school_entries(self.instance)
         if not clerical_entries:
             return selected_religion

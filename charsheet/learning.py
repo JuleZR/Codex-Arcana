@@ -684,28 +684,39 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
         and is_clerical_school(school_defs[school_id])
     }
     selected_religion_entity = selected_divine_entity(character)
-    if len(active_divine_school_ids) > 1:
-        return "error", "Es kann nur eine klerikale Schule gleichzeitig an eine Religion gebunden sein."
-    if active_divine_school_ids:
-        active_divine_school_id = next(iter(active_divine_school_ids))
-        active_divine_school = school_defs[str(active_divine_school_id)]
+    positive_clerical_school_ids = {
+        int(school_id)
+        for school_id, add in school_plan.items()
+        if int(add) > 0 and is_clerical_school(school_defs[school_id])
+    }
+    for school_id in positive_clerical_school_ids:
+        school = school_defs[str(school_id)]
         if selected_religion_entity is not None:
-            if int(selected_religion_entity.school_id) != active_divine_school_id:
+            if int(selected_religion_entity.school_id) != school_id:
                 return "error", (
-                    f"{active_divine_school.name}: Diese klerikale Schule passt nicht zur gewaehlten Religion "
+                    f"{school.name}: Diese klerikale Schule passt nicht zur gewaehlten Religion "
                     f"{selected_religion_entity.name}."
                 )
-            religion_entity_to_bind = selected_religion_entity
         else:
-            religion_entity_to_bind = unique_divine_entity_for_school(active_divine_school_id)
-            if religion_entity_to_bind is None:
-                entity_count = divine_entity_count_for_school(active_divine_school_id)
+            if len(active_divine_school_ids) > 1:
+                return "error", (
+                    f"{school.name}: Bitte zuerst eine passende Religion waehlen, bevor eine weitere "
+                    "klerikale Schule gesteigert wird."
+                )
+            candidate_entity = unique_divine_entity_for_school(school_id)
+            if candidate_entity is None:
+                entity_count = divine_entity_count_for_school(school_id)
                 if entity_count > 1:
                     return "error", (
-                        f"{active_divine_school.name}: Mehrere goettliche Wesen nutzen diese klerikale Schule. "
+                        f"{school.name}: Mehrere goettliche Wesen nutzen diese klerikale Schule. "
                         "Bitte zuerst eine passende Religion waehlen."
                     )
-                return "error", f"{active_divine_school.name}: Kein goettliches Wesen fuer diese klerikale Schule gefunden."
+                return "error", f"{school.name}: Kein goettliches Wesen fuer diese klerikale Schule gefunden."
+
+    if selected_religion_entity is not None and int(selected_religion_entity.school_id) in active_divine_school_ids:
+        religion_entity_to_bind = selected_religion_entity
+    elif len(active_divine_school_ids) == 1:
+        religion_entity_to_bind = unique_divine_entity_for_school(next(iter(active_divine_school_ids)))
 
     magic_spell_selection: set[int] = set()
     divine_arcane_spell_selection: dict[int, int] = {}

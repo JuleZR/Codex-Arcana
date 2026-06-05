@@ -72,25 +72,29 @@ def locked_religion_entity(character, *, repair: bool = False):
     from charsheet.models import CharacterDivineEntity
 
     entries = active_clerical_school_entries(character)
-    if len(entries) != 1:
+    if not entries:
         return None
 
-    school_id = int(entries[0].school_id)
+    active_school_ids = {int(entry.school_id) for entry in entries}
     entity = selected_divine_entity(character)
-    if entity is None or int(entity.school_id) != school_id:
-        entity = unique_divine_entity_for_school(school_id)
-    if entity is None or int(entity.school_id) != school_id:
+    if entity is not None and int(entity.school_id) in active_school_ids:
+        locked_entity = entity
+    elif len(entries) == 1:
+        locked_entity = unique_divine_entity_for_school(int(entries[0].school_id))
+    else:
+        locked_entity = None
+    if locked_entity is None or int(locked_entity.school_id) not in active_school_ids:
         return None
 
     if repair:
         CharacterDivineEntity.objects.update_or_create(
             character=character,
-            defaults={"entity": entity},
+            defaults={"entity": locked_entity},
         )
-        if (character.religion or "") != entity.name:
-            character.religion = entity.name
+        if (character.religion or "") != locked_entity.name:
+            character.religion = locked_entity.name
             character.save(update_fields=["religion"])
-    return entity
+    return locked_entity
 
 
 def is_religion_locked(character) -> bool:

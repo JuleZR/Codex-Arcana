@@ -2894,13 +2894,14 @@ def _build_learning_rows(
         else None
     )
     for school in School.objects.select_related("type").order_by("type__name", "name"):
+        base_level = int(school_levels.get(school.id, 0))
         if (
             is_clerical_school(school)
             and selected_religion_school_id is not None
             and int(school.id) != selected_religion_school_id
+            and base_level <= 0
         ):
             continue
-        base_level = int(school_levels.get(school.id, 0))
         max_level = max(base_level, int(school_level_caps.get(school.id, DEFAULT_SCHOOL_MAX_LEVEL)))
         source_symbol = str(getattr(school, "panel_symbol", "") or "").strip()
         source_image_url = _school_symbol_image_url(school)
