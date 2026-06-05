@@ -22,6 +22,7 @@ from charsheet.models import (
     Character,
     CharacterAttribute,
     CharacterAspect,
+    CharacterDivineEntity,
     CharacterLanguage,
     CharacterRaceChoice,
     CharacterSchool,
@@ -46,6 +47,12 @@ from charsheet.models import (
     WeaponType,
 )
 from charsheet.constants import LANGUAGE_LITERACY_MIN_LEVEL, is_allowed_trait_attribute_choice
+from charsheet.religion_rules import (
+    divine_entity_count_for_school,
+    is_clerical_school,
+    selected_divine_entity,
+    unique_divine_entity_for_school,
+)
 
 
 def _read_int(post_data, name: str, default: int = 0) -> int:
@@ -458,6 +465,7 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
     language_plan: dict[str, dict[str, object]] = {}
     school_plan: dict[str, int] = {}
     magic_aspect_plan: dict[int, int] = {}
+    religion_entity_to_bind = None
     has_progression_inputs = _has_progression_inputs(post_data)
 
     def _skill_rank_payload(skill, specification: str | None = None) -> tuple[int, int]:
@@ -662,6 +670,43 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
         total_cost += add * 8
         school_plan[school_id] = add
 
+    planned_school_levels = {
+        school_id: int(row.level)
+        for school_id, row in school_rows.items()
+    }
+    for school_id, add in school_plan.items():
+        planned_school_levels[school_id] = int(planned_school_levels.get(school_id, 0)) + int(add)
+    active_divine_school_ids = {
+        int(school_id)
+        for school_id, target_level in planned_school_levels.items()
+        if int(target_level) > 0
+        and school_id in school_defs
+        and is_clerical_school(school_defs[school_id])
+    }
+    selected_religion_entity = selected_divine_entity(character)
+    if len(active_divine_school_ids) > 1:
+        return "error", "Es kann nur eine klerikale Schule gleichzeitig an eine Religion gebunden sein."
+    if active_divine_school_ids:
+        active_divine_school_id = next(iter(active_divine_school_ids))
+        active_divine_school = school_defs[str(active_divine_school_id)]
+        if selected_religion_entity is not None:
+            if int(selected_religion_entity.school_id) != active_divine_school_id:
+                return "error", (
+                    f"{active_divine_school.name}: Diese klerikale Schule passt nicht zur gewaehlten Religion "
+                    f"{selected_religion_entity.name}."
+                )
+            religion_entity_to_bind = selected_religion_entity
+        else:
+            religion_entity_to_bind = unique_divine_entity_for_school(active_divine_school_id)
+            if religion_entity_to_bind is None:
+                entity_count = divine_entity_count_for_school(active_divine_school_id)
+                if entity_count > 1:
+                    return "error", (
+                        f"{active_divine_school.name}: Mehrere goettliche Wesen nutzen diese klerikale Schule. "
+                        "Bitte zuerst eine passende Religion waehlen."
+                    )
+                return "error", f"{active_divine_school.name}: Kein goettliches Wesen fuer diese klerikale Schule gefunden."
+
     magic_spell_selection: set[int] = set()
     divine_arcane_spell_selection: dict[int, int] = {}
     legal_bonus_aspect_map = {
@@ -818,6 +863,15 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
                     else:
                         school_row.level = target_level
                         school_row.save(update_fields=["level"])
+
+            if religion_entity_to_bind is not None:
+                CharacterDivineEntity.objects.update_or_create(
+                    character=character,
+                    defaults={"entity": religion_entity_to_bind},
+                )
+                if (character.religion or "") != religion_entity_to_bind.name:
+                    character.religion = religion_entity_to_bind.name
+                    character.save(update_fields=["religion"])
 
             for aspect_id, add in magic_aspect_plan.items():
                 aspect = Aspect.objects.filter(pk=aspect_id).first()

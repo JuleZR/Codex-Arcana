@@ -224,6 +224,7 @@ function renderSourceSymbolMarkup(source) {
   const imageHtml = source.image
     ? `<img class="tooltip_source_symbol__image" src="${escapeHtml(source.image)}" alt="">`
     : escapeHtml(source.symbol || "");
+  const secondaryCount = Math.min(6, Math.max(0, source.secondary?.length || 0));
   const secondary = source.secondary?.length
     ? `<span class="tooltip_source_symbol__secondary_list">${source.secondary.map((entry) => {
       const secondaryHtml = entry.image
@@ -232,7 +233,7 @@ function renderSourceSymbolMarkup(source) {
       return `<span class="tooltip_source_symbol__secondary">${secondaryHtml}</span>`;
     }).join("")}</span>`
     : "";
-  return `<span class="tooltip_source_symbol${secondary ? " tooltip_source_symbol--paired" : ""}" aria-hidden="true">${imageHtml}${secondary}</span>`;
+  return `<span class="tooltip_source_symbol${secondary ? ` tooltip_source_symbol--paired tooltip_source_symbol--secondary-count-${secondaryCount}` : ""}" aria-hidden="true"><span class="tooltip_source_symbol__primary">${imageHtml}</span>${secondary}</span>`;
 }
 
 function isEffectTableRow(row) {

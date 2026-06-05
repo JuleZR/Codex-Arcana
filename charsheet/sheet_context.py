@@ -49,6 +49,7 @@ from charsheet.forms import (
 from charsheet.magic_effects import TEXT_TARGET_KIND, unpack_magic_effect_summary
 from charsheet.learning_progression import build_learning_magic_groups, build_learning_progression_context
 from charsheet.learning_rules import DEFAULT_SCHOOL_MAX_LEVEL, school_max_levels
+from charsheet.religion_rules import is_clerical_school, selected_divine_entity
 from charsheet.models import (
     Aspect,
     Character,
@@ -2875,7 +2876,19 @@ def _build_learning_rows(
 
     school_level_caps = school_max_levels()
     school_groups: OrderedDict[str, list[dict]] = OrderedDict()
+    selected_religion_entity = selected_divine_entity(character)
+    selected_religion_school_id = (
+        int(selected_religion_entity.school_id)
+        if selected_religion_entity is not None and selected_religion_entity.school_id
+        else None
+    )
     for school in School.objects.select_related("type").order_by("type__name", "name"):
+        if (
+            is_clerical_school(school)
+            and selected_religion_school_id is not None
+            and int(school.id) != selected_religion_school_id
+        ):
+            continue
         base_level = int(school_levels.get(school.id, 0))
         max_level = max(base_level, int(school_level_caps.get(school.id, DEFAULT_SCHOOL_MAX_LEVEL)))
         source_symbol = str(getattr(school, "panel_symbol", "") or "").strip()

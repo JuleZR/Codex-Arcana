@@ -13,6 +13,7 @@ from PIL import Image, ImageOps
 
 from .models import Character, CharacterDivineEntity, CharacterItemRuneSpec, CharacterSkill, CharacterTechnique, DivineEntity
 from .models.user import UserSettings
+from .religion_rules import active_clerical_school_entries, locked_religion_entity, unique_divine_entity_for_school
 
 
 class UserSettingsForm(forms.ModelForm):
@@ -130,11 +131,17 @@ class CharacterInfoInlineForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self._cropped_picture_content = None
         self._uploaded_picture_content = None
+        self._locked_religion_entity = None
         self.fields["religion_entity"].queryset = DivineEntity.objects.order_by("name")
 
         if self.instance and self.instance.pk:
+            self._locked_religion_entity = locked_religion_entity(self.instance, repair=True)
             binding = getattr(self.instance, "divine_entity_binding", None)
-            if binding is not None:
+            if self._locked_religion_entity is not None:
+                self.fields["religion_entity"].initial = self._locked_religion_entity.pk
+                self.fields["religion_entity"].disabled = True
+                self.fields["religion_entity"].help_text = "Durch die gelernte klerikale Schule festgelegt."
+            elif binding is not None:
                 self.fields["religion_entity"].initial = binding.entity_id
             elif self.instance.religion:
                 self.fields["religion_entity"].initial = (
@@ -240,9 +247,30 @@ class CharacterInfoInlineForm(forms.ModelForm):
         self._uploaded_picture_content = (normalized_bytes, normalized_extension)
         return uploaded
 
+    def clean_religion_entity(self):
+        selected_religion = self.cleaned_data.get("religion_entity")
+        if not self.instance or not self.instance.pk:
+            return selected_religion
+
+        clerical_entries = active_clerical_school_entries(self.instance)
+        if not clerical_entries:
+            return selected_religion
+        if len(clerical_entries) > 1:
+            raise forms.ValidationError("Religion kann bei mehreren klerikalen Schulen nicht eindeutig gesetzt werden.")
+
+        school = clerical_entries[0].school
+        if selected_religion is None:
+            selected_religion = unique_divine_entity_for_school(school.id)
+            if selected_religion is None:
+                raise forms.ValidationError("Bitte eine Religion passend zur klerikalen Schule waehlen.")
+        if int(selected_religion.school_id) != int(school.id):
+            raise forms.ValidationError("Diese Religion passt nicht zur gelernten klerikalen Schule.")
+        return selected_religion
+
     def save(self, commit=True):
         character = super().save(commit=False)
-        selected_religion = self.cleaned_data.get("religion_entity")
+        locked_entity = locked_religion_entity(character, repair=True) if character.pk else None
+        selected_religion = locked_entity or self.cleaned_data.get("religion_entity")
         character.religion = selected_religion.name if selected_religion else ""
         remove_picture = bool(self.cleaned_data.get("remove_char_picture"))
         safe_name = "".join(ch.lower() if ch.isalnum() else "-" for ch in (character.name or "character")).strip("-")

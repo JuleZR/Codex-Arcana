@@ -1463,16 +1463,21 @@ class CharacterDivineEntity(models.Model):
 
     def clean(self):
         super().clean()
-        if (
-            self.character_id
-            and self.entity_id
-            and not CharacterSchool.objects.filter(
+        if not self.character_id or not self.entity_id:
+            return
+        from charsheet.religion_rules import is_clerical_school
+
+        active_divine_school_ids = set(
+            entry.school_id
+            for entry in CharacterSchool.objects.filter(
                 character_id=self.character_id,
-                school_id=self.entity.school_id,
-            ).exists()
-        ):
+                level__gt=0,
+            ).select_related("school", "school__type")
+            if is_clerical_school(entry)
+        )
+        if active_divine_school_ids and self.entity.school_id not in active_divine_school_ids:
             raise ValidationError(
-                {"entity": "A character can only bind to a divine entity of a learned school."}
+                {"entity": "A character with a clerical school must worship an entity of that school."}
             )
 
     def __str__(self):
@@ -1602,6 +1607,7 @@ class Spell(models.Model):
         KM = "km", "Kilometer"
         SQUARE_KM = "km²", "Quadratkilometer"
         SIGHT = "Sichtweite", "Sichtweite"
+        HEARING = "Hörweite", "Hörweite"
         TOUCH = "Berührung", "Berührung"
         SELF = "selbst", "Selbst"
 

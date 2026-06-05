@@ -782,6 +782,20 @@
     0 0 0 2px rgba(180, 151, 113, 0.16);
 }
 
+.sheet-window .shop_item_form_row select:disabled {
+  -webkit-appearance: none;
+  appearance: none;
+  color: rgba(82, 66, 48, 0.58);
+  background:
+    linear-gradient(180deg, rgba(224, 214, 195, 0.54), rgba(207, 194, 170, 0.42));
+  border-color: rgba(112, 90, 65, 0.22);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 0 0 1px rgba(121, 97, 70, 0.06);
+  cursor: default;
+  opacity: 1;
+}
+
 .sheet-window__control,
 .sheet-window .shop_add_btn,
 .sheet-window .shop_pick_btn,
