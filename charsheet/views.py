@@ -424,6 +424,21 @@ def _allowed_divine_card_aspect_ids(binding: CharacterDivineEntity) -> set[int]:
     return set()
 
 
+def _druid_card_can_edit(binding: CharacterDruidCult) -> bool:
+    return bool(binding.cult_id and binding.cult.is_customizable)
+
+
+def _allowed_druid_card_aspect_ids(binding: CharacterDruidCult) -> set[int]:
+    cult = binding.cult
+    if cult.aspect_selection_mode == DivineEntity.AspectSelectionMode.CHOOSE_FROM_ENTITY:
+        return set(
+            cult.aspects.filter(aspect_id__isnull=False).values_list("aspect_id", flat=True)
+        )
+    if cult.aspect_selection_mode == DivineEntity.AspectSelectionMode.FREE:
+        return set(Aspect.objects.values_list("id", flat=True))
+    return set()
+
+
 @login_required
 @require_POST
 def update_divine_card(request, character_id: int):
@@ -505,6 +520,94 @@ def update_divine_card(request, character_id: int):
         request=request,
     )
     return JsonResponse({"ok": True, "cardHtml": card_html})
+
+
+@login_required
+@require_POST
+def update_druid_card(request, character_id: int):
+    character = get_object_or_404(Character, pk=character_id, owner=request.user)
+    binding = get_object_or_404(
+        CharacterDruidCult.objects.select_related("cult", "cult__school", "character"),
+        character=character,
+    )
+    if not _druid_card_can_edit(binding):
+        return JsonResponse({"ok": False, "error": "card_not_editable"}, status=403)
+
+    cult = binding.cult
+    if request.POST.get("action") == "choose_aspect":
+        if cult.aspect_selection_mode == DivineEntity.AspectSelectionMode.FIXED:
+            return JsonResponse({"ok": False, "error": "aspects_not_editable"}, status=403)
+        allowed_ids = _allowed_druid_card_aspect_ids(binding)
+        selected_aspect_ids: list[int] = []
+        for raw_id in request.POST.getlist("core_aspects"):
+            try:
+                aspect_id = int(raw_id)
+            except (TypeError, ValueError):
+                continue
+            if aspect_id in allowed_ids and aspect_id not in selected_aspect_ids:
+                selected_aspect_ids.append(aspect_id)
+        selected_aspect_ids = selected_aspect_ids[: int(cult.starting_aspect_count)]
+        with transaction.atomic():
+            binding.core_aspects.set(selected_aspect_ids)
+    else:
+        update_fields = []
+        if "custom_name" in request.POST:
+            binding.custom_name = str(request.POST.get("custom_name", ""))[:160].strip()
+            update_fields.append("custom_name")
+        if "tradition_name" in request.POST:
+            binding.tradition_name = str(request.POST.get("tradition_name", ""))[:160].strip()
+            update_fields.append("tradition_name")
+        if "custom_g_ability" in request.POST:
+            binding.custom_g_ability = str(request.POST.get("custom_g_ability", binding.custom_g_ability)).strip()
+            update_fields.append("custom_g_ability")
+        if "custom_fluff" in request.POST:
+            binding.custom_fluff = str(request.POST.get("custom_fluff", binding.custom_fluff)).strip()
+            update_fields.append("custom_fluff")
+        if "custom_description" in request.POST:
+            binding.custom_description = str(request.POST.get("custom_description", binding.custom_description)).strip()
+            update_fields.append("custom_description")
+        if request.POST.get("remove_custom_god_image") == "1":
+            if binding.custom_god_image:
+                binding.custom_god_image.delete(save=False)
+            binding.custom_god_image = None
+            update_fields.append("custom_god_image")
+        if request.FILES.get("custom_god_image"):
+            binding.custom_god_image = request.FILES["custom_god_image"]
+            update_fields.append("custom_god_image")
+        binding.full_clean()
+        if update_fields:
+            binding.save(update_fields=sorted(set(update_fields)))
+
+    context = _build_sheet_context_for_request(request, character)
+    card_html = render_to_string(
+        "charsheet/partials/_god_card.html",
+        {
+            **context,
+            "divine_entity": context["selected_druid_cult"],
+            "card_aspects": context["selected_druid_card_aspects"],
+            "selected_divine_card_aspects": context["selected_druid_card_aspects"],
+            "selected_divine_card_image_url": context["selected_druid_card_image_url"],
+            "selected_divine_card_title": context["selected_druid_card_title"],
+            "selected_divine_card_kind_label": context["selected_druid_card_kind_label"],
+            "selected_divine_card_typebar": context["selected_druid_card_typebar"],
+            "selected_divine_card_ability": context["selected_druid_card_ability"],
+            "selected_divine_card_fluff": context["selected_druid_card_fluff"],
+            "selected_divine_card_editable": context["selected_druid_card_editable"],
+            "selected_divine_card_update_url": context["selected_druid_card_update_url"],
+            "selected_divine_card_show_aspect_placeholder": context["selected_druid_card_show_aspect_placeholder"],
+            "selected_divine_card_aspect_placeholders": context["selected_druid_card_aspect_placeholders"],
+            "selected_divine_card_aspect_options": context["selected_druid_card_aspect_options"],
+            "selected_divine_binding": context["selected_druid_binding"],
+        },
+        request=request,
+    )
+    return JsonResponse(
+        {
+            "ok": True,
+            "cardHtml": card_html,
+            "druidCultDisplayName": context["selected_druid_card_typebar"],
+        }
+    )
 
 
 @login_required
@@ -887,12 +990,24 @@ def update_druid_cult(request, character_id: int):
         messages.error(request, "Druidenzirkel passt nicht zu dieser Schule.")
         return redirect("character_sheet", character_id=character.id)
 
-    if current_binding is not None and int(current_binding.cult_id) != int(cult.id):
+    cult_changed = current_binding is None or int(current_binding.cult_id) != int(cult.id)
+    if current_binding is not None and cult_changed:
         _reset_druid_cult_slot_progress(character, [current_binding.cult_id])
-    CharacterDruidCult.objects.update_or_create(
-        character=character,
-        defaults={"cult": cult},
-    )
+        if current_binding.custom_god_image:
+            current_binding.custom_god_image.delete(save=False)
+    defaults = {"cult": cult}
+    if cult_changed:
+        defaults.update(
+            {
+                "custom_name": "",
+                "tradition_name": "",
+                "custom_description": "",
+                "custom_g_ability": "",
+                "custom_fluff": "",
+                "custom_god_image": None,
+            }
+        )
+    CharacterDruidCult.objects.update_or_create(character=character, defaults=defaults)
     character.get_magic_engine(refresh=True).sync_character_magic()
     messages.success(request, "Druidenzirkel gespeichert.")
     return redirect("character_sheet", character_id=character.id)

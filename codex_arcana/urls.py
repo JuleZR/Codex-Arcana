@@ -56,6 +56,7 @@ urlpatterns = [
     path("character-creature/<int:pk>/adjust-damage/", views.adjust_creature_damage, name="adjust_creature_damage"),
     path("character/<int:character_id>/adjust-arcane-power/", views.adjust_current_arcane_power, name="adjust_current_arcane_power"),
     path("character/<int:character_id>/divine-card/update/", views.update_divine_card, name="update_divine_card"),
+    path("character/<int:character_id>/druid-card/update/", views.update_druid_card, name="update_druid_card"),
     path("character/<int:character_id>/spells/<int:spell_id>/cast/", views.cast_spell, name="cast_spell"),
     path("character/<int:character_id>/adjust-money/", views.adjust_money, name="adjust_money"),
     path("character/<int:character_id>/adjust-experience/", views.adjust_experience, name="adjust_experience"),

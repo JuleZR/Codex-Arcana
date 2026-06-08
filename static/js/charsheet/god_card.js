@@ -118,6 +118,20 @@ function bindGodCardEditor(card) {
   const updateUrl = card.getAttribute("data-god-card-update-url") || "";
   let replaceAspectId = "";
 
+  const syncDruidCultDisplayName = (payload) => {
+    const displayName = String(payload?.druidCultDisplayName || "").trim();
+    if (!displayName) {
+      return;
+    }
+    document.querySelectorAll(".school_group_binding_display").forEach((element) => {
+      if (!(element instanceof HTMLElement)) {
+        return;
+      }
+      element.textContent = displayName;
+      element.classList.remove("school_group_binding_display--missing");
+    });
+  };
+
   const replaceCardFromPayload = (payload, { keepUnlocked = false } = {}) => {
     if (!payload?.ok || !payload.cardHtml) {
       throw new Error("god card update invalid");
@@ -125,9 +139,10 @@ function bindGodCardEditor(card) {
     const wrapper = document.createElement("div");
     wrapper.innerHTML = payload.cardHtml;
     const nextCard = wrapper.querySelector(".card");
-    if (nextCard instanceof HTMLElement) {
-      card.replaceWith(nextCard);
-      initGodCards(nextCard.parentElement || document);
+      if (nextCard instanceof HTMLElement) {
+        card.replaceWith(nextCard);
+        syncDruidCultDisplayName(payload);
+        initGodCards(nextCard.parentElement || document);
       if (keepUnlocked) {
         nextCard.classList.add("is-edit-unlocked");
         const nextToggle = nextCard.querySelector("[data-god-card-edit-toggle]");

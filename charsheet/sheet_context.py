@@ -2541,7 +2541,11 @@ def _group_school_technique_rows(
         .first()
     )
     selected_druid_cult_id = int(druid_binding.cult_id) if druid_binding is not None else None
-    selected_druid_cult_name = str(druid_binding.cult.name) if druid_binding is not None else ""
+    selected_druid_cult_name = (
+        str(druid_binding.tradition_name or druid_binding.cult.name)
+        if druid_binding is not None
+        else ""
+    )
     druid_cult_reset_warning = bool(selected_druid_cult_id) and (
         CharacterAspect.objects.filter(character=character, is_bonus_aspect=True).exists()
         or CharacterSpell.objects.filter(
@@ -3292,6 +3296,8 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
     druid_card_show_aspect_placeholder = False
     druid_card_aspect_placeholders = []
     druid_card_editable = False
+    druid_card_update_url = ""
+    druid_card_aspect_options = []
     druid_card_storage_key = ""
     if divine_entity is not None and divine_entity.symbol_image:
         divine_symbol_url = divine_entity.symbol_image.url
@@ -3342,13 +3348,33 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
     if druid_cult is not None:
         druid_card_storage_key = f"druid.{druid_cult.pk}"
         druid_card_kind_label = "Krafttier"
-        if druid_cult.god_image:
+        if druid_binding is not None and druid_binding.custom_god_image:
+            druid_card_image_url = druid_binding.custom_god_image.url
+        elif druid_cult.god_image:
             druid_card_image_url = druid_cult.god_image.url
-        druid_card_title = druid_cult.card_name or druid_cult.name
-        druid_card_typebar = druid_cult.name
-        druid_card_ability = druid_cult.g_ability
-        druid_card_fluff = druid_cult.fluff
+        druid_card_title = (
+            druid_binding.custom_name
+            if druid_binding is not None and druid_binding.custom_name
+            else (druid_cult.card_name or druid_cult.name)
+        )
+        druid_card_typebar = (
+            druid_binding.tradition_name
+            if druid_binding is not None and druid_binding.tradition_name
+            else druid_cult.name
+        )
+        druid_card_ability = (
+            druid_binding.custom_g_ability
+            if druid_binding is not None and druid_binding.custom_g_ability
+            else druid_cult.g_ability
+        )
+        druid_card_fluff = (
+            druid_binding.custom_fluff
+            if druid_binding is not None and druid_binding.custom_fluff
+            else druid_cult.fluff
+        )
         druid_card_editable = bool(druid_binding is not None and druid_cult.is_customizable)
+        if druid_card_editable:
+            druid_card_update_url = f"/character/{character.pk}/druid-card/update/"
         druid_card_aspects = [
             entry.aspect
             for entry in druid_cult.aspects.all()
@@ -3359,6 +3385,14 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
             open_aspect_slots = max(0, int(druid_cult.starting_aspect_count) - len(druid_card_aspects))
             druid_card_aspect_placeholders = list(range(open_aspect_slots))
             druid_card_show_aspect_placeholder = bool(druid_card_aspect_placeholders)
+        if druid_card_editable and druid_cult.aspect_selection_mode == "choose_from_entity":
+            druid_card_aspect_options = [
+                entry.aspect
+                for entry in druid_cult.aspects.all()
+                if entry.aspect_id
+            ]
+        elif druid_card_editable and druid_cult.aspect_selection_mode == "free":
+            druid_card_aspect_options = list(Aspect.objects.all().order_by("name", "id"))
     load_tooltip = _build_load_tooltip(engine)
     load_tooltip_with_carry = _build_combined_load_tooltip(engine, carry_state, carry_enabled=True)
     total_armor_tooltip = _build_total_armor_tooltip(engine)
@@ -3422,6 +3456,7 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
         "selected_divine_card_aspect_options": divine_card_aspect_options,
         "selected_divine_card_storage_key": divine_card_storage_key,
         "selected_druid_cult": druid_cult,
+        "selected_druid_binding": druid_binding,
         "selected_druid_card_image_url": druid_card_image_url,
         "selected_druid_card_title": druid_card_title,
         "selected_druid_card_kind_label": druid_card_kind_label,
@@ -3432,6 +3467,8 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
         "selected_druid_card_show_aspect_placeholder": druid_card_show_aspect_placeholder,
         "selected_druid_card_aspect_placeholders": druid_card_aspect_placeholders,
         "selected_druid_card_editable": druid_card_editable,
+        "selected_druid_card_update_url": druid_card_update_url,
+        "selected_druid_card_aspect_options": druid_card_aspect_options,
         "selected_druid_card_storage_key": druid_card_storage_key,
         "skill_specification_form": CharacterSkillSpecificationForm(),
         "technique_specification_form": CharacterTechniqueSpecificationForm(),

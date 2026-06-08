@@ -1792,6 +1792,39 @@ class CharacterDruidCult(models.Model):
         related_name="character_druid_cult_bindings",
         help_text="Character-specific core aspects chosen from this druid circle.",
     )
+    custom_name = models.CharField(
+        max_length=160,
+        blank=True,
+        default="",
+        help_text="Character-specific card name for this druid circle.",
+    )
+    tradition_name = models.CharField(
+        max_length=160,
+        blank=True,
+        default="",
+        help_text="Optional character-specific druid circle or tradition name.",
+    )
+    custom_description = models.TextField(
+        blank=True,
+        default="",
+        help_text="Character-specific description, taboo, form, or tradition notes.",
+    )
+    custom_g_ability = models.TextField(
+        blank=True,
+        default="",
+        help_text="Character-specific rules text for the personal druid card.",
+    )
+    custom_fluff = models.TextField(
+        blank=True,
+        default="",
+        help_text="Character-specific flavor quote for the personal druid card.",
+    )
+    custom_god_image = models.ImageField(
+        upload_to="character_druid_cults/",
+        blank=True,
+        null=True,
+        help_text="Character-specific card image for this druid circle.",
+    )
 
     class Meta:
         constraints = [
@@ -1803,6 +1836,21 @@ class CharacterDruidCult(models.Model):
 
     def __str__(self):
         return f"{self.character.name} -> {self.cult.name}"
+
+    def clean(self):
+        super().clean()
+        if not self.cult_id or self.cult.is_customizable:
+            return
+        if self.custom_name:
+            raise ValidationError({"custom_name": "This druid circle does not allow a character-specific name."})
+        if self.custom_description:
+            raise ValidationError({"custom_description": "This druid circle does not allow a character-specific description."})
+        if self.custom_g_ability:
+            raise ValidationError({"custom_g_ability": "This druid circle does not allow character-specific rules text."})
+        if self.custom_fluff:
+            raise ValidationError({"custom_fluff": "This druid circle does not allow character-specific flavor text."})
+        if self.custom_god_image:
+            raise ValidationError({"custom_god_image": "This druid circle does not allow a character-specific card image."})
 
 
 class CharacterShamanPatron(models.Model):

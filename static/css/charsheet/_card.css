@@ -333,7 +333,7 @@ button.card-aspect-mark {
     border-radius: 50%;
     background: #c7c5bc;
     box-shadow:
-        3px 2px 0 rgba(0, 0, 0, 0.72);
+        -0.5px 1px 0 #000;
     color: #16120d;
     cursor: pointer;
     font-family: Georgia, "Times New Roman", serif;
@@ -354,6 +354,8 @@ span.card-aspect-placeholder {
 .card--editable.is-edit-unlocked .card-aspect-placeholder {
     outline: 1px solid rgba(255, 255, 255, 0.45);
     outline-offset: 1px;
+    box-shadow:
+        -0.5px 1px 0 #000;
 }
 
 .card-art {
