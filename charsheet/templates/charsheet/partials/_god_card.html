@@ -1,45 +1,132 @@
 {% load static card_markdown %}
 
-<article class="card" lang="de" aria-label="{% if divine_entity %}{{ divine_entity.card_name }}{% endif %} G&ouml;tterkarte">
-    <figure class="card-art{% if not divine_entity or not divine_entity.god_image %} card-art--empty{% endif %}">
-        {% if divine_entity and divine_entity.god_image %}
-            <img src="{{ divine_entity.god_image.url }}" alt="{{ divine_entity.card_name }}">
+<article
+    class="card{% if selected_divine_card_editable %} card--editable{% endif %}"
+    lang="de"
+    aria-label="{% if divine_entity %}{{ divine_entity.card_name }}{% endif %} G&ouml;tterkarte"
+    {% if selected_divine_card_editable %}data-god-card-editor data-god-card-update-url="{{ selected_divine_card_update_url }}"{% endif %}
+>
+    <figure class="card-art{% if not selected_divine_card_image_url and not divine_entity.god_image %} card-art--empty{% endif %}">
+        {% if selected_divine_card_image_url %}
+            <img src="{{ selected_divine_card_image_url }}" alt="{{ selected_divine_card_title|default:divine_entity.card_name }}">
+        {% elif divine_entity and divine_entity.god_image %}
+            <img src="{{ divine_entity.god_image.url }}" alt="{{ selected_divine_card_title|default:divine_entity.card_name }}">
         {% endif %}
     </figure>
 
     <div class="card-shell">
+        {% if selected_divine_card_editable %}
+            <div class="card-art-edit">
+                <label class="card-art-edit__upload" data-god-card-image-trigger>
+                    <span>Bild</span>
+                    <input name="custom_god_image" type="file" accept="image/*" data-god-card-field>
+                </label>
+                {% if selected_divine_binding.custom_god_image %}
+                    <button class="card-art-edit__remove" type="button" data-god-card-remove-image>Loeschen</button>
+                {% endif %}
+            </div>
+        {% endif %}
         <header class="card-titlebar">
-            <h1 class="card-title">{% if divine_entity %}{{ divine_entity.card_name }}{% endif %}</h1>
+            <h1 class="card-title card-display-field">{% if selected_divine_card_title %}{{ selected_divine_card_title }}{% elif divine_entity %}{{ divine_entity.card_name }}{% endif %}</h1>
+            {% if selected_divine_card_editable %}
+                <input class="card-title card-title-input card-edit-field" name="custom_name" value="{{ selected_divine_card_title|default:'' }}" maxlength="160" data-god-card-field>
+            {% endif %}
             <div class="card-aspects" aria-label="Aspekte">
-                {% if card_aspects %}
-                    {% for aspect in card_aspects %}
-                        <span class="card-aspect-mark" title="{{ aspect.name }}">
-                            {% if aspect.aspect_image %}
-                                <img src="{{ aspect.aspect_image.url }}" alt="{{ aspect.name }}">
+                <span class="card-aspects-display">
+                    {% if card_aspects %}
+                        {% for aspect in card_aspects %}
+                            {% if selected_divine_card_editable and selected_divine_card_aspect_options %}
+                                <button class="card-aspect-mark card-aspect-mark--editable" type="button" data-god-card-aspect-trigger data-god-card-aspect-id="{{ aspect.pk }}" title="{{ aspect.name }}" aria-label="{{ aspect.name }}">
+                                    {% if aspect.aspect_image %}
+                                        <img src="{{ aspect.aspect_image.url }}" alt="{{ aspect.name }}">
+                                    {% else %}
+                                        {{ aspect.name }}
+                                    {% endif %}
+                                </button>
                             {% else %}
-                                {{ aspect.name }}
+                                <span class="card-aspect-mark" title="{{ aspect.name }}">
+                                    {% if aspect.aspect_image %}
+                                        <img src="{{ aspect.aspect_image.url }}" alt="{{ aspect.name }}">
+                                    {% else %}
+                                    {{ aspect.name }}
+                                {% endif %}
+                            </span>
                             {% endif %}
-                        </span>
                     {% endfor %}
+                    {% endif %}
+                    {% if selected_divine_card_show_aspect_placeholder %}
+                        {% for _ in selected_divine_card_aspect_placeholders %}
+                            {% if selected_divine_card_editable and selected_divine_card_aspect_options %}
+                                <button class="card-aspect-placeholder" type="button" data-god-card-aspect-trigger title="Aspekt ausw&auml;hlen" aria-label="Aspekt ausw&auml;hlen">&#9671;</button>
+                            {% else %}
+                                <span class="card-aspect-placeholder" title="Noch kein Aspekt gew&auml;hlt" aria-label="Noch kein Aspekt gew&auml;hlt">&#9671;</span>
+                            {% endif %}
+                        {% endfor %}
+                    {% endif %}
+                </span>
+                {% if selected_divine_card_editable and selected_divine_card_aspect_options %}
+                    <form class="card-aspect-picker" data-god-card-aspect-picker hidden>
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="choose_aspect">
+                        {% for aspect in selected_divine_card_aspects %}
+                            <input type="hidden" name="core_aspects" value="{{ aspect.pk }}">
+                        {% endfor %}
+                        <button class="card-aspect-choice card-aspect-choice--neutral" type="submit" name="neutral_aspect" value="1">
+                            <span class="card-aspect-choice__neutral" aria-hidden="true">&#9671;</span>
+                            <span>Neutral</span>
+                        </button>
+                        {% for aspect in selected_divine_card_aspect_options %}
+                            {% if aspect not in selected_divine_card_aspects %}
+                                <button class="card-aspect-choice" type="submit" name="core_aspects" value="{{ aspect.pk }}">
+                                    {% if aspect.aspect_image %}
+                                        <img src="{{ aspect.aspect_image.url }}" alt="">
+                                    {% endif %}
+                                    <span>{{ aspect.name }}</span>
+                                </button>
+                            {% endif %}
+                        {% endfor %}
+                    </form>
                 {% endif %}
             </div>
         </header>
 
         <section class="card-typebar">
-            <span>Gottheit{% if divine_entity and divine_entity.pantheon %} &mdash; {{ divine_entity.pantheon }}{% endif %}</span>
-            <img class="card-setmark" src="{% static 'img/favicon.ico' %}" alt="" aria-hidden="true">
+            <span class="card-typebar-text card-display-field">{% if selected_divine_card_kind_label %}{{ selected_divine_card_kind_label }}{% endif %}{% if selected_divine_card_typebar %}{% if selected_divine_card_kind_label %} &mdash; {% endif %}{{ selected_divine_card_typebar }}{% elif divine_entity and divine_entity.pantheon %}{% if selected_divine_card_kind_label %} &mdash; {% endif %}{{ divine_entity.pantheon }}{% endif %}</span>
+            {% if selected_divine_card_editable %}
+                <span class="card-typebar-edit card-edit-field">
+                    <span class="card-typebar-kind-input card-typebar-kind-input--locked">{{ selected_divine_card_kind_label|default:"Gottheit" }}</span>
+                    <span>&mdash;</span>
+                    <input name="tradition_name" value="{{ selected_divine_card_typebar|default:'' }}" maxlength="160" data-god-card-field>
+                </span>
+            {% endif %}
+            {% if selected_divine_card_editable %}
+                <button class="card-setmark card-edit-lock" type="button" data-god-card-edit-toggle aria-pressed="false" title="Karte freigeben">
+                    <img class="card-edit-lock__closed" src="{% static 'img/lock_closed.png' %}" alt="" aria-hidden="true">
+                    <img class="card-edit-lock__open" src="{% static 'img/lock_open.png' %}" alt="" aria-hidden="true">
+                </button>
+            {% else %}
+                <img class="card-setmark" src="{% static 'img/favicon.ico' %}" alt="" aria-hidden="true">
+            {% endif %}
         </section>
 
-        <section class="card-rules{% if divine_entity and divine_entity.g_ability %} card-rules--with-ability{% endif %}{% if divine_entity and divine_entity.fluff %} card-rules--with-vow{% endif %}" aria-label="Kartentext">
-            {% if divine_entity and divine_entity.g_ability %}
-                <div class="card-ability">
-                    {{ divine_entity.g_ability|card_markdown }}
+        <section class="card-rules{% if selected_divine_card_ability %} card-rules--with-ability{% endif %}{% if selected_divine_card_fluff %} card-rules--with-vow{% endif %}" aria-label="Kartentext">
+            <div class="card-rules-display card-display-field">
+                {% if selected_divine_card_ability %}
+                    <div class="card-ability">
+                        {{ selected_divine_card_ability|card_markdown }}
+                    </div>
+                {% endif %}
+                {% if selected_divine_card_fluff %}
+                    <blockquote class="card-vow">
+                        &bdquo;{{ selected_divine_card_fluff|linebreaksbr }}&ldquo;
+                    </blockquote>
+                {% endif %}
+            </div>
+            {% if selected_divine_card_editable %}
+                <div class="card-rules-edit card-edit-field">
+                    <textarea name="custom_g_ability" rows="7" aria-label="Kartentext" data-god-card-field>{{ selected_divine_card_ability|default:'' }}</textarea>
+                    <textarea name="custom_fluff" rows="3" aria-label="Fluff" data-god-card-field>{{ selected_divine_card_fluff|default:'' }}</textarea>
                 </div>
-            {% endif %}
-            {% if divine_entity and divine_entity.fluff %}
-                <blockquote class="card-vow">
-                    &bdquo;{{ divine_entity.fluff|linebreaksbr }}&ldquo;
-                </blockquote>
             {% endif %}
         </section>
     </div>

@@ -249,7 +249,67 @@ export function initSchoolsPanel() {
     updatePinnedPanelVisibility();
   };
 
+  const setBindingUnlocked = (form, bindingToggle, isUnlocked) => {
+    form.classList.toggle("is-edit-unlocked", isUnlocked);
+    bindingToggle.setAttribute("aria-pressed", isUnlocked ? "true" : "false");
+    bindingToggle.setAttribute("title", isUnlocked ? "Druidenzirkel sperren" : "Druidenzirkel bearbeiten");
+    const select = form.querySelector(".school_group_binding_select");
+    const saveButton = form.querySelector(".school_group_binding_save");
+    if (select instanceof HTMLSelectElement) {
+      select.disabled = !isUnlocked;
+      if (isUnlocked) {
+        select.focus();
+      }
+    }
+    if (saveButton instanceof HTMLButtonElement) {
+      saveButton.hidden = !isUnlocked;
+    }
+  };
+
+  list.querySelectorAll("[data-school-group-binding]").forEach((form) => {
+    form.addEventListener("click", (event) => {
+      const bindingToggle = event.target instanceof Element ? event.target.closest("[data-druid-cult-edit-toggle]") : null;
+      if (bindingToggle instanceof HTMLButtonElement && form instanceof HTMLFormElement) {
+        event.preventDefault();
+        setBindingUnlocked(form, bindingToggle, !form.classList.contains("is-edit-unlocked"));
+      }
+      event.stopPropagation();
+    });
+    form.addEventListener("pointerdown", (event) => {
+      event.stopPropagation();
+    });
+    form.addEventListener("submit", (event) => {
+      if (!(form instanceof HTMLFormElement) || form.getAttribute("data-druid-cult-reset-warning") !== "1") {
+        return;
+      }
+      const select = form.querySelector(".school_group_binding_select");
+      const currentCultId = String(form.getAttribute("data-current-druid-cult-id") || "");
+      const nextCultId = select instanceof HTMLSelectElement ? String(select.value || "") : "";
+      if (nextCultId === currentCultId) {
+        return;
+      }
+      const confirmed = window.confirm(
+        "Beim Wechseln oder Entfernen des Druidenzirkels werden alle gewaehlten Aspekt-Zauberslots und zusaetzlich erworbenen Aspekte zurueckgesetzt.",
+      );
+      if (!confirmed) {
+        event.preventDefault();
+      }
+    });
+  });
+
   const handlePanelClick = (event) => {
+    const bindingToggle = event.target instanceof Element ? event.target.closest("[data-druid-cult-edit-toggle]") : null;
+    if (bindingToggle instanceof HTMLButtonElement) {
+      event.preventDefault();
+      event.stopPropagation();
+      const form = bindingToggle.closest("[data-school-group-binding]");
+      if (!(form instanceof HTMLFormElement)) {
+        return;
+      }
+      setBindingUnlocked(form, bindingToggle, !form.classList.contains("is-edit-unlocked"));
+      return;
+    }
+
     const pinButton = event.target instanceof Element ? event.target.closest("[data-school-pin-toggle]") : null;
     if (pinButton instanceof HTMLButtonElement) {
       event.preventDefault();

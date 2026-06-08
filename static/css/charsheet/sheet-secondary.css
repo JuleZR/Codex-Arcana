@@ -444,9 +444,24 @@
 
 .spell_panel_header {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 10px;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.spell_panel_header h2 {
+  flex: 0 0 auto;
+}
+
+.spell_source_filter_bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  white-space: nowrap;
 }
 
 .spell_panel_intro {
@@ -506,117 +521,6 @@
   flex: 0 0 auto;
 }
 
-.spell_school_filter_trigger {
-  -webkit-appearance: none;
-  appearance: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  box-sizing: border-box;
-  width: 28px;
-  min-width: 28px;
-  height: 28px;
-  padding: 0;
-  border: 1px solid rgba(118, 88, 57, 0.28);
-  border-radius: 8px;
-  background: linear-gradient(180deg, rgba(255, 251, 241, 0.92), rgba(241, 233, 217, 0.78));
-  color: rgba(66, 45, 25, 0.92);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 248, 229, 0.72),
-    0 1px 2px rgba(41, 24, 11, 0.06);
-  cursor: pointer;
-}
-
-.spell_school_filter_trigger.is-active,
-.spell_school_filter_trigger:hover {
-  border-color: rgba(138, 92, 42, 0.54);
-  background: linear-gradient(180deg, rgba(255, 250, 236, 0.98), rgba(226, 205, 165, 0.72));
-}
-
-.spell_school_filter_trigger.is-filtered {
-  border-color: rgba(120, 64, 28, 0.74);
-  color: rgba(80, 39, 16, 0.98);
-  background: linear-gradient(180deg, rgba(248, 221, 171, 0.96), rgba(207, 151, 74, 0.74));
-  box-shadow:
-    inset 0 1px 0 rgba(255, 242, 205, 0.78),
-    0 0 0 2px rgba(163, 98, 38, 0.2);
-}
-
-.spell_school_filter_trigger.is-filtered::after {
-  content: "";
-  position: absolute;
-  right: 4px;
-  top: 4px;
-  width: 5px;
-  height: 5px;
-  border-radius: 999px;
-  background: #7d3418;
-  box-shadow: 0 0 0 1px rgba(255, 244, 216, 0.92);
-}
-
-.spell_school_filter_trigger_icon,
-.spell_school_filter_trigger_icon svg {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 18px;
-  min-width: 18px;
-  max-width: 18px;
-  height: 18px;
-  min-height: 18px;
-  max-height: 18px;
-  overflow: hidden;
-}
-
-.spell_school_filter_trigger_icon svg {
-  display: block;
-  width: 15px;
-  height: 15px;
-  fill: currentColor;
-}
-
-.spell_school_filter_trigger_icon .spell_school_filter_symbol {
-  width: 18px;
-  min-width: 18px;
-  max-width: 18px;
-  height: 18px;
-  min-height: 18px;
-  max-height: 18px;
-}
-
-.spell_school_filter_trigger_icon .spell_school_filter_image {
-  width: 18px !important;
-  min-width: 18px !important;
-  max-width: 18px !important;
-  height: 18px !important;
-  min-height: 18px !important;
-  max-height: 18px !important;
-}
-
-.spell_school_filter_popover {
-  position: absolute;
-  z-index: 30;
-  left: 0;
-  top: calc(100% + 5px);
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  max-width: min(360px, 72vw);
-  padding: 6px;
-  overflow-x: auto;
-  overflow-y: hidden;
-  scrollbar-width: thin;
-  border: 1px solid rgba(101, 73, 45, 0.32);
-  border-radius: 8px;
-  background: rgba(247, 239, 219, 0.98);
-  box-shadow: 0 8px 20px rgba(49, 32, 17, 0.2);
-  white-space: nowrap;
-}
-
-.spell_school_filter_popover[hidden] {
-  display: none;
-}
-
 .spell_school_filter_btn {
   -webkit-appearance: none;
   appearance: none;
@@ -624,36 +528,48 @@
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
-  width: 2rem;
-  min-width: 2rem;
-  max-width: 2rem;
-  height: 2rem;
-  min-height: 2rem;
-  max-height: 2rem;
-  padding: 0;
-  border: 1px solid rgba(101, 73, 45, 0.32);
-  border-radius: 6px;
-  background: linear-gradient(180deg, rgba(255, 251, 241, 0.7), rgba(235, 224, 200, 0.46));
-  color: rgba(75, 50, 27, 0.9);
-  box-shadow: inset 0 1px 0 rgba(255, 248, 229, 0.56);
+  width: 1.85rem;
+  min-width: 1.85rem;
+  max-width: 1.85rem;
+  height: 1.85rem;
+  padding: 0 0 2px;
+  border: 0;
+  border-bottom: 0;
+  border-radius: 0;
+  background: transparent;
+  color: rgba(84, 61, 38, 0.7);
+  box-shadow: none;
   cursor: pointer;
-  overflow: hidden;
+  overflow: visible;
+  font: inherit;
+  font-size: 0.82rem;
+  transform: translateY(0);
+  transition: color 120ms ease, opacity 120ms ease, filter 120ms ease, transform 120ms ease;
 }
 
 .spell_school_filter_btn:hover,
 .spell_school_filter_btn.is-active {
-  border-color: rgba(76, 118, 160, 0.66);
-  background: linear-gradient(180deg, rgba(228, 241, 251, 0.96), rgba(174, 206, 232, 0.72));
-  color: rgba(34, 67, 98, 0.98);
+  background: transparent;
+  color: rgba(54, 35, 18, 0.96);
+  filter: saturate(1.12) brightness(1.04);
+}
+
+.spell_school_filter_btn:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
 }
 
 .spell_school_filter_btn.is-active {
-  box-shadow:
-    inset 0 1px 0 rgba(246, 252, 255, 0.8),
-    0 0 0 2px rgba(91, 143, 190, 0.22);
+  box-shadow: none;
+  font-weight: 700;
+}
+
+.spell_school_filter_btn:not(.is-active) {
+  opacity: 0.55;
 }
 
 .spell_school_filter_symbol {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -669,10 +585,35 @@
   line-height: 1;
 }
 
+.spell_school_filter_level {
+  position: absolute;
+  inset: 50% auto auto 50%;
+  display: inline-grid;
+  place-items: center;
+  min-width: 0.74rem;
+  height: 0.7rem;
+  padding: 0;
+  color: rgba(38, 25, 13, 0.96);
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-size: 0.88rem;
+  font-weight: 700;
+  line-height: 1;
+  pointer-events: none;
+  filter: none;
+  text-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.96),
+    0 -1px 0 rgba(255, 255, 255, 0.78),
+    1px 0 0 rgba(255, 255, 255, 0.78),
+    -1px 0 0 rgba(255, 255, 255, 0.78),
+    0 0 4px rgba(255, 250, 233, 0.88),
+    0 1px 3px rgba(47, 28, 10, 0.3);
+  transform: translate(-50%, -50%);
+}
+
 .spell_school_filter_symbol--all svg {
   display: block;
-  width: 1.35rem;
-  height: 1.35rem;
+  width: 1.3rem;
+  height: 1.3rem;
   fill: currentColor;
 }
 
@@ -688,7 +629,15 @@
 }
 
 .spell_school_filter_name {
-  display: none;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .spell_panel_groups {
@@ -717,6 +666,23 @@
 
 .spell_group:last-child {
   margin-bottom: 0;
+}
+
+.spell_panel_groups:has(.spell_group.is-filter-result) {
+  gap: 0;
+}
+
+.spell_group.is-filter-result {
+  gap: 0;
+}
+
+.spell_group.is-filter-result .spell_group_rows {
+  gap: 0;
+}
+
+.spell_group.is-filter-result .spell_cast_button {
+  margin-top: 1px;
+  margin-bottom: 1px;
 }
 
 .spell_group_header {
@@ -3520,6 +3486,7 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
   gap: 8px;
   box-sizing: border-box;
   width: calc(100% - 8px); /* 100% of parent minus left-margin(4px) + right-margin(4px) */
+  min-height: 24px;
 }
 
 .school_group_toggle_btn {
@@ -3536,6 +3503,101 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
   text-align: left;
   font: inherit;
   color: inherit;
+}
+
+.school_group_header--with-binding .school_group_toggle_btn {
+  flex: 0 0 auto;
+  max-width: 11rem;
+}
+
+.school_group_binding_form {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  flex: 0 1 17rem;
+  min-width: 0;
+  max-width: 17rem;
+  height: 1.15rem;
+  gap: 3px;
+  margin-left: 0.4rem;
+  margin-right: auto;
+  line-height: 1;
+}
+
+.school_group_binding_display {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  color: rgba(62, 39, 18, 0.9);
+  font-size: 0.78rem;
+  line-height: 1;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.school_group_binding_display--missing {
+  color: rgba(150, 22, 22, 0.95);
+  font-weight: 700;
+}
+
+.school_group_binding_select {
+  width: 100%;
+  min-width: 0;
+  height: 1.15rem;
+  border: 1px solid rgba(126, 86, 43, 0.42);
+  border-radius: 4px;
+  background: rgba(251, 244, 225, 0.78);
+  color: rgba(62, 39, 18, 0.95);
+  font: inherit;
+  font-size: 0.72rem;
+  line-height: 1;
+  padding: 0 1.4rem 0 0.25rem;
+}
+
+.school_group_binding_form:not(.is-edit-unlocked) .school_group_binding_select,
+.school_group_binding_form:not(.is-edit-unlocked) .school_group_binding_save {
+  display: none;
+}
+
+.school_group_binding_form.is-edit-unlocked .school_group_binding_display {
+  display: none;
+}
+
+.school_group_binding_form.is-edit-unlocked .school_group_binding_unlock {
+  display: none;
+}
+
+.school_group_binding_unlock,
+.school_group_binding_save {
+  -webkit-appearance: none;
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.15rem;
+  min-width: 1.15rem;
+  height: 1.15rem;
+  border: 1px solid rgba(126, 86, 43, 0.42);
+  border-radius: 4px;
+  background: rgba(92, 56, 21, 0.12);
+  color: rgba(62, 39, 18, 0.95);
+  font-size: 0.68rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.school_group_binding_unlock {
+  border-color: transparent;
+  background: transparent;
+}
+
+.school_group_binding_unlock:hover,
+.school_group_binding_save:hover {
+  background: rgba(92, 56, 21, 0.2);
 }
 
 /* Chevron is inline before the school name */

@@ -78,6 +78,28 @@
     box-shadow: none;
 }
 
+.card.is-saving .card-aspect-picker {
+    opacity: 0.62;
+    pointer-events: none;
+}
+
+.card-edit-field,
+.card-art-edit {
+    display: none;
+}
+
+.card.is-edit-unlocked .card-display-field {
+    display: none;
+}
+
+.card.is-edit-unlocked .card-edit-field {
+    display: block;
+}
+
+.card.is-edit-unlocked .card-art-edit {
+    display: grid;
+}
+
 .card-titlebar {
     grid-row: 1;
 }
@@ -116,6 +138,7 @@
 
 .card-titlebar {
     justify-content: space-between;
+    overflow: visible;
     padding: 0 5px 0 11px;
     border: 0;
     border-radius: 0;
@@ -145,6 +168,17 @@
     );
 }
 
+.card-title-input {
+    box-sizing: border-box;
+    width: min(68%, 250px);
+    border: 1px solid rgba(255, 250, 235, 0.58);
+    border-radius: 4px;
+    background: rgba(15, 13, 10, 0.44);
+    padding: 3px 5px;
+    font-family: "Cormorant Garamond", Georgia, serif;
+    outline: none;
+}
+
 .card[data-title-tone="dark"] .card-title {
     --card-title-dynamic-color: #120f0b;
     --card-title-dynamic-shadow:
@@ -168,17 +202,27 @@
 }
 
 .card-aspects {
+    position: relative;
     display: inline-flex;
     flex: 0 0 auto;
     gap: 2px;
     align-items: center;
     justify-content: flex-end;
     margin-left: 5px;
-    max-width: 35%;
-    overflow: hidden;
+    max-width: 43%;
+    overflow: visible;
+}
+
+.card-aspects-display {
+    display: inline-flex;
+    gap: 2px;
+    align-items: center;
+    justify-content: flex-end;
+    min-width: 0;
 }
 
 .card-aspect-mark {
+    appearance: none;
     display: grid;
     width: 24px;
     height: 24px;
@@ -197,6 +241,77 @@
     white-space: nowrap;
 }
 
+button.card-aspect-mark {
+    cursor: pointer;
+}
+
+.card--editable:not(.is-edit-unlocked) button.card-aspect-mark {
+    cursor: default;
+}
+
+.card--editable.is-edit-unlocked button.card-aspect-mark {
+    outline: 1px solid rgba(255, 255, 255, 0.45);
+    outline-offset: 1px;
+}
+
+.card-aspect-picker {
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 0;
+    z-index: 9;
+    display: grid;
+    min-width: 112px;
+    max-width: 164px;
+    padding: 3px;
+    border: 1px solid rgba(29, 25, 20, 0.82);
+    border-radius: 4px;
+    background: #c7c5bc;
+    box-shadow: 3px 2px 0 rgba(0, 0, 0, 0.72);
+}
+
+.card-aspect-picker[hidden] {
+    display: none;
+}
+
+.card-aspect-choice {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    min-height: 22px;
+    padding: 2px 5px;
+    border: 0;
+    border-radius: 2px;
+    background: transparent;
+    color: #16120d;
+    cursor: pointer;
+    font-family: "Cormorant Garamond", Georgia, serif;
+    font-size: 11px;
+    font-weight: 800;
+    line-height: 1;
+    text-align: left;
+}
+
+.card-aspect-choice:hover,
+.card-aspect-choice:focus-visible {
+    background: rgba(255, 255, 255, 0.38);
+    outline: none;
+}
+
+.card-aspect-choice img {
+    width: 16px;
+    height: 16px;
+    object-fit: contain;
+}
+
+.card-aspect-choice__neutral {
+    display: grid;
+    width: 16px;
+    height: 16px;
+    place-items: center;
+    font-family: Georgia, "Times New Roman", serif;
+    font-weight: 900;
+}
+
 .card-aspect-mark img {
     display: block;
     width: 100%;
@@ -205,6 +320,40 @@
     filter:
         drop-shadow(0 1px 0 rgba(255, 255, 255, 0.45))
         drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
+}
+
+.card-aspect-placeholder {
+    appearance: none;
+    display: grid;
+    width: 24px;
+    height: 24px;
+    place-items: center;
+    padding: 0;
+    border: 1px solid rgba(29, 25, 20, 0.92);
+    border-radius: 50%;
+    background: #c7c5bc;
+    box-shadow:
+        3px 2px 0 rgba(0, 0, 0, 0.72);
+    color: #16120d;
+    cursor: pointer;
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 14px;
+    font-weight: 900;
+    line-height: 1;
+    text-shadow: none;
+}
+
+span.card-aspect-placeholder {
+    cursor: default;
+}
+
+.card--editable:not(.is-edit-unlocked) .card-aspect-placeholder {
+    cursor: default;
+}
+
+.card--editable.is-edit-unlocked .card-aspect-placeholder {
+    outline: 1px solid rgba(255, 255, 255, 0.45);
+    outline-offset: 1px;
 }
 
 .card-art {
@@ -261,6 +410,48 @@
     filter: saturate(1.08) contrast(1.04) brightness(1.03);
 }
 
+.card-art-edit {
+    position: absolute;
+    left: 50%;
+    top: 126px;
+    z-index: 6;
+    display: none;
+    gap: 5px;
+    transform: translateX(-50%);
+}
+
+.card-art-edit__upload,
+.card-art-edit__remove {
+    position: relative;
+    display: grid;
+    min-width: 72px;
+    min-height: 24px;
+    place-items: center;
+    border: 1px solid rgba(29, 25, 20, 0.9);
+    border-radius: 5px;
+    background: #c7c5bc;
+    box-shadow: 3px 2px 0 rgba(0, 0, 0, 0.72);
+    color: #16120d;
+    cursor: pointer;
+    font-family: "Cinzel", Georgia, serif;
+    font-size: 10px;
+    font-weight: 800;
+    overflow: hidden;
+}
+
+.card-art-edit__remove {
+    min-width: 80px;
+}
+
+.card-art-edit input {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+}
+
 .card-typebar {
     justify-content: space-between;
     padding: 0 7px 0 11px;
@@ -278,6 +469,45 @@
     white-space: nowrap;
 }
 
+.card-typebar-edit {
+    align-items: center;
+    min-width: 0;
+    flex: 1 1 auto;
+    gap: 4px;
+    overflow: hidden;
+}
+
+.card.is-edit-unlocked .card-typebar-edit {
+    display: flex;
+}
+
+.card-typebar-edit span {
+    flex: 0 0 auto;
+}
+
+.card-typebar-edit input,
+.card-typebar-edit select {
+    min-width: 0;
+    flex: 1 1 auto;
+    border: 0;
+    border-bottom: 1px solid rgba(42, 36, 29, 0.58);
+    background: rgba(255, 252, 241, 0.34);
+    color: #100e0b;
+    font: inherit;
+    outline: none;
+}
+
+.card-typebar-edit .card-typebar-kind-input {
+    flex: 0 1 92px;
+}
+
+.card-typebar-kind-input--locked {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 .card-setmark {
     display: block;
     flex: 0 0 auto;
@@ -286,6 +516,35 @@
     margin-left: 5px;
     object-fit: contain;
     filter: drop-shadow(0 1px 0 #fff4cf) drop-shadow(0 1px 1px rgba(0, 0, 0, 0.45));
+}
+
+.card-edit-lock {
+    position: relative;
+    top: -4px;
+    left: -5px;
+    display: grid;
+    place-items: center;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+}
+
+.card-edit-lock img {
+    grid-area: 1 / 1;
+    display: block;
+    width: 24px;
+    height: 24px;
+    object-fit: contain;
+}
+
+.card-edit-lock .card-edit-lock__open,
+.card.is-edit-unlocked .card-edit-lock .card-edit-lock__closed {
+    display: none;
+}
+
+.card.is-edit-unlocked .card-edit-lock .card-edit-lock__open {
+    display: block;
 }
 
 .card-rules {
@@ -311,6 +570,44 @@
 
 .card-rules::before {
     content: none;
+}
+
+.card-rules-display {
+    display: contents;
+}
+
+.card-rules-edit {
+    min-height: 0;
+    height: 100%;
+    grid-template-rows: minmax(0, 1fr) auto;
+    gap: 6px;
+}
+
+.card.is-edit-unlocked .card-rules-edit {
+    display: grid;
+}
+
+.card-rules-edit textarea {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    min-height: 0;
+    resize: none;
+    border: 1px solid rgba(42, 36, 29, 0.58);
+    border-radius: 4px;
+    background: rgba(255, 252, 241, 0.58);
+    color: #17120d;
+    font-family: "Cormorant Garamond", Georgia, serif;
+    font-size: var(--card-ability-font-size);
+    font-weight: 700;
+    line-height: 1.1;
+    outline: none;
+}
+
+.card-rules-edit textarea[name="custom_fluff"] {
+    min-height: 44px;
+    font-size: var(--card-vow-font-size);
+    font-style: italic;
 }
 
 .card-ability {
@@ -790,6 +1087,12 @@
         height: 22px;
         padding: 0;
         font-size: 7px;
+    }
+
+    .card-aspect-placeholder {
+        width: 22px;
+        height: 22px;
+        font-size: 14px;
     }
 
     .card-typebar {

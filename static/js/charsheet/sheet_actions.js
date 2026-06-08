@@ -1,5 +1,37 @@
 import { applySheetPartials } from "./partial_updates.js";
 
+function flashSheetFeedback(level) {
+  const normalized = level === "error" ? "error" : "success";
+  document.body.classList.remove("sheet-feedback--success", "sheet-feedback--error");
+  void document.body.offsetWidth;
+  document.body.classList.add(`sheet-feedback--${normalized}`);
+  window.setTimeout(() => {
+    document.body.classList.remove(`sheet-feedback--${normalized}`);
+  }, 1700);
+}
+
+function updateLearningFormFromPayload(payload) {
+  const html = String(payload?.learningPanelHtml || "").trim();
+  if (!html) {
+    return false;
+  }
+  const currentForm = document.getElementById("learnForm");
+  if (!(currentForm instanceof HTMLFormElement)) {
+    return false;
+  }
+  const template = document.createElement("template");
+  template.innerHTML = html;
+  const nextForm = template.content.querySelector("#learnForm");
+  if (!(nextForm instanceof HTMLFormElement)) {
+    return false;
+  }
+  currentForm.replaceWith(nextForm);
+  document.dispatchEvent(new CustomEvent("charsheet:partials-applied", {
+    detail: { targets: ["learnForm"] },
+  }));
+  return true;
+}
+
 export function initSheetActions() {
   if (document.body.dataset.sheetActionsBound === "1") {
     return;
@@ -59,6 +91,10 @@ export function initSheetActions() {
         throw new Error("sheet action invalid");
       }
       applySheetPartials(payload);
+      updateLearningFormFromPayload(payload);
+      if (payload?.learningFeedback?.level) {
+        flashSheetFeedback(String(payload.learningFeedback.level));
+      }
       if (form.hasAttribute("data-ajax-only")) {
         form.dispatchEvent(new CustomEvent("sheet:action-success", { bubbles: true, detail: payload }));
       }

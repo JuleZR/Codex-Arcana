@@ -270,7 +270,7 @@
             {% comment %}── Kampfschulen (gruppiert & ausklappbar) ──────────────────────────{% endcomment %}
             {% for group in school_technique_groups %}
             <li class="school_group" data-school-group data-school-group-key="group:{{ group.school_name|slugify }}">
-              <div class="school_group_header school_row_with_tooltip">
+              <div class="school_group_header school_row_with_tooltip{% if group.druid_cult_options %} school_group_header--with-binding{% endif %}">
                 <button
                   type="button"
                   class="school_group_toggle_btn"
@@ -289,6 +289,25 @@
                     {{ group.school_name }}{% if group.max_level_label %} {{ group.max_level_label }}{% endif %}
                   </span>
                 </button>
+                {% if group.druid_cult_options %}
+                <form method="post" action="{% url 'update_druid_cult' character.id %}" class="school_group_binding_form" data-school-group-binding data-current-druid-cult-id="{{ group.selected_druid_cult_id|default:'' }}"{% if group.druid_cult_reset_warning %} data-druid-cult-reset-warning="1"{% endif %}>
+                  {% csrf_token %}
+                  <input type="hidden" name="school_id" value="{{ group.school_id }}">
+                  <span class="school_group_binding_display{% if not group.selected_druid_cult_name %} school_group_binding_display--missing{% endif %}">
+                    {{ group.selected_druid_cult_name|default:"Druidenzirkel wählen" }}
+                  </span>
+                  <button type="button" class="school_group_binding_unlock" data-druid-cult-edit-toggle aria-label="Druidenzirkel bearbeiten" title="Druidenzirkel bearbeiten">
+                    <span aria-hidden="true">&#x22EF;</span>
+                  </button>
+                  <select name="druid_cult" class="school_group_binding_select" aria-label="Druidenzirkel f&uuml;r {{ group.school_name }}" disabled>
+                    <option value="">Druidenzirkel</option>
+                    {% for cult in group.druid_cult_options %}
+                    <option value="{{ cult.id }}"{% if cult.id == group.selected_druid_cult_id %} selected{% endif %}>{{ cult.name }}</option>
+                    {% endfor %}
+                  </select>
+                  <button type="submit" class="school_group_binding_save" aria-label="Druidenzirkel speichern" title="Druidenzirkel speichern" hidden>&#10003;</button>
+                </form>
+                {% endif %}
                 <button
                   type="button"
                   class="school_pin_btn school_pin_btn--group"

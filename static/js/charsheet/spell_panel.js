@@ -90,11 +90,11 @@ function applySpellFilter(input, rows, groups, selectedSchools = null, schoolNam
       return;
     }
     const groupName = String(btn?.getAttribute("data-spell-group-name") || "").trim();
-    const groupKind = String(btn?.getAttribute("data-spell-group-kind") || "").trim();
-    const schoolMatches = !schoolFilterActive || (groupKind === "arcane" && selectedSchoolSet.has(groupName));
+    const schoolMatches = !schoolFilterActive || selectedSchoolSet.has(groupName);
 
     if (!schoolMatches) {
       group.hidden = true;
+      group.classList.remove("is-filter-result");
       if (btn instanceof HTMLElement) {
         btn.hidden = false;
         btn.setAttribute("aria-expanded", "false");
@@ -105,6 +105,7 @@ function applySpellFilter(input, rows, groups, selectedSchools = null, schoolNam
 
     if (!needle && allSchoolsSelected) {
       group.hidden = false;
+      group.classList.remove("is-filter-result");
       if (btn instanceof HTMLElement) {
         btn.hidden = false;
         btn.setAttribute("aria-expanded", "false");
@@ -117,6 +118,7 @@ function applySpellFilter(input, rows, groups, selectedSchools = null, schoolNam
     const anyVisible = subRows.some((row) => !row.hidden);
     if (anyVisible) {
       group.hidden = false;
+      group.classList.toggle("is-filter-result", Boolean(needle) || schoolFilterActive);
       if (btn instanceof HTMLElement) {
         btn.hidden = Boolean(needle) || schoolFilterActive;
         btn.setAttribute("aria-expanded", "true");
@@ -124,6 +126,7 @@ function applySpellFilter(input, rows, groups, selectedSchools = null, schoolNam
       rowList.hidden = false;
     } else {
       group.hidden = true;
+      group.classList.remove("is-filter-result");
       if (btn instanceof HTMLElement) {
         btn.hidden = false;
         btn.setAttribute("aria-expanded", "false");
@@ -175,9 +178,6 @@ export function initSpellPanel() {
   panel.dataset.spellPanelBound = "1";
 
   const filterInput = document.getElementById("spellFilterInput");
-  const schoolFilterTrigger = panel.querySelector("[data-spell-school-filter-trigger]");
-  const schoolFilterTriggerIcon = panel.querySelector("[data-spell-school-filter-trigger-icon]");
-  const schoolFilterPopover = panel.querySelector("[data-spell-school-filter-popover]");
   const schoolFilterButtons = Array.from(panel.querySelectorAll("[data-spell-school-filter]"));
   const schoolNames = schoolFilterButtons
     .map((button) => String(button.getAttribute("data-spell-school-filter") || ""))
@@ -190,9 +190,6 @@ export function initSpellPanel() {
     : (storedState.schoolFilter && storedState.schoolFilter !== "all" ? [storedState.schoolFilter] : schoolNames);
   const initialValidSchools = initialSchoolFilters.filter((name) => schoolNames.includes(name));
   let activeSchoolFilters = initialValidSchools.length === 1 ? new Set([initialValidSchools[0]]) : new Set();
-  const defaultSchoolFilterTriggerIcon = schoolFilterTriggerIcon instanceof HTMLElement
-    ? schoolFilterTriggerIcon.innerHTML
-    : "";
 
   if (filterInput instanceof HTMLInputElement && storedState.filter) {
     filterInput.value = storedState.filter;
@@ -224,36 +221,6 @@ export function initSpellPanel() {
     });
   };
 
-  const syncSchoolFilterTrigger = () => {
-    const isFiltered = !isAllSchoolsSelected(activeSchoolFilters, schoolNames);
-    const isSingleSelection = activeSchoolFilters.size === 1 && isFiltered;
-    if (schoolFilterTrigger instanceof HTMLButtonElement) {
-      schoolFilterTrigger.classList.toggle("is-filtered", isFiltered);
-      schoolFilterTrigger.classList.toggle("is-single-filtered", isSingleSelection);
-      const label = isSingleSelection
-        ? `Zauberschule: ${Array.from(activeSchoolFilters)[0]}`
-        : "Alle Zauberschulen";
-      schoolFilterTrigger.title = label;
-      schoolFilterTrigger.setAttribute("aria-label", label);
-    }
-    if (!(schoolFilterTriggerIcon instanceof HTMLElement)) {
-      return;
-    }
-    if (!isSingleSelection) {
-      schoolFilterTriggerIcon.innerHTML = defaultSchoolFilterTriggerIcon;
-      return;
-    }
-    const selectedSchool = Array.from(activeSchoolFilters)[0];
-    const selectedButton = schoolFilterButtons.find((button) => (
-      button instanceof HTMLButtonElement
-      && String(button.getAttribute("data-spell-school-filter") || "") === selectedSchool
-    ));
-    const selectedSymbol = selectedButton?.querySelector(".spell_school_filter_symbol");
-    schoolFilterTriggerIcon.innerHTML = selectedSymbol instanceof HTMLElement
-      ? selectedSymbol.innerHTML
-      : defaultSchoolFilterTriggerIcon;
-  };
-
   const applyCurrentFilters = () => {
     applySpellFilter(filterInput, rows, groups, activeSchoolFilters, schoolNames);
     panel.classList.toggle("spell_panel--single-school-filtered", !isAllSchoolsSelected(activeSchoolFilters, schoolNames));
@@ -261,48 +228,10 @@ export function initSpellPanel() {
       restoreExpandedSpellGroups(groups, storedState.expandedGroups);
     }
     syncSchoolFilterButtons();
-    syncSchoolFilterTrigger();
     saveSpellPanelState({ filterInput, schoolFilters: activeSchoolFilters, groups });
   };
 
   syncSchoolFilterButtons();
-  syncSchoolFilterTrigger();
-
-  const closeSchoolFilterMenu = () => {
-    if (schoolFilterPopover instanceof HTMLElement) {
-      schoolFilterPopover.hidden = true;
-    }
-    if (schoolFilterTrigger instanceof HTMLButtonElement) {
-      schoolFilterTrigger.classList.toggle("is-active", !isAllSchoolsSelected(activeSchoolFilters, schoolNames));
-      syncSchoolFilterTrigger();
-      schoolFilterTrigger.setAttribute("aria-expanded", "false");
-    }
-  };
-
-  if (schoolFilterTrigger instanceof HTMLButtonElement && schoolFilterPopover instanceof HTMLElement) {
-    schoolFilterTrigger.classList.toggle("is-active", !isAllSchoolsSelected(activeSchoolFilters, schoolNames));
-    schoolFilterTrigger.addEventListener("click", (event) => {
-      event.stopPropagation();
-      const willOpen = schoolFilterPopover.hidden;
-      schoolFilterPopover.hidden = !willOpen;
-      schoolFilterTrigger.setAttribute("aria-expanded", willOpen ? "true" : "false");
-      schoolFilterTrigger.classList.add("is-active");
-    });
-    schoolFilterPopover.addEventListener("click", (event) => {
-      event.stopPropagation();
-    });
-    document.addEventListener("click", (event) => {
-      const schoolFilterMenu = schoolFilterTrigger.closest("[data-spell-school-filter-menu]");
-      if (!(schoolFilterMenu instanceof HTMLElement) || !schoolFilterMenu.contains(event.target)) {
-        closeSchoolFilterMenu();
-      }
-    });
-    document.addEventListener("keydown", (event) => {
-      if (event.key === "Escape") {
-        closeSchoolFilterMenu();
-      }
-    });
-  }
 
   schoolFilterButtons.forEach((button) => {
     if (!(button instanceof HTMLButtonElement)) {
@@ -316,9 +245,6 @@ export function initSpellPanel() {
         activeSchoolFilters = new Set([filterName]);
       }
       applyCurrentFilters();
-      if (schoolFilterTrigger instanceof HTMLButtonElement) {
-        schoolFilterTrigger.classList.toggle("is-active", !isAllSchoolsSelected(activeSchoolFilters, schoolNames));
-      }
     });
   });
 
@@ -346,7 +272,6 @@ export function initSpellPanel() {
   if (filterInput instanceof HTMLInputElement) {
     applySpellFilter(filterInput, rows, groups, activeSchoolFilters, schoolNames);
     panel.classList.toggle("spell_panel--single-school-filtered", !isAllSchoolsSelected(activeSchoolFilters, schoolNames));
-    syncSchoolFilterTrigger();
     if (!String(filterInput.value || "").trim() && isAllSchoolsSelected(activeSchoolFilters, schoolNames)) {
       restoreExpandedSpellGroups(groups, storedState.expandedGroups);
     }

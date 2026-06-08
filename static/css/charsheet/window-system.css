@@ -24,6 +24,61 @@
     inset 0 0 0 1px rgba(255, 241, 212, 0.18);
 }
 
+body.sheet-feedback--success::after,
+body.sheet-feedback--error::after {
+  content: "";
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: min(30vh, 220px);
+  z-index: 9998;
+  pointer-events: none;
+  opacity: 0;
+  filter: blur(14px);
+  transform-origin: 50% 100%;
+  animation: sheetFeedbackGlow 2200ms cubic-bezier(0.22, 0.78, 0.24, 1);
+}
+
+body.sheet-feedback--success::after {
+  background: linear-gradient(
+    0deg,
+    rgba(50, 224, 104, 0.56) 0%,
+    rgba(73, 231, 126, 0.36) 26%,
+    rgba(112, 238, 154, 0.16) 58%,
+    rgba(112, 238, 154, 0) 100%
+  );
+}
+
+body.sheet-feedback--error::after {
+  background: linear-gradient(
+    0deg,
+    rgba(226, 48, 44, 0.62) 0%,
+    rgba(230, 74, 59, 0.4) 26%,
+    rgba(238, 120, 96, 0.18) 58%,
+    rgba(238, 120, 96, 0) 100%
+  );
+}
+
+@keyframes sheetFeedbackGlow {
+  0% {
+    opacity: 0;
+    transform: translateY(22px) scaleY(0.88);
+  }
+  20% {
+    opacity: 0.92;
+    transform: translateY(0) scaleY(1);
+  }
+  62% {
+    opacity: 0.86;
+    transform: translateY(0) scaleY(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(0) scaleY(1.02);
+  }
+}
+
 .sheet-window.payday-window {
   border: 1px solid var(--sheet-window-border-strong);
   border-radius: 0;

@@ -56,7 +56,9 @@ from .models import (
     CharacterCreatureSpecialSkill,
     CharacterCreatureTrait,
     CharacterCreationDraft,
+    CharacterDruidCult,
     CharacterDivineEntity,
+    CharacterShamanPatron,
     CharacterDiaryEntry,
     CharacterItem,
     ItemRune,
@@ -83,6 +85,8 @@ from .models import (
     DamageSource,
     DivineEntity,
     DivineEntityAspect,
+    DruidCult,
+    DruidCultAspect,
     Item,
     Language,
     MagicItemStats,
@@ -97,6 +101,8 @@ from .models import (
     SchoolPath,
     SchoolType,
     ShieldStats,
+    ShamanPatron,
+    ShamanPatronAspect,
     Specialization,
     Spell,
     Skill,
@@ -151,13 +157,15 @@ ADMIN_MODEL_ORDER = {
     "CharacterSpellSource": 27,
     "CharacterSpell": 28,
     "CharacterDivineEntity": 29,
-    "CharacterWeaponMastery": 30,
-    "CharacterWeaponMasteryArcana": 31,
-    "CharacterCreature": 32,
-    "CharacterCreatureItem": 33,
-    "CharacterCreatureSkill": 34,
-    "CharacterCreatureSpecialSkill": 35,
-    "CharacterCreatureTrait": 36,
+    "CharacterDruidCult": 30,
+    "CharacterShamanPatron": 31,
+    "CharacterWeaponMastery": 32,
+    "CharacterWeaponMasteryArcana": 33,
+    "CharacterCreature": 34,
+    "CharacterCreatureItem": 35,
+    "CharacterCreatureSkill": 36,
+    "CharacterCreatureSpecialSkill": 37,
+    "CharacterCreatureTrait": 38,
     "Race": 40,
     "RaceAttributeLimit": 41,
     "RaceTechnique": 42,
@@ -199,6 +207,10 @@ ADMIN_MODEL_ORDER = {
     "Spell": 121,
     "DivineEntity": 122,
     "DivineEntityAspect": 123,
+    "DruidCult": 124,
+    "DruidCultAspect": 125,
+    "ShamanPatron": 126,
+    "ShamanPatronAspect": 127,
     "UserSettings": 140,
 }
 
@@ -222,8 +234,10 @@ ADMIN_MODEL_SECTIONS = {
     "CharacterSpellSource": (33, "Charakterwerte"),
     "CharacterSpell": (34, "Charakterwerte"),
     "CharacterDivineEntity": (35, "Charakterwerte"),
-    "CharacterWeaponMastery": (36, "Charakterwerte"),
-    "CharacterWeaponMasteryArcana": (37, "Charakterwerte"),
+    "CharacterDruidCult": (36, "Charakterwerte"),
+    "CharacterShamanPatron": (37, "Charakterwerte"),
+    "CharacterWeaponMastery": (38, "Charakterwerte"),
+    "CharacterWeaponMasteryArcana": (39, "Charakterwerte"),
     "Race": (40, "Regelwerk: Herkunft"),
     "RaceAttributeLimit": (41, "Regelwerk: Herkunft"),
     "RaceTechnique": (42, "Regelwerk: Herkunft"),
@@ -259,6 +273,10 @@ ADMIN_MODEL_SECTIONS = {
     "Spell": (121, "Magie und Goettliches"),
     "DivineEntity": (122, "Magie und Goettliches"),
     "DivineEntityAspect": (123, "Magie und Goettliches"),
+    "DruidCult": (124, "Magie und Goettliches"),
+    "DruidCultAspect": (125, "Magie und Goettliches"),
+    "ShamanPatron": (126, "Magie und Goettliches"),
+    "ShamanPatronAspect": (127, "Magie und Goettliches"),
     "UserSettings": (140, "System"),
 }
 
@@ -279,6 +297,8 @@ ADMIN_SECONDARY_MODELS = {
     "CharacterSpellSource",
     "CharacterSpell",
     "CharacterDivineEntity",
+    "CharacterDruidCult",
+    "CharacterShamanPatron",
     "CharacterWeaponMastery",
     "CharacterWeaponMasteryArcana",
     "RaceAttributeLimit",
@@ -297,6 +317,8 @@ ADMIN_SECONDARY_MODELS = {
     "WeaponStats",
     "MagicItemStats",
     "DivineEntityAspect",
+    "DruidCultAspect",
+    "ShamanPatronAspect",
 }
 
 _default_get_app_list = admin.site.get_app_list
@@ -4210,6 +4232,115 @@ class DivineEntityAspectInline(admin.TabularInline):
     fields = ("aspect", "is_starting_aspect")
 
 
+class DruidCultAspectInline(admin.TabularInline):
+    model = DruidCultAspect
+    extra = 0
+    autocomplete_fields = ("aspect",)
+    fields = ("aspect", "is_starting_aspect")
+
+
+class ShamanPatronAspectInline(admin.TabularInline):
+    model = ShamanPatronAspect
+    extra = 0
+    autocomplete_fields = ("aspect",)
+    fields = ("aspect", "is_starting_aspect")
+
+
+class CharacterBindingAspectInline(admin.TabularInline):
+    model = CharacterAspect
+    fk_name = "source_binding"
+    extra = 0
+    fields = ("aspect", "level", "source_entity", "source_school", "tracks_school_level", "is_bonus_aspect")
+    autocomplete_fields = ("aspect", "source_entity", "source_school")
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related("aspect", "source_entity", "source_school")
+
+
+class CharacterDivineEntityAdminForm(forms.ModelForm):
+    class Meta:
+        model = CharacterDivineEntity
+        fields = "__all__"
+
+    def clean_core_aspects(self):
+        core_aspects = self.cleaned_data.get("core_aspects")
+        entity = self.cleaned_data.get("entity")
+        if entity is None or core_aspects is None:
+            return core_aspects
+
+        selected_count = core_aspects.count()
+        if entity.aspect_selection_mode == DivineEntity.AspectSelectionMode.FIXED and selected_count:
+            raise forms.ValidationError("Diese Entitaet nutzt feste Aspekte; bitte keine Kernaspekte am Charakter waehlen.")
+
+        allowed_count = int(entity.starting_aspect_count or 0)
+        if allowed_count > 0 and selected_count > allowed_count:
+            raise forms.ValidationError(f"Diese Bindung erlaubt maximal {allowed_count} Kernaspekte.")
+
+        if entity.aspect_selection_mode == DivineEntity.AspectSelectionMode.CHOOSE_FROM_ENTITY:
+            allowed_ids = set(entity.aspects.values_list("aspect_id", flat=True))
+            invalid = [aspect.name for aspect in core_aspects if aspect.id not in allowed_ids]
+            if invalid:
+                raise forms.ValidationError("Nicht erlaubte Aspekte: " + ", ".join(sorted(invalid)))
+
+        return core_aspects
+
+
+class CharacterDruidCultAdminForm(forms.ModelForm):
+    class Meta:
+        model = CharacterDruidCult
+        fields = "__all__"
+
+    def clean_core_aspects(self):
+        core_aspects = self.cleaned_data.get("core_aspects")
+        cult = self.cleaned_data.get("cult")
+        if cult is None or core_aspects is None:
+            return core_aspects
+
+        selected_count = core_aspects.count()
+        if cult.aspect_selection_mode == DivineEntity.AspectSelectionMode.FIXED and selected_count:
+            raise forms.ValidationError("Dieser Druidenzirkel nutzt feste Aspekte; bitte keine Kernaspekte am Charakter waehlen.")
+
+        allowed_count = int(cult.starting_aspect_count or 0)
+        if allowed_count > 0 and selected_count > allowed_count:
+            raise forms.ValidationError(f"Diese Bindung erlaubt maximal {allowed_count} Kernaspekte.")
+
+        if cult.aspect_selection_mode == DivineEntity.AspectSelectionMode.CHOOSE_FROM_ENTITY:
+            allowed_ids = set(cult.aspects.values_list("aspect_id", flat=True))
+            invalid = [aspect.name for aspect in core_aspects if aspect.id not in allowed_ids]
+            if invalid:
+                raise forms.ValidationError("Nicht erlaubte Aspekte: " + ", ".join(sorted(invalid)))
+
+        return core_aspects
+
+
+class CharacterShamanPatronAdminForm(forms.ModelForm):
+    class Meta:
+        model = CharacterShamanPatron
+        fields = "__all__"
+
+    def clean_core_aspects(self):
+        core_aspects = self.cleaned_data.get("core_aspects")
+        patron = self.cleaned_data.get("patron")
+        if patron is None or core_aspects is None:
+            return core_aspects
+
+        selected_count = core_aspects.count()
+        if patron.aspect_selection_mode == DivineEntity.AspectSelectionMode.FIXED and selected_count:
+            raise forms.ValidationError("Dieses Totem oder dieser Ahnengeist nutzt feste Aspekte; bitte keine Kernaspekte am Charakter waehlen.")
+
+        allowed_count = int(patron.starting_aspect_count or 0)
+        if allowed_count > 0 and selected_count > allowed_count:
+            raise forms.ValidationError(f"Diese Bindung erlaubt maximal {allowed_count} Kernaspekte.")
+
+        if patron.aspect_selection_mode == DivineEntity.AspectSelectionMode.CHOOSE_FROM_ENTITY:
+            allowed_ids = set(patron.aspects.values_list("aspect_id", flat=True))
+            invalid = [aspect.name for aspect in core_aspects if aspect.id not in allowed_ids]
+            if invalid:
+                raise forms.ValidationError("Nicht erlaubte Aspekte: " + ", ".join(sorted(invalid)))
+
+        return core_aspects
+
+
 @admin.register(Aspect)
 class AspectAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
     list_display = (
@@ -4330,16 +4461,24 @@ class SpellAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
 class DivineEntityAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
     list_display = (
         "name",
-        "entity_kind",
         "school",
         "pantheon",
+        "aspect_selection_mode",
         "starting_aspect_count",
+        "fixed_aspect_count",
+        "is_customizable",
         "has_symbol_image",
         "has_god_image",
         "grants_arcane_spell_choice_per_level",
     )
     search_fields = ("name", "slug", "card_name", "pantheon")
-    list_filter = ("entity_kind", "school", "pantheon", "grants_arcane_spell_choice_per_level")
+    list_filter = (
+        "aspect_selection_mode",
+        "is_customizable",
+        "school",
+        "pantheon",
+        "grants_arcane_spell_choice_per_level",
+    )
     ordering = ("name",)
     autocomplete_fields = ("school",)
     list_select_related = ("school", "school__type")
@@ -4352,7 +4491,9 @@ class DivineEntityAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
                 "name",
                 "slug",
                 "school",
-                "entity_kind",
+                "aspect_selection_mode",
+                "starting_aspect_count",
+                "is_customizable",
             )
         }),
         ("Beschreibung", {
@@ -4390,8 +4531,8 @@ class DivineEntityAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
         }),
     )
 
-    @admin.display(description="Startaspekte")
-    def starting_aspect_count(self, obj):
+    @admin.display(description="Fixe Aspekte")
+    def fixed_aspect_count(self, obj):
         return obj.aspects.filter(is_starting_aspect=True).count()
 
     @admin.display(description="Symbol")
@@ -4425,6 +4566,162 @@ class DivineEntityAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
         )
 
 
+@admin.register(DruidCult)
+class DruidCultAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
+    list_display = (
+        "name",
+        "school",
+        "aspect_selection_mode",
+        "starting_aspect_count",
+        "fixed_aspect_count",
+        "is_customizable",
+        "has_symbol_image",
+        "has_god_image",
+    )
+    search_fields = ("name", "slug", "card_name", "description", "school__name")
+    list_filter = ("aspect_selection_mode", "is_customizable", "school")
+    ordering = ("name",)
+    autocomplete_fields = ("school",)
+    list_select_related = ("school", "school__type")
+    readonly_fields = ("symbol_image_preview", "god_image_preview")
+    inlines = (DruidCultAspectInline,)
+    fieldsets = (
+        (None, {
+            "fields": (
+                "name",
+                "slug",
+                "school",
+                "aspect_selection_mode",
+                "starting_aspect_count",
+                "is_customizable",
+                "description",
+            )
+        }),
+        ("Karte", {
+            "fields": (
+                "card_name",
+                "symbol_image",
+                "symbol_image_preview",
+                "god_image",
+                "god_image_preview",
+                "g_ability",
+                "fluff",
+            )
+        }),
+    )
+
+    @admin.display(description="Fixe Aspekte")
+    def fixed_aspect_count(self, obj):
+        return obj.aspects.filter(is_starting_aspect=True).count()
+
+    @admin.display(description="Symbol")
+    def has_symbol_image(self, obj):
+        return bool(obj.symbol_image)
+
+    @admin.display(description="Kartenbild")
+    def has_god_image(self, obj):
+        return bool(obj.god_image)
+
+    @admin.display(description="Symbolvorschau")
+    def symbol_image_preview(self, obj):
+        if obj is None or not obj.symbol_image:
+            return format_html('<span style="color:#666;">{}</span>', "-")
+        return format_html(
+            '<img src="{}" alt="{}" style="max-width:96px; max-height:96px; border-radius:8px; border:1px solid #ccc; background:#fff; padding:4px;" />',
+            obj.symbol_image.url,
+            obj.name,
+        )
+
+    @admin.display(description="Kartenbildvorschau")
+    def god_image_preview(self, obj):
+        if obj is None or not obj.god_image:
+            return format_html('<span style="color:#666;">{}</span>', "-")
+        return format_html(
+            '<img src="{}" alt="{}" style="max-width:160px; max-height:220px; border-radius:8px; border:1px solid #ccc; background:#fff; padding:4px;" />',
+            obj.god_image.url,
+            obj.name,
+        )
+
+
+@admin.register(ShamanPatron)
+class ShamanPatronAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
+    list_display = (
+        "name",
+        "patron_kind",
+        "school",
+        "aspect_selection_mode",
+        "starting_aspect_count",
+        "fixed_aspect_count",
+        "is_customizable",
+        "has_symbol_image",
+        "has_god_image",
+    )
+    search_fields = ("name", "slug", "card_name", "description", "school__name")
+    list_filter = ("patron_kind", "aspect_selection_mode", "is_customizable", "school")
+    ordering = ("patron_kind", "name")
+    autocomplete_fields = ("school",)
+    list_select_related = ("school", "school__type")
+    readonly_fields = ("symbol_image_preview", "god_image_preview")
+    inlines = (ShamanPatronAspectInline,)
+    fieldsets = (
+        (None, {
+            "fields": (
+                "name",
+                "slug",
+                "patron_kind",
+                "school",
+                "aspect_selection_mode",
+                "starting_aspect_count",
+                "is_customizable",
+                "description",
+            )
+        }),
+        ("Karte", {
+            "fields": (
+                "card_name",
+                "symbol_image",
+                "symbol_image_preview",
+                "god_image",
+                "god_image_preview",
+                "g_ability",
+                "fluff",
+            )
+        }),
+    )
+
+    @admin.display(description="Fixe Aspekte")
+    def fixed_aspect_count(self, obj):
+        return obj.aspects.filter(is_starting_aspect=True).count()
+
+    @admin.display(description="Symbol")
+    def has_symbol_image(self, obj):
+        return bool(obj.symbol_image)
+
+    @admin.display(description="Kartenbild")
+    def has_god_image(self, obj):
+        return bool(obj.god_image)
+
+    @admin.display(description="Symbolvorschau")
+    def symbol_image_preview(self, obj):
+        if obj is None or not obj.symbol_image:
+            return format_html('<span style="color:#666;">{}</span>', "-")
+        return format_html(
+            '<img src="{}" alt="{}" style="max-width:96px; max-height:96px; border-radius:8px; border:1px solid #ccc; background:#fff; padding:4px;" />',
+            obj.symbol_image.url,
+            obj.name,
+        )
+
+    @admin.display(description="Kartenbildvorschau")
+    def god_image_preview(self, obj):
+        if obj is None or not obj.god_image:
+            return format_html('<span style="color:#666;">{}</span>', "-")
+        return format_html(
+            '<img src="{}" alt="{}" style="max-width:160px; max-height:220px; border-radius:8px; border:1px solid #ccc; background:#fff; padding:4px;" />',
+            obj.god_image.url,
+            obj.name,
+        )
+
+
 @admin.register(DivineEntityAspect)
 class DivineEntityAspectAdmin(admin.ModelAdmin):
     list_display = ("entity", "aspect", "is_starting_aspect")
@@ -4433,6 +4730,26 @@ class DivineEntityAspectAdmin(admin.ModelAdmin):
     ordering = ("entity__name", "aspect__name")
     autocomplete_fields = ("entity", "aspect")
     list_select_related = ("entity", "aspect")
+
+
+@admin.register(DruidCultAspect)
+class DruidCultAspectAdmin(admin.ModelAdmin):
+    list_display = ("cult", "aspect", "is_starting_aspect")
+    search_fields = ("cult__name", "aspect__name", "aspect__slug")
+    list_filter = ("is_starting_aspect", "cult", "aspect")
+    ordering = ("cult__name", "aspect__name")
+    autocomplete_fields = ("cult", "aspect")
+    list_select_related = ("cult", "aspect")
+
+
+@admin.register(ShamanPatronAspect)
+class ShamanPatronAspectAdmin(admin.ModelAdmin):
+    list_display = ("patron", "aspect", "is_starting_aspect")
+    search_fields = ("patron__name", "aspect__name", "aspect__slug")
+    list_filter = ("is_starting_aspect", "patron", "aspect")
+    ordering = ("patron__name", "aspect__name")
+    autocomplete_fields = ("patron", "aspect")
+    list_select_related = ("patron", "aspect")
 
 
 @admin.register(CharacterSpellSource)
@@ -4455,16 +4772,20 @@ class CharacterSpellSourceAdmin(admin.ModelAdmin):
 
 @admin.register(CharacterAspect)
 class CharacterAspectAdmin(admin.ModelAdmin):
-    list_display = ("character", "aspect", "level", "source_display", "entry_mode")
-    search_fields = ("character__name", "aspect__name", "aspect__slug", "source_entity__name")
-    list_filter = ("is_bonus_aspect", "source_entity", "aspect")
+    list_display = ("character", "aspect", "level", "source_display", "tracks_school_level", "entry_mode")
+    search_fields = ("character__name", "aspect__name", "aspect__slug", "source_entity__name", "source_binding__custom_name")
+    list_filter = ("is_bonus_aspect", "tracks_school_level", "source_entity", "source_school", "aspect")
     ordering = ("character__name", "aspect__name")
-    autocomplete_fields = ("character", "aspect", "source_entity")
-    list_select_related = ("character", "aspect", "source_entity")
+    autocomplete_fields = ("character", "aspect", "source_entity", "source_binding", "source_school")
+    list_select_related = ("character", "aspect", "source_entity", "source_binding", "source_school")
     readonly_fields = ("entry_mode",)
 
     @admin.display(description="Quelle")
     def source_display(self, obj):
+        if obj.source_binding_id:
+            return obj.source_binding.custom_name or obj.source_binding.entity.name
+        if obj.source_school_id and obj.tracks_school_level:
+            return obj.source_school
         return obj.source_entity or ("Bonusaspekt" if obj.is_bonus_aspect else "Automatisch")
 
     @admin.display(description="Modus")
@@ -4474,26 +4795,111 @@ class CharacterAspectAdmin(admin.ModelAdmin):
     def get_readonly_fields(self, request, obj=None):
         readonly = list(super().get_readonly_fields(request, obj))
         if obj is not None and not obj.is_bonus_aspect:
-            readonly.extend(["character", "aspect", "source_entity"])
+            readonly.extend(["character", "aspect", "source_entity", "source_binding", "source_school"])
         return tuple(dict.fromkeys(readonly))
 
 
 @admin.register(CharacterDivineEntity)
 class CharacterDivineEntityAdmin(admin.ModelAdmin):
-    list_display = ("character", "entity", "entity_school", "entity_kind")
-    search_fields = ("character__name", "entity__name", "entity__slug")
-    list_filter = ("entity__entity_kind", "entity__school")
+    form = CharacterDivineEntityAdminForm
+    list_display = ("character", "display_name", "entity", "entity_school", "chosen_aspect_count", "has_custom_god_image")
+    search_fields = ("character__name", "entity__name", "entity__slug", "custom_name", "tradition_name")
+    list_filter = ("entity__aspect_selection_mode", "entity__is_customizable", "entity__school")
     ordering = ("character__name",)
     autocomplete_fields = ("character", "entity")
     list_select_related = ("character", "entity", "entity__school")
+    filter_horizontal = ("core_aspects",)
+    readonly_fields = ("custom_god_image_preview",)
+
+    fieldsets = (
+        (None, {
+            "fields": (
+                "character",
+                "entity",
+                "core_aspects",
+            )
+        }),
+        ("Persoenliche Auspraegung", {
+            "fields": (
+                "custom_name",
+                "tradition_name",
+                "custom_description",
+                "custom_god_image",
+                "custom_god_image_preview",
+            )
+        }),
+    )
+
+    @admin.display(description="Name")
+    def display_name(self, obj):
+        return obj.custom_name or obj.entity.name
+
+    @admin.display(description="Kernaspekte")
+    def chosen_aspect_count(self, obj):
+        return obj.core_aspects.count()
+
+    @admin.display(description="Eigenes Kartenbild")
+    def has_custom_god_image(self, obj):
+        return bool(obj.custom_god_image)
+
+    @admin.display(description="Kartenbildvorschau")
+    def custom_god_image_preview(self, obj):
+        if obj is None or not obj.custom_god_image:
+            return format_html('<span style="color:#666;">{}</span>', "-")
+
+        return format_html(
+            '<img src="{}" alt="{}" style="max-width:160px; max-height:220px; border-radius:8px; border:1px solid #ccc; background:#fff; padding:4px;" />',
+            obj.custom_god_image.url,
+            obj.custom_name or obj.entity.name,
+        )
 
     @admin.display(description="Schule")
     def entity_school(self, obj):
         return obj.entity.school
 
+
+@admin.register(CharacterDruidCult)
+class CharacterDruidCultAdmin(admin.ModelAdmin):
+    form = CharacterDruidCultAdminForm
+    list_display = ("character", "cult", "cult_school", "chosen_aspect_count")
+    search_fields = ("character__name", "cult__name", "cult__slug")
+    list_filter = ("cult__school",)
+    ordering = ("character__name",)
+    autocomplete_fields = ("character", "cult")
+    list_select_related = ("character", "cult", "cult__school")
+    filter_horizontal = ("core_aspects",)
+
+    @admin.display(description="Schule")
+    def cult_school(self, obj):
+        return obj.cult.school or "-"
+
+    @admin.display(description="Kernaspekte")
+    def chosen_aspect_count(self, obj):
+        return obj.core_aspects.count()
+
+
+@admin.register(CharacterShamanPatron)
+class CharacterShamanPatronAdmin(admin.ModelAdmin):
+    form = CharacterShamanPatronAdminForm
+    list_display = ("character", "patron", "patron_kind", "patron_school", "chosen_aspect_count")
+    search_fields = ("character__name", "patron__name", "patron__slug")
+    list_filter = ("patron__patron_kind", "patron__school")
+    ordering = ("character__name",)
+    autocomplete_fields = ("character", "patron")
+    list_select_related = ("character", "patron", "patron__school")
+    filter_horizontal = ("core_aspects",)
+
     @admin.display(description="Art")
-    def entity_kind(self, obj):
-        return obj.entity.get_entity_kind_display()
+    def patron_kind(self, obj):
+        return obj.patron.get_patron_kind_display()
+
+    @admin.display(description="Schule")
+    def patron_school(self, obj):
+        return obj.patron.school or "-"
+
+    @admin.display(description="Kernaspekte")
+    def chosen_aspect_count(self, obj):
+        return obj.core_aspects.count()
 
 
 @admin.register(CharacterSpell)

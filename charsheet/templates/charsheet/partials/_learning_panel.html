@@ -8,7 +8,7 @@
     </div>
   </div>
   <div class="payday-window__body sheet-window__body shop-window__body learn-window__body">
-    <form method="post" action="{% url 'apply_learning' character.id %}" id="learnForm" class="learn_form">
+    <form method="post" action="{% url 'apply_learning' character.id %}" id="learnForm" class="learn_form" data-sheet-action>
       {% csrf_token %}
       <div class="sheet-window__layout sheet-window__layout--split shop_window_layout learn_window_layout">
         <div class="learn_tabs" data-tabs>
@@ -497,6 +497,7 @@
                                 data-name="{{ row.name }}"
                                 data-base="{{ row.base_level }}"
                                 data-max="{{ row.max_level }}"
+                                data-remaining="{{ row.remaining_levels }}"
                                 data-cost-per-level="{{ row.cost_per_level }}"
                                 data-learn-search="{{ row.search_tokens }}"
                                 tabindex="0"

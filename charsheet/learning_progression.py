@@ -339,6 +339,27 @@ def build_learning_magic_groups(character, *, magic_engine=None) -> list[dict[st
             )
 
     bonus_aspects = engine.get_available_bonus_aspects()
+    existing_bonus_aspects = list(
+        character.aspect_entries.filter(is_bonus_aspect=True)
+        .select_related("aspect")
+        .order_by("aspect__name", "id")
+    )
+    for entry in existing_bonus_aspects:
+        school_level = int(bonus_aspects.get("school_level", 0) or 0)
+        remaining_levels = max(0, school_level - int(entry.level))
+        groups.setdefault("Aspekte", []).append(
+            {
+                "kind": "magic_aspect",
+                "aspect_id": entry.aspect_id,
+                "name": entry.aspect.name,
+                "base_level": int(entry.level),
+                "max_level": school_level,
+                "remaining_levels": remaining_levels,
+                "cost_per_level": 4,
+                "description": (entry.aspect.description or "").replace("\r\n", "\n").replace("\r", "\n"),
+                "search_tokens": f"{entry.aspect.name.lower()} aspekt klerikal magie bonus gekauft",
+            }
+        )
     for aspect in bonus_aspects["options"]:
         groups.setdefault("Aspekte", []).append(
             {
@@ -347,6 +368,7 @@ def build_learning_magic_groups(character, *, magic_engine=None) -> list[dict[st
                 "name": aspect.name,
                 "base_level": 0,
                 "max_level": int(bonus_aspects["school_level"]),
+                "remaining_levels": int(bonus_aspects["school_level"]),
                 "cost_per_level": 4,
                 "description": (aspect.description or "").replace("\r\n", "\n").replace("\r", "\n"),
                 "search_tokens": f"{aspect.name.lower()} aspekt klerikal magie",

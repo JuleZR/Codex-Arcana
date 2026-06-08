@@ -23,6 +23,7 @@ from charsheet.models import (
     CharacterAttribute,
     CharacterAspect,
     CharacterDivineEntity,
+    CharacterDruidCult,
     CharacterLanguage,
     CharacterRaceChoice,
     CharacterSchool,
@@ -37,6 +38,7 @@ from charsheet.models import (
     CharacterWeaponMastery,
     CharacterWeaponMasteryArcana,
     DivineEntity,
+    DruidCultAspect,
     Language,
     School,
     Spell,
@@ -374,7 +376,31 @@ def _reset_invalid_school_progression(character: Character) -> None:
     ).exclude(
         spell__school_id__in=learned_school_ids
     ).delete()
+    invalid_druid_bindings = CharacterDruidCult.objects.filter(character=character).exclude(
+        cult__school_id__in=learned_school_ids
+    )
+    invalid_druid_cult_ids = list(invalid_druid_bindings.values_list("cult_id", flat=True))
+    invalid_druid_aspect_ids = list(
+        DruidCultAspect.objects.filter(cult_id__in=invalid_druid_cult_ids).values_list("aspect_id", flat=True)
+    )
+    if invalid_druid_aspect_ids:
+        deleted_spell_count, _ = CharacterSpell.objects.filter(
+            character=character,
+            source_kind__in=(
+                CharacterSpell.SourceKind.DIVINE_EXTRA,
+                CharacterSpell.SourceKind.DIVINE_BONUS,
+            ),
+            spell__aspect_id__in=invalid_druid_aspect_ids,
+        ).delete()
+        if deleted_spell_count:
+            character.spent_spell_learning_slots = max(
+                0,
+                int(character.spent_spell_learning_slots or 0) - deleted_spell_count,
+            )
+            character.save(update_fields=["spent_spell_learning_slots"])
+    invalid_druid_bindings.delete()
     magic_engine = character.get_magic_engine(refresh=True)
+    magic_engine.sync_character_magic()
     school_level_map = magic_engine._school_level_map()
     for school_id in learned_school_ids:
         current_level = school_level_map.get(school_id, 0)
@@ -721,7 +747,10 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
     magic_spell_selection: set[int] = set()
     divine_arcane_spell_selection: dict[int, int] = {}
     legal_bonus_aspect_map = {
-        row["aspect_id"]: int(row["max_level"])
+        row["aspect_id"]: {
+            "base": int(row.get("base_level", 0) or 0),
+            "max": int(row.get("max_level", 0) or 0),
+        }
         for group in _build_learning_magic_groups(character)
         for row in group["rows"]
         if row["kind"] == "magic_aspect"
@@ -748,10 +777,15 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
         elif str(key).startswith("learn_magic_aspect_"):
             aspect_id = int(str(key).split("_")[-1])
             add = _read_int(post_data, key, 0)
-            if add <= 0:
+            if add == 0:
                 continue
-            max_level = int(legal_bonus_aspect_map.get(aspect_id, 0))
-            if max_level <= 0 or add > max_level:
+            limits = legal_bonus_aspect_map.get(aspect_id)
+            if limits is None:
+                return "error", "Ungueltige Aspekt-Auswahl."
+            base_level = int(limits["base"])
+            max_add = int(limits["max"]) - base_level
+            min_add = -base_level
+            if add < min_add or add > max_add:
                 return "error", "Ungueltige Aspekt-Auswahl."
             total_cost += add * 4
             magic_aspect_plan[aspect_id] = add
@@ -888,14 +922,30 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
                 aspect = Aspect.objects.filter(pk=aspect_id).first()
                 if aspect is None:
                     raise LearningSubmissionError("Aspekt nicht gefunden.")
-                aspect_entry = CharacterAspect(
+                aspect_entry = CharacterAspect.objects.filter(
                     character=character,
                     aspect=aspect,
-                    level=add,
                     is_bonus_aspect=True,
-                )
-                aspect_entry.full_clean()
-                aspect_entry.save()
+                ).first()
+                if aspect_entry is None:
+                    if add < 1:
+                        raise LearningSubmissionError("Ungueltige Aspekt-Auswahl.")
+                    aspect_entry = CharacterAspect(
+                        character=character,
+                        aspect=aspect,
+                        level=add,
+                        is_bonus_aspect=True,
+                    )
+                    aspect_entry.full_clean()
+                    aspect_entry.save()
+                    continue
+                target_level = int(aspect_entry.level) + int(add)
+                if target_level <= 0:
+                    aspect_entry.delete()
+                else:
+                    aspect_entry.level = target_level
+                    aspect_entry.full_clean()
+                    aspect_entry.save(update_fields=["level"])
 
             character.get_engine(refresh=True)
             magic_engine = character.get_magic_engine(refresh=True)

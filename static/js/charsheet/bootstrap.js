@@ -8,14 +8,14 @@ import { initItemForm } from "./item_form.js";
 import { initSkillSpecModal } from "./skill_spec_modal.js";
 import { initTechniqueSpecModal } from "./technique_spec_modal.js";
 import { initShopMenu } from "./shop_menu.js";
-import { initLearningMenu } from "./learning_menu.js";
+import { initLearningMenu } from "./learning_menu.js?v=20260608a";
 import { initTooltips } from "./tooltip.js";
 import { initWalletTooltip } from "./wallet_tooltip.js";
 import { initInventoryMenu } from "./inventory_menu.js";
 import { initDamagePanel } from "./damage_panel.js";
 import { initSpellPanel } from "./spell_panel.js";
 import { initCharInfoCounter } from "./char_info_counter.js";
-import { initSheetActions } from "./sheet_actions.js";
+import { initSheetActions } from "./sheet_actions.js?v=20260608a";
 import { initSchoolsPanel, initWmArcanaFilter } from "./schools_panel.js";
 import { initMobileHud } from "./mobile_hud.js";
 import { initSkillManager } from "./skill_manager.js";
@@ -26,7 +26,7 @@ import { initContextRadialMenu } from "./context_radial_menu.js";
 import { initRadialMenuGem } from "./radial_menu_gem.js";
 import { initCharacterAppearanceModal } from "./character_appearance_modal.js";
 import { initCardHand } from "./card_hand.js?v=20260602k";
-import { initGodCards } from "./god_card.js?v=20260602c";
+import { initGodCards } from "./god_card.js?v=20260607i";
 
 function initCharacterImageEditorSafely() {
   import("./character_image_editor.js?v=20260527c")
@@ -81,6 +81,7 @@ onReady(() => {
     initTabs();
     initStandardFloatingWindows();
     initDamagePanel();
+    initLearningMenu({ choiceWindowController: windowControllers?.learnChoice || null });
     initSpellPanel();
     initCharInfoCounter();
     initSchoolsPanel();

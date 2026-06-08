@@ -25,6 +25,8 @@ from .learning_progression import weapon_mastery_weapon_type_definitions
 from .models import (
     Character,
     CharacterDiaryEntry,
+    CharacterAspect,
+    CharacterDruidCult,
     CharacterItem,
     CharacterItemRuneSpec,
     CharacterLanguage,
@@ -34,7 +36,11 @@ from .models import (
     CharacterCreationDraft,
     CharacterCreature,
     Creature,
+    Aspect,
+    CharacterDivineEntity,
     DivineEntity,
+    DruidCult,
+    DruidCultAspect,
     Item,
     Language,
     Rune,
@@ -403,6 +409,104 @@ def _character_dashboard_state(character: Character) -> dict[str, str]:
     }
 
 
+def _divine_card_can_edit(binding: CharacterDivineEntity) -> bool:
+    return bool(binding.entity_id and binding.entity.is_customizable)
+
+
+def _allowed_divine_card_aspect_ids(binding: CharacterDivineEntity) -> set[int]:
+    entity = binding.entity
+    if entity.aspect_selection_mode == DivineEntity.AspectSelectionMode.CHOOSE_FROM_ENTITY:
+        return set(
+            entity.aspects.filter(aspect_id__isnull=False).values_list("aspect_id", flat=True)
+        )
+    if entity.aspect_selection_mode == DivineEntity.AspectSelectionMode.FREE:
+        return set(Aspect.objects.values_list("id", flat=True))
+    return set()
+
+
+@login_required
+@require_POST
+def update_divine_card(request, character_id: int):
+    character = get_object_or_404(Character, pk=character_id, owner=request.user)
+    binding = get_object_or_404(
+        CharacterDivineEntity.objects.select_related("entity", "entity__school", "character"),
+        character=character,
+    )
+    if not _divine_card_can_edit(binding):
+        return JsonResponse({"ok": False, "error": "card_not_editable"}, status=403)
+
+    entity = binding.entity
+    if request.POST.get("action") == "choose_aspect":
+        if entity.aspect_selection_mode == DivineEntity.AspectSelectionMode.FIXED:
+            return JsonResponse({"ok": False, "error": "aspects_not_editable"}, status=403)
+        allowed_ids = _allowed_divine_card_aspect_ids(binding)
+        selected_aspect_ids: list[int] = []
+        for raw_id in request.POST.getlist("core_aspects"):
+            try:
+                aspect_id = int(raw_id)
+            except (TypeError, ValueError):
+                continue
+            if aspect_id in allowed_ids and aspect_id not in selected_aspect_ids:
+                selected_aspect_ids.append(aspect_id)
+        selected_aspect_ids = selected_aspect_ids[: int(entity.starting_aspect_count)]
+        with transaction.atomic():
+            binding.core_aspects.set(selected_aspect_ids)
+        context = _build_sheet_context_for_request(request, character)
+        card_html = render_to_string(
+            "charsheet/partials/_god_card.html",
+            {
+                **context,
+                "divine_entity": context["selected_divine_entity"],
+                "card_aspects": context["selected_divine_card_aspects"],
+            },
+            request=request,
+        )
+        return JsonResponse({"ok": True, "cardHtml": card_html})
+
+    binding.custom_name = str(request.POST.get("custom_name", ""))[:160].strip()
+    binding.tradition_name = str(request.POST.get("tradition_name", ""))[:160].strip()
+    binding.custom_g_ability = str(request.POST.get("custom_g_ability", binding.custom_g_ability)).strip()
+    binding.custom_fluff = str(request.POST.get("custom_fluff", binding.custom_fluff)).strip()
+    binding.custom_description = str(request.POST.get("custom_description", binding.custom_description)).strip()
+    if request.POST.get("remove_custom_god_image") == "1":
+        if binding.custom_god_image:
+            binding.custom_god_image.delete(save=False)
+        binding.custom_god_image = None
+    if request.FILES.get("custom_god_image"):
+        binding.custom_god_image = request.FILES["custom_god_image"]
+
+    selected_aspect_ids: list[int] = []
+    should_update_aspects = "core_aspects" in request.POST
+    if should_update_aspects and entity.aspect_selection_mode != DivineEntity.AspectSelectionMode.FIXED:
+        allowed_ids = _allowed_divine_card_aspect_ids(binding)
+        for raw_id in request.POST.getlist("core_aspects"):
+            try:
+                aspect_id = int(raw_id)
+            except (TypeError, ValueError):
+                continue
+            if aspect_id in allowed_ids and aspect_id not in selected_aspect_ids:
+                selected_aspect_ids.append(aspect_id)
+        selected_aspect_ids = selected_aspect_ids[: int(entity.starting_aspect_count)]
+
+    with transaction.atomic():
+        binding.full_clean()
+        binding.save()
+        if should_update_aspects and entity.aspect_selection_mode != DivineEntity.AspectSelectionMode.FIXED:
+            binding.core_aspects.set(selected_aspect_ids)
+
+    context = _build_sheet_context_for_request(request, character)
+    card_html = render_to_string(
+        "charsheet/partials/_god_card.html",
+        {
+            **context,
+            "divine_entity": context["selected_divine_entity"],
+            "card_aspects": context["selected_divine_card_aspects"],
+        },
+        request=request,
+    )
+    return JsonResponse({"ok": True, "cardHtml": card_html})
+
+
 @login_required
 def character_sheet(request, character_id: int):
     """Render the complete character sheet view for one character."""
@@ -715,6 +819,82 @@ def update_technique_specification(request, character_id: int, technique_id: int
         messages.success(request, f"{technique.name} wurde aktualisiert.")
     else:
         messages.error(request, "Die Technik-Spezifikation konnte nicht gespeichert werden.")
+    return redirect("character_sheet", character_id=character.id)
+
+
+def _reset_druid_cult_slot_progress(character: Character, cult_ids: list[int]) -> int:
+    """Remove paid aspect progress learned through a removed or replaced druid circle."""
+    aspect_ids = set()
+    if cult_ids:
+        aspect_ids.update(
+            DruidCultAspect.objects.filter(cult_id__in=cult_ids).values_list("aspect_id", flat=True)
+        )
+    bonus_aspect_ids = set(
+        CharacterAspect.objects.filter(character=character, is_bonus_aspect=True).values_list("aspect_id", flat=True)
+    )
+    aspect_ids.update(bonus_aspect_ids)
+    if not aspect_ids:
+        return 0
+    deleted_count, _ = CharacterSpell.objects.filter(
+        character=character,
+        source_kind__in=(
+            CharacterSpell.SourceKind.DIVINE_EXTRA,
+            CharacterSpell.SourceKind.DIVINE_BONUS,
+        ),
+        spell__aspect_id__in=list(aspect_ids),
+    ).delete()
+    CharacterAspect.objects.filter(
+        character=character,
+        is_bonus_aspect=True,
+        aspect_id__in=list(bonus_aspect_ids),
+    ).delete()
+    if deleted_count:
+        character.spent_spell_learning_slots = max(
+            0,
+            int(character.spent_spell_learning_slots or 0) - deleted_count,
+        )
+        character.save(update_fields=["spent_spell_learning_slots"])
+    return int(deleted_count)
+
+
+@login_required
+@require_POST
+def update_druid_cult(request, character_id: int):
+    """Persist the druid circle selected from the learned school panel."""
+    character = _owned_character_or_404(request, character_id)
+    try:
+        school_id = int(request.POST.get("school_id", "0"))
+    except (TypeError, ValueError):
+        school_id = 0
+    if school_id <= 0 or not character.schools.filter(school_id=school_id, level__gt=0).exists():
+        messages.error(request, "Druidenzirkel konnte nicht gespeichert werden.")
+        return redirect("character_sheet", character_id=character.id)
+
+    raw_cult_id = str(request.POST.get("druid_cult", "")).strip()
+    current_binding = CharacterDruidCult.objects.filter(character=character).select_related("cult").first()
+    if not raw_cult_id:
+        if current_binding is not None and int(current_binding.cult.school_id or 0) == school_id:
+            _reset_druid_cult_slot_progress(character, [current_binding.cult_id])
+            current_binding.delete()
+            character.get_magic_engine(refresh=True).sync_character_magic()
+            messages.success(request, "Druidenzirkel entfernt.")
+        else:
+            messages.info(request, "Keine Aenderung erkannt.")
+        return redirect("character_sheet", character_id=character.id)
+
+    cult = DruidCult.objects.filter(pk=raw_cult_id, school_id=school_id).first()
+    if cult is None:
+        messages.error(request, "Druidenzirkel passt nicht zu dieser Schule.")
+        return redirect("character_sheet", character_id=character.id)
+
+    if current_binding is not None and int(current_binding.cult_id) != int(cult.id):
+        _reset_druid_cult_slot_progress(character, [current_binding.cult_id])
+    CharacterDruidCult.objects.update_or_create(
+        character=character,
+        defaults={"cult": cult},
+    )
+    character.get_magic_engine(refresh=True).sync_character_magic()
+    messages.success(request, "Druidenzirkel gespeichert.")
     return redirect("character_sheet", character_id=character.id)
 
 
@@ -1781,7 +1961,43 @@ def apply_learning(request, character_id: int):
     character = _owned_character_or_404(request, character_id)
 
     level, message = process_learning_submission(character, request.POST)
-    request.session["close_learn_window_once"] = True
+    if _is_partial_request(request):
+        context = _build_sheet_context_for_request(request, character, skip_magic_sync=True)
+        partials = []
+        for key in (
+            "character_header",
+            "load_panel",
+            "core_stats_panel",
+            "damage_panel",
+            "wallet_panel",
+            "experience_panel",
+            "inventory_panel",
+            "armor_panel",
+            "weapon_panel",
+            "spell_panel",
+            "learning_budget",
+        ):
+            target_id, template_name = SHEET_PARTIAL_TEMPLATES[key]
+            partials.append(
+                {
+                    "target": target_id,
+                    "html": render_to_string(template_name, context, request=request),
+                }
+            )
+        return JsonResponse(
+            {
+                "ok": True,
+                "level": level,
+                "message": message,
+                "learningFeedback": {"level": level, "message": message},
+                "learningPanelHtml": (
+                    render_to_string("charsheet/partials/_learning_panel.html", context, request=request)
+                    if level != "error"
+                    else ""
+                ),
+                "partials": partials,
+            }
+        )
     request.session["skip_magic_sync_once"] = True
     if level == "error":
         messages.error(request, message)

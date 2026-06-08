@@ -1293,10 +1293,10 @@ class Aspect(models.Model):
 
 
 class DivineEntity(models.Model):
-    class EntityKind(models.TextChoices):
-        GOD = "god", "God"
-        ANCESTOR = "ancestor", "Ancestor Spirit"
-        TOTEM = "totem", "Totem / Power Animal"
+    class AspectSelectionMode(models.TextChoices):
+        FIXED = "fixed", "Fixed aspects"
+        CHOOSE_FROM_ENTITY = "choose_from_entity", "Choose from entity aspects"
+        FREE = "free", "Free aspect choice"
 
     name = models.CharField(max_length=120, unique=True)
     slug = models.SlugField(max_length=120, unique=True)
@@ -1310,7 +1310,23 @@ class DivineEntity(models.Model):
         help_text="The divine school through which this entity is worshipped.",
     )
 
-    entity_kind = models.CharField(max_length=20, choices=EntityKind.choices)
+    aspect_selection_mode = models.CharField(
+        max_length=24,
+        choices=AspectSelectionMode.choices,
+        default=AspectSelectionMode.FIXED,
+        help_text=(
+            "Controls whether character bindings use the entity's fixed aspects "
+            "or may choose individual core aspects."
+        ),
+    )
+    starting_aspect_count = models.PositiveSmallIntegerField(
+        default=2,
+        help_text="How many core aspects this entity grants or lets the character choose.",
+    )
+    is_customizable = models.BooleanField(
+        default=False,
+        help_text="If enabled, character bindings may customize the divine card on the sheet.",
+    )
 
     divine_function = models.TextField(blank=True, default="")
     vow = models.TextField(blank=True, default="")
@@ -1350,6 +1366,119 @@ class DivineEntity(models.Model):
         return self.name
 
 
+class DruidCult(models.Model):
+    """A druidic circle independent from divine worship."""
+
+    name = models.CharField(max_length=120, unique=True)
+    slug = models.SlugField(max_length=120, unique=True)
+    card_name = models.CharField(max_length=160, blank=True, default="")
+    school = models.ForeignKey(
+        School,
+        on_delete=models.PROTECT,
+        related_name="druid_cults",
+        blank=True,
+        null=True,
+        help_text="Optional druidic school this circle belongs to.",
+    )
+    is_customizable = models.BooleanField(
+        default=False,
+        help_text="If enabled, character bindings may customize the druid circle card on the sheet.",
+    )
+    aspect_selection_mode = models.CharField(
+        max_length=24,
+        choices=DivineEntity.AspectSelectionMode.choices,
+        default=DivineEntity.AspectSelectionMode.FIXED,
+        help_text=(
+            "Controls whether character bindings use the circle's fixed aspects "
+            "or may choose individual core aspects."
+        ),
+    )
+    starting_aspect_count = models.PositiveSmallIntegerField(
+        default=2,
+        help_text="How many core aspects this circle grants or lets the character choose.",
+    )
+    description = models.TextField(blank=True, default="")
+    g_ability = models.TextField(blank=True, default="")
+    fluff = models.TextField(blank=True, default="")
+    symbol_image = models.ImageField(
+        upload_to="druid_cults/",
+        blank=True,
+        null=True,
+        help_text="Optionales Symbolbild fuer diesen Druidenzirkel.",
+    )
+    god_image = models.ImageField(
+        upload_to="druid_cults/",
+        blank=True,
+        null=True,
+        help_text="Optionales Kartenbild fuer diesen Druidenzirkel.",
+    )
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
+class ShamanPatron(models.Model):
+    """A shamanic totem or ancestor spirit independent from divine worship."""
+
+    class PatronKind(models.TextChoices):
+        TOTEM = "totem", "Totem"
+        ANCESTOR_SPIRIT = "ancestor_spirit", "Ancestor Spirit"
+
+    name = models.CharField(max_length=120, unique=True)
+    slug = models.SlugField(max_length=120, unique=True)
+    patron_kind = models.CharField(max_length=24, choices=PatronKind.choices)
+    card_name = models.CharField(max_length=160, blank=True, default="")
+    school = models.ForeignKey(
+        School,
+        on_delete=models.PROTECT,
+        related_name="shaman_patrons",
+        blank=True,
+        null=True,
+        help_text="Optional shamanic school this patron belongs to.",
+    )
+    is_customizable = models.BooleanField(
+        default=False,
+        help_text="If enabled, character bindings may customize the shaman patron card on the sheet.",
+    )
+    aspect_selection_mode = models.CharField(
+        max_length=24,
+        choices=DivineEntity.AspectSelectionMode.choices,
+        default=DivineEntity.AspectSelectionMode.FIXED,
+        help_text=(
+            "Controls whether character bindings use the patron's fixed aspects "
+            "or may choose individual core aspects."
+        ),
+    )
+    starting_aspect_count = models.PositiveSmallIntegerField(
+        default=2,
+        help_text="How many core aspects this patron grants or lets the character choose.",
+    )
+    description = models.TextField(blank=True, default="")
+    g_ability = models.TextField(blank=True, default="")
+    fluff = models.TextField(blank=True, default="")
+    symbol_image = models.ImageField(
+        upload_to="shaman_patrons/",
+        blank=True,
+        null=True,
+        help_text="Optionales Symbolbild fuer dieses Totem oder diesen Ahnengeist.",
+    )
+    god_image = models.ImageField(
+        upload_to="shaman_patrons/",
+        blank=True,
+        null=True,
+        help_text="Optionales Kartenbild fuer dieses Totem oder diesen Ahnengeist.",
+    )
+
+    class Meta:
+        ordering = ["patron_kind", "name"]
+
+    def __str__(self):
+        return f"{self.get_patron_kind_display()}: {self.name}"
+
+
 class DivineEntityAspect(models.Model):
     entity = models.ForeignKey(
         DivineEntity,
@@ -1379,6 +1508,64 @@ class DivineEntityAspect(models.Model):
         return f"{self.entity.name}: {self.aspect.name}"
 
 
+class DruidCultAspect(models.Model):
+    cult = models.ForeignKey(
+        DruidCult,
+        on_delete=models.CASCADE,
+        related_name="aspects",
+    )
+    aspect = models.ForeignKey(
+        Aspect,
+        on_delete=models.CASCADE,
+        related_name="druid_cults",
+    )
+    is_starting_aspect = models.BooleanField(
+        default=True,
+        help_text="Marks one of the default aspects granted by the druid circle.",
+    )
+
+    class Meta:
+        ordering = ["cult__name", "aspect__name"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["cult", "aspect"],
+                name="uniq_druid_cult_aspect",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.cult.name}: {self.aspect.name}"
+
+
+class ShamanPatronAspect(models.Model):
+    patron = models.ForeignKey(
+        ShamanPatron,
+        on_delete=models.CASCADE,
+        related_name="aspects",
+    )
+    aspect = models.ForeignKey(
+        Aspect,
+        on_delete=models.CASCADE,
+        related_name="shaman_patrons",
+    )
+    is_starting_aspect = models.BooleanField(
+        default=True,
+        help_text="Marks one of the default aspects granted by the shaman patron.",
+    )
+
+    class Meta:
+        ordering = ["patron__name", "aspect__name"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["patron", "aspect"],
+                name="uniq_shaman_patron_aspect",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.patron.name}: {self.aspect.name}"
+
+
 class CharacterAspect(models.Model):
     character = models.ForeignKey(
         "Character",
@@ -1398,6 +1585,26 @@ class CharacterAspect(models.Model):
         null=True,
         blank=True,
         related_name="granted_character_aspects",
+    )
+    source_binding = models.ForeignKey(
+        "CharacterDivineEntity",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="chosen_aspects",
+        help_text="Character-specific divine or spirit binding that chose this aspect.",
+    )
+    source_school = models.ForeignKey(
+        School,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="granted_character_aspects",
+        help_text="School whose level drives this aspect, if it tracks a school.",
+    )
+    tracks_school_level = models.BooleanField(
+        default=False,
+        help_text="If enabled, the aspect level is synchronized to source_school.",
     )
     is_bonus_aspect = models.BooleanField(
         default=False,
@@ -1427,6 +1634,44 @@ class CharacterAspect(models.Model):
                     {"source_entity": "The character does not know the school of the granting entity."}
                 )
 
+        if self.source_binding_id:
+            if self.character_id and self.source_binding.character_id != self.character_id:
+                raise ValidationError({"source_binding": "The binding must belong to this character."})
+            if self.source_binding.entity.aspect_selection_mode == DivineEntity.AspectSelectionMode.FIXED:
+                raise ValidationError({"source_binding": "This entity uses fixed aspects and cannot choose character aspects."})
+            if (
+                self.source_binding.entity.aspect_selection_mode == DivineEntity.AspectSelectionMode.CHOOSE_FROM_ENTITY
+                and not DivineEntityAspect.objects.filter(
+                    entity_id=self.source_binding.entity_id,
+                    aspect_id=self.aspect_id,
+                ).exists()
+            ):
+                raise ValidationError({"aspect": "This aspect is not available from the selected entity."})
+            if self.source_entity_id and self.source_binding.entity_id != self.source_entity_id:
+                raise ValidationError({"source_entity": "The source entity must match the source binding."})
+            if self.source_school_id and self.source_binding.entity.school_id != self.source_school_id:
+                raise ValidationError({"source_school": "The source school must match the binding's entity school."})
+            allowed_count = int(self.source_binding.entity.starting_aspect_count or 0)
+            if allowed_count > 0:
+                existing_count = CharacterAspect.objects.exclude(pk=self.pk).filter(
+                    source_binding_id=self.source_binding_id,
+                    is_bonus_aspect=False,
+                ).count()
+                if existing_count >= allowed_count:
+                    raise ValidationError(
+                        {"source_binding": f"This binding can choose at most {allowed_count} core aspects."}
+                    )
+
+        if self.tracks_school_level and self.source_school_id is None:
+            raise ValidationError({"source_school": "School-tracked aspects require a source school."})
+
+        if self.character_id and self.source_school_id:
+            if not CharacterSchool.objects.filter(
+                character_id=self.character_id,
+                school_id=self.source_school_id,
+            ).exists():
+                raise ValidationError({"source_school": "The character does not know the source school."})
+
         if self.character_id and self.aspect_id:
             opposite = self.aspect.opposite_id
             if opposite and CharacterAspect.objects.exclude(pk=self.pk).filter(
@@ -1451,6 +1696,45 @@ class CharacterDivineEntity(models.Model):
         DivineEntity,
         on_delete=models.PROTECT,
         related_name="followers",
+    )
+    core_aspects = models.ManyToManyField(
+        Aspect,
+        blank=True,
+        related_name="character_divine_bindings",
+        help_text="Character-specific core aspects, used by flexible spirit bindings such as shamanism.",
+    )
+    custom_name = models.CharField(
+        max_length=160,
+        blank=True,
+        default="",
+        help_text="Personal name of this character's spirit or manifestation.",
+    )
+    custom_description = models.TextField(
+        blank=True,
+        default="",
+        help_text="Character-specific description, taboo, form, or tradition notes.",
+    )
+    custom_g_ability = models.TextField(
+        blank=True,
+        default="",
+        help_text="Character-specific rules text for the personal divine card.",
+    )
+    custom_fluff = models.TextField(
+        blank=True,
+        default="",
+        help_text="Character-specific flavor quote for the personal divine card.",
+    )
+    custom_god_image = models.ImageField(
+        upload_to="character_divine_entities/",
+        blank=True,
+        null=True,
+        help_text="Character-specific card image for this divine entity or spirit.",
+    )
+    tradition_name = models.CharField(
+        max_length=160,
+        blank=True,
+        default="",
+        help_text="Optional cult, tribe, lineage, or local tradition name.",
     )
 
     class Meta:
@@ -1479,9 +1763,76 @@ class CharacterDivineEntity(models.Model):
             raise ValidationError(
                 {"entity": "A character with a clerical school must worship an entity of that school."}
             )
+        if self.custom_name and not self.entity.is_customizable:
+            raise ValidationError({"custom_name": "This entity does not allow a character-specific name."})
+        if self.custom_description and not self.entity.is_customizable:
+            raise ValidationError({"custom_description": "This entity does not allow a character-specific description."})
+        if self.custom_god_image and not self.entity.is_customizable:
+            raise ValidationError({"custom_god_image": "This entity does not allow a character-specific card image."})
 
     def __str__(self):
-        return f"{self.character.name} -> {self.entity.name}"
+        name = self.custom_name or self.entity.name
+        return f"{self.character.name} -> {name}"
+
+
+class CharacterDruidCult(models.Model):
+    character = models.OneToOneField(
+        "Character",
+        on_delete=models.CASCADE,
+        related_name="druid_cult_binding",
+    )
+    cult = models.ForeignKey(
+        DruidCult,
+        on_delete=models.PROTECT,
+        related_name="members",
+    )
+    core_aspects = models.ManyToManyField(
+        Aspect,
+        blank=True,
+        related_name="character_druid_cult_bindings",
+        help_text="Character-specific core aspects chosen from this druid circle.",
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["character"],
+                name="uniq_character_druid_cult",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.character.name} -> {self.cult.name}"
+
+
+class CharacterShamanPatron(models.Model):
+    character = models.OneToOneField(
+        "Character",
+        on_delete=models.CASCADE,
+        related_name="shaman_patron_binding",
+    )
+    patron = models.ForeignKey(
+        ShamanPatron,
+        on_delete=models.PROTECT,
+        related_name="members",
+    )
+    core_aspects = models.ManyToManyField(
+        Aspect,
+        blank=True,
+        related_name="character_shaman_patron_bindings",
+        help_text="Character-specific core aspects chosen from this shaman patron.",
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["character"],
+                name="uniq_character_shaman_patron",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.character.name} -> {self.patron.name}"
 
 
 class CharacterSpellSource(models.Model):

@@ -41,6 +41,20 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
     return cost;
   };
 
+  const selectedMagicAspectLevels = (exceptRow = null) => {
+    let total = 0;
+    cartBody.querySelectorAll('[data-learn-cart-item][data-kind="magic-aspect"]').forEach((cartRow) => {
+      if (cartRow === exceptRow) {
+        return;
+      }
+      const input = cartRow.querySelector("[data-learn-value]");
+      if (input instanceof HTMLInputElement) {
+        total += Math.max(0, readInt(input.value, 0));
+      }
+    });
+    return total;
+  };
+
   const syncRow = (row) => {
     const kind = row.getAttribute("data-kind") || "";
     const valueInput = row.querySelector("[data-learn-value]");
@@ -171,10 +185,11 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
       const base = readInt(row.getAttribute("data-base"), 0);
       const minAdd = -base;
       const max = readInt(row.getAttribute("data-max"), base);
-      const maxAdd = Math.max(0, max - base);
+      const remaining = readInt(row.getAttribute("data-remaining"), max);
+      const maxAdd = Math.max(0, Math.min(max - base, remaining - selectedMagicAspectLevels(row)));
       const hidden = row.querySelector("[data-learn-hidden]");
       value = clamp(value, minAdd, maxAdd);
-      cost = Math.max(0, value) * readInt(row.getAttribute("data-cost-per-level"), 4);
+      cost = value * readInt(row.getAttribute("data-cost-per-level"), 4);
       if (hidden instanceof HTMLInputElement) {
         hidden.value = String(value);
       }
@@ -646,14 +661,16 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
       const base = readInt(source.getAttribute("data-base"), 0);
       const minAdd = -base;
       const max = readInt(source.getAttribute("data-max"), base);
-      const maxAdd = Math.max(0, max - base);
+      const remaining = readInt(source.getAttribute("data-remaining"), max);
+      const maxAdd = Math.max(0, Math.min(max - base, remaining - selectedMagicAspectLevels()));
       const costPerLevel = readInt(source.getAttribute("data-cost-per-level"), 4);
       if (maxAdd < 1 && minAdd === 0) {
         return null;
       }
-      const startAdd = maxAdd > 0 ? 1 : 0;
+      const startAdd = maxAdd > 0 ? 1 : Math.max(minAdd, -1);
       row.setAttribute("data-base", String(base));
       row.setAttribute("data-max", String(max));
+      row.setAttribute("data-remaining", String(remaining));
       row.setAttribute("data-cost-per-level", String(costPerLevel));
       row.innerHTML = `
         <td><span>${safeName}</span> <span data-learn-level-info>(${base + startAdd})</span><input type="hidden" name="learn_magic_aspect_${aspectId}" value="${startAdd}" data-learn-hidden></td>
@@ -718,7 +735,13 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
 
   refreshTotals();
 
-  return { refreshTotals };
+  const clearCart = () => {
+    getRows().forEach((row) => row.remove());
+    ensureEmptyRow();
+    refreshTotals();
+  };
+
+  return { clearCart, refreshTotals };
 }
 
 export function initLearningMenu({ choiceWindowController = null } = {}) {
@@ -788,6 +811,15 @@ export function initLearningMenu({ choiceWindowController = null } = {}) {
   });
   document.addEventListener("learn:choices-updated", syncPendingNotice);
   syncPendingNotice();
+
+  form.addEventListener("learn:applied", (event) => {
+    const level = String(event.detail?.level || "");
+    if (level !== "error") {
+      cartController.clearCart();
+    } else {
+      cartController.refreshTotals();
+    }
+  });
 
   const sourceFilterMenu = document.querySelector("[data-learn-magic-source-filter-menu]");
   const sourceFilterTrigger = document.querySelector("[data-learn-magic-source-filter-trigger]");

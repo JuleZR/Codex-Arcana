@@ -53,10 +53,13 @@ from charsheet.religion_rules import is_clerical_school, selected_divine_entity
 from charsheet.models import (
     Aspect,
     Character,
+    CharacterAspect,
+    CharacterDruidCult,
     CharacterItem,
     CharacterSkill,
     CharacterWeaponMasteryArcana,
     DivineEntityAspect,
+    DruidCult,
     ItemRune,
     CharacterLanguage,
     CharacterSpell,
@@ -2519,6 +2522,7 @@ def _build_school_technique_rows(character: Character, engine) -> tuple[list[dic
 def _group_school_technique_rows(
     school_technique_rows: list[dict],
     school_levels: dict[int, int],
+    character: Character,
 ) -> tuple[list[dict], list[dict]]:
     """Split rows into race rows (flat) and school groups (collapsible).
 
@@ -2527,6 +2531,28 @@ def _group_school_technique_rows(
     """
     race_rows: list[dict] = []
     groups: OrderedDict[str, dict] = OrderedDict()
+    druid_options_by_school_id: dict[int, list[DruidCult]] = {}
+    if school_levels:
+        for cult in DruidCult.objects.filter(school_id__in=school_levels.keys()).order_by("name"):
+            druid_options_by_school_id.setdefault(int(cult.school_id), []).append(cult)
+    druid_binding = (
+        CharacterDruidCult.objects.filter(character=character)
+        .select_related("cult", "cult__school")
+        .first()
+    )
+    selected_druid_cult_id = int(druid_binding.cult_id) if druid_binding is not None else None
+    selected_druid_cult_name = str(druid_binding.cult.name) if druid_binding is not None else ""
+    druid_cult_reset_warning = bool(selected_druid_cult_id) and (
+        CharacterAspect.objects.filter(character=character, is_bonus_aspect=True).exists()
+        or CharacterSpell.objects.filter(
+            character=character,
+            source_kind__in=(
+                CharacterSpell.SourceKind.DIVINE_EXTRA,
+                CharacterSpell.SourceKind.DIVINE_BONUS,
+            ),
+            spell__aspect_id__isnull=False,
+        ).exists()
+    )
 
     for row in school_technique_rows:
         if row["kind"] == "race_technique":
@@ -2538,14 +2564,52 @@ def _group_school_technique_rows(
             school_id = row.get("school_id")
             current_level = school_levels.get(school_id, 0) if school_id else 0
             groups[school_name] = {
+                "school_id": school_id,
                 "school_name": school_name,
                 "symbol": str(row.get("school_symbol") or "").strip(),
                 "symbol_image_url": str(row.get("school_symbol_image_url") or "").strip(),
                 "max_level": current_level,
                 "max_level_label": _to_roman(current_level) if current_level else "",
+                "druid_cult_options": druid_options_by_school_id.get(int(school_id or 0), []),
+                "selected_druid_cult_id": selected_druid_cult_id,
+                "selected_druid_cult_name": (
+                    selected_druid_cult_name
+                    if selected_druid_cult_id
+                    and any(cult.id == selected_druid_cult_id for cult in druid_options_by_school_id.get(int(school_id or 0), []))
+                    else ""
+                ),
+                "druid_cult_reset_warning": druid_cult_reset_warning,
                 "rows": [],
             }
         groups[school_name]["rows"].append(row)
+
+    grouped_school_ids = {
+        int(group["school_id"])
+        for group in groups.values()
+        if group.get("school_id")
+    }
+    missing_school_ids = [school_id for school_id in school_levels if int(school_id) not in grouped_school_ids]
+    if missing_school_ids:
+        for school in School.objects.filter(pk__in=missing_school_ids).order_by("type__name", "name"):
+            current_level = int(school_levels.get(school.id, 0) or 0)
+            groups[school.name] = {
+                "school_id": school.id,
+                "school_name": school.name,
+                "symbol": str(getattr(school, "panel_symbol", "") or "").strip(),
+                "symbol_image_url": _school_symbol_image_url(school),
+                "max_level": current_level,
+                "max_level_label": _to_roman(current_level) if current_level else "",
+                "druid_cult_options": druid_options_by_school_id.get(int(school.id), []),
+                "selected_druid_cult_id": selected_druid_cult_id,
+                "selected_druid_cult_name": (
+                    selected_druid_cult_name
+                    if selected_druid_cult_id
+                    and any(cult.id == selected_druid_cult_id for cult in druid_options_by_school_id.get(int(school.id), []))
+                    else ""
+                ),
+                "druid_cult_reset_warning": druid_cult_reset_warning,
+                "rows": [],
+            }
 
     return race_rows, list(groups.values())
 
@@ -3079,7 +3143,11 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
     battle_calculator_payload = BattleCalculatorEngine.build_payload(engine, skill_rows, weapon_rows)
     armor_rows = _build_armor_rows(engine)
     school_technique_rows, school_levels = _build_school_technique_rows(character, engine)
-    school_race_rows, school_technique_groups = _group_school_technique_rows(school_technique_rows, school_levels)
+    school_race_rows, school_technique_groups = _group_school_technique_rows(
+        school_technique_rows,
+        school_levels,
+        character,
+    )
     language_rows, language_entries = _build_language_rows(character)
     weapon_mastery_arcana_panel = _build_weapon_mastery_arcana_panel(engine)
 
@@ -3193,14 +3261,93 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
     spell_panel_data = magic_engine.get_spell_panel_data()
     divine_binding = magic_engine._divine_binding()
     divine_entity = divine_binding.entity if divine_binding is not None else None
+    druid_binding = (
+        CharacterDruidCult.objects.filter(character=character)
+        .select_related("cult", "cult__school")
+        .prefetch_related("cult__aspects", "cult__aspects__aspect")
+        .first()
+    )
+    druid_cult = druid_binding.cult if druid_binding is not None else None
     divine_symbol_url = ""
+    divine_card_image_url = ""
+    divine_card_title = ""
+    divine_card_kind_label = ""
+    divine_card_typebar = ""
+    divine_card_ability = ""
+    divine_card_fluff = ""
     divine_card_aspects = []
+    divine_card_show_aspect_placeholder = False
+    divine_card_aspect_placeholders = []
+    divine_card_editable = False
+    divine_card_update_url = ""
+    divine_card_aspect_options = []
+    divine_card_storage_key = ""
+    druid_card_image_url = ""
+    druid_card_title = ""
+    druid_card_kind_label = ""
+    druid_card_typebar = ""
+    druid_card_ability = ""
+    druid_card_fluff = ""
+    druid_card_aspects = []
+    druid_card_storage_key = ""
     if divine_entity is not None and divine_entity.symbol_image:
         divine_symbol_url = divine_entity.symbol_image.url
     if divine_entity is not None:
+        divine_card_storage_key = f"god.{divine_entity.pk}"
+        divine_card_kind_label = "Gottheit"
+        if divine_binding is not None and divine_binding.custom_god_image:
+            divine_card_image_url = divine_binding.custom_god_image.url
+        elif divine_entity.god_image:
+            divine_card_image_url = divine_entity.god_image.url
+        divine_card_title = (
+            divine_binding.custom_name
+            if divine_binding is not None and divine_binding.custom_name
+            else (divine_entity.card_name or divine_entity.name)
+        )
+        divine_card_typebar = divine_binding.tradition_name if divine_binding is not None and divine_binding.tradition_name else divine_entity.pantheon
+        divine_card_ability = (
+            divine_binding.custom_g_ability
+            if divine_binding is not None and divine_binding.custom_g_ability
+            else divine_entity.g_ability
+        )
+        divine_card_fluff = (
+            divine_binding.custom_fluff
+            if divine_binding is not None and divine_binding.custom_fluff
+            else divine_entity.fluff
+        )
+        divine_card_editable = bool(divine_binding is not None and divine_entity.is_customizable)
+        if divine_card_editable:
+            divine_card_update_url = f"/character/{character.pk}/divine-card/update/"
         divine_card_aspects = [
             entry.aspect
             for entry in divine_entity.aspects.all()
+            if entry.aspect_id and entry.is_starting_aspect
+        ]
+        if divine_binding is not None and divine_entity.aspect_selection_mode != "fixed":
+            divine_card_aspects = list(divine_binding.core_aspects.all().order_by("name", "id"))
+            open_aspect_slots = max(0, int(divine_entity.starting_aspect_count) - len(divine_card_aspects))
+            divine_card_aspect_placeholders = list(range(open_aspect_slots))
+            divine_card_show_aspect_placeholder = bool(divine_card_aspect_placeholders)
+        if divine_card_editable and divine_entity.aspect_selection_mode == "choose_from_entity":
+            divine_card_aspect_options = [
+                entry.aspect
+                for entry in divine_entity.aspects.all()
+                if entry.aspect_id
+            ]
+        elif divine_card_editable and divine_entity.aspect_selection_mode == "free":
+            divine_card_aspect_options = list(Aspect.objects.all().order_by("name", "id"))
+    if druid_cult is not None:
+        druid_card_storage_key = f"druid.{druid_cult.pk}"
+        druid_card_kind_label = "Krafttier"
+        if druid_cult.god_image:
+            druid_card_image_url = druid_cult.god_image.url
+        druid_card_title = druid_cult.card_name or druid_cult.name
+        druid_card_typebar = druid_cult.name
+        druid_card_ability = druid_cult.g_ability
+        druid_card_fluff = druid_cult.fluff
+        druid_card_aspects = [
+            entry.aspect
+            for entry in druid_cult.aspects.all()
             if entry.aspect_id and entry.is_starting_aspect
         ]
     load_tooltip = _build_load_tooltip(engine)
@@ -3250,8 +3397,30 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
         "manual_personal_fame_total": manual_personal_fame_total,
         "char_info_form": CharacterInfoInlineForm(instance=character),
         "selected_divine_entity": divine_entity,
+        "selected_divine_binding": divine_binding,
         "selected_divine_symbol_url": divine_symbol_url,
+        "selected_divine_card_image_url": divine_card_image_url,
+        "selected_divine_card_title": divine_card_title,
+        "selected_divine_card_kind_label": divine_card_kind_label,
+        "selected_divine_card_typebar": divine_card_typebar,
+        "selected_divine_card_ability": divine_card_ability,
+        "selected_divine_card_fluff": divine_card_fluff,
         "selected_divine_card_aspects": divine_card_aspects,
+        "selected_divine_card_show_aspect_placeholder": divine_card_show_aspect_placeholder,
+        "selected_divine_card_aspect_placeholders": divine_card_aspect_placeholders,
+        "selected_divine_card_editable": divine_card_editable,
+        "selected_divine_card_update_url": divine_card_update_url,
+        "selected_divine_card_aspect_options": divine_card_aspect_options,
+        "selected_divine_card_storage_key": divine_card_storage_key,
+        "selected_druid_cult": druid_cult,
+        "selected_druid_card_image_url": druid_card_image_url,
+        "selected_druid_card_title": druid_card_title,
+        "selected_druid_card_kind_label": druid_card_kind_label,
+        "selected_druid_card_typebar": druid_card_typebar,
+        "selected_druid_card_ability": druid_card_ability,
+        "selected_druid_card_fluff": druid_card_fluff,
+        "selected_druid_card_aspects": druid_card_aspects,
+        "selected_druid_card_storage_key": druid_card_storage_key,
         "skill_specification_form": CharacterSkillSpecificationForm(),
         "technique_specification_form": CharacterTechniqueSpecificationForm(),
         "fame_total_rank": fame_total_rank,
@@ -3488,7 +3657,7 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
         "spell_and_lessons_panel_enabled": bool(spell_panel_data["spell_and_lessons_panel_enabled"]),
         "has_castable_entries": bool(spell_panel_data["has_castable_entries"]),
         "spell_panel_groups": spell_panel_data["groups"],
-        "spell_panel_arcane_filter_groups": spell_panel_data.get("arcane_filter_groups", []),
+        "spell_panel_filter_groups": spell_panel_data.get("filter_groups", []),
         "spell_panel_arcane_schools": spell_panel_data["arcane_schools"],
         "spell_panel_divine_summary": spell_panel_data["divine_summary"],
         "rune_retrofit_choices": [

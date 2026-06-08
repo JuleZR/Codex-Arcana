@@ -13,10 +13,12 @@ from charsheet.models import (
     Character,
     CharacterAspect,
     CharacterDivineEntity,
+    CharacterDruidCult,
     CharacterSchool,
     CharacterSpell,
     CharacterSpellSource,
     DivineEntity,
+    DruidCultAspect,
     School,
     Spell,
     Trait,
@@ -37,6 +39,7 @@ BONUS_SPELL_TRAIT_NAMES = (
 
 SPELL_LEARNING_SLOTS_PER_MAGIC_LEVEL = 2
 SPELL_LEARNING_BONUS_SLOTS_PER_MAGIC_LEVEL = 1
+ASPECT_SPELL_LEARNING_SLOTS_PER_GRADE = 1
 
 
 def _aspect_spell_slot_source_key(aspect_id: int, grade: int) -> str:
@@ -362,6 +365,7 @@ class MagicEngine:
         return (
             CharacterDivineEntity.objects.filter(character=self.character)
             .select_related("entity", "entity__school", "entity__school__type")
+            .prefetch_related("core_aspects")
             .first()
         )
 
@@ -386,7 +390,7 @@ class MagicEngine:
 
     def _aspect_entries(self) -> list[CharacterAspect]:
         return list(
-            self.character.aspect_entries.select_related("aspect", "source_entity").order_by(
+            self.character.aspect_entries.select_related("aspect", "source_entity", "source_school", "source_binding").order_by(
                 "aspect__name",
             )
         )
@@ -509,10 +513,10 @@ class MagicEngine:
                     "symbol": str(entry.aspect.name or "?").strip()[:1] or "*",
                     "symbol_image_url": self._image_url(getattr(entry.aspect, "aspect_image", None)),
                     "level": 1,
-                    "slots_per_level": slots_per_level,
-                    "total": slots_per_level,
+                    "slots_per_level": ASPECT_SPELL_LEARNING_SLOTS_PER_GRADE,
+                    "total": ASPECT_SPELL_LEARNING_SLOTS_PER_GRADE,
                     "spent": 0,
-                    "remaining": slots_per_level,
+                    "remaining": ASPECT_SPELL_LEARNING_SLOTS_PER_GRADE,
                 }
 
         slot_spells = CharacterSpell.objects.filter(
@@ -752,11 +756,29 @@ class MagicEngine:
         school_levels = self._school_level_map()
         binding = self._divine_binding()
         granted_aspect_ids: set[int] = set()
+        druid_binding = (
+            CharacterDruidCult.objects.filter(character=self.character)
+            .select_related("cult", "cult__school")
+            .prefetch_related("core_aspects")
+            .first()
+        )
+        druid_granted_aspect_ids: set[int] = set()
+        druid_school_id = int(druid_binding.cult.school_id) if druid_binding is not None and druid_binding.cult.school_id else None
+        druid_school_level = int(school_levels.get(druid_school_id, 0)) if druid_school_id is not None else 0
+        if druid_binding is not None and druid_school_level <= 0:
+            druid_binding.delete()
+            druid_binding = None
+            druid_school_id = None
+            druid_school_level = 0
         divine_school_level = 0
         if binding is not None:
             divine_school_level = int(school_levels.get(binding.entity.school_id, 0))
             if divine_school_level > 0:
-                for link in binding.entity.aspects.filter(is_starting_aspect=True).select_related("aspect"):
+                if binding.entity.aspect_selection_mode == DivineEntity.AspectSelectionMode.FIXED:
+                    entity_aspect_links = binding.entity.aspects.filter(is_starting_aspect=True).select_related("aspect")
+                else:
+                    entity_aspect_links = binding.entity.aspects.none()
+                for link in entity_aspect_links:
                     granted_aspect_ids.add(link.aspect_id)
                     aspect_entry, created = CharacterAspect.objects.get_or_create(
                         character=self.character,
@@ -764,6 +786,8 @@ class MagicEngine:
                         defaults={
                             "level": divine_school_level,
                             "source_entity": binding.entity,
+                            "source_school": binding.entity.school,
+                            "tracks_school_level": True,
                             "is_bonus_aspect": False,
                         },
                     )
@@ -774,6 +798,12 @@ class MagicEngine:
                     if aspect_entry.source_entity_id != binding.entity_id:
                         aspect_entry.source_entity = binding.entity
                         changed_fields.append("source_entity")
+                    if aspect_entry.source_school_id != binding.entity.school_id:
+                        aspect_entry.source_school = binding.entity.school
+                        changed_fields.append("source_school")
+                    if not aspect_entry.tracks_school_level:
+                        aspect_entry.tracks_school_level = True
+                        changed_fields.append("tracks_school_level")
                     if aspect_entry.is_bonus_aspect:
                         aspect_entry.is_bonus_aspect = False
                         changed_fields.append("is_bonus_aspect")
@@ -784,11 +814,130 @@ class MagicEngine:
                     elif created:
                         summary["aspects_created"] += 1
 
+                if binding.entity.aspect_selection_mode == DivineEntity.AspectSelectionMode.FIXED:
+                    chosen_aspects = []
+                elif binding.entity.aspect_selection_mode == DivineEntity.AspectSelectionMode.CHOOSE_FROM_ENTITY:
+                    allowed_ids = set(binding.entity.aspects.values_list("aspect_id", flat=True))
+                    chosen_aspects = [
+                        aspect
+                        for aspect in binding.core_aspects.all().order_by("name", "id")
+                        if aspect.id in allowed_ids
+                    ]
+                else:
+                    chosen_aspects = list(binding.core_aspects.all().order_by("name", "id"))
+                max_binding_aspects = int(binding.entity.starting_aspect_count or 0)
+                if max_binding_aspects > 0:
+                    chosen_aspects = chosen_aspects[:max_binding_aspects]
+                for aspect in chosen_aspects:
+                    aspect_entry, created = CharacterAspect.objects.get_or_create(
+                        character=self.character,
+                        aspect=aspect,
+                        defaults={
+                            "level": divine_school_level,
+                            "source_entity": binding.entity,
+                            "source_binding": binding,
+                            "source_school": binding.entity.school,
+                            "tracks_school_level": True,
+                            "is_bonus_aspect": False,
+                        },
+                    )
+                    changed_fields = []
+                    if aspect_entry.level != divine_school_level:
+                        aspect_entry.level = divine_school_level
+                        changed_fields.append("level")
+                    if aspect_entry.source_entity_id != binding.entity_id:
+                        aspect_entry.source_entity = binding.entity
+                        changed_fields.append("source_entity")
+                    if aspect_entry.source_binding_id != binding.id:
+                        aspect_entry.source_binding = binding
+                        changed_fields.append("source_binding")
+                    if aspect_entry.source_school_id != binding.entity.school_id:
+                        aspect_entry.source_school = binding.entity.school
+                        changed_fields.append("source_school")
+                    if not aspect_entry.tracks_school_level:
+                        aspect_entry.tracks_school_level = True
+                        changed_fields.append("tracks_school_level")
+                    if aspect_entry.is_bonus_aspect:
+                        aspect_entry.is_bonus_aspect = False
+                        changed_fields.append("is_bonus_aspect")
+                    if changed_fields:
+                        aspect_entry.full_clean()
+                        aspect_entry.save(update_fields=changed_fields)
+                        summary["aspects_updated"] += 1
+                    elif created:
+                        summary["aspects_created"] += 1
+
+        if druid_binding is not None and druid_school_id is not None and druid_school_level > 0:
+            cult = druid_binding.cult
+            if cult.aspect_selection_mode == DivineEntity.AspectSelectionMode.FIXED:
+                cult_aspect_links = cult.aspects.filter(is_starting_aspect=True).select_related("aspect")
+                chosen_aspects = [link.aspect for link in cult_aspect_links]
+            elif cult.aspect_selection_mode == DivineEntity.AspectSelectionMode.CHOOSE_FROM_ENTITY:
+                allowed_ids = set(cult.aspects.values_list("aspect_id", flat=True))
+                chosen_aspects = [
+                    aspect
+                    for aspect in druid_binding.core_aspects.all().order_by("name", "id")
+                    if aspect.id in allowed_ids
+                ]
+            else:
+                chosen_aspects = list(druid_binding.core_aspects.all().order_by("name", "id"))
+            max_druid_aspects = int(cult.starting_aspect_count or 0)
+            if max_druid_aspects > 0:
+                chosen_aspects = chosen_aspects[:max_druid_aspects]
+            for aspect in chosen_aspects:
+                druid_granted_aspect_ids.add(aspect.id)
+                aspect_entry, created = CharacterAspect.objects.get_or_create(
+                    character=self.character,
+                    aspect=aspect,
+                    defaults={
+                        "level": druid_school_level,
+                        "source_school": cult.school,
+                        "tracks_school_level": True,
+                        "is_bonus_aspect": False,
+                    },
+                )
+                changed_fields = []
+                if aspect_entry.level != druid_school_level:
+                    aspect_entry.level = druid_school_level
+                    changed_fields.append("level")
+                if aspect_entry.source_school_id != cult.school_id:
+                    aspect_entry.source_school = cult.school
+                    changed_fields.append("source_school")
+                if not aspect_entry.tracks_school_level:
+                    aspect_entry.tracks_school_level = True
+                    changed_fields.append("tracks_school_level")
+                if aspect_entry.is_bonus_aspect:
+                    aspect_entry.is_bonus_aspect = False
+                    changed_fields.append("is_bonus_aspect")
+                if changed_fields:
+                    aspect_entry.full_clean()
+                    aspect_entry.save(update_fields=changed_fields)
+                    summary["aspects_updated"] += 1
+                elif created:
+                    summary["aspects_created"] += 1
+
+        stale_druid_aspects = CharacterAspect.objects.filter(
+            character=self.character,
+            is_bonus_aspect=False,
+            source_entity__isnull=True,
+            source_binding__isnull=True,
+            tracks_school_level=True,
+        )
+        if druid_school_id is not None and druid_school_level > 0:
+            stale_druid_aspects = stale_druid_aspects.filter(source_school_id=druid_school_id).exclude(
+                aspect_id__in=druid_granted_aspect_ids,
+            )
+        else:
+            druid_school_ids = DruidCultAspect.objects.values_list("cult__school_id", flat=True)
+            stale_druid_aspects = stale_druid_aspects.filter(source_school_id__in=druid_school_ids)
+        if stale_druid_aspects.exists():
+            stale_druid_aspects.delete()
+
         if binding is None or divine_school_level <= 0:
             removed_granted_aspects = CharacterAspect.objects.filter(
                 character=self.character,
                 is_bonus_aspect=False,
-            ).exclude(source_entity__isnull=True)
+            ).filter(models.Q(source_entity__isnull=False) | models.Q(source_binding__isnull=False))
             if removed_granted_aspects.exists():
                 removed_granted_aspects.delete()
             CharacterSpell.objects.filter(
@@ -799,17 +948,40 @@ class MagicEngine:
         CharacterAspect.objects.filter(
             character=self.character,
             is_bonus_aspect=False,
+            source_binding__isnull=True,
         ).exclude(source_entity__isnull=True).exclude(
             aspect_id__in=granted_aspect_ids,
         ).delete()
 
+        CharacterAspect.objects.filter(
+            character=self.character,
+            source_binding__isnull=False,
+            is_bonus_aspect=False,
+        ).exclude(
+            source_binding=binding,
+            aspect_id__in=[aspect.id for aspect in binding.core_aspects.all()] if binding is not None else [],
+        ).delete()
+
+        bonus_aspect_max_level = 0
         if binding is not None and divine_school_level > 0:
-            for aspect_entry in CharacterAspect.objects.filter(character=self.character, is_bonus_aspect=True).select_related("aspect"):
-                capped_level = min(int(aspect_entry.level), divine_school_level)
-                if capped_level != int(aspect_entry.level):
-                    aspect_entry.level = capped_level
-                    aspect_entry.full_clean()
-                    aspect_entry.save(update_fields=["level"])
+            bonus_aspect_max_level = max(bonus_aspect_max_level, divine_school_level)
+        if druid_binding is not None and druid_school_level > 0:
+            bonus_aspect_max_level = max(bonus_aspect_max_level, druid_school_level)
+        bonus_aspect_entries = list(
+            CharacterAspect.objects.filter(character=self.character, is_bonus_aspect=True)
+            .select_related("aspect")
+            .order_by("id")
+        )
+        for aspect_entry in bonus_aspect_entries:
+            current_level = int(aspect_entry.level)
+            if bonus_aspect_max_level <= 0:
+                aspect_entry.delete()
+                continue
+            capped_level = min(current_level, bonus_aspect_max_level)
+            if capped_level != current_level:
+                aspect_entry.level = capped_level
+                aspect_entry.full_clean()
+                aspect_entry.save(update_fields=["level"])
 
         if binding is not None and divine_school_level > 0:
             CharacterSpell.objects.filter(
@@ -822,6 +994,29 @@ class MagicEngine:
                 granted_by_entity_id=binding.entity_id,
                 granted_for_level__gt=divine_school_level,
             ).delete()
+
+        valid_aspect_levels = {
+            entry.aspect_id: int(entry.level)
+            for entry in CharacterAspect.objects.filter(character=self.character)
+        }
+        invalid_aspect_spell_ids = []
+        for spell_entry in CharacterSpell.objects.filter(
+            character=self.character,
+            source_kind__in=(
+                CharacterSpell.SourceKind.DIVINE_EXTRA,
+                CharacterSpell.SourceKind.DIVINE_BONUS,
+            ),
+            spell__aspect_id__isnull=False,
+        ).select_related("spell"):
+            allowed_level = int(valid_aspect_levels.get(spell_entry.spell.aspect_id, 0))
+            if allowed_level <= 0 or int(spell_entry.spell.grade) > allowed_level:
+                invalid_aspect_spell_ids.append(spell_entry.id)
+        if invalid_aspect_spell_ids:
+            deleted_count, _ = CharacterSpell.objects.filter(id__in=invalid_aspect_spell_ids).delete()
+            summary["spells_deleted"] += deleted_count
+            current_spent_slots = max(0, int(self.character.spent_spell_learning_slots or 0))
+            self.character.spent_spell_learning_slots = max(0, current_spent_slots - deleted_count)
+            self.character.save(update_fields=["spent_spell_learning_slots"])
 
         desired_auto_spells: dict[int, dict[str, object]] = {}
         for school_entry in self._arcane_school_entries():
@@ -976,13 +1171,22 @@ class MagicEngine:
                     "name": entry.aspect.name,
                     "level": int(entry.level),
                     "is_bonus_aspect": bool(entry.is_bonus_aspect),
+                    "tracks_school_level": bool(entry.tracks_school_level),
                     "source_entity_name": entry.source_entity.name if entry.source_entity_id else "",
+                    "source_binding_name": (
+                        entry.source_binding.custom_name or entry.source_binding.entity.name
+                        if entry.source_binding_id
+                        else ""
+                    ),
                 }
             )
         return {
             "has_divine_magic": binding is not None,
-            "entity_name": binding.entity.name if binding else "",
-            "entity_kind": binding.entity.get_entity_kind_display() if binding else "",
+            "entity_name": (binding.custom_name or binding.entity.name) if binding else "",
+            "entity_template_name": binding.entity.name if binding else "",
+            "entity_kind": "Gottheit" if binding else "",
+            "tradition_name": binding.tradition_name if binding else "",
+            "custom_description": binding.custom_description if binding else "",
             "school_name": binding.entity.school.name if binding else "",
             "school_level": self.character.engine.school_level(binding.entity.school_id) if binding else 0,
             "school_level_label": _to_roman(self.character.engine.school_level(binding.entity.school_id)) if binding else "",
@@ -991,9 +1195,14 @@ class MagicEngine:
 
     def get_available_bonus_aspects(self) -> dict[str, object]:
         binding = self._divine_binding()
-        if binding is None:
-            return {"school_level": 0, "options": []}
-        school_level = int(self.character.engine.school_level(binding.entity.school_id))
+        school_level = int(self.character.engine.school_level(binding.entity.school_id)) if binding is not None else 0
+        druid_binding = (
+            CharacterDruidCult.objects.filter(character=self.character)
+            .select_related("cult")
+            .first()
+        )
+        if druid_binding is not None and druid_binding.cult.school_id:
+            school_level = max(school_level, int(self.character.engine.school_level(druid_binding.cult.school_id)))
         if school_level <= 0:
             return {"school_level": 0, "options": []}
         known_aspect_ids = set(self.character.aspect_entries.values_list("aspect_id", flat=True))
@@ -1007,7 +1216,7 @@ class MagicEngine:
             .exclude(id__in=opposed_ids)
             .order_by("name")
         )
-        return {"school_level": school_level, "options": options}
+        return {"school_level": school_level, "remaining_levels": school_level, "options": options}
 
     def normalize_current_arcane_power(
         self,
@@ -1175,6 +1384,11 @@ class MagicEngine:
                     if group_kind == "arcane"
                     else ""
                 ),
+                "level_label": (
+                    _to_roman(aspect_level_map.get(rows[0]["_spell_obj"].aspect_id, 0))
+                    if group_kind == "divine" and rows and rows[0]["_spell_obj"].aspect_id
+                    else ""
+                ),
                 "rows": sorted(
                     [{key: value for key, value in row.items() if key != "_spell_obj"} for row in rows],
                     key=lambda row: (row["level"], row["name"]),
@@ -1185,14 +1399,15 @@ class MagicEngine:
                 key=lambda item: _spell_group_sort_key(item[0][0], item[0][1]),
             )
         ]
-        arcane_filter_groups = [
+        filter_groups = [
             {
                 "name": group["name"],
                 "symbol": group["symbol"],
                 "symbol_image_url": group["symbol_image_url"],
+                "level_label": group.get("level_label", ""),
             }
             for group in groups
-            if group["kind"] == "arcane" and group["rows"]
+            if group["rows"]
         ]
         has_entries = any(group["rows"] for group in groups)
         return {
@@ -1200,7 +1415,7 @@ class MagicEngine:
             "spell_and_lessons_panel_enabled": has_entries,
             "has_castable_entries": has_entries,
             "groups": groups,
-            "arcane_filter_groups": arcane_filter_groups if len(arcane_filter_groups) > 1 else [],
+            "filter_groups": filter_groups if len(filter_groups) > 1 else [],
             "arcane_schools": [
                 {
                     "name": entry.school.name,
