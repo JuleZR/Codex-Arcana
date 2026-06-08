@@ -237,6 +237,10 @@ function bindGodCardEditor(card) {
       event.preventDefault();
       event.stopPropagation();
       if (card.classList.contains("is-edit-unlocked")) {
+        if (!updateUrl) {
+          setUnlocked(false);
+          return;
+        }
         try {
           await saveCardFields();
         } catch (_error) {

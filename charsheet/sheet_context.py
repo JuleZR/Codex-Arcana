@@ -3289,6 +3289,9 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
     druid_card_ability = ""
     druid_card_fluff = ""
     druid_card_aspects = []
+    druid_card_show_aspect_placeholder = False
+    druid_card_aspect_placeholders = []
+    druid_card_editable = False
     druid_card_storage_key = ""
     if divine_entity is not None and divine_entity.symbol_image:
         divine_symbol_url = divine_entity.symbol_image.url
@@ -3345,11 +3348,17 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
         druid_card_typebar = druid_cult.name
         druid_card_ability = druid_cult.g_ability
         druid_card_fluff = druid_cult.fluff
+        druid_card_editable = bool(druid_binding is not None and druid_cult.is_customizable)
         druid_card_aspects = [
             entry.aspect
             for entry in druid_cult.aspects.all()
             if entry.aspect_id and entry.is_starting_aspect
         ]
+        if druid_binding is not None and druid_cult.aspect_selection_mode != "fixed":
+            druid_card_aspects = list(druid_binding.core_aspects.all().order_by("name", "id"))
+            open_aspect_slots = max(0, int(druid_cult.starting_aspect_count) - len(druid_card_aspects))
+            druid_card_aspect_placeholders = list(range(open_aspect_slots))
+            druid_card_show_aspect_placeholder = bool(druid_card_aspect_placeholders)
     load_tooltip = _build_load_tooltip(engine)
     load_tooltip_with_carry = _build_combined_load_tooltip(engine, carry_state, carry_enabled=True)
     total_armor_tooltip = _build_total_armor_tooltip(engine)
@@ -3420,6 +3429,9 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
         "selected_druid_card_ability": druid_card_ability,
         "selected_druid_card_fluff": druid_card_fluff,
         "selected_druid_card_aspects": druid_card_aspects,
+        "selected_druid_card_show_aspect_placeholder": druid_card_show_aspect_placeholder,
+        "selected_druid_card_aspect_placeholders": druid_card_aspect_placeholders,
+        "selected_druid_card_editable": druid_card_editable,
         "selected_druid_card_storage_key": druid_card_storage_key,
         "skill_specification_form": CharacterSkillSpecificationForm(),
         "technique_specification_form": CharacterTechniqueSpecificationForm(),

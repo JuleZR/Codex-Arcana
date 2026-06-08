@@ -26,7 +26,7 @@ import { initContextRadialMenu } from "./context_radial_menu.js";
 import { initRadialMenuGem } from "./radial_menu_gem.js";
 import { initCharacterAppearanceModal } from "./character_appearance_modal.js";
 import { initCardHand } from "./card_hand.js?v=20260602k";
-import { initGodCards } from "./god_card.js?v=20260607i";
+import { initGodCards } from "./god_card.js?v=20260608a";
 
 function initCharacterImageEditorSafely() {
   import("./character_image_editor.js?v=20260527c")
