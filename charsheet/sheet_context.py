@@ -3048,6 +3048,90 @@ def _build_learning_rows(
         magic_groups[group["name"]] = rows
 
     magic_slot_summary = magic_engine.get_spell_learning_slot_summary()
+    magic_slot_table_columns = list(range(1, 11))
+    spent_spell_slots_by_source_grade: dict[tuple[str, int], int] = defaultdict(int)
+    slot_spells = CharacterSpell.objects.filter(
+        character=character,
+        source_kind__in=(
+            CharacterSpell.SourceKind.ARCANE_FREE,
+            CharacterSpell.SourceKind.ARCANE_EXTRA,
+            CharacterSpell.SourceKind.ARCANE_BONUS,
+            CharacterSpell.SourceKind.DIVINE_EXTRA,
+            CharacterSpell.SourceKind.DIVINE_BONUS,
+            CharacterSpell.SourceKind.DIVINE_ARCANE_GRANTED,
+        ),
+    ).select_related("spell")
+    for entry in slot_spells:
+        spell = entry.spell
+        grade = int(spell.grade or 0)
+        if grade <= 0:
+            continue
+        if spell.school_id:
+            spent_spell_slots_by_source_grade[(f"school:{spell.school_id}", grade)] += 1
+        elif spell.aspect_id:
+            spent_spell_slots_by_source_grade[(f"aspect:{spell.aspect_id}:grade:{grade}", grade)] += 1
+    magic_slot_rows_by_key: OrderedDict[str, dict[str, object]] = OrderedDict()
+
+    def ensure_magic_slot_row(source: dict[str, object], label: str, row_key: str) -> dict[str, object]:
+        if row_key not in magic_slot_rows_by_key:
+            magic_slot_rows_by_key[row_key] = {
+                "label": label,
+                "symbol": source.get("symbol", "*"),
+                "symbol_image_url": source.get("symbol_image_url", ""),
+                "cells_by_grade": {
+                    grade: {
+                        "grade": grade,
+                        "key": "",
+                        "remaining": 0,
+                    }
+                    for grade in magic_slot_table_columns
+                },
+            }
+        return magic_slot_rows_by_key[row_key]
+
+    for source in magic_slot_summary.get("sources", {}).values():
+        source_key = str(source.get("key", "") or "")
+        source_kind = str(source.get("kind", "") or "")
+        source_level = max(0, int(source.get("level", 0) or 0))
+        slots_per_level = max(0, int(source.get("slots_per_level", 0) or 0))
+        if source_kind in {"school", "divine_arcane"}:
+            row_key = source_key
+            row = ensure_magic_slot_row(source, str(source.get("name", "") or ""), row_key)
+            for grade in range(1, source_level + 1):
+                if grade not in magic_slot_table_columns:
+                    continue
+                total_for_grade = slots_per_level
+                spent_for_grade = spent_spell_slots_by_source_grade.get((source_key, grade), 0)
+                row["cells_by_grade"][grade] = {
+                    "grade": grade,
+                    "key": source_key,
+                    "remaining": max(0, total_for_grade - spent_for_grade),
+                }
+        else:
+            grade = int(source.get("grade", 0) or 0)
+            if grade not in magic_slot_table_columns:
+                continue
+            source_label = str(source.get("name", "") or "")
+            label = source_label.rsplit(" Grad ", 1)[0] if " Grad " in source_label else source_label
+            row_key = f"{source_kind}:{source.get('id', '')}"
+            row = ensure_magic_slot_row(source, label, row_key)
+            row["cells_by_grade"][grade] = {
+                "grade": grade,
+                "key": source_key,
+                "remaining": max(0, int(source.get("remaining", 0) or 0)),
+            }
+    magic_slot_rows = [
+        {
+            "label": row["label"],
+            "symbol": row["symbol"],
+            "symbol_image_url": row["symbol_image_url"],
+            "cells": [row["cells_by_grade"][grade] for grade in magic_slot_table_columns],
+        }
+        for row in magic_slot_rows_by_key.values()
+        if any(int(cell["remaining"]) > 0 for cell in row["cells_by_grade"].values())
+    ]
+    magic_slot_summary["slot_table_columns"] = magic_slot_table_columns
+    magic_slot_summary["slot_table_rows"] = magic_slot_rows
     learn_magic_grade_filters = sorted({
         int(row["grade"])
         for rows in magic_groups.values()

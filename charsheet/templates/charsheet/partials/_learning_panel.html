@@ -407,7 +407,7 @@
                   data-tab-panel
                   hidden
                 >
-                  {% if learn_magic_slot_summary.total or learn_magic_slot_summary.spent or learn_magic_slot_summary.remaining %}
+                  {% if learn_magic_slot_summary.remaining > 0 %}
                     <div
                       class="learn_magic_budget"
                       data-learn-magic-budget
@@ -417,27 +417,63 @@
                       <span id="learnSpellSlotSpentValue" data-base-spent-slots="{{ learn_magic_slot_summary.spent }}" hidden>{{ learn_magic_slot_summary.spent }}</span>
                       <span id="learnSpellSlotRemainingValue" hidden>{{ learn_magic_slot_summary.remaining }}</span>
                       <div class="learn_magic_slot_sources" aria-label="Verfuegbare Zauber-Slots">
-                        {% for source in learn_magic_slot_summary.sources.values %}
-                          {% if source.remaining %}
-                            <span
-                              class="learn_magic_slot_source"
-                              title="{{ source.name }}"
-                              aria-label="{{ source.name }}: {{ source.remaining }} verfuegbare Zauber-Slots"
-                              data-learn-slot-source-chip
-                              data-slot-source-key="{{ source.key }}"
-                              data-slot-source-remaining="{{ source.remaining }}"
-                            >
-                              <span class="learn_spell_symbol" aria-hidden="true">
-                                {% if source.symbol_image_url %}
-                                  <img class="learn_spell_symbol__image" src="{{ source.symbol_image_url }}" alt="" width="18" height="18">
-                                {% else %}
-                                  {{ source.symbol|default:"*" }}
-                                {% endif %}
+                        <div class="learn_magic_slot_source_meters" hidden>
+                          {% for source in learn_magic_slot_summary.sources.values %}
+                            {% if source.remaining > 0 %}
+                              <span
+                                data-learn-slot-source-chip
+                                data-slot-source-key="{{ source.key }}"
+                                data-slot-source-name="{{ source.name }}"
+                                data-slot-source-remaining="{{ source.remaining }}"
+                              >
+                                <span data-learn-slot-symbol-template>
+                                  <span class="learn_spell_symbol" aria-hidden="true">
+                                    {% if source.symbol_image_url %}
+                                      <img class="learn_spell_symbol__image" src="{{ source.symbol_image_url }}" alt="" width="18" height="18">
+                                    {% else %}
+                                      {{ source.symbol|default:"*" }}
+                                    {% endif %}
+                                  </span>
+                                </span>
+                                <span data-learn-slot-source-count>{{ source.remaining }}</span>
                               </span>
-                              <span class="learn_magic_slot_source__count" data-learn-slot-source-count>{{ source.remaining }}</span>
-                            </span>
-                          {% endif %}
-                        {% endfor %}
+                            {% endif %}
+                          {% endfor %}
+                        </div>
+                        <table class="learn_magic_slot_table" data-learn-slot-table>
+                          <thead>
+                            <tr>
+                              <th></th>
+                              {% for column in learn_magic_slot_summary.slot_table_columns %}
+                                <th>{{ column }}</th>
+                              {% endfor %}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {% for row in learn_magic_slot_summary.slot_table_rows %}
+                              <tr data-learn-slot-row>
+                                <th scope="row" title="{{ row.label }}" aria-label="{{ row.label }}">
+                                  <span class="learn_magic_slot_row_symbol" aria-hidden="true">
+                                    {% if row.symbol_image_url %}
+                                      <img class="learn_spell_symbol__image" src="{{ row.symbol_image_url }}" alt="" width="18" height="18">
+                                    {% else %}
+                                      {{ row.symbol|default:"*" }}
+                                    {% endif %}
+                                  </span>
+                                </th>
+                                {% for cell in row.cells %}
+                                  <td data-learn-slot-cell data-slot-source-key="{{ cell.key }}" data-slot-source-grade="{{ cell.grade }}" data-slot-source-remaining="{{ cell.remaining }}">
+                                    {% if cell.remaining > 0 %}
+                                      <span class="learn_magic_slot_cell_open" title="{{ cell.remaining }} offener Slot{% if cell.remaining > 1 %}s{% endif %}" aria-label="{{ cell.remaining }} offener Slot{% if cell.remaining > 1 %}s{% endif %}">
+                                        &#10022;{% if cell.remaining > 1 %}<span class="learn_magic_slot_cell_count">{{ cell.remaining }}</span>{% endif %}
+                                      </span>
+                                    {% endif %}
+                                  </td>
+                                {% endfor %}
+                              </tr>
+                            {% endfor %}
+                          </tbody>
+                        </table>
                       </div>
                     </div>
                   {% endif %}
@@ -534,7 +570,7 @@
             <h2 class="sheet-window__section-title">Lern-Warenkorb</h2>
           </div>
           <div class="sheet-window__surface sheet-window__surface--work shop_cart_wrapper">
-            <div class="sheet-window__surface sheet-window__surface--table shop_cart_scroll">
+            <div class="sheet-window__surface sheet-window__surface--table shop_cart_scroll learn_cart_scroll">
               <table class="shop_cart_table">
                 <thead>
                   <tr>

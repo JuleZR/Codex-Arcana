@@ -921,6 +921,13 @@ body.sheet-feedback--error::after {
   gap: var(--sheet-window-space-sm);
 }
 
+.sheet-window .shop_cart_scroll,
+.sheet-window .learn_cart_scroll {
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
 .sheet-window .shop_cart_totals {
   border: 1px solid rgba(118, 88, 57, 0.18);
   border-radius: 10px;

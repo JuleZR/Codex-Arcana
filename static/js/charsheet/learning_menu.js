@@ -2,6 +2,14 @@ import { createChoiceModalController } from "./choice_modal.js";
 import { clamp, escapeHtml, readInt } from "./utils.js";
 
 const LANGUAGE_LITERACY_MIN_LEVEL = 3;
+const renderOpenSpellSlotMarkup = (remaining) => {
+  const count = Math.max(0, readInt(String(remaining), 0));
+  if (count <= 0) {
+    return "";
+  }
+  const label = `${count} offener Slot${count === 1 ? "" : "s"}`;
+  return `<span class="learn_magic_slot_cell_open" title="${label}" aria-label="${label}">&#10022;${count > 1 ? `<span class="learn_magic_slot_cell_count">${count}</span>` : ""}</span>`;
+};
 
 function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, validationHint, applyBtn) {
   const getBudget = () => readInt(document.getElementById("learnBudgetPanel")?.getAttribute("data-learn-budget") || "0", 0);
@@ -53,6 +61,44 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
       }
     });
     return total;
+  };
+
+  const syncSpellSlotTable = () => {
+    const table = document.querySelector("[data-learn-slot-table]");
+    if (!(table instanceof HTMLElement)) {
+      return;
+    }
+    const selectedBySourceGrade = new Map();
+    getRows().forEach((row) => {
+      if (!(row instanceof HTMLElement) || row.getAttribute("data-kind") !== "magic-spell") {
+        return;
+      }
+      const sourceKey = row.getAttribute("data-slot-source-key") || "";
+      const grade = row.getAttribute("data-slot-grade") || "";
+      const input = row.querySelector("[data-learn-value]");
+      const value = input instanceof HTMLInputElement ? readInt(input.value, 0) : 0;
+      const slotCost = readInt(row.getAttribute("data-slot-source-cost") || row.getAttribute("data-slot-cost") || "1", 1);
+      if (sourceKey && grade && value > 0) {
+        const key = `${sourceKey}::${grade}`;
+        selectedBySourceGrade.set(key, (selectedBySourceGrade.get(key) || 0) + (value * slotCost));
+      }
+    });
+    Array.from(table.querySelectorAll("[data-learn-slot-cell]")).forEach((cell) => {
+      if (!(cell instanceof HTMLElement)) {
+        return;
+      }
+      const sourceKey = cell.getAttribute("data-slot-source-key") || "";
+      const grade = cell.getAttribute("data-slot-source-grade") || "";
+      const baseRemaining = readInt(cell.getAttribute("data-slot-source-remaining") || "0", 0);
+      const selected = selectedBySourceGrade.get(`${sourceKey}::${grade}`) || 0;
+      const remaining = Math.max(0, baseRemaining - selected);
+      cell.innerHTML = renderOpenSpellSlotMarkup(remaining);
+      if (remaining > 0) {
+        cell.setAttribute("aria-label", `${remaining} offener Slot${remaining === 1 ? "" : "s"}`);
+      } else {
+        cell.removeAttribute("aria-label");
+      }
+    });
   };
 
   const syncRow = (row) => {
@@ -297,9 +343,11 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
       if (countEl) {
         countEl.textContent = String(sourceRemaining);
       }
+      chip.setAttribute("data-slot-source-current-remaining", String(sourceRemaining));
       chip.classList.toggle("is-negative", sourceRemaining < 0);
       chip.classList.toggle("is-empty", sourceRemaining === 0);
     });
+    syncSpellSlotTable();
     if (liveValidationHint) {
       const messages = [];
       if (remaining < 0) {
@@ -636,6 +684,7 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
       row.setAttribute("data-slot-source-name", slotSourceName);
       row.setAttribute("data-slot-source-remaining", slotSourceRemaining);
       row.setAttribute("data-slot-source-cost", slotSourceCost);
+      row.setAttribute("data-slot-grade", String(level));
       row.innerHTML = `
         <td>
           <span>${safeName}</span>
