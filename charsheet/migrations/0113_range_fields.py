@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("charsheet", "0080_squashed_0112"),
+        ("charsheet", "0112_rename_spell_resistance_text"),
     ]
 
     operations = [
