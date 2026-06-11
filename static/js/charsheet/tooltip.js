@@ -474,7 +474,15 @@ function normalizeTooltipSectionRows(rows, sectionLabel) {
   return rows.map((row, index) => {
     const clone = row.cloneNode(true);
     const firstCell = clone.cells[0];
-    if (firstCell && normalizeInlineText(firstCell.textContent || "") === normalizeInlineText(sectionLabel) && index === 0) {
+    const firstCellText = normalizeInlineText(firstCell?.textContent || "");
+    if (
+      firstCell
+      && (
+        firstCellText === normalizeInlineText(sectionLabel)
+        || firstCellText === "[[WEAPON_SYMBOL]]"
+      )
+      && (index === 0 || firstCellText === "[[WEAPON_SYMBOL]]")
+    ) {
       firstCell.innerHTML = "&nbsp;";
     }
     return clone;
@@ -490,11 +498,17 @@ function buildTooltipCardSections(markup, { includeExtraSections = true } = {}) 
   }
 
   const topRows = [];
+  const weaponSymbolRows = [];
   const effectRows = [];
   const runeRows = [];
   let activeSection = "";
   Array.from(table.tBodies[0].rows).forEach((row) => {
     const label = normalizeInlineText(row.cells[0]?.textContent || "");
+    if (label === "[[WEAPON_SYMBOL]]") {
+      activeSection = "weapon_symbols";
+      weaponSymbolRows.push(row.cloneNode(true));
+      return;
+    }
     if (label === "Effekt" || label === "Effekte") {
       activeSection = "effects";
       effectRows.push(row.cloneNode(true));
@@ -518,22 +532,36 @@ function buildTooltipCardSections(markup, { includeExtraSections = true } = {}) 
   });
 
   const extras = [];
+  const normalizedWeaponSymbolRows = normalizeTooltipSectionRows(weaponSymbolRows, "[[WEAPON_SYMBOL]]");
   const normalizedEffectRows = normalizeTooltipSectionRows(effectRows, "Effekte");
   const normalizedRuneRows = normalizeTooltipSectionRows(runeRows, "Runen");
-  const emptySectionMarkup = '<p class="floating-tooltip-card__empty">Keine</p>';
   if (includeExtraSections) {
-    extras.push(`
-      <section class="floating-tooltip-card__section">
-        <h4 class="floating-tooltip-card__section_title">Effekte</h4>
-        <div class="floating-tooltip-card__section_body">${createTooltipCardTableMarkup(table, normalizedEffectRows, { includeHead: false }) || emptySectionMarkup}</div>
-      </section>
-    `);
-    extras.push(`
-      <section class="floating-tooltip-card__section">
-        <h4 class="floating-tooltip-card__section_title">Runen</h4>
-        <div class="floating-tooltip-card__section_body">${createTooltipCardTableMarkup(table, normalizedRuneRows, { includeHead: false }) || emptySectionMarkup}</div>
-      </section>
-    `);
+    const weaponSymbolMarkup = createTooltipCardTableMarkup(table, normalizedWeaponSymbolRows, { includeHead: false });
+    if (weaponSymbolMarkup) {
+      extras.push(`
+        <section class="floating-tooltip-card__section">
+          <div class="floating-tooltip-card__section_body">${weaponSymbolMarkup}</div>
+        </section>
+      `);
+    }
+    const effectMarkup = createTooltipCardTableMarkup(table, normalizedEffectRows, { includeHead: false });
+    if (effectMarkup) {
+      extras.push(`
+        <section class="floating-tooltip-card__section">
+          <h4 class="floating-tooltip-card__section_title">Effekte</h4>
+          <div class="floating-tooltip-card__section_body">${effectMarkup}</div>
+        </section>
+      `);
+    }
+    const runeMarkup = createTooltipCardTableMarkup(table, normalizedRuneRows, { includeHead: false });
+    if (runeMarkup) {
+      extras.push(`
+        <section class="floating-tooltip-card__section">
+          <h4 class="floating-tooltip-card__section_title">Runen</h4>
+          <div class="floating-tooltip-card__section_body">${runeMarkup}</div>
+        </section>
+      `);
+    }
   }
 
   Array.from(template.content.childNodes).forEach((node) => {

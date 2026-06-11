@@ -833,7 +833,7 @@ def _build_weapon_symbol_tooltip_rows(item_engine: ItemEngine) -> list[tuple[str
     if not effect_lines:
         return []
     return [
-        ("[[EMPTY]]", line)
+        ("[[WEAPON_SYMBOL]]", line)
         for line in effect_lines
     ]
 

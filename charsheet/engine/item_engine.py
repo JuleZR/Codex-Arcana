@@ -458,10 +458,9 @@ class ItemEngine:
             return []
         effects = []
         for flag in stats.flags.all():
-            symbol = flag.get_key_display()
             description = WEAPON_SYMBOL_DESCRIPTIONS.get(flag.key, "")
             if description:
-                effects.append(f"{symbol}: {description}")
+                effects.append(description)
         return effects
 
     @classmethod
