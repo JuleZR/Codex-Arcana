@@ -156,7 +156,9 @@ class ItemEngine:
         if not stats:
             return None
         override = self._get_override_value("weapon_min_st_override", None)
-        if override is not None:
+        # Legacy owned-item overrides are single-value only. When they merely
+        # mirror the old base value, keep the newer profile-specific stats.
+        if override is not None and int(override) != int(stats.min_st or 1):
             return int(override)
         return stats.effective_min_st(wield_mode)
 
