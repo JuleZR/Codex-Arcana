@@ -3958,6 +3958,25 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
   width: 7%;
 }
 
+.weapons_table td.weapon_min_col {
+  container-type: inline-size;
+  white-space: nowrap;
+}
+
+.weapon_min_value {
+  display: inline-block;
+  max-width: 100%;
+  white-space: nowrap;
+  font-size: 0.64rem;
+  line-height: 1;
+}
+
+@supports (font-size: 1cqw) {
+  .weapon_min_value {
+    font-size: clamp(0.52rem, 24cqw, 0.73rem);
+  }
+}
+
 .weapons_table th:nth-child(5),
 .weapons_table td:nth-child(5) {
   width: 26px;

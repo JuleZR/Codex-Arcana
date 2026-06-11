@@ -948,9 +948,9 @@ def _build_item_tooltip_rows(
         min_st_1h = item_engine.get_weapon_min_st(ONE_HANDED)
         min_st_2h = item_engine.get_weapon_min_st(TWO_HANDED)
         if min_st_1h is not None and min_st_2h is not None and min_st_1h != min_st_2h:
-            rows.append(("Min-St", f"1H {min_st_1h} / 2H {min_st_2h}"))
+            rows.append(("Min-ST", f"1H {min_st_1h} / 2H {min_st_2h}"))
         elif min_st_1h is not None:
-            rows.append(("Min-St", min_st_1h))
+            rows.append(("Min-ST", min_st_1h))
         min_ge_1h = item_engine.get_weapon_min_ge(ONE_HANDED)
         min_ge_2h = item_engine.get_weapon_min_ge(TWO_HANDED)
         if min_ge_1h is not None and min_ge_2h is not None and min_ge_1h != min_ge_2h:
@@ -964,7 +964,7 @@ def _build_item_tooltip_rows(
         rows.append(("Bel", item_engine.get_armor_encumbrance() if armor_encumbrance is None else armor_encumbrance))
         min_st = item_engine.get_armor_min_st()
         if min_st is not None:
-            rows.append(("Min-St", min_st))
+            rows.append(("Min-ST", min_st))
     elif item.item_type == Item.ItemType.SHIELD:
         rs = item_engine.get_effective_shield_rs()
         if rs is not None:
@@ -972,7 +972,7 @@ def _build_item_tooltip_rows(
         rows.append(("Bel", item_engine.get_shield_encumbrance() if shield_encumbrance is None else shield_encumbrance))
         min_st = item_engine.get_shield_min_st()
         if min_st is not None:
-            rows.append(("Min-St", min_st))
+            rows.append(("Min-ST", min_st))
     elif item.item_type == Item.ItemType.MAGIC_ITEM:
         effect_summary, text_payloads = unpack_magic_effect_summary(
             getattr(getattr(item, "magicitemstats", None), "effect_summary", "")
@@ -3385,6 +3385,16 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
     )
     learning_progression_context = build_learning_progression_context(character, engine=engine)
     spell_panel_data = magic_engine.get_spell_panel_data()
+    visible_school_group_ids = {
+        int(group["school_id"])
+        for group in school_technique_groups
+        if group.get("school_id")
+    }
+    spell_panel_arcane_schools = [
+        school
+        for school in spell_panel_data["arcane_schools"]
+        if int(school.get("id") or 0) not in visible_school_group_ids
+    ]
     divine_binding = magic_engine._divine_binding()
     divine_entity = divine_binding.entity if divine_binding is not None else None
     druid_binding = (
@@ -3829,7 +3839,7 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
         "has_castable_entries": bool(spell_panel_data["has_castable_entries"]),
         "spell_panel_groups": spell_panel_data["groups"],
         "spell_panel_filter_groups": spell_panel_data.get("filter_groups", []),
-        "spell_panel_arcane_schools": spell_panel_data["arcane_schools"],
+        "spell_panel_arcane_schools": spell_panel_arcane_schools,
         "spell_panel_divine_summary": spell_panel_data["divine_summary"],
         "rune_retrofit_choices": [
             {

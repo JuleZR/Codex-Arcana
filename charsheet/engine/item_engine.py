@@ -174,8 +174,8 @@ class ItemEngine:
         if min_ge is None:
             return str(min_st) if min_st is not None else "-"
         if min_st is None:
-            return f"GE {min_ge}"
-        return f"ST {min_st} / GE {min_ge}"
+            return f"Ge {min_ge}"
+        return f"{min_st} (Ge {min_ge})"
 
     def get_weapon_range_label(self) -> str:
         """Return the compact short/medium/long weapon range label."""

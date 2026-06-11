@@ -1418,6 +1418,7 @@ class MagicEngine:
             "filter_groups": filter_groups if len(filter_groups) > 1 else [],
             "arcane_schools": [
                 {
+                    "id": int(entry.school_id),
                     "name": entry.school.name,
                     "level": int(entry.level),
                     "level_label": _to_roman(int(entry.level)),
