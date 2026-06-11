@@ -1062,11 +1062,16 @@ document.addEventListener("DOMContentLoaded", () => {
   };
   const isQualityAdjustableType = (itemType) => itemType === "weapon" || itemType === "armor" || itemType === "shield";
   const buildDamageLabel = (amount, faces, flat) => {
-    if (!amount || !faces) {
+    if (!amount && !faces) {
       return "-";
     }
     const bonus = readInt(flat, 0);
-    return `${amount}w${faces}${bonus ? `${bonus >= 0 ? "+" : ""}${bonus}` : ""}`;
+    const diceAmount = readInt(amount, 0);
+    const diceFaces = readInt(faces, 0);
+    if (diceFaces <= 0) {
+      return `${diceAmount + bonus}`;
+    }
+    return `${diceAmount}w${diceFaces}${bonus ? `${bonus >= 0 ? "+" : ""}${bonus}` : ""}`;
   };
   const unitPriceForEntry = (entry) => {
     const mod = QUALITY_PRICE_MODS[normalizeQuality(entry.quality)] ?? 1;

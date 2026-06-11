@@ -361,11 +361,18 @@ class WeaponStats(models.Model):
     @classmethod
     def format_damage_label(cls, dice_amount: int, dice_faces: int, bonus: int | None, operator: str | None) -> str:
         """Return classic damage notation with a configurable operator."""
-        damage = f"{dice_amount}w{dice_faces}"
+        resolved_dice_amount = int(dice_amount or 0)
+        resolved_dice_faces = int(dice_faces or 0)
+        damage = str(resolved_dice_amount) if resolved_dice_faces <= 0 else f"{resolved_dice_amount}w{resolved_dice_faces}"
         resolved_bonus = int(bonus or 0)
         resolved_operator = str(operator or "")
         if not resolved_bonus:
             return damage
+        if resolved_dice_faces <= 0:
+            if resolved_operator == cls.DamageOperator.SUBTRACT:
+                return str(resolved_dice_amount - resolved_bonus)
+            if resolved_operator in ("", cls.DamageOperator.ADD):
+                return str(resolved_dice_amount + resolved_bonus)
         if resolved_operator == cls.DamageOperator.DIVIDE:
             return f"{damage}/{resolved_bonus}"
         if resolved_operator == cls.DamageOperator.SUBTRACT:
