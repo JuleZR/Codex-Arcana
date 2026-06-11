@@ -19,6 +19,14 @@
   position: absolute;
   inset: 0;
   background: url("/static/img/arcane_codex_logo.svg") center 56% / 74% no-repeat;
+  clip-path: polygon(
+    0 0,
+    100% 0,
+    100% 238px,
+    296px 238px,
+    296px 100%,
+    0 100%
+  );
   mix-blend-mode: multiply;
   opacity: 0.30;
   pointer-events: none;
@@ -711,15 +719,16 @@
 }
 
 .skills_wrapper {
+  display: flex;
+  flex-direction: column;
   border: 1px solid rgba(74, 55, 38, 0.30);
   border-radius: 5px;
   background: rgba(255, 248, 230, 0.24);
   padding: 4px 4px 5px;
   flex: 1 1 auto;
   min-height: 0;
-  overflow-y: auto;
+  overflow-y: hidden;
   overflow-x: hidden;
-  scrollbar-gutter: stable both-edges;
 }
 
 .skill_manager {
@@ -1048,7 +1057,32 @@ button.skill_manager_action {
 
 .skills_table {
   width: 100%;
+  height: 100%;
   border-collapse: collapse;
+  table-layout: fixed;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.skills_table thead,
+.skills_table tbody {
+  display: block;
+}
+
+.skills_table tbody {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-gutter: stable both-edges;
+}
+
+.skills_table tr {
+  display: table;
+  width: 100%;
   table-layout: fixed;
 }
 
@@ -1063,9 +1097,6 @@ button.skill_manager_action {
   color: var(--ink-soft);
   padding: 1px 2px;
   text-align: center;
-  position: sticky;
-  top: 0;
-  z-index: 2;
   background: rgba(255, 248, 230, 0.24);
 }
 

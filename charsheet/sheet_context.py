@@ -1702,7 +1702,7 @@ def _build_skill_rows(character: Character, engine, *, load_penalty: int) -> tup
                 continue
             maneuver_breakdown_rows = _build_weapon_maneuver_breakdown_rows(engine, weapon_row)
             for option in weapon_row.get("maneuver_options") or []:
-                maneuver_bonus = int(option.get("total_modifier") or 0)
+                maneuver_bonus = int(option.get("total_modifier") or 0) - int(option.get("attribute_modifier") or 0)
                 rows.append(
                     {
                         "row_kind": "weapon_context",
@@ -1725,11 +1725,6 @@ def _build_skill_rows(character: Character, engine, *, load_penalty: int) -> tup
                         "calculation_tooltip": _build_core_stat_tooltip(
                             [
                                 {"label": "Grundwert", "value": int(base_row["with_load_total_value"]), "source": base_row["display_name"]},
-                                {
-                                    "label": f"{option['attribute_code']}-Bonus/Malus",
-                                    "value": format_modifier(int(option.get("attribute_modifier", 0) or 0)),
-                                    "source": option["attribute_code"],
-                                },
                                 *maneuver_breakdown_rows,
                                 {"label": "= Gesamt", "value": int(base_row["with_load_total_value"]) + maneuver_bonus, "tone": "total"},
                             ]

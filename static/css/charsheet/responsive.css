@@ -411,10 +411,10 @@
     overflow: visible;
   }
 
-  /* Skills table: show all rows, scroll only horizontally for narrow widths */
+  /* Skills table: keep the scroll area below the header row */
   .skills_wrapper {
     flex: 0 0 auto;
-    overflow-y: auto;
+    overflow-y: hidden;
     min-height: 100px;
     max-height: min(500px, 58vh);
     overflow-x: auto;
