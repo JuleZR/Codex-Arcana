@@ -57,7 +57,9 @@
               <span class="weapon_damage_value">{{ row.damage|default:"-" }}</span>
             </td>
             <td>{{ row.size_class|default:"-" }}</td>
-            <td class="weapon_min_col"><span class="weapon_min_value">{{ row.min_attribute_label|default:row.min_st|default:"-" }}</span></td>
+            <td class="weapon_min_col{% if row.min_attribute_compact %} weapon_min_col--compact{% endif %}">
+              <span class="weapon_min_value">{{ row.min_attribute_label|default:row.min_st|default:"-" }}</span>
+            </td>
             <td class="weapon_mode_col">{{ row.mode_label }}</td>
             <td>{{ row.reload_time|default_if_none:"-" }}</td>
             <td>{{ row.range_label|default:"-" }}</td>

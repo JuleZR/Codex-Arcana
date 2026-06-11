@@ -281,6 +281,7 @@ def equipped_weapon_rows(engine) -> list[dict]:
         for profile_index, profile in enumerate(
             item_engine.weapon_profiles(dice_amount_bonus=item_specific_damage_dice_modifier)
         ):
+            min_attribute_label = item_engine.get_weapon_min_attribute_label(profile["mode"])
             rows.append(
                 {
                     "character_item": character_item,
@@ -308,7 +309,8 @@ def equipped_weapon_rows(engine) -> list[dict]:
                     "wield_mode": item_engine.get_weapon_wield_mode(),
                     "size_class": item_engine.get_size_class(),
                     "min_st": item_engine.get_weapon_min_st(profile["mode"]),
-                    "min_attribute_label": item_engine.get_weapon_min_attribute_label(profile["mode"]),
+                    "min_attribute_label": min_attribute_label,
+                    "min_attribute_compact": "Ge" in min_attribute_label,
                     "reload_time": item_engine.get_weapon_reload_time(),
                     "range_label": item_engine.get_weapon_range_label(),
                     "maneuver_attribute_mode": item_engine.get_weapon_maneuver_attribute_mode(),

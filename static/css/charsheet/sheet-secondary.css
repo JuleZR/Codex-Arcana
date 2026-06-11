@@ -3967,12 +3967,16 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
   display: inline-block;
   max-width: 100%;
   white-space: nowrap;
-  font-size: 0.5rem;
+  font-size: 0.73rem;
   line-height: 1;
 }
 
+.weapon_min_col--compact .weapon_min_value {
+  font-size: 0.5rem;
+}
+
 @supports (font-size: 1cqw) {
-  .weapon_min_value {
+  .weapon_min_col--compact .weapon_min_value {
     font-size: clamp(0.38rem, 15cqw, 0.6rem);
   }
 }
