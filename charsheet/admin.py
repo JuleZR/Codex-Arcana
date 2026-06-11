@@ -1544,6 +1544,18 @@ class WeaponStatsAdminForm(forms.ModelForm):
         model = WeaponStats
         fields = "__all__"
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field_name in (
+            "h2_dice_amount",
+            "h2_dice_faces",
+            "h2_flat_bonus",
+            "h2_flat_operator",
+            "h2_damage_type",
+        ):
+            if field_name in self.fields:
+                self.fields[field_name].required = False
+
     def clean(self):
         cleaned_data = super().clean()
         wield_mode = cleaned_data.get("wield_mode") or ONE_HANDED
@@ -1560,6 +1572,8 @@ class WeaponStatsAdminForm(forms.ModelForm):
             for field_name in ("h2_dice_amount", "h2_dice_faces")
             if cleaned_data.get(field_name) is None
         ]
+        if not cleaned_data.get("h2_damage_type"):
+            cleaned_data["h2_damage_type"] = cleaned_data.get("damage_type")
         for field_name in missing_fields:
             self.add_error(field_name, "Required for two-handed and versatile weapons.")
         return cleaned_data
@@ -1591,7 +1605,7 @@ class WeaponStatsInline(admin.StackedInline):
     )
 
     class Media:
-        css = {"all": ("charsheet/css/weapon_stats_admin.css",)}
+        css = {"all": ("charsheet/css/weapon_stats_admin_v2.css",)}
         js = ("charsheet/js/weapon_stats_inline_admin.js",)
 
 
@@ -2878,7 +2892,7 @@ class ItemAdmin(admin.ModelAdmin):
     )
 
     class Media:
-        css = {"all": ("charsheet/css/weapon_stats_admin.css",)}
+        css = {"all": ("charsheet/css/weapon_stats_admin_v2.css",)}
         js = ("charsheet/js/weapon_stats_inline_admin.js",)
 
     @admin.display(ordering="default_quality", description="Quality")
@@ -4063,7 +4077,7 @@ class WeaponStatsAdmin(admin.ModelAdmin):
     )
 
     class Media:
-        css = {"all": ("charsheet/css/weapon_stats_admin.css",)}
+        css = {"all": ("charsheet/css/weapon_stats_admin_v2.css",)}
         js = ("charsheet/js/weapon_stats_inline_admin.js",)
 
     @admin.display(ordering="item__default_quality", description="Item Quality")
