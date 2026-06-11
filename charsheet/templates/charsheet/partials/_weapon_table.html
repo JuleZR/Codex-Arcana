@@ -7,7 +7,7 @@
           <th></th>
           <th>Scha&shy;den</th>
           <th>GK</th>
-          <th>Min.-<wbr>St.</th>
+          <th>Min.</th>
           <th></th>
           <th>Nach-<br>ladez.</th>
           <th>Reich-<br>weite</th>
@@ -57,10 +57,10 @@
               <span class="weapon_damage_value">{{ row.damage|default:"-" }}</span>
             </td>
             <td>{{ row.size_class|default:"-" }}</td>
-            <td>{{ row.min_st|default:"-" }}</td>
+            <td>{{ row.min_attribute_label|default:row.min_st|default:"-" }}</td>
             <td class="weapon_mode_col">{{ row.mode_label }}</td>
-            <td>-</td>
-            <td>-</td>
+            <td>{{ row.range_label|default:"-" }}</td>
+            <td>{{ row.reload_time|default_if_none:"-" }}</td>
             <td title="Schadensmodifikator: {{ row.dmg_mod_display|default:'0' }}">{{ row.dmg_mod_display|default:"-" }}</td>
             <td>
               <span

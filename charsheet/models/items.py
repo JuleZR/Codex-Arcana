@@ -234,6 +234,15 @@ class WeaponStats(models.Model):
 
     item = models.OneToOneField(Item, on_delete=models.CASCADE)
     min_st = models.PositiveIntegerField(default=1, validators=[MinValueValidator(1)])
+    min_st_1h = models.PositiveIntegerField(null=True, blank=True, validators=[MinValueValidator(1)])
+    min_st_2h = models.PositiveIntegerField(null=True, blank=True, validators=[MinValueValidator(1)])
+    min_ge_1h = models.PositiveIntegerField(null=True, blank=True, validators=[MinValueValidator(1)])
+    min_ge_2h = models.PositiveIntegerField(null=True, blank=True, validators=[MinValueValidator(1)])
+    range_short = models.PositiveIntegerField(null=True, blank=True, validators=[MinValueValidator(1)])
+    range_medium = models.PositiveIntegerField(null=True, blank=True, validators=[MinValueValidator(1)])
+    range_long = models.PositiveIntegerField(null=True, blank=True, validators=[MinValueValidator(1)])
+    reload_time = models.PositiveIntegerField(null=True, blank=True, validators=[MinValueValidator(0)])
+    shot_count = models.PositiveIntegerField(null=True, blank=True, validators=[MinValueValidator(0)])
     damage_source = models.ForeignKey(DamageSource, on_delete=models.PROTECT)
     damage_dice_amount = models.PositiveIntegerField(default=1)
     damage_dice_faces = models.PositiveIntegerField(default=10)
@@ -286,6 +295,35 @@ class WeaponStats(models.Model):
     def has_alternate_two_handed_profile(self) -> bool:
         """Return whether the weapon has a second, optional two-handed profile."""
         return self.wield_mode == VERSATILE
+
+    def effective_min_st(self, wield_mode: str | None = None) -> int:
+        """Return minimum strength with 1H/2H fallback semantics."""
+        base = int(self.min_st or 1)
+        one_handed = self.min_st_1h
+        two_handed = self.min_st_2h
+        if wield_mode == TWO_HANDED:
+            return int(two_handed or one_handed or base)
+        if wield_mode == ONE_HANDED:
+            return int(one_handed or two_handed or base)
+        return int(one_handed or two_handed or base)
+
+    def effective_min_ge(self, wield_mode: str | None = None) -> int | None:
+        """Return optional minimum agility with 1H/2H fallback semantics."""
+        one_handed = self.min_ge_1h
+        two_handed = self.min_ge_2h
+        if wield_mode == TWO_HANDED:
+            return int(two_handed or one_handed) if two_handed or one_handed else None
+        if wield_mode == ONE_HANDED:
+            return int(one_handed or two_handed) if one_handed or two_handed else None
+        return int(one_handed or two_handed) if one_handed or two_handed else None
+
+    @property
+    def range_label(self) -> str:
+        """Return a compact short/medium/long range label."""
+        values = [self.range_short, self.range_medium, self.range_long]
+        if not any(value is not None for value in values):
+            return ""
+        return "/".join(str(value) if value is not None else "-" for value in values)
 
     @property
     def damage(self) -> str:

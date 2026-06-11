@@ -27,12 +27,14 @@ from charsheet.constants import (
     GK_MODS,
     INITIATIVE,
     MELEE_MANEUVERS,
+    ONE_HANDED,
     QUALITY_CHOICES,
     QUALITY_COLOR_MAP,
     RULE_FLAG_CHOICES,
     RULE_FLAG_TARGET_KIND,
     STAT_SLUG_CHOICES,
     SOURCE_ITEM_RUNE,
+    TWO_HANDED,
     WEAPON_DAMAGE,
     WEAPON_DAMAGE_DICE,
     WEAPON_MANEUVER_ATTRIBUTE_CHOICES,
@@ -825,6 +827,17 @@ def _build_character_item_rune_tooltip_rows(
     ]
 
 
+def _build_weapon_symbol_tooltip_rows(item_engine: ItemEngine) -> list[tuple[str, object]]:
+    """Return item-card rows for weapon symbol effects."""
+    effect_lines = item_engine.get_weapon_effect_descriptions()
+    if not effect_lines:
+        return []
+    return [
+        ("[[EMPTY]]", line)
+        for line in effect_lines
+    ]
+
+
 def _format_item_tooltip(
     *,
     description: str,
@@ -922,10 +935,28 @@ def _build_item_tooltip_rows(
         two_handed_damage = item_engine.get_two_handed_damage_label()
         if two_handed_damage:
             rows.append(("2H Schaden", two_handed_damage))
+        range_label = item_engine.get_weapon_range_label()
+        if range_label:
+            rows.append(("Reichweite", range_label))
+        reload_time = item_engine.get_weapon_reload_time()
+        if reload_time is not None:
+            rows.append(("Nachladez.", reload_time))
+        shot_count = item_engine.get_weapon_shot_count()
+        if shot_count is not None:
+            rows.append(("Schussanzahl", shot_count))
         rows.append(("Waffenwurf", item_engine.get_weapon_maneuver_attribute_label()))
-        min_st = item_engine.get_weapon_min_st()
-        if min_st is not None:
-            rows.append(("Min-St", min_st))
+        min_st_1h = item_engine.get_weapon_min_st(ONE_HANDED)
+        min_st_2h = item_engine.get_weapon_min_st(TWO_HANDED)
+        if min_st_1h is not None and min_st_2h is not None and min_st_1h != min_st_2h:
+            rows.append(("Min-St", f"1H {min_st_1h} / 2H {min_st_2h}"))
+        elif min_st_1h is not None:
+            rows.append(("Min-St", min_st_1h))
+        min_ge_1h = item_engine.get_weapon_min_ge(ONE_HANDED)
+        min_ge_2h = item_engine.get_weapon_min_ge(TWO_HANDED)
+        if min_ge_1h is not None and min_ge_2h is not None and min_ge_1h != min_ge_2h:
+            rows.append(("Min-GE", f"1H {min_ge_1h} / 2H {min_ge_2h}"))
+        elif min_ge_1h is not None:
+            rows.append(("Min-GE", min_ge_1h))
     elif item.item_type == Item.ItemType.ARMOR:
         rs = item_engine.get_armor_rs_raw()
         if rs is not None:
@@ -1904,6 +1935,7 @@ def _build_inventory_rows(character: Character) -> list[dict]:
                 quality_color=quality["color"],
                 detail_rows=(
                     _build_item_tooltip_rows(item_engine, item)
+                    + _build_weapon_symbol_tooltip_rows(item_engine)
                     + _build_character_item_magic_tooltip_rows(
                         effect_summary=visible_magic_effect_summary,
                         modifier_payloads=magic_modifier_payloads,
@@ -1916,6 +1948,7 @@ def _build_inventory_rows(character: Character) -> list[dict]:
                 description=item_description,
                 detail_rows=(
                     _build_item_tooltip_rows(item_engine, item)
+                    + _build_weapon_symbol_tooltip_rows(item_engine)
                     + _build_character_item_magic_tooltip_rows(
                         effect_summary=visible_magic_effect_summary,
                         modifier_payloads=magic_modifier_payloads,
@@ -2134,6 +2167,7 @@ def _build_weapon_rows(engine) -> list[dict]:
                     quality_color="" if is_race_item else quality["color"],
                     detail_rows=(
                         _build_item_tooltip_rows(ItemEngine(row["character_item"]), row["item"])
+                        + _build_weapon_symbol_tooltip_rows(ItemEngine(row["character_item"]))
                         + _build_character_item_magic_tooltip_rows(
                             effect_summary=row["character_item"].magic_effect_summary or "",
                             modifier_payloads=magic_modifier_payloads,
@@ -2221,6 +2255,7 @@ def _build_armor_rows(engine) -> list[dict]:
                             row["item"],
                             armor_encumbrance=int(row["bel_effective"] or 0),
                         )
+                        + _build_weapon_symbol_tooltip_rows(ItemEngine(row["character_item"]))
                         + _build_character_item_magic_tooltip_rows(
                             effect_summary=row["character_item"].magic_effect_summary or "",
                             modifier_payloads=magic_modifier_payloads,
@@ -2256,6 +2291,7 @@ def _build_armor_rows(engine) -> list[dict]:
                     quality_color="" if is_race_item else quality["color"],
                     detail_rows=(
                         _build_item_tooltip_rows(ItemEngine(row["character_item"]), row["item"])
+                        + _build_weapon_symbol_tooltip_rows(ItemEngine(row["character_item"]))
                         + _build_character_item_magic_tooltip_rows(
                             effect_summary=row["character_item"].magic_effect_summary or "",
                             modifier_payloads=magic_modifier_payloads,
@@ -2291,6 +2327,7 @@ def _build_armor_rows(engine) -> list[dict]:
                     quality_color="" if is_race_item else quality["color"],
                     detail_rows=(
                         _build_item_tooltip_rows(ItemEngine(row["character_item"]), row["item"])
+                        + _build_weapon_symbol_tooltip_rows(ItemEngine(row["character_item"]))
                         + _build_character_item_magic_tooltip_rows(
                             effect_summary=row["character_item"].magic_effect_summary or "",
                             modifier_payloads=magic_modifier_payloads,
@@ -2330,6 +2367,7 @@ def _build_armor_rows(engine) -> list[dict]:
                             row["item"],
                             shield_encumbrance=int(row["bel_effective"] or 0),
                         )
+                        + _build_weapon_symbol_tooltip_rows(ItemEngine(row["character_item"]))
                         + _build_character_item_magic_tooltip_rows(
                             effect_summary=row["character_item"].magic_effect_summary or "",
                             modifier_payloads=magic_modifier_payloads,

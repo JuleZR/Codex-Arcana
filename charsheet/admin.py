@@ -14,7 +14,7 @@ from django.urls import path, reverse
 from django.utils.html import format_html, format_html_join
 from django.utils.safestring import mark_safe
 
-from .constants import QUALITY_COLOR_MAP, SCHOOL_ARCANE
+from .constants import ONE_HANDED, QUALITY_COLOR_MAP, SCHOOL_ARCANE, TWO_HANDED, VERSATILE
 from .admin_help import (
     ATTRIBUTE_CHOICE_HELP,
     CHARACTER_CHOICE_HELP,
@@ -1537,10 +1537,38 @@ class ShieldStatsInline(admin.StackedInline):
     can_delete = True
 
 
+class WeaponStatsAdminForm(forms.ModelForm):
+    """Admin form with conditional two-handed weapon fields."""
+
+    class Meta:
+        model = WeaponStats
+        fields = "__all__"
+
+    def clean(self):
+        cleaned_data = super().clean()
+        wield_mode = cleaned_data.get("wield_mode") or ONE_HANDED
+        if wield_mode not in {TWO_HANDED, VERSATILE}:
+            cleaned_data["h2_dice_amount"] = None
+            cleaned_data["h2_dice_faces"] = None
+            cleaned_data["h2_flat_bonus"] = None
+            cleaned_data["h2_flat_operator"] = ""
+            return cleaned_data
+
+        missing_fields = [
+            field_name
+            for field_name in ("h2_dice_amount", "h2_dice_faces")
+            if cleaned_data.get(field_name) is None
+        ]
+        for field_name in missing_fields:
+            self.add_error(field_name, "Required for two-handed and versatile weapons.")
+        return cleaned_data
+
+
 class WeaponStatsInline(admin.StackedInline):
     """Inline editor for one-to-one weapon stats on an item."""
 
     model = WeaponStats
+    form = WeaponStatsAdminForm
     verbose_name_plural = "Weapon Stats"
     extra = 0
     max_num = 1
@@ -1548,23 +1576,21 @@ class WeaponStatsInline(admin.StackedInline):
     autocomplete_fields = ("damage_source",)
     filter_horizontal = ("flags", "skills")
     fields = (
-        "min_st",
+        ("min_st_1h", "min_st_2h"),
+        ("min_ge_1h", "min_ge_2h"),
+        "wield_mode",
         "weapon_type",
         "maneuver_attribute_mode",
         "damage_source",
         "skills",
-        "damage_dice_amount",
-        "damage_dice_faces",
-        "damage_flat_operator",
-        "damage_flat_bonus",
-        "damage_type",
-        "wield_mode",
-        "h2_dice_amount",
-        "h2_dice_faces",
-        "h2_flat_operator",
-        "h2_flat_bonus",
+        ("damage_dice_amount", "damage_dice_faces", "damage_flat_operator", "damage_flat_bonus", "damage_type"),
+        ("h2_dice_amount", "h2_dice_faces", "h2_flat_operator", "h2_flat_bonus"),
+        ("range_short", "range_medium", "range_long", "reload_time", "shot_count"),
         "flags",
     )
+
+    class Media:
+        js = ("charsheet/js/weapon_stats_admin.js",)
 
 
 class MagicItemStatsInline(admin.StackedInline):
@@ -3992,6 +4018,7 @@ class RuneAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
 class WeaponStatsAdmin(admin.ModelAdmin):
     """Admin configuration for weapon stat records."""
 
+    form = WeaponStatsAdminForm
     list_display = (
         "item",
         "item_quality",
@@ -4004,7 +4031,8 @@ class WeaponStatsAdmin(admin.ModelAdmin):
         "skill_summary",
         "damage_type",
         "flag_summary",
-        "min_st",
+        "min_st_summary",
+        "range_summary",
         "size_class",
     )
     search_fields = ("item__name", "weapon_type__name", "weapon_type__slug", "damage_source__name", "flags__key", "skills__name", "skills__slug")
@@ -4015,23 +4043,21 @@ class WeaponStatsAdmin(admin.ModelAdmin):
     filter_horizontal = ("flags", "skills")
     fields = (
         "item",
-        "min_st",
+        ("min_st_1h", "min_st_2h"),
+        ("min_ge_1h", "min_ge_2h"),
+        "wield_mode",
         "weapon_type",
         "maneuver_attribute_mode",
         "damage_source",
         "skills",
-        "damage_dice_amount",
-        "damage_dice_faces",
-        "damage_flat_operator",
-        "damage_flat_bonus",
-        "damage_type",
-        "wield_mode",
-        "h2_dice_amount",
-        "h2_dice_faces",
-        "h2_flat_operator",
-        "h2_flat_bonus",
+        ("damage_dice_amount", "damage_dice_faces", "damage_flat_operator", "damage_flat_bonus", "damage_type"),
+        ("h2_dice_amount", "h2_dice_faces", "h2_flat_operator", "h2_flat_bonus"),
+        ("range_short", "range_medium", "range_long", "reload_time", "shot_count"),
         "flags",
     )
+
+    class Media:
+        js = ("charsheet/js/weapon_stats_admin.js",)
 
     @admin.display(ordering="item__default_quality", description="Item Quality")
     def item_quality(self, obj):
@@ -4057,6 +4083,28 @@ class WeaponStatsAdmin(admin.ModelAdmin):
     def skill_summary(self, obj):
         """Render assigned weapon skills compactly for list display."""
         return ", ".join(obj.skills.order_by("name").values_list("name", flat=True)) or "-"
+
+    @admin.display(description="Min-St")
+    def min_st_summary(self, obj):
+        """Render effective one-handed and two-handed minimum strength."""
+        one_handed = obj.effective_min_st(ONE_HANDED)
+        two_handed = obj.effective_min_st(TWO_HANDED)
+        ge_one_handed = obj.effective_min_ge(ONE_HANDED)
+        ge_two_handed = obj.effective_min_ge(TWO_HANDED)
+        st_label = str(one_handed) if one_handed == two_handed else f"1H {one_handed} / 2H {two_handed}"
+        if ge_one_handed is None and ge_two_handed is None:
+            return st_label
+        ge_label = (
+            str(ge_one_handed)
+            if ge_one_handed == ge_two_handed
+            else f"1H {ge_one_handed or '-'} / 2H {ge_two_handed or '-'}"
+        )
+        return f"ST {st_label} | GE {ge_label}"
+
+    @admin.display(description="Range")
+    def range_summary(self, obj):
+        """Render short/medium/long range values."""
+        return obj.range_label or "-"
 
 
 @admin.register(WeaponType)

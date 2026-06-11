@@ -199,10 +199,19 @@ ITEM_CHOICE_HELP = {
 WEAPON_CHOICE_HELP = {
     "damage_source": "Optional finer-grained damage source such as slash, thrust, projectile, or elemental source for modifier resolution.",
     "damage_type": "Deadly = lethal physical damage, Stun = non-lethal damage.",
+    "min_st_1h": "Minimum strength for one-handed use. If only one minimum strength field is set, it applies to both profiles.",
+    "min_st_2h": "Minimum strength for two-handed use. If only one minimum strength field is set, it applies to both profiles.",
+    "min_ge_1h": "Optional minimum agility for one-handed use. If only one GE field is set, it applies to both profiles.",
+    "min_ge_2h": "Optional minimum agility for two-handed use. If only one GE field is set, it applies to both profiles.",
     "wield_mode": "1H = one-handed only, 2H = two-handed only, V/H = versatile with separate two-handed damage values.",
     "h2_dice_amount": "Required for 2H and versatile weapons.",
     "h2_dice_faces": "Required for 2H and versatile weapons.",
     "h2_flat_bonus": "Optional flat bonus for the two-handed profile.",
+    "range_short": "Optional short weapon range.",
+    "range_medium": "Optional medium weapon range.",
+    "range_long": "Optional long weapon range.",
+    "reload_time": "Optional reload time. Use 0 for weapons with no reload delay.",
+    "shot_count": "Optional shot count. Shown only on item cards.",
     "flags": "Optional weapon symbols or traits such as rulebook keywords.",
 }
 

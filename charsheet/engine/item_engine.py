@@ -21,6 +21,7 @@ from charsheet.constants import (
     WEAPON_MANEUVER_ATTRIBUTE_BOTH,
     WEAPON_MANEUVER_ATTRIBUTE_GE,
     WEAPON_MANEUVER_ATTRIBUTE_ST,
+    WEAPON_SYMBOL_DESCRIPTIONS,
 )
 from charsheet.models import ArmorStats, CharacterItem, Item, ShieldStats, WeaponStats
 
@@ -149,12 +150,53 @@ class ItemEngine:
         """Return the stored item size class."""
         return str(self._get_override_value("size_class_override", self._get_item().size_class))
 
-    def get_weapon_min_st(self) -> int | None:
-        """Return the minimum strength needed for this weapon."""
+    def get_weapon_min_st(self, wield_mode: str | None = None) -> int | None:
+        """Return the minimum strength needed for this weapon profile."""
         stats = self._get_weapon_stats()
         if not stats:
             return None
-        return int(self._get_override_value("weapon_min_st_override", stats.min_st))
+        override = self._get_override_value("weapon_min_st_override", None)
+        if override is not None:
+            return int(override)
+        return stats.effective_min_st(wield_mode)
+
+    def get_weapon_min_ge(self, wield_mode: str | None = None) -> int | None:
+        """Return the optional minimum agility needed for this weapon profile."""
+        stats = self._get_weapon_stats()
+        if not stats:
+            return None
+        return stats.effective_min_ge(wield_mode)
+
+    def get_weapon_min_attribute_label(self, wield_mode: str | None = None) -> str:
+        """Return compact minimum attribute requirements for table display."""
+        min_st = self.get_weapon_min_st(wield_mode)
+        min_ge = self.get_weapon_min_ge(wield_mode)
+        if min_ge is None:
+            return str(min_st) if min_st is not None else "-"
+        if min_st is None:
+            return f"GE {min_ge}"
+        return f"ST {min_st} / GE {min_ge}"
+
+    def get_weapon_range_label(self) -> str:
+        """Return the compact short/medium/long weapon range label."""
+        stats = self._get_weapon_stats()
+        if not stats:
+            return ""
+        return stats.range_label
+
+    def get_weapon_reload_time(self) -> int | None:
+        """Return the weapon reload time if configured."""
+        stats = self._get_weapon_stats()
+        if not stats:
+            return None
+        return stats.reload_time
+
+    def get_weapon_shot_count(self) -> int | None:
+        """Return the weapon shot count if configured."""
+        stats = self._get_weapon_stats()
+        if not stats:
+            return None
+        return stats.shot_count
 
     def get_weapon_type(self) -> str:
         """Return the effective weapon type used for matching and UI."""
@@ -408,6 +450,19 @@ class ItemEngine:
         if not stats:
             return set()
         return {flag.key for flag in stats.flags.all()}
+
+    def get_weapon_effect_descriptions(self) -> list[str]:
+        """Return German effect texts for the weapon's symbols."""
+        stats = self._get_weapon_stats()
+        if not stats:
+            return []
+        effects = []
+        for flag in stats.flags.all():
+            symbol = flag.get_key_display()
+            description = WEAPON_SYMBOL_DESCRIPTIONS.get(flag.key, "")
+            if description:
+                effects.append(f"{symbol}: {description}")
+        return effects
 
     @classmethod
     def total_weight_for_character(
