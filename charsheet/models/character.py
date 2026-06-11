@@ -229,6 +229,7 @@ class CharacterItem(models.Model):
     weapon_h2_dice_faces_override = models.PositiveIntegerField(null=True, blank=True)
     weapon_h2_flat_bonus_override = models.IntegerField(null=True, blank=True)
     weapon_h2_flat_operator_override = models.CharField(max_length=1, blank=True, default="")
+    weapon_h2_damage_type_override = models.CharField(max_length=1, choices=DAMAGE_TYPE_CHOICES, blank=True, default="")
     armor_rs_head_override = models.PositiveIntegerField(null=True, blank=True)
     armor_rs_torso_override = models.PositiveIntegerField(null=True, blank=True)
     armor_rs_arm_left_override = models.PositiveIntegerField(null=True, blank=True)

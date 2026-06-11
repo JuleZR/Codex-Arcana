@@ -2050,6 +2050,7 @@ def _build_inventory_rows(character: Character) -> list[dict]:
                             "weapon_h2_flat_bonus_override",
                             getattr(getattr(item, "weaponstats", None), "h2_flat_bonus", ""),
                         ),
+                        "weapon_h2_damage_type": item_engine.get_weapon_h2_damage_type(),
                         "armor_rs_total": item_engine._get_override_value(
                             "armor_rs_total_override",
                             getattr(getattr(item, "armorstats", None), "rs_total", ""),
@@ -2748,6 +2749,7 @@ def _build_shop_item_groups() -> list[dict]:
                     "h2_dice_faces": weapon_stats.h2_dice_faces,
                     "h2_flat_bonus": weapon_stats.h2_flat_bonus,
                     "h2_flat_operator": weapon_stats.h2_flat_operator,
+                    "h2_damage_type": weapon_stats.h2_damage_type,
                     "wield_mode": weapon_stats.wield_mode,
                     "min_st": weapon_stats.min_st,
                     "damage_type": weapon_stats.damage_type,

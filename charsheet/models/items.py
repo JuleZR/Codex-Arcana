@@ -272,6 +272,7 @@ class WeaponStats(models.Model):
     h2_dice_faces = models.PositiveIntegerField(null=True, blank=True)
     h2_flat_bonus = models.IntegerField(null=True, blank=True)
     h2_flat_operator = models.CharField(max_length=1, choices=DamageOperator.choices, default=DamageOperator.NONE, blank=True)
+    h2_damage_type = models.CharField(max_length=1, default=DEADLY, choices=DAMAGE_TYPE_CHOICES)
 
     flags = models.ManyToManyField(WeaponFlag, blank=True)
     skills = models.ManyToManyField(
@@ -349,12 +350,13 @@ class WeaponStats(models.Model):
         """Return two-handed damage in dice notation if available."""
         if not self.requires_two_handed_damage_profile or self.h2_dice_amount is None or self.h2_dice_faces is None:
             return None
-        return self.format_damage_label(
+        label = self.format_damage_label(
             self.h2_dice_amount,
             self.h2_dice_faces,
             self.h2_flat_bonus,
             self.h2_flat_operator,
         )
+        return f"{label} {self.h2_damage_type}".strip()
 
     @classmethod
     def format_damage_label(cls, dice_amount: int, dice_faces: int, bonus: int | None, operator: str | None) -> str:
@@ -403,7 +405,7 @@ class WeaponStats(models.Model):
             alt = f"{self.h2_dice_amount}w{self.h2_dice_faces}"
             if self.h2_flat_bonus:
                 alt += f"{self.h2_flat_bonus:+d}"
-            return f"{self.item}: DMG {base} / 2H {alt} ({self.get_damage_type_display()})"
+            return f"{self.item}: DMG {base} ({self.get_damage_type_display()}) / 2H {alt} ({self.get_h2_damage_type_display()})"
 
         return f"{self.item}: DMG {base} ({self.get_damage_type_display()})"
 

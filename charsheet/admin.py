@@ -1552,6 +1552,7 @@ class WeaponStatsAdminForm(forms.ModelForm):
             cleaned_data["h2_dice_faces"] = None
             cleaned_data["h2_flat_bonus"] = None
             cleaned_data["h2_flat_operator"] = ""
+            cleaned_data["h2_damage_type"] = cleaned_data.get("damage_type")
             return cleaned_data
 
         missing_fields = [
@@ -1584,13 +1585,14 @@ class WeaponStatsInline(admin.StackedInline):
         "damage_source",
         "skills",
         ("damage_dice_amount", "damage_dice_faces", "damage_flat_operator", "damage_flat_bonus", "damage_type"),
-        ("h2_dice_amount", "h2_dice_faces", "h2_flat_operator", "h2_flat_bonus"),
+        ("h2_dice_amount", "h2_dice_faces", "h2_flat_operator", "h2_flat_bonus", "h2_damage_type"),
         ("range_short", "range_medium", "range_long", "reload_time", "shot_count"),
         "flags",
     )
 
     class Media:
-        js = ("charsheet/js/weapon_stats_admin.js",)
+        css = {"all": ("charsheet/css/weapon_stats_admin.css",)}
+        js = ("charsheet/js/weapon_stats_inline_admin.js",)
 
 
 class MagicItemStatsInline(admin.StackedInline):
@@ -2875,6 +2877,10 @@ class ItemAdmin(admin.ModelAdmin):
         ItemCharacterInline,
     )
 
+    class Media:
+        css = {"all": ("charsheet/css/weapon_stats_admin.css",)}
+        js = ("charsheet/js/weapon_stats_inline_admin.js",)
+
     @admin.display(ordering="default_quality", description="Quality")
     def quality_preview(self, obj):
         """Render default quality with RPG item coloring."""
@@ -4051,13 +4057,14 @@ class WeaponStatsAdmin(admin.ModelAdmin):
         "damage_source",
         "skills",
         ("damage_dice_amount", "damage_dice_faces", "damage_flat_operator", "damage_flat_bonus", "damage_type"),
-        ("h2_dice_amount", "h2_dice_faces", "h2_flat_operator", "h2_flat_bonus"),
+        ("h2_dice_amount", "h2_dice_faces", "h2_flat_operator", "h2_flat_bonus", "h2_damage_type"),
         ("range_short", "range_medium", "range_long", "reload_time", "shot_count"),
         "flags",
     )
 
     class Media:
-        js = ("charsheet/js/weapon_stats_admin.js",)
+        css = {"all": ("charsheet/css/weapon_stats_admin.css",)}
+        js = ("charsheet/js/weapon_stats_inline_admin.js",)
 
     @admin.display(ordering="item__default_quality", description="Item Quality")
     def item_quality(self, obj):

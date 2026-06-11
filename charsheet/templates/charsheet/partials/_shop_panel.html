@@ -95,10 +95,12 @@
                             data-shop-damage-dice-faces="{{ item.stats.damage_dice_faces|default:'' }}"
                             data-shop-damage-flat-operator="{{ item.stats.damage_flat_operator|default:'' }}"
                             data-shop-damage-flat-bonus="{{ item.stats.damage_flat_bonus|default:'' }}"
+                            data-shop-damage-type="{{ item.stats.damage_type|default:'' }}"
                             data-shop-h2-dice-amount="{{ item.stats.h2_dice_amount|default_if_none:'' }}"
                             data-shop-h2-dice-faces="{{ item.stats.h2_dice_faces|default_if_none:'' }}"
                             data-shop-h2-flat-operator="{{ item.stats.h2_flat_operator|default_if_none:'' }}"
                             data-shop-h2-flat-bonus="{{ item.stats.h2_flat_bonus|default_if_none:'' }}"
+                            data-shop-h2-damage-type="{{ item.stats.h2_damage_type|default_if_none:'' }}"
                             data-shop-wield-mode="{{ item.stats.wield_mode|default:'' }}"
                             data-shop-armor-rs="{{ item.stats.armor_rs|default:'' }}"
                             data-shop-armor-bel="{{ item.stats.armor_bel|default:'' }}"
@@ -444,6 +446,14 @@
                   </select>
                 </label>
                 <label class="shop_item_form_row"><span>2H Wert</span><input type="number" name="weapon_h2_flat_bonus" min="0" step="1" value="0"></label>
+                <label class="shop_item_form_row">
+                  <span>2H Schadenstyp</span>
+                  <select name="weapon_h2_damage_type">
+                    {% for value, label in shop_damage_type_choices %}
+                      <option value="{{ value }}">{{ label }}</option>
+                    {% endfor %}
+                  </select>
+                </label>
               </div>
             </div>
             <label class="shop_item_form_row">

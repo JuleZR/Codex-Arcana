@@ -544,6 +544,9 @@ def apply_character_item_modifications(character_item: CharacterItem, post_data,
                 character_item.weapon_h2_flat_operator_override = _read_damage_operator(
                     post_data, "weapon_h2_flat_operator", weapon_stats.h2_flat_operator
                 )
+                character_item.weapon_h2_damage_type_override = str(
+                    post_data.get("weapon_h2_damage_type") or getattr(weapon_stats, "h2_damage_type", weapon_stats.damage_type)
+                ).strip() or getattr(weapon_stats, "h2_damage_type", weapon_stats.damage_type)
             if armor_stats is not None:
                 character_item.armor_rs_total_override = _read_int(post_data, "armor_rs_total", armor_stats.rs_total, minimum=0)
                 character_item.armor_rs_head_override = _read_int(post_data, "armor_rs_head", armor_stats.rs_head, minimum=0)
@@ -721,6 +724,7 @@ def create_custom_shop_item(post_data, files_data=None) -> bool:
             elif item.item_type == Item.ItemType.WEAPON:
                 min_st = _read_int(post_data, "weapon_min_st", 1, minimum=1)
                 damage_type = str(post_data.get("weapon_damage_type") or DEADLY)
+                h2_damage_type = str(post_data.get("weapon_h2_damage_type") or damage_type)
                 wield_mode = str(post_data.get("weapon_wield_mode") or "1h")
                 h2_enabled = wield_mode in {TWO_HANDED, VERSATILE}
                 damage_source_id = _read_int(post_data, "weapon_damage_source", 0, minimum=1)
@@ -744,6 +748,7 @@ def create_custom_shop_item(post_data, files_data=None) -> bool:
                     h2_dice_faces=_read_int(post_data, "weapon_h2_dice_faces", 0, minimum=2) if h2_enabled else None,
                     h2_flat_bonus=abs(_read_int(post_data, "weapon_h2_flat_bonus", 0)) if h2_enabled else None,
                     h2_flat_operator=_read_damage_operator(post_data, "weapon_h2_flat_operator", "") if h2_enabled else "",
+                    h2_damage_type=h2_damage_type if h2_enabled else damage_type,
                 )
                 weapon_stats.full_clean()
                 weapon_stats.save()

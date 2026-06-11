@@ -39,6 +39,7 @@ export function initItemForm() {
   const weaponTwoHandFields = document.getElementById("shopWeaponTwoHandFields");
   const weaponH2AmountInput = weaponFields.querySelector("input[name='weapon_h2_dice_amount']");
   const weaponH2FacesInput = weaponFields.querySelector("input[name='weapon_h2_dice_faces']");
+  const weaponH2DamageTypeSelect = weaponFields.querySelector("select[name='weapon_h2_damage_type']");
   const WEAPON_ONLY_MAGIC_TARGET_KINDS = ["weapon_maneuver", "weapon_damage", "weapon_damage_dice", "weapon_mastery_bonus"];
   const WEAPON_MASTERY_BONUS_KIND = "weapon_mastery_bonus";
   const WEAPON_MASTERY_BONUS_DESCRIPTION = "Waffenmeister-Bonus +1/+1";
@@ -59,7 +60,7 @@ export function initItemForm() {
 
   const syncWeaponWieldModeFields = () => {
     const mode = String(weaponWieldModeSelect?.value || "1h");
-    const hasTwoHandProfile = mode === "vh";
+    const hasTwoHandProfile = mode === "2h" || mode === "vh";
     if (weaponTwoHandFields) {
       weaponTwoHandFields.hidden = !hasTwoHandProfile;
     }
@@ -68,6 +69,9 @@ export function initItemForm() {
     }
     if (weaponH2FacesInput) {
       weaponH2FacesInput.required = hasTwoHandProfile;
+    }
+    if (weaponH2DamageTypeSelect) {
+      weaponH2DamageTypeSelect.required = hasTwoHandProfile;
     }
   };
 
@@ -435,6 +439,9 @@ export function initItemForm() {
       }
       if (weaponH2FacesInput) {
         weaponH2FacesInput.required = false;
+      }
+      if (weaponH2DamageTypeSelect) {
+        weaponH2DamageTypeSelect.required = false;
       }
     }
 

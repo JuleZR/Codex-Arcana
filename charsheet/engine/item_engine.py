@@ -278,7 +278,7 @@ class ItemEngine:
         return 0, operator
 
     def get_weapon_damage(self, wield_mode: str = ONE_HANDED, *, dice_amount_bonus: int = 0):
-        """Return weapon damage tuple(s): (dice_amount, dice_faces, flat_bonus, operator)."""
+        """Return weapon damage tuple(s): (dice_amount, dice_faces, flat_bonus, operator, damage_type)."""
         stats = self._get_weapon_stats()
         if not stats:
             return None
@@ -301,6 +301,7 @@ class ItemEngine:
             int(self._get_override_value("weapon_damage_dice_faces_override", stats.damage_dice_faces)),
             base_adjusted_bonus,
             base_adjusted_operator,
+            self.get_weapon_damage_type(),
         )
         two_handed = (
             (
@@ -311,6 +312,7 @@ class ItemEngine:
             self._get_override_value("weapon_h2_dice_faces_override", stats.h2_dice_faces),
             h2_adjusted_bonus,
             h2_adjusted_operator,
+            self.get_weapon_h2_damage_type(),
         )
 
         if wield_mode == ONE_HANDED:
@@ -330,8 +332,10 @@ class ItemEngine:
         """Format one damage tuple into dice notation for UI display."""
         if not damage_data:
             return "-"
-        dice_amount, dice_faces, flat_bonus, operator = damage_data
-        return WeaponStats.format_damage_label(dice_amount, dice_faces, flat_bonus, operator)
+        dice_amount, dice_faces, flat_bonus, operator, *rest = damage_data
+        damage_type = str(rest[0] if rest else "")
+        label = WeaponStats.format_damage_label(dice_amount, dice_faces, flat_bonus, operator)
+        return f"{label} {damage_type}".strip()
 
     def get_one_handed_damage_label(self, *, dice_amount_bonus: int = 0) -> str:
         """Return one-handed or base damage label including quality modifier."""
@@ -446,6 +450,13 @@ class ItemEngine:
         if not stats:
             return ""
         return str(self._get_override_value("weapon_damage_type_override", stats.damage_type) or "")
+
+    def get_weapon_h2_damage_type(self) -> str:
+        """Return the effective two-handed weapon damage type."""
+        stats = self._get_weapon_stats()
+        if not stats:
+            return ""
+        return str(self._get_override_value("weapon_h2_damage_type_override", stats.h2_damage_type) or "")
 
     def get_weapon_flags(self) -> set[str]:
         stats = self._get_weapon_stats()

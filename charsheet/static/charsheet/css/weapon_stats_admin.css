@@ -1,0 +1,31 @@
+.form-row.field-damage_dice_amount.field-damage_dice_faces.field-damage_flat_operator.field-damage_flat_bonus.field-damage_type,
+.form-row.field-h2_dice_amount.field-h2_dice_faces.field-h2_flat_operator.field-h2_flat_bonus.field-h2_damage_type {
+  display: grid !important;
+  grid-template-columns: repeat(5, minmax(150px, 1fr));
+  column-gap: 22px;
+  align-items: start;
+}
+
+.form-row.field-damage_dice_amount.field-damage_dice_faces.field-damage_flat_operator.field-damage_flat_bonus.field-damage_type > div,
+.form-row.field-h2_dice_amount.field-h2_dice_faces.field-h2_flat_operator.field-h2_flat_bonus.field-h2_damage_type > div {
+  min-width: 0;
+  width: auto !important;
+  margin-right: 0 !important;
+}
+
+.form-row.field-damage_dice_amount.field-damage_dice_faces.field-damage_flat_operator.field-damage_flat_bonus.field-damage_type .flex-container,
+.form-row.field-h2_dice_amount.field-h2_dice_faces.field-h2_flat_operator.field-h2_flat_bonus.field-h2_damage_type .flex-container {
+  display: contents;
+}
+
+.form-row.field-damage_dice_amount.field-damage_dice_faces.field-damage_flat_operator.field-damage_flat_bonus.field-damage_type .fieldBox,
+.form-row.field-h2_dice_amount.field-h2_dice_faces.field-h2_flat_operator.field-h2_flat_bonus.field-h2_damage_type .fieldBox {
+  min-width: 0;
+  width: auto !important;
+  margin-right: 0 !important;
+}
+
+.form-row.field-damage_dice_amount.field-damage_dice_faces.field-damage_flat_operator.field-damage_flat_bonus.field-damage_type .help,
+.form-row.field-h2_dice_amount.field-h2_dice_faces.field-h2_flat_operator.field-h2_flat_bonus.field-h2_damage_type .help {
+  max-width: 100%;
+}

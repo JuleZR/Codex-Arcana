@@ -809,6 +809,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const weaponTwoHandFields = document.getElementById("shopWeaponTwoHandFields");
   const weaponH2AmountInput = weaponFields.querySelector("input[name='weapon_h2_dice_amount']");
   const weaponH2FacesInput = weaponFields.querySelector("input[name='weapon_h2_dice_faces']");
+  const weaponH2DamageTypeSelect = weaponFields.querySelector("select[name='weapon_h2_damage_type']");
 
   const syncArmorModeFields = () => {
     if (!armorTotalFields || !armorZoneFields) {
@@ -840,6 +841,9 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     if (weaponH2FacesInput) {
       weaponH2FacesInput.required = hasTwoHandProfile;
+    }
+    if (weaponH2DamageTypeSelect) {
+      weaponH2DamageTypeSelect.required = hasTwoHandProfile;
     }
   };
 
@@ -904,6 +908,9 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       if (weaponH2FacesInput) {
         weaponH2FacesInput.required = false;
+      }
+      if (weaponH2DamageTypeSelect) {
+        weaponH2DamageTypeSelect.required = false;
       }
     }
   };
@@ -1070,11 +1077,13 @@ document.addEventListener("DOMContentLoaded", () => {
     if (entry.itemType === "weapon") {
       const damageBonus = QUALITY_DAMAGE_MODS[quality] ?? 0;
       const oneHandFlat = readInt(entry.stats.damageFlatBonus, 0) + damageBonus;
-      const oneHand = buildDamageLabel(entry.stats.damageDiceAmount, entry.stats.damageDiceFaces, oneHandFlat);
+      const oneHandType = entry.stats.damageType ? ` ${entry.stats.damageType}` : "";
+      const oneHand = `${buildDamageLabel(entry.stats.damageDiceAmount, entry.stats.damageDiceFaces, oneHandFlat)}${oneHandType}`;
       const twoHandAvailable = entry.stats.h2DiceAmount && entry.stats.h2DiceFaces;
       if (twoHandAvailable) {
         const twoHandFlat = readInt(entry.stats.h2FlatBonus, 0) + damageBonus;
-        const twoHand = buildDamageLabel(entry.stats.h2DiceAmount, entry.stats.h2DiceFaces, twoHandFlat);
+        const twoHandType = entry.stats.h2DamageType ? ` ${entry.stats.h2DamageType}` : "";
+        const twoHand = `${buildDamageLabel(entry.stats.h2DiceAmount, entry.stats.h2DiceFaces, twoHandFlat)}${twoHandType}`;
         return `1H ${oneHand} / 2H ${twoHand}`;
       }
       return oneHand;
@@ -1110,9 +1119,11 @@ document.addEventListener("DOMContentLoaded", () => {
         damageDiceAmount: readOptionalInt(row.getAttribute("data-shop-damage-dice-amount")),
         damageDiceFaces: readOptionalInt(row.getAttribute("data-shop-damage-dice-faces")),
         damageFlatBonus: readOptionalInt(row.getAttribute("data-shop-damage-flat-bonus")),
+        damageType: row.getAttribute("data-shop-damage-type") || "",
         h2DiceAmount: readOptionalInt(row.getAttribute("data-shop-h2-dice-amount")),
         h2DiceFaces: readOptionalInt(row.getAttribute("data-shop-h2-dice-faces")),
         h2FlatBonus: readOptionalInt(row.getAttribute("data-shop-h2-flat-bonus")),
+        h2DamageType: row.getAttribute("data-shop-h2-damage-type") || "",
         wieldMode: row.getAttribute("data-shop-wield-mode") || "",
         armorRs: readOptionalInt(row.getAttribute("data-shop-armor-rs")),
         armorBel: readOptionalInt(row.getAttribute("data-shop-armor-bel")),

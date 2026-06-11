@@ -186,6 +186,14 @@
                       </select>
                     </label>
                     <label class="shop_item_form_row"><span>2H Wert</span><input type="number" name="weapon_h2_flat_bonus" step="1" value="0"></label>
+                    <label class="shop_item_form_row">
+                      <span>2H Schadenstyp</span>
+                      <select name="weapon_h2_damage_type">
+                        {% for value, label in shop_damage_type_choices %}
+                          <option value="{{ value }}">{{ label }}</option>
+                        {% endfor %}
+                      </select>
+                    </label>
                   </div>
                 </div>
                 <div class="shop_item_form_grid">

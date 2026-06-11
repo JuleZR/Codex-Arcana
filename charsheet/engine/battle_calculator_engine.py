@@ -487,7 +487,7 @@ class BattleCalculatorEngine:
             if weapon_stats is not None:
                 skill_ids = [skill.id for skill in weapon_stats.skills.all()]
             damage_label = str(row.get("damage") or "-")
-            dice_amount, dice_faces, flat_bonus, flat_operator = damage_tuple
+            dice_amount, dice_faces, flat_bonus, flat_operator, *_damage_meta = damage_tuple
             label = str(row.get("item_name") or getattr(item, "name", "Waffe"))
             mode_label = str(row.get("mode_label") or "").strip()
             if mode_label:

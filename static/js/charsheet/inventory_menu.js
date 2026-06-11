@@ -1154,6 +1154,7 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
       "weapon_h2_dice_faces",
       "weapon_h2_flat_operator",
       "weapon_h2_flat_bonus",
+      "weapon_h2_damage_type",
       "armor_rs_total",
       "armor_rs_head",
       "armor_rs_torso",
