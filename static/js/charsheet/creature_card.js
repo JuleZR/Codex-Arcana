@@ -12,19 +12,45 @@ export function initCreatureCards() {
     event.stopPropagation();
   }, true);
 
-  const submitCreatureDamageForm = (form, button = null) => {
+  const damageRequestQueues = new WeakMap();
+
+  const submitCreatureDamageForm = (form) => {
     if (!(form instanceof HTMLFormElement)) {
       return;
     }
-    if (button instanceof HTMLButtonElement && typeof form.requestSubmit === "function") {
-      form.requestSubmit(button);
+    const cluster = form.closest("[data-creature-damage-cluster]");
+    if (!(cluster instanceof HTMLElement)) {
+      form.submit();
       return;
     }
-    if (typeof form.requestSubmit === "function") {
-      form.requestSubmit();
-      return;
-    }
-    form.submit();
+
+    const request = async () => {
+      const requestUrl = form.getAttribute("action") || window.location.href;
+      const response = await fetch(requestUrl, {
+        method: "POST",
+        body: new FormData(form),
+        headers: {
+          "X-Requested-With": "XMLHttpRequest",
+          Accept: "application/json",
+        },
+        credentials: "same-origin",
+      });
+      if (!response.ok) {
+        throw new Error("creature damage update failed");
+      }
+      const payload = await response.json();
+      renderPreviewDamage(
+        cluster,
+        readInt(payload.current_damage, readInt(cluster.dataset.creatureCurrentDamage, 0)),
+      );
+    };
+
+    const queuedRequest = (damageRequestQueues.get(cluster) || Promise.resolve())
+      .then(request)
+      .catch(() => {
+        // Keep the card on the table; the unchanged value signals a failed update.
+      });
+    damageRequestQueues.set(cluster, queuedRequest);
   };
 
   const readInt = (value, fallback = 0) => {
@@ -115,7 +141,7 @@ export function initCreatureCards() {
       const form = button.form;
       event.preventDefault();
       event.stopPropagation();
-      submitCreatureDamageForm(form, button);
+      submitCreatureDamageForm(form);
       return;
     }
 
@@ -157,7 +183,7 @@ export function initCreatureCards() {
     }
     event.preventDefault();
     event.stopPropagation();
-    submitCreatureDamageForm(form, submitter instanceof HTMLButtonElement ? submitter : null);
+    submitCreatureDamageForm(form);
   }, true);
 }
 

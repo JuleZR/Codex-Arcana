@@ -1945,6 +1945,9 @@ def adjust_creature_damage(request, pk: int):
 
     character_creature.save(update_fields=["current_damage"])
 
+    if _is_partial_request(request):
+        return JsonResponse({"ok": True, "current_damage": character_creature.current_damage})
+
     next_url = str(request.POST.get("next") or "").strip()
     if next_url.startswith("/"):
         return redirect(next_url)
@@ -1968,6 +1971,9 @@ def adjust_creature_card_damage(request, pk: int):
         creature_card.current_damage = max(0, creature_card.current_damage - amount)
 
     creature_card.save(update_fields=["current_damage"])
+
+    if _is_partial_request(request):
+        return JsonResponse({"ok": True, "current_damage": creature_card.current_damage})
 
     next_url = str(request.POST.get("next") or "").strip()
     if next_url.startswith("/"):

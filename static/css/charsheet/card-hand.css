@@ -211,6 +211,11 @@
   width: 100%;
 }
 
+/* Leave the creature damage controls clear of the transparent bottom drag handle. */
+.card-hand__floating-card--creature .card-hand__card-grabber--bottom {
+  right: 125px;
+}
+
 @media (max-width: 900px) {
   .card-hand {
     flex: 0 0 auto;

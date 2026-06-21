@@ -3517,7 +3517,7 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
         druid_card_ability = (
             druid_binding.custom_g_ability
             if druid_binding is not None and druid_binding.custom_g_ability
-            else druid_cult.g_ability
+            else (druid_cult.g_ability or druid_cult.description)
         )
         druid_card_fluff = (
             druid_binding.custom_fluff

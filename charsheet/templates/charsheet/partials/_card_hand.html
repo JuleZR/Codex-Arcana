@@ -104,7 +104,7 @@
 
   {% for entry in creature_card_contexts %}
   <div class="card-hand__floating" data-card-hand-floating data-card-key="creature-{{ entry.card.pk }}" data-card-hand-storage-key="codexArcana.cardHand.{{ character.pk }}.creature.{{ entry.card.pk }}" hidden>
-    <div class="card-hand__floating-card">
+    <div class="card-hand__floating-card card-hand__floating-card--creature">
       <span class="card-hand__card-grabber card-hand__card-grabber--top" data-card-hand-drag-handle aria-hidden="true"></span>
       <span class="card-hand__card-grabber card-hand__card-grabber--right" data-card-hand-drag-handle aria-hidden="true"></span>
       <span class="card-hand__card-grabber card-hand__card-grabber--bottom" data-card-hand-drag-handle aria-hidden="true"></span>

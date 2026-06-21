@@ -6,7 +6,7 @@
 @import url("./charsheet/windows.css");
 @import url("./charsheet/commerce.css");
 @import url("./charsheet/_card.css");
-@import url("./charsheet/card-hand.css");
+@import url("./charsheet/card-hand.css?v=20260621a");
 @import url("./charsheet/responsive.css");
 @import url("./charsheet/parchment.css");
 @import url("./charsheet/quick-access.css");

@@ -1347,11 +1347,15 @@ button.skill_manager_action {
 }
 
 .traits_wrapper {
+  display: flex;
+  flex: 0 0 170px;
+  flex-direction: column;
   border: 1px solid rgba(74, 55, 38, 0.30);
   border-radius: 5px;
   background: rgba(255, 248, 230, 0.24);
   padding: 7px 7px 8px;
-  min-height: 170px;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .traits_wrapper h2 {
@@ -1366,6 +1370,10 @@ button.skill_manager_action {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: thin;
 }
 
 .trait_col h3 {
