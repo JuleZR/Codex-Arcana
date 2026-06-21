@@ -7,6 +7,7 @@ import json
 import math
 
 from django.contrib.contenttypes.models import ContentType
+from django.urls import reverse
 
 from charsheet.constants import (
     ARMOR_PENALTY_IGNORE,
@@ -43,6 +44,7 @@ from charsheet.constants import (
     WEAPON_MASTERY_EFFECT_DESCRIPTION,
 )
 from charsheet.engine import BattleCalculatorEngine, ItemEngine
+from charsheet.engine.creature_engine import CreatureCardEngine, sync_character_creature_cards
 from charsheet.forms import (
     CharacterInfoInlineForm,
     CharacterSkillSpecificationForm,
@@ -57,6 +59,7 @@ from charsheet.models import (
     Character,
     CharacterAspect,
     CharacterDruidCult,
+    CharacterShamanPatron,
     CharacterItem,
     CharacterSkill,
     CharacterWeaponMasteryArcana,
@@ -75,6 +78,7 @@ from charsheet.models import (
     RaceTechnique,
     Rune,
     School,
+    ShamanPatron,
     Skill,
     SkillCategory,
     Spell,
@@ -3401,6 +3405,13 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
         .first()
     )
     druid_cult = druid_binding.cult if druid_binding is not None else None
+    shaman_binding = (
+        CharacterShamanPatron.objects.filter(character=character)
+        .select_related("patron", "patron__school")
+        .prefetch_related("patron__aspects", "patron__aspects__aspect", "core_aspects")
+        .first()
+    )
+    shaman_patron = shaman_binding.patron if shaman_binding is not None else None
     divine_symbol_url = ""
     divine_card_image_url = ""
     divine_card_title = ""
@@ -3428,6 +3439,18 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
     druid_card_update_url = ""
     druid_card_aspect_options = []
     druid_card_storage_key = ""
+    shaman_card_image_url = ""
+    shaman_card_title = ""
+    shaman_card_kind_label = ""
+    shaman_card_typebar = ""
+    shaman_card_ability = ""
+    shaman_card_fluff = ""
+    shaman_card_aspects = []
+    shaman_card_show_aspect_placeholder = False
+    shaman_card_aspect_placeholders = []
+    shaman_card_aspect_options = []
+    shaman_card_storage_key = ""
+    shaman_card_holo_kind = ""
     if divine_entity is not None and divine_entity.symbol_image:
         divine_symbol_url = divine_entity.symbol_image.url
     if divine_entity is not None:
@@ -3522,6 +3545,34 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
             ]
         elif druid_card_editable and druid_cult.aspect_selection_mode == "free":
             druid_card_aspect_options = list(Aspect.objects.all().order_by("name", "id"))
+    if shaman_patron is not None:
+        shaman_card_storage_key = f"shaman.{shaman_patron.pk}"
+        shaman_card_holo_kind = (
+            "ancestor-spirit"
+            if shaman_patron.patron_kind == ShamanPatron.PatronKind.ANCESTOR_SPIRIT
+            else "power-animal"
+        )
+        shaman_card_kind_label = (
+            "Ahnengeist"
+            if shaman_patron.patron_kind == ShamanPatron.PatronKind.ANCESTOR_SPIRIT
+            else "Krafttier"
+        )
+        if shaman_patron.god_image:
+            shaman_card_image_url = shaman_patron.god_image.url
+        shaman_card_title = shaman_patron.card_name or shaman_patron.name
+        shaman_card_typebar = shaman_patron.school.name if shaman_patron.school_id else shaman_patron.get_patron_kind_display()
+        shaman_card_ability = shaman_patron.g_ability
+        shaman_card_fluff = shaman_patron.fluff
+        shaman_card_aspects = [
+            entry.aspect
+            for entry in shaman_patron.aspects.all()
+            if entry.aspect_id and entry.is_starting_aspect
+        ]
+        if shaman_patron.aspect_selection_mode != "fixed" and shaman_binding is not None:
+            shaman_card_aspects = list(shaman_binding.core_aspects.all().order_by("name", "id"))
+            open_aspect_slots = max(0, int(shaman_patron.starting_aspect_count) - len(shaman_card_aspects))
+            shaman_card_aspect_placeholders = list(range(open_aspect_slots))
+            shaman_card_show_aspect_placeholder = bool(shaman_card_aspect_placeholders)
     load_tooltip = _build_load_tooltip(engine)
     load_tooltip_with_carry = _build_combined_load_tooltip(engine, carry_state, carry_enabled=True)
     total_armor_tooltip = _build_total_armor_tooltip(engine)
@@ -3558,6 +3609,24 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
     effective_personal_fame_point = total_personal_fame_point % 10
     effective_personal_fame_rank = base_personal_fame_rank + (total_personal_fame_point // 10)
     fame_total_rank = effective_personal_fame_rank + int(character.sacrifice_rank) + effective_artefact_rank
+
+    active_creature_cards = sync_character_creature_cards(character)
+    creature_card_contexts = []
+    character_creature_card_rows = []
+    for card in active_creature_cards:
+        card_context = CreatureCardEngine(card).card_context()
+        card_context["adjust_damage_url"] = reverse("adjust_creature_card_damage", kwargs={"pk": card.pk})
+        mini_context = {**card_context, "adjust_damage_url": "", "damage_controls_disabled": True}
+        creature_card_contexts.append({"card": card, "context": card_context, "mini_context": mini_context})
+        character_creature_card_rows.append(
+            {
+                "name": card.name,
+                "source": card.creature.display_name,
+                "trigger": card.trigger_label,
+                "active": card.active,
+                "has_source_deviations": card.has_source_deviations,
+            }
+        )
 
     return {
         "character": character,
@@ -3599,6 +3668,22 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
         "selected_druid_card_update_url": druid_card_update_url,
         "selected_druid_card_aspect_options": druid_card_aspect_options,
         "selected_druid_card_storage_key": druid_card_storage_key,
+        "selected_shaman_patron": shaman_patron,
+        "selected_shaman_binding": shaman_binding,
+        "selected_shaman_card_image_url": shaman_card_image_url,
+        "selected_shaman_card_title": shaman_card_title,
+        "selected_shaman_card_kind_label": shaman_card_kind_label,
+        "selected_shaman_card_typebar": shaman_card_typebar,
+        "selected_shaman_card_ability": shaman_card_ability,
+        "selected_shaman_card_fluff": shaman_card_fluff,
+        "selected_shaman_card_aspects": shaman_card_aspects,
+        "selected_shaman_card_show_aspect_placeholder": shaman_card_show_aspect_placeholder,
+        "selected_shaman_card_aspect_placeholders": shaman_card_aspect_placeholders,
+        "selected_shaman_card_aspect_options": shaman_card_aspect_options,
+        "selected_shaman_card_storage_key": shaman_card_storage_key,
+        "selected_shaman_card_holo_kind": shaman_card_holo_kind,
+        "creature_card_contexts": creature_card_contexts,
+        "character_creature_card_rows": character_creature_card_rows,
         "skill_specification_form": CharacterSkillSpecificationForm(),
         "technique_specification_form": CharacterTechniqueSpecificationForm(),
         "fame_total_rank": fame_total_rank,

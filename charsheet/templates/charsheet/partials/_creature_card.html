@@ -10,8 +10,19 @@
     <div class="card-shell">
         <header class="card-titlebar">
             <h1 class="card-title">{{ creature_card.name }}</h1>
-            <div class="creature-card__badge" title="Bewegungsrate">
-                {{ creature_card.movement_display.combat|default:creature_card.movement.combat }}/{{ creature_card.movement_display.march|default:creature_card.movement.march }}/{{ creature_card.movement_display.sprint|default:creature_card.movement.sprint }}/{{ creature_card.movement_display.swim|default:creature_card.movement.swim }}
+            <div class="creature-card__movement" aria-label="Bewegungsraten">
+                <span class="creature-card__movement-mark" title="Kampfbewegung" aria-label="Kampfbewegung {{ creature_card.movement_display.combat|default:creature_card.movement.combat }}">
+                    <span>{{ creature_card.movement_display.combat|default:creature_card.movement.combat }}</span>
+                </span>
+                <span class="creature-card__movement-mark" title="Marschbewegung" aria-label="Marschbewegung {{ creature_card.movement_display.march|default:creature_card.movement.march }}">
+                    <span>{{ creature_card.movement_display.march|default:creature_card.movement.march }}</span>
+                </span>
+                <span class="creature-card__movement-mark" title="Sprintbewegung" aria-label="Sprintbewegung {{ creature_card.movement_display.sprint|default:creature_card.movement.sprint }}">
+                    <span>{{ creature_card.movement_display.sprint|default:creature_card.movement.sprint }}</span>
+                </span>
+                <span class="creature-card__movement-mark" title="Schwimmbewegung" aria-label="Schwimmbewegung {{ creature_card.movement_display.swim|default:creature_card.movement.swim }}">
+                    <span>{{ creature_card.movement_display.swim|default:creature_card.movement.swim }}</span>
+                </span>
             </div>
         </header>
 
@@ -26,59 +37,69 @@
             <img class="card-setmark" src="{% static 'img/favicon.ico' %}" alt="" aria-hidden="true">
         </section>
 
-        <div class="creature-card__damage-cluster" aria-label="Schaden verwalten">
-            {% if creature_card.adjust_damage_url %}
+        <div
+            class="creature-card__damage-cluster"
+            aria-label="Schaden verwalten"
+            data-creature-damage-cluster
+            data-creature-current-damage="{{ creature_card.current_damage|default:0 }}"
+            data-creature-wound-max="{{ creature_card.wound_max }}"
+        >
+            {% if creature_card.damage_controls_disabled %}
+                <button type="button" disabled data-creature-damage-action="heal" aria-label="Schaden senken">-</button>
+            {% elif creature_card.adjust_damage_url %}
                 <form method="post" action="{{ creature_card.adjust_damage_url }}">
                     {% csrf_token %}
                     <input type="hidden" name="action" value="heal">
                     <input type="hidden" name="amount" value="1">
                     <input type="hidden" name="next" value="{{ request.get_full_path }}">
-                    <button type="submit" aria-label="Schaden senken">-</button>
+                    <button type="submit" data-creature-damage-action="heal" aria-label="Schaden senken">-</button>
                 </form>
             {% else %}
-                <button type="button" disabled aria-label="Schaden senken">-</button>
+                <button type="button" data-creature-damage-action="heal" aria-label="Schaden senken">-</button>
             {% endif %}
             <div class="creature-card__damage-badge" aria-label="Schaden und Wundmaximum">
-                {{ creature_card.current_damage|default:0 }}/{{ creature_card.wound_max }}
+                <span data-creature-damage-current>{{ creature_card.current_damage|default:0 }}</span>/<span data-creature-damage-max>{{ creature_card.wound_max }}</span>
             </div>
-            {% if creature_card.adjust_damage_url %}
+            {% if creature_card.damage_controls_disabled %}
+                <button type="button" disabled data-creature-damage-action="damage" aria-label="Schaden erhoehen">+</button>
+            {% elif creature_card.adjust_damage_url %}
                 <form method="post" action="{{ creature_card.adjust_damage_url }}">
                     {% csrf_token %}
                     <input type="hidden" name="action" value="damage">
                     <input type="hidden" name="amount" value="1">
                     <input type="hidden" name="next" value="{{ request.get_full_path }}">
-                    <button type="submit" aria-label="Schaden erhoehen">+</button>
+                    <button type="submit" data-creature-damage-action="damage" aria-label="Schaden erhoehen">+</button>
                 </form>
             {% else %}
-                <button type="button" disabled aria-label="Schaden erhoehen">+</button>
+                <button type="button" data-creature-damage-action="damage" aria-label="Schaden erhoehen">+</button>
             {% endif %}
+            {% for wound in creature_card.wounds %}
+                <span hidden data-creature-wound-row data-label="{{ wound.label }}" data-threshold="{{ wound.threshold }}"></span>
+            {% endfor %}
         </div>
 
         <section class="card-rules creature-card__rules" aria-label="Kreaturenwerte">
-            <p class="creature-card__oracle-line creature-card__oracle-line--initiative">
-                <strong>Initiative</strong> {{ creature_card.initiative }}
-            </p>
-
             <p class="creature-card__oracle-line creature-card__oracle-line--core">
+                <strong>Initiative</strong> {{ creature_card.initiative }}
+                <span class="creature-card__stat-separator" aria-hidden="true">|</span>
                 <strong>VW</strong> {{ creature_card.vw }}
-                <span aria-hidden="true">&middot;</span>
+                <span class="creature-card__stat-separator" aria-hidden="true">|</span>
                 <strong>SR</strong> {{ creature_card.sr }}
-                <span aria-hidden="true">&middot;</span>
+                <span class="creature-card__stat-separator" aria-hidden="true">|</span>
                 <strong>GW</strong> {{ creature_card.gw }}{% if creature_card.gw_fear %}/{{ creature_card.gw_fear }}F{% endif %}
-                <span aria-hidden="true">&middot;</span>
+                <span class="creature-card__stat-separator" aria-hidden="true">|</span>
                 <strong>RS</strong> {{ creature_card.rs_total }}{% if creature_card.rs_armor %} ({{ creature_card.rs_natural }}+{{ creature_card.rs_armor }}){% endif %}
                 {% if creature_card.encumbrance %}
-                    <span aria-hidden="true">&middot;</span>
+                    <span class="creature-card__stat-separator" aria-hidden="true">|</span>
                     <strong>BEL</strong> {{ creature_card.encumbrance }}
                 {% endif %}
             </p>
 
-            {% if creature_card.wound_zone.label != "-" %}
-                <p class="creature-card__oracle-line">
+            <p class="creature-card__oracle-line" data-creature-wound-status{% if creature_card.wound_zone.label == "-" %} hidden{% endif %}>
                     <strong>Wundstatus</strong>
-                    {{ creature_card.wound_zone.label }} bei {{ creature_card.wound_zone.threshold }} Schaden{% if creature_card.wound_penalty %}; Malus {{ creature_card.wound_penalty|stringformat:"+d" }}{% endif %}
-                </p>
-            {% endif %}
+                    <span data-creature-wound-label>{{ creature_card.wound_zone.label }}</span>
+                    bei <span data-creature-wound-threshold>{{ creature_card.wound_zone.threshold }}</span> Schaden<span data-creature-wound-penalty>{% if creature_card.wound_penalty %}; Malus {{ creature_card.wound_penalty|stringformat:"+d" }}{% endif %}</span>
+            </p>
 
             {% if creature_card.attacks %}
                 <p class="creature-card__oracle-line">
@@ -98,6 +119,15 @@
                     {% if creature_card.skills and creature_card.special_skills %}, {% endif %}
                     {% for skill in creature_card.special_skills %}
                         {{ skill.name }}* {{ skill.value }}{% if not forloop.last %}, {% endif %}
+                    {% endfor %}
+                </p>
+            {% endif %}
+
+            {% if creature_card.commands %}
+                <p class="creature-card__oracle-line creature-card__oracle-line--ability">
+                    <strong>Kommandos</strong>
+                    {% for command in creature_card.commands %}
+                        {{ command.name }}{% if not forloop.last %}, {% endif %}
                     {% endfor %}
                 </p>
             {% endif %}

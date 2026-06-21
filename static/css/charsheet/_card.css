@@ -62,6 +62,61 @@
     opacity: 0.42;
 }
 
+.card[data-card-holo="true"] {
+    --card-holo-bg-x: 0%;
+    --card-holo-bg-y: 0%;
+}
+
+.card[data-card-holo="true"]::before,
+.card[data-card-holo="true"]::after {
+    inset: 0;
+    border: 0;
+    border-radius: inherit;
+    background-repeat: no-repeat;
+    mix-blend-mode: color-dodge;
+    pointer-events: none;
+}
+
+.card[data-card-holo="true"]::before {
+    z-index: 2;
+    background-image: linear-gradient(
+        115deg,
+        transparent 0%,
+        rgb(0, 231, 255) 30%,
+        rgb(255, 0, 231) 70%,
+        transparent 100%
+    );
+    background-position: var(--card-holo-bg-x) var(--card-holo-bg-y);
+    background-size: 300% 300%;
+    box-shadow: none;
+    opacity: 0.08;
+}
+
+.card[data-card-holo="true"]::after {
+    z-index: 3;
+    background-image: url("/static/img/card_holo/sparkles.gif");
+    background-position: center;
+    background-size: 180%;
+    opacity: 0.26;
+}
+
+.card[data-card-holo="true"].active::before {
+    background-image: linear-gradient(
+        115deg,
+        transparent 0%,
+        transparent 25%,
+        rgba(0, 231, 255, 0.7) 45%,
+        rgba(255, 0, 231, 0.7) 55%,
+        transparent 70%,
+        transparent 100%
+    );
+    opacity: 0.36;
+}
+
+.card[data-card-holo="true"].active::after {
+    opacity: 0.48;
+}
+
 .card-shell {
     position: relative;
     z-index: 4;
@@ -832,18 +887,41 @@ span.card-aspect-placeholder {
     --card-ability-font-size: 10px;
 }
 
-.creature-card__badge {
+.creature-card__movement {
+    display: inline-flex;
     flex: 0 0 auto;
-    min-width: 62px;
-    color: #f7f0df;
-    font-family: "Cinzel", Georgia, serif;
+    gap: 2px;
+    align-items: center;
+    justify-content: flex-end;
+    margin-left: 5px;
+}
+
+.creature-card__movement-mark {
+    display: grid;
+    width: 24px;
+    height: 24px;
+    place-items: center;
+    padding: 0;
+    border: 1px solid rgba(29, 25, 20, 0.92);
+    border-radius: 50%;
+    background: #c7c5bc;
+    box-shadow: -0.5px 1px 0 #000;
+    color: #16120d;
+    font-family: "Times New Roman", Times, serif;
     font-size: 12px;
-    font-weight: 800;
+    font-weight: 900;
     line-height: 1;
-    text-align: right;
-    text-shadow:
-        0 1px 0 rgba(0, 0, 0, 0.98),
-        0 2px 4px rgba(0, 0, 0, 0.72);
+    text-align: center;
+    text-shadow: none;
+    white-space: nowrap;
+}
+
+.creature-card__movement-mark span {
+    display: grid;
+    width: 100%;
+    height: 100%;
+    place-items: center;
+    line-height: 1;
 }
 
 .creature-card__attribute-rail {
@@ -939,6 +1017,8 @@ span.card-aspect-placeholder {
 }
 
 .creature-card__damage-cluster form {
+    display: grid;
+    min-width: 0;
     margin: 0;
 }
 
@@ -965,7 +1045,7 @@ span.card-aspect-placeholder {
     color: #17120d;
     cursor: pointer;
     font-family: Arial, Helvetica, sans-serif;
-    font-size: 14px;
+    font-size: 15px;
     font-weight: 900;
     line-height: 1;
     opacity: 0;
@@ -1021,9 +1101,12 @@ span.card-aspect-placeholder {
     text-align: center;
 }
 
-.creature-card__oracle-line--initiative {
-    padding-bottom: 4px;
-    font-size: 12.6px;
+.creature-card__stat-separator {
+    display: inline-block;
+    margin: 0 4px;
+    color: rgba(23, 18, 13, 0.62);
+    font-family: "Cinzel", Georgia, serif;
+    font-weight: 900;
 }
 
 .creature-card__oracle-line--ability {
@@ -1055,10 +1138,6 @@ span.card-aspect-placeholder {
     line-height: 1.02;
     hyphens: auto;
     overflow-wrap: break-word;
-}
-
-.creature-card__movement {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .creature-card__footer {
@@ -1129,7 +1208,6 @@ span.card-aspect-placeholder {
     .creature-card__core span,
     .creature-card__attributes span,
     .creature-card__wounds span,
-    .creature-card__movement span,
     .creature-card__inline-list {
         font-size: 8.4px;
     }

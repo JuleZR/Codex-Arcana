@@ -29,7 +29,7 @@
       href="{% static 'css/charsheet.css' %}"
     />
   </head>
-  <body class="charsheet-page" data-sidebar-enabled="{% if request.user.settings.sidebar_enabled %}1{% else %}0{% endif %}">
+  <body class="charsheet-page" data-radial-menu-enabled="{% if request.user.settings.radial_menu_enabled %}1{% else %}0{% endif %}">
     <div class="charsheet-app" id="charsheetApp">
       {% include "charsheet/partials/_left_tools.html" %}
       {% include "charsheet/partials/_context_radial_menu.html" %}
@@ -79,25 +79,6 @@
         </script>
       </main>
 
-      <section
-        class="charsheet-top-pending-choice"
-        id="learnPendingChoiceCenterNotice"
-        {% if not learn_has_pending_choices %}hidden{% endif %}
-        data-pending-choice-notice
-        aria-label="Offene Entscheidung"
-      >
-        <button
-          type="button"
-          class="learn_choice_notice_trigger charsheet-top-pending-choice__trigger"
-          data-pending-choice-trigger
-          aria-label="Offene Entscheidung erneut oeffnen"
-          title="Offene Entscheidung erneut oeffnen"
-        >
-          <span class="learn_choice_notice_icon" aria-hidden="true">&#x26A0;&#xFE0E;</span>
-          <span class="learn_choice_notice_text">Offene Wahl</span>
-        </button>
-      </section>
-
       {{ wound_threshold_rows|json_script:"wound-thresholds-data" }} 
       {{ battle_calculator_payload|json_script:"battle-calculator-data" }}
       {% include "charsheet/partials/_character_windows.html" %}
@@ -106,7 +87,6 @@
       {% include "charsheet/partials/_learning_panel.html" %} 
       {% include "charsheet/partials/_diary_panel.html" %}
       {% include "charsheet/partials/_battle_calculator_window.html" %}
-      {% include "charsheet/partials/_card_hand.html" %}
 
       <!-- Mobile status HUD: damage + arcane power bar, visible only on small screens -->
       <div class="mobile-status-hud" id="mobileStatusHud" role="status" aria-label="Charakterstatus">
@@ -154,7 +134,7 @@
       </div>
     </div>
 
-    <script type="module" src="{% static 'js/charsheet/bootstrap.js' %}?v=20260608b"></script>
+    <script type="module" src="{% static 'js/charsheet/bootstrap.js' %}?v=20260621b"></script>
     <script src="{% static 'js/charsheet_diary.js' %}?v=20260315a"></script>
   </body>
 </html>

@@ -1920,6 +1920,8 @@ html[data-left-tools-open="1"] .left-tools {
   top: var(--sheet-page-top);
   left: var(--sheet-side-left);
   width: var(--sheet-side-panel-width);
+  height: min(var(--page-height), calc(100dvh - (var(--sheet-page-top) * 2)));
+  max-height: min(var(--page-height), calc(100dvh - (var(--sheet-page-top) * 2)));
   z-index: 28;
   display: flex;
   flex-direction: column;
@@ -1941,6 +1943,7 @@ html[data-left-tools-open="1"] .left-tools {
   top: auto;
   left: auto;
   width: 100%;
+  flex: 0 0 auto;
   transform: none;
   opacity: 1;
   pointer-events: auto;
@@ -1992,6 +1995,7 @@ html[data-left-tools-open="1"] .left-tools {
   top: auto;
   left: auto;
   width: 100%;
+  flex: 0 0 auto;
   z-index: auto;
   margin-top: 0;
 }
@@ -2055,6 +2059,8 @@ html[data-left-tools-open="1"] .left-tools {
     top: auto;
     left: auto;
     width: calc(100vw - 24px);
+    height: auto;
+    max-height: none;
     margin: 12px auto 0;
   }
 
@@ -2193,5 +2199,42 @@ html[data-left-tools-open="1"] .left-tools {
     z-index: 49;
     pointer-events: auto;
     cursor: default;
+  }
+}
+
+/* The side stack is now a required part of the sheet UI. */
+.left-tools__toggle {
+  display: none !important;
+}
+
+@media (min-width: 1181px) and (max-width: 1900px) {
+  .sheet-side-stack {
+    position: fixed !important;
+    top: var(--sheet-page-top) !important;
+    left: var(--sheet-side-left) !important;
+    width: var(--sheet-side-panel-width) !important;
+    height: min(var(--page-height), calc(100dvh - (var(--sheet-page-top) * 2))) !important;
+    max-height: min(var(--page-height), calc(100dvh - (var(--sheet-page-top) * 2))) !important;
+    padding: 0 !important;
+    gap: var(--sheet-side-gap) !important;
+    overflow: visible !important;
+    border: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    transform: none !important;
+    transition: none !important;
+  }
+
+  .sheet-side-stack .left-tools,
+  .sheet-side-stack .sheet-dice-dock,
+  .sheet-side-stack .card-hand {
+    position: relative !important;
+    left: auto !important;
+    top: auto !important;
+    width: 100% !important;
+  }
+
+  html[data-left-tools-open="1"] body::after {
+    content: none !important;
   }
 }

@@ -9,7 +9,7 @@ class UserSettings(models.Model):
         related_name="settings",
     )
 
-    sidebar_enabled = models.BooleanField(default=True)
+    radial_menu_enabled = models.BooleanField(default=False)
     dddice_enabled = models.BooleanField(default=False)
     dddice_api_key = models.CharField(max_length=255, blank=True, default="")
     dddice_room_id = models.CharField(max_length=255, blank=True, default="")

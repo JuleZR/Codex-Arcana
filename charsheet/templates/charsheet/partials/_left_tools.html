@@ -1,34 +1,21 @@
 {% load static %}
-<button
-  type="button"
-  id="leftToolsToggle"
-  class="left-tools__toggle"
-  aria-label="Werkzeuge öffnen"
-  aria-expanded="false"
-  aria-controls="leftTools"
->
-  <span class="left-tools__toggle-bar" aria-hidden="true"></span>
-  <span class="left-tools__toggle-bar" aria-hidden="true"></span>
-  <span class="left-tools__toggle-bar" aria-hidden="true"></span>
-</button>
-
-<div class="sheet-side-stack" aria-label="Schnellzugriff und Würfel">
+<div class="sheet-side-stack" aria-label="Schnellzugriff, Wuerfel und Karten">
   <aside class="left-tools sheet-window sheet-sidebar" id="leftTools" aria-label="Schnellzugriff">
     <div class="left-tools__inner sheet-window__body sheet-sidebar__body">
       <div class="left-tools__panel left-tools__panel--actions" aria-label="Schnellzugriff">
-        <button type="button" class="left-tools__icon_btn" id="learnMenuTrigger" aria-label="Lernmenü öffnen" title="Lernen">
+        <button type="button" class="left-tools__icon_btn" id="learnMenuTrigger" aria-label="Lernmenue oeffnen" title="Lernen">
           <span class="left-tools__icon_frame">
             <span class="left-tools__icon_symbol" aria-hidden="true">&#x2726;</span>
           </span>
           <span class="left-tools__icon_label">Lernen</span>
         </button>
-        <button type="button" class="left-tools__icon_btn" id="shopScaleTrigger" aria-label="Shop öffnen" title="Shop">
+        <button type="button" class="left-tools__icon_btn" id="shopScaleTrigger" aria-label="Shop oeffnen" title="Shop">
           <span class="left-tools__icon_frame">
             <span class="left-tools__icon_symbol" aria-hidden="true">&#x2696;&#xFE0E;</span>
           </span>
           <span class="left-tools__icon_label">Shop</span>
         </button>
-        <button type="button" class="left-tools__icon_btn" id="diaryTrigger" aria-label="Chronik öffnen" title="Chronik">
+        <button type="button" class="left-tools__icon_btn" id="diaryTrigger" aria-label="Chronik oeffnen" title="Chronik">
           <span class="left-tools__icon_frame">
             <span class="left-tools__icon_symbol" aria-hidden="true">&#x270E;</span>
           </span>
@@ -56,11 +43,11 @@
                 step="1"
                 value="0"
                 placeholder="+ / -"
-                aria-label="Geldänderung positiv oder negativ"
+                aria-label="Geldaenderung positiv oder negativ"
               />
               <span class="left-tools__unit_inset" aria-hidden="true">KS</span>
             </label>
-            <button type="submit" class="wallet_apply_btn left-tools__apply" aria-label="Geldänderung bestätigen" title="Bestätigen">&#x2713;</button>
+            <button type="submit" class="wallet_apply_btn left-tools__apply" aria-label="Geldaenderung bestaetigen" title="Bestaetigen">&#x2713;</button>
           </form>
         </section>
 
@@ -77,11 +64,11 @@
                 step="1"
                 value="0"
                 placeholder="+ / -"
-                aria-label="Erfahrungsänderung positiv oder negativ"
+                aria-label="Erfahrungsaenderung positiv oder negativ"
               />
               <span class="left-tools__unit_inset" aria-hidden="true">EP</span>
             </label>
-            <button type="submit" class="wallet_apply_btn left-tools__apply" aria-label="Erfahrungsänderung bestätigen" title="Bestätigen">&#x2713;</button>
+            <button type="submit" class="wallet_apply_btn left-tools__apply" aria-label="Erfahrungsaenderung bestaetigen" title="Bestaetigen">&#x2713;</button>
           </form>
         </section>
       </div>
@@ -98,8 +85,8 @@
           class="learn_choice_notice_trigger left-tools__notice_trigger"
           id="learnPendingChoiceTrigger"
           data-pending-choice-trigger
-          aria-label="Offene Entscheidung erneut öffnen"
-          title="Offene Entscheidung erneut öffnen"
+          aria-label="Offene Entscheidung erneut oeffnen"
+          title="Offene Entscheidung erneut oeffnen"
         >
           <span class="learn_choice_notice_icon" aria-hidden="true">&#x26A0;&#xFE0E;</span>
           <span class="learn_choice_notice_text">Offene Wahl</span>
@@ -116,9 +103,9 @@
   </aside>
 
   {% if request.user.settings.dddice_enabled %}
-    <aside class="sheet-dice-dock sheet-window sheet-sidebar sheet-sidebar--dice" aria-label="Würfel-Schnellzugriff">
+    <aside class="sheet-dice-dock sheet-window sheet-sidebar sheet-sidebar--dice" aria-label="Wuerfel-Schnellzugriff">
       <div class="sheet-dice-dock__inner sheet-window__body sheet-sidebar__body">
-        <div class="left-tools__panel left-tools__panel--dice" aria-label="Würfel">
+        <div class="left-tools__panel left-tools__panel--dice" aria-label="Wuerfel">
           <button type="button" class="sheet-dice-dock__btn" id="roll-2d10" title="2D10 werfen">2D10</button>
           <div class="sheet-dice-dock__row">
             <button type="button" class="sheet-dice-dock__btn" id="roll-1d10" title="1W10 werfen">1D10</button>
@@ -134,4 +121,6 @@
       <span id="roll-result-value">0</span>
     </div>
   {% endif %}
+
+  {% include "charsheet/partials/_card_hand.html" %}
 </div>

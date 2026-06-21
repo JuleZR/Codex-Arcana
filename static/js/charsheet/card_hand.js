@@ -5,17 +5,54 @@ export function initCardHand() {
   }
   hand.dataset.cardHandBound = "1";
 
-  const toggle = hand.querySelector("[data-card-hand-toggle]");
   const tray = hand.querySelector("[data-card-hand-tray]");
   const openCardButtons = Array.from(hand.querySelectorAll("[data-card-hand-open-card]"));
   const floatings = Array.from(hand.querySelectorAll("[data-card-hand-floating]"));
   const dragHandles = Array.from(hand.querySelectorAll("[data-card-hand-drag-handle]"));
+  const miniScales = Array.from(hand.querySelectorAll("[data-card-hand-mini-scale]"));
   const dragStartThreshold = 8;
   let activeFloating = floatings.find((entry) => entry instanceof HTMLElement) || null;
+
+  const floatingLayer = document.getElementById("charsheetApp") || document.body;
+  floatings.forEach((floating) => {
+    if (floating instanceof HTMLElement && floating.parentElement !== floatingLayer) {
+      floatingLayer.appendChild(floating);
+    }
+  });
 
   const floatingForKey = (key) => (
     floatings.find((entry) => entry instanceof HTMLElement && entry.getAttribute("data-card-key") === key) || activeFloating
   );
+
+  const miniCardForKey = (key) => (
+    openCardButtons.find((entry) => entry instanceof HTMLElement && entry.getAttribute("data-card-key") === key) || null
+  );
+
+  const keyForFloating = (floating) => (
+    floating instanceof HTMLElement ? String(floating.getAttribute("data-card-key") || "") : ""
+  );
+
+  const syncMiniCardStackOrder = () => {
+    let visibleIndex = 0;
+    openCardButtons.forEach((miniCard) => {
+      if (!(miniCard instanceof HTMLElement) || miniCard.hidden) {
+        return;
+      }
+      visibleIndex += 1;
+      miniCard.style.setProperty("--card-offset", visibleIndex > 1 ? "1" : "0");
+      miniCard.style.setProperty("--card-index", String(visibleIndex));
+    });
+  };
+
+  const setMiniCardInStack = (cardKey, isInStack) => {
+    const miniCard = miniCardForKey(cardKey);
+    if (!(miniCard instanceof HTMLElement)) {
+      return;
+    }
+    miniCard.hidden = !isInStack;
+    syncMiniCardStackOrder();
+    requestAnimationFrame(syncMiniCardScale);
+  };
 
   const storageKeyFor = (floating) => (
     floating instanceof HTMLElement ? String(floating.getAttribute("data-card-hand-storage-key") || "") : ""
@@ -64,28 +101,46 @@ export function initCardHand() {
     }
   };
 
-  const setHandOpen = (isOpen) => {
-    hand.classList.toggle("is-open", isOpen);
+  const setHandOpen = () => {
+    hand.classList.add("is-open");
     if (tray instanceof HTMLElement) {
-      tray.hidden = !isOpen;
-    }
-    if (toggle instanceof HTMLElement) {
-      toggle.setAttribute("aria-expanded", isOpen ? "true" : "false");
+      tray.hidden = false;
     }
   };
+  setHandOpen();
+  syncMiniCardStackOrder();
+
+  const syncMiniCardScale = () => {
+    if (!(tray instanceof HTMLElement)) {
+      return;
+    }
+    const sourceWidth = 420;
+    const sourceHeight = sourceWidth * (1039 / 744);
+    const availableWidth = Math.max(1, tray.clientWidth - 16);
+    const scale = Math.min(1, availableWidth / sourceWidth);
+    const scaledHeight = Math.round(sourceHeight * scale);
+    const visibleTitleBand = Math.max(46, Math.round(scaledHeight * 0.22));
+    hand.style.setProperty("--mini-card-scale", String(scale));
+    hand.style.setProperty("--mini-card-height", `${scaledHeight}px`);
+    hand.style.setProperty("--mini-stack-overlap", `${(scaledHeight - visibleTitleBand) * -1}px`);
+    miniScales.forEach((miniScale) => {
+      if (miniScale instanceof HTMLElement) {
+        miniScale.style.setProperty("--mini-card-scale", String(scale));
+      }
+    });
+  };
+  requestAnimationFrame(syncMiniCardScale);
 
   const isPointInsideHand = (clientX, clientY) => {
     const handRect = hand.getBoundingClientRect();
-    const dropLeft = Math.max(0, (window.innerWidth - Math.min(360, window.innerWidth - 24)) / 2);
-    const dropRight = window.innerWidth - dropLeft;
-    const dropTop = Math.max(0, handRect.bottom - 118);
-    const dropBottom = handRect.bottom + 8;
-    return (
-      clientX >= dropLeft
-      && clientX <= dropRight
-      && clientY >= dropTop
-      && clientY <= dropBottom
-    );
+    const elementAtPoint = document.elementFromPoint(clientX, clientY);
+    if (elementAtPoint && hand.contains(elementAtPoint)) {
+      return true;
+    }
+    return clientX >= handRect.left
+      && clientX <= handRect.right
+      && clientY >= handRect.top
+      && clientY <= handRect.bottom;
   };
 
   const isFloatingOverHand = (floating = activeFloating) => {
@@ -126,6 +181,7 @@ export function initCardHand() {
       return;
     }
     floating.hidden = false;
+    setMiniCardInStack(String(floating.getAttribute("data-card-key") || cardKey || ""), false);
     if (Number.isFinite(clientX) && Number.isFinite(clientY)) {
       floating.style.left = `${clientX}px`;
       floating.style.top = `${clientY}px`;
@@ -146,6 +202,7 @@ export function initCardHand() {
       floating.classList.remove("is-dragging");
       hand.classList.remove("is-drop-target");
       clearTableState(floating);
+      setMiniCardInStack(keyForFloating(floating), true);
     }
   };
 
@@ -178,7 +235,6 @@ export function initCardHand() {
 
     if (fromMiniCard) {
       openFloating({ clientX: event.clientX, clientY: event.clientY, cardKey: sourceKey });
-      setHandOpen(false);
     } else if (floating.hidden) {
       openFloating({ cardKey: sourceKey });
     }
@@ -212,12 +268,6 @@ export function initCardHand() {
     document.addEventListener("pointerup", finishFloatingDrag);
     document.addEventListener("pointercancel", finishFloatingDrag);
   };
-
-  if (toggle instanceof HTMLElement) {
-    toggle.addEventListener("click", () => {
-      setHandOpen(!hand.classList.contains("is-open"));
-    });
-  }
 
   openCardButtons.forEach((openCardButton) => {
     if (!(openCardButton instanceof HTMLElement)) {
@@ -254,7 +304,6 @@ export function initCardHand() {
         document.removeEventListener("pointercancel", handleUp);
         if (!isDragging) {
           openFloating({ cardKey: String(openCardButton.getAttribute("data-card-key") || "") });
-          setHandOpen(false);
         }
       };
 
@@ -269,7 +318,6 @@ export function initCardHand() {
       dragHandle.addEventListener("pointerdown", (event) => {
         event.preventDefault();
         activeFloating = dragHandle.closest("[data-card-hand-floating]");
-        setHandOpen(false);
         startFloatingDrag(event, {
           cardKey: String(dragHandle.closest("[data-card-hand-floating]")?.getAttribute("data-card-key") || ""),
         });
@@ -277,12 +325,16 @@ export function initCardHand() {
     });
     window.addEventListener("resize", () => {
       floatings.forEach((floating) => clampFloating(floating));
+      syncMiniCardScale();
     });
+  }
+
+  if (dragHandles.length === 0) {
+    window.addEventListener("resize", syncMiniCardScale);
   }
 
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
-      setHandOpen(false);
       floatings.forEach((floating) => closeFloating(floating));
     }
   });
@@ -300,6 +352,7 @@ export function initCardHand() {
       floating.style.left = `${restoredState.left}px`;
       floating.style.top = `${restoredState.top}px`;
       floating.style.transform = "none";
+      setMiniCardInStack(keyForFloating(floating), false);
       requestAnimationFrame(() => clampFloating(floating));
     }
   });

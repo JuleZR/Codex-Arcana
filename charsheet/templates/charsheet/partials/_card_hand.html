@@ -1,57 +1,69 @@
-{% if selected_divine_entity or selected_druid_cult %}
-<section class="card-hand" data-card-hand aria-label="Kartenhand">
-  <button
-    type="button"
-    class="card-hand__fan"
-    data-card-hand-toggle
-    aria-expanded="false"
-    aria-controls="characterCardHandTray"
-    title="Kartenhand"
-  >
-    <span class="card-hand__fan-card card-hand__fan-card--left" aria-hidden="true"></span>
-    <span class="card-hand__fan-card card-hand__fan-card--middle" aria-hidden="true"></span>
-    <span class="card-hand__fan-card card-hand__fan-card--right" aria-hidden="true"></span>
-    <span class="card-hand__count">{% if selected_divine_entity and selected_druid_cult %}2{% else %}1{% endif %}</span>
-  </button>
-
-  <div class="card-hand__tray" id="characterCardHandTray" data-card-hand-tray hidden>
+{% if selected_divine_entity or selected_druid_cult or selected_shaman_patron or creature_card_contexts %}
+<section class="card-hand sheet-window sheet-sidebar" data-card-hand aria-label="Kartenstapel">
+  <div class="card-hand__tray sheet-window__body sheet-sidebar__body" id="characterCardHandTray" data-card-hand-tray>
     {% if selected_divine_entity %}
-    <button
-      type="button"
+    <div
+      role="button"
+      tabindex="0"
       class="card-hand__mini-card"
       data-card-hand-open-card
       data-card-key="god"
+      style="--card-index: 1; --card-offset: 0;"
       title="{{ selected_divine_card_title|default:selected_divine_entity.name }}"
     >
-      <span class="card-hand__mini-art{% if not selected_divine_card_image_url and not selected_divine_entity.god_image %} card-hand__mini-art--empty{% endif %}">
-        {% if selected_divine_card_image_url %}
-          <img src="{{ selected_divine_card_image_url }}" alt="">
-        {% elif selected_divine_entity.god_image %}
-          <img src="{{ selected_divine_entity.god_image.url }}" alt="">
-        {% endif %}
-      </span>
-      <span class="card-hand__mini-title">{{ selected_divine_card_title|default:selected_divine_entity.name }}</span>
-    </button>
+      <div class="card-hand__mini-scale" data-card-hand-mini-scale>
+        {% include "charsheet/partials/_god_card.html" with divine_entity=selected_divine_entity card_aspects=selected_divine_card_aspects selected_divine_card_editable=False selected_divine_card_holo=True selected_divine_card_holo_kind="god" %}
+      </div>
+    </div>
     {% endif %}
 
     {% if selected_druid_cult %}
-    <button
-      type="button"
+    <div
+      role="button"
+      tabindex="0"
       class="card-hand__mini-card"
       data-card-hand-open-card
       data-card-key="druid"
+      style="--card-index: {% if selected_divine_entity %}2{% else %}1{% endif %}; --card-offset: {% if selected_divine_entity %}1{% else %}0{% endif %};"
       title="{{ selected_druid_card_title|default:selected_druid_cult.name }}"
     >
-      <span class="card-hand__mini-art{% if not selected_druid_card_image_url and not selected_druid_cult.god_image %} card-hand__mini-art--empty{% endif %}">
-        {% if selected_druid_card_image_url %}
-          <img src="{{ selected_druid_card_image_url }}" alt="">
-        {% elif selected_druid_cult.god_image %}
-          <img src="{{ selected_druid_cult.god_image.url }}" alt="">
-        {% endif %}
-      </span>
-      <span class="card-hand__mini-title">{{ selected_druid_card_title|default:selected_druid_cult.name }}</span>
-    </button>
+      <div class="card-hand__mini-scale" data-card-hand-mini-scale>
+        {% include "charsheet/partials/_god_card.html" with divine_entity=selected_druid_cult card_aspects=selected_druid_card_aspects selected_divine_card_aspects=selected_druid_card_aspects selected_divine_card_image_url=selected_druid_card_image_url selected_divine_card_title=selected_druid_card_title selected_divine_card_kind_label=selected_druid_card_kind_label selected_divine_card_typebar=selected_druid_card_typebar selected_divine_card_ability=selected_druid_card_ability selected_divine_card_fluff=selected_druid_card_fluff selected_divine_card_editable=False selected_divine_card_show_aspect_placeholder=selected_druid_card_show_aspect_placeholder selected_divine_card_aspect_placeholders=selected_druid_card_aspect_placeholders selected_divine_card_aspect_options=selected_druid_card_aspect_options selected_divine_binding=selected_druid_binding selected_divine_card_holo=True selected_divine_card_holo_kind="power-animal" %}
+      </div>
+    </div>
     {% endif %}
+
+    {% if selected_shaman_patron %}
+    <div
+      role="button"
+      tabindex="0"
+      class="card-hand__mini-card"
+      data-card-hand-open-card
+      data-card-key="shaman"
+      style="--card-index: 3; --card-offset: {% if selected_divine_entity or selected_druid_cult %}1{% else %}0{% endif %};"
+      title="{{ selected_shaman_card_title|default:selected_shaman_patron.name }}"
+    >
+      <div class="card-hand__mini-scale" data-card-hand-mini-scale>
+        {% include "charsheet/partials/_god_card.html" with divine_entity=selected_shaman_patron card_aspects=selected_shaman_card_aspects selected_divine_card_aspects=selected_shaman_card_aspects selected_divine_card_image_url=selected_shaman_card_image_url selected_divine_card_title=selected_shaman_card_title selected_divine_card_kind_label=selected_shaman_card_kind_label selected_divine_card_typebar=selected_shaman_card_typebar selected_divine_card_ability=selected_shaman_card_ability selected_divine_card_fluff=selected_shaman_card_fluff selected_divine_card_editable=False selected_divine_card_show_aspect_placeholder=selected_shaman_card_show_aspect_placeholder selected_divine_card_aspect_placeholders=selected_shaman_card_aspect_placeholders selected_divine_card_aspect_options=selected_shaman_card_aspect_options selected_divine_binding=selected_shaman_binding selected_divine_card_holo=True selected_divine_card_holo_kind=selected_shaman_card_holo_kind %}
+      </div>
+    </div>
+    {% endif %}
+
+    {% for entry in creature_card_contexts %}
+    <div
+      role="button"
+      tabindex="0"
+      class="card-hand__mini-card"
+      data-card-hand-open-card
+      data-card-key="creature-{{ entry.card.pk }}"
+      style="--card-index: {{ forloop.counter }}; --card-offset: {% if forloop.first and not selected_divine_entity and not selected_druid_cult and not selected_shaman_patron %}0{% else %}1{% endif %};"
+      title="{{ entry.card.name }}"
+    >
+      <div class="card-hand__mini-scale" data-card-hand-mini-scale>
+        {% include "charsheet/partials/_creature_card.html" with creature_card=entry.mini_context %}
+      </div>
+    </div>
+    {% endfor %}
   </div>
 
   {% if selected_divine_entity %}
@@ -61,7 +73,7 @@
       <span class="card-hand__card-grabber card-hand__card-grabber--right" data-card-hand-drag-handle aria-hidden="true"></span>
       <span class="card-hand__card-grabber card-hand__card-grabber--bottom" data-card-hand-drag-handle aria-hidden="true"></span>
       <span class="card-hand__card-grabber card-hand__card-grabber--left" data-card-hand-drag-handle aria-hidden="true"></span>
-      {% include "charsheet/partials/_god_card.html" with divine_entity=selected_divine_entity card_aspects=selected_divine_card_aspects %}
+      {% include "charsheet/partials/_god_card.html" with divine_entity=selected_divine_entity card_aspects=selected_divine_card_aspects selected_divine_card_holo=True selected_divine_card_holo_kind="god" %}
     </div>
   </div>
   {% endif %}
@@ -73,9 +85,33 @@
       <span class="card-hand__card-grabber card-hand__card-grabber--right" data-card-hand-drag-handle aria-hidden="true"></span>
       <span class="card-hand__card-grabber card-hand__card-grabber--bottom" data-card-hand-drag-handle aria-hidden="true"></span>
       <span class="card-hand__card-grabber card-hand__card-grabber--left" data-card-hand-drag-handle aria-hidden="true"></span>
-      {% include "charsheet/partials/_god_card.html" with divine_entity=selected_druid_cult card_aspects=selected_druid_card_aspects selected_divine_card_aspects=selected_druid_card_aspects selected_divine_card_image_url=selected_druid_card_image_url selected_divine_card_title=selected_druid_card_title selected_divine_card_kind_label=selected_druid_card_kind_label selected_divine_card_typebar=selected_druid_card_typebar selected_divine_card_ability=selected_druid_card_ability selected_divine_card_fluff=selected_druid_card_fluff selected_divine_card_editable=selected_druid_card_editable selected_divine_card_update_url=selected_druid_card_update_url selected_divine_card_show_aspect_placeholder=selected_druid_card_show_aspect_placeholder selected_divine_card_aspect_placeholders=selected_druid_card_aspect_placeholders selected_divine_card_aspect_options=selected_druid_card_aspect_options selected_divine_binding=selected_druid_binding %}
+      {% include "charsheet/partials/_god_card.html" with divine_entity=selected_druid_cult card_aspects=selected_druid_card_aspects selected_divine_card_aspects=selected_druid_card_aspects selected_divine_card_image_url=selected_druid_card_image_url selected_divine_card_title=selected_druid_card_title selected_divine_card_kind_label=selected_druid_card_kind_label selected_divine_card_typebar=selected_druid_card_typebar selected_divine_card_ability=selected_druid_card_ability selected_divine_card_fluff=selected_druid_card_fluff selected_divine_card_editable=selected_druid_card_editable selected_divine_card_update_url=selected_druid_card_update_url selected_divine_card_show_aspect_placeholder=selected_druid_card_show_aspect_placeholder selected_divine_card_aspect_placeholders=selected_druid_card_aspect_placeholders selected_divine_card_aspect_options=selected_druid_card_aspect_options selected_divine_binding=selected_druid_binding selected_divine_card_holo=True selected_divine_card_holo_kind="power-animal" %}
     </div>
   </div>
   {% endif %}
+
+  {% if selected_shaman_patron %}
+  <div class="card-hand__floating" data-card-hand-floating data-card-key="shaman" data-card-hand-storage-key="codexArcana.cardHand.{{ character.pk }}.{{ selected_shaman_card_storage_key }}" hidden>
+    <div class="card-hand__floating-card">
+      <span class="card-hand__card-grabber card-hand__card-grabber--top" data-card-hand-drag-handle aria-hidden="true"></span>
+      <span class="card-hand__card-grabber card-hand__card-grabber--right" data-card-hand-drag-handle aria-hidden="true"></span>
+      <span class="card-hand__card-grabber card-hand__card-grabber--bottom" data-card-hand-drag-handle aria-hidden="true"></span>
+      <span class="card-hand__card-grabber card-hand__card-grabber--left" data-card-hand-drag-handle aria-hidden="true"></span>
+      {% include "charsheet/partials/_god_card.html" with divine_entity=selected_shaman_patron card_aspects=selected_shaman_card_aspects selected_divine_card_aspects=selected_shaman_card_aspects selected_divine_card_image_url=selected_shaman_card_image_url selected_divine_card_title=selected_shaman_card_title selected_divine_card_kind_label=selected_shaman_card_kind_label selected_divine_card_typebar=selected_shaman_card_typebar selected_divine_card_ability=selected_shaman_card_ability selected_divine_card_fluff=selected_shaman_card_fluff selected_divine_card_editable=False selected_divine_card_show_aspect_placeholder=selected_shaman_card_show_aspect_placeholder selected_divine_card_aspect_placeholders=selected_shaman_card_aspect_placeholders selected_divine_card_aspect_options=selected_shaman_card_aspect_options selected_divine_binding=selected_shaman_binding selected_divine_card_holo=True selected_divine_card_holo_kind=selected_shaman_card_holo_kind %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% for entry in creature_card_contexts %}
+  <div class="card-hand__floating" data-card-hand-floating data-card-key="creature-{{ entry.card.pk }}" data-card-hand-storage-key="codexArcana.cardHand.{{ character.pk }}.creature.{{ entry.card.pk }}" hidden>
+    <div class="card-hand__floating-card">
+      <span class="card-hand__card-grabber card-hand__card-grabber--top" data-card-hand-drag-handle aria-hidden="true"></span>
+      <span class="card-hand__card-grabber card-hand__card-grabber--right" data-card-hand-drag-handle aria-hidden="true"></span>
+      <span class="card-hand__card-grabber card-hand__card-grabber--bottom" data-card-hand-drag-handle aria-hidden="true"></span>
+      <span class="card-hand__card-grabber card-hand__card-grabber--left" data-card-hand-drag-handle aria-hidden="true"></span>
+      {% include "charsheet/partials/_creature_card.html" with creature_card=entry.context %}
+    </div>
+  </div>
+  {% endfor %}
 </section>
 {% endif %}

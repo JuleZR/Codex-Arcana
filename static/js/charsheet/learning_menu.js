@@ -833,7 +833,6 @@ export function initLearningMenu({ choiceWindowController = null } = {}) {
     const hasPending = choiceController
       ? choiceController.hasPendingChoices()
       : getRenderedPendingChoiceCount() > 0;
-    const sidebarEnabled = document.body.dataset.sidebarEnabled === "1";
     pendingNotices.forEach((notice) => {
       if (!(notice instanceof HTMLElement)) {
         return;
@@ -844,9 +843,8 @@ export function initLearningMenu({ choiceWindowController = null } = {}) {
       sidebarPendingNotice.style.display = hasPending ? "" : "none";
     }
     if (centerPendingNotice instanceof HTMLElement) {
-      const showCenterNotice = hasPending && !sidebarEnabled;
-      centerPendingNotice.hidden = !showCenterNotice;
-      centerPendingNotice.style.display = showCenterNotice ? "block" : "none";
+      centerPendingNotice.hidden = true;
+      centerPendingNotice.style.display = "none";
     }
   };
 

@@ -4,6 +4,7 @@
     class="card{% if selected_divine_card_editable %} card--editable{% endif %}"
     lang="de"
     aria-label="{% if divine_entity %}{{ divine_entity.card_name }}{% endif %} G&ouml;tterkarte"
+    {% if selected_divine_card_holo %}data-card-holo="true" data-card-holo-kind="{{ selected_divine_card_holo_kind }}"{% endif %}
     {% if selected_divine_card_editable %}data-god-card-editor data-god-card-update-url="{{ selected_divine_card_update_url }}"{% endif %}
 >
     <figure class="card-art{% if not selected_divine_card_image_url and not divine_entity.god_image %} card-art--empty{% endif %}">

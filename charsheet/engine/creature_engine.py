@@ -16,7 +16,17 @@ from charsheet.constants import (
     GK_MODS,
     QUALITY_BEL_MODS,
 )
-from charsheet.models.creatures import ATTRIBUTE_FIELD_MAP, CharacterCreature, CharacterCreatureItem, Creature
+from charsheet.models.creatures import ATTRIBUTE_FIELD_MAP, CharacterCreature, CharacterCreatureItem, Creature, CreatureAttack
+from charsheet.models.character import CharacterItem
+from charsheet.models.techniques import CharacterTechnique
+from charsheet.models.creatures import (
+    CharacterCreatureCard,
+    CharacterCreatureCardAttack,
+    CharacterCreatureCardCommand,
+    CharacterCreatureCardSkill,
+    CharacterCreatureCardTrait,
+    CreatureCardBinding,
+)
 from .item_engine import ItemEngine
 
 
@@ -314,6 +324,16 @@ class CreatureEngine:
                 )
         return rows
 
+    def commands(self) -> list[dict[str, Any]]:
+        return [
+            {
+                "name": reference.command.name,
+                "slug": reference.command.slug,
+                "description": reference.command.description,
+            }
+            for reference in self.creature.commands.select_related("command")
+        ]
+
     def card_context(self) -> dict[str, Any]:
         armor = self.armor_totals()
         fear_bonus = self.fear_resistance_bonus()
@@ -346,6 +366,7 @@ class CreatureEngine:
             "attacks": self.attacks(),
             "skills": self.skills(),
             "special_skills": self.special_skills(),
+            "commands": self.commands(),
             "traits": self.traits(),
             "climate_and_occurrence": self.creature.climate_and_occurrence,
             "organization": self.creature.organization,
@@ -378,10 +399,17 @@ class CreatureEngine:
         if not attack.damage_dice_amount or not attack.damage_dice_faces:
             return ""
         bonus = ""
-        if attack.damage_flat_bonus > 0:
-            bonus = f"+{attack.damage_flat_bonus}"
-        elif attack.damage_flat_bonus < 0:
-            bonus = str(attack.damage_flat_bonus)
+        flat_bonus = int(attack.damage_flat_bonus or 0)
+        flat_operator = str(getattr(attack, "damage_flat_operator", "") or "")
+        if flat_bonus:
+            if flat_operator == CreatureAttack.DamageOperator.DIVIDE:
+                bonus = f"/{abs(flat_bonus)}"
+            elif flat_operator == CreatureAttack.DamageOperator.SUBTRACT:
+                bonus = f"-{abs(flat_bonus)}"
+            elif flat_operator == CreatureAttack.DamageOperator.ADD:
+                bonus = f"+{abs(flat_bonus)}"
+            else:
+                bonus = f"{flat_bonus:+d}"
         damage_type = f" {attack.damage_type}" if attack.damage_type else ""
         return f"{attack.damage_dice_amount}w{attack.damage_dice_faces}{bonus}{damage_type}"
 
@@ -402,3 +430,274 @@ class CreatureEngine:
         if label in {"-2", "-4", "-6"}:
             return int(label)
         return 0
+
+
+class CreatureCardEngine:
+    """Render concrete character creature-card snapshots."""
+
+    def __init__(self, card: CharacterCreatureCard):
+        self.card = card
+
+    def display_name(self) -> str:
+        return self.card.name
+
+    def image(self):
+        return self.card.image
+
+    def gw_against_fear(self) -> int:
+        return int(self.card.gw) + int(self.card.fear_resistance_bonus or 0)
+
+    def wound_rows(self) -> list[dict[str, Any]]:
+        step = max(1, int(self.card.wound_step or 1))
+        return [
+            {"label": label, "threshold": step * index}
+            for index, label in enumerate(WOUND_STAGE_LABELS, start=1)
+        ]
+
+    def current_wound_zone(self) -> dict[str, Any]:
+        damage = int(self.card.current_damage or 0)
+        current = {"label": "-", "threshold": 0, "penalty": 0}
+        for row in self.wound_rows():
+            if damage >= int(row["threshold"]):
+                current = {
+                    "label": row["label"],
+                    "threshold": row["threshold"],
+                    "penalty": CreatureEngine._wound_penalty_for_label(row["label"]),
+                }
+            else:
+                break
+        return current
+
+    def movement(self) -> dict[str, Any]:
+        return {
+            "combat": self.card.combat_speed,
+            "march": self.card.march_speed,
+            "sprint": self.card.sprint_speed,
+            "swim": self.card.swimming_speed,
+            "fly_combat": self.card.combat_fly_speed,
+            "fly_march": self.card.march_fly_speed,
+            "fly_sprint": self.card.sprint_fly_speed,
+        }
+
+    def movement_display(self) -> dict[str, str | None]:
+        return {key: CreatureEngine._compact_number(value) for key, value in self.movement().items()}
+
+    def attribute_rows(self) -> list[dict[str, Any]]:
+        rows = []
+        for field_name, label in (
+            ("strength_mod", "ST"),
+            ("constitution_mod", "KON"),
+            ("dexterity_mod", "GE"),
+            ("intelligence_mod", "INT"),
+            ("perception_mod", "WA"),
+            ("willpower_mod", "WILL"),
+            ("charisma_mod", "CHA"),
+        ):
+            value = getattr(self.card, field_name)
+            rows.append(
+                {
+                    "label": label,
+                    "value": value,
+                    "display": "-" if value is None else f"{int(value):+d}",
+                }
+            )
+        return rows
+
+    def attacks(self) -> list[dict[str, Any]]:
+        return [
+            {"name": attack.name, "attack_value": attack.attack_value, "damage": attack.damage, "notes": attack.notes}
+            for attack in self.card.attacks.all()
+        ]
+
+    def skills(self) -> list[dict[str, Any]]:
+        return [
+            {"name": skill.name, "value": skill.value, "notes": skill.notes}
+            for skill in self.card.skills.all()
+        ]
+
+    def commands(self) -> list[dict[str, Any]]:
+        return [
+            {"name": command.name, "slug": command.slug, "description": command.description}
+            for command in self.card.commands.all()
+        ]
+
+    def traits(self) -> list[dict[str, Any]]:
+        return [
+            {"name": trait.name, "level": trait.level, "description": trait.description}
+            for trait in self.card.traits.all()
+        ]
+
+    def card_context(self) -> dict[str, Any]:
+        fear_bonus = int(self.card.fear_resistance_bonus or 0)
+        wound_rows = self.wound_rows()
+        wound_zone = self.current_wound_zone()
+        return {
+            "id": self.card.pk,
+            "name": self.display_name(),
+            "creature_name": self.card.creature_type or self.card.name,
+            "image": self.image(),
+            "size_class": self.card.size_class,
+            "size_modifier": self.card.size_modifier,
+            "initiative": self.card.initiative,
+            "vw": self.card.vw,
+            "sr": self.card.sr,
+            "gw": self.card.gw,
+            "gw_fear": self.gw_against_fear() if fear_bonus else None,
+            "fear_bonus": fear_bonus,
+            "rs_natural": self.card.rs,
+            "rs_armor": 0,
+            "rs_total": self.card.rs,
+            "encumbrance": 0,
+            "current_damage": int(self.card.current_damage or 0),
+            "wounds": wound_rows,
+            "wound_max": wound_rows[-1]["threshold"] if wound_rows else 0,
+            "wound_zone": wound_zone,
+            "wound_penalty": wound_zone["penalty"],
+            "movement": self.movement(),
+            "movement_display": self.movement_display(),
+            "attributes": self.attribute_rows(),
+            "attacks": self.attacks(),
+            "skills": self.skills(),
+            "special_skills": [],
+            "commands": self.commands(),
+            "traits": self.traits(),
+            "climate_and_occurrence": self.card.source_reference,
+            "organization": self.card.trigger_label,
+        }
+
+
+def _creature_card_snapshot_values(creature: Creature) -> dict[str, Any]:
+    engine = CreatureEngine(creature)
+    armor = engine.armor_totals()
+    return {
+        "name": creature.display_name,
+        "creature_type": "",
+        "image": creature.image,
+        "description": creature.description,
+        "source_reference": creature.climate_and_occurrence,
+        "initiative": engine.initiative(),
+        "vw": engine.vw(),
+        "sr": engine.sr(),
+        "gw": engine.gw(),
+        "fear_resistance_bonus": engine.fear_resistance_bonus(),
+        "rs": armor.natural_rs,
+        "wound_step": engine.wound_step(),
+        "size_class": engine.size_class(),
+        "size_modifier": engine.size_modifier(),
+        "combat_speed": creature.combat_speed,
+        "march_speed": creature.march_speed,
+        "sprint_speed": creature.sprint_speed,
+        "swimming_speed": creature.swimming_speed,
+        "combat_fly_speed": creature.combat_fly_speed,
+        "march_fly_speed": creature.march_fly_speed,
+        "sprint_fly_speed": creature.sprint_fly_speed,
+        "strength_mod": creature.strength_mod,
+        "constitution_mod": creature.constitution_mod,
+        "dexterity_mod": creature.dexterity_mod,
+        "intelligence_mod": creature.intelligence_mod,
+        "perception_mod": creature.perception_mod,
+        "willpower_mod": creature.willpower_mod,
+        "charisma_mod": creature.charisma_mod,
+    }
+
+
+def _copy_creature_rows(card: CharacterCreatureCard) -> None:
+    creature = card.creature
+    CharacterCreatureCardAttack.objects.bulk_create(
+        CharacterCreatureCardAttack(
+            card=card,
+            name=row.name,
+            attack_value=row.attack_value,
+            damage=CreatureEngine._format_damage(row),
+            notes=row.notes,
+            order=row.order,
+        )
+        for row in creature.attacks.all()
+    )
+    CharacterCreatureCardSkill.objects.bulk_create(
+        CharacterCreatureCardSkill(
+            card=card,
+            name=row.skill.name,
+            value=row.value,
+            notes=row.notes,
+            order=0,
+        )
+        for row in creature.skills.select_related("skill")
+    )
+    CharacterCreatureCardTrait.objects.bulk_create(
+        CharacterCreatureCardTrait(
+            card=card,
+            name=row.display_name,
+            level=row.level,
+            description=row.description,
+            order=row.order,
+        )
+        for row in creature.traits.select_related("trait")
+    )
+    CharacterCreatureCardCommand.objects.bulk_create(
+        CharacterCreatureCardCommand(
+            card=card,
+            name=row.command.name,
+            slug=row.command.slug,
+            description=row.command.description,
+            order=row.order,
+        )
+        for row in creature.commands.select_related("command")
+    )
+
+
+def sync_character_creature_cards(character) -> list[CharacterCreatureCard]:
+    """Create/reactivate/deactivate concrete creature cards for one character."""
+
+    item_ids = set(
+        CharacterItem.objects.filter(owner=character, amount__gt=0, stored=False).values_list("item_id", flat=True)
+    )
+    technique_ids = set(
+        CharacterTechnique.objects.filter(character=character).values_list("technique_id", flat=True)
+    )
+    bindings = list(
+        CreatureCardBinding.objects.filter(active=True)
+        .select_related("creature", "item_trigger", "technique_trigger")
+        .prefetch_related(
+            "creature__attacks",
+            "creature__skills__skill",
+            "creature__traits__trait",
+            "creature__commands__command",
+        )
+    )
+    active_binding_ids = set()
+    for binding in bindings:
+        matches_item = (
+            binding.trigger_type == CreatureCardBinding.TriggerType.ITEM
+            and binding.item_trigger_id in item_ids
+        )
+        matches_technique = (
+            binding.trigger_type == CreatureCardBinding.TriggerType.TECHNIQUE
+            and binding.technique_trigger_id in technique_ids
+        )
+        if not (matches_item or matches_technique):
+            continue
+        active_binding_ids.add(binding.pk)
+        card, created = CharacterCreatureCard.objects.get_or_create(
+            character=character,
+            binding=binding,
+            defaults=CharacterCreatureCard.snapshot_defaults(
+                binding.creature,
+                binding,
+                _creature_card_snapshot_values(binding.creature),
+            ),
+        )
+        if created:
+            _copy_creature_rows(card)
+        elif not card.active:
+            card.active = True
+            card.save(update_fields=["active"])
+
+    existing_cards = CharacterCreatureCard.objects.filter(character=character)
+    existing_cards.exclude(binding_id__in=active_binding_ids).filter(active=True).update(active=False)
+    return list(
+        existing_cards.filter(active=True)
+        .select_related("creature", "binding", "binding__item_trigger", "binding__technique_trigger")
+        .prefetch_related("attacks", "skills", "traits", "commands")
+        .order_by("name", "id")
+    )

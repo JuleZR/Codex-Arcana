@@ -8,6 +8,7 @@ from django.contrib.admin.helpers import ActionForm
 from django.contrib.contenttypes.admin import GenericStackedInline
 from django import forms
 from django.core.exceptions import NON_FIELD_ERRORS, ValidationError
+from django.forms.models import BaseInlineFormSet
 from django.http import HttpResponseRedirect, JsonResponse
 from django.db.models import Q
 from django.urls import path, reverse
@@ -51,6 +52,11 @@ from .models import (
     CharacterAspect,
     CharacterAttribute,
     CharacterCreature,
+    CharacterCreatureCard,
+    CharacterCreatureCardAttack,
+    CharacterCreatureCardCommand,
+    CharacterCreatureCardSkill,
+    CharacterCreatureCardTrait,
     CharacterCreatureItem,
     CharacterCreatureSkill,
     CharacterCreatureSpecialSkill,
@@ -78,6 +84,9 @@ from .models import (
     CharacterWeaponMasteryArcana,
     Creature,
     CreatureAttack,
+    CreatureCardBinding,
+    CreatureCommand,
+    CreatureCommandReference,
     CreatureSkill,
     CreatureSpecialSkill,
     CreatureSpecialSkillValue,
@@ -1777,6 +1786,96 @@ class ItemCharacterInline(admin.TabularInline):
     fields = ("owner", "amount", "quality", "equipped")
 
 
+class CreatureCardItemBindingInlineFormSet(BaseInlineFormSet):
+    """Persist item-page creature card bindings as item-triggered bindings."""
+
+    def save_new(self, form, commit=True):
+        obj = super().save_new(form, commit=False)
+        obj.trigger_type = CreatureCardBinding.TriggerType.ITEM
+        obj.technique_trigger = None
+        if commit:
+            obj.save()
+            form.save_m2m()
+        return obj
+
+    def save_existing(self, form, instance, commit=True):
+        instance.trigger_type = CreatureCardBinding.TriggerType.ITEM
+        instance.technique_trigger = None
+        return super().save_existing(form, instance, commit=commit)
+
+
+class CreatureCardItemBindingInlineForm(forms.ModelForm):
+    """Validate item inline rows as item-triggered creature card bindings."""
+
+    class Meta:
+        model = CreatureCardBinding
+        fields = ("active", "creature", "note")
+
+    def _post_clean(self):
+        self.instance.trigger_type = CreatureCardBinding.TriggerType.ITEM
+        self.instance.technique_trigger = None
+        super()._post_clean()
+
+
+class CreatureCardTechniqueBindingInlineFormSet(BaseInlineFormSet):
+    """Persist technique-page creature card bindings as technique-triggered bindings."""
+
+    def save_new(self, form, commit=True):
+        obj = super().save_new(form, commit=False)
+        obj.trigger_type = CreatureCardBinding.TriggerType.TECHNIQUE
+        obj.item_trigger = None
+        if commit:
+            obj.save()
+            form.save_m2m()
+        return obj
+
+    def save_existing(self, form, instance, commit=True):
+        instance.trigger_type = CreatureCardBinding.TriggerType.TECHNIQUE
+        instance.item_trigger = None
+        return super().save_existing(form, instance, commit=commit)
+
+
+class CreatureCardTechniqueBindingInlineForm(forms.ModelForm):
+    """Validate technique inline rows as technique-triggered creature card bindings."""
+
+    class Meta:
+        model = CreatureCardBinding
+        fields = ("active", "creature", "note")
+
+    def _post_clean(self):
+        self.instance.trigger_type = CreatureCardBinding.TriggerType.TECHNIQUE
+        self.instance.item_trigger = None
+        super()._post_clean()
+
+
+class CreatureCardItemBindingInline(admin.TabularInline):
+    """Inline editor for concrete creature cards activated by this item."""
+
+    model = CreatureCardBinding
+    fk_name = "item_trigger"
+    form = CreatureCardItemBindingInlineForm
+    formset = CreatureCardItemBindingInlineFormSet
+    extra = 0
+    fields = ("active", "creature", "note")
+    autocomplete_fields = ("creature",)
+    verbose_name = "Creature Card Binding"
+    verbose_name_plural = "Creature Card Bindings"
+
+
+class CreatureCardTechniqueBindingInline(admin.TabularInline):
+    """Inline editor for concrete creature cards activated by this technique."""
+
+    model = CreatureCardBinding
+    fk_name = "technique_trigger"
+    form = CreatureCardTechniqueBindingInlineForm
+    formset = CreatureCardTechniqueBindingInlineFormSet
+    extra = 0
+    fields = ("active", "creature", "note")
+    autocomplete_fields = ("creature",)
+    verbose_name = "Creature Card Binding"
+    verbose_name_plural = "Creature Card Bindings"
+
+
 class CharacterTraitInline(admin.TabularInline):
     """Inline editor for character trait ownership."""
 
@@ -2732,6 +2831,7 @@ class TechniqueAdmin(admin.ModelAdmin):
         TechniqueRaceInline,
         TechniqueSemanticEffectInline,
         ModifierInline,
+        CreatureCardTechniqueBindingInline,
     )
     fieldsets = (
         (
@@ -2889,6 +2989,7 @@ class ItemAdmin(admin.ModelAdmin):
         ModifierInline,
         ItemRaceStartingInline,
         ItemCharacterInline,
+        CreatureCardItemBindingInline,
     )
 
     class Media:
@@ -5043,7 +5144,7 @@ class CharacterDiaryEntryAdmin(admin.ModelAdmin):
 class CreatureAttackInline(admin.TabularInline):
     model = CreatureAttack
     extra = 0
-    fields = ("order", "name", "attack_value", "damage_dice_amount", "damage_dice_faces", "damage_flat_bonus", "damage_type", "notes")
+    fields = ("order", "name", "attack_value", "damage_dice_amount", "damage_dice_faces", "damage_flat_operator", "damage_flat_bonus", "damage_type", "notes")
 
 
 class CreatureSkillInline(admin.TabularInline):
@@ -5060,11 +5161,74 @@ class CreatureSpecialSkillValueInline(admin.TabularInline):
     autocomplete_fields = ("skill",)
 
 
+class CreatureCommandReferenceInline(admin.TabularInline):
+    model = CreatureCommandReference
+    extra = 0
+    fields = ("order", "command")
+    autocomplete_fields = ("command",)
+
+
 class CreatureTraitInline(admin.TabularInline):
     model = CreatureTrait
     extra = 0
     fields = ("order", "trait", "name", "level", "description")
     autocomplete_fields = ("trait",)
+
+
+@admin.register(CreatureCardBinding)
+class CreatureCardBindingAdmin(admin.ModelAdmin):
+    list_display = ("creature", "trigger_type", "trigger_label", "active")
+    search_fields = ("creature__name", "creature__card_name", "item_trigger__name", "technique_trigger__name", "note")
+    list_filter = ("trigger_type", "active")
+    autocomplete_fields = ("creature", "item_trigger", "technique_trigger")
+
+
+class CharacterCreatureCardAttackInline(admin.TabularInline):
+    model = CharacterCreatureCardAttack
+    extra = 0
+    fields = ("order", "name", "attack_value", "damage", "notes")
+
+
+class CharacterCreatureCardSkillInline(admin.TabularInline):
+    model = CharacterCreatureCardSkill
+    extra = 0
+    fields = ("order", "name", "value", "notes")
+
+
+class CharacterCreatureCardTraitInline(admin.TabularInline):
+    model = CharacterCreatureCardTrait
+    extra = 0
+    fields = ("order", "name", "level", "description")
+
+
+class CharacterCreatureCardCommandInline(admin.TabularInline):
+    model = CharacterCreatureCardCommand
+    extra = 0
+    fields = ("order", "name", "slug", "description")
+
+
+@admin.register(CharacterCreatureCard)
+class CharacterCreatureCardAdmin(admin.ModelAdmin):
+    list_display = ("name", "character", "creature", "trigger_label", "active", "has_source_deviations", "current_damage")
+    search_fields = ("name", "character__name", "creature__name", "creature__card_name", "binding__item_trigger__name", "binding__technique_trigger__name")
+    list_filter = ("active", "creature__size_class", "binding__trigger_type")
+    autocomplete_fields = ("character", "creature", "binding")
+    list_select_related = ("character", "creature", "binding", "binding__item_trigger", "binding__technique_trigger")
+    readonly_fields = ("has_source_deviations", "trigger_label")
+    inlines = (
+        CharacterCreatureCardAttackInline,
+        CharacterCreatureCardSkillInline,
+        CharacterCreatureCardTraitInline,
+        CharacterCreatureCardCommandInline,
+    )
+    fieldsets = (
+        ("Zuordnung", {"fields": ("character", "creature", "binding", "active", "trigger_label", "has_source_deviations")}),
+        ("Basis", {"fields": ("name", "creature_type", "image", "description", "source_reference", "current_damage", "notes")}),
+        ("Werte", {"fields": ("initiative", "vw", "sr", "gw", "fear_resistance_bonus", "rs", "wound_step")}),
+        ("Groesse", {"fields": ("size_class", "size_modifier")}),
+        ("Bewegung", {"fields": ("combat_speed", "march_speed", "sprint_speed", "swimming_speed", "combat_fly_speed", "march_fly_speed", "sprint_fly_speed")}),
+        ("Eigenschaften", {"fields": ("strength_mod", "constitution_mod", "dexterity_mod", "intelligence_mod", "perception_mod", "willpower_mod", "charisma_mod")}),
+    )
 
 
 @admin.register(Creature)
@@ -5073,7 +5237,13 @@ class CreatureAdmin(admin.ModelAdmin):
     search_fields = ("name", "slug", "card_name", "climate_and_occurrence", "organization")
     list_filter = ("size_class",)
     prepopulated_fields = {"slug": ("name",)}
-    inlines = (CreatureAttackInline, CreatureSkillInline, CreatureSpecialSkillValueInline, CreatureTraitInline)
+    inlines = (
+        CreatureAttackInline,
+        CreatureSkillInline,
+        CreatureSpecialSkillValueInline,
+        CreatureCommandReferenceInline,
+        CreatureTraitInline,
+    )
     fieldsets = (
         ("Basis", {"fields": ("name", "slug", "card_name", "image", "description")}),
         ("Groesse", {"fields": ("size_class", "size_modifier")}),
@@ -5171,7 +5341,7 @@ class CharacterCreatureItemAdmin(admin.ModelAdmin):
 
 @admin.register(CreatureAttack)
 class CreatureAttackAdmin(admin.ModelAdmin):
-    list_display = ("creature", "name", "attack_value", "damage_dice_amount", "damage_dice_faces", "damage_flat_bonus", "damage_type")
+    list_display = ("creature", "name", "attack_value", "damage_dice_amount", "damage_dice_faces", "damage_flat_operator", "damage_flat_bonus", "damage_type")
     search_fields = ("creature__name", "name")
     autocomplete_fields = ("creature",)
     list_select_related = ("creature",)
@@ -5198,6 +5368,21 @@ class CreatureSpecialSkillValueAdmin(admin.ModelAdmin):
     search_fields = ("creature__name", "skill__name", "skill__slug")
     autocomplete_fields = ("creature", "skill")
     list_select_related = ("creature", "skill")
+
+
+@admin.register(CreatureCommand)
+class CreatureCommandAdmin(admin.ModelAdmin):
+    list_display = ("name", "slug")
+    search_fields = ("name", "slug", "description")
+    prepopulated_fields = {"slug": ("name",)}
+
+
+@admin.register(CreatureCommandReference)
+class CreatureCommandReferenceAdmin(admin.ModelAdmin):
+    list_display = ("creature", "command", "order")
+    search_fields = ("creature__name", "command__name", "command__slug")
+    autocomplete_fields = ("creature", "command")
+    list_select_related = ("creature", "command")
 
 
 @admin.register(CreatureTrait)
@@ -5236,16 +5421,16 @@ class CharacterCreatureTraitAdmin(admin.ModelAdmin):
 class UserSettingsAdmin(admin.ModelAdmin):
     """Admin configuration for per-user sheet integration settings."""
 
-    list_display = ("user", "sidebar_enabled", "dddice_enabled", "dddice_room_id", "dddice_dice_box", "dddice_theme_id")
+    list_display = ("user", "radial_menu_enabled", "dddice_enabled", "dddice_room_id", "dddice_dice_box", "dddice_theme_id")
     search_fields = ("user__username", "user__email", "dddice_room_id", "dddice_dice_box", "dddice_theme_id")
-    list_filter = ("sidebar_enabled", "dddice_enabled",)
+    list_filter = ("radial_menu_enabled", "dddice_enabled",)
     ordering = ("user",)
     fieldsets = (
         ("Benutzer", {"fields": ("user",)}),
         (
             "Charsheet",
             {
-                "fields": ("sidebar_enabled",)
+                "fields": ("radial_menu_enabled",)
             },
         ),
         (

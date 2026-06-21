@@ -25,8 +25,13 @@ import { initCarryLoadToggle } from "./carry_load_toggle.js";
 import { initContextRadialMenu } from "./context_radial_menu.js";
 import { initRadialMenuGem } from "./radial_menu_gem.js";
 import { initCharacterAppearanceModal } from "./character_appearance_modal.js";
-import { initCardHand } from "./card_hand.js?v=20260602k";
-import { initGodCards } from "./god_card.js?v=20260608b";
+import { initCardHand } from "./card_hand.js?v=20260621a";
+import { initGodCards } from "./god_card.js?v=20260621a";
+import { initCreatureCards } from "./creature_card.js?v=20260621b";
+
+function isRadialMenuEnabled() {
+  return document.body?.dataset.radialMenuEnabled === "1";
+}
 
 function initCharacterImageEditorSafely() {
   import("./character_image_editor.js?v=20260527c")
@@ -68,14 +73,17 @@ onReady(() => {
   initCharacterAppearanceModal();
   initCardHand();
   initGodCards();
+  initCreatureCards();
   initMobileHud();
   initCharacterImageEditorSafely();
-  try {
-    initRadialMenuGem();
-  } catch (_error) {
-    // Keep the rest of the sheet interactive if the decorative gem fails.
+  if (isRadialMenuEnabled()) {
+    try {
+      initRadialMenuGem();
+    } catch (_error) {
+      // Keep the rest of the sheet interactive if the decorative gem fails.
+    }
+    initContextRadialMenu();
   }
-  initContextRadialMenu();
 
   document.addEventListener("charsheet:partials-applied", () => {
     initTabs();
@@ -92,6 +100,7 @@ onReady(() => {
     initCharacterAppearanceModal();
     initCardHand();
     initGodCards();
+    initCreatureCards();
     document.dispatchEvent(new Event("learn:refresh-totals"));
     initCharacterImageEditorSafely();
   });

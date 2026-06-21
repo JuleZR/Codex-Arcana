@@ -1,32 +1,4 @@
 export function initLeftTools() {
-  const leftTools = document.getElementById("leftTools");
-  const leftToolsToggle = document.getElementById("leftToolsToggle");
-  if (leftTools && leftToolsToggle) {
-    const setToolsOpenState = (isOpen) => {
-      leftTools.classList.toggle("is-open", isOpen);
-      leftToolsToggle.classList.toggle("is-open", isOpen);
-      leftToolsToggle.setAttribute("aria-expanded", String(isOpen));
-      leftToolsToggle.setAttribute("aria-label", isOpen ? "Werkzeugleiste schliessen" : "Werkzeugleiste oeffnen");
-      leftToolsToggle.setAttribute("title", isOpen ? "Werkzeugleiste schliessen" : "Werkzeugleiste oeffnen");
-      document.documentElement.setAttribute("data-left-tools-open", isOpen ? "1" : "0");
-    };
-
-    setToolsOpenState(false);
-    leftToolsToggle.addEventListener("click", () => {
-      setToolsOpenState(!leftTools.classList.contains("is-open"));
-    });
-
-    // Close when clicking the backdrop — but not the toggle button itself
-    document.addEventListener("click", (e) => {
-      if (!leftTools.classList.contains("is-open")) return;
-      if (leftToolsToggle.contains(e.target)) return;
-      const stack = leftTools.closest(".sheet-side-stack");
-      if (stack && !stack.contains(e.target)) {
-        setToolsOpenState(false);
-      }
-    });
-  }
-
   const moneyXpInputs = Array.from(document.querySelectorAll(".left-tools__delta_input"));
   if (!moneyXpInputs.length) {
     return;

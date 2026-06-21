@@ -20,7 +20,7 @@ class UserSettingsForm(forms.ModelForm):
     class Meta:
         model = UserSettings
         fields = [
-            "sidebar_enabled",
+            "radial_menu_enabled",
             "dddice_enabled",
             "dddice_api_key",
             "dddice_room_id",

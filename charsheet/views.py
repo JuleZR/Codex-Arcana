@@ -35,6 +35,7 @@ from .models import (
     CharacterTechnique,
     CharacterCreationDraft,
     CharacterCreature,
+    CharacterCreatureCard,
     Creature,
     Aspect,
     CharacterDivineEntity,
@@ -126,17 +127,6 @@ def update_account_settings(request):
     return redirect("dashboard")
 
 
-@login_required
-@require_POST
-def toggle_sidebar_enabled(request):
-    user_settings, _ = UserSettings.objects.get_or_create(user=request.user)
-    raw_value = str(request.POST.get("sidebar_enabled", "")).strip().lower()
-    sidebar_enabled = raw_value in {"1", "true", "on", "yes"}
-    user_settings.sidebar_enabled = sidebar_enabled
-    user_settings.save(update_fields=["sidebar_enabled"])
-    return JsonResponse({"ok": True, "sidebarEnabled": sidebar_enabled})
-
-
 @require_POST
 def roll_dice_view(request):
     try:
@@ -200,6 +190,15 @@ def _owned_character_creature_or_404(request, pk: int) -> CharacterCreature:
         CharacterCreature.objects.select_related("owner", "owner__owner", "creature"),
         pk=pk,
         owner__owner=request.user,
+    )
+
+
+def _owned_character_creature_card_or_404(request, pk: int) -> CharacterCreatureCard:
+    """Return one concrete creature card whose character belongs to the current user."""
+    return get_object_or_404(
+        CharacterCreatureCard.objects.select_related("character", "character__owner", "creature", "binding"),
+        pk=pk,
+        character__owner=request.user,
     )
 
 
@@ -598,6 +597,8 @@ def update_druid_card(request, character_id: int):
             "selected_divine_card_aspect_placeholders": context["selected_druid_card_aspect_placeholders"],
             "selected_divine_card_aspect_options": context["selected_druid_card_aspect_options"],
             "selected_divine_binding": context["selected_druid_binding"],
+            "selected_divine_card_holo": True,
+            "selected_divine_card_holo_kind": "power-animal",
         },
         request=request,
     )
@@ -1952,6 +1953,30 @@ def adjust_creature_damage(request, pk: int):
 
 @login_required
 @require_POST
+def adjust_creature_card_damage(request, pk: int):
+    """Increase or decrease current damage on one concrete character creature card."""
+    creature_card = _owned_character_creature_card_or_404(request, pk)
+    action = request.POST.get("action")
+    try:
+        amount = max(1, int(request.POST.get("amount", "1")))
+    except (TypeError, ValueError):
+        amount = 1
+
+    if action == "damage":
+        creature_card.current_damage += amount
+    elif action == "heal":
+        creature_card.current_damage = max(0, creature_card.current_damage - amount)
+
+    creature_card.save(update_fields=["current_damage"])
+
+    next_url = str(request.POST.get("next") or "").strip()
+    if next_url.startswith("/"):
+        return redirect(next_url)
+    return redirect("character_sheet", character_id=creature_card.character_id)
+
+
+@login_required
+@require_POST
 def adjust_current_arcane_power(request, character_id: int):
     """Increase or decrease current arcane power without a full sheet reload."""
     character = _owned_character_or_404(request, character_id)
@@ -2315,6 +2340,10 @@ def debug_creature_card(request):
             {"name": "Verbergen", "value": 2},
         ],
         "special_skills": [],
+        "commands": [
+            {"name": "Fass", "slug": "fass", "description": "Greift das markierte Ziel an."},
+            {"name": "Zurueck", "slug": "zurueck", "description": "Loest sich vom Ziel und kehrt zurueck."},
+        ],
         "traits": [
             {"name": "Festbeissen", "level": None},
             {"name": "Furchtlos", "level": 6},

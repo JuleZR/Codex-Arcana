@@ -101,6 +101,46 @@ function applyCardTextScale(card) {
   applyScale(best);
 }
 
+function bindHoloCard(card) {
+  if (!(card instanceof HTMLElement) || card.getAttribute("data-card-holo") !== "true") {
+    return;
+  }
+  if (card.dataset.cardHoloBound === "1") {
+    return;
+  }
+  card.dataset.cardHoloBound = "1";
+
+  const clearActiveCards = () => {
+    document.querySelectorAll('.card[data-card-holo="true"].active').forEach((activeCard) => {
+      activeCard.classList.remove("active");
+    });
+  };
+
+  const syncHoloPosition = (event) => {
+    const rect = card.getBoundingClientRect();
+    const width = Math.max(1, rect.width);
+    const height = Math.max(1, rect.height);
+    const left = Math.min(Math.max(0, event.clientX - rect.left), width);
+    const top = Math.min(Math.max(0, event.clientY - rect.top), height);
+    const xPercent = Math.abs(Math.floor((100 / width) * left) - 100);
+    const yPercent = Math.abs(Math.floor((100 / height) * top) - 100);
+
+    clearActiveCards();
+    card.classList.add("active");
+    card.style.setProperty("--card-holo-bg-x", `${xPercent}%`);
+    card.style.setProperty("--card-holo-bg-y", `${yPercent}%`);
+  };
+
+  card.addEventListener("mousemove", syncHoloPosition);
+  card.addEventListener("pointermove", syncHoloPosition);
+  card.addEventListener("mouseleave", () => {
+    card.classList.remove("active");
+  });
+  card.addEventListener("pointerleave", () => {
+    card.classList.remove("active");
+  });
+}
+
 function bindGodCardEditor(card) {
   if (!(card instanceof HTMLElement) || !card.hasAttribute("data-god-card-editor")) {
     return;
@@ -117,6 +157,39 @@ function bindGodCardEditor(card) {
   const removeImageButton = card.querySelector("[data-god-card-remove-image]");
   const updateUrl = card.getAttribute("data-god-card-update-url") || "";
   let replaceAspectId = "";
+  let previewImageObjectUrl = "";
+
+  const revokePreviewImageObjectUrl = () => {
+    if (!previewImageObjectUrl) {
+      return;
+    }
+    URL.revokeObjectURL(previewImageObjectUrl);
+    previewImageObjectUrl = "";
+  };
+
+  const previewCustomImage = (file) => {
+    if (!(file instanceof File)) {
+      return;
+    }
+    const art = card.querySelector(".card-art");
+    if (!(art instanceof HTMLElement)) {
+      return;
+    }
+    revokePreviewImageObjectUrl();
+    previewImageObjectUrl = URL.createObjectURL(file);
+    let image = art.querySelector("img");
+    if (!(image instanceof HTMLImageElement)) {
+      image = document.createElement("img");
+      image.alt = card.querySelector(".card-title")?.textContent?.trim() || "";
+      art.appendChild(image);
+    }
+    image.addEventListener("load", () => {
+      resolveTitleTone(card);
+      applyCardTextScale(card);
+    }, { once: true });
+    image.src = previewImageObjectUrl;
+    art.classList.remove("card-art--empty");
+  };
 
   const syncDruidCultDisplayName = (payload) => {
     const displayName = String(payload?.druidCultDisplayName || "").trim();
@@ -139,19 +212,47 @@ function bindGodCardEditor(card) {
     const wrapper = document.createElement("div");
     wrapper.innerHTML = payload.cardHtml;
     const nextCard = wrapper.querySelector(".card");
-      if (nextCard instanceof HTMLElement) {
-        card.replaceWith(nextCard);
-        syncDruidCultDisplayName(payload);
-        initGodCards(nextCard.parentElement || document);
-      if (keepUnlocked) {
-        nextCard.classList.add("is-edit-unlocked");
-        const nextToggle = nextCard.querySelector("[data-god-card-edit-toggle]");
+    if (!(nextCard instanceof HTMLElement)) {
+      return;
+    }
+
+    revokePreviewImageObjectUrl();
+    syncDruidCultDisplayName(payload);
+
+    const sourceContainer = card.closest("[data-card-key]");
+    const cardKey = sourceContainer instanceof HTMLElement
+      ? String(sourceContainer.getAttribute("data-card-key") || "")
+      : "";
+    const containers = cardKey
+      ? Array.from(document.querySelectorAll("[data-card-key]")).filter((container) => (
+          container instanceof HTMLElement && container.getAttribute("data-card-key") === cardKey
+        ))
+      : [card.parentElement].filter(Boolean);
+    const nextTitle = nextCard.querySelector(".card-title")?.textContent?.trim() || "";
+
+    containers.forEach((container) => {
+      if (!(container instanceof HTMLElement)) {
+        return;
+      }
+      const existingCard = container.querySelector(".card");
+      if (!(existingCard instanceof HTMLElement)) {
+        return;
+      }
+      const replacement = existingCard === card ? nextCard : nextCard.cloneNode(true);
+      existingCard.replaceWith(replacement);
+      if (nextTitle && container.hasAttribute("title")) {
+        container.setAttribute("title", nextTitle);
+      }
+      initGodCards(container);
+      if (keepUnlocked && existingCard === card) {
+        replacement.classList.add("is-edit-unlocked");
+        const nextToggle = replacement.querySelector("[data-god-card-edit-toggle]");
         if (nextToggle instanceof HTMLButtonElement) {
           nextToggle.setAttribute("aria-pressed", "true");
           nextToggle.title = "Karte sperren";
         }
       }
-    }
+    });
   };
 
   const saveCardFields = async () => {
@@ -269,6 +370,17 @@ function bindGodCardEditor(card) {
 
   if (imageTrigger instanceof HTMLElement) {
     const imageInput = imageTrigger.querySelector('input[type="file"]');
+    if (imageInput instanceof HTMLInputElement) {
+      imageInput.addEventListener("change", () => {
+        if (!card.classList.contains("is-edit-unlocked")) {
+          return;
+        }
+        const file = imageInput.files?.[0] || null;
+        if (file) {
+          previewCustomImage(file);
+        }
+      });
+    }
     imageTrigger.addEventListener("click", (event) => {
       if (!card.classList.contains("is-edit-unlocked")) {
         event.preventDefault();
@@ -375,6 +487,7 @@ function bindGodCardEditor(card) {
 export function initGodCards(root = document) {
   const cards = Array.from(root.querySelectorAll(".card"));
   cards.forEach((card) => {
+    bindHoloCard(card);
     bindGodCardEditor(card);
     const image = card.querySelector(".card-art img");
     if (image instanceof HTMLImageElement && !image.complete) {
