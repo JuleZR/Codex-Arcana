@@ -202,12 +202,15 @@ def _spell_cast_time_facts(spell: Spell) -> str:
 
 
 def _spell_range_facts(spell: Spell) -> str:
+    range_text = str(spell.range_text or "").strip()
     if spell.range_number is not None and spell.range_unit:
         unit = Spell.RangeUnit(spell.range_unit).label
-        return f"{spell.range_number} {_spell_unit_label(unit, int(spell.range_number))}"
+        label = f"{spell.range_number} {_spell_unit_label(unit, int(spell.range_number))}"
+        return f"{label} {range_text}" if range_text else label
     if spell.range_unit:
-        return Spell.RangeUnit(spell.range_unit).label
-    return str(spell.range_text or "").strip() or "-"
+        label = Spell.RangeUnit(spell.range_unit).label
+        return f"{label} {range_text}" if range_text else label
+    return range_text or "-"
 
 
 def _spell_duration_facts(spell: Spell) -> str:

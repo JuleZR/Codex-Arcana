@@ -172,20 +172,29 @@ def _build_spell_tooltip(entry: CharacterSpell, *, school_levels: dict[int, int]
     elif spell.cast_time:
         rows.append(("Zeitaufwand", spell.cast_time))
 
+    range_text = str(spell.range_text or "").strip()
     if spell.range_number is not None and spell.range_unit:
         unit = spell.get_range_unit_display()
         if spell.range_per_grade:
             total = spell.range_number * school_level
             range_unit_label = _unit_label(unit, total)
             note = f"[[SUB:Stufe {school_level} × {spell.range_number} {unit}]]"
-            rows.append(("Reichweite", f"{total} {range_unit_label} {note}"))
+            label = f"{total} {range_unit_label}"
+            if range_text:
+                label += f" {range_text}"
+            rows.append(("Reichweite", f"{label} {note}"))
         else:
-            rows.append(("Reichweite", f"{spell.range_number} {_unit_label(unit, spell.range_number)}"))
+            label = f"{spell.range_number} {_unit_label(unit, spell.range_number)}"
+            if range_text:
+                label += f" {range_text}"
+            rows.append(("Reichweite", label))
     elif spell.range_unit:
-        rows.append(("Reichweite", spell.get_range_unit_display()))
-    elif spell.range_text:
-        rows.append(("Reichweite", spell.range_text))
-
+        label = spell.get_range_unit_display()
+        if range_text:
+            label += f" {range_text}"
+        rows.append(("Reichweite", label))
+    elif range_text:
+        rows.append(("Reichweite", range_text))
     def _duration_label(number, unit_key, per_grade) -> str | None:
         if unit_key in ("sofort", "permanent", "Szene", "Konzentration"):
             from django.apps import apps

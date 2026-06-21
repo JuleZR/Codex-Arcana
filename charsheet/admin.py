@@ -2032,6 +2032,7 @@ class SpellAdminForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields["kp_cost"].required = False
         self.fields["ep_cost"].required = False
+        self.fields["range_text"].label = "Textlabel"
         self.fields["duration_text"].label = "Textlabel"
         self.fields["duration2_text"].label = "Textlabel"
 
@@ -2077,10 +2078,12 @@ class SpellAdminForm(forms.ModelForm):
         ep_cost = cleaned_data.get("ep_cost")
         kp_cost_label = str(cleaned_data.get("kp_cost_label") or "").strip()
         ep_cost_label = str(cleaned_data.get("ep_cost_label") or "").strip()
+        range_text = str(cleaned_data.get("range_text") or "").strip()
         duration_text = str(cleaned_data.get("duration_text") or "").strip()
         duration2_text = str(cleaned_data.get("duration2_text") or "").strip()
         cleaned_data["kp_cost_label"] = kp_cost_label
         cleaned_data["ep_cost_label"] = ep_cost_label
+        cleaned_data["range_text"] = range_text
         cleaned_data["duration_text"] = duration_text
         cleaned_data["duration2_text"] = duration2_text
 
@@ -4593,7 +4596,7 @@ class SpellAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
                     ("extra_cost_type", "extra_cost_value"),
                     ("cast_time_number", "cast_time_unit"),
                     ("cast_time2_number", "cast_time2_unit"),
-                    ("range_number", "range_unit", "range_per_grade"),
+                    ("range_number", "range_unit", "range_per_grade", "range_text"),
                     (
                         "duration_number",
                         "duration_unit",
