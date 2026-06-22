@@ -1850,17 +1850,17 @@ class CharacterShamanPatron(models.Model):
         related_name="character_shaman_patron_bindings",
         help_text="Character-specific core aspects chosen from this shaman patron.",
     )
-    custom_name = models.CharField(max_length=160, blank=True, default="")
+    custom_name = models.CharField(max_length=160, blank=True, null=True, default=None)
     patron_kind_override = models.CharField(
         max_length=24,
         blank=True,
         default="",
         choices=PatronKindOverride.choices,
     )
-    tradition_name = models.CharField(max_length=160, blank=True, default="")
-    custom_description = models.TextField(blank=True, default="")
-    custom_g_ability = models.TextField(blank=True, default="")
-    custom_fluff = models.TextField(blank=True, default="")
+    tradition_name = models.CharField(max_length=160, blank=True, null=True, default=None)
+    custom_description = models.TextField(blank=True, null=True, default=None)
+    custom_g_ability = models.TextField(blank=True, null=True, default=None)
+    custom_fluff = models.TextField(blank=True, null=True, default=None)
     custom_god_image = models.ImageField(
         upload_to="character_shaman_patrons/",
         blank=True,

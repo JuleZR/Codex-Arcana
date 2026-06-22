@@ -9,9 +9,9 @@
 >
     <figure class="card-art{% if not selected_divine_card_image_url and not divine_entity.god_image %} card-art--empty{% endif %}">
         {% if selected_divine_card_image_url %}
-            <img src="{{ selected_divine_card_image_url }}" alt="{{ selected_divine_card_title|default:divine_entity.card_name }}">
+            <img src="{{ selected_divine_card_image_url }}" alt="{{ selected_divine_card_title }}">
         {% elif divine_entity and divine_entity.god_image %}
-            <img src="{{ divine_entity.god_image.url }}" alt="{{ selected_divine_card_title|default:divine_entity.card_name }}">
+            <img src="{{ divine_entity.god_image.url }}" alt="{{ selected_divine_card_title }}">
         {% endif %}
     </figure>
 
@@ -28,7 +28,7 @@
             </div>
         {% endif %}
         <header class="card-titlebar">
-            <h1 class="card-title card-display-field">{% if selected_divine_card_title %}{{ selected_divine_card_title }}{% elif divine_entity %}{{ divine_entity.card_name }}{% endif %}</h1>
+            <h1 class="card-title card-display-field">{{ selected_divine_card_title }}</h1>
             {% if selected_divine_card_editable %}
                 <input class="card-title card-title-input card-edit-field" name="custom_name" value="{{ selected_divine_card_title|default:'' }}" maxlength="160" data-god-card-field>
             {% endif %}
@@ -92,7 +92,7 @@
         </header>
 
         <section class="card-typebar">
-            <span class="card-typebar-text card-display-field">{% if selected_divine_card_kind_label %}{{ selected_divine_card_kind_label }}{% endif %}{% if selected_divine_card_typebar %}{% if selected_divine_card_kind_label %} &mdash; {% endif %}{{ selected_divine_card_typebar }}{% elif divine_entity and divine_entity.pantheon %}{% if selected_divine_card_kind_label %} &mdash; {% endif %}{{ divine_entity.pantheon }}{% endif %}</span>
+            <span class="card-typebar-text card-display-field">{% if selected_divine_card_kind_label %}{{ selected_divine_card_kind_label }}{% endif %}{% if selected_divine_card_typebar %}{% if selected_divine_card_kind_label %} &mdash; {% endif %}{{ selected_divine_card_typebar }}{% endif %}</span>
             {% if selected_divine_card_editable %}
                 <span class="card-typebar-edit card-edit-field">
                     {% if selected_divine_card_kind_options %}

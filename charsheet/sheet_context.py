@@ -3571,20 +3571,20 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
         elif shaman_patron.god_image:
             shaman_card_image_url = shaman_patron.god_image.url
         shaman_card_title = (
-            shaman_binding.custom_name if shaman_binding is not None and shaman_binding.custom_name
+            shaman_binding.custom_name if shaman_binding is not None and shaman_binding.custom_name is not None
             else shaman_patron.card_name or shaman_patron.name
         )
         shaman_card_typebar = (
-            shaman_binding.tradition_name if shaman_binding is not None and shaman_binding.tradition_name
+            shaman_binding.tradition_name if shaman_binding is not None and shaman_binding.tradition_name is not None
             else shaman_patron.school.name if shaman_patron.school_id
             else shaman_patron.get_patron_kind_display()
         )
         shaman_card_ability = (
-            shaman_binding.custom_g_ability if shaman_binding is not None and shaman_binding.custom_g_ability
+            shaman_binding.custom_g_ability if shaman_binding is not None and shaman_binding.custom_g_ability is not None
             else shaman_patron.g_ability
         )
         shaman_card_fluff = (
-            shaman_binding.custom_fluff if shaman_binding is not None and shaman_binding.custom_fluff
+            shaman_binding.custom_fluff if shaman_binding is not None and shaman_binding.custom_fluff is not None
             else shaman_patron.fluff
         )
         shaman_card_aspects = list(shaman_patron.aspects.all().order_by("name", "id"))
