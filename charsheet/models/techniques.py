@@ -1985,6 +1985,7 @@ class Spell(models.Model):
 
     class ExtraCostType(models.TextChoices):
         WOUND_GRADE = "wound_grade", "Wundgrad"
+        SPECIAL = "special", "spez."
 
     extra_cost_type = models.CharField(
         max_length=30,
@@ -2038,6 +2039,7 @@ class Spell(models.Model):
         SCENE = "Szene", "Szene"
         CONCENTRATION = "Konzentration", "Konzentration"
         PERMANENT = "permanent", "Permanent"
+        NIGHT = "Nacht", "Nacht"
         DAY = "Tag", "Tag"
         WEEK = "Woche", "Woche"
         HOUR = "Stunde", "Stunde"

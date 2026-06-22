@@ -128,6 +128,8 @@ def _build_spell_tooltip(entry: CharacterSpell, *, school_levels: dict[int, int]
         amount = int(spell.extra_cost_value)
         label = "Wundgrad" if amount == 1 else "Wundgrade"
         extra_cost = f"{amount} {label}"
+    elif spell.extra_cost_type == getattr(spell.ExtraCostType, "SPECIAL", ""):
+        extra_cost = spell.ExtraCostType.SPECIAL.label
     kp_cost_label = str(spell.kp_cost_label or "").strip()
     ep_cost_label = str(spell.ep_cost_label or "").strip()
     cost_label = f"{int(spell.kp_cost)} KP{kp_cost_label}"
@@ -145,6 +147,7 @@ def _build_spell_tooltip(entry: CharacterSpell, *, school_levels: dict[int, int]
         "Aktion": "Aktionen",
         "Minute": "Minuten",
         "Stunde": "Stunden",
+        "Nacht": "Nächte",
         "Tag": "Tage",
         "Woche": "Wochen",
         "Runde": "Runden",
@@ -1353,6 +1356,8 @@ class MagicEngine:
                             f" + {int(spell.extra_cost_value)} "
                             + ("Wundgrad" if int(spell.extra_cost_value) == 1 else "Wundgrade")
                             if spell.extra_cost_type == getattr(spell.ExtraCostType, "WOUND_GRADE", "") and spell.extra_cost_value
+                            else f" + {spell.ExtraCostType.SPECIAL.label}"
+                            if spell.extra_cost_type == getattr(spell.ExtraCostType, "SPECIAL", "")
                             else ""
                         )
                     ),

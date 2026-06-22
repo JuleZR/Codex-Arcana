@@ -170,7 +170,9 @@ def _spell_unit_label(unit_display: str, number: int) -> str:
         "Aktion": "Aktionen",
         "Minute": "Minuten",
         "Stunde": "Stunden",
+        "Nacht": "Nächte",
         "Tag": "Tage",
+        "Woche": "Wochen",
         "Runde": "Runden",
     }
     if number != 1 and unit_display in plural_map:
@@ -187,6 +189,8 @@ def _spell_cost_facts(spell: Spell) -> str:
     if spell.extra_cost_type == getattr(Spell.ExtraCostType, "WOUND_GRADE", "") and spell.extra_cost_value:
         amount = int(spell.extra_cost_value)
         parts.append(f"und {amount} {'Wundgrad' if amount == 1 else 'Wundgrade'}")
+    elif spell.extra_cost_type == getattr(Spell.ExtraCostType, "SPECIAL", ""):
+        parts.append(f"und {Spell.ExtraCostType.SPECIAL.label}")
     return " ".join(parts)
 
 
