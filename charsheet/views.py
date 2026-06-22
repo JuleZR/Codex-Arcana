@@ -27,6 +27,7 @@ from .models import (
     CharacterDiaryEntry,
     CharacterAspect,
     CharacterDruidCult,
+    CharacterShamanPatron,
     CharacterItem,
     CharacterItemRuneSpec,
     CharacterLanguage,
@@ -46,6 +47,7 @@ from .models import (
     Language,
     Rune,
     School,
+    ShamanPatron,
     Skill,
 
     Technique,
@@ -78,6 +80,8 @@ from .view_utils import format_modifier, format_thousands
 DIARY_ENTRY_CHAR_LIMIT = 2200
 SHEET_PARTIAL_TEMPLATES = {
     "character_header": ("sheetCharacterHeader", "charsheet/partials/_character_header.html"),
+    "secondary_page": ("sheetSecondaryPage", "charsheet/partials/_sheet_secondary_page.html"),
+    "card_hand": ("sheetCardHand", "charsheet/partials/_card_hand_host.html"),
     "load_panel": ("sheetLoadPanel", "charsheet/partials/_load_panel.html"),
     "core_stats_panel": ("sheetCoreStatsPanel", "charsheet/partials/_core_stats_panel.html"),
     "damage_panel": ("sheetDamagePanel", "charsheet/partials/_damage_panel.html"),
@@ -438,6 +442,49 @@ def _allowed_druid_card_aspect_ids(binding: CharacterDruidCult) -> set[int]:
     return set()
 
 
+def _shaman_card_can_edit(binding: CharacterShamanPatron) -> bool:
+    return bool(binding.patron_id and binding.patron.is_customizable)
+
+
+def _allowed_shaman_card_aspect_ids(binding: CharacterShamanPatron) -> set[int]:
+    patron = binding.patron
+    if patron.aspect_selection_mode == DivineEntity.AspectSelectionMode.CHOOSE_FROM_ENTITY:
+        return set(patron.aspects.values_list("id", flat=True))
+    if patron.aspect_selection_mode == DivineEntity.AspectSelectionMode.FREE:
+        return set(Aspect.objects.values_list("id", flat=True))
+    return set()
+
+
+def _render_shaman_card(request, character: Character) -> str:
+    context = _build_sheet_context_for_request(request, character)
+    return render_to_string(
+        "charsheet/partials/_god_card.html",
+        {
+            **context,
+            "divine_entity": context["selected_shaman_patron"],
+            "card_aspects": context["selected_shaman_card_aspects"],
+            "selected_divine_card_aspects": context["selected_shaman_card_aspects"],
+            "selected_divine_card_image_url": context["selected_shaman_card_image_url"],
+            "selected_divine_card_title": context["selected_shaman_card_title"],
+            "selected_divine_card_kind_label": context["selected_shaman_card_kind_label"],
+            "selected_divine_card_kind_value": context["selected_shaman_card_kind_value"],
+            "selected_divine_card_kind_options": context["selected_shaman_card_kind_options"],
+            "selected_divine_card_typebar": context["selected_shaman_card_typebar"],
+            "selected_divine_card_ability": context["selected_shaman_card_ability"],
+            "selected_divine_card_fluff": context["selected_shaman_card_fluff"],
+            "selected_divine_card_editable": context["selected_shaman_card_editable"],
+            "selected_divine_card_update_url": context["selected_shaman_card_update_url"],
+            "selected_divine_card_show_aspect_placeholder": context["selected_shaman_card_show_aspect_placeholder"],
+            "selected_divine_card_aspect_placeholders": context["selected_shaman_card_aspect_placeholders"],
+            "selected_divine_card_aspect_options": context["selected_shaman_card_aspect_options"],
+            "selected_divine_binding": context["selected_shaman_binding"],
+            "selected_divine_card_holo": True,
+            "selected_divine_card_holo_kind": context["selected_shaman_card_holo_kind"],
+        },
+        request=request,
+    )
+
+
 @login_required
 @require_POST
 def update_divine_card(request, character_id: int):
@@ -609,6 +656,66 @@ def update_druid_card(request, character_id: int):
             "druidCultDisplayName": context["selected_druid_card_typebar"],
         }
     )
+
+
+@login_required
+@require_POST
+def update_shaman_card(request, character_id: int):
+    character = get_object_or_404(Character, pk=character_id, owner=request.user)
+    binding = get_object_or_404(
+        CharacterShamanPatron.objects.select_related("patron", "patron__school", "character"),
+        character=character,
+    )
+    if not _shaman_card_can_edit(binding):
+        return JsonResponse({"ok": False, "error": "card_not_editable"}, status=403)
+
+    patron = binding.patron
+    if request.POST.get("action") == "choose_aspect":
+        if patron.aspect_selection_mode == DivineEntity.AspectSelectionMode.FIXED:
+            return JsonResponse({"ok": False, "error": "aspects_not_editable"}, status=403)
+        allowed_ids = _allowed_shaman_card_aspect_ids(binding)
+        selected_ids = []
+        for raw_id in request.POST.getlist("core_aspects"):
+            try:
+                aspect_id = int(raw_id)
+            except (TypeError, ValueError):
+                continue
+            if aspect_id in allowed_ids and aspect_id not in selected_ids:
+                selected_ids.append(aspect_id)
+        binding.core_aspects.set(selected_ids[: int(patron.starting_aspect_count)])
+    else:
+        update_fields = []
+        if "patron_kind_override" in request.POST and patron.slug == "ursprung":
+            patron_kind = str(request.POST.get("patron_kind_override", "")).strip()
+            allowed_kinds = {
+                CharacterShamanPatron.PatronKindOverride.TOTEM,
+                CharacterShamanPatron.PatronKindOverride.ANCESTOR_SPIRIT,
+            }
+            if patron_kind not in allowed_kinds:
+                return JsonResponse({"ok": False, "error": "invalid_patron_kind"}, status=400)
+            binding.patron_kind_override = patron_kind
+            update_fields.append("patron_kind_override")
+        for field_name, max_length in (("custom_name", 160), ("tradition_name", 160)):
+            if field_name in request.POST:
+                setattr(binding, field_name, str(request.POST.get(field_name, ""))[:max_length].strip())
+                update_fields.append(field_name)
+        for field_name in ("custom_description", "custom_g_ability", "custom_fluff"):
+            if field_name in request.POST:
+                setattr(binding, field_name, str(request.POST.get(field_name, "")).strip())
+                update_fields.append(field_name)
+        if request.POST.get("remove_custom_god_image") == "1":
+            if binding.custom_god_image:
+                binding.custom_god_image.delete(save=False)
+            binding.custom_god_image = None
+            update_fields.append("custom_god_image")
+        if request.FILES.get("custom_god_image"):
+            binding.custom_god_image = request.FILES["custom_god_image"]
+            update_fields.append("custom_god_image")
+        binding.full_clean()
+        if update_fields:
+            binding.save(update_fields=sorted(set(update_fields)))
+
+    return JsonResponse({"ok": True, "cardHtml": _render_shaman_card(request, character)})
 
 
 @login_required
@@ -2121,6 +2228,8 @@ def apply_learning(request, character_id: int):
             "armor_panel",
             "weapon_panel",
             "spell_panel",
+            "secondary_page",
+            "card_hand",
             "learning_budget",
         ):
             target_id, template_name = SHEET_PARTIAL_TEMPLATES[key]

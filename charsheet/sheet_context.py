@@ -3442,6 +3442,8 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
     shaman_card_image_url = ""
     shaman_card_title = ""
     shaman_card_kind_label = ""
+    shaman_card_kind_value = ""
+    shaman_card_kind_options = []
     shaman_card_typebar = ""
     shaman_card_ability = ""
     shaman_card_fluff = ""
@@ -3449,6 +3451,8 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
     shaman_card_show_aspect_placeholder = False
     shaman_card_aspect_placeholders = []
     shaman_card_aspect_options = []
+    shaman_card_editable = False
+    shaman_card_update_url = ""
     shaman_card_storage_key = ""
     shaman_card_holo_kind = ""
     if divine_entity is not None and divine_entity.symbol_image:
@@ -3547,32 +3551,52 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
             druid_card_aspect_options = list(Aspect.objects.all().order_by("name", "id"))
     if shaman_patron is not None:
         shaman_card_storage_key = f"shaman.{shaman_patron.pk}"
-        shaman_card_holo_kind = (
-            "ancestor-spirit"
-            if shaman_patron.patron_kind == ShamanPatron.PatronKind.ANCESTOR_SPIRIT
-            else "power-animal"
+        shaman_card_kind_value = (
+            shaman_binding.patron_kind_override
+            if shaman_binding is not None and shaman_binding.patron_kind_override
+            else shaman_patron.patron_kind
         )
-        shaman_card_kind_label = (
-            "Ahnengeist"
-            if shaman_patron.patron_kind == ShamanPatron.PatronKind.ANCESTOR_SPIRIT
-            else "Krafttier"
-        )
-        if shaman_patron.god_image:
+        shaman_card_kind_label = "Ahnengeist" if shaman_card_kind_value == "ancestor_spirit" else "Totem"
+        shaman_card_holo_kind = "ancestor-spirit" if shaman_card_kind_value == "ancestor_spirit" else "power-animal"
+        shaman_card_editable = bool(shaman_binding is not None and shaman_patron.is_customizable)
+        if shaman_card_editable:
+            shaman_card_update_url = f"/character/{character.pk}/shaman-card/update/"
+            if shaman_patron.slug == "ursprung":
+                shaman_card_kind_options = [
+                    {"value": "totem", "label": "Totem"},
+                    {"value": "ancestor_spirit", "label": "Ahnengeist"},
+                ]
+        if shaman_binding is not None and shaman_binding.custom_god_image:
+            shaman_card_image_url = shaman_binding.custom_god_image.url
+        elif shaman_patron.god_image:
             shaman_card_image_url = shaman_patron.god_image.url
-        shaman_card_title = shaman_patron.card_name or shaman_patron.name
-        shaman_card_typebar = shaman_patron.school.name if shaman_patron.school_id else shaman_patron.get_patron_kind_display()
-        shaman_card_ability = shaman_patron.g_ability
-        shaman_card_fluff = shaman_patron.fluff
-        shaman_card_aspects = [
-            entry.aspect
-            for entry in shaman_patron.aspects.all()
-            if entry.aspect_id and entry.is_starting_aspect
-        ]
+        shaman_card_title = (
+            shaman_binding.custom_name if shaman_binding is not None and shaman_binding.custom_name
+            else shaman_patron.card_name or shaman_patron.name
+        )
+        shaman_card_typebar = (
+            shaman_binding.tradition_name if shaman_binding is not None and shaman_binding.tradition_name
+            else shaman_patron.school.name if shaman_patron.school_id
+            else shaman_patron.get_patron_kind_display()
+        )
+        shaman_card_ability = (
+            shaman_binding.custom_g_ability if shaman_binding is not None and shaman_binding.custom_g_ability
+            else shaman_patron.g_ability
+        )
+        shaman_card_fluff = (
+            shaman_binding.custom_fluff if shaman_binding is not None and shaman_binding.custom_fluff
+            else shaman_patron.fluff
+        )
+        shaman_card_aspects = list(shaman_patron.aspects.all().order_by("name", "id"))
         if shaman_patron.aspect_selection_mode != "fixed" and shaman_binding is not None:
             shaman_card_aspects = list(shaman_binding.core_aspects.all().order_by("name", "id"))
             open_aspect_slots = max(0, int(shaman_patron.starting_aspect_count) - len(shaman_card_aspects))
             shaman_card_aspect_placeholders = list(range(open_aspect_slots))
             shaman_card_show_aspect_placeholder = bool(shaman_card_aspect_placeholders)
+        if shaman_card_editable and shaman_patron.aspect_selection_mode == "choose_from_entity":
+            shaman_card_aspect_options = list(shaman_patron.aspects.all().order_by("name", "id"))
+        elif shaman_card_editable and shaman_patron.aspect_selection_mode == "free":
+            shaman_card_aspect_options = list(Aspect.objects.all().order_by("name", "id"))
     load_tooltip = _build_load_tooltip(engine)
     load_tooltip_with_carry = _build_combined_load_tooltip(engine, carry_state, carry_enabled=True)
     total_armor_tooltip = _build_total_armor_tooltip(engine)
@@ -3673,6 +3697,8 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
         "selected_shaman_card_image_url": shaman_card_image_url,
         "selected_shaman_card_title": shaman_card_title,
         "selected_shaman_card_kind_label": shaman_card_kind_label,
+        "selected_shaman_card_kind_value": shaman_card_kind_value,
+        "selected_shaman_card_kind_options": shaman_card_kind_options,
         "selected_shaman_card_typebar": shaman_card_typebar,
         "selected_shaman_card_ability": shaman_card_ability,
         "selected_shaman_card_fluff": shaman_card_fluff,
@@ -3680,6 +3706,8 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
         "selected_shaman_card_show_aspect_placeholder": shaman_card_show_aspect_placeholder,
         "selected_shaman_card_aspect_placeholders": shaman_card_aspect_placeholders,
         "selected_shaman_card_aspect_options": shaman_card_aspect_options,
+        "selected_shaman_card_editable": shaman_card_editable,
+        "selected_shaman_card_update_url": shaman_card_update_url,
         "selected_shaman_card_storage_key": shaman_card_storage_key,
         "selected_shaman_card_holo_kind": shaman_card_holo_kind,
         "creature_card_contexts": creature_card_contexts,

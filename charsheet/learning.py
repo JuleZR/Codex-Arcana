@@ -24,6 +24,7 @@ from charsheet.models import (
     CharacterAspect,
     CharacterDivineEntity,
     CharacterDruidCult,
+    CharacterShamanPatron,
     CharacterLanguage,
     CharacterRaceChoice,
     CharacterSchool,
@@ -41,6 +42,7 @@ from charsheet.models import (
     DruidCultAspect,
     Language,
     School,
+    ShamanPatron,
     Spell,
     Skill,
     Technique,
@@ -399,6 +401,9 @@ def _reset_invalid_school_progression(character: Character) -> None:
             )
             character.save(update_fields=["spent_spell_learning_slots"])
     invalid_druid_bindings.delete()
+    CharacterShamanPatron.objects.filter(character=character).exclude(
+        patron__school_id__in=learned_school_ids
+    ).delete()
     magic_engine = character.get_magic_engine(refresh=True)
     magic_engine.sync_character_magic()
     school_level_map = magic_engine._school_level_map()
@@ -917,6 +922,24 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
                 if (character.religion or "") != religion_entity_to_bind.name:
                     character.religion = religion_entity_to_bind.name
                     character.save(update_fields=["religion"])
+
+            active_school_ids = {
+                int(row.school_id)
+                for row in CharacterSchool.objects.filter(character=character, level__gt=0)
+            }
+            shaman_patrons = list(
+                ShamanPatron.objects.filter(school_id__in=active_school_ids).order_by("school_id", "id")
+            )
+            if shaman_patrons:
+                patron = next(
+                    (entry for entry in shaman_patrons if entry.slug == "ursprung"),
+                    shaman_patrons[0] if len(shaman_patrons) == 1 else None,
+                )
+                if patron is not None:
+                    CharacterShamanPatron.objects.update_or_create(
+                        character=character,
+                        defaults={"patron": patron},
+                    )
 
             for aspect_id, add in magic_aspect_plan.items():
                 aspect = Aspect.objects.filter(pk=aspect_id).first()

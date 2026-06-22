@@ -111,7 +111,6 @@ from .models import (
     SchoolType,
     ShieldStats,
     ShamanPatron,
-    ShamanPatronAspect,
     Specialization,
     Spell,
     Skill,
@@ -219,7 +218,6 @@ ADMIN_MODEL_ORDER = {
     "DruidCult": 124,
     "DruidCultAspect": 125,
     "ShamanPatron": 126,
-    "ShamanPatronAspect": 127,
     "UserSettings": 140,
 }
 
@@ -285,7 +283,6 @@ ADMIN_MODEL_SECTIONS = {
     "DruidCult": (124, "Magie und Goettliches"),
     "DruidCultAspect": (125, "Magie und Goettliches"),
     "ShamanPatron": (126, "Magie und Goettliches"),
-    "ShamanPatronAspect": (127, "Magie und Goettliches"),
     "UserSettings": (140, "System"),
 }
 
@@ -327,7 +324,6 @@ ADMIN_SECONDARY_MODELS = {
     "MagicItemStats",
     "DivineEntityAspect",
     "DruidCultAspect",
-    "ShamanPatronAspect",
 }
 
 _default_get_app_list = admin.site.get_app_list
@@ -4412,13 +4408,6 @@ class DruidCultAspectInline(admin.TabularInline):
     fields = ("aspect", "is_starting_aspect")
 
 
-class ShamanPatronAspectInline(admin.TabularInline):
-    model = ShamanPatronAspect
-    extra = 0
-    autocomplete_fields = ("aspect",)
-    fields = ("aspect", "is_starting_aspect")
-
-
 class CharacterBindingAspectInline(admin.TabularInline):
     model = CharacterAspect
     fk_name = "source_binding"
@@ -4506,7 +4495,7 @@ class CharacterShamanPatronAdminForm(forms.ModelForm):
             raise forms.ValidationError(f"Diese Bindung erlaubt maximal {allowed_count} Kernaspekte.")
 
         if patron.aspect_selection_mode == DivineEntity.AspectSelectionMode.CHOOSE_FROM_ENTITY:
-            allowed_ids = set(patron.aspects.values_list("aspect_id", flat=True))
+            allowed_ids = set(patron.aspects.values_list("id", flat=True))
             invalid = [aspect.name for aspect in core_aspects if aspect.id not in allowed_ids]
             if invalid:
                 raise forms.ValidationError("Nicht erlaubte Aspekte: " + ", ".join(sorted(invalid)))
@@ -4832,10 +4821,9 @@ class ShamanPatronAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
     search_fields = ("name", "slug", "card_name", "description", "school__name")
     list_filter = ("patron_kind", "aspect_selection_mode", "is_customizable", "school")
     ordering = ("patron_kind", "name")
-    autocomplete_fields = ("school",)
+    autocomplete_fields = ("school", "aspects")
     list_select_related = ("school", "school__type")
     readonly_fields = ("symbol_image_preview", "god_image_preview")
-    inlines = (ShamanPatronAspectInline,)
     fieldsets = (
         (None, {
             "fields": (
@@ -4845,6 +4833,7 @@ class ShamanPatronAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
                 "school",
                 "aspect_selection_mode",
                 "starting_aspect_count",
+                "aspects",
                 "is_customizable",
                 "description",
             )
@@ -4913,16 +4902,6 @@ class DruidCultAspectAdmin(admin.ModelAdmin):
     ordering = ("cult__name", "aspect__name")
     autocomplete_fields = ("cult", "aspect")
     list_select_related = ("cult", "aspect")
-
-
-@admin.register(ShamanPatronAspect)
-class ShamanPatronAspectAdmin(admin.ModelAdmin):
-    list_display = ("patron", "aspect", "is_starting_aspect")
-    search_fields = ("patron__name", "aspect__name", "aspect__slug")
-    list_filter = ("is_starting_aspect", "patron", "aspect")
-    ordering = ("patron__name", "aspect__name")
-    autocomplete_fields = ("patron", "aspect")
-    list_select_related = ("patron", "aspect")
 
 
 @admin.register(CharacterSpellSource)

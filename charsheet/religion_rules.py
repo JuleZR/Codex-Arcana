@@ -17,10 +17,22 @@ def is_druid_school(school_or_entry) -> bool:
     return DruidCult.objects.filter(school_id=school_id).exists()
 
 
+def is_shaman_school(school_or_entry) -> bool:
+    """Return whether a school is backed by a shaman patron instead of a deity."""
+    school = getattr(school_or_entry, "school", school_or_entry)
+    school_id = getattr(school, "id", None) or getattr(school, "pk", None)
+    if not school_id:
+        return False
+
+    from charsheet.models import ShamanPatron
+
+    return ShamanPatron.objects.filter(school_id=school_id).exists()
+
+
 def is_clerical_school(school_or_entry) -> bool:
     """Return whether a school belongs to the clerical/divine school type."""
     school = getattr(school_or_entry, "school", school_or_entry)
-    if is_druid_school(school):
+    if is_druid_school(school) or is_shaman_school(school):
         return False
     school_type = getattr(school, "type", None)
     if school_type is None:

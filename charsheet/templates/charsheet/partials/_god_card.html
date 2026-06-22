@@ -95,7 +95,15 @@
             <span class="card-typebar-text card-display-field">{% if selected_divine_card_kind_label %}{{ selected_divine_card_kind_label }}{% endif %}{% if selected_divine_card_typebar %}{% if selected_divine_card_kind_label %} &mdash; {% endif %}{{ selected_divine_card_typebar }}{% elif divine_entity and divine_entity.pantheon %}{% if selected_divine_card_kind_label %} &mdash; {% endif %}{{ divine_entity.pantheon }}{% endif %}</span>
             {% if selected_divine_card_editable %}
                 <span class="card-typebar-edit card-edit-field">
+                    {% if selected_divine_card_kind_options %}
+                    <select class="card-typebar-kind-input" name="patron_kind_override" data-god-card-field aria-label="Erscheinungsform">
+                        {% for option in selected_divine_card_kind_options %}
+                        <option value="{{ option.value }}"{% if option.value == selected_divine_card_kind_value %} selected{% endif %}>{{ option.label }}</option>
+                        {% endfor %}
+                    </select>
+                    {% else %}
                     <span class="card-typebar-kind-input card-typebar-kind-input--locked">{{ selected_divine_card_kind_label|default:"Gottheit" }}</span>
+                    {% endif %}
                     <span>&mdash;</span>
                     <input name="tradition_name" value="{{ selected_divine_card_typebar|default:'' }}" maxlength="160" data-god-card-field>
                 </span>
@@ -118,9 +126,7 @@
                     </div>
                 {% endif %}
                 {% if selected_divine_card_fluff %}
-                    <blockquote class="card-vow">
-                        &bdquo;{{ selected_divine_card_fluff|linebreaksbr }}&ldquo;
-                    </blockquote>
+                    {{ selected_divine_card_fluff|card_fluff }}
                 {% endif %}
             </div>
             {% if selected_divine_card_editable %}

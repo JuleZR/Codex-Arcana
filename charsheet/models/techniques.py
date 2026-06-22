@@ -1456,6 +1456,11 @@ class ShamanPatron(models.Model):
         default=2,
         help_text="How many core aspects this patron grants or lets the character choose.",
     )
+    aspects = models.ManyToManyField(
+        Aspect,
+        blank=True,
+        related_name="shaman_patrons",
+    )
     description = models.TextField(blank=True, default="")
     g_ability = models.TextField(blank=True, default="")
     fluff = models.TextField(blank=True, default="")
@@ -1535,35 +1540,6 @@ class DruidCultAspect(models.Model):
 
     def __str__(self):
         return f"{self.cult.name}: {self.aspect.name}"
-
-
-class ShamanPatronAspect(models.Model):
-    patron = models.ForeignKey(
-        ShamanPatron,
-        on_delete=models.CASCADE,
-        related_name="aspects",
-    )
-    aspect = models.ForeignKey(
-        Aspect,
-        on_delete=models.CASCADE,
-        related_name="shaman_patrons",
-    )
-    is_starting_aspect = models.BooleanField(
-        default=True,
-        help_text="Marks one of the default aspects granted by the shaman patron.",
-    )
-
-    class Meta:
-        ordering = ["patron__name", "aspect__name"]
-        constraints = [
-            models.UniqueConstraint(
-                fields=["patron", "aspect"],
-                name="uniq_shaman_patron_aspect",
-            )
-        ]
-
-    def __str__(self):
-        return f"{self.patron.name}: {self.aspect.name}"
 
 
 class CharacterAspect(models.Model):
@@ -1854,6 +1830,10 @@ class CharacterDruidCult(models.Model):
 
 
 class CharacterShamanPatron(models.Model):
+    class PatronKindOverride(models.TextChoices):
+        TOTEM = "totem", "Totem"
+        ANCESTOR_SPIRIT = "ancestor_spirit", "Ahnengeist"
+
     character = models.OneToOneField(
         "Character",
         on_delete=models.CASCADE,
@@ -1870,6 +1850,22 @@ class CharacterShamanPatron(models.Model):
         related_name="character_shaman_patron_bindings",
         help_text="Character-specific core aspects chosen from this shaman patron.",
     )
+    custom_name = models.CharField(max_length=160, blank=True, default="")
+    patron_kind_override = models.CharField(
+        max_length=24,
+        blank=True,
+        default="",
+        choices=PatronKindOverride.choices,
+    )
+    tradition_name = models.CharField(max_length=160, blank=True, default="")
+    custom_description = models.TextField(blank=True, default="")
+    custom_g_ability = models.TextField(blank=True, default="")
+    custom_fluff = models.TextField(blank=True, default="")
+    custom_god_image = models.ImageField(
+        upload_to="character_shaman_patrons/",
+        blank=True,
+        null=True,
+    )
 
     class Meta:
         constraints = [
@@ -1881,6 +1877,21 @@ class CharacterShamanPatron(models.Model):
 
     def __str__(self):
         return f"{self.character.name} -> {self.patron.name}"
+
+    def clean(self):
+        super().clean()
+        if not self.patron_id or self.patron.is_customizable:
+            return
+        if any((
+            self.custom_name,
+            self.patron_kind_override,
+            self.tradition_name,
+            self.custom_description,
+            self.custom_g_ability,
+            self.custom_fluff,
+            self.custom_god_image,
+        )):
+            raise ValidationError("This shaman patron does not allow character-specific card data.")
 
 
 class CharacterSpellSource(models.Model):

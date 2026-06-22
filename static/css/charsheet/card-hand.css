@@ -1,3 +1,21 @@
+.card-hand-host {
+  display: none;
+}
+
+.card-hand-host--active {
+  display: flex;
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 0;
+  overflow: visible;
+}
+
+.card-hand-host > .card-hand {
+  flex: 1 1 100%;
+  height: 100%;
+  min-height: 0;
+}
+
 .card-hand {
   position: relative;
   display: flex;

@@ -221,3 +221,57 @@ def card_markdown(value):
     if not value:
         return ""
     return mark_safe(_render_card_markdown(str(value)))
+
+
+def _render_fluff_lines(value: str) -> str:
+    return "<br>".join(_markdown.renderInline(line) for line in value.splitlines())
+
+
+@register.filter(name="card_fluff")
+def card_fluff(value):
+    """Render card fluff, with content after a standalone --- outside the quote."""
+    if not value:
+        return ""
+    lines = str(value).splitlines()
+    separator_index = next((index for index, line in enumerate(lines) if line.strip() == "---"), None)
+    if separator_index is None:
+        quote_text = "\n".join(lines).strip()
+        outside_text = ""
+    else:
+        quote_text = "\n".join(lines[:separator_index]).strip()
+        outside_text = "\n".join(lines[separator_index + 1:]).strip()
+
+    html: list[str] = ['<div class="card-vow-group">']
+    if quote_text:
+        html.append(f'<blockquote class="card-vow">&bdquo;{_render_fluff_lines(quote_text)}&ldquo;</blockquote>')
+    if outside_text:
+        html.append(f'<div class="card-vow-outside">{_render_fluff_lines(outside_text)}</div>')
+    html.append("</div>")
+    return mark_safe("".join(html))
+
+
+def _render_fluff_lines(value: str) -> str:
+    return "<br>".join(_markdown.renderInline(line) for line in value.splitlines())
+
+
+@register.filter(name="card_fluff")
+def card_fluff(value):
+    """Render card fluff, with content after a standalone --- outside the quote."""
+    if not value:
+        return ""
+    lines = str(value).splitlines()
+    separator_index = next((index for index, line in enumerate(lines) if line.strip() == "---"), None)
+    if separator_index is None:
+        quote_text = "\n".join(lines).strip()
+        outside_text = ""
+    else:
+        quote_text = "\n".join(lines[:separator_index]).strip()
+        outside_text = "\n".join(lines[separator_index + 1:]).strip()
+
+    html: list[str] = ['<div class="card-vow-group">']
+    if quote_text:
+        html.append(f'<blockquote class="card-vow">&bdquo;{_render_fluff_lines(quote_text)}&ldquo;</blockquote>')
+    if outside_text:
+        html.append(f'<div class="card-vow-outside">{_render_fluff_lines(outside_text)}</div>')
+    html.append("</div>")
+    return mark_safe("".join(html))
