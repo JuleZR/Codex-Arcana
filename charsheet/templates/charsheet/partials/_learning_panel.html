@@ -213,7 +213,7 @@
                 aria-labelledby="learn-tab-attributes"
                 data-tab-panel
               >
-                <details class="shop_group" data-learn-group open>
+                <details class="shop_group" data-learn-group data-collapse-key="attributes">
                   <summary><span>Eigenschaften</span><span class="shop_group_count">{{ learn_attr_rows|length }}</span></summary>
                   <table class="shop_table">
                     <tbody>
@@ -248,7 +248,7 @@
                 hidden
               >
                 {% for group in learn_trait_groups %}
-                  <details class="shop_group learn_subgroup" data-learn-group open>
+                  <details class="shop_group learn_subgroup" data-learn-group data-collapse-key="traits:{{ group.name|slugify }}">
                       <summary><span>{{ group.name }}</span><span class="shop_group_count">{{ group.rows|length }}</span></summary>
                       <table class="shop_table">
                         <tbody>
@@ -284,7 +284,7 @@
                 hidden
               >
                 {% for group in learn_skill_groups %}
-                  <details class="shop_group learn_subgroup" data-learn-group open>
+                  <details class="shop_group learn_subgroup" data-learn-group data-collapse-key="skills:{{ group.name|slugify }}">
                       <summary><span>{{ group.name }}</span><span class="shop_group_count">{{ group.rows|length }}</span></summary>
                       <table class="shop_table">
                         <tbody>
@@ -338,7 +338,7 @@
                 data-tab-panel
                 hidden
               >
-                <details class="shop_group" data-learn-group open>
+                <details class="shop_group" data-learn-group data-collapse-key="languages">
                   <summary><span>Sprachen</span><span class="shop_group_count">{{ learn_language_rows|length }}</span></summary>
                   <table class="shop_table">
                     <tbody>
@@ -374,7 +374,7 @@
                 hidden
               >
                 {% for group in learn_school_groups %}
-                  <details class="shop_group learn_subgroup" data-learn-group open>
+                  <details class="shop_group learn_subgroup" data-learn-group data-collapse-key="schools:{{ group.name|slugify }}">
                       <summary><span>{{ group.name }}</span><span class="shop_group_count">{{ group.rows|length }}</span></summary>
                       <table class="shop_table">
                         <tbody>
@@ -478,7 +478,7 @@
                     </div>
                   {% endif %}
                   {% for group in learn_magic_groups %}
-                    <details class="shop_group learn_subgroup" data-learn-group open>
+                    <details class="shop_group learn_subgroup" data-learn-group data-collapse-key="magic:{{ group.name|slugify }}">
                       <summary><span>{{ group.name }}</span><span class="shop_group_count">{{ group.rows|length }}</span></summary>
                       <table class="shop_table">
                         <tbody>

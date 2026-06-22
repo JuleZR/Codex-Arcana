@@ -130,9 +130,10 @@ Für `target_domain=item_category` und Legacy-`target_kind=item_category`.
 | `shield` | Schild |
 | `clothing` | Kleidung |
 | `magic_item` | Magischer Gegenstand |
-| `consumable` | Verbrauchbar |
+| `consumable` | Verbrauchsgegenstand |
 | `ammo` | Munition |
-| `misc` | Misc |
+| `creature` | Tiere & Kreaturen |
+| `misc` | Sonstiges |
 
 ## Spezialisierungen
 

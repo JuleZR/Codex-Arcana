@@ -49,6 +49,41 @@ export function saveJsonStorage(key, value) {
   }
 }
 
+export function initPersistentDetails(selector, storageKey) {
+  const details = Array.from(document.querySelectorAll(selector))
+    .filter((entry) => entry instanceof HTMLDetailsElement);
+  const stored = loadJsonStorage(storageKey, {});
+  const state = stored && typeof stored === "object" && !Array.isArray(stored) ? stored : {};
+
+  const keyFor = (entry) => String(entry.getAttribute("data-collapse-key") || "").trim();
+  const restore = (entry) => {
+    const key = keyFor(entry);
+    entry.open = key ? state[key] === true : false;
+  };
+
+  details.forEach((entry) => {
+    restore(entry);
+    const summary = entry.querySelector(":scope > summary");
+    summary?.addEventListener("click", () => {
+      window.setTimeout(() => {
+        const key = keyFor(entry);
+        if (!key) {
+          return;
+        }
+        state[key] = entry.open;
+        saveJsonStorage(storageKey, state);
+      }, 0);
+    });
+  });
+
+  return {
+    restore,
+    restoreAll() {
+      details.forEach(restore);
+    },
+  };
+}
+
 export function parseJsonScript(scriptId, fallback) {
   const script = document.getElementById(scriptId);
   if (!script) {

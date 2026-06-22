@@ -72,7 +72,7 @@
                 data-shop-mode-panel="buy"
               >
                 {% for group in shop_item_groups %}
-                  <details class="shop_group" data-shop-group open>
+                  <details class="shop_group" data-shop-group data-collapse-key="buy:{{ group.key }}">
                     <summary>
                       <span>{{ group.label }}</span>
                       <span class="shop_group_count">{{ group.items|length }}</span>
@@ -132,7 +132,7 @@
                 hidden
               >
                 {% for group in shop_sell_item_groups %}
-                  <details class="shop_group" data-shop-group>
+                  <details class="shop_group" data-shop-group data-collapse-key="sell:{{ group.key }}">
                     <summary>
                       <span>{{ group.label }}</span>
                       <span class="shop_group_count">{{ group.items|length }}</span>

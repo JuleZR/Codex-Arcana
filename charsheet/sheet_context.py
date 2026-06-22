@@ -378,7 +378,8 @@ SHOP_GROUP_LABELS = {
     Item.ItemType.CLOTHING: "Kleidung",
     Item.ItemType.MAGIC_ITEM: "Magische Gegenstände",
     Item.ItemType.AMMO: "Munition",
-    Item.ItemType.CONSUM: "Verbrauchbar",
+    Item.ItemType.CONSUM: "Verbrauchsgegenstände",
+    Item.ItemType.CREATURE: "Tiere & Kreaturen",
     Item.ItemType.MISC: "Sonstiges",
 }
 SHOP_GROUP_ORDER = [
@@ -389,10 +390,12 @@ SHOP_GROUP_ORDER = [
     Item.ItemType.MAGIC_ITEM,
     Item.ItemType.AMMO,
     Item.ItemType.CONSUM,
+    Item.ItemType.CREATURE,
     Item.ItemType.MISC,
 ]
 SHOP_FORM_ORDER = [
     Item.ItemType.MISC,
+    Item.ItemType.CREATURE,
     Item.ItemType.CONSUM,
     Item.ItemType.AMMO,
     Item.ItemType.WEAPON,

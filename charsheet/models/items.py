@@ -83,9 +83,10 @@ class Item(models.Model):
         SHIELD = "shield", "Schild"
         CLOTHING = "clothing", "Kleidung"
         MAGIC_ITEM = "magic_item", "Magischer Gegenstand"
-        CONSUM = "consumable", "verbrauchbar"
+        CONSUM = "consumable", "Verbrauchsgegenstand"
         AMMO = "ammo", "Monition"
-        MISC = "misc", "Misc"
+        CREATURE = "creature", "Tiere & Kreaturen"
+        MISC = "misc", "Sonstiges"
 
     name = models.CharField(max_length=200, unique=True)
     price = models.IntegerField(default=1)

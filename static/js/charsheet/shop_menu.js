@@ -1,4 +1,4 @@
-import { escapeHtml, getCsrfToken, readInt, saveJsonStorage } from "./utils.js";
+import { escapeHtml, getCsrfToken, initPersistentDetails, readInt, saveJsonStorage } from "./utils.js?v=20260622a";
 
 export function initShopMenu() {
   const filterInput = document.getElementById("shopFilterInput");
@@ -78,6 +78,10 @@ export function initShopMenu() {
   const cart = new Map();
   let cartCounter = 0;
   let currentMode = "buy";
+  const groupDisclosureState = initPersistentDetails(
+    "#shopWindow [data-shop-group]",
+    "codexArcana.shop.categoryDisclosure.v1",
+  );
 
   const readOptionalInt = (value) => {
     const parsed = Number.parseInt(String(value ?? "").trim(), 10);
@@ -197,6 +201,8 @@ export function initShopMenu() {
       group.hidden = !hasMatch;
       if (query && hasMatch) {
         group.open = true;
+      } else if (!query) {
+        groupDisclosureState.restore(group);
       }
     });
   };

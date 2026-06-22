@@ -1,5 +1,5 @@
 import { createChoiceModalController } from "./choice_modal.js";
-import { clamp, escapeHtml, readInt } from "./utils.js";
+import { clamp, escapeHtml, initPersistentDetails, readInt } from "./utils.js?v=20260622a";
 
 const LANGUAGE_LITERACY_MIN_LEVEL = 3;
 const renderOpenSpellSlotMarkup = (remaining) => {
@@ -811,6 +811,11 @@ export function initLearningMenu({ choiceWindowController = null } = {}) {
     return null;
   }
 
+  const groupDisclosureState = initPersistentDetails(
+    "#learnWindow [data-learn-group]",
+    "codexArcana.learn.categoryDisclosure.v1",
+  );
+
   const cartController = initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, validationHint, applyBtn);
   const choiceController = createChoiceModalController({
     hiddenInputContainer,
@@ -968,6 +973,8 @@ export function initLearningMenu({ choiceWindowController = null } = {}) {
       group.hidden = !visible;
       if ((needle || activeMagicSourceFilter || activeMagicGradeFilter) && visible && group instanceof HTMLDetailsElement) {
         group.open = true;
+      } else if (!needle && !activeMagicSourceFilter && !activeMagicGradeFilter && group instanceof HTMLDetailsElement) {
+        groupDisclosureState.restore(group);
       }
     });
     syncMagicFilterButtons();
