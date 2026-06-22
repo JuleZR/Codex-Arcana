@@ -2021,6 +2021,7 @@ class Spell(models.Model):
         HEARING = "Hörweite", "Hörweite"
         TOUCH = "Berührung", "Berührung"
         SELF = "selbst", "Selbst"
+        PERSON = "Person", "Person"
 
     range_number = models.PositiveIntegerField(null=True, blank=True, verbose_name="Reichweite")
     range_unit = models.CharField(

@@ -20,6 +20,26 @@ class Migration(migrations.Migration):
         ),
         migrations.AlterField(
             model_name="spell",
+            name="range_unit",
+            field=models.CharField(
+                blank=True,
+                choices=[
+                    ("m", "Meter"),
+                    ("km", "Kilometer"),
+                    ("km²", "Quadratkilometer"),
+                    ("Sichtweite", "Sichtweite"),
+                    ("Hörweite", "Hörweite"),
+                    ("Berührung", "Berührung"),
+                    ("selbst", "Selbst"),
+                    ("Person", "Person"),
+                ],
+                default="",
+                max_length=20,
+                verbose_name="Einheit",
+            ),
+        ),
+        migrations.AlterField(
+            model_name="spell",
             name="duration_unit",
             field=models.CharField(
                 blank=True,

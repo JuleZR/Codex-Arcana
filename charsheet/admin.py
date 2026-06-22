@@ -2075,6 +2075,8 @@ class SpellAdminForm(forms.ModelForm):
         kp_cost_label = str(cleaned_data.get("kp_cost_label") or "").strip()
         ep_cost_label = str(cleaned_data.get("ep_cost_label") or "").strip()
         range_text = str(cleaned_data.get("range_text") or "").strip()
+        range_number = cleaned_data.get("range_number")
+        range_unit = cleaned_data.get("range_unit") or ""
         duration_text = str(cleaned_data.get("duration_text") or "").strip()
         duration2_text = str(cleaned_data.get("duration2_text") or "").strip()
         cleaned_data["kp_cost_label"] = kp_cost_label
@@ -2091,6 +2093,9 @@ class SpellAdminForm(forms.ModelForm):
             message = "Setze KP-Kosten oder EP-Kosten."
             self.add_error("kp_cost", message)
             self.add_error("ep_cost", message)
+
+        if range_unit == Spell.RangeUnit.PERSON and range_number in (None, ""):
+            self.add_error("range_number", "Setze die Anzahl der Personen.")
 
         duration_complete = self._clean_duration_group(
             cleaned_data,

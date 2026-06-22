@@ -171,6 +171,7 @@ def _spell_unit_label(unit_display: str, number: int) -> str:
         "Minute": "Minuten",
         "Stunde": "Stunden",
         "Nacht": "Nächte",
+        "Person": "Personen",
         "Tag": "Tage",
         "Woche": "Wochen",
         "Runde": "Runden",
