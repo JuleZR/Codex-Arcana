@@ -4853,7 +4853,7 @@ class ShamanPatronAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
 
     @admin.display(description="Fixe Aspekte")
     def fixed_aspect_count(self, obj):
-        return obj.aspects.filter(is_starting_aspect=True).count()
+        return obj.aspects.count()
 
     @admin.display(description="Symbol")
     def has_symbol_image(self, obj):
