@@ -613,6 +613,13 @@ class CreatureCardEngine:
     def image(self):
         return self.card.image
 
+    def quality(self):
+        if self.card.source_character_item_id:
+            return self.card.source_character_item.quality
+        if self.card.source_character_technique_id:
+            return self.card.binding.quality
+        return self.card.quality
+
     def gw_against_fear(self) -> int:
         if self.source_engine is not None:
             return self.source_engine.gw_against_fear()
@@ -732,7 +739,7 @@ class CreatureCardEngine:
         defense_extra_label = source.defense_extra_label() if source is not None else self.defense_extra_label()
         wound_rows = self.wound_rows()
         wound_zone = self.current_wound_zone()
-        quality = self.card.quality
+        quality = self.quality()
         normalized_quality = ItemEngine.normalize_quality(quality)
         armor = source.armor_totals() if source is not None else None
         return {
@@ -977,9 +984,11 @@ def sync_character_creature_cards(character) -> list[CharacterCreatureCard]:
             "creature",
             "quality",
             "binding",
+            "binding__quality",
             "binding__item_trigger",
             "binding__technique_trigger",
             "source_character_item",
+            "source_character_item__quality",
             "source_character_technique",
         )
         .prefetch_related("attacks", "skills", "traits", "commands__prerequisite_links__prerequisite")
