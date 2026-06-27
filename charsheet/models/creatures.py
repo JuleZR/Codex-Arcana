@@ -1,4 +1,8 @@
 """Creature definition and per-character creature instance models."""
+import json
+
+from django.contrib.contenttypes.fields import GenericForeignKey
+from django.contrib.contenttypes.models import ContentType
 from django.db import models
 
 from django.core.exceptions import ValidationError
@@ -17,9 +21,18 @@ from ..constants import (
     DAMAGE_TYPE_CHOICES,
     GK_AVERAGE,
     GK_CHOICES,
+    MODIFIER_OPERATOR_CHOICES,
+    MODIFIER_VISIBILITY_CHOICES,
+    PROFICIENCY_GROUP_CHOICES,
     QUALITY_COMMON,
+    RESOURCE_KEY_CHOICES,
+    STACK_BEHAVIOR_CHOICES,
+    STAT_SLUG_CHOICES,
+    TARGET_DOMAIN_CHOICES,
 )
-from .core import Attribute, Skill
+from .core import Attribute, Skill, SkillCategory
+from .items import Item
+from .progression import Specialization
 
 
 ATTRIBUTE_FIELD_MAP = {
@@ -350,6 +363,13 @@ class CreatureTraitDefinition(models.Model):
     description = models.TextField(blank=True, default="")
     min_level = models.PositiveIntegerField(default=1)
     max_level = models.PositiveIntegerField(default=1)
+    points_per_level = models.PositiveIntegerField(default=1)
+    points_by_level = models.CharField(
+        max_length=200,
+        blank=True,
+        default="",
+        help_text="Optional comma-separated per-level costs such as '1,3' or '2,4,6'. Overrides points_per_level.",
+    )
 
     class Meta:
         ordering = ["name"]
@@ -361,6 +381,58 @@ class CreatureTraitDefinition(models.Model):
         super().clean()
         if self.max_level < self.min_level:
             raise ValidationError("Max level < min level is prohibited.")
+        try:
+            curve = self.cost_curve()
+        except ValueError:
+            raise ValidationError({"points_by_level": "Use a comma-separated list of whole numbers."})
+        if curve and len(curve) != int(self.max_level):
+            raise ValidationError({"points_by_level": "Provide exactly one cost per level up to max_level."})
+        if any(value < 0 for value in curve):
+            raise ValidationError({"points_by_level": "Trait costs must be non-negative."})
+
+    def cost_curve(self) -> tuple[int, ...]:
+        """Return explicit per-level costs when configured."""
+        raw = str(self.points_by_level or "").strip()
+        if not raw:
+            return ()
+        values: list[int] = []
+        for part in raw.split(","):
+            token = str(part).strip()
+            if not token:
+                continue
+            values.append(int(token))
+        return tuple(values)
+
+    def uses_cost_curve(self) -> bool:
+        """Return whether this trait uses explicit per-level costs."""
+        return bool(self.cost_curve())
+
+    def cost_for_level(self, level: int) -> int:
+        """Return the cumulative cost/refund for the selected level."""
+        rank = int(level)
+        if rank <= 0:
+            return 0
+        curve = self.cost_curve()
+        if curve:
+            return int(sum(curve[:rank]))
+        return rank * int(self.points_per_level)
+
+    def level_cost(self, level: int) -> int:
+        """Return the incremental cost of exactly one selected level."""
+        rank = int(level)
+        if rank <= 0:
+            return 0
+        curve = self.cost_curve()
+        if curve:
+            return int(curve[rank - 1])
+        return int(self.points_per_level)
+
+    def cost_display(self) -> str:
+        """Return a compact editor-facing cost label."""
+        curve = self.cost_curve()
+        if curve:
+            return ",".join(str(value) for value in curve)
+        return f"{int(self.points_per_level)}/Lvl"
 
     def save(self, *args, **kwargs):
         if not self.slug:
@@ -375,6 +447,236 @@ class CreatureTraitDefinition(models.Model):
                 suffix += 1
             self.slug = slug
         super().save(*args, **kwargs)
+
+
+class CreatureTraitChoiceDefinition(models.Model):
+    """A persistent choice definition belonging to one creature trait."""
+
+    class TargetKind(models.TextChoices):
+        ATTRIBUTE = "attribute", "Attribute"
+        SKILL = "skill", "Skill"
+        SKILL_CATEGORY = "skill_category", "Skill Category"
+        DERIVED_STAT = "derived_stat", "Derived Stat"
+        RESOURCE = "resource", "Resource"
+        PROFICIENCY_GROUP = "proficiency_group", "Proficiency Group"
+        ITEM = "item", "Item"
+        ITEM_CATEGORY = "item_category", "Item Category"
+        SPECIALIZATION = "specialization", "Specialization"
+        TEXT = "text", "Free Text"
+        ENTITY = "entity", "Other Entity"
+
+    trait = models.ForeignKey(CreatureTraitDefinition, on_delete=models.CASCADE, related_name="choice_definitions")
+    name = models.CharField(max_length=120)
+    target_kind = models.CharField(max_length=20, choices=TargetKind.choices)
+    description = models.TextField(blank=True, default="")
+    min_choices = models.PositiveSmallIntegerField(default=1, validators=[MinValueValidator(0)])
+    max_choices = models.PositiveSmallIntegerField(default=1, validators=[MinValueValidator(1)])
+    is_required = models.BooleanField(default=True)
+    allowed_attribute = models.ForeignKey(
+        Attribute,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="creature_trait_choice_definitions",
+    )
+    allowed_skill_category = models.ForeignKey(
+        SkillCategory,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="creature_trait_choice_definitions",
+    )
+    allowed_skill_family = models.SlugField(max_length=50, blank=True, default="")
+    allowed_derived_stat = models.CharField(max_length=50, blank=True, default="", choices=STAT_SLUG_CHOICES)
+    allowed_resource = models.CharField(max_length=50, blank=True, default="", choices=RESOURCE_KEY_CHOICES)
+    allowed_proficiency_group = models.CharField(max_length=50, blank=True, default="", choices=PROFICIENCY_GROUP_CHOICES)
+    sort_order = models.PositiveSmallIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["trait__trait_type", "trait__name", "sort_order", "name", "id"]
+
+    def clean(self):
+        super().clean()
+        if self.max_choices < self.min_choices:
+            raise ValidationError({"max_choices": "max_choices must be greater than or equal to min_choices."})
+        if not self.is_required and self.min_choices != 0:
+            raise ValidationError({"min_choices": "Optional choice definitions must use min_choices = 0."})
+        if self.target_kind != self.TargetKind.ATTRIBUTE and self.allowed_attribute_id:
+            raise ValidationError({"allowed_attribute": "This filter is only valid for attribute choices."})
+        if self.target_kind != self.TargetKind.SKILL:
+            if self.allowed_skill_category_id:
+                raise ValidationError({"allowed_skill_category": "This filter is only valid for skill choices."})
+            if self.allowed_skill_family:
+                raise ValidationError({"allowed_skill_family": "This filter is only valid for skill choices."})
+        if self.target_kind != self.TargetKind.DERIVED_STAT and self.allowed_derived_stat:
+            raise ValidationError({"allowed_derived_stat": "This filter is only valid for derived-stat choices."})
+        if self.target_kind != self.TargetKind.RESOURCE and self.allowed_resource:
+            raise ValidationError({"allowed_resource": "This filter is only valid for resource choices."})
+        if self.target_kind != self.TargetKind.PROFICIENCY_GROUP and self.allowed_proficiency_group:
+            raise ValidationError({"allowed_proficiency_group": "This filter is only valid for proficiency-group choices."})
+
+    def __str__(self) -> str:
+        return f"{self.trait.name}: {self.name}"
+
+
+class CreatureTraitSemanticEffect(models.Model):
+    """Persisted semantic effect attached directly to one creature trait definition."""
+
+    trait = models.ForeignKey(CreatureTraitDefinition, on_delete=models.CASCADE, related_name="semantic_effects")
+    sort_order = models.PositiveIntegerField(default=0)
+    target_choice_definition = models.ForeignKey(
+        CreatureTraitChoiceDefinition,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="semantic_effects",
+    )
+    target_skills = models.ManyToManyField(
+        Skill,
+        blank=True,
+        related_name="creature_trait_semantic_effects",
+        help_text="Optional concrete skill targets. Use this instead of target_key for multi-skill effects.",
+    )
+    target_domain = models.CharField(max_length=40, choices=TARGET_DOMAIN_CHOICES, default="rule_flag")
+    target_key = models.CharField(max_length=120, blank=True, default="")
+    operator = models.CharField(max_length=40, choices=MODIFIER_OPERATOR_CHOICES, default="flat_add")
+    mode = models.CharField(max_length=20, default="flat")
+    value = models.CharField(max_length=200, blank=True, default="")
+    value_min = models.IntegerField(null=True, blank=True)
+    value_max = models.IntegerField(null=True, blank=True)
+    formula = models.CharField(max_length=200, blank=True, default="")
+    scaling = models.JSONField(default=dict, blank=True)
+    stack_behavior = models.CharField(max_length=40, choices=STACK_BEHAVIOR_CHOICES, default="stack")
+    condition_set = models.JSONField(default=dict, blank=True)
+    active_flag = models.BooleanField(default=True)
+    priority = models.IntegerField(default=0)
+    notes = models.TextField(blank=True, default="")
+    rules_text = models.TextField(blank=True, default="")
+    visibility = models.CharField(max_length=20, choices=MODIFIER_VISIBILITY_CHOICES, default="public")
+    hidden = models.BooleanField(default=False)
+    sheet_relevant = models.BooleanField(default=True)
+    metadata = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        ordering = ["trait", "sort_order", "id"]
+
+    def __str__(self):
+        return f"{self.trait.slug}: {self.target_domain}/{self.target_key} ({self.operator})"
+
+    @staticmethod
+    def _coerce_scalar(raw_value):
+        """Coerce admin-entered text values into bool, int, float, JSON, or plain text."""
+        text = str(raw_value or "").strip()
+        if text == "":
+            return None
+        lowered = text.lower()
+        if lowered == "true":
+            return True
+        if lowered == "false":
+            return False
+        if lowered == "null":
+            return None
+        try:
+            return json.loads(text)
+        except (TypeError, ValueError, json.JSONDecodeError):
+            pass
+        try:
+            return int(text)
+        except (TypeError, ValueError):
+            pass
+        try:
+            return float(text)
+        except (TypeError, ValueError):
+            pass
+        return text
+
+    def clean(self):
+        super().clean()
+        if self.scaling is not None and not isinstance(self.scaling, dict):
+            raise ValidationError({"scaling": "Scaling must be a JSON object."})
+        if self.condition_set is not None and not isinstance(self.condition_set, dict):
+            raise ValidationError({"condition_set": "Condition set must be a JSON object."})
+        if self.metadata is not None and not isinstance(self.metadata, dict):
+            raise ValidationError({"metadata": "Metadata must be a JSON object."})
+        if self.target_choice_definition_id and self.target_choice_definition.trait_id != self.trait_id:
+            raise ValidationError({"target_choice_definition": "The selected choice definition must belong to the same creature trait."})
+
+    def to_modifier(self):
+        """Materialize this persisted effect as one typed modifier instance."""
+        from ..modifiers.definitions import (
+            AttributeCapModifier,
+            AttributeModifier,
+            BaseModifier,
+            CombatModifier,
+            ConditionSet,
+            DerivedStatModifier,
+            EconomyModifier,
+            LanguageModifier,
+            MovementModifier,
+            PerceptionModifier,
+            ProficiencyGroupModifier,
+            ResourceModifier,
+            ResistanceModifier,
+            RuleFlagModifier,
+            SkillModifier,
+            SocialModifier,
+            TraitModifier,
+        )
+
+        modifier_map = {
+            "skill": SkillModifier,
+            "skill_rank": SkillModifier,
+            "skill_rank_cap": SkillModifier,
+            "trait": TraitModifier,
+            "language": LanguageModifier,
+            "proficiency_group": ProficiencyGroupModifier,
+            "attribute": AttributeModifier,
+            "attribute_cap": AttributeCapModifier,
+            "derived_stat": DerivedStatModifier,
+            "resource": ResourceModifier,
+            "resistance": ResistanceModifier,
+            "movement": MovementModifier,
+            "combat": CombatModifier,
+            "perception": PerceptionModifier,
+            "economy": EconomyModifier,
+            "social": SocialModifier,
+            "rule_flag": RuleFlagModifier,
+        }
+        modifier_cls = modifier_map.get(self.target_domain, BaseModifier)
+        metadata = dict(self.metadata or {})
+        if self.target_choice_definition_id:
+            metadata["choice_binding"] = {
+                "kind": "creature_trait_choice_definition",
+                "id": int(self.target_choice_definition_id),
+            }
+        if self.pk:
+            selected_skill_slugs = list(self.target_skills.order_by("slug").values_list("slug", flat=True))
+            if selected_skill_slugs:
+                metadata["target_skill_slugs"] = selected_skill_slugs
+        return modifier_cls(
+            source_type="creature_trait",
+            source_id=self.trait.slug,
+            target_domain=self.target_domain,
+            target_key=self.target_key,
+            mode=self.mode,
+            value=self._coerce_scalar(self.value),
+            value_min=self.value_min,
+            value_max=self.value_max,
+            formula=self.formula,
+            scaling=dict(self.scaling or {}),
+            operator=self.operator,
+            stack_behavior=self.stack_behavior,
+            condition_set=ConditionSet(**dict(self.condition_set or {})),
+            active_flag=bool(self.active_flag),
+            priority=int(self.priority),
+            notes=self.notes,
+            rules_text=self.rules_text,
+            visibility=self.visibility,
+            hidden=bool(self.hidden),
+            sheet_relevant=bool(self.sheet_relevant),
+            metadata=metadata,
+        )
 
 
 class CreatureTrait(models.Model):
@@ -571,6 +873,308 @@ class CharacterCreatureTrait(models.Model):
     @property
     def order(self):
         return 0
+
+
+class CreatureTraitChoiceSelection(models.Model):
+    """Shared selected-target fields for concrete creature trait choices."""
+
+    selected_attribute = models.ForeignKey(
+        Attribute,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+    selected_skill = models.ForeignKey(
+        Skill,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+    selected_skill_category = models.ForeignKey(
+        SkillCategory,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+    selected_derived_stat = models.CharField(max_length=50, blank=True, default="", choices=STAT_SLUG_CHOICES)
+    selected_resource = models.CharField(max_length=50, blank=True, default="", choices=RESOURCE_KEY_CHOICES)
+    selected_proficiency_group = models.CharField(max_length=50, blank=True, default="", choices=PROFICIENCY_GROUP_CHOICES)
+    selected_item = models.ForeignKey(Item, on_delete=models.PROTECT, null=True, blank=True, related_name="+")
+    selected_item_category = models.CharField(max_length=30, blank=True, default="")
+    selected_specialization = models.ForeignKey(
+        Specialization,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+    selected_text = models.CharField(max_length=255, blank=True, default="")
+    selected_content_type = models.ForeignKey(
+        ContentType,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+    selected_object_id = models.PositiveBigIntegerField(null=True, blank=True)
+    selected_entity = GenericForeignKey("selected_content_type", "selected_object_id")
+
+    class Meta:
+        abstract = True
+
+    def _clean_selected_target(self, *, owning_trait_id, existing_choices):
+        if self.selected_content_type_id and self.selected_object_id is None:
+            raise ValidationError({"selected_object_id": "Set an object id when selecting another entity."})
+        if self.selected_object_id is not None and not self.selected_content_type_id:
+            raise ValidationError({"selected_content_type": "Select a content type when using another entity."})
+        populated_targets = [
+            self.selected_attribute_id is not None,
+            self.selected_skill_id is not None,
+            self.selected_skill_category_id is not None,
+            bool(self.selected_derived_stat),
+            bool(self.selected_resource),
+            bool(self.selected_proficiency_group),
+            self.selected_item_id is not None,
+            bool(self.selected_item_category),
+            self.selected_specialization_id is not None,
+            bool(self.selected_text),
+            self.selected_object_id is not None,
+        ]
+        if sum(populated_targets) != 1:
+            raise ValidationError("A creature trait choice must select exactly one persistent target.")
+        if self.definition_id and owning_trait_id and owning_trait_id != self.definition.trait_id:
+            raise ValidationError({"definition": "The selected choice definition must belong to the same creature trait."})
+        self._validate_target_kind(self.definition.target_kind if self.definition_id else "")
+        if (
+            self.definition_id
+            and self.definition.target_kind == CreatureTraitChoiceDefinition.TargetKind.ATTRIBUTE
+            and self.selected_attribute_id
+            and self.definition.allowed_attribute_id
+            and self.selected_attribute_id != self.definition.allowed_attribute_id
+        ):
+            raise ValidationError({"selected_attribute": "The selected attribute does not match the allowed attribute."})
+        if (
+            self.definition_id
+            and self.definition.target_kind == CreatureTraitChoiceDefinition.TargetKind.SKILL
+            and self.selected_skill_id
+        ):
+            if (
+                self.definition.allowed_skill_category_id
+                and self.selected_skill.category_id != self.definition.allowed_skill_category_id
+            ):
+                raise ValidationError({"selected_skill": "The selected skill does not belong to the allowed skill category."})
+            if self.definition.allowed_skill_family and self.selected_skill.family != self.definition.allowed_skill_family:
+                raise ValidationError({"selected_skill": "The selected skill does not belong to the allowed skill family."})
+        if (
+            self.definition_id
+            and self.definition.target_kind == CreatureTraitChoiceDefinition.TargetKind.DERIVED_STAT
+            and self.definition.allowed_derived_stat
+            and self.selected_derived_stat != self.definition.allowed_derived_stat
+        ):
+            raise ValidationError({"selected_derived_stat": "The selected derived stat does not match the allowed derived stat."})
+        if (
+            self.definition_id
+            and self.definition.target_kind == CreatureTraitChoiceDefinition.TargetKind.RESOURCE
+            and self.definition.allowed_resource
+            and self.selected_resource != self.definition.allowed_resource
+        ):
+            raise ValidationError({"selected_resource": "The selected resource does not match the allowed resource."})
+        if (
+            self.definition_id
+            and self.definition.target_kind == CreatureTraitChoiceDefinition.TargetKind.PROFICIENCY_GROUP
+            and self.definition.allowed_proficiency_group
+            and self.selected_proficiency_group != self.definition.allowed_proficiency_group
+        ):
+            raise ValidationError({"selected_proficiency_group": "The selected proficiency group does not match the allowed group."})
+        if self.definition_id:
+            existing = existing_choices.filter(definition=self.definition)
+            if self.pk:
+                existing = existing.exclude(pk=self.pk)
+            if self.definition.max_choices and existing.count() >= self.definition.max_choices:
+                raise ValidationError({"definition": "Maximum number of choices for this creature trait definition exceeded."})
+
+    def _validate_target_kind(self, expected_kind: str):
+        errors = {}
+        allowed_item_categories = {choice for choice, _label in Item.ItemType.choices}
+        target_field_by_kind = {
+            CreatureTraitChoiceDefinition.TargetKind.ATTRIBUTE: "selected_attribute",
+            CreatureTraitChoiceDefinition.TargetKind.SKILL: "selected_skill",
+            CreatureTraitChoiceDefinition.TargetKind.SKILL_CATEGORY: "selected_skill_category",
+            CreatureTraitChoiceDefinition.TargetKind.DERIVED_STAT: "selected_derived_stat",
+            CreatureTraitChoiceDefinition.TargetKind.RESOURCE: "selected_resource",
+            CreatureTraitChoiceDefinition.TargetKind.PROFICIENCY_GROUP: "selected_proficiency_group",
+            CreatureTraitChoiceDefinition.TargetKind.ITEM: "selected_item",
+            CreatureTraitChoiceDefinition.TargetKind.ITEM_CATEGORY: "selected_item_category",
+            CreatureTraitChoiceDefinition.TargetKind.SPECIALIZATION: "selected_specialization",
+            CreatureTraitChoiceDefinition.TargetKind.TEXT: "selected_text",
+            CreatureTraitChoiceDefinition.TargetKind.ENTITY: "selected_content_type",
+        }
+        required_field = target_field_by_kind.get(expected_kind)
+        if required_field is None:
+            raise ValidationError({"definition": "Unsupported creature trait choice target kind."})
+        if expected_kind == CreatureTraitChoiceDefinition.TargetKind.ITEM_CATEGORY and (
+            not self.selected_item_category or self.selected_item_category not in allowed_item_categories
+        ):
+            errors["selected_item_category"] = "Select a valid item category."
+        elif expected_kind == CreatureTraitChoiceDefinition.TargetKind.ENTITY:
+            if not self.selected_content_type_id or self.selected_object_id is None:
+                errors["selected_content_type"] = "This creature trait choice requires another entity target."
+        elif expected_kind == CreatureTraitChoiceDefinition.TargetKind.TEXT:
+            if not self.selected_text:
+                errors["selected_text"] = "This creature trait choice requires a free-text choice."
+        elif getattr(self, f"{required_field}_id", None) is None and not getattr(self, required_field):
+            errors[required_field] = f"This creature trait choice requires a {expected_kind.replace('_', ' ')} selection."
+
+        disallowed_fields = {
+            "selected_attribute",
+            "selected_skill",
+            "selected_skill_category",
+            "selected_derived_stat",
+            "selected_resource",
+            "selected_proficiency_group",
+            "selected_item",
+            "selected_item_category",
+            "selected_specialization",
+            "selected_text",
+            "selected_content_type",
+            "selected_object_id",
+        } - {required_field}
+        if expected_kind == CreatureTraitChoiceDefinition.TargetKind.ENTITY:
+            disallowed_fields -= {"selected_object_id"}
+        for field_name in disallowed_fields:
+            value = getattr(self, field_name)
+            if value not in (None, "", 0):
+                errors[field_name] = "This field does not match the configured choice kind."
+        if errors:
+            raise ValidationError(errors)
+
+    def selected_target_display(self) -> str:
+        if self.selected_attribute is not None:
+            return f"{self.selected_attribute.name} ({self.selected_attribute.short_name})"
+        if self.selected_skill is not None:
+            return self.selected_skill.name
+        if self.selected_skill_category is not None:
+            return self.selected_skill_category.name
+        if self.selected_derived_stat:
+            return dict(STAT_SLUG_CHOICES).get(self.selected_derived_stat, self.selected_derived_stat)
+        if self.selected_resource:
+            return dict(RESOURCE_KEY_CHOICES).get(self.selected_resource, self.selected_resource)
+        if self.selected_proficiency_group:
+            return dict(PROFICIENCY_GROUP_CHOICES).get(self.selected_proficiency_group, self.selected_proficiency_group)
+        if self.selected_item is not None:
+            return self.selected_item.name
+        if self.selected_item_category:
+            return self.selected_item_category
+        if self.selected_specialization is not None:
+            return self.selected_specialization.name
+        if self.selected_text:
+            return self.selected_text
+        if self.selected_entity is not None:
+            return str(self.selected_entity)
+        return "-"
+
+    def resolved_modifier_target(self) -> tuple[str, str] | None:
+        if self.selected_attribute is not None:
+            return ("attribute", self.selected_attribute.short_name)
+        if self.selected_skill is not None:
+            return ("skill", self.selected_skill.slug)
+        if self.selected_skill_category is not None:
+            return ("skill_category", self.selected_skill_category.slug)
+        if self.selected_derived_stat:
+            return ("derived_stat", self.selected_derived_stat)
+        if self.selected_resource:
+            return ("resource", self.selected_resource)
+        if self.selected_proficiency_group:
+            return ("proficiency_group", self.selected_proficiency_group)
+        if self.selected_item is not None:
+            return ("item", str(self.selected_item_id))
+        if self.selected_item_category:
+            return ("item_category", self.selected_item_category)
+        if self.selected_specialization is not None:
+            return ("specialization", str(self.selected_specialization_id))
+        if self.selected_text:
+            return ("metadata", self.selected_text)
+        if self.selected_object_id is not None:
+            return ("entity", f"{self.selected_content_type_id}:{self.selected_object_id}")
+        return None
+
+
+class CreatureTraitChoice(CreatureTraitChoiceSelection):
+    """A persisted choice made for one base creature trait row."""
+
+    creature_trait = models.ForeignKey(CreatureTrait, on_delete=models.CASCADE, related_name="choices")
+    definition = models.ForeignKey(
+        CreatureTraitChoiceDefinition,
+        on_delete=models.CASCADE,
+        related_name="creature_choices",
+    )
+
+    class Meta:
+        ordering = ["creature_trait__creature__name", "creature_trait__trait__name", "definition__sort_order", "id"]
+        constraints = [
+            models.UniqueConstraint(fields=["creature_trait", "definition", "selected_attribute"], condition=models.Q(selected_attribute__isnull=False), name="uniq_creature_trait_choice_attribute"),
+            models.UniqueConstraint(fields=["creature_trait", "definition", "selected_skill"], condition=models.Q(selected_skill__isnull=False), name="uniq_creature_trait_choice_skill"),
+            models.UniqueConstraint(fields=["creature_trait", "definition", "selected_skill_category"], condition=models.Q(selected_skill_category__isnull=False), name="uniq_creature_trait_choice_category"),
+            models.UniqueConstraint(fields=["creature_trait", "definition", "selected_item"], condition=models.Q(selected_item__isnull=False), name="uniq_creature_trait_choice_item"),
+            models.UniqueConstraint(fields=["creature_trait", "definition", "selected_specialization"], condition=models.Q(selected_specialization__isnull=False), name="uniq_creature_trait_choice_specialization"),
+            models.UniqueConstraint(fields=["creature_trait", "definition", "selected_item_category"], condition=~models.Q(selected_item_category=""), name="uniq_creature_trait_choice_item_category"),
+            models.UniqueConstraint(fields=["creature_trait", "definition", "selected_content_type", "selected_object_id"], condition=models.Q(selected_object_id__isnull=False), name="uniq_creature_trait_choice_entity"),
+        ]
+
+    def clean(self):
+        super().clean()
+        self._clean_selected_target(
+            owning_trait_id=self.creature_trait.trait_id if self.creature_trait_id else None,
+            existing_choices=CreatureTraitChoice.objects.filter(creature_trait=self.creature_trait) if self.creature_trait_id else CreatureTraitChoice.objects.none(),
+        )
+
+    def __str__(self) -> str:
+        return f"{self.creature_trait.creature.name} -> {self.definition.name}: {self.selected_target_display()}"
+
+
+class CharacterCreatureTraitChoice(CreatureTraitChoiceSelection):
+    """A persisted choice made for one character-owned creature trait row."""
+
+    character_creature_trait = models.ForeignKey(
+        CharacterCreatureTrait,
+        on_delete=models.CASCADE,
+        related_name="choices",
+    )
+    definition = models.ForeignKey(
+        CreatureTraitChoiceDefinition,
+        on_delete=models.CASCADE,
+        related_name="character_creature_choices",
+    )
+
+    class Meta:
+        ordering = [
+            "character_creature_trait__creature__owner__name",
+            "character_creature_trait__trait__name",
+            "definition__sort_order",
+            "id",
+        ]
+        constraints = [
+            models.UniqueConstraint(fields=["character_creature_trait", "definition", "selected_attribute"], condition=models.Q(selected_attribute__isnull=False), name="uniq_character_creature_trait_choice_attribute"),
+            models.UniqueConstraint(fields=["character_creature_trait", "definition", "selected_skill"], condition=models.Q(selected_skill__isnull=False), name="uniq_character_creature_trait_choice_skill"),
+            models.UniqueConstraint(fields=["character_creature_trait", "definition", "selected_skill_category"], condition=models.Q(selected_skill_category__isnull=False), name="uniq_character_creature_trait_choice_category"),
+            models.UniqueConstraint(fields=["character_creature_trait", "definition", "selected_item"], condition=models.Q(selected_item__isnull=False), name="uniq_character_creature_trait_choice_item"),
+            models.UniqueConstraint(fields=["character_creature_trait", "definition", "selected_specialization"], condition=models.Q(selected_specialization__isnull=False), name="uniq_character_creature_trait_choice_specialization"),
+            models.UniqueConstraint(fields=["character_creature_trait", "definition", "selected_item_category"], condition=~models.Q(selected_item_category=""), name="uniq_character_creature_trait_choice_item_category"),
+            models.UniqueConstraint(fields=["character_creature_trait", "definition", "selected_content_type", "selected_object_id"], condition=models.Q(selected_object_id__isnull=False), name="uniq_character_creature_trait_choice_entity"),
+        ]
+
+    def clean(self):
+        super().clean()
+        self._clean_selected_target(
+            owning_trait_id=self.character_creature_trait.trait_id if self.character_creature_trait_id else None,
+            existing_choices=CharacterCreatureTraitChoice.objects.filter(character_creature_trait=self.character_creature_trait) if self.character_creature_trait_id else CharacterCreatureTraitChoice.objects.none(),
+        )
+
+    def __str__(self) -> str:
+        return f"{self.character_creature_trait.creature.display_name} -> {self.definition.name}: {self.selected_target_display()}"
 
 
 class CreatureCardBinding(models.Model):

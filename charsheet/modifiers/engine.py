@@ -63,9 +63,11 @@ class ModifierEngine:
         modifiers: list[BaseModifier] | None = None,
         *,
         resolution_mode: str | None = None,
+        trait_levels_by_slug: dict[str, int] | None = None,
     ):
         self.character_engine = character_engine
         self._injected_modifiers = list(modifiers or [])
+        self.trait_levels_by_slug = dict(trait_levels_by_slug or {})
         self.resolution_mode = ModifierResolutionMode.normalize(
             resolution_mode or os.getenv("CODEX_MODIFIER_MODE")
         )
@@ -930,7 +932,11 @@ class ModifierEngine:
 
     def _resolve_scale_value(self, modifier: BaseModifier, scale_source: str | None) -> int | None:
         """Resolve the raw numeric input used for scaled typed modifier math."""
-        if self.character_engine is None or not scale_source:
+        if not scale_source:
+            return None
+        if scale_source == "trait_level" and self.character_engine is None:
+            return self.trait_levels_by_slug.get(str(modifier.source_id or ""))
+        if self.character_engine is None:
             return None
         if scale_source == "school_level":
             gate_school_id = self._modifier_gate_school_id(modifier)

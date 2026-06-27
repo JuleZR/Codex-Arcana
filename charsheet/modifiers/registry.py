@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from charsheet.models import Trait
+from charsheet.models import CreatureTraitDefinition, Trait
 from charsheet.modifiers.definitions import (
     ConditionSet,
     DerivedStatModifier,
@@ -353,6 +353,23 @@ def _persisted_trait_semantic_modifiers(*, trait=None, trait_slug: str = "") -> 
     return [effect.to_modifier() for effect in effect_rows if effect.active_flag]
 
 
+def _persisted_creature_trait_semantic_modifiers(*, trait=None, trait_slug: str = "") -> list:
+    """Load persisted semantic effects for one creature trait from admin-managed data."""
+    resolved_trait = trait
+    if resolved_trait is None and trait_slug:
+        resolved_trait = (
+            CreatureTraitDefinition.objects.filter(slug=trait_slug)
+            .prefetch_related("semantic_effects", "semantic_effects__target_skills")
+            .first()
+        )
+    if resolved_trait is None:
+        return []
+    if getattr(resolved_trait, "pk", None) is None:
+        return []
+    effect_rows = list(getattr(resolved_trait, "semantic_effects").all())
+    return [effect.to_modifier() for effect in effect_rows if effect.active_flag]
+
+
 TRAIT_SEMANTIC_BUILDERS: dict[str, Callable[[int], list]] = {
     "blind": _blind,
     "taub": _deaf,
@@ -393,3 +410,8 @@ def build_trait_semantic_modifiers(*, trait_slug: str, level: int, trait=None, a
     if builder is None:
         return []
     return list(builder(level))
+
+
+def build_creature_trait_semantic_modifiers(*, trait_slug: str, level: int, trait=None) -> list:
+    """Return persisted semantic modifiers for one creature trait definition."""
+    return _persisted_creature_trait_semantic_modifiers(trait=trait, trait_slug=trait_slug)

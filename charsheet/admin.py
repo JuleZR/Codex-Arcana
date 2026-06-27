@@ -43,7 +43,7 @@ from .admin_help import (
 )
 from .engine.item_engine import ItemEngine
 from .modifiers.legacy import LegacyModifierAdapter
-from .modifiers.registry import build_trait_semantic_modifiers
+from .modifiers.registry import build_creature_trait_semantic_modifiers, build_trait_semantic_modifiers
 from .models import (
     ArmorStats,
     Aspect,
@@ -62,6 +62,7 @@ from .models import (
     CharacterCreatureSkill,
     CharacterCreatureSpecialSkill,
     CharacterCreatureTrait,
+    CharacterCreatureTraitChoice,
     CharacterCreationDraft,
     CharacterDruidCult,
     CharacterDivineEntity,
@@ -94,7 +95,10 @@ from .models import (
     CreatureSpecialSkill,
     CreatureSpecialSkillValue,
     CreatureTrait,
+    CreatureTraitChoice,
+    CreatureTraitChoiceDefinition,
     CreatureTraitDefinition,
+    CreatureTraitSemanticEffect,
     DamageSource,
     DivineEntity,
     DivineEntityAspect,
@@ -410,6 +414,20 @@ def _trait_semantic_preview(trait, *, level: int | None = None):
         return format_html('<span style="color:#666;">{}</span>', "-")
     resolved_level = max(1, int(level or getattr(trait, "min_level", 1) or 1))
     modifiers = build_trait_semantic_modifiers(trait_slug=trait.slug, level=resolved_level, trait=trait)
+    if not modifiers:
+        return format_html(
+            '<span style="color:#666;">{}</span>',
+            "No semantic effects configured yet. Add rows in the Semantic Effects section below.",
+        )
+    return _render_readonly_lines(_modifier_preview_line(modifier) for modifier in modifiers)
+
+
+def _creature_trait_semantic_preview(trait, *, level: int | None = None):
+    """Render semantic central-engine effects for one creature trait definition or ownership row."""
+    if trait is None:
+        return format_html('<span style="color:#666;">{}</span>', "-")
+    resolved_level = max(1, int(level or getattr(trait, "min_level", 1) or 1))
+    modifiers = build_creature_trait_semantic_modifiers(trait_slug=trait.slug, level=resolved_level, trait=trait)
     if not modifiers:
         return format_html(
             '<span style="color:#666;">{}</span>',
@@ -5178,8 +5196,105 @@ class CreatureCommandReferenceInline(admin.TabularInline):
 class CreatureTraitInline(admin.TabularInline):
     model = CreatureTrait
     extra = 0
-    fields = ("trait", "trait_level")
+    fields = ("trait", "trait_level", "trait_points", "trait_semantic_effects")
+    readonly_fields = ("trait_points", "trait_semantic_effects")
     autocomplete_fields = ("trait",)
+
+    def trait_points(self, obj):
+        if not obj or not obj.trait_id:
+            return "-"
+        return obj.trait.cost_display()
+
+    def trait_semantic_effects(self, obj):
+        if not obj or not obj.trait_id:
+            return format_html('<span style="color:#666;">{}</span>', "Pick a trait and save to preview semantic effects.")
+        return _creature_trait_semantic_preview(obj.trait, level=obj.trait_level)
+
+
+class CreatureTraitChoiceInline(admin.TabularInline):
+    model = CreatureTraitChoice
+    extra = 0
+    fields = (
+        "definition",
+        "selected_attribute",
+        "selected_skill",
+        "selected_skill_category",
+        "selected_derived_stat",
+        "selected_resource",
+        "selected_proficiency_group",
+        "selected_item",
+        "selected_item_category",
+        "selected_specialization",
+        "selected_text",
+        "selected_content_type",
+        "selected_object_id",
+    )
+    autocomplete_fields = (
+        "definition",
+        "selected_attribute",
+        "selected_skill",
+        "selected_skill_category",
+        "selected_item",
+        "selected_specialization",
+    )
+
+
+class CharacterCreatureTraitChoiceInline(admin.TabularInline):
+    model = CharacterCreatureTraitChoice
+    extra = 0
+    fields = CreatureTraitChoiceInline.fields
+    autocomplete_fields = CreatureTraitChoiceInline.autocomplete_fields
+
+
+class CreatureTraitChoiceDefinitionInline(admin.TabularInline):
+    model = CreatureTraitChoiceDefinition
+    extra = 0
+    fields = (
+        "sort_order",
+        "name",
+        "target_kind",
+        "min_choices",
+        "max_choices",
+        "is_required",
+        "is_active",
+        "allowed_attribute",
+        "allowed_skill_category",
+        "allowed_skill_family",
+        "allowed_derived_stat",
+        "allowed_resource",
+        "allowed_proficiency_group",
+    )
+    autocomplete_fields = ("allowed_attribute", "allowed_skill_category")
+
+
+class CreatureTraitSemanticEffectInline(admin.StackedInline):
+    model = CreatureTraitSemanticEffect
+    extra = 0
+    fields = (
+        "sort_order",
+        "target_choice_definition",
+        "target_skills",
+        "target_domain",
+        "target_key",
+        "operator",
+        "mode",
+        "value",
+        "value_min",
+        "value_max",
+        "formula",
+        "scaling",
+        "stack_behavior",
+        "condition_set",
+        "active_flag",
+        "priority",
+        "notes",
+        "rules_text",
+        "visibility",
+        "hidden",
+        "sheet_relevant",
+        "metadata",
+    )
+    autocomplete_fields = ("target_choice_definition", "target_skills")
 
 
 class CreatureAdminForm(forms.ModelForm):
@@ -5220,6 +5335,15 @@ class CreatureAdminForm(forms.ModelForm):
         creature = super().save(commit=commit)
         if commit:
             self._save_attribute_values(creature)
+        else:
+            save_m2m = self.save_m2m
+
+            def save_m2m_with_attributes():
+                save_m2m()
+                if self.instance.pk:
+                    self._save_attribute_values(self.instance)
+
+            self.save_m2m = save_m2m_with_attributes
         return creature
 
     def save_m2m(self):
@@ -5381,8 +5505,19 @@ class CharacterCreatureSpecialSkillInline(admin.TabularInline):
 class CharacterCreatureTraitInline(admin.TabularInline):
     model = CharacterCreatureTrait
     extra = 0
-    fields = ("base_trait", "trait", "trait_level", "active")
+    fields = ("base_trait", "trait", "trait_level", "active", "trait_points", "trait_semantic_effects")
+    readonly_fields = ("trait_points", "trait_semantic_effects")
     autocomplete_fields = ("base_trait", "trait")
+
+    def trait_points(self, obj):
+        if not obj or not obj.trait_id:
+            return "-"
+        return obj.trait.cost_display()
+
+    def trait_semantic_effects(self, obj):
+        if not obj or not obj.trait_id:
+            return format_html('<span style="color:#666;">{}</span>', "Pick a trait and save to preview semantic effects.")
+        return _creature_trait_semantic_preview(obj.trait, level=obj.trait_level)
 
 
 @admin.register(CharacterCreature)
@@ -5462,10 +5597,38 @@ class CreatureSpecialSkillValueAdmin(admin.ModelAdmin):
 
 @admin.register(CreatureTraitDefinition)
 class CreatureTraitDefinitionAdmin(admin.ModelAdmin):
-    list_display = ("name", "slug", "trait_type", "min_level", "max_level")
+    list_display = ("name", "slug", "trait_type", "min_level", "max_level", "cost_display")
     search_fields = ("name", "slug", "description")
     list_filter = ("trait_type",)
     prepopulated_fields = {"slug": ("name",)}
+    readonly_fields = ("semantic_effect_preview",)
+    inlines = (CreatureTraitChoiceDefinitionInline, CreatureTraitSemanticEffectInline)
+    fieldsets = (
+        ("Basis", {"fields": ("name", "slug", "trait_type", "description")}),
+        ("Ranks & Costs", {"fields": ("min_level", "max_level", "points_per_level", "points_by_level")}),
+        ("Semantic Preview", {"fields": ("semantic_effect_preview",)}),
+    )
+
+    def semantic_effect_preview(self, obj):
+        return _creature_trait_semantic_preview(obj)
+
+
+@admin.register(CreatureTraitChoiceDefinition)
+class CreatureTraitChoiceDefinitionAdmin(admin.ModelAdmin):
+    list_display = ("trait", "name", "target_kind", "min_choices", "max_choices", "is_active")
+    search_fields = ("trait__name", "trait__slug", "name", "description")
+    list_filter = ("target_kind", "is_required", "is_active")
+    autocomplete_fields = ("trait", "allowed_attribute", "allowed_skill_category")
+    list_select_related = ("trait", "allowed_attribute", "allowed_skill_category")
+
+
+@admin.register(CreatureTraitSemanticEffect)
+class CreatureTraitSemanticEffectAdmin(admin.ModelAdmin):
+    list_display = ("trait", "target_domain", "target_key", "operator", "active_flag", "sort_order")
+    search_fields = ("trait__name", "trait__slug", "target_key", "notes", "rules_text")
+    list_filter = ("target_domain", "operator", "active_flag", "visibility")
+    autocomplete_fields = ("trait", "target_choice_definition", "target_skills")
+    list_select_related = ("trait", "target_choice_definition")
 
 
 class CreatureCommandPrerequisiteInline(admin.TabularInline):
@@ -5507,6 +5670,15 @@ class CreatureTraitAdmin(admin.ModelAdmin):
     search_fields = ("creature__name", "trait__name")
     autocomplete_fields = ("creature", "trait")
     list_select_related = ("creature", "trait")
+    inlines = (CreatureTraitChoiceInline,)
+
+
+@admin.register(CreatureTraitChoice)
+class CreatureTraitChoiceAdmin(admin.ModelAdmin):
+    list_display = ("creature_trait", "definition", "selected_target_display")
+    search_fields = ("creature_trait__creature__name", "creature_trait__trait__name", "definition__name")
+    autocomplete_fields = CreatureTraitChoiceInline.autocomplete_fields
+    list_select_related = ("creature_trait", "creature_trait__creature", "creature_trait__trait", "definition")
 
 
 @admin.register(CharacterCreatureSkill)
@@ -5531,6 +5703,25 @@ class CharacterCreatureTraitAdmin(admin.ModelAdmin):
     search_fields = ("creature__name_override", "creature__creature__name", "trait__name", "base_trait__trait__name")
     autocomplete_fields = ("creature", "base_trait", "trait")
     list_select_related = ("creature", "creature__creature", "base_trait", "trait")
+    inlines = (CharacterCreatureTraitChoiceInline,)
+
+
+@admin.register(CharacterCreatureTraitChoice)
+class CharacterCreatureTraitChoiceAdmin(admin.ModelAdmin):
+    list_display = ("character_creature_trait", "definition", "selected_target_display")
+    search_fields = (
+        "character_creature_trait__creature__name_override",
+        "character_creature_trait__creature__creature__name",
+        "character_creature_trait__trait__name",
+        "definition__name",
+    )
+    autocomplete_fields = CharacterCreatureTraitChoiceInline.autocomplete_fields
+    list_select_related = (
+        "character_creature_trait",
+        "character_creature_trait__creature",
+        "character_creature_trait__trait",
+        "definition",
+    )
 
 
 @admin.register(UserSettings)
