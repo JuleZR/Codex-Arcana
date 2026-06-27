@@ -1891,6 +1891,7 @@ def toggle_equip(request, pk):
             "inventory_panel",
             "armor_panel",
             "weapon_panel",
+            "card_hand",
         )
 
     return redirect("character_sheet", character_id=ci.owner_id)
@@ -1914,6 +1915,7 @@ def set_item_storage(request, pk):
             "load_panel",
             "core_stats_panel",
             "inventory_panel",
+            "card_hand",
         )
 
     return redirect("character_sheet", character_id=ci.owner_id)
@@ -1943,6 +1945,7 @@ def consume_item(request, pk):
             "load_panel",
             "core_stats_panel",
             "inventory_panel",
+            "card_hand",
         )
 
     return redirect("character_sheet", character_id=owner_id)
@@ -1972,6 +1975,7 @@ def remove_item(request, pk):
             "load_panel",
             "core_stats_panel",
             "inventory_panel",
+            "card_hand",
         )
 
     return redirect("character_sheet", character_id=owner_id)
@@ -2296,6 +2300,7 @@ def update_character_item_runes(request, pk: int):
             "inventory_panel",
             "armor_panel",
             "weapon_panel",
+            "card_hand",
         )
     return redirect("character_sheet", character_id=character_item.owner_id)
 
@@ -2332,6 +2337,10 @@ def buy_shop_cart(request, character_id: int):
                 "target": "sheetInventoryPanel",
                 "html": render_to_string("charsheet/partials/_inventory_panel.html", context, request=request),
             },
+            {
+                "target": "sheetCardHand",
+                "html": render_to_string("charsheet/partials/_card_hand_host.html", context, request=request),
+            },
         ]
     return JsonResponse(response_payload, status=status_code)
 
@@ -2345,6 +2354,34 @@ def sell_shop_cart(request, character_id: int):
     if not payload:
         return JsonResponse({"ok": False, "error": "invalid_payload"}, status=400)
     response_payload, status_code = sell_shop_cart_payload(character, payload)
+    if response_payload.get("ok"):
+        context = _build_sheet_context_for_request(request, character)
+        response_payload["partials"] = [
+            {
+                "target": "sheetCharacterHeader",
+                "html": render_to_string("charsheet/partials/_character_header.html", context, request=request),
+            },
+            {
+                "target": "sheetLoadPanel",
+                "html": render_to_string("charsheet/partials/_load_panel.html", context, request=request),
+            },
+            {
+                "target": "sheetCoreStatsPanel",
+                "html": render_to_string("charsheet/partials/_core_stats_panel.html", context, request=request),
+            },
+            {
+                "target": "sheetWalletPanel",
+                "html": render_to_string("charsheet/partials/_wallet_panel.html", context, request=request),
+            },
+            {
+                "target": "sheetInventoryPanel",
+                "html": render_to_string("charsheet/partials/_inventory_panel.html", context, request=request),
+            },
+            {
+                "target": "sheetCardHand",
+                "html": render_to_string("charsheet/partials/_card_hand_host.html", context, request=request),
+            },
+        ]
     return JsonResponse(response_payload, status=status_code)
 
 
@@ -2357,6 +2394,34 @@ def trade_shop_cart(request, character_id: int):
     if not payload:
         return JsonResponse({"ok": False, "error": "invalid_payload"}, status=400)
     response_payload, status_code = trade_shop_cart_payload(character, payload)
+    if response_payload.get("ok"):
+        context = _build_sheet_context_for_request(request, character)
+        response_payload["partials"] = [
+            {
+                "target": "sheetCharacterHeader",
+                "html": render_to_string("charsheet/partials/_character_header.html", context, request=request),
+            },
+            {
+                "target": "sheetLoadPanel",
+                "html": render_to_string("charsheet/partials/_load_panel.html", context, request=request),
+            },
+            {
+                "target": "sheetCoreStatsPanel",
+                "html": render_to_string("charsheet/partials/_core_stats_panel.html", context, request=request),
+            },
+            {
+                "target": "sheetWalletPanel",
+                "html": render_to_string("charsheet/partials/_wallet_panel.html", context, request=request),
+            },
+            {
+                "target": "sheetInventoryPanel",
+                "html": render_to_string("charsheet/partials/_inventory_panel.html", context, request=request),
+            },
+            {
+                "target": "sheetCardHand",
+                "html": render_to_string("charsheet/partials/_card_hand_host.html", context, request=request),
+            },
+        ]
     return JsonResponse(response_payload, status=status_code)
 
 

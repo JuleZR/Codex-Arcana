@@ -47,11 +47,12 @@ WOUND_STAGE_LABELS = ("0", "-2", "-4", "-6", "Ausser Gefecht", "Koma")
 CREATURE_KIND_LABELS = {
     QUALITY_WRETCHED: "Schwaechliche Kreatur",
     QUALITY_VERY_POOR: "Einfache Kreatur",
-    QUALITY_POOR: "Gewoehnliche Kreatur",
+    QUALITY_POOR: "Minderwertige Kreatur",
     QUALITY_COMMON: "Kreatur",
     QUALITY_FINE: "Besondere Kreatur",
     QUALITY_EXCELLENT: "Maechtige Kreatur",
-    QUALITY_LEGENDARY: "Einzigartige Kreatur",
+    QUALITY_LEGENDARY: "Legendaere Kreatur",
+    "unique": "Einzigartige Kreatur",
 }
 
 
