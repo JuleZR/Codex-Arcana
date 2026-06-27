@@ -1,7 +1,7 @@
 """Item and equipment definition models."""
 
 from django.core.exceptions import ValidationError
-from django.core.validators import MinValueValidator
+from django.core.validators import MinValueValidator, RegexValidator
 from django.contrib.contenttypes.fields import GenericRelation
 from django.db import models
 from django.utils.text import slugify
@@ -15,7 +15,6 @@ from ..constants import (
     GK_CHOICES,
     ONE_HANDED,
     QUALITY_COMMON,
-    QUALITY_CHOICES,
     TWO_HANDED,
     VERSATILE,
     WEAPON_SYMBOL_CHOICES,
@@ -26,6 +25,26 @@ from ..constants import (
     WIELD_MODES,
 )
 from .core import DamageSource
+
+
+class Quality(models.Model):
+    """Shared quality tier for items, creatures, and display coloring."""
+
+    code = models.CharField(max_length=30, primary_key=True)
+    name = models.CharField(max_length=100, unique=True)
+    hex_color = models.CharField(
+        max_length=7,
+        default="#33CC33",
+        validators=[RegexValidator(r"^#[0-9A-Fa-f]{6}$", "Enter a hex color like #33CC33.")],
+    )
+    sort_order = models.SmallIntegerField(default=0)
+
+    class Meta:
+        ordering = ["sort_order", "name"]
+        verbose_name_plural = "qualities"
+
+    def __str__(self):
+        return self.name
 
 
 class Rune(models.Model):
@@ -100,7 +119,13 @@ class Item(models.Model):
     not_buyable = models.BooleanField(default=False)
     not_sellable = models.BooleanField(default=False)
 
-    default_quality = models.CharField(max_length=20, choices=QUALITY_CHOICES, default=QUALITY_COMMON)
+    default_quality = models.ForeignKey(
+        "charsheet.Quality",
+        db_column="default_quality",
+        on_delete=models.PROTECT,
+        related_name="default_items",
+        default=QUALITY_COMMON,
+    )
     weight = models.DecimalField(max_digits=6, decimal_places=2, default=0)
     size_class = models.CharField(max_length=5, choices=GK_CHOICES, default=GK_AVERAGE)
 
@@ -422,7 +447,14 @@ class RaceStartingItem(models.Model):
     race = models.ForeignKey("charsheet.Race", on_delete=models.CASCADE, related_name="starting_items")
     item = models.ForeignKey("charsheet.Item", on_delete=models.CASCADE, related_name="race_starting_items")
     amount = models.PositiveIntegerField(default=1)
-    quality = models.CharField(max_length=30, blank=True, default="")
+    quality = models.ForeignKey(
+        "charsheet.Quality",
+        db_column="quality",
+        on_delete=models.PROTECT,
+        related_name="race_starting_items",
+        blank=True,
+        null=True,
+    )
     equipped = models.BooleanField(default=False)
 
     class Meta:

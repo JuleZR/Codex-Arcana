@@ -11,7 +11,6 @@ from ..constants import (
     GK_CHOICES,
     LANGUAGE_LITERACY_MIN_LEVEL,
     PROFICIENCY_GROUP_CHOICES,
-    QUALITY_CHOICES,
     QUALITY_COMMON,
     RESOURCE_KEY_CHOICES,
     STAT_SLUG_CHOICES,
@@ -188,7 +187,13 @@ class CharacterItem(models.Model):
     equipped = models.BooleanField(default=False)
     equip_locked = models.BooleanField(default=False)
     stored = models.BooleanField(default=False)
-    quality = models.CharField(max_length=20, choices=QUALITY_CHOICES, default=QUALITY_COMMON)
+    quality = models.ForeignKey(
+        "charsheet.Quality",
+        db_column="quality",
+        on_delete=models.PROTECT,
+        related_name="character_items",
+        default=QUALITY_COMMON,
+    )
     runes = models.ManyToManyField("Rune", blank=True, related_name="character_items")
     description = models.TextField(blank=True, default="")
     image_override = models.ImageField(upload_to="character_items/", blank=True, null=True)

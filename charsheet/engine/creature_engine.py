@@ -23,6 +23,7 @@ from charsheet.models.creatures import (
     CharacterCreatureCard,
     CharacterCreatureCardAttack,
     CharacterCreatureCardCommand,
+    CharacterCreatureCardCommandPrerequisite,
     CharacterCreatureCardSkill,
     CharacterCreatureCardTrait,
     CreatureCardBinding,
@@ -178,7 +179,7 @@ class CreatureEngine:
             return CharacterCreatureItem.objects.none()
         return (
             self.instance.items.filter(equipped=True)
-            .select_related("item", "item__armorstats")
+            .select_related("item", "item__default_quality", "quality", "item__armorstats")
             .order_by("item__name")
         )
 
@@ -329,6 +330,11 @@ class CreatureEngine:
             {
                 "name": reference.command.name,
                 "slug": reference.command.slug,
+                "ep_cost": reference.command.ep_cost,
+                "difficulty": reference.command.difficulty,
+                "prerequisites": self._serialize_command_prerequisites(reference.command),
+                "prerequisite_display": reference.command.prerequisite_display,
+                "training_days": reference.command.training_days,
                 "description": reference.command.description,
             }
             for reference in self.creature.commands.select_related("command")
@@ -339,10 +345,14 @@ class CreatureEngine:
         fear_bonus = self.fear_resistance_bonus()
         wound_rows = self.wound_rows()
         wound_zone = self.current_wound_zone()
+        quality = self.creature.quality
         return {
             "name": self.display_name(),
             "creature_name": self.creature.display_name,
             "image": self.image(),
+            "quality": ItemEngine.normalize_quality(quality),
+            "quality_label": getattr(quality, "name", ItemEngine.normalize_quality(quality)),
+            "quality_color": ItemEngine.quality_color(quality),
             "size_class": self.size_class(),
             "size_modifier": self.size_modifier(),
             "initiative": self.initiative(),
@@ -393,6 +403,13 @@ class CreatureEngine:
                 }
             )
         return rows
+
+    @staticmethod
+    def _serialize_command_prerequisites(command) -> list[list[dict[str, Any]]]:
+        return [
+            [{"name": prerequisite.name, "slug": prerequisite.slug} for prerequisite in group]
+            for group in command.prerequisite_groups
+        ]
 
     @staticmethod
     def _format_damage(attack) -> str:
@@ -517,7 +534,16 @@ class CreatureCardEngine:
 
     def commands(self) -> list[dict[str, Any]]:
         return [
-            {"name": command.name, "slug": command.slug, "description": command.description}
+            {
+                "name": command.name,
+                "slug": command.slug,
+                "ep_cost": command.ep_cost,
+                "difficulty": command.difficulty,
+                "prerequisites": CreatureEngine._serialize_command_prerequisites(command),
+                "prerequisite_display": command.prerequisite_display,
+                "training_days": command.training_days,
+                "description": command.description,
+            }
             for command in self.card.commands.all()
         ]
 
@@ -531,11 +557,15 @@ class CreatureCardEngine:
         fear_bonus = int(self.card.fear_resistance_bonus or 0)
         wound_rows = self.wound_rows()
         wound_zone = self.current_wound_zone()
+        quality = self.card.quality
         return {
             "id": self.card.pk,
             "name": self.display_name(),
             "creature_name": self.card.creature_type or self.card.name,
             "image": self.image(),
+            "quality": ItemEngine.normalize_quality(quality),
+            "quality_label": getattr(quality, "name", ItemEngine.normalize_quality(quality)),
+            "quality_color": ItemEngine.quality_color(quality),
             "size_class": self.card.size_class,
             "size_modifier": self.card.size_modifier,
             "initiative": self.card.initiative,
@@ -575,6 +605,7 @@ def _creature_card_snapshot_values(creature: Creature) -> dict[str, Any]:
         "image": creature.image,
         "description": creature.description,
         "source_reference": creature.climate_and_occurrence,
+        "quality": creature.quality,
         "initiative": engine.initiative(),
         "vw": engine.vw(),
         "sr": engine.sr(),
@@ -634,15 +665,33 @@ def _copy_creature_rows(card: CharacterCreatureCard) -> None:
         )
         for row in creature.traits.select_related("trait")
     )
-    CharacterCreatureCardCommand.objects.bulk_create(
+    command_references = list(creature.commands.select_related("command").prefetch_related("command__prerequisite_links__prerequisite"))
+    card_commands = [
         CharacterCreatureCardCommand(
             card=card,
             name=row.command.name,
             slug=row.command.slug,
+            ep_cost=row.command.ep_cost,
+            difficulty=row.command.difficulty,
             description=row.command.description,
             order=row.order,
         )
-        for row in creature.commands.select_related("command")
+        for row in command_references
+    ]
+    CharacterCreatureCardCommand.objects.bulk_create(card_commands)
+    card_commands_by_name = {command.name: command for command in card_commands if command.pk}
+    if len(card_commands_by_name) != len(card_commands):
+        card_commands_by_name = {command.name: command for command in card.commands.all()}
+    CharacterCreatureCardCommandPrerequisite.objects.bulk_create(
+        CharacterCreatureCardCommandPrerequisite(
+            command=card_commands_by_name[row.command.name],
+            prerequisite=card_commands_by_name[link.prerequisite.name],
+            alternative_group=link.alternative_group,
+            order=link.order,
+        )
+        for row in command_references
+        for link in row.command.prerequisite_links.all()
+        if row.command.name in card_commands_by_name and link.prerequisite.name in card_commands_by_name
     )
 
 
@@ -657,12 +706,13 @@ def sync_character_creature_cards(character) -> list[CharacterCreatureCard]:
     )
     bindings = list(
         CreatureCardBinding.objects.filter(active=True)
-        .select_related("creature", "item_trigger", "technique_trigger")
+        .select_related("creature", "creature__quality", "item_trigger", "technique_trigger")
         .prefetch_related(
             "creature__attacks",
             "creature__skills__skill",
             "creature__traits__trait",
             "creature__commands__command",
+            "creature__commands__command__prerequisite_links__prerequisite",
         )
     )
     active_binding_ids = set()
@@ -697,7 +747,7 @@ def sync_character_creature_cards(character) -> list[CharacterCreatureCard]:
     existing_cards.exclude(binding_id__in=active_binding_ids).filter(active=True).update(active=False)
     return list(
         existing_cards.filter(active=True)
-        .select_related("creature", "binding", "binding__item_trigger", "binding__technique_trigger")
-        .prefetch_related("attacks", "skills", "traits", "commands")
+        .select_related("creature", "quality", "binding", "binding__item_trigger", "binding__technique_trigger")
+        .prefetch_related("attacks", "skills", "traits", "commands__prerequisite_links__prerequisite")
         .order_by("name", "id")
     )

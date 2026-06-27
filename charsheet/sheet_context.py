@@ -29,8 +29,6 @@ from charsheet.constants import (
     INITIATIVE,
     MELEE_MANEUVERS,
     ONE_HANDED,
-    QUALITY_CHOICES,
-    QUALITY_COLOR_MAP,
     RULE_FLAG_CHOICES,
     RULE_FLAG_TARGET_KIND,
     STAT_SLUG_CHOICES,
@@ -75,6 +73,7 @@ from charsheet.models import (
     Item,
     Language,
     Modifier,
+    Quality,
     RaceTechnique,
     Rune,
     School,
@@ -2129,7 +2128,7 @@ def _build_weapon_rows(engine) -> list[dict]:
     rendered_rows_by_item: dict[int, int] = {}
     for row in raw_rows:
         is_race_item = row["item"].id in race_item_ids
-        quality = quality_payload(str(row["quality"]))
+        quality = quality_payload(row["quality"])
         character_item_id = row["character_item"].pk
         total_rendered_rows = rendered_rows_by_item.get(character_item_id, 0)
         magic_modifier_payloads = modifiers_by_character_item_id.get(row["character_item"].id, [])
@@ -2234,7 +2233,7 @@ def _build_armor_rows(engine) -> list[dict]:
     modifiers_by_character_item_id = _load_character_item_modifier_payloads(all_character_items)
     for row in armor_equipped_rows:
         is_race_item = row["item"].id in race_item_ids
-        quality = quality_payload(str(row["quality"]))
+        quality = quality_payload(row["quality"])
         magic_modifier_payloads = modifiers_by_character_item_id.get(row["character_item"].id, [])
         item_image_url = _character_item_image_url(row["character_item"])
         armor_rows.append(
@@ -2274,7 +2273,7 @@ def _build_armor_rows(engine) -> list[dict]:
         )
     for row in clothing_equipped_rows:
         is_race_item = row["item"].id in race_item_ids
-        quality = quality_payload(str(row["quality"]))
+        quality = quality_payload(row["quality"])
         magic_modifier_payloads = modifiers_by_character_item_id.get(row["character_item"].id, [])
         item_image_url = _character_item_image_url(row["character_item"])
         armor_rows.append(
@@ -2310,7 +2309,7 @@ def _build_armor_rows(engine) -> list[dict]:
         )
     for row in magic_equipped_rows:
         is_race_item = row["item"].id in race_item_ids
-        quality = quality_payload(str(row["quality"]))
+        quality = quality_payload(row["quality"])
         magic_modifier_payloads = modifiers_by_character_item_id.get(row["character_item"].id, [])
         item_image_url = _character_item_image_url(row["character_item"])
         armor_rows.append(
@@ -2346,7 +2345,7 @@ def _build_armor_rows(engine) -> list[dict]:
         )
     for row in shield_equipped_rows:
         is_race_item = row["item"].id in race_item_ids
-        quality = quality_payload(str(row["quality"]))
+        quality = quality_payload(row["quality"])
         magic_modifier_payloads = modifiers_by_character_item_id.get(row["character_item"].id, [])
         item_image_url = _character_item_image_url(row["character_item"])
         armor_rows.append(
@@ -3608,11 +3607,11 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
     carry_toggle_tooltip_active = _build_carry_load_tooltip(carry_state, active=True)
     shop_quality_choices = [
         {
-            "value": value,
-            "label": label,
-            "color": QUALITY_COLOR_MAP.get(value, QUALITY_COLOR_MAP[ItemEngine.normalize_quality(None)]),
+            "value": quality.code,
+            "label": quality.name,
+            "color": quality.hex_color,
         }
-        for value, label in QUALITY_CHOICES
+        for quality in Quality.objects.all()
     ]
 
     manual_personal_fame_point = max(

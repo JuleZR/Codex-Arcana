@@ -103,7 +103,7 @@ def _read_int(post_data, name: str, default: int = 0, *, minimum: int | None = N
 
 def _read_quality(post_data, name: str, default: str) -> str:
     """Read one normalized quality code from POST-like data."""
-    raw_quality = str(post_data.get(name, default) or default)
+    raw_quality = post_data.get(name, default) or default
     return ItemEngine.normalize_quality(raw_quality)
 
 
@@ -498,7 +498,7 @@ def apply_character_item_modifications(character_item: CharacterItem, post_data,
             character_item.price_override = price
             character_item.weight_override = weight
             character_item.size_class_override = size_class
-            character_item.quality = quality
+            character_item.quality_id = quality
             character_item.runes.set(unique_runes)
             character_item.description = description
             character_item.is_magic = is_magic
@@ -679,7 +679,7 @@ def create_custom_shop_item(post_data, files_data=None) -> bool:
                 is_magic=is_magic,
                 not_buyable=not_buyable,
                 not_sellable=not_sellable,
-                default_quality=default_quality,
+                default_quality_id=default_quality,
                 weight=weight,
                 size_class=size_class,
                 image=image,
@@ -819,7 +819,7 @@ def buy_shop_cart(character: Character, payload: dict[str, object]) -> tuple[dic
             return {"ok": False, "error": "item_not_found"}, 400
         if item.not_buyable:
             return {"ok": False, "error": "item_not_buyable"}, 400
-        quality = ItemEngine.normalize_quality(str(entry.get("quality") or item.default_quality))
+        quality = ItemEngine.normalize_quality(entry.get("quality") or item.default_quality)
         if not item.stackable and qty != 1:
             return {"ok": False, "error": "non_stackable_qty"}, 400
         normalized.append((item, qty, quality))
@@ -834,20 +834,20 @@ def buy_shop_cart(character: Character, payload: dict[str, object]) -> tuple[dic
         character.save(update_fields=["money"])
         for item, qty, quality in normalized:
             if item.stackable:
-                existing = CharacterItem.objects.filter(owner=character, item=item, quality=quality).first()
+                existing = CharacterItem.objects.filter(owner=character, item=item, quality_id=quality).first()
                 if existing:
                     existing.amount += qty
                     existing.full_clean()
                     existing.save(update_fields=["amount"])
                 else:
-                    created = CharacterItem(owner=character, item=item, amount=qty, equipped=False, quality=quality)
+                    created = CharacterItem(owner=character, item=item, amount=qty, equipped=False, quality_id=quality)
                     created.full_clean()
                     created.save()
                     for rune in item.runes.all():
                         apply_rune_to_item(item=created, rune=rune, crafter_level=0)
             else:
                 for _index in range(qty):
-                    created = CharacterItem(owner=character, item=item, amount=1, equipped=False, quality=quality)
+                    created = CharacterItem(owner=character, item=item, amount=1, equipped=False, quality_id=quality)
                     created.full_clean()
                     created.save()
                     for rune in item.runes.all():
@@ -939,7 +939,7 @@ def trade_shop_cart(character: Character, payload: dict[str, object]) -> tuple[d
             return {"ok": False, "error": "item_not_found"}, 400
         if item.not_buyable:
             return {"ok": False, "error": "item_not_buyable"}, 400
-        quality = ItemEngine.normalize_quality(str(entry.get("quality") or item.default_quality))
+        quality = ItemEngine.normalize_quality(entry.get("quality") or item.default_quality)
         if not item.stackable and qty != 1:
             return {"ok": False, "error": "non_stackable_qty"}, 400
         normalized_buys.append((item, qty, quality))
@@ -997,20 +997,20 @@ def trade_shop_cart(character: Character, payload: dict[str, object]) -> tuple[d
 
         for item, qty, quality in normalized_buys:
             if item.stackable:
-                existing = CharacterItem.objects.filter(owner=character, item=item, quality=quality).first()
+                existing = CharacterItem.objects.filter(owner=character, item=item, quality_id=quality).first()
                 if existing:
                     existing.amount += qty
                     existing.full_clean()
                     existing.save(update_fields=["amount"])
                 else:
-                    created = CharacterItem(owner=character, item=item, amount=qty, equipped=False, quality=quality)
+                    created = CharacterItem(owner=character, item=item, amount=qty, equipped=False, quality_id=quality)
                     created.full_clean()
                     created.save()
                     for rune in item.runes.all():
                         apply_rune_to_item(item=created, rune=rune, crafter_level=0)
             else:
                 for _index in range(qty):
-                    created = CharacterItem(owner=character, item=item, amount=1, equipped=False, quality=quality)
+                    created = CharacterItem(owner=character, item=item, amount=1, equipped=False, quality_id=quality)
                     created.full_clean()
                     created.save()
                     for rune in item.runes.all():

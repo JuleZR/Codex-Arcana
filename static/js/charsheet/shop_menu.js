@@ -42,8 +42,8 @@ export function initShopMenu() {
     return;
   }
 
-  const QUALITY_ORDER = ["wretched", "very_poor", "poor", "common", "fine", "excellent", "legendary"];
-  const QUALITY_LABELS = {
+  const FALLBACK_QUALITY_ORDER = ["wretched", "very_poor", "poor", "common", "fine", "excellent", "legendary"];
+  const FALLBACK_QUALITY_LABELS = {
     wretched: "Extrem schlecht",
     very_poor: "Sehr schlecht",
     poor: "Schlecht",
@@ -52,7 +52,7 @@ export function initShopMenu() {
     excellent: "Exzellent",
     legendary: "Legendaer",
   };
-  const QUALITY_COLORS = {
+  const FALLBACK_QUALITY_COLORS = {
     wretched: "#DD2828",
     very_poor: "#7A7A7A",
     poor: "#000000",
@@ -61,6 +61,28 @@ export function initShopMenu() {
     excellent: "#CC00CC",
     legendary: "#FF9933",
   };
+  const readQualityChoices = () => {
+    const script = document.getElementById("shopQualityChoices");
+    if (!script) {
+      return [];
+    }
+    try {
+      const parsed = JSON.parse(script.textContent || "[]");
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (_error) {
+      return [];
+    }
+  };
+  const qualityChoices = readQualityChoices();
+  const QUALITY_ORDER = qualityChoices.length
+    ? qualityChoices.map((quality) => String(quality.value || ""))
+    : FALLBACK_QUALITY_ORDER;
+  const QUALITY_LABELS = qualityChoices.length
+    ? Object.fromEntries(qualityChoices.map((quality) => [String(quality.value || ""), String(quality.label || quality.value || "")]))
+    : FALLBACK_QUALITY_LABELS;
+  const QUALITY_COLORS = qualityChoices.length
+    ? Object.fromEntries(qualityChoices.map((quality) => [String(quality.value || ""), String(quality.color || "#777")]))
+    : FALLBACK_QUALITY_COLORS;
   const QUALITY_PRICE_MODS = {
     wretched: 0.25,
     very_poor: 0.5,

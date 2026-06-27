@@ -9,6 +9,7 @@ from charsheet.modifiers.definitions import TargetDomain
 from charsheet.modifiers.engine import ModifierEngine
 from charsheet.modifiers.registry import build_trait_semantic_modifiers
 from charsheet.learning_progression import weapon_mastery_weapon_type_definitions
+from charsheet.engine.item_engine import ItemEngine
 from charsheet.models import (
     Attribute,
     Character,
@@ -747,7 +748,7 @@ class CharacterCreationEngine:
 
     @staticmethod
     def grant_race_starting_items(character):
-        starters = character.race.starting_items.select_related("item")
+        starters = character.race.starting_items.select_related("item", "item__default_quality", "quality")
 
         for starter in starters:
             character_item, created = CharacterItem.objects.get_or_create(
@@ -755,7 +756,7 @@ class CharacterCreationEngine:
                 item=starter.item,
                 defaults={
                     "amount": starter.amount,
-                    "quality": starter.quality or starter.item.default_quality,
+                    "quality_id": ItemEngine.normalize_quality(starter.quality or starter.item.default_quality),
                     "equipped": True,
                     "equip_locked": True,
                 },

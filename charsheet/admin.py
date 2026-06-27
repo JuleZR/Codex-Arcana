@@ -55,6 +55,7 @@ from .models import (
     CharacterCreatureCard,
     CharacterCreatureCardAttack,
     CharacterCreatureCardCommand,
+    CharacterCreatureCardCommandPrerequisite,
     CharacterCreatureCardSkill,
     CharacterCreatureCardTrait,
     CharacterCreatureItem,
@@ -84,13 +85,16 @@ from .models import (
     CharacterWeaponMasteryArcana,
     Creature,
     CreatureAttack,
+    CreatureAttribute,
     CreatureCardBinding,
     CreatureCommand,
+    CreatureCommandPrerequisite,
     CreatureCommandReference,
     CreatureSkill,
     CreatureSpecialSkill,
     CreatureSpecialSkillValue,
     CreatureTrait,
+    CreatureTraitDefinition,
     DamageSource,
     DivineEntity,
     DivineEntityAspect,
@@ -101,6 +105,7 @@ from .models import (
     MagicItemStats,
     Modifier,
     ProgressionRule,
+    Quality,
     Race,
     RaceAttributeLimit,
     RaceChoiceDefinition,
@@ -357,10 +362,14 @@ def _get_sorted_app_list(request, app_label=None):
 admin.site.get_app_list = _get_sorted_app_list
 
 
-def _quality_badge(quality: str):
-    """Render one quality key with configured RPG color coding."""
+def _quality_badge(quality):
+    """Render one quality tier with configured RPG color coding."""
     resolved_quality = ItemEngine.normalize_quality(quality)
-    color = QUALITY_COLOR_MAP.get(resolved_quality, QUALITY_COLOR_MAP[ItemEngine.normalize_quality(None)])
+    color = getattr(quality, "hex_color", None) or QUALITY_COLOR_MAP.get(
+        resolved_quality,
+        QUALITY_COLOR_MAP[ItemEngine.normalize_quality(None)],
+    )
+    label = getattr(quality, "name", None) or resolved_quality
     return format_html(
         (
             '<strong style="color:{};'
@@ -369,7 +378,7 @@ def _quality_badge(quality: str):
             '">{}</strong>'
         ),
         color,
-        resolved_quality,
+        label,
     )
 
 
@@ -2964,6 +2973,17 @@ class TechniqueAdmin(admin.ModelAdmin):
         return ", ".join(_format_technique_choice_definitions(obj))
 
 
+@admin.register(Quality)
+class QualityAdmin(admin.ModelAdmin):
+    list_display = ("name", "code", "hex_color", "sort_order", "preview")
+    search_fields = ("name", "code", "hex_color")
+    ordering = ("sort_order", "name")
+
+    @admin.display(description="Preview")
+    def preview(self, obj):
+        return _quality_badge(obj)
+
+
 @admin.register(Item)
 class ItemAdmin(admin.ModelAdmin):
     """Admin configuration for items."""
@@ -5137,7 +5157,7 @@ class CreatureAttackInline(admin.TabularInline):
 class CreatureSkillInline(admin.TabularInline):
     model = CreatureSkill
     extra = 0
-    fields = ("skill", "value", "notes")
+    fields = ("skill", "level", "notes")
     autocomplete_fields = ("skill",)
 
 
@@ -5158,8 +5178,69 @@ class CreatureCommandReferenceInline(admin.TabularInline):
 class CreatureTraitInline(admin.TabularInline):
     model = CreatureTrait
     extra = 0
-    fields = ("order", "trait", "name", "level", "description")
+    fields = ("trait", "trait_level")
     autocomplete_fields = ("trait",)
+
+
+class CreatureAdminForm(forms.ModelForm):
+    strength_mod = forms.IntegerField(label="Staerke", required=False, initial=0)
+    constitution_mod = forms.IntegerField(label="Konstitution", required=False, initial=0)
+    dexterity_mod = forms.IntegerField(label="Geschick", required=False, initial=0)
+    intelligence_mod = forms.IntegerField(label="Intelligenz", required=False, initial=0)
+    perception_mod = forms.IntegerField(label="Wahrnehmung", required=False, initial=0)
+    willpower_mod = forms.IntegerField(label="Willenskraft", required=False, initial=0)
+    charisma_mod = forms.IntegerField(label="Charisma", required=False)
+
+    ATTRIBUTE_FORM_FIELDS = {
+        "strength_mod": "ST",
+        "constitution_mod": "KON",
+        "dexterity_mod": "GE",
+        "intelligence_mod": "INT",
+        "perception_mod": "WA",
+        "willpower_mod": "WILL",
+        "charisma_mod": "CHA",
+    }
+
+    class Meta:
+        model = Creature
+        fields = "__all__"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if not self.instance.pk:
+            return
+        values_by_code = {
+            row.attribute.short_name: row.base_value
+            for row in self.instance.attributes.select_related("attribute")
+        }
+        for field_name, code in self.ATTRIBUTE_FORM_FIELDS.items():
+            self.fields[field_name].initial = values_by_code.get(code)
+
+    def save(self, commit=True):
+        creature = super().save(commit=commit)
+        if commit:
+            self._save_attribute_values(creature)
+        return creature
+
+    def save_m2m(self):
+        super().save_m2m()
+        if self.instance.pk:
+            self._save_attribute_values(self.instance)
+
+    def _save_attribute_values(self, creature):
+        attributes = {
+            attribute.short_name: attribute
+            for attribute in Attribute.objects.filter(short_name__in=self.ATTRIBUTE_FORM_FIELDS.values())
+        }
+        for field_name, code in self.ATTRIBUTE_FORM_FIELDS.items():
+            attribute = attributes.get(code)
+            if attribute is None:
+                continue
+            CreatureAttribute.objects.update_or_create(
+                creature=creature,
+                attribute=attribute,
+                defaults={"base_value": self.cleaned_data.get(field_name)},
+            )
 
 
 @admin.register(CreatureCardBinding)
@@ -5188,10 +5269,19 @@ class CharacterCreatureCardTraitInline(admin.TabularInline):
     fields = ("order", "name", "level", "description")
 
 
+class CharacterCreatureCardCommandPrerequisiteInline(admin.TabularInline):
+    model = CharacterCreatureCardCommandPrerequisite
+    fk_name = "command"
+    extra = 0
+    fields = ("alternative_group", "order", "prerequisite")
+    autocomplete_fields = ("prerequisite",)
+
+
 class CharacterCreatureCardCommandInline(admin.TabularInline):
     model = CharacterCreatureCardCommand
     extra = 0
-    fields = ("order", "name", "slug", "description")
+    fields = ("order", "name", "slug", "ep_cost", "difficulty", "prerequisite_display", "description")
+    readonly_fields = ("prerequisite_display",)
 
 
 @admin.register(CharacterCreatureCard)
@@ -5220,6 +5310,7 @@ class CharacterCreatureCardAdmin(admin.ModelAdmin):
 
 @admin.register(Creature)
 class CreatureAdmin(admin.ModelAdmin):
+    form = CreatureAdminForm
     list_display = ("name", "size_class", "initiative_override", "natural_rs", "organization")
     search_fields = ("name", "slug", "card_name", "climate_and_occurrence", "organization")
     list_filter = ("size_class",)
@@ -5233,23 +5324,35 @@ class CreatureAdmin(admin.ModelAdmin):
     )
     fieldsets = (
         ("Basis", {"fields": ("name", "slug", "card_name", "image", "description")}),
+        (
+            "Kampfwerte",
+            {
+                "fields": (
+                    "initiative_override",
+                    ("vw_override", "sr_override", "gw_override"),
+                    ("natural_rs", "wound_step_override", "fear_resistance_bonus"),
+                )
+            },
+        ),
         ("Groesse", {"fields": ("size_class", "size_modifier")}),
+        (
+            "Bewegung",
+            {
+                "fields": (
+                    ("combat_speed", "march_speed", "sprint_speed", "swimming_speed"),
+                    ("combat_fly_speed", "march_fly_speed", "sprint_fly_speed"),
+                )
+            },
+        ),
         (
             "Eigenschaften",
             {
                 "fields": (
-                    "strength_mod",
-                    "constitution_mod",
-                    "dexterity_mod",
-                    "intelligence_mod",
-                    "perception_mod",
-                    "willpower_mod",
-                    "charisma_mod",
+                    ("strength_mod", "constitution_mod", "dexterity_mod"),
+                    ("intelligence_mod", "perception_mod", "willpower_mod", "charisma_mod"),
                 )
             },
         ),
-        ("Berechnete Werte / Overrides", {"fields": ("initiative_override", "vw_override", "sr_override", "gw_override", "fear_resistance_bonus", "natural_rs", "wound_step_override")}),
-        ("Bewegung", {"fields": ("combat_speed", "march_speed", "sprint_speed", "swimming_speed", "combat_fly_speed", "march_fly_speed", "sprint_fly_speed")}),
         ("Vorkommen", {"fields": ("climate_and_occurrence", "organization")}),
     )
 
@@ -5264,7 +5367,7 @@ class CharacterCreatureItemInline(admin.TabularInline):
 class CharacterCreatureSkillInline(admin.TabularInline):
     model = CharacterCreatureSkill
     extra = 0
-    fields = ("skill", "value_override", "notes")
+    fields = ("skill", "level_override", "notes")
     autocomplete_fields = ("skill",)
 
 
@@ -5278,7 +5381,7 @@ class CharacterCreatureSpecialSkillInline(admin.TabularInline):
 class CharacterCreatureTraitInline(admin.TabularInline):
     model = CharacterCreatureTrait
     extra = 0
-    fields = ("order", "base_trait", "trait", "name", "level_override", "active", "description_override")
+    fields = ("base_trait", "trait", "trait_level", "active")
     autocomplete_fields = ("base_trait", "trait")
 
 
@@ -5336,7 +5439,7 @@ class CreatureAttackAdmin(admin.ModelAdmin):
 
 @admin.register(CreatureSkill)
 class CreatureSkillAdmin(admin.ModelAdmin):
-    list_display = ("creature", "skill", "value")
+    list_display = ("creature", "skill", "level")
     search_fields = ("creature__name", "skill__name")
     autocomplete_fields = ("creature", "skill")
     list_select_related = ("creature", "skill")
@@ -5357,11 +5460,37 @@ class CreatureSpecialSkillValueAdmin(admin.ModelAdmin):
     list_select_related = ("creature", "skill")
 
 
+@admin.register(CreatureTraitDefinition)
+class CreatureTraitDefinitionAdmin(admin.ModelAdmin):
+    list_display = ("name", "slug", "trait_type", "min_level", "max_level")
+    search_fields = ("name", "slug", "description")
+    list_filter = ("trait_type",)
+    prepopulated_fields = {"slug": ("name",)}
+
+
+class CreatureCommandPrerequisiteInline(admin.TabularInline):
+    model = CreatureCommandPrerequisite
+    fk_name = "command"
+    extra = 0
+    fields = ("alternative_group", "order", "prerequisite")
+    autocomplete_fields = ("prerequisite",)
+
+
 @admin.register(CreatureCommand)
 class CreatureCommandAdmin(admin.ModelAdmin):
-    list_display = ("name", "slug")
+    list_display = ("name", "slug", "ep_cost", "difficulty", "prerequisite_display")
     search_fields = ("name", "slug", "description")
     prepopulated_fields = {"slug": ("name",)}
+    inlines = (CreatureCommandPrerequisiteInline,)
+
+
+@admin.register(CharacterCreatureCardCommand)
+class CharacterCreatureCardCommandAdmin(admin.ModelAdmin):
+    list_display = ("card", "name", "slug", "ep_cost", "difficulty", "prerequisite_display", "order")
+    search_fields = ("card__name", "name", "slug", "description")
+    autocomplete_fields = ("card",)
+    list_select_related = ("card",)
+    inlines = (CharacterCreatureCardCommandPrerequisiteInline,)
 
 
 @admin.register(CreatureCommandReference)
@@ -5374,15 +5503,15 @@ class CreatureCommandReferenceAdmin(admin.ModelAdmin):
 
 @admin.register(CreatureTrait)
 class CreatureTraitAdmin(admin.ModelAdmin):
-    list_display = ("creature", "display_name", "level")
-    search_fields = ("creature__name", "name", "trait__name")
+    list_display = ("creature", "trait", "trait_level")
+    search_fields = ("creature__name", "trait__name")
     autocomplete_fields = ("creature", "trait")
     list_select_related = ("creature", "trait")
 
 
 @admin.register(CharacterCreatureSkill)
 class CharacterCreatureSkillAdmin(admin.ModelAdmin):
-    list_display = ("creature", "skill", "value_override")
+    list_display = ("creature", "skill", "level_override")
     search_fields = ("creature__name_override", "creature__creature__name", "skill__name")
     autocomplete_fields = ("creature", "skill")
     list_select_related = ("creature", "creature__creature", "skill")
@@ -5398,8 +5527,8 @@ class CharacterCreatureSpecialSkillAdmin(admin.ModelAdmin):
 
 @admin.register(CharacterCreatureTrait)
 class CharacterCreatureTraitAdmin(admin.ModelAdmin):
-    list_display = ("creature", "display_name", "level_override", "active")
-    search_fields = ("creature__name_override", "creature__creature__name", "name", "trait__name", "base_trait__name")
+    list_display = ("creature", "trait", "trait_level", "active")
+    search_fields = ("creature__name_override", "creature__creature__name", "trait__name", "base_trait__trait__name")
     autocomplete_fields = ("creature", "base_trait", "trait")
     list_select_related = ("creature", "creature__creature", "base_trait", "trait")
 

@@ -23,7 +23,7 @@ from charsheet.constants import (
     WEAPON_MANEUVER_ATTRIBUTE_ST,
     WEAPON_SYMBOL_DESCRIPTIONS,
 )
-from charsheet.models import ArmorStats, CharacterItem, Item, ShieldStats, WeaponStats
+from charsheet.models import ArmorStats, CharacterItem, Item, Quality, ShieldStats, WeaponStats
 
 
 WEAPON_DAMAGE_QUALITY_BONUSES = {
@@ -51,15 +51,32 @@ class ItemEngine:
     @staticmethod
     def normalize_quality(quality: str | None) -> str:
         """Return a valid quality key, falling back to common quality."""
+        if hasattr(quality, "code"):
+            quality = getattr(quality, "code")
+        quality = str(quality or "")
         valid_quality_values = {value for value, _label in QUALITY_CHOICES}
         if quality in valid_quality_values:
             return str(quality)
+        try:
+            if Quality.objects.filter(pk=quality).exists():
+                return quality
+        except Exception:
+            pass
         return QUALITY_COMMON
 
     @classmethod
     def quality_color(cls, quality: str | None) -> str:
         """Return the configured UI color for one quality tier."""
-        return QUALITY_COLOR_MAP.get(cls.normalize_quality(quality), QUALITY_COLOR_MAP[QUALITY_COMMON])
+        if hasattr(quality, "hex_color"):
+            return str(getattr(quality, "hex_color") or QUALITY_COLOR_MAP[QUALITY_COMMON])
+        resolved_quality = cls.normalize_quality(quality)
+        try:
+            quality_obj = Quality.objects.filter(pk=resolved_quality).only("hex_color").first()
+            if quality_obj:
+                return quality_obj.hex_color
+        except Exception:
+            pass
+        return QUALITY_COLOR_MAP.get(resolved_quality, QUALITY_COLOR_MAP[QUALITY_COMMON])
 
     @classmethod
     def price_for_item_and_quality(cls, item: Item, quality: str | None) -> int:
@@ -119,7 +136,9 @@ class ItemEngine:
 
     def get_quality_color(self) -> str:
         """Return the UI color for the effective quality."""
-        return self.quality_color(self.get_effective_quality())
+        if isinstance(self.obj, CharacterItem):
+            return self.quality_color(self.obj.quality)
+        return self.quality_color(self._get_item().default_quality)
 
     def get_weight(self) -> Decimal:
         """Return base or stacked item weight."""
