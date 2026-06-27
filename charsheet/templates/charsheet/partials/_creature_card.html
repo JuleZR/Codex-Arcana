@@ -86,7 +86,7 @@
                 <span class="creature-card__stat-separator" aria-hidden="true">|</span>
                 <strong>SR</strong> {{ creature_card.sr }}
                 <span class="creature-card__stat-separator" aria-hidden="true">|</span>
-                <strong>GW</strong> {{ creature_card.gw }}{% if creature_card.gw_fear %}/{{ creature_card.gw_fear }}F{% endif %}
+                <strong>GW</strong> {{ creature_card.gw }}{% if creature_card.gw_extra %}/{{ creature_card.gw_extra }}{% if creature_card.gw_extra_label %} {{ creature_card.gw_extra_label }}{% endif %}{% endif %}
                 <span class="creature-card__stat-separator" aria-hidden="true">|</span>
                 <strong>RS</strong> {{ creature_card.rs_total }}{% if creature_card.rs_armor %} ({{ creature_card.rs_natural }}+{{ creature_card.rs_armor }}){% endif %}
                 {% if creature_card.encumbrance %}

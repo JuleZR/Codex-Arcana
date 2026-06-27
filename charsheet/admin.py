@@ -5425,7 +5425,7 @@ class CharacterCreatureCardAdmin(admin.ModelAdmin):
     fieldsets = (
         ("Zuordnung", {"fields": ("character", "creature", "binding", ("source_character_item", "source_character_technique"), "active", "trigger_label", "has_source_deviations")}),
         ("Basis", {"fields": ("name", "creature_type", "image", "description", "source_reference", "current_damage", "notes")}),
-        ("Werte", {"fields": ("initiative", "vw", "sr", "gw", "fear_resistance_bonus", "rs", "wound_step")}),
+        ("Werte", {"fields": ("initiative", "vw", "sr", "gw", ("fear_resistance_bonus", "defense_extra_label"), "rs", "wound_step")}),
         ("Groesse", {"fields": ("size_class", "size_modifier")}),
         ("Bewegung", {"fields": ("combat_speed", "march_speed", "sprint_speed", "swimming_speed", "combat_fly_speed", "march_fly_speed", "sprint_fly_speed")}),
         ("Eigenschaften", {"fields": ("strength_mod", "constitution_mod", "dexterity_mod", "intelligence_mod", "perception_mod", "willpower_mod", "charisma_mod")}),
@@ -5454,7 +5454,7 @@ class CreatureAdmin(admin.ModelAdmin):
                 "fields": (
                     "initiative_override",
                     ("vw_override", "sr_override", "gw_override"),
-                    ("natural_rs", "wound_step_override", "fear_resistance_bonus"),
+                    ("natural_rs", "wound_step_override", "fear_resistance_bonus", "defense_extra_label"),
                 )
             },
         ),
@@ -5550,7 +5550,7 @@ class CharacterCreatureAdmin(admin.ModelAdmin):
                 )
             },
         ),
-        ("Werte-Overrides", {"fields": ("initiative_override", "vw_override", "sr_override", "gw_override", "fear_resistance_bonus_override", "natural_rs_override", "wound_step_override")}),
+        ("Werte-Overrides", {"fields": ("initiative_override", "vw_override", "sr_override", "gw_override", ("fear_resistance_bonus_override", "defense_extra_label_override"), "natural_rs_override", "wound_step_override")}),
         ("Bewegungs-Overrides", {"fields": ("combat_speed_override", "march_speed_override", "sprint_speed_override", "swimming_speed_override", "combat_fly_speed_override", "march_fly_speed_override", "sprint_fly_speed_override")}),
     )
 

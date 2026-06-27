@@ -258,8 +258,17 @@ class CreatureEngine:
     def fear_resistance_bonus(self) -> int:
         return int(self._value("fear_resistance_bonus", 0) or 0)
 
+    def defense_extra_label(self) -> str:
+        return str(self._value("defense_extra_label", "") or "").strip()
+
+    def defense_extra_value(self) -> int | None:
+        value = self._value("fear_resistance_bonus", None)
+        if value is None or value == "":
+            return None
+        return int(value)
+
     def gw_against_fear(self) -> int:
-        return self.gw() + self.fear_resistance_bonus()
+        return int(self.defense_extra_value() or 0)
 
     def wound_step(self) -> int:
         override = self._value("wound_step_override", None)
@@ -474,7 +483,8 @@ class CreatureEngine:
 
     def card_context(self) -> dict[str, Any]:
         armor = self.armor_totals()
-        fear_bonus = self.fear_resistance_bonus()
+        defense_extra_value = self.defense_extra_value()
+        defense_extra_label = self.defense_extra_label()
         wound_rows = self.wound_rows()
         wound_zone = self.current_wound_zone()
         quality = self.creature.quality
@@ -493,8 +503,10 @@ class CreatureEngine:
             "vw": self.vw(),
             "sr": self.sr(),
             "gw": self.gw(),
-            "gw_fear": self.gw_against_fear() if fear_bonus else None,
-            "fear_bonus": fear_bonus,
+            "gw_extra": defense_extra_value if defense_extra_value else None,
+            "gw_extra_label": defense_extra_label,
+            "gw_fear": self.gw_against_fear() if defense_extra_value else None,
+            "fear_bonus": defense_extra_value,
             "rs_natural": armor.natural_rs,
             "rs_armor": armor.armor_rs,
             "rs_total": armor.total_rs,
@@ -604,7 +616,20 @@ class CreatureCardEngine:
     def gw_against_fear(self) -> int:
         if self.source_engine is not None:
             return self.source_engine.gw_against_fear()
-        return int(self.card.gw) + int(self.card.fear_resistance_bonus or 0)
+        return int(self.card.fear_resistance_bonus or 0)
+
+    def defense_extra_label(self) -> str:
+        if self.source_engine is not None:
+            return self.source_engine.defense_extra_label()
+        return str(getattr(self.card, "defense_extra_label", "") or "").strip()
+
+    def defense_extra_value(self) -> int | None:
+        if self.source_engine is not None:
+            return self.source_engine.defense_extra_value()
+        value = self.card.fear_resistance_bonus
+        if value is None or value == "":
+            return None
+        return int(value)
 
     def wound_rows(self) -> list[dict[str, Any]]:
         if self.source_engine is not None:
@@ -703,7 +728,8 @@ class CreatureCardEngine:
 
     def card_context(self) -> dict[str, Any]:
         source = self.source_engine
-        fear_bonus = source.fear_resistance_bonus() if source is not None else int(self.card.fear_resistance_bonus or 0)
+        defense_extra_value = self.defense_extra_value()
+        defense_extra_label = source.defense_extra_label() if source is not None else self.defense_extra_label()
         wound_rows = self.wound_rows()
         wound_zone = self.current_wound_zone()
         quality = self.card.quality
@@ -724,8 +750,10 @@ class CreatureCardEngine:
             "vw": source.vw() if source is not None else self.card.vw,
             "sr": source.sr() if source is not None else self.card.sr,
             "gw": source.gw() if source is not None else self.card.gw,
-            "gw_fear": self.gw_against_fear() if fear_bonus else None,
-            "fear_bonus": fear_bonus,
+            "gw_extra": defense_extra_value if defense_extra_value else None,
+            "gw_extra_label": defense_extra_label,
+            "gw_fear": self.gw_against_fear() if defense_extra_value else None,
+            "fear_bonus": defense_extra_value,
             "rs_natural": armor.natural_rs if armor is not None else self.card.rs,
             "rs_armor": armor.armor_rs if armor is not None else 0,
             "rs_total": armor.total_rs if armor is not None else self.card.rs,
@@ -768,7 +796,8 @@ def _creature_card_snapshot_values(creature: Creature, *, quality: Any | None = 
         "vw": engine.vw(),
         "sr": engine.sr(),
         "gw": engine.gw(),
-        "fear_resistance_bonus": engine.fear_resistance_bonus(),
+        "defense_extra_label": engine.defense_extra_label(),
+        "fear_resistance_bonus": engine.defense_extra_value(),
         "rs": armor.natural_rs,
         "wound_step": engine.wound_step(),
         "size_class": engine.size_class(),

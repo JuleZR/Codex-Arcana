@@ -77,7 +77,8 @@ class Creature(models.Model):
     vw_override = models.IntegerField(blank=True, null=True)
     sr_override = models.IntegerField(blank=True, null=True)
     gw_override = models.IntegerField(blank=True, null=True)
-    fear_resistance_bonus = models.IntegerField(default=0)
+    defense_extra_label = models.CharField("Zusatz-Label", max_length=20, blank=True, default="")
+    fear_resistance_bonus = models.IntegerField("Zusatzwert", blank=True, null=True)
     natural_rs = models.PositiveIntegerField(default=0)
     wound_step_override = models.PositiveIntegerField(blank=True, null=True)
     combat_speed = models.PositiveIntegerField(default=0)
@@ -740,7 +741,8 @@ class CharacterCreature(models.Model):
     vw_override = models.IntegerField(blank=True, null=True)
     sr_override = models.IntegerField(blank=True, null=True)
     gw_override = models.IntegerField(blank=True, null=True)
-    fear_resistance_bonus_override = models.IntegerField(blank=True, null=True)
+    defense_extra_label_override = models.CharField("Zusatz-Label-Override", max_length=20, blank=True, default="")
+    fear_resistance_bonus_override = models.IntegerField("Zusatzwert-Override", blank=True, null=True)
     natural_rs_override = models.PositiveIntegerField(blank=True, null=True)
     wound_step_override = models.PositiveIntegerField(blank=True, null=True)
     combat_speed_override = models.PositiveIntegerField(blank=True, null=True)
@@ -1286,7 +1288,8 @@ class CharacterCreatureCard(models.Model):
     vw = models.IntegerField(default=0)
     sr = models.IntegerField(default=0)
     gw = models.IntegerField(default=0)
-    fear_resistance_bonus = models.IntegerField(default=0)
+    defense_extra_label = models.CharField("Zusatz-Label", max_length=20, blank=True, default="")
+    fear_resistance_bonus = models.IntegerField("Zusatzwert", blank=True, null=True)
     rs = models.PositiveIntegerField(default=0)
     wound_step = models.PositiveIntegerField(default=1)
     size_class = models.CharField(max_length=5, choices=GK_CHOICES, default=GK_AVERAGE)
@@ -1351,6 +1354,7 @@ class CharacterCreatureCard(models.Model):
             "vw",
             "sr",
             "gw",
+            "defense_extra_label",
             "fear_resistance_bonus",
             "quality",
             "rs",

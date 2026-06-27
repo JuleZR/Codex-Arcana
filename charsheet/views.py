@@ -2415,6 +2415,8 @@ def debug_creature_card(request):
         "vw": 12,
         "sr": 29,
         "gw": 10,
+        "gw_extra": 16,
+        "gw_extra_label": "F",
         "gw_fear": 16,
         "fear_bonus": 6,
         "rs_natural": 3,
