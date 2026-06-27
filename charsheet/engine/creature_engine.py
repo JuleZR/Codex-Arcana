@@ -191,7 +191,12 @@ class CreatureEngine:
                     break
         if value is None and attribute == ATTR_CHA:
             return None
-        return int(value or 0) + self._modifier_total(TargetDomain.ATTRIBUTE, attribute)
+        return self._attribute_modifier(value) + self._modifier_total(TargetDomain.ATTRIBUTE, attribute)
+
+    @staticmethod
+    def _attribute_modifier(value: Any) -> int:
+        """Convert a creature attribute value into its system modifier."""
+        return int(value or 0) - 5
 
     def initiative(self) -> int:
         override = self._stat_override("initiative_override")
@@ -610,6 +615,8 @@ class CreatureCardEngine:
         return {key: CreatureEngine._compact_number(value) for key, value in self.movement().items()}
 
     def attribute_rows(self) -> list[dict[str, Any]]:
+        if self.card.creature_id:
+            return CreatureEngine(self.card.creature).attribute_rows()
         rows = []
         for field_name, label in (
             ("strength_mod", "ST"),
