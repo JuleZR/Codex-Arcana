@@ -1198,6 +1198,14 @@ class CreatureCardBinding(models.Model):
         blank=True,
         null=True,
     )
+    quality = models.ForeignKey(
+        "charsheet.Quality",
+        db_column="quality",
+        on_delete=models.PROTECT,
+        related_name="creature_card_bindings",
+        default=QUALITY_COMMON,
+        help_text="Quality used when this binding is triggered by a technique. Item-triggered cards use the owned item's quality.",
+    )
     active = models.BooleanField(default=True)
     note = models.TextField(blank=True, default="")
 
@@ -1245,6 +1253,20 @@ class CharacterCreatureCard(models.Model):
     character = models.ForeignKey("charsheet.Character", on_delete=models.CASCADE, related_name="creature_cards")
     binding = models.ForeignKey(CreatureCardBinding, on_delete=models.PROTECT, related_name="character_cards")
     creature = models.ForeignKey(Creature, on_delete=models.PROTECT, related_name="character_cards", null=True)
+    source_character_item = models.ForeignKey(
+        "charsheet.CharacterItem",
+        on_delete=models.CASCADE,
+        related_name="creature_cards",
+        blank=True,
+        null=True,
+    )
+    source_character_technique = models.ForeignKey(
+        "charsheet.CharacterTechnique",
+        on_delete=models.CASCADE,
+        related_name="creature_cards",
+        blank=True,
+        null=True,
+    )
     active = models.BooleanField(default=True)
     current_damage = models.PositiveIntegerField(default=0)
     notes = models.TextField(blank=True, default="")
@@ -1287,7 +1309,21 @@ class CharacterCreatureCard(models.Model):
     class Meta:
         ordering = ["character", "name", "id"]
         constraints = [
-            models.UniqueConstraint(fields=["character", "binding"], name="uniq_character_creature_card_binding"),
+            models.UniqueConstraint(
+                fields=["character", "binding"],
+                condition=models.Q(source_character_item__isnull=True, source_character_technique__isnull=True),
+                name="uniq_character_creature_card_binding_legacy",
+            ),
+            models.UniqueConstraint(
+                fields=["character", "binding", "source_character_item"],
+                condition=models.Q(source_character_item__isnull=False),
+                name="uniq_character_creature_card_item_source",
+            ),
+            models.UniqueConstraint(
+                fields=["character", "binding", "source_character_technique"],
+                condition=models.Q(source_character_technique__isnull=False),
+                name="uniq_character_creature_card_technique_source",
+            ),
         ]
 
     def __str__(self):
@@ -1309,7 +1345,7 @@ class CharacterCreatureCard(models.Model):
             return True
         from ..engine.creature_engine import _creature_card_snapshot_values
 
-        source_values = _creature_card_snapshot_values(self.creature)
+        source_values = _creature_card_snapshot_values(self.creature, quality=self.quality)
         compared_fields = (
             "initiative",
             "vw",

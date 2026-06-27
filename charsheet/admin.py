@@ -1863,7 +1863,7 @@ class CreatureCardTechniqueBindingInlineForm(forms.ModelForm):
 
     class Meta:
         model = CreatureCardBinding
-        fields = ("active", "creature", "note")
+        fields = ("active", "creature", "quality", "note")
 
     def _post_clean(self):
         self.instance.trigger_type = CreatureCardBinding.TriggerType.TECHNIQUE
@@ -1893,7 +1893,7 @@ class CreatureCardTechniqueBindingInline(admin.TabularInline):
     form = CreatureCardTechniqueBindingInlineForm
     formset = CreatureCardTechniqueBindingInlineFormSet
     extra = 0
-    fields = ("active", "creature", "note")
+    fields = ("active", "creature", "quality", "note")
     autocomplete_fields = ("creature",)
     verbose_name = "Creature Card Binding"
     verbose_name_plural = "Creature Card Bindings"
@@ -5369,9 +5369,9 @@ class CreatureAdminForm(forms.ModelForm):
 
 @admin.register(CreatureCardBinding)
 class CreatureCardBindingAdmin(admin.ModelAdmin):
-    list_display = ("creature", "trigger_type", "trigger_label", "active")
+    list_display = ("creature", "trigger_type", "trigger_label", "quality", "active")
     search_fields = ("creature__name", "creature__card_name", "item_trigger__name", "technique_trigger__name", "note")
-    list_filter = ("trigger_type", "active")
+    list_filter = ("trigger_type", "quality", "active")
     autocomplete_fields = ("creature", "item_trigger", "technique_trigger")
 
 
@@ -5410,11 +5410,11 @@ class CharacterCreatureCardCommandInline(admin.TabularInline):
 
 @admin.register(CharacterCreatureCard)
 class CharacterCreatureCardAdmin(admin.ModelAdmin):
-    list_display = ("name", "character", "creature", "trigger_label", "active", "has_source_deviations", "current_damage")
-    search_fields = ("name", "character__name", "creature__name", "creature__card_name", "binding__item_trigger__name", "binding__technique_trigger__name")
-    list_filter = ("active", "creature__size_class", "binding__trigger_type")
-    autocomplete_fields = ("character", "creature", "binding")
-    list_select_related = ("character", "creature", "binding", "binding__item_trigger", "binding__technique_trigger")
+    list_display = ("name", "character", "creature", "trigger_label", "quality", "active", "has_source_deviations", "current_damage")
+    search_fields = ("name", "character__name", "creature__name", "creature__card_name", "binding__item_trigger__name", "binding__technique_trigger__name", "source_character_item__item__name", "source_character_technique__technique__name")
+    list_filter = ("active", "quality", "creature__size_class", "binding__trigger_type")
+    autocomplete_fields = ("character", "creature", "binding", "source_character_item", "source_character_technique")
+    list_select_related = ("character", "creature", "binding", "binding__item_trigger", "binding__technique_trigger", "source_character_item", "source_character_technique")
     readonly_fields = ("has_source_deviations", "trigger_label")
     inlines = (
         CharacterCreatureCardAttackInline,
@@ -5423,7 +5423,7 @@ class CharacterCreatureCardAdmin(admin.ModelAdmin):
         CharacterCreatureCardCommandInline,
     )
     fieldsets = (
-        ("Zuordnung", {"fields": ("character", "creature", "binding", "active", "trigger_label", "has_source_deviations")}),
+        ("Zuordnung", {"fields": ("character", "creature", "binding", ("source_character_item", "source_character_technique"), "active", "trigger_label", "has_source_deviations")}),
         ("Basis", {"fields": ("name", "creature_type", "image", "description", "source_reference", "current_damage", "notes")}),
         ("Werte", {"fields": ("initiative", "vw", "sr", "gw", "fear_resistance_bonus", "rs", "wound_step")}),
         ("Groesse", {"fields": ("size_class", "size_modifier")}),

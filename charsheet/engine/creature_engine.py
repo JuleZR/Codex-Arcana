@@ -16,6 +16,13 @@ from charsheet.constants import (
     ATTR_WILL,
     GK_MODS,
     QUALITY_BEL_MODS,
+    QUALITY_COMMON,
+    QUALITY_EXCELLENT,
+    QUALITY_FINE,
+    QUALITY_LEGENDARY,
+    QUALITY_POOR,
+    QUALITY_VERY_POOR,
+    QUALITY_WRETCHED,
 )
 from charsheet.models.creatures import ATTRIBUTE_FIELD_MAP, CharacterCreature, CharacterCreatureItem, Creature, CreatureAttack
 from charsheet.models.character import CharacterItem
@@ -36,6 +43,16 @@ from .item_engine import ItemEngine
 
 
 WOUND_STAGE_LABELS = ("0", "-2", "-4", "-6", "Ausser Gefecht", "Koma")
+
+CREATURE_KIND_LABELS = {
+    QUALITY_WRETCHED: "Schwaechliche Kreatur",
+    QUALITY_VERY_POOR: "Einfache Kreatur",
+    QUALITY_POOR: "Gewoehnliche Kreatur",
+    QUALITY_COMMON: "Kreatur",
+    QUALITY_FINE: "Besondere Kreatur",
+    QUALITY_EXCELLENT: "Maechtige Kreatur",
+    QUALITY_LEGENDARY: "Einzigartige Kreatur",
+}
 
 
 @dataclass(frozen=True)
@@ -461,13 +478,15 @@ class CreatureEngine:
         wound_rows = self.wound_rows()
         wound_zone = self.current_wound_zone()
         quality = self.creature.quality
+        normalized_quality = ItemEngine.normalize_quality(quality)
         return {
             "name": self.display_name(),
             "creature_name": self.creature.display_name,
             "image": self.image(),
-            "quality": ItemEngine.normalize_quality(quality),
-            "quality_label": getattr(quality, "name", ItemEngine.normalize_quality(quality)),
+            "quality": normalized_quality,
+            "quality_label": getattr(quality, "name", normalized_quality),
             "quality_color": ItemEngine.quality_color(quality),
+            "creature_kind_label": creature_kind_label(quality),
             "size_class": self.size_class(),
             "size_modifier": self.size_modifier(),
             "initiative": self.initiative(),
@@ -570,6 +589,12 @@ class CreatureCardEngine:
     def __init__(self, card: CharacterCreatureCard):
         self.card = card
 
+    @cached_property
+    def source_engine(self) -> CreatureEngine | None:
+        if not self.card.creature_id:
+            return None
+        return CreatureEngine(self.card.creature)
+
     def display_name(self) -> str:
         return self.card.name
 
@@ -577,9 +602,13 @@ class CreatureCardEngine:
         return self.card.image
 
     def gw_against_fear(self) -> int:
+        if self.source_engine is not None:
+            return self.source_engine.gw_against_fear()
         return int(self.card.gw) + int(self.card.fear_resistance_bonus or 0)
 
     def wound_rows(self) -> list[dict[str, Any]]:
+        if self.source_engine is not None:
+            return self.source_engine.wound_rows()
         step = max(1, int(self.card.wound_step or 1))
         return [
             {"label": label, "threshold": step * index}
@@ -601,6 +630,8 @@ class CreatureCardEngine:
         return current
 
     def movement(self) -> dict[str, Any]:
+        if self.source_engine is not None:
+            return self.source_engine.movement()
         return {
             "combat": self.card.combat_speed,
             "march": self.card.march_speed,
@@ -615,8 +646,8 @@ class CreatureCardEngine:
         return {key: CreatureEngine._compact_number(value) for key, value in self.movement().items()}
 
     def attribute_rows(self) -> list[dict[str, Any]]:
-        if self.card.creature_id:
-            return CreatureEngine(self.card.creature).attribute_rows()
+        if self.source_engine is not None:
+            return self.source_engine.attribute_rows()
         rows = []
         for field_name, label in (
             ("strength_mod", "ST"),
@@ -671,30 +702,34 @@ class CreatureCardEngine:
         ]
 
     def card_context(self) -> dict[str, Any]:
-        fear_bonus = int(self.card.fear_resistance_bonus or 0)
+        source = self.source_engine
+        fear_bonus = source.fear_resistance_bonus() if source is not None else int(self.card.fear_resistance_bonus or 0)
         wound_rows = self.wound_rows()
         wound_zone = self.current_wound_zone()
         quality = self.card.quality
+        normalized_quality = ItemEngine.normalize_quality(quality)
+        armor = source.armor_totals() if source is not None else None
         return {
             "id": self.card.pk,
             "name": self.display_name(),
             "creature_name": self.card.creature_type or self.card.name,
             "image": self.image(),
-            "quality": ItemEngine.normalize_quality(quality),
-            "quality_label": getattr(quality, "name", ItemEngine.normalize_quality(quality)),
+            "quality": normalized_quality,
+            "quality_label": getattr(quality, "name", normalized_quality),
             "quality_color": ItemEngine.quality_color(quality),
-            "size_class": self.card.size_class,
-            "size_modifier": self.card.size_modifier,
-            "initiative": self.card.initiative,
-            "vw": self.card.vw,
-            "sr": self.card.sr,
-            "gw": self.card.gw,
+            "creature_kind_label": creature_kind_label(quality),
+            "size_class": source.size_class() if source is not None else self.card.size_class,
+            "size_modifier": source.size_modifier() if source is not None else self.card.size_modifier,
+            "initiative": source.initiative() if source is not None else self.card.initiative,
+            "vw": source.vw() if source is not None else self.card.vw,
+            "sr": source.sr() if source is not None else self.card.sr,
+            "gw": source.gw() if source is not None else self.card.gw,
             "gw_fear": self.gw_against_fear() if fear_bonus else None,
             "fear_bonus": fear_bonus,
-            "rs_natural": self.card.rs,
-            "rs_armor": 0,
-            "rs_total": self.card.rs,
-            "encumbrance": 0,
+            "rs_natural": armor.natural_rs if armor is not None else self.card.rs,
+            "rs_armor": armor.armor_rs if armor is not None else 0,
+            "rs_total": armor.total_rs if armor is not None else self.card.rs,
+            "encumbrance": armor.encumbrance if armor is not None else 0,
             "current_damage": int(self.card.current_damage or 0),
             "wounds": wound_rows,
             "wound_max": wound_rows[-1]["threshold"] if wound_rows else 0,
@@ -713,7 +748,12 @@ class CreatureCardEngine:
         }
 
 
-def _creature_card_snapshot_values(creature: Creature) -> dict[str, Any]:
+def creature_kind_label(quality: Any) -> str:
+    """Return the creature-card rank label for one quality tier."""
+    return CREATURE_KIND_LABELS.get(ItemEngine.normalize_quality(quality), "Kreatur")
+
+
+def _creature_card_snapshot_values(creature: Creature, *, quality: Any | None = None) -> dict[str, Any]:
     engine = CreatureEngine(creature)
     armor = engine.armor_totals()
     movement = engine.movement()
@@ -723,7 +763,7 @@ def _creature_card_snapshot_values(creature: Creature) -> dict[str, Any]:
         "image": creature.image,
         "description": creature.description,
         "source_reference": creature.climate_and_occurrence,
-        "quality": creature.quality,
+        "quality": quality if quality is not None else creature.quality,
         "initiative": engine.initiative(),
         "vw": engine.vw(),
         "sr": engine.sr(),
@@ -817,15 +857,27 @@ def _copy_creature_rows(card: CharacterCreatureCard) -> None:
 def sync_character_creature_cards(character) -> list[CharacterCreatureCard]:
     """Create/reactivate/deactivate concrete creature cards for one character."""
 
-    item_ids = set(
-        CharacterItem.objects.filter(owner=character, amount__gt=0, stored=False).values_list("item_id", flat=True)
+    character_items = list(
+        CharacterItem.objects.filter(owner=character, amount__gt=0, stored=False)
+        .select_related("item", "quality")
+        .order_by("id")
     )
-    technique_ids = set(
-        CharacterTechnique.objects.filter(character=character).values_list("technique_id", flat=True)
+    items_by_item_id = {}
+    for character_item in character_items:
+        items_by_item_id.setdefault(character_item.item_id, []).append(character_item)
+
+    character_techniques = list(
+        CharacterTechnique.objects.filter(character=character)
+        .select_related("technique")
+        .order_by("id")
     )
+    techniques_by_technique_id = {
+        character_technique.technique_id: character_technique
+        for character_technique in character_techniques
+    }
     bindings = list(
         CreatureCardBinding.objects.filter(active=True, creature__isnull=False)
-        .select_related("creature", "creature__quality", "item_trigger", "technique_trigger")
+        .select_related("creature", "creature__quality", "quality", "item_trigger", "technique_trigger")
         .prefetch_related(
             "creature__attacks",
             "creature__skills__skill",
@@ -834,46 +886,73 @@ def sync_character_creature_cards(character) -> list[CharacterCreatureCard]:
             "creature__commands__command__prerequisite_links__prerequisite",
         )
     )
-    active_binding_ids = set()
+    active_card_ids = set()
     for binding in bindings:
-        matches_item = (
-            binding.trigger_type == CreatureCardBinding.TriggerType.ITEM
-            and binding.item_trigger_id in item_ids
-        )
-        matches_technique = (
-            binding.trigger_type == CreatureCardBinding.TriggerType.TECHNIQUE
-            and binding.technique_trigger_id in technique_ids
-        )
-        if not (matches_item or matches_technique):
+        source_rows = []
+        if binding.trigger_type == CreatureCardBinding.TriggerType.ITEM:
+            source_rows = [
+                {
+                    "source_character_item": character_item,
+                    "source_character_technique": None,
+                    "quality": character_item.quality,
+                }
+                for character_item in items_by_item_id.get(binding.item_trigger_id, [])
+            ]
+        elif binding.trigger_type == CreatureCardBinding.TriggerType.TECHNIQUE:
+            character_technique = techniques_by_technique_id.get(binding.technique_trigger_id)
+            if character_technique is not None:
+                source_rows = [
+                    {
+                        "source_character_item": None,
+                        "source_character_technique": character_technique,
+                        "quality": binding.quality,
+                    }
+                ]
+        if not source_rows:
             continue
-        active_binding_ids.add(binding.pk)
-        card, created = CharacterCreatureCard.objects.get_or_create(
-            character=character,
-            binding=binding,
-            defaults=CharacterCreatureCard.snapshot_defaults(
-                binding.creature,
-                binding,
-                _creature_card_snapshot_values(binding.creature),
-            ),
-        )
-        if created:
-            _copy_creature_rows(card)
-        else:
-            update_fields = []
-            if not card.active:
-                card.active = True
-                update_fields.append("active")
-            if card.creature_id is None:
-                card.creature = binding.creature
-                update_fields.append("creature")
-            if update_fields:
-                card.save(update_fields=update_fields)
+        for source in source_rows:
+            snapshot_values = _creature_card_snapshot_values(binding.creature, quality=source["quality"])
+            card, created = CharacterCreatureCard.objects.get_or_create(
+                character=character,
+                binding=binding,
+                source_character_item=source["source_character_item"],
+                source_character_technique=source["source_character_technique"],
+                defaults=CharacterCreatureCard.snapshot_defaults(
+                    binding.creature,
+                    binding,
+                    snapshot_values,
+                ),
+            )
+            active_card_ids.add(card.pk)
+            if created:
+                _copy_creature_rows(card)
+            else:
+                update_fields = []
+                if not card.active:
+                    card.active = True
+                    update_fields.append("active")
+                if card.creature_id is None:
+                    card.creature = binding.creature
+                    update_fields.append("creature")
+                if card.quality_id != getattr(source["quality"], "pk", source["quality"]):
+                    card.quality = source["quality"]
+                    update_fields.append("quality")
+                if update_fields:
+                    card.save(update_fields=update_fields)
 
     existing_cards = CharacterCreatureCard.objects.filter(character=character)
-    existing_cards.exclude(binding_id__in=active_binding_ids).filter(active=True).update(active=False)
+    existing_cards.exclude(pk__in=active_card_ids).filter(active=True).update(active=False)
     return list(
         existing_cards.filter(active=True)
-        .select_related("creature", "quality", "binding", "binding__item_trigger", "binding__technique_trigger")
+        .select_related(
+            "creature",
+            "quality",
+            "binding",
+            "binding__item_trigger",
+            "binding__technique_trigger",
+            "source_character_item",
+            "source_character_technique",
+        )
         .prefetch_related("attacks", "skills", "traits", "commands__prerequisite_links__prerequisite")
         .order_by("name", "id")
     )

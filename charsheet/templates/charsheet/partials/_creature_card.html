@@ -33,7 +33,7 @@
         </aside>
 
         <section class="card-typebar">
-            <span>Kreatur - {{ creature_card.creature_name|default:creature_card.name }}</span>
+            <span>{{ creature_card.creature_kind_label|default:"Kreatur" }} - {{ creature_card.creature_name|default:creature_card.name }}</span>
             <img class="card-setmark" src="{% static 'img/favicon.ico' %}" alt="" aria-hidden="true">
         </section>
 
