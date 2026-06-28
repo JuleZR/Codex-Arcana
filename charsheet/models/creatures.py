@@ -10,6 +10,7 @@ from django.core.validators import MinValueValidator
 from django.utils.text import slugify
 
 from ..constants import (
+    ATTRIBUTE_CODE_CHOICES,
     ATTR_CHA,
     ATTR_GE,
     ATTR_INT,
@@ -25,6 +26,12 @@ from ..constants import (
     MODIFIER_VISIBILITY_CHOICES,
     PROFICIENCY_GROUP_CHOICES,
     QUALITY_COMMON,
+    QUALITY_EXCELLENT,
+    QUALITY_FINE,
+    QUALITY_LEGENDARY,
+    QUALITY_POOR,
+    QUALITY_VERY_POOR,
+    QUALITY_WRETCHED,
     RESOURCE_KEY_CHOICES,
     STACK_BEHAVIOR_CHOICES,
     STAT_SLUG_CHOICES,
@@ -53,6 +60,17 @@ ATTRIBUTE_PROPERTY_CODES = {
     "perception_mod": ATTR_WA,
     "willpower_mod": ATTR_WILL,
     "charisma_mod": ATTR_CHA,
+}
+
+
+CREATURE_CARD_QUALITY_TRAINING_BUDGETS = {
+    QUALITY_WRETCHED: (0, 3),
+    QUALITY_VERY_POOR: (0, 2),
+    QUALITY_POOR: (0, 1),
+    QUALITY_COMMON: (0, 0),
+    QUALITY_FINE: (1, 0),
+    QUALITY_EXCELLENT: (2, 0),
+    QUALITY_LEGENDARY: (3, 0),
 }
 
 
@@ -1308,6 +1326,8 @@ class CharacterCreatureCard(models.Model):
     perception_mod = models.IntegerField(default=0)
     willpower_mod = models.IntegerField(default=0)
     charisma_mod = models.IntegerField(blank=True, null=True)
+    max_base_advantage_points = models.PositiveSmallIntegerField(default=0)
+    max_base_disadvantage_points = models.PositiveSmallIntegerField(default=0)
 
     class Meta:
         ordering = ["character", "name", "id"]
@@ -1339,8 +1359,46 @@ class CharacterCreatureCard(models.Model):
     @classmethod
     def snapshot_defaults(cls, creature, binding, values):
         defaults = dict(values)
+        quality = defaults.get("quality", getattr(creature, "quality", QUALITY_COMMON))
+        defaults.update(cls.training_budget_defaults(quality))
         defaults.update({"binding": binding, "creature": creature, "active": True})
         return defaults
+
+    @classmethod
+    def training_budget_defaults(cls, quality):
+        quality_code = getattr(quality, "code", quality) or QUALITY_COMMON
+        advantage_points, disadvantage_points = CREATURE_CARD_QUALITY_TRAINING_BUDGETS.get(
+            quality_code,
+            CREATURE_CARD_QUALITY_TRAINING_BUDGETS[QUALITY_COMMON],
+        )
+        return {
+            "max_base_advantage_points": advantage_points,
+            "max_base_disadvantage_points": disadvantage_points,
+        }
+
+    @property
+    def base_disadvantage_points_spent(self):
+        return sum(row.point_cost for row in self.traits.all() if row.point_source == CharacterCreatureCardTrait.PointSource.BASE_DISADVANTAGE)
+
+    @property
+    def additional_disadvantage_points_spent(self):
+        return sum(row.point_cost for row in self.traits.all() if row.point_source == CharacterCreatureCardTrait.PointSource.ADDITIONAL_DISADVANTAGE)
+
+    @property
+    def advantage_points_spent(self):
+        return sum(row.point_cost for row in self.traits.all() if row.training_trait_type == CharacterCreatureCardTrait.TrainingTraitType.ADVANTAGE)
+
+    @property
+    def bonus_advantage_points(self):
+        return min(self.additional_disadvantage_points_spent, 4)
+
+    @property
+    def effective_advantage_points(self):
+        return int(self.max_base_advantage_points or 0) + self.bonus_advantage_points
+
+    @property
+    def effective_disadvantage_points(self):
+        return int(self.max_base_disadvantage_points or 0) + 4
 
     @property
     def has_source_deviations(self):
@@ -1409,10 +1467,30 @@ class CharacterCreatureCardSkill(models.Model):
 
 
 class CharacterCreatureCardTrait(models.Model):
+    class TrainingTraitType(models.TextChoices):
+        NONE = "", "Keine Ausbildung"
+        ADVANTAGE = "advantage", "Vorzug"
+        DISADVANTAGE = "disadvantage", "Schwäche"
+
+    class PointSource(models.TextChoices):
+        NONE = "", "Keine Budgetwirkung"
+        BASE_DISADVANTAGE = "base_disadvantage", "Basis-Schwäche"
+        ADDITIONAL_DISADVANTAGE = "additional_disadvantage", "Zusatzschwäche"
+
     card = models.ForeignKey(CharacterCreatureCard, on_delete=models.CASCADE, related_name="traits")
+    trait_definition = models.ForeignKey(
+        CreatureTraitDefinition,
+        on_delete=models.PROTECT,
+        related_name="creature_card_traits",
+        blank=True,
+        null=True,
+    )
     name = models.CharField(max_length=100)
     level = models.IntegerField(blank=True, null=True)
     description = models.TextField(blank=True, default="")
+    training_trait_type = models.CharField(max_length=20, choices=TrainingTraitType.choices, blank=True, default="")
+    point_source = models.CharField(max_length=30, choices=PointSource.choices, blank=True, default="")
+    point_cost_override = models.PositiveSmallIntegerField(blank=True, null=True)
     order = models.PositiveIntegerField(default=0)
 
     class Meta:
@@ -1421,9 +1499,24 @@ class CharacterCreatureCardTrait(models.Model):
     def __str__(self):
         return f"{self.card}: {self.name}"
 
+    @property
+    def point_cost(self):
+        if self.point_cost_override is not None:
+            return int(self.point_cost_override)
+        if self.trait_definition_id:
+            return int(self.trait_definition.cost_for_level(int(self.level or 1)))
+        return 0
+
 
 class CharacterCreatureCardCommand(models.Model):
     card = models.ForeignKey(CharacterCreatureCard, on_delete=models.CASCADE, related_name="commands")
+    command = models.ForeignKey(
+        CreatureCommand,
+        on_delete=models.PROTECT,
+        related_name="creature_card_commands",
+        blank=True,
+        null=True,
+    )
     name = models.CharField(max_length=100)
     slug = models.SlugField(max_length=100, blank=True, default="")
     ep_cost = models.DecimalField(max_digits=4, decimal_places=1, default=0)
@@ -1440,6 +1533,13 @@ class CharacterCreatureCardCommand(models.Model):
 
     class Meta:
         ordering = ["order", "name"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["card", "command"],
+                condition=models.Q(command__isnull=False),
+                name="uniq_card_known_creature_command",
+            ),
+        ]
 
     def __str__(self):
         return f"{self.card}: {self.name}"
@@ -1500,3 +1600,19 @@ class CharacterCreatureCardCommandPrerequisite(models.Model):
         super().clean()
         if self.command_id and self.prerequisite_id and self.command.card_id != self.prerequisite.card_id:
             raise ValidationError({"prerequisite": "Prerequisite must belong to the same creature card."})
+
+
+class CharacterCreatureCardAttributeIncrease(models.Model):
+    card = models.ForeignKey(CharacterCreatureCard, on_delete=models.CASCADE, related_name="attribute_increases")
+    attribute = models.CharField(max_length=10, choices=ATTRIBUTE_CODE_CHOICES)
+    amount = models.PositiveSmallIntegerField(default=1, validators=[MinValueValidator(1)])
+    notes = models.CharField(max_length=200, blank=True, default="")
+
+    class Meta:
+        ordering = ["attribute", "id"]
+        constraints = [
+            models.UniqueConstraint(fields=["card", "attribute"], name="uniq_card_attribute_increase"),
+        ]
+
+    def __str__(self):
+        return f"{self.card}: {self.attribute} +{self.amount}"

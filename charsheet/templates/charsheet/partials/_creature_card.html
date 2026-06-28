@@ -1,6 +1,14 @@
 {% load static %}
 
-<article class="card creature-card" lang="de" aria-label="{{ creature_card.name }} Kreaturenkarte">
+<article
+    class="card creature-card{% if creature_card.training_update_url %} card--editable{% endif %}"
+    lang="de"
+    aria-label="{{ creature_card.name }} Kreaturenkarte"
+    data-creature-card-quality="{{ creature_card.quality }}"
+    {% if creature_card.training_update_url %}data-creature-card-editor{% endif %}
+    {% if creature_card.holo %}data-card-holo="true" data-card-holo-kind="creature"{% endif %}
+    {% if creature_card.quality != "common" %}style="--card-quality-edge-color: {{ creature_card.quality_color }};"{% endif %}
+>
     <figure class="card-art{% if not creature_card.image %} card-art--empty{% endif %}">
         {% if creature_card.image %}
             <img src="{{ creature_card.image.url }}" alt="{{ creature_card.name }}">
@@ -8,8 +16,22 @@
     </figure>
 
     <div class="card-shell">
+        {% if creature_card.training_update_url %}
+            <div class="card-art-edit">
+                <label class="card-art-edit__upload" data-creature-card-image-trigger>
+                    <span>Bild</span>
+                    <input name="custom_creature_image" type="file" accept="image/*" data-creature-card-field>
+                </label>
+                {% if creature_card.has_custom_image %}
+                    <button class="card-art-edit__remove" type="button" data-creature-card-remove-image>Löschen</button>
+                {% endif %}
+            </div>
+        {% endif %}
         <header class="card-titlebar">
-            <h1 class="card-title">{{ creature_card.name }}</h1>
+            <h1 class="card-title card-display-field">{{ creature_card.name }}</h1>
+            {% if creature_card.training_update_url %}
+                <input class="card-title card-title-input card-edit-field" name="custom_name" value="{{ creature_card.name|default:'' }}" maxlength="100" data-creature-card-field>
+            {% endif %}
             <div class="creature-card__movement" aria-label="Bewegungsraten">
                 <span class="creature-card__movement-mark" title="Kampfbewegung" aria-label="Kampfbewegung {{ creature_card.movement_display.combat|default:creature_card.movement.combat }}">
                     <span>{{ creature_card.movement_display.combat|default:creature_card.movement.combat }}</span>
@@ -33,8 +55,30 @@
         </aside>
 
         <section class="card-typebar">
-            <span>{{ creature_card.creature_kind_label|default:"Kreatur" }} - {{ creature_card.creature_name|default:creature_card.name }}</span>
-            <img class="card-setmark" src="{% static 'img/favicon.ico' %}" alt="" aria-hidden="true">
+            <span class="card-display-field">{{ creature_card.creature_kind_label|default:"Kreatur" }} - {{ creature_card.creature_name|default:creature_card.name }}</span>
+            {% if creature_card.training_update_url %}
+                <label class="card-typebar-edit card-edit-field" aria-label="Qualität der Kreatur">
+                    <select
+                        class="creature-card-quality-select"
+                        name="quality"
+                        data-creature-card-field
+                    >
+                        {% for quality in creature_card.quality_choices %}
+                            <option value="{{ quality.value }}" data-quality-color="{{ quality.color }}"{% if quality.selected %} selected{% endif %}>{{ quality.label }}</option>
+                        {% endfor %}
+                    </select>
+                    <span>-</span>
+                    <span class="card-typebar-kind-input card-typebar-kind-input--locked">{{ creature_card.creature_name|default:creature_card.name }}</span>
+                </label>
+            {% endif %}
+            {% if creature_card.training_update_url %}
+                <button class="card-setmark card-edit-lock" type="button" data-creature-card-edit-toggle aria-pressed="false" title="Karte freigeben">
+                    <img class="card-edit-lock__closed" src="{% static 'img/lock_closed.png' %}" alt="" aria-hidden="true">
+                    <img class="card-edit-lock__open" src="{% static 'img/lock_open.png' %}" alt="" aria-hidden="true">
+                </button>
+            {% else %}
+                <img class="card-setmark" src="{% static 'img/favicon.ico' %}" alt="" aria-hidden="true">
+            {% endif %}
         </section>
 
         <div

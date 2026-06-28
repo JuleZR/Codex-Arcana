@@ -53,6 +53,7 @@ from .models import (
     CharacterAttribute,
     CharacterCreature,
     CharacterCreatureCard,
+    CharacterCreatureCardAttributeIncrease,
     CharacterCreatureCardAttack,
     CharacterCreatureCardCommand,
     CharacterCreatureCardCommandPrerequisite,
@@ -5390,7 +5391,14 @@ class CharacterCreatureCardSkillInline(admin.TabularInline):
 class CharacterCreatureCardTraitInline(admin.TabularInline):
     model = CharacterCreatureCardTrait
     extra = 0
-    fields = ("order", "name", "level", "description")
+    fields = ("order", "trait_definition", "name", "level", "training_trait_type", "point_source", "point_cost_override", "description")
+    autocomplete_fields = ("trait_definition",)
+
+
+class CharacterCreatureCardAttributeIncreaseInline(admin.TabularInline):
+    model = CharacterCreatureCardAttributeIncrease
+    extra = 0
+    fields = ("attribute", "amount", "notes")
 
 
 class CharacterCreatureCardCommandPrerequisiteInline(admin.TabularInline):
@@ -5404,8 +5412,9 @@ class CharacterCreatureCardCommandPrerequisiteInline(admin.TabularInline):
 class CharacterCreatureCardCommandInline(admin.TabularInline):
     model = CharacterCreatureCardCommand
     extra = 0
-    fields = ("order", "name", "slug", "ep_cost", "difficulty", "prerequisite_display", "description")
+    fields = ("order", "command", "name", "slug", "ep_cost", "difficulty", "prerequisite_display", "description")
     readonly_fields = ("prerequisite_display",)
+    autocomplete_fields = ("command",)
 
 
 @admin.register(CharacterCreatureCard)
@@ -5421,11 +5430,13 @@ class CharacterCreatureCardAdmin(admin.ModelAdmin):
         CharacterCreatureCardSkillInline,
         CharacterCreatureCardTraitInline,
         CharacterCreatureCardCommandInline,
+        CharacterCreatureCardAttributeIncreaseInline,
     )
     fieldsets = (
         ("Zuordnung", {"fields": ("character", "creature", "binding", ("source_character_item", "source_character_technique"), "active", "trigger_label", "has_source_deviations")}),
         ("Basis", {"fields": ("name", "creature_type", "image", "description", "source_reference", "current_damage", "notes")}),
         ("Werte", {"fields": ("initiative", "vw", "sr", "gw", ("fear_resistance_bonus", "defense_extra_label"), "rs", "wound_step")}),
+        ("Ausbildungsbudgets", {"fields": ("max_base_advantage_points", "max_base_disadvantage_points")}),
         ("Groesse", {"fields": ("size_class", "size_modifier")}),
         ("Bewegung", {"fields": ("combat_speed", "march_speed", "sprint_speed", "swimming_speed", "combat_fly_speed", "march_fly_speed", "sprint_fly_speed")}),
         ("Eigenschaften", {"fields": ("strength_mod", "constitution_mod", "dexterity_mod", "intelligence_mod", "perception_mod", "willpower_mod", "charisma_mod")}),
@@ -5649,11 +5660,19 @@ class CreatureCommandAdmin(admin.ModelAdmin):
 
 @admin.register(CharacterCreatureCardCommand)
 class CharacterCreatureCardCommandAdmin(admin.ModelAdmin):
-    list_display = ("card", "name", "slug", "ep_cost", "difficulty", "prerequisite_display", "order")
+    list_display = ("card", "command", "name", "slug", "ep_cost", "difficulty", "prerequisite_display", "order")
     search_fields = ("card__name", "name", "slug", "description")
+    autocomplete_fields = ("card", "command")
+    list_select_related = ("card", "command")
+    inlines = (CharacterCreatureCardCommandPrerequisiteInline,)
+
+
+@admin.register(CharacterCreatureCardAttributeIncrease)
+class CharacterCreatureCardAttributeIncreaseAdmin(admin.ModelAdmin):
+    list_display = ("card", "attribute", "amount")
+    search_fields = ("card__name", "card__character__name", "notes")
     autocomplete_fields = ("card",)
     list_select_related = ("card",)
-    inlines = (CharacterCreatureCardCommandPrerequisiteInline,)
 
 
 @admin.register(CreatureCommandReference)

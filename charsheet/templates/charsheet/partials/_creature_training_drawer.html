@@ -1,0 +1,118 @@
+<aside class="creature-training-drawer" data-creature-training-drawer data-creature-card-id="{{ training.card.pk }}" aria-label="Ausbildung">
+  <button class="creature-training-drawer__toggle" type="button" data-creature-training-toggle aria-expanded="false" title="Ausbildung">Ausbildung</button>
+  <form class="creature-training-drawer__panel" method="post" action="{{ training.update_url }}" data-creature-training-form hidden>
+    {% csrf_token %}
+    <header class="creature-training-drawer__header">
+      <h2>Ausbildung</h2>
+      <button type="submit">Speichern</button>
+    </header>
+
+    <section class="creature-training-drawer__section" aria-label="Punkte">
+      <h3 class="creature-training-section-heading">Punkte</h3>
+      <div class="creature-training-section-body">
+        <dl class="creature-training-points">
+          <div><dt>Basis-Vorzüge</dt><dd>{{ training.base_advantage_points }}</dd></div>
+          <div><dt>Bonus-Vorzüge</dt><dd>{{ training.bonus_advantage_points }}/4</dd></div>
+          <div><dt>Vorzüge belegt</dt><dd>{{ training.spent_advantage_points }}/{{ training.effective_advantage_points }}</dd></div>
+          <div><dt>Vorzüge frei</dt><dd>{{ training.remaining_advantage_points }}</dd></div>
+          <div><dt>Schwächen</dt><dd>{{ training.spent_disadvantage_points }}/{{ training.effective_disadvantage_points }}</dd></div>
+          <div><dt>Schwächen frei</dt><dd>{{ training.remaining_disadvantage_points }}</dd></div>
+        </dl>
+      </div>
+    </section>
+
+    <section class="creature-training-drawer__section is-collapsed" aria-label="Kommandos" data-creature-training-section>
+      <button class="creature-training-section-toggle" type="button" data-creature-training-section-toggle aria-expanded="false">
+        <span>Kommandos</span>
+        <span class="creature-training-section-toggle__icon" aria-hidden="true"></span>
+      </button>
+      <div class="creature-training-section-body" data-creature-training-section-body hidden>
+        <input class="creature-training-filter" type="search" placeholder="Kommandos suchen" data-creature-training-filter data-filter-target="commands" aria-label="Kommandos suchen">
+        <div class="creature-training-list" data-creature-training-filter-list="commands">
+        {% for command in training.command_catalog %}
+          <label class="creature-training-choice{% if command.missing_prerequisites %} creature-training-choice--unmet{% endif %}" data-creature-command-choice data-prerequisite-groups="{{ command.prerequisite_group_ids_json }}" data-filter-text="{{ command.name }} {{ command.prerequisite_display }}">
+            <input type="checkbox" name="commands" value="{{ command.id }}"{% if command.known %} checked{% endif %} data-creature-command-input>
+            <span>
+              <strong>{{ command.name }}</strong>
+              <small>
+                EP {{ command.ep_cost }} · {{ command.training_days }} Tage{% if command.difficulty %} · MW {{ command.difficulty }}{% endif %}
+                {% if command.prerequisite_display %}<br>Voraussetzungen: {{ command.prerequisite_display }}{% endif %}
+              </small>
+            </span>
+          </label>
+        {% empty %}
+          <p class="creature-training-empty">Keine Kommandos im Katalog.</p>
+        {% endfor %}
+        </div>
+      </div>
+    </section>
+
+    <section class="creature-training-drawer__section is-collapsed" aria-label="Vorzüge" data-creature-training-section>
+      <button class="creature-training-section-toggle" type="button" data-creature-training-section-toggle aria-expanded="false">
+        <span>Vorzüge</span>
+        <span class="creature-training-section-toggle__icon" aria-hidden="true"></span>
+      </button>
+      <div class="creature-training-section-body" data-creature-training-section-body hidden>
+        <input class="creature-training-filter" type="search" placeholder="Vorzüge suchen" data-creature-training-filter data-filter-target="advantages" aria-label="Vorzüge suchen">
+        <div class="creature-training-list" data-creature-training-filter-list="advantages">
+        {% for trait in training.trait_catalog %}
+          {% if trait.trait_type == "advantage" %}
+            <label class="creature-training-choice" data-filter-text="{{ trait.name }} {{ trait.cost_display }}">
+              <input type="checkbox" name="advantages" value="{{ trait.id }}"{% if trait.advantage_selected %} checked{% endif %}>
+              <span>
+                <strong>{{ trait.name }}</strong>
+                <small>Kosten {{ trait.cost_display }}</small>
+              </span>
+              <input class="creature-training-level" type="number" name="advantage_level_{{ trait.id }}" value="{{ trait.advantage_level }}" min="{{ trait.min_level }}" max="{{ trait.max_level }}" aria-label="Stufe {{ trait.name }}">
+            </label>
+          {% endif %}
+        {% endfor %}
+        </div>
+      </div>
+    </section>
+
+    <section class="creature-training-drawer__section is-collapsed" aria-label="Schwächen" data-creature-training-section>
+      <button class="creature-training-section-toggle" type="button" data-creature-training-section-toggle aria-expanded="false">
+        <span>Schwächen</span>
+        <span class="creature-training-section-toggle__icon" aria-hidden="true"></span>
+      </button>
+      <div class="creature-training-section-body" data-creature-training-section-body hidden>
+        <input class="creature-training-filter" type="search" placeholder="Schwächen suchen" data-creature-training-filter data-filter-target="disadvantages" aria-label="Schwächen suchen">
+        <div class="creature-training-list" data-creature-training-filter-list="disadvantages">
+        {% for trait in training.trait_catalog %}
+          {% if trait.trait_type == "disadvantage" %}
+            <label class="creature-training-choice" data-filter-text="{{ trait.name }} {{ trait.cost_display }}">
+              <input type="checkbox" name="disadvantages" value="{{ trait.id }}"{% if trait.disadvantage_selected %} checked{% endif %}>
+              <span>
+                <strong>{{ trait.name }}</strong>
+                <small>Punkte {{ trait.cost_display }}</small>
+              </span>
+              <input class="creature-training-level" type="number" name="disadvantage_level_{{ trait.id }}" value="{{ trait.disadvantage_level }}" min="{{ trait.min_level }}" max="{{ trait.max_level }}" aria-label="Stufe {{ trait.name }}">
+            </label>
+          {% endif %}
+        {% endfor %}
+        </div>
+      </div>
+    </section>
+
+    <section class="creature-training-drawer__section" aria-label="Eigenschaftssteigerungen">
+      <h3 class="creature-training-section-heading">Eigenschaften</h3>
+      <div class="creature-training-section-body">
+        <div class="creature-training-attributes" role="table" aria-label="Eigenschaftssteigerungen" data-creature-training-filter-list="attributes">
+        <div class="creature-training-attributes__header" role="row">
+          <span role="columnheader">Eigenschaft</span>
+          <span role="columnheader">Wert</span>
+          <span role="columnheader">Mod.</span>
+        </div>
+        {% for attribute in training.attribute_options %}
+          <label class="creature-training-attributes__row" role="row" data-filter-text="{{ attribute.label }} {{ attribute.current_value_display }} {{ attribute.current_display }}">
+            <span role="cell">{{ attribute.label }}</span>
+            <input type="number" name="attribute_{{ attribute.code }}" value="{{ attribute.input_value }}" min="{{ attribute.base_value|default:0 }}" max="20" data-creature-attribute-value>
+            <span role="cell" data-creature-attribute-mod>{{ attribute.current_display }}</span>
+          </label>
+        {% endfor %}
+        </div>
+      </div>
+    </section>
+  </form>
+</aside>

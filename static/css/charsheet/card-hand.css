@@ -180,6 +180,351 @@
   position: relative;
 }
 
+.creature-training-drawer {
+  --creature-training-width: min(330px, calc(100vw - 36px));
+  display: none;
+  position: absolute;
+  top: 0;
+  left: calc(100% + 8px);
+  width: var(--creature-training-width);
+  height: 100%;
+  z-index: 20;
+  font-family: "Cormorant Garamond", Georgia, serif;
+  transform: translateX(0);
+  transition: transform 180ms ease;
+  will-change: transform;
+}
+
+.card-hand__floating-card:has(.creature-card.is-edit-unlocked) .creature-training-drawer {
+  display: block;
+}
+
+.card-hand__floating-card:has(.creature-training-drawer.is-open) .creature-training-drawer {
+  top: 0;
+  left: calc(100% + 8px);
+  transform: translateX(0);
+}
+
+.creature-training-drawer__toggle {
+  position: absolute;
+  top: 56px;
+  left: -24px;
+  width: 30px;
+  min-height: 118px;
+  padding: 6px 2px;
+  border: 1px solid rgba(71, 49, 25, 0.78);
+  border-radius: 0 6px 6px 0;
+  background:
+    linear-gradient(90deg, rgba(178, 132, 64, 0.88), rgba(235, 211, 154, 0.96) 38%, rgba(207, 165, 91, 0.94));
+  color: #20160d;
+  cursor: pointer;
+  font: 700 12px/1 "Cinzel", Georgia, serif;
+  letter-spacing: 0;
+  writing-mode: vertical-rl;
+  text-shadow: 0 1px 0 rgba(255, 246, 218, 0.72);
+  box-shadow: 2px 3px 0 rgba(0, 0, 0, 0.32), inset 1px 0 0 rgba(255, 249, 224, 0.5);
+}
+
+.creature-training-drawer.is-open .creature-training-drawer__toggle {
+  right: -24px;
+  left: auto;
+}
+
+.creature-training-drawer__panel {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: min(100%, calc(100vh - 36px));
+  max-height: min(100%, calc(100vh - 36px));
+  overflow: auto;
+  padding: 10px 10px 12px;
+  border: 1px solid rgba(69, 47, 22, 0.82);
+  border-radius: 0 8px 8px 0;
+  background:
+    linear-gradient(180deg, rgba(255, 251, 239, 0.97), rgba(236, 222, 190, 0.96) 54%, rgba(218, 194, 145, 0.97));
+  color: #21170e;
+  box-shadow:
+    5px 6px 0 rgba(0, 0, 0, 0.34),
+    inset 0 1px 0 rgba(255, 252, 239, 0.78),
+    inset 8px 0 14px rgba(96, 63, 27, 0.08);
+  opacity: 1;
+  transition: opacity 140ms ease;
+}
+
+.creature-training-drawer__panel[hidden] {
+  display: none;
+}
+
+.creature-training-drawer:not(.is-open) .creature-training-drawer__panel:not([hidden]) {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.creature-training-drawer__header,
+.creature-training-points div,
+.creature-training-choice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.creature-training-drawer h2,
+.creature-training-drawer h3 {
+  margin: 0;
+  color: #20160d;
+  font-family: "Cinzel", Georgia, serif;
+  letter-spacing: 0;
+}
+
+.creature-training-drawer h2 {
+  font-size: 16px;
+}
+
+.creature-training-drawer__header {
+  position: sticky;
+  top: -10px;
+  z-index: 1;
+  margin: -10px -10px 8px;
+  padding: 9px 10px 8px;
+  border-bottom: 1px solid rgba(100, 73, 38, 0.24);
+  background:
+    linear-gradient(180deg, rgba(255, 251, 239, 0.98), rgba(236, 222, 190, 0.94));
+}
+
+.creature-training-drawer__header button,
+.creature-training-choice input[type="checkbox"],
+.creature-training-level,
+.creature-training-attributes input {
+  accent-color: #8d642d;
+}
+
+.creature-training-drawer__header button {
+  min-height: 24px;
+  padding: 2px 8px;
+  border: 1px solid rgba(70, 49, 25, 0.58);
+  border-radius: 4px;
+  background: linear-gradient(180deg, rgba(255, 251, 238, 0.96), rgba(215, 190, 136, 0.9));
+  color: #21170e;
+  font: 700 12px/1 "Cormorant Garamond", Georgia, serif;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.58), 1px 1px 0 rgba(0, 0, 0, 0.18);
+}
+
+.creature-training-section-heading {
+  margin: 0;
+  padding: 4px 0;
+  color: #20160d;
+  font: 700 13px/1.2 "Cinzel", Georgia, serif;
+  letter-spacing: 0;
+}
+
+.creature-training-drawer__section {
+  padding: 7px 0 8px;
+  border-top: 1px solid rgba(91, 65, 32, 0.2);
+  box-shadow: inset 0 1px 0 rgba(255, 252, 239, 0.32);
+}
+
+.creature-training-section-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 26px;
+  padding: 4px 6px;
+  border: 0;
+  border-radius: 4px;
+  background: linear-gradient(90deg, rgba(126, 89, 44, 0.1), rgba(255, 250, 235, 0));
+  color: #20160d;
+  cursor: pointer;
+  font: 700 13px/1.2 "Cinzel", Georgia, serif;
+  letter-spacing: 0;
+  text-align: left;
+}
+
+.creature-training-section-toggle:hover {
+  background: linear-gradient(90deg, rgba(160, 116, 58, 0.18), rgba(255, 250, 235, 0.08));
+}
+
+.creature-training-section-toggle__icon {
+  width: 0;
+  height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 6px solid rgba(33, 23, 14, 0.72);
+  transform: rotate(0deg);
+  transition: transform 120ms ease;
+}
+
+.creature-training-drawer__section.is-collapsed .creature-training-section-toggle__icon {
+  transform: rotate(-90deg);
+}
+
+.creature-training-section-body[hidden] {
+  display: none;
+}
+
+.creature-training-filter {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 28px;
+  margin-top: 5px;
+  padding: 4px 7px;
+  border: 1px solid rgba(73, 53, 30, 0.42);
+  border-radius: 4px;
+  background: rgba(255, 252, 244, 0.78);
+  color: #21170e;
+  font: 600 13px/1.2 "Cormorant Garamond", Georgia, serif;
+  box-shadow: inset 0 1px 2px rgba(70, 48, 24, 0.12);
+}
+
+.creature-training-filter::placeholder {
+  color: rgba(33, 23, 14, 0.58);
+}
+
+.creature-training-points {
+  display: grid;
+  gap: 2px;
+  margin: 6px 0 0;
+  font-size: 13px;
+}
+
+.creature-training-points dt,
+.creature-training-points dd {
+  margin: 0;
+}
+
+.creature-training-list {
+  display: grid;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.creature-training-choice {
+  min-height: 30px;
+  padding: 5px;
+  border-radius: 4px;
+  border: 1px solid rgba(91, 65, 32, 0.14);
+  background: linear-gradient(180deg, rgba(255, 252, 242, 0.48), rgba(235, 218, 181, 0.24));
+}
+
+.creature-training-choice:has(input:checked) {
+  border-color: rgba(127, 86, 34, 0.42);
+  background: linear-gradient(180deg, rgba(255, 246, 220, 0.78), rgba(220, 188, 121, 0.42));
+}
+
+.creature-training-choice--unmet {
+  opacity: 0.48;
+  filter: grayscale(0.75);
+  outline: 1px solid rgba(84, 73, 58, 0.3);
+}
+
+.creature-training-choice--unmet input,
+.creature-training-choice--unmet span {
+  cursor: help;
+}
+
+.creature-training-choice span {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.creature-training-choice strong,
+.creature-training-choice small {
+  display: block;
+}
+
+.creature-training-choice small {
+  font-size: 11px;
+  line-height: 1.15;
+}
+
+.creature-training-level,
+.creature-training-attributes input {
+  width: 48px;
+  box-sizing: border-box;
+  min-height: 24px;
+  border: 1px solid rgba(73, 53, 30, 0.42);
+  border-radius: 4px;
+  background: rgba(255, 252, 244, 0.82);
+  color: #21170e;
+  font: 700 13px/1.1 "Cormorant Garamond", Georgia, serif;
+  box-shadow: inset 0 1px 2px rgba(70, 48, 24, 0.12);
+}
+
+.creature-training-attributes {
+  display: grid;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.creature-training-attributes__header,
+.creature-training-attributes__row {
+  display: grid;
+  grid-template-columns: minmax(112px, 1fr) 58px 48px;
+  align-items: center;
+  gap: 6px;
+}
+
+.creature-training-attributes__header {
+  color: rgba(33, 23, 14, 0.72);
+  font: 700 11px/1.2 "Cinzel", Georgia, serif;
+}
+
+.creature-training-attributes__row {
+  min-height: 26px;
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+
+.creature-training-attributes__row:nth-child(even) {
+  background: rgba(255, 252, 242, 0.26);
+}
+
+.creature-training-attributes__row input,
+.creature-training-attributes__row span:nth-child(3),
+.creature-training-attributes__header span:nth-child(2),
+.creature-training-attributes__header span:nth-child(3) {
+  text-align: right;
+}
+
+@media (max-width: 760px) {
+  .creature-training-drawer {
+    --creature-training-width: 100%;
+    left: 0;
+    right: 0;
+    top: calc(100% + 8px);
+    width: 100%;
+    height: auto;
+    transform: translateY(calc(-100% - 8px));
+  }
+
+  .card-hand__floating-card:has(.creature-training-drawer.is-open) .creature-training-drawer {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: calc(100% + 8px);
+    width: 100%;
+    transform: translateY(0);
+  }
+
+  .creature-training-drawer__toggle,
+  .creature-training-drawer.is-open .creature-training-drawer__toggle {
+    left: auto;
+    right: 8px;
+    top: -28px;
+    width: auto;
+    min-height: 0;
+    writing-mode: horizontal-tb;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .creature-training-drawer,
+  .creature-training-drawer__panel,
+  .creature-training-section-toggle__icon {
+    transition: none;
+  }
+}
+
 .card-hand__card-grabber {
   position: absolute;
   z-index: 12;

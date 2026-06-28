@@ -13,6 +13,7 @@ from charsheet.constants import (
     ARMOR_PENALTY_IGNORE,
     ARCANE_POWER,
     ATTRIBUTE_ORDER,
+    ATTR_CHA,
     ATTR_GE,
     ATTR_INT,
     ATTR_KON,
@@ -69,6 +70,8 @@ from charsheet.models import (
     RaceStartingItem,
     CharacterTechnique,
     CharacterTrait,
+    CreatureCommand,
+    CreatureTraitDefinition,
     DamageSource,
     Item,
     Language,
@@ -100,6 +103,156 @@ _DAMAGE_GAUGE_RADIUS = 84
 _DAMAGE_GAUGE_TICK_OUTER = 90
 _DAMAGE_GAUGE_TICK_INNER_MAJOR = 70
 _DAMAGE_GAUGE_TICK_INNER_MINOR = 76
+
+
+def build_creature_card_training_context(card):
+    traits = list(card.traits.select_related("trait_definition").all())
+    commands = list(card.commands.select_related("command").prefetch_related("prerequisite_links__prerequisite").all())
+    attribute_increases = {
+        row.attribute: row.amount
+        for row in card.attribute_increases.all()
+    }
+    total_disadvantage_points = sum(
+        row.point_cost
+        for row in traits
+        if row.training_trait_type == row.TrainingTraitType.DISADVANTAGE
+    )
+    base_disadvantage_points = min(total_disadvantage_points, int(card.max_base_disadvantage_points or 0))
+    additional_disadvantage_points = max(0, total_disadvantage_points - base_disadvantage_points)
+    advantage_points = sum(
+        row.point_cost
+        for row in traits
+        if row.training_trait_type == row.TrainingTraitType.ADVANTAGE
+    )
+    bonus_advantage_points = min(additional_disadvantage_points, 4)
+    effective_advantage_points = int(card.max_base_advantage_points or 0) + bonus_advantage_points
+    effective_disadvantage_points = int(card.max_base_disadvantage_points or 0) + 4
+    known_command_slugs = {command.slug for command in commands if command.slug}
+    advantage_levels = {
+        row.trait_definition_id: int(row.level or 1)
+        for row in traits
+        if row.trait_definition_id and row.training_trait_type == row.TrainingTraitType.ADVANTAGE
+    }
+    disadvantage_levels = {
+        row.trait_definition_id: int(row.level or 1)
+        for row in traits
+        if row.trait_definition_id and row.training_trait_type == row.TrainingTraitType.DISADVANTAGE
+    }
+    command_catalog = []
+    for command in CreatureCommand.objects.prefetch_related("prerequisite_links__prerequisite").order_by("name"):
+        prerequisite_groups = command.prerequisite_groups
+        missing = [
+            prerequisite.name
+            for group in prerequisite_groups
+            if not any(prerequisite.slug in known_command_slugs for prerequisite in group)
+            for prerequisite in group
+        ]
+        command_catalog.append(
+            {
+                "id": command.pk,
+                "name": command.name,
+                "slug": command.slug,
+                "ep_cost": command.ep_cost,
+                "training_days": command.training_days,
+                "difficulty": command.difficulty,
+                "prerequisite_display": command.prerequisite_display,
+                "missing_prerequisites": missing,
+                "prerequisite_group_ids_json": json.dumps(
+                    [[prerequisite.pk for prerequisite in group] for group in prerequisite_groups]
+                ),
+                "known": command.slug in known_command_slugs,
+            }
+        )
+    trait_catalog = [
+        {
+            "id": trait.pk,
+            "name": trait.name,
+            "trait_type": trait.trait_type,
+            "min_level": trait.min_level,
+            "max_level": trait.max_level,
+            "cost_display": trait.cost_display(),
+            "advantage_selected": trait.pk in advantage_levels,
+            "disadvantage_selected": trait.pk in disadvantage_levels,
+            "advantage_level": advantage_levels.get(trait.pk, trait.min_level),
+            "disadvantage_level": disadvantage_levels.get(trait.pk, trait.min_level),
+        }
+        for trait in CreatureTraitDefinition.objects.order_by("trait_type", "name")
+    ]
+    card_attribute_values = {
+        ATTR_ST: card.strength_mod,
+        ATTR_KON: card.constitution_mod,
+        ATTR_GE: card.dexterity_mod,
+        ATTR_INT: card.intelligence_mod,
+        ATTR_WA: card.perception_mod,
+        ATTR_WILL: card.willpower_mod,
+        ATTR_CHA: card.charisma_mod,
+    }
+    attribute_options = []
+    for code, label in (
+        (ATTR_ST, "Stärke"),
+        (ATTR_KON, "Konstitution"),
+        (ATTR_GE, "Geschick"),
+        (ATTR_INT, "Intelligenz"),
+        (ATTR_WA, "Wahrnehmung"),
+        (ATTR_WILL, "Willenskraft"),
+        (ATTR_CHA, "Charisma"),
+    ):
+        base_value = card_attribute_values.get(code)
+        increase = attribute_increases.get(code, 0)
+        current_modifier = None if base_value is None else int(base_value) + int(increase or 0)
+        current_attribute_value = None if current_modifier is None else current_modifier + 5
+        base_attribute_value = None if base_value is None else int(base_value) + 5
+        attribute_options.append(
+            {
+                "code": code,
+                "label": label,
+                "base": base_value,
+                "base_value": base_attribute_value,
+                "amount": increase,
+                "current": current_modifier,
+                "current_value": current_attribute_value,
+                "input_value": 0 if current_attribute_value is None else current_attribute_value,
+                "current_value_display": "-" if current_attribute_value is None else str(current_attribute_value),
+                "current_display": "-" if current_modifier is None else f"{current_modifier:+d}",
+            }
+        )
+
+    quality_choices = [
+        {
+            "value": quality.code,
+            "label": quality.name,
+            "color": quality.hex_color,
+            "selected": quality.code == getattr(card.quality, "code", card.quality_id),
+        }
+        for quality in Quality.objects.all()
+    ]
+
+    return {
+        "card": card,
+        "update_url": reverse("update_creature_card_training", kwargs={"pk": card.pk}),
+        "quality_choices": quality_choices,
+        "current_quality": quality_payload(card.quality),
+        "commands": commands,
+        "known_command_ids": {command.command_id for command in commands if command.command_id},
+        "command_catalog": command_catalog,
+        "traits": traits,
+        "trait_catalog": trait_catalog,
+        "advantage_ids": set(advantage_levels),
+        "disadvantage_ids": set(disadvantage_levels),
+        "attribute_increases": attribute_increases,
+        "attribute_options": attribute_options,
+        "base_advantage_points": int(card.max_base_advantage_points or 0),
+        "base_disadvantage_points": int(card.max_base_disadvantage_points or 0),
+        "spent_advantage_points": advantage_points,
+        "spent_base_disadvantage_points": base_disadvantage_points,
+        "spent_additional_disadvantage_points": additional_disadvantage_points,
+        "spent_disadvantage_points": total_disadvantage_points,
+        "bonus_advantage_points": bonus_advantage_points,
+        "effective_advantage_points": effective_advantage_points,
+        "effective_disadvantage_points": effective_disadvantage_points,
+        "remaining_advantage_points": effective_advantage_points - advantage_points,
+        "remaining_disadvantage_points": effective_disadvantage_points - base_disadvantage_points - additional_disadvantage_points,
+    }
 
 
 def _spell_attribute_chart_line(counts: dict[str, int]) -> str:
@@ -3642,8 +3795,11 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
     for card in active_creature_cards:
         card_context = CreatureCardEngine(card).card_context()
         card_context["adjust_damage_url"] = reverse("adjust_creature_card_damage", kwargs={"pk": card.pk})
+        card_context["training_update_url"] = reverse("update_creature_card_training", kwargs={"pk": card.pk})
         mini_context = {**card_context, "adjust_damage_url": "", "damage_controls_disabled": True}
-        creature_card_contexts.append({"card": card, "context": card_context, "mini_context": mini_context})
+        mini_context.pop("training_update_url", None)
+        training_context = build_creature_card_training_context(card)
+        creature_card_contexts.append({"card": card, "context": card_context, "mini_context": mini_context, "training_context": training_context})
         character_creature_card_rows.append(
             {
                 "name": card.name,

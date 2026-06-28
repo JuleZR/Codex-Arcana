@@ -19,7 +19,7 @@ from django.utils import timezone
 from django.template.loader import render_to_string
 from django.urls import reverse_lazy
 from .engine import CharacterCreationEngine
-from .engine.creature_engine import CreatureEngine
+from .engine.creature_engine import CreatureCardEngine, CreatureEngine
 from .engine.dice_engine import DiceEngine
 from .learning_progression import weapon_mastery_weapon_type_definitions
 from .models import (
@@ -37,7 +37,13 @@ from .models import (
     CharacterCreationDraft,
     CharacterCreature,
     CharacterCreatureCard,
+    CharacterCreatureCardAttributeIncrease,
+    CharacterCreatureCardCommand,
+    CharacterCreatureCardCommandPrerequisite,
+    CharacterCreatureCardTrait,
     Creature,
+    CreatureCommand,
+    CreatureTraitDefinition,
     Aspect,
     CharacterDivineEntity,
     DivineEntity,
@@ -52,6 +58,7 @@ from .models import (
 
     Technique,
     Trait,
+    Quality,
 )
 from .models.user import UserSettings
 from .forms import (
@@ -64,9 +71,10 @@ from .forms import (
     CharacterTechniqueSpecificationForm,
     UserSettingsForm
 )
-from .constants import ATTRIBUTE_ORDER, RESOURCE_KEY_CHOICES, is_allowed_trait_attribute_choice
+from .constants import ATTRIBUTE_CODE_CHOICES, ATTRIBUTE_ORDER, RESOURCE_KEY_CHOICES, is_allowed_trait_attribute_choice
+from .models.creatures import CREATURE_CARD_QUALITY_TRAINING_BUDGETS
 from .learning import process_learning_submission
-from .sheet_context import build_character_sheet_context
+from .sheet_context import build_character_sheet_context, build_creature_card_training_context
 from .shop import (
     apply_character_item_modifications,
     buy_shop_cart as buy_shop_cart_payload,
@@ -200,7 +208,7 @@ def _owned_character_creature_or_404(request, pk: int) -> CharacterCreature:
 def _owned_character_creature_card_or_404(request, pk: int) -> CharacterCreatureCard:
     """Return one concrete creature card whose character belongs to the current user."""
     return get_object_or_404(
-        CharacterCreatureCard.objects.select_related("character", "character__owner", "creature", "binding"),
+        CharacterCreatureCard.objects.select_related("character", "character__owner", "creature", "binding", "quality"),
         pk=pk,
         character__owner=request.user,
     )
@@ -2090,6 +2098,204 @@ def adjust_creature_card_damage(request, pk: int):
     if next_url.startswith("/"):
         return redirect(next_url)
     return redirect("character_sheet", character_id=creature_card.character_id)
+
+
+def _parse_positive_int(raw_value, fallback=0):
+    try:
+        return max(0, int(raw_value))
+    except (TypeError, ValueError):
+        return fallback
+
+
+def _clamped_trait_level(request, trait: CreatureTraitDefinition, prefix: str) -> int:
+    level = _parse_positive_int(request.POST.get(f"{prefix}_{trait.pk}"), int(trait.min_level or 1))
+    return min(max(level, int(trait.min_level or 1)), int(trait.max_level or 1))
+
+
+def _render_creature_training_payload(request, card: CharacterCreatureCard) -> dict:
+    card_context = CreatureCardEngine(card).card_context()
+    card_context["adjust_damage_url"] = reverse_lazy("adjust_creature_card_damage", kwargs={"pk": card.pk})
+    card_context["training_update_url"] = reverse_lazy("update_creature_card_training", kwargs={"pk": card.pk})
+    return {
+        "ok": True,
+        "cardHtml": render_to_string(
+            "charsheet/partials/_creature_card.html",
+            {"creature_card": card_context},
+            request=request,
+        ),
+        "drawerHtml": render_to_string(
+            "charsheet/partials/_creature_training_drawer.html",
+            {"training": build_creature_card_training_context(card)},
+            request=request,
+        ),
+    }
+
+
+@login_required
+@require_POST
+def update_creature_card_training(request, pk: int):
+    card = _owned_character_creature_card_or_404(request, pk)
+    card_update_fields = []
+    if "custom_name" in request.POST:
+        card.name = str(request.POST.get("custom_name", card.name))[:100].strip() or card.name
+        card_update_fields.append("name")
+    if request.POST.get("remove_custom_creature_image") == "1":
+        if card.image:
+            card.image.delete(save=False)
+        card.image = None
+        card_update_fields.append("image")
+    if request.FILES.get("custom_creature_image"):
+        card.image = request.FILES["custom_creature_image"]
+        card_update_fields.append("image")
+    if "quality" in request.POST:
+        selected_quality = Quality.objects.filter(code=str(request.POST.get("quality") or "")).first()
+        if selected_quality is not None:
+            card.quality = selected_quality
+            card_update_fields.append("quality")
+            quality_budget = CREATURE_CARD_QUALITY_TRAINING_BUDGETS.get(selected_quality.code)
+            if quality_budget is not None:
+                card.max_base_advantage_points = int(quality_budget[0])
+                card.max_base_disadvantage_points = int(quality_budget[1])
+                card_update_fields.extend(["max_base_advantage_points", "max_base_disadvantage_points"])
+    selected_command_ids = {_parse_positive_int(raw_id) for raw_id in request.POST.getlist("commands") if _parse_positive_int(raw_id)}
+    selected_advantage_ids = {_parse_positive_int(raw_id) for raw_id in request.POST.getlist("advantages") if _parse_positive_int(raw_id)}
+    selected_disadvantage_ids = {_parse_positive_int(raw_id) for raw_id in request.POST.getlist("disadvantages") if _parse_positive_int(raw_id)}
+    commands = list(
+        CreatureCommand.objects.filter(pk__in=selected_command_ids)
+        .prefetch_related("prerequisite_links__prerequisite")
+        .order_by("name")
+    )
+    traits_by_id = {
+        trait.pk: trait
+        for trait in CreatureTraitDefinition.objects.filter(
+            pk__in=selected_advantage_ids | selected_disadvantage_ids
+        )
+    }
+    new_trait_rows = []
+    spent_advantage_points = 0
+    spent_disadvantage_points = 0
+    order = 1000
+    for trait_id in selected_advantage_ids:
+        trait = traits_by_id.get(trait_id)
+        if trait is None or trait.trait_type != CreatureTraitDefinition.TraitType.ADV:
+            continue
+        level = _clamped_trait_level(request, trait, "advantage_level")
+        spent_advantage_points += trait.cost_for_level(level)
+        new_trait_rows.append(
+            CharacterCreatureCardTrait(
+                card=card,
+                trait_definition=trait,
+                name=trait.name,
+                level=level,
+                description=trait.description,
+                training_trait_type=CharacterCreatureCardTrait.TrainingTraitType.ADVANTAGE,
+                order=order,
+            )
+        )
+        order += 1
+    for trait_id in selected_disadvantage_ids:
+        trait = traits_by_id.get(trait_id)
+        if trait is None or trait.trait_type != CreatureTraitDefinition.TraitType.DIS:
+            continue
+        level = _clamped_trait_level(request, trait, "disadvantage_level")
+        spent_disadvantage_points += trait.cost_for_level(level)
+        new_trait_rows.append(
+            CharacterCreatureCardTrait(
+                card=card,
+                trait_definition=trait,
+                name=trait.name,
+                level=level,
+                description=trait.description,
+                training_trait_type=CharacterCreatureCardTrait.TrainingTraitType.DISADVANTAGE,
+                order=order,
+            )
+        )
+        order += 1
+
+    spent_base_disadvantage_points = min(spent_disadvantage_points, int(card.max_base_disadvantage_points or 0))
+    spent_additional_disadvantage_points = max(0, spent_disadvantage_points - spent_base_disadvantage_points)
+    bonus_advantage_points = min(spent_additional_disadvantage_points, 4)
+    effective_advantage_points = int(card.max_base_advantage_points or 0) + bonus_advantage_points
+    effective_disadvantage_points = int(card.max_base_disadvantage_points or 0) + 4
+    if spent_advantage_points > effective_advantage_points:
+        return JsonResponse({"ok": False, "error": "advantage_budget_exceeded"}, status=400)
+    if spent_base_disadvantage_points > int(card.max_base_disadvantage_points or 0):
+        return JsonResponse({"ok": False, "error": "base_disadvantage_budget_exceeded"}, status=400)
+    if spent_disadvantage_points > effective_disadvantage_points:
+        return JsonResponse({"ok": False, "error": "disadvantage_budget_exceeded"}, status=400)
+
+    attribute_codes = {code for code, _label in ATTRIBUTE_CODE_CHOICES}
+    card_attribute_values = {
+        "ST": card.strength_mod,
+        "KON": card.constitution_mod,
+        "GE": card.dexterity_mod,
+        "INT": card.intelligence_mod,
+        "WA": card.perception_mod,
+        "WILL": card.willpower_mod,
+        "CHA": card.charisma_mod,
+    }
+    attribute_rows = []
+    for code in attribute_codes:
+        target_value = _parse_positive_int(request.POST.get(f"attribute_{code}"), 0)
+        base_modifier = card_attribute_values.get(code)
+        if base_modifier is None:
+            continue
+        base_attribute_value = int(base_modifier) + 5
+        amount = max(0, target_value - base_attribute_value)
+        if amount:
+            attribute_rows.append(CharacterCreatureCardAttributeIncrease(card=card, attribute=code, amount=amount))
+
+    with transaction.atomic():
+        if card_update_fields:
+            card.save(update_fields=sorted(set(card_update_fields)))
+        card.commands.all().delete()
+        created_commands = list(
+            CharacterCreatureCardCommand.objects.bulk_create(
+                CharacterCreatureCardCommand(
+                    card=card,
+                    command=command,
+                    name=command.name,
+                    slug=command.slug,
+                    ep_cost=command.ep_cost,
+                    difficulty=command.difficulty,
+                    description=command.description,
+                    order=index,
+                )
+                for index, command in enumerate(commands)
+            )
+        )
+        command_by_slug = {command.slug: command for command in created_commands}
+        CharacterCreatureCardCommandPrerequisite.objects.bulk_create(
+            CharacterCreatureCardCommandPrerequisite(
+                command=command_by_slug[command.slug],
+                prerequisite=command_by_slug[link.prerequisite.slug],
+                alternative_group=link.alternative_group,
+                order=link.order,
+            )
+            for command in commands
+            for link in command.prerequisite_links.all()
+            if command.slug in command_by_slug and link.prerequisite.slug in command_by_slug
+        )
+        card.traits.exclude(training_trait_type="").delete()
+        card.traits.exclude(point_source="").delete()
+        card.traits.filter(trait_definition__isnull=False).delete()
+        CharacterCreatureCardTrait.objects.bulk_create(new_trait_rows)
+        card.attribute_increases.all().delete()
+        CharacterCreatureCardAttributeIncrease.objects.bulk_create(attribute_rows)
+
+    card = (
+        CharacterCreatureCard.objects.select_related("character", "character__owner", "creature", "binding", "quality")
+        .prefetch_related(
+            "attacks",
+            "skills",
+            "traits__trait_definition",
+            "commands__command",
+            "commands__prerequisite_links__prerequisite",
+            "attribute_increases",
+        )
+        .get(pk=card.pk)
+    )
+    return JsonResponse(_render_creature_training_payload(request, card))
 
 
 @login_required

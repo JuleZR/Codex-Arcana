@@ -110,6 +110,7 @@
       <span class="card-hand__card-grabber card-hand__card-grabber--bottom" data-card-hand-drag-handle aria-hidden="true"></span>
       <span class="card-hand__card-grabber card-hand__card-grabber--left" data-card-hand-drag-handle aria-hidden="true"></span>
       {% include "charsheet/partials/_creature_card.html" with creature_card=entry.context %}
+      {% include "charsheet/partials/_creature_training_drawer.html" with training=entry.training_context %}
     </div>
   </div>
   {% endfor %}

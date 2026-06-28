@@ -4,7 +4,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 from functools import cached_property
+import re
 from typing import Any
+
+from django.db import models
 
 from charsheet.constants import (
     ATTR_CHA,
@@ -32,6 +35,7 @@ from charsheet.modifiers.engine import ModifierEngine
 from charsheet.modifiers.registry import build_creature_trait_semantic_modifiers
 from charsheet.models.creatures import (
     CharacterCreatureCard,
+    CharacterCreatureCardAttributeIncrease,
     CharacterCreatureCardAttack,
     CharacterCreatureCardCommand,
     CharacterCreatureCardCommandPrerequisite,
@@ -39,19 +43,20 @@ from charsheet.models.creatures import (
     CharacterCreatureCardTrait,
     CreatureCardBinding,
 )
+from charsheet.models.items import Quality
 from .item_engine import ItemEngine
 
 
 WOUND_STAGE_LABELS = ("0", "-2", "-4", "-6", "Ausser Gefecht", "Koma")
 
 CREATURE_KIND_LABELS = {
-    QUALITY_WRETCHED: "Schwaechliche Kreatur",
+    QUALITY_WRETCHED: "Schwächliche Kreatur",
     QUALITY_VERY_POOR: "Einfache Kreatur",
     QUALITY_POOR: "Minderwertige Kreatur",
     QUALITY_COMMON: "Kreatur",
     QUALITY_FINE: "Besondere Kreatur",
-    QUALITY_EXCELLENT: "Maechtige Kreatur",
-    QUALITY_LEGENDARY: "Legendaere Kreatur",
+    QUALITY_EXCELLENT: "Mächtige Kreatur",
+    QUALITY_LEGENDARY: "Legendäre Kreatur",
     "unique": "Einzigartige Kreatur",
 }
 
@@ -612,23 +617,122 @@ class CreatureCardEngine:
         return self.card.name
 
     def image(self):
-        return self.card.image
+        if self.card.image:
+            return self.card.image
+        if self.card.creature_id:
+            return self.card.creature.image
+        return None
 
     def quality(self):
-        if self.card.source_character_item_id:
-            return self.card.source_character_item.quality
-        if self.card.source_character_technique_id:
-            return self.card.binding.quality
         return self.card.quality
 
+    @cached_property
+    def attribute_increase_totals(self) -> dict[str, int]:
+        return {
+            row["attribute"]: int(row["total"] or 0)
+            for row in self.card.attribute_increases.values("attribute").annotate(total=models.Sum("amount"))
+        }
+
+    @cached_property
+    def _training_trait_rows(self) -> list[Any]:
+        return [
+            row
+            for row in self.card.traits.select_related("trait_definition")
+            if row.trait_definition_id
+        ]
+
+    @cached_property
+    def _trait_levels_by_slug(self) -> dict[str, int]:
+        levels: dict[str, int] = {}
+        for row in self._training_trait_rows:
+            slug = row.trait_definition.slug
+            levels[slug] = max(levels.get(slug, 0), int(row.level or 1))
+        return levels
+
+    @cached_property
+    def _semantic_modifiers(self) -> list[BaseModifier]:
+        modifiers: list[BaseModifier] = []
+        for row in self._training_trait_rows:
+            modifiers.extend(
+                build_creature_trait_semantic_modifiers(
+                    trait_slug=row.trait_definition.slug,
+                    level=int(row.level or 1),
+                    trait=row.trait_definition,
+                )
+            )
+        return modifiers
+
+    @cached_property
+    def modifier_engine(self) -> ModifierEngine:
+        return ModifierEngine(
+            modifiers=self._semantic_modifiers,
+            trait_levels_by_slug=self._trait_levels_by_slug,
+        )
+
+    def _modifier_total(self, target_domain: str, target_key: str) -> int:
+        return int(self.modifier_engine.resolve_numeric_total(target_domain, target_key) or 0)
+
+    def attribute_mod(self, attribute: str) -> int | None:
+        field_map = {
+            ATTR_ST: "strength_mod",
+            ATTR_KON: "constitution_mod",
+            ATTR_GE: "dexterity_mod",
+            ATTR_INT: "intelligence_mod",
+            ATTR_WA: "perception_mod",
+            ATTR_WILL: "willpower_mod",
+            ATTR_CHA: "charisma_mod",
+        }
+        field_name = field_map.get(attribute)
+        if not field_name:
+            return 0
+        value = getattr(self.card, field_name)
+        if value is None:
+            return None
+        return (
+            int(value)
+            + int(self.attribute_increase_totals.get(attribute, 0) or 0)
+            + self._modifier_total(TargetDomain.ATTRIBUTE, attribute)
+        )
+
+    def initiative(self) -> int:
+        return int(self.card.initiative or 0) + int(self.attribute_increase_totals.get(ATTR_WA, 0) or 0) + self._modifier_total(TargetDomain.DERIVED_STAT, "initiative")
+
+    def vw(self) -> int:
+        return (
+            int(self.card.vw or 0)
+            + int(self.attribute_increase_totals.get(ATTR_GE, 0) or 0)
+            + int(self.attribute_increase_totals.get(ATTR_WA, 0) or 0)
+            + self._modifier_total(TargetDomain.DERIVED_STAT, "vw")
+        )
+
+    def sr(self) -> int:
+        return (
+            int(self.card.sr or 0)
+            + int(self.attribute_increase_totals.get(ATTR_ST, 0) or 0)
+            + int(self.attribute_increase_totals.get(ATTR_KON, 0) or 0)
+            + self._modifier_total(TargetDomain.DERIVED_STAT, "sr")
+        )
+
+    def gw(self) -> int:
+        return (
+            int(self.card.gw or 0)
+            + int(self.attribute_increase_totals.get(ATTR_INT, 0) or 0)
+            + int(self.attribute_increase_totals.get(ATTR_WILL, 0) or 0)
+            + self._modifier_total(TargetDomain.DERIVED_STAT, "gw")
+        )
+
+    def wound_step(self) -> int:
+        return max(
+            1,
+            int(self.card.wound_step or 1)
+            + int(self.attribute_increase_totals.get(ATTR_KON, 0) or 0)
+            + self._modifier_total(TargetDomain.DERIVED_STAT, "wound_step"),
+        )
+
     def gw_against_fear(self) -> int:
-        if self.source_engine is not None:
-            return self.source_engine.gw_against_fear()
         return int(self.card.fear_resistance_bonus or 0)
 
     def defense_extra_label(self) -> str:
-        if self.source_engine is not None:
-            return self.source_engine.defense_extra_label()
         return str(getattr(self.card, "defense_extra_label", "") or "").strip()
 
     def defense_extra_value(self) -> int | None:
@@ -640,9 +744,7 @@ class CreatureCardEngine:
         return int(value)
 
     def wound_rows(self) -> list[dict[str, Any]]:
-        if self.source_engine is not None:
-            return self.source_engine.wound_rows()
-        step = max(1, int(self.card.wound_step or 1))
+        step = self.wound_step()
         return [
             {"label": label, "threshold": step * index}
             for index, label in enumerate(WOUND_STAGE_LABELS, start=1)
@@ -663,35 +765,31 @@ class CreatureCardEngine:
         return current
 
     def movement(self) -> dict[str, Any]:
-        if self.source_engine is not None:
-            return self.source_engine.movement()
         return {
-            "combat": self.card.combat_speed,
-            "march": self.card.march_speed,
-            "sprint": self.card.sprint_speed,
-            "swim": self.card.swimming_speed,
-            "fly_combat": self.card.combat_fly_speed,
-            "fly_march": self.card.march_fly_speed,
-            "fly_sprint": self.card.sprint_fly_speed,
+            "combat": self.card.combat_speed + self._modifier_total(TargetDomain.MOVEMENT, "combat"),
+            "march": self.card.march_speed + self._modifier_total(TargetDomain.MOVEMENT, "march"),
+            "sprint": self.card.sprint_speed + self._modifier_total(TargetDomain.MOVEMENT, "sprint"),
+            "swim": self.card.swimming_speed + self._modifier_total(TargetDomain.MOVEMENT, "swim"),
+            "fly_combat": None if self.card.combat_fly_speed is None else self.card.combat_fly_speed + self._modifier_total(TargetDomain.MOVEMENT, "fly_combat"),
+            "fly_march": None if self.card.march_fly_speed is None else self.card.march_fly_speed + self._modifier_total(TargetDomain.MOVEMENT, "fly_march"),
+            "fly_sprint": None if self.card.sprint_fly_speed is None else self.card.sprint_fly_speed + self._modifier_total(TargetDomain.MOVEMENT, "fly_sprint"),
         }
 
     def movement_display(self) -> dict[str, str | None]:
         return {key: CreatureEngine._compact_number(value) for key, value in self.movement().items()}
 
     def attribute_rows(self) -> list[dict[str, Any]]:
-        if self.source_engine is not None:
-            return self.source_engine.attribute_rows()
         rows = []
-        for field_name, label in (
-            ("strength_mod", "ST"),
-            ("constitution_mod", "KON"),
-            ("dexterity_mod", "GE"),
-            ("intelligence_mod", "INT"),
-            ("perception_mod", "WA"),
-            ("willpower_mod", "WILL"),
-            ("charisma_mod", "CHA"),
+        for code, label in (
+            (ATTR_ST, "ST"),
+            (ATTR_KON, "KON"),
+            (ATTR_GE, "GE"),
+            (ATTR_INT, "INT"),
+            (ATTR_WA, "WA"),
+            (ATTR_WILL, "WILL"),
+            (ATTR_CHA, "CHA"),
         ):
-            value = getattr(self.card, field_name)
+            value = self.attribute_mod(code)
             rows.append(
                 {
                     "label": label,
@@ -702,16 +800,34 @@ class CreatureCardEngine:
         return rows
 
     def attacks(self) -> list[dict[str, Any]]:
+        attack_bonus = int(self.attribute_increase_totals.get(ATTR_GE, 0) or 0) + self._modifier_total(TargetDomain.COMBAT, "attack_value")
+        damage_bonus = int(self.attribute_increase_totals.get(ATTR_ST, 0) or 0)
         return [
-            {"name": attack.name, "attack_value": attack.attack_value, "damage": attack.damage, "notes": attack.notes}
+            {
+                "name": attack.name,
+                "attack_value": attack.attack_value + attack_bonus,
+                "damage": self._apply_damage_bonus(attack.damage, damage_bonus),
+                "notes": attack.notes,
+            }
             for attack in self.card.attacks.all()
         ]
 
     def skills(self) -> list[dict[str, Any]]:
         return [
-            {"name": skill.name, "value": skill.value, "notes": skill.notes}
+            {"name": skill.name, "value": skill.value + self._modifier_total(TargetDomain.SKILL, ""), "notes": skill.notes}
             for skill in self.card.skills.all()
         ]
+
+    @staticmethod
+    def _apply_damage_bonus(damage: str, bonus: int) -> str:
+        if not damage or not bonus:
+            return damage
+        match = re.match(r"^(?P<head>\s*\d+w\d+)(?P<flat>[+-]\d+)?(?P<tail>.*)$", str(damage))
+        if not match:
+            return damage
+        flat = int(match.group("flat") or 0) + bonus
+        flat_display = f"{flat:+d}" if flat else ""
+        return f"{match.group('head')}{flat_display}{match.group('tail')}"
 
     def commands(self) -> list[dict[str, Any]]:
         return [
@@ -735,37 +851,47 @@ class CreatureCardEngine:
         ]
 
     def card_context(self) -> dict[str, Any]:
-        source = self.source_engine
         defense_extra_value = self.defense_extra_value()
-        defense_extra_label = source.defense_extra_label() if source is not None else self.defense_extra_label()
+        defense_extra_label = self.defense_extra_label()
         wound_rows = self.wound_rows()
         wound_zone = self.current_wound_zone()
         quality = self.quality()
         normalized_quality = ItemEngine.normalize_quality(quality)
-        armor = source.armor_totals() if source is not None else None
+        quality_choices = [
+            {
+                "value": row.code,
+                "label": row.name,
+                "color": row.hex_color,
+                "selected": row.code == normalized_quality,
+            }
+            for row in Quality.objects.all()
+        ]
         return {
             "id": self.card.pk,
             "name": self.display_name(),
             "creature_name": self.card.creature_type or self.card.name,
             "image": self.image(),
+            "has_custom_image": bool(self.card.image),
             "quality": normalized_quality,
             "quality_label": getattr(quality, "name", normalized_quality),
             "quality_color": ItemEngine.quality_color(quality),
+            "quality_choices": quality_choices,
+            "holo": normalized_quality == "unique",
             "creature_kind_label": creature_kind_label(quality),
-            "size_class": source.size_class() if source is not None else self.card.size_class,
-            "size_modifier": source.size_modifier() if source is not None else self.card.size_modifier,
-            "initiative": source.initiative() if source is not None else self.card.initiative,
-            "vw": source.vw() if source is not None else self.card.vw,
-            "sr": source.sr() if source is not None else self.card.sr,
-            "gw": source.gw() if source is not None else self.card.gw,
+            "size_class": self.card.size_class,
+            "size_modifier": self.card.size_modifier,
+            "initiative": self.initiative(),
+            "vw": self.vw(),
+            "sr": self.sr(),
+            "gw": self.gw(),
             "gw_extra": defense_extra_value if defense_extra_value else None,
             "gw_extra_label": defense_extra_label,
             "gw_fear": self.gw_against_fear() if defense_extra_value else None,
             "fear_bonus": defense_extra_value,
-            "rs_natural": armor.natural_rs if armor is not None else self.card.rs,
-            "rs_armor": armor.armor_rs if armor is not None else 0,
-            "rs_total": armor.total_rs if armor is not None else self.card.rs,
-            "encumbrance": armor.encumbrance if armor is not None else 0,
+            "rs_natural": self.card.rs,
+            "rs_armor": 0,
+            "rs_total": self.card.rs,
+            "encumbrance": 0,
             "current_damage": int(self.card.current_damage or 0),
             "wounds": wound_rows,
             "wound_max": wound_rows[-1]["threshold"] if wound_rows else 0,
@@ -865,6 +991,7 @@ def _copy_creature_rows(card: CharacterCreatureCard) -> None:
     card_commands = [
         CharacterCreatureCardCommand(
             card=card,
+            command=row.command,
             name=row.command.name,
             slug=row.command.slug,
             ep_cost=row.command.ep_cost,
@@ -971,9 +1098,6 @@ def sync_character_creature_cards(character) -> list[CharacterCreatureCard]:
                 if card.creature_id is None:
                     card.creature = binding.creature
                     update_fields.append("creature")
-                if card.quality_id != getattr(source["quality"], "pk", source["quality"]):
-                    card.quality = source["quality"]
-                    update_fields.append("quality")
                 if update_fields:
                     card.save(update_fields=update_fields)
 
@@ -992,6 +1116,13 @@ def sync_character_creature_cards(character) -> list[CharacterCreatureCard]:
             "source_character_item__quality",
             "source_character_technique",
         )
-        .prefetch_related("attacks", "skills", "traits", "commands__prerequisite_links__prerequisite")
+        .prefetch_related(
+            "attacks",
+            "skills",
+            "traits__trait_definition",
+            "commands__command",
+            "commands__prerequisite_links__prerequisite",
+            "attribute_increases",
+        )
         .order_by("name", "id")
     )
