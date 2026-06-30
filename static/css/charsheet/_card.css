@@ -1308,6 +1308,23 @@ span.card-aspect-placeholder {
     white-space: nowrap;
 }
 
+.creature-card__skill-line {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    column-gap: 0.3em;
+    row-gap: 0;
+}
+
+.creature-card__skill-line strong {
+    flex: 0 0 auto;
+}
+
+.creature-card__skill-entry {
+    display: inline-block;
+    white-space: nowrap;
+}
+
 .creature-card__rule-entry.tooltip_target,
 .creature-card__attack-unit.tooltip_target {
     cursor: help;

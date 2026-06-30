@@ -168,7 +168,7 @@
   top: 50%;
   z-index: 110;
   width: min(390px, calc(100vw - 28px));
-  transform: translate(-50%, -50%);
+  transform: translate(calc(-50% + var(--creature-training-shift, 0px)), -50%);
   filter: drop-shadow(0 22px 34px rgba(9, 6, 4, 0.45));
 }
 
@@ -188,7 +188,8 @@
   left: calc(100% + 8px);
   width: var(--creature-training-width);
   height: 100%;
-  z-index: 20;
+  z-index: 80;
+  isolation: isolate;
   font-family: "Cormorant Garamond", Georgia, serif;
   transform: translateX(0);
   transition: transform 180ms ease;
@@ -200,14 +201,16 @@
 }
 
 .card-hand__floating-card:has(.creature-training-drawer.is-open) .creature-training-drawer {
-  top: 0;
-  left: calc(100% + 8px);
-  transform: translateX(0);
+  position: absolute;
+  inset: 0 auto auto calc(100% + 8px);
+  width: var(--creature-training-width);
+  height: 100%;
+  transform: none;
 }
 
 .creature-training-drawer__toggle {
   position: absolute;
-  top: 56px;
+  top: 28px;
   left: -24px;
   width: 30px;
   min-height: 118px;
@@ -228,26 +231,32 @@
 .creature-training-drawer.is-open .creature-training-drawer__toggle {
   right: -24px;
   left: auto;
+  top: 28px;
 }
 
 .creature-training-drawer__panel {
   box-sizing: border-box;
+  position: relative;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   grid-template-rows: auto minmax(0, 1fr);
   gap: 0 14px;
   width: 100%;
-  min-height: min(100%, calc(100vh - 36px));
-  max-height: min(100%, calc(100vh - 36px));
-  overflow: hidden;
+  min-width: 0;
+  min-height: min(100%, calc(100vh - 24px));
+  max-height: min(100%, calc(100vh - 24px));
+  overflow: hidden auto;
+  overscroll-behavior: contain;
   padding: 10px 10px 12px;
   border: 1px solid rgba(69, 47, 22, 0.82);
   border-radius: 0 8px 8px 0;
+  background-color: #efe1bc;
   background:
-    linear-gradient(180deg, rgba(255, 251, 239, 0.97), rgba(236, 222, 190, 0.96) 54%, rgba(218, 194, 145, 0.97));
+    radial-gradient(ellipse at 18% 4%, rgba(255, 253, 241, 0.92), rgba(255, 253, 241, 0) 42%),
+    radial-gradient(ellipse at 80% 18%, rgba(255, 247, 214, 0.5), rgba(255, 247, 214, 0) 48%),
+    linear-gradient(180deg, rgba(255, 251, 239, 0.98), rgba(238, 223, 188, 0.97) 52%, rgba(224, 200, 151, 0.98));
   color: #21170e;
   box-shadow:
-    5px 6px 0 rgba(0, 0, 0, 0.34),
     inset 0 1px 0 rgba(255, 252, 239, 0.78),
     inset 8px 0 14px rgba(96, 63, 27, 0.08);
   opacity: 1;
@@ -288,7 +297,7 @@
   grid-column: 1 / -1;
   position: sticky;
   top: -10px;
-  z-index: 1;
+  z-index: 2;
   margin: -10px -10px 8px;
   padding: 9px 10px 8px;
   border-bottom: 1px solid rgba(100, 73, 38, 0.24);
@@ -335,7 +344,10 @@
   min-height: 0;
   max-height: 100%;
   overflow: auto;
-  padding-right: 3px;
+  box-sizing: border-box;
+  padding-right: 18px;
+  scrollbar-gutter: stable;
+  min-width: 0;
 }
 
 .creature-training-section-toggle {
@@ -407,6 +419,10 @@
   margin: 0;
 }
 
+.creature-training-points dd {
+  padding-right: 4px;
+}
+
 .creature-training-points__total {
   margin-top: 3px;
   padding-top: 3px;
@@ -437,6 +453,13 @@
   background: rgba(255, 252, 242, 0.22);
 }
 
+.creature-training-skill span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .creature-training-skill__remove {
   width: 16px;
   height: 16px;
@@ -454,6 +477,13 @@
 .creature-training-skill__remove:hover {
   background: rgba(171, 58, 42, 0.16);
   border-color: rgba(120, 38, 25, 0.68);
+}
+
+.creature-training-skill__remove--placeholder,
+.creature-training-skill__remove--placeholder:hover {
+  border-color: transparent;
+  background: transparent;
+  cursor: default;
 }
 
 .creature-training-add-skill {
@@ -543,7 +573,7 @@
 
 .creature-training-movement__header,
 .creature-training-movement__row {
-  grid-template-columns: minmax(54px, 0.95fr) repeat(4, minmax(42px, 1fr));
+  grid-template-columns: minmax(46px, 0.9fr) repeat(4, minmax(38px, 1fr));
   gap: 4px;
 }
 
@@ -611,7 +641,7 @@
 .creature-training-attributes__header,
 .creature-training-attributes__row {
   display: grid;
-  grid-template-columns: minmax(112px, 1fr) 58px 48px;
+  grid-template-columns: minmax(92px, 1fr) 58px 48px;
   align-items: center;
   gap: 6px;
 }
@@ -638,6 +668,41 @@
   text-align: right;
 }
 
+@media (max-width: 1120px) {
+  .creature-training-drawer {
+    --creature-training-width: min(720px, calc(100vw - 24px));
+  }
+
+  .creature-training-drawer__panel {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 860px) {
+  .creature-training-drawer {
+    --creature-training-width: calc(100vw - 20px);
+  }
+
+  .card-hand__floating-card:has(.creature-training-drawer.is-open) .creature-training-drawer {
+    position: fixed;
+    inset: 10px;
+    width: auto;
+    height: auto;
+  }
+
+  .creature-training-drawer__panel {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto;
+  }
+
+  .creature-training-column {
+    grid-column: 1;
+    max-height: none;
+    overflow: visible;
+    padding-right: 0;
+  }
+}
+
 @media (max-width: 760px) {
   .creature-training-drawer {
     --creature-training-width: 100%;
@@ -662,12 +727,10 @@
   }
 
   .card-hand__floating-card:has(.creature-training-drawer.is-open) .creature-training-drawer {
-    position: absolute;
-    left: 0;
-    right: 0;
-    top: calc(100% + 8px);
-    width: 100%;
-    transform: translateY(0);
+    position: fixed;
+    inset: 8px;
+    width: auto;
+    transform: none;
   }
 
   .creature-training-drawer__toggle,

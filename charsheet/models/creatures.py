@@ -738,14 +738,116 @@ class CreatureTrait(models.Model):
         return 0
 
 
+class CreatureSourceBinding(models.Model):
+    class TriggerType(models.TextChoices):
+        ITEM = "item", "Item"
+        TECHNIQUE = "technique", "Technique"
+
+    creature = models.ForeignKey(Creature, on_delete=models.CASCADE, related_name="source_bindings", null=True)
+    trigger_type = models.CharField(max_length=20, choices=TriggerType.choices)
+    item_trigger = models.ForeignKey(
+        "charsheet.Item",
+        on_delete=models.CASCADE,
+        related_name="creature_source_bindings",
+        blank=True,
+        null=True,
+    )
+    technique_trigger = models.ForeignKey(
+        "charsheet.Technique",
+        on_delete=models.CASCADE,
+        related_name="creature_source_bindings",
+        blank=True,
+        null=True,
+    )
+    quality = models.ForeignKey(
+        "charsheet.Quality",
+        db_column="quality",
+        on_delete=models.PROTECT,
+        related_name="creature_source_bindings",
+        default=QUALITY_COMMON,
+        help_text="Quality used when this binding is triggered by a technique. Item-triggered creatures use the owned item's quality.",
+    )
+    active = models.BooleanField(default=True)
+    note = models.TextField(blank=True, default="")
+
+    class Meta:
+        ordering = ["creature__name", "trigger_type", "id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["creature", "item_trigger"],
+                condition=models.Q(item_trigger__isnull=False),
+                name="uniq_creature_source_item_binding",
+            ),
+            models.UniqueConstraint(
+                fields=["creature", "technique_trigger"],
+                condition=models.Q(technique_trigger__isnull=False),
+                name="uniq_creature_source_technique_binding",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.creature} via {self.trigger_label}"
+
+    @property
+    def trigger_label(self):
+        if self.trigger_type == self.TriggerType.ITEM and self.item_trigger_id:
+            return self.item_trigger.name
+        if self.trigger_type == self.TriggerType.TECHNIQUE and self.technique_trigger_id:
+            return self.technique_trigger.name
+        return self.get_trigger_type_display()
+
+    def clean(self):
+        super().clean()
+        if self.trigger_type == self.TriggerType.ITEM:
+            if not self.item_trigger_id:
+                raise ValidationError({"item_trigger": "Item-Trigger ist erforderlich."})
+            if self.technique_trigger_id:
+                raise ValidationError({"technique_trigger": "Bei Item-Trigger leer lassen."})
+        if self.trigger_type == self.TriggerType.TECHNIQUE:
+            if not self.technique_trigger_id:
+                raise ValidationError({"technique_trigger": "Technik-Trigger ist erforderlich."})
+            if self.item_trigger_id:
+                raise ValidationError({"item_trigger": "Bei Technik-Trigger leer lassen."})
+
+
 class CharacterCreature(models.Model):
     owner = models.ForeignKey("charsheet.Character", on_delete=models.CASCADE, related_name="creatures")
     creature = models.ForeignKey(Creature, on_delete=models.PROTECT, related_name="character_instances")
+    source_binding = models.ForeignKey(
+        CreatureSourceBinding,
+        on_delete=models.PROTECT,
+        related_name="character_creatures",
+        blank=True,
+        null=True,
+    )
+    source_character_item = models.ForeignKey(
+        "charsheet.CharacterItem",
+        on_delete=models.CASCADE,
+        related_name="creatures",
+        blank=True,
+        null=True,
+    )
+    source_character_technique = models.ForeignKey(
+        "charsheet.CharacterTechnique",
+        on_delete=models.CASCADE,
+        related_name="creatures",
+        blank=True,
+        null=True,
+    )
+    quality = models.ForeignKey(
+        "charsheet.Quality",
+        db_column="quality",
+        on_delete=models.PROTECT,
+        related_name="character_creatures",
+        default=QUALITY_COMMON,
+    )
     name_override = models.CharField(max_length=100, blank=True, default="")
     image_override = models.ImageField(upload_to="character_creatures/", blank=True, null=True)
     notes = models.TextField(blank=True, default="")
     active = models.BooleanField(default=True)
     current_damage = models.PositiveIntegerField(default=0)
+    max_base_advantage_points = models.PositiveSmallIntegerField(default=0)
+    max_base_disadvantage_points = models.PositiveSmallIntegerField(default=0)
     size_class_override = models.CharField(max_length=5, choices=GK_CHOICES, blank=True, default="")
     size_modifier_override = models.IntegerField(blank=True, null=True)
     strength_mod_override = models.IntegerField(blank=True, null=True)
@@ -773,6 +875,23 @@ class CharacterCreature(models.Model):
 
     class Meta:
         ordering = ["owner", "creature", "id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["owner", "source_binding"],
+                condition=models.Q(source_binding__isnull=False, source_character_item__isnull=True, source_character_technique__isnull=True),
+                name="uniq_character_creature_source_binding_legacy",
+            ),
+            models.UniqueConstraint(
+                fields=["owner", "source_binding", "source_character_item"],
+                condition=models.Q(source_character_item__isnull=False),
+                name="uniq_character_creature_item_source",
+            ),
+            models.UniqueConstraint(
+                fields=["owner", "source_binding", "source_character_technique"],
+                condition=models.Q(source_character_technique__isnull=False),
+                name="uniq_character_creature_technique_source",
+            ),
+        ]
 
     def __str__(self):
         return f"{self.display_name} ({self.owner})"
@@ -784,6 +903,48 @@ class CharacterCreature(models.Model):
     @property
     def image(self):
         return self.image_override or self.creature.image
+
+    @property
+    def trigger_label(self):
+        if self.source_binding_id:
+            return self.source_binding.trigger_label
+        return ""
+
+    @classmethod
+    def training_budget_defaults(cls, quality):
+        quality_code = getattr(quality, "code", quality) or QUALITY_COMMON
+        advantage_points, disadvantage_points = CREATURE_CARD_QUALITY_TRAINING_BUDGETS.get(
+            quality_code,
+            CREATURE_CARD_QUALITY_TRAINING_BUDGETS[QUALITY_COMMON],
+        )
+        return {
+            "max_base_advantage_points": advantage_points,
+            "max_base_disadvantage_points": disadvantage_points,
+        }
+
+    @property
+    def base_disadvantage_points_spent(self):
+        return sum(row.point_cost for row in self.trait_overrides.all() if row.point_source == CharacterCreatureTrait.PointSource.BASE_DISADVANTAGE)
+
+    @property
+    def additional_disadvantage_points_spent(self):
+        return sum(row.point_cost for row in self.trait_overrides.all() if row.point_source == CharacterCreatureTrait.PointSource.ADDITIONAL_DISADVANTAGE)
+
+    @property
+    def advantage_points_spent(self):
+        return sum(row.point_cost for row in self.trait_overrides.all() if row.training_trait_type == CharacterCreatureTrait.TrainingTraitType.ADVANTAGE)
+
+    @property
+    def bonus_advantage_points(self):
+        return min(self.additional_disadvantage_points_spent, 4)
+
+    @property
+    def effective_advantage_points(self):
+        return int(self.max_base_advantage_points or 0) + self.bonus_advantage_points
+
+    @property
+    def effective_disadvantage_points(self):
+        return int(self.max_base_disadvantage_points or 0) + 4
 
 
 class CharacterCreatureItem(models.Model):
@@ -838,6 +999,14 @@ class CharacterCreatureSkill(models.Model):
     def value_override(self):
         return self.level_override
 
+    @property
+    def name(self):
+        return self.skill.name
+
+    @property
+    def value(self):
+        return self.level_override
+
 
 class CharacterCreatureSpecialSkill(models.Model):
     creature = models.ForeignKey(CharacterCreature, on_delete=models.CASCADE, related_name="special_skill_overrides")
@@ -856,14 +1025,28 @@ class CharacterCreatureSpecialSkill(models.Model):
 
 
 class CharacterCreatureTrait(models.Model):
+    class TrainingTraitType(models.TextChoices):
+        NONE = "", "Keine Ausbildung"
+        ADVANTAGE = "advantage", "Vorzug"
+        DISADVANTAGE = "disadvantage", "Schwäche"
+
+    class PointSource(models.TextChoices):
+        NONE = "", "Keine Budgetwirkung"
+        BASE_DISADVANTAGE = "base_disadvantage", "Basis-Schwäche"
+        ADDITIONAL_DISADVANTAGE = "additional_disadvantage", "Zusatzschwäche"
+
     creature = models.ForeignKey(CharacterCreature, on_delete=models.CASCADE, related_name="trait_overrides")
     base_trait = models.ForeignKey(CreatureTrait, on_delete=models.PROTECT, blank=True, null=True)
     trait = models.ForeignKey(CreatureTraitDefinition, on_delete=models.CASCADE)
     trait_level = models.PositiveIntegerField(default=1)
     active = models.BooleanField(default=True)
+    training_trait_type = models.CharField(max_length=20, choices=TrainingTraitType.choices, blank=True, default="")
+    point_source = models.CharField(max_length=30, choices=PointSource.choices, blank=True, default="")
+    point_cost_override = models.PositiveSmallIntegerField(blank=True, null=True)
+    order = models.PositiveIntegerField(default=0)
 
     class Meta:
-        ordering = ["creature", "trait"]
+        ordering = ["creature", "order", "trait"]
         constraints = [
             models.UniqueConstraint(fields=["creature", "trait"], name="uniq_character_creature_trait"),
         ]
@@ -887,12 +1070,134 @@ class CharacterCreatureTrait(models.Model):
         return self.trait_level
 
     @property
+    def level(self):
+        return self.trait_level
+
+    @property
     def description_override(self):
         return self.trait.description
 
     @property
-    def order(self):
-        return 0
+    def description(self):
+        return self.trait.description
+
+    @property
+    def point_cost(self):
+        if self.point_cost_override is not None:
+            return int(self.point_cost_override)
+        return int(self.trait.cost_for_level(int(self.trait_level or 1)))
+
+
+class CharacterCreatureCommand(models.Model):
+    creature = models.ForeignKey(CharacterCreature, on_delete=models.CASCADE, related_name="commands")
+    command = models.ForeignKey(
+        CreatureCommand,
+        on_delete=models.PROTECT,
+        related_name="character_creature_commands",
+    )
+    order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ["order", "command__name"]
+        constraints = [
+            models.UniqueConstraint(fields=["creature", "command"], name="uniq_character_creature_command"),
+        ]
+
+    def __str__(self):
+        return f"{self.creature}: {self.command}"
+
+    @property
+    def name(self):
+        return self.command.name
+
+    @property
+    def slug(self):
+        return self.command.slug
+
+    @property
+    def ep_cost(self):
+        return self.command.ep_cost
+
+    @property
+    def difficulty(self):
+        return self.command.difficulty
+
+    @property
+    def description(self):
+        return self.command.description
+
+    @property
+    def prerequisite_groups(self):
+        groups = []
+        current_group = None
+        current_commands = []
+        for link in self.prerequisite_links.select_related("prerequisite__command"):
+            if current_group is None:
+                current_group = link.alternative_group
+            if link.alternative_group != current_group:
+                groups.append(current_commands)
+                current_group = link.alternative_group
+                current_commands = []
+            current_commands.append(link.prerequisite)
+        if current_commands:
+            groups.append(current_commands)
+        return groups
+
+    @property
+    def prerequisite_display(self):
+        return " & ".join("/".join(command.name for command in group) for group in self.prerequisite_groups)
+
+    @property
+    def training_days(self):
+        return self.command.training_days
+
+
+class CharacterCreatureCommandPrerequisite(models.Model):
+    command = models.ForeignKey(
+        CharacterCreatureCommand,
+        on_delete=models.CASCADE,
+        related_name="prerequisite_links",
+    )
+    prerequisite = models.ForeignKey(
+        CharacterCreatureCommand,
+        on_delete=models.CASCADE,
+        related_name="required_by_links",
+    )
+    alternative_group = models.PositiveIntegerField(default=0)
+    order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ["alternative_group", "order", "prerequisite__command__name"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["command", "prerequisite", "alternative_group"],
+                name="uniq_character_creature_command_prerequisite_group",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.command}: {self.prerequisite}"
+
+    def clean(self):
+        super().clean()
+        if self.command_id and self.prerequisite_id and self.command.creature_id != self.prerequisite.creature_id:
+            raise ValidationError({"prerequisite": "Prerequisite must belong to the same character creature."})
+
+
+class CharacterCreatureAttributeIncrease(models.Model):
+    creature = models.ForeignKey(CharacterCreature, on_delete=models.CASCADE, related_name="attribute_increases")
+    attribute = models.CharField(max_length=10, choices=ATTRIBUTE_CODE_CHOICES)
+    amount = models.PositiveSmallIntegerField(default=1, validators=[MinValueValidator(1)])
+    notes = models.CharField(max_length=200, blank=True, default="")
+
+    class Meta:
+        ordering = ["attribute", "id"]
+        constraints = [
+            models.UniqueConstraint(fields=["creature", "attribute"], name="uniq_character_creature_attribute_increase"),
+        ]
+
+    def __str__(self):
+        return f"{self.creature}: {self.attribute} +{self.amount}"
 
 
 class CreatureTraitChoiceSelection(models.Model):
@@ -1196,423 +1501,3 @@ class CharacterCreatureTraitChoice(CreatureTraitChoiceSelection):
     def __str__(self) -> str:
         return f"{self.character_creature_trait.creature.display_name} -> {self.definition.name}: {self.selected_target_display()}"
 
-
-class CreatureCardBinding(models.Model):
-    class TriggerType(models.TextChoices):
-        ITEM = "item", "Item"
-        TECHNIQUE = "technique", "Technique"
-
-    creature = models.ForeignKey(Creature, on_delete=models.CASCADE, related_name="card_bindings", null=True)
-    trigger_type = models.CharField(max_length=20, choices=TriggerType.choices)
-    item_trigger = models.ForeignKey(
-        "charsheet.Item",
-        on_delete=models.CASCADE,
-        related_name="creature_card_bindings",
-        blank=True,
-        null=True,
-    )
-    technique_trigger = models.ForeignKey(
-        "charsheet.Technique",
-        on_delete=models.CASCADE,
-        related_name="creature_card_bindings",
-        blank=True,
-        null=True,
-    )
-    quality = models.ForeignKey(
-        "charsheet.Quality",
-        db_column="quality",
-        on_delete=models.PROTECT,
-        related_name="creature_card_bindings",
-        default=QUALITY_COMMON,
-        help_text="Quality used when this binding is triggered by a technique. Item-triggered cards use the owned item's quality.",
-    )
-    active = models.BooleanField(default=True)
-    note = models.TextField(blank=True, default="")
-
-    class Meta:
-        ordering = ["creature__name", "trigger_type", "id"]
-        constraints = [
-            models.UniqueConstraint(
-                fields=["creature", "item_trigger"],
-                condition=models.Q(item_trigger__isnull=False),
-                name="uniq_creature_card_item_binding",
-            ),
-            models.UniqueConstraint(
-                fields=["creature", "technique_trigger"],
-                condition=models.Q(technique_trigger__isnull=False),
-                name="uniq_creature_card_technique_binding",
-            ),
-        ]
-
-    def __str__(self):
-        return f"{self.creature} via {self.trigger_label}"
-
-    @property
-    def trigger_label(self):
-        if self.trigger_type == self.TriggerType.ITEM and self.item_trigger_id:
-            return self.item_trigger.name
-        if self.trigger_type == self.TriggerType.TECHNIQUE and self.technique_trigger_id:
-            return self.technique_trigger.name
-        return self.get_trigger_type_display()
-
-    def clean(self):
-        super().clean()
-        if self.trigger_type == self.TriggerType.ITEM:
-            if not self.item_trigger_id:
-                raise ValidationError({"item_trigger": "Item-Trigger ist erforderlich."})
-            if self.technique_trigger_id:
-                raise ValidationError({"technique_trigger": "Bei Item-Trigger leer lassen."})
-        if self.trigger_type == self.TriggerType.TECHNIQUE:
-            if not self.technique_trigger_id:
-                raise ValidationError({"technique_trigger": "Technik-Trigger ist erforderlich."})
-            if self.item_trigger_id:
-                raise ValidationError({"item_trigger": "Bei Technik-Trigger leer lassen."})
-
-
-class CharacterCreatureCard(models.Model):
-    character = models.ForeignKey("charsheet.Character", on_delete=models.CASCADE, related_name="creature_cards")
-    binding = models.ForeignKey(CreatureCardBinding, on_delete=models.PROTECT, related_name="character_cards")
-    creature = models.ForeignKey(Creature, on_delete=models.PROTECT, related_name="character_cards", null=True)
-    source_character_item = models.ForeignKey(
-        "charsheet.CharacterItem",
-        on_delete=models.CASCADE,
-        related_name="creature_cards",
-        blank=True,
-        null=True,
-    )
-    source_character_technique = models.ForeignKey(
-        "charsheet.CharacterTechnique",
-        on_delete=models.CASCADE,
-        related_name="creature_cards",
-        blank=True,
-        null=True,
-    )
-    active = models.BooleanField(default=True)
-    current_damage = models.PositiveIntegerField(default=0)
-    notes = models.TextField(blank=True, default="")
-    name = models.CharField(max_length=100)
-    creature_type = models.CharField(max_length=100, blank=True, default="")
-    image = models.ImageField(upload_to="character_creature_cards/", blank=True, null=True)
-    description = models.TextField(blank=True, default="")
-    source_reference = models.CharField(max_length=200, blank=True, default="")
-    quality = models.ForeignKey(
-        "charsheet.Quality",
-        db_column="quality",
-        on_delete=models.PROTECT,
-        related_name="creature_cards",
-        default=QUALITY_COMMON,
-    )
-    initiative = models.IntegerField(default=0)
-    vw = models.IntegerField(default=0)
-    sr = models.IntegerField(default=0)
-    gw = models.IntegerField(default=0)
-    defense_extra_label = models.CharField("GW extra label", max_length=20, blank=True, default="")
-    fear_resistance_bonus = models.IntegerField("GW extra value", blank=True, null=True)
-    rs = models.PositiveIntegerField(default=0)
-    wound_step = models.PositiveIntegerField(default=1)
-    size_class = models.CharField(max_length=5, choices=GK_CHOICES, default=GK_AVERAGE)
-    size_modifier = models.IntegerField(default=0)
-    combat_speed = models.PositiveIntegerField(default=0)
-    march_speed = models.PositiveIntegerField(default=0)
-    sprint_speed = models.PositiveIntegerField(default=0)
-    swimming_speed = models.FloatField(default=0, validators=[MinValueValidator(0)])
-    combat_fly_speed = models.PositiveIntegerField(blank=True, null=True)
-    march_fly_speed = models.PositiveIntegerField(blank=True, null=True)
-    sprint_fly_speed = models.PositiveIntegerField(blank=True, null=True)
-    strength_mod = models.IntegerField(default=0)
-    constitution_mod = models.IntegerField(default=0)
-    dexterity_mod = models.IntegerField(default=0)
-    intelligence_mod = models.IntegerField(default=0)
-    perception_mod = models.IntegerField(default=0)
-    willpower_mod = models.IntegerField(default=0)
-    charisma_mod = models.IntegerField(blank=True, null=True)
-    max_base_advantage_points = models.PositiveSmallIntegerField(default=0)
-    max_base_disadvantage_points = models.PositiveSmallIntegerField(default=0)
-
-    class Meta:
-        ordering = ["character", "name", "id"]
-        constraints = [
-            models.UniqueConstraint(
-                fields=["character", "binding"],
-                condition=models.Q(source_character_item__isnull=True, source_character_technique__isnull=True),
-                name="uniq_character_creature_card_binding_legacy",
-            ),
-            models.UniqueConstraint(
-                fields=["character", "binding", "source_character_item"],
-                condition=models.Q(source_character_item__isnull=False),
-                name="uniq_character_creature_card_item_source",
-            ),
-            models.UniqueConstraint(
-                fields=["character", "binding", "source_character_technique"],
-                condition=models.Q(source_character_technique__isnull=False),
-                name="uniq_character_creature_card_technique_source",
-            ),
-        ]
-
-    def __str__(self):
-        return f"{self.name} ({self.character})"
-
-    @property
-    def trigger_label(self):
-        return self.binding.trigger_label
-
-    @classmethod
-    def snapshot_defaults(cls, creature, binding, values):
-        defaults = dict(values)
-        quality = defaults.get("quality", getattr(creature, "quality", QUALITY_COMMON))
-        defaults.update(cls.training_budget_defaults(quality))
-        defaults.update({"binding": binding, "creature": creature, "active": True})
-        return defaults
-
-    @classmethod
-    def training_budget_defaults(cls, quality):
-        quality_code = getattr(quality, "code", quality) or QUALITY_COMMON
-        advantage_points, disadvantage_points = CREATURE_CARD_QUALITY_TRAINING_BUDGETS.get(
-            quality_code,
-            CREATURE_CARD_QUALITY_TRAINING_BUDGETS[QUALITY_COMMON],
-        )
-        return {
-            "max_base_advantage_points": advantage_points,
-            "max_base_disadvantage_points": disadvantage_points,
-        }
-
-    @property
-    def base_disadvantage_points_spent(self):
-        return sum(row.point_cost for row in self.traits.all() if row.point_source == CharacterCreatureCardTrait.PointSource.BASE_DISADVANTAGE)
-
-    @property
-    def additional_disadvantage_points_spent(self):
-        return sum(row.point_cost for row in self.traits.all() if row.point_source == CharacterCreatureCardTrait.PointSource.ADDITIONAL_DISADVANTAGE)
-
-    @property
-    def advantage_points_spent(self):
-        return sum(row.point_cost for row in self.traits.all() if row.training_trait_type == CharacterCreatureCardTrait.TrainingTraitType.ADVANTAGE)
-
-    @property
-    def bonus_advantage_points(self):
-        return min(self.additional_disadvantage_points_spent, 4)
-
-    @property
-    def effective_advantage_points(self):
-        return int(self.max_base_advantage_points or 0) + self.bonus_advantage_points
-
-    @property
-    def effective_disadvantage_points(self):
-        return int(self.max_base_disadvantage_points or 0) + 4
-
-    @property
-    def has_source_deviations(self):
-        if not self.creature_id:
-            return True
-        from ..engine.creature_engine import _creature_card_snapshot_values
-
-        source_values = _creature_card_snapshot_values(self.creature, quality=self.quality)
-        compared_fields = (
-            "initiative",
-            "vw",
-            "sr",
-            "gw",
-            "defense_extra_label",
-            "fear_resistance_bonus",
-            "quality",
-            "rs",
-            "wound_step",
-            "size_class",
-            "size_modifier",
-            "combat_speed",
-            "march_speed",
-            "sprint_speed",
-            "swimming_speed",
-            "combat_fly_speed",
-            "march_fly_speed",
-            "sprint_fly_speed",
-            "strength_mod",
-            "constitution_mod",
-            "dexterity_mod",
-            "intelligence_mod",
-            "perception_mod",
-            "willpower_mod",
-            "charisma_mod",
-        )
-        return any(getattr(self, field) != source_values.get(field) for field in compared_fields)
-
-
-class CharacterCreatureCardAttack(models.Model):
-    card = models.ForeignKey(CharacterCreatureCard, on_delete=models.CASCADE, related_name="attacks")
-    name = models.CharField(max_length=100)
-    attack_value = models.IntegerField(default=0)
-    damage = models.CharField(max_length=100, blank=True, default="")
-    notes = models.CharField(max_length=200, blank=True, default="")
-    order = models.PositiveIntegerField(default=0)
-
-    class Meta:
-        ordering = ["order", "name"]
-
-    def __str__(self):
-        return f"{self.card}: {self.name}"
-
-
-class CharacterCreatureCardSkill(models.Model):
-    card = models.ForeignKey(CharacterCreatureCard, on_delete=models.CASCADE, related_name="skills")
-    name = models.CharField(max_length=100)
-    value = models.IntegerField(default=0)
-    notes = models.CharField(max_length=200, blank=True, default="")
-    order = models.PositiveIntegerField(default=0)
-
-    class Meta:
-        ordering = ["order", "name"]
-
-    def __str__(self):
-        return f"{self.card}: {self.name} {self.value:+d}"
-
-
-class CharacterCreatureCardTrait(models.Model):
-    class TrainingTraitType(models.TextChoices):
-        NONE = "", "Keine Ausbildung"
-        ADVANTAGE = "advantage", "Vorzug"
-        DISADVANTAGE = "disadvantage", "Schwäche"
-
-    class PointSource(models.TextChoices):
-        NONE = "", "Keine Budgetwirkung"
-        BASE_DISADVANTAGE = "base_disadvantage", "Basis-Schwäche"
-        ADDITIONAL_DISADVANTAGE = "additional_disadvantage", "Zusatzschwäche"
-
-    card = models.ForeignKey(CharacterCreatureCard, on_delete=models.CASCADE, related_name="traits")
-    trait_definition = models.ForeignKey(
-        CreatureTraitDefinition,
-        on_delete=models.PROTECT,
-        related_name="creature_card_traits",
-        blank=True,
-        null=True,
-    )
-    name = models.CharField(max_length=100)
-    level = models.IntegerField(blank=True, null=True)
-    description = models.TextField(blank=True, default="")
-    training_trait_type = models.CharField(max_length=20, choices=TrainingTraitType.choices, blank=True, default="")
-    point_source = models.CharField(max_length=30, choices=PointSource.choices, blank=True, default="")
-    point_cost_override = models.PositiveSmallIntegerField(blank=True, null=True)
-    order = models.PositiveIntegerField(default=0)
-
-    class Meta:
-        ordering = ["order", "name"]
-
-    def __str__(self):
-        return f"{self.card}: {self.name}"
-
-    @property
-    def point_cost(self):
-        if self.point_cost_override is not None:
-            return int(self.point_cost_override)
-        if self.trait_definition_id:
-            return int(self.trait_definition.cost_for_level(int(self.level or 1)))
-        return 0
-
-
-class CharacterCreatureCardCommand(models.Model):
-    card = models.ForeignKey(CharacterCreatureCard, on_delete=models.CASCADE, related_name="commands")
-    command = models.ForeignKey(
-        CreatureCommand,
-        on_delete=models.PROTECT,
-        related_name="creature_card_commands",
-        blank=True,
-        null=True,
-    )
-    name = models.CharField(max_length=100)
-    slug = models.SlugField(max_length=100, blank=True, default="")
-    ep_cost = models.DecimalField(max_digits=4, decimal_places=1, default=0)
-    difficulty = models.PositiveIntegerField(blank=True, null=True)
-    prerequisites = models.ManyToManyField(
-        "self",
-        through="CharacterCreatureCardCommandPrerequisite",
-        symmetrical=False,
-        related_name="unlocks",
-        blank=True,
-    )
-    description = models.TextField(blank=True, default="")
-    order = models.PositiveIntegerField(default=0)
-
-    class Meta:
-        ordering = ["order", "name"]
-        constraints = [
-            models.UniqueConstraint(
-                fields=["card", "command"],
-                condition=models.Q(command__isnull=False),
-                name="uniq_card_known_creature_command",
-            ),
-        ]
-
-    def __str__(self):
-        return f"{self.card}: {self.name}"
-
-    @property
-    def training_days(self):
-        return int(self.ep_cost * 10)
-
-    @property
-    def prerequisite_groups(self):
-        groups = []
-        current_group = None
-        current_commands = []
-        for link in self.prerequisite_links.select_related("prerequisite"):
-            if current_group is None:
-                current_group = link.alternative_group
-            if link.alternative_group != current_group:
-                groups.append(current_commands)
-                current_group = link.alternative_group
-                current_commands = []
-            current_commands.append(link.prerequisite)
-        if current_commands:
-            groups.append(current_commands)
-        return groups
-
-    @property
-    def prerequisite_display(self):
-        return " & ".join("/".join(command.name for command in group) for group in self.prerequisite_groups)
-
-
-class CharacterCreatureCardCommandPrerequisite(models.Model):
-    command = models.ForeignKey(
-        CharacterCreatureCardCommand,
-        on_delete=models.CASCADE,
-        related_name="prerequisite_links",
-    )
-    prerequisite = models.ForeignKey(
-        CharacterCreatureCardCommand,
-        on_delete=models.CASCADE,
-        related_name="required_by_links",
-    )
-    alternative_group = models.PositiveIntegerField(default=0)
-    order = models.PositiveIntegerField(default=0)
-
-    class Meta:
-        ordering = ["alternative_group", "order", "prerequisite__name"]
-        constraints = [
-            models.UniqueConstraint(
-                fields=["command", "prerequisite", "alternative_group"],
-                name="uniq_card_command_prerequisite_group",
-            ),
-        ]
-
-    def __str__(self):
-        return f"{self.command}: {self.prerequisite}"
-
-    def clean(self):
-        super().clean()
-        if self.command_id and self.prerequisite_id and self.command.card_id != self.prerequisite.card_id:
-            raise ValidationError({"prerequisite": "Prerequisite must belong to the same creature card."})
-
-
-class CharacterCreatureCardAttributeIncrease(models.Model):
-    card = models.ForeignKey(CharacterCreatureCard, on_delete=models.CASCADE, related_name="attribute_increases")
-    attribute = models.CharField(max_length=10, choices=ATTRIBUTE_CODE_CHOICES)
-    amount = models.PositiveSmallIntegerField(default=1, validators=[MinValueValidator(1)])
-    notes = models.CharField(max_length=200, blank=True, default="")
-
-    class Meta:
-        ordering = ["attribute", "id"]
-        constraints = [
-            models.UniqueConstraint(fields=["card", "attribute"], name="uniq_card_attribute_increase"),
-        ]
-
-    def __str__(self):
-        return f"{self.card}: {self.attribute} +{self.amount}"

@@ -161,14 +161,13 @@
             {% endif %}
 
             {% if creature_card.skills or creature_card.special_skills %}
-                <p class="creature-card__oracle-line">
+                <p class="creature-card__oracle-line creature-card__skill-line">
                     <strong>Fertigkeiten</strong>
                     {% for skill in creature_card.skills %}
-                        <span class="creature-card__rule-entry{% if skill.notes %} tooltip_target{% endif %}"{% if skill.notes %} data-tooltip="{{ skill.notes }}" data-tooltip-side="right"{% endif %}>{{ skill.name }} {{ skill.value }}</span>{% if not forloop.last %}, {% endif %}
+                        <span class="creature-card__rule-entry creature-card__skill-entry{% if skill.notes %} tooltip_target{% endif %}"{% if skill.notes %} data-tooltip="{{ skill.notes }}" data-tooltip-side="right"{% endif %}>{{ skill.name }}{% if skill.value %} {{ skill.value }}{% endif %}{% if not forloop.last or creature_card.special_skills %},{% endif %}</span>
                     {% endfor %}
-                    {% if creature_card.skills and creature_card.special_skills %}, {% endif %}
                     {% for skill in creature_card.special_skills %}
-                        <span class="creature-card__rule-entry{% if skill.notes %} tooltip_target{% endif %}"{% if skill.notes %} data-tooltip="{{ skill.notes }}" data-tooltip-side="right"{% endif %}>{{ skill.name }}* {{ skill.value }}</span>{% if not forloop.last %}, {% endif %}
+                        <span class="creature-card__rule-entry creature-card__skill-entry{% if skill.notes %} tooltip_target{% endif %}"{% if skill.notes %} data-tooltip="{{ skill.notes }}" data-tooltip-side="right"{% endif %}>{{ skill.name }}{% if skill.value %} {{ skill.value }}{% endif %}{% if not forloop.last %},{% endif %}</span>
                     {% endfor %}
                 </p>
             {% endif %}

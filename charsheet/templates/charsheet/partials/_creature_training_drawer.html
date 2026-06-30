@@ -83,7 +83,11 @@
         <div class="creature-training-skill-list">
         {% for skill in training.skill_rows %}
           <div class="creature-training-skill" data-creature-training-skill-row data-filter-text="{{ skill.name }} {{ skill.value }} {{ skill.notes }}">
-            <button class="creature-training-skill__remove" type="button" data-creature-training-remove-skill data-skill-id="{{ skill.id }}" aria-label="{{ skill.name }} entfernen">×</button>
+            {% if skill.can_remove %}
+              <button class="creature-training-skill__remove" type="button" data-creature-training-remove-skill data-skill-id="{{ skill.remove_id }}" aria-label="{{ skill.name }} entfernen">×</button>
+            {% else %}
+              <span class="creature-training-skill__remove creature-training-skill__remove--placeholder" aria-hidden="true"></span>
+            {% endif %}
             <span>{{ skill.name }}</span>
             <input type="number" name="skill_value_{{ skill.id }}" value="{{ skill.value }}" min="-20" max="50" aria-label="Wert {{ skill.name }}">
           </div>

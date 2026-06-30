@@ -43,7 +43,7 @@ from charsheet.constants import (
     WEAPON_MASTERY_EFFECT_DESCRIPTION,
 )
 from charsheet.engine import BattleCalculatorEngine, ItemEngine
-from charsheet.engine.creature_engine import CreatureCardEngine, sync_character_creature_cards
+from charsheet.engine.creature_engine import CreatureEngine, sync_character_creatures
 from charsheet.forms import (
     CharacterInfoInlineForm,
     CharacterSkillSpecificationForm,
@@ -107,9 +107,70 @@ _DAMAGE_GAUGE_TICK_INNER_MINOR = 76
 
 
 def build_creature_card_training_context(card):
-    traits = list(card.traits.select_related("trait_definition").all())
-    commands = list(card.commands.select_related("command").prefetch_related("prerequisite_links__prerequisite").all())
-    skills = list(card.skills.all())
+    traits = list(card.trait_overrides.select_related("trait").all())
+    commands = list(card.commands.select_related("command").prefetch_related("prerequisite_links__prerequisite__command").all())
+    skill_overrides = {row.skill_id: row for row in card.skill_overrides.select_related("skill").all()}
+    special_skill_overrides = {
+        row.skill_id: row
+        for row in card.special_skill_overrides.select_related("skill").all()
+    }
+    skill_rows = []
+    seen_skill_ids = set()
+    seen_special_skill_ids = set()
+    for base_skill in card.creature.skills.select_related("skill").all():
+        override = skill_overrides.get(base_skill.skill_id)
+        seen_skill_ids.add(base_skill.skill_id)
+        skill_rows.append(
+            {
+                "id": f"normal_{base_skill.skill_id}",
+                "remove_id": "",
+                "name": base_skill.skill.name,
+                "value": override.value if override else base_skill.value,
+                "notes": (override.notes if override and override.notes else base_skill.notes or base_skill.skill.description),
+                "can_remove": False,
+            }
+        )
+    for override in skill_overrides.values():
+        if override.skill_id in seen_skill_ids:
+            continue
+        seen_skill_ids.add(override.skill_id)
+        skill_rows.append(
+            {
+                "id": f"normal_{override.skill_id}",
+                "remove_id": f"normal:{override.skill_id}",
+                "name": override.skill.name,
+                "value": override.value,
+                "notes": override.notes or override.skill.description,
+                "can_remove": True,
+            }
+        )
+    for base_skill in card.creature.special_skills.select_related("skill").all():
+        override = special_skill_overrides.get(base_skill.skill_id)
+        seen_special_skill_ids.add(base_skill.skill_id)
+        skill_rows.append(
+            {
+                "id": f"special_{base_skill.skill_id}",
+                "remove_id": "",
+                "name": base_skill.skill.name,
+                "value": override.value_override if override else base_skill.value,
+                "notes": (override.notes if override and override.notes else base_skill.notes or base_skill.skill.description),
+                "can_remove": False,
+            }
+        )
+    for override in special_skill_overrides.values():
+        if override.skill_id in seen_special_skill_ids:
+            continue
+        seen_special_skill_ids.add(override.skill_id)
+        skill_rows.append(
+            {
+                "id": f"special_{override.skill_id}",
+                "remove_id": f"special:{override.skill_id}",
+                "name": override.skill.name,
+                "value": override.value_override,
+                "notes": override.notes or override.skill.description,
+                "can_remove": True,
+            }
+        )
     attribute_increases = {
         row.attribute: row.amount
         for row in card.attribute_increases.all()
@@ -132,14 +193,14 @@ def build_creature_card_training_context(card):
     remaining_advantage_points = effective_advantage_points - advantage_points
     known_command_slugs = {command.slug for command in commands if command.slug}
     advantage_levels = {
-        row.trait_definition_id: int(row.level or 1)
+        row.trait_id: int(row.trait_level or 1)
         for row in traits
-        if row.trait_definition_id and row.training_trait_type == row.TrainingTraitType.ADVANTAGE
+        if row.trait_id and row.training_trait_type == row.TrainingTraitType.ADVANTAGE
     }
     disadvantage_levels = {
-        row.trait_definition_id: int(row.level or 1)
+        row.trait_id: int(row.trait_level or 1)
         for row in traits
-        if row.trait_definition_id and row.training_trait_type == row.TrainingTraitType.DISADVANTAGE
+        if row.trait_id and row.training_trait_type == row.TrainingTraitType.DISADVANTAGE
     }
     command_catalog = []
     for command in CreatureCommand.objects.prefetch_related("prerequisite_links__prerequisite").order_by("name"):
@@ -182,13 +243,13 @@ def build_creature_card_training_context(card):
         for trait in CreatureTraitDefinition.objects.order_by("trait_type", "name")
     ]
     card_attribute_values = {
-        ATTR_ST: card.strength_mod,
-        ATTR_KON: card.constitution_mod,
-        ATTR_GE: card.dexterity_mod,
-        ATTR_INT: card.intelligence_mod,
-        ATTR_WA: card.perception_mod,
-        ATTR_WILL: card.willpower_mod,
-        ATTR_CHA: card.charisma_mod,
+        ATTR_ST: CreatureEngine(card).attribute_mod(ATTR_ST),
+        ATTR_KON: CreatureEngine(card).attribute_mod(ATTR_KON),
+        ATTR_GE: CreatureEngine(card).attribute_mod(ATTR_GE),
+        ATTR_INT: CreatureEngine(card).attribute_mod(ATTR_INT),
+        ATTR_WA: CreatureEngine(card).attribute_mod(ATTR_WA),
+        ATTR_WILL: CreatureEngine(card).attribute_mod(ATTR_WILL),
+        ATTR_CHA: CreatureEngine(card).attribute_mod(ATTR_CHA),
     }
     attribute_options = []
     for code, label in (
@@ -229,7 +290,7 @@ def build_creature_card_training_context(card):
         }
         for quality in Quality.objects.all()
     ]
-    existing_skill_names = {skill.name.casefold() for skill in skills}
+    existing_skill_names = {skill["name"].casefold() for skill in skill_rows}
     skill_catalog = [
         {
             "id": f"skill:{skill.pk}",
@@ -246,28 +307,27 @@ def build_creature_card_training_context(card):
         for skill in CreatureSpecialSkill.objects.order_by("name")
         if skill.name.casefold() not in existing_skill_names
     ]
-    can_fly = any(
-        getattr(card, field_name, None) is not None
-        for field_name in ("combat_fly_speed", "march_fly_speed", "sprint_fly_speed")
-    )
+    engine = CreatureEngine(card)
+    movement = engine.movement()
+    can_fly = any(movement.get(field_name) is not None for field_name in ("fly_combat", "fly_march", "fly_sprint"))
     movement_options = {
-        "combat_speed": int(card.combat_speed or 0),
-        "march_speed": int(card.march_speed or 0),
-        "sprint_speed": int(card.sprint_speed or 0),
-        "swimming_speed": card.swimming_speed or 0,
+        "combat_speed": int(movement["combat"] or 0),
+        "march_speed": int(movement["march"] or 0),
+        "sprint_speed": int(movement["sprint"] or 0),
+        "swimming_speed": movement["swim"] or 0,
         "can_fly": can_fly,
-        "combat_fly_speed": int(card.combat_fly_speed or 0),
-        "march_fly_speed": int(card.march_fly_speed or 0),
-        "sprint_fly_speed": int(card.sprint_fly_speed or 0),
+        "combat_fly_speed": int(movement["fly_combat"] or 0),
+        "march_fly_speed": int(movement["fly_march"] or 0),
+        "sprint_fly_speed": int(movement["fly_sprint"] or 0),
     }
 
     return {
         "card": card,
-        "update_url": reverse("update_creature_card_training", kwargs={"pk": card.pk}),
+        "update_url": reverse("update_character_creature_training", kwargs={"pk": card.pk}),
         "quality_choices": quality_choices,
         "current_quality": quality_payload(card.quality),
         "commands": commands,
-        "skill_rows": skills,
+        "skill_rows": skill_rows,
         "skill_catalog": skill_catalog,
         "special_skill_catalog": special_skill_catalog,
         "known_command_ids": {command.command_id for command in commands if command.command_id},
@@ -3831,24 +3891,24 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
     effective_personal_fame_rank = base_personal_fame_rank + (total_personal_fame_point // 10)
     fame_total_rank = effective_personal_fame_rank + int(character.sacrifice_rank) + effective_artefact_rank
 
-    active_creature_cards = sync_character_creature_cards(character)
+    active_creature_cards = sync_character_creatures(character)
     creature_card_contexts = []
     character_creature_card_rows = []
     for card in active_creature_cards:
-        card_context = CreatureCardEngine(card).card_context()
-        card_context["adjust_damage_url"] = reverse("adjust_creature_card_damage", kwargs={"pk": card.pk})
-        card_context["training_update_url"] = reverse("update_creature_card_training", kwargs={"pk": card.pk})
+        card_context = CreatureEngine(card).card_context()
+        card_context["adjust_damage_url"] = reverse("adjust_creature_damage", kwargs={"pk": card.pk})
+        card_context["training_update_url"] = reverse("update_character_creature_training", kwargs={"pk": card.pk})
         mini_context = {**card_context, "adjust_damage_url": "", "damage_controls_disabled": True}
         mini_context.pop("training_update_url", None)
         training_context = build_creature_card_training_context(card)
         creature_card_contexts.append({"card": card, "context": card_context, "mini_context": mini_context, "training_context": training_context})
         character_creature_card_rows.append(
             {
-                "name": card.name,
+                "name": card.display_name,
                 "source": card.creature.display_name,
                 "trigger": card.trigger_label,
                 "active": card.active,
-                "has_source_deviations": card.has_source_deviations,
+                "has_source_deviations": bool(card.name_override or card.image_override),
             }
         )
 

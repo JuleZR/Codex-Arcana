@@ -281,6 +281,31 @@ export function initCreatureCards() {
         }
       });
     };
+    const resetDrawerShift = () => {
+      const floating = drawer.closest(".card-hand__floating");
+      if (floating instanceof HTMLElement) {
+        floating.style.removeProperty("--creature-training-shift");
+      }
+    };
+    const fitDrawerInViewport = () => {
+      const floating = drawer.closest(".card-hand__floating");
+      if (!(floating instanceof HTMLElement) || !drawer.classList.contains("is-open")) {
+        return;
+      }
+      floating.style.setProperty("--creature-training-shift", "0px");
+      const drawerRect = drawer.getBoundingClientRect();
+      const viewportPadding = 12;
+      const overflowRight = drawerRect.right - (window.innerWidth - viewportPadding);
+      const overflowLeft = viewportPadding - drawerRect.left;
+      let shift = 0;
+      if (overflowRight > 0) {
+        shift -= overflowRight;
+      }
+      if (drawerRect.left + shift < viewportPadding) {
+        shift += viewportPadding - (drawerRect.left + shift);
+      }
+      floating.style.setProperty("--creature-training-shift", `${Math.round(shift)}px`);
+    };
     const registerRemovedSkill = (skillId) => {
       if (!(panel instanceof HTMLElement) || !skillId) {
         return;
@@ -349,9 +374,11 @@ export function initCreatureCards() {
           panel.hidden = false;
           window.requestAnimationFrame(() => {
             drawer.classList.add("is-open");
+            fitDrawerInViewport();
           });
         } else {
           drawer.classList.remove("is-open");
+          resetDrawerShift();
           window.setTimeout(() => {
             if (!drawer.classList.contains("is-open")) {
               panel.hidden = true;
@@ -360,6 +387,7 @@ export function initCreatureCards() {
         }
         toggle.setAttribute("aria-expanded", isOpen ? "true" : "false");
       });
+      window.addEventListener("resize", fitDrawerInViewport);
     }
     if (panel instanceof HTMLFormElement) {
       panel.querySelectorAll("[data-creature-training-filter]").forEach((filterInput) => {
