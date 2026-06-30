@@ -7,17 +7,112 @@
       <button type="submit">Speichern</button>
     </header>
 
+    <div class="creature-training-column">
     <section class="creature-training-drawer__section" aria-label="Punkte">
       <h3 class="creature-training-section-heading">Punkte</h3>
       <div class="creature-training-section-body">
         <dl class="creature-training-points">
-          <div><dt>Basis-Vorzüge</dt><dd>{{ training.base_advantage_points }}</dd></div>
-          <div><dt>Bonus-Vorzüge</dt><dd>{{ training.bonus_advantage_points }}/4</dd></div>
-          <div><dt>Vorzüge belegt</dt><dd>{{ training.spent_advantage_points }}/{{ training.effective_advantage_points }}</dd></div>
-          <div><dt>Vorzüge frei</dt><dd>{{ training.remaining_advantage_points }}</dd></div>
-          <div><dt>Schwächen</dt><dd>{{ training.spent_disadvantage_points }}/{{ training.effective_disadvantage_points }}</dd></div>
-          <div><dt>Schwächen frei</dt><dd>{{ training.remaining_disadvantage_points }}</dd></div>
+          <div><dt>Punkte durch Qualit&auml;t</dt><dd data-creature-training-quality-points>{{ training.quality_advantage_points }}</dd></div>
+          <div><dt>Punkte durch Schw&auml;chen</dt><dd><span data-creature-training-weakness-points>{{ training.weakness_advantage_points }}</span>/4</dd></div>
+          <div><dt>Verbrauch</dt><dd data-creature-training-consumed-points>{{ training.consumed_advantage_points }}</dd></div>
+          <div class="creature-training-points__total"><dt>Gesamtpunkte offen</dt><dd data-creature-training-open-points>{{ training.open_advantage_points }}</dd></div>
         </dl>
+      </div>
+    </section>
+
+    <section class="creature-training-drawer__section" aria-label="Bewegung">
+      <h3 class="creature-training-section-heading">Bewegung</h3>
+      <div class="creature-training-section-body">
+        <div class="creature-training-movement{% if not training.movement_options.can_fly %} is-flight-disabled{% endif %}" data-creature-training-movement>
+          <div class="creature-training-movement__header" aria-hidden="true">
+            <span></span>
+            <span>Kampf</span>
+            <span>Marsch</span>
+            <span>Sprint</span>
+            <span>Schw.</span>
+          </div>
+          <div class="creature-training-movement__row">
+            <span>Boden</span>
+            <input type="number" name="combat_speed" value="{{ training.movement_options.combat_speed }}" min="0" step="1" aria-label="Kampfgeschwindigkeit">
+            <input type="number" name="march_speed" value="{{ training.movement_options.march_speed }}" min="0" step="1" aria-label="Marschgeschwindigkeit">
+            <input type="number" name="sprint_speed" value="{{ training.movement_options.sprint_speed }}" min="0" step="1" aria-label="Sprintgeschwindigkeit">
+            <input type="number" name="swimming_speed" value="{{ training.movement_options.swimming_speed }}" min="0" step="0.5" aria-label="Schwimmgeschwindigkeit">
+          </div>
+          <div class="creature-training-movement__row creature-training-movement__row--flight" data-creature-fly-row>
+            <label class="creature-training-movement__check">
+              <input type="checkbox" name="can_fly" value="1"{% if training.movement_options.can_fly %} checked{% endif %} data-creature-can-fly>
+              <span>Flug</span>
+            </label>
+            <input type="number" name="combat_fly_speed" value="{{ training.movement_options.combat_fly_speed }}" min="0" step="1" aria-label="Kampffluggeschwindigkeit" data-creature-fly-speed{% if not training.movement_options.can_fly %} disabled{% endif %}>
+            <input type="number" name="march_fly_speed" value="{{ training.movement_options.march_fly_speed }}" min="0" step="1" aria-label="Marschfluggeschwindigkeit" data-creature-fly-speed{% if not training.movement_options.can_fly %} disabled{% endif %}>
+            <input type="number" name="sprint_fly_speed" value="{{ training.movement_options.sprint_fly_speed }}" min="0" step="1" aria-label="Sprintfluggeschwindigkeit" data-creature-fly-speed{% if not training.movement_options.can_fly %} disabled{% endif %}>
+            <span class="creature-training-movement__dash" aria-hidden="true">-</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="creature-training-drawer__section" aria-label="Eigenschaftssteigerungen">
+      <h3 class="creature-training-section-heading">Eigenschaften</h3>
+      <div class="creature-training-section-body">
+        <div class="creature-training-attributes" role="table" aria-label="Eigenschaftssteigerungen" data-creature-training-filter-list="attributes">
+        <div class="creature-training-attributes__header" role="row">
+          <span role="columnheader">Eigenschaft</span>
+          <span role="columnheader">Wert</span>
+          <span role="columnheader">Mod.</span>
+        </div>
+        {% for attribute in training.attribute_options %}
+          <label class="creature-training-attributes__row" role="row" data-filter-text="{{ attribute.label }} {{ attribute.current_value_display }} {{ attribute.current_display }}">
+            <span role="cell">{{ attribute.label }}</span>
+            <input type="number" name="attribute_{{ attribute.code }}" value="{{ attribute.input_value }}" min="{{ attribute.base_value|default:0 }}" max="20" data-creature-attribute-value>
+            <span role="cell" data-creature-attribute-mod>{{ attribute.current_display }}</span>
+          </label>
+        {% endfor %}
+        </div>
+      </div>
+    </section>
+    </div>
+
+    <div class="creature-training-column">
+    <section class="creature-training-drawer__section is-collapsed" aria-label="Fertigkeiten" data-creature-training-section>
+      <button class="creature-training-section-toggle" type="button" data-creature-training-section-toggle aria-expanded="false">
+        <span>Fertigkeiten</span>
+        <span class="creature-training-section-toggle__icon" aria-hidden="true"></span>
+      </button>
+      <div class="creature-training-section-body" data-creature-training-section-body hidden>
+        <div class="creature-training-skill-list">
+        {% for skill in training.skill_rows %}
+          <div class="creature-training-skill" data-creature-training-skill-row data-filter-text="{{ skill.name }} {{ skill.value }} {{ skill.notes }}">
+            <button class="creature-training-skill__remove" type="button" data-creature-training-remove-skill data-skill-id="{{ skill.id }}" aria-label="{{ skill.name }} entfernen">×</button>
+            <span>{{ skill.name }}</span>
+            <input type="number" name="skill_value_{{ skill.id }}" value="{{ skill.value }}" min="-20" max="50" aria-label="Wert {{ skill.name }}">
+          </div>
+        {% empty %}
+          <p class="creature-training-empty">Keine Fertigkeiten auf der Karte.</p>
+        {% endfor %}
+          <div class="creature-training-skill creature-training-skill--new" data-creature-training-new-skill-row>
+            <button class="creature-training-skill__remove" type="button" data-creature-training-remove-new-skill aria-label="Neue Fertigkeit entfernen">×</button>
+            <select name="new_skill_id" aria-label="Neue Fertigkeit">
+              <option value="">Fertigkeit hinzuf&uuml;gen</option>
+              {% if training.skill_catalog %}
+                <optgroup label="Allgemeine F&auml;higkeiten">
+                  {% for skill in training.skill_catalog %}
+                    <option value="{{ skill.id }}">{{ skill.name }}</option>
+                  {% endfor %}
+                </optgroup>
+              {% endif %}
+              {% if training.special_skill_catalog %}
+                <optgroup label="Kreaturenf&auml;higkeiten">
+                  {% for skill in training.special_skill_catalog %}
+                    <option value="{{ skill.id }}">{{ skill.name }}</option>
+                  {% endfor %}
+                </optgroup>
+              {% endif %}
+            </select>
+            <input type="number" name="new_skill_value" value="0" min="-20" max="50" aria-label="Wert neue Fertigkeit">
+          </div>
+          <button class="creature-training-add-skill" type="button" data-creature-training-add-skill>Fertigkeit hinzuf&uuml;gen</button>
+        </div>
       </div>
     </section>
 
@@ -46,7 +141,9 @@
         </div>
       </div>
     </section>
+    </div>
 
+    <div class="creature-training-column">
     <section class="creature-training-drawer__section is-collapsed" aria-label="Vorzüge" data-creature-training-section>
       <button class="creature-training-section-toggle" type="button" data-creature-training-section-toggle aria-expanded="false">
         <span>Vorzüge</span>
@@ -94,25 +191,7 @@
         </div>
       </div>
     </section>
+    </div>
 
-    <section class="creature-training-drawer__section" aria-label="Eigenschaftssteigerungen">
-      <h3 class="creature-training-section-heading">Eigenschaften</h3>
-      <div class="creature-training-section-body">
-        <div class="creature-training-attributes" role="table" aria-label="Eigenschaftssteigerungen" data-creature-training-filter-list="attributes">
-        <div class="creature-training-attributes__header" role="row">
-          <span role="columnheader">Eigenschaft</span>
-          <span role="columnheader">Wert</span>
-          <span role="columnheader">Mod.</span>
-        </div>
-        {% for attribute in training.attribute_options %}
-          <label class="creature-training-attributes__row" role="row" data-filter-text="{{ attribute.label }} {{ attribute.current_value_display }} {{ attribute.current_display }}">
-            <span role="cell">{{ attribute.label }}</span>
-            <input type="number" name="attribute_{{ attribute.code }}" value="{{ attribute.input_value }}" min="{{ attribute.base_value|default:0 }}" max="20" data-creature-attribute-value>
-            <span role="cell" data-creature-attribute-mod>{{ attribute.current_display }}</span>
-          </label>
-        {% endfor %}
-        </div>
-      </div>
-    </section>
   </form>
 </aside>

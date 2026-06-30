@@ -71,6 +71,7 @@ from charsheet.models import (
     CharacterTechnique,
     CharacterTrait,
     CreatureCommand,
+    CreatureSpecialSkill,
     CreatureTraitDefinition,
     DamageSource,
     Item,
@@ -108,6 +109,7 @@ _DAMAGE_GAUGE_TICK_INNER_MINOR = 76
 def build_creature_card_training_context(card):
     traits = list(card.traits.select_related("trait_definition").all())
     commands = list(card.commands.select_related("command").prefetch_related("prerequisite_links__prerequisite").all())
+    skills = list(card.skills.all())
     attribute_increases = {
         row.attribute: row.amount
         for row in card.attribute_increases.all()
@@ -127,6 +129,7 @@ def build_creature_card_training_context(card):
     bonus_advantage_points = min(additional_disadvantage_points, 4)
     effective_advantage_points = int(card.max_base_advantage_points or 0) + bonus_advantage_points
     effective_disadvantage_points = int(card.max_base_disadvantage_points or 0) + 4
+    remaining_advantage_points = effective_advantage_points - advantage_points
     known_command_slugs = {command.slug for command in commands if command.slug}
     advantage_levels = {
         row.trait_definition_id: int(row.level or 1)
@@ -226,6 +229,37 @@ def build_creature_card_training_context(card):
         }
         for quality in Quality.objects.all()
     ]
+    existing_skill_names = {skill.name.casefold() for skill in skills}
+    skill_catalog = [
+        {
+            "id": f"skill:{skill.pk}",
+            "name": skill.name,
+        }
+        for skill in Skill.objects.order_by("name")
+        if skill.name.casefold() not in existing_skill_names
+    ]
+    special_skill_catalog = [
+        {
+            "id": f"special:{skill.pk}",
+            "name": skill.name,
+        }
+        for skill in CreatureSpecialSkill.objects.order_by("name")
+        if skill.name.casefold() not in existing_skill_names
+    ]
+    can_fly = any(
+        getattr(card, field_name, None) is not None
+        for field_name in ("combat_fly_speed", "march_fly_speed", "sprint_fly_speed")
+    )
+    movement_options = {
+        "combat_speed": int(card.combat_speed or 0),
+        "march_speed": int(card.march_speed or 0),
+        "sprint_speed": int(card.sprint_speed or 0),
+        "swimming_speed": card.swimming_speed or 0,
+        "can_fly": can_fly,
+        "combat_fly_speed": int(card.combat_fly_speed or 0),
+        "march_fly_speed": int(card.march_fly_speed or 0),
+        "sprint_fly_speed": int(card.sprint_fly_speed or 0),
+    }
 
     return {
         "card": card,
@@ -233,6 +267,9 @@ def build_creature_card_training_context(card):
         "quality_choices": quality_choices,
         "current_quality": quality_payload(card.quality),
         "commands": commands,
+        "skill_rows": skills,
+        "skill_catalog": skill_catalog,
+        "special_skill_catalog": special_skill_catalog,
         "known_command_ids": {command.command_id for command in commands if command.command_id},
         "command_catalog": command_catalog,
         "traits": traits,
@@ -241,6 +278,7 @@ def build_creature_card_training_context(card):
         "disadvantage_ids": set(disadvantage_levels),
         "attribute_increases": attribute_increases,
         "attribute_options": attribute_options,
+        "movement_options": movement_options,
         "base_advantage_points": int(card.max_base_advantage_points or 0),
         "base_disadvantage_points": int(card.max_base_disadvantage_points or 0),
         "spent_advantage_points": advantage_points,
@@ -250,7 +288,11 @@ def build_creature_card_training_context(card):
         "bonus_advantage_points": bonus_advantage_points,
         "effective_advantage_points": effective_advantage_points,
         "effective_disadvantage_points": effective_disadvantage_points,
-        "remaining_advantage_points": effective_advantage_points - advantage_points,
+        "quality_advantage_points": int(card.max_base_advantage_points or 0),
+        "weakness_advantage_points": bonus_advantage_points,
+        "consumed_advantage_points": advantage_points,
+        "open_advantage_points": remaining_advantage_points,
+        "remaining_advantage_points": remaining_advantage_points,
         "remaining_disadvantage_points": effective_disadvantage_points - base_disadvantage_points - additional_disadvantage_points,
     }
 

@@ -117,6 +117,56 @@
     opacity: 0.48;
 }
 
+.card[data-card-holo="true"][data-card-holo-kind="creature-legendary"]::before {
+    background-image: linear-gradient(
+        115deg,
+        transparent 0%,
+        rgba(159, 121, 40, 0.08) 18%,
+        rgba(159, 121, 40, 0.34) 30%,
+        rgba(254, 219, 55, 0.54) 43%,
+        rgba(209, 180, 100, 0.5) 57%,
+        rgba(93, 74, 31, 0.24) 70%,
+        rgba(93, 74, 31, 0.04) 82%,
+        transparent 100%
+    );
+    background-position: var(--card-holo-bg-x) var(--card-holo-bg-y);
+    background-size: 300% 300%;
+    opacity: 0.12;
+    filter: brightness(0.86) contrast(1.05) saturate(1.12);
+    mix-blend-mode: color-dodge;
+}
+
+.card[data-card-holo="true"][data-card-holo-kind="creature-legendary"]::after {
+    background-image: url("/static/img/card_holo/sparkles.gif");
+    background-position: center;
+    background-size: 180%;
+    opacity: 0.24;
+    filter: sepia(0.72) saturate(1.35) hue-rotate(350deg) brightness(1.08);
+    mix-blend-mode: color-dodge;
+}
+
+.card[data-card-holo="true"][data-card-holo-kind="creature-legendary"].active::before {
+    background-image: linear-gradient(
+        115deg,
+        transparent 0%,
+        transparent 20%,
+        rgba(159, 121, 40, 0.08) 29%,
+        rgba(209, 180, 100, 0.34) 38%,
+        rgba(255, 246, 182, 0.68) 47%,
+        rgba(253, 185, 49, 0.58) 54%,
+        rgba(159, 121, 40, 0.28) 64%,
+        rgba(93, 74, 31, 0.08) 74%,
+        transparent 84%,
+        transparent 100%
+    );
+    opacity: 0.34;
+    filter: brightness(0.95) contrast(1.16) saturate(1.18);
+}
+
+.card[data-card-holo="true"][data-card-holo-kind="creature-legendary"].active::after {
+    opacity: 0.42;
+}
+
 .card-shell {
     --card-edge-glow: rgba(196, 147, 56, 0.24);
     position: relative;
@@ -934,6 +984,7 @@ span.card-aspect-placeholder {
 
 .creature-card {
     --card-ability-font-size: 10px;
+    --creature-rules-font-scale: 1;
 }
 
 .creature-card__movement {
@@ -978,6 +1029,32 @@ span.card-aspect-placeholder {
     height: 100%;
     place-items: center;
     line-height: 1;
+}
+
+.creature-card__movement-mark--flight {
+    border-color: rgba(216, 247, 255, 0.72);
+    background:
+        radial-gradient(circle at 36% 28%, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.18) 28%, transparent 48%),
+        linear-gradient(180deg, rgba(202, 243, 255, 0.94), rgba(79, 187, 228, 0.88));
+    color: #0f3440;
+    box-shadow:
+        inset 0 0 0 1px rgba(255, 255, 255, 0.46),
+        inset 0 -8px 12px rgba(41, 127, 167, 0.26),
+        0 0 7px rgba(103, 219, 255, 0.42),
+        -0.5px 2px 0 #000;
+}
+
+.creature-card__movement-mark--flight svg {
+    display: block;
+    width: 17px;
+    height: 17px;
+    overflow: visible;
+}
+
+.creature-card__movement-mark--flight path {
+    fill: currentColor;
+    transform: translate(-1px, -1px) scale(1.04);
+    transform-origin: center;
 }
 
 .creature-card__attribute-rail {
@@ -1134,7 +1211,7 @@ span.card-aspect-placeholder {
     margin: 0;
     padding: 4px 0 5px;
     color: #17120d;
-    font-size: 12.6px;
+    font-size: calc(13.4px * var(--creature-rules-font-scale));
     font-weight: 700;
     line-height: 1.16;
     hyphens: auto;
@@ -1152,17 +1229,66 @@ span.card-aspect-placeholder {
 }
 
 .creature-card__oracle-line--core {
-    font-size: 12px;
+    display: grid;
+    width: 100%;
+    font-size: calc(12.4px * var(--creature-rules-font-scale));
     font-weight: 760;
     text-align: center;
 }
 
-.creature-card__stat-separator {
-    display: inline-block;
-    margin: 0 4px;
-    color: rgba(23, 18, 13, 0.62);
-    font-family: "Cinzel", Georgia, serif;
-    font-weight: 900;
+.creature-card__core-grid {
+    grid-template-columns: repeat(auto-fit, minmax(42px, 1fr));
+    align-items: start;
+    gap: 3px;
+    padding-top: 3px;
+    padding-bottom: 5px;
+}
+
+.creature-card__core-grid:has(.creature-card__core-subvalue) {
+    padding-bottom: calc(5px + 0.95em);
+}
+
+.creature-card__core-stat {
+    display: inline-flex;
+    min-width: 0;
+    align-items: baseline;
+    justify-content: center;
+    gap: 3px;
+    line-height: 1.04;
+    white-space: nowrap;
+}
+
+.creature-card__core-stat--gw {
+    position: relative;
+    display: grid;
+    justify-items: start;
+    justify-content: center;
+}
+
+.creature-card__core-stat--gw > span {
+    display: inline-flex;
+    min-width: 0;
+    align-items: baseline;
+    justify-content: center;
+    gap: 3px;
+}
+
+.creature-card__core-subvalue {
+    position: absolute;
+    top: calc(100% + 1px);
+    left: calc(50% + 0.9em);
+    display: block;
+    width: max-content;
+    max-width: 118px;
+    overflow: hidden;
+    color: rgba(23, 18, 13, 0.78);
+    font: 760 1em/1.04 "Cormorant Garamond", Georgia, serif;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.creature-card__core-stat strong {
+    white-space: nowrap;
 }
 
 .creature-card__oracle-line--ability {
@@ -1175,6 +1301,21 @@ span.card-aspect-placeholder {
     font-style: normal;
     font-weight: 900;
     letter-spacing: 0;
+}
+
+.creature-card__attack-unit {
+    display: inline-block;
+    white-space: nowrap;
+}
+
+.creature-card__rule-entry.tooltip_target,
+.creature-card__attack-unit.tooltip_target {
+    cursor: help;
+    text-decoration-line: underline;
+    text-decoration-style: dotted;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 2px;
+    text-decoration-color: rgba(23, 18, 13, 0.34);
 }
 
 .creature-card__wounds {

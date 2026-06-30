@@ -6,7 +6,7 @@
     aria-label="{{ creature_card.name }} Kreaturenkarte"
     data-creature-card-quality="{{ creature_card.quality }}"
     {% if creature_card.training_update_url %}data-creature-card-editor{% endif %}
-    {% if creature_card.holo %}data-card-holo="true" data-card-holo-kind="creature"{% endif %}
+    {% if creature_card.holo %}data-card-holo="true" data-card-holo-kind="{{ creature_card.holo_kind|default:'creature' }}"{% endif %}
     {% if creature_card.quality != "common" %}style="--card-quality-edge-color: {{ creature_card.quality_color }};"{% endif %}
 >
     <figure class="card-art{% if not creature_card.image %} card-art--empty{% endif %}">
@@ -45,6 +45,13 @@
                 <span class="creature-card__movement-mark" title="Schwimmbewegung" aria-label="Schwimmbewegung {{ creature_card.movement_display.swim|default:creature_card.movement.swim }}">
                     <span>{{ creature_card.movement_display.swim|default:creature_card.movement.swim }}</span>
                 </span>
+                {% if creature_card.has_flight %}
+                    <span class="creature-card__movement-mark creature-card__movement-mark--flight" title="{{ creature_card.movement_display.fly_combat|default:creature_card.movement.fly_combat }} / {{ creature_card.movement_display.fly_march|default:creature_card.movement.fly_march }} / {{ creature_card.movement_display.fly_sprint|default:creature_card.movement.fly_sprint }}" aria-label="Flugbewegung {{ creature_card.movement_display.fly_combat|default:creature_card.movement.fly_combat }} / {{ creature_card.movement_display.fly_march|default:creature_card.movement.fly_march }} / {{ creature_card.movement_display.fly_sprint|default:creature_card.movement.fly_sprint }}">
+                        <svg viewBox="50 60 120 160" aria-hidden="true" focusable="false">
+                            <path d="M 107.90745,68.841902 C 102.55988,81.810593 88.452267,100.77802 75.945019,114.6853 64.729733,127.156 57.917928,139.65902 57.643958,144.55527 c -0.514176,9.18908 8.518902,10.52584 14.006447,15.88455 5.23371,5.11084 5.329418,13.55011 1.139971,15.45871 -13.746865,6.26272 -18.203409,10.3386 -13.492177,20.06548 1.002249,-7.3257 5.837816,-7.91109 11.097902,-7.6091 11.735345,0.67372 18.292683,19.94527 33.821119,21.22478 -7.74588,-6.17638 -12.265524,-12.72931 -17.560409,-21.88689 10.574731,14.29125 21.708339,22.9937 33.721079,22.90488 -17.31387,-8.49866 -16.30713,-22.46103 -31.176091,-29.6491 13.851761,7.64362 22.752591,6.21052 30.921591,3.43574 -10.48527,-0.93714 -16.46906,-7.7167 -25.195371,-10.5617 25.667061,6.75338 31.461501,-0.60569 41.483291,-4.96272 -13.18347,1.06423 -23.70327,-2.18306 -39.192803,-6.10797 36.179393,1.95044 44.579773,-9.17468 52.044983,-16.03342 -19.91029,4.4495 -39.82894,1.77496 -57.516704,5.59897 24.262164,-6.17883 53.456424,-6.54041 69.478144,-30.66709 -24.77772,8.68147 -54.89903,10.3954 -72.435756,19.07196 C 121.15962,125.77352 147.22361,127.01816 158.8072,87.802055 135.28187,112.65067 109.24651,110.35393 84.366324,126.99486 102.49934,108.63914 108.94865,89.115046 107.90745,68.841902 Z"></path>
+                        </svg>
+                    </span>
+                {% endif %}
             </div>
         </header>
 
@@ -64,7 +71,7 @@
                         data-creature-card-field
                     >
                         {% for quality in creature_card.quality_choices %}
-                            <option value="{{ quality.value }}" data-quality-color="{{ quality.color }}"{% if quality.selected %} selected{% endif %}>{{ quality.label }}</option>
+                            <option value="{{ quality.value }}" data-quality-color="{{ quality.color }}" data-advantage-points="{{ quality.advantage_points|default:0 }}" data-disadvantage-points="{{ quality.disadvantage_points|default:0 }}"{% if quality.selected %} selected{% endif %}>{{ quality.label }}</option>
                         {% endfor %}
                     </select>
                     <span>-</span>
@@ -123,33 +130,32 @@
         </div>
 
         <section class="card-rules creature-card__rules" aria-label="Kreaturenwerte">
-            <p class="creature-card__oracle-line creature-card__oracle-line--core">
-                <strong>Initiative</strong> {{ creature_card.initiative }}
-                <span class="creature-card__stat-separator" aria-hidden="true">|</span>
-                <strong>VW</strong> {{ creature_card.vw }}
-                <span class="creature-card__stat-separator" aria-hidden="true">|</span>
-                <strong>SR</strong> {{ creature_card.sr }}
-                <span class="creature-card__stat-separator" aria-hidden="true">|</span>
-                <strong>GW</strong> {{ creature_card.gw }}{% if creature_card.gw_extra %}/{{ creature_card.gw_extra }}{% if creature_card.gw_extra_label %} {{ creature_card.gw_extra_label }}{% endif %}{% endif %}
-                <span class="creature-card__stat-separator" aria-hidden="true">|</span>
-                <strong>RS</strong> {{ creature_card.rs_total }}{% if creature_card.rs_armor %} ({{ creature_card.rs_natural }}+{{ creature_card.rs_armor }}){% endif %}
+            <div class="creature-card__oracle-line creature-card__oracle-line--core creature-card__core-grid">
+                <span class="creature-card__core-stat"><strong>Initiative</strong><span>{{ creature_card.initiative }}</span></span>
+                <span class="creature-card__core-stat"><strong>VW</strong><span>{{ creature_card.vw }}</span></span>
+                <span class="creature-card__core-stat"><strong>SR</strong><span>{{ creature_card.sr }}</span></span>
+                <span class="creature-card__core-stat creature-card__core-stat--gw">
+                    <span><strong>GW</strong><span>{{ creature_card.gw }}</span></span>
+                    {% if creature_card.gw_extra %}
+                        <small class="creature-card__core-subvalue">{{ creature_card.gw_extra }}{% if creature_card.gw_extra_label %} {{ creature_card.gw_extra_label }}{% endif %}</small>
+                    {% endif %}
+                </span>
+                <span class="creature-card__core-stat"><strong>RS</strong><span>{{ creature_card.rs_total }}{% if creature_card.rs_armor %} ({{ creature_card.rs_natural }}+{{ creature_card.rs_armor }}){% endif %}</span></span>
                 {% if creature_card.encumbrance %}
-                    <span class="creature-card__stat-separator" aria-hidden="true">|</span>
-                    <strong>BEL</strong> {{ creature_card.encumbrance }}
+                    <span class="creature-card__core-stat"><strong>BEL</strong><span>{{ creature_card.encumbrance }}</span></span>
                 {% endif %}
-            </p>
+            </div>
 
             <p class="creature-card__oracle-line" data-creature-wound-status{% if creature_card.wound_zone.label == "-" %} hidden{% endif %}>
-                    <strong>Wundstatus</strong>
-                    <span data-creature-wound-label>{{ creature_card.wound_zone.label }}</span>
-                    bei <span data-creature-wound-threshold>{{ creature_card.wound_zone.threshold }}</span> Schaden<span data-creature-wound-penalty>{% if creature_card.wound_penalty %}; Malus {{ creature_card.wound_penalty|stringformat:"+d" }}{% endif %}</span>
+                <strong>Wundmalus</strong>
+                <span data-creature-wound-penalty>{% if creature_card.wound_penalty %}{{ creature_card.wound_penalty|stringformat:"+d" }}{% endif %}</span>
             </p>
 
             {% if creature_card.attacks %}
                 <p class="creature-card__oracle-line">
                     <strong>Angriff</strong>
                     {% for attack in creature_card.attacks %}
-                        {{ attack.name }} {{ attack.attack_value }}{% if attack.damage %} - {{ attack.damage }}{% endif %}{% if not forloop.last %}; {% endif %}
+                        <span class="creature-card__attack-unit{% if attack.notes %} tooltip_target{% endif %}"{% if attack.notes %} data-tooltip="{{ attack.notes }}" data-tooltip-side="right"{% endif %}>{{ attack.name }} {{ attack.attack_value }}{% if attack.damage %} - {{ attack.damage }}{% endif %}</span>{% if not forloop.last %}; {% endif %}
                     {% endfor %}
                 </p>
             {% endif %}
@@ -158,11 +164,11 @@
                 <p class="creature-card__oracle-line">
                     <strong>Fertigkeiten</strong>
                     {% for skill in creature_card.skills %}
-                        {{ skill.name }} {{ skill.value }}{% if not forloop.last %}, {% endif %}
+                        <span class="creature-card__rule-entry{% if skill.notes %} tooltip_target{% endif %}"{% if skill.notes %} data-tooltip="{{ skill.notes }}" data-tooltip-side="right"{% endif %}>{{ skill.name }} {{ skill.value }}</span>{% if not forloop.last %}, {% endif %}
                     {% endfor %}
                     {% if creature_card.skills and creature_card.special_skills %}, {% endif %}
                     {% for skill in creature_card.special_skills %}
-                        {{ skill.name }}* {{ skill.value }}{% if not forloop.last %}, {% endif %}
+                        <span class="creature-card__rule-entry{% if skill.notes %} tooltip_target{% endif %}"{% if skill.notes %} data-tooltip="{{ skill.notes }}" data-tooltip-side="right"{% endif %}>{{ skill.name }}* {{ skill.value }}</span>{% if not forloop.last %}, {% endif %}
                     {% endfor %}
                 </p>
             {% endif %}
@@ -171,7 +177,7 @@
                 <p class="creature-card__oracle-line creature-card__oracle-line--ability">
                     <strong>Kommandos</strong>
                     {% for command in creature_card.commands %}
-                        {{ command.name }}{% if not forloop.last %}, {% endif %}
+                        <span class="creature-card__rule-entry{% if command.description %} tooltip_target{% endif %}"{% if command.description %} data-tooltip="{{ command.description }}" data-tooltip-side="right"{% endif %}>{{ command.name }}</span>{% if not forloop.last %}, {% endif %}
                     {% endfor %}
                 </p>
             {% endif %}
@@ -180,7 +186,7 @@
                 <p class="creature-card__oracle-line creature-card__oracle-line--ability">
                     <strong>Besondere F&auml;higkeiten</strong>
                     {% for trait in creature_card.traits %}
-                        {{ trait.name }}{% if trait.level %} {{ trait.level|stringformat:"+d" }}{% endif %}{% if not forloop.last %}, {% endif %}
+                        <span class="creature-card__rule-entry{% if trait.description %} tooltip_target{% endif %}"{% if trait.description %} data-tooltip="{{ trait.description }}" data-tooltip-side="right"{% endif %}>{{ trait.name }}{% if trait.level %} {{ trait.level|stringformat:"+d" }}{% endif %}</span>{% if not forloop.last %}, {% endif %}
                     {% endfor %}
                 </p>
             {% endif %}

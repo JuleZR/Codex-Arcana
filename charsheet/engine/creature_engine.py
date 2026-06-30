@@ -42,6 +42,7 @@ from charsheet.models.creatures import (
     CharacterCreatureCardSkill,
     CharacterCreatureCardTrait,
     CreatureCardBinding,
+    CREATURE_CARD_QUALITY_TRAINING_BUDGETS,
 )
 from charsheet.models.items import Quality
 from .item_engine import ItemEngine
@@ -445,7 +446,7 @@ class CreatureEngine:
                 {
                     "name": row.skill.name,
                     "value": override.value_override if override else row.value,
-                    "notes": override.notes if override and override.notes else row.notes,
+                    "notes": override.notes if override and override.notes else row.notes or row.skill.description,
                     "kind": "creature",
                 }
             )
@@ -857,26 +858,35 @@ class CreatureCardEngine:
         wound_zone = self.current_wound_zone()
         quality = self.quality()
         normalized_quality = ItemEngine.normalize_quality(quality)
+        holo_kind = "creature-legendary" if normalized_quality == "legendary" else "creature"
+        movement = self.movement()
+        has_flight = any(
+            movement.get(key) is not None
+            for key in ("fly_combat", "fly_march", "fly_sprint")
+        )
         quality_choices = [
             {
                 "value": row.code,
                 "label": row.name,
                 "color": row.hex_color,
                 "selected": row.code == normalized_quality,
+                "advantage_points": CREATURE_CARD_QUALITY_TRAINING_BUDGETS.get(row.code, (0, 0))[0],
+                "disadvantage_points": CREATURE_CARD_QUALITY_TRAINING_BUDGETS.get(row.code, (0, 0))[1],
             }
             for row in Quality.objects.all()
         ]
         return {
             "id": self.card.pk,
             "name": self.display_name(),
-            "creature_name": self.card.creature_type or self.card.name,
+            "creature_name": self.card.creature_type or getattr(self.card.creature, "display_name", "") or self.card.name,
             "image": self.image(),
             "has_custom_image": bool(self.card.image),
             "quality": normalized_quality,
             "quality_label": getattr(quality, "name", normalized_quality),
             "quality_color": ItemEngine.quality_color(quality),
             "quality_choices": quality_choices,
-            "holo": normalized_quality == "unique",
+            "holo": normalized_quality in {"legendary", "unique"},
+            "holo_kind": holo_kind,
             "creature_kind_label": creature_kind_label(quality),
             "size_class": self.card.size_class,
             "size_modifier": self.card.size_modifier,
@@ -897,8 +907,9 @@ class CreatureCardEngine:
             "wound_max": wound_rows[-1]["threshold"] if wound_rows else 0,
             "wound_zone": wound_zone,
             "wound_penalty": wound_zone["penalty"],
-            "movement": self.movement(),
+            "movement": movement,
             "movement_display": self.movement_display(),
+            "has_flight": has_flight,
             "attributes": self.attribute_rows(),
             "attacks": self.attacks(),
             "skills": self.skills(),
@@ -975,7 +986,7 @@ def _copy_creature_rows(card: CharacterCreatureCard) -> None:
             notes=row["notes"],
             order=index,
         )
-        for index, row in enumerate(engine.skills())
+        for index, row in enumerate([*engine.skills(), *engine.special_skills()])
     )
     CharacterCreatureCardTrait.objects.bulk_create(
         CharacterCreatureCardTrait(

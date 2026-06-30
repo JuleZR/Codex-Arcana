@@ -43,6 +43,7 @@ from .models import (
     CharacterCreatureCardTrait,
     Creature,
     CreatureCommand,
+    CreatureSpecialSkill,
     CreatureTraitDefinition,
     Aspect,
     CharacterDivineEntity,
@@ -72,7 +73,7 @@ from .forms import (
     UserSettingsForm
 )
 from .constants import ATTRIBUTE_CODE_CHOICES, ATTRIBUTE_ORDER, RESOURCE_KEY_CHOICES, is_allowed_trait_attribute_choice
-from .models.creatures import CREATURE_CARD_QUALITY_TRAINING_BUDGETS
+from .models.creatures import CREATURE_CARD_QUALITY_TRAINING_BUDGETS, CharacterCreatureCardSkill
 from .learning import process_learning_submission
 from .sheet_context import build_character_sheet_context, build_creature_card_training_context
 from .shop import (
@@ -2107,6 +2108,20 @@ def _parse_positive_int(raw_value, fallback=0):
         return fallback
 
 
+def _parse_int(raw_value, fallback=0):
+    try:
+        return int(raw_value)
+    except (TypeError, ValueError):
+        return fallback
+
+
+def _parse_nonnegative_float(raw_value, fallback=0):
+    try:
+        return max(0, float(raw_value))
+    except (TypeError, ValueError):
+        return fallback
+
+
 def _clamped_trait_level(request, trait: CreatureTraitDefinition, prefix: str) -> int:
     level = _parse_positive_int(request.POST.get(f"{prefix}_{trait.pk}"), int(trait.min_level or 1))
     return min(max(level, int(trait.min_level or 1)), int(trait.max_level or 1))
@@ -2116,11 +2131,20 @@ def _render_creature_training_payload(request, card: CharacterCreatureCard) -> d
     card_context = CreatureCardEngine(card).card_context()
     card_context["adjust_damage_url"] = reverse_lazy("adjust_creature_card_damage", kwargs={"pk": card.pk})
     card_context["training_update_url"] = reverse_lazy("update_creature_card_training", kwargs={"pk": card.pk})
+    mini_context = {**card_context, "adjust_damage_url": "", "damage_controls_disabled": True}
+    mini_context.pop("training_update_url", None)
     return {
         "ok": True,
+        "cardKey": f"creature-{card.pk}",
+        "cardTitle": card_context["name"],
         "cardHtml": render_to_string(
             "charsheet/partials/_creature_card.html",
             {"creature_card": card_context},
+            request=request,
+        ),
+        "miniCardHtml": render_to_string(
+            "charsheet/partials/_creature_card.html",
+            {"creature_card": mini_context},
             request=request,
         ),
         "drawerHtml": render_to_string(
@@ -2137,7 +2161,8 @@ def update_creature_card_training(request, pk: int):
     card = _owned_character_creature_card_or_404(request, pk)
     card_update_fields = []
     if "custom_name" in request.POST:
-        card.name = str(request.POST.get("custom_name", card.name))[:100].strip() or card.name
+        default_name = getattr(card.creature, "display_name", "") or card.name
+        card.name = str(request.POST.get("custom_name", ""))[:100].strip() or default_name
         card_update_fields.append("name")
     if request.POST.get("remove_custom_creature_image") == "1":
         if card.image:
@@ -2152,11 +2177,25 @@ def update_creature_card_training(request, pk: int):
         if selected_quality is not None:
             card.quality = selected_quality
             card_update_fields.append("quality")
-            quality_budget = CREATURE_CARD_QUALITY_TRAINING_BUDGETS.get(selected_quality.code)
-            if quality_budget is not None:
-                card.max_base_advantage_points = int(quality_budget[0])
-                card.max_base_disadvantage_points = int(quality_budget[1])
-                card_update_fields.extend(["max_base_advantage_points", "max_base_disadvantage_points"])
+            quality_budget = CREATURE_CARD_QUALITY_TRAINING_BUDGETS.get(selected_quality.code, (0, 0))
+            card.max_base_advantage_points = int(quality_budget[0])
+            card.max_base_disadvantage_points = int(quality_budget[1])
+            card_update_fields.extend(["max_base_advantage_points", "max_base_disadvantage_points"])
+    movement_int_fields = ("combat_speed", "march_speed", "sprint_speed")
+    for field_name in movement_int_fields:
+        if field_name in request.POST:
+            setattr(card, field_name, _parse_positive_int(request.POST.get(field_name), getattr(card, field_name, 0)))
+            card_update_fields.append(field_name)
+    if "swimming_speed" in request.POST:
+        card.swimming_speed = _parse_nonnegative_float(request.POST.get("swimming_speed"), card.swimming_speed or 0)
+        card_update_fields.append("swimming_speed")
+    can_fly = request.POST.get("can_fly") == "1"
+    for field_name in ("combat_fly_speed", "march_fly_speed", "sprint_fly_speed"):
+        if can_fly:
+            setattr(card, field_name, _parse_positive_int(request.POST.get(field_name), getattr(card, field_name, None) or 0))
+        else:
+            setattr(card, field_name, None)
+        card_update_fields.append(field_name)
     selected_command_ids = {_parse_positive_int(raw_id) for raw_id in request.POST.getlist("commands") if _parse_positive_int(raw_id)}
     selected_advantage_ids = {_parse_positive_int(raw_id) for raw_id in request.POST.getlist("advantages") if _parse_positive_int(raw_id)}
     selected_disadvantage_ids = {_parse_positive_int(raw_id) for raw_id in request.POST.getlist("disadvantages") if _parse_positive_int(raw_id)}
@@ -2212,18 +2251,6 @@ def update_creature_card_training(request, pk: int):
         )
         order += 1
 
-    spent_base_disadvantage_points = min(spent_disadvantage_points, int(card.max_base_disadvantage_points or 0))
-    spent_additional_disadvantage_points = max(0, spent_disadvantage_points - spent_base_disadvantage_points)
-    bonus_advantage_points = min(spent_additional_disadvantage_points, 4)
-    effective_advantage_points = int(card.max_base_advantage_points or 0) + bonus_advantage_points
-    effective_disadvantage_points = int(card.max_base_disadvantage_points or 0) + 4
-    if spent_advantage_points > effective_advantage_points:
-        return JsonResponse({"ok": False, "error": "advantage_budget_exceeded"}, status=400)
-    if spent_base_disadvantage_points > int(card.max_base_disadvantage_points or 0):
-        return JsonResponse({"ok": False, "error": "base_disadvantage_budget_exceeded"}, status=400)
-    if spent_disadvantage_points > effective_disadvantage_points:
-        return JsonResponse({"ok": False, "error": "disadvantage_budget_exceeded"}, status=400)
-
     attribute_codes = {code for code, _label in ATTRIBUTE_CODE_CHOICES}
     card_attribute_values = {
         "ST": card.strength_mod,
@@ -2245,9 +2272,77 @@ def update_creature_card_training(request, pk: int):
         if amount:
             attribute_rows.append(CharacterCreatureCardAttributeIncrease(card=card, attribute=code, amount=amount))
 
+    skill_updates = []
+    remove_skill_ids = {
+        _parse_positive_int(raw_id)
+        for raw_id in request.POST.getlist("remove_skill_ids")
+        if _parse_positive_int(raw_id)
+    }
+    for skill_row in card.skills.all():
+        if skill_row.pk in remove_skill_ids:
+            continue
+        field_name = f"skill_value_{skill_row.pk}"
+        if field_name not in request.POST:
+            continue
+        skill_row.value = _parse_int(request.POST.get(field_name), skill_row.value)
+        skill_updates.append(skill_row)
+    new_skill_rows = []
+    existing_skill_names = {
+        row.name.casefold()
+        for row in card.skills.exclude(pk__in=remove_skill_ids)
+    }
+    new_skill_ids = request.POST.getlist("new_skill_id")
+    new_skill_values = request.POST.getlist("new_skill_value")
+    normal_skill_ids = [
+        _parse_positive_int(str(raw_id).split(":", 1)[1], 0)
+        for raw_id in new_skill_ids
+        if str(raw_id).startswith("skill:")
+    ]
+    special_skill_ids = [
+        _parse_positive_int(str(raw_id).split(":", 1)[1], 0)
+        for raw_id in new_skill_ids
+        if str(raw_id).startswith("special:")
+    ]
+    selected_normal_skills = {
+        skill.pk: skill
+        for skill in Skill.objects.filter(pk__in=normal_skill_ids)
+    }
+    selected_special_skills = {
+        skill.pk: skill
+        for skill in CreatureSpecialSkill.objects.filter(pk__in=special_skill_ids)
+    }
+    next_skill_order = card.skills.count() + 1000
+    for index, raw_skill_ref in enumerate(new_skill_ids):
+        raw_skill_ref = str(raw_skill_ref or "")
+        if raw_skill_ref.startswith("special:"):
+            skill_id = _parse_positive_int(raw_skill_ref.split(":", 1)[1], 0)
+            selected_skill = selected_special_skills.get(skill_id)
+        else:
+            skill_id = _parse_positive_int(raw_skill_ref.split(":", 1)[-1], 0)
+            selected_skill = selected_normal_skills.get(skill_id)
+        if selected_skill is None or selected_skill.name.casefold() in existing_skill_names:
+            continue
+        existing_skill_names.add(selected_skill.name.casefold())
+        new_skill_rows.append(
+            CharacterCreatureCardSkill(
+                card=card,
+                name=selected_skill.name,
+                value=_parse_int(new_skill_values[index] if index < len(new_skill_values) else 0, 0),
+                notes=getattr(selected_skill, "description", ""),
+                order=next_skill_order,
+            )
+        )
+        next_skill_order += 1
+
     with transaction.atomic():
         if card_update_fields:
             card.save(update_fields=sorted(set(card_update_fields)))
+        if remove_skill_ids:
+            card.skills.filter(pk__in=remove_skill_ids).delete()
+        if skill_updates:
+            CharacterCreatureCardSkill.objects.bulk_update(skill_updates, ["value"])
+        if new_skill_rows:
+            CharacterCreatureCardSkill.objects.bulk_create(new_skill_rows)
         card.commands.all().delete()
         created_commands = list(
             CharacterCreatureCardCommand.objects.bulk_create(

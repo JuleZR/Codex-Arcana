@@ -181,7 +181,7 @@
 }
 
 .creature-training-drawer {
-  --creature-training-width: min(330px, calc(100vw - 36px));
+  --creature-training-width: min(980px, calc(100vw - 72px));
   display: none;
   position: absolute;
   top: 0;
@@ -232,10 +232,14 @@
 
 .creature-training-drawer__panel {
   box-sizing: border-box;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 0 14px;
   width: 100%;
   min-height: min(100%, calc(100vh - 36px));
   max-height: min(100%, calc(100vh - 36px));
-  overflow: auto;
+  overflow: hidden;
   padding: 10px 10px 12px;
   border: 1px solid rgba(69, 47, 22, 0.82);
   border-radius: 0 8px 8px 0;
@@ -281,6 +285,7 @@
 }
 
 .creature-training-drawer__header {
+  grid-column: 1 / -1;
   position: sticky;
   top: -10px;
   z-index: 1;
@@ -294,7 +299,10 @@
 .creature-training-drawer__header button,
 .creature-training-choice input[type="checkbox"],
 .creature-training-level,
-.creature-training-attributes input {
+.creature-training-attributes input,
+.creature-training-movement input,
+.creature-training-skill input,
+.creature-training-skill select {
   accent-color: #8d642d;
 }
 
@@ -321,6 +329,13 @@
   padding: 7px 0 8px;
   border-top: 1px solid rgba(91, 65, 32, 0.2);
   box-shadow: inset 0 1px 0 rgba(255, 252, 239, 0.32);
+}
+
+.creature-training-column {
+  min-height: 0;
+  max-height: 100%;
+  overflow: auto;
+  padding-right: 3px;
 }
 
 .creature-training-section-toggle {
@@ -392,10 +407,63 @@
   margin: 0;
 }
 
+.creature-training-points__total {
+  margin-top: 3px;
+  padding-top: 3px;
+  border-top: 1px solid rgba(91, 65, 32, 0.24);
+  font-weight: 700;
+}
+
 .creature-training-list {
   display: grid;
   gap: 4px;
   margin-top: 6px;
+}
+
+.creature-training-skill-list {
+  display: grid;
+  gap: 3px;
+  margin-top: 6px;
+}
+
+.creature-training-skill {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) 52px;
+  align-items: center;
+  gap: 6px;
+  min-height: 24px;
+  padding: 2px 4px;
+  border-radius: 4px;
+  background: rgba(255, 252, 242, 0.22);
+}
+
+.creature-training-skill__remove {
+  width: 16px;
+  height: 16px;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid rgba(76, 45, 24, 0.46);
+  border-radius: 50%;
+  background: rgba(255, 249, 232, 0.86);
+  color: rgba(52, 31, 17, 0.82);
+  cursor: pointer;
+  font: 700 12px/1 Georgia, serif;
+  padding: 0;
+}
+
+.creature-training-skill__remove:hover {
+  background: rgba(171, 58, 42, 0.16);
+  border-color: rgba(120, 38, 25, 0.68);
+}
+
+.creature-training-add-skill {
+  min-height: 24px;
+  border: 1px solid rgba(73, 53, 30, 0.34);
+  border-radius: 4px;
+  background: rgba(255, 252, 244, 0.62);
+  color: #21170e;
+  cursor: pointer;
+  font: 700 12px/1.1 "Cormorant Garamond", Georgia, serif;
 }
 
 .creature-training-choice {
@@ -433,12 +501,17 @@
 }
 
 .creature-training-choice small {
-  font-size: 11px;
-  line-height: 1.15;
+  color: rgba(33, 23, 14, 0.82);
+  font-size: 12px;
+  line-height: 1.18;
+  font-weight: 600;
 }
 
 .creature-training-level,
-.creature-training-attributes input {
+.creature-training-attributes input,
+.creature-training-movement input[type="number"],
+.creature-training-skill input,
+.creature-training-skill select {
   width: 48px;
   box-sizing: border-box;
   min-height: 24px;
@@ -448,6 +521,85 @@
   color: #21170e;
   font: 700 13px/1.1 "Cormorant Garamond", Georgia, serif;
   box-shadow: inset 0 1px 2px rgba(70, 48, 24, 0.12);
+}
+
+.creature-training-skill select {
+  width: 100%;
+  min-width: 0;
+}
+
+.creature-training-movement {
+  display: grid;
+  gap: 3px;
+  margin-top: 6px;
+}
+
+.creature-training-movement__header,
+.creature-training-movement__row,
+.creature-training-movement__check {
+  display: grid;
+  align-items: center;
+}
+
+.creature-training-movement__header,
+.creature-training-movement__row {
+  grid-template-columns: minmax(54px, 0.95fr) repeat(4, minmax(42px, 1fr));
+  gap: 4px;
+}
+
+.creature-training-movement__header {
+  color: rgba(33, 23, 14, 0.72);
+  font: 700 10px/1.1 "Cinzel", Georgia, serif;
+  text-align: right;
+}
+
+.creature-training-movement__row {
+  min-height: 25px;
+  padding: 2px 3px;
+  border-radius: 4px;
+  background: rgba(255, 252, 242, 0.18);
+}
+
+.creature-training-movement__check {
+  grid-template-columns: 15px minmax(0, 1fr);
+  gap: 4px;
+  font-weight: 700;
+}
+
+.creature-training-movement__check input {
+  width: 13px;
+  height: 13px;
+  margin: 0;
+}
+
+.creature-training-movement__row > span:first-child,
+.creature-training-movement__row input,
+.creature-training-movement__dash {
+  text-align: right;
+}
+
+.creature-training-movement__row > span:first-child,
+.creature-training-movement__check span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.creature-training-movement__dash {
+  color: rgba(33, 23, 14, 0.48);
+  font-weight: 700;
+}
+
+.creature-training-movement.is-flight-disabled [data-creature-fly-row] {
+  opacity: 0.42;
+  filter: grayscale(0.4);
+}
+
+.creature-training-movement input:disabled {
+  background: rgba(223, 215, 194, 0.58);
+  color: rgba(33, 23, 14, 0.52);
+  cursor: not-allowed;
 }
 
 .creature-training-attributes {
@@ -495,6 +647,18 @@
     width: 100%;
     height: auto;
     transform: translateY(calc(-100% - 8px));
+  }
+
+  .creature-training-drawer__panel {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto;
+    overflow: auto;
+  }
+
+  .creature-training-column {
+    grid-column: 1;
+    overflow: visible;
+    padding-right: 0;
   }
 
   .card-hand__floating-card:has(.creature-training-drawer.is-open) .creature-training-drawer {

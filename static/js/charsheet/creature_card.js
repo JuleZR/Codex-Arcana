@@ -10,6 +10,30 @@ export function initCreatureCards() {
     return match ? decodeURIComponent(match[1]) : "";
   };
 
+  const fitCreatureRuleText = (card) => {
+    if (!(card instanceof HTMLElement)) {
+      return;
+    }
+    const rules = card.querySelector(".creature-card__rules");
+    if (!(rules instanceof HTMLElement)) {
+      return;
+    }
+    const scales = [1, 0.96, 0.92, 0.88];
+    const fits = () => (
+      rules.scrollHeight <= rules.clientHeight + 1
+      && rules.scrollWidth <= rules.clientWidth + 1
+    );
+    card.style.setProperty("--creature-rules-font-scale", "1");
+    window.requestAnimationFrame(() => {
+      for (const scale of scales) {
+        card.style.setProperty("--creature-rules-font-scale", String(scale));
+        if (fits()) {
+          return;
+        }
+      }
+    });
+  };
+
   const setCreatureCardUnlocked = (card, isUnlocked) => {
     if (!(card instanceof HTMLElement)) {
       return;
@@ -54,9 +78,35 @@ export function initCreatureCards() {
       : null;
     const qualitySelect = card.querySelector(".creature-card-quality-select");
 
+    const previewQualityPoints = () => {
+      if (!(qualitySelect instanceof HTMLSelectElement)) {
+        return;
+      }
+      const option = qualitySelect.selectedOptions?.[0];
+      const floatingCard = card.closest(".card-hand__floating-card");
+      const drawer = floatingCard?.querySelector("[data-creature-training-drawer]");
+      if (!(option instanceof HTMLOptionElement) || !(drawer instanceof HTMLElement)) {
+        return;
+      }
+      const qualityPoints = Number.parseInt(option.dataset.advantagePoints || "0", 10) || 0;
+      const weaknessEl = drawer.querySelector("[data-creature-training-weakness-points]");
+      const consumedEl = drawer.querySelector("[data-creature-training-consumed-points]");
+      const qualityEl = drawer.querySelector("[data-creature-training-quality-points]");
+      const openEl = drawer.querySelector("[data-creature-training-open-points]");
+      const weaknessPoints = Number.parseInt(weaknessEl?.textContent || "0", 10) || 0;
+      const consumedPoints = Number.parseInt(consumedEl?.textContent || "0", 10) || 0;
+      if (qualityEl instanceof HTMLElement) {
+        qualityEl.textContent = String(qualityPoints);
+      }
+      if (openEl instanceof HTMLElement) {
+        openEl.textContent = String(qualityPoints + weaknessPoints - consumedPoints);
+      }
+    };
+
     if (qualitySelect instanceof HTMLSelectElement) {
       qualitySelect.addEventListener("change", (event) => {
         event.stopPropagation();
+        previewQualityPoints();
         const floatingCard = card.closest(".card-hand__floating-card");
         const form = floatingCard?.querySelector("[data-creature-training-form]");
         if (form instanceof HTMLFormElement) {
@@ -129,7 +179,15 @@ export function initCreatureCards() {
     toggle.addEventListener("click", (event) => {
       event.preventDefault();
       event.stopPropagation();
-      setCreatureCardUnlocked(card, !card.classList.contains("is-edit-unlocked"));
+      const wasUnlocked = card.classList.contains("is-edit-unlocked");
+      setCreatureCardUnlocked(card, !wasUnlocked);
+      if (wasUnlocked) {
+        const floatingCard = card.closest(".card-hand__floating-card");
+        const form = floatingCard?.querySelector("[data-creature-training-form]");
+        if (form instanceof HTMLFormElement) {
+          form.requestSubmit();
+        }
+      }
     });
   };
 
@@ -207,6 +265,55 @@ export function initCreatureCards() {
         choice.classList.toggle("creature-training-choice--unmet", hasUnmetPrerequisites);
       });
     };
+    const refreshFlySpeedInputs = () => {
+      if (!(panel instanceof HTMLElement)) {
+        return;
+      }
+      const checkbox = panel.querySelector("[data-creature-can-fly]");
+      const movement = panel.querySelector("[data-creature-training-movement]");
+      const canFly = checkbox instanceof HTMLInputElement && checkbox.checked;
+      if (movement instanceof HTMLElement) {
+        movement.classList.toggle("is-flight-disabled", !canFly);
+      }
+      panel.querySelectorAll("[data-creature-fly-speed]").forEach((input) => {
+        if (input instanceof HTMLInputElement) {
+          input.disabled = !canFly;
+        }
+      });
+    };
+    const registerRemovedSkill = (skillId) => {
+      if (!(panel instanceof HTMLElement) || !skillId) {
+        return;
+      }
+      const input = document.createElement("input");
+      input.type = "hidden";
+      input.name = "remove_skill_ids";
+      input.value = String(skillId);
+      panel.appendChild(input);
+    };
+    const addSkillRow = () => {
+      if (!(panel instanceof HTMLElement)) {
+        return;
+      }
+      const list = panel.querySelector(".creature-training-skill-list");
+      const template = panel.querySelector("[data-creature-training-new-skill-row]");
+      const addButton = panel.querySelector("[data-creature-training-add-skill]");
+      if (!(list instanceof HTMLElement) || !(template instanceof HTMLElement)) {
+        return;
+      }
+      const clone = template.cloneNode(true);
+      if (!(clone instanceof HTMLElement)) {
+        return;
+      }
+      clone.querySelectorAll("select, input").forEach((field) => {
+        if (field instanceof HTMLSelectElement) {
+          field.selectedIndex = 0;
+        } else if (field instanceof HTMLInputElement) {
+          field.value = "0";
+        }
+      });
+      list.insertBefore(clone, addButton instanceof HTMLElement ? addButton : null);
+    };
     drawer.addEventListener("pointerdown", (event) => {
       event.stopPropagation();
     }, true);
@@ -274,8 +381,48 @@ export function initCreatureCards() {
         if (target?.matches("[data-creature-command-input]")) {
           refreshCommandPrerequisites();
         }
+        if (target?.matches("[data-creature-can-fly]")) {
+          refreshFlySpeedInputs();
+        }
+      });
+      panel.addEventListener("click", (event) => {
+        const target = event.target instanceof Element ? event.target : null;
+        const addButton = target?.closest("[data-creature-training-add-skill]");
+        if (addButton instanceof HTMLButtonElement) {
+          event.preventDefault();
+          event.stopPropagation();
+          addSkillRow();
+          return;
+        }
+        const removeExisting = target?.closest("[data-creature-training-remove-skill]");
+        if (removeExisting instanceof HTMLButtonElement) {
+          event.preventDefault();
+          event.stopPropagation();
+          registerRemovedSkill(removeExisting.getAttribute("data-skill-id") || "");
+          removeExisting.closest("[data-creature-training-skill-row]")?.remove();
+          return;
+        }
+        const removeNew = target?.closest("[data-creature-training-remove-new-skill]");
+        if (removeNew instanceof HTMLButtonElement) {
+          event.preventDefault();
+          event.stopPropagation();
+          const row = removeNew.closest("[data-creature-training-new-skill-row]");
+          const rows = panel.querySelectorAll("[data-creature-training-new-skill-row]");
+          if (row instanceof HTMLElement && rows.length > 1) {
+            row.remove();
+          } else if (row instanceof HTMLElement) {
+            row.querySelectorAll("select, input").forEach((field) => {
+              if (field instanceof HTMLSelectElement) {
+                field.selectedIndex = 0;
+              } else if (field instanceof HTMLInputElement) {
+                field.value = "0";
+              }
+            });
+          }
+        }
       });
       refreshCommandPrerequisites();
+      refreshFlySpeedInputs();
       panel.addEventListener("pointerdown", (event) => {
         event.stopPropagation();
       }, true);
@@ -323,6 +470,24 @@ export function initCreatureCards() {
 
   const replaceCreatureCardFragments = (drawer, payload) => {
     const floating = drawer.closest("[data-card-hand-floating]");
+    const hand = floating?.closest("[data-card-hand]");
+    const cardKey = String(payload.cardKey || floating?.getAttribute("data-card-key") || "");
+    if (hand instanceof HTMLElement && cardKey && payload.miniCardHtml) {
+      const mini = hand.querySelector(`[data-card-hand-open-card][data-card-key="${CSS.escape(cardKey)}"]`);
+      if (mini instanceof HTMLElement) {
+        const wrapper = document.createElement("div");
+        wrapper.innerHTML = payload.miniCardHtml;
+        const nextMiniCard = wrapper.querySelector(".creature-card");
+        const currentMiniCard = mini.querySelector(".creature-card");
+        if (nextMiniCard instanceof HTMLElement && currentMiniCard instanceof HTMLElement) {
+          currentMiniCard.replaceWith(nextMiniCard);
+          fitCreatureRuleText(nextMiniCard);
+        }
+        if (payload.cardTitle) {
+          mini.title = String(payload.cardTitle);
+        }
+      }
+    }
     const containers = [floating].filter(Boolean);
     containers.forEach((container) => {
       if (!(container instanceof HTMLElement)) {
@@ -337,6 +502,7 @@ export function initCreatureCards() {
         const currentCard = container.querySelector(".creature-card");
         if (nextCard instanceof HTMLElement && currentCard instanceof HTMLElement) {
           currentCard.replaceWith(nextCard);
+          fitCreatureRuleText(nextCard);
         }
       }
       if (payload.drawerHtml) {
@@ -364,6 +530,7 @@ export function initCreatureCards() {
             setCreatureCardUnlocked(nextCard, true);
           }
           bindCreatureCardEditor(nextCard);
+          fitCreatureRuleText(nextCard);
           initGodCards(container);
         }
       }
@@ -372,11 +539,20 @@ export function initCreatureCards() {
 
   document.querySelectorAll("[data-creature-card-editor]").forEach(bindCreatureCardEditor);
   document.querySelectorAll("[data-creature-training-drawer]").forEach(bindTrainingDrawer);
+  document.querySelectorAll(".creature-card").forEach(fitCreatureRuleText);
 
   if (document.documentElement.dataset.creatureCardsBound === "1") {
     return;
   }
   document.documentElement.dataset.creatureCardsBound = "1";
+
+  let creatureRuleFitTimer = 0;
+  window.addEventListener("resize", () => {
+    window.clearTimeout(creatureRuleFitTimer);
+    creatureRuleFitTimer = window.setTimeout(() => {
+      document.querySelectorAll(".creature-card").forEach(fitCreatureRuleText);
+    }, 120);
+  });
 
   document.addEventListener("pointerdown", (event) => {
     const target = event.target instanceof Element ? event.target : null;
@@ -440,7 +616,7 @@ export function initCreatureCards() {
   };
 
   const formatPenalty = (penalty) => (
-    penalty ? `; Malus ${penalty > 0 ? `+${penalty}` : penalty}` : ""
+    penalty ? `${penalty > 0 ? `+${penalty}` : penalty}` : ""
   );
 
   const woundZoneForDamage = (cluster, damage) => {
@@ -484,7 +660,7 @@ export function initCreatureCards() {
     if (!(status instanceof HTMLElement)) {
       return;
     }
-    status.hidden = zone.label === "-";
+    status.hidden = !zone.penalty;
     const labelEl = status.querySelector("[data-creature-wound-label]");
     const thresholdEl = status.querySelector("[data-creature-wound-threshold]");
     const penaltyEl = status.querySelector("[data-creature-wound-penalty]");
@@ -497,6 +673,7 @@ export function initCreatureCards() {
     if (penaltyEl instanceof HTMLElement) {
       penaltyEl.textContent = formatPenalty(zone.penalty);
     }
+    fitCreatureRuleText(card);
   };
 
   const applyPreviewDamageAction = (cluster, action) => {
