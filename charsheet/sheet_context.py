@@ -311,14 +311,14 @@ def build_creature_card_training_context(card):
     movement = engine.movement()
     can_fly = any(movement.get(field_name) is not None for field_name in ("fly_combat", "fly_march", "fly_sprint"))
     movement_options = {
-        "combat_speed": int(movement["combat"] or 0),
-        "march_speed": int(movement["march"] or 0),
-        "sprint_speed": int(movement["sprint"] or 0),
-        "swimming_speed": movement["swim"] or 0,
+        "combat_speed": format_compact_number(movement["combat"] or 0),
+        "march_speed": format_compact_number(movement["march"] or 0),
+        "sprint_speed": format_compact_number(movement["sprint"] or 0),
+        "swimming_speed": format_compact_number(movement["swim"] or 0),
         "can_fly": can_fly,
-        "combat_fly_speed": int(movement["fly_combat"] or 0),
-        "march_fly_speed": int(movement["fly_march"] or 0),
-        "sprint_fly_speed": int(movement["fly_sprint"] or 0),
+        "combat_fly_speed": format_compact_number(movement["fly_combat"] or 0),
+        "march_fly_speed": format_compact_number(movement["fly_march"] or 0),
+        "sprint_fly_speed": format_compact_number(movement["fly_sprint"] or 0),
     }
 
     return {

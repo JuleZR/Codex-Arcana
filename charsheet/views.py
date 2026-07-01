@@ -2154,14 +2154,14 @@ def update_creature_card_training(request, pk: int):
             card.max_base_advantage_points = int(quality_budget[0])
             card.max_base_disadvantage_points = int(quality_budget[1])
             card_update_fields.extend(["max_base_advantage_points", "max_base_disadvantage_points"])
-    movement_int_fields = (
+    movement_float_fields = (
         ("combat_speed", "combat_speed_override"),
         ("march_speed", "march_speed_override"),
         ("sprint_speed", "sprint_speed_override"),
     )
-    for post_name, field_name in movement_int_fields:
+    for post_name, field_name in movement_float_fields:
         if post_name in request.POST:
-            setattr(card, field_name, _parse_positive_int(request.POST.get(post_name), getattr(card, field_name, 0) or 0))
+            setattr(card, field_name, _parse_nonnegative_float(request.POST.get(post_name), getattr(card, field_name, 0) or 0))
             card_update_fields.append(field_name)
     if "swimming_speed" in request.POST:
         card.swimming_speed_override = _parse_nonnegative_float(request.POST.get("swimming_speed"), card.swimming_speed_override or 0)
@@ -2173,7 +2173,7 @@ def update_creature_card_training(request, pk: int):
         ("sprint_fly_speed", "sprint_fly_speed_override"),
     ):
         if can_fly:
-            setattr(card, field_name, _parse_positive_int(request.POST.get(post_name), getattr(card, field_name, None) or 0))
+            setattr(card, field_name, _parse_nonnegative_float(request.POST.get(post_name), getattr(card, field_name, None) or 0))
         else:
             setattr(card, field_name, None)
         card_update_fields.append(field_name)

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
+from fractions import Fraction
 from functools import cached_property
 import re
 from typing import Any
@@ -657,7 +658,11 @@ class CreatureEngine:
             return str(value)
         if number.is_integer():
             return str(int(number))
-        return f"{number:g}"
+        fraction = Fraction(number).limit_denominator(16)
+        whole, remainder = divmod(fraction.numerator, fraction.denominator)
+        if whole:
+            return f"{whole} {remainder}/{fraction.denominator}"
+        return f"{remainder}/{fraction.denominator}"
 
     @staticmethod
     def _wound_penalty_for_label(label: str) -> int:
