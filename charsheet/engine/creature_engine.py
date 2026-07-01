@@ -230,8 +230,8 @@ class CreatureEngine:
 
     @staticmethod
     def _attribute_modifier(value: Any) -> int:
-        """Return the stored creature attribute modifier."""
-        return int(value or 0)
+        """Return the modifier derived from a stored creature attribute value."""
+        return int(value or 0) - 5
 
     def initiative(self) -> int:
         override = self._stat_override("initiative_override")
