@@ -2805,128 +2805,184 @@ def datenschutz(request):
     return render(request, "legal/datenschutz.html", _legal_context())
 
 
-def debug_creature_card(request):
-    """Render a standalone creature card preview."""
-    creature_ref = str(request.GET.get("creature") or request.GET.get("slug") or "").strip()
-    instance_ref = str(request.GET.get("instance") or request.GET.get("character_creature") or "").strip()
-    source = None
+DEBUG_CARD_TYPES = {
+    "creature": "Kreaturen",
+    "divine": "Gottheiten",
+    "druid": "Druiden",
+    "shaman": "Schamanen",
+}
 
-    if instance_ref:
-        queryset = CharacterCreature.objects.select_related("creature")
-        source = queryset.filter(pk=instance_ref).first() if instance_ref.isdigit() else None
-    elif creature_ref:
-        queryset = Creature.objects.all()
-        if creature_ref.isdigit():
-            source = queryset.filter(pk=creature_ref).first()
-        if source is None:
-            source = queryset.filter(slug=creature_ref).first()
-    else:
-        source = Creature.objects.order_by("name").first()
 
-    if source is not None:
-        creature_card = CreatureEngine(source).card_context()
-        if (
-            isinstance(source, CharacterCreature)
-            and request.user.is_authenticated
-            and source.owner.owner_id == request.user.id
-        ):
-            creature_card["adjust_damage_url"] = reverse_lazy("adjust_creature_damage", kwargs={"pk": source.pk})
-        return render(
-            request,
-            "charsheet/debug_creature_card.html",
-            {
-                "creature_card": creature_card,
-                "creature_debug_source": source,
-            },
-        )
+def _debug_card_label(source, card_type: str) -> str:
+    if card_type == "shaman":
+        return f"{source.get_patron_kind_display()}: {source.card_name or source.name}"
+    return source.card_name or source.name
 
-    creature_card = {
-        "name": "Baer, gross",
-        "creature_name": "Baer, gross",
-        "image": None,
-        "size_class": "G",
-        "size_modifier": -1,
-        "initiative": -1,
-        "vw": 12,
-        "sr": 29,
-        "gw": 10,
-        "gw_extra": 16,
-        "gw_extra_label": "F",
-        "gw_fear": 16,
-        "fear_bonus": 6,
-        "rs_natural": 3,
-        "rs_armor": 0,
-        "rs_total": 3,
-        "encumbrance": 0,
-        "attacks": [
-            {"name": "Biss", "attack_value": 3, "damage": "2w10+3 T", "notes": ""},
-            {"name": "Pranke", "attack_value": 6, "damage": "3w10 B", "notes": ""},
-            {"name": "Umklammerung", "attack_value": 4, "damage": "-", "notes": ""},
-        ],
-        "wounds": [
-            {"label": "0", "threshold": 12},
-            {"label": "-2", "threshold": 24},
-            {"label": "-4", "threshold": 36},
-            {"label": "-6", "threshold": 48},
-            {"label": "Ausser Gefecht", "threshold": 60},
-            {"label": "Koma", "threshold": 72},
-        ],
-        "current_damage": 0,
-        "wound_max": 72,
-        "wound_zone": {"label": "-", "threshold": 0, "penalty": 0},
-        "wound_penalty": 0,
-        "attributes": [
-            {"label": "ST", "value": 8, "display": "+8"},
-            {"label": "KON", "value": 7, "display": "+7"},
-            {"label": "GE", "value": 0, "display": "+0"},
-            {"label": "INT", "value": -5, "display": "-5"},
-            {"label": "WA", "value": -1, "display": "-1"},
-            {"label": "WILL", "value": 1, "display": "+1"},
-            {"label": "CHA", "value": None, "display": "-"},
-        ],
-        "skills": [
-            {"name": "Aufmerksamkeit", "value": 4},
-            {"name": "Ausdauer", "value": 8},
-            {"name": "Kraftakt", "value": 13},
-            {"name": "Spuren lesen", "value": 6},
-            {"name": "Verbergen", "value": 2},
-        ],
-        "special_skills": [],
-        "commands": [
-            {"name": "Fass", "slug": "fass", "description": "Greift das markierte Ziel an."},
-            {"name": "Zurueck", "slug": "zurueck", "description": "Loest sich vom Ziel und kehrt zurueck."},
-        ],
-        "traits": [
-            {"name": "Festbeissen", "level": None},
-            {"name": "Furchtlos", "level": 6},
-        ],
-        "movement": {
-            "combat": 5,
-            "march": 10,
-            "sprint": 40,
-            "swim": 6,
-            "fly_combat": None,
-            "fly_march": None,
-            "fly_sprint": None,
-        },
-        "movement_display": {
-            "combat": "5",
-            "march": "10",
-            "sprint": "40",
-            "swim": "6",
-            "fly_combat": None,
-            "fly_march": None,
-            "fly_sprint": None,
-        },
-        "organization": "1",
-        "climate_and_occurrence": "Mediterrane, gemaessigte und kalte Klimazonen; Waelder, Ebenen, Huegel, Arktis; selten",
+
+def _debug_card_option(source, card_type: str) -> dict[str, str]:
+    label = _debug_card_label(source, card_type)
+    return {
+        "id": str(source.pk),
+        "slug": getattr(source, "slug", ""),
+        "label": label,
+        "search": " ".join(
+            str(value or "")
+            for value in (
+                label,
+                getattr(source, "name", ""),
+                getattr(source, "slug", ""),
+                getattr(source, "pantheon", ""),
+                getattr(getattr(source, "school", None), "name", ""),
+                getattr(source, "description", ""),
+            )
+        ).lower(),
     }
+
+
+def _debug_card_sources(card_type: str):
+    if card_type == "divine":
+        return list(
+            DivineEntity.objects.select_related("school")
+            .prefetch_related("aspects__aspect")
+            .order_by("name", "id")
+        )
+    if card_type == "druid":
+        return list(
+            DruidCult.objects.select_related("school")
+            .prefetch_related("aspects__aspect")
+            .order_by("name", "id")
+        )
+    if card_type == "shaman":
+        return list(
+            ShamanPatron.objects.select_related("school")
+            .prefetch_related("aspects")
+            .order_by("patron_kind", "name", "id")
+        )
+    return list(Creature.objects.select_related("quality").order_by("name", "id"))
+
+
+def _debug_find_card_source(sources, requested_ref: str):
+    if requested_ref:
+        for source in sources:
+            if str(source.pk) == requested_ref or getattr(source, "slug", "") == requested_ref:
+                return source
+    return sources[0] if sources else None
+
+
+def _debug_god_card_context(source, card_type: str) -> dict[str, object]:
+    if card_type == "divine":
+        kind_label = "Gottheit"
+        typebar = source.pantheon
+        ability = source.g_ability or source.divine_function or source.description
+        aspects = [entry.aspect for entry in source.aspects.all() if entry.aspect_id and entry.is_starting_aspect]
+        holo_kind = ""
+    elif card_type == "druid":
+        kind_label = "Krafttier"
+        typebar = source.school.name if source.school_id else source.name
+        ability = source.g_ability or source.description
+        aspects = [entry.aspect for entry in source.aspects.all() if entry.aspect_id and entry.is_starting_aspect]
+        holo_kind = "power-animal"
+    else:
+        kind_label = "Ahnengeist" if source.patron_kind == ShamanPatron.PatronKind.ANCESTOR_SPIRIT else "Totem"
+        typebar = source.school.name if source.school_id else source.get_patron_kind_display()
+        ability = source.g_ability or source.description
+        aspects = list(source.aspects.all().order_by("name", "id"))
+        holo_kind = "ancestor-spirit" if source.patron_kind == ShamanPatron.PatronKind.ANCESTOR_SPIRIT else "power-animal"
+
+    image_url = source.god_image.url if source.god_image else ""
+    return {
+        "divine_entity": source,
+        "card_aspects": aspects,
+        "selected_divine_card_image_url": image_url,
+        "selected_divine_card_title": source.card_name or source.name,
+        "selected_divine_card_kind_label": kind_label,
+        "selected_divine_card_kind_value": getattr(source, "patron_kind", ""),
+        "selected_divine_card_kind_options": [],
+        "selected_divine_card_typebar": typebar,
+        "selected_divine_card_ability": ability,
+        "selected_divine_card_fluff": source.fluff,
+        "selected_divine_card_aspects": aspects,
+        "selected_divine_card_show_aspect_placeholder": False,
+        "selected_divine_card_aspect_placeholders": [],
+        "selected_divine_card_aspect_options": [],
+        "selected_divine_card_editable": False,
+        "selected_divine_card_update_url": "",
+        "selected_divine_binding": None,
+        "selected_divine_card_holo": card_type in {"druid", "shaman"},
+        "selected_divine_card_holo_kind": holo_kind,
+    }
+
+
+def _debug_render_card_html(request, source, card_type: str) -> str:
+    if source is None:
+        return ""
+    if card_type == "creature":
+        return render_to_string(
+            "charsheet/partials/_creature_card.html",
+            {"creature_card": CreatureEngine(source).card_context(), "request": request},
+            request=request,
+        )
+    return render_to_string(
+        "charsheet/partials/_god_card.html",
+        {**_debug_god_card_context(source, card_type), "request": request},
+        request=request,
+    )
+
+
+def debug_creature_card(request):
+    """Render a standalone debug browser for existing card templates."""
+    requested_type = str(request.GET.get("type") or "").strip().lower()
+    card_type = requested_type if requested_type in DEBUG_CARD_TYPES else "creature"
+    legacy_ref = str(request.GET.get("creature") or request.GET.get("slug") or "").strip()
+    requested_ref = str(request.GET.get("card") or legacy_ref).strip()
+    search_query = str(request.GET.get("q") or "").strip()
+
+    sources = _debug_card_sources(card_type)
+    options = [_debug_card_option(source, card_type) for source in sources]
+    normalized_query = search_query.lower()
+    filtered_options = [
+        option for option in options if not normalized_query or normalized_query in option["search"]
+    ]
+    visible_ids = {option["id"] for option in filtered_options}
+    visible_sources = [source for source in sources if str(source.pk) in visible_ids]
+    selected_source = _debug_find_card_source(visible_sources or sources, requested_ref)
+    if selected_source is not None and str(selected_source.pk) not in visible_ids:
+        selected_option = _debug_card_option(selected_source, card_type)
+        filtered_options = [selected_option, *filtered_options]
+        visible_sources = [selected_source, *visible_sources]
+
+    selected_index = visible_sources.index(selected_source) if selected_source in visible_sources else -1
+    previous_source = visible_sources[selected_index - 1] if selected_index > 0 else None
+    next_source = visible_sources[selected_index + 1] if 0 <= selected_index < len(visible_sources) - 1 else None
+
+    card_tabs = [
+        {
+            "type": option_type,
+            "label": label,
+            "is_active": option_type == card_type,
+        }
+        for option_type, label in DEBUG_CARD_TYPES.items()
+    ]
+    for option in filtered_options:
+        option["is_selected"] = selected_source is not None and option["id"] == str(selected_source.pk)
+        option["url_ref"] = option["slug"] or option["id"]
+
     return render(
         request,
         "charsheet/debug_creature_card.html",
         {
-            "creature_card": creature_card,
-            "creature_debug_source": None,
+            "debug_card_type": card_type,
+            "debug_card_type_label": DEBUG_CARD_TYPES[card_type],
+            "debug_card_tabs": card_tabs,
+            "debug_card_options": filtered_options,
+            "debug_card_query": search_query,
+            "debug_card_selected": selected_source,
+            "debug_card_selected_ref": getattr(selected_source, "slug", "") or getattr(selected_source, "pk", ""),
+            "debug_card_html": _debug_render_card_html(request, selected_source, card_type),
+            "debug_previous_card_html": _debug_render_card_html(request, previous_source, card_type),
+            "debug_next_card_html": _debug_render_card_html(request, next_source, card_type),
+            "debug_card_count": len(options),
+            "debug_filtered_count": len(filtered_options),
         },
     )
 

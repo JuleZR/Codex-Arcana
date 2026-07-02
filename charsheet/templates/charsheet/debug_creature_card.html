@@ -4,21 +4,650 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Debug Creature Card</title>
+<title>Debug Card Browser</title>
 <link rel="stylesheet" href="{% static 'css/charsheet/_card.css' %}">
 <script type="module" src="{% static 'js/charsheet/creature_card.js' %}?v=20260630f"></script>
 <style>
+    :root {
+        color-scheme: dark;
+    }
+
+    * {
+        box-sizing: border-box;
+    }
+
     body {
-        display: grid;
         min-height: 100vh;
         margin: 0;
-        padding: 28px;
+        background:
+            radial-gradient(circle at 50% 0%, rgba(201, 170, 85, 0.16), transparent 34%),
+            linear-gradient(180deg, #181611 0%, #0f0e0b 100%);
+        color: #f0eadc;
+        font-family: "Cinzel", Georgia, serif;
+    }
+
+    .debug-card-page {
+        display: grid;
+        min-height: 100vh;
+        grid-template-rows: auto minmax(0, 1fr);
+    }
+
+    .debug-card-toolbar {
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        display: grid;
+        gap: 14px;
+        padding: 18px clamp(16px, 4vw, 36px);
+        border-bottom: 1px solid rgba(255, 250, 235, 0.14);
+        background: rgba(15, 14, 11, 0.92);
+        backdrop-filter: blur(14px);
+    }
+
+    .debug-card-tabs {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+    }
+
+    .debug-card-tab {
+        display: inline-flex;
+        min-height: 34px;
+        align-items: center;
+        justify-content: center;
+        padding: 0 14px;
+        border: 1px solid rgba(255, 250, 235, 0.24);
+        border-radius: 6px;
+        color: #f4ead1;
+        text-decoration: none;
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: 0;
+        background: rgba(255, 255, 255, 0.06);
+    }
+
+    .debug-card-tab.is-active {
+        border-color: rgba(201, 170, 85, 0.72);
+        background: rgba(201, 170, 85, 0.18);
+        color: #fff6d8;
+    }
+
+    .debug-card-controls {
+        display: grid;
+        grid-template-columns: minmax(180px, 1fr) minmax(220px, 1.4fr) auto;
+        gap: 10px;
+        align-items: end;
+    }
+
+    .debug-card-field {
+        display: grid;
+        gap: 5px;
+        min-width: 0;
+    }
+
+    .debug-card-field span {
+        color: rgba(240, 234, 220, 0.68);
+        font-size: 10px;
+        font-weight: 800;
+        text-transform: uppercase;
+    }
+
+    .debug-card-field input,
+    .debug-card-field select {
+        width: 100%;
+        min-width: 0;
+        min-height: 36px;
+        border: 1px solid rgba(255, 250, 235, 0.22);
+        border-radius: 6px;
+        background: #f1ead9;
+        color: #17120d;
+        font: 800 14px/1.2 "Cormorant Garamond", Georgia, serif;
+        outline: none;
+        padding: 6px 9px;
+    }
+
+    .debug-card-submit {
+        min-height: 36px;
+        padding: 0 15px;
+        border: 1px solid rgba(201, 170, 85, 0.68);
+        border-radius: 6px;
+        background: rgba(201, 170, 85, 0.22);
+        color: #fff6d8;
+        cursor: pointer;
+        font: 800 12px/1 "Cinzel", Georgia, serif;
+    }
+
+    .debug-card-meta {
+        color: rgba(240, 234, 220, 0.66);
+        font: 700 12px/1.35 "Cormorant Garamond", Georgia, serif;
+    }
+
+    .debug-card-stage-wrap {
+        display: grid;
+        min-height: 0;
         place-items: center;
-        background: #161410;
+        padding: clamp(22px, 4vw, 42px) clamp(14px, 4vw, 34px);
+        overflow: hidden;
+    }
+
+    .debug-card-stage {
+        position: relative;
+        width: min(980px, 100%);
+        min-height: min(700px, calc(100vh - 184px));
+        perspective: 1300px;
+        display: grid;
+        place-items: center;
+    }
+
+    .debug-card-step {
+        position: absolute;
+        top: 50%;
+        z-index: 8;
+        display: grid;
+        width: 48px;
+        height: 64px;
+        place-items: center;
+        border: 1px solid rgba(255, 250, 235, 0.26);
+        border-radius: 8px;
+        background:
+            linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.04)),
+            rgba(15, 14, 11, 0.82);
+        color: #fff4d4;
+        cursor: pointer;
+        font: 900 34px/1 "Cormorant Garamond", Georgia, serif;
+        transform: translateY(-50%);
+        box-shadow: 0 14px 24px rgba(0, 0, 0, 0.28);
+        backdrop-filter: blur(12px);
+    }
+
+    .debug-card-step:hover:not(:disabled),
+    .debug-card-step:focus-visible:not(:disabled) {
+        border-color: rgba(201, 170, 85, 0.76);
+        background:
+            linear-gradient(180deg, rgba(201, 170, 85, 0.24), rgba(201, 170, 85, 0.08)),
+            rgba(15, 14, 11, 0.88);
+        outline: none;
+    }
+
+    .debug-card-step:disabled {
+        cursor: default;
+        opacity: 0.22;
+    }
+
+    .debug-card-step--previous {
+        left: max(0px, calc(50% - 332px));
+    }
+
+    .debug-card-step--next {
+        right: max(0px, calc(50% - 332px));
+    }
+
+    .debug-card-ring {
+        position: relative;
+        --carousel-side-x: clamp(210px, 30vw, 360px);
+        --carousel-side-z: -150px;
+        width: min(420px, calc(100vw - 32px));
+        aspect-ratio: 744 / 1039;
+        height: auto;
+        transform-style: preserve-3d;
+    }
+
+    .debug-card-slot {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        transform-style: preserve-3d;
+        opacity: var(--slot-opacity, 1);
+        filter: var(--slot-filter, none);
+        pointer-events: var(--slot-events, auto);
+        transform:
+            translateX(var(--slot-x, 0px))
+            translateZ(var(--slot-z, 0px))
+            rotateY(var(--slot-rotate, 0deg))
+            scale(var(--slot-scale, 1));
+        transition:
+            transform 720ms cubic-bezier(0.16, 0.84, 0.18, 1),
+            opacity 460ms ease,
+            filter 460ms ease;
+        backface-visibility: hidden;
+    }
+
+    .debug-card-slot .card {
+        width: 100%;
+    }
+
+    .debug-card-slot--current {
+        z-index: 3;
+        --slot-x: 0px;
+        --slot-z: 0px;
+        --slot-rotate: 0deg;
+        --slot-opacity: 1;
+        --slot-scale: 1;
+        --slot-filter: none;
+    }
+
+    .debug-card-slot--previous,
+    .debug-card-slot--next,
+    .debug-card-slot--incoming {
+        z-index: 1;
+        --slot-opacity: 0.42;
+        --slot-scale: 0.86;
+        --slot-filter: saturate(0.72) brightness(0.82);
+        --slot-events: none;
+    }
+
+    .debug-card-slot--previous {
+        --slot-x: calc(var(--carousel-side-x) * -1);
+        --slot-z: var(--carousel-side-z);
+        --slot-rotate: 28deg;
+    }
+
+    .debug-card-slot--next {
+        --slot-x: var(--carousel-side-x);
+        --slot-z: var(--carousel-side-z);
+        --slot-rotate: -28deg;
+    }
+
+    .debug-card-slot--incoming-next {
+        --slot-x: var(--carousel-side-x);
+        --slot-z: var(--carousel-side-z);
+        --slot-rotate: -28deg;
+    }
+
+    .debug-card-slot--incoming-prev {
+        --slot-x: calc(var(--carousel-side-x) * -1);
+        --slot-z: var(--carousel-side-z);
+        --slot-rotate: 28deg;
+    }
+
+    .debug-card-slot--incoming {
+        opacity: 0;
+    }
+
+    .debug-card-slot--incoming.is-carousel-current {
+        z-index: 4;
+        --slot-x: 0px;
+        --slot-z: 0px;
+        --slot-rotate: 0deg;
+        --slot-opacity: 1;
+        --slot-scale: 1;
+        --slot-filter: none;
+        opacity: 1;
+    }
+
+    .debug-card-slot--outgoing-next {
+        z-index: 2;
+        --slot-x: calc(var(--carousel-side-x) * -1);
+        --slot-z: var(--carousel-side-z);
+        --slot-rotate: 28deg;
+        --slot-opacity: 0.42;
+        --slot-scale: 0.86;
+        --slot-filter: saturate(0.72) brightness(0.82);
+        --slot-events: none;
+    }
+
+    .debug-card-slot--outgoing-prev {
+        z-index: 2;
+        --slot-x: var(--carousel-side-x);
+        --slot-z: var(--carousel-side-z);
+        --slot-rotate: -28deg;
+        --slot-opacity: 0.42;
+        --slot-scale: 0.86;
+        --slot-filter: saturate(0.72) brightness(0.82);
+        --slot-events: none;
+    }
+
+    .debug-card-stage.is-carousel-moving .debug-card-slot--previous,
+    .debug-card-stage.is-carousel-moving .debug-card-slot--next {
+        opacity: 0;
+    }
+
+    .debug-card-stage.is-carousel-moving .debug-card-step {
+        pointer-events: none;
+        opacity: 0.36;
+    }
+
+    .debug-card-empty {
+        display: grid;
+        min-height: 240px;
+        place-items: center;
+        padding: 24px;
+        border: 1px solid rgba(255, 250, 235, 0.16);
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.05);
+        color: rgba(240, 234, 220, 0.78);
+        text-align: center;
+        font: 700 18px/1.25 "Cormorant Garamond", Georgia, serif;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .debug-card-slot,
+        .debug-card-stage.is-carousel-moving .debug-card-slot {
+            animation: none;
+            transition: none;
+        }
+    }
+
+    @media (max-width: 760px) {
+        .debug-card-controls {
+            grid-template-columns: 1fr;
+        }
+
+        .debug-card-submit {
+            width: 100%;
+        }
+
+        .debug-card-stage {
+            min-height: calc(100vh - 260px);
+        }
+
+        .debug-card-ring {
+            max-height: calc(100vh - 292px);
+        }
+
+        .debug-card-step {
+            top: auto;
+            bottom: -10px;
+            width: 44px;
+            height: 44px;
+            font-size: 28px;
+            transform: none;
+        }
+
+        .debug-card-step--previous {
+            left: calc(50% - 58px);
+        }
+
+        .debug-card-step--next {
+            right: calc(50% - 58px);
+        }
+
+        .debug-card-slot--previous,
+        .debug-card-slot--next {
+            display: none;
+        }
     }
 </style>
 </head>
 <body>
-    {% include "charsheet/partials/_creature_card.html" %}
+    <main class="debug-card-page">
+        <header class="debug-card-toolbar">
+            <nav class="debug-card-tabs" aria-label="Kartentypen">
+                {% for tab in debug_card_tabs %}
+                    <a class="debug-card-tab{% if tab.is_active %} is-active{% endif %}" href="?type={{ tab.type }}">{{ tab.label }}</a>
+                {% endfor %}
+            </nav>
+
+            <form class="debug-card-controls" method="get" data-debug-card-controls>
+                <input type="hidden" name="type" value="{{ debug_card_type }}">
+                <label class="debug-card-field">
+                    <span>Suche</span>
+                    <input type="search" name="q" value="{{ debug_card_query }}" autocomplete="off">
+                </label>
+                <label class="debug-card-field">
+                    <span>{{ debug_card_type_label }}</span>
+                    <select name="card" data-debug-card-select>
+                        {% for option in debug_card_options %}
+                            <option value="{{ option.url_ref }}"{% if option.is_selected %} selected{% endif %}>{{ option.label }}</option>
+                        {% empty %}
+                            <option value="">Keine Karten gefunden</option>
+                        {% endfor %}
+                    </select>
+                </label>
+                <button class="debug-card-submit" type="submit">Anzeigen</button>
+            </form>
+
+            <div class="debug-card-meta">
+                {{ debug_filtered_count }} von {{ debug_card_count }} Karten in {{ debug_card_type_label }}
+                {% if debug_card_selected %}- aktuell: {{ debug_card_selected }}{% endif %}
+            </div>
+        </header>
+
+        <section class="debug-card-stage-wrap" aria-label="Kartenvorschau">
+            <div class="debug-card-stage" data-debug-card-stage>
+                {% if debug_card_html %}
+                    <button class="debug-card-step debug-card-step--previous" type="button" data-debug-card-step="-1" aria-label="Vorherige Karte"{% if not debug_previous_card_html %} disabled{% endif %}>&lsaquo;</button>
+                    <button class="debug-card-step debug-card-step--next" type="button" data-debug-card-step="1" aria-label="Naechste Karte"{% if not debug_next_card_html %} disabled{% endif %}>&rsaquo;</button>
+                    <div class="debug-card-ring">
+                        {% if debug_previous_card_html %}
+                            <div class="debug-card-slot debug-card-slot--previous" aria-hidden="true">
+                                {{ debug_previous_card_html|safe }}
+                            </div>
+                        {% endif %}
+                        <div class="debug-card-slot debug-card-slot--current">
+                            {{ debug_card_html|safe }}
+                        </div>
+                        {% if debug_next_card_html %}
+                            <div class="debug-card-slot debug-card-slot--next" aria-hidden="true">
+                                {{ debug_next_card_html|safe }}
+                            </div>
+                        {% endif %}
+                    </div>
+                {% else %}
+                    <div class="debug-card-empty">
+                        Keine Karte fuer diese Auswahl gefunden.
+                    </div>
+                {% endif %}
+            </div>
+        </section>
+    </main>
+
+    <script>
+        (() => {
+            const controls = document.querySelector("[data-debug-card-controls]");
+            const select = document.querySelector("[data-debug-card-select]");
+            const stage = document.querySelector("[data-debug-card-stage]");
+            if (!(controls instanceof HTMLFormElement) || !(select instanceof HTMLSelectElement)) {
+                return;
+            }
+
+            const currentType = controls.querySelector('input[name="type"]')?.value || "";
+            const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+            let currentCard = select.value || "";
+            let isAnimating = false;
+
+            const selectedUrl = () => {
+                const formData = new FormData(controls);
+                const params = new URLSearchParams();
+                formData.forEach((value, key) => {
+                    params.set(key, String(value));
+                });
+                return `${window.location.pathname}?${params.toString()}`;
+            };
+
+            const urlForCard = (cardValue) => {
+                const formData = new FormData(controls);
+                const params = new URLSearchParams();
+                formData.forEach((value, key) => {
+                    params.set(key, String(value));
+                });
+                params.set("card", cardValue);
+                return `${window.location.pathname}?${params.toString()}`;
+            };
+
+            const reinitializeCards = async () => {
+                try {
+                    const module = await import("{% static 'js/charsheet/creature_card.js' %}?v=20260630f");
+                    if (typeof module.initCreatureCards === "function") {
+                        module.initCreatureCards();
+                    }
+                } catch (_error) {
+                    // The rendered cards remain visible; this only affects debug-page polish.
+                }
+            };
+
+            const syncControlsFromDocument = (nextDocument) => {
+                const nextTabs = nextDocument.querySelector(".debug-card-tabs");
+                const currentTabs = document.querySelector(".debug-card-tabs");
+                if (nextTabs instanceof HTMLElement && currentTabs instanceof HTMLElement) {
+                    currentTabs.replaceWith(nextTabs);
+                }
+
+                const nextControls = nextDocument.querySelector("[data-debug-card-controls]");
+                if (nextControls instanceof HTMLFormElement) {
+                    const nextSearch = nextControls.querySelector('input[name="q"]');
+                    const currentSearch = controls.querySelector('input[name="q"]');
+                    if (nextSearch instanceof HTMLInputElement && currentSearch instanceof HTMLInputElement) {
+                        currentSearch.value = nextSearch.value;
+                    }
+                    const nextSelect = nextControls.querySelector("[data-debug-card-select]");
+                    if (nextSelect instanceof HTMLSelectElement) {
+                        select.innerHTML = nextSelect.innerHTML;
+                    }
+                }
+
+                const nextMeta = nextDocument.querySelector(".debug-card-meta");
+                const currentMeta = document.querySelector(".debug-card-meta");
+                if (nextMeta instanceof HTMLElement && currentMeta instanceof HTMLElement) {
+                    currentMeta.replaceWith(nextMeta);
+                }
+            };
+
+            const replaceStageFromDocument = async (nextDocument) => {
+                const nextStage = nextDocument.querySelector("[data-debug-card-stage]");
+                if (nextStage instanceof HTMLElement && stage instanceof HTMLElement) {
+                    stage.innerHTML = nextStage.innerHTML;
+                    await reinitializeCards();
+                }
+            };
+
+            const wait = (duration) => new Promise((resolve) => {
+                window.setTimeout(resolve, duration);
+            });
+
+            const animateOneStep = async (direction, url) => {
+                if (!(stage instanceof HTMLElement) || reduceMotion.matches) {
+                    window.location.assign(url);
+                    return;
+                }
+
+                const ring = stage.querySelector(".debug-card-ring");
+                if (!(ring instanceof HTMLElement)) {
+                    window.location.assign(url);
+                    return;
+                }
+
+                isAnimating = true;
+                controls.classList.add("is-loading");
+
+                let nextDocument;
+                try {
+                    const response = await fetch(url, {
+                        headers: {"X-Requested-With": "XMLHttpRequest"},
+                        credentials: "same-origin",
+                    });
+                    if (!response.ok) {
+                        throw new Error("debug card fetch failed");
+                    }
+                    const html = await response.text();
+                    nextDocument = new DOMParser().parseFromString(html, "text/html");
+                } catch (_error) {
+                    window.location.assign(url);
+                    return;
+                }
+
+                const nextCurrent = nextDocument.querySelector(".debug-card-slot--current");
+                const currentSlot = ring.querySelector(".debug-card-slot--current");
+                if (!(nextCurrent instanceof HTMLElement) || !(currentSlot instanceof HTMLElement)) {
+                    await replaceStageFromDocument(nextDocument);
+                    syncControlsFromDocument(nextDocument);
+                    window.history.pushState({}, "", url);
+                    currentCard = select.value || "";
+                    return;
+                }
+
+                const incoming = nextCurrent.cloneNode(true);
+                incoming.classList.remove("debug-card-slot--current");
+                incoming.classList.add(
+                    "debug-card-slot--incoming",
+                    direction === "prev" ? "debug-card-slot--incoming-prev" : "debug-card-slot--incoming-next",
+                );
+                incoming.setAttribute("aria-hidden", "true");
+                ring.appendChild(incoming);
+                await reinitializeCards();
+
+                stage.classList.add("is-carousel-moving");
+                ring.getBoundingClientRect();
+                currentSlot.classList.add(direction === "prev" ? "debug-card-slot--outgoing-prev" : "debug-card-slot--outgoing-next");
+                incoming.classList.add("is-carousel-current");
+
+                await wait(760);
+                await replaceStageFromDocument(nextDocument);
+                syncControlsFromDocument(nextDocument);
+                window.history.pushState({}, "", url);
+                currentCard = select.value || "";
+                stage.classList.remove("is-carousel-moving");
+            };
+
+            const animateToCardValue = async (targetValue) => {
+                const options = Array.from(select.options).map((option) => option.value);
+                const startIndex = options.indexOf(currentCard);
+                const targetIndex = options.indexOf(targetValue);
+                if (startIndex < 0 || targetIndex < 0 || startIndex === targetIndex) {
+                    controls.requestSubmit();
+                    return;
+                }
+
+                const step = targetIndex > startIndex ? 1 : -1;
+                try {
+                    for (let index = startIndex + step; index !== targetIndex + step; index += step) {
+                        const nextValue = options[index];
+                        if (!nextValue) {
+                            break;
+                        }
+                        select.value = nextValue;
+                        await animateOneStep(step < 0 ? "prev" : "next", urlForCard(nextValue));
+                    }
+                } finally {
+                    select.value = targetValue;
+                    currentCard = targetValue;
+                    isAnimating = false;
+                    controls.classList.remove("is-loading");
+                    stage?.classList.remove("is-carousel-moving");
+                }
+            };
+
+            select.addEventListener("change", () => {
+                if (isAnimating) {
+                    return;
+                }
+                animateToCardValue(select.value || "");
+            });
+            if (stage instanceof HTMLElement) {
+                stage.addEventListener("click", (event) => {
+                    const target = event.target instanceof Element
+                        ? event.target.closest("[data-debug-card-step]")
+                        : null;
+                    if (!(target instanceof HTMLButtonElement) || target.disabled || isAnimating) {
+                        return;
+                    }
+                    const step = Number.parseInt(target.getAttribute("data-debug-card-step") || "0", 10);
+                    if (!step) {
+                        return;
+                    }
+                    const nextIndex = select.selectedIndex + step;
+                    if (nextIndex < 0 || nextIndex >= select.options.length) {
+                        return;
+                    }
+                    select.selectedIndex = nextIndex;
+                    animateToCardValue(select.value || "");
+                });
+            }
+            controls.addEventListener("submit", (event) => {
+                if (isAnimating) {
+                    event.preventDefault();
+                    return;
+                }
+                const url = selectedUrl();
+                const nextValue = select.value || "";
+                if (nextValue !== currentCard) {
+                    event.preventDefault();
+                    animateToCardValue(nextValue);
+                }
+            });
+        })();
+    </script>
 </body>
 </html>
