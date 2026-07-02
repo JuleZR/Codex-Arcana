@@ -21,6 +21,7 @@
                 <label class="card-art-edit__upload" data-god-card-image-trigger>
                     <span>Bild</span>
                     <input name="custom_god_image" type="file" accept="image/*" data-god-card-field>
+                    <input name="custom_god_image_cropped_data" type="hidden" value="" data-god-card-field data-card-cropped-image-field>
                 </label>
                 {% if selected_divine_binding.custom_god_image %}
                     <button class="card-art-edit__remove" type="button" data-god-card-remove-image>Loeschen</button>

@@ -1,4 +1,5 @@
-import { initGodCards } from "./god_card.js?v=20260621a";
+import { initGodCards } from "./god_card.js?v=20260702a";
+import { openCardImageCropper } from "./card_image_cropper.js";
 
 export function initCreatureCards() {
   const getCsrfToken = () => {
@@ -127,7 +128,7 @@ export function initCreatureCards() {
         event.preventDefault();
         imageInput.click();
       });
-      imageInput.addEventListener("change", () => {
+      imageInput.addEventListener("change", async () => {
         if (!card.classList.contains("is-edit-unlocked")) {
           return;
         }
@@ -135,18 +136,32 @@ export function initCreatureCards() {
         if (!file) {
           return;
         }
-        const art = card.querySelector(".card-art");
-        if (!(art instanceof HTMLElement)) {
-          return;
+        try {
+          const croppedData = await openCardImageCropper(file);
+          if (!croppedData) {
+            imageInput.value = "";
+            return;
+          }
+          const croppedInput = card.querySelector('input[name="custom_creature_image_cropped_data"]');
+          if (croppedInput instanceof HTMLInputElement) {
+            croppedInput.value = croppedData;
+          }
+          imageInput.value = "";
+          const art = card.querySelector(".card-art");
+          if (!(art instanceof HTMLElement)) {
+            return;
+          }
+          let image = art.querySelector("img");
+          if (!(image instanceof HTMLImageElement)) {
+            image = document.createElement("img");
+            image.alt = card.querySelector(".card-title")?.textContent?.trim() || "";
+            art.appendChild(image);
+          }
+          image.src = croppedData;
+          art.classList.remove("card-art--empty");
+        } catch (_error) {
+          imageInput.value = "";
         }
-        let image = art.querySelector("img");
-        if (!(image instanceof HTMLImageElement)) {
-          image = document.createElement("img");
-          image.alt = card.querySelector(".card-title")?.textContent?.trim() || "";
-          art.appendChild(image);
-        }
-        image.src = URL.createObjectURL(file);
-        art.classList.remove("card-art--empty");
       });
     }
 
@@ -162,6 +177,10 @@ export function initCreatureCards() {
         if (!(form instanceof HTMLFormElement)) {
           return;
         }
+        const croppedInput = card.querySelector('input[name="custom_creature_image_cropped_data"]');
+        if (croppedInput instanceof HTMLInputElement) {
+          croppedInput.value = "";
+        }
         let input = form.querySelector('input[name="remove_custom_creature_image"]');
         if (!(input instanceof HTMLInputElement)) {
           input = document.createElement("input");
@@ -171,8 +190,15 @@ export function initCreatureCards() {
         }
         input.value = "1";
         const art = card.querySelector(".card-art");
-        art?.querySelector("img")?.remove();
-        art?.classList.add("card-art--empty");
+        const image = art?.querySelector("img");
+        const defaultImageUrl = card.getAttribute("data-creature-card-default-image") || "";
+        if (image instanceof HTMLImageElement && defaultImageUrl) {
+          image.src = defaultImageUrl;
+          art?.classList.remove("card-art--empty");
+        } else {
+          image?.remove();
+          art?.classList.add("card-art--empty");
+        }
       });
     }
 

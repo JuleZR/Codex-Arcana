@@ -549,6 +549,7 @@ class CreatureEngine:
             "name": self.display_name(),
             "creature_name": self.creature.display_name,
             "image": self.image(),
+            "default_image": self.creature.image,
             "has_custom_image": bool(self.instance and self.instance.image_override),
             "quality": normalized_quality,
             "quality_label": getattr(quality, "name", normalized_quality),

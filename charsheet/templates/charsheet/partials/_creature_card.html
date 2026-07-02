@@ -5,13 +5,16 @@
     lang="de"
     aria-label="{{ creature_card.name }} Kreaturenkarte"
     data-creature-card-quality="{{ creature_card.quality }}"
+    {% if creature_card.default_image %}data-creature-card-default-image="{{ creature_card.default_image.url }}"{% endif %}
     {% if creature_card.training_update_url %}data-creature-card-editor{% endif %}
     {% if creature_card.holo %}data-card-holo="true" data-card-holo-kind="{{ creature_card.holo_kind|default:'creature' }}"{% endif %}
     {% if creature_card.quality != "common" %}style="--card-quality-edge-color: {{ creature_card.quality_color }};"{% endif %}
 >
-    <figure class="card-art{% if not creature_card.image %} card-art--empty{% endif %}">
+    <figure class="card-art{% if not creature_card.image and not creature_card.default_image %} card-art--empty{% endif %}">
         {% if creature_card.image %}
             <img src="{{ creature_card.image.url }}" alt="{{ creature_card.name }}">
+        {% elif creature_card.default_image %}
+            <img src="{{ creature_card.default_image.url }}" alt="{{ creature_card.name }}">
         {% endif %}
     </figure>
 
@@ -21,6 +24,7 @@
                 <label class="card-art-edit__upload" data-creature-card-image-trigger>
                     <span>Bild</span>
                     <input name="custom_creature_image" type="file" accept="image/*" data-creature-card-field>
+                    <input name="custom_creature_image_cropped_data" type="hidden" value="" data-creature-card-field data-card-cropped-image-field>
                 </label>
                 {% if creature_card.has_custom_image %}
                     <button class="card-art-edit__remove" type="button" data-creature-card-remove-image>Löschen</button>

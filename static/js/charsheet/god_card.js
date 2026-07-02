@@ -1,4 +1,5 @@
 import { getCsrfToken } from "./utils.js";
+import { openCardImageCropper } from "./card_image_cropper.js";
 
 function getObjectFitCoverDrawRect(image, width, height) {
   const naturalWidth = image.naturalWidth || width;
@@ -167,8 +168,8 @@ function bindGodCardEditor(card) {
     previewImageObjectUrl = "";
   };
 
-  const previewCustomImage = (file) => {
-    if (!(file instanceof File)) {
+  const previewCustomImage = (dataUrl) => {
+    if (!dataUrl) {
       return;
     }
     const art = card.querySelector(".card-art");
@@ -176,7 +177,6 @@ function bindGodCardEditor(card) {
       return;
     }
     revokePreviewImageObjectUrl();
-    previewImageObjectUrl = URL.createObjectURL(file);
     let image = art.querySelector("img");
     if (!(image instanceof HTMLImageElement)) {
       image = document.createElement("img");
@@ -187,7 +187,7 @@ function bindGodCardEditor(card) {
       resolveTitleTone(card);
       applyCardTextScale(card);
     }, { once: true });
-    image.src = previewImageObjectUrl;
+    image.src = dataUrl;
     art.classList.remove("card-art--empty");
   };
 
@@ -371,13 +371,28 @@ function bindGodCardEditor(card) {
   if (imageTrigger instanceof HTMLElement) {
     const imageInput = imageTrigger.querySelector('input[type="file"]');
     if (imageInput instanceof HTMLInputElement) {
-      imageInput.addEventListener("change", () => {
+      imageInput.addEventListener("change", async () => {
         if (!card.classList.contains("is-edit-unlocked")) {
           return;
         }
         const file = imageInput.files?.[0] || null;
-        if (file) {
-          previewCustomImage(file);
+        if (!file) {
+          return;
+        }
+        try {
+          const croppedData = await openCardImageCropper(file);
+          if (!croppedData) {
+            imageInput.value = "";
+            return;
+          }
+          const croppedInput = card.querySelector('input[name="custom_god_image_cropped_data"]');
+          if (croppedInput instanceof HTMLInputElement) {
+            croppedInput.value = croppedData;
+          }
+          imageInput.value = "";
+          previewCustomImage(croppedData);
+        } catch (_error) {
+          imageInput.value = "";
         }
       });
     }
@@ -402,6 +417,10 @@ function bindGodCardEditor(card) {
       event.stopPropagation();
       if (!card.classList.contains("is-edit-unlocked")) {
         return;
+      }
+      const croppedInput = card.querySelector('input[name="custom_god_image_cropped_data"]');
+      if (croppedInput instanceof HTMLInputElement) {
+        croppedInput.value = "";
       }
       try {
         await removeCustomImage();

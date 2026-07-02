@@ -1,7 +1,11 @@
 from __future__ import annotations
+import base64
+import binascii
 import json
 import random
+from uuid import uuid4
 from datetime import date as date_cls
+from django.core.files.base import ContentFile
 from django.conf import settings
 from django.http import JsonResponse
 from django.http import HttpResponseRedirect
@@ -350,6 +354,53 @@ def _read_json_payload(request) -> dict[str, object]:
     return payload if isinstance(payload, dict) else {}
 
 
+def _decode_card_image_data_url(raw_value: str) -> tuple[bytes, str] | None:
+    """Decode one cropped card-image Data URL into bytes and an extension."""
+    raw_value = str(raw_value or "").strip()
+    if not raw_value:
+        return None
+    if "," not in raw_value:
+        return None
+    header, encoded = raw_value.split(",", 1)
+    if ";base64" not in header:
+        return None
+    mime_type = header.split(":", 1)[-1].split(";", 1)[0].lower()
+    extension_by_mime = {
+        "image/jpeg": "jpg",
+        "image/png": "png",
+        "image/webp": "webp",
+    }
+    extension = extension_by_mime.get(mime_type)
+    if extension is None:
+        return None
+    try:
+        decoded = base64.b64decode(encoded)
+    except (ValueError, binascii.Error):
+        return None
+    if not decoded:
+        return None
+    return decoded, extension
+
+
+def _save_cropped_card_image(instance, field_name: str, raw_value: str, name_seed: str) -> bool:
+    """Save cropped card-image Data URL to an ImageField."""
+    decoded = _decode_card_image_data_url(raw_value)
+    if decoded is None:
+        return False
+    content, extension = decoded
+    image_field = getattr(instance, field_name)
+    if image_field:
+        image_field.delete(save=False)
+    safe_name = "".join(ch.lower() if ch.isalnum() else "-" for ch in str(name_seed or "card")).strip("-")
+    safe_name = safe_name or "card"
+    image_field.save(
+        f"{safe_name}-card-{uuid4().hex[:10]}.{extension}",
+        ContentFile(content),
+        save=False,
+    )
+    return True
+
+
 def _is_partial_request(request) -> bool:
     """Return whether the caller expects JSON-wrapped rendered partials."""
     return (
@@ -530,11 +581,14 @@ def update_divine_card(request, character_id: int):
     binding.custom_g_ability = str(request.POST.get("custom_g_ability", binding.custom_g_ability)).strip()
     binding.custom_fluff = str(request.POST.get("custom_fluff", binding.custom_fluff)).strip()
     binding.custom_description = str(request.POST.get("custom_description", binding.custom_description)).strip()
+    cropped_image = request.POST.get("custom_god_image_cropped_data", "")
     if request.POST.get("remove_custom_god_image") == "1":
         if binding.custom_god_image:
             binding.custom_god_image.delete(save=False)
         binding.custom_god_image = None
-    if request.FILES.get("custom_god_image"):
+    elif _save_cropped_card_image(binding, "custom_god_image", cropped_image, binding.custom_name or entity.name):
+        pass
+    elif request.FILES.get("custom_god_image"):
         binding.custom_god_image = request.FILES["custom_god_image"]
 
     selected_aspect_ids: list[int] = []
@@ -613,12 +667,15 @@ def update_druid_card(request, character_id: int):
         if "custom_description" in request.POST:
             binding.custom_description = str(request.POST.get("custom_description", binding.custom_description)).strip()
             update_fields.append("custom_description")
+        cropped_image = request.POST.get("custom_god_image_cropped_data", "")
         if request.POST.get("remove_custom_god_image") == "1":
             if binding.custom_god_image:
                 binding.custom_god_image.delete(save=False)
             binding.custom_god_image = None
             update_fields.append("custom_god_image")
-        if request.FILES.get("custom_god_image"):
+        elif _save_cropped_card_image(binding, "custom_god_image", cropped_image, binding.custom_name or cult.name):
+            update_fields.append("custom_god_image")
+        elif request.FILES.get("custom_god_image"):
             binding.custom_god_image = request.FILES["custom_god_image"]
             update_fields.append("custom_god_image")
         binding.full_clean()
@@ -704,12 +761,15 @@ def update_shaman_card(request, character_id: int):
             if field_name in request.POST:
                 setattr(binding, field_name, str(request.POST.get(field_name, "")).strip())
                 update_fields.append(field_name)
+        cropped_image = request.POST.get("custom_god_image_cropped_data", "")
         if request.POST.get("remove_custom_god_image") == "1":
             if binding.custom_god_image:
                 binding.custom_god_image.delete(save=False)
             binding.custom_god_image = None
             update_fields.append("custom_god_image")
-        if request.FILES.get("custom_god_image"):
+        elif _save_cropped_card_image(binding, "custom_god_image", cropped_image, binding.custom_name or patron.name):
+            update_fields.append("custom_god_image")
+        elif request.FILES.get("custom_god_image"):
             binding.custom_god_image = request.FILES["custom_god_image"]
             update_fields.append("custom_god_image")
         binding.full_clean()
@@ -2137,12 +2197,15 @@ def update_creature_card_training(request, pk: int):
         custom_name = str(request.POST.get("custom_name", ""))[:100].strip()
         card.name_override = custom_name if custom_name and custom_name != default_name else ""
         card_update_fields.append("name_override")
+    cropped_image = request.POST.get("custom_creature_image_cropped_data", "")
     if request.POST.get("remove_custom_creature_image") == "1":
         if card.image_override:
             card.image_override.delete(save=False)
         card.image_override = None
         card_update_fields.append("image_override")
-    if request.FILES.get("custom_creature_image"):
+    elif _save_cropped_card_image(card, "image_override", cropped_image, card.name_override or card.creature.name):
+        card_update_fields.append("image_override")
+    elif request.FILES.get("custom_creature_image"):
         card.image_override = request.FILES["custom_creature_image"]
         card_update_fields.append("image_override")
     if "quality" in request.POST:

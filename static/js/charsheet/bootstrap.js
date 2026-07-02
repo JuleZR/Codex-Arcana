@@ -26,8 +26,8 @@ import { initContextRadialMenu } from "./context_radial_menu.js";
 import { initRadialMenuGem } from "./radial_menu_gem.js";
 import { initCharacterAppearanceModal } from "./character_appearance_modal.js";
 import { initCardHand } from "./card_hand.js?v=20260621a";
-import { initGodCards } from "./god_card.js?v=20260621a";
-import { initCreatureCards } from "./creature_card.js?v=20260630f";
+import { initGodCards } from "./god_card.js?v=20260702a";
+import { initCreatureCards } from "./creature_card.js?v=20260702b";
 
 function isRadialMenuEnabled() {
   return document.body?.dataset.radialMenuEnabled === "1";

@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Debug Card Browser</title>
 <link rel="stylesheet" href="{% static 'css/charsheet/_card.css' %}">
-<script type="module" src="{% static 'js/charsheet/creature_card.js' %}?v=20260630f"></script>
+<script type="module" src="{% static 'js/charsheet/creature_card.js' %}?v=20260702b"></script>
 <style>
     :root {
         color-scheme: dark;
@@ -469,7 +469,7 @@
 
             const reinitializeCards = async () => {
                 try {
-                    const module = await import("{% static 'js/charsheet/creature_card.js' %}?v=20260630f");
+                    const module = await import("{% static 'js/charsheet/creature_card.js' %}?v=20260702b");
                     if (typeof module.initCreatureCards === "function") {
                         module.initCreatureCards();
                     }

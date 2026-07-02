@@ -17,6 +17,150 @@
     --card-gold: #c9aa55;
 }
 
+.card-image-cropper[hidden] {
+    display: none;
+}
+
+.card-image-cropper {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    display: grid;
+    place-items: center;
+    padding: 22px;
+}
+
+.card-image-cropper__backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(10, 8, 6, 0.72);
+    backdrop-filter: blur(4px);
+}
+
+.card-image-cropper__window {
+    position: relative;
+    z-index: 1;
+    width: min(94vw, 520px);
+    border: 1px solid rgba(201, 170, 85, 0.42);
+    border-radius: 8px;
+    overflow: hidden;
+    background:
+        linear-gradient(180deg, rgba(255, 252, 246, 0.96), rgba(232, 221, 198, 0.94));
+    color: #17120d;
+    box-shadow: 0 28px 60px rgba(0, 0, 0, 0.48);
+}
+
+.card-image-cropper__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 13px;
+    border-bottom: 1px solid rgba(84, 61, 34, 0.22);
+    background: rgba(36, 29, 20, 0.12);
+}
+
+.card-image-cropper__header h3 {
+    margin: 0;
+    font: 900 14px/1.1 "Cinzel", Georgia, serif;
+    letter-spacing: 0;
+}
+
+.card-image-cropper__close {
+    display: grid;
+    width: 28px;
+    height: 28px;
+    place-items: center;
+    border: 1px solid rgba(84, 61, 34, 0.28);
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.32);
+    color: #17120d;
+    cursor: pointer;
+    font: 900 14px/1 Arial, sans-serif;
+}
+
+.card-image-cropper__body {
+    display: grid;
+    gap: 10px;
+    justify-items: center;
+    padding: 14px;
+}
+
+.card-image-cropper__stage {
+    width: min(100%, 360px);
+    aspect-ratio: 2 / 3;
+    min-height: 0;
+    border: 1px solid rgba(84, 61, 34, 0.32);
+    border-radius: 8px;
+    overflow: hidden;
+    background: rgba(34, 29, 22, 0.9);
+}
+
+.card-image-cropper__stage img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.card-image-cropper__stage cropper-canvas {
+    width: 100%;
+    height: 100%;
+    background: rgba(34, 29, 22, 0.9);
+}
+
+.card-image-cropper__stage cropper-image {
+    width: 100%;
+    height: 100%;
+}
+
+.card-image-cropper__stage cropper-selection {
+    border: 1px solid rgba(255, 255, 255, 0.92);
+    outline: 9999px solid rgba(0, 0, 0, 0.52);
+}
+
+.card-image-cropper__stage cropper-handle[action="move"] {
+    background: rgba(255, 255, 255, 0.18);
+}
+
+.card-image-cropper__stage cropper-handle[action$="-resize"] {
+    width: 10px;
+    height: 10px;
+    border: 1px solid rgba(84, 61, 34, 0.48);
+    border-radius: 999px;
+    background: #f5f0e2;
+}
+
+.card-image-cropper__hint {
+    max-width: 360px;
+    margin: 0;
+    color: rgba(23, 18, 13, 0.72);
+    font: 760 13px/1.25 "Cormorant Garamond", Georgia, serif;
+    text-align: center;
+}
+
+.card-image-cropper__actions {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+}
+
+.card-image-cropper__button {
+    min-height: 32px;
+    padding: 0 13px;
+    border: 1px solid rgba(84, 61, 34, 0.28);
+    border-radius: 5px;
+    background: rgba(255, 255, 255, 0.42);
+    color: #17120d;
+    cursor: pointer;
+    font: 900 11px/1 "Cinzel", Georgia, serif;
+}
+
+.card-image-cropper__button--primary {
+    border-color: rgba(124, 93, 56, 0.48);
+    background: rgba(201, 170, 85, 0.38);
+}
+
 .card {
     position: relative;
     --card-ability-font-size: 14.6px;
