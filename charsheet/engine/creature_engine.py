@@ -323,6 +323,9 @@ class CreatureEngine:
             "march": self._movement_value("march_speed", "march", 0),
             "sprint": self._movement_value("sprint_speed", "sprint", 0),
             "swim": self._movement_value("swimming_speed", "swim", 0),
+            "swim_combat": self._movement_value("combat_swimming_speed", "swim_combat", None),
+            "swim_march": self._movement_value("march_swimming_speed", "swim_march", None),
+            "swim_sprint": self._movement_value("sprint_swimming_speed", "swim_sprint", None),
             "fly_combat": self._movement_value("combat_fly_speed", "fly_combat", None),
             "fly_march": self._movement_value("march_fly_speed", "fly_march", None),
             "fly_sprint": self._movement_value("sprint_fly_speed", "fly_sprint", None),
@@ -532,6 +535,9 @@ class CreatureEngine:
         normalized_quality = ItemEngine.normalize_quality(quality)
         holo_kind = "creature-legendary" if normalized_quality == "legendary" else "creature"
         movement = self.movement()
+        has_ground = all(movement.get(key) is not None for key in ("combat", "march", "sprint"))
+        has_single_swim = movement.get("swim") not in (None, "", 0, 0.0)
+        has_swim = all(movement.get(key) is not None for key in ("swim_combat", "swim_march", "swim_sprint"))
         has_flight = any(movement.get(key) is not None for key in ("fly_combat", "fly_march", "fly_sprint"))
         quality_choices = [
             {
@@ -579,6 +585,9 @@ class CreatureEngine:
             "wound_penalty": wound_zone["penalty"],
             "movement": movement,
             "movement_display": self.movement_display(),
+            "has_ground_movement": has_ground,
+            "has_single_swim": has_single_swim,
+            "has_swim": has_swim,
             "has_flight": has_flight,
             "attributes": self.attribute_rows(),
             "attacks": self.attacks(),
@@ -621,11 +630,14 @@ class CreatureEngine:
 
     @staticmethod
     def _format_damage(attack) -> str:
-        if not attack.damage_dice_amount or not attack.damage_dice_faces:
-            return ""
-        bonus = ""
         flat_bonus = int(attack.damage_flat_bonus or 0)
         flat_operator = str(getattr(attack, "damage_flat_operator", "") or "")
+        damage_type = f" {attack.damage_type}" if attack.damage_type else ""
+        if not attack.damage_dice_amount or not attack.damage_dice_faces:
+            if flat_bonus:
+                return f"{abs(flat_bonus)}{damage_type}"
+            return damage_type.strip()
+        bonus = ""
         if flat_bonus:
             if flat_operator == CreatureAttack.DamageOperator.DIVIDE:
                 bonus = f"/{abs(flat_bonus)}"
@@ -635,7 +647,6 @@ class CreatureEngine:
                 bonus = f"+{abs(flat_bonus)}"
             else:
                 bonus = f"{flat_bonus:+d}"
-        damage_type = f" {attack.damage_type}" if attack.damage_type else ""
         return f"{attack.damage_dice_amount}w{attack.damage_dice_faces}{bonus}{damage_type}"
 
     @staticmethod
@@ -702,6 +713,9 @@ def _creature_card_snapshot_values(creature: Creature, *, quality: Any | None = 
         "march_speed": movement["march"],
         "sprint_speed": movement["sprint"],
         "swimming_speed": movement["swim"],
+        "combat_swimming_speed": movement["swim_combat"],
+        "march_swimming_speed": movement["swim_march"],
+        "sprint_swimming_speed": movement["swim_sprint"],
         "combat_fly_speed": movement["fly_combat"],
         "march_fly_speed": movement["fly_march"],
         "sprint_fly_speed": movement["fly_sprint"],

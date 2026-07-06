@@ -1134,13 +1134,16 @@ span.card-aspect-placeholder {
 .creature-card__movement {
     display: inline-flex;
     flex: 0 0 auto;
-    gap: 2px;
+    gap: 3px;
     align-items: center;
     justify-content: flex-end;
     margin-left: 5px;
+    padding: 2px 0;
+    overflow: visible;
 }
 
 .creature-card__movement-mark {
+    box-sizing: border-box;
     display: grid;
     width: 24px;
     height: 24px;
@@ -1148,15 +1151,9 @@ span.card-aspect-placeholder {
     padding: 0;
     border: 1px solid rgba(255, 250, 235, 0.34);
     border-radius: 50%;
-    background:
-        linear-gradient(180deg, rgba(255, 255, 255, 0.44), rgba(226, 220, 204, 0.25)),
-        rgba(234, 229, 214, 0.36);
-    box-shadow:
-        inset 0 0 0 1px rgba(255, 255, 255, 0.28),
-        inset 0 -8px 12px rgba(255, 255, 255, 0.08),
-        -0.5px 2px 0 #000;
-    backdrop-filter: blur(9px) saturate(1.16);
-    -webkit-backdrop-filter: blur(9px) saturate(1.16);
+    overflow: hidden;
+    background: rgba(234, 229, 214, 0.92);
+    box-shadow: -0.5px 2px 0 #000;
     color: #16120d;
     font-family: "Times New Roman", Times, serif;
     font-size: 12px;
@@ -1175,28 +1172,68 @@ span.card-aspect-placeholder {
     line-height: 1;
 }
 
+.creature-card__movement-mark svg {
+    display: block;
+    overflow: hidden;
+}
+
+.creature-card__movement-mark path {
+    fill: currentColor;
+    stroke: currentColor;
+    stroke-width: 0.45px;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.creature-card__movement-mark--ground {
+    border-color: #d5583f;
+    background: #d5583f;
+    color: #35120d;
+    box-shadow: -0.5px 2px 0 #000;
+}
+
+.creature-card__movement-mark--ground svg {
+    width: 16px;
+    height: 17px;
+    transform: translate(1.25px, 0.15px);
+}
+
+.creature-card__movement-mark--ground path {
+    transform: scale(0.98);
+    transform-origin: center;
+}
+
+.creature-card__movement-mark--swim {
+    border-color: rgba(76, 181, 222, 0.82);
+    background: #4fbbe4;
+    color: #083646;
+    box-shadow: -0.5px 2px 0 #000;
+}
+
+.creature-card__movement-mark--swim svg {
+    width: 21px;
+    height: 21px;
+}
+
+.creature-card__movement-mark--swim path {
+    stroke-width: 0.7px;
+    transform: translate(-1.2px, -1px) scale(1.08);
+    transform-origin: center;
+}
+
 .creature-card__movement-mark--flight {
-    border-color: rgba(216, 247, 255, 0.72);
-    background:
-        radial-gradient(circle at 36% 28%, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.18) 28%, transparent 48%),
-        linear-gradient(180deg, rgba(202, 243, 255, 0.94), rgba(79, 187, 228, 0.88));
-    color: #0f3440;
-    box-shadow:
-        inset 0 0 0 1px rgba(255, 255, 255, 0.46),
-        inset 0 -8px 12px rgba(41, 127, 167, 0.26),
-        0 0 7px rgba(103, 219, 255, 0.42),
-        -0.5px 2px 0 #000;
+    border-color: rgba(255, 249, 219, 0.86);
+    background: #eee3bd;
+    color: #2d281d;
+    box-shadow: -0.5px 2px 0 #000;
 }
 
 .creature-card__movement-mark--flight svg {
-    display: block;
     width: 17px;
     height: 17px;
-    overflow: visible;
 }
 
 .creature-card__movement-mark--flight path {
-    fill: currentColor;
     transform: translate(-1px, -1px) scale(1.04);
     transform-origin: center;
 }

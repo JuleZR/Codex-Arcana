@@ -99,10 +99,13 @@ class Creature(models.Model):
     fear_resistance_bonus = models.IntegerField("GW extra value", blank=True, null=True)
     natural_rs = models.PositiveIntegerField(default=0)
     wound_step_override = models.PositiveIntegerField(blank=True, null=True)
-    combat_speed = models.FloatField(default=0, validators=[MinValueValidator(0)])
-    march_speed = models.FloatField(default=0, validators=[MinValueValidator(0)])
-    sprint_speed = models.FloatField(default=0, validators=[MinValueValidator(0)])
-    swimming_speed = models.FloatField(default=0, validators=[MinValueValidator(0)])
+    combat_speed = models.FloatField(blank=True, null=True, default=0, validators=[MinValueValidator(0)])
+    march_speed = models.FloatField(blank=True, null=True, default=0, validators=[MinValueValidator(0)])
+    sprint_speed = models.FloatField(blank=True, null=True, default=0, validators=[MinValueValidator(0)])
+    swimming_speed = models.FloatField("Schwimmgeschwindigkeit", blank=True, null=True, validators=[MinValueValidator(0)])
+    combat_swimming_speed = models.FloatField("Kampf-Schwimmen", blank=True, null=True, validators=[MinValueValidator(0)])
+    march_swimming_speed = models.FloatField("Marsch-Schwimmen", blank=True, null=True, validators=[MinValueValidator(0)])
+    sprint_swimming_speed = models.FloatField("Sprint-Schwimmen", blank=True, null=True, validators=[MinValueValidator(0)])
     combat_fly_speed = models.FloatField(blank=True, null=True, validators=[MinValueValidator(0)])
     march_fly_speed = models.FloatField(blank=True, null=True, validators=[MinValueValidator(0)])
     sprint_fly_speed = models.FloatField(blank=True, null=True, validators=[MinValueValidator(0)])
@@ -114,6 +117,36 @@ class Creature(models.Model):
 
     def __str__(self):
         return self.name
+
+    def clean(self):
+        super().clean()
+        blocks = {
+            "Boden": ("combat_speed", "march_speed", "sprint_speed"),
+            "Schwimmen": ("combat_swimming_speed", "march_swimming_speed", "sprint_swimming_speed"),
+            "Flug": ("combat_fly_speed", "march_fly_speed", "sprint_fly_speed"),
+        }
+        complete_blocks = 0
+        errors = {}
+        for label, fields in blocks.items():
+            filled_fields = [
+                field_name
+                for field_name in fields
+                if getattr(self, field_name, None) not in (None, "")
+            ]
+            if not filled_fields:
+                continue
+            if len(filled_fields) == len(fields):
+                complete_blocks += 1
+                continue
+            message = f"{label} muss entweder leer oder komplett ausgefuellt sein."
+            for field_name in fields:
+                errors[field_name] = message
+        if complete_blocks == 0:
+            message = "Mindestens ein Bewegungsblock muss komplett ausgefuellt sein."
+            for field_name in blocks["Boden"]:
+                errors.setdefault(field_name, message)
+        if errors:
+            raise ValidationError(errors)
 
     @property
     def display_name(self):

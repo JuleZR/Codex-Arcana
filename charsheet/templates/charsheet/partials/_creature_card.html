@@ -37,18 +37,23 @@
                 <input class="card-title card-title-input card-edit-field" name="custom_name" value="{{ creature_card.name|default:'' }}" maxlength="100" data-creature-card-field>
             {% endif %}
             <div class="creature-card__movement" aria-label="Bewegungsraten">
-                <span class="creature-card__movement-mark" title="Kampfbewegung" aria-label="Kampfbewegung {{ creature_card.movement_display.combat|default:creature_card.movement.combat }}">
-                    <span>{{ creature_card.movement_display.combat|default:creature_card.movement.combat }}</span>
-                </span>
-                <span class="creature-card__movement-mark" title="Marschbewegung" aria-label="Marschbewegung {{ creature_card.movement_display.march|default:creature_card.movement.march }}">
-                    <span>{{ creature_card.movement_display.march|default:creature_card.movement.march }}</span>
-                </span>
-                <span class="creature-card__movement-mark" title="Sprintbewegung" aria-label="Sprintbewegung {{ creature_card.movement_display.sprint|default:creature_card.movement.sprint }}">
-                    <span>{{ creature_card.movement_display.sprint|default:creature_card.movement.sprint }}</span>
-                </span>
-                <span class="creature-card__movement-mark" title="Schwimmbewegung" aria-label="Schwimmbewegung {{ creature_card.movement_display.swim|default:creature_card.movement.swim }}">
-                    <span>{{ creature_card.movement_display.swim|default:creature_card.movement.swim }}</span>
-                </span>
+                {% if creature_card.has_ground_movement %}
+                    <span class="creature-card__movement-mark creature-card__movement-mark--ground" title="{{ creature_card.movement_display.combat|default:creature_card.movement.combat }} / {{ creature_card.movement_display.march|default:creature_card.movement.march }} / {{ creature_card.movement_display.sprint|default:creature_card.movement.sprint }}{% if creature_card.has_single_swim %} / {{ creature_card.movement_display.swim }}{% endif %}" aria-label="Laufbewegung {{ creature_card.movement_display.combat|default:creature_card.movement.combat }} / {{ creature_card.movement_display.march|default:creature_card.movement.march }} / {{ creature_card.movement_display.sprint|default:creature_card.movement.sprint }}{% if creature_card.has_single_swim %} / {{ creature_card.movement_display.swim }}{% endif %}">
+                        <svg viewBox="90 118 42 56" aria-hidden="true" focusable="false">
+                            <path d="m 99.763494,154.28984 10.434446,5.53535 c 2.16215,-6.81989 10.29099,-10.01172 14.9518,-17.49679 1.8113,-2.90888 6.43199,-17.38363 -0.76352,-20.55076 -4.62568,-2.03601 -13.00038,5.93141 -16.7333,11.13431 -5.06571,7.06053 -3.17861,14.50045 -7.889426,21.37789 z"></path>
+                            <path d="m 98.363753,156.19858 10.879817,5.9171 c -3.26163,4.41901 -4.80333,11.55661 -12.979431,8.20758 -5.699886,-4.3772 -1.806715,-9.2506 2.099614,-14.12468 z"></path>
+                        </svg>
+                    </span>
+                {% endif %}
+                {% if creature_card.has_swim %}
+                    <span class="creature-card__movement-mark creature-card__movement-mark--swim" title="{{ creature_card.movement_display.swim_combat|default:creature_card.movement.swim_combat }} / {{ creature_card.movement_display.swim_march|default:creature_card.movement.swim_march }} / {{ creature_card.movement_display.swim_sprint|default:creature_card.movement.swim_sprint }}" aria-label="Schwimmbewegung {{ creature_card.movement_display.swim_combat|default:creature_card.movement.swim_combat }} / {{ creature_card.movement_display.swim_march|default:creature_card.movement.swim_march }} / {{ creature_card.movement_display.swim_sprint|default:creature_card.movement.swim_sprint }}">
+                        <svg viewBox="60 132 90 40" aria-hidden="true" focusable="false">
+                            <path d="m 82.521207,148.37275 c -1.728121,-4.95599 -6.085734,-3.56835 -8.14396,-5.78985 -1.740289,-1.87834 -0.731927,-3.17069 -0.178631,-3.76477 0.766652,-0.82318 3.401044,-0.43606 4.823233,0.71079 2.467892,1.9901 3.499358,8.84383 3.499358,8.84383 z"></path>
+                            <path d="m 86.338687,150.59961 c 7.689488,-5.84005 14.651203,-12.32499 20.475133,-14.52478 6.97279,-2.63373 16.46318,-1.51069 21.64441,4.28121 -14.51609,-3.88041 -18.34433,2.2498 -18.19666,5.78985 0.1667,3.99632 7.49425,7.3273 15.54869,7.00792 6.35803,-0.25212 13.81255,-4.76229 19.31763,0.30891 -8.56772,-2.39909 -14.74449,6.02701 -23.9865,4.39011 -11.55723,-2.04695 -18.04206,-11.14217 -34.802703,-7.25322 z"></path>
+                            <path d="m 65.52712,154.11133 c 2.941741,1.20187 5.160151,3.30791 9.327314,2.978 6.432143,-0.50922 12.380192,-4.01144 18.673842,-4.1356 11.068614,-0.21837 16.900024,9.1522 26.754174,9.19376 9.68967,0.0409 11.80417,-3.93186 19.53278,-0.15906 -6.56531,-1.27963 -14.75114,4.72918 -22.4277,4.93092 -8.41183,0.22106 -16.61739,-8.58652 -24.463687,-8.46209 -5.345966,0.0848 -10.289249,2.61769 -15.937984,2.25868 -3.334264,-0.21191 -8.404345,-2.56494 -11.458739,-6.60461 z"></path>
+                        </svg>
+                    </span>
+                {% endif %}
                 {% if creature_card.has_flight %}
                     <span class="creature-card__movement-mark creature-card__movement-mark--flight" title="{{ creature_card.movement_display.fly_combat|default:creature_card.movement.fly_combat }} / {{ creature_card.movement_display.fly_march|default:creature_card.movement.fly_march }} / {{ creature_card.movement_display.fly_sprint|default:creature_card.movement.fly_sprint }}" aria-label="Flugbewegung {{ creature_card.movement_display.fly_combat|default:creature_card.movement.fly_combat }} / {{ creature_card.movement_display.fly_march|default:creature_card.movement.fly_march }} / {{ creature_card.movement_display.fly_sprint|default:creature_card.movement.fly_sprint }}">
                         <svg viewBox="50 60 120 160" aria-hidden="true" focusable="false">

@@ -5404,6 +5404,7 @@ class CreatureAdmin(admin.ModelAdmin):
             {
                 "fields": (
                     ("combat_speed", "march_speed", "sprint_speed", "swimming_speed"),
+                    ("combat_swimming_speed", "march_swimming_speed", "sprint_swimming_speed"),
                     ("combat_fly_speed", "march_fly_speed", "sprint_fly_speed"),
                 )
             },
