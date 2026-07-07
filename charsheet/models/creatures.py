@@ -5,7 +5,7 @@ from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from django.db import models
 
-from django.core.exceptions import ValidationError
+from django.core.exceptions import NON_FIELD_ERRORS, ValidationError
 from django.core.validators import MinValueValidator
 from django.utils.text import slugify
 
@@ -126,6 +126,7 @@ class Creature(models.Model):
             "Boden": ("combat_speed", "march_speed", "sprint_speed"),
             "Schwimmen": ("combat_swimming_speed", "march_swimming_speed", "sprint_swimming_speed"),
             "Flug": ("combat_fly_speed", "march_fly_speed", "sprint_fly_speed"),
+            "Mana-Bewegung": ("movement_mana_cost", "movement_note"),
         }
         complete_blocks = 0
         errors = {}
@@ -133,7 +134,7 @@ class Creature(models.Model):
             filled_fields = [
                 field_name
                 for field_name in fields
-                if getattr(self, field_name, None) not in (None, "")
+                if self._has_movement_value(getattr(self, field_name, None))
             ]
             if not filled_fields:
                 continue
@@ -144,11 +145,18 @@ class Creature(models.Model):
             for field_name in fields:
                 errors[field_name] = message
         if complete_blocks == 0:
-            message = "Mindestens ein Bewegungsblock muss komplett ausgefuellt sein."
-            for field_name in blocks["Boden"]:
-                errors.setdefault(field_name, message)
+            message = "Mindestens eine Bewegungskategorie muss komplett ausgefuellt sein."
+            errors[NON_FIELD_ERRORS] = message
         if errors:
             raise ValidationError(errors)
+
+    @staticmethod
+    def _has_movement_value(value):
+        if value is None:
+            return False
+        if isinstance(value, str):
+            return value.strip() != ""
+        return True
 
     @property
     def display_name(self):
