@@ -242,14 +242,15 @@ def build_creature_card_training_context(card):
         }
         for trait in CreatureTraitDefinition.objects.order_by("trait_type", "name")
     ]
+    engine = CreatureEngine(card)
     card_attribute_values = {
-        ATTR_ST: CreatureEngine(card).attribute_mod(ATTR_ST),
-        ATTR_KON: CreatureEngine(card).attribute_mod(ATTR_KON),
-        ATTR_GE: CreatureEngine(card).attribute_mod(ATTR_GE),
-        ATTR_INT: CreatureEngine(card).attribute_mod(ATTR_INT),
-        ATTR_WA: CreatureEngine(card).attribute_mod(ATTR_WA),
-        ATTR_WILL: CreatureEngine(card).attribute_mod(ATTR_WILL),
-        ATTR_CHA: CreatureEngine(card).attribute_mod(ATTR_CHA),
+        ATTR_ST: engine.attribute_base_mod(ATTR_ST),
+        ATTR_KON: engine.attribute_base_mod(ATTR_KON),
+        ATTR_GE: engine.attribute_base_mod(ATTR_GE),
+        ATTR_INT: engine.attribute_base_mod(ATTR_INT),
+        ATTR_WA: engine.attribute_base_mod(ATTR_WA),
+        ATTR_WILL: engine.attribute_base_mod(ATTR_WILL),
+        ATTR_CHA: engine.attribute_base_mod(ATTR_CHA),
     }
     attribute_options = []
     for code, label in (
@@ -307,7 +308,6 @@ def build_creature_card_training_context(card):
         for skill in CreatureSpecialSkill.objects.order_by("name")
         if skill.name.casefold() not in existing_skill_names
     ]
-    engine = CreatureEngine(card)
     movement = engine.movement()
     can_fly = any(movement.get(field_name) is not None for field_name in ("fly_combat", "fly_march", "fly_sprint"))
     movement_options = {

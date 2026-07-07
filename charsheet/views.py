@@ -2292,14 +2292,15 @@ def update_creature_card_training(request, pk: int):
         order += 1
 
     attribute_codes = {code for code, _label in ATTRIBUTE_CODE_CHOICES}
+    engine = CreatureEngine(card)
     card_attribute_values = {
-        "ST": CreatureEngine(card).attribute_mod("ST"),
-        "KON": CreatureEngine(card).attribute_mod("KON"),
-        "GE": CreatureEngine(card).attribute_mod("GE"),
-        "INT": CreatureEngine(card).attribute_mod("INT"),
-        "WA": CreatureEngine(card).attribute_mod("WA"),
-        "WILL": CreatureEngine(card).attribute_mod("WILL"),
-        "CHA": CreatureEngine(card).attribute_mod("CHA"),
+        "ST": engine.attribute_base_mod("ST"),
+        "KON": engine.attribute_base_mod("KON"),
+        "GE": engine.attribute_base_mod("GE"),
+        "INT": engine.attribute_base_mod("INT"),
+        "WA": engine.attribute_base_mod("WA"),
+        "WILL": engine.attribute_base_mod("WILL"),
+        "CHA": engine.attribute_base_mod("CHA"),
     }
     attribute_rows = []
     for code in attribute_codes:

@@ -16,6 +16,7 @@ from charsheet.constants import (
     ATTR_ST,
     ATTR_WA,
     ATTR_WILL,
+    DEFENSE_RS,
     GK_MODS,
     QUALITY_BEL_MODS,
     QUALITY_COMMON,
@@ -208,7 +209,7 @@ class CreatureEngine:
             return explicit
         return int(GK_MODS.get(self.size_class(), 0))
 
-    def attribute_mod(self, attribute: str) -> int | None:
+    def attribute_base_mod(self, attribute: str) -> int | None:
         field_name = ATTRIBUTE_FIELD_MAP.get(attribute)
         if not field_name:
             return 0
@@ -225,9 +226,14 @@ class CreatureEngine:
             return None
         return (
             self._attribute_modifier(value)
-            + int(self.attribute_increase_totals.get(attribute, 0) or 0)
             + self._modifier_total(TargetDomain.ATTRIBUTE, attribute)
         )
+
+    def attribute_mod(self, attribute: str) -> int | None:
+        base_mod = self.attribute_base_mod(attribute)
+        if base_mod is None:
+            return None
+        return base_mod + int(self.attribute_increase_totals.get(attribute, 0) or 0)
 
     @staticmethod
     def _attribute_modifier(value: Any) -> int:
@@ -248,7 +254,6 @@ class CreatureEngine:
             14
             + int(self.attribute_mod(ATTR_GE) or 0)
             + int(self.attribute_mod(ATTR_WA) or 0)
-            + self.size_modifier()
             + self._modifier_total(TargetDomain.DERIVED_STAT, "vw")
         )
 
@@ -389,7 +394,11 @@ class CreatureEngine:
         return max(0, int(encumbrance))
 
     def armor_totals(self) -> CreatureArmorTotals:
-        natural_rs = int(self._value("natural_rs", 0) or 0) + self._modifier_total(TargetDomain.DERIVED_STAT, "natural_rs")
+        natural_rs = (
+            int(self._value("natural_rs", 0) or 0)
+            + self._modifier_total(TargetDomain.DERIVED_STAT, DEFENSE_RS)
+            + self._modifier_total(TargetDomain.DERIVED_STAT, "natural_rs")
+        )
         armor_rs = 0
         encumbrance = 0
         for creature_item in self.equipped_items():
