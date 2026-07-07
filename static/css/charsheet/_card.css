@@ -1238,6 +1238,21 @@ span.card-aspect-placeholder {
     transform-origin: center;
 }
 
+.creature-card__movement-mark--mana {
+    border-color: #b8b3aa;
+    background: #b8b3aa;
+    color: #17130e;
+    font-family: "Cinzel", Georgia, serif;
+    font-size: 15px;
+    letter-spacing: -1px;
+    line-height: 1;
+    text-shadow: none;
+}
+
+.creature-card__movement-mark--mana span {
+    transform: translateX(-0.5px) scaleX(0.92);
+}
+
 .creature-card__attribute-rail {
     position: absolute;
     top: 58px;

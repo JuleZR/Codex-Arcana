@@ -37,6 +37,11 @@
                 <input class="card-title card-title-input card-edit-field" name="custom_name" value="{{ creature_card.name|default:'' }}" maxlength="100" data-creature-card-field>
             {% endif %}
             <div class="creature-card__movement" aria-label="Bewegungsraten">
+                {% if creature_card.movement_mana_cost is not None %}
+                    <span class="creature-card__movement-mark creature-card__movement-mark--mana{% if creature_card.movement_note %} tooltip_target{% endif %}" title="{% if creature_card.movement_note %}{{ creature_card.movement_note }}{% else %}Bewegungskosten: {{ creature_card.movement_mana_cost }}{% endif %}" aria-label="Bewegungskosten {{ creature_card.movement_mana_cost }} farbloses Mana"{% if creature_card.movement_note %} data-tooltip="{{ creature_card.movement_note }}" data-tooltip-side="right"{% endif %}>
+                        <span>{{ creature_card.movement_mana_cost }}</span>
+                    </span>
+                {% endif %}
                 {% if creature_card.has_ground_movement %}
                     <span class="creature-card__movement-mark creature-card__movement-mark--ground" title="{{ creature_card.movement_display.combat|default:creature_card.movement.combat }} / {{ creature_card.movement_display.march|default:creature_card.movement.march }} / {{ creature_card.movement_display.sprint|default:creature_card.movement.sprint }}{% if creature_card.has_single_swim %} / {{ creature_card.movement_display.swim }}{% endif %}" aria-label="Laufbewegung {{ creature_card.movement_display.combat|default:creature_card.movement.combat }} / {{ creature_card.movement_display.march|default:creature_card.movement.march }} / {{ creature_card.movement_display.sprint|default:creature_card.movement.sprint }}{% if creature_card.has_single_swim %} / {{ creature_card.movement_display.swim }}{% endif %}">
                         <svg viewBox="90 118 42 56" aria-hidden="true" focusable="false">

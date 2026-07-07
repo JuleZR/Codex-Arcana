@@ -109,6 +109,8 @@ class Creature(models.Model):
     combat_fly_speed = models.FloatField(blank=True, null=True, validators=[MinValueValidator(0)])
     march_fly_speed = models.FloatField(blank=True, null=True, validators=[MinValueValidator(0)])
     sprint_fly_speed = models.FloatField(blank=True, null=True, validators=[MinValueValidator(0)])
+    movement_mana_cost = models.PositiveSmallIntegerField("Bewegungs-Mana", blank=True, null=True, validators=[MinValueValidator(0)])
+    movement_note = models.CharField("Bewegungshinweis", max_length=200, blank=True, default="")
     climate_and_occurrence = models.TextField(blank=True, default="")
     organization = models.CharField(max_length=100, blank=True, default="")
 
