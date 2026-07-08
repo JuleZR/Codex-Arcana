@@ -26,6 +26,7 @@ from charsheet.constants import (
     QUALITY_POOR,
     QUALITY_VERY_POOR,
     QUALITY_WRETCHED,
+    SKILL_COMBAT,
 )
 from charsheet.models.creatures import (
     ATTRIBUTE_FIELD_MAP,
@@ -238,11 +239,7 @@ class CreatureEngine:
         override = self._stat_override("initiative_override")
         if override is not None:
             return int(override) + self._modifier_total(TargetDomain.DERIVED_STAT, "initiative")
-        return (
-            int(self.attribute_mod(ATTR_WA) or 0)
-            + self.size_modifier()
-            + self._modifier_total(TargetDomain.DERIVED_STAT, "initiative")
-        )
+        return int(self.attribute_mod(ATTR_WA) or 0) + self._modifier_total(TargetDomain.DERIVED_STAT, "initiative")
 
     def vw(self) -> int:
         override = self._stat_override("vw_override")
@@ -411,7 +408,11 @@ class CreatureEngine:
         )
 
     def attacks(self) -> list[dict[str, Any]]:
-        attack_value_bonus = int(self.attribute_increase_totals.get(ATTR_GE, 0) or 0) + self._modifier_total(TargetDomain.COMBAT, "attack_value")
+        attack_value_bonus = (
+            int(self.attribute_increase_totals.get(ATTR_GE, 0) or 0)
+            + self.size_modifier()
+            + self._modifier_total(TargetDomain.COMBAT, "attack_value")
+        )
         damage_bonus = int(self.attribute_increase_totals.get(ATTR_ST, 0) or 0)
         return [
             self._attack_context(attack, attack_value_bonus, damage_bonus)
@@ -460,31 +461,61 @@ class CreatureEngine:
         if self.instance:
             overrides = {
                 entry.skill_id: entry
-                for entry in self.instance.skill_overrides.select_related("skill")
+                for entry in self.instance.skill_overrides.select_related("skill", "skill__attribute", "skill__category")
             }
         base_rows = []
         seen = set()
-        for row in self.creature.skills.select_related("skill"):
+        for row in self.creature.skills.select_related("skill", "skill__attribute", "skill__category"):
             override = overrides.get(row.skill_id)
             seen.add(row.skill_id)
+            value = override.value_override if override else row.value
+            attribute_modifier = self._skill_attribute_modifier(row.skill)
             base_rows.append(
                 {
                     "name": row.skill.name,
-                    "value": (override.value_override if override else row.value)
+                    "value": value
+                    + attribute_modifier
+                    + self._skill_size_modifier(row.skill)
                     + self._modifier_total(TargetDomain.SKILL, row.skill.slug),
+                    "attribute": row.skill.attribute.short_name,
+                    "attribute_modifier": attribute_modifier,
                     "notes": override.notes if override and override.notes else row.notes or row.skill.description,
                 }
             )
         for skill_id, override in overrides.items():
             if skill_id not in seen:
+                attribute_modifier = self._skill_attribute_modifier(override.skill)
                 base_rows.append(
                     {
                         "name": override.skill.name,
-                        "value": override.value_override + self._modifier_total(TargetDomain.SKILL, override.skill.slug),
+                        "value": override.value_override
+                        + attribute_modifier
+                        + self._skill_size_modifier(override.skill)
+                        + self._modifier_total(TargetDomain.SKILL, override.skill.slug),
+                        "attribute": override.skill.attribute.short_name,
+                        "attribute_modifier": attribute_modifier,
                         "notes": override.notes or override.skill.description,
                     }
                 )
         return base_rows
+
+    def _skill_attribute_modifier(self, skill) -> int:
+        attribute = getattr(skill, "attribute", None)
+        short_name = getattr(attribute, "short_name", "")
+        if not short_name:
+            return 0
+        return int(self.attribute_mod(short_name) or 0)
+
+    def _skill_size_modifier(self, skill) -> int:
+        category = getattr(skill, "category", None)
+        category_slug = getattr(category, "slug", "")
+        if category_slug == SKILL_COMBAT:
+            return self.size_modifier()
+        if getattr(skill, "slug", "") == "skill_evasion":
+            return self.size_modifier()
+        if getattr(skill, "slug", "") == "skill_hide":
+            return self.size_modifier() * 2
+        return 0
 
     def special_skills(self) -> list[dict[str, Any]]:
         overrides = {}

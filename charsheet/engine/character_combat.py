@@ -104,7 +104,7 @@ def vw(engine) -> int:
     if engine.resolve_flags().get("suppress_positive_vw_attribute_bonuses", False):
         ge_bonus = min(0, ge_bonus)
         wa_bonus = min(0, wa_bonus)
-    return 14 + ge_bonus + wa_bonus + engine._resolve_stat_modifiers(DEFENSE_VW)
+    return 14 + ge_bonus + wa_bonus + engine.size_modifier() + engine._resolve_stat_modifiers(DEFENSE_VW)
 
 
 def gw(engine) -> int:

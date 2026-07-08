@@ -32,6 +32,7 @@ from charsheet.constants import (
     ONE_HANDED,
     RULE_FLAG_CHOICES,
     RULE_FLAG_TARGET_KIND,
+    SKILL_COMBAT,
     STAT_SLUG_CHOICES,
     SOURCE_ITEM_RUNE,
     TWO_HANDED,
@@ -1341,6 +1342,14 @@ def _build_weapon_maneuver_breakdown_rows(engine, weapon_row: dict[str, object])
             "source": mastery_source,
         })
 
+    size_modifier = int(weapon_row.get("size_modifier", 0) or 0)
+    if size_modifier:
+        rows.append({
+            "label": "GK",
+            "value": format_modifier(size_modifier),
+            "source": engine.size_class(),
+        })
+
     item_bonus = int(weapon_row.get("item_maneuver_modifier", 0) or 0)
     if item_bonus:
         rows.append({
@@ -1900,6 +1909,15 @@ def _build_skill_rows(character: Character, engine, *, load_penalty: int) -> tup
             + int(engine._resolve_choice_skill_modifiers(skill.id, specification=specification))
         )
 
+    def _skill_size_modifier(skill: Skill) -> int:
+        if skill.category.slug == SKILL_COMBAT:
+            return int(engine.size_modifier())
+        if skill.slug == "skill_evasion":
+            return int(engine.size_modifier())
+        if skill.slug == "skill_hide":
+            return int(engine.size_modifier()) * 2
+        return 0
+
     def _build_row(skill: Skill, character_skill=None, *, specification_override: str | None = None) -> dict:
         attribute_modifier = int(engine.attribute_modifier(skill.attribute.short_name))
         if specification_override is not None:
@@ -1910,7 +1928,8 @@ def _build_skill_rows(character: Character, engine, *, load_penalty: int) -> tup
         base_rank = int(character_skill.level) if character_skill is not None else 0
         rank_bonus = int(engine.skill_rank_bonus(skill.slug, specification=specification))
         rank = base_rank + rank_bonus
-        total_with_load = rank + attribute_modifier + raw_modifiers
+        size_modifier = _skill_size_modifier(skill)
+        total_with_load = rank + attribute_modifier + raw_modifiers + size_modifier
         return {
             "row_kind": "skill",
             "character_skill_id": character_skill.id if character_skill is not None else None,
@@ -1930,6 +1949,7 @@ def _build_skill_rows(character: Character, engine, *, load_penalty: int) -> tup
             "rank_bonus_value": rank_bonus,
             "misc_mod": format_modifier(raw_modifiers - load_penalty),
             "misc_mod_value": raw_modifiers - load_penalty,
+            "size_mod_value": size_modifier,
             "total": total_with_load - load_penalty,
             "total_value": total_with_load - load_penalty,
             "with_load_total": total_with_load,
@@ -1947,6 +1967,11 @@ def _build_skill_rows(character: Character, engine, *, load_penalty: int) -> tup
                         "label": "Wundmalus",
                         "value": format_modifier(engine.current_wound_penalty()),
                     },
+                    *(
+                        [{"label": "GK", "value": format_modifier(size_modifier), "source": engine.size_class()}]
+                        if size_modifier
+                        else []
+                    ),
                     *_build_skill_modifier_rows(
                         engine,
                         skill.slug,

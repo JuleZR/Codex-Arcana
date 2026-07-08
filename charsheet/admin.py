@@ -42,6 +42,7 @@ from .admin_help import (
     WEAPON_CHOICE_HELP,
 )
 from .engine.item_engine import ItemEngine
+from .engine.creature_engine import CreatureEngine
 from .modifiers.legacy import LegacyModifierAdapter
 from .modifiers.registry import build_creature_trait_semantic_modifiers, build_trait_semantic_modifiers
 from .models import (
@@ -5184,8 +5185,18 @@ class CreatureAttackInline(admin.TabularInline):
 class CreatureSkillInline(admin.TabularInline):
     model = CreatureSkill
     extra = 0
-    fields = ("skill", "level", "notes")
+    fields = ("skill", "attribute_modifier_preview", "level", "notes")
+    readonly_fields = ("attribute_modifier_preview",)
     autocomplete_fields = ("skill",)
+
+    @admin.display(description="Attribut-Mod")
+    def attribute_modifier_preview(self, obj):
+        if not obj or not obj.skill_id or not obj.creature_id:
+            return "-"
+        short_name = obj.skill.attribute.short_name
+        modifier = CreatureEngine(obj.creature).attribute_mod(short_name)
+        display = "0" if not modifier else f"{int(modifier):+d}"
+        return f"{short_name} {display}"
 
 
 class CreatureSpecialSkillValueInline(admin.TabularInline):
@@ -5445,8 +5456,18 @@ class CharacterCreatureItemInline(admin.TabularInline):
 class CharacterCreatureSkillInline(admin.TabularInline):
     model = CharacterCreatureSkill
     extra = 0
-    fields = ("skill", "level_override", "notes")
+    fields = ("skill", "attribute_modifier_preview", "level_override", "notes")
+    readonly_fields = ("attribute_modifier_preview",)
     autocomplete_fields = ("skill",)
+
+    @admin.display(description="Attribut-Mod")
+    def attribute_modifier_preview(self, obj):
+        if not obj or not obj.skill_id or not obj.creature_id:
+            return "-"
+        short_name = obj.skill.attribute.short_name
+        modifier = CreatureEngine(obj.creature).attribute_mod(short_name)
+        display = "0" if not modifier else f"{int(modifier):+d}"
+        return f"{short_name} {display}"
 
 
 class CharacterCreatureSpecialSkillInline(admin.TabularInline):

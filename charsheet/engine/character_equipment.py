@@ -252,11 +252,13 @@ def equipped_weapon_rows(engine) -> list[dict]:
         item_specific_damage_modifier = _character_item_specific_damage_modifier(engine, character_item)
         item_specific_damage_dice_modifier = _character_item_specific_damage_dice_modifier(engine, character_item)
         maneuver_attribute_codes = item_engine.get_weapon_maneuver_attribute_codes()
+        size_modifier = engine.size_modifier()
         common_maneuver_bonus = (
             item_engine.get_weapon_maneuver_quality_bonus()
             + maneuver_modifier
             + mastery_maneuver_bonus
             + item_specific_maneuver_modifier
+            + size_modifier
         )
         maneuver_options = []
         for attribute_code in maneuver_attribute_codes:
@@ -324,6 +326,7 @@ def equipped_weapon_rows(engine) -> list[dict]:
                     "quality_maneuver_bonus": item_engine.get_weapon_maneuver_quality_bonus(),
                     "weapon_mastery_damage_bonus": mastery_damage_bonus,
                     "weapon_mastery_maneuver_bonus": mastery_maneuver_bonus,
+                    "size_modifier": size_modifier,
                     "weapon_mastery_quality_bonus": engine.weapon_mastery_quality_bonus_for_item(character_item.item),
                     "trait_maneuver_modifier": maneuver_modifier,
                     "item_maneuver_modifier": item_specific_maneuver_modifier,

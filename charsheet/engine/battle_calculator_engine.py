@@ -301,6 +301,9 @@ class BattleCalculatorEngine:
             if weapon_master_school_entry is not None and getattr(weapon_master_school_entry, "school", None) is not None:
                 mastery_source = weapon_master_school_entry.school.name
             entries.append(cls._modifier_entry("Waffenmeister", cls._format_modifier(mastery_bonus), source=mastery_source))
+        size_modifier = cls._safe_int(row.get("size_modifier"))
+        if size_modifier:
+            entries.append(cls._modifier_entry("GK", cls._format_modifier(size_modifier), source=engine.size_class()))
         entries.extend(cls._build_character_item_stat_modifier_rows(engine, row["character_item"], MELEE_MANEUVERS))
         bel_malus = cls._safe_int(row.get("bel_malus"))
         if bel_malus:

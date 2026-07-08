@@ -12,7 +12,7 @@ from django.db.models import Model, Prefetch, Q
 
 from . import character_combat, character_equipment, character_learning, character_progression
 from .item_engine import ItemEngine
-from charsheet.constants import ATTR_SPEC, infer_weapon_type
+from charsheet.constants import ATTR_SPEC, GK_AVERAGE, GK_MODS, infer_weapon_type
 from charsheet.modifiers import ModifierEngine, ModifierResolutionMode, TargetDomain
 from charsheet.models import (
     Character,
@@ -738,6 +738,14 @@ class CharacterEngine:
             short_name: int(base_value) + int(self.resolve_attribute_bonus(short_name))
             for short_name, base_value in self._attributes_map.items()
         }
+
+    def size_class(self) -> str:
+        """Return the character's effective size class from their race."""
+        return getattr(self.character.race, "size_class", GK_AVERAGE) or GK_AVERAGE
+
+    def size_modifier(self) -> int:
+        """Return the rules modifier derived from the character's size class."""
+        return int(GK_MODS.get(self.size_class(), 0))
 
     def skills(self) -> dict[str, SkillInfo]:
         """Return the character's learned skills and their metadata."""
