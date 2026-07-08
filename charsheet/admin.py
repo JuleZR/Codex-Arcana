@@ -434,6 +434,18 @@ def _creature_trait_semantic_preview(trait, *, level: int | None = None):
     return _render_readonly_lines(_modifier_preview_line(modifier) for modifier in modifiers)
 
 
+def _creature_skill_gk_modifier_preview(creature, skill):
+    """Render the size-class modifier that applies to one creature skill."""
+    if creature is None or skill is None:
+        return "-"
+    engine = CreatureEngine(creature)
+    modifier = engine._skill_size_modifier(skill)
+    if not modifier:
+        return "-"
+    display = f"{int(modifier):+d}"
+    return f"{engine.size_class()} {display}"
+
+
 def _trait_semantic_editing_path(trait):
     """Render where new-system trait effects are maintained."""
     if trait is None:
@@ -5185,8 +5197,8 @@ class CreatureAttackInline(admin.TabularInline):
 class CreatureSkillInline(admin.TabularInline):
     model = CreatureSkill
     extra = 0
-    fields = ("skill", "attribute_modifier_preview", "level", "notes")
-    readonly_fields = ("attribute_modifier_preview",)
+    fields = ("skill", "attribute_modifier_preview", "gk_modifier_preview", "level", "notes")
+    readonly_fields = ("attribute_modifier_preview", "gk_modifier_preview")
     autocomplete_fields = ("skill",)
 
     @admin.display(description="Attribut-Mod")
@@ -5197,6 +5209,12 @@ class CreatureSkillInline(admin.TabularInline):
         modifier = CreatureEngine(obj.creature).attribute_mod(short_name)
         display = "0" if not modifier else f"{int(modifier):+d}"
         return f"{short_name} {display}"
+
+    @admin.display(description="GK-Mod")
+    def gk_modifier_preview(self, obj):
+        if not obj or not obj.skill_id or not obj.creature_id:
+            return "-"
+        return _creature_skill_gk_modifier_preview(obj.creature, obj.skill)
 
 
 class CreatureSpecialSkillValueInline(admin.TabularInline):
@@ -5456,8 +5474,8 @@ class CharacterCreatureItemInline(admin.TabularInline):
 class CharacterCreatureSkillInline(admin.TabularInline):
     model = CharacterCreatureSkill
     extra = 0
-    fields = ("skill", "attribute_modifier_preview", "level_override", "notes")
-    readonly_fields = ("attribute_modifier_preview",)
+    fields = ("skill", "attribute_modifier_preview", "gk_modifier_preview", "level_override", "notes")
+    readonly_fields = ("attribute_modifier_preview", "gk_modifier_preview")
     autocomplete_fields = ("skill",)
 
     @admin.display(description="Attribut-Mod")
@@ -5468,6 +5486,12 @@ class CharacterCreatureSkillInline(admin.TabularInline):
         modifier = CreatureEngine(obj.creature).attribute_mod(short_name)
         display = "0" if not modifier else f"{int(modifier):+d}"
         return f"{short_name} {display}"
+
+    @admin.display(description="GK-Mod")
+    def gk_modifier_preview(self, obj):
+        if not obj or not obj.skill_id or not obj.creature_id:
+            return "-"
+        return _creature_skill_gk_modifier_preview(obj.creature, obj.skill)
 
 
 class CharacterCreatureSpecialSkillInline(admin.TabularInline):
