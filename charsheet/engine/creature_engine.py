@@ -427,7 +427,7 @@ class CreatureEngine:
         if show_notes_as_damage:
             damage_display = notes
         elif append_notes_to_damage:
-            damage_display = f"{damage} {notes}".strip()
+            damage_display = self._append_notes_to_damage_display(damage, notes, attack.damage_type)
         return {
             "name": attack.name,
             "attack_value": attack.attack_value + attack_value_bonus,
@@ -437,6 +437,23 @@ class CreatureEngine:
             "show_notes_as_damage": show_notes_as_damage,
             "append_notes_to_damage": append_notes_to_damage,
         }
+
+    @staticmethod
+    def _append_notes_to_damage_display(damage: str, notes: str, damage_type: str) -> str:
+        damage = str(damage or "").strip()
+        notes = str(notes or "").strip()
+        damage_type = str(damage_type or "").strip()
+        if not notes:
+            return damage
+        if not damage:
+            return notes
+        if damage_type and damage == damage_type:
+            return f"{notes} {damage_type}".strip()
+        type_suffix = f" {damage_type}" if damage_type else ""
+        if type_suffix and damage.endswith(type_suffix):
+            damage_without_type = damage[: -len(type_suffix)].rstrip()
+            return f"{damage_without_type} {notes}{type_suffix}".strip()
+        return f"{damage} {notes}".strip()
 
     def skills(self) -> list[dict[str, Any]]:
         overrides = {}
