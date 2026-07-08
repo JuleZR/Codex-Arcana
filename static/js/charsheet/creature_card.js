@@ -264,6 +264,25 @@ export function initCreatureCards() {
         modifierCell.textContent = formatAttributeModifier(input.value);
       }
     };
+    const formatSignedModifier = (value) => {
+      const parsed = Number.parseInt(String(value ?? "").trim(), 10);
+      if (Number.isNaN(parsed)) {
+        return "0";
+      }
+      return parsed > 0 ? `+${parsed}` : String(parsed);
+    };
+    const refreshSizeModifier = () => {
+      if (!(panel instanceof HTMLElement)) {
+        return;
+      }
+      const select = panel.querySelector("[data-creature-size-class]");
+      const target = panel.querySelector("[data-creature-size-modifier]");
+      if (!(select instanceof HTMLSelectElement) || !(target instanceof HTMLElement)) {
+        return;
+      }
+      const option = select.selectedOptions?.[0];
+      target.textContent = formatSignedModifier(option?.dataset.sizeModifier || "0");
+    };
     const refreshCommandPrerequisites = () => {
       if (!(panel instanceof HTMLElement)) {
         return;
@@ -438,6 +457,9 @@ export function initCreatureCards() {
         if (target?.matches("[data-creature-can-fly]")) {
           refreshFlySpeedInputs();
         }
+        if (target?.matches("[data-creature-size-class]")) {
+          refreshSizeModifier();
+        }
       });
       panel.addEventListener("click", (event) => {
         const target = event.target instanceof Element ? event.target : null;
@@ -477,6 +499,7 @@ export function initCreatureCards() {
       });
       refreshCommandPrerequisites();
       refreshFlySpeedInputs();
+      refreshSizeModifier();
       panel.addEventListener("pointerdown", (event) => {
         event.stopPropagation();
       }, true);

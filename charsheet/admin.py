@@ -5398,7 +5398,7 @@ class CreatureAdmin(admin.ModelAdmin):
                 )
             },
         ),
-        ("Groesse", {"fields": ("size_class", "size_modifier")}),
+        ("Groesse", {"fields": ("size_class",)}),
         (
             "Bewegung",
             {
@@ -5503,7 +5503,7 @@ class CharacterCreatureAdmin(admin.ModelAdmin):
         ("Zuordnung", {"fields": ("owner", "creature", "source_binding", ("source_character_item", "source_character_technique"), "active")}),
         ("Basis", {"fields": ("name_override", "image_override", "quality", "current_damage", "notes")}),
         ("Ausbildungsbudgets", {"fields": ("max_base_advantage_points", "max_base_disadvantage_points")}),
-        ("Groesse", {"fields": ("size_class_override", "size_modifier_override")}),
+        ("Groesse", {"fields": ("size_class_override",)}),
         (
             "Eigenschafts-Overrides",
             {

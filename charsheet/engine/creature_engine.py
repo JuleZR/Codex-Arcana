@@ -201,12 +201,6 @@ class CreatureEngine:
         return self.creature.size_class
 
     def size_modifier(self) -> int:
-        override = self._override("size_modifier")
-        if override is not None:
-            return int(override)
-        explicit = int(getattr(self.creature, "size_modifier", 0) or 0)
-        if explicit:
-            return explicit
         return int(GK_MODS.get(self.size_class(), 0))
 
     def attribute_base_mod(self, attribute: str) -> int | None:
@@ -254,6 +248,7 @@ class CreatureEngine:
             14
             + int(self.attribute_mod(ATTR_GE) or 0)
             + int(self.attribute_mod(ATTR_WA) or 0)
+            + self.size_modifier()
             + self._modifier_total(TargetDomain.DERIVED_STAT, "vw")
         )
 

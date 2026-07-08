@@ -20,6 +20,26 @@
       </div>
     </section>
 
+    <section class="creature-training-drawer__section" aria-label="Größe">
+      <h3 class="creature-training-section-heading">Größe</h3>
+      <div class="creature-training-section-body">
+        <div class="creature-training-size">
+          <label>
+            <span>GK</span>
+            <select name="size_class" data-creature-size-class>
+              {% for option in training.size_options %}
+                <option value="{{ option.value }}" data-size-modifier="{{ option.modifier }}"{% if option.selected %} selected{% endif %}>{{ option.label }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <span class="creature-training-size__mod">
+            <span>VW-Mod.</span>
+            <strong data-creature-size-modifier>{{ training.current_size_modifier_display }}</strong>
+          </span>
+        </div>
+      </div>
+    </section>
+
     <section class="creature-training-drawer__section" aria-label="Bewegung">
       <h3 class="creature-training-section-heading">Bewegung</h3>
       <div class="creature-training-section-body">

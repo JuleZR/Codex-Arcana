@@ -3123,6 +3123,33 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
   text-align: right;
 }
 
+.floating-tooltip .tooltip_fraction,
+.floating-tooltip-card .tooltip_fraction {
+  display: inline-grid;
+  grid-template-rows: auto auto;
+  align-items: center;
+  justify-items: center;
+  min-width: 0.82em;
+  margin: -0.08em 0.03em 0;
+  vertical-align: -0.28em;
+  font-size: 0.78em;
+  line-height: 0.92;
+}
+
+.floating-tooltip .tooltip_fraction__num,
+.floating-tooltip-card .tooltip_fraction__num {
+  display: block;
+  width: 100%;
+  padding: 0 0.08em 0.05em;
+  border-bottom: 1px solid currentColor;
+}
+
+.floating-tooltip .tooltip_fraction__den,
+.floating-tooltip-card .tooltip_fraction__den {
+  display: block;
+  padding: 0.05em 0.08em 0;
+}
+
 .floating-tooltip-card table {
   width: 100%;
   border-collapse: collapse;

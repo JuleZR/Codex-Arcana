@@ -320,6 +320,17 @@ def build_creature_card_training_context(card):
         "march_fly_speed": format_compact_number(movement["fly_march"] or 0),
         "sprint_fly_speed": format_compact_number(movement["fly_sprint"] or 0),
     }
+    current_size_class = engine.size_class()
+    size_options = [
+        {
+            "value": value,
+            "label": label,
+            "modifier": int(GK_MODS.get(value, 0)),
+            "modifier_display": format_modifier(int(GK_MODS.get(value, 0))),
+            "selected": value == current_size_class,
+        }
+        for value, label in GK_CHOICES
+    ]
 
     return {
         "card": card,
@@ -338,6 +349,10 @@ def build_creature_card_training_context(card):
         "disadvantage_ids": set(disadvantage_levels),
         "attribute_increases": attribute_increases,
         "attribute_options": attribute_options,
+        "size_options": size_options,
+        "current_size_class": current_size_class,
+        "current_size_modifier": int(GK_MODS.get(current_size_class, 0)),
+        "current_size_modifier_display": format_modifier(int(GK_MODS.get(current_size_class, 0))),
         "movement_options": movement_options,
         "base_advantage_points": int(card.max_base_advantage_points or 0),
         "base_disadvantage_points": int(card.max_base_disadvantage_points or 0),

@@ -1910,6 +1910,16 @@ document.addEventListener("DOMContentLoaded", () => {
     };
   };
 
+  const renderTooltipText = (value) => escapeHtml(value).replace(
+    /(^|[^\w])([0-9]{1,2})\/([0-9]{1,2})(?=$|[^\w])/g,
+    (_match, prefix, numerator, denominator) => (
+      `${prefix}<span class="tooltip_fraction" aria-label="${numerator}/${denominator}">`
+      + `<span class="tooltip_fraction__num">${numerator}</span>`
+      + `<span class="tooltip_fraction__den">${denominator}</span>`
+      + "</span>"
+    ),
+  );
+
   const renderTooltipCell = (cell, columnIndex) => {
     const rawCell = String(cell || "").trim();
     if (rawCell === "[[EMPTY]]") {
@@ -1924,7 +1934,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       return `<span class="tooltip_rune_comment"><strong>${safeName}</strong></span>`;
     }
-    return escapeHtml(rawCell);
+    return renderTooltipText(rawCell);
   };
 
   const qualityBadgeToneClass = (qualityMeta) => {
@@ -2023,7 +2033,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const paragraphLines = [];
       let j = i;
       while (j < lines.length && lines[j].trim()) {
-        paragraphLines.push(escapeHtml(lines[j]));
+        paragraphLines.push(renderTooltipText(lines[j]));
         j += 1;
       }
       chunks.push(`<p>${paragraphLines.join("<br>")}</p>`);

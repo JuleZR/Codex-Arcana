@@ -540,6 +540,7 @@
 .creature-training-level,
 .creature-training-attributes input,
 .creature-training-movement input[type="number"],
+.creature-training-size select,
 .creature-training-skill input,
 .creature-training-skill select {
   width: 48px;
@@ -556,6 +557,38 @@
 .creature-training-skill select {
   width: 100%;
   min-width: 0;
+}
+
+.creature-training-size {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 6px;
+  padding: 3px 4px;
+  border-radius: 4px;
+  background: rgba(255, 252, 242, 0.22);
+}
+
+.creature-training-size label,
+.creature-training-size__mod {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+}
+
+.creature-training-size select {
+  width: 64px;
+}
+
+.creature-training-size__mod strong {
+  min-width: 34px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(53, 38, 20, 0.14);
+  text-align: center;
+  font: 800 13px/1 "Cormorant Garamond", Georgia, serif;
 }
 
 .creature-training-movement {

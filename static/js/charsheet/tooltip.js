@@ -181,7 +181,24 @@ function renderInlineMarkdown(text) {
   html = html.replace(/(^|[\s(])\*([^*\n]+)\*(?=[\s).,!?:;]|$)/g, "$1<em>$2</em>");
   html = html.replace(/(^|[\s(])_([^_\n]+)_(?=[\s).,!?:;]|$)/g, "$1<em>$2</em>");
   html = html.replace(/\[\[SUB:(.+?)\]\]/g, '<span class="tooltip_sub">$1</span>');
-  return html;
+  return renderTooltipFractions(html);
+}
+
+function renderTooltipFractions(html) {
+  return String(html || "").split(/(<[^>]+>)/g).map((segment) => {
+    if (segment.startsWith("<") && segment.endsWith(">")) {
+      return segment;
+    }
+    return segment.replace(
+      /(^|[^\w])([0-9]{1,2})\/([0-9]{1,2})(?=$|[^\w])/g,
+      (_match, prefix, numerator, denominator) => (
+        `${prefix}<span class="tooltip_fraction" aria-label="${numerator}/${denominator}">`
+        + `<span class="tooltip_fraction__num">${numerator}</span>`
+        + `<span class="tooltip_fraction__den">${denominator}</span>`
+        + "</span>"
+      ),
+    );
+  }).join("");
 }
 
 function renderRuneMarkup(runes) {

@@ -77,7 +77,7 @@ from .forms import (
     CharacterTechniqueSpecificationForm,
     UserSettingsForm
 )
-from .constants import ATTRIBUTE_CODE_CHOICES, ATTRIBUTE_ORDER, RESOURCE_KEY_CHOICES, is_allowed_trait_attribute_choice
+from .constants import ATTRIBUTE_CODE_CHOICES, ATTRIBUTE_ORDER, GK_MODS, RESOURCE_KEY_CHOICES, is_allowed_trait_attribute_choice
 from .models.creatures import CREATURE_CARD_QUALITY_TRAINING_BUDGETS
 from .learning import process_learning_submission
 from .sheet_context import build_character_sheet_context, build_creature_card_training_context
@@ -2217,6 +2217,12 @@ def update_creature_card_training(request, pk: int):
             card.max_base_advantage_points = int(quality_budget[0])
             card.max_base_disadvantage_points = int(quality_budget[1])
             card_update_fields.extend(["max_base_advantage_points", "max_base_disadvantage_points"])
+    if "size_class" in request.POST:
+        selected_size_class = str(request.POST.get("size_class") or "").strip()
+        if selected_size_class in GK_MODS:
+            card.size_class_override = "" if selected_size_class == card.creature.size_class else selected_size_class
+            card.size_modifier_override = None
+            card_update_fields.extend(["size_class_override", "size_modifier_override"])
     movement_float_fields = (
         ("combat_speed", "combat_speed_override"),
         ("march_speed", "march_speed_override"),
