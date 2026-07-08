@@ -264,6 +264,16 @@ class CreatureAttack(models.Model):
     damage_flat_bonus = models.IntegerField(default=0)
     damage_type = models.CharField(max_length=1, choices=DAMAGE_TYPE_CHOICES, blank=True, default="")
     notes = models.CharField(max_length=200, blank=True, default="")
+    show_notes_as_damage = models.BooleanField(
+        "Notes ersetzen Schaden",
+        default=False,
+        help_text="Zeigt Notes auf der Kreaturenkarte statt des automatisch berechneten Schadens.",
+    )
+    append_notes_to_damage = models.BooleanField(
+        "Notes an Schaden anhaengen",
+        default=False,
+        help_text="Zeigt Notes auf der Kreaturenkarte zusaetzlich hinter dem automatisch berechneten Schaden.",
+    )
     order = models.PositiveIntegerField(default=0)
 
     class Meta:

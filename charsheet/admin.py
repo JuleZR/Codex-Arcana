@@ -5166,7 +5166,19 @@ class CharacterDiaryEntryAdmin(admin.ModelAdmin):
 class CreatureAttackInline(admin.TabularInline):
     model = CreatureAttack
     extra = 0
-    fields = ("order", "name", "attack_value", "damage_dice_amount", "damage_dice_faces", "damage_flat_operator", "damage_flat_bonus", "damage_type", "notes")
+    fields = (
+        "order",
+        "name",
+        "attack_value",
+        "damage_dice_amount",
+        "damage_dice_faces",
+        "damage_flat_operator",
+        "damage_flat_bonus",
+        "damage_type",
+        "notes",
+        "show_notes_as_damage",
+        "append_notes_to_damage",
+    )
 
 
 class CreatureSkillInline(admin.TabularInline):

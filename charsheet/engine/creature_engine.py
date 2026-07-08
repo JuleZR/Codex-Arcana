@@ -410,14 +410,29 @@ class CreatureEngine:
         attack_value_bonus = int(self.attribute_increase_totals.get(ATTR_GE, 0) or 0) + self._modifier_total(TargetDomain.COMBAT, "attack_value")
         damage_bonus = int(self.attribute_increase_totals.get(ATTR_ST, 0) or 0)
         return [
-            {
-                "name": attack.name,
-                "attack_value": attack.attack_value + attack_value_bonus,
-                "damage": self._apply_damage_bonus(self._format_damage(attack), damage_bonus),
-                "notes": attack.notes,
-            }
+            self._attack_context(attack, attack_value_bonus, damage_bonus)
             for attack in self.creature.attacks.all()
         ]
+
+    def _attack_context(self, attack, attack_value_bonus: int, damage_bonus: int) -> dict[str, Any]:
+        damage = self._apply_damage_bonus(self._format_damage(attack), damage_bonus)
+        notes = str(attack.notes or "")
+        show_notes_as_damage = bool(getattr(attack, "show_notes_as_damage", False) and notes)
+        append_notes_to_damage = bool(getattr(attack, "append_notes_to_damage", False) and notes and not show_notes_as_damage)
+        damage_display = damage
+        if show_notes_as_damage:
+            damage_display = notes
+        elif append_notes_to_damage:
+            damage_display = f"{damage} {notes}".strip()
+        return {
+            "name": attack.name,
+            "attack_value": attack.attack_value + attack_value_bonus,
+            "damage": damage,
+            "damage_display": damage_display,
+            "notes": "" if show_notes_as_damage or append_notes_to_damage else notes,
+            "show_notes_as_damage": show_notes_as_damage,
+            "append_notes_to_damage": append_notes_to_damage,
+        }
 
     def skills(self) -> list[dict[str, Any]]:
         overrides = {}

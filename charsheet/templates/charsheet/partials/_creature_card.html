@@ -169,7 +169,7 @@
                 <p class="creature-card__oracle-line">
                     <strong>Angriff</strong>
                     {% for attack in creature_card.attacks %}
-                        <span class="creature-card__attack-unit{% if attack.notes %} tooltip_target{% endif %}"{% if attack.notes %} data-tooltip="{{ attack.notes }}" data-tooltip-side="right"{% endif %}>{{ attack.name }} {{ attack.attack_value }}{% if attack.damage %} - {{ attack.damage }}{% endif %}</span>{% if not forloop.last %}; {% endif %}
+                        <span class="creature-card__attack-unit{% if attack.notes %} tooltip_target{% endif %}"{% if attack.notes %} data-tooltip="{{ attack.notes }}" data-tooltip-side="right"{% endif %}>{{ attack.name }} {{ attack.attack_value }}{% if attack.damage_display %} - {{ attack.damage_display }}{% endif %}</span>{% if not forloop.last %}; {% endif %}
                     {% endfor %}
                 </p>
             {% endif %}
