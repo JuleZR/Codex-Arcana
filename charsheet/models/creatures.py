@@ -99,6 +99,13 @@ class Creature(models.Model):
     fear_resistance_bonus = models.IntegerField("GW extra value", blank=True, null=True)
     natural_rs = models.PositiveIntegerField(default=0)
     wound_step_override = models.PositiveIntegerField(blank=True, null=True)
+    wound_thresholds_override = models.CharField(
+        "Wundschwellen",
+        max_length=100,
+        blank=True,
+        default="",
+        help_text="Optionale exakte LP-Schwellen, kommasepariert, z. B. 2,4,8,10,12,15.",
+    )
     combat_speed = models.FloatField(blank=True, null=True, default=0, validators=[MinValueValidator(0)])
     march_speed = models.FloatField(blank=True, null=True, default=0, validators=[MinValueValidator(0)])
     sprint_speed = models.FloatField(blank=True, null=True, default=0, validators=[MinValueValidator(0)])
@@ -920,6 +927,13 @@ class CharacterCreature(models.Model):
     fear_resistance_bonus_override = models.IntegerField("GW extra value override", blank=True, null=True)
     natural_rs_override = models.PositiveIntegerField(blank=True, null=True)
     wound_step_override = models.PositiveIntegerField(blank=True, null=True)
+    wound_thresholds_override = models.CharField(
+        "Wundschwellen override",
+        max_length=100,
+        blank=True,
+        default="",
+        help_text="Optionale exakte LP-Schwellen, kommasepariert, z. B. 2,4,8,10,12,15.",
+    )
     combat_speed_override = models.FloatField(blank=True, null=True, validators=[MinValueValidator(0)])
     march_speed_override = models.FloatField(blank=True, null=True, validators=[MinValueValidator(0)])
     sprint_speed_override = models.FloatField(blank=True, null=True, validators=[MinValueValidator(0)])

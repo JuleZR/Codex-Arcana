@@ -297,11 +297,38 @@ class CreatureEngine:
         return 5 + int(self.attribute_mod(ATTR_KON) or 0) + self._modifier_total(TargetDomain.DERIVED_STAT, "wound_step")
 
     def wound_rows(self) -> list[dict[str, Any]]:
+        explicit_thresholds = self._wound_thresholds_override()
+        if explicit_thresholds:
+            return [
+                {"label": label, "threshold": threshold}
+                for label, threshold in zip(WOUND_STAGE_LABELS, explicit_thresholds)
+            ]
         step = max(1, self.wound_step())
         return [
             {"label": label, "threshold": step * index}
             for index, label in enumerate(WOUND_STAGE_LABELS, start=1)
         ]
+
+    def _wound_thresholds_override(self) -> list[int]:
+        raw_value = ""
+        if self.instance is not None:
+            raw_value = getattr(self.instance, "wound_thresholds_override", "") or ""
+        if not raw_value:
+            raw_value = getattr(self.creature, "wound_thresholds_override", "") or ""
+        raw = str(raw_value).strip()
+        if not raw:
+            return []
+        thresholds: list[int] = []
+        for token in re.split(r"[,;/\s]+", raw):
+            if not token:
+                continue
+            try:
+                threshold = int(token)
+            except (TypeError, ValueError):
+                continue
+            if threshold > 0:
+                thresholds.append(threshold)
+        return thresholds[: len(WOUND_STAGE_LABELS)]
 
     def current_wound_zone(self) -> dict[str, Any]:
         damage = int(getattr(self.instance, "current_damage", 0) or 0)

@@ -5440,6 +5440,7 @@ class CreatureAdmin(admin.ModelAdmin):
                     "initiative_override",
                     ("vw_override", "sr_override", "gw_override"),
                     ("natural_rs", "wound_step_override", "fear_resistance_bonus", "defense_extra_label"),
+                    "wound_thresholds_override",
                 )
             },
         ),
@@ -5579,7 +5580,7 @@ class CharacterCreatureAdmin(admin.ModelAdmin):
                 )
             },
         ),
-        ("Werte-Overrides", {"fields": ("initiative_override", "vw_override", "sr_override", "gw_override", ("fear_resistance_bonus_override", "defense_extra_label_override"), "natural_rs_override", "wound_step_override")}),
+        ("Werte-Overrides", {"fields": ("initiative_override", "vw_override", "sr_override", "gw_override", ("fear_resistance_bonus_override", "defense_extra_label_override"), "natural_rs_override", "wound_step_override", "wound_thresholds_override")}),
         ("Bewegungs-Overrides", {"fields": ("combat_speed_override", "march_speed_override", "sprint_speed_override", "swimming_speed_override", "combat_fly_speed_override", "march_fly_speed_override", "sprint_fly_speed_override")}),
     )
 
