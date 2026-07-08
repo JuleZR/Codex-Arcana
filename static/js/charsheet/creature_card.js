@@ -264,12 +264,49 @@ export function initCreatureCards() {
         modifierCell.textContent = formatAttributeModifier(input.value);
       }
     };
-    const formatSignedModifier = (value) => {
+    const readInteger = (value, fallback = 0) => {
       const parsed = Number.parseInt(String(value ?? "").trim(), 10);
-      if (Number.isNaN(parsed)) {
-        return "0";
-      }
+      return Number.isNaN(parsed) ? fallback : parsed;
+    };
+    const formatSignedModifier = (value) => {
+      const parsed = readInteger(value, 0);
       return parsed > 0 ? `+${parsed}` : String(parsed);
+    };
+    const currentSizeModifier = () => {
+      const select = panel.querySelector("[data-creature-size-class]");
+      if (!(select instanceof HTMLSelectElement)) {
+        return 0;
+      }
+      return readInteger(select.selectedOptions?.[0]?.dataset.sizeModifier, 0);
+    };
+    const currentAttributeModifier = (attributeCode, fallback) => {
+      const input = panel.querySelector(`[name="attribute_${CSS.escape(String(attributeCode || ""))}"]`);
+      if (input instanceof HTMLInputElement) {
+        return readInteger(input.value, 5) - 5;
+      }
+      return readInteger(fallback, 0);
+    };
+    const refreshSkillEffectiveValues = () => {
+      if (!(panel instanceof HTMLElement)) {
+        return;
+      }
+      const sizeModifier = currentSizeModifier();
+      panel.querySelectorAll("[data-creature-training-skill-row]").forEach((row) => {
+        if (!(row instanceof HTMLElement)) {
+          return;
+        }
+        const output = row.querySelector("[data-creature-skill-effective]");
+        const input = row.querySelector("[data-creature-skill-base-value]");
+        if (!(output instanceof HTMLElement) || !(input instanceof HTMLInputElement)) {
+          return;
+        }
+        const baseValue = readInteger(input.value, 0);
+        const attributeModifier = currentAttributeModifier(row.dataset.creatureSkillAttribute, row.dataset.creatureSkillAttributeMod);
+        const deviation = readInteger(row.dataset.creatureSkillDeviation, 0);
+        const gkMultiplier = readInteger(row.dataset.creatureSkillGkMultiplier, 0);
+        const skillModifier = readInteger(row.dataset.creatureSkillModifier, 0);
+        output.textContent = String(baseValue + deviation + attributeModifier + (sizeModifier * gkMultiplier) + skillModifier);
+      });
     };
     const refreshSizeModifier = () => {
       if (!(panel instanceof HTMLElement)) {
@@ -282,6 +319,7 @@ export function initCreatureCards() {
       }
       const option = select.selectedOptions?.[0];
       target.textContent = formatSignedModifier(option?.dataset.sizeModifier || "0");
+      refreshSkillEffectiveValues();
     };
     const refreshCommandPrerequisites = () => {
       if (!(panel instanceof HTMLElement)) {
@@ -446,9 +484,19 @@ export function initCreatureCards() {
         if (!(attributeInput instanceof HTMLInputElement)) {
           return;
         }
-        attributeInput.addEventListener("input", () => refreshAttributeModifier(attributeInput));
+        attributeInput.addEventListener("input", () => {
+          refreshAttributeModifier(attributeInput);
+          refreshSkillEffectiveValues();
+        });
         refreshAttributeModifier(attributeInput);
       });
+      panel.querySelectorAll("[data-creature-skill-base-value]").forEach((skillInput) => {
+        if (!(skillInput instanceof HTMLInputElement)) {
+          return;
+        }
+        skillInput.addEventListener("input", refreshSkillEffectiveValues);
+      });
+      refreshSkillEffectiveValues();
       panel.addEventListener("change", (event) => {
         const target = event.target instanceof Element ? event.target : null;
         if (target?.matches("[data-creature-command-input]")) {

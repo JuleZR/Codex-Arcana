@@ -28,7 +28,7 @@
             <span>GK</span>
             <select name="size_class" data-creature-size-class>
               {% for option in training.size_options %}
-                <option value="{{ option.value }}" data-size-modifier="{{ option.modifier }}"{% if option.selected %} selected{% endif %}>{{ option.label }}</option>
+                <option value="{{ option.value }}" data-size-modifier="{{ option.modifier }}"{% if option.selected %} selected{% endif %}>{{ option.display_label }}</option>
               {% endfor %}
             </select>
           </label>
@@ -102,14 +102,17 @@
       <div class="creature-training-section-body" data-creature-training-section-body hidden>
         <div class="creature-training-skill-list">
         {% for skill in training.skill_rows %}
-          <div class="creature-training-skill" data-creature-training-skill-row data-filter-text="{{ skill.name }} {{ skill.value }} {{ skill.notes }}">
+          <div class="creature-training-skill" data-creature-training-skill-row data-filter-text="{{ skill.name }} {{ skill.value }} {{ skill.notes }}"{% if skill.is_normal_skill %} data-creature-skill-attribute="{{ skill.attribute }}" data-creature-skill-attribute-mod="{{ skill.attribute_modifier }}" data-creature-skill-deviation="{{ skill.deviation }}" data-creature-skill-gk-multiplier="{{ skill.gk_multiplier }}" data-creature-skill-modifier="{{ skill.skill_modifier }}"{% endif %}>
             {% if skill.can_remove %}
               <button class="creature-training-skill__remove" type="button" data-creature-training-remove-skill data-skill-id="{{ skill.remove_id }}" aria-label="{{ skill.name }} entfernen">×</button>
             {% else %}
               <span class="creature-training-skill__remove creature-training-skill__remove--placeholder" aria-hidden="true"></span>
             {% endif %}
             <span>{{ skill.name }}</span>
-            <input type="number" name="skill_value_{{ skill.id }}" value="{{ skill.value }}" min="-20" max="50" aria-label="Wert {{ skill.name }}">
+            <input type="number" name="skill_value_{{ skill.id }}" value="{{ skill.value }}" min="-20" max="50" aria-label="Wert {{ skill.name }}"{% if skill.is_normal_skill %} data-creature-skill-base-value{% endif %}>
+            {% if skill.is_normal_skill %}
+              <span class="creature-training-skill__effective" title="Effektivwert inkl. Attribut, GK und Modifikatoren">=&nbsp;<strong data-creature-skill-effective>{{ skill.effective_value }}</strong></span>
+            {% endif %}
           </div>
         {% empty %}
           <p class="creature-training-empty">Keine Fertigkeiten auf der Karte.</p>

@@ -94,6 +94,21 @@ from charsheet.models import (
 from charsheet.view_utils import format_compact_number, format_modifier, format_thousands, quality_payload
 
 
+def _size_class_options(*, selected: str | None = None) -> list[dict[str, object]]:
+    """Return size-class choices with their visible rules modifier."""
+    return [
+        {
+            "value": value,
+            "label": label,
+            "modifier": int(GK_MODS.get(value, 0)),
+            "modifier_display": format_modifier(int(GK_MODS.get(value, 0))),
+            "display_label": f"{label} ({format_modifier(int(GK_MODS.get(value, 0)))})",
+            "selected": value == selected,
+        }
+        for value, label in GK_CHOICES
+    ]
+
+
 _DAMAGE_GAUGE_START = -180
 _DAMAGE_GAUGE_SWEEP = 180
 _DAMAGE_GAUGE_NEEDLE_MIN = 6.0
@@ -108,9 +123,10 @@ _DAMAGE_GAUGE_TICK_INNER_MINOR = 76
 
 
 def build_creature_card_training_context(card):
+    engine = CreatureEngine(card)
     traits = list(card.trait_overrides.select_related("trait").all())
     commands = list(card.commands.select_related("command").prefetch_related("prerequisite_links__prerequisite__command").all())
-    skill_overrides = {row.skill_id: row for row in card.skill_overrides.select_related("skill").all()}
+    skill_overrides = {row.skill_id: row for row in card.skill_overrides.select_related("skill", "skill__attribute", "skill__category").all()}
     special_skill_overrides = {
         row.skill_id: row
         for row in card.special_skill_overrides.select_related("skill").all()
@@ -118,32 +134,58 @@ def build_creature_card_training_context(card):
     skill_rows = []
     seen_skill_ids = set()
     seen_special_skill_ids = set()
-    for base_skill in card.creature.skills.select_related("skill").all():
+    def normal_skill_training_row(*, row_id: str, remove_id: str, name: str, value: int, deviation: int, notes: str, can_remove: bool, skill: Skill) -> dict:
+        attribute_modifier = engine._skill_attribute_modifier(skill)
+        gk_multiplier = 2 if skill.slug == "skill_hide" else 1 if skill.slug == "skill_evasion" or skill.category.slug == SKILL_COMBAT else 0
+        gk_modifier = gk_multiplier * engine.size_modifier()
+        skill_modifier = engine._modifier_total("skill", skill.slug)
+        return {
+            "id": row_id,
+            "remove_id": remove_id,
+            "name": name,
+            "value": value,
+            "notes": notes,
+            "can_remove": can_remove,
+            "is_normal_skill": True,
+            "attribute": skill.attribute.short_name,
+            "deviation": deviation,
+            "attribute_modifier": attribute_modifier,
+            "gk_multiplier": gk_multiplier,
+            "gk_modifier": gk_modifier,
+            "skill_modifier": skill_modifier,
+            "effective_value": value + deviation + attribute_modifier + gk_modifier + skill_modifier,
+        }
+
+    for base_skill in card.creature.skills.select_related("skill", "skill__attribute", "skill__category").all():
         override = skill_overrides.get(base_skill.skill_id)
         seen_skill_ids.add(base_skill.skill_id)
         skill_rows.append(
-            {
-                "id": f"normal_{base_skill.skill_id}",
-                "remove_id": "",
-                "name": base_skill.skill.name,
-                "value": override.value if override else base_skill.value,
-                "notes": (override.notes if override and override.notes else base_skill.notes or base_skill.skill.description),
-                "can_remove": False,
-            }
+            normal_skill_training_row(
+                row_id=f"normal_{base_skill.skill_id}",
+                remove_id="",
+                name=base_skill.skill.name,
+                value=override.value if override else base_skill.value,
+                deviation=int(base_skill.deviation or 0) + (int(override.deviation or 0) if override else 0),
+                notes=(override.notes if override and override.notes else base_skill.notes or base_skill.skill.description),
+                can_remove=False,
+                skill=base_skill.skill,
+            )
         )
     for override in skill_overrides.values():
         if override.skill_id in seen_skill_ids:
             continue
         seen_skill_ids.add(override.skill_id)
         skill_rows.append(
-            {
-                "id": f"normal_{override.skill_id}",
-                "remove_id": f"normal:{override.skill_id}",
-                "name": override.skill.name,
-                "value": override.value,
-                "notes": override.notes or override.skill.description,
-                "can_remove": True,
-            }
+            normal_skill_training_row(
+                row_id=f"normal_{override.skill_id}",
+                remove_id=f"normal:{override.skill_id}",
+                name=override.skill.name,
+                value=override.value,
+                deviation=int(override.deviation or 0),
+                notes=override.notes or override.skill.description,
+                can_remove=True,
+                skill=override.skill,
+            )
         )
     for base_skill in card.creature.special_skills.select_related("skill").all():
         override = special_skill_overrides.get(base_skill.skill_id)
@@ -156,6 +198,7 @@ def build_creature_card_training_context(card):
                 "value": override.value_override if override else base_skill.value,
                 "notes": (override.notes if override and override.notes else base_skill.notes or base_skill.skill.description),
                 "can_remove": False,
+                "is_normal_skill": False,
             }
         )
     for override in special_skill_overrides.values():
@@ -170,6 +213,7 @@ def build_creature_card_training_context(card):
                 "value": override.value_override,
                 "notes": override.notes or override.skill.description,
                 "can_remove": True,
+                "is_normal_skill": False,
             }
         )
     attribute_increases = {
@@ -243,7 +287,6 @@ def build_creature_card_training_context(card):
         }
         for trait in CreatureTraitDefinition.objects.order_by("trait_type", "name")
     ]
-    engine = CreatureEngine(card)
     card_attribute_values = {
         ATTR_ST: engine.attribute_base_mod(ATTR_ST),
         ATTR_KON: engine.attribute_base_mod(ATTR_KON),
@@ -322,16 +365,7 @@ def build_creature_card_training_context(card):
         "sprint_fly_speed": format_compact_number(movement["fly_sprint"] or 0),
     }
     current_size_class = engine.size_class()
-    size_options = [
-        {
-            "value": value,
-            "label": label,
-            "modifier": int(GK_MODS.get(value, 0)),
-            "modifier_display": format_modifier(int(GK_MODS.get(value, 0))),
-            "selected": value == current_size_class,
-        }
-        for value, label in GK_CHOICES
-    ]
+    size_options = _size_class_options(selected=current_size_class)
 
     return {
         "card": card,
@@ -4157,6 +4191,7 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
         ],
         "shop_damage_type_choices": DAMAGE_TYPE_CHOICES,
         "shop_size_class_choices": GK_CHOICES,
+        "shop_size_class_options": _size_class_options(),
         "shop_damage_source_choices": DamageSource.objects.order_by("name"),
         "shop_weapon_maneuver_attribute_choices": WEAPON_MANEUVER_ATTRIBUTE_CHOICES,
         "shop_modifier_target_kind_choices": [

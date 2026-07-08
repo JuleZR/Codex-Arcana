@@ -442,8 +442,12 @@ def _creature_skill_gk_modifier_preview(creature, skill):
     modifier = engine._skill_size_modifier(skill)
     if not modifier:
         return "-"
-    display = f"{int(modifier):+d}"
-    return f"{engine.size_class()} {display}"
+    base_modifier = engine.size_modifier()
+    size_class = engine.size_class()
+    multiplier = int(modifier / base_modifier) if base_modifier else 0
+    if multiplier > 1:
+        return f"{size_class} {base_modifier:+d} x{multiplier} = {int(modifier):+d}"
+    return f"{size_class} {int(modifier):+d}"
 
 
 def _trait_semantic_editing_path(trait):
@@ -5197,7 +5201,7 @@ class CreatureAttackInline(admin.TabularInline):
 class CreatureSkillInline(admin.TabularInline):
     model = CreatureSkill
     extra = 0
-    fields = ("skill", "attribute_modifier_preview", "gk_modifier_preview", "level", "notes")
+    fields = ("skill", "attribute_modifier_preview", "gk_modifier_preview", "level", "deviation", "notes")
     readonly_fields = ("attribute_modifier_preview", "gk_modifier_preview")
     autocomplete_fields = ("skill",)
 
@@ -5474,7 +5478,7 @@ class CharacterCreatureItemInline(admin.TabularInline):
 class CharacterCreatureSkillInline(admin.TabularInline):
     model = CharacterCreatureSkill
     extra = 0
-    fields = ("skill", "attribute_modifier_preview", "gk_modifier_preview", "level_override", "notes")
+    fields = ("skill", "attribute_modifier_preview", "gk_modifier_preview", "level_override", "deviation", "notes")
     readonly_fields = ("attribute_modifier_preview", "gk_modifier_preview")
     autocomplete_fields = ("skill",)
 
@@ -5599,10 +5603,10 @@ class CreatureAttackAdmin(admin.ModelAdmin):
 
 @admin.register(CreatureSkill)
 class CreatureSkillAdmin(admin.ModelAdmin):
-    list_display = ("creature", "skill", "level")
+    list_display = ("creature", "skill", "level", "deviation")
     search_fields = ("creature__name", "skill__name")
     autocomplete_fields = ("creature", "skill")
-    list_select_related = ("creature", "skill")
+    list_select_related = ("creature", "skill", "skill__attribute", "skill__category")
 
 
 @admin.register(CreatureSpecialSkill)
@@ -5716,10 +5720,10 @@ class CreatureTraitChoiceAdmin(admin.ModelAdmin):
 
 @admin.register(CharacterCreatureSkill)
 class CharacterCreatureSkillAdmin(admin.ModelAdmin):
-    list_display = ("creature", "skill", "level_override")
+    list_display = ("creature", "skill", "level_override", "deviation")
     search_fields = ("creature__name_override", "creature__creature__name", "skill__name")
     autocomplete_fields = ("creature", "skill")
-    list_select_related = ("creature", "creature__creature", "skill")
+    list_select_related = ("creature", "creature__creature", "skill", "skill__attribute", "skill__category")
 
 
 @admin.register(CharacterCreatureSpecialSkill)

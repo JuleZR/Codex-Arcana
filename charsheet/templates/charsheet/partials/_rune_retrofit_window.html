@@ -34,8 +34,8 @@
             <label class="shop_item_form_row">
               <span>GK</span>
               <select name="size_class" id="runeRetrofitSizeClass">
-                {% for value, label in shop_size_class_choices %}
-                  <option value="{{ value }}">{{ label }}</option>
+                {% for option in shop_size_class_options %}
+                  <option value="{{ option.value }}">{{ option.display_label }}</option>
                 {% endfor %}
               </select>
             </label>

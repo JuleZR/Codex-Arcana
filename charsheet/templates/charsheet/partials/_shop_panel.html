@@ -287,8 +287,8 @@
               <label class="shop_item_form_row">
                 <span>Gr&ouml;&szlig;enklasse</span>
                 <select name="size_class">
-                  {% for value, label in shop_size_class_choices %}
-                    <option value="{{ value }}"{% if value == "M" %} selected{% endif %}>{{ label }}</option>
+                  {% for option in shop_size_class_options %}
+                    <option value="{{ option.value }}"{% if option.value == "M" %} selected{% endif %}>{{ option.display_label }}</option>
                   {% endfor %}
                 </select>
               </label>

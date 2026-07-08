@@ -287,6 +287,7 @@ class CreatureSkill(models.Model):
     creature = models.ForeignKey(Creature, on_delete=models.CASCADE, related_name="skills")
     skill = models.ForeignKey(Skill, on_delete=models.PROTECT)
     level = models.IntegerField(default=0, validators=[MinValueValidator(0)])
+    deviation = models.IntegerField("Abweichung", default=0)
     notes = models.CharField(max_length=200, blank=True, default="")
 
     class Meta:
@@ -299,7 +300,8 @@ class CreatureSkill(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.creature}: {self.skill} {self.level}"
+        deviation = f" {self.deviation:+d}" if self.deviation else ""
+        return f"{self.creature}: {self.skill} {self.level}{deviation}"
 
     @property
     def value(self):
@@ -1034,6 +1036,7 @@ class CharacterCreatureSkill(models.Model):
     creature = models.ForeignKey(CharacterCreature, on_delete=models.CASCADE, related_name="skill_overrides")
     skill = models.ForeignKey(Skill, on_delete=models.PROTECT)
     level_override = models.IntegerField(validators=[MinValueValidator(0)])
+    deviation = models.IntegerField("Abweichung", default=0)
     notes = models.CharField(max_length=200, blank=True, default="")
 
     class Meta:
@@ -1046,7 +1049,8 @@ class CharacterCreatureSkill(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.creature}: {self.skill} {self.level_override}"
+        deviation = f" {self.deviation:+d}" if self.deviation else ""
+        return f"{self.creature}: {self.skill} {self.level_override}{deviation}"
 
     @property
     def value_override(self):

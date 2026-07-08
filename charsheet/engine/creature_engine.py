@@ -469,14 +469,17 @@ class CreatureEngine:
             override = overrides.get(row.skill_id)
             seen.add(row.skill_id)
             value = override.value_override if override else row.value
+            deviation = int(row.deviation or 0) + (int(override.deviation or 0) if override else 0)
             attribute_modifier = self._skill_attribute_modifier(row.skill)
             base_rows.append(
                 {
                     "name": row.skill.name,
                     "value": value
+                    + deviation
                     + attribute_modifier
                     + self._skill_size_modifier(row.skill)
                     + self._modifier_total(TargetDomain.SKILL, row.skill.slug),
+                    "deviation": deviation,
                     "attribute": row.skill.attribute.short_name,
                     "attribute_modifier": attribute_modifier,
                     "notes": override.notes if override and override.notes else row.notes or row.skill.description,
@@ -484,14 +487,17 @@ class CreatureEngine:
             )
         for skill_id, override in overrides.items():
             if skill_id not in seen:
+                deviation = int(override.deviation or 0)
                 attribute_modifier = self._skill_attribute_modifier(override.skill)
                 base_rows.append(
                     {
                         "name": override.skill.name,
                         "value": override.value_override
+                        + deviation
                         + attribute_modifier
                         + self._skill_size_modifier(override.skill)
                         + self._modifier_total(TargetDomain.SKILL, override.skill.slug),
+                        "deviation": deviation,
                         "attribute": override.skill.attribute.short_name,
                         "attribute_modifier": attribute_modifier,
                         "notes": override.notes or override.skill.description,
