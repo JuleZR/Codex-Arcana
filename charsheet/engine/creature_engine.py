@@ -238,7 +238,11 @@ class CreatureEngine:
         override = self._stat_override("initiative_override")
         if override is not None:
             return int(override) + self._modifier_total(TargetDomain.DERIVED_STAT, "initiative")
-        return int(self.attribute_mod(ATTR_WA) or 0) + self._modifier_total(TargetDomain.DERIVED_STAT, "initiative")
+        return (
+            int(self.attribute_mod(ATTR_WA) or 0)
+            + self.size_modifier()
+            + self._modifier_total(TargetDomain.DERIVED_STAT, "initiative")
+        )
 
     def vw(self) -> int:
         override = self._stat_override("vw_override")
