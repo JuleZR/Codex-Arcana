@@ -1910,15 +1910,94 @@ document.addEventListener("DOMContentLoaded", () => {
     };
   };
 
-  const renderTooltipText = (value) => escapeHtml(value).replace(
-    /(^|[^\w])([0-9]{1,2})\/([0-9]{1,2})(?=$|[^\w])/g,
-    (_match, prefix, numerator, denominator) => (
-      `${prefix}<span class="tooltip_fraction" aria-label="${numerator}/${denominator}">`
-      + `<span class="tooltip_fraction__num">${numerator}</span>`
-      + `<span class="tooltip_fraction__den">${denominator}</span>`
-      + "</span>"
-    ),
-  );
+  const normalizeUnicodeFraction = (value) => {
+    const raw = String(value || "").trim().replace(",", ".");
+    const decimalMatch = raw.match(/^(\d+)(?:\.(\d+))$/);
+    const fractionMatch = raw.match(/^(\d+)\/(\d+)$/);
+    let whole = 0;
+    let numerator = 0;
+    let denominator = 1;
+    if (decimalMatch) {
+      const decimals = decimalMatch[2];
+      whole = Number.parseInt(decimalMatch[1], 10);
+      numerator = Number.parseInt(decimals, 10);
+      denominator = 10 ** decimals.length;
+    } else if (fractionMatch) {
+      numerator = Number.parseInt(fractionMatch[1], 10);
+      denominator = Number.parseInt(fractionMatch[2], 10);
+    } else {
+      return value;
+    }
+    const gcd = (a, b) => (b ? gcd(b, a % b) : Math.abs(a));
+    const divisor = gcd(numerator, denominator);
+    numerator /= divisor;
+    denominator /= divisor;
+    const unicodeFraction = new Map([
+      ["1/2", "\u00bd"], ["1/3", "\u2153"], ["2/3", "\u2154"],
+      ["1/4", "\u00bc"], ["3/4", "\u00be"], ["1/5", "\u2155"],
+      ["2/5", "\u2156"], ["3/5", "\u2157"], ["4/5", "\u2158"],
+      ["1/6", "\u2159"], ["5/6", "\u215a"], ["1/7", "\u2150"],
+      ["1/8", "\u215b"], ["3/8", "\u215c"], ["5/8", "\u215d"],
+      ["7/8", "\u215e"], ["1/9", "\u2151"], ["1/10", "\u2152"],
+    ]).get(`${numerator}/${denominator}`);
+    if (!unicodeFraction) {
+      return value;
+    }
+    return whole ? `${whole}${unicodeFraction}` : unicodeFraction;
+  };
+
+  const unicodeFractions = new Map([
+    ["1/2", "½"],
+    ["1/3", "⅓"],
+    ["2/3", "⅔"],
+    ["1/4", "¼"],
+    ["3/4", "¾"],
+    ["1/5", "⅕"],
+    ["2/5", "⅖"],
+    ["3/5", "⅗"],
+    ["4/5", "⅘"],
+    ["1/6", "⅙"],
+    ["5/6", "⅚"],
+    ["1/7", "⅐"],
+    ["1/8", "⅛"],
+    ["3/8", "⅜"],
+    ["5/8", "⅝"],
+    ["7/8", "⅞"],
+    ["1/9", "⅑"],
+    ["1/10", "⅒"],
+  ]);
+
+  [
+    ["1/2", "\u00bd"], ["1/3", "\u2153"], ["2/3", "\u2154"],
+    ["1/4", "\u00bc"], ["3/4", "\u00be"], ["1/5", "\u2155"],
+    ["2/5", "\u2156"], ["3/5", "\u2157"], ["4/5", "\u2158"],
+    ["1/6", "\u2159"], ["5/6", "\u215a"], ["1/7", "\u2150"],
+    ["1/8", "\u215b"], ["3/8", "\u215c"], ["5/8", "\u215d"],
+    ["7/8", "\u215e"], ["1/9", "\u2151"], ["1/10", "\u2152"],
+  ].forEach(([rawFraction, glyph]) => unicodeFractions.set(rawFraction, glyph));
+
+  const renderTooltipText = (value) => escapeHtml(value)
+    .replace(/\[\[MANA:(.+?)\]\]/g, (_match, rawValue) => {
+      const safeValue = escapeHtml(String(normalizeUnicodeFraction(rawValue) || "").trim());
+      const compactClass = safeValue.length > 1 ? " tooltip_mana--compact" : "";
+      return `<span class="tooltip_mana${compactClass}" aria-label="${safeValue} farbloses Mana"><span class="tooltip_mana__value">${safeValue}</span></span>`;
+    })
+    .replace(
+      /(^|[^\w])([0-9]{1,2})\/([0-9]{1,2})(?=$|[^\w])/g,
+      (_match, prefix, numerator, denominator) => {
+        const rawFraction = `${numerator}/${denominator}`;
+        const unicodeFraction = unicodeFractions.get(rawFraction);
+        if (unicodeFraction) {
+          return `${prefix}${unicodeFraction}`;
+        }
+        return (
+          `${prefix}<span class="tooltip_fraction" aria-label="${rawFraction}">`
+          + `<span class="tooltip_fraction__num">${numerator}</span>`
+          + `<span class="tooltip_fraction__den">${denominator}</span>`
+          + "</span>"
+        );
+      },
+    );
 
   const renderTooltipCell = (cell, columnIndex) => {
     const rawCell = String(cell || "").trim();

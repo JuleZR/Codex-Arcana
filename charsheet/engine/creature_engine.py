@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 from fractions import Fraction
 from functools import cached_property
+import math
 import re
 from typing import Any
 
@@ -41,9 +42,7 @@ from charsheet.models.creatures import (
 )
 from charsheet.models.character import CharacterItem
 from charsheet.models.techniques import CharacterTechnique
-from charsheet.modifiers.definitions import BaseModifier, TargetDomain
-from charsheet.modifiers.engine import ModifierEngine
-from charsheet.modifiers.registry import build_creature_trait_semantic_modifiers
+from charsheet.modifiers.definitions import ModifierOperator, StackBehavior, TargetDomain
 from charsheet.models.creatures import CREATURE_CARD_QUALITY_TRAINING_BUDGETS
 from charsheet.models.items import Quality
 from .item_engine import ItemEngine
@@ -69,6 +68,31 @@ class CreatureArmorTotals:
     armor_rs: int
     total_rs: int
     encumbrance: int
+
+
+@dataclass(frozen=True)
+class CreatureSemanticEffect:
+    """Creature-only numeric effect resolved without the character modifier engine."""
+
+    source_id: str
+    target_domain: str
+    target_key: str
+    operator: str
+    value: Any = None
+    mode: str = "flat"
+    value_min: int | float | None = None
+    value_max: int | float | None = None
+    scaling: dict[str, Any] | None = None
+    stack_behavior: str = StackBehavior.STACK
+    priority: int = 0
+    condition_text: str = ""
+    rules_text: str = ""
+    notes: str = ""
+    metadata: dict[str, Any] | None = None
+
+    @property
+    def display_text(self) -> str:
+        return self.condition_text or self.rules_text or self.notes
 
 
 class CreatureEngine:
@@ -104,7 +128,11 @@ class CreatureEngine:
         override_rows = []
         if self.instance:
             override_rows = list(
-                self.instance.trait_overrides.select_related("base_trait", "trait").prefetch_related("choices")
+                self.instance.trait_overrides.select_related("base_trait", "trait").prefetch_related(
+                    "choices",
+                    "trait__semantic_effects",
+                    "trait__semantic_effects__target_skills",
+                )
             )
             skipped_base_trait_ids = {
                 row.base_trait_id
@@ -113,10 +141,35 @@ class CreatureEngine:
             }
         base_rows = [
             row
-            for row in self.creature.traits.select_related("trait").prefetch_related("choices")
+            for row in self.creature.traits.select_related("trait").prefetch_related(
+                "choices",
+                "trait__semantic_effects",
+                "trait__semantic_effects__target_skills",
+            )
             if row.id not in skipped_base_trait_ids
         ]
         return base_rows + [row for row in override_rows if row.active]
+
+    @cached_property
+    def _effective_special_skill_rows(self) -> list[Any]:
+        rows_by_skill_id = {
+            row.skill_id: row
+            for row in self.creature.special_skills.select_related("skill").prefetch_related(
+                "skill__semantic_effects",
+                "skill__semantic_effects__target_skills",
+            )
+        }
+        if self.instance:
+            for row in self.instance.special_skill_overrides.select_related("skill").prefetch_related(
+                "skill__semantic_effects",
+                "skill__semantic_effects__target_skills",
+            ):
+                rows_by_skill_id[row.skill_id] = row
+        return list(rows_by_skill_id.values())
+
+    @staticmethod
+    def _effective_special_skill_row_value(row: Any) -> int:
+        return int(getattr(row, "value_override", getattr(row, "value", 0)) or 0)
 
     @cached_property
     def _trait_levels_by_slug(self) -> dict[str, int]:
@@ -138,44 +191,320 @@ class CreatureEngine:
         return targets
 
     @cached_property
-    def _semantic_modifiers(self) -> list[BaseModifier]:
-        modifiers: list[BaseModifier] = []
+    def _semantic_effects(self) -> list[CreatureSemanticEffect]:
+        effects: list[CreatureSemanticEffect] = []
         for row in self._effective_trait_rows:
-            modifiers.extend(
-                build_creature_trait_semantic_modifiers(
-                    trait_slug=row.trait.slug,
-                    level=int(row.trait_level or 0),
-                    trait=row.trait,
-                )
-            )
-        return self._expand_choice_bound_modifiers(modifiers)
+            for effect_row in row.trait.semantic_effects.all():
+                if not effect_row.active_flag:
+                    continue
+                effects.extend(self._effect_row_to_creature_effects(effect_row, level=int(row.trait_level or 0)))
+        for special_skill_row in self._effective_special_skill_rows:
+            skill_value = self._effective_special_skill_row_value(special_skill_row)
+            for effect_row in special_skill_row.skill.semantic_effects.all():
+                if not effect_row.active_flag:
+                    continue
+                effects.extend(self._effect_row_to_creature_effects(effect_row, level=skill_value))
+        return self._expand_choice_bound_effects(effects)
 
-    @cached_property
-    def modifier_engine(self) -> ModifierEngine:
-        return ModifierEngine(
-            modifiers=self._semantic_modifiers,
-            trait_levels_by_slug=self._trait_levels_by_slug,
+    def _effect_row_to_creature_effects(self, effect_row, *, level: int) -> list[CreatureSemanticEffect]:
+        metadata = dict(effect_row.metadata or {})
+        has_choice_target = any(field.name == "target_choice_definition" for field in effect_row._meta.fields)
+        if has_choice_target and effect_row.target_choice_definition_id:
+            metadata["choice_binding"] = {
+                "kind": "creature_trait_choice_definition",
+                "id": int(effect_row.target_choice_definition_id),
+            }
+        source_id = getattr(getattr(effect_row, "trait", None), "slug", "") or getattr(getattr(effect_row, "special_skill", None), "slug", "")
+        condition_text = str(getattr(effect_row, "condition_text", "") or "").strip()
+        base_effect = CreatureSemanticEffect(
+            source_id=source_id,
+            target_domain=effect_row.target_domain,
+            target_key=effect_row.target_key,
+            operator=effect_row.operator,
+            mode=effect_row.mode,
+            value=effect_row._coerce_scalar(effect_row.value),
+            value_min=effect_row.value_min,
+            value_max=effect_row.value_max,
+            scaling={**dict(effect_row.scaling or {}), "_trait_level": level},
+            stack_behavior=effect_row.stack_behavior,
+            priority=int(effect_row.priority),
+            condition_text=condition_text,
+            rules_text=effect_row.rules_text,
+            notes=effect_row.notes,
+            metadata=metadata,
         )
+        if not effect_row.pk:
+            return [base_effect]
+        skill_slugs = list(effect_row.target_skills.order_by("slug").values_list("slug", flat=True))
+        if not skill_slugs:
+            return [base_effect]
+        return [replace(base_effect, target_domain=TargetDomain.SKILL, target_key=slug) for slug in skill_slugs]
 
-    def _expand_choice_bound_modifiers(self, modifiers: list[BaseModifier]) -> list[BaseModifier]:
-        expanded: list[BaseModifier] = []
-        for modifier in modifiers:
-            choice_binding = (modifier.metadata or {}).get("choice_binding") or {}
+    def _expand_choice_bound_effects(self, effects: list[CreatureSemanticEffect]) -> list[CreatureSemanticEffect]:
+        expanded: list[CreatureSemanticEffect] = []
+        for effect in effects:
+            choice_binding = (effect.metadata or {}).get("choice_binding") or {}
             if choice_binding.get("kind") != "creature_trait_choice_definition":
-                expanded.append(modifier)
+                expanded.append(effect)
                 continue
             bound_targets = self._choice_targets_by_definition_id.get(int(choice_binding.get("id") or 0), [])
             if not bound_targets:
-                expanded.append(modifier)
+                expanded.append(effect)
                 continue
             for target_domain, target_key in bound_targets:
-                if target_domain != modifier.target_domain and target_domain != "metadata":
+                if target_domain != effect.target_domain and target_domain != "metadata":
                     continue
-                expanded.append(replace(modifier, target_domain=target_domain, target_key=target_key))
+                expanded.append(replace(effect, target_domain=target_domain, target_key=target_key))
         return expanded
 
     def _modifier_total(self, target_domain: str, target_key: str) -> int:
-        return int(self.modifier_engine.resolve_numeric_total(target_domain, target_key) or 0)
+        return int(self._creature_effect_total(target_domain, target_key, conditional=False) or 0)
+
+    def _creature_effect_total(self, target_domain: str, target_key: str, *, conditional: bool | None = None) -> int:
+        relevant = [
+            effect
+            for effect in self._semantic_effects
+            if effect.target_domain == target_domain and effect.target_key == target_key
+            and (conditional is None or bool(effect.display_text) is conditional)
+        ]
+        resolved_total = 0
+        seen_unique_sources: set[tuple[str, str, str]] = set()
+        for effect in sorted(relevant, key=lambda entry: (entry.priority, entry.source_id, entry.target_domain, entry.target_key)):
+            if effect.stack_behavior == StackBehavior.UNIQUE_BY_SOURCE:
+                dedupe_key = (effect.source_id, effect.target_domain, effect.target_key)
+                if dedupe_key in seen_unique_sources:
+                    continue
+                seen_unique_sources.add(dedupe_key)
+            resolved_value = self._resolve_creature_effect_value(effect)
+            if resolved_value is None:
+                continue
+            if effect.operator == ModifierOperator.OVERRIDE:
+                resolved_total = int(resolved_value)
+                continue
+            if effect.operator == ModifierOperator.MULTIPLY:
+                resolved_total = int(resolved_total * resolved_value)
+                continue
+            if effect.operator == ModifierOperator.MIN_VALUE:
+                resolved_total = max(resolved_total, int(resolved_value))
+                continue
+            if effect.operator == ModifierOperator.MAX_VALUE:
+                resolved_total = min(resolved_total, int(resolved_value))
+                continue
+            resolved_total += int(resolved_value)
+        return int(resolved_total)
+
+    def _conditional_value_variants(self, target_domain: str, target_key: str, base_value: int | float) -> list[dict[str, Any]]:
+        variants = []
+        seen: set[tuple[int | float, str]] = set()
+        relevant = [
+            effect
+            for effect in self._semantic_effects
+            if effect.target_domain == target_domain
+            and effect.target_key == target_key
+            and effect.display_text
+        ]
+        for effect in sorted(relevant, key=lambda entry: (entry.priority, entry.source_id, entry.target_domain, entry.target_key)):
+            resolved_value = self._resolve_creature_effect_value(effect)
+            if resolved_value is None:
+                continue
+            value = self._apply_effect_to_base(base_value, effect, resolved_value)
+            value = self._normalize_numeric_display_value(value)
+            key = (value, effect.display_text)
+            if key in seen:
+                continue
+            seen.add(key)
+            variants.append({"value": value, "note": effect.display_text})
+        return variants
+
+    def _value_display_parts(
+        self,
+        target_domain: str,
+        target_key: str,
+        base_value: Any,
+        *,
+        signed: bool = False,
+        compact: bool = False,
+    ) -> list[dict[str, Any]]:
+        if base_value is None:
+            return [{"value": "-", "note": ""}]
+        base_number = self._coerce_numeric(base_value, default=base_value)
+        base_number = self._normalize_numeric_display_value(base_number)
+        parts = [{"value": self._format_variant_value(base_number, signed=signed, compact=compact), "note": ""}]
+        for variant in self._conditional_value_variants(target_domain, target_key, base_number):
+            parts.append(
+                {
+                    "value": self._format_variant_value(variant["value"], signed=signed, compact=compact),
+                    "note": variant["note"],
+                }
+            )
+        return parts
+
+    @classmethod
+    def _format_variant_value(cls, value: Any, *, signed: bool = False, compact: bool = False) -> str:
+        if compact:
+            return cls._compact_number(value) or ""
+        if signed:
+            return f"{int(value):+d}"
+        return str(int(value))
+
+    @staticmethod
+    def _apply_effect_to_base(base_value: int | float, effect: CreatureSemanticEffect, resolved_value: int | float) -> int | float:
+        if effect.operator == ModifierOperator.OVERRIDE:
+            return resolved_value
+        if effect.operator == ModifierOperator.MULTIPLY:
+            return base_value * resolved_value
+        if effect.operator == ModifierOperator.MIN_VALUE:
+            return max(base_value, resolved_value)
+        if effect.operator == ModifierOperator.MAX_VALUE:
+            return min(base_value, resolved_value)
+        return base_value + resolved_value
+
+    @staticmethod
+    def _normalize_numeric_display_value(value: Any) -> Any:
+        if isinstance(value, float) and value.is_integer():
+            return int(value)
+        return value
+
+    def _resolve_creature_effect_value(self, effect: CreatureSemanticEffect) -> int | float | None:
+        numeric_value = self._coerce_numeric(effect.value)
+        if numeric_value is None:
+            return None
+        if str(effect.mode or "flat") == "scaled":
+            scaling = dict(effect.scaling or {})
+            scale_source = str(scaling.get("scale_source") or "")
+            scale_value = int(scaling.get("_trait_level") or 0) if scale_source == "trait_level" else None
+            if scale_value is None:
+                return 0
+            mul = self._coerce_numeric(scaling.get("mul"), default=1)
+            div = self._coerce_numeric(scaling.get("div"), default=1)
+            if not div:
+                return 0
+            raw_value = (scale_value * numeric_value * mul) / div
+            numeric_value = math.ceil(raw_value) if str(scaling.get("round_mode") or "floor") == "ceil" else math.floor(raw_value)
+        if effect.value_min is not None:
+            numeric_value = max(numeric_value, self._coerce_numeric(effect.value_min, default=numeric_value))
+        if effect.value_max is not None:
+            numeric_value = min(numeric_value, self._coerce_numeric(effect.value_max, default=numeric_value))
+        if effect.operator in {ModifierOperator.FLAT_SUB, ModifierOperator.CONDITIONAL_PENALTY}:
+            return -abs(int(numeric_value))
+        if effect.operator == ModifierOperator.MULTIPLY:
+            return float(numeric_value)
+        return int(numeric_value)
+
+    @staticmethod
+    def _coerce_numeric(value: Any, *, default: int | float | None = None) -> int | float | None:
+        if value is None or value == "":
+            return default
+        if isinstance(value, bool):
+            return int(value)
+        if isinstance(value, (int, float)):
+            return value
+        try:
+            return float(str(value).replace(",", "."))
+        except (TypeError, ValueError):
+            return default
+
+    def _effect_notes(self, target_domain: str, target_key: str) -> list[str]:
+        return [
+            effect.display_text
+            for effect in self._semantic_effects
+            if effect.target_domain == target_domain
+            and effect.target_key == target_key
+            and effect.display_text
+        ]
+
+    def _join_effect_notes(self, target_domain: str, target_key: str) -> str:
+        seen = []
+        for text in self._effect_notes(target_domain, target_key):
+            if text not in seen:
+                seen.append(text)
+        return "; ".join(seen)
+
+    def effect_condition_summary(self) -> list[dict[str, str]]:
+        rows = []
+        seen: set[tuple[str, str, str]] = set()
+        for effect in self._semantic_effects:
+            text = effect.display_text
+            if not text:
+                continue
+            if self._effect_is_rendered_inline(effect):
+                continue
+            key = (effect.target_domain, effect.target_key, text)
+            if key in seen:
+                continue
+            seen.add(key)
+            rows.append(
+                {
+                    "target": self._effect_target_label(effect.target_domain, effect.target_key),
+                    "text": text,
+                }
+            )
+        return rows
+
+    @staticmethod
+    def _effect_is_rendered_inline(effect: CreatureSemanticEffect) -> bool:
+        inline_targets = {
+            TargetDomain.ATTRIBUTE,
+            TargetDomain.MOVEMENT,
+            TargetDomain.COMBAT,
+            TargetDomain.SKILL,
+            "creature_special_skill",
+        }
+        if effect.target_domain in inline_targets:
+            return True
+        return effect.target_domain == TargetDomain.DERIVED_STAT and effect.target_key in {
+            "initiative",
+            "vw",
+            "sr",
+            "gw",
+            "rs",
+            "natural_rs",
+            "encumbrance",
+        }
+
+    def _effect_target_label(self, target_domain: str, target_key: str) -> str:
+        if target_domain == TargetDomain.ATTRIBUTE:
+            return target_key
+        if target_domain == TargetDomain.DERIVED_STAT:
+            labels = {
+                "initiative": "Initiative",
+                "vw": "VW",
+                "sr": "SR",
+                "gw": "GW",
+                "rs": "RS",
+                "natural_rs": "RS",
+                "wound_step": "Wundschwelle",
+                "encumbrance": "BEL",
+            }
+            return labels.get(target_key, target_key)
+        if target_domain == TargetDomain.MOVEMENT:
+            labels = {
+                "combat": "Bewegung Kampf",
+                "march": "Bewegung Marsch",
+                "sprint": "Bewegung Sprint",
+                "swim": "Schwimmen",
+                "swim_combat": "Schwimmen Kampf",
+                "swim_march": "Schwimmen Marsch",
+                "swim_sprint": "Schwimmen Sprint",
+                "fly_combat": "Flug Kampf",
+                "fly_march": "Flug Marsch",
+                "fly_sprint": "Flug Sprint",
+            }
+            return labels.get(target_key, target_key)
+        if target_domain == TargetDomain.COMBAT:
+            labels = {"attack_value": "Angriff", "damage": "Schaden"}
+            return labels.get(target_key, target_key)
+        if target_domain == "creature_special_skill":
+            for row in self.creature.special_skills.select_related("skill"):
+                if row.skill.slug == target_key:
+                    return row.skill.name
+            return target_key
+        if target_domain == TargetDomain.SKILL:
+            for row in self.creature.skills.select_related("skill"):
+                if row.skill.slug == target_key:
+                    return row.skill.name
+            return target_key
+        return f"{target_domain}:{target_key}"
 
     @cached_property
     def attribute_increase_totals(self) -> dict[str, int]:
@@ -370,6 +699,57 @@ class CreatureEngine:
         movement = self.movement()
         return {key: self._compact_number(value) for key, value in movement.items()}
 
+    def movement_display_parts(self) -> dict[str, list[dict[str, Any]]]:
+        movement = self.movement()
+        return {
+            key: self._value_display_parts(TargetDomain.MOVEMENT, key, value, compact=True)
+            for key, value in movement.items()
+        }
+
+    def movement_display_text(self) -> dict[str, str | None]:
+        return {
+            key: self._display_parts_text(parts)
+            for key, parts in self.movement_display_parts().items()
+        }
+
+    def movement_tooltip_text(self) -> dict[str, str | None]:
+        return {
+            key: self._display_parts_text(parts, include_notes=True, mana_tokens=True)
+            for key, parts in self.movement_display_parts().items()
+        }
+
+    @staticmethod
+    def _display_parts_text(
+        parts: list[dict[str, Any]],
+        *,
+        include_notes: bool = False,
+        mana_tokens: bool = False,
+    ) -> str | None:
+        if not parts:
+            return None
+        rendered = []
+        for part in parts:
+            value = str(part.get("value", ""))
+            if mana_tokens:
+                value = f"[[MANA:{value}]]"
+            note = str(part.get("note", "") or "")
+            rendered.append(f"{value} ({note})" if include_notes and note else value)
+        return " ".join(rendered) if mana_tokens else "/".join(rendered)
+
+    def movement_notes(self) -> dict[str, str]:
+        return {
+            "combat": self._join_effect_notes(TargetDomain.MOVEMENT, "combat"),
+            "march": self._join_effect_notes(TargetDomain.MOVEMENT, "march"),
+            "sprint": self._join_effect_notes(TargetDomain.MOVEMENT, "sprint"),
+            "swim": self._join_effect_notes(TargetDomain.MOVEMENT, "swim"),
+            "swim_combat": self._join_effect_notes(TargetDomain.MOVEMENT, "swim_combat"),
+            "swim_march": self._join_effect_notes(TargetDomain.MOVEMENT, "swim_march"),
+            "swim_sprint": self._join_effect_notes(TargetDomain.MOVEMENT, "swim_sprint"),
+            "fly_combat": self._join_effect_notes(TargetDomain.MOVEMENT, "fly_combat"),
+            "fly_march": self._join_effect_notes(TargetDomain.MOVEMENT, "fly_march"),
+            "fly_sprint": self._join_effect_notes(TargetDomain.MOVEMENT, "fly_sprint"),
+        }
+
     def equipped_items(self):
         if self.instance is None:
             return CharacterCreatureItem.objects.none()
@@ -440,7 +820,10 @@ class CreatureEngine:
             + self.size_modifier()
             + self._modifier_total(TargetDomain.COMBAT, "attack_value")
         )
-        damage_bonus = int(self.attribute_increase_totals.get(ATTR_ST, 0) or 0)
+        damage_bonus = (
+            int(self.attribute_increase_totals.get(ATTR_ST, 0) or 0)
+            + self._modifier_total(TargetDomain.COMBAT, "damage")
+        )
         return [
             self._attack_context(attack, attack_value_bonus, damage_bonus)
             for attack in self.creature.attacks.all()
@@ -459,7 +842,20 @@ class CreatureEngine:
         return {
             "name": attack.name,
             "attack_value": attack.attack_value + attack_value_bonus,
+            "attack_value_parts": self._value_display_parts(
+                TargetDomain.COMBAT,
+                "attack_value",
+                attack.attack_value + attack_value_bonus,
+            ),
+            "attack_value_note": self._join_effect_notes(TargetDomain.COMBAT, "attack_value"),
             "damage": damage,
+            "damage_variants": [
+                {
+                    "value": self._apply_damage_bonus(damage, variant["value"] - int(damage_bonus or 0)),
+                    "note": variant["note"],
+                }
+                for variant in self._conditional_value_variants(TargetDomain.COMBAT, "damage", int(damage_bonus or 0))
+            ],
             "damage_display": damage_display,
             "notes": "" if show_notes_as_damage or append_notes_to_damage else notes,
             "show_notes_as_damage": show_notes_as_damage,
@@ -498,35 +894,45 @@ class CreatureEngine:
             value = override.value_override if override else row.value
             deviation = int(row.deviation or 0) + (int(override.deviation or 0) if override else 0)
             attribute_modifier = self._skill_attribute_modifier(row.skill)
+            effective_value = (
+                value
+                + deviation
+                + attribute_modifier
+                + self._skill_size_modifier(row.skill)
+                + self._modifier_total(TargetDomain.SKILL, row.skill.slug)
+            )
             base_rows.append(
                 {
                     "name": row.skill.name,
-                    "value": value
-                    + deviation
-                    + attribute_modifier
-                    + self._skill_size_modifier(row.skill)
-                    + self._modifier_total(TargetDomain.SKILL, row.skill.slug),
+                    "value": effective_value,
+                    "value_parts": self._value_display_parts(TargetDomain.SKILL, row.skill.slug, effective_value),
                     "deviation": deviation,
-                    "attribute": row.skill.attribute.short_name,
-                    "attribute_modifier": attribute_modifier,
-                    "notes": override.notes if override and override.notes else row.notes or row.skill.description,
+                        "attribute": row.skill.attribute.short_name,
+                        "attribute_modifier": attribute_modifier,
+                        "effect_note": self._join_effect_notes(TargetDomain.SKILL, row.skill.slug),
+                        "notes": override.notes if override and override.notes else row.notes or row.skill.description,
                 }
             )
         for skill_id, override in overrides.items():
             if skill_id not in seen:
                 deviation = int(override.deviation or 0)
                 attribute_modifier = self._skill_attribute_modifier(override.skill)
+                effective_value = (
+                    override.value_override
+                    + deviation
+                    + attribute_modifier
+                    + self._skill_size_modifier(override.skill)
+                    + self._modifier_total(TargetDomain.SKILL, override.skill.slug)
+                )
                 base_rows.append(
                     {
                         "name": override.skill.name,
-                        "value": override.value_override
-                        + deviation
-                        + attribute_modifier
-                        + self._skill_size_modifier(override.skill)
-                        + self._modifier_total(TargetDomain.SKILL, override.skill.slug),
+                        "value": effective_value,
+                        "value_parts": self._value_display_parts(TargetDomain.SKILL, override.skill.slug, effective_value),
                         "deviation": deviation,
                         "attribute": override.skill.attribute.short_name,
                         "attribute_modifier": attribute_modifier,
+                        "effect_note": self._join_effect_notes(TargetDomain.SKILL, override.skill.slug),
                         "notes": override.notes or override.skill.description,
                     }
                 )
@@ -562,20 +968,26 @@ class CreatureEngine:
         for row in self.creature.special_skills.select_related("skill"):
             override = overrides.get(row.skill_id)
             seen.add(row.skill_id)
+            value = (override.value_override if override else row.value) + self._modifier_total("creature_special_skill", row.skill.slug)
             rows.append(
                 {
                     "name": row.skill.name,
-                    "value": override.value_override if override else row.value,
+                    "value": value,
+                    "value_parts": self._value_display_parts("creature_special_skill", row.skill.slug, value),
+                    "effect_note": self._join_effect_notes("creature_special_skill", row.skill.slug),
                     "notes": override.notes if override and override.notes else row.notes or row.skill.description,
                     "kind": "creature",
                 }
             )
         for skill_id, override in overrides.items():
             if skill_id not in seen:
+                value = override.value_override + self._modifier_total("creature_special_skill", override.skill.slug)
                 rows.append(
                     {
                         "name": override.skill.name,
-                        "value": override.value_override,
+                        "value": value,
+                        "value_parts": self._value_display_parts("creature_special_skill", override.skill.slug, value),
+                        "effect_note": self._join_effect_notes("creature_special_skill", override.skill.slug),
                         "notes": override.notes,
                         "kind": "creature",
                     }
@@ -639,6 +1051,7 @@ class CreatureEngine:
         normalized_quality = ItemEngine.normalize_quality(quality)
         holo_kind = "creature-legendary" if normalized_quality == "legendary" else "creature"
         movement = self.movement()
+        movement_notes = self.movement_notes()
         has_ground = all(movement.get(key) is not None for key in ("combat", "march", "sprint"))
         has_single_swim = movement.get("swim") not in (None, "", 0, 0.0)
         has_swim = all(movement.get(key) is not None for key in ("swim_combat", "swim_march", "swim_sprint"))
@@ -671,9 +1084,17 @@ class CreatureEngine:
             "size_class": self.size_class(),
             "size_modifier": self.size_modifier(),
             "initiative": self.initiative(),
+            "initiative_note": self._join_effect_notes(TargetDomain.DERIVED_STAT, "initiative"),
+            "initiative_variants": self._conditional_value_variants(TargetDomain.DERIVED_STAT, "initiative", self.initiative()),
             "vw": self.vw(),
+            "vw_note": self._join_effect_notes(TargetDomain.DERIVED_STAT, "vw"),
+            "vw_variants": self._conditional_value_variants(TargetDomain.DERIVED_STAT, "vw", self.vw()),
             "sr": self.sr(),
+            "sr_note": self._join_effect_notes(TargetDomain.DERIVED_STAT, "sr"),
+            "sr_variants": self._conditional_value_variants(TargetDomain.DERIVED_STAT, "sr", self.sr()),
             "gw": self.gw(),
+            "gw_note": self._join_effect_notes(TargetDomain.DERIVED_STAT, "gw"),
+            "gw_variants": self._conditional_value_variants(TargetDomain.DERIVED_STAT, "gw", self.gw()),
             "gw_extra": defense_extra_value if defense_extra_value else None,
             "gw_extra_label": defense_extra_label,
             "gw_fear": self.gw_against_fear() if defense_extra_value else None,
@@ -681,7 +1102,14 @@ class CreatureEngine:
             "rs_natural": armor.natural_rs,
             "rs_armor": armor.armor_rs,
             "rs_total": armor.total_rs,
+            "rs_note": self._join_effect_notes(TargetDomain.DERIVED_STAT, "rs") or self._join_effect_notes(TargetDomain.DERIVED_STAT, "natural_rs"),
+            "rs_variants": (
+                self._conditional_value_variants(TargetDomain.DERIVED_STAT, "rs", armor.total_rs)
+                + self._conditional_value_variants(TargetDomain.DERIVED_STAT, "natural_rs", armor.total_rs)
+            ),
             "encumbrance": armor.encumbrance,
+            "encumbrance_note": self._join_effect_notes(TargetDomain.DERIVED_STAT, "encumbrance"),
+            "encumbrance_variants": self._conditional_value_variants(TargetDomain.DERIVED_STAT, "encumbrance", armor.encumbrance),
             "current_damage": int(getattr(self.instance, "current_damage", 0) or 0),
             "wounds": wound_rows,
             "wound_max": wound_rows[-1]["threshold"] if wound_rows else 0,
@@ -689,6 +1117,9 @@ class CreatureEngine:
             "wound_penalty": wound_zone["penalty"],
             "movement": movement,
             "movement_display": self.movement_display(),
+            "movement_display_text": self.movement_display_text(),
+            "movement_tooltip_text": self.movement_tooltip_text(),
+            "movement_notes": movement_notes,
             "movement_mana_cost": self.creature.movement_mana_cost,
             "movement_note": self.creature.movement_note,
             "has_ground_movement": has_ground,
@@ -701,6 +1132,7 @@ class CreatureEngine:
             "special_skills": self.special_skills(),
             "commands": self.commands(),
             "traits": self.traits(),
+            "effect_conditions": self.effect_condition_summary(),
             "climate_and_occurrence": self.creature.climate_and_occurrence,
             "organization": self.instance.trigger_label if self.instance and self.instance.trigger_label else self.creature.organization,
         }
@@ -723,6 +1155,8 @@ class CreatureEngine:
                     "label": label,
                     "value": value,
                     "display": "-" if value is None else f"{int(value):+d}",
+                    "display_parts": self._value_display_parts(TargetDomain.ATTRIBUTE, code, value, signed=True),
+                    "effect_note": self._join_effect_notes(TargetDomain.ATTRIBUTE, code),
                 }
             )
         return rows
@@ -771,13 +1205,35 @@ class CreatureEngine:
         if value is None or value == "":
             return None
         try:
-            number = float(value)
+            number = float(str(value).replace(",", "."))
         except (TypeError, ValueError):
             return str(value)
         if number.is_integer():
             return str(int(number))
         fraction = Fraction(number).limit_denominator(16)
         whole, remainder = divmod(fraction.numerator, fraction.denominator)
+        unicode_fraction = {
+            (1, 2): "\u00bd",
+            (1, 3): "\u2153",
+            (2, 3): "\u2154",
+            (1, 4): "\u00bc",
+            (3, 4): "\u00be",
+            (1, 5): "\u2155",
+            (2, 5): "\u2156",
+            (3, 5): "\u2157",
+            (4, 5): "\u2158",
+            (1, 6): "\u2159",
+            (5, 6): "\u215a",
+            (1, 7): "\u2150",
+            (1, 8): "\u215b",
+            (3, 8): "\u215c",
+            (5, 8): "\u215d",
+            (7, 8): "\u215e",
+            (1, 9): "\u2151",
+            (1, 10): "\u2152",
+        }.get((remainder, fraction.denominator))
+        if unicode_fraction:
+            return f"{whole}{unicode_fraction}" if whole else unicode_fraction
         if whole:
             return f"{whole} {remainder}/{fraction.denominator}"
         return f"{remainder}/{fraction.denominator}"

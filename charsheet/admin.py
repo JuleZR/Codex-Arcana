@@ -15,7 +15,7 @@ from django.urls import path, reverse
 from django.utils.html import format_html, format_html_join
 from django.utils.safestring import mark_safe
 
-from .constants import ONE_HANDED, QUALITY_COLOR_MAP, SCHOOL_ARCANE, TWO_HANDED, VERSATILE
+from .constants import ATTRIBUTE_CODE_CHOICES, ONE_HANDED, QUALITY_COLOR_MAP, SCHOOL_ARCANE, TWO_HANDED, VERSATILE
 from .admin_help import (
     ATTRIBUTE_CHOICE_HELP,
     CHARACTER_CHOICE_HELP,
@@ -44,7 +44,7 @@ from .admin_help import (
 from .engine.item_engine import ItemEngine
 from .engine.creature_engine import CreatureEngine
 from .modifiers.legacy import LegacyModifierAdapter
-from .modifiers.registry import build_creature_trait_semantic_modifiers, build_trait_semantic_modifiers
+from .modifiers.registry import build_trait_semantic_modifiers
 from .models import (
     ArmorStats,
     Aspect,
@@ -91,6 +91,7 @@ from .models import (
     CreatureCommandReference,
     CreatureSkill,
     CreatureSpecialSkill,
+    CreatureSpecialSkillSemanticEffect,
     CreatureSpecialSkillValue,
     CreatureTrait,
     CreatureTraitChoice,
@@ -421,17 +422,25 @@ def _trait_semantic_preview(trait, *, level: int | None = None):
 
 
 def _creature_trait_semantic_preview(trait, *, level: int | None = None):
-    """Render semantic central-engine effects for one creature trait definition or ownership row."""
+    """Render creature-only semantic effects for one creature trait definition or ownership row."""
     if trait is None:
         return format_html('<span style="color:#666;">{}</span>', "-")
-    resolved_level = max(1, int(level or getattr(trait, "min_level", 1) or 1))
-    modifiers = build_creature_trait_semantic_modifiers(trait_slug=trait.slug, level=resolved_level, trait=trait)
-    if not modifiers:
+    if getattr(trait, "pk", None) is None:
+        effects = []
+    else:
+        effects = list(trait.semantic_effects.filter(active_flag=True).order_by("sort_order", "id"))
+    if not effects:
         return format_html(
             '<span style="color:#666;">{}</span>',
             "No semantic effects configured yet. Add rows in the Semantic Effects section below.",
         )
-    return _render_readonly_lines(_modifier_preview_line(modifier) for modifier in modifiers)
+    lines = []
+    for effect in effects:
+        value_label = effect.value if effect.value not in (None, "") else "-"
+        condition = getattr(effect, "condition_text", "") or ""
+        condition_suffix = f" | when: {condition}" if condition else ""
+        lines.append(f"{effect.target_domain}:{effect.target_key or '*'} [{effect.operator}] -> {value_label}{condition_suffix}")
+    return _render_readonly_lines(lines)
 
 
 def _creature_skill_gk_modifier_preview(creature, skill):
@@ -2055,6 +2064,242 @@ class TechniqueSemanticEffectInlineForm(forms.ModelForm):
                 "Set a target key, choose target skills, or bind the effect to a technique choice definition.",
             )
         return cleaned_data
+
+
+class CreatureTraitSemanticEffectAdminForm(forms.ModelForm):
+    """User-friendly creature effect editor that maps simple controls to semantic fields."""
+
+    EFFECT_AREA_CHOICES = (
+        ("attribute", "Eigenschaft"),
+        ("defense", "Verteidigung / Widerstand"),
+        ("movement", "Bewegung"),
+        ("skill", "Fertigkeit"),
+        ("special_skill", "Kreaturen-Fertigkeit"),
+        ("combat", "Angriff / Schaden"),
+        ("choice", "Auswahl des Traits"),
+    )
+    DEFENSE_TARGET_CHOICES = (
+        ("initiative", "Initiative"),
+        ("vw", "VW"),
+        ("sr", "SR"),
+        ("gw", "GW"),
+        ("rs", "RS"),
+        ("natural_rs", "Natuerlicher RS"),
+        ("wound_step", "Wundschwelle"),
+        ("encumbrance", "BEL"),
+    )
+    MOVEMENT_TARGET_CHOICES = (
+        ("combat", "Kampf"),
+        ("march", "Marsch"),
+        ("sprint", "Sprint"),
+        ("swim", "Schwimmen"),
+        ("swim_combat", "Schwimmen Kampf"),
+        ("swim_march", "Schwimmen Marsch"),
+        ("swim_sprint", "Schwimmen Sprint"),
+        ("fly_combat", "Flug Kampf"),
+        ("fly_march", "Flug Marsch"),
+        ("fly_sprint", "Flug Sprint"),
+    )
+    COMBAT_TARGET_CHOICES = (
+        ("attack_value", "Angriffswert"),
+        ("damage", "Schaden"),
+    )
+    OPERATION_CHOICES = (
+        ("flat_add", "+ addieren"),
+        ("flat_sub", "- abziehen"),
+        ("override", "auf Wert setzen"),
+        ("min_value", "mindestens"),
+        ("max_value", "hoechstens"),
+    )
+
+    effect_area = forms.ChoiceField(label="Was soll geaendert werden?", choices=EFFECT_AREA_CHOICES, required=False)
+    simple_target = forms.ChoiceField(label="Was genau?", choices=(), required=False)
+    simple_operator = forms.ChoiceField(label="Rechenart", choices=OPERATION_CHOICES, required=False)
+    simple_value = forms.IntegerField(label="Zahl", required=False)
+    scale_by_trait_level = forms.BooleanField(label="pro Trait-Level anwenden", required=False)
+
+    class Meta:
+        model = CreatureTraitSemanticEffect
+        fields = "__all__"
+
+    class Media:
+        js = ("charsheet/js/creature_trait_semantic_effect_admin_v6.js",)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if "target_key" in self.fields:
+            self.fields["target_key"].required = False
+        self.fields["simple_target"].choices = self._simple_target_choices()
+        if "target_choice_definition" not in self.fields:
+            self.fields["effect_area"].choices = tuple(
+                choice for choice in self.fields["effect_area"].choices if choice[0] != "choice"
+            )
+        self.fields["sort_order"].label = "Reihenfolge"
+        self.fields["active_flag"].label = "Aktiv"
+        self.fields["condition_text"].label = "Wann gilt der Effekt?"
+        if "target_choice_definition" in self.fields:
+            self.fields["target_choice_definition"].label = "Welche Trait-Auswahl?"
+        self._apply_initial_simple_values()
+        self._polish_technical_fields()
+
+    def _apply_initial_simple_values(self):
+        target_domain = str(self.initial.get("target_domain") or getattr(self.instance, "target_domain", "") or "")
+        target_key = str(self.initial.get("target_key") or getattr(self.instance, "target_key", "") or "")
+        if target_domain == "attribute":
+            self.initial.setdefault("effect_area", "attribute")
+            self.initial.setdefault("simple_target", f"attribute:{target_key}")
+        elif target_domain == "derived_stat":
+            self.initial.setdefault("effect_area", "defense")
+            self.initial.setdefault("simple_target", f"defense:{target_key}")
+        elif target_domain == "movement":
+            self.initial.setdefault("effect_area", "movement")
+            self.initial.setdefault("simple_target", f"movement:{target_key}")
+        elif target_domain == "skill":
+            self.initial.setdefault("effect_area", "skill")
+            self.initial.setdefault("simple_target", f"skill:{target_key}")
+        elif target_domain == "creature_special_skill":
+            self.initial.setdefault("effect_area", "special_skill")
+            self.initial.setdefault("simple_target", f"special_skill:{target_key}")
+        elif target_domain == "combat":
+            self.initial.setdefault("effect_area", "combat")
+            self.initial.setdefault("simple_target", f"combat:{target_key}")
+        elif getattr(self.instance, "target_choice_definition_id", None):
+            self.initial.setdefault("effect_area", "choice")
+        self.initial.setdefault("simple_operator", self.initial.get("operator") or getattr(self.instance, "operator", "flat_add"))
+        value = self.initial.get("value", getattr(self.instance, "value", ""))
+        if self._is_integerish(value):
+            self.initial.setdefault("simple_value", int(value))
+        scaling = self.initial.get("scaling", getattr(self.instance, "scaling", {}) or {}) or {}
+        self.initial.setdefault("scale_by_trait_level", scaling.get("scale_source") == "trait_level")
+
+    def _simple_target_choices(self):
+        choices = [("", "-")]
+        choices.extend((f"attribute:{value}", label) for value, label in ATTRIBUTE_CODE_CHOICES)
+        choices.extend((f"defense:{value}", label) for value, label in self.DEFENSE_TARGET_CHOICES)
+        choices.extend((f"movement:{value}", label) for value, label in self.MOVEMENT_TARGET_CHOICES)
+        choices.extend((f"skill:{skill.slug}", skill.name) for skill in Skill.objects.order_by("name"))
+        choices.extend((f"special_skill:{skill.slug}", skill.name) for skill in CreatureSpecialSkill.objects.order_by("name"))
+        choices.extend((f"combat:{value}", label) for value, label in self.COMBAT_TARGET_CHOICES)
+        return choices
+
+    @staticmethod
+    def _is_integerish(value) -> bool:
+        try:
+            int(value)
+        except (TypeError, ValueError):
+            return False
+        return str(value).strip() != ""
+
+    def _polish_technical_fields(self):
+        for field_name in (
+            "target_domain",
+            "target_key",
+            "operator",
+            "mode",
+            "value",
+            "scaling",
+            "condition_set",
+            "stack_behavior",
+            "priority",
+            "visibility",
+            "hidden",
+            "sheet_relevant",
+            "metadata",
+            "value_min",
+            "value_max",
+            "formula",
+        ):
+            if field_name in self.fields:
+                self.fields[field_name].required = False
+                self.fields[field_name].help_text = "Technisches Feld. Wird normalerweise aus den einfachen Feldern oben gesetzt."
+
+    def clean(self):
+        cleaned_data = super().clean()
+        area = cleaned_data.get("effect_area")
+        target_domain, target_key = self._simple_target(area, cleaned_data.get("simple_target"))
+        if target_domain and target_key:
+            cleaned_data["target_domain"] = target_domain
+            cleaned_data["target_key"] = target_key
+        elif area == "choice" and cleaned_data.get("target_choice_definition"):
+            cleaned_data["target_domain"] = self._choice_target_domain(cleaned_data["target_choice_definition"])
+            cleaned_data["target_key"] = ""
+        else:
+            self.add_error("effect_area", "Bitte auswaehlen, welcher Wert geaendert werden soll.")
+
+        operator = cleaned_data.get("simple_operator") or cleaned_data.get("operator") or "flat_add"
+        value = cleaned_data.get("simple_value")
+        if value is None:
+            self.add_error("simple_value", "Bitte eine Zahl eintragen.")
+        else:
+            cleaned_data["operator"] = operator
+            cleaned_data["value"] = str(value)
+
+        if cleaned_data.get("scale_by_trait_level"):
+            cleaned_data["mode"] = "scaled"
+            scaling = dict(cleaned_data.get("scaling") or {})
+            scaling.setdefault("scale_source", "trait_level")
+            scaling.setdefault("mul", 1)
+            scaling.setdefault("div", 1)
+            scaling.setdefault("round_mode", "floor")
+            cleaned_data["scaling"] = scaling
+        else:
+            cleaned_data["mode"] = "flat"
+            cleaned_data["scaling"] = {}
+        return cleaned_data
+
+    def _simple_target(self, area, simple_target) -> tuple[str, str]:
+        prefix, separator, target_key = str(simple_target or "").partition(":")
+        if not separator or prefix != area:
+            return "", ""
+        if area == "attribute":
+            return "attribute", target_key
+        if area == "defense":
+            return "derived_stat", target_key
+        if area == "movement":
+            return "movement", target_key
+        if area == "skill":
+            return "skill", target_key
+        if area == "special_skill":
+            return "creature_special_skill", target_key
+        if area == "combat":
+            return "combat", target_key
+        return "", ""
+
+    @staticmethod
+    def _choice_target_domain(definition) -> str:
+        mapping = {
+            CreatureTraitChoiceDefinition.TargetKind.ATTRIBUTE: "attribute",
+            CreatureTraitChoiceDefinition.TargetKind.SKILL: "skill",
+            CreatureTraitChoiceDefinition.TargetKind.DERIVED_STAT: "derived_stat",
+            CreatureTraitChoiceDefinition.TargetKind.RESOURCE: "resource",
+            CreatureTraitChoiceDefinition.TargetKind.PROFICIENCY_GROUP: "proficiency_group",
+            CreatureTraitChoiceDefinition.TargetKind.ITEM: "item",
+            CreatureTraitChoiceDefinition.TargetKind.ITEM_CATEGORY: "item_category",
+            CreatureTraitChoiceDefinition.TargetKind.SPECIALIZATION: "specialization",
+            CreatureTraitChoiceDefinition.TargetKind.ENTITY: "entity",
+        }
+        return mapping.get(definition.target_kind, "metadata")
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        for field_name in ("target_domain", "target_key", "operator", "value", "mode", "scaling"):
+            setattr(instance, field_name, self.cleaned_data[field_name])
+        if commit:
+            instance.save()
+            self.save_m2m()
+        return instance
+
+
+class CreatureSpecialSkillSemanticEffectAdminForm(CreatureTraitSemanticEffectAdminForm):
+    """User-friendly creature special skill effect editor."""
+
+    class Meta:
+        model = CreatureSpecialSkillSemanticEffect
+        fields = "__all__"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["scale_by_trait_level"].label = "pro Skill-Wert anwenden"
 
 
 class SpellAdminForm(forms.ModelForm):
@@ -5311,32 +5556,57 @@ class CreatureTraitChoiceDefinitionInline(admin.TabularInline):
 
 class CreatureTraitSemanticEffectInline(admin.StackedInline):
     model = CreatureTraitSemanticEffect
+    form = CreatureTraitSemanticEffectAdminForm
     extra = 0
-    fields = (
-        "sort_order",
-        "target_choice_definition",
-        "target_skills",
-        "target_domain",
-        "target_key",
-        "operator",
-        "mode",
-        "value",
-        "value_min",
-        "value_max",
-        "formula",
-        "scaling",
-        "stack_behavior",
-        "condition_set",
-        "active_flag",
-        "priority",
-        "notes",
-        "rules_text",
-        "visibility",
-        "hidden",
-        "sheet_relevant",
-        "metadata",
+
+    class Media:
+        js = ("charsheet/js/creature_trait_semantic_effect_admin_v6.js",)
+
+    fieldsets = (
+        (
+            "Effekt bauen",
+            {
+                "fields": (
+                    "sort_order",
+                    "active_flag",
+                    "effect_area",
+                    "simple_target",
+                    "target_choice_definition",
+                    ("simple_operator", "simple_value", "scale_by_trait_level"),
+                    "condition_text",
+                ),
+                "description": "Erst den Bereich waehlen, dann nur noch den passenden Wert und die Rechenart ausfuellen.",
+            },
+        ),
     )
     autocomplete_fields = ("target_choice_definition", "target_skills")
+
+
+class CreatureSpecialSkillSemanticEffectInline(admin.StackedInline):
+    model = CreatureSpecialSkillSemanticEffect
+    form = CreatureSpecialSkillSemanticEffectAdminForm
+    extra = 0
+
+    class Media:
+        js = ("charsheet/js/creature_trait_semantic_effect_admin_v6.js",)
+
+    fieldsets = (
+        (
+            "Effekt bauen",
+            {
+                "fields": (
+                    "sort_order",
+                    "active_flag",
+                    "effect_area",
+                    "simple_target",
+                    ("simple_operator", "simple_value", "scale_by_trait_level"),
+                    "condition_text",
+                ),
+                "description": "Erst den Bereich waehlen, dann nur noch den passenden Wert und die Rechenart ausfuellen.",
+            },
+        ),
+    )
+    autocomplete_fields = ("target_skills",)
 
 
 class CreatureAdminForm(forms.ModelForm):
@@ -5615,6 +5885,36 @@ class CreatureSpecialSkillAdmin(admin.ModelAdmin):
     list_display = ("name", "slug")
     search_fields = ("name", "slug", "description")
     prepopulated_fields = {"slug": ("name",)}
+    inlines = (CreatureSpecialSkillSemanticEffectInline,)
+
+
+@admin.register(CreatureSpecialSkillSemanticEffect)
+class CreatureSpecialSkillSemanticEffectAdmin(admin.ModelAdmin):
+    form = CreatureSpecialSkillSemanticEffectAdminForm
+    list_display = ("special_skill", "target_domain", "target_key", "operator", "active_flag", "sort_order")
+    search_fields = ("special_skill__name", "special_skill__slug", "target_key", "notes", "rules_text")
+    list_filter = ("target_domain", "operator", "active_flag", "visibility")
+    autocomplete_fields = ("special_skill", "target_skills")
+    list_select_related = ("special_skill",)
+    fieldsets = (
+        (
+            "Effekt bauen",
+            {
+                "fields": (
+                    "special_skill",
+                    "sort_order",
+                    "active_flag",
+                    "effect_area",
+                    "simple_target",
+                    ("simple_operator", "simple_value", "scale_by_trait_level"),
+                    "condition_text",
+                ),
+            },
+        ),
+    )
+
+    class Media:
+        js = ("charsheet/js/creature_trait_semantic_effect_admin_v6.js",)
 
 
 @admin.register(CreatureSpecialSkillValue)
@@ -5639,6 +5939,9 @@ class CreatureTraitDefinitionAdmin(admin.ModelAdmin):
         ("Semantic Preview", {"fields": ("semantic_effect_preview",)}),
     )
 
+    class Media:
+        js = ("charsheet/js/creature_trait_semantic_effect_admin_v6.js",)
+
     def semantic_effect_preview(self, obj):
         return _creature_trait_semantic_preview(obj)
 
@@ -5654,11 +5957,29 @@ class CreatureTraitChoiceDefinitionAdmin(admin.ModelAdmin):
 
 @admin.register(CreatureTraitSemanticEffect)
 class CreatureTraitSemanticEffectAdmin(admin.ModelAdmin):
+    form = CreatureTraitSemanticEffectAdminForm
     list_display = ("trait", "target_domain", "target_key", "operator", "active_flag", "sort_order")
     search_fields = ("trait__name", "trait__slug", "target_key", "notes", "rules_text")
     list_filter = ("target_domain", "operator", "active_flag", "visibility")
     autocomplete_fields = ("trait", "target_choice_definition", "target_skills")
     list_select_related = ("trait", "target_choice_definition")
+    fieldsets = (
+        (
+            "Effekt bauen",
+            {
+                "fields": (
+                    "trait",
+                    "sort_order",
+                    "active_flag",
+                    "effect_area",
+                    "simple_target",
+                    "target_choice_definition",
+                    ("simple_operator", "simple_value", "scale_by_trait_level"),
+                    "condition_text",
+                ),
+            },
+        ),
+    )
 
 
 class CreatureCommandPrerequisiteInline(admin.TabularInline):

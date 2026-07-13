@@ -53,19 +53,19 @@
           </div>
           <div class="creature-training-movement__row">
             <span>Boden</span>
-            <input type="number" name="combat_speed" value="{{ training.movement_options.combat_speed }}" min="0" step="0.5" aria-label="Kampfgeschwindigkeit">
-            <input type="number" name="march_speed" value="{{ training.movement_options.march_speed }}" min="0" step="0.5" aria-label="Marschgeschwindigkeit">
-            <input type="number" name="sprint_speed" value="{{ training.movement_options.sprint_speed }}" min="0" step="0.5" aria-label="Sprintgeschwindigkeit">
-            <input type="number" name="swimming_speed" value="{{ training.movement_options.swimming_speed }}" min="0" step="0.5" aria-label="Schwimmgeschwindigkeit">
+            <input type="text" name="combat_speed" value="{{ training.movement_options.combat_speed }}" inputmode="decimal" aria-label="Kampfgeschwindigkeit">
+            <input type="text" name="march_speed" value="{{ training.movement_options.march_speed }}" inputmode="decimal" aria-label="Marschgeschwindigkeit">
+            <input type="text" name="sprint_speed" value="{{ training.movement_options.sprint_speed }}" inputmode="decimal" aria-label="Sprintgeschwindigkeit">
+            <input type="text" name="swimming_speed" value="{{ training.movement_options.swimming_speed }}" inputmode="decimal" aria-label="Schwimmgeschwindigkeit">
           </div>
           <div class="creature-training-movement__row creature-training-movement__row--flight" data-creature-fly-row>
             <label class="creature-training-movement__check">
               <input type="checkbox" name="can_fly" value="1"{% if training.movement_options.can_fly %} checked{% endif %} data-creature-can-fly>
               <span>Flug</span>
             </label>
-            <input type="number" name="combat_fly_speed" value="{{ training.movement_options.combat_fly_speed }}" min="0" step="0.5" aria-label="Kampffluggeschwindigkeit" data-creature-fly-speed{% if not training.movement_options.can_fly %} disabled{% endif %}>
-            <input type="number" name="march_fly_speed" value="{{ training.movement_options.march_fly_speed }}" min="0" step="0.5" aria-label="Marschfluggeschwindigkeit" data-creature-fly-speed{% if not training.movement_options.can_fly %} disabled{% endif %}>
-            <input type="number" name="sprint_fly_speed" value="{{ training.movement_options.sprint_fly_speed }}" min="0" step="0.5" aria-label="Sprintfluggeschwindigkeit" data-creature-fly-speed{% if not training.movement_options.can_fly %} disabled{% endif %}>
+            <input type="text" name="combat_fly_speed" value="{{ training.movement_options.combat_fly_speed }}" inputmode="decimal" aria-label="Kampffluggeschwindigkeit" data-creature-fly-speed{% if not training.movement_options.can_fly %} disabled{% endif %}>
+            <input type="text" name="march_fly_speed" value="{{ training.movement_options.march_fly_speed }}" inputmode="decimal" aria-label="Marschfluggeschwindigkeit" data-creature-fly-speed{% if not training.movement_options.can_fly %} disabled{% endif %}>
+            <input type="text" name="sprint_fly_speed" value="{{ training.movement_options.sprint_fly_speed }}" inputmode="decimal" aria-label="Sprintfluggeschwindigkeit" data-creature-fly-speed{% if not training.movement_options.can_fly %} disabled{% endif %}>
             <span class="creature-training-movement__dash" aria-hidden="true">-</span>
           </div>
         </div>

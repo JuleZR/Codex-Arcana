@@ -3059,6 +3059,44 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
     0 1px 1px rgba(44, 27, 14, 0.05);
 }
 
+.floating-tooltip .tooltip_mana,
+.floating-tooltip-card .tooltip_mana {
+  display: inline-grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  box-sizing: border-box;
+  padding: 0;
+  border: 1px solid #b8b3aa;
+  border-radius: 50%;
+  background: #b8b3aa;
+  box-shadow: -0.5px 2px 0 #000;
+  color: #17130e;
+  font-family: "Cinzel", Georgia, serif;
+  font-size: 15px;
+  font-weight: 900;
+  line-height: 1;
+  text-align: center;
+  text-shadow: none;
+  vertical-align: -8px;
+}
+
+.floating-tooltip .tooltip_mana__value,
+.floating-tooltip-card .tooltip_mana__value {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  place-items: center;
+  line-height: 1;
+  transform: translateX(-0.5px) scaleX(0.92);
+}
+
+.floating-tooltip .tooltip_mana--compact .tooltip_mana__value,
+.floating-tooltip-card .tooltip_mana--compact .tooltip_mana__value {
+  font-size: 0.74em;
+  letter-spacing: -0.04em;
+}
+
 .floating-tooltip p + p,
 .floating-tooltip p + table,
 .floating-tooltip p + ul,

@@ -73,6 +73,10 @@ CREATURE_CARD_QUALITY_TRAINING_BUDGETS = {
     QUALITY_LEGENDARY: (12, 0),
 }
 
+CREATURE_TARGET_DOMAIN_CHOICES = TARGET_DOMAIN_CHOICES + (
+    ("creature_special_skill", "creature_special_skill"),
+)
+
 
 class Creature(models.Model):
     """Reusable creature template with Attribute-referenced creature stats."""
@@ -601,10 +605,9 @@ class CreatureTraitChoiceDefinition(models.Model):
         return f"{self.trait.name}: {self.name}"
 
 
-class CreatureTraitSemanticEffect(models.Model):
-    """Persisted semantic effect attached directly to one creature trait definition."""
+class CreatureSemanticEffectFields(models.Model):
+    """Shared persisted creature-only semantic effect fields."""
 
-    trait = models.ForeignKey(CreatureTraitDefinition, on_delete=models.CASCADE, related_name="semantic_effects")
     sort_order = models.PositiveIntegerField(default=0)
     target_choice_definition = models.ForeignKey(
         CreatureTraitChoiceDefinition,
@@ -616,14 +619,43 @@ class CreatureTraitSemanticEffect(models.Model):
     target_skills = models.ManyToManyField(
         Skill,
         blank=True,
-        related_name="creature_trait_semantic_effects",
+        related_name="%(class)s_targeted_skills",
         help_text="Optional concrete skill targets. Use this instead of target_key for multi-skill effects.",
     )
-    target_domain = models.CharField(max_length=40, choices=TARGET_DOMAIN_CHOICES, default="rule_flag")
-    target_key = models.CharField(max_length=120, blank=True, default="")
-    operator = models.CharField(max_length=40, choices=MODIFIER_OPERATOR_CHOICES, default="flat_add")
-    mode = models.CharField(max_length=20, default="flat")
-    value = models.CharField(max_length=200, blank=True, default="")
+    target_domain = models.CharField(
+        "Technischer Bereich",
+        max_length=40,
+        choices=CREATURE_TARGET_DOMAIN_CHOICES,
+        default="rule_flag",
+        help_text="Wird im einfachen Admin-Editor automatisch gesetzt.",
+    )
+    target_key = models.CharField(
+        "Technischer Zielwert",
+        max_length=120,
+        blank=True,
+        default="",
+        help_text="Wird im einfachen Admin-Editor automatisch gesetzt.",
+    )
+    operator = models.CharField(
+        "Rechenart",
+        max_length=40,
+        choices=MODIFIER_OPERATOR_CHOICES,
+        default="flat_add",
+        help_text="Wird normalerweise ueber die einfache Rechenart-Auswahl gepflegt.",
+    )
+    mode = models.CharField(
+        "Berechnungsmodus",
+        max_length=20,
+        default="flat",
+        help_text="Flat oder skaliert; wird ueber 'pro Trait-Level anwenden' gesetzt.",
+    )
+    value = models.CharField(
+        "Zahl",
+        max_length=200,
+        blank=True,
+        default="",
+        help_text="Wird normalerweise ueber das einfache Zahlenfeld gepflegt.",
+    )
     value_min = models.IntegerField(null=True, blank=True)
     value_max = models.IntegerField(null=True, blank=True)
     formula = models.CharField(max_length=200, blank=True, default="")
@@ -632,6 +664,11 @@ class CreatureTraitSemanticEffect(models.Model):
     condition_set = models.JSONField(default=dict, blank=True)
     active_flag = models.BooleanField(default=True)
     priority = models.IntegerField(default=0)
+    condition_text = models.TextField(
+        blank=True,
+        default="",
+        help_text="Optionaler Text fuer situative Effekte, z. B. 'nur bei Dunkelheit'.",
+    )
     notes = models.TextField(blank=True, default="")
     rules_text = models.TextField(blank=True, default="")
     visibility = models.CharField(max_length=20, choices=MODIFIER_VISIBILITY_CHOICES, default="public")
@@ -640,10 +677,8 @@ class CreatureTraitSemanticEffect(models.Model):
     metadata = models.JSONField(default=dict, blank=True)
 
     class Meta:
+        abstract = True
         ordering = ["trait", "sort_order", "id"]
-
-    def __str__(self):
-        return f"{self.trait.slug}: {self.target_domain}/{self.target_key} ({self.operator})"
 
     @staticmethod
     def _coerce_scalar(raw_value):
@@ -680,8 +715,6 @@ class CreatureTraitSemanticEffect(models.Model):
             raise ValidationError({"condition_set": "Condition set must be a JSON object."})
         if self.metadata is not None and not isinstance(self.metadata, dict):
             raise ValidationError({"metadata": "Metadata must be a JSON object."})
-        if self.target_choice_definition_id and self.target_choice_definition.trait_id != self.trait_id:
-            raise ValidationError({"target_choice_definition": "The selected choice definition must belong to the same creature trait."})
 
     def to_modifier(self):
         """Materialize this persisted effect as one typed modifier instance."""
@@ -726,7 +759,8 @@ class CreatureTraitSemanticEffect(models.Model):
         }
         modifier_cls = modifier_map.get(self.target_domain, BaseModifier)
         metadata = dict(self.metadata or {})
-        if self.target_choice_definition_id:
+        has_choice_target = any(field.name == "target_choice_definition" for field in self._meta.fields)
+        if has_choice_target and self.target_choice_definition_id:
             metadata["choice_binding"] = {
                 "kind": "creature_trait_choice_definition",
                 "id": int(self.target_choice_definition_id),
@@ -735,9 +769,11 @@ class CreatureTraitSemanticEffect(models.Model):
             selected_skill_slugs = list(self.target_skills.order_by("slug").values_list("slug", flat=True))
             if selected_skill_slugs:
                 metadata["target_skill_slugs"] = selected_skill_slugs
+        source = getattr(self, "trait", None) or getattr(self, "special_skill", None)
+        source_type = "creature_trait" if getattr(self, "trait_id", None) else "creature_special_skill"
         return modifier_cls(
-            source_type="creature_trait",
-            source_id=self.trait.slug,
+            source_type=source_type,
+            source_id=getattr(source, "slug", ""),
             target_domain=self.target_domain,
             target_key=self.target_key,
             mode=self.mode,
@@ -758,6 +794,36 @@ class CreatureTraitSemanticEffect(models.Model):
             sheet_relevant=bool(self.sheet_relevant),
             metadata=metadata,
         )
+
+
+class CreatureTraitSemanticEffect(CreatureSemanticEffectFields):
+    """Persisted semantic effect attached directly to one creature trait definition."""
+
+    trait = models.ForeignKey(CreatureTraitDefinition, on_delete=models.CASCADE, related_name="semantic_effects")
+
+    class Meta:
+        ordering = ["trait", "sort_order", "id"]
+
+    def __str__(self):
+        return f"{self.trait.slug}: {self.target_domain}/{self.target_key} ({self.operator})"
+
+    def clean(self):
+        super().clean()
+        if self.target_choice_definition_id and self.target_choice_definition.trait_id != self.trait_id:
+            raise ValidationError({"target_choice_definition": "The selected choice definition must belong to the same creature trait."})
+
+
+class CreatureSpecialSkillSemanticEffect(CreatureSemanticEffectFields):
+    """Persisted semantic effect attached directly to one creature special skill."""
+
+    special_skill = models.ForeignKey(CreatureSpecialSkill, on_delete=models.CASCADE, related_name="semantic_effects")
+    target_choice_definition = None
+
+    class Meta:
+        ordering = ["special_skill", "sort_order", "id"]
+
+    def __str__(self):
+        return f"{self.special_skill.slug}: {self.target_domain}/{self.target_key} ({self.operator})"
 
 
 class CreatureTrait(models.Model):

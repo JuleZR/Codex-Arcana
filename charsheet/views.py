@@ -2149,7 +2149,7 @@ def _parse_int(raw_value, fallback=0):
 
 def _parse_nonnegative_float(raw_value, fallback=0):
     try:
-        return max(0, float(raw_value))
+        return max(0, float(str(raw_value).strip().replace(",", ".")))
     except (TypeError, ValueError):
         return fallback
 

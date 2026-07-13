@@ -1253,6 +1253,23 @@ span.card-aspect-placeholder {
     transform: translateX(-0.5px) scaleX(0.92);
 }
 
+.creature-card__movement-mark--size {
+    border-color: #1a1714;
+    background: #2f2925;
+    color: #e7dfd2;
+    font-family: "Cinzel", Georgia, serif;
+    font-size: 13px;
+    font-style: normal;
+    font-weight: 900;
+    letter-spacing: 0;
+    line-height: 1;
+    text-shadow: none;
+}
+
+.creature-card__movement-mark--size span {
+    transform: translateY(0.5px) scaleX(0.96);
+}
+
 .creature-card__attribute-rail {
     position: absolute;
     top: 58px;
@@ -1521,6 +1538,7 @@ span.card-aspect-placeholder {
     white-space: nowrap;
 }
 
+.creature-card .tooltip_target,
 .creature-card__rule-entry.tooltip_target,
 .creature-card__attack-unit.tooltip_target {
     cursor: help;
