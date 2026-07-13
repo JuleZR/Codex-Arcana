@@ -973,7 +973,7 @@ class CreatureEngine:
                 {
                     "name": row.skill.name,
                     "value": value,
-                    "value_parts": self._value_display_parts("creature_special_skill", row.skill.slug, value),
+                    "value_parts": self._value_display_parts("creature_special_skill", row.skill.slug, value, signed=True),
                     "effect_note": self._join_effect_notes("creature_special_skill", row.skill.slug),
                     "notes": override.notes if override and override.notes else row.notes or row.skill.description,
                     "kind": "creature",
@@ -986,7 +986,7 @@ class CreatureEngine:
                     {
                         "name": override.skill.name,
                         "value": value,
-                        "value_parts": self._value_display_parts("creature_special_skill", override.skill.slug, value),
+                        "value_parts": self._value_display_parts("creature_special_skill", override.skill.slug, value, signed=True),
                         "effect_note": self._join_effect_notes("creature_special_skill", override.skill.slug),
                         "notes": override.notes,
                         "kind": "creature",
