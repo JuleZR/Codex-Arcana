@@ -76,6 +76,8 @@ CREATURE_CARD_QUALITY_TRAINING_BUDGETS = {
 CREATURE_TARGET_DOMAIN_CHOICES = TARGET_DOMAIN_CHOICES + (
     ("creature_special_skill", "creature_special_skill"),
     ("creature_attack", "creature_attack"),
+    ("creature_attack_damage", "creature_attack_damage"),
+    ("creature_attack_type_damage", "creature_attack_type_damage"),
 )
 
 
@@ -260,7 +262,20 @@ class CreatureAttribute(models.Model):
         return self.base_value
 
 
+class CreatureAttackType(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    slug = models.SlugField(max_length=100, unique=True)
+    description = models.TextField(blank=True, default="")
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
 class CreatureAttack(models.Model):
+
     class DamageOperator(models.TextChoices):
         NONE = "", "Kein Operator"
         ADD = "+", "+"
@@ -269,6 +284,14 @@ class CreatureAttack(models.Model):
 
     creature = models.ForeignKey(Creature, on_delete=models.CASCADE, related_name="attacks")
     name = models.CharField(max_length=100)
+    attack_type = models.ForeignKey(
+        CreatureAttackType,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="attacks",
+        verbose_name="Angriffsart",
+    )
     attack_value = models.IntegerField(default=0)
     damage_dice_amount = models.PositiveIntegerField(default=0)
     damage_dice_faces = models.PositiveIntegerField(default=0)

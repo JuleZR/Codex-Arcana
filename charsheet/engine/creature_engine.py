@@ -267,9 +267,19 @@ class CreatureEngine:
                     effect.target_domain == TargetDomain.SKILL
                     and target_domain == "creature_special_skill"
                 )
-                if target_domain != effect.target_domain and target_domain != "metadata" and not is_skill_choice_special_skill:
+                is_creature_attack_damage = (
+                    effect.target_domain == "creature_attack_damage"
+                    and target_domain == "creature_attack"
+                )
+                if (
+                    target_domain != effect.target_domain
+                    and target_domain != "metadata"
+                    and not is_skill_choice_special_skill
+                    and not is_creature_attack_damage
+                ):
                     continue
-                expanded.append(replace(effect, target_domain=target_domain, target_key=target_key))
+                expanded_domain = "creature_attack_damage" if is_creature_attack_damage else target_domain
+                expanded.append(replace(effect, target_domain=expanded_domain, target_key=target_key))
         return expanded
 
     def _modifier_total(self, target_domain: str, target_key: str) -> int | float:
@@ -566,6 +576,12 @@ class CreatureEngine:
         if target_domain == "creature_attack":
             attack = self.creature.attacks.filter(pk=target_key).first()
             return attack.name if attack is not None else f"Angriff {target_key}"
+        if target_domain == "creature_attack_damage":
+            attack = self.creature.attacks.filter(pk=target_key).first()
+            name = attack.name if attack is not None else f"Angriff {target_key}"
+            return f"{name} Schaden"
+        if target_domain == "creature_attack_type_damage":
+            return f"{target_key} Schaden"
         if target_domain == "creature_special_skill":
             for row in self.creature.special_skills.select_related("skill"):
                 if row.skill.slug == target_key:
@@ -905,14 +921,22 @@ class CreatureEngine:
         )
         return [
             self._attack_context(attack, attack_value_bonus, damage_bonus)
-            for attack in self.creature.attacks.all()
+            for attack in self.creature.attacks.select_related("attack_type").all()
         ]
 
     def _attack_context(self, attack, attack_value_bonus: int, damage_bonus: int) -> dict[str, Any]:
         attack_target_key = str(attack.pk)
         attack_specific_bonus = self._modifier_total("creature_attack", attack_target_key)
         attack_value = attack.attack_value + attack_value_bonus + attack_specific_bonus
-        damage = self._apply_damage_bonus(self._format_damage(attack), damage_bonus)
+        attack_specific_damage_bonus = self._modifier_total("creature_attack_damage", attack_target_key)
+        attack_type_key = getattr(getattr(attack, "attack_type", None), "slug", "")
+        attack_type_damage_bonus = (
+            self._modifier_total("creature_attack_type_damage", attack_type_key)
+            if attack_type_key
+            else 0
+        )
+        total_damage_bonus = damage_bonus + attack_specific_damage_bonus + attack_type_damage_bonus
+        damage = self._apply_damage_bonus(self._format_damage(attack), total_damage_bonus)
         notes = str(attack.notes or "")
         show_notes_as_damage = bool(getattr(attack, "show_notes_as_damage", False) and notes)
         append_notes_to_damage = bool(getattr(attack, "append_notes_to_damage", False) and notes and not show_notes_as_damage)
@@ -945,7 +969,28 @@ class CreatureEngine:
                     "value": self._apply_damage_bonus(damage, variant["value"] - int(damage_bonus or 0)),
                     "note": variant["note"],
                 }
-                for variant in self._conditional_value_variants(TargetDomain.COMBAT, "damage", int(damage_bonus or 0))
+                for variant in self._conditional_value_variants(TargetDomain.COMBAT, "damage", int(total_damage_bonus or 0))
+            ] + [
+                {
+                    "value": self._apply_damage_bonus(damage, variant["value"] - int(total_damage_bonus or 0)),
+                    "note": variant["note"],
+                }
+                for variant in self._conditional_value_variants(
+                    "creature_attack_damage",
+                    attack_target_key,
+                    int(total_damage_bonus or 0),
+                )
+            ] + [
+                {
+                    "value": self._apply_damage_bonus(damage, variant["value"] - int(total_damage_bonus or 0)),
+                    "note": variant["note"],
+                }
+                for variant in self._conditional_value_variants(
+                    "creature_attack_type_damage",
+                    attack_type_key,
+                    int(total_damage_bonus or 0),
+                )
+                if attack_type_key
             ],
             "damage_display": damage_display,
             "notes": "" if show_notes_as_damage or append_notes_to_damage else notes,

@@ -63,7 +63,7 @@
     if (!area) {
       return;
     }
-    var isChoice = area.value === "choice";
+    var isChoice = area.value === "choice" || area.value === "choice_attack_damage";
     setRowVisible(root, "simple_target", !isChoice);
     setRowVisible(root, "target_choice_definition", isChoice);
     if (!isChoice) {

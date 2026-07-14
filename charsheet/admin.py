@@ -92,6 +92,7 @@ from .models import (
     CharacterWeaponMasteryArcana,
     Creature,
     CreatureAttack,
+    CreatureAttackType,
     CreatureAttribute,
     CreatureSourceBinding,
     CreatureCommand,
@@ -2112,6 +2113,8 @@ class CreatureTraitSemanticEffectAdminForm(forms.ModelForm):
         ("special_skill", "Kreaturen-Fertigkeit"),
         ("combat", "Angriff / Schaden"),
         ("choice", "Auswahl des Traits"),
+        ("choice_attack_damage", "Schaden der gewaehlten Angriffsart"),
+        ("attack_type_damage", "Schaden nach Angriffsart"),
     )
     DEFENSE_TARGET_CHOICES = (
         ("initiative", "Initiative"),
@@ -2155,7 +2158,6 @@ class CreatureTraitSemanticEffectAdminForm(forms.ModelForm):
     simple_operator = forms.ChoiceField(label="Rechenart", choices=OPERATION_CHOICES, required=False)
     simple_value = CommaFloatField(label="Zahl", required=False)
     scale_by_trait_level = forms.BooleanField(label="pro Trait-Level anwenden", required=False)
-    scale_divisor = forms.IntegerField(label="je X Trait-Level", min_value=1, required=False, initial=1)
 
     class Meta:
         model = CreatureTraitSemanticEffect
@@ -2205,6 +2207,11 @@ class CreatureTraitSemanticEffectAdminForm(forms.ModelForm):
         elif target_domain == "combat":
             self.initial.setdefault("effect_area", "combat")
             self.initial.setdefault("simple_target", f"combat:{target_key}")
+        elif target_domain == "creature_attack_type_damage":
+            self.initial.setdefault("effect_area", "attack_type_damage")
+            self.initial.setdefault("simple_target", f"attack_type_damage:{target_key}")
+        elif target_domain == "creature_attack_damage" and getattr(self.instance, "target_choice_definition_id", None):
+            self.initial.setdefault("effect_area", "choice_attack_damage")
         elif getattr(self.instance, "target_choice_definition_id", None):
             self.initial.setdefault("effect_area", "choice")
         self.initial.setdefault("simple_operator", self.initial.get("operator") or getattr(self.instance, "operator", "flat_add"))
@@ -2213,7 +2220,6 @@ class CreatureTraitSemanticEffectAdminForm(forms.ModelForm):
             self.initial.setdefault("simple_value", self._format_simple_number(value))
         scaling = self.initial.get("scaling", getattr(self.instance, "scaling", {}) or {}) or {}
         self.initial.setdefault("scale_by_trait_level", scaling.get("scale_source") == "trait_level")
-        self.initial.setdefault("scale_divisor", int(scaling.get("div") or 1))
 
     def _simple_target_choices(self):
         choices = [("", "-")]
@@ -2224,6 +2230,10 @@ class CreatureTraitSemanticEffectAdminForm(forms.ModelForm):
         choices.extend((f"skill_category:{category.slug}", category.name) for category in SkillCategory.objects.order_by("name"))
         choices.extend((f"special_skill:{skill.slug}", skill.name) for skill in CreatureSpecialSkill.objects.order_by("name"))
         choices.extend((f"combat:{value}", label) for value, label in self.COMBAT_TARGET_CHOICES)
+        choices.extend(
+            (f"attack_type_damage:{attack_type.slug}", attack_type.name)
+            for attack_type in CreatureAttackType.objects.order_by("name")
+        )
         return choices
 
     @staticmethod
@@ -2269,8 +2279,10 @@ class CreatureTraitSemanticEffectAdminForm(forms.ModelForm):
         if target_domain and target_key:
             cleaned_data["target_domain"] = target_domain
             cleaned_data["target_key"] = target_key
-        elif area == "choice" and cleaned_data.get("target_choice_definition"):
+        elif area in {"choice", "choice_attack_damage"} and cleaned_data.get("target_choice_definition"):
             cleaned_data["target_domain"] = self._choice_target_domain(cleaned_data["target_choice_definition"])
+            if area == "choice_attack_damage":
+                cleaned_data["target_domain"] = "creature_attack_damage"
             cleaned_data["target_key"] = ""
         else:
             self.add_error("effect_area", "Bitte auswaehlen, welcher Wert geaendert werden soll.")
@@ -2288,7 +2300,7 @@ class CreatureTraitSemanticEffectAdminForm(forms.ModelForm):
             scaling = dict(cleaned_data.get("scaling") or {})
             scaling.setdefault("scale_source", "trait_level")
             scaling.setdefault("mul", 1)
-            scaling["div"] = max(1, int(cleaned_data.get("scale_divisor") or 1))
+            scaling["div"] = 1
             scaling.setdefault("round_mode", "floor")
             cleaned_data["scaling"] = scaling
         else:
@@ -2314,6 +2326,8 @@ class CreatureTraitSemanticEffectAdminForm(forms.ModelForm):
             return "creature_special_skill", target_key
         if area == "combat":
             return "combat", target_key
+        if area == "attack_type_damage":
+            return "creature_attack_type_damage", target_key
         return "", ""
 
     @staticmethod
@@ -2352,7 +2366,6 @@ class CreatureSpecialSkillSemanticEffectAdminForm(CreatureTraitSemanticEffectAdm
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["scale_by_trait_level"].label = "pro Skill-Wert anwenden"
-        self.fields["scale_divisor"].label = "je X Skill-Wert"
 
 
 class SpellAdminForm(forms.ModelForm):
@@ -5484,6 +5497,7 @@ class CreatureAttackInline(admin.TabularInline):
     fields = (
         "order",
         "name",
+        "attack_type",
         "attack_value",
         "damage_dice_amount",
         "damage_dice_faces",
@@ -5494,6 +5508,7 @@ class CreatureAttackInline(admin.TabularInline):
         "show_notes_as_damage",
         "append_notes_to_damage",
     )
+    autocomplete_fields = ("attack_type",)
 
 
 class CreatureSkillInline(admin.TabularInline):
@@ -5733,7 +5748,7 @@ class CreatureTraitSemanticEffectInline(admin.StackedInline):
                     "effect_area",
                     "simple_target",
                     "target_choice_definition",
-                    ("simple_operator", "simple_value", "scale_by_trait_level", "scale_divisor"),
+                    ("simple_operator", "simple_value", "scale_by_trait_level"),
                     "condition_text",
                 ),
                 "description": "Erst den Bereich waehlen, dann nur noch den passenden Wert und die Rechenart ausfuellen.",
@@ -5760,7 +5775,7 @@ class CreatureSpecialSkillSemanticEffectInline(admin.StackedInline):
                     "active_flag",
                     "effect_area",
                     "simple_target",
-                    ("simple_operator", "simple_value", "scale_by_trait_level", "scale_divisor"),
+                    ("simple_operator", "simple_value", "scale_by_trait_level"),
                     "condition_text",
                 ),
                 "description": "Erst den Bereich waehlen, dann nur noch den passenden Wert und die Rechenart ausfuellen.",
@@ -6027,10 +6042,18 @@ class CharacterCreatureItemAdmin(admin.ModelAdmin):
 
 @admin.register(CreatureAttack)
 class CreatureAttackAdmin(admin.ModelAdmin):
-    list_display = ("creature", "name", "attack_value", "damage_dice_amount", "damage_dice_faces", "damage_flat_operator", "damage_flat_bonus", "damage_type")
+    list_display = ("creature", "name", "attack_type", "attack_value", "damage_dice_amount", "damage_dice_faces", "damage_flat_operator", "damage_flat_bonus", "damage_type")
     search_fields = ("creature__name", "name")
-    autocomplete_fields = ("creature",)
-    list_select_related = ("creature",)
+    list_filter = ("attack_type",)
+    autocomplete_fields = ("creature", "attack_type")
+    list_select_related = ("creature", "attack_type")
+
+
+@admin.register(CreatureAttackType)
+class CreatureAttackTypeAdmin(admin.ModelAdmin):
+    list_display = ("name", "slug")
+    search_fields = ("name", "slug", "description")
+    prepopulated_fields = {"slug": ("name",)}
 
 
 @admin.register(CreatureSkill)
@@ -6067,7 +6090,7 @@ class CreatureSpecialSkillSemanticEffectAdmin(admin.ModelAdmin):
                     "active_flag",
                     "effect_area",
                     "simple_target",
-                    ("simple_operator", "simple_value", "scale_by_trait_level", "scale_divisor"),
+                    ("simple_operator", "simple_value", "scale_by_trait_level"),
                     "condition_text",
                 ),
             },
@@ -6172,7 +6195,7 @@ class CreatureTraitSemanticEffectAdmin(admin.ModelAdmin):
                     "effect_area",
                     "simple_target",
                     "target_choice_definition",
-                    ("simple_operator", "simple_value", "scale_by_trait_level", "scale_divisor"),
+                    ("simple_operator", "simple_value", "scale_by_trait_level"),
                     "condition_text",
                 ),
             },
