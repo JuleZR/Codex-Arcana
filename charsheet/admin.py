@@ -2154,6 +2154,7 @@ class CreatureTraitSemanticEffectAdminForm(forms.ModelForm):
     simple_operator = forms.ChoiceField(label="Rechenart", choices=OPERATION_CHOICES, required=False)
     simple_value = CommaFloatField(label="Zahl", required=False)
     scale_by_trait_level = forms.BooleanField(label="pro Trait-Level anwenden", required=False)
+    scale_divisor = forms.IntegerField(label="je X Trait-Level", min_value=1, required=False, initial=1)
 
     class Meta:
         model = CreatureTraitSemanticEffect
@@ -2211,6 +2212,7 @@ class CreatureTraitSemanticEffectAdminForm(forms.ModelForm):
             self.initial.setdefault("simple_value", self._format_simple_number(value))
         scaling = self.initial.get("scaling", getattr(self.instance, "scaling", {}) or {}) or {}
         self.initial.setdefault("scale_by_trait_level", scaling.get("scale_source") == "trait_level")
+        self.initial.setdefault("scale_divisor", int(scaling.get("div") or 1))
 
     def _simple_target_choices(self):
         choices = [("", "-")]
@@ -2285,7 +2287,7 @@ class CreatureTraitSemanticEffectAdminForm(forms.ModelForm):
             scaling = dict(cleaned_data.get("scaling") or {})
             scaling.setdefault("scale_source", "trait_level")
             scaling.setdefault("mul", 1)
-            scaling.setdefault("div", 1)
+            scaling["div"] = max(1, int(cleaned_data.get("scale_divisor") or 1))
             scaling.setdefault("round_mode", "floor")
             cleaned_data["scaling"] = scaling
         else:
@@ -2349,6 +2351,7 @@ class CreatureSpecialSkillSemanticEffectAdminForm(CreatureTraitSemanticEffectAdm
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["scale_by_trait_level"].label = "pro Skill-Wert anwenden"
+        self.fields["scale_divisor"].label = "je X Skill-Wert"
 
 
 class SpellAdminForm(forms.ModelForm):
@@ -5729,7 +5732,7 @@ class CreatureTraitSemanticEffectInline(admin.StackedInline):
                     "effect_area",
                     "simple_target",
                     "target_choice_definition",
-                    ("simple_operator", "simple_value", "scale_by_trait_level"),
+                    ("simple_operator", "simple_value", "scale_by_trait_level", "scale_divisor"),
                     "condition_text",
                 ),
                 "description": "Erst den Bereich waehlen, dann nur noch den passenden Wert und die Rechenart ausfuellen.",
@@ -5756,7 +5759,7 @@ class CreatureSpecialSkillSemanticEffectInline(admin.StackedInline):
                     "active_flag",
                     "effect_area",
                     "simple_target",
-                    ("simple_operator", "simple_value", "scale_by_trait_level"),
+                    ("simple_operator", "simple_value", "scale_by_trait_level", "scale_divisor"),
                     "condition_text",
                 ),
                 "description": "Erst den Bereich waehlen, dann nur noch den passenden Wert und die Rechenart ausfuellen.",
@@ -6063,7 +6066,7 @@ class CreatureSpecialSkillSemanticEffectAdmin(admin.ModelAdmin):
                     "active_flag",
                     "effect_area",
                     "simple_target",
-                    ("simple_operator", "simple_value", "scale_by_trait_level"),
+                    ("simple_operator", "simple_value", "scale_by_trait_level", "scale_divisor"),
                     "condition_text",
                 ),
             },
@@ -6168,7 +6171,7 @@ class CreatureTraitSemanticEffectAdmin(admin.ModelAdmin):
                     "effect_area",
                     "simple_target",
                     "target_choice_definition",
-                    ("simple_operator", "simple_value", "scale_by_trait_level"),
+                    ("simple_operator", "simple_value", "scale_by_trait_level", "scale_divisor"),
                     "condition_text",
                 ),
             },
