@@ -75,6 +75,7 @@ CREATURE_CARD_QUALITY_TRAINING_BUDGETS = {
 
 CREATURE_TARGET_DOMAIN_CHOICES = TARGET_DOMAIN_CHOICES + (
     ("creature_special_skill", "creature_special_skill"),
+    ("creature_attack", "creature_attack"),
 )
 
 
@@ -546,6 +547,7 @@ class CreatureTraitChoiceDefinition(models.Model):
         PROFICIENCY_GROUP = "proficiency_group", "Proficiency Group"
         ITEM = "item", "Item"
         ITEM_CATEGORY = "item_category", "Item Category"
+        CREATURE_ATTACK = "creature_attack", "Creature Attack"
         SPECIALIZATION = "specialization", "Specialization"
         TEXT = "text", "Free Text"
         ENTITY = "entity", "Other Entity"
@@ -1426,6 +1428,13 @@ class CreatureTraitChoiceSelection(models.Model):
     selected_proficiency_group = models.CharField(max_length=50, blank=True, default="", choices=PROFICIENCY_GROUP_CHOICES)
     selected_item = models.ForeignKey(Item, on_delete=models.PROTECT, null=True, blank=True, related_name="+")
     selected_item_category = models.CharField(max_length=30, blank=True, default="")
+    selected_creature_attack = models.ForeignKey(
+        CreatureAttack,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
     selected_specialization = models.ForeignKey(
         Specialization,
         on_delete=models.PROTECT,
@@ -1462,6 +1471,7 @@ class CreatureTraitChoiceSelection(models.Model):
             bool(self.selected_proficiency_group),
             self.selected_item_id is not None,
             bool(self.selected_item_category),
+            self.selected_creature_attack_id is not None,
             self.selected_specialization_id is not None,
             bool(self.selected_text),
             self.selected_object_id is not None,
@@ -1550,6 +1560,18 @@ class CreatureTraitChoiceSelection(models.Model):
             and self.selected_proficiency_group != self.definition.allowed_proficiency_group
         ):
             raise ValidationError({"selected_proficiency_group": "The selected proficiency group does not match the allowed group."})
+        if (
+            self.definition_id
+            and self.definition.target_kind == CreatureTraitChoiceDefinition.TargetKind.CREATURE_ATTACK
+            and self.selected_creature_attack_id
+        ):
+            owning_creature_id = None
+            if getattr(self, "creature_trait_id", None):
+                owning_creature_id = self.creature_trait.creature_id
+            elif getattr(self, "character_creature_trait_id", None):
+                owning_creature_id = self.character_creature_trait.creature.creature_id
+            if owning_creature_id and self.selected_creature_attack.creature_id != owning_creature_id:
+                raise ValidationError({"selected_creature_attack": "The selected attack must belong to this creature."})
         if self.definition_id:
             existing = existing_choices.filter(definition=self.definition)
             if self.pk:
@@ -1560,6 +1582,8 @@ class CreatureTraitChoiceSelection(models.Model):
                     duplicate_filter |= models.Q(selected_skill_id=self.selected_skill_id)
                 if self.selected_creature_special_skill_id is not None:
                     duplicate_filter |= models.Q(selected_creature_special_skill_id=self.selected_creature_special_skill_id)
+                if self.selected_creature_attack_id is not None:
+                    duplicate_filter |= models.Q(selected_creature_attack_id=self.selected_creature_attack_id)
                 if duplicate_filter and existing.filter(duplicate_filter).exists():
                     raise ValidationError({"definition": "This target has already been selected for this creature trait definition."})
             trait_level = 1
@@ -1582,6 +1606,7 @@ class CreatureTraitChoiceSelection(models.Model):
             CreatureTraitChoiceDefinition.TargetKind.PROFICIENCY_GROUP: "selected_proficiency_group",
             CreatureTraitChoiceDefinition.TargetKind.ITEM: "selected_item",
             CreatureTraitChoiceDefinition.TargetKind.ITEM_CATEGORY: "selected_item_category",
+            CreatureTraitChoiceDefinition.TargetKind.CREATURE_ATTACK: "selected_creature_attack",
             CreatureTraitChoiceDefinition.TargetKind.SPECIALIZATION: "selected_specialization",
             CreatureTraitChoiceDefinition.TargetKind.TEXT: "selected_text",
             CreatureTraitChoiceDefinition.TargetKind.ENTITY: "selected_content_type",
@@ -1615,6 +1640,7 @@ class CreatureTraitChoiceSelection(models.Model):
             "selected_proficiency_group",
             "selected_item",
             "selected_item_category",
+            "selected_creature_attack",
             "selected_specialization",
             "selected_text",
             "selected_content_type",
@@ -1650,6 +1676,8 @@ class CreatureTraitChoiceSelection(models.Model):
             return self.selected_item.name
         if self.selected_item_category:
             return self.selected_item_category
+        if self.selected_creature_attack is not None:
+            return self.selected_creature_attack.name
         if self.selected_specialization is not None:
             return self.selected_specialization.name
         if self.selected_text:
@@ -1677,6 +1705,8 @@ class CreatureTraitChoiceSelection(models.Model):
             return ("item", str(self.selected_item_id))
         if self.selected_item_category:
             return ("item_category", self.selected_item_category)
+        if self.selected_creature_attack is not None:
+            return ("creature_attack", str(self.selected_creature_attack_id))
         if self.selected_specialization is not None:
             return ("specialization", str(self.selected_specialization_id))
         if self.selected_text:
@@ -1702,6 +1732,7 @@ class CreatureTraitChoice(CreatureTraitChoiceSelection):
             models.UniqueConstraint(fields=["creature_trait", "definition", "selected_attribute"], condition=models.Q(selected_attribute__isnull=False), name="uniq_creature_trait_choice_attribute"),
             models.UniqueConstraint(fields=["creature_trait", "definition", "selected_skill_category"], condition=models.Q(selected_skill_category__isnull=False), name="uniq_creature_trait_choice_category"),
             models.UniqueConstraint(fields=["creature_trait", "definition", "selected_item"], condition=models.Q(selected_item__isnull=False), name="uniq_creature_trait_choice_item"),
+            models.UniqueConstraint(fields=["creature_trait", "definition", "selected_creature_attack"], condition=models.Q(selected_creature_attack__isnull=False), name="uniq_creature_trait_choice_attack"),
             models.UniqueConstraint(fields=["creature_trait", "definition", "selected_specialization"], condition=models.Q(selected_specialization__isnull=False), name="uniq_creature_trait_choice_specialization"),
             models.UniqueConstraint(fields=["creature_trait", "definition", "selected_item_category"], condition=~models.Q(selected_item_category=""), name="uniq_creature_trait_choice_item_category"),
             models.UniqueConstraint(fields=["creature_trait", "definition", "selected_content_type", "selected_object_id"], condition=models.Q(selected_object_id__isnull=False), name="uniq_creature_trait_choice_entity"),
@@ -1743,6 +1774,7 @@ class CharacterCreatureTraitChoice(CreatureTraitChoiceSelection):
             models.UniqueConstraint(fields=["character_creature_trait", "definition", "selected_attribute"], condition=models.Q(selected_attribute__isnull=False), name="uniq_character_creature_trait_choice_attribute"),
             models.UniqueConstraint(fields=["character_creature_trait", "definition", "selected_skill_category"], condition=models.Q(selected_skill_category__isnull=False), name="uniq_character_creature_trait_choice_category"),
             models.UniqueConstraint(fields=["character_creature_trait", "definition", "selected_item"], condition=models.Q(selected_item__isnull=False), name="uniq_character_creature_trait_choice_item"),
+            models.UniqueConstraint(fields=["character_creature_trait", "definition", "selected_creature_attack"], condition=models.Q(selected_creature_attack__isnull=False), name="uniq_character_creature_trait_choice_attack"),
             models.UniqueConstraint(fields=["character_creature_trait", "definition", "selected_specialization"], condition=models.Q(selected_specialization__isnull=False), name="uniq_character_creature_trait_choice_specialization"),
             models.UniqueConstraint(fields=["character_creature_trait", "definition", "selected_item_category"], condition=~models.Q(selected_item_category=""), name="uniq_character_creature_trait_choice_item_category"),
             models.UniqueConstraint(fields=["character_creature_trait", "definition", "selected_content_type", "selected_object_id"], condition=models.Q(selected_object_id__isnull=False), name="uniq_character_creature_trait_choice_entity"),

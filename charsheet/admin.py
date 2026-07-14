@@ -2095,6 +2095,14 @@ class TechniqueSemanticEffectInlineForm(forms.ModelForm):
 class CreatureTraitSemanticEffectAdminForm(forms.ModelForm):
     """User-friendly creature effect editor that maps simple controls to semantic fields."""
 
+    class CommaFloatField(forms.FloatField):
+        widget = forms.TextInput
+
+        def to_python(self, value):
+            if isinstance(value, str):
+                value = value.strip().replace(",", ".")
+            return super().to_python(value)
+
     EFFECT_AREA_CHOICES = (
         ("attribute", "Eigenschaft"),
         ("defense", "Verteidigung / Widerstand"),
@@ -2143,7 +2151,7 @@ class CreatureTraitSemanticEffectAdminForm(forms.ModelForm):
     effect_area = forms.ChoiceField(label="Was soll geaendert werden?", choices=EFFECT_AREA_CHOICES, required=False)
     simple_target = forms.ChoiceField(label="Was genau?", choices=(), required=False)
     simple_operator = forms.ChoiceField(label="Rechenart", choices=OPERATION_CHOICES, required=False)
-    simple_value = forms.IntegerField(label="Zahl", required=False)
+    simple_value = CommaFloatField(label="Zahl", required=False)
     scale_by_trait_level = forms.BooleanField(label="pro Trait-Level anwenden", required=False)
 
     class Meta:
@@ -2195,8 +2203,8 @@ class CreatureTraitSemanticEffectAdminForm(forms.ModelForm):
             self.initial.setdefault("effect_area", "choice")
         self.initial.setdefault("simple_operator", self.initial.get("operator") or getattr(self.instance, "operator", "flat_add"))
         value = self.initial.get("value", getattr(self.instance, "value", ""))
-        if self._is_integerish(value):
-            self.initial.setdefault("simple_value", int(value))
+        if self._is_numberish(value):
+            self.initial.setdefault("simple_value", self._format_simple_number(value))
         scaling = self.initial.get("scaling", getattr(self.instance, "scaling", {}) or {}) or {}
         self.initial.setdefault("scale_by_trait_level", scaling.get("scale_source") == "trait_level")
 
@@ -2211,12 +2219,17 @@ class CreatureTraitSemanticEffectAdminForm(forms.ModelForm):
         return choices
 
     @staticmethod
-    def _is_integerish(value) -> bool:
+    def _is_numberish(value) -> bool:
         try:
-            int(value)
+            float(str(value).replace(",", "."))
         except (TypeError, ValueError):
             return False
         return str(value).strip() != ""
+
+    @staticmethod
+    def _format_simple_number(value) -> str:
+        number = float(str(value).replace(",", "."))
+        return str(int(number)) if number.is_integer() else str(number)
 
     def _polish_technical_fields(self):
         for field_name in (
@@ -2260,7 +2273,7 @@ class CreatureTraitSemanticEffectAdminForm(forms.ModelForm):
             self.add_error("simple_value", "Bitte eine Zahl eintragen.")
         else:
             cleaned_data["operator"] = operator
-            cleaned_data["value"] = str(value)
+            cleaned_data["value"] = self._format_simple_number(value)
 
         if cleaned_data.get("scale_by_trait_level"):
             cleaned_data["mode"] = "scaled"
@@ -2303,6 +2316,7 @@ class CreatureTraitSemanticEffectAdminForm(forms.ModelForm):
             CreatureTraitChoiceDefinition.TargetKind.PROFICIENCY_GROUP: "proficiency_group",
             CreatureTraitChoiceDefinition.TargetKind.ITEM: "item",
             CreatureTraitChoiceDefinition.TargetKind.ITEM_CATEGORY: "item_category",
+            CreatureTraitChoiceDefinition.TargetKind.CREATURE_ATTACK: "creature_attack",
             CreatureTraitChoiceDefinition.TargetKind.SPECIALIZATION: "specialization",
             CreatureTraitChoiceDefinition.TargetKind.ENTITY: "entity",
         }
@@ -5540,6 +5554,7 @@ class CreatureTraitChoiceInline(admin.TabularInline):
         "selected_proficiency_group",
         "selected_item",
         "selected_item_category",
+        "selected_creature_attack",
         "selected_specialization",
         "selected_text",
         "selected_content_type",
@@ -5552,6 +5567,7 @@ class CreatureTraitChoiceInline(admin.TabularInline):
         "selected_creature_special_skill",
         "selected_skill_category",
         "selected_item",
+        "selected_creature_attack",
         "selected_specialization",
     )
 

@@ -138,6 +138,7 @@ class CreatureEngine:
             override_rows = list(
                 self.instance.trait_overrides.select_related("base_trait", "trait").prefetch_related(
                     "choices",
+                    "choices__selected_creature_attack",
                     "trait__semantic_effects",
                     "trait__semantic_effects__target_skills",
                 )
@@ -151,6 +152,7 @@ class CreatureEngine:
             row
             for row in self.creature.traits.select_related("trait").prefetch_related(
                 "choices",
+                "choices__selected_creature_attack",
                 "trait__semantic_effects",
                 "trait__semantic_effects__target_skills",
             )
@@ -270,10 +272,12 @@ class CreatureEngine:
                 expanded.append(replace(effect, target_domain=target_domain, target_key=target_key))
         return expanded
 
-    def _modifier_total(self, target_domain: str, target_key: str) -> int:
-        return int(self._creature_effect_total(target_domain, target_key, conditional=False) or 0)
+    def _modifier_total(self, target_domain: str, target_key: str) -> int | float:
+        return self._normalize_numeric_display_value(
+            self._creature_effect_total(target_domain, target_key, conditional=False) or 0
+        )
 
-    def _creature_effect_total(self, target_domain: str, target_key: str, *, conditional: bool | None = None) -> int:
+    def _creature_effect_total(self, target_domain: str, target_key: str, *, conditional: bool | None = None) -> int | float:
         relevant = [
             effect
             for effect in self._semantic_effects
@@ -292,24 +296,24 @@ class CreatureEngine:
             if resolved_value is None:
                 continue
             if effect.operator == ModifierOperator.OVERRIDE:
-                resolved_total = int(resolved_value)
+                resolved_total = resolved_value
                 continue
             if effect.operator == ModifierOperator.MULTIPLY:
-                resolved_total = int(resolved_total * resolved_value)
+                resolved_total = resolved_total * resolved_value
                 continue
             if effect.operator == ModifierOperator.FLOOR_DIVIDE:
                 if not resolved_value:
                     continue
-                resolved_total = int(resolved_total // resolved_value)
+                resolved_total = resolved_total // resolved_value
                 continue
             if effect.operator == ModifierOperator.MIN_VALUE:
-                resolved_total = max(resolved_total, int(resolved_value))
+                resolved_total = max(resolved_total, resolved_value)
                 continue
             if effect.operator == ModifierOperator.MAX_VALUE:
-                resolved_total = min(resolved_total, int(resolved_value))
+                resolved_total = min(resolved_total, resolved_value)
                 continue
-            resolved_total += int(resolved_value)
-        return int(resolved_total)
+            resolved_total += resolved_value
+        return self._normalize_numeric_display_value(resolved_total)
 
     def _conditional_value_variants(self, target_domain: str, target_key: str, base_value: int | float) -> list[dict[str, Any]]:
         variants = []
@@ -357,13 +361,45 @@ class CreatureEngine:
             )
         return parts
 
+    def _combined_value_display_parts(
+        self,
+        targets: list[tuple[str, str]],
+        base_value: Any,
+        *,
+        signed: bool = False,
+        compact: bool = False,
+    ) -> list[dict[str, Any]]:
+        if base_value is None:
+            return [{"value": "-", "note": ""}]
+        base_number = self._coerce_numeric(base_value, default=base_value)
+        base_number = self._normalize_numeric_display_value(base_number)
+        parts = [{"value": self._format_variant_value(base_number, signed=signed, compact=compact), "note": ""}]
+        seen = set()
+        for target_domain, target_key in targets:
+            for variant in self._conditional_value_variants(target_domain, target_key, base_number):
+                key = (variant["value"], variant["note"])
+                if key in seen:
+                    continue
+                seen.add(key)
+                parts.append(
+                    {
+                        "value": self._format_variant_value(variant["value"], signed=signed, compact=compact),
+                        "note": variant["note"],
+                    }
+                )
+        return parts
+
     @classmethod
     def _format_variant_value(cls, value: Any, *, signed: bool = False, compact: bool = False) -> str:
         if compact:
             return cls._compact_number(value) or ""
+        number = cls._coerce_numeric(value, default=value)
+        number = cls._normalize_numeric_display_value(number)
         if signed:
-            return f"{int(value):+d}"
-        return str(int(value))
+            if isinstance(number, int):
+                return f"{number:+d}"
+            return f"{number:+g}"
+        return str(number)
 
     @staticmethod
     def _apply_effect_to_base(base_value: int | float, effect: CreatureSemanticEffect, resolved_value: int | float) -> int | float:
@@ -408,12 +444,12 @@ class CreatureEngine:
         if effect.value_max is not None:
             numeric_value = min(numeric_value, self._coerce_numeric(effect.value_max, default=numeric_value))
         if effect.operator in {ModifierOperator.FLAT_SUB, ModifierOperator.CONDITIONAL_PENALTY}:
-            return -abs(int(numeric_value))
+            return -abs(numeric_value)
         if effect.operator == ModifierOperator.MULTIPLY:
             return float(numeric_value)
         if effect.operator == ModifierOperator.FLOOR_DIVIDE:
             return float(numeric_value)
-        return int(numeric_value)
+        return self._normalize_numeric_display_value(numeric_value)
 
     @staticmethod
     def _coerce_numeric(value: Any, *, default: int | float | None = None) -> int | float | None:
@@ -518,6 +554,9 @@ class CreatureEngine:
         if target_domain == TargetDomain.COMBAT:
             labels = {"attack_value": "Angriff", "damage": "Schaden"}
             return labels.get(target_key, target_key)
+        if target_domain == "creature_attack":
+            attack = self.creature.attacks.filter(pk=target_key).first()
+            return attack.name if attack is not None else f"Angriff {target_key}"
         if target_domain == "creature_special_skill":
             for row in self.creature.special_skills.select_related("skill"):
                 if row.skill.slug == target_key:
@@ -853,6 +892,9 @@ class CreatureEngine:
         ]
 
     def _attack_context(self, attack, attack_value_bonus: int, damage_bonus: int) -> dict[str, Any]:
+        attack_target_key = str(attack.pk)
+        attack_specific_bonus = self._modifier_total("creature_attack", attack_target_key)
+        attack_value = attack.attack_value + attack_value_bonus + attack_specific_bonus
         damage = self._apply_damage_bonus(self._format_damage(attack), damage_bonus)
         notes = str(attack.notes or "")
         show_notes_as_damage = bool(getattr(attack, "show_notes_as_damage", False) and notes)
@@ -864,13 +906,22 @@ class CreatureEngine:
             damage_display = self._append_notes_to_damage_display(damage, notes, attack.damage_type)
         return {
             "name": attack.name,
-            "attack_value": attack.attack_value + attack_value_bonus,
-            "attack_value_parts": self._value_display_parts(
-                TargetDomain.COMBAT,
-                "attack_value",
-                attack.attack_value + attack_value_bonus,
+            "attack_value": attack_value,
+            "attack_value_parts": self._combined_value_display_parts(
+                [
+                    (TargetDomain.COMBAT, "attack_value"),
+                    ("creature_attack", attack_target_key),
+                ],
+                attack_value,
             ),
-            "attack_value_note": self._join_effect_notes(TargetDomain.COMBAT, "attack_value"),
+            "attack_value_note": "; ".join(
+                note
+                for note in (
+                    self._join_effect_notes(TargetDomain.COMBAT, "attack_value"),
+                    self._join_effect_notes("creature_attack", attack_target_key),
+                )
+                if note
+            ),
             "damage": damage,
             "damage_variants": [
                 {
@@ -1190,7 +1241,7 @@ class CreatureEngine:
                 {
                     "label": label,
                     "value": value,
-                    "display": "-" if value is None else f"{int(value):+d}",
+                    "display": "-" if value is None else self._format_variant_value(value, signed=True),
                     "display_parts": self._value_display_parts(TargetDomain.ATTRIBUTE, code, value, signed=True),
                     "effect_note": self._join_effect_notes(TargetDomain.ATTRIBUTE, code),
                 }
@@ -1226,14 +1277,15 @@ class CreatureEngine:
         return f"{attack.damage_dice_amount}w{attack.damage_dice_faces}{bonus}{damage_type}"
 
     @staticmethod
-    def _apply_damage_bonus(damage: str, bonus: int) -> str:
+    def _apply_damage_bonus(damage: str, bonus: int | float) -> str:
         if not damage or not bonus:
             return damage
         match = re.match(r"^(?P<head>\s*\d+w\d+)(?P<flat>[+-]\d+)?(?P<tail>.*)$", str(damage))
         if not match:
             return damage
         flat = int(match.group("flat") or 0) + bonus
-        flat_display = f"{flat:+d}" if flat else ""
+        flat = CreatureEngine._normalize_numeric_display_value(flat)
+        flat_display = CreatureEngine._format_variant_value(flat, signed=True) if flat else ""
         return f"{match.group('head')}{flat_display}{match.group('tail')}"
 
     @staticmethod
