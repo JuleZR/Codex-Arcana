@@ -598,7 +598,7 @@ class CreatureTraitChoiceDefinition(models.Model):
         help_text="Allow the same target to be selected more than once for multi-slot choices.",
     )
     allowed_skill_family = models.SlugField(max_length=50, blank=True, default="")
-    allowed_derived_stat = models.CharField(max_length=50, blank=True, default="", choices=STAT_SLUG_CHOICES)
+    allowed_derived_stat = models.CharField(max_length=255, blank=True, default="")
     allowed_resource = models.CharField(max_length=50, blank=True, default="", choices=RESOURCE_KEY_CHOICES)
     allowed_proficiency_group = models.CharField(max_length=50, blank=True, default="", choices=PROFICIENCY_GROUP_CHOICES)
     sort_order = models.PositiveSmallIntegerField(default=0)
@@ -632,8 +632,11 @@ class CreatureTraitChoiceDefinition(models.Model):
                 raise ValidationError(
                     {"allow_all_creature_special_skills": "This filter is only valid for skill choices."}
                 )
-        if self.target_kind != self.TargetKind.DERIVED_STAT and self.allowed_derived_stat:
+        allowed_derived_stats = self.allowed_derived_stat_values()
+        if self.target_kind != self.TargetKind.DERIVED_STAT and allowed_derived_stats:
             raise ValidationError({"allowed_derived_stat": "This filter is only valid for derived-stat choices."})
+        if any(value not in dict(STAT_SLUG_CHOICES) for value in allowed_derived_stats):
+            raise ValidationError({"allowed_derived_stat": "Unknown derived-stat choice."})
         if self.target_kind != self.TargetKind.RESOURCE and self.allowed_resource:
             raise ValidationError({"allowed_resource": "This filter is only valid for resource choices."})
         if self.target_kind != self.TargetKind.PROFICIENCY_GROUP and self.allowed_proficiency_group:
@@ -641,6 +644,13 @@ class CreatureTraitChoiceDefinition(models.Model):
 
     def __str__(self) -> str:
         return f"{self.trait.name}: {self.name}"
+
+    def allowed_derived_stat_values(self) -> list[str]:
+        return [value.strip() for value in (self.allowed_derived_stat or "").split(",") if value.strip()]
+
+    def get_allowed_derived_stats_display(self) -> str:
+        labels = dict(STAT_SLUG_CHOICES)
+        return ", ".join(labels.get(value, value) for value in self.allowed_derived_stat_values())
 
 
 class CreatureSemanticEffectFields(models.Model):
@@ -1522,8 +1532,8 @@ class CreatureTraitChoiceSelection(models.Model):
         if (
             self.definition_id
             and self.definition.target_kind == CreatureTraitChoiceDefinition.TargetKind.DERIVED_STAT
-            and self.definition.allowed_derived_stat
-            and self.selected_derived_stat != self.definition.allowed_derived_stat
+            and self.definition.allowed_derived_stat_values()
+            and self.selected_derived_stat not in self.definition.allowed_derived_stat_values()
         ):
             raise ValidationError({"selected_derived_stat": "The selected derived stat does not match the allowed derived stat."})
         if (

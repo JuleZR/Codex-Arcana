@@ -15,7 +15,15 @@ from django.urls import path, reverse
 from django.utils.html import format_html, format_html_join
 from django.utils.safestring import mark_safe
 
-from .constants import ATTRIBUTE_CODE_CHOICES, ONE_HANDED, QUALITY_COLOR_MAP, SCHOOL_ARCANE, TWO_HANDED, VERSATILE
+from .constants import (
+    ATTRIBUTE_CODE_CHOICES,
+    ONE_HANDED,
+    QUALITY_COLOR_MAP,
+    SCHOOL_ARCANE,
+    STAT_SLUG_CHOICES,
+    TWO_HANDED,
+    VERSATILE,
+)
 from .admin_help import (
     ATTRIBUTE_CHOICE_HELP,
     CHARACTER_CHOICE_HELP,
@@ -718,7 +726,11 @@ def _format_trait_choice_context(definition):
     if definition.allowed_skill_family:
         parts.append(f"Allowed Skill Family: {definition.allowed_skill_family}")
     if definition.allowed_derived_stat:
-        parts.append(f"Allowed Derived Stat: {definition.get_allowed_derived_stat_display()}")
+        if hasattr(definition, "get_allowed_derived_stats_display"):
+            derived_stat_display = definition.get_allowed_derived_stats_display()
+        else:
+            derived_stat_display = definition.get_allowed_derived_stat_display()
+        parts.append(f"Allowed Derived Stat: {derived_stat_display}")
     if definition.allowed_resource:
         parts.append(f"Allowed Resource: {definition.get_allowed_resource_display()}")
     if definition.allowed_proficiency_group:
@@ -5559,6 +5571,12 @@ class CreatureTraitChoiceDefinitionAdminForm(forms.ModelForm):
         label="Allowed skill categories",
         help_text="Optional filter restricting skill choices. Includes a virtual entry for all creature special skills.",
     )
+    allowed_derived_stat = forms.MultipleChoiceField(
+        required=False,
+        label="Allowed derived stat",
+        choices=STAT_SLUG_CHOICES,
+        help_text="Optional filter restricting derived-stat choices to one or more stats.",
+    )
 
     class Meta:
         model = CreatureTraitChoiceDefinition
@@ -5579,6 +5597,7 @@ class CreatureTraitChoiceDefinitionAdminForm(forms.ModelForm):
             if self.instance.allow_all_creature_special_skills:
                 initial_values.append(self.CREATURE_SPECIAL_SKILLS_CATEGORY_VALUE)
             self.initial["allowed_skill_categories"] = initial_values
+            self.initial["allowed_derived_stat"] = self.instance.allowed_derived_stat_values()
 
     def clean(self):
         cleaned_data = super().clean()
@@ -5595,8 +5614,10 @@ class CreatureTraitChoiceDefinitionAdminForm(forms.ModelForm):
         allowed_skill_categories = SkillCategory.objects.filter(pk__in=category_ids)
         allowed_skills = cleaned_data.get("allowed_skills")
         allowed_creature_special_skills = cleaned_data.get("allowed_creature_special_skills")
+        allowed_derived_stats = cleaned_data.get("allowed_derived_stat") or []
         cleaned_data["allowed_skill_categories"] = allowed_skill_categories
         cleaned_data["allow_all_creature_special_skills"] = allow_all_creature_special_skills
+        cleaned_data["allowed_derived_stat"] = ",".join(allowed_derived_stats)
         if target_kind != CreatureTraitChoiceDefinition.TargetKind.SKILL:
             if allowed_skill_categories:
                 self.add_error(
@@ -5615,6 +5636,11 @@ class CreatureTraitChoiceDefinitionAdminForm(forms.ModelForm):
                     "allow_all_creature_special_skills",
                     "This filter is only valid for skill choices.",
                 )
+        if target_kind != CreatureTraitChoiceDefinition.TargetKind.DERIVED_STAT and allowed_derived_stats:
+            self.add_error(
+                "allowed_derived_stat",
+                "This filter is only valid for derived-stat choices.",
+            )
         return cleaned_data
 
     def save(self, commit=True):
