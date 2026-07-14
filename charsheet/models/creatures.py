@@ -450,6 +450,11 @@ class CreatureTraitDefinition(models.Model):
     min_level = models.PositiveIntegerField(default=1)
     max_level = models.PositiveIntegerField(default=1)
     points_per_level = models.PositiveIntegerField(default=1)
+    hide_from_creature_training = models.BooleanField(
+        "Nicht im Kreaturentraining anbieten",
+        default=False,
+        help_text="Wenn aktiv, wird diese Faehigkeit nicht als neue Ausbildungsoption im Kreaturentraining angeboten.",
+    )
     points_by_level = models.CharField(
         max_length=200,
         blank=True,

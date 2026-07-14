@@ -260,6 +260,7 @@ def build_creature_card_training_context(card):
         for row in traits
         if row.trait_id and row.training_trait_type == row.TrainingTraitType.DISADVANTAGE
     }
+    visible_hidden_trait_ids = set(base_trait_levels) | set(advantage_levels) | set(disadvantage_levels)
     existing_trait_choices = {
         (choice.character_creature_trait.trait_id, choice.definition_id): choice
         for choice in CharacterCreatureTraitChoice.objects.filter(character_creature_trait__in=traits)
@@ -347,6 +348,8 @@ def build_creature_card_training_context(card):
         "choice_definitions__allowed_skills",
         "choice_definitions__allowed_skill_categories",
     ).order_by("trait_type", "name"):
+        if trait.hide_from_creature_training and trait.pk not in visible_hidden_trait_ids:
+            continue
         advantage_selected = trait.pk in advantage_levels
         disadvantage_selected = trait.pk in disadvantage_levels
         base_level = int(base_trait_levels.get(trait.pk, 0) or 0)

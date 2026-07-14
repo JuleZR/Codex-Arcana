@@ -480,6 +480,14 @@ class CreatureEngine:
                 seen.append(text)
         return "; ".join(seen)
 
+    def _join_effect_notes_for_targets(self, targets: list[tuple[str, str]]) -> str:
+        seen = []
+        for target_domain, target_key in targets:
+            for text in self._effect_notes(target_domain, target_key):
+                if text not in seen:
+                    seen.append(text)
+        return "; ".join(seen)
+
     def effect_condition_summary(self) -> list[dict[str, str]]:
         rows = []
         seen: set[tuple[str, str, str]] = set()
@@ -566,6 +574,11 @@ class CreatureEngine:
             for row in self.creature.skills.select_related("skill"):
                 if row.skill.slug == target_key:
                     return row.skill.name
+            return target_key
+        if target_domain == TargetDomain.SKILL_CATEGORY:
+            for row in self.creature.skills.select_related("skill__category"):
+                if row.skill.category.slug == target_key:
+                    return row.skill.category.name
             return target_key
         return f"{target_domain}:{target_key}"
 
@@ -968,22 +981,35 @@ class CreatureEngine:
             value = override.value_override if override else row.value
             deviation = int(row.deviation or 0) + (int(override.deviation or 0) if override else 0)
             attribute_modifier = self._skill_attribute_modifier(row.skill)
+            category_slug = row.skill.category.slug
             effective_value = (
                 value
                 + deviation
                 + attribute_modifier
                 + self._skill_size_modifier(row.skill)
+                + self._modifier_total(TargetDomain.SKILL_CATEGORY, category_slug)
                 + self._modifier_total(TargetDomain.SKILL, row.skill.slug)
             )
             base_rows.append(
                 {
                     "name": row.skill.name,
                     "value": effective_value,
-                    "value_parts": self._value_display_parts(TargetDomain.SKILL, row.skill.slug, effective_value),
+                    "value_parts": self._combined_value_display_parts(
+                        [
+                            (TargetDomain.SKILL_CATEGORY, category_slug),
+                            (TargetDomain.SKILL, row.skill.slug),
+                        ],
+                        effective_value,
+                    ),
                     "deviation": deviation,
                         "attribute": row.skill.attribute.short_name,
                         "attribute_modifier": attribute_modifier,
-                        "effect_note": self._join_effect_notes(TargetDomain.SKILL, row.skill.slug),
+                        "effect_note": self._join_effect_notes_for_targets(
+                            [
+                                (TargetDomain.SKILL_CATEGORY, category_slug),
+                                (TargetDomain.SKILL, row.skill.slug),
+                            ]
+                        ),
                         "notes": override.notes if override and override.notes else row.notes or row.skill.description,
                 }
             )
@@ -991,22 +1017,35 @@ class CreatureEngine:
             if skill_id not in seen:
                 deviation = int(override.deviation or 0)
                 attribute_modifier = self._skill_attribute_modifier(override.skill)
+                category_slug = override.skill.category.slug
                 effective_value = (
                     override.value_override
                     + deviation
                     + attribute_modifier
                     + self._skill_size_modifier(override.skill)
+                    + self._modifier_total(TargetDomain.SKILL_CATEGORY, category_slug)
                     + self._modifier_total(TargetDomain.SKILL, override.skill.slug)
                 )
                 base_rows.append(
                     {
                         "name": override.skill.name,
                         "value": effective_value,
-                        "value_parts": self._value_display_parts(TargetDomain.SKILL, override.skill.slug, effective_value),
+                        "value_parts": self._combined_value_display_parts(
+                            [
+                                (TargetDomain.SKILL_CATEGORY, category_slug),
+                                (TargetDomain.SKILL, override.skill.slug),
+                            ],
+                            effective_value,
+                        ),
                         "deviation": deviation,
                         "attribute": override.skill.attribute.short_name,
                         "attribute_modifier": attribute_modifier,
-                        "effect_note": self._join_effect_notes(TargetDomain.SKILL, override.skill.slug),
+                        "effect_note": self._join_effect_notes_for_targets(
+                            [
+                                (TargetDomain.SKILL_CATEGORY, category_slug),
+                                (TargetDomain.SKILL, override.skill.slug),
+                            ]
+                        ),
                         "notes": override.notes or override.skill.description,
                     }
                 )

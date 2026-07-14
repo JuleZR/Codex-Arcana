@@ -2108,6 +2108,7 @@ class CreatureTraitSemanticEffectAdminForm(forms.ModelForm):
         ("defense", "Verteidigung / Widerstand"),
         ("movement", "Bewegung"),
         ("skill", "Fertigkeit"),
+        ("skill_category", "Fertigkeitskategorie"),
         ("special_skill", "Kreaturen-Fertigkeit"),
         ("combat", "Angriff / Schaden"),
         ("choice", "Auswahl des Traits"),
@@ -2193,6 +2194,9 @@ class CreatureTraitSemanticEffectAdminForm(forms.ModelForm):
         elif target_domain == "skill":
             self.initial.setdefault("effect_area", "skill")
             self.initial.setdefault("simple_target", f"skill:{target_key}")
+        elif target_domain == "skill_category":
+            self.initial.setdefault("effect_area", "skill_category")
+            self.initial.setdefault("simple_target", f"skill_category:{target_key}")
         elif target_domain == "creature_special_skill":
             self.initial.setdefault("effect_area", "special_skill")
             self.initial.setdefault("simple_target", f"special_skill:{target_key}")
@@ -2214,6 +2218,7 @@ class CreatureTraitSemanticEffectAdminForm(forms.ModelForm):
         choices.extend((f"defense:{value}", label) for value, label in self.DEFENSE_TARGET_CHOICES)
         choices.extend((f"movement:{value}", label) for value, label in self.MOVEMENT_TARGET_CHOICES)
         choices.extend((f"skill:{skill.slug}", skill.name) for skill in Skill.objects.order_by("name"))
+        choices.extend((f"skill_category:{category.slug}", category.name) for category in SkillCategory.objects.order_by("name"))
         choices.extend((f"special_skill:{skill.slug}", skill.name) for skill in CreatureSpecialSkill.objects.order_by("name"))
         choices.extend((f"combat:{value}", label) for value, label in self.COMBAT_TARGET_CHOICES)
         return choices
@@ -2300,6 +2305,8 @@ class CreatureTraitSemanticEffectAdminForm(forms.ModelForm):
             return "movement", target_key
         if area == "skill":
             return "skill", target_key
+        if area == "skill_category":
+            return "skill_category", target_key
         if area == "special_skill":
             return "creature_special_skill", target_key
         if area == "combat":
@@ -6077,14 +6084,14 @@ class CreatureSpecialSkillValueAdmin(admin.ModelAdmin):
 
 @admin.register(CreatureTraitDefinition)
 class CreatureTraitDefinitionAdmin(admin.ModelAdmin):
-    list_display = ("name", "slug", "trait_type", "min_level", "max_level", "cost_display")
+    list_display = ("name", "slug", "trait_type", "min_level", "max_level", "cost_display", "hide_from_creature_training")
     search_fields = ("name", "slug", "description")
-    list_filter = ("trait_type",)
+    list_filter = ("trait_type", "hide_from_creature_training")
     prepopulated_fields = {"slug": ("name",)}
     readonly_fields = ("semantic_effect_preview",)
     inlines = (CreatureTraitChoiceDefinitionInline, CreatureTraitSemanticEffectInline)
     fieldsets = (
-        ("Basis", {"fields": ("name", "slug", "trait_type", "description")}),
+        ("Basis", {"fields": ("name", "slug", "trait_type", "hide_from_creature_training", "description")}),
         ("Ranks & Costs", {"fields": ("min_level", "max_level", "points_per_level", "points_by_level")}),
         ("Semantic Preview", {"fields": ("semantic_effect_preview",)}),
     )

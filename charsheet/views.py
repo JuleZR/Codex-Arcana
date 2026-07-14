@@ -2430,6 +2430,13 @@ def update_creature_card_training(request, pk: int):
             pk__in=selected_advantage_ids | selected_disadvantage_ids
         )
     }
+    blocked_new_training_trait_ids = {
+        trait_id
+        for trait_id, trait in traits_by_id.items()
+        if trait.hide_from_creature_training and trait_id not in base_traits_by_trait_id
+    }
+    selected_advantage_ids -= blocked_new_training_trait_ids
+    selected_disadvantage_ids -= blocked_new_training_trait_ids
     selected_training_trait_ids = selected_advantage_ids | selected_disadvantage_ids
     choice_carrier_trait_ids = posted_choice_trait_ids & set(base_traits_by_trait_id)
     selected_trait_specs = []
