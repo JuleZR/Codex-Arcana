@@ -542,6 +542,7 @@ class CreatureEngine:
                 "rs": "RS",
                 "natural_rs": "RS",
                 "wound_step": "Wundschwelle",
+                "wound_penalty_reduction": "Wundmali reduzieren",
                 "encumbrance": "BEL",
             }
             return labels.get(target_key, target_key)
@@ -693,16 +694,19 @@ class CreatureEngine:
             base = 5 + int(self.attribute_mod(ATTR_KON) or 0)
         return max(1, base + int(self._instance_numeric_adjustment("wound_step_override")) + self._modifier_total(TargetDomain.DERIVED_STAT, "wound_step"))
 
+    def wound_penalty_reduction(self) -> int:
+        return max(0, int(self._modifier_total(TargetDomain.DERIVED_STAT, "wound_penalty_reduction") or 0))
+
     def wound_rows(self) -> list[dict[str, Any]]:
         explicit_thresholds = self._wound_thresholds_override()
         if explicit_thresholds:
             return [
-                {"label": label, "threshold": threshold}
+                {"label": label, "threshold": threshold, "penalty": self._wound_penalty_for_label(label)}
                 for label, threshold in zip(WOUND_STAGE_LABELS, explicit_thresholds)
             ]
         step = max(1, self.wound_step())
         return [
-            {"label": label, "threshold": step * index}
+            {"label": label, "threshold": step * index, "penalty": self._wound_penalty_for_label(label)}
             for index, label in enumerate(WOUND_STAGE_LABELS, start=1)
         ]
 
@@ -736,7 +740,7 @@ class CreatureEngine:
                 current = {
                     "label": row["label"],
                     "threshold": row["threshold"],
-                    "penalty": self._wound_penalty_for_label(row["label"]),
+                    "penalty": row["penalty"],
                 }
             else:
                 break
@@ -1365,8 +1369,14 @@ class CreatureEngine:
             return f"{whole} {remainder}/{fraction.denominator}"
         return f"{remainder}/{fraction.denominator}"
 
+    def _wound_penalty_for_label(self, label: str) -> int:
+        penalty = self._base_wound_penalty_for_label(label)
+        if penalty >= 0:
+            return penalty
+        return min(0, penalty + self.wound_penalty_reduction())
+
     @staticmethod
-    def _wound_penalty_for_label(label: str) -> int:
+    def _base_wound_penalty_for_label(label: str) -> int:
         if label in {"-2", "-4", "-6"}:
             return int(label)
         return 0

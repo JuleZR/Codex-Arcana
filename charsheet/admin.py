@@ -2121,6 +2121,7 @@ class CreatureTraitSemanticEffectAdminForm(forms.ModelForm):
         ("rs", "RS"),
         ("natural_rs", "Natuerlicher RS"),
         ("wound_step", "Wundschwelle"),
+        ("wound_penalty_reduction", "Wundmali reduzieren"),
         ("encumbrance", "BEL"),
     )
     MOVEMENT_TARGET_CHOICES = (
