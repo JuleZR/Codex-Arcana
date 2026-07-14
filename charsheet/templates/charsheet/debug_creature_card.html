@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Debug Card Browser</title>
 <link rel="stylesheet" href="{% static 'css/charsheet/_card.css' %}">
-<script type="module" src="{% static 'js/charsheet/creature_card.js' %}?v=20260702b"></script>
+<link rel="stylesheet" href="{% static 'css/charsheet/sheet-secondary.css' %}">
 <style>
     :root {
         color-scheme: dark;
@@ -434,7 +434,10 @@
         </section>
     </main>
 
-    <script>
+    <script type="module">
+        import { initCreatureCards } from "{% static 'js/charsheet/creature_card.js' %}?v=20260702b";
+        import { initTooltips } from "{% static 'js/charsheet/tooltip.js' %}?v=20260714a";
+
         (() => {
             const controls = document.querySelector("[data-debug-card-controls]");
             const select = document.querySelector("[data-debug-card-select]");
@@ -469,10 +472,8 @@
 
             const reinitializeCards = async () => {
                 try {
-                    const module = await import("{% static 'js/charsheet/creature_card.js' %}?v=20260702b");
-                    if (typeof module.initCreatureCards === "function") {
-                        module.initCreatureCards();
-                    }
+                    initCreatureCards();
+                    initTooltips();
                 } catch (_error) {
                     // The rendered cards remain visible; this only affects debug-page polish.
                 }
@@ -647,6 +648,7 @@
                     animateToCardValue(nextValue);
                 }
             });
+            initTooltips();
         })();
     </script>
 </body>

@@ -63,16 +63,22 @@ from charsheet.models import (
     CharacterItem,
     CharacterSkill,
     CharacterWeaponMasteryArcana,
+    CharacterCreature,
+    CharacterCreatureTrait,
     DivineEntityAspect,
     DruidCult,
     ItemRune,
     CharacterLanguage,
     CharacterSpell,
+    CharacterCreatureTraitChoice,
     RaceStartingItem,
     CharacterTechnique,
     CharacterTrait,
     CreatureCommand,
     CreatureSpecialSkill,
+    CreatureTrait,
+    CreatureTraitChoice,
+    CreatureTraitChoiceDefinition,
     CreatureTraitDefinition,
     DamageSource,
     Item,
@@ -125,6 +131,13 @@ _DAMAGE_GAUGE_TICK_INNER_MINOR = 76
 def build_creature_card_training_context(card):
     engine = CreatureEngine(card)
     traits = list(card.trait_overrides.select_related("trait").all())
+    base_trait_rows = list(card.creature.traits.select_related("trait").prefetch_related("choices").all())
+    base_traits_by_trait_id = {row.trait_id: row for row in base_trait_rows}
+    base_trait_levels = {
+        row.trait_id: int(row.trait_level or 0)
+        for row in base_trait_rows
+        if row.trait_id
+    }
     commands = list(card.commands.select_related("command").prefetch_related("prerequisite_links__prerequisite__command").all())
     skill_overrides = {row.skill_id: row for row in card.skill_overrides.select_related("skill", "skill__attribute", "skill__category").all()}
     special_skill_overrides = {
@@ -247,6 +260,16 @@ def build_creature_card_training_context(card):
         for row in traits
         if row.trait_id and row.training_trait_type == row.TrainingTraitType.DISADVANTAGE
     }
+    existing_trait_choices = {
+        (choice.character_creature_trait.trait_id, choice.definition_id): choice
+        for choice in CharacterCreatureTraitChoice.objects.filter(character_creature_trait__in=traits)
+        .select_related("character_creature_trait", "selected_skill")
+    }
+    base_trait_choices = {
+        (choice.creature_trait.trait_id, choice.definition_id): choice
+        for choice in CreatureTraitChoice.objects.filter(creature_trait__in=base_trait_rows)
+        .select_related("creature_trait", "selected_skill")
+    }
     command_catalog = []
     for command in CreatureCommand.objects.prefetch_related("prerequisite_links__prerequisite").order_by("name"):
         prerequisite_groups = command.prerequisite_groups
@@ -272,21 +295,84 @@ def build_creature_card_training_context(card):
                 "known": command.slug in known_command_slugs,
             }
         )
-    trait_catalog = [
-        {
-            "id": trait.pk,
-            "name": trait.name,
-            "trait_type": trait.trait_type,
-            "min_level": trait.min_level,
-            "max_level": trait.max_level,
-            "cost_display": trait.cost_display(),
-            "advantage_selected": trait.pk in advantage_levels,
-            "disadvantage_selected": trait.pk in disadvantage_levels,
-            "advantage_level": advantage_levels.get(trait.pk, trait.min_level),
-            "disadvantage_level": disadvantage_levels.get(trait.pk, trait.min_level),
-        }
-        for trait in CreatureTraitDefinition.objects.order_by("trait_type", "name")
-    ]
+    def skill_choice_options(definition):
+        skills = Skill.objects.select_related("category").order_by("name")
+        if definition.pk:
+            allowed_skill_ids = list(definition.allowed_skills.values_list("id", flat=True))
+            allowed_category_ids = list(definition.allowed_skill_categories.values_list("id", flat=True))
+            if allowed_skill_ids:
+                skills = skills.filter(pk__in=allowed_skill_ids)
+            if allowed_category_ids:
+                skills = skills.filter(category_id__in=allowed_category_ids)
+        if definition.allowed_skill_category_id:
+            skills = skills.filter(category_id=definition.allowed_skill_category_id)
+        if definition.allowed_skill_family:
+            skills = skills.filter(family=definition.allowed_skill_family)
+        return [{"value": skill.pk, "label": skill.name, "meta": skill.category.name} for skill in skills]
+
+    def trait_choice_rows(trait):
+        rows = []
+        for definition in trait.choice_definitions.all():
+            if not definition.is_active:
+                continue
+            if definition.target_kind != CreatureTraitChoiceDefinition.TargetKind.SKILL:
+                rows.append(
+                    {
+                        "definition_id": definition.pk,
+                        "name": definition.name,
+                        "input_type": "unsupported",
+                        "note": "Diese Choice-Art wird im Kreaturen-Training noch nicht direkt bearbeitet.",
+                    }
+                )
+                continue
+            existing_choice = existing_trait_choices.get((trait.pk, definition.pk)) or base_trait_choices.get(
+                (trait.pk, definition.pk)
+            )
+            rows.append(
+                {
+                    "definition_id": definition.pk,
+                    "name": definition.name,
+                    "input_type": "skill",
+                    "field_name": f"creature_trait_choice_{trait.pk}_{definition.pk}",
+                    "required": definition.is_required,
+                    "selected": existing_choice.selected_skill_id if existing_choice else "",
+                    "options": skill_choice_options(definition),
+                }
+            )
+        return rows
+
+    trait_catalog = []
+    for trait in CreatureTraitDefinition.objects.prefetch_related(
+        "choice_definitions",
+        "choice_definitions__allowed_skills",
+        "choice_definitions__allowed_skill_categories",
+    ).order_by("trait_type", "name"):
+        advantage_selected = trait.pk in advantage_levels
+        disadvantage_selected = trait.pk in disadvantage_levels
+        base_level = int(base_trait_levels.get(trait.pk, 0) or 0)
+        advantage_total_level = int(advantage_levels.get(trait.pk, base_level) or base_level)
+        disadvantage_total_level = int(disadvantage_levels.get(trait.pk, base_level) or base_level)
+        trait_catalog.append(
+            {
+                "id": trait.pk,
+                "name": trait.name,
+                "trait_type": trait.trait_type,
+                "min_level": trait.min_level,
+                "max_level": trait.max_level,
+                "training_min_level": max(int(trait.min_level), base_level),
+                "training_max_level": int(trait.max_level),
+                "cost_display": trait.cost_display(),
+                "advantage_selected": advantage_selected or bool(base_level and trait.trait_type == trait.TraitType.ADV),
+                "disadvantage_selected": disadvantage_selected or bool(base_level and trait.trait_type == trait.TraitType.DIS),
+                "advantage_level": advantage_total_level if advantage_selected or base_level else int(trait.min_level),
+                "disadvantage_level": disadvantage_total_level if disadvantage_selected or base_level else int(trait.min_level),
+                "base_level": base_level,
+                "has_base": bool(base_level),
+                "effective_advantage_level": advantage_total_level,
+                "effective_disadvantage_level": disadvantage_total_level,
+                "choice_rows": trait_choice_rows(trait),
+            }
+        )
     card_attribute_values = {
         ATTR_ST: engine.attribute_base_mod(ATTR_ST),
         ATTR_KON: engine.attribute_base_mod(ATTR_KON),
@@ -353,19 +439,44 @@ def build_creature_card_training_context(card):
         if skill.name.casefold() not in existing_skill_names
     ]
     movement = engine.movement()
+    can_swim = any(movement.get(field_name) is not None for field_name in ("swim_combat", "swim_march", "swim_sprint"))
     can_fly = any(movement.get(field_name) is not None for field_name in ("fly_combat", "fly_march", "fly_sprint"))
+    movement_mana_adjustment = int(card.movement_mana_cost_override or 0)
+    movement_mana_cost = (
+        None
+        if card.creature.movement_mana_cost is None and not movement_mana_adjustment
+        else max(0, int(card.creature.movement_mana_cost or 0) + movement_mana_adjustment)
+    )
+    can_mana = movement_mana_cost is not None
     movement_options = {
         "combat_speed": format_compact_number(movement["combat"] or 0),
         "march_speed": format_compact_number(movement["march"] or 0),
         "sprint_speed": format_compact_number(movement["sprint"] or 0),
         "swimming_speed": format_compact_number(movement["swim"] or 0),
+        "combat_swimming_speed": "" if movement["swim_combat"] is None else format_compact_number(movement["swim_combat"]),
+        "march_swimming_speed": "" if movement["swim_march"] is None else format_compact_number(movement["swim_march"]),
+        "sprint_swimming_speed": "" if movement["swim_sprint"] is None else format_compact_number(movement["swim_sprint"]),
+        "can_swim": can_swim,
         "can_fly": can_fly,
         "combat_fly_speed": format_compact_number(movement["fly_combat"] or 0),
         "march_fly_speed": format_compact_number(movement["fly_march"] or 0),
         "sprint_fly_speed": format_compact_number(movement["fly_sprint"] or 0),
+        "movement_mana_cost": "" if movement_mana_cost is None else movement_mana_cost,
+        "movement_note": engine._value("movement_note", ""),
+        "can_mana": can_mana,
     }
     current_size_class = engine.size_class()
     size_options = _size_class_options(selected=current_size_class)
+    armor = engine.armor_totals()
+    core_value_options = {
+        "initiative": engine.initiative(),
+        "vw": engine.vw(),
+        "sr": engine.sr(),
+        "gw": engine.gw(),
+        "natural_rs": armor.natural_rs,
+        "wound_step": engine.wound_step(),
+        "wound_thresholds": card.wound_thresholds_override or card.creature.wound_thresholds_override,
+    }
 
     return {
         "card": card,
@@ -389,6 +500,7 @@ def build_creature_card_training_context(card):
         "current_size_modifier": int(GK_MODS.get(current_size_class, 0)),
         "current_size_modifier_display": format_modifier(int(GK_MODS.get(current_size_class, 0))),
         "movement_options": movement_options,
+        "core_value_options": core_value_options,
         "base_advantage_points": int(card.max_base_advantage_points or 0),
         "base_disadvantage_points": int(card.max_base_disadvantage_points or 0),
         "spent_advantage_points": advantage_points,
@@ -405,6 +517,109 @@ def build_creature_card_training_context(card):
         "remaining_advantage_points": remaining_advantage_points,
         "remaining_disadvantage_points": effective_disadvantage_points - base_disadvantage_points - additional_disadvantage_points,
     }
+
+
+def _creature_trait_skill_choice_options(definition: CreatureTraitChoiceDefinition) -> list[dict[str, object]]:
+    skills = Skill.objects.select_related("category").order_by("name")
+    allowed_skill_ids = list(definition.allowed_skills.values_list("id", flat=True))
+    allowed_category_ids = list(definition.allowed_skill_categories.values_list("id", flat=True))
+    if allowed_skill_ids:
+        skills = skills.filter(pk__in=allowed_skill_ids)
+    if allowed_category_ids:
+        skills = skills.filter(category_id__in=allowed_category_ids)
+    if definition.allowed_skill_category_id:
+        skills = skills.filter(category_id=definition.allowed_skill_category_id)
+    if definition.allowed_skill_family:
+        skills = skills.filter(family=definition.allowed_skill_family)
+    options = [{"value": f"skill:{skill.pk}", "label": skill.name, "meta": skill.category.name} for skill in skills]
+    special_skills = (
+        CreatureSpecialSkill.objects.order_by("name")
+        if definition.allow_all_creature_special_skills
+        else definition.allowed_creature_special_skills.order_by("name")
+    )
+    options.extend(
+        {
+            "value": f"special:{skill.pk}",
+            "label": skill.name,
+            "meta": "Kreatur-Spezialfertigkeit",
+        }
+        for skill in special_skills
+    )
+    return options
+
+
+def build_creature_choice_progression_context(cards: list[CharacterCreature]) -> dict[str, object]:
+    choice_rows = []
+    pending_decisions = []
+    for card in cards:
+        base_rows = list(card.creature.traits.select_related("trait").prefetch_related("choices").all())
+        override_rows = list(card.trait_overrides.select_related("base_trait", "trait").prefetch_related("choices").all())
+        override_by_trait_id = {row.trait_id: row for row in override_rows if row.active}
+        effective_rows = [override_by_trait_id.get(row.trait_id) or row for row in base_rows]
+        base_trait_ids = {row.trait_id for row in base_rows}
+        effective_rows.extend(row for row in override_rows if row.active and row.trait_id not in base_trait_ids)
+        for row in effective_rows:
+            definitions = list(
+                row.trait.choice_definitions.filter(
+                    is_active=True,
+                    target_kind=CreatureTraitChoiceDefinition.TargetKind.SKILL,
+                )
+                .prefetch_related("allowed_skills", "allowed_skill_categories", "allowed_creature_special_skills")
+                .order_by("sort_order", "name", "id")
+            )
+            if not definitions:
+                continue
+            existing_choices = list(row.choices.all())
+            trait_level = max(1, int(getattr(row, "trait_level", 1) or 1))
+            for definition in definitions:
+                existing_count = len([choice for choice in existing_choices if choice.definition_id == definition.id])
+                required_count = (definition.min_choices if definition.is_required else 0) * trait_level
+                missing_count = max(0, required_count - existing_count)
+                allow_duplicate_selections = bool(definition.allow_duplicate_selections)
+                for slot_index in range(missing_count):
+                    field_name = f"learn_choice_creature_trait_{card.pk}_{row.trait_id}_{definition.pk}_{slot_index}"
+                    options = _creature_trait_skill_choice_options(definition)
+                    choice_rows.append(
+                        {
+                            "choice_scope": "creature_trait",
+                            "card_id": card.pk,
+                            "base_trait_id": row.id if isinstance(row, CreatureTrait) else None,
+                            "trait_id": row.trait_id,
+                            "definition_id": definition.pk,
+                            "target_kind": definition.target_kind,
+                            "field_name": field_name,
+                            "supported": True,
+                            "options": options,
+                        }
+                    )
+                    pending_decisions.append(
+                        {
+                            "decision_id": f"creature-trait-choice-{card.pk}-{row.trait_id}-{definition.pk}-{slot_index}",
+                            "kind": "creature_trait_choice",
+                            "title": f"Choice: {card.display_name}",
+                            "summary": f"{row.trait.name}: {definition.name}",
+                            "description": definition.description or "",
+                            "prompt": "Auswahl treffen",
+                            "input_type": "options",
+                            "supported": True,
+                            "selection_group_id": f"creature-trait-choice:{card.pk}:{row.trait_id}:{definition.pk}",
+                            "allow_duplicate_selections": allow_duplicate_selections,
+                            "options": [
+                                {
+                                    "id": str(option["value"]),
+                                    "label": option["label"],
+                                    "meta": option["meta"],
+                                    "badge": "",
+                                    "description": "",
+                                    "facts": [],
+                                    "submit_name": field_name,
+                                    "submit_value": str(option["value"]),
+                                }
+                                for option in options
+                            ],
+                        }
+                    )
+    return {"learn_choice_rows": choice_rows, "learn_pending_decisions": pending_decisions}
 
 
 def _spell_attribute_chart_line(counts: dict[str, int]) -> str:
@@ -3984,6 +4199,20 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
                 "active": card.active,
                 "has_source_deviations": bool(card.name_override or card.image_override),
             }
+        )
+    creature_choice_context = build_creature_choice_progression_context(active_creature_cards)
+    if creature_choice_context["learn_choice_rows"]:
+        learning_progression_context["learn_choice_rows"].extend(creature_choice_context["learn_choice_rows"])
+        learning_progression_context["learn_pending_decisions"].extend(creature_choice_context["learn_pending_decisions"])
+        learning_progression_context["learn_choice_groups"].append(
+            {"name": "Kreaturen", "rows": creature_choice_context["learn_choice_rows"]}
+        )
+        learning_progression_context["learn_choice_count"] = len(learning_progression_context["learn_choice_rows"])
+        learning_progression_context["learn_pending_choice_count"] = len(
+            learning_progression_context["learn_pending_decisions"]
+        )
+        learning_progression_context["learn_has_pending_choices"] = bool(
+            learning_progression_context["learn_pending_decisions"]
         )
 
     return {

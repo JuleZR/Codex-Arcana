@@ -571,6 +571,32 @@ class CreatureTraitChoiceDefinition(models.Model):
         blank=True,
         related_name="creature_trait_choice_definitions",
     )
+    allowed_skill_categories = models.ManyToManyField(
+        SkillCategory,
+        blank=True,
+        related_name="creature_trait_multi_choice_definitions",
+        help_text="Optional filter restricting skill choices to one or more skill categories.",
+    )
+    allowed_skills = models.ManyToManyField(
+        Skill,
+        blank=True,
+        related_name="creature_trait_choice_definitions",
+        help_text="Optional concrete skills allowed for this choice definition.",
+    )
+    allowed_creature_special_skills = models.ManyToManyField(
+        CreatureSpecialSkill,
+        blank=True,
+        related_name="creature_trait_choice_definitions",
+        help_text="Optional creature-only skills that are offered in addition to normal skill choices.",
+    )
+    allow_all_creature_special_skills = models.BooleanField(
+        default=False,
+        help_text="Offer every creature-only skill in addition to the normal skill choices.",
+    )
+    allow_duplicate_selections = models.BooleanField(
+        default=False,
+        help_text="Allow the same target to be selected more than once for multi-slot choices.",
+    )
     allowed_skill_family = models.SlugField(max_length=50, blank=True, default="")
     allowed_derived_stat = models.CharField(max_length=50, blank=True, default="", choices=STAT_SLUG_CHOICES)
     allowed_resource = models.CharField(max_length=50, blank=True, default="", choices=RESOURCE_KEY_CHOICES)
@@ -594,6 +620,18 @@ class CreatureTraitChoiceDefinition(models.Model):
                 raise ValidationError({"allowed_skill_category": "This filter is only valid for skill choices."})
             if self.allowed_skill_family:
                 raise ValidationError({"allowed_skill_family": "This filter is only valid for skill choices."})
+            if self.pk and self.allowed_skill_categories.exists():
+                raise ValidationError({"allowed_skill_categories": "This filter is only valid for skill choices."})
+            if self.pk and self.allowed_skills.exists():
+                raise ValidationError({"allowed_skills": "This filter is only valid for skill choices."})
+            if self.pk and self.allowed_creature_special_skills.exists():
+                raise ValidationError(
+                    {"allowed_creature_special_skills": "This filter is only valid for skill choices."}
+                )
+            if self.allow_all_creature_special_skills:
+                raise ValidationError(
+                    {"allow_all_creature_special_skills": "This filter is only valid for skill choices."}
+                )
         if self.target_kind != self.TargetKind.DERIVED_STAT and self.allowed_derived_stat:
             raise ValidationError({"allowed_derived_stat": "This filter is only valid for derived-stat choices."})
         if self.target_kind != self.TargetKind.RESOURCE and self.allowed_resource:
@@ -991,8 +1029,8 @@ class CharacterCreature(models.Model):
     gw_override = models.IntegerField(blank=True, null=True)
     defense_extra_label_override = models.CharField("GW extra label override", max_length=20, blank=True, default="")
     fear_resistance_bonus_override = models.IntegerField("GW extra value override", blank=True, null=True)
-    natural_rs_override = models.PositiveIntegerField(blank=True, null=True)
-    wound_step_override = models.PositiveIntegerField(blank=True, null=True)
+    natural_rs_override = models.IntegerField(blank=True, null=True)
+    wound_step_override = models.IntegerField(blank=True, null=True)
     wound_thresholds_override = models.CharField(
         "Wundschwellen override",
         max_length=100,
@@ -1000,13 +1038,18 @@ class CharacterCreature(models.Model):
         default="",
         help_text="Optionale exakte LP-Schwellen, kommasepariert, z. B. 2,4,8,10,12,15.",
     )
-    combat_speed_override = models.FloatField(blank=True, null=True, validators=[MinValueValidator(0)])
-    march_speed_override = models.FloatField(blank=True, null=True, validators=[MinValueValidator(0)])
-    sprint_speed_override = models.FloatField(blank=True, null=True, validators=[MinValueValidator(0)])
-    swimming_speed_override = models.FloatField(blank=True, null=True, validators=[MinValueValidator(0)])
-    combat_fly_speed_override = models.FloatField(blank=True, null=True, validators=[MinValueValidator(0)])
-    march_fly_speed_override = models.FloatField(blank=True, null=True, validators=[MinValueValidator(0)])
-    sprint_fly_speed_override = models.FloatField(blank=True, null=True, validators=[MinValueValidator(0)])
+    combat_speed_override = models.FloatField(blank=True, null=True)
+    march_speed_override = models.FloatField(blank=True, null=True)
+    sprint_speed_override = models.FloatField(blank=True, null=True)
+    swimming_speed_override = models.FloatField(blank=True, null=True)
+    combat_swimming_speed_override = models.FloatField(blank=True, null=True)
+    march_swimming_speed_override = models.FloatField(blank=True, null=True)
+    sprint_swimming_speed_override = models.FloatField(blank=True, null=True)
+    combat_fly_speed_override = models.FloatField(blank=True, null=True)
+    march_fly_speed_override = models.FloatField(blank=True, null=True)
+    sprint_fly_speed_override = models.FloatField(blank=True, null=True)
+    movement_mana_cost_override = models.IntegerField(blank=True, null=True)
+    movement_note_override = models.CharField(max_length=200, blank=True, default="")
 
     class Meta:
         ordering = ["owner", "creature", "id"]
@@ -1354,6 +1397,13 @@ class CreatureTraitChoiceSelection(models.Model):
         blank=True,
         related_name="+",
     )
+    selected_creature_special_skill = models.ForeignKey(
+        CreatureSpecialSkill,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
     selected_skill_category = models.ForeignKey(
         SkillCategory,
         on_delete=models.PROTECT,
@@ -1395,6 +1445,7 @@ class CreatureTraitChoiceSelection(models.Model):
         populated_targets = [
             self.selected_attribute_id is not None,
             self.selected_skill_id is not None,
+            self.selected_creature_special_skill_id is not None,
             self.selected_skill_category_id is not None,
             bool(self.selected_derived_stat),
             bool(self.selected_resource),
@@ -1421,15 +1472,53 @@ class CreatureTraitChoiceSelection(models.Model):
         if (
             self.definition_id
             and self.definition.target_kind == CreatureTraitChoiceDefinition.TargetKind.SKILL
-            and self.selected_skill_id
+            and (self.selected_skill_id or self.selected_creature_special_skill_id)
         ):
-            if (
-                self.definition.allowed_skill_category_id
-                and self.selected_skill.category_id != self.definition.allowed_skill_category_id
-            ):
-                raise ValidationError({"selected_skill": "The selected skill does not belong to the allowed skill category."})
-            if self.definition.allowed_skill_family and self.selected_skill.family != self.definition.allowed_skill_family:
-                raise ValidationError({"selected_skill": "The selected skill does not belong to the allowed skill family."})
+            allowed_skill_ids = set()
+            allowed_skill_category_ids = set()
+            allowed_creature_special_skill_ids = set()
+            if self.definition.pk:
+                allowed_skill_ids = set(self.definition.allowed_skills.values_list("id", flat=True))
+                allowed_skill_category_ids = set(
+                    self.definition.allowed_skill_categories.values_list("id", flat=True)
+                )
+                allowed_creature_special_skill_ids = set(
+                    self.definition.allowed_creature_special_skills.values_list("id", flat=True)
+                )
+            if self.selected_creature_special_skill_id:
+                if (
+                    allowed_creature_special_skill_ids
+                    and self.selected_creature_special_skill_id not in allowed_creature_special_skill_ids
+                ):
+                    raise ValidationError(
+                        {
+                            "selected_creature_special_skill": (
+                                "The selected creature special skill is not in the allowed skill list."
+                            )
+                        }
+                    )
+                if not self.definition.allow_all_creature_special_skills and not allowed_creature_special_skill_ids:
+                    raise ValidationError(
+                        {
+                            "selected_creature_special_skill": (
+                                "Creature special skills must be explicitly allowed by the choice definition."
+                            )
+                        }
+                    )
+            if self.selected_skill_id is not None:
+                if allowed_skill_ids and self.selected_skill_id not in allowed_skill_ids:
+                    raise ValidationError({"selected_skill": "The selected skill is not in the allowed skill list."})
+                if allowed_skill_category_ids and self.selected_skill.category_id not in allowed_skill_category_ids:
+                    raise ValidationError(
+                        {"selected_skill": "The selected skill does not belong to one of the allowed skill categories."}
+                    )
+                if (
+                    self.definition.allowed_skill_category_id
+                    and self.selected_skill.category_id != self.definition.allowed_skill_category_id
+                ):
+                    raise ValidationError({"selected_skill": "The selected skill does not belong to the allowed skill category."})
+                if self.definition.allowed_skill_family and self.selected_skill.family != self.definition.allowed_skill_family:
+                    raise ValidationError({"selected_skill": "The selected skill does not belong to the allowed skill family."})
         if (
             self.definition_id
             and self.definition.target_kind == CreatureTraitChoiceDefinition.TargetKind.DERIVED_STAT
@@ -1455,7 +1544,20 @@ class CreatureTraitChoiceSelection(models.Model):
             existing = existing_choices.filter(definition=self.definition)
             if self.pk:
                 existing = existing.exclude(pk=self.pk)
-            if self.definition.max_choices and existing.count() >= self.definition.max_choices:
+            if not self.definition.allow_duplicate_selections:
+                duplicate_filter = models.Q()
+                if self.selected_skill_id is not None:
+                    duplicate_filter |= models.Q(selected_skill_id=self.selected_skill_id)
+                if self.selected_creature_special_skill_id is not None:
+                    duplicate_filter |= models.Q(selected_creature_special_skill_id=self.selected_creature_special_skill_id)
+                if duplicate_filter and existing.filter(duplicate_filter).exists():
+                    raise ValidationError({"definition": "This target has already been selected for this creature trait definition."})
+            trait_level = 1
+            owning_trait = getattr(self, "creature_trait", None) or getattr(self, "character_creature_trait", None)
+            if owning_trait is not None:
+                trait_level = max(1, int(getattr(owning_trait, "trait_level", 1) or 1))
+            max_choices = int(self.definition.max_choices or 0) * trait_level
+            if max_choices and existing.count() >= max_choices:
                 raise ValidationError({"definition": "Maximum number of choices for this creature trait definition exceeded."})
 
     def _validate_target_kind(self, expected_kind: str):
@@ -1487,12 +1589,16 @@ class CreatureTraitChoiceSelection(models.Model):
         elif expected_kind == CreatureTraitChoiceDefinition.TargetKind.TEXT:
             if not self.selected_text:
                 errors["selected_text"] = "This creature trait choice requires a free-text choice."
+        elif expected_kind == CreatureTraitChoiceDefinition.TargetKind.SKILL:
+            if self.selected_skill_id is None and self.selected_creature_special_skill_id is None:
+                errors["selected_skill"] = "This creature trait choice requires a skill selection."
         elif getattr(self, f"{required_field}_id", None) is None and not getattr(self, required_field):
             errors[required_field] = f"This creature trait choice requires a {expected_kind.replace('_', ' ')} selection."
 
         disallowed_fields = {
             "selected_attribute",
             "selected_skill",
+            "selected_creature_special_skill",
             "selected_skill_category",
             "selected_derived_stat",
             "selected_resource",
@@ -1504,6 +1610,8 @@ class CreatureTraitChoiceSelection(models.Model):
             "selected_content_type",
             "selected_object_id",
         } - {required_field}
+        if expected_kind == CreatureTraitChoiceDefinition.TargetKind.SKILL:
+            disallowed_fields -= {"selected_creature_special_skill"}
         if expected_kind == CreatureTraitChoiceDefinition.TargetKind.ENTITY:
             disallowed_fields -= {"selected_object_id"}
         for field_name in disallowed_fields:
@@ -1518,6 +1626,8 @@ class CreatureTraitChoiceSelection(models.Model):
             return f"{self.selected_attribute.name} ({self.selected_attribute.short_name})"
         if self.selected_skill is not None:
             return self.selected_skill.name
+        if self.selected_creature_special_skill is not None:
+            return self.selected_creature_special_skill.name
         if self.selected_skill_category is not None:
             return self.selected_skill_category.name
         if self.selected_derived_stat:
@@ -1543,6 +1653,8 @@ class CreatureTraitChoiceSelection(models.Model):
             return ("attribute", self.selected_attribute.short_name)
         if self.selected_skill is not None:
             return ("skill", self.selected_skill.slug)
+        if self.selected_creature_special_skill is not None:
+            return ("creature_special_skill", self.selected_creature_special_skill.slug)
         if self.selected_skill_category is not None:
             return ("skill_category", self.selected_skill_category.slug)
         if self.selected_derived_stat:
@@ -1578,7 +1690,6 @@ class CreatureTraitChoice(CreatureTraitChoiceSelection):
         ordering = ["creature_trait__creature__name", "creature_trait__trait__name", "definition__sort_order", "id"]
         constraints = [
             models.UniqueConstraint(fields=["creature_trait", "definition", "selected_attribute"], condition=models.Q(selected_attribute__isnull=False), name="uniq_creature_trait_choice_attribute"),
-            models.UniqueConstraint(fields=["creature_trait", "definition", "selected_skill"], condition=models.Q(selected_skill__isnull=False), name="uniq_creature_trait_choice_skill"),
             models.UniqueConstraint(fields=["creature_trait", "definition", "selected_skill_category"], condition=models.Q(selected_skill_category__isnull=False), name="uniq_creature_trait_choice_category"),
             models.UniqueConstraint(fields=["creature_trait", "definition", "selected_item"], condition=models.Q(selected_item__isnull=False), name="uniq_creature_trait_choice_item"),
             models.UniqueConstraint(fields=["creature_trait", "definition", "selected_specialization"], condition=models.Q(selected_specialization__isnull=False), name="uniq_creature_trait_choice_specialization"),
@@ -1620,7 +1731,6 @@ class CharacterCreatureTraitChoice(CreatureTraitChoiceSelection):
         ]
         constraints = [
             models.UniqueConstraint(fields=["character_creature_trait", "definition", "selected_attribute"], condition=models.Q(selected_attribute__isnull=False), name="uniq_character_creature_trait_choice_attribute"),
-            models.UniqueConstraint(fields=["character_creature_trait", "definition", "selected_skill"], condition=models.Q(selected_skill__isnull=False), name="uniq_character_creature_trait_choice_skill"),
             models.UniqueConstraint(fields=["character_creature_trait", "definition", "selected_skill_category"], condition=models.Q(selected_skill_category__isnull=False), name="uniq_character_creature_trait_choice_category"),
             models.UniqueConstraint(fields=["character_creature_trait", "definition", "selected_item"], condition=models.Q(selected_item__isnull=False), name="uniq_character_creature_trait_choice_item"),
             models.UniqueConstraint(fields=["character_creature_trait", "definition", "selected_specialization"], condition=models.Q(selected_specialization__isnull=False), name="uniq_character_creature_trait_choice_specialization"),

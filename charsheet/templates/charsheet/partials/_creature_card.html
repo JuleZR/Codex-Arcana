@@ -208,7 +208,7 @@
                         <span class="creature-card__rule-entry{% if skill.notes %} tooltip_target{% endif %}"{% if skill.notes %} data-tooltip="{{ skill.notes }}" data-tooltip-side="right"{% endif %}>{{ skill.name }}{% if skill.value %} {% for part in skill.value_parts %}{% if not forloop.first %}/{% endif %}{% if part.note %}<span class="tooltip_target" data-tooltip="{{ part.note }}" data-tooltip-side="right">{{ part.value }}</span>{% else %}{{ part.value }}{% endif %}{% endfor %}{% endif %}</span>{% if not forloop.last or creature_card.traits %}, {% endif %}
                     {% endfor %}
                     {% for trait in creature_card.traits %}
-                        <span class="creature-card__rule-entry{% if trait.description %} tooltip_target{% endif %}"{% if trait.description %} data-tooltip="{{ trait.description }}" data-tooltip-side="right"{% endif %}>{{ trait.name }}{% if trait.level %} {{ trait.level|stringformat:"+d" }}{% endif %}</span>{% if not forloop.last %}, {% endif %}
+                        <span class="creature-card__rule-entry{% if trait.description or trait.choice_summary %} tooltip_target{% endif %}"{% if trait.description or trait.choice_summary %} data-tooltip="{% if trait.description %}{{ trait.description }}{% endif %}{% if trait.description and trait.choice_summary %}&#10;{% endif %}{% if trait.choice_summary %}Auswahl: {{ trait.choice_summary }}{% endif %}" data-tooltip-side="right"{% endif %}>{{ trait.name }}{% if trait.level %} {{ trait.level|stringformat:"+d" }}{% endif %}</span>{% if not forloop.last %}, {% endif %}
                     {% endfor %}
                 </p>
             {% endif %}

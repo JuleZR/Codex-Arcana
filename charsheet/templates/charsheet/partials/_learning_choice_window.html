@@ -52,6 +52,7 @@
                 data-choice-title="{{ decision.title }}"
                 data-choice-input-type="{{ decision.input_type }}"
                 data-choice-selection-group="{{ decision.selection_group_id }}"
+                data-choice-allow-duplicates="{% if decision.allow_duplicate_selections %}1{% else %}0{% endif %}"
                 {% if not forloop.first %}hidden{% endif %}
               >
                 <header class="learn_choice_panel_header">

@@ -121,6 +121,14 @@ class CreatureEngine:
                 return value
         return getattr(self.creature, field_name, None)
 
+    def _instance_numeric_adjustment(self, field_name: str) -> int | float:
+        if self.instance is None:
+            return 0
+        value = getattr(self.instance, field_name, None)
+        if value in (None, ""):
+            return 0
+        return value
+
     @cached_property
     def _effective_trait_rows(self) -> list[Any]:
         """Return base traits plus active instance traits, replacing linked base rows."""
@@ -209,6 +217,7 @@ class CreatureEngine:
     def _effect_row_to_creature_effects(self, effect_row, *, level: int) -> list[CreatureSemanticEffect]:
         metadata = dict(effect_row.metadata or {})
         has_choice_target = any(field.name == "target_choice_definition" for field in effect_row._meta.fields)
+        is_choice_bound = bool(has_choice_target and effect_row.target_choice_definition_id)
         if has_choice_target and effect_row.target_choice_definition_id:
             metadata["choice_binding"] = {
                 "kind": "creature_trait_choice_definition",
@@ -225,7 +234,7 @@ class CreatureEngine:
             value=effect_row._coerce_scalar(effect_row.value),
             value_min=effect_row.value_min,
             value_max=effect_row.value_max,
-            scaling={**dict(effect_row.scaling or {}), "_trait_level": level},
+            scaling={**dict(effect_row.scaling or {}), "_trait_level": 1 if is_choice_bound else level},
             stack_behavior=effect_row.stack_behavior,
             priority=int(effect_row.priority),
             condition_text=condition_text,
@@ -252,7 +261,11 @@ class CreatureEngine:
                 expanded.append(effect)
                 continue
             for target_domain, target_key in bound_targets:
-                if target_domain != effect.target_domain and target_domain != "metadata":
+                is_skill_choice_special_skill = (
+                    effect.target_domain == TargetDomain.SKILL
+                    and target_domain == "creature_special_skill"
+                )
+                if target_domain != effect.target_domain and target_domain != "metadata" and not is_skill_choice_special_skill:
                     continue
                 expanded.append(replace(effect, target_domain=target_domain, target_key=target_key))
         return expanded
@@ -283,6 +296,11 @@ class CreatureEngine:
                 continue
             if effect.operator == ModifierOperator.MULTIPLY:
                 resolved_total = int(resolved_total * resolved_value)
+                continue
+            if effect.operator == ModifierOperator.FLOOR_DIVIDE:
+                if not resolved_value:
+                    continue
+                resolved_total = int(resolved_total // resolved_value)
                 continue
             if effect.operator == ModifierOperator.MIN_VALUE:
                 resolved_total = max(resolved_total, int(resolved_value))
@@ -353,6 +371,10 @@ class CreatureEngine:
             return resolved_value
         if effect.operator == ModifierOperator.MULTIPLY:
             return base_value * resolved_value
+        if effect.operator == ModifierOperator.FLOOR_DIVIDE:
+            if not resolved_value:
+                return base_value
+            return base_value // resolved_value
         if effect.operator == ModifierOperator.MIN_VALUE:
             return max(base_value, resolved_value)
         if effect.operator == ModifierOperator.MAX_VALUE:
@@ -388,6 +410,8 @@ class CreatureEngine:
         if effect.operator in {ModifierOperator.FLAT_SUB, ModifierOperator.CONDITIONAL_PENALTY}:
             return -abs(int(numeric_value))
         if effect.operator == ModifierOperator.MULTIPLY:
+            return float(numeric_value)
+        if effect.operator == ModifierOperator.FLOOR_DIVIDE:
             return float(numeric_value)
         return int(numeric_value)
 
@@ -565,44 +589,31 @@ class CreatureEngine:
         return int(value or 0) - 5
 
     def initiative(self) -> int:
-        override = self._stat_override("initiative_override")
-        if override is not None:
-            return int(override) + self._modifier_total(TargetDomain.DERIVED_STAT, "initiative")
-        return int(self.attribute_mod(ATTR_WA) or 0) + self._modifier_total(TargetDomain.DERIVED_STAT, "initiative")
+        base = self.creature.initiative_override
+        if base is None:
+            base = int(self.attribute_mod(ATTR_WA) or 0)
+        return int(base) + int(self._instance_numeric_adjustment("initiative_override")) + self._modifier_total(TargetDomain.DERIVED_STAT, "initiative")
 
     def vw(self) -> int:
-        override = self._stat_override("vw_override")
-        if override is not None:
-            return int(override) + self._modifier_total(TargetDomain.DERIVED_STAT, "vw")
-        return (
-            14
-            + int(self.attribute_mod(ATTR_GE) or 0)
-            + int(self.attribute_mod(ATTR_WA) or 0)
-            + self.size_modifier()
-            + self._modifier_total(TargetDomain.DERIVED_STAT, "vw")
-        )
+        if self.creature.vw_override is not None:
+            base = int(self.creature.vw_override)
+        else:
+            base = 14 + int(self.attribute_mod(ATTR_GE) or 0) + int(self.attribute_mod(ATTR_WA) or 0) + self.size_modifier()
+        return base + int(self._instance_numeric_adjustment("vw_override")) + self._modifier_total(TargetDomain.DERIVED_STAT, "vw")
 
     def sr(self) -> int:
-        override = self._stat_override("sr_override")
-        if override is not None:
-            return int(override) + self._modifier_total(TargetDomain.DERIVED_STAT, "sr")
-        return (
-            14
-            + int(self.attribute_mod(ATTR_ST) or 0)
-            + int(self.attribute_mod(ATTR_KON) or 0)
-            + self._modifier_total(TargetDomain.DERIVED_STAT, "sr")
-        )
+        if self.creature.sr_override is not None:
+            base = int(self.creature.sr_override)
+        else:
+            base = 14 + int(self.attribute_mod(ATTR_ST) or 0) + int(self.attribute_mod(ATTR_KON) or 0)
+        return base + int(self._instance_numeric_adjustment("sr_override")) + self._modifier_total(TargetDomain.DERIVED_STAT, "sr")
 
     def gw(self) -> int:
-        override = self._stat_override("gw_override")
-        if override is not None:
-            return int(override) + self._modifier_total(TargetDomain.DERIVED_STAT, "gw")
-        return (
-            14
-            + int(self.attribute_mod(ATTR_INT) or 0)
-            + int(self.attribute_mod(ATTR_WILL) or 0)
-            + self._modifier_total(TargetDomain.DERIVED_STAT, "gw")
-        )
+        if self.creature.gw_override is not None:
+            base = int(self.creature.gw_override)
+        else:
+            base = 14 + int(self.attribute_mod(ATTR_INT) or 0) + int(self.attribute_mod(ATTR_WILL) or 0)
+        return base + int(self._instance_numeric_adjustment("gw_override")) + self._modifier_total(TargetDomain.DERIVED_STAT, "gw")
 
     def fear_resistance_bonus(self) -> int:
         return int(self._value("fear_resistance_bonus", 0) or 0)
@@ -611,7 +622,11 @@ class CreatureEngine:
         return str(self._value("defense_extra_label", "") or "").strip()
 
     def defense_extra_value(self) -> int | None:
-        value = self._value("fear_resistance_bonus", None)
+        value = self.creature.fear_resistance_bonus
+        adjustment = self._instance_numeric_adjustment("fear_resistance_bonus_override")
+        if value is None and not adjustment:
+            return None
+        value = int(value or 0) + int(adjustment or 0)
         if value is None or value == "":
             return None
         return int(value)
@@ -620,10 +635,11 @@ class CreatureEngine:
         return int(self.defense_extra_value() or 0)
 
     def wound_step(self) -> int:
-        override = self._value("wound_step_override", None)
-        if override is not None:
-            return int(override) + self._modifier_total(TargetDomain.DERIVED_STAT, "wound_step")
-        return 5 + int(self.attribute_mod(ATTR_KON) or 0) + self._modifier_total(TargetDomain.DERIVED_STAT, "wound_step")
+        if self.creature.wound_step_override is not None:
+            base = int(self.creature.wound_step_override)
+        else:
+            base = 5 + int(self.attribute_mod(ATTR_KON) or 0)
+        return max(1, base + int(self._instance_numeric_adjustment("wound_step_override")) + self._modifier_total(TargetDomain.DERIVED_STAT, "wound_step"))
 
     def wound_rows(self) -> list[dict[str, Any]]:
         explicit_thresholds = self._wound_thresholds_override()
@@ -689,11 +705,16 @@ class CreatureEngine:
         }
 
     def _movement_value(self, field_name: str, target_key: str, default: Any) -> Any:
-        value = self._value(field_name, default)
+        value = getattr(self.creature, field_name, default)
+        adjustment = self._instance_numeric_adjustment(f"{field_name}_override")
+        if value is None and adjustment:
+            value = 0
+        if value is not None:
+            value += adjustment
         bonus = self._modifier_total(TargetDomain.MOVEMENT, target_key)
         if value is None:
             return None if not bonus else bonus
-        return value + bonus
+        return max(0, value + bonus)
 
     def movement_display(self) -> dict[str, str | None]:
         movement = self.movement()
@@ -798,10 +819,12 @@ class CreatureEngine:
 
     def armor_totals(self) -> CreatureArmorTotals:
         natural_rs = (
-            int(self._value("natural_rs", 0) or 0)
+            int(self.creature.natural_rs or 0)
+            + int(self._instance_numeric_adjustment("natural_rs_override"))
             + self._modifier_total(TargetDomain.DERIVED_STAT, DEFENSE_RS)
             + self._modifier_total(TargetDomain.DERIVED_STAT, "natural_rs")
         )
+        natural_rs = max(0, natural_rs)
         armor_rs = 0
         encumbrance = 0
         for creature_item in self.equipped_items():
@@ -995,11 +1018,20 @@ class CreatureEngine:
         return rows
 
     def traits(self) -> list[dict[str, Any]]:
+        def choice_summary(trait_row) -> str:
+            choices = []
+            for choice in trait_row.choices.all():
+                display = choice.selected_target_display()
+                if display and display != "-":
+                    choices.append(f"{choice.definition.name}: {display}")
+            return ", ".join(choices)
+
         rows = [
             {
                 "name": trait.display_name,
                 "level": trait.level,
                 "description": trait.description,
+                "choice_summary": choice_summary(trait),
             }
             for trait in self._effective_trait_rows
         ]
@@ -1120,8 +1152,12 @@ class CreatureEngine:
             "movement_display_text": self.movement_display_text(),
             "movement_tooltip_text": self.movement_tooltip_text(),
             "movement_notes": movement_notes,
-            "movement_mana_cost": self.creature.movement_mana_cost,
-            "movement_note": self.creature.movement_note,
+            "movement_mana_cost": (
+                None
+                if self.creature.movement_mana_cost is None and not self._instance_numeric_adjustment("movement_mana_cost_override")
+                else max(0, int(self.creature.movement_mana_cost or 0) + int(self._instance_numeric_adjustment("movement_mana_cost_override")))
+            ),
+            "movement_note": self._value("movement_note", ""),
             "has_ground_movement": has_ground,
             "has_single_swim": has_single_swim,
             "has_swim": has_swim,

@@ -427,6 +427,7 @@ MODIFIER_OPERATOR_CHOICES = (
     ("flat_add", "flat_add"),
     ("flat_sub", "flat_sub"),
     ("multiply", "multiply"),
+    ("floor_divide", "floor_divide"),
     ("override", "override"),
     ("min_value", "min_value"),
     ("max_value", "max_value"),

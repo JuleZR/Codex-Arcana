@@ -43,7 +43,7 @@
     <section class="creature-training-drawer__section" aria-label="Bewegung">
       <h3 class="creature-training-section-heading">Bewegung</h3>
       <div class="creature-training-section-body">
-        <div class="creature-training-movement{% if not training.movement_options.can_fly %} is-flight-disabled{% endif %}" data-creature-training-movement>
+        <div class="creature-training-movement{% if not training.movement_options.can_swim %} is-swim-disabled{% endif %}{% if not training.movement_options.can_fly %} is-flight-disabled{% endif %}{% if not training.movement_options.can_mana %} is-mana-disabled{% endif %}" data-creature-training-movement>
           <div class="creature-training-movement__header" aria-hidden="true">
             <span></span>
             <span>Kampf</span>
@@ -52,22 +52,73 @@
             <span>Schw.</span>
           </div>
           <div class="creature-training-movement__row">
-            <span>Boden</span>
+            <span class="creature-training-movement__mark creature-card__movement-mark creature-card__movement-mark--ground" aria-label="Bodenbewegung" title="Boden">
+              <svg viewBox="90 118 42 56" aria-hidden="true" focusable="false">
+                <path d="m 99.763494,154.28984 10.434446,5.53535 c 2.16215,-6.81989 10.29099,-10.01172 14.9518,-17.49679 1.8113,-2.90888 6.43199,-17.38363 -0.76352,-20.55076 -4.62568,-2.03601 -13.00038,5.93141 -16.7333,11.13431 -5.06571,7.06053 -3.17861,14.50045 -7.889426,21.37789 z"></path>
+                <path d="m 98.363753,156.19858 10.879817,5.9171 c -3.26163,4.41901 -4.80333,11.55661 -12.979431,8.20758 -5.699886,-4.3772 -1.806715,-9.2506 2.099614,-14.12468 z"></path>
+              </svg>
+            </span>
             <input type="text" name="combat_speed" value="{{ training.movement_options.combat_speed }}" inputmode="decimal" aria-label="Kampfgeschwindigkeit">
             <input type="text" name="march_speed" value="{{ training.movement_options.march_speed }}" inputmode="decimal" aria-label="Marschgeschwindigkeit">
             <input type="text" name="sprint_speed" value="{{ training.movement_options.sprint_speed }}" inputmode="decimal" aria-label="Sprintgeschwindigkeit">
             <input type="text" name="swimming_speed" value="{{ training.movement_options.swimming_speed }}" inputmode="decimal" aria-label="Schwimmgeschwindigkeit">
           </div>
+          <div class="creature-training-movement__row creature-training-movement__row--swim" data-creature-swim-row>
+            <label class="creature-training-movement__check creature-training-movement__check--mark" title="Schwimmen">
+              <input type="checkbox" name="can_swim" value="1"{% if training.movement_options.can_swim %} checked{% endif %} data-creature-can-swim>
+              <span class="creature-training-movement__mark creature-card__movement-mark creature-card__movement-mark--swim" aria-label="Schwimmen">
+                <svg viewBox="60 132 90 40" aria-hidden="true" focusable="false">
+                  <path d="m 82.521207,148.37275 c -1.728121,-4.95599 -6.085734,-3.56835 -8.14396,-5.78985 -1.740289,-1.87834 -0.731927,-3.17069 -0.178631,-3.76477 0.766652,-0.82318 3.401044,-0.43606 4.823233,0.71079 2.467892,1.9901 3.499358,8.84383 3.499358,8.84383 z"></path>
+                  <path d="m 86.338687,150.59961 c 7.689488,-5.84005 14.651203,-12.32499 20.475133,-14.52478 6.97279,-2.63373 16.46318,-1.51069 21.64441,4.28121 -14.51609,-3.88041 -18.34433,2.2498 -18.19666,5.78985 0.1667,3.99632 7.49425,7.3273 15.54869,7.00792 6.35803,-0.25212 13.81255,-4.76229 19.31763,0.30891 -8.56772,-2.39909 -14.74449,6.02701 -23.9865,4.39011 -11.55723,-2.04695 -18.04206,-11.14217 -34.802703,-7.25322 z"></path>
+                  <path d="m 65.52712,154.11133 c 2.941741,1.20187 5.160151,3.30791 9.327314,2.978 6.432143,-0.50922 12.380192,-4.01144 18.673842,-4.1356 11.068614,-0.21837 16.900024,9.1522 26.754174,9.19376 9.68967,0.0409 11.80417,-3.93186 19.53278,-0.15906 -6.56531,-1.27963 -14.75114,4.72918 -22.4277,4.93092 -8.41183,0.22106 -16.61739,-8.58652 -24.463687,-8.46209 -5.345966,0.0848 -10.289249,2.61769 -15.937984,2.25868 -3.334264,-0.21191 -8.404345,-2.56494 -11.458739,-6.60461 z"></path>
+                </svg>
+              </span>
+            </label>
+            <input type="text" name="combat_swimming_speed" value="{{ training.movement_options.combat_swimming_speed }}" inputmode="decimal" aria-label="Kampfschwimmen" data-creature-swim-speed{% if not training.movement_options.can_swim %} disabled{% endif %}>
+            <input type="text" name="march_swimming_speed" value="{{ training.movement_options.march_swimming_speed }}" inputmode="decimal" aria-label="Marschschwimmen" data-creature-swim-speed{% if not training.movement_options.can_swim %} disabled{% endif %}>
+            <input type="text" name="sprint_swimming_speed" value="{{ training.movement_options.sprint_swimming_speed }}" inputmode="decimal" aria-label="Sprintschwimmen" data-creature-swim-speed{% if not training.movement_options.can_swim %} disabled{% endif %}>
+            <span class="creature-training-movement__dash" aria-hidden="true">-</span>
+          </div>
           <div class="creature-training-movement__row creature-training-movement__row--flight" data-creature-fly-row>
-            <label class="creature-training-movement__check">
+            <label class="creature-training-movement__check creature-training-movement__check--mark" title="Flug">
               <input type="checkbox" name="can_fly" value="1"{% if training.movement_options.can_fly %} checked{% endif %} data-creature-can-fly>
-              <span>Flug</span>
+              <span class="creature-training-movement__mark creature-card__movement-mark creature-card__movement-mark--flight" aria-label="Flug">
+                <svg viewBox="50 60 120 160" aria-hidden="true" focusable="false">
+                  <path d="M 107.90745,68.841902 C 102.55988,81.810593 88.452267,100.77802 75.945019,114.6853 64.729733,127.156 57.917928,139.65902 57.643958,144.55527 c -0.514176,9.18908 8.518902,10.52584 14.006447,15.88455 5.23371,5.11084 5.329418,13.55011 1.139971,15.45871 -13.746865,6.26272 -18.203409,10.3386 -13.492177,20.06548 1.002249,-7.3257 5.837816,-7.91109 11.097902,-7.6091 11.735345,0.67372 18.292683,19.94527 33.821119,21.22478 -7.74588,-6.17638 -12.265524,-12.72931 -17.560409,-21.88689 10.574731,14.29125 21.708339,22.9937 33.721079,22.90488 -17.31387,-8.49866 -16.30713,-22.46103 -31.176091,-29.6491 13.851761,7.64362 22.752591,6.21052 30.921591,3.43574 -10.48527,-0.93714 -16.46906,-7.7167 -25.195371,-10.5617 25.667061,6.75338 31.461501,-0.60569 41.483291,-4.96272 -13.18347,1.06423 -23.70327,-2.18306 -39.192803,-6.10797 36.179393,1.95044 44.579773,-9.17468 52.044983,-16.03342 -19.91029,4.4495 -39.82894,1.77496 -57.516704,5.59897 24.262164,-6.17883 53.456424,-6.54041 69.478144,-30.66709 -24.77772,8.68147 -54.89903,10.3954 -72.435756,19.07196 C 121.15962,125.77352 147.22361,127.01816 158.8072,87.802055 135.28187,112.65067 109.24651,110.35393 84.366324,126.99486 102.49934,108.63914 108.94865,89.115046 107.90745,68.841902 Z"></path>
+                </svg>
+              </span>
             </label>
             <input type="text" name="combat_fly_speed" value="{{ training.movement_options.combat_fly_speed }}" inputmode="decimal" aria-label="Kampffluggeschwindigkeit" data-creature-fly-speed{% if not training.movement_options.can_fly %} disabled{% endif %}>
             <input type="text" name="march_fly_speed" value="{{ training.movement_options.march_fly_speed }}" inputmode="decimal" aria-label="Marschfluggeschwindigkeit" data-creature-fly-speed{% if not training.movement_options.can_fly %} disabled{% endif %}>
             <input type="text" name="sprint_fly_speed" value="{{ training.movement_options.sprint_fly_speed }}" inputmode="decimal" aria-label="Sprintfluggeschwindigkeit" data-creature-fly-speed{% if not training.movement_options.can_fly %} disabled{% endif %}>
             <span class="creature-training-movement__dash" aria-hidden="true">-</span>
           </div>
+          <div class="creature-training-movement__row creature-training-movement__row--mana" data-creature-mana-row>
+            <input type="hidden" name="can_mana" value="0">
+            <label class="creature-training-movement__check creature-training-movement__check--mark" title="Mana">
+              <input type="checkbox" name="can_mana" value="1"{% if training.movement_options.can_mana %} checked{% endif %} data-creature-can-mana>
+              <span class="creature-training-mana-mark creature-card__movement-mark creature-card__movement-mark--mana" aria-label="Farbloses Mana">
+                <span aria-hidden="true">X</span>
+              </span>
+            </label>
+            <input type="number" name="movement_mana_cost" value="{{ training.movement_options.movement_mana_cost }}" min="0" placeholder="0" aria-label="Farbloses Bewegungs-Mana" data-creature-mana-field{% if not training.movement_options.can_mana %} disabled{% endif %}>
+            <input type="text" name="movement_note" value="{{ training.movement_options.movement_note }}" maxlength="200" placeholder="Bsp: 3 m Umkreis" aria-label="Bewegungslabel" data-creature-mana-field{% if not training.movement_options.can_mana %} disabled{% endif %}>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="creature-training-drawer__section" aria-label="Kartenwerte">
+      <h3 class="creature-training-section-heading">Kartenwerte</h3>
+      <div class="creature-training-section-body">
+        <div class="creature-training-card-values">
+          <label><span>Initiative</span><input type="number" name="initiative" value="{{ training.core_value_options.initiative }}" aria-label="Initiative"></label>
+          <label><span>VW</span><input type="number" name="vw" value="{{ training.core_value_options.vw }}" aria-label="VW"></label>
+          <label><span>SR</span><input type="number" name="sr" value="{{ training.core_value_options.sr }}" aria-label="SR"></label>
+          <label><span>GW</span><input type="number" name="gw" value="{{ training.core_value_options.gw }}" aria-label="GW"></label>
+          <label><span>RS</span><input type="number" name="natural_rs" value="{{ training.core_value_options.natural_rs }}" min="0" aria-label="Natuerlicher RS"></label>
+          <label><span>Wunde</span><input type="number" name="wound_step" value="{{ training.core_value_options.wound_step }}" min="1" aria-label="Wundschwelle"></label>
+          <label class="creature-training-card-values__wide"><span>Wundschwellen</span><input type="text" name="wound_thresholds" value="{{ training.core_value_options.wound_thresholds }}" maxlength="100" placeholder="Bsp.: 3,6,9,12,15,18" aria-label="Wundschwellen als Kommaliste"></label>
         </div>
       </div>
     </section>
@@ -111,7 +162,7 @@
             <span>{{ skill.name }}</span>
             <input type="number" name="skill_value_{{ skill.id }}" value="{{ skill.value }}" min="-20" max="50" aria-label="Wert {{ skill.name }}"{% if skill.is_normal_skill %} data-creature-skill-base-value{% endif %}>
             {% if skill.is_normal_skill %}
-              <span class="creature-training-skill__effective" title="Effektivwert inkl. Attribut, GK und Modifikatoren">=&nbsp;<strong data-creature-skill-effective>{{ skill.effective_value }}</strong></span>
+              <span class="creature-training-skill__effective" title="Effektivwert inkl. Attribut, GK und Modifikatoren"><span data-creature-skill-formula></span>&nbsp;=&nbsp;<strong data-creature-skill-effective>{{ skill.effective_value }}</strong></span>
             {% endif %}
           </div>
         {% empty %}
@@ -153,7 +204,7 @@
         <div class="creature-training-list" data-creature-training-filter-list="commands">
         {% for command in training.command_catalog %}
           <label class="creature-training-choice{% if command.missing_prerequisites %} creature-training-choice--unmet{% endif %}" data-creature-command-choice data-prerequisite-groups="{{ command.prerequisite_group_ids_json }}" data-filter-text="{{ command.name }} {{ command.prerequisite_display }}">
-            <input type="checkbox" name="commands" value="{{ command.id }}"{% if command.known %} checked{% endif %} data-creature-command-input>
+            <input type="checkbox" name="commands" value="{{ command.id }}"{% if command.known %} checked{% endif %}{% if command.missing_prerequisites %} disabled{% endif %} data-creature-command-input>
             <span>
               <strong>{{ command.name }}</strong>
               <small>
@@ -182,12 +233,13 @@
         {% for trait in training.trait_catalog %}
           {% if trait.trait_type == "advantage" %}
             <label class="creature-training-choice" data-filter-text="{{ trait.name }} {{ trait.cost_display }}">
-              <input type="checkbox" name="advantages" value="{{ trait.id }}"{% if trait.advantage_selected %} checked{% endif %}>
+              {% if trait.has_base %}<input type="hidden" name="advantages" value="{{ trait.id }}">{% endif %}
+              <input type="checkbox" name="advantages" value="{{ trait.id }}"{% if trait.advantage_selected %} checked{% endif %}{% if trait.has_base %} disabled{% endif %}>
               <span>
                 <strong>{{ trait.name }}</strong>
                 <small>Kosten {{ trait.cost_display }}</small>
               </span>
-              <input class="creature-training-level" type="number" name="advantage_level_{{ trait.id }}" value="{{ trait.advantage_level }}" min="{{ trait.min_level }}" max="{{ trait.max_level }}" aria-label="Stufe {{ trait.name }}">
+              <input class="creature-training-level" type="number" name="advantage_level_{{ trait.id }}" value="{{ trait.advantage_level }}" min="{{ trait.training_min_level|default:trait.min_level }}" max="{{ trait.training_max_level|default:trait.max_level }}" aria-label="Stufe {{ trait.name }}">
             </label>
           {% endif %}
         {% endfor %}
@@ -206,12 +258,13 @@
         {% for trait in training.trait_catalog %}
           {% if trait.trait_type == "disadvantage" %}
             <label class="creature-training-choice" data-filter-text="{{ trait.name }} {{ trait.cost_display }}">
-              <input type="checkbox" name="disadvantages" value="{{ trait.id }}"{% if trait.disadvantage_selected %} checked{% endif %}>
+              {% if trait.has_base %}<input type="hidden" name="disadvantages" value="{{ trait.id }}">{% endif %}
+              <input type="checkbox" name="disadvantages" value="{{ trait.id }}"{% if trait.disadvantage_selected %} checked{% endif %}{% if trait.has_base %} disabled{% endif %}>
               <span>
                 <strong>{{ trait.name }}</strong>
                 <small>Punkte {{ trait.cost_display }}</small>
               </span>
-              <input class="creature-training-level" type="number" name="disadvantage_level_{{ trait.id }}" value="{{ trait.disadvantage_level }}" min="{{ trait.min_level }}" max="{{ trait.max_level }}" aria-label="Stufe {{ trait.name }}">
+              <input class="creature-training-level" type="number" name="disadvantage_level_{{ trait.id }}" value="{{ trait.disadvantage_level }}" min="{{ trait.training_min_level|default:trait.min_level }}" max="{{ trait.training_max_level|default:trait.max_level }}" aria-label="Stufe {{ trait.name }}">
             </label>
           {% endif %}
         {% endfor %}

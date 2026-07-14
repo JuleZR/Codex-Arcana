@@ -17,6 +17,7 @@ class ModifierOperator(StringEnum):
     FLAT_ADD = "flat_add"
     FLAT_SUB = "flat_sub"
     MULTIPLY = "multiply"
+    FLOOR_DIVIDE = "floor_divide"
     OVERRIDE = "override"
     MIN_VALUE = "min_value"
     MAX_VALUE = "max_value"

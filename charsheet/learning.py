@@ -26,6 +26,9 @@ from charsheet.models import (
     CharacterDruidCult,
     CharacterShamanPatron,
     CharacterLanguage,
+    CharacterCreature,
+    CharacterCreatureTrait,
+    CharacterCreatureTraitChoice,
     CharacterRaceChoice,
     CharacterSchool,
     CharacterSchoolPath,
@@ -48,6 +51,9 @@ from charsheet.models import (
     Technique,
     Trait,
     TraitChoiceDefinition,
+    CreatureTrait,
+    CreatureTraitChoiceDefinition,
+    CreatureSpecialSkill,
     WeaponType,
 )
 from charsheet.constants import LANGUAGE_LITERACY_MIN_LEVEL, is_allowed_trait_attribute_choice
@@ -91,6 +97,30 @@ def _has_progression_inputs(post_data) -> bool:
     return any(str(key).startswith(prefixes) for key in post_data.keys())
 
 
+def _build_progression_context_with_creatures(character: Character, *, engine=None) -> dict:
+    """Build learning progression including pending creature-card trait choices."""
+    progression_context = build_learning_progression_context(character, engine=engine)
+    active_creature_cards = list(CharacterCreature.objects.filter(owner=character, active=True))
+    if not active_creature_cards:
+        return progression_context
+
+    from charsheet.sheet_context import build_creature_choice_progression_context
+
+    creature_choice_context = build_creature_choice_progression_context(active_creature_cards)
+    if not creature_choice_context["learn_choice_rows"]:
+        return progression_context
+
+    progression_context["learn_choice_rows"].extend(creature_choice_context["learn_choice_rows"])
+    progression_context["learn_pending_decisions"].extend(creature_choice_context["learn_pending_decisions"])
+    progression_context["learn_choice_groups"].append(
+        {"name": "Kreaturen", "rows": creature_choice_context["learn_choice_rows"]}
+    )
+    progression_context["learn_choice_count"] = len(progression_context["learn_choice_rows"])
+    progression_context["learn_pending_choice_count"] = len(progression_context["learn_pending_decisions"])
+    progression_context["learn_has_pending_choices"] = bool(progression_context["learn_pending_decisions"])
+    return progression_context
+
+
 def _apply_progression_choices(character: Character, post_data, *, magic_engine) -> dict[str, int]:
     """Persist zero-cost progression decisions after EP spending has been applied."""
     summary = {
@@ -104,10 +134,10 @@ def _apply_progression_choices(character: Character, post_data, *, magic_engine)
         if not dirty:
             return engine, progression_context
         new_engine = character.get_engine(refresh=True)
-        return new_engine, build_learning_progression_context(character, engine=new_engine)
+        return new_engine, _build_progression_context_with_creatures(character, engine=new_engine)
 
     engine = character.get_engine(refresh=True)
-    progression_context = build_learning_progression_context(character, engine=engine)
+    progression_context = _build_progression_context_with_creatures(character, engine=engine)
 
     for row in progression_context["learn_school_path_rows"]:
         raw_path_id = str(post_data.get(row["field_name"], "")).strip()
@@ -209,7 +239,7 @@ def _apply_progression_choices(character: Character, post_data, *, magic_engine)
         summary["choices"] += 1
 
     engine = character.get_engine(refresh=True)
-    progression_context = build_learning_progression_context(character, engine=engine)
+    progression_context = _build_progression_context_with_creatures(character, engine=engine)
 
     for decision in progression_context["learn_pending_decisions"]:
         if decision.get("kind") != "weapon_mastery_arcana":
@@ -272,6 +302,36 @@ def _apply_progression_choices(character: Character, post_data, *, magic_engine)
             choice_payload.pop("character", None)
             choice_payload["character_trait"] = trait_row
             choice_payload["definition_id"] = row["definition_id"]
+        elif choice_scope == "creature_trait":
+            card = CharacterCreature.objects.filter(owner=character, pk=row["card_id"], active=True).first()
+            if card is None:
+                raise LearningSubmissionError(f"{choice_label}: Kreatur nicht gefunden.")
+            trait_row = CharacterCreatureTrait.objects.filter(
+                creature=card,
+                trait_id=row["trait_id"],
+                active=True,
+            ).first()
+            if trait_row is None:
+                base_trait = CreatureTrait.objects.filter(
+                    creature=card.creature,
+                    trait_id=row["trait_id"],
+                ).first()
+                trait_definition = CreatureTraitChoiceDefinition.objects.get(pk=row["definition_id"]).trait
+                trait_row, _created = CharacterCreatureTrait.objects.update_or_create(
+                    creature=card,
+                    trait=trait_definition,
+                    defaults={
+                        "base_trait": base_trait,
+                        "trait_level": base_trait.trait_level if base_trait is not None else trait_definition.min_level,
+                        "active": True,
+                        "training_trait_type": CharacterCreatureTrait.TrainingTraitType.NONE,
+                        "order": 1000,
+                    },
+                )
+            choice_model = CharacterCreatureTraitChoice
+            choice_payload.pop("character", None)
+            choice_payload["character_creature_trait"] = trait_row
+            choice_payload["definition_id"] = row["definition_id"]
         else:
             choice_payload["technique_id"] = row["technique_id"]
             if row["definition_id"] is not None:
@@ -295,7 +355,14 @@ def _apply_progression_choices(character: Character, post_data, *, magic_engine)
         elif target_kind == Technique.ChoiceTargetKind.SKILL:
             if raw_value not in allowed_values:
                 raise LearningSubmissionError(f"{choice_label}: Ungueltige Fertigkeitswahl.")
-            choice_payload["selected_skill_id"] = int(raw_value)
+            if choice_scope == "creature_trait" and raw_value.startswith("special:"):
+                special_skill_id = int(raw_value.split(":", 1)[1])
+                if not CreatureSpecialSkill.objects.filter(pk=special_skill_id).exists():
+                    raise LearningSubmissionError(f"{choice_label}: Kreatur-Spezialfertigkeit nicht gefunden.")
+                choice_payload["selected_creature_special_skill_id"] = special_skill_id
+            else:
+                skill_value = raw_value.split(":", 1)[1] if raw_value.startswith("skill:") else raw_value
+                choice_payload["selected_skill_id"] = int(skill_value)
         elif target_kind == Technique.ChoiceTargetKind.SKILL_CATEGORY:
             if raw_value not in allowed_values:
                 raise LearningSubmissionError(f"{choice_label}: Ungueltige Kategorienwahl.")

@@ -444,13 +444,17 @@
 
 .creature-training-skill {
   display: grid;
-  grid-template-columns: 20px minmax(0, 1fr) 52px;
+  grid-template-columns: 16px minmax(0, 0.62fr) 42px minmax(132px, 1.38fr);
   align-items: center;
-  gap: 6px;
+  gap: 2px;
   min-height: 24px;
-  padding: 2px 4px;
+  padding: 2px 3px;
   border-radius: 4px;
   background: rgba(255, 252, 242, 0.22);
+}
+
+.creature-training-skill--new {
+  grid-template-columns: 16px minmax(0, 1fr) 42px;
 }
 
 .creature-training-skill span {
@@ -458,6 +462,24 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.creature-training-skill__effective {
+  justify-self: end;
+  min-width: 132px;
+  color: rgba(33, 23, 14, 0.78);
+  font: 700 13px/1 "Cormorant Garamond", Georgia, serif;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.creature-training-skill__effective strong {
+  font-weight: 800;
+}
+
+.creature-training-skill__effective span {
+  color: rgba(33, 23, 14, 0.66);
+  font-weight: 700;
 }
 
 .creature-training-skill__remove {
@@ -538,12 +560,12 @@
 }
 
 .creature-training-level,
+.creature-training-card-values input,
 .creature-training-attributes input,
-.creature-training-movement input[type="number"],
+.creature-training-movement input,
 .creature-training-size select,
 .creature-training-skill input,
 .creature-training-skill select {
-  width: 48px;
   box-sizing: border-box;
   min-height: 24px;
   border: 1px solid rgba(73, 53, 30, 0.42);
@@ -552,6 +574,14 @@
   color: #21170e;
   font: 700 13px/1.1 "Cormorant Garamond", Georgia, serif;
   box-shadow: inset 0 1px 2px rgba(70, 48, 24, 0.12);
+}
+
+.creature-training-level,
+.creature-training-attributes input,
+.creature-training-movement input,
+.creature-training-size select,
+.creature-training-skill input {
+  width: 48px;
 }
 
 .creature-training-skill select {
@@ -623,6 +653,20 @@
   background: rgba(255, 252, 242, 0.18);
 }
 
+.creature-training-movement__row--mana {
+  grid-template-columns: minmax(46px, 0.9fr) repeat(4, minmax(38px, 1fr));
+}
+
+.creature-training-movement__row--mana input[name="movement_note"] {
+  grid-column: 3 / -1;
+  width: 100%;
+  text-align: left;
+}
+
+.creature-training-movement__row--mana input[name="movement_mana_cost"] {
+  width: 48px;
+}
+
 .creature-training-movement__check {
   grid-template-columns: 15px minmax(0, 1fr);
   gap: 4px;
@@ -633,6 +677,24 @@
   width: 13px;
   height: 13px;
   margin: 0;
+}
+
+.creature-training-movement__check--mark {
+  grid-template-columns: 13px minmax(0, 1fr);
+}
+
+.creature-training-movement__mark {
+  justify-self: end;
+}
+
+.creature-training-mana-mark {
+  justify-self: end;
+}
+
+.creature-training-mana-mark > span {
+  font-size: 12px;
+  letter-spacing: -0.3px;
+  transform: translateX(-0.25px) scaleX(0.9);
 }
 
 .creature-training-movement__row > span:first-child,
@@ -654,15 +716,58 @@
   font-weight: 700;
 }
 
-.creature-training-movement.is-flight-disabled [data-creature-fly-row] {
-  opacity: 0.42;
+.creature-training-movement.is-swim-disabled [data-creature-swim-row],
+.creature-training-movement.is-flight-disabled [data-creature-fly-row],
+.creature-training-movement.is-mana-disabled [data-creature-mana-row] {
+  opacity: 0.5;
   filter: grayscale(0.4);
 }
 
-.creature-training-movement input:disabled {
+.creature-training-movement [data-creature-swim-row] input:disabled,
+.creature-training-movement [data-creature-fly-row] input:disabled,
+.creature-training-movement [data-creature-mana-row] input:disabled {
   background: rgba(223, 215, 194, 0.58);
   color: rgba(33, 23, 14, 0.52);
   cursor: not-allowed;
+}
+
+.creature-training-card-values {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px 6px;
+  margin-top: 6px;
+}
+
+.creature-training-card-values label {
+  display: grid;
+  grid-template-columns: minmax(58px, 1fr) 58px;
+  align-items: center;
+  gap: 5px;
+  min-height: 25px;
+  padding: 2px 4px;
+  border-radius: 4px;
+  background: rgba(255, 252, 242, 0.18);
+}
+
+.creature-training-card-values label.creature-training-card-values__wide {
+  grid-column: 1 / -1;
+  grid-template-columns: minmax(92px, 0.42fr) minmax(0, 1fr);
+}
+
+.creature-training-card-values span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.creature-training-card-values input {
+  width: 100%;
+}
+
+.creature-training-card-values input::placeholder {
+  color: rgba(33, 23, 14, 0.45);
+  opacity: 1;
 }
 
 .creature-training-attributes {

@@ -46,9 +46,11 @@ from .models import (
     CharacterCreatureSkill,
     CharacterCreatureSpecialSkill,
     CharacterCreatureTrait,
+    CharacterCreatureTraitChoice,
     Creature,
     CreatureCommand,
     CreatureSpecialSkill,
+    CreatureTraitChoiceDefinition,
     CreatureTraitDefinition,
     Aspect,
     CharacterDivineEntity,
@@ -61,7 +63,6 @@ from .models import (
     School,
     ShamanPatron,
     Skill,
-
     Technique,
     Trait,
     Quality,
@@ -2154,9 +2155,91 @@ def _parse_nonnegative_float(raw_value, fallback=0):
         return fallback
 
 
+def _parse_optional_int(raw_value, *, minimum: int | None = None):
+    raw_text = str(raw_value if raw_value is not None else "").strip()
+    if raw_text == "":
+        return None
+    try:
+        value = int(raw_text)
+    except (TypeError, ValueError):
+        return None
+    if minimum is not None:
+        return max(minimum, value)
+    return value
+
+
+def _parse_optional_nonnegative_float(raw_value):
+    raw_text = str(raw_value if raw_value is not None else "").strip()
+    if raw_text == "":
+        return None
+    try:
+        return max(0, float(raw_text.replace(",", ".")))
+    except (TypeError, ValueError):
+        return None
+
+
+def _value_without_card_adjustment(card: CharacterCreature, field_name: str, getter):
+    current_value = getattr(card, field_name)
+    setattr(card, field_name, None)
+    try:
+        value = getter(CreatureEngine(card))
+    finally:
+        setattr(card, field_name, current_value)
+    return value
+
+
+def _numeric_adjustment_for_desired_value(card: CharacterCreature, field_name: str, desired_value, getter):
+    if desired_value is None:
+        return None
+    base_value = _value_without_card_adjustment(card, field_name, getter)
+    if base_value is None:
+        base_value = 0
+    return desired_value - base_value
+
+
 def _clamped_trait_level(request, trait: CreatureTraitDefinition, prefix: str) -> int:
     level = _parse_positive_int(request.POST.get(f"{prefix}_{trait.pk}"), int(trait.min_level or 1))
     return min(max(level, int(trait.min_level or 1)), int(trait.max_level or 1))
+
+
+def _skill_allowed_for_creature_choice_definition(skill: Skill, definition: CreatureTraitChoiceDefinition) -> bool:
+    allowed_skill_ids = set(definition.allowed_skills.values_list("id", flat=True)) if definition.pk else set()
+    if allowed_skill_ids and skill.pk not in allowed_skill_ids:
+        return False
+    allowed_category_ids = set(definition.allowed_skill_categories.values_list("id", flat=True)) if definition.pk else set()
+    if allowed_category_ids and skill.category_id not in allowed_category_ids:
+        return False
+    if definition.allowed_skill_category_id and skill.category_id != definition.allowed_skill_category_id:
+        return False
+    if definition.allowed_skill_family and skill.family != definition.allowed_skill_family:
+        return False
+    return True
+
+
+def _commands_with_met_prerequisites(command_ids: set[int]) -> list[CreatureCommand]:
+    commands_by_id = {
+        command.pk: command
+        for command in CreatureCommand.objects.filter(pk__in=command_ids)
+        .prefetch_related("prerequisite_links__prerequisite")
+    }
+    eligible_ids = set(commands_by_id)
+    changed = True
+    while changed:
+        changed = False
+        for command_id, command in list(commands_by_id.items()):
+            if command_id not in eligible_ids:
+                continue
+            if any(
+                group
+                and not any(prerequisite.pk in eligible_ids for prerequisite in group)
+                for group in command.prerequisite_groups
+            ):
+                eligible_ids.remove(command_id)
+                changed = True
+    return sorted(
+        [command for command_id, command in commands_by_id.items() if command_id in eligible_ids],
+        key=lambda command: command.name.lower(),
+    )
 
 
 def _render_creature_training_payload(request, card: CharacterCreature) -> dict:
@@ -2224,43 +2307,132 @@ def update_creature_card_training(request, pk: int):
             card.size_modifier_override = None
             card_update_fields.extend(["size_class_override", "size_modifier_override"])
     movement_float_fields = (
-        ("combat_speed", "combat_speed_override"),
-        ("march_speed", "march_speed_override"),
-        ("sprint_speed", "sprint_speed_override"),
+        ("combat_speed", "combat_speed_override", "combat"),
+        ("march_speed", "march_speed_override", "march"),
+        ("sprint_speed", "sprint_speed_override", "sprint"),
     )
-    for post_name, field_name in movement_float_fields:
+    for post_name, field_name, movement_key in movement_float_fields:
         if post_name in request.POST:
-            setattr(card, field_name, _parse_nonnegative_float(request.POST.get(post_name), getattr(card, field_name, 0) or 0))
+            desired_value = _parse_optional_nonnegative_float(request.POST.get(post_name))
+            adjustment = _numeric_adjustment_for_desired_value(
+                card,
+                field_name,
+                desired_value,
+                lambda engine, key=movement_key: engine.movement().get(key),
+            )
+            setattr(card, field_name, adjustment)
             card_update_fields.append(field_name)
     if "swimming_speed" in request.POST:
-        card.swimming_speed_override = _parse_nonnegative_float(request.POST.get("swimming_speed"), card.swimming_speed_override or 0)
+        desired_value = _parse_optional_nonnegative_float(request.POST.get("swimming_speed"))
+        card.swimming_speed_override = _numeric_adjustment_for_desired_value(
+            card,
+            "swimming_speed_override",
+            desired_value,
+            lambda engine: engine.movement().get("swim"),
+        )
         card_update_fields.append("swimming_speed_override")
-    can_fly = request.POST.get("can_fly") == "1"
-    for post_name, field_name in (
-        ("combat_fly_speed", "combat_fly_speed_override"),
-        ("march_fly_speed", "march_fly_speed_override"),
-        ("sprint_fly_speed", "sprint_fly_speed_override"),
-    ):
-        if can_fly:
-            setattr(card, field_name, _parse_nonnegative_float(request.POST.get(post_name), getattr(card, field_name, None) or 0))
+    swim_movement_fields = (
+        ("combat_swimming_speed", "combat_swimming_speed_override", "swim_combat"),
+        ("march_swimming_speed", "march_swimming_speed_override", "swim_march"),
+        ("sprint_swimming_speed", "sprint_swimming_speed_override", "swim_sprint"),
+    )
+    can_swim = request.POST.get("can_swim") == "1" or any(post_name in request.POST for post_name, _field_name, _movement_key in swim_movement_fields)
+    for post_name, field_name, movement_key in swim_movement_fields:
+        if can_swim:
+            desired_value = _parse_optional_nonnegative_float(request.POST.get(post_name))
+            if desired_value is None:
+                desired_value = 0
+            adjustment = _numeric_adjustment_for_desired_value(
+                card,
+                field_name,
+                desired_value,
+                lambda engine, key=movement_key: engine.movement().get(key),
+            )
+            setattr(card, field_name, adjustment)
         else:
             setattr(card, field_name, None)
         card_update_fields.append(field_name)
+    can_fly = request.POST.get("can_fly") == "1"
+    for post_name, field_name, movement_key in (
+        ("combat_fly_speed", "combat_fly_speed_override", "fly_combat"),
+        ("march_fly_speed", "march_fly_speed_override", "fly_march"),
+        ("sprint_fly_speed", "sprint_fly_speed_override", "fly_sprint"),
+    ):
+        if can_fly:
+            desired_value = _parse_optional_nonnegative_float(request.POST.get(post_name))
+            if desired_value is None:
+                desired_value = 0
+            adjustment = _numeric_adjustment_for_desired_value(
+                card,
+                field_name,
+                desired_value,
+                lambda engine, key=movement_key: engine.movement().get(key),
+            )
+            setattr(card, field_name, adjustment)
+        else:
+            setattr(card, field_name, None)
+        card_update_fields.append(field_name)
+    if "can_mana" in request.POST or "movement_mana_cost" in request.POST or "movement_note" in request.POST:
+        can_mana = request.POST.get("can_mana") == "1" or (
+            "can_mana" not in request.POST and "movement_mana_cost" in request.POST
+        )
+        desired_value = _parse_optional_int(request.POST.get("movement_mana_cost"), minimum=0) if can_mana else None
+        card.movement_mana_cost_override = _numeric_adjustment_for_desired_value(
+            card,
+            "movement_mana_cost_override",
+            desired_value,
+            lambda engine: engine.card_context().get("movement_mana_cost"),
+        )
+        card_update_fields.append("movement_mana_cost_override")
+        card.movement_note_override = str(request.POST.get("movement_note") or "")[:200].strip() if can_mana else ""
+        card_update_fields.append("movement_note_override")
+    core_value_fields = (
+        ("initiative", "initiative_override", None, lambda engine: engine.initiative()),
+        ("vw", "vw_override", None, lambda engine: engine.vw()),
+        ("sr", "sr_override", None, lambda engine: engine.sr()),
+        ("gw", "gw_override", None, lambda engine: engine.gw()),
+        ("natural_rs", "natural_rs_override", 0, lambda engine: engine.armor_totals().natural_rs),
+        ("wound_step", "wound_step_override", 1, lambda engine: engine.wound_step()),
+    )
+    for post_name, field_name, minimum, getter in core_value_fields:
+        if post_name in request.POST:
+            desired_value = _parse_optional_int(request.POST.get(post_name), minimum=minimum)
+            setattr(card, field_name, _numeric_adjustment_for_desired_value(card, field_name, desired_value, getter))
+            card_update_fields.append(field_name)
+    if "wound_thresholds" in request.POST:
+        card.wound_thresholds_override = str(request.POST.get("wound_thresholds") or "")[:100].strip()
+        card_update_fields.append("wound_thresholds_override")
     selected_command_ids = {_parse_positive_int(raw_id) for raw_id in request.POST.getlist("commands") if _parse_positive_int(raw_id)}
     selected_advantage_ids = {_parse_positive_int(raw_id) for raw_id in request.POST.getlist("advantages") if _parse_positive_int(raw_id)}
     selected_disadvantage_ids = {_parse_positive_int(raw_id) for raw_id in request.POST.getlist("disadvantages") if _parse_positive_int(raw_id)}
-    commands = list(
-        CreatureCommand.objects.filter(pk__in=selected_command_ids)
-        .prefetch_related("prerequisite_links__prerequisite")
-        .order_by("name")
-    )
+    existing_trait_rows = list(card.trait_overrides.select_related("trait").prefetch_related("choices").all())
+    base_trait_rows = list(card.creature.traits.select_related("trait").all())
+    base_traits_by_trait_id = {row.trait_id: row for row in base_trait_rows if row.trait_id}
+    base_trait_levels = {row.trait_id: int(row.trait_level or 0) for row in base_trait_rows if row.trait_id}
+    training_trait_types = {
+        CharacterCreatureTrait.TrainingTraitType.ADVANTAGE,
+        CharacterCreatureTrait.TrainingTraitType.DISADVANTAGE,
+    }
+    posted_choice_trait_ids = set()
+    for field_name in request.POST:
+        if not field_name.startswith("creature_trait_choice_"):
+            continue
+        parts = field_name.rsplit("_", 2)
+        if len(parts) != 3:
+            continue
+        trait_id = _parse_positive_int(parts[1], 0)
+        if trait_id:
+            posted_choice_trait_ids.add(trait_id)
+    commands = _commands_with_met_prerequisites(selected_command_ids)
     traits_by_id = {
         trait.pk: trait
         for trait in CreatureTraitDefinition.objects.filter(
             pk__in=selected_advantage_ids | selected_disadvantage_ids
         )
     }
-    new_trait_rows = []
+    selected_training_trait_ids = selected_advantage_ids | selected_disadvantage_ids
+    choice_carrier_trait_ids = posted_choice_trait_ids & set(base_traits_by_trait_id)
+    selected_trait_specs = []
     spent_advantage_points = 0
     spent_disadvantage_points = 0
     order = 1000
@@ -2268,32 +2440,62 @@ def update_creature_card_training(request, pk: int):
         trait = traits_by_id.get(trait_id)
         if trait is None or trait.trait_type != CreatureTraitDefinition.TraitType.ADV:
             continue
-        level = _clamped_trait_level(request, trait, "advantage_level")
-        spent_advantage_points += trait.cost_for_level(level)
-        new_trait_rows.append(
-            CharacterCreatureTrait(
-                creature=card,
-                trait=trait,
-                trait_level=level,
-                training_trait_type=CharacterCreatureTrait.TrainingTraitType.ADVANTAGE,
-                order=order,
-            )
+        total_level = _clamped_trait_level(request, trait, "advantage_level")
+        base_level = int(base_trait_levels.get(trait_id, 0) or 0)
+        level = max(base_level, total_level)
+        added_level = max(0, level - base_level)
+        spent_advantage_points += trait.cost_for_level(added_level)
+        selected_trait_specs.append(
+            {
+                "trait": trait,
+                "level": level,
+                "training_trait_type": (
+                    CharacterCreatureTrait.TrainingTraitType.ADVANTAGE
+                    if added_level
+                    else CharacterCreatureTrait.TrainingTraitType.NONE
+                ),
+                "base_trait": base_traits_by_trait_id.get(trait_id),
+                "point_cost_override": trait.cost_for_level(added_level) if added_level else None,
+                "order": order,
+            }
         )
         order += 1
     for trait_id in selected_disadvantage_ids:
         trait = traits_by_id.get(trait_id)
         if trait is None or trait.trait_type != CreatureTraitDefinition.TraitType.DIS:
             continue
-        level = _clamped_trait_level(request, trait, "disadvantage_level")
-        spent_disadvantage_points += trait.cost_for_level(level)
-        new_trait_rows.append(
-            CharacterCreatureTrait(
-                creature=card,
-                trait=trait,
-                trait_level=level,
-                training_trait_type=CharacterCreatureTrait.TrainingTraitType.DISADVANTAGE,
-                order=order,
-            )
+        total_level = _clamped_trait_level(request, trait, "disadvantage_level")
+        base_level = int(base_trait_levels.get(trait_id, 0) or 0)
+        level = max(base_level, total_level)
+        added_level = max(0, level - base_level)
+        spent_disadvantage_points += trait.cost_for_level(added_level)
+        selected_trait_specs.append(
+            {
+                "trait": trait,
+                "level": level,
+                "training_trait_type": (
+                    CharacterCreatureTrait.TrainingTraitType.DISADVANTAGE
+                    if added_level
+                    else CharacterCreatureTrait.TrainingTraitType.NONE
+                ),
+                "base_trait": base_traits_by_trait_id.get(trait_id),
+                "point_cost_override": trait.cost_for_level(added_level) if added_level else None,
+                "order": order,
+            }
+        )
+        order += 1
+    for trait_id in sorted(choice_carrier_trait_ids - selected_training_trait_ids):
+        trait = traits_by_id.get(trait_id) or base_traits_by_trait_id[trait_id].trait
+        base_level = int(base_trait_levels.get(trait_id, 0) or 0)
+        selected_trait_specs.append(
+            {
+                "trait": trait,
+                "level": min(int(trait.max_level), max(int(trait.min_level), base_level)),
+                "training_trait_type": CharacterCreatureTrait.TrainingTraitType.NONE,
+                "base_trait": base_traits_by_trait_id.get(trait_id),
+                "point_cost_override": None,
+                "order": order,
+            }
         )
         order += 1
 
@@ -2516,9 +2718,63 @@ def update_creature_card_training(request, pk: int):
             for link in command.prerequisite_links.all()
             if command.slug in command_by_slug and link.prerequisite.slug in command_by_slug
         )
-        card.trait_overrides.exclude(training_trait_type="").delete()
+        card.trait_overrides.filter(training_trait_type__in=training_trait_types).exclude(
+            trait_id__in=selected_training_trait_ids
+        ).delete()
         card.trait_overrides.exclude(point_source="").delete()
-        CharacterCreatureTrait.objects.bulk_create(new_trait_rows)
+        saved_trait_rows = {}
+        for spec in selected_trait_specs:
+            row, _created = CharacterCreatureTrait.objects.update_or_create(
+                creature=card,
+                trait=spec["trait"],
+                defaults={
+                    "base_trait": spec["base_trait"],
+                    "trait_level": spec["level"],
+                    "training_trait_type": spec["training_trait_type"],
+                    "point_source": "",
+                    "point_cost_override": spec["point_cost_override"],
+                    "order": spec["order"],
+                    "active": True,
+                },
+            )
+            saved_trait_rows[row.trait_id] = row
+        if saved_trait_rows:
+            definitions = list(
+                CreatureTraitChoiceDefinition.objects.filter(
+                    trait_id__in=saved_trait_rows,
+                    is_active=True,
+                    target_kind=CreatureTraitChoiceDefinition.TargetKind.SKILL,
+                )
+                .prefetch_related("allowed_skills", "allowed_skill_categories")
+            )
+            posted_skill_ids = {
+                _parse_positive_int(request.POST.get(f"creature_trait_choice_{definition.trait_id}_{definition.pk}"), 0)
+                for definition in definitions
+            }
+            skills_by_id = {
+                skill.pk: skill
+                for skill in Skill.objects.select_related("category").filter(pk__in={skill_id for skill_id in posted_skill_ids if skill_id})
+            }
+            for definition in definitions:
+                trait_row = saved_trait_rows.get(definition.trait_id)
+                if trait_row is None:
+                    continue
+                field_name = f"creature_trait_choice_{definition.trait_id}_{definition.pk}"
+                selected_skill_id = _parse_positive_int(request.POST.get(field_name), 0)
+                existing_choices = CharacterCreatureTraitChoice.objects.filter(
+                    character_creature_trait=trait_row,
+                    definition=definition,
+                )
+                selected_skill = skills_by_id.get(selected_skill_id)
+                if selected_skill is None or not _skill_allowed_for_creature_choice_definition(selected_skill, definition):
+                    existing_choices.delete()
+                    continue
+                existing_choices.exclude(selected_skill=selected_skill).delete()
+                CharacterCreatureTraitChoice.objects.get_or_create(
+                    character_creature_trait=trait_row,
+                    definition=definition,
+                    selected_skill=selected_skill,
+                )
         card.attribute_increases.all().delete()
         CharacterCreatureAttributeIncrease.objects.bulk_create(attribute_rows)
 

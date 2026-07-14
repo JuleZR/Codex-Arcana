@@ -609,6 +609,8 @@ class ModifierEngine:
             return -abs(int(numeric_value))
         if modifier.operator == ModifierOperator.MULTIPLY:
             return float(numeric_value)
+        if modifier.operator == ModifierOperator.FLOOR_DIVIDE:
+            return float(numeric_value)
         return int(numeric_value)
 
     def _resolve_numeric_value(self, modifier: BaseModifier) -> int | float | None:
@@ -687,6 +689,11 @@ class ModifierEngine:
                 continue
             if modifier.operator == ModifierOperator.MULTIPLY:
                 resolved_total = int(resolved_total * resolved_value)
+                continue
+            if modifier.operator == ModifierOperator.FLOOR_DIVIDE:
+                if not resolved_value:
+                    continue
+                resolved_total = int(resolved_total // resolved_value)
                 continue
             if modifier.operator == ModifierOperator.MIN_VALUE:
                 resolved_total = max(resolved_total, int(resolved_value))

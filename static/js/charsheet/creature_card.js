@@ -272,6 +272,38 @@ export function initCreatureCards() {
       const parsed = readInteger(value, 0);
       return parsed > 0 ? `+${parsed}` : String(parsed);
     };
+    const skillFormulaText = ({ baseValue, deviation, attributeCode, attributeModifier, gkModifier, skillModifier }) => {
+      const parts = [String(baseValue)];
+      if (deviation) {
+        parts.push(`${formatSignedModifier(deviation)} Abw.`);
+      }
+      if (attributeModifier) {
+        parts.push(`${formatSignedModifier(attributeModifier)} ${attributeCode}`);
+      }
+      if (gkModifier) {
+        parts.push(`${formatSignedModifier(gkModifier)} GK`);
+      }
+      if (skillModifier) {
+        parts.push(`${formatSignedModifier(skillModifier)} Mod.`);
+      }
+      return parts.join(" ");
+    };
+    const skillFormulaTitle = ({ total, baseValue, deviation, attributeCode, attributeModifier, gkModifier, skillModifier }) => {
+      const parts = [`Basis ${baseValue}`];
+      if (deviation) {
+        parts.push(`Abweichung ${formatSignedModifier(deviation)}`);
+      }
+      if (attributeModifier) {
+        parts.push(`${attributeCode} ${formatSignedModifier(attributeModifier)}`);
+      }
+      if (gkModifier) {
+        parts.push(`GK ${formatSignedModifier(gkModifier)}`);
+      }
+      if (skillModifier) {
+        parts.push(`Modifikatoren ${formatSignedModifier(skillModifier)}`);
+      }
+      return `${parts.join(" + ")} ergibt ${total}`;
+    };
     const currentSizeModifier = () => {
       const select = panel.querySelector("[data-creature-size-class]");
       if (!(select instanceof HTMLSelectElement)) {
@@ -296,6 +328,7 @@ export function initCreatureCards() {
           return;
         }
         const output = row.querySelector("[data-creature-skill-effective]");
+        const formula = row.querySelector("[data-creature-skill-formula]");
         const input = row.querySelector("[data-creature-skill-base-value]");
         if (!(output instanceof HTMLElement) || !(input instanceof HTMLInputElement)) {
           return;
@@ -305,7 +338,25 @@ export function initCreatureCards() {
         const deviation = readInteger(row.dataset.creatureSkillDeviation, 0);
         const gkMultiplier = readInteger(row.dataset.creatureSkillGkMultiplier, 0);
         const skillModifier = readInteger(row.dataset.creatureSkillModifier, 0);
-        output.textContent = String(baseValue + deviation + attributeModifier + (sizeModifier * gkMultiplier) + skillModifier);
+        const gkModifier = sizeModifier * gkMultiplier;
+        const total = baseValue + deviation + attributeModifier + gkModifier + skillModifier;
+        output.textContent = String(total);
+        const formulaPayload = {
+          total,
+          baseValue,
+          deviation,
+          attributeCode: row.dataset.creatureSkillAttribute || "Eig.",
+          attributeModifier,
+          gkModifier,
+          skillModifier,
+        };
+      if (formula instanceof HTMLElement) {
+        formula.textContent = skillFormulaText(formulaPayload);
+      }
+        const effective = row.querySelector(".creature-training-skill__effective");
+        if (effective instanceof HTMLElement) {
+          effective.title = skillFormulaTitle(formulaPayload);
+        }
       });
     };
     const refreshSizeModifier = () => {
@@ -325,15 +376,41 @@ export function initCreatureCards() {
       if (!(panel instanceof HTMLElement)) {
         return;
       }
-      const selectedCommandIds = new Set(
+      let selectedCommandIds = new Set(
         Array.from(panel.querySelectorAll("[data-creature-command-input]:checked"))
           .filter((input) => input instanceof HTMLInputElement)
           .map((input) => String(input.value)),
       );
-      panel.querySelectorAll("[data-creature-command-choice]").forEach((choice) => {
-        if (!(choice instanceof HTMLElement)) {
-          return;
-        }
+      const commandChoices = Array.from(panel.querySelectorAll("[data-creature-command-choice]"))
+        .filter((choice) => choice instanceof HTMLElement);
+      let changed = true;
+      while (changed) {
+        changed = false;
+        commandChoices.forEach((choice) => {
+          const input = choice.querySelector("[data-creature-command-input]");
+          if (!(input instanceof HTMLInputElement) || !input.checked) {
+            return;
+          }
+          let groups = [];
+          try {
+            groups = JSON.parse(choice.getAttribute("data-prerequisite-groups") || "[]");
+          } catch (_error) {
+            groups = [];
+          }
+          const hasUnmetPrerequisites = groups.some((group) => (
+            Array.isArray(group)
+            && group.length > 0
+            && !group.some((commandId) => selectedCommandIds.has(String(commandId)))
+          ));
+          if (hasUnmetPrerequisites) {
+            input.checked = false;
+            selectedCommandIds.delete(String(input.value));
+            changed = true;
+          }
+        });
+      }
+      commandChoices.forEach((choice) => {
+        const input = choice.querySelector("[data-creature-command-input]");
         let groups = [];
         try {
           groups = JSON.parse(choice.getAttribute("data-prerequisite-groups") || "[]");
@@ -345,6 +422,9 @@ export function initCreatureCards() {
           && group.length > 0
           && !group.some((commandId) => selectedCommandIds.has(String(commandId)))
         ));
+        if (input instanceof HTMLInputElement) {
+          input.disabled = hasUnmetPrerequisites;
+        }
         choice.classList.toggle("creature-training-choice--unmet", hasUnmetPrerequisites);
       });
     };
@@ -361,6 +441,38 @@ export function initCreatureCards() {
       panel.querySelectorAll("[data-creature-fly-speed]").forEach((input) => {
         if (input instanceof HTMLInputElement) {
           input.disabled = !canFly;
+        }
+      });
+    };
+    const refreshSwimSpeedInputs = () => {
+      if (!(panel instanceof HTMLElement)) {
+        return;
+      }
+      const checkbox = panel.querySelector("[data-creature-can-swim]");
+      const movement = panel.querySelector("[data-creature-training-movement]");
+      const canSwim = checkbox instanceof HTMLInputElement && checkbox.checked;
+      if (movement instanceof HTMLElement) {
+        movement.classList.toggle("is-swim-disabled", !canSwim);
+      }
+      panel.querySelectorAll("[data-creature-swim-speed]").forEach((input) => {
+        if (input instanceof HTMLInputElement) {
+          input.disabled = !canSwim;
+        }
+      });
+    };
+    const refreshManaInputs = () => {
+      if (!(panel instanceof HTMLElement)) {
+        return;
+      }
+      const checkbox = panel.querySelector("[data-creature-can-mana]");
+      const movement = panel.querySelector("[data-creature-training-movement]");
+      const canMana = checkbox instanceof HTMLInputElement && checkbox.checked;
+      if (movement instanceof HTMLElement) {
+        movement.classList.toggle("is-mana-disabled", !canMana);
+      }
+      panel.querySelectorAll("[data-creature-mana-field]").forEach((input) => {
+        if (input instanceof HTMLInputElement) {
+          input.disabled = !canMana;
         }
       });
     };
@@ -505,6 +617,12 @@ export function initCreatureCards() {
         if (target?.matches("[data-creature-can-fly]")) {
           refreshFlySpeedInputs();
         }
+        if (target?.matches("[data-creature-can-swim]")) {
+          refreshSwimSpeedInputs();
+        }
+        if (target?.matches("[data-creature-can-mana]")) {
+          refreshManaInputs();
+        }
         if (target?.matches("[data-creature-size-class]")) {
           refreshSizeModifier();
         }
@@ -546,7 +664,9 @@ export function initCreatureCards() {
         }
       });
       refreshCommandPrerequisites();
+      refreshSwimSpeedInputs();
       refreshFlySpeedInputs();
+      refreshManaInputs();
       refreshSizeModifier();
       panel.addEventListener("pointerdown", (event) => {
         event.stopPropagation();

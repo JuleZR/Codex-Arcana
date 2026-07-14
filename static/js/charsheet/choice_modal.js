@@ -52,6 +52,7 @@ export function createChoiceModalController({ hiddenInputContainer, windowContro
   const getDecisionId = (section) => section.dataset.choiceDecisionId || "";
   const getDecisionInputs = (decisionId) => Array.from(hiddenInputContainer.querySelectorAll(`input[data-choice-decision-id="${decisionId}"]`));
   const getSelectionGroupId = (section) => section.dataset.choiceSelectionGroup || "";
+  const allowsDuplicateSelections = (section) => section.dataset.choiceAllowDuplicates === "1";
   const getInputType = (section) => section.dataset.choiceInputType || "options";
   const getDecisionTitle = (section) => section.dataset.choiceTitle || "Offene Wahl";
   const getSectionOptionInputs = (section) => Array.from(section.querySelectorAll("input[type='radio']"));
@@ -242,6 +243,9 @@ export function createChoiceModalController({ hiddenInputContainer, windowContro
       if (!selectionGroupId || getInputType(section) !== "options") {
         return;
       }
+      if (allowsDuplicateSelections(section)) {
+        return;
+      }
       // Use the explicit tracker first (works even when section is hidden),
       // fall back to querying the checked radio.
       const decisionId = getDecisionId(section);
@@ -258,6 +262,22 @@ export function createChoiceModalController({ hiddenInputContainer, windowContro
       const selectionGroupId = getSelectionGroupId(section);
       const optionInputs = getSectionOptionInputs(section);
       if (!selectionGroupId || !optionInputs.length) {
+        return;
+      }
+      if (allowsDuplicateSelections(section)) {
+        optionInputs.forEach((input) => {
+          if (!(input instanceof HTMLInputElement)) {
+            return;
+          }
+          input.disabled = false;
+          const label = input.closest(".learn_choice_option");
+          if (label instanceof HTMLElement) {
+            label.classList.remove("is-disabled", "is-group-hidden");
+            label.setAttribute("aria-disabled", "false");
+            label.style.display = "";
+          }
+        });
+        refreshSearchFilter(section);
         return;
       }
       const selectedIds = groupedSelections.get(selectionGroupId) || new Set();
@@ -417,7 +437,7 @@ export function createChoiceModalController({ hiddenInputContainer, windowContro
       }
 
       const optionId = selectedInput.dataset.choiceOptionId || selectedInput.value;
-      if (selectionGroupId) {
+      if (selectionGroupId && !allowsDuplicateSelections(section)) {
         const existing = groupedSelections.get(selectionGroupId) || new Set();
         if (existing.has(optionId)) {
           return {

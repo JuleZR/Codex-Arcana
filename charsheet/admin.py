@@ -699,6 +699,20 @@ def _format_trait_choice_context(definition):
     parts = [definition.description or definition.name]
     if definition.allowed_attribute_id:
         parts.append(f"Allowed Attribute: {definition.allowed_attribute.short_name}")
+    if getattr(definition, "pk", None):
+        allowed_categories = list(definition.allowed_skill_categories.order_by("name").values_list("slug", flat=True))
+        if allowed_categories:
+            parts.append(f"Allowed Skill Categories: {', '.join(allowed_categories)}")
+        allowed_skills = list(definition.allowed_skills.order_by("name").values_list("name", flat=True))
+        if allowed_skills:
+            parts.append(f"Allowed Skills: {', '.join(allowed_skills)}")
+        allowed_special_skills = list(
+            definition.allowed_creature_special_skills.order_by("name").values_list("name", flat=True)
+        )
+        if allowed_special_skills:
+            parts.append(f"Allowed Creature Special Skills: {', '.join(allowed_special_skills)}")
+    if getattr(definition, "allow_all_creature_special_skills", False):
+        parts.append("Allowed Creature Special Skills: all")
     if definition.allowed_skill_category_id:
         parts.append(f"Allowed Skill Category: {definition.allowed_skill_category.slug}")
     if definition.allowed_skill_family:
@@ -2107,6 +2121,8 @@ class CreatureTraitSemanticEffectAdminForm(forms.ModelForm):
     OPERATION_CHOICES = (
         ("flat_add", "+ addieren"),
         ("flat_sub", "- abziehen"),
+        ("multiply", "* multiplizieren"),
+        ("floor_divide", "// teilen abrunden"),
         ("override", "auf Wert setzen"),
         ("min_value", "mindestens"),
         ("max_value", "hoechstens"),
@@ -5505,6 +5521,7 @@ class CreatureTraitChoiceInline(admin.TabularInline):
         "definition",
         "selected_attribute",
         "selected_skill",
+        "selected_creature_special_skill",
         "selected_skill_category",
         "selected_derived_stat",
         "selected_resource",
@@ -5520,6 +5537,7 @@ class CreatureTraitChoiceInline(admin.TabularInline):
         "definition",
         "selected_attribute",
         "selected_skill",
+        "selected_creature_special_skill",
         "selected_skill_category",
         "selected_item",
         "selected_specialization",
@@ -5533,8 +5551,91 @@ class CharacterCreatureTraitChoiceInline(admin.TabularInline):
     autocomplete_fields = CreatureTraitChoiceInline.autocomplete_fields
 
 
+class CreatureTraitChoiceDefinitionAdminForm(forms.ModelForm):
+    CREATURE_SPECIAL_SKILLS_CATEGORY_VALUE = "__creature_special_skills__"
+
+    allowed_skill_categories = forms.MultipleChoiceField(
+        required=False,
+        label="Allowed skill categories",
+        help_text="Optional filter restricting skill choices. Includes a virtual entry for all creature special skills.",
+    )
+
+    class Meta:
+        model = CreatureTraitChoiceDefinition
+        fields = "__all__"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        category_choices = [
+            (str(category.pk), category.name)
+            for category in SkillCategory.objects.order_by("name")
+        ]
+        self.fields["allowed_skill_categories"].choices = [
+            *category_choices,
+            (self.CREATURE_SPECIAL_SKILLS_CATEGORY_VALUE, "Kreatur-Spezialfertigkeiten"),
+        ]
+        if self.instance.pk and not self.is_bound:
+            initial_values = [str(pk) for pk in self.instance.allowed_skill_categories.values_list("pk", flat=True)]
+            if self.instance.allow_all_creature_special_skills:
+                initial_values.append(self.CREATURE_SPECIAL_SKILLS_CATEGORY_VALUE)
+            self.initial["allowed_skill_categories"] = initial_values
+
+    def clean(self):
+        cleaned_data = super().clean()
+        target_kind = cleaned_data.get("target_kind")
+        raw_allowed_skill_categories = cleaned_data.get("allowed_skill_categories") or []
+        allow_all_creature_special_skills = (
+            self.CREATURE_SPECIAL_SKILLS_CATEGORY_VALUE in raw_allowed_skill_categories
+        )
+        category_ids = [
+            int(value)
+            for value in raw_allowed_skill_categories
+            if value != self.CREATURE_SPECIAL_SKILLS_CATEGORY_VALUE
+        ]
+        allowed_skill_categories = SkillCategory.objects.filter(pk__in=category_ids)
+        allowed_skills = cleaned_data.get("allowed_skills")
+        allowed_creature_special_skills = cleaned_data.get("allowed_creature_special_skills")
+        cleaned_data["allowed_skill_categories"] = allowed_skill_categories
+        cleaned_data["allow_all_creature_special_skills"] = allow_all_creature_special_skills
+        if target_kind != CreatureTraitChoiceDefinition.TargetKind.SKILL:
+            if allowed_skill_categories:
+                self.add_error(
+                    "allowed_skill_categories",
+                    "This filter is only valid for skill choices.",
+                )
+            if allowed_skills:
+                self.add_error("allowed_skills", "This filter is only valid for skill choices.")
+            if allowed_creature_special_skills:
+                self.add_error(
+                    "allowed_creature_special_skills",
+                    "This filter is only valid for skill choices.",
+                )
+            if allow_all_creature_special_skills:
+                self.add_error(
+                    "allow_all_creature_special_skills",
+                    "This filter is only valid for skill choices.",
+                )
+        return cleaned_data
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        instance.allow_all_creature_special_skills = self.cleaned_data.get(
+            "allow_all_creature_special_skills",
+            False,
+        )
+        if commit:
+            instance.save()
+            self.save_m2m()
+        return instance
+
+    def save_m2m(self):
+        super().save_m2m()
+        self.instance.allowed_skill_categories.set(self.cleaned_data.get("allowed_skill_categories", []))
+
+
 class CreatureTraitChoiceDefinitionInline(admin.TabularInline):
     model = CreatureTraitChoiceDefinition
+    form = CreatureTraitChoiceDefinitionAdminForm
     extra = 0
     fields = (
         "sort_order",
@@ -5543,15 +5644,22 @@ class CreatureTraitChoiceDefinitionInline(admin.TabularInline):
         "min_choices",
         "max_choices",
         "is_required",
+        "allow_duplicate_selections",
         "is_active",
         "allowed_attribute",
-        "allowed_skill_category",
+        "allowed_skill_categories",
+        "allowed_skills",
+        "allowed_creature_special_skills",
         "allowed_skill_family",
         "allowed_derived_stat",
         "allowed_resource",
         "allowed_proficiency_group",
     )
-    autocomplete_fields = ("allowed_attribute", "allowed_skill_category")
+    autocomplete_fields = (
+        "allowed_attribute",
+        "allowed_skills",
+        "allowed_creature_special_skills",
+    )
 
 
 class CreatureTraitSemanticEffectInline(admin.StackedInline):
@@ -5851,7 +5959,7 @@ class CharacterCreatureAdmin(admin.ModelAdmin):
             },
         ),
         ("Werte-Overrides", {"fields": ("initiative_override", "vw_override", "sr_override", "gw_override", ("fear_resistance_bonus_override", "defense_extra_label_override"), "natural_rs_override", "wound_step_override", "wound_thresholds_override")}),
-        ("Bewegungs-Overrides", {"fields": ("combat_speed_override", "march_speed_override", "sprint_speed_override", "swimming_speed_override", "combat_fly_speed_override", "march_fly_speed_override", "sprint_fly_speed_override")}),
+        ("Bewegungs-Overrides", {"fields": ("combat_speed_override", "march_speed_override", "sprint_speed_override", "swimming_speed_override", ("combat_swimming_speed_override", "march_swimming_speed_override", "sprint_swimming_speed_override"), "combat_fly_speed_override", "march_fly_speed_override", "sprint_fly_speed_override", ("movement_mana_cost_override", "movement_note_override"))}),
     )
 
 
@@ -5948,11 +6056,48 @@ class CreatureTraitDefinitionAdmin(admin.ModelAdmin):
 
 @admin.register(CreatureTraitChoiceDefinition)
 class CreatureTraitChoiceDefinitionAdmin(admin.ModelAdmin):
-    list_display = ("trait", "name", "target_kind", "min_choices", "max_choices", "is_active")
+    form = CreatureTraitChoiceDefinitionAdminForm
+    list_display = ("trait", "name", "target_kind", "min_choices", "max_choices", "allow_duplicate_selections", "is_active")
     search_fields = ("trait__name", "trait__slug", "name", "description")
     list_filter = ("target_kind", "is_required", "is_active")
-    autocomplete_fields = ("trait", "allowed_attribute", "allowed_skill_category")
-    list_select_related = ("trait", "allowed_attribute", "allowed_skill_category")
+    autocomplete_fields = (
+        "trait",
+        "allowed_attribute",
+        "allowed_skills",
+        "allowed_creature_special_skills",
+    )
+    list_select_related = ("trait", "allowed_attribute")
+    fieldsets = (
+        (
+            "Basis",
+            {
+                "fields": (
+                    "trait",
+                    "sort_order",
+                    "name",
+                    "target_kind",
+                    "description",
+                    ("min_choices", "max_choices"),
+                    ("is_required", "allow_duplicate_selections", "is_active"),
+                )
+            },
+        ),
+        (
+            "Erlaubte Ziele",
+            {
+                "fields": (
+                    "allowed_attribute",
+                    "allowed_skill_categories",
+                    "allowed_skills",
+                    "allowed_creature_special_skills",
+                    "allowed_skill_family",
+                    "allowed_derived_stat",
+                    "allowed_resource",
+                    "allowed_proficiency_group",
+                )
+            },
+        ),
+    )
 
 
 @admin.register(CreatureTraitSemanticEffect)
