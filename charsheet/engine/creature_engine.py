@@ -140,6 +140,7 @@ class CreatureEngine:
                     "choices",
                     "choices__selected_creature_attack",
                     "trait__semantic_effects",
+                    "trait__choice_definitions__allowed_attributes",
                     "trait__semantic_effects__target_skills",
                 )
             )
@@ -154,6 +155,7 @@ class CreatureEngine:
                 "choices",
                 "choices__selected_creature_attack",
                 "trait__semantic_effects",
+                "trait__choice_definitions__allowed_attributes",
                 "trait__semantic_effects__target_skills",
             )
             if row.id not in skipped_base_trait_ids

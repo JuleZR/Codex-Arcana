@@ -594,6 +594,12 @@ class CreatureTraitChoiceDefinition(models.Model):
         blank=True,
         related_name="creature_trait_choice_definitions",
     )
+    allowed_attributes = models.ManyToManyField(
+        Attribute,
+        blank=True,
+        related_name="creature_trait_multi_choice_definitions",
+        help_text="Optional filter restricting attribute choices to one or more attributes.",
+    )
     allowed_skill_category = models.ForeignKey(
         SkillCategory,
         on_delete=models.PROTECT,
@@ -643,8 +649,11 @@ class CreatureTraitChoiceDefinition(models.Model):
             raise ValidationError({"max_choices": "max_choices must be greater than or equal to min_choices."})
         if not self.is_required and self.min_choices != 0:
             raise ValidationError({"min_choices": "Optional choice definitions must use min_choices = 0."})
-        if self.target_kind != self.TargetKind.ATTRIBUTE and self.allowed_attribute_id:
-            raise ValidationError({"allowed_attribute": "This filter is only valid for attribute choices."})
+        if self.target_kind != self.TargetKind.ATTRIBUTE:
+            if self.allowed_attribute_id:
+                raise ValidationError({"allowed_attribute": "This filter is only valid for attribute choices."})
+            if self.pk and self.allowed_attributes.exists():
+                raise ValidationError({"allowed_attributes": "This filter is only valid for attribute choices."})
         if self.target_kind != self.TargetKind.SKILL:
             if self.allowed_skill_category_id:
                 raise ValidationError({"allowed_skill_category": "This filter is only valid for skill choices."})
@@ -1513,10 +1522,14 @@ class CreatureTraitChoiceSelection(models.Model):
             self.definition_id
             and self.definition.target_kind == CreatureTraitChoiceDefinition.TargetKind.ATTRIBUTE
             and self.selected_attribute_id
-            and self.definition.allowed_attribute_id
-            and self.selected_attribute_id != self.definition.allowed_attribute_id
         ):
-            raise ValidationError({"selected_attribute": "The selected attribute does not match the allowed attribute."})
+            allowed_attribute_ids = set()
+            if self.definition.pk:
+                allowed_attribute_ids = set(self.definition.allowed_attributes.values_list("id", flat=True))
+            if self.definition.allowed_attribute_id:
+                allowed_attribute_ids.add(self.definition.allowed_attribute_id)
+            if allowed_attribute_ids and self.selected_attribute_id not in allowed_attribute_ids:
+                raise ValidationError({"selected_attribute": "The selected attribute does not match the allowed attributes."})
         if (
             self.definition_id
             and self.definition.target_kind == CreatureTraitChoiceDefinition.TargetKind.SKILL

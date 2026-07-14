@@ -706,9 +706,13 @@ def _format_trait_choice_context(definition):
     if definition is None:
         return "-"
     parts = [definition.description or definition.name]
-    if definition.allowed_attribute_id:
-        parts.append(f"Allowed Attribute: {definition.allowed_attribute.short_name}")
     if getattr(definition, "pk", None):
+        if hasattr(definition, "allowed_attributes"):
+            allowed_attributes = list(definition.allowed_attributes.order_by("sort_order", "name").values_list("short_name", flat=True))
+            if allowed_attributes:
+                parts.append(f"Allowed Attributes: {', '.join(allowed_attributes)}")
+        if definition.allowed_attribute_id:
+            parts.append(f"Allowed Attribute: {definition.allowed_attribute.short_name}")
         allowed_categories = list(definition.allowed_skill_categories.order_by("name").values_list("slug", flat=True))
         if allowed_categories:
             parts.append(f"Allowed Skill Categories: {', '.join(allowed_categories)}")
@@ -5608,6 +5612,11 @@ class CharacterCreatureTraitChoiceInline(admin.TabularInline):
 class CreatureTraitChoiceDefinitionAdminForm(forms.ModelForm):
     CREATURE_SPECIAL_SKILLS_CATEGORY_VALUE = "__creature_special_skills__"
 
+    allowed_attributes = forms.MultipleChoiceField(
+        required=False,
+        label="Allowed attributes",
+        help_text="Optional filter restricting attribute choices to one or more attributes.",
+    )
     allowed_skill_categories = forms.MultipleChoiceField(
         required=False,
         label="Allowed skill categories",
@@ -5626,6 +5635,13 @@ class CreatureTraitChoiceDefinitionAdminForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields["allowed_attribute"].required = False
+        self.fields["allowed_attribute"].widget = forms.HiddenInput()
+        attribute_choices = [
+            (str(attribute.pk), f"{attribute.name} ({attribute.short_name})")
+            for attribute in Attribute.objects.order_by("sort_order", "name")
+        ]
+        self.fields["allowed_attributes"].choices = attribute_choices
         category_choices = [
             (str(category.pk), category.name)
             for category in SkillCategory.objects.order_by("name")
@@ -5635,6 +5651,10 @@ class CreatureTraitChoiceDefinitionAdminForm(forms.ModelForm):
             (self.CREATURE_SPECIAL_SKILLS_CATEGORY_VALUE, "Kreatur-Spezialfertigkeiten"),
         ]
         if self.instance.pk and not self.is_bound:
+            attribute_initial_values = [str(pk) for pk in self.instance.allowed_attributes.values_list("pk", flat=True)]
+            if self.instance.allowed_attribute_id and str(self.instance.allowed_attribute_id) not in attribute_initial_values:
+                attribute_initial_values.append(str(self.instance.allowed_attribute_id))
+            self.initial["allowed_attributes"] = attribute_initial_values
             initial_values = [str(pk) for pk in self.instance.allowed_skill_categories.values_list("pk", flat=True)]
             if self.instance.allow_all_creature_special_skills:
                 initial_values.append(self.CREATURE_SPECIAL_SKILLS_CATEGORY_VALUE)
@@ -5644,6 +5664,9 @@ class CreatureTraitChoiceDefinitionAdminForm(forms.ModelForm):
     def clean(self):
         cleaned_data = super().clean()
         target_kind = cleaned_data.get("target_kind")
+        raw_allowed_attributes = cleaned_data.get("allowed_attributes") or []
+        attribute_ids = [int(value) for value in raw_allowed_attributes]
+        allowed_attributes = Attribute.objects.filter(pk__in=attribute_ids)
         raw_allowed_skill_categories = cleaned_data.get("allowed_skill_categories") or []
         allow_all_creature_special_skills = (
             self.CREATURE_SPECIAL_SKILLS_CATEGORY_VALUE in raw_allowed_skill_categories
@@ -5657,9 +5680,16 @@ class CreatureTraitChoiceDefinitionAdminForm(forms.ModelForm):
         allowed_skills = cleaned_data.get("allowed_skills")
         allowed_creature_special_skills = cleaned_data.get("allowed_creature_special_skills")
         allowed_derived_stats = cleaned_data.get("allowed_derived_stat") or []
+        cleaned_data["allowed_attributes"] = allowed_attributes
+        cleaned_data["allowed_attribute"] = allowed_attributes.first()
         cleaned_data["allowed_skill_categories"] = allowed_skill_categories
         cleaned_data["allow_all_creature_special_skills"] = allow_all_creature_special_skills
         cleaned_data["allowed_derived_stat"] = ",".join(allowed_derived_stats)
+        if target_kind != CreatureTraitChoiceDefinition.TargetKind.ATTRIBUTE and allowed_attributes:
+            self.add_error(
+                "allowed_attributes",
+                "This filter is only valid for attribute choices.",
+            )
         if target_kind != CreatureTraitChoiceDefinition.TargetKind.SKILL:
             if allowed_skill_categories:
                 self.add_error(
@@ -5698,6 +5728,7 @@ class CreatureTraitChoiceDefinitionAdminForm(forms.ModelForm):
 
     def save_m2m(self):
         super().save_m2m()
+        self.instance.allowed_attributes.set(self.cleaned_data.get("allowed_attributes", []))
         self.instance.allowed_skill_categories.set(self.cleaned_data.get("allowed_skill_categories", []))
 
 
@@ -5714,7 +5745,7 @@ class CreatureTraitChoiceDefinitionInline(admin.TabularInline):
         "is_required",
         "allow_duplicate_selections",
         "is_active",
-        "allowed_attribute",
+        "allowed_attributes",
         "allowed_skill_categories",
         "allowed_skills",
         "allowed_creature_special_skills",
@@ -5724,7 +5755,6 @@ class CreatureTraitChoiceDefinitionInline(admin.TabularInline):
         "allowed_proficiency_group",
     )
     autocomplete_fields = (
-        "allowed_attribute",
         "allowed_skills",
         "allowed_creature_special_skills",
     )
@@ -6138,7 +6168,6 @@ class CreatureTraitChoiceDefinitionAdmin(admin.ModelAdmin):
     list_filter = ("target_kind", "is_required", "is_active")
     autocomplete_fields = (
         "trait",
-        "allowed_attribute",
         "allowed_skills",
         "allowed_creature_special_skills",
     )
@@ -6162,7 +6191,7 @@ class CreatureTraitChoiceDefinitionAdmin(admin.ModelAdmin):
             "Erlaubte Ziele",
             {
                 "fields": (
-                    "allowed_attribute",
+                    "allowed_attributes",
                     "allowed_skill_categories",
                     "allowed_skills",
                     "allowed_creature_special_skills",
