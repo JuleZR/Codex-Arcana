@@ -1498,6 +1498,12 @@ def sync_character_creatures(character) -> list[CharacterCreature]:
         character_technique.technique_id: character_technique
         for character_technique in character_techniques
     }
+    engine = character.get_engine(refresh=True)
+    active_technique_ids = {
+        int(state["technique_id"])
+        for state in engine.technique_states()
+        if state["learned"] and state["available"]
+    }
     bindings = list(
         CreatureSourceBinding.objects.filter(active=True, creature__isnull=False)
         .select_related("creature", "creature__quality", "quality", "item_trigger", "technique_trigger")
@@ -1522,12 +1528,11 @@ def sync_character_creatures(character) -> list[CharacterCreature]:
                 for character_item in items_by_item_id.get(binding.item_trigger_id, [])
             ]
         elif binding.trigger_type == CreatureSourceBinding.TriggerType.TECHNIQUE:
-            character_technique = techniques_by_technique_id.get(binding.technique_trigger_id)
-            if character_technique is not None:
+            if binding.technique_trigger_id in active_technique_ids:
                 source_rows = [
                     {
                         "source_character_item": None,
-                        "source_character_technique": character_technique,
+                        "source_character_technique": techniques_by_technique_id.get(binding.technique_trigger_id),
                         "quality": binding.quality,
                     }
                 ]
