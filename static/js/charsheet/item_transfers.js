@@ -1,0 +1,66 @@
+export function initItemTransfers({ windowController = null } = {}) {
+  const dialog = document.getElementById("itemTransferDialog");
+  if (!dialog || dialog.dataset.initialized === "1") return;
+  dialog.dataset.initialized = "1";
+  const form = document.getElementById("itemTransferForm");
+  const search = document.getElementById("itemTransferRecipientSearch");
+  const recipientId = document.getElementById("itemTransferRecipientId");
+  const senderId = document.getElementById("itemTransferSenderId");
+  const results = document.getElementById("itemTransferResults");
+  const quantity = document.getElementById("itemTransferQuantity");
+  let timer = null;
+
+  document.addEventListener("click", (event) => {
+    const trigger = event.target.closest("[data-open-item-transfer]");
+    if (trigger) {
+      form.action = trigger.dataset.action || "";
+      senderId.value = trigger.dataset.senderId || "";
+      recipientId.value = "";
+      search.value = "";
+      results.replaceChildren();
+      quantity.max = trigger.dataset.itemAmount || "1";
+      quantity.value = "1";
+      document.getElementById("itemTransferName").textContent = trigger.dataset.itemName || "";
+      windowController?.open();
+      search.focus();
+    }
+    if (event.target.closest("[data-close-item-transfer]")) windowController?.close();
+    const option = event.target.closest("[data-transfer-recipient]");
+    if (option) {
+      recipientId.value = option.dataset.transferRecipient;
+      search.value = option.dataset.label || option.textContent.trim();
+      results.replaceChildren();
+    }
+  });
+
+  search.addEventListener("input", () => {
+    recipientId.value = "";
+    search.setCustomValidity("");
+    clearTimeout(timer);
+    const query = search.value.trim();
+    if (query.length < 2) { results.replaceChildren(); return; }
+    timer = setTimeout(async () => {
+      const url = new URL(dialog.dataset.searchUrl, window.location.origin);
+      url.searchParams.set("q", query);
+      url.searchParams.set("exclude", senderId.value);
+      const response = await fetch(url, { headers: { Accept: "application/json" } });
+      const payload = await response.json();
+      results.replaceChildren(...payload.results.map((row) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.dataset.transferRecipient = row.id;
+        button.dataset.label = row.name;
+        button.textContent = `${row.name} · ${row.race} · ${row.username}`;
+        return button;
+      }));
+    }, 180);
+  });
+
+  form.addEventListener("submit", (event) => {
+    if (!recipientId.value) {
+      event.preventDefault();
+      search.setCustomValidity("Bitte einen Treffer aus der Liste auswählen.");
+      search.reportValidity();
+    }
+  });
+}

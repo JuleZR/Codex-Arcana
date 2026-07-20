@@ -45,6 +45,8 @@ from charsheet.models import (
     WeaponType,
     WeaponStats,
 )
+from charsheet.item_transfers import has_item_permission, item_is_pending, record_item_destruction
+from charsheet.models import ItemPermissionGrant
 
 
 def _read_weapon_type(raw_value) -> WeaponType | None:
@@ -834,7 +836,7 @@ def buy_shop_cart(character: Character, payload: dict[str, object]) -> tuple[dic
         character.save(update_fields=["money"])
         for item, qty, quality in normalized:
             if item.stackable:
-                existing = CharacterItem.objects.filter(owner=character, item=item, quality_id=quality).first()
+                existing = CharacterItem.objects.filter(owner=character, original_owner_character=character, item=item, quality_id=quality).exclude(transfers__status="pending").first()
                 if existing:
                     existing.amount += qty
                     existing.full_clean()
@@ -856,6 +858,7 @@ def buy_shop_cart(character: Character, payload: dict[str, object]) -> tuple[dic
     return {"ok": True, "new_money": character.money, "spent": final_price}, 200
 
 
+@transaction.atomic
 def sell_shop_cart(character: Character, payload: dict[str, object]) -> tuple[dict[str, object], int]:
     """Sell cart entries atomically and return JSON payload plus status code."""
     cart_items = payload.get("items") or []
@@ -875,7 +878,7 @@ def sell_shop_cart(character: Character, payload: dict[str, object]) -> tuple[di
 
     character_items = {
         item.id: item
-        for item in CharacterItem.objects.select_related("item", "owner").filter(
+        for item in CharacterItem.objects.select_for_update().select_related("item", "owner", "original_owner_character").filter(
             owner=character,
             pk__in=requested_quantities.keys(),
         )
@@ -889,6 +892,10 @@ def sell_shop_cart(character: Character, payload: dict[str, object]) -> tuple[di
         character_item = character_items[character_item_id]
         if character_item.item.not_sellable:
             return {"ok": False, "error": "item_not_sellable"}, 400
+        if item_is_pending(character_item):
+            return {"ok": False, "error": "item_pending"}, 409
+        if not has_item_permission(character_item, ItemPermissionGrant.Permission.SELL, character):
+            return {"ok": False, "error": "sell_permission_required"}, 403
         if qty > character_item.amount:
             return {"ok": False, "error": "invalid_qty"}, 400
         unit_price = ItemEngine(character_item).get_price()
@@ -900,6 +907,7 @@ def sell_shop_cart(character: Character, payload: dict[str, object]) -> tuple[di
         character.save(update_fields=["money"])
         for character_item, qty, _unit_price in normalized:
             if qty >= character_item.amount:
+                record_item_destruction(character_item, character, "sell")
                 character_item.delete()
                 continue
             character_item.amount -= qty
@@ -909,6 +917,7 @@ def sell_shop_cart(character: Character, payload: dict[str, object]) -> tuple[di
     return {"ok": True, "new_money": character.money, "earned": payout}, 200
 
 
+@transaction.atomic
 def trade_shop_cart(character: Character, payload: dict[str, object]) -> tuple[dict[str, object], int]:
     """Process one mixed buy/sell cart atomically and return JSON payload plus status code."""
     buy_items = payload.get("buy_items") or []
@@ -958,7 +967,7 @@ def trade_shop_cart(character: Character, payload: dict[str, object]) -> tuple[d
 
     character_items = {
         item.id: item
-        for item in CharacterItem.objects.select_related("item", "owner").filter(
+        for item in CharacterItem.objects.select_for_update().select_related("item", "owner", "original_owner_character").filter(
             owner=character,
             pk__in=requested_sell_quantities.keys(),
         )
@@ -972,6 +981,10 @@ def trade_shop_cart(character: Character, payload: dict[str, object]) -> tuple[d
         character_item = character_items[character_item_id]
         if character_item.item.not_sellable:
             return {"ok": False, "error": "item_not_sellable"}, 400
+        if item_is_pending(character_item):
+            return {"ok": False, "error": "item_pending"}, 409
+        if not has_item_permission(character_item, ItemPermissionGrant.Permission.SELL, character):
+            return {"ok": False, "error": "sell_permission_required"}, 403
         if qty > character_item.amount:
             return {"ok": False, "error": "invalid_qty"}, 400
         unit_price = ItemEngine(character_item).get_price()
@@ -989,6 +1002,7 @@ def trade_shop_cart(character: Character, payload: dict[str, object]) -> tuple[d
 
         for character_item, qty, _unit_price in normalized_sells:
             if qty >= character_item.amount:
+                record_item_destruction(character_item, character, "trade_sell")
                 character_item.delete()
             else:
                 character_item.amount -= qty
@@ -997,7 +1011,7 @@ def trade_shop_cart(character: Character, payload: dict[str, object]) -> tuple[d
 
         for item, qty, quality in normalized_buys:
             if item.stackable:
-                existing = CharacterItem.objects.filter(owner=character, item=item, quality_id=quality).first()
+                existing = CharacterItem.objects.filter(owner=character, original_owner_character=character, item=item, quality_id=quality).exclude(transfers__status="pending").first()
                 if existing:
                     existing.amount += qty
                     existing.full_clean()

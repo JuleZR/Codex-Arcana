@@ -7,6 +7,7 @@ import json
 import math
 
 from django.contrib.contenttypes.models import ContentType
+from django.db.models import Q
 from django.urls import reverse
 
 from charsheet.constants import (
@@ -45,6 +46,7 @@ from charsheet.constants import (
 )
 from charsheet.engine import BattleCalculatorEngine, ItemEngine
 from charsheet.engine.creature_engine import CreatureEngine, sync_character_creatures
+from charsheet.item_transfers import has_item_permission, item_is_pending, pending_transfer_for_item
 from charsheet.forms import (
     CharacterInfoInlineForm,
     CharacterSkillSpecificationForm,
@@ -2457,14 +2459,37 @@ def _build_inventory_rows(character: Character) -> list[dict]:
     race_item_ids = _race_item_ids()
     inventory_items = list(
         CharacterItem.objects
-        .filter(owner=character, equipped=False)
-        .select_related("item", "item__weaponstats", "item__weaponstats__damage_source", "item__armorstats", "item__shieldstats")
-        .prefetch_related("item__runes", "runes", "rune_specs__rune", "item_runes__rune")
+        .filter(
+            Q(owner=character, equipped=False)
+            | (Q(original_owner_character=character) & ~Q(owner=character))
+        )
+        .select_related("item", "original_owner_character", "item__weaponstats", "item__weaponstats__damage_source", "item__armorstats", "item__shieldstats")
+        .prefetch_related("item__runes", "runes", "rune_specs__rune", "item_runes__rune", "transfers__recipient", "permission_grants")
     )
     inventory_items.sort(key=lambda entry: ItemEngine(entry).get_name().lower())
     modifiers_by_character_item_id = _load_character_item_modifier_payloads(inventory_items)
     for character_item in inventory_items:
         item = character_item.item
+        pending_transfer = pending_transfer_for_item(character_item)
+        is_current_holder = character_item.owner_id == character.id
+        is_original_owner = character_item.original_owner_character_id == character.id
+        is_foreign_held = is_original_owner and not is_current_holder
+        is_borrowed = is_current_holder and not is_original_owner
+        can_use_item = is_current_holder and pending_transfer is None
+        active_grants = {}
+        for grant in character_item.permission_grants.all():
+            if not grant.active:
+                continue
+            if grant.permission == "consume_final":
+                if grant.grantee_id is None:
+                    active_grants.setdefault(grant.permission, grant)
+            elif (
+                grant.grantee_id == character_item.owner_id
+                and grant.ownership_version == character_item.ownership_version
+            ):
+                active_grants.setdefault(grant.permission, grant)
+        can_destroy = has_item_permission(character_item, "destroy", character)
+        can_consume_final = has_item_permission(character_item, "consume_final", character)
         is_race_item = item.id in race_item_ids
         item_engine = ItemEngine(character_item)
         item_name = item_engine.get_name()
@@ -2531,9 +2556,23 @@ def _build_inventory_rows(character: Character) -> list[dict]:
                 ),
                 "item_image_url": item_image_url,
                 "tooltip_text": tooltip_text,
-                "is_stored": bool(character_item.stored),
-                "can_consume": item.stackable and item.item_type == Item.ItemType.CONSUM,
-                "can_equip": item.item_type in EQUIPPABLE_ITEM_TYPES or character_item.is_magic_effective,
+                "is_stored": bool(character_item.stored) if is_current_holder else False,
+                "is_foreign_held": is_foreign_held,
+                "is_borrowed": is_borrowed,
+                "foreign_holder_name": character_item.owner.name if is_foreign_held else "",
+                "pending_transfer": pending_transfer,
+                "is_transfer_pending": pending_transfer is not None,
+                "can_manage_storage": can_use_item,
+                "can_transfer": can_use_item and not character_item.equip_locked,
+                "can_consume": can_use_item and item.stackable and item.item_type == Item.ItemType.CONSUM and (character_item.amount > 1 or can_consume_final),
+                "can_destroy": can_use_item and can_destroy,
+                "can_enforce_original_ownership": is_original_owner and (is_foreign_held or pending_transfer is not None),
+                "can_manage_permissions": is_foreign_held,
+                "can_return_to_original_owner": is_borrowed and can_use_item and not character_item.equip_locked,
+                "consume_grant": active_grants.get("consume_final"),
+                "sell_grant": active_grants.get("sell"),
+                "destroy_grant": active_grants.get("destroy"),
+                "can_equip": can_use_item and (item.item_type in EQUIPPABLE_ITEM_TYPES or character_item.is_magic_effective),
                 "equip_drop_zone": (
                     "weapon"
                     if item.item_type == Item.ItemType.WEAPON
@@ -2541,7 +2580,10 @@ def _build_inventory_rows(character: Character) -> list[dict]:
                     if (item.item_type in EQUIPPABLE_ITEM_TYPES or character_item.is_magic_effective)
                     else ""
                 ),
-                "can_socket_runes": True,
+                "can_socket_runes": (
+                    can_use_item
+                    and is_original_owner
+                ),
                 "equip_label": "Anlegen",
                 "extra_rune_ids": active_rune_ids,
                 "rune_specs_json": json.dumps(_serialize_character_item_rune_specs(character_item)),
@@ -3370,10 +3412,12 @@ def _build_shop_sell_item_groups(character: Character) -> list[dict]:
         CharacterItem.objects
         .filter(owner=character)
         .exclude(item__not_sellable=True)
-        .select_related("item")
+        .select_related("item", "original_owner_character")
         .order_by("item__item_type", "item__name", "quality", "id")
     )
     for character_item in inventory_items:
+        if item_is_pending(character_item) or not has_item_permission(character_item, "sell", character):
+            continue
         item = character_item.item
         item_engine = ItemEngine(character_item)
         quality = quality_payload(item_engine.get_effective_quality())

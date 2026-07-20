@@ -1,0 +1,58 @@
+{% load static %}
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Übergabeanfragen | Codex Arcana</title>
+  <link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
+  <link rel="stylesheet" href="{% static 'css/item-transfer-center.css' %}">
+</head>
+<body class="transfer-center-page{% if embedded %} transfer-center-page--embedded{% endif %}">
+<main class="transfer-center">
+  <header class="transfer-center__header">
+    <div>
+      <h1>Übergabeanfragen{% if selected_character %} · {{ selected_character.name }}{% endif %}</h1>
+      <p>{% if selected_character %}Offene Anfragen für diesen Charakter{% else %}Alle offenen Anfragen deiner Charaktere{% endif %}</p>
+    </div>
+    {% if not embedded %}<a class="transfer-button" href="{% url 'dashboard' %}">Zum Dashboard</a>{% endif %}
+  </header>
+
+  {% if messages %}
+    {% for message in messages %}<p class="transfer-message">{{ message }}</p>{% endfor %}
+  {% endif %}
+
+  <section class="transfer-panel">
+    <h2>Offene Eingänge <span class="transfer-count">{{ incoming|length }}</span></h2>
+    {% for transfer in incoming %}
+      <article class="transfer-offer">
+        <div>{% if transfer.item_snapshot.image %}<img src="{{ transfer.item_snapshot.image }}" alt="">{% endif %}</div>
+        <div>
+          <h3>{{ transfer.item_snapshot.name }}</h3>
+          <p>Von {{ transfer.sender_snapshot.name }} · {{ transfer.sender_snapshot.username }}</p>
+          {% if transfer.message %}<blockquote>{{ transfer.message }}</blockquote>{% endif %}
+          <small>Verfällt: {{ transfer.expires_at|date:"d.m.Y H:i" }}</small>
+        </div>
+        <div class="transfer-actions">
+          <form method="post" action="{% url 'accept_item_transfer' transfer.id %}"{% if embedded %} data-transfer-accept{% endif %}>
+            {% csrf_token %}
+            {% if selected_character %}<input type="hidden" name="context_character_id" value="{{ selected_character.id }}">{% endif %}
+            {% if embedded %}<input type="hidden" name="embedded" value="1">{% endif %}
+            <button>Annehmen</button>
+          </form>
+          <form method="post" action="{% url 'decline_item_transfer' transfer.id %}">
+            {% csrf_token %}
+            {% if selected_character %}<input type="hidden" name="context_character_id" value="{{ selected_character.id }}">{% endif %}
+            {% if embedded %}<input type="hidden" name="embedded" value="1">{% endif %}
+            <button class="danger">Ablehnen</button>
+          </form>
+        </div>
+      </article>
+    {% empty %}
+      <p>Keine offenen Übergabeanfragen.</p>
+    {% endfor %}
+  </section>
+</main>
+{% if embedded %}<script type="module" src="{% static 'js/charsheet/item_transfer_center.js' %}?v=20260721a"></script>{% endif %}
+</body>
+</html>

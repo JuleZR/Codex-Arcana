@@ -217,6 +217,15 @@ export function initStandardFloatingWindows() {
       allowPersistedOpen: false,
       startRightInset: 214,
     }),
+    itemTransfer: createFloatingWindowController({
+      windowEl: document.getElementById("itemTransferDialog"),
+      closeButton: document.getElementById("itemTransferDialogClose"),
+      handle: document.getElementById("itemTransferDialogHandle"),
+      startTop: 142,
+      storageKey: "charsheet.itemTransferDialog",
+      allowPersistedOpen: false,
+      startRightInset: 230,
+    }),
   };
 
   if (document.getElementById("learnWindow")?.getAttribute("data-force-close") === "1") {
@@ -234,6 +243,11 @@ export function initStandardFloatingWindows() {
   });
   document.getElementById("inventoryDeleteWarningOkBtn")?.addEventListener("click", () => {
     controllers.inventoryDeleteWarning?.close();
+  });
+  document.querySelectorAll("#itemTransferDialog [data-close-item-transfer]").forEach((button) => {
+    if (button.id !== "itemTransferDialogClose") {
+      button.addEventListener("click", () => controllers.itemTransfer?.close());
+    }
   });
 
   return controllers;

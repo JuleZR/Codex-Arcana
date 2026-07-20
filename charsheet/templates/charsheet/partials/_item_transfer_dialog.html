@@ -1,0 +1,19 @@
+<section class="payday-window payday-window--item-create sheet-window sheet-window--editor-modal item-transfer-dialog" id="itemTransferDialog" data-search-url="{% url 'character_recipient_search' %}" aria-hidden="true">
+  <div class="payday-window__titlebar sheet-window__header" id="itemTransferDialogHandle">
+    <h3 class="payday-window__title sheet-window__title">Gegenstand versenden</h3>
+    <button type="button" class="payday-window__close" id="itemTransferDialogClose" data-close-item-transfer aria-label="Fenster schließen">x</button>
+  </div>
+  <div class="payday-window__body sheet-window__body"><div class="sheet-window__editor-shell"><div class="sheet-window__editor-pane">
+  <form method="post" id="itemTransferForm" class="sheet-window__editor-form item-transfer-form">
+    {% csrf_token %}
+    <input type="hidden" name="sender_id" id="itemTransferSenderId">
+    <input type="hidden" name="recipient_id" id="itemTransferRecipientId">
+    <header class="item-transfer-form__heading"><span>Gegenstand versenden</span><strong id="itemTransferName"></strong></header>
+    <label class="shop_item_form_row"><span>Empfänger</span><input type="search" id="itemTransferRecipientSearch" autocomplete="off" minlength="2" required placeholder="Charaktername"></label>
+    <div class="item-transfer-results" id="itemTransferResults" role="listbox"></div>
+    <label class="shop_item_form_row"><span>Menge</span><input type="number" name="quantity" id="itemTransferQuantity" min="1" value="1" required></label>
+    <label class="shop_item_form_row"><span>Nachricht</span><textarea name="message" maxlength="1000" rows="4"></textarea></label>
+    <footer class="shop_item_form_actions item-transfer-form__actions"><button type="button" class="shop_item_cancel_btn" data-close-item-transfer>Abbrechen</button><button type="submit" class="wax_seal_btn">Versenden</button></footer>
+  </form>
+  </div></div></div>
+</section>

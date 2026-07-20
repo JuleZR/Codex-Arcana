@@ -966,7 +966,7 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
   document.addEventListener("click", (event) => {
     const target = event.target instanceof Element ? event.target : null;
     const trigger = target?.closest(".inv_menu_trigger");
-    const menu = trigger?.closest(".inv_menu");
+    const menu = trigger?.closest(".inv_menu") || target?.closest(".inv_menu");
 
     document.querySelectorAll(".inv_menu").forEach((entry) => {
       if (entry !== menu) {
@@ -988,6 +988,10 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
         closeMenu(menu);
       }
       return;
+    }
+
+    if (target?.closest(".inv_permission_details > summary") && menu instanceof HTMLElement) {
+      requestAnimationFrame(() => positionMenuPanel(menu));
     }
 
     if (target?.closest(".inv_menu_panel")) {

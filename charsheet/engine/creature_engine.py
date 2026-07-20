@@ -1482,6 +1482,7 @@ def sync_character_creatures(character) -> list[CharacterCreature]:
 
     character_items = list(
         CharacterItem.objects.filter(owner=character, amount__gt=0, stored=False)
+        .exclude(transfers__status="pending")
         .select_related("item", "quality")
         .order_by("id")
     )

@@ -1,10 +1,10 @@
 <aside class="creature-training-drawer" data-creature-training-drawer data-creature-card-id="{{ training.card.pk }}" aria-label="Ausbildung">
   <button class="creature-training-drawer__toggle" type="button" data-creature-training-toggle aria-expanded="false" title="Ausbildung">Ausbildung</button>
-  <form class="creature-training-drawer__panel" method="post" action="{{ training.update_url }}" data-creature-training-form hidden>
+  <form class="creature-training-drawer__panel" method="post" action="{{ training.update_url }}" data-creature-training-form novalidate hidden>
     {% csrf_token %}
     <header class="creature-training-drawer__header">
       <h2>Ausbildung</h2>
-      <button type="submit">Speichern</button>
+      <button type="submit" data-creature-training-save>Speichern</button>
     </header>
 
     <div class="creature-training-column">

@@ -1,0 +1,10 @@
+<form method="post" action="{% url 'update_item_permission' character_item.id %}" class="permission-form">
+  {% csrf_token %}<input type="hidden" name="original_owner_id" value="{{ character_item.original_owner_character_id }}"><input type="hidden" name="permission" value="{{ permission }}"><input type="hidden" name="return_character_id" value="{{ return_character_id }}">
+  <span>{{ label }}</span>
+  {% if grant %}
+    <small>{% if grant.irrevocable %}unwiderruflich{% else %}widerruflich{% endif %}</small>
+    {% if not grant.irrevocable %}<input type="hidden" name="enabled" value="0"><button>Widerrufen</button>{% endif %}
+  {% else %}
+    <input type="hidden" name="enabled" value="1"><label><input type="checkbox" name="irrevocable" value="1"> unwiderruflich</label><button>Erteilen</button>
+  {% endif %}
+</form>

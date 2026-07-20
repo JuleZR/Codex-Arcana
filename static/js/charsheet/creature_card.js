@@ -673,42 +673,65 @@ export function initCreatureCards() {
       }, true);
       panel.addEventListener("submit", async (event) => {
         event.preventDefault();
-        const formData = new FormData(panel);
-        const floatingCard = drawer.closest(".card-hand__floating-card");
-        floatingCard?.querySelectorAll("[data-creature-card-field]").forEach((field) => {
-          if (
-            !(field instanceof HTMLInputElement)
-            && !(field instanceof HTMLTextAreaElement)
-            && !(field instanceof HTMLSelectElement)
-          ) {
-            return;
-          }
-          if (field instanceof HTMLInputElement && field.type === "file") {
-            if (field.files && field.files.length > 0) {
-              formData.append(field.name, field.files[0]);
+        const saveButton = panel.querySelector("[data-creature-training-save]");
+        if (saveButton instanceof HTMLButtonElement && saveButton.disabled) {
+          return;
+        }
+        if (saveButton instanceof HTMLButtonElement) {
+          saveButton.disabled = true;
+          saveButton.textContent = "Speichert…";
+          saveButton.removeAttribute("title");
+        }
+        try {
+          const formData = new FormData(panel);
+          const floatingCard = drawer.closest(".card-hand__floating-card");
+          floatingCard?.querySelectorAll("[data-creature-card-field]").forEach((field) => {
+            if (
+              !(field instanceof HTMLInputElement)
+              && !(field instanceof HTMLTextAreaElement)
+              && !(field instanceof HTMLSelectElement)
+            ) {
+              return;
             }
-            return;
+            if (field instanceof HTMLInputElement && field.type === "file") {
+              if (field.files && field.files.length > 0) {
+                formData.append(field.name, field.files[0]);
+              }
+              return;
+            }
+            formData.append(field.name, field.value);
+          });
+          const response = await fetch(panel.action, {
+            method: "POST",
+            body: formData,
+            headers: {
+              "X-CSRFToken": getCsrfToken(),
+              "X-Requested-With": "XMLHttpRequest",
+              Accept: "application/json",
+            },
+            credentials: "same-origin",
+          });
+          if (!response.ok) {
+            throw new Error(`Ausbildung konnte nicht gespeichert werden (${response.status}).`);
           }
-          formData.append(field.name, field.value);
-        });
-        const response = await fetch(panel.action, {
-          method: "POST",
-          body: formData,
-          headers: {
-            "X-CSRFToken": getCsrfToken(),
-            "X-Requested-With": "XMLHttpRequest",
-            Accept: "application/json",
-          },
-          credentials: "same-origin",
-        });
-        if (!response.ok) {
-          return;
+          const payload = await response.json();
+          if (!payload?.ok) {
+            throw new Error(payload?.message || "Ausbildung konnte nicht gespeichert werden.");
+          }
+          replaceCreatureCardFragments(drawer, payload);
+        } catch (error) {
+          if (saveButton instanceof HTMLButtonElement) {
+            saveButton.textContent = "Fehler";
+            saveButton.title = error instanceof Error ? error.message : "Ausbildung konnte nicht gespeichert werden.";
+          }
+        } finally {
+          if (saveButton instanceof HTMLButtonElement && saveButton.isConnected) {
+            saveButton.disabled = false;
+            if (saveButton.textContent !== "Fehler") {
+              saveButton.textContent = "Speichern";
+            }
+          }
         }
-        const payload = await response.json();
-        if (!payload?.ok) {
-          return;
-        }
-        replaceCreatureCardFragments(drawer, payload);
       });
     }
   };
@@ -717,6 +740,33 @@ export function initCreatureCards() {
     const floating = drawer.closest("[data-card-hand-floating]");
     const hand = floating?.closest("[data-card-hand]");
     const cardKey = String(payload.cardKey || floating?.getAttribute("data-card-key") || "");
+    const sourceCharacterItemId = String(payload.sourceCharacterItemId || "");
+    if (sourceCharacterItemId) {
+      document
+        .querySelectorAll(`[data-inventory-row][data-character-item-id="${CSS.escape(sourceCharacterItemId)}"]`)
+        .forEach((inventoryRow) => {
+          const nameElement = inventoryRow.querySelector(".inv_name");
+          if (!(nameElement instanceof HTMLElement)) {
+            return;
+          }
+          const nameNode = Array.from(nameElement.childNodes)
+            .find((node) => node.nodeType === Node.TEXT_NODE);
+          if (nameNode && payload.inventoryItemName) {
+            nameNode.nodeValue = String(payload.inventoryItemName);
+          } else if (payload.inventoryItemName) {
+            nameElement.prepend(document.createTextNode(String(payload.inventoryItemName)));
+          }
+          const qualityColor = String(payload.inventoryItemQualityColor || "");
+          inventoryRow.classList.toggle("quality_tinted_row", Boolean(qualityColor));
+          if (qualityColor) {
+            inventoryRow.style.setProperty("--row-quality-color", qualityColor);
+            inventoryRow.dataset.tooltipAccent = qualityColor;
+          } else {
+            inventoryRow.style.removeProperty("--row-quality-color");
+            delete inventoryRow.dataset.tooltipAccent;
+          }
+        });
+    }
     if (hand instanceof HTMLElement && cardKey && payload.miniCardHtml) {
       const mini = hand.querySelector(`[data-card-hand-open-card][data-card-key="${CSS.escape(cardKey)}"]`);
       if (mini instanceof HTMLElement) {

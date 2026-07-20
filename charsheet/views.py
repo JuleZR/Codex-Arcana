@@ -3,6 +3,7 @@ import base64
 import binascii
 import json
 import random
+from urllib.parse import urlencode
 from uuid import uuid4
 from datetime import date as date_cls
 from django.core.files.base import ContentFile
@@ -21,7 +22,7 @@ from django.db.models import Sum
 from django.db.models.deletion import ProtectedError
 from django.utils import timezone
 from django.template.loader import render_to_string
-from django.urls import reverse_lazy
+from django.urls import reverse, reverse_lazy
 from .engine import CharacterCreationEngine
 from .engine.creature_engine import CreatureEngine
 from .engine.dice_engine import DiceEngine
@@ -66,6 +67,8 @@ from .models import (
     Technique,
     Trait,
     Quality,
+    ItemPermissionGrant,
+    ItemTransfer,
 )
 from .models.user import UserSettings
 from .forms import (
@@ -90,6 +93,18 @@ from .shop import (
 )
 from .shop import create_custom_shop_item
 from .view_utils import format_modifier, format_thousands
+from .item_transfers import (
+    TransferError,
+    accept_transfer as accept_item_transfer,
+    create_transfer as create_item_transfer_service,
+    decline_transfer as decline_item_transfer,
+    enforce_original_ownership,
+    expire_due_transfers,
+    has_item_permission,
+    item_is_pending,
+    record_item_destruction,
+    set_item_permission,
+)
 
 
 DIARY_ENTRY_CHAR_LIMIT = 2200
@@ -416,6 +431,7 @@ def _build_sheet_context_for_request(
     request, character: Character, *, close_learn_window_once: bool = False, skip_magic_sync: bool = False
 ) -> dict[str, object]:
     """Build the full sheet context including request-specific dice settings."""
+    expire_due_transfers()
     skip_magic_sync = skip_magic_sync or request.session.pop("skip_magic_sync_once", False)
     magic_engine = character.get_magic_engine(refresh=True)
     if not skip_magic_sync:
@@ -434,6 +450,10 @@ def _build_sheet_context_for_request(
         "themeId": user_settings.dddice_theme_id,
     }
     context["request"] = request
+    context["open_item_transfer_count"] = ItemTransfer.objects.filter(
+        recipient=character,
+        status=ItemTransfer.Status.PENDING,
+    ).count()
     return context
 
 
@@ -1041,13 +1061,21 @@ def remove_visible_skill(request, character_id: int, skill_id: int):
 
 @login_required
 @require_POST
+@transaction.atomic
 def update_rune_specification(request, character_item_id: int, rune_id: int):
     """Persist the specialization text for one rune on an owned item."""
     character_item = get_object_or_404(
         CharacterItem.objects.select_related("owner", "item"),
         pk=character_item_id,
-        owner__user=request.user,
+        owner__owner=request.user,
     )
+    character_item = CharacterItem.objects.select_for_update().select_related("owner", "item").get(pk=character_item.pk)
+    if item_is_pending(character_item):
+        messages.error(request, "Unterwegs befindliche Items können nicht verändert werden.")
+        return redirect("character_sheet", character_id=character_item.owner_id)
+    if character_item.owner_id != character_item.original_owner_character_id:
+        messages.error(request, "Nur der Ursprungsbesitzer darf dieses Item modifizieren.")
+        return redirect("character_sheet", character_id=character_item.owner_id)
     rune = get_object_or_404(Rune, pk=rune_id, has_specialization=True)
     if (
         not character_item.runes.filter(pk=rune_id).exists()
@@ -1192,6 +1220,7 @@ def sheet(request):
 @login_required
 def dashboard(request):
     """Render the user-specific dashboard with owned character overview."""
+    expire_due_transfers()
     UserSettings.objects.get_or_create(user=request.user)
     characters_qs = Character.objects.filter(
         owner=request.user,
@@ -1325,6 +1354,9 @@ def dashboard(request):
         "search_query": search_query,
         "search_results": search_results,
         "roll_data": roll_data,
+        "open_item_transfer_count": ItemTransfer.objects.filter(
+            recipient__owner=request.user, status=ItemTransfer.Status.PENDING
+        ).count(),
     }
     return render(request, "charsheet/dashboard.html", context)
 
@@ -1385,6 +1417,13 @@ def delete_character(request, character_id: int):
     """Delete one owned character permanently."""
     character = _owned_character_or_404(request, character_id)
     name = character.name
+    if (
+        character.originally_owned_items.exists()
+        or character.sent_item_transfers.filter(status=ItemTransfer.Status.PENDING).exists()
+        or character.received_item_transfers.filter(status=ItemTransfer.Status.PENDING).exists()
+    ):
+        messages.error(request, f"{name} kann wegen bestehender Ursprungsrechte oder offener Übergaben nicht gelöscht werden.")
+        return redirect("dashboard")
     try:
         with transaction.atomic():
             # CharacterLanguage uses PROTECT on owner; delete dependent entries first.
@@ -1915,11 +1954,190 @@ def create_character(request):
     )
 
 
+def _transfer_response_error(request, error: TransferError, *, character_id=None):
+    if _is_partial_request(request):
+        return JsonResponse({"ok": False, "error": error.code, "message": error.message}, status=error.status)
+    messages.error(request, error.message)
+    if character_id:
+        return redirect("character_sheet", character_id=character_id)
+    return _item_transfer_center_redirect(request)
+
+
+def _item_transfer_center_redirect(request):
+    params = {}
+    character_id = request.POST.get("context_character_id")
+    if str(character_id or "").isdigit() and Character.objects.filter(
+        pk=int(character_id), owner=request.user
+    ).exists():
+        params["character"] = int(character_id)
+    if request.POST.get("embedded") == "1":
+        params["embedded"] = "1"
+    url = reverse("item_transfer_center")
+    return redirect(f"{url}?{urlencode(params)}" if params else url)
+
+
+@login_required
+def character_recipient_search(request):
+    query = (request.GET.get("q") or "").strip()
+    if len(query) < 2:
+        return JsonResponse({"results": []})
+    exclude_id = request.GET.get("exclude")
+    characters = Character.objects.filter(is_archived=False, name__istartswith=query).select_related("race", "owner")
+    if str(exclude_id or "").isdigit():
+        characters = characters.exclude(pk=int(exclude_id))
+    results = [
+        {"id": row.pk, "name": row.name, "race": row.race.name, "username": row.owner.get_username()}
+        for row in characters.order_by("name", "owner__username", "id")[:20]
+    ]
+    return JsonResponse({"results": results})
+
+
 @login_required
 @require_POST
+def create_item_transfer(request, pk):
+    item = _owned_character_item_or_404(request, pk)
+    try:
+        sender = _owned_character_or_404(request, int(request.POST.get("sender_id") or item.owner_id))
+        recipient = get_object_or_404(Character.objects.select_related("owner", "race"), pk=int(request.POST.get("recipient_id") or 0))
+        transfer = create_item_transfer_service(
+            item_id=item.pk,
+            sender=sender,
+            recipient=recipient,
+            quantity=int(request.POST.get("quantity") or item.amount),
+            message=request.POST.get("message", ""),
+        )
+    except (TypeError, ValueError):
+        return _transfer_response_error(request, TransferError("invalid_payload", "Ungültige Übergabedaten."), character_id=item.owner_id)
+    except TransferError as error:
+        return _transfer_response_error(request, error, character_id=item.owner_id)
+    if _is_partial_request(request):
+        return JsonResponse({"ok": True, "transferId": transfer.pk, "reload": True})
+    messages.success(request, "Übergabe wurde erstellt.")
+    return redirect("character_sheet", character_id=sender.pk)
+
+
+def _owned_transfer_recipient(request, transfer_id):
+    transfer = get_object_or_404(ItemTransfer.objects.select_related("recipient"), pk=transfer_id, recipient__owner=request.user)
+    return transfer.recipient
+
+
+@login_required
+@require_POST
+def accept_item_transfer_view(request, transfer_id):
+    recipient = _owned_transfer_recipient(request, transfer_id)
+    try:
+        accept_item_transfer(transfer_id=transfer_id, recipient=recipient)
+    except TransferError as error:
+        return _transfer_response_error(request, error)
+    if _is_partial_request(request):
+        return _sheet_partials_response(
+            request,
+            recipient,
+            "character_header",
+            "load_panel",
+            "core_stats_panel",
+            "damage_panel",
+            "wallet_panel",
+            "experience_panel",
+            "learning_budget",
+            "inventory_panel",
+            "armor_panel",
+            "weapon_panel",
+            "card_hand",
+        )
+    messages.success(request, "Gegenstand angenommen.")
+    return _item_transfer_center_redirect(request)
+
+
+@login_required
+@require_POST
+def decline_item_transfer_view(request, transfer_id):
+    recipient = _owned_transfer_recipient(request, transfer_id)
+    try:
+        decline_item_transfer(transfer_id=transfer_id, recipient=recipient)
+    except TransferError as error:
+        return _transfer_response_error(request, error)
+    messages.info(request, "Übergabe abgelehnt.")
+    return _item_transfer_center_redirect(request)
+
+
+@login_required
+@require_POST
+def enforce_item_ownership(request, pk):
+    original_owner = get_object_or_404(Character, pk=int(request.POST.get("original_owner_id") or 0), owner=request.user)
+    return_to_character = str(request.POST.get("return_character_id") or "") == str(original_owner.pk)
+    try:
+        enforce_original_ownership(item_id=pk, original_owner=original_owner)
+    except TransferError as error:
+        return _transfer_response_error(request, error, character_id=original_owner.pk if return_to_character else None)
+    messages.success(request, "Zwangsvollstreckung durchgeführt.")
+    if return_to_character:
+        return redirect("character_sheet", character_id=original_owner.pk)
+    return _item_transfer_center_redirect(request)
+
+
+@login_required
+@require_POST
+def update_item_permission(request, pk):
+    original_owner = get_object_or_404(Character, pk=int(request.POST.get("original_owner_id") or 0), owner=request.user)
+    return_to_character = str(request.POST.get("return_character_id") or "") == str(original_owner.pk)
+    try:
+        set_item_permission(
+            item_id=pk,
+            original_owner=original_owner,
+            permission=request.POST.get("permission", ""),
+            enabled=str(request.POST.get("enabled", "0")).lower() in {"1", "true", "on", "yes"},
+            irrevocable=str(request.POST.get("irrevocable", "0")).lower() in {"1", "true", "on", "yes"},
+        )
+    except TransferError as error:
+        return _transfer_response_error(request, error, character_id=original_owner.pk if return_to_character else None)
+    messages.success(request, "Itemrecht aktualisiert.")
+    if return_to_character:
+        return redirect("character_sheet", character_id=original_owner.pk)
+    return _item_transfer_center_redirect(request)
+
+
+@login_required
+def item_transfer_center(request):
+    expire_due_transfers()
+    selected_character = None
+    character_id = request.GET.get("character")
+    if character_id not in (None, ""):
+        selected_character = get_object_or_404(
+            Character.objects.select_related("owner"),
+            pk=character_id,
+            owner=request.user,
+        )
+    incoming_query = ItemTransfer.objects.filter(
+        recipient__owner=request.user, status=ItemTransfer.Status.PENDING
+    )
+    if selected_character is not None:
+        incoming_query = incoming_query.filter(recipient=selected_character)
+    incoming = list(
+        incoming_query
+        .select_related("item__item", "sender__owner", "recipient")
+        .order_by("expires_at")
+    )
+    return render(
+        request,
+        "charsheet/item_transfer_center.html",
+        {
+            "incoming": incoming,
+            "selected_character": selected_character,
+            "embedded": request.GET.get("embedded") == "1",
+        },
+    )
+
+
+@login_required
+@require_POST
+@transaction.atomic
 def toggle_equip(request, pk):
     """Toggle equipped state for one equippable inventory entry."""
     ci = _owned_character_item_or_404(request, pk)
+    ci = CharacterItem.objects.select_for_update().select_related("item", "owner", "original_owner_character").get(pk=ci.pk)
+    if item_is_pending(ci):
+        return _transfer_response_error(request, TransferError("item_pending", "Unterwegs befindliche Items können nicht ausgerüstet werden.", status=409), character_id=ci.owner_id)
 
     if ci.item.item_type not in (
         Item.ItemType.ARMOR,
@@ -1961,9 +2179,13 @@ def toggle_equip(request, pk):
 
 @login_required
 @require_POST
+@transaction.atomic
 def set_item_storage(request, pk):
     """Persist whether one inventory item is carried or stored."""
     ci = _owned_character_item_or_404(request, pk)
+    ci = CharacterItem.objects.select_for_update().select_related("item", "owner", "original_owner_character").get(pk=ci.pk)
+    if item_is_pending(ci):
+        return _transfer_response_error(request, TransferError("item_pending", "Unterwegs befindliche Items können nicht bewegt werden.", status=409), character_id=ci.owner_id)
     if ci.equipped or ci.equip_locked:
         return redirect("character_sheet", character_id=ci.owner_id)
 
@@ -1985,11 +2207,15 @@ def set_item_storage(request, pk):
 
 @login_required
 @require_POST
+@transaction.atomic
 def consume_item(request, pk):
     """Consume one unit from a stackable inventory item."""
     ci = _owned_character_item_or_404(request, pk)
+    ci = CharacterItem.objects.select_for_update().select_related("item", "owner", "original_owner_character").get(pk=ci.pk)
 
     owner_id = ci.owner_id
+    if item_is_pending(ci):
+        return _transfer_response_error(request, TransferError("item_pending", "Unterwegs befindliche Items können nicht verbraucht werden.", status=409), character_id=owner_id)
     if not ci.item.stackable or ci.item.item_type != Item.ItemType.CONSUM:
         return redirect("character_sheet", character_id=owner_id)
 
@@ -1997,6 +2223,9 @@ def consume_item(request, pk):
         ci.amount -= 1
         ci.save(update_fields=["amount"])
     else:
+        if not has_item_permission(ci, ItemPermissionGrant.Permission.CONSUME_FINAL):
+            return _transfer_response_error(request, TransferError("consume_permission_required", "Für die letzte Einheit fehlt die Freigabe des Ursprungsbesitzers.", status=403), character_id=owner_id)
+        record_item_destruction(ci, ci.owner, "consume_final")
         ci.delete()
     if _is_partial_request(request):
         character = _owned_character_or_404(request, owner_id)
@@ -2015,18 +2244,26 @@ def consume_item(request, pk):
 
 @login_required
 @require_POST
+@transaction.atomic
 def remove_item(request, pk):
     """Remove one unit or full stack from inventory, then redirect back to sheet."""
     ci = _owned_character_item_or_404(request, pk)
+    ci = CharacterItem.objects.select_for_update().select_related("item", "owner", "original_owner_character").get(pk=ci.pk)
 
     owner_id = ci.owner_id
+    if item_is_pending(ci):
+        return _transfer_response_error(request, TransferError("item_pending", "Unterwegs befindliche Items können nicht entfernt werden.", status=409), character_id=owner_id)
+    if not has_item_permission(ci, ItemPermissionGrant.Permission.DESTROY):
+        return _transfer_response_error(request, TransferError("destroy_permission_required", "Für diese Aktion fehlt die Zerstörungsfreigabe des Ursprungsbesitzers.", status=403), character_id=owner_id)
     remove_all = str(request.POST.get("all", "0")).lower() in {"1", "true", "on", "yes"}
     if remove_all:
+        record_item_destruction(ci, ci.owner, "remove")
         ci.delete()
     elif ci.item.stackable and ci.amount > 1:
         ci.amount -= 1
         ci.save(update_fields=["amount"])
     else:
+        record_item_destruction(ci, ci.owner, "remove")
         ci.delete()
     if _is_partial_request(request):
         character = _owned_character_or_404(request, owner_id)
@@ -2178,6 +2415,12 @@ def _parse_optional_nonnegative_float(raw_value):
         return None
 
 
+def _fit_model_char_field(value, model, field_name: str) -> str:
+    text = str(value or "")
+    max_length = model._meta.get_field(field_name).max_length
+    return text[:max_length] if max_length else text
+
+
 def _value_without_card_adjustment(card: CharacterCreature, field_name: str, getter):
     current_value = getattr(card, field_name)
     setattr(card, field_name, None)
@@ -2252,6 +2495,11 @@ def _render_creature_training_payload(request, card: CharacterCreature) -> dict:
         "ok": True,
         "cardKey": f"creature-{card.pk}",
         "cardTitle": card_context["name"],
+        "sourceCharacterItemId": card.source_character_item_id or "",
+        "inventoryItemName": card.display_name if card.source_character_item_id else "",
+        "inventoryItemQuality": card_context["quality"] if card.source_character_item_id else "",
+        "inventoryItemQualityLabel": card_context["quality_label"] if card.source_character_item_id else "",
+        "inventoryItemQualityColor": card_context["quality_color"] if card.source_character_item_id else "",
         "cardHtml": render_to_string(
             "charsheet/partials/_creature_card.html",
             {"creature_card": card_context},
@@ -2573,11 +2821,19 @@ def update_creature_card_training(request, pk: int):
             if skill_id and skill_id not in remove_special_skill_ids:
                 posted_special_skill_ids.append(skill_id)
     normal_skill_notes = {
-        row.skill_id: row.notes or row.skill.description
+        row.skill_id: _fit_model_char_field(
+            row.notes or row.skill.description,
+            CharacterCreatureSkill,
+            "notes",
+        )
         for row in card.creature.skills.select_related("skill").filter(skill_id__in=posted_normal_skill_ids)
     }
     special_skill_notes = {
-        row.skill_id: row.notes or row.skill.description
+        row.skill_id: _fit_model_char_field(
+            row.notes or row.skill.description,
+            CharacterCreatureSpecialSkill,
+            "notes",
+        )
         for row in card.creature.special_skills.select_related("skill").filter(skill_id__in=posted_special_skill_ids)
     }
     for skill_id in posted_normal_skill_ids:
@@ -2665,7 +2921,11 @@ def update_creature_card_training(request, pk: int):
                     creature=card,
                     skill=selected_skill,
                     value_override=value,
-                    notes=getattr(selected_skill, "description", ""),
+                    notes=_fit_model_char_field(
+                        getattr(selected_skill, "description", ""),
+                        CharacterCreatureSpecialSkill,
+                        "notes",
+                    ),
                 )
             )
         else:
@@ -2674,13 +2934,27 @@ def update_creature_card_training(request, pk: int):
                     creature=card,
                     skill=selected_skill,
                     level_override=value,
-                    notes=getattr(selected_skill, "description", ""),
+                    notes=_fit_model_char_field(
+                        getattr(selected_skill, "description", ""),
+                        CharacterCreatureSkill,
+                        "notes",
+                    ),
                 )
             )
 
     with transaction.atomic():
         if card_update_fields:
             card.save(update_fields=sorted(set(card_update_fields)))
+        source_item_updates = {}
+        if "custom_name" in request.POST:
+            source_item_updates["name_override"] = card.name_override
+        if "quality" in card_update_fields:
+            source_item_updates["quality_id"] = card.quality_id
+        if source_item_updates and card.source_character_item_id:
+            CharacterItem.objects.filter(
+                pk=card.source_character_item_id,
+                owner=card.owner,
+            ).update(**source_item_updates)
         if remove_normal_skill_ids:
             card.skill_overrides.filter(skill_id__in=remove_normal_skill_ids).delete()
         if remove_special_skill_ids:
@@ -2981,9 +3255,21 @@ def create_shop_item(request, character_id: int):
 
 @login_required
 @require_POST
+@transaction.atomic
 def update_character_item_runes(request, pk: int):
     """Persist one owned-item modification dialog for a supported inventory entry."""
     character_item = _owned_character_item_or_404(request, pk)
+    character_item = CharacterItem.objects.select_for_update().select_related("item", "owner", "original_owner_character").get(pk=character_item.pk)
+    if item_is_pending(character_item):
+        return JsonResponse({"ok": False, "error": "item_pending"}, status=409) if _is_partial_request(request) else redirect("character_sheet", character_id=character_item.owner_id)
+    if character_item.owner_id != character_item.original_owner_character_id:
+        if _is_partial_request(request):
+            return JsonResponse(
+                {"ok": False, "error": "original_owner_required", "message": "Nur der Ursprungsbesitzer darf dieses Item modifizieren."},
+                status=403,
+            )
+        messages.error(request, "Nur der Ursprungsbesitzer darf dieses Item modifizieren.")
+        return redirect("character_sheet", character_id=character_item.owner_id)
     if not apply_character_item_modifications(character_item, request.POST, request.FILES):
         if _is_partial_request(request):
             return JsonResponse({"ok": False, "error": "modification_failed"}, status=400)

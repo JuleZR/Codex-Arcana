@@ -1,0 +1,29 @@
+.inv_row--underway,
+.inv_row--foreign-held {
+  background: rgba(226, 221, 210, .62) !important;
+}
+.inv_row--underway > :not(.inv_actions),
+.inv_row--foreign-held > :not(.inv_actions) {
+  opacity: .48;
+  filter: grayscale(1);
+}
+.inv_row--underway .inv_actions,
+.inv_row--foreign-held .inv_actions,
+.inv_row--underway .inv_menu,
+.inv_row--foreign-held .inv_menu {
+  opacity: 1;
+  filter: none;
+  pointer-events: auto;
+}
+.inv_row--underway:focus-within > :not(.inv_actions),
+.inv_row--foreign-held:focus-within > :not(.inv_actions) {
+  opacity: .68;
+}
+.inv_transfer_state { display: block; font-size: .72em; font-style: italic; }
+#itemTransferDialog { width:min(460px,calc(100vw - 28px)); color:#29180d; }
+#itemTransferDialog .sheet-window__body { padding:12px; }
+#itemTransferDialog .sheet-window__editor-shell { padding:4px; background:linear-gradient(180deg,rgba(232,201,146,.96),rgba(150,104,54,.9)); box-shadow:inset 0 0 0 1px rgba(255,236,200,.26),0 8px 20px rgba(37,21,9,.12); }
+#itemTransferDialog .sheet-window__editor-pane { padding:16px; border:1px solid rgba(214,177,116,.42); background:linear-gradient(180deg,rgba(255,249,238,.18),rgba(227,206,170,.08)),url("/static/img/pergamentbg.jpg") center/cover no-repeat; }
+.item-transfer-form,.item-transfer-form label{display:grid;gap:.4rem}.item-transfer-form{gap:.85rem}.item-transfer-form__heading{display:grid;gap:.2rem;padding-bottom:.55rem;border-bottom:1px solid rgba(118,88,57,.22);font-family:"Cinzel",Georgia,serif;text-transform:uppercase}.item-transfer-form__heading span{font-size:1rem;font-weight:700}.item-transfer-form__heading strong{font:600 .9rem "Cormorant Garamond",Georgia,serif;text-transform:none}.item-transfer-form__actions{display:flex;justify-content:flex-end;gap:.5rem}.item-transfer-results{display:grid;max-height:12rem;overflow:auto;gap:.25rem}.item-transfer-results:empty{display:none}.item-transfer-results button{text-align:left;padding:.5rem;border:1px solid rgba(126,98,63,.28);border-radius:8px;background:rgba(255,251,242,.72);color:#3f2b1d;cursor:pointer}
+.transfer-nav-badge { position:absolute; top:-.35rem; right:-.35rem; display:grid; place-items:center; min-width:1.25rem; height:1.25rem; border-radius:50%; background:#8d241d; color:#fff; font-size:.68rem; }
+.inv_permission_details{min-width:220px}.inv_permission_details>summary{list-style:none}.inv_permission_details>summary::-webkit-details-marker{display:none}.inv_permission_details[open]>summary{border-color:rgba(116,82,46,.52);background:rgba(224,206,176,.88)}.inv_permission_panel{display:grid;gap:.45rem;max-height:min(310px,55vh);overflow:auto;padding:.5rem .15rem .1rem}.permission-form{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:.25rem .5rem;padding:.45rem;border:1px solid rgba(126,98,63,.22);border-radius:7px;background:rgba(255,251,242,.64);font-size:.75rem}.permission-form>span{font-weight:600}.permission-form>small,.permission-form>label{grid-column:1/-1}.permission-form>button{grid-column:2}.permission-form input[type="checkbox"]{width:auto}

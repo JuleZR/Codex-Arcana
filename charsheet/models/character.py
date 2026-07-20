@@ -5,6 +5,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
+from uuid import uuid4
 
 from ..constants import (
     DAMAGE_TYPE_CHOICES,
@@ -30,7 +31,7 @@ class Character(models.Model):
         W = "weiblich", "Weiblich"
 
     owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
-    name = models.CharField(max_length=100)
+    name = models.CharField(max_length=100, db_index=True)
     char_picture = models.ImageField(upload_to="characters/", blank=True, null=True)
     race = models.ForeignKey(Race, on_delete=models.PROTECT)
     gender = models.CharField(max_length=15, choices=Gender, null=True, blank=True)
@@ -183,6 +184,13 @@ class CharacterItem(models.Model):
 
     item = models.ForeignKey("Item", on_delete=models.CASCADE)
     owner = models.ForeignKey(Character, on_delete=models.CASCADE)
+    original_owner_character = models.ForeignKey(
+        Character,
+        on_delete=models.PROTECT,
+        related_name="originally_owned_items",
+    )
+    provenance_id = models.UUIDField(default=uuid4, unique=True, editable=False)
+    ownership_version = models.PositiveIntegerField(default=1, editable=False)
     amount = models.PositiveIntegerField(default=1)
     equipped = models.BooleanField(default=False)
     equip_locked = models.BooleanField(default=False)
@@ -250,6 +258,8 @@ class CharacterItem(models.Model):
 
     def clean(self):
         """Enforce stackability and equipment consistency."""
+        if not self.original_owner_character_id:
+            self.original_owner_character_id = self.owner_id
         super().clean()
         if not self.item.stackable and self.amount != 1:
             raise ValidationError({"amount": "Item is flagged non stackable. amount must be 1"})
@@ -257,6 +267,24 @@ class CharacterItem(models.Model):
             raise ValidationError({"equipped": "Stackable Items can't be equipped"})
         if self.equip_locked and not self.equipped:
             raise ValidationError({"equip_locked": "Locked equipment must remain equipped."})
+
+        if self.pk:
+            original_owner_id = type(self).objects.filter(pk=self.pk).values_list(
+                "original_owner_character_id", flat=True
+            ).first()
+            if original_owner_id and self.original_owner_character_id != original_owner_id:
+                raise ValidationError({"original_owner_character": "The original owner is immutable."})
+
+    def save(self, *args, **kwargs):
+        if not self.original_owner_character_id:
+            self.original_owner_character_id = self.owner_id
+        if self.pk:
+            original_owner_id = type(self).objects.filter(pk=self.pk).values_list(
+                "original_owner_character_id", flat=True
+            ).first()
+            if original_owner_id and self.original_owner_character_id != original_owner_id:
+                raise ValidationError({"original_owner_character": "The original owner is immutable."})
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.owner} owns {self.item}"

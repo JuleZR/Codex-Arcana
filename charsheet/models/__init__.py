@@ -66,6 +66,7 @@ from .items import (
     WeaponStats,
 )
 from .modifier import Modifier
+from .transfers import ItemOwnershipEvent, ItemPermissionGrant, ItemTransfer, ItemTransferNotification
 from .progression import (
     CharacterSchool,
     CharacterSchoolPath,
@@ -166,6 +167,10 @@ __all__ = [
     "CreatureTraitDefinition",
     "CreatureTraitSemanticEffect",
     "Item",
+    "ItemOwnershipEvent",
+    "ItemPermissionGrant",
+    "ItemTransfer",
+    "ItemTransferNotification",
     "Language",
     "MagicItemStats",
     "Modifier",

@@ -11,6 +11,7 @@
     {% if request.user.settings.dddice_enabled %}
     <script type="module" src="{% static 'js/dddice.js' %}?v=1"></script>
     {% endif %}
+    <script type="module" src="{% static 'js/charsheet/item_transfer_window.js' %}"></script>
 
   </head>
   <body>
@@ -27,6 +28,7 @@
             <div class="dashboard_side_group" aria-label="Benutzeraktionen">
               <div class="dashboard_side_title">Benutzer</div>
               <button type="button" class="dashboard_button dashboard_button--sidebar" id="openAccountSettings">Kontoeinstellungen</button>
+              <button type="button" class="dashboard_button dashboard_button--sidebar" data-open-item-transfer-window data-transfer-url="{% url 'item_transfer_center' %}?embedded=1">Postfach{% if open_item_transfer_count %} ({{ open_item_transfer_count }}){% endif %}</button>
               <form method="post" action="{% url 'app_logout' %}" class="dashboard_logout_link">
                 {% csrf_token %}
                 <button type="submit" class="dashboard_button dashboard_button--sidebar">Logout</button>
@@ -202,6 +204,8 @@
         </section>
       </article>
     </main>
+
+    {% include "charsheet/partials/_item_transfer_window.html" %}
 
     <div id="dashboardCreationBackdrop" class="dashboard_creation_backdrop" aria-hidden="true"></div>
     <section class="payday-window payday-window--large creation_wizard_window dashboard_creation_window" id="dashboardCreationWindow" aria-hidden="true">

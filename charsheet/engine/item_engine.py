@@ -505,7 +505,9 @@ class ItemEngine:
     ) -> Decimal:
         """Return the summed weight of the character's owned items."""
         total_weight = Decimal("0")
-        character_items = CharacterItem.objects.filter(owner=character).select_related("item")
+        character_items = CharacterItem.objects.filter(owner=character).exclude(
+            transfers__status="pending"
+        ).select_related("item").distinct()
         for character_item in character_items:
             if not include_stored and character_item.stored:
                 continue

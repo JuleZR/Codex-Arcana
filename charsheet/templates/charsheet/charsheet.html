@@ -87,6 +87,8 @@
       {% include "charsheet/partials/_learning_panel.html" %} 
       {% include "charsheet/partials/_diary_panel.html" %}
       {% include "charsheet/partials/_battle_calculator_window.html" %}
+      {% include "charsheet/partials/_item_transfer_dialog.html" %}
+      {% include "charsheet/partials/_item_transfer_window.html" %}
 
       <!-- Mobile status HUD: damage + arcane power bar, visible only on small screens -->
       <div class="mobile-status-hud" id="mobileStatusHud" role="status" aria-label="Charakterstatus">
@@ -134,7 +136,7 @@
       </div>
     </div>
 
-    <script type="module" src="{% static 'js/charsheet/bootstrap.js' %}?v=20260622a"></script>
+    <script type="module" src="{% static 'js/charsheet/bootstrap.js' %}?v=20260721d"></script>
     <script src="{% static 'js/charsheet_diary.js' %}?v=20260315a"></script>
   </body>
 </html>

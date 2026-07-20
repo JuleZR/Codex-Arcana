@@ -113,6 +113,10 @@ from .models import (
     DruidCult,
     DruidCultAspect,
     Item,
+    ItemOwnershipEvent,
+    ItemPermissionGrant,
+    ItemTransfer,
+    ItemTransferNotification,
     Language,
     MagicItemStats,
     Modifier,
@@ -6402,3 +6406,40 @@ _install_admin_help(ItemAdmin, help_texts=ITEM_CHOICE_HELP)
 _install_admin_help(WeaponStatsAdmin, help_texts=WEAPON_CHOICE_HELP)
 _install_admin_help(ShieldStatsAdmin, help_texts=SHIELD_CHOICE_HELP)
 _install_admin_help(TraitAdmin, help_texts=TRAIT_CHOICE_HELP)
+
+
+class _ImmutableOwnershipAdmin(admin.ModelAdmin):
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(ItemTransfer)
+class ItemTransferAdmin(_ImmutableOwnershipAdmin):
+    list_display = ("id", "item_provenance_id", "sender", "recipient", "status", "created_at", "expires_at")
+    list_filter = ("status",)
+    search_fields = ("item_provenance_id", "sender_snapshot", "recipient_snapshot", "item_snapshot")
+
+
+@admin.register(ItemOwnershipEvent)
+class ItemOwnershipEventAdmin(_ImmutableOwnershipAdmin):
+    list_display = ("id", "item_provenance_id", "event_type", "actor", "from_character", "to_character", "created_at")
+    list_filter = ("event_type",)
+    search_fields = ("item_provenance_id", "details")
+
+
+@admin.register(ItemPermissionGrant)
+class ItemPermissionGrantAdmin(_ImmutableOwnershipAdmin):
+    list_display = ("id", "item", "permission", "grantee", "ownership_version", "irrevocable", "granted_at", "revoked_at", "invalidated_at")
+    list_filter = ("permission", "irrevocable")
+
+
+@admin.register(ItemTransferNotification)
+class ItemTransferNotificationAdmin(_ImmutableOwnershipAdmin):
+    list_display = ("id", "user", "kind", "created_at", "read_at")
+    list_filter = ("kind",)
