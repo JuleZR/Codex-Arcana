@@ -58,8 +58,20 @@ export function initSheetActions() {
 
     event.preventDefault();
 
+    // A slow response must not turn a double click into two mutations. This is
+    // especially important for destructive actions whose second request would
+    // otherwise fall through to the browser and display a 404 page.
+    if (form.dataset.sheetActionPending === "1") {
+      return;
+    }
+    form.dataset.sheetActionPending = "1";
+
+    let submitter = null;
+    let submitterWasDisabled = false;
+    let nativeFallbackStarted = false;
+
     try {
-      const submitter = event.submitter instanceof HTMLElement ? event.submitter : null;
+      submitter = event.submitter instanceof HTMLElement ? event.submitter : null;
       const formData = new FormData(form);
       if (
         submitter instanceof HTMLButtonElement ||
@@ -69,6 +81,8 @@ export function initSheetActions() {
         if (submitterName) {
           formData.append(submitterName, submitter.value);
         }
+        submitterWasDisabled = submitter.disabled;
+        submitter.disabled = true;
       }
       const response = await fetch(form.action, {
         method: form.method || "POST",
@@ -106,7 +120,18 @@ export function initSheetActions() {
         form.dispatchEvent(new CustomEvent("sheet:action-failed", { bubbles: true, detail: null }));
         return;
       }
+      nativeFallbackStarted = true;
       form.submit();
+    } finally {
+      if (!nativeFallbackStarted) {
+        delete form.dataset.sheetActionPending;
+        if (
+          (submitter instanceof HTMLButtonElement || submitter instanceof HTMLInputElement) &&
+          submitter.isConnected
+        ) {
+          submitter.disabled = submitterWasDisabled;
+        }
+      }
     }
   });
 }

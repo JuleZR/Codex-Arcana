@@ -1504,6 +1504,12 @@ span.card-aspect-placeholder {
     white-space: nowrap;
 }
 
+.creature-card__core-value {
+    font-family: Georgia, "Times New Roman", serif;
+    font-variant-numeric: lining-nums tabular-nums;
+    font-weight: 700;
+}
+
 .creature-card__oracle-line--ability {
     font-style: italic;
 }
