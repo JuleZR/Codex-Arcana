@@ -4,55 +4,66 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Übergabeanfragen | Codex Arcana</title>
+  <title>Übergaben | Codex Arcana</title>
   <link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
-  <link rel="stylesheet" href="{% static 'css/item-transfer-center.css' %}">
+  <link rel="stylesheet" href="{% static 'css/item-transfer-center.css' %}?v=20260721c">
 </head>
 <body class="transfer-center-page{% if embedded %} transfer-center-page--embedded{% endif %}">
 <main class="transfer-center">
   <header class="transfer-center__header">
     <div>
-      <h1>Übergabeanfragen{% if selected_character %} · {{ selected_character.name }}{% endif %}</h1>
-      <p>{% if selected_character %}Offene Anfragen für diesen Charakter{% else %}Alle offenen Anfragen deiner Charaktere{% endif %}</p>
+      <h1>Übergaben</h1>
+      {% if selected_character %}<strong class="transfer-center__character">{{ selected_character.name }}</strong>{% endif %}
+      <p>{% if selected_character %}Für diesen Charakter bestimmte Sendungen{% else %}Sendungen für deine Charaktere{% endif %}</p>
     </div>
     {% if not embedded %}<a class="transfer-button" href="{% url 'dashboard' %}">Zum Dashboard</a>{% endif %}
   </header>
 
   {% if messages %}
-    {% for message in messages %}<p class="transfer-message">{{ message }}</p>{% endfor %}
+    <div class="transfer-toast-stack" aria-live="polite" aria-atomic="true">
+      {% for message in messages %}<p class="transfer-message" data-transfer-toast>{{ message }}</p>{% endfor %}
+    </div>
   {% endif %}
 
   <section class="transfer-panel">
-    <h2>Offene Eingänge <span class="transfer-count">{{ incoming|length }}</span></h2>
+    <h2>Eingegangene Sendungen <span class="transfer-count">{{ incoming|length }}</span></h2>
     {% for transfer in incoming %}
       <article class="transfer-offer">
         <div>{% if transfer.item_snapshot.image %}<img src="{{ transfer.item_snapshot.image }}" alt="">{% endif %}</div>
         <div>
           <h3>{{ transfer.item_snapshot.name }}</h3>
           <p>Von {{ transfer.sender_snapshot.name }} · {{ transfer.sender_snapshot.username }}</p>
+          {% if transfer.item_snapshot.transfer_original_ownership %}
+            <p class="transfer-offer__ownership"><strong>Geht vollständig in dein Eigentum über</strong><span>Du erhältst damit dauerhaft Rückhol- und Verwaltungsrecht.</span></p>
+          {% elif transfer.item_snapshot.requested_permissions %}
+            <div class="transfer-offer__permissions"><strong>Zusätzliche Freigaben:</strong><ul>{% for permission in transfer.item_snapshot.requested_permissions %}<li>{{ permission.label }}{% if permission.irrevocable %} · dauerhaft und unwiderruflich{% endif %}</li>{% endfor %}</ul></div>
+          {% endif %}
           {% if transfer.message %}<blockquote>{{ transfer.message }}</blockquote>{% endif %}
-          <small>Verfällt: {{ transfer.expires_at|date:"d.m.Y H:i" }}</small>
+          <small>Antwort möglich bis {{ transfer.expires_at|date:"d.m.Y H:i" }}</small>
         </div>
         <div class="transfer-actions">
           <form method="post" action="{% url 'accept_item_transfer' transfer.id %}"{% if embedded %} data-transfer-accept{% endif %}>
             {% csrf_token %}
             {% if selected_character %}<input type="hidden" name="context_character_id" value="{{ selected_character.id }}">{% endif %}
             {% if embedded %}<input type="hidden" name="embedded" value="1">{% endif %}
-            <button>Annehmen</button>
+            <button>Entgegennehmen</button>
           </form>
           <form method="post" action="{% url 'decline_item_transfer' transfer.id %}">
             {% csrf_token %}
             {% if selected_character %}<input type="hidden" name="context_character_id" value="{{ selected_character.id }}">{% endif %}
             {% if embedded %}<input type="hidden" name="embedded" value="1">{% endif %}
-            <button class="danger">Ablehnen</button>
+            <button class="danger">Zurücksenden</button>
           </form>
         </div>
       </article>
     {% empty %}
-      <p>Keine offenen Übergabeanfragen.</p>
+      <div class="transfer-empty">
+        <span class="transfer-empty__icon" aria-hidden="true">✓</span>
+        <div><strong>Alles erledigt</strong><p>Derzeit wartet keine Sendung auf deine Entscheidung.</p></div>
+      </div>
     {% endfor %}
   </section>
 </main>
-{% if embedded %}<script type="module" src="{% static 'js/charsheet/item_transfer_center.js' %}?v=20260721a"></script>{% endif %}
+{% if embedded %}<script type="module" src="{% static 'js/charsheet/item_transfer_center.js' %}?v=20260721d"></script>{% endif %}
 </body>
 </html>

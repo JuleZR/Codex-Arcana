@@ -1125,7 +1125,7 @@
   height: 100px;
   margin: 0 auto;
   border-radius: 100px 100px 0 0;
-  overflow: hidden;
+  overflow: visible;
   background:
     linear-gradient(180deg, rgba(248, 242, 230, 0.96), rgba(232, 224, 204, 0.92)),
     url("/static/img/pergamentbg.jpg") center / cover no-repeat;
@@ -1154,6 +1154,7 @@
   opacity: 0.99;
   transform: scale(1.002);
   transform-origin: center;
+  clip-path: inset(0 0 50% 0);
 }
 
 .damage_gauge_arc::before {
@@ -1183,7 +1184,7 @@
 
 .damage_gauge_needle_shell {
   position: absolute;
-  left: 20px;
+  left: 26px;
   bottom: -2px;
   width: 72px;
   height: 7px;
@@ -1193,22 +1194,24 @@
 
 .damage_gauge_needle_arm {
   position: absolute;
-  left: 0;
+  right: -2px;
+  left: auto;
   bottom: 0;
   width: 74px;
   height: 9px;
   background:
     linear-gradient(180deg, #4f545d 0%, #2f333a 52%, #191c21 100%);
-  clip-path: polygon(0 50%, 12% 0, 100% 18%, 100% 82%, 12% 100%);
+  clip-path: polygon(0 50%, 100% 0, 100% 100%);
   transform-origin: 100% 50%;
-  transform: rotate(var(--needle-angle, 16deg));
+  transform: rotate(var(--total-needle-angle, 16deg));
   box-shadow:
     inset 0 1px 0 rgba(201, 207, 216, 0.18),
     inset -8px -2px 10px rgba(0, 0, 0, 0.18),
     0 1px 2px rgba(0, 0, 0, 0.14);
 }
 
-.damage_gauge.is-animating .damage_gauge_needle_arm {
+.damage_gauge.is-animating .damage_gauge_needle_arm,
+.damage_gauge.is-animating .damage_gauge_marker {
   transition: transform 720ms cubic-bezier(0.2, 0.82, 0.22, 1);
 }
 
@@ -1248,18 +1251,20 @@
 }
 
 .damage_readout_value {
-  position: relative;
+  position: absolute;
+  top: 7px;
+  left: 50%;
   display: inline-block;
   min-width: 3.5rem;
-  padding-right: 1.3rem;
+  padding-right: 1.15rem;
   font-family: "Cinzel", Georgia, serif;
-  font-size: 2.15rem;
-  line-height: 0.92;
+  font-size: 2rem;
+  line-height: 1;
   color: #5c3c28;
   text-shadow: 0 1px 0 rgba(255, 247, 229, 0.28);
-  margin-top: 0.95rem;
+  margin: 0;
   text-align: center;
-  left: 0.62rem;
+  transform: translateX(-50%);
 }
 
 .damage_readout_value small {
@@ -1468,6 +1473,64 @@
   font-size: 0.82rem;
   letter-spacing: 0.01em;
   overflow: visible;
+}
+
+.damage_gauge_needle_arm--total {
+  right: -2px;
+  left: auto;
+  bottom: 0;
+  width: 74px;
+  height: 9px;
+  background: linear-gradient(180deg, #4f545d 0%, #2f333a 52%, #191c21 100%);
+  clip-path: polygon(0 50%, 12% 0, 100% 18%, 100% 82%, 12% 100%);
+  filter: none;
+  transform: rotate(var(--total-needle-angle, 6deg));
+  z-index: 3;
+}
+
+.damage_gauge_marker {
+  position: absolute;
+  right: -2px;
+  bottom: 4.5px;
+  height: 0;
+  transform-origin: 100% 50%;
+  pointer-events: none;
+}
+
+.damage_gauge_marker::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  border-top: 7px solid transparent;
+  border-bottom: 7px solid transparent;
+  filter: drop-shadow(0 1px 1px rgba(45, 28, 18, 0.55));
+}
+
+.damage_gauge_marker--stun {
+  width: 107px;
+  transform: rotate(var(--stun-needle-angle, 6deg));
+  z-index: 4;
+}
+
+.damage_gauge_marker--stun::before {
+  top: -7px;
+  border-left: 14px solid #356f91;
+}
+
+.damage_gauge_marker--lethal {
+  width: 105.5px;
+  transform: rotate(var(--lethal-needle-angle, 6deg));
+  z-index: 5;
+}
+
+.damage_gauge_marker--lethal::before {
+  top: -5px;
+  border-top-width: 5px;
+  border-bottom-width: 5px;
+  border-left: 11px solid #a8323d;
 }
 
 .p2_lines li.inv_row.is-dragging {
@@ -2860,7 +2923,7 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
 .floating-tooltip-card--skill .floating-tooltip-card__frame {
   width: min(420px, calc(100vw - 28px));
   max-height: min(560px, calc(100vh - 28px));
-  gap: 10px;
+  gap: 6px;
   padding: 12px 12px 14px;
   border-radius: 10px;
 }
@@ -4909,6 +4972,121 @@ html.charsheet-tabs-preinit [data-tabs][data-tabs-key] {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 10px;
+}
+
+.damage_breakdown {
+  position: absolute;
+  right: 0;
+  bottom: 5px;
+  left: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 0.85rem;
+  margin: 0;
+  font: 700 0.66rem/1 "Trebuchet MS", "Segoe UI", sans-serif;
+  letter-spacing: 0.025em;
+}
+
+.damage_breakdown_value {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 3px;
+}
+
+.damage_breakdown_value strong {
+  font-size: 0.74rem;
+}
+
+.damage_breakdown_value--stun {
+  color: #356f91;
+}
+
+.damage_breakdown_value--lethal {
+  color: #942d38;
+}
+
+.damage_breakdown_separator {
+  color: rgba(93, 67, 42, 0.48);
+}
+
+.damage_stage_row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 22px;
+  min-height: 22px;
+  max-height: 22px;
+  margin-top: 3px;
+  overflow: hidden;
+  line-height: 1;
+  text-align: center;
+  box-sizing: border-box;
+}
+
+.damage_type_switch {
+  position: relative;
+  display: inline-grid;
+  grid-template-columns: repeat(3, 1fr);
+  align-items: center;
+  justify-self: center;
+  width: 112px;
+  height: 23px;
+  padding: 2px;
+  border: 1px solid rgba(96, 75, 56, 0.3);
+  border-radius: 999px;
+  background: rgba(219, 207, 185, 0.72);
+  box-shadow: inset 0 1px 3px rgba(44, 35, 28, 0.16);
+  color: #72503d;
+  font: 700 0.65rem/1 "Trebuchet MS", "Segoe UI", sans-serif;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.damage_type_switch_thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: calc((100% - 4px) / 3);
+  height: 17px;
+  border-radius: 999px;
+  background: rgba(71, 116, 143, 0.88);
+  box-shadow: 0 1px 3px rgba(39, 27, 18, 0.35);
+  transition: transform 180ms ease, background-color 180ms ease;
+}
+
+.damage_type_switch[data-damage-type="G"] .damage_type_switch_thumb {
+  transform: translateX(100%);
+  background: rgba(105, 82, 62, 0.84);
+}
+
+.damage_type_switch[data-damage-type="T"] .damage_type_switch_thumb {
+  transform: translateX(200%);
+  background: rgba(139, 47, 57, 0.86);
+}
+
+.damage_type_switch_label {
+  position: relative;
+  z-index: 1;
+  opacity: 0.55;
+  transition: opacity 160ms ease, color 160ms ease;
+}
+
+.damage_type_switch[data-damage-type="B"] .damage_type_switch_label--stun,
+.damage_type_switch[data-damage-type="G"] .damage_type_switch_label--total,
+.damage_type_switch[data-damage-type="T"] .damage_type_switch_label--lethal {
+  opacity: 1;
+  color: #fffaf0;
+  text-shadow: 0 1px 1px rgba(49, 30, 20, 0.36);
+}
+
+.damage_type_switch:focus-visible {
+  outline: 2px solid rgba(95, 68, 46, 0.72);
+  outline-offset: 3px;
+  border-radius: 999px;
 }
 
 .wm_rune_card {

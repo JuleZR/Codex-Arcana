@@ -74,11 +74,17 @@
             >Modifizieren</button>
           {% endif %}
           {% if row.can_transfer %}
-            <button type="button" class="inv_menu_btn" data-open-item-transfer data-action="{% url 'create_item_transfer' row.character_item.pk %}" data-item-name="{{ row.item_name|escape }}" data-item-amount="{{ row.character_item.amount }}" data-sender-id="{{ row.character_item.owner_id }}">Versenden</button>
+            <button type="button" class="inv_menu_btn" data-open-item-transfer data-action="{% url 'create_item_transfer' row.character_item.pk %}" data-item-name="{{ row.item_name|escape }}" data-item-amount="{{ row.character_item.amount }}" data-sender-id="{{ row.character_item.owner_id }}" data-can-grant-permissions="{% if row.can_grant_transfer_permissions %}1{% else %}0{% endif %}">Versenden</button>
+          {% endif %}
+          {% if row.can_recall_transfer %}
+            <form method="post" action="{% url 'recall_item_transfer' row.pending_transfer.pk %}" class="equip_form">
+              {% csrf_token %}<input type="hidden" name="return_character_id" value="{{ character.id }}">
+              <button type="submit" class="inv_menu_btn">Übergabe zurückziehen</button>
+            </form>
           {% endif %}
           {% if row.can_return_to_original_owner %}
-            <form method="post" action="{% url 'create_item_transfer' row.character_item.pk %}" class="equip_form">
-              {% csrf_token %}<input type="hidden" name="sender_id" value="{{ row.character_item.owner_id }}"><input type="hidden" name="recipient_id" value="{{ row.character_item.original_owner_character_id }}"><input type="hidden" name="quantity" value="{{ row.character_item.amount }}"><input type="hidden" name="message" value="Rückgabe an den Ursprungsbesitzer">
+            <form method="post" action="{% url 'return_item_to_original_owner' row.character_item.pk %}" class="equip_form">
+              {% csrf_token %}
               <button type="submit" class="inv_menu_btn">Zurückgeben</button>
             </form>
           {% endif %}

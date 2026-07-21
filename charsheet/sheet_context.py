@@ -750,7 +750,14 @@ def _mix_hex_color(start_hex: str, end_hex: str, ratio: float) -> str:
     return "#{:02x}{:02x}{:02x}".format(*mixed)
 
 
-def _build_damage_gauge_data(current_damage: int, threshold_rows: list[dict[str, int | str]], damage_max: int) -> dict[str, object]:
+def _build_damage_gauge_data(
+    current_damage: int,
+    threshold_rows: list[dict[str, int | str]],
+    damage_max: int,
+    *,
+    stun_damage: int = 0,
+    lethal_damage: int = 0,
+) -> dict[str, object]:
     if damage_max <= 0:
         damage_max = 1
 
@@ -890,6 +897,9 @@ def _build_damage_gauge_data(current_damage: int, threshold_rows: list[dict[str,
     needle_angle = value_to_rotation(current_damage)
     return {
         "needle_angle": f"{needle_angle:.2f}",
+        "stun_needle_angle": f"{value_to_rotation(stun_damage):.2f}",
+        "lethal_needle_angle": f"{value_to_rotation(lethal_damage):.2f}",
+        "total_needle_angle": f"{needle_angle:.2f}",
         "segments": segments,
         "gradient_stops": gradient_stops,
     }
@@ -2562,11 +2572,17 @@ def _build_inventory_rows(character: Character) -> list[dict]:
                 "foreign_holder_name": character_item.owner.name if is_foreign_held else "",
                 "pending_transfer": pending_transfer,
                 "is_transfer_pending": pending_transfer is not None,
+                "can_recall_transfer": (
+                    is_current_holder
+                    and pending_transfer is not None
+                    and pending_transfer.sender_id == character.id
+                ),
                 "can_manage_storage": can_use_item,
                 "can_transfer": can_use_item and not character_item.equip_locked,
+                "can_grant_transfer_permissions": is_current_holder and is_original_owner,
                 "can_consume": can_use_item and item.stackable and item.item_type == Item.ItemType.CONSUM and (character_item.amount > 1 or can_consume_final),
                 "can_destroy": can_use_item and can_destroy,
-                "can_enforce_original_ownership": is_original_owner and (is_foreign_held or pending_transfer is not None),
+                "can_enforce_original_ownership": is_original_owner and is_foreign_held,
                 "can_manage_permissions": is_foreign_held,
                 "can_return_to_original_owner": is_borrowed and can_use_item and not character_item.equip_locked,
                 "consume_grant": active_grants.get("consume_final"),
@@ -3893,6 +3909,8 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
         current_damage=character.current_damage,
         threshold_rows=wound_threshold_rows,
         damage_max=current_damage_max,
+        stun_damage=character.current_stun_damage,
+        lethal_damage=character.current_lethal_damage,
     )
     wallet_gold, wallet_silver, wallet_copper = engine.km_to_coins()
     vw_ge_mod = engine.attribute_modifier(ATTR_GE)
@@ -4442,7 +4460,12 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
         "current_wound_penalty": current_wound_penalty_display,
         "is_wound_penalty_ignored": engine.is_wound_penalty_ignored(),
         "current_damage_max": current_damage_max,
+        "current_stun_damage": character.current_stun_damage,
+        "current_lethal_damage": character.current_lethal_damage,
         "damage_gauge_needle_angle": damage_gauge["needle_angle"],
+        "damage_gauge_stun_needle_angle": damage_gauge["stun_needle_angle"],
+        "damage_gauge_lethal_needle_angle": damage_gauge["lethal_needle_angle"],
+        "damage_gauge_total_needle_angle": damage_gauge["total_needle_angle"],
         "damage_gauge_segments": damage_gauge["segments"],
         "damage_gauge_gradient_stops": damage_gauge["gradient_stops"],
         "wound_threshold_rows": wound_threshold_rows,

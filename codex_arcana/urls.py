@@ -79,6 +79,8 @@ urlpatterns = [
     path("character-item/<int:pk>/transfer/", views.create_item_transfer, name="create_item_transfer"),
     path("item-transfer/<int:transfer_id>/accept/", views.accept_item_transfer_view, name="accept_item_transfer"),
     path("item-transfer/<int:transfer_id>/decline/", views.decline_item_transfer_view, name="decline_item_transfer"),
+    path("item-transfer/<int:transfer_id>/recall/", views.recall_item_transfer_view, name="recall_item_transfer"),
+    path("character-item/<int:pk>/return/", views.return_item_to_original_owner, name="return_item_to_original_owner"),
     path("character-item/<int:pk>/enforce/", views.enforce_item_ownership, name="enforce_item_ownership"),
     path("character-item/<int:pk>/permissions/", views.update_item_permission, name="update_item_permission"),
     path("", LoginView.as_view(template_name="registration/login.html", redirect_authenticated_user=True), name="login"),

@@ -5,17 +5,21 @@ export function initDamagePanel() {
   const arcaneForm = document.querySelector(".arcane_actions");
   const gauge = document.querySelector(".damage_gauge");
   const arcaneMeter = document.querySelector(".arcane_meter");
-  const needleArm = document.querySelector(".damage_gauge_needle_arm");
+  const needleArms = [...document.querySelectorAll(".damage_gauge_needle_arm")];
   const actionInput = document.querySelector(".damage_action_input");
   const amountInput = document.querySelector(".damage_amount_input");
+  const damageTypeInput = document.querySelector(".damage_type_input");
+  const damageTypeSwitch = document.querySelector(".damage_type_switch");
   const arcaneActionInput = document.querySelector(".arcane_action_input");
   const arcaneAmountInput = document.querySelector(".arcane_amount_input");
   const currentDamageEl = document.querySelector(".damage_readout_current");
+  const stunDamageValueEl = document.querySelector("[data-stun-damage-value]");
+  const lethalDamageValueEl = document.querySelector("[data-lethal-damage-value]");
   const currentArcaneEl = document.querySelector(".arcane_meter_current");
   const arcaneFillEl = document.querySelector(".arcane_meter_fill");
   const woundPenaltyEl = document.querySelector(".damage_penalty_value");
   const woundStageEl = document.querySelector(".damage_stage_value");
-  if (!form || !gauge || !needleArm || !actionInput || !amountInput || !currentDamageEl || !woundPenaltyEl || !woundStageEl) {
+  if (!form || !gauge || !needleArms.length || !actionInput || !amountInput || !damageTypeInput || !damageTypeSwitch || !currentDamageEl || !woundPenaltyEl || !woundStageEl) {
     return;
   }
   if (form.dataset.damageBound === "1") {
@@ -29,20 +33,21 @@ export function initDamagePanel() {
   const storageKey = "charsheet.damageGauge.value";
   const thresholdsScript = document.getElementById("wound-thresholds-data");
   let thresholdRows = [];
-  let requestVersion = 0;
-  let lastAppliedResponseVersion = 0;
   let requestQueue = Promise.resolve();
   let arcaneRequestVersion = 0;
   let lastAppliedArcaneResponseVersion = 0;
   let arcaneRequestQueue = Promise.resolve();
-  let localDamage = readInt(gauge.dataset.damageValue || currentDamageEl.textContent, 0);
+  let localStunDamage = readInt(gauge.dataset.stunDamage, 0);
+  let localLethalDamage = readInt(gauge.dataset.lethalDamage, 0);
+  let localDamage = Math.max(localStunDamage, localLethalDamage);
   let localArcane = readInt(arcaneMeter?.dataset.arcaneCurrent || currentArcaneEl?.textContent, 0);
-  let pendingDamageDelta = 0;
+  let pendingDamageOperations = [];
   let damageFlushTimer = null;
   let damageDependentRefreshTimer = null;
   let damageDependentRefreshInFlight = false;
   let damageRequestInFlight = false;
-  let confirmedDamage = localDamage;
+  let confirmedStunDamage = localStunDamage;
+  let confirmedLethalDamage = localLethalDamage;
   let pendingArcaneDelta = 0;
   let arcaneFlushTimer = null;
   let arcaneRequestInFlight = false;
@@ -126,11 +131,12 @@ export function initDamagePanel() {
 
   function applyWoundState(stage, penaltyDisplay, isIgnored = false) {
     const normalizedStage = String(stage || "-").trim() || "-";
+    const isTerminalStage = new Set(["Außer Gefecht", "Ausser Gefecht", "Koma", "Tod"]).has(normalizedStage);
     woundPenaltyIgnored = Boolean(isIgnored);
     woundStageEl.textContent = composeStageLabel(stage, penaltyDisplay, isIgnored);
     woundStageEl.dataset.stage = normalizedStage;
     woundPenaltyEl.textContent = penaltyDisplay;
-    woundStageEl.classList.toggle("is-disabled", woundPenaltyIgnored);
+    woundStageEl.classList.toggle("is-disabled", woundPenaltyIgnored && !isTerminalStage);
     woundPenaltyEl.classList.toggle("is-disabled", woundPenaltyIgnored);
   }
 
@@ -153,30 +159,17 @@ export function initDamagePanel() {
     return 6 + (adjusted / safeMax) * 168;
   }
 
-  function renderNeedle(value, options = {}) {
-    const { animate = false, fromValue = null } = options;
+  function renderNeedles(stunDamage, lethalDamage, options = {}) {
+    const { animate = false } = options;
     const maxValue = Math.max(1, readInt(gauge.dataset.damageMax || "1", 1));
-    const clampedValue = Math.max(0, Math.min(value, maxValue));
-    const nextRotation = computeRotation(clampedValue, maxValue);
-
-    if (animate) {
-      const sourceValue = fromValue === null
-        ? readInt(gauge.dataset.damageValue || clampedValue, clampedValue)
-        : fromValue;
-      const startRotation = computeRotation(sourceValue, maxValue);
-      gauge.classList.add("is-animating");
-      gauge.style.setProperty("--needle-angle", `${startRotation}deg`);
-      window.requestAnimationFrame(() => {
-        window.requestAnimationFrame(() => {
-          gauge.style.setProperty("--needle-angle", `${nextRotation}deg`);
-        });
-      });
-    } else {
-      gauge.classList.remove("is-animating");
-      gauge.style.setProperty("--needle-angle", `${nextRotation}deg`);
-    }
-
-    gauge.dataset.damageValue = String(clampedValue);
+    const totalDamage = Math.max(stunDamage, lethalDamage);
+    gauge.classList.toggle("is-animating", animate);
+    gauge.style.setProperty("--stun-needle-angle", `${computeRotation(stunDamage, maxValue)}deg`);
+    gauge.style.setProperty("--lethal-needle-angle", `${computeRotation(lethalDamage, maxValue)}deg`);
+    gauge.style.setProperty("--total-needle-angle", `${computeRotation(totalDamage, maxValue)}deg`);
+    gauge.dataset.stunDamage = String(stunDamage);
+    gauge.dataset.lethalDamage = String(lethalDamage);
+    gauge.dataset.damageValue = String(totalDamage);
   }
 
   function renderArcaneMeter(value, maxValue, options = {}) {
@@ -205,13 +198,53 @@ export function initDamagePanel() {
     }
   }
 
-  function syncDamageDisplay(value, options = {}) {
-    const { animate = true, fromValue = null } = options;
-    currentDamageEl.textContent = String(value);
-    const optimisticWound = computeWoundInfo(value);
+  function syncDamageDisplay(options = {}) {
+    const { animate = true } = options;
+    localDamage = Math.max(localStunDamage, localLethalDamage);
+    currentDamageEl.textContent = String(localDamage);
+    if (stunDamageValueEl) {
+      stunDamageValueEl.textContent = String(localStunDamage);
+    }
+    if (lethalDamageValueEl) {
+      lethalDamageValueEl.textContent = String(localLethalDamage);
+    }
+    gauge.setAttribute("aria-label", `Schaden: ${localStunDamage} Betäubung, ${localLethalDamage} tödlich, ${localDamage} wirksam`);
+    const optimisticWound = computeWoundInfo(localDamage);
     applyWoundState(optimisticWound.stage, optimisticWound.penaltyDisplay, optimisticWound.isIgnored);
-    renderNeedle(value, { animate, fromValue });
-    window.sessionStorage.setItem(storageKey, String(value));
+    renderNeedles(localStunDamage, localLethalDamage, { animate });
+    window.sessionStorage.setItem(storageKey, String(localDamage));
+  }
+
+  function applyDamageOperation(state, operation) {
+    const amount = Math.max(0, readInt(operation.amount, 0));
+    const maxDamage = Math.max(1, readInt(gauge.dataset.damageMax || "1", 1));
+    let stun = Math.max(0, readInt(state.stun, 0));
+    let lethal = Math.max(0, readInt(state.lethal, 0));
+
+    if (operation.damageType === "G") {
+      const afterStun = applyDamageOperation(
+        { stun, lethal },
+        { ...operation, damageType: "B" },
+      );
+      return applyDamageOperation(
+        afterStun,
+        { ...operation, damageType: "T" },
+      );
+    }
+    if (operation.damageType === "T") {
+      lethal = operation.action === "damage" ? lethal + amount : Math.max(0, lethal - amount);
+    } else if (operation.action === "heal") {
+      stun = Math.max(0, stun - amount);
+    } else if (operation.action === "damage") {
+      stun = Math.min(stun, maxDamage);
+      const fill = Math.min(amount, maxDamage - stun);
+      stun += fill;
+      const overflowSteps = amount - fill;
+      if (overflowSteps > 0) {
+        lethal += overflowSteps;
+      }
+    }
+    return { stun, lethal };
   }
 
   function scheduleDamageFlush() {
@@ -229,20 +262,19 @@ export function initDamagePanel() {
       scheduleDamageDependentRefresh();
       return;
     }
-    if (damageRequestInFlight || pendingDamageDelta !== 0) {
+    if (damageRequestInFlight || pendingDamageOperations.length) {
       scheduleDamageDependentRefresh();
       return;
     }
 
-    const refreshDamage = localDamage;
     damageDependentRefreshInFlight = true;
-    actionInput.value = "set";
+    actionInput.value = "";
     amountInput.value = "1";
+    damageTypeInput.value = damageTypeSwitch.dataset.damageType || "B";
 
     const formData = new FormData(form);
     formData.set("ajax", "1");
     formData.set("partials", "1");
-    formData.set("current_damage", String(refreshDamage));
 
     try {
       const response = await fetch(requestUrl, {
@@ -258,13 +290,15 @@ export function initDamagePanel() {
         throw new Error("damage dependent refresh failed");
       }
       const payload = await response.json();
-      const serverDamage = readInt(payload.current_damage, refreshDamage);
-      if (damageRequestInFlight || pendingDamageDelta !== 0 || serverDamage !== localDamage) {
+      const serverStunDamage = readInt(payload.current_stun_damage, localStunDamage);
+      const serverLethalDamage = readInt(payload.current_lethal_damage, localLethalDamage);
+      if (damageRequestInFlight || pendingDamageOperations.length || serverStunDamage !== localStunDamage || serverLethalDamage !== localLethalDamage) {
         scheduleDamageDependentRefresh();
         return;
       }
 
-      confirmedDamage = serverDamage;
+      confirmedStunDamage = serverStunDamage;
+      confirmedLethalDamage = serverLethalDamage;
       gauge.dataset.damageMax = String(readInt(payload.current_damage_max, readInt(gauge.dataset.damageMax || "1", 1)));
       applyWoundState(
         String(payload.current_wound_stage ?? "-"),
@@ -282,76 +316,82 @@ export function initDamagePanel() {
   }
 
   function flushDamageDelta() {
-    if (damageRequestInFlight || pendingDamageDelta === 0) {
-      return;
+    if (damageRequestInFlight || !pendingDamageOperations.length) {
+      return requestQueue;
     }
 
-    const targetDamage = localDamage;
-    pendingDamageDelta = 0;
+    const operations = pendingDamageOperations.splice(0);
+    const groupedOperations = [];
+    operations.forEach((operation) => {
+      const previous = groupedOperations[groupedOperations.length - 1];
+      if (previous && previous.damageType === operation.damageType && previous.action === operation.action) {
+        previous.amount += operation.amount;
+      } else {
+        groupedOperations.push({ ...operation });
+      }
+    });
+    const unsentOperations = groupedOperations.map((operation) => ({ ...operation }));
     damageRequestInFlight = true;
 
-    const thisRequestVersion = requestVersion + 1;
-    requestVersion = thisRequestVersion;
-    actionInput.value = "set";
-    amountInput.value = "1";
-
-    const formData = new FormData(form);
-    formData.set("ajax", "1");
-    formData.set("partials", "0");
-    formData.set("current_damage", String(targetDamage));
-
     requestQueue = requestQueue.then(async () => {
-      const response = await fetch(requestUrl, {
-        method: "POST",
-        body: formData,
-        headers: {
-          "X-Requested-With": "XMLHttpRequest",
-          Accept: "application/json",
-        },
-        credentials: "same-origin",
-      });
-      if (!response.ok) {
-        throw new Error("damage update failed");
-      }
-
-      const payload = await response.json();
-      if (thisRequestVersion < lastAppliedResponseVersion) {
-        return;
-      }
-      lastAppliedResponseVersion = thisRequestVersion;
-
-      const previousServerDamage = localDamage;
-      confirmedDamage = readInt(payload.current_damage, targetDamage);
-      gauge.dataset.damageMax = String(readInt(payload.current_damage_max, readInt(gauge.dataset.damageMax || "1", 1)));
-
-      if (pendingDamageDelta === 0) {
-        localDamage = confirmedDamage;
-        currentDamageEl.textContent = String(localDamage);
-        applyWoundState(
-          String(payload.current_wound_stage ?? "-"),
-          String(payload.current_wound_penalty ?? "-"),
-          Boolean(payload.is_wound_penalty_ignored),
-        );
-        if (Array.isArray(payload.partials) && payload.partials.length) {
-          applySheetPartials(payload);
+      let lastPayload = null;
+      while (unsentOperations.length) {
+        const operation = unsentOperations[0];
+        actionInput.value = operation.action;
+        amountInput.value = String(operation.amount);
+        damageTypeInput.value = operation.damageType;
+        const formData = new FormData(form);
+        formData.set("ajax", "1");
+        formData.set("partials", "0");
+        const response = await fetch(requestUrl, {
+          method: "POST",
+          body: formData,
+          headers: {
+            "X-Requested-With": "XMLHttpRequest",
+            Accept: "application/json",
+          },
+          credentials: "same-origin",
+        });
+        if (!response.ok) {
+          throw new Error("damage update failed");
         }
-        renderNeedle(localDamage, { animate: true, fromValue: previousServerDamage });
-        window.sessionStorage.setItem(storageKey, String(localDamage));
-      } else {
-        localDamage = Math.max(0, localDamage);
-        syncDamageDisplay(localDamage, { animate: false });
+        lastPayload = await response.json();
+        confirmedStunDamage = readInt(lastPayload.current_stun_damage, confirmedStunDamage);
+        confirmedLethalDamage = readInt(lastPayload.current_lethal_damage, confirmedLethalDamage);
+        gauge.dataset.damageMax = String(readInt(lastPayload.current_damage_max, readInt(gauge.dataset.damageMax || "1", 1)));
+        unsentOperations.shift();
+      }
+
+      if (!pendingDamageOperations.length) {
+        localStunDamage = confirmedStunDamage;
+        localLethalDamage = confirmedLethalDamage;
+        syncDamageDisplay({ animate: true });
+        if (lastPayload) {
+          applyWoundState(
+            String(lastPayload.current_wound_stage ?? "-"),
+            String(lastPayload.current_wound_penalty ?? "-"),
+            Boolean(lastPayload.is_wound_penalty_ignored),
+          );
+        }
       }
     }).catch((_error) => {
-      pendingDamageDelta = localDamage - confirmedDamage;
-      syncDamageDisplay(localDamage, { animate: false });
+      pendingDamageOperations = [...unsentOperations, ...pendingDamageOperations];
+      let replayed = { stun: confirmedStunDamage, lethal: confirmedLethalDamage };
+      pendingDamageOperations.forEach((operation) => {
+        replayed = applyDamageOperation(replayed, operation);
+      });
+      localStunDamage = replayed.stun;
+      localLethalDamage = replayed.lethal;
+      syncDamageDisplay({ animate: false });
     }).finally(() => {
       damageRequestInFlight = false;
-      if (pendingDamageDelta !== 0) {
+      if (pendingDamageOperations.length) {
         scheduleDamageFlush();
       } else {
         scheduleDamageDependentRefresh();
       }
     });
+    return requestQueue;
   }
 
   function scheduleArcaneFlush() {
@@ -416,13 +456,47 @@ export function initDamagePanel() {
 
   const initialValue = localDamage;
   const previousValue = window.sessionStorage.getItem(storageKey);
-  if (previousValue !== null && readInt(previousValue, initialValue) !== initialValue) {
-    renderNeedle(initialValue, { animate: true, fromValue: readInt(previousValue, initialValue) });
-  } else {
-    renderNeedle(initialValue);
-  }
+  renderNeedles(localStunDamage, localLethalDamage, {
+    animate: previousValue !== null && readInt(previousValue, initialValue) !== initialValue,
+  });
   window.sessionStorage.setItem(storageKey, String(initialValue));
   renderArcaneMeter(localArcane, readInt(arcaneMeter?.dataset.arcaneMax || "0", 0), { animate: false });
+
+  const damageTypeStorageKey = `charsheet.damageType.${gauge.dataset.characterId || "default"}`;
+  function selectDamageType(damageType, persist = true) {
+    const selectedType = ["B", "G", "T"].includes(damageType) ? damageType : "B";
+    const typeLabels = {
+      B: "Betäubungsschaden",
+      G: "Betäubungs- und tödlicher Schaden",
+      T: "Tödlicher Schaden",
+    };
+    const typeLabel = typeLabels[selectedType];
+    damageTypeSwitch.dataset.damageType = selectedType;
+    damageTypeSwitch.setAttribute("aria-label", `Schadensauswahl: ${typeLabel}`);
+    damageTypeInput.value = selectedType;
+    document.querySelectorAll("#sheetDamagePanel .damage_step_btn[data-action]").forEach((button) => {
+      if (button.classList.contains("arcane_step_btn")) {
+        return;
+      }
+      button.setAttribute("aria-label", `${typeLabel} ${button.dataset.action === "damage" ? "erhöhen" : "verringern"}`);
+    });
+    if (persist) {
+      window.localStorage.setItem(damageTypeStorageKey, selectedType);
+    }
+  }
+
+  selectDamageType(window.localStorage.getItem(damageTypeStorageKey) || "B", false);
+  damageTypeSwitch.addEventListener("click", (event) => {
+    const types = ["B", "G", "T"];
+    if (event.detail === 0) {
+      const currentIndex = types.indexOf(damageTypeSwitch.dataset.damageType || "B");
+      selectDamageType(types[(currentIndex + 1) % types.length]);
+      return;
+    }
+    const bounds = damageTypeSwitch.getBoundingClientRect();
+    const segmentIndex = Math.max(0, Math.min(2, Math.floor(((event.clientX - bounds.left) / bounds.width) * 3)));
+    selectDamageType(types[segmentIndex]);
+  });
 
   document.querySelectorAll("#sheetDamagePanel .damage_step_btn[data-action]").forEach((button) => {
     if (button.classList.contains("arcane_step_btn")) {
@@ -435,11 +509,21 @@ export function initDamagePanel() {
         return;
       }
 
-      const previousDamage = localDamage;
-      const delta = action === "damage" ? amount : -amount;
-      localDamage = Math.max(0, localDamage + delta);
-      pendingDamageDelta += localDamage - previousDamage;
-      syncDamageDisplay(localDamage, { animate: true, fromValue: previousDamage });
+      const operation = {
+        damageType: ["B", "G", "T"].includes(damageTypeSwitch.dataset.damageType)
+          ? damageTypeSwitch.dataset.damageType
+          : "B",
+        action,
+        amount,
+      };
+      const nextDamage = applyDamageOperation(
+        { stun: localStunDamage, lethal: localLethalDamage },
+        operation,
+      );
+      localStunDamage = nextDamage.stun;
+      localLethalDamage = nextDamage.lethal;
+      pendingDamageOperations.push(operation);
+      syncDamageDisplay({ animate: true });
       scheduleDamageFlush();
       scheduleDamageDependentRefresh();
     });

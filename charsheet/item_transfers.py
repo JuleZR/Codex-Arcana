@@ -12,6 +12,8 @@ from django.utils import timezone
 from .models import (
     Character,
     CharacterCreature,
+    CharacterCreatureTrait,
+    CharacterCreatureTraitChoice,
     CharacterItem,
     CharacterItemRuneSpec,
     ItemOwnershipEvent,
@@ -62,6 +64,50 @@ def _item_snapshot(item: CharacterItem) -> dict:
         "item_type": item.item.item_type,
         "image": item.effective_image_url,
     }
+
+
+def _creature_choice_snapshot(item: CharacterItem) -> list[dict]:
+    """Capture concrete creature choices as a transfer integrity fallback."""
+    snapshot = []
+    choices = CharacterCreatureTraitChoice.objects.filter(
+        character_creature_trait__creature__source_character_item=item
+    )
+    excluded = {"id", "character_creature_trait"}
+    for choice in choices:
+        values = {
+            field.attname: getattr(choice, field.attname)
+            for field in choice._meta.concrete_fields
+            if field.name not in excluded
+        }
+        snapshot.append(
+            {
+                "id": choice.pk,
+                "character_creature_trait_id": choice.character_creature_trait_id,
+                "values": values,
+            }
+        )
+    return snapshot
+
+
+def _restore_creature_choices(item: CharacterItem, snapshot: list[dict]):
+    """Restore choices lost by an unrelated concurrent/form synchronization path."""
+    valid_trait_ids = set(
+        CharacterCreatureTrait.objects.filter(
+            creature__source_character_item=item
+        ).values_list("pk", flat=True)
+    )
+    for entry in snapshot or []:
+        trait_id = entry.get("character_creature_trait_id")
+        choice_id = entry.get("id")
+        if trait_id not in valid_trait_ids or not choice_id:
+            continue
+        if CharacterCreatureTraitChoice.objects.filter(pk=choice_id).exists():
+            continue
+        CharacterCreatureTraitChoice.objects.create(
+            id=choice_id,
+            character_creature_trait_id=trait_id,
+            **entry.get("values", {}),
+        )
 
 
 def _notify(user, item, kind: str, message: str, transfer=None):
@@ -312,7 +358,16 @@ def _merge_compatible_stack(item: CharacterItem) -> CharacterItem:
 
 
 @transaction.atomic
-def create_transfer(*, item_id: int, sender: Character, recipient: Character, quantity: int, message: str = ""):
+def create_transfer(
+    *,
+    item_id: int,
+    sender: Character,
+    recipient: Character,
+    quantity: int,
+    message: str = "",
+    permissions=None,
+    transfer_original_ownership: bool = False,
+):
     item = CharacterItem.objects.select_for_update().select_related(
         "owner__owner", "owner__race", "original_owner_character", "item", "quality"
     ).get(pk=item_id)
@@ -339,7 +394,40 @@ def create_transfer(*, item_id: int, sender: Character, recipient: Character, qu
         raise TransferError("message_too_long", "Die Nachricht darf höchstens 1000 Zeichen enthalten.")
     if quantity < item.amount:
         item = _split_item(item, quantity)
+    requested_permissions = []
+    for permission, irrevocable in (permissions or {}).items():
+        if permission not in ItemPermissionGrant.Permission.values:
+            raise TransferError("invalid_permission", "Unbekanntes Itemrecht.")
+        requested_permissions.append(
+            {
+                "permission": permission,
+                "label": ItemPermissionGrant.Permission(permission).label,
+                "irrevocable": bool(irrevocable),
+            }
+        )
+    if requested_permissions and item.original_owner_character_id != sender.pk:
+        raise TransferError(
+            "not_original_owner",
+            "Nur der Ursprungsbesitzer darf Rechte mit der Übergabe erteilen.",
+            status=403,
+        )
+    transfer_original_ownership = bool(transfer_original_ownership)
+    if transfer_original_ownership and item.original_owner_character_id != sender.pk:
+        raise TransferError(
+            "not_original_owner",
+            "Nur der Originaleigentümer darf das Eigentum übertragen.",
+            status=403,
+        )
+    if transfer_original_ownership and requested_permissions:
+        raise TransferError(
+            "ownership_transfer_with_permissions",
+            "Bei einer Eigentumsübertragung sind einzelne Freigaben nicht erforderlich.",
+        )
     now = timezone.now()
+    item_snapshot = _item_snapshot(item)
+    item_snapshot["creature_choices"] = _creature_choice_snapshot(item)
+    item_snapshot["requested_permissions"] = requested_permissions
+    item_snapshot["transfer_original_ownership"] = transfer_original_ownership
     transfer = ItemTransfer.objects.create(
         item=item,
         item_provenance_id=item.provenance_id,
@@ -347,7 +435,7 @@ def create_transfer(*, item_id: int, sender: Character, recipient: Character, qu
         recipient=recipient,
         quantity=item.amount,
         message=message,
-        item_snapshot=_item_snapshot(item),
+        item_snapshot=item_snapshot,
         sender_snapshot=_character_snapshot(sender),
         recipient_snapshot=_character_snapshot(recipient),
         expires_at=now + timedelta(days=7),
@@ -376,12 +464,54 @@ def accept_transfer(*, transfer_id: int, recipient: Character):
         raise TransferError("not_recipient", "Nur der Empfänger kann diese Übergabe annehmen.", status=403)
     item = CharacterItem.objects.select_for_update().get(pk=transfer.item_id)
     previous = item.owner
+    previous_original_owner = item.original_owner_character
     _move_item(item, recipient)
-    now = timezone.now()
+    _restore_creature_choices(
+        item,
+        transfer.item_snapshot.get("creature_choices", []),
+    )
+    transfers_original_ownership = bool(
+        transfer.item_snapshot.get("transfer_original_ownership")
+    )
+    if transfers_original_ownership:
+        now = timezone.now()
+        active_grants = ItemPermissionGrant.objects.select_for_update().filter(
+            item=item,
+            revoked_at__isnull=True,
+            invalidated_at__isnull=True,
+        )
+        active_grants.update(invalidated_at=now)
+        CharacterItem.objects.filter(pk=item.pk).update(
+            original_owner_character=recipient
+        )
+        item.original_owner_character = recipient
+        item.original_owner_character_id = recipient.pk
+    else:
+        for requested in transfer.item_snapshot.get("requested_permissions", []):
+            set_item_permission(
+                item_id=item.pk,
+                original_owner=item.original_owner_character,
+                permission=requested.get("permission", ""),
+                enabled=True,
+                irrevocable=bool(requested.get("irrevocable")),
+            )
+        now = timezone.now()
     transfer.status = ItemTransfer.Status.ACCEPTED
     transfer.resolved_at = now
     transfer.save(update_fields=["status", "resolved_at"])
-    _event(item, ItemOwnershipEvent.EventType.ACCEPTED, transfer=transfer, actor=recipient, from_character=previous, to_character=recipient)
+    _event(
+        item,
+        ItemOwnershipEvent.EventType.ACCEPTED,
+        transfer=transfer,
+        actor=recipient,
+        from_character=previous,
+        to_character=recipient,
+        details={
+            "original_ownership_transferred": transfers_original_ownership,
+            "previous_original_owner_id": previous_original_owner.pk,
+            "previous_original_owner_name": previous_original_owner.name,
+        },
+    )
     _notify(previous.owner, item, "accepted", f"{recipient.name} hat {item.effective_name} angenommen.", transfer)
     _merge_compatible_stack(item)
     return transfer
@@ -401,6 +531,91 @@ def decline_transfer(*, transfer_id: int, recipient: Character):
     _notify(transfer.sender.owner, item, "declined", f"{recipient.name} hat die Übergabe von {item.effective_name} abgelehnt.", transfer)
     _merge_compatible_stack(item)
     return transfer
+
+
+@transaction.atomic
+def recall_transfer(*, transfer_id: int, sender: Character):
+    """Withdraw one pending offer without changing the current item owner."""
+    transfer = _lock_pending_transfer(transfer_id)
+    if transfer.sender_id != sender.pk:
+        raise TransferError(
+            "not_sender",
+            "Nur der Absender kann diese Übergabe zurückziehen.",
+            status=403,
+        )
+    item = CharacterItem.objects.select_for_update().get(pk=transfer.item_id)
+    if item.owner_id != sender.pk:
+        raise TransferError(
+            "ownership_changed",
+            "Der Besitzer des Items hat sich inzwischen geändert.",
+            status=409,
+        )
+    transfer.status = ItemTransfer.Status.RECALLED
+    transfer.resolved_at = timezone.now()
+    transfer.save(update_fields=["status", "resolved_at"])
+    CharacterCreature.objects.filter(source_character_item=item).update(active=True)
+    _event(
+        item,
+        ItemOwnershipEvent.EventType.RECALLED,
+        transfer=transfer,
+        actor=sender,
+        from_character=transfer.recipient,
+        to_character=sender,
+    )
+    _notify(
+        transfer.recipient.owner,
+        item,
+        "recalled",
+        f"{sender.name} hat das Angebot für {item.effective_name} zurückgezogen.",
+        transfer,
+    )
+    _merge_compatible_stack(item)
+    return transfer
+
+
+@transaction.atomic
+def return_to_original_owner(*, item_id: int, holder: Character):
+    """Return a borrowed item immediately without creating another offer."""
+    item = CharacterItem.objects.select_for_update().select_related(
+        "owner__owner", "original_owner_character__owner"
+    ).get(pk=item_id)
+    if item.owner_id != holder.pk:
+        raise TransferError(
+            "not_holder",
+            "Nur der aktuelle Besitzer kann dieses Item zurückgeben.",
+            status=403,
+        )
+    if item.original_owner_character_id == holder.pk:
+        raise TransferError(
+            "already_home",
+            "Das Item befindet sich bereits beim Eigentümer.",
+            status=409,
+        )
+    if ItemTransfer.objects.select_for_update().filter(
+        item=item,
+        status=ItemTransfer.Status.PENDING,
+    ).exists():
+        raise TransferError(
+            "already_pending",
+            "Eine laufende Übergabe muss zuerst zurückgezogen werden.",
+            status=409,
+        )
+    original_owner = item.original_owner_character
+    _move_item(item, original_owner)
+    _event(
+        item,
+        ItemOwnershipEvent.EventType.RETURNED,
+        actor=holder,
+        from_character=holder,
+        to_character=original_owner,
+    )
+    _notify(
+        original_owner.owner,
+        item,
+        "returned",
+        f"{holder.name} hat {item.effective_name} direkt zurückgegeben.",
+    )
+    return _merge_compatible_stack(item)
 
 
 def _expire_locked(transfer: ItemTransfer):

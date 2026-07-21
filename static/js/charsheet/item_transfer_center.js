@@ -4,6 +4,39 @@ const initEmbeddedItemTransferCenter = () => {
   }
   document.documentElement.dataset.transferCenterBound = "1";
 
+  const transferCenter = document.querySelector(".transfer-center");
+  let lastReportedHeight = 0;
+  const reportContentHeight = () => {
+    if (!transferCenter) return;
+    const contentHeight = Math.ceil(transferCenter.getBoundingClientRect().height + 18);
+    if (contentHeight === lastReportedHeight) return;
+    lastReportedHeight = contentHeight;
+    window.parent.postMessage(
+      {
+        type: "codex:item-transfer-size",
+        height: contentHeight,
+      },
+      window.location.origin,
+    );
+  };
+  window.requestAnimationFrame(reportContentHeight);
+  if (transferCenter) new ResizeObserver(reportContentHeight).observe(transferCenter);
+
+  const queuedToasts = Array.from(document.querySelectorAll("[data-transfer-toast]"));
+  const showNextToast = () => {
+    const toast = queuedToasts.shift();
+    if (!toast) return;
+    toast.classList.add("is-visible");
+    window.setTimeout(() => {
+      toast.classList.remove("is-visible");
+      window.setTimeout(() => {
+        toast.remove();
+        showNextToast();
+      }, 180);
+    }, 2400);
+  };
+  showNextToast();
+
   document.addEventListener("submit", async (event) => {
     const form = event.target;
     if (!(form instanceof HTMLFormElement) || !form.hasAttribute("data-transfer-accept")) {

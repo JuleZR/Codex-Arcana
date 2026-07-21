@@ -4,9 +4,12 @@
     <div
       class="damage_gauge"
       data-damage-value="{{ character.current_damage }}"
+      data-stun-damage="{{ character.current_stun_damage }}"
+      data-lethal-damage="{{ character.current_lethal_damage }}"
       data-damage-max="{{ current_damage_max }}"
-      style="--needle-angle: {{ damage_gauge_needle_angle }}deg;"
-      aria-label="Aktueller Schaden, Wundstufe und Wundmalus"
+      data-character-id="{{ character.id }}"
+      style="--stun-needle-angle: {{ damage_gauge_stun_needle_angle }}deg; --lethal-needle-angle: {{ damage_gauge_lethal_needle_angle }}deg; --total-needle-angle: {{ damage_gauge_total_needle_angle }}deg;"
+      aria-label="Schaden: {{ character.current_stun_damage }} Betäubung, {{ character.current_lethal_damage }} tödlich, {{ character.current_damage }} wirksam"
     >
       <div class="damage_gauge_face">
         <div class="damage_gauge_arc" aria-hidden="true" style="--arc-stops: {{ damage_gauge_gradient_stops }};"></div>
@@ -16,20 +19,35 @@
           {% endif %}
         {% endfor %}
         <div class="damage_gauge_needle_shell" aria-hidden="true">
-          <span class="damage_gauge_needle_arm"></span>
+          <span class="damage_gauge_needle_arm damage_gauge_needle_arm--total"></span>
+          <span class="damage_gauge_marker damage_gauge_marker--stun"></span>
+          <span class="damage_gauge_marker damage_gauge_marker--lethal"></span>
         </div>
         <div class="damage_gauge_center">
           <span class="damage_readout_value"><span class="damage_readout_current">{{ character.current_damage }}</span><small>/{{ current_damage_max }}</small></span>
+          <div class="damage_breakdown" aria-label="Aufteilung des Schadens">
+            <span class="damage_breakdown_value damage_breakdown_value--stun">B <strong data-stun-damage-value>{{ character.current_stun_damage }}</strong></span>
+            <span class="damage_breakdown_separator" aria-hidden="true">·</span>
+            <span class="damage_breakdown_value damage_breakdown_value--lethal">T <strong data-lethal-damage-value>{{ character.current_lethal_damage }}</strong></span>
+          </div>
         </div>
       </div>
       <div class="damage_state_row">
-        <button type="button" class="damage_step_btn damage_step_btn--decrease" data-action="heal" data-amount="1" aria-label="Schaden verringern">-</button>
-        <span class="damage_state_value damage_stage_value{% if is_wound_penalty_ignored %} is-disabled{% endif %}" data-stage="{{ current_wound_stage }}">
+        <button type="button" class="damage_step_btn damage_step_btn--decrease" data-action="heal" data-amount="1" aria-label="Betäubungsschaden verringern">-</button>
+        <button type="button" class="damage_type_switch" aria-label="Schadensauswahl: Betäubungsschaden" data-damage-type="B">
+          <span class="damage_type_switch_thumb" aria-hidden="true"></span>
+          <span class="damage_type_switch_label damage_type_switch_label--stun">B</span>
+          <span class="damage_type_switch_label damage_type_switch_label--total">Gesamt</span>
+          <span class="damage_type_switch_label damage_type_switch_label--lethal">T</span>
+        </button>
+        <button type="button" class="damage_step_btn damage_step_btn--increase" data-action="damage" data-amount="1" aria-label="Betäubungsschaden erhöhen">+</button>
+      </div>
+      <div class="damage_stage_row">
+        <span class="damage_state_value damage_stage_value{% if is_wound_penalty_ignored and current_wound_stage != 'Ausser Gefecht' and current_wound_stage != 'Außer Gefecht' and current_wound_stage != 'Koma' and current_wound_stage != 'Tod' %} is-disabled{% endif %}" data-stage="{{ current_wound_stage }}">
           {% if current_wound_stage != "-" %}
             {{ current_wound_stage }}
           {% endif %}
         </span>
-        <button type="button" class="damage_step_btn damage_step_btn--increase" data-action="damage" data-amount="1" aria-label="Schaden erh&ouml;hen">+</button>
         <span class="damage_penalty_value visually-hidden">{{ current_wound_penalty }}</span>
       </div>
       <div class="arcane_meter" data-arcane-current="{{ current_arcane_power }}" data-arcane-max="{{ current_arcane_power_max }}" aria-label="Aktuelle arkane Macht">
@@ -49,6 +67,7 @@
     {% csrf_token %}
     <input type="hidden" name="action" class="damage_action_input" value="" />
     <input type="hidden" name="amount" class="damage_amount_input" value="1" />
+    <input type="hidden" name="damage_type" class="damage_type_input" value="B" />
   </form>
   <form method="post" action="{% url 'adjust_current_arcane_power' character.id %}" class="arcane_actions">
     {% csrf_token %}

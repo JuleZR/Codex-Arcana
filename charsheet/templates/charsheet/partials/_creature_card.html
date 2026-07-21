@@ -34,7 +34,7 @@
         <header class="card-titlebar">
             <h1 class="card-title card-display-field">{{ creature_card.name }}</h1>
             {% if creature_card.training_update_url %}
-                <input class="card-title card-title-input card-edit-field" name="custom_name" value="{{ creature_card.name|default:'' }}" maxlength="100" data-creature-card-field>
+                <input class="card-title card-title-input card-edit-field" name="custom_name" value="{{ creature_card.custom_name|default:'' }}" placeholder="{{ creature_card.original_card_name|default:'' }}" maxlength="100" data-creature-card-field>
             {% endif %}
             <div class="creature-card__movement" aria-label="Bewegungsraten">
                 <span class="creature-card__movement-mark creature-card__movement-mark--size" aria-label="Größenklasse {{ creature_card.size_class }}">

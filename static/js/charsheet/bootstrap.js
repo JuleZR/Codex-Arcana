@@ -29,7 +29,7 @@ import { initCardHand } from "./card_hand.js?v=20260621a";
 import { initGodCards } from "./god_card.js?v=20260702a";
 import { initCreatureCards } from "./creature_card.js?v=20260721c";
 import { initItemTransfers } from "./item_transfers.js";
-import { initItemTransferWindow } from "./item_transfer_window.js?v=20260721a";
+import { initItemTransferWindow } from "./item_transfer_window.js?v=20260721f";
 
 function isRadialMenuEnabled() {
   return document.body?.dataset.radialMenuEnabled === "1";

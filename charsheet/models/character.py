@@ -49,7 +49,8 @@ class Character(models.Model):
     overall_experience = models.PositiveIntegerField(default=0)
     current_experience = models.PositiveIntegerField(default=0)
 
-    current_damage = models.PositiveIntegerField(default=0)
+    current_stun_damage = models.PositiveIntegerField(default=0)
+    current_lethal_damage = models.PositiveIntegerField(default=0)
     current_arcane_power = models.IntegerField(null=True, blank=True, default=0)
     spent_spell_learning_slots = models.PositiveIntegerField(default=0)
     is_archived = models.BooleanField(default=False)
@@ -68,6 +69,45 @@ class Character(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.race.name})"
+
+    @property
+    def current_damage(self) -> int:
+        """Return the higher of the parallel stun and lethal damage tracks."""
+        return max(int(self.current_stun_damage or 0), int(self.current_lethal_damage or 0))
+
+    def adjust_damage(self, *, damage_type: str, action: str, amount: int, stun_max: int) -> None:
+        """Apply one damage operation with single-step-equivalent stun overflow."""
+        amount = max(0, int(amount or 0))
+        stun_max = max(0, int(stun_max or 0))
+
+        if damage_type == "G":
+            self.adjust_damage(damage_type="B", action=action, amount=amount, stun_max=stun_max)
+            self.adjust_damage(damage_type="T", action=action, amount=amount, stun_max=stun_max)
+            return
+
+        if damage_type == "T":
+            if action == "damage":
+                self.current_lethal_damage += amount
+            elif action == "heal":
+                self.current_lethal_damage = max(0, self.current_lethal_damage - amount)
+            return
+
+        if damage_type != "B":
+            return
+        if action == "heal":
+            self.current_stun_damage = max(0, self.current_stun_damage - amount)
+            return
+        if action != "damage" or amount == 0:
+            return
+
+        # Fill the B track first. Every further B point is recorded as lethal;
+        # B remains full while T advances on its parallel track.
+        self.current_stun_damage = min(self.current_stun_damage, stun_max)
+        fill = min(amount, stun_max - self.current_stun_damage)
+        self.current_stun_damage += fill
+        overflow_steps = amount - fill
+        if overflow_steps and stun_max > 0:
+            self.current_lethal_damage += overflow_steps
 
     @property
     def engine(self):

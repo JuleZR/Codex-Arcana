@@ -1243,6 +1243,8 @@ class CreatureEngine:
         return {
             "id": self.instance.pk if self.instance else self.creature.pk,
             "name": self.display_name(),
+            "custom_name": self.instance.name_override if self.instance else "",
+            "original_card_name": self.instance.original_card_name if self.instance else self.creature.display_name,
             "creature_name": self.creature.display_name,
             "image": self.image(),
             "default_image": self.creature.image,

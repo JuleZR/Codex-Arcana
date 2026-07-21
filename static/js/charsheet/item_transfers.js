@@ -8,7 +8,19 @@ export function initItemTransfers({ windowController = null } = {}) {
   const senderId = document.getElementById("itemTransferSenderId");
   const results = document.getElementById("itemTransferResults");
   const quantity = document.getElementById("itemTransferQuantity");
+  const permissions = document.getElementById("itemTransferPermissions");
+  const originalOwnership = document.getElementById("itemTransferOriginalOwnership");
   let timer = null;
+
+  const syncPermissionControls = () => {
+    if (!permissions) return;
+    const transfersOwnership = Boolean(originalOwnership?.checked);
+    permissions.querySelectorAll(".item-transfer-permission-row input").forEach((input) => {
+      input.disabled = transfersOwnership;
+      if (transfersOwnership) input.checked = false;
+    });
+    permissions.classList.toggle("is-transferring-ownership", transfersOwnership);
+  };
 
   document.addEventListener("click", (event) => {
     const trigger = event.target.closest("[data-open-item-transfer]");
@@ -20,6 +32,11 @@ export function initItemTransfers({ windowController = null } = {}) {
       results.replaceChildren();
       quantity.max = trigger.dataset.itemAmount || "1";
       quantity.value = "1";
+      if (permissions) {
+        permissions.hidden = trigger.dataset.canGrantPermissions !== "1";
+        permissions.querySelectorAll('input[type="checkbox"]').forEach((input) => { input.checked = false; });
+        syncPermissionControls();
+      }
       document.getElementById("itemTransferName").textContent = trigger.dataset.itemName || "";
       windowController?.open();
       search.focus();
@@ -32,6 +49,8 @@ export function initItemTransfers({ windowController = null } = {}) {
       results.replaceChildren();
     }
   });
+
+  originalOwnership?.addEventListener("change", syncPermissionControls);
 
   search.addEventListener("input", () => {
     recipientId.value = "";

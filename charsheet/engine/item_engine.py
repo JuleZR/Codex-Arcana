@@ -163,7 +163,17 @@ class ItemEngine:
 
     def get_name(self) -> str:
         """Return the effective display name."""
-        return str(self._get_override_value("name_override", self._get_item().name))
+        item = self._get_item()
+        original_name = str(item.name)
+        custom_name = str(self._get_override_value("name_override", original_name)).strip()
+        if (
+            isinstance(self.obj, CharacterItem)
+            and item.item_type == Item.ItemType.CREATURE
+            and custom_name
+            and custom_name != original_name
+        ):
+            return f"{custom_name} ({original_name})"
+        return custom_name or original_name
 
     def get_size_class(self) -> str:
         """Return the stored item size class."""

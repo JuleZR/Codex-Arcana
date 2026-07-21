@@ -1124,8 +1124,13 @@ class CharacterCreature(models.Model):
         return f"{self.display_name} ({self.owner})"
 
     @property
+    def original_card_name(self):
+        return self.creature.display_name
+
+    @property
     def display_name(self):
-        return self.name_override or self.creature.display_name
+        custom_name = (self.name_override or "").strip()
+        return custom_name or self.original_card_name
 
     @property
     def image(self):

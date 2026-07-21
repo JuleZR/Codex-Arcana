@@ -2702,7 +2702,8 @@ class CharacterAdmin(admin.ModelAdmin):
         "gender",
         "overall_experience",
         "current_experience",
-        "current_damage",
+        "current_stun_damage",
+        "current_lethal_damage",
         "money",
         "is_archived",
     )
@@ -2725,7 +2726,7 @@ class CharacterAdmin(admin.ModelAdmin):
             {"fields": ("height", "weight", "skin_color", "hair_color", "eye_color", "country_of_origin")},
         ),
         ("Additional Details", {"fields": ("religion", "appearance")}),
-        ("Status", {"fields": ("current_damage", "money", "overall_experience", "current_experience")}),
+        ("Status", {"fields": (("current_stun_damage", "current_lethal_damage"), "money", "overall_experience", "current_experience")}),
         (
             "Fame & Ranks",
             {"fields": ("personal_fame_point", "personal_fame_rank", "sacrifice_rank", "artefact_rank")},

@@ -12,6 +12,7 @@ export function initItemTransferWindow() {
   let dragPointerId = null;
   let dragOffsetX = 0;
   let dragOffsetY = 0;
+  let measurementFallback = null;
 
   const place = (left, top) => {
     const rect = windowElement.getBoundingClientRect();
@@ -30,6 +31,8 @@ export function initItemTransferWindow() {
   };
 
   const close = () => {
+    if (measurementFallback) window.clearTimeout(measurementFallback);
+    measurementFallback = null;
     windowElement.hidden = true;
     backdrop.hidden = true;
     frame.src = "about:blank";
@@ -37,11 +40,38 @@ export function initItemTransferWindow() {
     dragPointerId = null;
   };
   const open = (url) => {
+    windowElement.classList.add("is-measuring");
+    windowElement.style.removeProperty("height");
     frame.src = url;
     resetPosition();
     backdrop.hidden = false;
     windowElement.hidden = false;
+    measurementFallback = window.setTimeout(() => {
+      windowElement.classList.remove("is-measuring");
+      measurementFallback = null;
+    }, 800);
     windowElement.querySelector("[data-close-item-transfer-window]")?.focus();
+  };
+  const updateTransferBadge = (count) => {
+    const normalizedCount = Math.max(0, Number.parseInt(count, 10) || 0);
+    document.querySelectorAll(".transfer-nav-badge").forEach((badge) => {
+      if (normalizedCount === 0) {
+        badge.remove();
+      } else {
+        badge.textContent = String(normalizedCount);
+      }
+    });
+    if (normalizedCount > 0 && !document.querySelector(".transfer-nav-badge")) {
+      const iconFrame = document.querySelector(
+        "[data-open-item-transfer-window] .left-tools__icon_frame",
+      );
+      if (iconFrame) {
+        const badge = document.createElement("span");
+        badge.className = "transfer-nav-badge";
+        badge.textContent = String(normalizedCount);
+        iconFrame.appendChild(badge);
+      }
+    }
   };
 
   document.addEventListener("click", (event) => {
@@ -85,14 +115,25 @@ export function initItemTransferWindow() {
     if (event.key === "Escape" && !windowElement.hidden) close();
   });
   window.addEventListener("message", (event) => {
-    if (
-      event.origin !== window.location.origin
-      || event.source !== frame.contentWindow
-      || event.data?.type !== "codex:item-transfer-accepted"
-    ) {
+    if (event.origin !== window.location.origin || event.source !== frame.contentWindow) return;
+    if (event.data?.type === "codex:item-transfer-size") {
+      const headerHeight = handle.getBoundingClientRect().height;
+      const desiredHeight = headerHeight + 14 + Math.max(180, Number(event.data.height) || 0);
+      const availableHeight = Math.max(240, window.innerHeight - 28);
+      windowElement.style.height = `${Math.min(desiredHeight, availableHeight)}px`;
+      if (measurementFallback) window.clearTimeout(measurementFallback);
+      measurementFallback = null;
+      void windowElement.offsetHeight;
+      windowElement.classList.remove("is-measuring");
+      if (windowElement.style.left) {
+        const rect = windowElement.getBoundingClientRect();
+        place(rect.left, rect.top);
+      }
       return;
     }
+    if (event.data?.type !== "codex:item-transfer-accepted") return;
     applySheetPartials(event.data.payload);
+    updateTransferBadge(event.data.payload?.openItemTransferCount);
   });
 }
 

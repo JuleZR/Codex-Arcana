@@ -68,6 +68,7 @@ class ItemOwnershipEvent(models.Model):
         DECLINED = "declined", "Übergabe abgelehnt"
         EXPIRED = "expired", "Automatisch zurückgegeben"
         RECALLED = "recalled", "Übergabe zurückgerufen"
+        RETURNED = "returned", "An Eigentümer zurückgegeben"
         ENFORCED = "enforced", "Zwangsvollstreckung"
         PERMISSION_GRANTED = "permission_granted", "Recht erteilt"
         PERMISSION_REVOKED = "permission_revoked", "Recht widerrufen"

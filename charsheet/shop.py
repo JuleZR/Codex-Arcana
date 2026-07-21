@@ -842,14 +842,14 @@ def buy_shop_cart(character: Character, payload: dict[str, object]) -> tuple[dic
                     existing.full_clean()
                     existing.save(update_fields=["amount"])
                 else:
-                    created = CharacterItem(owner=character, item=item, amount=qty, equipped=False, quality_id=quality)
+                    created = CharacterItem(owner=character, original_owner_character=character, item=item, amount=qty, equipped=False, quality_id=quality)
                     created.full_clean()
                     created.save()
                     for rune in item.runes.all():
                         apply_rune_to_item(item=created, rune=rune, crafter_level=0)
             else:
                 for _index in range(qty):
-                    created = CharacterItem(owner=character, item=item, amount=1, equipped=False, quality_id=quality)
+                    created = CharacterItem(owner=character, original_owner_character=character, item=item, amount=1, equipped=False, quality_id=quality)
                     created.full_clean()
                     created.save()
                     for rune in item.runes.all():
@@ -1017,14 +1017,14 @@ def trade_shop_cart(character: Character, payload: dict[str, object]) -> tuple[d
                     existing.full_clean()
                     existing.save(update_fields=["amount"])
                 else:
-                    created = CharacterItem(owner=character, item=item, amount=qty, equipped=False, quality_id=quality)
+                    created = CharacterItem(owner=character, original_owner_character=character, item=item, amount=qty, equipped=False, quality_id=quality)
                     created.full_clean()
                     created.save()
                     for rune in item.runes.all():
                         apply_rune_to_item(item=created, rune=rune, crafter_level=0)
             else:
                 for _index in range(qty):
-                    created = CharacterItem(owner=character, item=item, amount=1, equipped=False, quality_id=quality)
+                    created = CharacterItem(owner=character, original_owner_character=character, item=item, amount=1, equipped=False, quality_id=quality)
                     created.full_clean()
                     created.save()
                     for rune in item.runes.all():

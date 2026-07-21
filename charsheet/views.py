@@ -26,6 +26,7 @@ from django.urls import reverse, reverse_lazy
 from .engine import CharacterCreationEngine
 from .engine.creature_engine import CreatureEngine
 from .engine.dice_engine import DiceEngine
+from .engine.item_engine import ItemEngine
 from .learning_progression import weapon_mastery_weapon_type_definitions
 from .models import (
     Character,
@@ -103,6 +104,8 @@ from .item_transfers import (
     has_item_permission,
     item_is_pending,
     record_item_destruction,
+    recall_transfer as recall_item_transfer,
+    return_to_original_owner,
     set_item_permission,
 )
 
@@ -469,7 +472,13 @@ def _sheet_partials_response(request, character: Character, *partial_keys: str) 
                 "html": render_to_string(template_name, context, request=request),
             }
         )
-    return JsonResponse({"ok": True, "partials": partials})
+    return JsonResponse(
+        {
+            "ok": True,
+            "partials": partials,
+            "openItemTransferCount": context.get("open_item_transfer_count", 0),
+        }
+    )
 
 
 def _character_dashboard_state(character: Character) -> dict[str, str]:
@@ -1999,12 +2008,22 @@ def create_item_transfer(request, pk):
     try:
         sender = _owned_character_or_404(request, int(request.POST.get("sender_id") or item.owner_id))
         recipient = get_object_or_404(Character.objects.select_related("owner", "race"), pk=int(request.POST.get("recipient_id") or 0))
+        requested_permissions = {
+            permission: False
+            for permission in ItemPermissionGrant.Permission.values
+            if str(request.POST.get(f"permission_{permission}", "")).lower()
+            in {"1", "true", "on", "yes"}
+        }
         transfer = create_item_transfer_service(
             item_id=item.pk,
             sender=sender,
             recipient=recipient,
             quantity=int(request.POST.get("quantity") or item.amount),
             message=request.POST.get("message", ""),
+            permissions=requested_permissions,
+            transfer_original_ownership=str(
+                request.POST.get("transfer_original_ownership", "")
+            ).lower() in {"1", "true", "on", "yes"},
         )
     except (TypeError, ValueError):
         return _transfer_response_error(request, TransferError("invalid_payload", "Ungültige Übergabedaten."), character_id=item.owner_id)
@@ -2059,6 +2078,42 @@ def decline_item_transfer_view(request, transfer_id):
         return _transfer_response_error(request, error)
     messages.info(request, "Übergabe abgelehnt.")
     return _item_transfer_center_redirect(request)
+
+
+@login_required
+@require_POST
+def recall_item_transfer_view(request, transfer_id):
+    transfer = get_object_or_404(
+        ItemTransfer.objects.select_related("sender"),
+        pk=transfer_id,
+        sender__owner=request.user,
+    )
+    return_to_character = str(request.POST.get("return_character_id") or "") == str(transfer.sender_id)
+    try:
+        recall_item_transfer(transfer_id=transfer_id, sender=transfer.sender)
+    except TransferError as error:
+        return _transfer_response_error(
+            request,
+            error,
+            character_id=transfer.sender_id if return_to_character else None,
+        )
+    messages.success(request, "Übergabe zurückgezogen.")
+    if return_to_character:
+        return redirect("character_sheet", character_id=transfer.sender_id)
+    return _item_transfer_center_redirect(request)
+
+
+@login_required
+@require_POST
+def return_item_to_original_owner(request, pk):
+    item = _owned_character_item_or_404(request, pk)
+    holder = item.owner
+    try:
+        return_to_original_owner(item_id=pk, holder=holder)
+    except TransferError as error:
+        return _transfer_response_error(request, error, character_id=holder.pk)
+    messages.success(request, "Gegenstand wurde direkt zurückgegeben.")
+    return redirect("character_sheet", character_id=holder.pk)
 
 
 @login_required
@@ -2283,30 +2338,29 @@ def remove_item(request, pk):
 @login_required
 @require_POST
 def adjust_current_damage(request, character_id: int):
-    """Increase or decrease current damage and return updated damage partials."""
+    """Adjust stun or lethal damage and return the updated combined wound state."""
     character = _owned_character_or_404(request, character_id)
     action = request.POST.get("action")
+    damage_type = request.POST.get("damage_type")
     try:
         amount = max(1, int(request.POST.get("amount", "1")))
     except (TypeError, ValueError):
         amount = 1
 
-    requested_current_damage = request.POST.get("current_damage")
-    if requested_current_damage is not None:
-        try:
-            character.current_damage = max(0, int(requested_current_damage))
-        except (TypeError, ValueError):
-            pass
-    elif action == "damage":
-        character.current_damage += amount
-    elif action == "heal":
-        character.current_damage = max(0, character.current_damage - amount)
-
-    character.save(update_fields=["current_damage"])
+    engine = character.engine
+    thresholds = engine.wound_thresholds()
+    damage_max = max(1, max(thresholds.keys(), default=0))
+    if damage_type in {"B", "G", "T"} and action in {"damage", "heal"}:
+        character.adjust_damage(
+            damage_type=damage_type,
+            action=action,
+            amount=amount,
+            stun_max=damage_max,
+        )
+        character.save(update_fields=["current_stun_damage", "current_lethal_damage"])
 
     if _is_partial_request(request):
-        engine = character.engine
-        thresholds = engine.wound_thresholds()
+        engine = character.get_engine(refresh=True)
         current_stage, _raw_penalty = engine.current_wound_stage()
         is_penalty_ignored = engine.is_wound_penalty_ignored()
         effective_penalty = engine.current_wound_penalty()
@@ -2325,8 +2379,10 @@ def adjust_current_damage(request, character_id: int):
         return JsonResponse(
             {
                 "ok": True,
+                "current_stun_damage": character.current_stun_damage,
+                "current_lethal_damage": character.current_lethal_damage,
                 "current_damage": character.current_damage,
-                "current_damage_max": max(1, max(thresholds.keys(), default=0)),
+                "current_damage_max": damage_max,
                 "current_wound_stage": current_stage,
                 "current_wound_penalty": format_modifier(effective_penalty),
                 "is_wound_penalty_ignored": is_penalty_ignored,
@@ -2487,6 +2543,10 @@ def _commands_with_met_prerequisites(command_ids: set[int]) -> list[CreatureComm
 
 def _render_creature_training_payload(request, card: CharacterCreature) -> dict:
     card_context = CreatureEngine(card).card_context()
+    inventory_item_name = ""
+    if card.source_character_item_id:
+        source_item = CharacterItem.objects.select_related("item").get(pk=card.source_character_item_id)
+        inventory_item_name = ItemEngine(source_item).get_name()
     card_context["adjust_damage_url"] = reverse_lazy("adjust_creature_damage", kwargs={"pk": card.pk})
     card_context["training_update_url"] = reverse_lazy("update_character_creature_training", kwargs={"pk": card.pk})
     mini_context = {**card_context, "adjust_damage_url": "", "damage_controls_disabled": True}
@@ -2496,7 +2556,7 @@ def _render_creature_training_payload(request, card: CharacterCreature) -> dict:
         "cardKey": f"creature-{card.pk}",
         "cardTitle": card_context["name"],
         "sourceCharacterItemId": card.source_character_item_id or "",
-        "inventoryItemName": card.display_name if card.source_character_item_id else "",
+        "inventoryItemName": inventory_item_name,
         "inventoryItemQuality": card_context["quality"] if card.source_character_item_id else "",
         "inventoryItemQualityLabel": card_context["quality_label"] if card.source_character_item_id else "",
         "inventoryItemQualityColor": card_context["quality_color"] if card.source_character_item_id else "",
@@ -2524,7 +2584,7 @@ def update_creature_card_training(request, pk: int):
     card = _owned_character_creature_or_404(request, pk)
     card_update_fields = []
     if "custom_name" in request.POST:
-        default_name = getattr(card.creature, "display_name", "") or card.display_name
+        default_name = card.original_card_name
         custom_name = str(request.POST.get("custom_name", ""))[:100].strip()
         card.name_override = custom_name if custom_name and custom_name != default_name else ""
         card_update_fields.append("name_override")
@@ -3031,6 +3091,7 @@ def update_creature_card_training(request, pk: int):
             posted_skill_ids = {
                 _parse_positive_int(request.POST.get(f"creature_trait_choice_{definition.trait_id}_{definition.pk}"), 0)
                 for definition in definitions
+                if f"creature_trait_choice_{definition.trait_id}_{definition.pk}" in request.POST
             }
             skills_by_id = {
                 skill.pk: skill
@@ -3041,6 +3102,12 @@ def update_creature_card_training(request, pk: int):
                 if trait_row is None:
                     continue
                 field_name = f"creature_trait_choice_{definition.trait_id}_{definition.pk}"
+                if field_name not in request.POST:
+                    continue
+                if int(definition.max_choices or 0) * max(1, int(trait_row.trait_level or 1)) > 1:
+                    # Multi-slot choices are managed by the dedicated choice dialog.
+                    # A single training-form field must never collapse or clear them.
+                    continue
                 selected_skill_id = _parse_positive_int(request.POST.get(field_name), 0)
                 existing_choices = CharacterCreatureTraitChoice.objects.filter(
                     character_creature_trait=trait_row,
