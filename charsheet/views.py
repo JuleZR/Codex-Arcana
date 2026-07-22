@@ -3320,17 +3320,28 @@ def adjust_money(request, character_id: int):
 @login_required
 @require_POST
 def adjust_experience(request, character_id: int):
-    """Apply an experience delta to current and overall experience."""
+    """Apply an experience delta, optionally only to current experience."""
     character = _owned_character_or_404(request, character_id)
+    raw_delta = str(request.POST.get("delta", "0") or "0").strip()
+    current_only = raw_delta.startswith("*") or raw_delta.endswith("*")
+    if current_only:
+        if raw_delta.startswith("*"):
+            raw_delta = raw_delta[1:]
+        if raw_delta.endswith("*"):
+            raw_delta = raw_delta[:-1]
+        raw_delta = raw_delta.strip()
     try:
-        delta = int(request.POST.get("delta", "0"))
+        delta = int(raw_delta)
     except (TypeError, ValueError):
         delta = 0
 
     if delta:
         character.current_experience = max(0, character.current_experience + delta)
-        character.overall_experience = max(0, character.overall_experience + delta)
-        character.save(update_fields=["current_experience", "overall_experience"])
+        update_fields = ["current_experience"]
+        if not current_only:
+            character.overall_experience = max(0, character.overall_experience + delta)
+            update_fields.append("overall_experience")
+        character.save(update_fields=update_fields)
 
     if _is_partial_request(request):
         return _sheet_partials_response(request, character, "experience_panel", "learning_budget")

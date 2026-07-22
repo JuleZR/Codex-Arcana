@@ -62,13 +62,14 @@
             <label class="left-tools__input_wrap">
               <input
                 type="text"
-                inputmode="numeric"
+                inputmode="text"
                 name="delta"
                 class="wallet_delta_input left-tools__delta_input"
                 step="1"
                 value="0"
-                placeholder="+ / -"
-                aria-label="Erfahrungsaenderung positiv oder negativ"
+                placeholder="+ / - / *"
+                aria-label="Erfahrungsaenderung; mit Stern nur aktuelle EP veraendern"
+                title="Normal: aktuelle und Gesamt-EP. Mit * am Anfang oder Ende: nur aktuelle EP."
               />
               <span class="left-tools__unit_inset" aria-hidden="true">EP</span>
             </label>
