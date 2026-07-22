@@ -3334,6 +3334,8 @@ def adjust_experience(request, character_id: int):
         delta = int(raw_delta)
     except (TypeError, ValueError):
         delta = 0
+    if current_only:
+        delta = -delta
 
     if delta:
         character.current_experience = max(0, character.current_experience + delta)
