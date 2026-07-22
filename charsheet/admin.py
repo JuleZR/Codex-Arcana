@@ -5644,8 +5644,9 @@ class CreatureTraitChoiceDefinitionAdminForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["allowed_attribute"].required = False
-        self.fields["allowed_attribute"].widget = forms.HiddenInput()
+        if "allowed_attribute" in self.fields:
+            self.fields["allowed_attribute"].required = False
+            self.fields["allowed_attribute"].widget = forms.HiddenInput()
         attribute_choices = [
             (str(attribute.pk), f"{attribute.name} ({attribute.short_name})")
             for attribute in Attribute.objects.order_by("name", "short_name")
