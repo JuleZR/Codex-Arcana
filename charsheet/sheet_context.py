@@ -31,6 +31,7 @@ from charsheet.constants import (
     INITIATIVE,
     MELEE_MANEUVERS,
     ONE_HANDED,
+    POTENTIAL,
     RULE_FLAG_CHOICES,
     RULE_FLAG_TARGET_KIND,
     SKILL_COMBAT,
@@ -3941,6 +3942,7 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
         if entry.is_bonus_aspect
     )
     arcane_power_value = engine.calculate_arcane_power()
+    potential_value = engine.calculate_potential()
     current_arcane_power = character.current_arcane_power
     if current_arcane_power is None:
         current_arcane_power = arcane_power_value
@@ -4467,6 +4469,14 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
                     {"label": "Bonus-Aspektstufen", "value": aspect_level_total},
                     *_build_modifier_breakdown_rows(engine, ARCANE_POWER),
                     {"label": "= Gesamt", "value": arcane_power_value, "tone": "total"},
+                ]
+            ),
+            "potential": potential_value,
+            "potential_tooltip": _build_core_stat_tooltip(
+                [
+                    {"label": "Will / 2", "value": willpower // 2},
+                    *_build_modifier_breakdown_rows(engine, POTENTIAL),
+                    {"label": "= Gesamt", "value": potential_value, "tone": "total"},
                 ]
             ),
         },
