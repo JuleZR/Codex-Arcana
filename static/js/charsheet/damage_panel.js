@@ -39,7 +39,7 @@ export function initDamagePanel() {
   let arcaneRequestQueue = Promise.resolve();
   let localStunDamage = readInt(gauge.dataset.stunDamage, 0);
   let localLethalDamage = readInt(gauge.dataset.lethalDamage, 0);
-  let localDamage = Math.max(localStunDamage, localLethalDamage);
+  let localDamage = localStunDamage + localLethalDamage;
   let localArcane = readInt(arcaneMeter?.dataset.arcaneCurrent || currentArcaneEl?.textContent, 0);
   let pendingDamageOperations = [];
   let damageFlushTimer = null;
@@ -162,7 +162,7 @@ export function initDamagePanel() {
   function renderNeedles(stunDamage, lethalDamage, options = {}) {
     const { animate = false } = options;
     const maxValue = Math.max(1, readInt(gauge.dataset.damageMax || "1", 1));
-    const totalDamage = Math.max(stunDamage, lethalDamage);
+    const totalDamage = stunDamage + lethalDamage;
     gauge.classList.toggle("is-animating", animate);
     gauge.style.setProperty("--stun-needle-angle", `${computeRotation(stunDamage, maxValue)}deg`);
     gauge.style.setProperty("--lethal-needle-angle", `${computeRotation(lethalDamage, maxValue)}deg`);
@@ -200,7 +200,7 @@ export function initDamagePanel() {
 
   function syncDamageDisplay(options = {}) {
     const { animate = true } = options;
-    localDamage = Math.max(localStunDamage, localLethalDamage);
+    localDamage = localStunDamage + localLethalDamage;
     currentDamageEl.textContent = String(localDamage);
     if (stunDamageValueEl) {
       stunDamageValueEl.textContent = String(localStunDamage);
@@ -222,27 +222,25 @@ export function initDamagePanel() {
     let lethal = Math.max(0, readInt(state.lethal, 0));
 
     if (operation.damageType === "G") {
-      const afterStun = applyDamageOperation(
-        { stun, lethal },
-        { ...operation, damageType: "B" },
-      );
-      return applyDamageOperation(
-        afterStun,
-        { ...operation, damageType: "T" },
-      );
+      let combinedState = { stun, lethal };
+      for (let index = 0; index < amount; index += 1) {
+        combinedState = applyDamageOperation(combinedState, { ...operation, damageType: "B", amount: 1 });
+        combinedState = applyDamageOperation(combinedState, { ...operation, damageType: "T", amount: 1 });
+      }
+      return combinedState;
     }
     if (operation.damageType === "T") {
       lethal = operation.action === "damage" ? lethal + amount : Math.max(0, lethal - amount);
     } else if (operation.action === "heal") {
       stun = Math.max(0, stun - amount);
     } else if (operation.action === "damage") {
-      stun = Math.min(stun, maxDamage);
-      const fill = Math.min(amount, maxDamage - stun);
+      const availableTotal = Math.max(0, maxDamage - (stun + lethal));
+      const fill = Math.min(amount, availableTotal);
       stun += fill;
       const overflowSteps = amount - fill;
-      if (overflowSteps > 0) {
-        lethal += overflowSteps;
-      }
+      const converted = Math.min(overflowSteps, stun);
+      stun -= converted;
+      lethal += overflowSteps;
     }
     return { stun, lethal };
   }

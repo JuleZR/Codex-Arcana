@@ -72,8 +72,8 @@ class Character(models.Model):
 
     @property
     def current_damage(self) -> int:
-        """Return the higher of the parallel stun and lethal damage tracks."""
-        return max(int(self.current_stun_damage or 0), int(self.current_lethal_damage or 0))
+        """Return the wound-relevant sum of stun and lethal damage."""
+        return int(self.current_stun_damage or 0) + int(self.current_lethal_damage or 0)
 
     def adjust_damage(self, *, damage_type: str, action: str, amount: int, stun_max: int) -> None:
         """Apply one damage operation with single-step-equivalent stun overflow."""
@@ -81,8 +81,9 @@ class Character(models.Model):
         stun_max = max(0, int(stun_max or 0))
 
         if damage_type == "G":
-            self.adjust_damage(damage_type="B", action=action, amount=amount, stun_max=stun_max)
-            self.adjust_damage(damage_type="T", action=action, amount=amount, stun_max=stun_max)
+            for _index in range(amount):
+                self.adjust_damage(damage_type="B", action=action, amount=1, stun_max=stun_max)
+                self.adjust_damage(damage_type="T", action=action, amount=1, stun_max=stun_max)
             return
 
         if damage_type == "T":
@@ -100,14 +101,15 @@ class Character(models.Model):
         if action != "damage" or amount == 0:
             return
 
-        # Fill the B track first. Every further B point is recorded as lethal;
-        # B remains full while T advances on its parallel track.
-        self.current_stun_damage = min(self.current_stun_damage, stun_max)
-        fill = min(amount, stun_max - self.current_stun_damage)
+        # B may fill only while the combined track remains below the maximum.
+        # Further points replace existing B with T and therefore preserve the sum.
+        available_total = max(0, stun_max - self.current_damage)
+        fill = min(amount, available_total)
         self.current_stun_damage += fill
         overflow_steps = amount - fill
-        if overflow_steps and stun_max > 0:
-            self.current_lethal_damage += overflow_steps
+        converted = min(overflow_steps, self.current_stun_damage)
+        self.current_stun_damage -= converted
+        self.current_lethal_damage += overflow_steps
 
     @property
     def engine(self):

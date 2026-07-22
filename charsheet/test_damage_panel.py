@@ -13,25 +13,35 @@ class CharacterDamageRulesTests(TestCase):
     def make_character(self, *, stun=0, lethal=0):
         return Character(current_stun_damage=stun, current_lethal_damage=lethal)
 
-    def test_current_damage_is_higher_parallel_track(self):
+    def test_current_damage_is_sum_of_both_types(self):
         character = self.make_character(stun=4, lethal=7)
+        self.assertEqual(character.current_damage, 11)
+
+    def test_stun_uses_available_space_on_combined_track(self):
+        character = self.make_character(stun=3, lethal=2)
+        character.adjust_damage(damage_type="B", action="damage", amount=2, stun_max=10)
+        self.assertEqual((character.current_stun_damage, character.current_lethal_damage), (5, 2))
         self.assertEqual(character.current_damage, 7)
 
-    def test_lethal_does_not_add_to_full_stun_until_it_exceeds_it(self):
-        for lethal, expected in ((0, 10), (5, 10), (10, 10), (11, 11)):
-            with self.subTest(lethal=lethal):
-                self.assertEqual(self.make_character(stun=10, lethal=lethal).current_damage, expected)
-
     def test_stun_fills_to_maximum(self):
-        character = self.make_character(stun=9, lethal=2)
+        character = self.make_character(stun=7, lethal=2)
         character.adjust_damage(damage_type="B", action="damage", amount=1, stun_max=10)
-        self.assertEqual((character.current_stun_damage, character.current_lethal_damage), (10, 2))
+        self.assertEqual((character.current_stun_damage, character.current_lethal_damage), (8, 2))
 
     def test_stun_overflow_advances_lethal_parallel_track(self):
-        character = self.make_character(stun=10, lethal=2)
+        character = self.make_character(stun=8, lethal=2)
         character.adjust_damage(damage_type="B", action="damage", amount=1, stun_max=10)
-        self.assertEqual((character.current_stun_damage, character.current_lethal_damage), (10, 3))
+        self.assertEqual((character.current_stun_damage, character.current_lethal_damage), (7, 3))
         self.assertEqual(character.current_damage, 10)
+
+    def test_stun_overflow_converts_all_stun_then_exceeds_maximum_as_lethal(self):
+        character = self.make_character(stun=8, lethal=2)
+        character.adjust_damage(damage_type="B", action="damage", amount=8, stun_max=10)
+        self.assertEqual((character.current_stun_damage, character.current_lethal_damage), (0, 10))
+        self.assertEqual(character.current_damage, 10)
+        character.adjust_damage(damage_type="B", action="damage", amount=1, stun_max=10)
+        self.assertEqual((character.current_stun_damage, character.current_lethal_damage), (0, 11))
+        self.assertEqual(character.current_damage, 11)
 
     def test_bulk_damage_matches_repeated_single_steps(self):
         for stun in range(0, 11):
@@ -64,14 +74,14 @@ class CharacterDamageRulesTests(TestCase):
     def test_total_selection_applies_stun_overflow_and_direct_lethal_damage(self):
         character = self.make_character(stun=10, lethal=9)
         character.adjust_damage(damage_type="G", action="damage", amount=1, stun_max=10)
-        self.assertEqual((character.current_stun_damage, character.current_lethal_damage), (10, 11))
-        self.assertEqual(character.current_damage, 11)
+        self.assertEqual((character.current_stun_damage, character.current_lethal_damage), (9, 11))
+        self.assertEqual(character.current_damage, 20)
 
 
 class DamageGaugeDataTests(TestCase):
     def test_equal_values_have_exactly_equal_angles(self):
         gauge = _build_damage_gauge_data(
-            current_damage=4,
+            current_damage=8,
             threshold_rows=[],
             damage_max=10,
             stun_damage=4,
@@ -81,7 +91,7 @@ class DamageGaugeDataTests(TestCase):
 
     def test_three_needles_are_calculated_and_clamped_independently(self):
         gauge = _build_damage_gauge_data(
-            current_damage=14,
+            current_damage=17,
             threshold_rows=[],
             damage_max=10,
             stun_damage=3,
@@ -144,7 +154,7 @@ class AdjustCurrentDamageViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(
             {key: response.json()[key] for key in ("current_stun_damage", "current_lethal_damage", "current_damage")},
-            {"current_stun_damage": 10, "current_lethal_damage": 3, "current_damage": 10},
+            {"current_stun_damage": 9, "current_lethal_damage": 3, "current_damage": 12},
         )
 
     @patch("charsheet.engine.character_engine.CharacterEngine.current_wound_penalty", return_value=-1)

@@ -1255,8 +1255,8 @@
   top: 7px;
   left: 50%;
   display: inline-block;
-  min-width: 3.5rem;
-  padding-right: 1.15rem;
+  min-width: 0;
+  padding-right: 0;
   font-family: "Cinzel", Georgia, serif;
   font-size: 2rem;
   line-height: 1;
@@ -1269,10 +1269,11 @@
 
 .damage_readout_value small {
   position: absolute;
-  left: calc(50% + 0.52rem);
-  bottom: 0.16rem;
+  left: calc(100% + 0.18rem);
+  bottom: 0.12rem;
   font-size: 0.78rem;
   color: rgba(119, 90, 63, 0.78);
+  white-space: nowrap;
 }
 
 .damage_state_row {
