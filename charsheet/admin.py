@@ -5648,7 +5648,7 @@ class CreatureTraitChoiceDefinitionAdminForm(forms.ModelForm):
         self.fields["allowed_attribute"].widget = forms.HiddenInput()
         attribute_choices = [
             (str(attribute.pk), f"{attribute.name} ({attribute.short_name})")
-            for attribute in Attribute.objects.order_by("sort_order", "name")
+            for attribute in Attribute.objects.order_by("name", "short_name")
         ]
         self.fields["allowed_attributes"].choices = attribute_choices
         category_choices = [
