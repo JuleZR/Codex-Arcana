@@ -84,24 +84,26 @@ function clampPosition(value, minimum, maximum) {
   return Math.min(Math.max(value, minimum), maximum);
 }
 
-function formatGroupedValue(rawValue) {
+function formatGroupedValue(rawValue, allowStar = false) {
   const raw = String(rawValue || "").trim();
-  const sign = raw.startsWith("-") ? "-" : raw.startsWith("+") ? "+" : "";
+  const sign = raw.includes("-") ? "-" : raw.includes("+") ? "+" : "";
+  const star = allowStar && raw.includes("*") ? "*" : "";
   const digits = raw.replace(/[^\d]/g, "");
   if (!digits) {
-    return sign;
+    return `${sign}${star}`;
   }
-  return `${sign}${Number.parseInt(digits, 10).toLocaleString("de-DE")}`;
+  return `${sign}${Number.parseInt(digits, 10).toLocaleString("de-DE")}${star}`;
 }
 
-function parseGroupedValue(rawValue) {
+function parseGroupedValue(rawValue, allowStar = false) {
   const raw = String(rawValue || "").trim();
-  const sign = raw.startsWith("-") ? "-" : "";
+  const sign = raw.includes("-") ? "-" : raw.includes("+") ? "+" : "";
+  const star = allowStar && raw.includes("*") ? "*" : "";
   const digits = raw.replace(/[^\d]/g, "");
   if (!digits) {
     return "0";
   }
-  return `${sign}${digits}`;
+  return `${sign}${digits}${star}`;
 }
 
 function formatDisplayValue(rawValue) {
@@ -129,19 +131,20 @@ function bindFormattedDeltaInput(input) {
     return;
   }
   input.dataset.radialBound = "1";
-  input.value = formatGroupedValue(input.value);
+  const allowStar = input.hasAttribute("data-experience-delta");
+  input.value = formatGroupedValue(input.value, allowStar);
   input.addEventListener("input", () => {
-    input.value = formatGroupedValue(input.value);
+    input.value = formatGroupedValue(input.value, allowStar);
   });
   input.addEventListener("blur", () => {
     if (!input.value || input.value === "+" || input.value === "-") {
       input.value = "0";
       return;
     }
-    input.value = formatGroupedValue(input.value);
+    input.value = formatGroupedValue(input.value, allowStar);
   });
   input.closest("form")?.addEventListener("submit", () => {
-    input.value = parseGroupedValue(input.value);
+    input.value = parseGroupedValue(input.value, allowStar);
   });
 }
 

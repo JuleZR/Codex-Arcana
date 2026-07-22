@@ -4,43 +4,46 @@ export function initLeftTools() {
     return;
   }
 
-  const formatGroupedValue = (rawValue) => {
+  const formatGroupedValue = (rawValue, allowStar = false) => {
     const raw = String(rawValue || "").trim();
-    const sign = raw.startsWith("-") ? "-" : raw.startsWith("+") ? "+" : "";
+    const sign = raw.includes("-") ? "-" : raw.includes("+") ? "+" : "";
+    const star = allowStar && raw.includes("*") ? "*" : "";
     const digits = raw.replace(/[^\d]/g, "");
     if (!digits) {
-      return sign;
+      return `${sign}${star}`;
     }
-    return `${sign}${Number.parseInt(digits, 10).toLocaleString("de-DE")}`;
+    return `${sign}${Number.parseInt(digits, 10).toLocaleString("de-DE")}${star}`;
   };
 
-  const parseGroupedValue = (rawValue) => {
+  const parseGroupedValue = (rawValue, allowStar = false) => {
     const raw = String(rawValue || "").trim();
-    const sign = raw.startsWith("-") ? "-" : "";
+    const sign = raw.includes("-") ? "-" : raw.includes("+") ? "+" : "";
+    const star = allowStar && raw.includes("*") ? "*" : "";
     const digits = raw.replace(/[^\d]/g, "");
     if (!digits) {
       return "0";
     }
-    return `${sign}${digits}`;
+    return `${sign}${digits}${star}`;
   };
 
   moneyXpInputs.forEach((input) => {
-    input.value = formatGroupedValue(input.value);
+    const allowStar = input.hasAttribute("data-experience-delta");
+    input.value = formatGroupedValue(input.value, allowStar);
     input.addEventListener("input", () => {
-      input.value = formatGroupedValue(input.value);
+      input.value = formatGroupedValue(input.value, allowStar);
     });
     input.addEventListener("blur", () => {
       if (!input.value || input.value === "+" || input.value === "-") {
         input.value = "0";
         return;
       }
-      input.value = formatGroupedValue(input.value);
+      input.value = formatGroupedValue(input.value, allowStar);
     });
 
     const form = input.closest("form");
     if (form) {
       form.addEventListener("submit", () => {
-        input.value = parseGroupedValue(input.value);
+        input.value = parseGroupedValue(input.value, allowStar);
       });
     }
   });
