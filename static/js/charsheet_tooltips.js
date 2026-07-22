@@ -1060,7 +1060,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const nextIndex = Math.min(Math.max(index + delta, 0), QUALITY_ORDER.length - 1);
     return QUALITY_ORDER[nextIndex];
   };
-  const isQualityAdjustableType = (itemType) => itemType === "weapon" || itemType === "armor" || itemType === "shield";
   const buildDamageLabel = (amount, faces, flat) => {
     if (!amount && !faces) {
       return "-";
@@ -1147,7 +1146,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const lineTotal = unitPrice * entry.qty;
       subtotal += lineTotal;
       const qualityIndex = QUALITY_ORDER.indexOf(normalizeQuality(entry.quality));
-      const qualityAdjustable = isQualityAdjustableType(entry.itemType);
+      const qualityAdjustable = true;
       const disableDown = !qualityAdjustable || qualityIndex <= 0 ? "disabled" : "";
       const disableUp = !qualityAdjustable || qualityIndex >= QUALITY_ORDER.length - 1 ? "disabled" : "";
       const qualityControls = qualityAdjustable
@@ -1261,9 +1260,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (target.hasAttribute("data-cart-quality-dec") || target.hasAttribute("data-cart-quality-inc")) {
-      if (!isQualityAdjustableType(entry.itemType)) {
-        return;
-      }
       const delta = target.hasAttribute("data-cart-quality-inc") ? 1 : -1;
       const nextQuality = shiftQuality(entry.quality, delta);
       if (nextQuality === entry.quality) {

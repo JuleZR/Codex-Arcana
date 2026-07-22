@@ -120,7 +120,6 @@ export function initShopMenu() {
     const nextIndex = Math.min(Math.max(index + delta, 0), QUALITY_ORDER.length - 1);
     return QUALITY_ORDER[nextIndex];
   };
-  const isQualityAdjustableType = (itemType) => itemType === "weapon" || itemType === "armor" || itemType === "shield";
   const qualityBadge = (quality) => {
     const normalized = normalizeQuality(quality);
     const label = QUALITY_LABELS[normalized] || QUALITY_LABELS.common;
@@ -236,7 +235,7 @@ export function initShopMenu() {
       const lineTotal = unitPrice * entry.qty;
       subtotal += lineTotal;
       const qualityIndex = QUALITY_ORDER.indexOf(normalizeQuality(entry.quality));
-      const qualityAdjustable = entry.mode === "buy" && isQualityAdjustableType(entry.itemType);
+      const qualityAdjustable = entry.mode === "buy";
       const disableDown = !qualityAdjustable || qualityIndex <= 0 ? "disabled" : "";
       const disableUp = !qualityAdjustable || qualityIndex >= QUALITY_ORDER.length - 1 ? "disabled" : "";
       const qualityControls = qualityAdjustable
@@ -404,7 +403,7 @@ export function initShopMenu() {
     }
 
     if (target.hasAttribute("data-cart-quality-dec") || target.hasAttribute("data-cart-quality-inc")) {
-      if (entry.mode !== "buy" || !isQualityAdjustableType(entry.itemType)) {
+      if (entry.mode !== "buy") {
         return;
       }
       const delta = target.hasAttribute("data-cart-quality-inc") ? 1 : -1;
