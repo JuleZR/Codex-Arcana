@@ -958,7 +958,24 @@ class CreatureSourceBinding(models.Model):
         ITEM = "item", "Item"
         TECHNIQUE = "technique", "Technique"
 
+    class SelectionMode(models.TextChoices):
+        FIXED = "fixed", "Feste Kreatur"
+        CHARACTER_CHOICE = "character_choice", "Charakter wählt oder erstellt eine Kreatur"
+
     creature = models.ForeignKey(Creature, on_delete=models.CASCADE, related_name="source_bindings", null=True)
+    selection_mode = models.CharField(
+        max_length=24,
+        choices=SelectionMode.choices,
+        default=SelectionMode.FIXED,
+        help_text="Nur der Auswahlmodus überlässt dem Charakter die Wahl einer DB-Vorlage oder einer freien Tierform.",
+    )
+    choice_label = models.CharField(
+        "Bezeichnung der Kreaturenwahl",
+        max_length=100,
+        blank=True,
+        default="Tiergestalt",
+        help_text="Wording auf der Auswahlkarte, z. B. Tiergestalt oder Tiergefährte.",
+    )
     trigger_type = models.CharField(max_length=20, choices=TriggerType.choices)
     item_trigger = models.ForeignKey(
         "charsheet.Item",
@@ -1023,6 +1040,10 @@ class CreatureSourceBinding(models.Model):
                 raise ValidationError({"technique_trigger": "Technik-Trigger ist erforderlich."})
             if self.item_trigger_id:
                 raise ValidationError({"item_trigger": "Bei Technik-Trigger leer lassen."})
+        if self.selection_mode == self.SelectionMode.FIXED and not self.creature_id:
+            raise ValidationError({"creature": "Für eine feste Bindung ist eine Kreatur erforderlich."})
+        if self.selection_mode == self.SelectionMode.CHARACTER_CHOICE and self.trigger_type != self.TriggerType.TECHNIQUE:
+            raise ValidationError({"selection_mode": "Die freie Kreaturenwahl ist nur für Technik-Trigger verfügbar."})
 
 
 class CharacterCreature(models.Model):
@@ -1060,6 +1081,10 @@ class CharacterCreature(models.Model):
     image_override = models.ImageField(upload_to="character_creatures/", blank=True, null=True)
     notes = models.TextField(blank=True, default="")
     active = models.BooleanField(default=True)
+    source_selection_completed = models.BooleanField(
+        default=False,
+        help_text="Nur für frei wählbare Technik-Bindungen: Die Vorlagen- oder Freikartenwahl wurde abgeschlossen.",
+    )
     current_damage = models.PositiveIntegerField(default=0)
     max_base_advantage_points = models.PositiveSmallIntegerField(default=0)
     max_base_disadvantage_points = models.PositiveSmallIntegerField(default=0)

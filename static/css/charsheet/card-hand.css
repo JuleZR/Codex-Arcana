@@ -939,6 +939,51 @@
   width: 100%;
 }
 
+.creature-creation-controls, .creature-creation-card__form { display: grid; gap: 8px; }
+.creature-creation-controls { padding: 10px; border: 1px solid rgba(92, 61, 31, .42); border-radius: 4px; background: rgba(255, 247, 219, .45); }
+.creature-creation-placeholder__surface {
+  position: absolute;
+  inset: 34px;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.creature-creation-placeholder__surface .creature-creation-controls {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 22px;
+  border-color: rgba(225, 212, 172, .4);
+  background: rgba(238, 231, 205, .88);
+  box-shadow: 0 10px 30px rgba(10, 15, 12, .34), inset 0 0 0 1px rgba(255, 255, 255, .34);
+  backdrop-filter: blur(5px);
+}
+.creature-creation-placeholder__art {
+  background:
+    radial-gradient(circle at 50% 30%, rgba(255, 238, 177, .58) 0%, rgba(224, 184, 91, .28) 22%, transparent 46%),
+    radial-gradient(circle at 16% 84%, rgba(190, 126, 37, .32), transparent 43%),
+    radial-gradient(circle at 88% 12%, rgba(245, 205, 105, .28), transparent 38%),
+    linear-gradient(145deg, #a8752d 0%, #80521d 42%, #5f3817 72%, #3d220f 100%);
+}
+.creature-creation-placeholder__art::after {
+  content: "?";
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: rgba(255, 235, 174, .88);
+  font-family: "Cinzel", Georgia, serif;
+  font-size: 9rem;
+  font-weight: 700;
+  text-shadow:
+    0 2px 0 rgba(91, 62, 24, .7),
+    0 5px 18px rgba(0, 0, 0, .58),
+    0 0 28px rgba(237, 201, 113, .22);
+}
+.creature-creation-card__form select, .creature-creation-card__form input, .creature-creation-card__form button { box-sizing: border-box; width: 100%; font: inherit; }
+.creature-creation-card__divider { display: flex; align-items: center; gap: 8px; color: rgba(62, 42, 24, 0.72); font-size: .78rem; text-transform: uppercase; }
+.creature-creation-card__divider::before, .creature-creation-card__divider::after { content: ""; flex: 1 1 auto; height: 1px; background: currentColor; opacity: .4; }
+
 /* Leave the creature damage controls clear of the transparent bottom drag handle. */
 .card-hand__floating-card--creature .card-hand__card-grabber--bottom {
   right: 125px;

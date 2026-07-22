@@ -1,5 +1,8 @@
 {% load static %}
 
+{% if creature_card.is_creation_placeholder %}
+{% include "charsheet/partials/_creature_creation_placeholder.html" with creature_card=creature_card %}
+{% else %}
 <article
     class="card creature-card{% if creature_card.training_update_url %} card--editable{% endif %}"
     lang="de"
@@ -32,7 +35,7 @@
             </div>
         {% endif %}
         <header class="card-titlebar">
-            <h1 class="card-title card-display-field">{{ creature_card.name }}</h1>
+            <h1 class="card-title card-display-field">{{ creature_card.name }}{% if creature_card.name_suffix %} {{ creature_card.name_suffix }}{% endif %}</h1>
             {% if creature_card.training_update_url %}
                 <input class="card-title card-title-input card-edit-field" name="custom_name" value="{{ creature_card.custom_name|default:'' }}" placeholder="{{ creature_card.original_card_name|default:'' }}" maxlength="100" data-creature-card-field>
             {% endif %}
@@ -147,6 +150,9 @@
         </div>
 
         <section class="card-rules creature-card__rules" aria-label="Kreaturenwerte">
+            {% if creature_card.creation_choice %}
+                {% include "charsheet/partials/_creature_creation_controls.html" with choice=creature_card.creation_choice %}
+            {% endif %}
             <div class="creature-card__oracle-line creature-card__oracle-line--core creature-card__core-grid">
                 <span class="creature-card__core-stat"><strong>Initiative</strong><span class="creature-card__core-value">{{ creature_card.initiative }}{% for variant in creature_card.initiative_variants %}/<span class="tooltip_target" data-tooltip="{{ variant.note }}" data-tooltip-side="right">{{ variant.value }}</span>{% endfor %}</span></span>
                 <span class="creature-card__core-stat"><strong>VW</strong><span class="creature-card__core-value">{{ creature_card.vw }}{% for variant in creature_card.vw_variants %}/<span class="tooltip_target" data-tooltip="{{ variant.note }}" data-tooltip-side="right">{{ variant.value }}</span>{% endfor %}</span></span>
@@ -216,3 +222,4 @@
         </section>
     </div>
 </article>
+{% endif %}

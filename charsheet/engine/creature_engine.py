@@ -9,6 +9,8 @@ import math
 import re
 from typing import Any
 
+from django.db.models import Q
+
 from charsheet.constants import (
     ATTR_CHA,
     ATTR_GE,
@@ -1508,7 +1510,10 @@ def sync_character_creatures(character) -> list[CharacterCreature]:
         if state["learned"] and state["available"]
     }
     bindings = list(
-        CreatureSourceBinding.objects.filter(active=True, creature__isnull=False)
+        CreatureSourceBinding.objects.filter(active=True).filter(
+            Q(creature__isnull=False)
+            | Q(selection_mode=CreatureSourceBinding.SelectionMode.CHARACTER_CHOICE)
+        )
         .select_related("creature", "creature__quality", "quality", "item_trigger", "technique_trigger")
         .prefetch_related(
             "creature__attacks",
@@ -1532,13 +1537,43 @@ def sync_character_creatures(character) -> list[CharacterCreature]:
             ]
         elif binding.trigger_type == CreatureSourceBinding.TriggerType.TECHNIQUE:
             if binding.technique_trigger_id in active_technique_ids:
-                source_rows = [
-                    {
+                source_technique = techniques_by_technique_id.get(binding.technique_trigger_id)
+                if binding.selection_mode == CreatureSourceBinding.SelectionMode.CHARACTER_CHOICE:
+                    existing = CharacterCreature.objects.filter(
+                        owner=character,
+                        source_binding=binding,
+                        source_character_technique=source_technique,
+                    ).first()
+                    if existing is not None:
+                        active_creature_ids.add(existing.pk)
+                        if not existing.active:
+                            existing.active = True
+                            existing.save(update_fields=["active"])
+                        continue
+                    blank_creature, _created = Creature.objects.get_or_create(
+                        slug="system-leere-tierform",
+                        defaults={
+                            "name": "System: Leere Tierform",
+                            "card_name": "Leere Tierform",
+                            "quality": binding.quality,
+                            "combat_speed": 0,
+                            "march_speed": 0,
+                            "sprint_speed": 0,
+                        },
+                    )
+                    source_rows = [{
                         "source_character_item": None,
-                        "source_character_technique": techniques_by_technique_id.get(binding.technique_trigger_id),
+                        "source_character_technique": source_technique,
                         "quality": binding.quality,
-                    }
-                ]
+                        "creature": blank_creature,
+                    }]
+                else:
+                    source_rows = [{
+                        "source_character_item": None,
+                        "source_character_technique": source_technique,
+                        "quality": binding.quality,
+                        "creature": binding.creature,
+                    }]
         if not source_rows:
             continue
         for source in source_rows:
@@ -1549,7 +1584,7 @@ def sync_character_creatures(character) -> list[CharacterCreature]:
                 source_character_item=source["source_character_item"],
                 source_character_technique=source["source_character_technique"],
                 defaults={
-                    "creature": binding.creature,
+                    "creature": source.get("creature", binding.creature),
                     "quality": source["quality"],
                     "active": True,
                     **budgets,
@@ -1560,13 +1595,20 @@ def sync_character_creatures(character) -> list[CharacterCreature]:
             if not instance.active:
                 instance.active = True
                 update_fields.append("active")
-            if instance.creature_id != binding.creature_id:
+            if (
+                binding.selection_mode == CreatureSourceBinding.SelectionMode.FIXED
+                and instance.creature_id != binding.creature_id
+            ):
                 instance.creature = binding.creature
                 update_fields.append("creature")
             if update_fields:
                 instance.save(update_fields=sorted(set(update_fields)))
 
     existing_creatures = CharacterCreature.objects.filter(owner=character, source_binding__isnull=False)
+    stale_choice_creatures = existing_creatures.filter(
+        source_binding__selection_mode=CreatureSourceBinding.SelectionMode.CHARACTER_CHOICE,
+    ).exclude(pk__in=active_creature_ids)
+    stale_choice_creatures.delete()
     existing_creatures.exclude(pk__in=active_creature_ids).filter(active=True).update(active=False)
     return list(
         existing_creatures.filter(active=True)

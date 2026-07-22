@@ -485,7 +485,13 @@ export function initDamagePanel() {
     }
   }
 
-  selectDamageType(window.localStorage.getItem(damageTypeStorageKey) || "B", false);
+  let storedDamageType = "B";
+  try {
+    storedDamageType = window.localStorage.getItem(damageTypeStorageKey) || "B";
+  } catch (_error) {
+    // Keep the default selection when browser storage is unavailable.
+  }
+  selectDamageType(storedDamageType, false);
   damageTypeSwitch.addEventListener("click", (event) => {
     const types = ["B", "G", "T"];
     if (event.detail === 0) {

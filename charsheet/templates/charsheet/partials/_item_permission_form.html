@@ -1,10 +1,13 @@
 <form method="post" action="{% url 'update_item_permission' character_item.id %}" class="permission-form">
   {% csrf_token %}<input type="hidden" name="original_owner_id" value="{{ character_item.original_owner_character_id }}"><input type="hidden" name="permission" value="{{ permission }}"><input type="hidden" name="return_character_id" value="{{ return_character_id }}">
-  <span>{{ label }}</span>
+  <span class="permission-form__label">{{ label }}</span>
   {% if grant %}
-    <small>{% if grant.irrevocable %}unwiderruflich{% else %}widerruflich{% endif %}</small>
-    {% if not grant.irrevocable %}<input type="hidden" name="enabled" value="0"><button>Widerrufen</button>{% endif %}
+    {% if grant.irrevocable %}
+      <button type="button" class="permission-toggle is-active" role="switch" aria-checked="true" aria-label="{{ label }} ist erteilt" disabled><span aria-hidden="true"></span></button>
+    {% else %}
+      <input type="hidden" name="enabled" value="0"><button type="submit" class="permission-toggle is-active" role="switch" aria-checked="true" aria-label="{{ label }} widerrufen"><span aria-hidden="true"></span></button>
+    {% endif %}
   {% else %}
-    <input type="hidden" name="enabled" value="1"><label><input type="checkbox" name="irrevocable" value="1"> unwiderruflich</label><button>Erteilen</button>
+    <input type="hidden" name="enabled" value="1"><button type="submit" class="permission-toggle" role="switch" aria-checked="false" aria-label="{{ label }} erteilen"><span aria-hidden="true"></span></button>
   {% endif %}
 </form>

@@ -55,7 +55,7 @@ from charsheet.forms import (
 from charsheet.magic_effects import TEXT_TARGET_KIND, unpack_magic_effect_summary
 from charsheet.learning_progression import build_learning_magic_groups, build_learning_progression_context
 from charsheet.learning_rules import DEFAULT_SCHOOL_MAX_LEVEL, school_max_levels
-from charsheet.religion_rules import is_clerical_school, selected_divine_entity
+from charsheet.religion_rules import has_active_druid_school, is_clerical_school, selected_divine_entity
 from charsheet.models import (
     Aspect,
     Character,
@@ -66,6 +66,8 @@ from charsheet.models import (
     CharacterSkill,
     CharacterWeaponMasteryArcana,
     CharacterCreature,
+    Creature,
+    CreatureSourceBinding,
     CharacterCreatureTrait,
     DivineEntityAspect,
     DruidCult,
@@ -3603,6 +3605,7 @@ def _build_learning_rows(
 
     school_level_caps = school_max_levels()
     school_groups: OrderedDict[str, list[dict]] = OrderedDict()
+    druid_school_active = has_active_druid_school(character)
     selected_religion_entity = selected_divine_entity(character)
     selected_religion_school_id = (
         int(selected_religion_entity.school_id)
@@ -3611,6 +3614,8 @@ def _build_learning_rows(
     )
     for school in School.objects.select_related("type").order_by("type__name", "name"):
         base_level = int(school_levels.get(school.id, 0))
+        if druid_school_active and is_clerical_school(school):
+            continue
         if (
             is_clerical_school(school)
             and selected_religion_school_id is not None
@@ -4252,8 +4257,38 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
         card_context = CreatureEngine(card).card_context()
         card_context["adjust_damage_url"] = reverse("adjust_creature_damage", kwargs={"pk": card.pk})
         card_context["training_update_url"] = reverse("update_character_creature_training", kwargs={"pk": card.pk})
+        if (
+            card.source_binding_id
+            and card.source_binding.selection_mode == CreatureSourceBinding.SelectionMode.CHARACTER_CHOICE
+        ):
+            choice_label = (card.source_binding.choice_label or "Tiergestalt").strip()
+            card_context["creature_kind_label"] = choice_label
+            if choice_label.casefold() == "tiergestalt":
+                card_context["holo"] = True
+                card_context["holo_kind"] = "creature-shapeshift"
+                card_context["name_suffix"] = "Tiergestalt"
+                card_context["name_suffix"] = "Tiergestalt"
+            if choice_label.casefold() == "tiergestalt":
+                card_context["holo"] = True
+                card_context["holo_kind"] = "creature-shapeshift"
+        if (
+            card.source_binding_id
+            and card.source_binding.selection_mode == CreatureSourceBinding.SelectionMode.CHARACTER_CHOICE
+            and not card.source_selection_completed
+        ):
+            card_context["is_creation_placeholder"] = True
+            card_context["creation_title"] = choice_label
+            card_context["creation_choice"] = {
+                "label": choice_label,
+                "create_url": reverse(
+                    "choose_technique_creature",
+                    kwargs={"character_id": character.pk, "binding_id": card.source_binding_id},
+                ),
+                "templates": list(Creature.objects.exclude(slug="system-leere-tierform").order_by("name", "id")),
+            }
         mini_context = {**card_context, "adjust_damage_url": "", "damage_controls_disabled": True}
         mini_context.pop("training_update_url", None)
+        mini_context.pop("creation_choice", None)
         training_context = build_creature_card_training_context(card)
         creature_card_contexts.append({"card": card, "context": card_context, "mini_context": mini_context, "training_context": training_context})
         character_creature_card_rows.append(

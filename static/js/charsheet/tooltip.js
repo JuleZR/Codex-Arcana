@@ -1281,7 +1281,7 @@ export function initTooltips() {
       : null;
     if (skillCardTarget instanceof HTMLElement) {
       const nestedInteractive = event.target instanceof Element
-        ? event.target.closest("button, a, input, select, textarea, form")
+        ? event.target.closest("button, a, input, select, textarea, form, details")
         : null;
       if (nestedInteractive && nestedInteractive !== skillCardTarget) {
         return;
@@ -1297,7 +1297,7 @@ export function initTooltips() {
       : null;
     if (target instanceof HTMLElement) {
       const nestedInteractive = event.target instanceof Element
-        ? event.target.closest("button, a, input, select, textarea, form")
+        ? event.target.closest("button, a, input, select, textarea, form, details")
         : null;
       if (nestedInteractive && nestedInteractive !== target) {
         return;

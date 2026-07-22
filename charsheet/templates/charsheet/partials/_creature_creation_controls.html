@@ -1,0 +1,16 @@
+<div class="creature-creation-controls">
+  <strong>{{ choice.label }} auswählen oder erstellen</strong>
+  <form method="post" action="{{ choice.create_url }}" class="creature-creation-card__form">
+    {% csrf_token %}<input type="hidden" name="mode" value="template">
+    <label>Vorlage aus der Kreaturendatenbank</label>
+    <select name="creature_id" required>{% for creature in choice.templates %}<option value="{{ creature.pk }}">{{ creature.display_name }}</option>{% endfor %}</select>
+    <button type="submit">Vorlage verwenden</button>
+  </form>
+  <div class="creature-creation-card__divider">oder</div>
+  <form method="post" action="{{ choice.create_url }}" class="creature-creation-card__form">
+    {% csrf_token %}<input type="hidden" name="mode" value="free">
+    <label>Eigener Name für {{ choice.label }}</label>
+    <input type="text" name="custom_name" maxlength="100" required placeholder="z. B. Silberfuchs">
+    <button type="submit">Leere Karte erstellen</button>
+  </form>
+</div>

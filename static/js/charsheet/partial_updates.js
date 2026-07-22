@@ -14,6 +14,17 @@ export function applySheetPartials(payload) {
       return;
     }
 
+    // Card-hand floatings are moved out of #sheetCardHand into the global app
+    // layer for dragging. Replacing the host alone would otherwise leave stale
+    // open cards visible until the next full page load.
+    if (targetId === "sheetCardHand") {
+      document.querySelectorAll("[data-card-hand-floating]").forEach((floating) => {
+        if (!current.contains(floating)) {
+          floating.remove();
+        }
+      });
+    }
+
     const preservedOpenState = new Map();
     const preservedValueState = new Map();
     const preservedScrollState = new Map();

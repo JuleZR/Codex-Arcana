@@ -311,6 +311,51 @@
     opacity: 0.42;
 }
 
+.card[data-card-holo="true"][data-card-holo-kind="creature-shapeshift"]::before {
+    background-image: linear-gradient(
+        115deg,
+        transparent 0%,
+        rgba(6, 82, 55, 0.08) 18%,
+        rgba(10, 180, 104, 0.36) 31%,
+        rgba(126, 255, 177, 0.54) 43%,
+        rgba(191, 255, 123, 0.5) 51%,
+        rgba(20, 211, 133, 0.44) 61%,
+        rgba(4, 101, 72, 0.24) 74%,
+        transparent 100%
+    );
+    background-position: var(--card-holo-bg-x) var(--card-holo-bg-y);
+    background-size: 300% 300%;
+    opacity: 0.18;
+    filter: brightness(1.04) contrast(1.08) saturate(1.38);
+}
+
+.card[data-card-holo="true"][data-card-holo-kind="creature-shapeshift"]::after {
+    opacity: 0.3;
+    filter: sepia(0.18) saturate(2.5) hue-rotate(76deg) brightness(1.16);
+}
+
+.card[data-card-holo="true"][data-card-holo-kind="creature-shapeshift"].active::before {
+    background-image: linear-gradient(
+        115deg,
+        transparent 0%,
+        transparent 20%,
+        rgba(3, 94, 61, 0.1) 29%,
+        rgba(5, 205, 119, 0.46) 38%,
+        rgba(145, 255, 199, 0.68) 46%,
+        rgba(219, 255, 139, 0.64) 52%,
+        rgba(33, 231, 143, 0.55) 59%,
+        rgba(5, 125, 82, 0.3) 69%,
+        transparent 84%,
+        transparent 100%
+    );
+    opacity: 0.38;
+    filter: brightness(1.09) contrast(1.12) saturate(1.45);
+}
+
+.card[data-card-holo="true"][data-card-holo-kind="creature-shapeshift"].active::after {
+    opacity: 0.5;
+}
+
 .card-shell {
     --card-edge-glow: rgba(196, 147, 56, 0.24);
     position: relative;

@@ -1010,6 +1010,58 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
     document.querySelectorAll(".inv_menu").forEach((entry) => closeMenu(entry));
   }, true);
 
+  document.addEventListener("submit", async (event) => {
+    const form = event.target;
+    if (!(form instanceof HTMLFormElement) || !form.classList.contains("permission-form")) {
+      return;
+    }
+    event.preventDefault();
+    if (form.dataset.permissionPending === "1") {
+      return;
+    }
+
+    const toggle = form.querySelector(".permission-toggle");
+    const enabledInput = form.querySelector("input[name='enabled']");
+    if (!(toggle instanceof HTMLButtonElement) || !(enabledInput instanceof HTMLInputElement)) {
+      return;
+    }
+
+    form.dataset.permissionPending = "1";
+    toggle.disabled = true;
+    toggle.classList.add("is-pending");
+    try {
+      const response = await fetch(form.action, {
+        method: form.method || "POST",
+        body: new FormData(form),
+        headers: {
+          "X-Requested-With": "XMLHttpRequest",
+          Accept: "application/json",
+        },
+        credentials: "same-origin",
+      });
+      const payload = await response.json();
+      if (!response.ok || !payload?.ok) {
+        throw new Error("permission update failed");
+      }
+
+      const isActive = Boolean(payload.enabled);
+      toggle.classList.toggle("is-active", isActive);
+      toggle.setAttribute("aria-checked", isActive ? "true" : "false");
+      enabledInput.value = isActive ? "0" : "1";
+      toggle.setAttribute(
+        "aria-label",
+        `${form.querySelector(".permission-form__label")?.textContent?.trim() || "Recht"} ${isActive ? "widerrufen" : "erteilen"}`,
+      );
+    } catch (_error) {
+      form.classList.add("has-error");
+      window.setTimeout(() => form.classList.remove("has-error"), 900);
+    } finally {
+      delete form.dataset.permissionPending;
+      toggle.classList.remove("is-pending");
+      toggle.disabled = false;
+    }
+  });
+
   document.addEventListener("click", (event) => {
     const button = event.target instanceof Element
       ? event.target.closest("[data-require-shift-delete]")

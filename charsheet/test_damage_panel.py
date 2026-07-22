@@ -115,6 +115,7 @@ class DamageGaugeDataTests(TestCase):
         self.assertIn("damage_gauge_marker--lethal", html)
         self.assertEqual(html.count("damage_gauge_needle_arm--total"), 1)
         self.assertIn("damage_type_switch_label--total", html)
+        self.assertIn('window.localStorage.getItem("charsheet.damageType.1")', html)
 
 
 class AdjustCurrentDamageViewTests(TestCase):

@@ -40,6 +40,19 @@
           <span class="damage_type_switch_label damage_type_switch_label--total">Gesamt</span>
           <span class="damage_type_switch_label damage_type_switch_label--lethal">T</span>
         </button>
+        <script>
+          (() => {
+            const damageTypeSwitch = document.currentScript.previousElementSibling;
+            try {
+              const storedType = window.localStorage.getItem("charsheet.damageType.{{ character.id }}");
+              if (["B", "G", "T"].includes(storedType)) {
+                damageTypeSwitch.dataset.damageType = storedType;
+              }
+            } catch (_error) {
+              // The regular initializer keeps the default when storage is unavailable.
+            }
+          })();
+        </script>
         <button type="button" class="damage_step_btn damage_step_btn--increase" data-action="damage" data-amount="1" aria-label="Betäubungsschaden erhöhen">+</button>
       </div>
       <div class="damage_stage_row">

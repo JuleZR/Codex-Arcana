@@ -1,0 +1,13 @@
+<article
+  class="card creature-card creature-creation-placeholder"
+  lang="de"
+  aria-label="{{ creature_card.creation_title }} erstellen"
+  {% if creature_card.holo %}data-card-holo="true" data-card-holo-kind="{{ creature_card.holo_kind|default:'creature' }}"{% endif %}
+>
+  <figure class="card-art creature-creation-placeholder__art" aria-hidden="true"></figure>
+  {% if creature_card.creation_choice %}
+    <section class="creature-creation-placeholder__surface">
+      {% include "charsheet/partials/_creature_creation_controls.html" with choice=creature_card.creation_choice %}
+    </section>
+  {% endif %}
+</article>

@@ -1921,7 +1921,11 @@ class CreatureCardTechniqueBindingInlineForm(forms.ModelForm):
 
     class Meta:
         model = CreatureSourceBinding
-        fields = ("active", "creature", "quality", "note")
+        fields = ("active", "selection_mode", "choice_label", "creature", "quality", "note")
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["creature"].required = False
 
     def _post_clean(self):
         self.instance.trigger_type = CreatureSourceBinding.TriggerType.TECHNIQUE
@@ -1951,7 +1955,7 @@ class CreatureCardTechniqueBindingInline(admin.TabularInline):
     form = CreatureCardTechniqueBindingInlineForm
     formset = CreatureCardTechniqueBindingInlineFormSet
     extra = 0
-    fields = ("active", "creature", "quality", "note")
+    fields = ("active", "selection_mode", "choice_label", "creature", "quality", "note")
     autocomplete_fields = ("creature",)
     verbose_name = "Creature Source Binding"
     verbose_name_plural = "Creature Source Bindings"

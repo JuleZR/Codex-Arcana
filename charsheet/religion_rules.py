@@ -17,6 +17,17 @@ def is_druid_school(school_or_entry) -> bool:
     return DruidCult.objects.filter(school_id=school_id).exists()
 
 
+def has_active_druid_school(character) -> bool:
+    """Return whether the character has learned at least one druid school level."""
+    from charsheet.models import CharacterSchool, DruidCult
+
+    learned_school_ids = CharacterSchool.objects.filter(
+        character=character,
+        level__gt=0,
+    ).values_list("school_id", flat=True)
+    return DruidCult.objects.filter(school_id__in=learned_school_ids).exists()
+
+
 def is_shaman_school(school_or_entry) -> bool:
     """Return whether a school is backed by a shaman patron instead of a deity."""
     school = getattr(school_or_entry, "school", school_or_entry)
