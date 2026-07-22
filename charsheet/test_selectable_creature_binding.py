@@ -64,7 +64,7 @@ class SelectableCreatureBindingTests(TestCase):
         response = self.client.get(reverse("character_sheet", args=[self.character.pk]))
         self.assertContains(response, "Tiergestalt auswählen oder erstellen")
         self.assertContains(response, "Leere Karte erstellen")
-        self.assertContains(response, 'data-card-holo-kind="creature-shapeshift"')
+        self.assertNotContains(response, 'data-card-holo-kind="creature-shapeshift"')
 
     def test_free_choice_creates_one_character_card_without_changing_normal_sync(self):
         self.client.force_login(self.user)
@@ -80,8 +80,27 @@ class SelectableCreatureBindingTests(TestCase):
         self.assertEqual(card.display_name, "Silberfuchs")
         self.assertEqual(sync_character_creatures(self.character)[0].pk, card.pk)
         response = self.client.get(reverse("character_sheet", args=[self.character.pk]))
-        self.assertContains(response, 'data-card-holo-kind="creature-shapeshift"')
+        self.assertNotContains(response, 'data-card-holo-kind="creature-shapeshift"')
         self.assertContains(response, "Silberfuchs Tiergestalt")
+
+    def test_training_update_preserves_shapeshift_card_presentation(self):
+        self.client.force_login(self.user)
+        self.client.post(
+            reverse("choose_technique_creature", args=[self.character.pk, self.binding.pk]),
+            {"mode": "free", "custom_name": "Silberfuchs"},
+        )
+        card = CharacterCreature.objects.get(owner=self.character, source_binding=self.binding)
+
+        response = self.client.post(
+            reverse("update_character_creature_training", args=[card.pk]),
+            {"custom_name": "Ratte", "quality": QUALITY_COMMON},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        card_html = response.json()["cardHtml"]
+        self.assertNotIn('data-card-holo-kind="creature-shapeshift"', card_html)
+        self.assertIn("Ratte Tiergestalt", card_html)
+        self.assertIn("Tiergestalt - Leere Tierform", card_html)
 
     def test_legacy_unfinished_card_does_not_suppress_creation_popover(self):
         CharacterCreature.objects.create(

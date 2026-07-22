@@ -1242,7 +1242,7 @@ class CreatureEngine:
             }
             for row in Quality.objects.all()
         ]
-        return {
+        context = {
             "id": self.instance.pk if self.instance else self.creature.pk,
             "name": self.display_name(),
             "custom_name": self.instance.name_override if self.instance else "",
@@ -1317,6 +1317,16 @@ class CreatureEngine:
             "climate_and_occurrence": self.creature.climate_and_occurrence,
             "organization": self.instance.trigger_label if self.instance and self.instance.trigger_label else self.creature.organization,
         }
+        if (
+            self.instance
+            and self.instance.source_binding_id
+            and self.instance.source_binding.selection_mode == CreatureSourceBinding.SelectionMode.CHARACTER_CHOICE
+        ):
+            choice_label = (self.instance.source_binding.choice_label or "Tiergestalt").strip()
+            context["creature_kind_label"] = choice_label
+            if choice_label.casefold() == "tiergestalt":
+                context["name_suffix"] = "Tiergestalt"
+        return context
 
     def attribute_rows(self) -> list[dict[str, Any]]:
         labels = (

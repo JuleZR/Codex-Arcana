@@ -4260,22 +4260,9 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
         if (
             card.source_binding_id
             and card.source_binding.selection_mode == CreatureSourceBinding.SelectionMode.CHARACTER_CHOICE
-        ):
-            choice_label = (card.source_binding.choice_label or "Tiergestalt").strip()
-            card_context["creature_kind_label"] = choice_label
-            if choice_label.casefold() == "tiergestalt":
-                card_context["holo"] = True
-                card_context["holo_kind"] = "creature-shapeshift"
-                card_context["name_suffix"] = "Tiergestalt"
-                card_context["name_suffix"] = "Tiergestalt"
-            if choice_label.casefold() == "tiergestalt":
-                card_context["holo"] = True
-                card_context["holo_kind"] = "creature-shapeshift"
-        if (
-            card.source_binding_id
-            and card.source_binding.selection_mode == CreatureSourceBinding.SelectionMode.CHARACTER_CHOICE
             and not card.source_selection_completed
         ):
+            choice_label = (card.source_binding.choice_label or "Tiergestalt").strip()
             card_context["is_creation_placeholder"] = True
             card_context["creation_title"] = choice_label
             card_context["creation_choice"] = {
