@@ -37,6 +37,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const listUrl = diaryMeta.dataset.diaryListUrl || "";
   const importUrl = diaryMeta.dataset.diaryImportUrl || "";
+  const readOnlyMode = diaryMeta.dataset.readOnly === "1";
   const characterId = diaryMeta.dataset.characterId || diaryWindow.dataset.characterId || "";
   const legacyStorageKey = characterId ? `charsheet.diary.${characterId}` : "";
   const legacyPageStorageKey = characterId ? `charsheet.diary.page.${characterId}` : "";
@@ -101,8 +102,8 @@ document.addEventListener("DOMContentLoaded", () => {
     entryEl.classList.toggle("is-loading", loading);
     prevBtn.disabled = loading || currentIndex <= 0;
     nextBtn.disabled = loading || currentIndex >= entries.length - 1;
-    deleteBtn.disabled = loading || !currentEntry();
-    modeBtn.disabled = loading || !currentEntry();
+    deleteBtn.disabled = readOnlyMode || loading || !currentEntry();
+    modeBtn.disabled = readOnlyMode || loading || !currentEntry();
   };
 
   const animateRoll = (direction) => {
@@ -126,14 +127,14 @@ document.addEventListener("DOMContentLoaded", () => {
       inputEl.value = "";
       counterEl.textContent = "Eintrag 0 / 0";
       titleEl.textContent = "Leere Rolle";
-      stateEl.textContent = entry.is_fixed ? "Fixiert" : (placeholder ? "Neue Schreib\u00e4che" : "Bearbeitungsmodus");
+      stateEl.textContent = readOnlyMode ? "Leseansicht" : "Keine Einträge";
       setHint("Noch keine Rolle geladen.");
       setLoading(false);
       return;
     }
 
     const placeholder = isPlaceholderEntry(entry);
-    const editable = !entry.is_fixed;
+    const editable = !readOnlyMode && !entry.is_fixed;
     const entryNumber = Number(entry.order_index || 0) + 1;
     const totalEntries = entries.length;
 
@@ -145,7 +146,7 @@ document.addEventListener("DOMContentLoaded", () => {
     inputEl.value = entry.text || "";
     inputEl.readOnly = !editable;
     dateInputEl.value = entry.entry_date || (placeholder ? new Date().toISOString().slice(0, 10) : "");
-    dateInputEl.disabled = Boolean(entry.entry_date) || entry.is_fixed || (!placeholder && !editable);
+    dateInputEl.disabled = readOnlyMode || Boolean(entry.entry_date) || entry.is_fixed || (!placeholder && !editable);
     dateDisplayEl.textContent = entry.is_fixed ? formatHandwrittenDate(entry.entry_date) : "";
     dateDisplayEl.hidden = !entry.is_fixed;
     dateInputEl.hidden = Boolean(entry.is_fixed);
@@ -153,7 +154,7 @@ document.addEventListener("DOMContentLoaded", () => {
     stateEl.textContent = entry.is_fixed ? "Fixiert" : (placeholder ? "Neue Schreib\u00e4che" : "Bearbeitungsmodus");
     counterEl.textContent = `Eintrag ${entryNumber} / ${totalEntries}`;
     modeBtn.innerHTML = entry.is_fixed ? editIcon : fixIcon;
-    modeBtn.title = entry.is_fixed ? "Eintrag bewusst bearbeiten" : "Eintrag fixieren";
+    modeBtn.title = readOnlyMode ? "Leseansicht" : (entry.is_fixed ? "Eintrag bewusst bearbeiten" : "Eintrag fixieren");
     modeBtn.setAttribute("aria-label", modeBtn.title);
     setHint(
       placeholder ? "" : (entry.is_fixed ? "" : "Bearbeitungsmodus aktiv."),
@@ -237,7 +238,7 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const maybeImportLegacyEntries = async (payload) => {
-    if (!importUrl || payloadHasRealEntries(payload)) {
+    if (readOnlyMode || !importUrl || payloadHasRealEntries(payload)) {
       return payload;
     }
     const legacyEntries = readLegacyEntries();
@@ -272,7 +273,7 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const saveDraft = async (payloadToSave) => {
-    if (!payloadToSave) {
+    if (readOnlyMode || !payloadToSave) {
       return;
     }
     const payload = await request(entryUrl(payloadToSave.entryId, "save"), {
@@ -296,7 +297,7 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const queueSave = () => {
-    if (isProgrammaticUpdate || isLoading) {
+    if (readOnlyMode || isProgrammaticUpdate || isLoading) {
       return;
     }
     const entry = currentEntry();
@@ -398,6 +399,9 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   modeBtn.addEventListener("click", () => {
+    if (readOnlyMode) {
+      return;
+    }
     const entry = currentEntry();
     if (!entry) {
       return;
@@ -410,14 +414,23 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   deleteBtn.addEventListener("click", () => {
+    if (readOnlyMode) {
+      return;
+    }
     deleteEntry();
   });
 
   inputEl.addEventListener("input", () => {
+    if (readOnlyMode) {
+      return;
+    }
     queueSave();
   });
 
   dateInputEl.addEventListener("change", () => {
+    if (readOnlyMode) {
+      return;
+    }
     queueSave();
   });
 

@@ -71,6 +71,10 @@ from .models import (
     Quality,
     ItemPermissionGrant,
     ItemTransfer,
+    GameGroup,
+    GameGroupInvitation,
+    GameGroupMembership,
+    GameGroupRole,
 )
 from .models.user import UserSettings
 from .forms import (
@@ -98,6 +102,7 @@ from .view_utils import format_modifier, format_thousands
 from .item_transfers import (
     TransferError,
     accept_transfer as accept_item_transfer,
+    create_gm_edit_transfer,
     create_transfer as create_item_transfer_service,
     decline_transfer as decline_item_transfer,
     enforce_original_ownership,
@@ -432,20 +437,30 @@ def _is_partial_request(request) -> bool:
 
 
 def _build_sheet_context_for_request(
-    request, character: Character, *, close_learn_window_once: bool = False, skip_magic_sync: bool = False
+    request,
+    character: Character,
+    *,
+    close_learn_window_once: bool = False,
+    skip_magic_sync: bool = False,
+    read_only: bool = False,
 ) -> dict[str, object]:
     """Build the full sheet context including request-specific dice settings."""
-    expire_due_transfers()
+    if not read_only:
+        expire_due_transfers()
     skip_magic_sync = skip_magic_sync or request.session.pop("skip_magic_sync_once", False)
     magic_engine = character.get_magic_engine(refresh=True)
-    if not skip_magic_sync:
+    if not skip_magic_sync and not read_only:
         magic_engine.sync_character_magic()
-    magic_engine.normalize_current_arcane_power(persist=True)
+    magic_engine.normalize_current_arcane_power(persist=not read_only)
     context = build_character_sheet_context(
         character,
         close_learn_window_once=close_learn_window_once,
+        read_only=read_only,
     )
-    user_settings, _ = UserSettings.objects.get_or_create(user=request.user)
+    if read_only:
+        user_settings = UserSettings.objects.filter(user=request.user).first() or UserSettings(user=request.user)
+    else:
+        user_settings, _ = UserSettings.objects.get_or_create(user=request.user)
     context["dddice_enabled"] = user_settings.dddice_enabled
     context["dddice_config"] = {
         "apiKey": user_settings.dddice_api_key,
@@ -454,10 +469,14 @@ def _build_sheet_context_for_request(
         "themeId": user_settings.dddice_theme_id,
     }
     context["request"] = request
-    context["open_item_transfer_count"] = ItemTransfer.objects.filter(
-        recipient=character,
-        status=ItemTransfer.Status.PENDING,
-    ).count()
+    context["open_item_transfer_count"] = (
+        0
+        if read_only
+        else ItemTransfer.objects.filter(
+            recipient=character,
+            status=ItemTransfer.Status.PENDING,
+        ).count()
+    )
     return context
 
 
@@ -1079,7 +1098,7 @@ def update_rune_specification(request, character_item_id: int, rune_id: int):
         pk=character_item_id,
         owner__owner=request.user,
     )
-    character_item = CharacterItem.objects.select_for_update().select_related("owner", "item").get(pk=character_item.pk)
+    character_item = CharacterItem.objects.select_for_update(of=("self",)).select_related("owner", "item").get(pk=character_item.pk)
     if item_is_pending(character_item):
         messages.error(request, "Unterwegs befindliche Items können nicht verändert werden.")
         return redirect("character_sheet", character_id=character_item.owner_id)
@@ -1257,7 +1276,76 @@ def dashboard(request):
         characters_qs.filter(last_opened_at__isnull=False)
         .order_by("-last_opened_at")[:5]
     )
-
+    pending_group_invitations = list(
+        GameGroupInvitation.objects.filter(
+            character__owner=request.user,
+            status=GameGroupInvitation.Status.PENDING,
+        )
+        .select_related("group", "character", "character__race", "invited_by")
+        .order_by("-created_at")
+    )
+    group_ids = set(
+        GameGroupRole.objects.filter(user=request.user, is_active=True).values_list("group_id", flat=True)
+    )
+    group_ids.update(
+        GameGroupMembership.objects.filter(
+            character__owner=request.user,
+            status=GameGroupMembership.Status.ACTIVE,
+        ).values_list("group_id", flat=True)
+    )
+    dashboard_groups = list(
+        GameGroup.objects.filter(pk__in=group_ids)
+        .prefetch_related("role_assignments", "memberships__character__owner")
+        .order_by("is_archived", "name")
+    )
+    active_group_character_ids = set(
+        GameGroupMembership.objects.filter(
+            character__owner=request.user,
+            status=GameGroupMembership.Status.ACTIVE,
+        ).values_list("character_id", flat=True)
+    )
+    gm_group_ids = set(
+        GameGroupRole.objects.filter(
+            user=request.user,
+            is_active=True,
+            role__in=[GameGroupRole.Role.LEADER, GameGroupRole.Role.GM],
+        ).values_list("group_id", flat=True)
+    )
+    owned_status_by_id = {
+        row["character"].id: row["status"]
+        for row in character_rows
+    }
+    dashboard_group_sections = []
+    for group in dashboard_groups:
+        member_rows = []
+        memberships = (
+            GameGroupMembership.objects.filter(
+                group=group,
+                status=GameGroupMembership.Status.ACTIVE,
+                character__is_archived=False,
+            )
+            .select_related("character", "character__owner", "character__race")
+            .order_by("character__name", "character__id")
+        )
+        for membership in memberships:
+            member = membership.character
+            is_own = member.owner_id == request.user.id
+            member_rows.append(
+                {
+                    "membership": membership,
+                    "character": member,
+                    "is_own": is_own,
+                    "is_foreign": not is_own,
+                    "status": owned_status_by_id.get(member.id) if is_own else None,
+                }
+            )
+        dashboard_group_sections.append(
+            {
+                "group": group,
+                "is_gm": group.id in gm_group_ids,
+                "members": member_rows,
+            }
+        )
     warnings: list[dict] = []
     for character in characters:
         if character.current_experience > 0:
@@ -1309,7 +1397,7 @@ def dashboard(request):
     search_results = {}
     if search_query:
         search_results = {
-            "items": Item.objects.filter(name__icontains=search_query).order_by("name")[:8],
+            "items": Item.objects.filter(catalog_group__isnull=True, name__icontains=search_query).order_by("name")[:8],
             "skills": Skill.objects.filter(name__icontains=search_query).order_by("name")[:8],
             "schools": School.objects.filter(name__icontains=search_query).order_by("name")[:8],
             "languages": Language.objects.filter(name__icontains=search_query).order_by("name")[:8],
@@ -1348,13 +1436,13 @@ def dashboard(request):
         "equipped_item_count": equipped_item_count,
         "equipped_item_count_display": format_thousands(equipped_item_count),
         "system_counts": {
-            "items": Item.objects.count(),
+            "items": Item.objects.filter(catalog_group__isnull=True).count(),
             "skills": Skill.objects.count(),
             "schools": School.objects.count(),
             "languages": Language.objects.count(),
         },
         "rulebook_preview": {
-            "items": Item.objects.order_by("name")[:6],
+            "items": Item.objects.filter(catalog_group__isnull=True).order_by("name")[:6],
             "skills": Skill.objects.order_by("name")[:6],
             "schools": School.objects.order_by("name")[:6],
             "languages": Language.objects.order_by("name")[:6],
@@ -1367,6 +1455,15 @@ def dashboard(request):
         "open_item_transfer_count": ItemTransfer.objects.filter(
             recipient__owner=request.user, status=ItemTransfer.Status.PENDING
         ).count(),
+        "dashboard_groups": dashboard_groups,
+        "dashboard_group_sections": dashboard_group_sections,
+        "pending_group_invitations": pending_group_invitations,
+        "ungrouped_characters": [
+            character for character in characters if character.id not in active_group_character_ids
+        ],
+        "ungrouped_character_rows": [
+            row for row in character_rows if row["character"].id not in active_group_character_ids
+        ],
     }
     return render(request, "charsheet/dashboard.html", context)
 
@@ -1404,8 +1501,12 @@ def edit_character(request, character_id: int):
 def archive_character(request, character_id: int):
     """Archive one owned character and hide it from active dashboard list."""
     character = _owned_character_or_404(request, character_id)
-    character.is_archived = True
-    character.save(update_fields=["is_archived"])
+    from .game_groups import recall_character_group_offers
+
+    with transaction.atomic():
+        character = recall_character_group_offers(character_id=character.id)
+        character.is_archived = True
+        character.save(update_fields=["is_archived"])
     messages.info(request, f"{character.name} wurde archiviert.")
     return redirect("dashboard")
 
@@ -1996,9 +2097,32 @@ def character_recipient_search(request):
     if str(exclude_id or "").isdigit():
         characters = characters.exclude(pk=int(exclude_id))
     results = [
-        {"id": row.pk, "name": row.name, "race": row.race.name, "username": row.owner.get_username()}
+        {"id": row.pk, "type": "character", "name": row.name, "race": row.race.name, "username": row.owner.get_username()}
         for row in characters.order_by("name", "owner__username", "id")[:20]
     ]
+    sender = None
+    if str(exclude_id or "").isdigit():
+        sender = Character.objects.filter(pk=int(exclude_id), owner=request.user).first()
+    if sender is not None:
+        group_query = GameGroup.objects.filter(
+            memberships__character=sender,
+            memberships__status=GameGroupMembership.Status.ACTIVE,
+            is_archived=False,
+        ).distinct()
+        if not query.casefold().startswith("sl"):
+            group_query = group_query.filter(name__icontains=query)
+        for group in group_query.order_by("name")[:10]:
+            results.append(
+                {
+                    # Negative ids keep older transfer-dialog JavaScript from
+                    # confusing a group with a Character that has the same pk.
+                    "id": -group.pk,
+                    "type": "gm_group",
+                    "name": f"SL @ {group.name}",
+                    "race": "Spielleitung",
+                    "username": group.name,
+                }
+            )
     return JsonResponse({"results": results})
 
 
@@ -2008,7 +2132,36 @@ def create_item_transfer(request, pk):
     item = _owned_character_item_or_404(request, pk)
     try:
         sender = _owned_character_or_404(request, int(request.POST.get("sender_id") or item.owner_id))
-        recipient = get_object_or_404(Character.objects.select_related("owner", "race"), pk=int(request.POST.get("recipient_id") or 0))
+        recipient_type = str(request.POST.get("recipient_type") or "character")
+        recipient_id = int(request.POST.get("recipient_id") or 0)
+        recipient = None
+        group = None
+        if recipient_type == "gm_group" or recipient_id < 0:
+            group = GameGroup.objects.filter(pk=abs(recipient_id)).first()
+        else:
+            recipient = Character.objects.select_related("owner", "race").filter(pk=recipient_id).first()
+            # Compatibility for a transfer dialog loaded from an older browser
+            # cache, which knows the selected group id but not recipient_type.
+            if recipient is None:
+                group = GameGroup.objects.filter(
+                    pk=recipient_id,
+                    is_archived=False,
+                    memberships__character=sender,
+                    memberships__status=GameGroupMembership.Status.ACTIVE,
+                ).first()
+        if group is not None:
+            transfer = create_gm_edit_transfer(
+                item_id=item.pk,
+                sender=sender,
+                group=group,
+                message=request.POST.get("message", ""),
+            )
+            if _is_partial_request(request):
+                return JsonResponse({"ok": True, "transferId": transfer.pk, "reload": True})
+            messages.success(request, f"Zur Bearbeitung an SL @ {group.name} gesendet.")
+            return redirect("character_sheet", character_id=sender.pk)
+        if recipient is None:
+            raise TransferError("invalid_recipient", "Der ausgewählte Empfänger ist nicht verfügbar.")
         requested_permissions = {
             permission: False
             for permission in ItemPermissionGrant.Permission.values
@@ -2201,7 +2354,7 @@ def item_transfer_center(request):
 def toggle_equip(request, pk):
     """Toggle equipped state for one equippable inventory entry."""
     ci = _owned_character_item_or_404(request, pk)
-    ci = CharacterItem.objects.select_for_update().select_related("item", "owner", "original_owner_character").get(pk=ci.pk)
+    ci = CharacterItem.objects.select_for_update(of=("self",)).select_related("item", "owner", "original_owner_character").get(pk=ci.pk)
     if item_is_pending(ci):
         return _transfer_response_error(request, TransferError("item_pending", "Unterwegs befindliche Items können nicht ausgerüstet werden.", status=409), character_id=ci.owner_id)
 
@@ -2249,7 +2402,7 @@ def toggle_equip(request, pk):
 def set_item_storage(request, pk):
     """Persist whether one inventory item is carried or stored."""
     ci = _owned_character_item_or_404(request, pk)
-    ci = CharacterItem.objects.select_for_update().select_related("item", "owner", "original_owner_character").get(pk=ci.pk)
+    ci = CharacterItem.objects.select_for_update(of=("self",)).select_related("item", "owner", "original_owner_character").get(pk=ci.pk)
     if item_is_pending(ci):
         return _transfer_response_error(request, TransferError("item_pending", "Unterwegs befindliche Items können nicht bewegt werden.", status=409), character_id=ci.owner_id)
     if ci.equipped or ci.equip_locked:
@@ -2277,7 +2430,7 @@ def set_item_storage(request, pk):
 def consume_item(request, pk):
     """Consume one unit from a stackable inventory item."""
     ci = _owned_character_item_or_404(request, pk)
-    ci = CharacterItem.objects.select_for_update().select_related("item", "owner", "original_owner_character").get(pk=ci.pk)
+    ci = CharacterItem.objects.select_for_update(of=("self",)).select_related("item", "owner", "original_owner_character").get(pk=ci.pk)
 
     owner_id = ci.owner_id
     if item_is_pending(ci):
@@ -2314,7 +2467,7 @@ def consume_item(request, pk):
 def remove_item(request, pk):
     """Remove one unit or full stack from inventory, then redirect back to sheet."""
     ci = _owned_character_item_or_404(request, pk)
-    ci = CharacterItem.objects.select_for_update().select_related("item", "owner", "original_owner_character").get(pk=ci.pk)
+    ci = CharacterItem.objects.select_for_update(of=("self",)).select_related("item", "owner", "original_owner_character").get(pk=ci.pk)
 
     owner_id = ci.owner_id
     if item_is_pending(ci):
@@ -2402,6 +2555,20 @@ def adjust_current_damage(request, character_id: int):
         )
 
     return redirect("character_sheet", character_id=character_id)
+
+
+@login_required
+@require_POST
+def update_carry_load_state(request, character_id: int):
+    """Persist whether carried weight currently affects this character."""
+    character = _owned_character_or_404(request, character_id)
+    try:
+        payload = json.loads(request.body or b"{}")
+    except (TypeError, ValueError, json.JSONDecodeError):
+        payload = {}
+    character.carry_load_enabled = bool(payload.get("enabled", False))
+    character.save(update_fields=["carry_load_enabled"])
+    return JsonResponse({"ok": True, "enabled": character.carry_load_enabled})
 
 
 @login_required
@@ -3421,7 +3588,7 @@ def create_shop_item(request, character_id: int):
 def update_character_item_runes(request, pk: int):
     """Persist one owned-item modification dialog for a supported inventory entry."""
     character_item = _owned_character_item_or_404(request, pk)
-    character_item = CharacterItem.objects.select_for_update().select_related("item", "owner", "original_owner_character").get(pk=character_item.pk)
+    character_item = CharacterItem.objects.select_for_update(of=("self",)).select_related("item", "owner", "original_owner_character").get(pk=character_item.pk)
     if item_is_pending(character_item):
         return JsonResponse({"ok": False, "error": "item_pending"}, status=409) if _is_partial_request(request) else redirect("character_sheet", character_id=character_item.owner_id)
     if character_item.owner_id != character_item.original_owner_character_id:

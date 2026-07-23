@@ -8,6 +8,7 @@
     {% csrf_token %}
     <input type="hidden" name="sender_id" id="itemTransferSenderId">
     <input type="hidden" name="recipient_id" id="itemTransferRecipientId">
+    <input type="hidden" name="recipient_type" id="itemTransferRecipientType" value="character">
     <header class="item-transfer-form__heading"><span>Gegenstand versenden</span><strong id="itemTransferName"></strong></header>
     <label class="shop_item_form_row"><span>Empfänger</span><input type="search" id="itemTransferRecipientSearch" autocomplete="off" minlength="2" required placeholder="Charaktername"></label>
     <div class="item-transfer-results" id="itemTransferResults" role="listbox"></div>

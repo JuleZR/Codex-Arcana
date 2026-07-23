@@ -1,13 +1,17 @@
-import { loadJsonStorage, saveJsonStorage } from "./utils.js";
-
-const STORAGE_KEY = "charsheet.carryLoadEnabled";
+import { getCsrfToken } from "./utils.js";
 
 function isCarryLoadEnabled() {
-  return Boolean(loadJsonStorage(STORAGE_KEY, false));
+  const button = document.querySelector("[data-carry-load-toggle]");
+  if (button instanceof HTMLElement && button.dataset.carryEnabled !== undefined) {
+    return button.dataset.carryEnabled === "1";
+  }
+  return false;
 }
 
 function setCarryLoadEnabled(enabled) {
-  saveJsonStorage(STORAGE_KEY, Boolean(enabled));
+  document.querySelectorAll("[data-carry-load-toggle]").forEach((button) => {
+    button.dataset.carryEnabled = enabled ? "1" : "0";
+  });
 }
 
 function readDecimal(value, fallback = 0) {
@@ -170,7 +174,7 @@ function applyCarryLoadState(enabled) {
 export function initCarryLoadToggle() {
   if (document.body.dataset.carryLoadToggleBound !== "1") {
     document.body.dataset.carryLoadToggleBound = "1";
-    document.addEventListener("click", (event) => {
+    document.addEventListener("click", async (event) => {
       const target = event.target;
       if (!(target instanceof Element)) {
         return;
@@ -183,6 +187,25 @@ export function initCarryLoadToggle() {
       const nextEnabled = !isCarryLoadEnabled();
       setCarryLoadEnabled(nextEnabled);
       applyCarryLoadState(nextEnabled);
+      const updateUrl = button.dataset.carryUpdateUrl;
+      if (updateUrl) {
+        try {
+          const response = await fetch(updateUrl, {
+            method: "POST",
+            credentials: "same-origin",
+            headers: {
+              Accept: "application/json",
+              "Content-Type": "application/json",
+              "X-CSRFToken": getCsrfToken(),
+            },
+            body: JSON.stringify({ enabled: nextEnabled }),
+          });
+          if (!response.ok) throw new Error("carry load update failed");
+        } catch (_error) {
+          setCarryLoadEnabled(!nextEnabled);
+          applyCarryLoadState(!nextEnabled);
+        }
+      }
     });
   }
 

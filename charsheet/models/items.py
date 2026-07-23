@@ -107,7 +107,7 @@ class Item(models.Model):
         CREATURE = "creature", "Tiere & Kreaturen"
         MISC = "misc", "Sonstiges"
 
-    name = models.CharField(max_length=200, unique=True)
+    name = models.CharField(max_length=200)
     price = models.IntegerField(default=1)
     item_type = models.CharField(max_length=20, choices=ItemType.choices)
     description = models.TextField(null=True, blank=True)
@@ -130,6 +130,27 @@ class Item(models.Model):
     size_class = models.CharField(max_length=5, choices=GK_CHOICES, default=GK_AVERAGE)
 
     runes = models.ManyToManyField("Rune", blank=True, related_name="items")
+    catalog_group = models.ForeignKey(
+        "charsheet.GameGroup",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="catalog_items",
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["name"],
+                condition=models.Q(catalog_group__isnull=True),
+                name="uniq_global_item_name",
+            ),
+            models.UniqueConstraint(
+                fields=["catalog_group", "name"],
+                condition=models.Q(catalog_group__isnull=False),
+                name="uniq_group_item_name",
+            ),
+        ]
 
     def clean(self):
         """Prevent invalid stackable armor definitions."""

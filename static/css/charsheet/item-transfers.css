@@ -19,6 +19,9 @@
 .inv_row--foreign-held:focus-within > :not(.inv_actions) {
   opacity: .68;
 }
+.inv_row--gm-edit .inv_actions {
+  display: none;
+}
 .inv_transfer_state { display: block; font-size: .72em; font-style: italic; }
 #itemTransferDialog { width:min(460px,calc(100vw - 28px)); color:#29180d; }
 #itemTransferDialog .sheet-window__body { padding:12px; }

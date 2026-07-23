@@ -87,6 +87,7 @@ from charsheet.models import (
     CreatureTraitDefinition,
     DamageSource,
     Item,
+    ItemTransfer,
     Language,
     Modifier,
     Quality,
@@ -2155,7 +2156,13 @@ def _sync_modifier_granted_skill_specifications(character: Character, engine) ->
         engine.__dict__.pop("_skill_levels_by_id", None)
 
 
-def _build_skill_rows(character: Character, engine, *, load_penalty: int) -> tuple[list[dict], list[object], list[dict]]:
+def _build_skill_rows(
+    character: Character,
+    engine,
+    *,
+    load_penalty: int,
+    synchronize: bool = True,
+) -> tuple[list[dict], list[object], list[dict]]:
     """Build visible skill rows plus skill-manager state for the sheet."""
 
     def _build_display_name(skill: Skill, specification: str) -> str:
@@ -2306,7 +2313,8 @@ def _build_skill_rows(character: Character, engine, *, load_penalty: int) -> tup
         return rows
 
     skill_rows: list[dict] = []
-    _sync_modifier_granted_skill_specifications(character, engine)
+    if synchronize:
+        _sync_modifier_granted_skill_specifications(character, engine)
     character_skills = list(
         character.characterskill_set
         .select_related("skill", "skill__attribute", "skill__category")
@@ -2484,6 +2492,10 @@ def _build_inventory_rows(character: Character) -> list[dict]:
     for character_item in inventory_items:
         item = character_item.item
         pending_transfer = pending_transfer_for_item(character_item)
+        is_gm_edit_pending = bool(
+            pending_transfer
+            and pending_transfer.transfer_kind == ItemTransfer.TransferKind.GM_EDIT
+        )
         is_current_holder = character_item.owner_id == character.id
         is_original_owner = character_item.original_owner_character_id == character.id
         is_foreign_held = is_original_owner and not is_current_holder
@@ -2568,17 +2580,19 @@ def _build_inventory_rows(character: Character) -> list[dict]:
                     part for part in [item.get_item_type_display(), "" if is_race_item else quality["label"]] if part
                 ),
                 "item_image_url": item_image_url,
-                "tooltip_text": tooltip_text,
+                "tooltip_text": "" if is_gm_edit_pending else tooltip_text,
                 "is_stored": bool(character_item.stored) if is_current_holder else False,
                 "is_foreign_held": is_foreign_held,
                 "is_borrowed": is_borrowed,
                 "foreign_holder_name": character_item.owner.name if is_foreign_held else "",
                 "pending_transfer": pending_transfer,
                 "is_transfer_pending": pending_transfer is not None,
+                "is_gm_edit_pending": is_gm_edit_pending,
                 "can_recall_transfer": (
                     is_current_holder
                     and pending_transfer is not None
                     and pending_transfer.sender_id == character.id
+                    and not is_gm_edit_pending
                 ),
                 "can_manage_storage": can_use_item,
                 "can_transfer": can_use_item and not character_item.equip_locked,
@@ -3336,6 +3350,7 @@ def _build_shop_item_groups() -> list[dict]:
     race_item_ids = _race_item_ids()
     buyable_items = (
         Item.objects
+        .filter(catalog_group__isnull=True)
         .select_related("weaponstats", "armorstats", "shieldstats", "magicitemstats")
         .prefetch_related("runes")
         .order_by("item_type", "name")
@@ -3473,7 +3488,9 @@ def _build_learning_rows(
     character_skills,
     language_entries,
     school_levels: dict[int, int],
-        ) -> dict[str, object]:
+    *,
+    synchronize: bool = True,
+) -> dict[str, object]:
     """Build prepared learning rows grouped for the learning window."""
     attribute_limits = {
         limit.attribute.short_name: {
@@ -3678,7 +3695,11 @@ def _build_learning_rows(
         aspect.id: aspect
         for aspect in Aspect.objects.all()
     }
-    for group in build_learning_magic_groups(character, magic_engine=magic_engine):
+    for group in build_learning_magic_groups(
+        character,
+        magic_engine=magic_engine,
+        synchronize=synchronize,
+    ):
         rows = []
         for row in group["rows"]:
             if row.get("kind") == "magic_aspect":
@@ -3841,7 +3862,12 @@ def _build_learning_rows(
     }
 
 
-def build_character_sheet_context(character: Character, *, close_learn_window_once: bool = False) -> dict[str, object]:
+def build_character_sheet_context(
+    character: Character,
+    *,
+    close_learn_window_once: bool = False,
+    read_only: bool = False,
+) -> dict[str, object]:
     """Build the full character-sheet context without direct template calculations."""
     engine = character.engine
     attributes = engine.attributes()
@@ -3861,7 +3887,12 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
     load_penalty = engine.load_penalty()
     carry_state = ItemEngine.carry_state_for_character(character)
     carry_penalty = int(carry_state["penalty"])
-    skill_rows, character_skills, skill_manager_rows = _build_skill_rows(character, engine, load_penalty=load_penalty)
+    skill_rows, character_skills, skill_manager_rows = _build_skill_rows(
+        character,
+        engine,
+        load_penalty=load_penalty,
+        synchronize=not read_only,
+    )
     for row in skill_rows:
         if "with_load_total_value" not in row:
             continue
@@ -4001,8 +4032,13 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
         character_skills,
         language_entries,
         school_levels,
+        synchronize=not read_only,
     )
-    learning_progression_context = build_learning_progression_context(character, engine=engine)
+    learning_progression_context = build_learning_progression_context(
+        character,
+        engine=engine,
+        synchronize=not read_only,
+    )
     spell_panel_data = magic_engine.get_spell_panel_data()
     visible_school_group_ids = {
         int(group["school_id"])
@@ -4252,13 +4288,29 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
     effective_personal_fame_rank = base_personal_fame_rank + (total_personal_fame_point // 10)
     fame_total_rank = effective_personal_fame_rank + int(character.sacrifice_rank) + effective_artefact_rank
 
-    active_creature_cards = sync_character_creatures(character)
+    active_creature_cards = (
+        sync_character_creatures(character)
+        if not read_only
+        else list(
+            CharacterCreature.objects.filter(owner=character, active=True)
+            .select_related("creature", "source_binding", "quality")
+            .prefetch_related(
+                "trait_overrides__trait",
+                "commands__command",
+                "skill_overrides__skill",
+                "special_skill_overrides__skill",
+            )
+        )
+    )
     creature_card_contexts = []
     character_creature_card_rows = []
     for card in active_creature_cards:
         card_context = CreatureEngine(card).card_context()
         card_context["adjust_damage_url"] = reverse("adjust_creature_damage", kwargs={"pk": card.pk})
         card_context["training_update_url"] = reverse("update_character_creature_training", kwargs={"pk": card.pk})
+        if read_only:
+            card_context["adjust_damage_url"] = ""
+            card_context.pop("training_update_url", None)
         if (
             card.source_binding_id
             and card.source_binding.selection_mode == CreatureSourceBinding.SelectionMode.CHARACTER_CHOICE
@@ -4304,8 +4356,17 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
             learning_progression_context["learn_pending_decisions"]
         )
 
+    if read_only:
+        divine_card_editable = False
+        divine_card_update_url = ""
+        druid_card_editable = False
+        druid_card_update_url = ""
+        shaman_card_editable = False
+        shaman_card_update_url = ""
+
     return {
         "character": character,
+        "read_only": read_only,
         "effective_personal_fame_point": effective_personal_fame_point,
         "effective_personal_fame_rank": effective_personal_fame_rank,
         "effective_artefact_rank": effective_artefact_rank,
@@ -4378,6 +4439,7 @@ def build_character_sheet_context(character: Character, *, close_learn_window_on
         "stored_inventory_rows": stored_inventory_rows,
         "inventory_total_weight_display": inventory_total_weight_display,
         "carry_load": {
+            "enabled": bool(character.carry_load_enabled),
             "weight": str(carry_state["weight"]),
             "weight_display": inventory_total_weight_display,
             "penalty": carry_penalty,

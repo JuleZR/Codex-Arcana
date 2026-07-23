@@ -1,0 +1,493 @@
+.game-group-body {
+  min-height: 100vh;
+  margin: 0;
+  padding: clamp(16px, 2.2vw, 30px);
+  box-sizing: border-box;
+  overflow: auto;
+  color: #342417;
+  background: url("/static/img/pergamentbg.jpg") center / cover no-repeat fixed;
+  font-family: "Cormorant Garamond", Georgia, serif;
+}
+
+.game-group-page {
+  width: min(1180px, 100%);
+  margin: 0 auto;
+}
+
+.game-group-hero {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 15px 16px;
+  border: 1px solid rgba(76, 51, 29, 0.3);
+  border-radius: 9px;
+  background: rgba(255, 249, 231, 0.54);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 253, 241, 0.36),
+    0 6px 18px rgba(67, 42, 22, 0.07);
+}
+
+.game-group-eyebrow,
+.game-group-card__kicker {
+  display: block;
+  margin-bottom: 3px;
+  color: rgba(74, 49, 28, 0.68);
+  font: 700 0.72rem/1.2 Georgia, serif;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.game-group-hero h1 {
+  margin: 0;
+  color: var(--line);
+  font-size: clamp(2rem, 4vw, 3.2rem);
+  line-height: 0.95;
+}
+
+.game-group-title-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.game-group-edit-name {
+  display: inline-grid;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  place-items: center;
+  border: 1px solid rgba(80, 53, 30, 0.22);
+  border-radius: 50%;
+  background: rgba(255, 247, 221, 0.54);
+  color: #654627;
+  font: 1.15rem/1 Georgia, serif;
+  cursor: pointer;
+  transition: background 140ms ease, transform 140ms ease;
+}
+
+.game-group-edit-name:hover,
+.game-group-edit-name:focus-visible {
+  background: rgba(255, 250, 235, 0.9);
+  transform: translateY(-1px);
+}
+
+.game-group-name-form {
+  grid-template-columns: minmax(220px, 380px) auto auto;
+  align-items: center;
+  gap: 7px;
+  margin-top: 10px;
+}
+
+.game-group-name-form:not([hidden]) {
+  display: grid;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.game-group-hero p {
+  margin: 10px 0 0;
+}
+
+.game-group-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #365b35;
+  font: 700 0.84rem/1 Georgia, serif;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.game-group-status::before {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #55794e;
+  content: "";
+  box-shadow: 0 0 0 3px rgba(85, 121, 78, 0.14);
+}
+
+.game-group-status--archived {
+  color: #7a4c35;
+}
+
+.game-group-status--archived::before {
+  background: #9a6547;
+}
+
+.game-group-hero__metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(80px, 1fr));
+  overflow: hidden;
+  border: 1px solid rgba(84, 57, 32, 0.24);
+  border-radius: 9px;
+  background: rgba(255, 249, 230, 0.48);
+  box-shadow: inset 0 0 0 1px rgba(255, 252, 239, 0.38);
+}
+
+.game-group-hero__metrics div {
+  display: grid;
+  justify-items: center;
+  padding: 9px 14px;
+  border-left: 1px solid rgba(84, 57, 32, 0.16);
+}
+
+.game-group-hero__metrics div:first-child {
+  border-left: 0;
+}
+
+.game-group-hero__metrics strong {
+  color: var(--line);
+  font-size: 1.2rem;
+}
+
+.game-group-hero__metrics span {
+  color: rgba(65, 43, 25, 0.68);
+  font: 0.72rem/1.1 Georgia, serif;
+  text-transform: uppercase;
+}
+
+.game-group-messages {
+  position: fixed;
+  z-index: 20;
+  top: 14px;
+  left: 50%;
+  width: min(720px, calc(100vw - 32px));
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.game-group-messages p {
+  margin: 0 0 6px;
+  padding: 9px 12px;
+  border: 1px solid rgba(78, 112, 72, 0.35);
+  border-radius: 7px;
+  background: rgba(231, 241, 211, 0.68);
+  box-shadow: 0 8px 24px rgba(48, 29, 15, 0.2);
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 340ms ease, transform 340ms ease;
+  pointer-events: auto;
+}
+
+.game-group-messages p.is-hiding {
+  opacity: 0;
+  transform: translateY(-8px);
+}
+
+.game-group-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(310px, 0.9fr);
+  gap: 16px;
+  padding-top: 16px;
+}
+
+.game-group-column {
+  display: grid;
+  align-content: start;
+  gap: 16px;
+}
+
+.game-group-card {
+  overflow: visible;
+  padding: 15px;
+  border: 1px solid rgba(76, 51, 29, 0.3);
+  border-radius: 9px;
+  background: linear-gradient(150deg, rgba(255, 251, 236, 0.78), rgba(242, 224, 188, 0.62));
+  box-shadow: inset 0 0 0 1px rgba(255, 253, 241, 0.42), 0 7px 20px rgba(67, 42, 22, 0.08);
+}
+
+.game-group-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: -2px 0 12px;
+  padding-bottom: 9px;
+  border-bottom: 1px solid rgba(80, 53, 30, 0.18);
+}
+
+.game-group-card__header h2 {
+  margin: 0;
+  color: var(--line);
+  font-size: 1.45rem;
+  line-height: 1;
+}
+
+.game-group-card__tools {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.game-group-add-member {
+  display: inline-grid;
+  width: 30px;
+  height: 30px;
+  padding: 0 0 2px;
+  place-items: center;
+  border: 1px solid rgba(82, 55, 31, 0.3);
+  border-radius: 50%;
+  background: rgba(255, 249, 229, 0.62);
+  color: #5a3c20;
+  font: 700 1.3rem/1 Georgia, serif;
+  cursor: pointer;
+  transition: transform 160ms ease, background 160ms ease;
+}
+
+.game-group-add-member:hover,
+.game-group-add-member:focus-visible {
+  background: rgba(255, 250, 232, 0.94);
+  transform: translateY(-1px);
+}
+
+.game-group-add-member.is-open {
+  transform: rotate(45deg);
+}
+
+.game-group-invite-panel {
+  margin-top: 12px;
+  padding-top: 13px;
+  border-top: 1px solid rgba(75, 50, 29, 0.16);
+}
+
+.game-group-count {
+  display: inline-grid;
+  min-width: 30px;
+  height: 30px;
+  place-items: center;
+  border: 1px solid rgba(82, 55, 31, 0.25);
+  border-radius: 50%;
+  background: rgba(245, 226, 187, 0.8);
+  color: #5e4126;
+  font-weight: 700;
+}
+
+.game-group-member-list,
+.game-group-invitation-list,
+.game-group-role-list {
+  display: grid;
+}
+
+.game-group-member,
+.game-group-invitation,
+.game-group-role {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  padding: 10px 2px;
+  border-bottom: 1px solid rgba(75, 50, 29, 0.13);
+}
+
+.game-group-member:last-child,
+.game-group-invitation:last-child,
+.game-group-role:last-child {
+  border-bottom: 0;
+}
+
+.game-group-member__identity {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.game-group-member__identity img,
+.game-group-member__avatar {
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  border: 1px solid rgba(75, 50, 29, 0.3);
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.game-group-member__avatar {
+  display: grid;
+  place-items: center;
+  background: linear-gradient(145deg, #ecd5a8, #c99e68);
+  color: #4a301b;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.game-group-member strong,
+.game-group-invitation strong,
+.game-group-role strong {
+  display: block;
+  color: #392515;
+  font-size: 1.05rem;
+}
+
+.game-group-member span,
+.game-group-invitation span,
+.game-group-role span {
+  display: block;
+  color: rgba(58, 39, 23, 0.67);
+  font: 0.82rem/1.25 Georgia, serif;
+}
+
+.game-group-member .game-group-member__avatar {
+  display: grid;
+  place-items: center;
+  color: #4a301b;
+  font: 700 1.45rem/1 "Cormorant Garamond", Georgia, serif;
+  text-transform: uppercase;
+}
+
+.game-group-actions,
+.game-group-danger-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.game-group-actions form,
+.game-group-danger-actions form {
+  margin: 0;
+}
+
+.game-group-form {
+  display: grid;
+  gap: 10px;
+}
+
+.game-group-form label,
+.game-group-character-picker {
+  display: grid;
+  gap: 4px;
+  color: rgba(60, 40, 23, 0.8);
+  font: 0.84rem/1.2 Georgia, serif;
+}
+
+.game-group-form small {
+  opacity: 0.65;
+}
+
+.game-group-invite-form {
+  grid-template-columns: minmax(180px, 1.1fr) minmax(180px, 1fr) auto;
+  align-items: end;
+}
+
+.game-group-invite-form .dashboard_input,
+.game-group-invite-form > .dashboard_button {
+  height: 40px;
+  min-height: 40px;
+}
+
+.game-group-inline-form {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(75, 50, 29, 0.14);
+}
+
+.game-group-search-results {
+  position: relative;
+  z-index: 3;
+  display: grid;
+  gap: 4px;
+}
+
+.game-group-search-results:not(:empty) {
+  position: absolute;
+  width: min(360px, calc(100vw - 80px));
+  margin-top: 62px;
+  padding: 5px;
+  border: 1px solid rgba(75, 50, 29, 0.32);
+  border-radius: 7px;
+  background: #f8edcf;
+  box-shadow: 0 10px 24px rgba(48, 29, 15, 0.22);
+}
+
+.game-group-search-results button {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.game-group-search-results button:hover {
+  border-color: rgba(75, 50, 29, 0.22);
+  background: rgba(255, 250, 234, 0.9);
+}
+
+.game-group-card--danger {
+  border-color: rgba(128, 49, 35, 0.28);
+  background: linear-gradient(150deg, rgba(255, 245, 226, 0.72), rgba(233, 204, 174, 0.62));
+}
+
+.game-group-card--danger p {
+  margin: 0 0 12px;
+  color: rgba(77, 45, 29, 0.76);
+  font: 0.86rem/1.4 Georgia, serif;
+}
+
+.game-group-empty {
+  margin: 4px 0;
+  color: rgba(58, 39, 23, 0.62);
+  font-style: italic;
+}
+
+@media (max-width: 860px) {
+  .game-group-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .game-group-hero {
+    align-items: start;
+    flex-direction: column;
+  }
+
+  .game-group-invite-form {
+    grid-template-columns: 1fr;
+  }
+
+  .game-group-name-form {
+    grid-template-columns: 1fr auto;
+  }
+
+  .game-group-name-form input {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 560px) {
+  .game-group-body {
+    padding: 10px;
+  }
+
+  .game-group-hero__metrics {
+    width: 100%;
+  }
+
+  .game-group-member,
+  .game-group-invitation,
+  .game-group-role {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .game-group-actions {
+    justify-content: flex-start;
+  }
+}

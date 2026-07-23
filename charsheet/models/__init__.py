@@ -65,6 +65,7 @@ from .items import (
     WeaponType,
     WeaponStats,
 )
+from .groups import GameGroup, GameGroupInvitation, GameGroupMembership, GameGroupRole
 from .modifier import Modifier
 from .transfers import ItemOwnershipEvent, ItemPermissionGrant, ItemTransfer, ItemTransferNotification
 from .progression import (
@@ -167,6 +168,10 @@ __all__ = [
     "CreatureTraitDefinition",
     "CreatureTraitSemanticEffect",
     "Item",
+    "GameGroup",
+    "GameGroupInvitation",
+    "GameGroupMembership",
+    "GameGroupRole",
     "ItemOwnershipEvent",
     "ItemPermissionGrant",
     "ItemTransfer",

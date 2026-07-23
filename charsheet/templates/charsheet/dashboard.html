@@ -8,6 +8,7 @@
     <title>Dashboard | {{ request.user.get_username }}</title>
     <link rel="stylesheet" href="{% static 'css/charsheet.css' %}">
     <link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
+    <script defer src="{% static 'js/game_groups.js' %}"></script>
     {% if request.user.settings.dddice_enabled %}
     <script type="module" src="{% static 'js/dddice.js' %}?v=1"></script>
     {% endif %}
@@ -109,6 +110,10 @@
                   <h2>Charakterverwaltung</h2>
                   <div class="dashboard_header_actions">
                     <span>{{ character_count }} aktiv</span>
+                    <form method="post" action="{% url 'create_game_group' %}">
+                      {% csrf_token %}
+                      <button class="dashboard_button dashboard_button--small">Neue Spielgruppe</button>
+                    </form>
                     <button type="button" id="openCreationWindow" data-open-creation-window data-create-url="{% url 'create_character' %}" class="dashboard_button dashboard_button--small dashboard_button--primary">Neuer Charakter</button>
                     <noscript>
                       <a href="{% url 'create_character' %}" class="dashboard_button dashboard_button--small dashboard_button--primary">Neuer Charakter</a>
@@ -131,7 +136,8 @@
                   </div>
                 </dl>
 
-                {% if character_rows %}
+                <div id="dashboardCharacterTableRegion">
+                {% if character_rows or dashboard_group_sections or pending_group_invitations %}
                   <div class="dashboard_table_wrap dashboard_table_wrap--active">
                     <table class="dashboard_table">
                       <thead>
@@ -144,28 +150,77 @@
                         </tr>
                       </thead>
                       <tbody>
-                        {% for row in character_rows %}
-                          <tr>
-                            <td>{{ row.character.name }}</td>
-                            <td>{{ row.character.race.name }}</td>
-                            <td>{{ row.status.experience }}</td>
-                            <td>{{ row.status.condition }}</td>
-                            <td class="dashboard_action_cell">
-                              <div class="dashboard_actions_inline">
-                                <a class="dashboard_button dashboard_button--small" href="{% url 'character_sheet' row.character.id %}">Öffnen</a>
-                                <button type="button" class="dashboard_button dashboard_button--small" data-print-url="{% url 'character_sheet' row.character.id %}">Drucken</button>
-                                <form method="post" action="{% url 'archive_character' row.character.id %}">
-                                  {% csrf_token %}
-                                  <button type="submit" class="dashboard_button dashboard_button--small">Archivieren</button>
-                                </form>
-                                <form method="post" action="{% url 'delete_character' row.character.id %}" onsubmit="return confirm('Charakter wirklich löschen?');">
-                                  {% csrf_token %}
-                                  <button type="submit" class="dashboard_button dashboard_button--small dashboard_button--danger">Loeschen</button>
-                                </form>
-                              </div>
-                            </td>
+                        {% for section in dashboard_group_sections %}
+                          <tr class="dashboard_table_group_heading">
+                            <th colspan="5">
+                              <span>{{ section.group.name }}{% if section.group.is_archived %} · archiviert{% endif %}</span>
+                              <span class="dashboard_actions_inline">
+                                <button type="button" class="dashboard_button dashboard_button--small" data-open-group-window data-group-url="{% url 'game_group_detail' section.group.id %}" data-group-name="{{ section.group.name }}">Gruppe öffnen</button>
+                                {% if section.is_gm %}<a class="dashboard_button dashboard_button--small" href="{% url 'game_master_screen' section.group.id %}">SL-Screen</a>{% endif %}
+                              </span>
+                            </th>
                           </tr>
+                          {% for row in section.members %}
+                            <tr>
+                              <td>{{ row.character.name }}{% if row.is_foreign %}<span class="dashboard_foreign_badge">Fremdcharakter</span>{% endif %}</td>
+                              <td>{% if row.is_own %}{{ row.character.race.name }}{% else %}–{% endif %}</td>
+                              <td>{% if row.is_own %}{{ row.status.experience }}{% else %}–{% endif %}</td>
+                              <td>{% if row.is_own %}{{ row.status.condition }}{% else %}–{% endif %}</td>
+                              <td class="dashboard_action_cell">
+                                {% if row.is_own %}
+                                  <div class="dashboard_actions_inline">
+                                    <a class="dashboard_button dashboard_button--small" href="{% url 'character_sheet' row.character.id %}">Öffnen</a>
+                                    <button type="button" class="dashboard_button dashboard_button--small" data-print-url="{% url 'character_sheet' row.character.id %}">Drucken</button>
+                                    <form method="post" action="{% url 'archive_character' row.character.id %}">{% csrf_token %}<button type="submit" class="dashboard_button dashboard_button--small">Archivieren</button></form>
+                                    <form method="post" action="{% url 'delete_character' row.character.id %}" onsubmit="return confirm('Charakter wirklich löschen?');">{% csrf_token %}<button type="submit" class="dashboard_button dashboard_button--small dashboard_button--danger">Löschen</button></form>
+                                  </div>
+                                {% elif section.is_gm %}
+                                  <a class="dashboard_button dashboard_button--small" target="_blank" rel="noopener" href="{% url 'game_master_character_sheet' section.group.id row.character.id %}">Bogen lesen</a>
+                                {% endif %}
+                              </td>
+                            </tr>
+                          {% empty %}
+                            <tr><td colspan="5">Keine aktiven Mitglieder.</td></tr>
+                          {% endfor %}
                         {% endfor %}
+                        {% if ungrouped_character_rows %}
+                          <tr class="dashboard_table_group_heading"><th colspan="5">Ohne aktive Gruppe</th></tr>
+                          {% for row in ungrouped_character_rows %}
+                            <tr>
+                              <td>{{ row.character.name }}</td>
+                              <td>{{ row.character.race.name }}</td>
+                              <td>{{ row.status.experience }}</td>
+                              <td>{{ row.status.condition }}</td>
+                              <td class="dashboard_action_cell">
+                                <div class="dashboard_actions_inline">
+                                  <a class="dashboard_button dashboard_button--small" href="{% url 'character_sheet' row.character.id %}">Öffnen</a>
+                                  <button type="button" class="dashboard_button dashboard_button--small" data-print-url="{% url 'character_sheet' row.character.id %}">Drucken</button>
+                                  <form method="post" action="{% url 'archive_character' row.character.id %}">{% csrf_token %}<button type="submit" class="dashboard_button dashboard_button--small">Archivieren</button></form>
+                                  <form method="post" action="{% url 'delete_character' row.character.id %}" onsubmit="return confirm('Charakter wirklich löschen?');">{% csrf_token %}<button type="submit" class="dashboard_button dashboard_button--small dashboard_button--danger">Löschen</button></form>
+                                </div>
+                              </td>
+                            </tr>
+                          {% endfor %}
+                        {% endif %}
+                        {% if pending_group_invitations %}
+                          <tr class="dashboard_table_group_heading">
+                            <th colspan="5">Offene Gruppeneinladungen</th>
+                          </tr>
+                          {% for invitation in pending_group_invitations %}
+                            <tr>
+                              <td>{{ invitation.character.name }}</td>
+                              <td>{{ invitation.character.race.name }}</td>
+                              <td>Einladung</td>
+                              <td>{{ invitation.group.name }}</td>
+                              <td class="dashboard_action_cell">
+                                <div class="dashboard_actions_inline">
+                                  <form method="post" action="{% url 'accept_group_invitation' invitation.id %}">{% csrf_token %}<button class="dashboard_button dashboard_button--small">Annehmen</button></form>
+                                  <form method="post" action="{% url 'decline_group_invitation' invitation.id %}">{% csrf_token %}<button class="dashboard_button dashboard_button--small">Ablehnen</button></form>
+                                </div>
+                              </td>
+                            </tr>
+                          {% endfor %}
+                        {% endif %}
                       </tbody>
                     </table>
                   </div>
@@ -174,6 +229,7 @@
                     <p>Du hast aktuell noch keine aktiven Charaktere.</p>
                   </div>
                 {% endif %}
+                </div>
               </section>
 
               <section class="dashboard_subpanel dashboard_subpanel--archive" aria-label="Archiv">
@@ -309,6 +365,17 @@
             <button type="submit" class="dashboard_button dashboard_button--small dashboard_button--primary">Speichern</button>
           </div>
         </form>
+      </div>
+    </section>
+
+    <div id="dashboardGroupBackdrop" class="dashboard_creation_backdrop dashboard_group_backdrop" aria-hidden="true"></div>
+    <section class="payday-window payday-window--large dashboard_group_window" id="dashboardGroupWindow" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="dashboardGroupWindowTitle">
+      <div class="payday-window__titlebar" id="dashboardGroupHandle">
+        <h3 class="payday-window__title" id="dashboardGroupWindowTitle">Spielgruppe</h3>
+        <button type="button" id="dashboardGroupClose" class="payday-window__close" aria-label="Fenster schließen">x</button>
+      </div>
+      <div class="payday-window__body dashboard_group_window_body">
+        <iframe id="dashboardGroupFrame" class="dashboard_group_iframe" title="Gruppenverwaltung"></iframe>
       </div>
     </section>
 
@@ -451,10 +518,9 @@ if (dddiceCheckbox) {
           printViaIframe(url);
         };
 
-        printButtons.forEach(function (button) {
-          button.addEventListener("click", function () {
-            startCharacterPrint(button.getAttribute("data-print-url"));
-          });
+        document.addEventListener("click", function (event) {
+          const button = event.target.closest("[data-print-url]");
+          if (button) startCharacterPrint(button.getAttribute("data-print-url"));
         });
 
         const openButtons = Array.from(document.querySelectorAll("[data-open-creation-window]"));
@@ -692,6 +758,143 @@ if (dddiceCheckbox) {
               closeAccountWindow();
             }
           });
+        }
+
+        const groupButtons = Array.from(document.querySelectorAll("[data-open-group-window]"));
+        const groupWin = document.getElementById("dashboardGroupWindow");
+        const groupHandle = document.getElementById("dashboardGroupHandle");
+        const groupClose = document.getElementById("dashboardGroupClose");
+        const groupBackdrop = document.getElementById("dashboardGroupBackdrop");
+        const groupFrame = document.getElementById("dashboardGroupFrame");
+        const groupTitle = document.getElementById("dashboardGroupWindowTitle");
+        let groupDashboardRefreshPending = false;
+
+        if (groupButtons.length && groupWin && groupHandle && groupClose && groupBackdrop && groupFrame) {
+          const placeGroupWindow = function () {
+            const rect = groupWin.getBoundingClientRect();
+            groupWin.style.left = Math.max(12, (window.innerWidth - rect.width) / 2) + "px";
+            groupWin.style.top = Math.max(12, Math.min(64, window.innerHeight - rect.height - 12)) + "px";
+          };
+          const openGroupWindow = function (url, name) {
+            groupFrame.src = url;
+            if (groupTitle) groupTitle.textContent = name || "Spielgruppe";
+            groupBackdrop.classList.add("is-open");
+            groupWin.classList.add("is-open");
+            groupWin.setAttribute("aria-hidden", "false");
+            placeGroupWindow();
+          };
+          const closeGroupWindow = function () {
+            groupWin.classList.remove("is-open");
+            groupWin.setAttribute("aria-hidden", "true");
+            groupBackdrop.classList.remove("is-open");
+            groupFrame.removeAttribute("src");
+          };
+          let groupPointer = null;
+          let groupOffsetX = 0;
+          let groupOffsetY = 0;
+          groupHandle.addEventListener("pointerdown", function (event) {
+            if ((event.pointerType === "mouse" && event.button !== 0) || event.target.closest("button, a, input")) return;
+            const rect = groupWin.getBoundingClientRect();
+            groupPointer = event.pointerId;
+            groupOffsetX = event.clientX - rect.left;
+            groupOffsetY = event.clientY - rect.top;
+            groupHandle.setPointerCapture(event.pointerId);
+            groupWin.classList.add("is-dragging");
+          });
+          groupHandle.addEventListener("pointermove", function (event) {
+            if (event.pointerId !== groupPointer) return;
+            const rect = groupWin.getBoundingClientRect();
+            const left = Math.min(window.innerWidth - rect.width - 12, Math.max(12, event.clientX - groupOffsetX));
+            const top = Math.min(window.innerHeight - rect.height - 12, Math.max(12, event.clientY - groupOffsetY));
+            groupWin.style.left = left + "px";
+            groupWin.style.top = top + "px";
+          });
+          const stopGroupDrag = function (event) {
+            if (event.pointerId !== groupPointer) return;
+            groupWin.classList.remove("is-dragging");
+            try { groupHandle.releasePointerCapture(event.pointerId); } catch (_error) {}
+            groupPointer = null;
+          };
+          groupHandle.addEventListener("pointerup", stopGroupDrag);
+          groupHandle.addEventListener("pointercancel", stopGroupDrag);
+          const bindGroupButtons = function (root) {
+            root.querySelectorAll("[data-open-group-window]").forEach(function (button) {
+              if (button.dataset.groupWindowBound === "1") return;
+              button.dataset.groupWindowBound = "1";
+              button.addEventListener("click", function () {
+                openGroupWindow(button.dataset.groupUrl, button.dataset.groupName);
+              });
+            });
+          };
+          bindGroupButtons(document);
+          groupClose.addEventListener("click", closeGroupWindow);
+          groupBackdrop.addEventListener("click", closeGroupWindow);
+          groupFrame.addEventListener("load", function () {
+            try {
+              if (groupFrame.contentWindow.location.pathname === "{% url 'dashboard' %}") {
+                if (groupDashboardRefreshPending) return;
+                groupDashboardRefreshPending = true;
+                closeGroupWindow();
+                const cleanUrl = new URL(window.location.href);
+                cleanUrl.searchParams.delete("open_group");
+                window.location.replace(cleanUrl.href);
+              }
+            } catch (_error) {}
+          });
+          window.addEventListener("message", function (event) {
+            if (
+              event.origin !== window.location.origin ||
+              event.source !== groupFrame.contentWindow ||
+              event.data?.type !== "codex:group-dashboard-refresh" ||
+              groupDashboardRefreshPending
+            ) {
+              return;
+            }
+            groupDashboardRefreshPending = true;
+            closeGroupWindow();
+            const cleanUrl = new URL(window.location.href);
+            cleanUrl.searchParams.delete("open_group");
+            window.location.replace(cleanUrl.href);
+          });
+          window.addEventListener("message", async function (event) {
+            if (
+              event.origin !== window.location.origin ||
+              event.source !== groupFrame.contentWindow ||
+              event.data?.type !== "codex:group-dashboard-table-refresh"
+            ) {
+              return;
+            }
+            try {
+              const response = await fetch("{% url 'dashboard' %}", {
+                credentials: "same-origin",
+                headers: { Accept: "text/html" },
+                cache: "no-store",
+              });
+              if (!response.ok) return;
+              const parsed = new DOMParser().parseFromString(await response.text(), "text/html");
+              const currentRegion = document.getElementById("dashboardCharacterTableRegion");
+              const nextRegion = parsed.getElementById("dashboardCharacterTableRegion");
+              if (!currentRegion || !nextRegion) return;
+              currentRegion.replaceWith(nextRegion);
+              bindGroupButtons(nextRegion);
+            } catch (_error) {
+              // Das Gruppenfenster bleibt auch bei einem fehlgeschlagenen Hintergrundrefresh offen.
+            }
+          });
+          window.addEventListener("keydown", function (event) {
+            if (event.key === "Escape" && groupWin.classList.contains("is-open")) closeGroupWindow();
+          });
+
+          const initialGroupId = new URLSearchParams(window.location.search).get("open_group");
+          if (initialGroupId) {
+            const initialButton = groupButtons.find(function (button) {
+              return button.dataset.groupUrl.replace(/\/$/, "").endsWith("/" + initialGroupId);
+            });
+            if (initialButton) openGroupWindow(initialButton.dataset.groupUrl, initialButton.dataset.groupName);
+            const cleanUrl = new URL(window.location.href);
+            cleanUrl.searchParams.delete("open_group");
+            window.history.replaceState({}, "", cleanUrl);
+          }
         }
       });
     </script>

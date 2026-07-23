@@ -1,0 +1,108 @@
+{% load static %}
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SL-Screen | {{ group.name }}</title>
+  <link rel="stylesheet" href="{% static 'css/charsheet.css' %}">
+  <link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
+  <link rel="stylesheet" href="{% static 'css/game-master-screen.css' %}?v=20260723b">
+  <script defer src="{% static 'js/game_groups.js' %}"></script>
+  <script defer src="{% static 'js/sl_inventory.js' %}"></script>
+</head>
+<body class="gm-screen-body">
+  <main class="gm-screen">
+    <header class="gm-screen__header">
+      <div>
+        <span class="gm-screen__eyebrow">Spielleiterübersicht</span>
+        <h1>{{ group.name }}</h1>
+        <p>SL-Screen · {{ roster|length }} aktive Charaktere</p>
+      </div>
+      <div class="gm-screen__header-actions">
+        {% if group.is_archived %}<span class="gm-screen__archive-state">Archivierte Kampagne · Leseansicht</span>{% endif %}
+        <a class="dashboard_button" href="{% url 'dashboard' %}">Zurück zum Dashboard</a>
+      </div>
+    </header>
+
+    <div class="gm-workspace">
+      <section class="gm-roster-panel" aria-label="Aktive Gruppenmitglieder">
+        <header class="gm-panel-heading">
+          <div><span>Gruppe</span><h2>Charaktere</h2></div>
+        </header>
+        <div class="gm-roster">
+        {% for row in roster %}
+          <article class="gm-character-sheet{% if row.is_dead %} gm-character-sheet--dead{% elif row.is_incapacitated %} gm-character-sheet--incapacitated{% endif %}">
+          <div class="gm-character-sheet__inner">
+            <header class="gm-character-sheet__identity">
+              <div class="gm-character-sheet__portrait">
+                {% if row.character.char_picture %}
+                <img src="{{ row.character.char_picture.url }}" alt="Porträt von {{ row.character.name }}">
+                {% else %}
+                <span aria-hidden="true">{{ row.character.name|first }}</span>
+                {% endif %}
+              </div>
+              <div class="gm-character-sheet__name">
+                <span>Charakter</span>
+                <h2>{{ row.character.name }}</h2>
+                <p>{{ row.character.race.name }}{% if row.wound_stage != "-" %} · {{ row.wound_stage }}{% if row.wound_penalty_display != "0" %} ({{ row.wound_penalty_display }}){% endif %}{% endif %}</p>
+              </div>
+            </header>
+
+            <section class="gm-character-section" aria-label="Attribute">
+              <div class="gm-character-section__title"><span>Attribute</span></div>
+              <dl class="gm-attribute-grid">
+                {% for key,value in row.attributes.items %}
+                  <div><dt>{{ key }}</dt><dd>{{ value.value }} <small>({{ value.modifier }})</small></dd></div>
+                {% endfor %}
+              </dl>
+            </section>
+
+            <section class="gm-character-section" aria-label="Abgeleitete Werte">
+              <div class="gm-character-section__title"><span>Widerstände &amp; Potential</span></div>
+              <dl class="gm-defense-grid">
+                <div><dt>RS</dt><dd>{{ row.total_armor }}</dd></div>
+                <div><dt>VW</dt><dd>{{ row.vw }}</dd></div>
+                <div><dt>GW</dt><dd>{{ row.gw }}</dd></div>
+                <div><dt>SR</dt><dd>{{ row.sr }}</dd></div>
+                <div><dt>Pot</dt><dd>{{ row.potential }}</dd></div>
+                <div class="gm-defense-grid__initiative"><dt>Initiative</dt><dd>{{ row.initiative_display }} / {{ row.initiative_with_load_display }}</dd></div>
+              </dl>
+            </section>
+
+            <section class="gm-character-section gm-character-vitals" aria-label="Lebenspunkte und Kraftpunkte">
+              <div class="gm-character-section__title"><span>Zustand</span></div>
+              <div class="gm-vital gm-vital--life">
+                <div><strong>LP</strong><span>{{ row.current_lp }} / {{ row.max_lp }}</span></div>
+                <div class="gm-damage-track" role="img" aria-label="{{ row.stun_damage }} B-Schaden und {{ row.lethal_damage }} T-Schaden von {{ row.max_lp }}">
+                  <span class="gm-damage-track__stun" style="width: {{ row.stun_damage_percent }}%"></span>
+                  <span class="gm-damage-track__lethal" style="width: {{ row.lethal_damage_percent }}%"></span>
+                </div>
+              </div>
+              <div class="gm-vital gm-vital--arcane">
+                <div><strong>KP</strong><span>{{ row.current_kp }} / {{ row.max_kp }}</span></div>
+                <progress value="{{ row.current_kp }}" max="{% if row.max_kp > 0 %}{{ row.max_kp }}{% else %}1{% endif %}">{{ row.current_kp }} / {{ row.max_kp }}</progress>
+              </div>
+            </section>
+
+            <footer class="gm-character-sheet__footer">
+              <a target="_blank" rel="noopener" href="{% url 'game_master_character_sheet' group.id row.character.id %}">Vollständigen Bogen öffnen</a>
+            </footer>
+          </div>
+          </article>
+        {% empty %}
+          <p class="gm-roster__empty">Keine aktiven, nicht archivierten Mitglieder.</p>
+        {% endfor %}
+        </div>
+      </section>
+
+      <section class="gm-inventory-area" aria-label="SL-Inventar">
+        <header class="gm-panel-heading">
+          <div><span>Gruppe</span><h2>Inventar</h2></div>
+        </header>
+        {% include "charsheet/partials/_dashboard_group_inventory.html" %}
+      </section>
+    </div>
+  </main>
+</body>
+</html>

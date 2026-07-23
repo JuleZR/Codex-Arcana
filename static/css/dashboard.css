@@ -4,4 +4,100 @@
 @import url("./dashboard/forms.css");
 @import url("./dashboard/creation.css");
 @import url("./dashboard/responsive.css");
+@import url("./dashboard/game-groups.css");
 @import url("./item-transfer-window.css");
+.dashboard_group_inventory {
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 1px solid rgba(85, 57, 34, 0.45);
+}
+
+.dashboard_group_inventory__forms {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+.dashboard_group_inventory__forms form,
+.dashboard_group_inventory__editor {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.dashboard_group_character_results {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.dashboard_group_character_results button {
+  text-align: left;
+}
+
+.dashboard_table_group_heading th {
+  padding: 0.65rem;
+  background: rgba(105, 73, 42, 0.16);
+  border-top: 2px solid rgba(95, 65, 38, 0.45);
+  text-align: left;
+}
+
+.dashboard_table_group_heading th,
+.dashboard_table_group_heading th > span {
+  align-items: center;
+  justify-content: space-between;
+}
+
+.dashboard_table_group_heading th > span {
+  display: inline-flex;
+  gap: 0.5rem;
+}
+
+.dashboard_table_group_heading .dashboard_actions_inline {
+  float: right;
+}
+
+.dashboard_foreign_badge {
+  display: inline-block;
+  margin-left: 0.35rem;
+  padding: 0.1rem 0.35rem;
+  border: 1px solid rgba(95, 65, 38, 0.4);
+  border-radius: 999px;
+  font-size: 0.72rem;
+  opacity: 0.75;
+}
+
+.dashboard_group_window {
+  width: min(1240px, calc(100vw - 32px));
+  height: min(760px, calc(100vh - 32px));
+  z-index: 1201;
+}
+
+.dashboard_group_window_body {
+  height: calc(100% - 54px);
+  padding: 0;
+  overflow: hidden;
+  background: url("/static/img/pergamentbg.jpg") center / cover no-repeat;
+}
+
+.dashboard_group_iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: url("/static/img/pergamentbg.jpg") center / cover no-repeat;
+}
+
+.dashboard_group_backdrop {
+  z-index: 1200;
+}
+
+.sl_screen_inventory {
+  clear: both;
+  margin-top: 2rem;
+}
+
+@media (max-width: 760px) {
+  .dashboard_group_window {
+    width: calc(100vw - 16px);
+    height: calc(100vh - 16px);
+  }
+}

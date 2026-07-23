@@ -11,8 +11,9 @@
     class="payday-window__body sheet-window__body diary-window__body"
     data-character-id="{{ character.id }}"
     data-character-name="{{ character.name|escape }}"
-    data-diary-list-url="{% url 'character_diary_entries_api' character.id %}"
-    data-diary-import-url="{% url 'import_legacy_character_diary' character.id %}"
+    data-read-only="{% if read_only %}1{% else %}0{% endif %}"
+    data-diary-list-url="{% if read_only %}{{ read_only_diary_url }}{% else %}{% url 'character_diary_entries_api' character.id %}{% endif %}"
+    data-diary-import-url="{% if not read_only %}{% url 'import_legacy_character_diary' character.id %}{% endif %}"
   >
     <section class="sheet-window__section sheet-window__section--editor diary-roll" id="diaryRoll" aria-label="Pergamentrolle">
       <div class="sheet-window__surface sheet-window__surface--editor diary-roll__viewport" id="diaryRollViewport">

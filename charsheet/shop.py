@@ -405,7 +405,78 @@ def _save_magic_modifiers(*, source_model, source_id: int, magic_modifier_payloa
         modifier.save()
 
 
-def apply_character_item_modifications(character_item: CharacterItem, post_data, files_data=None) -> bool:
+def _normalize_redundant_character_item_overrides(character_item: CharacterItem) -> None:
+    """Keep concrete overrides sparse by clearing values equal to base data."""
+    item = character_item.item
+    comparisons = {
+        "name_override": item.name,
+        "price_override": item.price,
+        "weight_override": item.weight,
+        "size_class_override": item.size_class,
+        "description": item.description or "",
+    }
+    weapon = getattr(item, "weaponstats", None)
+    if weapon is not None:
+        comparisons.update(
+            {
+                "weapon_type_override": weapon.weapon_type,
+                "weapon_min_st_override": weapon.min_st,
+                "weapon_maneuver_attribute_override": weapon.maneuver_attribute_mode,
+                "weapon_damage_source_override": weapon.damage_source,
+                "weapon_damage_dice_amount_override": weapon.damage_dice_amount,
+                "weapon_damage_dice_faces_override": weapon.damage_dice_faces,
+                "weapon_damage_flat_bonus_override": weapon.damage_flat_bonus,
+                "weapon_damage_flat_operator_override": weapon.damage_flat_operator,
+                "weapon_damage_type_override": weapon.damage_type,
+                "weapon_wield_mode_override": weapon.wield_mode,
+                "weapon_h2_dice_amount_override": weapon.h2_dice_amount,
+                "weapon_h2_dice_faces_override": weapon.h2_dice_faces,
+                "weapon_h2_flat_bonus_override": weapon.h2_flat_bonus,
+                "weapon_h2_flat_operator_override": weapon.h2_flat_operator,
+                "weapon_h2_damage_type_override": weapon.h2_damage_type,
+            }
+        )
+    armor = getattr(item, "armorstats", None)
+    if armor is not None:
+        comparisons.update(
+            {
+                "armor_rs_head_override": armor.rs_head,
+                "armor_rs_torso_override": armor.rs_torso,
+                "armor_rs_arm_left_override": armor.rs_arm_left,
+                "armor_rs_arm_right_override": armor.rs_arm_right,
+                "armor_rs_leg_left_override": armor.rs_leg_left,
+                "armor_rs_leg_right_override": armor.rs_leg_right,
+                "armor_rs_total_override": armor.rs_total,
+                "armor_encumbrance_override": armor.encumbrance,
+                "armor_min_st_override": armor.min_st,
+            }
+        )
+    shield = getattr(item, "shieldstats", None)
+    if shield is not None:
+        comparisons.update(
+            {
+                "shield_rs_override": shield.rs,
+                "shield_encumbrance_override": shield.encumbrance,
+                "shield_min_st_override": shield.min_st,
+            }
+        )
+    for field_name, base_value in comparisons.items():
+        current = getattr(character_item, field_name)
+        current_id = getattr(current, "pk", current)
+        base_id = getattr(base_value, "pk", base_value)
+        if current_id == base_id:
+            model_field = character_item._meta.get_field(field_name)
+            setattr(character_item, field_name, "" if getattr(model_field, "empty_strings_allowed", False) else None)
+
+
+def apply_character_item_modifications(
+    character_item: CharacterItem,
+    post_data,
+    files_data=None,
+    *,
+    charge_character_costs: bool = True,
+    allow_catalog_flags: bool = True,
+) -> bool:
     """Persist one owned-item modification including quality, runes, magic, and costs."""
     item = character_item.item
     name = str(post_data.get("name") or "").strip() or item.name
@@ -478,15 +549,23 @@ def apply_character_item_modifications(character_item: CharacterItem, post_data,
 
     unique_runes = list({rune.id: rune for rune, _spec, _slot, _level in final_payloads}.values())
 
-    if experience_cost > int(character_item.owner.current_experience) or money_cost > int(character_item.owner.money):
+    if not charge_character_costs:
+        experience_cost = 0
+        money_cost = 0
+    if charge_character_costs and (
+        character_item.owner is None
+        or experience_cost > int(character_item.owner.current_experience)
+        or money_cost > int(character_item.owner.money)
+    ):
         return False
 
     try:
         with transaction.atomic():
-            item.not_buyable = not_buyable
-            item.not_sellable = not_sellable
-            item.full_clean()
-            item.save(update_fields=["not_buyable", "not_sellable"])
+            if allow_catalog_flags:
+                item.not_buyable = not_buyable
+                item.not_sellable = not_sellable
+                item.full_clean()
+                item.save(update_fields=["not_buyable", "not_sellable"])
             if remove_image and character_item.image_override:
                 character_item.image_override.delete(save=False)
                 character_item.image_override = None
@@ -575,6 +654,7 @@ def apply_character_item_modifications(character_item: CharacterItem, post_data,
                     post_data, "shield_encumbrance", shield_stats.encumbrance, minimum=0
                 )
                 character_item.shield_min_st_override = _read_int(post_data, "shield_min_st", shield_stats.min_st, minimum=1)
+            _normalize_redundant_character_item_overrides(character_item)
             character_item.full_clean()
             character_item.save()
 
@@ -596,7 +676,7 @@ def apply_character_item_modifications(character_item: CharacterItem, post_data,
                 source_id=character_item.id,
                 magic_modifier_payloads=magic_modifier_payloads if is_magic else [],
             )
-            if experience_cost or money_cost:
+            if charge_character_costs and (experience_cost or money_cost):
                 character = character_item.owner
                 character.current_experience = max(0, int(character.current_experience) - experience_cost)
                 character.money = max(0, int(character.money) - money_cost)
@@ -619,7 +699,7 @@ def apply_character_item_modifications(character_item: CharacterItem, post_data,
     return True
 
 
-def create_custom_shop_item(post_data, files_data=None) -> bool:
+def create_custom_shop_item(post_data, files_data=None, *, catalog_group=None):
     """Create one custom base item plus optional detail records."""
     name = (post_data.get("name") or "").strip()
     if not name:
@@ -685,6 +765,7 @@ def create_custom_shop_item(post_data, files_data=None) -> bool:
                 weight=weight,
                 size_class=size_class,
                 image=image,
+                catalog_group=catalog_group,
             )
             item.full_clean()
             item.save()
@@ -790,7 +871,7 @@ def create_custom_shop_item(post_data, files_data=None) -> bool:
             item.delete()
         return False
 
-    return True
+    return item
 
 
 def buy_shop_cart(character: Character, payload: dict[str, object]) -> tuple[dict[str, object], int]:
@@ -816,7 +897,7 @@ def buy_shop_cart(character: Character, payload: dict[str, object]) -> tuple[dic
         if qty < 1:
             return {"ok": False, "error": "invalid_qty"}, 400
 
-        item = Item.objects.filter(pk=item_id).first()
+        item = Item.objects.filter(pk=item_id, catalog_group__isnull=True).first()
         if item is None:
             return {"ok": False, "error": "item_not_found"}, 400
         if item.not_buyable:
@@ -943,7 +1024,7 @@ def trade_shop_cart(character: Character, payload: dict[str, object]) -> tuple[d
         if qty < 1:
             return {"ok": False, "error": "invalid_qty"}, 400
 
-        item = Item.objects.filter(pk=item_id).first()
+        item = Item.objects.filter(pk=item_id, catalog_group__isnull=True).first()
         if item is None:
             return {"ok": False, "error": "item_not_found"}, 400
         if item.not_buyable:

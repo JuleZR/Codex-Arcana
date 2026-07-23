@@ -7,6 +7,8 @@
       aria-label="Traglast aus mitgef&uuml;hrtem Gewicht ein- oder ausschalten"
       aria-pressed="false"
       data-carry-load-toggle
+      data-carry-enabled="{% if carry_load.enabled %}1{% else %}0{% endif %}"
+      data-carry-update-url="{% url 'update_carry_load_state' character.id %}"
       data-carry-weight="{{ carry_load.weight }}"
     >
       <span class="inventory_total_weight__penalty" data-carry-load-penalty hidden></span>

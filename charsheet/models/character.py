@@ -52,6 +52,7 @@ class Character(models.Model):
     current_stun_damage = models.PositiveIntegerField(default=0)
     current_lethal_damage = models.PositiveIntegerField(default=0)
     current_arcane_power = models.IntegerField(null=True, blank=True, default=0)
+    carry_load_enabled = models.BooleanField(default=False)
     spent_spell_learning_slots = models.PositiveIntegerField(default=0)
     is_archived = models.BooleanField(default=False)
     last_opened_at = models.DateTimeField(null=True, blank=True)
@@ -225,12 +226,29 @@ class CharacterItem(models.Model):
     """Ownership state of one item for one character."""
 
     item = models.ForeignKey("Item", on_delete=models.CASCADE)
-    owner = models.ForeignKey(Character, on_delete=models.CASCADE)
+    owner = models.ForeignKey(Character, on_delete=models.CASCADE, null=True, blank=True)
+    group_owner = models.ForeignKey(
+        "charsheet.GameGroup",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="inventory_items",
+    )
     original_owner_character = models.ForeignKey(
         Character,
         on_delete=models.PROTECT,
+        null=True,
+        blank=True,
         related_name="originally_owned_items",
     )
+    original_owner_group = models.ForeignKey(
+        "charsheet.GameGroup",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="originally_owned_items",
+    )
+    group_origin_finalized = models.BooleanField(default=False, editable=False)
     provenance_id = models.UUIDField(default=uuid4, unique=True, editable=False)
     ownership_version = models.PositiveIntegerField(default=1, editable=False)
     amount = models.PositiveIntegerField(default=1)
@@ -298,11 +316,48 @@ class CharacterItem(models.Model):
     shield_encumbrance_override = models.PositiveIntegerField(null=True, blank=True)
     shield_min_st_override = models.PositiveIntegerField(null=True, blank=True)
 
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                condition=(
+                    models.Q(owner__isnull=False, group_owner__isnull=True)
+                    | models.Q(owner__isnull=True, group_owner__isnull=False)
+                ),
+                name="character_item_exactly_one_owner",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(original_owner_character__isnull=False, original_owner_group__isnull=True)
+                    | models.Q(original_owner_character__isnull=True, original_owner_group__isnull=False)
+                ),
+                name="character_item_exactly_one_origin",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(group_owner__isnull=True)
+                    | models.Q(
+                        owner__isnull=True,
+                        original_owner_character__isnull=True,
+                        original_owner_group=models.F("group_owner"),
+                    )
+                ),
+                name="character_item_group_owns_origin",
+            ),
+        ]
+
     def clean(self):
         """Enforce stackability and equipment consistency."""
-        if not self.original_owner_character_id:
+        if self.owner_id and not self.original_owner_character_id and not self.original_owner_group_id:
             self.original_owner_character_id = self.owner_id
+        if self.group_owner_id and not self.original_owner_character_id and not self.original_owner_group_id:
+            self.original_owner_group_id = self.group_owner_id
         super().clean()
+        if bool(self.owner_id) == bool(self.group_owner_id):
+            raise ValidationError("Exactly one current owner is required.")
+        if bool(self.original_owner_character_id) == bool(self.original_owner_group_id):
+            raise ValidationError("Exactly one original owner is required.")
+        if self.group_owner_id and self.original_owner_group_id != self.group_owner_id:
+            raise ValidationError({"original_owner_group": "A group-held item must originate from that group."})
         if not self.item.stackable and self.amount != 1:
             raise ValidationError({"amount": "Item is flagged non stackable. amount must be 1"})
         if self.item.stackable and self.equipped:
@@ -311,25 +366,33 @@ class CharacterItem(models.Model):
             raise ValidationError({"equip_locked": "Locked equipment must remain equipped."})
 
         if self.pk:
-            original_owner_id = type(self).objects.filter(pk=self.pk).values_list(
-                "original_owner_character_id", flat=True
+            original_owner = type(self).objects.filter(pk=self.pk).values_list(
+                "original_owner_character_id", "original_owner_group_id"
             ).first()
-            if original_owner_id and self.original_owner_character_id != original_owner_id:
-                raise ValidationError({"original_owner_character": "The original owner is immutable."})
+            if original_owner and original_owner != (
+                self.original_owner_character_id,
+                self.original_owner_group_id,
+            ):
+                raise ValidationError("The original owner is immutable outside the transfer service.")
 
     def save(self, *args, **kwargs):
-        if not self.original_owner_character_id:
+        if self.owner_id and not self.original_owner_character_id and not self.original_owner_group_id:
             self.original_owner_character_id = self.owner_id
+        if self.group_owner_id and not self.original_owner_character_id and not self.original_owner_group_id:
+            self.original_owner_group_id = self.group_owner_id
         if self.pk:
-            original_owner_id = type(self).objects.filter(pk=self.pk).values_list(
-                "original_owner_character_id", flat=True
+            original_owner = type(self).objects.filter(pk=self.pk).values_list(
+                "original_owner_character_id", "original_owner_group_id"
             ).first()
-            if original_owner_id and self.original_owner_character_id != original_owner_id:
-                raise ValidationError({"original_owner_character": "The original owner is immutable."})
+            if original_owner and original_owner != (
+                self.original_owner_character_id,
+                self.original_owner_group_id,
+            ):
+                raise ValidationError("The original owner is immutable outside the transfer service.")
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"{self.owner} owns {self.item}"
+        return f"{self.owner or self.group_owner} owns {self.item}"
 
     @property
     def is_magic_effective(self) -> bool:

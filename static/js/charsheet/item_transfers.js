@@ -5,12 +5,14 @@ export function initItemTransfers({ windowController = null } = {}) {
   const form = document.getElementById("itemTransferForm");
   const search = document.getElementById("itemTransferRecipientSearch");
   const recipientId = document.getElementById("itemTransferRecipientId");
+  const recipientType = document.getElementById("itemTransferRecipientType");
   const senderId = document.getElementById("itemTransferSenderId");
   const results = document.getElementById("itemTransferResults");
   const quantity = document.getElementById("itemTransferQuantity");
   const permissions = document.getElementById("itemTransferPermissions");
   const originalOwnership = document.getElementById("itemTransferOriginalOwnership");
   let timer = null;
+  let canGrantPermissions = false;
 
   const syncPermissionControls = () => {
     if (!permissions) return;
@@ -28,12 +30,15 @@ export function initItemTransfers({ windowController = null } = {}) {
       form.action = trigger.dataset.action || "";
       senderId.value = trigger.dataset.senderId || "";
       recipientId.value = "";
+      if (recipientType) recipientType.value = "character";
       search.value = "";
       results.replaceChildren();
       quantity.max = trigger.dataset.itemAmount || "1";
       quantity.value = "1";
+      quantity.closest("label")?.removeAttribute("hidden");
+      canGrantPermissions = trigger.dataset.canGrantPermissions === "1";
       if (permissions) {
-        permissions.hidden = trigger.dataset.canGrantPermissions !== "1";
+        permissions.hidden = !canGrantPermissions;
         permissions.querySelectorAll('input[type="checkbox"]').forEach((input) => { input.checked = false; });
         syncPermissionControls();
       }
@@ -45,6 +50,15 @@ export function initItemTransfers({ windowController = null } = {}) {
     const option = event.target.closest("[data-transfer-recipient]");
     if (option) {
       recipientId.value = option.dataset.transferRecipient;
+      const selectedType = option.dataset.transferRecipientType || "character";
+      if (recipientType) recipientType.value = selectedType;
+      quantity.closest("label")?.toggleAttribute("hidden", selectedType === "gm_group");
+      if (permissions) {
+        permissions.hidden = selectedType === "gm_group" || !canGrantPermissions;
+        if (selectedType === "gm_group") {
+          permissions.querySelectorAll('input[type="checkbox"]').forEach((input) => { input.checked = false; });
+        }
+      }
       search.value = option.dataset.label || option.textContent.trim();
       results.replaceChildren();
     }
@@ -68,6 +82,7 @@ export function initItemTransfers({ windowController = null } = {}) {
         const button = document.createElement("button");
         button.type = "button";
         button.dataset.transferRecipient = row.id;
+        button.dataset.transferRecipientType = row.type || "character";
         button.dataset.label = row.name;
         button.textContent = `${row.name} · ${row.race} · ${row.username}`;
         return button;

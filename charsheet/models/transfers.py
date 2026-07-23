@@ -6,6 +6,10 @@ from django.db import models
 
 
 class ItemTransfer(models.Model):
+    class TransferKind(models.TextChoices):
+        OWNERSHIP = "ownership", "Gegenstandsübergabe"
+        GM_EDIT = "gm_edit", "SL-Bearbeitung"
+
     class Status(models.TextChoices):
         PENDING = "pending", "Ausstehend"
         ACCEPTED = "accepted", "Angenommen"
@@ -27,11 +31,38 @@ class ItemTransfer(models.Model):
         null=True,
         related_name="sent_item_transfers",
     )
+    sender_group = models.ForeignKey(
+        "charsheet.GameGroup",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="sent_item_transfers",
+    )
+    initiated_by_user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="initiated_group_item_transfers",
+    )
     recipient = models.ForeignKey(
         "charsheet.Character",
         on_delete=models.SET_NULL,
         null=True,
+        blank=True,
         related_name="received_item_transfers",
+    )
+    recipient_group = models.ForeignKey(
+        "charsheet.GameGroup",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="received_item_transfers",
+    )
+    transfer_kind = models.CharField(
+        max_length=16,
+        choices=TransferKind.choices,
+        default=TransferKind.OWNERSHIP,
     )
     quantity = models.PositiveIntegerField(default=1)
     message = models.TextField(blank=True, default="", max_length=1000)
@@ -48,13 +79,21 @@ class ItemTransfer(models.Model):
         indexes = [
             models.Index(fields=["recipient", "status"], name="transfer_recipient_status"),
             models.Index(fields=["sender", "status"], name="transfer_sender_status"),
+            models.Index(fields=["recipient_group", "status"], name="transfer_group_status"),
         ]
         constraints = [
             models.UniqueConstraint(
                 fields=["item"],
                 condition=models.Q(status="pending", item__isnull=False),
                 name="uniq_pending_transfer_per_item",
-            )
+            ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(transfer_kind="ownership", recipient_group__isnull=True)
+                    | models.Q(transfer_kind="gm_edit", recipient__isnull=True, recipient_group__isnull=False)
+                ),
+                name="transfer_recipient_matches_kind",
+            ),
         ]
 
     def __str__(self):
@@ -98,9 +137,23 @@ class ItemOwnershipEvent(models.Model):
         blank=True,
         related_name="item_ownership_actions",
     )
+    actor_user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="group_item_ownership_actions",
+    )
     original_owner = models.ForeignKey(
         "charsheet.Character",
         on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="item_origin_history",
+    )
+    original_owner_group = models.ForeignKey(
+        "charsheet.GameGroup",
+        on_delete=models.PROTECT,
         null=True,
         blank=True,
         related_name="item_origin_history",
@@ -112,9 +165,23 @@ class ItemOwnershipEvent(models.Model):
         blank=True,
         related_name="item_ownership_departures",
     )
+    from_group = models.ForeignKey(
+        "charsheet.GameGroup",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="item_ownership_departures",
+    )
     to_character = models.ForeignKey(
         "charsheet.Character",
         on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="item_ownership_arrivals",
+    )
+    to_group = models.ForeignKey(
+        "charsheet.GameGroup",
+        on_delete=models.PROTECT,
         null=True,
         blank=True,
         related_name="item_ownership_arrivals",

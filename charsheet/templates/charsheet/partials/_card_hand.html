@@ -1,6 +1,6 @@
 {% if selected_divine_entity or selected_druid_cult or selected_shaman_patron or creature_card_contexts %}
 <section class="card-hand sheet-window sheet-sidebar" data-card-hand aria-label="Kartenstapel">
-  <div class="card-hand__tray sheet-window__body sheet-sidebar__body" id="characterCardHandTray" data-card-hand-tray{% if not selected_divine_entity and not selected_druid_cult and not selected_shaman_patron and not creature_card_contexts %} hidden{% endif %}>
+  <div class="card-hand__tray sheet-window__body sheet-sidebar__body" id="characterCardHandTray" data-card-hand-tray>
     {% if selected_divine_entity %}
     <div
       role="button"

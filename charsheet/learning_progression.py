@@ -282,10 +282,13 @@ def _current_school_grade_filter_options(current_level: int) -> list[int]:
     return list(range(1, current_level + 1))
 
 
-def build_learning_magic_groups(character, *, magic_engine=None) -> list[dict[str, object]]:
+def build_learning_magic_groups(
+    character, *, magic_engine=None, synchronize: bool = True
+) -> list[dict[str, object]]:
     """Build spell and aspect learning rows for the unified learning menu."""
     engine = magic_engine or character.get_magic_engine(refresh=True)
-    engine.sync_character_magic()
+    if synchronize:
+        engine.sync_character_magic()
 
     groups: OrderedDict[str, list[dict[str, object]]] = OrderedDict()
 
@@ -386,7 +389,7 @@ def build_learning_magic_groups(character, *, magic_engine=None) -> list[dict[st
     return [{"name": name, "rows": rows} for name, rows in groups.items() if rows]
 
 
-def build_learning_progression_context(character, *, engine) -> dict[str, object]:
+def build_learning_progression_context(character, *, engine, synchronize: bool = True) -> dict[str, object]:
     """Build open progression decisions for the learning window."""
     path_groups: OrderedDict[str, list[dict]] = OrderedDict()
     technique_groups: OrderedDict[str, list[dict]] = OrderedDict()
@@ -398,7 +401,8 @@ def build_learning_progression_context(character, *, engine) -> dict[str, object
     divine_entity_rows: list[dict[str, object]] = []
     pending_decisions: list[dict[str, object]] = []
     magic_engine = character.get_magic_engine(refresh=True)
-    magic_engine.sync_character_magic()
+    if synchronize:
+        magic_engine.sync_character_magic()
 
 
     learned_school_entries = list(
@@ -409,7 +413,7 @@ def build_learning_progression_context(character, *, engine) -> dict[str, object
 
     skill_definitions = list(Skill.objects.select_related("category").order_by("category__name", "name"))
     skill_categories = list(SkillCategory.objects.order_by("name"))
-    item_definitions = list(Item.objects.order_by("name"))
+    item_definitions = list(Item.objects.filter(catalog_group__isnull=True).order_by("name"))
     weapon_type_definitions = weapon_mastery_weapon_type_definitions()
     item_category_options = [{"value": value, "label": label} for value, label in Item.ItemType.choices]
     rune_definitions = list(Rune.objects.order_by("name"))

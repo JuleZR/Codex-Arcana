@@ -17,7 +17,7 @@ Including another URLconf
 
 from django.contrib import admin
 from django.urls import path
-from charsheet import views
+from charsheet import group_views, views
 from django.contrib.auth.views import LoginView
 from django.views.static import serve
 from django.conf import settings
@@ -28,6 +28,36 @@ urlpatterns = [
     path("impressum/", views.impressum, name="impressum"),
     path("datenschutz/", views.datenschutz, name="datenschutz"),
     path("dashboard/", views.dashboard, name="dashboard"),
+    path("groups/create/", group_views.create_game_group, name="create_game_group"),
+    path("groups/invitations/<int:invitation_id>/accept/", group_views.accept_group_invitation, name="accept_group_invitation"),
+    path("groups/invitations/<int:invitation_id>/decline/", group_views.decline_group_invitation, name="decline_group_invitation"),
+    path("groups/<int:group_id>/", group_views.game_group_detail, name="game_group_detail"),
+    path("groups/<int:group_id>/rename/", group_views.rename_game_group, name="rename_game_group"),
+    path("groups/<int:group_id>/characters/search/", group_views.group_character_search, name="group_character_search"),
+    path("groups/<int:group_id>/characters/search/", group_views.group_character_search, name="group_character_search"),
+    path("groups/<int:group_id>/invite/", group_views.invite_group_character, name="invite_group_character"),
+    path("groups/<int:group_id>/invitations/<int:invitation_id>/withdraw/", group_views.withdraw_group_invitation, name="withdraw_group_invitation"),
+    path("groups/<int:group_id>/memberships/<int:membership_id>/leave/", group_views.leave_game_group, name="leave_game_group"),
+    path("groups/<int:group_id>/memberships/<int:membership_id>/remove/", group_views.remove_group_member, name="remove_group_member"),
+    path("groups/<int:group_id>/gms/add/", group_views.add_group_gm, name="add_group_gm"),
+    path("groups/<int:group_id>/gms/<int:user_id>/revoke/", group_views.revoke_group_gm, name="revoke_group_gm"),
+    path("groups/<int:group_id>/leader/<int:user_id>/transfer/", group_views.transfer_group_leader, name="transfer_group_leader"),
+    path("groups/<int:group_id>/archive/", group_views.archive_game_group, name="archive_game_group"),
+    path("groups/<int:group_id>/reactivate/", group_views.reactivate_game_group, name="reactivate_game_group"),
+    path("groups/<int:group_id>/delete/", group_views.delete_game_group, name="delete_game_group"),
+    path("groups/<int:group_id>/screen/", group_views.game_master_screen, name="game_master_screen"),
+    path("groups/<int:group_id>/screen/transfer-state/", group_views.group_inventory_transfer_state, name="group_inventory_transfer_state"),
+    path("groups/<int:group_id>/screen/transfer-state/", group_views.group_inventory_transfer_state, name="group_inventory_transfer_state"),
+    path("groups/<int:group_id>/characters/<int:character_id>/", group_views.game_master_character_sheet, name="game_master_character_sheet"),
+    path("groups/<int:group_id>/characters/<int:character_id>/diary/", group_views.game_master_character_diary, name="game_master_character_diary"),
+    path("groups/<int:group_id>/inventory/add/", group_views.add_group_inventory_item, name="add_group_inventory_item"),
+    path("groups/<int:group_id>/catalog/create/", group_views.create_group_catalog_item, name="create_group_catalog_item"),
+    path("groups/<int:group_id>/catalog/<int:catalog_item_id>/edit/", group_views.edit_group_catalog_item, name="edit_group_catalog_item"),
+    path("groups/<int:group_id>/inventory/<int:item_id>/edit/", group_views.edit_group_inventory_item, name="edit_group_inventory_item"),
+    path("groups/<int:group_id>/inventory/<int:item_id>/send/", group_views.send_group_inventory_item, name="send_group_inventory_item"),
+    path("groups/<int:group_id>/editing/<int:transfer_id>/complete/", group_views.complete_group_item_edit, name="complete_group_item_edit"),
+    path("groups/<int:group_id>/inventory/<int:item_id>/delete/", group_views.delete_group_inventory_item, name="delete_group_inventory_item"),
+    path("groups/<int:group_id>/transfers/<int:transfer_id>/recall/", group_views.recall_group_inventory_transfer, name="recall_group_inventory_transfer"),
     path("dashboard/account/update/", views.update_account_settings, name="update_account_settings"),
     path("character/new/", views.create_character, name="create_character"),
     path("character/<int:character_id>/edit/", views.edit_character, name="edit_character"),
@@ -52,6 +82,7 @@ urlpatterns = [
     path("character/<int:character_id>/druid-cult/update/", views.update_druid_cult, name="update_druid_cult"),
     path("character/<int:character_id>/adjust-personal-fame-point/", views.adjust_personal_fame_point, name="adjust_personal_fame_point"),
     path("character/<int:character_id>/adjust-damage/", views.adjust_current_damage, name="adjust_current_damage"),
+    path("character/<int:character_id>/carry-load/", views.update_carry_load_state, name="update_carry_load_state"),
     path("character/<int:character_id>/creature-choice/<int:binding_id>/", views.choose_technique_creature, name="choose_technique_creature"),
     path("character-creature/<int:pk>/adjust-damage/", views.adjust_creature_damage, name="adjust_creature_damage"),
     path("character-creature/<int:pk>/training/update/", views.update_creature_card_training, name="update_character_creature_training"),

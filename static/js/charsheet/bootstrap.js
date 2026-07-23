@@ -21,14 +21,14 @@ import { initMobileHud } from "./mobile_hud.js";
 import { initSkillManager } from "./skill_manager.js";
 import { initArmorPanel } from "./armor_panel.js";
 import { initBattleCalculator } from "./battle_calculator.js";
-import { initCarryLoadToggle } from "./carry_load_toggle.js";
+import { initCarryLoadToggle } from "./carry_load_toggle.js?v=20260723b";
 import { initContextRadialMenu } from "./context_radial_menu.js";
 import { initRadialMenuGem } from "./radial_menu_gem.js";
 import { initCharacterAppearanceModal } from "./character_appearance_modal.js";
 import { initCardHand } from "./card_hand.js?v=20260621a";
 import { initGodCards } from "./god_card.js?v=20260702a";
 import { initCreatureCards } from "./creature_card.js?v=20260721c";
-import { initItemTransfers } from "./item_transfers.js";
+import { initItemTransfers } from "./item_transfers.js?v=20260723a";
 import { initItemTransferWindow } from "./item_transfer_window.js?v=20260721f";
 
 function isRadialMenuEnabled() {

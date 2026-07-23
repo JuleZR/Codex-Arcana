@@ -75,6 +75,10 @@ from .models import (
     CharacterShamanPatron,
     CharacterDiaryEntry,
     CharacterItem,
+    GameGroup,
+    GameGroupInvitation,
+    GameGroupMembership,
+    GameGroupRole,
     ItemRune,
     CharacterLanguage,
     CharacterRaceChoice,
@@ -6425,9 +6429,50 @@ class _ImmutableOwnershipAdmin(admin.ModelAdmin):
         return False
 
 
+@admin.register(GameGroup)
+class GameGroupAdmin(admin.ModelAdmin):
+    list_display = ("name", "creator", "is_archived", "created_at")
+    list_filter = ("is_archived",)
+    search_fields = ("name", "creator__username")
+    readonly_fields = ("name", "creator", "is_archived", "created_at")
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def has_add_permission(self, request):
+        return False
+
+
+@admin.register(GameGroupRole)
+class GameGroupRoleAdmin(admin.ModelAdmin):
+    list_display = ("group", "user", "role", "is_active", "granted_at", "revoked_at")
+    list_filter = ("role", "is_active")
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(GameGroupInvitation)
+class GameGroupInvitationAdmin(admin.ModelAdmin):
+    list_display = ("group", "character", "invited_by", "status", "created_at", "resolved_at")
+    list_filter = ("status",)
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(GameGroupMembership)
+class GameGroupMembershipAdmin(admin.ModelAdmin):
+    list_display = ("group", "character", "status", "joined_at", "ended_at")
+    list_filter = ("status",)
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
 @admin.register(ItemTransfer)
 class ItemTransferAdmin(_ImmutableOwnershipAdmin):
-    list_display = ("id", "item_provenance_id", "sender", "recipient", "status", "created_at", "expires_at")
+    list_display = ("id", "item_provenance_id", "sender", "sender_group", "recipient", "status", "created_at", "expires_at")
     list_filter = ("status",)
     search_fields = ("item_provenance_id", "sender_snapshot", "recipient_snapshot", "item_snapshot")
 

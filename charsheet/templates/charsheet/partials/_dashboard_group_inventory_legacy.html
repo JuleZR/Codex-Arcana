@@ -1,0 +1,139 @@
+<section class="dashboard_active_block sl_screen_inventory" id="sl-inventar" aria-label="SL-Inventar">
+  <div class="dashboard_panel_header">
+    <h2>SL-Inventar</h2>
+    <span>Gruppeninventar und gruppeneigene Basisitems</span>
+  </div>
+
+  {% for group_row in sl_inventory_groups %}
+    <article class="dashboard_group_inventory">
+      <h3>{{ group_row.group.name }}{% if group_row.group.is_archived %} · archiviert{% endif %}</h3>
+
+      {% if not group_row.group.is_archived %}
+      <div class="dashboard_group_inventory__forms">
+        <form method="post" action="{% url 'add_group_inventory_item' group_row.group.id %}">
+          {% csrf_token %}<input type="hidden" name="_sl_screen" value="1">
+          <h4>Basisitem ins Inventar legen</h4>
+          <select name="item_id" required>
+            <option value="">Item wählen</option>
+            <optgroup label="Global">
+              {% for item in group_inventory_global_items %}<option value="{{ item.id }}">{{ item.name }}</option>{% endfor %}
+            </optgroup>
+            <optgroup label="Gruppenkatalog">
+              {% for item in group_row.catalog_items %}<option value="{{ item.id }}">{{ item.name }}</option>{% endfor %}
+            </optgroup>
+          </select>
+          <select name="quality">
+            {% for quality in group_inventory_qualities %}<option value="{{ quality.pk }}">{{ quality.name }}</option>{% endfor %}
+          </select>
+          <input name="amount" type="number" min="1" value="1" aria-label="Menge">
+          <button class="dashboard_button dashboard_button--small">Ins Inventar</button>
+        </form>
+
+        <form method="post" enctype="multipart/form-data" action="{% url 'create_group_catalog_item' group_row.group.id %}">
+          {% csrf_token %}<input type="hidden" name="_sl_screen" value="1">
+          <h4>Gruppeneigenes Basisitem erstellen</h4>
+          <input name="name" required maxlength="200" placeholder="Name">
+          <select name="item_type">{% for value,label in group_inventory_item_types %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select>
+          <input name="price" type="number" min="0" value="1" placeholder="Preis">
+          <input name="weight" type="number" min="0" step=".01" value="0" placeholder="Gewicht">
+          <input name="size_class" value="M" maxlength="5" placeholder="Größenklasse">
+          <select name="default_quality">{% for quality in group_inventory_qualities %}<option value="{{ quality.pk }}">{{ quality.name }}</option>{% endfor %}</select>
+          <label><input name="stackable" type="checkbox"> Stapelbar</label>
+          <label><input name="is_magic" type="checkbox"> Magisch</label>
+          <textarea name="description" placeholder="Beschreibung"></textarea>
+          <textarea name="magic_effect_summary" placeholder="Magischer Effekttext"></textarea>
+          <details>
+            <summary>Waffen-, Rüstungs- oder Schildwerte</summary>
+            <input name="weapon_damage_source" type="number" min="1" placeholder="Schadensquelle-ID (Waffe)">
+            <input name="weapon_damage_dice_amount" type="number" min="1" value="1" placeholder="Würfelanzahl">
+            <input name="weapon_damage_dice_faces" type="number" min="2" value="10" placeholder="Würfelseiten">
+            <input name="weapon_min_st" type="number" min="1" value="1" placeholder="Mindeststärke">
+            <input name="armor_rs_total" type="number" min="0" value="0" placeholder="Rüstungsschutz gesamt">
+            <input name="armor_encumbrance" type="number" min="0" value="0" placeholder="Rüstungsbelastung">
+            <input name="armor_min_st" type="number" min="1" value="1" placeholder="Rüstung Mindeststärke">
+            <input name="shield_rs" type="number" min="0" value="0" placeholder="Schild-RS">
+            <input name="shield_encumbrance" type="number" min="0" value="0" placeholder="Schildbelastung">
+            <input name="shield_min_st" type="number" min="1" value="1" placeholder="Schild Mindeststärke">
+          </details>
+          <input name="amount" type="number" min="1" value="1" placeholder="Instanzmenge">
+          <button class="dashboard_button dashboard_button--small">Basisitem und Instanz anlegen</button>
+        </form>
+      </div>
+      {% endif %}
+
+      {% if group_row.catalog_items %}
+        <h4>Gruppeneigene Basisitems</h4>
+        <ul class="dashboard_list">
+        {% for item in group_row.catalog_items %}
+          <li>
+            <form method="post" action="{% url 'edit_group_catalog_item' group_row.group.id item.id %}" class="dashboard_group_inventory__editor">
+              {% csrf_token %}<input type="hidden" name="_sl_screen" value="1">
+              <strong>{{ item.get_item_type_display }}</strong>
+              <input name="name" required value="{{ item.name }}">
+              <input name="price" type="number" min="0" value="{{ item.price }}">
+              <input name="weight" type="number" min="0" step=".01" value="{{ item.weight }}">
+              <input name="size_class" value="{{ item.size_class }}">
+              <select name="default_quality">{% for quality in group_inventory_qualities %}<option value="{{ quality.pk }}" {% if quality.pk == item.default_quality_id %}selected{% endif %}>{{ quality.name }}</option>{% endfor %}</select>
+              <textarea name="description">{{ item.description }}</textarea>
+              {% if not group_row.group.is_archived %}<button class="dashboard_button dashboard_button--small">Basisitem speichern</button>{% endif %}
+            </form>
+          </li>
+        {% endfor %}
+        </ul>
+      {% endif %}
+
+      <h4>Instanzen</h4>
+      <ul class="dashboard_list">
+        {% for instance in group_row.inventory_items %}
+          <li>
+            <strong>{{ instance.effective_name }}</strong> × {{ instance.amount }} · {{ instance.quality }}
+            {% if not group_row.group.is_archived %}
+            <div class="dashboard_group_inventory__forms">
+              <form method="post" action="{% url 'edit_group_inventory_item' group_row.group.id instance.id %}">
+                {% csrf_token %}<input type="hidden" name="_sl_screen" value="1">
+                <select name="quality">{% for quality in group_inventory_qualities %}<option value="{{ quality.pk }}" {% if quality.pk == instance.quality_id %}selected{% endif %}>{{ quality.name }}</option>{% endfor %}</select>
+                <input name="amount" type="number" min="1" value="{{ instance.amount }}">
+                <input name="name" value="{{ instance.effective_name }}" placeholder="Instanzname">
+                <textarea name="description" placeholder="Instanzbeschreibung">{{ instance.description }}</textarea>
+                <textarea name="magic_effect_summary" placeholder="Instanz-Effekttext">{{ instance.magic_effect_summary }}</textarea>
+                <button class="dashboard_button dashboard_button--small">Instanz anpassen</button>
+              </form>
+              <form method="post" action="{% url 'send_group_inventory_item' group_row.group.id instance.id %}">
+                {% csrf_token %}<input type="hidden" name="_sl_screen" value="1">
+                <div
+                  data-group-character-picker
+                  data-search-url="{% url 'group_character_search' group_row.group.id %}"
+                  data-search-mode="recipient"
+                >
+                  <input type="hidden" name="recipient_id" data-group-character-id>
+                  <input type="search" data-group-character-query autocomplete="off" minlength="2" required placeholder="Empfängername">
+                  <div class="dashboard_group_character_results" data-group-character-results role="listbox"></div>
+                </div>
+                <input name="quantity" type="number" min="1" max="{{ instance.amount }}" value="1">
+                <input name="message" maxlength="1000" placeholder="Nachricht">
+                <button class="dashboard_button dashboard_button--small">Senden</button>
+              </form>
+            </div>
+            {% endif %}
+          </li>
+        {% empty %}<li>Das Gruppeninventar ist leer.</li>{% endfor %}
+      </ul>
+
+      {% if group_row.pending_transfers %}
+        <h4>Ausstehende Angebote</h4>
+        <ul class="dashboard_list">{% for transfer in group_row.pending_transfers %}
+          <li>{{ transfer.item.item.name }} → {{ transfer.recipient.name }}
+            {% if not group_row.group.is_archived %}
+            <form method="post" action="{% url 'recall_group_inventory_transfer' group_row.group.id transfer.id %}">
+              {% csrf_token %}<input type="hidden" name="_sl_screen" value="1">
+              <button class="dashboard_button dashboard_button--small">Zurückrufen</button>
+            </form>
+            {% endif %}
+          </li>
+        {% endfor %}</ul>
+      {% endif %}
+    </article>
+  {% empty %}
+    <p class="dashboard_hint">Du leitest aktuell keine Spielgruppe.</p>
+  {% endfor %}
+</section>

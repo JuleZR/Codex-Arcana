@@ -1,5 +1,5 @@
 {% for row in rows %}
-  <li class="inv_row{% if row.quality_color %} quality_tinted_row{% endif %}{% if row.tooltip_text %} tooltip_target{% endif %}{% if row.is_transfer_pending %} inv_row--underway{% endif %}{% if row.is_foreign_held %} inv_row--foreign-held{% endif %}"
+  <li class="inv_row{% if row.quality_color %} quality_tinted_row{% endif %}{% if row.tooltip_text %} tooltip_target{% endif %}{% if row.is_transfer_pending %} inv_row--underway{% endif %}{% if row.is_gm_edit_pending %} inv_row--gm-edit{% endif %}{% if row.is_foreign_held %} inv_row--foreign-held{% endif %}"
       data-inventory-row
       data-character-item-id="{{ row.character_item.pk }}"
       data-stored="{% if row.is_stored %}1{% else %}0{% endif %}"
@@ -20,7 +20,7 @@
       {% if row.can_manage_storage %}<span class="inv_drag_handle" draggable="true" data-drag-handle aria-label="Item verschieben" title="Zum Verschieben ziehen">
         <span class="inv_drag_handle_dots" aria-hidden="true"></span>
       </span>{% endif %}
-      <span class="inv_name">{{ row.display_name }}{% if row.is_foreign_held %}<small class="inv_transfer_state">Fremdgehalten von {{ row.foreign_holder_name }}</small>{% endif %}{% if row.pending_transfer %}<small class="inv_transfer_state">Versendet – unterwegs zu {{ row.pending_transfer.recipient.name }}</small>{% endif %}</span>
+      <span class="inv_name">{{ row.display_name }}{% if row.is_foreign_held %}<small class="inv_transfer_state">Fremdgehalten von {{ row.foreign_holder_name }}</small>{% endif %}{% if row.pending_transfer %}<small class="inv_transfer_state">{% if row.is_gm_edit_pending %}Zur Bearbeitung bei SL @ {{ row.pending_transfer.recipient_group.name }}{% else %}Versendet – unterwegs zu {{ row.pending_transfer.recipient.name }}{% endif %}</small>{% endif %}</span>
     </span>
     <div class="inv_actions">
       {% if row.has_runes %}
