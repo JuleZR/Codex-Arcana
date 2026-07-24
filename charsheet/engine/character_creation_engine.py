@@ -18,6 +18,7 @@ from charsheet.models import (
     CharacterCreationDraft,
     CharacterItem,
     CharacterLanguage,
+    CharacterLesson,
     CharacterSchool,
     CharacterSkill,
     CharacterTrait,
@@ -25,13 +26,16 @@ from charsheet.models import (
     CharacterWeaponMasteryArcana,
     Item,
     Language,
+    Lesson,
     Rune,
     School,
     Skill,
+    Technique,
     TraitChoiceDefinition,
     Trait,
     WeaponType,
 )
+from charsheet.lesson_rules import lesson_requirements_met, missing_requirement_labels
 from charsheet.constants import (
     ATTR_SPEC,
     LANGUAGE_LITERACY_MIN_LEVEL,
@@ -499,6 +503,15 @@ class CharacterCreationEngine:
         schools = self.get_phase("phase_4").get("schools", {}) or {}
         return {str(k): max(0, self._to_int(v, 0)) for k, v in schools.items()}
 
+    def phase_4_lessons(self) -> set[int]:
+        """Return normalized lesson ids selected during phase 4."""
+        raw_values = self.get_phase("phase_4").get("lessons", []) or []
+        return {
+            self._to_int(value, 0)
+            for value in raw_values
+            if self._to_int(value, 0) > 0
+        }
+
     def phase_4_weapon_masteries(self) -> list[dict[str, object]]:
         """Return normalized Waffenmeister weapon-type picks stored during phase 4."""
         rows = self.get_phase("phase_4").get("weapon_masteries", []) or []
@@ -592,6 +605,50 @@ class CharacterCreationEngine:
     def sum_phase_4_school_cost(self) -> int:
         return sum(level * 8 for level in self.phase_4_schools().values())
 
+    def sum_phase_4_lesson_cost(self) -> int:
+        return sum(
+            int(cost)
+            for cost in Lesson.objects.filter(pk__in=self.phase_4_lessons()).values_list(
+                "purchase_cost", flat=True
+            )
+        )
+
+    def _phase_4_lessons_are_valid(self) -> bool:
+        selected_ids = self.phase_4_lessons()
+        if len(selected_ids) != Lesson.objects.filter(pk__in=selected_ids).count():
+            return False
+        school_levels = {
+            int(school_id): int(level)
+            for school_id, level in self.phase_4_schools().items()
+        }
+        skill_levels = {
+            int(skill.id): int(self.phase_2_skills().get(skill.slug, 0))
+            + int(self.phase_4_skill_adds().get(skill.slug, 0))
+            for skill in Skill.objects.all()
+        }
+        learned_technique_ids = {
+            int(technique.id)
+            for technique in Technique.objects.filter(
+                acquisition_type=Technique.AcquisitionType.AUTOMATIC,
+                school_id__in=school_levels,
+            )
+            if (
+                technique.level is not None
+                and school_levels.get(int(technique.school_id), 0) >= int(technique.level)
+                and technique.path_id is None
+            )
+        }
+        return all(
+            lesson_requirements_met(
+                lesson,
+                learned_lesson_ids=selected_ids,
+                school_levels=school_levels,
+                skill_levels=skill_levels,
+                learned_technique_ids=learned_technique_ids,
+            )
+            for lesson in Lesson.objects.filter(pk__in=selected_ids)
+        )
+
     def phase_4_aspects(self) -> dict[str, int]:
         aspects = self.get_phase("phase_4").get("aspects", {}) or {}
         return {str(k): max(0, self._to_int(v, 0)) for k, v in aspects.items()}
@@ -606,6 +663,7 @@ class CharacterCreationEngine:
             + self.sum_phase_4_skill_cost()
             + self.sum_phase_4_language_adds()
             + self.sum_phase_4_school_cost()
+            + self.sum_phase_4_lesson_cost()
             + self.sum_phase_4_aspect_cost()
         )
 
@@ -615,6 +673,7 @@ class CharacterCreationEngine:
             + self.sum_phase_4_skill_cost()
             + self.sum_phase_4_language_adds()
             + self.sum_phase_4_school_cost()
+            + self.sum_phase_4_lesson_cost()
             + self.sum_phase_4_aspect_cost()
         )
 
@@ -677,6 +736,7 @@ class CharacterCreationEngine:
         return (
             self.sum_phase_4_total_cost() <= self.calculate_phase_4_budget()
             and self._phase_4_weapon_mastery_choices_are_valid()
+            and self._phase_4_lessons_are_valid()
         )
 
     def _build_trait_validator(self, trait_type: str, *, max_disadvantage_cp: int = 20) -> CharacterBuildValidator:
@@ -895,6 +955,39 @@ class CharacterCreationEngine:
                 school = School.objects.filter(pk=self._to_int(school_id, -1)).first()
                 if school and level > 0:
                     CharacterSchool.objects.create(character=character, school=school, level=level)
+
+            selected_lesson_ids = self.phase_4_lessons()
+            selected_lessons = list(
+                Lesson.objects.filter(pk__in=selected_lesson_ids)
+                .select_related("school", "technique")
+                .prefetch_related("requirements__group")
+            )
+            engine = character.get_engine(refresh=True)
+            for lesson in selected_lessons:
+                if not lesson_requirements_met(
+                    lesson,
+                    character=character,
+                    learned_lesson_ids=selected_lesson_ids,
+                    engine=engine,
+                ):
+                    missing = ", ".join(
+                        missing_requirement_labels(
+                            lesson,
+                            character=character,
+                            learned_lesson_ids=selected_lesson_ids,
+                            engine=engine,
+                        )
+                    )
+                    raise ValueError(f"{lesson.name}: Voraussetzungen nicht erfüllt ({missing}).")
+            CharacterLesson.objects.bulk_create(
+                CharacterLesson(
+                    character=character,
+                    lesson=lesson,
+                    acquisition_type=CharacterLesson.AcquisitionType.CREATION,
+                    paid_ep=0,
+                )
+                for lesson in selected_lessons
+            )
 
             weapon_master_school = self._phase_4_waffenmeister_school()
             if weapon_master_school and self.phase_4_schools().get(str(weapon_master_school.id), 0) > 0:

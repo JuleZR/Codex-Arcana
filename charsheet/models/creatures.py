@@ -86,7 +86,6 @@ class Creature(models.Model):
 
     name = models.CharField(max_length=100, unique=True)
     slug = models.SlugField(max_length=100, unique=True)
-    card_name = models.CharField(max_length=100, blank=True, default="")
     image = models.ImageField(upload_to="creatures/", blank=True, null=True)
     description = models.TextField(blank=True, default="")
     quality = models.ForeignKey(
@@ -102,6 +101,9 @@ class Creature(models.Model):
     vw_override = models.IntegerField(blank=True, null=True)
     sr_override = models.IntegerField(blank=True, null=True)
     gw_override = models.IntegerField(blank=True, null=True)
+    has_kp = models.BooleanField("Hat KP", default=False)
+    kp_override = models.IntegerField("KP-Override", blank=True, null=True)
+    potential_override = models.IntegerField("Potential-Override", blank=True, null=True)
     defense_extra_label = models.CharField("GW extra label", max_length=20, blank=True, default="")
     fear_resistance_bonus = models.IntegerField("GW extra value", blank=True, null=True)
     natural_rs = models.PositiveIntegerField(default=0)
@@ -174,7 +176,7 @@ class Creature(models.Model):
 
     @property
     def display_name(self):
-        return self.card_name or self.name
+        return self.name
 
     def save(self, *args, **kwargs):
         if not self.slug:

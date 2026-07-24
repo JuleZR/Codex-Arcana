@@ -55,6 +55,48 @@ function parseStatusLine(line) {
   return { label: match[1].trim(), color: match[2].trim() };
 }
 
+function parseLessonQuoteBlock(lines, startIndex) {
+  if (String(lines[startIndex] || "").trim() !== "[[LESSONQUOTE]]") {
+    return null;
+  }
+  const quoteLines = [];
+  let speaker = "";
+  let rowIndex = startIndex + 1;
+  while (rowIndex < lines.length) {
+    const line = String(lines[rowIndex] || "");
+    const trimmed = line.trim();
+    if (trimmed === "[[/LESSONQUOTE]]") {
+      return {
+        quote: quoteLines.join("\n").trim(),
+        speaker,
+        nextIndex: rowIndex + 1,
+      };
+    }
+    const speakerMatch = trimmed.match(/^\[\[SPEAKER:(.*)\]\]$/);
+    if (speakerMatch) {
+      speaker = speakerMatch[1].trim();
+    } else {
+      quoteLines.push(line);
+    }
+    rowIndex += 1;
+  }
+  return null;
+}
+
+function renderLessonQuoteMarkup(quoteBlock) {
+  const safeQuote = escapeHtml(quoteBlock.quote || "").replace(/\n/g, "<br>");
+  const safeSpeaker = escapeHtml(quoteBlock.speaker || "");
+  if (!safeQuote) {
+    return "";
+  }
+  return (
+    '<blockquote class="tooltip_lesson_quote">'
+    + `<p class="tooltip_lesson_quote__text">&ldquo;${safeQuote}&rdquo;</p>`
+    + (safeSpeaker ? `<footer class="tooltip_lesson_quote__speaker">&ndash; ${safeSpeaker}</footer>` : "")
+    + "</blockquote>"
+  );
+}
+
 function parseSpellAttributeChartLine(line) {
   const match = String(line || "").trim().match(/^\[\[SPELLATTR:(.*?)\]\]$/);
   if (!match) {
@@ -413,6 +455,16 @@ function renderTooltipMarkup(rawText) {
     if (spellAttributeChart) {
       chunks.push(renderSpellAttributeChartMarkup(spellAttributeChart));
       index += 1;
+      continue;
+    }
+
+    const lessonQuote = parseLessonQuoteBlock(lines, index);
+    if (lessonQuote) {
+      const quoteMarkup = renderLessonQuoteMarkup(lessonQuote);
+      if (quoteMarkup) {
+        chunks.push(quoteMarkup);
+      }
+      index = lessonQuote.nextIndex;
       continue;
     }
 

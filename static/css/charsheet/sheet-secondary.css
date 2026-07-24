@@ -3036,6 +3036,31 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
   margin: 0;
 }
 
+.floating-tooltip .tooltip_lesson_quote,
+.floating-tooltip-card .tooltip_lesson_quote {
+  margin: 0 0 12px;
+  padding: 0 0 10px;
+  border: 0;
+  border-bottom: 1px solid rgba(110, 78, 46, 0.22);
+  color: rgba(78, 48, 25, 0.9);
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-style: italic;
+}
+
+.floating-tooltip .tooltip_lesson_quote__text,
+.floating-tooltip-card .tooltip_lesson_quote__text {
+  margin: 0;
+  font-size: 1.03em;
+  line-height: 1.35;
+}
+
+.floating-tooltip .tooltip_lesson_quote__speaker,
+.floating-tooltip-card .tooltip_lesson_quote__speaker {
+  margin-top: 4px;
+  font-size: 0.95em;
+  text-align: right;
+}
+
 .floating-tooltip-card .tooltip_quality_line,
 .floating-tooltip-card .tooltip_status_line {
   margin: 0 0 10px;

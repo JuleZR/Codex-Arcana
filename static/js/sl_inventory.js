@@ -1,6 +1,12 @@
 document.addEventListener("DOMContentLoaded", () => {
   const floating = ({ win, backdrop, handle, opener, closeButtons, beforeOpen, afterClose }) => {
     if (!win || !backdrop || !handle) return null;
+
+    // Keep floating inventory dialogs outside the scrollable/clipped workspace.
+    // Otherwise their fixed z-index is still trapped by an ancestor stacking
+    // context and the backdrop can cover the actual window.
+    document.body.append(backdrop, win);
+
     const center = () => {
       const rect = win.getBoundingClientRect();
       win.style.left = Math.max(12, (window.innerWidth - rect.width) / 2) + "px";
@@ -11,12 +17,14 @@ document.addEventListener("DOMContentLoaded", () => {
       win.classList.add("is-open");
       win.setAttribute("aria-hidden", "false");
       backdrop.classList.add("is-open");
+      backdrop.setAttribute("aria-hidden", "false");
       center();
     };
     const hide = () => {
       win.classList.remove("is-open");
       win.setAttribute("aria-hidden", "true");
       backdrop.classList.remove("is-open");
+      backdrop.setAttribute("aria-hidden", "true");
       if (afterClose) afterClose();
     };
     opener?.addEventListener("click", () => show(opener));

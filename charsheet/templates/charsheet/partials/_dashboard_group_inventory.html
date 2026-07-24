@@ -9,8 +9,18 @@
       </div>
       {% if not group_row.group.is_archived %}
         <div class="sl-inventory__header-actions">
-          <button type="button" class="dashboard_button" data-open-sl-item-add>Gegenstand hinzufügen</button>
-          <button type="button" class="dashboard_button dashboard_button--primary" data-open-sl-item-create>+ Basisitem erstellen</button>
+          <button type="button" class="sl-inventory-header-action" data-open-sl-item-add
+            aria-label="Gegenstand hinzufügen" title="Gegenstand hinzufügen">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 8.5h16v11H4zM7 8.5V5h10v3.5M12 11v6M9 14h6"/>
+            </svg>
+          </button>
+          <button type="button" class="sl-inventory-header-action sl-inventory-header-action--primary"
+            data-open-sl-item-create aria-label="Basisitem erstellen" title="Basisitem erstellen">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M5 3.5h10l4 4v13H5zM15 3.5v4h4M12 11v6M9 14h6"/>
+            </svg>
+          </button>
         </div>
       {% endif %}
     </header>
@@ -240,7 +250,7 @@
                 </div>
               </div>
             </label>
-            <label><span>Qualität</span><select class="dashboard_input" name="quality">{% for quality in group_inventory_qualities %}<option value="{{ quality.pk }}">{{ quality.name }}</option>{% endfor %}</select></label>
+            <label><span>Qualität</span><select class="dashboard_input" name="quality">{% for quality in group_inventory_qualities %}<option value="{{ quality.pk }}"{% if quality.pk == "common" %} selected{% endif %}>{{ quality.name }}</option>{% endfor %}</select></label>
             <label><span>Menge</span><input class="dashboard_input" name="amount" type="number" min="1" value="1"></label>
             <div class="sl-item-add-window__actions"><button type="button" class="dashboard_button" data-close-sl-item-add>Abbrechen</button><button class="dashboard_button dashboard_button--primary">Ins Inventar</button></div>
           </form>
@@ -261,7 +271,7 @@
                 <div class="sl-editor-grid">
                   <label class="sl-editor-grid__wide"><span>Name</span><input name="name" required maxlength="200"></label>
                   <label><span>Typ</span><select name="item_type" data-sl-item-type>{% for value,label in group_inventory_item_types %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></label>
-                  <label><span>Standardqualität</span><select name="default_quality">{% for quality in group_inventory_qualities %}<option value="{{ quality.pk }}">{{ quality.name }}</option>{% endfor %}</select></label>
+                  <label><span>Standardqualität</span><select name="default_quality">{% for quality in group_inventory_qualities %}<option value="{{ quality.pk }}"{% if quality.pk == "common" %} selected{% endif %}>{{ quality.name }}</option>{% endfor %}</select></label>
                   <label><span>Preis (KS)</span><input name="price" type="number" min="0" value="0"></label>
                   <label><span>Gewicht</span><input name="weight" type="number" min="0" step=".01" value="0"></label>
                   <label><span>Größenklasse</span><select name="size_class">{% for value,label in group_inventory_size_classes %}<option value="{{ value }}"{% if value == "M" %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>

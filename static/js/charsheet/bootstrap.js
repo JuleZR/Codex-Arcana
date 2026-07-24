@@ -14,6 +14,7 @@ import { initWalletTooltip } from "./wallet_tooltip.js";
 import { initInventoryMenu } from "./inventory_menu.js";
 import { initDamagePanel } from "./damage_panel.js";
 import { initSpellPanel } from "./spell_panel.js";
+import { initLessonPanel } from "./lesson_panel.js?v=20260724a";
 import { initCharInfoCounter } from "./char_info_counter.js";
 import { initSheetActions } from "./sheet_actions.js?v=20260608a";
 import { initSchoolsPanel, initWmArcanaFilter } from "./schools_panel.js";
@@ -66,6 +67,7 @@ onReady(() => {
   initSkillManager();
   initDamagePanel();
   initSpellPanel();
+  initLessonPanel();
   initCharInfoCounter();
   initSchoolsPanel();
   initWmArcanaFilter();
@@ -95,6 +97,7 @@ onReady(() => {
     initDamagePanel();
     initLearningMenu({ choiceWindowController: windowControllers?.learnChoice || null });
     initSpellPanel();
+    initLessonPanel();
     initCharInfoCounter();
     initSchoolsPanel();
     initWmArcanaFilter();

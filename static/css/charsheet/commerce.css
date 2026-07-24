@@ -238,6 +238,19 @@
   background: transparent;
 }
 
+.shop_table tr[data-learn-source][data-kind="lesson"].is-learned td {
+  background: linear-gradient(
+    90deg,
+    rgba(126, 96, 48, 0.1) 0%,
+    rgba(189, 151, 78, 0.07) 46%,
+    rgba(255, 248, 230, 0.02) 100%
+  );
+}
+
+.shop_table tr[data-learn-source][data-kind="lesson"].is-learned td:first-child {
+  box-shadow: inset 3px 0 0 rgba(122, 85, 36, 0.24);
+}
+
 .shop_table tr[data-shop-item]:hover::after,
 .shop_table tr[data-shop-item]:focus-within::after,
 .shop_table tr[data-learn-source]:hover::after,

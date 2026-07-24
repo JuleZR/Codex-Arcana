@@ -56,6 +56,14 @@ from charsheet.forms import (
 from charsheet.magic_effects import TEXT_TARGET_KIND, unpack_magic_effect_summary
 from charsheet.learning_progression import build_learning_magic_groups, build_learning_progression_context
 from charsheet.learning_rules import DEFAULT_SCHOOL_MAX_LEVEL, school_max_levels
+from charsheet.lesson_rules import (
+    LESSON_COST_HANDLERS,
+    LessonRuleError,
+    format_cost,
+    format_lesson_costs,
+    format_lesson_requirements,
+    lesson_requirements_met,
+)
 from charsheet.religion_rules import has_active_druid_school, is_clerical_school, selected_divine_entity
 from charsheet.models import (
     Aspect,
@@ -74,6 +82,7 @@ from charsheet.models import (
     DruidCult,
     ItemRune,
     CharacterLanguage,
+    CharacterLesson,
     CharacterSpell,
     CharacterCreatureTraitChoice,
     RaceStartingItem,
@@ -89,6 +98,8 @@ from charsheet.models import (
     Item,
     ItemTransfer,
     Language,
+    Lesson,
+    LessonCost,
     Modifier,
     Quality,
     RaceTechnique,
@@ -3482,6 +3493,138 @@ def _build_shop_sell_item_groups(character: Character) -> list[dict]:
     ]
 
 
+def _build_lesson_context(character: Character, *, read_only: bool = False) -> dict[str, object]:
+    """Build learning rows and the learned-lesson character-sheet panel."""
+    entries = {
+        int(entry.lesson_id): entry
+        for entry in CharacterLesson.objects.filter(character=character)
+        .select_related("lesson", "lesson__school", "lesson__technique")
+    }
+    learned_ids = set(entries)
+    lesson_queryset = (
+        Lesson.objects.select_related("school", "technique")
+        .prefetch_related(
+            "costs",
+            "requirements__group",
+            "requirements__required_school",
+            "requirements__required_skill",
+            "requirements__required_technique",
+            "requirements__required_lesson",
+        )
+        .order_by("school__name", "name")
+    )
+    learning_groups: OrderedDict[str, list[dict[str, object]]] = OrderedDict()
+    panel_groups: OrderedDict[int, dict[str, object]] = OrderedDict()
+    engine = character.get_engine(refresh=True)
+    for lesson in lesson_queryset:
+        entry = entries.get(int(lesson.id))
+        requirements_display = format_lesson_requirements(lesson)
+        try:
+            costs_display = format_lesson_costs(lesson)
+        except LessonRuleError as exc:
+            costs_display = f"Ungültige Kosten: {exc}"
+        requirements_ok = lesson_requirements_met(
+            lesson,
+            character=character,
+            learned_lesson_ids=learned_ids,
+            engine=engine,
+        )
+        quote_parts = []
+        if lesson.fluff_quote:
+            quote_parts.append(str(lesson.fluff_quote).strip())
+        if lesson.fluff_quote_speaker:
+            quote_parts.append(f"- {lesson.fluff_quote_speaker}")
+        quote_display = "\n".join(part for part in quote_parts if part)
+        learning_row = {
+            "id": int(lesson.id),
+            "name": lesson.name,
+            "school_name": lesson.school.name,
+            "purchase_cost": int(lesson.purchase_cost),
+            "paid_ep": int(entry.paid_ep) if entry else 0,
+            "base_value": 1 if entry else 0,
+            "can_unlearn": bool(entry and entry.can_unlearn),
+            "requirements_met": requirements_ok,
+            "requirements_display": requirements_display,
+            "costs_display": costs_display,
+            "description": lesson.description,
+            "fluff_quote": lesson.fluff_quote,
+            "fluff_quote_speaker": lesson.fluff_quote_speaker,
+            "quote_display": quote_display,
+            "activation_label": lesson.get_activation_type_display(),
+        }
+        if entry is not None or requirements_ok:
+            learning_groups.setdefault(lesson.school.name, []).append(learning_row)
+        if entry is None:
+            continue
+        group = panel_groups.setdefault(
+            int(lesson.school_id),
+            {
+                "school_id": int(lesson.school_id),
+                "name": lesson.school.name,
+                "symbol": str(lesson.school.panel_symbol or ""),
+                "symbol_image_url": _school_symbol_image_url(lesson.school),
+                "rows": [],
+            },
+        )
+        alternative_groups: dict[int, list[dict[str, object]]] = defaultdict(list)
+        manual_ungrouped_costs = []
+        base_kp_cost = 0
+        for cost in lesson.costs.all():
+            if cost.operator == LessonCost.Operator.OR and cost.alternative_group is not None:
+                alternative_groups[int(cost.alternative_group)].append(
+                    {
+                        "id": int(cost.id),
+                        "label": f"{int(cost.value)} {cost.type_label}",
+                        "description": cost.description,
+                        "manual": str(cost.cost_type) not in LESSON_COST_HANDLERS,
+                        "cost_type": str(cost.cost_type),
+                        "value": int(cost.value),
+                    }
+                )
+            elif str(cost.cost_type) not in LESSON_COST_HANDLERS:
+                manual_ungrouped_costs.append(format_cost(cost))
+            elif cost.cost_type == LessonCost.CostType.ARCANE_POWER:
+                base_kp_cost += int(cost.value)
+        group["rows"].append(
+            {
+                **learning_row,
+                "lesson_id": int(lesson.id),
+                "activation_url": reverse("activate_lesson", args=[character.id, lesson.id]),
+                "activation_enabled": not read_only,
+                "alternative_groups": [
+                    {"number": number, "options": options}
+                    for number, options in sorted(alternative_groups.items())
+                ],
+                "alternative_groups_json": json.dumps(
+                    [
+                        {"number": number, "options": options}
+                        for number, options in sorted(alternative_groups.items())
+                    ],
+                    ensure_ascii=False,
+                ),
+                "manual_costs_json": json.dumps(manual_ungrouped_costs, ensure_ascii=False),
+                "base_kp_cost": base_kp_cost,
+                "has_alternatives": bool(alternative_groups),
+                "search_tokens": (
+                    f"{lesson.name} {lesson.school.name} {lesson.description} "
+                    f"{lesson.fluff_quote} {lesson.fluff_quote_speaker} "
+                    f"{requirements_display} {costs_display} {lesson.get_activation_type_display()}"
+                ).lower(),
+            }
+        )
+    panel_group_list = list(panel_groups.values())
+    return {
+        "learn_lesson_tab_visible": bool(learning_groups),
+        "learn_lesson_groups": [
+            {"name": name, "rows": rows}
+            for name, rows in learning_groups.items()
+        ],
+        "lesson_panel_enabled": bool(panel_group_list),
+        "lesson_panel_groups": panel_group_list,
+        "lesson_panel_filter_groups": panel_group_list if len(panel_group_list) > 1 else [],
+    }
+
+
 def _build_learning_rows(
     character: Character,
     attributes: dict[str, int],
@@ -4034,6 +4177,7 @@ def build_character_sheet_context(
         school_levels,
         synchronize=not read_only,
     )
+    lesson_context = _build_lesson_context(character, read_only=read_only)
     learning_progression_context = build_learning_progression_context(
         character,
         engine=engine,
@@ -4283,7 +4427,9 @@ def build_character_sheet_context(
         int(character.artefact_rank) + int(engine.resolve_resource("artefact_rank")),
     )
     auto_school_fame_point = engine.auto_school_fame_points()
-    total_personal_fame_point = manual_personal_fame_point + auto_school_fame_point
+    auto_lesson_fame_point = engine.auto_lesson_fame_points()
+    auto_progression_fame_point = auto_school_fame_point + auto_lesson_fame_point
+    total_personal_fame_point = manual_personal_fame_point + auto_progression_fame_point
     effective_personal_fame_point = total_personal_fame_point % 10
     effective_personal_fame_rank = base_personal_fame_rank + (total_personal_fame_point // 10)
     fame_total_rank = effective_personal_fame_rank + int(character.sacrifice_rank) + effective_artefact_rank
@@ -4373,6 +4519,8 @@ def build_character_sheet_context(
         "auto_school_fame_point": auto_school_fame_point,
         "manual_personal_fame_point": manual_personal_fame_point,
         "manual_personal_fame_total": manual_personal_fame_total,
+        "auto_lesson_fame_point": auto_lesson_fame_point,
+        "auto_progression_fame_point": auto_progression_fame_point,
         "char_info_form": CharacterInfoInlineForm(instance=character),
         "selected_divine_entity": divine_entity,
         "selected_divine_binding": divine_binding,
@@ -4697,5 +4845,6 @@ def build_character_sheet_context(
         "learn_school_count": sum(len(group["rows"]) for group in learning_context["learn_school_groups"]),
         "learn_magic_count": sum(len(group["rows"]) for group in learning_context["learn_magic_groups"]),
         **learning_context,
+        **lesson_context,
         **learning_progression_context,
     }

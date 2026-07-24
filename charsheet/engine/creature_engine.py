@@ -12,6 +12,7 @@ from typing import Any
 from django.db.models import Q
 
 from charsheet.constants import (
+    ARCANE_POWER,
     ATTR_CHA,
     ATTR_GE,
     ATTR_INT,
@@ -30,6 +31,7 @@ from charsheet.constants import (
     QUALITY_VERY_POOR,
     QUALITY_WRETCHED,
     SKILL_COMBAT,
+    POTENTIAL,
 )
 from charsheet.models.creatures import (
     ATTRIBUTE_FIELD_MAP,
@@ -535,7 +537,9 @@ class CreatureEngine:
         if effect.target_domain in inline_targets:
             return True
         return effect.target_domain == TargetDomain.DERIVED_STAT and effect.target_key in {
+            ARCANE_POWER,
             "initiative",
+            POTENTIAL,
             "vw",
             "sr",
             "gw",
@@ -549,7 +553,9 @@ class CreatureEngine:
             return target_key
         if target_domain == TargetDomain.DERIVED_STAT:
             labels = {
+                ARCANE_POWER: "KP",
                 "initiative": "Initiative",
+                POTENTIAL: "Potential",
                 "vw": "VW",
                 "sr": "SR",
                 "gw": "GW",
@@ -687,6 +693,25 @@ class CreatureEngine:
         else:
             base = 14 + int(self.attribute_mod(ATTR_INT) or 0) + int(self.attribute_mod(ATTR_WILL) or 0)
         return base + int(self._instance_numeric_adjustment("gw_override")) + self._modifier_total(TargetDomain.DERIVED_STAT, "gw")
+
+    def kp(self) -> int | None:
+        if not self.creature.has_kp:
+            return None
+        if self.creature.kp_override is not None:
+            base = int(self.creature.kp_override)
+        else:
+            base = int(self.attribute_mod(ATTR_WILL) or 0) + 5
+        return base + self._modifier_total(TargetDomain.DERIVED_STAT, ARCANE_POWER)
+
+    def potential(self) -> int | None:
+        if not self.creature.has_kp:
+            return None
+        if self.creature.potential_override is not None:
+            base = int(self.creature.potential_override)
+        else:
+            willpower = int(self.attribute_mod(ATTR_WILL) or 0) + 5
+            base = willpower // 2
+        return base + self._modifier_total(TargetDomain.DERIVED_STAT, POTENTIAL)
 
     def fear_resistance_bonus(self) -> int:
         return int(self._value("fear_resistance_bonus", 0) or 0)
@@ -1227,6 +1252,8 @@ class CreatureEngine:
         holo_kind = "creature-legendary" if normalized_quality == "legendary" else "creature"
         movement = self.movement()
         movement_notes = self.movement_notes()
+        kp = self.kp()
+        potential = self.potential()
         has_ground = all(movement.get(key) is not None for key in ("combat", "march", "sprint"))
         has_single_swim = movement.get("swim") not in (None, "", 0, 0.0)
         has_swim = all(movement.get(key) is not None for key in ("swim_combat", "swim_march", "swim_sprint"))
@@ -1272,6 +1299,21 @@ class CreatureEngine:
             "gw": self.gw(),
             "gw_note": self._join_effect_notes(TargetDomain.DERIVED_STAT, "gw"),
             "gw_variants": self._conditional_value_variants(TargetDomain.DERIVED_STAT, "gw", self.gw()),
+            "has_kp": bool(self.creature.has_kp),
+            "kp": kp,
+            "kp_note": self._join_effect_notes(TargetDomain.DERIVED_STAT, ARCANE_POWER),
+            "kp_variants": (
+                self._conditional_value_variants(TargetDomain.DERIVED_STAT, ARCANE_POWER, kp)
+                if kp is not None
+                else []
+            ),
+            "potential": potential,
+            "potential_note": self._join_effect_notes(TargetDomain.DERIVED_STAT, POTENTIAL),
+            "potential_variants": (
+                self._conditional_value_variants(TargetDomain.DERIVED_STAT, POTENTIAL, potential)
+                if potential is not None
+                else []
+            ),
             "gw_extra": defense_extra_value if defense_extra_value else None,
             "gw_extra_label": defense_extra_label,
             "gw_fear": self.gw_against_fear() if defense_extra_value else None,

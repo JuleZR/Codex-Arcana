@@ -65,7 +65,24 @@ from .items import (
     WeaponType,
     WeaponStats,
 )
-from .groups import GameGroup, GameGroupInvitation, GameGroupMembership, GameGroupRole
+from .lessons import (
+    CharacterLesson,
+    Lesson,
+    LessonCost,
+    LessonRequirement,
+    LessonRequirementGroup,
+)
+from .groups import (
+    GameGroup,
+    GameGroupCreature,
+    GameGroupInvitation,
+    GameGroupMembership,
+    GameGroupRole,
+    GameGroupTable,
+    GameGroupTableCell,
+    GameGroupTableColumn,
+    GameGroupTableRow,
+)
 from .modifier import Modifier
 from .transfers import ItemOwnershipEvent, ItemPermissionGrant, ItemTransfer, ItemTransferNotification
 from .progression import (
@@ -132,6 +149,7 @@ __all__ = [
     "ItemRune",
     "CharacterItemRuneSpec",
     "CharacterLanguage",
+    "CharacterLesson",
     "CharacterRaceChoice",
     "CharacterSchool",
     "CharacterSchoolPath",
@@ -169,14 +187,23 @@ __all__ = [
     "CreatureTraitSemanticEffect",
     "Item",
     "GameGroup",
+    "GameGroupCreature",
     "GameGroupInvitation",
     "GameGroupMembership",
     "GameGroupRole",
+    "GameGroupTable",
+    "GameGroupTableCell",
+    "GameGroupTableColumn",
+    "GameGroupTableRow",
     "ItemOwnershipEvent",
     "ItemPermissionGrant",
     "ItemTransfer",
     "ItemTransferNotification",
     "Language",
+    "Lesson",
+    "LessonCost",
+    "LessonRequirement",
+    "LessonRequirementGroup",
     "MagicItemStats",
     "Modifier",
     "Quality",

@@ -157,6 +157,10 @@
                 <span class="creature-card__core-stat"><strong>Initiative</strong><span class="creature-card__core-value">{{ creature_card.initiative }}{% for variant in creature_card.initiative_variants %}/<span class="tooltip_target" data-tooltip="{{ variant.note }}" data-tooltip-side="right">{{ variant.value }}</span>{% endfor %}</span></span>
                 <span class="creature-card__core-stat"><strong>VW</strong><span class="creature-card__core-value">{{ creature_card.vw }}{% for variant in creature_card.vw_variants %}/<span class="tooltip_target" data-tooltip="{{ variant.note }}" data-tooltip-side="right">{{ variant.value }}</span>{% endfor %}</span></span>
                 <span class="creature-card__core-stat"><strong>SR</strong><span class="creature-card__core-value">{{ creature_card.sr }}{% for variant in creature_card.sr_variants %}/<span class="tooltip_target" data-tooltip="{{ variant.note }}" data-tooltip-side="right">{{ variant.value }}</span>{% endfor %}</span></span>
+                {% if creature_card.has_kp %}
+                    <span class="creature-card__core-stat"><strong>KP</strong><span class="creature-card__core-value">{{ creature_card.kp }}{% for variant in creature_card.kp_variants %}/<span class="tooltip_target" data-tooltip="{{ variant.note }}" data-tooltip-side="right">{{ variant.value }}</span>{% endfor %}</span></span>
+                    <span class="creature-card__core-stat"><strong>Pot</strong><span class="creature-card__core-value">{{ creature_card.potential }}{% for variant in creature_card.potential_variants %}/<span class="tooltip_target" data-tooltip="{{ variant.note }}" data-tooltip-side="right">{{ variant.value }}</span>{% endfor %}</span></span>
+                {% endif %}
                 <span class="creature-card__core-stat creature-card__core-stat--gw">
                     <span><strong>GW</strong><span class="creature-card__core-value">{{ creature_card.gw }}{% for variant in creature_card.gw_variants %}/<span class="tooltip_target" data-tooltip="{{ variant.note }}" data-tooltip-side="right">{{ variant.value }}</span>{% endfor %}</span></span>
                 </span>

@@ -11,11 +11,12 @@
       {% include "charsheet/partials/_armor_panel.html" %}
 
       {% comment %}── Unterer Kasten: Körperzonen + optionale Tabs ─────────────────────{% endcomment %}
-      <div class="p2_panel p2_lower_panel{% if spell_panel_enabled or weapon_mastery_arcana_panel %} p2_lower_panel--tabbed{% endif %}"{% if spell_panel_enabled or weapon_mastery_arcana_panel %} data-tabs data-tabs-key="lower-panel"{% endif %}>
-        {% if spell_panel_enabled or weapon_mastery_arcana_panel %}
+      <div class="p2_panel p2_lower_panel{% if spell_panel_enabled or lesson_panel_enabled or weapon_mastery_arcana_panel %} p2_lower_panel--tabbed{% endif %}"{% if spell_panel_enabled or lesson_panel_enabled or weapon_mastery_arcana_panel %} data-tabs data-tabs-key="lower-panel"{% endif %}>
+        {% if spell_panel_enabled or lesson_panel_enabled or weapon_mastery_arcana_panel %}
         <div class="panel_tabs__list" role="tablist" aria-label="Körper und Fähigkeiten">
           <button class="panel_tabs__tab" role="tab" aria-selected="true" data-tab-target="lowerPanelBody">Körper</button>
           {% if spell_panel_enabled %}<button class="panel_tabs__tab" role="tab" aria-selected="false" data-tab-target="lowerPanelSpells">Zauber</button>{% endif %}
+          {% if lesson_panel_enabled %}<button class="panel_tabs__tab" role="tab" aria-selected="false" data-tab-target="lowerPanelLessons">Lektionen</button>{% endif %}
           {% if weapon_mastery_arcana_panel %}<button class="panel_tabs__tab" role="tab" aria-selected="false" data-tab-target="lowerPanelWaffenmeister">Waffenmeister</button>{% endif %}
         </div>
         {% endif %}
@@ -93,6 +94,12 @@
         {% if spell_panel_enabled %}
         <div id="lowerPanelSpells" data-tab-panel hidden class="p2_lower_panel__spell_tab">
           {% include "charsheet/partials/_spell_panel.html" %}
+        </div>
+        {% endif %}
+
+        {% if lesson_panel_enabled %}
+        <div id="lowerPanelLessons" data-tab-panel hidden class="p2_lower_panel__spell_tab">
+          {% include "charsheet/partials/_lesson_panel.html" %}
         </div>
         {% endif %}
 

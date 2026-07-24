@@ -220,6 +220,26 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
       }
       valueInput.min = String(minAdd);
       valueInput.max = String(maxAdd);
+    } else if (kind === "lesson") {
+      const base = readInt(row.getAttribute("data-base"), 0);
+      const canUnlearn = row.getAttribute("data-can-unlearn") === "1";
+      const minAdd = base > 0 && canUnlearn ? -1 : 0;
+      const maxAdd = base > 0 ? 0 : 1;
+      const hidden = row.querySelector("[data-learn-hidden]");
+      value = clamp(value, minAdd, maxAdd);
+      cost = value > 0
+        ? readInt(row.getAttribute("data-purchase-cost"), 8)
+        : value < 0
+          ? -readInt(row.getAttribute("data-paid-ep"), 0)
+          : 0;
+      if (hidden instanceof HTMLInputElement) {
+        hidden.value = String(value);
+      }
+      if (infoEl) {
+        infoEl.textContent = base + value > 0 ? "(erlernt)" : "(verlernt)";
+      }
+      valueInput.min = String(minAdd);
+      valueInput.max = String(maxAdd);
     } else if (kind === "magic-spell") {
       const hidden = row.querySelector("[data-learn-hidden]");
       value = clamp(value, 0, 1);
@@ -656,6 +676,35 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
           </div>
         </td>
         <td data-learn-cost>0 EP</td>
+        <td><button type="button" class="shop_cart_remove_btn" data-learn-remove aria-label="Eintrag entfernen">x</button></td>
+      `;
+      return row;
+    }
+
+    if (kind === "lesson") {
+      const lessonId = source.getAttribute("data-id") || "";
+      const base = readInt(source.getAttribute("data-base"), 0);
+      const purchaseCost = readInt(source.getAttribute("data-purchase-cost"), 8);
+      const paidEp = readInt(source.getAttribute("data-paid-ep"), 0);
+      const canUnlearn = source.getAttribute("data-can-unlearn") === "1";
+      if (base > 0 && !canUnlearn) {
+        return null;
+      }
+      const minAdd = base > 0 ? -1 : 0;
+      const maxAdd = base > 0 ? 0 : 1;
+      const startAdd = base > 0 ? -1 : 1;
+      row.setAttribute("data-base", String(base));
+      row.setAttribute("data-purchase-cost", String(purchaseCost));
+      row.setAttribute("data-paid-ep", String(paidEp));
+      row.setAttribute("data-can-unlearn", canUnlearn ? "1" : "0");
+      row.innerHTML = `
+        <td><span>${safeName}</span> <span data-learn-level-info>${base + startAdd > 0 ? "(erlernt)" : "(verlernt)"}</span><input type="hidden" name="learn_lesson_add_${lessonId}" value="${startAdd}" data-learn-hidden></td>
+        <td>
+          <div class="shop_qty_stepper">
+            <input class="shop_cart_qty_input" type="number" min="${minAdd}" max="${maxAdd}" value="${startAdd}" data-learn-value readonly>
+          </div>
+        </td>
+        <td data-learn-cost>${startAdd > 0 ? purchaseCost : -paidEp} EP</td>
         <td><button type="button" class="shop_cart_remove_btn" data-learn-remove aria-label="Eintrag entfernen">x</button></td>
       `;
       return row;

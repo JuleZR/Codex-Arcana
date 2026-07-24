@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import json
+import re
 from decimal import Decimal, InvalidOperation
+from html import escape
+from html.parser import HTMLParser
 
 from django.contrib import messages
 from django.contrib.auth import get_user_model
@@ -11,6 +14,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
+from django.db.models import F, Max, Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -44,15 +48,23 @@ from charsheet.item_transfers import (
     recall_group_transfer,
 )
 from charsheet.engine import ItemEngine
+from charsheet.engine.creature_engine import CreatureEngine
 from charsheet.models import (
     Character,
+    CharacterCreature,
     CharacterDiaryEntry,
     CharacterItem,
     DamageSource,
+    Creature,
     GameGroup,
+    GameGroupCreature,
     GameGroupInvitation,
     GameGroupMembership,
     GameGroupRole,
+    GameGroupTable,
+    GameGroupTableCell,
+    GameGroupTableColumn,
+    GameGroupTableRow,
     Item,
     ItemOwnershipEvent,
     ItemTransfer,
@@ -98,7 +110,14 @@ def _group_action(view):
             messages.error(request, exc.message)
             group_id = kwargs.get("group_id")
             if request.POST.get("_sl_screen") == "1" and group_id:
-                return redirect(f"{reverse('game_master_screen', args=[group_id])}#sl-inventar")
+                anchor = request.POST.get("_sl_anchor")
+                if anchor not in {"sl-charaktere", "sl-inventar", "sl-tabellen"}:
+                    anchor = "sl-inventar"
+                screen_url = reverse("game_master_screen", args=[group_id])
+                edit_table_id = request.POST.get("_edit_table_id")
+                if anchor == "sl-tabellen" and str(edit_table_id or "").isdigit():
+                    screen_url = f"{screen_url}?edit_table={edit_table_id}"
+                return redirect(f"{screen_url}#{anchor}")
             if request.POST.get("_dashboard") == "1":
                 return redirect(f"{reverse('dashboard')}#sl-inventar")
             return redirect("game_group_detail", group_id=group_id) if group_id else redirect("dashboard")
@@ -370,7 +389,11 @@ def game_master_screen(request, group_id: int):
             character__is_archived=False,
         )
         .select_related("character", "character__race")
-        .order_by("character__name")
+        .order_by(
+            F("screen_position").asc(nulls_last=True),
+            "character__name",
+            "id",
+        )
     )
     for membership in memberships:
         character = membership.character
@@ -393,8 +416,33 @@ def game_master_screen(request, group_id: int):
         is_dead = wound_stage == "Tod"
         is_incapacitated = wound_stage in {"Ausser Gefecht", "Außer Gefecht", "Koma"}
         attributes = engine.attributes()
+        subtitle = character.race.name
+        if wound_stage != "-":
+            subtitle += f" · {wound_stage}"
+            if format_modifier(wound_penalty) != "0":
+                subtitle += f" ({format_modifier(wound_penalty)})"
         roster.append(
             {
+                "card_kind": "character",
+                "card_id": f"character:{membership.id}",
+                "screen_position": membership.screen_position,
+                "screen_is_collapsed": membership.screen_is_collapsed,
+                "screen_state_url": reverse(
+                    "set_group_membership_screen_state",
+                    args=[group.id, membership.id],
+                ),
+                "kind_label": "Charakter",
+                "name": character.name,
+                "subtitle": subtitle,
+                "image": character.char_picture,
+                "fallback_letter": character.name[:1],
+                "potential_label": "Pot",
+                "show_arcane": True,
+                "footer_label": "Vollständigen Bogen öffnen",
+                "detail_url": reverse(
+                    "game_master_character_sheet",
+                    args=[group.id, character.id],
+                ),
                 "membership": membership,
                 "character": character,
                 "attributes": {
@@ -430,6 +478,159 @@ def game_master_screen(request, group_id: int):
                 "lethal_damage_percent": f"{displayed_lethal_damage / max_lp * 100:.4f}" if max_lp else "0",
             }
         )
+    creature_cards = list(
+        group.screen_creatures.select_related(
+            "creature",
+            "creature__quality",
+            "character_creature",
+            "character_creature__owner",
+            "character_creature__creature",
+            "character_creature__quality",
+            "character_creature__source_binding",
+        ).prefetch_related(
+            "creature__attributes__attribute",
+        )
+    )
+    for creature_card in creature_cards:
+        creature = creature_card.creature
+        character_creature = creature_card.character_creature
+        creature_source = character_creature or creature
+        engine = CreatureEngine(creature_source)
+        wound_rows = engine.wound_rows()
+        max_lp = wound_rows[-1]["threshold"] if wound_rows else 0
+        stun_damage = max(0, int(creature_card.current_stun_damage or 0))
+        lethal_damage = max(0, int(creature_card.current_lethal_damage or 0))
+        current_damage = stun_damage + lethal_damage
+        displayed_stun_damage = min(stun_damage, max_lp)
+        displayed_lethal_damage = min(
+            lethal_damage,
+            max(0, max_lp - displayed_stun_damage),
+        )
+        wound_stage = "-"
+        wound_penalty = 0
+        for wound_row in wound_rows:
+            if current_damage < int(wound_row["threshold"]):
+                break
+            wound_stage = wound_row["label"]
+            wound_penalty = int(wound_row["penalty"])
+        if max_lp and current_damage > max_lp:
+            wound_stage = "Tod"
+            wound_penalty = 0
+        is_dead = wound_stage == "Tod"
+        is_incapacitated = wound_stage in {
+            "Ausser Gefecht",
+            "Außer Gefecht",
+            "Koma",
+        }
+        creature_attributes = {}
+        for attribute in engine.attribute_rows():
+            modifier = attribute["value"]
+            creature_attributes[attribute["label"]] = {
+                "value": "-" if modifier is None else int(modifier) + 5,
+                "modifier": attribute["display"],
+            }
+        subtitle_parts = []
+        if character_creature:
+            subtitle_parts.append(character_creature.owner.name)
+        if wound_stage != "-":
+            wound_status = wound_stage
+            if format_modifier(wound_penalty) != "0":
+                wound_status += f" ({format_modifier(wound_penalty)})"
+            subtitle_parts.append(wound_status)
+        subtitle = " · ".join(subtitle_parts)
+        movement = engine.movement_display()
+        movement_values = [
+            movement.get(key)
+            for key in ("combat", "march", "sprint")
+            if movement.get(key) not in (None, "")
+        ]
+        creature_kp = engine.kp()
+        creature_potential = engine.potential()
+        has_creature_kp = creature_kp is not None
+        creature_kp_max = max(0, int(creature_kp or 0))
+        creature_current_kp = (
+            creature_kp_max
+            if creature_card.current_kp is None
+            else max(0, min(creature_kp_max, int(creature_card.current_kp)))
+        )
+        roster.append(
+            {
+                "card_kind": "creature",
+                "card_id": f"creature:{creature_card.id}",
+                "screen_position": creature_card.screen_position,
+                "screen_is_collapsed": creature_card.screen_is_collapsed,
+                "screen_state_url": reverse(
+                    "set_group_creature_screen_state",
+                    args=[group.id, creature_card.id],
+                ),
+                "kind_label": (
+                    character_creature.source_binding.choice_label
+                    if character_creature
+                    and character_creature.source_binding
+                    and character_creature.source_binding.choice_label
+                    else "Kreatur"
+                ),
+                "name": creature_source.display_name,
+                "subtitle": subtitle,
+                "image": creature_source.image,
+                "fallback_letter": creature_source.display_name[:1],
+                "potential_label": "Pot" if has_creature_kp else "GK",
+                "show_arcane": has_creature_kp,
+                "secondary_status_label": "Bewegung",
+                "secondary_status_value": " / ".join(movement_values) or "–",
+                "creature_damage_rows": (
+                    ("B", stun_damage),
+                    ("T", lethal_damage),
+                ),
+                "footer_label": (
+                    creature.organization.strip()
+                    or f"Kreatur · {creature.quality.name}"
+                ),
+                "detail_url": "",
+                "group_creature": creature_card,
+                "creature": creature,
+                "character_creature": character_creature,
+                "attributes": creature_attributes,
+                "vw": engine.vw(),
+                "gw": engine.gw(),
+                "sr": engine.sr(),
+                "potential": creature_potential if has_creature_kp else engine.size_class(),
+                "total_armor": engine.armor_totals().total_rs,
+                "initiative": engine.initiative(),
+                "initiative_with_load": engine.initiative(),
+                "initiative_display": format_modifier(engine.initiative()),
+                "initiative_with_load_display": format_modifier(engine.initiative()),
+                "load_penalty": 0,
+                "wound_stage": wound_stage,
+                "wound_penalty_display": format_modifier(wound_penalty),
+                "is_incapacitated": is_incapacitated,
+                "is_dead": is_dead,
+                "current_kp": creature_current_kp,
+                "max_kp": creature_kp_max,
+                "max_lp": max_lp,
+                "current_lp": max(0, max_lp - current_damage),
+                "stun_damage": stun_damage,
+                "lethal_damage": lethal_damage,
+                "stun_damage_percent": (
+                    f"{displayed_stun_damage / max_lp * 100:.4f}"
+                    if max_lp
+                    else "0"
+                ),
+                "lethal_damage_percent": (
+                    f"{displayed_lethal_damage / max_lp * 100:.4f}"
+                    if max_lp
+                    else "0"
+                ),
+            }
+        )
+    roster.sort(
+        key=lambda row: (
+            row["screen_position"] is None,
+            row["screen_position"] if row["screen_position"] is not None else 0,
+            row["name"].casefold(),
+            row["card_id"],
+        )
+    )
     inventory_items = list(
         CharacterItem.objects.filter(group_owner=group)
         .select_related(
@@ -552,6 +753,7 @@ def game_master_screen(request, group_id: int):
                 f"{row['load_penalty']}:{row['total_armor']}:"
                 f"{int(row['character'].carry_load_enabled)}"
                 for row in roster
+                if row["card_kind"] == "character"
             ),
         ]
     )
@@ -563,12 +765,128 @@ def game_master_screen(request, group_id: int):
         "pending_transfers": pending_transfers,
         "screen_state_signature": screen_state_signature,
     }
+    all_data_tables = list(
+        group.data_tables.prefetch_related(
+            "columns",
+            "rows__cells",
+        )
+    )
+    data_tables = [
+        data_table
+        for data_table in all_data_tables
+        if data_table.is_visible
+    ]
+    hidden_data_tables = [
+        data_table
+        for data_table in all_data_tables
+        if not data_table.is_visible
+    ]
+    for data_table in data_tables:
+        data_table.render_columns = list(data_table.columns.all())
+        data_table.render_rows = list(data_table.rows.all())
+        data_table.render_card_width = max(
+            320,
+            (len(data_table.render_columns) * 140) + 20,
+        )
+        data_table.render_editor_width = data_table.render_card_width * 2
+        occupied_coordinates = set()
+        for data_row in data_table.render_rows:
+            cells_by_column = {
+                cell.column_id: cell
+                for cell in data_row.cells.all()
+            }
+            data_row.render_cells = [
+                cells_by_column.get(column.id)
+                for column in data_table.render_columns
+            ]
+        for row_index, data_row in enumerate(data_table.render_rows):
+            data_row.render_display_cells = []
+            for column_index, cell in enumerate(data_row.render_cells):
+                if cell is None:
+                    continue
+                cell.render_row_index = row_index
+                cell.render_column_index = column_index
+                cell.render_is_covered = (
+                    row_index,
+                    column_index,
+                ) in occupied_coordinates
+                if cell.render_is_covered:
+                    continue
+                row_span = min(
+                    max(1, int(cell.row_span or 1)),
+                    len(data_table.render_rows) - row_index,
+                )
+                column_span = min(
+                    max(1, int(cell.column_span or 1)),
+                    len(data_table.render_columns) - column_index,
+                )
+                while any(
+                    (covered_row, covered_column) in occupied_coordinates
+                    for covered_row in range(row_index, row_index + row_span)
+                    for covered_column in range(column_index, column_index + column_span)
+                ):
+                    if column_span > 1:
+                        column_span -= 1
+                    elif row_span > 1:
+                        row_span -= 1
+                    else:
+                        break
+                cell.render_row_span = row_span
+                cell.render_column_span = column_span
+                data_row.render_display_cells.append(cell)
+                occupied_coordinates.update(
+                    (covered_row, covered_column)
+                    for covered_row in range(row_index, row_index + row_span)
+                    for covered_column in range(column_index, column_index + column_span)
+                )
+    try:
+        editing_table_id = int(request.GET.get("edit_table") or 0)
+    except (TypeError, ValueError):
+        editing_table_id = 0
+    character_creature_options = (
+        CharacterCreature.objects.filter(
+            owner_id__in=[membership.character_id for membership in memberships],
+            active=True,
+        )
+        .exclude(
+            Q(creature__slug="system-leere-tierform")
+            & Q(source_selection_completed=False)
+        )
+        .select_related(
+            "owner",
+            "creature",
+            "quality",
+            "source_binding",
+        )
+        .order_by(
+            "owner__name",
+            "name_override",
+            "creature__name",
+            "id",
+        )
+    )
     return render(
         request,
         "charsheet/game_master_screen.html",
         {
             "group": group,
             "roster": roster,
+            "character_count": len(memberships),
+            "creature_count": len(creature_cards),
+            "creature_options": (
+                Creature.objects.exclude(slug="system-leere-tierform")
+                .select_related("quality")
+                .order_by("name")
+            ),
+            "character_creature_options": character_creature_options,
+            "has_collapsed_roster": any(row["screen_is_collapsed"] for row in roster),
+            "data_tables": data_tables,
+            "hidden_data_tables": hidden_data_tables,
+            "hidden_screen_item_count": (
+                len(hidden_data_tables)
+                + (0 if group.screen_note_is_visible else 1)
+            ),
+            "editing_table_id": editing_table_id,
             "sl_inventory_groups": [inventory_row],
             "group_inventory_global_items": Item.objects.filter(
                 catalog_group__isnull=True
@@ -607,6 +925,972 @@ def game_master_screen(request, group_id: int):
 
 
 @login_required
+@require_POST
+@_group_action
+def add_group_creature(request, group_id: int):
+    with transaction.atomic():
+        group = GameGroup.objects.select_for_update().get(pk=group_id)
+        require_game_master(request.user, group, write=True)
+        creature_reference = str(request.POST.get("creature_ref", "")).strip()
+        character_creature = None
+        if creature_reference.startswith("character:"):
+            try:
+                character_creature_id = int(
+                    creature_reference.partition(":")[2]
+                )
+            except (TypeError, ValueError) as exc:
+                raise GroupError(
+                    "creature_required",
+                    "Bitte eine Kreatur auswählen.",
+                ) from exc
+            character_creature = get_object_or_404(
+                CharacterCreature.objects.select_related("creature"),
+                pk=character_creature_id,
+                active=True,
+                owner__game_group_memberships__group=group,
+                owner__game_group_memberships__status=GameGroupMembership.Status.ACTIVE,
+                owner__is_archived=False,
+            )
+            if (
+                character_creature.creature.slug == "system-leere-tierform"
+                and not character_creature.source_selection_completed
+            ):
+                raise GroupError(
+                    "creature_required",
+                    "Unvollständige Tierformen können nicht hinzugefügt werden.",
+                )
+            creature = character_creature.creature
+        else:
+            raw_creature_id = (
+                creature_reference.partition(":")[2]
+                if creature_reference.startswith("base:")
+                else request.POST.get("creature_id", "")
+            )
+            try:
+                creature_id = int(raw_creature_id)
+            except (TypeError, ValueError) as exc:
+                raise GroupError(
+                    "creature_required",
+                    "Bitte eine Kreatur auswählen.",
+                ) from exc
+            creature = get_object_or_404(
+                Creature.objects.exclude(slug="system-leere-tierform"),
+                pk=creature_id,
+            )
+        membership_position = (
+            GameGroupMembership.objects.filter(
+                group=group,
+                status=GameGroupMembership.Status.ACTIVE,
+                character__is_archived=False,
+            ).aggregate(value=Max("screen_position"))["value"]
+        )
+        creature_position = group.screen_creatures.aggregate(
+            value=Max("screen_position")
+        )["value"]
+        last_position = max(
+            value
+            for value in (membership_position, creature_position, -1)
+            if value is not None
+        )
+        creature_kp = CreatureEngine(
+            character_creature or creature
+        ).kp()
+        GameGroupCreature.objects.create(
+            group=group,
+            creature=creature,
+            character_creature=character_creature,
+            screen_position=last_position + 1,
+            current_kp=(
+                max(0, int(creature_kp))
+                if creature_kp is not None
+                else None
+            ),
+        )
+
+    return redirect(
+        f"{reverse('game_master_screen', args=[group.id])}#sl-charaktere"
+    )
+
+
+@login_required
+@require_POST
+@_group_action
+def delete_group_creature(request, group_id: int, creature_card_id: int):
+    with transaction.atomic():
+        group = GameGroup.objects.select_for_update().get(pk=group_id)
+        require_game_master(request.user, group, write=True)
+        creature_card = get_object_or_404(
+            GameGroupCreature.objects.select_for_update(),
+            pk=creature_card_id,
+            group=group,
+        )
+        creature_card.delete()
+
+    return redirect(
+        f"{reverse('game_master_screen', args=[group.id])}#sl-charaktere"
+    )
+
+
+@login_required
+@require_POST
+@_group_action
+def adjust_group_creature_damage(request, group_id: int, creature_card_id: int):
+    with transaction.atomic():
+        group = GameGroup.objects.select_for_update().get(pk=group_id)
+        require_game_master(request.user, group, write=True)
+        creature_card = get_object_or_404(
+            GameGroupCreature.objects.select_for_update(of=("self",)).select_related(
+                "creature",
+                "character_creature",
+                "character_creature__creature",
+            ),
+            pk=creature_card_id,
+            group=group,
+        )
+        action = request.POST.get("action")
+        damage_type = request.POST.get("damage_type")
+        try:
+            amount = max(1, int(request.POST.get("amount", "1")))
+        except (TypeError, ValueError):
+            amount = 1
+        wound_rows = CreatureEngine(
+            creature_card.character_creature or creature_card.creature
+        ).wound_rows()
+        max_lp = int(wound_rows[-1]["threshold"]) if wound_rows else 0
+        if damage_type in {"B", "T"} and action in {"damage", "heal"}:
+            creature_card.adjust_damage(
+                damage_type=damage_type,
+                action=action,
+                amount=amount,
+                stun_max=max_lp,
+            )
+            creature_card.save(
+                update_fields=[
+                    "current_stun_damage",
+                    "current_lethal_damage",
+                ]
+            )
+
+    return redirect(
+        f"{reverse('game_master_screen', args=[group.id])}#sl-charaktere"
+    )
+
+
+@login_required
+@require_POST
+@_group_action
+def adjust_group_creature_kp(request, group_id: int, creature_card_id: int):
+    with transaction.atomic():
+        group = GameGroup.objects.select_for_update().get(pk=group_id)
+        require_game_master(request.user, group, write=True)
+        creature_card = get_object_or_404(
+            GameGroupCreature.objects.select_for_update(of=("self",)).select_related(
+                "creature",
+                "character_creature",
+                "character_creature__creature",
+            ),
+            pk=creature_card_id,
+            group=group,
+        )
+        maximum = CreatureEngine(
+            creature_card.character_creature or creature_card.creature
+        ).kp()
+        if maximum is not None:
+            try:
+                amount = max(1, int(request.POST.get("amount", "1")))
+            except (TypeError, ValueError):
+                amount = 1
+            creature_card.adjust_kp(
+                action=str(request.POST.get("action") or ""),
+                amount=amount,
+                maximum=max(0, int(maximum)),
+            )
+            creature_card.save(update_fields=["current_kp"])
+
+    return redirect(
+        f"{reverse('game_master_screen', args=[group.id])}#sl-charaktere"
+    )
+
+
+@login_required
+@require_POST
+def reorder_group_memberships(request, group_id: int):
+    with transaction.atomic():
+        group = GameGroup.objects.select_for_update().get(pk=group_id)
+        try:
+            require_game_master(request.user, group, write=True)
+        except GroupError as exc:
+            return JsonResponse(
+                {"ok": False, "error": exc.message},
+                status=exc.status,
+            )
+        memberships = list(
+            GameGroupMembership.objects.select_for_update()
+            .filter(
+                group=group,
+                status=GameGroupMembership.Status.ACTIVE,
+                character__is_archived=False,
+            )
+            .order_by(
+                F("screen_position").asc(nulls_last=True),
+                "character__name",
+                "id",
+            )
+        )
+        creature_cards = list(
+            GameGroupCreature.objects.select_for_update()
+            .filter(group=group)
+            .order_by(
+                F("screen_position").asc(nulls_last=True),
+                "creature__name",
+                "id",
+            )
+        )
+        ordered_tokens = request.POST.getlist("ordered_ids")
+        if (
+            not creature_cards
+            and ordered_tokens
+            and all(str(token).isdigit() for token in ordered_tokens)
+        ):
+            ordered_tokens = [
+                f"character:{token}"
+                for token in ordered_tokens
+            ]
+
+        membership_by_token = {
+            f"character:{membership.id}": membership
+            for membership in memberships
+        }
+        creature_by_token = {
+            f"creature:{creature_card.id}": creature_card
+            for creature_card in creature_cards
+        }
+        expected_tokens = set(membership_by_token) | set(creature_by_token)
+        if (
+            len(ordered_tokens) != len(expected_tokens)
+            or len(ordered_tokens) != len(set(ordered_tokens))
+            or set(ordered_tokens) != expected_tokens
+        ):
+            return JsonResponse(
+                {"ok": False, "error": "Die Kartenreihenfolge ist unvollständig."},
+                status=400,
+            )
+
+        for position, token in enumerate(ordered_tokens):
+            if token in membership_by_token:
+                membership_by_token[token].screen_position = position
+            else:
+                creature_by_token[token].screen_position = position
+        GameGroupMembership.objects.bulk_update(
+            memberships,
+            ["screen_position"],
+        )
+        GameGroupCreature.objects.bulk_update(
+            creature_cards,
+            ["screen_position"],
+        )
+
+    return JsonResponse({"ok": True})
+
+
+@login_required
+@require_POST
+def set_group_membership_screen_state(
+    request,
+    group_id: int,
+    membership_id: int,
+):
+    with transaction.atomic():
+        group = GameGroup.objects.select_for_update().get(pk=group_id)
+        try:
+            require_game_master(request.user, group, write=True)
+        except GroupError as exc:
+            return JsonResponse(
+                {"ok": False, "error": exc.message},
+                status=exc.status,
+            )
+        membership = get_object_or_404(
+            GameGroupMembership.objects.select_for_update(),
+            pk=membership_id,
+            group=group,
+            status=GameGroupMembership.Status.ACTIVE,
+            character__is_archived=False,
+        )
+        membership.screen_is_collapsed = (
+            request.POST.get("is_collapsed", "").lower()
+            in {"1", "true", "yes", "on"}
+        )
+        membership.save(update_fields=["screen_is_collapsed"])
+
+    return JsonResponse(
+        {
+            "ok": True,
+            "membership_id": membership.id,
+            "is_collapsed": membership.screen_is_collapsed,
+        }
+    )
+
+
+@login_required
+@require_POST
+def set_group_creature_screen_state(
+    request,
+    group_id: int,
+    creature_card_id: int,
+):
+    with transaction.atomic():
+        group = GameGroup.objects.select_for_update().get(pk=group_id)
+        try:
+            require_game_master(request.user, group, write=True)
+        except GroupError as exc:
+            return JsonResponse(
+                {"ok": False, "error": exc.message},
+                status=exc.status,
+            )
+        creature_card = get_object_or_404(
+            GameGroupCreature.objects.select_for_update(),
+            pk=creature_card_id,
+            group=group,
+        )
+        creature_card.screen_is_collapsed = (
+            request.POST.get("is_collapsed", "").lower()
+            in {"1", "true", "yes", "on"}
+        )
+        creature_card.save(update_fields=["screen_is_collapsed"])
+
+    return JsonResponse(
+        {
+            "ok": True,
+            "card_id": f"creature:{creature_card.id}",
+            "is_collapsed": creature_card.screen_is_collapsed,
+        }
+    )
+
+
+@login_required
+@require_POST
+def set_group_inventory_screen_state(request, group_id: int):
+    with transaction.atomic():
+        group = GameGroup.objects.select_for_update().get(pk=group_id)
+        try:
+            require_game_master(request.user, group, write=True)
+        except GroupError as exc:
+            return JsonResponse(
+                {"ok": False, "error": exc.message},
+                status=exc.status,
+            )
+        group.screen_inventory_is_collapsed = (
+            request.POST.get("is_collapsed", "").lower()
+            in {"1", "true", "yes", "on"}
+        )
+        group.save(update_fields=["screen_inventory_is_collapsed"])
+
+    return JsonResponse(
+        {
+            "ok": True,
+            "is_collapsed": group.screen_inventory_is_collapsed,
+        }
+    )
+
+
+class _GroupNoteHTMLSanitizer(HTMLParser):
+    allowed_tags = {
+        "b",
+        "blockquote",
+        "br",
+        "div",
+        "em",
+        "h1",
+        "h2",
+        "h3",
+        "i",
+        "li",
+        "ol",
+        "p",
+        "strong",
+        "u",
+        "ul",
+    }
+    void_tags = {"br"}
+
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.parts = []
+
+    def handle_starttag(self, tag, attrs):
+        normalized_tag = str(tag or "").lower()
+        if normalized_tag in self.allowed_tags:
+            self.parts.append(f"<{normalized_tag}>")
+
+    def handle_startendtag(self, tag, attrs):
+        self.handle_starttag(tag, attrs)
+
+    def handle_endtag(self, tag):
+        normalized_tag = str(tag or "").lower()
+        if (
+            normalized_tag in self.allowed_tags
+            and normalized_tag not in self.void_tags
+        ):
+            self.parts.append(f"</{normalized_tag}>")
+
+    def handle_data(self, data):
+        self.parts.append(escape(data, quote=False))
+
+
+def _sanitize_group_note_html(raw_html: str) -> str:
+    sanitizer = _GroupNoteHTMLSanitizer()
+    sanitizer.feed(str(raw_html or "")[:50000])
+    sanitizer.close()
+    return "".join(sanitizer.parts)[:50000]
+
+
+def _table_screen_redirect(group_id: int, *, edit_table_id: int | None = None):
+    url = reverse("game_master_screen", args=[group_id])
+    if edit_table_id:
+        url = f"{url}?edit_table={edit_table_id}"
+    return redirect(f"{url}#sl-tabellen")
+
+
+def _normalized_table_title(raw_title: str) -> str:
+    title = " ".join(str(raw_title or "").split())[:150]
+    if not title:
+        raise GroupError("table_title_required", "Bitte eine Tabellenüberschrift angeben.")
+    return title
+
+
+def _bounded_table_size(raw_value, *, default: int) -> int:
+    try:
+        value = int(raw_value or default)
+    except (TypeError, ValueError) as exc:
+        raise GroupError("invalid_table_size", "Zeilen und Spalten müssen als Zahl angegeben werden.") from exc
+    return max(1, min(value, 20))
+
+
+def _bounded_cell_span(raw_value) -> int:
+    try:
+        value = int(raw_value or 1)
+    except (TypeError, ValueError) as exc:
+        raise GroupError("invalid_cell_span", "Rowspan und Colspan müssen Zahlen sein.") from exc
+    return max(1, min(value, 20))
+
+
+@login_required
+@require_POST
+@_group_action
+def create_group_table(request, group_id: int):
+    with transaction.atomic():
+        group = GameGroup.objects.select_for_update().get(pk=group_id)
+        require_game_master(request.user, group, write=True)
+        title = _normalized_table_title(request.POST.get("title", ""))
+        column_count = _bounded_table_size(request.POST.get("column_count"), default=3)
+        row_count = _bounded_table_size(request.POST.get("row_count"), default=3)
+        max_position = group.data_tables.aggregate(value=Max("position"))["value"]
+        data_table = GameGroupTable.objects.create(
+            group=group,
+            title=title,
+            position=(max_position + 1) if max_position is not None else 0,
+        )
+        columns = GameGroupTableColumn.objects.bulk_create(
+            [
+                GameGroupTableColumn(
+                    table=data_table,
+                    heading=f"Spalte {position + 1}",
+                    position=position,
+                )
+                for position in range(column_count)
+            ]
+        )
+        rows = GameGroupTableRow.objects.bulk_create(
+            [
+                GameGroupTableRow(table=data_table, position=position)
+                for position in range(row_count)
+            ]
+        )
+        GameGroupTableCell.objects.bulk_create(
+            [
+                GameGroupTableCell(row=row, column=column)
+                for row in rows
+                for column in columns
+            ]
+        )
+    messages.success(request, "Tabelle angelegt.")
+    return _table_screen_redirect(group_id)
+
+
+@login_required
+@require_POST
+def update_group_note(request, group_id: int):
+    with transaction.atomic():
+        group = GameGroup.objects.select_for_update().get(pk=group_id)
+        try:
+            require_game_master(request.user, group, write=True)
+        except GroupError as exc:
+            return JsonResponse(
+                {"ok": False, "error": exc.message},
+                status=exc.status,
+            )
+        update_fields = []
+        if "note_html" in request.POST:
+            group.screen_note_html = _sanitize_group_note_html(
+                request.POST.get("note_html", "")
+            )
+            update_fields.append("screen_note_html")
+
+        boolean_layout_fields = {
+            "note_is_wide": "screen_note_is_wide",
+            "note_is_detached": "screen_note_is_detached",
+        }
+        for request_name, field_name in boolean_layout_fields.items():
+            if request_name not in request.POST:
+                continue
+            setattr(
+                group,
+                field_name,
+                request.POST.get(request_name, "").lower()
+                in {"1", "true", "yes", "on"},
+            )
+            update_fields.append(field_name)
+
+        coordinate_fields = {
+            "note_x": "screen_note_x",
+            "note_y": "screen_note_y",
+        }
+        for request_name, field_name in coordinate_fields.items():
+            if request_name not in request.POST:
+                continue
+            try:
+                coordinate = int(request.POST.get(request_name, "24"))
+            except (TypeError, ValueError):
+                coordinate = 24
+            setattr(group, field_name, max(0, min(coordinate, 10000)))
+            update_fields.append(field_name)
+
+        if update_fields:
+            group.save(update_fields=update_fields)
+
+    return JsonResponse(
+        {
+            "ok": True,
+            "html": group.screen_note_html,
+            "is_wide": group.screen_note_is_wide,
+            "is_detached": group.screen_note_is_detached,
+            "x": group.screen_note_x,
+            "y": group.screen_note_y,
+        }
+    )
+
+
+@login_required
+@require_POST
+def reorder_group_tables(request, group_id: int):
+    with transaction.atomic():
+        group = GameGroup.objects.select_for_update().get(pk=group_id)
+        try:
+            require_game_master(request.user, group, write=True)
+        except GroupError as exc:
+            return JsonResponse(
+                {"ok": False, "error": exc.message},
+                status=exc.status,
+            )
+        tables = list(
+            GameGroupTable.objects.select_for_update()
+            .filter(group=group)
+            .order_by("position", "id")
+        )
+        note_position = (
+            group.screen_note_position
+            if group.screen_note_position is not None
+            else max([table.position for table in tables], default=-1) + 1
+        )
+        screen_items = [
+            ("table", table)
+            for table in tables
+        ] + [("note", group)]
+        screen_items.sort(
+            key=lambda item: (
+                item[1].position if item[0] == "table" else note_position,
+                0 if item[0] == "table" else 1,
+                item[1].id,
+            )
+        )
+
+        visible_items = [
+            item
+            for item in screen_items
+            if (
+                group.screen_note_is_visible
+                if item[0] == "note"
+                else item[1].is_visible
+            )
+        ]
+        item_tokens = {
+            (
+                f"table:{item[1].id}"
+                if item[0] == "table"
+                else "note"
+            ): item
+            for item in visible_items
+        }
+        ordered_tokens = request.POST.getlist("ordered_ids")
+        if (
+            len(ordered_tokens) != len(visible_items)
+            or len(ordered_tokens) != len(set(ordered_tokens))
+            or set(ordered_tokens) != set(item_tokens)
+        ):
+            return JsonResponse(
+                {"ok": False, "error": "Die Kartenreihenfolge ist unvollständig."},
+                status=400,
+            )
+
+        ordered_visible = iter(item_tokens[token] for token in ordered_tokens)
+        normalized_items = [
+            next(ordered_visible)
+            if (
+                group.screen_note_is_visible
+                if item[0] == "note"
+                else item[1].is_visible
+            )
+            else item
+            for item in screen_items
+        ]
+        for position, item in enumerate(normalized_items):
+            if item[0] == "table":
+                item[1].position = position
+            else:
+                group.screen_note_position = position
+        GameGroupTable.objects.bulk_update(tables, ["position"])
+        group.save(update_fields=["screen_note_position"])
+
+    return JsonResponse({"ok": True})
+
+
+@login_required
+@require_POST
+@_group_action
+def update_group_table(request, group_id: int, table_id: int):
+    with transaction.atomic():
+        group = GameGroup.objects.select_for_update().get(pk=group_id)
+        require_game_master(request.user, group, write=True)
+        data_table = get_object_or_404(
+            GameGroupTable.objects.select_for_update(),
+            pk=table_id,
+            group=group,
+        )
+        data_table.title = _normalized_table_title(request.POST.get("title", ""))
+        data_table.full_clean()
+        data_table.save(update_fields=["title", "updated_at"])
+
+        columns = list(data_table.columns.all())
+        rows = list(data_table.rows.all())
+        for column in columns:
+            heading = " ".join(
+                str(request.POST.get(f"column_{column.id}_heading", "")).split()
+            )[:100]
+            column.heading = heading or f"Spalte {column.position + 1}"
+            column.full_clean()
+            column.save(update_fields=["heading"])
+
+        existing_cells = {
+            (cell.row_id, cell.column_id): cell
+            for cell in GameGroupTableCell.objects.filter(
+                row__table=data_table,
+                column__table=data_table,
+            )
+        }
+        for row in rows:
+            for column in columns:
+                cell = existing_cells.get((row.id, column.id))
+                if cell is None:
+                    cell = GameGroupTableCell(row=row, column=column)
+                field_prefix = f"cell_{row.id}_{column.id}"
+                if (
+                    f"{field_prefix}_alignment" not in request.POST
+                    and f"{field_prefix}_type" not in request.POST
+                    and f"{field_prefix}_value" not in request.POST
+                ):
+                    continue
+                alignment = request.POST.get(
+                    f"{field_prefix}_alignment",
+                    cell.alignment or GameGroupTableCell.Alignment.LEFT,
+                )
+                valid_alignments = {
+                    choice
+                    for choice, _label in GameGroupTableCell.Alignment.choices
+                }
+                cell.alignment = (
+                    alignment
+                    if alignment in valid_alignments
+                    else GameGroupTableCell.Alignment.LEFT
+                )
+                raw_value = str(request.POST.get(f"{field_prefix}_value", "")).strip()
+                cell.row_span = _bounded_cell_span(
+                    request.POST.get(f"{field_prefix}_rowspan")
+                )
+                cell.column_span = _bounded_cell_span(
+                    request.POST.get(f"{field_prefix}_colspan")
+                )
+                number_match = (
+                    re.fullmatch(
+                        r"([+-]?)(\d+(?:[.,]\d+)?)\s*(.*)",
+                        raw_value,
+                    )
+                    if raw_value
+                    else None
+                )
+                if number_match:
+                    try:
+                        cell.number_value = Decimal(
+                            f"{number_match.group(1)}{number_match.group(2)}".replace(
+                                ",",
+                                ".",
+                            )
+                        )
+                    except InvalidOperation as exc:
+                        raise GroupError(
+                            "invalid_table_number",
+                            f"„{raw_value}“ ist keine gültige Zahl.",
+                        ) from exc
+                    cell.value_type = GameGroupTableCell.ValueType.NUMBER
+                    cell.text_value = ""
+                    cell.number_show_plus = number_match.group(1) == "+"
+                    cell.number_suffix = number_match.group(3).strip()[:100]
+                else:
+                    cell.value_type = GameGroupTableCell.ValueType.TEXT
+                    cell.text_value = raw_value
+                    cell.number_value = None
+                    cell.number_show_plus = False
+                    cell.number_suffix = ""
+                try:
+                    cell.full_clean()
+                except ValidationError as exc:
+                    raise GroupError("invalid_table_cell", "Ein Tabellenwert ist ungültig.") from exc
+                cell.save()
+        table_action = request.POST.get("_table_action", "")
+        if table_action == "add_row":
+            if data_table.rows.count() >= 20:
+                raise GroupError("table_row_limit", "Eine Tabelle kann höchstens 20 Zeilen enthalten.")
+            max_position = data_table.rows.aggregate(value=Max("position"))["value"]
+            new_row = GameGroupTableRow.objects.create(
+                table=data_table,
+                position=(max_position + 1) if max_position is not None else 0,
+            )
+            GameGroupTableCell.objects.bulk_create(
+                [
+                    GameGroupTableCell(row=new_row, column=column)
+                    for column in data_table.columns.all()
+                ]
+            )
+        elif table_action == "add_column":
+            if data_table.columns.count() >= 20:
+                raise GroupError("table_column_limit", "Eine Tabelle kann höchstens 20 Spalten enthalten.")
+            max_position = data_table.columns.aggregate(value=Max("position"))["value"]
+            position = (max_position + 1) if max_position is not None else 0
+            new_column = GameGroupTableColumn.objects.create(
+                table=data_table,
+                heading=f"Spalte {position + 1}",
+                position=position,
+            )
+            GameGroupTableCell.objects.bulk_create(
+                [
+                    GameGroupTableCell(row=row, column=new_column)
+                    for row in data_table.rows.all()
+                ]
+            )
+        elif table_action.startswith("delete_row:"):
+            if data_table.rows.count() <= 1:
+                raise GroupError("last_table_row", "Eine Tabelle benötigt mindestens eine Zeile.")
+            try:
+                row_id = int(table_action.partition(":")[2])
+            except (TypeError, ValueError) as exc:
+                raise GroupError("invalid_table_row", "Die Tabellenzeile ist ungültig.") from exc
+            get_object_or_404(GameGroupTableRow, pk=row_id, table=data_table).delete()
+        elif table_action.startswith("delete_column:"):
+            if data_table.columns.count() <= 1:
+                raise GroupError("last_table_column", "Eine Tabelle benötigt mindestens eine Spalte.")
+            try:
+                column_id = int(table_action.partition(":")[2])
+            except (TypeError, ValueError) as exc:
+                raise GroupError("invalid_table_column", "Die Tabellenspalte ist ungültig.") from exc
+            get_object_or_404(GameGroupTableColumn, pk=column_id, table=data_table).delete()
+        elif table_action.startswith(("move_row_up:", "move_row_down:")):
+            direction, _, raw_row_id = table_action.partition(":")
+            try:
+                row_id = int(raw_row_id)
+            except (TypeError, ValueError) as exc:
+                raise GroupError("invalid_table_row", "Die Tabellenzeile ist ungültig.") from exc
+            ordered_rows = list(data_table.rows.select_for_update().order_by("position", "id"))
+            row_index = next(
+                (index for index, candidate in enumerate(ordered_rows) if candidate.id == row_id),
+                None,
+            )
+            if row_index is None:
+                raise GroupError("invalid_table_row", "Die Tabellenzeile wurde nicht gefunden.")
+            target_index = row_index - 1 if direction == "move_row_up" else row_index + 1
+            if 0 <= target_index < len(ordered_rows):
+                moving_row = ordered_rows[row_index]
+                target_row = ordered_rows[target_index]
+                moving_position = moving_row.position
+                target_position = target_row.position
+                temporary_position = (
+                    data_table.rows.aggregate(value=Max("position"))["value"] or 0
+                ) + 1
+                moving_row.position = temporary_position
+                moving_row.save(update_fields=["position"])
+                target_row.position = moving_position
+                target_row.save(update_fields=["position"])
+                moving_row.position = target_position
+                moving_row.save(update_fields=["position"])
+    messages.success(request, "Tabelle gespeichert.")
+    return _table_screen_redirect(
+        group_id,
+        edit_table_id=data_table.id if table_action else None,
+    )
+
+
+@login_required
+@require_POST
+@_group_action
+def add_group_table_row(request, group_id: int, table_id: int):
+    with transaction.atomic():
+        group = GameGroup.objects.select_for_update().get(pk=group_id)
+        require_game_master(request.user, group, write=True)
+        data_table = get_object_or_404(GameGroupTable, pk=table_id, group=group)
+        if data_table.rows.count() >= 20:
+            raise GroupError("table_row_limit", "Eine Tabelle kann höchstens 20 Zeilen enthalten.")
+        max_position = data_table.rows.aggregate(value=Max("position"))["value"]
+        row = GameGroupTableRow.objects.create(
+            table=data_table,
+            position=(max_position + 1) if max_position is not None else 0,
+        )
+        GameGroupTableCell.objects.bulk_create(
+            [
+                GameGroupTableCell(row=row, column=column)
+                for column in data_table.columns.all()
+            ]
+        )
+    return _table_screen_redirect(group_id, edit_table_id=data_table.id)
+
+
+@login_required
+@require_POST
+@_group_action
+def add_group_table_column(request, group_id: int, table_id: int):
+    with transaction.atomic():
+        group = GameGroup.objects.select_for_update().get(pk=group_id)
+        require_game_master(request.user, group, write=True)
+        data_table = get_object_or_404(GameGroupTable, pk=table_id, group=group)
+        if data_table.columns.count() >= 20:
+            raise GroupError("table_column_limit", "Eine Tabelle kann höchstens 20 Spalten enthalten.")
+        max_position = data_table.columns.aggregate(value=Max("position"))["value"]
+        position = (max_position + 1) if max_position is not None else 0
+        column = GameGroupTableColumn.objects.create(
+            table=data_table,
+            heading=f"Spalte {position + 1}",
+            position=position,
+        )
+        GameGroupTableCell.objects.bulk_create(
+            [
+                GameGroupTableCell(row=row, column=column)
+                for row in data_table.rows.all()
+            ]
+        )
+    return _table_screen_redirect(group_id, edit_table_id=data_table.id)
+
+
+@login_required
+@require_POST
+@_group_action
+def delete_group_table_row(request, group_id: int, table_id: int, row_id: int):
+    with transaction.atomic():
+        group = GameGroup.objects.select_for_update().get(pk=group_id)
+        require_game_master(request.user, group, write=True)
+        data_table = get_object_or_404(GameGroupTable, pk=table_id, group=group)
+        if data_table.rows.count() <= 1:
+            raise GroupError("last_table_row", "Eine Tabelle benötigt mindestens eine Zeile.")
+        row = get_object_or_404(GameGroupTableRow, pk=row_id, table=data_table)
+        row.delete()
+    return _table_screen_redirect(group_id, edit_table_id=data_table.id)
+
+
+@login_required
+@require_POST
+@_group_action
+def delete_group_table_column(request, group_id: int, table_id: int, column_id: int):
+    with transaction.atomic():
+        group = GameGroup.objects.select_for_update().get(pk=group_id)
+        require_game_master(request.user, group, write=True)
+        data_table = get_object_or_404(GameGroupTable, pk=table_id, group=group)
+        if data_table.columns.count() <= 1:
+            raise GroupError("last_table_column", "Eine Tabelle benötigt mindestens eine Spalte.")
+        column = get_object_or_404(GameGroupTableColumn, pk=column_id, table=data_table)
+        column.delete()
+    return _table_screen_redirect(group_id, edit_table_id=data_table.id)
+
+
+@login_required
+@require_POST
+@_group_action
+def delete_group_table(request, group_id: int, table_id: int):
+    with transaction.atomic():
+        group = GameGroup.objects.select_for_update().get(pk=group_id)
+        require_game_master(request.user, group, write=True)
+        data_table = get_object_or_404(GameGroupTable, pk=table_id, group=group)
+        data_table.delete()
+    messages.success(request, "Tabelle gelöscht.")
+    return _table_screen_redirect(group_id)
+
+
+@login_required
+@require_POST
+@_group_action
+def show_group_table(request, group_id: int, table_id: int):
+    with transaction.atomic():
+        group = GameGroup.objects.select_for_update().get(pk=group_id)
+        require_game_master(request.user, group, write=True)
+        data_table = get_object_or_404(GameGroupTable, pk=table_id, group=group)
+        data_table.is_visible = True
+        data_table.save(update_fields=["is_visible", "updated_at"])
+    return _table_screen_redirect(group_id)
+
+
+@login_required
+@require_POST
+@_group_action
+def hide_group_table(request, group_id: int, table_id: int):
+    with transaction.atomic():
+        group = GameGroup.objects.select_for_update().get(pk=group_id)
+        require_game_master(request.user, group, write=True)
+        data_table = get_object_or_404(GameGroupTable, pk=table_id, group=group)
+        data_table.is_visible = False
+        data_table.save(update_fields=["is_visible", "updated_at"])
+    return _table_screen_redirect(group_id)
+
+
+@login_required
+@require_POST
+@_group_action
+def show_group_note(request, group_id: int):
+    with transaction.atomic():
+        group = GameGroup.objects.select_for_update().get(pk=group_id)
+        require_game_master(request.user, group, write=True)
+        group.screen_note_is_visible = True
+        group.save(update_fields=["screen_note_is_visible"])
+    return _table_screen_redirect(group_id)
+
+
+@login_required
+@require_POST
+@_group_action
+def hide_group_note(request, group_id: int):
+    with transaction.atomic():
+        group = GameGroup.objects.select_for_update().get(pk=group_id)
+        require_game_master(request.user, group, write=True)
+        group.screen_note_is_visible = False
+        group.save(update_fields=["screen_note_is_visible"])
+    return _table_screen_redirect(group_id)
+
+
+@login_required
 @require_GET
 def group_inventory_transfer_state(request, group_id: int):
     group = get_object_or_404(GameGroup, pk=group_id)
@@ -623,7 +1907,11 @@ def group_inventory_transfer_state(request, group_id: int):
         group=group,
         status=GameGroupMembership.Status.ACTIVE,
         character__is_archived=False,
-    ).select_related("character").order_by("character__name")
+    ).select_related("character").order_by(
+        F("screen_position").asc(nulls_last=True),
+        "character__name",
+        "id",
+    )
     character_states = []
     for membership in active_memberships:
         character = membership.character

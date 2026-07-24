@@ -1,0 +1,90 @@
+<div class="p2_spells panel_scroll lesson_panel" id="sheetLessonPanel">
+  <div class="spell_panel_header lesson_panel_header">
+    <h2>Lektionen</h2>
+    {% if lesson_panel_filter_groups %}
+      <div class="spell_source_filter_bar" data-lesson-school-filters aria-label="Schulen filtern">
+        <button type="button" class="spell_school_filter_btn is-active" data-lesson-school-filter="all" aria-pressed="true">
+          <span class="spell_school_filter_symbol spell_school_filter_symbol--all" aria-hidden="true">&#10070;</span>
+          <span class="spell_school_filter_name">Alle</span>
+        </button>
+        {% for school in lesson_panel_filter_groups %}
+          <button type="button" class="spell_school_filter_btn is-active" data-lesson-school-filter="{{ school.school_id }}" aria-pressed="true">
+            <span class="spell_school_filter_symbol" aria-hidden="true">
+              {% if school.symbol_image_url %}
+                <img class="spell_school_filter_image" src="{{ school.symbol_image_url }}" alt="" width="23" height="23">
+              {% else %}
+                {{ school.symbol|default:"&#9656;" }}
+              {% endif %}
+            </span>
+            <span class="spell_school_filter_name">{{ school.name }}</span>
+          </button>
+        {% endfor %}
+      </div>
+    {% endif %}
+  </div>
+
+  <div class="schools_filter_row spell_filter_row">
+    <input type="search" id="lessonFilterInput" class="schools_filter_input spell_filter_input" placeholder="Lektionen filtern" aria-label="Lektionen filtern">
+  </div>
+
+  <div class="panel_scroll spell_scroll">
+    <div class="spell_panel_groups lesson_panel_groups">
+      {% for group in lesson_panel_groups %}
+        <section class="spell_group lesson_group" data-lesson-group data-lesson-school-id="{{ group.school_id }}">
+          <button type="button" class="spell_group_header school_row_with_tooltip" data-lesson-group-toggle aria-expanded="false">
+            <span class="spell_group_heading">
+              <span class="spell_group_chevron" aria-hidden="true">&#9656;</span>
+              {% if group.symbol_image_url %}
+                <span class="spell_group_symbol" aria-hidden="true"><img class="spell_group_symbol_image" src="{{ group.symbol_image_url }}" alt="" width="18" height="18"></span>
+              {% elif group.symbol %}
+                <span class="spell_group_symbol" aria-hidden="true">{{ group.symbol }}</span>
+              {% endif %}
+              <span class="spell_group_title">{{ group.name }}</span>
+            </span>
+            <span class="spell_group_kind">Schule</span>
+          </button>
+          <ul class="spell_group_rows lesson_group_rows" hidden>
+            {% for row in group.rows %}
+              <li data-lesson-search="{{ row.search_tokens }}">
+                <div
+                  class="spell_cast_button lesson_card_entry tooltip_target"
+                  data-lesson-card-trigger
+                  tabindex="0"
+                  role="button"
+                  data-tooltip-side="cursor-right"
+                  data-tooltip-mode="card"
+                  data-tooltip-title="{{ row.name|escape }}"
+                  data-tooltip-subtitle="{{ row.school_name|escape }} · {{ row.activation_label }}"
+                  data-tooltip-persist-id="lesson:{{ row.lesson_id }}"
+                  data-tooltip="{% if row.fluff_quote %}[[LESSONQUOTE]]&#10;{{ row.fluff_quote }}&#10;{% if row.fluff_quote_speaker %}[[SPEAKER:{{ row.fluff_quote_speaker }}]]&#10;{% endif %}[[/LESSONQUOTE]]&#10;&#10;{% endif %}{{ row.description|default:'Keine Beschreibung' }}&#10;&#10;Voraussetzungen: {{ row.requirements_display }}"
+                  aria-label="Details zu {{ row.name }} anzeigen"
+                >
+                  <span class="spell_cast_name">{{ row.name }}</span>
+                  <span class="spell_cast_meta">{{ row.activation_label }}</span>
+                  {% if row.activation_enabled %}
+                    <button
+                      type="button"
+                      class="spell_cast_cost lesson_cost_button"
+                      data-activate-lesson
+                      data-activate-url="{{ row.activation_url }}"
+                      data-lesson-alternatives="{{ row.alternative_groups_json|escape }}"
+                      data-lesson-manual-costs="{{ row.manual_costs_json|escape }}"
+                      data-lesson-base-kp-cost="{{ row.base_kp_cost }}"
+                      aria-label="{{ row.name }} anwenden: {{ row.costs_display }}"
+                    >
+                      {{ row.costs_display }}
+                    </button>
+                  {% else %}
+                    <span class="spell_cast_cost lesson_cost_readonly" aria-label="Anwendungskosten">{{ row.costs_display }}</span>
+                  {% endif %}
+                </div>
+              </li>
+            {% endfor %}
+          </ul>
+        </section>
+      {% empty %}
+        <p class="wm_arcana_empty">Noch keine Lektionen erlernt.</p>
+      {% endfor %}
+    </div>
+  </div>
+</div>

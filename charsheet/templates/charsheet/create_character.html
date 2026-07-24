@@ -380,6 +380,33 @@
                           </details>
                           <details class="phase2_shop_group" data-phase4-group open>
                             <summary>
+                              <span>Lektionen</span>
+                              <span class="phase2_group_count">{{ phase_4_lesson_rows|length }}</span>
+                            </summary>
+                            <table class="dashboard_table phase2_shop_table">
+                              <tbody>
+                                {% for row in phase_4_lesson_rows %}
+                                  <tr
+                                    data-phase4-source
+                                    data-kind="lesson"
+                                    data-key="lesson:{{ row.id }}"
+                                    data-id="{{ row.id }}"
+                                    data-name="{{ row.name }}"
+                                    data-cost="{{ row.purchase_cost }}"
+                                    data-phase4-search="{{ row.name|lower }} {{ row.school_name|lower }} lektion {{ row.requirements_display|lower }} {{ row.costs_display|lower }}"
+                                    tabindex="0"
+                                    role="button"
+                                    aria-label="{{ row.name }} hinzufügen"
+                                  >
+                                    <td class="db_tooltip_anchor" data-db-tooltip="{{ row.description }}{% if row.requirements_display %}&#10;Voraussetzungen: {{ row.requirements_display }}{% endif %}{% if row.costs_display %}&#10;Anwendung: {{ row.costs_display }}{% endif %}">{{ row.name }}</td>
+                                    <td class="phase2_lang_meta">{{ row.school_name }} | {{ row.purchase_cost }} CP</td>
+                                  </tr>
+                                {% endfor %}
+                              </tbody>
+                            </table>
+                          </details>
+                          <details class="phase2_shop_group" data-phase4-group open>
+                            <summary>
                               <span>Eigenschaftverbessserung</span>
                               <span class="phase2_group_count">{{ phase_4_attr_rows|length }}</span>
                             </summary>
@@ -503,6 +530,16 @@
                                     <td>{{ row.name }} <input type="hidden" name="school_{{ row.id }}" value="{{ row.value }}" data-phase4-hidden></td>
                                     <td><input class="dashboard_input phase2_level_input" type="number" min="0" value="{{ row.value }}" data-phase4-value></td>
                                     <td data-phase4-cost>0</td>
+                                    <td><button type="button" class="phase2_remove_x" data-phase4-remove aria-label="Eintrag entfernen" title="Entfernen">X</button></td>
+                                  </tr>
+                                {% endif %}
+                              {% endfor %}
+                              {% for row in phase_4_lesson_rows %}
+                                {% if row.selected %}
+                                  <tr data-phase4-cart-item data-key="lesson:{{ row.id }}" data-kind="lesson" data-cost="{{ row.purchase_cost }}">
+                                    <td>{{ row.name }} <input type="hidden" name="lesson_{{ row.id }}" value="1" data-phase4-hidden></td>
+                                    <td><span class="phase4_locked_marker">{{ row.school_name }}</span><input type="hidden" value="1" data-phase4-value></td>
+                                    <td data-phase4-cost>{{ row.purchase_cost }}</td>
                                     <td><button type="button" class="phase2_remove_x" data-phase4-remove aria-label="Eintrag entfernen" title="Entfernen">X</button></td>
                                   </tr>
                                 {% endif %}
@@ -1433,10 +1470,13 @@
             if (kind === "school") {
               return "Schulen";
             }
+            if (kind === "lesson") {
+              return "Lektionen";
+            }
             return "Sonstiges";
           };
 
-          const categoryOrder = ["adv", "attr", "skill", "lang", "school"];
+          const categoryOrder = ["adv", "attr", "skill", "lang", "school", "lesson"];
 
           const organizeCartByCategory = function () {
             Array.from(phase4CartBody.querySelectorAll("[data-phase4-category-row]")).forEach(function (row) {
@@ -1597,6 +1637,9 @@
             } else if (kind === "school") {
               value = Math.max(0, value);
               cost = value * 8;
+            } else if (kind === "lesson") {
+              value = 1;
+              cost = toInt(row.dataset.cost, 8);
             }
 
             input.value = String(value);
@@ -1803,6 +1846,19 @@
                 <td>${safeName}<input type="hidden" name="school_${schoolId}" value="1" data-phase4-hidden></td>
                 <td><input class="dashboard_input phase2_level_input" type="number" min="0" value="1" data-phase4-value></td>
                 <td data-phase4-cost>0</td>
+                <td><button type="button" class="phase2_remove_x" data-phase4-remove aria-label="Eintrag entfernen" title="Entfernen">X</button></td>
+              `;
+              return row;
+            }
+
+            if (kind === "lesson") {
+              const lessonId = source.dataset.id || "";
+              const cost = toInt(source.dataset.cost, 8);
+              row.dataset.cost = String(cost);
+              row.innerHTML = `
+                <td>${safeName}<input type="hidden" name="lesson_${lessonId}" value="1" data-phase4-hidden></td>
+                <td><span class="phase4_locked_marker">Lektion</span><input type="hidden" value="1" data-phase4-value></td>
+                <td data-phase4-cost>${cost}</td>
                 <td><button type="button" class="phase2_remove_x" data-phase4-remove aria-label="Eintrag entfernen" title="Entfernen">X</button></td>
               `;
               return row;

@@ -1,0 +1,106 @@
+.lesson_panel .lesson_card_entry {
+  grid-template-columns: minmax(0, 1.5fr) auto minmax(6rem, auto);
+}
+
+.lesson_panel .lesson_card_entry:focus-visible {
+  outline: 2px solid rgba(126, 46, 37, .72);
+  outline-offset: 1px;
+}
+
+.lesson_cost_button {
+  appearance: none;
+  justify-self: stretch;
+  min-width: 0;
+  padding: 0 6px;
+  border: 0;
+  border-left: 1px solid rgba(74, 55, 38, .18);
+  background: transparent;
+  color: #7e2e25;
+  cursor: pointer;
+}
+
+.lesson_cost_button:hover,
+.lesson_cost_button:focus-visible {
+  background: rgba(126, 46, 37, .1);
+}
+
+.lesson_cost_button:disabled {
+  cursor: wait;
+  opacity: .58;
+}
+
+.lesson_cost_readonly {
+  color: rgba(57, 39, 27, .72);
+}
+
+.lesson_cost_button,
+.lesson_cost_readonly {
+  font-family: inherit;
+  font-size: .74rem;
+  font-weight: 700;
+  line-height: 1.4;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.lesson_card_entry:has(.lesson_cost_button:disabled) {
+  opacity: .78;
+}
+
+.lesson_cost_dialog {
+  width: min(32rem, calc(100vw - 2rem));
+  border: 1px solid #6d382b;
+  border-radius: .35rem;
+  background: #ead7b3;
+  color: #291812;
+  box-shadow: 0 1.2rem 4rem #000a;
+}
+
+.lesson_cost_dialog::backdrop {
+  background: #160d0ab8;
+}
+
+.lesson_cost_dialog__form {
+  display: grid;
+  gap: .9rem;
+}
+
+.lesson_cost_dialog h3,
+.lesson_cost_dialog fieldset {
+  margin: 0;
+}
+
+.lesson_cost_dialog__manual {
+  margin: 0;
+  padding: .6rem .7rem;
+  border-left: .22rem solid #873a28;
+  background: #fff6df80;
+}
+
+.lesson_cost_dialog fieldset {
+  display: grid;
+  gap: .4rem;
+  border: 1px solid #8d6849;
+}
+
+.lesson_cost_dialog label {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: .1rem .5rem;
+  align-items: center;
+}
+
+.lesson_cost_dialog label small {
+  grid-column: 2;
+}
+
+.lesson_cost_dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: .5rem;
+}
+
+.lesson_cost_dialog__confirm {
+  background: #6f241d;
+  color: #fff8e9;
+}

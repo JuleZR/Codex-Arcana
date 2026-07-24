@@ -1,4 +1,4 @@
-{% load static %}
+{% load static card_markdown %}
 <!doctype html>
 <html lang="de">
 <head>
@@ -7,9 +7,10 @@
   <title>SL-Screen | {{ group.name }}</title>
   <link rel="stylesheet" href="{% static 'css/charsheet.css' %}">
   <link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
-  <link rel="stylesheet" href="{% static 'css/game-master-screen.css' %}?v=20260723b">
+  <link rel="stylesheet" href="{% static 'css/game-master-screen.css' %}?v=20260724ax">
   <script defer src="{% static 'js/game_groups.js' %}"></script>
-  <script defer src="{% static 'js/sl_inventory.js' %}"></script>
+  <script defer src="{% static 'js/sl_inventory.js' %}?v=20260724b"></script>
+  <script defer src="{% static 'js/game_master_screen.js' %}?v=20260724p"></script>
 </head>
 <body class="gm-screen-body">
   <main class="gm-screen">
@@ -17,7 +18,7 @@
       <div>
         <span class="gm-screen__eyebrow">Spielleiterübersicht</span>
         <h1>{{ group.name }}</h1>
-        <p>SL-Screen · {{ roster|length }} aktive Charaktere</p>
+        <p>SL-Screen · {{ character_count }} Charaktere · {{ creature_count }} Kreaturen</p>
       </div>
       <div class="gm-screen__header-actions">
         {% if group.is_archived %}<span class="gm-screen__archive-state">Archivierte Kampagne · Leseansicht</span>{% endif %}
@@ -25,27 +26,140 @@
       </div>
     </header>
 
-    <div class="gm-workspace">
-      <section class="gm-roster-panel" aria-label="Aktive Gruppenmitglieder">
+    <div class="gm-workspace{% if group.screen_inventory_is_collapsed and not group.is_archived %} is-inventory-collapsed{% endif %}" data-inventory-workspace>
+      <section class="gm-roster-panel" id="sl-charaktere" aria-label="Charaktere und Kreaturen">
         <header class="gm-panel-heading">
           <div><span>Gruppe</span><h2>Charaktere</h2></div>
+          {% if not group.is_archived %}
+          <details class="gm-table-picker gm-creature-picker">
+            <summary aria-label="Kreaturenkarte hinzufügen" title="Kreaturenkarte hinzufügen">+</summary>
+            <div class="gm-table-picker__panel gm-creature-picker__panel">
+              <form
+                class="gm-table-picker__show gm-creature-picker__form"
+                method="post"
+                action="{% url 'add_group_creature' group.id %}"
+              >
+                {% csrf_token %}
+                <input type="hidden" name="_sl_screen" value="1">
+                <input type="hidden" name="_sl_anchor" value="sl-charaktere">
+                <div class="gm-table-picker__hidden-heading">
+                  <strong>Kreatur hinzufügen</strong>
+                </div>
+                <div class="gm-table-picker__show-controls">
+                  <div class="sl-item-search gm-creature-search" data-creature-search>
+                    <input type="hidden" name="creature_ref" data-creature-search-id>
+                    <input
+                      class="dashboard_input"
+                      type="search"
+                      autocomplete="off"
+                      required
+                      placeholder="Kreatur suchen …"
+                      aria-label="Kreatur suchen"
+                      data-creature-search-query
+                    >
+                    <div class="sl-item-search__results gm-creature-search__results" data-creature-search-results hidden>
+                    {% for creature in creature_options %}
+                      <button
+                        type="button"
+                        data-creature-ref="base:{{ creature.id }}"
+                        data-creature-name="{{ creature.display_name }}"
+                        data-creature-search="{{ creature.display_name|lower }}"
+                      >
+                        <strong>{{ creature.display_name }}</strong>
+                      </button>
+                    {% endfor %}
+                    {% for creature in character_creature_options %}
+                      <button
+                        type="button"
+                        data-creature-ref="character:{{ creature.id }}"
+                        data-creature-name="{{ creature.owner.name }} · {{ creature.display_name }}"
+                        data-creature-search="{{ creature.owner.name|lower }} {{ creature.display_name|lower }} {{ creature.source_binding.choice_label|default:'Tierform'|lower }}"
+                      >
+                        <strong>{{ creature.owner.name }} · {{ creature.display_name }}</strong>
+                        <span>{{ creature.source_binding.choice_label|default:"Tierform" }}</span>
+                      </button>
+                    {% endfor %}
+                      <p data-creature-search-empty hidden>Keine passende Kreatur.</p>
+                    </div>
+                  </div>
+                  <button type="submit" aria-label="Kreaturenkarte hinzufügen" title="Kreaturenkarte hinzufügen">
+                    <span aria-hidden="true">+</span>
+                  </button>
+                </div>
+                <small>Dieselbe Kreatur kann mehrfach hinzugefügt werden.</small>
+              </form>
+            </div>
+          </details>
+          {% endif %}
         </header>
-        <div class="gm-roster">
+        <div class="gm-roster-layout">
+        <div class="gm-roster-scroll-shell">
+        <div
+          class="gm-roster"
+          data-card-reorder-url="{% url 'reorder_group_memberships' group.id %}"
+          data-csrf-token="{{ csrf_token }}"
+        >
         {% for row in roster %}
-          <article class="gm-character-sheet{% if row.is_dead %} gm-character-sheet--dead{% elif row.is_incapacitated %} gm-character-sheet--incapacitated{% endif %}">
+          <article
+            class="gm-character-sheet{% if row.card_kind == 'creature' %} gm-character-sheet--creature{% endif %}{% if row.is_dead %} gm-character-sheet--dead{% elif row.is_incapacitated %} gm-character-sheet--incapacitated{% endif %}"
+            data-reorder-card
+            data-reorder-id="{{ row.card_id }}"
+            data-sort-position="{{ row.screen_position|default_if_none:'999999' }}"
+            {% if row.screen_is_collapsed and not group.is_archived %}hidden{% endif %}
+          >
+          {% if not group.is_archived %}
+          {% if row.card_kind == "creature" %}
+          <form
+            class="gm-character-sheet__delete-form"
+            method="post"
+            action="{% url 'delete_group_creature' group.id row.group_creature.id %}"
+          >
+            {% csrf_token %}
+            <input type="hidden" name="_sl_screen" value="1">
+            <input type="hidden" name="_sl_anchor" value="sl-charaktere">
+            <button
+              class="gm-character-sheet__delete"
+              type="submit"
+              aria-label="{{ row.name }} entfernen"
+              title="Kreaturenkarte entfernen"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M5 5l14 14M19 5 5 19"/>
+              </svg>
+            </button>
+          </form>
+          {% endif %}
+          <button
+            class="gm-character-sheet__collapse{% if row.card_kind == 'creature' %} gm-character-sheet__collapse--with-delete{% endif %}"
+            type="button"
+            data-screen-card-state-url="{{ row.screen_state_url }}"
+            data-screen-card-id="{{ row.card_id }}"
+            data-screen-card-collapse-value="1"
+            aria-label="{{ row.name }} ausblenden"
+            title="Karte ausblenden"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M3 12s3.5-6 9-6 9 6 9 6-3.5 6-9 6-9-6-9-6Z"/>
+              <circle cx="12" cy="12" r="2.5"/>
+              <path d="M4 4l16 16"/>
+            </svg>
+          </button>
+          {% endif %}
           <div class="gm-character-sheet__inner">
-            <header class="gm-character-sheet__identity">
+            <header class="gm-character-sheet__identity"{% if not group.is_archived %} draggable="true" data-drag-surface{% endif %}>
               <div class="gm-character-sheet__portrait">
-                {% if row.character.char_picture %}
-                <img src="{{ row.character.char_picture.url }}" alt="Porträt von {{ row.character.name }}">
+                {% if row.image %}
+                <img src="{{ row.image.url }}" alt="Porträt von {{ row.name }}">
                 {% else %}
-                <span aria-hidden="true">{{ row.character.name|first }}</span>
+                <span aria-hidden="true">{{ row.fallback_letter }}</span>
                 {% endif %}
               </div>
               <div class="gm-character-sheet__name">
-                <span>Charakter</span>
-                <h2>{{ row.character.name }}</h2>
-                <p>{{ row.character.race.name }}{% if row.wound_stage != "-" %} · {{ row.wound_stage }}{% if row.wound_penalty_display != "0" %} ({{ row.wound_penalty_display }}){% endif %}{% endif %}</p>
+                <span>{{ row.kind_label }}</span>
+                <h2>{{ row.name }}</h2>
+                {% if row.subtitle %}
+                <p>{{ row.subtitle }}</p>
+                {% endif %}
               </div>
             </header>
 
@@ -65,12 +179,12 @@
                 <div><dt>VW</dt><dd>{{ row.vw }}</dd></div>
                 <div><dt>GW</dt><dd>{{ row.gw }}</dd></div>
                 <div><dt>SR</dt><dd>{{ row.sr }}</dd></div>
-                <div><dt>Pot</dt><dd>{{ row.potential }}</dd></div>
+                <div><dt>{{ row.potential_label }}</dt><dd>{{ row.potential }}</dd></div>
                 <div class="gm-defense-grid__initiative"><dt>Initiative</dt><dd>{{ row.initiative_display }} / {{ row.initiative_with_load_display }}</dd></div>
               </dl>
             </section>
 
-            <section class="gm-character-section gm-character-vitals" aria-label="Lebenspunkte und Kraftpunkte">
+            <section class="gm-character-section gm-character-vitals" aria-label="Zustand">
               <div class="gm-character-section__title"><span>Zustand</span></div>
               <div class="gm-vital gm-vital--life">
                 <div><strong>LP</strong><span>{{ row.current_lp }} / {{ row.max_lp }}</span></div>
@@ -79,28 +193,553 @@
                   <span class="gm-damage-track__lethal" style="width: {{ row.lethal_damage_percent }}%"></span>
                 </div>
               </div>
+              {% if row.card_kind == "creature" and not group.is_archived %}
+              <div class="gm-creature-damage-controls" aria-label="Kreaturenschaden anpassen">
+                {% for damage_type,damage_value in row.creature_damage_rows %}
+                <div class="gm-creature-damage-control gm-creature-damage-control--{{ damage_type|lower }}">
+                  <span>{{ damage_type }}</span>
+                  <form method="post" action="{% url 'adjust_group_creature_damage' group.id row.group_creature.id %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="damage_type" value="{{ damage_type }}">
+                    <input type="hidden" name="action" value="heal">
+                    <button type="submit" aria-label="1 {{ damage_type }}-Schaden heilen" title="1 {{ damage_type }}-Schaden heilen">&minus;</button>
+                  </form>
+                  <strong>{{ damage_value }}</strong>
+                  <form method="post" action="{% url 'adjust_group_creature_damage' group.id row.group_creature.id %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="damage_type" value="{{ damage_type }}">
+                    <input type="hidden" name="action" value="damage">
+                    <button type="submit" aria-label="1 {{ damage_type }}-Schaden hinzufügen" title="1 {{ damage_type }}-Schaden hinzufügen">+</button>
+                  </form>
+                </div>
+                {% endfor %}
+              </div>
+              {% endif %}
+              {% if row.show_arcane %}
               <div class="gm-vital gm-vital--arcane">
-                <div><strong>KP</strong><span>{{ row.current_kp }} / {{ row.max_kp }}</span></div>
+                <div>
+                  <strong>KP</strong>
+                  {% if row.card_kind == "creature" and not group.is_archived %}
+                  <div class="gm-creature-kp-controls">
+                    <form method="post" action="{% url 'adjust_group_creature_kp' group.id row.group_creature.id %}">
+                      {% csrf_token %}
+                      <input type="hidden" name="action" value="spend">
+                      <button type="submit" aria-label="1 KP ausgeben" title="1 KP ausgeben">&minus;</button>
+                    </form>
+                    <span>{{ row.current_kp }} / {{ row.max_kp }}</span>
+                    <form method="post" action="{% url 'adjust_group_creature_kp' group.id row.group_creature.id %}">
+                      {% csrf_token %}
+                      <input type="hidden" name="action" value="restore">
+                      <button type="submit" aria-label="1 KP wiederherstellen" title="1 KP wiederherstellen">+</button>
+                    </form>
+                  </div>
+                  {% else %}
+                  <span>{{ row.current_kp }} / {{ row.max_kp }}</span>
+                  {% endif %}
+                </div>
                 <progress value="{{ row.current_kp }}" max="{% if row.max_kp > 0 %}{{ row.max_kp }}{% else %}1{% endif %}">{{ row.current_kp }} / {{ row.max_kp }}</progress>
               </div>
+              {% else %}
+              <div class="gm-vital gm-vital--secondary">
+                <div><strong>{{ row.secondary_status_label }}</strong><span>{{ row.secondary_status_value }}</span></div>
+              </div>
+              {% endif %}
             </section>
 
-            <footer class="gm-character-sheet__footer">
-              <a target="_blank" rel="noopener" href="{% url 'game_master_character_sheet' group.id row.character.id %}">Vollständigen Bogen öffnen</a>
+            <footer class="gm-character-sheet__footer{% if row.card_kind == 'creature' %} gm-character-sheet__footer--reserved{% endif %}">
+              {% if row.card_kind == "creature" %}
+              <span class="sr-only">Für spätere Verwendung reserviert</span>
+              {% elif row.detail_url %}
+              <a target="_blank" rel="noopener" href="{{ row.detail_url }}">{{ row.footer_label }}</a>
+              {% else %}
+              <span>{{ row.footer_label }}</span>
+              {% endif %}
             </footer>
           </div>
           </article>
         {% empty %}
-          <p class="gm-roster__empty">Keine aktiven, nicht archivierten Mitglieder.</p>
+          <p class="gm-roster__empty">Keine Charakter- oder Kreaturenkarten vorhanden.</p>
         {% endfor %}
+        </div>
+        </div>
+        {% if not group.is_archived %}
+        <aside
+          class="gm-roster-collapsed"
+          data-collapsed-roster
+          aria-label="Ausgeblendete Karten"
+          {% if not has_collapsed_roster %}hidden{% endif %}
+        >
+          {% for row in roster %}
+          <button
+            class="gm-roster-collapsed__portrait{% if row.card_kind == 'creature' %} gm-roster-collapsed__portrait--creature{% endif %}{% if row.is_dead %} gm-roster-collapsed__portrait--dead{% elif row.is_incapacitated %} gm-roster-collapsed__portrait--incapacitated{% endif %}"
+            type="button"
+            data-screen-card-state-url="{{ row.screen_state_url }}"
+            data-screen-card-id="{{ row.card_id }}"
+            data-screen-card-collapse-value="0"
+            data-collapsed-card-id="{{ row.card_id }}"
+            aria-label="{{ row.name }} wieder einblenden"
+            title="{{ row.name }} wieder einblenden"
+            {% if not row.screen_is_collapsed %}hidden{% endif %}
+          >
+            {% if row.image %}
+            <img src="{{ row.image.url }}" alt="">
+            {% else %}
+            <span aria-hidden="true">{{ row.fallback_letter }}</span>
+            {% endif %}
+          </button>
+          {% endfor %}
+        </aside>
+        {% endif %}
         </div>
       </section>
 
-      <section class="gm-inventory-area" aria-label="SL-Inventar">
-        <header class="gm-panel-heading">
-          <div><span>Gruppe</span><h2>Inventar</h2></div>
+      <section class="gm-info-area" id="sl-tabellen" aria-label="SL-Daten: Notizen und Tabellen">
+        <header class="gm-table-area__header">
+          <div>
+            <span>SL-Daten</span>
+            <h2>Notizen &amp; Tabellen</h2>
+          </div>
+          {% if not group.is_archived %}
+          <details class="gm-table-picker">
+            <summary aria-label="Karte einblenden oder Tabelle anlegen" title="Karte einblenden oder Tabelle anlegen">+</summary>
+            <div class="gm-table-picker__panel">
+              {% if hidden_screen_item_count %}
+              <form class="gm-table-picker__show" method="post" data-table-picker-show>
+                {% csrf_token %}
+                <input type="hidden" name="_sl_screen" value="1">
+                <input type="hidden" name="_sl_anchor" value="sl-tabellen">
+                <div class="gm-table-picker__hidden-heading">
+                  <strong>Ausgeblendete Karten</strong>
+                </div>
+                <div class="gm-table-picker__show-controls">
+                  <select aria-label="Ausgeblendete Karte ausw&auml;hlen" required data-table-picker-select>
+                    <option value="">Karte ausw&auml;hlen &hellip;</option>
+                  {% if not group.screen_note_is_visible %}
+                    <option value="{% url 'show_group_note' group.id %}">Notizen</option>
+                  {% endif %}
+                  {% for hidden_table in hidden_data_tables %}
+                    <option value="{% url 'show_group_table' group.id hidden_table.id %}">{{ hidden_table.title }}</option>
+                  {% endfor %}
+                  </select>
+                  <button
+                    type="submit"
+                    disabled
+                    data-table-picker-submit
+                    aria-label="Ausgew&auml;hlte Karte einblenden"
+                    title="Ausgew&auml;hlte Karte einblenden"
+                  >
+                    <span aria-hidden="true">+</span>
+                  </button>
+                </div>
+              </form>
+              {% endif %}
+              <form class="gm-table-create" method="post" action="{% url 'create_group_table' group.id %}">
+                {% csrf_token %}
+                <input type="hidden" name="_sl_screen" value="1">
+                <input type="hidden" name="_sl_anchor" value="sl-tabellen">
+                <input
+                  name="title"
+                  maxlength="150"
+                  required
+                  placeholder="Name der neuen Tabelle"
+                  aria-label="Name der neuen Tabelle"
+                >
+                <button class="dashboard_button dashboard_button--small" type="submit">
+                  <span aria-hidden="true">+</span>
+                  Neue Tabelle
+                </button>
+              </form>
+            </div>
+          </details>
+          {% endif %}
         </header>
-        {% include "charsheet/partials/_dashboard_group_inventory.html" %}
+
+        <div
+          class="gm-data-tables"
+          data-card-reorder-url="{% url 'reorder_group_tables' group.id %}"
+          data-csrf-token="{{ csrf_token }}"
+        >
+          {% for data_table in data_tables %}
+          <article
+            class="gm-data-table"
+            data-reorder-card
+            data-reorder-id="table:{{ data_table.id }}"
+            data-sort-position="{{ data_table.position }}"
+            style="--gm-table-card-width: {{ data_table.render_card_width }}px; --gm-table-editor-width: {{ data_table.render_editor_width }}px;"
+          >
+            <form method="post" action="{% url 'update_group_table' group.id data_table.id %}">
+              {% csrf_token %}
+              <input type="hidden" name="_sl_screen" value="1">
+              <input type="hidden" name="_sl_anchor" value="sl-tabellen">
+              <input type="hidden" name="_edit_table_id" value="{{ data_table.id }}">
+              <header class="gm-data-table__header"{% if not group.is_archived %} draggable="true" data-drag-surface{% endif %}>
+                {% if not group.is_archived %}
+                <button
+                  class="gm-data-table__hide"
+                  type="submit"
+                  formaction="{% url 'hide_group_table' group.id data_table.id %}"
+                  aria-label="{{ data_table.title }} ausblenden"
+                  title="Tabelle ausblenden"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5l14 14M19 5 5 19"/></svg>
+                </button>
+                {% endif %}
+                <input
+                  class="gm-data-table__title"
+                  name="title"
+                  value="{{ data_table.title }}"
+                  maxlength="150"
+                  aria-label="Tabellen&uuml;berschrift"
+                  {% if group.is_archived %}readonly{% endif %}
+                >
+                {% if not group.is_archived %}
+                <div class="gm-data-table__actions">
+                  <button
+                    class="gm-data-table__icon-action"
+                    type="submit"
+                    name="_table_action"
+                    value="add_row"
+                    aria-label="Zeile hinzuf&uuml;gen"
+                    title="Zeile hinzuf&uuml;gen"
+                  >
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M3.5 4.5h13v13h-13zM3.5 10.5h13M19.5 14v7M16 17.5h7"/>
+                    </svg>
+                  </button>
+                  <button
+                    class="gm-data-table__icon-action"
+                    type="submit"
+                    name="_table_action"
+                    value="add_column"
+                    aria-label="Spalte hinzuf&uuml;gen"
+                    title="Spalte hinzuf&uuml;gen"
+                  >
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M3.5 4.5h13v13h-13zM10 4.5v13M19.5 14v7M16 17.5h7"/>
+                    </svg>
+                  </button>
+                  <button
+                    class="gm-data-table__icon-action gm-data-table__icon-action--save"
+                    type="submit"
+                    aria-label="Tabelle speichern"
+                    title="Tabelle speichern"
+                  >
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M5 3.5h11l3 3V20.5H5zM8 3.5v6h8v-6M8 20.5v-7h8v7"/>
+                    </svg>
+                  </button>
+                  <button
+                    class="gm-data-table__icon-action gm-data-table__icon-action--danger"
+                    type="submit"
+                    formaction="{% url 'delete_group_table' group.id data_table.id %}"
+                    aria-label="Tabelle endg&uuml;ltig l&ouml;schen"
+                    title="Tabelle endg&uuml;ltig l&ouml;schen"
+                    onclick="return confirm('Tabelle wirklich l&ouml;schen?');"
+                  >
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 10.5v6M14 10.5v6"/>
+                    </svg>
+                  </button>
+                </div>
+                {% endif %}
+              </header>
+
+              <div class="gm-data-table__preview">
+                <table>
+                  <thead>
+                    <tr>
+                      {% for column in data_table.render_columns %}
+                      <th>{{ column.heading }}</th>
+                      {% endfor %}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for data_row in data_table.render_rows %}
+                    <tr>
+                      {% for cell in data_row.render_display_cells %}
+                      <td
+                        class="gm-data-table__align--{{ cell.alignment }}"
+                        {% if cell.render_row_span > 1 %}rowspan="{{ cell.render_row_span }}"{% endif %}
+                        {% if cell.render_column_span > 1 %}colspan="{{ cell.render_column_span }}"{% endif %}
+                      >
+                        {% if cell.value_type == "number" %}
+                        {% if cell.number_value is not None %}
+                        {% with display_number=cell.number_value|compact_number_de fraction=cell.number_value|compact_number_fraction_de %}
+                        <span class="gm-data-table__number" aria-label="{% if cell.number_show_plus %}+{% endif %}{{ display_number }}{% if cell.number_suffix %} {{ cell.number_suffix }}{% endif %}">
+                          <span class="gm-data-table__number-integer">{% if cell.number_show_plus %}+{% endif %}{{ cell.number_value|compact_number_integer_de }}</span>
+                          <span class="gm-data-table__number-separator{% if not fraction %} is-empty{% endif %}">,</span>
+                          <span class="gm-data-table__number-fraction">{{ fraction }}{% if cell.number_suffix %}<span class="gm-data-table__number-suffix"> {{ cell.number_suffix }}</span>{% endif %}</span>
+                        </span>
+                        {% endwith %}
+                        {% else %}
+                        <span class="gm-data-table__number-empty">&ndash;</span>
+                        {% endif %}
+                        {% else %}
+                        <div class="gm-data-table__markdown">{{ cell.text_value|standard_markdown }}</div>
+                        {% endif %}
+                      </td>
+                      {% endfor %}
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+
+              {% if not group.is_archived %}
+              <details class="gm-data-table__editor"{% if editing_table_id == data_table.id %} open{% endif %}>
+                <summary aria-label="Tabelle bearbeiten" title="Tabelle bearbeiten">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="m4 20 4.2-1 10.6-10.6a1.8 1.8 0 0 0 0-2.6l-.6-.6a1.8 1.8 0 0 0-2.6 0L5 15.8zM14.5 6.3l3.2 3.2M4.8 15.9l3.3 3.3"/>
+                  </svg>
+                </summary>
+              <div class="gm-data-table__scroll">
+                <table>
+                  <thead>
+                    <tr>
+                      {% for column in data_table.render_columns %}
+                      <th>
+                        <div class="gm-data-table__column-heading">
+                          <input
+                            name="column_{{ column.id }}_heading"
+                            value="{{ column.heading }}"
+                            maxlength="100"
+                            aria-label="Spalten&uuml;berschrift"
+                            {% if group.is_archived %}readonly{% endif %}
+                          >
+                          {% if not group.is_archived and data_table.render_columns|length > 1 %}
+                          <button
+                            type="submit"
+                            name="_table_action"
+                            value="delete_column:{{ column.id }}"
+                            aria-label="Spalte {{ column.heading }} l&ouml;schen"
+                            title="Spalte l&ouml;schen"
+                            onclick="return confirm('Spalte wirklich l&ouml;schen?');"
+                          >&times;</button>
+                          {% endif %}
+                        </div>
+                      </th>
+                      {% endfor %}
+                      {% if not group.is_archived %}<th class="gm-data-table__row-action"></th>{% endif %}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for data_row in data_table.render_rows %}
+                    <tr>
+                      {% for cell in data_row.render_cells %}
+                      {% if cell %}
+                      <td
+                        data-table-editor-cell
+                        data-cell-alignment="{{ cell.alignment }}"
+                        data-row-index="{{ cell.render_row_index }}"
+                        data-column-index="{{ cell.render_column_index }}"
+                        class="gm-data-table__align--{{ cell.alignment }}{% if cell.render_row_span > 1 or cell.render_column_span > 1 %} gm-data-table__cell--spanned{% endif %}"
+                        {% if cell.render_is_covered %}hidden{% else %}
+                          {% if cell.render_row_span > 1 %}rowspan="{{ cell.render_row_span }}"{% endif %}
+                          {% if cell.render_column_span > 1 %}colspan="{{ cell.render_column_span }}"{% endif %}
+                        {% endif %}
+                      >
+                        <div class="gm-data-table__cell">
+                          <select
+                            name="cell_{{ data_row.id }}_{{ cell.column_id }}_alignment"
+                            aria-label="Zellenausrichtung"
+                            data-table-alignment
+                            {% if group.is_archived %}disabled{% endif %}
+                          >
+                            <option value="left"{% if cell.alignment == "left" %} selected{% endif %}>Links</option>
+                            <option value="center"{% if cell.alignment == "center" %} selected{% endif %}>Mitte</option>
+                            <option value="right"{% if cell.alignment == "right" %} selected{% endif %}>Rechts</option>
+                          </select>
+                          <input
+                            name="cell_{{ data_row.id }}_{{ cell.column_id }}_value"
+                            value="{% if cell.value_type == 'number' %}{% if cell.number_show_plus and cell.number_value is not None %}+{% endif %}{% if cell.number_value is not None %}{{ cell.number_value|compact_number_de }}{% endif %}{% if cell.number_suffix %} {{ cell.number_suffix }}{% endif %}{% else %}{{ cell.text_value }}{% endif %}"
+                            aria-label="Zellenwert"
+                            {% if group.is_archived %}readonly{% endif %}
+                          >
+                          <div class="gm-data-table__span-controls">
+                            <label title="Zelle &uuml;ber mehrere Zeilen verbinden">
+                              <span>R</span>
+                              <input
+                                type="number"
+                                name="cell_{{ data_row.id }}_{{ cell.column_id }}_rowspan"
+                                min="1"
+                                max="20"
+                                value="{{ cell.row_span }}"
+                                aria-label="Rowspan"
+                                data-table-rowspan
+                              >
+                            </label>
+                            <label title="Zelle &uuml;ber mehrere Spalten verbinden">
+                              <span>C</span>
+                              <input
+                                type="number"
+                                name="cell_{{ data_row.id }}_{{ cell.column_id }}_colspan"
+                                min="1"
+                                max="20"
+                                value="{{ cell.column_span }}"
+                                aria-label="Colspan"
+                                data-table-colspan
+                              >
+                            </label>
+                          </div>
+                        </div>
+                      </td>
+                      {% endif %}
+                      {% endfor %}
+                      {% if not group.is_archived %}
+                      <td class="gm-data-table__row-action">
+                        <div class="gm-data-table__row-controls">
+                        {% if not forloop.first %}
+                        <button
+                          type="submit"
+                          name="_table_action"
+                          value="move_row_up:{{ data_row.id }}"
+                          aria-label="Zeile nach oben verschieben"
+                          title="Zeile nach oben verschieben"
+                        >&uarr;</button>
+                        {% endif %}
+                        {% if not forloop.last %}
+                        <button
+                          type="submit"
+                          name="_table_action"
+                          value="move_row_down:{{ data_row.id }}"
+                          aria-label="Zeile nach unten verschieben"
+                          title="Zeile nach unten verschieben"
+                        >&darr;</button>
+                        {% endif %}
+                        {% if data_table.render_rows|length > 1 %}
+                        <button
+                          type="submit"
+                          name="_table_action"
+                          value="delete_row:{{ data_row.id }}"
+                          aria-label="Zeile l&ouml;schen"
+                          title="Zeile l&ouml;schen"
+                          onclick="return confirm('Zeile wirklich l&ouml;schen?');"
+                        >&times;</button>
+                        {% endif %}
+                        </div>
+                      </td>
+                      {% endif %}
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+              </details>
+              {% endif %}
+            </form>
+          </article>
+          {% endfor %}
+          {% if group.screen_note_is_visible %}
+          <article
+            class="gm-data-table gm-note-card{% if group.screen_note_is_wide %} gm-note-card--wide{% endif %}{% if group.screen_note_is_detached and not group.is_archived %} gm-note-card--detached{% endif %}"
+            data-reorder-card
+            data-reorder-id="note"
+            data-sort-position="{{ group.screen_note_position|default_if_none:'999999' }}"
+            data-note-layout-url="{% url 'update_group_note' group.id %}"
+            style="--gm-table-card-width: 320px; left: {{ group.screen_note_x }}px; top: {{ group.screen_note_y }}px;"
+          >
+            <header class="gm-data-table__header gm-note-card__header"{% if not group.is_archived %} draggable="{% if group.screen_note_is_detached %}false{% else %}true{% endif %}" data-drag-surface{% endif %}>
+              <strong>Notizen</strong>
+              {% if not group.is_archived %}
+              <div class="gm-note-card__header-actions">
+                <span class="gm-note-card__status" role="status" data-note-status>Gespeichert</span>
+                <div class="gm-note-card__controls">
+                  <button type="button" data-note-width-toggle
+                    aria-pressed="{{ group.screen_note_is_wide|yesno:'true,false' }}"
+                    aria-label="Doppelte Kartenbreite umschalten" title="Doppelte Kartenbreite">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h16M4 12l3-3M4 12l3 3M20 12l-3-3M20 12l-3 3M4 5v14M20 5v14"/></svg>
+                  </button>
+                  <button type="button" data-note-detach-toggle
+                    aria-pressed="{{ group.screen_note_is_detached|yesno:'true,false' }}"
+                    aria-label="Notizzettel loslösen oder andocken"
+                    title="{% if group.screen_note_is_detached %}Notizzettel andocken{% else %}Notizzettel loslösen{% endif %}">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 4h7v7M20 4l-9 9M10 6H5v13h13v-5"/></svg>
+                  </button>
+                  <form method="post" action="{% url 'hide_group_note' group.id %}">
+                    {% csrf_token %}
+                    <button type="submit" aria-label="Notizen ausblenden" title="Notizen ausblenden">
+                      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5l14 14M19 5 5 19"/></svg>
+                    </button>
+                  </form>
+                </div>
+              </div>
+              {% endif %}
+            </header>
+            {% if not group.is_archived %}
+            <div class="gm-note-card__toolbar" role="toolbar" aria-label="Text formatieren">
+              <button type="button" data-note-command="bold" aria-label="Fett" title="Fett">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4h6.5a4 4 0 0 1 0 8H7zM7 12h7.5a4 4 0 0 1 0 8H7z"/></svg>
+              </button>
+              <button type="button" data-note-command="italic" aria-label="Kursiv" title="Kursiv">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 4h7M7 20h7M14 4l-4 16"/></svg>
+              </button>
+              <button type="button" data-note-command="underline" aria-label="Unterstreichen" title="Unterstreichen">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4v7a5 5 0 0 0 10 0V4M5 21h14"/></svg>
+              </button>
+              <button type="button" data-note-command="formatBlock" data-note-value="h2" aria-label="Überschrift" title="Überschrift">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5v14M15 5v14M5 12h10M18 11h3l-3 4h3v4h-3"/></svg>
+              </button>
+              <button type="button" data-note-command="insertUnorderedList" aria-label="Aufzählung" title="Aufzählung">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg>
+              </button>
+              <button type="button" data-note-command="insertOrderedList" aria-label="Nummerierte Liste" title="Nummerierte Liste">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 6h10M10 12h10M10 18h10M4 4v4M3 4h2M3 11h3l-3 3h3M3 17h3l-2 2 2 2H3"/></svg>
+              </button>
+              <button type="button" data-note-command="formatBlock" data-note-value="blockquote" aria-label="Zitat" title="Zitat">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h5v5H7v5H4v-7a3 3 0 0 1 3-3M14 7h5v5h-3v5h-3v-7a3 3 0 0 1 3-3"/></svg>
+              </button>
+              <button type="button" data-note-command="removeFormat" aria-label="Formatierung entfernen" title="Formatierung entfernen">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17 13 4l7 5-8 11H7zM3 21h18M10 8l7 5"/></svg>
+              </button>
+            </div>
+            {% endif %}
+            <div
+              class="gm-note-card__editor"
+              data-placeholder="Notizen eingeben …"
+              {% if not group.is_archived %}
+              contenteditable="true"
+              spellcheck="true"
+              data-note-editor
+              data-note-save-url="{% url 'update_group_note' group.id %}"
+              {% endif %}
+            >{{ group.screen_note_html|safe }}</div>
+          </article>
+          {% endif %}
+        </div>
+      </section>
+
+      <section
+        class="gm-inventory-area"
+        aria-label="SL-Inventar"
+        data-inventory-area
+        data-inventory-state-url="{% url 'set_group_inventory_screen_state' group.id %}"
+        data-csrf-token="{{ csrf_token }}"
+      >
+        {% if not group.is_archived %}
+        <button
+          class="gm-inventory-toggle"
+          type="button"
+          data-inventory-toggle
+          aria-controls="gm-inventory-content"
+          aria-expanded="{% if group.screen_inventory_is_collapsed %}false{% else %}true{% endif %}"
+          aria-label="{% if group.screen_inventory_is_collapsed %}Inventar ausklappen{% else %}Inventar einklappen{% endif %}"
+          title="{% if group.screen_inventory_is_collapsed %}Inventar ausklappen{% else %}Inventar einklappen{% endif %}"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="m15 5-7 7 7 7"/>
+          </svg>
+        </button>
+        {% endif %}
+        <div
+          class="gm-inventory-area__content"
+          id="gm-inventory-content"
+          {% if group.screen_inventory_is_collapsed and not group.is_archived %}hidden{% endif %}
+        >
+          <header class="gm-panel-heading">
+            <div><span>Gruppe</span><h2>Inventar</h2></div>
+          </header>
+          {% include "charsheet/partials/_dashboard_group_inventory.html" %}
+        </div>
       </section>
     </div>
   </main>

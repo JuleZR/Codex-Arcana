@@ -79,6 +79,21 @@
                       <span class="learn_tabs__icon_frame" aria-hidden="true"><span class="learn_tabs__icon">&#8998;</span></span>
                       <span class="learn_tabs__label">Schulen</span>
                     </button>
+                    {% if learn_lesson_tab_visible %}
+                      <button
+                        type="button"
+                        class="learn_tabs__tab"
+                        id="learn-tab-lessons"
+                        role="tab"
+                        aria-selected="false"
+                        aria-controls="learn-panel-lessons"
+                        data-tab-target="learn-panel-lessons"
+                        tabindex="-1"
+                      >
+                        <span class="learn_tabs__icon_frame" aria-hidden="true"><span class="learn_tabs__icon">&#10070;</span></span>
+                        <span class="learn_tabs__label">Lektionen</span>
+                      </button>
+                    {% endif %}
                     {% if learn_magic_tab_visible %}
                       <button
                         type="button"
@@ -398,6 +413,57 @@
                   </details>
                 {% endfor %}
               </section>
+              {% if learn_lesson_tab_visible %}
+                <section
+                  class="learn_tabs__panel"
+                  id="learn-panel-lessons"
+                  role="tabpanel"
+                  aria-labelledby="learn-tab-lessons"
+                  data-tab-panel
+                  hidden
+                >
+                  {% for group in learn_lesson_groups %}
+                    <details class="shop_group learn_subgroup" data-learn-group data-collapse-key="lessons:{{ group.name|slugify }}">
+                      <summary><span>{{ group.name }}</span><span class="shop_group_count">{{ group.rows|length }}</span></summary>
+                      <table class="shop_table">
+                        <tbody>
+                          {% for row in group.rows %}
+                            <tr
+                              data-learn-source
+                              data-kind="lesson"
+                              data-key="lesson:{{ row.id }}"
+                              data-id="{{ row.id }}"
+                              data-name="{{ row.name }}"
+                              data-base="{{ row.base_value }}"
+                              data-purchase-cost="{{ row.purchase_cost }}"
+                              data-paid-ep="{{ row.paid_ep }}"
+                              data-can-unlearn="{% if row.can_unlearn %}1{% else %}0{% endif %}"
+                              data-requirements-met="{% if row.requirements_met %}1{% else %}0{% endif %}"
+                              data-learn-search="{{ row.name|lower }} {{ row.school_name|lower }} {{ row.description|lower }} {{ row.fluff_quote|lower }} {{ row.fluff_quote_speaker|lower }} {{ row.requirements_display|lower }} {{ row.costs_display|lower }} lektion"
+                              {% if not row.base_value or row.can_unlearn %}tabindex="0" role="button"{% else %}aria-disabled="true"{% endif %}
+                              class="tooltip_target{% if row.base_value %} is-learned{% endif %}{% if not row.requirements_met %} is-unavailable{% endif %}"
+                              data-tooltip-side="left"
+                              data-tooltip="{% if row.fluff_quote %}[[LESSONQUOTE]]&#10;{{ row.fluff_quote }}&#10;{% if row.fluff_quote_speaker %}[[SPEAKER:{{ row.fluff_quote_speaker }}]]&#10;{% endif %}[[/LESSONQUOTE]]&#10;&#10;{% endif %}{{ row.description }}&#10;&#10;Voraussetzungen: {{ row.requirements_display }}"
+                            >
+                              <td class="shop_item_name">
+                                {{ row.name }}
+                                {% if row.base_value and not row.can_unlearn %}<small>(fest erworben)</small>{% endif %}
+                              </td>
+                              <td class="shop_item_price shop_item_price--meta">
+                                {% if row.base_value %}
+                                  {% if row.can_unlearn %}−{{ row.paid_ep }} EP{% else %}Erlernt{% endif %}
+                                {% else %}
+                                  {{ row.purchase_cost }} EP
+                                {% endif %}
+                              </td>
+                            </tr>
+                          {% endfor %}
+                        </tbody>
+                      </table>
+                    </details>
+                  {% endfor %}
+                </section>
+              {% endif %}
               {% if learn_magic_tab_visible %}
                 <section
                   class="learn_tabs__panel"

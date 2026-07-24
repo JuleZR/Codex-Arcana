@@ -62,6 +62,7 @@ from .models import (
     DruidCultAspect,
     Item,
     Language,
+    Lesson,
     Rune,
     School,
     ShamanPatron,
@@ -90,6 +91,7 @@ from .forms import (
 from .constants import ATTRIBUTE_CODE_CHOICES, ATTRIBUTE_ORDER, GK_MODS, RESOURCE_KEY_CHOICES, is_allowed_trait_attribute_choice
 from .models.creatures import CREATURE_CARD_QUALITY_TRAINING_BUDGETS
 from .learning import process_learning_submission
+from .lesson_rules import LessonRuleError, activate_lesson, format_lesson_costs, format_lesson_requirements
 from .sheet_context import build_character_sheet_context, build_creature_card_training_context
 from .shop import (
     apply_character_item_modifications,
@@ -131,6 +133,7 @@ SHEET_PARTIAL_TEMPLATES = {
     "armor_panel": ("sheetArmorPanel", "charsheet/partials/_armor_panel.html"),
     "weapon_panel": ("sheetWeaponPanel", "charsheet/partials/_weapon_table.html"),
     "spell_panel": ("sheetSpellPanel", "charsheet/partials/_spell_panel.html"),
+    "lesson_panel": ("sheetLessonPanel", "charsheet/partials/_lesson_panel.html"),
     "learning_budget": ("learnBudgetPanel", "charsheet/partials/_learning_budget.html"),
 }
 
@@ -1703,6 +1706,13 @@ def create_character(request):
                 if level > 0:
                     schools[str(school.id)] = level
 
+            lessons = [
+                lesson.id
+                for lesson in Lesson.objects.order_by("id")
+                if str(request.POST.get(f"lesson_{lesson.id}", "")).strip().lower()
+                in {"1", "true", "on", "yes"}
+            ]
+
             weapon_masteries_by_slot: dict[int, dict[str, object]] = {}
             weapon_arcana_by_slot: dict[int, dict[str, object]] = {}
             for key in request.POST.keys():
@@ -1737,6 +1747,7 @@ def create_character(request):
                 "language_adds": language_adds,
                 "language_write_adds": language_write_adds,
                 "schools": schools,
+                "lessons": lessons,
                 "weapon_masteries": weapon_masteries,
                 "weapon_arcana": weapon_arcana,
             }
@@ -1875,6 +1886,7 @@ def create_character(request):
     phase_4_lang_adds = engine.phase_4_language_adds()
     phase_4_lang_write_adds = engine.phase_4_language_write_adds()
     phase_4_schools = engine.phase_4_schools()
+    phase_4_lessons = engine.phase_4_lessons()
     phase_1_attr_values = engine.phase_1_attributes()
     phase_1_limits = engine.attribute_min_max_limits()
     phase_2_skill_values = engine.phase_2_skills()
@@ -1984,6 +1996,36 @@ def create_character(request):
                 "value": phase_4_schools.get(str(school.id), 0),
             }
         )
+    phase_4_lesson_rows = []
+    lessons_queryset = (
+        Lesson.objects.select_related("school", "technique")
+        .prefetch_related(
+            "costs",
+            "requirements__group",
+            "requirements__required_school",
+            "requirements__required_skill",
+            "requirements__required_technique",
+            "requirements__required_lesson",
+        )
+        .order_by("school__name", "name")
+    )
+    for lesson in lessons_queryset:
+        try:
+            costs_display = format_lesson_costs(lesson)
+        except LessonRuleError as exc:
+            costs_display = f"Ungültige Kosten: {exc}"
+        phase_4_lesson_rows.append(
+            {
+                "id": lesson.id,
+                "name": lesson.name,
+                "school_name": lesson.school.name,
+                "purchase_cost": int(lesson.purchase_cost),
+                "description": lesson.description,
+                "costs_display": costs_display,
+                "requirements_display": format_lesson_requirements(lesson),
+                "selected": lesson.id in phase_4_lessons,
+            }
+        )
     weapon_master_school = School.objects.filter(name__iexact="Waffenmeister").first()
     phase_4_weapon_mastery_rows = []
     if weapon_master_school is not None:
@@ -2044,6 +2086,7 @@ def create_character(request):
             "phase_4_skill_rows": phase_4_skill_rows,
             "phase_4_language_rows": phase_4_language_rows,
             "phase_4_school_rows": phase_4_school_rows,
+            "phase_4_lesson_rows": phase_4_lesson_rows,
             "phase_4_weapon_mastery_rows": phase_4_weapon_mastery_rows,
             "phase_4_weapon_mastery_school": weapon_master_school,
             "phase_4_spent": engine.sum_phase_4_total_cost(),
@@ -3467,6 +3510,73 @@ def cast_spell(request, character_id: int, spell_id: int):
 
 @login_required
 @require_POST
+def activate_character_lesson(request, character_id: int, lesson_id: int):
+    """Activate an owned lesson and apply all technically supported costs atomically."""
+    character = _owned_character_or_404(request, character_id)
+    selected_cost_ids: dict[int, int] = {}
+    for key, value in request.POST.items():
+        if not key.startswith("cost_choice_"):
+            continue
+        try:
+            group_number = int(key.removeprefix("cost_choice_"))
+            selected_cost_ids[group_number] = int(value)
+        except (TypeError, ValueError):
+            return JsonResponse(
+                {"ok": False, "error": "invalid_cost_selection", "message": "Ungültige Kostenauswahl."},
+                status=400,
+            )
+
+    manual_costs_confirmed = str(request.POST.get("confirm_manual_costs", "")).lower() in {
+        "1",
+        "true",
+        "on",
+        "yes",
+    }
+    result = activate_lesson(
+        character,
+        lesson_id,
+        selected_cost_ids,
+        manual_costs_confirmed=manual_costs_confirmed,
+    )
+    if not result.get("ok"):
+        status_code = 400 if result.get("error") in {
+            "unknown_lesson",
+            "requirements_not_met",
+            "invalid_cost_selection",
+            "manual_confirmation_required",
+            "not_enough_kp",
+            "potential_exceeded",
+        } else 409
+        if _is_partial_request(request):
+            return JsonResponse(result, status=status_code)
+        messages.error(request, str(result.get("message") or "Lektion konnte nicht aktiviert werden."))
+        return redirect("character_sheet", character_id=character_id)
+
+    if _is_partial_request(request):
+        character.refresh_from_db()
+        context = _build_sheet_context_for_request(request, character)
+        partials = []
+        for key in ("damage_panel", "lesson_panel"):
+            target_id, template_name = SHEET_PARTIAL_TEMPLATES[key]
+            partials.append(
+                {
+                    "target": target_id,
+                    "html": render_to_string(template_name, context, request=request),
+                }
+            )
+        return JsonResponse({**result, "partials": partials})
+
+    manual = result.get("manual_costs") or []
+    suffix = f" Manuell zu behandeln: {', '.join(manual)}." if manual else ""
+    messages.success(
+        request,
+        f"{result['lesson_name']} aktiviert ({result['spent_kp']} KP).{suffix}",
+    )
+    return redirect("character_sheet", character_id=character_id)
+
+
+@login_required
+@require_POST
 def adjust_money(request, character_id: int):
     """Apply a signed money delta while keeping balance non-negative."""
     character = _owned_character_or_404(request, character_id)
@@ -3534,10 +3644,12 @@ def apply_learning(request, character_id: int):
             "damage_panel",
             "wallet_panel",
             "experience_panel",
+            "fame_panel",
             "inventory_panel",
             "armor_panel",
             "weapon_panel",
             "spell_panel",
+            "lesson_panel",
             "secondary_page",
             "card_hand",
             "learning_budget",

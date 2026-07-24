@@ -26,6 +26,7 @@ def fame_total(engine) -> int:
     return (
         max(0, int(engine.character.personal_fame_point) + int(engine.resolve_resource("personal_fame_point")))
         + engine.auto_school_fame_points()
+        + engine.auto_lesson_fame_points()
         + max(0, int(engine.character.personal_fame_rank) + int(engine.resolve_resource("personal_fame_rank")))
         + engine.character.sacrifice_rank
         + max(0, int(engine.character.artefact_rank) + int(engine.resolve_resource("artefact_rank")))
@@ -35,6 +36,11 @@ def fame_total(engine) -> int:
 def auto_school_fame_points(engine) -> int:
     """Return the automatic fame points granted by learned school levels."""
     return sum(max(0, int(entry.level)) for entry in engine._school_entries.values())
+
+
+def auto_lesson_fame_points(engine) -> int:
+    """Return the automatic fame point granted by each learned lesson."""
+    return engine.character.learned_lessons.count()
 
 
 def calculate_initiative(engine) -> int:
@@ -51,7 +57,8 @@ def calculate_arcane_power(engine) -> int:
         for entry in engine.character.get_magic_engine(refresh=True).get_character_aspects()
         if entry.is_bonus_aspect
     )
-    return willpower + school_levels + aspect_levels + engine._resolve_stat_modifiers(ARCANE_POWER)
+    lesson_levels = engine.character.learned_lessons.count()
+    return willpower + school_levels + aspect_levels + lesson_levels + engine._resolve_stat_modifiers(ARCANE_POWER)
 
 
 def calculate_potential(engine) -> int:
