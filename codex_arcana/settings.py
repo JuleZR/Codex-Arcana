@@ -116,11 +116,11 @@ WSGI_APPLICATION = "codex_arcana.wsgi.application"
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'charsheet',
-        'USER': 'charsheet',
-        'PASSWORD': 'charsheet',
-        'HOST': 'localhost',
-        'PORT': '5432',
+        'NAME': os.getenv('DJANGO_DB_NAME', 'charsheet'),
+        'USER': os.getenv('DJANGO_DB_USER', 'charsheet'),
+        'PASSWORD': os.getenv('DJANGO_DB_PASSWORD', 'charsheet'),
+        'HOST': os.getenv('DJANGO_DB_HOST', 'localhost'),
+        'PORT': os.getenv('DJANGO_DB_PORT', '5432'),
     }
 }
 
