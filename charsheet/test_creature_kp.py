@@ -51,6 +51,7 @@ class CreatureKpTests(TestCase):
         )
         self.assertNotIn("<strong>KP</strong>", html)
         self.assertNotIn("<strong>Pot</strong>", html)
+        self.assertNotIn("creature-card__core-grid--two-rows", html)
 
     def test_kp_and_potential_use_formulas_and_render_on_creature_card(self):
         self.creature.has_kp = True
@@ -65,6 +66,10 @@ class CreatureKpTests(TestCase):
         )
         self.assertIn("<strong>KP</strong>", html)
         self.assertIn("<strong>Pot</strong>", html)
+        self.assertIn("creature-card__core-grid--two-rows", html)
+        self.assertIn("creature-card__core-row--arcane", html)
+        self.assertLess(html.index("<strong>GW</strong>"), html.index("<strong>KP</strong>"))
+        self.assertLess(html.index("<strong>KP</strong>"), html.index("<strong>Pot</strong>"))
 
     def test_kp_and_potential_overrides_replace_the_attribute_formulas(self):
         self.creature.has_kp = True

@@ -1502,6 +1502,25 @@ span.card-aspect-placeholder {
     padding-bottom: 5px;
 }
 
+.creature-card__core-grid--two-rows {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: 5px;
+}
+
+.creature-card__core-row {
+    display: grid;
+    min-width: 0;
+    grid-template-columns: repeat(auto-fit, minmax(42px, 1fr));
+    align-items: start;
+    gap: 3px;
+}
+
+.creature-card__core-row--arcane {
+    width: 50%;
+    grid-template-columns: repeat(2, minmax(42px, 1fr));
+    justify-self: center;
+}
+
 .creature-card__core-grid:has(.creature-card__core-subvalue) {
     padding-bottom: calc(5px + 0.95em);
 }
