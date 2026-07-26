@@ -203,3 +203,5 @@ _old
 .claude
 media/
 backups
+.codex-arcana-version
+.codex-arcana-version.tmp

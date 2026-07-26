@@ -32,6 +32,16 @@ Ein Deployment-Skript kann den Wert mit folgendem Befehl abrufen:
 python manage.py app_version
 ```
 
+Wenn der Webprozess nicht auf Git zugreifen kann, erzeugt das Deployment vor
+dem Prozessneustart eine Versionsdatei:
+
+```text
+python manage.py app_version --write-deployment-file
+```
+
+Die Anwendung liest diese Datei ohne Git-Zugriff. Sie wird bei jedem Deployment
+atomar aktualisiert und darf nicht ins Repository eingecheckt werden.
+
 Wenn `.git` auf dem Produktivserver nicht vorhanden ist, muss das
 Deployment-Skript den vorher berechneten Wert als Umgebungsvariable
 `CODEX_ARCANA_VERSION` an die Anwendung übergeben.

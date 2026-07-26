@@ -11,6 +11,7 @@ import subprocess
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
+DEPLOYED_VERSION_FILE = PROJECT_ROOT / ".codex-arcana-version"
 
 # This fallback represents the repository state at which automatic versioning
 # was introduced. Deployments that do not include `.git` should provide the
@@ -136,6 +137,33 @@ def _version_for_git_head(head: str) -> str:
     return str(calculate_version(_git_commits(head)))
 
 
+def get_git_version() -> str:
+    """Calculate the version directly from the current Git checkout."""
+
+    return _version_for_git_head(_git_head())
+
+
+def _read_deployed_version() -> str:
+    """Read the version snapshot created by the deployment script."""
+
+    try:
+        return DEPLOYED_VERSION_FILE.read_text(encoding="utf-8").strip()
+    except OSError:
+        return ""
+
+
+def write_deployed_version() -> str:
+    """Atomically store the Git version for processes without Git access."""
+
+    version = get_git_version()
+    temporary_file = DEPLOYED_VERSION_FILE.with_name(
+        f"{DEPLOYED_VERSION_FILE.name}.tmp"
+    )
+    temporary_file.write_text(f"{version}\n", encoding="utf-8")
+    temporary_file.replace(DEPLOYED_VERSION_FILE)
+    return version
+
+
 def get_application_version() -> str:
     """Return an explicit deployment version or calculate it from Git."""
 
@@ -143,7 +171,11 @@ def get_application_version() -> str:
     if override:
         return override
 
+    deployed_version = _read_deployed_version()
+    if deployed_version:
+        return deployed_version
+
     try:
-        return _version_for_git_head(_git_head())
+        return get_git_version()
     except (OSError, subprocess.SubprocessError):
         return FALLBACK_VERSION

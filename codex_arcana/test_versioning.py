@@ -1,7 +1,7 @@
 """Tests for automatic application version calculation."""
 
 import os
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from django.test import SimpleTestCase
 
@@ -11,6 +11,7 @@ from codex_arcana.versioning import (
     _version_for_git_head,
     calculate_version,
     get_application_version,
+    write_deployed_version,
 )
 
 
@@ -101,3 +102,44 @@ class VersionCalculationTests(SimpleTestCase):
             self.assertEqual(get_application_version(), "v.0.0.1-b2")
 
         self.assertEqual(git_commits.call_count, 2)
+
+    @patch("codex_arcana.versioning._git_head")
+    @patch(
+        "codex_arcana.versioning._read_deployed_version",
+        return_value="v.0.93.2-b336",
+    )
+    def test_application_uses_deployment_file_without_calling_git(
+        self,
+        _read_deployed_version,
+        git_head,
+    ):
+        with patch.dict(os.environ, {"CODEX_ARCANA_VERSION": ""}):
+            self.assertEqual(get_application_version(), "v.0.93.2-b336")
+
+        git_head.assert_not_called()
+
+    def test_writes_deployment_version_atomically(self):
+        version_file = MagicMock()
+        version_file.name = ".codex-arcana-version"
+        temporary_file = version_file.with_name.return_value
+
+        with (
+            patch(
+                "codex_arcana.versioning.DEPLOYED_VERSION_FILE",
+                version_file,
+            ),
+            patch(
+                "codex_arcana.versioning.get_git_version",
+                return_value="v.0.93.2-b336",
+            ),
+        ):
+            self.assertEqual(write_deployed_version(), "v.0.93.2-b336")
+
+        version_file.with_name.assert_called_once_with(
+            ".codex-arcana-version.tmp"
+        )
+        temporary_file.write_text.assert_called_once_with(
+            "v.0.93.2-b336\n",
+            encoding="utf-8",
+        )
+        temporary_file.replace.assert_called_once_with(version_file)
