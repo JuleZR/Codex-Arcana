@@ -2127,10 +2127,14 @@
 .gm-data-table.gm-data-table--detached {
   position: fixed;
   z-index: 1150;
+  box-sizing: border-box;
   width: min(var(--gm-table-card-width, 320px), calc(100vw - 16px));
   min-width: min(var(--gm-table-card-width, 320px), calc(100vw - 16px));
   height: auto;
-  max-height: calc(100vh - 16px);
+  max-height: min(
+    var(--gm-table-floating-max-height, calc(100vh - 16px)),
+    calc(100vh - 16px)
+  );
   border-color: rgba(214, 180, 126, 0.54);
   box-shadow:
     0 24px 56px rgba(0, 0, 0, 0.48),
@@ -2527,11 +2531,12 @@
 }
 
 .gm-data-table__editor[open] {
-  display: grid;
-  height: 0;
+  display: flex;
+  height: auto;
   flex: 1 1 0;
-  overflow: visible;
-  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 0;
+  overflow: hidden;
+  flex-direction: column;
 }
 
 .gm-data-table > form:has(.gm-data-table__editor[open]) .gm-data-table__preview {
@@ -2579,6 +2584,7 @@
 .gm-data-table__editor-toolbar {
   display: flex;
   min-width: 0;
+  flex: 0 0 auto;
   align-items: center;
   gap: 10px;
   padding: 6px 9px;
@@ -2609,9 +2615,10 @@
 }
 
 .gm-data-table__scroll {
-  height: 100%;
+  height: auto;
   min-height: 0;
-  max-height: 100%;
+  max-height: none;
+  flex: 1 1 auto;
   overflow-x: scroll;
   overflow-y: scroll;
   overscroll-behavior: contain;

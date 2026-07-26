@@ -714,10 +714,33 @@
       floatingTableZIndex += 1;
       card.style.zIndex = String(floatingTableZIndex);
     };
+    const applyFloatingHeightLimit = () => {
+      const screenHeader = document.querySelector(".gm-screen__header");
+      const inventoryPanel = inventoryArea?.querySelector(".sl-inventory");
+      const headerRect = screenHeader?.getBoundingClientRect();
+      const inventoryPanelRect = inventoryPanel?.getBoundingClientRect();
+      const inventoryAreaRect = inventoryArea?.getBoundingClientRect();
+      const inventoryBottom = inventoryPanelRect?.height
+        ? inventoryPanelRect.bottom
+        : inventoryAreaRect?.bottom;
+      if (!headerRect || !Number.isFinite(inventoryBottom)) {
+        card.style.removeProperty("--gm-table-floating-max-height");
+        return;
+      }
+      const availableHeight = Math.max(
+        1,
+        Math.floor(inventoryBottom - headerRect.bottom),
+      );
+      card.style.setProperty(
+        "--gm-table-floating-max-height",
+        `${availableHeight}px`,
+      );
+    };
     const clampFloatingPosition = (left, top) => {
       if (!card.classList.contains("gm-data-table--detached")) {
         return currentPosition();
       }
+      applyFloatingHeightLimit();
       const margin = 8;
       const rect = card.getBoundingClientRect();
       const maxLeft = Math.max(margin, window.innerWidth - rect.width - margin);
