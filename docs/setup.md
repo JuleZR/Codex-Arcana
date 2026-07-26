@@ -91,7 +91,8 @@ python manage.py test
 
 ## Hinweise für lokale Entwicklung
 
-- `DEBUG` steht derzeit fest auf `True`.
+- `DJANGO_DEBUG` steuert den Debug-Modus und ist lokal standardmäßig `True`.
+- `DJANGO_SECRET_KEY` muss auf Produktivsystemen in `.env` gesetzt werden.
 - `TIME_ZONE` ist aktuell auf `UTC` gesetzt.
 - Die Login-Seite liegt auf `/`, der Redirect nach erfolgreichem Login geht auf `dashboard`.
 - Für das Character Sheet ist `/sheet/` nicht der normale Einstieg; gearbeitet wird üblicherweise über `/character/<id>/`.
