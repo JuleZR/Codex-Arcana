@@ -2,6 +2,7 @@
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models, transaction
 from django.db.models import Q
 from django.db.models.functions import Lower
@@ -320,6 +321,15 @@ class GameGroupTable(models.Model):
     title = models.CharField(max_length=150)
     position = models.PositiveIntegerField(default=0)
     is_visible = models.BooleanField(default=True, db_index=True)
+    is_detached = models.BooleanField(default=False)
+    is_stacked = models.BooleanField(default=False)
+    detached_x = models.PositiveIntegerField(default=24)
+    detached_y = models.PositiveIntegerField(default=24)
+    window_width = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(320), MaxValueValidator(6000)],
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -337,6 +347,11 @@ class GameGroupTableColumn(models.Model):
         related_name="columns",
     )
     heading = models.CharField(max_length=100)
+    width = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(60), MaxValueValidator(1200)],
+    )
     position = models.PositiveIntegerField(default=0)
 
     class Meta:

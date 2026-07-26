@@ -7,10 +7,10 @@
   <title>SL-Screen | {{ group.name }}</title>
   <link rel="stylesheet" href="{% static 'css/charsheet.css' %}">
   <link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
-  <link rel="stylesheet" href="{% static 'css/game-master-screen.css' %}?v=20260724ax">
+  <link rel="stylesheet" href="{% static 'css/game-master-screen.css' %}?v=20260726t">
   <script defer src="{% static 'js/game_groups.js' %}"></script>
   <script defer src="{% static 'js/sl_inventory.js' %}?v=20260724b"></script>
-  <script defer src="{% static 'js/game_master_screen.js' %}?v=20260724p"></script>
+  <script defer src="{% static 'js/game_master_screen.js' %}?v=20260726q"></script>
 </head>
 <body class="gm-screen-body">
   <main class="gm-screen">
@@ -355,25 +355,39 @@
         </header>
 
         <div
-          class="gm-data-tables"
+          class="gm-data-tables{% if has_stacked_tables %} gm-data-tables--has-stacked{% endif %}"
           data-card-reorder-url="{% url 'reorder_group_tables' group.id %}"
           data-csrf-token="{{ csrf_token }}"
         >
           {% for data_table in data_tables %}
           <article
-            class="gm-data-table"
+            class="gm-data-table{% if not data_table.window_width %} gm-data-table--automatic-width{% endif %}{% if data_table.is_stacked %} gm-data-table--stacked{% endif %}{% if data_table.is_detached and not group.is_archived %} gm-data-table--detached{% endif %}"
             data-reorder-card
             data-reorder-id="table:{{ data_table.id }}"
             data-sort-position="{{ data_table.position }}"
-            style="--gm-table-card-width: {{ data_table.render_card_width }}px; --gm-table-editor-width: {{ data_table.render_editor_width }}px;"
+            data-table-layout-url="{% url 'update_group_table_layout' group.id data_table.id %}"
+            data-window-width="{{ data_table.window_width|default_if_none:'' }}"
+            data-automatic-card-width="{{ data_table.render_automatic_card_width }}"
+            data-automatic-editor-width="{{ data_table.render_automatic_editor_width }}"
+            style="--gm-table-card-width: {{ data_table.render_card_width }}px; --gm-table-editor-width: {{ data_table.render_editor_width }}px; left: {{ data_table.detached_x }}px; top: {{ data_table.detached_y }}px;"
           >
             <form method="post" action="{% url 'update_group_table' group.id data_table.id %}">
               {% csrf_token %}
               <input type="hidden" name="_sl_screen" value="1">
               <input type="hidden" name="_sl_anchor" value="sl-tabellen">
               <input type="hidden" name="_edit_table_id" value="{{ data_table.id }}">
-              <header class="gm-data-table__header"{% if not group.is_archived %} draggable="true" data-drag-surface{% endif %}>
+              <header class="gm-data-table__header"{% if not group.is_archived %} draggable="{% if data_table.is_detached %}false{% else %}true{% endif %}" data-drag-surface{% endif %}>
                 {% if not group.is_archived %}
+                <button
+                  class="gm-data-table__detach"
+                  type="button"
+                  data-table-detach-toggle
+                  aria-pressed="{{ data_table.is_detached|yesno:'true,false' }}"
+                  aria-label="Tabelle losl&ouml;sen oder andocken"
+                  title="{% if data_table.is_detached %}Tabelle andocken{% else %}Tabelle losl&ouml;sen{% endif %}"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 4h7v7M20 4l-9 9M10 6H5v13h13v-5"/></svg>
+                </button>
                 <button
                   class="gm-data-table__hide"
                   type="submit"
@@ -445,11 +459,34 @@
               </header>
 
               <div class="gm-data-table__preview">
-                <table>
+                <table
+                  data-table-column-grid
+                  data-table-grid-kind="preview"
+                  class="{% if data_table.has_custom_column_widths %}gm-data-table__table--custom-widths{% endif %}"
+                  style="--gm-table-content-width: {{ data_table.render_preview_table_width }}px;"
+                >
+                  <colgroup>
+                    {% for column in data_table.render_columns %}
+                    <col
+                      data-table-column-id="{{ column.id }}"
+                      data-default-width="140"
+                      style="width: {{ column.render_preview_width }}px;"
+                    >
+                    {% endfor %}
+                  </colgroup>
                   <thead>
                     <tr>
                       {% for column in data_table.render_columns %}
-                      <th>{{ column.heading }}</th>
+                      <th lang="de">
+                        {% if column.render_heading_title %}
+                        <abbr
+                          class="gm-data-table__heading-abbreviation"
+                          title="{{ column.render_heading_title }}"
+                        >{{ column.render_heading }}</abbr>
+                        {% else %}
+                        {{ column.render_heading }}
+                        {% endif %}
+                      </th>
                       {% endfor %}
                     </tr>
                   </thead>
@@ -492,8 +529,41 @@
                     <path d="m4 20 4.2-1 10.6-10.6a1.8 1.8 0 0 0 0-2.6l-.6-.6a1.8 1.8 0 0 0-2.6 0L5 15.8zM14.5 6.3l3.2 3.2M4.8 15.9l3.3 3.3"/>
                   </svg>
                 </summary>
+              <div class="gm-data-table__editor-toolbar">
+                <label class="gm-data-table__width-control">
+                  <span>Fensterbreite</span>
+                  <input
+                    type="number"
+                    name="window_width"
+                    min="320"
+                    max="6000"
+                    step="1"
+                    value="{{ data_table.window_width|default_if_none:'' }}"
+                    placeholder="{{ data_table.render_editor_width }}"
+                    aria-label="Tabellenfensterbreite in Pixeln"
+                    data-table-width-input
+                  >
+                  <span>px</span>
+                </label>
+                <small>Leer = automatisch</small>
+              </div>
               <div class="gm-data-table__scroll">
-                <table>
+                <table
+                  data-table-column-grid
+                  data-table-grid-kind="editor"
+                  class="{% if data_table.has_custom_column_widths %}gm-data-table__table--custom-widths{% endif %}"
+                  style="--gm-table-content-width: {{ data_table.render_editor_table_width }}px;"
+                >
+                  <colgroup>
+                    {% for column in data_table.render_columns %}
+                    <col
+                      data-table-column-id="{{ column.id }}"
+                      data-default-width="180"
+                      style="width: {{ column.render_editor_width }}px;"
+                    >
+                    {% endfor %}
+                    <col class="gm-data-table__row-action-column">
+                  </colgroup>
                   <thead>
                     <tr>
                       {% for column in data_table.render_columns %}
@@ -506,6 +576,25 @@
                             aria-label="Spalten&uuml;berschrift"
                             {% if group.is_archived %}readonly{% endif %}
                           >
+                          <label
+                            class="gm-data-table__column-width-control"
+                            title="Spaltenbreite in Pixeln"
+                          >
+                            <span>Breite</span>
+                            <input
+                              type="number"
+                              name="column_{{ column.id }}_width"
+                              min="60"
+                              max="1200"
+                              step="1"
+                              value="{{ column.width|default_if_none:'' }}"
+                              placeholder="auto"
+                              aria-label="Breite der Spalte {{ column.heading }} in Pixeln"
+                              data-table-column-width-input
+                              data-table-column-id="{{ column.id }}"
+                            >
+                            <span>px</span>
+                          </label>
                           {% if not group.is_archived and data_table.render_columns|length > 1 %}
                           <button
                             type="submit"

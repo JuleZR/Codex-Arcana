@@ -31,6 +31,7 @@ from charsheet.templatetags.card_markdown import (
     compact_number_de,
     compact_number_fraction_de,
     compact_number_integer_de,
+    standard_markdown,
 )
 from charsheet.models import (
     Character,
@@ -87,6 +88,17 @@ class GameGroupTests(TestCase):
         self.assertEqual(compact_number_integer_de(Decimal("-12.5000")), "-12")
         self.assertEqual(compact_number_fraction_de(Decimal("-12.5000")), "5")
         self.assertEqual(compact_number_fraction_de(Decimal("-12.0000")), "")
+
+    def test_table_markdown_requires_period_for_ordered_lists(self):
+        self.assertIn("<ol start=\"2\">", standard_markdown("2. Zusatzaktionen"))
+        self.assertEqual(
+            standard_markdown("2 Zusatzaktionen"),
+            "<p>2 Zusatzaktionen</p>\n",
+        )
+        self.assertEqual(
+            standard_markdown("2) Zusatzaktionen"),
+            "<p>2) Zusatzaktionen</p>\n",
+        )
 
     def test_group_table_creation_uses_default_dimensions(self):
         self.client.force_login(self.leader)
@@ -674,6 +686,7 @@ class GameGroupTests(TestCase):
                 "_sl_screen": "1",
                 "_sl_anchor": "sl-tabellen",
                 "title": "Kampf-Reihenfolge",
+                "window_width": "780",
                 f"column_{columns[0].id}_heading": "Name",
                 f"column_{columns[1].id}_heading": "Wert",
                 f"cell_{rows[0].id}_{columns[0].id}_alignment": "left",
@@ -698,6 +711,7 @@ class GameGroupTests(TestCase):
         covered_cell.refresh_from_db()
         suffix_cell.refresh_from_db()
         self.assertEqual(data_table.title, "Kampf-Reihenfolge")
+        self.assertEqual(data_table.window_width, 780)
         self.assertEqual(text_cell.value_type, GameGroupTableCell.ValueType.TEXT)
         self.assertEqual(text_cell.text_value, "**Ari**")
         self.assertIsNone(text_cell.number_value)
@@ -738,8 +752,11 @@ class GameGroupTests(TestCase):
                 for rendered_cell in rendered_row.render_display_cells
             ],
         )
-        self.assertEqual(rendered_table.render_card_width, 320)
-        self.assertEqual(rendered_table.render_editor_width, 640)
+        self.assertEqual(rendered_table.render_card_width, 780)
+        self.assertEqual(rendered_table.render_editor_width, 780)
+        self.assertContains(screen, 'name="window_width"')
+        self.assertContains(screen, 'value="780"')
+        self.assertContains(screen, 'data-table-width-input')
 
         hide_response = self.client.post(
             reverse("hide_group_table", args=[self.group.id, data_table.id]),
@@ -759,6 +776,196 @@ class GameGroupTests(TestCase):
         self.assertEqual(show_response.status_code, 302)
         data_table.refresh_from_db()
         self.assertTrue(data_table.is_visible)
+
+    def test_group_table_window_width_can_be_reset_to_automatic(self):
+        self.client.force_login(self.leader)
+        self.client.post(
+            reverse("create_group_table", args=[self.group.id]),
+            {"title": "Breitentest", "column_count": 2, "row_count": 1},
+        )
+        data_table = GameGroupTable.objects.get(group=self.group)
+
+        response = self.client.post(
+            reverse("update_group_table", args=[self.group.id, data_table.id]),
+            {"title": data_table.title, "window_width": "900"},
+        )
+
+        self.assertEqual(response.status_code, 302)
+        data_table.refresh_from_db()
+        self.assertEqual(data_table.window_width, 900)
+        custom_screen = self.client.get(
+            reverse("game_master_screen", args=[self.group.id])
+        )
+        custom_table = custom_screen.context["data_tables"][0]
+        self.assertEqual(custom_table.render_card_width, 900)
+        self.assertEqual(custom_table.render_editor_width, 900)
+
+        response = self.client.post(
+            reverse("update_group_table", args=[self.group.id, data_table.id]),
+            {"title": data_table.title, "window_width": ""},
+        )
+
+        self.assertEqual(response.status_code, 302)
+        data_table.refresh_from_db()
+        self.assertIsNone(data_table.window_width)
+        automatic_screen = self.client.get(
+            reverse("game_master_screen", args=[self.group.id])
+        )
+        automatic_table = automatic_screen.context["data_tables"][0]
+        self.assertEqual(automatic_table.render_card_width, 282)
+        self.assertEqual(automatic_table.render_editor_width, 454)
+
+    def test_group_table_column_widths_can_be_saved_and_reset(self):
+        self.client.force_login(self.leader)
+        self.client.post(
+            reverse("create_group_table", args=[self.group.id]),
+            {"title": "Spaltenbreitentest", "column_count": 2, "row_count": 1},
+        )
+        data_table = GameGroupTable.objects.get(group=self.group)
+        columns = list(data_table.columns.all())
+
+        response = self.client.post(
+            reverse("update_group_table", args=[self.group.id, data_table.id]),
+            {
+                "title": data_table.title,
+                f"column_{columns[0].id}_heading": "Charaktergeschwindigkeit{CG}",
+                f"column_{columns[0].id}_width": "40",
+                f"column_{columns[1].id}_heading": "Widerstandsfähigkeit",
+                f"column_{columns[1].id}_width": "357",
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        for column in columns:
+            column.refresh_from_db()
+        self.assertEqual(columns[0].width, 60)
+        self.assertEqual(columns[1].width, 357)
+        self.assertEqual(columns[0].heading, "Charaktergeschwindigkeit{CG}")
+        custom_screen = self.client.get(
+            reverse("game_master_screen", args=[self.group.id])
+        )
+        rendered_table = custom_screen.context["data_tables"][0]
+        self.assertTrue(rendered_table.has_custom_column_widths)
+        self.assertEqual(rendered_table.render_preview_table_width, 417)
+        self.assertEqual(rendered_table.render_editor_table_width, 629)
+        self.assertEqual(rendered_table.render_card_width, 419)
+        self.assertEqual(rendered_table.render_editor_width, 631)
+        self.assertContains(custom_screen, 'data-table-column-width-input')
+        self.assertContains(custom_screen, 'min="60"')
+        self.assertNotContains(custom_screen, 'step="10"')
+        self.assertContains(
+            custom_screen,
+            'class="gm-data-table__table--custom-widths"',
+        )
+        self.assertContains(
+            custom_screen,
+            (
+                '<abbr class="gm-data-table__heading-abbreviation" '
+                'title="Charaktergeschwindigkeit">CG</abbr>'
+            ),
+            html=True,
+        )
+        self.assertContains(
+            custom_screen,
+            'value="Charaktergeschwindigkeit{CG}"',
+        )
+
+        response = self.client.post(
+            reverse("update_group_table", args=[self.group.id, data_table.id]),
+            {
+                "title": data_table.title,
+                f"column_{columns[0].id}_heading": columns[0].heading,
+                f"column_{columns[0].id}_width": "",
+                f"column_{columns[1].id}_heading": columns[1].heading,
+                f"column_{columns[1].id}_width": "",
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        for column in columns:
+            column.refresh_from_db()
+            self.assertIsNone(column.width)
+        automatic_screen = self.client.get(
+            reverse("game_master_screen", args=[self.group.id])
+        )
+        automatic_table = automatic_screen.context["data_tables"][0]
+        self.assertFalse(automatic_table.has_custom_column_widths)
+        self.assertEqual(automatic_table.render_card_width, 282)
+        self.assertEqual(automatic_table.render_editor_width, 454)
+
+    def test_game_master_can_detach_and_position_group_table(self):
+        self.client.force_login(self.leader)
+        self.client.post(
+            reverse("create_group_table", args=[self.group.id]),
+            {"title": "Freie Tabelle", "column_count": 1, "row_count": 1},
+        )
+        data_table = GameGroupTable.objects.get(group=self.group)
+
+        stack_response = self.client.post(
+            reverse(
+                "update_group_table_layout",
+                args=[self.group.id, data_table.id],
+            ),
+            {"is_stacked": "1"},
+        )
+        self.assertEqual(stack_response.status_code, 200)
+        self.assertTrue(stack_response.json()["is_stacked"])
+        data_table.refresh_from_db()
+        self.assertTrue(data_table.is_stacked)
+        stacked_screen = self.client.get(
+            reverse("game_master_screen", args=[self.group.id])
+        )
+        self.assertContains(stacked_screen, "gm-data-table--stacked")
+        self.assertContains(stacked_screen, "gm-data-tables--has-stacked")
+
+        response = self.client.post(
+            reverse(
+                "update_group_table_layout",
+                args=[self.group.id, data_table.id],
+            ),
+            {
+                "is_detached": "1",
+                "x": "-15",
+                "y": "12000",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.json(),
+            {
+                "ok": True,
+                "is_detached": True,
+                "x": 0,
+                "y": 10000,
+                "is_stacked": True,
+            },
+        )
+        data_table.refresh_from_db()
+        self.assertTrue(data_table.is_detached)
+        self.assertEqual(data_table.detached_x, 0)
+        self.assertEqual(data_table.detached_y, 10000)
+
+        screen = self.client.get(reverse("game_master_screen", args=[self.group.id]))
+        self.assertContains(screen, "gm-data-table--detached")
+        self.assertContains(screen, "data-table-detach-toggle")
+        self.assertContains(screen, "data-table-layout-url")
+        self.assertContains(screen, 'aria-pressed="true"')
+        self.assertContains(screen, "left: 0px; top: 10000px;")
+
+        self.client.force_login(self.other)
+        forbidden_response = self.client.post(
+            reverse(
+                "update_group_table_layout",
+                args=[self.group.id, data_table.id],
+            ),
+            {"is_detached": "0", "x": "30", "y": "40"},
+        )
+        self.assertEqual(forbidden_response.status_code, 403)
+        data_table.refresh_from_db()
+        self.assertTrue(data_table.is_detached)
+        self.assertEqual(data_table.detached_x, 0)
+        self.assertEqual(data_table.detached_y, 10000)
 
     def test_group_tables_are_limited_to_game_masters_and_their_own_group(self):
         self.client.force_login(self.other)

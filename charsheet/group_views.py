@@ -781,14 +781,52 @@ def game_master_screen(request, group_id: int):
         for data_table in all_data_tables
         if not data_table.is_visible
     ]
+    has_stacked_tables = any(
+        data_table.is_stacked
+        and not data_table.is_detached
+        for data_table in data_tables
+    )
     for data_table in data_tables:
         data_table.render_columns = list(data_table.columns.all())
         data_table.render_rows = list(data_table.rows.all())
-        data_table.render_card_width = max(
-            320,
-            (len(data_table.render_columns) * 140) + 20,
+        data_table.has_custom_column_widths = any(
+            column.width is not None
+            for column in data_table.render_columns
         )
-        data_table.render_editor_width = data_table.render_card_width * 2
+        for column in data_table.render_columns:
+            column.render_preview_width = column.width or 140
+            column.render_editor_width = max(column.width or 180, 180)
+            (
+                column.render_heading,
+                column.render_heading_title,
+            ) = _table_column_heading_parts(column.heading)
+        data_table.render_preview_table_width = sum(
+            column.render_preview_width
+            for column in data_table.render_columns
+        )
+        data_table.render_editor_table_width = (
+            sum(
+                column.render_editor_width
+                for column in data_table.render_columns
+            )
+            + 92
+        )
+        data_table.render_automatic_editor_width = max(
+            1,
+            data_table.render_editor_table_width + 2,
+        )
+        data_table.render_automatic_card_width = max(
+            1,
+            data_table.render_preview_table_width + 2,
+        )
+        # The preview card follows its visible columns.  The editor receives
+        # its own width because it also contains the row-action column.
+        data_table.render_card_width = (
+            data_table.window_width or data_table.render_automatic_card_width
+        )
+        data_table.render_editor_width = (
+            data_table.window_width or data_table.render_automatic_editor_width
+        )
         occupied_coordinates = set()
         for data_row in data_table.render_rows:
             cells_by_column = {
@@ -881,6 +919,7 @@ def game_master_screen(request, group_id: int):
             "character_creature_options": character_creature_options,
             "has_collapsed_roster": any(row["screen_is_collapsed"] for row in roster),
             "data_tables": data_tables,
+            "has_stacked_tables": has_stacked_tables,
             "hidden_data_tables": hidden_data_tables,
             "hidden_screen_item_count": (
                 len(hidden_data_tables)
@@ -1358,12 +1397,54 @@ def _normalized_table_title(raw_title: str) -> str:
     return title
 
 
+def _table_column_heading_parts(raw_heading: str) -> tuple[str, str]:
+    heading = str(raw_heading or "").strip()
+    abbreviation_match = re.fullmatch(
+        r"(?P<title>.+?)\s*\{(?P<abbreviation>[^{}]+)\}",
+        heading,
+    )
+    if abbreviation_match:
+        title = abbreviation_match.group("title").strip()
+        abbreviation = abbreviation_match.group("abbreviation").strip()
+        if title and abbreviation:
+            return abbreviation, title
+    return heading, ""
+
+
 def _bounded_table_size(raw_value, *, default: int) -> int:
     try:
         value = int(raw_value or default)
     except (TypeError, ValueError) as exc:
         raise GroupError("invalid_table_size", "Zeilen und Spalten müssen als Zahl angegeben werden.") from exc
     return max(1, min(value, 20))
+
+
+def _optional_bounded_table_width(raw_value) -> int | None:
+    normalized_value = str(raw_value or "").strip()
+    if not normalized_value:
+        return None
+    try:
+        value = int(normalized_value)
+    except (TypeError, ValueError) as exc:
+        raise GroupError(
+            "invalid_table_width",
+            "Die Tabellenbreite muss als Zahl angegeben werden.",
+        ) from exc
+    return max(320, min(value, 6000))
+
+
+def _optional_bounded_column_width(raw_value) -> int | None:
+    normalized_value = str(raw_value or "").strip()
+    if not normalized_value:
+        return None
+    try:
+        value = int(normalized_value)
+    except (TypeError, ValueError) as exc:
+        raise GroupError(
+            "invalid_table_column_width",
+            "Die Spaltenbreite muss als Zahl angegeben werden.",
+        ) from exc
+    return max(60, min(value, 1200))
 
 
 def _bounded_cell_span(raw_value) -> int:
@@ -1577,18 +1658,31 @@ def update_group_table(request, group_id: int, table_id: int):
             group=group,
         )
         data_table.title = _normalized_table_title(request.POST.get("title", ""))
+        update_fields = ["title", "updated_at"]
+        if "window_width" in request.POST:
+            data_table.window_width = _optional_bounded_table_width(
+                request.POST.get("window_width")
+            )
+            update_fields.append("window_width")
         data_table.full_clean()
-        data_table.save(update_fields=["title", "updated_at"])
+        data_table.save(update_fields=update_fields)
 
         columns = list(data_table.columns.all())
         rows = list(data_table.rows.all())
         for column in columns:
+            update_fields = ["heading"]
             heading = " ".join(
                 str(request.POST.get(f"column_{column.id}_heading", "")).split()
             )[:100]
             column.heading = heading or f"Spalte {column.position + 1}"
+            width_field_name = f"column_{column.id}_width"
+            if width_field_name in request.POST:
+                column.width = _optional_bounded_column_width(
+                    request.POST.get(width_field_name)
+                )
+                update_fields.append("width")
             column.full_clean()
-            column.save(update_fields=["heading"])
+            column.save(update_fields=update_fields)
 
         existing_cells = {
             (cell.row_id, cell.column_id): cell
@@ -1637,6 +1731,16 @@ def update_group_table(request, group_id: int, table_id: int):
                     if raw_value
                     else None
                 )
+                # A bare number followed by words is usually ordinary table
+                # text (for example, "1 Zusatzaktion"), not a numeric value
+                # with a suffix.  Require an explicit sign for that suffix
+                # form; plain numbers and signed values remain numeric.
+                if (
+                    number_match
+                    and number_match.group(3).strip()
+                    and not number_match.group(1)
+                ):
+                    number_match = None
                 if number_match:
                     try:
                         cell.number_value = Decimal(
@@ -1744,6 +1848,66 @@ def update_group_table(request, group_id: int, table_id: int):
     return _table_screen_redirect(
         group_id,
         edit_table_id=data_table.id if table_action else None,
+    )
+
+
+@login_required
+@require_POST
+def update_group_table_layout(request, group_id: int, table_id: int):
+    with transaction.atomic():
+        group = GameGroup.objects.select_for_update().get(pk=group_id)
+        try:
+            require_game_master(request.user, group, write=True)
+        except GroupError as exc:
+            return JsonResponse(
+                {"ok": False, "error": exc.message},
+                status=exc.status,
+            )
+        data_table = get_object_or_404(
+            GameGroupTable.objects.select_for_update(),
+            pk=table_id,
+            group=group,
+        )
+        update_fields = []
+        if "is_detached" in request.POST:
+            data_table.is_detached = (
+                request.POST.get("is_detached", "").lower()
+                in {"1", "true", "yes", "on"}
+            )
+            update_fields.append("is_detached")
+        if "is_stacked" in request.POST:
+            data_table.is_stacked = (
+                request.POST.get("is_stacked", "").lower()
+                in {"1", "true", "yes", "on"}
+            )
+            update_fields.append("is_stacked")
+
+        coordinate_fields = {
+            "x": "detached_x",
+            "y": "detached_y",
+        }
+        for request_name, field_name in coordinate_fields.items():
+            if request_name not in request.POST:
+                continue
+            try:
+                coordinate = int(request.POST.get(request_name, "24"))
+            except (TypeError, ValueError):
+                coordinate = 24
+            setattr(data_table, field_name, max(0, min(coordinate, 10000)))
+            update_fields.append(field_name)
+
+        if update_fields:
+            update_fields.append("updated_at")
+            data_table.save(update_fields=update_fields)
+
+    return JsonResponse(
+        {
+            "ok": True,
+            "is_detached": data_table.is_detached,
+            "is_stacked": data_table.is_stacked,
+            "x": data_table.detached_x,
+            "y": data_table.detached_y,
+        }
     )
 
 

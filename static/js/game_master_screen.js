@@ -356,6 +356,173 @@
     updateSelection();
   });
 
+  document.querySelectorAll("[data-table-width-input]").forEach((input) => {
+    const tableCard = input.closest(".gm-data-table");
+    if (!tableCard) {
+      return;
+    }
+    const refreshDockedLayout = () => {
+      tableCard.closest(".gm-data-tables")?.dispatchEvent(
+        new Event("gm-refresh-dock"),
+      );
+    };
+    const applyTableWidth = () => {
+      const requestedWidth = Number.parseInt(input.value, 10);
+      if (!input.value.trim() || !Number.isFinite(requestedWidth)) {
+        tableCard.dataset.windowWidth = "";
+        const automaticCardWidth = Number.parseInt(
+          tableCard.dataset.automaticCardWidth || "320",
+          10,
+        );
+        const automaticEditorWidth = Number.parseInt(
+          tableCard.dataset.automaticEditorWidth || "320",
+          10,
+        );
+        tableCard.style.setProperty(
+          "--gm-table-card-width",
+          `${automaticCardWidth}px`,
+        );
+        tableCard.style.setProperty(
+          "--gm-table-editor-width",
+          `${automaticEditorWidth}px`,
+        );
+        refreshDockedLayout();
+        return;
+      }
+      const boundedWidth = Math.max(320, Math.min(requestedWidth, 6000));
+      tableCard.dataset.windowWidth = String(boundedWidth);
+      tableCard.style.setProperty(
+        "--gm-table-card-width",
+        `${boundedWidth}px`,
+      );
+      tableCard.style.setProperty(
+        "--gm-table-editor-width",
+        `${boundedWidth}px`,
+      );
+      refreshDockedLayout();
+    };
+
+    input.addEventListener("input", applyTableWidth);
+  });
+
+  document.querySelectorAll(".gm-data-table > form").forEach((form) => {
+    const saveButton = form.querySelector(
+      ".gm-data-table__icon-action--save",
+    );
+    if (!saveButton) {
+      return;
+    }
+    form.addEventListener("keydown", (event) => {
+      if (
+        event.key !== "Enter"
+        || !event.target.matches("input, select")
+        || event.target.disabled
+        || event.target.readOnly
+      ) {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      if (typeof form.requestSubmit === "function") {
+        form.requestSubmit(saveButton);
+      } else {
+        saveButton.click();
+      }
+    });
+  });
+
+  document.querySelectorAll(".gm-data-table").forEach((tableCard) => {
+    const columnWidthInputs = Array.from(
+      tableCard.querySelectorAll("[data-table-column-width-input]"),
+    );
+    const columnGrids = Array.from(
+      tableCard.querySelectorAll("[data-table-column-grid]"),
+    );
+    if (columnWidthInputs.length === 0 || columnGrids.length === 0) {
+      return;
+    }
+
+    const applyColumnWidths = () => {
+      const hasCustomWidths = columnWidthInputs.some(
+        (input) => input.value.trim() !== "",
+      );
+      columnGrids.forEach((grid) => {
+        let contentWidth = grid.dataset.tableGridKind === "editor" ? 92 : 0;
+        grid.querySelectorAll("col[data-table-column-id]").forEach((column) => {
+          const input = columnWidthInputs.find(
+            (candidate) => (
+              candidate.dataset.tableColumnId === column.dataset.tableColumnId
+            ),
+          );
+          const defaultWidth = Number.parseInt(
+            column.dataset.defaultWidth || "140",
+            10,
+          );
+          const requestedWidth = Number.parseInt(input?.value || "", 10);
+          let width = input?.value.trim() && Number.isFinite(requestedWidth)
+            ? Math.max(60, Math.min(requestedWidth, 1200))
+            : defaultWidth;
+          if (grid.dataset.tableGridKind === "editor") {
+            width = Math.max(width, 180);
+          }
+          column.style.width = `${width}px`;
+          contentWidth += width;
+        });
+        grid.classList.toggle(
+          "gm-data-table__table--custom-widths",
+          hasCustomWidths,
+        );
+        grid.style.setProperty(
+          "--gm-table-content-width",
+          `${contentWidth}px`,
+        );
+      });
+
+      const windowWidthInput = tableCard.querySelector(
+        "[data-table-width-input]",
+      );
+      if (windowWidthInput && !windowWidthInput.value.trim()) {
+        const previewGrid = columnGrids.find(
+          (grid) => grid.dataset.tableGridKind === "preview",
+        );
+        const editorGrid = columnGrids.find(
+          (grid) => grid.dataset.tableGridKind === "editor",
+        );
+        const previewWidth = Number.parseInt(
+          previewGrid?.style.getPropertyValue("--gm-table-content-width")
+            || "300",
+          10,
+        );
+        const editorWidth = Number.parseInt(
+          editorGrid?.style.getPropertyValue("--gm-table-content-width")
+            || "300",
+          10,
+        );
+        // Keep each view aligned with the table it actually displays.  The
+        // editor is wider because it includes its row-action column.
+        const automaticCardWidth = Math.max(1, previewWidth + 2);
+        const automaticEditorWidth = Math.max(1, editorWidth + 2);
+        tableCard.dataset.automaticCardWidth = String(automaticCardWidth);
+        tableCard.dataset.automaticEditorWidth = String(automaticEditorWidth);
+        tableCard.style.setProperty(
+          "--gm-table-card-width",
+          `${automaticCardWidth}px`,
+        );
+        tableCard.style.setProperty(
+          "--gm-table-editor-width",
+          `${automaticEditorWidth}px`,
+        );
+      }
+      tableCard.closest(".gm-data-tables")?.dispatchEvent(
+        new Event("gm-refresh-dock"),
+      );
+    };
+
+    columnWidthInputs.forEach((input) => {
+      input.addEventListener("input", applyColumnWidths);
+    });
+  });
+
   document.querySelectorAll(".gm-data-table__editor").forEach((editor) => {
     const cells = Array.from(
       editor.querySelectorAll("[data-table-editor-cell]"),
@@ -515,6 +682,172 @@
       applyCellAlignment,
     );
     applyLiveSpans();
+  });
+
+  let floatingTableZIndex = 1150;
+  document.querySelectorAll("[data-table-layout-url]").forEach((card) => {
+    const container = card.closest("[data-card-reorder-url]");
+    const header = card.querySelector(".gm-data-table__header");
+    const detachButton = card.querySelector("[data-table-detach-toggle]");
+    const layoutUrl = card.dataset.tableLayoutUrl;
+    const csrfToken = container?.dataset.csrfToken;
+    let activePointerId = null;
+    let dragStartX = 0;
+    let dragStartY = 0;
+    let dragStartLeft = 0;
+    let dragStartTop = 0;
+    let freeDragMoved = false;
+
+    if (!header || !detachButton || !layoutUrl || !csrfToken) {
+      return;
+    }
+
+    const readPixel = (value) => {
+      const parsed = Number.parseFloat(value);
+      return Number.isFinite(parsed) ? parsed : 24;
+    };
+    const currentPosition = () => ({
+      x: Math.round(readPixel(card.style.left)),
+      y: Math.round(readPixel(card.style.top)),
+    });
+    const bringToFront = () => {
+      floatingTableZIndex += 1;
+      card.style.zIndex = String(floatingTableZIndex);
+    };
+    const clampFloatingPosition = (left, top) => {
+      if (!card.classList.contains("gm-data-table--detached")) {
+        return currentPosition();
+      }
+      const margin = 8;
+      const rect = card.getBoundingClientRect();
+      const maxLeft = Math.max(margin, window.innerWidth - rect.width - margin);
+      const maxTop = Math.max(margin, window.innerHeight - rect.height - margin);
+      const x = Math.round(Math.min(Math.max(left, margin), maxLeft));
+      const y = Math.round(Math.min(Math.max(top, margin), maxTop));
+      card.style.left = `${x}px`;
+      card.style.top = `${y}px`;
+      return { x, y };
+    };
+    const persistLayout = async () => {
+      const position = currentPosition();
+      const body = new URLSearchParams({
+        is_detached: card.classList.contains("gm-data-table--detached") ? "1" : "0",
+        is_stacked: card.classList.contains("gm-data-table--stacked") ? "1" : "0",
+        x: String(position.x),
+        y: String(position.y),
+        csrfmiddlewaretoken: csrfToken,
+      });
+      try {
+        const response = await fetch(layoutUrl, {
+          method: "POST",
+          credentials: "same-origin",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+            "X-CSRFToken": csrfToken,
+            "X-Requested-With": "XMLHttpRequest",
+          },
+          body: body.toString(),
+        });
+        const result = await response.json();
+        if (!response.ok || !result.ok) {
+          throw new Error(result.error || "Tabellenlayout konnte nicht gespeichert werden.");
+        }
+      } catch (error) {
+        window.alert("Die Position der Tabelle konnte nicht gespeichert werden.");
+      }
+    };
+
+    detachButton.addEventListener("click", () => {
+      const willDetach = !card.classList.contains("gm-data-table--detached");
+      if (willDetach) {
+        const dockedRect = card.getBoundingClientRect();
+        card.classList.add("gm-data-table--detached");
+        bringToFront();
+        clampFloatingPosition(dockedRect.left, dockedRect.top);
+      } else {
+        card.classList.remove("gm-data-table--detached");
+        card.style.removeProperty("z-index");
+      }
+      detachButton.setAttribute("aria-pressed", String(willDetach));
+      detachButton.title = willDetach
+        ? "Tabelle andocken"
+        : "Tabelle loslösen";
+      header.draggable = !willDetach;
+      persistLayout();
+    });
+
+    header.addEventListener("pointerdown", (event) => {
+      if (!card.classList.contains("gm-data-table--detached")) {
+        return;
+      }
+      bringToFront();
+      if (
+        event.button !== 0
+        || event.target.closest("button, input, select, textarea, a, [contenteditable='true']")
+      ) {
+        return;
+      }
+      const position = currentPosition();
+      activePointerId = event.pointerId;
+      dragStartX = event.clientX;
+      dragStartY = event.clientY;
+      dragStartLeft = position.x;
+      dragStartTop = position.y;
+      freeDragMoved = false;
+      card.classList.add("is-free-dragging");
+      header.setPointerCapture(event.pointerId);
+      event.preventDefault();
+    });
+
+    header.addEventListener("pointermove", (event) => {
+      if (event.pointerId !== activePointerId) {
+        return;
+      }
+      const deltaX = event.clientX - dragStartX;
+      const deltaY = event.clientY - dragStartY;
+      freeDragMoved = (
+        freeDragMoved
+        || Math.abs(deltaX) > 2
+        || Math.abs(deltaY) > 2
+      );
+      clampFloatingPosition(
+        dragStartLeft + deltaX,
+        dragStartTop + deltaY,
+      );
+      event.preventDefault();
+    });
+
+    const finishFreeDrag = (event) => {
+      if (event.pointerId !== activePointerId) {
+        return;
+      }
+      if (header.hasPointerCapture(event.pointerId)) {
+        header.releasePointerCapture(event.pointerId);
+      }
+      activePointerId = null;
+      card.classList.remove("is-free-dragging");
+      if (freeDragMoved) {
+        persistLayout();
+      }
+    };
+
+    header.addEventListener("pointerup", finishFreeDrag);
+    header.addEventListener("pointercancel", finishFreeDrag);
+    window.addEventListener("resize", () => {
+      if (!card.classList.contains("gm-data-table--detached")) {
+        return;
+      }
+      const position = currentPosition();
+      clampFloatingPosition(position.x, position.y);
+    }, { passive: true });
+
+    if (card.classList.contains("gm-data-table--detached")) {
+      window.requestAnimationFrame(() => {
+        bringToFront();
+        const position = currentPosition();
+        clampFloatingPosition(position.x, position.y);
+      });
+    }
   });
 
   document.querySelectorAll("[data-note-layout-url]").forEach((card) => {
@@ -876,6 +1209,7 @@
   });
 
   const setupCardReorder = (container) => {
+    const isTableContainer = container.classList.contains("gm-data-tables");
     const cards = () => Array.from(
       container.querySelectorAll("[data-reorder-card][data-reorder-id]"),
     );
@@ -886,14 +1220,182 @@
       ))
       .forEach((card) => container.append(card));
 
+    const refreshDockedRows = () => {
+      if (!isTableContainer) {
+        return;
+      }
+      const dockedCards = cards().filter(
+        (card) => !card.classList.contains("gm-data-table--detached"),
+      );
+      dockedCards.forEach((card) => {
+        card.classList.remove("gm-data-table--stack-group");
+        card.style.removeProperty("--gm-dock-shared-card-width");
+        card.style.removeProperty("--gm-dock-shared-table-width");
+      });
+      let column = 0;
+      let currentGroup = [];
+      const groups = [];
+      dockedCards.forEach((card) => {
+        const wantsStack = (
+          card.classList.contains("gm-data-table--stacked")
+          && card.classList.contains("gm-data-table")
+          && !card.classList.contains("gm-note-card")
+          && column > 0
+          && currentGroup.length < 2
+        );
+        if (wantsStack) {
+          card.style.gridColumn = String(column);
+          card.style.gridRow = "2";
+          currentGroup.push(card);
+          return;
+        }
+        if (card.classList.contains("gm-data-table--stacked")) {
+          card.classList.remove("gm-data-table--stacked");
+        }
+        column += 1;
+        card.style.gridColumn = String(column);
+        card.style.gridRow = "1";
+        currentGroup = [card];
+        groups.push(currentGroup);
+      });
+      groups.forEach((group) => {
+        const sharedCardWidth = Math.max(
+          ...group.map((card) => {
+            const manualWidth = Number.parseInt(card.dataset.windowWidth || "", 10);
+            if (Number.isFinite(manualWidth)) {
+              return manualWidth;
+            }
+            const editorOpen = Boolean(
+              card.querySelector(".gm-data-table__editor[open]"),
+            );
+            const automaticWidth = Number.parseInt(
+              card.dataset[
+                editorOpen ? "automaticEditorWidth" : "automaticCardWidth"
+              ] || "",
+              10,
+            );
+            if (Number.isFinite(automaticWidth)) {
+              return automaticWidth;
+            }
+            const parsed = Number.parseFloat(window.getComputedStyle(card).width);
+            return Number.isFinite(parsed) ? parsed : 320;
+          }),
+        );
+        const sharedTableWidth = Math.max(1, sharedCardWidth - 2);
+        group.forEach((card) => {
+          const isStackedGroup = group.length > 1;
+          card.classList.toggle("gm-data-table--stack-group", isStackedGroup);
+          if (isStackedGroup) {
+            card.style.setProperty(
+              "--gm-dock-shared-card-width",
+              `${sharedCardWidth}px`,
+            );
+            card.style.setProperty(
+              "--gm-dock-shared-table-width",
+              `${sharedTableWidth}px`,
+            );
+          } else {
+            card.style.removeProperty("--gm-dock-shared-card-width");
+            card.style.removeProperty("--gm-dock-shared-table-width");
+          }
+        });
+      });
+      const hasStackedRows = groups.some((group) => group.length > 1);
+      if (hasStackedRows) {
+        groups.forEach((group) => {
+          if (group.length === 1) {
+            group[0].style.gridRow = "1 / span 2";
+          }
+        });
+      }
+      container.style.setProperty(
+        "--gm-dock-column-count",
+        String(Math.max(1, column)),
+      );
+      container.classList.toggle(
+        "gm-data-tables--has-stacked",
+        dockedCards.some((card) => card.classList.contains("gm-data-table--stacked")),
+      );
+    };
+    container.addEventListener("gm-refresh-dock", refreshDockedRows);
+    container.querySelectorAll(".gm-data-table__editor").forEach((editor) => {
+      editor.addEventListener("toggle", refreshDockedRows);
+    });
+    refreshDockedRows();
+
     const dragSurfaces = container.querySelectorAll("[data-drag-surface]");
     let draggedCard = null;
     let originalOrder = [];
+    let originalStackStates = new Map();
     let dropAccepted = false;
     let dragBlocked = false;
+    let stackDropTarget = null;
+    let pendingDropTarget = null;
+    let pendingDropAfter = false;
+    let pendingDropStack = false;
+    let pendingDropUnstack = false;
 
     const restoreOrder = (cardOrder) => {
       cardOrder.forEach((card) => container.append(card));
+      refreshDockedRows();
+    };
+
+    const stackGroupFor = (card) => {
+      const orderedCards = cards();
+      const index = orderedCards.indexOf(card);
+      if (index < 0) {
+        return [];
+      }
+      let anchorIndex = index;
+      while (
+        anchorIndex > 0
+        && orderedCards[anchorIndex].classList.contains("gm-data-table--stacked")
+      ) {
+        anchorIndex -= 1;
+      }
+      const group = [orderedCards[anchorIndex]];
+      for (
+        let nextIndex = anchorIndex + 1;
+        nextIndex < orderedCards.length;
+        nextIndex += 1
+      ) {
+        if (!orderedCards[nextIndex].classList.contains("gm-data-table--stacked")) {
+          break;
+        }
+        group.push(orderedCards[nextIndex]);
+      }
+      return group;
+    };
+
+    const persistDockLayout = async (card) => {
+      const csrfToken = container.dataset.csrfToken;
+      const layoutUrl = card.dataset.tableLayoutUrl;
+      if (!csrfToken || !layoutUrl || !card.classList.contains("gm-data-table")) {
+        return;
+      }
+      const body = new URLSearchParams({
+        is_detached: card.classList.contains("gm-data-table--detached") ? "1" : "0",
+        is_stacked: card.classList.contains("gm-data-table--stacked") ? "1" : "0",
+        csrfmiddlewaretoken: csrfToken,
+      });
+      try {
+        const response = await fetch(layoutUrl, {
+          method: "POST",
+          credentials: "same-origin",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+            "X-CSRFToken": csrfToken,
+            "X-Requested-With": "XMLHttpRequest",
+          },
+          body: body.toString(),
+        });
+        const result = await response.json();
+        if (!response.ok || !result.ok) {
+          throw new Error(result.error || "Tabellenposition konnte nicht gespeichert werden.");
+        }
+      } catch (error) {
+        window.alert("Die Tabellenposition konnte nicht gespeichert werden.");
+      }
     };
 
     const persistOrder = async (fallbackOrder) => {
@@ -947,6 +1449,7 @@
         if (
           !draggedCard
           || draggedCard.classList.contains("gm-note-card--detached")
+          || draggedCard.classList.contains("gm-data-table--detached")
           || !event.dataTransfer
         ) {
           draggedCard = null;
@@ -954,7 +1457,17 @@
           return;
         }
         originalOrder = cards();
+        originalStackStates = new Map(
+          originalOrder.map((card) => [
+            card,
+            card.classList.contains("gm-data-table--stacked"),
+          ]),
+        );
         dropAccepted = false;
+        pendingDropTarget = null;
+        pendingDropAfter = false;
+        pendingDropStack = false;
+        pendingDropUnstack = false;
         draggedCard.classList.add("is-dragging");
         event.dataTransfer.effectAllowed = "move";
         event.dataTransfer.setData("text/plain", draggedCard.dataset.reorderId);
@@ -963,12 +1476,23 @@
       surface.addEventListener("dragend", () => {
         if (draggedCard && !dropAccepted) {
           restoreOrder(originalOrder);
+          originalStackStates.forEach((isStacked, card) => {
+            card.classList.toggle("gm-data-table--stacked", isStacked);
+          });
+          refreshDockedRows();
         }
+        cards().forEach((card) => card.classList.remove("is-stack-drop-target"));
         draggedCard?.classList.remove("is-dragging");
         draggedCard = null;
         originalOrder = [];
+        originalStackStates = new Map();
         dropAccepted = false;
         dragBlocked = false;
+        stackDropTarget = null;
+        pendingDropTarget = null;
+        pendingDropAfter = false;
+        pendingDropStack = false;
+        pendingDropUnstack = false;
       });
     });
 
@@ -991,14 +1515,50 @@
 
       const targetCard = event.target.closest("[data-reorder-card]");
       if (!targetCard || targetCard === draggedCard) {
+        if (isTableContainer) {
+          pendingDropTarget = null;
+          pendingDropAfter = false;
+          pendingDropStack = false;
+          pendingDropUnstack = draggedCard.classList.contains("gm-data-table");
+          stackDropTarget = null;
+          cards().forEach((card) => card.classList.remove("is-stack-drop-target"));
+        }
         return;
       }
       const targetRect = targetCard.getBoundingClientRect();
-      const insertAfter = event.clientX > targetRect.left + (targetRect.width / 2);
+      const canStack = (
+        draggedCard.classList.contains("gm-data-table")
+        && !draggedCard.classList.contains("gm-note-card")
+        && targetCard.classList.contains("gm-data-table")
+        && !targetCard.classList.contains("gm-note-card")
+        && !targetCard.classList.contains("gm-data-table--detached")
+        && event.clientY > targetRect.top + (targetRect.height * 0.58)
+        && stackGroupFor(targetCard).length < 2
+      );
+      cards().forEach((card) => card.classList.remove("is-stack-drop-target"));
+      stackDropTarget = canStack ? targetCard : null;
+      if (isTableContainer) {
+        pendingDropTarget = targetCard;
+        pendingDropAfter = canStack || event.clientX > targetRect.left + (targetRect.width / 2);
+        pendingDropStack = canStack;
+        pendingDropUnstack = false;
+        if (canStack) {
+          targetCard.classList.add("is-stack-drop-target");
+        }
+        return;
+      }
+      if (canStack) {
+        draggedCard.classList.add("gm-data-table--stacked");
+        targetCard.classList.add("is-stack-drop-target");
+      } else {
+        draggedCard.classList.remove("gm-data-table--stacked");
+      }
+      const insertAfter = canStack || event.clientX > targetRect.left + (targetRect.width / 2);
       container.insertBefore(
         draggedCard,
         insertAfter ? targetCard.nextSibling : targetCard,
       );
+      refreshDockedRows();
     });
 
     container.addEventListener("drop", (event) => {
@@ -1006,8 +1566,51 @@
         return;
       }
       event.preventDefault();
+      if (isTableContainer) {
+        if (!pendingDropTarget) {
+          if (!pendingDropUnstack) {
+            dropAccepted = false;
+            return;
+          }
+          const orderedCards = cards();
+          const draggedIndex = orderedCards.indexOf(draggedCard);
+          draggedCard.classList.remove("gm-data-table--stacked");
+          // If the dragged card was the upper card, also release the first
+          // card that followed it in the same stack.
+          const followingCard = orderedCards[draggedIndex + 1];
+          if (
+            followingCard
+            && followingCard.classList.contains("gm-data-table--stacked")
+          ) {
+            followingCard.classList.remove("gm-data-table--stacked");
+          }
+          refreshDockedRows();
+          window.requestAnimationFrame(refreshDockedRows);
+        } else {
+          draggedCard.classList.toggle("gm-data-table--stacked", pendingDropStack);
+          container.insertBefore(
+            draggedCard,
+            pendingDropAfter ? pendingDropTarget.nextSibling : pendingDropTarget,
+          );
+          refreshDockedRows();
+          window.requestAnimationFrame(refreshDockedRows);
+        }
+      }
       dropAccepted = true;
+      const droppedCard = draggedCard;
       persistOrder([...originalOrder]);
+      cards().forEach((card) => {
+        if (
+          originalStackStates.has(card)
+          && originalStackStates.get(card)
+            !== card.classList.contains("gm-data-table--stacked")
+        ) {
+          persistDockLayout(card);
+        }
+      });
+      if (!originalStackStates.has(droppedCard)) {
+        persistDockLayout(droppedCard);
+      }
     });
   };
 

@@ -23,6 +23,7 @@
             <div class="dashboard_title_wrap">
               <h1>Dashboard</h1>
               <p class="dashboard_subtitle">Willkommen,<br>{{ request.user.get_username }}.</p>
+              <p class="dashboard_version" aria-label="Anwendungsversion">{{ app_version }}</p>
             </div>
 
             <div class="dashboard_side_group" aria-label="Benutzeraktionen">

@@ -1,7 +1,9 @@
+import re
+from decimal import Decimal, InvalidOperation
+
 from django import template
 from django.utils.safestring import mark_safe
 from markdown_it import MarkdownIt
-from decimal import Decimal, InvalidOperation
 
 
 register = template.Library()
@@ -14,6 +16,26 @@ _markdown = MarkdownIt(
         "typographer": False,
     },
 )
+
+_PAREN_ORDERED_LIST_MARKER = re.compile(
+    r"^(?P<indent>[ \t]*)(?P<number>\d+)\)(?=\s)",
+    re.MULTILINE,
+)
+
+
+def _escape_parenthesized_ordered_list_markers(value: str) -> str:
+    """Allow ordered Markdown lists only with a trailing period.
+
+    markdown-it also accepts ``2)`` as an ordered-list marker.  Table cell
+    values use that form as ordinary text, so escape the closing parenthesis
+    before rendering while preserving the visible text.
+    """
+    return _PAREN_ORDERED_LIST_MARKER.sub(
+        lambda match: (
+            f"{match.group('indent')}{match.group('number')}\\)"
+        ),
+        value,
+    )
 
 
 def _is_table_separator(line: str) -> bool:
@@ -229,7 +251,8 @@ def standard_markdown(value):
     """Render safe, standard Markdown without allowing embedded HTML."""
     if not value:
         return ""
-    return mark_safe(_markdown.render(str(value)))
+    normalized_value = _escape_parenthesized_ordered_list_markers(str(value))
+    return mark_safe(_markdown.render(normalized_value))
 
 
 @register.filter(name="compact_number_de")

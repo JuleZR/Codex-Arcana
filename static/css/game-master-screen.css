@@ -169,6 +169,7 @@
   gap: 11px;
   min-height: 92px;
   padding-bottom: 10px;
+  flex-shrink: 0;
   border-bottom: 2px solid rgba(72, 48, 27, 0.36);
 }
 
@@ -1393,7 +1394,7 @@
   min-width: 0;
   min-height: 0;
   flex: 1 1 auto;
-  gap: 9px;
+  gap: 21px;
   overflow: hidden;
 }
 
@@ -1546,7 +1547,7 @@
   max-height: 100%;
 }
 
-.gm-character-sheet--creature .gm-character-sheet__inner {
+.gm-character-sheet__inner {
   min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
@@ -2071,6 +2072,13 @@
   overscroll-behavior-inline: contain;
 }
 
+.gm-data-tables.gm-data-tables--has-stacked {
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-columns: repeat(var(--gm-dock-column-count, 1), max-content);
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+}
+
 .gm-data-table {
   width: var(--gm-table-card-width, 320px);
   min-width: var(--gm-table-card-width, 320px);
@@ -2081,6 +2089,27 @@
   border-radius: 9px;
   background: #eee2c3;
   transition: width 160ms ease, min-width 160ms ease;
+  grid-row: 1;
+}
+
+.gm-data-table.gm-data-table--stacked {
+  grid-row: 2;
+}
+
+.gm-data-table.gm-data-table--stack-group {
+  width: var(--gm-dock-shared-card-width) !important;
+  min-width: var(--gm-dock-shared-card-width) !important;
+}
+
+.gm-data-table.gm-data-table--stack-group .gm-data-table__preview table,
+.gm-data-table.gm-data-table--stack-group .gm-data-table__editor table {
+  width: var(--gm-dock-shared-table-width) !important;
+  min-width: var(--gm-dock-shared-table-width) !important;
+}
+
+.gm-data-table.is-stack-drop-target {
+  outline: 2px dashed rgba(117, 78, 41, 0.68);
+  outline-offset: -3px;
 }
 
 .gm-data-table.is-dragging,
@@ -2093,6 +2122,49 @@
 .gm-data-table:has(.gm-data-table__editor[open]) {
   width: var(--gm-table-editor-width, 640px);
   min-width: var(--gm-table-editor-width, 640px);
+}
+
+.gm-data-table.gm-data-table--detached {
+  position: fixed;
+  z-index: 1150;
+  width: min(var(--gm-table-card-width, 320px), calc(100vw - 16px));
+  min-width: min(var(--gm-table-card-width, 320px), calc(100vw - 16px));
+  height: auto;
+  max-height: calc(100vh - 16px);
+  border-color: rgba(214, 180, 126, 0.54);
+  box-shadow:
+    0 24px 56px rgba(0, 0, 0, 0.48),
+    0 0 0 1px rgba(255, 248, 225, 0.18);
+}
+
+.gm-data-table.gm-data-table--detached:has(.gm-data-table__editor[open]) {
+  width: min(var(--gm-table-editor-width, 640px), calc(100vw - 16px));
+  min-width: min(var(--gm-table-editor-width, 640px), calc(100vw - 16px));
+}
+
+.gm-data-table--detached .gm-data-table__header[data-drag-surface] {
+  cursor: move;
+  touch-action: none;
+}
+
+.gm-data-table--detached.is-free-dragging {
+  transition: none;
+  user-select: none;
+}
+
+.gm-data-table--detached > form {
+  height: auto;
+  max-height: inherit;
+}
+
+.gm-data-table--detached .gm-data-table__editor[open] {
+  height: auto;
+  flex: 0 0 auto;
+}
+
+.gm-data-table--detached .gm-data-table__scroll {
+  height: auto;
+  max-height: calc(100vh - 110px);
 }
 
 .gm-data-table > form {
@@ -2295,7 +2367,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: 7px 64px 7px 9px;
+  padding: 7px 90px 7px 9px;
   border-bottom: 1px solid rgba(91, 61, 34, 0.2);
 }
 
@@ -2330,7 +2402,8 @@
   pointer-events: none;
 }
 
-.gm-data-table__hide {
+.gm-data-table__hide,
+.gm-data-table__detach {
   position: absolute;
   top: 7px;
   right: 8px;
@@ -2346,14 +2419,21 @@
   cursor: pointer;
 }
 
+.gm-data-table__detach {
+  right: 60px;
+}
+
 .gm-data-table__hide:hover,
-.gm-data-table__hide:focus-visible {
+.gm-data-table__hide:focus-visible,
+.gm-data-table__detach:hover,
+.gm-data-table__detach:focus-visible {
   background: rgba(91, 61, 34, 0.1);
   color: #49301d;
   outline: none;
 }
 
-.gm-data-table__hide svg {
+.gm-data-table__hide svg,
+.gm-data-table__detach svg {
   width: 14px;
   height: 14px;
   fill: none;
@@ -2451,7 +2531,7 @@
   height: 0;
   flex: 1 1 0;
   overflow: visible;
-  grid-template-rows: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
 }
 
 .gm-data-table > form:has(.gm-data-table__editor[open]) .gm-data-table__preview {
@@ -2494,6 +2574,38 @@
   stroke-linecap: round;
   stroke-linejoin: round;
   stroke-width: 1.8;
+}
+
+.gm-data-table__editor-toolbar {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 9px;
+  border-bottom: 1px solid rgba(91, 61, 34, 0.18);
+  background: rgba(223, 205, 167, 0.52);
+}
+
+.gm-data-table__width-control {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #49301d;
+  font: 700 0.72rem/1 Georgia, serif;
+  white-space: nowrap;
+}
+
+.gm-data-table .gm-data-table__width-control input {
+  width: 82px;
+  padding-block: 4px;
+  font-variant-numeric: tabular-nums;
+}
+
+.gm-data-table__editor-toolbar small {
+  min-width: 0;
+  color: rgba(73, 48, 29, 0.62);
+  font: italic 0.68rem/1 Georgia, serif;
+  white-space: nowrap;
 }
 
 .gm-data-table__scroll {
@@ -2580,6 +2692,17 @@
   border-collapse: collapse;
 }
 
+.gm-data-table table.gm-data-table__table--custom-widths {
+  width: var(--gm-table-content-width);
+  min-width: var(--gm-table-content-width);
+  table-layout: fixed;
+}
+
+.gm-data-table table.gm-data-table__table--custom-widths th,
+.gm-data-table table.gm-data-table__table--custom-widths td {
+  min-width: 0;
+}
+
 .gm-data-table th,
 .gm-data-table td {
   padding: 5px;
@@ -2596,6 +2719,18 @@
 .gm-data-table__preview th,
 .gm-data-table__preview td {
   min-width: 140px;
+}
+
+.gm-data-table__preview th {
+  hyphens: auto;
+  overflow-wrap: break-word;
+  word-break: normal;
+}
+
+.gm-data-table__heading-abbreviation {
+  text-decoration: underline dotted rgba(73, 48, 29, 0.58);
+  text-underline-offset: 0.18em;
+  cursor: help;
 }
 
 .gm-data-table__align--left {
@@ -2627,6 +2762,34 @@
   display: grid;
   grid-template-columns: minmax(90px, 1fr) auto;
   gap: 5px;
+}
+
+.gm-data-table__column-width-control {
+  display: flex;
+  min-width: 0;
+  grid-column: 1 / -1;
+  align-items: center;
+  gap: 4px;
+  color: rgba(73, 48, 29, 0.7);
+  font: 700 0.65rem/1 Georgia, serif;
+  white-space: nowrap;
+}
+
+.gm-data-table__column-heading > button {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.gm-data-table .gm-data-table__column-width-control input {
+  width: 66px;
+  padding: 4px 5px;
+  grid-column: auto;
+  grid-row: auto;
+  font-variant-numeric: tabular-nums;
+}
+
+.gm-data-table__row-action-column {
+  width: 92px;
 }
 
 .gm-data-table__cell select {
@@ -2699,6 +2862,15 @@
 .gm-data-table__markdown blockquote,
 .gm-data-table__markdown pre {
   margin-block: 0.35em;
+}
+
+/* Keep markdown lists compact inside table cells.  The browser default
+   list padding (about 40px) otherwise creates a misleading left gap. */
+.gm-data-table__markdown ul,
+.gm-data-table__markdown ol {
+  padding-inline-start: 0;
+  list-style-position: inside;
+  text-align: left;
 }
 
 .gm-data-table__markdown code {

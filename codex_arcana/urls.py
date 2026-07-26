@@ -60,6 +60,7 @@ urlpatterns = [
     path("groups/<int:group_id>/tables/create/", group_views.create_group_table, name="create_group_table"),
     path("groups/<int:group_id>/tables/reorder/", group_views.reorder_group_tables, name="reorder_group_tables"),
     path("groups/<int:group_id>/tables/<int:table_id>/update/", group_views.update_group_table, name="update_group_table"),
+    path("groups/<int:group_id>/tables/<int:table_id>/layout/", group_views.update_group_table_layout, name="update_group_table_layout"),
     path("groups/<int:group_id>/tables/<int:table_id>/rows/add/", group_views.add_group_table_row, name="add_group_table_row"),
     path("groups/<int:group_id>/tables/<int:table_id>/columns/add/", group_views.add_group_table_column, name="add_group_table_column"),
     path("groups/<int:group_id>/tables/<int:table_id>/rows/<int:row_id>/delete/", group_views.delete_group_table_row, name="delete_group_table_row"),

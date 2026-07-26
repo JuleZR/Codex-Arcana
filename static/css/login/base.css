@@ -196,3 +196,12 @@ body {
   text-decoration: underline;
 }
 
+.login_version {
+  margin-top: 7px;
+  text-align: center;
+  color: rgba(58, 40, 19, 0.62);
+  font-family: Georgia, serif;
+  font-size: 0.76rem;
+  letter-spacing: 0.04em;
+}
+

@@ -1,0 +1,134 @@
+"""Calculate the visible application version from the Git commit history."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from functools import lru_cache
+import os
+from pathlib import Path
+import re
+import subprocess
+
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+
+# This fallback represents the repository state at which automatic versioning
+# was introduced. Deployments that do not include `.git` should provide the
+# freshly calculated value through CODEX_ARCANA_VERSION.
+FALLBACK_VERSION = "v.0.91.000-b0329"
+
+_COMMIT_TYPE_PATTERN = re.compile(
+    r"^(?P<type>[a-z]+)(?:\([^)]*\))?(?P<breaking>!)?:",
+    re.IGNORECASE,
+)
+_BREAKING_CHANGE_PATTERN = re.compile(
+    r"(?:^|\n)BREAKING(?: |-)?CHANGE\s*:",
+    re.IGNORECASE,
+)
+_PATCH_TYPES = frozenset({"fix", "perf", "refactor"})
+
+
+@dataclass(frozen=True, slots=True)
+class CommitDescription:
+    """The subject and body needed to classify one commit."""
+
+    subject: str
+    body: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class Version:
+    """The four components of the Codex Arcana version number."""
+
+    phase: int = 0
+    feature: int = 0
+    patch: int = 0
+    build: int = 0
+
+    def __str__(self) -> str:
+        return (
+            f"v.{self.phase}.{self.feature:02d}.{self.patch:03d}"
+            f"-b{self.build:04d}"
+        )
+
+
+def calculate_version(
+    commits: list[CommitDescription],
+    *,
+    base: Version | None = None,
+) -> Version:
+    """Apply the project version rules to commits in chronological order."""
+
+    version = base or Version()
+
+    for commit in commits:
+        phase = version.phase
+        feature = version.feature
+        patch = version.patch
+        build = version.build + 1
+
+        match = _COMMIT_TYPE_PATTERN.match(commit.subject.strip())
+        commit_type = match.group("type").lower() if match else ""
+        is_breaking = bool(match and match.group("breaking")) or bool(
+            _BREAKING_CHANGE_PATTERN.search(commit.body)
+        )
+
+        if is_breaking or commit_type == "feat":
+            feature += 1
+            patch = 0
+        elif commit_type in _PATCH_TYPES:
+            patch += 1
+
+        version = Version(
+            phase=phase,
+            feature=feature,
+            patch=patch,
+            build=build,
+        )
+
+    return version
+
+
+def _git_commits() -> list[CommitDescription]:
+    """Read all reachable commits from oldest to newest."""
+
+    result = subprocess.run(
+        [
+            "git",
+            "log",
+            "--reverse",
+            "--format=%s%x00%b%x00",
+            "HEAD",
+        ],
+        cwd=PROJECT_ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=5,
+    )
+    fields = result.stdout.split("\x00")
+    commits: list[CommitDescription] = []
+
+    for index in range(0, len(fields) - 1, 2):
+        subject = fields[index].strip()
+        body = fields[index + 1].strip()
+        if subject:
+            commits.append(CommitDescription(subject=subject, body=body))
+
+    return commits
+
+
+@lru_cache(maxsize=1)
+def get_application_version() -> str:
+    """Return an explicit deployment version or calculate it from Git."""
+
+    override = os.getenv("CODEX_ARCANA_VERSION", "").strip()
+    if override:
+        return override
+
+    try:
+        return str(calculate_version(_git_commits()))
+    except (FileNotFoundError, subprocess.SubprocessError):
+        return FALLBACK_VERSION

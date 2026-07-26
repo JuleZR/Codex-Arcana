@@ -40,6 +40,14 @@
   color: rgba(63, 45, 31, 0.86);
 }
 
+.dashboard_version {
+  margin: 4px 0 0;
+  color: rgba(63, 45, 31, 0.58);
+  font-family: Georgia, serif;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+}
+
 .dashboard_layout {
   flex: 1;
   min-height: 0;
