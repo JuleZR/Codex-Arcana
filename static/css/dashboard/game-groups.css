@@ -175,10 +175,17 @@
   border-radius: 7px;
   background: rgba(231, 241, 211, 0.68);
   box-shadow: 0 8px 24px rgba(48, 29, 15, 0.2);
-  opacity: 1;
-  transform: translateY(0);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-8px);
   transition: opacity 340ms ease, transform 340ms ease;
   pointer-events: auto;
+}
+
+.game-group-messages p.is-visible {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
 }
 
 .game-group-messages p.is-hiding {

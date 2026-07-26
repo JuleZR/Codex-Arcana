@@ -6,11 +6,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>SL-Screen | {{ group.name }}</title>
   <link rel="stylesheet" href="{% static 'css/charsheet.css' %}">
-  <link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
-  <link rel="stylesheet" href="{% static 'css/game-master-screen.css' %}?v=20260726w">
-  <script defer src="{% static 'js/game_groups.js' %}"></script>
+  <link rel="stylesheet" href="{% static 'css/dashboard.css' %}?v=20260726a">
+  <link rel="stylesheet" href="{% static 'css/game-master-screen.css' %}?v=20260726z">
+  <script defer src="{% static 'js/game_groups.js' %}?v=20260726a"></script>
   <script defer src="{% static 'js/sl_inventory.js' %}?v=20260724b"></script>
-  <script defer src="{% static 'js/game_master_screen.js' %}?v=20260726r"></script>
+  <script defer src="{% static 'js/game_master_screen.js' %}?v=20260726u"></script>
 </head>
 <body class="gm-screen-body">
   <main class="gm-screen">
@@ -31,7 +31,7 @@
         <header class="gm-panel-heading">
           <div><span>Gruppe</span><h2>Charaktere</h2></div>
           {% if not group.is_archived %}
-          <details class="gm-table-picker gm-creature-picker">
+          <details class="gm-table-picker gm-creature-picker" data-picker-storage-key="creatures">
             <summary aria-label="Kreaturenkarte hinzufügen" title="Kreaturenkarte hinzufügen">+</summary>
             <div class="gm-table-picker__panel gm-creature-picker__panel">
               <form
@@ -300,9 +300,9 @@
             <h2>Notizen &amp; Tabellen</h2>
           </div>
           {% if not group.is_archived %}
-          <details class="gm-table-picker">
+          <details class="gm-table-picker" data-picker-storage-key="tables">
             <summary aria-label="Karte einblenden oder Tabelle anlegen" title="Karte einblenden oder Tabelle anlegen">+</summary>
-            <div class="gm-table-picker__panel">
+            <div class="gm-table-picker__panel gm-hidden-card-picker__panel">
               {% if hidden_screen_item_count %}
               <form class="gm-table-picker__show" method="post" data-table-picker-show>
                 {% csrf_token %}
@@ -312,15 +312,44 @@
                   <strong>Ausgeblendete Karten</strong>
                 </div>
                 <div class="gm-table-picker__show-controls">
-                  <select aria-label="Ausgeblendete Karte ausw&auml;hlen" required data-table-picker-select>
-                    <option value="">Karte ausw&auml;hlen &hellip;</option>
+                  <div class="sl-item-search gm-hidden-card-search" data-table-picker-search>
+                    <input type="hidden" data-table-picker-action-input>
+                    <input
+                      class="dashboard_input"
+                      type="search"
+                      autocomplete="off"
+                      required
+                      placeholder="Karte suchen &hellip;"
+                      aria-label="Ausgeblendete Karte suchen"
+                      aria-autocomplete="list"
+                      aria-expanded="false"
+                      role="combobox"
+                      data-table-picker-query
+                    >
+                    <div class="sl-item-search__results gm-hidden-card-search__results" role="listbox" data-table-picker-results hidden>
                   {% if not group.screen_note_is_visible %}
-                    <option value="{% url 'show_group_note' group.id %}">Notizen</option>
+                      <button
+                        type="button"
+                        data-table-picker-option
+                        data-table-picker-action="{% url 'show_group_note' group.id %}"
+                        data-table-picker-name="Notizen"
+                        data-table-picker-search="notizen"
+                        role="option"
+                      >Notizen</button>
                   {% endif %}
                   {% for hidden_table in hidden_data_tables %}
-                    <option value="{% url 'show_group_table' group.id hidden_table.id %}">{{ hidden_table.title }}</option>
+                      <button
+                        type="button"
+                        data-table-picker-option
+                        data-table-picker-action="{% url 'show_group_table' group.id hidden_table.id %}"
+                        data-table-picker-name="{{ hidden_table.title }}"
+                        data-table-picker-search="{{ hidden_table.title|lower }}"
+                        role="option"
+                      >{{ hidden_table.title }}</button>
                   {% endfor %}
-                  </select>
+                      <p data-table-picker-empty hidden>Keine passende Karte.</p>
+                    </div>
+                  </div>
                   <button
                     type="submit"
                     disabled

@@ -94,6 +94,8 @@
     const query = picker.querySelector("[data-creature-search-query]");
     const selectedId = picker.querySelector("[data-creature-search-id]");
     const results = picker.querySelector("[data-creature-search-results]");
+    const form = picker.closest("form");
+    const details = picker.closest("details");
     const options = Array.from(
       results?.querySelectorAll("button[data-creature-ref]") || [],
     );
@@ -101,6 +103,46 @@
     if (!query || !selectedId || !results) {
       return;
     }
+    const selectionKey = `gm-creature-picker-selection:${window.location.pathname}`;
+    const clearSavedSelection = () => {
+      try {
+        window.sessionStorage.removeItem(selectionKey);
+      } catch (error) {
+        // The picker also works when browser storage is unavailable.
+      }
+    };
+    const restoreSavedSelection = () => {
+      try {
+        const savedRef = window.sessionStorage.getItem(selectionKey);
+        const option = options.find(
+          (candidate) => candidate.dataset.creatureRef === savedRef,
+        );
+        if (!option) {
+          clearSavedSelection();
+          return;
+        }
+        selectedId.value = option.dataset.creatureRef;
+        query.value = option.dataset.creatureName;
+        query.dataset.selectedName = option.dataset.creatureName;
+        query.setCustomValidity("");
+      } catch (error) {
+        // The picker also works when browser storage is unavailable.
+      }
+    };
+    const resetSelection = () => {
+      selectedId.value = "";
+      query.value = "";
+      delete query.dataset.selectedName;
+      query.setCustomValidity("");
+      results.hidden = true;
+      options.forEach((option) => {
+        option.hidden = false;
+      });
+      if (empty) {
+        empty.hidden = true;
+      }
+      clearSavedSelection();
+    };
 
     const filter = () => {
       const term = query.value.trim().toLocaleLowerCase("de");
@@ -121,6 +163,7 @@
       results.hidden = false;
       if (query.value !== query.dataset.selectedName) {
         selectedId.value = "";
+        clearSavedSelection();
         query.setCustomValidity(
           "Bitte eine Kreatur aus der Trefferliste auswählen.",
         );
@@ -143,11 +186,27 @@
         results.hidden = true;
       });
     });
+    form?.addEventListener("submit", () => {
+      if (!selectedId.value) {
+        return;
+      }
+      try {
+        window.sessionStorage.setItem(selectionKey, selectedId.value);
+      } catch (error) {
+        // A blocked storage API must not block the form submission.
+      }
+    });
     document.addEventListener("click", (event) => {
       if (!picker.contains(event.target)) {
         results.hidden = true;
       }
     });
+    details?.addEventListener("toggle", () => {
+      if (!details.open) {
+        resetSelection();
+      }
+    });
+    restoreSavedSelection();
   });
 
   const cardRows = [
@@ -309,9 +368,12 @@
   window.addEventListener("resize", syncCollapsedRoster, { passive: true });
 
   document.querySelectorAll(".gm-table-picker").forEach((picker) => {
-    const reopenKey = `gm-table-picker-open:${window.location.pathname}`;
+    const storageKey = picker.dataset.pickerStorageKey;
+    const reopenKey = storageKey
+      ? `gm-picker-open:${storageKey}:${window.location.pathname}`
+      : "";
     try {
-      if (window.sessionStorage.getItem(reopenKey) === "1") {
+      if (reopenKey && window.sessionStorage.getItem(reopenKey) === "1") {
         picker.open = true;
         window.sessionStorage.removeItem(reopenKey);
       }
@@ -322,7 +384,9 @@
     picker.querySelectorAll("form").forEach((form) => {
       form.addEventListener("submit", () => {
         try {
-          window.sessionStorage.setItem(reopenKey, "1");
+          if (reopenKey) {
+            window.sessionStorage.setItem(reopenKey, "1");
+          }
         } catch (error) {
           // A blocked storage API must not block the form submission.
         }
@@ -330,15 +394,31 @@
     });
 
     const showForm = picker.querySelector("[data-table-picker-show]");
-    const select = picker.querySelector("[data-table-picker-select]");
+    const search = picker.querySelector("[data-table-picker-search]");
+    const query = picker.querySelector("[data-table-picker-query]");
+    const actionInput = picker.querySelector(
+      "[data-table-picker-action-input]",
+    );
+    const results = picker.querySelector("[data-table-picker-results]");
+    const options = Array.from(
+      picker.querySelectorAll("[data-table-picker-option]"),
+    );
+    const empty = picker.querySelector("[data-table-picker-empty]");
     const submit = picker.querySelector("[data-table-picker-submit]");
 
-    if (!showForm || !select || !submit) {
+    if (
+      !showForm
+      || !search
+      || !query
+      || !actionInput
+      || !results
+      || !submit
+    ) {
       return;
     }
 
     const updateSelection = () => {
-      const action = select.value;
+      const action = actionInput.value;
       submit.disabled = !action;
       if (action) {
         showForm.action = action;
@@ -346,10 +426,68 @@
         showForm.removeAttribute("action");
       }
     };
+    const hideResults = () => {
+      results.hidden = true;
+      query.setAttribute("aria-expanded", "false");
+    };
+    const filterOptions = () => {
+      const term = query.value.trim().toLocaleLowerCase("de");
+      let visible = 0;
+      options.forEach((option) => {
+        const matches = (
+          !term
+          || String(option.dataset.tablePickerSearch || "").includes(term)
+        );
+        option.hidden = !matches;
+        if (matches) {
+          visible += 1;
+        }
+      });
+      if (empty) {
+        empty.hidden = visible !== 0;
+      }
+      results.hidden = false;
+      query.setAttribute("aria-expanded", "true");
+      if (query.value !== query.dataset.selectedName) {
+        actionInput.value = "";
+        query.setCustomValidity(
+          query.value
+            ? "Bitte eine Karte aus der Trefferliste auswählen."
+            : "",
+        );
+        updateSelection();
+      }
+    };
 
-    select.addEventListener("change", updateSelection);
+    query.addEventListener("input", filterOptions);
+    query.addEventListener("focus", filterOptions);
+    query.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") {
+        hideResults();
+      }
+    });
+    options.forEach((option) => {
+      option.addEventListener("click", () => {
+        actionInput.value = option.dataset.tablePickerAction;
+        query.value = option.dataset.tablePickerName;
+        query.dataset.selectedName = option.dataset.tablePickerName;
+        query.setCustomValidity("");
+        hideResults();
+        updateSelection();
+      });
+    });
+    document.addEventListener("click", (event) => {
+      if (!search.contains(event.target)) {
+        hideResults();
+      }
+    });
+    picker.addEventListener("toggle", () => {
+      if (!picker.open) {
+        hideResults();
+      }
+    });
     showForm.addEventListener("submit", (event) => {
-      if (!select.value) {
+      if (!actionInput.value) {
         event.preventDefault();
       }
     });
@@ -1250,11 +1388,15 @@
       const dockedCards = cards().filter(
         (card) => !card.classList.contains("gm-data-table--detached"),
       );
-      dockedCards.forEach((card) => {
-        card.classList.remove("gm-data-table--stack-group");
-        card.style.removeProperty("--gm-dock-shared-card-width");
-        card.style.removeProperty("--gm-dock-shared-table-width");
-      });
+      // Keep docked stack widths in place while measuring the next layout.
+      // Clearing them first forces a visible shrink-and-grow cycle.
+      cards()
+        .filter((card) => card.classList.contains("gm-data-table--detached"))
+        .forEach((card) => {
+          card.classList.remove("gm-data-table--stack-group");
+          card.style.removeProperty("--gm-dock-shared-card-width");
+          card.style.removeProperty("--gm-dock-shared-table-width");
+        });
       let column = 0;
       let currentGroup = [];
       const groups = [];

@@ -1540,7 +1540,6 @@ def create_group_table(request, group_id: int):
                 for column in columns
             ]
         )
-    messages.success(request, "Tabelle angelegt.")
     return _table_screen_redirect(group_id)
 
 
@@ -1896,7 +1895,6 @@ def update_group_table(request, group_id: int, table_id: int):
                 target_row.save(update_fields=["position"])
                 moving_row.position = target_position
                 moving_row.save(update_fields=["position"])
-    messages.success(request, "Tabelle gespeichert.")
     return _table_screen_redirect(
         group_id,
         edit_table_id=data_table.id if table_action else None,
@@ -2057,7 +2055,6 @@ def delete_group_table(request, group_id: int, table_id: int):
         data_table = get_object_or_404(GameGroupTable, pk=table_id)
         _require_table_access(request.user, data_table, owner_only=True)
         data_table.delete()
-    messages.success(request, "Tabelle gelöscht.")
     return _table_screen_redirect(group_id)
 
 

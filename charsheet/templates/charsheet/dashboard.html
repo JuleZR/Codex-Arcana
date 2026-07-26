@@ -7,8 +7,8 @@
     <link rel="icon" type="image/x-icon" href="{% static 'img/favicon.ico' %}">
     <title>Dashboard | {{ request.user.get_username }}</title>
     <link rel="stylesheet" href="{% static 'css/charsheet.css' %}">
-    <link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
-    <script defer src="{% static 'js/game_groups.js' %}"></script>
+    <link rel="stylesheet" href="{% static 'css/dashboard.css' %}?v=20260726a">
+    <script defer src="{% static 'js/game_groups.js' %}?v=20260726a"></script>
     {% if request.user.settings.dddice_enabled %}
     <script type="module" src="{% static 'js/dddice.js' %}?v=1"></script>
     {% endif %}
@@ -99,9 +99,9 @@
 
           <section class="dashboard_panel dashboard_panel--main" aria-label="Charakterübersicht und Schnellaktionen">
             {% if messages %}
-              <section class="dashboard_messages" aria-label="Hinweise">
+              <section class="dashboard_messages" aria-label="Hinweise" aria-live="polite" aria-atomic="true">
                 {% for message in messages %}
-                  <div class="dashboard_message" data-autohide-message>{{ message }}</div>
+                  <div class="dashboard_message" data-autohide-message hidden>{{ message }}</div>
                 {% endfor %}
               </section>
             {% endif %}
@@ -403,12 +403,6 @@ if (dddiceCheckbox) {
   dddiceCheckbox.addEventListener("change", updateDDDdiceFields);
   updateDDDdiceFields();
 }
-        document.querySelectorAll("[data-autohide-message]").forEach(function (message) {
-          setTimeout(function () {
-            message.classList.add("is-hidden");
-          }, 2000);
-        });
-
         const printButtons = Array.from(document.querySelectorAll("[data-print-url]"));
         let activePrintFrame = null;
 

@@ -1,4 +1,68 @@
 document.addEventListener("DOMContentLoaded", () => {
+  const setupToastQueue = ({
+    selector,
+    visibleClass,
+    hidingClass,
+    visibleDuration = 2400,
+    transitionDuration = 360,
+  }) => {
+    const noisyTableMessages = new Set([
+      "Tabelle angelegt.",
+      "Tabelle gespeichert.",
+      "Tabelle gelöscht.",
+    ]);
+    const seen = new Set();
+    const queue = [];
+
+    document.querySelectorAll(selector).forEach((toast) => {
+      const text = toast.textContent.replace(/\s+/g, " ").trim();
+      const deduplicationKey = text.toLocaleLowerCase("de");
+      if (
+        !text
+        || noisyTableMessages.has(text)
+        || seen.has(deduplicationKey)
+      ) {
+        toast.remove();
+        return;
+      }
+      seen.add(deduplicationKey);
+      toast.hidden = true;
+      toast.classList.remove(visibleClass, hidingClass);
+      queue.push(toast);
+    });
+
+    const showNext = () => {
+      const toast = queue.shift();
+      if (!toast) {
+        return;
+      }
+      toast.hidden = false;
+      window.requestAnimationFrame(() => {
+        toast.classList.add(visibleClass);
+        window.setTimeout(() => {
+          toast.classList.add(hidingClass);
+          window.setTimeout(() => {
+            toast.remove();
+            showNext();
+          }, transitionDuration);
+        }, visibleDuration);
+      });
+    };
+
+    showNext();
+  };
+
+  setupToastQueue({
+    selector: "[data-autohide-message]",
+    visibleClass: "is-visible",
+    hidingClass: "is-hidden",
+  });
+  setupToastQueue({
+    selector: "[data-game-group-message]",
+    visibleClass: "is-visible",
+    hidingClass: "is-hiding",
+  });
+
   document.querySelectorAll("[data-group-character-picker]").forEach((picker) => {
     const search = picker.querySelector("[data-group-character-query]");
     const hidden = picker.querySelector("[data-group-character-id]");

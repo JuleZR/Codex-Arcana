@@ -1,4 +1,5 @@
 from django.contrib.auth import get_user_model
+from django.contrib.messages import get_messages
 from django.core.exceptions import PermissionDenied
 from django.db import IntegrityError, transaction
 from django.test import TestCase
@@ -117,6 +118,7 @@ class GameGroupTests(TestCase):
             GameGroupTableCell.objects.filter(row__table=data_table).count(),
             9,
         )
+        self.assertEqual(list(get_messages(response.wsgi_request)), [])
 
     def test_game_master_can_reorder_visible_group_tables(self):
         first = GameGroupTable.objects.create(
@@ -770,6 +772,13 @@ class GameGroupTests(TestCase):
         hidden_screen = self.client.get(reverse("game_master_screen", args=[self.group.id]))
         self.assertEqual(list(hidden_screen.context["data_tables"]), [])
         self.assertEqual(list(hidden_screen.context["hidden_data_tables"]), [data_table])
+        self.assertContains(hidden_screen, "data-table-picker-query")
+        self.assertContains(hidden_screen, "data-table-picker-results")
+        self.assertContains(
+            hidden_screen,
+            f'data-table-picker-name="{data_table.title}"',
+        )
+        self.assertNotContains(hidden_screen, "data-table-picker-select")
 
         show_response = self.client.post(
             reverse("show_group_table", args=[self.group.id, data_table.id]),

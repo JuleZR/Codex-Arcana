@@ -6,8 +6,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{{ group.name }} | Spielgruppe</title>
   <link rel="stylesheet" href="{% static 'css/charsheet.css' %}">
-  <link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
-  <script defer src="{% static 'js/game_groups.js' %}"></script>
+  <link rel="stylesheet" href="{% static 'css/dashboard.css' %}?v=20260726a">
+  <script defer src="{% static 'js/game_groups.js' %}?v=20260726a"></script>
   <script>
     if (new URLSearchParams(window.location.search).get("dashboard_refresh") === "quiet" && window.parent !== window) {
       const cleanUrl = new URL(window.location.href);
@@ -55,8 +55,8 @@
   </header>
 
   {% if messages %}
-    <section class="game-group-messages" aria-label="Hinweise">
-      {% for message in messages %}<p data-game-group-message>{{ message }}</p>{% endfor %}
+    <section class="game-group-messages" aria-label="Hinweise" aria-live="polite" aria-atomic="true">
+      {% for message in messages %}<p data-game-group-message hidden>{{ message }}</p>{% endfor %}
     </section>
   {% endif %}
 
@@ -254,14 +254,6 @@
       if (event.key === "Escape") close();
     });
   })();
-  document.querySelectorAll("[data-game-group-message]").forEach(function (message) {
-    window.setTimeout(function () {
-      message.classList.add("is-hiding");
-      window.setTimeout(function () {
-        message.remove();
-      }, 360);
-    }, 2600);
-  });
   (function () {
     const toggle = document.getElementById("gameGroupInviteToggle");
     const panel = document.getElementById("gameGroupInvitePanel");

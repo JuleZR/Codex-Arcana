@@ -266,15 +266,23 @@
   font-size: 0.95rem;
   line-height: 1.25;
   transition: opacity 0.35s ease, transform 0.35s ease, visibility 0.35s ease;
-  opacity: 1;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-6px);
   box-shadow: 0 8px 22px rgba(20, 12, 6, 0.28);
   pointer-events: auto;
+}
+
+.dashboard_message.is-visible {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
 }
 
 .dashboard_message.is-hidden {
   opacity: 0;
   transform: translateY(-6px);
-  visibility: hidden;
+  visibility: visible;
 }
 
 .dashboard_button {

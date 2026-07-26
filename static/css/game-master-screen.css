@@ -1327,10 +1327,12 @@
   display: block;
   width: auto;
   height: auto;
+  flex: 0 0 auto;
   margin: 0;
   border: 0;
   border-radius: 0;
   background: transparent;
+  white-space: nowrap;
 }
 
 .gm-creature-picker__form small {
@@ -1338,22 +1340,26 @@
   font: italic 0.7rem/1.25 Georgia, serif;
 }
 
-.gm-creature-search {
+.gm-creature-search,
+.gm-hidden-card-search {
   min-width: 0;
 }
 
-.gm-creature-search > .dashboard_input {
+.gm-creature-search > .dashboard_input,
+.gm-hidden-card-search > .dashboard_input {
   box-sizing: border-box;
   width: 100%;
   min-height: 34px;
 }
 
-.gm-creature-search__results {
+.gm-creature-search__results,
+.gm-hidden-card-search__results {
   z-index: 8;
   max-height: min(280px, calc(100vh - 190px));
 }
 
-.gm-table-picker__show .gm-creature-search__results button {
+.gm-table-picker__show .gm-creature-search__results button,
+.gm-table-picker__show .gm-hidden-card-search__results button {
   display: flex;
   width: 100%;
   height: auto;
@@ -1961,7 +1967,8 @@
   box-shadow: 0 16px 34px rgba(0, 0, 0, 0.38);
 }
 
-.gm-table-picker__panel.gm-creature-picker__panel {
+.gm-table-picker__panel.gm-creature-picker__panel,
+.gm-table-picker__panel.gm-hidden-card-picker__panel {
   overflow: visible;
 }
 
@@ -2099,6 +2106,7 @@
 .gm-data-table.gm-data-table--stack-group {
   width: var(--gm-dock-shared-card-width) !important;
   min-width: var(--gm-dock-shared-card-width) !important;
+  transition: none;
 }
 
 .gm-data-table.gm-data-table--stack-group .gm-data-table__preview table,
