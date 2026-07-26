@@ -89,17 +89,11 @@ def calculate_version(
     return version
 
 
-def _git_commits() -> list[CommitDescription]:
-    """Read all reachable commits from oldest to newest."""
+def _run_git(*arguments: str) -> str:
+    """Run a read-only Git command in the project repository."""
 
     result = subprocess.run(
-        [
-            "git",
-            "log",
-            "--reverse",
-            "--format=%s%x00%b%x00",
-            "HEAD",
-        ],
+        ["git", *arguments],
         cwd=PROJECT_ROOT,
         check=True,
         capture_output=True,
@@ -108,7 +102,25 @@ def _git_commits() -> list[CommitDescription]:
         errors="replace",
         timeout=5,
     )
-    fields = result.stdout.split("\x00")
+    return result.stdout
+
+
+def _git_head() -> str:
+    """Return the commit that currently determines the application version."""
+
+    return _run_git("rev-parse", "--verify", "HEAD").strip()
+
+
+def _git_commits(revision: str = "HEAD") -> list[CommitDescription]:
+    """Read all commits reachable from a revision, oldest first."""
+
+    output = _run_git(
+        "log",
+        "--reverse",
+        "--format=%s%x00%b%x00",
+        revision,
+    )
+    fields = output.split("\x00")
     commits: list[CommitDescription] = []
 
     for index in range(0, len(fields) - 1, 2):
@@ -120,7 +132,13 @@ def _git_commits() -> list[CommitDescription]:
     return commits
 
 
-@lru_cache(maxsize=1)
+@lru_cache(maxsize=8)
+def _version_for_git_head(head: str) -> str:
+    """Calculate once per Git commit instead of once per server process."""
+
+    return str(calculate_version(_git_commits(head)))
+
+
 def get_application_version() -> str:
     """Return an explicit deployment version or calculate it from Git."""
 
@@ -129,6 +147,6 @@ def get_application_version() -> str:
         return override
 
     try:
-        return str(calculate_version(_git_commits()))
-    except (FileNotFoundError, subprocess.SubprocessError):
+        return _version_for_git_head(_git_head())
+    except (OSError, subprocess.SubprocessError):
         return FALLBACK_VERSION

@@ -1,8 +1,17 @@
 """Tests for automatic application version calculation."""
 
+import os
+from unittest.mock import patch
+
 from django.test import SimpleTestCase
 
-from codex_arcana.versioning import CommitDescription, Version, calculate_version
+from codex_arcana.versioning import (
+    CommitDescription,
+    Version,
+    _version_for_git_head,
+    calculate_version,
+    get_application_version,
+)
 
 
 class VersionCalculationTests(SimpleTestCase):
@@ -40,3 +49,31 @@ class VersionCalculationTests(SimpleTestCase):
         )
 
         self.assertEqual(str(version), "v.0.12.013-b0018")
+
+    def test_application_version_refreshes_when_git_head_changes(self):
+        commits_by_head = {
+            "old-head": [CommitDescription("docs: initial state")],
+            "new-head": [
+                CommitDescription("docs: initial state"),
+                CommitDescription("fix: refresh version"),
+            ],
+        }
+        _version_for_git_head.cache_clear()
+        self.addCleanup(_version_for_git_head.cache_clear)
+
+        with (
+            patch.dict(os.environ, {"CODEX_ARCANA_VERSION": ""}),
+            patch(
+                "codex_arcana.versioning._git_head",
+                side_effect=["old-head", "new-head", "new-head"],
+            ),
+            patch(
+                "codex_arcana.versioning._git_commits",
+                side_effect=lambda head: commits_by_head[head],
+            ) as git_commits,
+        ):
+            self.assertEqual(get_application_version(), "v.0.00.000-b0001")
+            self.assertEqual(get_application_version(), "v.0.00.001-b0002")
+            self.assertEqual(get_application_version(), "v.0.00.001-b0002")
+
+        self.assertEqual(git_commits.call_count, 2)

@@ -22,7 +22,9 @@ Versionierung ergeben 329 Commits und 91 `feat`-Commits den Stand
 ## Deployment
 
 Wenn das Deployment das Git-Repository einschließlich `.git` enthält, wird
-die Version beim Start des Django-Prozesses aus der Historie berechnet.
+die Version aus der Historie berechnet. Die Anwendung prüft den aktuellen
+Git-Commit bei der Ausgabe und berechnet die Version neu, sobald sich `HEAD`
+ändert; ein Neustart des Django-Prozesses ist dafür nicht erforderlich.
 
 Ein Deployment-Skript kann den Wert mit folgendem Befehl abrufen:
 
