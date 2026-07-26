@@ -1,6 +1,6 @@
 # Automatische Versionierung
 
-Codex Arcana zeigt seine Version im Format `v.X.YY.ZZZ-bNNNN` auf dem
+Codex Arcana zeigt seine Version im Format `v.X.Y.Z-bN` auf dem
 Login-Screen und im Dashboard an.
 
 ## Regeln
@@ -17,7 +17,7 @@ Login-Screen und im Dashboard an.
 
 Die vorhandene Historie bildet den Startstand. Bei Einführung der
 Versionierung ergeben 329 Commits und 91 `feat`-Commits den Stand
-`v.0.91.000-b0329`.
+`v.0.91.0-b329`.
 
 ## Deployment
 

@@ -15,8 +15,32 @@ from codex_arcana.versioning import (
 
 
 class VersionCalculationTests(SimpleTestCase):
-    def test_formats_all_components_with_leading_zeroes(self):
-        self.assertEqual(str(Version(0, 12, 13, 17)), "v.0.12.013-b0017")
+    @patch("codex_arcana.versioning.subprocess.run")
+    def test_git_commands_trust_the_deployed_project_directory(self, run):
+        from codex_arcana.versioning import PROJECT_ROOT, _run_git
+
+        run.return_value.stdout = "commit-id\n"
+
+        self.assertEqual(_run_git("rev-parse", "HEAD"), "commit-id\n")
+        run.assert_called_once_with(
+            [
+                "git",
+                "-c",
+                f"safe.directory={PROJECT_ROOT}",
+                "rev-parse",
+                "HEAD",
+            ],
+            cwd=PROJECT_ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=5,
+        )
+
+    def test_formats_all_components_without_leading_zeroes(self):
+        self.assertEqual(str(Version(0, 5, 13, 17)), "v.0.5.13-b17")
 
     def test_applies_commit_type_rules_in_chronological_order(self):
         commits = [
@@ -32,7 +56,7 @@ class VersionCalculationTests(SimpleTestCase):
             base=Version(phase=0, feature=12, patch=13, build=17),
         )
 
-        self.assertEqual(str(version), "v.0.13.001-b0022")
+        self.assertEqual(str(version), "v.0.13.1-b22")
 
     def test_breaking_commit_increases_feature_not_phase(self):
         version = calculate_version(
@@ -40,7 +64,7 @@ class VersionCalculationTests(SimpleTestCase):
             base=Version(phase=0, feature=12, patch=13, build=17),
         )
 
-        self.assertEqual(str(version), "v.0.13.000-b0018")
+        self.assertEqual(str(version), "v.0.13.0-b18")
 
     def test_unknown_commit_only_increases_build(self):
         version = calculate_version(
@@ -48,7 +72,7 @@ class VersionCalculationTests(SimpleTestCase):
             base=Version(phase=0, feature=12, patch=13, build=17),
         )
 
-        self.assertEqual(str(version), "v.0.12.013-b0018")
+        self.assertEqual(str(version), "v.0.12.13-b18")
 
     def test_application_version_refreshes_when_git_head_changes(self):
         commits_by_head = {
@@ -72,8 +96,8 @@ class VersionCalculationTests(SimpleTestCase):
                 side_effect=lambda head: commits_by_head[head],
             ) as git_commits,
         ):
-            self.assertEqual(get_application_version(), "v.0.00.000-b0001")
-            self.assertEqual(get_application_version(), "v.0.00.001-b0002")
-            self.assertEqual(get_application_version(), "v.0.00.001-b0002")
+            self.assertEqual(get_application_version(), "v.0.0.0-b1")
+            self.assertEqual(get_application_version(), "v.0.0.1-b2")
+            self.assertEqual(get_application_version(), "v.0.0.1-b2")
 
         self.assertEqual(git_commits.call_count, 2)

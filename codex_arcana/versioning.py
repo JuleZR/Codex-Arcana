@@ -15,7 +15,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 # This fallback represents the repository state at which automatic versioning
 # was introduced. Deployments that do not include `.git` should provide the
 # freshly calculated value through CODEX_ARCANA_VERSION.
-FALLBACK_VERSION = "v.0.91.000-b0329"
+FALLBACK_VERSION = "v.0.91.0-b329"
 
 _COMMIT_TYPE_PATTERN = re.compile(
     r"^(?P<type>[a-z]+)(?:\([^)]*\))?(?P<breaking>!)?:",
@@ -46,10 +46,7 @@ class Version:
     build: int = 0
 
     def __str__(self) -> str:
-        return (
-            f"v.{self.phase}.{self.feature:02d}.{self.patch:03d}"
-            f"-b{self.build:04d}"
-        )
+        return f"v.{self.phase}.{self.feature}.{self.patch}-b{self.build}"
 
 
 def calculate_version(
@@ -93,7 +90,7 @@ def _run_git(*arguments: str) -> str:
     """Run a read-only Git command in the project repository."""
 
     result = subprocess.run(
-        ["git", *arguments],
+        ["git", "-c", f"safe.directory={PROJECT_ROOT}", *arguments],
         cwd=PROJECT_ROOT,
         check=True,
         capture_output=True,
