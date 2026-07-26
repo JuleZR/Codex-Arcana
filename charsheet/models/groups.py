@@ -318,7 +318,13 @@ class GameGroupTable(models.Model):
         on_delete=models.CASCADE,
         related_name="data_tables",
     )
+    creator = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="created_game_group_tables",
+    )
     title = models.CharField(max_length=150)
+    is_shared = models.BooleanField(default=False, db_index=True)
     position = models.PositiveIntegerField(default=0)
     is_visible = models.BooleanField(default=True, db_index=True)
     is_detached = models.BooleanField(default=False)
@@ -335,6 +341,15 @@ class GameGroupTable(models.Model):
 
     class Meta:
         ordering = ["position", "id"]
+
+    def save(self, *args, **kwargs):
+        if not self.creator_id and self.group_id:
+            self.creator_id = (
+                self.group.creator_id
+                if "group" in self._state.fields_cache
+                else GameGroup.objects.only("creator_id").get(pk=self.group_id).creator_id
+            )
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.group}: {self.title}"

@@ -109,6 +109,8 @@ class GameGroupTests(TestCase):
 
         self.assertEqual(response.status_code, 302)
         data_table = GameGroupTable.objects.get(group=self.group)
+        self.assertEqual(data_table.creator, self.leader)
+        self.assertFalse(data_table.is_shared)
         self.assertEqual(data_table.columns.count(), 3)
         self.assertEqual(data_table.rows.count(), 3)
         self.assertEqual(
@@ -992,6 +994,123 @@ class GameGroupTests(TestCase):
         self.assertEqual(response.status_code, 403)
         data_table.refresh_from_db()
         self.assertEqual(data_table.title, "Erlaubt")
+
+    def test_personal_and_shared_tables_follow_creator_access(self):
+        owner_overview_group = create_group(
+            creator=self.leader,
+            name="Persönliche Übersicht",
+        )
+        other_overview_group = create_group(
+            creator=self.other,
+            name="Andere Übersicht",
+        )
+        self.client.force_login(self.leader)
+        self.client.post(
+            reverse("create_group_table", args=[self.group.id]),
+            {"title": "Persönliche Tabelle", "column_count": 1, "row_count": 1},
+        )
+        data_table = GameGroupTable.objects.get(
+            group=self.group,
+            title="Persönliche Tabelle",
+        )
+
+        owner_screen = self.client.get(
+            reverse("game_master_screen", args=[owner_overview_group.id])
+        )
+        self.assertContains(owner_screen, "Persönliche Tabelle")
+        self.assertContains(owner_screen, 'name="is_shared"')
+        self.assertNotContains(owner_screen, 'name="is_shared" value="1" checked')
+
+        self.client.force_login(self.other)
+        other_screen = self.client.get(
+            reverse("game_master_screen", args=[other_overview_group.id])
+        )
+        self.assertNotContains(other_screen, "Persönliche Tabelle")
+        private_update = self.client.post(
+            reverse(
+                "update_group_table",
+                args=[other_overview_group.id, data_table.id],
+            ),
+            {"title": "Nicht erlaubt", "is_shared": "0"},
+        )
+        self.assertEqual(private_update.status_code, 403)
+
+        self.client.force_login(self.leader)
+        share_response = self.client.post(
+            reverse(
+                "update_group_table",
+                args=[owner_overview_group.id, data_table.id],
+            ),
+            {"title": data_table.title, "is_shared": "1"},
+        )
+        self.assertEqual(share_response.status_code, 302)
+        data_table.refresh_from_db()
+        self.assertTrue(data_table.is_shared)
+
+        self.client.force_login(self.other)
+        shared_screen = self.client.get(
+            reverse("game_master_screen", args=[other_overview_group.id])
+        )
+        self.assertContains(shared_screen, "Persönliche Tabelle")
+        self.assertContains(shared_screen, "data-table-sharing-toggle")
+        self.assertContains(
+            shared_screen,
+            "nur der Originalersteller kann dies ändern",
+        )
+        shared_update = self.client.post(
+            reverse(
+                "update_group_table",
+                args=[other_overview_group.id, data_table.id],
+            ),
+            {"title": "Gemeinsam bearbeitet", "is_shared": "0"},
+        )
+        self.assertEqual(shared_update.status_code, 302)
+        data_table.refresh_from_db()
+        self.assertEqual(data_table.title, "Gemeinsam bearbeitet")
+        self.assertTrue(data_table.is_shared)
+
+        self.client.force_login(self.leader)
+        unshare_response = self.client.post(
+            reverse(
+                "update_group_table",
+                args=[owner_overview_group.id, data_table.id],
+            ),
+            {"title": data_table.title, "is_shared": "0"},
+        )
+        self.assertEqual(unshare_response.status_code, 302)
+        data_table.refresh_from_db()
+        self.assertFalse(data_table.is_shared)
+
+        self.client.force_login(self.other)
+        private_again_screen = self.client.get(
+            reverse("game_master_screen", args=[other_overview_group.id])
+        )
+        self.assertNotContains(private_again_screen, "Gemeinsam bearbeitet")
+
+    def test_personal_table_survives_creator_role_revocation(self):
+        add_game_master(group_id=self.group.id, actor=self.leader, user=self.gm)
+        later_overview_group = create_group(
+            creator=self.gm,
+            name="Spätere SL-Übersicht",
+        )
+        self.client.force_login(self.gm)
+        self.client.post(
+            reverse("create_group_table", args=[self.group.id]),
+            {"title": "Bleibt persönlich", "column_count": 1, "row_count": 1},
+        )
+        data_table = GameGroupTable.objects.get(title="Bleibt persönlich")
+        self.assertEqual(data_table.creator, self.gm)
+
+        revoke_game_master(
+            group_id=self.group.id,
+            actor=self.leader,
+            user=self.gm,
+        )
+
+        later_screen = self.client.get(
+            reverse("game_master_screen", args=[later_overview_group.id])
+        )
+        self.assertContains(later_screen, "Bleibt persönlich")
 
     def test_table_structure_actions_preserve_values_and_edit_mode(self):
         self.client.force_login(self.leader)

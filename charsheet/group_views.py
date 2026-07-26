@@ -766,7 +766,12 @@ def game_master_screen(request, group_id: int):
         "screen_state_signature": screen_state_signature,
     }
     all_data_tables = list(
-        group.data_tables.prefetch_related(
+        GameGroupTable.objects.filter(
+            _accessible_table_filter(request.user)
+        ).select_related(
+            "creator",
+            "group",
+        ).prefetch_related(
             "columns",
             "rows__cells",
         )
@@ -787,96 +792,7 @@ def game_master_screen(request, group_id: int):
         for data_table in data_tables
     )
     for data_table in data_tables:
-        data_table.render_columns = list(data_table.columns.all())
-        data_table.render_rows = list(data_table.rows.all())
-        data_table.has_custom_column_widths = any(
-            column.width is not None
-            for column in data_table.render_columns
-        )
-        for column in data_table.render_columns:
-            column.render_preview_width = column.width or 140
-            column.render_editor_width = max(column.width or 180, 180)
-            (
-                column.render_heading,
-                column.render_heading_title,
-            ) = _table_column_heading_parts(column.heading)
-        data_table.render_preview_table_width = sum(
-            column.render_preview_width
-            for column in data_table.render_columns
-        )
-        data_table.render_editor_table_width = (
-            sum(
-                column.render_editor_width
-                for column in data_table.render_columns
-            )
-            + 92
-        )
-        data_table.render_automatic_editor_width = max(
-            1,
-            data_table.render_editor_table_width + 2,
-        )
-        data_table.render_automatic_card_width = max(
-            1,
-            data_table.render_preview_table_width + 2,
-        )
-        # The preview card follows its visible columns.  The editor receives
-        # its own width because it also contains the row-action column.
-        data_table.render_card_width = (
-            data_table.window_width or data_table.render_automatic_card_width
-        )
-        data_table.render_editor_width = (
-            data_table.window_width or data_table.render_automatic_editor_width
-        )
-        occupied_coordinates = set()
-        for data_row in data_table.render_rows:
-            cells_by_column = {
-                cell.column_id: cell
-                for cell in data_row.cells.all()
-            }
-            data_row.render_cells = [
-                cells_by_column.get(column.id)
-                for column in data_table.render_columns
-            ]
-        for row_index, data_row in enumerate(data_table.render_rows):
-            data_row.render_display_cells = []
-            for column_index, cell in enumerate(data_row.render_cells):
-                if cell is None:
-                    continue
-                cell.render_row_index = row_index
-                cell.render_column_index = column_index
-                cell.render_is_covered = (
-                    row_index,
-                    column_index,
-                ) in occupied_coordinates
-                if cell.render_is_covered:
-                    continue
-                row_span = min(
-                    max(1, int(cell.row_span or 1)),
-                    len(data_table.render_rows) - row_index,
-                )
-                column_span = min(
-                    max(1, int(cell.column_span or 1)),
-                    len(data_table.render_columns) - column_index,
-                )
-                while any(
-                    (covered_row, covered_column) in occupied_coordinates
-                    for covered_row in range(row_index, row_index + row_span)
-                    for covered_column in range(column_index, column_index + column_span)
-                ):
-                    if column_span > 1:
-                        column_span -= 1
-                    elif row_span > 1:
-                        row_span -= 1
-                    else:
-                        break
-                cell.render_row_span = row_span
-                cell.render_column_span = column_span
-                data_row.render_display_cells.append(cell)
-                occupied_coordinates.update(
-                    (covered_row, covered_column)
-                    for covered_row in range(row_index, row_index + row_span)
-                    for covered_column in range(column_index, column_index + column_span)
-                )
+        _prepare_data_table_for_render(data_table)
     try:
         editing_table_id = int(request.GET.get("edit_table") or 0)
     except (TypeError, ValueError):
@@ -1390,6 +1306,133 @@ def _table_screen_redirect(group_id: int, *, edit_table_id: int | None = None):
     return redirect(f"{url}#sl-tabellen")
 
 
+def _user_is_system_game_master(user) -> bool:
+    if not getattr(user, "is_authenticated", False):
+        return False
+    return GameGroupRole.objects.filter(
+        user=user,
+        is_active=True,
+        role__in=[GameGroupRole.Role.LEADER, GameGroupRole.Role.GM],
+    ).exists()
+
+
+def _accessible_table_filter(user) -> Q:
+    access_filter = Q(creator=user)
+    if _user_is_system_game_master(user):
+        access_filter |= Q(is_shared=True)
+    return access_filter
+
+
+def _require_table_access(user, data_table: GameGroupTable, *, owner_only=False):
+    if data_table.creator_id == getattr(user, "id", None):
+        return
+    if (
+        not owner_only
+        and data_table.is_shared
+        and _user_is_system_game_master(user)
+    ):
+        return
+    raise PermissionDenied
+
+
+def _prepare_data_table_for_render(data_table: GameGroupTable):
+    data_table.render_columns = list(data_table.columns.all())
+    data_table.render_rows = list(data_table.rows.all())
+    data_table.has_custom_column_widths = any(
+        column.width is not None
+        for column in data_table.render_columns
+    )
+    for column in data_table.render_columns:
+        column.render_preview_width = column.width or 140
+        column.render_editor_width = max(column.width or 180, 180)
+        (
+            column.render_heading,
+            column.render_heading_title,
+        ) = _table_column_heading_parts(column.heading)
+    data_table.render_preview_table_width = sum(
+        column.render_preview_width
+        for column in data_table.render_columns
+    )
+    data_table.render_editor_table_width = (
+        sum(
+            column.render_editor_width
+            for column in data_table.render_columns
+        )
+        + 92
+    )
+    data_table.render_automatic_editor_width = max(
+        1,
+        data_table.render_editor_table_width + 2,
+    )
+    data_table.render_automatic_card_width = max(
+        1,
+        data_table.render_preview_table_width + 2,
+    )
+    data_table.render_card_width = (
+        data_table.window_width or data_table.render_automatic_card_width
+    )
+    data_table.render_editor_width = (
+        data_table.window_width or data_table.render_automatic_editor_width
+    )
+    occupied_coordinates = set()
+    for data_row in data_table.render_rows:
+        cells_by_column = {
+            cell.column_id: cell
+            for cell in data_row.cells.all()
+        }
+        data_row.render_cells = [
+            cells_by_column.get(column.id)
+            for column in data_table.render_columns
+        ]
+    for row_index, data_row in enumerate(data_table.render_rows):
+        data_row.render_display_cells = []
+        for column_index, cell in enumerate(data_row.render_cells):
+            if cell is None:
+                continue
+            cell.render_row_index = row_index
+            cell.render_column_index = column_index
+            cell.render_is_covered = (
+                row_index,
+                column_index,
+            ) in occupied_coordinates
+            if cell.render_is_covered:
+                continue
+            row_span = min(
+                max(1, int(cell.row_span or 1)),
+                len(data_table.render_rows) - row_index,
+            )
+            column_span = min(
+                max(1, int(cell.column_span or 1)),
+                len(data_table.render_columns) - column_index,
+            )
+            while any(
+                (covered_row, covered_column) in occupied_coordinates
+                for covered_row in range(row_index, row_index + row_span)
+                for covered_column in range(
+                    column_index,
+                    column_index + column_span,
+                )
+            ):
+                if column_span > 1:
+                    column_span -= 1
+                elif row_span > 1:
+                    row_span -= 1
+                else:
+                    break
+            cell.render_row_span = row_span
+            cell.render_column_span = column_span
+            data_row.render_display_cells.append(cell)
+            occupied_coordinates.update(
+                (covered_row, covered_column)
+                for covered_row in range(row_index, row_index + row_span)
+                for covered_column in range(
+                    column_index,
+                    column_index + column_span,
+                )
+            )
+    return data_table
+
+
 def _normalized_table_title(raw_title: str) -> str:
     title = " ".join(str(raw_title or "").split())[:150]
     if not title:
@@ -1465,9 +1508,12 @@ def create_group_table(request, group_id: int):
         title = _normalized_table_title(request.POST.get("title", ""))
         column_count = _bounded_table_size(request.POST.get("column_count"), default=3)
         row_count = _bounded_table_size(request.POST.get("row_count"), default=3)
-        max_position = group.data_tables.aggregate(value=Max("position"))["value"]
+        max_position = GameGroupTable.objects.filter(
+            _accessible_table_filter(request.user)
+        ).aggregate(value=Max("position"))["value"]
         data_table = GameGroupTable.objects.create(
             group=group,
+            creator=request.user,
             title=title,
             position=(max_position + 1) if max_position is not None else 0,
         )
@@ -1575,7 +1621,7 @@ def reorder_group_tables(request, group_id: int):
             )
         tables = list(
             GameGroupTable.objects.select_for_update()
-            .filter(group=group)
+            .filter(_accessible_table_filter(request.user))
             .order_by("position", "id")
         )
         note_position = (
@@ -1655,10 +1701,16 @@ def update_group_table(request, group_id: int, table_id: int):
         data_table = get_object_or_404(
             GameGroupTable.objects.select_for_update(),
             pk=table_id,
-            group=group,
         )
+        _require_table_access(request.user, data_table)
         data_table.title = _normalized_table_title(request.POST.get("title", ""))
         update_fields = ["title", "updated_at"]
+        if data_table.creator_id == request.user.id:
+            data_table.is_shared = (
+                request.POST.get("is_shared", "").lower()
+                in {"1", "true", "yes", "on"}
+            )
+            update_fields.append("is_shared")
         if "window_width" in request.POST:
             data_table.window_width = _optional_bounded_table_width(
                 request.POST.get("window_width")
@@ -1866,8 +1918,8 @@ def update_group_table_layout(request, group_id: int, table_id: int):
         data_table = get_object_or_404(
             GameGroupTable.objects.select_for_update(),
             pk=table_id,
-            group=group,
         )
+        _require_table_access(request.user, data_table)
         update_fields = []
         if "is_detached" in request.POST:
             data_table.is_detached = (
@@ -1918,7 +1970,8 @@ def add_group_table_row(request, group_id: int, table_id: int):
     with transaction.atomic():
         group = GameGroup.objects.select_for_update().get(pk=group_id)
         require_game_master(request.user, group, write=True)
-        data_table = get_object_or_404(GameGroupTable, pk=table_id, group=group)
+        data_table = get_object_or_404(GameGroupTable, pk=table_id)
+        _require_table_access(request.user, data_table)
         if data_table.rows.count() >= 20:
             raise GroupError("table_row_limit", "Eine Tabelle kann höchstens 20 Zeilen enthalten.")
         max_position = data_table.rows.aggregate(value=Max("position"))["value"]
@@ -1942,7 +1995,8 @@ def add_group_table_column(request, group_id: int, table_id: int):
     with transaction.atomic():
         group = GameGroup.objects.select_for_update().get(pk=group_id)
         require_game_master(request.user, group, write=True)
-        data_table = get_object_or_404(GameGroupTable, pk=table_id, group=group)
+        data_table = get_object_or_404(GameGroupTable, pk=table_id)
+        _require_table_access(request.user, data_table)
         if data_table.columns.count() >= 20:
             raise GroupError("table_column_limit", "Eine Tabelle kann höchstens 20 Spalten enthalten.")
         max_position = data_table.columns.aggregate(value=Max("position"))["value"]
@@ -1968,7 +2022,8 @@ def delete_group_table_row(request, group_id: int, table_id: int, row_id: int):
     with transaction.atomic():
         group = GameGroup.objects.select_for_update().get(pk=group_id)
         require_game_master(request.user, group, write=True)
-        data_table = get_object_or_404(GameGroupTable, pk=table_id, group=group)
+        data_table = get_object_or_404(GameGroupTable, pk=table_id)
+        _require_table_access(request.user, data_table)
         if data_table.rows.count() <= 1:
             raise GroupError("last_table_row", "Eine Tabelle benötigt mindestens eine Zeile.")
         row = get_object_or_404(GameGroupTableRow, pk=row_id, table=data_table)
@@ -1983,7 +2038,8 @@ def delete_group_table_column(request, group_id: int, table_id: int, column_id: 
     with transaction.atomic():
         group = GameGroup.objects.select_for_update().get(pk=group_id)
         require_game_master(request.user, group, write=True)
-        data_table = get_object_or_404(GameGroupTable, pk=table_id, group=group)
+        data_table = get_object_or_404(GameGroupTable, pk=table_id)
+        _require_table_access(request.user, data_table)
         if data_table.columns.count() <= 1:
             raise GroupError("last_table_column", "Eine Tabelle benötigt mindestens eine Spalte.")
         column = get_object_or_404(GameGroupTableColumn, pk=column_id, table=data_table)
@@ -1998,7 +2054,8 @@ def delete_group_table(request, group_id: int, table_id: int):
     with transaction.atomic():
         group = GameGroup.objects.select_for_update().get(pk=group_id)
         require_game_master(request.user, group, write=True)
-        data_table = get_object_or_404(GameGroupTable, pk=table_id, group=group)
+        data_table = get_object_or_404(GameGroupTable, pk=table_id)
+        _require_table_access(request.user, data_table, owner_only=True)
         data_table.delete()
     messages.success(request, "Tabelle gelöscht.")
     return _table_screen_redirect(group_id)
@@ -2011,7 +2068,8 @@ def show_group_table(request, group_id: int, table_id: int):
     with transaction.atomic():
         group = GameGroup.objects.select_for_update().get(pk=group_id)
         require_game_master(request.user, group, write=True)
-        data_table = get_object_or_404(GameGroupTable, pk=table_id, group=group)
+        data_table = get_object_or_404(GameGroupTable, pk=table_id)
+        _require_table_access(request.user, data_table)
         data_table.is_visible = True
         data_table.save(update_fields=["is_visible", "updated_at"])
     return _table_screen_redirect(group_id)
@@ -2024,7 +2082,8 @@ def hide_group_table(request, group_id: int, table_id: int):
     with transaction.atomic():
         group = GameGroup.objects.select_for_update().get(pk=group_id)
         require_game_master(request.user, group, write=True)
-        data_table = get_object_or_404(GameGroupTable, pk=table_id, group=group)
+        data_table = get_object_or_404(GameGroupTable, pk=table_id)
+        _require_table_access(request.user, data_table)
         data_table.is_visible = False
         data_table.save(update_fields=["is_visible", "updated_at"])
     return _table_screen_redirect(group_id)
