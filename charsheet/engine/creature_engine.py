@@ -289,18 +289,26 @@ class CreatureEngine:
         return expanded
 
     def _modifier_total(self, target_domain: str, target_key: str) -> int | float:
-        return self._normalize_numeric_display_value(
-            self._creature_effect_total(target_domain, target_key, conditional=False) or 0
-        )
+        return self._apply_creature_effects(0, target_domain, target_key, conditional=False)
 
     def _creature_effect_total(self, target_domain: str, target_key: str, *, conditional: bool | None = None) -> int | float:
+        return self._apply_creature_effects(0, target_domain, target_key, conditional=conditional)
+
+    def _apply_creature_effects(
+        self,
+        base_value: int | float,
+        target_domain: str,
+        target_key: str,
+        *,
+        conditional: bool | None = None,
+    ) -> int | float:
         relevant = [
             effect
             for effect in self._semantic_effects
             if effect.target_domain == target_domain and effect.target_key == target_key
             and (conditional is None or bool(effect.display_text) is conditional)
         ]
-        resolved_total = 0
+        resolved_total = base_value
         seen_unique_sources: set[tuple[str, str, str]] = set()
         for effect in sorted(relevant, key=lambda entry: (entry.priority, entry.source_id, entry.target_domain, entry.target_key)):
             if effect.stack_behavior == StackBehavior.UNIQUE_BY_SOURCE:
@@ -311,24 +319,7 @@ class CreatureEngine:
             resolved_value = self._resolve_creature_effect_value(effect)
             if resolved_value is None:
                 continue
-            if effect.operator == ModifierOperator.OVERRIDE:
-                resolved_total = resolved_value
-                continue
-            if effect.operator == ModifierOperator.MULTIPLY:
-                resolved_total = resolved_total * resolved_value
-                continue
-            if effect.operator == ModifierOperator.FLOOR_DIVIDE:
-                if not resolved_value:
-                    continue
-                resolved_total = resolved_total // resolved_value
-                continue
-            if effect.operator == ModifierOperator.MIN_VALUE:
-                resolved_total = max(resolved_total, resolved_value)
-                continue
-            if effect.operator == ModifierOperator.MAX_VALUE:
-                resolved_total = min(resolved_total, resolved_value)
-                continue
-            resolved_total += resolved_value
+            resolved_total = self._apply_effect_to_base(resolved_total, effect, resolved_value)
         return self._normalize_numeric_display_value(resolved_total)
 
     def _conditional_value_variants(self, target_domain: str, target_key: str, base_value: int | float) -> list[dict[str, Any]]:
@@ -812,10 +803,13 @@ class CreatureEngine:
             value = 0
         if value is not None:
             value += adjustment
-        bonus = self._modifier_total(TargetDomain.MOVEMENT, target_key)
         if value is None:
-            return None if not bonus else bonus
-        return max(0, value + bonus)
+            resolved_value = self._apply_creature_effects(0, TargetDomain.MOVEMENT, target_key, conditional=False)
+            return None if not resolved_value else max(0, resolved_value)
+        return max(
+            0,
+            self._apply_creature_effects(value, TargetDomain.MOVEMENT, target_key, conditional=False),
+        )
 
     def movement_display(self) -> dict[str, str | None]:
         movement = self.movement()
@@ -1446,6 +1440,8 @@ class CreatureEngine:
             return str(int(number))
         fraction = Fraction(number).limit_denominator(16)
         whole, remainder = divmod(fraction.numerator, fraction.denominator)
+        if remainder == 0:
+            return str(whole)
         unicode_fraction = {
             (1, 2): "\u00bd",
             (1, 3): "\u2153",
