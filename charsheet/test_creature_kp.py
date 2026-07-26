@@ -1,5 +1,6 @@
 from django.template.loader import render_to_string
 from django.test import TestCase
+from django.urls import reverse
 
 from charsheet.constants import ATTR_WILL, QUALITY_COMMON
 from charsheet.engine.creature_engine import CreatureEngine
@@ -29,6 +30,15 @@ class CreatureKpTests(TestCase):
             {field.name for field in Creature._meta.get_fields()},
         )
         self.assertEqual(self.creature.display_name, self.creature.name)
+
+    def test_debug_card_renders_creature_without_card_name_field(self):
+        response = self.client.get(
+            reverse("debug_creature_card"),
+            {"card": self.creature.slug},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, self.creature.name)
 
     def test_kp_and_potential_are_hidden_and_not_calculated_without_flag(self):
         engine = CreatureEngine(self.creature)

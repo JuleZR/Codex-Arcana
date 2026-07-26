@@ -3876,7 +3876,7 @@ DEBUG_CARD_TYPES = {
 def _debug_card_label(source, card_type: str) -> str:
     if card_type == "shaman":
         return f"{source.get_patron_kind_display()}: {source.card_name or source.name}"
-    return source.card_name or source.name
+    return getattr(source, "card_name", "") or source.name
 
 
 def _debug_card_option(source, card_type: str) -> dict[str, str]:
