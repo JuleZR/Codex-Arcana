@@ -1406,42 +1406,35 @@
 }
 
 .gm-table-picker__show .gm-hidden-card-search__results button .gm-table-picker__sharing-state {
-  display: inline-flex;
-  min-width: 0;
-  padding: 3px 6px;
-  flex: 0 0 auto;
+  display: grid;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  flex: 0 0 24px;
   align-items: center;
-  gap: 4px;
-  border: 1px solid currentColor;
-  border-radius: 999px;
-  font: 700 0.6rem/1 Georgia, serif;
-  white-space: nowrap;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
 }
 
 .gm-table-picker__show .gm-hidden-card-search__results button .gm-table-picker__sharing-state svg {
-  width: 11px;
-  height: 11px;
-  flex: 0 0 11px;
+  width: 17px;
+  height: 17px;
   fill: none;
   stroke: currentColor;
   stroke-linecap: round;
   stroke-linejoin: round;
-  stroke-width: 1.7;
-}
-
-.gm-table-picker__show .gm-hidden-card-search__results button .gm-table-picker__sharing-state span {
-  color: inherit;
-  font: inherit;
+  stroke-width: 2;
 }
 
 .gm-table-picker__sharing-state.is-shared {
-  background: rgba(82, 113, 64, 0.13);
-  color: #48643a;
+  background: rgba(82, 113, 64, 0.08);
+  color: #557244;
 }
 
 .gm-table-picker__sharing-state.is-private {
-  background: rgba(117, 78, 41, 0.1);
-  color: #76512f;
+  background: rgba(117, 78, 41, 0.07);
+  color: #805b37;
 }
 
 .gm-roster-layout {
