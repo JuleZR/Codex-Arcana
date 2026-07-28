@@ -140,6 +140,13 @@ class GameGroupTests(TestCase):
             reverse("game_master_screen", args=[self.group.id])
         )
 
+        self.assertEqual(
+            [
+                data_table.title
+                for data_table in screen.context["hidden_data_tables"]
+            ],
+            ["Geteilte Übersicht", "Private Übersicht"],
+        )
         self.assertContains(screen, "Private Übersicht")
         self.assertContains(screen, "Geteilte Übersicht")
         self.assertContains(

@@ -777,11 +777,14 @@ def game_master_screen(request, group_id: int):
         for data_table in all_data_tables
         if data_table.is_visible
     ]
-    hidden_data_tables = [
-        data_table
-        for data_table in all_data_tables
-        if not data_table.is_visible
-    ]
+    hidden_data_tables = sorted(
+        (
+            data_table
+            for data_table in all_data_tables
+            if not data_table.is_visible
+        ),
+        key=lambda data_table: (data_table.title.casefold(), data_table.id),
+    )
     has_stacked_tables = any(
         data_table.is_stacked
         and not data_table.is_detached
