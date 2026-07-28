@@ -13,6 +13,40 @@
   padding: clamp(18px, 3vw, 38px) 0 48px;
 }
 
+.gm-screen,
+.gm-screen * {
+  scrollbar-color: rgba(91, 81, 70, 0.68) transparent;
+  scrollbar-width: thin;
+}
+
+.gm-screen *::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.gm-screen *::-webkit-scrollbar-track,
+.gm-screen *::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+.gm-screen *::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: rgba(91, 81, 70, 0.68);
+  background-clip: padding-box;
+}
+
+.gm-screen *::-webkit-scrollbar-thumb:hover {
+  background: rgba(71, 62, 53, 0.82);
+  background-clip: padding-box;
+}
+
+.gm-screen *::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
 .gm-screen__header {
   display: flex;
   align-items: end;
