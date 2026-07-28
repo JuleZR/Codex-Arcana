@@ -606,10 +606,19 @@ class GameGroupTests(TestCase):
         self.assertEqual(creature_cards[0].current_stun_damage, 1)
         self.assertEqual(creature_cards[0].current_lethal_damage, 1)
 
-        self.client.post(
+        ajax_damage_response = self.client.post(
             damage_url,
             {"damage_type": "T", "action": "damage", "amount": "5"},
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
         )
+        self.assertEqual(ajax_damage_response.status_code, 200)
+        self.assertTrue(ajax_damage_response.json()["ok"])
+        self.assertEqual(ajax_damage_response.json()["kind"], "damage")
+        self.assertEqual(ajax_damage_response.json()["stun_damage"], 1)
+        self.assertEqual(ajax_damage_response.json()["lethal_damage"], 6)
+        self.assertEqual(ajax_damage_response.json()["subtitle"], "Tod")
+        self.assertTrue(ajax_damage_response.json()["is_dead"])
+        self.assertFalse(ajax_damage_response.json()["is_incapacitated"])
         creature_cards[0].refresh_from_db()
         self.assertEqual(creature_cards[0].current_damage, 7)
         dead_screen = self.client.get(
@@ -716,7 +725,20 @@ class GameGroupTests(TestCase):
         self.assertContains(screen, kp_url, count=2)
         self.assertContains(screen, "<dt>Pot</dt>", html=True)
 
-        self.client.post(kp_url, {"action": "spend", "amount": "3"})
+        ajax_kp_response = self.client.post(
+            kp_url,
+            {"action": "spend", "amount": "3"},
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+        self.assertEqual(
+            ajax_kp_response.json(),
+            {
+                "ok": True,
+                "kind": "kp",
+                "current_kp": 6,
+                "max_kp": 9,
+            },
+        )
         creature_card.refresh_from_db()
         self.assertEqual(creature_card.current_kp, 6)
 
@@ -727,6 +749,44 @@ class GameGroupTests(TestCase):
         self.client.post(kp_url, {"action": "restore", "amount": "99"})
         creature_card.refresh_from_db()
         self.assertEqual(creature_card.current_kp, 9)
+
+    def test_group_creature_damage_adjustment_supports_ajax(self):
+        creature = Creature.objects.create(
+            name="Ajax-Testwolf",
+            slug="ajax-testwolf",
+            combat_speed=8,
+            march_speed=16,
+            sprint_speed=32,
+        )
+        self.client.force_login(self.leader)
+        self.client.post(
+            reverse("add_group_creature", args=[self.group.id]),
+            {"creature_id": creature.id},
+        )
+        creature_card = GameGroupCreature.objects.get(
+            group=self.group,
+            creature=creature,
+        )
+
+        response = self.client.post(
+            reverse(
+                "adjust_group_creature_damage",
+                args=[self.group.id, creature_card.id],
+            ),
+            {"damage_type": "B", "action": "damage", "amount": "1"},
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["kind"], "damage")
+        self.assertEqual(response.json()["stun_damage"], 1)
+        self.assertEqual(response.json()["lethal_damage"], 0)
+        self.assertEqual(
+            response.json()["current_lp"],
+            response.json()["max_lp"] - 1,
+        )
+        creature_card.refresh_from_db()
+        self.assertEqual(creature_card.current_stun_damage, 1)
 
     def test_group_creature_search_includes_group_character_creatures(self):
         creature = Creature.objects.create(
@@ -902,6 +962,8 @@ class GameGroupTests(TestCase):
         self.assertContains(screen, 'value="780"')
         self.assertContains(screen, 'data-table-width-input')
 
+        data_table.is_stacked = True
+        data_table.save(update_fields=["is_stacked"])
         hide_response = self.client.post(
             reverse("hide_group_table", args=[self.group.id, data_table.id]),
             {"_sl_screen": "1", "_sl_anchor": "sl-tabellen"},
@@ -909,6 +971,7 @@ class GameGroupTests(TestCase):
         self.assertEqual(hide_response.status_code, 302)
         data_table.refresh_from_db()
         self.assertFalse(data_table.is_visible)
+        self.assertFalse(data_table.is_stacked)
         hidden_screen = self.client.get(reverse("game_master_screen", args=[self.group.id]))
         self.assertEqual(list(hidden_screen.context["data_tables"]), [])
         self.assertEqual(list(hidden_screen.context["hidden_data_tables"]), [data_table])
@@ -920,6 +983,9 @@ class GameGroupTests(TestCase):
         )
         self.assertNotContains(hidden_screen, "data-table-picker-select")
 
+        # Also normalize tables hidden before this behavior was introduced.
+        data_table.is_stacked = True
+        data_table.save(update_fields=["is_stacked"])
         show_response = self.client.post(
             reverse("show_group_table", args=[self.group.id, data_table.id]),
             {"_sl_screen": "1", "_sl_anchor": "sl-tabellen"},
@@ -927,6 +993,9 @@ class GameGroupTests(TestCase):
         self.assertEqual(show_response.status_code, 302)
         data_table.refresh_from_db()
         self.assertTrue(data_table.is_visible)
+        self.assertFalse(data_table.is_stacked)
+        shown_screen = self.client.get(reverse("game_master_screen", args=[self.group.id]))
+        self.assertNotContains(shown_screen, "gm-data-table--stacked")
 
     def test_group_table_window_width_can_be_reset_to_automatic(self):
         self.client.force_login(self.leader)

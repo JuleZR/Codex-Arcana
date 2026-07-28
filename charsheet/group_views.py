@@ -984,10 +984,73 @@ def delete_group_creature(request, group_id: int, creature_card_id: int):
     )
 
 
+def _group_creature_vital_payload(
+    creature_card: GameGroupCreature,
+    engine: CreatureEngine,
+) -> dict:
+    """Return the complete client-side state after a creature damage change."""
+    wound_rows = engine.wound_rows()
+    max_lp = int(wound_rows[-1]["threshold"]) if wound_rows else 0
+    stun_damage = max(0, int(creature_card.current_stun_damage or 0))
+    lethal_damage = max(0, int(creature_card.current_lethal_damage or 0))
+    current_damage = stun_damage + lethal_damage
+    displayed_stun_damage = min(stun_damage, max_lp)
+    displayed_lethal_damage = min(
+        lethal_damage,
+        max(0, max_lp - displayed_stun_damage),
+    )
+    wound_stage = "-"
+    wound_penalty = 0
+    for wound_row in wound_rows:
+        if current_damage < int(wound_row["threshold"]):
+            break
+        wound_stage = wound_row["label"]
+        wound_penalty = int(wound_row["penalty"])
+    if max_lp and current_damage > max_lp:
+        wound_stage = "Tod"
+        wound_penalty = 0
+
+    subtitle_parts = []
+    if creature_card.character_creature_id:
+        subtitle_parts.append(creature_card.character_creature.owner.name)
+    if wound_stage != "-":
+        wound_status = wound_stage
+        if format_modifier(wound_penalty) != "0":
+            wound_status += f" ({format_modifier(wound_penalty)})"
+        subtitle_parts.append(wound_status)
+
+    return {
+        "ok": True,
+        "kind": "damage",
+        "current_lp": max(0, max_lp - current_damage),
+        "max_lp": max_lp,
+        "stun_damage": stun_damage,
+        "lethal_damage": lethal_damage,
+        "stun_damage_percent": (
+            f"{displayed_stun_damage / max_lp * 100:.4f}"
+            if max_lp
+            else "0"
+        ),
+        "lethal_damage_percent": (
+            f"{displayed_lethal_damage / max_lp * 100:.4f}"
+            if max_lp
+            else "0"
+        ),
+        "subtitle": " · ".join(subtitle_parts),
+        "is_dead": wound_stage == "Tod",
+        "is_incapacitated": wound_stage in {
+            "Ausser Gefecht",
+            "Außer Gefecht",
+            "Koma",
+        },
+    }
+
+
 @login_required
 @require_POST
 @_group_action
 def adjust_group_creature_damage(request, group_id: int, creature_card_id: int):
+    payload = None
     with transaction.atomic():
         group = GameGroup.objects.select_for_update().get(pk=group_id)
         require_game_master(request.user, group, write=True)
@@ -996,6 +1059,7 @@ def adjust_group_creature_damage(request, group_id: int, creature_card_id: int):
                 "creature",
                 "character_creature",
                 "character_creature__creature",
+                "character_creature__owner",
             ),
             pk=creature_card_id,
             group=group,
@@ -1023,6 +1087,15 @@ def adjust_group_creature_damage(request, group_id: int, creature_card_id: int):
                     "current_lethal_damage",
                 ]
             )
+        payload = _group_creature_vital_payload(
+            creature_card,
+            CreatureEngine(
+                creature_card.character_creature or creature_card.creature
+            ),
+        )
+
+    if request.headers.get("x-requested-with") == "XMLHttpRequest":
+        return JsonResponse(payload)
 
     return redirect(
         f"{reverse('game_master_screen', args=[group.id])}#sl-charaktere"
@@ -1033,6 +1106,8 @@ def adjust_group_creature_damage(request, group_id: int, creature_card_id: int):
 @require_POST
 @_group_action
 def adjust_group_creature_kp(request, group_id: int, creature_card_id: int):
+    current_kp = 0
+    maximum = 0
     with transaction.atomic():
         group = GameGroup.objects.select_for_update().get(pk=group_id)
         require_game_master(request.user, group, write=True)
@@ -1041,6 +1116,7 @@ def adjust_group_creature_kp(request, group_id: int, creature_card_id: int):
                 "creature",
                 "character_creature",
                 "character_creature__creature",
+                "character_creature__owner",
             ),
             pk=creature_card_id,
             group=group,
@@ -1059,6 +1135,17 @@ def adjust_group_creature_kp(request, group_id: int, creature_card_id: int):
                 maximum=max(0, int(maximum)),
             )
             creature_card.save(update_fields=["current_kp"])
+            current_kp = max(0, min(int(maximum), int(creature_card.current_kp or 0)))
+
+    if request.headers.get("x-requested-with") == "XMLHttpRequest":
+        return JsonResponse(
+            {
+                "ok": True,
+                "kind": "kp",
+                "current_kp": current_kp,
+                "max_kp": max(0, int(maximum or 0)),
+            }
+        )
 
     return redirect(
         f"{reverse('game_master_screen', args=[group.id])}#sl-charaktere"
@@ -2181,7 +2268,8 @@ def show_group_table(request, group_id: int, table_id: int):
         data_table = get_object_or_404(GameGroupTable, pk=table_id)
         _require_table_access(request.user, data_table)
         data_table.is_visible = True
-        data_table.save(update_fields=["is_visible", "updated_at"])
+        data_table.is_stacked = False
+        data_table.save(update_fields=["is_visible", "is_stacked", "updated_at"])
     return _table_screen_redirect(group_id)
 
 
@@ -2195,7 +2283,8 @@ def hide_group_table(request, group_id: int, table_id: int):
         data_table = get_object_or_404(GameGroupTable, pk=table_id)
         _require_table_access(request.user, data_table)
         data_table.is_visible = False
-        data_table.save(update_fields=["is_visible", "updated_at"])
+        data_table.is_stacked = False
+        data_table.save(update_fields=["is_visible", "is_stacked", "updated_at"])
     return _table_screen_redirect(group_id)
 
 

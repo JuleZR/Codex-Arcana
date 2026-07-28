@@ -367,6 +367,144 @@
   syncCollapsedRoster();
   window.addEventListener("resize", syncCollapsedRoster, { passive: true });
 
+  const applyCreatureDamageState = (card, result) => {
+    const lifeValue = card.querySelector(".gm-vital--life > div:first-child > span");
+    const damageTrack = card.querySelector(".gm-damage-track");
+    const stunTrack = card.querySelector(".gm-damage-track__stun");
+    const lethalTrack = card.querySelector(".gm-damage-track__lethal");
+    const nameContainer = card.querySelector(".gm-character-sheet__name");
+    let subtitle = nameContainer?.querySelector("p");
+
+    if (lifeValue) {
+      lifeValue.textContent = `${result.current_lp} / ${result.max_lp}`;
+    }
+    if (damageTrack) {
+      damageTrack.setAttribute(
+        "aria-label",
+        `${result.stun_damage} B-Schaden und ${result.lethal_damage} T-Schaden von ${result.max_lp}`,
+      );
+    }
+    if (stunTrack) {
+      stunTrack.style.width = `${result.stun_damage_percent}%`;
+    }
+    if (lethalTrack) {
+      lethalTrack.style.width = `${result.lethal_damage_percent}%`;
+    }
+    [
+      ["b", result.stun_damage],
+      ["t", result.lethal_damage],
+    ].forEach(([damageType, value]) => {
+      const damageValue = card.querySelector(
+        `.gm-creature-damage-control--${damageType} > strong`,
+      );
+      if (damageValue) {
+        damageValue.textContent = String(value);
+      }
+    });
+
+    if (result.subtitle) {
+      if (!subtitle && nameContainer) {
+        subtitle = document.createElement("p");
+        nameContainer.append(subtitle);
+      }
+      if (subtitle) {
+        subtitle.textContent = result.subtitle;
+      }
+    } else {
+      subtitle?.remove();
+    }
+
+    card.classList.toggle(
+      "gm-character-sheet--incapacitated",
+      Boolean(result.is_incapacitated),
+    );
+    card.classList.toggle(
+      "gm-character-sheet--dead",
+      Boolean(result.is_dead),
+    );
+    const portrait = Array.from(
+      collapsedRoster?.querySelectorAll("[data-collapsed-card-id]") || [],
+    ).find(
+      (candidate) => candidate.dataset.collapsedCardId === card.dataset.reorderId,
+    );
+    portrait?.classList.toggle(
+      "gm-roster-collapsed__portrait--incapacitated",
+      Boolean(result.is_incapacitated),
+    );
+    portrait?.classList.toggle(
+      "gm-roster-collapsed__portrait--dead",
+      Boolean(result.is_dead),
+    );
+  };
+
+  const applyCreatureKpState = (card, result) => {
+    const value = card.querySelector(".gm-creature-kp-controls > span");
+    const progress = card.querySelector(".gm-vital--arcane progress");
+    const display = `${result.current_kp} / ${result.max_kp}`;
+    if (value) {
+      value.textContent = display;
+    }
+    if (progress) {
+      progress.value = result.current_kp;
+      progress.max = result.max_kp > 0 ? result.max_kp : 1;
+      progress.textContent = display;
+    }
+  };
+
+  document.querySelectorAll(
+    ".gm-creature-damage-controls form, .gm-creature-kp-controls form",
+  ).forEach((form) => {
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const card = form.closest(".gm-character-sheet--creature");
+      const controls = form.closest(
+        ".gm-creature-damage-controls, .gm-creature-kp-controls",
+      );
+      const buttons = Array.from(controls?.querySelectorAll("button") || []);
+      if (!card || buttons.some((button) => button.disabled)) {
+        return;
+      }
+
+      buttons.forEach((button) => {
+        button.disabled = true;
+      });
+      card.setAttribute("aria-busy", "true");
+
+      try {
+        const body = new URLSearchParams(new FormData(form));
+        const csrfToken = body.get("csrfmiddlewaretoken");
+        const response = await fetch(form.action, {
+          method: "POST",
+          credentials: "same-origin",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+            "X-CSRFToken": csrfToken,
+            "X-Requested-With": "XMLHttpRequest",
+          },
+          body: body.toString(),
+        });
+        const result = await response.json();
+        if (!response.ok || !result.ok) {
+          throw new Error(
+            result.error || "Der Kreaturenstatus konnte nicht aktualisiert werden.",
+          );
+        }
+        if (result.kind === "damage") {
+          applyCreatureDamageState(card, result);
+        } else if (result.kind === "kp") {
+          applyCreatureKpState(card, result);
+        }
+      } catch (error) {
+        window.alert("Der Kreaturenstatus konnte nicht aktualisiert werden.");
+      } finally {
+        buttons.forEach((button) => {
+          button.disabled = false;
+        });
+        card.removeAttribute("aria-busy");
+      }
+    });
+  });
+
   document.querySelectorAll(".gm-table-picker").forEach((picker) => {
     const storageKey = picker.dataset.pickerStorageKey;
     const reopenKey = storageKey
@@ -996,7 +1134,7 @@
       bringToFront();
       if (
         event.button !== 0
-        || event.target.closest("button, input, select, textarea, a, [contenteditable='true']")
+        || event.target.closest("button, input, select, textarea, label, a, [contenteditable='true']")
       ) {
         return;
       }
@@ -1191,7 +1329,7 @@
       if (
         !card.classList.contains("gm-note-card--detached")
         || event.button !== 0
-        || event.target.closest("button, input, select, textarea, a, [contenteditable='true']")
+        || event.target.closest("button, input, select, textarea, label, a, [contenteditable='true']")
       ) {
         return;
       }
@@ -1653,7 +1791,7 @@
     dragSurfaces.forEach((surface) => {
       surface.addEventListener("pointerdown", (event) => {
         dragBlocked = Boolean(
-          event.target.closest("button, input, select, textarea, a, [contenteditable='true']"),
+          event.target.closest("button, input, select, textarea, label, a, [contenteditable='true']"),
         );
       });
 
