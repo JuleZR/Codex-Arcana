@@ -1395,6 +1395,55 @@
   white-space: nowrap;
 }
 
+.gm-table-picker__show .gm-hidden-card-search__results button .gm-table-picker__option-title {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  color: #432d1e;
+  font: inherit;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gm-table-picker__show .gm-hidden-card-search__results button .gm-table-picker__sharing-state {
+  display: inline-flex;
+  min-width: 0;
+  padding: 3px 6px;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font: 700 0.6rem/1 Georgia, serif;
+  white-space: nowrap;
+}
+
+.gm-table-picker__show .gm-hidden-card-search__results button .gm-table-picker__sharing-state svg {
+  width: 11px;
+  height: 11px;
+  flex: 0 0 11px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.7;
+}
+
+.gm-table-picker__show .gm-hidden-card-search__results button .gm-table-picker__sharing-state span {
+  color: inherit;
+  font: inherit;
+}
+
+.gm-table-picker__sharing-state.is-shared {
+  background: rgba(82, 113, 64, 0.13);
+  color: #48643a;
+}
+
+.gm-table-picker__sharing-state.is-private {
+  background: rgba(117, 78, 41, 0.1);
+  color: #76512f;
+}
+
 .gm-roster-layout {
   display: flex;
   min-width: 0;
@@ -2982,7 +3031,6 @@
 .gm-data-table__markdown ol {
   padding-inline-start: 0;
   list-style-position: inside;
-  text-align: left;
 }
 
 .gm-data-table__markdown code {
@@ -2992,37 +3040,15 @@
 }
 
 .gm-data-table__number {
-  display: grid;
-  width: 100%;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  display: inline-flex;
   align-items: baseline;
   color: #392619;
   font: inherit;
   font-variant-numeric: tabular-nums;
 }
 
-.gm-data-table__align--left .gm-data-table__number {
-  grid-template-columns: minmax(0, 0.45fr) auto minmax(0, 1.55fr);
-}
-
-.gm-data-table__align--right .gm-data-table__number {
-  grid-template-columns: minmax(0, 1.55fr) auto minmax(0, 0.45fr);
-}
-
-.gm-data-table__number-integer {
-  justify-self: end;
-}
-
-.gm-data-table__number-separator {
-  justify-self: center;
-}
-
 .gm-data-table__number-separator.is-empty {
-  visibility: hidden;
-}
-
-.gm-data-table__number-fraction {
-  justify-self: start;
+  display: none;
 }
 
 .gm-data-table__number-suffix {
@@ -3030,9 +3056,8 @@
 }
 
 .gm-data-table__number-empty {
-  display: block;
+  display: inline;
   color: rgba(57, 38, 25, 0.54);
-  text-align: center;
 }
 
 .gm-data-table__column-heading > button,

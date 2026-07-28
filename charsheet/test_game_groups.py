@@ -120,6 +120,41 @@ class GameGroupTests(TestCase):
         )
         self.assertEqual(list(get_messages(response.wsgi_request)), [])
 
+    def test_hidden_table_picker_marks_shared_and_private_tables(self):
+        self.client.force_login(self.leader)
+        for title in ("Private Übersicht", "Geteilte Übersicht"):
+            self.client.post(
+                reverse("create_group_table", args=[self.group.id]),
+                {"title": title},
+            )
+        GameGroupTable.objects.filter(
+            group=self.group,
+            title="Private Übersicht",
+        ).update(is_visible=False, is_shared=False)
+        GameGroupTable.objects.filter(
+            group=self.group,
+            title="Geteilte Übersicht",
+        ).update(is_visible=False, is_shared=True)
+
+        screen = self.client.get(
+            reverse("game_master_screen", args=[self.group.id])
+        )
+
+        self.assertContains(screen, "Private Übersicht")
+        self.assertContains(screen, "Geteilte Übersicht")
+        self.assertContains(
+            screen,
+            'data-table-sharing-state="private"',
+            count=1,
+        )
+        self.assertContains(
+            screen,
+            'data-table-sharing-state="shared"',
+            count=1,
+        )
+        self.assertContains(screen, "Freigegeben")
+        self.assertContains(screen, "Privat")
+
     def test_game_master_can_replace_table_from_clipboard_markdown(self):
         self.client.force_login(self.leader)
         self.client.post(
