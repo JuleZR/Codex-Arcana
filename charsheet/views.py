@@ -2680,17 +2680,7 @@ def choose_technique_creature(request, character_id: int, binding_id: int):
         if not custom_name:
             messages.error(request, "Bitte gib deiner freien Tierform einen Namen.")
             return redirect("character_sheet", character_id=character.pk)
-        selected_creature, _created = Creature.objects.get_or_create(
-            slug="system-leere-tierform",
-            defaults={
-                "name": "System: Leere Tierform",
-                "card_name": "Leere Tierform",
-                "quality": binding.quality,
-                "combat_speed": 0,
-                "march_speed": 0,
-                "sprint_speed": 0,
-            },
-        )
+        selected_creature = None
     else:
         messages.error(request, "Unbekannte Art der Kreaturenwahl.")
         return redirect("character_sheet", character_id=character.pk)
@@ -2842,8 +2832,18 @@ def _render_creature_training_payload(request, card: CharacterCreature) -> dict:
         inventory_item_name = ItemEngine(source_item).get_name()
     card_context["adjust_damage_url"] = reverse_lazy("adjust_creature_damage", kwargs={"pk": card.pk})
     card_context["training_update_url"] = reverse_lazy("update_character_creature_training", kwargs={"pk": card.pk})
+    if (
+        card.source_selection_completed
+        and card.source_binding_id
+        and card.source_binding.selection_mode == CreatureSourceBinding.SelectionMode.CHARACTER_CHOICE
+    ):
+        card_context["reset_choice_url"] = reverse_lazy(
+            "reset_technique_creature_choice",
+            kwargs={"pk": card.pk},
+        )
     mini_context = {**card_context, "adjust_damage_url": "", "damage_controls_disabled": True}
     mini_context.pop("training_update_url", None)
+    mini_context.pop("reset_choice_url", None)
     return {
         "ok": True,
         "cardKey": f"creature-{card.pk}",
@@ -2873,8 +2873,38 @@ def _render_creature_training_payload(request, card: CharacterCreature) -> dict:
 
 @login_required
 @require_POST
+def reset_technique_creature_choice(request, pk: int):
+    """Discard one selected creature so its technique returns to the choice state."""
+    card = _owned_character_creature_or_404(request, pk)
+    if (
+        not card.source_selection_completed
+        or not card.source_binding_id
+        or card.source_binding.selection_mode != CreatureSourceBinding.SelectionMode.CHARACTER_CHOICE
+    ):
+        return JsonResponse(
+            {"ok": False, "message": "Diese Kreatur stammt nicht aus einer zurücksetzbaren Auswahl."},
+            status=400,
+        )
+
+    character_id = card.owner_id
+    image_name = card.image_override.name if card.image_override else ""
+    image_storage = card.image_override.storage if image_name else None
+    with transaction.atomic():
+        card.delete()
+        if image_storage is not None:
+            transaction.on_commit(lambda: image_storage.delete(image_name))
+
+    redirect_url = reverse("character_sheet", kwargs={"character_id": character_id})
+    if _is_partial_request(request):
+        return JsonResponse({"ok": True, "redirectUrl": redirect_url})
+    return redirect(redirect_url)
+
+
+@login_required
+@require_POST
 def update_creature_card_training(request, pk: int):
     card = _owned_character_creature_or_404(request, pk)
+    base_creature = CreatureEngine(card).creature
     card_update_fields = []
     if "custom_name" in request.POST:
         default_name = card.original_card_name
@@ -2887,7 +2917,7 @@ def update_creature_card_training(request, pk: int):
             card.image_override.delete(save=False)
         card.image_override = None
         card_update_fields.append("image_override")
-    elif _save_cropped_card_image(card, "image_override", cropped_image, card.name_override or card.creature.name):
+    elif _save_cropped_card_image(card, "image_override", cropped_image, card.name_override or base_creature.name):
         card_update_fields.append("image_override")
     elif request.FILES.get("custom_creature_image"):
         card.image_override = request.FILES["custom_creature_image"]
@@ -2904,7 +2934,7 @@ def update_creature_card_training(request, pk: int):
     if "size_class" in request.POST:
         selected_size_class = str(request.POST.get("size_class") or "").strip()
         if selected_size_class in GK_MODS:
-            card.size_class_override = "" if selected_size_class == card.creature.size_class else selected_size_class
+            card.size_class_override = "" if selected_size_class == base_creature.size_class else selected_size_class
             card.size_modifier_override = None
             card_update_fields.extend(["size_class_override", "size_modifier_override"])
     movement_float_fields = (
@@ -3007,7 +3037,7 @@ def update_creature_card_training(request, pk: int):
     selected_advantage_ids = {_parse_positive_int(raw_id) for raw_id in request.POST.getlist("advantages") if _parse_positive_int(raw_id)}
     selected_disadvantage_ids = {_parse_positive_int(raw_id) for raw_id in request.POST.getlist("disadvantages") if _parse_positive_int(raw_id)}
     existing_trait_rows = list(card.trait_overrides.select_related("trait").prefetch_related("choices").all())
-    base_trait_rows = list(card.creature.traits.select_related("trait").all())
+    base_trait_rows = list(base_creature.traits.select_related("trait").all())
     base_traits_by_trait_id = {row.trait_id: row for row in base_trait_rows if row.trait_id}
     base_trait_levels = {row.trait_id: int(row.trait_level or 0) for row in base_trait_rows if row.trait_id}
     training_trait_types = {
@@ -3144,11 +3174,11 @@ def update_creature_card_training(request, pk: int):
 
     base_skill_values = {
         row.skill_id: row.value
-        for row in card.creature.skills.all()
+        for row in base_creature.skills.all()
     }
     base_special_skill_values = {
         row.skill_id: row.value
-        for row in card.creature.special_skills.all()
+        for row in base_creature.special_skills.all()
     }
     existing_skill_overrides = {
         row.skill_id: row
@@ -3179,7 +3209,7 @@ def update_creature_card_training(request, pk: int):
             CharacterCreatureSkill,
             "notes",
         )
-        for row in card.creature.skills.select_related("skill").filter(skill_id__in=posted_normal_skill_ids)
+        for row in base_creature.skills.select_related("skill").filter(skill_id__in=posted_normal_skill_ids)
     }
     special_skill_notes = {
         row.skill_id: _fit_model_char_field(
@@ -3187,7 +3217,7 @@ def update_creature_card_training(request, pk: int):
             CharacterCreatureSpecialSkill,
             "notes",
         )
-        for row in card.creature.special_skills.select_related("skill").filter(skill_id__in=posted_special_skill_ids)
+        for row in base_creature.special_skills.select_related("skill").filter(skill_id__in=posted_special_skill_ids)
     }
     for skill_id in posted_normal_skill_ids:
         value = _parse_int(request.POST.get(f"skill_value_normal_{skill_id}"), base_skill_values.get(skill_id, 0))
@@ -3225,10 +3255,10 @@ def update_creature_card_training(request, pk: int):
     new_skill_rows = []
     existing_skill_names = {
         row.skill.name.casefold()
-        for row in card.creature.skills.select_related("skill")
+        for row in base_creature.skills.select_related("skill")
     } | {
         row.skill.name.casefold()
-        for row in card.creature.special_skills.select_related("skill")
+        for row in base_creature.special_skills.select_related("skill")
     } | {
         row.skill.name.casefold()
         for row in card.skill_overrides.exclude(skill_id__in=remove_normal_skill_ids).select_related("skill")

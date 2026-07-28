@@ -74,10 +74,35 @@ export function initCreatureCards() {
     }
     const imageTrigger = card.querySelector("[data-creature-card-image-trigger]");
     const removeImageButton = card.querySelector("[data-creature-card-remove-image]");
+    const resetChoiceButton = card.querySelector("[data-creature-reset-choice]");
     const imageInput = imageTrigger instanceof HTMLElement
       ? imageTrigger.querySelector('input[type="file"]')
       : null;
     const qualitySelect = card.querySelector(".creature-card-quality-select");
+    let resetToastTimer = 0;
+
+    const showResetToast = (message, kind = "hint") => {
+      let toast = card.querySelector("[data-creature-reset-toast]");
+      if (!(toast instanceof HTMLElement)) {
+        toast = document.createElement("div");
+        toast.className = "creature-card__reset-toast";
+        toast.dataset.creatureResetToast = "";
+        toast.setAttribute("role", "status");
+        toast.setAttribute("aria-live", "polite");
+        toast.setAttribute("aria-atomic", "true");
+        card.append(toast);
+      }
+      window.clearTimeout(resetToastTimer);
+      toast.textContent = message;
+      toast.classList.toggle("creature-card__reset-toast--error", kind === "error");
+      toast.classList.remove("is-visible");
+      window.requestAnimationFrame(() => {
+        toast.classList.add("is-visible");
+      });
+      resetToastTimer = window.setTimeout(() => {
+        toast.classList.remove("is-visible");
+      }, 2800);
+    };
 
     const previewQualityPoints = () => {
       if (!(qualitySelect instanceof HTMLSelectElement)) {
@@ -112,6 +137,46 @@ export function initCreatureCards() {
         const form = floatingCard?.querySelector("[data-creature-training-form]");
         if (form instanceof HTMLFormElement) {
           form.requestSubmit();
+        }
+      });
+    }
+
+    if (resetChoiceButton instanceof HTMLButtonElement) {
+      resetChoiceButton.addEventListener("click", async (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (!event.shiftKey) {
+          showResetToast("Zum Zurücksetzen Shift gedrückt halten und erneut klicken.");
+          return;
+        }
+        const resetUrl = String(resetChoiceButton.dataset.resetUrl || "");
+        if (!resetUrl || resetChoiceButton.disabled) {
+          return;
+        }
+        resetChoiceButton.disabled = true;
+        try {
+          const response = await fetch(resetUrl, {
+            method: "POST",
+            headers: {
+              "X-CSRFToken": getCsrfToken(),
+              "X-Requested-With": "XMLHttpRequest",
+              Accept: "application/json",
+            },
+            credentials: "same-origin",
+          });
+          const payload = await response.json();
+          if (!response.ok || !payload?.ok) {
+            throw new Error(payload?.message || `Auswahl konnte nicht zurückgesetzt werden (${response.status}).`);
+          }
+          window.location.assign(String(payload.redirectUrl || window.location.href));
+        } catch (error) {
+          resetChoiceButton.disabled = false;
+          showResetToast(
+            error instanceof Error
+              ? error.message
+              : "Auswahl konnte nicht zurückgesetzt werden.",
+            "error",
+          );
         }
       });
     }

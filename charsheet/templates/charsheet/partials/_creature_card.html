@@ -35,6 +35,20 @@
             </div>
         {% endif %}
         <header class="card-titlebar">
+            {% if creature_card.training_update_url and creature_card.reset_choice_url %}
+                <button
+                    class="creature-card__reset-choice"
+                    type="button"
+                    data-creature-reset-choice
+                    data-reset-url="{{ creature_card.reset_choice_url }}"
+                    title="Nur mit Shift-Klick: zurück zur Kreaturenauswahl"
+                    aria-label="Mit Shift-Klick zurück zur Kreaturenauswahl"
+                >
+                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                        <path d="M8.2 7.1V3.5L2.8 8.9l5.4 5.4v-3.7c4.8-1.2 8.5.5 10.9 5.2-.5-6.2-4.4-9.3-10.9-8.7Z"></path>
+                    </svg>
+                </button>
+            {% endif %}
             <h1 class="card-title card-display-field">{{ creature_card.name }}{% if creature_card.name_suffix %} {{ creature_card.name_suffix }}{% endif %}</h1>
             {% if creature_card.training_update_url %}
                 <input class="card-title card-title-input card-edit-field" name="custom_name" value="{{ creature_card.custom_name|default:'' }}" placeholder="{{ creature_card.original_card_name|default:'' }}" maxlength="100" data-creature-card-field>

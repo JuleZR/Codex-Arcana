@@ -21,6 +21,7 @@ from charsheet.constants import (
     ATTR_WA,
     ATTR_WILL,
     DEFENSE_RS,
+    GK_AVERAGE,
     GK_MODS,
     QUALITY_BEL_MODS,
     QUALITY_COMMON,
@@ -66,6 +67,83 @@ CREATURE_KIND_LABELS = {
 }
 
 
+class _EmptyRelatedRows:
+    """Small queryset-like empty relation used by free character creatures."""
+
+    def all(self):
+        return self
+
+    def select_related(self, *args):
+        return self
+
+    def prefetch_related(self, *args):
+        return self
+
+    def filter(self, *args, **kwargs):
+        return self
+
+    def order_by(self, *args):
+        return self
+
+    def first(self):
+        return None
+
+    def exists(self):
+        return False
+
+    def count(self):
+        return 0
+
+    def __iter__(self):
+        return iter(())
+
+
+class _EmptyCreature:
+    """In-memory base values for a CharacterCreature without a DB template."""
+
+    pk = None
+    name = "Leere Tierform"
+    display_name = "Leere Tierform"
+    image = None
+    quality = None
+    size_class = GK_AVERAGE
+    initiative_override = None
+    vw_override = None
+    sr_override = None
+    gw_override = None
+    has_kp = False
+    kp_override = None
+    potential_override = None
+    fear_resistance_bonus = None
+    defense_extra_label = ""
+    natural_rs = 0
+    wound_step_override = None
+    wound_thresholds_override = ""
+    combat_speed = 0
+    march_speed = 0
+    sprint_speed = 0
+    swimming_speed = None
+    combat_swimming_speed = None
+    march_swimming_speed = None
+    sprint_swimming_speed = None
+    combat_fly_speed = None
+    march_fly_speed = None
+    sprint_fly_speed = None
+    movement_mana_cost = None
+    movement_note = ""
+    climate_and_occurrence = ""
+    organization = ""
+    attributes = _EmptyRelatedRows()
+    attacks = _EmptyRelatedRows()
+    skills = _EmptyRelatedRows()
+    special_skills = _EmptyRelatedRows()
+    traits = _EmptyRelatedRows()
+    commands = _EmptyRelatedRows()
+
+
+EMPTY_CREATURE = _EmptyCreature()
+
+
 @dataclass(frozen=True)
 class CreatureArmorTotals:
     natural_rs: int
@@ -105,7 +183,13 @@ class CreatureEngine:
     def __init__(self, creature: Creature | CharacterCreature):
         self.source = creature
         self.instance = creature if isinstance(creature, CharacterCreature) else None
-        self.creature = creature.creature if self.instance else creature
+        self.creature = (
+            creature.creature
+            if self.instance and creature.creature_id
+            else EMPTY_CREATURE
+            if self.instance
+            else creature
+        )
 
     def _override(self, field_name: str) -> Any:
         if self.instance is None:
@@ -1583,22 +1667,11 @@ def sync_character_creatures(character) -> list[CharacterCreature]:
                             existing.active = True
                             existing.save(update_fields=["active"])
                         continue
-                    blank_creature, _created = Creature.objects.get_or_create(
-                        slug="system-leere-tierform",
-                        defaults={
-                            "name": "System: Leere Tierform",
-                            "card_name": "Leere Tierform",
-                            "quality": binding.quality,
-                            "combat_speed": 0,
-                            "march_speed": 0,
-                            "sprint_speed": 0,
-                        },
-                    )
                     source_rows = [{
                         "source_character_item": None,
                         "source_character_technique": source_technique,
                         "quality": binding.quality,
-                        "creature": blank_creature,
+                        "creature": None,
                     }]
                 else:
                     source_rows = [{

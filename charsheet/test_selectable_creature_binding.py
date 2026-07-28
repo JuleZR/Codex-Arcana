@@ -58,8 +58,9 @@ class SelectableCreatureBindingTests(TestCase):
     def test_special_binding_waits_for_character_choice(self):
         creatures = sync_character_creatures(self.character)
         self.assertEqual(len(creatures), 1)
-        self.assertEqual(creatures[0].creature.slug, "system-leere-tierform")
+        self.assertIsNone(creatures[0].creature)
         self.assertFalse(creatures[0].source_selection_completed)
+        self.assertFalse(Creature.objects.filter(slug="system-leere-tierform").exists())
         self.client.force_login(self.user)
         response = self.client.get(reverse("character_sheet", args=[self.character.pk]))
         self.assertContains(response, "Tiergestalt auswählen oder erstellen")
@@ -76,8 +77,9 @@ class SelectableCreatureBindingTests(TestCase):
         self.assertRedirects(response, reverse("character_sheet", args=[self.character.pk]))
         card = CharacterCreature.objects.get(owner=self.character, source_binding=self.binding)
         self.assertTrue(card.source_selection_completed)
-        self.assertEqual(card.creature.slug, "system-leere-tierform")
+        self.assertIsNone(card.creature)
         self.assertEqual(card.display_name, "Silberfuchs")
+        self.assertFalse(Creature.objects.filter(slug="system-leere-tierform").exists())
         self.assertEqual(sync_character_creatures(self.character)[0].pk, card.pk)
         response = self.client.get(reverse("character_sheet", args=[self.character.pk]))
         self.assertNotContains(response, 'data-card-holo-kind="creature-shapeshift"')
@@ -101,6 +103,30 @@ class SelectableCreatureBindingTests(TestCase):
         self.assertNotIn('data-card-holo-kind="creature-shapeshift"', card_html)
         self.assertIn("Ratte Tiergestalt", card_html)
         self.assertIn("Tiergestalt - Leere Tierform", card_html)
+
+    def test_reset_returns_to_creature_choice(self):
+        self.client.force_login(self.user)
+        self.client.post(
+            reverse("choose_technique_creature", args=[self.character.pk, self.binding.pk]),
+            {"mode": "free", "custom_name": "Silberfuchs"},
+        )
+        card = CharacterCreature.objects.get(owner=self.character, source_binding=self.binding)
+        reset_url = reverse("reset_technique_creature_choice", args=[card.pk])
+
+        response = self.client.get(reverse("character_sheet", args=[self.character.pk]))
+        self.assertContains(response, f'data-reset-url="{reset_url}"')
+        self.assertContains(response, "Nur mit Shift-Klick")
+
+        response = self.client.post(
+            reset_url,
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+            HTTP_ACCEPT="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(CharacterCreature.objects.filter(pk=card.pk).exists())
+        response = self.client.get(reverse("character_sheet", args=[self.character.pk]))
+        self.assertContains(response, "Tiergestalt auswählen oder erstellen")
 
     def test_legacy_unfinished_card_does_not_suppress_creation_popover(self):
         CharacterCreature.objects.create(
@@ -154,6 +180,6 @@ class SelectableCreatureBindingTests(TestCase):
             level=1,
         )
         recreated_card = sync_character_creatures(self.character)[0]
-        self.assertEqual(recreated_card.creature.slug, "system-leere-tierform")
+        self.assertIsNone(recreated_card.creature)
         self.assertFalse(recreated_card.source_selection_completed)
         self.assertEqual(recreated_card.name_override, "")

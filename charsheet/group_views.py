@@ -497,6 +497,7 @@ def game_master_screen(request, group_id: int):
         character_creature = creature_card.character_creature
         creature_source = character_creature or creature
         engine = CreatureEngine(creature_source)
+        base_creature = engine.creature
         wound_rows = engine.wound_rows()
         max_lp = wound_rows[-1]["threshold"] if wound_rows else 0
         stun_damage = max(0, int(creature_card.current_stun_damage or 0))
@@ -584,8 +585,8 @@ def game_master_screen(request, group_id: int):
                     ("T", lethal_damage),
                 ),
                 "footer_label": (
-                    creature.organization.strip()
-                    or f"Kreatur · {creature.quality.name}"
+                    base_creature.organization.strip()
+                    or f"Kreatur · {character_creature.quality.name if character_creature else base_creature.quality.name}"
                 ),
                 "detail_url": "",
                 "group_creature": creature_card,
@@ -798,7 +799,7 @@ def game_master_screen(request, group_id: int):
             active=True,
         )
         .exclude(
-            Q(creature__slug="system-leere-tierform")
+            Q(creature__isnull=True)
             & Q(source_selection_completed=False)
         )
         .select_related(
@@ -823,8 +824,7 @@ def game_master_screen(request, group_id: int):
             "character_count": len(memberships),
             "creature_count": len(creature_cards),
             "creature_options": (
-                Creature.objects.exclude(slug="system-leere-tierform")
-                .select_related("quality")
+                Creature.objects.select_related("quality")
                 .order_by("name")
             ),
             "character_creature_options": character_creature_options,
@@ -902,7 +902,7 @@ def add_group_creature(request, group_id: int):
                 owner__is_archived=False,
             )
             if (
-                character_creature.creature.slug == "system-leere-tierform"
+                character_creature.creature_id is None
                 and not character_creature.source_selection_completed
             ):
                 raise GroupError(
@@ -924,7 +924,7 @@ def add_group_creature(request, group_id: int):
                     "Bitte eine Kreatur auswählen.",
                 ) from exc
             creature = get_object_or_404(
-                Creature.objects.exclude(slug="system-leere-tierform"),
+                Creature.objects.all(),
                 pk=creature_id,
             )
         membership_position = (

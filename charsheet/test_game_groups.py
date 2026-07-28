@@ -597,16 +597,9 @@ class GameGroupTests(TestCase):
             name_override="Nicht in der Gruppe",
             active=True,
         )
-        empty_form_template = Creature.objects.create(
-            name="System: Leere Tierform",
-            slug="system-leere-tierform",
-            combat_speed=1,
-            march_speed=1,
-            sprint_speed=1,
-        )
         empty_form = CharacterCreature.objects.create(
             owner=self.character,
-            creature=empty_form_template,
+            creature=None,
             name_override="Unvollständig",
             active=True,
             source_selection_completed=False,
@@ -626,11 +619,6 @@ class GameGroupTests(TestCase):
             screen,
             f'data-creature-ref="character:{empty_form.id}"',
         )
-        self.assertNotContains(
-            screen,
-            f'data-creature-ref="base:{empty_form_template.id}"',
-        )
-
         response = self.client.post(
             reverse("add_group_creature", args=[self.group.id]),
             {"creature_ref": f"character:{companion.id}"},

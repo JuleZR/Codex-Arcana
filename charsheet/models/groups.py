@@ -231,6 +231,9 @@ class GameGroupCreature(models.Model):
         "charsheet.Creature",
         on_delete=models.PROTECT,
         related_name="game_group_screen_instances",
+        null=True,
+        blank=True,
+        help_text="Basisvorlage; bei einer freien Charakter-Kreatur leer.",
     )
     character_creature = models.ForeignKey(
         "charsheet.CharacterCreature",
@@ -250,7 +253,8 @@ class GameGroupCreature(models.Model):
         ordering = ["group", "screen_position", "id"]
 
     def __str__(self):
-        return f"{self.group}: {self.creature} (Karte {self.pk or 'neu'})"
+        creature = self.character_creature or self.creature
+        return f"{self.group}: {creature} (Karte {self.pk or 'neu'})"
 
     @property
     def current_damage(self) -> int:

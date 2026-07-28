@@ -1050,7 +1050,14 @@ class CreatureSourceBinding(models.Model):
 
 class CharacterCreature(models.Model):
     owner = models.ForeignKey("charsheet.Character", on_delete=models.CASCADE, related_name="creatures")
-    creature = models.ForeignKey(Creature, on_delete=models.PROTECT, related_name="character_instances")
+    creature = models.ForeignKey(
+        Creature,
+        on_delete=models.PROTECT,
+        related_name="character_instances",
+        blank=True,
+        null=True,
+        help_text="Optionale DB-Vorlage. Freie Kreaturen liegen vollständig auf der Charakter-Kreatur.",
+    )
     source_binding = models.ForeignKey(
         CreatureSourceBinding,
         on_delete=models.PROTECT,
@@ -1152,7 +1159,7 @@ class CharacterCreature(models.Model):
 
     @property
     def original_card_name(self):
-        return self.creature.display_name
+        return self.creature.display_name if self.creature_id else "Leere Tierform"
 
     @property
     def display_name(self):
@@ -1161,7 +1168,7 @@ class CharacterCreature(models.Model):
 
     @property
     def image(self):
-        return self.image_override or self.creature.image
+        return self.image_override or (self.creature.image if self.creature_id else None)
 
     @property
     def trigger_label(self):

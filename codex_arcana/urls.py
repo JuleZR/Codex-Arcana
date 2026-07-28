@@ -108,6 +108,7 @@ urlpatterns = [
     path("character/<int:character_id>/creature-choice/<int:binding_id>/", views.choose_technique_creature, name="choose_technique_creature"),
     path("character-creature/<int:pk>/adjust-damage/", views.adjust_creature_damage, name="adjust_creature_damage"),
     path("character-creature/<int:pk>/training/update/", views.update_creature_card_training, name="update_character_creature_training"),
+    path("character-creature/<int:pk>/choice/reset/", views.reset_technique_creature_choice, name="reset_technique_creature_choice"),
     path("creature-card/<int:pk>/adjust-damage/", views.adjust_creature_card_damage, name="adjust_creature_card_damage"),
     path("creature-card/<int:pk>/training/update/", views.update_creature_card_training, name="update_creature_card_training"),
     path("character/<int:character_id>/adjust-arcane-power/", views.adjust_current_arcane_power, name="adjust_current_arcane_power"),

@@ -147,8 +147,9 @@ _DAMAGE_GAUGE_TICK_INNER_MINOR = 76
 
 def build_creature_card_training_context(card):
     engine = CreatureEngine(card)
+    base_creature = engine.creature
     traits = list(card.trait_overrides.select_related("trait").all())
-    base_trait_rows = list(card.creature.traits.select_related("trait").prefetch_related("choices").all())
+    base_trait_rows = list(base_creature.traits.select_related("trait").prefetch_related("choices").all())
     base_traits_by_trait_id = {row.trait_id: row for row in base_trait_rows}
     base_trait_levels = {
         row.trait_id: int(row.trait_level or 0)
@@ -186,7 +187,7 @@ def build_creature_card_training_context(card):
             "effective_value": value + deviation + attribute_modifier + gk_modifier + skill_modifier,
         }
 
-    for base_skill in card.creature.skills.select_related("skill", "skill__attribute", "skill__category").all():
+    for base_skill in base_creature.skills.select_related("skill", "skill__attribute", "skill__category").all():
         override = skill_overrides.get(base_skill.skill_id)
         seen_skill_ids.add(base_skill.skill_id)
         skill_rows.append(
@@ -217,7 +218,7 @@ def build_creature_card_training_context(card):
                 skill=override.skill,
             )
         )
-    for base_skill in card.creature.special_skills.select_related("skill").all():
+    for base_skill in base_creature.special_skills.select_related("skill").all():
         override = special_skill_overrides.get(base_skill.skill_id)
         seen_special_skill_ids.add(base_skill.skill_id)
         skill_rows.append(
@@ -464,8 +465,8 @@ def build_creature_card_training_context(card):
     movement_mana_adjustment = int(card.movement_mana_cost_override or 0)
     movement_mana_cost = (
         None
-        if card.creature.movement_mana_cost is None and not movement_mana_adjustment
-        else max(0, int(card.creature.movement_mana_cost or 0) + movement_mana_adjustment)
+        if base_creature.movement_mana_cost is None and not movement_mana_adjustment
+        else max(0, int(base_creature.movement_mana_cost or 0) + movement_mana_adjustment)
     )
     can_mana = movement_mana_cost is not None
     movement_options = {
@@ -495,7 +496,7 @@ def build_creature_card_training_context(card):
         "gw": engine.gw(),
         "natural_rs": armor.natural_rs,
         "wound_step": engine.wound_step(),
-        "wound_thresholds": card.wound_thresholds_override or card.creature.wound_thresholds_override,
+        "wound_thresholds": card.wound_thresholds_override or base_creature.wound_thresholds_override,
     }
 
     return {
@@ -572,7 +573,7 @@ def build_creature_choice_progression_context(cards: list[CharacterCreature]) ->
     choice_rows = []
     pending_decisions = []
     for card in cards:
-        base_rows = list(card.creature.traits.select_related("trait").prefetch_related("choices").all())
+        base_rows = list(CreatureEngine(card).creature.traits.select_related("trait").prefetch_related("choices").all())
         override_rows = list(card.trait_overrides.select_related("base_trait", "trait").prefetch_related("choices").all())
         override_by_trait_id = {row.trait_id: row for row in override_rows if row.active}
         effective_rows = [override_by_trait_id.get(row.trait_id) or row for row in base_rows]
@@ -4496,9 +4497,19 @@ def build_character_sheet_context(
         card_context = CreatureEngine(card).card_context()
         card_context["adjust_damage_url"] = reverse("adjust_creature_damage", kwargs={"pk": card.pk})
         card_context["training_update_url"] = reverse("update_character_creature_training", kwargs={"pk": card.pk})
+        if (
+            card.source_selection_completed
+            and card.source_binding_id
+            and card.source_binding.selection_mode == CreatureSourceBinding.SelectionMode.CHARACTER_CHOICE
+        ):
+            card_context["reset_choice_url"] = reverse(
+                "reset_technique_creature_choice",
+                kwargs={"pk": card.pk},
+            )
         if read_only:
             card_context["adjust_damage_url"] = ""
             card_context.pop("training_update_url", None)
+            card_context.pop("reset_choice_url", None)
         if (
             card.source_binding_id
             and card.source_binding.selection_mode == CreatureSourceBinding.SelectionMode.CHARACTER_CHOICE
@@ -4513,17 +4524,18 @@ def build_character_sheet_context(
                     "choose_technique_creature",
                     kwargs={"character_id": character.pk, "binding_id": card.source_binding_id},
                 ),
-                "templates": list(Creature.objects.exclude(slug="system-leere-tierform").order_by("name", "id")),
+                "templates": list(Creature.objects.order_by("name", "id")),
             }
         mini_context = {**card_context, "adjust_damage_url": "", "damage_controls_disabled": True}
         mini_context.pop("training_update_url", None)
+        mini_context.pop("reset_choice_url", None)
         mini_context.pop("creation_choice", None)
         training_context = build_creature_card_training_context(card)
         creature_card_contexts.append({"card": card, "context": card_context, "mini_context": mini_context, "training_context": training_context})
         character_creature_card_rows.append(
             {
                 "name": card.display_name,
-                "source": card.creature.display_name,
+                "source": card.original_card_name,
                 "trigger": card.trigger_label,
                 "active": card.active,
                 "has_source_deviations": bool(card.name_override or card.image_override),
