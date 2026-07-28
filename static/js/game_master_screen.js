@@ -569,6 +569,58 @@
     });
   });
 
+  document.querySelectorAll("[data-table-markdown-import]").forEach((button) => {
+    const form = button.closest("form");
+    const payload = form?.querySelector("[data-table-markdown-import-payload]");
+    const action = form?.querySelector("[data-table-markdown-import-action]");
+    if (!form || !payload || !action) {
+      return;
+    }
+
+    button.addEventListener("click", async () => {
+      if (button.disabled) {
+        return;
+      }
+      button.disabled = true;
+      try {
+        if (!navigator.clipboard || typeof navigator.clipboard.readText !== "function") {
+          throw new Error(
+            "Der Browser erlaubt hier keinen direkten Zugriff auf die Zwischenablage.",
+          );
+        }
+        const markdown = await navigator.clipboard.readText();
+        if (!markdown.trim()) {
+          throw new Error("Die Zwischenablage ist leer.");
+        }
+        if (!window.confirm(
+          "Die vorhandenen Spalten, Zeilen und Zellinhalte durch die Markdown-Tabelle aus der Zwischenablage ersetzen?",
+        )) {
+          button.disabled = false;
+          return;
+        }
+        if (!form.checkValidity()) {
+          form.reportValidity();
+          button.disabled = false;
+          return;
+        }
+        payload.value = markdown;
+        action.disabled = false;
+        if (typeof form.requestSubmit === "function") {
+          form.requestSubmit();
+        } else {
+          form.submit();
+        }
+      } catch (error) {
+        window.alert(
+          error instanceof Error
+            ? error.message
+            : "Die Markdown-Tabelle konnte nicht aus der Zwischenablage gelesen werden.",
+        );
+        button.disabled = false;
+      }
+    });
+  });
+
   document.querySelectorAll(".gm-data-table").forEach((tableCard) => {
     const columnWidthInputs = Array.from(
       tableCard.querySelectorAll("[data-table-column-width-input]"),

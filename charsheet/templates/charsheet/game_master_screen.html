@@ -7,10 +7,10 @@
   <title>SL-Screen | {{ group.name }}</title>
   <link rel="stylesheet" href="{% static 'css/charsheet.css' %}">
   <link rel="stylesheet" href="{% static 'css/dashboard.css' %}?v=20260726a">
-  <link rel="stylesheet" href="{% static 'css/game-master-screen.css' %}?v=20260728c">
+  <link rel="stylesheet" href="{% static 'css/game-master-screen.css' %}?v=20260728d">
   <script defer src="{% static 'js/game_groups.js' %}?v=20260726a"></script>
   <script defer src="{% static 'js/sl_inventory.js' %}?v=20260724b"></script>
-  <script defer src="{% static 'js/game_master_screen.js' %}?v=20260728a"></script>
+  <script defer src="{% static 'js/game_master_screen.js' %}?v=20260728b"></script>
 </head>
 <body class="gm-screen-body">
   <main class="gm-screen">
@@ -405,6 +405,18 @@
               <input type="hidden" name="_sl_screen" value="1">
               <input type="hidden" name="_sl_anchor" value="sl-tabellen">
               <input type="hidden" name="_edit_table_id" value="{{ data_table.id }}">
+              <input
+                type="hidden"
+                name="_table_action"
+                value="import_markdown"
+                data-table-markdown-import-action
+                disabled
+              >
+              <textarea
+                name="markdown_table"
+                data-table-markdown-import-payload
+                hidden
+              ></textarea>
               <header class="gm-data-table__header"{% if not group.is_archived %} draggable="{% if data_table.is_detached %}false{% else %}true{% endif %}" data-drag-surface{% endif %}>
                 {% if not group.is_archived %}
                 <button
@@ -487,6 +499,17 @@
                   >
                     <svg viewBox="0 0 24 24" aria-hidden="true">
                       <path d="M3.5 4.5h13v13h-13zM10 4.5v13M19.5 14v7M16 17.5h7"/>
+                    </svg>
+                  </button>
+                  <button
+                    class="gm-data-table__icon-action gm-data-table__icon-action--import"
+                    type="button"
+                    data-table-markdown-import
+                    aria-label="Markdown-Tabelle aus der Zwischenablage importieren"
+                    title="Markdown-Tabelle aus Zwischenablage importieren"
+                  >
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M9 5.5h6M9.5 3.5h5a1 1 0 0 1 1 1v2h-7v-2a1 1 0 0 1 1-1zM8.5 5H6v15h12V5h-2.5M12 9v7M9 13l3 3 3-3"/>
                     </svg>
                   </button>
                   <button

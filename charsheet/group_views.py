@@ -1457,6 +1457,111 @@ def _bounded_table_size(raw_value, *, default: int) -> int:
     return max(1, min(value, 20))
 
 
+def _split_markdown_table_row(raw_row: str) -> list[str]:
+    row = str(raw_row or "").strip()
+    if row.startswith("|"):
+        row = row[1:]
+    if row.endswith("|") and not row.endswith(r"\|"):
+        row = row[:-1]
+    return [
+        cell.strip().replace(r"\|", "|")
+        for cell in re.split(r"(?<!\\)\|", row)
+    ]
+
+
+def _parse_markdown_table(raw_markdown: str) -> tuple[list[str], list[list[str]]]:
+    lines = [
+        line.strip()
+        for line in str(raw_markdown or "").splitlines()
+        if line.strip() and not line.strip().startswith("```")
+    ]
+    if len(lines) < 3:
+        raise GroupError(
+            "invalid_markdown_table",
+            "Die Zwischenablage enthält keine vollständige Markdown-Tabelle.",
+        )
+
+    headings = _split_markdown_table_row(lines[0])
+    separators = _split_markdown_table_row(lines[1])
+    separator_pattern = re.compile(r"^:?-{3,}:?$")
+    if (
+        not headings
+        or len(separators) != len(headings)
+        or not all(separator_pattern.fullmatch(cell.replace(" ", "")) for cell in separators)
+    ):
+        raise GroupError(
+            "invalid_markdown_table",
+            "Die zweite Zeile muss die Markdown-Trennzeile der Tabelle sein.",
+        )
+    if len(headings) > 20:
+        raise GroupError(
+            "table_column_limit",
+            "Eine Tabelle kann höchstens 20 Spalten enthalten.",
+        )
+
+    rows = []
+    for raw_row in lines[2:]:
+        cells = _split_markdown_table_row(raw_row)
+        if len(cells) > len(headings):
+            raise GroupError(
+                "invalid_markdown_table",
+                "Eine importierte Zeile enthält mehr Zellen als die Kopfzeile.",
+            )
+        rows.append(cells + [""] * (len(headings) - len(cells)))
+    if not rows:
+        raise GroupError(
+            "invalid_markdown_table",
+            "Die Markdown-Tabelle benötigt mindestens eine Datenzeile.",
+        )
+    if len(rows) > 20:
+        raise GroupError(
+            "table_row_limit",
+            "Eine Tabelle kann höchstens 20 Zeilen enthalten.",
+        )
+
+    normalized_headings = [
+        " ".join(heading.split())[:100] or f"Spalte {position + 1}"
+        for position, heading in enumerate(headings)
+    ]
+    return normalized_headings, rows
+
+
+def _replace_group_table_from_markdown(
+    data_table: GameGroupTable,
+    raw_markdown: str,
+) -> None:
+    headings, imported_rows = _parse_markdown_table(raw_markdown)
+    data_table.rows.all().delete()
+    data_table.columns.all().delete()
+    columns = GameGroupTableColumn.objects.bulk_create(
+        [
+            GameGroupTableColumn(
+                table=data_table,
+                heading=heading,
+                position=position,
+            )
+            for position, heading in enumerate(headings)
+        ]
+    )
+    rows = GameGroupTableRow.objects.bulk_create(
+        [
+            GameGroupTableRow(table=data_table, position=position)
+            for position in range(len(imported_rows))
+        ]
+    )
+    GameGroupTableCell.objects.bulk_create(
+        [
+            GameGroupTableCell(
+                row=row,
+                column=column,
+                text_value=imported_rows[row_index][column_index],
+            )
+            for row_index, row in enumerate(rows)
+            for column_index, column in enumerate(columns)
+        ]
+    )
+
+
 def _optional_bounded_table_width(raw_value) -> int | None:
     normalized_value = str(raw_value or "").strip()
     if not normalized_value:
@@ -1713,6 +1818,17 @@ def update_group_table(request, group_id: int, table_id: int):
         data_table.full_clean()
         data_table.save(update_fields=update_fields)
 
+        table_action = request.POST.get("_table_action", "")
+        if table_action == "import_markdown":
+            _replace_group_table_from_markdown(
+                data_table,
+                request.POST.get("markdown_table", ""),
+            )
+            return _table_screen_redirect(
+                group_id,
+                edit_table_id=data_table.id,
+            )
+
         columns = list(data_table.columns.all())
         rows = list(data_table.rows.all())
         for column in columns:
@@ -1815,7 +1931,6 @@ def update_group_table(request, group_id: int, table_id: int):
                 except ValidationError as exc:
                     raise GroupError("invalid_table_cell", "Ein Tabellenwert ist ungültig.") from exc
                 cell.save()
-        table_action = request.POST.get("_table_action", "")
         if table_action == "add_row":
             if data_table.rows.count() >= 20:
                 raise GroupError("table_row_limit", "Eine Tabelle kann höchstens 20 Zeilen enthalten.")

@@ -2599,6 +2599,11 @@
   color: #3f6538;
 }
 
+.gm-data-table__icon-action--import {
+  border-color: rgba(69, 91, 125, 0.4);
+  color: #3f5878;
+}
+
 .gm-data-table__icon-action--danger {
   border-color: rgba(139, 54, 38, 0.4);
   background: linear-gradient(145deg, rgba(255, 239, 230, 0.96), rgba(225, 177, 153, 0.9));

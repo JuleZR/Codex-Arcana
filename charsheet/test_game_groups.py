@@ -120,6 +120,116 @@ class GameGroupTests(TestCase):
         )
         self.assertEqual(list(get_messages(response.wsgi_request)), [])
 
+    def test_game_master_can_replace_table_from_clipboard_markdown(self):
+        self.client.force_login(self.leader)
+        self.client.post(
+            reverse("create_group_table", args=[self.group.id]),
+            {"title": "Armverletzungen"},
+        )
+        data_table = GameGroupTable.objects.get(group=self.group)
+        old_column_ids = set(data_table.columns.values_list("id", flat=True))
+        old_row_ids = set(data_table.rows.values_list("id", flat=True))
+        markdown_table = """
+```markdown
+| Schaden auf einmal          | Auswirkung                                                                       |
+| --------------------------- | -------------------------------------------------------------------------------- |
+| Mindestens 1 × Konstitution | Arm für eine Anzahl Runden in Höhe des Schadens betäubt und nutzlos              |
+| Mindestens 2 × Konstitution | Getragene Gegenstände fallen zu Boden; Arm bleibt bis zur Behandlung verkrüppelt |
+| Mindestens 3 × Konstitution | Arm zerstört oder abgetrennt; Blutverlust von 1 LP pro Runde                     |
+```
+"""
+
+        response = self.client.post(
+            reverse("update_group_table", args=[self.group.id, data_table.id]),
+            {
+                "_sl_screen": "1",
+                "_sl_anchor": "sl-tabellen",
+                "_edit_table_id": data_table.id,
+                "_table_action": "import_markdown",
+                "title": data_table.title,
+                "markdown_table": markdown_table,
+            },
+        )
+
+        self.assertRedirects(
+            response,
+            f"{reverse('game_master_screen', args=[self.group.id])}"
+            f"?edit_table={data_table.id}#sl-tabellen",
+        )
+        data_table.refresh_from_db()
+        columns = list(data_table.columns.all())
+        rows = list(data_table.rows.all())
+        self.assertEqual(data_table.title, "Armverletzungen")
+        self.assertEqual(
+            [column.heading for column in columns],
+            ["Schaden auf einmal", "Auswirkung"],
+        )
+        self.assertEqual(len(rows), 3)
+        self.assertTrue(old_column_ids.isdisjoint(column.id for column in columns))
+        self.assertTrue(old_row_ids.isdisjoint(row.id for row in rows))
+        self.assertEqual(
+            [
+                [
+                    GameGroupTableCell.objects.get(
+                        row=row,
+                        column=column,
+                    ).text_value
+                    for column in columns
+                ]
+                for row in rows
+            ],
+            [
+                [
+                    "Mindestens 1 × Konstitution",
+                    "Arm für eine Anzahl Runden in Höhe des Schadens betäubt und nutzlos",
+                ],
+                [
+                    "Mindestens 2 × Konstitution",
+                    "Getragene Gegenstände fallen zu Boden; Arm bleibt bis zur Behandlung verkrüppelt",
+                ],
+                [
+                    "Mindestens 3 × Konstitution",
+                    "Arm zerstört oder abgetrennt; Blutverlust von 1 LP pro Runde",
+                ],
+            ],
+        )
+
+    def test_invalid_clipboard_markdown_keeps_existing_table_structure(self):
+        self.client.force_login(self.leader)
+        self.client.post(
+            reverse("create_group_table", args=[self.group.id]),
+            {"title": "Bleibt erhalten"},
+        )
+        data_table = GameGroupTable.objects.get(group=self.group)
+        old_column_ids = list(data_table.columns.values_list("id", flat=True))
+        old_row_ids = list(data_table.rows.values_list("id", flat=True))
+
+        response = self.client.post(
+            reverse("update_group_table", args=[self.group.id, data_table.id]),
+            {
+                "_sl_screen": "1",
+                "_sl_anchor": "sl-tabellen",
+                "_edit_table_id": data_table.id,
+                "_table_action": "import_markdown",
+                "title": data_table.title,
+                "markdown_table": "| Keine | gültige Tabelle |",
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(
+            list(data_table.columns.values_list("id", flat=True)),
+            old_column_ids,
+        )
+        self.assertEqual(
+            list(data_table.rows.values_list("id", flat=True)),
+            old_row_ids,
+        )
+        self.assertIn(
+            "keine vollständige Markdown-Tabelle",
+            " ".join(str(message) for message in get_messages(response.wsgi_request)),
+        )
+
     def test_game_master_can_reorder_visible_group_tables(self):
         first = GameGroupTable.objects.create(
             group=self.group,
