@@ -232,6 +232,15 @@ def _effective_armor_encumbrance(engine, character_item: CharacterItem) -> int:
     )
 
 
+def _effective_armor_rs(engine, character_item: CharacterItem) -> int:
+    """Return local armor RS including quality and item-bound rune effects."""
+    return max(
+        0,
+        int(ItemEngine(character_item).get_armor_rs_raw() or 0)
+        + _character_item_specific_rune_modifier(engine, character_item, DEFENSE_RS),
+    )
+
+
 def _effective_shield_encumbrance(engine, character_item: CharacterItem) -> int:
     return max(
         0,
@@ -350,7 +359,7 @@ def equipped_armor_rows(engine) -> list[dict]:
                 "item_name": item_engine.get_name(),
                 "quality": item_engine.get_effective_quality(),
                 "quality_color": item_engine.get_quality_color(),
-                "rs": item_engine.get_armor_rs_raw() or 0,
+                "rs": _effective_armor_rs(engine, character_item),
                 "bel_raw": item_engine.get_armor_bel_raw() or 0,
                 "bel_effective": _effective_armor_encumbrance(engine, character_item),
                 "min_st": item_engine.get_armor_min_st(),
@@ -378,6 +387,45 @@ def equipped_shield_rows(engine) -> list[dict]:
             }
         )
     return rows
+
+
+def armor_zone_protection(engine) -> dict[str, int]:
+    """Return zone protection including effective quality and item-rune bonuses."""
+    totals = {
+        "head": 0,
+        "face": 0,
+        "eyes": 0,
+        "neck": 0,
+        "torso": 0,
+        "organs": 0,
+        "soft_tissue": 0,
+        "arm_left": 0,
+        "hand_left": 0,
+        "leg_left": 0,
+        "foot_left": 0,
+        "arm_right": 0,
+        "hand_right": 0,
+        "leg_right": 0,
+        "foot_right": 0,
+    }
+    for character_item in engine.equipped_armor_items():
+        zone_values = ItemEngine(character_item).get_armor_zone_rs()
+        if not zone_values:
+            continue
+        rune_bonus = _character_item_specific_rune_modifier(engine, character_item, DEFENSE_RS)
+        for field_name in totals:
+            if field_name not in zone_values:
+                continue
+            totals[field_name] += max(0, int(zone_values[field_name] or 0) + rune_bonus)
+    return totals
+
+
+def shield_protection(engine) -> int:
+    """Return summed protection from equipped shields."""
+    return sum(
+        int(ItemEngine(character_item).get_effective_shield_rs() or 0)
+        for character_item in engine.equipped_shield_items()
+    )
 
 
 def equipped_clothing_rows(engine) -> list[dict]:
@@ -416,11 +464,18 @@ def equipped_magic_item_rows(engine) -> list[dict]:
 
 
 def get_grs(engine) -> int:
-    """Calculate the total armor rating from equipped armor."""
-    total = 0
-    for armor in engine.equipped_armor_items():
-        total += ItemEngine(armor).get_armor_rs_raw() or 0
-    return total + engine._resolve_stat_modifiers(DEFENSE_RS)
+    """Calculate GRS from the six main hit zones, rounding only once."""
+    zone_totals = armor_zone_protection(engine)
+    main_zone_sum = sum(
+        int(zone_totals[zone])
+        for zone in ("head", "torso", "arm_left", "arm_right", "leg_left", "leg_right")
+    )
+    armor_rune_modifiers = sum(
+        _character_item_specific_rune_modifier(engine, armor, DEFENSE_RS)
+        for armor in engine.equipped_armor_items()
+    )
+    global_modifiers = engine._resolve_stat_modifiers(DEFENSE_RS) - armor_rune_modifiers
+    return (main_zone_sum // 6) + global_modifiers
 
 
 def get_bel(engine) -> int:
@@ -445,8 +500,17 @@ def load_penalty(engine) -> int:
 
 
 def get_ms(engine) -> int:
-    """Calculate the movement penalty derived from armor."""
-    return engine.get_grs() // 2
+    """Return armor minimum strength using set MS or the loose-parts formula."""
+    complete_armor_minimums = [
+        int(ItemEngine(character_item).get_armor_min_st() or 0)
+        for character_item in engine.equipped_armor_items()
+        if character_item.item.armorstats.parent_set_id is None
+    ]
+    if complete_armor_minimums:
+        return max(complete_armor_minimums)
+
+    grs = max(0, int(engine.get_grs()))
+    return (grs + 1) // 2
 
 
 def get_dmg_modifier_sum(engine, slug: str) -> int:

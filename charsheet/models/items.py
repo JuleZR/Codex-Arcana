@@ -3,7 +3,7 @@
 from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator, RegexValidator
 from django.contrib.contenttypes.fields import GenericRelation
-from django.db import models
+from django.db import models, transaction
 from django.utils.text import slugify
 
 from ..constants import (
@@ -126,7 +126,7 @@ class Item(models.Model):
         related_name="default_items",
         default=QUALITY_COMMON,
     )
-    weight = models.DecimalField(max_digits=6, decimal_places=2, default=0)
+    weight = models.DecimalField(max_digits=7, decimal_places=3, default=0)
     size_class = models.CharField(max_length=5, choices=GK_CHOICES, default=GK_AVERAGE)
 
     runes = models.ManyToManyField("Rune", blank=True, related_name="items")
@@ -174,45 +174,174 @@ class Item(models.Model):
 
 
 class ArmorStats(models.Model):
-    """Armor-specific protection values for an item."""
+    """Armor protection, physical component metadata, and covered hit zones."""
+
+    class ComponentType(models.TextChoices):
+        HELMET = "helmet", "Helm"
+        TORSO = "torso", "Torso"
+        ARM_LEFT = "arm_left", "Arm links"
+        ARM_RIGHT = "arm_right", "Arm rechts"
+        LEG_LEFT = "leg_left", "Bein links"
+        LEG_RIGHT = "leg_right", "Bein rechts"
 
     item = models.OneToOneField(Item, on_delete=models.CASCADE)
 
-    rs_head = models.PositiveIntegerField(default=0)
-    rs_torso = models.PositiveIntegerField(default=0)
-    rs_arm_left = models.PositiveIntegerField(default=0)
-    rs_arm_right = models.PositiveIntegerField(default=0)
-    rs_leg_left = models.PositiveIntegerField(default=0)
-    rs_leg_right = models.PositiveIntegerField(default=0)
-
     rs_total = models.PositiveIntegerField(default=0)
+    zone_rs_overrides = models.JSONField(
+        blank=True,
+        default=dict,
+        help_text=(
+            "Optionale RS-Abweichungen einzelner abgedeckter Zonen.<br>"
+            "<strong>Verfügbare Schlüssel:</strong><br>"
+            "head – Kopf<br>"
+            "face – Gesicht<br>"
+            "eyes – Augen<br>"
+            "neck – Hals<br>"
+            "torso – Torso<br>"
+            "organs – Organe<br>"
+            "soft_tissue – Weichteile<br>"
+            "arm_left – Arm links<br>"
+            "leg_left – Bein links<br>"
+            "arm_right – Arm rechts<br>"
+            "leg_right – Bein rechts"
+        ),
+    )
+    component_price_helmet_override = models.PositiveIntegerField("Helm", null=True, blank=True)
+    component_price_arms_override = models.PositiveIntegerField("Arme gesamt", null=True, blank=True)
+    component_price_legs_override = models.PositiveIntegerField("Beine gesamt", null=True, blank=True)
+    component_price_hands_override = models.PositiveIntegerField("Hände gesamt", null=True, blank=True)
+    component_price_feet_override = models.PositiveIntegerField("Schuhe gesamt", null=True, blank=True)
+    component_price_torso_override = models.PositiveIntegerField("Torso", null=True, blank=True)
     encumbrance = models.PositiveIntegerField(default=0)
     min_st = models.PositiveIntegerField(default=1)
 
-    def rs_sum(self):
-        """Sum all zone-based armor values without using rs_total."""
-        rs_fields = [
-            field.name
-            for field in self._meta.concrete_fields
-            if field.name.startswith("rs_") and field.name != "rs_total"
+    suppress_component_generation = models.BooleanField(
+        default=False,
+        help_text="Wenn aktiv, werden aus dieser Rüstung keine physischen Einzelteile erzeugt.",
+    )
+    parent_set = models.ForeignKey(
+        "self",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="components",
+    )
+    component_type = models.CharField(
+        max_length=20,
+        choices=ComponentType.choices,
+        blank=True,
+        default="",
+    )
+
+    covers_head = models.BooleanField(default=False)
+    covers_face = models.BooleanField(default=False)
+    covers_eyes = models.BooleanField(default=False)
+    covers_neck = models.BooleanField(default=False)
+    covers_torso = models.BooleanField(default=False)
+    covers_organs = models.BooleanField(default=False)
+    covers_soft_tissue = models.BooleanField(default=False)
+    covers_arm_left = models.BooleanField(default=False)
+    covers_hand_left = models.BooleanField(default=False)
+    covers_leg_left = models.BooleanField(default=False)
+    covers_foot_left = models.BooleanField(default=False)
+    covers_arm_right = models.BooleanField(default=False)
+    covers_hand_right = models.BooleanField(default=False)
+    covers_leg_right = models.BooleanField(default=False)
+    covers_foot_right = models.BooleanField(default=False)
+
+    ZONE_FIELDS = (
+        "head",
+        "face",
+        "eyes",
+        "neck",
+        "torso",
+        "organs",
+        "soft_tissue",
+        "arm_left",
+        "hand_left",
+        "leg_left",
+        "foot_left",
+        "arm_right",
+        "hand_right",
+        "leg_right",
+        "foot_right",
+    )
+    MAIN_ZONE_FIELDS = (
+        "head",
+        "torso",
+        "arm_left",
+        "arm_right",
+        "leg_left",
+        "leg_right",
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=("parent_set", "component_type"),
+                condition=models.Q(parent_set__isnull=False),
+                name="uniq_armor_component_per_set",
+            ),
         ]
-        return sum(getattr(self, field_name) for field_name in rs_fields)
+
+    @property
+    def rs(self) -> int:
+        """Return the local RS used by every covered zone."""
+        return int(self.rs_total)
+
+    def covered_zones(self) -> tuple[str, ...]:
+        """Return all detailed hit zones covered by this physical item."""
+        return tuple(zone for zone in self.ZONE_FIELDS if getattr(self, f"covers_{zone}", False))
+
+    def rs_sum(self):
+        """Return this item's contribution across the six GRS body zones."""
+        return self.rs * sum(
+            1
+            for zone in self.MAIN_ZONE_FIELDS
+            if getattr(self, f"covers_{zone}", False)
+        )
 
     def clean(self):
-        """Ensure armor stats only exist on armor items and use one RS mode."""
+        """Validate armor ownership, component metadata, and coverage."""
         super().clean()
         if self.item.item_type != Item.ItemType.ARMOR:
             raise ValidationError({"item_type": "Non armor items can't have ArmorStats"})
-        zones_sum = self.rs_sum()
-        if zones_sum == 0 and not self.rs_total:
-            raise ValidationError("Armor must have at either total or zone RS")
-        if zones_sum > 0 and self.rs_total:
-            raise ValidationError("Armor must have either total or zone RS")
+        if not self.rs_total:
+            raise ValidationError({"rs_total": "Armor must have RS greater than zero."})
+        if self.parent_set_id and not self.component_type:
+            raise ValidationError({"component_type": "Generated armor components require a component type."})
+        if self.component_type and not self.parent_set_id:
+            raise ValidationError({"parent_set": "Armor components require a parent armor."})
+        if self.parent_set_id and not self.suppress_component_generation:
+            raise ValidationError(
+                {"suppress_component_generation": "Generated components must not generate further components."}
+            )
+        if not self.covered_zones():
+            raise ValidationError("Armor must cover at least one hit zone.")
+        invalid_zone_overrides = {
+            str(zone)
+            for zone, value in (self.zone_rs_overrides or {}).items()
+            if zone not in self.ZONE_FIELDS or not isinstance(value, int) or value < 0
+        }
+        if invalid_zone_overrides:
+            raise ValidationError({"zone_rs_overrides": "Invalid armor zone RS overrides."})
+
+    def save(self, *args, **kwargs):
+        """Persist stats and synchronize generated physical armor components."""
+        sync_components = kwargs.pop("sync_components", True)
+        with transaction.atomic():
+            super().save(*args, **kwargs)
+            if (
+                sync_components
+                and not self.parent_set_id
+                and self.item.item_type == Item.ItemType.ARMOR
+            ):
+                from charsheet.armor_generation import sync_armor_set_components
+
+                sync_armor_set_components(self)
 
     def __str__(self):
-        if self.rs_total:
-            return f"{self.item}: RS {self.rs_total}"
-        return f"{self.item}: RS {self.rs_sum()}"
+        return f"{self.item}: RS {self.rs}"
 
 
 class ShieldStats(models.Model):

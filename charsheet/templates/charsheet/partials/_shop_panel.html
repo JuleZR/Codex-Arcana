@@ -352,24 +352,31 @@
               W&auml;hle links eine passende Kategorie, um die zus&auml;tzlichen Detailfelder anzuzeigen.
             </div>
             <div class="shop_item_form_conditional" id="shopItemArmorFields" hidden>
-            <div class="shop_item_form_row">
-              <span>R&uuml;stungsmodus</span>
-              <div class="shop_item_form_radio_row">
-                <label><input type="radio" name="armor_mode" value="total" checked> Gesamt</label>
-                <label><input type="radio" name="armor_mode" value="zones"> Zonen</label>
-              </div>
-            </div>
+            <input type="hidden" name="armor_mode" value="total">
             <div id="shopArmorTotalFields">
-              <label class="shop_item_form_row"><span>R&uuml;stungsschutz gesamt (RS)</span><input type="number" name="armor_rs_total" min="1" step="1" value="1"></label>
+              <label class="shop_item_form_row"><span>R&uuml;stungsschutz (RS)</span><input type="number" name="armor_rs_total" min="1" step="1" value="1"></label>
             </div>
-            <div id="shopArmorZoneFields" hidden>
+            <div id="shopArmorZoneFields" hidden></div>
+            <input type="hidden" name="armor_coverage_present" value="1">
+            <label class="shop_item_form_row"><span>Keine Einzelteile erzeugen</span><input type="checkbox" name="armor_suppress_components" value="1"></label>
+            <div class="shop_item_form_fieldset">
+              <div class="shop_item_form_fieldset_title">Gesch&uuml;tzte Trefferzonen</div>
               <div class="shop_item_form_grid">
-                <label class="shop_item_form_row"><span>RS Kopf</span><input type="number" name="armor_rs_head" min="0" step="1" value="0"></label>
-                <label class="shop_item_form_row"><span>RS Torso</span><input type="number" name="armor_rs_torso" min="0" step="1" value="0"></label>
-                <label class="shop_item_form_row"><span>RS Arm links</span><input type="number" name="armor_rs_arm_left" min="0" step="1" value="0"></label>
-                <label class="shop_item_form_row"><span>RS Arm rechts</span><input type="number" name="armor_rs_arm_right" min="0" step="1" value="0"></label>
-                <label class="shop_item_form_row"><span>RS Bein links</span><input type="number" name="armor_rs_leg_left" min="0" step="1" value="0"></label>
-                <label class="shop_item_form_row"><span>RS Bein rechts</span><input type="number" name="armor_rs_leg_right" min="0" step="1" value="0"></label>
+                <label class="shop_item_form_row"><span>Kopf</span><input type="checkbox" name="armor_covers_head" value="1"></label>
+                <label class="shop_item_form_row"><span>Gesicht</span><input type="checkbox" name="armor_covers_face" value="1"></label>
+                <label class="shop_item_form_row"><span>Augen</span><input type="checkbox" name="armor_covers_eyes" value="1"></label>
+                <label class="shop_item_form_row"><span>Hals</span><input type="checkbox" name="armor_covers_neck" value="1"></label>
+                <label class="shop_item_form_row"><span>Torso</span><input type="checkbox" name="armor_covers_torso" value="1"></label>
+                <label class="shop_item_form_row"><span>Organe</span><input type="checkbox" name="armor_covers_organs" value="1"></label>
+                <label class="shop_item_form_row"><span>Weichteile</span><input type="checkbox" name="armor_covers_soft_tissue" value="1"></label>
+                <label class="shop_item_form_row"><span>Arm links</span><input type="checkbox" name="armor_covers_arm_left" value="1"></label>
+                <label class="shop_item_form_row"><span>Hand links</span><input type="checkbox" name="armor_covers_hand_left" value="1"></label>
+                <label class="shop_item_form_row"><span>Bein links</span><input type="checkbox" name="armor_covers_leg_left" value="1"></label>
+                <label class="shop_item_form_row"><span>Fu&szlig; links</span><input type="checkbox" name="armor_covers_foot_left" value="1"></label>
+                <label class="shop_item_form_row"><span>Arm rechts</span><input type="checkbox" name="armor_covers_arm_right" value="1"></label>
+                <label class="shop_item_form_row"><span>Hand rechts</span><input type="checkbox" name="armor_covers_hand_right" value="1"></label>
+                <label class="shop_item_form_row"><span>Bein rechts</span><input type="checkbox" name="armor_covers_leg_right" value="1"></label>
+                <label class="shop_item_form_row"><span>Fu&szlig; rechts</span><input type="checkbox" name="armor_covers_foot_right" value="1"></label>
               </div>
             </div>
             <div class="shop_item_form_grid">

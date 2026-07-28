@@ -920,9 +920,12 @@ def _build_damage_gauge_data(
     }
 
 
+SHOP_ARMOR_COMPONENT_GROUP = "armor_component"
+
 SHOP_GROUP_LABELS = {
     Item.ItemType.WEAPON: "Waffen",
     Item.ItemType.ARMOR: "Rüstungen",
+    SHOP_ARMOR_COMPONENT_GROUP: "Rüstungsteile",
     Item.ItemType.SHIELD: "Schilde",
     Item.ItemType.CLOTHING: "Kleidung",
     Item.ItemType.MAGIC_ITEM: "Magische Gegenstände",
@@ -934,6 +937,7 @@ SHOP_GROUP_LABELS = {
 SHOP_GROUP_ORDER = [
     Item.ItemType.WEAPON,
     Item.ItemType.ARMOR,
+    SHOP_ARMOR_COMPONENT_GROUP,
     Item.ItemType.SHIELD,
     Item.ItemType.CLOTHING,
     Item.ItemType.MAGIC_ITEM,
@@ -1472,6 +1476,7 @@ def _build_item_tooltip_rows(
     item_engine: ItemEngine,
     item: Item,
     *,
+    armor_rs: int | None = None,
     armor_encumbrance: int | None = None,
     shield_encumbrance: int | None = None,
 ) -> list[tuple[str, object]]:
@@ -1514,7 +1519,7 @@ def _build_item_tooltip_rows(
         elif min_ge_1h is not None:
             rows.append(("Min-GE", min_ge_1h))
     elif item.item_type == Item.ItemType.ARMOR:
-        rs = item_engine.get_armor_rs_raw()
+        rs = item_engine.get_armor_rs_raw() if armor_rs is None else armor_rs
         if rs is not None:
             rows.append(("RS", rs))
         rows.append(("Bel", item_engine.get_armor_encumbrance() if armor_encumbrance is None else armor_encumbrance))
@@ -1643,56 +1648,51 @@ def _build_weapon_maneuver_breakdown_rows(engine, weapon_row: dict[str, object])
 def _build_total_armor_tooltip(engine) -> str:
     """Return a breakdown tooltip for the total armor protection value."""
     armor_piece_rows = _build_armor_rs_piece_rows(engine)
+    armor_rune_sources = {
+        (SOURCE_ITEM_RUNE, str(item_rune.id))
+        for armor in engine.equipped_armor_items()
+        for item_rune in armor.item_runes.all()
+        if item_rune.is_active
+    }
     return _build_core_stat_tooltip(
         [
             *armor_piece_rows,
-            *_build_modifier_breakdown_rows(engine, DEFENSE_RS),
+            *_build_modifier_breakdown_rows(
+                engine,
+                DEFENSE_RS,
+                excluded_sources=armor_rune_sources,
+            ),
             {"label": "= Gesamt", "value": engine.get_grs(), "tone": "total"},
         ]
     )
 
 
 def _build_armor_rs_piece_rows(engine) -> list[dict[str, object]]:
-    """Return tooltip rows that explain each armor piece's RS formula."""
-    rows: list[dict[str, object]] = []
-    for row in engine.equipped_armor_rows():
-        armor_stats = getattr(row["item"], "armorstats", None)
-        piece_total = int(row.get("rs") or 0)
-        if armor_stats is None or piece_total == 0:
-            continue
-
-        if int(getattr(armor_stats, "rs_total", 0) or 0) > 0:
-            rows.append(
-                {
-                    "label": str(row["item"].name),
-                    "value": piece_total,
-                    "source": "Fester RS",
-                }
-            )
-            continue
-
-        zone_values = [
-            int(getattr(armor_stats, field_name, 0) or 0)
-            for field_name in (
-                "rs_head",
-                "rs_torso",
-                "rs_arm_left",
-                "rs_arm_right",
-                "rs_leg_left",
-                "rs_leg_right",
-            )
-        ]
-        zone_sum = sum(zone_values)
-        formula = " + ".join(str(value) for value in zone_values if value)
-        if not formula:
-            formula = "0"
-        rows.append(
-            {
-                "label": str(row["item"].name),
-                "value": piece_total,
-                "source": f"({formula}) / 6",
-            }
-        )
+    """Return the six effective main-zone values used by the GRS formula."""
+    zone_values = engine.armor_zone_protection()
+    labels = (
+        ("head", "Kopf"),
+        ("torso", "Torso"),
+        ("arm_left", "Arm links"),
+        ("arm_right", "Arm rechts"),
+        ("leg_left", "Bein links"),
+        ("leg_right", "Bein rechts"),
+    )
+    rows = [
+        {
+            "label": label,
+            "value": int(zone_values[zone]),
+            "source": "inkl. Qualität und Rüstungsrunen",
+        }
+        for zone, label in labels
+    ]
+    rows.append(
+        {
+            "label": "Zonensumme / 6",
+            "value": sum(int(zone_values[zone]) for zone, _label in labels) // 6,
+            "source": "einmal abrunden",
+        }
+    )
     return rows
 
 
@@ -1752,12 +1752,42 @@ def _build_combined_load_tooltip(engine, carry_state: dict[str, object], *, carr
 
 def _build_minimum_strength_tooltip(engine) -> str:
     """Return a breakdown tooltip for the displayed armor minimum strength."""
-    total_rs = int(engine.get_grs())
     minimum_strength = int(engine.get_ms())
+    complete_armor_rows = [
+        row
+        for row in engine.equipped_armor_rows()
+        if row["item"].armorstats.parent_set_id is None
+    ]
+    if complete_armor_rows:
+        return _build_core_stat_tooltip(
+            [
+                *[
+                    {
+                        "label": row["item_name"],
+                        "value": int(row["min_st"] or 0),
+                        "source": "Gesamtrüstung",
+                    }
+                    for row in complete_armor_rows
+                ],
+                {
+                    "label": "= Mindeststärke",
+                    "value": minimum_strength,
+                    "source": "höchster MS-Wert",
+                    "tone": "total",
+                },
+            ]
+        )
+
+    total_rs = int(engine.get_grs())
     return _build_core_stat_tooltip(
         [
             {"label": "Gesamtrüstungsschutz", "value": total_rs, "source": "RS"},
-            {"label": "Mindeststärke", "value": minimum_strength, "source": "RS / 2", "tone": "total"},
+            {
+                "label": "Mindeststärke",
+                "value": minimum_strength,
+                "source": "Einzelteile: RS / 2, aufrunden",
+                "tone": "total",
+            },
         ]
     )
 
@@ -1865,11 +1895,26 @@ def _clean_modifier_note_text(note_text: object) -> str:
     return text
 
 
-def _build_modifier_breakdown_rows(engine, stat_key: str) -> list[dict[str, object]]:
+def _build_modifier_breakdown_rows(
+    engine,
+    stat_key: str,
+    *,
+    excluded_sources: set[tuple[str, str]] | None = None,
+) -> list[dict[str, object]]:
     """Return ledger rows for each contributing modifier source."""
     explanation = engine.explain_modifier_resolution("derived_stat", stat_key)
     if not explanation:
         explanation = _build_legacy_stat_modifier_explanation(engine, stat_key)
+    if excluded_sources:
+        explanation = [
+            entry
+            for entry in explanation
+            if (
+                str(entry.get("source_type") or ""),
+                str(entry.get("source_id") or ""),
+            )
+            not in excluded_sources
+        ]
     return _build_grouped_explanation_rows(engine, explanation)
 
 
@@ -2694,30 +2739,6 @@ def _build_inventory_rows(character: Character) -> list[dict]:
                             "armor_rs_total_override",
                             getattr(getattr(item, "armorstats", None), "rs_total", ""),
                         ),
-                        "armor_rs_head": item_engine._get_override_value(
-                            "armor_rs_head_override",
-                            getattr(getattr(item, "armorstats", None), "rs_head", ""),
-                        ),
-                        "armor_rs_torso": item_engine._get_override_value(
-                            "armor_rs_torso_override",
-                            getattr(getattr(item, "armorstats", None), "rs_torso", ""),
-                        ),
-                        "armor_rs_arm_left": item_engine._get_override_value(
-                            "armor_rs_arm_left_override",
-                            getattr(getattr(item, "armorstats", None), "rs_arm_left", ""),
-                        ),
-                        "armor_rs_arm_right": item_engine._get_override_value(
-                            "armor_rs_arm_right_override",
-                            getattr(getattr(item, "armorstats", None), "rs_arm_right", ""),
-                        ),
-                        "armor_rs_leg_left": item_engine._get_override_value(
-                            "armor_rs_leg_left_override",
-                            getattr(getattr(item, "armorstats", None), "rs_leg_left", ""),
-                        ),
-                        "armor_rs_leg_right": item_engine._get_override_value(
-                            "armor_rs_leg_right_override",
-                            getattr(getattr(item, "armorstats", None), "rs_leg_right", ""),
-                        ),
                         "armor_encumbrance": item_engine._get_override_value(
                             "armor_encumbrance_override",
                             getattr(getattr(item, "armorstats", None), "encumbrance", ""),
@@ -2879,7 +2900,11 @@ def _build_armor_rows(engine) -> list[dict]:
                     part for part in [row["item"].get_item_type_display(), "" if is_race_item else quality["label"]] if part
                 ),
                 "item_image_url": item_image_url,
-                "summary": f"{row['item_name']} (RS {row['rs']} | Bel {row['bel_effective']} | Min-St {row['min_st'] or '-'})",
+                "summary": (
+                    f"{row['item_name']} "
+                    f"(RS {row['rs']} | Bel {row['bel_effective']} | "
+                    f"Min-St {row['min_st'] if row['min_st'] is not None else '-'})"
+                ),
                 "tooltip_text": _format_item_tooltip(
                     description=row["character_item"].description or row["item"].description or "",
                     quality_label="" if is_race_item else quality["label"],
@@ -2888,6 +2913,7 @@ def _build_armor_rows(engine) -> list[dict]:
                         _build_item_tooltip_rows(
                             ItemEngine(row["character_item"]),
                             row["item"],
+                            armor_rs=int(row["rs"] or 0),
                             armor_encumbrance=int(row["bel_effective"] or 0),
                         )
                         + _build_weapon_symbol_tooltip_rows(ItemEngine(row["character_item"]))
@@ -3422,7 +3448,12 @@ def _build_shop_item_groups() -> list[dict]:
                     "effect_summary": magic_item_stats.effect_summary,
                 }
             )
-        grouped_items.setdefault(item.item_type, []).append(
+        group_key = (
+            SHOP_ARMOR_COMPONENT_GROUP
+            if armor_stats is not None and armor_stats.parent_set_id
+            else item.item_type
+        )
+        grouped_items.setdefault(group_key, []).append(
             {
                 "id": item.id,
                 "name": item.name,
@@ -3457,7 +3488,7 @@ def _build_shop_sell_item_groups(character: Character) -> list[dict]:
         CharacterItem.objects
         .filter(owner=character)
         .exclude(item__not_sellable=True)
-        .select_related("item", "original_owner_character")
+        .select_related("item", "item__armorstats", "original_owner_character")
         .order_by("item__item_type", "item__name", "quality", "id")
     )
     for character_item in inventory_items:
@@ -3466,7 +3497,13 @@ def _build_shop_sell_item_groups(character: Character) -> list[dict]:
         item = character_item.item
         item_engine = ItemEngine(character_item)
         quality = quality_payload(item_engine.get_effective_quality())
-        grouped_items.setdefault(item.item_type, []).append(
+        armor_stats = getattr(item, "armorstats", None)
+        group_key = (
+            SHOP_ARMOR_COMPONENT_GROUP
+            if armor_stats is not None and armor_stats.parent_set_id
+            else item.item_type
+        )
+        grouped_items.setdefault(group_key, []).append(
             {
                 "character_item_id": character_item.id,
                 "item_id": item.id,
@@ -4058,6 +4095,11 @@ def build_character_sheet_context(
         )
     battle_calculator_payload = BattleCalculatorEngine.build_payload(engine, skill_rows, weapon_rows)
     armor_rows = _build_armor_rows(engine)
+    armor_zone_protection = engine.armor_zone_protection()
+    body_armor = {
+        "shield": engine.shield_protection(),
+        **armor_zone_protection,
+    }
     school_technique_rows, school_levels = _build_school_technique_rows(character, engine)
     school_race_rows, school_technique_groups = _group_school_technique_rows(
         school_technique_rows,
@@ -4698,6 +4740,7 @@ def build_character_sheet_context(
             "minimum_strength": engine.get_ms(),
             "minimum_strength_tooltip": minimum_strength_tooltip,
         },
+        "body_armor": body_armor,
         "current_wound_stage": current_wound_stage,
         "current_wound_penalty": current_wound_penalty_display,
         "is_wound_penalty_ignored": engine.is_wound_penalty_ignored(),

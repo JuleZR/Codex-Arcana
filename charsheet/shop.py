@@ -440,12 +440,6 @@ def _normalize_redundant_character_item_overrides(character_item: CharacterItem)
     if armor is not None:
         comparisons.update(
             {
-                "armor_rs_head_override": armor.rs_head,
-                "armor_rs_torso_override": armor.rs_torso,
-                "armor_rs_arm_left_override": armor.rs_arm_left,
-                "armor_rs_arm_right_override": armor.rs_arm_right,
-                "armor_rs_leg_left_override": armor.rs_leg_left,
-                "armor_rs_leg_right_override": armor.rs_leg_right,
                 "armor_rs_total_override": armor.rs_total,
                 "armor_encumbrance_override": armor.encumbrance,
                 "armor_min_st_override": armor.min_st,
@@ -630,20 +624,6 @@ def apply_character_item_modifications(
                 ).strip() or getattr(weapon_stats, "h2_damage_type", weapon_stats.damage_type)
             if armor_stats is not None:
                 character_item.armor_rs_total_override = _read_int(post_data, "armor_rs_total", armor_stats.rs_total, minimum=0)
-                character_item.armor_rs_head_override = _read_int(post_data, "armor_rs_head", armor_stats.rs_head, minimum=0)
-                character_item.armor_rs_torso_override = _read_int(post_data, "armor_rs_torso", armor_stats.rs_torso, minimum=0)
-                character_item.armor_rs_arm_left_override = _read_int(
-                    post_data, "armor_rs_arm_left", armor_stats.rs_arm_left, minimum=0
-                )
-                character_item.armor_rs_arm_right_override = _read_int(
-                    post_data, "armor_rs_arm_right", armor_stats.rs_arm_right, minimum=0
-                )
-                character_item.armor_rs_leg_left_override = _read_int(
-                    post_data, "armor_rs_leg_left", armor_stats.rs_leg_left, minimum=0
-                )
-                character_item.armor_rs_leg_right_override = _read_int(
-                    post_data, "armor_rs_leg_right", armor_stats.rs_leg_right, minimum=0
-                )
                 character_item.armor_encumbrance_override = _read_int(
                     post_data, "armor_encumbrance", armor_stats.encumbrance, minimum=0
                 )
@@ -773,35 +753,26 @@ def create_custom_shop_item(post_data, files_data=None, *, catalog_group=None):
                 item.runes.set(selected_runes)
 
             if item.item_type == Item.ItemType.ARMOR:
-                armor_mode = (post_data.get("armor_mode") or "total").strip()
                 armor_encumbrance = _read_int(post_data, "armor_encumbrance", 0, minimum=0)
                 armor_min_st = _read_int(post_data, "armor_min_st", 1, minimum=1)
-                if armor_mode == "zones":
-                    armor_stats = ArmorStats(
-                        item=item,
-                        rs_total=0,
-                        rs_head=_read_int(post_data, "armor_rs_head", 0, minimum=0),
-                        rs_torso=_read_int(post_data, "armor_rs_torso", 0, minimum=0),
-                        rs_arm_left=_read_int(post_data, "armor_rs_arm_left", 0, minimum=0),
-                        rs_arm_right=_read_int(post_data, "armor_rs_arm_right", 0, minimum=0),
-                        rs_leg_left=_read_int(post_data, "armor_rs_leg_left", 0, minimum=0),
-                        rs_leg_right=_read_int(post_data, "armor_rs_leg_right", 0, minimum=0),
-                        encumbrance=armor_encumbrance,
-                        min_st=armor_min_st,
+                zone_fields = tuple(ArmorStats.ZONE_FIELDS)
+                has_explicit_coverage = bool(post_data.get("armor_coverage_present"))
+                coverage = {
+                    f"covers_{zone}": (
+                        bool(post_data.get(f"armor_covers_{zone}"))
+                        if has_explicit_coverage
+                        else False
                     )
-                else:
-                    armor_stats = ArmorStats(
-                        item=item,
-                        rs_total=_read_int(post_data, "armor_rs_total", 0, minimum=0),
-                        rs_head=0,
-                        rs_torso=0,
-                        rs_arm_left=0,
-                        rs_arm_right=0,
-                        rs_leg_left=0,
-                        rs_leg_right=0,
-                        encumbrance=armor_encumbrance,
-                        min_st=armor_min_st,
-                    )
+                    for zone in zone_fields
+                }
+                armor_stats = ArmorStats(
+                    item=item,
+                    rs_total=_read_int(post_data, "armor_rs_total", 0, minimum=1),
+                    encumbrance=armor_encumbrance,
+                    min_st=armor_min_st,
+                    suppress_component_generation=bool(post_data.get("armor_suppress_components")),
+                    **coverage,
+                )
                 armor_stats.full_clean()
                 armor_stats.save()
             elif item.item_type == Item.ItemType.WEAPON:

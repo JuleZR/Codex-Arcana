@@ -142,12 +142,6 @@
                       <header><span>Typwerte</span><h4>Rüstung</h4></header>
                       <div class="sl-editor-grid">
                         <label><span>RS gesamt</span><input name="armor_rs_total_override" type="number" min="0" value="{{ instance.armor_rs_total_override|default_if_none:'' }}" placeholder="{{ instance.base_values.armor_rs_total }}"></label>
-                        <label><span>RS Kopf</span><input name="armor_rs_head_override" type="number" min="0" value="{{ instance.armor_rs_head_override|default_if_none:'' }}" placeholder="{{ instance.base_values.armor_rs_head }}"></label>
-                        <label><span>RS Torso</span><input name="armor_rs_torso_override" type="number" min="0" value="{{ instance.armor_rs_torso_override|default_if_none:'' }}" placeholder="{{ instance.base_values.armor_rs_torso }}"></label>
-                        <label><span>RS Arm links</span><input name="armor_rs_arm_left_override" type="number" min="0" value="{{ instance.armor_rs_arm_left_override|default_if_none:'' }}" placeholder="{{ instance.base_values.armor_rs_arm_left }}"></label>
-                        <label><span>RS Arm rechts</span><input name="armor_rs_arm_right_override" type="number" min="0" value="{{ instance.armor_rs_arm_right_override|default_if_none:'' }}" placeholder="{{ instance.base_values.armor_rs_arm_right }}"></label>
-                        <label><span>RS Bein links</span><input name="armor_rs_leg_left_override" type="number" min="0" value="{{ instance.armor_rs_leg_left_override|default_if_none:'' }}" placeholder="{{ instance.base_values.armor_rs_leg_left }}"></label>
-                        <label><span>RS Bein rechts</span><input name="armor_rs_leg_right_override" type="number" min="0" value="{{ instance.armor_rs_leg_right_override|default_if_none:'' }}" placeholder="{{ instance.base_values.armor_rs_leg_right }}"></label>
                         <label><span>Belastung</span><input name="armor_encumbrance_override" type="number" min="0" value="{{ instance.armor_encumbrance_override|default_if_none:'' }}" placeholder="{{ instance.base_values.armor_encumbrance }}"></label>
                         <label><span>Mindeststärke</span><input name="armor_min_st_override" type="number" min="1" value="{{ instance.armor_min_st_override|default_if_none:'' }}" placeholder="{{ instance.base_values.armor_min_st }}"></label>
                       </div>
@@ -326,9 +320,15 @@
                 </section>
                 <section class="sl-editor-card" data-item-fields="armor" hidden>
                   <header><span>Typwerte</span><h4>Rüstung</h4></header>
-                  <div class="sl-editor-mode"><label><input type="radio" name="armor_mode" value="total" checked> Gesamtwert</label><label><input type="radio" name="armor_mode" value="zones"> Trefferzonen</label></div>
-                  <div class="sl-editor-grid" data-armor-mode="total"><label><span>RS gesamt</span><input name="armor_rs_total" type="number" min="0" value="1"></label></div>
-                  <div class="sl-editor-grid" data-armor-mode="zones" hidden><label><span>Kopf</span><input name="armor_rs_head" type="number" min="0" value="0"></label><label><span>Torso</span><input name="armor_rs_torso" type="number" min="0" value="0"></label><label><span>Arm links</span><input name="armor_rs_arm_left" type="number" min="0" value="0"></label><label><span>Arm rechts</span><input name="armor_rs_arm_right" type="number" min="0" value="0"></label><label><span>Bein links</span><input name="armor_rs_leg_left" type="number" min="0" value="0"></label><label><span>Bein rechts</span><input name="armor_rs_leg_right" type="number" min="0" value="0"></label></div>
+                  <input type="hidden" name="armor_mode" value="total">
+                  <div class="sl-editor-grid" data-armor-mode="total"><label><span>RS</span><input name="armor_rs_total" type="number" min="1" value="1"></label><label><span>Keine Einzelteile erzeugen</span><input name="armor_suppress_components" type="checkbox" value="1"></label></div>
+                  <input type="hidden" name="armor_coverage_present" value="1">
+                  <div class="sl-editor-grid">
+                    <label><span>Kopf</span><input name="armor_covers_head" type="checkbox" value="1"></label><label><span>Gesicht</span><input name="armor_covers_face" type="checkbox" value="1"></label><label><span>Augen</span><input name="armor_covers_eyes" type="checkbox" value="1"></label><label><span>Hals</span><input name="armor_covers_neck" type="checkbox" value="1"></label>
+                    <label><span>Torso</span><input name="armor_covers_torso" type="checkbox" value="1"></label><label><span>Organe</span><input name="armor_covers_organs" type="checkbox" value="1"></label><label><span>Weichteile</span><input name="armor_covers_soft_tissue" type="checkbox" value="1"></label>
+                    <label><span>Arm links</span><input name="armor_covers_arm_left" type="checkbox" value="1"></label><label><span>Hand links</span><input name="armor_covers_hand_left" type="checkbox" value="1"></label><label><span>Bein links</span><input name="armor_covers_leg_left" type="checkbox" value="1"></label><label><span>Fuß links</span><input name="armor_covers_foot_left" type="checkbox" value="1"></label>
+                    <label><span>Arm rechts</span><input name="armor_covers_arm_right" type="checkbox" value="1"></label><label><span>Hand rechts</span><input name="armor_covers_hand_right" type="checkbox" value="1"></label><label><span>Bein rechts</span><input name="armor_covers_leg_right" type="checkbox" value="1"></label><label><span>Fuß rechts</span><input name="armor_covers_foot_right" type="checkbox" value="1"></label>
+                  </div>
                   <div class="sl-editor-grid"><label><span>Belastung</span><input name="armor_encumbrance" type="number" min="0" value="0"></label><label><span>Mindeststärke</span><input name="armor_min_st" type="number" min="1" value="1"></label></div>
                 </section>
                 <section class="sl-editor-card" data-item-fields="shield" hidden>

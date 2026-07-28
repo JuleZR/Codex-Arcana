@@ -1629,6 +1629,74 @@ class ArmorStatsInline(admin.StackedInline):
     extra = 0
     max_num = 1
     can_delete = True
+    fieldsets = (
+        (
+            "Grundwerte",
+            {
+                "fields": (
+                    ("rs_total", "encumbrance", "min_st"),
+                    "zone_rs_overrides",
+                )
+            },
+        ),
+        (
+            "Generierung",
+            {
+                "fields": (
+                    "suppress_component_generation",
+                    ("parent_set", "component_type"),
+                )
+            },
+        ),
+        (
+            "Einzelteilpreise laut Regelwerk (optional)",
+            {
+                "description": (
+                    "Leere Felder werden mathematisch berechnet. "
+                    "Arme, Hände, Beine und Schuhe sind jeweils Gesamtpreise für beide Seiten."
+                ),
+                "fields": (
+                    ("component_price_helmet_override", "component_price_torso_override"),
+                    ("component_price_arms_override", "component_price_hands_override"),
+                    ("component_price_legs_override", "component_price_feet_override"),
+                ),
+            },
+        ),
+        (
+            "Kopf",
+            {
+                "fields": (
+                    ("covers_head", "covers_face", "covers_eyes", "covers_neck"),
+                )
+            },
+        ),
+        (
+            "Rumpf",
+            {
+                "fields": (
+                    ("covers_torso", "covers_organs", "covers_soft_tissue"),
+                )
+            },
+        ),
+        (
+            "Linke Seite",
+            {
+                "fields": (
+                    ("covers_arm_left", "covers_hand_left"),
+                    ("covers_leg_left", "covers_foot_left"),
+                )
+            },
+        ),
+        (
+            "Rechte Seite",
+            {
+                "fields": (
+                    ("covers_arm_right", "covers_hand_right"),
+                    ("covers_leg_right", "covers_foot_right"),
+                )
+            },
+        ),
+    )
 
 
 class ShieldStatsInline(admin.StackedInline):
@@ -3735,6 +3803,16 @@ class ItemAdmin(admin.ModelAdmin):
         """Render default quality with RPG item coloring."""
         return _quality_badge(obj.default_quality)
 
+    def save_related(self, request, form, formsets, change):
+        """Resynchronize generated armor pieces after item fields and runes changed."""
+        super().save_related(request, form, formsets, change)
+        armor_stats = getattr(form.instance, "armorstats", None)
+        if armor_stats is None or form.instance.item_type != Item.ItemType.ARMOR:
+            return
+        from charsheet.armor_generation import sync_armor_set_components
+
+        sync_armor_set_components(armor_stats)
+
     @admin.action(description="Kategorie der ausgewählten Items ändern")
     def change_item_type_action(self, request, queryset):
         """Bulk-update the item category of the selected items."""
@@ -3832,31 +3910,34 @@ class ArmorStatsAdmin(admin.ModelAdmin):
         "item",
         "item_quality",
         "rs_total",
-        "rs_zone_sum",
-        "rs_zone_average",
+        "coverage_summary",
+        "component_type",
+        "parent_set",
+        "suppress_component_generation",
         "encumbrance",
         "min_st",
     )
     search_fields = ("item__name",)
-    list_filter = ("item__default_quality", "item__size_class")
+    list_filter = (
+        "suppress_component_generation",
+        "component_type",
+        "item__default_quality",
+        "item__size_class",
+    )
     ordering = ("item__name",)
-    autocomplete_fields = ("item",)
-    list_select_related = ("item",)
+    autocomplete_fields = ("item", "parent_set")
+    list_select_related = ("item", "parent_set", "parent_set__item")
+    fieldsets = ArmorStatsInline.fieldsets
 
     @admin.display(ordering="item__default_quality", description="Item Quality")
     def item_quality(self, obj):
         """Render linked item default quality with RPG color coding."""
         return _quality_badge(obj.item.default_quality)
 
-    @admin.display(description="Zone Sum")
-    def rs_zone_sum(self, obj):
-        """Return summed zone armor values for list display."""
-        return obj.rs_sum()
-
-    @admin.display(description="Zone Avg")
-    def rs_zone_average(self, obj):
-        """Return average per-zone armor value for list display."""
-        return obj.rs_sum() // 6
+    @admin.display(description="Geschützte Zonen")
+    def coverage_summary(self, obj):
+        """Return the selected hit zones in one compact admin column."""
+        return ", ".join(obj.covered_zones()) or "-"
 
 
 @admin.register(ShieldStats)

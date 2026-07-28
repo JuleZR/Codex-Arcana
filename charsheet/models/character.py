@@ -269,7 +269,7 @@ class CharacterItem(models.Model):
     magic_effect_summary = models.TextField(blank=True, default="")
     name_override = models.CharField(max_length=200, blank=True, default="")
     price_override = models.IntegerField(null=True, blank=True)
-    weight_override = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
+    weight_override = models.DecimalField(max_digits=7, decimal_places=3, null=True, blank=True)
     size_class_override = models.CharField(max_length=5, choices=GK_CHOICES, blank=True, default="")
     weapon_type_override = models.ForeignKey(
         "charsheet.WeaponType",
@@ -303,13 +303,8 @@ class CharacterItem(models.Model):
     weapon_h2_flat_bonus_override = models.IntegerField(null=True, blank=True)
     weapon_h2_flat_operator_override = models.CharField(max_length=1, blank=True, default="")
     weapon_h2_damage_type_override = models.CharField(max_length=1, choices=DAMAGE_TYPE_CHOICES, blank=True, default="")
-    armor_rs_head_override = models.PositiveIntegerField(null=True, blank=True)
-    armor_rs_torso_override = models.PositiveIntegerField(null=True, blank=True)
-    armor_rs_arm_left_override = models.PositiveIntegerField(null=True, blank=True)
-    armor_rs_arm_right_override = models.PositiveIntegerField(null=True, blank=True)
-    armor_rs_leg_left_override = models.PositiveIntegerField(null=True, blank=True)
-    armor_rs_leg_right_override = models.PositiveIntegerField(null=True, blank=True)
     armor_rs_total_override = models.PositiveIntegerField(null=True, blank=True)
+    armor_zone_rs_overrides = models.JSONField(blank=True, default=dict)
     armor_encumbrance_override = models.PositiveIntegerField(null=True, blank=True)
     armor_min_st_override = models.PositiveIntegerField(null=True, blank=True)
     shield_rs_override = models.PositiveIntegerField(null=True, blank=True)

@@ -881,22 +881,7 @@ class CreatureEngine:
             return 0
         if creature_item.armor_rs_total_override is not None:
             return int(creature_item.armor_rs_total_override)
-        if stats.rs_total:
-            return int(stats.rs_total)
-        zone_fields = (
-            "armor_rs_head",
-            "armor_rs_torso",
-            "armor_rs_arm_left",
-            "armor_rs_arm_right",
-            "armor_rs_leg_left",
-            "armor_rs_leg_right",
-        )
-        total = 0
-        for field in zone_fields:
-            override = getattr(creature_item, f"{field}_override", None)
-            stat_field = field.replace("armor_", "")
-            total += int(override if override is not None else getattr(stats, stat_field, 0))
-        return total
+        return int(stats.rs_total)
 
     def _armor_encumbrance(self, creature_item: CharacterCreatureItem) -> int:
         stats = getattr(creature_item.item, "armorstats", None)

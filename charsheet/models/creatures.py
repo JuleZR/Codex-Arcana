@@ -1219,13 +1219,8 @@ class CharacterCreatureItem(models.Model):
         default=QUALITY_COMMON,
     )
     notes = models.TextField(blank=True, default="")
-    armor_rs_head_override = models.PositiveIntegerField(blank=True, null=True)
-    armor_rs_torso_override = models.PositiveIntegerField(blank=True, null=True)
-    armor_rs_arm_left_override = models.PositiveIntegerField(blank=True, null=True)
-    armor_rs_arm_right_override = models.PositiveIntegerField(blank=True, null=True)
-    armor_rs_leg_left_override = models.PositiveIntegerField(blank=True, null=True)
-    armor_rs_leg_right_override = models.PositiveIntegerField(blank=True, null=True)
     armor_rs_total_override = models.PositiveIntegerField(blank=True, null=True)
+    armor_zone_rs_overrides = models.JSONField(blank=True, default=dict)
     armor_encumbrance_override = models.PositiveIntegerField(blank=True, null=True)
     armor_min_st_override = models.PositiveIntegerField(blank=True, null=True)
 

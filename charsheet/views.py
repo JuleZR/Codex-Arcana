@@ -2433,6 +2433,7 @@ def toggle_equip(request, pk):
             "inventory_panel",
             "armor_panel",
             "weapon_panel",
+            "secondary_page",
             "card_hand",
         )
 

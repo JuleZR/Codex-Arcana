@@ -799,6 +799,8 @@ class CharacterEngine:
     equipped_clothing_rows = character_equipment.equipped_clothing_rows
     equipped_magic_item_rows = character_equipment.equipped_magic_item_rows
     equipped_shield_rows = character_equipment.equipped_shield_rows
+    armor_zone_protection = character_equipment.armor_zone_protection
+    shield_protection = character_equipment.shield_protection
     get_grs = character_equipment.get_grs
     get_bel = character_equipment.get_bel
     load_penalty = character_equipment.load_penalty

@@ -41,6 +41,14 @@ WEAPON_MANEUVER_QUALITY_BONUSES = {
     QUALITY_LEGENDARY: 1,
 }
 
+ARMOR_RS_QUALITY_BONUSES = {
+    QUALITY_POOR: -1,
+    QUALITY_VERY_POOR: -2,
+    QUALITY_WRETCHED: -3,
+    QUALITY_EXCELLENT: 1,
+    QUALITY_LEGENDARY: 1,
+}
+
 
 class ItemEngine:
     """Resolve derived item values for base items and owned inventory rows."""
@@ -398,22 +406,39 @@ class ItemEngine:
         return profiles
 
     def get_armor_rs_raw(self) -> int | None:
-        """Return total armor rating before character-wide modifiers."""
+        """Return this physical armor item's quality-adjusted local RS."""
         stats = self._get_armor_stats()
         if not stats:
             return None
-        rs_total = self._get_override_value("armor_rs_total_override", stats.rs_total)
-        if rs_total:
-            return int(rs_total)
-        zone_values = [
-            int(self._get_override_value("armor_rs_head_override", stats.rs_head)),
-            int(self._get_override_value("armor_rs_torso_override", stats.rs_torso)),
-            int(self._get_override_value("armor_rs_arm_left_override", stats.rs_arm_left)),
-            int(self._get_override_value("armor_rs_arm_right_override", stats.rs_arm_right)),
-            int(self._get_override_value("armor_rs_leg_left_override", stats.rs_leg_left)),
-            int(self._get_override_value("armor_rs_leg_right_override", stats.rs_leg_right)),
-        ]
-        return sum(zone_values) // 6
+        rs_value = int(self._get_override_value("armor_rs_total_override", stats.rs))
+        return max(0, rs_value + self.get_armor_rs_quality_bonus())
+
+    def get_armor_rs_quality_bonus(self) -> int:
+        """Return the effective RS change caused by character-item quality."""
+        return self._quality_bonus_delta(ARMOR_RS_QUALITY_BONUSES)
+
+    def get_armor_zone_rs(self) -> dict[str, int] | None:
+        """Return this physical armor item's RS for every covered hit zone."""
+        stats = self._get_armor_stats()
+        if not stats:
+            return None
+
+        rs_value = int(self._get_override_value("armor_rs_total_override", stats.rs))
+        quality_bonus = self.get_armor_rs_quality_bonus()
+        base_zone_overrides = dict(stats.zone_rs_overrides or {})
+        character_item = self._get_character_item()
+        instance_zone_overrides = dict(
+            getattr(character_item, "armor_zone_rs_overrides", {}) or {}
+        )
+        return {
+            zone: max(
+                0,
+                int(instance_zone_overrides.get(zone, base_zone_overrides.get(zone, rs_value)))
+                + quality_bonus,
+            )
+            for zone in stats.ZONE_FIELDS
+            if getattr(stats, f"covers_{zone}", False)
+        }
 
     def get_armor_min_st(self) -> int | None:
         """Return minimum strength for this armor."""

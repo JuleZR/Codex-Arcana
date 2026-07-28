@@ -26,7 +26,7 @@
             <ul class="body_side body_side--left">
               <li class="zone_group">
                 <div class="zone_main">
-                  <span>Schild (-4)</span><span class="pill empty"></span>
+                  <span>Schild (-4)</span><span class="pill{% if not body_armor.shield %} empty{% endif %}">{% if body_armor.shield %}{{ body_armor.shield }}{% endif %}</span>
                 </div>
                 <ul class="zone_sub zone_checks">
                   <li><span class="checkbox"></span><span>links</span></li>
@@ -35,18 +35,18 @@
               </li>
               <li class="zone_group">
                 <div class="zone_main">
-                  <span>Rechter Arm (-4)</span><span class="pill empty"></span>
+                  <span>Rechter Arm (-4)</span><span class="pill{% if not body_armor.arm_right %} empty{% endif %}">{% if body_armor.arm_right %}{{ body_armor.arm_right }}{% endif %}</span>
                 </div>
                 <ul class="zone_sub">
-                  <li><span>Rechte Hand (-8)</span><span class="pill empty"></span></li>
+                  <li><span>Rechte Hand (-8)</span><span class="pill{% if not body_armor.hand_right %} empty{% endif %}">{% if body_armor.hand_right %}{{ body_armor.hand_right }}{% endif %}</span></li>
                 </ul>
               </li>
               <li class="zone_group">
                 <div class="zone_main">
-                  <span>Rechtes Bein (-3)</span><span class="pill empty"></span>
+                  <span>Rechtes Bein (-3)</span><span class="pill{% if not body_armor.leg_right %} empty{% endif %}">{% if body_armor.leg_right %}{{ body_armor.leg_right }}{% endif %}</span>
                 </div>
                 <ul class="zone_sub">
-                  <li><span>Rechter Fu&szlig; (-8)</span><span class="pill empty"></span></li>
+                  <li><span>Rechter Fu&szlig; (-8)</span><span class="pill{% if not body_armor.foot_right %} empty{% endif %}">{% if body_armor.foot_right %}{{ body_armor.foot_right }}{% endif %}</span></li>
                 </ul>
               </li>
             </ul>
@@ -54,37 +54,37 @@
             <ul class="body_side body_side--right">
               <li class="zone_group">
                 <div class="zone_main">
-                  <span>Kopf (-6)</span><span class="pill empty"></span>
+                  <span>Kopf (-6)</span><span class="pill{% if not body_armor.head %} empty{% endif %}">{% if body_armor.head %}{{ body_armor.head }}{% endif %}</span>
                 </div>
                 <ul class="zone_sub">
-                  <li><span>Gesicht (-8)</span><span class="pill empty"></span></li>
-                  <li><span>Augen (-9 / -14)</span><span class="pill empty"></span></li>
-                  <li><span>Hals (-10)</span><span class="pill empty"></span></li>
+                  <li><span>Gesicht (-8)</span><span class="pill{% if not body_armor.face %} empty{% endif %}">{% if body_armor.face %}{{ body_armor.face }}{% endif %}</span></li>
+                  <li><span>Augen (-9 / -14)</span><span class="pill{% if not body_armor.eyes %} empty{% endif %}">{% if body_armor.eyes %}{{ body_armor.eyes }}{% endif %}</span></li>
+                  <li><span>Hals (-10)</span><span class="pill{% if not body_armor.neck %} empty{% endif %}">{% if body_armor.neck %}{{ body_armor.neck }}{% endif %}</span></li>
                 </ul>
               </li>
               <li class="zone_group">
                 <div class="zone_main">
-                  <span>Torso (-2)</span><span class="pill empty"></span>
+                  <span>Torso (-2)</span><span class="pill{% if not body_armor.torso %} empty{% endif %}">{% if body_armor.torso %}{{ body_armor.torso }}{% endif %}</span>
                 </div>
                 <ul class="zone_sub">
-                  <li><span>Organe (-10)</span><span class="pill empty"></span></li>
-                  <li><span>Weichteile (-8)</span><span class="pill empty"></span></li>
+                  <li><span>Organe (-10)</span><span class="pill{% if not body_armor.organs %} empty{% endif %}">{% if body_armor.organs %}{{ body_armor.organs }}{% endif %}</span></li>
+                  <li><span>Weichteile (-8)</span><span class="pill{% if not body_armor.soft_tissue %} empty{% endif %}">{% if body_armor.soft_tissue %}{{ body_armor.soft_tissue }}{% endif %}</span></li>
                 </ul>
               </li>
               <li class="zone_group">
                 <div class="zone_main">
-                  <span>Linker Arm (-4)</span><span class="pill empty"></span>
+                  <span>Linker Arm (-4)</span><span class="pill{% if not body_armor.arm_left %} empty{% endif %}">{% if body_armor.arm_left %}{{ body_armor.arm_left }}{% endif %}</span>
                 </div>
                 <ul class="zone_sub">
-                  <li><span>Linke Hand (-8)</span><span class="pill empty"></span></li>
+                  <li><span>Linke Hand (-8)</span><span class="pill{% if not body_armor.hand_left %} empty{% endif %}">{% if body_armor.hand_left %}{{ body_armor.hand_left }}{% endif %}</span></li>
                 </ul>
               </li>
               <li class="zone_group">
                 <div class="zone_main">
-                  <span>Linkes Bein (-3)</span><span class="pill empty"></span>
+                  <span>Linkes Bein (-3)</span><span class="pill{% if not body_armor.leg_left %} empty{% endif %}">{% if body_armor.leg_left %}{{ body_armor.leg_left }}{% endif %}</span>
                 </div>
                 <ul class="zone_sub">
-                  <li><span>Linker Fu&szlig; (-8)</span><span class="pill empty"></span></li>
+                  <li><span>Linker Fu&szlig; (-8)</span><span class="pill{% if not body_armor.foot_left %} empty{% endif %}">{% if body_armor.foot_left %}{{ body_armor.foot_left }}{% endif %}</span></li>
                 </ul>
               </li>
             </ul>

@@ -50,6 +50,7 @@ from charsheet.item_transfers import (
 from charsheet.engine import ItemEngine
 from charsheet.engine.creature_engine import CreatureEngine
 from charsheet.models import (
+    ArmorStats,
     Character,
     CharacterCreature,
     CharacterDiaryEntry,
@@ -707,12 +708,6 @@ def game_master_screen(request, group_id: int):
             ),
             "weapon_h2_damage_type": weapon.get_h2_damage_type_display() if weapon else "Nicht festgelegt",
             "armor_rs_total": getattr(armor, "rs_total", ""),
-            "armor_rs_head": getattr(armor, "rs_head", ""),
-            "armor_rs_torso": getattr(armor, "rs_torso", ""),
-            "armor_rs_arm_left": getattr(armor, "rs_arm_left", ""),
-            "armor_rs_arm_right": getattr(armor, "rs_arm_right", ""),
-            "armor_rs_leg_left": getattr(armor, "rs_leg_left", ""),
-            "armor_rs_leg_right": getattr(armor, "rs_leg_right", ""),
             "armor_encumbrance": getattr(armor, "encumbrance", ""),
             "armor_min_st": getattr(armor, "min_st", ""),
             "shield_rs": getattr(shield, "rs", ""),
@@ -2301,6 +2296,16 @@ def edit_group_catalog_item(request, group_id: int, catalog_item_id: int):
             for field_name in ("damage_type", "h2_damage_type", "wield_mode", "maneuver_attribute_mode"):
                 if hasattr(detail, field_name) and request.POST.get(field_name):
                     setattr(detail, field_name, request.POST[field_name])
+            if isinstance(detail, ArmorStats) and request.POST.get("armor_coverage_present"):
+                detail.suppress_component_generation = bool(
+                    request.POST.get("armor_suppress_components")
+                )
+                for zone in ArmorStats.ZONE_FIELDS:
+                    setattr(
+                        detail,
+                        f"covers_{zone}",
+                        bool(request.POST.get(f"armor_covers_{zone}")),
+                    )
             detail.full_clean()
             detail.save()
         magic_stats = getattr(item, "magicitemstats", None)
@@ -2395,12 +2400,6 @@ def edit_group_inventory_item(request, group_id: int, item_id: int):
             ),
             Item.ItemType.ARMOR: (
                 "armor_rs_total_override",
-                "armor_rs_head_override",
-                "armor_rs_torso_override",
-                "armor_rs_arm_left_override",
-                "armor_rs_arm_right_override",
-                "armor_rs_leg_left_override",
-                "armor_rs_leg_right_override",
                 "armor_encumbrance_override",
                 "armor_min_st_override",
             ),
