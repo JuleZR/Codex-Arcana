@@ -5,6 +5,95 @@
   const inventoryArea = inventoryWorkspace?.querySelector("[data-inventory-area]");
   const inventoryToggle = inventoryArea?.querySelector("[data-inventory-toggle]");
   const inventoryContent = inventoryArea?.querySelector(".gm-inventory-area__content");
+  const compactLaptopView = window.matchMedia(
+    "(min-width: 1720px) and (max-width: 2048px) and "
+    + "(min-height: 850px) and (max-height: 990px)",
+  );
+
+  const characterNameHeadings = Array.from(
+    document.querySelectorAll(".gm-character-sheet__name h2"),
+  );
+
+  const fitCharacterName = (heading) => {
+    heading.style.removeProperty("--gm-character-name-size");
+    const availableWidth = heading.clientWidth;
+    if (availableWidth <= 0 || heading.scrollWidth <= availableWidth + 0.5) {
+      return;
+    }
+
+    const maximumSize = Number.parseFloat(
+      window.getComputedStyle(heading).fontSize,
+    );
+    let fittedSize = maximumSize * ((availableWidth - 1) / heading.scrollWidth);
+    heading.style.setProperty(
+      "--gm-character-name-size",
+      `${Math.max(1, fittedSize)}px`,
+    );
+    if (heading.scrollWidth > availableWidth) {
+      fittedSize *= (availableWidth - 1) / heading.scrollWidth;
+      heading.style.setProperty(
+        "--gm-character-name-size",
+        `${Math.max(1, fittedSize)}px`,
+      );
+    }
+  };
+
+  const fitAllCharacterNames = () => {
+    characterNameHeadings.forEach(fitCharacterName);
+  };
+
+  if (characterNameHeadings.length > 0) {
+    const characterNameResizeObserver = new ResizeObserver((entries) => {
+      entries.forEach(({ target }) => {
+        target.querySelectorAll(".gm-character-sheet__name h2").forEach(
+          fitCharacterName,
+        );
+      });
+    });
+    characterNameHeadings.forEach((heading) => {
+      const identity = heading.closest(".gm-character-sheet__identity");
+      if (identity) {
+        characterNameResizeObserver.observe(identity);
+      }
+    });
+    fitAllCharacterNames();
+    document.fonts?.ready.then(fitAllCharacterNames);
+  }
+
+  document.querySelectorAll(".gm-data-table__preview").forEach((preview) => {
+    const overflowTolerance = 6;
+    const updateHorizontalOverflow = () => {
+      const hasMeaningfulOverflow = (
+        preview.scrollWidth - preview.clientWidth > overflowTolerance
+      );
+      preview.classList.toggle(
+        "has-horizontal-table-overflow",
+        hasMeaningfulOverflow,
+      );
+      if (!hasMeaningfulOverflow && preview.scrollLeft !== 0) {
+        preview.scrollLeft = 0;
+      }
+    };
+    const overflowResizeObserver = new ResizeObserver(
+      updateHorizontalOverflow,
+    );
+    overflowResizeObserver.observe(preview);
+    const previewTable = preview.querySelector("table");
+    if (previewTable) {
+      overflowResizeObserver.observe(previewTable);
+    }
+    new MutationObserver(updateHorizontalOverflow).observe(preview, {
+      attributes: true,
+      attributeFilter: ["class", "style"],
+      characterData: true,
+      childList: true,
+      subtree: true,
+    });
+    window.addEventListener("resize", updateHorizontalOverflow, {
+      passive: true,
+    });
+    updateHorizontalOverflow();
+  });
 
   if (inventoryWorkspace && inventoryArea && inventoryToggle && inventoryContent) {
     let inventoryTransitionVersion = 0;
@@ -1595,6 +1684,18 @@
       const dockedCards = cards().filter(
         (card) => !card.classList.contains("gm-data-table--detached"),
       );
+      if (compactLaptopView.matches) {
+        cards().forEach((card) => {
+          card.classList.remove("gm-data-table--stack-group");
+          card.style.removeProperty("--gm-dock-shared-card-width");
+          card.style.removeProperty("--gm-dock-shared-table-width");
+          card.style.removeProperty("grid-column");
+          card.style.removeProperty("grid-row");
+        });
+        container.classList.remove("gm-data-tables--has-stacked");
+        container.style.removeProperty("--gm-dock-column-count");
+        return;
+      }
       // Keep docked stack widths in place while measuring the next layout.
       // Clearing them first forces a visible shrink-and-grow cycle.
       cards()
@@ -1690,6 +1791,9 @@
       );
     };
     container.addEventListener("gm-refresh-dock", refreshDockedRows);
+    if (isTableContainer) {
+      compactLaptopView.addEventListener("change", refreshDockedRows);
+    }
     container.querySelectorAll(".gm-data-table__editor").forEach((editor) => {
       editor.addEventListener("toggle", refreshDockedRows);
     });
@@ -1899,7 +2003,8 @@
       }
       const targetRect = targetCard.getBoundingClientRect();
       const canStack = (
-        draggedCard.classList.contains("gm-data-table")
+        !compactLaptopView.matches
+        && draggedCard.classList.contains("gm-data-table")
         && !draggedCard.classList.contains("gm-note-card")
         && targetCard.classList.contains("gm-data-table")
         && !targetCard.classList.contains("gm-note-card")

@@ -7,10 +7,10 @@
   <title>SL-Screen | {{ group.name }}</title>
   <link rel="stylesheet" href="{% static 'css/charsheet.css' %}">
   <link rel="stylesheet" href="{% static 'css/dashboard.css' %}?v=20260726a">
-  <link rel="stylesheet" href="{% static 'css/game-master-screen.css' %}?v=20260728h">
+  <link rel="stylesheet" href="{% static 'css/game-master-screen.css' %}?v=20260728q">
   <script defer src="{% static 'js/game_groups.js' %}?v=20260726a"></script>
   <script defer src="{% static 'js/sl_inventory.js' %}?v=20260724b"></script>
-  <script defer src="{% static 'js/game_master_screen.js' %}?v=20260728f"></script>
+  <script defer src="{% static 'js/game_master_screen.js' %}?v=20260728i"></script>
 </head>
 <body class="gm-screen-body">
   <main class="gm-screen">
@@ -18,7 +18,7 @@
       <div>
         <span class="gm-screen__eyebrow">Spielleiterübersicht</span>
         <h1>{{ group.name }}</h1>
-        <p>SL-Screen · {{ character_count }} Charaktere · {{ creature_count }} Kreaturen</p>
+        <p><span class="gm-screen__summary-label">SL-Screen · </span>{{ character_count }} Charaktere · {{ creature_count }} Kreaturen</p>
       </div>
       <div class="gm-screen__header-actions">
         {% if group.is_archived %}<span class="gm-screen__archive-state">Archivierte Kampagne · Leseansicht</span>{% endif %}
