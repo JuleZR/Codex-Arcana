@@ -7,10 +7,10 @@
   <title>SL-Screen | {{ group.name }}</title>
   <link rel="stylesheet" href="{% static 'css/charsheet.css' %}">
   <link rel="stylesheet" href="{% static 'css/dashboard.css' %}?v=20260726a">
-  <link rel="stylesheet" href="{% static 'css/game-master-screen.css' %}?v=20260728b">
+  <link rel="stylesheet" href="{% static 'css/game-master-screen.css' %}?v=20260728c">
   <script defer src="{% static 'js/game_groups.js' %}?v=20260726a"></script>
   <script defer src="{% static 'js/sl_inventory.js' %}?v=20260724b"></script>
-  <script defer src="{% static 'js/game_master_screen.js' %}?v=20260726u"></script>
+  <script defer src="{% static 'js/game_master_screen.js' %}?v=20260728a"></script>
 </head>
 <body class="gm-screen-body">
   <main class="gm-screen">
@@ -588,6 +588,8 @@
                     <path d="m4 20 4.2-1 10.6-10.6a1.8 1.8 0 0 0 0-2.6l-.6-.6a1.8 1.8 0 0 0-2.6 0L5 15.8zM14.5 6.3l3.2 3.2M4.8 15.9l3.3 3.3"/>
                   </svg>
                 </summary>
+              </details>
+              <div class="gm-data-table__editor-content">
               <div class="gm-data-table__editor-toolbar">
                 <label class="gm-data-table__width-control">
                   <span>Fensterbreite</span>
@@ -772,7 +774,7 @@
                   </tbody>
                 </table>
               </div>
-              </details>
+              </div>
               {% endif %}
             </form>
           </article>

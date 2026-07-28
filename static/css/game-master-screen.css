@@ -2110,7 +2110,7 @@
 }
 
 .gm-data-table.gm-data-table--stack-group .gm-data-table__preview table,
-.gm-data-table.gm-data-table--stack-group .gm-data-table__editor table {
+.gm-data-table.gm-data-table--stack-group .gm-data-table__editor-content table {
   width: var(--gm-dock-shared-table-width) !important;
   min-width: var(--gm-dock-shared-table-width) !important;
 }
@@ -2169,9 +2169,9 @@
   max-height: inherit;
 }
 
-.gm-data-table--detached .gm-data-table__editor[open] {
+.gm-data-table--detached .gm-data-table__editor[open] + .gm-data-table__editor-content {
   height: auto;
-  flex: 0 0 auto;
+  flex: 0 1 auto;
 }
 
 .gm-data-table--detached .gm-data-table__scroll {
@@ -2615,11 +2615,23 @@
 }
 
 .gm-data-table__editor {
-  flex: 0 0 auto;
+  height: 0;
+  flex: 0 0 0;
   min-height: 0;
 }
 
 .gm-data-table__editor[open] {
+  height: 0;
+  flex: 0 0 0;
+  overflow: visible;
+}
+
+.gm-data-table__editor-content {
+  display: none;
+  min-height: 0;
+}
+
+.gm-data-table__editor[open] + .gm-data-table__editor-content {
   display: grid;
   height: 0;
   flex: 1 1 0;
@@ -2704,9 +2716,9 @@
 }
 
 .gm-data-table__scroll {
-  height: 100%;
+  height: auto;
   min-height: 0;
-  max-height: 100%;
+  max-height: none;
   overflow-x: scroll;
   overflow-y: scroll;
   overscroll-behavior: contain;
@@ -2840,8 +2852,8 @@
   text-align: right;
 }
 
-.gm-data-table__editor th,
-.gm-data-table__editor td {
+.gm-data-table__editor-content th,
+.gm-data-table__editor-content td {
   min-width: 180px;
 }
 

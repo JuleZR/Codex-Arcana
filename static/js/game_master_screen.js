@@ -661,7 +661,7 @@
     });
   });
 
-  document.querySelectorAll(".gm-data-table__editor").forEach((editor) => {
+  document.querySelectorAll(".gm-data-table__editor-content").forEach((editor) => {
     const cells = Array.from(
       editor.querySelectorAll("[data-table-editor-cell]"),
     ).sort((first, second) => (
