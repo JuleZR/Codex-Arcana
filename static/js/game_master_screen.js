@@ -473,16 +473,29 @@
       try {
         const body = new URLSearchParams(new FormData(form));
         const csrfToken = body.get("csrfmiddlewaretoken");
-        const response = await fetch(form.action, {
+        // The hidden input named "action" shadows HTMLFormElement.action.
+        const actionUrl = form.getAttribute("action");
+        if (!actionUrl) {
+          throw new Error("Das Ziel für die Statusänderung fehlt.");
+        }
+        body.set("_response_format", "json");
+        const response = await fetch(actionUrl, {
           method: "POST",
           credentials: "same-origin",
           headers: {
             "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
             "X-CSRFToken": csrfToken,
             "X-Requested-With": "XMLHttpRequest",
+            "Accept": "application/json",
           },
           body: body.toString(),
         });
+        const responseType = response.headers.get("content-type") || "";
+        if (!responseType.includes("application/json")) {
+          throw new Error(
+            `Der Server lieferte keine Statusdaten zurück (HTTP ${response.status}).`,
+          );
+        }
         const result = await response.json();
         if (!response.ok || !result.ok) {
           throw new Error(
@@ -495,7 +508,11 @@
           applyCreatureKpState(card, result);
         }
       } catch (error) {
-        window.alert("Der Kreaturenstatus konnte nicht aktualisiert werden.");
+        window.alert(
+          error instanceof Error
+            ? error.message
+            : "Der Kreaturenstatus konnte nicht aktualisiert werden.",
+        );
       } finally {
         buttons.forEach((button) => {
           button.disabled = false;

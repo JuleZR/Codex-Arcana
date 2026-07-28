@@ -773,8 +773,12 @@ class GameGroupTests(TestCase):
                 "adjust_group_creature_damage",
                 args=[self.group.id, creature_card.id],
             ),
-            {"damage_type": "B", "action": "damage", "amount": "1"},
-            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+            {
+                "damage_type": "B",
+                "action": "damage",
+                "amount": "1",
+                "_response_format": "json",
+            },
         )
 
         self.assertEqual(response.status_code, 200)
@@ -787,6 +791,23 @@ class GameGroupTests(TestCase):
         )
         creature_card.refresh_from_db()
         self.assertEqual(creature_card.current_stun_damage, 1)
+
+        response = self.client.post(
+            reverse(
+                "adjust_group_creature_damage",
+                args=[self.group.id, creature_card.id],
+            ),
+            {
+                "damage_type": "T",
+                "action": "damage",
+                "amount": "1",
+                "_response_format": "json",
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["kind"], "damage")
+        self.assertEqual(response.json()["stun_damage"], 1)
+        self.assertEqual(response.json()["lethal_damage"], 1)
 
     def test_group_creature_search_includes_group_character_creatures(self):
         creature = Creature.objects.create(

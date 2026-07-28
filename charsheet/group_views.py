@@ -102,12 +102,25 @@ from charsheet.views import _build_sheet_context_for_request, _serialize_diary_e
 from charsheet.view_utils import format_modifier
 
 
+def _request_wants_json(request) -> bool:
+    return (
+        request.POST.get("_response_format") == "json"
+        or request.headers.get("x-requested-with") == "XMLHttpRequest"
+        or "application/json" in request.headers.get("accept", "")
+    )
+
+
 def _group_action(view):
     """Convert domain errors into user-facing messages without weakening services."""
     def wrapped(request, *args, **kwargs):
         try:
             return view(request, *args, **kwargs)
         except (GroupError, TransferError) as exc:
+            if _request_wants_json(request):
+                return JsonResponse(
+                    {"ok": False, "error": exc.message},
+                    status=exc.status,
+                )
             messages.error(request, exc.message)
             group_id = kwargs.get("group_id")
             if request.POST.get("_sl_screen") == "1" and group_id:
@@ -1094,7 +1107,7 @@ def adjust_group_creature_damage(request, group_id: int, creature_card_id: int):
             ),
         )
 
-    if request.headers.get("x-requested-with") == "XMLHttpRequest":
+    if _request_wants_json(request):
         return JsonResponse(payload)
 
     return redirect(
@@ -1137,7 +1150,7 @@ def adjust_group_creature_kp(request, group_id: int, creature_card_id: int):
             creature_card.save(update_fields=["current_kp"])
             current_kp = max(0, min(int(maximum), int(creature_card.current_kp or 0)))
 
-    if request.headers.get("x-requested-with") == "XMLHttpRequest":
+    if _request_wants_json(request):
         return JsonResponse(
             {
                 "ok": True,
