@@ -1294,8 +1294,13 @@ class GameGroupTests(TestCase):
         self.assertContains(shared_screen, "data-table-sharing-toggle")
         self.assertContains(
             shared_screen,
-            "nur der Originalersteller kann dies ändern",
+            "nur der Originalersteller kann diese Tabelle bearbeiten",
         )
+        self.assertNotContains(
+            shared_screen,
+            f'data-table-layout-url="{reverse("update_group_table_layout", args=[other_overview_group.id, data_table.id])}"',
+        )
+        self.assertNotContains(shared_screen, 'title="Tabelle bearbeiten"')
         shared_update = self.client.post(
             reverse(
                 "update_group_table",
@@ -1303,10 +1308,105 @@ class GameGroupTests(TestCase):
             ),
             {"title": "Gemeinsam bearbeitet", "is_shared": "0"},
         )
-        self.assertEqual(shared_update.status_code, 302)
+        self.assertEqual(shared_update.status_code, 403)
         data_table.refresh_from_db()
-        self.assertEqual(data_table.title, "Gemeinsam bearbeitet")
+        self.assertEqual(data_table.title, "Persönliche Tabelle")
         self.assertTrue(data_table.is_shared)
+
+        row = data_table.rows.get()
+        column = data_table.columns.get()
+        forbidden_mutations = [
+            (
+                "layout",
+                reverse(
+                    "update_group_table_layout",
+                    args=[other_overview_group.id, data_table.id],
+                ),
+                {"is_detached": "1", "x": "50", "y": "60"},
+            ),
+            (
+                "add row",
+                reverse(
+                    "add_group_table_row",
+                    args=[other_overview_group.id, data_table.id],
+                ),
+                {},
+            ),
+            (
+                "add column",
+                reverse(
+                    "add_group_table_column",
+                    args=[other_overview_group.id, data_table.id],
+                ),
+                {},
+            ),
+            (
+                "delete row",
+                reverse(
+                    "delete_group_table_row",
+                    args=[other_overview_group.id, data_table.id, row.id],
+                ),
+                {},
+            ),
+            (
+                "delete column",
+                reverse(
+                    "delete_group_table_column",
+                    args=[other_overview_group.id, data_table.id, column.id],
+                ),
+                {},
+            ),
+            (
+                "hide",
+                reverse(
+                    "hide_group_table",
+                    args=[other_overview_group.id, data_table.id],
+                ),
+                {},
+            ),
+            (
+                "show",
+                reverse(
+                    "show_group_table",
+                    args=[other_overview_group.id, data_table.id],
+                ),
+                {},
+            ),
+            (
+                "delete table",
+                reverse(
+                    "delete_group_table",
+                    args=[other_overview_group.id, data_table.id],
+                ),
+                {},
+            ),
+        ]
+        for action, url, payload in forbidden_mutations:
+            with self.subTest(action=action):
+                response = self.client.post(url, payload)
+                self.assertEqual(response.status_code, 403)
+
+        original_position = data_table.position
+        reorder_response = self.client.post(
+            reverse(
+                "reorder_group_tables",
+                args=[other_overview_group.id],
+            ),
+            {
+                "ordered_ids": [
+                    "note",
+                    f"table:{data_table.id}",
+                ],
+            },
+        )
+        self.assertEqual(reorder_response.status_code, 200)
+
+        data_table.refresh_from_db()
+        self.assertEqual(data_table.position, original_position)
+        self.assertFalse(data_table.is_detached)
+        self.assertTrue(data_table.is_visible)
+        self.assertEqual(data_table.rows.count(), 1)
+        self.assertEqual(data_table.columns.count(), 1)
 
         self.client.force_login(self.leader)
         unshare_response = self.client.post(
@@ -1324,7 +1424,7 @@ class GameGroupTests(TestCase):
         private_again_screen = self.client.get(
             reverse("game_master_screen", args=[other_overview_group.id])
         )
-        self.assertNotContains(private_again_screen, "Gemeinsam bearbeitet")
+        self.assertNotContains(private_again_screen, "Persönliche Tabelle")
 
     def test_personal_table_survives_creator_role_revocation(self):
         add_game_master(group_id=self.group.id, actor=self.leader, user=self.gm)

@@ -61,8 +61,15 @@
   }
 
   document.querySelectorAll(".gm-data-table__preview").forEach((preview) => {
-    const overflowTolerance = 6;
     const updateHorizontalOverflow = () => {
+      const verticalScrollbarWidth = Math.max(
+        0,
+        preview.offsetWidth - preview.clientWidth,
+      );
+      const overflowTolerance = Math.max(
+        6,
+        verticalScrollbarWidth + 2,
+      );
       const hasMeaningfulOverflow = (
         preview.scrollWidth - preview.clientWidth > overflowTolerance
       );

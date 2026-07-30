@@ -7,10 +7,10 @@
   <title>SL-Screen | {{ group.name }}</title>
   <link rel="stylesheet" href="{% static 'css/charsheet.css' %}">
   <link rel="stylesheet" href="{% static 'css/dashboard.css' %}?v=20260726a">
-  <link rel="stylesheet" href="{% static 'css/game-master-screen.css' %}?v=20260728q">
+  <link rel="stylesheet" href="{% static 'css/game-master-screen.css' %}?v=20260729c">
   <script defer src="{% static 'js/game_groups.js' %}?v=20260726a"></script>
   <script defer src="{% static 'js/sl_inventory.js' %}?v=20260724b"></script>
-  <script defer src="{% static 'js/game_master_screen.js' %}?v=20260728i"></script>
+  <script defer src="{% static 'js/game_master_screen.js' %}?v=20260729b"></script>
 </head>
 <body class="gm-screen-body">
   <main class="gm-screen">
@@ -415,7 +415,9 @@
             data-reorder-card
             data-reorder-id="table:{{ data_table.id }}"
             data-sort-position="{{ data_table.position }}"
+            {% if data_table.creator_id == request.user.id %}
             data-table-layout-url="{% url 'update_group_table_layout' group.id data_table.id %}"
+            {% endif %}
             data-window-width="{{ data_table.window_width|default_if_none:'' }}"
             data-automatic-card-width="{{ data_table.render_automatic_card_width }}"
             data-automatic-editor-width="{{ data_table.render_automatic_editor_width }}"
@@ -438,8 +440,8 @@
                 data-table-markdown-import-payload
                 hidden
               ></textarea>
-              <header class="gm-data-table__header"{% if not group.is_archived %} draggable="{% if data_table.is_detached %}false{% else %}true{% endif %}" data-drag-surface{% endif %}>
-                {% if not group.is_archived %}
+              <header class="gm-data-table__header"{% if not group.is_archived and data_table.creator_id == request.user.id %} draggable="{% if data_table.is_detached %}false{% else %}true{% endif %}" data-drag-surface{% endif %}>
+                {% if not group.is_archived and data_table.creator_id == request.user.id %}
                 <button
                   class="gm-data-table__detach"
                   type="button"
@@ -466,12 +468,12 @@
                   value="{{ data_table.title }}"
                   maxlength="150"
                   aria-label="Tabellen&uuml;berschrift"
-                  {% if group.is_archived %}readonly{% endif %}
+                  {% if group.is_archived or data_table.creator_id != request.user.id %}readonly{% endif %}
                 >
                 {% if not group.is_archived %}
                 <label
                   class="gm-data-table__sharing-control"
-                  title="{% if data_table.creator_id != request.user.id %}Für alle SL freigegeben. Nur {{ data_table.creator.get_username }} kann die Freigabe ändern.{% elif data_table.is_shared %}Freigabe aufheben{% else %}Für alle SL freigeben{% endif %}"
+                  title="{% if data_table.creator_id != request.user.id %}Schreibgeschützt freigegeben. Nur {{ data_table.creator.get_username }} kann diese Tabelle bearbeiten.{% elif data_table.is_shared %}Freigabe aufheben{% else %}Für alle SL freigeben{% endif %}"
                 >
                   {% if data_table.creator_id == request.user.id %}
                   <input type="hidden" name="is_shared" value="0">
@@ -487,7 +489,7 @@
                   <input
                     type="checkbox"
                     data-table-sharing-toggle
-                    aria-label="Für alle SL freigegeben; nur der Originalersteller kann dies ändern"
+                    aria-label="Schreibgeschützt freigegeben; nur der Originalersteller kann diese Tabelle bearbeiten"
                     checked
                     disabled
                   >
@@ -497,6 +499,7 @@
                     <path d="M3.5 12h17M12 3.5c2.4 2.3 3.7 5.2 3.7 8.5s-1.3 6.2-3.7 8.5c-2.4-2.3-3.7-5.2-3.7-8.5S9.6 5.8 12 3.5z"/>
                   </svg>
                 </label>
+                {% if data_table.creator_id == request.user.id %}
                 <div class="gm-data-table__actions">
                   <button
                     class="gm-data-table__icon-action"
@@ -543,7 +546,6 @@
                       <path d="M5 3.5h11l3 3V20.5H5zM8 3.5v6h8v-6M8 20.5v-7h8v7"/>
                     </svg>
                   </button>
-                  {% if data_table.creator_id == request.user.id %}
                   <button
                     class="gm-data-table__icon-action gm-data-table__icon-action--danger"
                     type="submit"
@@ -556,8 +558,8 @@
                       <path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 10.5v6M14 10.5v6"/>
                     </svg>
                   </button>
-                  {% endif %}
                 </div>
+                {% endif %}
                 {% endif %}
               </header>
 
@@ -625,7 +627,7 @@
                 </table>
               </div>
 
-              {% if not group.is_archived %}
+              {% if not group.is_archived and data_table.creator_id == request.user.id %}
               <details class="gm-data-table__editor"{% if editing_table_id == data_table.id %} open{% endif %}>
                 <summary aria-label="Tabelle bearbeiten" title="Tabelle bearbeiten">
                   <svg viewBox="0 0 24 24" aria-hidden="true">

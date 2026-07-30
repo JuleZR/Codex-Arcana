@@ -20,8 +20,8 @@
 }
 
 .gm-screen *::-webkit-scrollbar {
-  width: 4px;
-  height: 4px;
+  width: 2px;
+  height: 2px;
 }
 
 .gm-screen *::-webkit-scrollbar-track,
@@ -30,7 +30,7 @@
 }
 
 .gm-screen *::-webkit-scrollbar-thumb {
-  border: 1px solid transparent;
+  border: 0;
   border-radius: 999px;
   background: rgba(91, 81, 70, 0.68);
   background-clip: padding-box;
@@ -1503,7 +1503,7 @@
   overflow-x: auto;
   overflow-y: hidden;
   overscroll-behavior-inline: contain;
-  scrollbar-gutter: stable;
+  scrollbar-gutter: auto;
 }
 
 .gm-roster-collapsed {
@@ -1524,7 +1524,7 @@
   overflow-x: auto;
   overflow-y: hidden;
   border-right: 1px solid rgba(214, 180, 126, 0.2);
-  scrollbar-gutter: stable;
+  scrollbar-gutter: auto;
 }
 
 .gm-roster-collapsed[hidden],
@@ -2165,6 +2165,7 @@
 }
 
 .gm-data-table {
+  box-sizing: border-box;
   width: var(--gm-table-card-width, 320px);
   min-width: var(--gm-table-card-width, 320px);
   height: 100%;
@@ -2694,7 +2695,7 @@
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
-  scrollbar-gutter: auto;
+  scrollbar-gutter: stable;
 }
 
 .gm-data-table__preview.has-horizontal-table-overflow {
@@ -2809,7 +2810,7 @@
   overflow-x: auto;
   overflow-y: auto;
   overscroll-behavior: contain;
-  scrollbar-gutter: auto;
+  scrollbar-gutter: stable;
 }
 
 .gm-roster-scroll-shell::before,
