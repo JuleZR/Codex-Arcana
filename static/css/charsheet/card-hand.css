@@ -457,6 +457,25 @@
   grid-template-columns: 16px minmax(0, 1fr) 42px;
 }
 
+.creature-training-skill--note {
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+}
+
+.creature-training-skill__visibility {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.creature-training-skill input[type="checkbox"] {
+  width: auto;
+  min-height: 0;
+  box-shadow: none;
+}
+
 .creature-training-skill span {
   min-width: 0;
   overflow: hidden;

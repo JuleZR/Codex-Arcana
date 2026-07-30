@@ -3172,6 +3172,19 @@ def update_creature_card_training(request, pk: int):
             if skill_id:
                 remove_normal_skill_ids.add(skill_id)
 
+    update_note_visibility = "note_visibility_present" in request.POST
+    hidden_skill_note_rows = []
+    if update_note_visibility:
+        visible_note_skill_ids = {
+            _parse_positive_int(raw_id, 0)
+            for raw_id in request.POST.getlist("visible_note_skill_ids")
+        }
+        hidden_skill_note_rows = [
+            row
+            for row in base_creature.skills.filter(skill__isnull=True)
+            if row.pk not in visible_note_skill_ids
+        ]
+
     base_skill_values = {
         row.skill_id: row.value
         for row in base_creature.skills.filter(skill__isnull=False)
@@ -3359,6 +3372,8 @@ def update_creature_card_training(request, pk: int):
                 [row for row in new_skill_rows if isinstance(row, CharacterCreatureSpecialSkill)],
                 ignore_conflicts=True,
             )
+        if update_note_visibility:
+            card.hidden_skill_notes.set(hidden_skill_note_rows)
         card.commands.all().delete()
         created_commands = list(
             CharacterCreatureCommand.objects.bulk_create(
@@ -3455,6 +3470,7 @@ def update_creature_card_training(request, pk: int):
         "commands__command",
         "commands__prerequisite_links__prerequisite__command",
         "attribute_increases",
+        "hidden_skill_notes",
     ).get(pk=card.pk)
     return JsonResponse(_render_creature_training_payload(request, card))
 

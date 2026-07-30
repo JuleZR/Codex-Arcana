@@ -355,8 +355,8 @@ class CreatureSkill(models.Model):
         "Nicht im Kreaturentraining anzeigen",
         default=False,
         help_text=(
-            "Blendet diese Zeile im Ausbildungsmenue aus. "
-            "Reine Notes-Zeilen ohne Fertigkeit werden immer ausgeblendet."
+            "Blendet eine verknuepfte Fertigkeit als Wertefeld im Ausbildungsmenue aus. "
+            "Reine Notes-Zeilen bleiben dort als Sichtbarkeitsschalter verfuegbar."
         ),
     )
 
@@ -1181,6 +1181,13 @@ class CharacterCreature(models.Model):
     current_damage = models.PositiveIntegerField(default=0)
     max_base_advantage_points = models.PositiveSmallIntegerField(default=0)
     max_base_disadvantage_points = models.PositiveSmallIntegerField(default=0)
+    hidden_skill_notes = models.ManyToManyField(
+        CreatureSkill,
+        blank=True,
+        related_name="hidden_on_character_creatures",
+        limit_choices_to={"skill__isnull": True},
+        verbose_name="Ausgeblendete Skill-Notes",
+    )
     size_class_override = models.CharField(max_length=5, choices=GK_CHOICES, blank=True, default="")
     size_modifier_override = models.IntegerField(blank=True, null=True)
     strength_mod_override = models.IntegerField(blank=True, null=True)

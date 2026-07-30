@@ -162,6 +162,10 @@ def build_creature_card_training_context(card):
         row.skill_id: row
         for row in card.special_skill_overrides.select_related("skill").all()
     }
+    hidden_skill_note_ids = {
+        row.pk
+        for row in card.hidden_skill_notes.all()
+    }
     skill_rows = []
     seen_skill_ids = set(
         base_creature.skills.filter(
@@ -191,6 +195,23 @@ def build_creature_card_training_context(card):
             "skill_modifier": skill_modifier,
             "effective_value": value + deviation + attribute_modifier + gk_modifier + skill_modifier,
         }
+
+    for note_row in base_creature.skills.filter(skill__isnull=True):
+        note = str(note_row.notes or "").strip()
+        if not note:
+            continue
+        skill_rows.append(
+            {
+                "id": f"note_{note_row.pk}",
+                "note_id": note_row.pk,
+                "name": note,
+                "notes": "",
+                "can_remove": False,
+                "is_normal_skill": False,
+                "is_note_only": True,
+                "visible_on_card": note_row.pk not in hidden_skill_note_ids,
+            }
+        )
 
     for base_skill in base_creature.skills.select_related(
         "skill",
@@ -4503,6 +4524,7 @@ def build_character_sheet_context(
                 "commands__command",
                 "skill_overrides__skill",
                 "special_skill_overrides__skill",
+                "hidden_skill_notes",
             )
         )
     )

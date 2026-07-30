@@ -698,6 +698,15 @@ class CreatureEngine:
             for row in self.instance.attribute_increases.all()
         }
 
+    @cached_property
+    def hidden_skill_note_ids(self) -> set[int]:
+        if self.instance is None:
+            return set()
+        return {
+            row.pk
+            for row in self.instance.hidden_skill_notes.all()
+        }
+
     def display_name(self) -> str:
         if self.instance:
             return self.instance.display_name
@@ -1123,6 +1132,8 @@ class CreatureEngine:
         seen = set()
         for row in self.creature.skills.select_related("skill", "skill__attribute", "skill__category"):
             if row.skill_id is None:
+                if row.pk in self.hidden_skill_note_ids:
+                    continue
                 note = str(row.notes or "").strip()
                 if note:
                     base_rows.append(
@@ -1777,6 +1788,7 @@ def sync_character_creatures(character) -> list[CharacterCreature]:
             "commands__command",
             "commands__prerequisite_links__prerequisite",
             "attribute_increases",
+            "hidden_skill_notes",
         )
         .order_by("name_override", "creature__name", "id")
     )
