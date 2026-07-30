@@ -3964,12 +3964,12 @@ def _debug_god_card_context(source, card_type: str) -> dict[str, object]:
     if card_type == "divine":
         kind_label = "Gottheit"
         typebar = source.pantheon
-        ability = source.g_ability or source.divine_function or source.description
+        ability = source.g_ability
         aspects = [entry.aspect for entry in source.aspects.all() if entry.aspect_id and entry.is_starting_aspect]
-        holo_kind = ""
+        holo_kind = "god"
     elif card_type == "druid":
         kind_label = "Krafttier"
-        typebar = source.school.name if source.school_id else source.name
+        typebar = source.name
         ability = source.g_ability or source.description
         aspects = [entry.aspect for entry in source.aspects.all() if entry.aspect_id and entry.is_starting_aspect]
         holo_kind = "power-animal"
@@ -3999,7 +3999,7 @@ def _debug_god_card_context(source, card_type: str) -> dict[str, object]:
         "selected_divine_card_editable": False,
         "selected_divine_card_update_url": "",
         "selected_divine_binding": None,
-        "selected_divine_card_holo": card_type in {"druid", "shaman"},
+        "selected_divine_card_holo": True,
         "selected_divine_card_holo_kind": holo_kind,
     }
 
