@@ -96,7 +96,7 @@
         </aside>
 
         <section class="card-typebar">
-            <span class="card-display-field">{{ creature_card.creature_kind_label|default:"Kreatur" }} - {{ creature_card.creature_name|default:creature_card.name }}</span>
+            <span class="card-display-field">{{ creature_card.typebar_label|default:"Kreatur" }}</span>
             {% if creature_card.training_update_url %}
                 <label class="card-typebar-edit card-edit-field" aria-label="Qualität der Kreatur">
                     <select
@@ -108,8 +108,10 @@
                             <option value="{{ quality.value }}" data-quality-color="{{ quality.color }}" data-advantage-points="{{ quality.advantage_points|default:0 }}" data-disadvantage-points="{{ quality.disadvantage_points|default:0 }}"{% if quality.selected %} selected{% endif %}>{{ quality.label }}</option>
                         {% endfor %}
                     </select>
-                    <span>-</span>
-                    <span class="card-typebar-kind-input card-typebar-kind-input--locked">{{ creature_card.creature_name|default:creature_card.name }}</span>
+                    {% if creature_card.creature_type %}
+                        <span>-</span>
+                        <span class="card-typebar-kind-input card-typebar-kind-input--locked">{{ creature_card.creature_type }}</span>
+                    {% endif %}
                 </label>
             {% endif %}
             {% if creature_card.training_update_url %}

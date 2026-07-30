@@ -4,13 +4,15 @@ from collections import defaultdict
 from copy import deepcopy
 
 from django.contrib import admin
+from django.contrib.admin.views.main import ChangeList
 from django.contrib.admin.helpers import ActionForm
 from django.contrib.contenttypes.admin import GenericStackedInline
 from django import forms
 from django.core.exceptions import NON_FIELD_ERRORS, ValidationError
 from django.forms.models import BaseInlineFormSet
 from django.http import HttpResponseRedirect, JsonResponse
-from django.db.models import Q
+from django.db.models import Q, Value
+from django.db.models.functions import Coalesce
 from django.urls import path, reverse
 from django.utils.html import format_html, format_html_join
 from django.utils.safestring import mark_safe
@@ -100,6 +102,7 @@ from .models import (
     CreatureAttack,
     CreatureAttackType,
     CreatureAttribute,
+    CreatureType,
     CreatureSourceBinding,
     CreatureCommand,
     CreatureCommandPrerequisite,
@@ -211,6 +214,7 @@ ADMIN_MODEL_ORDER = {
     "RaceTechnique": 42,
     "RaceStartingItem": 43,
     "RaceChoiceDefinition": 44,
+    "CreatureType": 44,
     "Creature": 45,
     "CreatureAttack": 46,
     "CreatureSkill": 47,
@@ -6439,9 +6443,32 @@ class CreatureSourceBindingAdmin(admin.ModelAdmin):
     autocomplete_fields = ("creature", "item_trigger", "technique_trigger")
 
 
+@admin.register(CreatureType)
+class CreatureTypeAdmin(admin.ModelAdmin):
+    list_display = ("name", "slug")
+    search_fields = ("name", "slug")
+    prepopulated_fields = {"slug": ("name",)}
+    ordering = ("name",)
+
+
+class CreatureChangeList(ChangeList):
+    """Keep creature types grouped while honoring column sorting within groups."""
+
+    def get_ordering(self, request, queryset):
+        ordering = list(super().get_ordering(request, queryset))
+        group_field = "creature_type_group_order"
+        secondary_ordering = [
+            field
+            for field in ordering
+            if not isinstance(field, str) or field.removeprefix("-") != group_field
+        ]
+        return [group_field, *secondary_ordering]
+
+
 @admin.register(Creature)
 class CreatureAdmin(admin.ModelAdmin):
     form = CreatureAdminForm
+    change_list_template = "admin/charsheet/creature/change_list.html"
     list_display = ("name", "size_class", "initiative_override", "natural_rs", "organization")
     search_fields = ("name", "slug", "climate_and_occurrence", "organization")
     list_filter = ("size_class",)
@@ -6454,7 +6481,7 @@ class CreatureAdmin(admin.ModelAdmin):
         CreatureTraitInline,
     )
     fieldsets = (
-        ("Basis", {"fields": ("name", "slug", "image", "description")}),
+        ("Basis", {"fields": ("name", "slug", "creature_type", "image", "description")}),
         (
             "Kampfwerte",
             {
@@ -6490,6 +6517,22 @@ class CreatureAdmin(admin.ModelAdmin):
         ),
         ("Vorkommen", {"fields": ("climate_and_occurrence", "organization")}),
     )
+
+    def get_changelist(self, request, **kwargs):
+        return CreatureChangeList
+
+    def get_queryset(self, request):
+        return (
+            super()
+            .get_queryset(request)
+            .select_related("creature_type")
+            .annotate(
+                creature_type_group_order=Coalesce(
+                    "creature_type__name",
+                    Value("Ohne Kreaturentyp"),
+                )
+            )
+        )
 
 
 class CharacterCreatureItemInline(admin.TabularInline):

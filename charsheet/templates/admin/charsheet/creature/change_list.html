@@ -1,0 +1,13 @@
+{% extends "admin/change_list.html" %}
+{% load admin_list creature_admin_list static %}
+
+{% block extrastyle %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'charsheet/css/creature_admin.css' %}">
+{% endblock %}
+
+{% block result_list %}
+  {% if action_form and actions_on_top and cl.show_admin_actions %}{% admin_actions %}{% endif %}
+  {% grouped_creature_result_list cl %}
+  {% if action_form and actions_on_bottom and cl.show_admin_actions %}{% admin_actions %}{% endif %}
+{% endblock %}

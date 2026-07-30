@@ -104,6 +104,7 @@ class _EmptyCreature:
     pk = None
     name = "Leere Tierform"
     display_name = "Leere Tierform"
+    creature_type = None
     image = None
     quality = None
     size_class = GK_AVERAGE
@@ -1317,6 +1318,7 @@ class CreatureEngine:
         movement_notes = self.movement_notes()
         kp = self.kp()
         potential = self.potential()
+        creature_type = getattr(self.creature.creature_type, "name", "")
         has_ground = all(movement.get(key) is not None for key in ("combat", "march", "sprint"))
         has_single_swim = movement.get("swim") not in (None, "", 0, 0.0)
         has_swim = all(movement.get(key) is not None for key in ("swim_combat", "swim_march", "swim_sprint"))
@@ -1338,6 +1340,8 @@ class CreatureEngine:
             "custom_name": self.instance.name_override if self.instance else "",
             "original_card_name": self.instance.original_card_name if self.instance else self.creature.display_name,
             "creature_name": self.creature.display_name,
+            "creature_type": creature_type,
+            "typebar_label": f"Kreatur - {creature_type}" if creature_type else "Kreatur",
             "image": self.image(),
             "default_image": self.creature.image,
             "has_custom_image": bool(self.instance and self.instance.image_override),
@@ -1429,6 +1433,7 @@ class CreatureEngine:
         ):
             choice_label = (self.instance.source_binding.choice_label or "Tiergestalt").strip()
             context["creature_kind_label"] = choice_label
+            context["typebar_label"] = f"{choice_label} - {self.creature.display_name}"
             if choice_label.casefold() == "tiergestalt":
                 context["name_suffix"] = "Tiergestalt"
         return context
@@ -1561,7 +1566,7 @@ def _creature_card_snapshot_values(creature: Creature, *, quality: Any | None = 
     movement = engine.movement()
     return {
         "name": creature.display_name,
-        "creature_type": "",
+        "creature_type": getattr(creature.creature_type, "name", ""),
         "image": creature.image,
         "description": creature.description,
         "source_reference": creature.climate_and_occurrence,

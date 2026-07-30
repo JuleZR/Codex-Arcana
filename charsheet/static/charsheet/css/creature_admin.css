@@ -1,0 +1,16 @@
+#result_list .creature-type-group th {
+  padding: 0.8rem 0.75rem;
+  border-top: 2px solid var(--hairline-color);
+  border-bottom: 1px solid var(--hairline-color);
+  background: var(--darkened-bg);
+  color: var(--body-quiet-color);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+#result_list tbody .creature-type-group:first-child th {
+  border-top: 0;
+}

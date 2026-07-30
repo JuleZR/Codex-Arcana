@@ -81,11 +81,34 @@ CREATURE_TARGET_DOMAIN_CHOICES = TARGET_DOMAIN_CHOICES + (
 )
 
 
+class CreatureType(models.Model):
+    """Optional category used to group reusable creature templates."""
+
+    name = models.CharField("Name", max_length=100, unique=True)
+    slug = models.SlugField("Slug", max_length=100, unique=True)
+
+    class Meta:
+        ordering = ["name"]
+        verbose_name = "Kreaturentyp"
+        verbose_name_plural = "Kreaturentypen"
+
+    def __str__(self):
+        return self.name
+
+
 class Creature(models.Model):
     """Reusable creature template with Attribute-referenced creature stats."""
 
     name = models.CharField(max_length=100, unique=True)
     slug = models.SlugField(max_length=100, unique=True)
+    creature_type = models.ForeignKey(
+        CreatureType,
+        verbose_name="Kreaturentyp",
+        related_name="creatures",
+        on_delete=models.PROTECT,
+        blank=True,
+        null=True,
+    )
     image = models.ImageField(upload_to="creatures/", blank=True, null=True)
     description = models.TextField(blank=True, default="")
     quality = models.ForeignKey(
