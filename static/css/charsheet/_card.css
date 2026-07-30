@@ -798,6 +798,59 @@ span.card-aspect-placeholder {
     object-fit: cover;
     object-position: 50% 33%;
     filter: saturate(1.08) contrast(1.04) brightness(1.03);
+    transition: filter 180ms ease;
+}
+
+.creature-card[data-creature-wound-state="incapacitated"] .card-art img,
+.creature-card[data-creature-wound-state="coma"] .card-art img {
+    filter: grayscale(1) saturate(0) contrast(0.92) brightness(0.72);
+}
+
+.creature-card[data-creature-wound-state="dead"] .card-art img {
+    filter: grayscale(1) saturate(0) contrast(1.2) brightness(0.3);
+}
+
+.creature-card__death-mark {
+    position: absolute;
+    inset: 0;
+    z-index: 4;
+    display: none;
+    place-content: center;
+    place-items: center;
+    background:
+        radial-gradient(circle at center, rgba(0, 0, 0, 0.38) 0 22%, transparent 50%),
+        linear-gradient(180deg, rgba(15, 11, 11, 0.26), rgba(0, 0, 0, 0.7));
+    color: #e4d8ca;
+    font-family: "Cinzel", Georgia, serif;
+    pointer-events: none;
+    text-align: center;
+    text-shadow:
+        0 2px 2px #000,
+        0 0 10px rgba(0, 0, 0, 0.92);
+}
+
+.creature-card__death-mark > span {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 78px;
+    font-weight: 700;
+    line-height: 0.75;
+    transform: translateY(-48px);
+}
+
+.creature-card__death-mark > strong {
+    margin-top: 12px;
+    border-top: 2px solid currentColor;
+    border-bottom: 2px solid currentColor;
+    font-size: 24px;
+    font-weight: 900;
+    letter-spacing: 0.25em;
+    line-height: 1.25;
+    padding-left: 0.25em;
+    transform: translateY(-48px);
+}
+
+.creature-card[data-creature-wound-state="dead"] .creature-card__death-mark {
+    display: grid;
 }
 
 .card-art-edit {
@@ -1380,6 +1433,18 @@ span.card-aspect-placeholder {
     transform: translateX(-0.5px) scaleX(0.92);
 }
 
+.creature-card__movement-mark--wound {
+    border-color: #d7aaa1;
+    background: #b95043;
+    color: #fff5ec;
+    font-size: 11px;
+    letter-spacing: -0.08em;
+}
+
+.creature-card__movement-mark--wound[hidden] {
+    display: none;
+}
+
 .creature-card__movement-mark--size {
     border-color: #1a1714;
     background: #2f2925;
@@ -1464,6 +1529,27 @@ span.card-aspect-placeholder {
     align-content: start;
     gap: 0;
     padding: 9px 12px 10px;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-color: rgba(65, 51, 37, 0.5) transparent;
+    scrollbar-gutter: stable;
+    scrollbar-width: thin;
+}
+
+.creature-card__rules::-webkit-scrollbar {
+    width: 6px;
+}
+
+.creature-card__rules::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.creature-card__rules::-webkit-scrollbar-thumb {
+    border: 1px solid transparent;
+    border-radius: 999px;
+    background: rgba(65, 51, 37, 0.5);
+    background-clip: padding-box;
 }
 
 .creature-card__damage-cluster {

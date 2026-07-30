@@ -442,6 +442,43 @@
   margin-top: 6px;
 }
 
+.creature-training-language-list {
+  display: grid;
+  gap: 3px;
+  margin-top: 6px;
+}
+
+.creature-training-language {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 5px;
+  min-height: 24px;
+  padding: 2px 3px;
+  border-radius: 4px;
+  background: rgba(255, 252, 242, 0.22);
+}
+
+.creature-training-language select {
+  width: 100%;
+  min-width: 0;
+}
+
+.creature-training-language__write {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.creature-training-language__write input {
+  width: auto;
+  min-height: 0;
+  box-shadow: none;
+}
+
 .creature-training-skill {
   display: grid;
   grid-template-columns: 16px minmax(0, 0.62fr) 42px minmax(132px, 1.38fr);
@@ -527,7 +564,8 @@
   cursor: default;
 }
 
-.creature-training-add-skill {
+.creature-training-add-skill,
+.creature-training-add-language {
   min-height: 24px;
   border: 1px solid rgba(73, 53, 30, 0.34);
   border-radius: 4px;

@@ -15,24 +15,7 @@ export function initCreatureCards() {
     if (!(card instanceof HTMLElement)) {
       return;
     }
-    const rules = card.querySelector(".creature-card__rules");
-    if (!(rules instanceof HTMLElement)) {
-      return;
-    }
-    const scales = [1, 0.96, 0.92, 0.88];
-    const fits = () => (
-      rules.scrollHeight <= rules.clientHeight + 1
-      && rules.scrollWidth <= rules.clientWidth + 1
-    );
     card.style.setProperty("--creature-rules-font-scale", "1");
-    window.requestAnimationFrame(() => {
-      for (const scale of scales) {
-        card.style.setProperty("--creature-rules-font-scale", String(scale));
-        if (fits()) {
-          return;
-        }
-      }
-    });
   };
 
   const setCreatureCardUnlocked = (card, isUnlocked) => {
@@ -337,7 +320,7 @@ export function initCreatureCards() {
       const parsed = readInteger(value, 0);
       return parsed > 0 ? `+${parsed}` : String(parsed);
     };
-    const skillFormulaText = ({ baseValue, deviation, attributeCode, attributeModifier, gkModifier, skillModifier }) => {
+    const skillFormulaText = ({ baseValue, deviation, attributeCode, attributeModifier, gkModifier, skillModifier, woundPenalty }) => {
       const parts = [String(baseValue)];
       if (deviation) {
         parts.push(`${formatSignedModifier(deviation)} Abw.`);
@@ -351,9 +334,12 @@ export function initCreatureCards() {
       if (skillModifier) {
         parts.push(`${formatSignedModifier(skillModifier)} Mod.`);
       }
+      if (woundPenalty) {
+        parts.push(`${formatSignedModifier(woundPenalty)} Wunde`);
+      }
       return parts.join(" ");
     };
-    const skillFormulaTitle = ({ total, baseValue, deviation, attributeCode, attributeModifier, gkModifier, skillModifier }) => {
+    const skillFormulaTitle = ({ total, baseValue, deviation, attributeCode, attributeModifier, gkModifier, skillModifier, woundPenalty }) => {
       const parts = [`Basis ${baseValue}`];
       if (deviation) {
         parts.push(`Abweichung ${formatSignedModifier(deviation)}`);
@@ -366,6 +352,9 @@ export function initCreatureCards() {
       }
       if (skillModifier) {
         parts.push(`Modifikatoren ${formatSignedModifier(skillModifier)}`);
+      }
+      if (woundPenalty) {
+        parts.push(`Wundmalus ${formatSignedModifier(woundPenalty)}`);
       }
       return `${parts.join(" + ")} ergibt ${total}`;
     };
@@ -403,8 +392,9 @@ export function initCreatureCards() {
         const deviation = readInteger(row.dataset.creatureSkillDeviation, 0);
         const gkMultiplier = readInteger(row.dataset.creatureSkillGkMultiplier, 0);
         const skillModifier = readInteger(row.dataset.creatureSkillModifier, 0);
+        const woundPenalty = readInteger(row.dataset.creatureSkillWoundPenalty, 0);
         const gkModifier = sizeModifier * gkMultiplier;
-        const total = baseValue + deviation + attributeModifier + gkModifier + skillModifier;
+        const total = baseValue + deviation + attributeModifier + gkModifier + skillModifier + woundPenalty;
         output.textContent = String(total);
         const formulaPayload = {
           total,
@@ -414,6 +404,7 @@ export function initCreatureCards() {
           attributeModifier,
           gkModifier,
           skillModifier,
+          woundPenalty,
         };
       if (formula instanceof HTMLElement) {
         formula.textContent = skillFormulaText(formulaPayload);
@@ -576,6 +567,21 @@ export function initCreatureCards() {
       input.value = String(skillId);
       panel.appendChild(input);
     };
+    const registerRemovedLanguage = (languageId) => {
+      if (!(panel instanceof HTMLElement) || !languageId) {
+        return;
+      }
+      const input = document.createElement("input");
+      input.type = "hidden";
+      input.name = "remove_language_ids";
+      input.value = String(languageId);
+      panel.appendChild(input);
+    };
+    let nextLanguageKey = Math.max(
+      0,
+      ...Array.from(panel?.querySelectorAll("[data-creature-training-language-key]") || [])
+        .map((field) => readInteger(field.getAttribute("value"), 0)),
+    ) + 1;
     const addSkillRow = () => {
       if (!(panel instanceof HTMLElement)) {
         return;
@@ -597,6 +603,37 @@ export function initCreatureCards() {
           field.value = "0";
         }
       });
+      list.insertBefore(clone, addButton instanceof HTMLElement ? addButton : null);
+    };
+    const addLanguageRow = () => {
+      if (!(panel instanceof HTMLElement)) {
+        return;
+      }
+      const list = panel.querySelector(".creature-training-language-list");
+      const template = panel.querySelector("[data-creature-training-new-language-row]");
+      const addButton = panel.querySelector("[data-creature-training-add-language]");
+      if (!(list instanceof HTMLElement) || !(template instanceof HTMLElement)) {
+        return;
+      }
+      const clone = template.cloneNode(true);
+      if (!(clone instanceof HTMLElement)) {
+        return;
+      }
+      const key = String(nextLanguageKey);
+      nextLanguageKey += 1;
+      const select = clone.querySelector('select[name="new_language_id"]');
+      if (select instanceof HTMLSelectElement) {
+        select.selectedIndex = 0;
+      }
+      const keyInput = clone.querySelector("[data-creature-training-language-key]");
+      if (keyInput instanceof HTMLInputElement) {
+        keyInput.value = key;
+      }
+      const writeInput = clone.querySelector("[data-creature-training-language-write-key]");
+      if (writeInput instanceof HTMLInputElement) {
+        writeInput.checked = false;
+        writeInput.value = key;
+      }
       list.insertBefore(clone, addButton instanceof HTMLElement ? addButton : null);
     };
     drawer.addEventListener("pointerdown", (event) => {
@@ -701,12 +738,27 @@ export function initCreatureCards() {
           addSkillRow();
           return;
         }
+        const addLanguageButton = target?.closest("[data-creature-training-add-language]");
+        if (addLanguageButton instanceof HTMLButtonElement) {
+          event.preventDefault();
+          event.stopPropagation();
+          addLanguageRow();
+          return;
+        }
         const removeExisting = target?.closest("[data-creature-training-remove-skill]");
         if (removeExisting instanceof HTMLButtonElement) {
           event.preventDefault();
           event.stopPropagation();
           registerRemovedSkill(removeExisting.getAttribute("data-skill-id") || "");
           removeExisting.closest("[data-creature-training-skill-row]")?.remove();
+          return;
+        }
+        const removeExistingLanguage = target?.closest("[data-creature-training-remove-language]");
+        if (removeExistingLanguage instanceof HTMLButtonElement) {
+          event.preventDefault();
+          event.stopPropagation();
+          registerRemovedLanguage(removeExistingLanguage.getAttribute("data-language-id") || "");
+          removeExistingLanguage.closest("[data-creature-training-language-row]")?.remove();
           return;
         }
         const removeNew = target?.closest("[data-creature-training-remove-new-skill]");
@@ -725,6 +777,26 @@ export function initCreatureCards() {
                 field.value = "0";
               }
             });
+          }
+          return;
+        }
+        const removeNewLanguage = target?.closest("[data-creature-training-remove-new-language]");
+        if (removeNewLanguage instanceof HTMLButtonElement) {
+          event.preventDefault();
+          event.stopPropagation();
+          const row = removeNewLanguage.closest("[data-creature-training-new-language-row]");
+          const rows = panel.querySelectorAll("[data-creature-training-new-language-row]");
+          if (row instanceof HTMLElement && rows.length > 1) {
+            row.remove();
+          } else if (row instanceof HTMLElement) {
+            const select = row.querySelector('select[name="new_language_id"]');
+            const writeInput = row.querySelector("[data-creature-training-language-write-key]");
+            if (select instanceof HTMLSelectElement) {
+              select.selectedIndex = 0;
+            }
+            if (writeInput instanceof HTMLInputElement) {
+              writeInput.checked = false;
+            }
           }
         }
       });
@@ -949,6 +1021,10 @@ export function initCreatureCards() {
         throw new Error("creature damage update failed");
       }
       const payload = await response.json();
+      if (payload?.cardHtml) {
+        replaceCreatureCardFragments(cluster, payload);
+        return;
+      }
       renderPreviewDamage(
         cluster,
         readInt(payload.current_damage, readInt(cluster.dataset.creatureCurrentDamage, 0)),
@@ -979,6 +1055,24 @@ export function initCreatureCards() {
     penalty ? `${penalty > 0 ? `+${penalty}` : penalty}` : ""
   );
 
+  const applyPreviewWoundPenalty = (card, nextPenalty) => {
+    if (!(card instanceof HTMLElement)) {
+      return;
+    }
+    const previousPenalty = readInt(card.dataset.creatureWoundPenalty, 0);
+    const penaltyDelta = nextPenalty - previousPenalty;
+    if (penaltyDelta) {
+      card.querySelectorAll("[data-creature-wound-adjusted-value]").forEach((valueEl) => {
+        if (!(valueEl instanceof HTMLElement)) {
+          return;
+        }
+        const currentValue = readInt(valueEl.textContent, 0);
+        valueEl.textContent = String(currentValue + penaltyDelta);
+      });
+    }
+    card.dataset.creatureWoundPenalty = String(nextPenalty);
+  };
+
   const woundZoneForDamage = (cluster, damage) => {
     const rows = Array.from(cluster.querySelectorAll("[data-creature-wound-row]"))
       .map((row) => ({
@@ -998,6 +1092,14 @@ export function initCreatureCards() {
         break;
       }
     }
+    const lastRow = rows.at(-1);
+    if (lastRow && damage > lastRow.threshold) {
+      current = {
+        label: "Tod",
+        threshold: lastRow.threshold + 1,
+        penalty: 0,
+      };
+    }
     return current;
   };
 
@@ -1006,7 +1108,7 @@ export function initCreatureCards() {
     const currentEl = cluster.querySelector("[data-creature-damage-current]");
     const maxEl = cluster.querySelector("[data-creature-damage-max]");
     const maxDamage = readInt(cluster.getAttribute("data-creature-wound-max") || maxEl?.textContent, 0);
-    const damage = Math.max(0, Math.min(nextDamage, Math.max(0, maxDamage)));
+    const damage = Math.max(0, nextDamage);
     cluster.dataset.creatureCurrentDamage = String(damage);
     if (currentEl instanceof HTMLElement) {
       currentEl.textContent = String(damage);
@@ -1016,11 +1118,24 @@ export function initCreatureCards() {
     }
 
     const zone = woundZoneForDamage(cluster, damage);
+    if (card instanceof HTMLElement) {
+      applyPreviewWoundPenalty(card, zone.penalty);
+      card.dataset.creatureWoundState = zone.label === "Tod"
+        ? "dead"
+        : zone.label === "Koma"
+          ? "coma"
+          : zone.label === "Ausser Gefecht" || zone.label === "Außer Gefecht"
+            ? "incapacitated"
+            : "active";
+    }
     const status = card?.querySelector("[data-creature-wound-status]");
     if (!(status instanceof HTMLElement)) {
       return;
     }
     status.hidden = !zone.penalty;
+    const penaltyText = formatPenalty(zone.penalty);
+    status.setAttribute("aria-label", `Wundmalus ${penaltyText || "0"}`);
+    status.setAttribute("data-tooltip", `Wundmalus ${penaltyText || "0"} (bereits eingerechnet)`);
     const labelEl = status.querySelector("[data-creature-wound-label]");
     const thresholdEl = status.querySelector("[data-creature-wound-threshold]");
     const penaltyEl = status.querySelector("[data-creature-wound-penalty]");
@@ -1031,7 +1146,7 @@ export function initCreatureCards() {
       thresholdEl.textContent = String(zone.threshold);
     }
     if (penaltyEl instanceof HTMLElement) {
-      penaltyEl.textContent = formatPenalty(zone.penalty);
+      penaltyEl.textContent = penaltyText;
     }
     fitCreatureRuleText(card);
   };

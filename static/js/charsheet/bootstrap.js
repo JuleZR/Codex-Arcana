@@ -28,7 +28,7 @@ import { initRadialMenuGem } from "./radial_menu_gem.js";
 import { initCharacterAppearanceModal } from "./character_appearance_modal.js";
 import { initCardHand } from "./card_hand.js?v=20260621a";
 import { initGodCards } from "./god_card.js?v=20260702a";
-import { initCreatureCards } from "./creature_card.js?v=20260721c";
+import { initCreatureCards } from "./creature_card.js?v=20260730c";
 import { initItemTransfers } from "./item_transfers.js?v=20260723a";
 import { initItemTransferWindow } from "./item_transfer_window.js?v=20260721f";
 

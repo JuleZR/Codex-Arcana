@@ -760,7 +760,12 @@ class CreatureEngine:
         base = self.creature.initiative_override
         if base is None:
             base = int(self.attribute_mod(ATTR_WA) or 0)
-        return int(base) + int(self._instance_numeric_adjustment("initiative_override")) + self._modifier_total(TargetDomain.DERIVED_STAT, "initiative")
+        return (
+            int(base)
+            + int(self._instance_numeric_adjustment("initiative_override"))
+            + self._modifier_total(TargetDomain.DERIVED_STAT, "initiative")
+            + self.current_wound_penalty()
+        )
 
     def vw(self) -> int:
         if self.creature.vw_override is not None:
@@ -868,6 +873,12 @@ class CreatureEngine:
     def current_wound_zone(self) -> dict[str, Any]:
         damage = int(getattr(self.instance, "current_damage", 0) or 0)
         rows = self.wound_rows()
+        if rows and damage > int(rows[-1]["threshold"]):
+            return {
+                "label": "Tod",
+                "threshold": int(rows[-1]["threshold"]) + 1,
+                "penalty": 0,
+            }
         current = {"label": "-", "threshold": 0, "penalty": 0}
         for row in rows:
             if damage >= int(row["threshold"]):
@@ -879,6 +890,9 @@ class CreatureEngine:
             else:
                 break
         return current
+
+    def current_wound_penalty(self) -> int:
+        return int(self.current_wound_zone()["penalty"] or 0)
 
     def movement(self) -> dict[str, Any]:
         return {
@@ -1020,6 +1034,7 @@ class CreatureEngine:
             int(self.attribute_increase_totals.get(ATTR_GE, 0) or 0)
             + self.size_modifier()
             + self._modifier_total(TargetDomain.COMBAT, "attack_value")
+            + self.current_wound_penalty()
         )
         damage_bonus = (
             int(self.attribute_increase_totals.get(ATTR_ST, 0) or 0)
@@ -1130,6 +1145,7 @@ class CreatureEngine:
             }
         base_rows = []
         seen = set()
+        wound_penalty = self.current_wound_penalty()
         for row in self.creature.skills.select_related("skill", "skill__attribute", "skill__category"):
             if row.skill_id is None:
                 if row.pk in self.hidden_skill_note_ids:
@@ -1163,6 +1179,7 @@ class CreatureEngine:
                 + self._skill_size_modifier(row.skill)
                 + self._modifier_total(TargetDomain.SKILL_CATEGORY, category_slug)
                 + self._modifier_total(TargetDomain.SKILL, row.skill.slug)
+                + wound_penalty
             )
             base_rows.append(
                 {
@@ -1199,6 +1216,7 @@ class CreatureEngine:
                     + self._skill_size_modifier(override.skill)
                     + self._modifier_total(TargetDomain.SKILL_CATEGORY, category_slug)
                     + self._modifier_total(TargetDomain.SKILL, override.skill.slug)
+                    + wound_penalty
                 )
                 base_rows.append(
                     {
@@ -1226,14 +1244,27 @@ class CreatureEngine:
         return base_rows
 
     def languages(self) -> list[dict[str, Any]]:
+        rows_by_language_id = {
+            row.language_id: {
+                "name": row.language.name,
+                "can_write": bool(row.can_write),
+            }
+            for row in self.creature.languages.select_related("language")
+        }
+        if self.instance:
+            for override in self.instance.language_overrides.select_related("language"):
+                rows_by_language_id[override.language_id] = {
+                    "name": override.language.name,
+                    "can_write": bool(override.can_write),
+                }
         rows = []
-        for row in self.creature.languages.select_related("language"):
-            suffix = " (L&S)" if row.can_write else ""
+        for row in sorted(rows_by_language_id.values(), key=lambda value: value["name"].casefold()):
+            suffix = " (L&S)" if row["can_write"] else ""
             rows.append(
                 {
-                    "name": row.language.name,
-                    "can_write": bool(row.can_write),
-                    "display": f"Sprache: {row.language.name}{suffix}",
+                    "name": row["name"],
+                    "can_write": row["can_write"],
+                    "display": f"Sprache: {row['name']}{suffix}",
                 }
             )
         return rows
@@ -1356,6 +1387,15 @@ class CreatureEngine:
         defense_extra_label = self.defense_extra_label()
         wound_rows = self.wound_rows()
         wound_zone = self.current_wound_zone()
+        wound_label = str(wound_zone["label"] or "")
+        if wound_label == "Tod":
+            wound_state = "dead"
+        elif wound_label == "Koma":
+            wound_state = "coma"
+        elif wound_label in {"Ausser Gefecht", "Außer Gefecht"}:
+            wound_state = "incapacitated"
+        else:
+            wound_state = "active"
         quality = self.instance.quality if self.instance else self.creature.quality
         normalized_quality = ItemEngine.normalize_quality(quality)
         holo_kind = "creature-legendary" if normalized_quality == "legendary" else "creature"
@@ -1445,6 +1485,7 @@ class CreatureEngine:
             "wounds": wound_rows,
             "wound_max": wound_rows[-1]["threshold"] if wound_rows else 0,
             "wound_zone": wound_zone,
+            "wound_state": wound_state,
             "wound_penalty": wound_zone["penalty"],
             "movement": movement,
             "movement_display": self.movement_display(),

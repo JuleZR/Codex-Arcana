@@ -1378,6 +1378,31 @@ class CharacterCreatureSpecialSkill(models.Model):
         return f"{self.creature}: {self.skill} {self.value_override:+d}"
 
 
+class CharacterCreatureLanguage(models.Model):
+    """Language added to a creature or L&S override for a base language."""
+
+    creature = models.ForeignKey(
+        CharacterCreature,
+        on_delete=models.CASCADE,
+        related_name="language_overrides",
+    )
+    language = models.ForeignKey(Language, on_delete=models.PROTECT)
+    can_write = models.BooleanField("Lesen und Schreiben", default=False)
+
+    class Meta:
+        ordering = ["language__name"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["creature", "language"],
+                name="uniq_character_creature_language",
+            )
+        ]
+
+    def __str__(self):
+        suffix = " (L&S)" if self.can_write else ""
+        return f"{self.creature}: {self.language.name}{suffix}"
+
+
 class CharacterCreatureTrait(models.Model):
     class TrainingTraitType(models.TextChoices):
         NONE = "", "Keine Ausbildung"

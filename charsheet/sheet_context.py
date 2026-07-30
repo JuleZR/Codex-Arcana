@@ -162,6 +162,42 @@ def build_creature_card_training_context(card):
         row.skill_id: row
         for row in card.special_skill_overrides.select_related("skill").all()
     }
+    language_overrides = {
+        row.language_id: row
+        for row in card.language_overrides.select_related("language").all()
+    }
+    base_language_rows = list(base_creature.languages.select_related("language").all())
+    base_language_ids = {row.language_id for row in base_language_rows}
+    language_rows = [
+        {
+            "id": row.language_id,
+            "name": row.language.name,
+            "can_write": bool(
+                language_overrides[row.language_id].can_write
+                if row.language_id in language_overrides
+                else row.can_write
+            ),
+            "can_remove": False,
+        }
+        for row in base_language_rows
+    ]
+    language_rows.extend(
+        {
+            "id": row.language_id,
+            "name": row.language.name,
+            "can_write": bool(row.can_write),
+            "can_remove": True,
+        }
+        for language_id, row in language_overrides.items()
+        if language_id not in base_language_ids
+    )
+    language_rows.sort(key=lambda row: row["name"].casefold())
+    known_language_ids = {row["id"] for row in language_rows}
+    language_catalog = [
+        {"id": language.pk, "name": language.name}
+        for language in Language.objects.order_by("name")
+        if language.pk not in known_language_ids
+    ]
     hidden_skill_note_ids = {
         row.pk
         for row in card.hidden_skill_notes.all()
@@ -179,6 +215,7 @@ def build_creature_card_training_context(card):
         gk_multiplier = 2 if skill.slug == "skill_hide" else 1 if skill.slug == "skill_evasion" or skill.category.slug == SKILL_COMBAT else 0
         gk_modifier = gk_multiplier * engine.size_modifier()
         skill_modifier = engine._modifier_total("skill", skill.slug)
+        wound_penalty = engine.current_wound_penalty()
         return {
             "id": row_id,
             "remove_id": remove_id,
@@ -193,7 +230,8 @@ def build_creature_card_training_context(card):
             "gk_multiplier": gk_multiplier,
             "gk_modifier": gk_modifier,
             "skill_modifier": skill_modifier,
-            "effective_value": value + deviation + attribute_modifier + gk_modifier + skill_modifier,
+            "wound_penalty": wound_penalty,
+            "effective_value": value + deviation + attribute_modifier + gk_modifier + skill_modifier + wound_penalty,
         }
 
     for note_row in base_creature.skills.filter(skill__isnull=True):
@@ -544,6 +582,8 @@ def build_creature_card_training_context(card):
         "skill_rows": skill_rows,
         "skill_catalog": skill_catalog,
         "special_skill_catalog": special_skill_catalog,
+        "language_rows": language_rows,
+        "language_catalog": language_catalog,
         "known_command_ids": {command.command_id for command in commands if command.command_id},
         "command_catalog": command_catalog,
         "traits": traits,

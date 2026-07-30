@@ -154,7 +154,7 @@
         <div class="creature-training-skill-list">
         <input type="hidden" name="note_visibility_present" value="1">
         {% for skill in training.skill_rows %}
-          <div class="creature-training-skill{% if skill.is_note_only %} creature-training-skill--note{% endif %}" data-creature-training-skill-row data-filter-text="{{ skill.name }} {{ skill.value }} {{ skill.notes }}"{% if skill.is_normal_skill %} data-creature-skill-attribute="{{ skill.attribute }}" data-creature-skill-attribute-mod="{{ skill.attribute_modifier }}" data-creature-skill-deviation="{{ skill.deviation }}" data-creature-skill-gk-multiplier="{{ skill.gk_multiplier }}" data-creature-skill-modifier="{{ skill.skill_modifier }}"{% endif %}>
+          <div class="creature-training-skill{% if skill.is_note_only %} creature-training-skill--note{% endif %}" data-creature-training-skill-row data-filter-text="{{ skill.name }} {{ skill.value }} {{ skill.notes }}"{% if skill.is_normal_skill %} data-creature-skill-attribute="{{ skill.attribute }}" data-creature-skill-attribute-mod="{{ skill.attribute_modifier }}" data-creature-skill-deviation="{{ skill.deviation }}" data-creature-skill-gk-multiplier="{{ skill.gk_multiplier }}" data-creature-skill-modifier="{{ skill.skill_modifier }}" data-creature-skill-wound-penalty="{{ skill.wound_penalty }}"{% endif %}>
             {% if skill.can_remove %}
               <button class="creature-training-skill__remove" type="button" data-creature-training-remove-skill data-skill-id="{{ skill.remove_id }}" aria-label="{{ skill.name }} entfernen">×</button>
             {% else %}
@@ -198,6 +198,49 @@
             <input type="number" name="new_skill_value" value="0" min="-20" max="50" aria-label="Wert neue Fertigkeit">
           </div>
           <button class="creature-training-add-skill" type="button" data-creature-training-add-skill>Fertigkeit hinzuf&uuml;gen</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="creature-training-drawer__section is-collapsed" aria-label="Sprachen" data-creature-training-section>
+      <button class="creature-training-section-toggle" type="button" data-creature-training-section-toggle aria-expanded="false">
+        <span>Sprachen</span>
+        <span class="creature-training-section-toggle__icon" aria-hidden="true"></span>
+      </button>
+      <div class="creature-training-section-body" data-creature-training-section-body hidden>
+        <div class="creature-training-language-list">
+          <input type="hidden" name="languages_present" value="1">
+          {% for language in training.language_rows %}
+            <div class="creature-training-language" data-creature-training-language-row data-filter-text="{{ language.name }}">
+              {% if language.can_remove %}
+                <button class="creature-training-skill__remove" type="button" data-creature-training-remove-language data-language-id="{{ language.id }}" aria-label="{{ language.name }} entfernen">&times;</button>
+              {% else %}
+                <span class="creature-training-skill__remove creature-training-skill__remove--placeholder" aria-hidden="true"></span>
+              {% endif %}
+              <span>{{ language.name }}</span>
+              <label class="creature-training-language__write">
+                <input type="checkbox" name="language_write_ids" value="{{ language.id }}"{% if language.can_write %} checked{% endif %}>
+                <span>L&amp;S</span>
+              </label>
+            </div>
+          {% empty %}
+            <p class="creature-training-empty">Noch keine Sprachen vorhanden.</p>
+          {% endfor %}
+          <div class="creature-training-language creature-training-language--new" data-creature-training-new-language-row>
+            <button class="creature-training-skill__remove" type="button" data-creature-training-remove-new-language aria-label="Neue Sprache entfernen">&times;</button>
+            <select name="new_language_id" aria-label="Neue Sprache">
+              <option value="">Sprache hinzuf&uuml;gen</option>
+              {% for language in training.language_catalog %}
+                <option value="{{ language.id }}">{{ language.name }}</option>
+              {% endfor %}
+            </select>
+            <input type="hidden" name="new_language_key" value="0" data-creature-training-language-key>
+            <label class="creature-training-language__write">
+              <input type="checkbox" name="new_language_write_keys" value="0" data-creature-training-language-write-key>
+              <span>L&amp;S</span>
+            </label>
+          </div>
+          <button class="creature-training-add-language" type="button" data-creature-training-add-language>Sprache hinzuf&uuml;gen</button>
         </div>
       </div>
     </section>

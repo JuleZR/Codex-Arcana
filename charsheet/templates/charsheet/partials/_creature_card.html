@@ -8,6 +8,8 @@
     lang="de"
     aria-label="{{ creature_card.name }} Kreaturenkarte"
     data-creature-card-quality="{{ creature_card.quality }}"
+    data-creature-wound-state="{{ creature_card.wound_state|default:'active' }}"
+    data-creature-wound-penalty="{{ creature_card.wound_penalty|default:0 }}"
     {% if creature_card.default_image %}data-creature-card-default-image="{{ creature_card.default_image.url }}"{% endif %}
     {% if creature_card.training_update_url %}data-creature-card-editor{% endif %}
     {% if creature_card.holo %}data-card-holo="true" data-card-holo-kind="{{ creature_card.holo_kind|default:'creature' }}"{% endif %}
@@ -19,6 +21,10 @@
         {% elif creature_card.default_image %}
             <img src="{{ creature_card.default_image.url }}" alt="{{ creature_card.name }}">
         {% endif %}
+        <span class="creature-card__death-mark" aria-label="Tot">
+            <span aria-hidden="true">†</span>
+            <strong>TOT</strong>
+        </span>
     </figure>
 
     <div class="card-shell">
@@ -54,6 +60,16 @@
                 <input class="card-title card-title-input card-edit-field" name="custom_name" value="{{ creature_card.custom_name|default:'' }}" placeholder="{{ creature_card.original_card_name|default:'' }}" maxlength="100" data-creature-card-field>
             {% endif %}
             <div class="creature-card__movement" aria-label="Bewegungsraten">
+                <span
+                    class="creature-card__movement-mark creature-card__movement-mark--mana creature-card__movement-mark--wound tooltip_target"
+                    data-creature-wound-status
+                    aria-label="Wundmalus {{ creature_card.wound_penalty|stringformat:'+d' }}"
+                    data-tooltip="Wundmalus {{ creature_card.wound_penalty|stringformat:'+d' }} (bereits eingerechnet)"
+                    data-tooltip-side="right"
+                    {% if not creature_card.wound_penalty %}hidden{% endif %}
+                >
+                    <span data-creature-wound-penalty>{% if creature_card.wound_penalty %}{{ creature_card.wound_penalty|stringformat:"+d" }}{% endif %}</span>
+                </span>
                 <span class="creature-card__movement-mark creature-card__movement-mark--size" aria-label="Größenklasse {{ creature_card.size_class }}">
                     <span>{{ creature_card.size_class }}</span>
                 </span>
@@ -173,7 +189,7 @@
                 {% if creature_card.has_kp %}
                     <span class="creature-card__core-row creature-card__core-row--main">
                 {% endif %}
-                <span class="creature-card__core-stat"><strong>Initiative</strong><span class="creature-card__core-value">{{ creature_card.initiative }}{% for variant in creature_card.initiative_variants %}/<span class="tooltip_target" data-tooltip="{{ variant.note }}" data-tooltip-side="right">{{ variant.value }}</span>{% endfor %}</span></span>
+                <span class="creature-card__core-stat"><strong>Initiative</strong><span class="creature-card__core-value"><span data-creature-wound-adjusted-value>{{ creature_card.initiative }}</span>{% for variant in creature_card.initiative_variants %}/<span class="tooltip_target" data-creature-wound-adjusted-value data-tooltip="{{ variant.note }}" data-tooltip-side="right">{{ variant.value }}</span>{% endfor %}</span></span>
                 <span class="creature-card__core-stat"><strong>VW</strong><span class="creature-card__core-value">{{ creature_card.vw }}{% for variant in creature_card.vw_variants %}/<span class="tooltip_target" data-tooltip="{{ variant.note }}" data-tooltip-side="right">{{ variant.value }}</span>{% endfor %}</span></span>
                 <span class="creature-card__core-stat"><strong>SR</strong><span class="creature-card__core-value">{{ creature_card.sr }}{% for variant in creature_card.sr_variants %}/<span class="tooltip_target" data-tooltip="{{ variant.note }}" data-tooltip-side="right">{{ variant.value }}</span>{% endfor %}</span></span>
                 <span class="creature-card__core-stat creature-card__core-stat--gw">
@@ -192,11 +208,6 @@
                 {% endif %}
             </div>
 
-            <p class="creature-card__oracle-line" data-creature-wound-status{% if creature_card.wound_zone.label == "-" %} hidden{% endif %}>
-                <strong>Wundmalus</strong>
-                <span data-creature-wound-penalty>{% if creature_card.wound_penalty %}{{ creature_card.wound_penalty|stringformat:"+d" }}{% endif %}</span>
-            </p>
-
             {% if creature_card.effect_conditions %}
                 <p class="creature-card__oracle-line creature-card__oracle-line--conditions">
                     <strong>Situativ</strong>
@@ -210,7 +221,7 @@
                 <p class="creature-card__oracle-line">
                     <strong>Angriff</strong>
                     {% for attack in creature_card.attacks %}
-                        <span class="creature-card__attack-unit{% if attack.notes %} tooltip_target{% endif %}"{% if attack.notes %} data-tooltip="{{ attack.notes }}" data-tooltip-side="right"{% endif %}>{{ attack.name }} {% for part in attack.attack_value_parts %}{% if not forloop.first %}/{% endif %}{% if part.note %}<span class="tooltip_target" data-tooltip="{{ part.note }}" data-tooltip-side="right">{{ part.value }}</span>{% else %}{{ part.value }}{% endif %}{% endfor %}{% if attack.damage_display %} - {{ attack.damage_display }}{% for variant in attack.damage_variants %}/<span class="tooltip_target" data-tooltip="{{ variant.note }}" data-tooltip-side="right">{{ variant.value }}</span>{% endfor %}{% endif %}</span>{% if not forloop.last %}; {% endif %}
+                        <span class="creature-card__attack-unit{% if attack.notes %} tooltip_target{% endif %}"{% if attack.notes %} data-tooltip="{{ attack.notes }}" data-tooltip-side="right"{% endif %}>{{ attack.name }} {% for part in attack.attack_value_parts %}{% if not forloop.first %}/{% endif %}<span{% if part.note %} class="tooltip_target"{% endif %} data-creature-wound-adjusted-value{% if part.note %} data-tooltip="{{ part.note }}" data-tooltip-side="right"{% endif %}>{{ part.value }}</span>{% endfor %}{% if attack.damage_display %} - {{ attack.damage_display }}{% for variant in attack.damage_variants %}/<span class="tooltip_target" data-tooltip="{{ variant.note }}" data-tooltip-side="right">{{ variant.value }}</span>{% endfor %}{% endif %}</span>{% if not forloop.last %}; {% endif %}
                     {% endfor %}
                 </p>
             {% endif %}
@@ -219,7 +230,7 @@
                 <p class="creature-card__oracle-line creature-card__skill-line">
                     <strong>Fertigkeiten</strong>
                     {% for skill in creature_card.skills %}
-                        <span class="creature-card__rule-entry creature-card__skill-entry{% if skill.notes %} tooltip_target{% endif %}"{% if skill.notes %} data-tooltip="{{ skill.notes }}" data-tooltip-side="right"{% endif %}>{{ skill.name }}{% if skill.value %} {% for part in skill.value_parts %}{% if not forloop.first %}/{% endif %}{% if part.note %}<span class="tooltip_target" data-tooltip="{{ part.note }}" data-tooltip-side="right">{{ part.value }}</span>{% else %}{{ part.value }}{% endif %}{% endfor %}{% endif %}{% if not forloop.last %},{% endif %}</span>
+                        <span class="creature-card__rule-entry creature-card__skill-entry{% if skill.notes %} tooltip_target{% endif %}"{% if skill.notes %} data-tooltip="{{ skill.notes }}" data-tooltip-side="right"{% endif %}>{{ skill.name }}{% if skill.value %} {% for part in skill.value_parts %}{% if not forloop.first %}/{% endif %}<span{% if part.note %} class="tooltip_target"{% endif %} data-creature-wound-adjusted-value{% if part.note %} data-tooltip="{{ part.note }}" data-tooltip-side="right"{% endif %}>{{ part.value }}</span>{% endfor %}{% endif %}{% if not forloop.last %},{% endif %}</span>
                     {% endfor %}
                 </p>
             {% endif %}

@@ -45,6 +45,7 @@ from .models import (
     CharacterCreatureAttributeIncrease,
     CharacterCreatureCommand,
     CharacterCreatureCommandPrerequisite,
+    CharacterCreatureLanguage,
     CharacterCreatureSkill,
     CharacterCreatureSpecialSkill,
     CharacterCreatureTrait,
@@ -2634,7 +2635,9 @@ def adjust_creature_damage(request, pk: int):
     character_creature.save(update_fields=["current_damage"])
 
     if _is_partial_request(request):
-        return JsonResponse({"ok": True, "current_damage": character_creature.current_damage})
+        payload = _render_creature_training_payload(request, character_creature)
+        payload["current_damage"] = character_creature.current_damage
+        return JsonResponse(payload)
 
     next_url = str(request.POST.get("next") or "").strip()
     if next_url.startswith("/"):
@@ -3338,6 +3341,37 @@ def update_creature_card_training(request, pk: int):
                 )
             )
 
+    update_languages = "languages_present" in request.POST
+    language_write_ids = {
+        _parse_positive_int(raw_id, 0)
+        for raw_id in request.POST.getlist("language_write_ids")
+    }
+    remove_language_ids = {
+        _parse_positive_int(raw_id, 0)
+        for raw_id in request.POST.getlist("remove_language_ids")
+    }
+    new_language_ids = request.POST.getlist("new_language_id")
+    new_language_keys = request.POST.getlist("new_language_key")
+    new_language_write_keys = {
+        str(raw_key)
+        for raw_key in request.POST.getlist("new_language_write_keys")
+    }
+    requested_new_languages = []
+    for index, raw_language_id in enumerate(new_language_ids):
+        language_id = _parse_positive_int(raw_language_id, 0)
+        if not language_id:
+            continue
+        row_key = str(new_language_keys[index] if index < len(new_language_keys) else index)
+        requested_new_languages.append(
+            (language_id, row_key in new_language_write_keys)
+        )
+    selected_new_languages = {
+        language.pk: language
+        for language in Language.objects.filter(
+            pk__in={language_id for language_id, _can_write in requested_new_languages}
+        )
+    }
+
     with transaction.atomic():
         if card_update_fields:
             card.save(update_fields=sorted(set(card_update_fields)))
@@ -3374,6 +3408,47 @@ def update_creature_card_training(request, pk: int):
             )
         if update_note_visibility:
             card.hidden_skill_notes.set(hidden_skill_note_rows)
+        if update_languages:
+            base_language_write = {
+                row.language_id: bool(row.can_write)
+                for row in base_creature.languages.all()
+            }
+            existing_language_overrides = {
+                row.language_id: row
+                for row in card.language_overrides.all()
+            }
+            for language_id, base_can_write in base_language_write.items():
+                desired_can_write = language_id in language_write_ids
+                if desired_can_write == base_can_write:
+                    card.language_overrides.filter(language_id=language_id).delete()
+                else:
+                    CharacterCreatureLanguage.objects.update_or_create(
+                        creature=card,
+                        language_id=language_id,
+                        defaults={"can_write": desired_can_write},
+                    )
+            for language_id, override in existing_language_overrides.items():
+                if language_id in base_language_write:
+                    continue
+                if language_id in remove_language_ids:
+                    override.delete()
+                    continue
+                override.can_write = language_id in language_write_ids
+                override.save(update_fields=["can_write"])
+            known_language_ids = set(base_language_write) | {
+                language_id
+                for language_id in existing_language_overrides
+                if language_id not in remove_language_ids
+            }
+            for language_id, can_write in requested_new_languages:
+                if language_id in known_language_ids or language_id not in selected_new_languages:
+                    continue
+                CharacterCreatureLanguage.objects.create(
+                    creature=card,
+                    language=selected_new_languages[language_id],
+                    can_write=can_write,
+                )
+                known_language_ids.add(language_id)
         card.commands.all().delete()
         created_commands = list(
             CharacterCreatureCommand.objects.bulk_create(
