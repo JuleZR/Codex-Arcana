@@ -108,6 +108,7 @@ from .models import (
     CreatureCommand,
     CreatureCommandPrerequisite,
     CreatureCommandReference,
+    CreatureLanguage,
     CreatureSkill,
     CreatureSpecialSkill,
     CreatureSpecialSkillSemanticEffect,
@@ -6072,7 +6073,15 @@ class CreatureAttackInline(admin.TabularInline):
 class CreatureSkillInline(admin.TabularInline):
     model = CreatureSkill
     extra = 0
-    fields = ("skill", "attribute_modifier_preview", "gk_modifier_preview", "level", "deviation", "notes")
+    fields = (
+        "skill",
+        "attribute_modifier_preview",
+        "gk_modifier_preview",
+        "level",
+        "deviation",
+        "notes",
+        "hide_from_creature_training",
+    )
     readonly_fields = ("attribute_modifier_preview", "gk_modifier_preview")
     autocomplete_fields = ("skill",)
 
@@ -6090,6 +6099,13 @@ class CreatureSkillInline(admin.TabularInline):
         if not obj or not obj.skill_id or not obj.creature_id:
             return "-"
         return _creature_skill_gk_modifier_preview(obj.creature, obj.skill)
+
+
+class CreatureLanguageInline(admin.TabularInline):
+    model = CreatureLanguage
+    extra = 0
+    fields = ("language", "levels", "can_write", "is_mother_tongue")
+    autocomplete_fields = ("language",)
 
 
 class CreatureSpecialSkillValueInline(admin.TabularInline):
@@ -6498,6 +6514,7 @@ class CreatureAdmin(admin.ModelAdmin):
     inlines = (
         CreatureAttackInline,
         CreatureSkillInline,
+        CreatureLanguageInline,
         CreatureSpecialSkillValueInline,
         CreatureCommandReferenceInline,
         CreatureTraitInline,
@@ -6743,10 +6760,20 @@ class CreatureAttackTypeAdmin(admin.ModelAdmin):
 
 @admin.register(CreatureSkill)
 class CreatureSkillAdmin(admin.ModelAdmin):
-    list_display = ("creature", "skill", "level", "deviation")
-    search_fields = ("creature__name", "skill__name")
+    list_display = ("creature", "skill", "level", "deviation", "hide_from_creature_training")
+    search_fields = ("creature__name", "skill__name", "skill__slug", "notes")
+    list_filter = ("hide_from_creature_training",)
     autocomplete_fields = ("creature", "skill")
     list_select_related = ("creature", "skill", "skill__attribute", "skill__category")
+
+
+@admin.register(CreatureLanguage)
+class CreatureLanguageAdmin(admin.ModelAdmin):
+    list_display = ("creature", "language", "levels", "can_write", "is_mother_tongue")
+    search_fields = ("creature__name", "language__name", "language__slug")
+    list_filter = ("can_write", "is_mother_tongue", "language")
+    autocomplete_fields = ("creature", "language")
+    list_select_related = ("creature", "language")
 
 
 @admin.register(CreatureSpecialSkill)

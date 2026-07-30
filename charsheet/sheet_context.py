@@ -163,7 +163,12 @@ def build_creature_card_training_context(card):
         for row in card.special_skill_overrides.select_related("skill").all()
     }
     skill_rows = []
-    seen_skill_ids = set()
+    seen_skill_ids = set(
+        base_creature.skills.filter(
+            skill__isnull=False,
+            hide_from_creature_training=True,
+        ).values_list("skill_id", flat=True)
+    )
     seen_special_skill_ids = set()
     def normal_skill_training_row(*, row_id: str, remove_id: str, name: str, value: int, deviation: int, notes: str, can_remove: bool, skill: Skill) -> dict:
         attribute_modifier = engine._skill_attribute_modifier(skill)
@@ -187,7 +192,11 @@ def build_creature_card_training_context(card):
             "effective_value": value + deviation + attribute_modifier + gk_modifier + skill_modifier,
         }
 
-    for base_skill in base_creature.skills.select_related("skill", "skill__attribute", "skill__category").all():
+    for base_skill in base_creature.skills.select_related(
+        "skill",
+        "skill__attribute",
+        "skill__category",
+    ).filter(skill__isnull=False, hide_from_creature_training=False):
         override = skill_overrides.get(base_skill.skill_id)
         seen_skill_ids.add(base_skill.skill_id)
         skill_rows.append(
@@ -442,7 +451,13 @@ def build_creature_card_training_context(card):
         }
         for quality in Quality.objects.all()
     ]
-    existing_skill_names = {skill["name"].casefold() for skill in skill_rows}
+    existing_skill_names = {
+        skill["name"].casefold()
+        for skill in skill_rows
+    } | {
+        row.skill.name.casefold()
+        for row in base_creature.skills.select_related("skill").filter(skill__isnull=False)
+    }
     skill_catalog = [
         {
             "id": f"skill:{skill.pk}",

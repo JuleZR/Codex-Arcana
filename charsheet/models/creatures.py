@@ -22,6 +22,7 @@ from ..constants import (
     DAMAGE_TYPE_CHOICES,
     GK_AVERAGE,
     GK_CHOICES,
+    LANGUAGE_LITERACY_MIN_LEVEL,
     MODIFIER_OPERATOR_CHOICES,
     MODIFIER_VISIBILITY_CHOICES,
     PROFICIENCY_GROUP_CHOICES,
@@ -37,7 +38,7 @@ from ..constants import (
     STAT_SLUG_CHOICES,
     TARGET_DOMAIN_CHOICES,
 )
-from .core import Attribute, Skill, SkillCategory
+from .core import Attribute, Language, Skill, SkillCategory
 from .items import Item
 from .progression import Specialization
 
@@ -346,27 +347,86 @@ class CreatureAttack(models.Model):
 
 class CreatureSkill(models.Model):
     creature = models.ForeignKey(Creature, on_delete=models.CASCADE, related_name="skills")
-    skill = models.ForeignKey(Skill, on_delete=models.PROTECT)
+    skill = models.ForeignKey(Skill, on_delete=models.PROTECT, blank=True, null=True)
     level = models.IntegerField(default=0, validators=[MinValueValidator(0)])
     deviation = models.IntegerField("Abweichung", default=0)
     notes = models.CharField(max_length=200, blank=True, default="")
+    hide_from_creature_training = models.BooleanField(
+        "Nicht im Kreaturentraining anzeigen",
+        default=False,
+        help_text=(
+            "Blendet diese Zeile im Ausbildungsmenue aus. "
+            "Reine Notes-Zeilen ohne Fertigkeit werden immer ausgeblendet."
+        ),
+    )
 
     class Meta:
-        ordering = ["skill__name"]
+        ordering = ["skill__name", "id"]
         constraints = [
             models.UniqueConstraint(
                 fields=["creature", "skill"],
                 name="uniq_creature_skill",
-            )
+            ),
+            models.CheckConstraint(
+                condition=models.Q(skill__isnull=False) | ~models.Q(notes=""),
+                name="creature_skill_or_notes_required",
+            ),
         ]
 
     def __str__(self):
+        if self.skill_id is None:
+            return f"{self.creature}: {self.notes}"
         deviation = f" {self.deviation:+d}" if self.deviation else ""
         return f"{self.creature}: {self.skill} {self.level}{deviation}"
+
+    def clean(self):
+        super().clean()
+        if self.skill_id is None and not self.notes.strip():
+            raise ValidationError({"notes": "Ohne Fertigkeit muessen Notes eingetragen werden."})
 
     @property
     def value(self):
         return self.level
+
+
+class CreatureLanguage(models.Model):
+    """Language proficiency attached to a reusable creature template."""
+
+    creature = models.ForeignKey(Creature, on_delete=models.CASCADE, related_name="languages")
+    language = models.ForeignKey(Language, on_delete=models.PROTECT)
+    levels = models.PositiveIntegerField(default=1, validators=[MinValueValidator(1)])
+    can_write = models.BooleanField("Lesen und Schreiben", default=False)
+    is_mother_tongue = models.BooleanField("Muttersprache", default=False)
+
+    class Meta:
+        ordering = ["language__name"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["creature", "language"],
+                name="uniq_creature_language",
+            )
+        ]
+
+    def clean(self):
+        super().clean()
+        if self.language_id is None:
+            return
+        if self.levels > self.language.max_level:
+            raise ValidationError(
+                {"levels": "Das Sprachlevel darf das maximale Sprachlevel nicht ueberschreiten."}
+            )
+        if self.can_write and self.levels < LANGUAGE_LITERACY_MIN_LEVEL:
+            raise ValidationError(
+                {"can_write": "Lesen und Schreiben benoetigt Sprachlevel 3."}
+            )
+        if self.is_mother_tongue and self.levels != self.language.max_level:
+            raise ValidationError(
+                {"levels": "Eine Muttersprache muss auf dem maximalen Sprachlevel sein."}
+            )
+
+    def __str__(self):
+        suffix = " (Muttersprache)" if self.is_mother_tongue else ""
+        return f"{self.creature}: {self.language.name} {self.levels}{suffix}"
 
 
 class CreatureSpecialSkill(models.Model):

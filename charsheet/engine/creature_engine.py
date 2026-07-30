@@ -140,6 +140,7 @@ class _EmptyCreature:
     special_skills = _EmptyRelatedRows()
     traits = _EmptyRelatedRows()
     commands = _EmptyRelatedRows()
+    languages = _EmptyRelatedRows()
 
 
 EMPTY_CREATURE = _EmptyCreature()
@@ -675,12 +676,12 @@ class CreatureEngine:
             return target_key
         if target_domain == TargetDomain.SKILL:
             for row in self.creature.skills.select_related("skill"):
-                if row.skill.slug == target_key:
+                if row.skill_id and row.skill.slug == target_key:
                     return row.skill.name
             return target_key
         if target_domain == TargetDomain.SKILL_CATEGORY:
             for row in self.creature.skills.select_related("skill__category"):
-                if row.skill.category.slug == target_key:
+                if row.skill_id and row.skill.category.slug == target_key:
                     return row.skill.category.name
             return target_key
         return f"{target_domain}:{target_key}"
@@ -1118,6 +1119,23 @@ class CreatureEngine:
         base_rows = []
         seen = set()
         for row in self.creature.skills.select_related("skill", "skill__attribute", "skill__category"):
+            if row.skill_id is None:
+                note = str(row.notes or "").strip()
+                if note:
+                    base_rows.append(
+                        {
+                            "name": note,
+                            "value": None,
+                            "value_parts": [],
+                            "deviation": 0,
+                            "attribute": "",
+                            "attribute_modifier": 0,
+                            "effect_note": "",
+                            "notes": "",
+                            "is_note": True,
+                        }
+                    )
+                continue
             override = overrides.get(row.skill_id)
             seen.add(row.skill_id)
             value = override.value_override if override else row.value
@@ -1192,6 +1210,19 @@ class CreatureEngine:
                     }
                 )
         return base_rows
+
+    def languages(self) -> list[dict[str, Any]]:
+        rows = []
+        for row in self.creature.languages.select_related("language"):
+            suffix = " (L&S)" if row.can_write else ""
+            rows.append(
+                {
+                    "name": row.language.name,
+                    "can_write": bool(row.can_write),
+                    "display": f"Sprache: {row.language.name}{suffix}",
+                }
+            )
+        return rows
 
     def _skill_attribute_modifier(self, skill) -> int:
         attribute = getattr(skill, "attribute", None)
@@ -1420,6 +1451,7 @@ class CreatureEngine:
             "attacks": self.attacks(),
             "skills": self.skills(),
             "special_skills": self.special_skills(),
+            "languages": self.languages(),
             "commands": self.commands(),
             "traits": self.traits(),
             "effect_conditions": self.effect_condition_summary(),

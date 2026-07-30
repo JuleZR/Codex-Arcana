@@ -3174,7 +3174,7 @@ def update_creature_card_training(request, pk: int):
 
     base_skill_values = {
         row.skill_id: row.value
-        for row in base_creature.skills.all()
+        for row in base_creature.skills.filter(skill__isnull=False)
     }
     base_special_skill_values = {
         row.skill_id: row.value
@@ -3255,7 +3255,7 @@ def update_creature_card_training(request, pk: int):
     new_skill_rows = []
     existing_skill_names = {
         row.skill.name.casefold()
-        for row in base_creature.skills.select_related("skill")
+        for row in base_creature.skills.select_related("skill").filter(skill__isnull=False)
     } | {
         row.skill.name.casefold()
         for row in base_creature.special_skills.select_related("skill")
