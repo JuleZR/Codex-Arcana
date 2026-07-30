@@ -85,6 +85,9 @@ class _EmptyRelatedRows:
     def order_by(self, *args):
         return self
 
+    def values_list(self, *args, **kwargs):
+        return self
+
     def first(self):
         return None
 
