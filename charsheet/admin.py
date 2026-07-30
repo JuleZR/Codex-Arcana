@@ -5,12 +5,13 @@ from copy import deepcopy
 
 from django.contrib import admin
 from django.contrib.admin.views.main import ChangeList
-from django.contrib.admin.helpers import ActionForm
+from django.contrib.admin.helpers import ACTION_CHECKBOX_NAME, ActionForm
 from django.contrib.contenttypes.admin import GenericStackedInline
 from django import forms
 from django.core.exceptions import NON_FIELD_ERRORS, ValidationError
 from django.forms.models import BaseInlineFormSet
 from django.http import HttpResponseRedirect, JsonResponse
+from django.template.response import TemplateResponse
 from django.db.models import Q, Value
 from django.db.models.functions import Coalesce
 from django.urls import path, reverse
@@ -6474,6 +6475,17 @@ class CreatureChangeList(ChangeList):
         return [*group_fields, *secondary_ordering]
 
 
+class AssignCreatureTypeForm(forms.Form):
+    """Choose the creature type applied by the creature bulk action."""
+
+    creature_type = forms.ModelChoiceField(
+        label="Kreaturentyp",
+        queryset=CreatureType.objects.order_by("sort_order", "name"),
+        required=False,
+        empty_label="Ohne Kreaturentyp",
+    )
+
+
 @admin.register(Creature)
 class CreatureAdmin(admin.ModelAdmin):
     form = CreatureAdminForm
@@ -6482,6 +6494,7 @@ class CreatureAdmin(admin.ModelAdmin):
     search_fields = ("name", "slug", "climate_and_occurrence", "organization")
     list_filter = ("size_class",)
     prepopulated_fields = {"slug": ("name",)}
+    actions = ("assign_creature_type",)
     inlines = (
         CreatureAttackInline,
         CreatureSkillInline,
@@ -6529,6 +6542,45 @@ class CreatureAdmin(admin.ModelAdmin):
 
     def get_changelist(self, request, **kwargs):
         return CreatureChangeList
+
+    @admin.action(description="Kreaturentyp zuweisen …", permissions=["change"])
+    def assign_creature_type(self, request, queryset):
+        """Assign one type, or no type, to all selected creatures."""
+
+        is_confirmation = "_apply" in request.POST
+        form = AssignCreatureTypeForm(
+            request.POST if is_confirmation else None
+        )
+        if is_confirmation and form.is_valid():
+            creature_type = form.cleaned_data["creature_type"]
+            updated_count = queryset.update(creature_type=creature_type)
+            target_label = (
+                creature_type.name
+                if creature_type is not None
+                else "Ohne Kreaturentyp"
+            )
+            noun = "Kreatur wurde" if updated_count == 1 else "Kreaturen wurden"
+            self.message_user(
+                request,
+                f"{updated_count} {noun} „{target_label}“ zugeordnet.",
+            )
+            return None
+
+        context = {
+            **self.admin_site.each_context(request),
+            "title": "Kreaturentyp zuweisen",
+            "opts": self.model._meta,
+            "form": form,
+            "queryset": queryset,
+            "selected_ids": request.POST.getlist(ACTION_CHECKBOX_NAME),
+            "action_checkbox_name": ACTION_CHECKBOX_NAME,
+            "select_across": request.POST.get("select_across", "0"),
+        }
+        return TemplateResponse(
+            request,
+            "admin/charsheet/creature/assign_creature_type.html",
+            context,
+        )
 
     def get_queryset(self, request):
         return (
