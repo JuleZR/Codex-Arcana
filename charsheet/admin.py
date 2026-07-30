@@ -6371,12 +6371,12 @@ class CreatureSpecialSkillSemanticEffectInline(admin.StackedInline):
 
 
 class CreatureAdminForm(forms.ModelForm):
-    strength_mod = forms.IntegerField(label="Staerke", required=False, initial=0)
-    constitution_mod = forms.IntegerField(label="Konstitution", required=False, initial=0)
-    dexterity_mod = forms.IntegerField(label="Geschick", required=False, initial=0)
-    intelligence_mod = forms.IntegerField(label="Intelligenz", required=False, initial=0)
-    perception_mod = forms.IntegerField(label="Wahrnehmung", required=False, initial=0)
-    willpower_mod = forms.IntegerField(label="Willenskraft", required=False, initial=0)
+    strength_mod = forms.IntegerField(label="Staerke", required=False)
+    constitution_mod = forms.IntegerField(label="Konstitution", required=False)
+    dexterity_mod = forms.IntegerField(label="Geschick", required=False)
+    intelligence_mod = forms.IntegerField(label="Intelligenz", required=False)
+    perception_mod = forms.IntegerField(label="Wahrnehmung", required=False)
+    willpower_mod = forms.IntegerField(label="Willenskraft", required=False)
     charisma_mod = forms.IntegerField(label="Charisma", required=False)
 
     ATTRIBUTE_FORM_FIELDS = {

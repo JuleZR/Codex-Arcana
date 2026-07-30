@@ -223,7 +223,7 @@ class Creature(models.Model):
             return
         existing_ids = set(self.attributes.values_list("attribute_id", flat=True))
         CreatureAttribute.objects.bulk_create(
-            CreatureAttribute(creature=self, attribute=attribute, base_value=0)
+            CreatureAttribute(creature=self, attribute=attribute)
             for attribute in Attribute.objects.exclude(short_name=ATTR_SPEC)
             if attribute.pk not in existing_ids
         )
@@ -232,7 +232,7 @@ class Creature(models.Model):
         for row in self.attributes.select_related("attribute"):
             if row.attribute.slug == code or row.attribute.short_name == code:
                 return row.base_value
-        return None if code == ATTR_CHA else 0
+        return None
 
     def _attribute_property(self, field_name):
         return self.attribute_modifier(ATTRIBUTE_PROPERTY_CODES[field_name])
@@ -271,7 +271,7 @@ class CreatureAttribute(models.Model):
 
     creature = models.ForeignKey(Creature, on_delete=models.CASCADE, related_name="attributes")
     attribute = models.ForeignKey(Attribute, on_delete=models.PROTECT)
-    base_value = models.IntegerField(blank=True, null=True, default=0)
+    base_value = models.IntegerField(blank=True, null=True)
 
     class Meta:
         ordering = ["creature", "attribute"]

@@ -725,7 +725,7 @@ class CreatureEngine:
                 if row.attribute.short_name == attribute:
                     value = row.base_value
                     break
-        if value is None and attribute == ATTR_CHA:
+        if value is None:
             return None
         return (
             self._attribute_modifier(value)
