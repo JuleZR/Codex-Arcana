@@ -64,8 +64,8 @@ class CreatureTypeAdminTests(TestCase):
             email="creature-admin@example.com",
             password="secret",
         )
-        demon = CreatureType.objects.create(name="Dämon", slug="daemon")
-        animal = CreatureType.objects.create(name="Tier", slug="tier")
+        demon = CreatureType.objects.create(name="Dämon", slug="daemon", sort_order=20)
+        animal = CreatureType.objects.create(name="Tier", slug="tier", sort_order=10)
         for name, creature_type in (
             ("Zornbrut", demon),
             ("Aschenwicht", demon),
@@ -112,10 +112,10 @@ class CreatureTypeAdminTests(TestCase):
         self.assertEqual(
             ordered_rows,
             [
+                ("Tier", "Zottelbär"),
+                ("Tier", "Ameisenlöwe"),
                 ("Dämon", "Zornbrut"),
                 ("Dämon", "Aschenwicht"),
                 (None, "Namenlos"),
-                ("Tier", "Zottelbär"),
-                ("Tier", "Ameisenlöwe"),
             ],
         )

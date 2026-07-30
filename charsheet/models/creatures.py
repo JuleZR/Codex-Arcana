@@ -86,9 +86,10 @@ class CreatureType(models.Model):
 
     name = models.CharField("Name", max_length=100, unique=True)
     slug = models.SlugField("Slug", max_length=100, unique=True)
+    sort_order = models.PositiveIntegerField("Sortierung", default=0)
 
     class Meta:
-        ordering = ["name"]
+        ordering = ["sort_order", "name"]
         verbose_name = "Kreaturentyp"
         verbose_name_plural = "Kreaturentypen"
 

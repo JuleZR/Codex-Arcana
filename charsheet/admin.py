@@ -178,6 +178,10 @@ admin.site.site_header = "Codex Arcana Administration"
 admin.site.site_title = "Codex Arcana Admin"
 admin.site.index_title = "Regelwerk, Charaktere und Inhalte"
 
+# Keep the standard Django submit row available at both ends of every admin
+# add/change form, including models registered by Django itself.
+admin.ModelAdmin.save_on_top = True
+
 ADMIN_MODEL_ORDER = {
     "Character": 10,
     "CharacterCreationDraft": 11,
@@ -6445,10 +6449,11 @@ class CreatureSourceBindingAdmin(admin.ModelAdmin):
 
 @admin.register(CreatureType)
 class CreatureTypeAdmin(admin.ModelAdmin):
-    list_display = ("name", "slug")
+    list_display = ("name", "slug", "sort_order")
+    list_editable = ("sort_order",)
     search_fields = ("name", "slug")
     prepopulated_fields = {"slug": ("name",)}
-    ordering = ("name",)
+    ordering = ("sort_order", "name")
 
 
 class CreatureChangeList(ChangeList):
@@ -6456,13 +6461,17 @@ class CreatureChangeList(ChangeList):
 
     def get_ordering(self, request, queryset):
         ordering = list(super().get_ordering(request, queryset))
-        group_field = "creature_type_group_order"
+        group_fields = (
+            "creature_type_group_order",
+            "creature_type_group_name",
+        )
         secondary_ordering = [
             field
             for field in ordering
-            if not isinstance(field, str) or field.removeprefix("-") != group_field
+            if not isinstance(field, str)
+            or field.removeprefix("-") not in group_fields
         ]
-        return [group_field, *secondary_ordering]
+        return [*group_fields, *secondary_ordering]
 
 
 @admin.register(Creature)
@@ -6528,8 +6537,12 @@ class CreatureAdmin(admin.ModelAdmin):
             .select_related("creature_type")
             .annotate(
                 creature_type_group_order=Coalesce(
+                    "creature_type__sort_order",
+                    Value(2147483647),
+                ),
+                creature_type_group_name=Coalesce(
                     "creature_type__name",
-                    Value("Ohne Kreaturentyp"),
+                    Value(""),
                 )
             )
         )
