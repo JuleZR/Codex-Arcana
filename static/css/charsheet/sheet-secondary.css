@@ -4915,13 +4915,12 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
 }
 
 .daemonic_power_grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  display: flex;
+  flex-direction: column;
   gap: 8px;
 }
 
 .daemonic_power_card {
-  padding: 8px 10px;
   border: 1px solid rgba(114, 80, 46, 0.28);
   border-radius: 4px;
   background: rgba(255, 249, 232, 0.48);
@@ -4934,8 +4933,39 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
 
 .daemonic_power_card__heading {
   display: flex;
+  align-items: baseline;
   justify-content: space-between;
   gap: 10px;
+  position: relative;
+  padding: 8px 32px 8px 10px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.daemonic_power_card__heading::-webkit-details-marker {
+  display: none;
+}
+
+.daemonic_power_card__heading::after {
+  content: "\203A";
+  position: absolute;
+  top: 50%;
+  right: 11px;
+  color: rgba(90, 61, 37, 0.72);
+  font-size: 1.3rem;
+  line-height: 1;
+  transform: translateY(-50%);
+  transition: transform 0.16s ease;
+}
+
+.daemonic_power_card[open] > .daemonic_power_card__heading::after {
+  transform: translateY(-50%) rotate(90deg);
+}
+
+.daemonic_power_card__heading:focus-visible {
+  outline: 2px solid rgba(123, 31, 43, 0.55);
+  outline-offset: -2px;
+  border-radius: 3px;
 }
 
 .daemonic_power_card__heading > span {
@@ -4951,7 +4981,12 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
   font-variant-numeric: tabular-nums;
 }
 
-.daemonic_power_card p {
+.daemonic_power_card__body {
+  padding: 0 10px 8px;
+  border-top: 1px solid rgba(114, 80, 46, 0.14);
+}
+
+.daemonic_power_card__body p {
   margin: 5px 0 0;
   line-height: 1.25;
 }

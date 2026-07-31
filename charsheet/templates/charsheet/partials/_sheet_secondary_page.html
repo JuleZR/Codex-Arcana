@@ -178,17 +178,19 @@
                 </header>
                 <div class="daemonic_power_grid">
                   {% for power in tier.powers %}
-                    <article class="daemonic_power_card">
-                      <div class="daemonic_power_card__heading">
+                    <details class="daemonic_power_card">
+                      <summary class="daemonic_power_card__heading">
                         <strong>
                           {{ power.name }}
                           {% if power.modifier_display %}<span class="daemonic_power_modifier">{{ power.modifier_display }}</span>{% endif %}
                         </strong>
                         <span>{{ power.granting_technique }}</span>
+                      </summary>
+                      <div class="daemonic_power_card__body">
+                        {% if power.description %}<p>{{ power.description }}</p>{% endif %}
+                        <p><strong>Schw&auml;che:</strong> {{ power.weakness_description|default:"-" }}</p>
                       </div>
-                      {% if power.description %}<p>{{ power.description }}</p>{% endif %}
-                      <p><strong>Schw&auml;che:</strong> {{ power.weakness_description|default:"-" }}</p>
-                    </article>
+                    </details>
                   {% endfor %}
                 </div>
               </section>
