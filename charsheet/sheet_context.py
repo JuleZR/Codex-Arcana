@@ -2377,6 +2377,57 @@ def _build_skill_rows(
 ) -> tuple[list[dict], list[object], list[dict]]:
     """Build visible skill rows plus skill-manager state for the sheet."""
 
+    def _condition_tooltip(condition_text: str) -> str:
+        normalized = " ".join(str(condition_text or "").split())
+        if normalized.casefold().startswith("im "):
+            return f"bei {normalized[3:]}"
+        return normalized
+
+    def _conditional_encumbrance_variants() -> list[dict[str, object]]:
+        """Return conditional daemonic encumbrance as skill-value deltas."""
+        modifier_engine = engine.modifier_engine
+        conditions: OrderedDict[str, str] = OrderedDict()
+        for modifier in modifier_engine._active_daemonic_power_modifiers:
+            if str(modifier.target_domain or "") != "derived_stat":
+                continue
+            if not modifier_engine._modifier_matches_target_key(
+                modifier,
+                target_domain="derived_stat",
+                target_key="encumbrance",
+            ):
+                continue
+            condition_text = " ".join(
+                str(modifier.metadata.get("condition_text") or "").split()
+            )
+            normalized = modifier_engine._normalize_condition_text(condition_text)
+            if normalized:
+                conditions.setdefault(normalized, condition_text)
+
+        variants: list[dict[str, object]] = []
+        for condition_text in conditions.values():
+            context = {"condition_text": condition_text}
+            conditional_encumbrance = modifier_engine.resolve_numeric_total(
+                "derived_stat",
+                "encumbrance",
+                context=context,
+            ) - modifier_engine.resolve_numeric_total(
+                "derived_stat",
+                "encumbrance",
+            )
+            skill_value_delta = -int(conditional_encumbrance)
+            if skill_value_delta == 0:
+                continue
+            variants.append(
+                {
+                    "condition_text": condition_text,
+                    "tooltip": _condition_tooltip(condition_text),
+                    "value_delta": skill_value_delta,
+                }
+            )
+        return variants
+
+    conditional_encumbrance_variants = _conditional_encumbrance_variants()
+
     def _build_display_name(skill: Skill, specification: str) -> str:
         normalized_spec = (specification or "").strip()
         has_specification = skill.requires_specification and normalized_spec and normalized_spec != "*"
@@ -2767,6 +2818,20 @@ def _build_skill_rows(
                 "status_label": status_label,
             }
         )
+
+    if conditional_encumbrance_variants:
+        for row in skill_rows:
+            if "with_load_total_value" not in row:
+                continue
+            base_value = int(row["with_load_total_value"])
+            row["conditional_load_variants"] = [
+                {
+                    **variant,
+                    "value": base_value + int(variant["value_delta"]),
+                }
+                for variant in conditional_encumbrance_variants
+                if int(variant["value_delta"]) != 0
+            ]
 
     return skill_rows, character_skills, skill_manager_rows
 

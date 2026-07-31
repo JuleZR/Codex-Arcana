@@ -215,7 +215,7 @@
                   data-carry-skill-loaded-total
                   data-base-value="{{ row.with_load_total }}"
                   data-carry-value="{{ row.carry_with_load_total }}"
-                >{{ row.with_load_total }}</span>
+                >{% if row.conditional_load_variants %}<span data-carry-skill-base-display>{{ row.with_load_total }}</span>{% for variant in row.conditional_load_variants %} / <span class="tooltip_target" data-tooltip-side="left" data-tooltip="{{ variant.tooltip }}" data-carry-skill-conditional-display data-value-delta="{{ variant.value_delta }}">{{ variant.value }}</span>{% endfor %}{% else %}{{ row.with_load_total }}{% endif %}</span>
               </td>
             </tr>
           {% endfor %}

@@ -65,6 +65,7 @@ from charsheet.constants import LANGUAGE_LITERACY_MIN_LEVEL, is_allowed_trait_at
 from charsheet.religion_rules import (
     divine_entity_count_for_school,
     is_clerical_school,
+    is_cult_school,
     is_divine_entity_school,
     selected_divine_entity,
     unique_divine_entity_for_school,
@@ -587,6 +588,24 @@ def _reset_invalid_school_progression(character: Character) -> None:
     CharacterShamanPatron.objects.filter(character=character).exclude(
         patron__school_id__in=learned_school_ids
     ).delete()
+    invalid_cult_binding = (
+        CharacterDivineEntity.objects.filter(character=character)
+        .exclude(entity__school_id__in=learned_school_ids)
+        .select_related("entity", "entity__school", "entity__school__type")
+        .first()
+    )
+    if (
+        invalid_cult_binding is not None
+        and is_cult_school(invalid_cult_binding.entity.school)
+    ):
+        cult_entity_name = invalid_cult_binding.entity.name
+        invalid_cult_binding.delete()
+        religion_cleared = Character.objects.filter(
+            pk=character.pk,
+            religion=cult_entity_name,
+        ).update(religion="")
+        if religion_cleared:
+            character.religion = ""
     magic_engine = character.get_magic_engine(refresh=True)
     magic_engine.sync_character_magic()
     school_level_map = magic_engine._school_level_map()
