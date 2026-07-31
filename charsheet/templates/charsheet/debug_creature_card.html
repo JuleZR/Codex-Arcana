@@ -10,10 +10,6 @@
 <style>
     :root {
         color-scheme: dark;
-        --ink: #3f2d1f;
-        --ink-soft: rgba(63, 45, 31, 0.75);
-        --line: #4a3726;
-        --paper-shadow: rgba(0, 0, 0, 0.28);
     }
 
     * {
@@ -30,10 +26,12 @@
         font-family: "Cinzel", Georgia, serif;
     }
 
+    body.has-debug-card-modal {
+        overflow: hidden;
+    }
+
     .debug-card-page {
-        display: grid;
         min-height: 100vh;
-        grid-template-rows: auto minmax(0, 1fr);
     }
 
     .debug-card-toolbar {
@@ -41,8 +39,8 @@
         top: 0;
         z-index: 20;
         display: grid;
-        gap: 14px;
-        padding: 18px clamp(16px, 4vw, 36px);
+        gap: 12px;
+        padding: 16px clamp(16px, 4vw, 36px);
         border-bottom: 1px solid rgba(255, 250, 235, 0.14);
         background: rgba(15, 14, 11, 0.92);
         backdrop-filter: blur(14px);
@@ -64,11 +62,10 @@
         border: 1px solid rgba(255, 250, 235, 0.24);
         border-radius: 6px;
         color: #f4ead1;
-        text-decoration: none;
+        background: rgba(255, 255, 255, 0.06);
         font-size: 12px;
         font-weight: 800;
-        letter-spacing: 0;
-        background: rgba(255, 255, 255, 0.06);
+        text-decoration: none;
     }
 
     .debug-card-tab.is-active {
@@ -78,14 +75,15 @@
     }
 
     .debug-card-controls {
-        display: grid;
-        grid-template-columns: minmax(180px, 1fr) minmax(220px, 1.4fr) auto;
-        gap: 10px;
+        display: flex;
+        width: min(720px, 100%);
+        gap: 8px;
         align-items: end;
     }
 
     .debug-card-field {
         display: grid;
+        flex: 1 1 auto;
         gap: 5px;
         min-width: 0;
     }
@@ -97,29 +95,38 @@
         text-transform: uppercase;
     }
 
-    .debug-card-field input,
-    .debug-card-field select {
+    .debug-card-field input {
         width: 100%;
         min-width: 0;
-        min-height: 36px;
+        min-height: 38px;
         border: 1px solid rgba(255, 250, 235, 0.22);
         border-radius: 6px;
         background: #f1ead9;
         color: #17120d;
-        font: 800 14px/1.2 "Cormorant Garamond", Georgia, serif;
         outline: none;
-        padding: 6px 9px;
+        padding: 7px 10px;
+        font: 800 14px/1.2 "Cormorant Garamond", Georgia, serif;
     }
 
-    .debug-card-submit {
-        min-height: 36px;
-        padding: 0 15px;
-        border: 1px solid rgba(201, 170, 85, 0.68);
+    .debug-card-field input:focus-visible {
+        border-color: rgba(201, 170, 85, 0.9);
+        box-shadow: 0 0 0 3px rgba(201, 170, 85, 0.18);
+    }
+
+    .debug-card-clear {
+        min-height: 38px;
+        padding: 0 14px;
+        border: 1px solid rgba(255, 250, 235, 0.22);
         border-radius: 6px;
-        background: rgba(201, 170, 85, 0.22);
-        color: #fff6d8;
+        background: rgba(255, 255, 255, 0.06);
+        color: #f4ead1;
         cursor: pointer;
         font: 800 12px/1 "Cinzel", Georgia, serif;
+    }
+
+    .debug-card-clear:disabled {
+        cursor: default;
+        opacity: 0.38;
     }
 
     .debug-card-meta {
@@ -127,197 +134,74 @@
         font: 700 12px/1.35 "Cormorant Garamond", Georgia, serif;
     }
 
-    .debug-card-stage-wrap {
+    .debug-card-gallery {
         display: grid;
-        min-height: 0;
-        place-items: center;
-        padding: clamp(22px, 4vw, 42px) clamp(14px, 4vw, 34px);
-        overflow: hidden;
+        grid-template-columns: repeat(auto-fill, 210px);
+        gap: clamp(18px, 2.6vw, 32px);
+        justify-content: center;
+        align-items: start;
+        padding: clamp(24px, 4vw, 44px) clamp(14px, 4vw, 38px) 54px;
     }
 
-    .debug-card-stage {
-        position: relative;
-        width: min(980px, 100%);
-        min-height: min(700px, calc(100vh - 184px));
-        perspective: 1300px;
+    .debug-card-item {
         display: grid;
-        place-items: center;
-    }
-
-    .debug-card-step {
-        position: absolute;
-        top: 50%;
-        z-index: 8;
-        display: grid;
-        width: 48px;
-        height: 64px;
-        place-items: center;
-        border: 1px solid rgba(255, 250, 235, 0.26);
-        border-radius: 8px;
-        background:
-            linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.04)),
-            rgba(15, 14, 11, 0.82);
-        color: #fff4d4;
-        cursor: pointer;
-        font: 900 34px/1 "Cormorant Garamond", Georgia, serif;
-        transform: translateY(-50%);
-        box-shadow: 0 14px 24px rgba(0, 0, 0, 0.28);
-        backdrop-filter: blur(12px);
-    }
-
-    .debug-card-step:hover:not(:disabled),
-    .debug-card-step:focus-visible:not(:disabled) {
-        border-color: rgba(201, 170, 85, 0.76);
-        background:
-            linear-gradient(180deg, rgba(201, 170, 85, 0.24), rgba(201, 170, 85, 0.08)),
-            rgba(15, 14, 11, 0.88);
+        width: 210px;
+        gap: 10px;
+        margin: 0;
+        cursor: zoom-in;
         outline: none;
     }
 
-    .debug-card-step:disabled {
-        cursor: default;
-        opacity: 0.22;
+    .debug-card-item[hidden] {
+        display: none;
     }
 
-    .debug-card-step--previous {
-        left: max(0px, calc(50% - 332px));
+    .debug-card-item__viewport {
+        width: 210px;
+        height: 293.27px;
+        overflow: hidden;
+        border: 1px solid rgba(255, 250, 235, 0.14);
+        border-radius: 11px;
+        background: rgba(255, 255, 255, 0.035);
+        box-shadow: 0 12px 24px rgba(0, 0, 0, 0.28);
+        transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
     }
 
-    .debug-card-step--next {
-        right: max(0px, calc(50% - 332px));
-    }
-
-    .debug-card-ring {
-        position: relative;
-        --carousel-side-x: clamp(210px, 30vw, 360px);
-        --carousel-side-z: -150px;
-        width: min(420px, calc(100vw - 32px));
-        aspect-ratio: 744 / 1039;
-        height: auto;
-        transform-style: preserve-3d;
-    }
-
-    .debug-card-slot {
-        position: absolute;
-        inset: 0;
-        display: grid;
-        place-items: center;
-        transform-style: preserve-3d;
-        opacity: var(--slot-opacity, 1);
-        filter: var(--slot-filter, none);
-        pointer-events: var(--slot-events, auto);
-        transform:
-            translateX(var(--slot-x, 0px))
-            translateZ(var(--slot-z, 0px))
-            rotateY(var(--slot-rotate, 0deg))
-            scale(var(--slot-scale, 1));
-        transition:
-            transform 720ms cubic-bezier(0.16, 0.84, 0.18, 1),
-            opacity 460ms ease,
-            filter 460ms ease;
-        backface-visibility: hidden;
-    }
-
-    .debug-card-slot .card {
-        width: 100%;
-    }
-
-    .debug-card-slot--current {
-        z-index: 3;
-        --slot-x: 0px;
-        --slot-z: 0px;
-        --slot-rotate: 0deg;
-        --slot-opacity: 1;
-        --slot-scale: 1;
-        --slot-filter: none;
-    }
-
-    .debug-card-slot--previous,
-    .debug-card-slot--next,
-    .debug-card-slot--incoming {
-        z-index: 1;
-        --slot-opacity: 0.42;
-        --slot-scale: 0.86;
-        --slot-filter: saturate(0.72) brightness(0.82);
-        --slot-events: none;
-    }
-
-    .debug-card-slot--previous {
-        --slot-x: calc(var(--carousel-side-x) * -1);
-        --slot-z: var(--carousel-side-z);
-        --slot-rotate: 28deg;
-    }
-
-    .debug-card-slot--next {
-        --slot-x: var(--carousel-side-x);
-        --slot-z: var(--carousel-side-z);
-        --slot-rotate: -28deg;
-    }
-
-    .debug-card-slot--incoming-next {
-        --slot-x: var(--carousel-side-x);
-        --slot-z: var(--carousel-side-z);
-        --slot-rotate: -28deg;
-    }
-
-    .debug-card-slot--incoming-prev {
-        --slot-x: calc(var(--carousel-side-x) * -1);
-        --slot-z: var(--carousel-side-z);
-        --slot-rotate: 28deg;
-    }
-
-    .debug-card-slot--incoming {
-        opacity: 0;
-    }
-
-    .debug-card-slot--incoming.is-carousel-current {
-        z-index: 4;
-        --slot-x: 0px;
-        --slot-z: 0px;
-        --slot-rotate: 0deg;
-        --slot-opacity: 1;
-        --slot-scale: 1;
-        --slot-filter: none;
-        opacity: 1;
-    }
-
-    .debug-card-slot--outgoing-next {
-        z-index: 2;
-        --slot-x: calc(var(--carousel-side-x) * -1);
-        --slot-z: var(--carousel-side-z);
-        --slot-rotate: 28deg;
-        --slot-opacity: 0.42;
-        --slot-scale: 0.86;
-        --slot-filter: saturate(0.72) brightness(0.82);
-        --slot-events: none;
-    }
-
-    .debug-card-slot--outgoing-prev {
-        z-index: 2;
-        --slot-x: var(--carousel-side-x);
-        --slot-z: var(--carousel-side-z);
-        --slot-rotate: -28deg;
-        --slot-opacity: 0.42;
-        --slot-scale: 0.86;
-        --slot-filter: saturate(0.72) brightness(0.82);
-        --slot-events: none;
-    }
-
-    .debug-card-stage.is-carousel-moving .debug-card-slot--previous,
-    .debug-card-stage.is-carousel-moving .debug-card-slot--next {
-        opacity: 0;
-    }
-
-    .debug-card-stage.is-carousel-moving .debug-card-step {
+    .debug-card-item__render {
+        width: 420px;
+        transform: scale(0.5);
+        transform-origin: top left;
         pointer-events: none;
-        opacity: 0.36;
+    }
+
+    .debug-card-item__render .card {
+        width: 420px;
+        max-width: none;
+    }
+
+    .debug-card-item:hover .debug-card-item__viewport,
+    .debug-card-item:focus-visible .debug-card-item__viewport {
+        border-color: rgba(201, 170, 85, 0.78);
+        box-shadow: 0 16px 30px rgba(0, 0, 0, 0.38), 0 0 0 3px rgba(201, 170, 85, 0.13);
+        transform: translateY(-3px);
+    }
+
+    .debug-card-item__label {
+        display: -webkit-box;
+        min-height: 2.5em;
+        margin: 0;
+        overflow: hidden;
+        color: rgba(244, 234, 209, 0.84);
+        text-align: center;
+        font: 800 13px/1.25 "Cormorant Garamond", Georgia, serif;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
     }
 
     .debug-card-empty {
-        display: grid;
-        min-height: 240px;
-        place-items: center;
-        padding: 24px;
+        grid-column: 1 / -1;
+        min-width: min(480px, calc(100vw - 32px));
+        padding: 42px 24px;
         border: 1px solid rgba(255, 250, 235, 0.16);
         border-radius: 8px;
         background: rgba(255, 255, 255, 0.05);
@@ -326,51 +210,124 @@
         font: 700 18px/1.25 "Cormorant Garamond", Georgia, serif;
     }
 
+    .debug-card-empty[hidden] {
+        display: none;
+    }
+
+    .debug-card-modal[hidden] {
+        display: none;
+    }
+
+    .debug-card-modal {
+        position: fixed;
+        inset: 0;
+        z-index: 100;
+        display: grid;
+        place-items: center;
+        padding: 12px;
+    }
+
+    .debug-card-modal__backdrop {
+        position: absolute;
+        inset: 0;
+        border: 0;
+        background: rgba(5, 5, 4, 0.82);
+        cursor: zoom-out;
+        backdrop-filter: blur(12px);
+    }
+
+    .debug-card-modal__panel {
+        position: relative;
+        z-index: 1;
+        display: grid;
+        grid-template-columns: minmax(0, auto) 42px;
+        gap: 10px;
+        max-width: 100%;
+        max-height: 100%;
+        align-items: start;
+    }
+
+    .debug-card-modal__title {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+    }
+
+    .debug-card-modal__content {
+        display: grid;
+        grid-column: 1;
+        grid-row: 1;
+        max-width: 100%;
+        max-height: calc(100vh - 24px);
+        place-items: center;
+    }
+
+    .debug-card-modal__content .card {
+        width: min(420px, calc(100vw - 76px), calc(71.607vh - 27.24px));
+    }
+
+    .debug-card-modal__close {
+        z-index: 8;
+        display: grid;
+        grid-column: 2;
+        grid-row: 1;
+        width: 42px;
+        height: 42px;
+        place-items: center;
+        border: 1px solid rgba(255, 250, 235, 0.32);
+        border-radius: 50%;
+        background: rgba(15, 14, 11, 0.78);
+        color: #fff6d8;
+        cursor: pointer;
+        font: 800 26px/1 Arial, sans-serif;
+        box-shadow: 0 8px 18px rgba(0, 0, 0, 0.34);
+    }
+
+    .debug-card-modal__close:hover,
+    .debug-card-modal__close:focus-visible {
+        border-color: rgba(201, 170, 85, 0.88);
+        outline: none;
+    }
+
     @media (prefers-reduced-motion: reduce) {
-        .debug-card-slot,
-        .debug-card-stage.is-carousel-moving .debug-card-slot {
-            animation: none;
+        .debug-card-item__viewport {
             transition: none;
         }
     }
 
-    @media (max-width: 760px) {
+    @media (max-width: 620px) {
+        .debug-card-toolbar {
+            position: relative;
+        }
+
         .debug-card-controls {
-            grid-template-columns: 1fr;
+            align-items: stretch;
         }
 
-        .debug-card-submit {
-            width: 100%;
+        .debug-card-gallery {
+            grid-template-columns: repeat(auto-fill, 160px);
+            gap: 20px 12px;
+            padding-inline: 10px;
         }
 
-        .debug-card-stage {
-            min-height: calc(100vh - 260px);
+        .debug-card-item {
+            width: 160px;
         }
 
-        .debug-card-ring {
-            max-height: calc(100vh - 292px);
+        .debug-card-item__viewport {
+            width: 160px;
+            height: 223.44px;
+            border-radius: 8px;
         }
 
-        .debug-card-step {
-            top: auto;
-            bottom: -10px;
-            width: 44px;
-            height: 44px;
-            font-size: 28px;
-            transform: none;
-        }
-
-        .debug-card-step--previous {
-            left: calc(50% - 58px);
-        }
-
-        .debug-card-step--next {
-            right: calc(50% - 58px);
-        }
-
-        .debug-card-slot--previous,
-        .debug-card-slot--next {
-            display: none;
+        .debug-card-item__render {
+            transform: scale(0.38095238);
         }
     }
 </style>
@@ -380,63 +337,63 @@
         <header class="debug-card-toolbar">
             <nav class="debug-card-tabs" aria-label="Kartentypen">
                 {% for tab in debug_card_tabs %}
-                    <a class="debug-card-tab{% if tab.is_active %} is-active{% endif %}" href="?type={{ tab.type }}">{{ tab.label }}</a>
+                    <a class="debug-card-tab{% if tab.is_active %} is-active{% endif %}" href="?type={{ tab.type }}{% if debug_card_query %}&amp;q={{ debug_card_query|urlencode }}{% endif %}">{{ tab.label }}</a>
                 {% endfor %}
             </nav>
 
             <form class="debug-card-controls" method="get" data-debug-card-controls>
                 <input type="hidden" name="type" value="{{ debug_card_type }}">
                 <label class="debug-card-field">
-                    <span>Suche</span>
-                    <input type="search" name="q" value="{{ debug_card_query }}" autocomplete="off">
+                    <span>Suche in {{ debug_card_type_label }}</span>
+                    <input type="search" name="q" value="{{ debug_card_query }}" placeholder="Name, Beschreibung, Schule ..." autocomplete="off" data-debug-card-search>
                 </label>
-                <label class="debug-card-field">
-                    <span>{{ debug_card_type_label }}</span>
-                    <select name="card" data-debug-card-select>
-                        {% for option in debug_card_options %}
-                            <option value="{{ option.url_ref }}"{% if option.is_selected %} selected{% endif %}>{{ option.label }}</option>
-                        {% empty %}
-                            <option value="">Keine Karten gefunden</option>
-                        {% endfor %}
-                    </select>
-                </label>
-                <button class="debug-card-submit" type="submit">Anzeigen</button>
+                <button class="debug-card-clear" type="button" data-debug-card-clear{% if not debug_card_query %} disabled{% endif %}>Leeren</button>
             </form>
 
-            <div class="debug-card-meta">
-                {{ debug_filtered_count }} von {{ debug_card_count }} Karten in {{ debug_card_type_label }}
-                {% if debug_card_selected %}- aktuell: {{ debug_card_selected }}{% endif %}
+            <div class="debug-card-meta" aria-live="polite">
+                <span data-debug-card-visible-count>{{ debug_filtered_count }}</span> von {{ debug_card_count }} Karten in {{ debug_card_type_label }}
             </div>
         </header>
 
-        <section class="debug-card-stage-wrap" aria-label="Kartenvorschau">
-            <div class="debug-card-stage" data-debug-card-stage>
-                {% if debug_card_html %}
-                    <button class="debug-card-step debug-card-step--previous" type="button" data-debug-card-step="-1" aria-label="Vorherige Karte"{% if not debug_previous_card_html %} disabled{% endif %}>&lsaquo;</button>
-                    <button class="debug-card-step debug-card-step--next" type="button" data-debug-card-step="1" aria-label="Naechste Karte"{% if not debug_next_card_html %} disabled{% endif %}>&rsaquo;</button>
-                    <div class="debug-card-ring">
-                        {% if debug_previous_card_html %}
-                            <div class="debug-card-slot debug-card-slot--previous" aria-hidden="true">
-                                {{ debug_previous_card_html|safe }}
-                            </div>
-                        {% endif %}
-                        <div class="debug-card-slot debug-card-slot--current">
-                            {{ debug_card_html|safe }}
+        <section class="debug-card-gallery" aria-label="Alle Karten in {{ debug_card_type_label }}" data-debug-card-gallery>
+            {% for card in debug_cards %}
+                <article
+                    class="debug-card-item"
+                    data-debug-card-item
+                    data-card-ref="{{ card.url_ref }}"
+                    data-card-label="{{ card.label }}"
+                    data-card-search="{{ card.search }}"
+                    tabindex="0"
+                    role="button"
+                    aria-label="{{ card.label }} vergrößern"
+                    {% if not card.matches_query %}hidden{% endif %}
+                >
+                    <div class="debug-card-item__viewport">
+                        <div class="debug-card-item__render">
+                            {{ card.html|safe }}
                         </div>
-                        {% if debug_next_card_html %}
-                            <div class="debug-card-slot debug-card-slot--next" aria-hidden="true">
-                                {{ debug_next_card_html|safe }}
-                            </div>
-                        {% endif %}
                     </div>
-                {% else %}
-                    <div class="debug-card-empty">
-                        Keine Karte fuer diese Auswahl gefunden.
-                    </div>
-                {% endif %}
-            </div>
+                    <h2 class="debug-card-item__label">{{ card.label }}</h2>
+                </article>
+            {% empty %}
+                <div class="debug-card-empty">Keine Karten in dieser Kategorie vorhanden.</div>
+            {% endfor %}
+            {% if debug_cards %}
+                <div class="debug-card-empty" data-debug-card-no-results{% if debug_filtered_count %} hidden{% endif %}>
+                    Keine Karten passen zu dieser Suche.
+                </div>
+            {% endif %}
         </section>
     </main>
+
+    <div class="debug-card-modal" data-debug-card-modal role="dialog" aria-modal="true" aria-labelledby="debug-card-modal-title" hidden>
+        <button class="debug-card-modal__backdrop" type="button" data-debug-card-close tabindex="-1" aria-label="Vergrößerte Karte schließen"></button>
+        <div class="debug-card-modal__panel">
+            <h2 class="debug-card-modal__title" id="debug-card-modal-title" data-debug-card-modal-title>Kartenvorschau</h2>
+            <div class="debug-card-modal__content" data-debug-card-modal-content></div>
+            <button class="debug-card-modal__close" type="button" data-debug-card-close aria-label="Schließen">&times;</button>
+        </div>
+    </div>
 
     <script type="module">
         import { initCreatureCards } from "{% static 'js/charsheet/creature_card.js' %}?v=20260730c";
@@ -445,216 +402,198 @@
 
         (() => {
             const controls = document.querySelector("[data-debug-card-controls]");
-            const select = document.querySelector("[data-debug-card-select]");
-            const stage = document.querySelector("[data-debug-card-stage]");
-            if (!(controls instanceof HTMLFormElement) || !(select instanceof HTMLSelectElement)) {
+            const search = document.querySelector("[data-debug-card-search]");
+            const clear = document.querySelector("[data-debug-card-clear]");
+            const gallery = document.querySelector("[data-debug-card-gallery]");
+            const items = Array.from(document.querySelectorAll("[data-debug-card-item]"));
+            const visibleCount = document.querySelector("[data-debug-card-visible-count]");
+            const noResults = document.querySelector("[data-debug-card-no-results]");
+            const modal = document.querySelector("[data-debug-card-modal]");
+            const modalContent = document.querySelector("[data-debug-card-modal-content]");
+            const modalTitle = document.querySelector("[data-debug-card-modal-title]");
+
+            if (!(controls instanceof HTMLFormElement) || !(search instanceof HTMLInputElement)) {
                 return;
             }
 
-            const currentType = controls.querySelector('input[name="type"]')?.value || "";
-            const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
-            let currentCard = select.value || "";
-            let isAnimating = false;
+            let lastFocusedItem = null;
 
-            const selectedUrl = () => {
-                const formData = new FormData(controls);
-                const params = new URLSearchParams();
-                formData.forEach((value, key) => {
-                    params.set(key, String(value));
-                });
-                return `${window.location.pathname}?${params.toString()}`;
+            const currentUrl = () => new URL(window.location.href);
+
+            const clearCardParams = (url) => {
+                url.searchParams.delete("card");
+                url.searchParams.delete("creature");
+                url.searchParams.delete("slug");
             };
 
-            const urlForCard = (cardValue) => {
-                const formData = new FormData(controls);
-                const params = new URLSearchParams();
-                formData.forEach((value, key) => {
-                    params.set(key, String(value));
-                });
-                params.set("card", cardValue);
-                return `${window.location.pathname}?${params.toString()}`;
+            const syncSearchUrl = () => {
+                const url = currentUrl();
+                const query = search.value.trim();
+                if (query) {
+                    url.searchParams.set("q", query);
+                } else {
+                    url.searchParams.delete("q");
+                }
+                clearCardParams(url);
+                window.history.replaceState({}, "", url);
             };
 
-            const reinitializeCards = async () => {
-                try {
-                    initCreatureCards();
-                    initGodCards(stage || document);
-                    initTooltips();
-                } catch (_error) {
-                    // The rendered cards remain visible if an optional interaction fails.
+            const closeModal = ({ restoreFocus = true, updateUrl = true } = {}) => {
+                if (!(modal instanceof HTMLElement) || modal.hidden) {
+                    return;
+                }
+                modal.hidden = true;
+                document.body.classList.remove("has-debug-card-modal");
+                if (modalContent instanceof HTMLElement) {
+                    modalContent.replaceChildren();
+                }
+                if (updateUrl) {
+                    const url = currentUrl();
+                    clearCardParams(url);
+                    window.history.replaceState({}, "", url);
+                }
+                if (restoreFocus && lastFocusedItem instanceof HTMLElement && !lastFocusedItem.hidden) {
+                    lastFocusedItem.focus({preventScroll: true});
                 }
             };
 
-            const syncControlsFromDocument = (nextDocument) => {
-                const nextTabs = nextDocument.querySelector(".debug-card-tabs");
-                const currentTabs = document.querySelector(".debug-card-tabs");
-                if (nextTabs instanceof HTMLElement && currentTabs instanceof HTMLElement) {
-                    currentTabs.replaceWith(nextTabs);
+            const resetClonedBindings = (root) => {
+                if (!(root instanceof HTMLElement)) {
+                    return;
                 }
-
-                const nextControls = nextDocument.querySelector("[data-debug-card-controls]");
-                if (nextControls instanceof HTMLFormElement) {
-                    const nextSearch = nextControls.querySelector('input[name="q"]');
-                    const currentSearch = controls.querySelector('input[name="q"]');
-                    if (nextSearch instanceof HTMLInputElement && currentSearch instanceof HTMLInputElement) {
-                        currentSearch.value = nextSearch.value;
+                [root, ...root.querySelectorAll("*")].forEach((element) => {
+                    if (!(element instanceof HTMLElement)) {
+                        return;
                     }
-                    const nextSelect = nextControls.querySelector("[data-debug-card-select]");
-                    if (nextSelect instanceof HTMLSelectElement) {
-                        select.innerHTML = nextSelect.innerHTML;
-                    }
-                }
-
-                const nextMeta = nextDocument.querySelector(".debug-card-meta");
-                const currentMeta = document.querySelector(".debug-card-meta");
-                if (nextMeta instanceof HTMLElement && currentMeta instanceof HTMLElement) {
-                    currentMeta.replaceWith(nextMeta);
-                }
-            };
-
-            const replaceStageFromDocument = async (nextDocument) => {
-                const nextStage = nextDocument.querySelector("[data-debug-card-stage]");
-                if (nextStage instanceof HTMLElement && stage instanceof HTMLElement) {
-                    stage.innerHTML = nextStage.innerHTML;
-                    await reinitializeCards();
-                }
-            };
-
-            const wait = (duration) => new Promise((resolve) => {
-                window.setTimeout(resolve, duration);
-            });
-
-            const animateOneStep = async (direction, url) => {
-                if (!(stage instanceof HTMLElement) || reduceMotion.matches) {
-                    window.location.assign(url);
-                    return;
-                }
-
-                const ring = stage.querySelector(".debug-card-ring");
-                if (!(ring instanceof HTMLElement)) {
-                    window.location.assign(url);
-                    return;
-                }
-
-                isAnimating = true;
-                controls.classList.add("is-loading");
-
-                let nextDocument;
-                try {
-                    const response = await fetch(url, {
-                        headers: {"X-Requested-With": "XMLHttpRequest"},
-                        credentials: "same-origin",
-                    });
-                    if (!response.ok) {
-                        throw new Error("debug card fetch failed");
-                    }
-                    const html = await response.text();
-                    nextDocument = new DOMParser().parseFromString(html, "text/html");
-                } catch (_error) {
-                    window.location.assign(url);
-                    return;
-                }
-
-                const nextCurrent = nextDocument.querySelector(".debug-card-slot--current");
-                const currentSlot = ring.querySelector(".debug-card-slot--current");
-                if (!(nextCurrent instanceof HTMLElement) || !(currentSlot instanceof HTMLElement)) {
-                    await replaceStageFromDocument(nextDocument);
-                    syncControlsFromDocument(nextDocument);
-                    window.history.pushState({}, "", url);
-                    currentCard = select.value || "";
-                    return;
-                }
-
-                const incoming = nextCurrent.cloneNode(true);
-                incoming.classList.remove("debug-card-slot--current");
-                incoming.classList.add(
-                    "debug-card-slot--incoming",
-                    direction === "prev" ? "debug-card-slot--incoming-prev" : "debug-card-slot--incoming-next",
-                );
-                incoming.setAttribute("aria-hidden", "true");
-                ring.appendChild(incoming);
-                await reinitializeCards();
-
-                stage.classList.add("is-carousel-moving");
-                ring.getBoundingClientRect();
-                currentSlot.classList.add(direction === "prev" ? "debug-card-slot--outgoing-prev" : "debug-card-slot--outgoing-next");
-                incoming.classList.add("is-carousel-current");
-
-                await wait(760);
-                await replaceStageFromDocument(nextDocument);
-                syncControlsFromDocument(nextDocument);
-                window.history.pushState({}, "", url);
-                currentCard = select.value || "";
-                stage.classList.remove("is-carousel-moving");
-            };
-
-            const animateToCardValue = async (targetValue) => {
-                const options = Array.from(select.options).map((option) => option.value);
-                const startIndex = options.indexOf(currentCard);
-                const targetIndex = options.indexOf(targetValue);
-                if (startIndex < 0 || targetIndex < 0 || startIndex === targetIndex) {
-                    controls.requestSubmit();
-                    return;
-                }
-
-                const step = targetIndex > startIndex ? 1 : -1;
-                try {
-                    for (let index = startIndex + step; index !== targetIndex + step; index += step) {
-                        const nextValue = options[index];
-                        if (!nextValue) {
-                            break;
+                    Array.from(element.attributes).forEach((attribute) => {
+                        if (/^data-.*-bound$/.test(attribute.name)) {
+                            element.removeAttribute(attribute.name);
                         }
-                        select.value = nextValue;
-                        await animateOneStep(step < 0 ? "prev" : "next", urlForCard(nextValue));
-                    }
-                } finally {
-                    select.value = targetValue;
-                    currentCard = targetValue;
-                    isAnimating = false;
-                    controls.classList.remove("is-loading");
-                    stage?.classList.remove("is-carousel-moving");
+                    });
+                });
+                root.classList.remove("active");
+            };
+
+            const openModal = (item, { updateUrl = true } = {}) => {
+                if (
+                    !(item instanceof HTMLElement)
+                    || !(modal instanceof HTMLElement)
+                    || !(modalContent instanceof HTMLElement)
+                ) {
+                    return;
+                }
+                const card = item.querySelector(".card");
+                if (!(card instanceof HTMLElement)) {
+                    return;
+                }
+                const clone = card.cloneNode(true);
+                resetClonedBindings(clone);
+                modalContent.replaceChildren(clone);
+                modal.hidden = false;
+                document.body.classList.add("has-debug-card-modal");
+                lastFocusedItem = item;
+                const label = item.dataset.cardLabel || "Kartenvorschau";
+                if (modalTitle instanceof HTMLElement) {
+                    modalTitle.textContent = label;
+                }
+                initCreatureCards();
+                initGodCards(modalContent);
+                initTooltips();
+                modal.querySelector(".debug-card-modal__close")?.focus({preventScroll: true});
+                if (updateUrl) {
+                    const url = currentUrl();
+                    clearCardParams(url);
+                    url.searchParams.set("card", item.dataset.cardRef || "");
+                    window.history.replaceState({}, "", url);
                 }
             };
 
-            select.addEventListener("change", () => {
-                if (isAnimating) {
-                    return;
-                }
-                animateToCardValue(select.value || "");
-            });
-            if (stage instanceof HTMLElement) {
-                stage.addEventListener("click", (event) => {
-                    const target = event.target instanceof Element
-                        ? event.target.closest("[data-debug-card-step]")
-                        : null;
-                    if (!(target instanceof HTMLButtonElement) || target.disabled || isAnimating) {
-                        return;
+            const applySearch = ({ updateUrl = true } = {}) => {
+                const terms = search.value.toLocaleLowerCase("de").trim().split(/\s+/).filter(Boolean);
+                let count = 0;
+                items.forEach((item) => {
+                    const haystack = item.dataset.cardSearch || "";
+                    const matches = terms.every((term) => haystack.includes(term));
+                    item.hidden = !matches;
+                    if (matches) {
+                        count += 1;
                     }
-                    const step = Number.parseInt(target.getAttribute("data-debug-card-step") || "0", 10);
-                    if (!step) {
-                        return;
-                    }
-                    const nextIndex = select.selectedIndex + step;
-                    if (nextIndex < 0 || nextIndex >= select.options.length) {
-                        return;
-                    }
-                    select.selectedIndex = nextIndex;
-                    animateToCardValue(select.value || "");
                 });
-            }
+                if (visibleCount instanceof HTMLElement) {
+                    visibleCount.textContent = String(count);
+                }
+                if (noResults instanceof HTMLElement) {
+                    noResults.hidden = count !== 0;
+                }
+                if (clear instanceof HTMLButtonElement) {
+                    clear.disabled = search.value.trim().length === 0;
+                }
+                if (modal instanceof HTMLElement && !modal.hidden) {
+                    closeModal({restoreFocus: false, updateUrl: false});
+                }
+                if (updateUrl) {
+                    syncSearchUrl();
+                }
+            };
+
             controls.addEventListener("submit", (event) => {
-                if (isAnimating) {
-                    event.preventDefault();
+                event.preventDefault();
+                applySearch();
+            });
+            search.addEventListener("input", () => applySearch());
+            clear?.addEventListener("click", () => {
+                search.value = "";
+                applySearch();
+                search.focus();
+            });
+
+            gallery?.addEventListener("click", (event) => {
+                const item = event.target instanceof Element ? event.target.closest("[data-debug-card-item]") : null;
+                openModal(item);
+            });
+            gallery?.addEventListener("keydown", (event) => {
+                if (event.key !== "Enter" && event.key !== " ") {
                     return;
                 }
-                const url = selectedUrl();
-                const nextValue = select.value || "";
-                if (nextValue !== currentCard) {
-                    event.preventDefault();
-                    animateToCardValue(nextValue);
+                const item = event.target instanceof Element ? event.target.closest("[data-debug-card-item]") : null;
+                if (!(item instanceof HTMLElement)) {
+                    return;
+                }
+                event.preventDefault();
+                openModal(item);
+            });
+            modal?.addEventListener("click", (event) => {
+                if (event.target instanceof Element && event.target.closest("[data-debug-card-close]")) {
+                    closeModal();
                 }
             });
-            reinitializeCards();
+            document.addEventListener("keydown", (event) => {
+                if (event.key === "Escape" && modal instanceof HTMLElement && !modal.hidden) {
+                    closeModal();
+                }
+            });
+            window.addEventListener("popstate", () => {
+                const ref = currentUrl().searchParams.get("card") || "";
+                const item = items.find((candidate) => candidate.dataset.cardRef === ref);
+                if (item instanceof HTMLElement) {
+                    openModal(item, {updateUrl: false});
+                } else {
+                    closeModal({updateUrl: false});
+                }
+            });
+
+            initCreatureCards();
+            initGodCards();
+            initTooltips();
+            applySearch({updateUrl: false});
+
+            const initialRef = "{{ debug_card_selected_ref|escapejs }}";
+            if (initialRef) {
+                const initialItem = items.find((item) => item.dataset.cardRef === initialRef);
+                if (initialItem instanceof HTMLElement) {
+                    openModal(initialItem, {updateUrl: false});
+                }
+            }
         })();
     </script>
 </body>

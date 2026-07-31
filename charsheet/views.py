@@ -18,7 +18,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LogoutView
 from django.views.decorators.http import require_POST
 from django.db import transaction
-from django.db.models import Sum
+from django.db.models import F, Sum
 from django.db.models.deletion import ProtectedError
 from django.utils import timezone
 from django.template.loader import render_to_string
@@ -4055,6 +4055,7 @@ def _debug_card_option(source, card_type: str) -> dict[str, str]:
                 getattr(source, "slug", ""),
                 getattr(source, "pantheon", ""),
                 getattr(getattr(source, "school", None), "name", ""),
+                getattr(getattr(source, "creature_type", None), "name", ""),
                 getattr(source, "description", ""),
             )
         ).lower(),
@@ -4066,7 +4067,7 @@ def _debug_card_sources(card_type: str):
         return list(
             DivineEntity.objects.select_related("school")
             .prefetch_related("aspects__aspect")
-            .order_by("name", "id")
+            .order_by("pantheon", "name", "id")
         )
     if card_type == "druid":
         return list(
@@ -4080,7 +4081,14 @@ def _debug_card_sources(card_type: str):
             .prefetch_related("aspects")
             .order_by("patron_kind", "name", "id")
         )
-    return list(Creature.objects.select_related("quality").order_by("name", "id"))
+    return list(
+        Creature.objects.select_related("quality", "creature_type").order_by(
+            F("creature_type__sort_order").asc(nulls_last=True),
+            F("creature_type__name").asc(nulls_last=True),
+            "name",
+            "id",
+        )
+    )
 
 
 def _debug_find_card_source(sources, requested_ref: str):
@@ -4152,7 +4160,7 @@ def _debug_render_card_html(request, source, card_type: str) -> str:
 
 
 def debug_creature_card(request):
-    """Render a standalone debug browser for existing card templates."""
+    """Render a searchable gallery for the existing card templates."""
     requested_type = str(request.GET.get("type") or "").strip().lower()
     card_type = requested_type if requested_type in DEBUG_CARD_TYPES else "creature"
     legacy_ref = str(request.GET.get("creature") or request.GET.get("slug") or "").strip()
@@ -4161,21 +4169,14 @@ def debug_creature_card(request):
 
     sources = _debug_card_sources(card_type)
     options = [_debug_card_option(source, card_type) for source in sources]
-    normalized_query = search_query.lower()
-    filtered_options = [
-        option for option in options if not normalized_query or normalized_query in option["search"]
-    ]
-    visible_ids = {option["id"] for option in filtered_options}
-    visible_sources = [source for source in sources if str(source.pk) in visible_ids]
-    selected_source = _debug_find_card_source(visible_sources or sources, requested_ref)
-    if selected_source is not None and str(selected_source.pk) not in visible_ids:
-        selected_option = _debug_card_option(selected_source, card_type)
-        filtered_options = [selected_option, *filtered_options]
-        visible_sources = [selected_source, *visible_sources]
-
-    selected_index = visible_sources.index(selected_source) if selected_source in visible_sources else -1
-    previous_source = visible_sources[selected_index - 1] if selected_index > 0 else None
-    next_source = visible_sources[selected_index + 1] if 0 <= selected_index < len(visible_sources) - 1 else None
+    query_terms = search_query.lower().split()
+    selected_source = _debug_find_card_source(sources, requested_ref) if requested_ref else None
+    cards = []
+    for source, option in zip(sources, options):
+        option["url_ref"] = option["slug"] or option["id"]
+        option["matches_query"] = all(term in option["search"] for term in query_terms)
+        option["html"] = _debug_render_card_html(request, source, card_type)
+        cards.append(option)
 
     card_tabs = [
         {
@@ -4185,10 +4186,6 @@ def debug_creature_card(request):
         }
         for option_type, label in DEBUG_CARD_TYPES.items()
     ]
-    for option in filtered_options:
-        option["is_selected"] = selected_source is not None and option["id"] == str(selected_source.pk)
-        option["url_ref"] = option["slug"] or option["id"]
-
     return render(
         request,
         "charsheet/debug_creature_card.html",
@@ -4196,15 +4193,12 @@ def debug_creature_card(request):
             "debug_card_type": card_type,
             "debug_card_type_label": DEBUG_CARD_TYPES[card_type],
             "debug_card_tabs": card_tabs,
-            "debug_card_options": filtered_options,
+            "debug_cards": cards,
             "debug_card_query": search_query,
             "debug_card_selected": selected_source,
             "debug_card_selected_ref": getattr(selected_source, "slug", "") or getattr(selected_source, "pk", ""),
-            "debug_card_html": _debug_render_card_html(request, selected_source, card_type),
-            "debug_previous_card_html": _debug_render_card_html(request, previous_source, card_type),
-            "debug_next_card_html": _debug_render_card_html(request, next_source, card_type),
             "debug_card_count": len(options),
-            "debug_filtered_count": len(filtered_options),
+            "debug_filtered_count": sum(1 for option in options if option["matches_query"]),
         },
     )
 
