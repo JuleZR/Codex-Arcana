@@ -3672,6 +3672,19 @@ def _group_school_technique_rows(
                 "rows": [],
             }
 
+    if selected_daemonic_patron_id and daemonic_patron_binding is not None:
+        patron_symbol_image_url = _image_field_url(
+            daemonic_patron_binding.entity,
+            "symbol_image",
+        )
+        if patron_symbol_image_url:
+            patron_school_id = int(daemonic_patron_binding.entity.school_id)
+            for group in groups.values():
+                if int(group.get("school_id") or 0) == patron_school_id:
+                    group["symbol"] = ""
+                    group["symbol_image_url"] = patron_symbol_image_url
+                    break
+
     return race_rows, list(groups.values())
 
 
