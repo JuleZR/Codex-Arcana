@@ -179,6 +179,15 @@ class Technique(models.Model):
             "learned and currently available."
         ),
     )
+    granted_daemonic_power_tier = models.ForeignKey(
+        "charsheet.DaemonicPowerTier",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="granting_techniques",
+        verbose_name="Granted daemonic power tier",
+        help_text="Grants exactly one character choice from this exact tier.",
+    )
     target_choice_definition = models.ForeignKey(
         "TechniqueChoiceDefinition",
         on_delete=models.PROTECT,

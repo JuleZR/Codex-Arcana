@@ -43,6 +43,7 @@ from .models import (
     CharacterCreationDraft,
     CharacterCreature,
     CharacterCreatureAttributeIncrease,
+    CharacterCreatureDaemonicPower,
     CharacterCreatureCommand,
     CharacterCreatureCommandPrerequisite,
     CharacterCreatureLanguage,
@@ -51,6 +52,7 @@ from .models import (
     CharacterCreatureTrait,
     CharacterCreatureTraitChoice,
     Creature,
+    DaemonicPower,
     CreatureSourceBinding,
     CreatureCommand,
     CreatureSpecialSkill,
@@ -93,7 +95,11 @@ from .constants import ATTRIBUTE_CODE_CHOICES, ATTRIBUTE_ORDER, GK_MODS, RESOURC
 from .models.creatures import CREATURE_CARD_QUALITY_TRAINING_BUDGETS
 from .learning import process_learning_submission
 from .lesson_rules import LessonRuleError, activate_lesson, format_lesson_costs, format_lesson_requirements
-from .sheet_context import build_character_sheet_context, build_creature_card_training_context
+from .sheet_context import (
+    _divine_entity_card_kind_label,
+    build_character_sheet_context,
+    build_creature_card_training_context,
+)
 from .shop import (
     apply_character_item_modifications,
     buy_shop_cart as buy_shop_cart_payload,
@@ -3039,6 +3045,21 @@ def update_creature_card_training(request, pk: int):
     selected_command_ids = {_parse_positive_int(raw_id) for raw_id in request.POST.getlist("commands") if _parse_positive_int(raw_id)}
     selected_advantage_ids = {_parse_positive_int(raw_id) for raw_id in request.POST.getlist("advantages") if _parse_positive_int(raw_id)}
     selected_disadvantage_ids = {_parse_positive_int(raw_id) for raw_id in request.POST.getlist("disadvantages") if _parse_positive_int(raw_id)}
+    update_daemonic_powers = "daemonic_powers_present" in request.POST
+    selected_daemonic_power_ids = {
+        _parse_positive_int(raw_id)
+        for raw_id in request.POST.getlist("daemonic_powers")
+        if _parse_positive_int(raw_id)
+    }
+    base_daemonic_power_ids = set(
+        base_creature.daemonic_powers.values_list("id", flat=True)
+    )
+    selected_daemonic_power_ids -= base_daemonic_power_ids
+    valid_daemonic_power_ids = set(
+        DaemonicPower.objects.filter(
+            pk__in=selected_daemonic_power_ids
+        ).values_list("id", flat=True)
+    )
     existing_trait_rows = list(card.trait_overrides.select_related("trait").prefetch_related("choices").all())
     base_trait_rows = list(base_creature.traits.select_related("trait").all())
     base_traits_by_trait_id = {row.trait_id: row for row in base_trait_rows if row.trait_id}
@@ -3449,6 +3470,25 @@ def update_creature_card_training(request, pk: int):
                     can_write=can_write,
                 )
                 known_language_ids.add(language_id)
+        if update_daemonic_powers:
+            card.daemonic_power_additions.exclude(
+                power_id__in=valid_daemonic_power_ids
+            ).delete()
+            existing_daemonic_power_ids = set(
+                card.daemonic_power_additions.values_list("power_id", flat=True)
+            )
+            CharacterCreatureDaemonicPower.objects.bulk_create(
+                [
+                    CharacterCreatureDaemonicPower(
+                        creature=card,
+                        power_id=power_id,
+                    )
+                    for power_id in sorted(
+                        valid_daemonic_power_ids - existing_daemonic_power_ids
+                    )
+                ],
+                ignore_conflicts=True,
+            )
         card.commands.all().delete()
         created_commands = list(
             CharacterCreatureCommand.objects.bulk_create(
@@ -4053,7 +4093,7 @@ def _debug_find_card_source(sources, requested_ref: str):
 
 def _debug_god_card_context(source, card_type: str) -> dict[str, object]:
     if card_type == "divine":
-        kind_label = "Gottheit"
+        kind_label = _divine_entity_card_kind_label(source)
         typebar = source.pantheon
         ability = source.g_ability
         aspects = [entry.aspect for entry in source.aspects.all() if entry.aspect_id and entry.is_starting_aspect]

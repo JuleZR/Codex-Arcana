@@ -28,6 +28,7 @@ from charsheet.models import (
     CharacterLanguage,
     CharacterLesson,
     CharacterCreature,
+    CharacterDaemonicPower,
     CharacterCreatureTrait,
     CharacterCreatureTraitChoice,
     CharacterRaceChoice,
@@ -43,6 +44,7 @@ from charsheet.models import (
     CharacterWeaponMastery,
     CharacterWeaponMasteryArcana,
     DivineEntity,
+    DaemonicPower,
     DruidCultAspect,
     Language,
     Lesson,
@@ -132,6 +134,7 @@ def _apply_progression_choices(character: Character, post_data, *, magic_engine)
         "techniques": 0,
         "specializations": 0,
         "choices": 0,
+        "daemonic_powers": 0,
     }
 
     def _rebuild_if(dirty: bool) -> tuple:
@@ -244,6 +247,92 @@ def _apply_progression_choices(character: Character, post_data, *, magic_engine)
 
     engine = character.get_engine(refresh=True)
     progression_context = _build_progression_context_with_creatures(character, engine=engine)
+
+    daemonic_decisions = [
+        decision
+        for decision in progression_context["learn_pending_decisions"]
+        if decision.get("kind") == "daemonic_power" and decision.get("options")
+    ]
+    allowed_daemonic_submit_names = {
+        str(decision["options"][0]["submit_name"])
+        for decision in daemonic_decisions
+    }
+    submitted_daemonic_names = {
+        str(field_name)
+        for field_name in post_data
+        if str(field_name).startswith("learn_choice_daemonic_power_")
+        and str(post_data.get(field_name, "")).strip()
+    }
+    if submitted_daemonic_names - allowed_daemonic_submit_names:
+        raise LearningSubmissionError(
+            "Ungültige oder nicht zum Charakter gehörende dämonische Kraftwahl."
+        )
+
+    for decision in daemonic_decisions:
+        option_submit_name = str(decision["options"][0]["submit_name"])
+        raw_power_id = str(post_data.get(option_submit_name, "")).strip()
+        if not raw_power_id:
+            continue
+        allowed_values = {
+            str(option["submit_value"])
+            for option in decision["options"]
+        }
+        if raw_power_id not in allowed_values:
+            raise LearningSubmissionError(
+                f"{decision['title']}: Ungültige dämonische Kraft."
+            )
+        try:
+            technique_id = int(str(decision["decision_id"]).rsplit("-", 1)[1])
+            power_id = int(raw_power_id)
+        except (TypeError, ValueError):
+            raise LearningSubmissionError(
+                f"{decision['title']}: Ungültige Auswahlreferenz."
+            )
+        technique = Technique.objects.select_related(
+            "granted_daemonic_power_tier",
+            "school",
+        ).filter(pk=technique_id).first()
+        power = DaemonicPower.objects.select_related("tier").filter(pk=power_id).first()
+        if technique is None or power is None:
+            raise LearningSubmissionError(
+                f"{decision['title']}: Technik oder Kraft nicht gefunden."
+            )
+        state = character.get_engine(refresh=True).technique_state(technique)
+        if not state["learned"] or not state["available"]:
+            raise LearningSubmissionError(
+                f"{technique.name}: Die gewährende Technik ist nicht aktiv."
+            )
+        if technique.granted_daemonic_power_tier_id is None:
+            raise LearningSubmissionError(
+                f"{technique.name}: Diese Technik gewährt keine dämonische Kraft."
+            )
+        if power.tier_id != technique.granted_daemonic_power_tier_id:
+            raise LearningSubmissionError(
+                f"{power.name}: Die Kraft gehört nicht zum geforderten Tier."
+            )
+        if CharacterDaemonicPower.objects.filter(
+            character=character,
+            power=power,
+        ).exclude(granting_technique=technique).exists():
+            raise LearningSubmissionError(
+                f"{power.name}: Diese Kraft wurde bereits über eine andere Technik gewählt."
+            )
+        ownership = CharacterDaemonicPower(
+            character=character,
+            power=power,
+            granting_technique=technique,
+        )
+        ownership.full_clean(
+            exclude=None,
+            validate_unique=True,
+            validate_constraints=False,
+        )
+        CharacterDaemonicPower.objects.update_or_create(
+            character=character,
+            granting_technique=technique,
+            defaults={"power": power},
+        )
+        summary["daemonic_powers"] += 1
 
     for decision in progression_context["learn_pending_decisions"]:
         if decision.get("kind") != "weapon_mastery_arcana":
@@ -419,7 +508,6 @@ def _reset_invalid_school_progression(character: Character) -> None:
                 not state["school_known"]
                 or not state["required_level_met"]
                 or not state["path_allowed"]
-                or not state["requirements_met"]
             )
         ]
         if not invalid_technique_ids:
@@ -433,6 +521,30 @@ def _reset_invalid_school_progression(character: Character) -> None:
             technique_id__in=invalid_technique_ids,
         ).delete()
         engine = character.get_engine(refresh=True)
+
+    refreshed_engine = character.get_engine(refresh=True)
+    permanently_lost_grant_technique_ids = []
+    for ownership in CharacterDaemonicPower.objects.filter(
+        character=character
+    ).select_related("granting_technique"):
+        state = refreshed_engine.technique_state(ownership.granting_technique)
+        technique = ownership.granting_technique
+        permanently_lost = (
+            not state["school_known"]
+            or not state["required_level_met"]
+            or not state["path_allowed"]
+            or (
+                technique.acquisition_type == Technique.AcquisitionType.CHOICE
+                and not state["explicitly_learned"]
+            )
+        )
+        if permanently_lost:
+            permanently_lost_grant_technique_ids.append(technique.id)
+    if permanently_lost_grant_technique_ids:
+        CharacterDaemonicPower.objects.filter(
+            character=character,
+            granting_technique_id__in=permanently_lost_grant_technique_ids,
+        ).delete()
 
     CharacterSpecialization.objects.filter(character=character).exclude(
         specialization__school_id__in=learned_school_ids
@@ -1292,6 +1404,10 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
         parts.append(f"{progression_summary['specializations']} Spezialisierung(en) vergeben")
     if progression_summary["choices"]:
         parts.append(f"{progression_summary['choices']} Auswahl(en) gespeichert")
+    if progression_summary["daemonic_powers"]:
+        parts.append(
+            f"{progression_summary['daemonic_powers']} dämonische Kraft/Kräfte gewählt"
+        )
     if magic_aspect_plan:
         parts.append(f"{sum(magic_aspect_plan.values())} Aspektstufe(n) gelernt")
     learned_spell_count = (

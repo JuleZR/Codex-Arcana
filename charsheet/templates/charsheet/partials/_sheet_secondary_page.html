@@ -11,13 +11,14 @@
       {% include "charsheet/partials/_armor_panel.html" %}
 
       {% comment %}── Unterer Kasten: Körperzonen + optionale Tabs ─────────────────────{% endcomment %}
-      <div class="p2_panel p2_lower_panel{% if spell_panel_enabled or lesson_panel_enabled or weapon_mastery_arcana_panel %} p2_lower_panel--tabbed{% endif %}"{% if spell_panel_enabled or lesson_panel_enabled or weapon_mastery_arcana_panel %} data-tabs data-tabs-key="lower-panel"{% endif %}>
-        {% if spell_panel_enabled or lesson_panel_enabled or weapon_mastery_arcana_panel %}
+      <div class="p2_panel p2_lower_panel{% if spell_panel_enabled or lesson_panel_enabled or weapon_mastery_arcana_panel or daemonic_power_panel %} p2_lower_panel--tabbed{% endif %}"{% if spell_panel_enabled or lesson_panel_enabled or weapon_mastery_arcana_panel or daemonic_power_panel %} data-tabs data-tabs-key="lower-panel"{% endif %}>
+        {% if spell_panel_enabled or lesson_panel_enabled or weapon_mastery_arcana_panel or daemonic_power_panel %}
         <div class="panel_tabs__list" role="tablist" aria-label="Körper und Fähigkeiten">
           <button class="panel_tabs__tab" role="tab" aria-selected="true" data-tab-target="lowerPanelBody">Körper</button>
           {% if spell_panel_enabled %}<button class="panel_tabs__tab" role="tab" aria-selected="false" data-tab-target="lowerPanelSpells">Zauber</button>{% endif %}
           {% if lesson_panel_enabled %}<button class="panel_tabs__tab" role="tab" aria-selected="false" data-tab-target="lowerPanelLessons">Lektionen</button>{% endif %}
           {% if weapon_mastery_arcana_panel %}<button class="panel_tabs__tab" role="tab" aria-selected="false" data-tab-target="lowerPanelWaffenmeister">Waffenmeister</button>{% endif %}
+          {% if daemonic_power_panel %}<button class="panel_tabs__tab" role="tab" aria-selected="false" data-tab-target="lowerPanelDaemonicPowers">D&auml;monische Kr&auml;fte</button>{% endif %}
         </div>
         {% endif %}
 
@@ -163,6 +164,35 @@
             {% if not weapon_mastery_arcana_panel.has_entries %}
               <p class="wm_arcana_empty">Noch keine Arkana gelernt.</p>
             {% endif %}
+          </div>
+        </div>
+        {% endif %}
+
+        {% if daemonic_power_panel %}
+        <div id="lowerPanelDaemonicPowers" data-tab-panel hidden class="p2_lower_panel__wm_tab">
+          <div class="daemonic_power_scroll">
+            {% for tier in daemonic_power_panel %}
+              <section class="daemonic_power_section">
+                <header class="daemonic_power_section__header">
+                  <span>Tier {{ tier.name }}</span>
+                </header>
+                <div class="daemonic_power_grid">
+                  {% for power in tier.powers %}
+                    <article class="daemonic_power_card">
+                      <div class="daemonic_power_card__heading">
+                        <strong>
+                          {{ power.name }}
+                          {% if power.modifier_display %}<span class="daemonic_power_modifier">{{ power.modifier_display }}</span>{% endif %}
+                        </strong>
+                        <span>{{ power.granting_technique }}</span>
+                      </div>
+                      {% if power.description %}<p>{{ power.description }}</p>{% endif %}
+                      <p><strong>Schw&auml;che:</strong> {{ power.weakness_description|default:"-" }}</p>
+                    </article>
+                  {% endfor %}
+                </div>
+              </section>
+            {% endfor %}
           </div>
         </div>
         {% endif %}

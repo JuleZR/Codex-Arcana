@@ -10,8 +10,10 @@ from charsheet.constants import (
 )
 from charsheet.models import (
     Attribute,
+    CharacterDaemonicPower,
     CharacterTrait,
     Item,
+    DaemonicPower,
     Rune,
     Skill,
     SkillCategory,
@@ -974,6 +976,83 @@ def build_learning_progression_context(character, *, engine, synchronize: bool =
                         submit_value=str(option["value"]),
                     )
                     for option in row["options"]
+                ],
+            )
+        )
+
+    daemonic_ownerships = list(
+        CharacterDaemonicPower.objects.filter(character=character)
+        .select_related("power", "power__tier", "granting_technique")
+        .order_by("granting_technique_id", "id")
+    )
+    daemonic_by_technique_id = {
+        ownership.granting_technique_id: ownership
+        for ownership in daemonic_ownerships
+    }
+    owned_daemonic_power_ids = {
+        ownership.power_id
+        for ownership in daemonic_ownerships
+    }
+    techniques_by_id = {
+        technique.id: technique
+        for technique in engine._character_school_technique_list
+    }
+    for state in technique_states:
+        if not state["learned"] or not state["available"]:
+            continue
+        technique = techniques_by_id.get(state["technique_id"])
+        if technique is None or technique.granted_daemonic_power_tier_id is None:
+            continue
+        existing = daemonic_by_technique_id.get(technique.id)
+        if (
+            existing is not None
+            and existing.power.tier_id == technique.granted_daemonic_power_tier_id
+        ):
+            continue
+        excluded_power_ids = owned_daemonic_power_ids - (
+            {existing.power_id} if existing is not None else set()
+        )
+        powers = list(
+            DaemonicPower.objects.filter(
+                tier_id=technique.granted_daemonic_power_tier_id,
+            )
+            .exclude(pk__in=excluded_power_ids)
+            .select_related("tier")
+            .order_by("name", "id")
+        )
+        field_name = f"learn_choice_daemonic_power_{technique.id}"
+        pending_decisions.append(
+            _build_pending_decision(
+                decision_id=f"daemonic-power-{technique.id}",
+                kind="daemonic_power",
+                title=f"Dämonische Kraft: {technique.name}",
+                summary=(
+                    f"{technique.school.name} | "
+                    f"Tier {technique.granted_daemonic_power_tier.name}"
+                ),
+                description=(
+                    "Diese Technik gewährt genau eine noch nicht bekannte "
+                    "dämonische Kraft aus dem angegebenen Tier."
+                ),
+                prompt="Dämonische Kraft wählen",
+                selection_group_id=f"daemonic-power:{character.id}",
+                options=[
+                    _build_decision_option(
+                        option_id=str(power.id),
+                        label=power.name,
+                        meta=f"Tier {power.tier.name}",
+                        description=power.description,
+                        badge="Dämonische Kraft",
+                        facts=[
+                            {
+                                "label": "Schwäche",
+                                "value": power.weakness_description or "-",
+                            }
+                        ],
+                        submit_name=field_name,
+                        submit_value=str(power.id),
+                    )
+                    for power in powers
                 ],
             )
         )

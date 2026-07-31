@@ -66,6 +66,7 @@ from .models import (
     CharacterAttribute,
     CharacterCreature,
     CharacterCreatureAttributeIncrease,
+    CharacterCreatureDaemonicPower,
     CharacterCreatureCommand,
     CharacterCreatureCommandPrerequisite,
     CharacterCreatureItem,
@@ -73,6 +74,7 @@ from .models import (
     CharacterCreatureSpecialSkill,
     CharacterCreatureTrait,
     CharacterCreatureTraitChoice,
+    CharacterDaemonicPower,
     CharacterCreationDraft,
     CharacterDruidCult,
     CharacterDivineEntity,
@@ -119,6 +121,9 @@ from .models import (
     CreatureTraitDefinition,
     CreatureTraitSemanticEffect,
     DamageSource,
+    DaemonicPower,
+    DaemonicPowerSemanticEffect,
+    DaemonicPowerTier,
     DivineEntity,
     DivineEntityAspect,
     DruidCult,
@@ -2269,7 +2274,7 @@ class CreatureTraitSemanticEffectAdminForm(forms.ModelForm):
         fields = "__all__"
 
     class Media:
-        js = ("charsheet/js/creature_trait_semantic_effect_admin_v6.js",)
+        js = ("charsheet/js/creature_trait_semantic_effect_admin_v7.js",)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -2809,6 +2814,124 @@ class CreatureSpecialSkillSemanticEffectAdminForm(CreatureTraitSemanticEffectAdm
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["scale_by_trait_level"].label = "pro Skill-Wert anwenden"
+
+
+class DaemonicPowerSemanticEffectAdminForm(CreatureTraitSemanticEffectAdminForm):
+    """Simple semantic-effect editor shared by character and creature powers."""
+
+    EFFECT_AREA_CHOICES = (
+        ("daemonic_power", "Daemonic power"),
+        ("attribute", "Attribute"),
+        ("defense", "Defense / resistance"),
+        ("movement", "Movement"),
+        ("skill", "Skill"),
+        ("skill_category", "Skill category"),
+        ("special_skill", "Creature skill"),
+        ("combat", "Attack / damage"),
+        ("attack_type_damage", "Damage by attack type"),
+    )
+    DEFENSE_TARGET_CHOICES = (
+        ("initiative", "Initiative"),
+        ("vw", "VW"),
+        ("sr", "SR"),
+        ("gw", "GW"),
+        ("rs", "RS"),
+        ("natural_rs", "Natural RS"),
+        ("wound_step", "Wound threshold"),
+        ("wound_penalty_reduction", "Reduce wound penalties"),
+        ("encumbrance", "Encumbrance"),
+    )
+    MOVEMENT_TARGET_CHOICES = (
+        ("combat", "Combat"),
+        ("march", "March"),
+        ("sprint", "Sprint"),
+        ("swim", "Swimming"),
+        ("swim_combat", "Swimming combat"),
+        ("swim_march", "Swimming march"),
+        ("swim_sprint", "Swimming sprint"),
+        ("fly_combat", "Flight combat"),
+        ("fly_march", "Flight march"),
+        ("fly_sprint", "Flight sprint"),
+    )
+    COMBAT_TARGET_CHOICES = (
+        ("attack_value", "Attack value"),
+        ("damage", "Damage"),
+    )
+    OPERATION_CHOICES = (
+        ("flat_add", "+ add"),
+        ("flat_sub", "- subtract"),
+        ("multiply", "* multiply"),
+        ("floor_divide", "// floor divide"),
+        ("override", "set value"),
+        ("min_value", "minimum"),
+        ("max_value", "maximum"),
+    )
+
+    class Meta:
+        model = DaemonicPowerSemanticEffect
+        fields = "__all__"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["effect_area"].label = "Effect area"
+        self.fields["effect_area"].choices = self.EFFECT_AREA_CHOICES
+        self.fields["simple_target"].label = "Target"
+        self.fields["simple_operator"].label = "Operator"
+        self.fields["simple_operator"].choices = self.OPERATION_CHOICES
+        self.fields["simple_value"].label = "Value"
+        self.fields["sort_order"].label = "Sort order"
+        self.fields["active_flag"].label = "Active"
+        self.fields["condition_text"].label = "Optional condition"
+        self.fields["scale_by_trait_level"].widget = forms.HiddenInput()
+        self.fields["scale_by_trait_level"].initial = False
+
+    def _simple_target_choices(self):
+        choices = super()._simple_target_choices()
+        choices.extend(
+            (
+                f"daemonic_power:{power.slug}",
+                f"{power.name} ({power.tier.name})",
+            )
+            for power in DaemonicPower.objects.select_related("tier").order_by(
+                "tier__sort_number",
+                "tier__name",
+                "name",
+                "id",
+            )
+        )
+        return choices
+
+    def _apply_initial_simple_values(self):
+        super()._apply_initial_simple_values()
+        target_domain = str(
+            self.initial.get("target_domain")
+            or getattr(self.instance, "target_domain", "")
+            or ""
+        )
+        target_key = str(
+            self.initial.get("target_key")
+            or getattr(self.instance, "target_key", "")
+            or ""
+        )
+        if target_domain == "daemonic_power":
+            self.initial["effect_area"] = "daemonic_power"
+            self.initial["simple_target"] = f"daemonic_power:{target_key}"
+
+    def _simple_target(self, area, simple_target) -> tuple[str, str]:
+        target_domain, target_key = super()._simple_target(area, simple_target)
+        if target_domain and target_key:
+            return target_domain, target_key
+        prefix, separator, target_key = str(simple_target or "").partition(":")
+        if separator and area == "daemonic_power" and prefix == area:
+            return "daemonic_power", target_key
+        return "", ""
+
+    def clean(self):
+        cleaned_data = super().clean()
+        cleaned_data["scale_by_trait_level"] = False
+        cleaned_data["mode"] = "flat"
+        cleaned_data["scaling"] = {}
+        return cleaned_data
 
 
 class SpellAdminForm(forms.ModelForm):
@@ -3593,6 +3716,7 @@ class TechniqueAdmin(admin.ModelAdmin):
         "choice_block",
         "target_choice_definition",
         "specialization_slot_grants",
+        "granted_daemonic_power_tier",
         "support_level",
         "choice_marker",
     )
@@ -3619,12 +3743,26 @@ class TechniqueAdmin(admin.ModelAdmin):
         "has_specification",
         "choice_target_kind",
         "specialization_slot_grants",
+        "granted_daemonic_power_tier",
         "action_type",
         "usage_type",
     )
     ordering = ("school", "level", "name")
-    autocomplete_fields = ("school", "path", "choice_block", "target_choice_definition")
-    list_select_related = ("school", "school__type", "path", "choice_block", "target_choice_definition")
+    autocomplete_fields = (
+        "school",
+        "path",
+        "choice_block",
+        "target_choice_definition",
+        "granted_daemonic_power_tier",
+    )
+    list_select_related = (
+        "school",
+        "school__type",
+        "path",
+        "choice_block",
+        "target_choice_definition",
+        "granted_daemonic_power_tier",
+    )
     inlines = (
         TechniqueRequirementInline,
         TechniqueExclusionInline,
@@ -3671,6 +3809,7 @@ class TechniqueAdmin(admin.ModelAdmin):
                     "target_choice_definition",
                     "choice_bonus_value",
                     "specialization_slot_grants",
+                    "granted_daemonic_power_tier",
                 ),
                 "description": (
                     "choice_group is only used for display and organization. Binding "
@@ -6337,7 +6476,7 @@ class CreatureTraitSemanticEffectInline(admin.StackedInline):
     extra = 0
 
     class Media:
-        js = ("charsheet/js/creature_trait_semantic_effect_admin_v6.js",)
+        js = ("charsheet/js/creature_trait_semantic_effect_admin_v7.js",)
 
     fieldsets = (
         (
@@ -6365,7 +6504,7 @@ class CreatureSpecialSkillSemanticEffectInline(admin.StackedInline):
     extra = 0
 
     class Media:
-        js = ("charsheet/js/creature_trait_semantic_effect_admin_v6.js",)
+        js = ("charsheet/js/creature_trait_semantic_effect_admin_v7.js",)
 
     fieldsets = (
         (
@@ -6380,6 +6519,32 @@ class CreatureSpecialSkillSemanticEffectInline(admin.StackedInline):
                     "condition_text",
                 ),
                 "description": "Erst den Bereich waehlen, dann nur noch den passenden Wert und die Rechenart ausfuellen.",
+            },
+        ),
+    )
+    autocomplete_fields = ("target_skills",)
+
+
+class DaemonicPowerSemanticEffectInline(admin.StackedInline):
+    model = DaemonicPowerSemanticEffect
+    form = DaemonicPowerSemanticEffectAdminForm
+    extra = 0
+    fieldsets = (
+        (
+            "Build effect",
+            {
+                "fields": (
+                    ("application_scope", "sort_order", "active_flag"),
+                    "effect_area",
+                    "simple_target",
+                    ("simple_operator", "simple_value"),
+                    "scale_by_trait_level",
+                    "condition_text",
+                ),
+                "description": (
+                    "Choose the application scope, effect area, target, operator, "
+                    "value, and optional condition."
+                ),
             },
         ),
     )
@@ -6473,6 +6638,81 @@ class CreatureTypeAdmin(admin.ModelAdmin):
     ordering = ("sort_order", "name")
 
 
+@admin.register(DaemonicPowerTier)
+class DaemonicPowerTierAdmin(admin.ModelAdmin):
+    list_display = ("name", "slug", "sort_number")
+    list_editable = ("sort_number",)
+    search_fields = ("name", "slug")
+    prepopulated_fields = {"slug": ("name",)}
+    ordering = ("sort_number", "name")
+
+
+@admin.register(DaemonicPower)
+class DaemonicPowerAdmin(admin.ModelAdmin):
+    list_display = ("name", "tier", "slug")
+    list_filter = ("tier",)
+    search_fields = ("name", "slug", "description", "weakness_description", "tier__name")
+    prepopulated_fields = {"slug": ("name",)}
+    autocomplete_fields = ("tier",)
+    list_select_related = ("tier",)
+    inlines = (DaemonicPowerSemanticEffectInline,)
+    fieldsets = (
+        ("Core", {"fields": ("name", "slug", "tier")}),
+        ("Description", {"fields": ("description",)}),
+        ("Associated weakness", {"fields": ("weakness_description",)}),
+    )
+
+
+@admin.register(DaemonicPowerSemanticEffect)
+class DaemonicPowerSemanticEffectAdmin(admin.ModelAdmin):
+    form = DaemonicPowerSemanticEffectAdminForm
+    list_display = (
+        "power",
+        "application_scope",
+        "target_domain",
+        "target_key",
+        "operator",
+        "active_flag",
+        "sort_order",
+    )
+    list_filter = ("application_scope", "target_domain", "operator", "active_flag")
+    search_fields = ("power__name", "power__slug", "target_key", "condition_text")
+    autocomplete_fields = ("power", "target_skills")
+    list_select_related = ("power", "power__tier")
+    fieldsets = DaemonicPowerSemanticEffectInline.fieldsets
+
+
+@admin.register(CharacterDaemonicPower)
+class CharacterDaemonicPowerAdmin(admin.ModelAdmin):
+    list_display = ("character", "power", "granting_technique")
+    search_fields = (
+        "character__name",
+        "power__name",
+        "granting_technique__name",
+    )
+    list_filter = ("power__tier", "granting_technique__school")
+    autocomplete_fields = ("character", "power", "granting_technique")
+    list_select_related = (
+        "character",
+        "power",
+        "power__tier",
+        "granting_technique",
+    )
+
+
+@admin.register(CharacterCreatureDaemonicPower)
+class CharacterCreatureDaemonicPowerAdmin(admin.ModelAdmin):
+    list_display = ("creature", "power")
+    search_fields = (
+        "creature__name_override",
+        "creature__creature__name",
+        "power__name",
+    )
+    list_filter = ("power__tier",)
+    autocomplete_fields = ("creature", "power")
+    list_select_related = ("creature", "creature__creature", "power", "power__tier")
+
+
 class CreatureChangeList(ChangeList):
     """Keep creature types grouped while honoring column sorting within groups."""
 
@@ -6510,6 +6750,7 @@ class CreatureAdmin(admin.ModelAdmin):
     search_fields = ("name", "slug", "climate_and_occurrence", "organization")
     list_filter = ("size_class",)
     prepopulated_fields = {"slug": ("name",)}
+    filter_horizontal = ("daemonic_powers",)
     actions = ("assign_creature_type",)
     inlines = (
         CreatureAttackInline,
@@ -6521,6 +6762,7 @@ class CreatureAdmin(admin.ModelAdmin):
     )
     fieldsets = (
         ("Basis", {"fields": ("name", "slug", "creature_type", "image", "description")}),
+        ("Daemonic powers", {"fields": ("daemonic_powers",)}),
         (
             "Kampfwerte",
             {
@@ -6654,6 +6896,13 @@ class CharacterCreatureSpecialSkillInline(admin.TabularInline):
     autocomplete_fields = ("skill",)
 
 
+class CharacterCreatureDaemonicPowerInline(admin.TabularInline):
+    model = CharacterCreatureDaemonicPower
+    extra = 0
+    fields = ("power",)
+    autocomplete_fields = ("power",)
+
+
 class CharacterCreatureTraitInline(admin.TabularInline):
     model = CharacterCreatureTrait
     extra = 0
@@ -6705,6 +6954,7 @@ class CharacterCreatureAdmin(admin.ModelAdmin):
         CharacterCreatureItemInline,
         CharacterCreatureSkillInline,
         CharacterCreatureSpecialSkillInline,
+        CharacterCreatureDaemonicPowerInline,
         CharacterCreatureTraitInline,
         CharacterCreatureCommandInline,
         CharacterCreatureAttributeIncreaseInline,
@@ -6810,7 +7060,7 @@ class CreatureSpecialSkillSemanticEffectAdmin(admin.ModelAdmin):
     )
 
     class Media:
-        js = ("charsheet/js/creature_trait_semantic_effect_admin_v6.js",)
+        js = ("charsheet/js/creature_trait_semantic_effect_admin_v7.js",)
 
 
 @admin.register(CreatureSpecialSkillValue)
@@ -6836,7 +7086,7 @@ class CreatureTraitDefinitionAdmin(admin.ModelAdmin):
     )
 
     class Media:
-        js = ("charsheet/js/creature_trait_semantic_effect_admin_v6.js",)
+        js = ("charsheet/js/creature_trait_semantic_effect_admin_v7.js",)
 
     def semantic_effect_preview(self, obj):
         return _creature_trait_semantic_preview(obj)

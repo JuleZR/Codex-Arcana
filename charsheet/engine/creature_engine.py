@@ -45,6 +45,7 @@ from charsheet.models.creatures import (
     CreatureAttack,
     CreatureSourceBinding,
 )
+from charsheet.models.daemonic_powers import DaemonicPowerSemanticEffect
 from charsheet.models.character import CharacterItem
 from charsheet.models.techniques import CharacterTechnique
 from charsheet.modifiers.definitions import ModifierOperator, StackBehavior, TargetDomain
@@ -144,6 +145,7 @@ class _EmptyCreature:
     traits = _EmptyRelatedRows()
     commands = _EmptyRelatedRows()
     languages = _EmptyRelatedRows()
+    daemonic_powers = _EmptyRelatedRows()
 
 
 EMPTY_CREATURE = _EmptyCreature()
@@ -277,6 +279,35 @@ class CreatureEngine:
         return int(getattr(row, "value_override", getattr(row, "value", 0)) or 0)
 
     @cached_property
+    def _effective_daemonic_powers(self) -> list[Any]:
+        """Return the union of template powers and character-creature additions."""
+        powers_by_id = {
+            power.id: power
+            for power in self.creature.daemonic_powers.select_related("tier").prefetch_related(
+                "semantic_effects",
+                "semantic_effects__target_skills",
+            )
+        }
+        if self.instance:
+            for ownership in self.instance.daemonic_power_additions.select_related(
+                "power",
+                "power__tier",
+            ).prefetch_related(
+                "power__semantic_effects",
+                "power__semantic_effects__target_skills",
+            ):
+                powers_by_id.setdefault(ownership.power_id, ownership.power)
+        return sorted(
+            powers_by_id.values(),
+            key=lambda power: (
+                int(power.tier.sort_number),
+                power.tier.name.casefold(),
+                power.name.casefold(),
+                power.id,
+            ),
+        )
+
+    @cached_property
     def _trait_levels_by_slug(self) -> dict[str, int]:
         levels: dict[str, int] = {}
         for row in self._effective_trait_rows:
@@ -309,7 +340,48 @@ class CreatureEngine:
                 if not effect_row.active_flag:
                     continue
                 effects.extend(self._effect_row_to_creature_effects(effect_row, level=skill_value))
+        for power in self._effective_daemonic_powers:
+            for effect_row in power.semantic_effects.all():
+                if (
+                    not effect_row.active_flag
+                    or effect_row.application_scope
+                    not in {
+                        DaemonicPowerSemanticEffect.ApplicationScope.CREATURE,
+                        DaemonicPowerSemanticEffect.ApplicationScope.BOTH,
+                    }
+                ):
+                    continue
+                effects.extend(self._daemonic_effect_row_to_creature_effects(effect_row))
         return self._expand_choice_bound_effects(effects)
+
+    @staticmethod
+    def _daemonic_effect_row_to_creature_effects(effect_row) -> list[CreatureSemanticEffect]:
+        base_effect = CreatureSemanticEffect(
+            source_id=f"daemonic_power:{effect_row.power_id}",
+            target_domain=effect_row.target_domain,
+            target_key=effect_row.target_key,
+            operator=effect_row.operator,
+            mode=effect_row.mode,
+            value=effect_row._coerce_scalar(effect_row.value),
+            value_min=effect_row.value_min,
+            value_max=effect_row.value_max,
+            scaling=dict(effect_row.scaling or {}),
+            stack_behavior=effect_row.stack_behavior,
+            priority=int(effect_row.priority),
+            condition_text=effect_row.condition_text,
+            rules_text=effect_row.rules_text,
+            notes=effect_row.notes,
+            metadata=dict(effect_row.metadata or {}),
+        )
+        skill_slugs = list(
+            effect_row.target_skills.order_by("slug").values_list("slug", flat=True)
+        )
+        if not skill_slugs:
+            return [base_effect]
+        return [
+            replace(base_effect, target_domain=TargetDomain.SKILL, target_key=slug)
+            for slug in skill_slugs
+        ]
 
     def _effect_row_to_creature_effects(self, effect_row, *, level: int) -> list[CreatureSemanticEffect]:
         metadata = dict(effect_row.metadata or {})
@@ -1381,6 +1453,32 @@ class CreatureEngine:
                 )
         return rows
 
+    def daemonic_powers(self) -> list[dict[str, Any]]:
+        """Return effective daemonic powers in stable tier/name order."""
+        rows = []
+        for power in self._effective_daemonic_powers:
+            modifier = self._modifier_total(
+                TargetDomain.DAEMONIC_POWER,
+                power.slug,
+            )
+            rows.append({
+                "id": power.id,
+                "name": power.name,
+                "slug": power.slug,
+                "tier": power.tier.name,
+                "tier_slug": power.tier.slug,
+                "tier_sort_number": power.tier.sort_number,
+                "description": power.description,
+                "weakness_description": power.weakness_description,
+                "modifier": modifier,
+                "modifier_display": (
+                    self._format_variant_value(modifier, signed=True)
+                    if modifier
+                    else ""
+                ),
+            })
+        return rows
+
     def card_context(self) -> dict[str, Any]:
         armor = self.armor_totals()
         defense_extra_value = self.defense_extra_value()
@@ -1509,6 +1607,7 @@ class CreatureEngine:
             "languages": self.languages(),
             "commands": self.commands(),
             "traits": self.traits(),
+            "daemonic_powers": self.daemonic_powers(),
             "effect_conditions": self.effect_condition_summary(),
             "climate_and_occurrence": self.creature.climate_and_occurrence,
             "organization": self.instance.trigger_label if self.instance and self.instance.trigger_label else self.creature.organization,

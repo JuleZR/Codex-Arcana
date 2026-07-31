@@ -4897,6 +4897,62 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
   padding-right: 4px;
 }
 
+.p2_lower_panel__wm_tab .daemonic_power_scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 2px 4px 4px;
+}
+
+.daemonic_power_section__header {
+  margin-bottom: 6px;
+  padding-bottom: 3px;
+  border-bottom: 1px solid rgba(114, 80, 46, 0.25);
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-weight: 700;
+  color: #5a3d25;
+}
+
+.daemonic_power_grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 8px;
+}
+
+.daemonic_power_card {
+  padding: 8px 10px;
+  border: 1px solid rgba(114, 80, 46, 0.28);
+  border-radius: 4px;
+  background: rgba(255, 249, 232, 0.48);
+}
+
+.daemonic_power_card__heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.daemonic_power_card__heading > span {
+  color: rgba(74, 55, 38, 0.65);
+  font-size: 0.82rem;
+  text-align: right;
+}
+
+.daemonic_power_modifier {
+  display: inline-block;
+  margin-left: 0.25rem;
+  color: #7b1f2b;
+  font-variant-numeric: tabular-nums;
+}
+
+.daemonic_power_card p {
+  margin: 5px 0 0;
+  line-height: 1.25;
+}
+
 [data-tab-panel][hidden] {
   display: none !important;
 }

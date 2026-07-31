@@ -244,6 +244,15 @@
                 </p>
             {% endif %}
 
+            {% if creature_card.daemonic_powers %}
+                <p class="creature-card__oracle-line creature-card__oracle-line--ability">
+                    <strong>D&auml;monische Kr&auml;fte</strong>
+                    {% for power in creature_card.daemonic_powers %}
+                        <span class="creature-card__rule-entry{% if power.description or power.weakness_description %} tooltip_target{% endif %}"{% if power.description or power.weakness_description %} data-tooltip="{% if power.description %}{{ power.description }}{% endif %}{% if power.description and power.weakness_description %}&#10;{% endif %}{% if power.weakness_description %}Schw&auml;che: {{ power.weakness_description }}{% endif %}" data-tooltip-side="right"{% endif %}>{{ power.name }}{% if power.modifier_display %} {{ power.modifier_display }}{% endif %} ({{ power.tier }})</span>{% if not forloop.last %}, {% endif %}
+                    {% endfor %}
+                </p>
+            {% endif %}
+
             {% if creature_card.traits or creature_card.special_skills or creature_card.languages %}
                 <p class="creature-card__oracle-line creature-card__oracle-line--ability">
                     <strong>Besondere F&auml;higkeiten</strong>

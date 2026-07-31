@@ -57,6 +57,13 @@ from .creatures import (
     CreatureTraitDefinition,
     CreatureTraitSemanticEffect,
 )
+from .daemonic_powers import (
+    CharacterCreatureDaemonicPower,
+    CharacterDaemonicPower,
+    DaemonicPower,
+    DaemonicPowerSemanticEffect,
+    DaemonicPowerTier,
+)
 from .items import (
     ArmorStats,
     Item,
@@ -149,6 +156,8 @@ __all__ = [
     "CharacterCreatureSpecialSkill",
     "CharacterCreatureTrait",
     "CharacterCreatureTraitChoice",
+    "CharacterCreatureDaemonicPower",
+    "CharacterDaemonicPower",
     "CharacterItem",
     "ItemRune",
     "CharacterItemRuneSpec",
@@ -168,6 +177,9 @@ __all__ = [
     "CharacterTrait",
     "CharacterTraitChoice",
     "DamageSource",
+    "DaemonicPower",
+    "DaemonicPowerSemanticEffect",
+    "DaemonicPowerTier",
     "DivineEntity",
     "DivineEntityAspect",
     "DruidCult",

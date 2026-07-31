@@ -270,6 +270,36 @@
         </div>
       </div>
     </section>
+
+    <section class="creature-training-drawer__section is-collapsed" aria-label="Dämonische Kräfte" data-creature-training-section>
+      <button class="creature-training-section-toggle" type="button" data-creature-training-section-toggle aria-expanded="false">
+        <span>D&auml;monische Kr&auml;fte</span>
+        <span class="creature-training-section-toggle__icon" aria-hidden="true"></span>
+      </button>
+      <div class="creature-training-section-body" data-creature-training-section-body hidden>
+        <input type="hidden" name="daemonic_powers_present" value="1">
+        <input class="creature-training-filter" type="search" placeholder="D&auml;monische Kr&auml;fte suchen" data-creature-training-filter data-filter-target="daemonic-powers" aria-label="D&auml;monische Kr&auml;fte suchen">
+        <div class="creature-training-list" data-creature-training-filter-list="daemonic-powers">
+        {% for tier in training.daemonic_power_groups %}
+          <div class="creature-training-power-tier">
+            <strong class="creature-training-power-tier__title">Tier {{ tier.name }}</strong>
+            {% for power in tier.powers %}
+              <label class="creature-training-choice{% if power.is_base %} creature-training-choice--base{% endif %}" data-filter-text="{{ tier.name }} {{ power.name }} {{ power.description }} {{ power.weakness_description }}">
+                <input type="checkbox" name="daemonic_powers" value="{{ power.id }}"{% if power.selected %} checked{% endif %}{% if power.is_base %} disabled{% endif %}>
+                <span>
+                  <strong>{{ power.name }}</strong>
+                  {% if power.description %}<small>{{ power.description }}</small>{% endif %}
+                  <small>{% if power.is_base %}Basiskraft &middot; {% endif %}Schw&auml;che: {{ power.weakness_description|default:"-" }}</small>
+                </span>
+              </label>
+            {% endfor %}
+          </div>
+        {% empty %}
+          <p class="creature-training-empty">Keine d&auml;monischen Kr&auml;fte im Katalog.</p>
+        {% endfor %}
+        </div>
+      </div>
+    </section>
     </div>
 
     <div class="creature-training-column">

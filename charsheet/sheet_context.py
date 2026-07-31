@@ -75,6 +75,7 @@ from charsheet.models import (
     CharacterSkill,
     CharacterWeaponMasteryArcana,
     CharacterCreature,
+    CharacterDaemonicPower,
     Creature,
     CreatureSourceBinding,
     CharacterCreatureTrait,
@@ -85,6 +86,8 @@ from charsheet.models import (
     CharacterLesson,
     CharacterSpell,
     CharacterCreatureTraitChoice,
+    DaemonicPower,
+    DaemonicPowerTier,
     RaceStartingItem,
     CharacterTechnique,
     CharacterTrait,
@@ -115,6 +118,21 @@ from charsheet.models import (
     WeaponType,
 )
 from charsheet.view_utils import format_compact_number, format_modifier, format_thousands, quality_payload
+
+
+def _divine_entity_card_kind_label(divine_entity) -> str:
+    """Return the visible god-card kind for deities and cult demons."""
+    school = getattr(divine_entity, "school", None)
+    school_name = str(getattr(school, "name", "") or "").strip().casefold()
+    school_type = getattr(school, "type", None)
+    type_name = str(getattr(school_type, "name", "") or "").strip().casefold()
+    type_slug = str(getattr(school_type, "slug", "") or "").strip().casefold()
+    is_cult_entity = (
+        school_name.startswith(("kultist", "cultist"))
+        or type_name in {"kult", "cult"}
+        or type_slug in {"kult", "cult", "school_kult", "school_cult"}
+    )
+    return "Dämon" if is_cult_entity else "Gottheit"
 
 
 def _size_class_options(*, selected: str | None = None) -> list[dict[str, object]]:
@@ -572,6 +590,41 @@ def build_creature_card_training_context(card):
         "wound_step": engine.wound_step(),
         "wound_thresholds": card.wound_thresholds_override or base_creature.wound_thresholds_override,
     }
+    base_daemonic_power_ids = set(
+        base_creature.daemonic_powers.values_list("id", flat=True)
+    )
+    trained_daemonic_power_ids = set(
+        card.daemonic_power_additions.values_list("power_id", flat=True)
+    )
+    daemonic_power_groups = []
+    for tier in DaemonicPowerTier.objects.prefetch_related("powers").order_by(
+        "sort_number",
+        "name",
+        "id",
+    ):
+        rows = []
+        for power in tier.powers.order_by("name", "id"):
+            is_base = power.id in base_daemonic_power_ids
+            rows.append(
+                {
+                    "id": power.id,
+                    "name": power.name,
+                    "description": power.description,
+                    "weakness_description": power.weakness_description,
+                    "selected": is_base or power.id in trained_daemonic_power_ids,
+                    "is_base": is_base,
+                }
+            )
+        if rows:
+            daemonic_power_groups.append(
+                {
+                    "id": tier.id,
+                    "name": tier.name,
+                    "slug": tier.slug,
+                    "sort_number": tier.sort_number,
+                    "powers": rows,
+                }
+            )
 
     return {
         "card": card,
@@ -598,6 +651,7 @@ def build_creature_card_training_context(card):
         "current_size_modifier_display": format_modifier(int(GK_MODS.get(current_size_class, 0))),
         "movement_options": movement_options,
         "core_value_options": core_value_options,
+        "daemonic_power_groups": daemonic_power_groups,
         "base_advantage_points": int(card.max_base_advantage_points or 0),
         "base_disadvantage_points": int(card.max_base_disadvantage_points or 0),
         "spent_advantage_points": advantage_points,
@@ -1054,6 +1108,7 @@ MODIFIER_SOURCE_LABELS = {
     "trait": "Merkmal",
     "school": "Schule",
     "technique": "Technik",
+    "daemonic_power": "Dämonische Kraft",
     "item": "Magischer Gegenstand",
     SOURCE_ITEM_RUNE: "Rune",
 }
@@ -1915,6 +1970,10 @@ def _resolve_modifier_source_name(engine, source_type: object, source_id: object
             technique = Technique.objects.filter(pk=int(source_id_text)).only("name").first()
             if technique is not None:
                 return technique.name
+    if source_type_text == "daemonic_power" and source_id_text.isdigit():
+        power = DaemonicPower.objects.filter(pk=int(source_id_text)).only("name").first()
+        if power is not None:
+            return power.name
     if source_type_text == "item" and source_id_text.isdigit():
         item = Item.objects.filter(pk=int(source_id_text)).only("name").first()
         if item is not None:
@@ -3394,6 +3453,65 @@ def _group_school_technique_rows(
     return race_rows, list(groups.values())
 
 
+def _build_daemonic_power_panel(character: Character, engine) -> list[dict]:
+    """Build active character powers grouped by deterministic tier ordering."""
+    groups: OrderedDict[int, dict] = OrderedDict()
+    ownerships = (
+        CharacterDaemonicPower.objects.filter(character=character)
+        .select_related(
+            "power",
+            "power__tier",
+            "granting_technique",
+            "granting_technique__school",
+        )
+        .order_by(
+            "power__tier__sort_number",
+            "power__tier__name",
+            "power__name",
+            "id",
+        )
+    )
+    for ownership in ownerships:
+        technique = ownership.granting_technique
+        if technique.granted_daemonic_power_tier_id != ownership.power.tier_id:
+            continue
+        state = engine.technique_state(technique)
+        if not state["learned"] or not state["available"]:
+            continue
+        tier = ownership.power.tier
+        group = groups.setdefault(
+            tier.id,
+            {
+                "id": tier.id,
+                "name": tier.name,
+                "slug": tier.slug,
+                "sort_number": tier.sort_number,
+                "powers": [],
+            },
+        )
+        group["powers"].append(
+            {
+                "id": ownership.power_id,
+                "name": ownership.power.name,
+                "slug": ownership.power.slug,
+                "description": ownership.power.description,
+                "weakness_description": ownership.power.weakness_description,
+                "modifier": engine.modifier_engine.resolve_numeric_total(
+                    "daemonic_power",
+                    ownership.power.slug,
+                ),
+                "granting_technique": technique.name,
+                "granting_school": technique.school.name,
+            }
+        )
+        group["powers"][-1]["modifier_display"] = (
+            format_modifier(group["powers"][-1]["modifier"])
+            if group["powers"][-1]["modifier"]
+            else ""
+        )
+    return list(groups.values())
+
+
 def _build_weapon_mastery_arcana_panel(engine) -> dict | None:
     """Build context for the weapon mastery arcana tab, or None when not applicable."""
     weapon_master_school_entry = engine._weapon_master_school_entry
@@ -4185,6 +4303,7 @@ def build_character_sheet_context(
     )
     language_rows, language_entries = _build_language_rows(character)
     weapon_mastery_arcana_panel = _build_weapon_mastery_arcana_panel(engine)
+    daemonic_power_panel = _build_daemonic_power_panel(character, engine)
 
     initiative_value = engine.calculate_initiative()
     initiative_stat_mod = engine._resolve_stat_modifiers(INITIATIVE)
@@ -4376,7 +4495,7 @@ def build_character_sheet_context(
         divine_symbol_url = divine_entity.symbol_image.url
     if divine_entity is not None:
         divine_card_storage_key = f"god.{divine_entity.pk}"
-        divine_card_kind_label = "Gottheit"
+        divine_card_kind_label = _divine_entity_card_kind_label(divine_entity)
         if divine_binding is not None and divine_binding.custom_god_image:
             divine_card_image_url = divine_binding.custom_god_image.url
         elif divine_entity.god_image:
@@ -4952,6 +5071,7 @@ def build_character_sheet_context(
         "shop_modifier_specialization_choices": Specialization.objects.order_by("name"),
         "shop_runes": Rune.objects.order_by("name"),
         "weapon_mastery_arcana_panel": weapon_mastery_arcana_panel,
+        "daemonic_power_panel": daemonic_power_panel,
         "spell_panel_enabled": bool(spell_panel_data["spell_panel_enabled"]),
         "spell_and_lessons_panel_enabled": bool(spell_panel_data["spell_and_lessons_panel_enabled"]),
         "has_castable_entries": bool(spell_panel_data["has_castable_entries"]),

@@ -17,7 +17,13 @@ from charsheet.modifiers.migration import (
     NumericResolutionComparison,
 )
 from charsheet.modifiers.registry import build_trait_semantic_modifiers
-from charsheet.models import Modifier, Skill, TechniqueSemanticEffect
+from charsheet.models import (
+    CharacterDaemonicPower,
+    DaemonicPowerSemanticEffect,
+    Modifier,
+    Skill,
+    TechniqueSemanticEffect,
+)
 
 
 @dataclass(slots=True)
@@ -183,6 +189,43 @@ class ModifierEngine:
         return [effect.to_modifier() for effect in effects]
 
     @cached_property
+    def _active_daemonic_power_modifiers(self) -> list[BaseModifier]:
+        """Build modifiers from valid power choices whose granting techniques are active."""
+        if self.character_engine is None:
+            return []
+        active_power_ids: set[int] = set()
+        ownerships = (
+            CharacterDaemonicPower.objects.filter(character=self.character_engine.character)
+            .select_related("power", "granting_technique")
+            .order_by("granting_technique_id", "power_id", "id")
+        )
+        for ownership in ownerships:
+            technique = ownership.granting_technique
+            if (
+                technique.granted_daemonic_power_tier_id != ownership.power.tier_id
+            ):
+                continue
+            state = self.character_engine.technique_state(technique)
+            if state["learned"] and state["available"]:
+                active_power_ids.add(ownership.power_id)
+        if not active_power_ids:
+            return []
+        effects = (
+            DaemonicPowerSemanticEffect.objects.filter(
+                power_id__in=active_power_ids,
+                active_flag=True,
+                application_scope__in=(
+                    DaemonicPowerSemanticEffect.ApplicationScope.CHARACTER,
+                    DaemonicPowerSemanticEffect.ApplicationScope.BOTH,
+                ),
+            )
+            .select_related("power")
+            .prefetch_related("target_skills")
+            .order_by("power_id", "sort_order", "id")
+        )
+        return [effect.to_modifier() for effect in effects]
+
+    @cached_property
     def migration_service(self) -> LegacyModifierMigrationService:
         """Return the legacy inventory and migration service for this engine."""
         if self.character_engine is None:
@@ -226,6 +269,7 @@ class ModifierEngine:
                 collected.append(modifier)
             collected.extend(self._active_trait_modifiers)
             collected.extend(self._active_technique_semantic_modifiers)
+            collected.extend(self._active_daemonic_power_modifiers)
             collected.extend(self._active_item_rune_modifiers)
         expanded = self._expand_choice_bound_modifiers(collected)
         result = [modifier for modifier in expanded if modifier is not None and modifier.applies(context)]

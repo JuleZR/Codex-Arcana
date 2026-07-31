@@ -70,6 +70,7 @@ class TargetDomain(StringEnum):
     ITEM_CATEGORY = "item_category"
     SPECIALIZATION = "specialization"
     ENTITY = "entity"
+    DAEMONIC_POWER = "daemonic_power"
 
 
 class StackBehavior(StringEnum):

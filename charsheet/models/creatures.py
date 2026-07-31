@@ -113,6 +113,12 @@ class Creature(models.Model):
     )
     image = models.ImageField(upload_to="creatures/", blank=True, null=True)
     description = models.TextField(blank=True, default="")
+    daemonic_powers = models.ManyToManyField(
+        "charsheet.DaemonicPower",
+        blank=True,
+        related_name="base_creatures",
+        verbose_name="Daemonic powers",
+    )
     quality = models.ForeignKey(
         "charsheet.Quality",
         db_column="quality",

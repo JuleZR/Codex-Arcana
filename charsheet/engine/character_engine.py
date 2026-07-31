@@ -619,7 +619,13 @@ class CharacterEngine:
 
         return list(
             Technique.objects.filter(school_id__in=school_ids)
-            .select_related("school", "path", "choice_block", "choice_block__path")
+            .select_related(
+                "school",
+                "path",
+                "choice_block",
+                "choice_block__path",
+                "granted_daemonic_power_tier",
+            )
             .prefetch_related(
                 Prefetch("requirements", queryset=requirement_queryset),
                 Prefetch("exclusions", queryset=exclusions_queryset),

@@ -29,6 +29,15 @@
     return select._creatureAllTargetOptions;
   }
 
+  function readAllAreaOptions(select) {
+    if (!select._daemonicAllAreaOptions) {
+      select._daemonicAllAreaOptions = Array.prototype.map.call(select.options, function (option) {
+        return { value: option.value, text: option.text };
+      });
+    }
+    return select._daemonicAllAreaOptions;
+  }
+
   function rebuildOptions(select, options, currentValue) {
     while (select.options.length) {
       select.remove(0);
@@ -55,6 +64,26 @@
     rebuildOptions(target, filteredOptions, target.value);
   }
 
+  function syncApplicationScope(root) {
+    var scope = root.querySelector('[name$="application_scope"]');
+    var area = root.querySelector('[name$="effect_area"]');
+    if (!scope || !area) {
+      return;
+    }
+    var creatureOnlyAreas = {
+      special_skill: true,
+      choice_attack_damage: true,
+      attack_type_damage: true
+    };
+    var options = readAllAreaOptions(area);
+    if (scope.value !== "creature") {
+      options = options.filter(function (option) {
+        return !creatureOnlyAreas[option.value];
+      });
+    }
+    rebuildOptions(area, options, area.value);
+  }
+
   function syncEffectForm(root) {
     if (isEmptyTemplate(root)) {
       return;
@@ -63,6 +92,7 @@
     if (!area) {
       return;
     }
+    syncApplicationScope(root);
     var isChoice = area.value === "choice" || area.value === "choice_attack_damage";
     setRowVisible(root, "simple_target", !isChoice);
     setRowVisible(root, "target_choice_definition", isChoice);
@@ -83,6 +113,12 @@
     area.addEventListener("change", function () {
       syncEffectForm(root);
     });
+    var scope = root.querySelector('[name$="application_scope"]');
+    if (scope) {
+      scope.addEventListener("change", function () {
+        syncEffectForm(root);
+      });
+    }
     syncEffectForm(root);
   }
 
