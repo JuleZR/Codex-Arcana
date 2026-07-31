@@ -99,6 +99,7 @@ from .sheet_context import (
     _divine_entity_card_kind_label,
     build_character_sheet_context,
     build_creature_card_training_context,
+    build_temporary_attribute_context,
 )
 from .shop import (
     apply_character_item_modifications,
@@ -127,6 +128,8 @@ from .item_transfers import (
 
 DIARY_ENTRY_CHAR_LIMIT = 2200
 SHEET_PARTIAL_TEMPLATES = {
+    "attribute_panel": ("sheetAttributePanel", "charsheet/partials/_attribute_panel.html"),
+    "skills_panel": ("sheetSkillsPanel", "charsheet/partials/_skills_panel.html"),
     "character_header": ("sheetCharacterHeader", "charsheet/partials/_character_header.html"),
     "character_religion_field": ("id_religion_entity", "charsheet/partials/_character_religion_field.html"),
     "secondary_page": ("sheetSecondaryPage", "charsheet/partials/_sheet_secondary_page.html"),
@@ -142,8 +145,63 @@ SHEET_PARTIAL_TEMPLATES = {
     "weapon_panel": ("sheetWeaponPanel", "charsheet/partials/_weapon_table.html"),
     "spell_panel": ("sheetSpellPanel", "charsheet/partials/_spell_panel.html"),
     "lesson_panel": ("sheetLessonPanel", "charsheet/partials/_lesson_panel.html"),
+    "battle_calculator": ("battleCalculatorWindow", "charsheet/partials/_battle_calculator_window.html"),
     "learning_budget": ("learnBudgetPanel", "charsheet/partials/_learning_budget.html"),
 }
+
+TEMPORARY_ATTRIBUTE_SESSION_KEY = "charsheet.temporary_attribute_adjustments"
+TEMPORARY_ATTRIBUTE_CODES = {short_name for short_name, _label in ATTRIBUTE_ORDER}
+TEMPORARY_ATTRIBUTE_PARTIAL_KEYS = (
+    "attribute_panel",
+    "skills_panel",
+    "core_stats_panel",
+    "damage_panel",
+    "weapon_panel",
+)
+
+
+def _temporary_attribute_adjustments(request, character_id: int) -> dict[str, int]:
+    """Return normalized per-viewer runtime attribute adjustments from the session."""
+    raw_state = request.session.get(TEMPORARY_ATTRIBUTE_SESSION_KEY, {})
+    raw_adjustments = raw_state.get(str(character_id), {}) if isinstance(raw_state, dict) else {}
+    if not isinstance(raw_adjustments, dict):
+        return {}
+    adjustments: dict[str, int] = {}
+    for short_name, raw_adjustment in raw_adjustments.items():
+        if short_name not in TEMPORARY_ATTRIBUTE_CODES:
+            continue
+        try:
+            adjustment = int(raw_adjustment)
+        except (TypeError, ValueError):
+            continue
+        if adjustment:
+            adjustments[short_name] = adjustment
+    return adjustments
+
+
+def _store_temporary_attribute_adjustments(
+    request,
+    character_id: int,
+    adjustments: dict[str, int],
+) -> None:
+    """Persist normalized runtime adjustments in the current viewer's session only."""
+    raw_state = request.session.get(TEMPORARY_ATTRIBUTE_SESSION_KEY, {})
+    state = dict(raw_state) if isinstance(raw_state, dict) else {}
+    normalized = {
+        short_name: int(adjustment)
+        for short_name, adjustment in adjustments.items()
+        if short_name in TEMPORARY_ATTRIBUTE_CODES and int(adjustment) != 0
+    }
+    character_key = str(character_id)
+    if normalized:
+        state[character_key] = normalized
+    else:
+        state.pop(character_key, None)
+    if state:
+        request.session[TEMPORARY_ATTRIBUTE_SESSION_KEY] = state
+    else:
+        request.session.pop(TEMPORARY_ATTRIBUTE_SESSION_KEY, None)
+    request.session.modified = True
 
 
 @login_required
@@ -463,6 +521,11 @@ def _build_sheet_context_for_request(
     if not skip_magic_sync and not read_only:
         magic_engine.sync_character_magic()
     magic_engine.normalize_current_arcane_power(persist=not read_only)
+    runtime_attribute_adjustments = _temporary_attribute_adjustments(request, character.pk)
+    character.get_engine(
+        refresh=True,
+        runtime_attribute_adjustments=runtime_attribute_adjustments,
+    )
     context = build_character_sheet_context(
         character,
         close_learn_window_once=close_learn_window_once,
@@ -480,6 +543,12 @@ def _build_sheet_context_for_request(
         "themeId": user_settings.dddice_theme_id,
     }
     context["request"] = request
+    context["temporary_attribute_adjustments"] = runtime_attribute_adjustments
+    context["temporary_attribute_update_url"] = (
+        ""
+        if read_only
+        else reverse("update_temporary_attribute", args=[character.pk])
+    )
     context["open_item_transfer_count"] = (
         0
         if read_only
@@ -489,6 +558,68 @@ def _build_sheet_context_for_request(
         ).count()
     )
     return context
+
+
+def _temporary_attribute_response(
+    request,
+    character: Character,
+    *,
+    read_only: bool = False,
+    update_url: str = "",
+) -> JsonResponse:
+    """Apply one runtime adjustment operation and return all affected sheet fragments."""
+    payload = _read_json_payload(request)
+    short_name = str(payload.get("attribute") or "").strip().upper()
+    operation = str(payload.get("operation") or "").strip().lower()
+    if short_name not in TEMPORARY_ATTRIBUTE_CODES:
+        return JsonResponse({"ok": False, "error": "invalid_attribute"}, status=400)
+    if operation not in {"increment", "decrement", "reset"}:
+        return JsonResponse({"ok": False, "error": "invalid_operation"}, status=400)
+    try:
+        amount = int(payload.get("amount", 1))
+    except (TypeError, ValueError):
+        return JsonResponse({"ok": False, "error": "invalid_amount"}, status=400)
+    if amount < 1 or amount > 100:
+        return JsonResponse({"ok": False, "error": "invalid_amount"}, status=400)
+
+    adjustments = _temporary_attribute_adjustments(request, character.pk)
+    if operation == "increment":
+        adjustments[short_name] = int(adjustments.get(short_name, 0)) + amount
+    elif operation == "decrement":
+        adjustments[short_name] = int(adjustments.get(short_name, 0)) - amount
+    else:
+        adjustments.pop(short_name, None)
+    if adjustments.get(short_name) == 0:
+        adjustments.pop(short_name, None)
+    _store_temporary_attribute_adjustments(request, character.pk, adjustments)
+
+    character.get_engine(
+        refresh=True,
+        runtime_attribute_adjustments=adjustments,
+    )
+    context = build_temporary_attribute_context(character, read_only=read_only)
+    context["request"] = request
+    context["temporary_attribute_adjustments"] = adjustments
+    context["temporary_attribute_update_url"] = (
+        update_url
+        or reverse("update_temporary_attribute", args=[character.pk])
+    )
+    partials = [
+        {
+            "target": SHEET_PARTIAL_TEMPLATES[key][0],
+            "html": render_to_string(SHEET_PARTIAL_TEMPLATES[key][1], context, request=request),
+        }
+        for key in TEMPORARY_ATTRIBUTE_PARTIAL_KEYS
+    ]
+    return JsonResponse(
+        {
+            "ok": True,
+            "adjustments": context["temporary_attribute_adjustments"],
+            "partials": partials,
+            "woundThresholdRows": context["wound_threshold_rows"],
+            "battleCalculatorPayload": context["battle_calculator_payload"],
+        }
+    )
 
 
 def _sheet_partials_response(request, character: Character, *partial_keys: str) -> JsonResponse:
@@ -860,6 +991,14 @@ def character_sheet(request, character_id: int):
     )
 
     return render(request, "charsheet/charsheet.html", context)
+
+
+@login_required
+@require_POST
+def update_temporary_attribute(request, character_id: int):
+    """Adjust one session-only attribute for the character owner."""
+    character = _owned_character_or_404(request, character_id)
+    return _temporary_attribute_response(request, character)
 
 
 @login_required

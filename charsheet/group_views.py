@@ -98,7 +98,12 @@ from charsheet.sheet_context import (
     _load_character_item_modifier_payloads,
     _merge_magic_effect_payloads,
 )
-from charsheet.views import _build_sheet_context_for_request, _serialize_diary_entry
+from charsheet.views import (
+    _build_sheet_context_for_request,
+    _serialize_diary_entry,
+    _temporary_attribute_adjustments,
+    _temporary_attribute_response,
+)
 from charsheet.view_utils import format_modifier
 
 
@@ -411,7 +416,11 @@ def game_master_screen(request, group_id: int):
     )
     for membership in memberships:
         character = membership.character
-        engine = character.get_engine(refresh=True)
+        runtime_attribute_adjustments = _temporary_attribute_adjustments(request, character.pk)
+        engine = character.get_engine(
+            refresh=True,
+            runtime_attribute_adjustments=runtime_attribute_adjustments,
+        )
         thresholds = engine.wound_thresholds()
         max_lp = max(thresholds, default=0)
         stun_damage = max(0, int(character.current_stun_damage or 0))
@@ -463,6 +472,7 @@ def game_master_screen(request, group_id: int):
                     key: {
                         "value": value,
                         "modifier": format_modifier(engine.attribute_modifier(key)),
+                        "runtime_adjustment": int(runtime_attribute_adjustments.get(key, 0)),
                     }
                     for key, value in attributes.items()
                 },
@@ -490,6 +500,7 @@ def game_master_screen(request, group_id: int):
                 "lethal_damage": lethal_damage,
                 "stun_damage_percent": f"{displayed_stun_damage / max_lp * 100:.4f}" if max_lp else "0",
                 "lethal_damage_percent": f"{displayed_lethal_damage / max_lp * 100:.4f}" if max_lp else "0",
+                "runtime_attribute_adjustments": runtime_attribute_adjustments,
             }
         )
     creature_cards = list(
@@ -756,7 +767,11 @@ def game_master_screen(request, group_id: int):
                 f"{row['character'].current_lethal_damage}:"
                 f"{row['character'].current_arcane_power}:"
                 f"{row['load_penalty']}:{row['total_armor']}:"
-                f"{int(row['character'].carry_load_enabled)}"
+                f"{int(row['character'].carry_load_enabled)}:"
+                + ",".join(
+                    f"{key}={value}"
+                    for key, value in sorted(row["runtime_attribute_adjustments"].items())
+                )
                 for row in roster
                 if row["card_kind"] == "character"
             ),
@@ -2346,7 +2361,11 @@ def group_inventory_transfer_state(request, group_id: int):
     character_states = []
     for membership in active_memberships:
         character = membership.character
-        engine = character.get_engine(refresh=True)
+        runtime_attribute_adjustments = _temporary_attribute_adjustments(request, character.pk)
+        engine = character.get_engine(
+            refresh=True,
+            runtime_attribute_adjustments=runtime_attribute_adjustments,
+        )
         character_states.append(
             (
                 character.id,
@@ -2361,6 +2380,10 @@ def group_inventory_transfer_state(request, group_id: int):
                 ),
                 engine.get_grs(),
                 int(character.carry_load_enabled),
+                ",".join(
+                    f"{key}={value}"
+                    for key, value in sorted(runtime_attribute_adjustments.items())
+                ),
             )
         )
     return JsonResponse(
@@ -2382,10 +2405,33 @@ def game_master_character_sheet(request, group_id: int, character_id: int):
     character = get_object_or_404(Character, pk=character_id)
     require_sl_character_access(request.user, group, character)
     context = _build_sheet_context_for_request(request, character, read_only=True)
+    context["temporary_attribute_update_url"] = reverse(
+        "update_game_master_temporary_attribute",
+        args=[group.pk, character.pk],
+    )
     context["read_only_diary_url"] = reverse(
         "game_master_character_diary", args=[group.pk, character.pk]
     )
     return render(request, "charsheet/charsheet.html", context)
+
+
+@login_required
+@require_POST
+def update_game_master_temporary_attribute(request, group_id: int, character_id: int):
+    """Adjust one session-only attribute in an authorized SL sheet view."""
+    group = get_object_or_404(GameGroup, pk=group_id)
+    character = get_object_or_404(Character, pk=character_id)
+    require_sl_character_access(request.user, group, character)
+    update_url = reverse(
+        "update_game_master_temporary_attribute",
+        args=[group.pk, character.pk],
+    )
+    return _temporary_attribute_response(
+        request,
+        character,
+        read_only=True,
+        update_url=update_url,
+    )
 
 
 @login_required

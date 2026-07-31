@@ -1,0 +1,56 @@
+<div
+  class="attribute_wrapper"
+  id="sheetAttributePanel"
+  data-temporary-attribute-panel
+  data-update-url="{{ temporary_attribute_update_url }}"
+>
+  <table class="attribute_table" aria-label="Eigenschaften">
+    <thead>
+      <tr>
+        <th class="a_header">Eigenschaften</th>
+        <th class="a_h_value">Wert</th>
+        <th class="a_h_value bm">Bonus/<br>Malus</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in attribute_rows %}
+        <tr
+          data-attribute-short-name="{{ row.short_name }}"
+          data-temporary-adjustment="{{ row.runtime_adjustment }}"
+          {% if row.runtime_adjustment > 0 %}class="is-temporary-positive"{% elif row.runtime_adjustment < 0 %}class="is-temporary-negative"{% endif %}
+        >
+          <td class="attribute">
+            <div class="attribute_name_controls">
+              <button
+                type="button"
+                class="attribute_step_control attribute_step_control--decrease"
+                data-temporary-attribute-control
+                data-operation="decrement"
+                aria-label="{{ row.label }} temporär um 1 verringern"
+                title="Temporär um 1 verringern"
+              >&minus;</button>
+              <button
+                type="button"
+                class="attribute_name_reset"
+                data-temporary-attribute-control
+                data-operation="reset"
+                aria-label="Temporäre Änderung für {{ row.label }} zurücksetzen"
+                title="Temporäre Änderung zurücksetzen"
+              >{{ row.label }}</button>
+              <button
+                type="button"
+                class="attribute_step_control attribute_step_control--increase"
+                data-temporary-attribute-control
+                data-operation="increment"
+                aria-label="{{ row.label }} temporär um 1 erhöhen"
+                title="Temporär um 1 erhöhen"
+              >+</button>
+            </div>
+          </td>
+          <td class="value" data-attribute-value aria-live="polite">{{ row.value }}</td>
+          <td class="mod"><span class="mod-badge">{{ row.modifier }}</span></td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>

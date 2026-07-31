@@ -1,0 +1,55 @@
+<div class="skills_wrapper" id="sheetSkillsPanel">
+  <table class="skills_table" aria-label="Fertigkeiten">
+    <thead>
+      <tr class="skills_title_row">
+        <th class="skills_title">Fertigkeiten</th>
+        <th>Eigen-<br>schaft</th>
+        <th>Bonus/<br>Malus</th>
+        <th>Rang</th>
+        <th>Mod.</th>
+        <th>Wert</th>
+        <th>mit Bel.</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in skill_rows %}
+        <tr{% if row.is_context_row %} class="skill_context_row"{% endif %}>
+          <td class="skill_name{% if row.is_context_row %} skill_name--context{% endif %}">
+            <div class="skill_name_wrap">
+              <span class="skill_name_text{% if row.description %} tooltip_target{% endif %}"{% if row.description %} data-tooltip-side="left" data-tooltip="{{ row.description|default:'Keine Beschreibung' }}"{% endif %}>{{ row.display_name }}</span>
+              {% if row.can_edit_specification %}
+                <button
+                  type="button"
+                  class="skill_spec_edit_btn"
+                  data-skill-spec-trigger
+                  data-skill-name="{{ row.name }}"
+                  data-specification="{{ row.specification }}"
+                  data-action="{% url 'update_skill_specification' character.id row.character_skill_id %}"
+                  aria-label="{{ row.name }} bearbeiten"
+                  title="{{ row.name }} bearbeiten"
+                >
+                  <span class="skill_spec_edit_emoji" aria-hidden="true">&#8943;</span>
+                </button>
+              {% endif %}
+            </div>
+          </td>
+          <td class="skill_prop">{{ row.attribute }}</td>
+          <td>{{ row.attribute_mod }}</td>
+          <td>{{ row.rank }}</td>
+          <td>{{ row.misc_mod }}</td>
+          <td>{{ row.total }}</td>
+          <td>
+            <span
+              class="bel_dot tooltip_target"
+              data-tooltip-side="left"
+              data-tooltip="{{ row.calculation_tooltip }}"
+              data-carry-skill-loaded-total
+              data-base-value="{{ row.with_load_total }}"
+              data-carry-value="{{ row.carry_with_load_total }}"
+            >{% if row.conditional_load_variants %}<span data-carry-skill-base-display>{{ row.with_load_total }}</span>{% for variant in row.conditional_load_variants %} / <span class="tooltip_target" data-tooltip-side="left" data-tooltip="{{ variant.tooltip }}" data-carry-skill-conditional-display data-value-delta="{{ variant.value_delta }}">{{ variant.value }}</span>{% endfor %}{% else %}{{ row.with_load_total }}{% endif %}</span>
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>

@@ -265,7 +265,7 @@
   border: 1px solid rgba(74, 55, 38, 0.24);
   border-radius: 4px;
   background: rgba(250, 241, 220, 0.78);
-  padding-left: 10px;
+  padding: 0;
   letter-spacing: 0.005em;
   white-space: nowrap;
   overflow: hidden;
@@ -492,6 +492,86 @@
   font-size: 0.66rem;
   text-align: center;
   color: var(--ink-soft);
+}
+
+.attribute_name_controls {
+  display: grid;
+  grid-template-columns: 1.55rem minmax(0, 1fr) 1.55rem;
+  align-items: stretch;
+  width: 100%;
+  min-width: 0;
+  height: var(--stat-cell-size);
+}
+
+.attribute_name_reset,
+.attribute_step_control {
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  line-height: 1;
+}
+
+.attribute_name_reset {
+  overflow: hidden;
+  padding: 0 2px;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.attribute_step_control {
+  display: grid;
+  align-self: stretch;
+  place-items: center;
+  height: 100%;
+  padding: 0;
+  color: #5a402b;
+  font-family: Georgia, serif;
+  font-size: 1rem;
+  font-weight: 700;
+  opacity: 0;
+  pointer-events: none;
+  cursor: pointer;
+  transition: opacity 120ms ease, color 120ms ease, background-color 120ms ease;
+}
+
+.attribute_table .attribute:hover .attribute_step_control,
+.attribute_table .attribute:focus-within .attribute_step_control {
+  opacity: 0.78;
+  pointer-events: auto;
+}
+
+.attribute_step_control:hover,
+.attribute_step_control:focus-visible,
+.attribute_name_reset:focus-visible {
+  color: #24160d;
+  background: rgba(92, 61, 35, 0.1);
+  outline: 1px solid rgba(74, 55, 38, 0.35);
+  outline-offset: -1px;
+}
+
+.attribute_table tr.is-temporary-positive .value,
+.attribute_table tr.is-temporary-positive .mod-badge {
+  color: #175f9b;
+}
+
+.attribute_table tr.is-temporary-negative .value,
+.attribute_table tr.is-temporary-negative .mod-badge {
+  color: #a12626;
+}
+
+.attribute_table tr.is-temporary-pending .attribute_name_controls {
+  opacity: 0.55;
+}
+
+@media (hover: none) {
+  .attribute_step_control {
+    opacity: 0.5;
+    pointer-events: auto;
+  }
 }
 
 .fame_hint_manual,

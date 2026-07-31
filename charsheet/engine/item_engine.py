@@ -588,11 +588,23 @@ class ItemEngine:
         """Return carrying state data for all non-stored inventory weight."""
         strength = int(character.get_engine().attributes().get(ATTR_ST, 0) or 0)
         carried_weight = cls.active_inventory_weight_for_character(character)
-        penalty = cls.carry_penalty_for_character(character)
         threshold_light = Decimal(strength * 2)
         threshold_medium = Decimal(strength * 3)
         threshold_heavy = Decimal(strength * 6)
         threshold_overloaded = Decimal(strength * 8)
+
+        if strength <= 0:
+            penalty = -8 if carried_weight > 0 else 0
+        elif carried_weight >= threshold_overloaded:
+            penalty = -8
+        elif carried_weight >= threshold_heavy:
+            penalty = -4
+        elif carried_weight >= threshold_medium:
+            penalty = -2
+        elif carried_weight >= threshold_light:
+            penalty = -1
+        else:
+            penalty = 0
 
         if penalty <= -8:
             state_label = "Überladen"

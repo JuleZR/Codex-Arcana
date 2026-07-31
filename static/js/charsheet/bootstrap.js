@@ -21,7 +21,7 @@ import { initSchoolsPanel, initWmArcanaFilter } from "./schools_panel.js";
 import { initMobileHud } from "./mobile_hud.js";
 import { initSkillManager } from "./skill_manager.js";
 import { initArmorPanel } from "./armor_panel.js";
-import { initBattleCalculator } from "./battle_calculator.js";
+import { initBattleCalculator } from "./battle_calculator.js?v=20260731a";
 import { initCarryLoadToggle } from "./carry_load_toggle.js?v=20260723b";
 import { initContextRadialMenu } from "./context_radial_menu.js";
 import { initRadialMenuGem } from "./radial_menu_gem.js";
@@ -31,6 +31,7 @@ import { initGodCards } from "./god_card.js?v=20260702a";
 import { initCreatureCards } from "./creature_card.js?v=20260730c";
 import { initItemTransfers } from "./item_transfers.js?v=20260723a";
 import { initItemTransferWindow } from "./item_transfer_window.js?v=20260721f";
+import { initTemporaryAttributes } from "./temporary_attributes.js?v=20260731b";
 
 function isRadialMenuEnabled() {
   return document.body?.dataset.radialMenuEnabled === "1";
@@ -81,6 +82,7 @@ onReady(() => {
   initItemTransfers({ windowController: windowControllers?.itemTransfer || null });
   initItemTransferWindow();
   initMobileHud();
+  initTemporaryAttributes();
   initCharacterImageEditorSafely();
   if (isRadialMenuEnabled()) {
     try {

@@ -337,6 +337,14 @@
   white-space: nowrap;
 }
 
+.gm-attribute-grid .is-temporary-positive dd {
+  color: #175f9b;
+}
+
+.gm-attribute-grid .is-temporary-negative dd {
+  color: #a12626;
+}
+
 .gm-defense-grid .gm-defense-grid__initiative {
   grid-column: 1 / -1;
   grid-template-columns: auto auto;

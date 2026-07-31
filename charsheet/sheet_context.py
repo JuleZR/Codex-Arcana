@@ -45,7 +45,7 @@ from charsheet.constants import (
     WEAPON_MASTERY_BONUS,
     WEAPON_MASTERY_EFFECT_DESCRIPTION,
 )
-from charsheet.engine import BattleCalculatorEngine, ItemEngine
+from charsheet.engine import BattleCalculatorEngine, CharacterEngine, ItemEngine
 from charsheet.engine.creature_engine import CreatureEngine, sync_character_creatures
 from charsheet.item_transfers import has_item_permission, item_is_pending, pending_transfer_for_item
 from charsheet.forms import (
@@ -4025,7 +4025,12 @@ def _build_shop_sell_item_groups(character: Character) -> list[dict]:
     ]
 
 
-def _build_lesson_context(character: Character, *, read_only: bool = False) -> dict[str, object]:
+def _build_lesson_context(
+    character: Character,
+    *,
+    engine: CharacterEngine,
+    read_only: bool = False,
+) -> dict[str, object]:
     """Build learning rows and the learned-lesson character-sheet panel."""
     entries = {
         int(entry.lesson_id): entry
@@ -4047,7 +4052,6 @@ def _build_lesson_context(character: Character, *, read_only: bool = False) -> d
     )
     learning_groups: OrderedDict[str, list[dict[str, object]]] = OrderedDict()
     panel_groups: OrderedDict[int, dict[str, object]] = OrderedDict()
-    engine = character.get_engine(refresh=True)
     for lesson in lesson_queryset:
         entry = entries.get(int(lesson.id))
         requirements_display = format_lesson_requirements(lesson)
@@ -4164,13 +4168,14 @@ def _build_learning_rows(
     language_entries,
     school_levels: dict[int, int],
     *,
+    engine: CharacterEngine,
     synchronize: bool = True,
 ) -> dict[str, object]:
     """Build prepared learning rows grouped for the learning window."""
     attribute_limits = {
         limit.attribute.short_name: {
             "min": int(limit.min_value),
-            "max": int(limit.max_value) + int(character.engine.resolve_attribute_cap_bonus(limit.attribute.short_name)),
+            "max": int(limit.max_value) + int(engine.resolve_attribute_cap_bonus(limit.attribute.short_name)),
         }
         for limit in character.race.raceattributelimit_set.select_related("attribute")
     }
@@ -4190,7 +4195,7 @@ def _build_learning_rows(
         for entry in CharacterTrait.objects.filter(owner=character).select_related("trait")
     }
     magic_engine = character.get_magic_engine()
-    base_attributes = character.engine._attributes_map
+    base_attributes = engine._attributes_map
 
     learn_attr_rows: list[dict] = []
     for short_name, label in ATTRIBUTE_ORDER:
@@ -4207,8 +4212,8 @@ def _build_learning_rows(
 
     skill_groups: OrderedDict[str, list[dict]] = OrderedDict()
     def _skill_rank_learning_payload(skill: Skill, specification: str | None = None) -> dict[str, int]:
-        max_level = int(character.engine.skill_rank_max(skill.slug, specification=specification))
-        metadata = character.engine.skill_rank_cap_metadata(skill.slug, specification=specification)
+        max_level = int(engine.skill_rank_max(skill.slug, specification=specification))
+        metadata = engine.skill_rank_cap_metadata(skill.slug, specification=specification)
         above_base_cost = int(metadata.get("above_base_cap_cost_ep") or metadata.get("above_base_cost_ep") or 2)
         return {
             "max_level": max(10, max_level),
@@ -4545,13 +4550,12 @@ def _build_learning_rows(
     }
 
 
-def build_character_sheet_context(
+def build_temporary_attribute_context(
     character: Character,
     *,
-    close_learn_window_once: bool = False,
     read_only: bool = False,
 ) -> dict[str, object]:
-    """Build the full character-sheet context without direct template calculations."""
+    """Build only the sheet data affected by runtime attribute adjustments."""
     engine = character.engine
     attributes = engine.attributes()
     attr_mods = {
@@ -4564,6 +4568,220 @@ def build_character_sheet_context(
             "label": label,
             "value": attributes.get(short_name, 0),
             "modifier": attr_mods[short_name],
+            "runtime_adjustment": int(engine.runtime_attribute_adjustments.get(short_name, 0)),
+        }
+        for short_name, label in ATTRIBUTE_ORDER
+    ]
+
+    load_penalty = engine.load_penalty()
+    carry_state = ItemEngine.carry_state_for_character(character)
+    carry_penalty = int(carry_state["penalty"])
+    skill_rows, _character_skills, _skill_manager_rows = _build_skill_rows(
+        character,
+        engine,
+        load_penalty=load_penalty,
+        synchronize=False,
+    )
+    for row in skill_rows:
+        if "with_load_total_value" not in row:
+            continue
+        base_with_load_total = int(row.get("with_load_total_value", 0) or 0)
+        row["carry_with_load_total_value"] = base_with_load_total + carry_penalty
+        row["carry_with_load_total"] = base_with_load_total + carry_penalty
+
+    weapon_rows = _build_weapon_rows(engine)
+    for row in weapon_rows:
+        row["carry_with_bel_value"] = int(row.get("with_bel_value", 0) or 0) + carry_penalty
+        row["carry_with_bel_display"] = format_modifier(int(row["carry_with_bel_value"]))
+        row["carry_calculation_tooltip"] = _build_weapon_calculation_tooltip(
+            engine,
+            row,
+            extra_load_penalty=carry_penalty,
+        )
+    battle_calculator_payload = BattleCalculatorEngine.build_payload(engine, skill_rows, weapon_rows)
+
+    initiative_value = engine.calculate_initiative()
+    initiative_wa_mod = engine.attribute_modifier(ATTR_WA)
+    initiative_wound_penalty = engine.current_wound_penalty()
+    current_wound_stage, _current_wound_penalty_stage = engine.current_wound_stage()
+    current_wound_penalty = engine.current_wound_penalty_raw()
+    current_wound_penalty_display = (
+        "-" if current_wound_stage == "-" else format_modifier(current_wound_penalty)
+    )
+    wound_threshold_data = engine.wound_thresholds()
+    wound_threshold_rows = [
+        {"threshold": threshold, "stage": stage, "penalty": penalty}
+        for threshold, (stage, penalty) in sorted(wound_threshold_data.items())
+    ]
+    current_damage_max = max(wound_threshold_data.keys()) if wound_threshold_data else 0
+    damage_gauge = _build_damage_gauge_data(
+        current_damage=character.current_damage,
+        threshold_rows=wound_threshold_rows,
+        damage_max=current_damage_max,
+        stun_damage=character.current_stun_damage,
+        lethal_damage=character.current_lethal_damage,
+    )
+
+    vw_ge_mod = engine.attribute_modifier(ATTR_GE)
+    vw_wa_mod = engine.attribute_modifier(ATTR_WA)
+    if engine.resolve_flags().get("suppress_positive_vw_attribute_bonuses", False):
+        vw_ge_mod = min(0, vw_ge_mod)
+        vw_wa_mod = min(0, vw_wa_mod)
+    sr_st_mod = engine.attribute_modifier(ATTR_ST)
+    sr_kon_mod = engine.attribute_modifier(ATTR_KON)
+    gw_int_mod = engine.attribute_modifier(ATTR_INT)
+    gw_will_mod = engine.attribute_modifier(ATTR_WILL)
+    vw_value = engine.vw()
+    sr_value = engine.sr()
+    gw_value = engine.gw()
+    willpower = attributes.get(ATTR_WILL, 0)
+    school_level_total = sum(int(entry.level) for entry in engine._school_entries.values())
+    aspect_level_total = sum(
+        int(entry.level)
+        for entry in character.get_magic_engine().get_character_aspects()
+        if entry.is_bonus_aspect
+    )
+    arcane_power_value = engine.calculate_arcane_power()
+    potential_value = engine.calculate_potential()
+    current_arcane_power = character.current_arcane_power
+    if current_arcane_power is None:
+        current_arcane_power = arcane_power_value
+    current_arcane_power = min(max(0, int(current_arcane_power)), int(arcane_power_value))
+    arcane_meter_percent = (
+        0
+        if arcane_power_value <= 0
+        else (current_arcane_power / int(arcane_power_value)) * 100.0
+    )
+
+    return {
+        "character": character,
+        "read_only": read_only,
+        "attributes": attributes,
+        "attr_mods": attr_mods,
+        "attribute_rows": attribute_rows,
+        "skill_rows": skill_rows,
+        "weapon_rows": weapon_rows,
+        "battle_calculator_payload": battle_calculator_payload,
+        "core_stats": {
+            "initiative_display": format_modifier(initiative_value),
+            "initiative_with_load_display": format_modifier(initiative_value + load_penalty),
+            "initiative_with_load_value": initiative_value + load_penalty,
+            "initiative_tooltip": _build_core_stat_tooltip(
+                [
+                    {"label": "WA-Bonus/Malus", "value": format_modifier(initiative_wa_mod)},
+                    {"label": "Wundmalus", "value": format_modifier(initiative_wound_penalty)},
+                    *_build_modifier_breakdown_rows(engine, INITIATIVE),
+                    {"label": "= Gesamt", "value": format_modifier(initiative_value), "tone": "total"},
+                ]
+            ),
+            "initiative_with_load_tooltip": _build_core_stat_tooltip(
+                [
+                    {"label": "WA-Bonus/Malus", "value": format_modifier(initiative_wa_mod)},
+                    {"label": "Wundmalus", "value": format_modifier(initiative_wound_penalty)},
+                    *_build_modifier_breakdown_rows(engine, INITIATIVE),
+                    {"label": "Belastung", "value": format_modifier(load_penalty)},
+                    {"label": "= Gesamt", "value": format_modifier(initiative_value + load_penalty), "tone": "total"},
+                ]
+            ),
+            "initiative_with_load_tooltip_with_carry": _build_core_stat_tooltip(
+                [
+                    {"label": "WA-Bonus/Malus", "value": format_modifier(initiative_wa_mod)},
+                    {"label": "Wundmalus", "value": format_modifier(initiative_wound_penalty)},
+                    *_build_modifier_breakdown_rows(engine, INITIATIVE),
+                    {"label": "Rüstungsbelastung", "value": format_modifier(load_penalty)},
+                    {"label": "Traglast", "value": format_modifier(carry_penalty), "source": str(carry_state["state_label"])},
+                    {"label": "= Gesamt", "value": format_modifier(initiative_value + load_penalty + carry_penalty), "tone": "total"},
+                ]
+            ),
+            "vw": vw_value,
+            "vw_tooltip": _build_core_stat_tooltip(
+                [
+                    {"label": "Basis", "value": 14},
+                    {"label": "GE-Bonus/Malus", "value": format_modifier(vw_ge_mod)},
+                    {"label": "WA-Bonus/Malus", "value": format_modifier(vw_wa_mod)},
+                    *_build_modifier_breakdown_rows(engine, DEFENSE_VW),
+                    {"label": "= Gesamt", "value": vw_value, "tone": "total"},
+                ]
+            ),
+            "sr": sr_value,
+            "sr_tooltip": _build_core_stat_tooltip(
+                [
+                    {"label": "Basis", "value": 14},
+                    {"label": "ST-Bonus/Malus", "value": format_modifier(sr_st_mod)},
+                    {"label": "KON-Bonus/Malus", "value": format_modifier(sr_kon_mod)},
+                    *_build_modifier_breakdown_rows(engine, DEFENSE_SR),
+                    {"label": "= Gesamt", "value": sr_value, "tone": "total"},
+                ]
+            ),
+            "gw": gw_value,
+            "gw_tooltip": _build_core_stat_tooltip(
+                [
+                    {"label": "Basis", "value": 14},
+                    {"label": "INT-Bonus/Malus", "value": format_modifier(gw_int_mod)},
+                    {"label": "WILL-Bonus/Malus", "value": format_modifier(gw_will_mod)},
+                    *_build_modifier_breakdown_rows(engine, DEFENSE_GW),
+                    {"label": "= Gesamt", "value": gw_value, "tone": "total"},
+                ]
+            ),
+            "arcane_power": arcane_power_value,
+            "arcane_power_tooltip": _build_core_stat_tooltip(
+                [
+                    {"label": "Will", "value": willpower},
+                    {"label": "Stufen in Schulen", "value": school_level_total},
+                    {"label": "Bonus-Aspektstufen", "value": aspect_level_total},
+                    *_build_modifier_breakdown_rows(engine, ARCANE_POWER),
+                    {"label": "= Gesamt", "value": arcane_power_value, "tone": "total"},
+                ]
+            ),
+            "potential": potential_value,
+            "potential_tooltip": _build_core_stat_tooltip(
+                [
+                    {"label": "Will / 2", "value": willpower // 2},
+                    *_build_modifier_breakdown_rows(engine, POTENTIAL),
+                    {"label": "= Gesamt", "value": potential_value, "tone": "total"},
+                ]
+            ),
+        },
+        "current_wound_stage": current_wound_stage,
+        "current_wound_penalty": current_wound_penalty_display,
+        "is_wound_penalty_ignored": engine.is_wound_penalty_ignored(),
+        "current_damage_max": current_damage_max,
+        "current_stun_damage": character.current_stun_damage,
+        "current_lethal_damage": character.current_lethal_damage,
+        "damage_gauge_needle_angle": damage_gauge["needle_angle"],
+        "damage_gauge_stun_needle_angle": damage_gauge["stun_needle_angle"],
+        "damage_gauge_lethal_needle_angle": damage_gauge["lethal_needle_angle"],
+        "damage_gauge_total_needle_angle": damage_gauge["total_needle_angle"],
+        "damage_gauge_segments": damage_gauge["segments"],
+        "damage_gauge_gradient_stops": damage_gauge["gradient_stops"],
+        "wound_threshold_rows": wound_threshold_rows,
+        "current_arcane_power": current_arcane_power,
+        "current_arcane_power_max": int(arcane_power_value),
+        "arcane_meter_percent": f"{arcane_meter_percent:.2f}",
+    }
+
+
+def build_character_sheet_context(
+    character: Character,
+    *,
+    close_learn_window_once: bool = False,
+    read_only: bool = False,
+) -> dict[str, object]:
+    """Build the full character-sheet context without direct template calculations."""
+    engine = character.engine
+    base_engine = CharacterEngine(character)
+    attributes = engine.attributes()
+    attr_mods = {
+        short_name: format_modifier(engine.attribute_modifier(short_name))
+        for short_name, _label in ATTRIBUTE_ORDER
+    }
+    attribute_rows = [
+        {
+            "short_name": short_name,
+            "label": label,
+            "value": attributes.get(short_name, 0),
+            "modifier": attr_mods[short_name],
+            "runtime_adjustment": int(engine.runtime_attribute_adjustments.get(short_name, 0)),
         }
         for short_name, label in ATTRIBUTE_ORDER
     ]
@@ -4722,12 +4940,13 @@ def build_character_sheet_context(
         character_skills,
         language_entries,
         school_levels,
+        engine=base_engine,
         synchronize=not read_only,
     )
-    lesson_context = _build_lesson_context(character, read_only=read_only)
+    lesson_context = _build_lesson_context(character, engine=base_engine, read_only=read_only)
     learning_progression_context = build_learning_progression_context(
         character,
-        engine=engine,
+        engine=base_engine,
         synchronize=not read_only,
     )
     spell_panel_data = magic_engine.get_spell_panel_data()

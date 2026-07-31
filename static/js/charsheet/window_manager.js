@@ -131,6 +131,13 @@ export function createFloatingWindowController({
   const controller = {
     boundTriggers: new Set(trigger instanceof HTMLElement ? [trigger] : []),
     close,
+    destroy: () => {
+      controller.boundTriggers.forEach((boundTrigger) => {
+        boundTrigger.removeEventListener("click", open);
+      });
+      controller.boundTriggers.clear();
+      delete windowEl.__floatingWindowController;
+    },
     open,
     saveState,
     windowEl,

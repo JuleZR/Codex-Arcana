@@ -13,6 +13,9 @@ export function applySheetPartials(payload) {
     if (!current) {
       return;
     }
+    if (typeof current.__floatingWindowController?.destroy === "function") {
+      current.__floatingWindowController.destroy();
+    }
 
     // Card-hand floatings are moved out of #sheetCardHand into the global app
     // layer for dragging. Replacing the host alone would otherwise leave stale

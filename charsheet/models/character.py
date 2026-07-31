@@ -117,13 +117,29 @@ class Character(models.Model):
         """Return the cached calculation engine for this character instance."""
         return self.get_engine()
 
-    def get_engine(self, *, refresh: bool = False, modifier_resolution_mode: str | None = None):
+    def get_engine(
+        self,
+        *,
+        refresh: bool = False,
+        modifier_resolution_mode: str | None = None,
+        runtime_attribute_adjustments: dict[str, int] | None = None,
+    ):
         """Return a reusable engine instance for repeated calculations."""
         cache_key = "_character_engine"
         cached_engine = self.__dict__.get(cache_key)
         normalized_mode = None if modifier_resolution_mode is None else str(modifier_resolution_mode).lower()
         cached_mode = getattr(cached_engine, "modifier_resolution_mode", None)
         cached_mode_value = getattr(cached_mode, "value", cached_mode)
+        normalized_runtime_adjustments = (
+            {
+                str(short_name): int(adjustment)
+                for short_name, adjustment in runtime_attribute_adjustments.items()
+                if int(adjustment) != 0
+            }
+            if runtime_attribute_adjustments is not None
+            else None
+        )
+        cached_runtime_adjustments = getattr(cached_engine, "runtime_attribute_adjustments", {})
         if (
             refresh
             or cached_engine is None
@@ -131,12 +147,17 @@ class Character(models.Model):
                 modifier_resolution_mode is not None
                 and str(cached_mode_value or "").lower() != normalized_mode
             )
+            or (
+                normalized_runtime_adjustments is not None
+                and cached_runtime_adjustments != normalized_runtime_adjustments
+            )
         ):
             from ..engine import CharacterEngine
 
             self.__dict__[cache_key] = CharacterEngine(
                 self,
                 modifier_resolution_mode=modifier_resolution_mode,
+                runtime_attribute_adjustments=normalized_runtime_adjustments,
             )
         return self.__dict__[cache_key]
 

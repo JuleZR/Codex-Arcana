@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections import defaultdict
 import math
 from functools import cached_property
-from typing import DefaultDict, TypeAlias, TypedDict
+from typing import DefaultDict, Mapping, TypeAlias, TypedDict
 
 from django.contrib.contenttypes.models import ContentType
 from django.db.models import Model, Prefetch, Q
@@ -170,9 +170,20 @@ class TechniqueState(TypedDict):
 class CharacterEngine:
     """Calculate derived character values from persisted model data."""
 
-    def __init__(self, character: Character, *, modifier_resolution_mode: str | None = None) -> None:
+    def __init__(
+        self,
+        character: Character,
+        *,
+        modifier_resolution_mode: str | None = None,
+        runtime_attribute_adjustments: Mapping[str, int] | None = None,
+    ) -> None:
         self.character = character
         self.modifier_resolution_mode = ModifierResolutionMode.normalize(modifier_resolution_mode)
+        self.runtime_attribute_adjustments = {
+            str(short_name): int(adjustment)
+            for short_name, adjustment in (runtime_attribute_adjustments or {}).items()
+            if int(adjustment) != 0
+        }
         self._technique_learned_cache: dict[int, bool] = {}
         self._technique_available_cache: dict[int, bool] = {}
         self._technique_requirement_cache: dict[int, bool] = {}
@@ -741,7 +752,11 @@ class CharacterEngine:
     def attributes(self) -> dict[str, int]:
         """Return the character's effective attributes including active modifiers."""
         return {
-            short_name: int(base_value) + int(self.resolve_attribute_bonus(short_name))
+            short_name: (
+                int(base_value)
+                + int(self.resolve_attribute_bonus(short_name))
+                + int(self.runtime_attribute_adjustments.get(short_name, 0))
+            )
             for short_name, base_value in self._attributes_map.items()
         }
 

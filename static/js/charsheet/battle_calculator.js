@@ -1,6 +1,8 @@
 ﻿import { parseJsonScript, readInt } from "./utils.js";
 
 const STORAGE_KEY = "charsheet.battleCalculator.state";
+let activeBattleCalculatorRefresh = null;
+let battleCalculatorRefreshListenerBound = false;
 
 function rollD10() {
   return Math.floor(Math.random() * 10) + 1;
@@ -122,10 +124,10 @@ export function initBattleCalculator() {
     weapon_options: [],
     meta: {},
   });
-  const attackOptions = Array.isArray(payload.attack_options) ? payload.attack_options : [];
-  const weaponOptions = Array.isArray(payload.weapon_options) ? payload.weapon_options : [];
-  const attackById = new Map(attackOptions.map((entry) => [entry.id, entry]));
-  const weaponById = new Map(weaponOptions.map((entry) => [entry.id, entry]));
+  let attackOptions = Array.isArray(payload.attack_options) ? payload.attack_options : [];
+  let weaponOptions = Array.isArray(payload.weapon_options) ? payload.weapon_options : [];
+  let attackById = new Map(attackOptions.map((entry) => [entry.id, entry]));
+  let weaponById = new Map(weaponOptions.map((entry) => [entry.id, entry]));
 
   const attackSkillSelect = document.getElementById("battleCalculatorAttackSkill");
   const weaponSelect = document.getElementById("battleCalculatorWeapon");
@@ -704,5 +706,39 @@ export function initBattleCalculator() {
   updateDamageResult();
   renderModifierPanels();
   saveCurrentState();
+
+  activeBattleCalculatorRefresh = () => {
+    const nextPayload = parseJsonScript("battle-calculator-data", {
+      attack_options: [],
+      weapon_options: [],
+      meta: {},
+    });
+    const previousAttackId = attackSkillSelect.value;
+    const previousWeaponId = weaponSelect.value;
+    attackOptions = Array.isArray(nextPayload.attack_options) ? nextPayload.attack_options : [];
+    weaponOptions = Array.isArray(nextPayload.weapon_options) ? nextPayload.weapon_options : [];
+    attackById = new Map(attackOptions.map((entry) => [entry.id, entry]));
+    weaponById = new Map(weaponOptions.map((entry) => [entry.id, entry]));
+    buildSelectOptions(attackSkillSelect, attackOptions, "Keine Fertigkeiten verfügbar");
+    buildSelectOptions(weaponSelect, weaponOptions, "Keine Waffen ausgerüstet");
+    attackSkillSelect.value = attackById.has(previousAttackId)
+      ? previousAttackId
+      : attackOptions[0]?.id || "";
+    weaponSelect.value = weaponById.has(previousWeaponId)
+      ? previousWeaponId
+      : weaponOptions[0]?.id || "";
+    syncAttackFromSelectedSkill();
+    syncDamageFromWeapon();
+    updateAttackResult();
+    updateDamageResult();
+    renderModifierPanels();
+    saveCurrentState();
+  };
+  if (!battleCalculatorRefreshListenerBound) {
+    battleCalculatorRefreshListenerBound = true;
+    document.addEventListener("charsheet:battle-calculator-data-updated", () => {
+      activeBattleCalculatorRefresh?.();
+    });
+  }
 }
 
