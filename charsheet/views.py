@@ -128,6 +128,7 @@ from .item_transfers import (
 DIARY_ENTRY_CHAR_LIMIT = 2200
 SHEET_PARTIAL_TEMPLATES = {
     "character_header": ("sheetCharacterHeader", "charsheet/partials/_character_header.html"),
+    "character_religion_field": ("id_religion_entity", "charsheet/partials/_character_religion_field.html"),
     "secondary_page": ("sheetSecondaryPage", "charsheet/partials/_sheet_secondary_page.html"),
     "card_hand": ("sheetCardHand", "charsheet/partials/_card_hand_host.html"),
     "load_panel": ("sheetLoadPanel", "charsheet/partials/_load_panel.html"),
@@ -525,7 +526,14 @@ def _character_dashboard_state(character: Character) -> dict[str, str]:
 
 
 def _divine_card_can_edit(binding: CharacterDivineEntity) -> bool:
-    return bool(binding.entity_id and binding.entity.is_customizable)
+    return bool(
+        binding.entity_id
+        and binding.entity.is_customizable
+        and binding.character.schools.filter(
+            school_id=binding.entity.school_id,
+            level__gt=0,
+        ).exists()
+    )
 
 
 def _allowed_divine_card_aspect_ids(binding: CharacterDivineEntity) -> set[int]:
@@ -3864,6 +3872,7 @@ def apply_learning(request, character_id: int):
         partials = []
         for key in (
             "character_header",
+            "character_religion_field",
             "load_panel",
             "core_stats_panel",
             "damage_panel",

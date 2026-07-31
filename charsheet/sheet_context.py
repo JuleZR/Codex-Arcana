@@ -4751,6 +4751,11 @@ def build_character_sheet_context(
         if int(school.get("id") or 0) not in visible_school_group_ids
     ]
     divine_binding = magic_engine._divine_binding()
+    if (
+        divine_binding is not None
+        and int(school_levels.get(divine_binding.entity.school_id, 0) or 0) <= 0
+    ):
+        divine_binding = None
     divine_entity = divine_binding.entity if divine_binding is not None else None
     druid_binding = (
         CharacterDruidCult.objects.filter(character=character)

@@ -306,12 +306,19 @@ class CharacterInfoInlineForm(forms.ModelForm):
 
         if commit:
             character.save()
-            if selected_religion:
+            active_divine_school_ids = {
+                int(entry.school_id)
+                for entry in active_clerical_school_entries(character)
+            }
+            if (
+                selected_religion is not None
+                and int(selected_religion.school_id) in active_divine_school_ids
+            ):
                 CharacterDivineEntity.objects.update_or_create(
                     character=character,
                     defaults={"entity": selected_religion},
                 )
-            else:
+            elif not active_divine_school_ids:
                 CharacterDivineEntity.objects.filter(character=character).delete()
             self.save_m2m()
         return character
