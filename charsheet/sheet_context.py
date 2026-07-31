@@ -4312,18 +4312,15 @@ def _build_learning_rows(
         if selected_religion_entity is not None and selected_religion_entity.school_id
         else None
     )
+    visible_clerical_school_ids = set(active_clerical_school_ids)
+    if selected_religion_school_id is not None:
+        visible_clerical_school_ids.add(selected_religion_school_id)
     for school in School.objects.select_related("type").order_by("type__name", "name"):
         base_level = int(school_levels.get(school.id, 0))
         if (
-            active_clerical_school_ids
+            visible_clerical_school_ids
             and is_clerical_school(school)
-            and int(school.id) not in active_clerical_school_ids
-        ):
-            continue
-        if (
-            is_divine_entity_school(school)
-            and selected_religion_school_id is not None
-            and int(school.id) != selected_religion_school_id
+            and int(school.id) not in visible_clerical_school_ids
             and base_level <= 0
         ):
             continue
