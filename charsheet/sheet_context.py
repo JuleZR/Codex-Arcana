@@ -3241,6 +3241,18 @@ def _build_school_technique_rows(character: Character, engine) -> tuple[list[dic
             .select_related("technique")
         )
     }
+    daemonic_powers_by_technique_id = {
+        ownership.granting_technique_id: ownership.power
+        for ownership in (
+            CharacterDaemonicPower.objects
+            .filter(character=character)
+            .select_related("power", "power__tier", "granting_technique")
+        )
+        if (
+            ownership.granting_technique.granted_daemonic_power_tier_id
+            == ownership.power.tier_id
+        )
+    }
     for choice in (
         character.technique_choices
         .filter(selected_specialization__isnull=False)
@@ -3309,6 +3321,25 @@ def _build_school_technique_rows(character: Character, engine) -> tuple[list[dic
                     entry_name = f"{rendered_specializations} ({technique.name})"
                     if selected_specialization_descriptions:
                         description_text = "\n\n".join(selected_specialization_descriptions)
+                daemonic_power = daemonic_powers_by_technique_id.get(technique.id)
+                tooltip_title = entry_name
+                tooltip_subtitle = f"{technique.school.name} {_to_roman(technique.level)}"
+                tooltip_text = description_text
+                tooltip_card_key = f"technique:{technique.id}"
+                if daemonic_power is not None:
+                    entry_name = f"{entry_name}: {daemonic_power.name}"
+                    tooltip_title = daemonic_power.name
+                    tooltip_subtitle = f"Dämonische Kraft · {daemonic_power.tier.name}"
+                    tooltip_parts = [
+                        (daemonic_power.description or "").strip()
+                        or "Keine Beschreibung"
+                    ]
+                    if daemonic_power.weakness_description:
+                        tooltip_parts.append(
+                            f"Schwäche: {daemonic_power.weakness_description.strip()}"
+                        )
+                    tooltip_text = "\n\n".join(tooltip_parts)
+                    tooltip_card_key = f"daemonic-power:{daemonic_power.id}"
                 icon, icon_tooltip = _support_icon(technique.support_level)
                 school_technique_rows.append(
                     {
@@ -3321,6 +3352,10 @@ def _build_school_technique_rows(character: Character, engine) -> tuple[list[dic
                         "school_symbol_image_url": _school_symbol_image_url(technique.school),
                         "entry_name": entry_name,
                         "description": description_text,
+                        "tooltip_title": tooltip_title,
+                        "tooltip_subtitle": tooltip_subtitle,
+                        "tooltip_text": tooltip_text,
+                        "tooltip_card_key": tooltip_card_key,
                         "can_edit_specification": bool(technique.has_specification),
                         "specification_value": specification_value,
                         "technique_id": technique.id,

@@ -34,6 +34,7 @@ from charsheet.constants import (
     QUALITY_WRETCHED,
     SKILL_COMBAT,
     POTENTIAL,
+    RULE_FLAG_CHOICES,
     WOUND_PENALTY_IGNORE,
 )
 from charsheet.models.creatures import (
@@ -738,10 +739,7 @@ class CreatureEngine:
             labels = {"attack_value": "Angriff", "damage": "Schaden"}
             return labels.get(target_key, target_key)
         if target_domain == TargetDomain.RULE_FLAG:
-            labels = {
-                WOUND_PENALTY_IGNORE: "Wundmali ignorieren",
-                CAN_ACT_WHILE_OUT_OF_ACTION: "Bei 'Außer Gefecht' weiter handeln",
-            }
+            labels = dict(RULE_FLAG_CHOICES)
             return labels.get(target_key, target_key)
         if target_domain == "creature_attack":
             attack = self.creature.attacks.filter(pk=target_key).first()

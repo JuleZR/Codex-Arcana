@@ -2222,7 +2222,7 @@ class CreatureTraitSemanticEffectAdminForm(forms.ModelForm):
         ("skill_category", "Fertigkeitskategorie"),
         ("special_skill", "Kreaturen-Fertigkeit"),
         ("combat", "Angriff / Schaden"),
-        ("rule_flag", "Sonderregel"),
+        ("rule_flag", "Regelflag"),
         ("choice", "Auswahl des Traits"),
         ("choice_attack_damage", "Schaden der gewaehlten Angriffsart"),
         ("attack_type_damage", "Schaden nach Angriffsart"),
@@ -2840,7 +2840,7 @@ class DaemonicPowerSemanticEffectAdminForm(CreatureTraitSemanticEffectAdminForm)
         ("skill_category", "Skill category"),
         ("special_skill", "Creature skill"),
         ("combat", "Attack / damage"),
-        ("rule_flag", "Rule"),
+        ("rule_flag", "Rule flag"),
         ("attack_type_damage", "Damage by attack type"),
     )
     DEFENSE_TARGET_CHOICES = (

@@ -174,7 +174,7 @@
             {% for tier in daemonic_power_panel %}
               <section class="daemonic_power_section">
                 <header class="daemonic_power_section__header">
-                  <span>Tier {{ tier.name }}</span>
+                  <span>{{ tier.name }}</span>
                 </header>
                 <div class="daemonic_power_grid">
                   {% for power in tier.powers %}
@@ -379,10 +379,10 @@
                   data-tooltip-side="left"
                   data-tooltip-mode="skill-card"
                   data-tooltip-card-variant="skill"
-                  data-tooltip-title="{{ row.entry_name }}"
-                  data-tooltip-subtitle="{{ row.school_name }}{% if row.level_label %} {{ row.level_label }}{% endif %}"
-                  data-tooltip-card-key="technique:{{ row.technique_id|default:row.entry_name|slugify }}"
-                  data-tooltip="{{ row.description|default:'Keine Beschreibung' }}"
+                  data-tooltip-title="{{ row.tooltip_title|default:row.entry_name }}"
+                  data-tooltip-subtitle="{% if row.tooltip_subtitle %}{{ row.tooltip_subtitle }}{% else %}{{ row.school_name }}{% if row.level_label %} {{ row.level_label }}{% endif %}{% endif %}"
+                  data-tooltip-card-key="{% if row.tooltip_card_key %}{{ row.tooltip_card_key }}{% else %}technique:{{ row.technique_id|default:row.entry_name|slugify }}{% endif %}"
+                  data-tooltip="{{ row.tooltip_text|default:row.description|default:'Keine Beschreibung' }}"
                   data-school-search="{{ row.level }} {{ row.level_label|default:row.level }} {{ row.school_name|lower }} {{ row.entry_name|lower }}"
                   data-school-pin-item
                   data-school-pin-key="technique:{{ row.technique_id|default:row.entry_name|slugify }}"

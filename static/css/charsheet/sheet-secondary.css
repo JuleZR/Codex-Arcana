@@ -4895,14 +4895,22 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
   flex-direction: column;
   gap: 12px;
   padding: 2px 4px 4px;
+  font-family: Georgia, "Times New Roman", serif;
+  font-variant: normal;
+  font-variant-caps: normal;
+  text-transform: none;
 }
 
 .daemonic_power_section__header {
   margin-bottom: 6px;
   padding-bottom: 3px;
   border-bottom: 1px solid rgba(114, 80, 46, 0.25);
-  font-family: "Cormorant Garamond", Georgia, serif;
+  font-family: Georgia, "Times New Roman", serif;
   font-weight: 700;
+  letter-spacing: normal;
+  font-variant: normal;
+  font-variant-caps: normal;
+  text-transform: none;
   color: #5a3d25;
 }
 
@@ -4917,6 +4925,11 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
   border: 1px solid rgba(114, 80, 46, 0.28);
   border-radius: 4px;
   background: rgba(255, 249, 232, 0.48);
+  font-family: Georgia, "Times New Roman", serif;
+  letter-spacing: normal;
+  font-variant: normal;
+  font-variant-caps: normal;
+  text-transform: none;
 }
 
 .daemonic_power_card__heading {
