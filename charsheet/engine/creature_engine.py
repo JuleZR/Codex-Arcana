@@ -311,6 +311,13 @@ class CreatureEngine:
         )
 
     @cached_property
+    def _base_daemonic_power_levels(self) -> dict[int, int | None]:
+        return {
+            row.power_id: row.level
+            for row in self.creature.daemonic_power_values.only("power_id", "level")
+        }
+
+    @cached_property
     def _trait_levels_by_slug(self) -> dict[str, int]:
         levels: dict[str, int] = {}
         for row in self._effective_trait_rows:
@@ -1494,6 +1501,7 @@ class CreatureEngine:
                 TargetDomain.DAEMONIC_POWER,
                 power.slug,
             )
+            level = self._base_daemonic_power_levels.get(power.id)
             rows.append({
                 "id": power.id,
                 "name": power.name,
@@ -1503,6 +1511,8 @@ class CreatureEngine:
                 "tier_sort_number": power.tier.sort_number,
                 "description": power.description,
                 "weakness_description": power.weakness_description,
+                "level": level,
+                "has_level": level is not None,
                 "modifier": modifier,
                 "modifier_display": (
                     self._format_variant_value(modifier, signed=True)

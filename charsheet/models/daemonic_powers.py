@@ -64,6 +64,39 @@ class DaemonicPower(models.Model):
         return f"{self.name} ({self.tier.name})"
 
 
+class CreatureDaemonicPower(models.Model):
+    """A daemonic power assigned to a base creature, optionally at a level."""
+
+    creature = models.ForeignKey(
+        "charsheet.Creature",
+        on_delete=models.CASCADE,
+        related_name="daemonic_power_values",
+    )
+    power = models.ForeignKey(
+        DaemonicPower,
+        db_column="daemonicpower_id",
+        on_delete=models.CASCADE,
+        related_name="base_creature_ownerships",
+    )
+    level = models.PositiveIntegerField("Level", blank=True, null=True)
+
+    class Meta:
+        db_table = "charsheet_creature_daemonic_powers"
+        ordering = [
+            "power__tier__sort_number",
+            "power__tier__name",
+            "power__name",
+            "id",
+        ]
+        unique_together = (("creature", "power"),)
+        verbose_name = "Creature daemonic power"
+        verbose_name_plural = "Creature daemonic powers"
+
+    def __str__(self) -> str:
+        level_suffix = f" level {self.level}" if self.level is not None else ""
+        return f"{self.creature}: {self.power}{level_suffix}"
+
+
 class DaemonicPowerSemanticEffect(models.Model):
     """Semantic effect contributed by a daemonic power to either rules engine."""
 

@@ -111,6 +111,7 @@ from .models import (
     CreatureCommand,
     CreatureCommandPrerequisite,
     CreatureCommandReference,
+    CreatureDaemonicPower,
     CreatureLanguage,
     CreatureSkill,
     CreatureSpecialSkill,
@@ -6276,6 +6277,15 @@ class CreatureSpecialSkillValueInline(admin.TabularInline):
     autocomplete_fields = ("skill",)
 
 
+class CreatureDaemonicPowerInline(admin.TabularInline):
+    model = CreatureDaemonicPower
+    extra = 0
+    fields = ("power", "level")
+    autocomplete_fields = ("power",)
+    verbose_name = "Daemonic power"
+    verbose_name_plural = "Daemonic powers"
+
+
 class CreatureCommandReferenceInline(admin.TabularInline):
     model = CreatureCommandReference
     extra = 0
@@ -6772,19 +6782,18 @@ class CreatureAdmin(admin.ModelAdmin):
     search_fields = ("name", "slug", "climate_and_occurrence", "organization")
     list_filter = ("size_class",)
     prepopulated_fields = {"slug": ("name",)}
-    filter_horizontal = ("daemonic_powers",)
     actions = ("assign_creature_type",)
     inlines = (
         CreatureAttackInline,
         CreatureSkillInline,
         CreatureLanguageInline,
         CreatureSpecialSkillValueInline,
+        CreatureDaemonicPowerInline,
         CreatureCommandReferenceInline,
         CreatureTraitInline,
     )
     fieldsets = (
         ("Basis", {"fields": ("name", "slug", "creature_type", "image", "description")}),
-        ("Daemonic powers", {"fields": ("daemonic_powers",)}),
         (
             "Kampfwerte",
             {

@@ -60,6 +60,7 @@ from .creatures import (
 from .daemonic_powers import (
     CharacterCreatureDaemonicPower,
     CharacterDaemonicPower,
+    CreatureDaemonicPower,
     DaemonicPower,
     DaemonicPowerSemanticEffect,
     DaemonicPowerTier,
@@ -176,6 +177,7 @@ __all__ = [
     "CharacterTechniqueChoice",
     "CharacterTrait",
     "CharacterTraitChoice",
+    "CreatureDaemonicPower",
     "DamageSource",
     "DaemonicPower",
     "DaemonicPowerSemanticEffect",

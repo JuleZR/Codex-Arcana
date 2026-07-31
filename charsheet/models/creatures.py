@@ -115,6 +115,8 @@ class Creature(models.Model):
     description = models.TextField(blank=True, default="")
     daemonic_powers = models.ManyToManyField(
         "charsheet.DaemonicPower",
+        through="charsheet.CreatureDaemonicPower",
+        through_fields=("creature", "power"),
         blank=True,
         related_name="base_creatures",
         verbose_name="Daemonic powers",
