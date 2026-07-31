@@ -13,6 +13,7 @@ from django.db.models import Q
 
 from charsheet.constants import (
     ARCANE_POWER,
+    CAN_ACT_WHILE_OUT_OF_ACTION,
     ATTR_CHA,
     ATTR_GE,
     ATTR_INT,
@@ -33,6 +34,7 @@ from charsheet.constants import (
     QUALITY_WRETCHED,
     SKILL_COMBAT,
     POTENTIAL,
+    WOUND_PENALTY_IGNORE,
 )
 from charsheet.models.creatures import (
     ATTRIBUTE_FIELD_MAP,
@@ -735,6 +737,12 @@ class CreatureEngine:
         if target_domain == TargetDomain.COMBAT:
             labels = {"attack_value": "Angriff", "damage": "Schaden"}
             return labels.get(target_key, target_key)
+        if target_domain == TargetDomain.RULE_FLAG:
+            labels = {
+                WOUND_PENALTY_IGNORE: "Wundmali ignorieren",
+                CAN_ACT_WHILE_OUT_OF_ACTION: "Bei 'Außer Gefecht' weiter handeln",
+            }
+            return labels.get(target_key, target_key)
         if target_domain == "creature_attack":
             attack = self.creature.attacks.filter(pk=target_key).first()
             return attack.name if attack is not None else f"Angriff {target_key}"
@@ -907,6 +915,33 @@ class CreatureEngine:
 
     def wound_penalty_reduction(self) -> int:
         return max(0, int(self._modifier_total(TargetDomain.DERIVED_STAT, "wound_penalty_reduction") or 0))
+
+    def is_wound_penalty_ignored(self) -> bool:
+        """Return whether semantic effects suppress all numeric wound penalties."""
+        return bool(
+            self._modifier_total(
+                TargetDomain.RULE_FLAG,
+                WOUND_PENALTY_IGNORE,
+            )
+        )
+
+    def can_act_while_out_of_action(self) -> bool:
+        """Return whether out of action does not incapacitate this creature."""
+        return bool(
+            self._modifier_total(
+                TargetDomain.RULE_FLAG,
+                CAN_ACT_WHILE_OUT_OF_ACTION,
+            )
+        )
+
+    def is_wound_incapacitated(self, wound_stage: str | None = None) -> bool:
+        """Resolve wound incapacitation while keeping coma unconditional."""
+        stage = wound_stage if wound_stage is not None else str(self.current_wound_zone()["label"] or "")
+        if stage == "Koma":
+            return True
+        if stage in {"Ausser Gefecht", "Außer Gefecht"}:
+            return not self.can_act_while_out_of_action()
+        return False
 
     def wound_rows(self) -> list[dict[str, Any]]:
         explicit_thresholds = self._wound_thresholds_override()
@@ -1490,7 +1525,7 @@ class CreatureEngine:
             wound_state = "dead"
         elif wound_label == "Koma":
             wound_state = "coma"
-        elif wound_label in {"Ausser Gefecht", "Außer Gefecht"}:
+        elif self.is_wound_incapacitated(wound_label):
             wound_state = "incapacitated"
         else:
             wound_state = "active"
@@ -1585,6 +1620,7 @@ class CreatureEngine:
             "wound_zone": wound_zone,
             "wound_state": wound_state,
             "wound_penalty": wound_zone["penalty"],
+            "can_act_while_out_of_action": self.can_act_while_out_of_action(),
             "movement": movement,
             "movement_display": self.movement_display(),
             "movement_display_text": self.movement_display_text(),
@@ -1732,6 +1768,8 @@ class CreatureEngine:
         penalty = self._base_wound_penalty_for_label(label)
         if penalty >= 0:
             return penalty
+        if self.is_wound_penalty_ignored():
+            return 0
         return min(0, penalty + self.wound_penalty_reduction())
 
     @staticmethod

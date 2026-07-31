@@ -1120,12 +1120,13 @@ export function initCreatureCards() {
     const zone = woundZoneForDamage(cluster, damage);
     if (card instanceof HTMLElement) {
       applyPreviewWoundPenalty(card, zone.penalty);
+      const canActWhileOutOfAction = card.dataset.creatureCanActWhileOutOfAction === "true";
       card.dataset.creatureWoundState = zone.label === "Tod"
         ? "dead"
         : zone.label === "Koma"
           ? "coma"
           : zone.label === "Ausser Gefecht" || zone.label === "Außer Gefecht"
-            ? "incapacitated"
+            ? (canActWhileOutOfAction ? "active" : "incapacitated")
             : "active";
     }
     const status = card?.querySelector("[data-creature-wound-status]");

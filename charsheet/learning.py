@@ -65,7 +65,7 @@ from charsheet.constants import LANGUAGE_LITERACY_MIN_LEVEL, is_allowed_trait_at
 from charsheet.religion_rules import (
     divine_entity_count_for_school,
     is_clerical_school,
-    is_druid_school,
+    is_divine_entity_school,
     selected_divine_entity,
     unique_divine_entity_for_school,
 )
@@ -927,28 +927,30 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
     }
     for school_id, add in school_plan.items():
         planned_school_levels[school_id] = int(planned_school_levels.get(school_id, 0)) + int(add)
-    planned_has_druid_school = any(
-        int(target_level) > 0
-        and str(school_id) in school_defs
-        and is_druid_school(school_defs[str(school_id)])
+    active_clerical_school_ids = {
+        int(school_id)
         for school_id, target_level in planned_school_levels.items()
-    )
-    if planned_has_druid_school:
-        for school_id, add in school_plan.items():
-            if int(add) > 0 and is_clerical_school(school_defs[str(school_id)]):
-                return "error", "Druiden können keine weiteren klerikalen Priester-Schulen lernen oder steigern."
+        if int(target_level) > 0
+        and str(school_id) in school_defs
+        and is_clerical_school(school_defs[str(school_id)])
+    }
+    if len(active_clerical_school_ids) > 1:
+        return "error", (
+            "Es kann nur eine klerikale Schule gelernt werden. "
+            "Das gilt auch für Kultist, Druide und Schamane."
+        )
     active_divine_school_ids = {
         int(school_id)
         for school_id, target_level in planned_school_levels.items()
         if int(target_level) > 0
         and school_id in school_defs
-        and is_clerical_school(school_defs[school_id])
+        and is_divine_entity_school(school_defs[school_id])
     }
     selected_religion_entity = selected_divine_entity(character)
     positive_clerical_school_ids = {
         int(school_id)
         for school_id, add in school_plan.items()
-        if int(add) > 0 and is_clerical_school(school_defs[school_id])
+        if int(add) > 0 and is_divine_entity_school(school_defs[school_id])
     }
     for school_id in positive_clerical_school_ids:
         school = school_defs[str(school_id)]

@@ -793,6 +793,8 @@ class CharacterEngine:
     current_wound_penalty = character_combat.current_wound_penalty
     current_wound_penalty_raw = character_combat.current_wound_penalty_raw
     is_wound_penalty_ignored = character_combat.is_wound_penalty_ignored
+    can_act_while_out_of_action = character_combat.can_act_while_out_of_action
+    is_wound_incapacitated = character_combat.is_wound_incapacitated
 
     equipped_weapon_items = character_equipment.equipped_weapon_items
     equipped_armor_items = character_equipment.equipped_armor_items
@@ -939,7 +941,12 @@ class CharacterEngine:
 
     def modifier_total_for_stat(self, slug: str) -> int:
         """Return all modifiers that target one derived stat slug."""
-        if slug in {"wound_penalty_ignore", "armor_penalty_ignore", "shield_penalty_ignore"}:
+        if slug in {
+            "wound_penalty_ignore",
+            "can_act_while_out_of_action",
+            "armor_penalty_ignore",
+            "shield_penalty_ignore",
+        }:
             target_domain = TargetDomain.RULE_FLAG
         elif str(slug).startswith("dmg_"):
             target_domain = TargetDomain.COMBAT
@@ -976,7 +983,12 @@ class CharacterEngine:
 
     def debug_legacy_modifier_total_for_stat(self, slug: str) -> int:
         """Return the legacy numeric result for one stat-like target for diagnostics."""
-        if slug in {"wound_penalty_ignore", "armor_penalty_ignore", "shield_penalty_ignore"}:
+        if slug in {
+            "wound_penalty_ignore",
+            "can_act_while_out_of_action",
+            "armor_penalty_ignore",
+            "shield_penalty_ignore",
+        }:
             target_domain = TargetDomain.RULE_FLAG
         elif str(slug).startswith("dmg_"):
             target_domain = TargetDomain.COMBAT

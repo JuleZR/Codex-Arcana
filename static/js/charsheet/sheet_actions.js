@@ -32,6 +32,24 @@ function updateLearningFormFromPayload(payload) {
   return true;
 }
 
+function updateCultistCorruptionFromPayload(payload) {
+  if (!Object.prototype.hasOwnProperty.call(payload || {}, "cultistCorruptionLevel")) {
+    return;
+  }
+  const parsedLevel = Number.parseInt(String(payload.cultistCorruptionLevel), 10);
+  const level = Number.isFinite(parsedLevel) ? Math.min(10, Math.max(0, parsedLevel)) : 0;
+  Array.from(document.body.classList).forEach((className) => {
+    if (/^cultist-corruption--level-\d+$/.test(className)) {
+      document.body.classList.remove(className);
+    }
+  });
+  document.body.classList.toggle("has-cultist-corruption", level > 0);
+  if (level > 0) {
+    document.body.classList.add(`cultist-corruption--level-${level}`);
+  }
+  document.body.dataset.cultistCorruptionLevel = String(level);
+}
+
 export function initSheetActions() {
   if (document.body.dataset.sheetActionsBound === "1") {
     return;
@@ -105,6 +123,7 @@ export function initSheetActions() {
         throw new Error("sheet action invalid");
       }
       applySheetPartials(payload);
+      updateCultistCorruptionFromPayload(payload);
       updateLearningFormFromPayload(payload);
       if (payload?.learningFeedback?.level) {
         flashSheetFeedback(String(payload.learningFeedback.level));

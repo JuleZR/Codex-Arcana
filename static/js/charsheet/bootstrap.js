@@ -16,7 +16,7 @@ import { initDamagePanel } from "./damage_panel.js";
 import { initSpellPanel } from "./spell_panel.js";
 import { initLessonPanel } from "./lesson_panel.js?v=20260724a";
 import { initCharInfoCounter } from "./char_info_counter.js";
-import { initSheetActions } from "./sheet_actions.js?v=20260608a";
+import { initSheetActions } from "./sheet_actions.js?v=20260731a";
 import { initSchoolsPanel, initWmArcanaFilter } from "./schools_panel.js";
 import { initMobileHud } from "./mobile_hud.js";
 import { initSkillManager } from "./skill_manager.js";

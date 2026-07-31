@@ -41,16 +41,25 @@ def is_shaman_school(school_or_entry) -> bool:
 
 
 def is_clerical_school(school_or_entry) -> bool:
-    """Return whether a school belongs to the clerical/divine school type."""
+    """Return whether a school uses the mutually exclusive clerical progression."""
     school = getattr(school_or_entry, "school", school_or_entry)
     if is_druid_school(school) or is_shaman_school(school):
-        return False
+        return True
     school_type = getattr(school, "type", None)
     if school_type is None:
         return False
     slug = str(getattr(school_type, "slug", "") or "").strip().lower()
     name = str(getattr(school_type, "name", "") or "").strip().lower()
     return slug in {SCHOOL_DIVINE, "school_divine"} or "kler" in name or "divin" in name or "priest" in name
+
+
+def is_divine_entity_school(school_or_entry) -> bool:
+    """Return whether a clerical school is bound to a deity/demon entity."""
+    return (
+        is_clerical_school(school_or_entry)
+        and not is_druid_school(school_or_entry)
+        and not is_shaman_school(school_or_entry)
+    )
 
 
 def active_clerical_school_entries(character):
@@ -65,7 +74,7 @@ def active_clerical_school_entries(character):
         .select_related("school", "school__type")
         .order_by("school__name")
     )
-    return [entry for entry in entries if is_clerical_school(entry)]
+    return [entry for entry in entries if is_divine_entity_school(entry)]
 
 
 def selected_divine_entity(character):

@@ -22,6 +22,7 @@ from .constants import (
     ATTRIBUTE_CODE_CHOICES,
     ONE_HANDED,
     QUALITY_COLOR_MAP,
+    RULE_FLAG_CHOICES,
     SCHOOL_ARCANE,
     SCHOOL_COMBAT,
     STAT_SLUG_CHOICES,
@@ -1525,12 +1526,7 @@ class TechniqueInline(admin.TabularInline):
     verbose_name_plural = "Techniques by Level"
     extra = 0
     show_change_link = True
-    autocomplete_fields = (
-        "path",
-        "choice_block",
-        "target_choice_definition",
-        "granted_daemonic_power_tier",
-    )
+    autocomplete_fields = ("path", "choice_block", "target_choice_definition")
     fields = (
         "name",
         "level",
@@ -1540,7 +1536,6 @@ class TechniqueInline(admin.TabularInline):
         "choice_block",
         "target_choice_definition",
         "specialization_slot_grants",
-        "granted_daemonic_power_tier",
         "support_level",
         "inline_rule_hint",
     )
@@ -1552,13 +1547,7 @@ class TechniqueInline(admin.TabularInline):
         return (
             super()
             .get_queryset(request)
-            .select_related(
-                "school",
-                "path",
-                "choice_block",
-                "target_choice_definition",
-                "granted_daemonic_power_tier",
-            )
+            .select_related("school", "path", "choice_block", "target_choice_definition")
             .prefetch_related(
                 "requirements__required_technique",
                 "requirements__required_path",
@@ -2233,6 +2222,7 @@ class CreatureTraitSemanticEffectAdminForm(forms.ModelForm):
         ("skill_category", "Fertigkeitskategorie"),
         ("special_skill", "Kreaturen-Fertigkeit"),
         ("combat", "Angriff / Schaden"),
+        ("rule_flag", "Sonderregel"),
         ("choice", "Auswahl des Traits"),
         ("choice_attack_damage", "Schaden der gewaehlten Angriffsart"),
         ("attack_type_damage", "Schaden nach Angriffsart"),
@@ -2329,6 +2319,9 @@ class CreatureTraitSemanticEffectAdminForm(forms.ModelForm):
         elif target_domain == "combat":
             self.initial.setdefault("effect_area", "combat")
             self.initial.setdefault("simple_target", f"combat:{target_key}")
+        elif target_domain == "rule_flag":
+            self.initial.setdefault("effect_area", "rule_flag")
+            self.initial.setdefault("simple_target", f"rule_flag:{target_key}")
         elif target_domain == "creature_attack_type_damage":
             self.initial.setdefault("effect_area", "attack_type_damage")
             self.initial.setdefault("simple_target", f"attack_type_damage:{target_key}")
@@ -2352,6 +2345,7 @@ class CreatureTraitSemanticEffectAdminForm(forms.ModelForm):
         choices.extend((f"skill_category:{category.slug}", category.name) for category in SkillCategory.objects.order_by("name"))
         choices.extend((f"special_skill:{skill.slug}", skill.name) for skill in CreatureSpecialSkill.objects.order_by("name"))
         choices.extend((f"combat:{value}", label) for value, label in self.COMBAT_TARGET_CHOICES)
+        choices.extend((f"rule_flag:{value}", label) for value, label in RULE_FLAG_CHOICES)
         choices.extend(
             (f"attack_type_damage:{attack_type.slug}", attack_type.name)
             for attack_type in CreatureAttackType.objects.order_by("name")
@@ -2409,13 +2403,17 @@ class CreatureTraitSemanticEffectAdminForm(forms.ModelForm):
         else:
             self.add_error("effect_area", "Bitte auswaehlen, welcher Wert geaendert werden soll.")
 
-        operator = cleaned_data.get("simple_operator") or cleaned_data.get("operator") or "flat_add"
-        value = cleaned_data.get("simple_value")
-        if value is None:
-            self.add_error("simple_value", "Bitte eine Zahl eintragen.")
+        if target_domain == "rule_flag":
+            cleaned_data["operator"] = "set_flag"
+            cleaned_data["value"] = "true"
         else:
-            cleaned_data["operator"] = operator
-            cleaned_data["value"] = self._format_simple_number(value)
+            operator = cleaned_data.get("simple_operator") or cleaned_data.get("operator") or "flat_add"
+            value = cleaned_data.get("simple_value")
+            if value is None:
+                self.add_error("simple_value", "Bitte eine Zahl eintragen.")
+            else:
+                cleaned_data["operator"] = operator
+                cleaned_data["value"] = self._format_simple_number(value)
 
         if cleaned_data.get("scale_by_trait_level"):
             cleaned_data["mode"] = "scaled"
@@ -2448,6 +2446,8 @@ class CreatureTraitSemanticEffectAdminForm(forms.ModelForm):
             return "creature_special_skill", target_key
         if area == "combat":
             return "combat", target_key
+        if area == "rule_flag":
+            return "rule_flag", target_key
         if area == "attack_type_damage":
             return "creature_attack_type_damage", target_key
         return "", ""
@@ -2840,6 +2840,7 @@ class DaemonicPowerSemanticEffectAdminForm(CreatureTraitSemanticEffectAdminForm)
         ("skill_category", "Skill category"),
         ("special_skill", "Creature skill"),
         ("combat", "Attack / damage"),
+        ("rule_flag", "Rule"),
         ("attack_type_damage", "Damage by attack type"),
     )
     DEFENSE_TARGET_CHOICES = (
@@ -3821,11 +3822,20 @@ class TechniqueAdmin(admin.ModelAdmin):
                     "target_choice_definition",
                     "choice_bonus_value",
                     "specialization_slot_grants",
-                    "granted_daemonic_power_tier",
                 ),
                 "description": (
                     "choice_group is only used for display and organization. Binding "
                     "choice rules come from the choice block and choice definitions."
+                ),
+            },
+        ),
+        (
+            "Daemonic Power Grant",
+            {
+                "fields": ("granted_daemonic_power_tier",),
+                "description": (
+                    "If a tier is selected, learning this technique requires the "
+                    "character to choose exactly one daemonic power from that tier."
                 ),
             },
         ),

@@ -102,6 +102,7 @@ urlpatterns = [
     path("character/<int:character_id>/skills/<int:skill_id>/hide/", views.remove_visible_skill, name="remove_visible_skill"),
     path("character/<int:character_id>/techniques/<int:technique_id>/specification/update/", views.update_technique_specification, name="update_technique_specification"),
     path("character/<int:character_id>/druid-cult/update/", views.update_druid_cult, name="update_druid_cult"),
+    path("character/<int:character_id>/daemonic-patron/update/", views.update_daemonic_patron, name="update_daemonic_patron"),
     path("character/<int:character_id>/adjust-personal-fame-point/", views.adjust_personal_fame_point, name="adjust_personal_fame_point"),
     path("character/<int:character_id>/adjust-damage/", views.adjust_current_damage, name="adjust_current_damage"),
     path("character/<int:character_id>/carry-load/", views.update_carry_load_state, name="update_carry_load_state"),

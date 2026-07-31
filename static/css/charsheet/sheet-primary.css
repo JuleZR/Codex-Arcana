@@ -14,25 +14,6 @@
   z-index: 2;
 }
 
-.page:first-child::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: url("/static/img/arcane_codex_logo.svg") center 56% / 74% no-repeat;
-  clip-path: polygon(
-    0 0,
-    100% 0,
-    100% 238px,
-    296px 238px,
-    296px 100%,
-    0 100%
-  );
-  mix-blend-mode: multiply;
-  opacity: 0.30;
-  pointer-events: none;
-  z-index: 1;
-}
-
 .p1_top {
   grid-column: 1 / -1;
   display: block;
@@ -75,6 +56,7 @@
 }
 
 .char_info_portrait_frame {
+  position: relative;
   width: 100%;
   aspect-ratio: 4 / 5;
   border: 1px solid rgba(74, 55, 38, 0.34);
@@ -88,10 +70,33 @@
 }
 
 .char_info_portrait_frame img {
+  position: relative;
+  z-index: 1;
   display: block;
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.has-cultist-corruption .char_info_portrait_frame::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background: url("/static/img/corruption.png") center / 108% 104% no-repeat;
+  opacity: min(0.48, calc(var(--cultist-corruption-opacity) * 1.9));
+  filter: saturate(1.2) contrast(1.08);
+  -webkit-mask-image:
+    radial-gradient(ellipse var(--cultist-corruption-mask-x) var(--cultist-corruption-mask-y) at 50% 0%, #000 0%, #000 52%, rgba(0, 0, 0, 0.58) 76%, transparent 100%),
+    radial-gradient(ellipse var(--cultist-corruption-mask-x) var(--cultist-corruption-mask-y) at 50% 100%, #000 0%, #000 52%, rgba(0, 0, 0, 0.58) 76%, transparent 100%);
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-composite: source-over;
+  mask-image:
+    radial-gradient(ellipse var(--cultist-corruption-mask-x) var(--cultist-corruption-mask-y) at 50% 0%, #000 0%, #000 52%, rgba(0, 0, 0, 0.58) 76%, transparent 100%),
+    radial-gradient(ellipse var(--cultist-corruption-mask-x) var(--cultist-corruption-mask-y) at 50% 100%, #000 0%, #000 52%, rgba(0, 0, 0, 0.58) 76%, transparent 100%);
+  mask-repeat: no-repeat;
+  mask-composite: add;
 }
 
 .char_info_content {

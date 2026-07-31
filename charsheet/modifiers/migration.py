@@ -152,7 +152,12 @@ class LegacyModifierMigrationService:
         ARMOR_ENCUMBRANCE,
         SHIELD_ENCUMBRANCE,
     }
-    KNOWN_RULE_FLAGS = {"wound_penalty_ignore", "armor_penalty_ignore", "shield_penalty_ignore"}
+    KNOWN_RULE_FLAGS = {
+        "wound_penalty_ignore",
+        "can_act_while_out_of_action",
+        "armor_penalty_ignore",
+        "shield_penalty_ignore",
+    }
     DAMAGE_SLUG_PREFIX = "dmg_"
     KNOWN_ATTRIBUTES = {value for value, _label in ATTRIBUTE_CODE_CHOICES}
 

@@ -319,11 +319,6 @@
     margin: 0;
   }
 
-  .page:first-child::before {
-    background-size: 86%;
-    opacity: 0.24;
-  }
-
   .char_info_wrapper,
   .p1_bottom_left,
   .p1_bottom_right {

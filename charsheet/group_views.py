@@ -428,7 +428,7 @@ def game_master_screen(request, group_id: int):
         wound_stage, _wound_stage_penalty = engine.current_wound_stage()
         wound_penalty = engine.current_wound_penalty()
         is_dead = wound_stage == "Tod"
-        is_incapacitated = wound_stage in {"Ausser Gefecht", "Außer Gefecht", "Koma"}
+        is_incapacitated = engine.is_wound_incapacitated(wound_stage)
         attributes = engine.attributes()
         subtitle = character.race.name
         if wound_stage != "-":
@@ -532,11 +532,7 @@ def game_master_screen(request, group_id: int):
             wound_stage = "Tod"
             wound_penalty = 0
         is_dead = wound_stage == "Tod"
-        is_incapacitated = wound_stage in {
-            "Ausser Gefecht",
-            "Außer Gefecht",
-            "Koma",
-        }
+        is_incapacitated = engine.is_wound_incapacitated(wound_stage)
         creature_attributes = {}
         for attribute in engine.attribute_rows():
             modifier = attribute["value"]
@@ -1054,11 +1050,7 @@ def _group_creature_vital_payload(
         ),
         "subtitle": " · ".join(subtitle_parts),
         "is_dead": wound_stage == "Tod",
-        "is_incapacitated": wound_stage in {
-            "Ausser Gefecht",
-            "Außer Gefecht",
-            "Koma",
-        },
+        "is_incapacitated": engine.is_wound_incapacitated(wound_stage),
     }
 
 

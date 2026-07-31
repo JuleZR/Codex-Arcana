@@ -72,3 +72,95 @@
   z-index: auto;
 }
 
+/* Cultist corruption grows from the two central seals into the parchment. */
+.sheet-corruption-layer {
+  display: none;
+}
+
+.has-cultist-corruption .page > .sheet-corruption-layer {
+  display: block;
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  pointer-events: none;
+  opacity: var(--cultist-corruption-opacity);
+  -webkit-mask-image:
+    radial-gradient(ellipse var(--cultist-corruption-mask-x) var(--cultist-corruption-mask-y) at 50% 0%, #000 0%, #000 52%, rgba(0, 0, 0, 0.58) 76%, transparent 100%),
+    radial-gradient(ellipse var(--cultist-corruption-mask-x) var(--cultist-corruption-mask-y) at 50% 100%, #000 0%, #000 52%, rgba(0, 0, 0, 0.58) 76%, transparent 100%);
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-composite: source-over;
+  mask-image:
+    radial-gradient(ellipse var(--cultist-corruption-mask-x) var(--cultist-corruption-mask-y) at 50% 0%, #000 0%, #000 52%, rgba(0, 0, 0, 0.58) 76%, transparent 100%),
+    radial-gradient(ellipse var(--cultist-corruption-mask-x) var(--cultist-corruption-mask-y) at 50% 100%, #000 0%, #000 52%, rgba(0, 0, 0, 0.58) 76%, transparent 100%);
+  mask-repeat: no-repeat;
+  mask-composite: add;
+}
+
+.has-cultist-corruption .page > .sheet-corruption-layer::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: url("/static/img/corruption.png") center / 116% 110% no-repeat;
+  filter:
+    saturate(0.28)
+    contrast(0.92)
+    drop-shadow(-1px -1px 0 rgba(255, 246, 218, 0.95))
+    drop-shadow(1px 1px 0 rgba(62, 22, 20, 0.9));
+  -webkit-mask-image:
+    linear-gradient(to right, #000 0%, #000 4%, rgba(0, 0, 0, 0.55) 7%, transparent 12%, transparent 88%, rgba(0, 0, 0, 0.55) 93%, #000 96%, #000 100%),
+    linear-gradient(to bottom, #000 0%, #000 2%, rgba(0, 0, 0, 0.5) 4%, transparent 8%, transparent 92%, rgba(0, 0, 0, 0.5) 96%, #000 98%, #000 100%);
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-composite: source-over;
+  mask-image:
+    linear-gradient(to right, #000 0%, #000 4%, rgba(0, 0, 0, 0.55) 7%, transparent 12%, transparent 88%, rgba(0, 0, 0, 0.55) 93%, #000 96%, #000 100%),
+    linear-gradient(to bottom, #000 0%, #000 2%, rgba(0, 0, 0, 0.5) 4%, transparent 8%, transparent 92%, rgba(0, 0, 0, 0.5) 96%, #000 98%, #000 100%);
+  mask-repeat: no-repeat;
+  mask-composite: add;
+}
+
+.has-cultist-corruption .page:first-child > :not(.sheet-corruption-layer),
+.has-cultist-corruption .page.page--secondary > :not(.sheet-corruption-layer) {
+  position: relative;
+  z-index: auto;
+}
+
+.has-cultist-corruption .page {
+  isolation: isolate;
+  background:
+    radial-gradient(
+      ellipse var(--cultist-corruption-mask-x) var(--cultist-corruption-mask-y) at 50% 0%,
+      rgba(57, 52, 56, calc(var(--cultist-parchment-redness) * 0.76)) 0%,
+      rgba(126, 25, 29, calc(var(--cultist-parchment-redness) * 0.7)) 32%,
+      rgba(184, 70, 31, calc(var(--cultist-parchment-redness) * 0.52)) 60%,
+      transparent 100%
+    ),
+    radial-gradient(
+      ellipse var(--cultist-corruption-mask-x) var(--cultist-corruption-mask-y) at 50% 100%,
+      rgba(48, 45, 50, calc(var(--cultist-parchment-redness) * 0.8)) 0%,
+      rgba(112, 18, 27, calc(var(--cultist-parchment-redness) * 0.72)) 34%,
+      rgba(169, 58, 27, calc(var(--cultist-parchment-redness) * 0.48)) 62%,
+      transparent 100%
+    ),
+    linear-gradient(
+      180deg,
+      rgba(66, 59, 62, calc(var(--cultist-parchment-redness) * 0.44)) 0%,
+      rgba(145, 36, 32, calc(var(--cultist-parchment-redness) * 0.5)) 36%,
+      rgba(173, 69, 34, calc(var(--cultist-parchment-redness) * 0.36)) 62%,
+      rgba(54, 50, 54, calc(var(--cultist-parchment-redness) * 0.48)) 100%
+    ),
+    linear-gradient(180deg, rgba(242, 240, 234, 0.72), rgba(230, 226, 216, 0.68)),
+    url("/static/img/pergamentbg.jpg") center / cover no-repeat !important;
+  background-blend-mode: normal, normal, normal, multiply, normal !important;
+}
+
+.cultist-corruption--level-1  { --cultist-corruption-mask-x: 18%;  --cultist-corruption-mask-y: 10%; --cultist-corruption-opacity: 0.030; --cultist-parchment-redness: 0.015; }
+.cultist-corruption--level-2  { --cultist-corruption-mask-x: 28%;  --cultist-corruption-mask-y: 16%; --cultist-corruption-opacity: 0.045; --cultist-parchment-redness: 0.025; }
+.cultist-corruption--level-3  { --cultist-corruption-mask-x: 38%;  --cultist-corruption-mask-y: 23%; --cultist-corruption-opacity: 0.065; --cultist-parchment-redness: 0.040; }
+.cultist-corruption--level-4  { --cultist-corruption-mask-x: 48%;  --cultist-corruption-mask-y: 30%; --cultist-corruption-opacity: 0.085; --cultist-parchment-redness: 0.060; }
+.cultist-corruption--level-5  { --cultist-corruption-mask-x: 58%;  --cultist-corruption-mask-y: 37%; --cultist-corruption-opacity: 0.105; --cultist-parchment-redness: 0.090; }
+.cultist-corruption--level-6  { --cultist-corruption-mask-x: 70%;  --cultist-corruption-mask-y: 45%; --cultist-corruption-opacity: 0.125; --cultist-parchment-redness: 0.140; }
+.cultist-corruption--level-7  { --cultist-corruption-mask-x: 82%;  --cultist-corruption-mask-y: 54%; --cultist-corruption-opacity: 0.145; --cultist-parchment-redness: 0.220; }
+.cultist-corruption--level-8  { --cultist-corruption-mask-x: 94%;  --cultist-corruption-mask-y: 63%; --cultist-corruption-opacity: 0.165; --cultist-parchment-redness: 0.340; }
+.cultist-corruption--level-9  { --cultist-corruption-mask-x: 108%; --cultist-corruption-mask-y: 73%; --cultist-corruption-opacity: 0.185; --cultist-parchment-redness: 0.500; }
+.cultist-corruption--level-10 { --cultist-corruption-mask-x: 125%; --cultist-corruption-mask-y: 86%; --cultist-corruption-opacity: 0.205; --cultist-parchment-redness: 0.700; }
+

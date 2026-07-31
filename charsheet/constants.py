@@ -4,6 +4,7 @@ ARCANE_POWER = "arcane_power"
 POTENTIAL = "potential"
 WOUND_STAGE = "wound_stage"
 WOUND_PENALTY_IGNORE = "wound_penalty_ignore"
+CAN_ACT_WHILE_OUT_OF_ACTION = "can_act_while_out_of_action"
 WOUND_PENALTY_MOD = "wound_penalty_mod"
 ARMOR_PENALTY_IGNORE = "armor_penalty_ignore"
 SHIELD_PENALTY_IGNORE = "shield_penalty_ignore"
@@ -40,6 +41,7 @@ STAT_SLUG_CHOICES = [
 
 RULE_FLAG_CHOICES = [
     (WOUND_PENALTY_IGNORE, "Wundmalus ignorieren"),
+    (CAN_ACT_WHILE_OUT_OF_ACTION, "Bei 'Außer Gefecht' weiter handeln"),
     (ARMOR_PENALTY_IGNORE, "Belastung ignorieren"),
     (SHIELD_PENALTY_IGNORE, "Schildmalus ignorieren"),
 ]
@@ -50,6 +52,7 @@ VALID_STAT_SLUGS = {
     POTENTIAL,
     WOUND_STAGE,
     WOUND_PENALTY_IGNORE,
+    CAN_ACT_WHILE_OUT_OF_ACTION,
     WOUND_PENALTY_MOD,
     ARMOR_PENALTY_IGNORE,
     SHIELD_PENALTY_IGNORE,

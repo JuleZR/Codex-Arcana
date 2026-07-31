@@ -63,11 +63,6 @@
     page-break-after: auto;
   }
 
-  .page:first-child::before,
-  .page--secondary::before {
-    opacity: 0.12 !important;
-  }
-
   .page:first-child {
     display: grid !important;
     grid-template-columns: 290px minmax(0, 1fr) !important;

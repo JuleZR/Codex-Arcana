@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from charsheet.constants import (
     ARCANE_POWER,
+    CAN_ACT_WHILE_OUT_OF_ACTION,
     ATTR_GE,
     ATTR_INT,
     ATTR_KON,
@@ -168,3 +169,18 @@ def current_wound_penalty_raw(engine) -> int:
 def is_wound_penalty_ignored(engine) -> bool:
     """Return whether wound penalties are currently ignored."""
     return bool(engine.resolve_flags().get(WOUND_PENALTY_IGNORE, False))
+
+
+def can_act_while_out_of_action(engine) -> bool:
+    """Return whether the out-of-action stage still permits acting."""
+    return bool(engine.resolve_flags().get(CAN_ACT_WHILE_OUT_OF_ACTION, False))
+
+
+def is_wound_incapacitated(engine, wound_stage: str | None = None) -> bool:
+    """Resolve wound incapacitation while keeping coma unconditional."""
+    stage = wound_stage if wound_stage is not None else engine.current_wound_stage()[0]
+    if stage == "Koma":
+        return True
+    if stage in {"Ausser Gefecht", "Außer Gefecht"}:
+        return not engine.can_act_while_out_of_action()
+    return False

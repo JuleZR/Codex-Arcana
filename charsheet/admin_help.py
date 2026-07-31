@@ -162,7 +162,7 @@ TECHNIQUE_LABELS = {
     "target_choice_definition": "Target Choice Definition",
     "choice_bonus_value": "Fixed Bonus",
     "specialization_slot_grants": "Specialization Slots",
-    "granted_daemonic_power_tier": "Daemonic Power Choice Tier",
+    "granted_daemonic_power_tier": "Choose Daemonic Power from Tier",
     "action_type": "Action Type",
     "usage_type": "Usage Type",
     "activation_cost": "Cost",

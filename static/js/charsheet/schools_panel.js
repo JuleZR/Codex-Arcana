@@ -252,7 +252,9 @@ export function initSchoolsPanel() {
   const setBindingUnlocked = (form, bindingToggle, isUnlocked) => {
     form.classList.toggle("is-edit-unlocked", isUnlocked);
     bindingToggle.setAttribute("aria-pressed", isUnlocked ? "true" : "false");
-    bindingToggle.setAttribute("title", isUnlocked ? "Druidenzirkel sperren" : "Druidenzirkel bearbeiten");
+    const editLabel = String(form.getAttribute("data-binding-edit-label") || "Auswahl bearbeiten");
+    const lockLabel = String(form.getAttribute("data-binding-lock-label") || "Auswahl sperren");
+    bindingToggle.setAttribute("title", isUnlocked ? lockLabel : editLabel);
     const select = form.querySelector(".school_group_binding_select");
     const saveButton = form.querySelector(".school_group_binding_save");
     if (select instanceof HTMLSelectElement) {
@@ -268,7 +270,7 @@ export function initSchoolsPanel() {
 
   list.querySelectorAll("[data-school-group-binding]").forEach((form) => {
     form.addEventListener("click", (event) => {
-      const bindingToggle = event.target instanceof Element ? event.target.closest("[data-druid-cult-edit-toggle]") : null;
+      const bindingToggle = event.target instanceof Element ? event.target.closest("[data-school-binding-edit-toggle]") : null;
       if (bindingToggle instanceof HTMLButtonElement && form instanceof HTMLFormElement) {
         event.preventDefault();
         setBindingUnlocked(form, bindingToggle, !form.classList.contains("is-edit-unlocked"));
@@ -279,18 +281,20 @@ export function initSchoolsPanel() {
       event.stopPropagation();
     });
     form.addEventListener("submit", (event) => {
-      if (!(form instanceof HTMLFormElement) || form.getAttribute("data-druid-cult-reset-warning") !== "1") {
+      if (!(form instanceof HTMLFormElement)) {
+        return;
+      }
+      const resetWarning = String(form.getAttribute("data-binding-reset-warning") || "");
+      if (!resetWarning) {
         return;
       }
       const select = form.querySelector(".school_group_binding_select");
-      const currentCultId = String(form.getAttribute("data-current-druid-cult-id") || "");
-      const nextCultId = select instanceof HTMLSelectElement ? String(select.value || "") : "";
-      if (nextCultId === currentCultId) {
+      const currentBindingId = String(form.getAttribute("data-current-binding-id") || "");
+      const nextBindingId = select instanceof HTMLSelectElement ? String(select.value || "") : "";
+      if (nextBindingId === currentBindingId) {
         return;
       }
-      const confirmed = window.confirm(
-        "Beim Wechseln oder Entfernen des Druidenzirkels werden alle gewaehlten Aspekt-Zauberslots und zusaetzlich erworbenen Aspekte zurueckgesetzt.",
-      );
+      const confirmed = window.confirm(resetWarning);
       if (!confirmed) {
         event.preventDefault();
       }
@@ -298,7 +302,7 @@ export function initSchoolsPanel() {
   });
 
   const handlePanelClick = (event) => {
-    const bindingToggle = event.target instanceof Element ? event.target.closest("[data-druid-cult-edit-toggle]") : null;
+    const bindingToggle = event.target instanceof Element ? event.target.closest("[data-school-binding-edit-toggle]") : null;
     if (bindingToggle instanceof HTMLButtonElement) {
       event.preventDefault();
       event.stopPropagation();

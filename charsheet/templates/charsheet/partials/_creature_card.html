@@ -10,6 +10,7 @@
     data-creature-card-quality="{{ creature_card.quality }}"
     data-creature-wound-state="{{ creature_card.wound_state|default:'active' }}"
     data-creature-wound-penalty="{{ creature_card.wound_penalty|default:0 }}"
+    data-creature-can-act-while-out-of-action="{{ creature_card.can_act_while_out_of_action|yesno:'true,false' }}"
     {% if creature_card.default_image %}data-creature-card-default-image="{{ creature_card.default_image.url }}"{% endif %}
     {% if creature_card.training_update_url %}data-creature-card-editor{% endif %}
     {% if creature_card.holo %}data-card-holo="true" data-card-holo-kind="{{ creature_card.holo_kind|default:'creature' }}"{% endif %}

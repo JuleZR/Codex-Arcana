@@ -48,16 +48,6 @@
   background-blend-mode: multiply, normal;
 }
 
-.page--secondary::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: url("/static/img/arcane_codex_logo.svg") center 50% / 80% no-repeat;
-  mix-blend-mode: normal;
-  opacity: 0.06;
-  pointer-events: none;
-}
-
 .p2_layout {
   position: relative;
   z-index: 1;
@@ -313,7 +303,7 @@
   color: #3b2a1d;
   border: 1px solid rgba(74, 55, 38, 0.24);
   border-radius: 4px;
-  background: rgba(250, 241, 220, 0.78);
+  background: rgba(250, 241, 220, 0.9);
   padding: 5px 8px;
   min-height: 28px;
   display: flex;

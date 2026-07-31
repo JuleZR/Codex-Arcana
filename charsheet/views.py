@@ -1251,6 +1251,69 @@ def update_druid_cult(request, character_id: int):
 
 
 @login_required
+@require_POST
+def update_daemonic_patron(request, character_id: int):
+    """Persist the demon lord selected from a learned cult school panel."""
+    character = _owned_character_or_404(request, character_id)
+    try:
+        school_id = int(request.POST.get("school_id", "0"))
+        entity_id = int(request.POST.get("daemonic_patron", "0"))
+    except (TypeError, ValueError):
+        school_id = 0
+        entity_id = 0
+
+    if school_id <= 0 or not character.schools.filter(
+        school_id=school_id,
+        level__gt=0,
+    ).exists():
+        messages.error(request, "Dämonenfürst konnte nicht gespeichert werden.")
+        return redirect("character_sheet", character_id=character.id)
+
+    entity = (
+        DivineEntity.objects.filter(pk=entity_id, school_id=school_id)
+        .select_related("school", "school__type")
+        .first()
+    )
+    if entity is None or _divine_entity_card_kind_label(entity) != "Dämon":
+        messages.error(request, "Dieser Dämonenfürst gehört nicht zu dieser Kultschule.")
+        return redirect("character_sheet", character_id=character.id)
+
+    current_binding = (
+        CharacterDivineEntity.objects.filter(character=character)
+        .select_related("entity")
+        .first()
+    )
+    entity_changed = current_binding is None or current_binding.entity_id != entity.id
+    if current_binding is not None and entity_changed and current_binding.custom_god_image:
+        current_binding.custom_god_image.delete(save=False)
+
+    defaults = {"entity": entity}
+    if entity_changed:
+        defaults.update(
+            {
+                "custom_name": "",
+                "tradition_name": "",
+                "custom_description": "",
+                "custom_g_ability": "",
+                "custom_fluff": "",
+                "custom_god_image": None,
+            }
+        )
+    binding, _created = CharacterDivineEntity.objects.update_or_create(
+        character=character,
+        defaults=defaults,
+    )
+    if entity_changed:
+        binding.core_aspects.clear()
+    if (character.religion or "") != entity.name:
+        character.religion = entity.name
+        character.save(update_fields=["religion"])
+    character.get_magic_engine(refresh=True).sync_character_magic()
+    messages.success(request, "Dämonenfürst gespeichert.")
+    return redirect("character_sheet", character_id=character.id)
+
+
+@login_required
 def sheet(request):
     """Render the static character sheet template."""
     return render(request, "charsheet/charsheet.html")
@@ -3829,6 +3892,7 @@ def apply_learning(request, character_id: int):
                 "level": level,
                 "message": message,
                 "learningFeedback": {"level": level, "message": message},
+                "cultistCorruptionLevel": context["cultist_corruption_level"],
                 "learningPanelHtml": (
                     render_to_string("charsheet/partials/_learning_panel.html", context, request=request)
                     if level != "error"

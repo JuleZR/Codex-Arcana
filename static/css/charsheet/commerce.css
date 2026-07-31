@@ -1836,20 +1836,6 @@
   pointer-events: none;
 }
 
-.sheet-window .learn_tabs__sidebar::after {
-  content: "";
-  position: absolute;
-  left: 16px;
-  right: 16px;
-  bottom: 20px;
-  height: 92px;
-  background:
-    linear-gradient(180deg, transparent, rgba(185, 142, 84, 0.08) 30%, transparent 60%),
-    url("/static/img/arcane_codex_logo.svg") center bottom / contain no-repeat;
-  opacity: 0.12;
-  pointer-events: none;
-}
-
 .sheet-window .learn_tabs__list::before,
 .sheet-window .learn_tabs__list::after {
   content: "";

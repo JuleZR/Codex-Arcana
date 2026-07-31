@@ -94,8 +94,11 @@
     }
     syncApplicationScope(root);
     var isChoice = area.value === "choice" || area.value === "choice_attack_damage";
+    var isRuleFlag = area.value === "rule_flag";
     setRowVisible(root, "simple_target", !isChoice);
     setRowVisible(root, "target_choice_definition", isChoice);
+    setRowVisible(root, "simple_operator", !isRuleFlag);
+    setRowVisible(root, "simple_value", !isRuleFlag);
     if (!isChoice) {
       syncSimpleTarget(root);
     }

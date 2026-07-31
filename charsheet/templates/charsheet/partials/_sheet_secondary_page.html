@@ -307,7 +307,7 @@
             {% comment %}── Kampfschulen (gruppiert & ausklappbar) ──────────────────────────{% endcomment %}
             {% for group in school_technique_groups %}
             <li class="school_group" data-school-group data-school-group-key="group:{{ group.school_name|slugify }}">
-              <div class="school_group_header school_row_with_tooltip{% if group.druid_cult_options %} school_group_header--with-binding{% endif %}">
+              <div class="school_group_header school_row_with_tooltip{% if group.druid_cult_options or group.daemonic_patron_options %} school_group_header--with-binding{% endif %}">
                 <button
                   type="button"
                   class="school_group_toggle_btn"
@@ -327,13 +327,13 @@
                   </span>
                 </button>
                 {% if group.druid_cult_options %}
-                <form method="post" action="{% url 'update_druid_cult' character.id %}" class="school_group_binding_form" data-school-group-binding data-current-druid-cult-id="{{ group.selected_druid_cult_id|default:'' }}"{% if group.druid_cult_reset_warning %} data-druid-cult-reset-warning="1"{% endif %}>
+                <form method="post" action="{% url 'update_druid_cult' character.id %}" class="school_group_binding_form" data-school-group-binding data-current-binding-id="{{ group.selected_druid_cult_id|default:'' }}"{% if group.druid_cult_reset_warning %} data-binding-reset-warning="Beim Wechseln oder Entfernen des Druidenzirkels werden alle gewählten Aspekt-Zauberslots und zusätzlich erworbenen Aspekte zurückgesetzt."{% endif %} data-binding-edit-label="Druidenzirkel bearbeiten" data-binding-lock-label="Druidenzirkel sperren">
                   {% csrf_token %}
                   <input type="hidden" name="school_id" value="{{ group.school_id }}">
                   <span class="school_group_binding_display{% if not group.selected_druid_cult_name %} school_group_binding_display--missing{% endif %}">
                     {{ group.selected_druid_cult_name|default:"Druidenzirkel wählen" }}
                   </span>
-                  <button type="button" class="school_group_binding_unlock" data-druid-cult-edit-toggle aria-label="Druidenzirkel bearbeiten" title="Druidenzirkel bearbeiten">
+                  <button type="button" class="school_group_binding_unlock" data-school-binding-edit-toggle aria-label="Druidenzirkel bearbeiten" title="Druidenzirkel bearbeiten">
                     <span aria-hidden="true">&#x22EF;</span>
                   </button>
                   <select name="druid_cult" class="school_group_binding_select" aria-label="Druidenzirkel f&uuml;r {{ group.school_name }}" disabled>
@@ -343,6 +343,24 @@
                     {% endfor %}
                   </select>
                   <button type="submit" class="school_group_binding_save" aria-label="Druidenzirkel speichern" title="Druidenzirkel speichern" hidden>&#10003;</button>
+                </form>
+                {% elif group.daemonic_patron_options %}
+                <form method="post" action="{% url 'update_daemonic_patron' character.id %}" class="school_group_binding_form" data-school-group-binding data-current-binding-id="{{ group.selected_daemonic_patron_id|default:'' }}" data-binding-edit-label="Dämonenfürsten bearbeiten" data-binding-lock-label="Dämonenfürsten sperren">
+                  {% csrf_token %}
+                  <input type="hidden" name="school_id" value="{{ group.school_id }}">
+                  <span class="school_group_binding_display{% if not group.selected_daemonic_patron_name %} school_group_binding_display--missing{% endif %}">
+                    {{ group.selected_daemonic_patron_name|default:"Dämonenfürsten wählen" }}
+                  </span>
+                  <button type="button" class="school_group_binding_unlock" data-school-binding-edit-toggle aria-label="Dämonenfürsten bearbeiten" title="Dämonenfürsten bearbeiten">
+                    <span aria-hidden="true">&#x22EF;</span>
+                  </button>
+                  <select name="daemonic_patron" class="school_group_binding_select" aria-label="Dämonenfürst für {{ group.school_name }}" disabled required>
+                    <option value="">Dämonenfürst</option>
+                    {% for entity in group.daemonic_patron_options %}
+                    <option value="{{ entity.id }}"{% if entity.id == group.selected_daemonic_patron_id %} selected{% endif %}>{{ entity.name }}</option>
+                    {% endfor %}
+                  </select>
+                  <button type="submit" class="school_group_binding_save" aria-label="Dämonenfürsten speichern" title="Dämonenfürsten speichern" hidden>&#10003;</button>
                 </form>
                 {% endif %}
                 <button
@@ -420,7 +438,7 @@
             </li>
             {% endfor %}
 
-            {% if spell_panel_divine_summary.has_divine_magic and spell_panel_divine_summary.school_level > 0 %}
+            {% if spell_panel_divine_summary.has_divine_magic and spell_panel_divine_summary.school_level > 0 and spell_panel_divine_summary.show_in_school_list %}
             <li
               class="school_row_with_tooltip tooltip_target"
               data-tooltip-side="left"
@@ -451,4 +469,5 @@
       {% include "charsheet/partials/_weapon_table.html" %}
     </section>
   </section>
+  {% if cultist_corruption_level %}<div class="sheet-corruption-layer" aria-hidden="true"></div>{% endif %}
 </article>

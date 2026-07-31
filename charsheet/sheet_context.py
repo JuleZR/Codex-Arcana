@@ -64,11 +64,12 @@ from charsheet.lesson_rules import (
     format_lesson_requirements,
     lesson_requirements_met,
 )
-from charsheet.religion_rules import has_active_druid_school, is_clerical_school, selected_divine_entity
+from charsheet.religion_rules import is_clerical_school, is_divine_entity_school, selected_divine_entity
 from charsheet.models import (
     Aspect,
     Character,
     CharacterAspect,
+    CharacterDivineEntity,
     CharacterDruidCult,
     CharacterShamanPatron,
     CharacterItem,
@@ -80,6 +81,7 @@ from charsheet.models import (
     CreatureSourceBinding,
     CharacterCreatureTrait,
     DivineEntityAspect,
+    DivineEntity,
     DruidCult,
     ItemRune,
     CharacterLanguage,
@@ -133,6 +135,24 @@ def _divine_entity_card_kind_label(divine_entity) -> str:
         or type_slug in {"kult", "cult", "school_kult", "school_cult"}
     )
     return "Dämon" if is_cult_entity else "Gottheit"
+
+
+def _cultist_corruption_level(engine) -> int:
+    """Return the learned cultist progression, capped for the visual stages."""
+    levels = []
+    for entry in engine._school_entries.values():
+        school = entry.school
+        school_name = str(getattr(school, "name", "") or "").strip().casefold()
+        school_type = getattr(school, "type", None)
+        type_name = str(getattr(school_type, "name", "") or "").strip().casefold()
+        type_slug = str(getattr(school_type, "slug", "") or "").strip().casefold()
+        if (
+            school_name.startswith(("kultist", "cultist"))
+            or type_name in {"kult", "cult"}
+            or type_slug in {"kult", "cult", "school_kult", "school_cult"}
+        ):
+            levels.append(int(entry.level))
+    return min(10, max(levels, default=0))
 
 
 def _size_class_options(*, selected: str | None = None) -> list[dict[str, object]]:
@@ -3367,9 +3387,20 @@ def _group_school_technique_rows(
     race_rows: list[dict] = []
     groups: OrderedDict[str, dict] = OrderedDict()
     druid_options_by_school_id: dict[int, list[DruidCult]] = {}
+    daemonic_patron_options_by_school_id: dict[int, list[DivineEntity]] = {}
     if school_levels:
         for cult in DruidCult.objects.filter(school_id__in=school_levels.keys()).order_by("name"):
             druid_options_by_school_id.setdefault(int(cult.school_id), []).append(cult)
+        for entity in (
+            DivineEntity.objects.filter(school_id__in=school_levels.keys())
+            .select_related("school", "school__type")
+            .order_by("name", "id")
+        ):
+            if _divine_entity_card_kind_label(entity) == "Dämon":
+                daemonic_patron_options_by_school_id.setdefault(
+                    int(entity.school_id),
+                    [],
+                ).append(entity)
     druid_binding = (
         CharacterDruidCult.objects.filter(character=character)
         .select_related("cult", "cult__school")
@@ -3391,6 +3422,22 @@ def _group_school_technique_rows(
             ),
             spell__aspect_id__isnull=False,
         ).exists()
+    )
+    daemonic_patron_binding = (
+        CharacterDivineEntity.objects.filter(character=character)
+        .select_related("entity", "entity__school", "entity__school__type")
+        .first()
+    )
+    selected_daemonic_patron_id = (
+        int(daemonic_patron_binding.entity_id)
+        if daemonic_patron_binding is not None
+        and _divine_entity_card_kind_label(daemonic_patron_binding.entity) == "Dämon"
+        else None
+    )
+    selected_daemonic_patron_name = (
+        str(daemonic_patron_binding.custom_name or daemonic_patron_binding.entity.name)
+        if selected_daemonic_patron_id and daemonic_patron_binding is not None
+        else ""
     )
 
     for row in school_technique_rows:
@@ -3418,6 +3465,17 @@ def _group_school_technique_rows(
                     else ""
                 ),
                 "druid_cult_reset_warning": druid_cult_reset_warning,
+                "daemonic_patron_options": daemonic_patron_options_by_school_id.get(int(school_id or 0), []),
+                "selected_daemonic_patron_id": selected_daemonic_patron_id,
+                "selected_daemonic_patron_name": (
+                    selected_daemonic_patron_name
+                    if selected_daemonic_patron_id
+                    and any(
+                        entity.id == selected_daemonic_patron_id
+                        for entity in daemonic_patron_options_by_school_id.get(int(school_id or 0), [])
+                    )
+                    else ""
+                ),
                 "rows": [],
             }
         groups[school_name]["rows"].append(row)
@@ -3447,6 +3505,17 @@ def _group_school_technique_rows(
                     else ""
                 ),
                 "druid_cult_reset_warning": druid_cult_reset_warning,
+                "daemonic_patron_options": daemonic_patron_options_by_school_id.get(int(school.id), []),
+                "selected_daemonic_patron_id": selected_daemonic_patron_id,
+                "selected_daemonic_patron_name": (
+                    selected_daemonic_patron_name
+                    if selected_daemonic_patron_id
+                    and any(
+                        entity.id == selected_daemonic_patron_id
+                        for entity in daemonic_patron_options_by_school_id.get(int(school.id), [])
+                    )
+                    else ""
+                ),
                 "rows": [],
             }
 
@@ -3998,7 +4067,14 @@ def _build_learning_rows(
 
     school_level_caps = school_max_levels()
     school_groups: OrderedDict[str, list[dict]] = OrderedDict()
-    druid_school_active = has_active_druid_school(character)
+    learned_school_ids = {
+        int(school_id) for school_id, level in school_levels.items() if int(level) > 0
+    }
+    active_clerical_school_ids = {
+        int(school.id)
+        for school in School.objects.filter(id__in=learned_school_ids).select_related("type")
+        if is_clerical_school(school)
+    }
     selected_religion_entity = selected_divine_entity(character)
     selected_religion_school_id = (
         int(selected_religion_entity.school_id)
@@ -4007,10 +4083,14 @@ def _build_learning_rows(
     )
     for school in School.objects.select_related("type").order_by("type__name", "name"):
         base_level = int(school_levels.get(school.id, 0))
-        if druid_school_active and is_clerical_school(school):
+        if (
+            active_clerical_school_ids
+            and is_clerical_school(school)
+            and int(school.id) not in active_clerical_school_ids
+        ):
             continue
         if (
-            is_clerical_school(school)
+            is_divine_entity_school(school)
             and selected_religion_school_id is not None
             and int(school.id) != selected_religion_school_id
             and base_level <= 0
@@ -4296,6 +4376,7 @@ def build_character_sheet_context(
         **armor_zone_protection,
     }
     school_technique_rows, school_levels = _build_school_technique_rows(character, engine)
+    cultist_corruption_level = _cultist_corruption_level(engine)
     school_race_rows, school_technique_groups = _group_school_technique_rows(
         school_technique_rows,
         school_levels,
@@ -4422,6 +4503,12 @@ def build_character_sheet_context(
         synchronize=not read_only,
     )
     spell_panel_data = magic_engine.get_spell_panel_data()
+    spell_panel_divine_summary = dict(spell_panel_data["divine_summary"])
+    spell_panel_divine_summary["show_in_school_list"] = not any(
+        group.get("daemonic_patron_options")
+        and group.get("school_name") == spell_panel_divine_summary.get("school_name")
+        for group in school_technique_groups
+    )
     visible_school_group_ids = {
         int(group["school_id"])
         for group in school_technique_groups
@@ -4763,6 +4850,7 @@ def build_character_sheet_context(
     return {
         "character": character,
         "read_only": read_only,
+        "cultist_corruption_level": cultist_corruption_level,
         "effective_personal_fame_point": effective_personal_fame_point,
         "effective_personal_fame_rank": effective_personal_fame_rank,
         "effective_artefact_rank": effective_artefact_rank,
@@ -5078,7 +5166,7 @@ def build_character_sheet_context(
         "spell_panel_groups": spell_panel_data["groups"],
         "spell_panel_filter_groups": spell_panel_data.get("filter_groups", []),
         "spell_panel_arcane_schools": spell_panel_arcane_schools,
-        "spell_panel_divine_summary": spell_panel_data["divine_summary"],
+        "spell_panel_divine_summary": spell_panel_divine_summary,
         "rune_retrofit_choices": [
             {
                 "id": rune.id,

@@ -1734,7 +1734,7 @@ class CharacterDivineEntity(models.Model):
         super().clean()
         if not self.character_id or not self.entity_id:
             return
-        from charsheet.religion_rules import is_clerical_school
+        from charsheet.religion_rules import is_divine_entity_school
 
         active_divine_school_ids = set(
             entry.school_id
@@ -1742,7 +1742,7 @@ class CharacterDivineEntity(models.Model):
                 character_id=self.character_id,
                 level__gt=0,
             ).select_related("school", "school__type")
-            if is_clerical_school(entry)
+            if is_divine_entity_school(entry)
         )
         if active_divine_school_ids and self.entity.school_id not in active_divine_school_ids:
             raise ValidationError(
