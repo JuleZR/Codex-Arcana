@@ -31,7 +31,7 @@ import { initGodCards } from "./god_card.js?v=20260702a";
 import { initCreatureCards } from "./creature_card.js?v=20260730c";
 import { initItemTransfers } from "./item_transfers.js?v=20260723a";
 import { initItemTransferWindow } from "./item_transfer_window.js?v=20260721f";
-import { initTemporaryAttributes } from "./temporary_attributes.js?v=20260731b";
+import { initTemporaryAttributes } from "./temporary_attributes.js?v=20260731c";
 
 function isRadialMenuEnabled() {
   return document.body?.dataset.radialMenuEnabled === "1";

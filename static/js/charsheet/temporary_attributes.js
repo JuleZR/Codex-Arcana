@@ -64,7 +64,17 @@ function applyOptimisticAttributeAdjustment(row, nextAdjustment) {
   row.classList.toggle("is-temporary-negative", nextAdjustment < 0);
 }
 
-async function submitTemporaryAttributeOperation(url, shortName, operation, amount, row, fallbackAdjustment) {
+async function submitTemporaryAttributeOperation(
+  url,
+  shortName,
+  operation,
+  amount,
+  row,
+  fallbackAdjustment,
+  requestedAdjustment,
+  requestKey,
+  latestDesiredAdjustments,
+) {
   row?.classList.add("is-temporary-pending");
   try {
     const response = await fetch(url, {
@@ -81,18 +91,31 @@ async function submitTemporaryAttributeOperation(url, shortName, operation, amou
     if (!response.ok || !payload?.ok) {
       throw new Error("temporary attribute update failed");
     }
+    if (latestDesiredAdjustments.get(requestKey) !== requestedAdjustment) {
+      return;
+    }
     updateJsonScript("wound-thresholds-data", payload.woundThresholdRows || []);
     updateJsonScript("battle-calculator-data", payload.battleCalculatorPayload || {});
     applySheetPartials(payload);
     document.dispatchEvent(new Event("charsheet:battle-calculator-data-updated"));
     enforceReadOnlyControls();
+    if (latestDesiredAdjustments.get(requestKey) === requestedAdjustment) {
+      latestDesiredAdjustments.delete(requestKey);
+    }
   } catch (error) {
-    if (row?.isConnected) {
+    if (
+      row?.isConnected
+      && latestDesiredAdjustments.get(requestKey) === requestedAdjustment
+    ) {
       applyOptimisticAttributeAdjustment(row, fallbackAdjustment);
+      latestDesiredAdjustments.delete(requestKey);
     }
     throw error;
   } finally {
-    if (row?.isConnected) {
+    if (
+      row?.isConnected
+      && !latestDesiredAdjustments.has(requestKey)
+    ) {
       row.classList.remove("is-temporary-pending");
     }
   }
@@ -106,6 +129,7 @@ export function initTemporaryAttributes() {
   document.body.dataset.temporaryAttributesBound = "1";
   let requestQueue = Promise.resolve();
   const pendingOperations = new Map();
+  const latestDesiredAdjustments = new Map();
 
   function flushPendingOperation(key) {
     const pending = pendingOperations.get(key);
@@ -115,6 +139,7 @@ export function initTemporaryAttributes() {
     pendingOperations.delete(key);
     const delta = pending.targetAdjustment - pending.baseAdjustment;
     if (delta === 0) {
+      latestDesiredAdjustments.delete(key);
       pending.row?.classList.remove("is-temporary-pending");
       return;
     }
@@ -131,6 +156,9 @@ export function initTemporaryAttributes() {
         amount,
         pending.row,
         pending.baseAdjustment,
+        pending.targetAdjustment,
+        key,
+        latestDesiredAdjustments,
       ));
   }
 
@@ -176,6 +204,7 @@ export function initTemporaryAttributes() {
     }
     pending.row = row;
     pendingOperations.set(key, pending);
+    latestDesiredAdjustments.set(key, pending.targetAdjustment);
     applyOptimisticAttributeAdjustment(row, pending.targetAdjustment);
     row.classList.add("is-temporary-pending");
     pending.timer = window.setTimeout(() => flushPendingOperation(key), 90);

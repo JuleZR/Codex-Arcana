@@ -1,7 +1,7 @@
 /* Charsheet stylesheet entry point.
    Keep thematic rules in ./charsheet/*.css modules instead of growing this file again. */
 @import url("./charsheet/base.css");
-@import url("./charsheet/sheet-primary.css?v=20260731t");
+@import url("./charsheet/sheet-primary.css?v=20260731v");
 @import url("./charsheet/sheet-secondary.css?v=20260731r");
 @import url("./charsheet/windows.css");
 @import url("./charsheet/commerce.css?v=20260731p");
