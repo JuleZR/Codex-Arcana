@@ -4,6 +4,7 @@ from django.template.loader import render_to_string
 from django.test import TestCase
 from django.urls import reverse
 
+from charsheet.admin import TechniqueInline
 from charsheet.engine.character_engine import CharacterEngine
 from charsheet.engine.creature_engine import CreatureEngine
 from charsheet.learning import _reset_invalid_school_progression, process_learning_submission
@@ -116,6 +117,13 @@ class DaemonicPowerTests(TestCase):
             level=1,
             acquisition_type=acquisition_type,
             granted_daemonic_power_tier=tier,
+        )
+
+    def test_school_technique_inline_exposes_daemonic_power_tier_choice(self):
+        self.assertIn("granted_daemonic_power_tier", TechniqueInline.fields)
+        self.assertIn(
+            "granted_daemonic_power_tier",
+            TechniqueInline.autocomplete_fields,
         )
 
     def test_effect_scope_rejects_creature_target_for_character_or_both(self):

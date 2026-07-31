@@ -1525,7 +1525,12 @@ class TechniqueInline(admin.TabularInline):
     verbose_name_plural = "Techniques by Level"
     extra = 0
     show_change_link = True
-    autocomplete_fields = ("path", "choice_block", "target_choice_definition")
+    autocomplete_fields = (
+        "path",
+        "choice_block",
+        "target_choice_definition",
+        "granted_daemonic_power_tier",
+    )
     fields = (
         "name",
         "level",
@@ -1535,6 +1540,7 @@ class TechniqueInline(admin.TabularInline):
         "choice_block",
         "target_choice_definition",
         "specialization_slot_grants",
+        "granted_daemonic_power_tier",
         "support_level",
         "inline_rule_hint",
     )
@@ -1546,7 +1552,13 @@ class TechniqueInline(admin.TabularInline):
         return (
             super()
             .get_queryset(request)
-            .select_related("school", "path", "choice_block", "target_choice_definition")
+            .select_related(
+                "school",
+                "path",
+                "choice_block",
+                "target_choice_definition",
+                "granted_daemonic_power_tier",
+            )
             .prefetch_related(
                 "requirements__required_technique",
                 "requirements__required_path",

@@ -83,6 +83,10 @@ TECHNIQUE_CHOICE_HELP = {
         "How many specialization slots become available once the technique is "
         "actually learned. Techniques that are only available do not count."
     ),
+    "granted_daemonic_power_tier": (
+        "If set, learning this technique requires choosing exactly one daemonic "
+        "power from this exact tier."
+    ),
     "action_type": "Action = standard action, Reaction = reaction, Free = free action, Preparation = preparation.",
     "usage_type": "At Will = unlimited use, Per Scene = once per scene, Per Combat = once per combat, Per Day = once per day.",
     "choice_block": "Optional choice block if the technique belongs to a real rulebook choice point.",
@@ -158,6 +162,7 @@ TECHNIQUE_LABELS = {
     "target_choice_definition": "Target Choice Definition",
     "choice_bonus_value": "Fixed Bonus",
     "specialization_slot_grants": "Specialization Slots",
+    "granted_daemonic_power_tier": "Daemonic Power Choice Tier",
     "action_type": "Action Type",
     "usage_type": "Usage Type",
     "activation_cost": "Cost",
