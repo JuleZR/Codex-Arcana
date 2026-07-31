@@ -135,12 +135,32 @@
     }
 
     .debug-card-gallery {
+        padding: clamp(24px, 4vw, 44px) clamp(14px, 4vw, 38px) 54px;
+    }
+
+    .debug-card-group + .debug-card-group {
+        margin-top: clamp(34px, 5vw, 58px);
+    }
+
+    .debug-card-group[hidden] {
+        display: none;
+    }
+
+    .debug-card-group__title {
+        max-width: 1440px;
+        margin: 0 auto 20px;
+        padding-bottom: 9px;
+        border-bottom: 1px solid rgba(201, 170, 85, 0.34);
+        color: #fff1c5;
+        font: 800 clamp(18px, 2.4vw, 25px)/1.2 "Cinzel", Georgia, serif;
+    }
+
+    .debug-card-group__items {
         display: grid;
         grid-template-columns: repeat(auto-fill, 210px);
         gap: clamp(18px, 2.6vw, 32px);
         justify-content: center;
         align-items: start;
-        padding: clamp(24px, 4vw, 44px) clamp(14px, 4vw, 38px) 54px;
     }
 
     .debug-card-item {
@@ -177,6 +197,32 @@
     .debug-card-item__render .card {
         width: 420px;
         max-width: none;
+    }
+
+    .debug-card-item__status {
+        display: grid;
+        width: 420px;
+        height: 586.54px;
+        place-items: center;
+        padding: 48px;
+        color: rgba(244, 234, 209, 0.58);
+        text-align: center;
+        font: 700 12px/1.35 "Cormorant Garamond", Georgia, serif;
+    }
+
+    .debug-card-item[data-card-state="loading"] .debug-card-item__viewport {
+        background:
+            linear-gradient(110deg, transparent 25%, rgba(255, 255, 255, 0.07) 40%, transparent 55%) 0 0 / 220% 100%,
+            rgba(255, 255, 255, 0.035);
+        animation: debug-card-loading 1.3s linear infinite;
+    }
+
+    .debug-card-item[data-card-state="error"] .debug-card-item__viewport {
+        border-color: rgba(196, 80, 70, 0.55);
+    }
+
+    @keyframes debug-card-loading {
+        to { background-position: -220% 0; }
     }
 
     .debug-card-item:hover .debug-card-item__viewport,
@@ -311,9 +357,16 @@
         }
 
         .debug-card-gallery {
+            padding-inline: 10px;
+        }
+
+        .debug-card-group__items {
             grid-template-columns: repeat(auto-fill, 160px);
             gap: 20px 12px;
-            padding-inline: 10px;
+        }
+
+        .debug-card-group__title {
+            margin-inline: 6px;
         }
 
         .debug-card-item {
@@ -329,6 +382,7 @@
         .debug-card-item__render {
             transform: scale(0.38095238);
         }
+
     }
 </style>
 </head>
@@ -356,25 +410,33 @@
         </header>
 
         <section class="debug-card-gallery" aria-label="Alle Karten in {{ debug_card_type_label }}" data-debug-card-gallery>
-            {% for card in debug_cards %}
-                <article
-                    class="debug-card-item"
-                    data-debug-card-item
-                    data-card-ref="{{ card.url_ref }}"
-                    data-card-label="{{ card.label }}"
-                    data-card-search="{{ card.search }}"
-                    tabindex="0"
-                    role="button"
-                    aria-label="{{ card.label }} vergrößern"
-                    {% if not card.matches_query %}hidden{% endif %}
-                >
-                    <div class="debug-card-item__viewport">
-                        <div class="debug-card-item__render">
-                            {{ card.html|safe }}
-                        </div>
+            {% for group in debug_card_groups %}
+                <section class="debug-card-group" data-debug-card-group>
+                    {% if group.label %}<h2 class="debug-card-group__title">{{ group.label }}</h2>{% endif %}
+                    <div class="debug-card-group__items">
+                    {% for card in group.cards %}
+                        <article
+                            class="debug-card-item"
+                            data-debug-card-item
+                            data-card-ref="{{ card.url_ref }}"
+                            data-card-label="{{ card.label }}"
+                            data-card-search="{{ card.search }}"
+                            data-card-loaded="{% if card.is_loaded %}1{% else %}0{% endif %}"
+                            tabindex="0"
+                            role="button"
+                            aria-label="{{ card.label }} vergrößern"
+                            {% if not card.matches_query %}hidden{% endif %}
+                        >
+                            <div class="debug-card-item__viewport">
+                                <div class="debug-card-item__render">
+                                    {% if card.html %}{{ card.html|safe }}{% else %}<span class="debug-card-item__status">Karte wird beim Anzeigen geladen.</span>{% endif %}
+                                </div>
+                            </div>
+                            <h3 class="debug-card-item__label">{{ card.label }}</h3>
+                        </article>
+                    {% endfor %}
                     </div>
-                    <h2 class="debug-card-item__label">{{ card.label }}</h2>
-                </article>
+                </section>
             {% empty %}
                 <div class="debug-card-empty">Keine Karten in dieser Kategorie vorhanden.</div>
             {% endfor %}
@@ -406,6 +468,7 @@
             const clear = document.querySelector("[data-debug-card-clear]");
             const gallery = document.querySelector("[data-debug-card-gallery]");
             const items = Array.from(document.querySelectorAll("[data-debug-card-item]"));
+            const groups = Array.from(document.querySelectorAll("[data-debug-card-group]"));
             const visibleCount = document.querySelector("[data-debug-card-visible-count]");
             const noResults = document.querySelector("[data-debug-card-no-results]");
             const modal = document.querySelector("[data-debug-card-modal]");
@@ -417,6 +480,10 @@
             }
 
             let lastFocusedItem = null;
+            let activeLoads = 0;
+            const maxConcurrentLoads = 3;
+            const loadQueue = [];
+            const cardLoadPromises = new WeakMap();
 
             const currentUrl = () => new URL(window.location.href);
 
@@ -474,7 +541,76 @@
                 root.classList.remove("active");
             };
 
-            const openModal = (item, { updateUrl = true } = {}) => {
+            const runLoadQueue = () => {
+                while (activeLoads < maxConcurrentLoads && loadQueue.length) {
+                    const task = loadQueue.shift();
+                    activeLoads += 1;
+                    task().finally(() => {
+                        activeLoads -= 1;
+                        runLoadQueue();
+                    });
+                }
+            };
+
+            const ensureCardLoaded = (item) => {
+                if (!(item instanceof HTMLElement)) {
+                    return Promise.resolve(null);
+                }
+                const renderTarget = item.querySelector(".debug-card-item__render");
+                if (!(renderTarget instanceof HTMLElement)) {
+                    return Promise.resolve(null);
+                }
+                const existingCard = renderTarget.querySelector(".card");
+                if (item.dataset.cardLoaded === "1" && existingCard instanceof HTMLElement) {
+                    return Promise.resolve(existingCard);
+                }
+                const existingPromise = cardLoadPromises.get(item);
+                if (existingPromise) {
+                    return existingPromise;
+                }
+
+                const promise = new Promise((resolve) => {
+                    loadQueue.push(async () => {
+                        item.dataset.cardState = "loading";
+                        const url = currentUrl();
+                        url.searchParams.set("fragment", "1");
+                        url.searchParams.set("card", item.dataset.cardRef || "");
+                        url.searchParams.delete("q");
+                        url.searchParams.delete("creature");
+                        url.searchParams.delete("slug");
+                        try {
+                            const response = await fetch(url, {
+                                headers: {Accept: "application/json"},
+                                credentials: "same-origin",
+                            });
+                            if (!response.ok) {
+                                throw new Error("card fragment request failed");
+                            }
+                            const payload = await response.json();
+                            if (!payload?.ok || !payload.html) {
+                                throw new Error("card fragment response invalid");
+                            }
+                            renderTarget.innerHTML = payload.html;
+                            item.dataset.cardLoaded = "1";
+                            delete item.dataset.cardState;
+                            initCreatureCards();
+                            initGodCards(renderTarget);
+                            initTooltips();
+                            resolve(renderTarget.querySelector(".card"));
+                        } catch (_error) {
+                            item.dataset.cardState = "error";
+                            renderTarget.innerHTML = '<span class="debug-card-item__status">Karte konnte nicht geladen werden. Zum Wiederholen anklicken.</span>';
+                            cardLoadPromises.delete(item);
+                            resolve(null);
+                        }
+                    });
+                    runLoadQueue();
+                });
+                cardLoadPromises.set(item, promise);
+                return promise;
+            };
+
+            const openModal = async (item, { updateUrl = true } = {}) => {
                 if (
                     !(item instanceof HTMLElement)
                     || !(modal instanceof HTMLElement)
@@ -482,7 +618,7 @@
                 ) {
                     return;
                 }
-                const card = item.querySelector(".card");
+                const card = await ensureCardLoaded(item);
                 if (!(card instanceof HTMLElement)) {
                     return;
                 }
@@ -519,6 +655,11 @@
                         count += 1;
                     }
                 });
+                groups.forEach((group) => {
+                    const hasVisibleCard = Array.from(group.querySelectorAll("[data-debug-card-item]"))
+                        .some((item) => item instanceof HTMLElement && !item.hidden);
+                    group.hidden = !hasVisibleCard;
+                });
                 if (visibleCount instanceof HTMLElement) {
                     visibleCount.textContent = String(count);
                 }
@@ -549,7 +690,7 @@
 
             gallery?.addEventListener("click", (event) => {
                 const item = event.target instanceof Element ? event.target.closest("[data-debug-card-item]") : null;
-                openModal(item);
+                void openModal(item);
             });
             gallery?.addEventListener("keydown", (event) => {
                 if (event.key !== "Enter" && event.key !== " ") {
@@ -560,7 +701,7 @@
                     return;
                 }
                 event.preventDefault();
-                openModal(item);
+                void openModal(item);
             });
             modal?.addEventListener("click", (event) => {
                 if (event.target instanceof Element && event.target.closest("[data-debug-card-close]")) {
@@ -576,9 +717,28 @@
                 const ref = currentUrl().searchParams.get("card") || "";
                 const item = items.find((candidate) => candidate.dataset.cardRef === ref);
                 if (item instanceof HTMLElement) {
-                    openModal(item, {updateUrl: false});
+                    void openModal(item, {updateUrl: false});
                 } else {
                     closeModal({updateUrl: false});
+                }
+            });
+
+            const observer = "IntersectionObserver" in window
+                ? new IntersectionObserver((entries) => {
+                    entries.forEach((entry) => {
+                        if (!entry.isIntersecting || !(entry.target instanceof HTMLElement)) {
+                            return;
+                        }
+                        observer.unobserve(entry.target);
+                        void ensureCardLoaded(entry.target);
+                    });
+                }, {rootMargin: "500px 0px"})
+                : null;
+            items.forEach((item) => {
+                if (observer) {
+                    observer.observe(item);
+                } else if (!item.hidden) {
+                    void ensureCardLoaded(item);
                 }
             });
 
@@ -591,7 +751,7 @@
             if (initialRef) {
                 const initialItem = items.find((item) => item.dataset.cardRef === initialRef);
                 if (initialItem instanceof HTMLElement) {
-                    openModal(initialItem, {updateUrl: false});
+                    void openModal(initialItem, {updateUrl: false});
                 }
             }
         })();

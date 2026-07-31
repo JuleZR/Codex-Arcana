@@ -1,0 +1,11 @@
+{% extends "admin/change_form.html" %}
+
+{% block inline_field_sets %}
+  {% for inline_admin_formset in inline_admin_formsets %}
+    {% if inline_admin_formset.combined_daemonic_power_inline %}
+      {% include "admin/charsheet/creature/combined_abilities_inline.html" with special_skills=inline_admin_formset daemonic_powers=inline_admin_formset.combined_daemonic_power_inline %}
+    {% elif not inline_admin_formset.hide_in_combined_ability_list %}
+      {% include inline_admin_formset.opts.template %}
+    {% endif %}
+  {% endfor %}
+{% endblock %}

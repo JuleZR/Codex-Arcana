@@ -1,9 +1,9 @@
 """Django admin configuration for character sheet domain models."""
 
 from collections import defaultdict
-from copy import deepcopy
+from copy import copy, deepcopy
 
-from django.contrib import admin
+from django.contrib import admin, messages
 from django.contrib.admin.views.main import ChangeList
 from django.contrib.admin.helpers import ACTION_CHECKBOX_NAME, ActionForm
 from django.contrib.contenttypes.admin import GenericStackedInline
@@ -12,6 +12,7 @@ from django.core.exceptions import NON_FIELD_ERRORS, ValidationError
 from django.forms.models import BaseInlineFormSet
 from django.http import HttpResponseRedirect, JsonResponse
 from django.template.response import TemplateResponse
+from django.db import IntegrityError, transaction
 from django.db.models import Q, Value
 from django.db.models.functions import Coalesce
 from django.urls import path, reverse
@@ -180,6 +181,102 @@ ShieldStats._meta.verbose_name = "Shield Stats"
 ShieldStats._meta.verbose_name_plural = "Shield Stats"
 WeaponStats._meta.verbose_name = "Weapon Stats"
 WeaponStats._meta.verbose_name_plural = "Weapon Stats"
+
+
+def _copied_unique_text_value(model, field, original_value):
+    """Return an unused copy label for one unique text field."""
+
+    original = str(original_value or "")
+    is_slug = field.get_internal_type() == "SlugField"
+    suffix = "-kopie" if is_slug else " (Kopie)"
+    max_length = field.max_length or 255
+    stem = original[: max_length - len(suffix)]
+    candidate = f"{stem}{suffix}"
+    number = 2
+    while model._default_manager.filter(**{field.name: candidate}).exists():
+        numbered_suffix = f"-kopie-{number}" if is_slug else f" (Kopie {number})"
+        stem = original[: max_length - len(numbered_suffix)]
+        candidate = f"{stem}{numbered_suffix}"
+        number += 1
+    return candidate
+
+
+def _copy_model_for_admin(source):
+    """Create a shallow model copy and preserve ordinary many-to-many values."""
+
+    model = type(source)
+    duplicate = copy(source)
+    duplicate._state = copy(source._state)
+    duplicate.pk = None
+    duplicate._state.adding = True
+
+    for field in source._meta.concrete_fields:
+        if field.primary_key or not field.unique:
+            continue
+        value = field.value_from_object(source)
+        if value is None:
+            continue
+        if field.get_internal_type() not in {"CharField", "SlugField", "TextField"}:
+            raise ValidationError(
+                f"{source._meta.verbose_name} kann wegen des eindeutigen Feldes "
+                f"\u201e{field.verbose_name}\u201c nicht automatisch kopiert werden."
+            )
+        setattr(
+            duplicate,
+            field.attname,
+            _copied_unique_text_value(model, field, value),
+        )
+
+    duplicate.save()
+    for field in source._meta.many_to_many:
+        if field.remote_field.through._meta.auto_created:
+            getattr(duplicate, field.name).set(getattr(source, field.name).all())
+    return duplicate
+
+
+@admin.action(description="Element kopieren", permissions=["add"])
+def copy_selected_admin_object(modeladmin, request, queryset):
+    """Copy one selected admin object and open the new change form."""
+
+    if queryset.count() != 1:
+        modeladmin.message_user(
+            request,
+            "Bitte genau ein Element zum Kopieren ausw\u00e4hlen.",
+            level=messages.ERROR,
+        )
+        return None
+
+    source = queryset.first()
+    try:
+        with transaction.atomic():
+            duplicate = _copy_model_for_admin(source)
+            copy_related = getattr(modeladmin, "copy_related_objects", None)
+            if copy_related is not None:
+                copy_related(source, duplicate)
+    except (IntegrityError, ValidationError) as error:
+        modeladmin.message_user(
+            request,
+            f"Das Element konnte nicht kopiert werden: {error}",
+            level=messages.ERROR,
+        )
+        return None
+
+    modeladmin.message_user(
+        request,
+        f"{source._meta.verbose_name.capitalize()} wurde kopiert.",
+        level=messages.SUCCESS,
+    )
+    opts = duplicate._meta
+    return HttpResponseRedirect(
+        reverse(
+            f"admin:{opts.app_label}_{opts.model_name}_change",
+            args=(duplicate.pk,),
+            current_app=modeladmin.admin_site.name,
+        )
+    )
+
+
+admin.site.add_action(copy_selected_admin_object, "copy_selected_admin_object")
 MagicItemStats._meta.verbose_name = "Magic Item Stats"
 MagicItemStats._meta.verbose_name_plural = "Magic Item Stats"
 
@@ -6777,6 +6874,7 @@ class AssignCreatureTypeForm(forms.Form):
 @admin.register(Creature)
 class CreatureAdmin(admin.ModelAdmin):
     form = CreatureAdminForm
+    change_form_template = "admin/charsheet/creature/change_form.html"
     change_list_template = "admin/charsheet/creature/change_list.html"
     list_display = ("name", "size_class", "initiative_override", "natural_rs", "organization")
     search_fields = ("name", "slug", "climate_and_occurrence", "organization")
@@ -6830,8 +6928,80 @@ class CreatureAdmin(admin.ModelAdmin):
         ("Vorkommen", {"fields": ("climate_and_occurrence", "organization")}),
     )
 
+    class Media:
+        css = {"all": ("charsheet/css/creature_admin.css",)}
+        js = ("charsheet/js/creature_admin.js",)
+
+    def render_change_form(
+        self,
+        request,
+        context,
+        add=False,
+        change=False,
+        form_url="",
+        obj=None,
+    ):
+        """Pair the two ability formsets for the custom combined renderer."""
+
+        inline_formsets = context.get("inline_admin_formsets", ())
+        special_skills = next(
+            (
+                inline
+                for inline in inline_formsets
+                if inline.opts.model is CreatureSpecialSkillValue
+            ),
+            None,
+        )
+        daemonic_powers = next(
+            (
+                inline
+                for inline in inline_formsets
+                if inline.opts.model is CreatureDaemonicPower
+            ),
+            None,
+        )
+        if special_skills is not None and daemonic_powers is not None:
+            special_skills.combined_daemonic_power_inline = daemonic_powers
+            daemonic_powers.hide_in_combined_ability_list = True
+
+        return super().render_change_form(
+            request,
+            context,
+            add=add,
+            change=change,
+            form_url=form_url,
+            obj=obj,
+        )
+
     def get_changelist(self, request, **kwargs):
         return CreatureChangeList
+
+    @staticmethod
+    def copy_related_objects(source, duplicate):
+        """Copy the editable Creature inlines without copying live instances."""
+
+        for attribute in source.attributes.all():
+            duplicate.attributes.filter(attribute_id=attribute.attribute_id).update(
+                base_value=attribute.base_value
+            )
+
+        relation_names = (
+            "attacks",
+            "skills",
+            "languages",
+            "special_skills",
+            "daemonic_power_values",
+            "commands",
+            "traits",
+        )
+        for relation_name in relation_names:
+            for related in getattr(source, relation_name).all():
+                values = {
+                    field.attname: getattr(related, field.attname)
+                    for field in related._meta.concrete_fields
+                    if not field.primary_key and field.name != "creature"
+                }
+                type(related).objects.create(creature=duplicate, **values)
 
     @admin.action(description="Kreaturentyp zuweisen …", permissions=["change"])
     def assign_creature_type(self, request, queryset):

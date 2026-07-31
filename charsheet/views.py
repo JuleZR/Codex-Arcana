@@ -4255,10 +4255,13 @@ def _debug_card_label(source, card_type: str) -> str:
 
 def _debug_card_option(source, card_type: str) -> dict[str, str]:
     label = _debug_card_label(source, card_type)
+    creature_type = getattr(source, "creature_type", None) if card_type == "creature" else None
     return {
         "id": str(source.pk),
         "slug": getattr(source, "slug", ""),
         "label": label,
+        "group_key": f"creature-type-{creature_type.pk}" if creature_type else "creature-type-none",
+        "group_label": creature_type.name if creature_type else "Ohne Kreaturentyp",
         "search": " ".join(
             str(value or "")
             for value in (
@@ -4274,32 +4277,27 @@ def _debug_card_option(source, card_type: str) -> dict[str, str]:
     }
 
 
-def _debug_card_sources(card_type: str):
+def _debug_card_sources(card_type: str, *, for_render: bool = False):
     if card_type == "divine":
-        return list(
-            DivineEntity.objects.select_related("school")
-            .prefetch_related("aspects__aspect")
-            .order_by("pantheon", "name", "id")
-        )
+        sources = DivineEntity.objects.select_related("school")
+        if for_render:
+            sources = sources.prefetch_related("aspects__aspect")
+        return sources.order_by("pantheon", "name", "id")
     if card_type == "druid":
-        return list(
-            DruidCult.objects.select_related("school")
-            .prefetch_related("aspects__aspect")
-            .order_by("name", "id")
-        )
+        sources = DruidCult.objects.select_related("school")
+        if for_render:
+            sources = sources.prefetch_related("aspects__aspect")
+        return sources.order_by("name", "id")
     if card_type == "shaman":
-        return list(
-            ShamanPatron.objects.select_related("school")
-            .prefetch_related("aspects")
-            .order_by("patron_kind", "name", "id")
-        )
-    return list(
-        Creature.objects.select_related("quality", "creature_type").order_by(
-            F("creature_type__sort_order").asc(nulls_last=True),
-            F("creature_type__name").asc(nulls_last=True),
-            "name",
-            "id",
-        )
+        sources = ShamanPatron.objects.select_related("school")
+        if for_render:
+            sources = sources.prefetch_related("aspects")
+        return sources.order_by("patron_kind", "name", "id")
+    return Creature.objects.select_related("quality", "creature_type").order_by(
+        F("creature_type__sort_order").asc(nulls_last=True),
+        F("creature_type__name").asc(nulls_last=True),
+        "name",
+        "id",
     )
 
 
@@ -4309,6 +4307,15 @@ def _debug_find_card_source(sources, requested_ref: str):
             if str(source.pk) == requested_ref or getattr(source, "slug", "") == requested_ref:
                 return source
     return sources[0] if sources else None
+
+
+def _debug_get_card_source(card_type: str, requested_ref: str):
+    """Fetch only the card requested by the lazy gallery endpoint."""
+    if not requested_ref:
+        return None
+    sources = _debug_card_sources(card_type, for_render=True)
+    source = sources.filter(pk=int(requested_ref)).first() if requested_ref.isdecimal() else None
+    return source or sources.filter(slug=requested_ref).first()
 
 
 def _debug_god_card_context(source, card_type: str) -> dict[str, object]:
@@ -4379,7 +4386,19 @@ def debug_creature_card(request):
     requested_ref = str(request.GET.get("card") or legacy_ref).strip()
     search_query = str(request.GET.get("q") or "").strip()
 
-    sources = _debug_card_sources(card_type)
+    if request.GET.get("fragment") == "1":
+        source = _debug_get_card_source(card_type, requested_ref)
+        if source is None:
+            return JsonResponse({"ok": False, "error": "card_not_found"}, status=404)
+        return JsonResponse(
+            {
+                "ok": True,
+                "html": _debug_render_card_html(request, source, card_type),
+                "label": _debug_card_label(source, card_type),
+            }
+        )
+
+    sources = list(_debug_card_sources(card_type))
     options = [_debug_card_option(source, card_type) for source in sources]
     query_terms = search_query.lower().split()
     selected_source = _debug_find_card_source(sources, requested_ref) if requested_ref else None
@@ -4387,8 +4406,27 @@ def debug_creature_card(request):
     for source, option in zip(sources, options):
         option["url_ref"] = option["slug"] or option["id"]
         option["matches_query"] = all(term in option["search"] for term in query_terms)
-        option["html"] = _debug_render_card_html(request, source, card_type)
+        option["html"] = (
+            _debug_render_card_html(request, source, card_type)
+            if selected_source is not None and source.pk == selected_source.pk
+            else ""
+        )
+        option["is_loaded"] = bool(option["html"])
         cards.append(option)
+
+    groups = []
+    groups_by_key = {}
+    for card in cards:
+        group_key = card["group_key"] if card_type == "creature" else "all"
+        if group_key not in groups_by_key:
+            group = {
+                "key": group_key,
+                "label": card["group_label"] if card_type == "creature" else "",
+                "cards": [],
+            }
+            groups_by_key[group_key] = group
+            groups.append(group)
+        groups_by_key[group_key]["cards"].append(card)
 
     card_tabs = [
         {
@@ -4406,6 +4444,7 @@ def debug_creature_card(request):
             "debug_card_type_label": DEBUG_CARD_TYPES[card_type],
             "debug_card_tabs": card_tabs,
             "debug_cards": cards,
+            "debug_card_groups": groups,
             "debug_card_query": search_query,
             "debug_card_selected": selected_source,
             "debug_card_selected_ref": getattr(selected_source, "slug", "") or getattr(selected_source, "pk", ""),

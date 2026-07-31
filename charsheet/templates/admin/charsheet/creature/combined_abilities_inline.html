@@ -1,0 +1,137 @@
+{% load i18n admin_urls static admin_modify %}
+
+<div class="creature-abilities-module">
+  <h2 class="inline-heading">Creature abilities</h2>
+  <div class="creature-abilities-wrapper">
+    <table class="creature-abilities-heading">
+      <colgroup>
+        <col class="creature-ability-col-original">
+        <col class="creature-ability-col-type">
+        <col class="creature-ability-col-name">
+        <col class="creature-ability-col-value">
+        <col class="creature-ability-col-notes">
+        <col class="creature-ability-col-delete">
+      </colgroup>
+      <thead>
+        <tr>
+          <th class="original"></th>
+          <th>Type</th>
+          <th>Ability</th>
+          <th>Value / level</th>
+          <th>Notes</th>
+          <th>{% translate "Delete?" %}</th>
+        </tr>
+      </thead>
+    </table>
+
+    <div class="js-inline-admin-formset inline-group creature-ability-inline"
+         id="{{ special_skills.formset.prefix }}-group"
+         data-inline-type="tabular"
+         data-inline-formset="{{ special_skills.inline_formset_data }}">
+      <div class="tabular inline-related">
+        {{ special_skills.formset.management_form }}
+        {{ special_skills.formset.non_form_errors }}
+        <table>
+          <colgroup>
+            <col class="creature-ability-col-original">
+            <col class="creature-ability-col-type">
+            <col class="creature-ability-col-name">
+            <col class="creature-ability-col-value">
+            <col class="creature-ability-col-notes">
+            <col class="creature-ability-col-delete">
+          </colgroup>
+          <tbody>
+          {% for inline_admin_form in special_skills %}
+            {% if inline_admin_form.form.non_field_errors %}
+              <tr class="row-form-errors"><td colspan="6">{{ inline_admin_form.form.non_field_errors }}</td></tr>
+            {% endif %}
+            <tr class="form-row {% if inline_admin_form.original or inline_admin_form.show_url %}has_original{% endif %}{% if forloop.last and special_skills.has_add_permission %} empty-form{% endif %}"
+                id="{{ special_skills.formset.prefix }}-{% if forloop.last and special_skills.has_add_permission %}empty{% else %}{{ forloop.counter0 }}{% endif %}">
+              <td class="original">
+                {% if inline_admin_form.original or inline_admin_form.show_url %}<p>
+                  {% if inline_admin_form.original %}
+                    {{ inline_admin_form.original }}
+                    {% if inline_admin_form.model_admin.show_change_link and inline_admin_form.model_admin.has_registered_model %}<a href="{% url inline_admin_form.model_admin.opts|admin_urlname:'change' inline_admin_form.original.pk|admin_urlquote %}" class="{{ special_skills.has_change_permission|yesno:'inlinechangelink,inlineviewlink' }}">{% if special_skills.has_change_permission %}{% translate "Change" %}{% else %}{% translate "View" %}{% endif %}</a>{% endif %}
+                  {% endif %}
+                  {% if inline_admin_form.show_url %}<a href="{{ inline_admin_form.absolute_url }}">{% translate "View on site" %}</a>{% endif %}
+                </p>{% endif %}
+                {% if inline_admin_form.needs_explicit_pk_field %}{{ inline_admin_form.pk_field.field }}{% endif %}
+                {% if inline_admin_form.fk_field %}{{ inline_admin_form.fk_field.field }}{% endif %}
+              </td>
+              <td class="field-ability-type"><span class="creature-ability-type creature-ability-type--skill">Special skill</span></td>
+              {% for fieldset in inline_admin_form %}
+                {% for line in fieldset %}
+                  {% for field in line %}
+                    <td class="{% if field.field.name %}field-{{ field.field.name }}{% endif %}{% if field.field.is_hidden %} hidden{% endif %}">
+                      {% if field.is_readonly %}<p>{{ field.contents }}</p>{% else %}{{ field.field.errors.as_ul }}{{ field.field }}{% endif %}
+                    </td>
+                  {% endfor %}
+                {% endfor %}
+              {% endfor %}
+              <td class="delete">{% if special_skills.formset.can_delete and special_skills.has_delete_permission and inline_admin_form.original %}{{ inline_admin_form.deletion_field.field }}{% endif %}</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="js-inline-admin-formset inline-group creature-ability-inline"
+         id="{{ daemonic_powers.formset.prefix }}-group"
+         data-inline-type="tabular"
+         data-inline-formset="{{ daemonic_powers.inline_formset_data }}">
+      <div class="tabular inline-related">
+        {{ daemonic_powers.formset.management_form }}
+        {{ daemonic_powers.formset.non_form_errors }}
+        <table>
+          <colgroup>
+            <col class="creature-ability-col-original">
+            <col class="creature-ability-col-type">
+            <col class="creature-ability-col-name">
+            <col class="creature-ability-col-value">
+            <col class="creature-ability-col-notes">
+            <col class="creature-ability-col-delete">
+          </colgroup>
+          <tbody>
+          {% for inline_admin_form in daemonic_powers %}
+            {% if inline_admin_form.form.non_field_errors %}
+              <tr class="row-form-errors"><td colspan="6">{{ inline_admin_form.form.non_field_errors }}</td></tr>
+            {% endif %}
+            <tr class="form-row {% if inline_admin_form.original or inline_admin_form.show_url %}has_original{% endif %}{% if forloop.last and daemonic_powers.has_add_permission %} empty-form{% endif %}"
+                id="{{ daemonic_powers.formset.prefix }}-{% if forloop.last and daemonic_powers.has_add_permission %}empty{% else %}{{ forloop.counter0 }}{% endif %}">
+              <td class="original">
+                {% if inline_admin_form.original or inline_admin_form.show_url %}<p>
+                  {% if inline_admin_form.original %}
+                    {{ inline_admin_form.original }}
+                    {% if inline_admin_form.model_admin.show_change_link and inline_admin_form.model_admin.has_registered_model %}<a href="{% url inline_admin_form.model_admin.opts|admin_urlname:'change' inline_admin_form.original.pk|admin_urlquote %}" class="{{ daemonic_powers.has_change_permission|yesno:'inlinechangelink,inlineviewlink' }}">{% if daemonic_powers.has_change_permission %}{% translate "Change" %}{% else %}{% translate "View" %}{% endif %}</a>{% endif %}
+                  {% endif %}
+                  {% if inline_admin_form.show_url %}<a href="{{ inline_admin_form.absolute_url }}">{% translate "View on site" %}</a>{% endif %}
+                </p>{% endif %}
+                {% if inline_admin_form.needs_explicit_pk_field %}{{ inline_admin_form.pk_field.field }}{% endif %}
+                {% if inline_admin_form.fk_field %}{{ inline_admin_form.fk_field.field }}{% endif %}
+              </td>
+              <td class="field-ability-type"><span class="creature-ability-type creature-ability-type--power">Daemonic power</span></td>
+              {% for fieldset in inline_admin_form %}
+                {% for line in fieldset %}
+                  {% for field in line %}
+                    <td class="{% if field.field.name %}field-{{ field.field.name }}{% endif %}{% if field.field.is_hidden %} hidden{% endif %}">
+                      {% if field.is_readonly %}<p>{{ field.contents }}</p>{% else %}{{ field.field.errors.as_ul }}{{ field.field }}{% endif %}
+                    </td>
+                  {% endfor %}
+                {% endfor %}
+              {% endfor %}
+              <td class="field-notes creature-ability-empty-cell" aria-label="Not applicable">&mdash;</td>
+              <td class="delete">{% if daemonic_powers.formset.can_delete and daemonic_powers.has_delete_permission and inline_admin_form.original %}{{ inline_admin_form.deletion_field.field }}{% endif %}</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="creature-ability-add-actions">
+      {% if special_skills.has_add_permission %}<a href="#" role="button" class="addlink" data-creature-ability-add="{{ special_skills.formset.prefix }}">Add special skill</a>{% endif %}
+      {% if daemonic_powers.has_add_permission %}<a href="#" role="button" class="addlink" data-creature-ability-add="{{ daemonic_powers.formset.prefix }}">Add daemonic power</a>{% endif %}
+    </div>
+  </div>
+</div>
