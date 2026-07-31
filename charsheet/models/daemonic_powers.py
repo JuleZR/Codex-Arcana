@@ -237,6 +237,9 @@ class DaemonicPowerSemanticEffect(models.Model):
         }
         modifier_cls = modifier_map.get(self.target_domain, BaseModifier)
         metadata = dict(self.metadata or {})
+        condition_text = " ".join(str(self.condition_text or "").split())
+        if condition_text:
+            metadata["condition_text"] = condition_text
         if self.pk:
             skill_slugs = list(
                 self.target_skills.order_by("slug").values_list("slug", flat=True)

@@ -40,10 +40,24 @@ def is_shaman_school(school_or_entry) -> bool:
     return ShamanPatron.objects.filter(school_id=school_id).exists()
 
 
+def is_cult_school(school_or_entry) -> bool:
+    """Return whether a school belongs to the cultist progression."""
+    school = getattr(school_or_entry, "school", school_or_entry)
+    school_name = str(getattr(school, "name", "") or "").strip().casefold()
+    school_type = getattr(school, "type", None)
+    type_name = str(getattr(school_type, "name", "") or "").strip().casefold()
+    type_slug = str(getattr(school_type, "slug", "") or "").strip().casefold()
+    return (
+        school_name.startswith(("kultist", "cultist"))
+        or type_name in {"kult", "cult"}
+        or type_slug in {"kult", "cult", "school_kult", "school_cult"}
+    )
+
+
 def is_clerical_school(school_or_entry) -> bool:
     """Return whether a school uses the mutually exclusive clerical progression."""
     school = getattr(school_or_entry, "school", school_or_entry)
-    if is_druid_school(school) or is_shaman_school(school):
+    if is_cult_school(school) or is_druid_school(school) or is_shaman_school(school):
         return True
     school_type = getattr(school, "type", None)
     if school_type is None:

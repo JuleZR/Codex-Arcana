@@ -2418,6 +2418,7 @@ def _build_skill_rows(
         total_with_load = rank + attribute_modifier + raw_modifiers + size_modifier
         return {
             "row_kind": "skill",
+            "is_context_row": False,
             "character_skill_id": character_skill.id if character_skill is not None else None,
             "skill_id": skill.id,
             "name": skill.name,
@@ -2493,6 +2494,7 @@ def _build_skill_rows(
                 rows.append(
                     {
                         "row_kind": "weapon_context",
+                        "is_context_row": True,
                         "skill_id": skill_id,
                         "name": base_row["name"],
                         "display_name": f"mit {weapon_row['item_name']} ({option['attribute_code']})",
@@ -2523,6 +2525,156 @@ def _build_skill_rows(
                 )
         rows.sort(key=lambda row: row["display_name"].lower())
         return rows
+
+    def _conditional_daemonic_effects(skill: Skill, specification: str | None = None) -> OrderedDict[str, str]:
+        """Return normalized, player-facing restrictions targeting one skill."""
+        conditions: OrderedDict[str, str] = OrderedDict()
+        modifier_engine = engine.modifier_engine
+        for modifier in modifier_engine._active_daemonic_power_modifiers:
+            target_domain = str(modifier.target_domain or "")
+            if target_domain == "skill":
+                matches_target = modifier_engine._modifier_matches_target_key(
+                    modifier,
+                    target_domain=target_domain,
+                    target_key=skill.slug,
+                )
+            elif target_domain == "skill_category":
+                matches_target = modifier.target_key == skill.category.slug
+            else:
+                continue
+            if not matches_target:
+                continue
+            if not modifier_engine._modifier_matches_skill_specification(
+                modifier,
+                target_domain=target_domain,
+                specification=specification,
+            ):
+                continue
+            condition_text = " ".join(str(modifier.metadata.get("condition_text") or "").split())
+            normalized = modifier_engine._normalize_condition_text(condition_text)
+            if normalized:
+                conditions.setdefault(normalized, condition_text)
+        return conditions
+
+    def _build_conditional_daemonic_context_rows(base_row: dict, skill: Skill) -> list[dict]:
+        """Build one cumulative child row per daemonic-power restriction."""
+        specification = str(base_row.get("specification") or "")
+        modifier_engine = engine.modifier_engine
+        rows: list[dict] = []
+        for normalized_condition, condition_text in _conditional_daemonic_effects(skill, specification).items():
+            context = {"condition_text": condition_text}
+            direct_total = modifier_engine.resolve_numeric_total(
+                "skill",
+                skill.slug,
+                context=context,
+                specification=specification,
+            ) - modifier_engine.resolve_numeric_total(
+                "skill",
+                skill.slug,
+                specification=specification,
+            )
+            category_total = modifier_engine.resolve_numeric_total(
+                "skill_category",
+                skill.category.slug,
+                context=context,
+            ) - modifier_engine.resolve_numeric_total(
+                "skill_category",
+                skill.category.slug,
+            )
+            conditional_total = int(direct_total) + int(category_total)
+            if conditional_total == 0:
+                continue
+
+            explanation = [
+                *modifier_engine.explain_resolution(
+                    ("skill", skill.slug),
+                    context=context,
+                    specification=specification,
+                ),
+                *modifier_engine.explain_resolution(
+                    ("skill_category", skill.category.slug),
+                    context=context,
+                ),
+            ]
+            conditional_explanation = [
+                entry
+                for entry in explanation
+                if modifier_engine._normalize_condition_text(entry.get("condition_text")) == normalized_condition
+            ]
+            source_names = [
+                _resolve_modifier_source_name(engine, entry.get("source_type"), entry.get("source_id"))
+                for entry in conditional_explanation
+            ]
+            source_names = list(dict.fromkeys(name for name in source_names if name))
+            with_load_total = int(base_row["with_load_total_value"]) + conditional_total
+            rows.append(
+                {
+                    "row_kind": "conditional_effect_context",
+                    "is_context_row": True,
+                    "skill_id": int(base_row["skill_id"]),
+                    "name": base_row["name"],
+                    "display_name": f"bei {condition_text}",
+                    "description": (
+                        f"Bedingte dämonische Effekte: {', '.join(source_names)}"
+                        if source_names
+                        else f"Bedingter dämonischer Effekt bei {condition_text}"
+                    ),
+                    "attribute": base_row["attribute"],
+                    "attribute_mod": base_row["attribute_mod"],
+                    "attribute_mod_value": int(base_row["attribute_mod_value"]),
+                    "rank": int(base_row["rank_value"]),
+                    "rank_value": int(base_row["rank_value"]),
+                    "misc_mod": format_modifier(int(base_row["misc_mod_value"]) + conditional_total),
+                    "misc_mod_value": int(base_row["misc_mod_value"]) + conditional_total,
+                    "total": int(base_row["total_value"]) + conditional_total,
+                    "total_value": int(base_row["total_value"]) + conditional_total,
+                    "with_load_total": with_load_total,
+                    "with_load_total_value": with_load_total,
+                    "calculation_tooltip": _build_core_stat_tooltip(
+                        [
+                            {
+                                "label": "Grundwert",
+                                "value": int(base_row["with_load_total_value"]),
+                                "source": base_row["display_name"],
+                            },
+                            *_build_grouped_explanation_rows(engine, conditional_explanation),
+                            {"label": "= Gesamt", "value": with_load_total, "tone": "total"},
+                        ]
+                    ),
+                    "can_edit_specification": False,
+                    "specification": specification,
+                    "is_auto_visible": False,
+                }
+            )
+        return rows
+
+    def _build_display_context_rows(base_row: dict, skill: Skill) -> list[dict]:
+        """Return conditional power rows followed by applicable weapon rows."""
+        context_rows = _build_conditional_daemonic_context_rows(base_row, skill)
+        if skill.requires_specification:
+            return context_rows
+        weapon_context_rows = _build_weapon_context_rows(base_row)
+        if not weapon_context_rows:
+            return context_rows
+        matching_attribute_rows = [
+            entry
+            for entry in weapon_context_rows
+            if str(entry.get("weapon_attribute_code", "")) == str(base_row["attribute"])
+        ]
+        candidate_rows = matching_attribute_rows or weapon_context_rows
+        for weapon_context_row in sorted(
+            candidate_rows,
+            key=lambda entry: (
+                -int(entry.get("with_load_total_value", 0) or 0),
+                str(entry.get("display_name", "")).lower(),
+            ),
+        ):
+            weapon_context_row = dict(weapon_context_row)
+            display_name = str(weapon_context_row.get("display_name", ""))
+            if " (" in display_name and display_name.endswith(")"):
+                weapon_context_row["display_name"] = display_name.rsplit(" (", 1)[0]
+            context_rows.append(weapon_context_row)
+        return context_rows
 
     skill_rows: list[dict] = []
     if synchronize:
@@ -2559,60 +2711,23 @@ def _build_skill_rows(
             for character_skill in rows_for_skill:
                 row = _build_row(skill, character_skill=character_skill)
                 skill_rows.append(row)
-                if not skill.requires_specification:
-                    weapon_context_rows = _build_weapon_context_rows(row)
-                    if weapon_context_rows:
-                        matching_attribute_rows = [
-                            entry
-                            for entry in weapon_context_rows
-                            if str(entry.get("weapon_attribute_code", "")) == str(row["attribute"])
-                        ]
-                        candidate_rows = matching_attribute_rows or weapon_context_rows
-                        for weapon_context_row in sorted(
-                            candidate_rows,
-                            key=lambda entry: (
-                                -int(entry.get("with_load_total_value", 0) or 0),
-                                str(entry.get("display_name", "")).lower(),
-                            ),
-                        ):
-                            weapon_context_row = dict(weapon_context_row)
-                            display_name = str(weapon_context_row.get("display_name", ""))
-                            if " (" in display_name and display_name.endswith(")"):
-                                weapon_context_row["display_name"] = display_name.rsplit(" (", 1)[0]
-                            skill_rows.append(weapon_context_row)
+                skill_rows.extend(_build_display_context_rows(row, skill))
             continue
         if skill.requires_specification:
             for specification in engine.modifier_skill_specifications(skill.id, skill.slug):
                 if not specification:
                     continue
                 row = _build_row(skill, specification_override=specification)
-                if int(row["misc_mod_value"]) != 0:
+                context_rows = _build_display_context_rows(row, skill)
+                if int(row["misc_mod_value"]) != 0 or context_rows:
                     skill_rows.append(row)
+                    skill_rows.extend(context_rows)
             continue
-        if _external_skill_bonus(skill) != 0:
+        has_conditional_effect = bool(_conditional_daemonic_effects(skill))
+        if _external_skill_bonus(skill) != 0 or has_conditional_effect:
             row = _build_row(skill)
             skill_rows.append(row)
-            if not skill.requires_specification:
-                weapon_context_rows = _build_weapon_context_rows(row)
-                if weapon_context_rows:
-                    matching_attribute_rows = [
-                        entry
-                        for entry in weapon_context_rows
-                        if str(entry.get("weapon_attribute_code", "")) == str(row["attribute"])
-                    ]
-                    candidate_rows = matching_attribute_rows or weapon_context_rows
-                    for weapon_context_row in sorted(
-                        candidate_rows,
-                        key=lambda entry: (
-                            -int(entry.get("with_load_total_value", 0) or 0),
-                            str(entry.get("display_name", "")).lower(),
-                        ),
-                    ):
-                        weapon_context_row = dict(weapon_context_row)
-                        display_name = str(weapon_context_row.get("display_name", ""))
-                        if " (" in display_name and display_name.endswith(")"):
-                            weapon_context_row["display_name"] = display_name.rsplit(" (", 1)[0]
-                        skill_rows.append(weapon_context_row)
+            skill_rows.extend(_build_display_context_rows(row, skill))
 
     skill_manager_rows: list[dict] = []
     for skill in skills_by_id.values():
@@ -2624,7 +2739,10 @@ def _build_skill_rows(
         if has_skilled_row:
             continue
         generic_row = next((row for row in rows_for_skill if (row.specification or "*") == "*"), None)
-        auto_visible = (not has_skill_row) and (_external_skill_bonus(skill) != 0)
+        auto_visible = (not has_skill_row) and (
+            _external_skill_bonus(skill) != 0
+            or bool(_conditional_daemonic_effects(skill))
+        )
         can_add = (not has_skill_row) and (not auto_visible)
         can_remove = (
             generic_row is not None

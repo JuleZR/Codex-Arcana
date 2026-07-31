@@ -592,6 +592,8 @@ class ModifierEngine:
                     specification=specification,
                 ):
                     continue
+                if not self._modifier_matches_condition_text(modifier, context):
+                    continue
                 rows.append(
                     {
                         "layer": layer_name,
@@ -601,6 +603,7 @@ class ModifierEngine:
                         "value": modifier.value,
                         "resolved_value": self._resolve_numeric_modifier(modifier),
                         "notes": modifier.notes,
+                        "condition_text": str(modifier.metadata.get("condition_text") or ""),
                         "requires_manual_review": bool(modifier.metadata.get("requires_manual_review", False)),
                     }
                 )
@@ -713,6 +716,7 @@ class ModifierEngine:
                 target_domain=target_domain,
                 specification=specification,
             )
+            and self._modifier_matches_condition_text(modifier, context)
         ]
 
         resolved_total = 0
@@ -758,6 +762,23 @@ class ModifierEngine:
             return False
         selected_skill_slugs = modifier.metadata.get("target_skill_slugs") or []
         return target_key in selected_skill_slugs
+
+    @staticmethod
+    def _normalize_condition_text(value: object) -> str:
+        """Normalize a player-facing free-text restriction for stable matching."""
+        return " ".join(str(value or "").split()).casefold()
+
+    def _modifier_matches_condition_text(
+        self,
+        modifier: BaseModifier,
+        context: dict[str, Any] | None,
+    ) -> bool:
+        """Apply free-text restrictions only in their explicit sheet context."""
+        expected = self._normalize_condition_text(modifier.metadata.get("condition_text"))
+        if not expected:
+            return True
+        actual = self._normalize_condition_text((context or {}).get("condition_text"))
+        return bool(actual) and actual == expected
 
     def _migrated_choice_skill_modifier_total(
         self,
