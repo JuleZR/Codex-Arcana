@@ -1,5 +1,20 @@
 /* Shared parchment language and motion preferences */
 
+/* Vampire sheets deliberately lose the warm parchment palette. */
+body.is-vampire-sheet {
+  background:
+    linear-gradient(rgba(104, 104, 104, 0.82), rgba(104, 104, 104, 0.82)),
+    url("/static/img/forestbg.png") center / cover no-repeat fixed;
+  background-blend-mode: color, normal;
+}
+
+body.is-vampire-sheet .page {
+  background:
+    linear-gradient(rgba(184, 184, 184, 0.76), rgba(154, 154, 154, 0.72)),
+    url("/static/img/pergamentbg.jpg") center / cover no-repeat !important;
+  background-blend-mode: color, normal !important;
+}
+
 /* Final spread tone harmonization (kept at file end so it wins the cascade) */
 .page {
   background:

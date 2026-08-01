@@ -1,0 +1,104 @@
+<section class="p2_panel vampire_sheet_panel" id="sheetVampirePanel">
+  <header class="vampire_sheet_header"><h2>Vampirismus</h2><strong>{{ vampire_panel.state_label }}</strong></header>
+  <dl class="vampire_sheet_stats">
+    <div><dt>Alterszyklus</dt><dd>{{ vampire_panel.age_cycle }}</dd></div>
+    <div><dt>Potential</dt><dd>{{ vampire_panel.potential }}</dd></div>
+    <div class="vampire_sheet_stats__wide"><dt>Blut</dt><dd><strong>{{ vampire_panel.intelligent_blood }}</strong> intelligent · <strong>{{ vampire_panel.animal_blood }}</strong> Tier · <strong>{{ vampire_panel.capacity }}</strong> Kapazität</dd></div>
+    <div class="vampire_sheet_stats__wide"><dt>Qualifizierende Jagd</dt><dd>{% if vampire_panel.recent_qualifying_kill %}wirksam{% else %}nicht wirksam{% endif %}</dd></div>
+    {% if vampire_panel.regeneration_blood %}<div><dt>Regenerationsinvestition</dt><dd>{{ vampire_panel.regeneration_blood }} / {{ vampire_panel.regeneration_target_cost }} BP</dd></div>{% endif %}
+    {% if vampire_panel.sacrament_rounds_remaining %}<div><dt>Blutsakrament</dt><dd>+{{ vampire_panel.sacrament_age_bonus }} Alterszyklus, noch {{ vampire_panel.sacrament_rounds_remaining }} Runden</dd></div>{% endif %}
+    {% if vampire_panel.pending_starvation %}<div><dt>Offener Blutmangel</dt><dd>{{ vampire_panel.pending_starvation }} Konsequenz{{ vampire_panel.pending_starvation|pluralize:"en" }}</dd></div>{% endif %}
+  </dl>
+
+  {% if vampire_panel.warnings %}
+    <ul class="form_errors">
+      {% for warning in vampire_panel.warnings %}<li>{{ warning }}</li>{% endfor %}
+    </ul>
+  {% endif %}
+
+  {% if not read_only %}
+    <details class="vampire_sheet_disclosure">
+      <summary>Aktionen</summary>
+      <div class="vampire_sheet_actions">
+    <form method="post" action="{% url 'vampire_character_action' character.id 'gain-blood' %}">
+      {% csrf_token %}
+      <label>Blut erhalten <input type="number" min="1" name="amount" value="1"></label>
+      <select name="blood_type"><option value="intelligent">Intelligentes Blut</option><option value="animal">Tierblut</option></select>
+      <button type="submit">Eintragen</button>
+    </form>
+    <form method="post" action="{% url 'vampire_character_action' character.id 'sunrise' %}">
+      {% csrf_token %}
+      <label>Tierblut <input type="number" min="0" max="2" name="animal_blood" value="0"></label>
+      <label>Intelligentes Blut <input type="number" min="0" max="2" name="intelligent_blood" value="2"></label>
+      <button type="submit">Sonnenaufgang</button>
+    </form>
+    <form method="post" action="{% url 'vampire_character_action' character.id 'record-kill' %}">
+      {% csrf_token %}<button type="submit">Qualifizierende Tötung bestätigen</button>
+    </form>
+    <form method="post" action="{% url 'vampire_character_action' character.id 'regenerate' %}">
+      {% csrf_token %}
+      <label>BP investieren <input type="number" min="1" name="blood_amount" value="1"></label>
+      <label>Wundgrad <input type="number" min="1" name="wound_grade" value="1"></label>
+      <select name="damage_type"><option value="T">Tödlich</option><option value="B">Betäubung</option></select>
+      <label><input type="checkbox" name="hard_to_heal" value="1"> schwer heilbar</label>
+      <label><input type="checkbox" name="aggravated" value="1"> aggravierenden Anteil heilen</label>
+      <button type="submit">Regeneration</button>
+    </form>
+    {% if vampire_panel.sacrament_rounds_remaining %}
+      <form method="post" action="{% url 'vampire_character_action' character.id 'advance-round' %}">{% csrf_token %}<button type="submit">Vampir-Runde fortschreiben</button></form>
+    {% else %}
+      <form method="post" action="{% url 'vampire_character_action' character.id 'blood-sacrament' %}">
+        {% csrf_token %}<label>Blutsakrament-BP <input type="number" min="1" name="blood_amount" value="1"></label><label>bestätigte 1W20-Runden <input type="number" min="1" max="20" name="duration_rounds"></label><button type="submit">Blutsakrament aktivieren</button>
+      </form>
+    {% endif %}
+    {% if vampire_panel.pending_starvation %}
+      <form method="post" action="{% url 'vampire_character_action' character.id 'resolve-starvation' %}">
+        {% csrf_token %}
+        <label>Bestätigte Schadensart <select name="damage_type"><option value="B">B</option><option value="T">T</option></select></label>
+        <label>Wundgrad <input type="number" min="1" name="wound_grade" value="1"></label>
+        <button type="submit">Blutmangel auflösen</button>
+      </form>
+    {% endif %}
+
+      </div>
+    </details>
+    <details class="vampire_sheet_disclosure">
+      <summary>Vampirwerte lernen ({{ character.current_experience }} EP)</summary>
+      <form method="post" action="{% url 'vampire_character_action' character.id 'purchase-age' %}">
+        {% csrf_token %}<button type="submit">Alterszyklus für 10 EP erhöhen</button>
+      </form>
+      <form method="post" action="{% url 'vampire_character_action' character.id 'purchase-capacity' %}">
+        {% csrf_token %}<label>Kapazität <input type="number" min="1" name="amount" value="1"></label><button type="submit">für 3 EP je Punkt kaufen</button>
+      </form>
+      {% if vampire_panel.available_powers %}
+        <form method="post" action="{% url 'vampire_character_action' character.id 'learn-power' %}">
+          {% csrf_token %}
+          <select name="trait_id">
+            {% for power in vampire_panel.available_powers %}<option value="{{ power.id }}">{{ power.name }} – {{ power.cost }} EP{% if power.weakness %} / Schwäche: {{ power.weakness }}{% endif %}</option>{% endfor %}
+          </select>
+          <label>Rang <input type="number" min="1" name="rank" value="1"></label>
+          <label><input type="checkbox" name="buy_off" value="1"> zugeordnete Schwäche sofort freikaufen</label>
+          <button type="submit">Kraft lernen</button>
+        </form>
+      {% endif %}
+      {% for option in vampire_panel.buyoff_options %}
+        <form method="post" action="{% url 'vampire_character_action' character.id 'buyoff-weakness' %}">
+          {% csrf_token %}<input type="hidden" name="trait_id" value="{{ option.id }}"><button type="submit">{{ option.weakness }} ({{ option.name }}) für {{ option.cost }} EP freikaufen</button>
+        </form>
+      {% endfor %}
+    </details>
+  {% endif %}
+
+  <details class="vampire_sheet_disclosure vampire_sheet_traits">
+    <summary>Vampir-Traits ({{ vampire_panel.traits|length }})</summary>
+    <ul>
+      {% for trait in vampire_panel.traits %}
+        <li>
+          <strong>{{ trait.name }}{% if trait.rank > 1 %} {{ trait.rank }}{% endif %}</strong>
+          <small>{{ trait.type_label }}</small>
+          {% if trait.description %}<p>{{ trait.description }}</p>{% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+  </details>
+</section>

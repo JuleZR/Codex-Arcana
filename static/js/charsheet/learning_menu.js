@@ -240,6 +240,21 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
       }
       valueInput.min = String(minAdd);
       valueInput.max = String(maxAdd);
+    } else if (["vampire-age", "vampire-capacity", "vampire-power", "vampire-buyoff"].includes(kind)) {
+      const base = readInt(row.getAttribute("data-base"), 0);
+      const max = readInt(row.getAttribute("data-max"), 1);
+      const maxAdd = kind === "vampire-age" || kind === "vampire-capacity" ? Math.max(0, max - base) : max;
+      const hidden = row.querySelector("[data-learn-hidden]");
+      value = clamp(value, 0, maxAdd);
+      cost = value * readInt(row.getAttribute("data-unit-cost"), 0);
+      if (hidden instanceof HTMLInputElement) {
+        hidden.value = String(value);
+      }
+      if (infoEl) {
+        infoEl.textContent = kind === "vampire-age" || kind === "vampire-capacity" ? `(${base + value})` : value > 1 ? `(Rang ${value})` : "";
+      }
+      valueInput.min = "0";
+      valueInput.max = String(maxAdd);
     } else if (kind === "magic-spell") {
       const hidden = row.querySelector("[data-learn-hidden]");
       value = clamp(value, 0, 1);
@@ -705,6 +720,39 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
           </div>
         </td>
         <td data-learn-cost>${startAdd > 0 ? purchaseCost : -paidEp} EP</td>
+        <td><button type="button" class="shop_cart_remove_btn" data-learn-remove aria-label="Eintrag entfernen">x</button></td>
+      `;
+      return row;
+    }
+
+    if (["vampire-age", "vampire-capacity", "vampire-power", "vampire-buyoff"].includes(kind)) {
+      const id = source.getAttribute("data-id") || "";
+      const base = readInt(source.getAttribute("data-base"), 0);
+      const max = readInt(source.getAttribute("data-max"), 1);
+      const unitCost = readInt(source.getAttribute("data-unit-cost"), 0);
+      const inputName = kind === "vampire-age"
+        ? "learn_vampire_age_add"
+        : kind === "vampire-capacity"
+          ? "learn_vampire_capacity_add"
+          : kind === "vampire-power"
+            ? `learn_vampire_power_${id}`
+            : `learn_vampire_buyoff_${id}`;
+      const maxAdd = kind === "vampire-age" || kind === "vampire-capacity" ? Math.max(0, max - base) : max;
+      if (maxAdd < 1) {
+        return null;
+      }
+      const fixed = kind === "vampire-buyoff" || (kind === "vampire-power" && maxAdd === 1);
+      row.setAttribute("data-base", String(base));
+      row.setAttribute("data-max", String(max));
+      row.setAttribute("data-unit-cost", String(unitCost));
+      row.innerHTML = `
+        <td><span>${safeName}</span> <span data-learn-level-info>${kind === "vampire-age" || kind === "vampire-capacity" ? `(${base + 1})` : ""}</span><input type="hidden" name="${inputName}" value="1" data-learn-hidden></td>
+        <td><div class="shop_qty_stepper">
+          ${fixed ? "" : '<button type="button" class="shop_step_btn" data-learn-step-dec aria-label="Wert verringern">-</button>'}
+          <input class="shop_cart_qty_input" type="number" min="0" max="${maxAdd}" value="1" data-learn-value ${fixed ? "readonly" : ""}>
+          ${fixed ? "" : '<button type="button" class="shop_step_btn" data-learn-step-inc aria-label="Wert erhöhen">+</button>'}
+        </div></td>
+        <td data-learn-cost>${unitCost} EP</td>
         <td><button type="button" class="shop_cart_remove_btn" data-learn-remove aria-label="Eintrag entfernen">x</button></td>
       `;
       return row;

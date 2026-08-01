@@ -109,6 +109,12 @@
                         <span class="learn_tabs__label">Magie</span>
                       </button>
                     {% endif %}
+                    {% if is_vampire %}
+                      <button type="button" class="learn_tabs__tab" id="learn-tab-vampire" role="tab" aria-selected="false" aria-controls="learn-panel-vampire" data-tab-target="learn-panel-vampire" tabindex="-1">
+                        <span class="learn_tabs__icon_frame" aria-hidden="true"><span class="learn_tabs__icon">&#9670;</span></span>
+                        <span class="learn_tabs__label">Vampir</span>
+                      </button>
+                    {% endif %}
                   </div>
             </aside>
           </section>
@@ -625,6 +631,24 @@
                   {% empty %}
                     <p class="shop_empty">Keine verf&uuml;gbaren Zauber oder Aspekte.</p>
                   {% endfor %}
+                </section>
+              {% endif %}
+              {% if is_vampire %}
+                <section class="learn_tabs__panel" id="learn-panel-vampire" role="tabpanel" aria-labelledby="learn-tab-vampire" data-tab-panel hidden>
+                  <details class="shop_group" data-learn-group data-collapse-key="vampire:values" open>
+                    <summary><span>Vampirwerte</span><span class="shop_group_count">2</span></summary>
+                    <table class="shop_table"><tbody>
+                      <tr data-learn-source data-kind="vampire-age" data-key="vampire-age" data-name="Alterszyklus" data-base="{{ vampire_panel.age_cycle }}" data-max="99" data-unit-cost="{{ vampire_panel.age_unit_cost }}" data-learn-search="vampir alterszyklus alter" tabindex="0" role="button" aria-label="Alterszyklus erhöhen"><td class="shop_item_name">Alterszyklus</td><td class="shop_item_price">{{ vampire_panel.age_unit_cost }} EP je Stufe</td></tr>
+                      <tr data-learn-source data-kind="vampire-capacity" data-key="vampire-capacity" data-name="Zusätzliche Blutkapazität" data-base="{{ vampire_panel.capacity_bonus }}" data-max="99" data-unit-cost="{{ vampire_panel.capacity_unit_cost }}" data-learn-search="vampir blut kapazität" tabindex="0" role="button" aria-label="Blutkapazität erhöhen"><td class="shop_item_name">Zusätzliche Blutkapazität</td><td class="shop_item_price">{{ vampire_panel.capacity_unit_cost }} EP je Punkt</td></tr>
+                    </tbody></table>
+                  </details>
+                  <details class="shop_group" data-learn-group data-collapse-key="vampire:powers" open>
+                    <summary><span>Vampirkräfte</span><span class="shop_group_count">{{ vampire_panel.available_powers|length }}</span></summary>
+                    <table class="shop_table"><tbody>
+                      {% for row in vampire_panel.available_powers %}<tr data-learn-source data-kind="vampire-power" data-key="vampire-power:{{ row.id }}" data-id="{{ row.id }}" data-name="{{ row.name }}" data-max="{% if row.rankable %}{{ row.max_rank }}{% else %}1{% endif %}" data-unit-cost="{{ row.cost }}" data-learn-search="{{ row.name|lower }} vampir kraft{% if row.weakness %} {{ row.weakness|lower }}{% endif %}" tabindex="0" role="button" aria-label="{{ row.name }} lernen"><td class="shop_item_name">{{ row.name }}{% if row.weakness %}<small>Schwäche: {{ row.weakness }}</small>{% endif %}</td><td class="shop_item_price">{{ row.cost }} EP{% if row.rankable %} je Rang{% endif %}</td></tr>{% empty %}<tr><td colspan="2">Keine weiteren Vampirkräfte verfügbar.</td></tr>{% endfor %}
+                    </tbody></table>
+                  </details>
+                  {% if vampire_panel.buyoff_options %}<details class="shop_group" data-learn-group data-collapse-key="vampire:buyoff"><summary><span>Schwächen freikaufen</span><span class="shop_group_count">{{ vampire_panel.buyoff_options|length }}</span></summary><table class="shop_table"><tbody>{% for row in vampire_panel.buyoff_options %}<tr data-learn-source data-kind="vampire-buyoff" data-key="vampire-buyoff:{{ row.id }}" data-id="{{ row.id }}" data-name="{{ row.weakness }} freikaufen" data-unit-cost="{{ row.cost }}" data-learn-search="{{ row.name|lower }} {{ row.weakness|lower }} schwäche freikaufen" tabindex="0" role="button" aria-label="{{ row.weakness }} freikaufen"><td class="shop_item_name">{{ row.weakness }}<small>zu {{ row.name }}</small></td><td class="shop_item_price">{{ row.cost }} EP</td></tr>{% endfor %}</tbody></table></details>{% endif %}
                 </section>
               {% endif %}
               </div>

@@ -8,7 +8,7 @@ from dataclasses import dataclass, field, replace
 from functools import cached_property
 from typing import Any
 
-from charsheet.modifiers.definitions import BaseModifier, ModifierOperator, StackBehavior, TargetDomain
+from charsheet.modifiers.definitions import AttributeCapModifier, BaseModifier, ModifierOperator, RuleFlagModifier, StackBehavior, TargetDomain
 from charsheet.constants import PROFICIENCY_GROUP_FOREIGN_LANGUAGES, RUNE_CRAFTER_LEVEL, SOURCE_ITEM_RUNE
 from charsheet.modifiers.legacy import LegacyModifierAdapter
 from charsheet.modifiers.migration import (
@@ -23,6 +23,7 @@ from charsheet.models import (
     Modifier,
     Skill,
     TechniqueSemanticEffect,
+    VampireTraitSemanticEffect,
 )
 
 
@@ -226,6 +227,50 @@ class ModifierEngine:
         return [effect.to_modifier() for effect in effects]
 
     @cached_property
+    def _active_vampire_trait_modifiers(self) -> list[BaseModifier]:
+        """Build passive modifiers from the shared vampire-trait catalogue."""
+        if self.character_engine is None:
+            return []
+        from charsheet.engine.vampire_engine import VampireRules
+
+        rules = VampireRules(self.character_engine.character)
+        if not rules.is_vampire():
+            return []
+        modifiers: list[BaseModifier] = []
+        age_cycle = rules.age_cycle()
+        modifiers.extend(
+            RuleFlagModifier(
+                source_type="vampire_status",
+                source_id=str(self.character_engine.character.pk),
+                target_key=target_key,
+                operator=ModifierOperator.SET_FLAG,
+                value=True,
+            )
+            for target_key in ("wound_penalty_ignore", "can_act_while_out_of_action")
+        )
+        modifiers.append(
+            AttributeCapModifier(
+                source_type="vampire_status",
+                source_id=str(self.character_engine.character.pk),
+                target_key="ST",
+                operator=ModifierOperator.FLAT_ADD,
+                value=age_cycle,
+            )
+        )
+        for ownership in rules.effective_traits(include_weaknesses=True):
+            for effect in ownership.trait.semantic_effects.all():
+                if (
+                    effect.active_flag
+                    and effect.application_scope
+                    in {
+                        VampireTraitSemanticEffect.ApplicationScope.CHARACTER,
+                        VampireTraitSemanticEffect.ApplicationScope.BOTH,
+                    }
+                ):
+                    modifiers.append(effect.to_modifier(rank=ownership.rank, age_cycle=age_cycle))
+        return modifiers
+
+    @cached_property
     def migration_service(self) -> LegacyModifierMigrationService:
         """Return the legacy inventory and migration service for this engine."""
         if self.character_engine is None:
@@ -270,6 +315,7 @@ class ModifierEngine:
             collected.extend(self._active_trait_modifiers)
             collected.extend(self._active_technique_semantic_modifiers)
             collected.extend(self._active_daemonic_power_modifiers)
+            collected.extend(self._active_vampire_trait_modifiers)
             collected.extend(self._active_item_rune_modifiers)
         expanded = self._expand_choice_bound_modifiers(collected)
         result = [modifier for modifier in expanded if modifier is not None and modifier.applies(context)]
@@ -1006,6 +1052,10 @@ class ModifierEngine:
         """Resolve the raw numeric input used for scaled typed modifier math."""
         if not scale_source:
             return None
+        if scale_source == "vampire_trait_rank":
+            return int(modifier.scaling.get("_vampire_trait_rank") or 0)
+        if scale_source == "vampire_age_cycle":
+            return int(modifier.scaling.get("_vampire_age_cycle") or 0)
         if scale_source == "trait_level" and self.character_engine is None:
             return self.trait_levels_by_slug.get(str(modifier.source_id or ""))
         if self.character_engine is None:

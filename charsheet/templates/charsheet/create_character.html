@@ -7,7 +7,7 @@
     <link rel="icon" type="image/x-icon" href="{% static 'img/favicon.ico' %}">
     <title>{% if edit_mode %}Charakter bearbeiten{% elif draft %}Charakter erstellen (Phasen){% else %}Neuer Charakter{% endif %}</title>
     <link rel="stylesheet" href="{% static 'css/charsheet.css' %}">
-    <link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
+    <link rel="stylesheet" href="{% static 'css/dashboard.css' %}?v=20260801c">
   </head>
   <body>
     <main class="book-spread dashboard_spread">
@@ -348,6 +348,57 @@
                     </article>
                   </div>
                   <p id="phase4ValidationHint" class="form_error" hidden></p>
+                  <section class="phase2_section_card vampire_creation_panel" id="phase4VampireSystem" hidden>
+                    <div class="vampire_creation_panel__header">
+                      <h3>Vampirsystem</h3>
+                      <p class="vampire_creation_cost"><span>Zusatzkosten</span><strong><span id="phase4VampireCostValue">{{ phase_4_vampire_cost }}</span> CP</strong></p>
+                    </div>
+                    <p class="vampire_creation_intro">Lege hier Alter, Blutkapazität und Startvorrat fest. Die Zusatzkosten sind bereits oben in „Vorteile Verbrauch“ enthalten. Intelligentes und tierisches Blut teilen sich dieselbe maximale Kapazität.</p>
+                    <div class="vampire_capacity_summary" id="vampireCapacitySummary">
+                      <div class="vampire_capacity_summary__values">
+                        <span>Voraussichtliche Kapazität <strong><span id="vampireCapacityValue">0</span> BP</strong></span>
+                        <span>Startvorrat <strong><span id="vampireStartingBloodValue">0</span> BP</strong></span>
+                        <span id="vampireCapacityRemainingLabel">0 BP frei</span>
+                      </div>
+                      <div class="vampire_capacity_meter" id="vampireCapacityMeter" role="progressbar" aria-label="Auslastung der Blutkapazität" aria-valuemin="0" aria-valuenow="0" aria-valuemax="0">
+                        <span id="vampireCapacityMeterFill"></span>
+                      </div>
+                    </div>
+                    <div class="vampire_creation_fields">
+                      <div class="vampire_creation_field">
+                        <div class="vampire_creation_field__heading">
+                          <label for="vampireAgeCycle">Alterszyklus</label>
+                          <span>10 CP je weitere Stufe</span>
+                        </div>
+                        <input id="vampireAgeCycle" class="dashboard_input" type="number" name="vampire_age_cycle" min="1" value="{{ phase_4_vampire.age_cycle }}" data-vampire-cost-input>
+                        <p>Beginnt bei 1. Jede zusätzliche Stufe erhöht die maximale Blutkapazität um 1 und verstärkt altersabhängige Vampirkräfte. Bei der Erschaffung steigt außerdem das zulässige Stärkemaximum.</p>
+                      </div>
+                      <div class="vampire_creation_field">
+                        <div class="vampire_creation_field__heading">
+                          <label for="vampireCapacityBonus">Zusatzkapazität</label>
+                          <span>3 CP je Punkt</span>
+                        </div>
+                        <input id="vampireCapacityBonus" class="dashboard_input" type="number" name="vampire_capacity_bonus" min="0" value="{{ phase_4_vampire.capacity_bonus }}" data-vampire-cost-input>
+                        <p>Jeder gekaufte Punkt erhöht ausschließlich die gemeinsame maximale Blutkapazität um 1. Diese besteht aus Willenskraft, Schulrängen, Rängen in Vampirkräften, Alterszyklus und dieser Zusatzkapazität. Sie füllt den Startvorrat nicht automatisch auf.</p>
+                      </div>
+                      <div class="vampire_creation_field">
+                        <div class="vampire_creation_field__heading">
+                          <label for="vampireIntelligentBlood">Intelligentes Startblut</label>
+                          <span>kostenlos</span>
+                        </div>
+                        <input id="vampireIntelligentBlood" class="dashboard_input" type="number" name="vampire_intelligent_blood" min="0" value="{{ phase_4_vampire.intelligent_blood }}" data-vampire-resource-input>
+                        <p>Kann für Vampirkräfte, Regeneration, als Ersatz für KP und für den täglichen Bedarf ausgegeben werden. Pro Handlung begrenzt das Potential – die halbe Willenskraft – die mögliche Ausgabe. Der Wert zählt zusammen mit Tierblut gegen die maximale Blutkapazität.</p>
+                      </div>
+                      <div class="vampire_creation_field">
+                        <div class="vampire_creation_field__heading">
+                          <label for="vampireAnimalBlood">Tierisches Startblut</label>
+                          <span>kostenlos</span>
+                        </div>
+                        <input id="vampireAnimalBlood" class="dashboard_input" type="number" name="vampire_animal_blood" min="0" value="{{ phase_4_vampire.animal_blood }}" data-vampire-resource-input>
+                        <p>Kann ausschließlich den täglichen Verbrauch von 2 Blutpunkten bei Sonnenaufgang decken. Es ist nicht für Kräfte, Regeneration oder als KP-Ersatz nutzbar und zählt gegen die maximale Blutkapazität.</p>
+                      </div>
+                    </div>
+                  </section>
                   <section class="phase2_section_card">
                     <h3>Ausbau-Shop</h3>
                     <div class="phase2_shop_layout">
@@ -373,6 +424,22 @@
                                   <tr data-phase4-source data-kind="adv" data-key="adv:{{ row.slug }}" data-slug="{{ row.slug }}" data-name="{{ row.name }}" data-min="{{ row.min_level }}" data-max="{{ row.max_level }}" data-ppl="{{ row.points_per_level }}" data-point-curve="{% if row.points_by_level %}{{ row.points_by_level|join:',' }}{% endif %}" data-attribute-choice-defs="{{ row.attribute_choice_definitions_json|escape }}" data-resource-choice-defs="{{ row.resource_choice_definitions_json|escape }}" data-phase4-search="{{ row.name|lower }} vorteil" tabindex="0" role="button" aria-label="{{ row.name }} hinzufuegen">
                                     <td class="db_tooltip_anchor"{% if row.description %} data-db-tooltip="{{ row.description }}"{% endif %}>{{ row.name }}</td>
                                     <td class="phase2_lang_meta">min {{ row.min_level }} | max {{ row.max_level }} | {{ row.points_display }}</td>
+                                  </tr>
+                                {% endfor %}
+                              </tbody>
+                            </table>
+                          </details>
+                          <details class="phase2_shop_group" id="phase4VampireShopGroup" data-phase4-group hidden>
+                            <summary>
+                              <span>Vampir-Traits</span>
+                              <span class="phase2_group_count">{{ phase_4_vampire_trait_rows|length }}</span>
+                            </summary>
+                            <table class="dashboard_table phase2_shop_table">
+                              <tbody>
+                                {% for row in phase_4_vampire_trait_rows %}
+                                  <tr data-phase4-source data-kind="vampire" data-key="vampire:{{ row.id }}" data-id="{{ row.id }}" data-name="{{ row.name }}" data-trait-type="{{ row.trait_type }}" data-point-value="{{ row.point_value }}" data-rankable="{% if row.rankable %}1{% else %}0{% endif %}" data-max-rank="{{ row.max_rank }}" data-associated-weakness="{% if row.associated_weakness %}{{ row.associated_weakness.name }}{% endif %}" data-buyoff-cost="{{ row.buyoff_cost }}" data-phase4-search="{{ row.name|lower }} vampir kraft schwäche" tabindex="0" role="button" aria-label="{{ row.name }} hinzufügen">
+                                    <td class="db_tooltip_anchor"{% if row.description %} data-db-tooltip="{{ row.description }}"{% endif %}>{{ row.name }}</td>
+                                    <td class="phase2_lang_meta">{% if row.trait_type == 'weakness' %}−{% endif %}{{ row.point_value }} CP{% if row.rankable %} je Rang{% endif %}</td>
                                   </tr>
                                 {% endfor %}
                               </tbody>
@@ -461,7 +528,7 @@
                             <table class="dashboard_table phase2_shop_table">
                               <tbody>
                                 {% for row in phase_4_school_rows %}
-                                  <tr data-phase4-source data-kind="school" data-key="school:{{ row.id }}" data-id="{{ row.id }}" data-name="{{ row.name }}" data-phase4-search="{{ row.name|lower }} schule school" tabindex="0" role="button" aria-label="{{ row.name }} hinzufuegen">
+                                  <tr data-phase4-source data-kind="school" data-key="school:{{ row.id }}" data-id="{{ row.id }}" data-name="{{ row.name }}" data-vampire-capacity="{% if row.counts_for_vampire_capacity %}1{% else %}0{% endif %}" data-phase4-search="{{ row.name|lower }} schule school" tabindex="0" role="button" aria-label="{{ row.name }} hinzufuegen">
                                     <td class="db_tooltip_anchor"{% if row.description %} data-db-tooltip="{{ row.description }}"{% endif %}>{{ row.name }}</td>
                                     <td class="phase2_lang_meta">8 Punkte / Level</td>
                                   </tr>
@@ -482,6 +549,16 @@
                                     <tr data-phase4-cart-item data-key="adv:{{ row.slug }}" data-kind="adv" data-min="{{ row.min_level }}" data-max="{{ row.max_level }}" data-ppl="{{ row.points_per_level }}" data-point-curve="{% if row.points_by_level %}{{ row.points_by_level|join:',' }}{% endif %}" data-attribute-choice-defs="{{ row.attribute_choice_definitions_json|escape }}" data-resource-choice-defs="{{ row.resource_choice_definitions_json|escape }}">
                                       <td><span data-phase4-adv-label-base="{{ row.name }}">{{ row.name }}</span> <span data-phase4-adv-formula>({{ row.value|default:0 }})</span> <input type="hidden" name="adv_{{ row.slug }}" value="{{ row.value }}" data-phase4-hidden></td>
                                        <td><input class="dashboard_input phase2_level_input" type="number" min="0" max="{{ row.max_level }}" value="{{ row.value }}" data-phase4-value>{% for choice in row.attribute_choice_definitions %}<label class="phase4_choice_block"><span>{{ choice.name }}</span><select class="dashboard_input" name="adv_choice_{{ row.slug }}_{{ choice.id }}" data-phase4-adv-choice><option value=""></option>{% for option in choice.options %}<option value="{{ option.value }}"{% if choice.selected == option.value %} selected{% endif %}>{{ option.label }}</option>{% endfor %}</select></label>{% endfor %}{% for choice in row.resource_choice_definitions %}<label class="phase4_choice_block"><span>{{ choice.name }}</span><select class="dashboard_input" name="adv_choice_{{ row.slug }}_{{ choice.id }}" data-phase4-adv-choice><option value=""></option>{% for option in choice.options %}<option value="{{ option.value }}"{% if choice.selected == option.value %} selected{% endif %}>{{ option.label }}</option>{% endfor %}</select></label>{% endfor %}</td>
+                                      <td data-phase4-cost>0</td>
+                                      <td><button type="button" class="phase2_remove_x" data-phase4-remove aria-label="Eintrag entfernen" title="Entfernen">X</button></td>
+                                    </tr>
+                                  {% endif %}
+                                {% endfor %}
+                                {% for row in phase_4_vampire_trait_rows %}
+                                  {% if row.selected %}
+                                    <tr data-phase4-cart-item data-key="vampire:{{ row.id }}" data-kind="vampire" data-trait-type="{{ row.trait_type }}" data-point-value="{{ row.point_value }}" data-buyoff-cost="{{ row.buyoff_cost }}">
+                                      <td>{{ row.name }}<input type="hidden" name="vampire_trait_{{ row.id }}" value="1" data-phase4-hidden></td>
+                                      <td>{% if row.rankable %}<input class="dashboard_input phase2_level_input" type="number" name="vampire_rank_{{ row.id }}" min="1" max="{{ row.max_rank }}" value="{{ row.rank }}" data-phase4-value>{% else %}<input type="hidden" name="vampire_rank_{{ row.id }}" value="1" data-phase4-value>1{% endif %}{% if row.associated_weakness %}<label class="phase4_choice_block"><input type="checkbox" name="vampire_buyoff_{{ row.id }}" value="1" data-vampire-cart-buyoff{% if row.bought_off %} checked{% endif %}> Schwäche freikaufen: {{ row.associated_weakness.name }}</label>{% endif %}</td>
                                       <td data-phase4-cost>0</td>
                                       <td><button type="button" class="phase2_remove_x" data-phase4-remove aria-label="Eintrag entfernen" title="Entfernen">X</button></td>
                                     </tr>
@@ -526,7 +603,7 @@
                               {% endfor %}
                               {% for row in phase_4_school_rows %}
                                 {% if row.value > 0 %}
-                                  <tr data-phase4-cart-item data-key="school:{{ row.id }}" data-kind="school">
+                                  <tr data-phase4-cart-item data-key="school:{{ row.id }}" data-kind="school" data-vampire-capacity="{% if row.counts_for_vampire_capacity %}1{% else %}0{% endif %}">
                                     <td>{{ row.name }} <input type="hidden" name="school_{{ row.id }}" value="{{ row.value }}" data-phase4-hidden></td>
                                     <td><input class="dashboard_input phase2_level_input" type="number" min="0" value="{{ row.value }}" data-phase4-value></td>
                                     <td data-phase4-cost>0</td>
@@ -599,6 +676,7 @@
                         </table>
                       </section>
                     {% endif %}
+
                   </section>
                 {% endif %}
 
@@ -1454,9 +1532,96 @@
             return Array.from(phase4CartBody.querySelectorAll("[data-phase4-cart-item]"));
           };
 
+          const calculateVampireCost = function () {
+            const hasVampire = getRows().some(function (row) {
+              if ((row.dataset.kind || "") !== "adv") {
+                return false;
+              }
+              const hidden = row.querySelector('input[name="adv_adv_vampire"]');
+              return Boolean(hidden && toInt(hidden.value, 0) > 0);
+            });
+            if (!hasVampire) {
+              return 0;
+            }
+            const ageInput = document.querySelector('[name="vampire_age_cycle"]');
+            const capacityInput = document.querySelector('[name="vampire_capacity_bonus"]');
+            let total = Math.max(0, toInt(ageInput ? ageInput.value : "1", 1) - 1) * 10;
+            total += Math.max(0, toInt(capacityInput ? capacityInput.value : "0", 0)) * 3;
+            Array.from(document.querySelectorAll("[data-vampire-trait-row]")).forEach(function (row) {
+              const selected = row.querySelector("[data-vampire-trait-selected]");
+              if (!selected || !selected.checked) {
+                return;
+              }
+              const pointValue = Math.max(0, toInt(row.dataset.pointValue, 0));
+              if (row.dataset.traitType === "weakness") {
+                total -= pointValue;
+                return;
+              }
+              const rankInput = row.querySelector("[data-vampire-rank]");
+              const rank = Math.max(1, toInt(rankInput ? rankInput.value : "1", 1));
+              total += pointValue * rank;
+              const buyoff = row.querySelector("[data-vampire-buyoff]");
+              if (buyoff && buyoff.checked) {
+                total += Math.max(0, toInt(row.dataset.buyoffCost, 0));
+              }
+            });
+            return total;
+          };
+
+          const refreshVampireCapacity = function () {
+            const willSource = document.querySelector('[data-phase4-source][data-kind="attr"][data-short="WILL"]');
+            const willRow = phase4CartBody.querySelector('[data-phase4-cart-item][data-key="attr:WILL"]');
+            const willBase = Math.max(0, toInt(willSource ? willSource.dataset.base : "0", 0));
+            const willInput = willRow ? willRow.querySelector("[data-phase4-value]") : null;
+            const willIncrease = Math.max(0, toInt(willInput ? willInput.value : "0", 0));
+            const schoolRanks = getRows().reduce(function (total, row) {
+              if ((row.dataset.kind || "") !== "school" || row.dataset.vampireCapacity !== "1") {
+                return total;
+              }
+              const input = row.querySelector("[data-phase4-value]");
+              return total + Math.max(0, toInt(input ? input.value : "0", 0));
+            }, 0);
+            const powerRanks = getRows().reduce(function (total, row) {
+              if ((row.dataset.kind || "") !== "vampire" || row.dataset.traitType !== "power") {
+                return total;
+              }
+              const input = row.querySelector("[data-phase4-value]");
+              return total + Math.max(1, toInt(input ? input.value : "1", 1));
+            }, 0);
+            const ageInput = document.querySelector('[name="vampire_age_cycle"]');
+            const bonusInput = document.querySelector('[name="vampire_capacity_bonus"]');
+            const intelligentInput = document.querySelector('[name="vampire_intelligent_blood"]');
+            const animalInput = document.querySelector('[name="vampire_animal_blood"]');
+            const age = Math.max(1, toInt(ageInput ? ageInput.value : "1", 1));
+            const bonus = Math.max(0, toInt(bonusInput ? bonusInput.value : "0", 0));
+            const intelligent = Math.max(0, toInt(intelligentInput ? intelligentInput.value : "0", 0));
+            const animal = Math.max(0, toInt(animalInput ? animalInput.value : "0", 0));
+            const capacity = willBase + willIncrease + schoolRanks + powerRanks + age + bonus;
+            const startingBlood = intelligent + animal;
+            const remaining = capacity - startingBlood;
+            const summary = document.getElementById("vampireCapacitySummary");
+            const capacityValue = document.getElementById("vampireCapacityValue");
+            const startingValue = document.getElementById("vampireStartingBloodValue");
+            const remainingLabel = document.getElementById("vampireCapacityRemainingLabel");
+            const meter = document.getElementById("vampireCapacityMeter");
+            const fill = document.getElementById("vampireCapacityMeterFill");
+            if (capacityValue) capacityValue.textContent = String(capacity);
+            if (startingValue) startingValue.textContent = String(startingBlood);
+            if (remainingLabel) remainingLabel.textContent = remaining >= 0 ? `${remaining} BP frei` : `${Math.abs(remaining)} BP zu viel`;
+            if (summary) summary.classList.toggle("is-over", remaining < 0);
+            if (meter) {
+              meter.setAttribute("aria-valuenow", String(startingBlood));
+              meter.setAttribute("aria-valuemax", String(capacity));
+            }
+            if (fill) fill.style.width = `${capacity > 0 ? Math.min(100, Math.round((startingBlood / capacity) * 100)) : 0}%`;
+          };
+
           const getCategoryLabel = function (kind) {
             if (kind === "adv") {
               return "Vorteile";
+            }
+            if (kind === "vampire") {
+              return "Vampir-Traits";
             }
             if (kind === "attr") {
               return "Eigenschaftverbessserung";
@@ -1476,7 +1641,7 @@
             return "Sonstiges";
           };
 
-          const categoryOrder = ["adv", "attr", "skill", "lang", "school", "lesson"];
+          const categoryOrder = ["adv", "vampire", "attr", "skill", "lang", "school", "lesson"];
 
           const organizeCartByCategory = function () {
             Array.from(phase4CartBody.querySelectorAll("[data-phase4-category-row]")).forEach(function (row) {
@@ -1571,6 +1736,15 @@
               if (formulaEl) {
                 formulaEl.textContent = `(${cost})`;
               }
+            } else if (kind === "vampire") {
+              const pointValue = Math.max(0, toInt(row.dataset.pointValue, 0));
+              const rank = Math.max(1, toInt(input.value, 1));
+              value = rank;
+              cost = row.dataset.traitType === "weakness" ? -pointValue : pointValue * rank;
+              const buyoff = row.querySelector("[data-vampire-cart-buyoff]");
+              if (buyoff && buyoff.checked) {
+                cost += Math.max(0, toInt(row.dataset.buyoffCost, 0));
+              }
             } else if (kind === "attr") {
               const base = toInt(row.dataset.base, 0);
               const max = toInt(row.dataset.max, 0);
@@ -1649,16 +1823,42 @@
           };
 
           const refreshTotals = function () {
+            const hasVampire = getRows().some(function (row) {
+              const anchor = row.querySelector('input[name="adv_adv_vampire"]');
+              return Boolean(anchor && toInt(anchor.value, 0) > 0);
+            });
+            const vampireShopGroup = document.getElementById("phase4VampireShopGroup");
+            const vampireSystem = document.getElementById("phase4VampireSystem");
+            if (vampireShopGroup) {
+              vampireShopGroup.hidden = !hasVampire;
+            }
+            if (vampireSystem) {
+              vampireSystem.hidden = !hasVampire;
+            }
+            if (!hasVampire) {
+              getRows().filter(function (row) {
+                return (row.dataset.kind || "") === "vampire";
+              }).forEach(function (row) {
+                row.remove();
+              });
+            }
             let advSpent = 0;
             let restSpent = 0;
             getRows().forEach(function (row) {
               const rowCost = syncRow(row);
-              if ((row.dataset.kind || "") === "adv") {
+              if (["adv", "vampire"].indexOf(row.dataset.kind || "") !== -1) {
                 advSpent += rowCost;
               } else {
                 restSpent += rowCost;
               }
             });
+            const vampireCost = calculateVampireCost();
+            advSpent += vampireCost;
+            const vampireCostValue = document.getElementById("phase4VampireCostValue");
+            if (vampireCostValue) {
+              vampireCostValue.textContent = String(vampireCost);
+            }
+            refreshVampireCapacity();
 
             const advBudget = toInt(phase4AdvBudgetValue.textContent, 0);
             const restBudget = totalBudgetBase - advSpent;
@@ -1720,12 +1920,16 @@
             const input = row.querySelector("[data-phase4-value]");
             const removeBtn = row.querySelector("[data-phase4-remove]");
             const langWriteInput = row.querySelector("[data-phase4-lang-write]");
+            const vampireBuyoffInput = row.querySelector("[data-vampire-cart-buyoff]");
             if (input) {
               input.addEventListener("input", refreshTotals);
               input.addEventListener("change", refreshTotals);
             }
             if (langWriteInput) {
               langWriteInput.addEventListener("change", refreshTotals);
+            }
+            if (vampireBuyoffInput) {
+              vampireBuyoffInput.addEventListener("change", refreshTotals);
             }
             if (removeBtn) {
               removeBtn.addEventListener("click", function () {
@@ -1767,6 +1971,32 @@
               row.innerHTML = `
                 <td><span data-phase4-adv-label-base="${safeName}">${safeName}</span> <span data-phase4-adv-formula>(0)</span> <input type="hidden" name="adv_${slug}" value="${min}" data-phase4-hidden></td>
                 <td><input class="dashboard_input phase2_level_input" type="number" min="0" max="${max}" value="${min}" data-phase4-value>${renderAttributeChoiceInputs('adv', 'data-phase4-adv-choice', slug, attributeChoiceDefs)}${renderResourceChoiceInputs('adv', 'data-phase4-adv-choice', slug, resourceChoiceDefs)}</td>
+                <td data-phase4-cost>0</td>
+                <td><button type="button" class="phase2_remove_x" data-phase4-remove aria-label="Eintrag entfernen" title="Entfernen">X</button></td>
+              `;
+              return row;
+            }
+
+            if (kind === "vampire") {
+              const id = source.dataset.id || "";
+              const traitType = source.dataset.traitType || "power";
+              const pointValue = Math.max(0, toInt(source.dataset.pointValue, 0));
+              const rankable = source.dataset.rankable === "1";
+              const maxRank = Math.max(1, toInt(source.dataset.maxRank, 10));
+              const weakness = source.dataset.associatedWeakness || "";
+              const buyoffCost = Math.max(0, toInt(source.dataset.buyoffCost, 0));
+              row.dataset.traitType = traitType;
+              row.dataset.pointValue = String(pointValue);
+              row.dataset.buyoffCost = String(buyoffCost);
+              const rankControl = rankable
+                ? `<input class="dashboard_input phase2_level_input" type="number" name="vampire_rank_${id}" min="1" max="${maxRank}" value="1" data-phase4-value>`
+                : `<input type="hidden" name="vampire_rank_${id}" value="1" data-phase4-value>1`;
+              const buyoffControl = weakness
+                ? `<label class="phase4_choice_block"><input type="checkbox" name="vampire_buyoff_${id}" value="1" data-vampire-cart-buyoff> Schwäche freikaufen: ${escapeHtml(weakness)}</label>`
+                : "";
+              row.innerHTML = `
+                <td>${safeName}<input type="hidden" name="vampire_trait_${id}" value="1" data-phase4-hidden></td>
+                <td>${rankControl}${buyoffControl}</td>
                 <td data-phase4-cost>0</td>
                 <td><button type="button" class="phase2_remove_x" data-phase4-remove aria-label="Eintrag entfernen" title="Entfernen">X</button></td>
               `;
@@ -1842,6 +2072,7 @@
 
             if (kind === "school") {
               const schoolId = source.dataset.id || "";
+              row.dataset.vampireCapacity = source.dataset.vampireCapacity === "1" ? "1" : "0";
               row.innerHTML = `
                 <td>${safeName}<input type="hidden" name="school_${schoolId}" value="1" data-phase4-hidden></td>
                 <td><input class="dashboard_input phase2_level_input" type="number" min="0" value="1" data-phase4-value></td>
@@ -1907,6 +2138,10 @@
           });
 
           Array.from(document.querySelectorAll("[data-phase4-cart-item]")).forEach(bindRow);
+          Array.from(document.querySelectorAll("[data-vampire-cost-input], [data-vampire-resource-input], [data-vampire-trait-selected], [data-vampire-rank], [data-vampire-buyoff]")).forEach(function (input) {
+            input.addEventListener("input", refreshTotals);
+            input.addEventListener("change", refreshTotals);
+          });
 
           const phase4FilterInput = document.getElementById("phase4MainFilterInput");
           if (phase4FilterInput) {
@@ -1923,6 +2158,7 @@
                 });
                 group.hidden = !visible;
               });
+              refreshTotals();
             });
           }
 

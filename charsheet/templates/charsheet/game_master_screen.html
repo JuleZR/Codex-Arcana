@@ -218,19 +218,19 @@
               {% if row.show_arcane %}
               <div class="gm-vital gm-vital--arcane">
                 <div>
-                  <strong>KP</strong>
+                  <strong>{{ row.resource_label|default:"KP" }}</strong>
                   {% if row.card_kind == "creature" and not group.is_archived %}
                   <div class="gm-creature-kp-controls">
                     <form method="post" action="{% url 'adjust_group_creature_kp' group.id row.group_creature.id %}">
                       {% csrf_token %}
                       <input type="hidden" name="action" value="spend">
-                      <button type="submit" aria-label="1 KP ausgeben" title="1 KP ausgeben">&minus;</button>
+                      <button type="submit" aria-label="1 {{ row.resource_label|default:'KP' }} ausgeben" title="1 {{ row.resource_label|default:'KP' }} ausgeben">&minus;</button>
                     </form>
                     <span>{{ row.current_kp }} / {{ row.max_kp }}</span>
                     <form method="post" action="{% url 'adjust_group_creature_kp' group.id row.group_creature.id %}">
                       {% csrf_token %}
                       <input type="hidden" name="action" value="restore">
-                      <button type="submit" aria-label="1 KP wiederherstellen" title="1 KP wiederherstellen">+</button>
+                      <button type="submit" aria-label="1 {{ row.resource_label|default:'KP' }} wiederherstellen" title="1 {{ row.resource_label|default:'KP' }} wiederherstellen">+</button>
                     </form>
                   </div>
                   {% else %}
@@ -238,6 +238,11 @@
                   {% endif %}
                 </div>
                 <progress value="{{ row.current_kp }}" max="{% if row.max_kp > 0 %}{{ row.max_kp }}{% else %}1{% endif %}">{{ row.current_kp }} / {{ row.max_kp }}</progress>
+                {% if row.is_vampire %}
+                  <small>Tierblut {{ row.animal_blood }} &middot; Alter {{ row.vampire_age_cycle }} &middot; {{ row.vampire_state }}</small>
+                  <details><summary>Vampir-Traits ({{ row.vampire_traits|length }})</summary><ul>{% for trait in row.vampire_traits %}<li>{{ trait.name }}{% if trait.rank > 1 %} {{ trait.rank }}{% endif %} <small>{{ trait.type }}</small></li>{% endfor %}</ul></details>
+                  {% if row.vampire_warnings %}<small class="form_errors">{{ row.vampire_warnings|join:"; " }}</small>{% endif %}
+                {% endif %}
               </div>
               {% else %}
               <div class="gm-vital gm-vital--secondary">

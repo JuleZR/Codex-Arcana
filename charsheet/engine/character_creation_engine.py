@@ -10,6 +10,7 @@ from charsheet.modifiers.engine import ModifierEngine
 from charsheet.modifiers.registry import build_trait_semantic_modifiers
 from charsheet.learning_progression import weapon_mastery_weapon_type_definitions
 from charsheet.engine.item_engine import ItemEngine
+from charsheet.engine.vampire_engine import VampireRules
 from charsheet.models import (
     Attribute,
     Character,
@@ -22,6 +23,7 @@ from charsheet.models import (
     CharacterSchool,
     CharacterSkill,
     CharacterTrait,
+    CharacterVampireTrait,
     CharacterWeaponMastery,
     CharacterWeaponMasteryArcana,
     Item,
@@ -33,11 +35,14 @@ from charsheet.models import (
     Technique,
     TraitChoiceDefinition,
     Trait,
+    VampireTrait,
     WeaponType,
 )
 from charsheet.lesson_rules import lesson_requirements_met, missing_requirement_labels
 from charsheet.constants import (
     ATTR_SPEC,
+    ATTR_ST,
+    VAMPIRE_ANCHOR_TRAIT_SLUG,
     LANGUAGE_LITERACY_MIN_LEVEL,
     LEGENDARY_ATTRIBUTE_TRAIT_SLUG,
     RESOURCE_KEY_CHOICES,
@@ -86,6 +91,7 @@ class CharacterCreationEngine:
             limit.attribute.short_name: {
                 "min": int(limit.min_value),
                 "max": int(limit.max_value) + self.creation_attribute_cap_bonus(limit.attribute.short_name),
+                "original_max": int(limit.max_value),
             }
             for limit in self.race.raceattributelimit_set.select_related("attribute")
         }
@@ -130,7 +136,11 @@ class CharacterCreationEngine:
 
     def creation_attribute_cap_bonus(self, attribute_slug: str) -> int:
         """Resolve draft-time maximum-attribute modifiers from selected phase-4 advantages."""
-        total = 0
+        total = (
+            int(self.phase_4_vampire()["age_cycle"])
+            if attribute_slug == ATTR_ST and self.has_vampire_anchor()
+            else 0
+        )
         choice_map = self.phase_4_trait_choices()
         for slug, level in self.phase_4_advantages().items():
             trait = Trait.objects.filter(slug=slug, trait_type=Trait.TraitType.ADV).first()
@@ -278,7 +288,7 @@ class CharacterCreationEngine:
         for short_name, value in attrs.items():
             if short_name not in limits:
                 return False
-            if value < limits[short_name]["min"] or value > limits[short_name]["max"]:
+            if value < limits[short_name]["min"] or value > limits[short_name]["original_max"]:
                 return False
         return True
 
@@ -286,7 +296,7 @@ class CharacterCreationEngine:
         attrs = self.phase_1_attributes()
         limits = self.attribute_min_max_limits()
         return sum(
-            self.calc_attribute_cost(value, limits[name]["max"])
+            self.calc_attribute_cost(value, limits[name]["original_max"])
             for name, value in attrs.items()
             if name in limits
         )
@@ -412,6 +422,94 @@ class CharacterCreationEngine:
         advantages = self.get_phase("phase_4").get("advantages", {}) or {}
         return {str(k): max(0, self._to_int(v, 0)) for k, v in advantages.items()}
 
+    def phase_4_vampire(self) -> dict[str, object]:
+        raw = self.get_phase("phase_4").get("vampire", {}) or {}
+        traits: dict[str, dict[str, object]] = {}
+        for slug, payload in (raw.get("traits", {}) or {}).items():
+            payload = payload or {}
+            traits[str(slug)] = {
+                "rank": max(1, self._to_int(payload.get("rank"), 1)),
+                "bought_off": bool(payload.get("bought_off")),
+            }
+        return {
+            "age_cycle": max(1, self._to_int(raw.get("age_cycle"), 1)),
+            "capacity_bonus": max(0, self._to_int(raw.get("capacity_bonus"), 0)),
+            "intelligent_blood": max(0, self._to_int(raw.get("intelligent_blood"), 0)),
+            "animal_blood": max(0, self._to_int(raw.get("animal_blood"), 0)),
+            "traits": traits,
+        }
+
+    def has_vampire_anchor(self) -> bool:
+        return self.phase_4_advantages().get(VAMPIRE_ANCHOR_TRAIT_SLUG, 0) > 0
+
+    def vampire_creation_cost(self) -> int:
+        if not self.has_vampire_anchor():
+            return 0
+        config = self.phase_4_vampire()
+        total = VampireRules.age_cycle_cost(config["age_cycle"])
+        total += VampireRules.capacity_bonus_cost(config["capacity_bonus"])
+        definitions = {
+            trait.slug: trait
+            for trait in VampireTrait.objects.filter(slug__in=config["traits"].keys()).select_related(
+                "associated_weakness"
+            )
+        }
+        for slug, payload in config["traits"].items():
+            trait = definitions.get(slug)
+            if trait is not None:
+                total += VampireRules.trait_point_delta(
+                    trait,
+                    rank=payload["rank"],
+                    associated_weakness_bought_off=payload["bought_off"],
+                )
+        return total
+
+    def vampire_weakness_refund(self) -> int:
+        if not self.has_vampire_anchor():
+            return 0
+        config = self.phase_4_vampire()
+        return sum(
+            int(value)
+            for value in VampireTrait.objects.filter(
+                slug__in=config["traits"].keys(),
+                trait_type=VampireTrait.TraitType.WEAKNESS,
+            ).values_list("point_value", flat=True)
+        )
+
+    def vampire_configuration_is_valid(self) -> bool:
+        config = self.phase_4_vampire()
+        if not self.has_vampire_anchor():
+            return (
+                config["age_cycle"] == 1
+                and config["capacity_bonus"] == 0
+                and config["intelligent_blood"] == 0
+                and config["animal_blood"] == 0
+                and not config["traits"]
+            )
+        definitions = {
+            trait.slug: trait
+            for trait in VampireTrait.objects.filter(slug__in=config["traits"].keys()).select_related(
+                "associated_weakness"
+            )
+        }
+        if len(definitions) != len(config["traits"]):
+            return False
+        for slug, payload in config["traits"].items():
+            trait = definitions[slug]
+            rank = int(payload["rank"])
+            if rank != 1 and not trait.rankable:
+                return False
+            if trait.max_rank is not None and rank > int(trait.max_rank):
+                return False
+            if payload["bought_off"] and (
+                trait.trait_type != VampireTrait.TraitType.POWER or not trait.associated_weakness_id
+            ):
+                return False
+        return (
+            self.sum_phase_3_disadvantage_cost() + self.vampire_weakness_refund()
+            <= self.race.phase_3_points
+        )
+
     def calc_advantage_cost(self, slug: str, level: int) -> int:
         trait = Trait.objects.filter(slug=slug, trait_type=Trait.TraitType.ADV).first()
         if trait is None:
@@ -421,7 +519,7 @@ class CharacterCreationEngine:
         return trait.cost_for_level(level)
 
     def sum_phase_4_advantages_cost(self) -> int:
-        return sum(
+        return self.vampire_creation_cost() + sum(
             self.calc_advantage_cost(slug, level)
             for slug, level in self.phase_4_advantages().items()
         )
@@ -439,8 +537,14 @@ class CharacterCreationEngine:
         adds = self.get_phase("phase_4").get("attribute_adds", {}) or {}
         return {str(k): max(0, self._to_int(v, 0)) for k, v in adds.items()}
 
-    def calc_attribute_add_cost(self, target_level: int, max_value: int) -> int:
-        threshold = max_value - 2
+    def calc_attribute_add_cost(
+        self,
+        target_level: int,
+        max_value: int,
+        *,
+        premium_threshold: int | None = None,
+    ) -> int:
+        threshold = max_value - 2 if premium_threshold is None else int(premium_threshold)
         if target_level <= threshold:
             return target_level * 10
         cost = threshold * 10
@@ -459,7 +563,18 @@ class CharacterCreationEngine:
             start = base_attrs.get(name, limits[name]["min"])
             end = start + add
             max_value = limits[name]["max"]
-            total += self.calc_attribute_add_cost(end, max_value) - self.calc_attribute_add_cost(start, max_value)
+            premium_threshold = None
+            if name == ATTR_ST and self.has_vampire_anchor():
+                premium_threshold = max_value - int(self.phase_4_vampire()["age_cycle"]) - 2
+            total += self.calc_attribute_add_cost(
+                end,
+                max_value,
+                premium_threshold=premium_threshold,
+            ) - self.calc_attribute_add_cost(
+                start,
+                max_value,
+                premium_threshold=premium_threshold,
+            )
         return total
 
     def phase_4_skill_adds(self) -> dict[str, int]:
@@ -732,6 +847,8 @@ class CharacterCreationEngine:
         if not self._fame_resource_choice_is_valid():
             return False
         if self._has_cross_type_trait_exclusion():
+            return False
+        if not self.vampire_configuration_is_valid():
             return False
         return (
             self.sum_phase_4_total_cost() <= self.calculate_phase_4_budget()
@@ -1011,6 +1128,41 @@ class CharacterCreationEngine:
                     if str(row["kind"]) == CharacterWeaponMasteryArcana.ArcanaKind.RUNE:
                         payload["rune_id"] = int(row["rune_id"])
                     CharacterWeaponMasteryArcana.objects.create(**payload)
+
+            if character.is_vampire:
+                vampire_config = self.phase_4_vampire()
+                definitions = {
+                    trait.slug: trait
+                    for trait in VampireTrait.objects.filter(
+                        slug__in=vampire_config["traits"].keys()
+                    ).select_related("associated_weakness")
+                }
+                for slug, payload in vampire_config["traits"].items():
+                    ownership = CharacterVampireTrait(
+                        character=character,
+                        trait=definitions[slug],
+                        rank=payload["rank"],
+                        associated_weakness_bought_off=payload["bought_off"],
+                    )
+                    ownership.full_clean()
+                    ownership.save()
+                character.vampire_age_cycle = vampire_config["age_cycle"]
+                character.vampire_blood_capacity_bonus = vampire_config["capacity_bonus"]
+                character.vampire_intelligent_blood = vampire_config["intelligent_blood"]
+                character.vampire_animal_blood = vampire_config["animal_blood"]
+                character.save(
+                    update_fields=[
+                        "vampire_age_cycle",
+                        "vampire_blood_capacity_bonus",
+                        "vampire_intelligent_blood",
+                        "vampire_animal_blood",
+                    ]
+                )
+                resource = VampireRules(character).resource_state()
+                if resource.total > resource.maximum:
+                    raise ValueError(
+                        f"Der gewählte Startblutvorrat ({resource.total}) überschreitet die Kapazität ({resource.maximum})."
+                    )
 
             starting_funds_delta = self.resolve_creation_starting_funds()
             if starting_funds_delta:

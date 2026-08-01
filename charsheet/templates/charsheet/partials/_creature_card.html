@@ -203,11 +203,20 @@
                 {% if creature_card.has_kp %}
                     </span>
                     <span class="creature-card__core-row creature-card__core-row--arcane">
-                        <span class="creature-card__core-stat"><strong>KP</strong><span class="creature-card__core-value">{{ creature_card.kp }}{% for variant in creature_card.kp_variants %}/<span class="tooltip_target" data-tooltip="{{ variant.note }}" data-tooltip-side="right">{{ variant.value }}</span>{% endfor %}</span></span>
+                        <span class="creature-card__core-stat"><strong>{{ creature_card.resource_label }}</strong><span class="creature-card__core-value">{{ creature_card.kp }}{% if creature_card.is_vampire %}/{{ creature_card.kp_max }}{% endif %}{% for variant in creature_card.kp_variants %}/<span class="tooltip_target" data-tooltip="{{ variant.note }}" data-tooltip-side="right">{{ variant.value }}</span>{% endfor %}</span></span>
                         <span class="creature-card__core-stat"><strong>Pot</strong><span class="creature-card__core-value">{{ creature_card.potential }}{% for variant in creature_card.potential_variants %}/<span class="tooltip_target" data-tooltip="{{ variant.note }}" data-tooltip-side="right">{{ variant.value }}</span>{% endfor %}</span></span>
+                        {% if creature_card.is_vampire %}
+                          <span class="creature-card__core-stat"><strong>Tierblut</strong><span class="creature-card__core-value">{{ creature_card.vampire.animal_blood }}</span></span>
+                          <span class="creature-card__core-stat"><strong>Alter</strong><span class="creature-card__core-value">{{ creature_card.vampire.age_cycle }}</span></span>
+                          <span class="creature-card__core-stat"><strong>Zustand</strong><span class="creature-card__core-value">{{ creature_card.vampire.state_label }}</span></span>
+                        {% endif %}
                     </span>
                 {% endif %}
             </div>
+
+            {% if creature_card.vampire.warnings %}
+              <p class="creature-card__oracle-line creature-card__oracle-line--conditions"><strong>Vampir-Warnung</strong> {{ creature_card.vampire.warnings|join:"; " }}</p>
+            {% endif %}
 
             {% if creature_card.effect_conditions %}
                 <p class="creature-card__oracle-line creature-card__oracle-line--conditions">
@@ -245,11 +254,14 @@
                 </p>
             {% endif %}
 
-            {% if creature_card.daemonic_powers or creature_card.traits or creature_card.special_skills or creature_card.languages %}
+            {% if creature_card.daemonic_powers or creature_card.vampire.traits or creature_card.traits or creature_card.special_skills or creature_card.languages %}
                 <p class="creature-card__oracle-line creature-card__oracle-line--ability">
                     <strong>Besondere F&auml;higkeiten</strong>
                     {% for power in creature_card.daemonic_powers %}
                         <span class="creature-card__rule-entry{% if power.description or power.weakness_description %} tooltip_target{% endif %}"{% if power.description or power.weakness_description %} data-tooltip="{% if power.description %}{{ power.description }}{% endif %}{% if power.description and power.weakness_description %}&#10;{% endif %}{% if power.weakness_description %}Schw&auml;che: {{ power.weakness_description }}{% endif %}" data-tooltip-side="right"{% endif %}>{{ power.name }}{% if power.has_level %} {{ power.level }}{% endif %}{% if power.modifier_display %} {{ power.modifier_display }}{% endif %}</span>{% if not forloop.last or creature_card.special_skills or creature_card.traits or creature_card.languages %}, {% endif %}
+                    {% endfor %}
+                    {% for trait in creature_card.vampire.traits %}
+                        <span class="creature-card__rule-entry{% if trait.description %} tooltip_target{% endif %}"{% if trait.description %} data-tooltip="{{ trait.description }}" data-tooltip-side="right"{% endif %}>{{ trait.name }}{% if trait.rank > 1 %} {{ trait.rank }}{% endif %}</span>{% if not forloop.last or creature_card.special_skills or creature_card.traits or creature_card.languages %}, {% endif %}
                     {% endfor %}
                     {% for skill in creature_card.special_skills %}
                         <span class="creature-card__rule-entry{% if skill.notes %} tooltip_target{% endif %}"{% if skill.notes %} data-tooltip="{{ skill.notes }}" data-tooltip-side="right"{% endif %}>{{ skill.name }}{% if skill.value %} {% for part in skill.value_parts %}{% if not forloop.first %}/{% endif %}{% if part.note %}<span class="tooltip_target" data-tooltip="{{ part.note }}" data-tooltip-side="right">{{ part.value }}</span>{% else %}{{ part.value }}{% endif %}{% endfor %}{% endif %}</span>{% if not forloop.last or creature_card.traits or creature_card.languages %}, {% endif %}

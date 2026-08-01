@@ -43,6 +43,7 @@ from charsheet.models import (
     CharacterTechniqueChoice,
     CharacterWeaponMastery,
     CharacterWeaponMasteryArcana,
+    CharacterVampireTrait,
     DivineEntity,
     DaemonicPower,
     DruidCultAspect,
@@ -59,9 +60,10 @@ from charsheet.models import (
     CreatureTraitChoiceDefinition,
     CreatureSpecialSkill,
     WeaponType,
+    VampireTrait,
 )
 from charsheet.lesson_rules import lesson_requirements_met, missing_requirement_labels
-from charsheet.constants import LANGUAGE_LITERACY_MIN_LEVEL, is_allowed_trait_attribute_choice
+from charsheet.constants import ATTR_ST, LANGUAGE_LITERACY_MIN_LEVEL, VAMPIRE_ANCHOR_TRAIT_SLUG, is_allowed_trait_attribute_choice
 from charsheet.religion_rules import (
     divine_entity_count_for_school,
     is_clerical_school,
@@ -662,6 +664,7 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
         limit.attribute.short_name: {
             "min": int(limit.min_value),
             "max": int(limit.max_value) + int(engine.resolve_attribute_cap_bonus(limit.attribute.short_name)),
+            "original_max": int(limit.max_value),
         }
         for limit in character.race.raceattributelimit_set.select_related("attribute")
     }
@@ -698,8 +701,69 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
     language_plan: dict[str, dict[str, object]] = {}
     school_plan: dict[str, int] = {}
     magic_aspect_plan: dict[int, int] = {}
+    vampire_age_add = 0
+    vampire_capacity_add = 0
+    vampire_power_plan: dict[int, int] = {}
+    vampire_buyoff_plan: set[int] = set()
     religion_entity_to_bind = None
     has_progression_inputs = _has_progression_inputs(post_data)
+
+    if character.is_vampire:
+        from charsheet.engine.vampire_engine import VampireRules
+
+        vampire_rules = VampireRules(character)
+        vampire_age_add = _read_int(post_data, "learn_vampire_age_add", 0)
+        vampire_capacity_add = _read_int(post_data, "learn_vampire_capacity_add", 0)
+        if vampire_age_add < 0 or vampire_capacity_add < 0:
+            return "error", "Vampirwerte können nicht verkauft oder zurückerstattet werden."
+        total_cost += vampire_rules.age_cycle_cost(vampire_age_add + 1)
+        total_cost += vampire_rules.capacity_bonus_cost(vampire_capacity_add)
+
+        owned_vampire_traits = {
+            row.trait_id: row
+            for row in CharacterVampireTrait.objects.filter(character=character).select_related(
+                "trait", "trait__associated_weakness"
+            )
+        }
+        for key in post_data.keys():
+            raw_key = str(key)
+            if raw_key.startswith("learn_vampire_power_"):
+                try:
+                    trait_id = int(raw_key.rsplit("_", 1)[-1])
+                except ValueError:
+                    continue
+                rank = _read_int(post_data, raw_key, 0)
+                if rank <= 0:
+                    continue
+                trait = VampireTrait.objects.filter(
+                    pk=trait_id,
+                    trait_type=VampireTrait.TraitType.POWER,
+                    is_active=True,
+                ).select_related("associated_weakness").first()
+                if trait is None or trait_id in owned_vampire_traits:
+                    return "error", "Ungültige oder bereits erworbene Vampirkraft."
+                if not trait.rankable and rank != 1:
+                    return "error", f"{trait.name}: Diese Vampirkraft besitzt keine Ränge."
+                if trait.rankable and rank > int(trait.max_rank or 10):
+                    return "error", f"{trait.name}: Rang liegt über dem Maximum."
+                total_cost += vampire_rules.trait_point_delta(trait, rank=rank)
+                vampire_power_plan[trait_id] = rank
+            elif raw_key.startswith("learn_vampire_buyoff_"):
+                try:
+                    trait_id = int(raw_key.rsplit("_", 1)[-1])
+                except ValueError:
+                    continue
+                if _read_int(post_data, raw_key, 0) <= 0:
+                    continue
+                ownership = owned_vampire_traits.get(trait_id)
+                if (
+                    ownership is None
+                    or ownership.trait.associated_weakness_id is None
+                    or ownership.associated_weakness_bought_off
+                ):
+                    return "error", "Ungültiger Schwächenfreikauf."
+                total_cost += int(ownership.trait.associated_weakness.point_value or 0)
+                vampire_buyoff_plan.add(trait_id)
 
     def _skill_rank_payload(skill, specification: str | None = None) -> tuple[int, int]:
         max_level = int(engine.skill_rank_max(skill.slug, specification=specification))
@@ -730,7 +794,21 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
             return "error", f"{short_name}: Zielwert ist ueber dem Maximum."
         if add == 0:
             continue
-        step_cost = calc_attribute_total_cost(target_value, max_value) - calc_attribute_total_cost(base_value, max_value)
+        original_max = int(bounds.get("original_max", max_value))
+        premium_threshold = (
+            original_max - 2
+            if character.is_vampire and short_name == ATTR_ST
+            else None
+        )
+        step_cost = calc_attribute_total_cost(
+            target_value,
+            max_value,
+            premium_threshold=premium_threshold,
+        ) - calc_attribute_total_cost(
+            base_value,
+            max_value,
+            premium_threshold=premium_threshold,
+        )
         total_cost += step_cost
         attr_plan[short_name] = add
 
@@ -752,6 +830,21 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
         add = _read_int(post_data, key, 0)
         base_level = int(trait_rows.get(slug).trait_level if slug in trait_rows else 0)
         target_level = base_level + add
+        if slug == VAMPIRE_ANCHOR_TRAIT_SLUG and target_level < base_level:
+            return "error", "Der Erwerbsanker Vampirismus kann nach dem Erwerb nicht verkauft werden."
+        if (
+            slug == VAMPIRE_ANCHOR_TRAIT_SLUG
+            and base_level <= 0
+            and target_level > 0
+            and not (
+                character.is_at_vampire_baptism_threshold
+                and character.vampire_baptism_confirmed
+            )
+        ):
+            return (
+                "error",
+                "Vampirismus kann im Spiel nur im Rahmen einer bestätigten Bluttaufe bei genau 0 LP erworben werden.",
+            )
         error = engine.validate_trait_target_level(trait, target_level)
         if error:
             return "error", error
@@ -1049,6 +1142,7 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
     has_ep_changes = any((
         attr_plan, trait_plan, skill_plan, cs_skill_plan, new_spec_plan,
         language_plan, school_plan, magic_aspect_plan, lesson_plan,
+        vampire_age_add, vampire_capacity_add, vampire_power_plan, vampire_buyoff_plan,
     ))
 
     has_magic_selections = any((
@@ -1081,6 +1175,10 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
                         continue
                     trait_row = CharacterTrait.objects.create(owner=character, trait=trait, trait_level=target_level)
                     trait_rows[slug] = trait_row
+                    if slug == VAMPIRE_ANCHOR_TRAIT_SLUG:
+                        character.__dict__.pop("_is_vampire_cache", None)
+                        character.vampire_baptism_confirmed = False
+                        character.save(update_fields=["vampire_baptism_confirmed"])
                 elif target_level <= 0:
                     trait_row.delete()
                     trait_rows.pop(slug, None)
@@ -1166,6 +1264,32 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
                     else:
                         school_row.level = target_level
                         school_row.save(update_fields=["level"])
+
+            if vampire_age_add or vampire_capacity_add:
+                if vampire_age_add:
+                    character.vampire_age_cycle = max(1, int(character.vampire_age_cycle or 1)) + vampire_age_add
+                if vampire_capacity_add:
+                    character.vampire_blood_capacity_bonus = int(character.vampire_blood_capacity_bonus or 0) + vampire_capacity_add
+                fields = []
+                if vampire_age_add:
+                    fields.append("vampire_age_cycle")
+                if vampire_capacity_add:
+                    fields.append("vampire_blood_capacity_bonus")
+                character.save(update_fields=fields)
+
+            for trait_id, rank in vampire_power_plan.items():
+                entry = CharacterVampireTrait(character=character, trait_id=trait_id, rank=rank)
+                entry.full_clean()
+                entry.save()
+
+            for trait_id in vampire_buyoff_plan:
+                entry = CharacterVampireTrait.objects.select_related("trait").get(
+                    character=character,
+                    trait_id=trait_id,
+                )
+                entry.associated_weakness_bought_off = True
+                entry.full_clean()
+                entry.save(update_fields=["associated_weakness_bought_off"])
 
             if religion_entity_to_bind is not None:
                 CharacterDivineEntity.objects.update_or_create(

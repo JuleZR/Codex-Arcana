@@ -39,7 +39,7 @@
   </div>
   <div class="core_item">
     <div class="core_main single">
-      <span class="core_name">Arkane Macht (KP)</span><span class="core_value tooltip_target" data-tooltip-side="right" data-tooltip="{{ core_stats.arcane_power_tooltip }}">{{ core_stats.arcane_power }}</span>
+      <span class="core_name">{% if is_vampire %}Blutvorrat (BP){% else %}Arkane Macht (KP){% endif %}</span><span class="core_value tooltip_target" data-tooltip-side="right" data-tooltip="{{ core_stats.arcane_power_tooltip }}">{{ core_stats.arcane_power }}</span>
     </div>
     <div class="core_formula">Will + Stufen in Schulen + Mod.</div>
   </div>

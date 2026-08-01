@@ -38,6 +38,8 @@ from charsheet.constants import (
     STAT_SLUG_CHOICES,
     SOURCE_ITEM_RUNE,
     TWO_HANDED,
+    VAMPIRE_STATE_UI_LABELS,
+    VAMPIRE_ANCHOR_TRAIT_SLUG,
     WEAPON_DAMAGE,
     WEAPON_DAMAGE_DICE,
     WEAPON_MANEUVER_ATTRIBUTE_CHOICES,
@@ -93,6 +95,7 @@ from charsheet.models import (
     RaceStartingItem,
     CharacterTechnique,
     CharacterTrait,
+    CharacterVampireTrait,
     CreatureCommand,
     CreatureSpecialSkill,
     CreatureTrait,
@@ -117,9 +120,51 @@ from charsheet.models import (
     Specialization,
     Technique,
     Trait,
+    VampireTrait,
     WeaponType,
 )
 from charsheet.view_utils import format_compact_number, format_modifier, format_thousands, quality_payload
+
+
+def _vampire_learning_payload(character, vampire_rules):
+    owned = list(
+        CharacterVampireTrait.objects.filter(character=character)
+        .select_related("trait", "trait__associated_weakness")
+        .order_by("trait__sort_order", "trait__name")
+    )
+    owned_ids = {row.trait_id for row in owned}
+    return {
+        "age_cycle": vampire_rules.age_cycle(),
+        "capacity_bonus": vampire_rules.capacity_bonus(),
+        "age_unit_cost": vampire_rules.age_cycle_cost(2),
+        "capacity_unit_cost": vampire_rules.capacity_bonus_cost(1),
+        "available_powers": [
+            {
+                "id": trait.id,
+                "name": trait.name,
+                "cost": vampire_rules.trait_point_delta(trait),
+                "rankable": trait.rankable,
+                "max_rank": trait.max_rank or 10,
+                "weakness": trait.associated_weakness.name if trait.associated_weakness_id else "",
+            }
+            for trait in VampireTrait.objects.filter(
+                trait_type=VampireTrait.TraitType.POWER,
+                is_active=True,
+            ).exclude(pk__in=owned_ids).select_related("associated_weakness").order_by("sort_order", "name")
+        ],
+        "buyoff_options": [
+            {
+                "id": row.trait_id,
+                "name": row.trait.name,
+                "weakness": row.trait.associated_weakness.name,
+                "cost": int(row.trait.associated_weakness.point_value or 0),
+            }
+            for row in owned
+            if row.trait.trait_type == VampireTrait.TraitType.POWER
+            and row.trait.associated_weakness_id
+            and not row.associated_weakness_bought_off
+        ],
+    }
 
 
 def _divine_entity_card_kind_label(divine_entity) -> str:
@@ -4363,13 +4408,23 @@ def _build_learning_rows(
 
     trait_groups: OrderedDict[str, list[dict]] = OrderedDict()
     for trait in Trait.objects.order_by("trait_type", "name"):
+        base_level = int(trait_levels.get(trait.id, 0))
+        if (
+            trait.slug == VAMPIRE_ANCHOR_TRAIT_SLUG
+            and base_level <= 0
+            and not (
+                character.is_at_vampire_baptism_threshold
+                and character.vampire_baptism_confirmed
+            )
+        ):
+            continue
         group_name = "Vorteile" if trait.trait_type == Trait.TraitType.ADV else "Nachteile"
         trait_groups.setdefault(group_name, []).append(
             {
                 "slug": trait.slug,
                 "name": trait.name,
                 "description": (trait.description or "").replace("\r\n", "\n").replace("\r", "\n"),
-                "base_level": int(trait_levels.get(trait.id, 0)),
+                "base_level": base_level,
                 "min_level": int(trait.min_level),
                 "max_level": int(trait.max_level),
                 "points_per_level": int(trait.points_per_level),
@@ -4641,17 +4696,89 @@ def build_temporary_attribute_context(
         for entry in character.get_magic_engine().get_character_aspects()
         if entry.is_bonus_aspect
     )
-    arcane_power_value = engine.calculate_arcane_power()
-    potential_value = engine.calculate_potential()
-    current_arcane_power = character.current_arcane_power
-    if current_arcane_power is None:
-        current_arcane_power = arcane_power_value
-    current_arcane_power = min(max(0, int(current_arcane_power)), int(arcane_power_value))
+    from charsheet.engine.vampire_engine import VampireRules
+
+    vampire_rules = VampireRules(character)
+    is_vampire = vampire_rules.is_vampire()
+    if is_vampire:
+        vampire_resource = vampire_rules.resource_state()
+        arcane_power_value = vampire_resource.maximum
+        potential_value = vampire_resource.potential
+        current_arcane_power = vampire_resource.intelligent
+        resource_label = "Blut intelligenter Wesen"
+        vampire_traits = [
+            {
+                "name": entry.trait.name,
+                "slug": entry.trait.slug,
+                "type": entry.trait.trait_type,
+                "type_label": entry.trait.get_trait_type_display(),
+                "rank": entry.rank,
+                "description": entry.trait.description,
+                "rules_text": entry.trait.rules_text,
+                "weakness_bought_off": entry.associated_weakness_bought_off,
+                "source": entry.source,
+            }
+            for entry in vampire_rules.effective_traits(include_weaknesses=True)
+        ]
+        vampire_panel = {
+            "age_cycle": vampire_rules.age_cycle(),
+            "intelligent_blood": vampire_resource.intelligent,
+            "animal_blood": vampire_resource.animal,
+            "total_blood": vampire_resource.total,
+            "total_meter_percent": f"{(0 if vampire_resource.maximum <= 0 else vampire_resource.total / vampire_resource.maximum * 100):.2f}",
+            "intelligent_meter_percent": f"{(0 if vampire_resource.maximum <= 0 else vampire_resource.intelligent / vampire_resource.maximum * 100):.2f}",
+            "animal_meter_percent": f"{(0 if vampire_resource.maximum <= 0 else vampire_resource.animal / vampire_resource.maximum * 100):.2f}",
+            "capacity": vampire_resource.maximum,
+            "potential": vampire_resource.potential,
+            "state": character.vampire_state,
+            "state_label": VAMPIRE_STATE_UI_LABELS.get(character.vampire_state, character.vampire_state),
+            "day_count": character.vampire_day_count,
+            "last_qualifying_kill_day": character.vampire_last_qualifying_kill_day,
+            "recent_qualifying_kill": vampire_rules.has_recent_qualifying_kill(),
+            "regeneration_blood": character.vampire_regeneration_blood,
+            "regeneration_target_cost": character.vampire_regeneration_target_cost,
+            "regeneration_target_cost": character.vampire_regeneration_target_cost,
+            "regeneration_target_cost": character.vampire_regeneration_target_cost,
+            "pending_starvation": character.vampire_pending_starvation,
+            "sacrament_age_bonus": character.vampire_sacrament_age_bonus,
+            "sacrament_rounds_remaining": character.vampire_sacrament_rounds_remaining,
+            "aggravated_damage": character.current_aggravated_damage,
+            "traits": vampire_traits,
+            "warnings": vampire_rules.warnings(),
+            **_vampire_learning_payload(character, vampire_rules),
+        }
+    else:
+        arcane_power_value = engine.calculate_arcane_power()
+        potential_value = engine.calculate_potential()
+        current_arcane_power = character.current_arcane_power
+        if current_arcane_power is None:
+            current_arcane_power = arcane_power_value
+        current_arcane_power = min(max(0, int(current_arcane_power)), int(arcane_power_value))
+        resource_label = "Arkane Macht"
+        vampire_panel = None
     arcane_meter_percent = (
         0
         if arcane_power_value <= 0
         else (current_arcane_power / int(arcane_power_value)) * 100.0
     )
+    if is_vampire:
+        resource_tooltip_rows = [
+            {"label": "Willenskraft", "value": vampire_rules.willpower()},
+            {"label": "Magie-/Kampfschulen", "value": vampire_rules.school_ranks()},
+            {"label": "Vampirkraftränge", "value": vampire_rules.power_ranks()},
+            {"label": "Alterszyklus", "value": vampire_rules.age_cycle()},
+            {"label": "Zusatzkapazität", "value": vampire_rules.capacity_bonus()},
+            {"label": "Permanenter Verlust", "value": -vampire_rules.capacity_loss()},
+            {"label": "= Blutvorrat", "value": arcane_power_value, "tone": "total"},
+        ]
+    else:
+        resource_tooltip_rows = [
+            {"label": "Will", "value": willpower},
+            {"label": "Stufen in Schulen", "value": school_level_total},
+            {"label": "Bonus-Aspektstufen", "value": aspect_level_total},
+            *_build_modifier_breakdown_rows(engine, ARCANE_POWER),
+            {"label": "= Gesamt", "value": arcane_power_value, "tone": "total"},
+        ]
 
     return {
         "character": character,
@@ -4724,15 +4851,7 @@ def build_temporary_attribute_context(
                 ]
             ),
             "arcane_power": arcane_power_value,
-            "arcane_power_tooltip": _build_core_stat_tooltip(
-                [
-                    {"label": "Will", "value": willpower},
-                    {"label": "Stufen in Schulen", "value": school_level_total},
-                    {"label": "Bonus-Aspektstufen", "value": aspect_level_total},
-                    *_build_modifier_breakdown_rows(engine, ARCANE_POWER),
-                    {"label": "= Gesamt", "value": arcane_power_value, "tone": "total"},
-                ]
-            ),
+            "arcane_power_tooltip": _build_core_stat_tooltip(resource_tooltip_rows),
             "potential": potential_value,
             "potential_tooltip": _build_core_stat_tooltip(
                 [
@@ -4748,6 +4867,7 @@ def build_temporary_attribute_context(
         "current_damage_max": current_damage_max,
         "current_stun_damage": character.current_stun_damage,
         "current_lethal_damage": character.current_lethal_damage,
+        "current_aggravated_damage": character.current_aggravated_damage,
         "damage_gauge_needle_angle": damage_gauge["needle_angle"],
         "damage_gauge_stun_needle_angle": damage_gauge["stun_needle_angle"],
         "damage_gauge_lethal_needle_angle": damage_gauge["lethal_needle_angle"],
@@ -4758,6 +4878,10 @@ def build_temporary_attribute_context(
         "current_arcane_power": current_arcane_power,
         "current_arcane_power_max": int(arcane_power_value),
         "arcane_meter_percent": f"{arcane_meter_percent:.2f}",
+        "resource_label": resource_label,
+        "resource_type": "blood" if is_vampire else "arcane_power",
+        "is_vampire": is_vampire,
+        "vampire_panel": vampire_panel,
     }
 
 
@@ -4880,13 +5004,66 @@ def build_character_sheet_context(
         for entry in magic_engine.get_character_aspects()
         if entry.is_bonus_aspect
     )
-    arcane_power_value = engine.calculate_arcane_power()
-    potential_value = engine.calculate_potential()
-    current_arcane_power = character.current_arcane_power
-    if current_arcane_power is None:
-        current_arcane_power = arcane_power_value
-    current_arcane_power = max(0, int(current_arcane_power))
-    current_arcane_power = min(current_arcane_power, int(arcane_power_value))
+    from charsheet.engine.vampire_engine import VampireRules
+
+    vampire_rules = VampireRules(character)
+    is_vampire = vampire_rules.is_vampire()
+    if is_vampire:
+        vampire_resource = vampire_rules.resource_state()
+        arcane_power_value = vampire_resource.maximum
+        potential_value = vampire_resource.potential
+        current_arcane_power = vampire_resource.intelligent
+        resource_label = "Blut intelligenter Wesen"
+        vampire_panel = {
+            "age_cycle": vampire_rules.age_cycle(),
+            "intelligent_blood": vampire_resource.intelligent,
+            "animal_blood": vampire_resource.animal,
+            "total_blood": vampire_resource.total,
+            "total_meter_percent": f"{(0 if vampire_resource.maximum <= 0 else vampire_resource.total / vampire_resource.maximum * 100):.2f}",
+            "intelligent_meter_percent": f"{(0 if vampire_resource.maximum <= 0 else vampire_resource.intelligent / vampire_resource.maximum * 100):.2f}",
+            "animal_meter_percent": f"{(0 if vampire_resource.maximum <= 0 else vampire_resource.animal / vampire_resource.maximum * 100):.2f}",
+            "capacity": vampire_resource.maximum,
+            "potential": vampire_resource.potential,
+            "state": character.vampire_state,
+            "state_label": VAMPIRE_STATE_UI_LABELS.get(character.vampire_state, character.vampire_state),
+            "day_count": character.vampire_day_count,
+            "last_qualifying_kill_day": character.vampire_last_qualifying_kill_day,
+            "recent_qualifying_kill": vampire_rules.has_recent_qualifying_kill(),
+            "regeneration_blood": character.vampire_regeneration_blood,
+            "regeneration_target_cost": character.vampire_regeneration_target_cost,
+            "regeneration_target_cost": character.vampire_regeneration_target_cost,
+            "regeneration_target_cost": character.vampire_regeneration_target_cost,
+            "pending_starvation": character.vampire_pending_starvation,
+            "sacrament_age_bonus": character.vampire_sacrament_age_bonus,
+            "sacrament_rounds_remaining": character.vampire_sacrament_rounds_remaining,
+            "aggravated_damage": character.current_aggravated_damage,
+            "warnings": vampire_rules.warnings(),
+            "traits": [
+                {
+                    "name": entry.trait.name,
+                    "slug": entry.trait.slug,
+                    "type": entry.trait.trait_type,
+                    "type_label": entry.trait.get_trait_type_display(),
+                    "rank": entry.rank,
+                    "description": entry.trait.description,
+                    "rules_text": entry.trait.rules_text,
+                    "weakness_bought_off": entry.associated_weakness_bought_off,
+                    "source": entry.source,
+                }
+                for entry in vampire_rules.effective_traits(include_weaknesses=True)
+            ],
+            **_vampire_learning_payload(character, vampire_rules),
+        }
+    else:
+        arcane_power_value = engine.calculate_arcane_power()
+        potential_value = engine.calculate_potential()
+        current_arcane_power = character.current_arcane_power
+        if current_arcane_power is None:
+            current_arcane_power = arcane_power_value
+        current_arcane_power = max(0, int(current_arcane_power))
+        current_arcane_power = min(current_arcane_power, int(arcane_power_value))
+        resource_label = "Arkane Macht"
+        vampire_panel = None
     arcane_power_display_max = int(arcane_power_value)
     arcane_meter_percent = 0 if arcane_power_display_max <= 0 else (current_arcane_power / arcane_power_display_max) * 100.0
     vw_value = engine.vw()
@@ -5464,6 +5641,16 @@ def build_character_sheet_context(
             "arcane_power": arcane_power_value,
             "arcane_power_tooltip": _build_core_stat_tooltip(
                 [
+                    {"label": "Willenskraft", "value": vampire_rules.willpower()},
+                    {"label": "Magie-/Kampfschulen", "value": vampire_rules.school_ranks()},
+                    {"label": "Vampirkraftränge", "value": vampire_rules.power_ranks()},
+                    {"label": "Alterszyklus", "value": vampire_rules.age_cycle()},
+                    {"label": "Zusatzkapazität", "value": vampire_rules.capacity_bonus()},
+                    {"label": "Permanenter Verlust", "value": -vampire_rules.capacity_loss()},
+                    {"label": "= Blutvorrat", "value": arcane_power_value, "tone": "total"},
+                ]
+                if is_vampire
+                else [
                     {"label": "Will", "value": willpower},
                     {"label": "Stufen in Schulen", "value": school_level_total},
                     {"label": "Bonus-Aspektstufen", "value": aspect_level_total},
@@ -5495,6 +5682,7 @@ def build_character_sheet_context(
         "current_damage_max": current_damage_max,
         "current_stun_damage": character.current_stun_damage,
         "current_lethal_damage": character.current_lethal_damage,
+        "current_aggravated_damage": character.current_aggravated_damage,
         "damage_gauge_needle_angle": damage_gauge["needle_angle"],
         "damage_gauge_stun_needle_angle": damage_gauge["stun_needle_angle"],
         "damage_gauge_lethal_needle_angle": damage_gauge["lethal_needle_angle"],
@@ -5505,6 +5693,10 @@ def build_character_sheet_context(
         "current_arcane_power": current_arcane_power,
         "current_arcane_power_max": arcane_power_display_max,
         "arcane_meter_percent": f"{arcane_meter_percent:.2f}",
+        "resource_label": resource_label,
+        "resource_type": "blood" if is_vampire else "arcane_power",
+        "is_vampire": is_vampire,
+        "vampire_panel": vampire_panel,
         "wallet_gold": wallet_gold,
         "wallet_silver": wallet_silver,
         "wallet_copper": wallet_copper,

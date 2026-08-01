@@ -3,3 +3,4 @@ from .character_creation_engine import CharacterCreationEngine
 from .battle_calculator_engine import BattleCalculatorEngine
 from .item_engine import ItemEngine
 from .magic_engine import MagicEngine
+from .vampire_engine import VampireRuleError, VampireRules

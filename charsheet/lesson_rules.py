@@ -40,12 +40,16 @@ class ArcanePowerLessonCostHandler(LessonCostHandler):
 
     def is_available(self, character, costs: list[LessonCost], context: dict) -> tuple[bool, str]:
         amount = sum(int(cost.value) for cost in costs)
-        return int(context["current_arcane_power"]) >= amount, "Nicht genug KP für diese Lektion."
+        label = "Blut intelligenter Wesen" if context.get("resource_type") == "blood" else "KP"
+        return int(context["current_arcane_power"]) >= amount, f"Nicht genug {label} für diese Lektion."
 
     def deduct(self, character, costs: list[LessonCost], context: dict) -> None:
         amount = sum(int(cost.value) for cost in costs)
         context["current_arcane_power"] = int(context["current_arcane_power"]) - amount
-        character.current_arcane_power = int(context["current_arcane_power"])
+        if context.get("resource_type") == "blood":
+            character.vampire_intelligent_blood = int(context["current_arcane_power"])
+        else:
+            character.current_arcane_power = int(context["current_arcane_power"])
 
 
 LESSON_COST_HANDLERS: dict[str, LessonCostHandler] = {}
@@ -309,14 +313,31 @@ def activate_lesson(
             "potential_check": potential_check,
         }
     engine = character.get_engine(refresh=True)
-    current_max = max(0, int(engine.calculate_arcane_power()))
-    current = current_max if character.current_arcane_power is None else max(0, int(character.current_arcane_power))
+    from charsheet.engine.vampire_engine import VampireRules
+
+    vampire_rules = VampireRules(character)
+    if vampire_rules.is_vampire():
+        blood = vampire_rules.resource_state()
+        current_max = blood.maximum
+        current = blood.intelligent
+        resource_type = "blood"
+        if kp_cost > blood.potential:
+            return {
+                "ok": False,
+                "error": "potential_exceeded",
+                "message": "Die Blutkosten überschreiten das Potential dieser Handlung.",
+            }
+    else:
+        current_max = max(0, int(engine.calculate_arcane_power()))
+        current = current_max if character.current_arcane_power is None else max(0, int(character.current_arcane_power))
+        resource_type = "arcane_power"
     if current < kp_cost:
         return {"ok": False, "error": "not_enough_kp", "message": "Nicht genug KP für diese Lektion."}
     handler_context = {
         "engine": engine,
         "current_arcane_power": current,
         "current_arcane_power_max": current_max,
+        "resource_type": resource_type,
     }
     for cost_type, costs in automatic_by_type.items():
         handler = LESSON_COST_HANDLERS[cost_type]
@@ -327,7 +348,8 @@ def activate_lesson(
     for cost_type, costs in automatic_by_type.items():
         LESSON_COST_HANDLERS[cost_type].deduct(character, costs, handler_context)
     if LessonCost.CostType.ARCANE_POWER in automatic_by_type:
-        character.save(update_fields=["current_arcane_power"])
+        update_field = "vampire_intelligent_blood" if resource_type == "blood" else "current_arcane_power"
+        character.save(update_fields=[update_field])
     return {
         "ok": True,
         "lesson_id": int(entry.lesson_id),
@@ -335,6 +357,7 @@ def activate_lesson(
         "spent_kp": kp_cost,
         "current_arcane_power": int(handler_context["current_arcane_power"]),
         "current_arcane_power_max": current_max,
+        "resource_type": resource_type,
         "automatic_costs": [format_cost(cost) for cost in automatic],
         "manual_costs": [format_cost(cost) for cost in manual],
         "cost_summary": format_lesson_costs(entry.lesson),

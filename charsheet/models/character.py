@@ -15,6 +15,9 @@ from ..constants import (
     QUALITY_COMMON,
     RESOURCE_KEY_CHOICES,
     STAT_SLUG_CHOICES,
+    VAMPIRE_STATE_ACTIVE,
+    VAMPIRE_STATE_CHOICES,
+    VAMPIRE_ANCHOR_TRAIT_SLUG,
     WEAPON_MANEUVER_ATTRIBUTE_CHOICES,
     WIELD_MODES,
 )
@@ -51,7 +54,32 @@ class Character(models.Model):
 
     current_stun_damage = models.PositiveIntegerField(default=0)
     current_lethal_damage = models.PositiveIntegerField(default=0)
+    current_aggravated_damage = models.PositiveIntegerField(
+        default=0,
+        help_text="Bereits im tödlichen Schaden enthaltener schwer heilbarer Anteil.",
+    )
     current_arcane_power = models.IntegerField(null=True, blank=True, default=0)
+    vampire_age_cycle = models.PositiveSmallIntegerField(default=1)
+    vampire_sacrament_age_bonus = models.PositiveSmallIntegerField(default=0)
+    vampire_sacrament_rounds_remaining = models.PositiveSmallIntegerField(default=0)
+    vampire_intelligent_blood = models.PositiveIntegerField(default=0)
+    vampire_animal_blood = models.PositiveIntegerField(default=0)
+    vampire_blood_capacity_bonus = models.PositiveIntegerField(default=0)
+    vampire_blood_capacity_loss = models.PositiveIntegerField(default=0)
+    vampire_state = models.CharField(
+        max_length=12,
+        choices=VAMPIRE_STATE_CHOICES,
+        default=VAMPIRE_STATE_ACTIVE,
+    )
+    vampire_day_count = models.PositiveIntegerField(default=0)
+    vampire_last_qualifying_kill_day = models.PositiveIntegerField(blank=True, null=True)
+    vampire_regeneration_blood = models.PositiveIntegerField(default=0)
+    vampire_regeneration_target_cost = models.PositiveSmallIntegerField(default=0)
+    vampire_pending_starvation = models.PositiveIntegerField(default=0)
+    vampire_baptism_confirmed = models.BooleanField(
+        default=False,
+        help_text="GM confirmation that a rule-compliant blood baptism permits the 15 EP acquisition.",
+    )
     carry_load_enabled = models.BooleanField(default=False)
     spent_spell_learning_slots = models.PositiveIntegerField(default=0)
     is_archived = models.BooleanField(default=False)
@@ -65,18 +93,48 @@ class Character(models.Model):
     class Meta:
         ordering = ["name"]
         constraints = [
-            models.UniqueConstraint(fields=["owner", "name"], name="uniq_character_owner_name")
+            models.UniqueConstraint(fields=["owner", "name"], name="uniq_character_owner_name"),
+            models.CheckConstraint(
+                condition=models.Q(current_aggravated_damage__lte=models.F("current_lethal_damage")),
+                name="character_aggravated_lte_lethal",
+            ),
         ]
 
     def __str__(self):
         return f"{self.name} ({self.race.name})"
 
     @property
+    def is_vampire(self) -> bool:
+        """Return whether the dedicated acquisition-anchor trait is owned."""
+        cached = self.__dict__.get("_is_vampire_cache")
+        if cached is None:
+            cached = self.charactertrait_set.filter(trait__slug=VAMPIRE_ANCHOR_TRAIT_SLUG).exists()
+            self.__dict__["_is_vampire_cache"] = bool(cached)
+        return bool(cached)
+
+    @property
+    def is_at_vampire_baptism_threshold(self) -> bool:
+        """Return whether the mortal has exactly zero LP, but is not yet dead."""
+        if self.is_vampire:
+            return False
+        thresholds = self.get_engine(refresh=True).wound_thresholds()
+        zero_lp_damage = max((int(value) for value in thresholds), default=0)
+        return zero_lp_damage > 0 and int(self.current_damage) == zero_lp_damage
+
+    @property
     def current_damage(self) -> int:
         """Return the wound-relevant sum of stun and lethal damage."""
         return int(self.current_stun_damage or 0) + int(self.current_lethal_damage or 0)
 
-    def adjust_damage(self, *, damage_type: str, action: str, amount: int, stun_max: int) -> None:
+    def adjust_damage(
+        self,
+        *,
+        damage_type: str,
+        action: str,
+        amount: int,
+        stun_max: int,
+        aggravated: bool = False,
+    ) -> None:
         """Apply one damage operation with single-step-equivalent stun overflow."""
         amount = max(0, int(amount or 0))
         stun_max = max(0, int(stun_max or 0))
@@ -90,8 +148,20 @@ class Character(models.Model):
         if damage_type == "T":
             if action == "damage":
                 self.current_lethal_damage += amount
+                if aggravated:
+                    self.current_aggravated_damage += amount
             elif action == "heal":
-                self.current_lethal_damage = max(0, self.current_lethal_damage - amount)
+                if aggravated:
+                    healed = min(amount, int(self.current_aggravated_damage or 0))
+                    self.current_aggravated_damage -= healed
+                else:
+                    normal_lethal = max(
+                        0,
+                        int(self.current_lethal_damage or 0)
+                        - int(self.current_aggravated_damage or 0),
+                    )
+                    healed = min(amount, normal_lethal)
+                self.current_lethal_damage = max(0, self.current_lethal_damage - healed)
             return
 
         if damage_type != "B":

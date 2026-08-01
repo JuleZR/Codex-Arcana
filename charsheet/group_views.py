@@ -83,6 +83,7 @@ from charsheet.constants import (
     GK_CHOICES,
     RULE_FLAG_CHOICES,
     STAT_SLUG_CHOICES,
+    VAMPIRE_STATE_UI_LABELS,
     WEAPON_MANEUVER_ATTRIBUTE_CHOICES,
     WEAPON_MANEUVER_DAMAGE,
     WEAPON_MASTERY_BONUS,
@@ -427,8 +428,17 @@ def game_master_screen(request, group_id: int):
         lethal_damage = max(0, int(character.current_lethal_damage or 0))
         displayed_stun_damage = min(stun_damage, max_lp)
         displayed_lethal_damage = min(lethal_damage, max(0, max_lp - displayed_stun_damage))
-        max_kp = max(0, int(engine.calculate_arcane_power()))
-        current_kp = min(max_kp, max(0, int(character.current_arcane_power or 0)))
+        from charsheet.engine.vampire_engine import VampireRules
+
+        character_vampire = VampireRules(character)
+        character_is_vampire = character_vampire.is_vampire()
+        character_blood = character_vampire.resource_state() if character_is_vampire else None
+        max_kp = character_blood.maximum if character_blood else max(0, int(engine.calculate_arcane_power()))
+        current_kp = (
+            character_blood.intelligent
+            if character_blood
+            else min(max_kp, max(0, int(character.current_arcane_power or 0)))
+        )
         initiative = int(engine.calculate_initiative())
         armor_load_penalty = int(engine.load_penalty())
         carry_state = ItemEngine.carry_state_for_character(character)
@@ -460,6 +470,7 @@ def game_master_screen(request, group_id: int):
                 "image": character.char_picture,
                 "fallback_letter": character.name[:1],
                 "potential_label": "Pot",
+                "resource_label": "BP" if character_is_vampire else "KP",
                 "show_arcane": True,
                 "footer_label": "Vollständigen Bogen öffnen",
                 "detail_url": reverse(
@@ -479,7 +490,7 @@ def game_master_screen(request, group_id: int):
                 "vw": engine.vw(),
                 "gw": engine.gw(),
                 "sr": engine.sr(),
-                "potential": engine.calculate_potential(),
+                "potential": character_blood.potential if character_blood else engine.calculate_potential(),
                 "total_armor": engine.get_grs(),
                 "initiative": initiative,
                 "initiative_with_load": initiative + load_penalty,
@@ -498,6 +509,24 @@ def game_master_screen(request, group_id: int):
                 "current_lp": max(0, max_lp - stun_damage - lethal_damage),
                 "stun_damage": stun_damage,
                 "lethal_damage": lethal_damage,
+                "aggravated_damage": int(character.current_aggravated_damage or 0),
+                "is_vampire": character_is_vampire,
+                "animal_blood": character_blood.animal if character_blood else 0,
+                "vampire_state": VAMPIRE_STATE_UI_LABELS.get(character.vampire_state, character.vampire_state) if character_is_vampire else "",
+                "vampire_age_cycle": character_vampire.age_cycle() if character_is_vampire else 0,
+                "vampire_traits": (
+                    [
+                        {
+                            "name": entry.trait.name,
+                            "rank": entry.rank,
+                            "type": entry.trait.get_trait_type_display(),
+                        }
+                        for entry in character_vampire.effective_traits(include_weaknesses=True)
+                    ]
+                    if character_is_vampire
+                    else []
+                ),
+                "vampire_warnings": character_vampire.warnings(),
                 "stun_damage_percent": f"{displayed_stun_damage / max_lp * 100:.4f}" if max_lp else "0",
                 "lethal_damage_percent": f"{displayed_lethal_damage / max_lp * 100:.4f}" if max_lp else "0",
                 "runtime_attribute_adjustments": runtime_attribute_adjustments,
@@ -521,6 +550,11 @@ def game_master_screen(request, group_id: int):
         character_creature = creature_card.character_creature
         creature_source = character_creature or creature
         engine = CreatureEngine(creature_source)
+        from charsheet.engine.vampire_engine import VampireRules
+
+        vampire_rules = VampireRules(creature_card)
+        is_vampire = vampire_rules.is_vampire()
+        vampire_resource = vampire_rules.resource_state() if is_vampire else None
         base_creature = engine.creature
         wound_rows = engine.wound_rows()
         max_lp = wound_rows[-1]["threshold"] if wound_rows else 0
@@ -540,8 +574,11 @@ def game_master_screen(request, group_id: int):
             wound_stage = wound_row["label"]
             wound_penalty = int(wound_row["penalty"])
         if max_lp and current_damage > max_lp:
-            wound_stage = "Tod"
-            wound_penalty = 0
+            if is_vampire:
+                wound_stage = VAMPIRE_STATE_UI_LABELS.get(creature_card.vampire_state, creature_card.vampire_state)
+            else:
+                wound_stage = "Tod"
+                wound_penalty = 0
         is_dead = wound_stage == "Tod"
         is_incapacitated = engine.is_wound_incapacitated(wound_stage)
         creature_attributes = {}
@@ -566,12 +603,14 @@ def game_master_screen(request, group_id: int):
             for key in ("combat", "march", "sprint")
             if movement.get(key) not in (None, "")
         ]
-        creature_kp = engine.kp()
-        creature_potential = engine.potential()
+        creature_kp = vampire_resource.maximum if vampire_resource else engine.kp()
+        creature_potential = vampire_resource.potential if vampire_resource else engine.potential()
         has_creature_kp = creature_kp is not None
         creature_kp_max = max(0, int(creature_kp or 0))
         creature_current_kp = (
-            creature_kp_max
+            vampire_resource.intelligent
+            if vampire_resource
+            else creature_kp_max
             if creature_card.current_kp is None
             else max(0, min(creature_kp_max, int(creature_card.current_kp)))
         )
@@ -598,11 +637,13 @@ def game_master_screen(request, group_id: int):
                 "fallback_letter": creature_source.display_name[:1],
                 "potential_label": "Pot" if has_creature_kp else "GK",
                 "show_arcane": has_creature_kp,
+                "resource_label": "BP" if is_vampire else "KP",
                 "secondary_status_label": "Bewegung",
                 "secondary_status_value": " / ".join(movement_values) or "–",
                 "creature_damage_rows": (
                     ("B", stun_damage),
                     ("T", lethal_damage),
+                    *((("S", int(creature_card.current_aggravated_damage or 0)),) if is_vampire else ()),
                 ),
                 "footer_label": (
                     base_creature.organization.strip()
@@ -629,6 +670,23 @@ def game_master_screen(request, group_id: int):
                 "is_dead": is_dead,
                 "current_kp": creature_current_kp,
                 "max_kp": creature_kp_max,
+                "is_vampire": is_vampire,
+                "vampire_state": VAMPIRE_STATE_UI_LABELS.get(creature_card.vampire_state, creature_card.vampire_state) if is_vampire else "",
+                "animal_blood": vampire_resource.animal if vampire_resource else 0,
+                "vampire_age_cycle": vampire_rules.age_cycle() if is_vampire else 0,
+                "vampire_traits": (
+                    [
+                        {
+                            "name": entry.trait.name,
+                            "rank": entry.rank,
+                            "type": entry.trait.get_trait_type_display(),
+                        }
+                        for entry in vampire_rules.effective_traits(include_weaknesses=True)
+                    ]
+                    if is_vampire
+                    else []
+                ),
+                "vampire_warnings": vampire_rules.warnings(),
                 "max_lp": max_lp,
                 "current_lp": max(0, max_lp - current_damage),
                 "stun_damage": stun_damage,
@@ -975,7 +1033,16 @@ def add_group_creature(request, group_id: int):
         creature_kp = CreatureEngine(
             character_creature or creature
         ).kp()
-        GameGroupCreature.objects.create(
+        source_actor = character_creature or creature
+        from charsheet.engine.vampire_engine import VampireRules
+        from charsheet.models import GameGroupCreatureVampireTrait, VampireTrait
+        from charsheet.models.vampirism import VampireTraitOverrideMode
+        from charsheet.constants import VAMPIRE_MODE_ENABLE
+
+        source_vampire = VampireRules(source_actor)
+        vampire_enabled = source_vampire.is_vampire()
+        vampire_resource = source_vampire.resource_state() if vampire_enabled else None
+        creature_card = GameGroupCreature.objects.create(
             group=group,
             creature=creature,
             character_creature=character_creature,
@@ -985,7 +1052,40 @@ def add_group_creature(request, group_id: int):
                 if creature_kp is not None
                 else None
             ),
+            vampire_mode=VAMPIRE_MODE_ENABLE if vampire_enabled else "inherit",
+            vampire_age_cycle=(
+                max(
+                    1,
+                    source_vampire.age_cycle()
+                    - int(getattr(source_actor, "vampire_sacrament_age_bonus", 0) or 0),
+                )
+                if vampire_enabled
+                else 1
+            ),
+            vampire_sacrament_age_bonus=(
+                int(getattr(source_actor, "vampire_sacrament_age_bonus", 0) or 0) if vampire_enabled else 0
+            ),
+            vampire_sacrament_rounds_remaining=(
+                int(getattr(source_actor, "vampire_sacrament_rounds_remaining", 0) or 0) if vampire_enabled else 0
+            ),
+            vampire_intelligent_blood=vampire_resource.intelligent if vampire_resource else 0,
+            vampire_animal_blood=vampire_resource.animal if vampire_resource else 0,
+            vampire_blood_capacity_override=vampire_resource.maximum if vampire_resource else None,
+            vampire_state=getattr(source_actor, "vampire_state", "active"),
+            vampire_day_count=int(getattr(source_actor, "vampire_day_count", 0) or 0),
+            vampire_last_qualifying_kill_day=getattr(source_actor, "vampire_last_qualifying_kill_day", None),
         )
+        if vampire_enabled:
+            GameGroupCreatureVampireTrait.objects.bulk_create(
+                GameGroupCreatureVampireTrait(
+                    creature=creature_card,
+                    trait=entry.trait,
+                    mode=VampireTraitOverrideMode.ADD,
+                    rank=entry.rank,
+                    associated_weakness_bought_off=entry.associated_weakness_bought_off,
+                )
+                for entry in source_vampire.effective_traits(include_weaknesses=False)
+            )
 
     return redirect(
         f"{reverse('game_master_screen', args=[group.id])}#sl-charaktere"
@@ -1073,6 +1173,8 @@ def _group_creature_vital_payload(
 @require_POST
 @_group_action
 def adjust_group_creature_damage(request, group_id: int, creature_card_id: int):
+    from charsheet.engine.vampire_engine import VampireRules
+
     payload = None
     with transaction.atomic():
         group = GameGroup.objects.select_for_update().get(pk=group_id)
@@ -1097,19 +1199,23 @@ def adjust_group_creature_damage(request, group_id: int, creature_card_id: int):
             creature_card.character_creature or creature_card.creature
         ).wound_rows()
         max_lp = int(wound_rows[-1]["threshold"]) if wound_rows else 0
-        if damage_type in {"B", "T"} and action in {"damage", "heal"}:
+        if damage_type in {"B", "T", "S"} and action in {"damage", "heal"}:
             creature_card.adjust_damage(
-                damage_type=damage_type,
+                damage_type="T" if damage_type == "S" else damage_type,
                 action=action,
                 amount=amount,
                 stun_max=max_lp,
+                aggravated=damage_type == "S" or request.POST.get("aggravated") == "1",
             )
             creature_card.save(
                 update_fields=[
                     "current_stun_damage",
                     "current_lethal_damage",
+                    "current_aggravated_damage",
                 ]
             )
+            if VampireRules(creature_card).is_vampire():
+                VampireRules(creature_card).evaluate_life_state()
         payload = _group_creature_vital_payload(
             creature_card,
             CreatureEngine(
@@ -1144,35 +1250,146 @@ def adjust_group_creature_kp(request, group_id: int, creature_card_id: int):
             pk=creature_card_id,
             group=group,
         )
-        maximum = CreatureEngine(
-            creature_card.character_creature or creature_card.creature
-        ).kp()
+        from charsheet.engine.vampire_engine import VampireRules
+
+        vampire_rules = VampireRules(creature_card)
+        if vampire_rules.is_vampire():
+            blood = vampire_rules.resource_state()
+            maximum = blood.maximum
+            current_kp = blood.intelligent
+        else:
+            maximum = CreatureEngine(
+                creature_card.character_creature or creature_card.creature
+            ).kp()
         if maximum is not None:
             try:
                 amount = max(1, int(request.POST.get("amount", "1")))
             except (TypeError, ValueError):
                 amount = 1
-            creature_card.adjust_kp(
-                action=str(request.POST.get("action") or ""),
-                amount=amount,
-                maximum=max(0, int(maximum)),
-            )
-            creature_card.save(update_fields=["current_kp"])
-            current_kp = max(0, min(int(maximum), int(creature_card.current_kp or 0)))
+            if vampire_rules.is_vampire():
+                action = str(request.POST.get("action") or "")
+                if action == "spend":
+                    vampire_rules.spend_intelligent_blood(amount, enforce_potential=False)
+                elif action == "restore":
+                    vampire_rules.gain_blood(amount, intelligent=True)
+                current_kp = vampire_rules.resource_state().intelligent
+            else:
+                creature_card.adjust_kp(
+                    action=str(request.POST.get("action") or ""),
+                    amount=amount,
+                    maximum=max(0, int(maximum)),
+                )
+                creature_card.save(update_fields=["current_kp"])
+                current_kp = max(0, min(int(maximum), int(creature_card.current_kp or 0)))
 
     if _request_wants_json(request):
-        return JsonResponse(
-            {
-                "ok": True,
-                "kind": "kp",
-                "current_kp": current_kp,
-                "max_kp": max(0, int(maximum or 0)),
-            }
-        )
+        response_payload = {
+            "ok": True,
+            "kind": "kp",
+            "current_kp": current_kp,
+            "max_kp": max(0, int(maximum or 0)),
+        }
+        if VampireRules(creature_card).is_vampire():
+            response_payload["resource_type"] = "blood"
+        return JsonResponse(response_payload)
 
     return redirect(
         f"{reverse('game_master_screen', args=[group.id])}#sl-charaktere"
     )
+
+
+@login_required
+@require_POST
+@_group_action
+def vampire_group_creature_action(request, group_id: int, creature_card_id: int, action: str):
+    """Execute one explicit vampire action on an independent GM-screen card."""
+    from charsheet.engine.vampire_engine import VampireRuleError, VampireRules
+
+    def number(name: str, default: int = 0) -> int:
+        try:
+            return int(request.POST.get(name, default))
+        except (TypeError, ValueError):
+            return int(default)
+
+    with transaction.atomic():
+        group = GameGroup.objects.select_for_update().get(pk=group_id)
+        require_game_master(request.user, group, write=True)
+        card = get_object_or_404(
+            GameGroupCreature.objects.select_for_update().select_related(
+                "creature", "character_creature", "character_creature__creature"
+            ),
+            pk=creature_card_id,
+            group=group,
+        )
+        rules = VampireRules(card)
+        try:
+            if action == "gain-blood":
+                rules.gain_blood(number("amount", 1), intelligent=request.POST.get("blood_type") != "animal")
+            elif action == "spend-blood":
+                rules.spend_intelligent_blood(number("amount", 1), enforce_potential=False)
+            elif action == "sunrise":
+                rules.sunrise(animal_blood=number("animal_blood"), intelligent_blood=number("intelligent_blood"))
+            elif action == "record-kill":
+                rules.record_qualifying_kill()
+            elif action == "activate-power":
+                rules.activate_power(number("trait_id"), blood_amount=number("blood_amount"))
+            elif action == "regenerate":
+                rules.invest_regeneration(
+                    number("blood_amount", 1),
+                    hard_to_heal=request.POST.get("hard_to_heal") == "1",
+                    wound_grade=number("wound_grade", 1),
+                    damage_type=request.POST.get("damage_type", "T"),
+                    aggravated=request.POST.get("aggravated") == "1",
+                )
+            elif action == "resolve-starvation":
+                rules.resolve_starvation(
+                    damage_type=request.POST.get("damage_type", "T"),
+                    wound_grade=number("wound_grade", 1),
+                )
+            elif action in {"sunlight", "holy-symbol", "aggravated-damage"}:
+                rules.apply_damage(number("amount", 1), aggravated=True)
+            elif action == "stake":
+                rules.stake(net_damage=number("net_damage"), constitution=number("constitution"))
+            elif action == "behead":
+                rules.behead(confirmed=request.POST.get("confirmed") == "1")
+            elif action == "blood-baptism":
+                rules.blood_baptism(success=request.POST.get("success") == "1", extra_blood=number("extra_blood"))
+            elif action == "blood-sacrament":
+                rules.blood_sacrament(number("blood_amount", 1), duration_rounds=(number("duration_rounds") or None))
+            elif action == "advance-round":
+                rules.advance_round()
+            elif action == "blood-ritual":
+                rules.blood_ritual(
+                    request.POST.getlist("candidate_power_ids"),
+                    victim_destroyed=request.POST.get("victim_destroyed") == "1",
+                )
+            elif action == "set-state":
+                state = str(request.POST.get("state") or "")
+                valid_states = {choice for choice, _label in card._meta.get_field("vampire_state").choices}
+                if state not in valid_states:
+                    raise VampireRuleError("Unbekannter Vampirzustand.")
+                card.vampire_state = state
+                card.save(update_fields=["vampire_state"])
+            else:
+                raise VampireRuleError("Unbekannte Vampiraktion.")
+        except VampireRuleError as exc:
+            if _request_wants_json(request):
+                return JsonResponse({"ok": False, "error": " ".join(exc.messages)}, status=400)
+            messages.error(request, " ".join(exc.messages))
+            return redirect(f"{reverse('game_master_screen', args=[group.id])}#sl-charaktere")
+
+    if _request_wants_json(request):
+        state = VampireRules(card).resource_state()
+        return JsonResponse(
+            {
+                "ok": True,
+                "intelligent_blood": state.intelligent,
+                "animal_blood": state.animal,
+                "blood_capacity": state.maximum,
+                "vampire_state": card.vampire_state,
+            }
+        )
+    return redirect(f"{reverse('game_master_screen', args=[group.id])}#sl-charaktere")
 
 
 @login_required

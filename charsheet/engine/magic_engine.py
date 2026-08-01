@@ -1238,6 +1238,17 @@ class MagicEngine:
         persist: bool = True,
     ) -> dict[str, int | bool]:
         """Shift current KP alongside max changes and never allow values above max."""
+        from .vampire_engine import VampireRules
+
+        vampire_rules = VampireRules(self.character)
+        if vampire_rules.is_vampire():
+            state = vampire_rules.resource_state()
+            return {
+                "current_arcane_power": state.intelligent,
+                "current_arcane_power_max": state.maximum,
+                "changed": False,
+                "resource_type": "blood",
+            }
         current_max = max(0, int(self.character.get_engine(refresh=True).calculate_arcane_power()))
         stored_current = self.character.current_arcane_power
 
@@ -1267,9 +1278,19 @@ class MagicEngine:
             return {"ok": False, "error": "spell_not_found", "message": "Zauber nicht gefunden."}
         if not CharacterSpell.objects.filter(character=self.character, spell=spell_obj).exists():
             return {"ok": False, "error": "unknown_spell", "message": "Der Charakter kennt diesen Zauber nicht."}
-        current_arcane_power = int(self.normalize_current_arcane_power()["current_arcane_power"])
+        normalized_resource = self.normalize_current_arcane_power()
+        current_arcane_power = int(normalized_resource["current_arcane_power"])
         if current_arcane_power < int(spell_obj.kp_cost):
             return {"ok": False, "error": "not_enough_kp", "message": "Nicht genug KP fuer diesen Zauber."}
+        if normalized_resource.get("resource_type") == "blood":
+            from .vampire_engine import VampireRules
+
+            if int(spell_obj.kp_cost) > VampireRules(self.character).potential():
+                return {
+                    "ok": False,
+                    "error": "potential_exceeded",
+                    "message": "Die Blutkosten überschreiten das Potential dieser Handlung.",
+                }
         return {"ok": True, "spell": spell_obj, "current_arcane_power": current_arcane_power}
 
     def cast_spell(self, spell) -> dict[str, object]:
@@ -1285,12 +1306,22 @@ class MagicEngine:
             calculated_arcane_power = int(normalized_arcane_power["current_arcane_power_max"])
             current_arcane_power = int(normalized_arcane_power["current_arcane_power"])
             spent_kp = int(spell_obj.kp_cost)
-            projected_arcane_power = current_arcane_power - spent_kp
-            if projected_arcane_power < 0:
-                return {"ok": False, "error": "not_enough_kp", "message": "Nicht genug KP fuer diesen Zauber."}
-            current_arcane_power = projected_arcane_power
-            character.current_arcane_power = current_arcane_power
-            character.save(update_fields=["current_arcane_power"])
+            if normalized_arcane_power.get("resource_type") == "blood":
+                from .vampire_engine import VampireRules
+
+                vampire_state = VampireRules(character).spend_intelligent_blood(
+                    spent_kp,
+                    enforce_potential=True,
+                )
+                current_arcane_power = vampire_state.intelligent
+                calculated_arcane_power = vampire_state.maximum
+            else:
+                projected_arcane_power = current_arcane_power - spent_kp
+                if projected_arcane_power < 0:
+                    return {"ok": False, "error": "not_enough_kp", "message": "Nicht genug KP fuer diesen Zauber."}
+                current_arcane_power = projected_arcane_power
+                character.current_arcane_power = current_arcane_power
+                character.save(update_fields=["current_arcane_power"])
             display_arcane_power_max = max(calculated_arcane_power, current_arcane_power)
             return {
                 "ok": True,
@@ -1299,6 +1330,7 @@ class MagicEngine:
                 "current_arcane_power": current_arcane_power,
                 "current_arcane_power_max": display_arcane_power_max,
                 "spent_kp": spent_kp,
+                "resource_type": normalized_arcane_power.get("resource_type", "arcane_power"),
             }
 
     def get_spell_panel_data(self) -> dict[str, object]:

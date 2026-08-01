@@ -29,10 +29,15 @@ def calc_language_total_cost(level: int, can_write: bool, is_mother_tongue: bool
     return base + (1 if can_write else 0)
 
 
-def calc_attribute_total_cost(target_level: int, max_value: int) -> int:
+def calc_attribute_total_cost(
+    target_level: int,
+    max_value: int,
+    *,
+    premium_threshold: int | None = None,
+) -> int:
     """Return cumulative attribute cost for one target level."""
     level = max(0, target_level)
-    threshold = max_value - 2
+    threshold = max_value - 2 if premium_threshold is None else int(premium_threshold)
     if level <= threshold:
         return level * 10
     cost = threshold * 10

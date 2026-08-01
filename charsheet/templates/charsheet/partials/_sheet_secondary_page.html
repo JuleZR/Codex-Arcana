@@ -11,14 +11,15 @@
       {% include "charsheet/partials/_armor_panel.html" %}
 
       {% comment %}── Unterer Kasten: Körperzonen + optionale Tabs ─────────────────────{% endcomment %}
-      <div class="p2_panel p2_lower_panel{% if spell_panel_enabled or lesson_panel_enabled or weapon_mastery_arcana_panel or daemonic_power_panel %} p2_lower_panel--tabbed{% endif %}"{% if spell_panel_enabled or lesson_panel_enabled or weapon_mastery_arcana_panel or daemonic_power_panel %} data-tabs data-tabs-key="lower-panel"{% endif %}>
-        {% if spell_panel_enabled or lesson_panel_enabled or weapon_mastery_arcana_panel or daemonic_power_panel %}
+      <div class="p2_panel p2_lower_panel{% if spell_panel_enabled or lesson_panel_enabled or weapon_mastery_arcana_panel or daemonic_power_panel or vampire_panel %} p2_lower_panel--tabbed{% endif %}"{% if spell_panel_enabled or lesson_panel_enabled or weapon_mastery_arcana_panel or daemonic_power_panel or vampire_panel %} data-tabs data-tabs-key="lower-panel"{% endif %}>
+        {% if spell_panel_enabled or lesson_panel_enabled or weapon_mastery_arcana_panel or daemonic_power_panel or vampire_panel %}
         <div class="panel_tabs__list" role="tablist" aria-label="Körper und Fähigkeiten">
           <button class="panel_tabs__tab" role="tab" aria-selected="true" data-tab-target="lowerPanelBody">Körper</button>
           {% if spell_panel_enabled %}<button class="panel_tabs__tab" role="tab" aria-selected="false" data-tab-target="lowerPanelSpells">Zauber</button>{% endif %}
           {% if lesson_panel_enabled %}<button class="panel_tabs__tab" role="tab" aria-selected="false" data-tab-target="lowerPanelLessons">Lektionen</button>{% endif %}
           {% if weapon_mastery_arcana_panel %}<button class="panel_tabs__tab" role="tab" aria-selected="false" data-tab-target="lowerPanelWaffenmeister">Waffenmeister</button>{% endif %}
           {% if daemonic_power_panel %}<button class="panel_tabs__tab" role="tab" aria-selected="false" data-tab-target="lowerPanelDaemonicPowers">D&auml;monische Kr&auml;fte</button>{% endif %}
+          {% if vampire_panel %}<button class="panel_tabs__tab" role="tab" aria-selected="false" data-tab-target="lowerPanelVampire">Vampir</button>{% endif %}
         </div>
         {% endif %}
 
@@ -196,6 +197,12 @@
               </section>
             {% endfor %}
           </div>
+        </div>
+        {% endif %}
+
+        {% if vampire_panel %}
+        <div id="lowerPanelVampire" data-tab-panel hidden class="p2_lower_panel__vampire_tab">
+          {% include "charsheet/partials/_vampire_management.html" %}
         </div>
         {% endif %}
       </div>

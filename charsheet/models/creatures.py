@@ -37,6 +37,10 @@ from ..constants import (
     STACK_BEHAVIOR_CHOICES,
     STAT_SLUG_CHOICES,
     TARGET_DOMAIN_CHOICES,
+    VAMPIRE_MODE_CHOICES,
+    VAMPIRE_MODE_INHERIT,
+    VAMPIRE_STATE_ACTIVE,
+    VAMPIRE_STATE_CHOICES,
 )
 from .core import Attribute, Language, Skill, SkillCategory
 from .items import Item
@@ -137,6 +141,12 @@ class Creature(models.Model):
     has_kp = models.BooleanField("Hat KP", default=False)
     kp_override = models.IntegerField("KP-Override", blank=True, null=True)
     potential_override = models.IntegerField("Potential-Override", blank=True, null=True)
+    vampire_default_enabled = models.BooleanField("Vampire default", default=False)
+    vampire_age_cycle_default = models.PositiveSmallIntegerField(default=1)
+    vampire_blood_capacity_bonus_default = models.PositiveIntegerField(default=0)
+    vampire_blood_capacity_override = models.PositiveIntegerField(blank=True, null=True)
+    vampire_intelligent_blood_default = models.PositiveIntegerField(blank=True, null=True)
+    vampire_animal_blood_default = models.PositiveIntegerField(blank=True, null=True)
     defense_extra_label = models.CharField("GW extra label", max_length=20, blank=True, default="")
     fear_resistance_bonus = models.IntegerField("GW extra value", blank=True, null=True)
     natural_rs = models.PositiveIntegerField(default=0)
@@ -1187,6 +1197,33 @@ class CharacterCreature(models.Model):
         help_text="Nur für frei wählbare Technik-Bindungen: Die Vorlagen- oder Freikartenwahl wurde abgeschlossen.",
     )
     current_damage = models.PositiveIntegerField(default=0)
+    current_aggravated_damage = models.PositiveIntegerField(
+        default=0,
+        help_text="Bereits im Gesamtschaden enthaltener schwer heilbarer Anteil.",
+    )
+    vampire_mode = models.CharField(
+        max_length=12,
+        choices=VAMPIRE_MODE_CHOICES,
+        default=VAMPIRE_MODE_INHERIT,
+    )
+    vampire_age_cycle_override = models.PositiveSmallIntegerField(blank=True, null=True)
+    vampire_sacrament_age_bonus = models.PositiveSmallIntegerField(default=0)
+    vampire_sacrament_rounds_remaining = models.PositiveSmallIntegerField(default=0)
+    vampire_intelligent_blood = models.PositiveIntegerField(default=0)
+    vampire_animal_blood = models.PositiveIntegerField(default=0)
+    vampire_blood_capacity_bonus_override = models.PositiveIntegerField(blank=True, null=True)
+    vampire_blood_capacity_override = models.PositiveIntegerField(blank=True, null=True)
+    vampire_blood_capacity_loss = models.PositiveIntegerField(default=0)
+    vampire_state = models.CharField(
+        max_length=12,
+        choices=VAMPIRE_STATE_CHOICES,
+        default=VAMPIRE_STATE_ACTIVE,
+    )
+    vampire_day_count = models.PositiveIntegerField(default=0)
+    vampire_last_qualifying_kill_day = models.PositiveIntegerField(blank=True, null=True)
+    vampire_regeneration_blood = models.PositiveIntegerField(default=0)
+    vampire_regeneration_target_cost = models.PositiveSmallIntegerField(default=0)
+    vampire_pending_starvation = models.PositiveIntegerField(default=0)
     max_base_advantage_points = models.PositiveSmallIntegerField(default=0)
     max_base_disadvantage_points = models.PositiveSmallIntegerField(default=0)
     hidden_skill_notes = models.ManyToManyField(
@@ -1251,7 +1288,24 @@ class CharacterCreature(models.Model):
                 condition=models.Q(source_character_technique__isnull=False),
                 name="uniq_character_creature_technique_source",
             ),
+            models.CheckConstraint(
+                condition=models.Q(current_aggravated_damage__lte=models.F("current_damage")),
+                name="character_creature_aggravated_lte_damage",
+            ),
         ]
+
+    def save(self, *args, **kwargs):
+        if (
+            self._state.adding
+            and self.creature_id
+            and self.vampire_mode == VAMPIRE_MODE_INHERIT
+            and self.creature.vampire_default_enabled
+            and int(self.vampire_intelligent_blood or 0) == 0
+            and int(self.vampire_animal_blood or 0) == 0
+        ):
+            self.vampire_intelligent_blood = int(self.creature.vampire_intelligent_blood_default or 0)
+            self.vampire_animal_blood = int(self.creature.vampire_animal_blood_default or 0)
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.display_name} ({self.owner})"

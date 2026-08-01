@@ -23,6 +23,7 @@ from .constants import (
     ATTRIBUTE_CODE_CHOICES,
     ONE_HANDED,
     QUALITY_COLOR_MAP,
+    RESOURCE_KEY_CHOICES,
     RULE_FLAG_CHOICES,
     SCHOOL_ARCANE,
     SCHOOL_COMBAT,
@@ -76,6 +77,7 @@ from .models import (
     CharacterCreatureSpecialSkill,
     CharacterCreatureTrait,
     CharacterCreatureTraitChoice,
+    CharacterCreatureVampireTrait,
     CharacterDaemonicPower,
     CharacterCreationDraft,
     CharacterDruidCult,
@@ -84,6 +86,8 @@ from .models import (
     CharacterDiaryEntry,
     CharacterItem,
     GameGroup,
+    GameGroupCreature,
+    GameGroupCreatureVampireTrait,
     GameGroupInvitation,
     GameGroupMembership,
     GameGroupRole,
@@ -101,6 +105,7 @@ from .models import (
     CharacterTechniqueChoice,
     CharacterTrait,
     CharacterTraitChoice,
+    CharacterVampireTrait,
     CharacterWeaponMastery,
     CharacterWeaponMasteryArcana,
     Creature,
@@ -123,6 +128,7 @@ from .models import (
     CreatureTraitChoiceDefinition,
     CreatureTraitDefinition,
     CreatureTraitSemanticEffect,
+    CreatureVampireTrait,
     DamageSource,
     DaemonicPower,
     DaemonicPowerSemanticEffect,
@@ -169,6 +175,8 @@ from .models import (
     TraitChoiceDefinition,
     TraitExclusion,
     TraitSemanticEffect,
+    VampireTrait,
+    VampireTraitSemanticEffect,
     WeaponType,
     WeaponStats,
 )
@@ -2217,6 +2225,13 @@ class CharacterTraitInline(admin.TabularInline):
         js = ("charsheet/js/character_trait_inline.js",)
 
 
+class CharacterVampireTraitInline(admin.TabularInline):
+    model = CharacterVampireTrait
+    extra = 0
+    fields = ("trait", "rank", "associated_weakness_bought_off")
+    autocomplete_fields = ("trait",)
+
+
 class CharacterLanguageInline(admin.TabularInline):
     """Inline editor for character language proficiency entries."""
 
@@ -3045,6 +3060,134 @@ class DaemonicPowerSemanticEffectAdminForm(CreatureTraitSemanticEffectAdminForm)
         return cleaned_data
 
 
+class VampireTraitSemanticEffectAdminForm(CreatureTraitSemanticEffectAdminForm):
+    """Simple semantic-effect editor with vampire-specific scaling choices."""
+
+    EFFECT_AREA_CHOICES = (
+        ("attribute", "Attribute"),
+        ("attribute_cap", "Attribute maximum"),
+        ("defense", "Defense / resistance"),
+        ("movement", "Movement"),
+        ("skill", "Skill"),
+        ("skill_category", "Skill category"),
+        ("special_skill", "Creature skill"),
+        ("combat", "Attack / damage"),
+        ("resource", "Resource"),
+        ("rule_flag", "Rule flag"),
+        ("attack_type_damage", "Damage by attack type"),
+    )
+    DEFENSE_TARGET_CHOICES = DaemonicPowerSemanticEffectAdminForm.DEFENSE_TARGET_CHOICES
+    MOVEMENT_TARGET_CHOICES = DaemonicPowerSemanticEffectAdminForm.MOVEMENT_TARGET_CHOICES
+    COMBAT_TARGET_CHOICES = DaemonicPowerSemanticEffectAdminForm.COMBAT_TARGET_CHOICES
+    OPERATION_CHOICES = DaemonicPowerSemanticEffectAdminForm.OPERATION_CHOICES + (
+        ("set_flag", "set flag"),
+        ("unset_flag", "unset flag"),
+    )
+    ATTRIBUTE_TARGET_CHOICES = (("GE", "Dexterity"), ("WA", "Perception"), ("INT", "Intelligence"), ("WILL", "Willpower"), ("ST", "Strength"), ("KON", "Constitution"), ("CHA", "Charisma"))
+    VAMPIRE_RULE_FLAG_CHOICES = (("wound_penalty_ignore", "Ignore wound penalties"), ("can_act_while_out_of_action", "Can act while out of action"))
+    SCALING_CHOICES = (
+        ("", "No scaling"),
+        ("vampire_trait_rank", "Vampire trait rank"),
+        ("vampire_age_cycle", "Vampire age cycle"),
+    )
+
+    vampire_scaling = forms.ChoiceField(
+        label="Scaling",
+        choices=SCALING_CHOICES,
+        required=False,
+    )
+
+    class Meta:
+        model = VampireTraitSemanticEffect
+        fields = "__all__"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["effect_area"].label = "Effect area"
+        self.fields["effect_area"].choices = self.EFFECT_AREA_CHOICES
+        self.fields["simple_target"].label = "Target"
+        self.fields["simple_operator"].label = "Operator"
+        self.fields["simple_operator"].choices = self.OPERATION_CHOICES
+        self.fields["simple_value"].label = "Value"
+        self.fields["sort_order"].label = "Sort order"
+        self.fields["active_flag"].label = "Active"
+        self.fields["condition_text"].label = "Optional condition"
+        self.fields["scale_by_trait_level"].widget = forms.HiddenInput()
+        self.fields["scale_by_trait_level"].initial = False
+        scaling = self.initial.get("scaling", getattr(self.instance, "scaling", {}) or {}) or {}
+        self.initial["vampire_scaling"] = scaling.get("scale_source", "")
+
+    def _simple_target_choices(self):
+        choices = list(super()._simple_target_choices())
+        choices.extend((f"attribute_cap:{key}", label) for key, label in self.ATTRIBUTE_TARGET_CHOICES)
+        choices.extend((f"resource:{key}", label) for key, label in RESOURCE_KEY_CHOICES)
+        choices.extend((f"rule_flag:{key}", label) for key, label in self.VAMPIRE_RULE_FLAG_CHOICES)
+        current_domain = str(getattr(self.instance, "target_domain", "") or "")
+        current_key = str(getattr(self.instance, "target_key", "") or "")
+        current_value = f"{current_domain}:{current_key}"
+        if current_domain and current_key and not any(value == current_value for value, _label in choices):
+            choices.append((current_value, current_key.replace("_", " ").title()))
+        unique_choices = {}
+        for value, label in choices:
+            unique_choices.setdefault(value, label)
+        return tuple(unique_choices.items())
+
+    def _apply_initial_simple_values(self):
+        super()._apply_initial_simple_values()
+        target_domain = str(self.initial.get("target_domain") or getattr(self.instance, "target_domain", "") or "")
+        target_key = str(self.initial.get("target_key") or getattr(self.instance, "target_key", "") or "")
+        if target_domain in {"attribute_cap", "resource"}:
+            self.initial["effect_area"] = target_domain
+            self.initial["simple_target"] = f"{target_domain}:{target_key}"
+
+    def _simple_target(self, area, simple_target) -> tuple[str, str]:
+        target_domain, target_key = super()._simple_target(area, simple_target)
+        if target_domain and target_key:
+            return target_domain, target_key
+        prefix, separator, target_key = str(simple_target or "").partition(":")
+        if separator and prefix == area and area in {"attribute_cap", "resource"}:
+            return area, target_key
+        return "", ""
+
+    def clean(self):
+        cleaned_data = forms.ModelForm.clean(self)
+        area = cleaned_data.get("effect_area")
+        target_domain, target_key = self._simple_target(area, cleaned_data.get("simple_target"))
+        if not target_domain or not target_key:
+            self.add_error("effect_area", "Choose the value that should be changed.")
+        else:
+            cleaned_data["target_domain"] = target_domain
+            cleaned_data["target_key"] = target_key
+        semantic_operators = {"rule_flag": {"set_flag", "unset_flag"}}
+        operator = cleaned_data.get("simple_operator") or cleaned_data.get("operator") or "flat_add"
+        if area in semantic_operators:
+            if operator not in semantic_operators[area]:
+                self.add_error("simple_operator", "Choose an operation appropriate for this effect area.")
+            cleaned_data["operator"] = operator
+            cleaned_data["value"] = "true"
+        else:
+            value = cleaned_data.get("simple_value")
+            if value is None:
+                self.add_error("simple_value", "Enter a number.")
+            else:
+                cleaned_data["operator"] = operator
+                cleaned_data["value"] = self._format_simple_number(value)
+        scale_source = cleaned_data.get("vampire_scaling") or ""
+        cleaned_data["scale_by_trait_level"] = False
+        if scale_source:
+            cleaned_data["mode"] = "scaled"
+            cleaned_data["scaling"] = {
+                "scale_source": scale_source,
+                "mul": 1,
+                "div": 1,
+                "round_mode": "floor",
+            }
+        else:
+            cleaned_data["mode"] = "flat"
+            cleaned_data["scaling"] = {}
+        return cleaned_data
+
+
 class SpellAdminForm(forms.ModelForm):
     class Meta:
         model = Spell
@@ -3395,7 +3538,21 @@ class CharacterAdmin(admin.ModelAdmin):
             {"fields": ("height", "weight", "skin_color", "hair_color", "eye_color", "country_of_origin")},
         ),
         ("Additional Details", {"fields": ("religion", "appearance")}),
-        ("Status", {"fields": (("current_stun_damage", "current_lethal_damage"), "money", "overall_experience", "current_experience")}),
+        ("Status", {"fields": (("current_stun_damage", "current_lethal_damage", "current_aggravated_damage"), "money", "overall_experience", "current_experience")}),
+        (
+            "Vampirism",
+            {
+                "fields": (
+                    ("vampire_age_cycle", "vampire_state"),
+                    ("vampire_sacrament_age_bonus", "vampire_sacrament_rounds_remaining"),
+                    ("vampire_intelligent_blood", "vampire_animal_blood"),
+                    ("vampire_blood_capacity_bonus", "vampire_blood_capacity_loss"),
+                    ("vampire_day_count", "vampire_last_qualifying_kill_day"),
+                    ("vampire_regeneration_blood", "vampire_regeneration_target_cost", "vampire_pending_starvation"),
+                    "vampire_baptism_confirmed",
+                )
+            },
+        ),
         (
             "Fame & Ranks",
             {"fields": ("personal_fame_point", "personal_fame_rank", "sacrifice_rank", "artefact_rank")},
@@ -3414,6 +3571,7 @@ class CharacterAdmin(admin.ModelAdmin):
         CharacterSpecializationInline,
         CharacterItemInline,
         CharacterTraitInline,
+        CharacterVampireTraitInline,
         CharacterLanguageInline,
         CharacterDiaryEntryInline,
     )
@@ -6383,6 +6541,13 @@ class CreatureDaemonicPowerInline(admin.TabularInline):
     verbose_name_plural = "Daemonic powers"
 
 
+class CreatureVampireTraitInline(admin.TabularInline):
+    model = CreatureVampireTrait
+    extra = 0
+    fields = ("trait", "rank", "associated_weakness_bought_off")
+    autocomplete_fields = ("trait",)
+
+
 class CreatureCommandReferenceInline(admin.TabularInline):
     model = CreatureCommandReference
     extra = 0
@@ -6680,6 +6845,32 @@ class DaemonicPowerSemanticEffectInline(admin.StackedInline):
     autocomplete_fields = ("target_skills",)
 
 
+class VampireTraitSemanticEffectInline(admin.StackedInline):
+    model = VampireTraitSemanticEffect
+    form = VampireTraitSemanticEffectAdminForm
+    extra = 0
+    fieldsets = (
+        (
+            "Build effect",
+            {
+                "fields": (
+                    ("application_scope", "sort_order", "active_flag"),
+                    "effect_area",
+                    "simple_target",
+                    ("simple_operator", "simple_value"),
+                    "vampire_scaling",
+                    "condition_text",
+                ),
+                "description": (
+                    "Choose the application scope, effect area, target, operator, "
+                    "value, optional scaling, and condition."
+                ),
+            },
+        ),
+    )
+    autocomplete_fields = ("target_skills",)
+
+
 class CreatureAdminForm(forms.ModelForm):
     strength_mod = forms.IntegerField(label="Staerke", required=False)
     constitution_mod = forms.IntegerField(label="Konstitution", required=False)
@@ -6774,6 +6965,43 @@ class DaemonicPowerTierAdmin(admin.ModelAdmin):
     search_fields = ("name", "slug")
     prepopulated_fields = {"slug": ("name",)}
     ordering = ("sort_number", "name")
+
+
+@admin.register(VampireTrait)
+class VampireTraitAdmin(admin.ModelAdmin):
+    list_display = ("name", "trait_type", "point_value", "blood_cost", "rankable", "is_active")
+    list_filter = ("trait_type", "rankable", "is_active", "handler")
+    search_fields = ("name", "slug", "description", "rules_text")
+    prepopulated_fields = {"slug": ("name",)}
+    autocomplete_fields = ("associated_weakness",)
+    inlines = (VampireTraitSemanticEffectInline,)
+
+
+@admin.register(VampireTraitSemanticEffect)
+class VampireTraitSemanticEffectAdmin(admin.ModelAdmin):
+    form = VampireTraitSemanticEffectAdminForm
+    list_display = ("trait", "application_scope", "target_domain", "target_key", "operator", "active_flag")
+    list_filter = ("application_scope", "target_domain", "operator", "active_flag")
+    search_fields = ("trait__name", "trait__slug", "target_key", "condition_text")
+    autocomplete_fields = ("trait", "target_skills")
+    list_select_related = ("trait",)
+    fieldsets = VampireTraitSemanticEffectInline.fieldsets
+
+
+@admin.register(CharacterVampireTrait)
+class CharacterVampireTraitAdmin(admin.ModelAdmin):
+    list_display = ("character", "trait", "rank", "associated_weakness_bought_off")
+    search_fields = ("character__name", "trait__name")
+    list_filter = ("trait__trait_type", "associated_weakness_bought_off")
+    autocomplete_fields = ("character", "trait")
+
+
+@admin.register(CreatureVampireTrait)
+class CreatureVampireTraitAdmin(admin.ModelAdmin):
+    list_display = ("creature", "trait", "rank", "associated_weakness_bought_off")
+    search_fields = ("creature__name", "trait__name")
+    list_filter = ("trait__trait_type", "associated_weakness_bought_off")
+    autocomplete_fields = ("creature", "trait")
 
 
 @admin.register(DaemonicPower)
@@ -6887,6 +7115,7 @@ class CreatureAdmin(admin.ModelAdmin):
         CreatureLanguageInline,
         CreatureSpecialSkillValueInline,
         CreatureDaemonicPowerInline,
+        CreatureVampireTraitInline,
         CreatureCommandReferenceInline,
         CreatureTraitInline,
     )
@@ -6922,6 +7151,17 @@ class CreatureAdmin(admin.ModelAdmin):
                 "fields": (
                     ("strength_mod", "constitution_mod", "dexterity_mod"),
                     ("intelligence_mod", "perception_mod", "willpower_mod", "charisma_mod"),
+                )
+            },
+        ),
+        (
+            "Vampire defaults",
+            {
+                "fields": (
+                    "vampire_default_enabled",
+                    "vampire_age_cycle_default",
+                    ("vampire_blood_capacity_bonus_default", "vampire_blood_capacity_override"),
+                    ("vampire_intelligent_blood_default", "vampire_animal_blood_default"),
                 )
             },
         ),
@@ -7104,6 +7344,13 @@ class CharacterCreatureDaemonicPowerInline(admin.TabularInline):
     autocomplete_fields = ("power",)
 
 
+class CharacterCreatureVampireTraitInline(admin.TabularInline):
+    model = CharacterCreatureVampireTrait
+    extra = 0
+    fields = ("trait", "mode", "rank", "associated_weakness_bought_off")
+    autocomplete_fields = ("trait",)
+
+
 class CharacterCreatureTraitInline(admin.TabularInline):
     model = CharacterCreatureTrait
     extra = 0
@@ -7156,13 +7403,27 @@ class CharacterCreatureAdmin(admin.ModelAdmin):
         CharacterCreatureSkillInline,
         CharacterCreatureSpecialSkillInline,
         CharacterCreatureDaemonicPowerInline,
+        CharacterCreatureVampireTraitInline,
         CharacterCreatureTraitInline,
         CharacterCreatureCommandInline,
         CharacterCreatureAttributeIncreaseInline,
     )
     fieldsets = (
         ("Zuordnung", {"fields": ("owner", "creature", "source_binding", ("source_character_item", "source_character_technique"), "active")}),
-        ("Basis", {"fields": ("name_override", "image_override", "quality", "current_damage", "notes")}),
+        ("Basis", {"fields": ("name_override", "image_override", "quality", ("current_damage", "current_aggravated_damage"), "notes")}),
+        (
+            "Vampire runtime and overrides",
+            {
+                "fields": (
+                    ("vampire_mode", "vampire_age_cycle_override", "vampire_state"),
+                    ("vampire_sacrament_age_bonus", "vampire_sacrament_rounds_remaining"),
+                    ("vampire_intelligent_blood", "vampire_animal_blood"),
+                    ("vampire_blood_capacity_bonus_override", "vampire_blood_capacity_override", "vampire_blood_capacity_loss"),
+                    ("vampire_day_count", "vampire_last_qualifying_kill_day"),
+                    ("vampire_regeneration_blood", "vampire_regeneration_target_cost", "vampire_pending_starvation"),
+                )
+            },
+        ),
         ("Ausbildungsbudgets", {"fields": ("max_base_advantage_points", "max_base_disadvantage_points")}),
         ("Groesse", {"fields": ("size_class_override",)}),
         (
@@ -7182,6 +7443,22 @@ class CharacterCreatureAdmin(admin.ModelAdmin):
         ("Werte-Overrides", {"fields": ("initiative_override", "vw_override", "sr_override", "gw_override", ("fear_resistance_bonus_override", "defense_extra_label_override"), "natural_rs_override", "wound_step_override", "wound_thresholds_override")}),
         ("Bewegungs-Overrides", {"fields": ("combat_speed_override", "march_speed_override", "sprint_speed_override", "swimming_speed_override", ("combat_swimming_speed_override", "march_swimming_speed_override", "sprint_swimming_speed_override"), "combat_fly_speed_override", "march_fly_speed_override", "sprint_fly_speed_override", ("movement_mana_cost_override", "movement_note_override"))}),
     )
+
+
+@admin.register(CharacterCreatureVampireTrait)
+class CharacterCreatureVampireTraitAdmin(admin.ModelAdmin):
+    list_display = ("creature", "trait", "mode", "rank", "associated_weakness_bought_off")
+    search_fields = ("creature__name_override", "creature__creature__name", "trait__name")
+    list_filter = ("mode", "trait__trait_type")
+    autocomplete_fields = ("creature", "trait")
+
+
+@admin.register(GameGroupCreatureVampireTrait)
+class GameGroupCreatureVampireTraitAdmin(admin.ModelAdmin):
+    list_display = ("creature", "trait", "mode", "rank", "associated_weakness_bought_off")
+    search_fields = ("creature__group__name", "creature__name_override", "trait__name")
+    list_filter = ("mode", "trait__trait_type")
+    autocomplete_fields = ("creature", "trait")
 
 
 @admin.register(CharacterCreatureItem)
@@ -7560,6 +7837,14 @@ class GameGroupAdmin(admin.ModelAdmin):
 
     def has_add_permission(self, request):
         return False
+
+
+@admin.register(GameGroupCreature)
+class GameGroupCreatureAdmin(admin.ModelAdmin):
+    list_display = ("id", "group", "creature", "character_creature", "vampire_mode", "vampire_state", "current_damage")
+    list_filter = ("vampire_mode", "vampire_state")
+    search_fields = ("group__name", "creature__name", "character_creature__name_override")
+    autocomplete_fields = ("group", "creature", "character_creature")
 
 
 @admin.register(GameGroupRole)

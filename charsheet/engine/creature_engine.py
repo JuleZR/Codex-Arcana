@@ -35,6 +35,7 @@ from charsheet.constants import (
     SKILL_COMBAT,
     POTENTIAL,
     RULE_FLAG_CHOICES,
+    VAMPIRE_STATE_UI_LABELS,
     WOUND_PENALTY_IGNORE,
 )
 from charsheet.models.creatures import (
@@ -49,6 +50,7 @@ from charsheet.models.creatures import (
     CreatureSourceBinding,
 )
 from charsheet.models.daemonic_powers import DaemonicPowerSemanticEffect
+from charsheet.models.vampirism import VampireTraitSemanticEffect
 from charsheet.models.character import CharacterItem
 from charsheet.models.techniques import CharacterTechnique
 from charsheet.modifiers.definitions import ModifierOperator, StackBehavior, TargetDomain
@@ -149,6 +151,11 @@ class _EmptyCreature:
     commands = _EmptyRelatedRows()
     languages = _EmptyRelatedRows()
     daemonic_powers = _EmptyRelatedRows()
+    vampire_trait_defaults = _EmptyRelatedRows()
+    vampire_default_enabled = False
+    vampire_age_cycle_default = 1
+    vampire_blood_capacity_bonus_default = 0
+    vampire_blood_capacity_override = None
 
 
 EMPTY_CREATURE = _EmptyCreature()
@@ -311,6 +318,13 @@ class CreatureEngine:
         )
 
     @cached_property
+    def _effective_vampire_traits(self) -> list[Any]:
+        """Resolve template and instance vampire traits through VampireRules."""
+        from charsheet.engine.vampire_engine import VampireRules
+
+        return VampireRules(self.source).effective_traits(include_weaknesses=True)
+
+    @cached_property
     def _base_daemonic_power_levels(self) -> dict[int, int | None]:
         return {
             row.power_id: row.level
@@ -362,6 +376,38 @@ class CreatureEngine:
                 ):
                     continue
                 effects.extend(self._daemonic_effect_row_to_creature_effects(effect_row))
+        from charsheet.engine.vampire_engine import VampireRules
+
+        vampire_age_cycle = VampireRules(self.source).age_cycle()
+        if VampireRules(self.source).is_vampire():
+            effects.extend(
+                CreatureSemanticEffect(
+                    source_id="vampire_status",
+                    target_domain=TargetDomain.RULE_FLAG,
+                    target_key=target_key,
+                    operator=ModifierOperator.SET_FLAG,
+                    value=True,
+                )
+                for target_key in (WOUND_PENALTY_IGNORE, CAN_ACT_WHILE_OUT_OF_ACTION)
+            )
+        for ownership in self._effective_vampire_traits:
+            for effect_row in ownership.trait.semantic_effects.all():
+                if (
+                    not effect_row.active_flag
+                    or effect_row.application_scope
+                    not in {
+                        VampireTraitSemanticEffect.ApplicationScope.CREATURE,
+                        VampireTraitSemanticEffect.ApplicationScope.BOTH,
+                    }
+                ):
+                    continue
+                effects.extend(
+                    self._vampire_effect_row_to_creature_effects(
+                        effect_row,
+                        rank=ownership.rank,
+                        age_cycle=vampire_age_cycle,
+                    )
+                )
         return self._expand_choice_bound_effects(effects)
 
     @staticmethod
@@ -376,6 +422,45 @@ class CreatureEngine:
             value_min=effect_row.value_min,
             value_max=effect_row.value_max,
             scaling=dict(effect_row.scaling or {}),
+            stack_behavior=effect_row.stack_behavior,
+            priority=int(effect_row.priority),
+            condition_text=effect_row.condition_text,
+            rules_text=effect_row.rules_text,
+            notes=effect_row.notes,
+            metadata=dict(effect_row.metadata or {}),
+        )
+        skill_slugs = list(
+            effect_row.target_skills.order_by("slug").values_list("slug", flat=True)
+        )
+        if not skill_slugs:
+            return [base_effect]
+        return [
+            replace(base_effect, target_domain=TargetDomain.SKILL, target_key=slug)
+            for slug in skill_slugs
+        ]
+
+    @staticmethod
+    def _vampire_effect_row_to_creature_effects(
+        effect_row,
+        *,
+        rank: int,
+        age_cycle: int,
+    ) -> list[CreatureSemanticEffect]:
+        scaling = {
+            **dict(effect_row.scaling or {}),
+            "_vampire_trait_rank": max(1, int(rank or 1)),
+            "_vampire_age_cycle": max(1, int(age_cycle or 1)),
+        }
+        base_effect = CreatureSemanticEffect(
+            source_id=f"vampire_trait:{effect_row.trait_id}",
+            target_domain=effect_row.target_domain,
+            target_key=effect_row.target_key,
+            operator=effect_row.operator,
+            mode=effect_row.mode,
+            value=effect_row._coerce_scalar(effect_row.value),
+            value_min=effect_row.value_min,
+            value_max=effect_row.value_max,
+            scaling=scaling,
             stack_behavior=effect_row.stack_behavior,
             priority=int(effect_row.priority),
             condition_text=effect_row.condition_text,
@@ -608,7 +693,14 @@ class CreatureEngine:
         if str(effect.mode or "flat") == "scaled":
             scaling = dict(effect.scaling or {})
             scale_source = str(scaling.get("scale_source") or "")
-            scale_value = int(scaling.get("_trait_level") or 0) if scale_source == "trait_level" else None
+            if scale_source == "trait_level":
+                scale_value = int(scaling.get("_trait_level") or 0)
+            elif scale_source == "vampire_trait_rank":
+                scale_value = int(scaling.get("_vampire_trait_rank") or 0)
+            elif scale_source == "vampire_age_cycle":
+                scale_value = int(scaling.get("_vampire_age_cycle") or 0)
+            else:
+                scale_value = None
             if scale_value is None:
                 return 0
             mul = self._coerce_numeric(scaling.get("mul"), default=1)
@@ -1523,6 +1615,11 @@ class CreatureEngine:
         return rows
 
     def card_context(self) -> dict[str, Any]:
+        from charsheet.engine.vampire_engine import VampireRules
+
+        vampire_rules = VampireRules(self.source)
+        is_vampire = vampire_rules.is_vampire()
+        vampire_resource = vampire_rules.resource_state() if is_vampire else None
         armor = self.armor_totals()
         defense_extra_value = self.defense_extra_value()
         defense_extra_label = self.defense_extra_label()
@@ -1542,8 +1639,8 @@ class CreatureEngine:
         holo_kind = "creature-legendary" if normalized_quality == "legendary" else "creature"
         movement = self.movement()
         movement_notes = self.movement_notes()
-        kp = self.kp()
-        potential = self.potential()
+        kp = vampire_resource.intelligent if vampire_resource else self.kp()
+        potential = vampire_resource.potential if vampire_resource else self.potential()
         creature_type = getattr(self.creature.creature_type, "name", "")
         has_ground = all(movement.get(key) is not None for key in ("combat", "march", "sprint"))
         has_single_swim = movement.get("swim") not in (None, "", 0, 0.0)
@@ -1592,8 +1689,10 @@ class CreatureEngine:
             "gw": self.gw(),
             "gw_note": self._join_effect_notes(TargetDomain.DERIVED_STAT, "gw"),
             "gw_variants": self._conditional_value_variants(TargetDomain.DERIVED_STAT, "gw", self.gw()),
-            "has_kp": bool(self.creature.has_kp),
+            "has_kp": bool(self.creature.has_kp or is_vampire),
+            "resource_label": "BP" if is_vampire else "KP",
             "kp": kp,
+            "kp_max": vampire_resource.maximum if vampire_resource else kp,
             "kp_note": self._join_effect_notes(TargetDomain.DERIVED_STAT, ARCANE_POWER),
             "kp_variants": (
                 self._conditional_value_variants(TargetDomain.DERIVED_STAT, ARCANE_POWER, kp)
@@ -1623,6 +1722,7 @@ class CreatureEngine:
             "encumbrance_note": self._join_effect_notes(TargetDomain.DERIVED_STAT, "encumbrance"),
             "encumbrance_variants": self._conditional_value_variants(TargetDomain.DERIVED_STAT, "encumbrance", armor.encumbrance),
             "current_damage": int(getattr(self.instance, "current_damage", 0) or 0),
+            "current_aggravated_damage": int(getattr(self.instance, "current_aggravated_damage", 0) or 0),
             "wounds": wound_rows,
             "wound_max": wound_rows[-1]["threshold"] if wound_rows else 0,
             "wound_zone": wound_zone,
@@ -1652,6 +1752,37 @@ class CreatureEngine:
             "commands": self.commands(),
             "traits": self.traits(),
             "daemonic_powers": self.daemonic_powers(),
+            "is_vampire": is_vampire,
+            "vampire": (
+                {
+                    "age_cycle": vampire_rules.age_cycle(),
+                    "intelligent_blood": vampire_resource.intelligent,
+                    "animal_blood": vampire_resource.animal,
+                    "capacity": vampire_resource.maximum,
+                    "potential": vampire_resource.potential,
+                    "state": getattr(self.instance, "vampire_state", "active"),
+                    "state_label": VAMPIRE_STATE_UI_LABELS.get(
+                        getattr(self.instance, "vampire_state", "active"),
+                        getattr(self.instance, "vampire_state", "active"),
+                    ),
+                    "state_label": VAMPIRE_STATE_UI_LABELS.get(
+                        getattr(self.instance, "vampire_state", "active"),
+                        getattr(self.instance, "vampire_state", "active"),
+                    ),
+                    "warnings": vampire_rules.warnings(),
+                    "traits": [
+                        {
+                            "name": entry.trait.name,
+                            "rank": entry.rank,
+                            "type": entry.trait.trait_type,
+                            "description": entry.trait.description,
+                        }
+                        for entry in vampire_rules.effective_traits(include_weaknesses=True)
+                    ],
+                }
+                if is_vampire
+                else None
+            ),
             "effect_conditions": self.effect_condition_summary(),
             "climate_and_occurrence": self.creature.climate_and_occurrence,
             "organization": self.instance.trigger_label if self.instance and self.instance.trigger_label else self.creature.organization,
@@ -1921,16 +2052,24 @@ def sync_character_creatures(character) -> list[CharacterCreature]:
             continue
         for source in source_rows:
             budgets = CharacterCreature.training_budget_defaults(source["quality"])
+            source_creature = source.get("creature", binding.creature)
+            vampire_defaults = {}
+            if source_creature is not None and source_creature.vampire_default_enabled:
+                vampire_defaults = {
+                    "vampire_intelligent_blood": int(source_creature.vampire_intelligent_blood_default or 0),
+                    "vampire_animal_blood": int(source_creature.vampire_animal_blood_default or 0),
+                }
             instance, created = CharacterCreature.objects.get_or_create(
                 owner=character,
                 source_binding=binding,
                 source_character_item=source["source_character_item"],
                 source_character_technique=source["source_character_technique"],
                 defaults={
-                    "creature": source.get("creature", binding.creature),
+                    "creature": source_creature,
                     "quality": source["quality"],
                     "active": True,
                     **budgets,
+                    **vampire_defaults,
                 },
             )
             active_creature_ids.add(instance.pk)

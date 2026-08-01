@@ -69,6 +69,34 @@ VALID_STAT_SLUGS = {
 
 SOURCE_ITEM_RUNE = "item_rune"
 RUNE_CRAFTER_LEVEL = "rune_crafter_level"
+VAMPIRE_ANCHOR_TRAIT_SLUG = "adv_vampire"
+VAMPIRE_ANCHOR_TRAIT_SLUG = "adv_vampire"
+
+# Vampirism runtime state.  These choices live with the other cross-domain
+# constants so Character, Creature and GM-card models do not depend on each
+# other's modules.
+VAMPIRE_STATE_ACTIVE = "active"
+VAMPIRE_STATE_TORPOR = "torpor"
+VAMPIRE_STATE_DESTROYED = "destroyed"
+VAMPIRE_STATE_CHOICES = (
+    (VAMPIRE_STATE_ACTIVE, "Active"),
+    (VAMPIRE_STATE_TORPOR, "Torpor"),
+    (VAMPIRE_STATE_DESTROYED, "Destroyed"),
+)
+VAMPIRE_STATE_UI_LABELS = {
+    VAMPIRE_STATE_ACTIVE: "Aktiv",
+    VAMPIRE_STATE_TORPOR: "Starre",
+    VAMPIRE_STATE_DESTROYED: "Vernichtet",
+}
+
+VAMPIRE_MODE_INHERIT = "inherit"
+VAMPIRE_MODE_ENABLE = "enable"
+VAMPIRE_MODE_DISABLE = "disable"
+VAMPIRE_MODE_CHOICES = (
+    (VAMPIRE_MODE_INHERIT, "Inherit from template"),
+    (VAMPIRE_MODE_ENABLE, "Enable vampirism"),
+    (VAMPIRE_MODE_DISABLE, "Disable vampirism"),
+)
 
 # School Slugs
 SCHOOL_ARCANE = "arcane"

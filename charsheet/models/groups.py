@@ -7,6 +7,13 @@ from django.db import models, transaction
 from django.db.models import Q
 from django.db.models.functions import Lower
 
+from ..constants import (
+    VAMPIRE_MODE_CHOICES,
+    VAMPIRE_MODE_INHERIT,
+    VAMPIRE_STATE_ACTIVE,
+    VAMPIRE_STATE_CHOICES,
+)
+
 
 class GameGroupQuerySet(models.QuerySet):
     """Game groups are historical records and may only be archived."""
@@ -246,11 +253,44 @@ class GameGroupCreature(models.Model):
     screen_is_collapsed = models.BooleanField(default=False)
     current_stun_damage = models.PositiveIntegerField(default=0)
     current_lethal_damage = models.PositiveIntegerField(default=0)
+    current_aggravated_damage = models.PositiveIntegerField(
+        default=0,
+        help_text="Bereits im tödlichen Schaden enthaltener schwer heilbarer Anteil.",
+    )
     current_kp = models.PositiveIntegerField(null=True, blank=True)
+    vampire_mode = models.CharField(
+        max_length=12,
+        choices=VAMPIRE_MODE_CHOICES,
+        default=VAMPIRE_MODE_INHERIT,
+    )
+    vampire_age_cycle = models.PositiveSmallIntegerField(default=1)
+    vampire_sacrament_age_bonus = models.PositiveSmallIntegerField(default=0)
+    vampire_sacrament_rounds_remaining = models.PositiveSmallIntegerField(default=0)
+    vampire_intelligent_blood = models.PositiveIntegerField(default=0)
+    vampire_animal_blood = models.PositiveIntegerField(default=0)
+    vampire_blood_capacity_bonus = models.PositiveIntegerField(default=0)
+    vampire_blood_capacity_override = models.PositiveIntegerField(blank=True, null=True)
+    vampire_blood_capacity_loss = models.PositiveIntegerField(default=0)
+    vampire_state = models.CharField(
+        max_length=12,
+        choices=VAMPIRE_STATE_CHOICES,
+        default=VAMPIRE_STATE_ACTIVE,
+    )
+    vampire_day_count = models.PositiveIntegerField(default=0)
+    vampire_last_qualifying_kill_day = models.PositiveIntegerField(blank=True, null=True)
+    vampire_regeneration_blood = models.PositiveIntegerField(default=0)
+    vampire_regeneration_target_cost = models.PositiveSmallIntegerField(default=0)
+    vampire_pending_starvation = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ["group", "screen_position", "id"]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(current_aggravated_damage__lte=models.F("current_lethal_damage")),
+                name="group_creature_aggravated_lte_lethal",
+            )
+        ]
 
     def __str__(self):
         creature = self.character_creature or self.creature
@@ -269,6 +309,7 @@ class GameGroupCreature(models.Model):
         action: str,
         amount: int,
         stun_max: int,
+        aggravated: bool = False,
     ) -> None:
         """Apply the same B/T damage and overflow rules as character cards."""
         amount = max(0, int(amount or 0))
@@ -276,11 +317,20 @@ class GameGroupCreature(models.Model):
         if damage_type == "T":
             if action == "damage":
                 self.current_lethal_damage += amount
+                if aggravated:
+                    self.current_aggravated_damage += amount
             elif action == "heal":
-                self.current_lethal_damage = max(
-                    0,
-                    self.current_lethal_damage - amount,
-                )
+                if aggravated:
+                    healed = min(amount, int(self.current_aggravated_damage or 0))
+                    self.current_aggravated_damage -= healed
+                else:
+                    normal_lethal = max(
+                        0,
+                        int(self.current_lethal_damage or 0)
+                        - int(self.current_aggravated_damage or 0),
+                    )
+                    healed = min(amount, normal_lethal)
+                self.current_lethal_damage = max(0, self.current_lethal_damage - healed)
             return
         if damage_type != "B":
             return

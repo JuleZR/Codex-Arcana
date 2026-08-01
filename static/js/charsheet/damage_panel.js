@@ -30,6 +30,8 @@ export function initDamagePanel() {
 
   const requestUrl = form.getAttribute("action") || window.location.href;
   const arcaneRequestUrl = arcaneForm?.getAttribute("action") || window.location.href;
+  const animalBloodForm = document.querySelector(".animal_blood_actions");
+  const animalBloodRequestUrl = animalBloodForm?.getAttribute("action") || window.location.href;
   const storageKey = "charsheet.damageGauge.value";
   const thresholdsScript = document.getElementById("wound-thresholds-data");
   let thresholdRows = [];
@@ -41,6 +43,7 @@ export function initDamagePanel() {
   let localLethalDamage = readInt(gauge.dataset.lethalDamage, 0);
   let localDamage = localStunDamage + localLethalDamage;
   let localArcane = readInt(arcaneMeter?.dataset.arcaneCurrent || currentArcaneEl?.textContent, 0);
+  let localAnimalBlood = readInt(arcaneMeter?.dataset.animalBlood, 0);
   let pendingDamageOperations = [];
   let damageFlushTimer = null;
   let damageDependentRefreshTimer = null;
@@ -52,6 +55,11 @@ export function initDamagePanel() {
   let arcaneFlushTimer = null;
   let arcaneRequestInFlight = false;
   let confirmedArcane = localArcane;
+  let confirmedAnimalBlood = localAnimalBlood;
+  let pendingAnimalBloodDelta = 0;
+  let animalBloodFlushTimer = null;
+  let animalBloodRequestInFlight = false;
+  let animalBloodRequestQueue = Promise.resolve();
   let woundPenaltyIgnored = woundStageEl.classList.contains("is-disabled") || woundPenaltyEl.classList.contains("is-disabled");
 
   window.__charsheetDamagePanel = {
@@ -62,10 +70,13 @@ export function initDamagePanel() {
       const dependentRefresh = refreshDamageDependents();
       window.clearTimeout(arcaneFlushTimer);
       flushArcaneDelta();
+      window.clearTimeout(animalBloodFlushTimer);
+      flushAnimalBloodDelta();
       return Promise.all([
         requestQueue.catch(() => undefined),
         dependentRefresh.catch(() => undefined),
         arcaneRequestQueue.catch(() => undefined),
+        animalBloodRequestQueue.catch(() => undefined),
       ]);
     },
   };
@@ -178,7 +189,10 @@ export function initDamagePanel() {
     }
     const { animate = true } = options;
     const safeMax = Math.max(0, readInt(maxValue ?? arcaneMeter.dataset.arcaneMax, 0));
-    const clampedValue = Math.max(0, Math.min(readInt(value, 0), safeMax));
+    const isSharedBloodMeter = arcaneMeter.classList.contains("arcane_meter--blood-shared");
+    const animalBlood = isSharedBloodMeter ? Math.max(0, readInt(arcaneMeter.dataset.animalBlood, 0)) : 0;
+    const individualMaximum = isSharedBloodMeter ? Math.max(0, safeMax - animalBlood) : safeMax;
+    const clampedValue = Math.max(0, Math.min(readInt(value, 0), individualMaximum));
     const ratio = safeMax <= 0 ? 0 : (clampedValue / safeMax) * 100;
 
     if (!animate) {
@@ -186,7 +200,20 @@ export function initDamagePanel() {
     }
     arcaneFillEl.style.width = `${ratio}%`;
     const arcaneValueNode = arcaneMeter.querySelector(".arcane_meter_value");
-    if (arcaneValueNode) {
+    if (isSharedBloodMeter) {
+      if (currentArcaneEl) {
+        currentArcaneEl.textContent = String(clampedValue);
+      }
+      const totalNode = arcaneMeter.querySelector(".blood_shared_meter__total");
+      const animalSegment = arcaneMeter.querySelector(".blood_shared_meter__animal");
+      if (totalNode) {
+        totalNode.textContent = String(clampedValue + animalBlood);
+      }
+      if (animalSegment instanceof HTMLElement) {
+        animalSegment.style.left = `${ratio}%`;
+        animalSegment.classList.toggle("is-first", clampedValue === 0);
+      }
+    } else if (arcaneValueNode) {
       arcaneValueNode.innerHTML = `<span class="arcane_meter_current">${clampedValue}</span>`;
     }
     arcaneMeter.dataset.arcaneCurrent = String(clampedValue);
@@ -196,6 +223,71 @@ export function initDamagePanel() {
         arcaneFillEl.style.transition = "";
       });
     }
+  }
+
+  function renderAnimalBlood(value, maxValue) {
+    if (!arcaneMeter?.classList.contains("arcane_meter--blood-shared")) {
+      return;
+    }
+    const safeMax = Math.max(0, readInt(maxValue ?? arcaneMeter.dataset.arcaneMax, 0));
+    const intelligentBlood = Math.max(0, readInt(arcaneMeter.dataset.arcaneCurrent, 0));
+    localAnimalBlood = Math.max(0, Math.min(readInt(value, 0), Math.max(0, safeMax - intelligentBlood)));
+    const intelligentRatio = safeMax <= 0 ? 0 : (intelligentBlood / safeMax) * 100;
+    const animalRatio = safeMax <= 0 ? 0 : (localAnimalBlood / safeMax) * 100;
+    const animalSegment = arcaneMeter.querySelector(".blood_shared_meter__animal");
+    const totalNode = arcaneMeter.querySelector(".blood_shared_meter__total");
+    if (animalSegment instanceof HTMLElement) {
+      animalSegment.style.left = `${intelligentRatio}%`;
+      animalSegment.style.width = `${animalRatio}%`;
+      animalSegment.classList.toggle("is-first", intelligentBlood === 0);
+    }
+    if (totalNode) {
+      totalNode.textContent = String(intelligentBlood + localAnimalBlood);
+    }
+    arcaneMeter.dataset.animalBlood = String(localAnimalBlood);
+  }
+
+  function scheduleAnimalBloodFlush() {
+    window.clearTimeout(animalBloodFlushTimer);
+    animalBloodFlushTimer = window.setTimeout(flushAnimalBloodDelta, 160);
+  }
+
+  function flushAnimalBloodDelta() {
+    if (animalBloodRequestInFlight || pendingAnimalBloodDelta === 0 || !animalBloodForm) {
+      return;
+    }
+    const delta = pendingAnimalBloodDelta;
+    pendingAnimalBloodDelta = 0;
+    animalBloodRequestInFlight = true;
+    const formData = new FormData(animalBloodForm);
+    formData.set("ajax", "1");
+    formData.set("delta", String(delta));
+    animalBloodRequestQueue = animalBloodRequestQueue.then(async () => {
+      const response = await fetch(animalBloodRequestUrl, {
+        method: "POST",
+        body: formData,
+        headers: { "X-Requested-With": "XMLHttpRequest", Accept: "application/json" },
+        credentials: "same-origin",
+      });
+      if (!response.ok) {
+        throw new Error("animal blood update failed");
+      }
+      const payload = await response.json();
+      confirmedAnimalBlood = readInt(payload.animal_blood, confirmedAnimalBlood + delta);
+      if (pendingAnimalBloodDelta === 0) {
+        localAnimalBlood = confirmedAnimalBlood;
+      }
+      renderAnimalBlood(localAnimalBlood, readInt(payload.capacity, arcaneMeter?.dataset.arcaneMax));
+    }).catch(() => {
+      pendingAnimalBloodDelta = 0;
+      localAnimalBlood = confirmedAnimalBlood;
+      renderAnimalBlood(localAnimalBlood, arcaneMeter?.dataset.arcaneMax);
+    }).finally(() => {
+      animalBloodRequestInFlight = false;
+      if (pendingAnimalBloodDelta !== 0) {
+        scheduleAnimalBloodFlush();
+      }
+    });
   }
 
   function syncDamageDisplay(options = {}) {
@@ -558,4 +650,73 @@ export function initDamagePanel() {
       scheduleArcaneFlush();
     });
   });
+
+  document.querySelectorAll("#sheetDamagePanel .animal_blood_step_btn[data-delta]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const delta = readInt(button.getAttribute("data-delta"), 0);
+      if (delta === 0) {
+        return;
+      }
+      const maximum = readInt(arcaneMeter.dataset.arcaneMax, 0);
+      const intelligentBlood = readInt(arcaneMeter.dataset.arcaneCurrent, 0);
+      const previous = localAnimalBlood;
+      localAnimalBlood = Math.max(0, Math.min(maximum - intelligentBlood, localAnimalBlood + delta));
+      pendingAnimalBloodDelta += localAnimalBlood - previous;
+      renderAnimalBlood(localAnimalBlood, maximum);
+      scheduleAnimalBloodFlush();
+    });
+  });
+
+  const regenerationForm = document.querySelector("[data-vampire-regeneration]");
+  if (regenerationForm instanceof HTMLFormElement && regenerationForm.dataset.liveBound !== "1") {
+    regenerationForm.dataset.liveBound = "1";
+    regenerationForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const submitButton = regenerationForm.querySelector("button[type='submit']");
+      const feedback = document.querySelector("[data-vampire-regeneration-feedback]");
+      if (submitButton instanceof HTMLButtonElement) {
+        submitButton.disabled = true;
+      }
+      if (feedback) {
+        feedback.textContent = "";
+      }
+      try {
+        const formData = new FormData(regenerationForm);
+        formData.set("ajax", "1");
+        const response = await fetch(regenerationForm.action, {
+          method: "POST",
+          body: formData,
+          headers: { "X-Requested-With": "XMLHttpRequest", Accept: "application/json" },
+          credentials: "same-origin",
+        });
+        const payload = await response.json();
+        if (!response.ok || !payload.ok) {
+          throw new Error(payload.error || "Regeneration konnte nicht ausgeführt werden.");
+        }
+        localStunDamage = readInt(payload.current_stun_damage, localStunDamage);
+        localLethalDamage = readInt(payload.current_lethal_damage, localLethalDamage);
+        confirmedStunDamage = localStunDamage;
+        confirmedLethalDamage = localLethalDamage;
+        localArcane = readInt(payload.intelligent_blood, localArcane);
+        confirmedArcane = localArcane;
+        localAnimalBlood = readInt(payload.animal_blood, localAnimalBlood);
+        confirmedAnimalBlood = localAnimalBlood;
+        arcaneMeter.dataset.animalBlood = String(localAnimalBlood);
+        renderArcaneMeter(localArcane, readInt(payload.capacity, arcaneMeter.dataset.arcaneMax));
+        renderAnimalBlood(localAnimalBlood, readInt(payload.capacity, arcaneMeter.dataset.arcaneMax));
+        syncDamageDisplay({ animate: true });
+        if (feedback) {
+          feedback.textContent = `${readInt(payload.healed, 0)} Schaden regeneriert.`;
+        }
+      } catch (error) {
+        if (feedback) {
+          feedback.textContent = error instanceof Error ? error.message : "Regeneration konnte nicht ausgeführt werden.";
+        }
+      } finally {
+        if (submitButton instanceof HTMLButtonElement) {
+          submitButton.disabled = false;
+        }
+      }
+    });
+  }
 }

@@ -72,6 +72,7 @@ from .models import (
     Skill,
     Technique,
     Trait,
+    VampireTrait,
     Quality,
     ItemPermissionGrant,
     ItemTransfer,
@@ -91,7 +92,15 @@ from .forms import (
     CharacterTechniqueSpecificationForm,
     UserSettingsForm
 )
-from .constants import ATTRIBUTE_CODE_CHOICES, ATTRIBUTE_ORDER, GK_MODS, RESOURCE_KEY_CHOICES, is_allowed_trait_attribute_choice
+from .constants import (
+    ATTRIBUTE_CODE_CHOICES,
+    ATTRIBUTE_ORDER,
+    GK_MODS,
+    RESOURCE_KEY_CHOICES,
+    SCHOOL_ARCANE,
+    SCHOOL_COMBAT,
+    is_allowed_trait_attribute_choice,
+)
 from .models.creatures import CREATURE_CARD_QUALITY_TRAINING_BUDGETS
 from .learning import process_learning_submission
 from .lesson_rules import LessonRuleError, activate_lesson, format_lesson_costs, format_lesson_requirements
@@ -1956,6 +1965,25 @@ def create_character(request):
             weapon_masteries = [weapon_masteries_by_slot[index] for index in sorted(weapon_masteries_by_slot)]
             weapon_arcana = [weapon_arcana_by_slot[index] for index in sorted(weapon_arcana_by_slot)]
 
+            vampire_traits: dict[str, dict[str, object]] = {}
+            for vampire_trait in VampireTrait.objects.filter(
+                trait_type__in=[VampireTrait.TraitType.POWER, VampireTrait.TraitType.WEAKNESS],
+                is_active=True,
+            ):
+                if not request.POST.get(f"vampire_trait_{vampire_trait.id}"):
+                    continue
+                vampire_traits[vampire_trait.slug] = {
+                    "rank": max(1, int(request.POST.get(f"vampire_rank_{vampire_trait.id}", "1") or 1)),
+                    "bought_off": bool(request.POST.get(f"vampire_buyoff_{vampire_trait.id}")),
+                }
+            vampire = {
+                "age_cycle": max(1, int(request.POST.get("vampire_age_cycle", "1") or 1)),
+                "capacity_bonus": max(0, int(request.POST.get("vampire_capacity_bonus", "0") or 0)),
+                "intelligent_blood": max(0, int(request.POST.get("vampire_intelligent_blood", "0") or 0)),
+                "animal_blood": max(0, int(request.POST.get("vampire_animal_blood", "0") or 0)),
+                "traits": vampire_traits,
+            }
+
             state["phase_4"] = {
                 "advantages": advantages,
                 "trait_choices": trait_choices,
@@ -1967,6 +1995,7 @@ def create_character(request):
                 "lessons": lessons,
                 "weapon_masteries": weapon_masteries,
                 "weapon_arcana": weapon_arcana,
+                "vampire": vampire,
             }
 
         draft.state = state
@@ -2013,16 +2042,17 @@ def create_character(request):
     phase_1_values = engine.phase_1_attributes()
     phase_1_rows = []
     for short_name, label in ATTRIBUTE_ORDER:
-        lim = limits.get(short_name, {"min": 0, "max": 0})
+        lim = limits.get(short_name, {"min": 0, "max": 0, "original_max": 0})
         value = phase_1_values.get(short_name, lim["min"])
+        phase_1_max = lim.get("original_max", lim["max"])
         phase_1_rows.append(
             {
                 "short_name": short_name,
                 "label": label,
                 "min": lim["min"],
-                "max": lim["max"],
+                "max": phase_1_max,
                 "value": value,
-                "cost": engine.calc_attribute_cost(value, lim["max"]) if lim["max"] else 0,
+                "cost": engine.calc_attribute_cost(value, phase_1_max) if phase_1_max else 0,
             }
         )
 
@@ -2104,6 +2134,7 @@ def create_character(request):
     phase_4_lang_write_adds = engine.phase_4_language_write_adds()
     phase_4_schools = engine.phase_4_schools()
     phase_4_lessons = engine.phase_4_lessons()
+    phase_4_vampire = engine.phase_4_vampire()
     phase_1_attr_values = engine.phase_1_attributes()
     phase_1_limits = engine.attribute_min_max_limits()
     phase_2_skill_values = engine.phase_2_skills()
@@ -2203,7 +2234,7 @@ def create_character(request):
             }
         )
     phase_4_school_rows = []
-    for school in School.objects.order_by("name"):
+    for school in School.objects.select_related("type").order_by("name"):
         description = (school.description or "").replace("\r\n", "\n").replace("\r", "\n")
         phase_4_school_rows.append(
             {
@@ -2211,6 +2242,7 @@ def create_character(request):
                 "name": school.name,
                 "description": description,
                 "value": phase_4_schools.get(str(school.id), 0),
+                "counts_for_vampire_capacity": school.type.slug in {SCHOOL_ARCANE, SCHOOL_COMBAT},
             }
         )
     phase_4_lesson_rows = []
@@ -2226,6 +2258,31 @@ def create_character(request):
         )
         .order_by("school__name", "name")
     )
+    phase_4_vampire_trait_rows = []
+    for trait in VampireTrait.objects.filter(
+        trait_type__in=[VampireTrait.TraitType.POWER, VampireTrait.TraitType.WEAKNESS],
+        is_active=True,
+    ).select_related("associated_weakness").order_by("trait_type", "sort_order", "name"):
+        selected = phase_4_vampire["traits"].get(trait.slug, {})
+        phase_4_vampire_trait_rows.append(
+            {
+                "id": trait.id,
+                "slug": trait.slug,
+                "name": trait.name,
+                "trait_type": trait.trait_type,
+                "description": trait.description,
+                "point_value": trait.point_value,
+                "blood_cost": trait.blood_cost,
+                "rankable": trait.rankable,
+                "max_rank": trait.max_rank or 10,
+                "associated_weakness": trait.associated_weakness,
+                "buyoff_cost": int(trait.associated_weakness.point_value or 0) if trait.associated_weakness_id else 0,
+                "buyoff_cost": int(trait.associated_weakness.point_value or 0) if trait.associated_weakness_id else 0,
+                "selected": bool(selected),
+                "rank": int(selected.get("rank", 1) or 1),
+                "bought_off": bool(selected.get("bought_off")),
+            }
+        )
     for lesson in lessons_queryset:
         try:
             costs_display = format_lesson_costs(lesson)
@@ -2304,6 +2361,9 @@ def create_character(request):
             "phase_4_language_rows": phase_4_language_rows,
             "phase_4_school_rows": phase_4_school_rows,
             "phase_4_lesson_rows": phase_4_lesson_rows,
+            "phase_4_vampire": phase_4_vampire,
+            "phase_4_vampire_trait_rows": phase_4_vampire_trait_rows,
+            "phase_4_vampire_cost": engine.vampire_creation_cost(),
             "phase_4_weapon_mastery_rows": phase_4_weapon_mastery_rows,
             "phase_4_weapon_mastery_school": weapon_master_school,
             "phase_4_spent": engine.sum_phase_4_total_cost(),
@@ -2775,14 +2835,19 @@ def adjust_current_damage(request, character_id: int):
     engine = character.engine
     thresholds = engine.wound_thresholds()
     damage_max = max(1, max(thresholds.keys(), default=0))
-    if damage_type in {"B", "G", "T"} and action in {"damage", "heal"}:
+    if damage_type in {"B", "G", "T", "S"} and action in {"damage", "heal"}:
         character.adjust_damage(
-            damage_type=damage_type,
+            damage_type="T" if damage_type == "S" else damage_type,
             action=action,
             amount=amount,
             stun_max=damage_max,
+            aggravated=damage_type == "S" or request.POST.get("aggravated") == "1",
         )
-        character.save(update_fields=["current_stun_damage", "current_lethal_damage"])
+        character.save(update_fields=["current_stun_damage", "current_lethal_damage", "current_aggravated_damage"])
+        from .engine.vampire_engine import VampireRules
+
+        if VampireRules(character).is_vampire():
+            VampireRules(character).evaluate_life_state()
 
     if _is_partial_request(request):
         engine = character.get_engine(refresh=True)
@@ -2806,6 +2871,7 @@ def adjust_current_damage(request, character_id: int):
                 "ok": True,
                 "current_stun_damage": character.current_stun_damage,
                 "current_lethal_damage": character.current_lethal_damage,
+                "current_aggravated_damage": character.current_aggravated_damage,
                 "current_damage": character.current_damage,
                 "current_damage_max": damage_max,
                 "current_wound_stage": current_stage,
@@ -2843,16 +2909,36 @@ def adjust_creature_damage(request, pk: int):
     except (TypeError, ValueError):
         amount = 1
 
+    aggravated = request.POST.get("aggravated") == "1"
     if action == "damage":
         character_creature.current_damage += amount
+        if aggravated:
+            character_creature.current_aggravated_damage += amount
     elif action == "heal":
-        character_creature.current_damage = max(0, character_creature.current_damage - amount)
+        if aggravated:
+            healed = min(amount, int(character_creature.current_aggravated_damage or 0))
+            character_creature.current_aggravated_damage -= healed
+        else:
+            healed = min(
+                amount,
+                max(
+                    0,
+                    int(character_creature.current_damage or 0)
+                    - int(character_creature.current_aggravated_damage or 0),
+                ),
+            )
+        character_creature.current_damage = max(0, character_creature.current_damage - healed)
 
-    character_creature.save(update_fields=["current_damage"])
+    character_creature.save(update_fields=["current_damage", "current_aggravated_damage"])
+    from .engine.vampire_engine import VampireRules
+
+    if VampireRules(character_creature).is_vampire():
+        VampireRules(character_creature).evaluate_life_state()
 
     if _is_partial_request(request):
         payload = _render_creature_training_payload(request, character_creature)
         payload["current_damage"] = character_creature.current_damage
+        payload["current_aggravated_damage"] = character_creature.current_aggravated_damage
         return JsonResponse(payload)
 
     next_url = str(request.POST.get("next") or "").strip()
@@ -3811,8 +3897,18 @@ def adjust_current_arcane_power(request, character_id: int):
     except (TypeError, ValueError):
         amount = 1
 
-    calculated_arcane_power = max(0, int(character.engine.calculate_arcane_power()))
-    current_arcane_power = character.current_arcane_power
+    from .engine.vampire_engine import VampireRules
+
+    vampire_rules = VampireRules(character)
+    if vampire_rules.is_vampire():
+        resource = vampire_rules.resource_state()
+        calculated_arcane_power = resource.maximum
+        current_arcane_power = resource.intelligent
+        resource_field = "vampire_intelligent_blood"
+    else:
+        calculated_arcane_power = max(0, int(character.engine.calculate_arcane_power()))
+        current_arcane_power = character.current_arcane_power
+        resource_field = "current_arcane_power"
     if current_arcane_power is None:
         current_arcane_power = calculated_arcane_power
     current_arcane_power = max(0, int(current_arcane_power))
@@ -3829,8 +3925,8 @@ def adjust_current_arcane_power(request, character_id: int):
     elif action == "restore":
         current_arcane_power = min(arcane_power_max, current_arcane_power + amount)
 
-    character.current_arcane_power = current_arcane_power
-    character.save(update_fields=["current_arcane_power"])
+    setattr(character, resource_field, current_arcane_power)
+    character.save(update_fields=[resource_field])
 
     if _is_partial_request(request):
         return JsonResponse(
@@ -3838,6 +3934,7 @@ def adjust_current_arcane_power(request, character_id: int):
                 "ok": True,
                 "current_arcane_power": current_arcane_power,
                 "current_arcane_power_max": arcane_power_max,
+                "resource_type": "blood" if vampire_rules.is_vampire() else "arcane_power",
             }
         )
 
@@ -3878,6 +3975,202 @@ def cast_spell(request, character_id: int, spell_id: int):
 
     messages.success(request, f"{result['spell_name']} gewirkt ({result['spent_kp']} KP).")
     return redirect("character_sheet", character_id=character_id)
+
+
+@login_required
+@require_POST
+def vampire_character_action(request, character_id: int, action: str):
+    """Execute one explicit, actor-local vampire rules action."""
+    from .engine.vampire_engine import VampireRuleError, VampireRules
+
+    def number(name: str, default: int = 0) -> int:
+        try:
+            return int(request.POST.get(name, default))
+        except (TypeError, ValueError):
+            return int(default)
+
+    try:
+        action_result = None
+        with transaction.atomic():
+            character = get_object_or_404(
+                Character.objects.select_for_update(),
+                pk=character_id,
+                owner=request.user,
+            )
+            rules = VampireRules(character)
+            if action == "gain-blood":
+                rules.gain_blood(
+                    number("amount", 1),
+                    intelligent=request.POST.get("blood_type") != "animal",
+                )
+            elif action == "adjust-animal-blood":
+                action_result = rules.adjust_animal_blood(number("delta"))
+            elif action == "spend-blood":
+                rules.spend_intelligent_blood(
+                    number("amount", 1),
+                    enforce_potential=request.POST.get("enforce_potential", "1") != "0",
+                )
+            elif action == "sunrise":
+                rules.sunrise(
+                    animal_blood=number("animal_blood"),
+                    intelligent_blood=number("intelligent_blood"),
+                )
+            elif action == "record-kill":
+                rules.record_qualifying_kill()
+            elif action == "activate-power":
+                rules.activate_power(
+                    number("trait_id"),
+                    blood_amount=number("blood_amount"),
+                )
+            elif action == "regenerate":
+                aggravated = request.POST.get("hard_to_heal") == "1"
+                action_result = rules.invest_regeneration(
+                    None,
+                    hard_to_heal=aggravated,
+                    wound_grade=number("wound_grade", 1),
+                    damage_type="total",
+                    aggravated=aggravated,
+                )
+            elif action == "resolve-starvation":
+                rules.resolve_starvation(
+                    damage_type=request.POST.get("damage_type", ""),
+                    wound_grade=number("wound_grade", 1),
+                )
+            elif action in {"sunlight", "holy-symbol", "aggravated-damage"}:
+                rules.apply_damage(number("amount", 1), aggravated=True)
+            elif action == "stake":
+                rules.stake(
+                    net_damage=number("net_damage"),
+                    constitution=number("constitution"),
+                )
+            elif action == "behead":
+                rules.behead(confirmed=request.POST.get("confirmed") == "1")
+            elif action == "blood-baptism":
+                rules.blood_baptism(
+                    success=request.POST.get("success") == "1",
+                    extra_blood=number("extra_blood"),
+                )
+            elif action == "blood-sacrament":
+                rules.blood_sacrament(
+                    number("blood_amount", 1),
+                    duration_rounds=(number("duration_rounds") or None),
+                )
+            elif action == "advance-round":
+                rules.advance_round()
+            elif action == "blood-ritual":
+                rules.blood_ritual(
+                    request.POST.getlist("candidate_power_ids"),
+                    victim_destroyed=request.POST.get("victim_destroyed") == "1",
+                )
+            elif action == "learn-power":
+                rules.learn_power(
+                    number("trait_id"),
+                    rank=number("rank", 1),
+                    buy_off_associated_weakness=request.POST.get("buy_off") == "1",
+                )
+            elif action == "buyoff-weakness":
+                rules.buy_off_associated_weakness(number("trait_id"))
+            elif action == "purchase-age":
+                rules.purchase_age_cycle()
+            elif action == "purchase-capacity":
+                rules.purchase_capacity(number("amount", 1))
+            else:
+                raise VampireRuleError("Unbekannte Vampiraktion.")
+        if action == "adjust-animal-blood" and _is_partial_request(request):
+            return JsonResponse(
+                {
+                    "ok": True,
+                    "intelligent_blood": action_result.intelligent,
+                    "animal_blood": action_result.animal,
+                    "total_blood": action_result.total,
+                    "capacity": action_result.maximum,
+                }
+            )
+        if action == "regenerate" and _is_partial_request(request):
+            return JsonResponse(
+                {
+                    "ok": True,
+                    "healed": action_result["healed"],
+                    "current_stun_damage": character.current_stun_damage,
+                    "current_lethal_damage": character.current_lethal_damage,
+                    "current_aggravated_damage": character.current_aggravated_damage,
+                    "intelligent_blood": action_result["resource"].intelligent,
+                    "animal_blood": action_result["resource"].animal,
+                    "total_blood": action_result["resource"].total,
+                    "capacity": action_result["resource"].maximum,
+                }
+            )
+        messages.success(request, "Vampiraktion wurde angewendet.")
+    except VampireRuleError as exc:
+        if _is_partial_request(request):
+            return JsonResponse({"ok": False, "error": " ".join(exc.messages)}, status=400)
+        messages.error(request, " ".join(exc.messages))
+    return redirect("character_sheet", character_id=character_id)
+
+
+@login_required
+@require_POST
+def vampire_character_creature_action(request, pk: int, action: str):
+    """Execute an actor-local vampire action for a concrete character creature."""
+    from .engine.vampire_engine import VampireRuleError, VampireRules
+
+    def number(name: str, default: int = 0) -> int:
+        try:
+            return int(request.POST.get(name, default))
+        except (TypeError, ValueError):
+            return int(default)
+
+    try:
+        with transaction.atomic():
+            creature = get_object_or_404(
+                CharacterCreature.objects.select_for_update().select_related("owner", "creature"),
+                pk=pk,
+                owner__owner=request.user,
+            )
+            rules = VampireRules(creature)
+            if action == "gain-blood":
+                rules.gain_blood(number("amount", 1), intelligent=request.POST.get("blood_type") != "animal")
+            elif action == "spend-blood":
+                rules.spend_intelligent_blood(number("amount", 1), enforce_potential=False)
+            elif action == "sunrise":
+                rules.sunrise(animal_blood=number("animal_blood"), intelligent_blood=number("intelligent_blood"))
+            elif action == "record-kill":
+                rules.record_qualifying_kill()
+            elif action == "activate-power":
+                rules.activate_power(number("trait_id"), blood_amount=number("blood_amount"))
+            elif action == "regenerate":
+                rules.invest_regeneration(
+                    number("blood_amount", 1),
+                    hard_to_heal=request.POST.get("hard_to_heal") == "1",
+                    wound_grade=number("wound_grade", 1),
+                    damage_type="T",
+                    aggravated=request.POST.get("aggravated") == "1",
+                )
+            elif action == "resolve-starvation":
+                rules.resolve_starvation(damage_type="T", wound_grade=number("wound_grade", 1))
+            elif action in {"sunlight", "holy-symbol", "aggravated-damage"}:
+                rules.apply_damage(number("amount", 1), aggravated=True)
+            elif action == "stake":
+                rules.stake(net_damage=number("net_damage"), constitution=number("constitution"))
+            elif action == "behead":
+                rules.behead(confirmed=request.POST.get("confirmed") == "1")
+            elif action == "blood-baptism":
+                rules.blood_baptism(success=request.POST.get("success") == "1", extra_blood=number("extra_blood"))
+            elif action == "blood-sacrament":
+                rules.blood_sacrament(number("blood_amount", 1), duration_rounds=(number("duration_rounds") or None))
+            elif action == "advance-round":
+                rules.advance_round()
+            elif action == "blood-ritual":
+                rules.blood_ritual(
+                    request.POST.getlist("candidate_power_ids"),
+                    victim_destroyed=request.POST.get("victim_destroyed") == "1",
+                )
+            else:
+                raise VampireRuleError("Unbekannte Vampiraktion.")
+        messages.success(request, "Vampiraktion wurde angewendet.")
+    except VampireRuleError as exc:
+        messages.error(request, " ".join(exc.messages))
+    return redirect("character_sheet", character_id=creature.owner_id if 'creature' in locals() else request.POST.get("character_id"))
 
 
 @login_required

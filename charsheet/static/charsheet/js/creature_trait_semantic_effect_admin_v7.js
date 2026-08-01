@@ -94,11 +94,29 @@
     }
     syncApplicationScope(root);
     var isChoice = area.value === "choice" || area.value === "choice_attack_damage";
-    var isRuleFlag = area.value === "rule_flag";
+    var semanticOperators = {
+      rule_flag: ["set_flag", "unset_flag"]
+    };
+    var operator = root.querySelector('[name$="simple_operator"]');
+    if (operator) {
+      var allowed = semanticOperators[area.value];
+      var operatorOptions = readAllOptions(operator);
+      if (allowed) {
+        operatorOptions = operatorOptions.filter(function (option) {
+          return option.value === "" || allowed.indexOf(option.value) !== -1;
+        });
+      } else {
+        operatorOptions = operatorOptions.filter(function (option) {
+          return ["", "flat_add", "flat_sub", "multiply", "floor_divide", "override", "min_value", "max_value"].indexOf(option.value) !== -1;
+        });
+      }
+      rebuildOptions(operator, operatorOptions, operator.value);
+    }
+    var isSemanticBoolean = Boolean(semanticOperators[area.value]);
     setRowVisible(root, "simple_target", !isChoice);
     setRowVisible(root, "target_choice_definition", isChoice);
-    setRowVisible(root, "simple_operator", !isRuleFlag);
-    setRowVisible(root, "simple_value", !isRuleFlag);
+    setRowVisible(root, "simple_operator", true);
+    setRowVisible(root, "simple_value", !isSemanticBoolean);
     if (!isChoice) {
       syncSimpleTarget(root);
     }
