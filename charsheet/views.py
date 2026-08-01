@@ -96,10 +96,12 @@ from .forms import (
 from .constants import (
     ATTRIBUTE_CODE_CHOICES,
     ATTRIBUTE_ORDER,
+    ATTR_ST,
     GK_MODS,
     RESOURCE_KEY_CHOICES,
     SCHOOL_ARCANE,
     SCHOOL_COMBAT,
+    VAMPIRE_STRENGTH_OVER_RACE_MAXIMUM,
     is_allowed_trait_attribute_choice,
 )
 from .models.creatures import CREATURE_CARD_QUALITY_TRAINING_BUDGETS
@@ -1974,7 +1976,7 @@ def create_character(request):
                     continue
                 vampire_traits[vampire_trait.slug] = {}
             vampire_powers: dict[str, dict[str, object]] = {}
-            for vampire_power in VampirePower.objects.filter(is_active=True, weakness__isnull=False):
+            for vampire_power in VampirePower.objects.filter(is_active=True).exclude(weakness="").exclude(weakness__isnull=True):
                 if not request.POST.get(f"vampire_power_{vampire_power.id}"):
                     continue
                 vampire_powers[vampire_power.slug] = {
@@ -2201,7 +2203,7 @@ def create_character(request):
 
     phase_4_attr_rows = []
     for short_name, label in ATTRIBUTE_ORDER:
-        limits = phase_1_limits.get(short_name, {"min": 0, "max": 0})
+        limits = phase_1_limits.get(short_name, {"min": 0, "max": 0, "original_max": 0})
         base_value = phase_1_attr_values.get(short_name, limits["min"])
         add_value = phase_4_attr_adds.get(short_name, 0)
         phase_4_attr_rows.append(
@@ -2210,6 +2212,13 @@ def create_character(request):
                 "label": label,
                 "base_value": base_value,
                 "max_value": limits["max"],
+                "original_max": limits["original_max"],
+                "premium_threshold": (
+                    limits["original_max"] - 2
+                    if short_name == ATTR_ST
+                    and engine.vampire_semantic_flag(VAMPIRE_STRENGTH_OVER_RACE_MAXIMUM)
+                    else limits["max"] - 2
+                ),
                 "value": add_value,
             }
         )
@@ -2241,7 +2250,10 @@ def create_character(request):
             }
         )
     phase_4_school_rows = []
+    vampire_disallowed_school_ids = engine.vampire_disallowed_school_ids()
     for school in School.objects.select_related("type").order_by("name"):
+        if school.id in vampire_disallowed_school_ids and phase_4_schools.get(str(school.id), 0) <= 0:
+            continue
         description = (school.description or "").replace("\r\n", "\n").replace("\r", "\n")
         phase_4_school_rows.append(
             {
@@ -2279,13 +2291,19 @@ def create_character(request):
                 "description": trait.description,
                 "point_value": 5,
                 "selected": bool(selected),
+                "grants_strength_extension": trait.semantic_effects.filter(
+                    active_flag=True,
+                    application_scope__in=("character", "both"),
+                    target_domain="rule_flag",
+                    target_key=VAMPIRE_STRENGTH_OVER_RACE_MAXIMUM,
+                    operator="set_flag",
+                ).exists(),
             }
         )
     phase_4_vampire_power_rows = []
     for power in VampirePower.objects.filter(
         is_active=True,
-        weakness__isnull=False,
-    ).select_related("weakness").order_by("sort_order", "name"):
+    ).exclude(weakness="").exclude(weakness__isnull=True).order_by("sort_order", "name"):
         selected = phase_4_vampire["powers"].get(power.slug, {})
         phase_4_vampire_power_rows.append(
             {
@@ -2294,6 +2312,13 @@ def create_character(request):
                 "name": power.name,
                 "description": power.description,
                 "weakness": power.weakness,
+                "grants_strength_extension": power.semantic_effects.filter(
+                    active_flag=True,
+                    application_scope__in=("character", "both"),
+                    target_domain="rule_flag",
+                    target_key=VAMPIRE_STRENGTH_OVER_RACE_MAXIMUM,
+                    operator="set_flag",
+                ).exists(),
                 "selected": bool(selected),
                 "without_weakness": bool(selected.get("without_weakness")),
                 "cost_with_weakness": 15,

@@ -129,59 +129,40 @@ from charsheet.view_utils import format_compact_number, format_modifier, format_
 
 
 def _vampire_learning_payload(character, vampire_rules):
-    owned_traits = list(
-        CharacterVampireTrait.objects.filter(character=character)
-        .select_related("trait")
-        .order_by("trait__sort_order", "trait__name")
-    )
     owned_powers = list(
         CharacterVampirePower.objects.filter(character=character)
-        .select_related("power", "power__weakness")
+        .select_related("power")
         .order_by("power__sort_order", "power__name")
     )
-    owned_trait_ids = {row.trait_id for row in owned_traits}
     owned_power_ids = {row.power_id for row in owned_powers}
     return {
         "age_cycle": vampire_rules.age_cycle(),
         "capacity_bonus": vampire_rules.capacity_bonus(),
         "age_unit_cost": vampire_rules.age_cycle_cost(2),
         "capacity_unit_cost": vampire_rules.capacity_bonus_cost(1),
-        "available_traits": [
-            {"id": trait.id, "name": trait.name, "cost": vampire_rules.trait_point_delta(trait)}
-            for trait in VampireTrait.objects.filter(
-                trait_type=VampireTrait.TraitType.ADVANTAGE,
-                is_active=True,
-            ).exclude(pk__in=owned_trait_ids).order_by("sort_order", "name")
-        ],
         "available_powers": [
             {
                 "id": power.id,
                 "name": power.name,
                 "cost_with_weakness": vampire_rules.power_cost(without_weakness=False),
                 "cost_without_weakness": vampire_rules.power_cost(without_weakness=True),
-                "weakness": power.weakness.name if power.weakness_id else "",
+                "weakness": power.weakness,
             }
             for power in VampirePower.objects.filter(
                 is_active=True,
-                weakness__isnull=False,
-            ).exclude(pk__in=owned_power_ids).select_related("weakness").order_by("sort_order", "name")
+            ).exclude(weakness="").exclude(pk__in=owned_power_ids).order_by("sort_order", "name")
         ],
         "buyoff_options": [
             {
                 "id": row.power_id,
                 "name": row.power.name,
-                "weakness": row.power.weakness.name,
+                "weakness": row.power.weakness,
                 "cost": 5,
             }
             for row in owned_powers
-            if row.power.weakness_id
+            if str(row.power.weakness or "").strip()
             and not row.purchased_without_weakness
             and not row.weakness_bought_off
-        ],
-        "trait_weakness_removal_options": [
-            {"id": row.trait_id, "name": row.trait.name, "cost": 5}
-            for row in owned_traits
-            if row.trait.trait_type == VampireTrait.TraitType.DISADVANTAGE
         ],
     }
 
@@ -4236,10 +4217,20 @@ def _build_learning_rows(
     synchronize: bool = True,
 ) -> dict[str, object]:
     """Build prepared learning rows grouped for the learning window."""
+    from charsheet.engine.vampire_engine import VampireRules
+
+    vampire_rules = VampireRules(character)
+    vampire_strength_extension = (
+        vampire_rules.can_exceed_strength_race_maximum() if character.is_vampire else False
+    )
+    vampire_disallowed_school_ids = (
+        vampire_rules.disallowed_school_ids() if character.is_vampire else set()
+    )
     attribute_limits = {
         limit.attribute.short_name: {
             "min": int(limit.min_value),
             "max": int(limit.max_value) + int(engine.resolve_attribute_cap_bonus(limit.attribute.short_name)),
+            "original_max": int(limit.max_value),
         }
         for limit in character.race.raceattributelimit_set.select_related("attribute")
     }
@@ -4271,6 +4262,11 @@ def _build_learning_rows(
                 "base_value": base_value,
                 "min_value": int(attribute_limits.get(short_name, {}).get("min", 0)),
                 "max_value": int(attribute_limits.get(short_name, {}).get("max", base_value)),
+                "premium_threshold": (
+                    int(attribute_limits.get(short_name, {}).get("original_max", base_value)) - 2
+                    if vampire_strength_extension and short_name == ATTR_ST
+                    else int(attribute_limits.get(short_name, {}).get("max", base_value)) - 2
+                ),
             }
         )
 
@@ -4386,6 +4382,8 @@ def _build_learning_rows(
         visible_clerical_school_ids.add(selected_religion_school_id)
     for school in School.objects.select_related("type").order_by("type__name", "name"):
         base_level = int(school_levels.get(school.id, 0))
+        if school.id in vampire_disallowed_school_ids and base_level <= 0:
+            continue
         if (
             visible_clerical_school_ids
             and is_clerical_school(school)
@@ -4766,9 +4764,8 @@ def build_temporary_attribute_context(
             "day_count": character.vampire_day_count,
             "last_qualifying_kill_day": character.vampire_last_qualifying_kill_day,
             "recent_qualifying_kill": vampire_rules.has_recent_qualifying_kill(),
+            "can_regenerate": vampire_rules.can_regenerate(),
             "regeneration_blood": character.vampire_regeneration_blood,
-            "regeneration_target_cost": character.vampire_regeneration_target_cost,
-            "regeneration_target_cost": character.vampire_regeneration_target_cost,
             "regeneration_target_cost": character.vampire_regeneration_target_cost,
             "pending_starvation": character.vampire_pending_starvation,
             "sacrament_age_bonus": character.vampire_sacrament_age_bonus,
@@ -5060,9 +5057,8 @@ def build_character_sheet_context(
             "day_count": character.vampire_day_count,
             "last_qualifying_kill_day": character.vampire_last_qualifying_kill_day,
             "recent_qualifying_kill": vampire_rules.has_recent_qualifying_kill(),
+            "can_regenerate": vampire_rules.can_regenerate(),
             "regeneration_blood": character.vampire_regeneration_blood,
-            "regeneration_target_cost": character.vampire_regeneration_target_cost,
-            "regeneration_target_cost": character.vampire_regeneration_target_cost,
             "regeneration_target_cost": character.vampire_regeneration_target_cost,
             "pending_starvation": character.vampire_pending_starvation,
             "sacrament_age_bonus": character.vampire_sacrament_age_bonus,

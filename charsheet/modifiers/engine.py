@@ -238,25 +238,25 @@ class ModifierEngine:
             return []
         modifiers: list[BaseModifier] = []
         age_cycle = rules.age_cycle()
-        modifiers.extend(
+        modifiers.append(
             RuleFlagModifier(
                 source_type="vampire_status",
                 source_id=str(self.character_engine.character.pk),
-                target_key=target_key,
+                target_key="can_act_while_out_of_action",
                 operator=ModifierOperator.SET_FLAG,
                 value=True,
             )
-            for target_key in ("wound_penalty_ignore", "can_act_while_out_of_action")
         )
-        modifiers.append(
-            AttributeCapModifier(
-                source_type="vampire_status",
-                source_id=str(self.character_engine.character.pk),
-                target_key="ST",
-                operator=ModifierOperator.FLAT_ADD,
-                value=age_cycle,
+        if rules.can_exceed_strength_race_maximum():
+            modifiers.append(
+                AttributeCapModifier(
+                    source_type="vampire_status",
+                    source_id=str(self.character_engine.character.pk),
+                    target_key="ST",
+                    operator=ModifierOperator.FLAT_ADD,
+                    value=age_cycle,
+                )
             )
-        )
         for ownership in rules.effective_traits(include_weaknesses=True):
             for effect in ownership.trait.semantic_effects.all():
                 if (
@@ -272,6 +272,10 @@ class ModifierEngine:
             for effect in ownership.power.semantic_effects.all():
                 if (
                     effect.active_flag
+                    and (
+                        effect.power_component != VampireTraitSemanticEffect.PowerComponent.WEAKNESS
+                        or ownership.weakness_is_active
+                    )
                     and effect.application_scope
                     in {
                         VampireTraitSemanticEffect.ApplicationScope.CHARACTER,

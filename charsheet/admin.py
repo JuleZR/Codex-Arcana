@@ -21,6 +21,7 @@ from django.utils.safestring import mark_safe
 
 from .constants import (
     ATTRIBUTE_CODE_CHOICES,
+    COMA_IGNORE,
     ONE_HANDED,
     QUALITY_COLOR_MAP,
     RESOURCE_KEY_CHOICES,
@@ -29,6 +30,13 @@ from .constants import (
     SCHOOL_COMBAT,
     STAT_SLUG_CHOICES,
     TWO_HANDED,
+    VAMPIRE_REGENERATION,
+    VAMPIRE_STRENGTH_OVER_RACE_MAXIMUM,
+    VAMPIRE_POWER_MANUAL_ACTIVATION,
+    VAMPIRE_POWER_BLOOD_THEFT,
+    VAMPIRE_POWER_BLOOD_SACRAMENT,
+    VAMPIRE_POWER_ATTRIBUTE_BOOST,
+    VAMPIRE_POWER_REGENERATION,
     VERSATILE,
 )
 from .admin_help import (
@@ -3086,6 +3094,8 @@ class VampireTraitSemanticEffectAdminForm(CreatureTraitSemanticEffectAdminForm):
         ("combat", "Attack / damage"),
         ("resource", "Resource"),
         ("rule_flag", "Rule flag"),
+        ("capability", "Ability"),
+        ("disallow_schools", "Disallow schools"),
         ("attack_type_damage", "Damage by attack type"),
     )
     DEFENSE_TARGET_CHOICES = DaemonicPowerSemanticEffectAdminForm.DEFENSE_TARGET_CHOICES
@@ -3094,9 +3104,24 @@ class VampireTraitSemanticEffectAdminForm(CreatureTraitSemanticEffectAdminForm):
     OPERATION_CHOICES = DaemonicPowerSemanticEffectAdminForm.OPERATION_CHOICES + (
         ("set_flag", "set flag"),
         ("unset_flag", "unset flag"),
+        ("grant_capability", "grant ability"),
+        ("remove_capability", "remove ability"),
     )
     ATTRIBUTE_TARGET_CHOICES = (("GE", "Dexterity"), ("WA", "Perception"), ("INT", "Intelligence"), ("WILL", "Willpower"), ("ST", "Strength"), ("KON", "Constitution"), ("CHA", "Charisma"))
-    VAMPIRE_RULE_FLAG_CHOICES = (("wound_penalty_ignore", "Ignore wound penalties"), ("can_act_while_out_of_action", "Can act while out of action"))
+    VAMPIRE_RULE_FLAG_CHOICES = (
+        ("wound_penalty_ignore", "Ignore wound penalties"),
+        ("can_act_while_out_of_action", "Can act while out of action"),
+        (COMA_IGNORE, "Ignore coma"),
+        (VAMPIRE_STRENGTH_OVER_RACE_MAXIMUM, "Increase strength beyond racial maximum"),
+        (VAMPIRE_POWER_MANUAL_ACTIVATION, "Power workflow: manual activation"),
+        (VAMPIRE_POWER_BLOOD_THEFT, "Power workflow: blood theft"),
+        (VAMPIRE_POWER_BLOOD_SACRAMENT, "Power workflow: blood sacrament"),
+        (VAMPIRE_POWER_ATTRIBUTE_BOOST, "Power workflow: attribute boost"),
+        (VAMPIRE_POWER_REGENERATION, "Power workflow: regeneration"),
+    )
+    VAMPIRE_CAPABILITY_CHOICES = (
+        (VAMPIRE_REGENERATION, "Vampirische Regeneration"),
+    )
     SCALING_CHOICES = (
         ("", "No scaling"),
         ("vampire_trait_rank", "Vampire trait rank"),
@@ -3124,6 +3149,11 @@ class VampireTraitSemanticEffectAdminForm(CreatureTraitSemanticEffectAdminForm):
         self.fields["sort_order"].label = "Sort order"
         self.fields["active_flag"].label = "Active"
         self.fields["condition_text"].label = "Optional condition"
+        self.fields["power_component"].required = False
+        self.fields["power_component"].initial = (
+            self.initial.get("power_component")
+            or VampireTraitSemanticEffect.PowerComponent.POWER
+        )
         self.fields["scale_by_trait_level"].widget = forms.HiddenInput()
         self.fields["scale_by_trait_level"].initial = False
         scaling = self.initial.get("scaling", getattr(self.instance, "scaling", {}) or {}) or {}
@@ -3134,6 +3164,8 @@ class VampireTraitSemanticEffectAdminForm(CreatureTraitSemanticEffectAdminForm):
         choices.extend((f"attribute_cap:{key}", label) for key, label in self.ATTRIBUTE_TARGET_CHOICES)
         choices.extend((f"resource:{key}", label) for key, label in RESOURCE_KEY_CHOICES)
         choices.extend((f"rule_flag:{key}", label) for key, label in self.VAMPIRE_RULE_FLAG_CHOICES)
+        choices.extend((f"capability:{key}", label) for key, label in self.VAMPIRE_CAPABILITY_CHOICES)
+        choices.append(("metadata:disallow_schools", "Ausgewählte Schulen verbieten"))
         current_domain = str(getattr(self.instance, "target_domain", "") or "")
         current_key = str(getattr(self.instance, "target_key", "") or "")
         current_value = f"{current_domain}:{current_key}"
@@ -3148,21 +3180,30 @@ class VampireTraitSemanticEffectAdminForm(CreatureTraitSemanticEffectAdminForm):
         super()._apply_initial_simple_values()
         target_domain = str(self.initial.get("target_domain") or getattr(self.instance, "target_domain", "") or "")
         target_key = str(self.initial.get("target_key") or getattr(self.instance, "target_key", "") or "")
-        if target_domain in {"attribute_cap", "resource"}:
+        if target_domain in {"attribute_cap", "resource", "capability"}:
             self.initial["effect_area"] = target_domain
             self.initial["simple_target"] = f"{target_domain}:{target_key}"
+        elif target_domain == "metadata" and target_key == "disallow_schools":
+            self.initial["effect_area"] = "disallow_schools"
+            self.initial["simple_target"] = "metadata:disallow_schools"
 
     def _simple_target(self, area, simple_target) -> tuple[str, str]:
         target_domain, target_key = super()._simple_target(area, simple_target)
         if target_domain and target_key:
             return target_domain, target_key
         prefix, separator, target_key = str(simple_target or "").partition(":")
-        if separator and prefix == area and area in {"attribute_cap", "resource"}:
+        if separator and prefix == area and area in {"attribute_cap", "resource", "capability"}:
             return area, target_key
+        if area == "disallow_schools" and simple_target == "metadata:disallow_schools":
+            return "metadata", "disallow_schools"
         return "", ""
 
     def clean(self):
         cleaned_data = forms.ModelForm.clean(self)
+        cleaned_data["power_component"] = (
+            cleaned_data.get("power_component")
+            or VampireTraitSemanticEffect.PowerComponent.POWER
+        )
         area = cleaned_data.get("effect_area")
         target_domain, target_key = self._simple_target(area, cleaned_data.get("simple_target"))
         if not target_domain or not target_key:
@@ -3170,7 +3211,11 @@ class VampireTraitSemanticEffectAdminForm(CreatureTraitSemanticEffectAdminForm):
         else:
             cleaned_data["target_domain"] = target_domain
             cleaned_data["target_key"] = target_key
-        semantic_operators = {"rule_flag": {"set_flag", "unset_flag"}}
+        semantic_operators = {
+            "rule_flag": {"set_flag", "unset_flag"},
+            "capability": {"grant_capability", "remove_capability"},
+            "disallow_schools": {"remove_capability"},
+        }
         operator = cleaned_data.get("simple_operator") or cleaned_data.get("operator") or "flat_add"
         if area in semantic_operators:
             if operator not in semantic_operators[area]:
@@ -3184,6 +3229,8 @@ class VampireTraitSemanticEffectAdminForm(CreatureTraitSemanticEffectAdminForm):
             else:
                 cleaned_data["operator"] = operator
                 cleaned_data["value"] = self._format_simple_number(value)
+        if area == "disallow_schools" and not cleaned_data.get("target_schools"):
+            self.add_error("target_schools", "Wähle mindestens eine zu sperrende Schule.")
         scale_source = cleaned_data.get("vampire_scaling") or ""
         cleaned_data["scale_by_trait_level"] = False
         if scale_source:
@@ -6848,7 +6895,7 @@ class DaemonicPowerSemanticEffectInline(admin.StackedInline):
             "Build effect",
             {
                 "fields": (
-                    ("application_scope", "sort_order", "active_flag"),
+                    ("application_scope", "power_component", "sort_order", "active_flag"),
                     "effect_area",
                     "simple_target",
                     ("simple_operator", "simple_value"),
@@ -6877,6 +6924,7 @@ class VampireTraitSemanticEffectInline(admin.StackedInline):
                     ("application_scope", "sort_order", "active_flag"),
                     "effect_area",
                     "simple_target",
+                    "target_schools",
                     ("simple_operator", "simple_value"),
                     "vampire_scaling",
                     "condition_text",
@@ -6888,7 +6936,7 @@ class VampireTraitSemanticEffectInline(admin.StackedInline):
             },
         ),
     )
-    autocomplete_fields = ("target_skills",)
+    autocomplete_fields = ("target_skills", "target_schools")
 
 
 class VampirePowerSemanticEffectInline(VampireTraitSemanticEffectInline):
@@ -7003,10 +7051,9 @@ class VampireTraitAdmin(admin.ModelAdmin):
 @admin.register(VampirePower)
 class VampirePowerAdmin(admin.ModelAdmin):
     list_display = ("name", "weakness", "blood_cost", "is_active")
-    list_filter = ("is_active", "handler")
-    search_fields = ("name", "slug", "description", "weakness__name")
+    list_filter = ("is_active",)
+    search_fields = ("name", "slug", "description", "weakness")
     prepopulated_fields = {"slug": ("name",)}
-    autocomplete_fields = ("weakness",)
     inlines = (VampirePowerSemanticEffectInline,)
 
 
@@ -7016,7 +7063,7 @@ class VampireTraitSemanticEffectAdmin(admin.ModelAdmin):
     list_display = ("trait", "power", "application_scope", "target_domain", "target_key", "operator", "active_flag")
     list_filter = ("application_scope", "target_domain", "operator", "active_flag")
     search_fields = ("trait__name", "trait__slug", "power__name", "power__slug", "target_key", "condition_text")
-    autocomplete_fields = ("trait", "power", "target_skills")
+    autocomplete_fields = ("trait", "power", "target_skills", "target_schools")
     list_select_related = ("trait", "power")
     fieldsets = (("Source", {"fields": ("trait", "power")}),) + VampireTraitSemanticEffectInline.fieldsets
 

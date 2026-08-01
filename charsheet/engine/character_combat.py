@@ -5,6 +5,7 @@ from __future__ import annotations
 from charsheet.constants import (
     ARCANE_POWER,
     CAN_ACT_WHILE_OUT_OF_ACTION,
+    COMA_IGNORE,
     ATTR_GE,
     ATTR_INT,
     ATTR_KON,
@@ -180,7 +181,7 @@ def is_wound_incapacitated(engine, wound_stage: str | None = None) -> bool:
     """Resolve wound incapacitation while keeping coma unconditional."""
     stage = wound_stage if wound_stage is not None else engine.current_wound_stage()[0]
     if stage == "Koma":
-        return True
+        return not bool(engine.resolve_flags().get(COMA_IGNORE, False))
     if stage in {"Ausser Gefecht", "Außer Gefecht"}:
         return not engine.can_act_while_out_of_action()
     return False

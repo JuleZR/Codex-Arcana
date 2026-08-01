@@ -371,7 +371,7 @@
                           <span>10 CP je weitere Stufe</span>
                         </div>
                         <input id="vampireAgeCycle" class="dashboard_input" type="number" name="vampire_age_cycle" min="1" value="{{ phase_4_vampire.age_cycle }}" data-vampire-cost-input>
-                        <p>Beginnt bei 1. Jede zusätzliche Stufe erhöht die maximale Blutkapazität um 1 und verstärkt altersabhängige Vampirkräfte. Bei der Erschaffung steigt außerdem das zulässige Stärkemaximum.</p>
+                        <p>Beginnt bei 1. Jede zusätzliche Stufe erhöht die maximale Blutkapazität um 1 und verstärkt altersabhängige Vampirkräfte. Das Stärkemaximum steigt nur mit dem entsprechenden Semantic-Effect-Flag.</p>
                       </div>
                       <div class="vampire_creation_field">
                         <div class="vampire_creation_field__heading">
@@ -439,12 +439,14 @@
                                 {% for row in phase_4_vampire_trait_rows %}
                                   <tr data-phase4-source data-kind="vampire-trait" data-key="vampire-trait:{{ row.id }}" data-id="{{ row.id }}" data-name="{{ row.name }}" data-trait-type="{{ row.trait_type }}" data-point-value="5" data-phase4-search="{{ row.name|lower }} vampir trait" tabindex="0" role="button" aria-label="{{ row.name }} hinzufügen">
                                     <td class="db_tooltip_anchor"{% if row.description %} data-db-tooltip="{{ row.description }}"{% endif %}>{{ row.name }}</td>
+                                    {% if row.grants_strength_extension %}<template data-vampire-strength-extension-marker></template>{% endif %}
                                     <td class="phase2_lang_meta">{% if row.trait_type == 'disadvantage' %}+5 CP{% else %}5 CP{% endif %}</td>
                                   </tr>
                                 {% endfor %}
                                 {% for row in phase_4_vampire_power_rows %}
-                                  <tr data-phase4-source data-kind="vampire-power" data-key="vampire-power:{{ row.id }}" data-id="{{ row.id }}" data-name="{{ row.name }}" data-point-value="15" data-cost-without-weakness="20" data-associated-weakness="{{ row.weakness.name }}" data-phase4-search="{{ row.name|lower }} vampir kraft {{ row.weakness.name|lower }}" tabindex="0" role="button" aria-label="{{ row.name }} hinzufügen">
-                                    <td class="db_tooltip_anchor"{% if row.description %} data-db-tooltip="{{ row.description }}"{% endif %}>{{ row.name }}<small>Schwäche: {{ row.weakness.name }}</small></td>
+                                  <tr data-phase4-source data-kind="vampire-power" data-key="vampire-power:{{ row.id }}" data-id="{{ row.id }}" data-name="{{ row.name }}" data-point-value="15" data-cost-without-weakness="20" data-associated-weakness="{{ row.weakness }}" data-phase4-search="{{ row.name|lower }} vampir kraft {{ row.weakness|lower }}" tabindex="0" role="button" aria-label="{{ row.name }} hinzufügen">
+                                    <td class="db_tooltip_anchor"{% if row.description %} data-db-tooltip="{{ row.description }}"{% endif %}>{{ row.name }}<small>Schwäche: {{ row.weakness }}</small></td>
+                                    {% if row.grants_strength_extension %}<template data-vampire-strength-extension-marker></template>{% endif %}
                                     <td class="phase2_lang_meta">15 / 20 CP</td>
                                   </tr>
                                 {% endfor %}
@@ -487,6 +489,7 @@
                               <tbody>
                                 {% for row in phase_4_attr_rows %}
                                   <tr data-phase4-source data-kind="attr" data-key="attr:{{ row.short_name }}" data-short="{{ row.short_name }}" data-name="{{ row.label }}" data-base="{{ row.base_value }}" data-max="{{ row.max_value }}" data-phase4-search="{{ row.label|lower }} attribut add" tabindex="0" role="button" aria-label="{{ row.label }} hinzufuegen">
+                                    <template data-attribute-rules data-original-max="{{ row.original_max }}" data-premium-threshold="{{ row.premium_threshold }}"></template>
                                     <td>{{ row.label }}</td>
                                     <td class="phase2_lang_meta">Basis {{ row.base_value }} | Max {{ row.max_value }}</td>
                                   </tr>
@@ -563,6 +566,7 @@
                                 {% for row in phase_4_vampire_trait_rows %}
                                   {% if row.selected %}
                                     <tr data-phase4-cart-item data-key="vampire-trait:{{ row.id }}" data-kind="vampire-trait" data-trait-type="{{ row.trait_type }}" data-point-value="5">
+                                      {% if row.grants_strength_extension %}<template data-vampire-strength-extension-marker></template>{% endif %}
                                       <td>{{ row.name }}<input type="hidden" name="vampire_trait_{{ row.id }}" value="1" data-phase4-hidden></td>
                                       <td><input type="hidden" value="1" data-phase4-value>{% if row.trait_type == 'advantage' %}Advantage{% else %}Disadvantage{% endif %}</td>
                                       <td data-phase4-cost>0</td>
@@ -574,7 +578,7 @@
                                   {% if row.selected %}
                                     <tr data-phase4-cart-item data-key="vampire-power:{{ row.id }}" data-kind="vampire-power" data-point-value="15" data-cost-without-weakness="20">
                                       <td>{{ row.name }}<input type="hidden" name="vampire_power_{{ row.id }}" value="1" data-phase4-hidden></td>
-                                      <td><input type="hidden" value="1" data-phase4-value><label class="phase4_choice_block"><input type="checkbox" name="vampire_power_without_weakness_{{ row.id }}" value="1" data-vampire-without-weakness{% if row.without_weakness %} checked{% endif %}> Ohne Schwäche (+5 CP)</label><small>{{ row.weakness.name }}</small></td>
+                                      <td><input type="hidden" value="1" data-phase4-value><label class="phase4_choice_block"><input type="checkbox" name="vampire_power_without_weakness_{{ row.id }}" value="1" data-vampire-without-weakness{% if row.without_weakness %} checked{% endif %}> Ohne Schwäche (+5 CP)</label><small>{{ row.weakness }}</small></td>
                                       <td data-phase4-cost>0</td>
                                       <td><button type="button" class="phase2_remove_x" data-phase4-remove aria-label="Eintrag entfernen" title="Entfernen">X</button></td>
                                     </tr>
@@ -583,6 +587,7 @@
                               {% for row in phase_4_attr_rows %}
                                 {% if row.value > 0 %}
                                   <tr data-phase4-cart-item data-key="attr:{{ row.short_name }}" data-kind="attr" data-base="{{ row.base_value }}" data-max="{{ row.max_value }}">
+                                    <template data-attribute-rules data-original-max="{{ row.original_max }}" data-premium-threshold="{{ row.premium_threshold }}"></template>
                                     <td><span data-phase4-attr-label-base="{{ row.label }}">{{ row.label }}</span> <span data-phase4-attr-level-info>({{ row.base_value|add:row.value }})</span> <input type="hidden" name="attr_add_{{ row.short_name }}" value="{{ row.value }}" data-phase4-hidden></td>
                                     <td><input class="dashboard_input phase2_level_input" type="number" min="0" max="{{ row.max_value }}" value="{{ row.value }}" data-phase4-value><div class="phase4_target_hint" data-phase4-target></div></td>
                                     <td data-phase4-cost>0</td>
@@ -1523,8 +1528,8 @@
             return base + (write ? 1 : 0);
           };
 
-          const calcAttributeTotalCost = function (targetLevel, maxValue) {
-            const threshold = maxValue - 2;
+          const calcAttributeTotalCost = function (targetLevel, maxValue, premiumThreshold) {
+            const threshold = premiumThreshold === undefined ? maxValue - 2 : premiumThreshold;
             if (targetLevel <= threshold) {
               return targetLevel * 10;
             }
@@ -1768,10 +1773,11 @@
             } else if (kind === "attr") {
               const base = toInt(row.dataset.base, 0);
               const max = toInt(row.dataset.max, 0);
+              const premiumThreshold = toInt(row.dataset.premiumThreshold, max - 2);
               const maxAdd = Math.max(0, max - base);
               const levelInfoEl = row.querySelector("[data-phase4-attr-level-info]");
               value = clamp(value, 0, maxAdd);
-              cost = calcAttributeTotalCost(base + value, max) - calcAttributeTotalCost(base, max);
+              cost = calcAttributeTotalCost(base + value, max, premiumThreshold) - calcAttributeTotalCost(base, max, premiumThreshold);
               if (levelInfoEl) {
                 levelInfoEl.textContent = `(${base + value})`;
               }
@@ -1842,6 +1848,40 @@
             return cost;
           };
 
+          const refreshVampireStrengthLimit = function (hasVampire) {
+            const source = document.querySelector('[data-phase4-source][data-kind="attr"][data-short="ST"]');
+            if (!source) {
+              return;
+            }
+            const rules = source.querySelector("[data-attribute-rules]");
+            const originalMax = toInt(rules ? rules.dataset.originalMax : source.dataset.max, 0);
+            const ageInput = document.querySelector('[name="vampire_age_cycle"]');
+            const ageCycle = Math.max(1, toInt(ageInput ? ageInput.value : "1", 1));
+            const hasExtension = hasVampire && getRows().some(function (row) {
+              if (row.querySelector("[data-vampire-strength-extension-marker]")) {
+                return true;
+              }
+              const key = row.dataset.key || "";
+              const selectedSource = key
+                ? document.querySelector(`[data-phase4-source][data-key="${key}"]`)
+                : null;
+              return Boolean(selectedSource && selectedSource.querySelector("[data-vampire-strength-extension-marker]"));
+            });
+            const max = originalMax + (hasExtension ? ageCycle : 0);
+            const premiumThreshold = hasExtension ? originalMax - 2 : max - 2;
+            source.dataset.max = String(max);
+            source.dataset.premiumThreshold = String(premiumThreshold);
+            const meta = source.querySelector(".phase2_lang_meta");
+            if (meta) {
+              meta.textContent = `Basis ${source.dataset.base || 0} | Max ${max}`;
+            }
+            const cartRow = phase4CartBody.querySelector('[data-phase4-cart-item][data-key="attr:ST"]');
+            if (cartRow) {
+              cartRow.dataset.max = String(max);
+              cartRow.dataset.premiumThreshold = String(premiumThreshold);
+            }
+          };
+
           const refreshTotals = function () {
             const hasVampire = getRows().some(function (row) {
               const anchor = row.querySelector('input[name="adv_adv_vampire"]');
@@ -1862,6 +1902,7 @@
                 row.remove();
               });
             }
+            refreshVampireStrengthLimit(hasVampire);
             let advSpent = 0;
             let restSpent = 0;
             getRows().forEach(function (row) {
@@ -2009,6 +2050,9 @@
                 <td data-phase4-cost>0</td>
                 <td><button type="button" class="phase2_remove_x" data-phase4-remove aria-label="Eintrag entfernen" title="Entfernen">X</button></td>
               `;
+              if (source.querySelector("[data-vampire-strength-extension-marker]")) {
+                row.insertAdjacentHTML("afterbegin", '<template data-vampire-strength-extension-marker></template>');
+              }
               return row;
             }
 
@@ -2023,6 +2067,9 @@
                 <td data-phase4-cost>0</td>
                 <td><button type="button" class="phase2_remove_x" data-phase4-remove aria-label="Eintrag entfernen" title="Entfernen">X</button></td>
               `;
+              if (source.querySelector("[data-vampire-strength-extension-marker]")) {
+                row.insertAdjacentHTML("afterbegin", '<template data-vampire-strength-extension-marker></template>');
+              }
               return row;
             }
 
@@ -2030,9 +2077,17 @@
               const shortName = source.dataset.short || "";
               const base = toInt(source.dataset.base, 0);
               const max = toInt(source.dataset.max, 0);
+              const attributeRules = source.querySelector("[data-attribute-rules]");
+              const originalMax = toInt(attributeRules ? attributeRules.dataset.originalMax : max, max);
+              const premiumThreshold = toInt(
+                source.dataset.premiumThreshold || (attributeRules ? attributeRules.dataset.premiumThreshold : ""),
+                max - 2,
+              );
               const maxAdd = Math.max(0, max - base);
               row.dataset.base = String(base);
               row.dataset.max = String(max);
+              row.dataset.originalMax = String(originalMax);
+              row.dataset.premiumThreshold = String(premiumThreshold);
               row.innerHTML = `
                 <td><span data-phase4-attr-label-base="${safeName}">${safeName}</span> <span data-phase4-attr-level-info>(${base + 1})</span> <input type="hidden" name="attr_add_${shortName}" value="1" data-phase4-hidden></td>
                 <td><input class="dashboard_input phase2_level_input" type="number" min="0" max="${maxAdd}" value="1" data-phase4-value><div class="phase4_target_hint" data-phase4-target></div></td>

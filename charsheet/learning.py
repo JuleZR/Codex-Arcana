@@ -707,8 +707,8 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
     vampire_capacity_add = 0
     vampire_power_plan: dict[int, bool] = {}
     vampire_buyoff_plan: set[int] = set()
-    vampire_trait_plan: set[int] = set()
-    vampire_trait_weakness_removal_plan: set[int] = set()
+    vampire_strength_extension = False
+    vampire_disallowed_school_ids: set[int] = set()
     religion_entity_to_bind = None
     has_progression_inputs = _has_progression_inputs(post_data)
 
@@ -716,6 +716,8 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
         from charsheet.engine.vampire_engine import VampireRules
 
         vampire_rules = VampireRules(character)
+        vampire_strength_extension = vampire_rules.can_exceed_strength_race_maximum()
+        vampire_disallowed_school_ids = vampire_rules.disallowed_school_ids()
         vampire_age_add = _read_int(post_data, "learn_vampire_age_add", 0)
         vampire_capacity_add = _read_int(post_data, "learn_vampire_capacity_add", 0)
         if vampire_age_add < 0 or vampire_capacity_add < 0:
@@ -723,21 +725,14 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
         total_cost += vampire_rules.age_cycle_cost(vampire_age_add + 1)
         total_cost += vampire_rules.capacity_bonus_cost(vampire_capacity_add)
 
-        owned_vampire_traits = {
-            row.trait_id: row
-            for row in CharacterVampireTrait.objects.filter(character=character).select_related("trait")
-        }
         owned_vampire_powers = {
             row.power_id: row
-            for row in CharacterVampirePower.objects.filter(character=character).select_related(
-                "power", "power__weakness"
-            )
+            for row in CharacterVampirePower.objects.filter(character=character).select_related("power")
         }
         for key in post_data.keys():
             raw_key = str(key)
             power_match = re.fullmatch(r"learn_vampire_power_(\d+)", raw_key)
-            trait_match = re.fullmatch(r"learn_vampire_trait_(\d+)", raw_key)
-            trait_remove_match = re.fullmatch(r"learn_vampire_trait_remove_(\d+)", raw_key)
+            trait_match = re.fullmatch(r"learn_vampire_trait(?:_remove)?_(\d+)", raw_key)
             buyoff_match = re.fullmatch(r"learn_vampire_buyoff_(\d+)", raw_key)
             if power_match:
                 power_id = int(power_match.group(1))
@@ -746,8 +741,7 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
                 power = VampirePower.objects.filter(
                     pk=power_id,
                     is_active=True,
-                    weakness__isnull=False,
-                ).select_related("weakness").first()
+                ).exclude(weakness="").exclude(weakness__isnull=True).first()
                 if power is None or power_id in owned_vampire_powers:
                     return "error", "Ungültige oder bereits erworbene Vampirkraft."
                 without_weakness = (
@@ -755,28 +749,8 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
                 )
                 total_cost += vampire_rules.power_cost(without_weakness=without_weakness)
                 vampire_power_plan[power_id] = without_weakness
-            elif trait_match:
-                trait_id = int(trait_match.group(1))
-                if _read_int(post_data, raw_key, 0) <= 0:
-                    continue
-                trait = VampireTrait.objects.filter(
-                    pk=trait_id,
-                    trait_type=VampireTrait.TraitType.ADVANTAGE,
-                    is_active=True,
-                ).first()
-                if trait is None or trait_id in owned_vampire_traits:
-                    return "error", "Ungültiger oder bereits erworbener Vampir-Vorzug."
-                total_cost += vampire_rules.trait_point_delta(trait)
-                vampire_trait_plan.add(trait_id)
-            elif trait_remove_match:
-                trait_id = int(trait_remove_match.group(1))
-                if _read_int(post_data, raw_key, 0) <= 0:
-                    continue
-                ownership = owned_vampire_traits.get(trait_id)
-                if ownership is None or ownership.trait.trait_type != VampireTrait.TraitType.DISADVANTAGE:
-                    return "error", "Ungültige vampirische Schwäche zum Verlernen."
-                total_cost += 5
-                vampire_trait_weakness_removal_plan.add(trait_id)
+            elif trait_match and _read_int(post_data, raw_key, 0) > 0:
+                return "error", "Vampirische Vorzüge und Schwächen werden beim Vampirwerden automatisch zugeordnet."
             elif buyoff_match:
                 power_id = int(buyoff_match.group(1))
                 if _read_int(post_data, raw_key, 0) <= 0:
@@ -784,7 +758,7 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
                 ownership = owned_vampire_powers.get(power_id)
                 if (
                     ownership is None
-                    or ownership.power.weakness_id is None
+                    or not str(ownership.power.weakness or "").strip()
                     or ownership.purchased_without_weakness
                     or ownership.weakness_bought_off
                 ):
@@ -824,7 +798,7 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
         original_max = int(bounds.get("original_max", max_value))
         premium_threshold = (
             original_max - 2
-            if character.is_vampire and short_name == ATTR_ST
+            if vampire_strength_extension and short_name == ATTR_ST
             else None
         )
         step_cost = calc_attribute_total_cost(
@@ -1020,6 +994,8 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
             return "error", f"{school.name}: Zielwert ist ueber dem Maximum."
         if add == 0:
             continue
+        if add > 0 and int(school.id) in vampire_disallowed_school_ids:
+            return "error", f"{school.name}: Diese Schule ist durch einen Vampir-Effekt gesperrt."
         total_cost += add * 8
         school_plan[school_id] = add
 
@@ -1170,7 +1146,6 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
         attr_plan, trait_plan, skill_plan, cs_skill_plan, new_spec_plan,
         language_plan, school_plan, magic_aspect_plan, lesson_plan,
         vampire_age_add, vampire_capacity_add, vampire_power_plan, vampire_buyoff_plan,
-        vampire_trait_plan, vampire_trait_weakness_removal_plan,
     ))
 
     has_magic_selections = any((
@@ -1207,6 +1182,13 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
                         character.__dict__.pop("_is_vampire_cache", None)
                         character.vampire_baptism_confirmed = False
                         character.save(update_fields=["vampire_baptism_confirmed"])
+                        CharacterVampireTrait.objects.bulk_create(
+                            [
+                                CharacterVampireTrait(character=character, trait=trait)
+                                for trait in VampireTrait.objects.filter(is_active=True)
+                            ],
+                            ignore_conflicts=True,
+                        )
                 elif target_level <= 0:
                     trait_row.delete()
                     trait_rows.pop(slug, None)
@@ -1313,17 +1295,6 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
                 )
                 entry.full_clean()
                 entry.save()
-
-            for trait_id in vampire_trait_plan:
-                entry = CharacterVampireTrait(character=character, trait_id=trait_id)
-                entry.full_clean()
-                entry.save()
-
-            CharacterVampireTrait.objects.filter(
-                character=character,
-                trait_id__in=vampire_trait_weakness_removal_plan,
-                trait__trait_type=VampireTrait.TraitType.DISADVANTAGE,
-            ).delete()
 
             for power_id in vampire_buyoff_plan:
                 entry = CharacterVampirePower.objects.select_related("power").get(

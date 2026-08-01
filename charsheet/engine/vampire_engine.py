@@ -15,6 +15,8 @@ from charsheet.constants import (
     SCHOOL_COMBAT,
     VAMPIRE_MODE_DISABLE,
     VAMPIRE_MODE_ENABLE,
+    VAMPIRE_REGENERATION,
+    VAMPIRE_STRENGTH_OVER_RACE_MAXIMUM,
     VAMPIRE_STATE_ACTIVE,
     VAMPIRE_STATE_DESTROYED,
     VAMPIRE_STATE_TORPOR,
@@ -27,6 +29,7 @@ from charsheet.models.vampirism import (
     CharacterVampireTrait,
     VampirePower,
     VampireTrait,
+    VampireTraitSemanticEffect,
     VampireTraitOverrideMode,
 )
 
@@ -243,9 +246,9 @@ class VampireRules:
                     weakness_bought_off=bool(row.weakness_bought_off),
                     source="character",
                 )
-                for row in actor.vampire_power_ownerships.select_related(
-                    "power", "power__weakness"
-                ).prefetch_related("power__semantic_effects")
+                for row in actor.vampire_power_ownerships.select_related("power").prefetch_related(
+                    "power__semantic_effects"
+                )
             }
         if isinstance(actor, Creature):
             return {
@@ -255,15 +258,15 @@ class VampireRules:
                     weakness_bought_off=bool(row.weakness_bought_off),
                     source="template",
                 )
-                for row in actor.vampire_power_defaults.select_related(
-                    "power", "power__weakness"
-                ).prefetch_related("power__semantic_effects")
+                for row in actor.vampire_power_defaults.select_related("power").prefetch_related(
+                    "power__semantic_effects"
+                )
             }
         if isinstance(actor, CharacterCreature):
             base = VampireRules(actor.creature)._power_definition_rows() if actor.creature_id else {}
-            rows = actor.vampire_power_overrides.select_related(
-                "power", "power__weakness"
-            ).prefetch_related("power__semantic_effects")
+            rows = actor.vampire_power_overrides.select_related("power").prefetch_related(
+                "power__semantic_effects"
+            )
             return self._apply_power_overrides(base, rows, "instance")
         if actor.vampire_mode == VAMPIRE_MODE_ENABLE:
             base = {}
@@ -273,7 +276,7 @@ class VampireRules:
             base = VampireRules(actor.creature)._power_definition_rows()
         else:
             base = {}
-        rows = actor.vampire_power_overrides.select_related("power", "power__weakness").prefetch_related(
+        rows = actor.vampire_power_overrides.select_related("power").prefetch_related(
             "power__semantic_effects"
         )
         return self._apply_power_overrides(base, rows, "gm")
@@ -282,14 +285,6 @@ class VampireRules:
         if not self.is_vampire():
             return []
         resolved = self._trait_definition_rows()
-        if include_weaknesses:
-            for owned in self.effective_powers():
-                weakness = owned.power.weakness
-                if weakness is not None and owned.weakness_is_active:
-                    resolved.setdefault(
-                        weakness.id,
-                        EffectiveVampireTrait(weakness, source=f"weakness:{owned.power.slug}"),
-                    )
         return sorted(
             resolved.values(),
             key=lambda entry: (entry.trait.sort_order, entry.trait.name.casefold(), entry.trait.id),
@@ -306,6 +301,93 @@ class VampireRules:
     def power_ranks(self) -> int:
         """Each acquired power increases blood capacity by exactly one."""
         return len(self.effective_powers())
+
+    def can_regenerate(self) -> bool:
+        """Return whether semantic effects grant vampiric regeneration."""
+        if not self.is_vampire():
+            return False
+        if isinstance(self.actor, Character):
+            return bool(
+                self.actor.get_engine(refresh=True)
+                .resolve_capabilities()
+                .get(VAMPIRE_REGENERATION, False)
+            )
+        if isinstance(self.actor, (Creature, CharacterCreature)):
+            from charsheet.engine.creature_engine import CreatureEngine
+
+            return CreatureEngine(self.actor).has_capability(VAMPIRE_REGENERATION)
+        source = self.actor.character_creature or self.actor.creature
+        if source is None:
+            return False
+        from charsheet.engine.creature_engine import CreatureEngine
+
+        return CreatureEngine(source).has_capability(VAMPIRE_REGENERATION)
+
+    def semantic_flag(self, target_key: str) -> bool:
+        """Resolve one boolean flag directly from effective vampire semantic effects."""
+        if not self.is_vampire():
+            return False
+        allowed_scopes = {
+            "both",
+            "character" if isinstance(self.actor, Character) else "creature",
+        }
+        effects = []
+        for ownership in self.effective_traits(include_weaknesses=True):
+            effects.extend(ownership.trait.semantic_effects.all())
+        for ownership in self.effective_powers():
+            effects.extend(
+                effect
+                for effect in ownership.power.semantic_effects.all()
+                if effect.power_component != VampireTraitSemanticEffect.PowerComponent.WEAKNESS
+                or ownership.weakness_is_active
+            )
+        enabled = False
+        for effect in sorted(effects, key=lambda row: (int(row.priority), int(row.id or 0))):
+            if (
+                not effect.active_flag
+                or effect.application_scope not in allowed_scopes
+                or effect.target_domain != "rule_flag"
+                or effect.target_key != target_key
+            ):
+                continue
+            value = effect._coerce_scalar(effect.value)
+            enabled = effect.operator != "unset_flag" and bool(value)
+        return enabled
+
+    def can_exceed_strength_race_maximum(self) -> bool:
+        return self.semantic_flag(VAMPIRE_STRENGTH_OVER_RACE_MAXIMUM)
+
+    def disallowed_school_ids(self) -> set[int]:
+        """Return schools blocked by active vampire semantic effects."""
+        if not self.is_vampire():
+            return set()
+        allowed_scopes = {
+            "both",
+            "character" if isinstance(self.actor, Character) else "creature",
+        }
+        blocked: set[int] = set()
+        effect_groups = [
+            (entry.trait.semantic_effects.all(), True)
+            for entry in self.effective_traits(include_weaknesses=True)
+        ]
+        effect_groups.extend(
+            (entry.power.semantic_effects.all(), entry.weakness_is_active)
+            for entry in self.effective_powers()
+        )
+        for effects, weakness_is_active in effect_groups:
+            for effect in effects:
+                if (
+                    effect.active_flag
+                    and (
+                        effect.power_component != VampireTraitSemanticEffect.PowerComponent.WEAKNESS
+                        or weakness_is_active
+                    )
+                    and effect.application_scope in allowed_scopes
+                    and effect.target_domain == "metadata"
+                    and effect.target_key == "disallow_schools"
+                ):
+                    blocked.update(effect.target_schools.values_list("id", flat=True))
+        return blocked
 
     def willpower(self) -> int:
         actor = self.actor
@@ -416,8 +498,8 @@ class VampireRules:
         if isinstance(actor, Character):
             return []
         if isinstance(actor, Creature):
-            return list(actor.vampire_power_defaults.select_related("power", "power__weakness"))
-        return list(actor.vampire_power_overrides.select_related("power", "power__weakness"))
+            return list(actor.vampire_power_defaults.select_related("power"))
+        return list(actor.vampire_power_overrides.select_related("power"))
 
     def _require_runtime(self):
         if self.is_template:
@@ -446,12 +528,10 @@ class VampireRules:
         without_weakness: bool = False,
     ) -> CharacterVampirePower:
         character = self._require_character_learning()
-        definition = power if isinstance(power, VampirePower) else VampirePower.objects.select_related(
-            "weakness"
-        ).get(pk=int(power))
+        definition = power if isinstance(power, VampirePower) else VampirePower.objects.get(pk=int(power))
         if not definition.is_active:
             raise VampireRuleError("Nur aktive Vampirkräfte können gelernt werden.")
-        if definition.weakness_id is None:
+        if not str(definition.weakness or "").strip():
             raise VampireRuleError("Der Vampirkraft ist noch keine feste Schwäche zugeordnet.")
         if CharacterVampirePower.objects.filter(character=character, power=definition).exists():
             raise VampireRuleError("Diese Vampirkraft ist bereits erworben.")
@@ -471,39 +551,15 @@ class VampireRules:
 
     @transaction.atomic
     def learn_trait(self, trait: VampireTrait | int) -> CharacterVampireTrait:
-        character = self._require_character_learning()
-        definition = trait if isinstance(trait, VampireTrait) else VampireTrait.objects.get(pk=int(trait))
-        if definition.trait_type != VampireTrait.TraitType.ADVANTAGE or not definition.is_active:
-            raise VampireRuleError("Nur aktive vampirische Vorzüge können später erworben werden.")
-        if CharacterVampireTrait.objects.filter(character=character, trait=definition).exists():
-            raise VampireRuleError("Dieser Vampir-Trait ist bereits erworben.")
-        if VAMPIRE_TRAIT_COST > int(character.current_experience or 0):
-            raise VampireRuleError(f"Für diesen Vampir-Trait werden {VAMPIRE_TRAIT_COST} EP benötigt.")
-        ownership = CharacterVampireTrait(character=character, trait=definition)
-        ownership.full_clean()
-        ownership.save()
-        character.current_experience -= VAMPIRE_TRAIT_COST
-        character.save(update_fields=["current_experience"])
-        return ownership
+        raise VampireRuleError(
+            "Vampirische Vorzüge und Schwächen werden beim Vampirwerden automatisch zugeordnet."
+        )
 
     @transaction.atomic
     def remove_trait_weakness(self, trait: VampireTrait | int) -> None:
-        character = self._require_character_learning()
-        trait_id = trait.id if isinstance(trait, VampireTrait) else int(trait)
-        ownership = CharacterVampireTrait.objects.select_related("trait").filter(
-            character=character,
-            trait_id=trait_id,
-            trait__trait_type=VampireTrait.TraitType.DISADVANTAGE,
-        ).first()
-        if ownership is None:
-            raise VampireRuleError("Diese vampirische Schwäche ist nicht direkt im Besitz.")
-        if VAMPIRE_WEAKNESS_REMOVAL_COST > int(character.current_experience or 0):
-            raise VampireRuleError(
-                f"Für das Verlernen dieser Schwäche werden {VAMPIRE_WEAKNESS_REMOVAL_COST} EP benötigt."
-            )
-        ownership.delete()
-        character.current_experience -= VAMPIRE_WEAKNESS_REMOVAL_COST
-        character.save(update_fields=["current_experience"])
+        raise VampireRuleError(
+            "Automatisch zugeordnete vampirische Schwächen können nicht im Lernmenü entfernt werden."
+        )
 
     @transaction.atomic
     def buy_off_associated_weakness(self, power: VampirePower | int) -> CharacterVampirePower:
@@ -513,7 +569,7 @@ class VampireRules:
             character=character,
             power_id=power_id,
         ).first()
-        if ownership is None or ownership.power.weakness_id is None:
+        if ownership is None or not str(ownership.power.weakness or "").strip():
             raise VampireRuleError("Diese erworbene Kraft besitzt keine freikaufbare Schwäche.")
         if ownership.purchased_without_weakness:
             raise VampireRuleError("Diese Kraft wurde bereits ohne Schwäche erworben.")
@@ -706,7 +762,6 @@ class VampireRules:
         return {
             "power": definition,
             "spent_blood": cost,
-            "handler": definition.handler,
             "resource": self.resource_state(),
         }
 
@@ -721,6 +776,8 @@ class VampireRules:
         aggravated: bool = False,
     ) -> dict[str, Any]:
         self._require_runtime()
+        if not self.can_regenerate():
+            raise VampireRuleError("Vampirische Regeneration wurde nicht als Fähigkeit erworben.")
         wound_grades = max(1, int(wound_grade or 1))
         cost_per_wound_grade = HARD_REGENERATION_COST if hard_to_heal else REGENERATION_COST
         required = cost_per_wound_grade * wound_grades

@@ -5,7 +5,7 @@
     <div><dt>Potential</dt><dd>{{ vampire_panel.potential }}</dd></div>
     <div class="vampire_sheet_stats__wide"><dt>Blut</dt><dd><strong>{{ vampire_panel.intelligent_blood }}</strong> intelligent · <strong>{{ vampire_panel.animal_blood }}</strong> Tier · <strong>{{ vampire_panel.capacity }}</strong> Kapazität</dd></div>
     <div class="vampire_sheet_stats__wide"><dt>Qualifizierende Jagd</dt><dd>{% if vampire_panel.recent_qualifying_kill %}wirksam{% else %}nicht wirksam{% endif %}</dd></div>
-    {% if vampire_panel.regeneration_blood %}<div><dt>Regenerationsinvestition</dt><dd>{{ vampire_panel.regeneration_blood }} / {{ vampire_panel.regeneration_target_cost }} BP</dd></div>{% endif %}
+    {% if vampire_panel.can_regenerate and vampire_panel.regeneration_blood %}<div><dt>Regenerationsinvestition</dt><dd>{{ vampire_panel.regeneration_blood }} / {{ vampire_panel.regeneration_target_cost }} BP</dd></div>{% endif %}
     {% if vampire_panel.sacrament_rounds_remaining %}<div><dt>Blutsakrament</dt><dd>+{{ vampire_panel.sacrament_age_bonus }} Alterszyklus, noch {{ vampire_panel.sacrament_rounds_remaining }} Runden</dd></div>{% endif %}
     {% if vampire_panel.pending_starvation %}<div><dt>Offener Blutmangel</dt><dd>{{ vampire_panel.pending_starvation }} Konsequenz{{ vampire_panel.pending_starvation|pluralize:"en" }}</dd></div>{% endif %}
   </dl>
@@ -35,7 +35,7 @@
     <form method="post" action="{% url 'vampire_character_action' character.id 'record-kill' %}">
       {% csrf_token %}<button type="submit">Qualifizierende Tötung bestätigen</button>
     </form>
-    <form method="post" action="{% url 'vampire_character_action' character.id 'regenerate' %}">
+    {% if vampire_panel.can_regenerate %}<form method="post" action="{% url 'vampire_character_action' character.id 'regenerate' %}">
       {% csrf_token %}
       <label>BP investieren <input type="number" min="1" name="blood_amount" value="1"></label>
       <label>Wundgrad <input type="number" min="1" name="wound_grade" value="1"></label>
@@ -43,7 +43,7 @@
       <label><input type="checkbox" name="hard_to_heal" value="1"> schwer heilbar</label>
       <label><input type="checkbox" name="aggravated" value="1"> aggravierenden Anteil heilen</label>
       <button type="submit">Regeneration</button>
-    </form>
+    </form>{% endif %}
     {% if vampire_panel.sacrament_rounds_remaining %}
       <form method="post" action="{% url 'vampire_character_action' character.id 'advance-round' %}">{% csrf_token %}<button type="submit">Vampir-Runde fortschreiben</button></form>
     {% else %}

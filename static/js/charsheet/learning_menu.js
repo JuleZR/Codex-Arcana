@@ -36,9 +36,9 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
   const calcTraitDeltaCost = (base, value, pointsPerLevel, traitType) => (
     Math.abs(value) * Math.max(0, pointsPerLevel)
   );
-  const calcAttributeTotalCost = (targetLevel, maxValue) => {
+  const calcAttributeTotalCost = (targetLevel, maxValue, premiumThreshold = null) => {
     const level = Math.max(0, targetLevel);
-    const threshold = maxValue - 2;
+    const threshold = premiumThreshold === null ? maxValue - 2 : premiumThreshold;
     if (level <= threshold) {
       return level * 10;
     }
@@ -118,11 +118,12 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
       const base = readInt(row.getAttribute("data-base"), 0);
       const min = readInt(row.getAttribute("data-min"), 0);
       const max = readInt(row.getAttribute("data-max"), 0);
+      const premiumThreshold = readInt(row.getAttribute("data-premium-threshold"), max - 2);
       const minAdd = Math.min(0, min - base);
       const maxAdd = Math.max(0, max - base);
       const hidden = row.querySelector("[data-learn-hidden]");
       value = clamp(value, minAdd, maxAdd);
-      cost = calcAttributeTotalCost(base + value, max) - calcAttributeTotalCost(base, max);
+      cost = calcAttributeTotalCost(base + value, max, premiumThreshold) - calcAttributeTotalCost(base, max, premiumThreshold);
       if (hidden instanceof HTMLInputElement) {
         hidden.value = String(value);
       }
@@ -481,6 +482,7 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
       const base = readInt(source.getAttribute("data-base"), 0);
       const min = readInt(source.getAttribute("data-min"), 0);
       const max = readInt(source.getAttribute("data-max"), 0);
+      const premiumThreshold = readInt(source.getAttribute("data-premium-threshold"), max - 2);
       const minAdd = Math.min(0, min - base);
       const maxAdd = Math.max(0, max - base);
       if (maxAdd < 1 && minAdd === 0) {
@@ -518,6 +520,7 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
       const startAdd = maxAdd > 0 ? 1 : 0;
       row.setAttribute("data-base", String(base));
       row.setAttribute("data-max", String(max));
+      row.setAttribute("data-premium-threshold", String(premiumThreshold));
       row.setAttribute("data-above-base-cost", String(aboveBaseCost));
       row.innerHTML = `
         <td><span>${safeName}</span> <span data-learn-level-info>(${base + startAdd})</span><input type="hidden" name="learn_skill_add_${slug}" value="${startAdd}" data-learn-hidden></td>

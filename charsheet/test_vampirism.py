@@ -3,7 +3,16 @@ from django.core.exceptions import ValidationError
 from django.test import TestCase
 from django.urls import reverse
 
-from charsheet.constants import ATTR_ST, ATTR_WILL, QUALITY_COMMON, VAMPIRE_MODE_ENABLE, VAMPIRE_STATE_TORPOR
+from charsheet.constants import (
+    ATTR_ST,
+    ATTR_WILL,
+    COMA_IGNORE,
+    QUALITY_COMMON,
+    VAMPIRE_MODE_ENABLE,
+    VAMPIRE_REGENERATION,
+    VAMPIRE_STRENGTH_OVER_RACE_MAXIMUM,
+    VAMPIRE_STATE_TORPOR,
+)
 from charsheet.engine.magic_engine import MagicEngine
 from charsheet.engine.character_creation_engine import CharacterCreationEngine
 from charsheet.engine.vampire_engine import VampireRuleError, VampireRules
@@ -30,6 +39,8 @@ from charsheet.models import (
     Quality,
     Race,
     RaceAttributeLimit,
+    School,
+    SchoolType,
     Trait,
     VampirePower,
     VampireTrait,
@@ -78,17 +89,27 @@ class VampireRulesTests(TestCase):
             name="Test advantage",
             trait_type=VampireTrait.TraitType.ADVANTAGE,
         )
+        self.regeneration_advantage = VampireTrait.objects.create(
+            slug="vampirische-regeneration",
+            name="Vampirische Regeneration",
+            trait_type=VampireTrait.TraitType.ADVANTAGE,
+        )
+        VampireTraitSemanticEffect.objects.create(
+            trait=self.regeneration_advantage,
+            target_domain="capability",
+            target_key=VAMPIRE_REGENERATION,
+            operator="grant_capability",
+            value="true",
+        )
         self.aura = VampirePower.objects.create(
             slug="aura-sehen",
             name="Test power",
             blood_cost=1,
-            handler=VampirePower.Handler.MANUAL_ACTIVATION,
             weakness=weakness,
         )
         self.blood_sacrament = VampirePower.objects.create(
             slug="blutsakrament",
             name="Test blood sacrament",
-            handler=VampirePower.Handler.BLOOD_SACRAMENT,
             weakness=weakness,
         )
         VampireTraitSemanticEffect.objects.create(
@@ -97,6 +118,12 @@ class VampireRulesTests(TestCase):
             target_key="rs",
             operator="flat_add",
             value="2",
+        )
+
+    def _grant_regeneration(self):
+        CharacterVampireTrait.objects.get_or_create(
+            character=self.character,
+            trait=self.regeneration_advantage,
         )
 
     def test_vampire_traits_and_powers_use_separate_models(self):
@@ -174,6 +201,108 @@ class VampireRulesTests(TestCase):
         self.assertEqual(effect.operator, "set_flag")
         self.assertEqual(effect.value, "true")
 
+        coma_form = VampireTraitSemanticEffectAdminForm(
+            data={
+                "trait": self.vampire_advantage.pk,
+                "application_scope": VampireTraitSemanticEffect.ApplicationScope.BOTH,
+                "sort_order": 1,
+                "active_flag": True,
+                "effect_area": "rule_flag",
+                "simple_target": f"rule_flag:{COMA_IGNORE}",
+                "simple_operator": "set_flag",
+                "vampire_scaling": "",
+                "condition_text": "",
+            }
+        )
+        self.assertTrue(coma_form.is_valid(), coma_form.errors.as_json())
+        coma_effect = coma_form.save()
+        self.assertEqual(coma_effect.target_key, COMA_IGNORE)
+
+    def test_admin_form_can_grant_vampiric_regeneration(self):
+        from charsheet.admin import VampireTraitSemanticEffectAdminForm
+
+        form = VampireTraitSemanticEffectAdminForm(
+            data={
+                "trait": self.vampire_advantage.pk,
+                "application_scope": VampireTraitSemanticEffect.ApplicationScope.BOTH,
+                "sort_order": 0,
+                "active_flag": True,
+                "effect_area": "capability",
+                "simple_target": f"capability:{VAMPIRE_REGENERATION}",
+                "simple_operator": "grant_capability",
+                "vampire_scaling": "",
+                "condition_text": "",
+            }
+        )
+        self.assertTrue(form.is_valid(), form.errors.as_json())
+        effect = form.save()
+        self.assertEqual(effect.target_domain, "capability")
+        self.assertEqual(effect.target_key, VAMPIRE_REGENERATION)
+        self.assertEqual(effect.operator, "grant_capability")
+
+    def test_disallow_schools_semantic_effect_blocks_school_learning(self):
+        from charsheet.admin import VampireTraitSemanticEffectAdminForm
+
+        school_type = SchoolType.objects.create(name="Vampir-Testschule-Typ", slug="vampir-testtyp")
+        school = School.objects.create(name="Verbotene Vampir-Testschule", type=school_type)
+        form = VampireTraitSemanticEffectAdminForm(
+            data={
+                "trait": self.vampire_advantage.pk,
+                "application_scope": VampireTraitSemanticEffect.ApplicationScope.CHARACTER,
+                "sort_order": 0,
+                "active_flag": True,
+                "effect_area": "disallow_schools",
+                "simple_target": "metadata:disallow_schools",
+                "simple_operator": "remove_capability",
+                "target_schools": [school.pk],
+                "vampire_scaling": "",
+                "condition_text": "",
+            }
+        )
+        self.assertTrue(form.is_valid(), form.errors.as_json())
+        effect = form.save()
+        form.save_m2m()
+        self.assertEqual(effect.target_domain, "metadata")
+        self.assertEqual(effect.target_key, "disallow_schools")
+        self.assertEqual(list(effect.target_schools.values_list("id", flat=True)), [school.id])
+
+        CharacterVampireTrait.objects.create(
+            character=self.character,
+            trait=self.vampire_advantage,
+        )
+        self.assertEqual(VampireRules(self.character).disallowed_school_ids(), {school.id})
+        level, message = process_learning_submission(
+            self.character,
+            {f"learn_school_add_{school.id}": "1"},
+        )
+        self.assertEqual(level, "error")
+        self.assertIn("gesperrt", message)
+
+    def test_traits_and_powers_accept_multiple_semantic_effects(self):
+        VampireTraitSemanticEffect.objects.create(
+            trait=self.vampire_advantage,
+            target_domain="rule_flag",
+            target_key="wound_penalty_ignore",
+            operator="set_flag",
+            value="true",
+        )
+        VampireTraitSemanticEffect.objects.create(
+            trait=self.vampire_advantage,
+            target_domain="rule_flag",
+            target_key=COMA_IGNORE,
+            operator="set_flag",
+            value="true",
+        )
+        VampireTraitSemanticEffect.objects.create(
+            power=self.aura,
+            target_domain="rule_flag",
+            target_key=COMA_IGNORE,
+            operator="set_flag",
+            value="true",
+        )
+        self.assertEqual(self.vampire_advantage.semantic_effects.count(), 2)
+        self.assertEqual(self.aura.semantic_effects.count(), 2)
+
     def test_anchor_derives_status_without_a_synthetic_base_trait(self):
         rules = VampireRules(self.character)
         effective = {entry.trait.slug for entry in rules.effective_traits()}
@@ -181,8 +310,25 @@ class VampireRulesTests(TestCase):
         self.assertNotIn("grundvampirismus", effective)
         self.assertFalse(self.anchor.semantic_effects.exists())
         flags = self.character.get_engine(refresh=True).resolve_flags()
-        self.assertTrue(flags["wound_penalty_ignore"])
+        self.assertFalse(flags.get("wound_penalty_ignore", False))
         self.assertTrue(flags["can_act_while_out_of_action"])
+
+    def test_coma_ignore_is_an_explicit_semantic_flag(self):
+        engine = self.character.get_engine(refresh=True)
+        self.assertTrue(engine.is_wound_incapacitated("Koma"))
+        VampireTraitSemanticEffect.objects.create(
+            trait=self.vampire_advantage,
+            target_domain="rule_flag",
+            target_key=COMA_IGNORE,
+            operator="set_flag",
+            value="true",
+        )
+        CharacterVampireTrait.objects.create(
+            character=self.character,
+            trait=self.vampire_advantage,
+        )
+        engine = self.character.get_engine(refresh=True)
+        self.assertFalse(engine.is_wound_incapacitated("Koma"))
 
     def test_in_play_anchor_requires_confirmed_baptism_at_exact_zero_lp_boundary(self):
         CharacterTrait.objects.filter(owner=self.character, trait=self.anchor).delete()
@@ -215,6 +361,14 @@ class VampireRulesTests(TestCase):
         )
         self.assertEqual(level, "success")
         self.assertTrue(CharacterTrait.objects.filter(owner=self.character, trait=self.anchor).exists())
+        self.assertSetEqual(
+            set(
+                CharacterVampireTrait.objects.filter(character=self.character).values_list(
+                    "trait_id", flat=True
+                )
+            ),
+            set(VampireTrait.objects.filter(is_active=True).values_list("id", flat=True)),
+        )
         self.character.refresh_from_db()
         self.assertFalse(self.character.vampire_baptism_confirmed)
 
@@ -233,6 +387,11 @@ class VampireRulesTests(TestCase):
         self.assertContains(response, "Tier-/Kreaturenblut verringern")
         self.assertContains(response, 'id="learn-tab-vampire"')
         self.assertContains(response, 'id="learn-panel-vampire"')
+        self.assertNotContains(response, "data-vampire-regeneration")
+
+        self._grant_regeneration()
+        response = self.client.get(reverse("character_sheet", args=[self.character.id]))
+        self.assertContains(response, "data-vampire-regeneration")
 
     def test_non_vampire_learning_menu_has_no_vampire_tab(self):
         mortal = Character.objects.create(owner=self.user, name="Mortal Test", race=self.race)
@@ -279,16 +438,37 @@ class VampireRulesTests(TestCase):
         self.assertTrue(response.json()["ok"])
         self.assertEqual(response.json()["animal_blood"], 1)
 
-    def test_power_automatically_applies_associated_weakness_until_buyoff(self):
+    def test_power_weakness_is_text_and_can_be_bought_off(self):
         ownership = CharacterVampirePower.objects.create(
             character=self.character,
             power=self.aura,
         )
         rules = VampireRules(self.character)
-        self.assertIn("tiererkennung", {entry.trait.slug for entry in rules.effective_traits()})
+        self.assertTrue(str(self.aura.weakness).strip())
+        self.assertNotIn("tiererkennung", {entry.trait.slug for entry in rules.effective_traits()})
+
+    def test_power_weakness_semantic_effect_stops_after_buyoff(self):
+        effect = VampireTraitSemanticEffect.objects.create(
+            power=self.aura,
+            power_component=VampireTraitSemanticEffect.PowerComponent.WEAKNESS,
+            application_scope=VampireTraitSemanticEffect.ApplicationScope.CHARACTER,
+            target_domain="rule_flag",
+            target_key="coma_ignore",
+            operator="set_flag",
+            value="true",
+        )
+        ownership = CharacterVampirePower.objects.create(character=self.character, power=self.aura)
+        self.assertTrue(VampireRules(self.character).semantic_flag("coma_ignore"))
+        self.assertIn(effect, self.aura.semantic_effects.all())
+
         ownership.weakness_bought_off = True
         ownership.save(update_fields=["weakness_bought_off"])
-        self.assertNotIn("tiererkennung", {entry.trait.slug for entry in rules.effective_traits()})
+        self.assertFalse(VampireRules(self.character).semantic_flag("coma_ignore"))
+
+        ownership.weakness_bought_off = False
+        ownership.purchased_without_weakness = True
+        ownership.save(update_fields=["weakness_bought_off", "purchased_without_weakness"])
+        self.assertFalse(VampireRules(self.character).semantic_flag("coma_ignore"))
 
     def test_power_purchase_without_weakness_is_persisted_and_costs_twenty(self):
         start_capacity = VampireRules(self.character).blood_capacity()
@@ -314,19 +494,18 @@ class VampireRulesTests(TestCase):
         self.assertTrue(ownership.purchased_without_weakness)
         self.assertEqual(self.character.current_experience, 80)
 
-    def test_fundamental_trait_costs_five_and_direct_weakness_can_be_removed(self):
+    def test_fundamental_traits_cannot_be_bought_or_removed_individually(self):
         rules = VampireRules(self.character)
-        rules.learn_trait(self.vampire_advantage)
-        self.character.refresh_from_db()
-        self.assertEqual(self.character.current_experience, 95)
-        weakness = self.aura.weakness
+        with self.assertRaises(VampireRuleError):
+            rules.learn_trait(self.vampire_advantage)
+        weakness = VampireTrait.objects.get(slug="tiererkennung")
         CharacterVampireTrait.objects.create(character=self.character, trait=weakness)
-        rules.remove_trait_weakness(weakness)
-        self.character.refresh_from_db()
-        self.assertEqual(self.character.current_experience, 90)
-        self.assertFalse(CharacterVampireTrait.objects.filter(character=self.character, trait=weakness).exists())
+        with self.assertRaises(VampireRuleError):
+            rules.remove_trait_weakness(weakness)
+        self.assertTrue(CharacterVampireTrait.objects.filter(character=self.character, trait=weakness).exists())
 
     def test_regeneration_is_not_partially_paid_when_potential_is_too_low(self):
+        self._grant_regeneration()
         self.character.vampire_intelligent_blood = 10
         self.character.current_lethal_damage = 5
         self.character.save(update_fields=["vampire_intelligent_blood", "current_lethal_damage"])
@@ -340,6 +519,7 @@ class VampireRulesTests(TestCase):
         self.assertEqual(self.character.vampire_regeneration_blood, 0)
 
     def test_regeneration_cost_depends_on_wound_grades_and_heals_damage(self):
+        self._grant_regeneration()
         self.character.vampire_intelligent_blood = 10
         self.character.current_lethal_damage = 10
         self.character.save(update_fields=["vampire_intelligent_blood", "current_lethal_damage"])
@@ -353,6 +533,7 @@ class VampireRulesTests(TestCase):
         self.assertEqual(self.character.vampire_intelligent_blood, 6)
 
     def test_regeneration_does_not_start_without_full_blood_cost_available(self):
+        self._grant_regeneration()
         self.character.vampire_intelligent_blood = 1
         self.character.current_lethal_damage = 5
         self.character.save(update_fields=["vampire_intelligent_blood", "current_lethal_damage"])
@@ -366,6 +547,7 @@ class VampireRulesTests(TestCase):
         self.assertEqual(self.character.vampire_regeneration_blood, 0)
 
     def test_regeneration_discards_obsolete_partial_payment_and_heals(self):
+        self._grant_regeneration()
         self.character.vampire_intelligent_blood = 10
         self.character.current_lethal_damage = 5
         self.character.vampire_regeneration_blood = 1
@@ -381,6 +563,7 @@ class VampireRulesTests(TestCase):
         self.assertEqual(self.character.vampire_intelligent_blood, 8)
 
     def test_regeneration_action_returns_live_damage_and_blood_state(self):
+        self._grant_regeneration()
         self.character.vampire_intelligent_blood = 10
         self.character.current_stun_damage = 3
         self.character.current_lethal_damage = 4
@@ -399,6 +582,23 @@ class VampireRulesTests(TestCase):
         self.assertEqual(payload["current_stun_damage"], 2)
         self.assertEqual(payload["current_lethal_damage"], 4)
         self.assertEqual(payload["intelligent_blood"], 8)
+
+    def test_regeneration_action_is_rejected_without_semantic_ability(self):
+        self.character.vampire_intelligent_blood = 10
+        self.character.current_lethal_damage = 5
+        self.character.save(update_fields=["vampire_intelligent_blood", "current_lethal_damage"])
+        self.client.force_login(self.user)
+        response = self.client.post(
+            reverse("vampire_character_action", args=[self.character.id, "regenerate"]),
+            {"wound_grade": 1, "hard_to_heal": "0", "ajax": 1},
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+            HTTP_ACCEPT="application/json",
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(response.json()["ok"])
+        self.character.refresh_from_db()
+        self.assertEqual(self.character.vampire_intelligent_blood, 10)
+        self.assertEqual(self.character.current_lethal_damage, 5)
 
     def test_blood_types_capacity_daily_use_and_torpor_exemption(self):
         self.character.vampire_age_cycle = 2
@@ -511,8 +711,8 @@ class VampireRulesTests(TestCase):
             },
         )
         engine = CharacterCreationEngine(draft)
-        self.assertEqual(engine.vampire_creation_cost(), 31)
-        self.assertEqual(engine.sum_phase_4_advantages_cost(), 46)
+        self.assertEqual(engine.vampire_creation_cost(), 36)
+        self.assertEqual(engine.sum_phase_4_advantages_cost(), 51)
         self.assertEqual(engine.sum_phase_4_rest_cost(), 0)
         self.assertTrue(engine.vampire_configuration_is_valid())
 
@@ -524,8 +724,8 @@ class VampireRulesTests(TestCase):
         }
         draft.save(update_fields=["state"])
         age_six_engine = CharacterCreationEngine(draft)
-        self.assertEqual(age_six_engine.vampire_creation_cost(), 50)
-        self.assertEqual(age_six_engine.sum_phase_4_advantages_cost(), 65)
+        self.assertEqual(age_six_engine.vampire_creation_cost(), 55)
+        self.assertEqual(age_six_engine.sum_phase_4_advantages_cost(), 70)
         self.client.force_login(self.user)
         response = self.client.get(reverse("create_character"), {"draft": draft.pk})
         self.assertEqual(response.status_code, 200)
@@ -556,7 +756,70 @@ class VampireRulesTests(TestCase):
         )
         self.character.vampire_age_cycle = 3
         self.character.save(update_fields=["vampire_age_cycle"])
+        self.assertEqual(self.character.get_engine(refresh=True).resolve_attribute_cap_bonus(ATTR_ST), 0)
+        level, _message = process_learning_submission(
+            self.character,
+            {f"learn_attr_add_{ATTR_ST}": "1"},
+        )
+        self.assertEqual(level, "error")
+
+        VampireTraitSemanticEffect.objects.create(
+            trait=self.vampire_advantage,
+            target_domain="rule_flag",
+            target_key=VAMPIRE_STRENGTH_OVER_RACE_MAXIMUM,
+            operator="set_flag",
+            value="true",
+        )
+        CharacterVampireTrait.objects.create(
+            character=self.character,
+            trait=self.vampire_advantage,
+        )
         self.assertEqual(self.character.get_engine(refresh=True).resolve_attribute_cap_bonus(ATTR_ST), 3)
+        level, _message = process_learning_submission(
+            self.character,
+            {f"learn_attr_add_{ATTR_ST}": "1"},
+        )
+        self.assertEqual(level, "success")
+        self.character.refresh_from_db()
+        self.assertEqual(self.character.current_experience, 80)
+        self.assertEqual(
+            CharacterAttribute.objects.get(character=self.character, attribute=self.strength).base_value,
+            19,
+        )
+
+    def test_strength_extension_flag_controls_creation_cap_and_twenty_cp_cost(self):
+        VampireTraitSemanticEffect.objects.create(
+            trait=self.vampire_advantage,
+            target_domain="rule_flag",
+            target_key=VAMPIRE_STRENGTH_OVER_RACE_MAXIMUM,
+            operator="set_flag",
+            value="true",
+        )
+        draft = CharacterCreationDraft.objects.create(
+            owner=self.user,
+            race=self.race,
+            current_phase=4,
+            state={
+                "phase_1": {"attributes": {ATTR_ST: 18, ATTR_WILL: 10}},
+                "phase_4": {
+                    "advantages": {"adv_vampire": 1},
+                    "attribute_adds": {ATTR_ST: 3},
+                    "vampire": {
+                        "age_cycle": 3,
+                        "traits": {self.vampire_advantage.slug: {}},
+                    },
+                },
+            },
+        )
+        engine = CharacterCreationEngine(draft)
+        self.assertEqual(engine.creation_attribute_cap_bonus(ATTR_ST), 3)
+        self.assertEqual(engine.attribute_min_max_limits()[ATTR_ST]["max"], 21)
+        self.assertEqual(engine.sum_phase_4_attribute_cost(), 60)
+
+        draft.state["phase_4"]["vampire"]["traits"] = {}
+        draft.save(update_fields=["state"])
+        engine = CharacterCreationEngine(draft)
+        self.assertEqual(engine.creation_attribute_cap_bonus(ATTR_ST), 3)
 
     def _creature(self, **overrides):
         values = {

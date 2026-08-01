@@ -1,16 +1,24 @@
 <div class="vampire_management">
   {% if not read_only %}
+  {% if vampire_panel.can_regenerate or vampire_panel.pending_starvation %}
   <div class="vampire_management__grid">
+    {% if vampire_panel.can_regenerate %}
     <section class="vampire_management__section">
       <div class="vampire_management__title"><h3>Regeneration</h3><button type="button" class="vampire_management__info tooltip_target" aria-label="Regeneration erklären" data-tooltip-side="right" data-tooltip="2 BP je normalem, 8 BP je schwer heilbarem Wundgrad (z. B. Sonne oder Feuer). Bezahlt wird ausschließlich mit Blut intelligenter Wesen; Teilzahlungen sind nicht möglich.">i</button></div>
       <form class="vampire_management__form vampire_management__form--regeneration" method="post" action="{% url 'vampire_character_action' character.id 'regenerate' %}" data-vampire-regeneration>
         {% csrf_token %}<label><span>Kosten je Wundgrad</span><select name="hard_to_heal"><option value="0">Normal – 2 BP</option><option value="1">Schwer heilbar – 8 BP</option></select></label><label><span>Wundgrade</span><input type="number" min="1" name="wound_grade" value="1"></label><button type="submit">Regenerieren</button>
       </form>
       <p class="vampire_management__feedback" data-vampire-regeneration-feedback aria-live="polite"></p>
-      {% if vampire_panel.pending_starvation %}<form class="vampire_management__form" method="post" action="{% url 'vampire_character_action' character.id 'resolve-starvation' %}">{% csrf_token %}<label><span>Schadensart</span><select name="damage_type"><option value="B">Betäubung</option><option value="T">Tödlich</option></select></label><label><span>Wundgrad</span><input type="number" min="1" name="wound_grade" value="1"></label><button type="submit">Blutmangel auflösen</button></form>{% endif %}
     </section>
-
+    {% endif %}
+    {% if vampire_panel.pending_starvation %}
+    <section class="vampire_management__section">
+      <h3>Blutmangel</h3>
+      <form class="vampire_management__form" method="post" action="{% url 'vampire_character_action' character.id 'resolve-starvation' %}">{% csrf_token %}<label><span>Schadensart</span><select name="damage_type"><option value="B">Betäubung</option><option value="T">Tödlich</option></select></label><label><span>Wundgrad</span><input type="number" min="1" name="wound_grade" value="1"></label><button type="submit">Blutmangel auflösen</button></form>
+    </section>
+    {% endif %}
   </div>
+  {% endif %}
   {% endif %}
 
   <section class="vampire_management__traits">

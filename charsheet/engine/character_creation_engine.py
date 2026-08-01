@@ -38,12 +38,14 @@ from charsheet.models import (
     Trait,
     VampirePower,
     VampireTrait,
+    VampireTraitSemanticEffect,
     WeaponType,
 )
 from charsheet.lesson_rules import lesson_requirements_met, missing_requirement_labels
 from charsheet.constants import (
     ATTR_SPEC,
     ATTR_ST,
+    VAMPIRE_STRENGTH_OVER_RACE_MAXIMUM,
     VAMPIRE_ANCHOR_TRAIT_SLUG,
     LANGUAGE_LITERACY_MIN_LEVEL,
     LEGENDARY_ATTRIBUTE_TRAIT_SLUG,
@@ -136,11 +138,50 @@ class CharacterCreationEngine:
             return definitions[:level]
         return definitions
 
+    def vampire_semantic_flag(self, target_key: str) -> bool:
+        """Resolve character-scoped vampire flags selected in the creation draft."""
+        if not self.has_vampire_anchor():
+            return False
+        config = self.phase_4_vampire()
+        trait_definitions = list(
+            VampireTrait.objects.filter(slug__in=config["traits"].keys()).prefetch_related(
+                "semantic_effects"
+            )
+        )
+        power_definitions = list(
+            VampirePower.objects.filter(slug__in=config["powers"].keys()).prefetch_related(
+                "semantic_effects"
+            )
+        )
+        effects = [effect for definition in trait_definitions for effect in definition.semantic_effects.all()]
+        for definition in power_definitions:
+            without_weakness = bool(config["powers"].get(definition.slug, {}).get("without_weakness"))
+            effects.extend(
+                effect
+                for effect in definition.semantic_effects.all()
+                if effect.power_component != VampireTraitSemanticEffect.PowerComponent.WEAKNESS
+                or not without_weakness
+            )
+        enabled = False
+        for effect in sorted(effects, key=lambda row: (int(row.priority), int(row.id or 0))):
+            if (
+                not effect.active_flag
+                or effect.application_scope not in {"character", "both"}
+                or effect.target_domain != "rule_flag"
+                or effect.target_key != target_key
+            ):
+                continue
+            enabled = effect.operator != "unset_flag" and bool(effect._coerce_scalar(effect.value))
+        return enabled
+
     def creation_attribute_cap_bonus(self, attribute_slug: str) -> int:
         """Resolve draft-time maximum-attribute modifiers from selected phase-4 advantages."""
         total = (
             int(self.phase_4_vampire()["age_cycle"])
-            if attribute_slug == ATTR_ST and self.has_vampire_anchor()
+            if (
+                attribute_slug == ATTR_ST
+                and self.vampire_semantic_flag(VAMPIRE_STRENGTH_OVER_RACE_MAXIMUM)
+            )
             else 0
         )
         choice_map = self.phase_4_trait_choices()
@@ -164,6 +205,44 @@ class CharacterCreationEngine:
                 resolved = modifier_engine._resolve_numeric_modifier(modifier)
                 total += int(resolved or 0)
         return int(total)
+
+    def vampire_disallowed_school_ids(self) -> set[int]:
+        if not self.has_vampire_anchor():
+            return set()
+        config = self.phase_4_vampire()
+        trait_definitions = list(
+            VampireTrait.objects.filter(slug__in=config["traits"].keys()).prefetch_related(
+                "semantic_effects__target_schools"
+            )
+        )
+        power_definitions = list(
+            VampirePower.objects.filter(slug__in=config["powers"].keys()).prefetch_related(
+                "semantic_effects__target_schools"
+            )
+        )
+        blocked: set[int] = set()
+        effect_groups = [(definition.semantic_effects.all(), True) for definition in trait_definitions]
+        effect_groups.extend(
+            (
+                definition.semantic_effects.all(),
+                not bool(config["powers"].get(definition.slug, {}).get("without_weakness")),
+            )
+            for definition in power_definitions
+        )
+        for effects, weakness_is_active in effect_groups:
+            for effect in effects:
+                if (
+                    effect.active_flag
+                    and (
+                        effect.power_component != VampireTraitSemanticEffect.PowerComponent.WEAKNESS
+                        or weakness_is_active
+                    )
+                    and effect.application_scope in {"character", "both"}
+                    and effect.target_domain == "metadata"
+                    and effect.target_key == "disallow_schools"
+                ):
+                    blocked.update(effect.target_schools.values_list("id", flat=True))
+        return blocked
 
     def _trait_choices_are_valid(self, phase_key: str, trait_type: str) -> bool:
         """Validate required draft-time attribute choices for selected traits in one phase."""
@@ -427,6 +506,11 @@ class CharacterCreationEngine:
     def phase_4_vampire(self) -> dict[str, object]:
         raw = self.get_phase("phase_4").get("vampire", {}) or {}
         traits = {str(slug): {} for slug in (raw.get("traits", {}) or {})}
+        if self.phase_4_advantages().get(VAMPIRE_ANCHOR_TRAIT_SLUG, 0) > 0:
+            traits = {
+                slug: {}
+                for slug in VampireTrait.objects.filter(is_active=True).values_list("slug", flat=True)
+            }
         powers: dict[str, dict[str, object]] = {}
         for slug, payload in (raw.get("powers", {}) or {}).items():
             payload = payload or {}
@@ -493,8 +577,10 @@ class CharacterCreationEngine:
         power_definitions = {
             power.slug: power
             for power in VampirePower.objects.filter(
-                slug__in=config["powers"].keys(), is_active=True, weakness__isnull=False
+                slug__in=config["powers"].keys(), is_active=True
             )
+            .exclude(weakness="")
+            .exclude(weakness__isnull=True)
         }
         if len(trait_definitions) != len(config["traits"]):
             return False
@@ -559,7 +645,10 @@ class CharacterCreationEngine:
             end = start + add
             max_value = limits[name]["max"]
             premium_threshold = None
-            if name == ATTR_ST and self.has_vampire_anchor():
+            if (
+                name == ATTR_ST
+                and self.vampire_semantic_flag(VAMPIRE_STRENGTH_OVER_RACE_MAXIMUM)
+            ):
                 premium_threshold = max_value - int(self.phase_4_vampire()["age_cycle"]) - 2
             total += self.calc_attribute_add_cost(
                 end,
@@ -826,8 +915,13 @@ class CharacterCreationEngine:
             if base_level + self.phase_4_language_adds().get(slug, 0) < LANGUAGE_LITERACY_MIN_LEVEL:
                 return False
 
+        disallowed_school_ids = self.vampire_disallowed_school_ids()
         for school_id in self.phase_4_schools().keys():
-            if not School.objects.filter(pk=self._to_int(school_id, -1)).exists():
+            numeric_school_id = self._to_int(school_id, -1)
+            if (
+                numeric_school_id in disallowed_school_ids
+                or not School.objects.filter(pk=numeric_school_id).exists()
+            ):
                 return False
 
         if self.sum_phase_4_advantages_cost() > self.calculate_phase_4_advantages_budget():

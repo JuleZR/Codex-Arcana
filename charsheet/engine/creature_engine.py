@@ -14,6 +14,7 @@ from django.db.models import Q
 from charsheet.constants import (
     ARCANE_POWER,
     CAN_ACT_WHILE_OUT_OF_ACTION,
+    COMA_IGNORE,
     ATTR_CHA,
     ATTR_GE,
     ATTR_INT,
@@ -388,15 +389,14 @@ class CreatureEngine:
 
         vampire_age_cycle = VampireRules(self.source).age_cycle()
         if VampireRules(self.source).is_vampire():
-            effects.extend(
+            effects.append(
                 CreatureSemanticEffect(
                     source_id="vampire_status",
                     target_domain=TargetDomain.RULE_FLAG,
-                    target_key=target_key,
+                    target_key=CAN_ACT_WHILE_OUT_OF_ACTION,
                     operator=ModifierOperator.SET_FLAG,
                     value=True,
                 )
-                for target_key in (WOUND_PENALTY_IGNORE, CAN_ACT_WHILE_OUT_OF_ACTION)
             )
         for ownership in self._effective_vampire_traits:
             for effect_row in ownership.trait.semantic_effects.all():
@@ -1057,11 +1057,27 @@ class CreatureEngine:
             )
         )
 
+    def has_capability(self, target_key: str) -> bool:
+        """Resolve one semantic ability grant or removal."""
+        enabled = False
+        relevant = [
+            effect
+            for effect in self._semantic_effects
+            if effect.target_domain == TargetDomain.CAPABILITY and effect.target_key == target_key
+        ]
+        for effect in sorted(
+            relevant,
+            key=lambda entry: (entry.priority, entry.source_id, entry.target_domain, entry.target_key),
+        ):
+            resolved_value = self._resolve_creature_effect_value(effect)
+            enabled = bool(resolved_value) and effect.operator != ModifierOperator.REMOVE_CAPABILITY
+        return enabled
+
     def is_wound_incapacitated(self, wound_stage: str | None = None) -> bool:
         """Resolve wound incapacitation while keeping coma unconditional."""
         stage = wound_stage if wound_stage is not None else str(self.current_wound_zone()["label"] or "")
         if stage == "Koma":
-            return True
+            return not bool(self._modifier_total(TargetDomain.RULE_FLAG, COMA_IGNORE))
         if stage in {"Ausser Gefecht", "Außer Gefecht"}:
             return not self.can_act_while_out_of_action()
         return False

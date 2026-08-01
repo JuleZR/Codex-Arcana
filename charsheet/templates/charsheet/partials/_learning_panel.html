@@ -239,7 +239,7 @@
                   <table class="shop_table">
                     <tbody>
                       {% for row in learn_attr_rows %}
-                        <tr data-learn-source data-kind="attr" data-key="attr:{{ row.short_name }}" data-short="{{ row.short_name }}" data-name="{{ row.label }}" data-base="{{ row.base_value }}" data-min="{{ row.min_value }}" data-max="{{ row.max_value }}" data-learn-search="{{ row.label|lower }} eigenschaft attribut" tabindex="0" role="button" aria-label="{{ row.label }} steigern">
+                        <tr data-learn-source data-kind="attr" data-key="attr:{{ row.short_name }}" data-short="{{ row.short_name }}" data-name="{{ row.label }}" data-base="{{ row.base_value }}" data-min="{{ row.min_value }}" data-max="{{ row.max_value }}" data-premium-threshold="{{ row.premium_threshold }}" data-learn-search="{{ row.label|lower }} eigenschaft attribut" tabindex="0" role="button" aria-label="{{ row.label }} steigern">
                           <td class="shop_item_name">{{ row.label }}</td>
                           <td class="shop_item_price shop_item_price--meta">
                             <span class="learn_meta_inline learn_meta_inline--attr" aria-label="Aktueller Wert {{ row.base_value }}, Minimum {{ row.min_value }}, Maximum {{ row.max_value }}">
@@ -642,7 +642,6 @@
                       <tr data-learn-source data-kind="vampire-capacity" data-key="vampire-capacity" data-name="Zusätzliche Blutkapazität" data-base="{{ vampire_panel.capacity_bonus }}" data-max="99" data-unit-cost="{{ vampire_panel.capacity_unit_cost }}" data-learn-search="vampir blut kapazität" tabindex="0" role="button" aria-label="Blutkapazität erhöhen"><td class="shop_item_name">Zusätzliche Blutkapazität</td><td class="shop_item_price">{{ vampire_panel.capacity_unit_cost }} EP je Punkt</td></tr>
                     </tbody></table>
                   </details>
-                  {% if vampire_panel.available_traits %}<details class="shop_group" data-learn-group data-collapse-key="vampire:traits"><summary><span>Vampirische Vorzüge</span><span class="shop_group_count">{{ vampire_panel.available_traits|length }}</span></summary><table class="shop_table"><tbody>{% for row in vampire_panel.available_traits %}<tr data-learn-source data-kind="vampire-trait" data-key="vampire-trait:{{ row.id }}" data-id="{{ row.id }}" data-name="{{ row.name }}" data-unit-cost="{{ row.cost }}" data-learn-search="{{ row.name|lower }} vampir trait vorzug" tabindex="0" role="button" aria-label="{{ row.name }} lernen"><td class="shop_item_name">{{ row.name }}</td><td class="shop_item_price">{{ row.cost }} EP</td></tr>{% endfor %}</tbody></table></details>{% endif %}
                   <details class="shop_group" data-learn-group data-collapse-key="vampire:powers" open>
                     <summary><span>Vampirkräfte</span><span class="shop_group_count">{{ vampire_panel.available_powers|length }}</span></summary>
                     <table class="shop_table"><tbody>
@@ -650,7 +649,6 @@
                     </tbody></table>
                   </details>
                   {% if vampire_panel.buyoff_options %}<details class="shop_group" data-learn-group data-collapse-key="vampire:buyoff"><summary><span>Schwächen freikaufen</span><span class="shop_group_count">{{ vampire_panel.buyoff_options|length }}</span></summary><table class="shop_table"><tbody>{% for row in vampire_panel.buyoff_options %}<tr data-learn-source data-kind="vampire-buyoff" data-key="vampire-buyoff:{{ row.id }}" data-id="{{ row.id }}" data-name="{{ row.weakness }} freikaufen" data-unit-cost="{{ row.cost }}" data-learn-search="{{ row.name|lower }} {{ row.weakness|lower }} schwäche freikaufen" tabindex="0" role="button" aria-label="{{ row.weakness }} freikaufen"><td class="shop_item_name">{{ row.weakness }}<small>zu {{ row.name }}</small></td><td class="shop_item_price">{{ row.cost }} EP</td></tr>{% endfor %}</tbody></table></details>{% endif %}
-                  {% if vampire_panel.trait_weakness_removal_options %}<details class="shop_group" data-learn-group data-collapse-key="vampire:trait-weaknesses"><summary><span>Vampirische Schwächen verlernen</span><span class="shop_group_count">{{ vampire_panel.trait_weakness_removal_options|length }}</span></summary><table class="shop_table"><tbody>{% for row in vampire_panel.trait_weakness_removal_options %}<tr data-learn-source data-kind="vampire-trait-remove" data-key="vampire-trait-remove:{{ row.id }}" data-id="{{ row.id }}" data-name="{{ row.name }} verlernen" data-unit-cost="{{ row.cost }}" data-learn-search="{{ row.name|lower }} vampir schwäche verlernen" tabindex="0" role="button" aria-label="{{ row.name }} verlernen"><td class="shop_item_name">{{ row.name }}</td><td class="shop_item_price">{{ row.cost }} EP</td></tr>{% endfor %}</tbody></table></details>{% endif %}
                 </section>
               {% endif %}
               </div>

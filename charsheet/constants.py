@@ -5,6 +5,14 @@ POTENTIAL = "potential"
 WOUND_STAGE = "wound_stage"
 WOUND_PENALTY_IGNORE = "wound_penalty_ignore"
 CAN_ACT_WHILE_OUT_OF_ACTION = "can_act_while_out_of_action"
+COMA_IGNORE = "coma_ignore"
+VAMPIRE_REGENERATION = "vampire_regeneration"
+VAMPIRE_STRENGTH_OVER_RACE_MAXIMUM = "vampire_strength_over_race_maximum"
+VAMPIRE_POWER_MANUAL_ACTIVATION = "vampire_power_manual_activation"
+VAMPIRE_POWER_BLOOD_THEFT = "vampire_power_blood_theft"
+VAMPIRE_POWER_BLOOD_SACRAMENT = "vampire_power_blood_sacrament"
+VAMPIRE_POWER_ATTRIBUTE_BOOST = "vampire_power_attribute_boost"
+VAMPIRE_POWER_REGENERATION = "vampire_power_regeneration"
 WOUND_PENALTY_MOD = "wound_penalty_mod"
 ARMOR_PENALTY_IGNORE = "armor_penalty_ignore"
 SHIELD_PENALTY_IGNORE = "shield_penalty_ignore"
@@ -42,6 +50,13 @@ STAT_SLUG_CHOICES = [
 RULE_FLAG_CHOICES = [
     (WOUND_PENALTY_IGNORE, "Wundmalus ignorieren"),
     (CAN_ACT_WHILE_OUT_OF_ACTION, "Bei 'Außer Gefecht' weiter handeln"),
+    (COMA_IGNORE, "Koma ignorieren"),
+    (VAMPIRE_STRENGTH_OVER_RACE_MAXIMUM, "Stärke über Rassenmaximum steigern"),
+    (VAMPIRE_POWER_MANUAL_ACTIVATION, "Vampirkraft: manuelle Aktivierung"),
+    (VAMPIRE_POWER_BLOOD_THEFT, "Vampirkraft: Blutraub"),
+    (VAMPIRE_POWER_BLOOD_SACRAMENT, "Vampirkraft: Blutsakrament"),
+    (VAMPIRE_POWER_ATTRIBUTE_BOOST, "Vampirkraft: Attributssteigerung"),
+    (VAMPIRE_POWER_REGENERATION, "Vampirkraft: Regeneration"),
     (ARMOR_PENALTY_IGNORE, "Belastung ignorieren"),
     (SHIELD_PENALTY_IGNORE, "Schildmalus ignorieren"),
 ]
@@ -53,6 +68,13 @@ VALID_STAT_SLUGS = {
     WOUND_STAGE,
     WOUND_PENALTY_IGNORE,
     CAN_ACT_WHILE_OUT_OF_ACTION,
+    COMA_IGNORE,
+    VAMPIRE_STRENGTH_OVER_RACE_MAXIMUM,
+    VAMPIRE_POWER_MANUAL_ACTIVATION,
+    VAMPIRE_POWER_BLOOD_THEFT,
+    VAMPIRE_POWER_BLOOD_SACRAMENT,
+    VAMPIRE_POWER_ATTRIBUTE_BOOST,
+    VAMPIRE_POWER_REGENERATION,
     WOUND_PENALTY_MOD,
     ARMOR_PENALTY_IGNORE,
     SHIELD_PENALTY_IGNORE,

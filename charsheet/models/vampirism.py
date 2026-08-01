@@ -44,25 +44,11 @@ class VampireTrait(models.Model):
 class VampirePower(models.Model):
     """One learnable vampire power with a fixed associated disadvantage."""
 
-    class Handler(models.TextChoices):
-        NONE = "", "No automated workflow"
-        MANUAL_ACTIVATION = "manual_activation", "Activation and blood cost"
-        BLOOD_THEFT = "blood_theft", "Blood theft"
-        BLOOD_SACRAMENT = "blood_sacrament", "Blood sacrament"
-        ATTRIBUTE_BOOST = "attribute_boost", "Blood-fuelled attribute boost"
-        REGENERATION = "regeneration", "Regeneration"
-
     name = models.CharField(max_length=150, unique=True)
     slug = models.SlugField(max_length=150, unique=True)
     description = models.TextField(blank=True, default="")
-    weakness = models.ForeignKey(
-        VampireTrait,
-        on_delete=models.PROTECT,
-        related_name="associated_powers",
-        limit_choices_to={"trait_type": VampireTrait.TraitType.DISADVANTAGE},
-    )
+    weakness = models.TextField()
     blood_cost = models.PositiveSmallIntegerField(blank=True, null=True)
-    handler = models.CharField(max_length=40, choices=Handler.choices, blank=True, default="")
     sort_order = models.PositiveIntegerField(default=0, db_index=True)
     is_active = models.BooleanField(default=True)
 
@@ -76,11 +62,8 @@ class VampirePower(models.Model):
 
     def clean(self):
         super().clean()
-        if self.weakness_id is None:
-            raise ValidationError({"weakness": "Every vampire power requires an associated disadvantage."})
-        weakness_type = getattr(self.weakness, "trait_type", None)
-        if weakness_type != VampireTrait.TraitType.DISADVANTAGE:
-            raise ValidationError({"weakness": "The associated trait must be a vampire disadvantage."})
+        if not str(self.weakness or "").strip():
+            raise ValidationError({"weakness": "Every vampire power requires weakness text."})
 
 
 class VampireTraitSemanticEffect(models.Model):
@@ -90,6 +73,10 @@ class VampireTraitSemanticEffect(models.Model):
         CHARACTER = "character", "Character"
         CREATURE = "creature", "Creature"
         BOTH = "both", "Character and creature"
+
+    class PowerComponent(models.TextChoices):
+        POWER = "power", "Power"
+        WEAKNESS = "weakness", "Weakness"
 
     trait = models.ForeignKey(
         VampireTrait,
@@ -110,11 +97,22 @@ class VampireTraitSemanticEffect(models.Model):
         choices=ApplicationScope.choices,
         default=ApplicationScope.BOTH,
     )
+    power_component = models.CharField(
+        max_length=20,
+        choices=PowerComponent.choices,
+        default=PowerComponent.POWER,
+        help_text="For power effects: whether the effect belongs to the power or its weakness.",
+    )
     sort_order = models.PositiveIntegerField(default=0)
     target_skills = models.ManyToManyField(
         "charsheet.Skill",
         blank=True,
         related_name="vampire_trait_semantic_effects",
+    )
+    target_schools = models.ManyToManyField(
+        "charsheet.School",
+        blank=True,
+        related_name="vampire_disallow_semantic_effects",
     )
     target_domain = models.CharField(
         max_length=40,
@@ -196,6 +194,8 @@ class VampireTraitSemanticEffect(models.Model):
         super().clean()
         if bool(self.trait_id) == bool(self.power_id):
             raise ValidationError("A vampire semantic effect must belong to exactly one trait or power.")
+        if self.trait_id and self.power_component == self.PowerComponent.WEAKNESS:
+            raise ValidationError({"power_component": "Only power effects can belong to a weakness."})
         for field_name in ("scaling", "condition_set", "metadata"):
             if not isinstance(getattr(self, field_name), dict):
                 raise ValidationError({field_name: f"{field_name} must be a JSON object."})
@@ -248,6 +248,7 @@ class VampireTraitSemanticEffect(models.Model):
             "economy": EconomyModifier,
             "social": SocialModifier,
             "rule_flag": RuleFlagModifier,
+            "capability": BaseModifier,
         }
         definition = self.definition
         if definition is None:
