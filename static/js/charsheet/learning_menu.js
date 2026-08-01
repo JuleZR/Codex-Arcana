@@ -240,13 +240,22 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
       }
       valueInput.min = String(minAdd);
       valueInput.max = String(maxAdd);
-    } else if (["vampire-age", "vampire-capacity", "vampire-power", "vampire-buyoff"].includes(kind)) {
+    } else if (["vampire-age", "vampire-capacity", "vampire-power", "vampire-buyoff", "vampire-trait", "vampire-trait-remove"].includes(kind)) {
       const base = readInt(row.getAttribute("data-base"), 0);
       const max = readInt(row.getAttribute("data-max"), 1);
       const maxAdd = kind === "vampire-age" || kind === "vampire-capacity" ? Math.max(0, max - base) : max;
       const hidden = row.querySelector("[data-learn-hidden]");
       value = clamp(value, 0, maxAdd);
-      cost = value * readInt(row.getAttribute("data-unit-cost"), 0);
+      const weaknessChoice = row.querySelector("[data-vampire-power-weakness-choice]");
+      const unitCost = kind === "vampire-power" && weaknessChoice instanceof HTMLSelectElement
+        ? readInt(
+            weaknessChoice.value === "without"
+              ? row.getAttribute("data-cost-without-weakness")
+              : row.getAttribute("data-cost-with-weakness"),
+            0,
+          )
+        : readInt(row.getAttribute("data-unit-cost"), 0);
+      cost = value * unitCost;
       if (hidden instanceof HTMLInputElement) {
         hidden.value = String(value);
       }
@@ -411,6 +420,7 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
     const writeInput = row.querySelector("[data-learn-lang-write]");
     const decBtn = row.querySelector("[data-learn-step-dec]");
     const incBtn = row.querySelector("[data-learn-step-inc]");
+    const vampirePowerWeaknessChoice = row.querySelector("[data-vampire-power-weakness-choice]");
 
     if (valueInput instanceof HTMLInputElement) {
       valueInput.addEventListener("input", refreshTotals);
@@ -439,6 +449,9 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
         writeInput.dataset.learnWriteTouched = "1";
         refreshTotals();
       });
+    }
+    if (vampirePowerWeaknessChoice instanceof HTMLSelectElement) {
+      vampirePowerWeaknessChoice.addEventListener("change", refreshTotals);
     }
     if (removeBtn instanceof HTMLButtonElement) {
       removeBtn.addEventListener("click", () => {
@@ -725,33 +738,45 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
       return row;
     }
 
-    if (["vampire-age", "vampire-capacity", "vampire-power", "vampire-buyoff"].includes(kind)) {
+    if (["vampire-age", "vampire-capacity", "vampire-power", "vampire-buyoff", "vampire-trait", "vampire-trait-remove"].includes(kind)) {
       const id = source.getAttribute("data-id") || "";
       const base = readInt(source.getAttribute("data-base"), 0);
       const max = readInt(source.getAttribute("data-max"), 1);
       const unitCost = readInt(source.getAttribute("data-unit-cost"), 0);
+      const costWithWeakness = readInt(source.getAttribute("data-cost-with-weakness"), unitCost);
+      const costWithoutWeakness = readInt(source.getAttribute("data-cost-without-weakness"), unitCost);
+      const weakness = source.getAttribute("data-weakness") || "";
       const inputName = kind === "vampire-age"
         ? "learn_vampire_age_add"
         : kind === "vampire-capacity"
           ? "learn_vampire_capacity_add"
           : kind === "vampire-power"
             ? `learn_vampire_power_${id}`
-            : `learn_vampire_buyoff_${id}`;
+            : kind === "vampire-buyoff"
+              ? `learn_vampire_buyoff_${id}`
+              : kind === "vampire-trait-remove"
+                ? `learn_vampire_trait_remove_${id}`
+                : `learn_vampire_trait_${id}`;
       const maxAdd = kind === "vampire-age" || kind === "vampire-capacity" ? Math.max(0, max - base) : max;
       if (maxAdd < 1) {
         return null;
       }
-      const fixed = kind === "vampire-buyoff" || (kind === "vampire-power" && maxAdd === 1);
+      const fixed = ["vampire-buyoff", "vampire-trait", "vampire-trait-remove"].includes(kind) || (kind === "vampire-power" && maxAdd === 1);
       row.setAttribute("data-base", String(base));
       row.setAttribute("data-max", String(max));
       row.setAttribute("data-unit-cost", String(unitCost));
+      row.setAttribute("data-cost-with-weakness", String(costWithWeakness));
+      row.setAttribute("data-cost-without-weakness", String(costWithoutWeakness));
+      const weaknessChoice = kind === "vampire-power"
+        ? `<label class="phase4_choice_block"><span>Schwäche</span><select class="dashboard_input" name="learn_vampire_power_weakness_${id}" data-vampire-power-weakness-choice><option value="with">Mit ${escapeHtml(weakness)} (${costWithWeakness} EP)</option><option value="without">Ohne Schwäche (${costWithoutWeakness} EP)</option></select></label>`
+        : "";
       row.innerHTML = `
         <td><span>${safeName}</span> <span data-learn-level-info>${kind === "vampire-age" || kind === "vampire-capacity" ? `(${base + 1})` : ""}</span><input type="hidden" name="${inputName}" value="1" data-learn-hidden></td>
         <td><div class="shop_qty_stepper">
           ${fixed ? "" : '<button type="button" class="shop_step_btn" data-learn-step-dec aria-label="Wert verringern">-</button>'}
           <input class="shop_cart_qty_input" type="number" min="0" max="${maxAdd}" value="1" data-learn-value ${fixed ? "readonly" : ""}>
           ${fixed ? "" : '<button type="button" class="shop_step_btn" data-learn-step-inc aria-label="Wert erhöhen">+</button>'}
-        </div></td>
+        </div>${weaknessChoice}</td>
         <td data-learn-cost>${unitCost} EP</td>
         <td><button type="button" class="shop_cart_remove_btn" data-learn-remove aria-label="Eintrag entfernen">x</button></td>
       `;

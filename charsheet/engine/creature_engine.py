@@ -152,6 +152,7 @@ class _EmptyCreature:
     languages = _EmptyRelatedRows()
     daemonic_powers = _EmptyRelatedRows()
     vampire_trait_defaults = _EmptyRelatedRows()
+    vampire_power_defaults = _EmptyRelatedRows()
     vampire_default_enabled = False
     vampire_age_cycle_default = 1
     vampire_blood_capacity_bonus_default = 0
@@ -325,6 +326,13 @@ class CreatureEngine:
         return VampireRules(self.source).effective_traits(include_weaknesses=True)
 
     @cached_property
+    def _effective_vampire_powers(self) -> list[Any]:
+        """Resolve template and instance vampire powers through VampireRules."""
+        from charsheet.engine.vampire_engine import VampireRules
+
+        return VampireRules(self.source).effective_powers()
+
+    @cached_property
     def _base_daemonic_power_levels(self) -> dict[int, int | None]:
         return {
             row.power_id: row.level
@@ -405,6 +413,24 @@ class CreatureEngine:
                     self._vampire_effect_row_to_creature_effects(
                         effect_row,
                         rank=ownership.rank,
+                        age_cycle=vampire_age_cycle,
+                    )
+                )
+        for ownership in self._effective_vampire_powers:
+            for effect_row in ownership.power.semantic_effects.all():
+                if (
+                    not effect_row.active_flag
+                    or effect_row.application_scope
+                    not in {
+                        VampireTraitSemanticEffect.ApplicationScope.CREATURE,
+                        VampireTraitSemanticEffect.ApplicationScope.BOTH,
+                    }
+                ):
+                    continue
+                effects.extend(
+                    self._vampire_effect_row_to_creature_effects(
+                        effect_row,
+                        rank=1,
                         age_cycle=vampire_age_cycle,
                     )
                 )

@@ -95,6 +95,7 @@ from charsheet.models import (
     RaceStartingItem,
     CharacterTechnique,
     CharacterTrait,
+    CharacterVampirePower,
     CharacterVampireTrait,
     CreatureCommand,
     CreatureSpecialSkill,
@@ -120,6 +121,7 @@ from charsheet.models import (
     Specialization,
     Technique,
     Trait,
+    VampirePower,
     VampireTrait,
     WeaponType,
 )
@@ -127,42 +129,59 @@ from charsheet.view_utils import format_compact_number, format_modifier, format_
 
 
 def _vampire_learning_payload(character, vampire_rules):
-    owned = list(
+    owned_traits = list(
         CharacterVampireTrait.objects.filter(character=character)
-        .select_related("trait", "trait__associated_weakness")
+        .select_related("trait")
         .order_by("trait__sort_order", "trait__name")
     )
-    owned_ids = {row.trait_id for row in owned}
+    owned_powers = list(
+        CharacterVampirePower.objects.filter(character=character)
+        .select_related("power", "power__weakness")
+        .order_by("power__sort_order", "power__name")
+    )
+    owned_trait_ids = {row.trait_id for row in owned_traits}
+    owned_power_ids = {row.power_id for row in owned_powers}
     return {
         "age_cycle": vampire_rules.age_cycle(),
         "capacity_bonus": vampire_rules.capacity_bonus(),
         "age_unit_cost": vampire_rules.age_cycle_cost(2),
         "capacity_unit_cost": vampire_rules.capacity_bonus_cost(1),
+        "available_traits": [
+            {"id": trait.id, "name": trait.name, "cost": vampire_rules.trait_point_delta(trait)}
+            for trait in VampireTrait.objects.filter(
+                trait_type=VampireTrait.TraitType.ADVANTAGE,
+                is_active=True,
+            ).exclude(pk__in=owned_trait_ids).order_by("sort_order", "name")
+        ],
         "available_powers": [
             {
-                "id": trait.id,
-                "name": trait.name,
-                "cost": vampire_rules.trait_point_delta(trait),
-                "rankable": trait.rankable,
-                "max_rank": trait.max_rank or 10,
-                "weakness": trait.associated_weakness.name if trait.associated_weakness_id else "",
+                "id": power.id,
+                "name": power.name,
+                "cost_with_weakness": vampire_rules.power_cost(without_weakness=False),
+                "cost_without_weakness": vampire_rules.power_cost(without_weakness=True),
+                "weakness": power.weakness.name if power.weakness_id else "",
             }
-            for trait in VampireTrait.objects.filter(
-                trait_type=VampireTrait.TraitType.POWER,
+            for power in VampirePower.objects.filter(
                 is_active=True,
-            ).exclude(pk__in=owned_ids).select_related("associated_weakness").order_by("sort_order", "name")
+                weakness__isnull=False,
+            ).exclude(pk__in=owned_power_ids).select_related("weakness").order_by("sort_order", "name")
         ],
         "buyoff_options": [
             {
-                "id": row.trait_id,
-                "name": row.trait.name,
-                "weakness": row.trait.associated_weakness.name,
-                "cost": int(row.trait.associated_weakness.point_value or 0),
+                "id": row.power_id,
+                "name": row.power.name,
+                "weakness": row.power.weakness.name,
+                "cost": 5,
             }
-            for row in owned
-            if row.trait.trait_type == VampireTrait.TraitType.POWER
-            and row.trait.associated_weakness_id
-            and not row.associated_weakness_bought_off
+            for row in owned_powers
+            if row.power.weakness_id
+            and not row.purchased_without_weakness
+            and not row.weakness_bought_off
+        ],
+        "trait_weakness_removal_options": [
+            {"id": row.trait_id, "name": row.trait.name, "cost": 5}
+            for row in owned_traits
+            if row.trait.trait_type == VampireTrait.TraitType.DISADVANTAGE
         ],
     }
 
@@ -4714,12 +4733,24 @@ def build_temporary_attribute_context(
                 "type_label": entry.trait.get_trait_type_display(),
                 "rank": entry.rank,
                 "description": entry.trait.description,
-                "rules_text": entry.trait.rules_text,
-                "weakness_bought_off": entry.associated_weakness_bought_off,
+                "weakness_bought_off": False,
                 "source": entry.source,
             }
             for entry in vampire_rules.effective_traits(include_weaknesses=True)
         ]
+        vampire_traits.extend(
+            {
+                "name": entry.power.name,
+                "slug": entry.power.slug,
+                "type": "power",
+                "type_label": "Power",
+                "rank": 1,
+                "description": entry.power.description,
+                "weakness_bought_off": not entry.weakness_is_active,
+                "source": entry.source,
+            }
+            for entry in vampire_rules.effective_powers()
+        )
         vampire_panel = {
             "age_cycle": vampire_rules.age_cycle(),
             "intelligent_blood": vampire_resource.intelligent,
@@ -4765,7 +4796,7 @@ def build_temporary_attribute_context(
         resource_tooltip_rows = [
             {"label": "Willenskraft", "value": vampire_rules.willpower()},
             {"label": "Magie-/Kampfschulen", "value": vampire_rules.school_ranks()},
-            {"label": "Vampirkraftränge", "value": vampire_rules.power_ranks()},
+            {"label": "Vampirkräfte", "value": vampire_rules.power_ranks()},
             {"label": "Alterszyklus", "value": vampire_rules.age_cycle()},
             {"label": "Zusatzkapazität", "value": vampire_rules.capacity_bonus()},
             {"label": "Permanenter Verlust", "value": -vampire_rules.capacity_loss()},
@@ -5046,11 +5077,22 @@ def build_character_sheet_context(
                     "type_label": entry.trait.get_trait_type_display(),
                     "rank": entry.rank,
                     "description": entry.trait.description,
-                    "rules_text": entry.trait.rules_text,
-                    "weakness_bought_off": entry.associated_weakness_bought_off,
+                    "weakness_bought_off": False,
                     "source": entry.source,
                 }
                 for entry in vampire_rules.effective_traits(include_weaknesses=True)
+            ] + [
+                {
+                    "name": entry.power.name,
+                    "slug": entry.power.slug,
+                    "type": "power",
+                    "type_label": "Power",
+                    "rank": 1,
+                    "description": entry.power.description,
+                    "weakness_bought_off": not entry.weakness_is_active,
+                    "source": entry.source,
+                }
+                for entry in vampire_rules.effective_powers()
             ],
             **_vampire_learning_payload(character, vampire_rules),
         }
@@ -5643,7 +5685,7 @@ def build_character_sheet_context(
                 [
                     {"label": "Willenskraft", "value": vampire_rules.willpower()},
                     {"label": "Magie-/Kampfschulen", "value": vampire_rules.school_ranks()},
-                    {"label": "Vampirkraftränge", "value": vampire_rules.power_ranks()},
+                    {"label": "Vampirkräfte", "value": vampire_rules.power_ranks()},
                     {"label": "Alterszyklus", "value": vampire_rules.age_cycle()},
                     {"label": "Zusatzkapazität", "value": vampire_rules.capacity_bonus()},
                     {"label": "Permanenter Verlust", "value": -vampire_rules.capacity_loss()},

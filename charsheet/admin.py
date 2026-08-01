@@ -77,6 +77,7 @@ from .models import (
     CharacterCreatureSpecialSkill,
     CharacterCreatureTrait,
     CharacterCreatureTraitChoice,
+    CharacterCreatureVampirePower,
     CharacterCreatureVampireTrait,
     CharacterDaemonicPower,
     CharacterCreationDraft,
@@ -87,6 +88,7 @@ from .models import (
     CharacterItem,
     GameGroup,
     GameGroupCreature,
+    GameGroupCreatureVampirePower,
     GameGroupCreatureVampireTrait,
     GameGroupInvitation,
     GameGroupMembership,
@@ -105,6 +107,7 @@ from .models import (
     CharacterTechniqueChoice,
     CharacterTrait,
     CharacterTraitChoice,
+    CharacterVampirePower,
     CharacterVampireTrait,
     CharacterWeaponMastery,
     CharacterWeaponMasteryArcana,
@@ -128,6 +131,7 @@ from .models import (
     CreatureTraitChoiceDefinition,
     CreatureTraitDefinition,
     CreatureTraitSemanticEffect,
+    CreatureVampirePower,
     CreatureVampireTrait,
     DamageSource,
     DaemonicPower,
@@ -175,6 +179,7 @@ from .models import (
     TraitChoiceDefinition,
     TraitExclusion,
     TraitSemanticEffect,
+    VampirePower,
     VampireTrait,
     VampireTraitSemanticEffect,
     WeaponType,
@@ -2228,8 +2233,15 @@ class CharacterTraitInline(admin.TabularInline):
 class CharacterVampireTraitInline(admin.TabularInline):
     model = CharacterVampireTrait
     extra = 0
-    fields = ("trait", "rank", "associated_weakness_bought_off")
+    fields = ("trait",)
     autocomplete_fields = ("trait",)
+
+
+class CharacterVampirePowerInline(admin.TabularInline):
+    model = CharacterVampirePower
+    extra = 0
+    fields = ("power", "purchased_without_weakness", "weakness_bought_off")
+    autocomplete_fields = ("power",)
 
 
 class CharacterLanguageInline(admin.TabularInline):
@@ -3572,6 +3584,7 @@ class CharacterAdmin(admin.ModelAdmin):
         CharacterItemInline,
         CharacterTraitInline,
         CharacterVampireTraitInline,
+        CharacterVampirePowerInline,
         CharacterLanguageInline,
         CharacterDiaryEntryInline,
     )
@@ -6544,8 +6557,15 @@ class CreatureDaemonicPowerInline(admin.TabularInline):
 class CreatureVampireTraitInline(admin.TabularInline):
     model = CreatureVampireTrait
     extra = 0
-    fields = ("trait", "rank", "associated_weakness_bought_off")
+    fields = ("trait",)
     autocomplete_fields = ("trait",)
+
+
+class CreatureVampirePowerInline(admin.TabularInline):
+    model = CreatureVampirePower
+    extra = 0
+    fields = ("power", "purchased_without_weakness", "weakness_bought_off")
+    autocomplete_fields = ("power",)
 
 
 class CreatureCommandReferenceInline(admin.TabularInline):
@@ -6871,6 +6891,10 @@ class VampireTraitSemanticEffectInline(admin.StackedInline):
     autocomplete_fields = ("target_skills",)
 
 
+class VampirePowerSemanticEffectInline(VampireTraitSemanticEffectInline):
+    fk_name = "power"
+
+
 class CreatureAdminForm(forms.ModelForm):
     strength_mod = forms.IntegerField(label="Staerke", required=False)
     constitution_mod = forms.IntegerField(label="Konstitution", required=False)
@@ -6969,39 +6993,64 @@ class DaemonicPowerTierAdmin(admin.ModelAdmin):
 
 @admin.register(VampireTrait)
 class VampireTraitAdmin(admin.ModelAdmin):
-    list_display = ("name", "trait_type", "point_value", "blood_cost", "rankable", "is_active")
-    list_filter = ("trait_type", "rankable", "is_active", "handler")
-    search_fields = ("name", "slug", "description", "rules_text")
+    list_display = ("name", "trait_type", "is_active")
+    list_filter = ("trait_type", "is_active")
+    search_fields = ("name", "slug", "description")
     prepopulated_fields = {"slug": ("name",)}
-    autocomplete_fields = ("associated_weakness",)
     inlines = (VampireTraitSemanticEffectInline,)
+
+
+@admin.register(VampirePower)
+class VampirePowerAdmin(admin.ModelAdmin):
+    list_display = ("name", "weakness", "blood_cost", "is_active")
+    list_filter = ("is_active", "handler")
+    search_fields = ("name", "slug", "description", "weakness__name")
+    prepopulated_fields = {"slug": ("name",)}
+    autocomplete_fields = ("weakness",)
+    inlines = (VampirePowerSemanticEffectInline,)
 
 
 @admin.register(VampireTraitSemanticEffect)
 class VampireTraitSemanticEffectAdmin(admin.ModelAdmin):
     form = VampireTraitSemanticEffectAdminForm
-    list_display = ("trait", "application_scope", "target_domain", "target_key", "operator", "active_flag")
+    list_display = ("trait", "power", "application_scope", "target_domain", "target_key", "operator", "active_flag")
     list_filter = ("application_scope", "target_domain", "operator", "active_flag")
-    search_fields = ("trait__name", "trait__slug", "target_key", "condition_text")
-    autocomplete_fields = ("trait", "target_skills")
-    list_select_related = ("trait",)
-    fieldsets = VampireTraitSemanticEffectInline.fieldsets
+    search_fields = ("trait__name", "trait__slug", "power__name", "power__slug", "target_key", "condition_text")
+    autocomplete_fields = ("trait", "power", "target_skills")
+    list_select_related = ("trait", "power")
+    fieldsets = (("Source", {"fields": ("trait", "power")}),) + VampireTraitSemanticEffectInline.fieldsets
 
 
 @admin.register(CharacterVampireTrait)
 class CharacterVampireTraitAdmin(admin.ModelAdmin):
-    list_display = ("character", "trait", "rank", "associated_weakness_bought_off")
+    list_display = ("character", "trait")
     search_fields = ("character__name", "trait__name")
-    list_filter = ("trait__trait_type", "associated_weakness_bought_off")
+    list_filter = ("trait__trait_type",)
     autocomplete_fields = ("character", "trait")
+
+
+@admin.register(CharacterVampirePower)
+class CharacterVampirePowerAdmin(admin.ModelAdmin):
+    list_display = ("character", "power", "purchased_without_weakness", "weakness_bought_off")
+    search_fields = ("character__name", "power__name")
+    list_filter = ("purchased_without_weakness", "weakness_bought_off")
+    autocomplete_fields = ("character", "power")
 
 
 @admin.register(CreatureVampireTrait)
 class CreatureVampireTraitAdmin(admin.ModelAdmin):
-    list_display = ("creature", "trait", "rank", "associated_weakness_bought_off")
+    list_display = ("creature", "trait")
     search_fields = ("creature__name", "trait__name")
-    list_filter = ("trait__trait_type", "associated_weakness_bought_off")
+    list_filter = ("trait__trait_type",)
     autocomplete_fields = ("creature", "trait")
+
+
+@admin.register(CreatureVampirePower)
+class CreatureVampirePowerAdmin(admin.ModelAdmin):
+    list_display = ("creature", "power", "purchased_without_weakness", "weakness_bought_off")
+    search_fields = ("creature__name", "power__name")
+    list_filter = ("purchased_without_weakness", "weakness_bought_off")
+    autocomplete_fields = ("creature", "power")
 
 
 @admin.register(DaemonicPower)
@@ -7116,6 +7165,7 @@ class CreatureAdmin(admin.ModelAdmin):
         CreatureSpecialSkillValueInline,
         CreatureDaemonicPowerInline,
         CreatureVampireTraitInline,
+        CreatureVampirePowerInline,
         CreatureCommandReferenceInline,
         CreatureTraitInline,
     )
@@ -7347,8 +7397,15 @@ class CharacterCreatureDaemonicPowerInline(admin.TabularInline):
 class CharacterCreatureVampireTraitInline(admin.TabularInline):
     model = CharacterCreatureVampireTrait
     extra = 0
-    fields = ("trait", "mode", "rank", "associated_weakness_bought_off")
+    fields = ("trait", "mode")
     autocomplete_fields = ("trait",)
+
+
+class CharacterCreatureVampirePowerInline(admin.TabularInline):
+    model = CharacterCreatureVampirePower
+    extra = 0
+    fields = ("power", "mode", "purchased_without_weakness", "weakness_bought_off")
+    autocomplete_fields = ("power",)
 
 
 class CharacterCreatureTraitInline(admin.TabularInline):
@@ -7404,6 +7461,7 @@ class CharacterCreatureAdmin(admin.ModelAdmin):
         CharacterCreatureSpecialSkillInline,
         CharacterCreatureDaemonicPowerInline,
         CharacterCreatureVampireTraitInline,
+        CharacterCreatureVampirePowerInline,
         CharacterCreatureTraitInline,
         CharacterCreatureCommandInline,
         CharacterCreatureAttributeIncreaseInline,
@@ -7447,18 +7505,34 @@ class CharacterCreatureAdmin(admin.ModelAdmin):
 
 @admin.register(CharacterCreatureVampireTrait)
 class CharacterCreatureVampireTraitAdmin(admin.ModelAdmin):
-    list_display = ("creature", "trait", "mode", "rank", "associated_weakness_bought_off")
+    list_display = ("creature", "trait", "mode")
     search_fields = ("creature__name_override", "creature__creature__name", "trait__name")
     list_filter = ("mode", "trait__trait_type")
     autocomplete_fields = ("creature", "trait")
 
 
+@admin.register(CharacterCreatureVampirePower)
+class CharacterCreatureVampirePowerAdmin(admin.ModelAdmin):
+    list_display = ("creature", "power", "mode", "purchased_without_weakness", "weakness_bought_off")
+    search_fields = ("creature__name_override", "creature__creature__name", "power__name")
+    list_filter = ("mode", "purchased_without_weakness", "weakness_bought_off")
+    autocomplete_fields = ("creature", "power")
+
+
 @admin.register(GameGroupCreatureVampireTrait)
 class GameGroupCreatureVampireTraitAdmin(admin.ModelAdmin):
-    list_display = ("creature", "trait", "mode", "rank", "associated_weakness_bought_off")
+    list_display = ("creature", "trait", "mode")
     search_fields = ("creature__group__name", "creature__name_override", "trait__name")
     list_filter = ("mode", "trait__trait_type")
     autocomplete_fields = ("creature", "trait")
+
+
+@admin.register(GameGroupCreatureVampirePower)
+class GameGroupCreatureVampirePowerAdmin(admin.ModelAdmin):
+    list_display = ("creature", "power", "mode", "purchased_without_weakness", "weakness_bought_off")
+    search_fields = ("creature__group__name", "creature__name_override", "power__name")
+    list_filter = ("mode", "purchased_without_weakness", "weakness_bought_off")
+    autocomplete_fields = ("creature", "power")
 
 
 @admin.register(CharacterCreatureItem)

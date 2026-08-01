@@ -3,23 +3,6 @@
 from django.db import migrations, models
 
 
-def remove_inert_vampire_effects(apps, schema_editor):
-    VampireTrait = apps.get_model("charsheet", "VampireTrait")
-    Effect = apps.get_model("charsheet", "VampireTraitSemanticEffect")
-    VampireTrait.objects.filter(slug="grundvampirismus", trait_type="base").delete()
-    Effect.objects.filter(
-        trait__trait_type="weakness",
-        target_domain="rule_flag",
-        target_key__startswith="vampire_weakness_",
-    ).delete()
-    Effect.objects.filter(
-        trait__slug="fliegen",
-        target_domain="capability",
-        target_key="flight",
-        operator="grant_capability",
-    ).delete()
-
-
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -27,7 +10,6 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RunPython(remove_inert_vampire_effects, migrations.RunPython.noop),
         migrations.AlterField(
             model_name='vampiretrait',
             name='trait_type',

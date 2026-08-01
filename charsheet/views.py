@@ -72,6 +72,7 @@ from .models import (
     Skill,
     Technique,
     Trait,
+    VampirePower,
     VampireTrait,
     Quality,
     ItemPermissionGrant,
@@ -1967,14 +1968,19 @@ def create_character(request):
 
             vampire_traits: dict[str, dict[str, object]] = {}
             for vampire_trait in VampireTrait.objects.filter(
-                trait_type__in=[VampireTrait.TraitType.POWER, VampireTrait.TraitType.WEAKNESS],
                 is_active=True,
             ):
                 if not request.POST.get(f"vampire_trait_{vampire_trait.id}"):
                     continue
-                vampire_traits[vampire_trait.slug] = {
-                    "rank": max(1, int(request.POST.get(f"vampire_rank_{vampire_trait.id}", "1") or 1)),
-                    "bought_off": bool(request.POST.get(f"vampire_buyoff_{vampire_trait.id}")),
+                vampire_traits[vampire_trait.slug] = {}
+            vampire_powers: dict[str, dict[str, object]] = {}
+            for vampire_power in VampirePower.objects.filter(is_active=True, weakness__isnull=False):
+                if not request.POST.get(f"vampire_power_{vampire_power.id}"):
+                    continue
+                vampire_powers[vampire_power.slug] = {
+                    "without_weakness": bool(
+                        request.POST.get(f"vampire_power_without_weakness_{vampire_power.id}")
+                    ),
                 }
             vampire = {
                 "age_cycle": max(1, int(request.POST.get("vampire_age_cycle", "1") or 1)),
@@ -1982,6 +1988,7 @@ def create_character(request):
                 "intelligent_blood": max(0, int(request.POST.get("vampire_intelligent_blood", "0") or 0)),
                 "animal_blood": max(0, int(request.POST.get("vampire_animal_blood", "0") or 0)),
                 "traits": vampire_traits,
+                "powers": vampire_powers,
             }
 
             state["phase_4"] = {
@@ -2260,9 +2267,8 @@ def create_character(request):
     )
     phase_4_vampire_trait_rows = []
     for trait in VampireTrait.objects.filter(
-        trait_type__in=[VampireTrait.TraitType.POWER, VampireTrait.TraitType.WEAKNESS],
         is_active=True,
-    ).select_related("associated_weakness").order_by("trait_type", "sort_order", "name"):
+    ).order_by("trait_type", "sort_order", "name"):
         selected = phase_4_vampire["traits"].get(trait.slug, {})
         phase_4_vampire_trait_rows.append(
             {
@@ -2271,16 +2277,27 @@ def create_character(request):
                 "name": trait.name,
                 "trait_type": trait.trait_type,
                 "description": trait.description,
-                "point_value": trait.point_value,
-                "blood_cost": trait.blood_cost,
-                "rankable": trait.rankable,
-                "max_rank": trait.max_rank or 10,
-                "associated_weakness": trait.associated_weakness,
-                "buyoff_cost": int(trait.associated_weakness.point_value or 0) if trait.associated_weakness_id else 0,
-                "buyoff_cost": int(trait.associated_weakness.point_value or 0) if trait.associated_weakness_id else 0,
+                "point_value": 5,
                 "selected": bool(selected),
-                "rank": int(selected.get("rank", 1) or 1),
-                "bought_off": bool(selected.get("bought_off")),
+            }
+        )
+    phase_4_vampire_power_rows = []
+    for power in VampirePower.objects.filter(
+        is_active=True,
+        weakness__isnull=False,
+    ).select_related("weakness").order_by("sort_order", "name"):
+        selected = phase_4_vampire["powers"].get(power.slug, {})
+        phase_4_vampire_power_rows.append(
+            {
+                "id": power.id,
+                "slug": power.slug,
+                "name": power.name,
+                "description": power.description,
+                "weakness": power.weakness,
+                "selected": bool(selected),
+                "without_weakness": bool(selected.get("without_weakness")),
+                "cost_with_weakness": 15,
+                "cost_without_weakness": 20,
             }
         )
     for lesson in lessons_queryset:
@@ -2363,6 +2380,8 @@ def create_character(request):
             "phase_4_lesson_rows": phase_4_lesson_rows,
             "phase_4_vampire": phase_4_vampire,
             "phase_4_vampire_trait_rows": phase_4_vampire_trait_rows,
+            "phase_4_vampire_power_rows": phase_4_vampire_power_rows,
+            "phase_4_vampire_entry_count": len(phase_4_vampire_trait_rows) + len(phase_4_vampire_power_rows),
             "phase_4_vampire_cost": engine.vampire_creation_cost(),
             "phase_4_weapon_mastery_rows": phase_4_weapon_mastery_rows,
             "phase_4_weapon_mastery_school": weapon_master_school,
@@ -4064,12 +4083,11 @@ def vampire_character_action(request, character_id: int, action: str):
                 )
             elif action == "learn-power":
                 rules.learn_power(
-                    number("trait_id"),
-                    rank=number("rank", 1),
-                    buy_off_associated_weakness=request.POST.get("buy_off") == "1",
+                    number("power_id"),
+                    without_weakness=request.POST.get("without_weakness") == "1",
                 )
             elif action == "buyoff-weakness":
-                rules.buy_off_associated_weakness(number("trait_id"))
+                rules.buy_off_associated_weakness(number("power_id"))
             elif action == "purchase-age":
                 rules.purchase_age_cycle()
             elif action == "purchase-capacity":

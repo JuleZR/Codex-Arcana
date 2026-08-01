@@ -268,6 +268,17 @@ class ModifierEngine:
                     }
                 ):
                     modifiers.append(effect.to_modifier(rank=ownership.rank, age_cycle=age_cycle))
+        for ownership in rules.effective_powers():
+            for effect in ownership.power.semantic_effects.all():
+                if (
+                    effect.active_flag
+                    and effect.application_scope
+                    in {
+                        VampireTraitSemanticEffect.ApplicationScope.CHARACTER,
+                        VampireTraitSemanticEffect.ApplicationScope.BOTH,
+                    }
+                ):
+                    modifiers.append(effect.to_modifier(age_cycle=age_cycle))
         return modifiers
 
     @cached_property

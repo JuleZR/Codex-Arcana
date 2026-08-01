@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 
 from django.core.exceptions import ValidationError
-from django.core.validators import MinValueValidator
 from django.db import models
 
 from ..constants import (
@@ -20,38 +19,16 @@ VAMPIRE_TRAIT_TARGET_DOMAIN_CHOICES = CREATURE_TARGET_DOMAIN_CHOICES
 
 
 class VampireTrait(models.Model):
-    """One reusable rulebook entry shared by vampires in every actor domain."""
+    """One fundamental vampiric advantage or disadvantage."""
 
     class TraitType(models.TextChoices):
-        POWER = "power", "Power"
-        WEAKNESS = "weakness", "Weakness"
-
-    class Handler(models.TextChoices):
-        NONE = "", "No automated workflow"
-        MANUAL_ACTIVATION = "manual_activation", "Activation and blood cost"
-        BLOOD_THEFT = "blood_theft", "Blood theft"
-        BLOOD_SACRAMENT = "blood_sacrament", "Blood sacrament"
-        ATTRIBUTE_BOOST = "attribute_boost", "Blood-fuelled attribute boost"
-        REGENERATION = "regeneration", "Regeneration"
+        ADVANTAGE = "advantage", "Advantage"
+        DISADVANTAGE = "disadvantage", "Disadvantage"
 
     name = models.CharField(max_length=150, unique=True)
     slug = models.SlugField(max_length=150, unique=True)
     trait_type = models.CharField(max_length=20, choices=TraitType.choices)
     description = models.TextField(blank=True, default="")
-    rules_text = models.TextField(blank=True, default="")
-    point_value = models.PositiveSmallIntegerField(default=0)
-    blood_cost = models.PositiveSmallIntegerField(blank=True, null=True)
-    rankable = models.BooleanField(default=False)
-    max_rank = models.PositiveSmallIntegerField(blank=True, null=True)
-    handler = models.CharField(max_length=40, choices=Handler.choices, blank=True, default="")
-    associated_weakness = models.ForeignKey(
-        "self",
-        on_delete=models.PROTECT,
-        related_name="associated_powers",
-        blank=True,
-        null=True,
-        limit_choices_to={"trait_type": TraitType.WEAKNESS},
-    )
     sort_order = models.PositiveIntegerField(default=0, db_index=True)
     is_active = models.BooleanField(default=True)
 
@@ -63,31 +40,47 @@ class VampireTrait(models.Model):
     def __str__(self) -> str:
         return self.name
 
+
+class VampirePower(models.Model):
+    """One learnable vampire power with a fixed associated disadvantage."""
+
+    class Handler(models.TextChoices):
+        NONE = "", "No automated workflow"
+        MANUAL_ACTIVATION = "manual_activation", "Activation and blood cost"
+        BLOOD_THEFT = "blood_theft", "Blood theft"
+        BLOOD_SACRAMENT = "blood_sacrament", "Blood sacrament"
+        ATTRIBUTE_BOOST = "attribute_boost", "Blood-fuelled attribute boost"
+        REGENERATION = "regeneration", "Regeneration"
+
+    name = models.CharField(max_length=150, unique=True)
+    slug = models.SlugField(max_length=150, unique=True)
+    description = models.TextField(blank=True, default="")
+    weakness = models.ForeignKey(
+        VampireTrait,
+        on_delete=models.PROTECT,
+        related_name="associated_powers",
+        limit_choices_to={"trait_type": VampireTrait.TraitType.DISADVANTAGE},
+    )
+    blood_cost = models.PositiveSmallIntegerField(blank=True, null=True)
+    handler = models.CharField(max_length=40, choices=Handler.choices, blank=True, default="")
+    sort_order = models.PositiveIntegerField(default=0, db_index=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["sort_order", "name", "id"]
+        verbose_name = "Vampire power"
+        verbose_name_plural = "Vampire powers"
+
+    def __str__(self) -> str:
+        return self.name
+
     def clean(self):
         super().clean()
-        errors: dict[str, str] = {}
-        if self.trait_type != self.TraitType.POWER:
-            if self.blood_cost is not None:
-                errors["blood_cost"] = "Only powers may have activation costs."
-            if self.handler:
-                errors["handler"] = "Only powers may have an activation handler."
-            if self.associated_weakness_id:
-                errors["associated_weakness"] = "Only powers may have an associated weakness."
-            if self.rankable:
-                errors["rankable"] = "Only powers may be rankable."
-        if self.associated_weakness_id:
-            weakness_type = getattr(self.associated_weakness, "trait_type", None)
-            if weakness_type != self.TraitType.WEAKNESS:
-                errors["associated_weakness"] = "The associated trait must be a vampire weakness."
-        if not self.rankable and self.max_rank is not None:
-            errors["max_rank"] = "A maximum rank is only valid for rankable traits."
-        if self.rankable and self.max_rank is not None and self.max_rank < 1:
-            errors["max_rank"] = "The maximum rank must be at least one."
-        if errors:
-            raise ValidationError(errors)
-
-    def cost_for_rank(self, rank: int = 1) -> int:
-        return int(self.point_value or 0) * max(1, int(rank or 1))
+        if self.weakness_id is None:
+            raise ValidationError({"weakness": "Every vampire power requires an associated disadvantage."})
+        weakness_type = getattr(self.weakness, "trait_type", None)
+        if weakness_type != VampireTrait.TraitType.DISADVANTAGE:
+            raise ValidationError({"weakness": "The associated trait must be a vampire disadvantage."})
 
 
 class VampireTraitSemanticEffect(models.Model):
@@ -102,6 +95,15 @@ class VampireTraitSemanticEffect(models.Model):
         VampireTrait,
         on_delete=models.CASCADE,
         related_name="semantic_effects",
+        blank=True,
+        null=True,
+    )
+    power = models.ForeignKey(
+        VampirePower,
+        on_delete=models.CASCADE,
+        related_name="semantic_effects",
+        blank=True,
+        null=True,
     )
     application_scope = models.CharField(
         max_length=20,
@@ -157,7 +159,13 @@ class VampireTraitSemanticEffect(models.Model):
         verbose_name_plural = "Vampire trait semantic effects"
 
     def __str__(self) -> str:
-        return f"{self.trait.name}: {self.target_domain}/{self.target_key} ({self.operator})"
+        definition = self.definition
+        name = definition.name if definition is not None else "Unassigned vampire effect"
+        return f"{name}: {self.target_domain}/{self.target_key} ({self.operator})"
+
+    @property
+    def definition(self):
+        return self.power or self.trait
 
     @staticmethod
     def _coerce_scalar(raw_value):
@@ -186,6 +194,8 @@ class VampireTraitSemanticEffect(models.Model):
 
     def clean(self):
         super().clean()
+        if bool(self.trait_id) == bool(self.power_id):
+            raise ValidationError("A vampire semantic effect must belong to exactly one trait or power.")
         for field_name in ("scaling", "condition_set", "metadata"):
             if not isinstance(getattr(self, field_name), dict):
                 raise ValidationError({field_name: f"{field_name} must be a JSON object."})
@@ -239,9 +249,13 @@ class VampireTraitSemanticEffect(models.Model):
             "social": SocialModifier,
             "rule_flag": RuleFlagModifier,
         }
+        definition = self.definition
+        if definition is None:
+            raise ValidationError("Vampire semantic effect has no trait or power.")
+        source_kind = "vampire_power" if self.power_id else "vampire_trait"
         metadata = {
             **dict(self.metadata or {}),
-            "vampire_trait_slug": self.trait.slug,
+            f"{source_kind}_slug": definition.slug,
             "vampire_trait_rank": max(1, int(rank or 1)),
             "vampire_age_cycle": max(1, int(age_cycle or 1)),
         }
@@ -257,8 +271,8 @@ class VampireTraitSemanticEffect(models.Model):
         scaling["_vampire_age_cycle"] = max(1, int(age_cycle or 1))
         modifier_cls = modifier_map.get(self.target_domain, BaseModifier)
         return modifier_cls(
-            source_type="vampire_trait",
-            source_id=str(self.trait_id),
+            source_type=source_kind,
+            source_id=str(definition.id),
             target_domain=self.target_domain,
             target_key=self.target_key,
             mode=self.mode,
@@ -281,25 +295,6 @@ class VampireTraitSemanticEffect(models.Model):
         )
 
 
-def _validate_rank_and_buyoff(ownership, *, strict: bool) -> list[str]:
-    """Return warnings, raising for strict character ownership."""
-    warnings: list[str] = []
-    trait = getattr(ownership, "trait", None)
-    if trait is None:
-        return warnings
-    rank = int(getattr(ownership, "rank", None) or 1)
-    if rank != 1 and not trait.rankable:
-        warnings.append(f"{trait.name} is not rankable according to its definition.")
-    if trait.max_rank is not None and rank > int(trait.max_rank):
-        warnings.append(f"{trait.name} may not exceed rank {trait.max_rank}.")
-    bought_off = getattr(ownership, "associated_weakness_bought_off", None)
-    if bought_off and (trait.trait_type != VampireTrait.TraitType.POWER or not trait.associated_weakness_id):
-        warnings.append("A weakness buyoff is only valid for a power with an associated weakness.")
-    if strict and warnings:
-        raise ValidationError({"trait": " ".join(warnings)})
-    return warnings
-
-
 class CharacterVampireTrait(models.Model):
     character = models.ForeignKey(
         "charsheet.Character",
@@ -310,10 +305,7 @@ class CharacterVampireTrait(models.Model):
         VampireTrait,
         on_delete=models.PROTECT,
         related_name="character_ownerships",
-        limit_choices_to={"trait_type__in": [VampireTrait.TraitType.POWER, VampireTrait.TraitType.WEAKNESS]},
     )
-    rank = models.PositiveSmallIntegerField(default=1, validators=[MinValueValidator(1)])
-    associated_weakness_bought_off = models.BooleanField(default=False)
 
     class Meta:
         ordering = ["character", "trait__sort_order", "trait__name", "id"]
@@ -327,10 +319,44 @@ class CharacterVampireTrait(models.Model):
         super().clean()
         if self.character_id and not self.character.is_vampire:
             raise ValidationError({"character": "Vampire traits require the Vampirism acquisition trait."})
-        _validate_rank_and_buyoff(self, strict=True)
 
     def __str__(self) -> str:
-        return f"{self.character}: {self.trait} ({self.rank})"
+        return f"{self.character}: {self.trait}"
+
+
+class CharacterVampirePower(models.Model):
+    character = models.ForeignKey(
+        "charsheet.Character",
+        on_delete=models.CASCADE,
+        related_name="vampire_power_ownerships",
+    )
+    power = models.ForeignKey(
+        VampirePower,
+        on_delete=models.PROTECT,
+        related_name="character_ownerships",
+    )
+    purchased_without_weakness = models.BooleanField(default=False)
+    weakness_bought_off = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ["character", "power__sort_order", "power__name", "id"]
+        verbose_name = "Character vampire power"
+        verbose_name_plural = "Character vampire powers"
+        constraints = [
+            models.UniqueConstraint(fields=["character", "power"], name="uniq_character_vampire_power")
+        ]
+
+    @property
+    def weakness_is_active(self) -> bool:
+        return not self.purchased_without_weakness and not self.weakness_bought_off
+
+    def clean(self):
+        super().clean()
+        if self.character_id and not self.character.is_vampire:
+            raise ValidationError({"character": "Vampire powers require the Vampirism acquisition trait."})
+
+    def __str__(self) -> str:
+        return f"{self.character}: {self.power}"
 
 
 class CreatureVampireTrait(models.Model):
@@ -344,9 +370,6 @@ class CreatureVampireTrait(models.Model):
         on_delete=models.PROTECT,
         related_name="creature_defaults",
     )
-    rank = models.PositiveSmallIntegerField(default=1, validators=[MinValueValidator(1)])
-    associated_weakness_bought_off = models.BooleanField(default=False)
-
     class Meta:
         ordering = ["creature", "trait__sort_order", "trait__name", "id"]
         verbose_name = "Creature vampire trait"
@@ -355,11 +378,37 @@ class CreatureVampireTrait(models.Model):
             models.UniqueConstraint(fields=["creature", "trait"], name="uniq_creature_vampire_trait")
         ]
 
+    def __str__(self) -> str:
+        return f"{self.creature}: {self.trait}"
+
+
+class CreatureVampirePower(models.Model):
+    creature = models.ForeignKey(
+        "charsheet.Creature",
+        on_delete=models.CASCADE,
+        related_name="vampire_power_defaults",
+    )
+    power = models.ForeignKey(VampirePower, on_delete=models.PROTECT, related_name="creature_defaults")
+    purchased_without_weakness = models.BooleanField(default=False)
+    weakness_bought_off = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ["creature", "power__sort_order", "power__name", "id"]
+        verbose_name = "Creature vampire power"
+        verbose_name_plural = "Creature vampire powers"
+        constraints = [
+            models.UniqueConstraint(fields=["creature", "power"], name="uniq_creature_vampire_power")
+        ]
+
+    @property
+    def weakness_is_active(self) -> bool:
+        return not self.purchased_without_weakness and not self.weakness_bought_off
+
     def validation_warnings(self) -> list[str]:
-        return _validate_rank_and_buyoff(self, strict=False)
+        return []
 
     def __str__(self) -> str:
-        return f"{self.creature}: {self.trait} ({self.rank})"
+        return f"{self.creature}: {self.power}"
 
 
 class VampireTraitOverrideMode(models.TextChoices):
@@ -380,8 +429,6 @@ class CharacterCreatureVampireTrait(models.Model):
         related_name="character_creature_overrides",
     )
     mode = models.CharField(max_length=12, choices=VampireTraitOverrideMode.choices, default=VampireTraitOverrideMode.ADD)
-    rank = models.PositiveSmallIntegerField(blank=True, null=True, validators=[MinValueValidator(1)])
-    associated_weakness_bought_off = models.BooleanField(blank=True, null=True)
 
     class Meta:
         ordering = ["creature", "trait__sort_order", "trait__name", "id"]
@@ -391,16 +438,42 @@ class CharacterCreatureVampireTrait(models.Model):
             models.UniqueConstraint(fields=["creature", "trait"], name="uniq_character_creature_vampire_trait")
         ]
 
-    def validation_warnings(self) -> list[str]:
-        warnings = _validate_rank_and_buyoff(self, strict=False)
-        if self.mode == VampireTraitOverrideMode.REMOVE and (
-            self.rank is not None or self.associated_weakness_bought_off is not None
-        ):
-            warnings.append("A remove override ignores rank and weakness buyoff values.")
-        return warnings
-
     def __str__(self) -> str:
         return f"{self.creature}: {self.mode} {self.trait}"
+
+
+class CharacterCreatureVampirePower(models.Model):
+    creature = models.ForeignKey(
+        "charsheet.CharacterCreature",
+        on_delete=models.CASCADE,
+        related_name="vampire_power_overrides",
+    )
+    power = models.ForeignKey(
+        VampirePower,
+        on_delete=models.PROTECT,
+        related_name="character_creature_overrides",
+    )
+    mode = models.CharField(max_length=12, choices=VampireTraitOverrideMode.choices, default=VampireTraitOverrideMode.ADD)
+    purchased_without_weakness = models.BooleanField(blank=True, null=True)
+    weakness_bought_off = models.BooleanField(blank=True, null=True)
+
+    class Meta:
+        ordering = ["creature", "power__sort_order", "power__name", "id"]
+        verbose_name = "Character creature vampire power"
+        verbose_name_plural = "Character creature vampire powers"
+        constraints = [
+            models.UniqueConstraint(fields=["creature", "power"], name="uniq_character_creature_vampire_power")
+        ]
+
+    def validation_warnings(self) -> list[str]:
+        if self.mode == VampireTraitOverrideMode.REMOVE and (
+            self.purchased_without_weakness is not None or self.weakness_bought_off is not None
+        ):
+            return ["A remove override ignores weakness values."]
+        return []
+
+    def __str__(self) -> str:
+        return f"{self.creature}: {self.mode} {self.power}"
 
 
 class GameGroupCreatureVampireTrait(models.Model):
@@ -415,8 +488,6 @@ class GameGroupCreatureVampireTrait(models.Model):
         related_name="game_group_creature_overrides",
     )
     mode = models.CharField(max_length=12, choices=VampireTraitOverrideMode.choices, default=VampireTraitOverrideMode.ADD)
-    rank = models.PositiveSmallIntegerField(blank=True, null=True, validators=[MinValueValidator(1)])
-    associated_weakness_bought_off = models.BooleanField(blank=True, null=True)
 
     class Meta:
         ordering = ["creature", "trait__sort_order", "trait__name", "id"]
@@ -426,13 +497,39 @@ class GameGroupCreatureVampireTrait(models.Model):
             models.UniqueConstraint(fields=["creature", "trait"], name="uniq_group_creature_vampire_trait")
         ]
 
-    def validation_warnings(self) -> list[str]:
-        warnings = _validate_rank_and_buyoff(self, strict=False)
-        if self.mode == VampireTraitOverrideMode.REMOVE and (
-            self.rank is not None or self.associated_weakness_bought_off is not None
-        ):
-            warnings.append("A remove override ignores rank and weakness buyoff values.")
-        return warnings
-
     def __str__(self) -> str:
         return f"{self.creature}: {self.mode} {self.trait}"
+
+
+class GameGroupCreatureVampirePower(models.Model):
+    creature = models.ForeignKey(
+        "charsheet.GameGroupCreature",
+        on_delete=models.CASCADE,
+        related_name="vampire_power_overrides",
+    )
+    power = models.ForeignKey(
+        VampirePower,
+        on_delete=models.PROTECT,
+        related_name="game_group_creature_overrides",
+    )
+    mode = models.CharField(max_length=12, choices=VampireTraitOverrideMode.choices, default=VampireTraitOverrideMode.ADD)
+    purchased_without_weakness = models.BooleanField(blank=True, null=True)
+    weakness_bought_off = models.BooleanField(blank=True, null=True)
+
+    class Meta:
+        ordering = ["creature", "power__sort_order", "power__name", "id"]
+        verbose_name = "Game group creature vampire power"
+        verbose_name_plural = "Game group creature vampire powers"
+        constraints = [
+            models.UniqueConstraint(fields=["creature", "power"], name="uniq_group_creature_vampire_power")
+        ]
+
+    def validation_warnings(self) -> list[str]:
+        if self.mode == VampireTraitOverrideMode.REMOVE and (
+            self.purchased_without_weakness is not None or self.weakness_bought_off is not None
+        ):
+            return ["A remove override ignores weakness values."]
+        return []
+
+    def __str__(self) -> str:
+        return f"{self.creature}: {self.mode} {self.power}"

@@ -15,18 +15,23 @@ from charsheet.models import (
     CharacterAttribute,
     CharacterCreature,
     CharacterCreationDraft,
+    CharacterCreatureVampirePower,
     CharacterCreatureVampireTrait,
     CharacterTrait,
+    CharacterVampirePower,
     CharacterVampireTrait,
     Creature,
+    CreatureVampirePower,
     CreatureVampireTrait,
     GameGroup,
     GameGroupCreature,
+    GameGroupCreatureVampirePower,
     GameGroupCreatureVampireTrait,
     Quality,
     Race,
     RaceAttributeLimit,
     Trait,
+    VampirePower,
     VampireTrait,
     VampireTraitOverrideMode,
     VampireTraitSemanticEffect,
@@ -35,6 +40,11 @@ from charsheet.models import (
 
 class VampireRulesTests(TestCase):
     def setUp(self):
+        # Keep these tests independent from historical data migrations. This only
+        # affects the transaction-wrapped test database.
+        VampirePower.objects.all().delete()
+        VampireTrait.objects.all().delete()
+        Trait.objects.filter(name="Vampir").delete()
         self.user = get_user_model().objects.create_user(username="vampire-test", password="test12345")
         self.race = Race.objects.create(name="Vampir-Testvolk")
         self.will = Attribute.objects.create(name="Vampir-Test-Willenskraft", short_name=ATTR_WILL)
@@ -49,15 +59,52 @@ class VampireRulesTests(TestCase):
         )
         CharacterAttribute.objects.create(character=self.character, attribute=self.will, base_value=10)
         CharacterAttribute.objects.create(character=self.character, attribute=self.strength, base_value=18)
-        self.anchor = Trait.objects.get(slug="adv_vampire")
+        self.anchor = Trait.objects.create(
+            slug="adv_vampire",
+            name="Vampir",
+            trait_type=Trait.TraitType.ADV,
+            min_level=1,
+            max_level=1,
+            points_per_level=15,
+        )
         CharacterTrait.objects.create(owner=self.character, trait=self.anchor, trait_level=1)
-        self.aura = VampireTrait.objects.get(slug="aura-sehen")
-        self.blood_sacrament = VampireTrait.objects.get(slug="blutsakrament")
+        weakness = VampireTrait.objects.create(
+            slug="tiererkennung",
+            name="Test weakness",
+            trait_type=VampireTrait.TraitType.DISADVANTAGE,
+        )
+        self.vampire_advantage = VampireTrait.objects.create(
+            slug="nachtblick",
+            name="Test advantage",
+            trait_type=VampireTrait.TraitType.ADVANTAGE,
+        )
+        self.aura = VampirePower.objects.create(
+            slug="aura-sehen",
+            name="Test power",
+            blood_cost=1,
+            handler=VampirePower.Handler.MANUAL_ACTIVATION,
+            weakness=weakness,
+        )
+        self.blood_sacrament = VampirePower.objects.create(
+            slug="blutsakrament",
+            name="Test blood sacrament",
+            handler=VampirePower.Handler.BLOOD_SACRAMENT,
+            weakness=weakness,
+        )
+        VampireTraitSemanticEffect.objects.create(
+            power=self.aura,
+            target_domain="derived_stat",
+            target_key="rs",
+            operator="flat_add",
+            value="2",
+        )
 
-    def test_rulebook_seed_uses_one_typed_trait_model(self):
+    def test_vampire_traits_and_powers_use_separate_models(self):
         self.assertEqual(VampireTrait.objects.filter(trait_type="base").count(), 0)
-        self.assertEqual(VampireTrait.objects.filter(trait_type="power").count(), 26)
-        self.assertEqual(VampireTrait.objects.filter(trait_type="weakness").count(), 25)
+        self.assertEqual(VampirePower.objects.count(), 2)
+        self.assertEqual(VampireTrait.objects.filter(trait_type="disadvantage").count(), 1)
+        self.assertEqual(VampireTrait.TraitType.ADVANTAGE.label, "Advantage")
+        self.assertEqual(VampireTrait.TraitType.DISADVANTAGE.label, "Disadvantage")
         self.assertFalse(hasattr(self.character, "vampirepower_set"))
         self.assertTrue(Trait.objects.filter(slug="adv_vampire", name="Vampir").exists())
         self.assertFalse(Trait.objects.filter(slug="vampirismus").exists())
@@ -69,7 +116,7 @@ class VampireRulesTests(TestCase):
 
         form = VampireTraitSemanticEffectAdminForm(
             data={
-                "trait": self.aura.pk,
+                "power": self.aura.pk,
                 "application_scope": VampireTraitSemanticEffect.ApplicationScope.BOTH,
                 "sort_order": 0,
                 "active_flag": True,
@@ -90,7 +137,7 @@ class VampireRulesTests(TestCase):
         self.assertEqual(effect.mode, "scaled")
         self.assertEqual(effect.scaling["scale_source"], "vampire_age_cycle")
 
-    def test_admin_form_can_round_trip_every_seeded_vampire_effect_target(self):
+    def test_admin_form_can_round_trip_every_configured_vampire_effect_target(self):
         from charsheet.admin import VampireTraitSemanticEffectAdminForm
 
         expected_areas = {"derived_stat"}
@@ -111,7 +158,7 @@ class VampireRulesTests(TestCase):
 
         form = VampireTraitSemanticEffectAdminForm(
             data={
-                "trait": self.aura.pk,
+                "power": self.aura.pk,
                 "application_scope": VampireTraitSemanticEffect.ApplicationScope.BOTH,
                 "sort_order": 0,
                 "active_flag": True,
@@ -233,24 +280,51 @@ class VampireRulesTests(TestCase):
         self.assertEqual(response.json()["animal_blood"], 1)
 
     def test_power_automatically_applies_associated_weakness_until_buyoff(self):
-        ownership = CharacterVampireTrait.objects.create(
+        ownership = CharacterVampirePower.objects.create(
             character=self.character,
-            trait=self.aura,
-            rank=1,
+            power=self.aura,
         )
         rules = VampireRules(self.character)
         self.assertIn("tiererkennung", {entry.trait.slug for entry in rules.effective_traits()})
-        ownership.associated_weakness_bought_off = True
-        ownership.save(update_fields=["associated_weakness_bought_off"])
+        ownership.weakness_bought_off = True
+        ownership.save(update_fields=["weakness_bought_off"])
         self.assertNotIn("tiererkennung", {entry.trait.slug for entry in rules.effective_traits()})
 
-    def test_character_ownership_is_strict_but_creature_rows_warn(self):
-        invalid = CharacterVampireTrait(character=self.character, trait=self.aura, rank=2)
-        with self.assertRaises(ValidationError):
-            invalid.full_clean()
-        creature = self._creature()
-        row = CreatureVampireTrait.objects.create(creature=creature, trait=self.aura, rank=2)
-        self.assertTrue(row.validation_warnings())
+    def test_power_purchase_without_weakness_is_persisted_and_costs_twenty(self):
+        start_capacity = VampireRules(self.character).blood_capacity()
+        ownership = VampireRules(self.character).learn_power(self.aura, without_weakness=True)
+        self.character.refresh_from_db()
+        self.assertTrue(ownership.purchased_without_weakness)
+        self.assertFalse(ownership.weakness_bought_off)
+        self.assertEqual(self.character.current_experience, 80)
+        self.assertEqual(VampireRules(self.character).blood_capacity(), start_capacity + 1)
+        self.assertNotIn("tiererkennung", {entry.trait.slug for entry in VampireRules(self.character).effective_traits()})
+
+    def test_learning_submission_updates_power_price_for_without_weakness(self):
+        level, _message = process_learning_submission(
+            self.character,
+            {
+                f"learn_vampire_power_{self.aura.id}": "1",
+                f"learn_vampire_power_weakness_{self.aura.id}": "without",
+            },
+        )
+        self.assertEqual(level, "success")
+        self.character.refresh_from_db()
+        ownership = CharacterVampirePower.objects.get(character=self.character, power=self.aura)
+        self.assertTrue(ownership.purchased_without_weakness)
+        self.assertEqual(self.character.current_experience, 80)
+
+    def test_fundamental_trait_costs_five_and_direct_weakness_can_be_removed(self):
+        rules = VampireRules(self.character)
+        rules.learn_trait(self.vampire_advantage)
+        self.character.refresh_from_db()
+        self.assertEqual(self.character.current_experience, 95)
+        weakness = self.aura.weakness
+        CharacterVampireTrait.objects.create(character=self.character, trait=weakness)
+        rules.remove_trait_weakness(weakness)
+        self.character.refresh_from_db()
+        self.assertEqual(self.character.current_experience, 90)
+        self.assertFalse(CharacterVampireTrait.objects.filter(character=self.character, trait=weakness).exists())
 
     def test_regeneration_is_not_partially_paid_when_potential_is_too_low(self):
         self.character.vampire_intelligent_blood = 10
@@ -378,38 +452,41 @@ class VampireRulesTests(TestCase):
             vampire_intelligent_blood_default=3,
             vampire_animal_blood_default=2,
         )
-        CreatureVampireTrait.objects.create(creature=creature, trait=self.aura, rank=1)
+        CreatureVampirePower.objects.create(creature=creature, power=self.aura)
         companion = CharacterCreature.objects.create(owner=self.character, creature=creature)
         self.assertEqual(companion.vampire_intelligent_blood, 3)
         self.assertEqual(companion.vampire_animal_blood, 2)
-        CharacterCreatureVampireTrait.objects.create(
+        CharacterCreatureVampirePower.objects.create(
             creature=companion,
-            trait=self.aura,
+            power=self.aura,
             mode=VampireTraitOverrideMode.REMOVE,
         )
-        self.assertNotIn("aura-sehen", {entry.trait.slug for entry in VampireRules(companion).effective_traits()})
+        self.assertNotIn("aura-sehen", {entry.power.slug for entry in VampireRules(companion).effective_powers()})
         group = GameGroup.objects.create(name="Vampir-Testgruppe", creator=self.user)
         card = GameGroupCreature.objects.create(
             group=group,
             character_creature=companion,
             vampire_mode=VAMPIRE_MODE_ENABLE,
         )
-        GameGroupCreatureVampireTrait.objects.create(
+        GameGroupCreatureVampirePower.objects.create(
             creature=card,
-            trait=self.aura,
+            power=self.aura,
             mode=VampireTraitOverrideMode.ADD,
-            rank=1,
         )
-        self.assertIn("aura-sehen", {entry.trait.slug for entry in VampireRules(card).effective_traits()})
+        self.assertIn("aura-sehen", {entry.power.slug for entry in VampireRules(card).effective_powers()})
 
     def test_learning_never_refunds_and_uses_central_values(self):
         rules = VampireRules(self.character)
+        start_capacity = rules.blood_capacity()
         ownership = rules.learn_power(self.aura)
         self.character.refresh_from_db()
         self.assertEqual(self.character.current_experience, 85)
-        rules.buy_off_associated_weakness(ownership.trait_id)
+        self.assertEqual(rules.blood_capacity(), start_capacity + 1)
+        rules.buy_off_associated_weakness(ownership.power_id)
         self.character.refresh_from_db()
         self.assertEqual(self.character.current_experience, 80)
+        self.assertTrue(CharacterVampirePower.objects.filter(pk=ownership.pk).exists())
+        self.assertEqual(rules.blood_capacity(), start_capacity + 1)
         rules.purchase_age_cycle()
         rules.purchase_capacity(2)
         self.character.refresh_from_db()
@@ -428,7 +505,7 @@ class VampireRulesTests(TestCase):
                     "vampire": {
                         "age_cycle": 2,
                         "capacity_bonus": 2,
-                        "traits": {"aura-sehen": {"rank": 1, "bought_off": False}},
+                        "powers": {"aura-sehen": {"without_weakness": False}},
                     },
                 }
             },
@@ -457,7 +534,7 @@ class VampireRulesTests(TestCase):
         self.assertContains(response, 'name="adv_adv_vampire"')
 
     def test_blood_sacrament_is_explicit_temporary_workflow(self):
-        CharacterVampireTrait.objects.create(character=self.character, trait=self.blood_sacrament)
+        CharacterVampirePower.objects.create(character=self.character, power=self.blood_sacrament)
         self.character.vampire_intelligent_blood = 5
         self.character.vampire_last_qualifying_kill_day = 0
         self.character.save()

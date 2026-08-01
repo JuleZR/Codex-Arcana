@@ -23,6 +23,7 @@ from charsheet.models import (
     CharacterSchool,
     CharacterSkill,
     CharacterTrait,
+    CharacterVampirePower,
     CharacterVampireTrait,
     CharacterWeaponMastery,
     CharacterWeaponMasteryArcana,
@@ -35,6 +36,7 @@ from charsheet.models import (
     Technique,
     TraitChoiceDefinition,
     Trait,
+    VampirePower,
     VampireTrait,
     WeaponType,
 )
@@ -424,19 +426,18 @@ class CharacterCreationEngine:
 
     def phase_4_vampire(self) -> dict[str, object]:
         raw = self.get_phase("phase_4").get("vampire", {}) or {}
-        traits: dict[str, dict[str, object]] = {}
-        for slug, payload in (raw.get("traits", {}) or {}).items():
+        traits = {str(slug): {} for slug in (raw.get("traits", {}) or {})}
+        powers: dict[str, dict[str, object]] = {}
+        for slug, payload in (raw.get("powers", {}) or {}).items():
             payload = payload or {}
-            traits[str(slug)] = {
-                "rank": max(1, self._to_int(payload.get("rank"), 1)),
-                "bought_off": bool(payload.get("bought_off")),
-            }
+            powers[str(slug)] = {"without_weakness": bool(payload.get("without_weakness"))}
         return {
             "age_cycle": max(1, self._to_int(raw.get("age_cycle"), 1)),
             "capacity_bonus": max(0, self._to_int(raw.get("capacity_bonus"), 0)),
             "intelligent_blood": max(0, self._to_int(raw.get("intelligent_blood"), 0)),
             "animal_blood": max(0, self._to_int(raw.get("animal_blood"), 0)),
             "traits": traits,
+            "powers": powers,
         }
 
     def has_vampire_anchor(self) -> bool:
@@ -448,33 +449,31 @@ class CharacterCreationEngine:
         config = self.phase_4_vampire()
         total = VampireRules.age_cycle_cost(config["age_cycle"])
         total += VampireRules.capacity_bonus_cost(config["capacity_bonus"])
-        definitions = {
+        trait_definitions = {
             trait.slug: trait
-            for trait in VampireTrait.objects.filter(slug__in=config["traits"].keys()).select_related(
-                "associated_weakness"
-            )
+            for trait in VampireTrait.objects.filter(slug__in=config["traits"].keys())
         }
-        for slug, payload in config["traits"].items():
-            trait = definitions.get(slug)
+        for slug in config["traits"]:
+            trait = trait_definitions.get(slug)
             if trait is not None:
-                total += VampireRules.trait_point_delta(
-                    trait,
-                    rank=payload["rank"],
-                    associated_weakness_bought_off=payload["bought_off"],
-                )
+                total += VampireRules.trait_point_delta(trait)
+        power_definitions = {
+            power.slug: power
+            for power in VampirePower.objects.filter(slug__in=config["powers"].keys())
+        }
+        for slug, payload in config["powers"].items():
+            if slug in power_definitions:
+                total += VampireRules.power_cost(without_weakness=payload["without_weakness"])
         return total
 
     def vampire_weakness_refund(self) -> int:
         if not self.has_vampire_anchor():
             return 0
         config = self.phase_4_vampire()
-        return sum(
-            int(value)
-            for value in VampireTrait.objects.filter(
+        return VampireTrait.objects.filter(
                 slug__in=config["traits"].keys(),
-                trait_type=VampireTrait.TraitType.WEAKNESS,
-            ).values_list("point_value", flat=True)
-        )
+                trait_type=VampireTrait.TraitType.DISADVANTAGE,
+            ).count() * 5
 
     def vampire_configuration_is_valid(self) -> bool:
         config = self.phase_4_vampire()
@@ -485,26 +484,22 @@ class CharacterCreationEngine:
                 and config["intelligent_blood"] == 0
                 and config["animal_blood"] == 0
                 and not config["traits"]
+                and not config["powers"]
             )
-        definitions = {
+        trait_definitions = {
             trait.slug: trait
-            for trait in VampireTrait.objects.filter(slug__in=config["traits"].keys()).select_related(
-                "associated_weakness"
+            for trait in VampireTrait.objects.filter(slug__in=config["traits"].keys(), is_active=True)
+        }
+        power_definitions = {
+            power.slug: power
+            for power in VampirePower.objects.filter(
+                slug__in=config["powers"].keys(), is_active=True, weakness__isnull=False
             )
         }
-        if len(definitions) != len(config["traits"]):
+        if len(trait_definitions) != len(config["traits"]):
             return False
-        for slug, payload in config["traits"].items():
-            trait = definitions[slug]
-            rank = int(payload["rank"])
-            if rank != 1 and not trait.rankable:
-                return False
-            if trait.max_rank is not None and rank > int(trait.max_rank):
-                return False
-            if payload["bought_off"] and (
-                trait.trait_type != VampireTrait.TraitType.POWER or not trait.associated_weakness_id
-            ):
-                return False
+        if len(power_definitions) != len(config["powers"]):
+            return False
         return (
             self.sum_phase_3_disadvantage_cost() + self.vampire_weakness_refund()
             <= self.race.phase_3_points
@@ -1131,18 +1126,30 @@ class CharacterCreationEngine:
 
             if character.is_vampire:
                 vampire_config = self.phase_4_vampire()
-                definitions = {
+                trait_definitions = {
                     trait.slug: trait
                     for trait in VampireTrait.objects.filter(
                         slug__in=vampire_config["traits"].keys()
-                    ).select_related("associated_weakness")
+                    )
                 }
-                for slug, payload in vampire_config["traits"].items():
+                for slug in vampire_config["traits"]:
                     ownership = CharacterVampireTrait(
                         character=character,
-                        trait=definitions[slug],
-                        rank=payload["rank"],
-                        associated_weakness_bought_off=payload["bought_off"],
+                        trait=trait_definitions[slug],
+                    )
+                    ownership.full_clean()
+                    ownership.save()
+                power_definitions = {
+                    power.slug: power
+                    for power in VampirePower.objects.filter(
+                        slug__in=vampire_config["powers"].keys()
+                    )
+                }
+                for slug, payload in vampire_config["powers"].items():
+                    ownership = CharacterVampirePower(
+                        character=character,
+                        power=power_definitions[slug],
+                        purchased_without_weakness=payload["without_weakness"],
                     )
                     ownership.full_clean()
                     ownership.save()

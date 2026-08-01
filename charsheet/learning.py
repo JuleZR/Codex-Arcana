@@ -43,6 +43,7 @@ from charsheet.models import (
     CharacterTechniqueChoice,
     CharacterWeaponMastery,
     CharacterWeaponMasteryArcana,
+    CharacterVampirePower,
     CharacterVampireTrait,
     DivineEntity,
     DaemonicPower,
@@ -60,6 +61,7 @@ from charsheet.models import (
     CreatureTraitChoiceDefinition,
     CreatureSpecialSkill,
     WeaponType,
+    VampirePower,
     VampireTrait,
 )
 from charsheet.lesson_rules import lesson_requirements_met, missing_requirement_labels
@@ -703,8 +705,10 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
     magic_aspect_plan: dict[int, int] = {}
     vampire_age_add = 0
     vampire_capacity_add = 0
-    vampire_power_plan: dict[int, int] = {}
+    vampire_power_plan: dict[int, bool] = {}
     vampire_buyoff_plan: set[int] = set()
+    vampire_trait_plan: set[int] = set()
+    vampire_trait_weakness_removal_plan: set[int] = set()
     religion_entity_to_bind = None
     has_progression_inputs = _has_progression_inputs(post_data)
 
@@ -721,49 +725,72 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
 
         owned_vampire_traits = {
             row.trait_id: row
-            for row in CharacterVampireTrait.objects.filter(character=character).select_related(
-                "trait", "trait__associated_weakness"
+            for row in CharacterVampireTrait.objects.filter(character=character).select_related("trait")
+        }
+        owned_vampire_powers = {
+            row.power_id: row
+            for row in CharacterVampirePower.objects.filter(character=character).select_related(
+                "power", "power__weakness"
             )
         }
         for key in post_data.keys():
             raw_key = str(key)
-            if raw_key.startswith("learn_vampire_power_"):
-                try:
-                    trait_id = int(raw_key.rsplit("_", 1)[-1])
-                except ValueError:
+            power_match = re.fullmatch(r"learn_vampire_power_(\d+)", raw_key)
+            trait_match = re.fullmatch(r"learn_vampire_trait_(\d+)", raw_key)
+            trait_remove_match = re.fullmatch(r"learn_vampire_trait_remove_(\d+)", raw_key)
+            buyoff_match = re.fullmatch(r"learn_vampire_buyoff_(\d+)", raw_key)
+            if power_match:
+                power_id = int(power_match.group(1))
+                if _read_int(post_data, raw_key, 0) <= 0:
                     continue
-                rank = _read_int(post_data, raw_key, 0)
-                if rank <= 0:
+                power = VampirePower.objects.filter(
+                    pk=power_id,
+                    is_active=True,
+                    weakness__isnull=False,
+                ).select_related("weakness").first()
+                if power is None or power_id in owned_vampire_powers:
+                    return "error", "Ungültige oder bereits erworbene Vampirkraft."
+                without_weakness = (
+                    str(post_data.get(f"learn_vampire_power_weakness_{power_id}", "with")) == "without"
+                )
+                total_cost += vampire_rules.power_cost(without_weakness=without_weakness)
+                vampire_power_plan[power_id] = without_weakness
+            elif trait_match:
+                trait_id = int(trait_match.group(1))
+                if _read_int(post_data, raw_key, 0) <= 0:
                     continue
                 trait = VampireTrait.objects.filter(
                     pk=trait_id,
-                    trait_type=VampireTrait.TraitType.POWER,
+                    trait_type=VampireTrait.TraitType.ADVANTAGE,
                     is_active=True,
-                ).select_related("associated_weakness").first()
+                ).first()
                 if trait is None or trait_id in owned_vampire_traits:
-                    return "error", "Ungültige oder bereits erworbene Vampirkraft."
-                if not trait.rankable and rank != 1:
-                    return "error", f"{trait.name}: Diese Vampirkraft besitzt keine Ränge."
-                if trait.rankable and rank > int(trait.max_rank or 10):
-                    return "error", f"{trait.name}: Rang liegt über dem Maximum."
-                total_cost += vampire_rules.trait_point_delta(trait, rank=rank)
-                vampire_power_plan[trait_id] = rank
-            elif raw_key.startswith("learn_vampire_buyoff_"):
-                try:
-                    trait_id = int(raw_key.rsplit("_", 1)[-1])
-                except ValueError:
-                    continue
+                    return "error", "Ungültiger oder bereits erworbener Vampir-Vorzug."
+                total_cost += vampire_rules.trait_point_delta(trait)
+                vampire_trait_plan.add(trait_id)
+            elif trait_remove_match:
+                trait_id = int(trait_remove_match.group(1))
                 if _read_int(post_data, raw_key, 0) <= 0:
                     continue
                 ownership = owned_vampire_traits.get(trait_id)
+                if ownership is None or ownership.trait.trait_type != VampireTrait.TraitType.DISADVANTAGE:
+                    return "error", "Ungültige vampirische Schwäche zum Verlernen."
+                total_cost += 5
+                vampire_trait_weakness_removal_plan.add(trait_id)
+            elif buyoff_match:
+                power_id = int(buyoff_match.group(1))
+                if _read_int(post_data, raw_key, 0) <= 0:
+                    continue
+                ownership = owned_vampire_powers.get(power_id)
                 if (
                     ownership is None
-                    or ownership.trait.associated_weakness_id is None
-                    or ownership.associated_weakness_bought_off
+                    or ownership.power.weakness_id is None
+                    or ownership.purchased_without_weakness
+                    or ownership.weakness_bought_off
                 ):
                     return "error", "Ungültiger Schwächenfreikauf."
-                total_cost += int(ownership.trait.associated_weakness.point_value or 0)
-                vampire_buyoff_plan.add(trait_id)
+                total_cost += 5
+                vampire_buyoff_plan.add(power_id)
 
     def _skill_rank_payload(skill, specification: str | None = None) -> tuple[int, int]:
         max_level = int(engine.skill_rank_max(skill.slug, specification=specification))
@@ -1143,6 +1170,7 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
         attr_plan, trait_plan, skill_plan, cs_skill_plan, new_spec_plan,
         language_plan, school_plan, magic_aspect_plan, lesson_plan,
         vampire_age_add, vampire_capacity_add, vampire_power_plan, vampire_buyoff_plan,
+        vampire_trait_plan, vampire_trait_weakness_removal_plan,
     ))
 
     has_magic_selections = any((
@@ -1277,19 +1305,34 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
                     fields.append("vampire_blood_capacity_bonus")
                 character.save(update_fields=fields)
 
-            for trait_id, rank in vampire_power_plan.items():
-                entry = CharacterVampireTrait(character=character, trait_id=trait_id, rank=rank)
+            for power_id, without_weakness in vampire_power_plan.items():
+                entry = CharacterVampirePower(
+                    character=character,
+                    power_id=power_id,
+                    purchased_without_weakness=without_weakness,
+                )
                 entry.full_clean()
                 entry.save()
 
-            for trait_id in vampire_buyoff_plan:
-                entry = CharacterVampireTrait.objects.select_related("trait").get(
-                    character=character,
-                    trait_id=trait_id,
-                )
-                entry.associated_weakness_bought_off = True
+            for trait_id in vampire_trait_plan:
+                entry = CharacterVampireTrait(character=character, trait_id=trait_id)
                 entry.full_clean()
-                entry.save(update_fields=["associated_weakness_bought_off"])
+                entry.save()
+
+            CharacterVampireTrait.objects.filter(
+                character=character,
+                trait_id__in=vampire_trait_weakness_removal_plan,
+                trait__trait_type=VampireTrait.TraitType.DISADVANTAGE,
+            ).delete()
+
+            for power_id in vampire_buyoff_plan:
+                entry = CharacterVampirePower.objects.select_related("power").get(
+                    character=character,
+                    power_id=power_id,
+                )
+                entry.weakness_bought_off = True
+                entry.full_clean()
+                entry.save(update_fields=["weakness_bought_off"])
 
             if religion_entity_to_bind is not None:
                 CharacterDivineEntity.objects.update_or_create(

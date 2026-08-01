@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('charsheet', '0308_seed_vampire_traits'),
+        ('charsheet', '0307_charactercreaturevampiretrait_charactervampiretrait_and_more'),
     ]
 
     operations = [

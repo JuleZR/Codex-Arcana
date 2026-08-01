@@ -522,6 +522,9 @@ def game_master_screen(request, group_id: int):
                             "type": entry.trait.get_trait_type_display(),
                         }
                         for entry in character_vampire.effective_traits(include_weaknesses=True)
+                    ] + [
+                        {"name": entry.power.name, "rank": 1, "type": "Power"}
+                        for entry in character_vampire.effective_powers()
                     ]
                     if character_is_vampire
                     else []
@@ -682,6 +685,9 @@ def game_master_screen(request, group_id: int):
                             "type": entry.trait.get_trait_type_display(),
                         }
                         for entry in vampire_rules.effective_traits(include_weaknesses=True)
+                    ] + [
+                        {"name": entry.power.name, "rank": 1, "type": "Power"}
+                        for entry in vampire_rules.effective_powers()
                     ]
                     if is_vampire
                     else []
@@ -1035,7 +1041,12 @@ def add_group_creature(request, group_id: int):
         ).kp()
         source_actor = character_creature or creature
         from charsheet.engine.vampire_engine import VampireRules
-        from charsheet.models import GameGroupCreatureVampireTrait, VampireTrait
+        from charsheet.models import (
+            GameGroupCreatureVampirePower,
+            GameGroupCreatureVampireTrait,
+            VampirePower,
+            VampireTrait,
+        )
         from charsheet.models.vampirism import VampireTraitOverrideMode
         from charsheet.constants import VAMPIRE_MODE_ENABLE
 
@@ -1081,10 +1092,18 @@ def add_group_creature(request, group_id: int):
                     creature=creature_card,
                     trait=entry.trait,
                     mode=VampireTraitOverrideMode.ADD,
-                    rank=entry.rank,
-                    associated_weakness_bought_off=entry.associated_weakness_bought_off,
                 )
                 for entry in source_vampire.effective_traits(include_weaknesses=False)
+            )
+            GameGroupCreatureVampirePower.objects.bulk_create(
+                GameGroupCreatureVampirePower(
+                    creature=creature_card,
+                    power=entry.power,
+                    mode=VampireTraitOverrideMode.ADD,
+                    purchased_without_weakness=entry.purchased_without_weakness,
+                    weakness_bought_off=entry.weakness_bought_off,
+                )
+                for entry in source_vampire.effective_powers()
             )
 
     return redirect(
