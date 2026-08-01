@@ -3149,11 +3149,12 @@ class VampireTraitSemanticEffectAdminForm(CreatureTraitSemanticEffectAdminForm):
         self.fields["sort_order"].label = "Sort order"
         self.fields["active_flag"].label = "Active"
         self.fields["condition_text"].label = "Optional condition"
-        self.fields["power_component"].required = False
-        self.fields["power_component"].initial = (
-            self.initial.get("power_component")
-            or VampireTraitSemanticEffect.PowerComponent.POWER
-        )
+        if "power_component" in self.fields:
+            self.fields["power_component"].required = False
+            self.fields["power_component"].initial = (
+                self.initial.get("power_component")
+                or VampireTraitSemanticEffect.PowerComponent.POWER
+            )
         self.fields["scale_by_trait_level"].widget = forms.HiddenInput()
         self.fields["scale_by_trait_level"].initial = False
         scaling = self.initial.get("scaling", getattr(self.instance, "scaling", {}) or {}) or {}
@@ -6895,7 +6896,7 @@ class DaemonicPowerSemanticEffectInline(admin.StackedInline):
             "Build effect",
             {
                 "fields": (
-                    ("application_scope", "power_component", "sort_order", "active_flag"),
+                    ("application_scope", "sort_order", "active_flag"),
                     "effect_area",
                     "simple_target",
                     ("simple_operator", "simple_value"),
@@ -6941,6 +6942,26 @@ class VampireTraitSemanticEffectInline(admin.StackedInline):
 
 class VampirePowerSemanticEffectInline(VampireTraitSemanticEffectInline):
     fk_name = "power"
+    fieldsets = (
+        (
+            "Build effect",
+            {
+                "fields": (
+                    ("application_scope", "power_component", "sort_order", "active_flag"),
+                    "effect_area",
+                    "simple_target",
+                    "target_schools",
+                    ("simple_operator", "simple_value"),
+                    "vampire_scaling",
+                    "condition_text",
+                ),
+                "description": (
+                    "Choose whether the effect belongs to the power or its weakness, "
+                    "then configure its scope and calculation."
+                ),
+            },
+        ),
+    )
 
 
 class CreatureAdminForm(forms.ModelForm):
