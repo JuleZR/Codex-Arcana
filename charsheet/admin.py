@@ -3157,6 +3157,10 @@ class VampireTraitSemanticEffectAdminForm(CreatureTraitSemanticEffectAdminForm):
                 or VampireTraitSemanticEffect.PowerComponent.POWER
             )
         if "target_schools" in self.fields:
+            self.fields["target_schools"].queryset = School.objects.select_related("type").order_by(
+                "type__name",
+                "name",
+            )
             self.fields["target_schools"].widget = FilteredSelectMultiple(
                 "Target schools",
                 is_stacked=False,
@@ -6945,7 +6949,7 @@ class VampireTraitSemanticEffectInline(admin.StackedInline):
             },
         ),
     )
-    autocomplete_fields = ("target_skills", "target_schools")
+    autocomplete_fields = ("target_skills",)
 
 
 class VampirePowerSemanticEffectInline(VampireTraitSemanticEffectInline):
@@ -7092,7 +7096,7 @@ class VampireTraitSemanticEffectAdmin(admin.ModelAdmin):
     list_display = ("trait", "power", "application_scope", "target_domain", "target_key", "operator", "active_flag")
     list_filter = ("application_scope", "target_domain", "operator", "active_flag")
     search_fields = ("trait__name", "trait__slug", "power__name", "power__slug", "target_key", "condition_text")
-    autocomplete_fields = ("trait", "power", "target_skills", "target_schools")
+    autocomplete_fields = ("trait", "power", "target_skills")
     list_select_related = ("trait", "power")
     fieldsets = (("Source", {"fields": ("trait", "power")}),) + VampireTraitSemanticEffectInline.fieldsets
 
