@@ -98,8 +98,7 @@
     var isMovementExclusion = area.value === "movement_exclusion";
     var semanticOperators = {
       rule_flag: ["set_flag", "unset_flag"],
-      capability: ["grant_capability", "remove_capability"],
-      disallow_schools: ["remove_capability"],
+      disallow_schools: ["unset_flag"],
       movement_exclusion: ["unset_flag"]
     };
     var operator = root.querySelector('[name$="simple_operator"]');

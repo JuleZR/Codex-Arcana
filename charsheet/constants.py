@@ -12,7 +12,6 @@ VAMPIRE_POWER_MANUAL_ACTIVATION = "vampire_power_manual_activation"
 VAMPIRE_POWER_BLOOD_THEFT = "vampire_power_blood_theft"
 VAMPIRE_POWER_BLOOD_SACRAMENT = "vampire_power_blood_sacrament"
 VAMPIRE_POWER_ATTRIBUTE_BOOST = "vampire_power_attribute_boost"
-VAMPIRE_POWER_REGENERATION = "vampire_power_regeneration"
 WOUND_PENALTY_MOD = "wound_penalty_mod"
 ARMOR_PENALTY_IGNORE = "armor_penalty_ignore"
 SHIELD_PENALTY_IGNORE = "shield_penalty_ignore"
@@ -56,7 +55,7 @@ RULE_FLAG_CHOICES = [
     (VAMPIRE_POWER_BLOOD_THEFT, "Vampirkraft: Blutraub"),
     (VAMPIRE_POWER_BLOOD_SACRAMENT, "Vampirkraft: Blutsakrament"),
     (VAMPIRE_POWER_ATTRIBUTE_BOOST, "Vampirkraft: Attributssteigerung"),
-    (VAMPIRE_POWER_REGENERATION, "Vampirkraft: Regeneration"),
+    (VAMPIRE_REGENERATION, "Vampirische Regeneration"),
     (ARMOR_PENALTY_IGNORE, "Belastung ignorieren"),
     (SHIELD_PENALTY_IGNORE, "Schildmalus ignorieren"),
 ]
@@ -74,7 +73,7 @@ VALID_STAT_SLUGS = {
     VAMPIRE_POWER_BLOOD_THEFT,
     VAMPIRE_POWER_BLOOD_SACRAMENT,
     VAMPIRE_POWER_ATTRIBUTE_BOOST,
-    VAMPIRE_POWER_REGENERATION,
+    VAMPIRE_REGENERATION,
     WOUND_PENALTY_MOD,
     ARMOR_PENALTY_IGNORE,
     SHIELD_PENALTY_IGNORE,

@@ -37,7 +37,6 @@ from .constants import (
     VAMPIRE_POWER_BLOOD_THEFT,
     VAMPIRE_POWER_BLOOD_SACRAMENT,
     VAMPIRE_POWER_ATTRIBUTE_BOOST,
-    VAMPIRE_POWER_REGENERATION,
     VERSATILE,
 )
 from .admin_help import (
@@ -3108,13 +3107,13 @@ class VampireTraitSemanticEffectAdminForm(CreatureTraitSemanticEffectAdminForm):
         ("attribute_cap", "Attribute maximum"),
         ("defense", "Defense / resistance"),
         ("movement", "Movement"),
+        ("movement_exclusion", "Exclude movement mode"),
         ("skill", "Skill"),
         ("skill_category", "Skill category"),
         ("special_skill", "Creature skill"),
         ("combat", "Attack / damage"),
         ("resource", "Resource"),
         ("rule_flag", "Rule flag"),
-        ("capability", "Ability"),
         ("disallow_schools", "Disallow schools"),
         ("attack_type_damage", "Damage by attack type"),
     )
@@ -3124,8 +3123,6 @@ class VampireTraitSemanticEffectAdminForm(CreatureTraitSemanticEffectAdminForm):
     OPERATION_CHOICES = DaemonicPowerSemanticEffectAdminForm.OPERATION_CHOICES + (
         ("set_flag", "set flag"),
         ("unset_flag", "unset flag"),
-        ("grant_capability", "grant ability"),
-        ("remove_capability", "remove ability"),
     )
     ATTRIBUTE_TARGET_CHOICES = (("GE", "Dexterity"), ("WA", "Perception"), ("INT", "Intelligence"), ("WILL", "Willpower"), ("ST", "Strength"), ("KON", "Constitution"), ("CHA", "Charisma"))
     VAMPIRE_RULE_FLAG_CHOICES = (
@@ -3137,9 +3134,6 @@ class VampireTraitSemanticEffectAdminForm(CreatureTraitSemanticEffectAdminForm):
         (VAMPIRE_POWER_BLOOD_THEFT, "Power workflow: blood theft"),
         (VAMPIRE_POWER_BLOOD_SACRAMENT, "Power workflow: blood sacrament"),
         (VAMPIRE_POWER_ATTRIBUTE_BOOST, "Power workflow: attribute boost"),
-        (VAMPIRE_POWER_REGENERATION, "Power workflow: regeneration"),
-    )
-    VAMPIRE_CAPABILITY_CHOICES = (
         (VAMPIRE_REGENERATION, "Vampirische Regeneration"),
     )
     SCALING_CHOICES = (
@@ -3195,7 +3189,6 @@ class VampireTraitSemanticEffectAdminForm(CreatureTraitSemanticEffectAdminForm):
         choices.extend((f"attribute_cap:{key}", label) for key, label in self.ATTRIBUTE_TARGET_CHOICES)
         choices.extend((f"resource:{key}", label) for key, label in RESOURCE_KEY_CHOICES)
         choices.extend((f"rule_flag:{key}", label) for key, label in self.VAMPIRE_RULE_FLAG_CHOICES)
-        choices.extend((f"capability:{key}", label) for key, label in self.VAMPIRE_CAPABILITY_CHOICES)
         choices.append(("metadata:disallow_schools", "Ausgewählte Schulen verbieten"))
         current_domain = str(getattr(self.instance, "target_domain", "") or "")
         current_key = str(getattr(self.instance, "target_key", "") or "")
@@ -3211,7 +3204,7 @@ class VampireTraitSemanticEffectAdminForm(CreatureTraitSemanticEffectAdminForm):
         super()._apply_initial_simple_values()
         target_domain = str(self.initial.get("target_domain") or getattr(self.instance, "target_domain", "") or "")
         target_key = str(self.initial.get("target_key") or getattr(self.instance, "target_key", "") or "")
-        if target_domain in {"attribute_cap", "resource", "capability"}:
+        if target_domain in {"attribute_cap", "resource"}:
             self.initial["effect_area"] = target_domain
             self.initial["simple_target"] = f"{target_domain}:{target_key}"
         elif target_domain == "metadata" and target_key == "disallow_schools":
@@ -3223,7 +3216,7 @@ class VampireTraitSemanticEffectAdminForm(CreatureTraitSemanticEffectAdminForm):
         if target_domain and target_key:
             return target_domain, target_key
         prefix, separator, target_key = str(simple_target or "").partition(":")
-        if separator and prefix == area and area in {"attribute_cap", "resource", "capability"}:
+        if separator and prefix == area and area in {"attribute_cap", "resource"}:
             return area, target_key
         if area == "disallow_schools":
             return "metadata", "disallow_schools"
@@ -3247,19 +3240,16 @@ class VampireTraitSemanticEffectAdminForm(CreatureTraitSemanticEffectAdminForm):
             cleaned_data["target_key"] = target_key
         semantic_operators = {
             "rule_flag": {"set_flag", "unset_flag"},
-            "capability": {"grant_capability", "remove_capability"},
-            "disallow_schools": {"remove_capability"},
+            "disallow_schools": {"unset_flag"},
             "movement_exclusion": {"unset_flag"},
         }
         operator = cleaned_data.get("simple_operator") or cleaned_data.get("operator") or "flat_add"
         if area == "disallow_schools":
-            operator = "remove_capability"
+            operator = "unset_flag"
         elif area == "movement_exclusion":
             operator = "unset_flag"
         elif area == "rule_flag" and operator not in semantic_operators["rule_flag"]:
             operator = "set_flag"
-        elif area == "capability" and operator not in semantic_operators["capability"]:
-            operator = "grant_capability"
         if area in semantic_operators:
             if operator not in semantic_operators[area]:
                 self.add_error("simple_operator", "Choose an operation appropriate for this effect area.")

@@ -303,25 +303,8 @@ class VampireRules:
         return len(self.effective_powers())
 
     def can_regenerate(self) -> bool:
-        """Return whether semantic effects grant vampiric regeneration."""
-        if not self.is_vampire():
-            return False
-        if isinstance(self.actor, Character):
-            return bool(
-                self.actor.get_engine(refresh=True)
-                .resolve_capabilities()
-                .get(VAMPIRE_REGENERATION, False)
-            )
-        if isinstance(self.actor, (Creature, CharacterCreature)):
-            from charsheet.engine.creature_engine import CreatureEngine
-
-            return CreatureEngine(self.actor).has_capability(VAMPIRE_REGENERATION)
-        source = self.actor.character_creature or self.actor.creature
-        if source is None:
-            return False
-        from charsheet.engine.creature_engine import CreatureEngine
-
-        return CreatureEngine(source).has_capability(VAMPIRE_REGENERATION)
+        """Return whether semantic effects enable vampiric regeneration."""
+        return self.semantic_flag(VAMPIRE_REGENERATION)
 
     def semantic_flag(self, target_key: str) -> bool:
         """Resolve one boolean flag directly from effective vampire semantic effects."""
