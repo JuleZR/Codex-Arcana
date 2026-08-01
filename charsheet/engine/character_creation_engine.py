@@ -504,6 +504,7 @@ class CharacterCreationEngine:
         return {str(k): max(0, self._to_int(v, 0)) for k, v in advantages.items()}
 
     def phase_4_vampire(self) -> dict[str, object]:
+        """Return vampire creation options, including every active base trait."""
         raw = self.get_phase("phase_4").get("vampire", {}) or {}
         traits = {str(slug): {} for slug in (raw.get("traits", {}) or {})}
         if self.phase_4_advantages().get(VAMPIRE_ANCHOR_TRAIT_SLUG, 0) > 0:
@@ -533,14 +534,6 @@ class CharacterCreationEngine:
         config = self.phase_4_vampire()
         total = VampireRules.age_cycle_cost(config["age_cycle"])
         total += VampireRules.capacity_bonus_cost(config["capacity_bonus"])
-        trait_definitions = {
-            trait.slug: trait
-            for trait in VampireTrait.objects.filter(slug__in=config["traits"].keys())
-        }
-        for slug in config["traits"]:
-            trait = trait_definitions.get(slug)
-            if trait is not None:
-                total += VampireRules.trait_point_delta(trait)
         power_definitions = {
             power.slug: power
             for power in VampirePower.objects.filter(slug__in=config["powers"].keys())
@@ -551,13 +544,8 @@ class CharacterCreationEngine:
         return total
 
     def vampire_weakness_refund(self) -> int:
-        if not self.has_vampire_anchor():
-            return 0
-        config = self.phase_4_vampire()
-        return VampireTrait.objects.filter(
-                slug__in=config["traits"].keys(),
-                trait_type=VampireTrait.TraitType.DISADVANTAGE,
-            ).count() * 5
+        """Base vampire disadvantages are automatic and grant no creation points."""
+        return 0
 
     def vampire_configuration_is_valid(self) -> bool:
         config = self.phase_4_vampire()
