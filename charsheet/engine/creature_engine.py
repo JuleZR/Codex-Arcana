@@ -420,6 +420,11 @@ class CreatureEngine:
             for effect_row in ownership.power.semantic_effects.all():
                 if (
                     not effect_row.active_flag
+                    or (
+                        effect_row.power_component
+                        == VampireTraitSemanticEffect.PowerComponent.WEAKNESS
+                        and not ownership.weakness_is_active
+                    )
                     or effect_row.application_scope
                     not in {
                         VampireTraitSemanticEffect.ApplicationScope.CREATURE,
@@ -1141,7 +1146,7 @@ class CreatureEngine:
         return int(self.current_wound_zone()["penalty"] or 0)
 
     def movement(self) -> dict[str, Any]:
-        return {
+        movement = {
             "combat": self._movement_value("combat_speed", "combat", 0),
             "march": self._movement_value("march_speed", "march", 0),
             "sprint": self._movement_value("sprint_speed", "sprint", 0),
@@ -1153,6 +1158,22 @@ class CreatureEngine:
             "fly_march": self._movement_value("march_fly_speed", "fly_march", None),
             "fly_sprint": self._movement_value("sprint_fly_speed", "fly_sprint", None),
         }
+        blocked_modes = {
+            effect.target_key
+            for effect in self._semantic_effects
+            if effect.target_domain == TargetDomain.MOVEMENT
+            and effect.operator == ModifierOperator.UNSET_FLAG
+        }
+        mode_keys = {
+            "ground": ("combat", "march", "sprint"),
+            "swim": ("swim", "swim_combat", "swim_march", "swim_sprint"),
+            "fly": ("fly_combat", "fly_march", "fly_sprint"),
+        }
+        for mode in blocked_modes:
+            for key in mode_keys.get(mode, (mode,)):
+                if key in movement:
+                    movement[key] = None
+        return movement
 
     def _movement_value(self, field_name: str, target_key: str, default: Any) -> Any:
         value = getattr(self.creature, field_name, default)

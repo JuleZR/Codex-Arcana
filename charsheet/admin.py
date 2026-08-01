@@ -2352,6 +2352,7 @@ class CreatureTraitSemanticEffectAdminForm(forms.ModelForm):
         ("attribute", "Eigenschaft"),
         ("defense", "Verteidigung / Widerstand"),
         ("movement", "Bewegung"),
+        ("movement_exclusion", "Bewegungsform ausschließen"),
         ("skill", "Fertigkeit"),
         ("skill_category", "Fertigkeitskategorie"),
         ("special_skill", "Kreaturen-Fertigkeit"),
@@ -2384,6 +2385,11 @@ class CreatureTraitSemanticEffectAdminForm(forms.ModelForm):
         ("fly_march", "Flug Marsch"),
         ("fly_sprint", "Flug Sprint"),
     )
+    MOVEMENT_EXCLUSION_TARGET_CHOICES = (
+        ("ground", "Laufen vollständig entfernen"),
+        ("swim", "Schwimmen vollständig entfernen"),
+        ("fly", "Fliegen vollständig entfernen"),
+    )
     COMBAT_TARGET_CHOICES = (
         ("attack_value", "Angriffswert"),
         ("damage", "Schaden"),
@@ -2410,7 +2416,7 @@ class CreatureTraitSemanticEffectAdminForm(forms.ModelForm):
         fields = "__all__"
 
     class Media:
-        js = ("charsheet/js/creature_trait_semantic_effect_admin_v8.js",)
+        js = ("charsheet/js/creature_trait_semantic_effect_admin_v9.js",)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -2438,6 +2444,9 @@ class CreatureTraitSemanticEffectAdminForm(forms.ModelForm):
         elif target_domain == "derived_stat":
             self.initial.setdefault("effect_area", "defense")
             self.initial.setdefault("simple_target", f"defense:{target_key}")
+        elif target_domain == "movement" and getattr(self.instance, "operator", "") == "unset_flag":
+            self.initial.setdefault("effect_area", "movement_exclusion")
+            self.initial.setdefault("simple_target", f"movement_exclusion:{target_key}")
         elif target_domain == "movement":
             self.initial.setdefault("effect_area", "movement")
             self.initial.setdefault("simple_target", f"movement:{target_key}")
@@ -2475,6 +2484,10 @@ class CreatureTraitSemanticEffectAdminForm(forms.ModelForm):
         choices.extend((f"attribute:{value}", label) for value, label in ATTRIBUTE_CODE_CHOICES)
         choices.extend((f"defense:{value}", label) for value, label in self.DEFENSE_TARGET_CHOICES)
         choices.extend((f"movement:{value}", label) for value, label in self.MOVEMENT_TARGET_CHOICES)
+        choices.extend(
+            (f"movement_exclusion:{value}", label)
+            for value, label in self.MOVEMENT_EXCLUSION_TARGET_CHOICES
+        )
         choices.extend((f"skill:{skill.slug}", skill.name) for skill in Skill.objects.order_by("name"))
         choices.extend((f"skill_category:{category.slug}", category.name) for category in SkillCategory.objects.order_by("name"))
         choices.extend((f"special_skill:{skill.slug}", skill.name) for skill in CreatureSpecialSkill.objects.order_by("name"))
@@ -2537,7 +2550,10 @@ class CreatureTraitSemanticEffectAdminForm(forms.ModelForm):
         else:
             self.add_error("effect_area", "Bitte auswaehlen, welcher Wert geaendert werden soll.")
 
-        if target_domain == "rule_flag":
+        if area == "movement_exclusion":
+            cleaned_data["operator"] = "unset_flag"
+            cleaned_data["value"] = "true"
+        elif target_domain == "rule_flag":
             cleaned_data["operator"] = "set_flag"
             cleaned_data["value"] = "true"
         else:
@@ -2571,6 +2587,8 @@ class CreatureTraitSemanticEffectAdminForm(forms.ModelForm):
         if area == "defense":
             return "derived_stat", target_key
         if area == "movement":
+            return "movement", target_key
+        if area == "movement_exclusion":
             return "movement", target_key
         if area == "skill":
             return "skill", target_key
@@ -2970,6 +2988,7 @@ class DaemonicPowerSemanticEffectAdminForm(CreatureTraitSemanticEffectAdminForm)
         ("attribute", "Attribute"),
         ("defense", "Defense / resistance"),
         ("movement", "Movement"),
+        ("movement_exclusion", "Exclude movement mode"),
         ("skill", "Skill"),
         ("skill_category", "Skill category"),
         ("special_skill", "Creature skill"),
@@ -3212,6 +3231,9 @@ class VampireTraitSemanticEffectAdminForm(CreatureTraitSemanticEffectAdminForm):
 
     def clean(self):
         cleaned_data = forms.ModelForm.clean(self)
+        if "trait" in self.fields and "power" in self.fields:
+            if bool(cleaned_data.get("trait")) == bool(cleaned_data.get("power")):
+                raise ValidationError("Choose exactly one vampire trait or vampire power.")
         cleaned_data["power_component"] = (
             cleaned_data.get("power_component")
             or VampireTraitSemanticEffect.PowerComponent.POWER
@@ -3227,10 +3249,17 @@ class VampireTraitSemanticEffectAdminForm(CreatureTraitSemanticEffectAdminForm):
             "rule_flag": {"set_flag", "unset_flag"},
             "capability": {"grant_capability", "remove_capability"},
             "disallow_schools": {"remove_capability"},
+            "movement_exclusion": {"unset_flag"},
         }
         operator = cleaned_data.get("simple_operator") or cleaned_data.get("operator") or "flat_add"
         if area == "disallow_schools":
             operator = "remove_capability"
+        elif area == "movement_exclusion":
+            operator = "unset_flag"
+        elif area == "rule_flag" and operator not in semantic_operators["rule_flag"]:
+            operator = "set_flag"
+        elif area == "capability" and operator not in semantic_operators["capability"]:
+            operator = "grant_capability"
         if area in semantic_operators:
             if operator not in semantic_operators[area]:
                 self.add_error("simple_operator", "Choose an operation appropriate for this effect area.")
@@ -6851,7 +6880,7 @@ class CreatureTraitSemanticEffectInline(admin.StackedInline):
     extra = 0
 
     class Media:
-        js = ("charsheet/js/creature_trait_semantic_effect_admin_v8.js",)
+        js = ("charsheet/js/creature_trait_semantic_effect_admin_v9.js",)
 
     fieldsets = (
         (
@@ -6879,7 +6908,7 @@ class CreatureSpecialSkillSemanticEffectInline(admin.StackedInline):
     extra = 0
 
     class Media:
-        js = ("charsheet/js/creature_trait_semantic_effect_admin_v8.js",)
+        js = ("charsheet/js/creature_trait_semantic_effect_admin_v9.js",)
 
     fieldsets = (
         (
@@ -7693,7 +7722,7 @@ class CreatureSpecialSkillSemanticEffectAdmin(admin.ModelAdmin):
     )
 
     class Media:
-        js = ("charsheet/js/creature_trait_semantic_effect_admin_v8.js",)
+        js = ("charsheet/js/creature_trait_semantic_effect_admin_v9.js",)
 
 
 @admin.register(CreatureSpecialSkillValue)
@@ -7719,7 +7748,7 @@ class CreatureTraitDefinitionAdmin(admin.ModelAdmin):
     )
 
     class Media:
-        js = ("charsheet/js/creature_trait_semantic_effect_admin_v8.js",)
+        js = ("charsheet/js/creature_trait_semantic_effect_admin_v9.js",)
 
     def semantic_effect_preview(self, obj):
         return _creature_trait_semantic_preview(obj)

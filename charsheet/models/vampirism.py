@@ -192,8 +192,8 @@ class VampireTraitSemanticEffect(models.Model):
 
     def clean(self):
         super().clean()
-        if bool(self.trait_id) == bool(self.power_id):
-            raise ValidationError("A vampire semantic effect must belong to exactly one trait or power.")
+        if self.trait_id and self.power_id:
+            raise ValidationError("A vampire semantic effect cannot belong to both a trait and a power.")
         if self.trait_id and self.power_component == self.PowerComponent.WEAKNESS:
             raise ValidationError({"power_component": "Only power effects can belong to a weakness."})
         for field_name in ("scaling", "condition_set", "metadata"):

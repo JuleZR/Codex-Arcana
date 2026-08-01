@@ -5121,10 +5121,12 @@ def build_character_sheet_context(
         additive = int(movement_profile.values.get(target_key, 0))
         return max(0, int(base * multiplier) + additive)
 
-    ground_combat = _resolve_movement_value(race.combat_speed, "ground_combat")
-    ground_march = _resolve_movement_value(race.march_speed, "ground_march")
-    ground_sprint = _resolve_movement_value(race.sprint_speed, "ground_sprint")
-    swim_speed = _resolve_movement_value(race.swimming_speed, "swim")
+    ground_blocked = "ground" in movement_profile.blocked_modes
+    swim_blocked = "swim" in movement_profile.blocked_modes
+    ground_combat = None if ground_blocked else _resolve_movement_value(race.combat_speed, "ground_combat")
+    ground_march = None if ground_blocked else _resolve_movement_value(race.march_speed, "ground_march")
+    ground_sprint = None if ground_blocked else _resolve_movement_value(race.sprint_speed, "ground_sprint")
+    swim_speed = None if swim_blocked else _resolve_movement_value(race.swimming_speed, "swim")
     fly_value = "-"
     has_flight = race.can_fly or any(
         key in movement_profile.values
@@ -5142,10 +5144,10 @@ def build_character_sheet_context(
             )
         )
     movement_ground = {
-        "combat": format_compact_number(ground_combat),
-        "march": format_compact_number(ground_march),
-        "sprint": format_compact_number(ground_sprint),
-        "swim": format_compact_number(swim_speed),
+        "combat": "-" if ground_combat is None else format_compact_number(ground_combat),
+        "march": "-" if ground_march is None else format_compact_number(ground_march),
+        "sprint": "-" if ground_sprint is None else format_compact_number(ground_sprint),
+        "swim": "-" if swim_speed is None else format_compact_number(swim_speed),
         "fly": fly_value,
     }
 
