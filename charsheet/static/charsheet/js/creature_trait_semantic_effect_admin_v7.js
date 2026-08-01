@@ -94,8 +94,11 @@
     }
     syncApplicationScope(root);
     var isChoice = area.value === "choice" || area.value === "choice_attack_damage";
+    var isDisallowSchools = area.value === "disallow_schools";
     var semanticOperators = {
-      rule_flag: ["set_flag", "unset_flag"]
+      rule_flag: ["set_flag", "unset_flag"],
+      capability: ["grant_capability", "remove_capability"],
+      disallow_schools: ["remove_capability"]
     };
     var operator = root.querySelector('[name$="simple_operator"]');
     if (operator) {
@@ -113,11 +116,12 @@
       rebuildOptions(operator, operatorOptions, operator.value);
     }
     var isSemanticBoolean = Boolean(semanticOperators[area.value]);
-    setRowVisible(root, "simple_target", !isChoice);
+    setRowVisible(root, "simple_target", !isChoice && !isDisallowSchools);
+    setRowVisible(root, "target_schools", isDisallowSchools);
     setRowVisible(root, "target_choice_definition", isChoice);
-    setRowVisible(root, "simple_operator", true);
-    setRowVisible(root, "simple_value", !isSemanticBoolean);
-    if (!isChoice) {
+    setRowVisible(root, "simple_operator", !isDisallowSchools);
+    setRowVisible(root, "simple_value", !isSemanticBoolean && !isDisallowSchools);
+    if (!isChoice && !isDisallowSchools) {
       syncSimpleTarget(root);
     }
   }

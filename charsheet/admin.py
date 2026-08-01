@@ -6,6 +6,7 @@ from copy import copy, deepcopy
 from django.contrib import admin, messages
 from django.contrib.admin.views.main import ChangeList
 from django.contrib.admin.helpers import ACTION_CHECKBOX_NAME, ActionForm
+from django.contrib.admin.widgets import FilteredSelectMultiple
 from django.contrib.contenttypes.admin import GenericStackedInline
 from django import forms
 from django.core.exceptions import NON_FIELD_ERRORS, ValidationError
@@ -3155,6 +3156,11 @@ class VampireTraitSemanticEffectAdminForm(CreatureTraitSemanticEffectAdminForm):
                 self.initial.get("power_component")
                 or VampireTraitSemanticEffect.PowerComponent.POWER
             )
+        if "target_schools" in self.fields:
+            self.fields["target_schools"].widget = FilteredSelectMultiple(
+                "Target schools",
+                is_stacked=False,
+            )
         self.fields["scale_by_trait_level"].widget = forms.HiddenInput()
         self.fields["scale_by_trait_level"].initial = False
         scaling = self.initial.get("scaling", getattr(self.instance, "scaling", {}) or {}) or {}
@@ -3195,7 +3201,7 @@ class VampireTraitSemanticEffectAdminForm(CreatureTraitSemanticEffectAdminForm):
         prefix, separator, target_key = str(simple_target or "").partition(":")
         if separator and prefix == area and area in {"attribute_cap", "resource", "capability"}:
             return area, target_key
-        if area == "disallow_schools" and simple_target == "metadata:disallow_schools":
+        if area == "disallow_schools":
             return "metadata", "disallow_schools"
         return "", ""
 
@@ -3218,6 +3224,8 @@ class VampireTraitSemanticEffectAdminForm(CreatureTraitSemanticEffectAdminForm):
             "disallow_schools": {"remove_capability"},
         }
         operator = cleaned_data.get("simple_operator") or cleaned_data.get("operator") or "flat_add"
+        if area == "disallow_schools":
+            operator = "remove_capability"
         if area in semantic_operators:
             if operator not in semantic_operators[area]:
                 self.add_error("simple_operator", "Choose an operation appropriate for this effect area.")
