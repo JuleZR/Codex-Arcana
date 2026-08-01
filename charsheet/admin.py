@@ -6,6 +6,7 @@ from copy import copy, deepcopy
 from django.contrib import admin, messages
 from django.contrib.admin.views.main import ChangeList
 from django.contrib.admin.helpers import ACTION_CHECKBOX_NAME, ActionForm
+from django.contrib.admin.widgets import FilteredSelectMultiple
 from django.contrib.contenttypes.admin import GenericStackedInline
 from django import forms
 from django.core.exceptions import NON_FIELD_ERRORS, ValidationError
@@ -2409,7 +2410,7 @@ class CreatureTraitSemanticEffectAdminForm(forms.ModelForm):
         fields = "__all__"
 
     class Media:
-        js = ("charsheet/js/creature_trait_semantic_effect_admin_v7.js",)
+        js = ("charsheet/js/creature_trait_semantic_effect_admin_v8.js",)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -3160,8 +3161,9 @@ class VampireTraitSemanticEffectAdminForm(CreatureTraitSemanticEffectAdminForm):
                 "type__name",
                 "name",
             )
-            self.fields["target_schools"].widget = forms.SelectMultiple(
-                attrs={"size": 14, "style": "min-width: 32rem;"}
+            self.fields["target_schools"].widget = FilteredSelectMultiple(
+                "Target schools",
+                is_stacked=False,
             )
             self.fields["target_schools"].widget.choices = self.fields["target_schools"].choices
         self.fields["scale_by_trait_level"].widget = forms.HiddenInput()
@@ -6849,7 +6851,7 @@ class CreatureTraitSemanticEffectInline(admin.StackedInline):
     extra = 0
 
     class Media:
-        js = ("charsheet/js/creature_trait_semantic_effect_admin_v7.js",)
+        js = ("charsheet/js/creature_trait_semantic_effect_admin_v8.js",)
 
     fieldsets = (
         (
@@ -6877,7 +6879,7 @@ class CreatureSpecialSkillSemanticEffectInline(admin.StackedInline):
     extra = 0
 
     class Media:
-        js = ("charsheet/js/creature_trait_semantic_effect_admin_v7.js",)
+        js = ("charsheet/js/creature_trait_semantic_effect_admin_v8.js",)
 
     fieldsets = (
         (
@@ -7691,7 +7693,7 @@ class CreatureSpecialSkillSemanticEffectAdmin(admin.ModelAdmin):
     )
 
     class Media:
-        js = ("charsheet/js/creature_trait_semantic_effect_admin_v7.js",)
+        js = ("charsheet/js/creature_trait_semantic_effect_admin_v8.js",)
 
 
 @admin.register(CreatureSpecialSkillValue)
@@ -7717,7 +7719,7 @@ class CreatureTraitDefinitionAdmin(admin.ModelAdmin):
     )
 
     class Media:
-        js = ("charsheet/js/creature_trait_semantic_effect_admin_v7.js",)
+        js = ("charsheet/js/creature_trait_semantic_effect_admin_v8.js",)
 
     def semantic_effect_preview(self, obj):
         return _creature_trait_semantic_preview(obj)
