@@ -6,7 +6,6 @@ from copy import copy, deepcopy
 from django.contrib import admin, messages
 from django.contrib.admin.views.main import ChangeList
 from django.contrib.admin.helpers import ACTION_CHECKBOX_NAME, ActionForm
-from django.contrib.admin.widgets import FilteredSelectMultiple
 from django.contrib.contenttypes.admin import GenericStackedInline
 from django import forms
 from django.core.exceptions import NON_FIELD_ERRORS, ValidationError
@@ -3161,10 +3160,10 @@ class VampireTraitSemanticEffectAdminForm(CreatureTraitSemanticEffectAdminForm):
                 "type__name",
                 "name",
             )
-            self.fields["target_schools"].widget = FilteredSelectMultiple(
-                "Target schools",
-                is_stacked=False,
+            self.fields["target_schools"].widget = forms.SelectMultiple(
+                attrs={"size": 14, "style": "min-width: 32rem;"}
             )
+            self.fields["target_schools"].widget.choices = self.fields["target_schools"].choices
         self.fields["scale_by_trait_level"].widget = forms.HiddenInput()
         self.fields["scale_by_trait_level"].initial = False
         scaling = self.initial.get("scaling", getattr(self.instance, "scaling", {}) or {}) or {}
