@@ -75,10 +75,18 @@
       choice_attack_damage: true,
       attack_type_damage: true
     };
+    var characterOnlyAreas = {
+      creature_card: true
+    };
     var options = readAllAreaOptions(area);
     if (scope.value !== "creature") {
       options = options.filter(function (option) {
         return !creatureOnlyAreas[option.value];
+      });
+    }
+    if (scope.value === "creature") {
+      options = options.filter(function (option) {
+        return !characterOnlyAreas[option.value];
       });
     }
     rebuildOptions(area, options, area.value);
@@ -99,7 +107,8 @@
     var semanticOperators = {
       rule_flag: ["set_flag", "unset_flag"],
       disallow_schools: ["unset_flag"],
-      movement_exclusion: ["unset_flag"]
+      movement_exclusion: ["unset_flag"],
+      creature_card: ["grant_capability"]
     };
     var operator = root.querySelector('[name$="simple_operator"]');
     if (operator) {

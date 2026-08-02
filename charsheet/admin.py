@@ -2248,7 +2248,7 @@ class CharacterVampireTraitInline(admin.TabularInline):
 class CharacterVampirePowerInline(admin.TabularInline):
     model = CharacterVampirePower
     extra = 0
-    fields = ("power", "purchased_without_weakness", "weakness_bought_off")
+    fields = ("power", "level", "purchased_without_weakness", "weakness_bought_off")
     autocomplete_fields = ("power",)
 
 
@@ -2284,7 +2284,49 @@ class TraitCharacterInline(admin.TabularInline):
     autocomplete_fields = ("owner",)
 
 
-class TraitSemanticEffectInlineForm(forms.ModelForm):
+class SemanticCreatureCardGrantFormMixin:
+    """Add friendly fixed/dummy creature-card controls to technical effect forms."""
+
+    granted_creature_card = forms.ModelChoiceField(
+        queryset=Creature.objects.none(),
+        required=False,
+        label="Granted creature card",
+    )
+    grant_dummy_creature_card = forms.BooleanField(
+        required=False,
+        label="Grant dummy card for a free creature choice",
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["granted_creature_card"].queryset = Creature.objects.order_by("name", "id")
+        target_domain = str(self.initial.get("target_domain") or getattr(self.instance, "target_domain", "") or "")
+        target_key = str(self.initial.get("target_key") or getattr(self.instance, "target_key", "") or "")
+        if target_domain == "creature_card":
+            if target_key == "choice":
+                self.initial["grant_dummy_creature_card"] = True
+            elif target_key.isdecimal():
+                self.initial["granted_creature_card"] = int(target_key)
+
+    def clean(self):
+        cleaned_data = super().clean()
+        if cleaned_data.get("target_domain") != "creature_card":
+            return cleaned_data
+        creature = cleaned_data.get("granted_creature_card")
+        is_dummy = bool(cleaned_data.get("grant_dummy_creature_card"))
+        if bool(creature) == is_dummy:
+            self.add_error(
+                "granted_creature_card",
+                "Choose exactly one fixed creature or enable the dummy creature card.",
+            )
+            return cleaned_data
+        cleaned_data["target_key"] = "choice" if is_dummy else str(creature.pk)
+        cleaned_data["operator"] = "grant_capability"
+        cleaned_data["value"] = "true"
+        return cleaned_data
+
+
+class TraitSemanticEffectInlineForm(SemanticCreatureCardGrantFormMixin, forms.ModelForm):
     """Admin form that allows choice-bound semantic effects without a fixed target key."""
 
     class Meta:
@@ -2310,7 +2352,7 @@ class TraitSemanticEffectInlineForm(forms.ModelForm):
         return cleaned_data
 
 
-class TechniqueSemanticEffectInlineForm(forms.ModelForm):
+class TechniqueSemanticEffectInlineForm(SemanticCreatureCardGrantFormMixin, forms.ModelForm):
     """Admin form that allows choice-bound technique effects without a fixed target key."""
 
     class Meta:
@@ -2360,6 +2402,7 @@ class CreatureTraitSemanticEffectAdminForm(forms.ModelForm):
         ("choice", "Auswahl des Traits"),
         ("choice_attack_damage", "Schaden der gewaehlten Angriffsart"),
         ("attack_type_damage", "Schaden nach Angriffsart"),
+        ("creature_card", "Kreaturenkarte gewähren"),
     )
     DEFENSE_TARGET_CHOICES = (
         ("initiative", "Initiative"),
@@ -2467,6 +2510,9 @@ class CreatureTraitSemanticEffectAdminForm(forms.ModelForm):
         elif target_domain == "creature_attack_type_damage":
             self.initial.setdefault("effect_area", "attack_type_damage")
             self.initial.setdefault("simple_target", f"attack_type_damage:{target_key}")
+        elif target_domain == "creature_card":
+            self.initial.setdefault("effect_area", "creature_card")
+            self.initial.setdefault("simple_target", f"creature_card:{target_key}")
         elif target_domain == "creature_attack_damage" and getattr(self.instance, "target_choice_definition_id", None):
             self.initial.setdefault("effect_area", "choice_attack_damage")
         elif getattr(self.instance, "target_choice_definition_id", None):
@@ -2495,6 +2541,11 @@ class CreatureTraitSemanticEffectAdminForm(forms.ModelForm):
         choices.extend(
             (f"attack_type_damage:{attack_type.slug}", attack_type.name)
             for attack_type in CreatureAttackType.objects.order_by("name")
+        )
+        choices.append(("creature_card:choice", "Dummy-Karte zur freien Kreaturenwahl"))
+        choices.extend(
+            (f"creature_card:{creature.pk}", creature.display_name)
+            for creature in Creature.objects.order_by("name", "id")
         )
         return choices
 
@@ -2549,7 +2600,10 @@ class CreatureTraitSemanticEffectAdminForm(forms.ModelForm):
         else:
             self.add_error("effect_area", "Bitte auswaehlen, welcher Wert geaendert werden soll.")
 
-        if area == "movement_exclusion":
+        if area == "creature_card":
+            cleaned_data["operator"] = "grant_capability"
+            cleaned_data["value"] = "true"
+        elif area == "movement_exclusion":
             cleaned_data["operator"] = "unset_flag"
             cleaned_data["value"] = "true"
         elif target_domain == "rule_flag":
@@ -2601,6 +2655,8 @@ class CreatureTraitSemanticEffectAdminForm(forms.ModelForm):
             return "rule_flag", target_key
         if area == "attack_type_damage":
             return "creature_attack_type_damage", target_key
+        if area == "creature_card":
+            return "creature_card", target_key
         return "", ""
 
     @staticmethod
@@ -2994,6 +3050,7 @@ class DaemonicPowerSemanticEffectAdminForm(CreatureTraitSemanticEffectAdminForm)
         ("combat", "Attack / damage"),
         ("rule_flag", "Rule flag"),
         ("attack_type_damage", "Damage by attack type"),
+        ("creature_card", "Grant creature card"),
     )
     DEFENSE_TARGET_CHOICES = (
         ("initiative", "Initiative"),
@@ -3116,6 +3173,7 @@ class VampireTraitSemanticEffectAdminForm(CreatureTraitSemanticEffectAdminForm):
         ("rule_flag", "Rule flag"),
         ("disallow_schools", "Disallow schools"),
         ("attack_type_damage", "Damage by attack type"),
+        ("creature_card", "Grant creature card"),
     )
     DEFENSE_TARGET_CHOICES = DaemonicPowerSemanticEffectAdminForm.DEFENSE_TARGET_CHOICES
     MOVEMENT_TARGET_CHOICES = DaemonicPowerSemanticEffectAdminForm.MOVEMENT_TARGET_CHOICES
@@ -3242,6 +3300,7 @@ class VampireTraitSemanticEffectAdminForm(CreatureTraitSemanticEffectAdminForm):
             "rule_flag": {"set_flag", "unset_flag"},
             "disallow_schools": {"unset_flag"},
             "movement_exclusion": {"unset_flag"},
+            "creature_card": {"grant_capability"},
         }
         operator = cleaned_data.get("simple_operator") or cleaned_data.get("operator") or "flat_add"
         if area == "disallow_schools":
@@ -3250,6 +3309,8 @@ class VampireTraitSemanticEffectAdminForm(CreatureTraitSemanticEffectAdminForm):
             operator = "unset_flag"
         elif area == "rule_flag" and operator not in semantic_operators["rule_flag"]:
             operator = "set_flag"
+        elif area == "creature_card":
+            operator = "grant_capability"
         if area in semantic_operators:
             if operator not in semantic_operators[area]:
                 self.add_error("simple_operator", "Choose an operation appropriate for this effect area.")
@@ -3397,6 +3458,7 @@ class TraitSemanticEffectInline(admin.StackedInline):
                 "fields": (
                     ("sort_order", "active_flag", "priority"),
                     ("target_domain", "target_key", "operator"),
+                    ("granted_creature_card", "grant_dummy_creature_card"),
                     "target_choice_definition",
                     "target_skills",
                     ("mode", "stack_behavior", "visibility"),
@@ -6644,8 +6706,10 @@ class CreatureVampireTraitInline(admin.TabularInline):
 class CreatureVampirePowerInline(admin.TabularInline):
     model = CreatureVampirePower
     extra = 0
-    fields = ("power", "purchased_without_weakness", "weakness_bought_off")
+    fields = ("power", "level", "purchased_without_weakness", "weakness_bought_off")
     autocomplete_fields = ("power",)
+    verbose_name = "Vampire power"
+    verbose_name_plural = "Vampire powers"
 
 
 class CreatureCommandReferenceInline(admin.TabularInline):
@@ -7103,8 +7167,8 @@ class VampireTraitAdmin(admin.ModelAdmin):
 
 @admin.register(VampirePower)
 class VampirePowerAdmin(admin.ModelAdmin):
-    list_display = ("name", "weakness", "blood_cost", "is_active")
-    list_filter = ("is_active",)
+    list_display = ("name", "weakness", "blood_cost", "can_be_learned_multiple_times", "is_active")
+    list_filter = ("can_be_learned_multiple_times", "is_active")
     search_fields = ("name", "slug", "description", "weakness")
     prepopulated_fields = {"slug": ("name",)}
     inlines = (VampirePowerSemanticEffectInline,)
@@ -7131,7 +7195,7 @@ class CharacterVampireTraitAdmin(admin.ModelAdmin):
 
 @admin.register(CharacterVampirePower)
 class CharacterVampirePowerAdmin(admin.ModelAdmin):
-    list_display = ("character", "power", "purchased_without_weakness", "weakness_bought_off")
+    list_display = ("character", "power", "level", "purchased_without_weakness", "weakness_bought_off")
     search_fields = ("character__name", "power__name")
     list_filter = ("purchased_without_weakness", "weakness_bought_off")
     autocomplete_fields = ("character", "power")
@@ -7147,7 +7211,7 @@ class CreatureVampireTraitAdmin(admin.ModelAdmin):
 
 @admin.register(CreatureVampirePower)
 class CreatureVampirePowerAdmin(admin.ModelAdmin):
-    list_display = ("creature", "power", "purchased_without_weakness", "weakness_bought_off")
+    list_display = ("creature", "power", "level", "purchased_without_weakness", "weakness_bought_off")
     search_fields = ("creature__name", "power__name")
     list_filter = ("purchased_without_weakness", "weakness_bought_off")
     autocomplete_fields = ("creature", "power")
@@ -7278,6 +7342,8 @@ class CreatureAdmin(admin.ModelAdmin):
                     "initiative_override",
                     ("vw_override", "sr_override", "gw_override"),
                     ("has_kp", "kp_override", "potential_override"),
+                    ("has_bp", "vampire_blood_capacity_override"),
+                    ("has_age_cycle", "vampire_age_cycle_default"),
                     ("natural_rs", "wound_step_override", "fear_resistance_bonus", "defense_extra_label"),
                     "wound_thresholds_override",
                 )
@@ -7309,8 +7375,7 @@ class CreatureAdmin(admin.ModelAdmin):
             {
                 "fields": (
                     "vampire_default_enabled",
-                    "vampire_age_cycle_default",
-                    ("vampire_blood_capacity_bonus_default", "vampire_blood_capacity_override"),
+                    "vampire_blood_capacity_bonus_default",
                     ("vampire_intelligent_blood_default", "vampire_animal_blood_default"),
                 )
             },
@@ -7350,9 +7415,19 @@ class CreatureAdmin(admin.ModelAdmin):
             ),
             None,
         )
-        if special_skills is not None and daemonic_powers is not None:
+        vampire_powers = next(
+            (
+                inline
+                for inline in inline_formsets
+                if inline.opts.model is CreatureVampirePower
+            ),
+            None,
+        )
+        if special_skills is not None and daemonic_powers is not None and vampire_powers is not None:
             special_skills.combined_daemonic_power_inline = daemonic_powers
+            special_skills.combined_vampire_power_inline = vampire_powers
             daemonic_powers.hide_in_combined_ability_list = True
+            vampire_powers.hide_in_combined_ability_list = True
 
         return super().render_change_form(
             request,
@@ -7381,6 +7456,8 @@ class CreatureAdmin(admin.ModelAdmin):
             "languages",
             "special_skills",
             "daemonic_power_values",
+            "vampire_trait_defaults",
+            "vampire_power_defaults",
             "commands",
             "traits",
         )
@@ -7504,7 +7581,7 @@ class CharacterCreatureVampireTraitInline(admin.TabularInline):
 class CharacterCreatureVampirePowerInline(admin.TabularInline):
     model = CharacterCreatureVampirePower
     extra = 0
-    fields = ("power", "mode", "purchased_without_weakness", "weakness_bought_off")
+    fields = ("power", "mode", "level", "purchased_without_weakness", "weakness_bought_off")
     autocomplete_fields = ("power",)
 
 
@@ -7613,7 +7690,7 @@ class CharacterCreatureVampireTraitAdmin(admin.ModelAdmin):
 
 @admin.register(CharacterCreatureVampirePower)
 class CharacterCreatureVampirePowerAdmin(admin.ModelAdmin):
-    list_display = ("creature", "power", "mode", "purchased_without_weakness", "weakness_bought_off")
+    list_display = ("creature", "power", "mode", "level", "purchased_without_weakness", "weakness_bought_off")
     search_fields = ("creature__name_override", "creature__creature__name", "power__name")
     list_filter = ("mode", "purchased_without_weakness", "weakness_bought_off")
     autocomplete_fields = ("creature", "power")
@@ -7629,7 +7706,7 @@ class GameGroupCreatureVampireTraitAdmin(admin.ModelAdmin):
 
 @admin.register(GameGroupCreatureVampirePower)
 class GameGroupCreatureVampirePowerAdmin(admin.ModelAdmin):
-    list_display = ("creature", "power", "mode", "purchased_without_weakness", "weakness_bought_off")
+    list_display = ("creature", "power", "mode", "level", "purchased_without_weakness", "weakness_bought_off")
     search_fields = ("creature__group__name", "creature__name_override", "power__name")
     list_filter = ("mode", "purchased_without_weakness", "weakness_bought_off")
     autocomplete_fields = ("creature", "power")

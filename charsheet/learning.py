@@ -705,8 +705,8 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
     magic_aspect_plan: dict[int, int] = {}
     vampire_age_add = 0
     vampire_capacity_add = 0
-    vampire_power_plan: dict[int, bool] = {}
-    vampire_power_remove_plan: set[int] = set()
+    vampire_power_plan: dict[int, tuple[int, bool]] = {}
+    vampire_power_remove_plan: dict[int, int] = {}
     vampire_buyoff_plan: set[int] = set()
     vampire_strength_extension = False
     vampire_disallowed_school_ids: set[int] = set()
@@ -745,32 +745,47 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
             buyoff_match = re.fullmatch(r"learn_vampire_buyoff_(\d+)", raw_key)
             if power_remove_match:
                 power_id = int(power_remove_match.group(1))
-                if _read_int(post_data, raw_key, 0) <= 0:
+                remove_levels = _read_int(post_data, raw_key, 0)
+                if remove_levels <= 0:
                     continue
                 ownership = owned_vampire_powers.get(power_id)
                 if ownership is None:
                     return "error", "Ungültige oder nicht erworbene Vampirkraft."
-                total_cost -= vampire_rules.power_cost(
-                    without_weakness=bool(
-                        ownership.purchased_without_weakness or ownership.weakness_bought_off
-                    )
-                )
-                vampire_power_remove_plan.add(power_id)
+                current_level = max(1, int(ownership.level or 1))
+                if remove_levels > current_level:
+                    return "error", "Es können nicht mehr Ränge verlernt werden als vorhanden sind."
+                total_cost -= remove_levels * vampire_rules.power_cost(without_weakness=False)
+                if remove_levels == current_level and (
+                    ownership.purchased_without_weakness or ownership.weakness_bought_off
+                ):
+                    total_cost -= 5
+                vampire_power_remove_plan[power_id] = remove_levels
             elif power_match:
                 power_id = int(power_match.group(1))
-                if _read_int(post_data, raw_key, 0) <= 0:
+                add_levels = _read_int(post_data, raw_key, 0)
+                if add_levels <= 0:
                     continue
                 power = VampirePower.objects.filter(
                     pk=power_id,
                     is_active=True,
                 ).exclude(weakness="").exclude(weakness__isnull=True).first()
-                if power is None or power_id in owned_vampire_powers:
-                    return "error", "Ungültige oder bereits erworbene Vampirkraft."
+                if power is None:
+                    return "error", "Ungültige Vampirkraft."
+                ownership = owned_vampire_powers.get(power_id)
+                if ownership is not None and not power.can_be_learned_multiple_times:
+                    return "error", "Diese Vampirkraft kann nicht mehrfach erworben werden."
+                if ownership is None and add_levels > 1 and not power.can_be_learned_multiple_times:
+                    return "error", "Diese Vampirkraft kann nur einmal erworben werden."
                 without_weakness = (
                     str(post_data.get(f"learn_vampire_power_weakness_{power_id}", "with")) == "without"
                 )
-                total_cost += vampire_rules.power_cost(without_weakness=without_weakness)
-                vampire_power_plan[power_id] = without_weakness
+                if ownership is not None and without_weakness:
+                    return "error", "Die Schwäche einer erworbenen Kraft wird separat und nur einmal freigekauft."
+                total_cost += vampire_rules.power_cost(
+                    without_weakness=without_weakness if ownership is None else False
+                )
+                total_cost += (add_levels - 1) * vampire_rules.power_cost(without_weakness=False)
+                vampire_power_plan[power_id] = (add_levels, without_weakness)
             elif trait_match and _read_int(post_data, raw_key, 0) > 0:
                 return "error", "Vampirische Vorzüge und Schwächen werden beim Vampirwerden automatisch zugeordnet."
             elif buyoff_match:
@@ -788,8 +803,10 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
                 total_cost += 5
                 vampire_buyoff_plan.add(power_id)
 
-        if vampire_power_remove_plan & vampire_buyoff_plan:
+        if set(vampire_power_remove_plan) & vampire_buyoff_plan:
             return "error", "Eine Vampirkraft kann nicht gleichzeitig verlernt und von ihrer Schwäche befreit werden."
+        if set(vampire_power_remove_plan) & set(vampire_power_plan):
+            return "error", "Eine Vampirkraft kann nicht gleichzeitig gesteigert und verlernt werden."
 
     def _skill_rank_payload(skill, specification: str | None = None) -> tuple[int, int]:
         max_level = int(engine.skill_rank_max(skill.slug, specification=specification))
@@ -1315,20 +1332,32 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
                     fields.append("vampire_blood_capacity_bonus")
                 character.save(update_fields=fields)
 
-            for power_id, without_weakness in vampire_power_plan.items():
-                entry = CharacterVampirePower(
+            for power_id, (add_levels, without_weakness) in vampire_power_plan.items():
+                entry = CharacterVampirePower.objects.filter(
                     character=character,
                     power_id=power_id,
-                    purchased_without_weakness=without_weakness,
-                )
+                ).first()
+                if entry is None:
+                    entry = CharacterVampirePower(
+                        character=character,
+                        power_id=power_id,
+                        level=add_levels,
+                        purchased_without_weakness=without_weakness,
+                    )
+                else:
+                    entry.level = max(1, int(entry.level or 1)) + add_levels
                 entry.full_clean()
                 entry.save()
 
-            if vampire_power_remove_plan:
-                CharacterVampirePower.objects.filter(
-                    character=character,
-                    power_id__in=vampire_power_remove_plan,
-                ).delete()
+            for power_id, remove_levels in vampire_power_remove_plan.items():
+                entry = CharacterVampirePower.objects.get(character=character, power_id=power_id)
+                target_level = max(1, int(entry.level or 1)) - remove_levels
+                if target_level <= 0:
+                    entry.delete()
+                else:
+                    entry.level = target_level
+                    entry.full_clean()
+                    entry.save(update_fields=["level"])
 
             for power_id in vampire_buyoff_plan:
                 entry = CharacterVampirePower.objects.select_related("power").get(

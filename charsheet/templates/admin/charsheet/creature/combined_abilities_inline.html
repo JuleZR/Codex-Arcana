@@ -129,9 +129,61 @@
       </div>
     </div>
 
+    <div class="js-inline-admin-formset inline-group creature-ability-inline"
+         id="{{ vampire_powers.formset.prefix }}-group"
+         data-inline-type="tabular"
+         data-inline-formset="{{ vampire_powers.inline_formset_data }}">
+      <div class="tabular inline-related">
+        {{ vampire_powers.formset.management_form }}
+        {{ vampire_powers.formset.non_form_errors }}
+        <table>
+          <colgroup>
+            <col class="creature-ability-col-original">
+            <col class="creature-ability-col-type">
+            <col class="creature-ability-col-name">
+            <col class="creature-ability-col-value">
+            <col class="creature-ability-col-notes">
+            <col class="creature-ability-col-delete">
+          </colgroup>
+          <tbody>
+          {% for inline_admin_form in vampire_powers %}
+            {% if inline_admin_form.form.non_field_errors %}
+              <tr class="row-form-errors"><td colspan="6">{{ inline_admin_form.form.non_field_errors }}</td></tr>
+            {% endif %}
+            <tr class="form-row {% if inline_admin_form.original or inline_admin_form.show_url %}has_original{% endif %}{% if forloop.last and vampire_powers.has_add_permission %} empty-form{% endif %}"
+                id="{{ vampire_powers.formset.prefix }}-{% if forloop.last and vampire_powers.has_add_permission %}empty{% else %}{{ forloop.counter0 }}{% endif %}">
+              <td class="original">
+                {% if inline_admin_form.original or inline_admin_form.show_url %}<p>
+                  {% if inline_admin_form.original %}
+                    {{ inline_admin_form.original }}
+                    {% if inline_admin_form.model_admin.show_change_link and inline_admin_form.model_admin.has_registered_model %}<a href="{% url inline_admin_form.model_admin.opts|admin_urlname:'change' inline_admin_form.original.pk|admin_urlquote %}" class="{{ vampire_powers.has_change_permission|yesno:'inlinechangelink,inlineviewlink' }}">{% if vampire_powers.has_change_permission %}{% translate "Change" %}{% else %}{% translate "View" %}{% endif %}</a>{% endif %}
+                  {% endif %}
+                  {% if inline_admin_form.show_url %}<a href="{{ inline_admin_form.absolute_url }}">{% translate "View on site" %}</a>{% endif %}
+                </p>{% endif %}
+                {% if inline_admin_form.needs_explicit_pk_field %}{{ inline_admin_form.pk_field.field }}{% endif %}
+                {% if inline_admin_form.fk_field %}{{ inline_admin_form.fk_field.field }}{% endif %}
+              </td>
+              <td class="field-ability-type"><span class="creature-ability-type creature-ability-type--vampire-power">Vampire power</span></td>
+              <td class="field-power">{{ inline_admin_form.form.power.errors.as_ul }}{{ inline_admin_form.form.power }}</td>
+              <td class="field-level">{{ inline_admin_form.form.level.errors.as_ul }}{{ inline_admin_form.form.level }}</td>
+              <td class="field-notes creature-ability-vampire-options">
+                {{ inline_admin_form.form.purchased_without_weakness.errors.as_ul }}
+                <label>{{ inline_admin_form.form.purchased_without_weakness }} Without weakness</label>
+                {{ inline_admin_form.form.weakness_bought_off.errors.as_ul }}
+                <label>{{ inline_admin_form.form.weakness_bought_off }} Weakness bought off</label>
+              </td>
+              <td class="delete">{% if vampire_powers.formset.can_delete and vampire_powers.has_delete_permission and inline_admin_form.original %}{{ inline_admin_form.deletion_field.field }}{% endif %}</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
     <div class="creature-ability-add-actions">
       {% if special_skills.has_add_permission %}<a href="#" role="button" class="addlink" data-creature-ability-add="{{ special_skills.formset.prefix }}">Add special skill</a>{% endif %}
       {% if daemonic_powers.has_add_permission %}<a href="#" role="button" class="addlink" data-creature-ability-add="{{ daemonic_powers.formset.prefix }}">Add daemonic power</a>{% endif %}
+      {% if vampire_powers.has_add_permission %}<a href="#" role="button" class="addlink" data-creature-ability-add="{{ vampire_powers.formset.prefix }}">Add vampire power</a>{% endif %}
     </div>
   </div>
 </div>

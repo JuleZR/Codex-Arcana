@@ -49,6 +49,10 @@ class VampirePower(models.Model):
     description = models.TextField(blank=True, default="")
     weakness = models.TextField()
     blood_cost = models.PositiveSmallIntegerField(blank=True, null=True)
+    can_be_learned_multiple_times = models.BooleanField(
+        default=False,
+        help_text="Allows this power to be purchased in multiple ranks.",
+    )
     sort_order = models.PositiveIntegerField(default=0, db_index=True)
     is_active = models.BooleanField(default=True)
 
@@ -202,6 +206,7 @@ class VampireTraitSemanticEffect(models.Model):
         if (
             self.application_scope in {self.ApplicationScope.CHARACTER, self.ApplicationScope.BOTH}
             and self.target_domain.startswith("creature_")
+            and self.target_domain != "creature_card"
         ):
             raise ValidationError(
                 {"target_domain": "Creature targets require the creature application scope."}
@@ -260,6 +265,9 @@ class VampireTraitSemanticEffect(models.Model):
             "vampire_trait_rank": max(1, int(rank or 1)),
             "vampire_age_cycle": max(1, int(age_cycle or 1)),
         }
+        if self.pk:
+            metadata["semantic_effect_key"] = f"vampire_effect:{self.pk}"
+            metadata["semantic_effect_label"] = definition.name
         condition_text = " ".join(str(self.condition_text or "").split())
         if condition_text:
             metadata["condition_text"] = condition_text
@@ -336,6 +344,7 @@ class CharacterVampirePower(models.Model):
         on_delete=models.PROTECT,
         related_name="character_ownerships",
     )
+    level = models.PositiveSmallIntegerField(default=1)
     purchased_without_weakness = models.BooleanField(default=False)
     weakness_bought_off = models.BooleanField(default=False)
 
@@ -355,6 +364,10 @@ class CharacterVampirePower(models.Model):
         super().clean()
         if self.character_id and not self.character.is_vampire:
             raise ValidationError({"character": "Vampire powers require the Vampirism acquisition trait."})
+        if int(self.level or 0) < 1:
+            raise ValidationError({"level": "A vampire power must have at least one rank."})
+        if self.power_id and int(self.level or 1) > 1 and not self.power.can_be_learned_multiple_times:
+            raise ValidationError({"level": "This vampire power cannot have multiple ranks."})
 
     def __str__(self) -> str:
         return f"{self.character}: {self.power}"
@@ -390,6 +403,7 @@ class CreatureVampirePower(models.Model):
         related_name="vampire_power_defaults",
     )
     power = models.ForeignKey(VampirePower, on_delete=models.PROTECT, related_name="creature_defaults")
+    level = models.PositiveSmallIntegerField(default=1)
     purchased_without_weakness = models.BooleanField(default=False)
     weakness_bought_off = models.BooleanField(default=False)
 
@@ -407,6 +421,13 @@ class CreatureVampirePower(models.Model):
 
     def validation_warnings(self) -> list[str]:
         return []
+
+    def clean(self):
+        super().clean()
+        if int(self.level or 0) < 1:
+            raise ValidationError({"level": "A vampire power must have at least one rank."})
+        if self.power_id and int(self.level or 1) > 1 and not self.power.can_be_learned_multiple_times:
+            raise ValidationError({"level": "This vampire power cannot have multiple ranks."})
 
     def __str__(self) -> str:
         return f"{self.creature}: {self.power}"
@@ -455,6 +476,7 @@ class CharacterCreatureVampirePower(models.Model):
         related_name="character_creature_overrides",
     )
     mode = models.CharField(max_length=12, choices=VampireTraitOverrideMode.choices, default=VampireTraitOverrideMode.ADD)
+    level = models.PositiveSmallIntegerField(blank=True, null=True)
     purchased_without_weakness = models.BooleanField(blank=True, null=True)
     weakness_bought_off = models.BooleanField(blank=True, null=True)
 
@@ -467,11 +489,19 @@ class CharacterCreatureVampirePower(models.Model):
         ]
 
     def validation_warnings(self) -> list[str]:
-        if self.mode == VampireTraitOverrideMode.REMOVE and (
-            self.purchased_without_weakness is not None or self.weakness_bought_off is not None
+        if self.mode == VampireTraitOverrideMode.REMOVE and any(
+            value is not None
+            for value in (self.level, self.purchased_without_weakness, self.weakness_bought_off)
         ):
-            return ["A remove override ignores weakness values."]
+            return ["A remove override ignores rank and weakness values."]
         return []
+
+    def clean(self):
+        super().clean()
+        if self.level is not None and int(self.level) < 1:
+            raise ValidationError({"level": "A vampire power rank must be positive."})
+        if self.power_id and int(self.level or 1) > 1 and not self.power.can_be_learned_multiple_times:
+            raise ValidationError({"level": "This vampire power cannot have multiple ranks."})
 
     def __str__(self) -> str:
         return f"{self.creature}: {self.mode} {self.power}"
@@ -514,6 +544,7 @@ class GameGroupCreatureVampirePower(models.Model):
         related_name="game_group_creature_overrides",
     )
     mode = models.CharField(max_length=12, choices=VampireTraitOverrideMode.choices, default=VampireTraitOverrideMode.ADD)
+    level = models.PositiveSmallIntegerField(blank=True, null=True)
     purchased_without_weakness = models.BooleanField(blank=True, null=True)
     weakness_bought_off = models.BooleanField(blank=True, null=True)
 
@@ -526,11 +557,19 @@ class GameGroupCreatureVampirePower(models.Model):
         ]
 
     def validation_warnings(self) -> list[str]:
-        if self.mode == VampireTraitOverrideMode.REMOVE and (
-            self.purchased_without_weakness is not None or self.weakness_bought_off is not None
+        if self.mode == VampireTraitOverrideMode.REMOVE and any(
+            value is not None
+            for value in (self.level, self.purchased_without_weakness, self.weakness_bought_off)
         ):
-            return ["A remove override ignores weakness values."]
+            return ["A remove override ignores rank and weakness values."]
         return []
+
+    def clean(self):
+        super().clean()
+        if self.level is not None and int(self.level) < 1:
+            raise ValidationError({"level": "A vampire power rank must be positive."})
+        if self.power_id and int(self.level or 1) > 1 and not self.power.can_be_learned_multiple_times:
+            raise ValidationError({"level": "This vampire power cannot have multiple ranks."})
 
     def __str__(self) -> str:
         return f"{self.creature}: {self.mode} {self.power}"

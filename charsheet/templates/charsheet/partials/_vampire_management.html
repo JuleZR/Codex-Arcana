@@ -42,7 +42,7 @@
           {% if power.weakness %}data-tooltip-weakness="{{ power.weakness }}"{% endif %}
           aria-label="Details zu {{ power.name }} anzeigen"
         >
-          <span class="spell_cast_name">{{ power.name }}</span>
+          <span class="spell_cast_name">{{ power.name }}{% if power.can_be_learned_multiple_times %} ({{ power.rank }}){% endif %}</span>
           <span class="spell_cast_meta">Vampirkraft</span>
           {% if not read_only %}
           <button

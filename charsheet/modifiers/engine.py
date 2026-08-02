@@ -282,7 +282,12 @@ class ModifierEngine:
                         VampireTraitSemanticEffect.ApplicationScope.BOTH,
                     }
                 ):
-                    modifiers.append(effect.to_modifier(age_cycle=age_cycle))
+                    effect_rank = (
+                        1
+                        if effect.power_component == VampireTraitSemanticEffect.PowerComponent.WEAKNESS
+                        else ownership.rank
+                    )
+                    modifiers.append(effect.to_modifier(rank=effect_rank, age_cycle=age_cycle))
         return modifiers
 
     @cached_property

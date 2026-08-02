@@ -96,6 +96,15 @@
   color: var(--link-fg);
 }
 
+.creature-ability-type--vampire-power {
+  color: #b86b73;
+}
+
+.creature-ability-vampire-options label {
+  display: block;
+  white-space: nowrap;
+}
+
 .creature-ability-empty-cell {
   color: var(--body-quiet-color);
 }

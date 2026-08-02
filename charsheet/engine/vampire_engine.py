@@ -63,13 +63,14 @@ class EffectiveVampireTrait:
 @dataclass(frozen=True)
 class EffectiveVampirePower:
     power: VampirePower
+    level: int = 1
     purchased_without_weakness: bool = False
     weakness_bought_off: bool = False
     source: str = ""
 
     @property
     def rank(self) -> int:
-        return 1
+        return max(1, int(self.level or 1))
 
     @property
     def weakness_is_active(self) -> bool:
@@ -193,8 +194,16 @@ class VampireRules:
                 if inherited
                 else False
             )
+            level = (
+                row.level
+                if row.level is not None
+                else inherited.level
+                if inherited
+                else 1
+            )
             resolved[row.power_id] = EffectiveVampirePower(
                 power=row.power,
+                level=max(1, int(level or 1)),
                 purchased_without_weakness=bool(without_weakness),
                 weakness_bought_off=bool(bought_off),
                 source=source,
@@ -242,6 +251,7 @@ class VampireRules:
             return {
                 row.power_id: EffectiveVampirePower(
                     power=row.power,
+                    level=max(1, int(row.level or 1)),
                     purchased_without_weakness=bool(row.purchased_without_weakness),
                     weakness_bought_off=bool(row.weakness_bought_off),
                     source="character",
@@ -254,6 +264,7 @@ class VampireRules:
             return {
                 row.power_id: EffectiveVampirePower(
                     power=row.power,
+                    level=max(1, int(row.level or 1)),
                     purchased_without_weakness=bool(row.purchased_without_weakness),
                     weakness_bought_off=bool(row.weakness_bought_off),
                     source="template",
@@ -299,8 +310,8 @@ class VampireRules:
         )
 
     def power_ranks(self) -> int:
-        """Each acquired power increases blood capacity by exactly one."""
-        return len(self.effective_powers())
+        """Each acquired power rank increases blood capacity by exactly one."""
+        return sum(entry.rank for entry in self.effective_powers())
 
     def can_regenerate(self) -> bool:
         """Return whether semantic effects enable vampiric regeneration."""
@@ -516,8 +527,24 @@ class VampireRules:
             raise VampireRuleError("Nur aktive Vampirkräfte können gelernt werden.")
         if not str(definition.weakness or "").strip():
             raise VampireRuleError("Der Vampirkraft ist noch keine feste Schwäche zugeordnet.")
-        if CharacterVampirePower.objects.filter(character=character, power=definition).exists():
+        existing = CharacterVampirePower.objects.select_for_update().filter(
+            character=character,
+            power=definition,
+        ).first()
+        if existing is not None and not definition.can_be_learned_multiple_times:
             raise VampireRuleError("Diese Vampirkraft ist bereits erworben.")
+        if existing is not None and without_weakness:
+            raise VampireRuleError("Die Schwäche einer bereits erworbenen Kraft kann nur einmal freigekauft werden.")
+        if existing is not None:
+            cost = self.power_cost(without_weakness=False)
+            if cost > int(character.current_experience or 0):
+                raise VampireRuleError(f"Für diesen weiteren Rang werden {cost} EP benötigt.")
+            existing.level = max(1, int(existing.level or 1)) + 1
+            existing.full_clean()
+            existing.save(update_fields=["level"])
+            character.current_experience -= cost
+            character.save(update_fields=["current_experience"])
+            return existing
         ownership = CharacterVampirePower(
             character=character,
             power=definition,

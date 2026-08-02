@@ -24,7 +24,7 @@ from django.utils import timezone
 from django.template.loader import render_to_string
 from django.urls import reverse, reverse_lazy
 from .engine import CharacterCreationEngine
-from .engine.creature_engine import CreatureEngine
+from .engine.creature_engine import CreatureEngine, sync_character_creatures
 from .engine.dice_engine import DiceEngine
 from .engine.item_engine import ItemEngine
 from .learning_progression import weapon_mastery_weapon_type_definitions
@@ -3054,6 +3054,41 @@ def choose_technique_creature(request, character_id: int, binding_id: int):
 
 @login_required
 @require_POST
+def choose_semantic_effect_creature(request, pk: int):
+    """Fill a dummy creature card granted by an active semantic effect."""
+    card = _owned_character_creature_or_404(request, pk)
+    sync_character_creatures(card.owner)
+    card.refresh_from_db()
+    if not card.active or not card.semantic_effect_key or not card.semantic_effect_is_choice:
+        messages.error(request, "Diese Kreaturenwahl ist derzeit nicht verfügbar.")
+        return redirect("character_sheet", character_id=card.owner_id)
+
+    mode = str(request.POST.get("mode") or "template")
+    selected_creature = None
+    custom_name = ""
+    if mode == "template":
+        selected_creature = get_object_or_404(Creature, pk=request.POST.get("creature_id"))
+    elif mode == "free":
+        custom_name = str(request.POST.get("custom_name") or "").strip()[:100]
+        if not custom_name:
+            messages.error(request, "Bitte gib deiner freien Kreatur einen Namen.")
+            return redirect("character_sheet", character_id=card.owner_id)
+    else:
+        messages.error(request, "Unbekannte Art der Kreaturenwahl.")
+        return redirect("character_sheet", character_id=card.owner_id)
+
+    card.creature = selected_creature
+    card.name_override = custom_name
+    card.source_selection_completed = True
+    if selected_creature is not None:
+        card.quality = selected_creature.quality
+    card.save(update_fields=["creature", "name_override", "source_selection_completed", "quality"])
+    messages.success(request, f"Kreatur „{card.display_name}“ wurde angelegt.")
+    return redirect("character_sheet", character_id=card.owner_id)
+
+
+@login_required
+@require_POST
 def adjust_creature_card_damage(request, pk: int):
     """Backward-compatible route: creature cards are now character creatures."""
     return adjust_creature_damage(request, pk)
@@ -3183,8 +3218,13 @@ def _render_creature_training_payload(request, card: CharacterCreature) -> dict:
     card_context["training_update_url"] = reverse_lazy("update_character_creature_training", kwargs={"pk": card.pk})
     if (
         card.source_selection_completed
-        and card.source_binding_id
-        and card.source_binding.selection_mode == CreatureSourceBinding.SelectionMode.CHARACTER_CHOICE
+        and (
+            card.semantic_effect_is_choice
+            or (
+                card.source_binding_id
+                and card.source_binding.selection_mode == CreatureSourceBinding.SelectionMode.CHARACTER_CHOICE
+            )
+        )
     ):
         card_context["reset_choice_url"] = reverse_lazy(
             "reset_technique_creature_choice",
@@ -3227,8 +3267,13 @@ def reset_technique_creature_choice(request, pk: int):
     card = _owned_character_creature_or_404(request, pk)
     if (
         not card.source_selection_completed
-        or not card.source_binding_id
-        or card.source_binding.selection_mode != CreatureSourceBinding.SelectionMode.CHARACTER_CHOICE
+        or not (
+            card.semantic_effect_is_choice
+            or (
+                card.source_binding_id
+                and card.source_binding.selection_mode == CreatureSourceBinding.SelectionMode.CHARACTER_CHOICE
+            )
+        )
     ):
         return JsonResponse(
             {"ok": False, "message": "Diese Kreatur stammt nicht aus einer zurücksetzbaren Auswahl."},

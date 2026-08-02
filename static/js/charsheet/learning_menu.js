@@ -245,24 +245,28 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
       const base = readInt(row.getAttribute("data-base"), 0);
       const max = readInt(row.getAttribute("data-max"), 1);
       const minAdd = kind === "vampire-age" ? Math.min(0, 1 - base) : 0;
-      const maxAdd = kind === "vampire-age" || kind === "vampire-capacity" ? Math.max(0, max - base) : max;
+      const maxAdd = ["vampire-age", "vampire-capacity", "vampire-power"].includes(kind)
+        ? Math.max(0, max - base)
+        : max;
       const hidden = row.querySelector("[data-learn-hidden]");
       value = clamp(value, minAdd, maxAdd);
       const weaknessChoice = row.querySelector("[data-vampire-power-weakness-choice]");
-      const unitCost = kind === "vampire-power" && weaknessChoice instanceof HTMLInputElement
-        ? readInt(
-            weaknessChoice.checked
-              ? row.getAttribute("data-cost-without-weakness")
-              : row.getAttribute("data-cost-with-weakness"),
-            0,
-          )
-        : readInt(row.getAttribute("data-unit-cost"), 0);
+      const unitCost = readInt(row.getAttribute("data-unit-cost"), 0);
       cost = value * unitCost;
+      if (kind === "vampire-power" && value > 0 && weaknessChoice instanceof HTMLInputElement && weaknessChoice.checked) {
+        cost += Math.max(
+          0,
+          readInt(row.getAttribute("data-cost-without-weakness"), unitCost)
+            - readInt(row.getAttribute("data-cost-with-weakness"), unitCost),
+        );
+      }
       if (hidden instanceof HTMLInputElement) {
         hidden.value = String(value);
       }
       if (infoEl) {
-        infoEl.textContent = kind === "vampire-age" || kind === "vampire-capacity" ? `(${base + value})` : value > 1 ? `(Rang ${value})` : "";
+        infoEl.textContent = ["vampire-age", "vampire-capacity", "vampire-power"].includes(kind)
+          ? `(${base + value})`
+          : value > 1 ? `(Rang ${value})` : "";
       }
       valueInput.min = String(minAdd);
       valueInput.max = String(maxAdd);
@@ -762,7 +766,9 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
               : kind === "vampire-trait-remove"
                 ? `learn_vampire_trait_remove_${id}`
                 : `learn_vampire_trait_${id}`;
-      const maxAdd = kind === "vampire-age" || kind === "vampire-capacity" ? Math.max(0, max - base) : max;
+      const maxAdd = ["vampire-age", "vampire-capacity", "vampire-power"].includes(kind)
+        ? Math.max(0, max - base)
+        : max;
       if (maxAdd < 1 && minAdd === 0) {
         return null;
       }
@@ -772,11 +778,11 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
       row.setAttribute("data-unit-cost", String(unitCost));
       row.setAttribute("data-cost-with-weakness", String(costWithWeakness));
       row.setAttribute("data-cost-without-weakness", String(costWithoutWeakness));
-      const weaknessChoice = kind === "vampire-power"
+      const weaknessChoice = kind === "vampire-power" && source.getAttribute("data-can-choose-without-weakness") === "1"
         ? `<label class="learn_vampire_weakness_choice"><input type="checkbox" name="learn_vampire_power_weakness_${id}" value="without" data-vampire-power-weakness-choice> Schwäche entfernen: ${safeName}</label>`
         : "";
       row.innerHTML = `
-        <td><span>${safeName}</span> <span data-learn-level-info>${kind === "vampire-age" || kind === "vampire-capacity" ? `(${base + 1})` : ""}</span><input type="hidden" name="${inputName}" value="1" data-learn-hidden></td>
+        <td><span>${safeName}</span> <span data-learn-level-info>${["vampire-age", "vampire-capacity", "vampire-power"].includes(kind) ? `(${base + 1})` : ""}</span><input type="hidden" name="${inputName}" value="1" data-learn-hidden></td>
         <td><div class="shop_qty_stepper">
           ${fixed ? "" : '<button type="button" class="shop_step_btn" data-learn-step-dec aria-label="Wert verringern">-</button>'}
           <input class="shop_cart_qty_input" type="number" min="${minAdd}" max="${maxAdd}" value="1" data-learn-value ${fixed ? "readonly" : ""}>

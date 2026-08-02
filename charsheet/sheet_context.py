@@ -135,6 +135,7 @@ def _vampire_learning_payload(character, vampire_rules):
         .order_by("power__sort_order", "power__name")
     )
     owned_power_ids = {row.power_id for row in owned_powers}
+    owned_power_map = {row.power_id: row for row in owned_powers}
     return {
         "age_cycle": vampire_rules.age_cycle(),
         "capacity_bonus": vampire_rules.capacity_bonus(),
@@ -144,22 +145,35 @@ def _vampire_learning_payload(character, vampire_rules):
             {
                 "id": power.id,
                 "name": power.name,
+                "description": power.description,
                 "cost_with_weakness": vampire_rules.power_cost(without_weakness=False),
                 "cost_without_weakness": vampire_rules.power_cost(without_weakness=True),
                 "weakness": power.weakness,
+                "level": int(owned_power_map[power.id].level) if power.id in owned_power_map else 0,
+                "max_level": 99 if power.can_be_learned_multiple_times else 1,
+                "can_choose_without_weakness": power.id not in owned_power_map,
             }
             for power in VampirePower.objects.filter(
                 is_active=True,
-            ).exclude(weakness="").exclude(pk__in=owned_power_ids).order_by("sort_order", "name")
+            ).exclude(weakness="").filter(
+                Q(can_be_learned_multiple_times=True) | ~Q(pk__in=owned_power_ids)
+            ).order_by("sort_order", "name")
         ],
         "owned_powers": [
             {
                 "id": row.power_id,
                 "name": row.power.name,
+                "description": row.power.description,
                 "weakness": row.power.weakness,
-                "refund": vampire_rules.power_cost(
-                    without_weakness=bool(
-                        row.purchased_without_weakness or row.weakness_bought_off
+                "level": max(1, int(row.level or 1)),
+                "can_be_learned_multiple_times": row.power.can_be_learned_multiple_times,
+                "refund": (
+                    vampire_rules.power_cost(without_weakness=False)
+                    if int(row.level or 1) > 1
+                    else vampire_rules.power_cost(
+                        without_weakness=bool(
+                            row.purchased_without_weakness or row.weakness_bought_off
+                        )
                     )
                 ),
             }
@@ -169,6 +183,7 @@ def _vampire_learning_payload(character, vampire_rules):
             {
                 "id": row.power_id,
                 "name": row.power.name,
+                "description": row.power.description,
                 "weakness": row.power.weakness,
                 "cost": 5,
             }
@@ -213,6 +228,8 @@ def _vampire_sheet_entries(vampire_rules):
             "weakness": visible_weakness(entry),
             "weakness_bought_off": not entry.weakness_is_active,
             "blood_cost": entry.power.blood_cost,
+            "rank": entry.rank,
+            "can_be_learned_multiple_times": entry.power.can_be_learned_multiple_times,
             "source": entry.source,
         }
         for entry in vampire_rules.effective_powers()
@@ -5489,8 +5506,13 @@ def build_character_sheet_context(
         card_context["training_update_url"] = reverse("update_character_creature_training", kwargs={"pk": card.pk})
         if (
             card.source_selection_completed
-            and card.source_binding_id
-            and card.source_binding.selection_mode == CreatureSourceBinding.SelectionMode.CHARACTER_CHOICE
+            and (
+                card.semantic_effect_is_choice
+                or (
+                    card.source_binding_id
+                    and card.source_binding.selection_mode == CreatureSourceBinding.SelectionMode.CHARACTER_CHOICE
+                )
+            )
         ):
             card_context["reset_choice_url"] = reverse(
                 "reset_technique_creature_choice",
@@ -5501,18 +5523,31 @@ def build_character_sheet_context(
             card_context.pop("training_update_url", None)
             card_context.pop("reset_choice_url", None)
         if (
-            card.source_binding_id
-            and card.source_binding.selection_mode == CreatureSourceBinding.SelectionMode.CHARACTER_CHOICE
+            (
+                card.semantic_effect_is_choice
+                or (
+                    card.source_binding_id
+                    and card.source_binding.selection_mode == CreatureSourceBinding.SelectionMode.CHARACTER_CHOICE
+                )
+            )
             and not card.source_selection_completed
         ):
-            choice_label = (card.source_binding.choice_label or "Tiergestalt").strip()
+            choice_label = (
+                "Kreatur"
+                if card.semantic_effect_is_choice
+                else (card.source_binding.choice_label or "Tiergestalt").strip()
+            )
             card_context["is_creation_placeholder"] = True
             card_context["creation_title"] = choice_label
             card_context["creation_choice"] = {
                 "label": choice_label,
-                "create_url": reverse(
-                    "choose_technique_creature",
-                    kwargs={"character_id": character.pk, "binding_id": card.source_binding_id},
+                "create_url": (
+                    reverse("choose_semantic_effect_creature", kwargs={"pk": card.pk})
+                    if card.semantic_effect_is_choice
+                    else reverse(
+                        "choose_technique_creature",
+                        kwargs={"character_id": character.pk, "binding_id": card.source_binding_id},
+                    )
                 ),
                 "templates": list(Creature.objects.order_by("name", "id")),
             }

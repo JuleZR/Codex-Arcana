@@ -125,6 +125,8 @@ class _EmptyCreature:
     has_kp = False
     kp_override = None
     potential_override = None
+    has_bp = False
+    has_age_cycle = False
     fear_resistance_bonus = None
     defense_extra_label = ""
     natural_rs = 0
@@ -443,6 +445,9 @@ class CreatureEngine:
 
     @staticmethod
     def _daemonic_effect_row_to_creature_effects(effect_row) -> list[CreatureSemanticEffect]:
+        metadata = dict(effect_row.metadata or {})
+        metadata["semantic_effect_key"] = f"daemonic_power_effect:{effect_row.pk}"
+        metadata["semantic_effect_label"] = effect_row.power.name
         base_effect = CreatureSemanticEffect(
             source_id=f"daemonic_power:{effect_row.power_id}",
             target_domain=effect_row.target_domain,
@@ -458,7 +463,7 @@ class CreatureEngine:
             condition_text=effect_row.condition_text,
             rules_text=effect_row.rules_text,
             notes=effect_row.notes,
-            metadata=dict(effect_row.metadata or {}),
+            metadata=metadata,
         )
         skill_slugs = list(
             effect_row.target_skills.order_by("slug").values_list("slug", flat=True)
@@ -482,6 +487,9 @@ class CreatureEngine:
             "_vampire_trait_rank": max(1, int(rank or 1)),
             "_vampire_age_cycle": max(1, int(age_cycle or 1)),
         }
+        metadata = dict(effect_row.metadata or {})
+        metadata["semantic_effect_key"] = f"vampire_effect:{effect_row.pk}"
+        metadata["semantic_effect_label"] = effect_row.definition.name
         base_effect = CreatureSemanticEffect(
             source_id=f"vampire_trait:{effect_row.trait_id}",
             target_domain=effect_row.target_domain,
@@ -497,7 +505,7 @@ class CreatureEngine:
             condition_text=effect_row.condition_text,
             rules_text=effect_row.rules_text,
             notes=effect_row.notes,
-            metadata=dict(effect_row.metadata or {}),
+            metadata=metadata,
         )
         skill_slugs = list(
             effect_row.target_skills.order_by("slug").values_list("slug", flat=True)
@@ -511,6 +519,10 @@ class CreatureEngine:
 
     def _effect_row_to_creature_effects(self, effect_row, *, level: int) -> list[CreatureSemanticEffect]:
         metadata = dict(effect_row.metadata or {})
+        source_kind = "creature_trait" if getattr(effect_row, "trait_id", None) else "creature_special_skill"
+        metadata["semantic_effect_key"] = f"{source_kind}_effect:{effect_row.pk}"
+        source_definition = getattr(effect_row, "trait", None) or getattr(effect_row, "special_skill", None)
+        metadata["semantic_effect_label"] = source_definition.name
         has_choice_target = any(field.name == "target_choice_definition" for field in effect_row._meta.fields)
         is_choice_bound = bool(has_choice_target and effect_row.target_choice_definition_id)
         if has_choice_target and effect_row.target_choice_definition_id:
@@ -1014,6 +1026,24 @@ class CreatureEngine:
             willpower = int(self.attribute_mod(ATTR_WILL) or 0) + 5
             base = willpower // 2
         return base + self._modifier_total(TargetDomain.DERIVED_STAT, POTENTIAL)
+
+    def bp(self) -> int | None:
+        """Return the creature's blood-point capacity when BP are enabled."""
+
+        if not self.creature.has_bp:
+            return None
+        from charsheet.engine.vampire_engine import VampireRules
+
+        return VampireRules(self.source).blood_capacity()
+
+    def age_cycle(self) -> int | None:
+        """Return the effective age cycle when it is enabled on the card."""
+
+        if not self.creature.has_age_cycle:
+            return None
+        from charsheet.engine.vampire_engine import VampireRules
+
+        return VampireRules(self.source).age_cycle()
 
     def fear_resistance_bonus(self) -> int:
         return int(self._value("fear_resistance_bonus", 0) or 0)
@@ -1704,6 +1734,9 @@ class CreatureEngine:
         movement_notes = self.movement_notes()
         kp = vampire_resource.intelligent if vampire_resource else self.kp()
         potential = vampire_resource.potential if vampire_resource else self.potential()
+        bp = vampire_resource.intelligent if vampire_resource else self.bp()
+        bp_max = vampire_resource.maximum if vampire_resource else bp
+        age_cycle = vampire_rules.age_cycle() if is_vampire else self.age_cycle()
         creature_type = getattr(self.creature.creature_type, "name", "")
         has_ground = all(movement.get(key) is not None for key in ("combat", "march", "sprint"))
         has_single_swim = movement.get("swim") not in (None, "", 0, 0.0)
@@ -1752,10 +1785,14 @@ class CreatureEngine:
             "gw": self.gw(),
             "gw_note": self._join_effect_notes(TargetDomain.DERIVED_STAT, "gw"),
             "gw_variants": self._conditional_value_variants(TargetDomain.DERIVED_STAT, "gw", self.gw()),
-            "has_kp": bool(self.creature.has_kp or is_vampire),
-            "resource_label": "BP" if is_vampire else "KP",
+            "has_kp": bool(self.creature.has_kp and not is_vampire),
+            "has_bp": bool(self.creature.has_bp or is_vampire),
+            "has_resources": bool(self.creature.has_kp or self.creature.has_bp or is_vampire),
+            "has_age_cycle": bool(self.creature.has_age_cycle or is_vampire),
             "kp": kp,
-            "kp_max": vampire_resource.maximum if vampire_resource else kp,
+            "bp": bp,
+            "bp_max": bp_max,
+            "age_cycle": age_cycle,
             "kp_note": self._join_effect_notes(TargetDomain.DERIVED_STAT, ARCANE_POWER),
             "kp_variants": (
                 self._conditional_value_variants(TargetDomain.DERIVED_STAT, ARCANE_POWER, kp)
@@ -2149,14 +2186,119 @@ def sync_character_creatures(character) -> list[CharacterCreature]:
             if update_fields:
                 instance.save(update_fields=sorted(set(update_fields)))
 
+    # Semantic effects can grant either one fixed creature template or one
+    # placeholder card on which the character chooses/creates the creature.
+    card_grants = {}
+    for modifier in engine.modifier_engine.collect_active_modifiers():
+        domain = getattr(modifier.target_domain, "value", modifier.target_domain)
+        operator = getattr(modifier.operator, "value", modifier.operator)
+        if domain != "creature_card" or operator != "grant_capability":
+            continue
+        metadata = dict(modifier.metadata or {})
+        effect_key = str(metadata.get("semantic_effect_key") or "").strip()
+        if not effect_key:
+            effect_key = ":".join(
+                (
+                    str(modifier.source_type),
+                    str(modifier.source_id),
+                    "creature_card",
+                    str(modifier.target_key),
+                )
+            )
+        card_grants[effect_key[:160]] = {
+            "target": str(modifier.target_key or "").strip(),
+            "label": str(metadata.get("semantic_effect_label") or "Semantic Effect")[:160],
+        }
+
+    # Creature-scoped effects use the same grant semantics. Prefixing the
+    # effect identity with the owning card keeps identical creature traits on
+    # different cards independent.
+    source_cards = CharacterCreature.objects.filter(
+        owner=character,
+        active=True,
+        creature__isnull=False,
+    ).filter(
+        Q(source_binding__isnull=False)
+        | Q(semantic_effect_key__in=set(card_grants))
+    )
+    for source_card in source_cards.select_related("creature", "quality"):
+        for effect in CreatureEngine(source_card)._semantic_effects:
+            domain = getattr(effect.target_domain, "value", effect.target_domain)
+            operator = getattr(effect.operator, "value", effect.operator)
+            if domain != "creature_card" or operator != "grant_capability":
+                continue
+            metadata = dict(effect.metadata or {})
+            effect_identity = str(metadata.get("semantic_effect_key") or effect.source_id)
+            target = str(effect.target_key or "").strip()
+            if target.isdecimal() and int(target) == source_card.creature_id:
+                continue
+            effect_key = f"creature:{source_card.pk}:{effect_identity}"[:160]
+            card_grants[effect_key] = {
+                "target": target,
+                "label": str(metadata.get("semantic_effect_label") or source_card.display_name)[:160],
+            }
+
+    fixed_creature_ids = {
+        int(grant["target"])
+        for grant in card_grants.values()
+        if grant["target"].isdecimal()
+    }
+    fixed_creatures = Creature.objects.select_related("quality").in_bulk(fixed_creature_ids)
+    common_quality = Quality.objects.get(pk=QUALITY_COMMON) if card_grants else None
+    active_semantic_keys = set()
+    for effect_key, grant in card_grants.items():
+        is_choice = grant["target"] == "choice"
+        source_creature = None if is_choice else fixed_creatures.get(int(grant["target"])) if grant["target"].isdecimal() else None
+        if not is_choice and source_creature is None:
+            continue
+        quality = source_creature.quality if source_creature is not None else common_quality
+        budgets = CharacterCreature.training_budget_defaults(quality)
+        instance, created = CharacterCreature.objects.get_or_create(
+            owner=character,
+            semantic_effect_key=effect_key,
+            defaults={
+                "creature": source_creature,
+                "quality": quality,
+                "active": True,
+                "semantic_effect_label": grant["label"],
+                "semantic_effect_is_choice": is_choice,
+                **budgets,
+            },
+        )
+        active_semantic_keys.add(effect_key)
+        active_creature_ids.add(instance.pk)
+        update_fields = []
+        if not instance.active:
+            instance.active = True
+            update_fields.append("active")
+        if instance.semantic_effect_label != grant["label"]:
+            instance.semantic_effect_label = grant["label"]
+            update_fields.append("semantic_effect_label")
+        if instance.semantic_effect_is_choice != is_choice:
+            instance.semantic_effect_is_choice = is_choice
+            instance.source_selection_completed = False
+            update_fields.extend(("semantic_effect_is_choice", "source_selection_completed"))
+        if not is_choice and instance.creature_id != source_creature.pk:
+            instance.creature = source_creature
+            update_fields.append("creature")
+        if update_fields:
+            instance.save(update_fields=sorted(set(update_fields)))
+
     existing_creatures = CharacterCreature.objects.filter(owner=character, source_binding__isnull=False)
     stale_choice_creatures = existing_creatures.filter(
         source_binding__selection_mode=CreatureSourceBinding.SelectionMode.CHARACTER_CHOICE,
     ).exclude(pk__in=active_creature_ids)
     stale_choice_creatures.delete()
     existing_creatures.exclude(pk__in=active_creature_ids).filter(active=True).update(active=False)
+    semantic_creatures = CharacterCreature.objects.filter(owner=character).exclude(semantic_effect_key="")
+    semantic_creatures.filter(semantic_effect_is_choice=True).exclude(
+        semantic_effect_key__in=active_semantic_keys
+    ).delete()
+    semantic_creatures.exclude(semantic_effect_key__in=active_semantic_keys).filter(active=True).update(active=False)
     return list(
-        existing_creatures.filter(active=True)
+        CharacterCreature.objects.filter(owner=character, active=True).filter(
+            Q(source_binding__isnull=False) | ~Q(semantic_effect_key="")
+        )
         .select_related(
             "creature",
             "quality",

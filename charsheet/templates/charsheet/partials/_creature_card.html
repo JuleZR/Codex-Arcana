@@ -186,8 +186,8 @@
             {% if creature_card.creation_choice %}
                 {% include "charsheet/partials/_creature_creation_controls.html" with choice=creature_card.creation_choice %}
             {% endif %}
-            <div class="creature-card__oracle-line creature-card__oracle-line--core creature-card__core-grid{% if creature_card.has_kp %} creature-card__core-grid--two-rows{% endif %}">
-                {% if creature_card.has_kp %}
+            <div class="creature-card__oracle-line creature-card__oracle-line--core creature-card__core-grid{% if creature_card.has_resources or creature_card.has_age_cycle %} creature-card__core-grid--two-rows{% endif %}">
+                {% if creature_card.has_resources or creature_card.has_age_cycle %}
                     <span class="creature-card__core-row creature-card__core-row--main">
                 {% endif %}
                 <span class="creature-card__core-stat"><strong>Initiative</strong><span class="creature-card__core-value"><span data-creature-wound-adjusted-value>{{ creature_card.initiative }}</span>{% for variant in creature_card.initiative_variants %}/<span class="tooltip_target" data-creature-wound-adjusted-value data-tooltip="{{ variant.note }}" data-tooltip-side="right">{{ variant.value }}</span>{% endfor %}</span></span>
@@ -200,14 +200,22 @@
                 {% if creature_card.encumbrance %}
                     <span class="creature-card__core-stat"><strong>BEL</strong><span class="creature-card__core-value">{{ creature_card.encumbrance }}{% for variant in creature_card.encumbrance_variants %}/<span class="tooltip_target" data-tooltip="{{ variant.note }}" data-tooltip-side="right">{{ variant.value }}</span>{% endfor %}</span></span>
                 {% endif %}
-                {% if creature_card.has_kp %}
+                {% if creature_card.has_resources or creature_card.has_age_cycle %}
                     </span>
                     <span class="creature-card__core-row creature-card__core-row--arcane">
-                        <span class="creature-card__core-stat"><strong>{{ creature_card.resource_label }}</strong><span class="creature-card__core-value">{{ creature_card.kp }}{% if creature_card.is_vampire %}/{{ creature_card.kp_max }}{% endif %}{% for variant in creature_card.kp_variants %}/<span class="tooltip_target" data-tooltip="{{ variant.note }}" data-tooltip-side="right">{{ variant.value }}</span>{% endfor %}</span></span>
-                        <span class="creature-card__core-stat"><strong>Pot</strong><span class="creature-card__core-value">{{ creature_card.potential }}{% for variant in creature_card.potential_variants %}/<span class="tooltip_target" data-tooltip="{{ variant.note }}" data-tooltip-side="right">{{ variant.value }}</span>{% endfor %}</span></span>
+                        {% if creature_card.has_kp %}
+                          <span class="creature-card__core-stat"><strong>KP</strong><span class="creature-card__core-value">{{ creature_card.kp }}{% for variant in creature_card.kp_variants %}/<span class="tooltip_target" data-tooltip="{{ variant.note }}" data-tooltip-side="right">{{ variant.value }}</span>{% endfor %}</span></span>
+                          <span class="creature-card__core-stat"><strong>Pot</strong><span class="creature-card__core-value">{{ creature_card.potential }}{% for variant in creature_card.potential_variants %}/<span class="tooltip_target" data-tooltip="{{ variant.note }}" data-tooltip-side="right">{{ variant.value }}</span>{% endfor %}</span></span>
+                        {% endif %}
+                        {% if creature_card.has_bp %}
+                          <span class="creature-card__core-stat"><strong>BP</strong><span class="creature-card__core-value">{{ creature_card.bp }}{% if creature_card.is_vampire %}/{{ creature_card.bp_max }}{% endif %}</span></span>
+                          {% if creature_card.is_vampire %}<span class="creature-card__core-stat"><strong>Pot</strong><span class="creature-card__core-value">{{ creature_card.potential }}</span></span>{% endif %}
+                        {% endif %}
+                        {% if creature_card.has_age_cycle %}
+                          <span class="creature-card__core-stat"><strong>Alter</strong><span class="creature-card__core-value">{{ creature_card.age_cycle }}</span></span>
+                        {% endif %}
                         {% if creature_card.is_vampire %}
                           <span class="creature-card__core-stat"><strong>Tierblut</strong><span class="creature-card__core-value">{{ creature_card.vampire.animal_blood }}</span></span>
-                          <span class="creature-card__core-stat"><strong>Alter</strong><span class="creature-card__core-value">{{ creature_card.vampire.age_cycle }}</span></span>
                           <span class="creature-card__core-stat"><strong>Zustand</strong><span class="creature-card__core-value">{{ creature_card.vampire.state_label }}</span></span>
                         {% endif %}
                     </span>

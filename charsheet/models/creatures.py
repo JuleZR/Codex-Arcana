@@ -141,10 +141,12 @@ class Creature(models.Model):
     has_kp = models.BooleanField("Hat KP", default=False)
     kp_override = models.IntegerField("KP-Override", blank=True, null=True)
     potential_override = models.IntegerField("Potential-Override", blank=True, null=True)
+    has_bp = models.BooleanField("Hat BP", default=False)
+    has_age_cycle = models.BooleanField("Hat Alterszyklus", default=False)
     vampire_default_enabled = models.BooleanField("Vampire default", default=False)
-    vampire_age_cycle_default = models.PositiveSmallIntegerField(default=1)
+    vampire_age_cycle_default = models.PositiveSmallIntegerField("Alterszyklus", default=1)
     vampire_blood_capacity_bonus_default = models.PositiveIntegerField(default=0)
-    vampire_blood_capacity_override = models.PositiveIntegerField(blank=True, null=True)
+    vampire_blood_capacity_override = models.PositiveIntegerField("BP-Override", blank=True, null=True)
     vampire_intelligent_blood_default = models.PositiveIntegerField(blank=True, null=True)
     vampire_animal_blood_default = models.PositiveIntegerField(blank=True, null=True)
     defense_extra_label = models.CharField("GW extra label", max_length=20, blank=True, default="")
@@ -1196,6 +1198,14 @@ class CharacterCreature(models.Model):
         default=False,
         help_text="Nur für frei wählbare Technik-Bindungen: Die Vorlagen- oder Freikartenwahl wurde abgeschlossen.",
     )
+    semantic_effect_key = models.CharField(
+        max_length=160,
+        blank=True,
+        default="",
+        help_text="Stable identity of a semantic effect that grants this card.",
+    )
+    semantic_effect_label = models.CharField(max_length=160, blank=True, default="")
+    semantic_effect_is_choice = models.BooleanField(default=False)
     current_damage = models.PositiveIntegerField(default=0)
     current_aggravated_damage = models.PositiveIntegerField(
         default=0,
@@ -1292,6 +1302,11 @@ class CharacterCreature(models.Model):
                 condition=models.Q(current_aggravated_damage__lte=models.F("current_damage")),
                 name="character_creature_aggravated_lte_damage",
             ),
+            models.UniqueConstraint(
+                fields=["owner", "semantic_effect_key"],
+                condition=~models.Q(semantic_effect_key=""),
+                name="uniq_character_creature_semantic_effect",
+            ),
         ]
 
     def save(self, *args, **kwargs):
@@ -1327,6 +1342,8 @@ class CharacterCreature(models.Model):
     def trigger_label(self):
         if self.source_binding_id:
             return self.source_binding.trigger_label
+        if self.semantic_effect_key:
+            return self.semantic_effect_label or "Semantic Effect"
         return ""
 
     @classmethod

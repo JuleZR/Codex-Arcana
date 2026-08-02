@@ -205,6 +205,7 @@ class DaemonicPowerSemanticEffect(models.Model):
                 self.ApplicationScope.BOTH,
             }
             and self.target_domain.startswith("creature_")
+            and self.target_domain != "creature_card"
         ):
             raise ValidationError(
                 {
@@ -270,6 +271,9 @@ class DaemonicPowerSemanticEffect(models.Model):
         }
         modifier_cls = modifier_map.get(self.target_domain, BaseModifier)
         metadata = dict(self.metadata or {})
+        if self.pk:
+            metadata["semantic_effect_key"] = f"daemonic_power_effect:{self.pk}"
+            metadata["semantic_effect_label"] = self.power.name
         condition_text = " ".join(str(self.condition_text or "").split())
         if condition_text:
             metadata["condition_text"] = condition_text

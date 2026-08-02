@@ -70,6 +70,7 @@ class TargetDomain(StringEnum):
     ITEM_CATEGORY = "item_category"
     SPECIALIZATION = "specialization"
     ENTITY = "entity"
+    CREATURE_CARD = "creature_card"
     DAEMONIC_POWER = "daemonic_power"
 
 

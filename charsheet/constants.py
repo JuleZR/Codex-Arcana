@@ -473,6 +473,7 @@ TARGET_DOMAIN_CHOICES = (
     ("item_category", "item_category"),
     ("specialization", "specialization"),
     ("entity", "entity"),
+    ("creature_card", "creature_card"),
 )
 
 MODIFIER_OPERATOR_CHOICES = (

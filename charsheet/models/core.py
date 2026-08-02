@@ -391,6 +391,9 @@ class TraitSemanticEffect(models.Model):
         }
         modifier_cls = modifier_map.get(self.target_domain, BaseModifier)
         metadata = dict(self.metadata or {})
+        if self.pk:
+            metadata["semantic_effect_key"] = f"trait_effect:{self.pk}"
+            metadata["semantic_effect_label"] = self.trait.name
         if self.target_choice_definition_id:
             metadata["choice_binding"] = {
                 "kind": "trait_choice_definition",

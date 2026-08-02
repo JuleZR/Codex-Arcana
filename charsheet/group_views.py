@@ -602,8 +602,20 @@ def game_master_screen(request, group_id: int):
             for key in ("combat", "march", "sprint")
             if movement.get(key) not in (None, "")
         ]
-        creature_kp = vampire_resource.maximum if vampire_resource else engine.kp()
-        creature_potential = vampire_resource.potential if vampire_resource else engine.potential()
+        creature_kp = (
+            vampire_resource.maximum
+            if vampire_resource
+            else engine.bp()
+            if engine.creature.has_bp
+            else engine.kp()
+        )
+        creature_potential = (
+            vampire_resource.potential
+            if vampire_resource
+            else VampireRules(engine.source).potential()
+            if engine.creature.has_bp
+            else engine.potential()
+        )
         has_creature_kp = creature_kp is not None
         creature_kp_max = max(0, int(creature_kp or 0))
         creature_current_kp = (
@@ -636,7 +648,7 @@ def game_master_screen(request, group_id: int):
                 "fallback_letter": creature_source.display_name[:1],
                 "potential_label": "Pot" if has_creature_kp else "GK",
                 "show_arcane": has_creature_kp,
-                "resource_label": "BP" if is_vampire else "KP",
+                "resource_label": "BP" if is_vampire or engine.creature.has_bp else "KP",
                 "secondary_status_label": "Bewegung",
                 "secondary_status_value": " / ".join(movement_values) or "–",
                 "creature_damage_rows": (
@@ -1034,9 +1046,8 @@ def add_group_creature(request, group_id: int):
             for value in (membership_position, creature_position, -1)
             if value is not None
         )
-        creature_kp = CreatureEngine(
-            character_creature or creature
-        ).kp()
+        source_engine = CreatureEngine(character_creature or creature)
+        creature_kp = source_engine.bp() if source_engine.creature.has_bp else source_engine.kp()
         source_actor = character_creature or creature
         from charsheet.engine.vampire_engine import VampireRules
         from charsheet.models import (
@@ -1275,9 +1286,10 @@ def adjust_group_creature_kp(request, group_id: int, creature_card_id: int):
             maximum = blood.maximum
             current_kp = blood.intelligent
         else:
-            maximum = CreatureEngine(
+            source_engine = CreatureEngine(
                 creature_card.character_creature or creature_card.creature
-            ).kp()
+            )
+            maximum = source_engine.bp() if source_engine.creature.has_bp else source_engine.kp()
         if maximum is not None:
             try:
                 amount = max(1, int(request.POST.get("amount", "1")))

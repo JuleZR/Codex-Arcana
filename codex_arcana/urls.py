@@ -114,6 +114,7 @@ urlpatterns = [
     path("character/<int:character_id>/adjust-damage/", views.adjust_current_damage, name="adjust_current_damage"),
     path("character/<int:character_id>/carry-load/", views.update_carry_load_state, name="update_carry_load_state"),
     path("character/<int:character_id>/creature-choice/<int:binding_id>/", views.choose_technique_creature, name="choose_technique_creature"),
+    path("character-creature/<int:pk>/semantic-choice/", views.choose_semantic_effect_creature, name="choose_semantic_effect_creature"),
     path("character-creature/<int:pk>/adjust-damage/", views.adjust_creature_damage, name="adjust_creature_damage"),
     path(
         "character-creature/<int:pk>/vampirism/<slug:action>/",
