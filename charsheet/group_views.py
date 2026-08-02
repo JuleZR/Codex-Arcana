@@ -435,7 +435,7 @@ def game_master_screen(request, group_id: int):
         character_blood = character_vampire.resource_state() if character_is_vampire else None
         max_kp = character_blood.maximum if character_blood else max(0, int(engine.calculate_arcane_power()))
         current_kp = (
-            character_blood.intelligent
+            character_blood.total
             if character_blood
             else min(max_kp, max(0, int(character.current_arcane_power or 0)))
         )
@@ -450,6 +450,8 @@ def game_master_screen(request, group_id: int):
         is_incapacitated = engine.is_wound_incapacitated(wound_stage)
         attributes = engine.attributes()
         subtitle = character.race.name
+        if character_is_vampire:
+            subtitle += f" · Vampir · Alter {character_vampire.age_cycle()}"
         if wound_stage != "-":
             subtitle += f" · {wound_stage}"
             if format_modifier(wound_penalty) != "0":
@@ -511,23 +513,17 @@ def game_master_screen(request, group_id: int):
                 "lethal_damage": lethal_damage,
                 "aggravated_damage": int(character.current_aggravated_damage or 0),
                 "is_vampire": character_is_vampire,
+                "intelligent_blood": character_blood.intelligent if character_blood else 0,
                 "animal_blood": character_blood.animal if character_blood else 0,
-                "vampire_state": VAMPIRE_STATE_UI_LABELS.get(character.vampire_state, character.vampire_state) if character_is_vampire else "",
-                "vampire_age_cycle": character_vampire.age_cycle() if character_is_vampire else 0,
-                "vampire_traits": (
-                    [
-                        {
-                            "name": entry.trait.name,
-                            "rank": entry.rank,
-                            "type": entry.trait.get_trait_type_display(),
-                        }
-                        for entry in character_vampire.effective_traits(include_weaknesses=True)
-                    ] + [
-                        {"name": entry.power.name, "rank": 1, "type": "Power"}
-                        for entry in character_vampire.effective_powers()
-                    ]
-                    if character_is_vampire
-                    else []
+                "intelligent_blood_percent": (
+                    f"{character_blood.intelligent / character_blood.maximum * 100:.4f}"
+                    if character_blood and character_blood.maximum
+                    else "0"
+                ),
+                "animal_blood_percent": (
+                    f"{character_blood.animal / character_blood.maximum * 100:.4f}"
+                    if character_blood and character_blood.maximum
+                    else "0"
                 ),
                 "vampire_warnings": character_vampire.warnings(),
                 "stun_damage_percent": f"{displayed_stun_damage / max_lp * 100:.4f}" if max_lp else "0",
@@ -830,6 +826,8 @@ def game_master_screen(request, group_id: int):
                 f"{row['character'].id}:{row['character'].current_stun_damage}:"
                 f"{row['character'].current_lethal_damage}:"
                 f"{row['character'].current_arcane_power}:"
+                f"{row['character'].vampire_intelligent_blood}:"
+                f"{row['character'].vampire_animal_blood}:"
                 f"{row['load_penalty']}:{row['total_armor']}:"
                 f"{int(row['character'].carry_load_enabled)}:"
                 + ",".join(
@@ -2608,6 +2606,8 @@ def group_inventory_transfer_state(request, group_id: int):
                 character.current_stun_damage,
                 character.current_lethal_damage,
                 character.current_arcane_power,
+                character.vampire_intelligent_blood,
+                character.vampire_animal_blood,
                 int(engine.load_penalty())
                 + (
                     int(ItemEngine.carry_state_for_character(character)["penalty"])

@@ -1359,6 +1359,23 @@
   pointer-events: auto;
 }
 
+.learn_vampire_weakness_choice {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+  font-size: 0.8rem;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+}
+
+.learn_vampire_weakness_choice input {
+  margin: 0;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
 #learnRemainingValue.is-negative {
   color: #a11d10;
   font-weight: 700;

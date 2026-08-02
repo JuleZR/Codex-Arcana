@@ -706,6 +706,7 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
     vampire_age_add = 0
     vampire_capacity_add = 0
     vampire_power_plan: dict[int, bool] = {}
+    vampire_power_remove_plan: set[int] = set()
     vampire_buyoff_plan: set[int] = set()
     vampire_strength_extension = False
     vampire_disallowed_school_ids: set[int] = set()
@@ -720,9 +721,16 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
         vampire_disallowed_school_ids = vampire_rules.disallowed_school_ids()
         vampire_age_add = _read_int(post_data, "learn_vampire_age_add", 0)
         vampire_capacity_add = _read_int(post_data, "learn_vampire_capacity_add", 0)
-        if vampire_age_add < 0 or vampire_capacity_add < 0:
-            return "error", "Vampirwerte können nicht verkauft oder zurückerstattet werden."
-        total_cost += vampire_rules.age_cycle_cost(vampire_age_add + 1)
+        current_vampire_age_cycle = vampire_rules.age_cycle()
+        target_vampire_age_cycle = current_vampire_age_cycle + vampire_age_add
+        if target_vampire_age_cycle < 1:
+            return "error", "Der Alterszyklus kann nicht unter 1 gesenkt werden."
+        if vampire_capacity_add < 0:
+            return "error", "Zusätzliche Blutkapazität kann nicht verkauft oder zurückerstattet werden."
+        total_cost += (
+            vampire_rules.age_cycle_cost(target_vampire_age_cycle)
+            - vampire_rules.age_cycle_cost(current_vampire_age_cycle)
+        )
         total_cost += vampire_rules.capacity_bonus_cost(vampire_capacity_add)
 
         owned_vampire_powers = {
@@ -731,10 +739,24 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
         }
         for key in post_data.keys():
             raw_key = str(key)
+            power_remove_match = re.fullmatch(r"learn_vampire_power_remove_(\d+)", raw_key)
             power_match = re.fullmatch(r"learn_vampire_power_(\d+)", raw_key)
             trait_match = re.fullmatch(r"learn_vampire_trait(?:_remove)?_(\d+)", raw_key)
             buyoff_match = re.fullmatch(r"learn_vampire_buyoff_(\d+)", raw_key)
-            if power_match:
+            if power_remove_match:
+                power_id = int(power_remove_match.group(1))
+                if _read_int(post_data, raw_key, 0) <= 0:
+                    continue
+                ownership = owned_vampire_powers.get(power_id)
+                if ownership is None:
+                    return "error", "Ungültige oder nicht erworbene Vampirkraft."
+                total_cost -= vampire_rules.power_cost(
+                    without_weakness=bool(
+                        ownership.purchased_without_weakness or ownership.weakness_bought_off
+                    )
+                )
+                vampire_power_remove_plan.add(power_id)
+            elif power_match:
                 power_id = int(power_match.group(1))
                 if _read_int(post_data, raw_key, 0) <= 0:
                     continue
@@ -765,6 +787,9 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
                     return "error", "Ungültiger Schwächenfreikauf."
                 total_cost += 5
                 vampire_buyoff_plan.add(power_id)
+
+        if vampire_power_remove_plan & vampire_buyoff_plan:
+            return "error", "Eine Vampirkraft kann nicht gleichzeitig verlernt und von ihrer Schwäche befreit werden."
 
     def _skill_rank_payload(skill, specification: str | None = None) -> tuple[int, int]:
         max_level = int(engine.skill_rank_max(skill.slug, specification=specification))
@@ -1145,7 +1170,8 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
     has_ep_changes = any((
         attr_plan, trait_plan, skill_plan, cs_skill_plan, new_spec_plan,
         language_plan, school_plan, magic_aspect_plan, lesson_plan,
-        vampire_age_add, vampire_capacity_add, vampire_power_plan, vampire_buyoff_plan,
+        vampire_age_add, vampire_capacity_add, vampire_power_plan,
+        vampire_power_remove_plan, vampire_buyoff_plan,
     ))
 
     has_magic_selections = any((
@@ -1277,7 +1303,9 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
 
             if vampire_age_add or vampire_capacity_add:
                 if vampire_age_add:
-                    character.vampire_age_cycle = max(1, int(character.vampire_age_cycle or 1)) + vampire_age_add
+                    character.vampire_age_cycle = (
+                        max(1, int(character.vampire_age_cycle or 1)) + vampire_age_add
+                    )
                 if vampire_capacity_add:
                     character.vampire_blood_capacity_bonus = int(character.vampire_blood_capacity_bonus or 0) + vampire_capacity_add
                 fields = []
@@ -1295,6 +1323,12 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
                 )
                 entry.full_clean()
                 entry.save()
+
+            if vampire_power_remove_plan:
+                CharacterVampirePower.objects.filter(
+                    character=character,
+                    power_id__in=vampire_power_remove_plan,
+                ).delete()
 
             for power_id in vampire_buyoff_plan:
                 entry = CharacterVampirePower.objects.select_related("power").get(

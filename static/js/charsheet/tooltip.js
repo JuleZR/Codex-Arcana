@@ -728,8 +728,39 @@ function buildTooltipCardSections(markup, { includeExtraSections = true } = {}) 
   };
 }
 
-function buildTooltipCardMarkup({ title, subtitle, image, accent, bodyMarkup, includeExtraSections = true }) {
-  const { leadHtml, extraHtml } = buildTooltipCardSections(bodyMarkup, { includeExtraSections });
+function buildTooltipCardMarkup({
+  title,
+  subtitle,
+  image,
+  accent,
+  bodyMarkup,
+  effectMarkup = "",
+  weaknessMarkup = "",
+  includeExtraSections = true,
+}) {
+  let { leadHtml, extraHtml } = buildTooltipCardSections(bodyMarkup, { includeExtraSections });
+  const hasExplicitPowerSections = Boolean(effectMarkup || weaknessMarkup);
+  if (hasExplicitPowerSections) {
+    const powerSections = [];
+    if (effectMarkup) {
+      powerSections.push(`
+        <section class="floating-tooltip-card__section floating-tooltip-card__section--vampire-effect">
+          <h4 class="floating-tooltip-card__section_title">Effekt</h4>
+          <div class="floating-tooltip-card__section_body">${effectMarkup}</div>
+        </section>
+      `);
+    }
+    if (weaknessMarkup) {
+      powerSections.push(`
+        <section class="floating-tooltip-card__section floating-tooltip-card__section--vampire-weakness">
+          <h4 class="floating-tooltip-card__section_title">Schw&auml;che</h4>
+          <div class="floating-tooltip-card__section_body">${weaknessMarkup}</div>
+        </section>
+      `);
+    }
+    leadHtml = "";
+    extraHtml = powerSections.join("");
+  }
   const isSpellCard = !includeExtraSections && image;
   const safeTitle = escapeHtml(title || "Details");
   const normalizedSubtitle = isSpellCard
@@ -746,6 +777,15 @@ function buildTooltipCardMarkup({ title, subtitle, image, accent, bodyMarkup, in
     && !isSpellCard
     ? `<div class="floating-tooltip-card__media"><img class="floating-tooltip-card__image" src="${safeImage}" alt=""></div>`
     : "";
+  const detailsMarkup = hasExplicitPowerSections ? "" : (leadHtml || bodyMarkup);
+  const contentHtml = mediaHtml || detailsMarkup
+    ? `
+      <div class="floating-tooltip-card__content${mediaHtml ? " has-media" : ""}">
+        ${mediaHtml}
+        ${detailsMarkup ? `<div class="floating-tooltip-card__details">${detailsMarkup}</div>` : ""}
+      </div>
+    `
+    : "";
   return `
     <div class="floating-tooltip-card__frame"${safeAccent ? ` style="--tooltip-card-accent: ${safeAccent};"` : ""}>
       <div class="floating-tooltip-card__header${headerMediaHtml ? " has-header-media" : ""}" data-tooltip-card-drag-handle>
@@ -756,10 +796,7 @@ function buildTooltipCardMarkup({ title, subtitle, image, accent, bodyMarkup, in
         </div>
         <button type="button" class="floating-tooltip-card__close" data-tooltip-card-close aria-label="Details schließen">x</button>
       </div>
-      <div class="floating-tooltip-card__content${mediaHtml ? " has-media" : ""}">
-        ${mediaHtml}
-        <div class="floating-tooltip-card__details">${leadHtml || bodyMarkup}</div>
-      </div>
+      ${contentHtml}
       ${extraHtml ? `<section class="floating-tooltip-card__lore">${extraHtml}</section>` : ""}
     </div>
   `;
@@ -1106,6 +1143,8 @@ export function initTooltips() {
       image: String(target.getAttribute("data-tooltip-image") || "").trim(),
       accent: String(target.getAttribute("data-tooltip-accent") || "").trim(),
       bodyMarkup: renderTooltipMarkup(text),
+      effectMarkup: renderTooltipMarkup(target.getAttribute("data-tooltip-effect") || ""),
+      weaknessMarkup: renderTooltipMarkup(target.getAttribute("data-tooltip-weakness") || ""),
       includeExtraSections: String(target.getAttribute("data-tooltip-card-extra-sections") || "").trim() !== "none",
     });
     card.classList.add("is-visible");
@@ -1214,6 +1253,8 @@ export function initTooltips() {
       image: String(target.getAttribute("data-tooltip-image") || "").trim(),
       accent: String(target.getAttribute("data-tooltip-accent") || "").trim(),
       bodyMarkup: renderTooltipMarkup(text),
+      effectMarkup: renderTooltipMarkup(target.getAttribute("data-tooltip-effect") || ""),
+      weaknessMarkup: renderTooltipMarkup(target.getAttribute("data-tooltip-weakness") || ""),
       includeExtraSections: String(target.getAttribute("data-tooltip-card-extra-sections") || "").trim() !== "none",
     });
     cardEl.classList.add("is-visible");

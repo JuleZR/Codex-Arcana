@@ -8,8 +8,8 @@ import { initItemForm } from "./item_form.js";
 import { initSkillSpecModal } from "./skill_spec_modal.js";
 import { initTechniqueSpecModal } from "./technique_spec_modal.js";
 import { initShopMenu } from "./shop_menu.js?v=20260622a";
-import { initLearningMenu } from "./learning_menu.js?v=20260801a";
-import { initTooltips } from "./tooltip.js";
+import { initLearningMenu } from "./learning_menu.js?v=20260802b";
+import { initTooltips } from "./tooltip.js?v=20260802a";
 import { initWalletTooltip } from "./wallet_tooltip.js";
 import { initInventoryMenu } from "./inventory_menu.js";
 import { initDamagePanel } from "./damage_panel.js?v=20260801b";
@@ -32,6 +32,7 @@ import { initCreatureCards } from "./creature_card.js?v=20260730c";
 import { initItemTransfers } from "./item_transfers.js?v=20260723a";
 import { initItemTransferWindow } from "./item_transfer_window.js?v=20260721f";
 import { initTemporaryAttributes } from "./temporary_attributes.js?v=20260731c";
+import { initVampirePanel } from "./vampire_panel.js?v=20260802a";
 
 function isRadialMenuEnabled() {
   return document.body?.dataset.radialMenuEnabled === "1";
@@ -83,6 +84,7 @@ onReady(() => {
   initItemTransferWindow();
   initMobileHud();
   initTemporaryAttributes();
+  initVampirePanel();
   initCharacterImageEditorSafely();
   if (isRadialMenuEnabled()) {
     try {
@@ -111,6 +113,7 @@ onReady(() => {
     initGodCards();
     initCreatureCards();
     initItemTransfers({ windowController: windowControllers?.itemTransfer || null });
+    initVampirePanel();
     document.dispatchEvent(new Event("learn:refresh-totals"));
     initCharacterImageEditorSafely();
   });

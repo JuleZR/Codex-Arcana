@@ -7,7 +7,7 @@
   <title>SL-Screen | {{ group.name }}</title>
   <link rel="stylesheet" href="{% static 'css/charsheet.css' %}">
   <link rel="stylesheet" href="{% static 'css/dashboard.css' %}?v=20260726a">
-  <link rel="stylesheet" href="{% static 'css/game-master-screen.css' %}?v=20260731a">
+  <link rel="stylesheet" href="{% static 'css/game-master-screen.css' %}?v=20260802a">
   <script defer src="{% static 'js/game_groups.js' %}?v=20260726a"></script>
   <script defer src="{% static 'js/sl_inventory.js' %}?v=20260724b"></script>
   <script defer src="{% static 'js/game_master_screen.js' %}?v=20260729b"></script>
@@ -101,7 +101,7 @@
         >
         {% for row in roster %}
           <article
-            class="gm-character-sheet{% if row.card_kind == 'creature' %} gm-character-sheet--creature{% endif %}{% if row.is_dead %} gm-character-sheet--dead{% elif row.is_incapacitated %} gm-character-sheet--incapacitated{% endif %}"
+            class="gm-character-sheet{% if row.card_kind == 'creature' %} gm-character-sheet--creature{% elif row.is_vampire %} gm-character-sheet--vampire{% endif %}{% if row.is_dead %} gm-character-sheet--dead{% elif row.is_incapacitated %} gm-character-sheet--incapacitated{% endif %}"
             data-reorder-card
             data-reorder-id="{{ row.card_id }}"
             data-sort-position="{{ row.screen_position|default_if_none:'999999' }}"
@@ -237,11 +237,14 @@
                   <span>{{ row.current_kp }} / {{ row.max_kp }}</span>
                   {% endif %}
                 </div>
-                <progress value="{{ row.current_kp }}" max="{% if row.max_kp > 0 %}{{ row.max_kp }}{% else %}1{% endif %}">{{ row.current_kp }} / {{ row.max_kp }}</progress>
                 {% if row.is_vampire %}
-                  <small>Tierblut {{ row.animal_blood }} &middot; Alter {{ row.vampire_age_cycle }} &middot; {{ row.vampire_state }}</small>
-                  <details><summary>Vampir-Traits ({{ row.vampire_traits|length }})</summary><ul>{% for trait in row.vampire_traits %}<li>{{ trait.name }}{% if trait.rank > 1 %} {{ trait.rank }}{% endif %} <small>{{ trait.type }}</small></li>{% endfor %}</ul></details>
+                  <div class="gm-blood-track" role="img" aria-label="{{ row.intelligent_blood }} intelligentes Blut und {{ row.animal_blood }} Tierblut von {{ row.max_kp }}">
+                    <span class="gm-blood-track__intelligent" style="width: {{ row.intelligent_blood_percent }}%"></span>
+                    <span class="gm-blood-track__animal" style="width: {{ row.animal_blood_percent }}%"></span>
+                  </div>
                   {% if row.vampire_warnings %}<small class="form_errors">{{ row.vampire_warnings|join:"; " }}</small>{% endif %}
+                {% else %}
+                  <progress value="{{ row.current_kp }}" max="{% if row.max_kp > 0 %}{{ row.max_kp }}{% else %}1{% endif %}">{{ row.current_kp }} / {{ row.max_kp }}</progress>
                 {% endif %}
               </div>
               {% else %}

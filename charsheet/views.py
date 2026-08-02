@@ -4062,8 +4062,8 @@ def vampire_character_action(request, character_id: int, action: str):
             elif action == "record-kill":
                 rules.record_qualifying_kill()
             elif action == "activate-power":
-                rules.activate_power(
-                    number("trait_id"),
+                action_result = rules.activate_power(
+                    number("power_id") or number("trait_id"),
                     blood_amount=number("blood_amount"),
                 )
             elif action == "regenerate":
@@ -4143,10 +4143,29 @@ def vampire_character_action(request, character_id: int, action: str):
                     "capacity": action_result["resource"].maximum,
                 }
             )
+        if action == "activate-power" and _is_partial_request(request):
+            character.refresh_from_db()
+            context = _build_sheet_context_for_request(request, character)
+            target_id, template_name = SHEET_PARTIAL_TEMPLATES["damage_panel"]
+            return JsonResponse(
+                {
+                    "ok": True,
+                    "power_name": action_result["power"].name,
+                    "spent_blood": action_result["spent_blood"],
+                    "intelligent_blood": action_result["resource"].intelligent,
+                    "partials": [
+                        {
+                            "target": target_id,
+                            "html": render_to_string(template_name, context, request=request),
+                        }
+                    ],
+                }
+            )
         messages.success(request, "Vampiraktion wurde angewendet.")
     except VampireRuleError as exc:
         if _is_partial_request(request):
-            return JsonResponse({"ok": False, "error": " ".join(exc.messages)}, status=400)
+            message = " ".join(exc.messages)
+            return JsonResponse({"ok": False, "error": message, "message": message}, status=400)
         messages.error(request, " ".join(exc.messages))
     return redirect("character_sheet", character_id=character_id)
 

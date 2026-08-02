@@ -152,6 +152,19 @@ def _vampire_learning_payload(character, vampire_rules):
                 is_active=True,
             ).exclude(weakness="").exclude(pk__in=owned_power_ids).order_by("sort_order", "name")
         ],
+        "owned_powers": [
+            {
+                "id": row.power_id,
+                "name": row.power.name,
+                "weakness": row.power.weakness,
+                "refund": vampire_rules.power_cost(
+                    without_weakness=bool(
+                        row.purchased_without_weakness or row.weakness_bought_off
+                    )
+                ),
+            }
+            for row in owned_powers
+        ],
         "buyoff_options": [
             {
                 "id": row.power_id,
@@ -165,6 +178,75 @@ def _vampire_learning_payload(character, vampire_rules):
             and not row.weakness_bought_off
         ],
     }
+
+
+def _vampire_sheet_entries(vampire_rules):
+    """Keep passive vampire traits and learnable powers separate in the sheet UI."""
+    def visible_weakness(entry) -> str:
+        if not entry.weakness_is_active:
+            return ""
+        weakness = str(entry.power.weakness or "").strip()
+        return "" if weakness in {"-", "\u2013", "\u2014"} else weakness
+
+    traits = [
+        {
+            "name": entry.trait.name,
+            "slug": entry.trait.slug,
+            "type": entry.trait.trait_type,
+            "type_label": (
+                "Vorzug"
+                if entry.trait.trait_type == VampireTrait.TraitType.ADVANTAGE
+                else "Schwäche"
+            ),
+            "rank": entry.rank,
+            "description": entry.trait.description,
+            "source": entry.source,
+        }
+        for entry in vampire_rules.effective_traits(include_weaknesses=True)
+    ]
+    powers = [
+        {
+            "id": entry.power.id,
+            "name": entry.power.name,
+            "slug": entry.power.slug,
+            "description": entry.power.description,
+            "weakness": visible_weakness(entry),
+            "weakness_bought_off": not entry.weakness_is_active,
+            "blood_cost": entry.power.blood_cost,
+            "source": entry.source,
+        }
+        for entry in vampire_rules.effective_powers()
+    ]
+    trait_type_order = {
+        VampireTrait.TraitType.ADVANTAGE: 0,
+        VampireTrait.TraitType.DISADVANTAGE: 1,
+    }
+    traits.sort(
+        key=lambda row: (
+            trait_type_order.get(row["type"], 99),
+            str(row["name"]).casefold(),
+            str(row["slug"]),
+        )
+    )
+    powers.sort(key=lambda row: (str(row["name"]).casefold(), str(row["slug"])))
+    return traits, powers
+
+
+def _vampire_trait_groups(traits):
+    """Group vampire traits as advantages then weaknesses for the schools panel."""
+    definitions = (
+        (VampireTrait.TraitType.ADVANTAGE, "advantages", "Vorzüge"),
+        (VampireTrait.TraitType.DISADVANTAGE, "weaknesses", "Schwächen"),
+    )
+    return [
+        {
+            "key": key,
+            "label": label,
+            "traits": [row for row in traits if row["type"] == trait_type],
+        }
+        for trait_type, key, label in definitions
+        if any(row["type"] == trait_type for row in traits)
+    ]
 
 
 def _divine_entity_card_kind_label(divine_entity) -> str:
@@ -4723,32 +4805,7 @@ def build_temporary_attribute_context(
         potential_value = vampire_resource.potential
         current_arcane_power = vampire_resource.intelligent
         resource_label = "Blut intelligenter Wesen"
-        vampire_traits = [
-            {
-                "name": entry.trait.name,
-                "slug": entry.trait.slug,
-                "type": entry.trait.trait_type,
-                "type_label": entry.trait.get_trait_type_display(),
-                "rank": entry.rank,
-                "description": entry.trait.description,
-                "weakness_bought_off": False,
-                "source": entry.source,
-            }
-            for entry in vampire_rules.effective_traits(include_weaknesses=True)
-        ]
-        vampire_traits.extend(
-            {
-                "name": entry.power.name,
-                "slug": entry.power.slug,
-                "type": "power",
-                "type_label": "Power",
-                "rank": 1,
-                "description": entry.power.description,
-                "weakness_bought_off": not entry.weakness_is_active,
-                "source": entry.source,
-            }
-            for entry in vampire_rules.effective_powers()
-        )
+        vampire_traits, vampire_powers = _vampire_sheet_entries(vampire_rules)
         vampire_panel = {
             "age_cycle": vampire_rules.age_cycle(),
             "intelligent_blood": vampire_resource.intelligent,
@@ -4772,6 +4829,8 @@ def build_temporary_attribute_context(
             "sacrament_rounds_remaining": character.vampire_sacrament_rounds_remaining,
             "aggravated_damage": character.current_aggravated_damage,
             "traits": vampire_traits,
+            "trait_groups": _vampire_trait_groups(vampire_traits),
+            "powers": vampire_powers,
             "warnings": vampire_rules.warnings(),
             **_vampire_learning_payload(character, vampire_rules),
         }
@@ -5042,6 +5101,7 @@ def build_character_sheet_context(
         potential_value = vampire_resource.potential
         current_arcane_power = vampire_resource.intelligent
         resource_label = "Blut intelligenter Wesen"
+        vampire_traits, vampire_powers = _vampire_sheet_entries(vampire_rules)
         vampire_panel = {
             "age_cycle": vampire_rules.age_cycle(),
             "intelligent_blood": vampire_resource.intelligent,
@@ -5065,31 +5125,9 @@ def build_character_sheet_context(
             "sacrament_rounds_remaining": character.vampire_sacrament_rounds_remaining,
             "aggravated_damage": character.current_aggravated_damage,
             "warnings": vampire_rules.warnings(),
-            "traits": [
-                {
-                    "name": entry.trait.name,
-                    "slug": entry.trait.slug,
-                    "type": entry.trait.trait_type,
-                    "type_label": entry.trait.get_trait_type_display(),
-                    "rank": entry.rank,
-                    "description": entry.trait.description,
-                    "weakness_bought_off": False,
-                    "source": entry.source,
-                }
-                for entry in vampire_rules.effective_traits(include_weaknesses=True)
-            ] + [
-                {
-                    "name": entry.power.name,
-                    "slug": entry.power.slug,
-                    "type": "power",
-                    "type_label": "Power",
-                    "rank": 1,
-                    "description": entry.power.description,
-                    "weakness_bought_off": not entry.weakness_is_active,
-                    "source": entry.source,
-                }
-                for entry in vampire_rules.effective_powers()
-            ],
+            "traits": vampire_traits,
+            "trait_groups": _vampire_trait_groups(vampire_traits),
+            "powers": vampire_powers,
             **_vampire_learning_payload(character, vampire_rules),
         }
     else:

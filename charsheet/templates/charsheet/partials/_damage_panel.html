@@ -71,7 +71,7 @@
       <div class="arcane_meter{% if is_vampire %} arcane_meter--blood-shared{% endif %}" data-arcane-current="{{ current_arcane_power }}" data-arcane-max="{{ current_arcane_power_max }}"{% if is_vampire %} data-animal-blood="{{ vampire_panel.animal_blood }}"{% endif %} data-resource-type="{{ resource_type }}" aria-label="Aktuell: {{ resource_label }}">
         {% if is_vampire %}
         <div class="arcane_meter_label">Gesamter Blutvorrat</div>
-        <div class="blood_shared_meter__row">
+        <div class="blood_shared_meter__row{% if read_only %} blood_shared_meter__row--read-only{% endif %}">
           {% if not read_only %}<div class="blood_shared_meter__edge-controls" aria-label="Blut verringern"><button type="button" class="damage_step_btn arcane_step_btn arcane_step_btn--decrease blood_shared_meter__button--intelligent" data-action="spend" data-amount="1" aria-label="Blut intelligenter Wesen verringern" title="Blut intelligenter Wesen verringern">&minus;</button><button type="button" class="damage_step_btn arcane_step_btn--decrease animal_blood_step_btn blood_shared_meter__button--animal" data-delta="-1" aria-label="Tier- und Kreaturenblut verringern" title="Tier-/Kreaturenblut verringern">&minus;</button></div>{% endif %}
           <div class="arcane_meter_track">
             <div class="arcane_meter_fill blood_shared_meter__intelligent{% if not vampire_panel.animal_blood %} is-last{% endif %}" style="width: {{ vampire_panel.intelligent_meter_percent }}%;"></div>
@@ -93,11 +93,6 @@
         </div>
         {% endif %}
       </div>
-      {% if is_vampire %}
-        <div class="damage_breakdown" aria-label="Vampirpotential">
-          <span class="damage_breakdown-value">Potential <strong>{{ vampire_panel.potential }}</strong></span>
-        </div>
-      {% endif %}
     </div>
   </div>
   <form method="post" action="{% url 'adjust_current_damage' character.id %}" class="damage_actions">

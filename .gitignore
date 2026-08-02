@@ -129,6 +129,7 @@ celerybeat.pid
 
 # Environments
 .env
+.env.migration
 .venv
 env/
 venv/
@@ -201,7 +202,8 @@ _grw
 .out
 _old
 .claude
-media/
+# Runtime uploads aus Djangos MEDIA_ROOT niemals ins Repository aufnehmen.
+/media/
 backups
 .codex-arcana-version
 .codex-arcana-version.tmp

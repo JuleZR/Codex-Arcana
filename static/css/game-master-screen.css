@@ -401,6 +401,30 @@
   background: rgba(99, 67, 42, 0.15);
 }
 
+.gm-blood-track {
+  display: flex;
+  width: 100%;
+  height: 7px;
+  overflow: hidden;
+  border: 1px solid rgba(67, 44, 26, 0.3);
+  background: rgba(99, 67, 42, 0.15);
+}
+
+.gm-blood-track > span {
+  display: block;
+  flex: 0 0 auto;
+  min-width: 0;
+  height: 100%;
+}
+
+.gm-blood-track__intelligent {
+  background: linear-gradient(90deg, #b51f27 0%, #d93635 55%, #ed5145 100%);
+}
+
+.gm-blood-track__animal {
+  background: linear-gradient(90deg, #541f35 0%, #682b43 55%, #7d3950 100%);
+}
+
 .gm-damage-track > span {
   display: block;
   flex: 0 0 auto;
@@ -1633,6 +1657,26 @@
   border-radius: 12px;
   background: #eee2c3;
   box-shadow: inset 0 0 0 1px rgba(255, 252, 237, 0.46), 0 10px 26px rgba(0, 0, 0, 0.28);
+}
+
+.gm-character-sheet--vampire:not(.gm-character-sheet--incapacitated):not(.gm-character-sheet--dead) {
+  border-color: rgba(82, 82, 82, 0.5);
+  background: linear-gradient(155deg, #dededb 0%, #c7c7c3 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(247, 247, 244, 0.5),
+    inset 0 -38px 72px rgba(58, 58, 58, 0.08),
+    0 10px 26px rgba(0, 0, 0, 0.3);
+}
+
+.gm-character-sheet--vampire:not(.gm-character-sheet--incapacitated):not(.gm-character-sheet--dead) .gm-character-sheet__identity,
+.gm-character-sheet--vampire:not(.gm-character-sheet--incapacitated):not(.gm-character-sheet--dead) .gm-character-sheet__footer {
+  border-color: rgba(68, 68, 68, 0.3);
+}
+
+.gm-character-sheet--vampire:not(.gm-character-sheet--incapacitated):not(.gm-character-sheet--dead) .gm-attribute-grid div,
+.gm-character-sheet--vampire:not(.gm-character-sheet--incapacitated):not(.gm-character-sheet--dead) .gm-defense-grid div {
+  border-color: rgba(70, 70, 70, 0.25);
+  background: rgba(241, 241, 237, 0.5);
 }
 
 .gm-character-sheet--creature {

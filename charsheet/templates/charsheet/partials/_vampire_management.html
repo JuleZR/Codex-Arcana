@@ -21,8 +21,48 @@
   {% endif %}
   {% endif %}
 
-  <section class="vampire_management__traits">
-    <h3>Vampir-Traits</h3>
-    {% if vampire_panel.traits %}<div>{% for trait in vampire_panel.traits %}<article><strong>{{ trait.name }}{% if trait.rank > 1 %} {{ trait.rank }}{% endif %}</strong><span>{{ trait.type_label }}</span>{% if trait.description %}<p>{{ trait.description }}</p>{% endif %}</article>{% endfor %}</div>{% else %}<p>Noch keine Vampir-Traits erworben.</p>{% endif %}
+  <section class="vampire_management__powers" data-vampire-power-panel>
+    <h3>Vampirkr&auml;fte</h3>
+    {% if vampire_panel.powers %}
+    <ul class="spell_group_rows vampire_power_rows">
+      {% for power in vampire_panel.powers %}
+      <li>
+        <div
+          class="spell_cast_button vampire_power_entry tooltip_target"
+          tabindex="0"
+          role="button"
+          data-tooltip-side="cursor-right"
+          data-tooltip-mode="card"
+          data-tooltip-card-variant="spell"
+          data-tooltip-title="{{ power.name|escape }}"
+          data-tooltip-subtitle="Vampirkraft{% if power.blood_cost != None %} &middot; {{ power.blood_cost }} BP{% endif %}"
+          data-tooltip-persist-id="vampire-power:{{ power.slug }}"
+          data-tooltip="{{ power.description|default:'Keine Beschreibung' }}"
+          data-tooltip-effect="{{ power.description|default:'Keine Beschreibung' }}"
+          {% if power.weakness %}data-tooltip-weakness="{{ power.weakness }}"{% endif %}
+          aria-label="Details zu {{ power.name }} anzeigen"
+        >
+          <span class="spell_cast_name">{{ power.name }}</span>
+          <span class="spell_cast_meta">Vampirkraft</span>
+          {% if not read_only %}
+          <button
+            type="button"
+            class="spell_cast_cost lesson_cost_button vampire_power_cost"
+            data-activate-vampire-power
+            data-activate-url="{% url 'vampire_character_action' character.id 'activate-power' %}"
+            data-vampire-power-id="{{ power.id }}"
+            data-vampire-blood-cost="{{ power.blood_cost|default:0 }}"
+            aria-label="{{ power.name }} anwenden: {{ power.blood_cost|default:0 }} BP"
+          >{{ power.blood_cost|default:0 }} BP</button>
+          {% else %}
+          <span class="spell_cast_cost lesson_cost_readonly">{{ power.blood_cost|default:0 }} BP</span>
+          {% endif %}
+        </div>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}<p>Noch keine Vampirkr&auml;fte erlernt.</p>{% endif %}
+    <p class="vampire_management__feedback" data-vampire-power-feedback aria-live="polite"></p>
   </section>
+
 </div>

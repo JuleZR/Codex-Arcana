@@ -239,6 +239,48 @@
         <div class="panel_scroll schools_scroll">
           <ul class="p2_lines p2_short_lines" id="schoolsList" data-character-id="{{ character.id }}">
 
+            {% if vampire_panel.trait_groups %}
+            <li class="school_group" data-school-group data-school-group-key="group:vampire-traits">
+              <div class="school_group_header school_row_with_tooltip">
+                <button type="button" class="school_group_toggle_btn" data-school-group-toggle aria-expanded="false">
+                  <span class="skill_name_text">
+                    <span class="school_group_chevron" aria-hidden="true">&#x25B8;</span>
+                    Vampir
+                  </span>
+                </button>
+                <span class="vampire_school_age_cycle">Alterszyklus {{ vampire_panel.age_cycle }}</span>
+                <button type="button" class="school_pin_btn school_pin_btn--group" data-school-group-pin-toggle aria-pressed="false" aria-label="Vampir immer aufgeklappt halten" title="Vampir immer aufgeklappt halten"><span aria-hidden="true">&#x25C7;</span></button>
+              </div>
+              <ul class="school_group_rows" hidden>
+                {% for trait_group in vampire_panel.trait_groups %}
+                <li class="vampire_trait_section_label vampire_trait_section_label--{{ trait_group.key }}">
+                  {{ trait_group.label }}
+                </li>
+                {% for trait in trait_group.traits %}
+                <li
+                  class="school_row_with_tooltip tooltip_target vampire_trait_row vampire_trait_row--{{ trait_group.key }}"
+                  data-tooltip-side="left"
+                  data-tooltip-mode="skill-card"
+                  data-tooltip-card-variant="skill"
+                  data-tooltip-title="{{ trait.name }}{% if trait.rank > 1 %} {{ trait.rank }}{% endif %}"
+                  data-tooltip-subtitle="Vampirischer {{ trait.type_label }} · Alterszyklus {{ vampire_panel.age_cycle }}"
+                  data-tooltip-card-key="vampire-trait:{{ trait.slug }}"
+                  data-tooltip="{{ trait.description|default:'Keine Beschreibung' }}"
+                  data-school-search="vampir {{ trait_group.label|lower }} {{ trait.name|lower }} {{ trait.description|lower }}"
+                  data-school-pin-item
+                  data-school-pin-key="vampire-trait:{{ trait.slug }}"
+                >
+                  <div class="skill_name_wrap school_row_layout school_row_layout--sub">
+                    <span class="skill_name_text">{{ trait.name }}{% if trait.rank > 1 %} {{ trait.rank }}{% endif %}</span>
+                    <button type="button" class="school_pin_btn" data-school-pin-toggle data-pin-label="{{ trait.name }}" aria-pressed="false" aria-label="{{ trait.name }} anheften" title="{{ trait.name }} anheften"><span aria-hidden="true">&#x25C7;</span></button>
+                  </div>
+                </li>
+                {% endfor %}
+                {% endfor %}
+              </ul>
+            </li>
+            {% endif %}
+
             {% comment %}── Charakter-Traits (Rassentechniken) ─────────────────────────────{% endcomment %}
             {% if school_race_rows %}
             <li class="school_group" data-school-group data-school-group-key="group:race-traits">
