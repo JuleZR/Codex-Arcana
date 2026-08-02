@@ -1036,6 +1036,19 @@ class CreatureEngine:
 
         return VampireRules(self.source).blood_capacity()
 
+    def bp_potential(self) -> int | None:
+        """Return potential for a creature whose BP resource is enabled."""
+
+        if not self.creature.has_bp:
+            return None
+        if self.creature.potential_override is not None:
+            base = int(self.creature.potential_override)
+        else:
+            from charsheet.engine.vampire_engine import VampireRules
+
+            base = VampireRules(self.source).potential()
+        return base + self._modifier_total(TargetDomain.DERIVED_STAT, POTENTIAL)
+
     def age_cycle(self) -> int | None:
         """Return the effective age cycle when it is enabled on the card."""
 
@@ -1733,10 +1746,26 @@ class CreatureEngine:
         movement = self.movement()
         movement_notes = self.movement_notes()
         kp = vampire_resource.intelligent if vampire_resource else self.kp()
-        potential = vampire_resource.potential if vampire_resource else self.potential()
+        potential = (
+            vampire_resource.potential
+            if vampire_resource
+            else self.potential()
+            if self.creature.has_kp
+            else self.bp_potential()
+        )
         bp = vampire_resource.intelligent if vampire_resource else self.bp()
         bp_max = vampire_resource.maximum if vampire_resource else bp
         age_cycle = vampire_rules.age_cycle() if is_vampire else self.age_cycle()
+        vampire_powers = [
+            {
+                "name": entry.power.name,
+                "level": entry.rank,
+                "description": entry.power.description,
+                "weakness": entry.power.weakness if entry.weakness_is_active else "",
+                "blood_cost": entry.power.blood_cost,
+            }
+            for entry in vampire_rules.configured_powers()
+        ]
         creature_type = getattr(self.creature.creature_type, "name", "")
         has_ground = all(movement.get(key) is not None for key in ("combat", "march", "sprint"))
         has_single_swim = movement.get("swim") not in (None, "", 0, 0.0)
@@ -1852,6 +1881,7 @@ class CreatureEngine:
             "commands": self.commands(),
             "traits": self.traits(),
             "daemonic_powers": self.daemonic_powers(),
+            "vampire_powers": vampire_powers,
             "is_vampire": is_vampire,
             "vampire": (
                 {

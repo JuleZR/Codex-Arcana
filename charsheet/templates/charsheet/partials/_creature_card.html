@@ -186,8 +186,8 @@
             {% if creature_card.creation_choice %}
                 {% include "charsheet/partials/_creature_creation_controls.html" with choice=creature_card.creation_choice %}
             {% endif %}
-            <div class="creature-card__oracle-line creature-card__oracle-line--core creature-card__core-grid{% if creature_card.has_resources or creature_card.has_age_cycle %} creature-card__core-grid--two-rows{% endif %}">
-                {% if creature_card.has_resources or creature_card.has_age_cycle %}
+            <div class="creature-card__oracle-line creature-card__oracle-line--core creature-card__core-grid{% if creature_card.has_resources %} creature-card__core-grid--two-rows{% endif %}">
+                {% if creature_card.has_resources %}
                     <span class="creature-card__core-row creature-card__core-row--main">
                 {% endif %}
                 <span class="creature-card__core-stat"><strong>Initiative</strong><span class="creature-card__core-value"><span data-creature-wound-adjusted-value>{{ creature_card.initiative }}</span>{% for variant in creature_card.initiative_variants %}/<span class="tooltip_target" data-creature-wound-adjusted-value data-tooltip="{{ variant.note }}" data-tooltip-side="right">{{ variant.value }}</span>{% endfor %}</span></span>
@@ -200,19 +200,20 @@
                 {% if creature_card.encumbrance %}
                     <span class="creature-card__core-stat"><strong>BEL</strong><span class="creature-card__core-value">{{ creature_card.encumbrance }}{% for variant in creature_card.encumbrance_variants %}/<span class="tooltip_target" data-tooltip="{{ variant.note }}" data-tooltip-side="right">{{ variant.value }}</span>{% endfor %}</span></span>
                 {% endif %}
-                {% if creature_card.has_resources or creature_card.has_age_cycle %}
+                {% if creature_card.has_resources %}
                     </span>
                     <span class="creature-card__core-row creature-card__core-row--arcane">
+                        {% if creature_card.has_age_cycle %}
+                        <span class="creature-card__core-stat"><strong>Alterszyklus</strong><span class="creature-card__core-value">{{ creature_card.age_cycle }}</span></span>
+                        {% endif %}
                         {% if creature_card.has_kp %}
                           <span class="creature-card__core-stat"><strong>KP</strong><span class="creature-card__core-value">{{ creature_card.kp }}{% for variant in creature_card.kp_variants %}/<span class="tooltip_target" data-tooltip="{{ variant.note }}" data-tooltip-side="right">{{ variant.value }}</span>{% endfor %}</span></span>
-                          <span class="creature-card__core-stat"><strong>Pot</strong><span class="creature-card__core-value">{{ creature_card.potential }}{% for variant in creature_card.potential_variants %}/<span class="tooltip_target" data-tooltip="{{ variant.note }}" data-tooltip-side="right">{{ variant.value }}</span>{% endfor %}</span></span>
                         {% endif %}
                         {% if creature_card.has_bp %}
                           <span class="creature-card__core-stat"><strong>BP</strong><span class="creature-card__core-value">{{ creature_card.bp }}{% if creature_card.is_vampire %}/{{ creature_card.bp_max }}{% endif %}</span></span>
-                          {% if creature_card.is_vampire %}<span class="creature-card__core-stat"><strong>Pot</strong><span class="creature-card__core-value">{{ creature_card.potential }}</span></span>{% endif %}
                         {% endif %}
-                        {% if creature_card.has_age_cycle %}
-                          <span class="creature-card__core-stat"><strong>Alter</strong><span class="creature-card__core-value">{{ creature_card.age_cycle }}</span></span>
+                        {% if creature_card.has_kp or creature_card.has_bp %}
+                          <span class="creature-card__core-stat"><strong>Pot</strong><span class="creature-card__core-value">{{ creature_card.potential }}{% for variant in creature_card.potential_variants %}/<span class="tooltip_target" data-tooltip="{{ variant.note }}" data-tooltip-side="right">{{ variant.value }}</span>{% endfor %}</span></span>
                         {% endif %}
                         {% if creature_card.is_vampire %}
                           <span class="creature-card__core-stat"><strong>Tierblut</strong><span class="creature-card__core-value">{{ creature_card.vampire.animal_blood }}</span></span>
@@ -262,11 +263,14 @@
                 </p>
             {% endif %}
 
-            {% if creature_card.daemonic_powers or creature_card.vampire.traits or creature_card.traits or creature_card.special_skills or creature_card.languages %}
+            {% if creature_card.daemonic_powers or creature_card.vampire_powers or creature_card.vampire.traits or creature_card.traits or creature_card.special_skills or creature_card.languages %}
                 <p class="creature-card__oracle-line creature-card__oracle-line--ability">
                     <strong>Besondere F&auml;higkeiten</strong>
                     {% for power in creature_card.daemonic_powers %}
-                        <span class="creature-card__rule-entry{% if power.description or power.weakness_description %} tooltip_target{% endif %}"{% if power.description or power.weakness_description %} data-tooltip="{% if power.description %}{{ power.description }}{% endif %}{% if power.description and power.weakness_description %}&#10;{% endif %}{% if power.weakness_description %}Schw&auml;che: {{ power.weakness_description }}{% endif %}" data-tooltip-side="right"{% endif %}>{{ power.name }}{% if power.has_level %} {{ power.level }}{% endif %}{% if power.modifier_display %} {{ power.modifier_display }}{% endif %}</span>{% if not forloop.last or creature_card.special_skills or creature_card.traits or creature_card.languages %}, {% endif %}
+                        <span class="creature-card__rule-entry{% if power.description or power.weakness_description %} tooltip_target{% endif %}"{% if power.description or power.weakness_description %} data-tooltip="{% if power.description %}{{ power.description }}{% endif %}{% if power.description and power.weakness_description %}&#10;{% endif %}{% if power.weakness_description %}Schw&auml;che: {{ power.weakness_description }}{% endif %}" data-tooltip-side="right"{% endif %}>{{ power.name }}{% if power.has_level %} {{ power.level }}{% endif %}{% if power.modifier_display %} {{ power.modifier_display }}{% endif %}</span>{% if not forloop.last or creature_card.vampire_powers or creature_card.vampire.traits or creature_card.special_skills or creature_card.traits or creature_card.languages %}, {% endif %}
+                    {% endfor %}
+                    {% for power in creature_card.vampire_powers %}
+                        <span class="creature-card__rule-entry{% if power.description or power.weakness or power.blood_cost != None %} tooltip_target{% endif %}"{% if power.description or power.weakness or power.blood_cost != None %} data-tooltip="{% if power.description %}{{ power.description }}{% endif %}{% if power.description and power.weakness %}&#10;{% endif %}{% if power.weakness %}Schw&auml;che: {{ power.weakness }}{% endif %}{% if power.blood_cost != None %}{% if power.description or power.weakness %}&#10;{% endif %}BP-Kosten: {{ power.blood_cost }}{% endif %}" data-tooltip-side="right"{% endif %}>{{ power.name }}{% if power.level > 1 %} {{ power.level }}{% endif %}</span>{% if not forloop.last or creature_card.vampire.traits or creature_card.special_skills or creature_card.traits or creature_card.languages %}, {% endif %}
                     {% endfor %}
                     {% for trait in creature_card.vampire.traits %}
                         <span class="creature-card__rule-entry{% if trait.description %} tooltip_target{% endif %}"{% if trait.description %} data-tooltip="{{ trait.description }}" data-tooltip-side="right"{% endif %}>{{ trait.name }}{% if trait.rank > 1 %} {{ trait.rank }}{% endif %}</span>{% if not forloop.last or creature_card.special_skills or creature_card.traits or creature_card.languages %}, {% endif %}

@@ -301,13 +301,18 @@ class VampireRules:
             key=lambda entry: (entry.trait.sort_order, entry.trait.name.casefold(), entry.trait.id),
         )
 
-    def effective_powers(self) -> list[EffectiveVampirePower]:
-        if not self.is_vampire():
-            return []
+    def configured_powers(self) -> list[EffectiveVampirePower]:
+        """Return configured powers independent of whether vampire mode is active."""
+
         return sorted(
             self._power_definition_rows().values(),
             key=lambda entry: (entry.power.sort_order, entry.power.name.casefold(), entry.power.id),
         )
+
+    def effective_powers(self) -> list[EffectiveVampirePower]:
+        if not self.is_vampire():
+            return []
+        return self.configured_powers()
 
     def power_ranks(self) -> int:
         """Each acquired power rank increases blood capacity by exactly one."""

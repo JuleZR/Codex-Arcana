@@ -357,7 +357,8 @@
 }
 
 .card-shell {
-    --card-edge-glow: rgba(196, 147, 56, 0.24);
+    --card-edge-glow-left: rgba(196, 147, 56, 0.24);
+    --card-edge-glow-right: rgba(196, 147, 56, 0.24);
     position: relative;
     z-index: 4;
     box-sizing: border-box;
@@ -368,17 +369,24 @@
     padding: 18px;
     border-radius: 16px;
     background:
-        linear-gradient(90deg, var(--card-edge-glow), transparent 6%, transparent 94%, var(--card-edge-glow)),
+        linear-gradient(90deg, var(--card-edge-glow-left), transparent 6%, transparent 94%, var(--card-edge-glow-right)),
         linear-gradient(180deg, rgba(5, 5, 5, 0.42), transparent 20%, transparent 64%, rgba(5, 5, 5, 0.52));
     box-shadow: none;
 }
 
 .card.card--daemon .card-shell {
-    --card-edge-glow: rgba(139, 0, 12, 0.62);
+    --card-edge-glow-left: rgba(139, 0, 12, 0.62);
+    --card-edge-glow-right: rgba(139, 0, 12, 0.62);
+}
+
+.creature-card .card-shell {
+    --card-edge-glow-left: var(--creature-card-edge-left, rgba(196, 147, 56, 0.24));
+    --card-edge-glow-right: var(--creature-card-edge-right, rgba(196, 147, 56, 0.24));
 }
 
 .creature-card[data-creature-card-quality]:not([data-creature-card-quality="common"]) .card-shell {
-    --card-edge-glow: color-mix(in srgb, var(--card-quality-edge-color, #c9aa55) 18%, rgba(196, 147, 56, 0.16) 82%);
+    --card-edge-glow-left: color-mix(in srgb, var(--card-quality-edge-color, #c9aa55) 18%, var(--creature-card-edge-left, rgba(196, 147, 56, 0.16)) 82%);
+    --card-edge-glow-right: color-mix(in srgb, var(--card-quality-edge-color, #c9aa55) 18%, var(--creature-card-edge-right, rgba(196, 147, 56, 0.16)) 82%);
 }
 
 .card.is-saving .card-aspect-picker {
@@ -777,7 +785,7 @@ span.card-aspect-placeholder {
 .card-art::before {
     z-index: 1;
     background:
-        linear-gradient(90deg, rgba(217, 170, 78, 0.24), transparent 7%, transparent 93%, rgba(217, 170, 78, 0.24)),
+        linear-gradient(90deg, var(--creature-card-edge-left, rgba(217, 170, 78, 0.24)), transparent 7%, transparent 93%, var(--creature-card-edge-right, rgba(217, 170, 78, 0.24))),
         linear-gradient(180deg, rgba(0, 0, 0, 0.18), transparent 26%, transparent 67%, rgba(0, 0, 0, 0.32)),
         radial-gradient(circle at 50% 24%, rgba(255, 228, 143, 0.14), transparent 30%);
 }
@@ -1688,8 +1696,8 @@ span.card-aspect-placeholder {
 }
 
 .creature-card__core-row--arcane {
-    width: 50%;
-    grid-template-columns: repeat(2, minmax(42px, 1fr));
+    min-width: 110%;
+    grid-template-columns: repeat(auto-fit, minmax(43px, 1fr));
     justify-self: center;
 }
 
