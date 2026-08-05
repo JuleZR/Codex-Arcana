@@ -2055,6 +2055,7 @@ class Spell(models.Model):
         NIGHT = "Nacht", "Nacht"
         DAY = "Tag", "Tag"
         WEEK = "Woche", "Woche"
+        YEAR = "Jahr", "Jahr"
         HOUR = "Stunde", "Stunde"
         MINUTE = "Minute", "Minute"
 

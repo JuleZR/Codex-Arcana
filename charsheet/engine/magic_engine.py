@@ -151,6 +151,7 @@ def _build_spell_tooltip(entry: CharacterSpell, *, school_levels: dict[int, int]
         "Person": "Personen",
         "Tag": "Tage",
         "Woche": "Wochen",
+        "Jahr": "Jahre",
         "Runde": "Runden",
     }
 

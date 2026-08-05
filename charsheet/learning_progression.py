@@ -176,6 +176,7 @@ def _spell_unit_label(unit_display: str, number: int) -> str:
         "Person": "Personen",
         "Tag": "Tage",
         "Woche": "Wochen",
+        "Jahr": "Jahre",
         "Runde": "Runden",
     }
     if number != 1 and unit_display in plural_map:
