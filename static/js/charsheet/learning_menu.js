@@ -63,11 +63,7 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
     return total;
   };
 
-  const syncSpellSlotTable = () => {
-    const table = document.querySelector("[data-learn-slot-table]");
-    if (!(table instanceof HTMLElement)) {
-      return;
-    }
+  const selectedSpellSlotsBySourceGrade = () => {
     const selectedBySourceGrade = new Map();
     getRows().forEach((row) => {
       if (!(row instanceof HTMLElement) || row.getAttribute("data-kind") !== "magic-spell") {
@@ -83,6 +79,15 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
         selectedBySourceGrade.set(key, (selectedBySourceGrade.get(key) || 0) + (value * slotCost));
       }
     });
+    return selectedBySourceGrade;
+  };
+
+  const syncSpellSlotTable = () => {
+    const table = document.querySelector("[data-learn-slot-table]");
+    if (!(table instanceof HTMLElement)) {
+      return;
+    }
+    const selectedBySourceGrade = selectedSpellSlotsBySourceGrade();
     Array.from(table.querySelectorAll("[data-learn-slot-cell]")).forEach((cell) => {
       if (!(cell instanceof HTMLElement)) {
         return;
@@ -98,6 +103,28 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
       } else {
         cell.removeAttribute("aria-label");
       }
+    });
+  };
+
+  const syncSpellSlotCards = (spentSpellSlotsBySource = new Map()) => {
+    const cards = Array.from(document.querySelectorAll("[data-learn-school-slot-card]"));
+    if (!cards.length) {
+      return;
+    }
+    cards.forEach((card) => {
+      if (!(card instanceof HTMLElement)) {
+        return;
+      }
+      const sourceKey = card.getAttribute("data-slot-source-key") || "";
+      const baseRemaining = readInt(card.getAttribute("data-slot-source-remaining") || "0", 0);
+      const selected = spentSpellSlotsBySource.get(sourceKey) || 0;
+      const remainingTotal = Math.max(0, baseRemaining - selected);
+      const countEl = card.querySelector("[data-learn-school-slot-count]");
+      if (countEl) {
+        countEl.textContent = String(remainingTotal);
+      }
+      card.classList.toggle("is-empty", remainingTotal <= 0);
+      card.setAttribute("aria-label", `${remainingTotal} freie Slots`);
     });
   };
 
@@ -398,6 +425,7 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
       chip.classList.toggle("is-empty", sourceRemaining === 0);
     });
     syncSpellSlotTable();
+    syncSpellSlotCards(spentSpellSlotsBySource);
     if (liveValidationHint) {
       const messages = [];
       if (remaining < 0) {
