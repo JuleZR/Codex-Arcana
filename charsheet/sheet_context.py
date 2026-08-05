@@ -2577,7 +2577,7 @@ def _build_skill_rows(
         has_specification = skill.requires_specification and normalized_spec and normalized_spec != "*"
         display_name = skill.name.rstrip(": ").strip()
         if skill.requires_specification:
-            return f"{display_name} {normalized_spec if has_specification else '*'}"
+            return normalized_spec if has_specification else "*"
         if has_specification:
             return f"{display_name} {normalized_spec}"
         return display_name
@@ -2613,7 +2613,8 @@ def _build_skill_rows(
         total_with_load = rank + attribute_modifier + raw_modifiers + size_modifier
         return {
             "row_kind": "skill",
-            "is_context_row": False,
+            "is_context_row": bool(skill.requires_specification),
+            "is_specification_child": bool(skill.requires_specification),
             "character_skill_id": character_skill.id if character_skill is not None else None,
             "skill_id": skill.id,
             "name": skill.name,
@@ -2670,6 +2671,39 @@ def _build_skill_rows(
             "specification": "" if specification == "*" else specification,
             "is_auto_visible": character_skill is None,
         }
+
+    def _build_specification_parent_row(skill: Skill) -> dict:
+        return {
+            "row_kind": "skill_specification_parent",
+            "is_context_row": False,
+            "is_specification_parent": True,
+            "skill_id": skill.id,
+            "name": skill.name,
+            "display_name": skill.name.rstrip(": ").strip(),
+            "description": skill.description,
+            "category_name": skill.category.name,
+            "category_slug": skill.category.slug,
+            "family": skill.family,
+            "attribute": "",
+            "attribute_mod": "",
+            "rank": "",
+            "misc_mod": "",
+            "total": "",
+            "with_load_total": "",
+            "calculation_tooltip": "",
+            "can_edit_specification": False,
+            "specification": "",
+            "is_auto_visible": False,
+        }
+
+    def _append_skill_rows(skill: Skill, rows: list[dict]) -> None:
+        if not rows:
+            return
+        if skill.requires_specification:
+            skill_rows.append(_build_specification_parent_row(skill))
+        for row in rows:
+            skill_rows.append(row)
+            skill_rows.extend(_build_display_context_rows(row, skill))
 
     def _build_weapon_context_rows(base_row: dict) -> list[dict]:
         skill_id = int(base_row["skill_id"])
@@ -2903,26 +2937,27 @@ def _build_skill_rows(
     for skill in skills_by_id.values():
         rows_for_skill = character_skills_by_skill_id.get(skill.id, [])
         if rows_for_skill:
+            visible_rows = []
             for character_skill in rows_for_skill:
                 row = _build_row(skill, character_skill=character_skill)
-                skill_rows.append(row)
-                skill_rows.extend(_build_display_context_rows(row, skill))
+                visible_rows.append(row)
+            _append_skill_rows(skill, visible_rows)
             continue
         if skill.requires_specification:
+            visible_rows = []
             for specification in engine.modifier_skill_specifications(skill.id, skill.slug):
                 if not specification:
                     continue
                 row = _build_row(skill, specification_override=specification)
                 context_rows = _build_display_context_rows(row, skill)
                 if int(row["misc_mod_value"]) != 0 or context_rows:
-                    skill_rows.append(row)
-                    skill_rows.extend(context_rows)
+                    visible_rows.append(row)
+            _append_skill_rows(skill, visible_rows)
             continue
         has_conditional_effect = bool(_conditional_daemonic_effects(skill))
         if _external_skill_bonus(skill) != 0 or has_conditional_effect:
             row = _build_row(skill)
-            skill_rows.append(row)
-            skill_rows.extend(_build_display_context_rows(row, skill))
+            _append_skill_rows(skill, [row])
 
     skill_manager_rows: list[dict] = []
     for skill in skills_by_id.values():
