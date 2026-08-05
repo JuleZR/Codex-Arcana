@@ -120,8 +120,11 @@ def sync_armor_set_components(armor: ArmorStats) -> list[Item]:
     ):
         return []
 
+    if armor.suppress_component_generation:
+        return []
+
     parent_item = armor.item
-    selected = [] if armor.suppress_component_generation else _selected_blueprints(armor)
+    selected = _selected_blueprints(armor)
     selected_types = {
         blueprint.component_type
         for blueprint, _zones, _weight_share, _price_share in selected
