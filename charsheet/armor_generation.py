@@ -54,6 +54,12 @@ ZONE_PRICE_OVERRIDE_FIELDS = {
     "foot_right": "component_price_feet_override",
 }
 
+COMPONENT_PRICE_OVERRIDE_FIELDS = (
+    "component_price_helmet_override",
+    "component_price_torso_override",
+    *tuple(sorted(set(ZONE_PRICE_OVERRIDE_FIELDS.values()))),
+)
+
 
 def _selected_blueprints(
     armor: ArmorStats,
@@ -87,6 +93,48 @@ def _component_name(parent_name: str, label: str) -> str:
     return f"{parent_name} – {label}"
 
 
+def _component_zone_rs_overrides(
+    armor: ArmorStats,
+    covered_zones: tuple[str, ...],
+    selected_main_zone_count: int,
+) -> dict[str, int]:
+    """Return component zone RS values that keep generated sets total-equivalent."""
+    overrides = {
+        zone: value
+        for zone, value in (armor.zone_rs_overrides or {}).items()
+        if zone in covered_zones
+    }
+    if selected_main_zone_count and selected_main_zone_count < len(ArmorStats.MAIN_ZONE_FIELDS):
+        normalized_rs = int(
+            (
+                Decimal(armor.rs)
+                * Decimal(len(ArmorStats.MAIN_ZONE_FIELDS))
+                / Decimal(selected_main_zone_count)
+            ).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+        )
+        for zone in covered_zones:
+            if zone in ArmorStats.MAIN_ZONE_FIELDS and zone not in overrides:
+                overrides[zone] = normalized_rs
+    return overrides
+
+
+def _split_int_total(total: int, shares: list[Decimal]) -> list[int]:
+    """Split an integer total by decimal shares and keep the exact total."""
+    if not shares:
+        return []
+    share_total = sum(shares, Decimal("0"))
+    if not share_total:
+        values = [0 for _share in shares]
+        values[-1] = int(total)
+        return values
+    values = [
+        int((Decimal(total) * share / share_total).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+        for share in shares
+    ]
+    values[-1] += int(total) - sum(values)
+    return values
+
+
 def _has_external_references(component_item: Item) -> bool:
     """Return whether deleting a generated item would remove other game data."""
     for relation in component_item._meta.related_objects:
@@ -106,25 +154,16 @@ def _has_external_references(component_item: Item) -> bool:
     return False
 
 
-@transaction.atomic
-def sync_armor_set_components(armor: ArmorStats) -> list[Item]:
-    """Create or update physical base items for one armor-set definition.
-
-    CharacterItem overrides are intentionally outside this routine. Generated
-    components always derive from the catalog/group base item only.
-    """
+def validate_armor_set_component_sync(armor: ArmorStats) -> None:
+    """Raise when synchronizing would delete generated items in active use."""
     if (
         not armor.pk
         or armor.item.item_type != Item.ItemType.ARMOR
         or armor.parent_set_id
     ):
-        return []
+        return
 
-    if armor.suppress_component_generation:
-        return []
-
-    parent_item = armor.item
-    selected = _selected_blueprints(armor)
+    selected = [] if armor.suppress_component_generation else _selected_blueprints(armor)
     selected_types = {
         blueprint.component_type
         for blueprint, _zones, _weight_share, _price_share in selected
@@ -154,6 +193,52 @@ def sync_armor_set_components(armor: ArmorStats) -> list[Item]:
             }
         )
 
+
+@transaction.atomic
+def sync_armor_set_components(armor: ArmorStats) -> list[Item]:
+    """Create or update physical base items for one armor-set definition.
+
+    CharacterItem overrides are intentionally outside this routine. Generated
+    components always derive from the catalog/group base item only.
+    """
+    if (
+        not armor.pk
+        or armor.item.item_type != Item.ItemType.ARMOR
+        or armor.parent_set_id
+    ):
+        return []
+
+    parent_item = armor.item
+    selected = [] if armor.suppress_component_generation else _selected_blueprints(armor)
+    selected_types = {
+        blueprint.component_type
+        for blueprint, _zones, _weight_share, _price_share in selected
+    }
+    selected_main_zone_count = len(
+        {
+            zone
+            for _blueprint, covered_zones, _weight_share, _price_share in selected
+            for zone in covered_zones
+            if zone in ArmorStats.MAIN_ZONE_FIELDS
+        }
+    )
+    existing_components = {
+        component.component_type: component
+        for component in armor.components.select_related("item")
+    }
+
+    stale_components = [
+        component
+        for component_type, component in existing_components.items()
+        if component_type not in selected_types
+    ]
+    validate_armor_set_component_sync(armor)
+
+    if not selected:
+        for component in stale_components:
+            component.item.delete()
+        return []
+
     total_weight_share = sum(
         (weight_share for _entry, _zones, weight_share, _price_share in selected),
         Decimal("0"),
@@ -174,6 +259,10 @@ def sync_armor_set_components(armor: ArmorStats) -> list[Item]:
         )
         for field_name in set(ZONE_PRICE_OVERRIDE_FIELDS.values())
     }
+    has_price_overrides = any(
+        getattr(armor, field_name) is not None
+        for field_name in COMPONENT_PRICE_OVERRIDE_FIELDS
+    )
     raw_component_prices: list[Decimal] = []
     for blueprint, covered_zones, _weight_share, _price_share in selected:
         if blueprint.component_type == "helmet":
@@ -200,10 +289,24 @@ def sync_armor_set_components(armor: ArmorStats) -> list[Item]:
                 else:
                     raw_price += Decimal(override) / override_zone_counts[override_field]
         raw_component_prices.append(raw_price)
+    if raw_component_prices and not has_price_overrides:
+        total_price_share = sum(
+            (price_share for _blueprint, _zones, _weight_share, price_share in selected),
+            Decimal("0"),
+        )
+        if total_price_share:
+            raw_component_prices = [
+                raw_price / total_price_share
+                for raw_price in raw_component_prices
+            ]
     component_prices = [
         int(raw_price.quantize(Decimal("1"), rounding=ROUND_HALF_UP))
         for raw_price in raw_component_prices
     ]
+    component_encumbrances = _split_int_total(
+        int(armor.encumbrance),
+        [weight_share for _blueprint, _zones, weight_share, _price_share in selected],
+    )
     if selected:
         component_weights[-1] += Decimal(parent_item.weight) - sum(component_weights, Decimal("0"))
         target_component_price = int(
@@ -261,7 +364,7 @@ def sync_armor_set_components(armor: ArmorStats) -> list[Item]:
             component_stats = ArmorStats(
                 item=component_item,
                 rs_total=armor.rs,
-                encumbrance=0,
+                encumbrance=component_encumbrances[index],
                 min_st=max(1, armor.min_st),
                 suppress_component_generation=True,
                 parent_set=armor,
@@ -270,13 +373,13 @@ def sync_armor_set_components(armor: ArmorStats) -> list[Item]:
             )
         else:
             component_stats.rs_total = armor.rs
-            component_stats.encumbrance = 0
+            component_stats.encumbrance = component_encumbrances[index]
             component_stats.min_st = max(1, armor.min_st)
-        component_stats.zone_rs_overrides = {
-            zone: value
-            for zone, value in (armor.zone_rs_overrides or {}).items()
-            if zone in covered_zones
-        }
+        component_stats.zone_rs_overrides = _component_zone_rs_overrides(
+            armor,
+            covered_zones,
+            selected_main_zone_count,
+        )
         if component_stats.pk:
             for field_name, value in coverage_updates.items():
                 setattr(component_stats, field_name, value)

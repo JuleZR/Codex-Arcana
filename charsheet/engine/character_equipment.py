@@ -391,6 +391,11 @@ def equipped_shield_rows(engine) -> list[dict]:
 
 def armor_zone_protection(engine) -> dict[str, int]:
     """Return zone protection including effective quality and item-rune bonuses."""
+    return _armor_zone_protection(engine, for_grs=False)
+
+
+def _armor_zone_protection(engine, *, for_grs: bool = False) -> dict[str, int]:
+    """Return zone protection for display or the normalized GRS basis."""
     totals = {
         "head": 0,
         "face": 0,
@@ -408,15 +413,48 @@ def armor_zone_protection(engine) -> dict[str, int]:
         "leg_right": 0,
         "foot_right": 0,
     }
+    component_groups: dict[int, dict[str, object]] = {}
     for character_item in engine.equipped_armor_items():
-        zone_values = ItemEngine(character_item).get_armor_zone_rs()
+        item_engine = ItemEngine(character_item)
+        zone_values = item_engine.get_armor_grs_zone_rs() if for_grs else item_engine.get_armor_zone_rs()
         if not zone_values:
             continue
         rune_bonus = _character_item_specific_rune_modifier(engine, character_item, DEFENSE_RS)
+        adjusted_zone_values: dict[str, int] = {}
         for field_name in totals:
             if field_name not in zone_values:
                 continue
-            totals[field_name] += max(0, int(zone_values[field_name] or 0) + rune_bonus)
+            adjusted_zone_values[field_name] = max(0, int(zone_values[field_name] or 0) + rune_bonus)
+            totals[field_name] += adjusted_zone_values[field_name]
+        armor_stats = getattr(character_item.item, "armorstats", None)
+        if for_grs and armor_stats is not None and armor_stats.parent_set_id:
+            group = component_groups.setdefault(
+                armor_stats.parent_set_id,
+                {"zones": {}, "target_rs": 0},
+            )
+            group["target_rs"] = max(
+                int(group["target_rs"]),
+                _effective_armor_rs(engine, character_item),
+            )
+            group_zones = group["zones"]
+            for zone in armor_stats.MAIN_ZONE_FIELDS:
+                if zone in adjusted_zone_values:
+                    group_zones[zone] = int(group_zones.get(zone, 0)) + adjusted_zone_values[zone]
+    if for_grs:
+        for group in component_groups.values():
+            group_zones = group["zones"]
+            if len(group_zones) <= 1:
+                continue
+            target_sum = int(group["target_rs"]) * 6
+            current_sum = sum(int(value or 0) for value in group_zones.values())
+            if current_sum >= target_sum:
+                continue
+            target_zone = next(
+                zone
+                for zone in reversed(("head", "torso", "arm_left", "arm_right", "leg_left", "leg_right"))
+                if zone in group_zones
+            )
+            totals[target_zone] += target_sum - current_sum
     return totals
 
 
@@ -465,7 +503,7 @@ def equipped_magic_item_rows(engine) -> list[dict]:
 
 def get_grs(engine) -> int:
     """Calculate GRS from the six main hit zones, rounding only once."""
-    zone_totals = armor_zone_protection(engine)
+    zone_totals = _armor_zone_protection(engine, for_grs=True)
     main_zone_sum = sum(
         int(zone_totals[zone])
         for zone in ("head", "torso", "arm_left", "arm_right", "leg_left", "leg_right")

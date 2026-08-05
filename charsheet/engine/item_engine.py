@@ -1,6 +1,6 @@
 """Helpers for item prices, quality effects, and equipment stat lookups."""
 
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 
 from charsheet.constants import (
     ATTR_GE,
@@ -430,15 +430,61 @@ class ItemEngine:
         instance_zone_overrides = dict(
             getattr(character_item, "armor_zone_rs_overrides", {}) or {}
         )
+        covered_main_zone_count = sum(
+            1
+            for zone in stats.MAIN_ZONE_FIELDS
+            if getattr(stats, f"covers_{zone}", False)
+        )
+        split_basis_rs = rs_value
+        if 1 < covered_main_zone_count < len(stats.MAIN_ZONE_FIELDS):
+            split_basis_rs = int(
+                (
+                    Decimal(rs_value)
+                    * Decimal(len(stats.MAIN_ZONE_FIELDS))
+                    / Decimal(covered_main_zone_count)
+                ).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+            )
         return {
             zone: max(
                 0,
-                int(instance_zone_overrides.get(zone, base_zone_overrides.get(zone, rs_value)))
+                int(
+                    instance_zone_overrides.get(
+                        zone,
+                        base_zone_overrides.get(
+                            zone,
+                            split_basis_rs if zone in stats.MAIN_ZONE_FIELDS else rs_value,
+                        ),
+                    )
+                )
                 + quality_bonus,
             )
             for zone in stats.ZONE_FIELDS
             if getattr(stats, f"covers_{zone}", False)
         }
+
+    def get_armor_grs_zone_rs(self) -> dict[str, int] | None:
+        """Return the main-zone RS values used as this item's GRS calculation basis."""
+        zone_values = self.get_armor_zone_rs()
+        stats = self._get_armor_stats()
+        if not zone_values or not stats:
+            return zone_values
+
+        main_zones = [
+            zone
+            for zone in stats.MAIN_ZONE_FIELDS
+            if getattr(stats, f"covers_{zone}", False)
+        ]
+        if len(main_zones) <= 1:
+            return zone_values
+
+        target_sum = int(self._get_override_value("armor_rs_total_override", stats.rs)) * len(stats.MAIN_ZONE_FIELDS)
+        current_sum = sum(int(zone_values.get(zone, 0) or 0) for zone in main_zones)
+        if current_sum >= target_sum:
+            return zone_values
+
+        adjusted = dict(zone_values)
+        adjusted[main_zones[-1]] = int(adjusted.get(main_zones[-1], 0) or 0) + (target_sum - current_sum)
+        return adjusted
 
     def get_armor_min_st(self) -> int | None:
         """Return minimum strength for this armor."""

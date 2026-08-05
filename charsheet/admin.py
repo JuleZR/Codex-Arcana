@@ -1756,10 +1756,48 @@ class SchoolCharacterInline(admin.TabularInline):
     classes = ("collapse",)
 
 
+class ArmorStatsAdminForm(forms.ModelForm):
+    """Admin form that previews generated armor component deletions."""
+
+    class Meta:
+        model = ArmorStats
+        fields = "__all__"
+
+    def clean(self):
+        cleaned_data = super().clean()
+        if self.errors:
+            return cleaned_data
+
+        model_field_names = {
+            field.name
+            for field in self.instance._meta.fields
+            if field.editable and not field.primary_key
+        }
+        original_values = {}
+        for field_name, value in cleaned_data.items():
+            if field_name not in model_field_names:
+                continue
+            original_values[field_name] = getattr(self.instance, field_name)
+            setattr(self.instance, field_name, value)
+
+        try:
+            from charsheet.armor_generation import validate_armor_set_component_sync
+
+            validate_armor_set_component_sync(self.instance)
+        except ValidationError as error:
+            self.add_error(None, error)
+        finally:
+            for field_name, value in original_values.items():
+                setattr(self.instance, field_name, value)
+
+        return cleaned_data
+
+
 class ArmorStatsInline(admin.StackedInline):
     """Inline editor for one-to-one armor stats on an item."""
 
     model = ArmorStats
+    form = ArmorStatsAdminForm
     verbose_name_plural = "Armor Stats"
     extra = 0
     max_num = 1
