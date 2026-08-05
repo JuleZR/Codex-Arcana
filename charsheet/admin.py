@@ -2284,7 +2284,7 @@ class TraitCharacterInline(admin.TabularInline):
     autocomplete_fields = ("owner",)
 
 
-class SemanticCreatureCardGrantFormMixin:
+class SemanticCreatureCardGrantFormMixin(forms.Form):
     """Add friendly fixed/dummy creature-card controls to technical effect forms."""
 
     granted_creature_card = forms.ModelChoiceField(
