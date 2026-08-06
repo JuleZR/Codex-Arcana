@@ -26,7 +26,7 @@ from charsheet.constants import (
     WEAPON_MASTERY_EFFECT_DESCRIPTION,
 )
 from charsheet.engine import ItemEngine
-from charsheet.magic_effects import TEXT_TARGET_KIND, pack_magic_effect_summary
+from charsheet.magic_effects import TEXT_TARGET_KIND
 from charsheet.modifiers.definitions import ModifierOperator, TargetDomain
 from charsheet.models import (
     ArmorStats,
@@ -383,7 +383,23 @@ def _read_rune_payloads(post_data) -> list[dict[str, object]]:
 def _magic_payload_to_semantic_effect_kwargs(payload: dict[str, object]) -> dict[str, object] | None:
     """Map one existing magic-effect payload into the item semantic-effect schema."""
     if str(payload.get("target_kind") or "") == TEXT_TARGET_KIND:
-        return None
+        effect_description = str(payload.get("effect_description") or "").strip()
+        if not effect_description:
+            return None
+        return {
+            "sort_order": int(payload.get("display_order") or 0),
+            "target_domain": str(TargetDomain.METADATA.value),
+            "target_key": "rules_text",
+            "operator": str(ModifierOperator.OVERRIDE.value),
+            "mode": "flat",
+            "value": "",
+            "notes": effect_description,
+            "rules_text": effect_description,
+            "metadata": {
+                "ui_target_kind": TEXT_TARGET_KIND,
+                "legacy_target_kind": TEXT_TARGET_KIND,
+            },
+        }
 
     target_kind = str(payload.get("target_kind") or "")
     target_slug = str(payload.get("target_slug") or "")
@@ -553,17 +569,8 @@ def apply_character_item_modifications(
     description = str(post_data.get("description") or "").strip()
     visible_magic_effect_summary = str(post_data.get("magic_effect_summary") or "").strip()
     magic_modifier_payloads = _read_magic_modifier_payloads(post_data)
-    text_effect_descriptions = [
-        {
-            "effect_description": str(payload.get("effect_description") or "").strip(),
-            "display_order": int(payload.get("display_order") or 0),
-        }
-        for payload in magic_modifier_payloads
-        if str(payload.get("target_kind") or "") == TEXT_TARGET_KIND
-        and str(payload.get("effect_description") or "").strip()
-    ]
-    magic_effect_summary = pack_magic_effect_summary(visible_magic_effect_summary, text_effect_descriptions)
-    is_magic = bool(magic_modifier_payloads) or bool(visible_magic_effect_summary) or bool(text_effect_descriptions)
+    magic_effect_summary = visible_magic_effect_summary
+    is_magic = bool(magic_modifier_payloads) or bool(visible_magic_effect_summary)
     weapon_stats = getattr(item, "weaponstats", None)
     armor_stats = getattr(item, "armorstats", None)
     shield_stats = getattr(item, "shieldstats", None)
@@ -767,19 +774,7 @@ def create_custom_shop_item(post_data, files_data=None, *, catalog_group=None):
     selected_runes = list(Rune.objects.filter(pk__in=selected_rune_ids))
     selected_weapon_skill_ids = _read_skill_ids(post_data, "weapon_skills")
     magic_modifier_payloads = _read_magic_modifier_payloads(post_data) if is_magic else []
-    text_effect_descriptions = [
-        {
-            "effect_description": str(payload.get("effect_description") or "").strip(),
-            "display_order": int(payload.get("display_order") or 0),
-        }
-        for payload in magic_modifier_payloads
-        if str(payload.get("target_kind") or "") == TEXT_TARGET_KIND
-        and str(payload.get("effect_description") or "").strip()
-    ]
-    magic_effect_summary = pack_magic_effect_summary(
-        str(post_data.get("magic_effect_summary") or "").strip(),
-        text_effect_descriptions,
-    )
+    magic_effect_summary = str(post_data.get("magic_effect_summary") or "").strip()
 
     if item_type in (
         Item.ItemType.ARMOR,

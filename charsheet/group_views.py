@@ -94,7 +94,6 @@ from charsheet.shop import (
     _save_magic_modifiers,
     create_custom_shop_item,
 )
-from charsheet.magic_effects import TEXT_TARGET_KIND, pack_magic_effect_summary
 from charsheet.sheet_context import (
     _load_character_item_modifier_payloads,
     _merge_magic_effect_payloads,
@@ -2871,21 +2870,11 @@ def edit_group_inventory_item(request, group_id: int, item_id: int):
             magic_modifier_payloads = _read_magic_modifier_payloads(request.POST)
         except (ValidationError, ValueError) as exc:
             raise GroupError("invalid_magic_effect", "Mindestens ein magischer Effekt ist ungültig.") from exc
-        text_effect_descriptions = [
-            {
-                "effect_description": str(payload.get("effect_description") or "").strip(),
-                "display_order": int(payload.get("display_order") or 0),
-            }
-            for payload in magic_modifier_payloads
-            if str(payload.get("target_kind") or "") == TEXT_TARGET_KIND
-            and str(payload.get("effect_description") or "").strip()
-        ]
-        magic_summary = pack_magic_effect_summary("", text_effect_descriptions)
         instance.amount = amount
         instance.quality = quality
         instance.name_override = "" if not name or name == instance.item.name else name
         instance.description = "" if description == str(instance.item.description or "").strip() else description
-        instance.magic_effect_summary = magic_summary
+        instance.magic_effect_summary = ""
         instance.is_magic = bool(magic_modifier_payloads)
         if request.FILES.get("image_override"):
             instance.image_override = request.FILES["image_override"]
