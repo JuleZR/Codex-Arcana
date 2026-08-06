@@ -1982,6 +1982,7 @@ class ItemSemanticEffectAdminForm(forms.ModelForm):
             return super().to_python(value)
 
     EFFECT_AREA_CHOICES = (
+        ("text", "Text"),
         ("attribute", "Eigenschaft"),
         ("derived_stat", "Abgeleiteter Wert"),
         ("combat", "Kampf / Waffe"),
@@ -2042,6 +2043,10 @@ class ItemSemanticEffectAdminForm(forms.ModelForm):
     def _apply_initial_simple_values(self):
         target_domain = str(self.initial.get("target_domain") or getattr(self.instance, "target_domain", "") or "")
         target_key = str(self.initial.get("target_key") or getattr(self.instance, "target_key", "") or "")
+        if target_domain == "metadata" and target_key == "rules_text":
+            self.initial.setdefault("effect_area", "text")
+            self.initial.setdefault("simple_operator", self.initial.get("operator") or getattr(self.instance, "operator", "override"))
+            return
         domain_to_area = {
             "attribute": "attribute",
             "derived_stat": "derived_stat",
@@ -2088,6 +2093,16 @@ class ItemSemanticEffectAdminForm(forms.ModelForm):
     def clean(self):
         cleaned_data = super().clean()
         area = cleaned_data.get("effect_area")
+        if area == "text":
+            if not str(cleaned_data.get("rules_text") or "").strip():
+                self.add_error("rules_text", "Bitte den Texteffekt eintragen.")
+            cleaned_data["target_domain"] = "metadata"
+            cleaned_data["target_key"] = "rules_text"
+            cleaned_data["operator"] = "override"
+            cleaned_data["value"] = ""
+            cleaned_data["mode"] = cleaned_data.get("mode") or "flat"
+            return cleaned_data
+
         target_domain, target_key = self._simple_target(area, cleaned_data.get("simple_target"))
         if target_domain and target_key:
             cleaned_data["target_domain"] = target_domain
@@ -2168,6 +2183,9 @@ class ItemSemanticEffectInline(admin.StackedInline):
     form = ItemSemanticEffectAdminForm
     verbose_name_plural = "Item Semantic Effects"
     extra = 0
+    class Media:
+        js = ("charsheet/js/item_semantic_effect_admin_v1.js",)
+
     fieldsets = (
         ("Einfacher Effekt", {"fields": ("sort_order", "effect_area", "simple_target", ("simple_operator", "simple_value"), "active_flag")}),
         ("Text", {"fields": ("notes", "rules_text")}),

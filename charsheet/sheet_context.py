@@ -1549,6 +1549,14 @@ def _serialize_item_semantic_effect_payload(effect: ItemSemanticEffect | Charact
     metadata = dict(effect.metadata or {})
     target_domain = str(effect.target_domain or "")
     target_key = str(effect.target_key or "")
+    if target_domain == "metadata" and target_key == "rules_text":
+        return {
+            "target_kind": TEXT_TARGET_KIND,
+            "value": 0,
+            "effect_description": str(effect.rules_text or effect.notes or ""),
+            "target_display": "",
+            "display_order": int(effect.sort_order or 0),
+        }
     try:
         raw_value = effect._coerce_scalar(effect.value)
         value = int(raw_value or 0)
