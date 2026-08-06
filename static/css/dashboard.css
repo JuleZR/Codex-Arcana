@@ -1,10 +1,10 @@
 /* Dashboard stylesheet entry point.
    Keep thematic rules in ./dashboard/*.css modules instead of growing this file again. */
-@import url("./dashboard/base.css?v=20260726a");
+@import url("./dashboard/base.css?v=20260806a");
 @import url("./dashboard/forms.css");
 @import url("./dashboard/creation.css?v=20260801b");
 @import url("./dashboard/responsive.css");
-@import url("./dashboard/game-groups.css?v=20260726a");
+@import url("./dashboard/game-groups.css?v=20260806a");
 @import url("./item-transfer-window.css");
 .dashboard_group_inventory {
   margin-top: 1rem;

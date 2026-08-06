@@ -7,7 +7,7 @@
     <link rel="icon" type="image/x-icon" href="{% static 'img/favicon.ico' %}">
     <title>Dashboard | {{ request.user.get_username }}</title>
     <link rel="stylesheet" href="{% static 'css/charsheet.css' %}">
-    <link rel="stylesheet" href="{% static 'css/dashboard.css' %}?v=20260726a">
+    <link rel="stylesheet" href="{% static 'css/dashboard.css' %}?v=20260806a">
     <script defer src="{% static 'js/game_groups.js' %}?v=20260726a"></script>
     {% if request.user.settings.dddice_enabled %}
     <script type="module" src="{% static 'js/dddice.js' %}?v=1"></script>
@@ -42,7 +42,7 @@
                   {% for character in recent_characters %}
                     <li>
                       <span>{{ character.name }}</span>
-                      <a class="dashboard_button dashboard_button--small" href="{% url 'character_sheet' character.id %}">Öffnen</a>
+                      <a class="dashboard_button dashboard_button--small dashboard_button--icon" href="{% url 'character_sheet' character.id %}" aria-label="Charakter öffnen" title="Charakter öffnen"><span aria-hidden="true">&#10138;</span></a>
                     </li>
                   {% endfor %}
                 </ul>
@@ -170,13 +170,13 @@
                               <td class="dashboard_action_cell">
                                 {% if row.is_own %}
                                   <div class="dashboard_actions_inline">
-                                    <a class="dashboard_button dashboard_button--small" href="{% url 'character_sheet' row.character.id %}">Öffnen</a>
-                                    <button type="button" class="dashboard_button dashboard_button--small" data-print-url="{% url 'character_sheet' row.character.id %}">Drucken</button>
-                                    <form method="post" action="{% url 'archive_character' row.character.id %}">{% csrf_token %}<button type="submit" class="dashboard_button dashboard_button--small">Archivieren</button></form>
-                                    <form method="post" action="{% url 'delete_character' row.character.id %}" onsubmit="return confirm('Charakter wirklich löschen?');">{% csrf_token %}<button type="submit" class="dashboard_button dashboard_button--small dashboard_button--danger">Löschen</button></form>
+                                    <a class="dashboard_button dashboard_button--small dashboard_button--icon" href="{% url 'character_sheet' row.character.id %}" aria-label="Charakter öffnen" title="Charakter öffnen"><span aria-hidden="true">&#10138;</span></a>
+                                    <button type="button" class="dashboard_button dashboard_button--small dashboard_button--icon" data-print-url="{% url 'character_sheet' row.character.id %}" aria-label="Charakter drucken" title="Charakter drucken"><span aria-hidden="true">&#9113;</span></button>
+                                    <form method="post" action="{% url 'archive_character' row.character.id %}">{% csrf_token %}<button type="submit" class="dashboard_button dashboard_button--small dashboard_button--icon" aria-label="Charakter archivieren" title="Charakter archivieren"><span aria-hidden="true">&#9638;</span></button></form>
+                                    <form method="post" action="{% url 'delete_character' row.character.id %}" onsubmit="return confirm('Charakter wirklich löschen?');">{% csrf_token %}<button type="submit" class="dashboard_button dashboard_button--small dashboard_button--icon dashboard_button--danger" aria-label="Charakter löschen" title="Charakter löschen"><span aria-hidden="true">&#10005;</span></button></form>
                                   </div>
                                 {% elif section.is_gm %}
-                                  <a class="dashboard_button dashboard_button--small" target="_blank" rel="noopener" href="{% url 'game_master_character_sheet' section.group.id row.character.id %}">Bogen lesen</a>
+                                  <a class="dashboard_button dashboard_button--small dashboard_button--icon" target="_blank" rel="noopener" href="{% url 'game_master_character_sheet' section.group.id row.character.id %}" aria-label="Bogen lesen" title="Bogen lesen"><span aria-hidden="true">&#9776;</span></a>
                                 {% endif %}
                               </td>
                             </tr>
@@ -194,10 +194,10 @@
                               <td>{{ row.status.condition }}</td>
                               <td class="dashboard_action_cell">
                                 <div class="dashboard_actions_inline">
-                                  <a class="dashboard_button dashboard_button--small" href="{% url 'character_sheet' row.character.id %}">Öffnen</a>
-                                  <button type="button" class="dashboard_button dashboard_button--small" data-print-url="{% url 'character_sheet' row.character.id %}">Drucken</button>
-                                  <form method="post" action="{% url 'archive_character' row.character.id %}">{% csrf_token %}<button type="submit" class="dashboard_button dashboard_button--small">Archivieren</button></form>
-                                  <form method="post" action="{% url 'delete_character' row.character.id %}" onsubmit="return confirm('Charakter wirklich löschen?');">{% csrf_token %}<button type="submit" class="dashboard_button dashboard_button--small dashboard_button--danger">Löschen</button></form>
+                                  <a class="dashboard_button dashboard_button--small dashboard_button--icon" href="{% url 'character_sheet' row.character.id %}" aria-label="Charakter öffnen" title="Charakter öffnen"><span aria-hidden="true">&#10138;</span></a>
+                                  <button type="button" class="dashboard_button dashboard_button--small dashboard_button--icon" data-print-url="{% url 'character_sheet' row.character.id %}" aria-label="Charakter drucken" title="Charakter drucken"><span aria-hidden="true">&#9113;</span></button>
+                                  <form method="post" action="{% url 'archive_character' row.character.id %}">{% csrf_token %}<button type="submit" class="dashboard_button dashboard_button--small dashboard_button--icon" aria-label="Charakter archivieren" title="Charakter archivieren"><span aria-hidden="true">&#9638;</span></button></form>
+                                  <form method="post" action="{% url 'delete_character' row.character.id %}" onsubmit="return confirm('Charakter wirklich löschen?');">{% csrf_token %}<button type="submit" class="dashboard_button dashboard_button--small dashboard_button--icon dashboard_button--danger" aria-label="Charakter löschen" title="Charakter löschen"><span aria-hidden="true">&#10005;</span></button></form>
                                 </div>
                               </td>
                             </tr>
