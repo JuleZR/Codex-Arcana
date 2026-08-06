@@ -1738,13 +1738,29 @@ def _build_character_item_magic_tooltip_rows(*, effect_summary: str, modifier_pa
 def _load_character_item_modifier_payloads(
     character_items: list[CharacterItem],
 ) -> dict[int, list[dict[str, object]]]:
-    """Return serialized magic-modifier payloads keyed by owned item id."""
+    """Return serialized effective magic-modifier payloads keyed by owned item id."""
     if not character_items:
         return {}
     modifiers_by_character_item_id: dict[int, list[dict[str, object]]] = {}
+    item_ids = {int(entry.item_id) for entry in character_items if entry.item_id}
+    base_payloads_by_item_id: dict[int, list[dict[str, object]]] = {}
+    for effect in (
+        ItemSemanticEffect.objects
+        .filter(item_id__in=item_ids, active_flag=True)
+        .select_related("item")
+        .order_by("item_id", "sort_order", "id")
+    ):
+        base_payloads_by_item_id.setdefault(int(effect.item_id), []).append(
+            _serialize_item_semantic_effect_payload(effect)
+        )
+    for character_item in character_items:
+        base_payloads = base_payloads_by_item_id.get(int(character_item.item_id), [])
+        if base_payloads:
+            modifiers_by_character_item_id[int(character_item.id)] = list(base_payloads)
     for effect in (
         CharacterItemSemanticEffect.objects
-        .filter(character_item_id__in=[entry.id for entry in character_items])
+        .filter(character_item_id__in=[entry.id for entry in character_items], active_flag=True)
+        .select_related("character_item", "character_item__item")
         .order_by("sort_order", "id")
     ):
         modifiers_by_character_item_id.setdefault(int(effect.character_item_id), []).append(
