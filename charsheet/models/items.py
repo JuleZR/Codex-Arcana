@@ -385,7 +385,7 @@ class MagicItemStats(models.Model):
     """Magic-item specific metadata attached to one item."""
 
     item = models.OneToOneField(Item, on_delete=models.CASCADE)
-    effect_summary = models.CharField(max_length=255, blank=True, default="")
+    effect_summary = models.TextField(blank=True, default="")
 
     def clean(self):
         super().clean()
