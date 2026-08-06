@@ -403,114 +403,660 @@ if (dddiceCheckbox) {
   dddiceCheckbox.addEventListener("change", updateDDDdiceFields);
   updateDDDdiceFields();
 }
-        const printButtons = Array.from(document.querySelectorAll("[data-print-url]"));
-        let activePrintFrame = null;
+        let activePrintHost = null;
+        let activePrintStyle = null;
 
-        const cleanupPrintFrame = function () {
-          if (activePrintFrame && activePrintFrame.parentNode) {
-            activePrintFrame.parentNode.removeChild(activePrintFrame);
+        const cleanupCharacterPrint = function () {
+          if (activePrintHost && activePrintHost.parentNode) {
+            activePrintHost.parentNode.removeChild(activePrintHost);
           }
-          activePrintFrame = null;
+          if (activePrintStyle && activePrintStyle.parentNode) {
+            activePrintStyle.parentNode.removeChild(activePrintStyle);
+          }
+          document.body.classList.remove("is-vampire-sheet", "has-cultist-corruption");
+          Array.from(document.body.classList).forEach(function (className) {
+            if (/^cultist-corruption--level-\d+$/.test(className)) {
+              document.body.classList.remove(className);
+            }
+          });
+          activePrintHost = null;
+          activePrintStyle = null;
         };
 
-        const cloneSheetMarkup = function (htmlText) {
+        const waitForCharacterPrintAssets = function (host) {
+          const waits = [];
+          if (document.fonts && typeof document.fonts.ready?.then === "function") {
+            waits.push(document.fonts.ready.catch(function () {}));
+          }
+          host.querySelectorAll("img").forEach(function (image) {
+            if (image.complete) {
+              return;
+            }
+            waits.push(new Promise(function (resolve) {
+              image.addEventListener("load", resolve, { once: true });
+              image.addEventListener("error", resolve, { once: true });
+            }));
+          });
+          return Promise.race([
+            Promise.all(waits),
+            new Promise(function (resolve) { window.setTimeout(resolve, 2500); }),
+          ]);
+        };
+
+        const buildCharacterPrintHost = function (htmlText) {
           const parser = new DOMParser();
           const sourceDoc = parser.parseFromString(htmlText, "text/html");
-          sourceDoc.querySelectorAll("script").forEach(function (script) {
-            script.remove();
-          });
-          if (sourceDoc.body) {
-            sourceDoc.body.classList.add("print-popup-host");
+          const sheet = sourceDoc.querySelector(".book-spread");
+          if (!sheet) {
+            throw new Error("character sheet markup missing");
           }
 
-          const helperStyle = sourceDoc.createElement("style");
-          helperStyle.textContent = `
-@media screen {
-  html, body {
-    width: 100vw !important;
-    height: 100vh !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    overflow: hidden !important;
-    background: #f3efe6 !important;
+          const host = document.createElement("div");
+          host.className = "dashboard-print-host charsheet-page";
+          host.setAttribute("aria-hidden", "true");
+          if (sourceDoc.body) {
+            sourceDoc.body.classList.forEach(function (className) {
+              if (className === "is-vampire-sheet" || className === "has-cultist-corruption" || /^cultist-corruption--level-\d+$/.test(className)) {
+                document.body.classList.add(className);
+              }
+            });
+          }
+          host.appendChild(sheet.cloneNode(true));
+          return host;
+        };
+
+        const normalizePrintTooltipText = function (value) {
+          return String(value || "")
+            .replace(/\[\[[^\]]+\]\]/g, "")
+            .replace(/\*\*/g, "")
+            .split(/\r?\n/)
+            .map(function (line) { return line.trim(); })
+            .filter(function (line) {
+              return line && !/^\|?\s*-+\s*(\|\s*-+\s*)*\|?$/.test(line);
+            })
+            .join("\n")
+            .trim();
+        };
+
+        const appendPrintTooltipBody = function (card, tooltip) {
+          if (!tooltip) {
+            return;
+          }
+          const lines = tooltip.split(/\n+/).map(function (line) { return line.trim(); }).filter(Boolean);
+          let pendingText = [];
+          let pendingTable = [];
+
+          const flushText = function () {
+            if (!pendingText.length) {
+              return;
+            }
+            const text = document.createElement("p");
+            text.className = "dashboard-print-tooltip-card__text";
+            text.textContent = pendingText.join("\n");
+            card.appendChild(text);
+            pendingText = [];
+          };
+
+          const flushTable = function () {
+            if (!pendingTable.length) {
+              return;
+            }
+            const table = document.createElement("dl");
+            table.className = "dashboard-print-tooltip-card__stats";
+            const textFallbacks = [];
+            pendingTable.forEach(function (line) {
+              const parts = line.split("|").map(function (part) { return part.trim(); }).filter(Boolean);
+              if (!parts.length) {
+                return;
+              }
+              if (parts.length === 1 || parts.slice(1).every(function (part) { return part === "-"; })) {
+                textFallbacks.push(parts.join(" "));
+                return;
+              }
+              const label = document.createElement("dt");
+              label.textContent = parts[0];
+              const value = document.createElement("dd");
+              value.textContent = parts.slice(1).join(" · ") || "-";
+              table.append(label, value);
+            });
+            if (table.childElementCount) {
+              card.appendChild(table);
+            }
+            if (textFallbacks.length) {
+              const text = document.createElement("p");
+              text.className = "dashboard-print-tooltip-card__text dashboard-print-tooltip-card__text--compact";
+              text.textContent = textFallbacks.join("\n");
+              card.appendChild(text);
+            }
+            pendingTable = [];
+          };
+
+          lines.forEach(function (line) {
+            if (line.indexOf("|") !== -1) {
+              flushText();
+              pendingTable.push(line);
+            } else {
+              flushTable();
+              pendingText.push(line);
+            }
+          });
+          flushTable();
+          flushText();
+        };
+
+        const findItemRuneSources = function (source) {
+          if (source.classList.contains("inv_row")) {
+            return Array.from(source.querySelectorAll(".inv_rune_entry[data-tooltip]"));
+          }
+          if (source.classList.contains("weapon_name")) {
+            const row = source.closest("tr");
+            const nextRow = row?.nextElementSibling;
+            if (nextRow?.classList.contains("weapon_rune_row")) {
+              return Array.from(nextRow.querySelectorAll(".inv_rune_entry[data-tooltip]"));
+            }
+          }
+          return [];
+        };
+
+        const appendItemRunesToPrintCard = function (card, source) {
+          const runes = findItemRuneSources(source);
+          if (!runes.length) {
+            return;
+          }
+          const section = document.createElement("section");
+          section.className = "dashboard-print-tooltip-card__runes";
+          const heading = document.createElement("h3");
+          heading.textContent = "Runen";
+          section.appendChild(heading);
+          runes.forEach(function (rune) {
+            const entry = document.createElement("article");
+            entry.className = "dashboard-print-tooltip-card__rune";
+            const imageUrl = String(rune.getAttribute("data-tooltip-image") || "").trim();
+            if (imageUrl) {
+              const image = document.createElement("img");
+              image.src = imageUrl;
+              image.alt = "";
+              entry.appendChild(image);
+            }
+            const title = document.createElement("strong");
+            title.textContent = String(rune.getAttribute("data-tooltip-title") || rune.textContent || "Rune").trim();
+            entry.appendChild(title);
+            const text = normalizePrintTooltipText(rune.getAttribute("data-tooltip"));
+            if (text) {
+              const description = document.createElement("p");
+              description.textContent = text;
+              entry.appendChild(description);
+            }
+            section.appendChild(entry);
+          });
+          card.appendChild(section);
+        };
+
+        const makeCharacterPrintTooltipCard = function (source) {
+          const title = String(source.getAttribute("data-tooltip-title") || source.textContent || "Details").trim();
+          const tooltip = normalizePrintTooltipText(source.getAttribute("data-tooltip"));
+          if (!title || (!tooltip && !source.getAttribute("data-tooltip-subtitle"))) {
+            return null;
+          }
+          const card = document.createElement("article");
+          card.className = "dashboard-print-tooltip-card";
+          const accent = String(source.getAttribute("data-tooltip-accent") || "").trim();
+          if (accent) {
+            card.style.setProperty("--dashboard-print-card-accent", accent);
+          }
+          const imageUrl = String(source.getAttribute("data-tooltip-image") || "").trim();
+          if (imageUrl) {
+            const image = document.createElement("img");
+            image.className = "dashboard-print-tooltip-card__image";
+            image.src = imageUrl;
+            image.alt = "";
+            card.appendChild(image);
+          }
+          const heading = document.createElement("h2");
+          heading.textContent = title;
+          card.appendChild(heading);
+          const subtitle = String(source.getAttribute("data-tooltip-subtitle") || "").trim();
+          if (subtitle) {
+            const subtitleNode = document.createElement("p");
+            subtitleNode.className = "dashboard-print-tooltip-card__subtitle";
+            subtitleNode.textContent = subtitle;
+            card.appendChild(subtitleNode);
+          }
+          appendPrintTooltipBody(card, tooltip);
+          appendItemRunesToPrintCard(card, source);
+          return card;
+        };
+
+        const collectCharacterPrintTooltipCards = function (root, selector) {
+          const seen = new Set();
+          return Array.from(root.querySelectorAll(selector))
+            .map(function (source) {
+              const subtitle = String(source.getAttribute("data-tooltip-subtitle") || "").trim().toLowerCase();
+              if (source.classList.contains("inv_rune_entry")) {
+                return null;
+              }
+              if (
+                subtitle === "rune" &&
+                (source.classList.contains("inv_row") || source.classList.contains("weapon_name") || source.classList.contains("armor_row"))
+              ) {
+                return null;
+              }
+              const key = source.getAttribute("data-tooltip-card-key")
+                || source.getAttribute("data-tooltip-title")
+                || source.textContent;
+              const normalizedKey = String(key || "").trim();
+              if (!normalizedKey || seen.has(normalizedKey)) {
+                return null;
+              }
+              seen.add(normalizedKey);
+              return makeCharacterPrintTooltipCard(source);
+            })
+            .filter(Boolean);
+        };
+
+        const makeCharacterPrintAppendixPage = function (title) {
+          const page = document.createElement("article");
+          page.className = "page dashboard-print-appendix-page";
+          const heading = document.createElement("h1");
+          heading.textContent = title;
+          const body = document.createElement("div");
+          body.className = "dashboard-print-appendix-body";
+          const grid = document.createElement("div");
+          grid.className = "dashboard-print-tooltip-grid";
+          const left = document.createElement("div");
+          left.className = "dashboard-print-tooltip-grid__column";
+          const right = document.createElement("div");
+          right.className = "dashboard-print-tooltip-grid__column";
+          grid.append(left, right);
+          body.appendChild(grid);
+          page.append(heading, body);
+          return page;
+        };
+
+        const appendCharacterPrintCardPages = function (spread, title, cards) {
+          if (!cards.length) {
+            return;
+          }
+          let page = makeCharacterPrintAppendixPage(title);
+          let grid = page.querySelector(".dashboard-print-tooltip-grid");
+          let columns = Array.from(grid.querySelectorAll(".dashboard-print-tooltip-grid__column"));
+          spread.appendChild(page);
+          let maxColumnHeight = page.querySelector(".dashboard-print-appendix-body").getBoundingClientRect().height || 1000;
+          cards.forEach(function (card) {
+            let column = columns[0].scrollHeight <= columns[1].scrollHeight ? columns[0] : columns[1];
+            column.appendChild(card);
+            if (column.scrollHeight > maxColumnHeight && column.childElementCount > 1) {
+              column.removeChild(card);
+              page = makeCharacterPrintAppendixPage(title + " (Fortsetzung)");
+              grid = page.querySelector(".dashboard-print-tooltip-grid");
+              columns = Array.from(grid.querySelectorAll(".dashboard-print-tooltip-grid__column"));
+              spread.appendChild(page);
+              maxColumnHeight = page.querySelector(".dashboard-print-appendix-body").getBoundingClientRect().height || maxColumnHeight;
+              columns[0].appendChild(card);
+            }
+          });
+        };
+
+        const appendCharacterPrintAppendices = function (host) {
+          const spread = host.querySelector(".book-spread");
+          if (!spread) {
+            return;
+          }
+          [
+            ["Techniken & Kampfschulen", ".p2_schools [data-tooltip-card-variant='skill']"],
+            ["Zauber", "#lowerPanelSpells [data-tooltip-card-variant='spell']"],
+            ["Lektionen", "#lowerPanelLessons [data-tooltip-title]"],
+            ["Waffenmeister", "#lowerPanelWaffenmeister [data-tooltip]"],
+            ["Dämonische Kräfte", "#lowerPanelDaemonicPowers [data-tooltip], #lowerPanelDaemonicPowers details"],
+            ["Vampir", "#lowerPanelVampire [data-tooltip-card-variant='spell']"],
+            ["Ausrüstung & Waffen", "#sheetInventoryPanel > .inventory_scroll [data-tooltip-mode='card'], #sheetWeaponPanel .weapon_name[data-tooltip-mode='card'], #sheetArmorPanel .armor_row[data-tooltip-mode='card']"],
+          ].forEach(function (entry) {
+            appendCharacterPrintCardPages(
+              spread,
+              entry[0],
+              collectCharacterPrintTooltipCards(spread, entry[1])
+            );
+          });
+        };
+
+        const installCharacterPrintStyle = function () {
+          const style = document.createElement("style");
+          style.textContent = `
+@page {
+  size: A4 portrait;
+  margin: 0;
+}
+
+.dashboard-print-host {
+  position: fixed;
+  left: -10000px;
+  top: 0;
+  width: 210mm;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.dashboard-print-host .char_info_table .char_info_row_title,
+.dashboard-print-host .char_info_table tbody tr {
+  display: table-row !important;
+}
+
+.dashboard-print-host .book-spread {
+  display: block;
+  min-height: 0;
+  width: 210mm;
+  padding: 0;
+  margin: 0;
+}
+
+.dashboard-print-host .page {
+  width: 210mm;
+  height: 297mm;
+  max-width: none;
+  margin: 0;
+  box-shadow: none;
+  clip-path: none;
+  overflow: hidden;
+}
+
+.dashboard-print-host .page + .page {
+  margin-top: 0;
+}
+
+.dashboard-print-appendix-page {
+  display: flex;
+  flex-direction: column;
+  padding: 10px;
+}
+
+.dashboard-print-appendix-page > h1 {
+  margin: 0 0 8px;
+  padding-bottom: 5px;
+  border-bottom: 1px solid rgba(74, 55, 38, 0.38);
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-size: 1.6rem;
+  color: var(--line);
+}
+
+.dashboard-print-appendix-body {
+  flex: 1 1 auto;
+  height: auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.dashboard-print-tooltip-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  align-items: start;
+}
+
+.dashboard-print-tooltip-grid__column {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-width: 0;
+  min-height: 0;
+}
+
+.dashboard-print-tooltip-card {
+  min-height: 0;
+  overflow: visible;
+  padding: 8px 9px;
+  border: 1px solid rgba(74, 55, 38, 0.34);
+  border-left: 4px solid var(--dashboard-print-card-accent, rgba(116, 82, 46, 0.58));
+  border-radius: 6px;
+  background:
+    linear-gradient(180deg, rgba(248, 243, 230, 0.72), rgba(235, 228, 212, 0.58)),
+    url("/static/img/pergamentbg.jpg") center / cover no-repeat;
+  box-shadow: inset 0 0 0 1px rgba(255, 248, 228, 0.28);
+  break-inside: avoid;
+  page-break-inside: avoid;
+  align-self: start;
+  width: 100%;
+  margin: 0;
+}
+
+.dashboard-print-tooltip-card__image {
+  float: right;
+  width: 46px;
+  height: 46px;
+  margin: 0 0 4px 6px;
+  object-fit: cover;
+  border-radius: 5px;
+  border: 1px solid rgba(74, 55, 38, 0.26);
+}
+
+.dashboard-print-tooltip-card h2 {
+  margin: 0;
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-size: 1.18rem;
+  line-height: 1.12;
+  color: var(--line);
+}
+
+.dashboard-print-tooltip-card__subtitle {
+  margin: 2px 0 6px;
+  font-size: 0.74rem;
+  line-height: 1.16;
+  color: rgba(63, 45, 31, 0.72);
+}
+
+.dashboard-print-tooltip-card__text {
+  margin: 6px 0 0;
+  white-space: pre-line;
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-size: 0.92rem;
+  line-height: 1.34;
+  color: #3f2d1f;
+}
+
+.dashboard-print-tooltip-card__stats {
+  display: grid;
+  grid-template-columns: minmax(4.6rem, 34%) minmax(0, 1fr);
+  gap: 1px 8px;
+  margin: 4px 0 0;
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-size: 0.84rem;
+  line-height: 1.2;
+}
+
+.dashboard-print-tooltip-card__stats dt,
+.dashboard-print-tooltip-card__stats dd {
+  min-width: 0;
+  margin: 0;
+  padding: 1px 0;
+  border-bottom: 1px solid rgba(74, 55, 38, 0.16);
+}
+
+.dashboard-print-tooltip-card__stats dt {
+  color: rgba(63, 45, 31, 0.72);
+  overflow-wrap: anywhere;
+}
+
+.dashboard-print-tooltip-card__stats dd {
+  color: #3f2d1f;
+}
+
+.dashboard-print-tooltip-card__text--compact {
+  font-size: 0.84rem;
+  line-height: 1.22;
+}
+
+.dashboard-print-tooltip-card__runes {
+  margin-top: 7px;
+  padding-top: 5px;
+  border-top: 1px solid rgba(74, 55, 38, 0.22);
+}
+
+.dashboard-print-tooltip-card__runes h3 {
+  margin: 0 0 4px;
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-size: 0.95rem;
+  line-height: 1.1;
+  color: var(--line);
+}
+
+.dashboard-print-tooltip-card__rune {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 2px 6px;
+  align-items: start;
+  font-family: "Cormorant Garamond", Georgia, serif;
+}
+
+.dashboard-print-tooltip-card__rune + .dashboard-print-tooltip-card__rune {
+  margin-top: 5px;
+}
+
+.dashboard-print-tooltip-card__rune img {
+  grid-row: span 2;
+  width: 30px;
+  height: 30px;
+  object-fit: cover;
+  border: 1px solid rgba(74, 55, 38, 0.24);
+  border-radius: 4px;
+}
+
+.dashboard-print-tooltip-card__rune strong {
+  font-size: 0.86rem;
+  line-height: 1.1;
+}
+
+.dashboard-print-tooltip-card__rune p {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.2;
+}
+
+@media print {
+  :root {
+    --page-width: 210mm;
+    --page-height: 297mm;
+    --page-gap: 0;
   }
 
-  .book-spread {
-    min-height: 100vh !important;
-    width: 100vw !important;
+  body > :not(.dashboard-print-host) {
+    display: none !important;
+  }
+
+  .dashboard-print-host {
+    position: static !important;
+    visibility: visible !important;
+    display: block !important;
+    width: 210mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .dashboard-print-host .book-spread {
+    display: block !important;
+    min-height: 0 !important;
+    width: auto !important;
     padding: 0 !important;
     margin: 0 !important;
+  }
+
+  .dashboard-print-host .char_info_table .char_info_row_title,
+  .dashboard-print-host .char_info_table tbody tr {
+    display: table-row !important;
+  }
+
+  .dashboard-print-host .dashboard-print-appendix-page {
+    padding: 10px !important;
+  }
+
+  .dashboard-print-host .dashboard-print-appendix-page {
+    display: flex !important;
+    flex-direction: column !important;
+    grid-template-columns: none !important;
+    grid-template-rows: none !important;
     gap: 0 !important;
-    justify-content: flex-start !important;
-    align-items: flex-start !important;
   }
 
-  .page {
-    margin: 0 !important;
-    box-shadow: none !important;
-    clip-path: none !important;
+  .dashboard-print-host .page--secondary {
+    padding: 8px !important;
+  }
+
+  .dashboard-print-host .page--secondary .p2_layout {
+    display: grid !important;
+    grid-template-columns: minmax(0, 32%) minmax(0, 68%) !important;
+    gap: 8px !important;
+    height: 100% !important;
+  }
+
+  .dashboard-print-host .page--secondary .p2_left_col,
+  .dashboard-print-host .page--secondary .p2_right_col {
+    display: flex !important;
+    flex-direction: column !important;
+    min-height: 0 !important;
+    min-width: 0 !important;
+  }
+
+  .dashboard-print-host .page--secondary .p2_inventory,
+  .dashboard-print-host .page--secondary .p2_schools,
+  .dashboard-print-host .page--secondary .p2_weapons,
+  .dashboard-print-host .page--secondary .inventory_scroll,
+  .dashboard-print-host .page--secondary .schools_scroll,
+  .dashboard-print-host .page--secondary .weapons_scroll {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+  }
+
+  .dashboard-print-host #sheetCharacterHeader {
+    display: grid !important;
+    grid-template-columns: 290px minmax(0, 1fr) !important;
+    grid-template-rows: auto 1fr !important;
+    gap: var(--card-gap) !important;
+    padding: var(--card-gap) !important;
+  }
+
+  .dashboard-print-host #sheetCharacterHeader .p1_top {
+    grid-column: 1 / -1 !important;
+  }
+
+  .dashboard-print-host #sheetCharacterHeader .p1_bottom_left {
+    grid-column: 1 !important;
+  }
+
+  .dashboard-print-host #sheetCharacterHeader .p1_bottom_right {
+    grid-column: 2 !important;
   }
 }
           `;
-          sourceDoc.head.appendChild(helperStyle);
-
-          return "<!DOCTYPE html>\n" + sourceDoc.documentElement.outerHTML;
-        };
-
-        const printViaIframe = function (url) {
-          cleanupPrintFrame();
-
-          const printFrame = document.createElement("iframe");
-          printFrame.setAttribute("aria-hidden", "true");
-          printFrame.tabIndex = -1;
-          printFrame.style.position = "fixed";
-          printFrame.style.left = "-10000px";
-          printFrame.style.top = "0";
-          printFrame.style.width = Math.max(window.innerWidth, 1400) + "px";
-          printFrame.style.height = Math.max(window.innerHeight, 1000) + "px";
-          printFrame.style.opacity = "0";
-          printFrame.style.pointerEvents = "none";
-          printFrame.style.border = "0";
-          activePrintFrame = printFrame;
-
-          printFrame.addEventListener("load", function () {
-            window.setTimeout(function () {
-              const printWindow = printFrame.contentWindow;
-              if (!printWindow) {
-                cleanupPrintFrame();
-                return;
-              }
-
-              let cleanedUp = false;
-              const finishPrint = function () {
-                if (cleanedUp) {
-                  return;
-                }
-                cleanedUp = true;
-                window.setTimeout(cleanupPrintFrame, 300);
-              };
-
-              try {
-                printWindow.addEventListener("afterprint", finishPrint, { once: true });
-              } catch (_error) {
-              }
-              window.addEventListener("focus", finishPrint, { once: true });
-              window.setTimeout(finishPrint, 60000);
-
-              printWindow.focus();
-              printWindow.print();
-            }, 700);
-          }, { once: true });
-
-          document.body.appendChild(printFrame);
-          printFrame.src = url;
+          document.head.appendChild(style);
+          return style;
         };
 
         const startCharacterPrint = function (url) {
           if (!url) {
             return;
           }
-          printViaIframe(url);
+          cleanupCharacterPrint();
+          fetch(url, { credentials: "same-origin" })
+            .then(function (response) {
+              if (!response.ok) {
+                throw new Error("character sheet print request failed");
+              }
+              return response.text();
+            })
+            .then(async function (htmlText) {
+              activePrintHost = buildCharacterPrintHost(htmlText);
+              activePrintStyle = installCharacterPrintStyle();
+              document.body.appendChild(activePrintHost);
+              if (document.fonts && typeof document.fonts.ready?.then === "function") {
+                await document.fonts.ready.catch(function () {});
+              }
+              appendCharacterPrintAppendices(activePrintHost);
+              await waitForCharacterPrintAssets(activePrintHost);
+              window.addEventListener("afterprint", cleanupCharacterPrint, { once: true });
+              window.setTimeout(cleanupCharacterPrint, 60000);
+              window.print();
+            })
+            .catch(function () {
+              cleanupCharacterPrint();
+            });
         };
 
         document.addEventListener("click", function (event) {

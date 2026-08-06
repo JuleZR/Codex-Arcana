@@ -50,6 +50,33 @@ function updateCultistCorruptionFromPayload(payload) {
   document.body.dataset.cultistCorruptionLevel = String(level);
 }
 
+function waitForPrintAssets() {
+  const waits = [];
+  if (document.readyState !== "complete") {
+    waits.push(new Promise((resolve) => {
+      window.addEventListener("load", resolve, { once: true });
+    }));
+  }
+  if (document.fonts && typeof document.fonts.ready?.then === "function") {
+    waits.push(document.fonts.ready.catch(() => {}));
+  }
+  document.querySelectorAll("img").forEach((image) => {
+    if (image.complete) {
+      return;
+    }
+    waits.push(new Promise((resolve) => {
+      image.addEventListener("load", resolve, { once: true });
+      image.addEventListener("error", resolve, { once: true });
+    }));
+  });
+  return Promise.race([
+    Promise.all(waits),
+    new Promise((resolve) => {
+      window.setTimeout(resolve, 2500);
+    }),
+  ]);
+}
+
 export function initSheetActions() {
   if (document.body.dataset.sheetActionsBound === "1") {
     return;
@@ -63,9 +90,10 @@ export function initSheetActions() {
     document.body.dataset.printTriggered !== "1"
   ) {
     document.body.dataset.printTriggered = "1";
-    window.setTimeout(() => {
+    window.setTimeout(async () => {
+      await waitForPrintAssets();
       window.print();
-    }, 250);
+    }, 500);
   }
 
   document.addEventListener("submit", async (event) => {
