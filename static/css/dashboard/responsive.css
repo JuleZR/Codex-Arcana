@@ -218,6 +218,30 @@
     max-height: calc(100dvh - 24px - 46px);
     overflow-y: auto;
   }
+
+  .dashboard_account_grid,
+  .dashboard_account_toggle_grid,
+  .dashboard_account_choice_grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard_account_shell {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard_account_nav {
+    position: static;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .dashboard_account_section_header {
+    display: block;
+  }
+
+  .dashboard_account_section_header p {
+    margin-top: 4px;
+    text-align: left;
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════

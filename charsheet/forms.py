@@ -21,6 +21,10 @@ class UserSettingsForm(forms.ModelForm):
         model = UserSettings
         fields = [
             "radial_menu_enabled",
+            "theme_mode",
+            "print_include_inventory",
+            "print_include_notes",
+            "print_compact",
             "dddice_enabled",
             "dddice_api_key",
             "dddice_room_id",

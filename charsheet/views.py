@@ -9,11 +9,13 @@ from datetime import date as date_cls
 from django.core.files.base import ContentFile
 from django.conf import settings
 from django.http import JsonResponse
+from django.http import HttpResponse
 from django.http import HttpResponseRedirect
 from django.shortcuts import get_object_or_404, redirect, render
 from django.contrib import messages
 from django.contrib.auth import logout as auth_logout
 from django.contrib.auth import update_session_auth_hash
+from django.contrib.sessions.models import Session
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LogoutView
 from django.views.decorators.http import require_POST
@@ -238,6 +240,8 @@ def update_account_settings(request):
 
     changed, password_changed = account_form.save()
     settings_changed = settings_form.has_changed()
+    if password_changed:
+        user_settings.password_changed_at = timezone.now()
     settings_form.save()
 
     if password_changed:
@@ -249,6 +253,65 @@ def update_account_settings(request):
         messages.info(request, "Keine Änderungen erkannt.")
 
     return redirect("dashboard")
+
+
+@login_required
+@require_POST
+def logout_other_sessions(request):
+    current_session_key = request.session.session_key
+    for session in Session.objects.filter(expire_date__gte=timezone.now()).iterator():
+        if session.session_key == current_session_key:
+            continue
+        data = session.get_decoded()
+        if str(data.get("_auth_user_id")) == str(request.user.pk):
+            session.delete()
+    messages.success(request, "Andere Sitzungen wurden abgemeldet.")
+    return redirect("dashboard")
+
+
+@login_required
+def export_account_data(request):
+    payload = {
+        "exported_at": timezone.now().isoformat(),
+        "user": {
+            "username": request.user.get_username(),
+            "email": request.user.email or "",
+        },
+        "characters": [],
+    }
+    characters = Character.objects.filter(owner=request.user).select_related("race").order_by("name", "id")
+    for character in characters:
+        payload["characters"].append(
+            {
+                "id": character.id,
+                "name": character.name,
+                "race": character.race.name if character.race_id else "",
+                "gender": character.gender,
+                "is_archived": character.is_archived,
+                "money": character.money,
+                "overall_experience": character.overall_experience,
+                "current_experience": character.current_experience,
+                "current_damage": character.current_damage,
+                "created_at": character.created_at.isoformat() if getattr(character, "created_at", None) else None,
+                "items": list(
+                    CharacterItem.objects.filter(owner=character)
+                    .select_related("item", "quality")
+                    .order_by("item__name", "id")
+                    .values("item__name", "amount", "equipped", "quality__name", "notes")
+                ),
+                "diary_entries": list(
+                    CharacterDiaryEntry.objects.filter(character=character)
+                    .order_by("created_at", "id")
+                    .values("title", "content", "created_at", "updated_at")
+                ),
+            }
+        )
+    response = HttpResponse(
+        json.dumps(payload, ensure_ascii=False, indent=2, default=str),
+        content_type="application/json; charset=utf-8",
+    )
+    response["Content-Disposition"] = 'attachment; filename="codex-arcana-account-export.json"'
+    return response
 
 
 @require_POST
@@ -1504,10 +1567,6 @@ def dashboard(request):
         }
         for character in characters
     ]
-    recent_characters = list(
-        characters_qs.filter(last_opened_at__isnull=False)
-        .order_by("-last_opened_at")[:5]
-    )
     pending_group_invitations = list(
         GameGroupInvitation.objects.filter(
             character__owner=request.user,
@@ -1578,32 +1637,6 @@ def dashboard(request):
                 "members": member_rows,
             }
         )
-    warnings: list[dict] = []
-    for character in characters:
-        if character.current_experience > 0:
-            warnings.append(
-                {
-                    "severity": "warning",
-                    "text": f"{character.name}: {character.current_experience} unverteilte EP.",
-                }
-            )
-        if character.current_damage > 0:
-            stage, _ = character.engine.current_wound_stage()
-            if stage == "-":
-                warnings.append(
-                    {
-                        "severity": "warning",
-                        "text": f"{character.name}: {character.current_damage} aktueller Schaden.",
-                    }
-                )
-            else:
-                warnings.append(
-                    {
-                        "severity": "warning",
-                        "text": f"{character.name}: Wundstufe {stage} bei {character.current_damage} Schaden.",
-                    }
-                )
-
     draft_count = CharacterCreationDraft.objects.filter(owner=request.user).count()
     draft_rows = []
     for draft in CharacterCreationDraft.objects.filter(owner=request.user).select_related("race").order_by("-id"):
@@ -1617,14 +1650,6 @@ def dashboard(request):
                 "phase": draft.current_phase,
             }
         )
-    if draft_count:
-        warnings.append(
-            {
-                "severity": "info",
-                "text": f"{draft_count} offene Schritte in der Charaktererstellung gefunden.",
-            }
-        )
-
     search_query = (request.GET.get("q") or "").strip()
     search_results = {}
     if search_query:
@@ -1660,26 +1685,18 @@ def dashboard(request):
     context = {
         "character_rows": character_rows,
         "archived_characters": archived_characters,
-        "recent_characters": recent_characters,
         "character_count": len(characters),
         "character_count_display": format_thousands(len(characters)),
         "total_money": totals.get("total_money") or 0,
         "total_money_display": format_thousands(int(totals.get("total_money") or 0)),
         "equipped_item_count": equipped_item_count,
         "equipped_item_count_display": format_thousands(equipped_item_count),
-        "system_counts": {
-            "items": Item.objects.filter(catalog_group__isnull=True).count(),
-            "skills": Skill.objects.count(),
-            "schools": School.objects.count(),
-            "languages": Language.objects.count(),
-        },
         "rulebook_preview": {
             "items": Item.objects.filter(catalog_group__isnull=True).order_by("name")[:6],
             "skills": Skill.objects.order_by("name")[:6],
             "schools": School.objects.order_by("name")[:6],
             "languages": Language.objects.order_by("name")[:6],
         },
-        "warnings": warnings,
         "draft_rows": draft_rows,
         "search_query": search_query,
         "search_results": search_results,

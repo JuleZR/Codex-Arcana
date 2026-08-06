@@ -8036,16 +8036,32 @@ class CharacterCreatureTraitChoiceAdmin(admin.ModelAdmin):
 class UserSettingsAdmin(admin.ModelAdmin):
     """Admin configuration for per-user sheet integration settings."""
 
-    list_display = ("user", "radial_menu_enabled", "dddice_enabled", "dddice_room_id", "dddice_dice_box", "dddice_theme_id")
+    list_display = (
+        "user",
+        "radial_menu_enabled",
+        "theme_mode",
+        "print_include_inventory",
+        "print_include_notes",
+        "print_compact",
+        "dddice_enabled",
+        "dddice_room_id",
+        "dddice_dice_box",
+        "dddice_theme_id",
+    )
     search_fields = ("user__username", "user__email", "dddice_room_id", "dddice_dice_box", "dddice_theme_id")
-    list_filter = ("radial_menu_enabled", "dddice_enabled",)
+    list_filter = ("radial_menu_enabled", "theme_mode", "print_compact", "dddice_enabled",)
     ordering = ("user",)
     fieldsets = (
         ("Benutzer", {"fields": ("user",)}),
         (
             "Charsheet",
             {
-                "fields": ("radial_menu_enabled",)
+                "fields": (
+                    "radial_menu_enabled",
+                    "theme_mode",
+                    ("print_include_inventory", "print_include_notes", "print_compact"),
+                    "password_changed_at",
+                )
             },
         ),
         (

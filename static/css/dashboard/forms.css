@@ -75,27 +75,363 @@
 }
 
 .dashboard_account_window {
-  width: min(520px, calc(100vw - 28px));
+  width: min(980px, calc(100vw - 28px));
   z-index: 7;
 }
 
 .dashboard_account_window .dashboard_account_body {
-  padding: 12px;
+  padding: 14px;
   height: auto;
-  max-height: min(620px, calc(100vh - 120px));
+  max-height: min(760px, calc(100vh - 96px));
   overflow: auto;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 .dashboard_account_form {
   display: grid;
-  gap: 8px;
+  gap: 12px;
 }
 
+.dashboard_account_shell {
+  display: grid;
+  grid-template-columns: 170px minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.dashboard_account_nav {
+  position: sticky;
+  top: 0;
+  display: grid;
+  gap: 6px;
+  border: 1px solid rgba(74, 55, 38, 0.2);
+  border-radius: 8px;
+  background: rgba(255, 251, 241, 0.58);
+  padding: 8px;
+}
+
+.dashboard_account_nav a {
+  border: 1px solid transparent;
+  border-radius: 999px;
+  color: #3c2a17;
+  padding: 8px 10px;
+  text-decoration: none;
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.dashboard_account_nav a:hover,
+.dashboard_account_nav a:focus {
+  border-color: rgba(127, 85, 34, 0.28);
+  background: rgba(250, 232, 194, 0.68);
+}
+
+.dashboard_account_content {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.dashboard_account_section {
+  position: relative;
+  border: 1px solid rgba(74, 55, 38, 0.22);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(255, 252, 244, 0.68), rgba(244, 229, 197, 0.44));
+  box-shadow: inset 0 0 0 1px rgba(255, 250, 238, 0.54);
+  padding: 12px;
+}
+
+.dashboard_account_section:target {
+  outline: 2px solid rgba(127, 85, 34, 0.3);
+  outline-offset: 2px;
+}
+
+.dashboard_account_anchor {
+  position: absolute;
+  top: -8px;
+}
+
+.dashboard_account_section_header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+  border-bottom: 1px solid rgba(74, 55, 38, 0.14);
+  padding-bottom: 8px;
+}
+
+.dashboard_account_section_header h4 {
+  margin: 0;
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-size: 1.25rem;
+  line-height: 1;
+  color: var(--line);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.dashboard_account_section_header p {
+  margin: 0;
+  color: rgba(63, 45, 31, 0.72);
+  font-size: 0.86rem;
+  text-align: right;
+}
+
+.dashboard_account_grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 12px;
+}
+
+.dashboard_account_grid_full {
+  grid-column: 1 / -1;
+}
+
+.dashboard_account_toggle_grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.dashboard_account_choice_grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.dashboard_account_choice {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+  min-height: 104px;
+  border: 1px solid rgba(74, 55, 38, 0.2);
+  border-radius: 8px;
+  background: rgba(255, 251, 241, 0.76);
+  padding: 10px;
+  cursor: pointer;
+}
+
+.dashboard_account_choice:has(input:checked),
+.dashboard_account_toggle:has(input:checked) {
+  border-color: rgba(127, 85, 34, 0.55);
+  background: linear-gradient(180deg, rgba(250, 235, 200, 0.92), rgba(235, 204, 144, 0.62));
+  box-shadow: inset 0 0 0 1px rgba(255, 250, 238, 0.72);
+}
+
+.dashboard_account_choice input {
+  margin-top: 3px;
+  accent-color: #7f5522;
+}
+
+.dashboard_account_choice strong,
+.dashboard_account_choice small {
+  display: block;
+}
+
+.dashboard_account_choice strong {
+  color: #3c2a17;
+  font-size: 0.94rem;
+}
+
+.dashboard_account_choice small {
+  margin-top: 4px;
+  color: rgba(63, 45, 31, 0.7);
+  font-size: 0.8rem;
+  line-height: 1.3;
+}
+
+.dashboard_account_toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid rgba(74, 55, 38, 0.2);
+  border-radius: 8px;
+  background: rgba(255, 251, 241, 0.76);
+  padding: 10px 12px;
+  cursor: pointer;
+}
+
+.dashboard_account_toggle strong,
+.dashboard_account_toggle small {
+  display: block;
+}
+
+.dashboard_account_toggle strong {
+  color: #3c2a17;
+  font-size: 0.98rem;
+}
+
+.dashboard_account_toggle small {
+  margin-top: 2px;
+  color: rgba(63, 45, 31, 0.7);
+  font-size: 0.82rem;
+}
+
+.dashboard_account_toggle input {
+  width: 22px;
+  height: 22px;
+  accent-color: #7f5522;
+  flex: 0 0 auto;
+}
+
+.dashboard_account_meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+  border: 1px solid rgba(74, 55, 38, 0.18);
+  border-radius: 8px;
+  background: rgba(255, 251, 241, 0.62);
+  padding: 9px 10px;
+}
+
+.dashboard_account_meta span {
+  color: rgba(63, 45, 31, 0.7);
+  font-size: 0.84rem;
+}
+
+.dashboard_account_meta strong {
+  color: #3c2a17;
+}
+
+.dashboard_password_strength {
+  display: grid;
+  gap: 6px;
+  border: 1px solid rgba(74, 55, 38, 0.18);
+  border-radius: 8px;
+  background: rgba(255, 251, 241, 0.58);
+  padding: 9px 10px;
+}
+
+.dashboard_password_strength_header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.dashboard_password_strength_header span {
+  color: rgba(63, 45, 31, 0.72);
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.dashboard_password_strength_header strong {
+  color: rgba(63, 45, 31, 0.82);
+  font-size: 0.84rem;
+}
+
+.dashboard_password_strength_bar {
+  height: 7px;
+  overflow: hidden;
+  border: 1px solid rgba(74, 55, 38, 0.22);
+  border-radius: 999px;
+  background: rgba(255, 251, 241, 0.78);
+}
+
+.dashboard_password_strength_bar span {
+  display: block;
+  width: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: rgba(122, 36, 26, 0.72);
+  transition: width 160ms ease, background-color 160ms ease;
+}
+
+.dashboard_password_strength p {
+  margin: 0;
+  color: rgba(63, 45, 31, 0.72);
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
+.dashboard_password_strength[data-strength="weak"] .dashboard_password_strength_bar span {
+  width: 28%;
+  background: #9a3b2f;
+}
+
+.dashboard_password_strength[data-strength="fair"] .dashboard_password_strength_bar span {
+  width: 54%;
+  background: #b17b28;
+}
+
+.dashboard_password_strength[data-strength="good"] .dashboard_password_strength_bar span {
+  width: 78%;
+  background: #6f7f2a;
+}
+
+.dashboard_password_strength[data-strength="strong"] .dashboard_password_strength_bar span {
+  width: 100%;
+  background: #3f7a47;
+}
+
+.dashboard_account_link_button,
+.dashboard_account_export {
+  width: 100%;
+  margin-top: 10px;
+  border: 1px solid rgba(74, 55, 38, 0.26);
+  border-radius: 8px;
+  background: rgba(255, 251, 241, 0.76);
+  color: #3c2a17;
+  padding: 10px 12px;
+  font: inherit;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.dashboard_account_link_button:hover,
+.dashboard_account_export:hover {
+  background: rgba(250, 232, 194, 0.82);
+}
+
+.dashboard_account_export {
+  display: grid;
+  gap: 2px;
+}
+
+.dashboard_account_export span {
+  color: rgba(63, 45, 31, 0.72);
+  font-size: 0.84rem;
+}
+
+.dashboard_account_link_button {
+  font-weight: 700;
+}
+
+
 .dashboard_account_actions {
+  position: sticky;
+  bottom: -14px;
+  z-index: 3;
   display: flex;
   justify-content: flex-end;
   gap: 8px;
-  margin-top: 6px;
+  margin: -26px -14px -14px;
+  padding: 48px 14px 14px;
+  background: transparent;
+}
+
+.dashboard_account_actions::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(244, 229, 197, 0), rgba(244, 229, 197, 0.12) 52%, rgba(244, 229, 197, 0.34));
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+  mask-image: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.16) 24%, rgba(0, 0, 0, 0.78) 68%, #000);
+  -webkit-mask-image: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.16) 24%, rgba(0, 0, 0, 0.78) 68%, #000);
 }
 
 .character_form {
@@ -129,6 +465,15 @@
   gap: 4px;
 }
 
+.dashboard_account_window .form_row > span {
+  color: rgba(63, 45, 31, 0.82);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
 .form_row label {
   font-size: 0.92rem;
   color: rgba(63, 45, 31, 0.86);
@@ -140,7 +485,8 @@
   border: 1px solid rgba(74, 55, 38, 0.35);
   border-radius: 7px;
   padding: 7px 9px;
-  font: inherit;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 0.95rem;
   color: #2f2114;
   background: rgba(255, 251, 241, 0.9);
 }

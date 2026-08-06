@@ -14,16 +14,17 @@
     {% endif %}
 
   </head>
-  <body>
+  <body class="dashboard-theme--{{ request.user.settings.theme_mode|default:'default' }}">
     <main class="book-spread dashboard_spread">
       <article class="page dashboard_page" aria-label="Benutzerspezifisches Dashboard">
         <section class="dashboard_layout">
           <aside class="dashboard_panel dashboard_panel--sidebar" aria-label="Benutzerbereich">
-            <img class="dashboard_logo" src="{% static 'img/codexarcana.png' %}" alt="Logo">
-            <div class="dashboard_title_wrap">
-              <h1>Dashboard</h1>
-              <p class="dashboard_subtitle">Willkommen,<br>{{ request.user.get_username }}.</p>
+            <div class="dashboard_logo_wrap">
+              <img class="dashboard_logo" src="{% static 'img/codexarcana.png' %}" alt="Logo">
               <p class="dashboard_version" aria-label="Anwendungsversion">{{ app_version }}</p>
+            </div>
+            <div class="dashboard_title_wrap">
+              <h1>Willkommen,<br>{{ request.user.get_username }}.</h1>
             </div>
 
             <div class="dashboard_side_group" aria-label="Benutzeraktionen">
@@ -35,48 +36,10 @@
               </form>
             </div>
 
-            <div class="dashboard_side_group" id="zuletzt" aria-label="Zuletzt verwendete Charaktere">
-              <div class="dashboard_side_title">Zuletzt verwendet</div>
-              {% if recent_characters %}
-                <ul class="dashboard_list dashboard_list--compact">
-                  {% for character in recent_characters %}
-                    <li>
-                      <span>{{ character.name }}</span>
-                      <a class="dashboard_button dashboard_button--small dashboard_button--icon" href="{% url 'character_sheet' character.id %}" aria-label="Charakter öffnen" title="Charakter öffnen"><span aria-hidden="true">&#10138;</span></a>
-                    </li>
-                  {% endfor %}
-                </ul>
-              {% else %}
-                <p class="dashboard_hint">Keine zuletzt geöffneten Charaktere.</p>
-              {% endif %}
-            </div>
-
-            <div class="dashboard_side_group" id="systemstatus" aria-label="Systemstatus">
-              <div class="dashboard_side_title">Systemstatus</div>
-              <dl class="dashboard_stats dashboard_stats--stack">
-                <div><dt>Items</dt><dd>{{ system_counts.items }}</dd></div>
-                <div><dt>Skills</dt><dd>{{ system_counts.skills }}</dd></div>
-                <div><dt>Schulen</dt><dd>{{ system_counts.schools }}</dd></div>
-                <div><dt>Sprachen</dt><dd>{{ system_counts.languages }}</dd></div>
-              </dl>
-            </div>
-
-            <div class="dashboard_side_group" id="hinweise" aria-label="Hinweise und Updates">
-              <div class="dashboard_side_title">Hinweise</div>
-              {% if warnings %}
-                <ul class="dashboard_warning_list">
-                  {% for warning in warnings %}
-                    <li class="dashboard_warning dashboard_warning--{{ warning.severity }}">{{ warning.text }}</li>
-                  {% endfor %}
-                </ul>
-              {% else %}
-                <p class="dashboard_hint">Keine offenen Hinweise.</p>
-              {% endif %}
-            </div>
-
-            <div class="dashboard_side_group" id="entwuerfe" aria-label="Offene Charakterentwürfe">
-              <div class="dashboard_side_title">Offene Entwürfe</div>
+            <div id="dashboardDraftRegion">
               {% if draft_rows %}
+              <div class="dashboard_side_group" id="entwuerfe" aria-label="Offene Charakterentwürfe">
+                <div class="dashboard_side_title">Offene Entwürfe</div>
                 <ul class="dashboard_list">
                   {% for draft in draft_rows %}
                     <li class="dashboard_draft_item">
@@ -91,9 +54,26 @@
                     </li>
                   {% endfor %}
                 </ul>
-              {% else %}
-                <p class="dashboard_hint">Keine offenen Entwürfe.</p>
+              </div>
               {% endif %}
+            </div>
+
+            <div class="dashboard_side_group" id="uebersicht" aria-label="Charakterübersicht">
+              <div class="dashboard_side_title">Übersicht</div>
+              <dl class="dashboard_stats dashboard_stats--stack">
+                <div>
+                  <dt>Gesamtgeld (KS)</dt>
+                  <dd>{{ total_money_display }}</dd>
+                </div>
+                <div>
+                  <dt>Ausgerüstete Items</dt>
+                  <dd>{{ equipped_item_count_display }}</dd>
+                </div>
+                <div>
+                  <dt>Charaktere</dt>
+                  <dd>{{ character_count_display }}</dd>
+                </div>
+              </dl>
             </div>
           </aside>
 
@@ -121,21 +101,6 @@
                     </noscript>
                   </div>
                 </div>
-
-                <dl class="dashboard_stats dashboard_stats--inline">
-                  <div>
-                    <dt>Gesamtgeld (KS)</dt>
-                    <dd>{{ total_money_display }}</dd>
-                  </div>
-                  <div>
-                    <dt>Ausgerüstete Items</dt>
-                    <dd>{{ equipped_item_count_display }}</dd>
-                  </div>
-                  <div>
-                    <dt>Charaktere</dt>
-                    <dd>{{ character_count_display }}</dd>
-                  </div>
-                </dl>
 
                 <div id="dashboardCharacterTableRegion">
                 {% if character_rows or dashboard_group_sections or pending_group_invitations %}
@@ -171,7 +136,7 @@
                                 {% if row.is_own %}
                                   <div class="dashboard_actions_inline">
                                     <a class="dashboard_button dashboard_button--small dashboard_button--icon" href="{% url 'character_sheet' row.character.id %}" aria-label="Charakter öffnen" title="Charakter öffnen"><span aria-hidden="true">&#10138;</span></a>
-                                    <button type="button" class="dashboard_button dashboard_button--small dashboard_button--icon" data-print-url="{% url 'character_sheet' row.character.id %}" aria-label="Charakter drucken" title="Charakter drucken"><span aria-hidden="true">&#9113;</span></button>
+                                    <button type="button" class="dashboard_button dashboard_button--small dashboard_button--icon" data-print-url="{% url 'character_sheet' row.character.id %}" data-print-include-inventory="{{ request.user.settings.print_include_inventory|yesno:'1,0' }}" data-print-include-notes="{{ request.user.settings.print_include_notes|yesno:'1,0' }}" data-print-compact="{{ request.user.settings.print_compact|yesno:'1,0' }}" aria-label="Charakter drucken" title="Charakter drucken"><span aria-hidden="true">&#9113;</span></button>
                                     <form method="post" action="{% url 'archive_character' row.character.id %}">{% csrf_token %}<button type="submit" class="dashboard_button dashboard_button--small dashboard_button--icon" aria-label="Charakter archivieren" title="Charakter archivieren"><span aria-hidden="true">&#9638;</span></button></form>
                                     <form method="post" action="{% url 'delete_character' row.character.id %}" onsubmit="return confirm('Charakter wirklich löschen?');">{% csrf_token %}<button type="submit" class="dashboard_button dashboard_button--small dashboard_button--icon dashboard_button--danger" aria-label="Charakter löschen" title="Charakter löschen"><span aria-hidden="true">&#10005;</span></button></form>
                                   </div>
@@ -195,7 +160,7 @@
                               <td class="dashboard_action_cell">
                                 <div class="dashboard_actions_inline">
                                   <a class="dashboard_button dashboard_button--small dashboard_button--icon" href="{% url 'character_sheet' row.character.id %}" aria-label="Charakter öffnen" title="Charakter öffnen"><span aria-hidden="true">&#10138;</span></a>
-                                  <button type="button" class="dashboard_button dashboard_button--small dashboard_button--icon" data-print-url="{% url 'character_sheet' row.character.id %}" aria-label="Charakter drucken" title="Charakter drucken"><span aria-hidden="true">&#9113;</span></button>
+                                  <button type="button" class="dashboard_button dashboard_button--small dashboard_button--icon" data-print-url="{% url 'character_sheet' row.character.id %}" data-print-include-inventory="{{ request.user.settings.print_include_inventory|yesno:'1,0' }}" data-print-include-notes="{{ request.user.settings.print_include_notes|yesno:'1,0' }}" data-print-compact="{{ request.user.settings.print_compact|yesno:'1,0' }}" aria-label="Charakter drucken" title="Charakter drucken"><span aria-hidden="true">&#9113;</span></button>
                                   <form method="post" action="{% url 'archive_character' row.character.id %}">{% csrf_token %}<button type="submit" class="dashboard_button dashboard_button--small dashboard_button--icon" aria-label="Charakter archivieren" title="Charakter archivieren"><span aria-hidden="true">&#9638;</span></button></form>
                                   <form method="post" action="{% url 'delete_character' row.character.id %}" onsubmit="return confirm('Charakter wirklich löschen?');">{% csrf_token %}<button type="submit" class="dashboard_button dashboard_button--small dashboard_button--icon dashboard_button--danger" aria-label="Charakter löschen" title="Charakter löschen"><span aria-hidden="true">&#10005;</span></button></form>
                                 </div>
@@ -273,7 +238,7 @@
     </section>
 
     <div id="dashboardAccountBackdrop" class="dashboard_creation_backdrop dashboard_account_backdrop" aria-hidden="true"></div>
-    <section class="payday-window dashboard_account_window" id="dashboardAccountWindow" aria-hidden="true">
+    <section class="payday-window payday-window--large dashboard_account_window" id="dashboardAccountWindow" aria-hidden="true">
       <div class="payday-window__titlebar" id="dashboardAccountHandle">
         <h3 class="payday-window__title">Kontoeinstellungen</h3>
         <button type="button" id="dashboardAccountClose" class="payday-window__close" aria-label="Fenster schließen">x</button>
@@ -281,90 +246,210 @@
       <div class="payday-window__body dashboard_account_body">
         <form method="post" action="{% url 'update_account_settings' %}" class="dashboard_account_form">
           {% csrf_token %}
-          <label class="form_row">
-            <span>Benutzername</span>
-            <input class="dashboard_input" type="text" name="username" value="{{ request.user.get_username }}" required maxlength="150" autocomplete="username">
-          </label>
-          <label class="form_row">
-            <span>E-Mail (optional)</span>
-            <input class="dashboard_input" type="email" name="email" value="{{ request.user.email|default:'' }}" autocomplete="email">
-          </label>
-          <label class="form_row">
-            <span>Aktuelles Passwort</span>
-            <input class="dashboard_input" type="password" name="current_password" autocomplete="current-password">
-          </label>
-          <label class="form_row">
-            <span>Neues Passwort</span>
-            <input class="dashboard_input" type="password" name="new_password1" autocomplete="new-password">
-          </label>
-          <label class="form_row">
-            <span>Neues Passwort wiederholen</span>
-            <input class="dashboard_input" type="password" name="new_password2" autocomplete="new-password">
-          </label>
-          <hr class="dashboard_account_divider">
-
-          <label class="form_row">
-            <span>Radialmenü aktivieren</span>
-            <input type="checkbox" name="radial_menu_enabled" id="id_radial_menu_enabled"
-                   {% if request.user.settings.radial_menu_enabled %}checked{% endif %}>
-          </label>
-
-          <label class="form_row">
-            <span>DDDdice aktivieren</span>
-            <input type="checkbox" name="dddice_enabled" id="id_dddice_enabled"
-                   {% if request.user.settings.dddice_enabled %}checked{% endif %}>
-          </label>
-            <div id="dddice_fields">
-            
+          <div class="dashboard_account_shell">
+            <nav class="dashboard_account_nav" aria-label="Kontobereiche">
+              <a href="#accountProfile">Profil</a>
+              <a href="#accountAppearance">Darstellung</a>
+              <a href="#accountPrint">Druck</a>
+              <a href="#accountSecurity">Sicherheit</a>
+              <a href="#accountData">Daten</a>
+              <a href="#accountIntegrations">DDDdice</a>
+            </nav>
+            <div class="dashboard_account_content">
+          <section class="dashboard_account_section" id="accountProfile">
+            <div class="dashboard_account_section_header">
+              <h4>Profil</h4>
+              <p>Name und Kontaktadresse deines Benutzerkontos.</p>
+            </div>
+            <div class="dashboard_account_grid">
               <label class="form_row">
-                <span>DDDdice API Key</span>
+                <span>Benutzername</span>
+                <input class="dashboard_input" type="text" name="username" value="{{ request.user.get_username }}" required maxlength="150" autocomplete="username">
+              </label>
+              <label class="form_row">
+                <span>E-Mail</span>
+                <input class="dashboard_input" type="email" name="email" value="{{ request.user.email|default:'' }}" autocomplete="email" placeholder="Optional">
+              </label>
+            </div>
+          </section>
+
+          <section class="dashboard_account_section" id="accountAppearance">
+            <div class="dashboard_account_section_header">
+              <h4>Darstellung</h4>
+              <p>Lesemodus und visuelle Dichte für längere Spielsitzungen.</p>
+            </div>
+            <div class="dashboard_account_choice_grid">
+              <label class="dashboard_account_choice">
+                <input type="radio" name="theme_mode" value="default"{% if request.user.settings.theme_mode == "default" %} checked{% endif %}>
+                <span><strong>Standard</strong><small>Ausgewogenes Dashboard.</small></span>
+              </label>
+              <label class="dashboard_account_choice">
+                <input type="radio" name="theme_mode" value="compact"{% if request.user.settings.theme_mode == "compact" %} checked{% endif %}>
+                <span><strong>Kompakt</strong><small>Mehr Inhalt auf engem Raum.</small></span>
+              </label>
+              <label class="dashboard_account_choice">
+                <input type="radio" name="theme_mode" value="large"{% if request.user.settings.theme_mode == "large" %} checked{% endif %}>
+                <span><strong>Groß</strong><small>Mehr Abstand und größere Schrift.</small></span>
+              </label>
+              <label class="dashboard_account_choice">
+                <input type="radio" name="theme_mode" value="high_contrast"{% if request.user.settings.theme_mode == "high_contrast" %} checked{% endif %}>
+                <span><strong>Hoher Kontrast</strong><small>Klarere Kanten und stärkere Schrift.</small></span>
+              </label>
+            </div>
+          </section>
+
+          <section class="dashboard_account_section" id="accountPrint">
+            <div class="dashboard_account_section_header">
+              <h4>Druck</h4>
+              <p>Voreinstellungen für den Charakterbogen-Druck aus dem Dashboard.</p>
+            </div>
+            <div class="dashboard_account_toggle_grid">
+              <label class="dashboard_account_toggle">
+                <span><strong>Inventar mitdrucken</strong><small>Ausrüstung und Waffen als Anhang ergänzen.</small></span>
+                <input type="checkbox" name="print_include_inventory" id="id_print_include_inventory"{% if request.user.settings.print_include_inventory %} checked{% endif %}>
+              </label>
+              <label class="dashboard_account_toggle">
+                <span><strong>Notizen mitdrucken</strong><small>Beschreibungen und Notiztexte im Druck behalten.</small></span>
+                <input type="checkbox" name="print_include_notes" id="id_print_include_notes"{% if request.user.settings.print_include_notes %} checked{% endif %}>
+              </label>
+              <label class="dashboard_account_toggle">
+                <span><strong>Kompakte Druckversion</strong><small>Reduzierte Abstände für weniger Seiten.</small></span>
+                <input type="checkbox" name="print_compact" id="id_print_compact"{% if request.user.settings.print_compact %} checked{% endif %}>
+              </label>
+            </div>
+          </section>
+
+          <section class="dashboard_account_section" id="accountSecurity">
+            <div class="dashboard_account_section_header">
+              <h4>Sicherheit</h4>
+              <p>Passwort ändern und offene Sitzungen verwalten.</p>
+            </div>
+            <div class="dashboard_account_meta">
+              <span>Passwort zuletzt geändert</span>
+              <strong>{% if request.user.settings.password_changed_at %}{{ request.user.settings.password_changed_at|date:"d.m.Y H:i" }}{% else %}Nicht erfasst{% endif %}</strong>
+            </div>
+            <div class="dashboard_account_grid dashboard_account_grid--security">
+              <label class="form_row dashboard_account_grid_full">
+                <span>Aktuelles Passwort</span>
+                <input class="dashboard_input" type="password" name="current_password" autocomplete="current-password">
+              </label>
+              <label class="form_row">
+                <span>Neues Passwort</span>
+                <input class="dashboard_input" type="password" name="new_password1" id="id_new_password1" autocomplete="new-password">
+              </label>
+              <label class="form_row">
+                <span>Neues Passwort wiederholen</span>
+                <input class="dashboard_input" type="password" name="new_password2" id="id_new_password2" autocomplete="new-password">
+              </label>
+              <div class="dashboard_password_strength dashboard_account_grid_full" id="accountPasswordStrength" data-strength="empty" aria-live="polite">
+                <div class="dashboard_password_strength_header">
+                  <span>Passwortstärke</span>
+                  <strong>Bereit</strong>
+                </div>
+                <div class="dashboard_password_strength_bar" aria-hidden="true"><span></span></div>
+                <p>Neues Passwort eingeben.</p>
+              </div>
+            </div>
+            <button type="submit" class="dashboard_account_link_button" form="logoutOtherSessionsForm">Andere Sitzungen abmelden</button>
+          </section>
+
+          <section class="dashboard_account_section" id="accountData">
+            <div class="dashboard_account_section_header">
+              <h4>Account-Daten</h4>
+              <p>Eigene Charakterdaten sichern oder weiterverarbeiten.</p>
+            </div>
+            <a class="dashboard_account_export" href="{% url 'export_account_data' %}">
+              <strong>Charakterdaten exportieren</strong>
+              <span>JSON-Datei mit Profil, Charakteren, Inventar und Chronik herunterladen.</span>
+            </a>
+          </section>
+
+          <section class="dashboard_account_section">
+            <div class="dashboard_account_section_header">
+              <h4>Bedienung</h4>
+              <p>Optionale Werkzeuge für Spieltisch und Charakterbogen.</p>
+            </div>
+            <div class="dashboard_account_toggle_grid">
+              <label class="dashboard_account_toggle">
+                <span>
+                  <strong>Radialmenü</strong>
+                  <small>Schnellzugriff im Charakterbogen.</small>
+                </span>
+                <input type="checkbox" name="radial_menu_enabled" id="id_radial_menu_enabled"
+                       {% if request.user.settings.radial_menu_enabled %}checked{% endif %}>
+              </label>
+              <label class="dashboard_account_toggle">
+                <span>
+                  <strong>DDDdice</strong>
+                  <small>Online-Würfelraum verbinden.</small>
+                </span>
+                <input type="checkbox" name="dddice_enabled" id="id_dddice_enabled"
+                       {% if request.user.settings.dddice_enabled %}checked{% endif %}>
+              </label>
+            </div>
+          </section>
+
+          <section class="dashboard_account_section" id="dddice_fields">
+            <span id="accountIntegrations" class="dashboard_account_anchor"></span>
+            <div class="dashboard_account_section_header">
+              <h4>DDDdice Verbindung</h4>
+              <p>Zugangsdaten und Würfelset für gemeinsame Würfe.</p>
+            </div>
+            <div class="dashboard_account_grid dashboard_account_grid--dddice">
+              <label class="form_row dashboard_account_grid_full">
+                <span>API Key</span>
                 <input class="dashboard_input"
                        type="password"
                        name="dddice_api_key"
                        id="id_dddice_api_key"
                        value="{{ request.user.settings.dddice_api_key|default:'' }}">
               </label>
-            
               <label class="form_row">
-                <span>DDDdice Room ID</span>
+                <span>Room ID</span>
                 <input class="dashboard_input"
                        type="text"
                        name="dddice_room_id"
                        id="id_dddice_room_id"
                        value="{{ request.user.settings.dddice_room_id|default:'' }}">
               </label>
-            
               <label class="form_row">
-                <span>DDDdice Room Passwort (optional)</span>
+                <span>Room Passwort</span>
                 <input class="dashboard_input"
                        type="password"
                        name="dddice_room_password"
                        id="id_dddice_room_password"
-                       value="{{ request.user.settings.dddice_room_password|default:'' }}">
+                       value="{{ request.user.settings.dddice_room_password|default:'' }}"
+                       placeholder="Optional">
               </label>
-              <label class="form_row">
-              <span>DDDdice Würfelset</span>
+              <label class="form_row dashboard_account_grid_full">
+                <span>Würfelset</span>
                 <div class="dice_set_row">
-                    <select class="dashboard_input"
-                            name="dddice_theme_id"
-                            id="id_dddice_theme"
-                            data-current-value="{{ request.user.settings.dddice_theme_id|default:'' }}">
-                      <option value="">– Würfelsets laden –</option>
-                    </select>
+                  <select class="dashboard_input"
+                          name="dddice_theme_id"
+                          id="id_dddice_theme"
+                          data-current-value="{{ request.user.settings.dddice_theme_id|default:'' }}">
+                    <option value="">– Würfelsets laden –</option>
+                  </select>
                   <button type="button"
-                  id="dddice_refresh_sets"
-                  class="dice_refresh_button"
-                  title="Würfelsets aktualisieren">
-                  ⟳     
+                          id="dddice_refresh_sets"
+                          class="dice_refresh_button"
+                          title="Würfelsets aktualisieren">
+                    ⟳
                   </button>
                 </div>
               </label>
             </div>
+          </section>
+            </div>
+          </div>
 
           <div class="dashboard_account_actions">
             <button type="button" id="dashboardAccountCancel" class="dashboard_button dashboard_button--small">Abbrechen</button>
             <button type="submit" class="dashboard_button dashboard_button--small dashboard_button--primary">Speichern</button>
           </div>
+        </form>
+        <form method="post" action="{% url 'logout_other_sessions' %}" id="logoutOtherSessionsForm">
+          {% csrf_token %}
         </form>
       </div>
     </section>
@@ -388,6 +473,56 @@
       document.addEventListener("DOMContentLoaded", function () {
         const dddiceCheckbox = document.getElementById("id_dddice_enabled");
         const dddiceFields = document.getElementById("dddice_fields");
+        const passwordInput = document.getElementById("id_new_password1");
+        const passwordStrength = document.getElementById("accountPasswordStrength");
+
+        const updatePasswordStrength = function () {
+          if (!passwordInput || !passwordStrength) return;
+          const value = passwordInput.value || "";
+          let score = 0;
+          if (value.length >= 8) score += 1;
+          if (value.length >= 12) score += 1;
+          if (/[a-z]/.test(value) && /[A-Z]/.test(value)) score += 1;
+          if (/\d/.test(value)) score += 1;
+          if (/[^A-Za-z0-9]/.test(value)) score += 1;
+          if (/(.)\1\1/.test(value)) score -= 1;
+
+          let strength = "empty";
+          let message = "Neues Passwort eingeben.";
+          if (value) {
+            if (score <= 1) {
+              strength = "weak";
+              message = "Schwaches Passwort. Nutze mehr Länge und Zeichenvielfalt.";
+            } else if (score <= 3) {
+              strength = "fair";
+              message = "Mittelstarkes Passwort. Länger oder mit Sonderzeichen wird es besser.";
+            } else if (score === 4) {
+              strength = "good";
+              message = "Gutes Passwort.";
+            } else {
+              strength = "strong";
+              message = "Starkes Passwort.";
+            }
+          }
+          passwordStrength.dataset.strength = strength;
+          const label = passwordStrength.querySelector("p");
+          if (label) label.textContent = message;
+          const status = passwordStrength.querySelector(".dashboard_password_strength_header strong");
+          if (status) {
+            status.textContent = {
+              empty: "Bereit",
+              weak: "Schwach",
+              fair: "Mittel",
+              good: "Gut",
+              strong: "Stark",
+            }[strength] || "Bereit";
+          }
+        };
+
+        if (passwordInput) {
+          passwordInput.addEventListener("input", updatePasswordStrength);
+          updatePasswordStrength();
+        }
 
         function updateDDDdiceFields() {
           if (!dddiceCheckbox || !dddiceFields) return;
@@ -697,7 +832,7 @@ if (dddiceCheckbox) {
           });
         };
 
-        const appendCharacterPrintAppendices = function (host) {
+        const appendCharacterPrintAppendices = function (host, options) {
           const spread = host.querySelector(".book-spread");
           if (!spread) {
             return;
@@ -709,8 +844,8 @@ if (dddiceCheckbox) {
             ["Waffenmeister", "#lowerPanelWaffenmeister [data-tooltip]"],
             ["Dämonische Kräfte", "#lowerPanelDaemonicPowers [data-tooltip], #lowerPanelDaemonicPowers details"],
             ["Vampir", "#lowerPanelVampire [data-tooltip-card-variant='spell']"],
-            ["Ausrüstung & Waffen", "#sheetInventoryPanel > .inventory_scroll [data-tooltip-mode='card'], #sheetWeaponPanel .weapon_name[data-tooltip-mode='card'], #sheetArmorPanel .armor_row[data-tooltip-mode='card']"],
-          ].forEach(function (entry) {
+            options.includeInventory ? ["Ausrüstung & Waffen", "#sheetInventoryPanel > .inventory_scroll [data-tooltip-mode='card'], #sheetWeaponPanel .weapon_name[data-tooltip-mode='card'], #sheetArmorPanel .armor_row[data-tooltip-mode='card']"] : null,
+          ].filter(Boolean).forEach(function (entry) {
             appendCharacterPrintCardPages(
               spread,
               entry[0],
@@ -1023,16 +1158,31 @@ if (dddiceCheckbox) {
   .dashboard-print-host #sheetCharacterHeader .p1_bottom_right {
     grid-column: 2 !important;
   }
+
+  .dashboard-print-host.dashboard-print-host--compact .page,
+  .dashboard-print-host.dashboard-print-host--compact .dashboard-print-appendix-page {
+    padding: 6px !important;
+  }
+
+  .dashboard-print-host.dashboard-print-host--compact .dashboard-print-tooltip-card {
+    padding: 5px 7px !important;
+  }
+
+  .dashboard-print-host.dashboard-print-host--hide-notes .dashboard-print-tooltip-card__text,
+  .dashboard-print-host.dashboard-print-host--hide-notes .dashboard-print-tooltip-card__rune p {
+    display: none !important;
+  }
 }
           `;
           document.head.appendChild(style);
           return style;
         };
 
-        const startCharacterPrint = function (url) {
+        const startCharacterPrint = function (url, options) {
           if (!url) {
             return;
           }
+          options = options || {};
           cleanupCharacterPrint();
           fetch(url, { credentials: "same-origin" })
             .then(function (response) {
@@ -1043,12 +1193,18 @@ if (dddiceCheckbox) {
             })
             .then(async function (htmlText) {
               activePrintHost = buildCharacterPrintHost(htmlText);
+              if (options.compact) {
+                activePrintHost.classList.add("dashboard-print-host--compact");
+              }
+              if (!options.includeNotes) {
+                activePrintHost.classList.add("dashboard-print-host--hide-notes");
+              }
               activePrintStyle = installCharacterPrintStyle();
               document.body.appendChild(activePrintHost);
               if (document.fonts && typeof document.fonts.ready?.then === "function") {
                 await document.fonts.ready.catch(function () {});
               }
-              appendCharacterPrintAppendices(activePrintHost);
+              appendCharacterPrintAppendices(activePrintHost, options);
               await waitForCharacterPrintAssets(activePrintHost);
               window.addEventListener("afterprint", cleanupCharacterPrint, { once: true });
               window.setTimeout(cleanupCharacterPrint, 60000);
@@ -1061,7 +1217,13 @@ if (dddiceCheckbox) {
 
         document.addEventListener("click", function (event) {
           const button = event.target.closest("[data-print-url]");
-          if (button) startCharacterPrint(button.getAttribute("data-print-url"));
+          if (button) {
+            startCharacterPrint(button.getAttribute("data-print-url"), {
+              includeInventory: button.dataset.printIncludeInventory !== "0",
+              includeNotes: button.dataset.printIncludeNotes !== "0",
+              compact: button.dataset.printCompact === "1",
+            });
+          }
         });
 
         const openButtons = Array.from(document.querySelectorAll("[data-open-creation-window]"));
@@ -1097,6 +1259,29 @@ if (dddiceCheckbox) {
           win.classList.add("is-open");
           win.setAttribute("aria-hidden", "false");
           placeCentered();
+        };
+
+        const refreshDraftRegion = async function () {
+          const currentRegion = document.getElementById("dashboardDraftRegion");
+          if (!currentRegion) {
+            return;
+          }
+          try {
+            const response = await fetch("{% url 'dashboard' %}", {
+              credentials: "same-origin",
+              headers: { Accept: "text/html" },
+              cache: "no-store",
+            });
+            if (!response.ok) {
+              return;
+            }
+            const parsed = new DOMParser().parseFromString(await response.text(), "text/html");
+            const nextRegion = parsed.getElementById("dashboardDraftRegion");
+            if (nextRegion) {
+              currentRegion.replaceWith(nextRegion);
+            }
+          } catch (_error) {
+          }
         };
 
         const creationFrameHasDraft = function () {
@@ -1168,10 +1353,12 @@ if (dddiceCheckbox) {
         handle.addEventListener("pointerup", stopDragging);
         handle.addEventListener("pointercancel", stopDragging);
 
-        openButtons.forEach(function (button) {
-          button.addEventListener("click", function () {
-            openWindow(button.dataset.createUrl || frame.dataset.src || "");
-          });
+        document.addEventListener("click", function (event) {
+          const button = event.target.closest("[data-open-creation-window]");
+          if (!button) {
+            return;
+          }
+          openWindow(button.dataset.createUrl || frame.dataset.src || "");
         });
         closeBtn.addEventListener("click", closeWindow);
         backdrop.addEventListener("click", closeWindow);
@@ -1187,6 +1374,8 @@ if (dddiceCheckbox) {
             const path = frame.contentWindow.location.pathname.toLowerCase();
             if (!(path === "/character/new" || path === "/character/new/")) {
               window.location.href = href;
+            } else if (creationFrameHasDraft()) {
+              refreshDraftRegion();
             }
           } catch (_error) {
           }
