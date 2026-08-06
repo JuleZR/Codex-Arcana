@@ -16,6 +16,7 @@ from charsheet.constants import (
     WEAPON_DAMAGE,
     WEAPON_DAMAGE_DICE,
 )
+from charsheet.modifiers.definitions import TargetDomain
 from charsheet.models import CharacterItem, Item, Modifier
 
 from .item_engine import ItemEngine
@@ -121,6 +122,7 @@ def _character_item_specific_maneuver_modifier(engine, character_item: Character
         if int(modifier.source_object_id or 0) != int(character_item.id):
             continue
         total += int(engine._modifier_value(modifier, learned_stack, available_stack) or 0)
+    total += _character_item_specific_semantic_modifier(engine, character_item, MELEE_MANEUVERS)
     return total
 
 
@@ -139,6 +141,7 @@ def _character_item_specific_damage_modifier(engine, character_item: CharacterIt
         if int(modifier.source_object_id or 0) != int(character_item.id):
             continue
         total += int(engine._modifier_value(modifier, learned_stack, available_stack) or 0)
+    total += _character_item_specific_semantic_modifier(engine, character_item, WEAPON_DAMAGE)
     equipped_item_rune_ids = {
         int(item_rune.id)
         for item_rune in engine._equipped_item_runes
@@ -176,6 +179,7 @@ def _character_item_specific_damage_dice_modifier(engine, character_item: Charac
         if int(modifier.source_object_id or 0) != int(character_item.id):
             continue
         total += int(engine._modifier_value(modifier, learned_stack, available_stack) or 0)
+    total += _character_item_specific_semantic_modifier(engine, character_item, WEAPON_DAMAGE_DICE)
     equipped_item_rune_ids = {
         int(item_rune.id)
         for item_rune in engine._equipped_item_runes
@@ -193,6 +197,22 @@ def _character_item_specific_damage_dice_modifier(engine, character_item: Charac
         except (TypeError, ValueError):
             continue
         if source_id not in equipped_item_rune_ids:
+            continue
+        total += int(engine.modifier_engine._resolve_numeric_modifier(modifier) or 0)
+    return total
+
+
+def _character_item_specific_semantic_modifier(engine, character_item: CharacterItem, target_key: str) -> int:
+    """Return concrete CharacterItem semantic effects for one item-bound combat target."""
+    total = 0
+    for modifier in engine.modifier_engine._active_item_semantic_modifiers:
+        if str(modifier.source_type or "") != "characteritem":
+            continue
+        if str(modifier.source_id or "") != str(character_item.id):
+            continue
+        if modifier.target_domain != TargetDomain.COMBAT:
+            continue
+        if str(modifier.target_key or "") != target_key:
             continue
         total += int(engine.modifier_engine._resolve_numeric_modifier(modifier) or 0)
     return total

@@ -19,7 +19,9 @@ from charsheet.modifiers.migration import (
 from charsheet.modifiers.registry import build_trait_semantic_modifiers
 from charsheet.models import (
     CharacterDaemonicPower,
+    CharacterItemSemanticEffect,
     DaemonicPowerSemanticEffect,
+    ItemSemanticEffect,
     Modifier,
     Skill,
     TechniqueSemanticEffect,
@@ -142,6 +144,39 @@ class ModifierEngine:
                     )
                 )
         return modifiers
+
+    @cached_property
+    def _active_item_semantic_modifiers(self) -> list[BaseModifier]:
+        """Build semantic modifiers from equipped magic base items and item instances."""
+        if self.character_engine is None:
+            return []
+        equipped_items = list(
+            self.character_engine._equipped_items_for_semantic_effects
+        )
+        if not equipped_items:
+            return []
+        item_ids = {int(entry.item_id) for entry in equipped_items}
+        character_item_ids = {int(entry.id) for entry in equipped_items}
+        base_effects = (
+            ItemSemanticEffect.objects.filter(
+                item_id__in=item_ids,
+                active_flag=True,
+            )
+            .select_related("item")
+            .order_by("item_id", "sort_order", "id")
+        )
+        instance_effects = (
+            CharacterItemSemanticEffect.objects.filter(
+                character_item_id__in=character_item_ids,
+                active_flag=True,
+            )
+            .select_related("character_item", "character_item__item")
+            .order_by("character_item_id", "sort_order", "id")
+        )
+        return [
+            *(effect.to_modifier() for effect in base_effects),
+            *(effect.to_modifier() for effect in instance_effects),
+        ]
 
     @cached_property
     def _active_technique_semantic_modifiers(self) -> list[BaseModifier]:
@@ -336,6 +371,7 @@ class ModifierEngine:
             collected.extend(self._active_technique_semantic_modifiers)
             collected.extend(self._active_daemonic_power_modifiers)
             collected.extend(self._active_vampire_trait_modifiers)
+            collected.extend(self._active_item_semantic_modifiers)
             collected.extend(self._active_item_rune_modifiers)
         expanded = self._expand_choice_bound_modifiers(collected)
         result = [modifier for modifier in expanded if modifier is not None and modifier.applies(context)]
@@ -782,6 +818,7 @@ class ModifierEngine:
                 target_domain=target_domain,
                 specification=specification,
             )
+            and self._modifier_matches_item_context(modifier, target_domain=target_domain, context=context)
             and self._modifier_matches_condition_text(modifier, context)
         ]
 
@@ -828,6 +865,22 @@ class ModifierEngine:
             return False
         selected_skill_slugs = modifier.metadata.get("target_skill_slugs") or []
         return target_key in selected_skill_slugs
+
+    def _modifier_matches_item_context(
+        self,
+        modifier: BaseModifier,
+        *,
+        target_domain: str,
+        context: dict[str, Any] | None,
+    ) -> bool:
+        """Keep concrete item combat effects out of global combat totals."""
+        if target_domain != TargetDomain.COMBAT or str(modifier.source_type or "") != "characteritem":
+            return True
+        expected_item_id = self._coerce_source_id(modifier.source_id)
+        if expected_item_id is None:
+            return False
+        actual_item_id = self._coerce_source_id((context or {}).get("character_item_id"))
+        return actual_item_id == expected_item_id
 
     @staticmethod
     def _normalize_condition_text(value: object) -> str:

@@ -505,6 +505,22 @@ class CharacterEngine:
             .prefetch_related("rune__modifier_templates")
         )
 
+    @cached_property
+    def _equipped_items_for_semantic_effects(self):
+        """Cache equipped owned items that can contribute item semantic effects."""
+        return (
+            CharacterItem.objects.filter(owner=self.character, equipped=True)
+            .select_related("item")
+            .filter(
+                Q(item__is_magic=True)
+                | Q(item__item_type__in=Item.magic_item_type_values())
+                | Q(is_magic=True)
+                | Q(item__semantic_effects__isnull=False)
+                | Q(semantic_effects__isnull=False)
+            )
+            .distinct()
+        )
+
     def is_rune_equipped(self, rune: Rune | int) -> bool:
         """Return whether this rune is attached to any currently equipped owned item."""
         rune_id = rune.id if isinstance(rune, Rune) else int(rune)
@@ -518,22 +534,6 @@ class CharacterEngine:
             School: set(self._school_entries.keys()),
             Trait: set(self._trait_levels.keys()),
             Technique: set(self._computed_technique_ids),
-            Item: set(
-                CharacterItem.objects.filter(
-                    owner=self.character,
-                    equipped=True,
-                )
-                .filter(
-                    Q(item__is_magic=True) | Q(item__item_type__in=Item.magic_item_type_values())
-                ).values_list("item_id", flat=True)
-            ),
-            CharacterItem: set(
-                CharacterItem.objects.filter(
-                    owner=self.character,
-                    equipped=True,
-                    is_magic=True,
-                ).values_list("id", flat=True)
-            ),
         }
         source_ids_by_model = {
             model_class: source_ids

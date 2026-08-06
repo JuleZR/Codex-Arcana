@@ -27,14 +27,17 @@ from charsheet.constants import (
 )
 from charsheet.engine import ItemEngine
 from charsheet.magic_effects import TEXT_TARGET_KIND, pack_magic_effect_summary
+from charsheet.modifiers.definitions import ModifierOperator, TargetDomain
 from charsheet.models import (
     ArmorStats,
     Character,
     CharacterItem,
+    CharacterItemSemanticEffect,
     CharacterItemRuneSpec,
     ItemRune,
     DamageSource,
     Item,
+    ItemSemanticEffect,
     MagicItemStats,
     Modifier,
     Rune,
@@ -377,32 +380,94 @@ def _read_rune_payloads(post_data) -> list[dict[str, object]]:
     ]
 
 
+def _magic_payload_to_semantic_effect_kwargs(payload: dict[str, object]) -> dict[str, object] | None:
+    """Map one existing magic-effect payload into the item semantic-effect schema."""
+    if str(payload.get("target_kind") or "") == TEXT_TARGET_KIND:
+        return None
+
+    target_kind = str(payload.get("target_kind") or "")
+    target_slug = str(payload.get("target_slug") or "")
+    target_domain = TargetDomain.METADATA
+    target_key = target_slug
+    operator = ModifierOperator.FLAT_SUB if int(payload.get("value") or 0) < 0 else ModifierOperator.FLAT_ADD
+    value = abs(int(payload.get("value") or 0))
+
+    if target_kind == Modifier.TargetKind.ATTRIBUTE:
+        target_domain = TargetDomain.ATTRIBUTE
+    elif target_kind == Modifier.TargetKind.STAT:
+        if target_slug in {value for value, _label in RULE_FLAG_CHOICES}:
+            target_domain = TargetDomain.RULE_FLAG
+            operator = ModifierOperator.SET_FLAG if int(payload.get("value") or 0) else ModifierOperator.UNSET_FLAG
+            value = True if operator == ModifierOperator.SET_FLAG else False
+        elif target_slug in {MELEE_MANEUVERS, WEAPON_DAMAGE, WEAPON_DAMAGE_DICE} or target_slug.startswith("dmg_"):
+            target_domain = TargetDomain.COMBAT
+        else:
+            target_domain = TargetDomain.DERIVED_STAT
+    elif target_kind == Modifier.TargetKind.SKILL:
+        target_domain = TargetDomain.SKILL
+        target_skill = payload.get("target_skill")
+        target_key = str(getattr(target_skill, "slug", "") or target_slug)
+    elif target_kind == Modifier.TargetKind.CATEGORY:
+        target_domain = TargetDomain.SKILL_CATEGORY
+        target_category = payload.get("target_skill_category")
+        target_key = str(getattr(target_category, "slug", "") or target_slug)
+    elif target_kind == Modifier.TargetKind.ITEM_CATEGORY:
+        target_domain = TargetDomain.ITEM_CATEGORY
+    elif target_kind == Modifier.TargetKind.SPECIALIZATION:
+        target_domain = TargetDomain.SPECIALIZATION
+        target_specialization = payload.get("target_specialization")
+        target_key = str(getattr(target_specialization, "id", "") or target_slug)
+    elif target_kind == Modifier.TargetKind.ITEM:
+        target_domain = TargetDomain.ITEM
+        target_item = payload.get("target_item")
+        target_key = str(getattr(target_item, "id", "") or target_slug)
+
+    metadata = {
+        "ui_target_kind": target_kind,
+        "target_skill_id": getattr(payload.get("target_skill"), "id", None),
+        "target_skill_category_id": getattr(payload.get("target_skill_category"), "id", None),
+        "target_item_id": getattr(payload.get("target_item"), "id", None),
+        "target_specialization_id": getattr(payload.get("target_specialization"), "id", None),
+        "legacy_target_kind": target_kind,
+        "legacy_target_slug": target_slug,
+    }
+    return {
+        "sort_order": int(payload.get("display_order") or 0),
+        "target_domain": str(getattr(target_domain, "value", target_domain)),
+        "target_key": str(target_key or ""),
+        "operator": str(getattr(operator, "value", operator)),
+        "mode": "flat",
+        "value": str(value).lower() if isinstance(value, bool) else str(value),
+        "notes": str(payload.get("effect_description") or ""),
+        "metadata": {key: value for key, value in metadata.items() if value not in (None, "")},
+    }
+
+
 def _save_magic_modifiers(*, source_model, source_id: int, magic_modifier_payloads: list[dict[str, object]]) -> None:
-    """Replace all legacy modifier rows for one magic source."""
+    """Replace magic item semantic effects for one item source.
+
+    The public helper name stays for compatibility with older call sites, but
+    new item rules are persisted as ItemSemanticEffect rows.
+    """
     source_content_type = ContentType.objects.get_for_model(source_model, for_concrete_model=False)
     Modifier.objects.filter(
         source_content_type=source_content_type,
         source_object_id=source_id,
     ).delete()
-    for magic_modifier_payload in magic_modifier_payloads:
-        if str(magic_modifier_payload.get("target_kind") or "") == TEXT_TARGET_KIND:
+    if source_model is Item:
+        effect_model = ItemSemanticEffect
+        effect_filter = {"item_id": source_id}
+    else:
+        effect_model = CharacterItemSemanticEffect
+        effect_filter = {"character_item_id": source_id}
+    effect_model.objects.filter(**effect_filter).delete()
+    for payload in magic_modifier_payloads:
+        kwargs = _magic_payload_to_semantic_effect_kwargs(payload)
+        if kwargs is None:
             continue
-        modifier = Modifier(
-            source_content_type=source_content_type,
-            source_object_id=source_id,
-            target_kind=str(magic_modifier_payload["target_kind"]),
-            target_slug=str(magic_modifier_payload["target_slug"] or ""),
-            target_skill=magic_modifier_payload["target_skill"],
-            target_skill_category=magic_modifier_payload["target_skill_category"],
-            target_item=magic_modifier_payload["target_item"],
-            target_specialization=magic_modifier_payload["target_specialization"],
-            effect_description=str(magic_modifier_payload.get("effect_description") or ""),
-            display_order=int(magic_modifier_payload.get("display_order") or 0),
-            mode=Modifier.Mode.FLAT,
-            value=int(magic_modifier_payload["value"]),
-        )
-        modifier.full_clean()
-        modifier.save()
+        effect = effect_model(**effect_filter, **kwargs)
+        effect.full_clean()
+        effect.save()
 
 
 def _normalize_redundant_character_item_overrides(character_item: CharacterItem) -> None:

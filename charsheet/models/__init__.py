@@ -81,7 +81,9 @@ from .vampirism import (
 )
 from .items import (
     ArmorStats,
+    CharacterItemSemanticEffect,
     Item,
+    ItemSemanticEffect,
     MagicItemStats,
     Quality,
     RaceStartingItem,
@@ -225,7 +227,9 @@ __all__ = [
     "CreatureTraitChoiceDefinition",
     "CreatureTraitDefinition",
     "CreatureTraitSemanticEffect",
+    "CharacterItemSemanticEffect",
     "Item",
+    "ItemSemanticEffect",
     "GameGroup",
     "GameGroupCreature",
     "GameGroupCreatureVampirePower",

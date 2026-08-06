@@ -25,6 +25,12 @@ from ..constants import (
     WIELD_MODES,
 )
 from .core import DamageSource
+from .core import (
+    MODIFIER_OPERATOR_CHOICES,
+    MODIFIER_VISIBILITY_CHOICES,
+    STACK_BEHAVIOR_CHOICES,
+    TARGET_DOMAIN_CHOICES,
+)
 
 
 class Quality(models.Model):
@@ -395,6 +401,196 @@ class MagicItemStats(models.Model):
     def __str__(self):
         summary = f" - {self.effect_summary}" if self.effect_summary else ""
         return f"{self.item}{summary}"
+
+
+class ItemSemanticEffectFields(models.Model):
+    """Shared persisted item semantic effect fields."""
+
+    sort_order = models.PositiveIntegerField(default=0)
+    target_domain = models.CharField(max_length=40, choices=TARGET_DOMAIN_CHOICES, default="rule_flag")
+    target_key = models.CharField(max_length=120, blank=True, default="")
+    operator = models.CharField(max_length=40, choices=MODIFIER_OPERATOR_CHOICES, default="flat_add")
+    mode = models.CharField(max_length=20, default="flat")
+    value = models.CharField(max_length=200, blank=True, default="")
+    value_min = models.IntegerField(null=True, blank=True)
+    value_max = models.IntegerField(null=True, blank=True)
+    formula = models.CharField(max_length=200, blank=True, default="")
+    scaling = models.JSONField(default=dict, blank=True)
+    stack_behavior = models.CharField(max_length=40, choices=STACK_BEHAVIOR_CHOICES, default="stack")
+    condition_set = models.JSONField(default=dict, blank=True)
+    active_flag = models.BooleanField(default=True)
+    priority = models.IntegerField(default=0)
+    notes = models.TextField(blank=True, default="")
+    rules_text = models.TextField(blank=True, default="")
+    visibility = models.CharField(max_length=20, choices=MODIFIER_VISIBILITY_CHOICES, default="public")
+    hidden = models.BooleanField(default=False)
+    sheet_relevant = models.BooleanField(default=True)
+    metadata = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        abstract = True
+
+    @staticmethod
+    def _coerce_scalar(raw_value):
+        import json
+
+        text = str(raw_value or "").strip()
+        if text == "":
+            return None
+        lowered = text.lower()
+        if lowered == "true":
+            return True
+        if lowered == "false":
+            return False
+        if lowered == "null":
+            return None
+        try:
+            return json.loads(text)
+        except (TypeError, ValueError, json.JSONDecodeError):
+            pass
+        try:
+            return int(text)
+        except (TypeError, ValueError):
+            pass
+        try:
+            return float(text)
+        except (TypeError, ValueError):
+            pass
+        return text
+
+    def clean(self):
+        super().clean()
+        for field_name in ("scaling", "condition_set", "metadata"):
+            value = getattr(self, field_name)
+            if value is not None and not isinstance(value, dict):
+                raise ValidationError({field_name: "Value must be a JSON object."})
+
+    def semantic_source_type(self) -> str:
+        raise NotImplementedError
+
+    def semantic_source_id(self) -> str:
+        raise NotImplementedError
+
+    def semantic_source_label(self) -> str:
+        raise NotImplementedError
+
+    def to_modifier(self):
+        """Materialize this persisted effect as one typed modifier instance."""
+        from ..modifiers.definitions import (
+            AttributeCapModifier,
+            AttributeModifier,
+            BaseModifier,
+            CombatModifier,
+            ConditionSet,
+            DerivedStatModifier,
+            EconomyModifier,
+            ItemModifier,
+            LanguageModifier,
+            MovementModifier,
+            PerceptionModifier,
+            ProficiencyGroupModifier,
+            ResourceModifier,
+            ResistanceModifier,
+            RuleFlagModifier,
+            SkillModifier,
+            SocialModifier,
+            SpecializationModifier,
+            TraitModifier,
+        )
+
+        modifier_map = {
+            "skill": SkillModifier,
+            "skill_category": SkillModifier,
+            "skill_rank": SkillModifier,
+            "skill_rank_cap": SkillModifier,
+            "trait": TraitModifier,
+            "language": LanguageModifier,
+            "proficiency_group": ProficiencyGroupModifier,
+            "attribute": AttributeModifier,
+            "attribute_cap": AttributeCapModifier,
+            "derived_stat": DerivedStatModifier,
+            "resource": ResourceModifier,
+            "resistance": ResistanceModifier,
+            "movement": MovementModifier,
+            "combat": CombatModifier,
+            "perception": PerceptionModifier,
+            "economy": EconomyModifier,
+            "social": SocialModifier,
+            "rule_flag": RuleFlagModifier,
+            "item": ItemModifier,
+            "item_category": ItemModifier,
+            "specialization": SpecializationModifier,
+        }
+        modifier_cls = modifier_map.get(self.target_domain, BaseModifier)
+        metadata = dict(self.metadata or {})
+        if self.pk:
+            metadata["semantic_effect_key"] = f"item_effect:{self.pk}"
+            metadata["semantic_effect_label"] = self.semantic_source_label()
+        return modifier_cls(
+            source_type=self.semantic_source_type(),
+            source_id=self.semantic_source_id(),
+            target_domain=self.target_domain,
+            target_key=self.target_key,
+            mode=self.mode,
+            value=self._coerce_scalar(self.value),
+            value_min=self.value_min,
+            value_max=self.value_max,
+            formula=self.formula,
+            scaling=dict(self.scaling or {}),
+            operator=self.operator,
+            stack_behavior=self.stack_behavior,
+            condition_set=ConditionSet(**dict(self.condition_set or {})),
+            active_flag=bool(self.active_flag),
+            priority=int(self.priority),
+            notes=self.notes,
+            rules_text=self.rules_text,
+            visibility=self.visibility,
+            hidden=bool(self.hidden),
+            sheet_relevant=bool(self.sheet_relevant),
+            metadata=metadata,
+        )
+
+
+class ItemSemanticEffect(ItemSemanticEffectFields):
+    """Persisted semantic effect attached directly to one base item definition."""
+
+    item = models.ForeignKey(Item, on_delete=models.CASCADE, related_name="semantic_effects")
+
+    class Meta:
+        ordering = ["item", "sort_order", "id"]
+
+    def __str__(self):
+        return f"{self.item}: {self.target_domain}/{self.target_key} ({self.operator})"
+
+    def semantic_source_type(self) -> str:
+        return "item"
+
+    def semantic_source_id(self) -> str:
+        return str(self.item_id)
+
+    def semantic_source_label(self) -> str:
+        return str(self.item)
+
+
+class CharacterItemSemanticEffect(ItemSemanticEffectFields):
+    """Persisted semantic effect attached directly to one concrete item instance."""
+
+    character_item = models.ForeignKey("CharacterItem", on_delete=models.CASCADE, related_name="semantic_effects")
+
+    class Meta:
+        ordering = ["character_item", "sort_order", "id"]
+
+    def __str__(self):
+        return f"{self.character_item}: {self.target_domain}/{self.target_key} ({self.operator})"
+
+    def semantic_source_type(self) -> str:
+        return "characteritem"
+
+    def semantic_source_id(self) -> str:
+        return str(self.character_item_id)
+
+    def semantic_source_label(self) -> str:
+        return str(self.character_item)
 
 
 class WeaponFlag(models.Model):

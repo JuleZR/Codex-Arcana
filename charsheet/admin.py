@@ -23,6 +23,7 @@ from django.utils.safestring import mark_safe
 from .constants import (
     ATTRIBUTE_CODE_CHOICES,
     COMA_IGNORE,
+    MELEE_MANEUVERS,
     ONE_HANDED,
     QUALITY_COLOR_MAP,
     RESOURCE_KEY_CHOICES,
@@ -38,6 +39,8 @@ from .constants import (
     VAMPIRE_POWER_BLOOD_SACRAMENT,
     VAMPIRE_POWER_ATTRIBUTE_BOOST,
     VERSATILE,
+    WEAPON_DAMAGE,
+    WEAPON_DAMAGE_DICE,
 )
 from .admin_help import (
     ATTRIBUTE_CHOICE_HELP,
@@ -85,6 +88,7 @@ from .models import (
     CharacterCreatureSpecialSkill,
     CharacterCreatureTrait,
     CharacterCreatureTraitChoice,
+    CharacterItemSemanticEffect,
     CharacterCreatureVampirePower,
     CharacterCreatureVampireTrait,
     CharacterDaemonicPower,
@@ -150,6 +154,7 @@ from .models import (
     DruidCult,
     DruidCultAspect,
     Item,
+    ItemSemanticEffect,
     ItemOwnershipEvent,
     ItemPermissionGrant,
     ItemTransfer,
@@ -1963,6 +1968,238 @@ class MagicItemStatsInline(admin.StackedInline):
     max_num = 1
     can_delete = True
     fields = ("effect_summary",)
+
+
+class ItemSemanticEffectAdminForm(forms.ModelForm):
+    """User-friendly item effect editor that maps dropdowns to semantic fields."""
+
+    class CommaFloatField(forms.FloatField):
+        widget = forms.TextInput
+
+        def to_python(self, value):
+            if isinstance(value, str):
+                value = value.strip().replace(",", ".")
+            return super().to_python(value)
+
+    EFFECT_AREA_CHOICES = (
+        ("attribute", "Eigenschaft"),
+        ("derived_stat", "Abgeleiteter Wert"),
+        ("combat", "Kampf / Waffe"),
+        ("skill", "Fertigkeit"),
+        ("skill_category", "Fertigkeitskategorie"),
+        ("item", "Item"),
+        ("item_category", "Item-Kategorie"),
+        ("specialization", "Spezialisierung"),
+        ("rule_flag", "Regelflag"),
+    )
+    COMBAT_TARGET_CHOICES = (
+        (MELEE_MANEUVERS, "Manöver mit dieser Waffe"),
+        (WEAPON_DAMAGE, "Waffenschaden"),
+        (WEAPON_DAMAGE_DICE, "+ X W10"),
+    )
+    OPERATION_CHOICES = (
+        ("flat_add", "+ addieren"),
+        ("flat_sub", "- abziehen"),
+        ("multiply", "* multiplizieren"),
+        ("floor_divide", "// teilen abrunden"),
+        ("override", "auf Wert setzen"),
+        ("min_value", "mindestens"),
+        ("max_value", "hoechstens"),
+        ("set_flag", "Flag setzen"),
+        ("unset_flag", "Flag entfernen"),
+    )
+
+    effect_area = forms.ChoiceField(label="Was soll geändert werden?", choices=EFFECT_AREA_CHOICES, required=False)
+    simple_target = forms.ChoiceField(label="Was genau?", choices=(), required=False)
+    simple_operator = forms.ChoiceField(label="Rechenart", choices=OPERATION_CHOICES, required=False)
+    simple_value = CommaFloatField(label="Zahl", required=False)
+
+    class Meta:
+        model = ItemSemanticEffect
+        fields = "__all__"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["simple_target"].choices = self._simple_target_choices()
+        self.fields["sort_order"].label = "Reihenfolge"
+        self.fields["active_flag"].label = "Aktiv"
+        self._apply_initial_simple_values()
+        self._polish_technical_fields()
+
+    def _simple_target_choices(self):
+        choices = [("", "-")]
+        choices.extend((f"attribute:{value}", label) for value, label in ATTRIBUTE_CODE_CHOICES)
+        choices.extend((f"derived_stat:{value}", label) for value, label in STAT_SLUG_CHOICES)
+        choices.extend((f"combat:{value}", label) for value, label in self.COMBAT_TARGET_CHOICES)
+        choices.extend((f"skill:{skill.slug}", skill.name) for skill in Skill.objects.order_by("name"))
+        choices.extend((f"skill_category:{category.slug}", category.name) for category in SkillCategory.objects.order_by("name"))
+        choices.extend((f"item:{item.pk}", item.name) for item in Item.objects.order_by("name", "id"))
+        choices.extend((f"item_category:{value}", label) for value, label in Item.ItemType.choices)
+        choices.extend((f"specialization:{specialization.pk}", specialization.name) for specialization in Specialization.objects.order_by("name", "id"))
+        choices.extend((f"rule_flag:{value}", label) for value, label in RULE_FLAG_CHOICES)
+        return choices
+
+    def _apply_initial_simple_values(self):
+        target_domain = str(self.initial.get("target_domain") or getattr(self.instance, "target_domain", "") or "")
+        target_key = str(self.initial.get("target_key") or getattr(self.instance, "target_key", "") or "")
+        domain_to_area = {
+            "attribute": "attribute",
+            "derived_stat": "derived_stat",
+            "combat": "combat",
+            "skill": "skill",
+            "skill_category": "skill_category",
+            "item": "item",
+            "item_category": "item_category",
+            "specialization": "specialization",
+            "rule_flag": "rule_flag",
+        }
+        area = domain_to_area.get(target_domain)
+        if area:
+            self.initial.setdefault("effect_area", area)
+            self.initial.setdefault("simple_target", f"{area}:{target_key}")
+        self.initial.setdefault("simple_operator", self.initial.get("operator") or getattr(self.instance, "operator", "flat_add"))
+        value = self.initial.get("value", getattr(self.instance, "value", ""))
+        if self._is_numberish(value):
+            self.initial.setdefault("simple_value", self._format_simple_number(value))
+
+    def _polish_technical_fields(self):
+        for field_name in (
+            "target_domain",
+            "target_key",
+            "operator",
+            "mode",
+            "value",
+            "scaling",
+            "condition_set",
+            "stack_behavior",
+            "priority",
+            "visibility",
+            "hidden",
+            "sheet_relevant",
+            "metadata",
+            "value_min",
+            "value_max",
+            "formula",
+        ):
+            if field_name in self.fields:
+                self.fields[field_name].required = False
+                self.fields[field_name].help_text = "Technisches Feld. Wird normalerweise aus den einfachen Feldern oben gesetzt."
+
+    def clean(self):
+        cleaned_data = super().clean()
+        area = cleaned_data.get("effect_area")
+        target_domain, target_key = self._simple_target(area, cleaned_data.get("simple_target"))
+        if target_domain and target_key:
+            cleaned_data["target_domain"] = target_domain
+            cleaned_data["target_key"] = target_key
+        elif cleaned_data.get("target_domain") and cleaned_data.get("target_key"):
+            target_domain = cleaned_data["target_domain"]
+            target_key = cleaned_data["target_key"]
+        else:
+            self.add_error("effect_area", "Bitte auswählen, welcher Wert geändert werden soll.")
+
+        operator = cleaned_data.get("simple_operator") or cleaned_data.get("operator") or "flat_add"
+        if target_domain == "rule_flag" and operator in {"flat_add", "flat_sub"}:
+            operator = "set_flag"
+        if operator in {"set_flag", "unset_flag"}:
+            cleaned_data["operator"] = operator
+            cleaned_data["value"] = "true" if operator == "set_flag" else "false"
+        else:
+            value = cleaned_data.get("simple_value")
+            if value is None and cleaned_data.get("value") not in (None, ""):
+                cleaned_data["operator"] = operator
+            elif value is None:
+                self.add_error("simple_value", "Bitte eine Zahl eintragen.")
+            else:
+                cleaned_data["operator"] = operator
+                cleaned_data["value"] = self._format_simple_number(value)
+        cleaned_data["mode"] = cleaned_data.get("mode") or "flat"
+        return cleaned_data
+
+    def _simple_target(self, area, simple_target) -> tuple[str, str]:
+        prefix, separator, target_key = str(simple_target or "").partition(":")
+        if not separator or prefix != area:
+            return "", ""
+        return {
+            "attribute": "attribute",
+            "derived_stat": "derived_stat",
+            "combat": "combat",
+            "skill": "skill",
+            "skill_category": "skill_category",
+            "item": "item",
+            "item_category": "item_category",
+            "specialization": "specialization",
+            "rule_flag": "rule_flag",
+        }.get(area, ""), target_key
+
+    @staticmethod
+    def _is_numberish(value) -> bool:
+        try:
+            float(str(value).replace(",", "."))
+        except (TypeError, ValueError):
+            return False
+        return str(value).strip() != ""
+
+    @staticmethod
+    def _format_simple_number(value) -> str:
+        number = float(str(value).replace(",", "."))
+        return str(int(number)) if number.is_integer() else str(number)
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        for field_name in ("target_domain", "target_key", "operator", "value", "mode"):
+            setattr(instance, field_name, self.cleaned_data[field_name])
+        if commit:
+            instance.save()
+            self.save_m2m()
+        return instance
+
+
+class CharacterItemSemanticEffectAdminForm(ItemSemanticEffectAdminForm):
+    class Meta:
+        model = CharacterItemSemanticEffect
+        fields = "__all__"
+
+
+class ItemSemanticEffectInline(admin.StackedInline):
+    """Inline editor for item semantic effects."""
+
+    model = ItemSemanticEffect
+    form = ItemSemanticEffectAdminForm
+    verbose_name_plural = "Item Semantic Effects"
+    extra = 0
+    fieldsets = (
+        ("Einfacher Effekt", {"fields": ("sort_order", "effect_area", "simple_target", ("simple_operator", "simple_value"), "active_flag")}),
+        ("Text", {"fields": ("notes", "rules_text")}),
+        (
+            "Technik",
+            {
+                "classes": ("collapse",),
+                "fields": (
+                    ("target_domain", "target_key"),
+                    ("operator", "mode", "value"),
+                    ("value_min", "value_max"),
+                    "formula",
+                    "scaling",
+                    "stack_behavior",
+                    "condition_set",
+                    ("sheet_relevant", "hidden", "visibility"),
+                    "priority",
+                    "metadata",
+                ),
+            },
+        ),
+    )
+
+
+class CharacterItemSemanticEffectInline(admin.StackedInline):
+    """Inline editor for concrete item instance semantic effects."""
+
+    model = CharacterItemSemanticEffect
+    form = CharacterItemSemanticEffectAdminForm
+    verbose_name_plural = "Character Item Semantic Effects"
+    extra = 0
+    fieldsets = ItemSemanticEffectInline.fieldsets
 
 
 class WeaponStatsByDamageSourceInline(admin.TabularInline):
@@ -4408,6 +4645,7 @@ class ItemAdmin(admin.ModelAdmin):
         ShieldStatsInline,
         WeaponStatsInline,
         MagicItemStatsInline,
+        ItemSemanticEffectInline,
         ModifierInline,
         ItemRaceStartingInline,
         ItemCharacterInline,
@@ -4454,6 +4692,32 @@ class ItemAdmin(admin.ModelAdmin):
         )
 
 
+@admin.register(ItemSemanticEffect)
+class ItemSemanticEffectAdmin(admin.ModelAdmin):
+    """Admin configuration for item semantic effects."""
+
+    form = ItemSemanticEffectAdminForm
+    list_display = ("item", "target_domain", "target_key", "operator", "value", "active_flag")
+    list_filter = ("target_domain", "operator", "active_flag", "sheet_relevant")
+    search_fields = ("item__name", "target_key", "notes", "rules_text")
+    autocomplete_fields = ("item",)
+    ordering = ("item", "sort_order", "id")
+    fieldsets = (("Source", {"fields": ("item",)}),) + ItemSemanticEffectInline.fieldsets
+
+
+@admin.register(CharacterItemSemanticEffect)
+class CharacterItemSemanticEffectAdmin(admin.ModelAdmin):
+    """Admin configuration for concrete item instance semantic effects."""
+
+    form = CharacterItemSemanticEffectAdminForm
+    list_display = ("character_item", "target_domain", "target_key", "operator", "value", "active_flag")
+    list_filter = ("target_domain", "operator", "active_flag", "sheet_relevant")
+    search_fields = ("character_item__item__name", "target_key", "notes", "rules_text")
+    autocomplete_fields = ("character_item",)
+    ordering = ("character_item", "sort_order", "id")
+    fieldsets = (("Source", {"fields": ("character_item",)}),) + CharacterItemSemanticEffectInline.fieldsets
+
+
 @admin.register(CharacterItem)
 class CharacterItemAdmin(admin.ModelAdmin):
     """Admin configuration for character inventory entries."""
@@ -4474,12 +4738,16 @@ class CharacterItemAdmin(admin.ModelAdmin):
     ordering = ("owner", "item")
     autocomplete_fields = ("owner", "item")
     list_select_related = ("owner", "owner__race", "item")
-    inlines = (ItemRuneInline,)
+    inlines = (ItemRuneInline, CharacterItemSemanticEffectInline)
 
     @admin.display(ordering="owner__race__name", description="Owner Race")
     def owner_race(self, obj):
         """Return the owning character race for list display."""
-        return obj.owner.race
+        if obj.owner_id and obj.owner:
+            return obj.owner.race
+        if obj.group_owner_id and obj.group_owner:
+            return "Gruppeninventar"
+        return "-"
 
     @admin.display(ordering="item__item_type", description="Item Type")
     def item_type(self, obj):

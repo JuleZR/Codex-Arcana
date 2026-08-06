@@ -90,6 +90,7 @@ from charsheet.models import (
     CharacterLesson,
     CharacterSpell,
     CharacterCreatureTraitChoice,
+    CharacterItemSemanticEffect,
     DaemonicPower,
     DaemonicPowerTier,
     RaceStartingItem,
@@ -105,6 +106,7 @@ from charsheet.models import (
     CreatureTraitDefinition,
     DamageSource,
     Item,
+    ItemSemanticEffect,
     ItemTransfer,
     Language,
     Lesson,
@@ -1542,6 +1544,82 @@ def _serialize_modifier_payload(modifier: Modifier) -> dict[str, object]:
     return payload
 
 
+def _serialize_item_semantic_effect_payload(effect: ItemSemanticEffect | CharacterItemSemanticEffect) -> dict[str, object]:
+    """Return one frontend-friendly payload for an item semantic effect."""
+    metadata = dict(effect.metadata or {})
+    target_domain = str(effect.target_domain or "")
+    target_key = str(effect.target_key or "")
+    try:
+        raw_value = effect._coerce_scalar(effect.value)
+        value = int(raw_value or 0)
+    except (TypeError, ValueError):
+        value = 0
+    if str(effect.operator or "") == "flat_sub":
+        value *= -1
+
+    payload: dict[str, object] = {
+        "target_kind": metadata.get("ui_target_kind") or metadata.get("legacy_target_kind") or target_domain,
+        "value": value,
+        "effect_description": str(effect.notes or ""),
+        "target_display": "",
+        "display_order": int(effect.sort_order or 0),
+    }
+
+    if target_domain == "rule_flag":
+        payload["target_kind"] = RULE_FLAG_TARGET_KIND
+        payload["target_rule_flag"] = target_key
+        payload["target_display"] = dict(RULE_FLAG_CHOICES).get(target_key, target_key)
+        payload["value"] = 1
+    elif target_domain == "attribute":
+        payload["target_kind"] = "attribute"
+        payload["target_attribute"] = target_key
+        payload["target_display"] = dict(ATTRIBUTE_ORDER).get(target_key, target_key)
+    elif target_domain == "derived_stat":
+        payload["target_kind"] = "stat"
+        payload["target_stat"] = target_key
+        payload["target_display"] = dict(STAT_SLUG_CHOICES).get(target_key, target_key)
+    elif target_domain == "combat":
+        if target_key == MELEE_MANEUVERS:
+            payload["target_kind"] = "weapon_maneuver"
+            payload["target_display"] = "Manöver mit dieser Waffe" if isinstance(effect, CharacterItemSemanticEffect) else "Manöver"
+        elif target_key == WEAPON_DAMAGE:
+            payload["target_kind"] = "stat"
+            payload["target_stat"] = WEAPON_DAMAGE
+            payload["target_display"] = dict(STAT_SLUG_CHOICES).get(WEAPON_DAMAGE, WEAPON_DAMAGE)
+        elif target_key == WEAPON_DAMAGE_DICE:
+            payload["target_kind"] = "weapon_damage_dice"
+            payload["target_display"] = "+ X W10"
+        else:
+            payload["target_kind"] = "stat"
+            payload["target_stat"] = target_key
+            payload["target_display"] = dict(STAT_SLUG_CHOICES).get(target_key, target_key)
+    elif target_domain == "skill":
+        payload["target_kind"] = "skill"
+        payload["target_skill"] = str(metadata.get("target_skill_id") or "")
+        payload["target_display"] = target_key
+    elif target_domain == "skill_category":
+        payload["target_kind"] = "category"
+        payload["target_skill_category"] = str(metadata.get("target_skill_category_id") or "")
+        payload["target_display"] = target_key
+    elif target_domain == "item_category":
+        payload["target_kind"] = "item_category"
+        payload["target_item_category"] = target_key
+        payload["target_display"] = dict(Item.ItemType.choices).get(target_key, target_key)
+    elif target_domain == "specialization":
+        payload["target_kind"] = "specialization"
+        payload["target_specialization"] = str(metadata.get("target_specialization_id") or target_key)
+        payload["target_display"] = target_key
+
+    if str(metadata.get("ui_target_kind") or "") in {WEAPON_MANEUVER_DAMAGE, WEAPON_MASTERY_BONUS}:
+        payload["target_kind"] = str(metadata["ui_target_kind"])
+        payload["target_display"] = (
+            WEAPON_MASTERY_EFFECT_DESCRIPTION
+            if payload["target_kind"] == WEAPON_MASTERY_BONUS
+            else "Bonus/Malus auf Manöver und Schaden"
+        )
+    return payload
+
+
 def _collapse_weapon_mastery_bonus_payloads(modifier_payloads: list[dict[str, object]]) -> list[dict[str, object]]:
     """Merge persisted maneuver/damage pairs back into one Waffenmeister row for the editor UI."""
     collapsed_payloads: list[dict[str, object]] = []
@@ -1655,18 +1733,15 @@ def _load_character_item_modifier_payloads(
     """Return serialized magic-modifier payloads keyed by owned item id."""
     if not character_items:
         return {}
-    character_item_content_type = ContentType.objects.get_for_model(CharacterItem, for_concrete_model=False)
     modifiers_by_character_item_id: dict[int, list[dict[str, object]]] = {}
-    for modifier in (
-        Modifier.objects
-        .filter(
-            source_content_type=character_item_content_type,
-            source_object_id__in=[entry.id for entry in character_items],
-        )
-        .select_related("target_skill", "target_skill_category", "target_specialization")
-        .order_by("display_order", "id")
+    for effect in (
+        CharacterItemSemanticEffect.objects
+        .filter(character_item_id__in=[entry.id for entry in character_items])
+        .order_by("sort_order", "id")
     ):
-        modifiers_by_character_item_id.setdefault(int(modifier.source_object_id), []).append(_serialize_modifier_payload(modifier))
+        modifiers_by_character_item_id.setdefault(int(effect.character_item_id), []).append(
+            _serialize_item_semantic_effect_payload(effect)
+        )
     for character_item_id, payloads in list(modifiers_by_character_item_id.items()):
         modifiers_by_character_item_id[character_item_id] = _collapse_weapon_mastery_bonus_payloads(payloads)
     return modifiers_by_character_item_id
