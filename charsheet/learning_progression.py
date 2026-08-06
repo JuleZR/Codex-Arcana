@@ -34,7 +34,7 @@ def weapon_mastery_weapon_type_definitions() -> list[dict[str, str]]:
     """Return weapon-type options that exist on real weapon definitions."""
     weapon_types = (
         WeaponType.objects.filter(
-            weapon_stats__item__item_type=Item.ItemType.WEAPON,
+            weapon_stats__item__item_type__in=Item.weapon_item_type_values(),
         )
         .exclude(weapon_stats__item__name__in=WEAPON_MASTERY_EXCLUDED_ITEM_NAMES)
         .distinct()

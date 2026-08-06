@@ -524,7 +524,7 @@ class CharacterEngine:
                     equipped=True,
                 )
                 .filter(
-                    Q(item__is_magic=True) | Q(item__item_type=Item.ItemType.MAGIC_ITEM)
+                    Q(item__is_magic=True) | Q(item__item_type__in=Item.magic_item_type_values())
                 ).values_list("item_id", flat=True)
             ),
             CharacterItem: set(
@@ -1572,7 +1572,7 @@ class CharacterEngine:
                 equipped=True,
                 item_id=source.id,
             ).filter(
-                Q(item__is_magic=True) | Q(item__item_type=Item.ItemType.MAGIC_ITEM)
+                Q(item__is_magic=True) | Q(item__item_type__in=Item.magic_item_type_values())
             ).exists()
         if isinstance(source, CharacterItem):
             return source.equipped and bool(source.is_magic)

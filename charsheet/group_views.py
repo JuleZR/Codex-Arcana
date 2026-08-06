@@ -2731,7 +2731,7 @@ def create_group_catalog_item(request, group_id: int):
     with transaction.atomic():
         group = GameGroup.objects.select_for_update().get(pk=group_id)
         require_game_master(request.user, group, write=True)
-        is_magic = bool(request.POST.get("is_magic")) or request.POST.get("item_type") == Item.ItemType.MAGIC_ITEM
+        is_magic = bool(request.POST.get("is_magic")) or request.POST.get("item_type") in Item.magic_item_type_values()
         try:
             magic_effects = json.loads(request.POST.get("magic_modifier_payloads") or "[]")
         except json.JSONDecodeError as exc:
@@ -2898,8 +2898,9 @@ def edit_group_inventory_item(request, group_id: int, item_id: int):
             raise GroupError("invalid_item", "Preis oder Gewicht ist ungültig.") from exc
         instance.size_class_override = str(request.POST.get("size_class_override") or "")
 
-        typed_override_fields = {
-            Item.ItemType.WEAPON: (
+        active_override_fields = ()
+        if instance.item.item_type in Item.weapon_item_type_values():
+            active_override_fields = (
                 "weapon_damage_dice_amount_override",
                 "weapon_damage_dice_faces_override",
                 "weapon_damage_flat_bonus_override",
@@ -2907,26 +2908,26 @@ def edit_group_inventory_item(request, group_id: int, item_id: int):
                 "weapon_h2_dice_amount_override",
                 "weapon_h2_dice_faces_override",
                 "weapon_h2_flat_bonus_override",
-            ),
-            Item.ItemType.ARMOR: (
+            )
+        elif instance.item.item_type in Item.armor_item_type_values():
+            active_override_fields = (
                 "armor_rs_total_override",
                 "armor_encumbrance_override",
                 "armor_min_st_override",
-            ),
-            Item.ItemType.SHIELD: (
+            )
+        elif instance.item.item_type == Item.ItemType.SHIELD:
+            active_override_fields = (
                 "shield_rs_override",
                 "shield_encumbrance_override",
                 "shield_min_st_override",
-            ),
-        }
-        active_override_fields = typed_override_fields.get(instance.item.item_type, ())
+            )
         for field_name in active_override_fields:
             raw_value = str(request.POST.get(field_name) or "").strip()
             try:
                 setattr(instance, field_name, int(raw_value) if raw_value else None)
             except ValueError as exc:
                 raise GroupError("invalid_item", "Ein Instanzwert ist ungültig.") from exc
-        if instance.item.item_type == Item.ItemType.WEAPON:
+        if instance.item.item_type in Item.weapon_item_type_values():
             instance.weapon_type_override_id = request.POST.get("weapon_type_override") or None
             instance.weapon_damage_source_override_id = request.POST.get("weapon_damage_source_override") or None
             instance.weapon_damage_type_override = str(request.POST.get("weapon_damage_type_override") or "")
@@ -2961,7 +2962,7 @@ def edit_group_inventory_item(request, group_id: int, item_id: int):
                         "weapon_h2_flat_operator_override",
                         "weapon_h2_damage_type_override",
                     )
-                    if instance.item.item_type == Item.ItemType.WEAPON
+                    if instance.item.item_type in Item.weapon_item_type_values()
                     else ()
                 ),
             ]

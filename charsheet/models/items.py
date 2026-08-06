@@ -96,12 +96,19 @@ class Rune(models.Model):
 class Item(models.Model):
     """Inventory item that may be owned, stacked, or equipped."""
 
+    MAGIC_EQUIPMENT_TYPES = frozenset({"ring", "amulet", "magical_weapon", "magical_armor"})
+    WEAPON_ITEM_TYPES = frozenset({"weapon", "magical_weapon"})
+    ARMOR_ITEM_TYPES = frozenset({"armor", "magical_armor"})
+
     class ItemType(models.TextChoices):
         ARMOR = "armor", "Rüstung"
         WEAPON = "weapon", "Waffe"
         SHIELD = "shield", "Schild"
         CLOTHING = "clothing", "Kleidung"
-        MAGIC_ITEM = "magic_item", "Magischer Gegenstand"
+        RING = "ring", "Ring"
+        AMULET = "amulet", "Amulett"
+        MAGICAL_WEAPON = "magical_weapon", "Magische Waffe"
+        MAGICAL_ARMOR = "magical_armor", "Magisches Rüstzeug"
         CONSUM = "consumable", "Verbrauchsgegenstand"
         AMMO = "ammo", "Monition"
         CREATURE = "creature", "Tiere & Kreaturen"
@@ -156,13 +163,13 @@ class Item(models.Model):
         """Prevent invalid stackable armor definitions."""
         super().clean()
         if self.item_type in {
-            self.ItemType.ARMOR,
             self.ItemType.SHIELD,
-            self.ItemType.WEAPON,
             self.ItemType.CLOTHING,
+            *self.weapon_item_type_values(),
+            *self.armor_item_type_values(),
         } and self.stackable:
             raise ValidationError({"stackable": f"Type: {self.item_type.upper()} can't be stackable."})
-        if (self.is_magic or self.item_type == self.ItemType.MAGIC_ITEM) and self.stackable:
+        if (self.is_magic or self.item_type in self.magic_item_type_values()) and self.stackable:
             raise ValidationError({"stackable": f"Type: {self.item_type.upper()} can't be stackable."})
 
     def __str__(self):
@@ -170,7 +177,19 @@ class Item(models.Model):
 
     @property
     def is_magic_effective(self) -> bool:
-        return bool(self.is_magic or self.item_type == self.ItemType.MAGIC_ITEM)
+        return bool(self.is_magic or self.item_type in self.magic_item_type_values())
+
+    @classmethod
+    def magic_item_type_values(cls) -> frozenset[str]:
+        return cls.MAGIC_EQUIPMENT_TYPES
+
+    @classmethod
+    def weapon_item_type_values(cls) -> frozenset[str]:
+        return cls.WEAPON_ITEM_TYPES
+
+    @classmethod
+    def armor_item_type_values(cls) -> frozenset[str]:
+        return cls.ARMOR_ITEM_TYPES
 
 
 class ArmorStats(models.Model):
@@ -304,7 +323,7 @@ class ArmorStats(models.Model):
     def clean(self):
         """Validate armor ownership, component metadata, and coverage."""
         super().clean()
-        if self.item.item_type != Item.ItemType.ARMOR:
+        if self.item.item_type not in Item.armor_item_type_values():
             raise ValidationError({"item_type": "Non armor items can't have ArmorStats"})
         if not self.rs_total:
             raise ValidationError({"rs_total": "Armor must have RS greater than zero."})
@@ -334,7 +353,7 @@ class ArmorStats(models.Model):
             if (
                 sync_components
                 and not self.parent_set_id
-                and self.item.item_type == Item.ItemType.ARMOR
+                and self.item.item_type in Item.armor_item_type_values()
             ):
                 from charsheet.armor_generation import sync_armor_set_components
 
@@ -564,7 +583,7 @@ class WeaponStats(models.Model):
 
     def clean(self):
         super().clean()
-        if self.item.item_type != Item.ItemType.WEAPON:
+        if self.item.item_type not in Item.weapon_item_type_values():
             raise ValidationError({"item": "Non-weapon items can't have WeaponStats"})
 
         has_h2_values = (
@@ -617,11 +636,11 @@ class RaceStartingItem(models.Model):
         if self.item.stackable:
             raise ValidationError({"item": "Race items must not be stackable because they are always equipped."})
         if self.item.item_type not in {
-            Item.ItemType.WEAPON,
-            Item.ItemType.ARMOR,
             Item.ItemType.SHIELD,
             Item.ItemType.CLOTHING,
-            Item.ItemType.MAGIC_ITEM,
+            *Item.weapon_item_type_values(),
+            *Item.armor_item_type_values(),
+            *Item.magic_item_type_values(),
         }:
             raise ValidationError({"item": "Race items must be equippable items because they are always equipped."})
 

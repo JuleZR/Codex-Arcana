@@ -120,7 +120,7 @@
                         <div class="sl-editor-row sl-editor-row--handling">
                           <label><span>Waffenwurf</span><select name="weapon_maneuver_attribute_override"><option value="">{{ instance.base_values.weapon_maneuver_attribute }}</option>{% for value,label in group_inventory_maneuver_attributes %}<option value="{{ value }}"{% if instance.weapon_maneuver_attribute_override == value %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
                           <label><span>Waffengriff</span><select name="weapon_wield_mode_override"><option value="">{{ instance.base_values.weapon_wield_mode }}</option><option value="1h"{% if instance.weapon_wield_mode_override == "1h" %} selected{% endif %}>Einhändig</option><option value="2h"{% if instance.weapon_wield_mode_override == "2h" %} selected{% endif %}>Zweihändig</option><option value="vh"{% if instance.weapon_wield_mode_override == "vh" %} selected{% endif %}>Ein- und zweihändig</option></select></label>
-                          <label><span>Mindeststärke</span><input name="weapon_min_st_override" type="number" min="1" value="{{ instance.weapon_min_st_override|default_if_none:'' }}" placeholder="{{ instance.base_values.weapon_min_st }}"></label>
+                          <label><span>Min-ST</span><input name="weapon_min_st_override" type="number" min="1" value="{{ instance.weapon_min_st_override|default_if_none:'' }}" placeholder="{{ instance.base_values.weapon_min_st }}"></label>
                         </div>
                         <div class="sl-editor-row sl-editor-row--damage">
                           <label><span>Würfelanzahl</span><input name="weapon_damage_dice_amount_override" type="number" min="1" value="{{ instance.weapon_damage_dice_amount_override|default_if_none:'' }}" placeholder="{{ instance.base_values.weapon_damage_dice_amount }}"></label>
@@ -259,9 +259,13 @@
         <div class="payday-window__body sl-item-create-window__body">
           <form class="sl-item-create-form sl-editor-form" method="post" enctype="multipart/form-data" action="{% url 'create_group_catalog_item' group_row.group.id %}" data-sl-base-item-form>
             {% csrf_token %}<input type="hidden" name="_sl_screen" value="1">
+            <div class="sl-editor-top-actions">
+              <button type="button" class="dashboard_button" data-close-sl-item-create>Abbrechen</button>
+              <button class="dashboard_button dashboard_button--primary">Basisitem und Instanz anlegen</button>
+            </div>
             <div class="sl-editor-columns">
               <section class="sl-editor-card">
-                <header><span>Basisitem</span><h4>Grunddaten</h4></header>
+                <header class="sl-editor-card__header-with-field"><div><span>Basisitem</span><h4>Grunddaten</h4></div><label><span>Instanzmenge</span><input name="amount" type="number" min="1" value="1"></label></header>
                 <div class="sl-editor-grid">
                   <label class="sl-editor-grid__wide"><span>Name</span><input name="name" required maxlength="200"></label>
                   <label><span>Typ</span><select name="item_type" data-sl-item-type>{% for value,label in group_inventory_item_types %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></label>
@@ -274,7 +278,7 @@
                 </div>
                 <div class="sl-editor-checks">
                   <label data-sl-stackable><input name="stackable" type="checkbox" checked> Stapelbar</label>
-                  <label><input name="is_magic" type="checkbox" data-sl-is-magic> Magisch</label>
+                  <label><input name="is_magic" type="checkbox" data-sl-is-magic><input name="is_magic" type="hidden" value="1" disabled data-sl-forced-magic> Magisch</label>
                   <label><input name="not_buyable" type="checkbox"> Nicht kaufbar</label>
                   <label><input name="not_sellable" type="checkbox"> Nicht verkaufbar</label>
                 </div>
@@ -297,12 +301,12 @@
                     <div class="sl-editor-row sl-editor-row--handling">
                       <label><span>Waffenwurf</span><select name="weapon_maneuver_attribute">{% for value,label in group_inventory_maneuver_attributes %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></label>
                       <label><span>Waffengriff</span><select name="weapon_wield_mode" data-sl-wield-mode><option value="1h">Einhändig</option><option value="2h">Zweihändig</option><option value="vh">Ein- und zweihändig</option></select></label>
-                      <label><span>Mindeststärke</span><input name="weapon_min_st" type="number" min="1" value="1"></label>
+                      <label><span>Min-ST</span><input name="weapon_min_st" type="number" min="1" value="1"></label>
                     </div>
                     <div class="sl-editor-row sl-editor-row--damage">
                       <label><span>Würfelanzahl</span><input name="weapon_damage_dice_amount" type="number" min="1" value="1"></label>
                       <label><span>Würfelseiten</span><input name="weapon_damage_dice_faces" type="number" min="2" value="10"></label>
-                      <label><span>Operator</span><select name="weapon_damage_flat_operator"><option value="">Keiner</option><option value="+">+</option><option value="-">−</option><option value="/">÷</option></select></label>
+                      <label><span>Operator</span><select name="weapon_damage_flat_operator"><option value="">---</option><option value="+">+</option><option value="-">−</option><option value="/">÷</option></select></label>
                       <label><span>Festwert</span><input name="weapon_damage_flat_bonus" type="number" min="0" value="0"></label>
                       <label><span>Schadenstyp</span><select name="weapon_damage_type">{% for value,label in group_inventory_damage_types %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></label>
                     </div>
@@ -311,12 +315,18 @@
                     <div class="sl-editor-row sl-editor-row--damage">
                       <label><span>2H Würfel</span><input name="weapon_h2_dice_amount" type="number" min="1" value="1"></label>
                       <label><span>2H Seiten</span><input name="weapon_h2_dice_faces" type="number" min="2" value="10"></label>
-                      <label><span>2H Operator</span><select name="weapon_h2_flat_operator"><option value="">Keiner</option><option value="+">+</option><option value="-">−</option><option value="/">÷</option></select></label>
+                      <label><span>2H Operator</span><select name="weapon_h2_flat_operator"><option value="">---</option><option value="+">+</option><option value="-">−</option><option value="/">÷</option></select></label>
                       <label><span>2H Festwert</span><input name="weapon_h2_flat_bonus" type="number" min="0" value="0"></label>
                       <label><span>2H Schadenstyp</span><select name="weapon_h2_damage_type">{% for value,label in group_inventory_damage_types %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></label>
                     </div>
                   </div>
-                  <details class="sl-editor-options"><summary>Verwendbare Fertigkeiten</summary><div class="sl-editor-checklist">{% for skill in group_inventory_weapon_skills %}<label><input type="checkbox" name="weapon_skills" value="{{ skill.pk }}"> <span>{{ skill.name }}</span></label>{% endfor %}</div></details>
+                  <div class="sl-rune-picker sl-skill-picker" data-sl-rune-picker>
+                    <button type="button" class="sl-rune-picker__trigger" data-sl-rune-trigger aria-expanded="false"><span data-sl-rune-label>Keine Fertigkeiten ausgewählt</span><strong data-sl-rune-count>0</strong></button>
+                    <div class="sl-rune-picker__panel" data-sl-rune-panel hidden>
+                      <input type="search" placeholder="Fertigkeiten durchsuchen ..." aria-label="Fertigkeiten durchsuchen" data-sl-rune-search>
+                      <div class="sl-rune-picker__list" data-sl-rune-list>{% for skill in group_inventory_weapon_skills %}<label data-rune-search="{{ skill.name|lower }} {{ skill.category.name|default:''|lower }}"><input type="checkbox" name="weapon_skills" value="{{ skill.pk }}"> <span><strong>{{ skill.name }}</strong>{% if skill.category %}<small>{{ skill.category.name }}</small>{% endif %}</span></label>{% empty %}<p>Keine Fertigkeiten verfügbar.</p>{% endfor %}</div>
+                    </div>
+                  </div>
                 </section>
                 <section class="sl-editor-card" data-item-fields="armor" hidden>
                   <header><span>Typwerte</span><h4>Rüstung</h4></header>
@@ -360,7 +370,6 @@
                 </section>
               </div>
             </div>
-            <footer class="sl-editor-actions"><label><span>Instanzmenge</span><input name="amount" type="number" min="1" value="1"></label><div><button type="button" class="dashboard_button" data-close-sl-item-create>Abbrechen</button><button class="dashboard_button dashboard_button--primary">Basisitem und Instanz anlegen</button></div></footer>
           </form>
         </div>
       </section>

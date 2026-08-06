@@ -158,7 +158,7 @@ def validate_armor_set_component_sync(armor: ArmorStats) -> None:
     """Raise when synchronizing would delete generated items in active use."""
     if (
         not armor.pk
-        or armor.item.item_type != Item.ItemType.ARMOR
+        or armor.item.item_type not in Item.armor_item_type_values()
         or armor.parent_set_id
     ):
         return
@@ -203,7 +203,7 @@ def sync_armor_set_components(armor: ArmorStats) -> list[Item]:
     """
     if (
         not armor.pk
-        or armor.item.item_type != Item.ItemType.ARMOR
+        or armor.item.item_type not in Item.armor_item_type_values()
         or armor.parent_set_id
     ):
         return []

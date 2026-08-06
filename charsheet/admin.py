@@ -4427,7 +4427,7 @@ class ItemAdmin(admin.ModelAdmin):
         """Resynchronize generated armor pieces after item fields and runes changed."""
         super().save_related(request, form, formsets, change)
         armor_stats = getattr(form.instance, "armorstats", None)
-        if armor_stats is None or form.instance.item_type != Item.ItemType.ARMOR:
+        if armor_stats is None or form.instance.item_type not in Item.armor_item_type_values():
             return
         from charsheet.armor_generation import sync_armor_set_components
 

@@ -27,7 +27,7 @@ def equipped_weapon_items(engine) -> QuerySet:
         CharacterItem.objects.filter(
             owner=engine.character,
             equipped=True,
-            item__item_type=Item.ItemType.WEAPON,
+            item__item_type__in=Item.weapon_item_type_values(),
         )
         .select_related("item", "item__weaponstats", "item__weaponstats__damage_source")
         .prefetch_related("item__runes", "runes", "item_runes__rune", "item__weaponstats__skills")
@@ -40,7 +40,7 @@ def equipped_armor_items(engine) -> QuerySet:
         CharacterItem.objects.filter(
             owner=engine.character,
             equipped=True,
-            item__item_type=Item.ItemType.ARMOR,
+            item__item_type__in=Item.armor_item_type_values(),
         )
         .select_related("item", "item__armorstats")
         .prefetch_related("item__runes", "runes", "item_runes__rune")
@@ -69,16 +69,16 @@ def equipped_magic_item_items(engine) -> QuerySet:
         )
         .filter(
             Q(item__is_magic=True)
-            | Q(item__item_type=Item.ItemType.MAGIC_ITEM)
+            | Q(item__item_type__in=Item.magic_item_type_values())
             | Q(is_magic=True)
             | Q(item__magicitemstats__isnull=False)
         )
         .exclude(
             item__item_type__in=(
-                Item.ItemType.ARMOR,
-                Item.ItemType.WEAPON,
                 Item.ItemType.SHIELD,
                 Item.ItemType.CLOTHING,
+                *Item.armor_item_type_values(),
+                *Item.weapon_item_type_values(),
             )
         )
         .select_related("item", "item__magicitemstats")

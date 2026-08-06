@@ -1223,7 +1223,10 @@ SHOP_GROUP_LABELS = {
     SHOP_ARMOR_COMPONENT_GROUP: "Rüstungsteile",
     Item.ItemType.SHIELD: "Schilde",
     Item.ItemType.CLOTHING: "Kleidung",
-    Item.ItemType.MAGIC_ITEM: "Magische Gegenstände",
+    Item.ItemType.RING: "Ringe",
+    Item.ItemType.AMULET: "Amulette",
+    Item.ItemType.MAGICAL_WEAPON: "Magische Waffen",
+    Item.ItemType.MAGICAL_ARMOR: "Magische Rüstungen",
     Item.ItemType.AMMO: "Munition",
     Item.ItemType.CONSUM: "Verbrauchsgegenstände",
     Item.ItemType.CREATURE: "Tiere & Kreaturen",
@@ -1235,7 +1238,10 @@ SHOP_GROUP_ORDER = [
     SHOP_ARMOR_COMPONENT_GROUP,
     Item.ItemType.SHIELD,
     Item.ItemType.CLOTHING,
-    Item.ItemType.MAGIC_ITEM,
+    Item.ItemType.RING,
+    Item.ItemType.AMULET,
+    Item.ItemType.MAGICAL_WEAPON,
+    Item.ItemType.MAGICAL_ARMOR,
     Item.ItemType.AMMO,
     Item.ItemType.CONSUM,
     Item.ItemType.CREATURE,
@@ -1250,21 +1256,24 @@ SHOP_FORM_ORDER = [
     Item.ItemType.ARMOR,
     Item.ItemType.SHIELD,
     Item.ItemType.CLOTHING,
-    Item.ItemType.MAGIC_ITEM,
+    Item.ItemType.RING,
+    Item.ItemType.AMULET,
+    Item.ItemType.MAGICAL_WEAPON,
+    Item.ItemType.MAGICAL_ARMOR,
 ]
 QUALITY_TOOLTIP_TYPES = {
     Item.ItemType.ARMOR,
     Item.ItemType.WEAPON,
     Item.ItemType.SHIELD,
     Item.ItemType.CLOTHING,
-    Item.ItemType.MAGIC_ITEM,
+    *Item.magic_item_type_values(),
 }
 EQUIPPABLE_ITEM_TYPES = {
     Item.ItemType.ARMOR,
     Item.ItemType.WEAPON,
     Item.ItemType.SHIELD,
     Item.ItemType.CLOTHING,
-    Item.ItemType.MAGIC_ITEM,
+    *Item.magic_item_type_values(),
 }
 RUNE_RETROFIT_ITEM_TYPES = {Item.ItemType.ARMOR, Item.ItemType.WEAPON, Item.ItemType.MISC}
 MODIFIER_SOURCE_LABELS = {
@@ -1787,7 +1796,7 @@ def _build_item_tooltip_rows(
     if size_class:
         rows.append(("GK", size_class))
 
-    if item.item_type == Item.ItemType.WEAPON:
+    if item.item_type in Item.weapon_item_type_values():
         rows.append(("Schaden", item_engine.get_one_handed_damage_label()))
         two_handed_damage = item_engine.get_two_handed_damage_label()
         if two_handed_damage:
@@ -1814,7 +1823,7 @@ def _build_item_tooltip_rows(
             rows.append(("Min-GE", f"1H {min_ge_1h} / 2H {min_ge_2h}"))
         elif min_ge_1h is not None:
             rows.append(("Min-GE", min_ge_1h))
-    elif item.item_type == Item.ItemType.ARMOR:
+    elif item.item_type in Item.armor_item_type_values():
         rs = item_engine.get_armor_rs_raw() if armor_rs is None else armor_rs
         if rs is not None:
             rows.append(("RS", rs))
@@ -1830,7 +1839,7 @@ def _build_item_tooltip_rows(
         min_st = item_engine.get_shield_min_st()
         if min_st is not None:
             rows.append(("Min-ST", min_st))
-    elif item.item_type == Item.ItemType.MAGIC_ITEM:
+    elif item.item_type in Item.magic_item_type_values():
         effect_summary, text_payloads = unpack_magic_effect_summary(
             getattr(getattr(item, "magicitemstats", None), "effect_summary", "")
         )
@@ -3182,7 +3191,7 @@ def _build_inventory_rows(character: Character) -> list[dict]:
                 "can_equip": can_use_item and (item.item_type in EQUIPPABLE_ITEM_TYPES or character_item.is_magic_effective),
                 "equip_drop_zone": (
                     "weapon"
-                    if item.item_type == Item.ItemType.WEAPON
+                    if item.item_type in Item.weapon_item_type_values()
                     else "armor"
                     if (item.item_type in EQUIPPABLE_ITEM_TYPES or character_item.is_magic_effective)
                     else ""
@@ -5860,7 +5869,6 @@ def build_character_sheet_context(
         "shop_item_form_type_choices": [
             (item_type, dict(Item.ItemType.choices)[item_type])
             for item_type in SHOP_FORM_ORDER
-            if item_type != Item.ItemType.MAGIC_ITEM
         ],
         "shop_damage_type_choices": DAMAGE_TYPE_CHOICES,
         "shop_size_class_choices": GK_CHOICES,
@@ -5947,7 +5955,7 @@ def build_character_sheet_context(
         "shop_modifier_skill_choices": Skill.objects.select_related("category").order_by("name"),
         "shop_modifier_skill_category_choices": SkillCategory.objects.order_by("name"),
         "shop_modifier_item_category_choices": [
-            (value, label) for value, label in Item.ItemType.choices if value != Item.ItemType.MAGIC_ITEM
+            (value, label) for value, label in Item.ItemType.choices
         ],
         "shop_modifier_specialization_choices": Specialization.objects.order_by("name"),
         "shop_runes": Rune.objects.order_by("name"),

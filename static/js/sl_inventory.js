@@ -78,9 +78,21 @@ document.addEventListener("DOMContentLoaded", () => {
     closeButtons: Array.from(document.querySelectorAll("[data-close-sl-item-create]")),
   });
 
+  const WEAPON_ITEM_TYPES = new Set(["weapon", "magical_weapon"]);
+  const ARMOR_ITEM_TYPES = new Set(["armor", "magical_armor"]);
+  const MAGIC_ITEM_TYPES = new Set(["ring", "amulet", "magical_weapon", "magical_armor"]);
+  const FORCED_MAGIC_ITEM_TYPES = new Set(["magical_weapon", "magical_armor"]);
+
+  const detailTypeFor = (type) => {
+    if (WEAPON_ITEM_TYPES.has(type)) return "weapon";
+    if (ARMOR_ITEM_TYPES.has(type)) return "armor";
+    return type;
+  };
+
   const syncTypeSections = (form, type) => {
+    const detailType = detailTypeFor(type);
     form.querySelectorAll("[data-item-fields]").forEach((section) => {
-      const active = section.dataset.itemFields === type;
+      const active = section.dataset.itemFields === detailType;
       section.hidden = !active;
       section.querySelectorAll("input, select, textarea").forEach((field) => {
         field.disabled = !active;
@@ -92,6 +104,7 @@ document.addEventListener("DOMContentLoaded", () => {
   if (baseItemForm) {
     const typeSelect = baseItemForm.querySelector("[data-sl-item-type]");
     const magicInput = baseItemForm.querySelector("[data-sl-is-magic]");
+    const forcedMagicInput = baseItemForm.querySelector("[data-sl-forced-magic]");
     const magicFields = baseItemForm.querySelector("[data-sl-magic-fields]");
     const stackableRow = baseItemForm.querySelector("[data-sl-stackable]");
     const stackableInput = stackableRow?.querySelector("input");
@@ -102,6 +115,67 @@ document.addEventListener("DOMContentLoaded", () => {
     const effectTemplate = baseItemForm.querySelector("[data-sl-magic-effect-template]");
     const addEffectButton = baseItemForm.querySelector("[data-add-sl-magic-effect]");
     const effectPayloads = baseItemForm.querySelector("[data-sl-magic-payloads]");
+    const oneHandDamageRow = baseItemForm.querySelector("input[name='weapon_damage_dice_amount']")?.closest(".sl-editor-row--damage");
+    const twoHandDamageRow = baseItemForm.querySelector("input[name='weapon_h2_dice_amount']")?.closest(".sl-editor-row--damage");
+
+    const formatDamageSummary = (prefix, names) => {
+      const amount = baseItemForm.querySelector(`[name='${names.amount}']`)?.value || "1";
+      const faces = baseItemForm.querySelector(`[name='${names.faces}']`)?.value || "10";
+      const operator = baseItemForm.querySelector(`[name='${names.operator}']`)?.value || "";
+      const bonus = baseItemForm.querySelector(`[name='${names.bonus}']`)?.value || "0";
+      const typeLabel = baseItemForm.querySelector(`[name='${names.type}'] option:checked`)?.textContent?.trim() || "";
+      const bonusLabel = operator && Number.parseInt(bonus, 10) ? `${operator}${bonus}` : "";
+      return `${amount}w${faces}${bonusLabel} ${typeLabel}`.trim();
+    };
+
+    const setupDamageSummary = (row, prefix, labelText, names) => {
+      if (!row) return null;
+      const trigger = document.createElement("button");
+      trigger.type = "button";
+      trigger.className = "sl-damage-summary";
+      trigger.innerHTML = `<span class="sl-damage-summary__mode"></span><span class="sl-damage-summary__value"></span><span class="sl-damage-summary__edit" aria-hidden="true">&#9998;</span>`;
+      row.before(trigger);
+      row.hidden = true;
+      const modeLabel = trigger.querySelector(".sl-damage-summary__mode");
+      if (modeLabel) modeLabel.textContent = labelText;
+      const update = () => {
+        const label = trigger.querySelector(".sl-damage-summary__value");
+        if (label) label.textContent = formatDamageSummary(prefix, names);
+      };
+      trigger.addEventListener("click", () => {
+        row.hidden = !row.hidden;
+      });
+      Object.values(names).forEach((name) => {
+        baseItemForm.querySelector(`[name='${name}']`)?.addEventListener("input", update);
+        baseItemForm.querySelector(`[name='${name}']`)?.addEventListener("change", update);
+      });
+      update();
+      return trigger;
+    };
+
+    const oneHandDamageSummary = setupDamageSummary(oneHandDamageRow, "1H", "1 Hand", {
+      amount: "weapon_damage_dice_amount",
+      faces: "weapon_damage_dice_faces",
+      operator: "weapon_damage_flat_operator",
+      bonus: "weapon_damage_flat_bonus",
+      type: "weapon_damage_type",
+    });
+    const twoHandDamageSummary = setupDamageSummary(twoHandDamageRow, "2H", "2 Hand", {
+      amount: "weapon_h2_dice_amount",
+      faces: "weapon_h2_dice_faces",
+      operator: "weapon_h2_flat_operator",
+      bonus: "weapon_h2_flat_bonus",
+      type: "weapon_h2_damage_type",
+    });
+    const damageSummaryGroup = document.createElement("div");
+    damageSummaryGroup.className = "sl-damage-summary-group";
+    if (oneHandDamageSummary) {
+      oneHandDamageSummary.before(damageSummaryGroup);
+      damageSummaryGroup.append(oneHandDamageSummary);
+    }
+    if (twoHandDamageSummary) {
+      damageSummaryGroup.append(twoHandDamageSummary);
+    }
 
     const serializeEffects = () => {
       if (!effectsList || !effectPayloads) return;
@@ -169,10 +243,19 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const syncWieldMode = () => {
       if (!twoHandFields) return;
-      const visible = wieldMode?.value === "2h" || wieldMode?.value === "vh";
-      twoHandFields.hidden = !visible;
+      const mode = wieldMode?.value || "1h";
+      const showOneHand = mode === "1h" || mode === "vh";
+      const showTwoHand = mode === "2h" || mode === "vh";
+      if (damageSummaryGroup) {
+        damageSummaryGroup.classList.toggle("sl-damage-summary-group--split", showOneHand && showTwoHand);
+      }
+      if (oneHandDamageSummary) oneHandDamageSummary.hidden = !showOneHand;
+      if (oneHandDamageRow) oneHandDamageRow.hidden = true;
+      twoHandFields.hidden = !showTwoHand;
+      if (twoHandDamageSummary) twoHandDamageSummary.hidden = !showTwoHand;
+      if (twoHandDamageRow) twoHandDamageRow.hidden = true;
       twoHandFields.querySelectorAll("input, select").forEach((field) => {
-        field.disabled = !visible;
+        field.disabled = !showTwoHand;
       });
     };
     const syncArmorMode = () => {
@@ -187,7 +270,16 @@ document.addEventListener("DOMContentLoaded", () => {
     };
     const syncBaseForm = () => {
       const type = typeSelect?.value || "misc";
-      const isMagic = Boolean(magicInput?.checked) || type === "magic_item";
+      const isMagicType = MAGIC_ITEM_TYPES.has(type);
+      const isForcedMagicType = FORCED_MAGIC_ITEM_TYPES.has(type);
+      if (magicInput instanceof HTMLInputElement) {
+        magicInput.checked = isForcedMagicType || magicInput.checked;
+        magicInput.disabled = isForcedMagicType;
+      }
+      if (forcedMagicInput instanceof HTMLInputElement) {
+        forcedMagicInput.disabled = !isForcedMagicType;
+      }
+      const isMagic = Boolean(magicInput?.checked) || isForcedMagicType;
       syncTypeSections(baseItemForm, type);
       if (magicFields) {
         magicFields.hidden = !isMagic;
@@ -199,7 +291,7 @@ document.addEventListener("DOMContentLoaded", () => {
         addEffect();
       }
       effectsList?.querySelectorAll("[data-sl-magic-effect]").forEach(syncEffectRow);
-      const nonStackable = ["weapon", "armor", "shield", "clothing"].includes(type) || isMagic;
+      const nonStackable = WEAPON_ITEM_TYPES.has(type) || ARMOR_ITEM_TYPES.has(type) || ["shield", "clothing"].includes(type) || isMagic;
       if (stackableRow && stackableInput) {
         stackableRow.hidden = nonStackable;
         stackableInput.disabled = nonStackable;
@@ -334,20 +426,22 @@ document.addEventListener("DOMContentLoaded", () => {
     const label = picker.querySelector("[data-sl-rune-label]");
     const count = picker.querySelector("[data-sl-rune-count]");
     if (!trigger || !panel || !list) return;
+    const emptyLabel = label?.textContent?.trim() || "Keine Auswahl";
+    const selectedSuffix = emptyLabel.includes("Fertigkeiten") ? "Fertigkeiten ausgewählt" : "Runen ausgewählt";
 
     const updateSelection = () => {
       const selected = Array.from(list.querySelectorAll("input[type='checkbox']:checked"));
       if (count) count.textContent = String(selected.length);
       if (!label) return;
       if (!selected.length) {
-        label.textContent = "Keine Runen ausgewählt";
+        label.textContent = emptyLabel;
       } else if (selected.length <= 2) {
         label.textContent = selected
           .map((input) => input.closest("label")?.querySelector("strong")?.textContent?.trim() || "")
           .filter(Boolean)
           .join(", ");
       } else {
-        label.textContent = `${selected.length} Runen ausgewählt`;
+        label.textContent = `${selected.length} ${selectedSuffix}`;
       }
     };
 

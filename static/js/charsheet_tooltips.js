@@ -810,6 +810,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const weaponH2AmountInput = weaponFields.querySelector("input[name='weapon_h2_dice_amount']");
   const weaponH2FacesInput = weaponFields.querySelector("input[name='weapon_h2_dice_faces']");
   const weaponH2DamageTypeSelect = weaponFields.querySelector("select[name='weapon_h2_damage_type']");
+  const WEAPON_ITEM_TYPES = new Set(["weapon", "magical_weapon"]);
+  const ARMOR_ITEM_TYPES = new Set(["armor", "magical_armor"]);
 
   const syncArmorModeFields = () => {
     if (!armorTotalFields || !armorZoneFields) {
@@ -849,8 +851,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const syncItemTypeFields = () => {
     const value = String(typeSelect.value || "");
-    const isArmor = value === "armor";
-    const isWeapon = value === "weapon";
+    const isArmor = ARMOR_ITEM_TYPES.has(value);
+    const isWeapon = WEAPON_ITEM_TYPES.has(value);
     const isShield = value === "shield";
 
     armorFields.hidden = !isArmor;

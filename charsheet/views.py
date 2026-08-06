@@ -2727,7 +2727,7 @@ def toggle_equip(request, pk):
         Item.ItemType.SHIELD,
         Item.ItemType.WEAPON,
         Item.ItemType.CLOTHING,
-        Item.ItemType.MAGIC_ITEM,
+        *Item.magic_item_type_values(),
     ) and not ci.item.is_magic_effective:
         return redirect("character_sheet", character_id=ci.owner_id)
 

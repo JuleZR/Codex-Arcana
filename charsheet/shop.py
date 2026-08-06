@@ -689,7 +689,7 @@ def create_custom_shop_item(post_data, files_data=None, *, catalog_group=None):
     item_type = (post_data.get("item_type") or Item.ItemType.MISC).strip()
     description = (post_data.get("description") or "").strip()
     stackable = bool(post_data.get("stackable"))
-    is_magic = bool(post_data.get("is_magic")) or item_type == Item.ItemType.MAGIC_ITEM
+    is_magic = bool(post_data.get("is_magic")) or item_type in Item.magic_item_type_values()
     not_buyable = bool(post_data.get("not_buyable"))
     not_sellable = bool(post_data.get("not_sellable"))
     default_quality = _read_quality(post_data, "default_quality", ItemEngine.normalize_quality(None))
@@ -752,7 +752,7 @@ def create_custom_shop_item(post_data, files_data=None, *, catalog_group=None):
             if selected_runes:
                 item.runes.set(selected_runes)
 
-            if item.item_type == Item.ItemType.ARMOR:
+            if item.item_type in Item.armor_item_type_values():
                 armor_encumbrance = _read_int(post_data, "armor_encumbrance", 0, minimum=0)
                 armor_min_st = _read_int(post_data, "armor_min_st", 1, minimum=1)
                 zone_fields = tuple(ArmorStats.ZONE_FIELDS)
@@ -775,7 +775,7 @@ def create_custom_shop_item(post_data, files_data=None, *, catalog_group=None):
                 )
                 armor_stats.full_clean()
                 armor_stats.save()
-            elif item.item_type == Item.ItemType.WEAPON:
+            elif item.item_type in Item.weapon_item_type_values():
                 min_st = _read_int(post_data, "weapon_min_st", 1, minimum=1)
                 damage_type = str(post_data.get("weapon_damage_type") or DEADLY)
                 h2_damage_type = str(post_data.get("weapon_h2_damage_type") or damage_type)

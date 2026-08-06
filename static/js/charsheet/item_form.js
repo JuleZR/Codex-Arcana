@@ -12,6 +12,7 @@ export function initItemForm() {
   const stackableRow = document.getElementById("shopItemStackableRow");
   const stackableInput = document.getElementById("shopItemStackableInput");
   const magicInput = document.getElementById("shopItemMagicInput");
+  const forcedMagicInput = document.getElementById("shopItemMagicForcedInput");
   const armorModeInputs = armorFields.querySelectorAll("input[name='armor_mode']");
   const armorTotalFields = document.getElementById("shopArmorTotalFields");
   const armorZoneFields = document.getElementById("shopArmorZoneFields");
@@ -43,6 +44,10 @@ export function initItemForm() {
   const WEAPON_ONLY_MAGIC_TARGET_KINDS = ["weapon_maneuver", "weapon_damage", "weapon_damage_dice", "weapon_mastery_bonus"];
   const WEAPON_MASTERY_BONUS_KIND = "weapon_mastery_bonus";
   const WEAPON_MASTERY_BONUS_DESCRIPTION = "Waffenmeister-Bonus +1/+1";
+  const WEAPON_ITEM_TYPES = new Set(["weapon", "magical_weapon"]);
+  const ARMOR_ITEM_TYPES = new Set(["armor", "magical_armor"]);
+  const MAGIC_ITEM_TYPES = new Set(["ring", "amulet", "magical_weapon", "magical_armor"]);
+  const FORCED_MAGIC_ITEM_TYPES = new Set(["magical_weapon", "magical_armor"]);
 
   const syncArmorModeFields = () => {
     const selectedModeInput = armorFields.querySelector("input[name='armor_mode']:checked");
@@ -339,12 +344,12 @@ export function initItemForm() {
       WEAPON_ONLY_MAGIC_TARGET_KINDS.forEach((optionValue) => {
         const weaponOnlyOption = targetKindSelect.querySelector(`option[value='${optionValue}']`);
         if (weaponOnlyOption instanceof HTMLOptionElement) {
-          const isWeapon = String(typeSelect.value || "") === "weapon";
+          const isWeapon = WEAPON_ITEM_TYPES.has(String(typeSelect.value || ""));
           weaponOnlyOption.hidden = !isWeapon;
           weaponOnlyOption.disabled = !isWeapon;
         }
       });
-      if (String(typeSelect.value || "") !== "weapon" && WEAPON_ONLY_MAGIC_TARGET_KINDS.includes(targetKindSelect.value)) {
+      if (!WEAPON_ITEM_TYPES.has(String(typeSelect.value || "")) && WEAPON_ONLY_MAGIC_TARGET_KINDS.includes(targetKindSelect.value)) {
         targetKindSelect.value = "";
       }
     }
@@ -382,10 +387,19 @@ export function initItemForm() {
 
   const syncItemTypeFields = () => {
     const value = String(typeSelect.value || "");
-    const isArmor = value === "armor";
-    const isWeapon = value === "weapon";
+    const isArmor = ARMOR_ITEM_TYPES.has(value);
+    const isWeapon = WEAPON_ITEM_TYPES.has(value);
     const isShield = value === "shield";
-    const isMagicItem = Boolean(magicInput?.checked) || value === "magic_item";
+    const isMagicType = MAGIC_ITEM_TYPES.has(value);
+    const isForcedMagicType = FORCED_MAGIC_ITEM_TYPES.has(value);
+    if (magicInput instanceof HTMLInputElement) {
+      magicInput.checked = isForcedMagicType || magicInput.checked;
+      magicInput.disabled = isForcedMagicType;
+    }
+    if (forcedMagicInput instanceof HTMLInputElement) {
+      forcedMagicInput.disabled = !isForcedMagicType;
+    }
+    const isMagicItem = Boolean(magicInput?.checked) || isForcedMagicType;
 
     armorFields.hidden = !isArmor;
     weaponFields.hidden = !isWeapon;

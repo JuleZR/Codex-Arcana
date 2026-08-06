@@ -826,6 +826,13 @@
   display: block;
 }
 
+.sl-editor-top-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin: 0 0 10px;
+}
+
 .sl-editor-columns {
   display: grid;
   grid-template-columns: minmax(300px, 0.9fr) minmax(420px, 1.35fr);
@@ -865,6 +872,27 @@
   background: linear-gradient(90deg, rgba(218, 185, 126, 0.28), rgba(255, 250, 235, 0.12));
 }
 
+.sl-editor-card__header-with-field {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.sl-editor-card__header-with-field label {
+  display: grid;
+  gap: 3px;
+  min-width: 96px;
+  max-width: 118px;
+  color: rgba(63, 45, 31, 0.78);
+  font: 0.7rem/1.1 Georgia, serif;
+}
+
+.sl-editor-card__header-with-field input {
+  min-height: 30px;
+  padding: 5px 8px;
+}
+
 .sl-editor-card > header span {
   color: rgba(74, 49, 27, 0.66);
   font: 700 0.61rem/1 Georgia, serif;
@@ -899,6 +927,12 @@
   padding: 11px 12px;
 }
 
+.sl-editor-fields[hidden],
+.sl-editor-row[hidden],
+.sl-damage-summary[hidden] {
+  display: none !important;
+}
+
 .sl-editor-fields + .sl-editor-fields {
   padding-top: 0;
 }
@@ -908,21 +942,30 @@
   gap: 8px;
 }
 
+.sl-editor-row label,
+.sl-editor-row input,
+.sl-editor-row select {
+  min-width: 0;
+}
+
 .sl-editor-row--identity {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
 }
 
 .sl-editor-row--handling {
-  grid-template-columns: minmax(150px, 1fr) minmax(180px, 1.25fr) minmax(110px, 0.7fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr) minmax(64px, 0.45fr);
 }
 
 .sl-editor-row--damage {
   grid-template-columns:
-    minmax(70px, 0.7fr)
-    minmax(70px, 0.7fr)
-    minmax(90px, 0.9fr)
-    minmax(80px, 0.8fr)
-    minmax(110px, 1fr);
+    minmax(58px, 0.75fr)
+    minmax(58px, 0.75fr)
+    minmax(54px, 0.55fr)
+    minmax(64px, 0.7fr);
+}
+
+.sl-editor-row--damage > label:nth-child(5) {
+  grid-column: 1 / -1;
 }
 
 .sl-editor-row--single {
@@ -931,6 +974,66 @@
 
 .sl-editor-row--effect {
   grid-template-columns: minmax(220px, 1.4fr) minmax(120px, 0.6fr);
+}
+
+.sl-damage-summary-group {
+  display: grid;
+  gap: 8px;
+}
+
+.sl-damage-summary-group--split {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.sl-damage-summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+  padding: 7px 8px;
+  border: 1px solid rgba(121, 87, 51, 0.32);
+  border-radius: 6px;
+  background: rgba(255, 252, 242, 0.68);
+  color: #3d2a1b;
+  font: 0.86rem/1.25 "Segoe UI", system-ui, sans-serif;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.sl-damage-summary__mode {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  min-width: 3.9rem;
+  padding: 3px 6px;
+  border: 1px solid rgba(124, 77, 50, 0.28);
+  border-radius: 999px;
+  background: rgba(124, 77, 50, 0.12);
+  color: #5a3522;
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
+.sl-damage-summary__value {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-weight: 800;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sl-damage-summary__edit {
+  flex: 0 0 auto;
+}
+
+.sl-damage-summary:hover {
+  border-color: rgba(121, 87, 51, 0.55);
+  background: rgba(255, 252, 242, 0.88);
 }
 
 .sl-magic-effects {
@@ -1035,6 +1138,10 @@
 .sl-rune-picker {
   position: relative;
   margin: 0 12px 12px;
+}
+
+.sl-skill-picker {
+  margin-top: 10px;
 }
 
 .sl-editor-card:has(.sl-rune-picker) {
