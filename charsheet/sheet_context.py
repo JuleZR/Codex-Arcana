@@ -3246,6 +3246,11 @@ def _build_inventory_rows(character: Character) -> list[dict]:
             if item_rune.is_active
         ] or [rune.id for rune in character_item.runes.all()]
         item_image_url = _character_item_image_url(character_item)
+        equip_drop_zones = []
+        if item.item_type in Item.weapon_item_type_values() or item.item_type == Item.ItemType.SHIELD:
+            equip_drop_zones.append("weapon")
+        elif item.item_type in EQUIPPABLE_ITEM_TYPES or character_item.is_magic_effective:
+            equip_drop_zones.append("armor")
 
         inventory_rows.append(
             {
@@ -3292,13 +3297,8 @@ def _build_inventory_rows(character: Character) -> list[dict]:
                 "sell_grant": active_grants.get("sell"),
                 "destroy_grant": active_grants.get("destroy"),
                 "can_equip": can_use_item and (item.item_type in EQUIPPABLE_ITEM_TYPES or character_item.is_magic_effective),
-                "equip_drop_zone": (
-                    "weapon"
-                    if item.item_type in Item.weapon_item_type_values()
-                    else "armor"
-                    if (item.item_type in EQUIPPABLE_ITEM_TYPES or character_item.is_magic_effective)
-                    else ""
-                ),
+                "equip_drop_zone": equip_drop_zones[0] if equip_drop_zones else "",
+                "equip_drop_zones": ",".join(equip_drop_zones),
                 "can_socket_runes": (
                     can_use_item
                     and is_original_owner

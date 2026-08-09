@@ -335,7 +335,7 @@ class ArmorStats(models.Model):
         """Validate armor ownership, component metadata, and coverage."""
         super().clean()
         if self.item.item_type not in Item.armor_item_type_values():
-            raise ValidationError({"item_type": "Non armor items can't have ArmorStats"})
+            raise ValidationError({"item": "Non armor items can't have ArmorStats"})
         if not self.rs_total:
             raise ValidationError({"rs_total": "Armor must have RS greater than zero."})
         if self.parent_set_id and not self.component_type:
@@ -377,19 +377,99 @@ class ArmorStats(models.Model):
 class ShieldStats(models.Model):
     """Shield-specific protection values for an item."""
 
+    class DamageOperator(models.TextChoices):
+        NONE = "", "Kein Operator"
+        ADD = "+", "+"
+        SUBTRACT = "-", "-"
+        DIVIDE = "/", "/"
+
     item = models.OneToOneField(Item, on_delete=models.CASCADE)
 
     rs = models.PositiveIntegerField(default=0)
     encumbrance = models.PositiveIntegerField(default=0)
     min_st = models.PositiveIntegerField(default=1)
+    damage_source = models.ForeignKey(DamageSource, on_delete=models.PROTECT, null=True, blank=True)
+    damage_dice_amount = models.PositiveIntegerField(null=True, blank=True, validators=[MinValueValidator(1)])
+    damage_dice_faces = models.PositiveIntegerField(null=True, blank=True, validators=[MinValueValidator(2)])
+    damage_flat_bonus = models.IntegerField(default=0)
+    damage_flat_operator = models.CharField(max_length=1, choices=DamageOperator.choices, default=DamageOperator.NONE, blank=True)
+    maneuver_attribute_mode = models.CharField(
+        max_length=10,
+        choices=WEAPON_MANEUVER_ATTRIBUTE_CHOICES,
+        default=WEAPON_MANEUVER_ATTRIBUTE_ST,
+        help_text="Welcher Attributsmodifikator fuer offensive Schildaktionen gilt.",
+    )
+    damage_type = models.CharField(max_length=1, default=DEADLY, choices=DAMAGE_TYPE_CHOICES)
+    weapon_type = models.ForeignKey(
+        "charsheet.WeaponType",
+        on_delete=models.PROTECT,
+        related_name="shield_stats",
+        null=True,
+        blank=True,
+        help_text="Regeltechnischer Waffentyp, falls dieser Schild offensiv gefuehrt werden kann.",
+    )
+    skills = models.ManyToManyField(
+        "Skill",
+        blank=True,
+        related_name="shield_stats",
+        help_text="Alle Fertigkeiten, mit denen dieser Schild offensiv gefuehrt werden kann.",
+    )
+
+    @property
+    def has_damage_profile(self) -> bool:
+        """Return whether this shield also carries offensive combat data."""
+        return (
+            self.damage_dice_amount is not None
+            or self.damage_dice_faces is not None
+            or self.damage_source_id is not None
+            or bool(self.damage_flat_bonus)
+            or bool(self.damage_flat_operator)
+        )
+
+    @property
+    def can_be_wielded_as_weapon(self) -> bool:
+        """Return whether this shield should be accepted by weapon-slot handling."""
+        return self.has_damage_profile or self.weapon_type_id is not None or self.skills.exists()
+
+    @property
+    def damage(self) -> str:
+        """Return optional shield damage in classic dice notation."""
+        if self.damage_dice_amount is None or self.damage_dice_faces is None:
+            return ""
+        return WeaponStats.format_damage_label(
+            self.damage_dice_amount,
+            self.damage_dice_faces,
+            self.damage_flat_bonus,
+            self.damage_flat_operator,
+        )
+
+    @property
+    def maneuver_attribute_codes(self) -> tuple[str, ...]:
+        """Return the attribute codes that contribute to this shield's offensive use."""
+        if self.maneuver_attribute_mode == WEAPON_MANEUVER_ATTRIBUTE_GE:
+            return (ATTR_GE,)
+        if self.maneuver_attribute_mode == WEAPON_MANEUVER_ATTRIBUTE_BOTH:
+            return (ATTR_ST, ATTR_GE)
+        return (ATTR_ST,)
 
     def clean(self):
         super().clean()
         if self.item.item_type != Item.ItemType.SHIELD:
             raise ValidationError("Shield must be type SHIELD")
+        if self.has_damage_profile:
+            errors = {}
+            if self.damage_source_id is None:
+                errors["damage_source"] = "Shield damage needs a damage source."
+            if self.damage_dice_amount is None:
+                errors["damage_dice_amount"] = "Shield damage needs dice amount."
+            if self.damage_dice_faces is None:
+                errors["damage_dice_faces"] = "Shield damage needs dice faces."
+            if errors:
+                raise ValidationError(errors)
 
     def __str__(self):
-        return f"{self.item}: RS {self.rs}"
+        damage = f", DMG {self.damage}" if self.damage else ""
+        return f"{self.item}: RS {self.rs}{damage}"
 
 
 class MagicItemStats(models.Model):

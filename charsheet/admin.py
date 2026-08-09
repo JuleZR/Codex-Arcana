@@ -1877,14 +1877,61 @@ class ArmorStatsInline(admin.StackedInline):
     )
 
 
+class ShieldStatsAdminForm(forms.ModelForm):
+    """Admin form that keeps shield damage genuinely optional."""
+
+    damage_dice_amount = forms.IntegerField(required=False, min_value=0)
+    damage_dice_faces = forms.IntegerField(required=False, min_value=0)
+
+    class Meta:
+        model = ShieldStats
+        fields = "__all__"
+
+    def clean(self):
+        cleaned_data = super().clean()
+        for field_name in ("damage_dice_amount", "damage_dice_faces"):
+            if cleaned_data.get(field_name) == 0:
+                cleaned_data[field_name] = None
+
+        has_damage_data = (
+            bool(cleaned_data.get("damage_source"))
+            or cleaned_data.get("damage_dice_amount") is not None
+            or cleaned_data.get("damage_dice_faces") is not None
+            or bool(cleaned_data.get("damage_flat_bonus"))
+            or bool(cleaned_data.get("damage_flat_operator"))
+        )
+        if not has_damage_data:
+            cleaned_data["damage_dice_amount"] = None
+            cleaned_data["damage_dice_faces"] = None
+            cleaned_data["damage_flat_bonus"] = 0
+            cleaned_data["damage_flat_operator"] = ""
+            return cleaned_data
+
+        for field_name in ("damage_source", "damage_dice_amount", "damage_dice_faces"):
+            if not cleaned_data.get(field_name):
+                self.add_error(field_name, "Required when ShieldStats defines damage.")
+        return cleaned_data
+
+
 class ShieldStatsInline(admin.StackedInline):
     """Inline editor for one-to-one shield stats on an item."""
 
     model = ShieldStats
+    form = ShieldStatsAdminForm
     verbose_name_plural = "Shield Stats"
     extra = 0
     max_num = 1
     can_delete = True
+    autocomplete_fields = ("damage_source", "weapon_type")
+    filter_horizontal = ("skills",)
+    fields = (
+        ("rs", "encumbrance", "min_st"),
+        "weapon_type",
+        "maneuver_attribute_mode",
+        "damage_source",
+        "skills",
+        ("damage_dice_amount", "damage_dice_faces", "damage_flat_operator", "damage_flat_bonus", "damage_type"),
+    )
 
 
 class WeaponStatsAdminForm(forms.ModelForm):
@@ -4876,17 +4923,48 @@ class ArmorStatsAdmin(admin.ModelAdmin):
 class ShieldStatsAdmin(admin.ModelAdmin):
     """Admin configuration for shield stat blocks."""
 
-    list_display = ("item", "item_quality", "rs", "encumbrance", "min_st")
-    search_fields = ("item__name",)
-    list_filter = ("item__default_quality", "item__size_class")
+    form = ShieldStatsAdminForm
+    list_display = (
+        "item",
+        "item_quality",
+        "rs",
+        "base_damage",
+        "weapon_type",
+        "damage_source",
+        "skill_summary",
+        "encumbrance",
+        "min_st",
+    )
+    search_fields = ("item__name", "weapon_type__name", "weapon_type__slug", "damage_source__name", "skills__name", "skills__slug")
+    list_filter = ("weapon_type", "damage_source", "damage_type", "item__default_quality", "item__size_class")
     ordering = ("item__name",)
-    autocomplete_fields = ("item",)
-    list_select_related = ("item",)
+    autocomplete_fields = ("item", "weapon_type", "damage_source")
+    list_select_related = ("item", "weapon_type", "damage_source")
+    filter_horizontal = ("skills",)
+    fields = (
+        "item",
+        ("rs", "encumbrance", "min_st"),
+        "weapon_type",
+        "maneuver_attribute_mode",
+        "damage_source",
+        "skills",
+        ("damage_dice_amount", "damage_dice_faces", "damage_flat_operator", "damage_flat_bonus", "damage_type"),
+    )
 
     @admin.display(ordering="item__default_quality", description="Item Quality")
     def item_quality(self, obj):
         """Render linked item default quality with RPG color coding."""
         return _quality_badge(obj.item.default_quality)
+
+    @admin.display(description="Damage")
+    def base_damage(self, obj):
+        """Render raw shield damage if configured."""
+        return obj.damage or "-"
+
+    @admin.display(description="Skills")
+    def skill_summary(self, obj):
+        """Render assigned offensive shield skills compactly for list display."""
+        return ", ".join(obj.skills.order_by("name").values_list("name", flat=True)) or "-"
 
 
 @admin.register(SchoolPath)

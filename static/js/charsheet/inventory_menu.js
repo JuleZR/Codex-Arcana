@@ -100,7 +100,11 @@ function resolveInventoryDropAction(zone, row) {
   }
   if (zoneType === "equip-weapon" || zoneType === "equip-armor") {
     const expectedZone = zoneType === "equip-weapon" ? "weapon" : "armor";
-    if (!equipZone || equipZone !== expectedZone) {
+    const equipZones = String(row.dataset.equipDropZones || equipZone || "")
+      .split(",")
+      .map((value) => value.trim())
+      .filter(Boolean);
+    if (!equipZones.includes(expectedZone)) {
       return null;
     }
     const form = row.querySelector("[data-equip-form]");

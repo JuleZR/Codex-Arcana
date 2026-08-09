@@ -28,10 +28,14 @@ def equipped_weapon_items(engine) -> QuerySet:
         CharacterItem.objects.filter(
             owner=engine.character,
             equipped=True,
-            item__item_type__in=Item.weapon_item_type_values(),
+        )
+        .filter(
+            Q(item__item_type__in=Item.weapon_item_type_values())
+            | Q(item__item_type=Item.ItemType.SHIELD, item__shieldstats__isnull=False)
         )
         .select_related("item", "item__weaponstats", "item__weaponstats__damage_source")
-        .prefetch_related("item__runes", "runes", "item_runes__rune", "item__weaponstats__skills")
+        .select_related("item__shieldstats", "item__shieldstats__damage_source")
+        .prefetch_related("item__runes", "runes", "item_runes__rune", "item__weaponstats__skills", "item__shieldstats__skills")
     )
 
 

@@ -129,6 +129,15 @@ class ItemEngine:
     def _get_armor_stats(self) -> ArmorStats | None:
         return getattr(self._get_item(), "armorstats", None)
 
+    def _get_offensive_stats(self) -> WeaponStats | ShieldStats | None:
+        weapon_stats = self._get_weapon_stats()
+        if weapon_stats is not None:
+            return weapon_stats
+        shield_stats = self._get_shield_stats()
+        if shield_stats is not None:
+            return shield_stats
+        return None
+
     def _get_shield_stats(self) -> ShieldStats | None:
         return getattr(self._get_item(), "shieldstats", None)
 
@@ -191,6 +200,9 @@ class ItemEngine:
         """Return the minimum strength needed for this weapon profile."""
         stats = self._get_weapon_stats()
         if not stats:
+            shield_stats = self._get_shield_stats()
+            if shield_stats is not None and shield_stats.has_damage_profile:
+                return int(self._get_override_value("shield_min_st_override", shield_stats.min_st))
             return None
         override = self._get_override_value("weapon_min_st_override", None)
         # Legacy owned-item overrides are single-value only. When they merely
@@ -239,15 +251,15 @@ class ItemEngine:
 
     def get_weapon_type(self) -> str:
         """Return the effective weapon type used for matching and UI."""
-        stats = self._get_weapon_stats()
+        stats = self._get_offensive_stats()
         if not stats:
             return ""
-        weapon_type = self._get_override_value("weapon_type_override", stats.weapon_type)
+        weapon_type = self._get_override_value("weapon_type_override", getattr(stats, "weapon_type", None))
         return str(getattr(weapon_type, "slug", "") or "")
 
     def get_weapon_maneuver_attribute_mode(self) -> str:
         """Return the active attribute mode for this weapon's maneuvers."""
-        stats = self._get_weapon_stats()
+        stats = self._get_offensive_stats()
         if not stats:
             return WEAPON_MANEUVER_ATTRIBUTE_ST
         return str(
@@ -280,6 +292,9 @@ class ItemEngine:
         """Return the configured wield mode code."""
         stats = self._get_weapon_stats()
         if not stats:
+            shield_stats = self._get_shield_stats()
+            if shield_stats is not None and shield_stats.has_damage_profile:
+                return ONE_HANDED
             return None
         return str(self._get_override_value("weapon_wield_mode_override", stats.wield_mode))
 
@@ -316,21 +331,20 @@ class ItemEngine:
 
     def get_weapon_damage(self, wield_mode: str = ONE_HANDED, *, dice_amount_bonus: int = 0):
         """Return weapon damage tuple(s): (dice_amount, dice_faces, flat_bonus, operator, damage_type)."""
-        stats = self._get_weapon_stats()
+        stats = self._get_offensive_stats()
         if not stats:
             return None
 
+        if not isinstance(stats, WeaponStats) and not stats.has_damage_profile:
+            if wield_mode in {ONE_HANDED, TWO_HANDED, VERSATILE}:
+                return None
+            raise ValueError("Invalid wield_mode")
+
         quality_bonus = self.get_weapon_damage_quality_bonus()
         base_bonus = int(self._get_override_value("weapon_damage_flat_bonus_override", stats.damage_flat_bonus or 0))
-        h2_bonus = int(self._get_override_value("weapon_h2_flat_bonus_override", stats.h2_flat_bonus or 0))
         base_adjusted_bonus, base_adjusted_operator = self._apply_quality_to_damage_bonus(
             base_bonus,
             str(self._get_override_value("weapon_damage_flat_operator_override", stats.damage_flat_operator)),
-            quality_bonus,
-        )
-        h2_adjusted_bonus, h2_adjusted_operator = self._apply_quality_to_damage_bonus(
-            h2_bonus,
-            str(self._get_override_value("weapon_h2_flat_operator_override", stats.h2_flat_operator)),
             quality_bonus,
         )
         base = (
@@ -339,6 +353,19 @@ class ItemEngine:
             base_adjusted_bonus,
             base_adjusted_operator,
             self.get_weapon_damage_type(),
+        )
+        if not isinstance(stats, WeaponStats):
+            if wield_mode == ONE_HANDED:
+                return base
+            if wield_mode in {TWO_HANDED, VERSATILE}:
+                return None
+            raise ValueError("Invalid wield_mode")
+
+        h2_bonus = int(self._get_override_value("weapon_h2_flat_bonus_override", stats.h2_flat_bonus or 0))
+        h2_adjusted_bonus, h2_adjusted_operator = self._apply_quality_to_damage_bonus(
+            h2_bonus,
+            str(self._get_override_value("weapon_h2_flat_operator_override", stats.h2_flat_operator)),
+            quality_bonus,
         )
         two_handed = (
             (
@@ -538,7 +565,7 @@ class ItemEngine:
 
     def get_weapon_damage_source_slug(self) -> str:
         """Return the effective weapon damage source slug."""
-        stats = self._get_weapon_stats()
+        stats = self._get_offensive_stats()
         if not stats:
             return ""
         damage_source = self._get_override_value("weapon_damage_source_override", getattr(stats, "damage_source", None))
@@ -546,7 +573,7 @@ class ItemEngine:
 
     def get_weapon_damage_type(self) -> str:
         """Return the effective weapon damage type."""
-        stats = self._get_weapon_stats()
+        stats = self._get_offensive_stats()
         if not stats:
             return ""
         return str(self._get_override_value("weapon_damage_type_override", stats.damage_type) or "")
