@@ -1889,17 +1889,10 @@ class ShieldStatsAdminForm(forms.ModelForm):
 
     def clean(self):
         cleaned_data = super().clean()
-        for field_name in ("damage_dice_amount", "damage_dice_faces"):
-            if cleaned_data.get(field_name) == 0:
-                cleaned_data[field_name] = None
-
-        has_damage_data = (
-            bool(cleaned_data.get("damage_source"))
-            or cleaned_data.get("damage_dice_amount") is not None
-            or cleaned_data.get("damage_dice_faces") is not None
-            or bool(cleaned_data.get("damage_flat_bonus"))
-            or bool(cleaned_data.get("damage_flat_operator"))
-        )
+        dice_amount = int(cleaned_data.get("damage_dice_amount") or 0)
+        dice_faces = int(cleaned_data.get("damage_dice_faces") or 0)
+        flat_bonus = int(cleaned_data.get("damage_flat_bonus") or 0)
+        has_damage_data = bool(dice_amount or dice_faces or flat_bonus)
         if not has_damage_data:
             cleaned_data["damage_dice_amount"] = None
             cleaned_data["damage_dice_faces"] = None
@@ -1907,9 +1900,12 @@ class ShieldStatsAdminForm(forms.ModelForm):
             cleaned_data["damage_flat_operator"] = ""
             return cleaned_data
 
-        for field_name in ("damage_source", "damage_dice_amount", "damage_dice_faces"):
-            if not cleaned_data.get(field_name):
-                self.add_error(field_name, "Required when ShieldStats defines damage.")
+        if not cleaned_data.get("damage_source"):
+            self.add_error("damage_source", "Required when ShieldStats defines damage.")
+        if cleaned_data.get("damage_dice_amount") is None:
+            cleaned_data["damage_dice_amount"] = 0
+        if cleaned_data.get("damage_dice_faces") is None:
+            cleaned_data["damage_dice_faces"] = 0
         return cleaned_data
 
 

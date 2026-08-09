@@ -389,8 +389,8 @@ class ShieldStats(models.Model):
     encumbrance = models.PositiveIntegerField(default=0)
     min_st = models.PositiveIntegerField(default=1)
     damage_source = models.ForeignKey(DamageSource, on_delete=models.PROTECT, null=True, blank=True)
-    damage_dice_amount = models.PositiveIntegerField(null=True, blank=True, validators=[MinValueValidator(1)])
-    damage_dice_faces = models.PositiveIntegerField(null=True, blank=True, validators=[MinValueValidator(2)])
+    damage_dice_amount = models.PositiveIntegerField(null=True, blank=True, validators=[MinValueValidator(0)])
+    damage_dice_faces = models.PositiveIntegerField(null=True, blank=True, validators=[MinValueValidator(0)])
     damage_flat_bonus = models.IntegerField(default=0)
     damage_flat_operator = models.CharField(max_length=1, choices=DamageOperator.choices, default=DamageOperator.NONE, blank=True)
     maneuver_attribute_mode = models.CharField(
@@ -418,13 +418,12 @@ class ShieldStats(models.Model):
     @property
     def has_damage_profile(self) -> bool:
         """Return whether this shield also carries offensive combat data."""
-        return (
-            self.damage_dice_amount is not None
-            or self.damage_dice_faces is not None
-            or self.damage_source_id is not None
-            or bool(self.damage_flat_bonus)
-            or bool(self.damage_flat_operator)
-        )
+        dice_amount = int(self.damage_dice_amount or 0)
+        dice_faces = int(self.damage_dice_faces or 0)
+        flat_bonus = int(self.damage_flat_bonus or 0)
+        if dice_faces == 0:
+            return bool(dice_amount or flat_bonus)
+        return self.damage_dice_amount is not None and self.damage_dice_faces is not None
 
     @property
     def can_be_wielded_as_weapon(self) -> bool:
@@ -433,9 +432,21 @@ class ShieldStats(models.Model):
 
     @property
     def damage(self) -> str:
-        """Return optional shield damage in classic dice notation."""
+        """Return optional shield damage in classic or shield-range notation."""
         if self.damage_dice_amount is None or self.damage_dice_faces is None:
             return ""
+        if int(self.damage_dice_faces or 0) == 0:
+            lower = int(self.damage_dice_amount or 0)
+            upper = int(self.damage_flat_bonus or 0)
+            if not lower and not upper:
+                return ""
+            if lower and upper:
+                label = f"{lower}-{upper}"
+            elif lower:
+                label = str(lower)
+            elif upper:
+                label = str(upper)
+            return f"{label} {self.damage_type}".strip()
         return WeaponStats.format_damage_label(
             self.damage_dice_amount,
             self.damage_dice_faces,
@@ -461,9 +472,11 @@ class ShieldStats(models.Model):
             if self.damage_source_id is None:
                 errors["damage_source"] = "Shield damage needs a damage source."
             if self.damage_dice_amount is None:
-                errors["damage_dice_amount"] = "Shield damage needs dice amount."
+                self.damage_dice_amount = 0
             if self.damage_dice_faces is None:
-                errors["damage_dice_faces"] = "Shield damage needs dice faces."
+                self.damage_dice_faces = 0
+            if int(self.damage_dice_faces or 0) > 0 and int(self.damage_dice_amount or 0) <= 0:
+                errors["damage_dice_amount"] = "Shield dice damage needs dice amount greater than zero."
             if errors:
                 raise ValidationError(errors)
 

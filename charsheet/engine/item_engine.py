@@ -398,7 +398,19 @@ class ItemEngine:
             return "-"
         dice_amount, dice_faces, flat_bonus, operator, *rest = damage_data
         damage_type = str(rest[0] if rest else "")
-        label = WeaponStats.format_damage_label(dice_amount, dice_faces, flat_bonus, operator)
+        if int(dice_faces or 0) == 0:
+            lower = int(dice_amount or 0)
+            upper = int(flat_bonus or 0)
+            if not lower and not upper:
+                return "-"
+            if lower and upper:
+                label = f"{lower}-{upper}"
+            elif lower:
+                label = str(lower)
+            elif upper:
+                label = str(upper)
+        else:
+            label = WeaponStats.format_damage_label(dice_amount, dice_faces, flat_bonus, operator)
         return f"{label} {damage_type}".strip()
 
     def get_one_handed_damage_label(self, *, dice_amount_bonus: int = 0) -> str:
