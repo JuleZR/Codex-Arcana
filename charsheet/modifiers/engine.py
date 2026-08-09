@@ -173,6 +173,15 @@ class ModifierEngine:
             .select_related("character_item", "character_item__item")
             .order_by("character_item_id", "sort_order", "id")
         )
+        item_ids_with_instance_effects = {
+            int(effect.character_item.item_id)
+            for effect in instance_effects
+        }
+        base_effects = [
+            effect
+            for effect in base_effects
+            if int(effect.item_id) not in item_ids_with_instance_effects
+        ]
         return [
             *(effect.to_modifier() for effect in base_effects),
             *(effect.to_modifier() for effect in instance_effects),

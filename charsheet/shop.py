@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from decimal import Decimal, InvalidOperation
 
 from django.contrib.contenttypes.models import ContentType
@@ -104,6 +105,32 @@ def _read_int(post_data, name: str, default: int = 0, *, minimum: int | None = N
     if minimum is not None:
         value = max(minimum, value)
     return value
+
+
+def _parse_cp_steps(raw_steps: object) -> list[int]:
+    """Return sorted positive CP steps from a compact string like 2/4/6/8/10."""
+    values: list[int] = []
+    seen: set[int] = set()
+    for chunk in re.split(r"[^0-9]+", str(raw_steps or "")):
+        if not chunk:
+            continue
+        try:
+            value = int(chunk)
+        except ValueError:
+            continue
+        if value <= 0 or value in seen:
+            continue
+        seen.add(value)
+        values.append(value)
+    return sorted(values)
+
+
+def _cp_matches_steps(invested_cp: int, raw_steps: object) -> bool:
+    """Return whether invested CP is empty/zero or one of the configured steps."""
+    steps = _parse_cp_steps(raw_steps)
+    if not steps or int(invested_cp or 0) == 0:
+        return True
+    return int(invested_cp) in steps
 
 
 def _read_quality(post_data, name: str, default: str) -> str:
@@ -581,7 +608,7 @@ def apply_character_item_modifications(
     size_class = str(post_data.get("size_class") or item.size_class).strip() or item.size_class
     quality = _read_quality(post_data, "quality", character_item.quality or character_item.item.default_quality)
     invested_cp = _read_int(post_data, "invested_cp", item.invested_cp or 0, minimum=0)
-    invested_cp_steps = str(post_data.get("invested_cp_steps") or item.invested_cp_steps or "").strip()
+    invested_cp_steps = str(item.invested_cp_steps or "").strip()
     experience_cost = _read_int(post_data, "experience_cost", 0, minimum=0)
     money_cost = _read_int(post_data, "money_cost", 0, minimum=0)
     not_buyable = bool(post_data.get("not_buyable"))
@@ -594,6 +621,8 @@ def apply_character_item_modifications(
     magic_modifier_payloads = _read_magic_modifier_payloads(post_data)
     magic_effect_summary = visible_magic_effect_summary
     is_magic = bool(magic_modifier_payloads) or bool(visible_magic_effect_summary)
+    if not _cp_matches_steps(invested_cp, invested_cp_steps):
+        return False
     weapon_stats = getattr(item, "weaponstats", None)
     armor_stats = getattr(item, "armorstats", None)
     shield_stats = getattr(item, "shieldstats", None)
@@ -793,6 +822,8 @@ def create_custom_shop_item(post_data, files_data=None, *, catalog_group=None):
     weight = _read_decimal(post_data, "weight", 0)
     invested_cp = _read_int(post_data, "invested_cp", 0, minimum=0)
     invested_cp_steps = str(post_data.get("invested_cp_steps") or "").strip()
+    if not _cp_matches_steps(invested_cp, invested_cp_steps):
+        return False
     size_class = str(post_data.get("size_class") or "M")
     is_consumable = item_type == Item.ItemType.CONSUM
     image = None if files_data is None else files_data.get("image")

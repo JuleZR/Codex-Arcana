@@ -26,6 +26,21 @@ function parseJsonObject(rawValue) {
   }
 }
 
+function parseCpSteps(rawValue) {
+  const seen = new Set();
+  return String(rawValue || "")
+    .split(/[^0-9]+/)
+    .map((value) => Number.parseInt(value, 10))
+    .filter((value) => {
+      if (!Number.isInteger(value) || value <= 0 || seen.has(value)) {
+        return false;
+      }
+      seen.add(value);
+      return true;
+    })
+    .sort((a, b) => a - b);
+}
+
 function normalizeSearchValue(value) {
   return String(value || "").trim().toLowerCase();
 }
@@ -201,6 +216,7 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
   const runePriceInput = document.getElementById("runeRetrofitPrice");
   const runeWeightInput = document.getElementById("runeRetrofitWeight");
   const runeInvestedCpInput = document.getElementById("runeRetrofitInvestedCp");
+  const runeInvestedCpSelect = document.getElementById("runeRetrofitInvestedCpSelect");
   const runeInvestedCpStepsInput = document.getElementById("runeRetrofitInvestedCpSteps");
   const runeSizeClassSelect = document.getElementById("runeRetrofitSizeClass");
   const runeDescriptionInput = document.getElementById("runeRetrofitDescription");
@@ -227,6 +243,39 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
   const DEFAULT_RUNE_CRAFTER_LEVEL = 1;
   const MAX_RUNE_CRAFTER_LEVEL = 10;
   let maxAdditionalRuneSlots = MAX_RUNES_PER_ITEM;
+
+  const syncInvestedCpStepControl = (currentValue) => {
+    if (!(runeInvestedCpInput instanceof HTMLInputElement) || !(runeInvestedCpSelect instanceof HTMLSelectElement)) {
+      return;
+    }
+    const steps = parseCpSteps(runeInvestedCpStepsInput instanceof HTMLInputElement ? runeInvestedCpStepsInput.value : "");
+    const rawValue = String(currentValue ?? runeInvestedCpInput.value ?? "");
+    if (!steps.length) {
+      runeInvestedCpInput.hidden = false;
+      runeInvestedCpInput.disabled = false;
+      runeInvestedCpInput.value = rawValue;
+      runeInvestedCpSelect.hidden = true;
+      runeInvestedCpSelect.disabled = true;
+      runeInvestedCpSelect.innerHTML = "";
+      return;
+    }
+    runeInvestedCpSelect.innerHTML = "";
+    const emptyOption = document.createElement("option");
+    emptyOption.value = "";
+    emptyOption.textContent = "-";
+    runeInvestedCpSelect.appendChild(emptyOption);
+    steps.forEach((step) => {
+      const option = document.createElement("option");
+      option.value = String(step);
+      option.textContent = String(step);
+      runeInvestedCpSelect.appendChild(option);
+    });
+    runeInvestedCpSelect.value = steps.includes(Number.parseInt(rawValue, 10)) ? rawValue : "";
+    runeInvestedCpInput.hidden = true;
+    runeInvestedCpInput.disabled = true;
+    runeInvestedCpSelect.hidden = false;
+    runeInvestedCpSelect.disabled = false;
+  };
 
   let runeChoices = [];
   try {
@@ -1188,12 +1237,13 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
     if (runeWeightInput instanceof HTMLInputElement) {
       runeWeightInput.value = String(modifyPayload.weight ?? "0");
     }
-    if (runeInvestedCpInput instanceof HTMLInputElement) {
-      runeInvestedCpInput.value = String(modifyPayload.invested_cp ?? "");
-    }
     if (runeInvestedCpStepsInput instanceof HTMLInputElement) {
       runeInvestedCpStepsInput.value = String(modifyPayload.invested_cp_steps ?? "");
     }
+    if (runeInvestedCpInput instanceof HTMLInputElement) {
+      runeInvestedCpInput.value = String(modifyPayload.invested_cp ?? "");
+    }
+    syncInvestedCpStepControl(modifyPayload.invested_cp ?? "");
     if (runeSizeClassSelect instanceof HTMLSelectElement) {
       runeSizeClassSelect.value = String(modifyPayload.size_class || "");
     }
