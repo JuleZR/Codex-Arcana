@@ -54,6 +54,7 @@ from charsheet.forms import (
     CharacterInfoInlineForm,
     CharacterSkillSpecificationForm,
     CharacterTechniqueSpecificationForm,
+    CharacterTraitSpecificationForm,
 )
 from charsheet.magic_effects import TEXT_TARGET_KIND, unpack_magic_effect_summary
 from charsheet.learning_progression import build_learning_magic_groups, build_learning_progression_context
@@ -3139,10 +3140,21 @@ def _build_trait_rows(character: Character) -> tuple[list[dict], list[dict]]:
     disadvantage_rows: list[dict] = []
     for entry in traits_qs:
         row = {
+            "id": entry.id,
             "name": entry.trait.name,
             "description": entry.trait.description,
             "points": entry.trait.cost_for_level(entry.trait_level),
+            "can_edit_specification": bool(entry.trait.has_specification),
+            "specification": (entry.specification or "").strip(),
         }
+        if row["can_edit_specification"]:
+            row["display_name"] = entry.trait.name
+            row["tooltip"] = "\n\n".join(
+                part for part in (f"**{entry.trait.name}: {row['specification'] or '*'}**", row["description"]) if part
+            )
+        else:
+            row["display_name"] = entry.trait.name
+            row["tooltip"] = row["description"]
         if entry.trait.trait_type == Trait.TraitType.ADV:
             advantage_rows.append(row)
         else:
@@ -5804,6 +5816,7 @@ def build_character_sheet_context(
         "character_creature_card_rows": character_creature_card_rows,
         "skill_specification_form": CharacterSkillSpecificationForm(),
         "technique_specification_form": CharacterTechniqueSpecificationForm(),
+        "trait_specification_form": CharacterTraitSpecificationForm(),
         "fame_total_rank": fame_total_rank,
         "attributes": attributes,
         "attr_mods": attr_mods,

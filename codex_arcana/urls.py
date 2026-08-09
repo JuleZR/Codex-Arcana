@@ -107,6 +107,7 @@ urlpatterns = [
     path("character/<int:character_id>/diary/<int:entry_id>/delete/", views.delete_character_diary_entry, name="delete_character_diary_entry"),
     path("character/<int:character_id>/info/update/", views.update_character_info, name="update_character_info"),
     path("character/<int:character_id>/skills/<int:character_skill_id>/specification/update/", views.update_skill_specification, name="update_skill_specification"),
+    path("character/<int:character_id>/traits/<int:character_trait_id>/specification/update/", views.update_trait_specification, name="update_trait_specification"),
     path("character/<int:character_id>/skills/<int:skill_id>/show/", views.add_visible_skill, name="add_visible_skill"),
     path("character/<int:character_id>/skills/<int:skill_id>/hide/", views.remove_visible_skill, name="remove_visible_skill"),
     path("character/<int:character_id>/techniques/<int:technique_id>/specification/update/", views.update_technique_specification, name="update_technique_specification"),

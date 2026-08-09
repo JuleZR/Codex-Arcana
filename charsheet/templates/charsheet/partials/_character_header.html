@@ -156,7 +156,12 @@
         <div class="trait_col">
           <h3>Vorz&uuml;ge</h3>
           {% for trait in advantage_rows %}
-            <span class="trait_line tooltip_target" data-tooltip-side="left" data-tooltip="{{ trait.description|default:'Keine Beschreibung' }}">{{ trait.name }} ({{ trait.points }})</span>
+            <span class="trait_line{% if trait.tooltip %} tooltip_target{% endif %}"{% if trait.tooltip %} data-tooltip-side="left" data-tooltip="{{ trait.tooltip }}"{% endif %}>
+              <span class="trait_line_text">{{ trait.display_name }} ({{ trait.points }})</span>
+              {% if trait.can_edit_specification %}
+                <button type="button" class="skill_spec_edit_btn trait_spec_edit_btn" data-trait-spec-trigger data-trait-name="{{ trait.name }}" data-specification="{{ trait.specification }}" data-action="{% url 'update_trait_specification' character.id trait.id %}" aria-label="Spezifikation f&uuml;r {{ trait.name }} bearbeiten" title="Spezifikation bearbeiten"><span class="skill_spec_edit_emoji" aria-hidden="true">&#8943;</span></button>
+              {% endif %}
+            </span>
           {% empty %}
             <span class="trait_line"></span><span class="trait_line"></span><span class="trait_line"></span><span class="trait_line"></span>
           {% endfor %}
@@ -164,7 +169,12 @@
         <div class="trait_col">
           <h3>Schw&auml;chen</h3>
           {% for trait in disadvantage_rows %}
-            <span class="trait_line tooltip_target" data-tooltip-side="left" data-tooltip="{{ trait.description|default:'Keine Beschreibung' }}">{{ trait.name }} ({{ trait.points }})</span>
+            <span class="trait_line{% if trait.tooltip %} tooltip_target{% endif %}"{% if trait.tooltip %} data-tooltip-side="left" data-tooltip="{{ trait.tooltip }}"{% endif %}>
+              <span class="trait_line_text">{{ trait.display_name }} ({{ trait.points }})</span>
+              {% if trait.can_edit_specification %}
+                <button type="button" class="skill_spec_edit_btn trait_spec_edit_btn" data-trait-spec-trigger data-trait-name="{{ trait.name }}" data-specification="{{ trait.specification }}" data-action="{% url 'update_trait_specification' character.id trait.id %}" aria-label="Spezifikation f&uuml;r {{ trait.name }} bearbeiten" title="Spezifikation bearbeiten"><span class="skill_spec_edit_emoji" aria-hidden="true">&#8943;</span></button>
+              {% endif %}
+            </span>
           {% empty %}
             <span class="trait_line"></span><span class="trait_line"></span><span class="trait_line"></span><span class="trait_line"></span>
           {% endfor %}

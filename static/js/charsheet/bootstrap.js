@@ -7,6 +7,7 @@ import { initFireflies } from "./fireflies.js";
 import { initItemForm } from "./item_form.js";
 import { initSkillSpecModal } from "./skill_spec_modal.js";
 import { initTechniqueSpecModal } from "./technique_spec_modal.js";
+import { initTraitSpecModal } from "./trait_spec_modal.js";
 import { initShopMenu } from "./shop_menu.js?v=20260622a";
 import { initLearningMenu } from "./learning_menu.js?v=20260802b";
 import { initTooltips } from "./tooltip.js?v=20260802a";
@@ -55,6 +56,7 @@ onReady(() => {
   initReputationPanel();
   initSkillSpecModal();
   initTechniqueSpecModal();
+  initTraitSpecModal();
   initFireflies();
   initItemForm();
   initShopMenu();
@@ -99,6 +101,7 @@ onReady(() => {
     initTabs();
     initStandardFloatingWindows();
     initDamagePanel();
+    initTraitSpecModal();
     initLearningMenu({ choiceWindowController: windowControllers?.learnChoice || null });
     initSpellPanel();
     initLessonPanel();

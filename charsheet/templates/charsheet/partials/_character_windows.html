@@ -153,6 +153,33 @@
   </div>
 </section>
 
+<section class="payday-window payday-window--item-create sheet-window sheet-window--editor-modal" id="traitSpecWindow" aria-hidden="true">
+  <div class="payday-window__titlebar sheet-window__header" id="traitSpecWindowHandle">
+    <h3 class="payday-window__title sheet-window__title" id="traitSpecWindowTitle">Trait bearbeiten</h3>
+    <button type="button" class="payday-window__close" id="traitSpecWindowClose" aria-label="Fenster schlie&szlig;en">x</button>
+  </div>
+  <div class="payday-window__body sheet-window__body">
+    <div class="sheet-window__editor-shell">
+      <div class="sheet-window__editor-pane">
+        <form method="post" action="" id="traitSpecForm" class="shop_item_form sheet-window__editor-form">
+          {% csrf_token %}
+          <div class="sheet-window__surface sheet-window__surface--editor sheet-window__surface--form">
+            <label class="shop_item_form_row skill_spec_form_row">
+              <span>Spezifikation</span>
+              {{ trait_specification_form.specification }}
+            </label>
+            <p class="skill_spec_hint">Die Spezifikation wird direkt im Trait-Tooltip angezeigt.</p>
+          </div>
+          <div class="shop_item_form_actions">
+            <button type="button" id="traitSpecCancelBtn" class="shop_item_cancel_btn">Abbrechen</button>
+            <button type="submit" class="shop_item_save_btn">Speichern</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</section>
+
 <section class="payday-window payday-window--item-create sheet-window sheet-window--editor-modal" id="techniqueSpecWindow" aria-hidden="true">
   <div class="payday-window__titlebar sheet-window__header" id="techniqueSpecWindowHandle">
     <h3 class="payday-window__title sheet-window__title" id="techniqueSpecWindowTitle">Technik bearbeiten</h3>

@@ -691,6 +691,7 @@ body.sheet-feedback--error::after {
 
 #charInfoWindow .sheet-window__surface--form-grid,
 #skillSpecWindow .sheet-window__surface--form,
+#traitSpecWindow .sheet-window__surface--form,
 #techniqueSpecWindow .sheet-window__surface--form,
 #inventoryDeleteWarningWindow .sheet-window__surface--form {
   margin: 0;
@@ -699,13 +700,16 @@ body.sheet-feedback--error::after {
 #charInfoWindow .shop_item_form_row > span:first-child,
 #inventoryDeleteWarningWindow .shop_item_form_row > span:first-child,
 #skillSpecWindow .shop_item_form_row > span:first-child,
+#traitSpecWindow .shop_item_form_row > span:first-child,
 #techniqueSpecWindow .shop_item_form_row > span:first-child,
 #charInfoWindow .skill_spec_hint,
 #inventoryDeleteWarningWindow .skill_spec_hint,
 #skillSpecWindow .skill_spec_hint,
+#traitSpecWindow .skill_spec_hint,
 #techniqueSpecWindow .skill_spec_hint,
 #charInfoWindow .sheet_char_counter,
 #skillSpecWindow .sheet_char_counter,
+#traitSpecWindow .sheet_char_counter,
 #techniqueSpecWindow .sheet_char_counter {
   color: rgba(79, 52, 27, 0.92);
 }

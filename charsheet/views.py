@@ -42,6 +42,7 @@ from .models import (
     CharacterSkill,
     CharacterSpell,
     CharacterTechnique,
+    CharacterTrait,
     CharacterCreationDraft,
     CharacterCreature,
     CharacterCreatureAttributeIncrease,
@@ -93,6 +94,7 @@ from .forms import (
     CharacterItemRuneSpecForm,
     CharacterSkillSpecificationForm,
     CharacterTechniqueSpecificationForm,
+    CharacterTraitSpecificationForm,
     UserSettingsForm
 )
 from .constants import (
@@ -400,6 +402,17 @@ def _owned_character_skill_or_404(request, character_id: int, character_skill_id
         character=character,
     )
     return character, character_skill
+
+
+def _owned_character_trait_or_404(request, character_id: int, character_trait_id: int) -> tuple[Character, CharacterTrait]:
+    """Return one trait row that belongs to one owned character."""
+    character = _owned_character_or_404(request, character_id)
+    character_trait = get_object_or_404(
+        CharacterTrait.objects.select_related("owner", "trait"),
+        pk=character_trait_id,
+        owner=character,
+    )
+    return character, character_trait
 
 
 def _owned_technique_for_character_or_404(
@@ -1273,6 +1286,24 @@ def update_skill_specification(request, character_id: int, character_skill_id: i
         messages.success(request, f"{character_skill.skill.name} wurde aktualisiert.")
     else:
         messages.error(request, "Die Spezifikation konnte nicht gespeichert werden.")
+    return redirect("character_sheet", character_id=character.id)
+
+
+@login_required
+@require_POST
+def update_trait_specification(request, character_id: int, character_trait_id: int):
+    """Persist the specification text for one character-owned trait."""
+    character, character_trait = _owned_character_trait_or_404(request, character_id, character_trait_id)
+    if not character_trait.trait.has_specification:
+        messages.error(request, "Dieser Trait besitzt keine Spezifikation.")
+        return redirect("character_sheet", character_id=character.id)
+
+    form = CharacterTraitSpecificationForm(request.POST, instance=character_trait)
+    if form.is_valid():
+        form.save()
+        messages.success(request, f"{character_trait.trait.name} wurde aktualisiert.")
+    else:
+        messages.error(request, "Die Trait-Spezifikation konnte nicht gespeichert werden.")
     return redirect("character_sheet", character_id=character.id)
 
 

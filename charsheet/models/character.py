@@ -591,6 +591,7 @@ class CharacterTrait(models.Model):
     trait = models.ForeignKey(Trait, on_delete=models.CASCADE)
     owner = models.ForeignKey(Character, on_delete=models.CASCADE)
     trait_level = models.PositiveIntegerField(default=1)
+    specification = models.CharField(max_length=100, blank=True, default="")
 
     class Meta:
         constraints = [
@@ -604,9 +605,12 @@ class CharacterTrait(models.Model):
             raise ValidationError({"trait_level": "You can't purchase more levels of a trait than max level"})
         if self.trait_level < self.trait.min_level:
             raise ValidationError({"trait_level": f"Level must be at least {self.trait.min_level}."})
+        if self.specification and not self.trait.has_specification:
+            raise ValidationError({"specification": "This trait does not support a specification."})
 
     def __str__(self):
-        return f"{self.owner}: {self.trait} ({self.trait_level})"
+        suffix = f": {self.specification}" if self.specification else ""
+        return f"{self.owner}: {self.trait}{suffix} ({self.trait_level})"
 
 
 class TraitChoiceDefinition(models.Model):

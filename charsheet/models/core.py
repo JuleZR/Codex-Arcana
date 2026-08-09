@@ -128,6 +128,7 @@ class Trait(models.Model):
     slug = models.SlugField(max_length=50, unique=True)
     trait_type = models.CharField(max_length=20, choices=TraitType.choices)
     description = models.TextField()
+    has_specification = models.BooleanField(default=False)
 
     min_level = models.PositiveIntegerField(default=1)
     max_level = models.PositiveIntegerField(default=1)

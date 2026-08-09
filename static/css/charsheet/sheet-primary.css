@@ -1531,12 +1531,26 @@ button.skill_manager_action {
 
 .trait_line {
   display: flex;
+  gap: 4px;
   align-items: flex-end;
+  justify-content: space-between;
   height: 22px;
   border-bottom: 1px solid rgba(74, 55, 38, 0.52);
   font-size: 0.76rem;
   line-height: 1.2;
   padding-bottom: 1px;
+}
+
+.trait_line_text {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.trait_spec_edit_btn {
+  margin-bottom: 1px;
 }
 
 

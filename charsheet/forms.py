@@ -11,7 +11,7 @@ from django.contrib.auth.password_validation import validate_password
 from django.core.files.base import ContentFile
 from PIL import Image, ImageOps
 
-from .models import Character, CharacterDivineEntity, CharacterItemRuneSpec, CharacterSkill, CharacterTechnique, DivineEntity
+from .models import Character, CharacterDivineEntity, CharacterItemRuneSpec, CharacterSkill, CharacterTechnique, CharacterTrait, DivineEntity
 from .models.user import UserSettings
 from .religion_rules import active_clerical_school_entries, locked_religion_entity, unique_divine_entity_for_school
 
@@ -354,6 +354,31 @@ class CharacterSkillSpecificationForm(forms.ModelForm):
         specification = (self.cleaned_data.get("specification") or "").strip()
         if not specification:
             return "*"
+        return " ".join(specification.split())
+
+
+class CharacterTraitSpecificationForm(forms.ModelForm):
+    """Edit the specification text for character traits that require one."""
+
+    class Meta:
+        model = CharacterTrait
+        fields = ["specification"]
+        widgets = {
+            "specification": forms.TextInput(
+                attrs={
+                    "class": "dashboard_input",
+                    "id": "id_trait_specification",
+                    "maxlength": 100,
+                    "autocomplete": "off",
+                    "placeholder": "z. B. konkrete Auspraegung",
+                }
+            ),
+        }
+
+    def clean_specification(self):
+        specification = (self.cleaned_data.get("specification") or "").strip()
+        if not specification:
+            return ""
         return " ".join(specification.split())
 
 

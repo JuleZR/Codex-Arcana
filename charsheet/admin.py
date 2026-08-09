@@ -6173,11 +6173,12 @@ class TraitAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
         "trait_type",
         "min_level",
         "max_level",
+        "has_specification",
         "trait_cost_display",
         "rule_support_level",
     )
     search_fields = ("name", "slug")
-    list_filter = ("trait_type",)
+    list_filter = ("trait_type", "has_specification")
     ordering = ("trait_type", "name")
     inlines = (
         TraitExclusionInline,
@@ -6194,6 +6195,7 @@ class TraitAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
                 "fields": (
                     ("name", "slug"),
                     ("trait_type", "points_per_level"),
+                    "has_specification",
                     "points_by_level",
                     ("min_level", "max_level"),
                     "description",
@@ -6245,9 +6247,9 @@ class TraitAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
 @admin.register(CharacterTrait)
 class CharacterTraitAdmin(admin.ModelAdmin):
     """Admin configuration for character-owned trait levels."""
-    list_display = ("owner", "trait", "trait_type", "trait_level", "rule_support_level")
-    list_filter = ("trait__trait_type",)
-    search_fields = ("owner__name", "trait__name", "trait__slug")
+    list_display = ("owner", "trait", "trait_type", "trait_level", "specification", "rule_support_level")
+    list_filter = ("trait__trait_type", "trait__has_specification")
+    search_fields = ("owner__name", "trait__name", "trait__slug", "specification")
     autocomplete_fields = ("owner", "trait")
     list_select_related = ("owner", "trait")
     readonly_fields = (
@@ -6261,6 +6263,7 @@ class CharacterTraitAdmin(admin.ModelAdmin):
         "owner",
         "trait",
         "trait_level",
+        "specification",
         "trait_type",
         "rule_support_level",
         "trait_semantic_effects",
