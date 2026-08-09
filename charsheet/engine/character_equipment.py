@@ -408,6 +408,7 @@ def equipped_shield_rows(engine) -> list[dict]:
                 "bel_raw": item_engine.get_shield_bel_raw() or 0,
                 "bel_effective": _effective_shield_encumbrance(engine, character_item),
                 "min_st": item_engine.get_shield_min_st(),
+                "parade_bonus": int(getattr(getattr(character_item.item, "shieldstats", None), "parade_bonus", 0) or 0),
             }
         )
     return rows

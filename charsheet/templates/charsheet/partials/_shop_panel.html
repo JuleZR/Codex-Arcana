@@ -107,6 +107,7 @@
                             data-shop-armor-bel="{{ item.stats.armor_bel|default:'' }}"
                             data-shop-shield-rs="{{ item.stats.shield_rs|default:'' }}"
                             data-shop-shield-bel="{{ item.stats.shield_bel|default:'' }}"
+                            data-shop-shield-pb="{{ item.stats.shield_parade_bonus|default:'' }}"
                             data-shop-min-st="{{ item.stats.min_st|default_if_none:'' }}"
                           >
                             <td class="shop_item_name">
@@ -480,6 +481,7 @@
               <label class="shop_item_form_row"><span>Schild-RS</span><input type="number" name="shield_rs" min="0" step="1" value="0"></label>
               <label class="shop_item_form_row"><span>Belastung</span><input type="number" name="shield_encumbrance" min="0" step="1" value="0"></label>
               <label class="shop_item_form_row"><span>Min. St&auml;rke</span><input type="number" name="shield_min_st" min="1" step="1" value="1"></label>
+              <label class="shop_item_form_row"><span>PB</span><input type="number" name="shield_parade_bonus" step="1" value="0"></label>
             </div>
           </div>
             <div class="shop_item_form_conditional" id="shopItemMagicFields" hidden>
@@ -487,6 +489,10 @@
               <label class="shop_item_form_row">
                 <span>Investierte CP</span>
                 <input type="number" name="invested_cp" min="0" step="1" value="">
+              </label>
+              <label class="shop_item_form_row">
+                <span>CP-Schritte</span>
+                <input type="text" name="invested_cp_steps" maxlength="200" placeholder="z. B. 2/4/6/8/10">
               </label>
               <input type="hidden" name="magic_modifier_payloads" id="shopMagicModifierPayloads" value="[]">
               <div class="shop_magic_effect_list" id="shopMagicEffectsList"></div>
@@ -526,7 +532,7 @@
               </select>
             </label>
             <label class="shop_item_form_row" data-magic-scale-divisor-row hidden>
-              <span>pro</span>
+              <span>CP pro +1/-1</span>
               <input type="number" min="1" step="1" value="2" data-magic-scale-divisor>
             </label>
           </div>

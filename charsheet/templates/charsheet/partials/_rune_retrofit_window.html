@@ -31,6 +31,16 @@
                 <input type="number" name="weight" id="runeRetrofitWeight" min="0" step="0.01" value="0">
               </label>
             </div>
+            <div class="shop_item_form_grid shop_item_form_grid--equal">
+              <label class="shop_item_form_row">
+                <span>Investierte CP</span>
+                <input type="number" name="invested_cp" id="runeRetrofitInvestedCp" min="0" step="1" value="">
+              </label>
+              <label class="shop_item_form_row">
+                <span>CP-Schritte</span>
+                <input type="text" name="invested_cp_steps" id="runeRetrofitInvestedCpSteps" maxlength="200" placeholder="z. B. 2/4/6/8/10">
+              </label>
+            </div>
             <label class="shop_item_form_row">
               <span>GK</span>
               <select name="size_class" id="runeRetrofitSizeClass">
@@ -223,10 +233,6 @@
                 <span>Beschreibung</span>
                 <textarea name="description" id="runeRetrofitDescription" rows="4" maxlength="1000" placeholder="Beschreibung des modifizierten Gegenstands"></textarea>
               </label>
-              <label class="shop_item_form_row">
-                <span>Investierte CP</span>
-                <input type="number" name="invested_cp" id="runeRetrofitInvestedCp" min="0" step="1" value="">
-              </label>
               <p class="shop_item_form_hint">Die Effekte funktionieren wie bei magischen Gegenst&auml;nden und gelten nur f&uuml;r dieses modifizierte Besitz-Item.</p>
               <input type="hidden" name="rune_payloads" id="runeRetrofitRunePayloads" value="[]">
               <input type="hidden" name="magic_modifier_payloads" id="runeRetrofitMagicModifierPayloads" value="[]">
@@ -267,7 +273,7 @@
               </select>
             </label>
             <label class="shop_item_form_row" data-magic-scale-divisor-row hidden>
-              <span>pro</span>
+              <span>CP pro +1/-1</span>
               <input type="number" min="1" step="1" value="2" data-magic-scale-divisor>
             </label>
           </div>

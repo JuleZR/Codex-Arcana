@@ -136,6 +136,12 @@ class Item(models.Model):
         blank=True,
         help_text="Optional investierte CP fuer skalierende magische Items, z.B. 2/4/6/8/10.",
     )
+    invested_cp_steps = models.CharField(
+        max_length=200,
+        blank=True,
+        default="",
+        help_text="Optionale Beschreibung der CP-Schritte, z.B. 2/4/6/8/10.",
+    )
 
     default_quality = models.ForeignKey(
         "charsheet.Quality",
@@ -388,6 +394,10 @@ class ShieldStats(models.Model):
     rs = models.PositiveIntegerField(default=0)
     encumbrance = models.PositiveIntegerField(default=0)
     min_st = models.PositiveIntegerField(default=1)
+    parade_bonus = models.IntegerField(
+        default=0,
+        help_text="Bonus auf die Fertigkeit Schilde, wenn mit diesem Schild verteidigt wird.",
+    )
     damage_source = models.ForeignKey(DamageSource, on_delete=models.PROTECT, null=True, blank=True)
     damage_dice_amount = models.PositiveIntegerField(null=True, blank=True, validators=[MinValueValidator(0)])
     damage_dice_faces = models.PositiveIntegerField(null=True, blank=True, validators=[MinValueValidator(0)])

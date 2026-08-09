@@ -201,6 +201,7 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
   const runePriceInput = document.getElementById("runeRetrofitPrice");
   const runeWeightInput = document.getElementById("runeRetrofitWeight");
   const runeInvestedCpInput = document.getElementById("runeRetrofitInvestedCp");
+  const runeInvestedCpStepsInput = document.getElementById("runeRetrofitInvestedCpSteps");
   const runeSizeClassSelect = document.getElementById("runeRetrofitSizeClass");
   const runeDescriptionInput = document.getElementById("runeRetrofitDescription");
   const runeImageInput = document.getElementById("runeRetrofitImageInput");
@@ -1189,6 +1190,9 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
     }
     if (runeInvestedCpInput instanceof HTMLInputElement) {
       runeInvestedCpInput.value = String(modifyPayload.invested_cp ?? "");
+    }
+    if (runeInvestedCpStepsInput instanceof HTMLInputElement) {
+      runeInvestedCpStepsInput.value = String(modifyPayload.invested_cp_steps ?? "");
     }
     if (runeSizeClassSelect instanceof HTMLSelectElement) {
       runeSizeClassSelect.value = String(modifyPayload.size_class || "");

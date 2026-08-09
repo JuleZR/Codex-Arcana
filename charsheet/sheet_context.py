@@ -2878,6 +2878,55 @@ def _build_skill_rows(
         rows.sort(key=lambda row: row["display_name"].lower())
         return rows
 
+    def _is_shield_skill(skill: Skill) -> bool:
+        name = str(skill.name or "").strip().casefold()
+        slug = str(skill.slug or "").strip().casefold()
+        return name in {"schilde", "schild"} or "shield" in slug or "schild" in slug
+
+    def _build_shield_context_rows(base_row: dict, skill: Skill) -> list[dict]:
+        if not _is_shield_skill(skill):
+            return []
+        rows: list[dict] = []
+        for shield_row in equipped_shield_rows:
+            parade_bonus = int(shield_row.get("parade_bonus") or 0)
+            if parade_bonus == 0:
+                continue
+            with_load_total = int(base_row["with_load_total_value"]) + parade_bonus
+            total = int(base_row["total_value"]) + parade_bonus
+            rows.append(
+                {
+                    "row_kind": "shield_context",
+                    "is_context_row": True,
+                    "skill_id": int(base_row["skill_id"]),
+                    "name": base_row["name"],
+                    "display_name": f"mit {shield_row['item_name']}",
+                    "description": f"Paradebonus bei Verteidigung mit {shield_row['item_name']}",
+                    "attribute": base_row["attribute"],
+                    "attribute_mod": base_row["attribute_mod"],
+                    "attribute_mod_value": int(base_row["attribute_mod_value"]),
+                    "rank": int(base_row["rank_value"]),
+                    "rank_value": int(base_row["rank_value"]),
+                    "misc_mod": format_modifier(int(base_row["misc_mod_value"]) + parade_bonus),
+                    "misc_mod_value": int(base_row["misc_mod_value"]) + parade_bonus,
+                    "total": total,
+                    "total_value": total,
+                    "with_load_total": with_load_total,
+                    "with_load_total_value": with_load_total,
+                    "calculation_tooltip": _build_core_stat_tooltip(
+                        [
+                            {"label": "Grundwert", "value": int(base_row["with_load_total_value"]), "source": base_row["display_name"]},
+                            {"label": "PB", "value": format_modifier(parade_bonus), "source": shield_row["item_name"]},
+                            {"label": "= Gesamt", "value": with_load_total, "tone": "total"},
+                        ]
+                    ),
+                    "can_edit_specification": False,
+                    "specification": "",
+                    "is_auto_visible": False,
+                }
+            )
+        rows.sort(key=lambda row: row["display_name"].lower())
+        return rows
+
     def _conditional_daemonic_effects(skill: Skill, specification: str | None = None) -> OrderedDict[str, str]:
         """Return normalized, player-facing restrictions targeting one skill."""
         conditions: OrderedDict[str, str] = OrderedDict()
@@ -3005,6 +3054,7 @@ def _build_skill_rows(
         context_rows = _build_conditional_daemonic_context_rows(base_row, skill)
         if skill.requires_specification:
             return context_rows
+        context_rows.extend(_build_shield_context_rows(base_row, skill))
         weapon_context_rows = _build_weapon_context_rows(base_row)
         if not weapon_context_rows:
             return context_rows
@@ -3045,7 +3095,9 @@ def _build_skill_rows(
         character_skills_by_skill_id.setdefault(character_skill.skill_id, []).append(character_skill)
 
     weapon_skill_ids_with_bonus: set[int] = set()
+    shield_skill_ids_with_bonus: set[int] = set()
     equipped_weapon_rows = engine.equipped_weapon_rows()
+    equipped_shield_rows = engine.equipped_shield_rows()
     for weapon_row in equipped_weapon_rows:
         if not weapon_row.get("is_primary_profile", False):
             continue
@@ -3056,6 +3108,10 @@ def _build_skill_rows(
             continue
         for skill in weapon_stats.skills.all():
             weapon_skill_ids_with_bonus.add(skill.id)
+    if any(int(row.get("parade_bonus") or 0) != 0 for row in equipped_shield_rows):
+        for skill in skills_by_id.values():
+            if _is_shield_skill(skill):
+                shield_skill_ids_with_bonus.add(skill.id)
 
     for skill in skills_by_id.values():
         rows_for_skill = character_skills_by_skill_id.get(skill.id, [])
@@ -3078,7 +3134,7 @@ def _build_skill_rows(
             _append_skill_rows(skill, visible_rows)
             continue
         has_conditional_effect = bool(_conditional_daemonic_effects(skill))
-        if _external_skill_bonus(skill) != 0 or has_conditional_effect:
+        if _external_skill_bonus(skill) != 0 or has_conditional_effect or skill.id in shield_skill_ids_with_bonus:
             row = _build_row(skill)
             _append_skill_rows(skill, [row])
 
@@ -3339,6 +3395,7 @@ def _build_inventory_rows(character: Character) -> list[dict]:
                         "price": item_engine.get_base_price(),
                         "weight": str(item_engine._get_override_value("weight_override", item.weight)),
                         "invested_cp": item.invested_cp or "",
+                        "invested_cp_steps": item.invested_cp_steps or "",
                         "size_class": item_engine.get_size_class(),
                         "not_buyable": bool(item.not_buyable),
                         "not_sellable": bool(item.not_sellable),
@@ -4247,6 +4304,7 @@ def _build_shop_item_groups() -> list[dict]:
                     "shield_rs": shield_stats.rs,
                     "shield_bel": shield_stats.encumbrance,
                     "shield_min_st": shield_stats.min_st,
+                    "shield_parade_bonus": shield_stats.parade_bonus,
                     "min_st": shield_stats.min_st,
                 }
             )

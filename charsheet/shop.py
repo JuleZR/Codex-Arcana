@@ -553,6 +553,7 @@ def _normalize_redundant_character_item_overrides(character_item: CharacterItem)
                 "shield_rs_override": shield.rs,
                 "shield_encumbrance_override": shield.encumbrance,
                 "shield_min_st_override": shield.min_st,
+                "shield_parade_bonus": shield.parade_bonus,
             }
         )
     for field_name, base_value in comparisons.items():
@@ -580,6 +581,7 @@ def apply_character_item_modifications(
     size_class = str(post_data.get("size_class") or item.size_class).strip() or item.size_class
     quality = _read_quality(post_data, "quality", character_item.quality or character_item.item.default_quality)
     invested_cp = _read_int(post_data, "invested_cp", item.invested_cp or 0, minimum=0)
+    invested_cp_steps = str(post_data.get("invested_cp_steps") or item.invested_cp_steps or "").strip()
     experience_cost = _read_int(post_data, "experience_cost", 0, minimum=0)
     money_cost = _read_int(post_data, "money_cost", 0, minimum=0)
     not_buyable = bool(post_data.get("not_buyable"))
@@ -652,8 +654,9 @@ def apply_character_item_modifications(
                 item.not_buyable = not_buyable
                 item.not_sellable = not_sellable
                 item.invested_cp = invested_cp or None
+                item.invested_cp_steps = invested_cp_steps
                 item.full_clean()
-                item.save(update_fields=["not_buyable", "not_sellable", "invested_cp"])
+                item.save(update_fields=["not_buyable", "not_sellable", "invested_cp", "invested_cp_steps"])
             if remove_image and character_item.image_override:
                 character_item.image_override.delete(save=False)
                 character_item.image_override = None
@@ -789,6 +792,7 @@ def create_custom_shop_item(post_data, files_data=None, *, catalog_group=None):
     default_quality = _read_quality(post_data, "default_quality", ItemEngine.normalize_quality(None))
     weight = _read_decimal(post_data, "weight", 0)
     invested_cp = _read_int(post_data, "invested_cp", 0, minimum=0)
+    invested_cp_steps = str(post_data.get("invested_cp_steps") or "").strip()
     size_class = str(post_data.get("size_class") or "M")
     is_consumable = item_type == Item.ItemType.CONSUM
     image = None if files_data is None else files_data.get("image")
@@ -827,6 +831,7 @@ def create_custom_shop_item(post_data, files_data=None, *, catalog_group=None):
                 default_quality_id=default_quality,
                 weight=weight,
                 invested_cp=invested_cp or None,
+                invested_cp_steps=invested_cp_steps,
                 size_class=size_class,
                 image=image,
                 catalog_group=catalog_group,
@@ -898,6 +903,7 @@ def create_custom_shop_item(post_data, files_data=None, *, catalog_group=None):
                     rs=_read_int(post_data, "shield_rs", 0, minimum=0),
                     encumbrance=_read_int(post_data, "shield_encumbrance", 0, minimum=0),
                     min_st=_read_int(post_data, "shield_min_st", 1, minimum=1),
+                    parade_bonus=_read_int(post_data, "shield_parade_bonus", 0),
                 )
                 shield_stats.full_clean()
                 shield_stats.save()

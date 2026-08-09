@@ -1921,7 +1921,7 @@ class ShieldStatsInline(admin.StackedInline):
     autocomplete_fields = ("damage_source", "weapon_type")
     filter_horizontal = ("skills",)
     fields = (
-        ("rs", "encumbrance", "min_st"),
+        ("rs", "encumbrance", "min_st", "parade_bonus"),
         "weapon_type",
         "maneuver_attribute_mode",
         "damage_source",
@@ -4930,6 +4930,7 @@ class ShieldStatsAdmin(admin.ModelAdmin):
         "skill_summary",
         "encumbrance",
         "min_st",
+        "parade_bonus",
     )
     search_fields = ("item__name", "weapon_type__name", "weapon_type__slug", "damage_source__name", "skills__name", "skills__slug")
     list_filter = ("weapon_type", "damage_source", "damage_type", "item__default_quality", "item__size_class")
@@ -4939,7 +4940,7 @@ class ShieldStatsAdmin(admin.ModelAdmin):
     filter_horizontal = ("skills",)
     fields = (
         "item",
-        ("rs", "encumbrance", "min_st"),
+        ("rs", "encumbrance", "min_st", "parade_bonus"),
         "weapon_type",
         "maneuver_attribute_mode",
         "damage_source",

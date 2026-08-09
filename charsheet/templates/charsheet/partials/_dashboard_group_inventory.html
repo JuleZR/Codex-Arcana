@@ -343,11 +343,12 @@
                 </section>
                 <section class="sl-editor-card" data-item-fields="shield" hidden>
                   <header><span>Typwerte</span><h4>Schild</h4></header>
-                  <div class="sl-editor-grid"><label><span>Schild-RS</span><input name="shield_rs" type="number" min="0" value="0"></label><label><span>Belastung</span><input name="shield_encumbrance" type="number" min="0" value="0"></label><label><span>Mindeststärke</span><input name="shield_min_st" type="number" min="1" value="1"></label></div>
+                  <div class="sl-editor-grid"><label><span>Schild-RS</span><input name="shield_rs" type="number" min="0" value="0"></label><label><span>Belastung</span><input name="shield_encumbrance" type="number" min="0" value="0"></label><label><span>Mindeststärke</span><input name="shield_min_st" type="number" min="1" value="1"></label><label><span>PB</span><input name="shield_parade_bonus" type="number" value="0"></label></div>
                 </section>
                 <section class="sl-editor-card" data-sl-magic-fields hidden>
                   <header><span>Optional</span><h4>Magische Effekte</h4></header>
                   <label class="sl-editor-field"><span>Investierte CP</span><input name="invested_cp" type="number" min="0" step="1"></label>
+                  <label class="sl-editor-field"><span>CP-Schritte</span><input name="invested_cp_steps" type="text" maxlength="200" placeholder="z. B. 2/4/6/8/10"></label>
                   <input type="hidden" name="magic_modifier_payloads" value="[]" data-sl-magic-payloads>
                   <div class="sl-magic-effects" data-sl-magic-effects></div>
                   <div class="sl-magic-effects__actions"><button type="button" class="dashboard_button dashboard_button--small" data-add-sl-magic-effect>+ Effekt hinzufügen</button></div>
@@ -358,7 +359,7 @@
                         <label><span>Wirkung</span><select data-effect-kind>{% for value,label in group_inventory_effect_kinds %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></label>
                         <label data-effect-value-row><span>Bonus / Malus</span><input type="number" step="1" value="0" data-effect-value></label>
                         <label data-effect-scale-source-row><span>Skaliert nach</span><select data-effect-scale-source><option value="">Nicht skaliert</option><option value="item_invested_cp">Investierte CP des Items</option></select></label>
-                        <label data-effect-scale-divisor-row hidden><span>pro</span><input type="number" min="1" step="1" value="2" data-effect-scale-divisor></label>
+                        <label data-effect-scale-divisor-row hidden><span>CP pro +1/-1</span><input type="number" min="1" step="1" value="2" data-effect-scale-divisor></label>
                       </div>
                       <label class="sl-editor-field"><span>Beschreibung</span><input type="text" maxlength="255" placeholder="Was bewirkt der Effekt?" data-effect-description></label>
                       <label class="sl-editor-field" data-effect-target="attribute" hidden><span>Attribut</span><select>{% for value,label in group_inventory_effect_attributes %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></label>

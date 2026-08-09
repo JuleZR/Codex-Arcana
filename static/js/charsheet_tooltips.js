@@ -1099,7 +1099,9 @@ document.addEventListener("DOMContentLoaded", () => {
       return `RS ${readInt(entry.stats.armorRs, 0)} | Bel ${bel}`;
     }
     if (entry.itemType === "shield") {
-      return `RS ${readInt(entry.stats.shieldRs, 0)} | Bel ${readInt(entry.stats.shieldBel, 0)}`;
+      const paradeBonus = readInt(entry.stats.shieldParadeBonus, 0);
+      const paradeLabel = paradeBonus ? ` | PB ${paradeBonus > 0 ? "+" : ""}${paradeBonus}` : "";
+      return `RS ${readInt(entry.stats.shieldRs, 0)} | Bel ${readInt(entry.stats.shieldBel, 0)}${paradeLabel}`;
     }
     return "-";
   };
@@ -1135,6 +1137,7 @@ document.addEventListener("DOMContentLoaded", () => {
         armorBel: readOptionalInt(row.getAttribute("data-shop-armor-bel")),
         shieldRs: readOptionalInt(row.getAttribute("data-shop-shield-rs")),
         shieldBel: readOptionalInt(row.getAttribute("data-shop-shield-bel")),
+        shieldParadeBonus: readOptionalInt(row.getAttribute("data-shop-shield-pb")),
       },
     };
     return payload;
