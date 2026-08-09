@@ -1556,6 +1556,8 @@ def _serialize_item_semantic_effect_payload(effect: ItemSemanticEffect | Charact
             "effect_description": str(effect.rules_text or effect.notes or ""),
             "target_display": "",
             "display_order": int(effect.sort_order or 0),
+            "scale_source": "",
+            "scale_divisor": "",
         }
     try:
         raw_value = effect._coerce_scalar(effect.value)
@@ -1571,6 +1573,8 @@ def _serialize_item_semantic_effect_payload(effect: ItemSemanticEffect | Charact
         "effect_description": str(effect.notes or ""),
         "target_display": "",
         "display_order": int(effect.sort_order or 0),
+        "scale_source": str(effect.scale_source or ""),
+        "scale_divisor": int(effect.scale_divisor or 0) if effect.scale_divisor else "",
     }
 
     if target_domain == "rule_flag":
@@ -3312,6 +3316,7 @@ def _build_inventory_rows(character: Character) -> list[dict]:
                         "name": item_name,
                         "price": item_engine.get_base_price(),
                         "weight": str(item_engine._get_override_value("weight_override", item.weight)),
+                        "invested_cp": item.invested_cp or "",
                         "size_class": item_engine.get_size_class(),
                         "not_buyable": bool(item.not_buyable),
                         "not_sellable": bool(item.not_sellable),

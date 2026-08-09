@@ -223,6 +223,27 @@ Wenn ein aktiver Effect eine spezifizierte Skill-Zeile braucht und sie fehlt, wi
 
 ## Skalierung
 
+### Nach investierten CP eines Items
+
+Bei Item-Effects kann ein Item optional `invested_cp` tragen. Der Effect kann dann ohne JSON ueber eigene Felder skalieren:
+
+```text
+Item:
+invested_cp: 8
+
+Effect:
+target_domain: derived_stat
+target_key: gw
+operator: flat_add
+value: 1
+scale_source: item_invested_cp
+scale_divisor: 2
+```
+
+Ergebnis: `floor(8 * 1 / 2) = +4`.
+
+Wenn `scale_source` leer bleibt, wird `invested_cp` ignoriert und der Effect ist ein normaler fixer Effekt.
+
 ### Nach Schullevel
 
 Bei Technik-Effects kann `school_level` automatisch die Schule der Technik verwenden.

@@ -9,9 +9,8 @@ def enable_bestiarius_components(apps, schema_editor):
     ).update(suppress_component_generation=False)
 
     from charsheet.armor_generation import sync_armor_set_components
-    from charsheet.models import ArmorStats as RuntimeArmorStats
 
-    for armor in RuntimeArmorStats.objects.filter(
+    for armor in ArmorStats.objects.filter(
         parent_set__isnull=True,
         item__name__iexact="Bestiarius",
     ).select_related("item", "item__default_quality", "item__catalog_group"):

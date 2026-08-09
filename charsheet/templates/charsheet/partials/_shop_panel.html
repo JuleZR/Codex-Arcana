@@ -484,6 +484,10 @@
           </div>
             <div class="shop_item_form_conditional" id="shopItemMagicFields" hidden>
               <p class="shop_item_form_hint">Wirkt, solange der magische Gegenstand ausger&uuml;stet ist.</p>
+              <label class="shop_item_form_row">
+                <span>Investierte CP</span>
+                <input type="number" name="invested_cp" min="0" step="1" value="">
+              </label>
               <input type="hidden" name="magic_modifier_payloads" id="shopMagicModifierPayloads" value="[]">
               <div class="shop_magic_effect_list" id="shopMagicEffectsList"></div>
               <div class="shop_magic_effect_actions">
@@ -513,6 +517,17 @@
             <label class="shop_item_form_row" data-magic-value-row>
               <span>Bonus oder Malus</span>
               <input type="number" step="1" value="0" data-magic-value-input>
+            </label>
+            <label class="shop_item_form_row" data-magic-scale-source-row>
+              <span>Skaliert nach</span>
+              <select data-magic-scale-source>
+                <option value="">Nicht skaliert</option>
+                <option value="item_invested_cp">Investierte CP des Items</option>
+              </select>
+            </label>
+            <label class="shop_item_form_row" data-magic-scale-divisor-row hidden>
+              <span>pro</span>
+              <input type="number" min="1" step="1" value="2" data-magic-scale-divisor>
             </label>
           </div>
           <label class="shop_item_form_row">

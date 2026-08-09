@@ -2024,6 +2024,9 @@ class ItemSemanticEffectAdminForm(forms.ModelForm):
         self.fields["simple_target"].choices = self._simple_target_choices()
         self.fields["sort_order"].label = "Reihenfolge"
         self.fields["active_flag"].label = "Aktiv"
+        self.fields["scale_source"].label = "Skaliert nach"
+        self.fields["scale_divisor"].label = "pro"
+        self.fields["scale_divisor"].help_text = "Optional. Beispiel: 2 bedeutet +Zahl pro 2 investierte CP."
         self._apply_initial_simple_values()
         self._polish_technical_fields()
 
@@ -2101,6 +2104,8 @@ class ItemSemanticEffectAdminForm(forms.ModelForm):
             cleaned_data["operator"] = "override"
             cleaned_data["value"] = ""
             cleaned_data["mode"] = cleaned_data.get("mode") or "flat"
+            cleaned_data["scale_source"] = ""
+            cleaned_data["scale_divisor"] = None
             return cleaned_data
 
         target_domain, target_key = self._simple_target(area, cleaned_data.get("simple_target"))
@@ -2128,7 +2133,15 @@ class ItemSemanticEffectAdminForm(forms.ModelForm):
             else:
                 cleaned_data["operator"] = operator
                 cleaned_data["value"] = self._format_simple_number(value)
-        cleaned_data["mode"] = cleaned_data.get("mode") or "flat"
+
+        scale_source = cleaned_data.get("scale_source") or ""
+        if scale_source:
+            if cleaned_data.get("scale_divisor") is None:
+                self.add_error("scale_divisor", "Bitte eintragen, pro wie viel skaliert wird.")
+            cleaned_data["mode"] = "scaled"
+        else:
+            cleaned_data["mode"] = cleaned_data.get("mode") or "flat"
+            cleaned_data["scale_divisor"] = None
         return cleaned_data
 
     def _simple_target(self, area, simple_target) -> tuple[str, str]:
@@ -2162,7 +2175,7 @@ class ItemSemanticEffectAdminForm(forms.ModelForm):
 
     def save(self, commit=True):
         instance = super().save(commit=False)
-        for field_name in ("target_domain", "target_key", "operator", "value", "mode"):
+        for field_name in ("target_domain", "target_key", "operator", "value", "mode", "scale_source", "scale_divisor"):
             setattr(instance, field_name, self.cleaned_data[field_name])
         if commit:
             instance.save()
@@ -2184,10 +2197,23 @@ class ItemSemanticEffectInline(admin.StackedInline):
     verbose_name_plural = "Item Semantic Effects"
     extra = 0
     class Media:
-        js = ("charsheet/js/item_semantic_effect_admin_v1.js",)
+        js = ("charsheet/js/item_semantic_effect_admin_v3.js",)
 
     fieldsets = (
-        ("Einfacher Effekt", {"fields": ("sort_order", "effect_area", "simple_target", ("simple_operator", "simple_value"), "active_flag")}),
+        (
+            "Einfacher Effekt",
+            {
+                "fields": (
+                    "sort_order",
+                    "effect_area",
+                    "simple_target",
+                    ("simple_operator", "simple_value"),
+                    "scale_source",
+                    "scale_divisor",
+                    "active_flag",
+                )
+            },
+        ),
         ("Text", {"fields": ("notes", "rules_text")}),
         (
             "Technik",
@@ -2198,7 +2224,6 @@ class ItemSemanticEffectInline(admin.StackedInline):
                     ("operator", "mode", "value"),
                     ("value_min", "value_max"),
                     "formula",
-                    "scaling",
                     "stack_behavior",
                     "condition_set",
                     ("sheet_relevant", "hidden", "visibility"),
@@ -4647,6 +4672,7 @@ class ItemAdmin(admin.ModelAdmin):
         "name",
         "item_type",
         "quality_preview",
+        "invested_cp",
         "price",
         "size_class",
         "weight",

@@ -5,7 +5,8 @@ def resync_armor_components(apps, schema_editor):
     # The generator is the canonical implementation for naming, grouped
     # coverage, rulebook price overrides, and exact rounding.
     from charsheet.armor_generation import sync_armor_set_components
-    from charsheet.models import ArmorStats
+
+    ArmorStats = apps.get_model("charsheet", "ArmorStats")
 
     for armor in (
         ArmorStats.objects.filter(parent_set__isnull=True)

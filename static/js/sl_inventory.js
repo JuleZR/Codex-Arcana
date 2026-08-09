@@ -186,6 +186,11 @@ document.addEventListener("DOMContentLoaded", () => {
           value: Number.parseInt(row.querySelector("[data-effect-value]")?.value || "0", 10) || 0,
           effect_description: row.querySelector("[data-effect-description]")?.value?.trim() || "",
         };
+        const scaleSource = row.querySelector("[data-effect-scale-source]")?.value || "";
+        if (!["text", "rule_flag"].includes(targetKind) && scaleSource) {
+          payload.scale_source = scaleSource;
+          payload.scale_divisor = Number.parseInt(row.querySelector("[data-effect-scale-divisor]")?.value || "0", 10) || 0;
+        }
         const target = row.querySelector(`[data-effect-target='${targetKind}'] select`);
         if (targetKind === "attribute") payload.target_attribute = target?.value || "";
         if (targetKind === "stat") payload.target_stat = target?.value || "";
@@ -213,6 +218,17 @@ document.addEventListener("DOMContentLoaded", () => {
       if (valueRow) valueRow.hidden = !hasCalculation;
       const valueInput = row.querySelector("[data-effect-value]");
       if (valueInput) valueInput.disabled = !hasCalculation;
+      const scaleSource = row.querySelector("[data-effect-scale-source]");
+      const scaleSourceRow = row.querySelector("[data-effect-scale-source-row]");
+      const scaleDivisor = row.querySelector("[data-effect-scale-divisor]");
+      const scaleDivisorRow = row.querySelector("[data-effect-scale-divisor-row]");
+      if (scaleSourceRow) scaleSourceRow.hidden = !hasCalculation;
+      if (scaleSource) {
+        scaleSource.disabled = !hasCalculation;
+        if (!hasCalculation) scaleSource.value = "";
+      }
+      if (scaleDivisorRow) scaleDivisorRow.hidden = !hasCalculation || !scaleSource?.value;
+      if (scaleDivisor) scaleDivisor.disabled = !hasCalculation || !scaleSource?.value;
       serializeEffects();
     };
 
@@ -228,6 +244,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const row = effectTemplate.content.firstElementChild.cloneNode(true);
       effectsList.append(row);
       row.querySelector("[data-effect-kind]")?.addEventListener("change", () => syncEffectRow(row));
+      row.querySelector("[data-effect-scale-source]")?.addEventListener("change", () => syncEffectRow(row));
       row.querySelectorAll("input, select").forEach((field) => {
         field.addEventListener("input", serializeEffects);
         field.addEventListener("change", serializeEffects);
@@ -331,6 +348,11 @@ document.addEventListener("DOMContentLoaded", () => {
           value: Number.parseInt(row.querySelector("[data-effect-value]")?.value || "0", 10) || 0,
           effect_description: row.querySelector("[data-effect-description]")?.value?.trim() || "",
         };
+        const scaleSource = row.querySelector("[data-effect-scale-source]")?.value || "";
+        if (!["text", "rule_flag"].includes(kind) && scaleSource) {
+          payload.scale_source = scaleSource;
+          payload.scale_divisor = Number.parseInt(row.querySelector("[data-effect-scale-divisor]")?.value || "0", 10) || 0;
+        }
         const target = row.querySelector(`[data-effect-target='${kind}'] select`)?.value || "";
         if (kind === "attribute") payload.target_attribute = target;
         if (kind === "stat") payload.target_stat = target;
@@ -358,6 +380,17 @@ document.addEventListener("DOMContentLoaded", () => {
       if (valueRow) valueRow.hidden = !calculated;
       const value = row.querySelector("[data-effect-value]");
       if (value) value.disabled = !calculated;
+      const scaleSource = row.querySelector("[data-effect-scale-source]");
+      const scaleSourceRow = row.querySelector("[data-effect-scale-source-row]");
+      const scaleDivisor = row.querySelector("[data-effect-scale-divisor]");
+      const scaleDivisorRow = row.querySelector("[data-effect-scale-divisor-row]");
+      if (scaleSourceRow) scaleSourceRow.hidden = !calculated;
+      if (scaleSource) {
+        scaleSource.disabled = !calculated;
+        if (!calculated) scaleSource.value = "";
+      }
+      if (scaleDivisorRow) scaleDivisorRow.hidden = !calculated || !scaleSource?.value;
+      if (scaleDivisor) scaleDivisor.disabled = !calculated || !scaleSource?.value;
       serialize();
     };
 
@@ -377,6 +410,10 @@ document.addEventListener("DOMContentLoaded", () => {
       if (kind && payload.target_kind) kind.value = payload.target_kind;
       if (value) value.value = String(payload.value ?? 0);
       if (description) description.value = payload.effect_description || "";
+      const scaleSource = row.querySelector("[data-effect-scale-source]");
+      const scaleDivisor = row.querySelector("[data-effect-scale-divisor]");
+      if (scaleSource) scaleSource.value = payload.scale_source || "";
+      if (scaleDivisor) scaleDivisor.value = String(payload.scale_divisor ?? 2);
       const selectedKind = kind?.value || "text";
       const targetValues = {
         attribute: payload.target_attribute,
@@ -396,6 +433,7 @@ document.addEventListener("DOMContentLoaded", () => {
         field.addEventListener("change", serialize);
       });
       kind?.addEventListener("change", () => sync(row));
+      row.querySelector("[data-effect-scale-source]")?.addEventListener("change", () => sync(row));
       row.querySelector("[data-remove-sl-magic-effect]")?.addEventListener("click", () => {
         row.remove();
         renumber();

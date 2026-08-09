@@ -131,6 +131,11 @@ class Item(models.Model):
     is_magic = models.BooleanField(default=False)
     not_buyable = models.BooleanField(default=False)
     not_sellable = models.BooleanField(default=False)
+    invested_cp = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        help_text="Optional investierte CP fuer skalierende magische Items, z.B. 2/4/6/8/10.",
+    )
 
     default_quality = models.ForeignKey(
         "charsheet.Quality",
@@ -406,12 +411,18 @@ class MagicItemStats(models.Model):
 class ItemSemanticEffectFields(models.Model):
     """Shared persisted item semantic effect fields."""
 
+    class ScaleSource(models.TextChoices):
+        NONE = "", "-"
+        ITEM_INVESTED_CP = "item_invested_cp", "Investierte CP des Items"
+
     sort_order = models.PositiveIntegerField(default=0)
     target_domain = models.CharField(max_length=40, choices=TARGET_DOMAIN_CHOICES, default="rule_flag")
     target_key = models.CharField(max_length=120, blank=True, default="")
     operator = models.CharField(max_length=40, choices=MODIFIER_OPERATOR_CHOICES, default="flat_add")
     mode = models.CharField(max_length=20, default="flat")
     value = models.CharField(max_length=200, blank=True, default="")
+    scale_source = models.CharField(max_length=40, choices=ScaleSource.choices, blank=True, default="")
+    scale_divisor = models.PositiveSmallIntegerField(null=True, blank=True)
     value_min = models.IntegerField(null=True, blank=True)
     value_max = models.IntegerField(null=True, blank=True)
     formula = models.CharField(max_length=200, blank=True, default="")
@@ -474,6 +485,9 @@ class ItemSemanticEffectFields(models.Model):
     def semantic_source_label(self) -> str:
         raise NotImplementedError
 
+    def item_invested_cp(self) -> int | None:
+        return None
+
     def to_modifier(self):
         """Materialize this persisted effect as one typed modifier instance."""
         from ..modifiers.definitions import (
@@ -526,17 +540,32 @@ class ItemSemanticEffectFields(models.Model):
         if self.pk:
             metadata["semantic_effect_key"] = f"item_effect:{self.pk}"
             metadata["semantic_effect_label"] = self.semantic_source_label()
+        invested_cp = self.item_invested_cp()
+        if invested_cp is not None:
+            metadata["item_invested_cp"] = invested_cp
+        mode = self.mode
+        scaling = dict(self.scaling or {})
+        if self.scale_source:
+            mode = "scaled"
+            scaling.update(
+                {
+                    "scale_source": self.scale_source,
+                    "mul": 1,
+                    "div": self.scale_divisor or 1,
+                    "round_mode": "floor",
+                }
+            )
         return modifier_cls(
             source_type=self.semantic_source_type(),
             source_id=self.semantic_source_id(),
             target_domain=self.target_domain,
             target_key=self.target_key,
-            mode=self.mode,
+            mode=mode,
             value=self._coerce_scalar(self.value),
             value_min=self.value_min,
             value_max=self.value_max,
             formula=self.formula,
-            scaling=dict(self.scaling or {}),
+            scaling=scaling,
             operator=self.operator,
             stack_behavior=self.stack_behavior,
             condition_set=ConditionSet(**dict(self.condition_set or {})),
@@ -571,6 +600,9 @@ class ItemSemanticEffect(ItemSemanticEffectFields):
     def semantic_source_label(self) -> str:
         return str(self.item)
 
+    def item_invested_cp(self) -> int | None:
+        return self.item.invested_cp
+
 
 class CharacterItemSemanticEffect(ItemSemanticEffectFields):
     """Persisted semantic effect attached directly to one concrete item instance."""
@@ -591,6 +623,9 @@ class CharacterItemSemanticEffect(ItemSemanticEffectFields):
 
     def semantic_source_label(self) -> str:
         return str(self.character_item)
+
+    def item_invested_cp(self) -> int | None:
+        return self.character_item.item.invested_cp
 
 
 class WeaponFlag(models.Model):

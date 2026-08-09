@@ -196,6 +196,7 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
   const runeNameInput = document.getElementById("runeRetrofitCustomName");
   const runePriceInput = document.getElementById("runeRetrofitPrice");
   const runeWeightInput = document.getElementById("runeRetrofitWeight");
+  const runeInvestedCpInput = document.getElementById("runeRetrofitInvestedCp");
   const runeSizeClassSelect = document.getElementById("runeRetrofitSizeClass");
   const runeDescriptionInput = document.getElementById("runeRetrofitDescription");
   const runeImageInput = document.getElementById("runeRetrofitImageInput");
@@ -472,6 +473,10 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
     const valueInput = row.querySelector("[data-magic-value-input]");
     const valueRow = row.querySelector("[data-magic-value-row]") || valueInput?.closest(".shop_item_form_row");
     const descriptionInput = row.querySelector("[data-magic-effect-description]");
+    const scaleSource = row.querySelector("[data-magic-scale-source]");
+    const scaleSourceRow = row.querySelector("[data-magic-scale-source-row]");
+    const scaleDivisor = row.querySelector("[data-magic-scale-divisor]");
+    const scaleDivisorRow = row.querySelector("[data-magic-scale-divisor-row]");
     const selectedKind = String(targetKindSelect?.value || "");
     const isTextOnly = selectedKind === "text";
     const isRuleFlag = selectedKind === "rule_flag";
@@ -504,6 +509,22 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
         descriptionInput.value = WEAPON_MASTERY_BONUS_DESCRIPTION;
       }
     }
+    const canScale = !isTextOnly && !isRuleFlag;
+    if (scaleSourceRow instanceof HTMLElement) {
+      scaleSourceRow.hidden = !canScale;
+    }
+    if (scaleSource instanceof HTMLSelectElement) {
+      scaleSource.disabled = !canScale;
+      if (!canScale) {
+        scaleSource.value = "";
+      }
+    }
+    if (scaleDivisorRow instanceof HTMLElement) {
+      scaleDivisorRow.hidden = !canScale || !(scaleSource instanceof HTMLSelectElement) || !scaleSource.value;
+    }
+    if (scaleDivisor instanceof HTMLInputElement) {
+      scaleDivisor.disabled = !canScale || !(scaleSource instanceof HTMLSelectElement) || !scaleSource.value;
+    }
   };
 
   const serializeMagicEffects = () => {
@@ -526,6 +547,11 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
         value: isTextOnly || isRuleFlag ? "0" : String(row.querySelector("[data-magic-value-input]")?.value || "0").trim(),
         effect_description: String(row.querySelector("[data-magic-effect-description]")?.value || "").trim(),
       };
+      const scaleSource = String(row.querySelector("[data-magic-scale-source]")?.value || "").trim();
+      if (!isTextOnly && !isRuleFlag && scaleSource) {
+        payload.scale_source = scaleSource;
+        payload.scale_divisor = Number.parseInt(row.querySelector("[data-magic-scale-divisor]")?.value || "0", 10) || 0;
+      }
       if (targetKind === "attribute") {
         payload.target_attribute = String(row.querySelector("[data-magic-target-select='attribute']")?.value || "").trim();
       } else if (targetKind === "stat") {
@@ -673,6 +699,14 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
       if (descriptionInput instanceof HTMLInputElement) {
         descriptionInput.value = String(initialPayload.effect_description || "");
       }
+      const scaleSource = row.querySelector("[data-magic-scale-source]");
+      const scaleDivisor = row.querySelector("[data-magic-scale-divisor]");
+      if (scaleSource instanceof HTMLSelectElement) {
+        scaleSource.value = String(initialPayload.scale_source || "");
+      }
+      if (scaleDivisor instanceof HTMLInputElement) {
+        scaleDivisor.value = String(initialPayload.scale_divisor || 2);
+      }
       const targetFieldMap = {
         attribute: "target_attribute",
         stat: "target_stat",
@@ -693,6 +727,11 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
     });
     row.querySelector("[data-magic-value-input]")?.addEventListener("input", serializeMagicEffects);
     row.querySelector("[data-magic-effect-description]")?.addEventListener("input", serializeMagicEffects);
+    row.querySelector("[data-magic-scale-source]")?.addEventListener("change", () => {
+      syncMagicEffectRow(row);
+      serializeMagicEffects();
+    });
+    row.querySelector("[data-magic-scale-divisor]")?.addEventListener("input", serializeMagicEffects);
     row.querySelectorAll("[data-magic-target-select]").forEach((select) => {
       select.addEventListener("change", serializeMagicEffects);
     });
@@ -1143,6 +1182,9 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
     }
     if (runeWeightInput instanceof HTMLInputElement) {
       runeWeightInput.value = String(modifyPayload.weight ?? "0");
+    }
+    if (runeInvestedCpInput instanceof HTMLInputElement) {
+      runeInvestedCpInput.value = String(modifyPayload.invested_cp ?? "");
     }
     if (runeSizeClassSelect instanceof HTMLSelectElement) {
       runeSizeClassSelect.value = String(modifyPayload.size_class || "");

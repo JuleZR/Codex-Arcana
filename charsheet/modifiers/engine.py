@@ -1129,6 +1129,8 @@ class ModifierEngine:
             return int(modifier.scaling.get("_vampire_trait_rank") or 0)
         if scale_source == "vampire_age_cycle":
             return int(modifier.scaling.get("_vampire_age_cycle") or 0)
+        if scale_source == "item_invested_cp":
+            return int(modifier.metadata.get("item_invested_cp") or 0)
         if scale_source == "trait_level" and self.character_engine is None:
             return self.trait_levels_by_slug.get(str(modifier.source_id or ""))
         if self.character_engine is None:

@@ -223,6 +223,10 @@
                 <span>Beschreibung</span>
                 <textarea name="description" id="runeRetrofitDescription" rows="4" maxlength="1000" placeholder="Beschreibung des modifizierten Gegenstands"></textarea>
               </label>
+              <label class="shop_item_form_row">
+                <span>Investierte CP</span>
+                <input type="number" name="invested_cp" id="runeRetrofitInvestedCp" min="0" step="1" value="">
+              </label>
               <p class="shop_item_form_hint">Die Effekte funktionieren wie bei magischen Gegenst&auml;nden und gelten nur f&uuml;r dieses modifizierte Besitz-Item.</p>
               <input type="hidden" name="rune_payloads" id="runeRetrofitRunePayloads" value="[]">
               <input type="hidden" name="magic_modifier_payloads" id="runeRetrofitMagicModifierPayloads" value="[]">
@@ -254,6 +258,17 @@
             <label class="shop_item_form_row" data-magic-value-row>
               <span>Bonus oder Malus</span>
               <input type="number" step="1" value="0" data-magic-value-input>
+            </label>
+            <label class="shop_item_form_row" data-magic-scale-source-row>
+              <span>Skaliert nach</span>
+              <select data-magic-scale-source>
+                <option value="">Nicht skaliert</option>
+                <option value="item_invested_cp">Investierte CP des Items</option>
+              </select>
+            </label>
+            <label class="shop_item_form_row" data-magic-scale-divisor-row hidden>
+              <span>pro</span>
+              <input type="number" min="1" step="1" value="2" data-magic-scale-divisor>
             </label>
           </div>
           <label class="shop_item_form_row">

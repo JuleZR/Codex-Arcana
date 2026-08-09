@@ -182,6 +182,15 @@ def _build_magic_modifier_payload(target_kind: str, raw_value, row_data) -> dict
         "target_item": None,
         "target_specialization": None,
     }
+    scale_source = str(row_data.get("scale_source") or "").strip()
+    if scale_source == "item_invested_cp":
+        try:
+            scale_divisor = int(row_data.get("scale_divisor") or 0)
+        except (TypeError, ValueError):
+            scale_divisor = 0
+        if scale_divisor > 0:
+            payload["scale_source"] = scale_source
+            payload["scale_divisor"] = scale_divisor
 
     rule_flag_keys = {value for value, _label in RULE_FLAG_CHOICES}
 
@@ -296,6 +305,13 @@ def _read_magic_modifier_payloads(post_data) -> list[dict[str, object]]:
             if payload.get("target_kind") in {WEAPON_MANEUVER_DAMAGE, WEAPON_MASTERY_BONUS}:
                 value = int(payload.get("value", 0) or 0)
                 effect_description = str(payload.get("effect_description") or "").strip()
+                scale_source = str(payload.get("scale_source") or "")
+                scale_divisor = payload.get("scale_divisor")
+                scale_payload = (
+                    {"scale_source": scale_source, "scale_divisor": scale_divisor}
+                    if scale_source and scale_divisor
+                    else {}
+                )
                 payloads.extend(
                     [
                         {
@@ -304,7 +320,8 @@ def _read_magic_modifier_payloads(post_data) -> list[dict[str, object]]:
                             "effect_description": effect_description,
                             "display_order": index,
                             "target_slug": MELEE_MANEUVERS,
-            "target_skill": None,
+                            **scale_payload,
+                            "target_skill": None,
                             "target_skill_category": None,
                             "target_item": None,
                             "target_specialization": None,
@@ -315,6 +332,7 @@ def _read_magic_modifier_payloads(post_data) -> list[dict[str, object]]:
                             "effect_description": effect_description,
                             "display_order": index,
                             "target_slug": WEAPON_DAMAGE,
+                            **scale_payload,
                             "target_skill": None,
                             "target_skill_category": None,
                             "target_item": None,
@@ -454,6 +472,8 @@ def _magic_payload_to_semantic_effect_kwargs(payload: dict[str, object]) -> dict
         "operator": str(getattr(operator, "value", operator)),
         "mode": "flat",
         "value": str(value).lower() if isinstance(value, bool) else str(value),
+        "scale_source": str(payload.get("scale_source") or ""),
+        "scale_divisor": payload.get("scale_divisor"),
         "notes": str(payload.get("effect_description") or ""),
         "metadata": {key: value for key, value in metadata.items() if value not in (None, "")},
     }
@@ -559,6 +579,7 @@ def apply_character_item_modifications(
     weight = _read_decimal(post_data, "weight", item.weight)
     size_class = str(post_data.get("size_class") or item.size_class).strip() or item.size_class
     quality = _read_quality(post_data, "quality", character_item.quality or character_item.item.default_quality)
+    invested_cp = _read_int(post_data, "invested_cp", item.invested_cp or 0, minimum=0)
     experience_cost = _read_int(post_data, "experience_cost", 0, minimum=0)
     money_cost = _read_int(post_data, "money_cost", 0, minimum=0)
     not_buyable = bool(post_data.get("not_buyable"))
@@ -630,8 +651,9 @@ def apply_character_item_modifications(
             if allow_catalog_flags:
                 item.not_buyable = not_buyable
                 item.not_sellable = not_sellable
+                item.invested_cp = invested_cp or None
                 item.full_clean()
-                item.save(update_fields=["not_buyable", "not_sellable"])
+                item.save(update_fields=["not_buyable", "not_sellable", "invested_cp"])
             if remove_image and character_item.image_override:
                 character_item.image_override.delete(save=False)
                 character_item.image_override = None
@@ -766,6 +788,7 @@ def create_custom_shop_item(post_data, files_data=None, *, catalog_group=None):
     not_sellable = bool(post_data.get("not_sellable"))
     default_quality = _read_quality(post_data, "default_quality", ItemEngine.normalize_quality(None))
     weight = _read_decimal(post_data, "weight", 0)
+    invested_cp = _read_int(post_data, "invested_cp", 0, minimum=0)
     size_class = str(post_data.get("size_class") or "M")
     is_consumable = item_type == Item.ItemType.CONSUM
     image = None if files_data is None else files_data.get("image")
@@ -803,6 +826,7 @@ def create_custom_shop_item(post_data, files_data=None, *, catalog_group=None):
                 not_sellable=not_sellable,
                 default_quality_id=default_quality,
                 weight=weight,
+                invested_cp=invested_cp or None,
                 size_class=size_class,
                 image=image,
                 catalog_group=catalog_group,
