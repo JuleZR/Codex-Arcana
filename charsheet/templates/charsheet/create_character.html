@@ -69,6 +69,11 @@
                   {{ form.gender }}
                   {% if form.gender.errors %}<div class="form_error">{{ form.gender.errors|striptags }}</div>{% endif %}
                 </div>
+                <div class="form_row">
+                  <label for="{{ form.country_of_origin.id_for_label }}">Herkunftsland</label>
+                  {{ form.country_of_origin }}
+                  {% if form.country_of_origin.errors %}<div class="form_error">{{ form.country_of_origin.errors|striptags }}</div>{% endif %}
+                </div>
                 {% if form.non_field_errors %}<div class="form_error">{{ form.non_field_errors|striptags }}</div>{% endif %}
                 <div class="form_actions">
                   <button type="submit" class="dashboard_button dashboard_button--primary">Aenderungen speichern</button>
@@ -165,8 +170,8 @@
                               <table class="dashboard_table phase2_shop_table">
                                 <tbody>
                                   {% for row in group.list %}
-                                    <tr data-phase2-skill-source data-slug="{{ row.slug }}" data-name="{{ row.name }}" data-free-base="{{ row.free_base }}" data-min-level="{{ row.min_value }}" data-phase2-search="{{ row.name|lower }} {{ group.grouper|lower }} skill" tabindex="0" role="button" aria-label="{{ row.name }} hinzufuegen">
-                                      <td class="db_tooltip_anchor"{% if row.description %} data-db-tooltip="{{ row.description }}"{% endif %}>{{ row.name }}</td>
+                                    <tr data-phase2-skill-source data-slug="{{ row.slug }}" data-name="{{ row.name }}" data-free-base="{{ row.free_base }}" data-min-level="{{ row.min_value }}" data-requires-specification="{% if row.requires_specification %}1{% else %}0{% endif %}" data-phase2-search="{{ row.name|lower }} {{ group.grouper|lower }} skill" tabindex="0" role="button" aria-label="{{ row.name }} hinzufuegen">
+                                      <td class="db_tooltip_anchor"{% if row.description %} data-db-tooltip="{{ row.description }}"{% endif %}>{{ row.name }}{% if row.requires_specification %} <span class="learn_spec_badge">+ Neu</span>{% endif %}</td>
                                     </tr>
                                   {% endfor %}
                                 </tbody>
@@ -201,17 +206,24 @@
                             <thead><tr><th>Skill</th><th>Level</th><th>Kosten</th><th></th></tr></thead>
                             <tbody id="phase2SkillCartBody">
                               {% for row in phase_2_skill_rows %}
-                                {% if row.value > 0 %}
-                                  <tr data-phase2-skill-cart-item data-slug="{{ row.slug }}" data-free-base="{{ row.free_base }}" data-min-level="{{ row.min_value }}">
+                                {% for entry in row.entries %}
+                                  <tr data-phase2-skill-cart-item data-slug="{{ row.slug }}" data-free-base="{{ row.free_base }}" data-min-level="{{ row.min_value }}" data-requires-specification="{% if row.requires_specification %}1{% else %}0{% endif %}"{% if row.requires_specification %} data-creation-skill-index="{{ forloop.counter0 }}" data-specification="{{ entry.specification }}"{% endif %}>
                                     <td>
-                                      {{ row.name }}
-                                      <input type="hidden" name="skill_{{ row.slug }}" value="{{ row.value }}" data-phase2-skill-hidden>
+                                      {% if row.requires_specification %}
+                                        <span>{{ row.name }}: {{ entry.specification }}</span>
+                                        <input type="hidden" name="creation_phase2_skill_{{ row.slug }}_slug_{{ forloop.counter0 }}" value="{{ row.slug }}" data-phase2-skill-slug-hidden>
+                                        <input type="hidden" name="creation_phase2_skill_{{ row.slug }}_spec_{{ forloop.counter0 }}" value="{{ entry.specification }}" data-phase2-skill-spec>
+                                        <input type="hidden" name="creation_phase2_skill_{{ row.slug }}_level_{{ forloop.counter0 }}" value="{{ entry.level }}" data-phase2-skill-hidden>
+                                      {% else %}
+                                        {{ row.name }}
+                                        <input type="hidden" name="skill_{{ row.slug }}" value="{{ entry.level }}" data-phase2-skill-hidden>
+                                      {% endif %}
                                     </td>
-                                    <td><input class="dashboard_input phase2_level_input" type="number" min="{{ row.min_value }}" max="10" value="{{ row.value }}" data-phase2-skill-level></td>
+                                    <td><input class="dashboard_input phase2_level_input" type="number" min="{{ row.min_value }}" max="10" value="{{ entry.level }}" data-phase2-skill-level></td>
                                     <td data-phase2-skill-cost>{{ row.cost }}</td>
-                                    <td>{% if row.locked %}<span class="phase4_locked_marker" title="Kostenloser Grundwert">*</span>{% else %}<button type="button" class="phase2_remove_x" data-phase2-skill-remove aria-label="Skill entfernen" title="Entfernen">X</button>{% endif %}</td>
+                                    <td>{% if row.locked and entry.specification == "*" %}<span class="phase4_locked_marker" title="Kostenloser Grundwert">*</span>{% else %}<button type="button" class="phase2_remove_x" data-phase2-skill-remove aria-label="Skill entfernen" title="Entfernen">X</button>{% endif %}</td>
                                   </tr>
-                                {% endif %}
+                                {% endfor %}
                               {% endfor %}
                               <tr data-phase2-skill-cart-empty {% for row in phase_2_skill_rows %}{% if row.value > 0 %}hidden{% endif %}{% endfor %}>
                                 <td colspan="4" class="dashboard_hint">Keine Skills ausgewählt.</td>
@@ -284,7 +296,7 @@
                               <tbody>
                                 {% for row in phase_3_rows %}
                                   <tr data-phase3-dis-source data-slug="{{ row.slug }}" data-name="{{ row.name }}" data-max="{{ row.max_level }}" data-ppl="{{ row.points_per_level }}" data-point-curve="{% if row.points_by_level %}{{ row.points_by_level|join:',' }}{% endif %}" data-attribute-choice-defs="{{ row.attribute_choice_definitions_json|escape }}" data-phase3-search="{{ row.name|lower }} nachteil disadvantage" tabindex="0" role="button" aria-label="{{ row.name }} hinzufuegen">
-                                    <td class="db_tooltip_anchor"{% if row.description %} data-db-tooltip="{{ row.description }}"{% endif %}>{{ row.name }}</td>
+                                    <td class="db_tooltip_anchor"{% if row.description %} data-db-tooltip="{{ row.description }}"{% endif %}>{{ row.name }}{% if row.requires_specification %} <span class="learn_spec_badge">+ Neu</span>{% endif %}</td>
                                     <td class="phase2_lang_meta">max {{ row.max_level }} | {{ row.points_display }}</td>
                                   </tr>
                                 {% endfor %}
@@ -505,7 +517,7 @@
                             <table class="dashboard_table phase2_shop_table">
                               <tbody>
                                 {% for row in phase_4_skill_rows %}
-                                  <tr data-phase4-source data-kind="skill" data-key="skill:{{ row.slug }}" data-slug="{{ row.slug }}" data-name="{{ row.name }}" data-base="{{ row.base_level }}" data-phase4-search="{{ row.name|lower }} skill add" tabindex="0" role="button" aria-label="{{ row.name }} hinzufuegen">
+                                  <tr data-phase4-source data-kind="skill" data-key="skill:{{ row.slug }}" data-slug="{{ row.slug }}" data-name="{{ row.name }}" data-base="{{ row.base_level }}" data-requires-specification="{% if row.requires_specification %}1{% else %}0{% endif %}" data-phase4-search="{{ row.name|lower }} skill add" tabindex="0" role="button" aria-label="{{ row.name }} hinzufuegen">
                                     <td class="db_tooltip_anchor"{% if row.description %} data-db-tooltip="{{ row.description }}"{% endif %}>{{ row.name }}</td>
                                     <td class="phase2_lang_meta">Basis {{ row.base_level }}</td>
                                   </tr>
@@ -596,14 +608,16 @@
                                 {% endif %}
                               {% endfor %}
                               {% for row in phase_4_skill_rows %}
-                                {% if row.value > 0 or row.base_level > 0 %}
-                                  <tr data-phase4-cart-item data-key="skill:{{ row.slug }}" data-kind="skill" data-base="{{ row.base_level }}" data-max-final="10"{% if row.base_level > 0 %} data-locked="1"{% endif %}>
-                                    <td><span data-phase4-skill-label-base="{{ row.name }}">{{ row.name }}</span> <span data-phase4-skill-level-info>({{ row.base_level|add:row.value }})</span> <input type="hidden" name="skill_add_{{ row.slug }}" value="{{ row.value }}" data-phase4-hidden></td>
-                                    <td><input class="dashboard_input phase2_level_input" type="number" min="0" max="10" value="{{ row.value }}" data-phase4-value><div class="phase4_target_hint" data-phase4-target></div></td>
+                                {% for entry in row.entries %}
+                                {% if entry.value > 0 or entry.base_level > 0 %}
+                                  <tr data-phase4-cart-item data-key="skill:{{ row.slug }}:{{ entry.specification }}" data-kind="skill" data-slug="{{ row.slug }}" data-base="{{ entry.base_level }}" data-max-final="10"{% if entry.base_level > 0 %} data-locked="1"{% endif %} data-requires-specification="{% if row.requires_specification %}1{% else %}0{% endif %}"{% if row.requires_specification %} data-creation-skill-index="{{ forloop.counter0 }}" data-specification="{{ entry.specification }}"{% endif %}>
+                                    <td><span data-phase4-skill-label-base="{{ row.name }}{% if row.requires_specification %}: {{ entry.specification }}{% endif %}">{{ row.name }}{% if row.requires_specification %}: {{ entry.specification }}{% endif %}</span> <span data-phase4-skill-level-info>({{ entry.base_level|add:entry.value }})</span>{% if row.requires_specification %}<input type="hidden" name="creation_phase4_skill_{{ row.slug }}_slug_{{ forloop.counter0 }}" value="{{ row.slug }}"><input type="hidden" name="creation_phase4_skill_{{ row.slug }}_spec_{{ forloop.counter0 }}" value="{{ entry.specification }}" data-phase4-skill-spec><input type="hidden" name="creation_phase4_skill_{{ row.slug }}_add_{{ forloop.counter0 }}" value="{{ entry.value }}" data-phase4-hidden>{% else %}<input type="hidden" name="skill_add_{{ row.slug }}" value="{{ entry.value }}" data-phase4-hidden>{% endif %}</td>
+                                    <td><input class="dashboard_input phase2_level_input" type="number" min="0" max="10" value="{{ entry.value }}" data-phase4-value><div class="phase4_target_hint" data-phase4-target></div></td>
                                     <td data-phase4-cost>0</td>
-                                    <td>{% if row.base_level > 0 %}<span class="phase4_locked_marker" title="Aus Phase 2 übernommen">*</span>{% else %}<button type="button" class="phase2_remove_x" data-phase4-remove aria-label="Eintrag entfernen" title="Entfernen">X</button>{% endif %}</td>
+                                    <td>{% if entry.base_level > 0 %}<span class="phase4_locked_marker" title="Aus Phase 2 übernommen">*</span>{% else %}<button type="button" class="phase2_remove_x" data-phase4-remove aria-label="Eintrag entfernen" title="Entfernen">X</button>{% endif %}</td>
                                   </tr>
                                 {% endif %}
+                                {% endfor %}
                               {% endfor %}
                               {% for row in phase_4_language_rows %}
                                 {% if row.value > 0 or row.base_level > 0 or row.write_add %}
@@ -733,6 +747,11 @@
                   <label for="{{ form.gender.id_for_label }}">Geschlecht</label>
                   {{ form.gender }}
                   {% if form.gender.errors %}<div class="form_error">{{ form.gender.errors|striptags }}</div>{% endif %}
+                </div>
+                <div class="form_row">
+                  <label for="{{ form.country_of_origin.id_for_label }}">Herkunftsland</label>
+                  {{ form.country_of_origin }}
+                  {% if form.country_of_origin.errors %}<div class="form_error">{{ form.country_of_origin.errors|striptags }}</div>{% endif %}
                 </div>
 
                 {% if form.non_field_errors %}<div class="form_error">{{ form.non_field_errors|striptags }}</div>{% endif %}
@@ -983,6 +1002,10 @@
             return Array.from(phase2LanguageCartBody.querySelectorAll("[data-phase2-lang-cart-item]"));
           };
 
+          let phase2SkillSpecCounter = getSkillRows().reduce(function (maxIndex, row) {
+            return Math.max(maxIndex, toInt(row.dataset.creationSkillIndex || "-1", -1));
+          }, -1) + 1;
+
           const syncSkillRow = function (row) {
             const levelInput = row.querySelector("[data-phase2-skill-level]");
             const hiddenInput = row.querySelector("[data-phase2-skill-hidden]");
@@ -1147,18 +1170,49 @@
             }
           };
 
-          const createSkillRow = function (slug, name, level, freeBase, minLevel) {
+          const createSkillRow = function (slug, name, level, freeBase, minLevel, requiresSpecification) {
             const safeName = escapeHtml(name);
             const row = document.createElement("tr");
             row.setAttribute("data-phase2-skill-cart-item", "");
             row.dataset.slug = slug;
             row.dataset.freeBase = String(freeBase);
             row.dataset.minLevel = String(minLevel);
+            row.dataset.requiresSpecification = requiresSpecification ? "1" : "0";
+            let displayName = safeName;
+            let hiddenFields = `<input type="hidden" name="skill_${slug}" value="${level}" data-phase2-skill-hidden>`;
+            if (requiresSpecification) {
+              // eslint-disable-next-line no-alert
+              const spec = window.prompt(`Spezifikation fuer "${name}" eingeben:`);
+              if (!spec || !spec.trim()) {
+                return null;
+              }
+              const specTrimmed = spec.trim();
+              const existingSpec = Array.from(phase2SkillCartBody.querySelectorAll(`[data-phase2-skill-cart-item][data-slug="${slug}"]`)).find(function (candidate) {
+                return (candidate.dataset.specification || "") === specTrimmed;
+              });
+              if (existingSpec) {
+                const levelInput = existingSpec.querySelector("[data-phase2-skill-level]");
+                if (levelInput) {
+                  levelInput.focus();
+                }
+                return null;
+              }
+              const idx = phase2SkillSpecCounter;
+              phase2SkillSpecCounter += 1;
+              row.dataset.creationSkillIndex = String(idx);
+              row.dataset.specification = specTrimmed;
+              displayName = `${safeName}: ${escapeHtml(specTrimmed)}`;
+              hiddenFields = `
+                <input type="hidden" name="creation_phase2_skill_${slug}_slug_${idx}" value="${escapeHtml(slug)}" data-phase2-skill-slug-hidden>
+                <input type="hidden" name="creation_phase2_skill_${slug}_spec_${idx}" value="${escapeHtml(specTrimmed)}" data-phase2-skill-spec>
+                <input type="hidden" name="creation_phase2_skill_${slug}_level_${idx}" value="${level}" data-phase2-skill-hidden>
+              `;
+            }
             row.innerHTML = `
-              <td>${safeName}<input type="hidden" name="skill_${slug}" value="${level}" data-phase2-skill-hidden></td>
+              <td><span>${displayName}</span>${hiddenFields}</td>
               <td><input class="dashboard_input phase2_level_input" type="number" min="${minLevel}" max="10" value="${level}" data-phase2-skill-level></td>
               <td data-phase2-skill-cost>0</td>
-              <td>${freeBase > 0 ? '<span class="phase4_locked_marker" title="Kostenloser Grundwert">*</span>' : '<button type="button" class="phase2_remove_x" data-phase2-skill-remove aria-label="Skill entfernen" title="Entfernen">X</button>'}</td>
+              <td>${freeBase > 0 && !requiresSpecification ? '<span class="phase4_locked_marker" title="Kostenloser Grundwert">*</span>' : '<button type="button" class="phase2_remove_x" data-phase2-skill-remove aria-label="Skill entfernen" title="Entfernen">X</button>'}</td>
             `;
             return row;
           };
@@ -1188,11 +1242,12 @@
               const name = source.dataset.name || slug;
               const freeBase = toInt(source.dataset.freeBase || "0", 0);
               const minLevel = toInt(source.dataset.minLevel || "0", 0);
+              const requiresSpecification = source.dataset.requiresSpecification === "1";
               if (!slug) {
                 return;
               }
               const existing = phase2SkillCartBody.querySelector(`[data-phase2-skill-cart-item][data-slug="${slug}"]`);
-              if (existing) {
+              if (existing && !requiresSpecification) {
                 const levelInput = existing.querySelector("[data-phase2-skill-level]");
                 if (levelInput) {
                   levelInput.focus();
@@ -1200,7 +1255,10 @@
                 return;
               }
               const startLevel = Math.max(minLevel, freeBase > 0 ? freeBase : 1);
-              const row = createSkillRow(slug, name, startLevel, freeBase, minLevel);
+              const row = createSkillRow(slug, name, startLevel, freeBase, minLevel, requiresSpecification);
+              if (!row) {
+                return;
+              }
               phase2SkillCartBody.appendChild(row);
               bindSkillRow(row);
               ensureEmptyRows();
@@ -1553,6 +1611,10 @@
             return Array.from(phase4CartBody.querySelectorAll("[data-phase4-cart-item]"));
           };
 
+          let phase4SkillSpecCounter = getRows().reduce(function (maxIndex, row) {
+            return Math.max(maxIndex, toInt(row.dataset.creationSkillIndex || "-1", -1));
+          }, -1) + 1;
+
           const calculateVampireCost = function () {
             const hasVampire = getRows().some(function (row) {
               if ((row.dataset.kind || "") !== "adv") {
@@ -1800,6 +1862,10 @@
               if (targetEl) {
                 targetEl.textContent = "";
               }
+              const specInput = row.querySelector("[data-phase4-skill-spec]");
+              if (specInput) {
+                specInput.setCustomValidity(specInput.value.trim() ? "" : "Spezifikation erforderlich");
+              }
             } else if (kind === "lang") {
               const base = toInt(row.dataset.base, 0);
               const max = toInt(row.dataset.max, 0);
@@ -1981,6 +2047,7 @@
             const input = row.querySelector("[data-phase4-value]");
             const removeBtn = row.querySelector("[data-phase4-remove]");
             const langWriteInput = row.querySelector("[data-phase4-lang-write]");
+            const skillSpecInput = row.querySelector("[data-phase4-skill-spec]");
             const vampireWithoutWeaknessInput = row.querySelector("[data-vampire-without-weakness]");
             if (input) {
               input.addEventListener("input", refreshTotals);
@@ -1988,6 +2055,10 @@
             }
             if (langWriteInput) {
               langWriteInput.addEventListener("change", refreshTotals);
+            }
+            if (skillSpecInput) {
+              skillSpecInput.addEventListener("input", refreshTotals);
+              skillSpecInput.addEventListener("change", refreshTotals);
             }
             if (vampireWithoutWeaknessInput) {
               vampireWithoutWeaknessInput.addEventListener("change", refreshTotals);
@@ -2100,18 +2171,52 @@
             if (kind === "skill") {
               const slug = source.dataset.slug || "";
               const base = toInt(source.dataset.base, 0);
+              const requiresSpecification = source.dataset.requiresSpecification === "1";
               const maxFinal = 10;
               const maxAdd = Math.max(0, maxFinal - base);
+              let displayName = safeName;
+              let hiddenFields = `<input type="hidden" name="skill_add_${slug}" value="1" data-phase4-hidden>`;
               row.dataset.base = String(base);
               row.dataset.maxFinal = String(maxFinal);
+              row.dataset.requiresSpecification = requiresSpecification ? "1" : "0";
               if (base > 0) {
                 row.dataset.locked = "1";
               }
+              if (requiresSpecification) {
+                // eslint-disable-next-line no-alert
+                const spec = window.prompt(`Spezifikation fuer "${name}" eingeben:`);
+                if (!spec || !spec.trim()) {
+                  return null;
+                }
+                const specTrimmed = spec.trim();
+                const existingSpec = Array.from(phase4CartBody.querySelectorAll(`[data-phase4-cart-item][data-kind="skill"][data-slug="${slug}"]`)).find(function (candidate) {
+                  return (candidate.dataset.specification || "") === specTrimmed;
+                });
+                if (existingSpec) {
+                  const input = existingSpec.querySelector("[data-phase4-value]");
+                  if (input) {
+                    input.focus();
+                  }
+                  return null;
+                }
+                const idx = phase4SkillSpecCounter;
+                phase4SkillSpecCounter += 1;
+                row.dataset.creationSkillIndex = String(idx);
+                row.dataset.specification = specTrimmed;
+                row.dataset.slug = slug;
+                row.dataset.key = `skill:${slug}:${specTrimmed}`;
+                displayName = `${safeName}: ${escapeHtml(specTrimmed)}`;
+                hiddenFields = `
+                  <input type="hidden" name="creation_phase4_skill_${slug}_slug_${idx}" value="${escapeHtml(slug)}">
+                  <input type="hidden" name="creation_phase4_skill_${slug}_spec_${idx}" value="${escapeHtml(specTrimmed)}" data-phase4-skill-spec>
+                  <input type="hidden" name="creation_phase4_skill_${slug}_add_${idx}" value="1" data-phase4-hidden>
+                `;
+              }
               row.innerHTML = `
-                <td><span data-phase4-skill-label-base="${safeName}">${safeName}</span> <span data-phase4-skill-level-info>(${base + Math.min(1, maxAdd)})</span> <input type="hidden" name="skill_add_${slug}" value="1" data-phase4-hidden></td>
+                <td><span data-phase4-skill-label-base="${displayName}">${displayName}</span> <span data-phase4-skill-level-info>(${base + Math.min(1, maxAdd)})</span>${hiddenFields}</td>
                 <td><input class="dashboard_input phase2_level_input" type="number" min="0" max="${maxAdd}" value="${Math.min(1, maxAdd)}" data-phase4-value><div class="phase4_target_hint" data-phase4-target></div></td>
                 <td data-phase4-cost>0</td>
-                <td>${base > 0 ? '<span class="phase4_locked_marker" title="Aus Phase 2 übernommen">*</span>' : '<button type="button" class="phase2_remove_x" data-phase4-remove aria-label="Eintrag entfernen" title="Entfernen">X</button>'}</td>
+                <td>${base > 0 && !requiresSpecification ? '<span class="phase4_locked_marker" title="Aus Phase 2 übernommen">*</span>' : '<button type="button" class="phase2_remove_x" data-phase4-remove aria-label="Eintrag entfernen" title="Entfernen">X</button>'}</td>
               `;
               return row;
             }
@@ -2185,7 +2290,8 @@
               return;
             }
             const existing = phase4CartBody.querySelector(`[data-phase4-cart-item][data-key="${key}"]`);
-            if (existing) {
+            const requiresSpecification = source.dataset.requiresSpecification === "1";
+            if (existing && !requiresSpecification) {
               const input = existing.querySelector("[data-phase4-value]");
               if (input) {
                 input.focus();

@@ -395,11 +395,57 @@ class CharacterCreationEngine:
         }
 
     def phase_2_skills(self) -> dict[str, int]:
-        skills = self.get_phase("phase_2").get("skills", {}) or {}
-        normalized = {str(k): max(0, self._to_int(v, 0)) for k, v in skills.items()}
+        normalized: dict[str, int] = {}
+        for entry in self.phase_2_skill_entries(include_free=False):
+            slug = str(entry["slug"])
+            normalized[slug] = max(normalized.get(slug, 0), int(entry["level"]))
         for slug, free_level in self.phase_2_free_skills().items():
             normalized[slug] = max(free_level, normalized.get(slug, 0))
         return normalized
+
+    def phase_2_skill_entries(self, *, include_free: bool = True) -> list[dict[str, object]]:
+        """Return normalized phase-2 skill rows, including separate specifications."""
+        raw_skills = self.get_phase("phase_2").get("skills", {}) or {}
+        entries: list[dict[str, object]] = []
+        if isinstance(raw_skills, list):
+            for raw_entry in raw_skills:
+                if not isinstance(raw_entry, dict):
+                    continue
+                slug = str(raw_entry.get("slug") or "").strip()
+                level = max(0, self._to_int(raw_entry.get("level"), 0))
+                if slug and level > 0:
+                    entries.append(
+                        {
+                            "slug": slug,
+                            "level": level,
+                            "specification": " ".join(str(raw_entry.get("specification") or "").split()),
+                        }
+                    )
+        else:
+            for slug, level in raw_skills.items():
+                normalized_level = max(0, self._to_int(level, 0))
+                if normalized_level > 0:
+                    entries.append({"slug": str(slug), "level": normalized_level, "specification": ""})
+
+        if include_free:
+            country_of_origin = " ".join(
+                str((self.state.get("meta", {}) or {}).get("country_of_origin") or "").split()
+            )
+            existing_keys = {(str(entry["slug"]), str(entry.get("specification") or "")) for entry in entries}
+            for slug, free_level in self.phase_2_free_skills().items():
+                skill = Skill.objects.filter(slug=slug).first()
+                specification = country_of_origin if skill and skill.requires_specification and country_of_origin else ""
+                if skill and skill.requires_specification and not specification:
+                    specification = "*"
+                key = (str(slug), specification)
+                if key not in existing_keys:
+                    entries.append({"slug": str(slug), "level": int(free_level), "specification": specification})
+                else:
+                    for entry in entries:
+                        if (str(entry["slug"]), str(entry.get("specification") or "")) == key:
+                            entry["level"] = max(int(entry["level"]), int(free_level))
+                            break
+        return entries
 
     def calc_skill_cost(self, target_level: int) -> int:
         if target_level <= 5:
@@ -417,8 +463,8 @@ class CharacterCreationEngine:
 
     def sum_phase_2_skill_cost(self) -> int:
         return sum(
-            self.calc_phase_2_skill_cost(slug, level)
-            for slug, level in self.phase_2_skills().items()
+            self.calc_phase_2_skill_cost(str(entry["slug"]), int(entry["level"]))
+            for entry in self.phase_2_skill_entries()
         )
 
     def phase_2_languages(self) -> dict[str, dict]:
@@ -444,6 +490,24 @@ class CharacterCreationEngine:
         return total
 
     def validate_phase_2(self) -> bool:
+        seen_skill_specs: set[tuple[str, str]] = set()
+        for entry in self.phase_2_skill_entries():
+            slug = str(entry["slug"])
+            skill = Skill.objects.filter(slug=slug).first()
+            if skill is None:
+                return False
+            specification = " ".join(str(entry.get("specification") or "").split())
+            if skill.requires_specification and not specification:
+                return False
+            if not skill.requires_specification and specification:
+                return False
+            if int(entry["level"]) > 10:
+                return False
+            key = (slug, specification)
+            if key in seen_skill_specs:
+                return False
+            seen_skill_specs.add(key)
+
         has_mother_tongue = False
         for slug, data in self.phase_2_languages().items():
             language = Language.objects.filter(slug=slug).first()
@@ -650,15 +714,48 @@ class CharacterCreationEngine:
         return total
 
     def phase_4_skill_adds(self) -> dict[str, int]:
-        adds = self.get_phase("phase_4").get("skill_adds", {}) or {}
-        return {str(k): max(0, self._to_int(v, 0)) for k, v in adds.items()}
+        normalized: dict[str, int] = {}
+        for entry in self.phase_4_skill_add_entries():
+            slug = str(entry["slug"])
+            normalized[slug] = max(normalized.get(slug, 0), int(entry["add"]))
+        return normalized
+
+    def phase_4_skill_add_entries(self) -> list[dict[str, object]]:
+        """Return normalized phase-4 skill increase rows, including specifications."""
+        raw_adds = self.get_phase("phase_4").get("skill_adds", {}) or {}
+        entries: list[dict[str, object]] = []
+        if isinstance(raw_adds, list):
+            for raw_entry in raw_adds:
+                if not isinstance(raw_entry, dict):
+                    continue
+                slug = str(raw_entry.get("slug") or "").strip()
+                add = max(0, self._to_int(raw_entry.get("add"), 0))
+                if slug and add > 0:
+                    entries.append(
+                        {
+                            "slug": slug,
+                            "add": add,
+                            "specification": " ".join(str(raw_entry.get("specification") or "").split()),
+                        }
+                    )
+        else:
+            for slug, add in raw_adds.items():
+                normalized_add = max(0, self._to_int(add, 0))
+                if normalized_add > 0:
+                    entries.append({"slug": str(slug), "add": normalized_add, "specification": ""})
+        return entries
 
     def sum_phase_4_skill_cost(self) -> int:
-        base_skills = self.phase_2_skills()
+        base_by_key = {
+            (str(entry["slug"]), str(entry.get("specification") or "")): int(entry["level"])
+            for entry in self.phase_2_skill_entries()
+        }
         total = 0
-        for slug, add in self.phase_4_skill_adds().items():
-            start = base_skills.get(slug, 0)
-            end = start + add
+        for entry in self.phase_4_skill_add_entries():
+            slug = str(entry["slug"])
+            specification = str(entry.get("specification") or "")
+            start = base_by_key.get((slug, specification), 0)
+            end = start + int(entry["add"])
             total += self.calc_skill_cost(end) - self.calc_skill_cost(start)
         return total
 
@@ -880,12 +977,26 @@ class CharacterCreationEngine:
             if level < trait.min_level or level > trait.max_level:
                 return False
 
-        base_skills = self.phase_2_skills()
-        for slug, add in self.phase_4_skill_adds().items():
+        base_by_key = {
+            (str(entry["slug"]), str(entry.get("specification") or "")): int(entry["level"])
+            for entry in self.phase_2_skill_entries()
+        }
+        seen_skill_specs: set[tuple[str, str]] = set()
+        for entry in self.phase_4_skill_add_entries():
+            slug = str(entry["slug"])
             skill = Skill.objects.filter(slug=slug).first()
             if skill is None:
                 return False
-            if base_skills.get(slug, 0) + add > 10:
+            specification = " ".join(str(entry.get("specification") or "").split())
+            if skill.requires_specification and not specification:
+                return False
+            if not skill.requires_specification and specification:
+                return False
+            key = (slug, specification)
+            if key in seen_skill_specs:
+                return False
+            seen_skill_specs.add(key)
+            if base_by_key.get(key, 0) + int(entry["add"]) > 10:
                 return False
 
         for slug, add in self.phase_4_language_adds().items():
@@ -1031,6 +1142,7 @@ class CharacterCreationEngine:
         if not name:
             raise ValueError("Character name is required")
         gender = (meta.get("gender") or "").strip() or None
+        country_of_origin = " ".join(str(meta.get("country_of_origin") or "").split()) or None
 
         with transaction.atomic():
             character = Character.objects.create(
@@ -1038,6 +1150,7 @@ class CharacterCreationEngine:
                 name=name,
                 race=self.race,
                 gender=gender,
+                country_of_origin=country_of_origin,
             )
 
             limits = self.attribute_min_max_limits()
@@ -1055,14 +1168,38 @@ class CharacterCreationEngine:
                         base_value=final_value,
                     )
 
-            skill_adds = self.phase_4_skill_adds()
-            for slug, base in self.phase_2_skills().items():
+            skill_adds_by_key = {
+                (str(entry["slug"]), str(entry.get("specification") or "")): int(entry["add"])
+                for entry in self.phase_4_skill_add_entries()
+            }
+            created_skill_keys: set[tuple[str, str]] = set()
+            for entry in self.phase_2_skill_entries():
+                slug = str(entry["slug"])
+                base = int(entry["level"])
+                specification = str(entry.get("specification") or "").strip()
+                key = (slug, specification)
                 skill = Skill.objects.filter(slug=slug).first()
                 if skill:
                     CharacterSkill.objects.create(
                         character=character,
                         skill=skill,
-                        level=base + skill_adds.get(slug, 0),
+                        level=base + skill_adds_by_key.get(key, 0),
+                        specification=specification or "*",
+                    )
+                    created_skill_keys.add(key)
+            for entry in self.phase_4_skill_add_entries():
+                slug = str(entry["slug"])
+                specification = str(entry.get("specification") or "").strip()
+                key = (slug, specification)
+                if key in created_skill_keys:
+                    continue
+                skill = Skill.objects.filter(slug=slug).first()
+                if skill:
+                    CharacterSkill.objects.create(
+                        character=character,
+                        skill=skill,
+                        level=int(entry["add"]),
+                        specification=specification or "*",
                     )
 
             lang_adds = self.phase_4_language_adds()

@@ -2724,6 +2724,12 @@ def _build_skill_rows(
         rank = base_rank + rank_bonus
         size_modifier = _skill_size_modifier(skill)
         total_with_load = rank + attribute_modifier + raw_modifiers + size_modifier
+        origin = " ".join(str(character.country_of_origin or "").split())
+        is_origin_local_knowledge = (
+            bool(origin)
+            and skill.slug == "knw_local_knowledge"
+            and specification == origin
+        )
         return {
             "row_kind": "skill",
             "is_context_row": bool(skill.requires_specification),
@@ -2780,7 +2786,11 @@ def _build_skill_rows(
                     {"label": "= Gesamt", "value": total_with_load, "tone": "total"},
                 ]
             ),
-            "can_edit_specification": skill.requires_specification and character_skill is not None,
+            "can_edit_specification": (
+                skill.requires_specification
+                and character_skill is not None
+                and not is_origin_local_knowledge
+            ),
             "specification": "" if specification == "*" else specification,
             "is_auto_visible": character_skill is None,
         }

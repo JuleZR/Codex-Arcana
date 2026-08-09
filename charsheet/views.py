@@ -1253,18 +1253,75 @@ def adjust_personal_fame_point(request, character_id: int):
     return redirect("character_sheet", character_id=character.id)
 
 
+def _normalized_country_of_origin(character: Character) -> str:
+    return " ".join(str(character.country_of_origin or "").split())
+
+
+def _is_origin_local_knowledge(character: Character, character_skill: CharacterSkill) -> bool:
+    origin = _normalized_country_of_origin(character)
+    return (
+        bool(origin)
+        and character_skill.skill.slug == CharacterCreationEngine.FREE_LOCAL_KNOWLEDGE_SKILL_SLUG
+        and " ".join(str(character_skill.specification or "").split()) == origin
+    )
+
+
+def _sync_origin_local_knowledge(character: Character, previous_country_of_origin: str) -> None:
+    """Keep the creation-granted local knowledge specification tied to character origin."""
+    new_origin = _normalized_country_of_origin(character)
+    old_origin = " ".join(str(previous_country_of_origin or "").split())
+    if not new_origin or new_origin == old_origin:
+        return
+
+    local_knowledge = Skill.objects.filter(slug=CharacterCreationEngine.FREE_LOCAL_KNOWLEDGE_SKILL_SLUG).first()
+    if local_knowledge is None:
+        return
+
+    origin_row = (
+        CharacterSkill.objects.filter(character=character, skill=local_knowledge, specification=old_origin)
+        .first()
+        if old_origin
+        else None
+    )
+    if origin_row is None:
+        origin_row = CharacterSkill.objects.filter(
+            character=character,
+            skill=local_knowledge,
+            specification__in=["", "*"],
+        ).first()
+    if origin_row is None:
+        return
+
+    existing_new_origin = CharacterSkill.objects.filter(
+        character=character,
+        skill=local_knowledge,
+        specification=new_origin,
+    ).exclude(pk=origin_row.pk).first()
+    if existing_new_origin is not None:
+        if int(existing_new_origin.level) < int(origin_row.level):
+            existing_new_origin.level = int(origin_row.level)
+            existing_new_origin.save(update_fields=["level"])
+        origin_row.delete()
+        return
+
+    origin_row.specification = new_origin
+    origin_row.save(update_fields=["specification"])
+
+
 @login_required
 @require_POST
 def update_character_info(request, character_id: int):
     """Update character info fields directly from the character-sheet inline form."""
     character = _owned_character_or_404(request, character_id)
+    previous_country_of_origin = " ".join(str(character.country_of_origin or "").split())
     form = CharacterInfoInlineForm(request.POST, request.FILES, instance=character)
     if form.is_valid():
         name = (form.cleaned_data.get("name") or "").strip()
         if Character.objects.filter(owner=request.user, name=name).exclude(pk=character.pk).exists():
             messages.error(request, "Du hast bereits einen Charakter mit diesem Namen.")
         else:
-            form.save()
+            character = form.save()
+            _sync_origin_local_knowledge(character, previous_country_of_origin)
             messages.success(request, "Charakterinformation aktualisiert.")
     else:
         messages.error(request, "Charakterinformation konnte nicht gespeichert werden.")
@@ -1278,6 +1335,9 @@ def update_skill_specification(request, character_id: int, character_skill_id: i
     character, character_skill = _owned_character_skill_or_404(request, character_id, character_skill_id)
     if not character_skill.skill.requires_specification:
         messages.error(request, "Diese Fertigkeit besitzt keine Spezifikation.")
+        return redirect("character_sheet", character_id=character.id)
+    if _is_origin_local_knowledge(character, character_skill):
+        messages.error(request, "Diese Ortskunde wird ueber das Herkunftsland in den Charakterinformationen gepflegt.")
         return redirect("character_sheet", character_id=character.id)
 
     form = CharacterSkillSpecificationForm(request.POST, instance=character_skill)
@@ -1883,6 +1943,9 @@ def create_character(request):
                         "meta": {
                             "name": name,
                             "gender": form.cleaned_data.get("gender") or "",
+                            "country_of_origin": " ".join(
+                                str(form.cleaned_data.get("country_of_origin") or "").split()
+                            ),
                         }
                     },
                 )
@@ -1901,11 +1964,51 @@ def create_character(request):
                 attrs[key] = max(0, int(posted or 0))
             state["phase_1"] = {"attributes": attrs}
         elif phase == 2:
-            skills_data: dict[str, int] = {}
+            skills_data: list[dict[str, object]] = []
             for skill in Skill.objects.order_by("name"):
-                posted = int(request.POST.get(f"skill_{skill.slug}", "0") or 0)
-                if posted > 0:
-                    skills_data[skill.slug] = posted
+                if skill.requires_specification:
+                    indexed_skill_data: dict[int, dict[str, str]] = {}
+                    for key in request.POST.keys():
+                        prefix = "creation_phase2_skill_"
+                        if not str(key).startswith(prefix):
+                            continue
+                        remainder = str(key)[len(prefix):]
+                        parts = remainder.rsplit("_", 1)
+                        if len(parts) != 2:
+                            continue
+                        field_and_slug, raw_index = parts
+                        field_parts = field_and_slug.rsplit("_", 1)
+                        if len(field_parts) != 2:
+                            continue
+                        field_slug, field = field_parts
+                        if field_slug != skill.slug or field not in {"slug", "spec", "level"}:
+                            continue
+                        try:
+                            index = int(raw_index)
+                        except ValueError:
+                            continue
+                        indexed_skill_data.setdefault(index, {})[field] = str(request.POST.get(key, "")).strip()
+                    for _index, data in sorted(indexed_skill_data.items()):
+                        posted = int(data.get("level") or 0)
+                        specification = " ".join(str(data.get("spec") or "").split())
+                        if posted > 0:
+                            skills_data.append(
+                                {
+                                    "slug": skill.slug,
+                                    "level": posted,
+                                    "specification": specification,
+                                }
+                            )
+                else:
+                    posted = int(request.POST.get(f"skill_{skill.slug}", "0") or 0)
+                    if posted > 0:
+                        skills_data.append(
+                            {
+                                "slug": skill.slug,
+                                "level": posted,
+                                "specification": "",
+                            }
+                        )
 
             language_data: dict[str, dict] = {}
             for language in Language.objects.order_by("name"):
@@ -1961,11 +2064,51 @@ def create_character(request):
                 if add > 0:
                     attribute_adds[short_name] = add
 
-            skill_adds: dict[str, int] = {}
+            skill_adds: list[dict[str, object]] = []
             for skill in Skill.objects.order_by("name"):
-                add = int(request.POST.get(f"skill_add_{skill.slug}", "0") or 0)
-                if add > 0:
-                    skill_adds[skill.slug] = add
+                if skill.requires_specification:
+                    indexed_skill_data: dict[int, dict[str, str]] = {}
+                    for key in request.POST.keys():
+                        prefix = "creation_phase4_skill_"
+                        if not str(key).startswith(prefix):
+                            continue
+                        remainder = str(key)[len(prefix):]
+                        parts = remainder.rsplit("_", 1)
+                        if len(parts) != 2:
+                            continue
+                        field_and_slug, raw_index = parts
+                        field_parts = field_and_slug.rsplit("_", 1)
+                        if len(field_parts) != 2:
+                            continue
+                        field_slug, field = field_parts
+                        if field_slug != skill.slug or field not in {"slug", "spec", "add"}:
+                            continue
+                        try:
+                            index = int(raw_index)
+                        except ValueError:
+                            continue
+                        indexed_skill_data.setdefault(index, {})[field] = str(request.POST.get(key, "")).strip()
+                    for _index, data in sorted(indexed_skill_data.items()):
+                        add = int(data.get("add") or 0)
+                        specification = " ".join(str(data.get("spec") or "").split())
+                        if add > 0:
+                            skill_adds.append(
+                                {
+                                    "slug": skill.slug,
+                                    "add": add,
+                                    "specification": specification,
+                                }
+                            )
+                else:
+                    add = int(request.POST.get(f"skill_add_{skill.slug}", "0") or 0)
+                    if add > 0:
+                        skill_adds.append(
+                            {
+                                "slug": skill.slug,
+                                "add": add,
+                                "specification": "",
+                            }
+                        )
 
             language_adds: dict[str, int] = {}
             language_write_adds: dict[str, bool] = {}
@@ -2114,10 +2257,14 @@ def create_character(request):
         )
 
     phase_2_skills = engine.phase_2_skills()
+    phase_2_skill_entries_by_slug: dict[str, list[dict[str, object]]] = {}
+    for entry in engine.phase_2_skill_entries():
+        phase_2_skill_entries_by_slug.setdefault(str(entry["slug"]), []).append(entry)
     phase_2_languages = engine.phase_2_languages()
     phase_2_skill_rows = []
     for skill in Skill.objects.select_related("category").order_by("category__name", "name"):
         value = phase_2_skills.get(skill.slug, 0)
+        entries = phase_2_skill_entries_by_slug.get(skill.slug, [])
         description = (skill.description or "").replace("\r\n", "\n").replace("\r", "\n")
         free_base = engine.phase_2_free_skills().get(skill.slug, 0)
         phase_2_skill_rows.append(
@@ -2132,6 +2279,8 @@ def create_character(request):
                 "free_base": free_base,
                 "min_value": free_base if free_base > 0 else 0,
                 "locked": free_base > 0,
+                "requires_specification": skill.requires_specification,
+                "entries": entries,
             }
         )
     phase_2_language_rows = []
@@ -2187,6 +2336,9 @@ def create_character(request):
     phase_4_trait_choices = engine.phase_4_trait_choices()
     phase_4_attr_adds = engine.phase_4_attribute_adds()
     phase_4_skill_adds = engine.phase_4_skill_adds()
+    phase_4_skill_add_entries_by_slug: dict[str, list[dict[str, object]]] = {}
+    for entry in engine.phase_4_skill_add_entries():
+        phase_4_skill_add_entries_by_slug.setdefault(str(entry["slug"]), []).append(entry)
     phase_4_lang_adds = engine.phase_4_language_adds()
     phase_4_lang_write_adds = engine.phase_4_language_write_adds()
     phase_4_schools = engine.phase_4_schools()
@@ -2273,6 +2425,48 @@ def create_character(request):
     phase_4_skill_rows = []
     for skill in Skill.objects.order_by("name"):
         description = (skill.description or "").replace("\r\n", "\n").replace("\r", "\n")
+        base_entries = phase_2_skill_entries_by_slug.get(skill.slug, [])
+        add_entries = phase_4_skill_add_entries_by_slug.get(skill.slug, [])
+        if skill.requires_specification:
+            row_entries = []
+            seen_specs = set()
+            for entry in base_entries:
+                specification = str(entry.get("specification") or "")
+                add_entry = next(
+                    (
+                        candidate
+                        for candidate in add_entries
+                        if str(candidate.get("specification") or "") == specification
+                    ),
+                    {},
+                )
+                row_entries.append(
+                    {
+                        "base_level": int(entry.get("level") or 0),
+                        "value": int(add_entry.get("add") or 0),
+                        "specification": specification,
+                    }
+                )
+                seen_specs.add(specification)
+            for entry in add_entries:
+                specification = str(entry.get("specification") or "")
+                if specification in seen_specs:
+                    continue
+                row_entries.append(
+                    {
+                        "base_level": 0,
+                        "value": int(entry.get("add") or 0),
+                        "specification": specification,
+                    }
+                )
+        else:
+            row_entries = [
+                {
+                    "base_level": phase_2_skill_values.get(skill.slug, 0),
+                    "value": phase_4_skill_adds.get(skill.slug, 0),
+                    "specification": "",
+                }
+            ]
         phase_4_skill_rows.append(
             {
                 "slug": skill.slug,
@@ -2280,6 +2474,8 @@ def create_character(request):
                 "base_level": phase_2_skill_values.get(skill.slug, 0),
                 "description": description,
                 "value": phase_4_skill_adds.get(skill.slug, 0),
+                "requires_specification": skill.requires_specification,
+                "entries": row_entries,
             }
         )
     phase_4_language_rows = []

@@ -55,9 +55,15 @@ class UserSettingsForm(forms.ModelForm):
 class CharacterCreateForm(forms.ModelForm):
     """Minimal character creation form for dashboard usage."""
 
+    def clean_country_of_origin(self):
+        country_of_origin = " ".join(str(self.cleaned_data.get("country_of_origin") or "").split())
+        if not country_of_origin:
+            raise forms.ValidationError("Bitte ein Herkunftsland angeben.")
+        return country_of_origin
+
     class Meta:
         model = Character
-        fields = ["name", "race", "gender"]
+        fields = ["name", "race", "gender", "country_of_origin"]
         widgets = {
             "name": forms.TextInput(
                 attrs={
@@ -68,6 +74,13 @@ class CharacterCreateForm(forms.ModelForm):
             ),
             "race": forms.Select(attrs={"class": "dashboard_input"}),
             "gender": forms.Select(attrs={"class": "dashboard_input"}),
+            "country_of_origin": forms.TextInput(
+                attrs={
+                    "class": "dashboard_input",
+                    "maxlength": 25,
+                    "autocomplete": "off",
+                }
+            ),
         }
 
 
