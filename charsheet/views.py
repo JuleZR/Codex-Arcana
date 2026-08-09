@@ -174,6 +174,15 @@ TEMPORARY_ATTRIBUTE_PARTIAL_KEYS = (
     "damage_panel",
     "weapon_panel",
 )
+SHEET_MAIN_PARTIAL_KEYS = (
+    "character_header",
+    "secondary_page",
+    "card_hand",
+)
+SHEET_INVENTORY_PARTIAL_KEYS = SHEET_MAIN_PARTIAL_KEYS
+SHEET_LEARNING_PARTIAL_KEYS = SHEET_MAIN_PARTIAL_KEYS + (
+    "learning_budget",
+)
 
 
 def _temporary_attribute_adjustments(request, character_id: int) -> dict[str, int]:
@@ -713,6 +722,18 @@ def _temporary_attribute_response(
 def _sheet_partials_response(request, character: Character, *partial_keys: str) -> JsonResponse:
     """Render one or more server-truth sheet partials for targeted DOM replacement."""
     context = _build_sheet_context_for_request(request, character)
+    partials = _render_sheet_partials(request, context, partial_keys)
+    return JsonResponse(
+        {
+            "ok": True,
+            "partials": partials,
+            "openItemTransferCount": context.get("open_item_transfer_count", 0),
+        }
+    )
+
+
+def _render_sheet_partials(request, context: dict[str, object], partial_keys) -> list[dict[str, str]]:
+    """Render selected sheet fragments once, preserving caller order."""
     partials: list[dict[str, str]] = []
     for key in partial_keys:
         target_id, template_name = SHEET_PARTIAL_TEMPLATES[key]
@@ -722,13 +743,7 @@ def _sheet_partials_response(request, character: Character, *partial_keys: str) 
                 "html": render_to_string(template_name, context, request=request),
             }
         )
-    return JsonResponse(
-        {
-            "ok": True,
-            "partials": partials,
-            "openItemTransferCount": context.get("open_item_transfer_count", 0),
-        }
-    )
+    return partials
 
 
 def _character_dashboard_state(character: Character) -> dict[str, str]:
@@ -2814,17 +2829,7 @@ def accept_item_transfer_view(request, transfer_id):
         return _sheet_partials_response(
             request,
             recipient,
-            "character_header",
-            "load_panel",
-            "core_stats_panel",
-            "damage_panel",
-            "wallet_panel",
-            "experience_panel",
-            "learning_budget",
-            "inventory_panel",
-            "armor_panel",
-            "weapon_panel",
-            "card_hand",
+            *SHEET_INVENTORY_PARTIAL_KEYS,
         )
     messages.success(request, "Gegenstand angenommen.")
     return _item_transfer_center_redirect(request)
@@ -2991,15 +2996,7 @@ def toggle_equip(request, pk):
         return _sheet_partials_response(
             request,
             ci.owner,
-            "character_header",
-            "load_panel",
-            "core_stats_panel",
-            "damage_panel",
-            "inventory_panel",
-            "armor_panel",
-            "weapon_panel",
-            "secondary_page",
-            "card_hand",
+            *SHEET_INVENTORY_PARTIAL_KEYS,
         )
 
     return redirect("character_sheet", character_id=ci.owner_id)
@@ -3023,11 +3020,7 @@ def set_item_storage(request, pk):
         return _sheet_partials_response(
             request,
             ci.owner,
-            "character_header",
-            "load_panel",
-            "core_stats_panel",
-            "inventory_panel",
-            "card_hand",
+            *SHEET_INVENTORY_PARTIAL_KEYS,
         )
 
     return redirect("character_sheet", character_id=ci.owner_id)
@@ -3060,11 +3053,7 @@ def consume_item(request, pk):
         return _sheet_partials_response(
             request,
             character,
-            "character_header",
-            "load_panel",
-            "core_stats_panel",
-            "inventory_panel",
-            "card_hand",
+            *SHEET_INVENTORY_PARTIAL_KEYS,
         )
 
     return redirect("character_sheet", character_id=owner_id)
@@ -3098,11 +3087,7 @@ def remove_item(request, pk):
         return _sheet_partials_response(
             request,
             character,
-            "character_header",
-            "load_panel",
-            "core_stats_panel",
-            "inventory_panel",
-            "card_hand",
+            *SHEET_INVENTORY_PARTIAL_KEYS,
         )
 
     return redirect("character_sheet", character_id=owner_id)
@@ -3145,15 +3130,7 @@ def adjust_current_damage(request, character_id: int):
         partials = []
         if request.POST.get("partials") != "0":
             context = _build_sheet_context_for_request(request, character)
-            partial_keys = ("character_header", "load_panel", "core_stats_panel", "armor_panel", "weapon_panel")
-            for key in partial_keys:
-                target_id, template_name = SHEET_PARTIAL_TEMPLATES[key]
-                partials.append(
-                    {
-                        "target": target_id,
-                        "html": render_to_string(template_name, context, request=request),
-                    }
-                )
+            partials = _render_sheet_partials(request, context, SHEET_MAIN_PARTIAL_KEYS)
         return JsonResponse(
             {
                 "ok": True,
@@ -4652,32 +4629,7 @@ def apply_learning(request, character_id: int):
     level, message = process_learning_submission(character, request.POST)
     if _is_partial_request(request):
         context = _build_sheet_context_for_request(request, character, skip_magic_sync=True)
-        partials = []
-        for key in (
-            "character_header",
-            "character_religion_field",
-            "load_panel",
-            "core_stats_panel",
-            "damage_panel",
-            "wallet_panel",
-            "experience_panel",
-            "fame_panel",
-            "inventory_panel",
-            "armor_panel",
-            "weapon_panel",
-            "spell_panel",
-            "lesson_panel",
-            "secondary_page",
-            "card_hand",
-            "learning_budget",
-        ):
-            target_id, template_name = SHEET_PARTIAL_TEMPLATES[key]
-            partials.append(
-                {
-                    "target": target_id,
-                    "html": render_to_string(template_name, context, request=request),
-                }
-            )
+        partials = _render_sheet_partials(request, context, SHEET_LEARNING_PARTIAL_KEYS)
         return JsonResponse(
             {
                 "ok": True,
@@ -4738,17 +4690,7 @@ def update_character_item_runes(request, pk: int):
         return _sheet_partials_response(
             request,
             character_item.owner,
-            "character_header",
-            "load_panel",
-            "core_stats_panel",
-            "damage_panel",
-            "wallet_panel",
-            "experience_panel",
-            "learning_budget",
-            "inventory_panel",
-            "armor_panel",
-            "weapon_panel",
-            "card_hand",
+            *SHEET_LEARNING_PARTIAL_KEYS,
         )
     return redirect("character_sheet", character_id=character_item.owner_id)
 
@@ -4764,32 +4706,7 @@ def buy_shop_cart(request, character_id: int):
     response_payload, status_code = buy_shop_cart_payload(character, payload)
     if response_payload.get("ok"):
         context = _build_sheet_context_for_request(request, character)
-        response_payload["partials"] = [
-            {
-                "target": "sheetCharacterHeader",
-                "html": render_to_string("charsheet/partials/_character_header.html", context, request=request),
-            },
-            {
-                "target": "sheetLoadPanel",
-                "html": render_to_string("charsheet/partials/_load_panel.html", context, request=request),
-            },
-            {
-                "target": "sheetCoreStatsPanel",
-                "html": render_to_string("charsheet/partials/_core_stats_panel.html", context, request=request),
-            },
-            {
-                "target": "sheetWalletPanel",
-                "html": render_to_string("charsheet/partials/_wallet_panel.html", context, request=request),
-            },
-            {
-                "target": "sheetInventoryPanel",
-                "html": render_to_string("charsheet/partials/_inventory_panel.html", context, request=request),
-            },
-            {
-                "target": "sheetCardHand",
-                "html": render_to_string("charsheet/partials/_card_hand_host.html", context, request=request),
-            },
-        ]
+        response_payload["partials"] = _render_sheet_partials(request, context, SHEET_INVENTORY_PARTIAL_KEYS)
     return JsonResponse(response_payload, status=status_code)
 
 
@@ -4804,32 +4721,7 @@ def sell_shop_cart(request, character_id: int):
     response_payload, status_code = sell_shop_cart_payload(character, payload)
     if response_payload.get("ok"):
         context = _build_sheet_context_for_request(request, character)
-        response_payload["partials"] = [
-            {
-                "target": "sheetCharacterHeader",
-                "html": render_to_string("charsheet/partials/_character_header.html", context, request=request),
-            },
-            {
-                "target": "sheetLoadPanel",
-                "html": render_to_string("charsheet/partials/_load_panel.html", context, request=request),
-            },
-            {
-                "target": "sheetCoreStatsPanel",
-                "html": render_to_string("charsheet/partials/_core_stats_panel.html", context, request=request),
-            },
-            {
-                "target": "sheetWalletPanel",
-                "html": render_to_string("charsheet/partials/_wallet_panel.html", context, request=request),
-            },
-            {
-                "target": "sheetInventoryPanel",
-                "html": render_to_string("charsheet/partials/_inventory_panel.html", context, request=request),
-            },
-            {
-                "target": "sheetCardHand",
-                "html": render_to_string("charsheet/partials/_card_hand_host.html", context, request=request),
-            },
-        ]
+        response_payload["partials"] = _render_sheet_partials(request, context, SHEET_INVENTORY_PARTIAL_KEYS)
     return JsonResponse(response_payload, status=status_code)
 
 
@@ -4844,32 +4736,7 @@ def trade_shop_cart(request, character_id: int):
     response_payload, status_code = trade_shop_cart_payload(character, payload)
     if response_payload.get("ok"):
         context = _build_sheet_context_for_request(request, character)
-        response_payload["partials"] = [
-            {
-                "target": "sheetCharacterHeader",
-                "html": render_to_string("charsheet/partials/_character_header.html", context, request=request),
-            },
-            {
-                "target": "sheetLoadPanel",
-                "html": render_to_string("charsheet/partials/_load_panel.html", context, request=request),
-            },
-            {
-                "target": "sheetCoreStatsPanel",
-                "html": render_to_string("charsheet/partials/_core_stats_panel.html", context, request=request),
-            },
-            {
-                "target": "sheetWalletPanel",
-                "html": render_to_string("charsheet/partials/_wallet_panel.html", context, request=request),
-            },
-            {
-                "target": "sheetInventoryPanel",
-                "html": render_to_string("charsheet/partials/_inventory_panel.html", context, request=request),
-            },
-            {
-                "target": "sheetCardHand",
-                "html": render_to_string("charsheet/partials/_card_hand_host.html", context, request=request),
-            },
-        ]
+        response_payload["partials"] = _render_sheet_partials(request, context, SHEET_INVENTORY_PARTIAL_KEYS)
     return JsonResponse(response_payload, status=status_code)
 
 

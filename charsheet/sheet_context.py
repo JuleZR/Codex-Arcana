@@ -1568,9 +1568,16 @@ def _serialize_item_semantic_effect_payload(effect: ItemSemanticEffect | Charact
     if str(effect.operator or "") == "flat_sub":
         value *= -1
 
+    effective_value = value
+    if str(effect.scale_source or "") == "item_invested_cp":
+        invested_cp = int(effect.item_invested_cp() or 0)
+        divisor = int(effect.scale_divisor or 1)
+        effective_value = value * (invested_cp // max(1, divisor))
+
     payload: dict[str, object] = {
         "target_kind": metadata.get("ui_target_kind") or metadata.get("legacy_target_kind") or target_domain,
         "value": value,
+        "effective_value": effective_value,
         "effect_description": str(effect.notes or ""),
         "target_display": "",
         "display_order": int(effect.sort_order or 0),
@@ -1715,7 +1722,7 @@ def _build_character_item_magic_tooltip_rows(*, effect_summary: str, modifier_pa
         target_display = _single_line(str(payload.get("target_display") or "")) or "Ziel"
         effect_description = _single_line(str(payload.get("effect_description") or ""))
         try:
-            value = int(payload.get("value") or 0)
+            value = int(payload.get("effective_value", payload.get("value")) or 0)
         except (TypeError, ValueError):
             value = 0
         if str(payload.get("target_kind") or "") == RULE_FLAG_TARGET_KIND:
@@ -1758,16 +1765,22 @@ def _load_character_item_modifier_payloads(
         base_payloads_by_item_id.setdefault(int(effect.item_id), []).append(
             _serialize_item_semantic_effect_payload(effect)
         )
-    for character_item in character_items:
-        base_payloads = base_payloads_by_item_id.get(int(character_item.item_id), [])
-        if base_payloads:
-            modifiers_by_character_item_id[int(character_item.id)] = list(base_payloads)
-    for effect in (
+    instance_effect_item_ids: set[int] = set()
+    instance_effects = list(
         CharacterItemSemanticEffect.objects
         .filter(character_item_id__in=[entry.id for entry in character_items], active_flag=True)
         .select_related("character_item", "character_item__item")
         .order_by("sort_order", "id")
-    ):
+    )
+    for effect in instance_effects:
+        instance_effect_item_ids.add(int(effect.character_item.item_id))
+    for character_item in character_items:
+        if int(character_item.item_id) in instance_effect_item_ids:
+            continue
+        base_payloads = base_payloads_by_item_id.get(int(character_item.item_id), [])
+        if base_payloads:
+            modifiers_by_character_item_id[int(character_item.id)] = list(base_payloads)
+    for effect in instance_effects:
         modifiers_by_character_item_id.setdefault(int(effect.character_item_id), []).append(
             _serialize_item_semantic_effect_payload(effect)
         )
