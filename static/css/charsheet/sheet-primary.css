@@ -1538,6 +1538,7 @@ button.skill_manager_action {
   border-bottom: 1px solid rgba(74, 55, 38, 0.52);
   font-size: 0.76rem;
   line-height: 1.2;
+  padding-right: 7px;
   padding-bottom: 1px;
 }
 
@@ -1550,6 +1551,7 @@ button.skill_manager_action {
 }
 
 .trait_spec_edit_btn {
+  margin-right: 2px;
   margin-bottom: 1px;
 }
 

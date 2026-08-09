@@ -304,6 +304,7 @@ body.sheet-feedback--error::after {
 #appearanceDetailWindow.sheet-window.payday-window,
 #inventoryDeleteWarningWindow.sheet-window.payday-window,
 #skillSpecWindow.sheet-window.payday-window,
+#traitSpecWindow.sheet-window.payday-window,
 #techniqueSpecWindow.sheet-window.payday-window {
   background:
     linear-gradient(90deg, rgba(95, 66, 39, 0.98), rgba(121, 84, 49, 0.96));
@@ -313,6 +314,7 @@ body.sheet-feedback--error::after {
 #appearanceDetailWindow.sheet-window--editor-modal .sheet-window__body,
 #inventoryDeleteWarningWindow.sheet-window--editor-modal .sheet-window__body,
 #skillSpecWindow.sheet-window--editor-modal .sheet-window__body,
+#traitSpecWindow.sheet-window--editor-modal .sheet-window__body,
 #techniqueSpecWindow.sheet-window--editor-modal .sheet-window__body {
   padding: 12px;
 }
@@ -321,6 +323,7 @@ body.sheet-feedback--error::after {
 #appearanceDetailWindow .sheet-window__editor-shell,
 #inventoryDeleteWarningWindow .sheet-window__editor-shell,
 #skillSpecWindow .sheet-window__editor-shell,
+#traitSpecWindow .sheet-window__editor-shell,
 #techniqueSpecWindow .sheet-window__editor-shell {
   flex: 1 1 auto;
   min-height: 0;
@@ -335,6 +338,7 @@ body.sheet-feedback--error::after {
 #appearanceDetailWindow .sheet-window__editor-pane,
 #inventoryDeleteWarningWindow .sheet-window__editor-pane,
 #skillSpecWindow .sheet-window__editor-pane,
+#traitSpecWindow .sheet-window__editor-pane,
 #techniqueSpecWindow .sheet-window__editor-pane {
   display: flex;
   flex-direction: column;
@@ -353,6 +357,7 @@ body.sheet-feedback--error::after {
 #appearanceDetailWindow .sheet-window__surface--form,
 #inventoryDeleteWarningWindow .sheet-window__surface--form,
 #skillSpecWindow .sheet-window__surface--form,
+#traitSpecWindow .sheet-window__surface--form,
 #techniqueSpecWindow .sheet-window__surface--form {
   background:
     linear-gradient(180deg, rgba(255, 252, 246, 0.82), rgba(242, 233, 217, 0.68));
@@ -364,6 +369,7 @@ body.sheet-feedback--error::after {
 
 #charInfoWindow .sheet-window__editor-form,
 #skillSpecWindow .sheet-window__editor-form,
+#traitSpecWindow .sheet-window__editor-form,
 #techniqueSpecWindow .sheet-window__editor-form {
   padding: 0;
 }
