@@ -11,7 +11,6 @@ import { initTraitSpecModal } from "./trait_spec_modal.js";
 import { initShopMenu } from "./shop_menu.js?v=20260622a";
 import { initLearningMenu } from "./learning_menu.js?v=20260802b";
 import { initTooltips } from "./tooltip.js?v=20260802a";
-import { initWalletTooltip } from "./wallet_tooltip.js";
 import { initInventoryMenu } from "./inventory_menu.js";
 import { initDamagePanel } from "./damage_panel.js?v=20260801b";
 import { initSpellPanel } from "./spell_panel.js";
@@ -62,7 +61,6 @@ onReady(() => {
   initShopMenu();
   initLearningMenu({ choiceWindowController: windowControllers?.learnChoice || null });
   initTooltips();
-  initWalletTooltip();
   initInventoryMenu({
     warningWindowController: windowControllers?.inventoryDeleteWarning || null,
     modifyWindowController: windowControllers?.runeRetrofit || null,

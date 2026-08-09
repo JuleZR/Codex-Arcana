@@ -11,7 +11,7 @@ const BLOCKED_TARGET_SELECTOR = [
   ".sheet-window.is-open",
   ".floating-tooltip",
   ".floating-tooltip-card",
-  ".wallet_inline_tooltip",
+  ".wallet_conversion_tooltip",
 ].join(", ");
 
 const TEMPLATE_STAGE_SIZE = 420;
@@ -121,7 +121,7 @@ function readPanelText(selector) {
 
 function getResourceDisplayValues() {
   return {
-    money: formatDisplayValue(readPanelText("#sheetWalletPanel .wallet_inline_tooltip span:first-child")),
+    money: formatDisplayValue(readPanelText("#sheetWalletPanel .wallet_total__value")),
     experience: formatDisplayValue(readPanelText("#sheetExperiencePanel .exp_rows .exp_row:first-child .exp_value")),
   };
 }

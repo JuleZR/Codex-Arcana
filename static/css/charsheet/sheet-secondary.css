@@ -1279,82 +1279,47 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
+  overflow: visible;
+  z-index: 2;
 }
 
 .wallet_header {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+  display: block;
   align-items: center;
-  column-gap: 4px;
 }
 
 .wallet_title {
   margin: 0;
 }
 
-.wallet_inline_tooltip {
-  height: 100%;
-  min-height: 26px;
-  border: 1px solid rgba(116, 82, 47, 0.36);
-  border-radius: 6px;
-  background:
-    radial-gradient(ellipse at 50% -10%, rgba(255, 246, 224, 0.2), rgba(255, 246, 224, 0) 36%),
-    linear-gradient(180deg, rgba(226, 197, 150, 0.88) 0%, rgba(211, 176, 126, 0.84) 42%, rgba(182, 144, 101, 0.82) 100%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.74rem;
-  line-height: 1;
-  color: var(--ink);
-  gap: 6px;
-  opacity: 0;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 246, 221, 0.56),
-    0 3px 6px rgba(49, 31, 16, 0.08);
-  transition: opacity 180ms ease;
-}
-
-.wallet_inline_tooltip.is-visible {
-  opacity: 1;
-}
-
-.wallet_rows {
+.wallet_total {
   position: relative;
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 6px;
-  justify-items: end;
-}
-
-.wallet_rows_hover_hitbox {
-  position: absolute;
-  inset: 0;
-  z-index: 2;
-  background: transparent;
-}
-
-.wallet_row {
-  display: inline-grid;
-  grid-template-columns: auto auto;
-  align-items: center;
-  justify-content: end;
-  gap: 6px;
   min-height: 30px;
   width: 100%;
   border: 1px solid rgba(74, 55, 38, 0.24);
   border-radius: 6px;
   background: rgba(255, 250, 236, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
   padding: 0 6px;
+  color: var(--ink);
 }
 
-.wallet_value {
+.wallet_total__value {
+  min-width: 0;
+  flex: 1 1 auto;
+  width: 100%;
+  text-align: right;
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
   font-size: 0.95rem;
   font-weight: 700;
-  text-align: right;
-  letter-spacing: 0.01em;
 }
 
 .wallet_coin {
+  flex: 0 0 auto;
   width: 18px;
   height: 18px;
   border-radius: 50%;
@@ -1367,8 +1332,8 @@
 }
 
 .wallet_coin--inline {
-  width: 14px;
-  height: 14px;
+  width: 18px;
+  height: 18px;
 }
 
 .wallet_coin::after {
@@ -1446,27 +1411,72 @@
   padding: 0 8px;
 }
 
-.wallet_inline_tooltip {
-  justify-content: flex-end;
-  padding: 0 8px;
-  text-align: right;
-  font-family: "Cormorant Garamond", Georgia, serif;
-  font-size: 1.08rem;
-  font-weight: 700;
-  gap: 4px;
-  background:
-    linear-gradient(180deg, rgba(248, 243, 232, 0.96), rgba(235, 227, 209, 0.94)),
-    url("/static/img/pergamentbg.jpg") center / cover no-repeat;
-  border-color: rgba(118, 88, 57, 0.32);
+.wallet_conversion_tooltip {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 9px);
+  z-index: 30;
+  min-width: 132px;
+  border: 1px solid rgba(74, 55, 38, 0.34);
+  border-radius: 6px;
+  background: rgba(255, 250, 236, 0.98);
+  color: var(--ink);
+  padding: 7px 8px;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(3px);
+  transition: opacity 140ms ease, transform 140ms ease;
   box-shadow:
-    inset 0 1px 0 rgba(255, 248, 229, 0.62),
-    inset 0 0 0 1px rgba(255, 247, 226, 0.24),
-    0 3px 6px rgba(49, 31, 16, 0.08);
+    inset 0 1px 0 rgba(255, 255, 255, 0.55),
+    0 5px 12px rgba(49, 31, 16, 0.18);
 }
 
-.wallet_inline_tooltip span:first-child {
-  flex: 1 1 auto;
-  text-align: right;
+.wallet_conversion_tooltip::before,
+.wallet_conversion_tooltip::after {
+  content: "";
+  position: absolute;
+  right: 12px;
+  border-left: 7px solid transparent;
+  border-right: 7px solid transparent;
+}
+
+.wallet_conversion_tooltip::before {
+  bottom: -8px;
+  border-top: 8px solid rgba(74, 55, 38, 0.34);
+}
+
+.wallet_conversion_tooltip::after {
+  bottom: -7px;
+  border-top: 7px solid rgba(255, 250, 236, 0.98);
+}
+
+.wallet_total:hover .wallet_conversion_tooltip,
+.wallet_total:focus-visible .wallet_conversion_tooltip {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.wallet_conversion_tooltip__title,
+.wallet_conversion_tooltip__row {
+  display: flex;
+  align-items: center;
+}
+
+.wallet_conversion_tooltip__title {
+  justify-content: flex-start;
+  margin-bottom: 5px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: rgba(63, 45, 31, 0.78);
+}
+
+.wallet_conversion_tooltip__row {
+  justify-content: flex-end;
+  gap: 7px;
+  min-height: 24px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
 
 .damage_display {
