@@ -20,7 +20,7 @@ import { initSheetActions } from "./sheet_actions.js?v=20260731a";
 import { initSchoolsPanel, initWmArcanaFilter } from "./schools_panel.js";
 import { initMobileHud } from "./mobile_hud.js";
 import { initSkillManager } from "./skill_manager.js";
-import { initArmorPanel } from "./armor_panel.js";
+import { initArmorPanel } from "./armor_panel.js?v=20260810a";
 import { initBattleCalculator } from "./battle_calculator.js?v=20260731a";
 import { initCarryLoadToggle } from "./carry_load_toggle.js?v=20260723b";
 import { initContextRadialMenu } from "./context_radial_menu.js";

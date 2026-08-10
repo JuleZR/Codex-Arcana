@@ -24,72 +24,349 @@
         {% endif %}
 
         <div id="lowerPanelBody" data-tab-panel class="p2_lower_panel__body_tab">
-          <div class="body_grid">
-            <ul class="body_side body_side--left">
-              <li class="zone_group">
-                <div class="zone_main">
-                  <span>Schild (-4)</span><span class="pill{% if not body_armor.shield %} empty{% endif %}">{% if body_armor.shield %}{{ body_armor.shield }}{% endif %}</span>
-                </div>
-                <ul class="zone_sub zone_checks">
-                  <li><span class="checkbox"></span><span>links</span></li>
-                  <li><span class="checkbox"></span><span>rechts</span></li>
-                </ul>
-              </li>
-              <li class="zone_group">
-                <div class="zone_main">
-                  <span>Rechter Arm (-4)</span><span class="pill{% if not body_armor.arm_right %} empty{% endif %}">{% if body_armor.arm_right %}{{ body_armor.arm_right }}{% endif %}</span>
-                </div>
-                <ul class="zone_sub">
-                  <li><span>Rechte Hand (-8)</span><span class="pill{% if not body_armor.hand_right %} empty{% endif %}">{% if body_armor.hand_right %}{{ body_armor.hand_right }}{% endif %}</span></li>
-                </ul>
-              </li>
-              <li class="zone_group">
-                <div class="zone_main">
-                  <span>Rechtes Bein (-3)</span><span class="pill{% if not body_armor.leg_right %} empty{% endif %}">{% if body_armor.leg_right %}{{ body_armor.leg_right }}{% endif %}</span>
-                </div>
-                <ul class="zone_sub">
-                  <li><span>Rechter Fu&szlig; (-8)</span><span class="pill{% if not body_armor.foot_right %} empty{% endif %}">{% if body_armor.foot_right %}{{ body_armor.foot_right }}{% endif %}</span></li>
-                </ul>
-              </li>
-            </ul>
-            <div class="body_center" aria-hidden="true"></div>
-            <ul class="body_side body_side--right">
-              <li class="zone_group">
-                <div class="zone_main">
-                  <span>Kopf (-6)</span><span class="pill{% if not body_armor.head %} empty{% endif %}">{% if body_armor.head %}{{ body_armor.head }}{% endif %}</span>
-                </div>
-                <ul class="zone_sub">
-                  <li><span>Gesicht (-8)</span><span class="pill{% if not body_armor.face %} empty{% endif %}">{% if body_armor.face %}{{ body_armor.face }}{% endif %}</span></li>
-                  <li><span>Augen (-9 / -14)</span><span class="pill{% if not body_armor.eyes %} empty{% endif %}">{% if body_armor.eyes %}{{ body_armor.eyes }}{% endif %}</span></li>
-                  <li><span>Hals (-10)</span><span class="pill{% if not body_armor.neck %} empty{% endif %}">{% if body_armor.neck %}{{ body_armor.neck }}{% endif %}</span></li>
-                </ul>
-              </li>
-              <li class="zone_group">
-                <div class="zone_main">
-                  <span>Torso (-2)</span><span class="pill{% if not body_armor.torso %} empty{% endif %}">{% if body_armor.torso %}{{ body_armor.torso }}{% endif %}</span>
-                </div>
-                <ul class="zone_sub">
-                  <li><span>Organe (-10)</span><span class="pill{% if not body_armor.organs %} empty{% endif %}">{% if body_armor.organs %}{{ body_armor.organs }}{% endif %}</span></li>
-                  <li><span>Weichteile (-8)</span><span class="pill{% if not body_armor.soft_tissue %} empty{% endif %}">{% if body_armor.soft_tissue %}{{ body_armor.soft_tissue }}{% endif %}</span></li>
-                </ul>
-              </li>
-              <li class="zone_group">
-                <div class="zone_main">
-                  <span>Linker Arm (-4)</span><span class="pill{% if not body_armor.arm_left %} empty{% endif %}">{% if body_armor.arm_left %}{{ body_armor.arm_left }}{% endif %}</span>
-                </div>
-                <ul class="zone_sub">
-                  <li><span>Linke Hand (-8)</span><span class="pill{% if not body_armor.hand_left %} empty{% endif %}">{% if body_armor.hand_left %}{{ body_armor.hand_left }}{% endif %}</span></li>
-                </ul>
-              </li>
-              <li class="zone_group">
-                <div class="zone_main">
-                  <span>Linkes Bein (-3)</span><span class="pill{% if not body_armor.leg_left %} empty{% endif %}">{% if body_armor.leg_left %}{{ body_armor.leg_left }}{% endif %}</span>
-                </div>
-                <ul class="zone_sub">
-                  <li><span>Linker Fu&szlig; (-8)</span><span class="pill{% if not body_armor.foot_left %} empty{% endif %}">{% if body_armor.foot_left %}{{ body_armor.foot_left }}{% endif %}</span></li>
-                </ul>
-              </li>
-            </ul>
+          <div class="body_callout_map">
+            <svg class="body_callout_svg" viewBox="0 0 560 318" role="img" aria-label="R&uuml;stungszonen und Trefferzonen">
+              <defs>
+                <filter id="bodyMapSoftShadow" x="-20%" y="-20%" width="140%" height="140%">
+                  <feDropShadow dx="0" dy="1.5" stdDeviation="1.2" flood-color="#2b1c10" flood-opacity="0.22"/>
+                </filter>
+                <linearGradient id="armorMetal" x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0" stop-color="#5a5c57"/>
+                  <stop offset="0.25" stop-color="#9b9d95"/>
+                  <stop offset="0.43" stop-color="#dedace"/>
+                  <stop offset="0.58" stop-color="#9a9b92"/>
+                  <stop offset="0.8" stop-color="#777970"/>
+                  <stop offset="1" stop-color="#50524e"/>
+                </linearGradient>
+                <linearGradient id="armorProtectedMetal" x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0" stop-color="#4b4e49"/>
+                  <stop offset="0.22" stop-color="#868982"/>
+                  <stop offset="0.42" stop-color="#d8d5ca"/>
+                  <stop offset="0.57" stop-color="#979991"/>
+                  <stop offset="0.78" stop-color="#73766f"/>
+                  <stop offset="1" stop-color="#42443f"/>
+                </linearGradient>
+                <linearGradient id="armorWarmProtected" x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0" stop-color="#504738"/>
+                  <stop offset="0.24" stop-color="#83745a"/>
+                  <stop offset="0.45" stop-color="#c9b58c"/>
+                  <stop offset="0.62" stop-color="#9b8766"/>
+                  <stop offset="0.82" stop-color="#6b5a42"/>
+                  <stop offset="1" stop-color="#44392d"/>
+                </linearGradient>
+              </defs>
+
+              <g class="armor_callout_lines" aria-hidden="true">
+                {% if body_armor.shield %}<path data-body-zone="shield" d="M206 30 H220 L220 94"/>{% endif %}
+                {% if body_armor.arm_right %}<path data-body-zone="arm_right" d="M206 62 H218 L225 109"/>{% endif %}
+                {% if body_armor.hand_right %}<path data-body-zone="hand_right" d="M206 85 H218 L225 146"/>{% endif %}
+                {% if body_armor.torso %}<path data-body-zone="torso" d="M206 116 H220 L232 122"/>{% endif %}
+                {% if body_armor.organs %}<path data-body-zone="organs" d="M206 139 H220 L246 129"/>{% endif %}
+                {% if body_armor.soft_tissue %}<path data-body-zone="soft_tissue" d="M206 162 H220 L248 160"/>{% endif %}
+                {% if body_armor.leg_right %}<path data-body-zone="leg_right" d="M206 197 H222 L253 199"/>{% endif %}
+                {% if body_armor.foot_right %}<path data-body-zone="foot_right" d="M206 220 H222 L249 252"/>{% endif %}
+
+                {% if body_armor.head %}<path data-body-zone="head" d="M354 30 H342 L294 39"/>{% endif %}
+                {% if body_armor.eyes %}<path data-body-zone="eyes" d="M354 53 H342 L294 45"/>{% endif %}
+                {% if body_armor.face %}<path data-body-zone="face" d="M354 76 H342 L292 57"/>{% endif %}
+                {% if body_armor.neck %}<path data-body-zone="neck" d="M354 99 H342 L293 76"/>{% endif %}
+                {% if body_armor.arm_left %}<path data-body-zone="arm_left" d="M354 130 H340 L333 112"/>{% endif %}
+                {% if body_armor.hand_left %}<path data-body-zone="hand_left" d="M354 153 H340 L333 146"/>{% endif %}
+                {% if body_armor.leg_left %}<path data-body-zone="leg_left" d="M354 188 H338 L303 199"/>{% endif %}
+                {% if body_armor.foot_left %}<path data-body-zone="foot_left" d="M354 211 H338 L306 252"/>{% endif %}
+              </g>
+
+              <g class="body_figure" filter="url(#bodyMapSoftShadow)" transform="translate(76 12) scale(0.72 0.78)">
+                <path class="armor_map_zone{% if body_armor.head %} is-protected{% endif %}" data-body-zone="head" d="M260 36 C260 22 267 12 279 8 C291 8 300 18 303 32 C306 44 302 56 293 66 C286 72 274 72 267 66 C262 58 260 47 260 36 Z"/>
+                <path class="armor_map_zone{% if body_armor.face %} is-protected{% endif %}" data-body-zone="face" d="M267 50 C275 47 289 47 297 51 C296 58 292 64 286 68 C280 70 273 68 269 63 C267 59 266 54 267 50 Z"/>
+                <path class="armor_map_zone{% if body_armor.eyes %} is-protected{% endif %}" data-body-zone="eyes" d="M264 38 C272 34 292 34 300 39 L297 47 C288 45 275 45 266 47 Z"/>
+                <path class="armor_map_zone{% if body_armor.neck %} is-protected{% endif %}" data-body-zone="neck" d="M257 63 C268 70 292 71 303 64 C308 71 311 80 309 88 C298 96 262 96 251 88 C249 80 252 71 257 63 Z"/>
+
+                <path class="armor_map_zone{% if body_armor.torso %} is-protected{% endif %}" data-body-zone="torso" d="M242 84 L258 78 H302 L318 84 C324 106 323 136 316 166 C309 186 294 201 280 209 C266 201 251 186 244 166 C237 136 236 106 242 84 Z"/>
+                <path class="armor_map_zone{% if body_armor.organs %} is-protected{% endif %}" data-body-zone="organs" d="M251 97 C263 91 297 91 309 97 C308 116 304 136 299 149 C292 157 286 162 280 165 C274 162 268 157 261 149 C256 136 252 116 251 97 Z"/>
+                <path class="armor_map_zone{% if body_armor.soft_tissue %} is-protected{% endif %}" data-body-zone="soft_tissue" d="M248 153 C258 164 270 173 280 177 C290 173 302 164 312 153 C311 176 306 197 299 210 C292 216 285 220 280 222 C275 220 268 216 261 210 C254 197 249 176 248 153 Z"/>
+
+                <path class="armor_map_zone{% if body_armor.arm_right %} is-protected{% endif %}" data-body-zone="arm_right" d="M223 119 C230 115 240 114 247 117 C248 129 245 140 240 149 C235 153 227 154 222 150 C218 145 216 140 216 134 C218 127 220 122 223 119 Z"/>
+                <path class="armor_map_zone{% if body_armor.arm_right %} is-protected{% endif %}" data-body-zone="arm_right" d="M221 150 C227 148 237 147 242 149 C241 161 238 172 233 179 C228 183 222 183 217 179 C214 174 213 168 214 163 C216 157 218 153 221 150 Z"/>
+                <path class="armor_map_zone{% if body_armor.hand_right %} is-protected{% endif %}" data-body-zone="hand_right" d="M217 177 C224 174 233 175 238 180 C237 188 234 196 229 203 C224 209 217 211 212 207 C209 202 209 195 211 188 C213 183 215 180 217 177 Z"/>
+                <path class="armor_map_zone{% if body_armor.arm_left %} is-protected{% endif %}" data-body-zone="arm_left" d="M313 117 C320 114 330 115 337 119 C340 122 342 127 344 134 C344 140 342 145 338 150 C333 154 325 153 320 149 C315 140 312 129 313 117 Z"/>
+                <path class="armor_map_zone{% if body_armor.arm_left %} is-protected{% endif %}" data-body-zone="arm_left" d="M318 149 C323 147 333 148 339 150 C342 153 344 157 346 163 C347 168 346 174 343 179 C338 183 332 183 327 179 C322 172 319 161 318 149 Z"/>
+                <path class="armor_map_zone{% if body_armor.hand_left %} is-protected{% endif %}" data-body-zone="hand_left" d="M322 180 C327 175 336 174 343 177 C345 180 347 183 349 188 C351 195 351 202 348 207 C343 211 336 209 331 203 C326 196 323 188 322 180 Z"/>
+
+                <path class="armor_map_zone{% if body_armor.leg_right %} is-protected{% endif %}" data-body-zone="leg_right" d="M252 207 C260 204 271 205 278 209 C278 225 276 240 272 251 C267 256 257 257 251 254 C247 247 244 235 244 226 C246 217 249 211 252 207 Z"/>
+                <path class="armor_map_zone{% if body_armor.leg_right %} is-protected{% endif %}" data-body-zone="leg_right" d="M251 254 C259 252 268 252 274 254 C276 270 275 286 271 298 C266 303 256 304 249 301 C246 291 244 279 245 269 C246 262 248 257 251 254 Z"/>
+                <path class="armor_map_zone{% if body_armor.foot_right %} is-protected{% endif %}" data-body-zone="foot_right" d="M250 297 C257 300 267 299 273 296 C276 302 276 309 272 315 C263 319 247 320 235 316 C237 310 242 303 250 297 Z"/>
+                <path class="armor_map_zone{% if body_armor.leg_left %} is-protected{% endif %}" data-body-zone="leg_left" d="M282 209 C289 205 300 204 308 207 C311 211 314 217 316 226 C316 235 313 247 309 254 C303 257 293 256 288 251 C284 240 282 225 282 209 Z"/>
+                <path class="armor_map_zone{% if body_armor.leg_left %} is-protected{% endif %}" data-body-zone="leg_left" d="M286 254 C292 252 301 252 309 254 C312 257 314 262 315 269 C316 279 314 291 311 301 C304 304 294 303 289 298 C285 286 284 270 286 254 Z"/>
+                <path class="armor_map_zone{% if body_armor.foot_left %} is-protected{% endif %}" data-body-zone="foot_left" d="M287 296 C293 299 303 300 311 297 C319 303 324 310 325 316 C313 320 297 319 288 315 C284 309 284 302 287 296 Z"/>
+
+                <path class="armor_map_zone{% if body_armor.arm_right %} is-protected{% endif %}" data-body-zone="arm_right" d="M242 82 C228 84 216 94 212 108 C216 117 226 124 236 123 C247 118 255 109 258 99 C256 91 250 84 242 82 Z"/>
+                <path class="armor_map_zone{% if body_armor.arm_left %} is-protected{% endif %}" data-body-zone="arm_left" d="M312 84 C310 87 305 91 302 99 C305 109 313 118 324 123 C334 124 344 117 348 108 C344 94 332 84 318 82 C316 82 314 83 312 84 Z"/>
+
+                <g class="armor_map_joint_shadow" aria-hidden="true">
+                  {% if body_armor.neck %}<path d="M257 75 C266 81 294 81 303 75 L300 83 C291 87 269 87 260 83 Z"/>{% endif %}
+                  {% if body_armor.arm_right %}<path d="M239 95 C229 105 225 124 225 143 C219 135 215 120 216 108 C220 97 229 88 239 95 Z"/>{% endif %}
+                  {% if body_armor.arm_left %}<path d="M321 95 C331 105 335 124 335 143 C341 135 345 120 344 108 C340 97 331 88 321 95 Z"/>{% endif %}
+                  {% if body_armor.soft_tissue %}<path d="M249 170 C258 183 269 191 280 196 C291 191 302 183 311 170 C309 184 304 199 298 209 C287 216 273 216 262 209 C256 199 251 184 249 170 Z"/>{% endif %}
+                  {% if body_armor.leg_right %}<path d="M244 223 C251 230 271 231 278 222 C276 236 274 249 270 255 C264 259 255 259 250 255 C246 247 244 234 244 223 Z"/>{% endif %}
+                  {% if body_armor.leg_left %}<path d="M282 222 C289 231 309 230 316 223 C316 234 314 247 310 255 C305 259 296 259 290 255 C286 249 284 236 282 222 Z"/>{% endif %}
+                  {% if body_armor.leg_right %}<path d="M245 267 C252 274 268 274 275 267 C276 282 274 295 269 302 C262 306 254 305 249 301 C246 292 244 279 245 267 Z"/>{% endif %}
+                  {% if body_armor.leg_left %}<path d="M285 267 C292 274 308 274 315 267 C316 279 314 292 311 301 C306 305 298 306 291 302 C286 295 284 282 285 267 Z"/>{% endif %}
+                </g>
+
+                <g class="armor_map_plate_edges" aria-hidden="true">
+                  <path class="armor_map_zone{% if body_armor.head %} is-protected{% endif %}" data-body-zone="head" d="M277 8 C280 2 287 2 291 9 C286 7 282 7 277 8 Z"/>
+                  <path class="armor_map_zone{% if body_armor.head %} is-protected{% endif %}" data-body-zone="head" d="M261 32 C269 27 292 27 301 33 C301 37 300 40 298 42 C289 38 274 38 265 42 C263 40 261 36 261 32 Z"/>
+                  <path class="armor_map_zone{% if body_armor.eyes %} is-protected{% endif %}" data-body-zone="eyes" d="M265 39 C274 36 290 36 299 40 L297 45 C288 43 276 43 267 45 Z"/>
+                  <path class="armor_map_zone{% if body_armor.face %} is-protected{% endif %}" data-body-zone="face" d="M269 51 C277 49 288 49 296 52 C294 58 290 63 285 65 C279 67 274 65 270 61 C268 58 268 54 269 51 Z"/>
+                  <path class="armor_map_zone{% if body_armor.face %} is-protected{% endif %}" data-body-zone="face" d="M270 60 C276 64 285 65 292 61 C290 66 286 69 280 70 C275 69 272 66 270 60 Z"/>
+                  <path class="armor_map_zone{% if body_armor.neck %} is-protected{% endif %}" data-body-zone="neck" d="M256 70 C267 77 294 78 305 71 C307 76 307 82 303 87 C292 92 268 92 257 87 C253 82 253 76 256 70 Z"/>
+                  <path class="armor_map_zone{% if body_armor.arm_right %} is-protected{% endif %}" data-body-zone="arm_right" d="M218 111 C224 115 233 117 242 114 C238 119 231 123 224 122 C221 120 219 116 218 111 Z"/>
+                  <path class="armor_map_zone{% if body_armor.arm_right %} is-protected{% endif %}" data-body-zone="arm_right" d="M217 135 C224 139 235 139 243 135 C242 141 238 147 232 150 C225 149 220 144 217 135 Z"/>
+                  <path class="armor_map_zone{% if body_armor.arm_left %} is-protected{% endif %}" data-body-zone="arm_left" d="M318 114 C327 117 336 115 342 111 C341 116 339 120 336 122 C329 123 322 119 318 114 Z"/>
+                  <path class="armor_map_zone{% if body_armor.arm_left %} is-protected{% endif %}" data-body-zone="arm_left" d="M317 135 C325 139 336 139 343 135 C340 144 335 149 328 150 C322 147 318 141 317 135 Z"/>
+                  <path class="armor_map_zone{% if body_armor.soft_tissue %} is-protected{% endif %}" data-body-zone="soft_tissue" d="M252 172 C262 180 272 184 280 186 C288 184 298 180 308 172 C306 185 301 198 294 205 C286 209 274 209 266 205 C259 198 254 185 252 172 Z"/>
+                  <path class="armor_map_zone{% if body_armor.leg_right %} is-protected{% endif %}" data-body-zone="leg_right" d="M249 229 C256 233 267 233 275 228 C275 237 273 246 270 251 C265 254 257 254 252 251 C249 245 248 237 249 229 Z"/>
+                  <path class="armor_map_zone{% if body_armor.leg_left %} is-protected{% endif %}" data-body-zone="leg_left" d="M285 228 C293 233 304 233 311 229 C312 237 311 245 308 251 C303 254 295 254 290 251 C287 246 285 237 285 228 Z"/>
+                  <path class="armor_map_zone{% if body_armor.leg_right %} is-protected{% endif %}" data-body-zone="leg_right" d="M249 273 C256 277 266 276 273 271 C274 281 273 291 270 297 C264 300 257 300 252 297 C249 290 248 281 249 273 Z"/>
+                  <path class="armor_map_zone{% if body_armor.leg_left %} is-protected{% endif %}" data-body-zone="leg_left" d="M287 271 C294 276 304 277 311 273 C312 281 311 290 308 297 C303 300 296 300 290 297 C287 291 286 281 287 271 Z"/>
+                  <path class="armor_map_zone{% if body_armor.soft_tissue %} is-protected{% endif %}" data-body-zone="soft_tissue" d="M252 194 C261 202 272 207 280 209 C288 207 299 202 308 194 C305 207 298 218 289 224 C283 226 277 226 271 224 C262 218 255 207 252 194 Z"/>
+                  <path class="armor_map_zone{% if body_armor.hand_right %} is-protected{% endif %}" data-body-zone="hand_right" d="M216 177 C223 173 233 174 239 179 C237 184 235 187 231 189 C225 186 218 186 211 189 C212 184 214 180 216 177 Z"/>
+                  <path class="armor_map_zone{% if body_armor.hand_right %} is-protected{% endif %}" data-body-zone="hand_right" d="M212 189 C208 194 207 201 210 206 C214 203 217 197 218 191 C216 190 214 189 212 189 Z"/>
+                  <path class="armor_map_zone{% if body_armor.hand_right %} is-protected{% endif %}" data-body-zone="hand_right" d="M218 199 C222 201 226 202 230 201 C228 207 224 211 218 212 C215 210 214 206 215 203 C216 201 217 200 218 199 Z"/>
+                  <path class="armor_map_zone{% if body_armor.hand_right %} is-protected{% endif %}" data-body-zone="hand_right" d="M224 196 C228 198 232 198 235 196 C234 201 232 205 229 208 C225 207 222 204 222 201 C222 199 223 197 224 196 Z"/>
+                  <path class="armor_map_zone{% if body_armor.hand_left %} is-protected{% endif %}" data-body-zone="hand_left" d="M321 179 C327 174 337 173 344 177 C346 180 348 184 349 189 C342 186 335 186 329 189 C325 187 323 184 321 179 Z"/>
+                  <path class="armor_map_zone{% if body_armor.hand_left %} is-protected{% endif %}" data-body-zone="hand_left" d="M342 191 C343 197 346 203 350 206 C353 201 352 194 348 189 C346 189 344 190 342 191 Z"/>
+                  <path class="armor_map_zone{% if body_armor.hand_left %} is-protected{% endif %}" data-body-zone="hand_left" d="M330 201 C334 202 338 201 342 199 C343 200 344 201 345 203 C346 206 345 210 342 212 C336 211 332 207 330 201 Z"/>
+                  <path class="armor_map_zone{% if body_armor.hand_left %} is-protected{% endif %}" data-body-zone="hand_left" d="M325 196 C328 198 332 198 336 196 C337 197 338 199 338 201 C338 204 335 207 331 208 C328 205 326 201 325 196 Z"/>
+                  <path class="armor_map_zone{% if body_armor.foot_right %} is-protected{% endif %}" data-body-zone="foot_right" d="M247 302 C255 306 268 305 275 300 C277 305 277 310 273 314 C264 317 249 317 238 314 C240 309 243 305 247 302 Z"/>
+                  <path class="armor_map_zone{% if body_armor.foot_right %} is-protected{% endif %}" data-body-zone="foot_right" d="M235 314 C246 318 263 318 273 313 L276 318 C268 323 246 324 235 319 Z"/>
+                  <path class="armor_map_zone{% if body_armor.foot_left %} is-protected{% endif %}" data-body-zone="foot_left" d="M285 300 C292 305 305 306 313 302 C317 305 320 309 322 314 C311 317 296 317 287 314 C283 310 283 305 285 300 Z"/>
+                  <path class="armor_map_zone{% if body_armor.foot_left %} is-protected{% endif %}" data-body-zone="foot_left" d="M287 313 C297 318 314 318 325 314 L325 319 C314 324 292 323 284 318 Z"/>
+                </g>
+
+                <g class="armor_map_detail" aria-hidden="true">
+                  {% if body_armor.head %}<path d="M266 31 C273 26 289 26 297 31"/>{% endif %}
+                  {% if body_armor.head %}<path d="M263 35 C269 31 293 31 299 36"/>{% endif %}
+                  {% if body_armor.eyes %}<path d="M266 41 C274 39 289 39 297 41"/>{% endif %}
+                  {% if body_armor.face %}<path d="M270 53 C276 56 287 56 293 53"/>{% endif %}
+                  {% if body_armor.face %}<path d="M271 59 C276 63 284 64 289 60"/>{% endif %}
+                  {% if body_armor.face %}<path d="M274 52 V62 M280 51 V65 M286 52 V63"/>{% endif %}
+                  {% if body_armor.neck %}<path d="M260 78 H302"/>{% endif %}
+                  {% if body_armor.torso %}<path d="M249 82 C259 89 301 89 311 82"/>{% endif %}
+                  {% if body_armor.organs %}<path d="M251 96 C262 101 298 101 309 96"/>{% endif %}
+                  {% if body_armor.torso %}<path d="M247 111 C258 117 302 117 313 111"/>{% endif %}
+                  {% if body_armor.torso %}<path d="M253 148 C262 154 298 154 307 148"/>{% endif %}
+                  {% if body_armor.soft_tissue %}<path d="M262 207 C270 212 290 212 298 207"/>{% endif %}
+                  {% if body_armor.soft_tissue %}<path d="M250 154 C259 163 270 170 280 174 C290 170 301 163 310 154"/>{% endif %}
+                  {% if body_armor.arm_right %}<path d="M224 119 C229 125 240 126 245 116"/>{% endif %}
+                  {% if body_armor.arm_right %}<path d="M218 108 C225 112 234 113 243 109"/>{% endif %}
+                  {% if body_armor.arm_right %}<path d="M222 151 C227 157 237 156 241 147"/>{% endif %}
+                  {% if body_armor.hand_right %}<path d="M213 188 C220 191 230 191 236 187"/>{% endif %}
+                  {% if body_armor.hand_right %}<path d="M216 203 C221 206 227 205 232 199"/>{% endif %}
+                  {% if body_armor.arm_left %}<path d="M315 116 C320 126 331 125 336 119"/>{% endif %}
+                  {% if body_armor.arm_left %}<path d="M317 109 C326 113 335 112 342 108"/>{% endif %}
+                  {% if body_armor.arm_left %}<path d="M319 147 C323 156 333 157 338 151"/>{% endif %}
+                  {% if body_armor.hand_left %}<path d="M324 187 C330 191 340 191 347 188"/>{% endif %}
+                  {% if body_armor.hand_left %}<path d="M328 199 C333 205 339 206 344 203"/>{% endif %}
+                  {% if body_armor.leg_right %}<path d="M252 255 L273 250"/>{% endif %}
+                  {% if body_armor.leg_left %}<path d="M287 250 L308 255"/>{% endif %}
+                  {% if body_armor.leg_right %}<path d="M248 226 C254 230 268 230 276 224"/>{% endif %}
+                  {% if body_armor.leg_left %}<path d="M284 224 C292 230 306 230 312 226"/>{% endif %}
+                  {% if body_armor.leg_right %}<path d="M247 270 C254 274 267 273 274 266"/>{% endif %}
+                  {% if body_armor.leg_left %}<path d="M286 266 C293 273 306 274 313 270"/>{% endif %}
+                  {% if body_armor.foot_right %}<path d="M241 308 C251 312 266 312 274 305"/>{% endif %}
+                  {% if body_armor.foot_right %}<path d="M236 317 C248 320 264 320 275 315"/>{% endif %}
+                  {% if body_armor.foot_left %}<path d="M286 305 C294 312 309 312 319 308"/>{% endif %}
+                  {% if body_armor.foot_left %}<path d="M285 315 C296 320 312 320 324 317"/>{% endif %}
+                  {% if body_armor.organs %}<circle cx="253" cy="101" r="1.2"/>{% endif %}
+                  {% if body_armor.organs %}<circle cx="307" cy="101" r="1.2"/>{% endif %}
+                  {% if body_armor.torso %}<circle cx="246" cy="129" r="1"/>{% endif %}
+                  {% if body_armor.torso %}<circle cx="314" cy="129" r="1"/>{% endif %}
+                  {% if body_armor.soft_tissue %}<circle cx="258" cy="184" r="1"/>{% endif %}
+                  {% if body_armor.soft_tissue %}<circle cx="302" cy="184" r="1"/>{% endif %}
+                  {% if body_armor.arm_right %}<circle cx="229" cy="121" r="1"/>{% endif %}
+                  {% if body_armor.arm_left %}<circle cx="331" cy="121" r="1"/>{% endif %}
+                  {% if body_armor.arm_right %}<circle cx="222" cy="154" r="1"/>{% endif %}
+                  {% if body_armor.arm_left %}<circle cx="338" cy="154" r="1"/>{% endif %}
+                  {% if body_armor.leg_right %}<circle cx="252" cy="235" r="1"/>{% endif %}
+                  {% if body_armor.leg_left %}<circle cx="308" cy="235" r="1"/>{% endif %}
+                  {% if body_armor.leg_right %}<circle cx="251" cy="268" r="1"/>{% endif %}
+                  {% if body_armor.leg_left %}<circle cx="309" cy="268" r="1"/>{% endif %}
+                </g>
+
+                <g class="armor_map_ornament" aria-hidden="true">
+                  {% if body_armor.head %}<path d="M281 10 C279 18 279 27 280 35"/>{% endif %}
+                  {% if body_armor.head %}<path d="M266 32 C273 29 290 29 297 33"/>{% endif %}
+                  {% if body_armor.head %}<path d="M264 36 C272 33 291 33 300 37"/>{% endif %}
+                  {% if body_armor.head %}<circle cx="268" cy="34" r="0.75"/>{% endif %}
+                  {% if body_armor.head %}<circle cx="292" cy="34" r="0.75"/>{% endif %}
+                  {% if body_armor.eyes %}<path d="M268 42 C276 40 288 40 296 42"/>{% endif %}
+                  {% if body_armor.eyes %}<path d="M270 45 C278 44 286 44 294 45"/>{% endif %}
+                  {% if body_armor.face %}<path d="M273 52 V63 M278 51 V66 M283 51 V66 M288 52 V63"/>{% endif %}
+                  {% if body_armor.face %}<path d="M270 58 C276 61 285 61 293 58"/>{% endif %}
+                  {% if body_armor.face %}<circle cx="272" cy="55" r="0.65"/>{% endif %}
+                  {% if body_armor.face %}<circle cx="292" cy="55" r="0.65"/>{% endif %}
+                </g>
+
+                <g class="armor_map_ridge" aria-hidden="true">
+                  {% if body_armor.torso %}<path d="M280 83 C278 106 278 184 280 206"/>{% endif %}
+                  {% if body_armor.organs %}<path d="M255 97 C263 112 270 133 280 162 C290 133 297 112 305 97"/>{% endif %}
+                  {% if body_armor.torso %}<path d="M248 82 C260 94 300 94 312 82"/>{% endif %}
+                  {% if body_armor.torso %}<path d="M243 148 C256 159 304 159 317 148"/>{% endif %}
+                  {% if body_armor.neck %}<path d="M264 64 C272 70 288 70 296 64"/>{% endif %}
+                  {% if body_armor.eyes %}<path d="M266 38 C274 35 288 35 297 38"/>{% endif %}
+                  {% if body_armor.arm_right %}<path d="M220 108 C226 105 237 104 249 108"/>{% endif %}
+                  {% if body_armor.arm_left %}<path d="M311 108 C323 104 334 105 340 108"/>{% endif %}
+                  {% if body_armor.hand_right %}<path d="M217 190 C222 194 227 194 231 190"/>{% endif %}
+                  {% if body_armor.hand_left %}<path d="M329 190 C333 194 338 194 343 190"/>{% endif %}
+                  {% if body_armor.leg_right %}<path d="M253 207 C260 215 270 215 277 208"/>{% endif %}
+                  {% if body_armor.leg_left %}<path d="M283 208 C290 215 300 215 307 207"/>{% endif %}
+                  {% if body_armor.foot_right %}<path d="M249 299 C256 304 268 303 273 296"/>{% endif %}
+                  {% if body_armor.foot_left %}<path d="M287 296 C292 303 304 304 311 299"/>{% endif %}
+                </g>
+
+                <g aria-hidden="true">
+                  {% if body_armor.torso %}<circle class="armor_map_rivet" cx="252" cy="92" r="1"/>{% endif %}
+                  {% if body_armor.torso %}<circle class="armor_map_rivet" cx="308" cy="92" r="1"/>{% endif %}
+                  {% if body_armor.torso %}<circle class="armor_map_rivet" cx="247" cy="140" r="0.9"/>{% endif %}
+                  {% if body_armor.torso %}<circle class="armor_map_rivet" cx="313" cy="140" r="0.9"/>{% endif %}
+                  {% if body_armor.soft_tissue %}<circle class="armor_map_rivet" cx="260" cy="201" r="0.9"/>{% endif %}
+                  {% if body_armor.soft_tissue %}<circle class="armor_map_rivet" cx="300" cy="201" r="0.9"/>{% endif %}
+                  {% if body_armor.arm_right %}<circle class="armor_map_rivet" cx="224" cy="113" r="0.9"/>{% endif %}
+                  {% if body_armor.arm_right %}<circle class="armor_map_rivet" cx="238" cy="114" r="0.9"/>{% endif %}
+                  {% if body_armor.arm_left %}<circle class="armor_map_rivet" cx="322" cy="114" r="0.9"/>{% endif %}
+                  {% if body_armor.arm_left %}<circle class="armor_map_rivet" cx="336" cy="113" r="0.9"/>{% endif %}
+                  {% if body_armor.hand_right %}<circle class="armor_map_rivet" cx="224" cy="171" r="0.8"/>{% endif %}
+                  {% if body_armor.hand_left %}<circle class="armor_map_rivet" cx="336" cy="171" r="0.8"/>{% endif %}
+                  {% if body_armor.leg_right %}<circle class="armor_map_rivet" cx="252" cy="248" r="0.8"/>{% endif %}
+                  {% if body_armor.leg_right %}<circle class="armor_map_rivet" cx="273" cy="246" r="0.8"/>{% endif %}
+                  {% if body_armor.leg_left %}<circle class="armor_map_rivet" cx="287" cy="246" r="0.8"/>{% endif %}
+                  {% if body_armor.leg_left %}<circle class="armor_map_rivet" cx="308" cy="248" r="0.8"/>{% endif %}
+                </g>
+
+                <g class="armor_map_highlight" aria-hidden="true">
+                  {% if body_armor.head %}<path d="M270 15 C265 28 265 48 270 60"/>{% endif %}
+                  {% if body_armor.torso %}<path d="M256 86 C250 113 251 169 267 193"/>{% endif %}
+                  {% if body_armor.organs %}<path d="M265 98 C260 116 262 140 269 151"/>{% endif %}
+                  {% if body_armor.soft_tissue %}<path d="M258 160 C264 170 272 177 280 181"/>{% endif %}
+                  {% if body_armor.arm_right %}<path d="M229 122 C226 132 225 141 226 149"/>{% endif %}
+                  {% if body_armor.arm_right %}<path d="M223 155 C221 162 220 170 221 176"/>{% endif %}
+                  {% if body_armor.hand_right %}<path d="M216 181 C214 189 214 199 217 207"/>{% endif %}
+                  {% if body_armor.hand_right %}<path d="M223 197 C221 202 220 207 221 211"/>{% endif %}
+                  {% if body_armor.arm_left %}<path d="M331 122 C334 132 335 141 334 149"/>{% endif %}
+                  {% if body_armor.arm_left %}<path d="M337 155 C339 162 340 170 339 176"/>{% endif %}
+                  {% if body_armor.hand_left %}<path d="M344 181 C346 189 346 199 343 207"/>{% endif %}
+                  {% if body_armor.hand_left %}<path d="M337 197 C339 202 340 207 339 211"/>{% endif %}
+                  {% if body_armor.leg_right %}<path d="M254 209 C251 221 251 241 255 252"/>{% endif %}
+                  {% if body_armor.leg_right %}<path d="M253 258 C250 271 251 289 255 299"/>{% endif %}
+                  {% if body_armor.foot_right %}<path d="M243 304 C250 309 265 309 273 302"/>{% endif %}
+                  {% if body_armor.foot_right %}<path d="M239 316 C250 319 264 319 274 314"/>{% endif %}
+                  {% if body_armor.leg_left %}<path d="M306 209 C309 221 309 241 305 252"/>{% endif %}
+                  {% if body_armor.leg_left %}<path d="M307 258 C310 271 309 289 305 299"/>{% endif %}
+                  {% if body_armor.foot_left %}<path d="M287 302 C295 309 310 309 317 304"/>{% endif %}
+                  {% if body_armor.foot_left %}<path d="M286 314 C296 319 310 319 321 316"/>{% endif %}
+                </g>
+
+                {% if not body_armor.eyes and body_armor.head %}
+                <path class="armor_map_opening" data-body-zone="eyes" d="M266 40 C274 37 290 37 298 40 L295 46 C287 45 277 45 268 46 Z"/>
+                {% endif %}
+
+                {% if body_armor.shield %}
+                <g data-body-zone="shield">
+                  <path class="armor_map_zone is-protected" data-body-zone="shield" d="M206 82 C189 96 184 133 196 173 C215 166 225 137 224 103 C222 94 215 86 206 82 Z"/>
+                  <path class="armor_map_shield_detail" d="M207 88 C197 102 194 132 201 163"/>
+                  <path class="armor_map_shield_detail" d="M209 87 C218 98 220 135 211 164"/>
+                </g>
+                {% endif %}
+              </g>
+
+              <g class="armor_callout_values armor_callout_values--left">
+                <g class="armor_callout_row" data-body-zone="shield">
+                  <text x="12" y="32">Schild (-4)</text>
+                  <rect class="armor_callout_pill{% if not body_armor.shield %} is-empty{% endif %}" x="168" y="19" width="38" height="22" rx="11"/>
+                  <text class="armor_callout_value" x="187" y="30">{% if body_armor.shield %}{{ body_armor.shield }}{% endif %}</text>
+                </g>
+                <g class="armor_callout_row" data-body-zone="arm_right">
+                  <text x="12" y="64">Rechter Arm (-4)</text>
+                  <rect class="armor_callout_pill{% if not body_armor.arm_right %} is-empty{% endif %}" x="168" y="51" width="38" height="22" rx="11"/>
+                  <text class="armor_callout_value" x="187" y="62">{% if body_armor.arm_right %}{{ body_armor.arm_right }}{% endif %}</text>
+                </g>
+                <g class="armor_callout_row armor_callout_row--sub" data-body-zone="hand_right">
+                  <text x="28" y="87">Rechte Hand (-8)</text>
+                  <rect class="armor_callout_pill{% if not body_armor.hand_right %} is-empty{% endif %}" x="168" y="74" width="38" height="22" rx="11"/>
+                  <text class="armor_callout_value" x="187" y="85">{% if body_armor.hand_right %}{{ body_armor.hand_right }}{% endif %}</text>
+                </g>
+                <g class="armor_callout_row" data-body-zone="torso">
+                  <text x="12" y="118">Torso (-2)</text>
+                  <rect class="armor_callout_pill{% if not body_armor.torso %} is-empty{% endif %}" x="168" y="105" width="38" height="22" rx="11"/>
+                  <text class="armor_callout_value" x="187" y="116">{% if body_armor.torso %}{{ body_armor.torso }}{% endif %}</text>
+                </g>
+                <g class="armor_callout_row armor_callout_row--sub" data-body-zone="organs">
+                  <text x="28" y="141">Organe (-10)</text>
+                  <rect class="armor_callout_pill{% if not body_armor.organs %} is-empty{% endif %}" x="168" y="128" width="38" height="22" rx="11"/>
+                  <text class="armor_callout_value" x="187" y="139">{% if body_armor.organs %}{{ body_armor.organs }}{% endif %}</text>
+                </g>
+                <g class="armor_callout_row armor_callout_row--sub" data-body-zone="soft_tissue">
+                  <text x="28" y="164">Weichteile (-8)</text>
+                  <rect class="armor_callout_pill{% if not body_armor.soft_tissue %} is-empty{% endif %}" x="168" y="151" width="38" height="22" rx="11"/>
+                  <text class="armor_callout_value" x="187" y="162">{% if body_armor.soft_tissue %}{{ body_armor.soft_tissue }}{% endif %}</text>
+                </g>
+                <g class="armor_callout_row" data-body-zone="leg_right">
+                  <text x="12" y="199">Rechtes Bein (-3)</text>
+                  <rect class="armor_callout_pill{% if not body_armor.leg_right %} is-empty{% endif %}" x="168" y="186" width="38" height="22" rx="11"/>
+                  <text class="armor_callout_value" x="187" y="197">{% if body_armor.leg_right %}{{ body_armor.leg_right }}{% endif %}</text>
+                </g>
+                <g class="armor_callout_row armor_callout_row--sub" data-body-zone="foot_right">
+                  <text x="28" y="222">Rechter Fu&szlig; (-8)</text>
+                  <rect class="armor_callout_pill{% if not body_armor.foot_right %} is-empty{% endif %}" x="168" y="209" width="38" height="22" rx="11"/>
+                  <text class="armor_callout_value" x="187" y="220">{% if body_armor.foot_right %}{{ body_armor.foot_right }}{% endif %}</text>
+                </g>
+              </g>
+
+              <g class="armor_callout_values armor_callout_values--right">
+                <g class="armor_callout_row" data-body-zone="head">
+                  <text x="362" y="32">Kopf (-6)</text>
+                  <rect class="armor_callout_pill{% if not body_armor.head %} is-empty{% endif %}" x="516" y="19" width="38" height="22" rx="11"/>
+                  <text class="armor_callout_value" x="535" y="30">{% if body_armor.head %}{{ body_armor.head }}{% endif %}</text>
+                </g>
+                <g class="armor_callout_row armor_callout_row--sub" data-body-zone="eyes">
+                  <text x="378" y="55">Augen (-9/-14)</text>
+                  <rect class="armor_callout_pill{% if not body_armor.eyes %} is-empty{% endif %}" x="516" y="42" width="38" height="22" rx="11"/>
+                  <text class="armor_callout_value" x="535" y="53">{% if body_armor.eyes %}{{ body_armor.eyes }}{% endif %}</text>
+                </g>
+                <g class="armor_callout_row armor_callout_row--sub" data-body-zone="face">
+                  <text x="378" y="78">Gesicht (-8)</text>
+                  <rect class="armor_callout_pill{% if not body_armor.face %} is-empty{% endif %}" x="516" y="65" width="38" height="22" rx="11"/>
+                  <text class="armor_callout_value" x="535" y="76">{% if body_armor.face %}{{ body_armor.face }}{% endif %}</text>
+                </g>
+                <g class="armor_callout_row armor_callout_row--sub" data-body-zone="neck">
+                  <text x="378" y="101">Hals (-10)</text>
+                  <rect class="armor_callout_pill{% if not body_armor.neck %} is-empty{% endif %}" x="516" y="88" width="38" height="22" rx="11"/>
+                  <text class="armor_callout_value" x="535" y="99">{% if body_armor.neck %}{{ body_armor.neck }}{% endif %}</text>
+                </g>
+                <g class="armor_callout_row" data-body-zone="arm_left">
+                  <text x="362" y="132">Linker Arm (-4)</text>
+                  <rect class="armor_callout_pill{% if not body_armor.arm_left %} is-empty{% endif %}" x="516" y="119" width="38" height="22" rx="11"/>
+                  <text class="armor_callout_value" x="535" y="130">{% if body_armor.arm_left %}{{ body_armor.arm_left }}{% endif %}</text>
+                </g>
+                <g class="armor_callout_row armor_callout_row--sub" data-body-zone="hand_left">
+                  <text x="378" y="155">Linke Hand (-8)</text>
+                  <rect class="armor_callout_pill{% if not body_armor.hand_left %} is-empty{% endif %}" x="516" y="142" width="38" height="22" rx="11"/>
+                  <text class="armor_callout_value" x="535" y="153">{% if body_armor.hand_left %}{{ body_armor.hand_left }}{% endif %}</text>
+                </g>
+                <g class="armor_callout_row" data-body-zone="leg_left">
+                  <text x="362" y="190">Linkes Bein (-3)</text>
+                  <rect class="armor_callout_pill{% if not body_armor.leg_left %} is-empty{% endif %}" x="516" y="177" width="38" height="22" rx="11"/>
+                  <text class="armor_callout_value" x="535" y="188">{% if body_armor.leg_left %}{{ body_armor.leg_left }}{% endif %}</text>
+                </g>
+                <g class="armor_callout_row armor_callout_row--sub" data-body-zone="foot_left">
+                  <text x="378" y="213">Linker Fu&szlig; (-8)</text>
+                  <rect class="armor_callout_pill{% if not body_armor.foot_left %} is-empty{% endif %}" x="516" y="200" width="38" height="22" rx="11"/>
+                  <text class="armor_callout_value" x="535" y="211">{% if body_armor.foot_left %}{{ body_armor.foot_left }}{% endif %}</text>
+                </g>
+              </g>
+            </svg>
           </div>
         </div>
 

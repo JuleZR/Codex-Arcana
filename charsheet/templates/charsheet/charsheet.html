@@ -26,7 +26,7 @@
     {% endif %}
     <link
       rel="stylesheet"
-      href="{% static 'css/charsheet.css' %}?v=20260802a"
+      href="{% static 'css/charsheet.css' %}?v=20260810a"
     />
   </head>
   <body class="charsheet-page{% if read_only %} is-read-only{% endif %}{% if is_vampire %} is-vampire-sheet{% endif %}{% if cultist_corruption_level %} has-cultist-corruption cultist-corruption--level-{{ cultist_corruption_level }}{% endif %}" data-read-only="{% if read_only %}1{% else %}0{% endif %}" data-radial-menu-enabled="{% if request.user.settings.radial_menu_enabled %}1{% else %}0{% endif %}" data-cultist-corruption-level="{{ cultist_corruption_level|default:0 }}">
@@ -149,7 +149,7 @@
       </div>
     </div>
 
-    <script type="module" src="{% static 'js/charsheet/bootstrap.js' %}?v=20260802b"></script>
+    <script type="module" src="{% static 'js/charsheet/bootstrap.js' %}?v=20260810a"></script>
     <script src="{% static 'js/charsheet_diary.js' %}?v=20260315a"></script>
     {% if read_only %}
     <script>
