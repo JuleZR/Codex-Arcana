@@ -35,7 +35,7 @@ def equipped_weapon_items(engine) -> QuerySet:
             | Q(item__item_type=Item.ItemType.SHIELD, item__shieldstats__isnull=False)
         )
         .select_related("item", "item__weaponstats", "item__weaponstats__damage_source")
-        .select_related("item__rangedweaponstats", "item__rangedweaponstats__damage_source")
+        .select_related("item__rangedweaponstats")
         .select_related("item__shieldstats", "item__shieldstats__damage_source")
         .prefetch_related(
             "item__runes",

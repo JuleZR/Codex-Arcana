@@ -2016,14 +2016,14 @@ class RangedWeaponStatsInline(admin.StackedInline):
     extra = 0
     max_num = 1
     can_delete = True
-    autocomplete_fields = ("damage_source", "weapon_type")
+    autocomplete_fields = ("weapon_type",)
     filter_horizontal = ("flags", "skills")
     fields = (
         "minimum_strength",
         "weapon_type",
         "maneuver_attribute_mode",
-        "damage_source",
         "skills",
+        "damage_label",
         ("damage_dice_amount", "damage_dice_faces", "damage_flat_operator", "damage_flat_bonus", "damage_type"),
         ("range_short", "range_medium", "range_long", "range_strength_multiplier"),
         ("reload_time", "shots"),
@@ -6211,24 +6211,23 @@ class RangedWeaponStatsAdmin(admin.ModelAdmin):
         "minimum_strength",
         "weapon_type",
         "maneuver_attribute_mode",
-        "damage_source",
         "skill_summary",
         "flag_summary",
         "damage_type",
     )
-    search_fields = ("item__name", "weapon_type__name", "weapon_type__slug", "damage_source__name", "flags__key", "skills__name", "skills__slug")
-    list_filter = ("weapon_type", "maneuver_attribute_mode", "damage_source", "damage_type", "flags", "range_strength_multiplier", "item__default_quality")
+    search_fields = ("item__name", "weapon_type__name", "weapon_type__slug", "flags__key", "skills__name", "skills__slug")
+    list_filter = ("weapon_type", "maneuver_attribute_mode", "damage_type", "flags", "range_strength_multiplier", "item__default_quality")
     ordering = ("item__name",)
-    autocomplete_fields = ("item", "weapon_type", "damage_source")
-    list_select_related = ("item", "weapon_type", "damage_source")
+    autocomplete_fields = ("item", "weapon_type")
+    list_select_related = ("item", "weapon_type")
     filter_horizontal = ("flags", "skills")
     fields = (
         "item",
         "minimum_strength",
         "weapon_type",
         "maneuver_attribute_mode",
-        "damage_source",
         "skills",
+        "damage_label",
         ("damage_dice_amount", "damage_dice_faces", "damage_flat_operator", "damage_flat_bonus", "damage_type"),
         ("range_short", "range_medium", "range_long", "range_strength_multiplier"),
         ("reload_time", "shots"),

@@ -213,6 +213,7 @@ WEAPON_CHOICE_HELP = {
     "h2_dice_faces": "Required for 2H and versatile weapons.",
     "h2_flat_bonus": "Optional flat bonus for the two-handed profile.",
     "h2_damage_type": "Damage type for the two-handed profile.",
+    "damage_label": "Optional label shown before the damage value, e.g. projectile or ammunition text.",
     "range_short": "Optional short weapon range.",
     "range_medium": "Optional medium weapon range.",
     "range_long": "Optional long weapon range.",

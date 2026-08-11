@@ -955,7 +955,7 @@ class RangedWeaponStats(models.Model):
     """Ranged-weapon combat data attached to an item."""
 
     item = models.OneToOneField(Item, on_delete=models.CASCADE)
-    damage_source = models.ForeignKey(DamageSource, on_delete=models.PROTECT)
+    damage_label = models.CharField(max_length=50, blank=True, default="")
     damage_dice_amount = models.PositiveIntegerField(default=1)
     damage_dice_faces = models.PositiveIntegerField(default=10)
     damage_flat_bonus = models.IntegerField(default=0)
@@ -977,7 +977,7 @@ class RangedWeaponStats(models.Model):
     maneuver_attribute_mode = models.CharField(
         max_length=10,
         choices=WEAPON_MANEUVER_ATTRIBUTE_CHOICES,
-        default=WEAPON_MANEUVER_ATTRIBUTE_ST,
+        default=WEAPON_MANEUVER_ATTRIBUTE_NONE,
         help_text="Welcher Attributsmodifikator fuer Fernkampf-Manoever und Waffenwuerfe gilt.",
     )
     range_short = models.PositiveIntegerField(default=0, validators=[MinValueValidator(0)])
@@ -998,12 +998,14 @@ class RangedWeaponStats(models.Model):
     @property
     def damage(self) -> str:
         """Return ranged damage in classic dice notation."""
-        return WeaponStats.format_damage_label(
+        label = WeaponStats.format_damage_label(
             self.damage_dice_amount,
             self.damage_dice_faces,
             self.damage_flat_bonus,
             self.damage_flat_operator,
         )
+        prefix = str(self.damage_label or "").strip()
+        return f"{prefix} {label}".strip()
 
     @property
     def range_label(self) -> str:

@@ -3267,7 +3267,7 @@ def _build_inventory_rows(character: Character) -> list[dict]:
             Q(owner=character, equipped=False)
             | (Q(original_owner_character=character) & ~Q(owner=character))
         )
-        .select_related("item", "original_owner_character", "item__weaponstats", "item__weaponstats__damage_source", "item__rangedweaponstats", "item__rangedweaponstats__damage_source", "item__armorstats", "item__shieldstats")
+        .select_related("item", "original_owner_character", "item__weaponstats", "item__weaponstats__damage_source", "item__rangedweaponstats", "item__armorstats", "item__shieldstats")
         .prefetch_related("item__runes", "runes", "rune_specs__rune", "item_runes__rune", "transfers__recipient", "permission_grants")
     )
     inventory_items.sort(key=lambda entry: ItemEngine(entry).get_name().lower())

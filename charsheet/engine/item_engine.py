@@ -379,6 +379,7 @@ class ItemEngine:
             base_adjusted_bonus,
             base_adjusted_operator,
             self.get_weapon_damage_type(),
+            getattr(stats, "damage_label", ""),
         )
         if not isinstance(stats, WeaponStats):
             if wield_mode == ONE_HANDED:
@@ -424,6 +425,7 @@ class ItemEngine:
             return "-"
         dice_amount, dice_faces, flat_bonus, operator, *rest = damage_data
         damage_type = str(rest[0] if rest else "")
+        damage_label = str(rest[1] if len(rest) > 1 else "").strip()
         if int(dice_faces or 0) == 0:
             lower = int(dice_amount or 0)
             upper = int(flat_bonus or 0)
@@ -437,6 +439,8 @@ class ItemEngine:
                 label = str(upper)
         else:
             label = WeaponStats.format_damage_label(dice_amount, dice_faces, flat_bonus, operator)
+        if damage_label:
+            label = f"{damage_label} {label}"
         return f"{label} {damage_type}".strip()
 
     def get_one_handed_damage_label(self, *, dice_amount_bonus: int = 0) -> str:
@@ -605,6 +609,8 @@ class ItemEngine:
         """Return the effective weapon damage source slug."""
         stats = self._get_offensive_stats()
         if not stats:
+            return ""
+        if isinstance(stats, RangedWeaponStats):
             return ""
         damage_source = self._get_override_value("weapon_damage_source_override", getattr(stats, "damage_source", None))
         return str(getattr(damage_source, "slug", "") or "")
