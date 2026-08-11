@@ -986,7 +986,7 @@ class RangedWeaponStats(models.Model):
     range_strength_multiplier = models.BooleanField(default=False)
     reload_time = models.PositiveIntegerField(default=0, validators=[MinValueValidator(0)])
     shots = models.PositiveIntegerField(null=True, blank=True, validators=[MinValueValidator(0)])
-    minimum_strength = models.PositiveIntegerField(default=1, validators=[MinValueValidator(1)])
+    minimum_strength = models.PositiveIntegerField(null=True, blank=True, validators=[MinValueValidator(1)])
     skills = models.ManyToManyField(
         "Skill",
         blank=True,

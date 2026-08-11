@@ -207,6 +207,8 @@ class ItemEngine:
         """Return the minimum strength needed for this weapon profile."""
         ranged_stats = self._get_ranged_weapon_stats()
         if ranged_stats is not None:
+            if ranged_stats.minimum_strength is None:
+                return None
             return int(ranged_stats.minimum_strength)
         stats = self._get_weapon_stats()
         if not stats:
