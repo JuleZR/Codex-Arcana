@@ -15,6 +15,7 @@ from charsheet.constants import (
     SOURCE_ITEM_RUNE,
     WEAPON_DAMAGE,
     WEAPON_DAMAGE_DICE,
+    WEAPON_MANEUVER_ATTRIBUTE_NONE,
 )
 from charsheet.modifiers.definitions import TargetDomain
 from charsheet.models import CharacterItem, Item, Modifier
@@ -34,8 +35,16 @@ def equipped_weapon_items(engine) -> QuerySet:
             | Q(item__item_type=Item.ItemType.SHIELD, item__shieldstats__isnull=False)
         )
         .select_related("item", "item__weaponstats", "item__weaponstats__damage_source")
+        .select_related("item__rangedweaponstats", "item__rangedweaponstats__damage_source")
         .select_related("item__shieldstats", "item__shieldstats__damage_source")
-        .prefetch_related("item__runes", "runes", "item_runes__rune", "item__weaponstats__skills", "item__shieldstats__skills")
+        .prefetch_related(
+            "item__runes",
+            "runes",
+            "item_runes__rune",
+            "item__weaponstats__skills",
+            "item__rangedweaponstats__skills",
+            "item__shieldstats__skills",
+        )
     )
 
 
@@ -278,6 +287,7 @@ def equipped_weapon_rows(engine) -> list[dict]:
     rows: list[dict] = []
     bel_malus = engine.load_penalty()
     maneuver_modifier = engine.resolve_combat_value("melee_maneuvers")
+    strength = int(engine.attributes().get(ATTR_ST, 0) or 0)
     for character_item in engine.equipped_weapon_items():
         item_engine = ItemEngine(character_item)
         mastery_maneuver_bonus, mastery_damage_bonus = engine.weapon_mastery_bonus_for_item(character_item)
@@ -308,10 +318,29 @@ def equipped_weapon_rows(engine) -> list[dict]:
                     "with_bel_display": f"{(total_maneuver_modifier + bel_malus):+d}" if (total_maneuver_modifier + bel_malus) else "0",
                 }
             )
+        if not maneuver_options:
+            total_maneuver_modifier = common_maneuver_bonus
+            maneuver_options.append(
+                {
+                    "attribute_code": "-",
+                    "attribute_modifier": 0,
+                    "attribute_modifier_display": "0",
+                    "total_modifier": total_maneuver_modifier,
+                    "total_modifier_display": f"{total_maneuver_modifier:+d}" if total_maneuver_modifier else "0",
+                    "with_bel": total_maneuver_modifier + bel_malus,
+                    "with_bel_display": f"{(total_maneuver_modifier + bel_malus):+d}" if (total_maneuver_modifier + bel_malus) else "0",
+                }
+            )
         primary_maneuver_option = maneuver_options[0]
         damage_source_slug = item_engine.get_weapon_damage_source_slug()
         damage_stat_slug = damage_source_slug or item_engine.get_weapon_damage_type()
-        dmg_mod = engine.get_dmg_modifier_sum(damage_stat_slug) if damage_stat_slug else 0
+        damage_attribute_modifier = (
+            0
+            if item_engine.get_weapon_maneuver_attribute_mode() == WEAPON_MANEUVER_ATTRIBUTE_NONE
+            else engine.attribute_modifier(ATTR_ST)
+        )
+        damage_stat_modifier = engine._resolve_stat_modifiers(damage_stat_slug) if damage_stat_slug else 0
+        dmg_mod = damage_stat_modifier + damage_attribute_modifier
         total_damage_modifier = dmg_mod + mastery_damage_bonus + item_specific_damage_modifier
         for profile_index, profile in enumerate(
             item_engine.weapon_profiles(dice_amount_bonus=item_specific_damage_dice_modifier)
@@ -333,6 +362,8 @@ def equipped_weapon_rows(engine) -> list[dict]:
                     ),
                     "base_dmg_mod": dmg_mod,
                     "base_dmg_mod_display": f"{dmg_mod:+d}" if dmg_mod else "0",
+                    "damage_attribute_modifier": damage_attribute_modifier,
+                    "damage_stat_modifier": damage_stat_modifier,
                     "bel_malus": bel_malus,
                     "bel_malus_display": f"{bel_malus:+d}" if bel_malus else "0",
                     "with_bel": total_damage_modifier + bel_malus,
@@ -347,7 +378,7 @@ def equipped_weapon_rows(engine) -> list[dict]:
                     "min_attribute_label": min_attribute_label,
                     "min_attribute_compact": "Ge" in min_attribute_label,
                     "reload_time": item_engine.get_weapon_reload_time(),
-                    "range_label": item_engine.get_weapon_range_label(),
+                    "range_label": item_engine.get_weapon_range_label(strength=strength),
                     "maneuver_attribute_mode": item_engine.get_weapon_maneuver_attribute_mode(),
                     "maneuver_attribute_label": item_engine.get_weapon_maneuver_attribute_label(),
                     "maneuver_attribute_modifier": primary_maneuver_option["attribute_modifier"],

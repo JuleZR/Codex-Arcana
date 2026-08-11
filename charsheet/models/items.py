@@ -21,6 +21,7 @@ from ..constants import (
     WEAPON_MANEUVER_ATTRIBUTE_BOTH,
     WEAPON_MANEUVER_ATTRIBUTE_CHOICES,
     WEAPON_MANEUVER_ATTRIBUTE_GE,
+    WEAPON_MANEUVER_ATTRIBUTE_NONE,
     WEAPON_MANEUVER_ATTRIBUTE_ST,
     WIELD_MODES,
 )
@@ -467,6 +468,8 @@ class ShieldStats(models.Model):
     @property
     def maneuver_attribute_codes(self) -> tuple[str, ...]:
         """Return the attribute codes that contribute to this shield's offensive use."""
+        if self.maneuver_attribute_mode == WEAPON_MANEUVER_ATTRIBUTE_NONE:
+            return ()
         if self.maneuver_attribute_mode == WEAPON_MANEUVER_ATTRIBUTE_GE:
             return (ATTR_GE,)
         if self.maneuver_attribute_mode == WEAPON_MANEUVER_ATTRIBUTE_BOTH:
@@ -853,7 +856,7 @@ class WeaponStats(models.Model):
         values = [self.range_short, self.range_medium, self.range_long]
         if not any(value is not None for value in values):
             return ""
-        return "/".join(str(value) if value is not None else "-" for value in values)
+        return " / ".join(str(value) if value is not None else "-" for value in values)
 
     @property
     def damage(self) -> str:
@@ -868,6 +871,8 @@ class WeaponStats(models.Model):
     @property
     def maneuver_attribute_codes(self) -> tuple[str, ...]:
         """Return the attribute codes that contribute to this weapon's maneuvers."""
+        if self.maneuver_attribute_mode == WEAPON_MANEUVER_ATTRIBUTE_NONE:
+            return ()
         if self.maneuver_attribute_mode == WEAPON_MANEUVER_ATTRIBUTE_GE:
             return (ATTR_GE,)
         if self.maneuver_attribute_mode == WEAPON_MANEUVER_ATTRIBUTE_BOTH:
@@ -944,6 +949,99 @@ class WeaponStats(models.Model):
             return f"{self.item}: DMG {base} ({self.get_damage_type_display()}) / 2H {alt} ({self.get_h2_damage_type_display()})"
 
         return f"{self.item}: DMG {base} ({self.get_damage_type_display()})"
+
+
+class RangedWeaponStats(models.Model):
+    """Ranged-weapon combat data attached to an item."""
+
+    item = models.OneToOneField(Item, on_delete=models.CASCADE)
+    damage_source = models.ForeignKey(DamageSource, on_delete=models.PROTECT)
+    damage_dice_amount = models.PositiveIntegerField(default=1)
+    damage_dice_faces = models.PositiveIntegerField(default=10)
+    damage_flat_bonus = models.IntegerField(default=0)
+    damage_flat_operator = models.CharField(
+        max_length=1,
+        choices=WeaponStats.DamageOperator.choices,
+        default=WeaponStats.DamageOperator.NONE,
+        blank=True,
+    )
+    damage_type = models.CharField(max_length=1, default=DEADLY, choices=DAMAGE_TYPE_CHOICES)
+    weapon_type = models.ForeignKey(
+        "charsheet.WeaponType",
+        on_delete=models.PROTECT,
+        related_name="ranged_weapon_stats",
+        null=True,
+        blank=True,
+        help_text="Regeltechnischer Waffentyp fuer Waffenmeister und aehnliche Effekte.",
+    )
+    maneuver_attribute_mode = models.CharField(
+        max_length=10,
+        choices=WEAPON_MANEUVER_ATTRIBUTE_CHOICES,
+        default=WEAPON_MANEUVER_ATTRIBUTE_ST,
+        help_text="Welcher Attributsmodifikator fuer Fernkampf-Manoever und Waffenwuerfe gilt.",
+    )
+    range_short = models.PositiveIntegerField(default=0, validators=[MinValueValidator(0)])
+    range_medium = models.PositiveIntegerField(default=0, validators=[MinValueValidator(0)])
+    range_long = models.PositiveIntegerField(default=0, validators=[MinValueValidator(0)])
+    range_strength_multiplier = models.BooleanField(default=False)
+    reload_time = models.PositiveIntegerField(default=0, validators=[MinValueValidator(0)])
+    shots = models.PositiveIntegerField(null=True, blank=True, validators=[MinValueValidator(0)])
+    minimum_strength = models.PositiveIntegerField(default=1, validators=[MinValueValidator(1)])
+    skills = models.ManyToManyField(
+        "Skill",
+        blank=True,
+        related_name="ranged_weapon_stats",
+        help_text="Alle Fertigkeiten, mit denen diese Fernkampfwaffe regeltechnisch gefuehrt werden kann.",
+    )
+
+    @property
+    def damage(self) -> str:
+        """Return ranged damage in classic dice notation."""
+        return WeaponStats.format_damage_label(
+            self.damage_dice_amount,
+            self.damage_dice_faces,
+            self.damage_flat_bonus,
+            self.damage_flat_operator,
+        )
+
+    @property
+    def range_label(self) -> str:
+        """Return stored short/medium/long range values."""
+        label = " / ".join(str(value) for value in (self.range_short, self.range_medium, self.range_long))
+        return f"St x {label}" if self.range_strength_multiplier else label
+
+    def effective_range_label(self, strength: int | None = None) -> str:
+        """Return range values after applying the optional strength multiplier."""
+        if not self.range_strength_multiplier:
+            return self.range_label
+        if strength is None:
+            return self.range_label
+        multiplier = max(0, int(strength or 0))
+        return " / ".join(str(int(value or 0) * multiplier) for value in (self.range_short, self.range_medium, self.range_long))
+
+    @property
+    def has_damage_profile(self) -> bool:
+        """Expose the same capability shape used by shield offensive profiles."""
+        return True
+
+    @property
+    def maneuver_attribute_codes(self) -> tuple[str, ...]:
+        """Return the attribute codes that contribute to this ranged weapon's maneuvers."""
+        if self.maneuver_attribute_mode == WEAPON_MANEUVER_ATTRIBUTE_NONE:
+            return ()
+        if self.maneuver_attribute_mode == WEAPON_MANEUVER_ATTRIBUTE_GE:
+            return (ATTR_GE,)
+        if self.maneuver_attribute_mode == WEAPON_MANEUVER_ATTRIBUTE_BOTH:
+            return (ATTR_ST, ATTR_GE)
+        return (ATTR_ST,)
+
+    def clean(self):
+        super().clean()
+        if self.item.item_type not in Item.weapon_item_type_values():
+            raise ValidationError({"item": "Non-weapon items can't have RangedWeaponStats"})
+
+    def __str__(self):
+        return f"{self.item}: Ranged DMG {self.damage} ({self.get_damage_type_display()})"
 
 
 class RaceStartingItem(models.Model):

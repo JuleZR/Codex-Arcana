@@ -1927,7 +1927,6 @@ def _build_item_tooltip_rows(
         shot_count = item_engine.get_weapon_shot_count()
         if shot_count is not None:
             rows.append(("Schussanzahl", shot_count))
-        rows.append(("Waffenwurf", item_engine.get_weapon_maneuver_attribute_label()))
         min_st_1h = item_engine.get_weapon_min_st(ONE_HANDED)
         min_st_2h = item_engine.get_weapon_min_st(TWO_HANDED)
         if min_st_1h is not None and min_st_2h is not None and min_st_1h != min_st_2h:
@@ -1986,10 +1985,8 @@ def _build_weapon_calculation_tooltip(
     extra_load_label: str = "Traglast",
 ) -> str:
     """Return a detailed damage-modifier ledger for one equipped weapon row."""
-    weapon_stats = getattr(row["item"], "weaponstats", None)
-    damage_source = getattr(weapon_stats, "damage_source", None)
-    damage_source_slug = getattr(damage_source, "slug", "") or getattr(weapon_stats, "damage_type", "")
-    strength_mod = engine.attribute_modifier(ATTR_ST)
+    damage_source_slug = ItemEngine(row["character_item"]).get_weapon_damage_source_slug()
+    strength_mod = int(row.get("damage_attribute_modifier", engine.attribute_modifier(ATTR_ST)) or 0)
     mastery_bonus = int(row.get("weapon_mastery_damage_bonus", 0) or 0)
     mastery_source = "Schule: Waffenmeister"
     weapon_master_school_entry = getattr(engine, "_weapon_master_school_entry", None)
@@ -1997,18 +1994,22 @@ def _build_weapon_calculation_tooltip(
         mastery_source = weapon_master_school_entry.school.name
     damage_modifier_rows = _build_modifier_breakdown_rows(engine, damage_source_slug) if damage_source_slug else []
     item_damage_rows = _build_character_item_stat_modifier_rows(engine, row["character_item"], WEAPON_DAMAGE)
-    rows = [
-        {"label": "ST-Bonus/Malus", "value": format_modifier(strength_mod), "source": "ST"},
-        *damage_modifier_rows,
-        {
+    rows = []
+    if str(row.get("maneuver_attribute_mode") or "") != "none":
+        rows.append({"label": "ST-Bonus/Malus", "value": format_modifier(strength_mod), "source": "ST"})
+    rows.extend(damage_modifier_rows)
+    rows.extend(
+        [
+            {
             "label": "Waffenmeister",
             "value": format_modifier(mastery_bonus),
             "source": mastery_source,
             "tone": "modifier" if mastery_bonus else "",
-        },
-        *item_damage_rows,
-        {"label": "Belastung", "value": row["bel_malus_display"]},
-    ]
+            },
+            *item_damage_rows,
+            {"label": "Belastung", "value": row["bel_malus_display"]},
+        ]
+    )
     if extra_load_penalty:
         rows.append({"label": extra_load_label, "value": format_modifier(extra_load_penalty)})
     total_value = int(row.get("with_bel_value", 0) or 0) + int(extra_load_penalty or 0)
@@ -2848,9 +2849,11 @@ def _build_skill_rows(
             if not weapon_row.get("is_primary_profile", False):
                 continue
             weapon_stats = getattr(weapon_row["item"], "weaponstats", None)
-            if weapon_stats is None:
+            ranged_stats = getattr(weapon_row["item"], "rangedweaponstats", None)
+            offensive_stats = ranged_stats or weapon_stats
+            if offensive_stats is None:
                 continue
-            linked_skill_ids = {entry.id for entry in weapon_stats.skills.all()}
+            linked_skill_ids = {entry.id for entry in offensive_stats.skills.all()}
             if skill_id not in linked_skill_ids:
                 continue
             maneuver_breakdown_rows = _build_weapon_maneuver_breakdown_rows(engine, weapon_row)
@@ -2863,6 +2866,7 @@ def _build_skill_rows(
                         "skill_id": skill_id,
                         "name": base_row["name"],
                         "display_name": f"mit {weapon_row['item_name']} ({option['attribute_code']})",
+                        "weapon_base_name": weapon_row["item_name"],
                         "description": f"Manöverbonus mit {weapon_row['item_name']} über {option['attribute_code']}",
                         "weapon_attribute_code": option["attribute_code"],
                         "attribute": base_row["attribute"],
@@ -3115,11 +3119,13 @@ def _build_skill_rows(
         if not weapon_row.get("is_primary_profile", False):
             continue
         weapon_stats = getattr(weapon_row["item"], "weaponstats", None)
-        if weapon_stats is None:
+        ranged_stats = getattr(weapon_row["item"], "rangedweaponstats", None)
+        offensive_stats = ranged_stats or weapon_stats
+        if offensive_stats is None:
             continue
         if not any(int(option.get("total_modifier") or 0) != 0 for option in (weapon_row.get("maneuver_options") or [])):
             continue
-        for skill in weapon_stats.skills.all():
+        for skill in offensive_stats.skills.all():
             weapon_skill_ids_with_bonus.add(skill.id)
     if any(int(row.get("parade_bonus") or 0) != 0 for row in equipped_shield_rows):
         for skill in skills_by_id.values():
@@ -3261,7 +3267,7 @@ def _build_inventory_rows(character: Character) -> list[dict]:
             Q(owner=character, equipped=False)
             | (Q(original_owner_character=character) & ~Q(owner=character))
         )
-        .select_related("item", "original_owner_character", "item__weaponstats", "item__weaponstats__damage_source", "item__armorstats", "item__shieldstats")
+        .select_related("item", "original_owner_character", "item__weaponstats", "item__weaponstats__damage_source", "item__rangedweaponstats", "item__rangedweaponstats__damage_source", "item__armorstats", "item__shieldstats")
         .prefetch_related("item__runes", "runes", "rune_specs__rune", "item_runes__rune", "transfers__recipient", "permission_grants")
     )
     inventory_items.sort(key=lambda entry: ItemEngine(entry).get_name().lower())

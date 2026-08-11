@@ -172,6 +172,7 @@ from .models import (
     RaceAttributeLimit,
     RaceChoiceDefinition,
     RaceStartingItem,
+    RangedWeaponStats,
     RaceTechnique,
     School,
     SchoolPath,
@@ -207,6 +208,8 @@ ShieldStats._meta.verbose_name = "Shield Stats"
 ShieldStats._meta.verbose_name_plural = "Shield Stats"
 WeaponStats._meta.verbose_name = "Weapon Stats"
 WeaponStats._meta.verbose_name_plural = "Weapon Stats"
+RangedWeaponStats._meta.verbose_name = "Ranged Weapon Stats"
+RangedWeaponStats._meta.verbose_name_plural = "Ranged Weapon Stats"
 
 
 def _copied_unique_text_value(model, field, original_value):
@@ -382,10 +385,11 @@ ADMIN_MODEL_ORDER = {
     "ArmorStats": 101,
     "ShieldStats": 102,
     "WeaponStats": 103,
-    "MagicItemStats": 104,
-    "DamageSource": 105,
-    "WeaponFlag": 106,
-    "Rune": 107,
+    "RangedWeaponStats": 104,
+    "MagicItemStats": 105,
+    "DamageSource": 106,
+    "WeaponFlag": 107,
+    "Rune": 108,
     "Aspect": 120,
     "Spell": 121,
     "DivineEntity": 122,
@@ -447,10 +451,11 @@ ADMIN_MODEL_SECTIONS = {
     "ArmorStats": (101, "Items und Kampf"),
     "ShieldStats": (102, "Items und Kampf"),
     "WeaponStats": (103, "Items und Kampf"),
-    "MagicItemStats": (104, "Items und Kampf"),
-    "DamageSource": (105, "Items und Kampf"),
-    "WeaponFlag": (106, "Items und Kampf"),
-    "Rune": (107, "Items und Kampf"),
+    "RangedWeaponStats": (104, "Items und Kampf"),
+    "MagicItemStats": (105, "Items und Kampf"),
+    "DamageSource": (106, "Items und Kampf"),
+    "WeaponFlag": (107, "Items und Kampf"),
+    "Rune": (108, "Items und Kampf"),
     "Aspect": (120, "Magie und Goettliches"),
     "Spell": (121, "Magie und Goettliches"),
     "DivineEntity": (122, "Magie und Goettliches"),
@@ -496,6 +501,7 @@ ADMIN_SECONDARY_MODELS = {
     "ArmorStats",
     "ShieldStats",
     "WeaponStats",
+    "RangedWeaponStats",
     "MagicItemStats",
     "DivineEntityAspect",
     "DruidCultAspect",
@@ -2000,6 +2006,31 @@ class WeaponStatsInline(admin.StackedInline):
     class Media:
         css = {"all": ("charsheet/css/weapon_stats_admin_v2.css",)}
         js = ("charsheet/js/weapon_stats_inline_admin.js",)
+
+
+class RangedWeaponStatsInline(admin.StackedInline):
+    """Inline editor for optional one-to-one ranged weapon stats on an item."""
+
+    model = RangedWeaponStats
+    verbose_name_plural = "Ranged Weapon Stats"
+    extra = 0
+    max_num = 1
+    can_delete = True
+    autocomplete_fields = ("damage_source", "weapon_type")
+    filter_horizontal = ("skills",)
+    fields = (
+        "minimum_strength",
+        "weapon_type",
+        "maneuver_attribute_mode",
+        "damage_source",
+        "skills",
+        ("damage_dice_amount", "damage_dice_faces", "damage_flat_operator", "damage_flat_bonus", "damage_type"),
+        ("range_short", "range_medium", "range_long", "range_strength_multiplier"),
+        ("reload_time", "shots"),
+    )
+
+    class Media:
+        css = {"all": ("charsheet/css/weapon_stats_admin_v2.css",)}
 
 
 class MagicItemStatsInline(admin.StackedInline):
@@ -4731,6 +4762,7 @@ class ItemAdmin(admin.ModelAdmin):
         ArmorStatsInline,
         ShieldStatsInline,
         WeaponStatsInline,
+        RangedWeaponStatsInline,
         MagicItemStatsInline,
         ItemSemanticEffectInline,
         ModifierInline,
@@ -4747,6 +4779,19 @@ class ItemAdmin(admin.ModelAdmin):
     def quality_preview(self, obj):
         """Render default quality with RPG item coloring."""
         return _quality_badge(obj.default_quality)
+
+    def get_inline_instances(self, request, obj=None):
+        """Keep optional ranged stats from requiring management form data on legacy posts."""
+        inline_instances = super().get_inline_instances(request, obj)
+        if request.method != "POST":
+            return inline_instances
+        if "rangedweaponstats-TOTAL_FORMS" in request.POST:
+            return inline_instances
+        return [
+            inline
+            for inline in inline_instances
+            if not isinstance(inline, RangedWeaponStatsInline)
+        ]
 
     def save_related(self, request, form, formsets, change):
         """Resynchronize generated armor pieces after item fields and runes changed."""
@@ -6150,6 +6195,52 @@ class WeaponStatsAdmin(admin.ModelAdmin):
     def range_summary(self, obj):
         """Render short/medium/long range values."""
         return obj.range_label or "-"
+
+
+@admin.register(RangedWeaponStats)
+class RangedWeaponStatsAdmin(admin.ModelAdmin):
+    """Admin configuration for ranged weapon stat records."""
+
+    list_display = (
+        "item",
+        "damage",
+        "range_summary",
+        "reload_time",
+        "shots",
+        "minimum_strength",
+        "weapon_type",
+        "maneuver_attribute_mode",
+        "damage_source",
+        "skill_summary",
+        "damage_type",
+    )
+    search_fields = ("item__name", "weapon_type__name", "weapon_type__slug", "damage_source__name", "skills__name", "skills__slug")
+    list_filter = ("weapon_type", "maneuver_attribute_mode", "damage_source", "damage_type", "range_strength_multiplier", "item__default_quality")
+    ordering = ("item__name",)
+    autocomplete_fields = ("item", "weapon_type", "damage_source")
+    list_select_related = ("item", "weapon_type", "damage_source")
+    filter_horizontal = ("skills",)
+    fields = (
+        "item",
+        "minimum_strength",
+        "weapon_type",
+        "maneuver_attribute_mode",
+        "damage_source",
+        "skills",
+        ("damage_dice_amount", "damage_dice_faces", "damage_flat_operator", "damage_flat_bonus", "damage_type"),
+        ("range_short", "range_medium", "range_long", "range_strength_multiplier"),
+        ("reload_time", "shots"),
+    )
+
+    @admin.display(description="Range")
+    def range_summary(self, obj):
+        """Render short/medium/long range values."""
+        return obj.range_label or "-"
+
+    @admin.display(description="Skills")
+    def skill_summary(self, obj):
+        """Render assigned ranged weapon skills compactly for list display."""
+        return ", ".join(obj.skills.order_by("name").values_list("name", flat=True)) or "-"
 
 
 @admin.register(WeaponType)
@@ -8484,6 +8575,7 @@ _install_inline_help(TechniqueChoiceDefinitionInline, help_texts=TECHNIQUE_CHOIC
 _install_inline_help(RaceChoiceDefinitionInline, help_texts=RACE_CHOICE_DEFINITION_HELP, labels=RACE_CHOICE_DEFINITION_LABELS)
 _install_inline_help(SpecializationInline, help_texts=SPECIALIZATION_CHOICE_HELP, labels=SPECIALIZATION_LABELS)
 _install_inline_help(WeaponStatsInline, help_texts=WEAPON_CHOICE_HELP)
+_install_inline_help(RangedWeaponStatsInline, help_texts=WEAPON_CHOICE_HELP)
 _install_inline_help(ShieldStatsInline, help_texts=SHIELD_CHOICE_HELP)
 
 _install_admin_help(AttributeAdmin, help_texts=ATTRIBUTE_CHOICE_HELP)
@@ -8505,6 +8597,7 @@ _install_admin_help(RaceChoiceDefinitionAdmin, help_texts=RACE_CHOICE_DEFINITION
 _install_admin_help(SpecializationAdmin, help_texts=SPECIALIZATION_CHOICE_HELP, labels=SPECIALIZATION_LABELS)
 _install_admin_help(ItemAdmin, help_texts=ITEM_CHOICE_HELP)
 _install_admin_help(WeaponStatsAdmin, help_texts=WEAPON_CHOICE_HELP)
+_install_admin_help(RangedWeaponStatsAdmin, help_texts=WEAPON_CHOICE_HELP)
 _install_admin_help(ShieldStatsAdmin, help_texts=SHIELD_CHOICE_HELP)
 _install_admin_help(TraitAdmin, help_texts=TRAIT_CHOICE_HELP)
 

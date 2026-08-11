@@ -20,10 +20,11 @@ from charsheet.constants import (
     VERSATILE,
     WEAPON_MANEUVER_ATTRIBUTE_BOTH,
     WEAPON_MANEUVER_ATTRIBUTE_GE,
+    WEAPON_MANEUVER_ATTRIBUTE_NONE,
     WEAPON_MANEUVER_ATTRIBUTE_ST,
     WEAPON_SYMBOL_DESCRIPTIONS,
 )
-from charsheet.models import ArmorStats, CharacterItem, Item, Quality, ShieldStats, WeaponStats
+from charsheet.models import ArmorStats, CharacterItem, Item, Quality, RangedWeaponStats, ShieldStats, WeaponStats
 
 
 WEAPON_DAMAGE_QUALITY_BONUSES = {
@@ -126,10 +127,16 @@ class ItemEngine:
     def _get_weapon_stats(self) -> WeaponStats | None:
         return getattr(self._get_item(), "weaponstats", None)
 
+    def _get_ranged_weapon_stats(self) -> RangedWeaponStats | None:
+        return getattr(self._get_item(), "rangedweaponstats", None)
+
     def _get_armor_stats(self) -> ArmorStats | None:
         return getattr(self._get_item(), "armorstats", None)
 
-    def _get_offensive_stats(self) -> WeaponStats | ShieldStats | None:
+    def _get_offensive_stats(self) -> WeaponStats | RangedWeaponStats | ShieldStats | None:
+        ranged_stats = self._get_ranged_weapon_stats()
+        if ranged_stats is not None:
+            return ranged_stats
         weapon_stats = self._get_weapon_stats()
         if weapon_stats is not None:
             return weapon_stats
@@ -198,6 +205,9 @@ class ItemEngine:
 
     def get_weapon_min_st(self, wield_mode: str | None = None) -> int | None:
         """Return the minimum strength needed for this weapon profile."""
+        ranged_stats = self._get_ranged_weapon_stats()
+        if ranged_stats is not None:
+            return int(ranged_stats.minimum_strength)
         stats = self._get_weapon_stats()
         if not stats:
             shield_stats = self._get_shield_stats()
@@ -213,6 +223,8 @@ class ItemEngine:
 
     def get_weapon_min_ge(self, wield_mode: str | None = None) -> int | None:
         """Return the optional minimum agility needed for this weapon profile."""
+        if self._get_ranged_weapon_stats() is not None:
+            return None
         stats = self._get_weapon_stats()
         if not stats:
             return None
@@ -228,8 +240,11 @@ class ItemEngine:
             return f"Ge {min_ge}"
         return f"{min_st} (Ge {min_ge})"
 
-    def get_weapon_range_label(self) -> str:
+    def get_weapon_range_label(self, *, strength: int | None = None) -> str:
         """Return the compact short/medium/long weapon range label."""
+        ranged_stats = self._get_ranged_weapon_stats()
+        if ranged_stats is not None:
+            return ranged_stats.effective_range_label(strength)
         stats = self._get_weapon_stats()
         if not stats:
             return ""
@@ -237,6 +252,9 @@ class ItemEngine:
 
     def get_weapon_reload_time(self) -> int | None:
         """Return the weapon reload time if configured."""
+        ranged_stats = self._get_ranged_weapon_stats()
+        if ranged_stats is not None:
+            return ranged_stats.reload_time
         stats = self._get_weapon_stats()
         if not stats:
             return None
@@ -244,6 +262,9 @@ class ItemEngine:
 
     def get_weapon_shot_count(self) -> int | None:
         """Return the weapon shot count if configured."""
+        ranged_stats = self._get_ranged_weapon_stats()
+        if ranged_stats is not None:
+            return ranged_stats.shots
         stats = self._get_weapon_stats()
         if not stats:
             return None
@@ -273,6 +294,8 @@ class ItemEngine:
     def get_weapon_maneuver_attribute_codes(self) -> tuple[str, ...]:
         """Return the attribute codes that add to this weapon's maneuvers."""
         mode = self.get_weapon_maneuver_attribute_mode()
+        if mode == WEAPON_MANEUVER_ATTRIBUTE_NONE:
+            return ()
         if mode == WEAPON_MANEUVER_ATTRIBUTE_GE:
             return (ATTR_GE,)
         if mode == WEAPON_MANEUVER_ATTRIBUTE_BOTH:
@@ -282,6 +305,7 @@ class ItemEngine:
     def get_weapon_maneuver_attribute_label(self) -> str:
         """Return the short label for the active maneuver attribute mode."""
         labels = {
+            WEAPON_MANEUVER_ATTRIBUTE_NONE: "-",
             WEAPON_MANEUVER_ATTRIBUTE_ST: "ST",
             WEAPON_MANEUVER_ATTRIBUTE_GE: "GE",
             WEAPON_MANEUVER_ATTRIBUTE_BOTH: "ST oder GE",
@@ -290,6 +314,8 @@ class ItemEngine:
 
     def get_weapon_wield_mode(self) -> str | None:
         """Return the configured wield mode code."""
+        if self._get_ranged_weapon_stats() is not None:
+            return ONE_HANDED
         stats = self._get_weapon_stats()
         if not stats:
             shield_stats = self._get_shield_stats()

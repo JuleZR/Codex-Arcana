@@ -218,6 +218,9 @@ WEAPON_CHOICE_HELP = {
     "range_long": "Optional long weapon range.",
     "reload_time": "Optional reload time. Use 0 for weapons with no reload delay.",
     "shot_count": "Optional shot count. Shown only on item cards.",
+    "range_strength_multiplier": "If enabled, short/medium/long range values are multiplied by Strength on the character sheet.",
+    "shots": "Optional shot count. Leave empty when no shot value is specified.",
+    "minimum_strength": "Minimum strength required to use this ranged weapon.",
     "flags": "Optional weapon symbols or traits such as rulebook keywords.",
 }
 

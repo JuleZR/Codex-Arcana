@@ -313,12 +313,10 @@ class BattleCalculatorEngine:
     @classmethod
     def _build_weapon_damage_modifiers(cls, engine, row: dict[str, object]) -> list[dict[str, str]]:
         entries: list[dict[str, str]] = []
-        strength_mod = cls._safe_int(engine.attribute_modifier(ATTR_ST))
-        if strength_mod:
+        strength_mod = cls._safe_int(row.get("damage_attribute_modifier"), cls._safe_int(engine.attribute_modifier(ATTR_ST)))
+        if strength_mod and str(row.get("maneuver_attribute_mode") or "") != "none":
             entries.append(cls._modifier_entry("Stärke", cls._format_modifier(strength_mod), source="ST"))
-        weapon_stats = getattr(row["item"], "weaponstats", None)
-        damage_source = getattr(weapon_stats, "damage_source", None)
-        damage_source_slug = getattr(damage_source, "slug", "") or getattr(weapon_stats, "damage_type", "")
+        damage_source_slug = ItemEngine(row["character_item"]).get_weapon_damage_source_slug()
         if damage_source_slug:
             entries.extend(cls._build_modifier_breakdown_rows(engine, damage_source_slug))
         mastery_bonus = cls._safe_int(row.get("weapon_mastery_damage_bonus"))
@@ -485,7 +483,7 @@ class BattleCalculatorEngine:
             )
             if not damage_tuple:
                 continue
-            weapon_stats = getattr(item, "weaponstats", None)
+            weapon_stats = getattr(item, "rangedweaponstats", None) or getattr(item, "weaponstats", None)
             skill_ids = []
             if weapon_stats is not None:
                 skill_ids = [skill.id for skill in weapon_stats.skills.all()]
@@ -526,7 +524,15 @@ class BattleCalculatorEngine:
             for entry in attack_options
             if str(entry.get("category") or "") == "Waffenkontext"
         }
-        seen_base_weapon_pairs: set[tuple[int, str]] = set()
+        seen_base_weapon_pairs: set[tuple[int, str]] = {
+            (
+                cls._safe_int(row.get("skill_id")),
+                str(row.get("weapon_base_name") or "").strip().casefold(),
+            )
+            for row in skill_rows
+            if str(row.get("row_kind") or "") == "weapon_context"
+            and str(row.get("weapon_base_name") or "").strip()
+        }
         for weapon in weapon_options:
             weapon_name = str(weapon.get("base_name") or "").strip()
             if not weapon_name:

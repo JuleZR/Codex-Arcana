@@ -4922,7 +4922,7 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
 
 .weapons_table th:nth-child(4),
 .weapons_table td:nth-child(4) {
-  width: 7%;
+  width: 6%;
 }
 
 .weapons_table td.weapon_min_col {
@@ -4957,12 +4957,22 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
 }
 
 .weapons_table th:nth-child(6),
-.weapons_table td:nth-child(6),
-.weapons_table th:nth-child(7),
-.weapons_table td:nth-child(7) {
-  width: 50px;
+.weapons_table td:nth-child(6) {
+  width: 35px;
   padding-left: 1px;
   padding-right: 1px;
+}
+
+.weapons_table th:nth-child(7),
+.weapons_table td:nth-child(7) {
+  width: 71px;
+  padding-left: 1px;
+  padding-right: 1px;
+}
+
+.weapons_table td.weapon_range_col {
+  white-space: nowrap;
+  font-size: 0.66rem;
 }
 
 .weapons_table th:nth-child(8),

@@ -7,9 +7,9 @@
           <th></th>
           <th>Scha&shy;den</th>
           <th>GK</th>
-          <th>Min.</th>
+          <th>MS</th>
           <th></th>
-          <th>Nach-<br>ladez.</th>
+          <th>Lade.</th>
           <th>Reich-<br>weite</th>
           <th>Fer&shy;tig&shy;keit</th>
           <th>mit Bel.</th>
@@ -61,8 +61,8 @@
               <span class="weapon_min_value">{{ row.min_attribute_label|default:row.min_st|default:"-" }}</span>
             </td>
             <td class="weapon_mode_col">{{ row.mode_label }}</td>
-            <td>{{ row.reload_time|default_if_none:"-" }}</td>
-            <td>{{ row.range_label|default:"-" }}</td>
+            <td class="weapon_reload_col">{{ row.reload_time|default_if_none:"-" }}</td>
+            <td class="weapon_range_col">{{ row.range_label|default:"-" }}</td>
             <td title="Schadensmodifikator: {{ row.dmg_mod_display|default:'0' }}">{{ row.dmg_mod_display|default:"-" }}</td>
             <td>
               <span
