@@ -15,7 +15,7 @@
 </p>
 
 <p align="center">
-  <a href="https://discord.gg/YOUR_DISCORD_INVITE">
+  <a href="https://discord.gg/mRKwGSsPEG">
     <img src="https://img.shields.io/badge/Discord-Community%20beitreten-5865F2?logo=discord&logoColor=white" alt="Discord">
   </a>
   <img src="https://img.shields.io/badge/Status-Early%20Alpha-orange" alt="Early Alpha">
@@ -406,7 +406,7 @@ Du möchtest die Entwicklung verfolgen, über neue Funktionen diskutieren, einen
 Dann komm auf den Discord:
 
 <p align="center">
-  <a href="https://discord.gg/YOUR_DISCORD_INVITE">
+  <a href="https://discord.gg/mRKwGSsPEG">
     <strong>⚔ Dem Codex-Arcana-Discord beitreten ⚔</strong>
   </a>
 </p>

@@ -15,7 +15,7 @@
 </p>
 
 <p align="center">
-  <a href="https://discord.gg/YOUR_DISCORD_INVITE">
+  <a href="https://discord.gg/mRKwGSsPEG">
     <img src="https://img.shields.io/badge/Discord-Join%20the%20Community-5865F2?logo=discord&logoColor=white" alt="Discord">
   </a>
   <img src="https://img.shields.io/badge/Status-Early%20Alpha-orange" alt="Early Alpha">
@@ -394,7 +394,7 @@ Want to follow development, discuss features, report something bizarre, suggest 
 Join the Discord:
 
 <p align="center">
-  <a href="https://discord.gg/YOUR_DISCORD_INVITE">
+  <a href="https://discord.gg/mRKwGSsPEG">
     <strong>⚔ Join the Codex Arcana Discord ⚔</strong>
   </a>
 </p>
