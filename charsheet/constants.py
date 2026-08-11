@@ -388,6 +388,7 @@ def infer_weapon_type(name: str) -> str:
 
 # Weapon Symbols
 MOUNTED_TWO_HANDED = "mounted_two_handed"
+MOUNTED_TWO_HANDED_PENALTY = "mounted_two_handed_penalty"
 FIRST_ROUND_INIT = "first_round_init"
 CHAIN_FUMBLE = "chain_fumble"
 REQUIRES_DEX = "requires_dex"
@@ -400,7 +401,8 @@ PARRY_BONUS = "parry_bonus"
 UNARMED_DAMAGE = "unarmed_damage"
 
 WEAPON_SYMBOL_CHOICES = (
-    (MOUNTED_TWO_HANDED, "(ZH)"),
+    (MOUNTED_TWO_HANDED, "--"),
+    (MOUNTED_TWO_HANDED_PENALTY, "(ZH)"),
     (FIRST_ROUND_INIT, "I"),
     (CHAIN_FUMBLE, "$"),
     (REQUIRES_DEX, "(Ge)"),
@@ -415,6 +417,7 @@ WEAPON_SYMBOL_CHOICES = (
 
 WEAPON_SYMBOL_DESCRIPTIONS = {
     MOUNTED_TWO_HANDED: "Obwohl sie zweihändig geführt wird, kann diese Waffe selbst vom galoppierenden Reittier aus eingesetzt werden.",
+    MOUNTED_TWO_HANDED_PENALTY: "Zweihändig geführte Waffe, die daher nicht für den Gebrauch vom Reittier aus gedacht ist. Malus von -5, wenn sie dennoch zweihändig vom Pferd aus geführt wird.",
     FIRST_ROUND_INIT: "In der ersten Runde eines Kampfes verleiht diese Waffe dem Anwender einen Initiativebonus von +6.",
     CHAIN_FUMBLE: "Mit Kettenwaffen verlaufen Kritische Fehlschläge besonders unangenehm: Der Charakter erhält den vollen Schaden selbst und bei ausreichender Länge der Kette wickelt diese sich um ihn. Es dauert zwei Aktionen, sich zu befreien.",
     REQUIRES_DEX: "Zur erfolgreichen Anwendung dieser Waffe wird der angegebene Wert in Geschick benötigt.",
