@@ -1898,6 +1898,7 @@ def _build_item_tooltip_rows(
     item_engine: ItemEngine,
     item: Item,
     *,
+    strength: int | None = None,
     armor_rs: int | None = None,
     armor_encumbrance: int | None = None,
     shield_encumbrance: int | None = None,
@@ -1918,8 +1919,11 @@ def _build_item_tooltip_rows(
         two_handed_damage = item_engine.get_two_handed_damage_label()
         if two_handed_damage:
             rows.append(("2H Schaden", two_handed_damage))
-        range_label = item_engine.get_weapon_range_label()
+        base_range_label = item_engine.get_weapon_range_label()
+        range_label = item_engine.get_weapon_range_label(strength=strength)
         if range_label:
+            if strength is not None and base_range_label and base_range_label != range_label:
+                range_label = f"{range_label} [[SUB:Grundlage: {base_range_label}]]"
             rows.append(("Reichweite", range_label))
         reload_time = item_engine.get_weapon_reload_time()
         if reload_time is not None:
@@ -3261,6 +3265,7 @@ def _build_inventory_rows(character: Character) -> list[dict]:
     """Build prepared inventory rows for the unequipped inventory list."""
     inventory_rows: list[dict] = []
     race_item_ids = _race_item_ids()
+    strength = int(character.get_engine().attributes().get(ATTR_ST, 0) or 0)
     inventory_items = list(
         CharacterItem.objects
         .filter(
@@ -3315,7 +3320,7 @@ def _build_inventory_rows(character: Character) -> list[dict]:
                 quality_label=quality["label"],
                 quality_color=quality["color"],
                 detail_rows=(
-                    _build_item_tooltip_rows(item_engine, item)
+                    _build_item_tooltip_rows(item_engine, item, strength=strength)
                     + _build_weapon_symbol_tooltip_rows(item_engine)
                     + _build_character_item_magic_tooltip_rows(
                         effect_summary=visible_magic_effect_summary,
@@ -3328,7 +3333,7 @@ def _build_inventory_rows(character: Character) -> list[dict]:
             tooltip_text = _format_item_tooltip(
                 description=item_description,
                 detail_rows=(
-                    _build_item_tooltip_rows(item_engine, item)
+                    _build_item_tooltip_rows(item_engine, item, strength=strength)
                     + _build_weapon_symbol_tooltip_rows(item_engine)
                     + _build_character_item_magic_tooltip_rows(
                         effect_summary=visible_magic_effect_summary,
@@ -3551,7 +3556,11 @@ def _build_weapon_rows(engine) -> list[dict]:
                     quality_label="" if is_race_item else quality["label"],
                     quality_color="" if is_race_item else quality["color"],
                     detail_rows=(
-                        _build_item_tooltip_rows(ItemEngine(row["character_item"]), row["item"])
+                        _build_item_tooltip_rows(
+                            ItemEngine(row["character_item"]),
+                            row["item"],
+                            strength=int(engine.attributes().get(ATTR_ST, 0) or 0),
+                        )
                         + _build_weapon_symbol_tooltip_rows(ItemEngine(row["character_item"]))
                         + _build_character_item_magic_tooltip_rows(
                             effect_summary=row["character_item"].magic_effect_summary or "",
