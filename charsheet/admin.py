@@ -2017,7 +2017,7 @@ class RangedWeaponStatsInline(admin.StackedInline):
     max_num = 1
     can_delete = True
     autocomplete_fields = ("damage_source", "weapon_type")
-    filter_horizontal = ("skills",)
+    filter_horizontal = ("flags", "skills")
     fields = (
         "minimum_strength",
         "weapon_type",
@@ -2027,6 +2027,7 @@ class RangedWeaponStatsInline(admin.StackedInline):
         ("damage_dice_amount", "damage_dice_faces", "damage_flat_operator", "damage_flat_bonus", "damage_type"),
         ("range_short", "range_medium", "range_long", "range_strength_multiplier"),
         ("reload_time", "shots"),
+        "flags",
     )
 
     class Media:
@@ -6212,14 +6213,15 @@ class RangedWeaponStatsAdmin(admin.ModelAdmin):
         "maneuver_attribute_mode",
         "damage_source",
         "skill_summary",
+        "flag_summary",
         "damage_type",
     )
-    search_fields = ("item__name", "weapon_type__name", "weapon_type__slug", "damage_source__name", "skills__name", "skills__slug")
-    list_filter = ("weapon_type", "maneuver_attribute_mode", "damage_source", "damage_type", "range_strength_multiplier", "item__default_quality")
+    search_fields = ("item__name", "weapon_type__name", "weapon_type__slug", "damage_source__name", "flags__key", "skills__name", "skills__slug")
+    list_filter = ("weapon_type", "maneuver_attribute_mode", "damage_source", "damage_type", "flags", "range_strength_multiplier", "item__default_quality")
     ordering = ("item__name",)
     autocomplete_fields = ("item", "weapon_type", "damage_source")
     list_select_related = ("item", "weapon_type", "damage_source")
-    filter_horizontal = ("skills",)
+    filter_horizontal = ("flags", "skills")
     fields = (
         "item",
         "minimum_strength",
@@ -6230,6 +6232,7 @@ class RangedWeaponStatsAdmin(admin.ModelAdmin):
         ("damage_dice_amount", "damage_dice_faces", "damage_flat_operator", "damage_flat_bonus", "damage_type"),
         ("range_short", "range_medium", "range_long", "range_strength_multiplier"),
         ("reload_time", "shots"),
+        "flags",
     )
 
     @admin.display(description="Range")
@@ -6241,6 +6244,11 @@ class RangedWeaponStatsAdmin(admin.ModelAdmin):
     def skill_summary(self, obj):
         """Render assigned ranged weapon skills compactly for list display."""
         return ", ".join(obj.skills.order_by("name").values_list("name", flat=True)) or "-"
+
+    @admin.display(description="Flags")
+    def flag_summary(self, obj):
+        """Render assigned ranged weapon flags compactly for list display."""
+        return ", ".join(obj.flags.order_by("key").values_list("key", flat=True)) or "-"
 
 
 @admin.register(WeaponType)

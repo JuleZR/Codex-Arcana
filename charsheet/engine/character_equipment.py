@@ -42,7 +42,9 @@ def equipped_weapon_items(engine) -> QuerySet:
             "runes",
             "item_runes__rune",
             "item__weaponstats__skills",
+            "item__weaponstats__flags",
             "item__rangedweaponstats__skills",
+            "item__rangedweaponstats__flags",
             "item__shieldstats__skills",
         )
     )

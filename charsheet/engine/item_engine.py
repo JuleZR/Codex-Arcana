@@ -624,21 +624,21 @@ class ItemEngine:
         return str(self._get_override_value("weapon_h2_damage_type_override", stats.h2_damage_type) or "")
 
     def get_weapon_flags(self) -> set[str]:
-        stats = self._get_weapon_stats()
-        if not stats:
+        stats = self._get_offensive_stats()
+        if not stats or not hasattr(stats, "flags"):
             return set()
         return {flag.key for flag in stats.flags.all()}
 
     def get_weapon_effect_descriptions(self) -> list[str]:
         """Return German effect texts for the weapon's symbols."""
-        stats = self._get_weapon_stats()
-        if not stats:
+        stats = self._get_offensive_stats()
+        if not stats or not hasattr(stats, "flags"):
             return []
         effects = []
         for flag in stats.flags.all():
             description = WEAPON_SYMBOL_DESCRIPTIONS.get(flag.key, "")
             if description:
-                effects.append(description)
+                effects.append(f"{flag.get_key_display()} {description}")
         return effects
 
     @classmethod

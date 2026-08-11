@@ -400,7 +400,7 @@ PARRY_BONUS = "parry_bonus"
 UNARMED_DAMAGE = "unarmed_damage"
 
 WEAPON_SYMBOL_CHOICES = (
-    (MOUNTED_TWO_HANDED, "--"),
+    (MOUNTED_TWO_HANDED, "(ZH)"),
     (FIRST_ROUND_INIT, "I"),
     (CHAIN_FUMBLE, "$"),
     (REQUIRES_DEX, "(Ge)"),

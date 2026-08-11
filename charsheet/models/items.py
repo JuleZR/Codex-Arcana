@@ -993,6 +993,7 @@ class RangedWeaponStats(models.Model):
         related_name="ranged_weapon_stats",
         help_text="Alle Fertigkeiten, mit denen diese Fernkampfwaffe regeltechnisch gefuehrt werden kann.",
     )
+    flags = models.ManyToManyField(WeaponFlag, blank=True)
 
     @property
     def damage(self) -> str:
