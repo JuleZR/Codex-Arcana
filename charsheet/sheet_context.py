@@ -1923,7 +1923,7 @@ def _build_item_tooltip_rows(
         range_label = item_engine.get_weapon_range_label(strength=strength)
         if range_label:
             if strength is not None and base_range_label and base_range_label != range_label:
-                range_label = f"{range_label} [[SUB:Grundlage: {base_range_label}]]"
+                range_label = f"{range_label} [[SUB:{base_range_label}]]"
             rows.append(("Reichweite", range_label))
         reload_time = item_engine.get_weapon_reload_time()
         if reload_time is not None:
