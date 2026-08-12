@@ -4862,6 +4862,7 @@ class CharacterItemAdmin(admin.ModelAdmin):
         "item_type",
         "quality_preview",
         "amount",
+        "invested_cp",
         "equipped",
         "base_price",
         "effective_price",

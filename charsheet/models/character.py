@@ -358,6 +358,11 @@ class CharacterItem(models.Model):
     image_override = models.ImageField(upload_to="character_items/", blank=True, null=True)
     is_magic = models.BooleanField(default=False)
     magic_effect_summary = models.TextField(blank=True, default="")
+    invested_cp = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        help_text="Optional investierte CP fuer diesen konkreten Besitz-Eintrag.",
+    )
     name_override = models.CharField(max_length=200, blank=True, default="")
     price_override = models.IntegerField(null=True, blank=True)
     weight_override = models.DecimalField(max_digits=7, decimal_places=3, null=True, blank=True)

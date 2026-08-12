@@ -594,7 +594,7 @@ class ItemSemanticEffectFields(models.Model):
     def item_invested_cp(self) -> int | None:
         return None
 
-    def to_modifier(self):
+    def to_modifier(self, *, invested_cp: int | None = None):
         """Materialize this persisted effect as one typed modifier instance."""
         from ..modifiers.definitions import (
             AttributeCapModifier,
@@ -646,9 +646,9 @@ class ItemSemanticEffectFields(models.Model):
         if self.pk:
             metadata["semantic_effect_key"] = f"item_effect:{self.pk}"
             metadata["semantic_effect_label"] = self.semantic_source_label()
-        invested_cp = self.item_invested_cp()
-        if invested_cp is not None:
-            metadata["item_invested_cp"] = invested_cp
+        resolved_invested_cp = self.item_invested_cp() if invested_cp is None else invested_cp
+        if resolved_invested_cp is not None:
+            metadata["item_invested_cp"] = resolved_invested_cp
         mode = self.mode
         scaling = dict(self.scaling or {})
         if self.scale_source:
@@ -731,7 +731,7 @@ class CharacterItemSemanticEffect(ItemSemanticEffectFields):
         return str(self.character_item)
 
     def item_invested_cp(self) -> int | None:
-        return self.character_item.item.invested_cp
+        return self.character_item.invested_cp if self.character_item.invested_cp is not None else self.character_item.item.invested_cp
 
 
 class WeaponFlag(models.Model):

@@ -1545,7 +1545,11 @@ def _serialize_modifier_payload(modifier: Modifier) -> dict[str, object]:
     return payload
 
 
-def _serialize_item_semantic_effect_payload(effect: ItemSemanticEffect | CharacterItemSemanticEffect) -> dict[str, object]:
+def _serialize_item_semantic_effect_payload(
+    effect: ItemSemanticEffect | CharacterItemSemanticEffect,
+    *,
+    invested_cp: int | None = None,
+) -> dict[str, object]:
     """Return one frontend-friendly payload for an item semantic effect."""
     metadata = dict(effect.metadata or {})
     target_domain = str(effect.target_domain or "")
@@ -1570,9 +1574,9 @@ def _serialize_item_semantic_effect_payload(effect: ItemSemanticEffect | Charact
 
     effective_value = value
     if str(effect.scale_source or "") == "item_invested_cp":
-        invested_cp = int(effect.item_invested_cp() or 0)
+        resolved_invested_cp = int((effect.item_invested_cp() if invested_cp is None else invested_cp) or 0)
         divisor = int(effect.scale_divisor or 1)
-        effective_value = value * (invested_cp // max(1, divisor))
+        effective_value = value * (resolved_invested_cp // max(1, divisor))
 
     payload: dict[str, object] = {
         "target_kind": metadata.get("ui_target_kind") or metadata.get("legacy_target_kind") or target_domain,
@@ -1755,17 +1759,15 @@ def _load_character_item_modifier_payloads(
         return {}
     modifiers_by_character_item_id: dict[int, list[dict[str, object]]] = {}
     item_ids = {int(entry.item_id) for entry in character_items if entry.item_id}
-    base_payloads_by_item_id: dict[int, list[dict[str, object]]] = {}
+    base_effects_by_item_id: dict[int, list[ItemSemanticEffect]] = {}
     for effect in (
         ItemSemanticEffect.objects
         .filter(item_id__in=item_ids, active_flag=True)
         .select_related("item")
         .order_by("item_id", "sort_order", "id")
     ):
-        base_payloads_by_item_id.setdefault(int(effect.item_id), []).append(
-            _serialize_item_semantic_effect_payload(effect)
-        )
-    instance_effect_item_ids: set[int] = set()
+        base_effects_by_item_id.setdefault(int(effect.item_id), []).append(effect)
+    character_item_ids_with_instance_effects: set[int] = set()
     instance_effects = list(
         CharacterItemSemanticEffect.objects
         .filter(character_item_id__in=[entry.id for entry in character_items], active_flag=True)
@@ -1773,13 +1775,16 @@ def _load_character_item_modifier_payloads(
         .order_by("sort_order", "id")
     )
     for effect in instance_effects:
-        instance_effect_item_ids.add(int(effect.character_item.item_id))
+        character_item_ids_with_instance_effects.add(int(effect.character_item_id))
     for character_item in character_items:
-        if int(character_item.item_id) in instance_effect_item_ids:
+        if int(character_item.id) in character_item_ids_with_instance_effects:
             continue
-        base_payloads = base_payloads_by_item_id.get(int(character_item.item_id), [])
-        if base_payloads:
-            modifiers_by_character_item_id[int(character_item.id)] = list(base_payloads)
+        base_effects = base_effects_by_item_id.get(int(character_item.item_id), [])
+        if base_effects:
+            modifiers_by_character_item_id[int(character_item.id)] = [
+                _serialize_item_semantic_effect_payload(effect, invested_cp=character_item.invested_cp)
+                for effect in base_effects
+            ]
     for effect in instance_effects:
         modifiers_by_character_item_id.setdefault(int(effect.character_item_id), []).append(
             _serialize_item_semantic_effect_payload(effect)
@@ -3457,7 +3462,7 @@ def _build_inventory_rows(character: Character) -> list[dict]:
                         "name": item_name,
                         "price": item_engine.get_base_price(),
                         "weight": str(item_engine._get_override_value("weight_override", item.weight)),
-                        "invested_cp": item.invested_cp or "",
+                        "invested_cp": character_item.invested_cp or item.invested_cp or "",
                         "invested_cp_steps": item.invested_cp_steps or "",
                         "size_class": item_engine.get_size_class(),
                         "not_buyable": bool(item.not_buyable),

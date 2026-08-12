@@ -607,7 +607,7 @@ def apply_character_item_modifications(
     weight = _read_decimal(post_data, "weight", item.weight)
     size_class = str(post_data.get("size_class") or item.size_class).strip() or item.size_class
     quality = _read_quality(post_data, "quality", character_item.quality or character_item.item.default_quality)
-    invested_cp = _read_int(post_data, "invested_cp", item.invested_cp or 0, minimum=0)
+    invested_cp = _read_int(post_data, "invested_cp", character_item.invested_cp or item.invested_cp or 0, minimum=0)
     invested_cp_steps = str(item.invested_cp_steps or "").strip()
     experience_cost = _read_int(post_data, "experience_cost", 0, minimum=0)
     money_cost = _read_int(post_data, "money_cost", 0, minimum=0)
@@ -682,10 +682,9 @@ def apply_character_item_modifications(
             if allow_catalog_flags:
                 item.not_buyable = not_buyable
                 item.not_sellable = not_sellable
-                item.invested_cp = invested_cp or None
                 item.invested_cp_steps = invested_cp_steps
                 item.full_clean()
-                item.save(update_fields=["not_buyable", "not_sellable", "invested_cp", "invested_cp_steps"])
+                item.save(update_fields=["not_buyable", "not_sellable", "invested_cp_steps"])
             if remove_image and character_item.image_override:
                 character_item.image_override.delete(save=False)
                 character_item.image_override = None
@@ -704,6 +703,7 @@ def apply_character_item_modifications(
             character_item.description = description
             character_item.is_magic = is_magic
             character_item.magic_effect_summary = magic_effect_summary
+            character_item.invested_cp = invested_cp or None
             if weapon_stats is not None:
                 character_item.weapon_type_override = (
                     _read_weapon_type(post_data.get("weapon_type")) or getattr(weapon_stats, "weapon_type", None)
