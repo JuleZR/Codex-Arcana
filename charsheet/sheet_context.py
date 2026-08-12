@@ -1996,27 +1996,34 @@ def _build_weapon_calculation_tooltip(
     weapon_master_school_entry = getattr(engine, "_weapon_master_school_entry", None)
     if weapon_master_school_entry is not None and getattr(weapon_master_school_entry, "school", None) is not None:
         mastery_source = weapon_master_school_entry.school.name
-    damage_modifier_rows = _build_modifier_breakdown_rows(engine, damage_source_slug) if damage_source_slug else []
+    damage_modifier_rows = (
+        _build_modifier_breakdown_rows(
+            engine,
+            damage_source_slug,
+            target_domain=_modifier_target_domain_for_stat_key(damage_source_slug),
+        )
+        if damage_source_slug
+        else []
+    )
     item_damage_rows = _build_character_item_stat_modifier_rows(engine, row["character_item"], WEAPON_DAMAGE)
     rows = []
     if str(row.get("maneuver_attribute_mode") or "") != "none":
         rows.append({"label": "ST-Bonus/Malus", "value": format_modifier(strength_mod), "source": "ST"})
     rows.extend(damage_modifier_rows)
-    rows.extend(
-        [
+    if mastery_bonus:
+        rows.append(
             {
-            "label": "Waffenmeister",
-            "value": format_modifier(mastery_bonus),
-            "source": mastery_source,
-            "tone": "modifier" if mastery_bonus else "",
-            },
-            *item_damage_rows,
-            {"label": "Belastung", "value": row["bel_malus_display"]},
-        ]
-    )
+                "label": "Waffenmeister",
+                "value": format_modifier(mastery_bonus),
+                "source": mastery_source,
+                "tone": "modifier",
+            }
+        )
+    rows.extend(item_damage_rows)
+    rows.append({"label": "Belastung", "value": row["bel_malus_display"]})
     if extra_load_penalty:
         rows.append({"label": extra_load_label, "value": format_modifier(extra_load_penalty)})
-    total_value = int(row.get("with_bel_value", 0) or 0) + int(extra_load_penalty or 0)
+    total_value = int(row.get("with_bel_value", row.get("with_bel", 0)) or 0) + int(extra_load_penalty or 0)
     rows.append({"label": "= Gesamt", "value": format_modifier(total_value), "tone": "total"})
     return _build_core_stat_tooltip(rows)
 
@@ -2321,7 +2328,12 @@ def _format_modifier_source_display(source_label: str, source_name: str) -> str:
 def _clean_modifier_note_text(note_text: object) -> str:
     """Hide generic migration notes that do not help the player-facing tooltip."""
     text = str(note_text or "").strip()
-    if text.lower() == "mapped automatically from legacy modifier semantics.":
+    hidden_notes = {
+        "mapped automatically from legacy modifier semantics.",
+        "damage-style stat slug migrated as combat modifier.",
+        "legacy target_kind=skill uses a damage slug. migrated as combat modifier for backward-compatible combat resolution.",
+    }
+    if text.lower() in hidden_notes:
         return ""
     return text
 
@@ -2330,11 +2342,12 @@ def _build_modifier_breakdown_rows(
     engine,
     stat_key: str,
     *,
+    target_domain: str = "derived_stat",
     excluded_sources: set[tuple[str, str]] | None = None,
 ) -> list[dict[str, object]]:
     """Return ledger rows for each contributing modifier source."""
-    explanation = engine.explain_modifier_resolution("derived_stat", stat_key)
-    if not explanation:
+    explanation = engine.explain_modifier_resolution(target_domain, stat_key)
+    if not explanation and target_domain == "derived_stat":
         explanation = _build_legacy_stat_modifier_explanation(engine, stat_key)
     if excluded_sources:
         explanation = [
@@ -2347,6 +2360,11 @@ def _build_modifier_breakdown_rows(
             not in excluded_sources
         ]
     return _build_grouped_explanation_rows(engine, explanation)
+
+
+def _modifier_target_domain_for_stat_key(stat_key: str) -> str:
+    """Return the modifier domain used by CharacterEngine for a stat-like key."""
+    return "combat" if str(stat_key or "").startswith("dmg_") else "derived_stat"
 
 
 def _build_rule_flag_tooltip_row(engine, flag_key: str, value: object) -> dict[str, object]:
@@ -2474,21 +2492,42 @@ def _build_character_item_stat_modifier_rows(engine, character_item: CharacterIt
         and int(modifier.source_object_id or 0) == int(character_item.id)
     ]
     if not modifiers:
-        return []
+        explanation = []
+    else:
+        learned_stack: set[int] = set()
+        available_stack: set[int] = set()
+        explanation: list[dict[str, object]] = []
+        for modifier in modifiers:
+            resolved_value = engine._modifier_value(modifier, learned_stack, available_stack)
+            if not isinstance(resolved_value, (int, float)) or int(resolved_value) == 0:
+                continue
+            explanation.append(
+                {
+                    "source_type": getattr(modifier.source_content_type, "model", ""),
+                    "source_id": modifier.source_object_id,
+                    "resolved_value": resolved_value,
+                    "notes": getattr(modifier, "effect_description", ""),
+                }
+            )
 
-    learned_stack: set[int] = set()
-    available_stack: set[int] = set()
-    explanation: list[dict[str, object]] = []
-    for modifier in modifiers:
-        resolved_value = engine._modifier_value(modifier, learned_stack, available_stack)
+    for modifier in engine.modifier_engine._active_item_semantic_modifiers:
+        if str(getattr(modifier, "source_type", "") or "") != "characteritem":
+            continue
+        if str(getattr(modifier, "source_id", "") or "") != str(character_item.id):
+            continue
+        if str(getattr(modifier, "target_domain", "") or "") != "combat":
+            continue
+        if str(getattr(modifier, "target_key", "") or "") != stat_key:
+            continue
+        resolved_value = engine.modifier_engine._resolve_numeric_modifier(modifier)
         if not isinstance(resolved_value, (int, float)) or int(resolved_value) == 0:
             continue
         explanation.append(
             {
-                "source_type": getattr(modifier.source_content_type, "model", ""),
-                "source_id": modifier.source_object_id,
+                "source_type": "characteritem",
+                "source_id": character_item.id,
                 "resolved_value": resolved_value,
-                "notes": getattr(modifier, "effect_description", ""),
+                "notes": getattr(modifier, "notes", "") or getattr(modifier, "rules_text", ""),
             }
         )
     if stat_key == WEAPON_DAMAGE:
