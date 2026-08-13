@@ -31,6 +31,7 @@ from charsheet.constants import (
     QUALITY_FINE,
     QUALITY_LEGENDARY,
     QUALITY_POOR,
+    QUALITY_UNIQUE,
     QUALITY_VERY_POOR,
     QUALITY_WRETCHED,
     SKILL_COMBAT,
@@ -70,7 +71,7 @@ CREATURE_KIND_LABELS = {
     QUALITY_FINE: "Besondere Kreatur",
     QUALITY_EXCELLENT: "Mächtige Kreatur",
     QUALITY_LEGENDARY: "Legendäre Kreatur",
-    "unique": "Einzigartige Kreatur",
+    QUALITY_UNIQUE: "Einzigartige Kreatur",
 }
 
 
@@ -1797,7 +1798,7 @@ class CreatureEngine:
             "quality_label": getattr(quality, "name", normalized_quality),
             "quality_color": ItemEngine.quality_color(quality),
             "quality_choices": quality_choices,
-            "holo": normalized_quality in {"legendary", "unique"},
+            "holo": normalized_quality in {QUALITY_LEGENDARY, QUALITY_UNIQUE},
             "holo_kind": holo_kind,
             "creature_kind_label": creature_kind_label(quality),
             "size_class": self.size_class(),
