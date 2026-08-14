@@ -5,10 +5,24 @@
     <header class="sl-inventory__header">
       <div>
         <span class="sl-inventory__eyebrow">Bestand</span>
-        <p>{{ group_row.inventory_items|length }} Instanzen · {{ group_row.catalog_items|length }} eigene Basisitems</p>
+        <p>{{ group_row.inventory_items|length }} Gegenstände · {{ group_row.catalog_items|length }} eigene Basisitems</p>
       </div>
       {% if not group_row.group.is_archived %}
         <div class="sl-inventory__header-actions">
+          <form method="post" action="{% url 'delete_group_inventory_items' group_row.group.id %}" class="sl-inventory-header-form" data-confirm-inventory-bulk-delete>
+            {% csrf_token %}<input type="hidden" name="_sl_screen" value="1">
+            <div data-sl-bulk-delete-items></div>
+            <button class="sl-inventory-header-action sl-inventory-header-action--danger" data-sl-bulk-delete-trigger disabled aria-label="Ausgewählte Gegenstände entfernen" title="Ausgewählte Gegenstände entfernen">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4V2h8v2h5v2H3V4h5Zm-2 4h12l-1 14H7L6 8Zm4 2v9h2v-9h-2Zm4 0v9h2v-9h-2Z"/></svg>
+            </button>
+          </form>
+          <button type="button" class="sl-inventory-header-action" data-toggle-sl-inventory-panel="bulk-send-{{ group_row.group.id }}"
+            data-sl-bulk-send-trigger disabled aria-label="Ausgewählte Gegenstände senden" title="Ausgewählte Gegenstände senden">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="m3 3 19 9-19 9 3-7 9-2-9-2-3-7Z"/>
+              <path d="M4 5.5 13.5 12 4 18.5"/>
+            </svg>
+          </button>
           <button type="button" class="sl-inventory-header-action" data-open-sl-item-add
             aria-label="Gegenstand hinzufügen" title="Gegenstand hinzufügen">
             <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -27,15 +41,25 @@
 
     <div class="sl-inventory-table-wrap">
       <table class="sl-inventory-table">
-        <thead><tr><th>Gegenstand</th><th>Qualität</th><th>Menge</th><th>Aktionen</th></tr></thead>
+        <thead><tr><th class="sl-inventory-select-column"><input type="checkbox" data-sl-inventory-select-all aria-label="Alle versendbaren Gegenstände auswählen"></th><th>Gegenstand</th><th title="Qualität">Qual.</th><th title="Menge">Mg.</th><th>Aktionen</th></tr></thead>
         <tbody>
           {% for instance in group_row.inventory_items %}
             <tr{% if instance.sl_pending_transfer %} class="sl-inventory-row--pending"{% endif %}>
-              <td><strong>{{ instance.effective_name }}</strong><span>{{ instance.item.get_item_type_display }}{% if instance.sl_edit_access %} · von {{ instance.sl_edit_owner_name }}{% elif instance.sl_pending_transfer %} · unterwegs zu {{ instance.sl_pending_transfer.recipient.name }}{% endif %}</span></td>
-              <td>{{ instance.quality }}</td>
+              <td class="sl-inventory-select-column">{% if not group_row.group.is_archived and not instance.sl_pending_transfer and not instance.sl_edit_access %}<input type="checkbox" value="{{ instance.id }}" data-sl-inventory-select aria-label="{{ instance.effective_name }} auswählen">{% endif %}</td>
+              <td><strong>{{ instance.effective_name }}</strong>{% if instance.sl_edit_access %}<span>von {{ instance.sl_edit_owner_name }}</span>{% elif instance.sl_pending_transfer %}<span>unterwegs zu {{ instance.sl_pending_transfer.recipient.name }}</span>{% endif %}</td>
+              <td class="sl-inventory-quality-cell"><span class="sl-inventory-quality-swatch" style="--sl-quality-color: {{ instance.quality.hex_color|default:'#777777' }};" title="{{ instance.quality }}" aria-label="{{ instance.quality }}"></span></td>
               <td>{{ instance.amount }}</td>
               <td>
-                {% if not group_row.group.is_archived and not instance.sl_pending_transfer %}
+                {% if not group_row.group.is_archived and instance.sl_pending_transfer %}
+                  <div class="sl-inventory-row-actions">
+                    <form method="post" action="{% url 'recall_group_inventory_transfer' group_row.group.id instance.sl_pending_transfer.id %}">
+                      {% csrf_token %}<input type="hidden" name="_sl_screen" value="1">
+                      <button class="sl-inventory-icon-button" aria-label="Angebot zurückrufen" title="Zurückrufen">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 7H4v5M4 12c2.5-4.5 8.5-6 13-3.5 2.8 1.6 4.4 4.5 4.2 7.5M15 17h5v-5M20 12c-2.5 4.5-8.5 6-13 3.5-1-.6-1.9-1.3-2.6-2.2"/></svg>
+                      </button>
+                    </form>
+                  </div>
+                {% elif not group_row.group.is_archived %}
                   <div class="sl-inventory-row-actions">
                     <button type="button" class="sl-inventory-icon-button" data-toggle-sl-inventory-panel="edit-{{ instance.id }}" aria-label="Gegenstand anpassen" title="Gegenstand anpassen">
                       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4l11-11-4-4L4 16v4Zm12.5-16.5 4 4 1-1a1.4 1.4 0 0 0 0-2l-2-2a1.4 1.4 0 0 0-2 0l-1 1Z"/></svg>
@@ -64,7 +88,7 @@
             </tr>
             {% if not group_row.group.is_archived and not instance.sl_pending_transfer %}
               <tr class="sl-inventory-action-row" id="edit-{{ instance.id }}" hidden>
-                <td colspan="4">
+                <td colspan="5">
                   <form class="sl-inventory-edit-form sl-editor-form" method="post" enctype="multipart/form-data" action="{% url 'edit_group_inventory_item' group_row.group.id instance.id %}" data-sl-instance-form data-item-type="{{ instance.item.item_type }}">
                     {% csrf_token %}<input type="hidden" name="_sl_screen" value="1">
                     <section class="sl-editor-card">
@@ -164,7 +188,7 @@
               </tr>
               {% if not instance.sl_edit_access %}
               <tr class="sl-inventory-action-row" id="send-{{ instance.id }}" hidden>
-                <td colspan="4">
+                <td colspan="5">
                   <form class="sl-inventory-send-form" method="post" action="{% url 'send_group_inventory_item' group_row.group.id instance.id %}">
                     {% csrf_token %}<input type="hidden" name="_sl_screen" value="1">
                     <div data-group-character-picker data-search-url="{% url 'group_character_search' group_row.group.id %}" data-search-mode="recipient">
@@ -180,22 +204,24 @@
               </tr>
               {% endif %}
             {% endif %}
-          {% empty %}<tr><td colspan="4" class="sl-inventory-empty">Das Gruppeninventar ist leer.</td></tr>{% endfor %}
+          {% empty %}<tr><td colspan="5" class="sl-inventory-empty">Das Gruppeninventar ist leer.</td></tr>{% endfor %}
         </tbody>
       </table>
     </div>
-
-    {% if group_row.pending_transfers %}
-      <details class="sl-inventory-disclosure">
-        <summary>Ausstehende Angebote <span>{{ group_row.pending_transfers|length }}</span></summary>
-        <div class="sl-inventory-compact-list">
-          {% for transfer in group_row.pending_transfers %}
-            <div><span><strong>{{ transfer.item.item.name }}</strong> → {{ transfer.recipient.name }}</span>
-              {% if not group_row.group.is_archived %}<form method="post" action="{% url 'recall_group_inventory_transfer' group_row.group.id transfer.id %}">{% csrf_token %}<input type="hidden" name="_sl_screen" value="1"><button class="dashboard_button dashboard_button--small">Zurückrufen</button></form>{% endif %}
-            </div>
-          {% endfor %}
-        </div>
-      </details>
+    {% if not group_row.group.is_archived %}
+      <div class="sl-inventory-action-row" id="bulk-send-{{ group_row.group.id }}" hidden>
+        <form class="sl-inventory-send-form sl-inventory-send-form--bulk" method="post" action="{% url 'send_group_inventory_items' group_row.group.id %}">
+          {% csrf_token %}<input type="hidden" name="_sl_screen" value="1">
+          <div data-sl-bulk-send-items></div>
+          <div data-group-character-picker data-search-url="{% url 'group_character_search' group_row.group.id %}" data-search-mode="recipient">
+            <input type="hidden" name="recipient_id" data-group-character-id>
+            <input class="dashboard_input" type="search" data-group-character-query autocomplete="off" minlength="2" required placeholder="Empfängername">
+            <div class="dashboard_group_character_results" data-group-character-results role="listbox"></div>
+          </div>
+          <input class="dashboard_input" name="message" maxlength="1000" placeholder="Nachricht">
+          <button class="dashboard_button dashboard_button--primary">Auswahl senden</button>
+        </form>
+      </div>
     {% endif %}
 
     {% if group_row.catalog_items %}
@@ -203,19 +229,53 @@
         <summary>Gruppeneigener Katalog <span>{{ group_row.catalog_items|length }}</span></summary>
         <div class="sl-inventory-catalog">
           {% for item in group_row.catalog_items %}
-            <details>
-              <summary><strong>{{ item.name }}</strong><span>{{ item.get_item_type_display }}</span></summary>
-              <form method="post" action="{% url 'edit_group_catalog_item' group_row.group.id item.id %}" class="sl-inventory-catalog-form">
+            <div class="sl-inventory-catalog-item">
+              <span><strong>{{ item.name }}</strong><small>{{ item.get_item_type_display }}</small></span>
+              {% if not group_row.group.is_archived %}
+                <button type="button" class="sl-inventory-icon-button" data-toggle-sl-inventory-panel="catalog-edit-{{ item.id }}" aria-label="Basisitem bearbeiten" title="Basisitem bearbeiten">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4l11-11-4-4L4 16v4Zm12.5-16.5 4 4 1-1a1.4 1.4 0 0 0 0-2l-2-2a1.4 1.4 0 0 0-2 0l-1 1Z"/></svg>
+                </button>
+              {% endif %}
+            </div>
+            <div class="sl-inventory-action-row" id="catalog-edit-{{ item.id }}" hidden>
+              <form method="post" enctype="multipart/form-data" action="{% url 'edit_group_catalog_item' group_row.group.id item.id %}" class="sl-inventory-catalog-form sl-editor-form">
                 {% csrf_token %}<input type="hidden" name="_sl_screen" value="1">
-                <input class="dashboard_input" name="name" required value="{{ item.name }}" aria-label="Name">
-                <input class="dashboard_input" name="price" type="number" min="0" value="{{ item.price }}" aria-label="Preis">
-                <input class="dashboard_input" name="weight" type="number" min="0" step=".01" value="{{ item.weight }}" aria-label="Gewicht">
-                <input class="dashboard_input" name="size_class" value="{{ item.size_class }}" aria-label="Größenklasse">
-                <select class="dashboard_input" name="default_quality">{% for quality in group_inventory_qualities %}<option value="{{ quality.pk }}" {% if quality.pk == item.default_quality_id %}selected{% endif %}>{{ quality.name }}</option>{% endfor %}</select>
-                <textarea class="dashboard_input" name="description">{{ item.description }}</textarea>
-                {% if not group_row.group.is_archived %}<button class="dashboard_button dashboard_button--primary">Basisitem speichern</button>{% endif %}
+                <section class="sl-editor-card">
+                  <header><span>Basisitem</span><h4>Grunddaten</h4></header>
+                  <div class="sl-editor-grid">
+                    <label class="sl-editor-grid__wide"><span>Name</span><input name="name" required maxlength="200" value="{{ item.name }}"></label>
+                    <label><span>Typ</span><select name="item_type">{% for value,label in group_inventory_item_types %}<option value="{{ value }}"{% if value == item.item_type %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+                    <label><span>Standardqualität</span><select name="default_quality">{% for quality in group_inventory_qualities %}<option value="{{ quality.pk }}" {% if quality.pk == item.default_quality_id %}selected{% endif %}>{{ quality.name }}</option>{% endfor %}</select></label>
+                    <label><span>Preis (KS)</span><input name="price" type="number" min="0" value="{{ item.price }}"></label>
+                    <label><span>Gewicht</span><input name="weight" type="number" min="0" step=".001" value="{{ item.weight }}"></label>
+                    <label><span>Größenklasse</span><select name="size_class">{% for value,label in group_inventory_size_classes %}<option value="{{ value }}"{% if value == item.size_class %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+                    <label><span>Investierte CP</span><input name="invested_cp" type="number" min="0" step="1" value="{{ item.invested_cp|default_if_none:'' }}"></label>
+                    <label><span>CP-Schritte</span><input name="invested_cp_steps" type="text" maxlength="200" value="{{ item.invested_cp_steps }}" placeholder="z. B. 2/4/6/8/10"></label>
+                    <label class="sl-editor-grid__wide"><span>Bild</span><input name="image" type="file" accept="image/*"></label>
+                    <label class="sl-editor-grid__wide"><span>Beschreibung</span><textarea name="description" rows="5">{{ item.description }}</textarea></label>
+                  </div>
+                  <div class="sl-editor-checks">
+                    <label><input name="stackable" type="checkbox"{% if item.stackable %} checked{% endif %}> Stapelbar</label>
+                    <label><input name="is_consumable" type="checkbox"{% if item.is_consumable %} checked{% endif %}> Verbrauchbar</label>
+                    <label><input name="is_magic" type="checkbox"{% if item.is_magic %} checked{% endif %}> Magisch</label>
+                    <label><input name="not_buyable" type="checkbox"{% if item.not_buyable %} checked{% endif %}> Nicht kaufbar</label>
+                    <label><input name="not_sellable" type="checkbox"{% if item.not_sellable %} checked{% endif %}> Nicht verkaufbar</label>
+                  </div>
+                </section>
+                <section class="sl-editor-card">
+                  <header><span>Basisitem</span><h4>Runen</h4></header>
+                  <input type="hidden" name="rune_ids_present" value="1">
+                  <div class="sl-rune-picker" data-sl-rune-picker>
+                    <button type="button" class="sl-rune-picker__trigger" data-sl-rune-trigger aria-expanded="false"><span data-sl-rune-label>Keine Runen ausgewählt</span><strong data-sl-rune-count>0</strong></button>
+                    <div class="sl-rune-picker__panel" data-sl-rune-panel hidden>
+                      <input type="search" placeholder="Runen durchsuchen ..." aria-label="Runen durchsuchen" data-sl-rune-search>
+                      <div class="sl-rune-picker__list" data-sl-rune-list>{% for rune in group_inventory_runes %}<label data-rune-search="{{ rune.name|lower }} {{ rune.description|default:''|lower }}"><input type="checkbox" name="rune_ids" value="{{ rune.pk }}"{% if rune in item.runes.all %} checked{% endif %}> <span><strong>{{ rune.name }}</strong><small>{{ rune.description|default:"Keine Beschreibung vorhanden." }}</small></span></label>{% empty %}<p>Keine Runen verfügbar.</p>{% endfor %}</div>
+                    </div>
+                  </div>
+                </section>
+                {% if not group_row.group.is_archived %}<footer class="sl-editor-actions"><p>Änderungen gelten für das Basisitem im Gruppenkatalog.</p><button class="dashboard_button dashboard_button--primary">Basisitem speichern</button></footer>{% endif %}
               </form>
-            </details>
+            </div>
           {% endfor %}
         </div>
       </details>
@@ -229,12 +289,12 @@
           <button type="button" class="payday-window__close" data-close-sl-item-add aria-label="Fenster schließen">x</button>
         </div>
         <div class="payday-window__body sl-item-add-window__body">
-          <form class="sl-inventory-add" method="post" action="{% url 'add_group_inventory_item' group_row.group.id %}">
-            {% csrf_token %}<input type="hidden" name="_sl_screen" value="1">
+          <form class="sl-inventory-add sl-inventory-add--cart" method="post" action="{% url 'add_group_inventory_item' group_row.group.id %}" data-sl-add-cart>
+            {% csrf_token %}<input type="hidden" name="_sl_screen" value="1"><input type="hidden" name="items_json" value="[]" data-sl-add-cart-payload>
             <label><span>Basisitem</span>
               <div class="sl-item-search" data-sl-item-search>
-                <input type="hidden" name="item_id" required data-sl-item-search-id>
-                <input class="dashboard_input" type="search" autocomplete="off" required
+                <input type="hidden" name="item_id" data-sl-item-search-id>
+                <input class="dashboard_input" type="search" autocomplete="off"
                   placeholder="Gegenstand suchen …" aria-label="Basisitem suchen"
                   data-sl-item-search-query>
                 <div class="sl-item-search__results" data-sl-item-search-results hidden>
@@ -250,7 +310,11 @@
             </label>
             <label><span>Qualität</span><select class="dashboard_input" name="quality">{% for quality in group_inventory_qualities %}<option value="{{ quality.pk }}"{% if quality.pk == "common" %} selected{% endif %}>{{ quality.name }}</option>{% endfor %}</select></label>
             <label><span>Menge</span><input class="dashboard_input" name="amount" type="number" min="1" value="1"></label>
-            <div class="sl-item-add-window__actions"><button type="button" class="dashboard_button" data-close-sl-item-add>Abbrechen</button><button class="dashboard_button dashboard_button--primary">Ins Inventar</button></div>
+            <button type="button" class="dashboard_button" data-sl-add-cart-add>In Warenkorb</button>
+            <div class="sl-add-cart" data-sl-add-cart-list>
+              <p class="sl-add-cart__empty" data-sl-add-cart-empty>Der Warenkorb ist leer.</p>
+            </div>
+            <div class="sl-item-add-window__actions"><button type="button" class="dashboard_button" data-close-sl-item-add>Abbrechen</button><button class="dashboard_button dashboard_button--primary" data-sl-add-cart-submit disabled>Ins Inventar</button></div>
           </form>
         </div>
       </section>

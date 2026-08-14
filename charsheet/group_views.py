@@ -2707,6 +2707,43 @@ def add_group_inventory_item(request, group_id: int):
     with transaction.atomic():
         group = GameGroup.objects.select_for_update().get(pk=group_id)
         require_game_master(request.user, group, write=True)
+        raw_items = str(request.POST.get("items_json") or "").strip()
+        created_count = 0
+        if raw_items:
+            try:
+                cart_items = json.loads(raw_items)
+            except json.JSONDecodeError as exc:
+                raise GroupError("invalid_item", "Der Warenkorb ist ungültig.") from exc
+            if not isinstance(cart_items, list) or not cart_items:
+                raise GroupError("invalid_item", "Bitte mindestens einen Gegenstand in den Warenkorb legen.")
+            for entry in cart_items:
+                if not isinstance(entry, dict):
+                    raise GroupError("invalid_item", "Der Warenkorb ist ungültig.")
+                item = get_object_or_404(Item, pk=entry.get("item_id"))
+                if item.catalog_group_id not in (None, group.id):
+                    raise PermissionDenied
+                try:
+                    amount = max(1, int(entry.get("amount") or 1))
+                except (TypeError, ValueError) as exc:
+                    raise GroupError("invalid_item", "Mindestens eine Menge im Warenkorb ist ungültig.") from exc
+                if not item.stackable:
+                    amount = 1
+                quality_id = entry.get("quality") or item.default_quality_id
+                quality = get_object_or_404(Quality, pk=quality_id)
+                instance = CharacterItem(
+                    item=item,
+                    owner=None,
+                    group_owner=group,
+                    original_owner_character=None,
+                    original_owner_group=group,
+                    amount=amount,
+                    quality=quality,
+                )
+                instance.full_clean()
+                instance.save()
+                created_count += 1
+            messages.success(request, f"{created_count} Gegenstände ins Gruppeninventar gelegt.")
+            return redirect(f"{reverse('game_master_screen', args=[group_id])}#sl-inventar")
         item = get_object_or_404(Item, pk=request.POST.get("item_id"))
         if item.catalog_group_id not in (None, group.id):
             raise PermissionDenied
@@ -2777,18 +2814,42 @@ def edit_group_catalog_item(request, group_id: int, catalog_item_id: int):
         )
         item.name = str(request.POST.get("name") or item.name).strip()[:200]
         item.description = str(request.POST.get("description") or "").strip()
+        item.item_type = str(request.POST.get("item_type") or item.item_type).strip()
+        item.stackable = bool(request.POST.get("stackable"))
+        item.is_consumable = bool(request.POST.get("is_consumable"))
+        item.is_magic = bool(request.POST.get("is_magic")) or item.item_type in Item.magic_item_type_values()
+        item.not_buyable = bool(request.POST.get("not_buyable"))
+        item.not_sellable = bool(request.POST.get("not_sellable"))
         try:
             item.price = max(0, int(request.POST.get("price") or 0))
             item.weight = max(Decimal("0"), Decimal(str(request.POST.get("weight") or "0")))
+            invested_cp = max(0, int(request.POST.get("invested_cp") or 0))
         except (ValueError, InvalidOperation) as exc:
             raise GroupError("invalid_item", "Preis oder Gewicht ist ungültig.") from exc
+        item.invested_cp_steps = str(request.POST.get("invested_cp_steps") or "").strip()
+        if not _cp_matches_steps(invested_cp, item.invested_cp_steps):
+            raise GroupError("invalid_item", "Investierte CP passen nicht zu den CP-Schritten.")
+        item.invested_cp = invested_cp or None
         item.size_class = str(request.POST.get("size_class") or item.size_class)
         item.default_quality = get_object_or_404(
             Quality, pk=request.POST.get("default_quality") or item.default_quality_id
         )
+        if item.item_type in (
+            Item.ItemType.ARMOR,
+            Item.ItemType.WEAPON,
+            Item.ItemType.SHIELD,
+            Item.ItemType.CLOTHING,
+        ):
+            item.stackable = False
+        if item.is_magic_effective:
+            item.stackable = False
+        if not item.stackable:
+            item.is_consumable = False
+        if request.FILES.get("image"):
+            item.image = request.FILES["image"]
         item.full_clean()
         item.save()
-        if "rune_ids" in request.POST:
+        if request.POST.get("rune_ids_present"):
             item.runes.set(Rune.objects.filter(pk__in=request.POST.getlist("rune_ids")))
         detail = (
             getattr(item, "weaponstats", None)
@@ -3024,6 +3085,62 @@ def delete_group_inventory_item(request, group_id: int, item_id: int):
 @login_required
 @require_POST
 @_group_action
+def delete_group_inventory_items(request, group_id: int):
+    item_ids = []
+    for raw_item_id in request.POST.getlist("item_ids"):
+        try:
+            item_id = int(raw_item_id)
+        except (TypeError, ValueError):
+            continue
+        if item_id not in item_ids:
+            item_ids.append(item_id)
+    if not item_ids:
+        raise GroupError("missing_items", "Bitte mindestens einen Gegenstand auswählen.")
+    deleted_count = 0
+    with transaction.atomic():
+        group = GameGroup.objects.select_for_update().get(pk=group_id)
+        require_game_master(request.user, group, write=True)
+        instances = list(
+            CharacterItem.objects.select_for_update()
+            .select_related("item", "quality")
+            .filter(pk__in=item_ids, group_owner=group)
+        )
+        if len(instances) != len(item_ids):
+            raise GroupError("invalid_item", "Mindestens ein Gegenstand gehört nicht diesem Gruppeninventar.", status=403)
+        for instance in instances:
+            if instance.transfers.filter(status=ItemTransfer.Status.PENDING).exists():
+                raise GroupError(
+                    "pending_transfer",
+                    "Eine angebotene Instanz kann nicht gelöscht werden.",
+                    status=409,
+                )
+            ItemOwnershipEvent.objects.create(
+                item=instance,
+                item_provenance_id=instance.provenance_id,
+                event_type=ItemOwnershipEvent.EventType.DESTROYED,
+                actor_user=request.user,
+                original_owner_group=group,
+                from_group=group,
+                details={
+                    "reason": "group_inventory_bulk_delete",
+                    "snapshot": {
+                        "name": instance.effective_name,
+                        "item_id": instance.item_id,
+                        "item_type": instance.item.item_type,
+                        "quality": str(instance.quality),
+                        "amount": instance.amount,
+                    },
+                },
+            )
+            instance.delete()
+            deleted_count += 1
+    messages.success(request, f"{deleted_count} Gegenstände aus dem Gruppeninventar gelöscht.")
+    return redirect(f"{reverse('game_master_screen', args=[group_id])}#sl-inventar")
+
+
+@login_required
+@require_POST
+@_group_action
 def send_group_inventory_item(request, group_id: int, item_id: int):
     group = get_object_or_404(GameGroup, pk=group_id)
     recipient = get_object_or_404(Character, pk=request.POST.get("recipient_id"))
@@ -3036,6 +3153,41 @@ def send_group_inventory_item(request, group_id: int, item_id: int):
         message=request.POST.get("message", ""),
     )
     messages.success(request, f"Angebot an {transfer.recipient.name} versendet.")
+    return redirect(f"{reverse('game_master_screen', args=[group_id])}#sl-inventar")
+
+
+@login_required
+@require_POST
+@_group_action
+def send_group_inventory_items(request, group_id: int):
+    group = get_object_or_404(GameGroup, pk=group_id)
+    recipient = get_object_or_404(Character, pk=request.POST.get("recipient_id"))
+    item_ids = []
+    for raw_item_id in request.POST.getlist("item_ids"):
+        try:
+            item_id = int(raw_item_id)
+        except (TypeError, ValueError):
+            continue
+        if item_id not in item_ids:
+            item_ids.append(item_id)
+    if not item_ids:
+        raise GroupError("missing_items", "Bitte mindestens einen Gegenstand auswählen.")
+    transfers = []
+    with transaction.atomic():
+        for item_id in item_ids:
+            item = get_object_or_404(CharacterItem.objects.select_for_update(), pk=item_id)
+            transfers.append(
+                create_group_transfer(
+                    item_id=item.id,
+                    group=group,
+                    actor=request.user,
+                    recipient=recipient,
+                    quantity=item.amount,
+                    message=request.POST.get("message", ""),
+                )
+            )
+    transfer_label = "Angebot" if len(transfers) == 1 else "Angebote"
+    messages.success(request, f"{len(transfers)} {transfer_label} an {recipient.name} versendet.")
     return redirect(f"{reverse('game_master_screen', args=[group_id])}#sl-inventar")
 
 

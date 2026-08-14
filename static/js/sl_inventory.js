@@ -526,11 +526,16 @@ document.addEventListener("DOMContentLoaded", () => {
       const row = document.getElementById(button.dataset.toggleSlInventoryPanel || "");
       const form = row?.querySelector("form");
       if (!form || !actionBody) return false;
-      sourceCell = row.querySelector("td");
+      sourceCell = row.querySelector("td") || row;
       activeForm = form;
       actionBody.append(form);
       if (actionTitle) {
-        actionTitle.textContent = String(button.dataset.toggleSlInventoryPanel || "").startsWith("send-")
+        const panelId = String(button.dataset.toggleSlInventoryPanel || "");
+        actionTitle.textContent = panelId.startsWith("bulk-send-")
+          ? "Auswahl senden"
+          : panelId.startsWith("catalog-edit-")
+          ? "Basisitem bearbeiten"
+          : panelId.startsWith("send-")
           ? "Gegenstand senden"
           : "Instanz anpassen";
       }
@@ -545,9 +550,78 @@ document.addEventListener("DOMContentLoaded", () => {
     button.addEventListener("click", () => actionFrame?.show(button));
   });
 
+  document.querySelectorAll(".sl-inventory").forEach((panel) => {
+    const selectAll = panel.querySelector("[data-sl-inventory-select-all]");
+    const itemCheckboxes = Array.from(panel.querySelectorAll("[data-sl-inventory-select]"));
+    const bulkTrigger = panel.querySelector("[data-sl-bulk-send-trigger]");
+    const bulkItems = panel.querySelector("[data-sl-bulk-send-items]");
+    const bulkDeleteTrigger = panel.querySelector("[data-sl-bulk-delete-trigger]");
+    const bulkDeleteItems = panel.querySelector("[data-sl-bulk-delete-items]");
+    const syncBulkSelection = () => {
+      const selected = itemCheckboxes.filter((checkbox) => checkbox.checked);
+      if (bulkTrigger) {
+        bulkTrigger.disabled = selected.length === 0;
+        bulkTrigger.title = selected.length
+          ? `${selected.length} Gegenstände senden`
+          : "Ausgewählte Gegenstände senden";
+      }
+      if (bulkDeleteTrigger) {
+        bulkDeleteTrigger.disabled = selected.length === 0;
+        bulkDeleteTrigger.title = selected.length
+          ? `${selected.length} Gegenstände entfernen`
+          : "Ausgewählte Gegenstände entfernen";
+      }
+      if (selectAll) {
+        selectAll.checked = selected.length > 0 && selected.length === itemCheckboxes.length;
+        selectAll.indeterminate = selected.length > 0 && selected.length < itemCheckboxes.length;
+      }
+      if (bulkItems) {
+        bulkItems.replaceChildren(
+          ...selected.map((checkbox) => {
+            const input = document.createElement("input");
+            input.type = "hidden";
+            input.name = "item_ids";
+            input.value = checkbox.value;
+            return input;
+          })
+        );
+      }
+      if (bulkDeleteItems) {
+        bulkDeleteItems.replaceChildren(
+          ...selected.map((checkbox) => {
+            const input = document.createElement("input");
+            input.type = "hidden";
+            input.name = "item_ids";
+            input.value = checkbox.value;
+            return input;
+          })
+        );
+      }
+    };
+    selectAll?.addEventListener("change", () => {
+      itemCheckboxes.forEach((checkbox) => {
+        checkbox.checked = selectAll.checked;
+      });
+      syncBulkSelection();
+    });
+    itemCheckboxes.forEach((checkbox) => {
+      checkbox.addEventListener("change", syncBulkSelection);
+    });
+    syncBulkSelection();
+  });
+
   document.querySelectorAll("[data-confirm-inventory-delete]").forEach((form) => {
     form.addEventListener("submit", (event) => {
       if (!window.confirm("Diesen Gegenstand wirklich aus dem SL-Inventar entfernen?")) {
+        event.preventDefault();
+      }
+    });
+  });
+
+  document.querySelectorAll("[data-confirm-inventory-bulk-delete]").forEach((form) => {
+    form.addEventListener("submit", (event) => {
+      const count = form.querySelectorAll("input[name='item_ids']").length;
+      if (!count || !window.confirm(`${count} ausgewählte Gegenstände wirklich aus dem SL-Inventar entfernen?`)) {
         event.preventDefault();
       }
     });
@@ -591,6 +665,101 @@ document.addEventListener("DOMContentLoaded", () => {
     document.addEventListener("click", (event) => {
       if (!picker.contains(event.target)) results.hidden = true;
     });
+  });
+
+  document.querySelectorAll("[data-sl-add-cart]").forEach((form) => {
+    const selectedId = form.querySelector("[data-sl-item-search-id]");
+    const query = form.querySelector("[data-sl-item-search-query]");
+    const quality = form.querySelector("select[name='quality']");
+    const amount = form.querySelector("input[name='amount']");
+    const addButton = form.querySelector("[data-sl-add-cart-add]");
+    const list = form.querySelector("[data-sl-add-cart-list]");
+    const empty = form.querySelector("[data-sl-add-cart-empty]");
+    const payload = form.querySelector("[data-sl-add-cart-payload]");
+    const submit = form.querySelector("[data-sl-add-cart-submit]");
+    if (!selectedId || !query || !quality || !amount || !addButton || !list || !payload) return;
+
+    const cart = [];
+    const sync = () => {
+      list.querySelectorAll("[data-sl-add-cart-row]").forEach((row) => row.remove());
+      cart.forEach((entry, index) => {
+        const row = document.createElement("div");
+        row.className = "sl-add-cart__row";
+        row.dataset.slAddCartRow = "1";
+        const text = document.createElement("span");
+        const name = document.createElement("strong");
+        name.textContent = entry.name;
+        const meta = document.createElement("small");
+        meta.textContent = `${entry.qualityLabel} · ${entry.amount}x`;
+        text.append(name, meta);
+        const remove = document.createElement("button");
+        remove.type = "button";
+        remove.className = "sl-inventory-icon-button sl-inventory-icon-button--danger";
+        remove.dataset.slAddCartRemove = String(index);
+        remove.setAttribute("aria-label", "Aus Warenkorb entfernen");
+        remove.title = "Entfernen";
+        remove.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4V2h8v2h5v2H3V4h5Zm-2 4h12l-1 14H7L6 8Zm4 2v9h2v-9h-2Zm4 0v9h2v-9h-2Z"/></svg>`;
+        row.append(text, remove);
+        list.append(row);
+      });
+      if (empty) empty.hidden = cart.length > 0;
+      if (submit) submit.disabled = cart.length === 0;
+      payload.value = JSON.stringify(cart.map((entry) => ({
+        item_id: entry.itemId,
+        quality: entry.quality,
+        amount: entry.amount,
+      })));
+    };
+
+    addButton.addEventListener("click", () => {
+      const itemId = String(selectedId.value || "");
+      if (!itemId) {
+        query.setCustomValidity("Bitte einen Gegenstand aus der Trefferliste auswählen.");
+        query.reportValidity();
+        return;
+      }
+      const qualityValue = String(quality.value || "common");
+      const qty = Math.max(1, Number.parseInt(amount.value || "1", 10) || 1);
+      const existing = cart.find((entry) => entry.itemId === itemId && entry.quality === qualityValue);
+      if (existing) {
+        existing.amount += qty;
+      } else {
+        cart.push({
+          itemId,
+          name: String(query.dataset.selectedName || query.value || "Gegenstand"),
+          quality: qualityValue,
+          qualityLabel: quality.selectedOptions?.[0]?.textContent?.trim() || qualityValue,
+          amount: qty,
+        });
+      }
+      selectedId.value = "";
+      query.value = "";
+      query.dataset.selectedName = "";
+      query.setCustomValidity("");
+      amount.value = "1";
+      sync();
+      query.focus();
+    });
+
+    list.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-sl-add-cart-remove]");
+      if (!button) return;
+      const index = Number.parseInt(button.dataset.slAddCartRemove || "-1", 10);
+      if (index >= 0) {
+        cart.splice(index, 1);
+        sync();
+      }
+    });
+
+    form.addEventListener("submit", (event) => {
+      if (!cart.length) {
+        event.preventDefault();
+        query.setCustomValidity("Bitte mindestens einen Gegenstand in den Warenkorb legen.");
+        query.reportValidity();
+      }
+    });
+
+    sync();
   });
 
   const inventory = document.querySelector("[data-sl-transfer-state-url]");
