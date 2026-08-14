@@ -1516,9 +1516,9 @@ def _serialize_item_semantic_effect_payload(
     if str(effect.operator or "") == "flat_sub":
         value *= -1
 
+    resolved_invested_cp = int((effect.item_invested_cp() if invested_cp is None else invested_cp) or 0)
     effective_value = value
     if str(effect.scale_source or "") == "item_invested_cp":
-        resolved_invested_cp = int((effect.item_invested_cp() if invested_cp is None else invested_cp) or 0)
         divisor = int(effect.scale_divisor or 1)
         effective_value = value * (resolved_invested_cp // max(1, divisor))
 
@@ -1528,6 +1528,7 @@ def _serialize_item_semantic_effect_payload(
         "effective_value": effective_value,
         "effect_description": str(metadata.get("condition_text") or effect.notes or ""),
         "rules_text": str(effect.rules_text or ""),
+        "invested_cp": resolved_invested_cp,
         "target_display": "",
         "display_order": int(effect.sort_order or 0),
         "scale_source": str(effect.scale_source or ""),
@@ -1652,15 +1653,26 @@ def _merge_magic_effect_payloads(
     return visible_summary, merged_payloads
 
 
-def _format_magic_rule_effect_line(rules_text: str, value_display: str, value_only_display: str) -> str:
+def _format_magic_rule_effect_line(
+    rules_text: str,
+    value_display: str,
+    value_only_display: str,
+    *,
+    invested_cp: object = "",
+) -> str:
     """Format item rules_text as an inline prefix around the calculated effect."""
     text = _single_line(rules_text)
     if not text:
         return ""
+    invested_cp_text = ""
+    try:
+        invested_cp_text = str(int(invested_cp))
+    except (TypeError, ValueError):
+        invested_cp_text = ""
     if text.startswith("|"):
         closing_index = text.find("|", 1)
         if closing_index > 1:
-            label = text[1:closing_index].strip()
+            label = text[1:closing_index].replace("@", invested_cp_text).strip()
             suffix = text[closing_index + 1 :].strip()
             if label:
                 effect_text = value_display
@@ -1689,6 +1701,7 @@ def _build_character_item_magic_tooltip_rows(*, effect_summary: str, modifier_pa
             target_display = str(entry["target_display"])
             effect_description = str(entry["effect_description"])
             rules_text = str(entry["rules_text"])
+            invested_cp = entry.get("invested_cp", "")
             value_only_display = format_modifier(value)
             if target_kind == RULE_FLAG_TARGET_KIND:
                 value_display = target_display
@@ -1702,7 +1715,12 @@ def _build_character_item_magic_tooltip_rows(*, effect_summary: str, modifier_pa
                 value_only_display = value_display
             else:
                 value_display = f"{value:+d} {target_display}"
-            rule_line = _format_magic_rule_effect_line(rules_text, value_display, value_only_display)
+            rule_line = _format_magic_rule_effect_line(
+                rules_text,
+                value_display,
+                value_only_display,
+                invested_cp=invested_cp,
+            )
             if rule_line:
                 effect_lines.append(rule_line)
             elif effect_description:
@@ -1721,6 +1739,7 @@ def _build_character_item_magic_tooltip_rows(*, effect_summary: str, modifier_pa
         target_display = _single_line(str(payload.get("target_display") or "")) or "Ziel"
         effect_description = _single_line(str(payload.get("effect_description") or ""))
         rules_text = _single_line(str(payload.get("rules_text") or ""))
+        invested_cp = payload.get("invested_cp", "")
         try:
             value = int(payload.get("effective_value", payload.get("value")) or 0)
         except (TypeError, ValueError):
@@ -1729,7 +1748,7 @@ def _build_character_item_magic_tooltip_rows(*, effect_summary: str, modifier_pa
         key = (
             target_kind,
             target_display,
-            " ".join(rules_text.lower().split()),
+            " ".join(rules_text.replace("@", str(invested_cp)).lower().split()),
             " ".join(effect_description.lower().split()),
         )
         if key not in numeric_effects:
@@ -1738,6 +1757,7 @@ def _build_character_item_magic_tooltip_rows(*, effect_summary: str, modifier_pa
                 "target_display": target_display,
                 "effect_description": effect_description,
                 "rules_text": rules_text,
+                "invested_cp": invested_cp,
                 "value": 0,
             }
         numeric_effects[key]["value"] = int(numeric_effects[key]["value"]) + value
