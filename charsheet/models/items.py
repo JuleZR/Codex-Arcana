@@ -558,6 +558,7 @@ class ItemSemanticEffectFields(models.Model):
     stack_behavior = models.CharField(max_length=40, choices=STACK_BEHAVIOR_CHOICES, default="stack")
     condition_set = models.JSONField(default=dict, blank=True)
     active_flag = models.BooleanField(default=True)
+    toggleable = models.BooleanField(default=False)
     priority = models.IntegerField(default=0)
     notes = models.TextField(blank=True, default="")
     rules_text = models.TextField(blank=True, default="")

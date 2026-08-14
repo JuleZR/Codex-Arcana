@@ -37,6 +37,7 @@ from .models import (
     CharacterDruidCult,
     CharacterShamanPatron,
     CharacterItem,
+    CharacterItemSemanticEffect,
     CharacterItemRuneSpec,
     CharacterLanguage,
     CharacterSkill,
@@ -67,6 +68,7 @@ from .models import (
     DruidCult,
     DruidCultAspect,
     Item,
+    ItemSemanticEffect,
     Language,
     Lesson,
     Rune,
@@ -2959,6 +2961,102 @@ def item_transfer_center(request):
             "embedded": request.GET.get("embedded") == "1",
         },
     )
+
+
+ITEM_SEMANTIC_EFFECT_COPY_FIELDS = (
+    "sort_order",
+    "target_domain",
+    "target_key",
+    "operator",
+    "mode",
+    "value",
+    "scale_source",
+    "scale_divisor",
+    "value_min",
+    "value_max",
+    "formula",
+    "scaling",
+    "stack_behavior",
+    "condition_set",
+    "active_flag",
+    "toggleable",
+    "priority",
+    "notes",
+    "rules_text",
+    "visibility",
+    "hidden",
+    "sheet_relevant",
+)
+
+
+def _ensure_character_item_effect_copies(character_item: CharacterItem) -> dict[int, CharacterItemSemanticEffect]:
+    """Create per-instance copies for base item effects so toggles never mutate master data."""
+    existing_by_base_id: dict[int, CharacterItemSemanticEffect] = {}
+    for effect in CharacterItemSemanticEffect.objects.select_for_update().filter(character_item=character_item):
+        base_id = dict(effect.metadata or {}).get("base_item_effect_id")
+        try:
+            base_id = int(base_id)
+        except (TypeError, ValueError):
+            continue
+        existing_by_base_id[base_id] = effect
+
+    for base_effect in ItemSemanticEffect.objects.filter(item=character_item.item).order_by("sort_order", "id"):
+        if int(base_effect.id) in existing_by_base_id:
+            continue
+        values = {field_name: getattr(base_effect, field_name) for field_name in ITEM_SEMANTIC_EFFECT_COPY_FIELDS}
+        metadata = dict(base_effect.metadata or {})
+        metadata["base_item_effect_id"] = int(base_effect.id)
+        effect = CharacterItemSemanticEffect(character_item=character_item, **values, metadata=metadata)
+        effect.full_clean()
+        effect.save()
+        existing_by_base_id[int(base_effect.id)] = effect
+    return existing_by_base_id
+
+
+@login_required
+@require_POST
+@transaction.atomic
+def toggle_character_item_semantic_effects(request, pk):
+    """Toggle one or more toggleable semantic effects on a concrete owned item."""
+    ci = _owned_character_item_or_404(request, pk)
+    ci = (
+        CharacterItem.objects.select_for_update(of=("self",))
+        .select_related("item", "owner", "original_owner_character")
+        .get(pk=ci.pk)
+    )
+    source_type = str(request.POST.get("source_type") or "").strip()
+    raw_ids = str(request.POST.get("effect_ids") or "")
+    effect_ids = [
+        int(value)
+        for value in raw_ids.split(",")
+        if value.strip().isdigit()
+    ]
+    active = str(request.POST.get("active") or "").lower() in {"1", "true", "on", "yes"}
+    if source_type not in {"item", "character_item"} or not effect_ids:
+        return JsonResponse({"ok": False, "error": "invalid_effect"}, status=400)
+
+    if source_type == "item":
+        copies_by_base_id = _ensure_character_item_effect_copies(ci)
+        effects = [
+            effect
+            for base_id, effect in copies_by_base_id.items()
+            if base_id in effect_ids and effect.toggleable
+        ]
+    else:
+        effects = list(
+            CharacterItemSemanticEffect.objects.select_for_update()
+            .filter(character_item=ci, id__in=effect_ids, toggleable=True)
+        )
+    if not effects:
+        return JsonResponse({"ok": False, "error": "effect_not_toggleable"}, status=404)
+
+    for effect in effects:
+        effect.active_flag = active
+        effect.save(update_fields=["active_flag"])
+
+    if _is_partial_request(request):
+        return _sheet_partials_response(request, ci.owner, *SHEET_INVENTORY_PARTIAL_KEYS)
+    return redirect("character_sheet", character_id=ci.owner_id)
 
 
 @login_required

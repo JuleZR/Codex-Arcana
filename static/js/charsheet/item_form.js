@@ -205,6 +205,8 @@ export function initItemForm() {
         value: isTextOnly || isRuleFlag ? "0" : value,
         effect_description: effectDescription,
         rules_text: rulesText,
+        active_flag: row.dataset.magicActiveFlag !== "0",
+        toggleable: Boolean(row.querySelector("[data-magic-toggleable]")?.checked),
       };
       const attributeSelect = row.querySelector("[data-magic-target-select='attribute']");
       const statSelect = row.querySelector("[data-magic-target-select='stat']");
@@ -363,6 +365,7 @@ export function initItemForm() {
     row.querySelector("[data-magic-value-input]")?.addEventListener("input", serializeMagicEffects);
     row.querySelector("[data-magic-effect-description]")?.addEventListener("input", serializeMagicEffects);
     row.querySelector("[data-magic-rules-text]")?.addEventListener("input", serializeMagicEffects);
+    row.querySelector("[data-magic-toggleable]")?.addEventListener("change", serializeMagicEffects);
     row.querySelectorAll("[data-magic-target-select]").forEach((select) => {
       select.addEventListener("change", serializeMagicEffects);
     });

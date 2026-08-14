@@ -2026,6 +2026,7 @@ class ItemSemanticEffectAdminForm(forms.ModelForm):
         self.fields["simple_target"].choices = self._simple_target_choices()
         self.fields["sort_order"].label = "Reihenfolge"
         self.fields["active_flag"].label = "Aktiv"
+        self.fields["toggleable"].label = "Auf Itemkarte umschaltbar"
         self.fields["scale_source"].label = "Skaliert nach"
         self.fields["scale_divisor"].label = "pro"
         self.fields["scale_divisor"].help_text = "Optional. Beispiel: 2 bedeutet +Zahl pro 2 investierte CP."
@@ -2213,6 +2214,7 @@ class ItemSemanticEffectInline(admin.StackedInline):
                     "scale_source",
                     "scale_divisor",
                     "active_flag",
+                    "toggleable",
                 )
             },
         ),
@@ -5062,8 +5064,8 @@ class ItemSemanticEffectAdmin(admin.ModelAdmin):
     """Admin configuration for item semantic effects."""
 
     form = ItemSemanticEffectAdminForm
-    list_display = ("item", "target_domain", "target_key", "operator", "value", "active_flag")
-    list_filter = ("target_domain", "operator", "active_flag", "sheet_relevant")
+    list_display = ("item", "target_domain", "target_key", "operator", "value", "active_flag", "toggleable")
+    list_filter = ("target_domain", "operator", "active_flag", "toggleable", "sheet_relevant")
     search_fields = ("item__name", "target_key", "notes", "rules_text")
     autocomplete_fields = ("item",)
     ordering = ("item", "sort_order", "id")
@@ -5075,8 +5077,8 @@ class CharacterItemSemanticEffectAdmin(admin.ModelAdmin):
     """Admin configuration for concrete item instance semantic effects."""
 
     form = CharacterItemSemanticEffectAdminForm
-    list_display = ("character_item", "target_domain", "target_key", "operator", "value", "active_flag")
-    list_filter = ("target_domain", "operator", "active_flag", "sheet_relevant")
+    list_display = ("character_item", "target_domain", "target_key", "operator", "value", "active_flag", "toggleable")
+    list_filter = ("target_domain", "operator", "active_flag", "toggleable", "sheet_relevant")
     search_fields = ("character_item__item__name", "target_key", "notes", "rules_text")
     autocomplete_fields = ("character_item",)
     ordering = ("character_item", "sort_order", "id")

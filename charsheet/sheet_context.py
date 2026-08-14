@@ -1511,6 +1511,10 @@ def _serialize_item_semantic_effect_payload(
             "display_order": int(effect.sort_order or 0),
             "scale_source": "",
             "scale_divisor": "",
+            "active_flag": bool(effect.active_flag),
+            "toggleable": bool(getattr(effect, "toggleable", False)),
+            "semantic_effect_source": "character_item" if isinstance(effect, CharacterItemSemanticEffect) else "item",
+            "semantic_effect_ids": [int(effect.pk)] if effect.pk else [],
         }
     try:
         raw_value = effect._coerce_scalar(effect.value)
@@ -1537,6 +1541,10 @@ def _serialize_item_semantic_effect_payload(
         "display_order": int(effect.sort_order or 0),
         "scale_source": str(effect.scale_source or ""),
         "scale_divisor": int(effect.scale_divisor or 0) if effect.scale_divisor else "",
+        "active_flag": bool(effect.active_flag),
+        "toggleable": bool(getattr(effect, "toggleable", False)),
+        "semantic_effect_source": "character_item" if isinstance(effect, CharacterItemSemanticEffect) else "item",
+        "semantic_effect_ids": [int(effect.pk)] if effect.pk else [],
     }
 
     if target_domain == "rule_flag":
@@ -1605,7 +1613,13 @@ def _collapse_weapon_mastery_bonus_payloads(modifier_payloads: list[dict[str, ob
             collapsed_payloads.append(payload)
             continue
         payload_value = int(payload.get("value", 0) or 0)
+        payload_effective_value = int(payload.get("effective_value", payload_value) or 0)
         payload_description = str(payload.get("effect_description") or "").strip()
+        payload_rules_text = str(payload.get("rules_text") or "").strip()
+        payload_scale_source = str(payload.get("scale_source") or "").strip()
+        payload_scale_divisor = payload.get("scale_divisor") or ""
+        payload_active_flag = bool(payload.get("active_flag", True))
+        payload_toggleable = bool(payload.get("toggleable", False))
         matching_index = None
         for candidate_index in range(index + 1, len(modifier_payloads)):
             if candidate_index in consumed_indices:
@@ -1617,7 +1631,19 @@ def _collapse_weapon_mastery_bonus_payloads(modifier_payloads: list[dict[str, ob
                 continue
             if int(candidate.get("value", 0) or 0) != payload_value:
                 continue
+            if int(candidate.get("effective_value", payload_value) or 0) != payload_effective_value:
+                continue
             if str(candidate.get("effect_description") or "").strip() != payload_description:
+                continue
+            if str(candidate.get("rules_text") or "").strip() != payload_rules_text:
+                continue
+            if str(candidate.get("scale_source") or "").strip() != payload_scale_source:
+                continue
+            if (candidate.get("scale_divisor") or "") != payload_scale_divisor:
+                continue
+            if bool(candidate.get("active_flag", True)) != payload_active_flag:
+                continue
+            if bool(candidate.get("toggleable", False)) != payload_toggleable:
                 continue
             matching_index = candidate_index
             break
@@ -1639,9 +1665,25 @@ def _collapse_weapon_mastery_bonus_payloads(modifier_payloads: list[dict[str, ob
             {
                 "target_kind": collapsed_target_kind,
                 "value": payload_value,
-                "effect_description": payload_description or collapsed_target_display,
+                "effective_value": payload_effective_value,
+                "effect_description": payload_description,
+                "rules_text": payload_rules_text,
                 "target_display": collapsed_target_display,
                 "display_order": int(payload.get("display_order", 0) or 0),
+                "scale_source": payload_scale_source,
+                "scale_divisor": payload_scale_divisor,
+                "active_flag": payload_active_flag,
+                "toggleable": payload_toggleable,
+                "semantic_effect_source": str(payload.get("semantic_effect_source") or ""),
+                "semantic_effect_ids": [
+                    int(value)
+                    for value in [
+                        *(payload.get("semantic_effect_ids") or []),
+                        *(modifier_payloads[matching_index].get("semantic_effect_ids") or []),
+                    ]
+                    if str(value).isdigit()
+                ],
+                "character_item_id": payload.get("character_item_id") or modifier_payloads[matching_index].get("character_item_id"),
             }
         )
     return collapsed_payloads
@@ -1720,6 +1762,18 @@ def _build_character_item_magic_tooltip_rows(*, effect_summary: str, modifier_pa
     if summary_line:
         effect_lines.append(summary_line)
 
+    def toggle_marker_for(entry: dict[str, object]) -> str:
+        if not entry.get("toggleable"):
+            return ""
+        character_item_id = entry.get("character_item_id")
+        source = str(entry.get("semantic_effect_source") or "")
+        ids = ",".join(str(value) for value in (entry.get("semantic_effect_ids") or []) if str(value).isdigit())
+        if not character_item_id or source not in {"item", "character_item"} or not ids:
+            return ""
+        url = reverse("toggle_character_item_semantic_effects", args=[int(character_item_id)])
+        active = "1" if bool(entry.get("active_flag", True)) else "0"
+        return f"[[EFFECTTOGGLE:{url};{source};{ids};{active}]] "
+
     def flush_numeric_effects() -> None:
         for entry in numeric_effects.values():
             value = int(entry["value"])
@@ -1748,11 +1802,11 @@ def _build_character_item_magic_tooltip_rows(*, effect_summary: str, modifier_pa
                 invested_cp=invested_cp,
             )
             if rule_line:
-                effect_lines.append(rule_line)
+                effect_lines.append(f"{toggle_marker_for(entry)}{rule_line}")
             elif effect_description:
-                effect_lines.append(f"{effect_description} · {value_display}")
+                effect_lines.append(f"{toggle_marker_for(entry)}{effect_description} · {value_display}")
             else:
-                effect_lines.append(value_display)
+                effect_lines.append(f"{toggle_marker_for(entry)}{value_display}")
 
     for payload in merged_payloads:
         if str(payload.get("target_kind") or "") == TEXT_TARGET_KIND:
@@ -1763,7 +1817,7 @@ def _build_character_item_magic_tooltip_rows(*, effect_summary: str, modifier_pa
                 invested_cp=payload.get("invested_cp", ""),
             )
             if effect_description:
-                effect_lines.append(effect_description)
+                effect_lines.append(f"{toggle_marker_for(payload)}{effect_description}")
             continue
         target_display = _single_line(str(payload.get("target_display") or "")) or "Ziel"
         effect_description = _single_line(str(payload.get("effect_description") or ""))
@@ -1788,6 +1842,11 @@ def _build_character_item_magic_tooltip_rows(*, effect_summary: str, modifier_pa
                 "rules_text": rules_text,
                 "invested_cp": invested_cp,
                 "value": 0,
+                "active_flag": bool(payload.get("active_flag", True)),
+                "toggleable": bool(payload.get("toggleable", False)),
+                "semantic_effect_source": str(payload.get("semantic_effect_source") or ""),
+                "semantic_effect_ids": list(payload.get("semantic_effect_ids") or []),
+                "character_item_id": payload.get("character_item_id"),
             }
         numeric_effects[key]["value"] = int(numeric_effects[key]["value"]) + value
         continue
@@ -1832,7 +1891,8 @@ def _load_character_item_modifier_payloads(
     base_effects_by_item_id: dict[int, list[ItemSemanticEffect]] = {}
     for effect in (
         ItemSemanticEffect.objects
-        .filter(item_id__in=item_ids, active_flag=True)
+        .filter(item_id__in=item_ids)
+        .filter(Q(active_flag=True) | Q(toggleable=True))
         .select_related("item")
         .order_by("item_id", "sort_order", "id")
     ):
@@ -1840,7 +1900,8 @@ def _load_character_item_modifier_payloads(
     character_item_ids_with_instance_effects: set[int] = set()
     instance_effects = list(
         CharacterItemSemanticEffect.objects
-        .filter(character_item_id__in=[entry.id for entry in character_items], active_flag=True)
+        .filter(character_item_id__in=[entry.id for entry in character_items])
+        .filter(Q(active_flag=True) | Q(toggleable=True))
         .select_related("character_item", "character_item__item")
         .order_by("sort_order", "id")
     )
@@ -1851,14 +1912,15 @@ def _load_character_item_modifier_payloads(
             continue
         base_effects = base_effects_by_item_id.get(int(character_item.item_id), [])
         if base_effects:
-            modifiers_by_character_item_id[int(character_item.id)] = [
-                _serialize_item_semantic_effect_payload(effect, invested_cp=character_item.invested_cp)
-                for effect in base_effects
-            ]
+            modifiers_by_character_item_id[int(character_item.id)] = []
+            for effect in base_effects:
+                payload = _serialize_item_semantic_effect_payload(effect, invested_cp=character_item.invested_cp)
+                payload["character_item_id"] = int(character_item.id)
+                modifiers_by_character_item_id[int(character_item.id)].append(payload)
     for effect in instance_effects:
-        modifiers_by_character_item_id.setdefault(int(effect.character_item_id), []).append(
-            _serialize_item_semantic_effect_payload(effect)
-        )
+        payload = _serialize_item_semantic_effect_payload(effect)
+        payload["character_item_id"] = int(effect.character_item_id)
+        modifiers_by_character_item_id.setdefault(int(effect.character_item_id), []).append(payload)
     for character_item_id, payloads in list(modifiers_by_character_item_id.items()):
         modifiers_by_character_item_id[character_item_id] = _collapse_weapon_mastery_bonus_payloads(payloads)
     return modifiers_by_character_item_id
@@ -2411,7 +2473,7 @@ def _format_modifier_source_display(source_label: str, source_name: str) -> str:
     return "Unbekannt"
 
 
-def _clean_modifier_note_text(note_text: object) -> str:
+def _clean_modifier_note_text(note_text: object, *, invested_cp: object = "") -> str:
     """Hide generic migration notes that do not help the player-facing tooltip."""
     text = str(note_text or "").strip()
     hidden_notes = {
@@ -2421,7 +2483,38 @@ def _clean_modifier_note_text(note_text: object) -> str:
     }
     if text.lower() in hidden_notes:
         return ""
+    invested_cp_text = ""
+    try:
+        invested_cp_text = str(int(invested_cp))
+    except (TypeError, ValueError):
+        invested_cp_text = ""
+    if text.startswith("|"):
+        closing_index = text.find("|", 1)
+        if closing_index > 1:
+            label = text[1:closing_index].replace("@", invested_cp_text).strip()
+            suffix = text[closing_index + 1 :].strip().replace("@", invested_cp_text)
+            text = " ".join(part for part in (label, suffix) if part)
+    elif invested_cp_text:
+        text = text.replace("@", invested_cp_text)
+    for marker in ("**", "__", "`"):
+        text = text.replace(marker, "")
     return text
+
+
+def _item_source_invested_cp(source_type: object, source_id: object) -> int | None:
+    source_type_text = str(source_type or "").strip().lower()
+    source_id_text = str(source_id or "").strip()
+    if not source_id_text.isdigit():
+        return None
+    if source_type_text == "characteritem":
+        character_item = CharacterItem.objects.filter(pk=int(source_id_text)).select_related("item").first()
+        if character_item is None:
+            return None
+        return character_item.invested_cp if character_item.invested_cp is not None else character_item.item.invested_cp
+    if source_type_text == "item":
+        item = Item.objects.filter(pk=int(source_id_text)).only("invested_cp").first()
+        return None if item is None else item.invested_cp
+    return None
 
 
 def _build_modifier_breakdown_rows(
@@ -2598,7 +2691,10 @@ def _build_grouped_explanation_rows(engine, explanation: list[dict[str, object]]
         source_name = _resolve_modifier_source_name(engine, source_type, entry.get("source_id"))
         source_detail = _resolve_modifier_source_detail(engine, source_type, entry.get("source_id"))
         source_display = _format_modifier_source_display(source_label, source_name)
-        note_text = _clean_modifier_note_text(entry.get("notes"))
+        note_text = _clean_modifier_note_text(
+            entry.get("notes"),
+            invested_cp=_item_source_invested_cp(source_type, entry.get("source_id")),
+        )
         row_label = note_text or source_name or "Unbekannt"
         if source_display.strip().casefold() == row_label.strip().casefold():
             source_display = ""
@@ -2660,7 +2756,10 @@ def _build_character_item_stat_modifier_rows(engine, character_item: CharacterIt
                 "source_type": "characteritem",
                 "source_id": character_item.id,
                 "resolved_value": resolved_value,
-                "notes": getattr(modifier, "notes", "") or getattr(modifier, "rules_text", ""),
+                "notes": _clean_modifier_note_text(
+                    getattr(modifier, "notes", "") or getattr(modifier, "rules_text", ""),
+                    invested_cp=character_item.invested_cp if character_item.invested_cp is not None else character_item.item.invested_cp,
+                ),
             }
         )
     if stat_key == WEAPON_DAMAGE:
@@ -2713,7 +2812,10 @@ def _build_skill_modifier_rows(
         source_label = MODIFIER_SOURCE_LABELS.get(source_type, _prettify_source_id(source_type))
         source_name = _resolve_modifier_source_name(engine, source_type, entry.get("source_id"))
         source_display = _format_modifier_source_display(source_label, source_name)
-        note_text = _clean_modifier_note_text(entry.get("notes"))
+        note_text = _clean_modifier_note_text(
+            entry.get("notes"),
+            invested_cp=_item_source_invested_cp(source_type, entry.get("source_id")),
+        )
         rows.append(
             {
                 "label": note_text or source_name or skill_name,
@@ -2731,7 +2833,10 @@ def _build_skill_modifier_rows(
             source_label = MODIFIER_SOURCE_LABELS.get(source_type, _prettify_source_id(source_type))
             source_name = _resolve_modifier_source_name(engine, source_type, entry.get("source_id"))
             source_display = _format_modifier_source_display(source_label, source_name)
-            note_text = _clean_modifier_note_text(entry.get("notes"))
+            note_text = _clean_modifier_note_text(
+                entry.get("notes"),
+                invested_cp=_item_source_invested_cp(source_type, entry.get("source_id")),
+            )
             rows.append(
                 {
                     "label": note_text or source_name or "Kategorie-Bonus",

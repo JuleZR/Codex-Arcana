@@ -1,4 +1,5 @@
-import { escapeHtml, loadJsonStorage, saveJsonStorage } from "./utils.js";
+import { escapeHtml, getCsrfToken, loadJsonStorage, saveJsonStorage } from "./utils.js";
+import { applySheetPartials } from "./partial_updates.js";
 
 function parseTableRow(line) {
   const trimmed = String(line || "").trim();
@@ -223,6 +224,20 @@ function normalizeUnicodeFraction(value) {
 
 function renderInlineMarkdown(text) {
   let html = escapeHtml(String(text || ""));
+  html = html.replace(
+    /\[\[EFFECTTOGGLE:([^;\]]+);([^;\]]+);([0-9,]+);([01])\]\]/g,
+    (_match, url, source, ids, active) => {
+      const isActive = active === "1";
+      const label = isActive ? "Effekt deaktivieren" : "Effekt aktivieren";
+      return (
+        `<button type="button" class="tooltip_effect_toggle${isActive ? " is-active" : ""}" `
+        + `data-item-effect-toggle data-effect-toggle-url="${escapeHtml(url)}" `
+        + `data-effect-source="${escapeHtml(source)}" data-effect-ids="${escapeHtml(ids)}" `
+        + `data-effect-active="${isActive ? "1" : "0"}" aria-pressed="${isActive ? "true" : "false"}" `
+        + `aria-label="${label}" title="${label}"><span aria-hidden="true"></span></button>`
+      );
+    },
+  );
   html = html.replace(/\[\[EMPTY\]\]/g, "&nbsp;");
   html = html.replace(/\[\[RUNEINLINE:(.+?)\|(.*?)\|(.*?)\]\]/g, (_match, name, description, image) => {
     const safeName = escapeHtml(String(name || "").trim() || "Rune");
@@ -620,15 +635,22 @@ function normalizeTooltipSectionRows(rows, sectionLabel) {
     const clone = row.cloneNode(true);
     const firstCell = clone.cells[0];
     const firstCellText = normalizeInlineText(firstCell?.textContent || "");
+    const toggle = clone.querySelector("[data-item-effect-toggle]");
     if (
       firstCell
       && (
         firstCellText === normalizeInlineText(sectionLabel)
+        || firstCellText === "Effekt"
         || firstCellText === "[[WEAPON_SYMBOL]]"
       )
       && (index === 0 || firstCellText === "[[WEAPON_SYMBOL]]")
     ) {
       firstCell.innerHTML = "&nbsp;";
+    }
+    if (firstCell && toggle instanceof HTMLElement) {
+      toggle.remove();
+      firstCell.innerHTML = "";
+      firstCell.append(toggle);
     }
     return clone;
   });
@@ -979,6 +1001,74 @@ export function initTooltips() {
   let dragPointerId = null;
   let dragOffsetX = 0;
   let dragOffsetY = 0;
+
+  document.addEventListener("click", async (event) => {
+    const button = event.target instanceof Element ? event.target.closest("[data-item-effect-toggle]") : null;
+    if (!(button instanceof HTMLButtonElement)) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    if (button.disabled) {
+      return;
+    }
+    button.disabled = true;
+    const targetKey = activeCardTarget instanceof HTMLElement
+      ? String(activeCardTarget.getAttribute("data-tooltip-card-key") || "").trim()
+      : "";
+    const targetSignature = activeCardTarget instanceof HTMLElement
+      ? buildCardTargetSignature(activeCardTarget)
+      : "";
+    const nextActive = button.dataset.effectActive === "1" ? "0" : "1";
+    const formData = new FormData();
+    formData.set("source_type", String(button.dataset.effectSource || ""));
+    formData.set("effect_ids", String(button.dataset.effectIds || ""));
+    formData.set("active", nextActive);
+    try {
+      const response = await fetch(String(button.dataset.effectToggleUrl || ""), {
+        method: "POST",
+        body: formData,
+        headers: {
+          "X-CSRFToken": getCsrfToken(),
+          "X-Requested-With": "XMLHttpRequest",
+          Accept: "application/json",
+        },
+        credentials: "same-origin",
+      });
+      if (!response.ok) {
+        throw new Error("effect toggle failed");
+      }
+      const payload = await response.json();
+      if (!payload?.ok) {
+        throw new Error("effect toggle invalid");
+      }
+      applySheetPartials(payload);
+      tooltip.classList.remove("is-visible");
+      activeTarget = null;
+      button.dataset.effectActive = nextActive;
+      button.classList.toggle("is-active", nextActive === "1");
+      button.setAttribute("aria-pressed", nextActive === "1" ? "true" : "false");
+      const label = nextActive === "1" ? "Effekt deaktivieren" : "Effekt aktivieren";
+      button.setAttribute("aria-label", label);
+      button.setAttribute("title", label);
+      button.disabled = false;
+      const nextTarget = Array.from(document.querySelectorAll(".tooltip_target[data-tooltip][data-tooltip-mode='card']")).find((target) => {
+        if (!(target instanceof HTMLElement)) {
+          return false;
+        }
+        if (targetKey && String(target.getAttribute("data-tooltip-card-key") || "").trim() === targetKey) {
+          return true;
+        }
+        return !targetKey && targetSignature && buildCardTargetSignature(target) === targetSignature;
+      });
+      if (nextTarget instanceof HTMLElement) {
+        activeCardTarget = nextTarget;
+        saveCardState(nextTarget);
+      }
+    } catch (_error) {
+      button.disabled = false;
+    }
+  }, { capture: true });
 
   document.addEventListener("mousemove", (event) => {
     lastMouseX = event.clientX;

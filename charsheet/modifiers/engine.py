@@ -199,7 +199,6 @@ class ModifierEngine:
         instance_effects = (
             CharacterItemSemanticEffect.objects.filter(
                 character_item_id__in=character_item_ids,
-                active_flag=True,
             )
             .select_related("character_item", "character_item__item")
             .order_by("character_item_id", "sort_order", "id")
@@ -219,7 +218,7 @@ class ModifierEngine:
                 base_modifiers.append(effect.to_modifier(invested_cp=character_item.invested_cp))
         return [
             *base_modifiers,
-            *(effect.to_modifier() for effect in instance_effects),
+            *(effect.to_modifier() for effect in instance_effects if effect.active_flag),
         ]
 
     @cached_property

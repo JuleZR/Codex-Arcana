@@ -10,7 +10,7 @@
               data-equipped="1"
               data-equip-drop-zone="armor"
               {% if row.quality_color %} style="--row-quality-color: {{ row.quality_color }};"{% endif %}
-              {% if row.tooltip_text %} data-tooltip-side="left" data-tooltip-mode="card" data-tooltip-title="{{ row.item_name|escape }}" data-tooltip-subtitle="{{ row.tooltip_subtitle|escape }}"{% if row.item_image_url %} data-tooltip-image="{{ row.item_image_url }}"{% endif %} data-tooltip-accent="{{ row.quality_color }}" data-tooltip="{{ row.tooltip_text }}"{% endif %}>
+              {% if row.tooltip_text %} data-tooltip-side="left" data-tooltip-mode="card" data-tooltip-card-key="item:{{ row.character_item.pk }}" data-tooltip-title="{{ row.item_name|escape }}" data-tooltip-subtitle="{{ row.tooltip_subtitle|escape }}"{% if row.item_image_url %} data-tooltip-image="{{ row.item_image_url }}"{% endif %} data-tooltip-accent="{{ row.quality_color }}" data-tooltip="{{ row.tooltip_text }}"{% endif %}>
             <span class="armor_row_label">
               {% if row.can_unequip %}
                 <form method="post" action="{% url 'toggle_equip' row.character_item.pk %}" class="equip_form equip_form--inline" data-sheet-action data-equip-form>

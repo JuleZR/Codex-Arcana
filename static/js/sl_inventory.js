@@ -185,6 +185,9 @@ document.addEventListener("DOMContentLoaded", () => {
           target_kind: targetKind,
           value: Number.parseInt(row.querySelector("[data-effect-value]")?.value || "0", 10) || 0,
           effect_description: row.querySelector("[data-effect-description]")?.value?.trim() || "",
+          rules_text: row.querySelector("[data-effect-rules-text]")?.value?.trim() || "",
+          active_flag: row.dataset.effectActiveFlag !== "0",
+          toggleable: Boolean(row.querySelector("[data-effect-toggleable]")?.checked),
         };
         const scaleSource = row.querySelector("[data-effect-scale-source]")?.value || "";
         if (!["text", "rule_flag"].includes(targetKind) && scaleSource) {
@@ -347,6 +350,9 @@ document.addEventListener("DOMContentLoaded", () => {
           target_kind: kind,
           value: Number.parseInt(row.querySelector("[data-effect-value]")?.value || "0", 10) || 0,
           effect_description: row.querySelector("[data-effect-description]")?.value?.trim() || "",
+          rules_text: row.querySelector("[data-effect-rules-text]")?.value?.trim() || "",
+          active_flag: row.dataset.effectActiveFlag !== "0",
+          toggleable: Boolean(row.querySelector("[data-effect-toggleable]")?.checked),
         };
         const scaleSource = row.querySelector("[data-effect-scale-source]")?.value || "";
         if (!["text", "rule_flag"].includes(kind) && scaleSource) {
@@ -407,9 +413,14 @@ document.addEventListener("DOMContentLoaded", () => {
       const kind = row.querySelector("[data-effect-kind]");
       const value = row.querySelector("[data-effect-value]");
       const description = row.querySelector("[data-effect-description]");
+      const rulesText = row.querySelector("[data-effect-rules-text]");
+      const toggleable = row.querySelector("[data-effect-toggleable]");
+      row.dataset.effectActiveFlag = payload.active_flag === false ? "0" : "1";
       if (kind && payload.target_kind) kind.value = payload.target_kind;
       if (value) value.value = String(payload.value ?? 0);
       if (description) description.value = payload.effect_description || "";
+      if (rulesText) rulesText.value = payload.rules_text || "";
+      if (toggleable) toggleable.checked = Boolean(payload.toggleable);
       const scaleSource = row.querySelector("[data-effect-scale-source]");
       const scaleDivisor = row.querySelector("[data-effect-scale-divisor]");
       if (scaleSource) scaleSource.value = payload.scale_source || "";
