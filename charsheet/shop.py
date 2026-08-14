@@ -1104,7 +1104,7 @@ def sell_shop_cart(character: Character, payload: dict[str, object]) -> tuple[di
 
     character_items = {
         item.id: item
-        for item in CharacterItem.objects.select_for_update().select_related("item", "owner", "original_owner_character").filter(
+        for item in CharacterItem.objects.select_for_update(of=("self",)).select_related("item", "owner", "original_owner_character").filter(
             owner=character,
             pk__in=requested_quantities.keys(),
         )
@@ -1193,7 +1193,7 @@ def trade_shop_cart(character: Character, payload: dict[str, object]) -> tuple[d
 
     character_items = {
         item.id: item
-        for item in CharacterItem.objects.select_for_update().select_related("item", "owner", "original_owner_character").filter(
+        for item in CharacterItem.objects.select_for_update(of=("self",)).select_related("item", "owner", "original_owner_character").filter(
             owner=character,
             pk__in=requested_sell_quantities.keys(),
         )
