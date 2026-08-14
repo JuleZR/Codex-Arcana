@@ -791,9 +791,10 @@
 }
 
 .sl-item-action-window {
-  width: min(920px, calc(100vw - 28px));
+  width: min(538px, calc(100vw - 28px));
+  aspect-ratio: 210 / 297;
   height: min(760px, calc(100vh - 28px));
-  max-height: min(760px, calc(100vh - 28px));
+  max-height: calc(100vh - 28px);
 }
 
 .sl-item-create-window__body,

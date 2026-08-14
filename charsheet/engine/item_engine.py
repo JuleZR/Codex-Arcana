@@ -14,6 +14,7 @@ from charsheet.constants import (
     QUALITY_LEGENDARY,
     QUALITY_POOR,
     QUALITY_PRICE_MODS,
+    QUALITY_UNIQUE,
     QUALITY_VERY_POOR,
     QUALITY_WRETCHED,
     TWO_HANDED,
@@ -336,6 +337,8 @@ class ItemEngine:
 
     def _quality_bonus_delta(self, bonus_map: dict[str, int]) -> int:
         """Return only the quality bonus not already included in base item stats."""
+        if self.get_effective_quality() == QUALITY_UNIQUE:
+            return 0
         effective_bonus = int(bonus_map.get(self.get_effective_quality(), 0) or 0)
         base_bonus = int(bonus_map.get(self.get_base_quality(), 0) or 0)
         return effective_bonus - base_bonus

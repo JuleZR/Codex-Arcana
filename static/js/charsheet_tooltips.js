@@ -1014,6 +1014,7 @@ document.addEventListener("DOMContentLoaded", () => {
     fine: 0,
     excellent: 1,
     legendary: 1,
+    unique: 0,
   };
   const QUALITY_BEL_MODS = {
     wretched: 3,
@@ -1023,6 +1024,7 @@ document.addEventListener("DOMContentLoaded", () => {
     fine: 0,
     excellent: -1,
     legendary: -2,
+    unique: 0,
   };
 
   const baseBalance = Number.parseInt(cartWrapper.getAttribute("data-shop-balance") || "0", 10) || 0;

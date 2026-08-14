@@ -89,6 +89,7 @@ from charsheet.constants import (
     WEAPON_MASTERY_EFFECT_DESCRIPTION,
 )
 from charsheet.shop import (
+    _cp_matches_steps,
     _read_magic_modifier_payloads,
     _save_magic_modifiers,
     create_custom_shop_item,
@@ -808,6 +809,8 @@ def game_master_screen(request, group_id: int):
             "shield_rs": getattr(shield, "rs", ""),
             "shield_encumbrance": getattr(shield, "encumbrance", ""),
             "shield_min_st": getattr(shield, "min_st", ""),
+            "invested_cp": item.invested_cp or "",
+            "invested_cp_steps": item.invested_cp_steps or "",
         }
     modifier_payloads_by_item = _load_character_item_modifier_payloads(inventory_items)
     for inventory_item in inventory_items:
@@ -2888,6 +2891,14 @@ def edit_group_inventory_item(request, group_id: int, item_id: int):
             instance.weight_override = max(Decimal("0"), Decimal(raw_weight)) if raw_weight else None
         except (ValueError, InvalidOperation) as exc:
             raise GroupError("invalid_item", "Preis oder Gewicht ist ungültig.") from exc
+        raw_invested_cp = str(request.POST.get("invested_cp") or "").strip()
+        try:
+            invested_cp = max(0, int(raw_invested_cp)) if raw_invested_cp else 0
+        except ValueError as exc:
+            raise GroupError("invalid_item", "Investierte CP sind ungültig.") from exc
+        if not _cp_matches_steps(invested_cp, instance.item.invested_cp_steps):
+            raise GroupError("invalid_item", "Investierte CP passen nicht zu den CP-Schritten.")
+        instance.invested_cp = None if not invested_cp or invested_cp == int(instance.item.invested_cp or 0) else invested_cp
         instance.size_class_override = str(request.POST.get("size_class_override") or "")
 
         active_override_fields = ()
@@ -2941,7 +2952,7 @@ def edit_group_inventory_item(request, group_id: int, item_id: int):
             update_fields=[
                 "amount", "quality", "name_override", "description",
                 "magic_effect_summary", "is_magic", "price_override",
-                "weight_override", "size_class_override", "image_override",
+                "weight_override", "invested_cp", "size_class_override", "image_override",
                 *active_override_fields,
                 *(
                     (

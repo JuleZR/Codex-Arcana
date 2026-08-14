@@ -570,6 +570,7 @@ def _normalize_redundant_character_item_overrides(character_item: CharacterItem)
         "weight_override": item.weight,
         "size_class_override": item.size_class,
         "description": item.description or "",
+        "invested_cp": item.invested_cp,
     }
     weapon = getattr(item, "weaponstats", None)
     if weapon is not None:

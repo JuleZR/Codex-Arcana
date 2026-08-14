@@ -76,6 +76,8 @@
                         <label><span>Preis</span><input name="price_override" type="number" min="0" value="{{ instance.price_override|default_if_none:'' }}" placeholder="{{ instance.base_values.price }}"></label>
                         <label><span>Gewicht</span><input name="weight_override" type="number" min="0" step=".01" value="{{ instance.weight_override|default_if_none:'' }}" placeholder="{{ instance.base_values.weight }}"></label>
                         <label><span>Größenklasse</span><select name="size_class_override"><option value="">{{ instance.base_values.size_class }}</option>{% for value,label in group_inventory_size_classes %}<option value="{{ value }}"{% if instance.size_class_override == value %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+                        <label><span>Investierte CP</span><input name="invested_cp" type="number" min="0" step="1" value="{{ instance.invested_cp|default_if_none:'' }}" placeholder="{{ instance.base_values.invested_cp }}"></label>
+                        <label><span>CP-Schritte</span><input type="text" value="{{ instance.base_values.invested_cp_steps }}" placeholder="Keine Vorgabe" readonly></label>
                         <label class="sl-editor-grid__wide"><span>Eigenes Bild</span><input name="image_override" type="file" accept="image/*"></label>
                         <label class="sl-editor-grid__wide"><span>Beschreibung</span><textarea name="description" rows="3">{{ instance.description }}</textarea></label>
                       </div>
@@ -98,6 +100,8 @@
                           <div class="sl-editor-row sl-editor-row--effect">
                             <label><span>Wirkung</span><select data-effect-kind>{% for value,label in group_inventory_effect_kinds %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></label>
                             <label data-effect-value-row><span>Bonus / Malus</span><input type="number" step="1" value="0" data-effect-value></label>
+                            <label data-effect-scale-source-row><span>Skaliert nach</span><select data-effect-scale-source><option value="">Nicht skaliert</option><option value="item_invested_cp">Investierte CP des Items</option></select></label>
+                            <label data-effect-scale-divisor-row hidden><span>CP pro +1/-1</span><input type="number" min="1" step="1" value="2" data-effect-scale-divisor></label>
                           </div>
                           <label class="sl-editor-field"><span>Beschreibung</span><input type="text" maxlength="255" placeholder="Was bewirkt der Effekt?" data-effect-description></label>
                           <label class="sl-editor-field" data-effect-target="attribute" hidden><span>Attribut</span><select>{% for value,label in group_inventory_effect_attributes %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></label>
