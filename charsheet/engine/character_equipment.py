@@ -60,8 +60,8 @@ def equipped_armor_items(engine) -> QuerySet:
         CharacterItem.objects.filter(
             owner=engine.character,
             equipped=True,
-            item__item_type__in=Item.armor_item_type_values(),
         )
+        .filter(Q(item__item_type__in=Item.armor_item_type_values()) | Q(item__armorstats__isnull=False))
         .select_related("item", "item__armorstats")
         .prefetch_related("item__runes", "runes", "item_runes__rune")
     )
@@ -101,6 +101,7 @@ def equipped_magic_item_items(engine) -> QuerySet:
                 *Item.weapon_item_type_values(),
             )
         )
+        .exclude(item__armorstats__isnull=False)
         .select_related("item", "item__magicitemstats")
         .prefetch_related("item__runes", "runes", "item_runes__rune")
     )

@@ -1989,7 +1989,7 @@ def _build_item_tooltip_rows(
             rows.append(("Min-GE", f"1H {min_ge_1h} / 2H {min_ge_2h}"))
         elif min_ge_1h is not None:
             rows.append(("Min-GE", min_ge_1h))
-    elif item.item_type in Item.armor_item_type_values():
+    elif getattr(item, "armorstats", None) is not None:
         rs = item_engine.get_armor_rs_raw() if armor_rs is None else armor_rs
         if rs is not None:
             rows.append(("RS", rs))

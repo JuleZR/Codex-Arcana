@@ -900,11 +900,19 @@ def create_custom_shop_item(post_data, files_data=None, *, catalog_group=None):
             if selected_runes:
                 item.runes.set(selected_runes)
 
-            if item.item_type in Item.armor_item_type_values():
+            zone_fields = tuple(ArmorStats.ZONE_FIELDS)
+            has_armor_coverage = any(bool(post_data.get(f"armor_covers_{zone}")) for zone in zone_fields)
+            should_create_armor_stats = (
+                item.item_type in Item.armor_item_type_values()
+                or (
+                    item.item_type in Item.armor_stats_item_type_values()
+                    and has_armor_coverage
+                )
+            )
+            if should_create_armor_stats:
                 armor_encumbrance = _read_int(post_data, "armor_encumbrance", 0, minimum=0)
                 armor_min_st = _read_int(post_data, "armor_min_st", 1, minimum=1)
-                zone_fields = tuple(ArmorStats.ZONE_FIELDS)
-                has_explicit_coverage = bool(post_data.get("armor_coverage_present"))
+                has_explicit_coverage = bool(post_data.get("armor_coverage_present")) or has_armor_coverage
                 coverage = {
                     f"covers_{zone}": (
                         bool(post_data.get(f"armor_covers_{zone}"))
@@ -918,7 +926,10 @@ def create_custom_shop_item(post_data, files_data=None, *, catalog_group=None):
                     rs_total=_read_int(post_data, "armor_rs_total", 0, minimum=1),
                     encumbrance=armor_encumbrance,
                     min_st=armor_min_st,
-                    suppress_component_generation=bool(post_data.get("armor_suppress_components")),
+                    suppress_component_generation=(
+                        bool(post_data.get("armor_suppress_components"))
+                        or item.item_type not in Item.armor_item_type_values()
+                    ),
                     **coverage,
                 )
                 armor_stats.full_clean()

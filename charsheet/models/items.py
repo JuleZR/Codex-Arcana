@@ -123,6 +123,7 @@ class Item(models.Model):
     MAGIC_EQUIPMENT_TYPES = frozenset({"ring", "amulet", "magical_weapon", "magical_armor"})
     WEAPON_ITEM_TYPES = frozenset({"weapon", "magical_weapon"})
     ARMOR_ITEM_TYPES = frozenset({"armor", "magical_armor"})
+    ARMOR_STATS_ITEM_TYPES = frozenset({"armor", "magical_armor", "ring", "amulet"})
 
     class ItemType(models.TextChoices):
         ARMOR = "armor", "Rüstung"
@@ -225,6 +226,10 @@ class Item(models.Model):
     @classmethod
     def armor_item_type_values(cls) -> frozenset[str]:
         return cls.ARMOR_ITEM_TYPES
+
+    @classmethod
+    def armor_stats_item_type_values(cls) -> frozenset[str]:
+        return cls.ARMOR_STATS_ITEM_TYPES
 
 
 class ArmorStats(models.Model):
@@ -358,8 +363,8 @@ class ArmorStats(models.Model):
     def clean(self):
         """Validate armor ownership, component metadata, and coverage."""
         super().clean()
-        if self.item.item_type not in Item.armor_item_type_values():
-            raise ValidationError({"item": "Non armor items can't have ArmorStats"})
+        if self.item.item_type not in Item.armor_stats_item_type_values():
+            raise ValidationError({"item": "Only armor-capable items can have ArmorStats"})
         if not self.rs_total:
             raise ValidationError({"rs_total": "Armor must have RS greater than zero."})
         if self.parent_set_id and not self.component_type:

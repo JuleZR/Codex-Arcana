@@ -117,6 +117,10 @@ def _request_wants_json(request) -> bool:
 def _group_action(view):
     """Convert domain errors into user-facing messages without weakening services."""
     def wrapped(request, *args, **kwargs):
+        has_armor_stats_payload = any(
+            bool(request.POST.get(f"armor_covers_{zone}"))
+            for zone in ArmorStats.ZONE_FIELDS
+        )
         try:
             return view(request, *args, **kwargs)
         except (GroupError, TransferError) as exc:
@@ -2734,7 +2738,7 @@ def create_group_catalog_item(request, group_id: int):
             magic_effects = json.loads(request.POST.get("magic_modifier_payloads") or "[]")
         except json.JSONDecodeError as exc:
             raise GroupError("invalid_item", "Die magischen Effekte sind ungültig.") from exc
-        if is_magic and (not isinstance(magic_effects, list) or not magic_effects):
+        if is_magic and (not isinstance(magic_effects, list) or (not magic_effects and not has_armor_stats_payload)):
             raise GroupError(
                 "missing_magic_effect",
                 "Ein magischer Gegenstand benötigt mindestens einen definierten Effekt.",
@@ -2897,7 +2901,7 @@ def edit_group_inventory_item(request, group_id: int, item_id: int):
                 "weapon_h2_dice_faces_override",
                 "weapon_h2_flat_bonus_override",
             )
-        elif instance.item.item_type in Item.armor_item_type_values():
+        elif getattr(instance.item, "armorstats", None) is not None:
             active_override_fields = (
                 "armor_rs_total_override",
                 "armor_encumbrance_override",
