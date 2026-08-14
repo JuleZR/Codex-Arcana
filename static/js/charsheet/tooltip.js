@@ -1060,6 +1060,23 @@ export function initTooltips() {
     }, HIDE_HOLD_MS);
   };
 
+  const showInlineTooltip = (target) => {
+    const text = String(target.getAttribute("data-tooltip") || "")
+      .replace(/\r\n/g, "\n")
+      .replace(/\\n/g, "\n");
+    if (!text.trim()) {
+      return;
+    }
+    const variant = String(target.getAttribute("data-tooltip-variant") || "").trim();
+    tooltip.className = variant
+      ? `floating-tooltip floating-tooltip--${variant}`
+      : "floating-tooltip";
+    tooltip.innerHTML = renderTooltipMarkup(text);
+    activeTarget = target;
+    tooltip.classList.add("is-visible");
+    positionTooltip(target);
+  };
+
   const positionTooltip = (target) => {
     const gap = 10;
     const viewportPadding = 8;
@@ -1080,6 +1097,7 @@ export function initTooltips() {
     if (left < viewportPadding) {
       left = lastMouseX + gap + 4;
     }
+    tooltip.dataset.placement = left < lastMouseX ? "left" : "right";
 
     top = lastMouseY - tooltipRect.height / 2;
 
@@ -1323,10 +1341,19 @@ export function initTooltips() {
     if (!(target instanceof HTMLElement) || target.dataset.tooltipMode === "card") {
       return;
     }
+    if (activeTarget?.getAttribute("data-tooltip-trigger") === "click") {
+      return;
+    }
+    if (target.getAttribute("data-tooltip-trigger") === "click") {
+      return;
+    }
     const text = String(target.getAttribute("data-tooltip") || "")
       .replace(/\r\n/g, "\n")
       .replace(/\\n/g, "\n");
     if (!text.trim()) {
+      return;
+    }
+    if (activeTarget?.getAttribute("data-tooltip-trigger") === "click") {
       return;
     }
 
@@ -1345,10 +1372,7 @@ export function initTooltips() {
       if (pendingTarget !== target) {
         return;
       }
-      tooltip.innerHTML = renderTooltipMarkup(text);
-      activeTarget = target;
-      tooltip.classList.add("is-visible");
-      positionTooltip(target);
+      showInlineTooltip(target);
       showTimeoutId = null;
     }, SHOW_DELAY_MS);
   });
@@ -1356,6 +1380,12 @@ export function initTooltips() {
   document.addEventListener("mouseout", (event) => {
     const target = event.target instanceof Element ? event.target.closest(".tooltip_target[data-tooltip]") : null;
     if (!(target instanceof HTMLElement) || target.dataset.tooltipMode === "card") {
+      return;
+    }
+    if (activeTarget?.getAttribute("data-tooltip-trigger") === "click") {
+      return;
+    }
+    if (target.getAttribute("data-tooltip-trigger") === "click") {
       return;
     }
     if (event.relatedTarget instanceof Node && target.contains(event.relatedTarget)) {
@@ -1366,6 +1396,39 @@ export function initTooltips() {
     }
     clearShowTimer();
     scheduleHide();
+  });
+
+  document.addEventListener("click", (event) => {
+    const target = event.target instanceof Element ? event.target.closest(".tooltip_target[data-tooltip]") : null;
+    if (!(target instanceof HTMLElement) || target.dataset.tooltipMode === "card") {
+      if (activeTarget?.getAttribute("data-tooltip-trigger") === "click") {
+        tooltip.classList.remove("is-visible");
+        activeTarget = null;
+      }
+      return;
+    }
+    if (target.getAttribute("data-tooltip-trigger") !== "click") {
+      if (activeTarget?.getAttribute("data-tooltip-trigger") === "click") {
+        tooltip.classList.remove("is-visible");
+        activeTarget = null;
+      }
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    lastMouseX = event.clientX;
+    lastMouseY = event.clientY;
+    clearShowTimer();
+    if (hideTimeoutId) {
+      window.clearTimeout(hideTimeoutId);
+      hideTimeoutId = null;
+    }
+    if (activeTarget === target && tooltip.classList.contains("is-visible")) {
+      tooltip.classList.remove("is-visible");
+      activeTarget = null;
+      return;
+    }
+    showInlineTooltip(target);
   });
 
   document.addEventListener("click", (event) => {

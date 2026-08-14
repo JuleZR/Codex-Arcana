@@ -11,8 +11,14 @@ from django.core.exceptions import ValidationError
 from django.db import transaction
 
 from charsheet.constants import (
+    ARCANE_POWER,
     DEADLY,
+    DEFENSE_GW,
+    DEFENSE_SR,
+    DEFENSE_VW,
+    INITIATIVE,
     MELEE_MANEUVERS,
+    POTENTIAL,
     RULE_FLAG_TARGET_KIND,
     RULE_FLAG_CHOICES,
     TWO_HANDED,
@@ -58,6 +64,14 @@ TARGET_KIND_CATEGORY = "category"
 TARGET_KIND_ITEM = "item"
 TARGET_KIND_ITEM_CATEGORY = "item_category"
 TARGET_KIND_SPECIALIZATION = "specialization"
+CONDITIONAL_CORE_STAT_TARGETS = {
+    INITIATIVE,
+    DEFENSE_VW,
+    DEFENSE_SR,
+    DEFENSE_GW,
+    ARCANE_POWER,
+    POTENTIAL,
+}
 
 
 def _read_weapon_type(raw_value) -> WeaponType | None:
@@ -216,6 +230,9 @@ def _build_magic_modifier_payload(target_kind: str, raw_value, row_data) -> dict
         "target_item": None,
         "target_specialization": None,
     }
+    rules_text = str(row_data.get("rules_text") or "").strip()
+    if rules_text:
+        payload["rules_text"] = rules_text
     scale_source = str(row_data.get("scale_source") or "").strip()
     if scale_source == "item_invested_cp":
         try:
@@ -305,6 +322,7 @@ def _read_magic_modifier_payload(post_data) -> dict[str, object] | None:
             "target_item_category": post_data.get("magic_modifier_target_item_category"),
             "target_specialization": post_data.get("magic_modifier_target_specialization"),
             "effect_description": post_data.get("magic_modifier_effect_description"),
+            "rules_text": post_data.get("magic_modifier_rules_text"),
         },
     )
 
@@ -339,6 +357,7 @@ def _read_magic_modifier_payloads(post_data) -> list[dict[str, object]]:
             if payload.get("target_kind") in {WEAPON_MANEUVER_DAMAGE, WEAPON_MASTERY_BONUS}:
                 value = int(payload.get("value", 0) or 0)
                 effect_description = str(payload.get("effect_description") or "").strip()
+                rules_text = str(payload.get("rules_text") or "").strip()
                 scale_source = str(payload.get("scale_source") or "")
                 scale_divisor = payload.get("scale_divisor")
                 scale_payload = (
@@ -359,6 +378,7 @@ def _read_magic_modifier_payloads(post_data) -> list[dict[str, object]]:
                             "target_skill_category": None,
                             "target_item": None,
                             "target_specialization": None,
+                            **({"rules_text": rules_text} if rules_text else {}),
                         },
                         {
                             "target_kind": TARGET_KIND_STAT,
@@ -371,6 +391,7 @@ def _read_magic_modifier_payloads(post_data) -> list[dict[str, object]]:
                             "target_skill_category": None,
                             "target_item": None,
                             "target_specialization": None,
+                            **({"rules_text": rules_text} if rules_text else {}),
                         },
                     ]
                 )
@@ -499,6 +520,10 @@ def _magic_payload_to_semantic_effect_kwargs(payload: dict[str, object]) -> dict
         "legacy_target_kind": target_kind,
         "legacy_target_slug": target_slug,
     }
+    effect_description = str(payload.get("effect_description") or "").strip()
+    rules_text = str(payload.get("rules_text") or "").strip()
+    if target_domain == TargetDomain.DERIVED_STAT and target_key in CONDITIONAL_CORE_STAT_TARGETS and effect_description:
+        metadata["condition_text"] = " ".join(effect_description.split())
     return {
         "sort_order": int(payload.get("display_order") or 0),
         "target_domain": str(getattr(target_domain, "value", target_domain)),
@@ -508,7 +533,8 @@ def _magic_payload_to_semantic_effect_kwargs(payload: dict[str, object]) -> dict
         "value": str(value).lower() if isinstance(value, bool) else str(value),
         "scale_source": str(payload.get("scale_source") or ""),
         "scale_divisor": payload.get("scale_divisor"),
-        "notes": str(payload.get("effect_description") or ""),
+        "notes": "" if metadata.get("condition_text") else effect_description,
+        "rules_text": rules_text,
         "metadata": {key: value for key, value in metadata.items() if value not in (None, "")},
     }
 

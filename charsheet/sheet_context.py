@@ -1526,7 +1526,8 @@ def _serialize_item_semantic_effect_payload(
         "target_kind": metadata.get("ui_target_kind") or metadata.get("legacy_target_kind") or target_domain,
         "value": value,
         "effective_value": effective_value,
-        "effect_description": str(effect.notes or ""),
+        "effect_description": str(metadata.get("condition_text") or effect.notes or ""),
+        "rules_text": str(effect.rules_text or ""),
         "target_display": "",
         "display_order": int(effect.sort_order or 0),
         "scale_source": str(effect.scale_source or ""),
@@ -1651,9 +1652,28 @@ def _merge_magic_effect_payloads(
     return visible_summary, merged_payloads
 
 
+def _format_magic_rule_effect_line(rules_text: str, value_display: str, value_only_display: str) -> str:
+    """Format item rules_text as an inline prefix around the calculated effect."""
+    text = _single_line(rules_text)
+    if not text:
+        return ""
+    if text.startswith("|"):
+        closing_index = text.find("|", 1)
+        if closing_index > 1:
+            label = text[1:closing_index].strip()
+            suffix = text[closing_index + 1 :].strip()
+            if label:
+                effect_text = value_display
+                if suffix:
+                    effect_text = f"{effect_text} {suffix}"
+                return f"**{label}** · {effect_text}"
+    return f"{text} · {value_display}"
+
+
 def _build_character_item_magic_tooltip_rows(*, effect_summary: str, modifier_payloads: list[dict[str, object]]) -> list[tuple[str, object]]:
     """Return tooltip rows for magic effects stored on one owned item."""
     effect_lines: list[str] = []
+    numeric_effects: OrderedDict[tuple[str, str, str, str], dict[str, object]] = OrderedDict()
     summary_line, merged_payloads = _merge_magic_effect_payloads(
         effect_summary=effect_summary,
         modifier_payloads=modifier_payloads,
@@ -1661,31 +1681,88 @@ def _build_character_item_magic_tooltip_rows(*, effect_summary: str, modifier_pa
     summary_line = _single_line(summary_line)
     if summary_line:
         effect_lines.append(summary_line)
+
+    def flush_numeric_effects() -> None:
+        for entry in numeric_effects.values():
+            value = int(entry["value"])
+            target_kind = str(entry["target_kind"])
+            target_display = str(entry["target_display"])
+            effect_description = str(entry["effect_description"])
+            rules_text = str(entry["rules_text"])
+            value_only_display = format_modifier(value)
+            if target_kind == RULE_FLAG_TARGET_KIND:
+                value_display = target_display
+                value_only_display = target_display
+            elif target_kind in {WEAPON_MANEUVER_DAMAGE, WEAPON_MASTERY_BONUS}:
+                formatted_value = format_modifier(value)
+                value_display = f"{formatted_value}/{formatted_value}"
+                value_only_display = value_display
+            elif target_kind == "weapon_damage_dice":
+                value_display = f"{value:+d} W10"
+                value_only_display = value_display
+            else:
+                value_display = f"{value:+d} {target_display}"
+            rule_line = _format_magic_rule_effect_line(rules_text, value_display, value_only_display)
+            if rule_line:
+                effect_lines.append(rule_line)
+            elif effect_description:
+                effect_lines.append(f"{effect_description} · {value_display}")
+            else:
+                effect_lines.append(value_display)
+
     for payload in merged_payloads:
         if str(payload.get("target_kind") or "") == TEXT_TARGET_KIND:
+            flush_numeric_effects()
+            numeric_effects.clear()
             effect_description = _single_line(str(payload.get("effect_description") or ""))
             if effect_description:
                 effect_lines.append(effect_description)
             continue
         target_display = _single_line(str(payload.get("target_display") or "")) or "Ziel"
         effect_description = _single_line(str(payload.get("effect_description") or ""))
+        rules_text = _single_line(str(payload.get("rules_text") or ""))
         try:
             value = int(payload.get("effective_value", payload.get("value")) or 0)
         except (TypeError, ValueError):
             value = 0
+        target_kind = str(payload.get("target_kind") or "")
+        key = (
+            target_kind,
+            target_display,
+            " ".join(rules_text.lower().split()),
+            " ".join(effect_description.lower().split()),
+        )
+        if key not in numeric_effects:
+            numeric_effects[key] = {
+                "target_kind": target_kind,
+                "target_display": target_display,
+                "effect_description": effect_description,
+                "rules_text": rules_text,
+                "value": 0,
+            }
+        numeric_effects[key]["value"] = int(numeric_effects[key]["value"]) + value
+        continue
+        value_only_display = format_modifier(value)
         if str(payload.get("target_kind") or "") == RULE_FLAG_TARGET_KIND:
             value_display = target_display
+            value_only_display = target_display
         elif str(payload.get("target_kind") or "") in {WEAPON_MANEUVER_DAMAGE, WEAPON_MASTERY_BONUS}:
             formatted_value = format_modifier(value)
             value_display = f"{formatted_value}/{formatted_value}"
+            value_only_display = value_display
         elif str(payload.get("target_kind") or "") == "weapon_damage_dice":
             value_display = f"{value:+d} W10"
+            value_only_display = value_display
         else:
             value_display = f"{value:+d} {target_display}"
-        if effect_description:
+        rule_line = _format_magic_rule_effect_line(rules_text, value_display, value_only_display)
+        if rule_line:
+            effect_lines.append(rule_line)
+        elif effect_description:
             effect_lines.append(f"{effect_description} · {value_display}")
         else:
             effect_lines.append(value_display)
+    flush_numeric_effects()
     if not effect_lines:
         return []
     effect_label = "Effekte" if len(effect_lines) > 1 else "Effekt"
@@ -2326,6 +2403,68 @@ def _build_modifier_breakdown_rows(
             not in excluded_sources
         ]
     return _build_grouped_explanation_rows(engine, explanation)
+
+
+CORE_STAT_CONDITION_TARGETS = {
+    INITIATIVE,
+    DEFENSE_VW,
+    DEFENSE_SR,
+    DEFENSE_GW,
+    ARCANE_POWER,
+    POTENTIAL,
+}
+
+
+def _conditional_core_stat_modifiers(engine, stat_key: str) -> list[dict[str, object]]:
+    """Return situational core-stat modifiers that should be shown as edge markers."""
+    if stat_key not in CORE_STAT_CONDITION_TARGETS:
+        return []
+    modifier_engine = engine.modifier_engine
+    rows: list[dict[str, object]] = []
+    for modifier in modifier_engine.collect_active_modifiers():
+        if modifier.target_domain != "derived_stat":
+            continue
+        if not modifier_engine._modifier_matches_target_key(
+            modifier,
+            target_domain="derived_stat",
+            target_key=stat_key,
+        ):
+            continue
+        if not TargetResolver.matches_context(modifier):
+            continue
+        condition_text = " ".join(str(modifier.metadata.get("condition_text") or "").split())
+        if not condition_text:
+            continue
+        resolved_value = modifier_engine._resolve_numeric_modifier(modifier)
+        if not isinstance(resolved_value, (int, float)) or int(resolved_value) == 0:
+            continue
+        rows.append(
+            {
+                "condition_text": condition_text,
+                "resolved_value": int(resolved_value),
+            }
+        )
+    return rows
+
+
+def _build_core_stat_condition_badge(engine, stat_key: str) -> dict[str, object]:
+    """Return marker payload for situational core-stat bonuses."""
+    totals: OrderedDict[str, dict[str, object]] = OrderedDict()
+    for row in _conditional_core_stat_modifiers(engine, stat_key):
+        condition_text = str(row["condition_text"])
+        condition_key = " ".join(condition_text.lower().split())
+        if condition_key not in totals:
+            totals[condition_key] = {"condition_text": condition_text, "value": 0}
+        totals[condition_key]["value"] = int(totals[condition_key]["value"]) + int(row["resolved_value"])
+    entries = [
+        f"{format_modifier(int(row['value']))} {row['condition_text']}"
+        for row in totals.values()
+        if int(row["value"])
+    ]
+    return {
+        "visible": bool(entries),
+        "tooltip": "\n".join(entries),
+    }
 
 
 def _modifier_target_domain_for_stat_key(stat_key: str) -> str:
@@ -5140,6 +5279,7 @@ def build_temporary_attribute_context(
             "initiative_display": format_modifier(initiative_value),
             "initiative_with_load_display": format_modifier(initiative_value + load_penalty),
             "initiative_with_load_value": initiative_value + load_penalty,
+            "initiative_condition_badge": _build_core_stat_condition_badge(engine, INITIATIVE),
             "initiative_tooltip": _build_core_stat_tooltip(
                 [
                     {"label": "WA-Bonus/Malus", "value": format_modifier(initiative_wa_mod)},
@@ -5168,6 +5308,7 @@ def build_temporary_attribute_context(
                 ]
             ),
             "vw": vw_value,
+            "vw_condition_badge": _build_core_stat_condition_badge(engine, DEFENSE_VW),
             "vw_tooltip": _build_core_stat_tooltip(
                 [
                     {"label": "Basis", "value": 14},
@@ -5178,6 +5319,7 @@ def build_temporary_attribute_context(
                 ]
             ),
             "sr": sr_value,
+            "sr_condition_badge": _build_core_stat_condition_badge(engine, DEFENSE_SR),
             "sr_tooltip": _build_core_stat_tooltip(
                 [
                     {"label": "Basis", "value": 14},
@@ -5188,6 +5330,7 @@ def build_temporary_attribute_context(
                 ]
             ),
             "gw": gw_value,
+            "gw_condition_badge": _build_core_stat_condition_badge(engine, DEFENSE_GW),
             "gw_tooltip": _build_core_stat_tooltip(
                 [
                     {"label": "Basis", "value": 14},
@@ -5198,8 +5341,10 @@ def build_temporary_attribute_context(
                 ]
             ),
             "arcane_power": arcane_power_value,
+            "arcane_power_condition_badge": _build_core_stat_condition_badge(engine, ARCANE_POWER),
             "arcane_power_tooltip": _build_core_stat_tooltip(resource_tooltip_rows),
             "potential": potential_value,
+            "potential_condition_badge": _build_core_stat_condition_badge(engine, POTENTIAL),
             "potential_tooltip": _build_core_stat_tooltip(
                 [
                     {"label": "Will / 2", "value": willpower // 2},
@@ -5934,6 +6079,7 @@ def build_character_sheet_context(
             "initiative_with_load_display": format_modifier(initiative_value + load_penalty),
             "initiative_with_load_value": initiative_value + load_penalty,
             "initiative_with_load_display_with_carry": format_modifier(initiative_value + load_penalty + carry_penalty),
+            "initiative_condition_badge": _build_core_stat_condition_badge(engine, INITIATIVE),
             "initiative_tooltip": _build_core_stat_tooltip(
                 [
                     {"label": "WA-Bonus/Malus", "value": format_modifier(initiative_wa_mod)},
@@ -5966,6 +6112,7 @@ def build_character_sheet_context(
                 ]
             ),
             "vw": vw_value,
+            "vw_condition_badge": _build_core_stat_condition_badge(engine, DEFENSE_VW),
             "vw_tooltip": _build_core_stat_tooltip(
                 [
                     {"label": "Basis", "value": 14},
@@ -5976,6 +6123,7 @@ def build_character_sheet_context(
                 ]
             ),
             "sr": sr_value,
+            "sr_condition_badge": _build_core_stat_condition_badge(engine, DEFENSE_SR),
             "sr_tooltip": _build_core_stat_tooltip(
                 [
                     {"label": "Basis", "value": 14},
@@ -5986,6 +6134,7 @@ def build_character_sheet_context(
                 ]
             ),
             "gw": gw_value,
+            "gw_condition_badge": _build_core_stat_condition_badge(engine, DEFENSE_GW),
             "gw_tooltip": _build_core_stat_tooltip(
                 [
                     {"label": "Basis", "value": 14},
@@ -5996,6 +6145,7 @@ def build_character_sheet_context(
                 ]
             ),
             "arcane_power": arcane_power_value,
+            "arcane_power_condition_badge": _build_core_stat_condition_badge(engine, ARCANE_POWER),
             "arcane_power_tooltip": _build_core_stat_tooltip(
                 [
                     {"label": "Willenskraft", "value": vampire_rules.willpower()},
@@ -6016,6 +6166,7 @@ def build_character_sheet_context(
                 ]
             ),
             "potential": potential_value,
+            "potential_condition_badge": _build_core_stat_condition_badge(engine, POTENTIAL),
             "potential_tooltip": _build_core_stat_tooltip(
                 [
                     {"label": "Will / 2", "value": willpower // 2},

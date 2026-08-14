@@ -600,6 +600,7 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
         target_kind: targetKind,
         value: isTextOnly || isRuleFlag ? "0" : String(row.querySelector("[data-magic-value-input]")?.value || "0").trim(),
         effect_description: String(row.querySelector("[data-magic-effect-description]")?.value || "").trim(),
+        rules_text: String(row.querySelector("[data-magic-rules-text]")?.value || "").trim(),
       };
       const scaleSource = String(row.querySelector("[data-magic-scale-source]")?.value || "").trim();
       if (!isTextOnly && !isRuleFlag && scaleSource) {
@@ -741,6 +742,7 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
     if (initialPayload && typeof initialPayload === "object") {
       const valueInput = row.querySelector("[data-magic-value-input]");
       const descriptionInput = row.querySelector("[data-magic-effect-description]");
+      const rulesTextInput = row.querySelector("[data-magic-rules-text]");
       if (targetKindSelect instanceof HTMLSelectElement) {
         targetKindSelect.value = String(initialPayload.target_kind || "");
         if (retrofitItemType !== "weapon" && WEAPON_ONLY_MAGIC_TARGET_KINDS.includes(targetKindSelect.value)) {
@@ -752,6 +754,9 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
       }
       if (descriptionInput instanceof HTMLInputElement) {
         descriptionInput.value = String(initialPayload.effect_description || "");
+      }
+      if (rulesTextInput instanceof HTMLInputElement) {
+        rulesTextInput.value = String(initialPayload.rules_text || "");
       }
       const scaleSource = row.querySelector("[data-magic-scale-source]");
       const scaleDivisor = row.querySelector("[data-magic-scale-divisor]");
@@ -781,6 +786,7 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
     });
     row.querySelector("[data-magic-value-input]")?.addEventListener("input", serializeMagicEffects);
     row.querySelector("[data-magic-effect-description]")?.addEventListener("input", serializeMagicEffects);
+    row.querySelector("[data-magic-rules-text]")?.addEventListener("input", serializeMagicEffects);
     row.querySelector("[data-magic-scale-source]")?.addEventListener("change", () => {
       syncMagicEffectRow(row);
       serializeMagicEffects();

@@ -660,6 +660,14 @@ class ItemSemanticEffectFields(models.Model):
             "specialization": SpecializationModifier,
         }
         metadata = dict(self.metadata or {})
+        core_stat_targets = {"initiative", "vw", "sr", "gw", "arcane_power", "potential"}
+        if (
+            self.target_domain == "derived_stat"
+            and self.target_key in core_stat_targets
+            and not str(metadata.get("condition_text") or "").strip()
+            and str(self.notes or "").strip()
+        ):
+            metadata["condition_text"] = " ".join(str(self.notes or "").split())
         if self.pk:
             metadata["semantic_effect_key"] = f"item_effect:{self.pk}"
             metadata["semantic_effect_label"] = self.semantic_source_label()

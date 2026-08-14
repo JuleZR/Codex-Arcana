@@ -1,0 +1,39 @@
+{% extends "admin/change_form.html" %}
+
+{% block form_top %}
+  {{ block.super }}
+  {% if errors %}
+    <div class="item-admin-error-summary">
+      <strong>Konkrete Fehler:</strong>
+      {% if item_admin_error_details %}
+        <ul>
+          {% for error_detail in item_admin_error_details %}
+            <li>{{ error_detail }}</li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        {{ errors }}
+      {% endif %}
+    </div>
+    <style>
+      .item-admin-error-summary {
+        margin: 0 0 1rem;
+        padding: 0.75rem 1rem;
+        border: 1px solid var(--error-fg, #ba2121);
+        border-radius: 4px;
+        background: rgba(186, 33, 33, 0.08);
+        color: var(--body-fg);
+      }
+      .item-admin-error-summary strong {
+        color: var(--error-fg, #ba2121);
+      }
+      .item-admin-error-summary ul {
+        margin: 0.5rem 0 0 1.25rem;
+        padding: 0;
+      }
+      .item-admin-error-summary li + li {
+        margin-top: 0.25rem;
+      }
+    </style>
+  {% endif %}
+{% endblock %}

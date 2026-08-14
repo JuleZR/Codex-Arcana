@@ -199,10 +199,12 @@ export function initItemForm() {
       const isRuleFlag = targetKind === "rule_flag";
       const value = String(row.querySelector("[data-magic-value-input]")?.value || "0").trim();
       const effectDescription = String(row.querySelector("[data-magic-effect-description]")?.value || "").trim();
+      const rulesText = String(row.querySelector("[data-magic-rules-text]")?.value || "").trim();
       const payload = {
         target_kind: targetKind,
         value: isTextOnly || isRuleFlag ? "0" : value,
         effect_description: effectDescription,
+        rules_text: rulesText,
       };
       const attributeSelect = row.querySelector("[data-magic-target-select='attribute']");
       const statSelect = row.querySelector("[data-magic-target-select='stat']");
@@ -360,6 +362,7 @@ export function initItemForm() {
     });
     row.querySelector("[data-magic-value-input]")?.addEventListener("input", serializeMagicEffects);
     row.querySelector("[data-magic-effect-description]")?.addEventListener("input", serializeMagicEffects);
+    row.querySelector("[data-magic-rules-text]")?.addEventListener("input", serializeMagicEffects);
     row.querySelectorAll("[data-magic-target-select]").forEach((select) => {
       select.addEventListener("change", serializeMagicEffects);
     });

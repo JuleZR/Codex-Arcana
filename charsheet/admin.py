@@ -2719,6 +2719,12 @@ class RuleSemanticEffectAdminForm(SemanticCreatureCardGrantFormMixin, forms.Mode
         required=False,
     )
     simple_scale_divisor = forms.IntegerField(label="pro", min_value=1, required=False)
+    condition_text = forms.CharField(
+        label="Bedingung",
+        required=False,
+        widget=forms.TextInput(attrs={"placeholder": "z. B. gegen Gift"}),
+        help_text="Optional. Wird als bedingter Effekt behandelt und z. B. in Varianten/Markern angezeigt.",
+    )
     simple_weapon_skills = forms.ModelMultipleChoiceField(
         label="Nur fuer Waffen-Fertigkeiten",
         queryset=Skill.objects.none(),
@@ -2809,6 +2815,7 @@ class RuleSemanticEffectAdminForm(SemanticCreatureCardGrantFormMixin, forms.Mode
         self.initial.setdefault("applies_in_combat", bool(condition_set.get("applies_in_combat")))
         self.initial.setdefault("applies_outside_combat", bool(condition_set.get("applies_outside_combat")))
         metadata = dict(self.initial.get("metadata", getattr(self.instance, "metadata", {}) or {}) or {})
+        self.initial.setdefault("condition_text", " ".join(str(metadata.get("condition_text") or "").split()))
         selected_weapon_skills = metadata.get("target_weapon_skill") or []
         if isinstance(selected_weapon_skills, str):
             selected_weapon_skills = [selected_weapon_skills]
@@ -2910,6 +2917,11 @@ class RuleSemanticEffectAdminForm(SemanticCreatureCardGrantFormMixin, forms.Mode
                 condition_set[field_name] = True
         cleaned_data["condition_set"] = condition_set
         metadata = dict(cleaned_data.get("metadata") or {})
+        condition_text = " ".join(str(cleaned_data.get("condition_text") or "").split())
+        if condition_text:
+            metadata["condition_text"] = condition_text
+        else:
+            metadata.pop("condition_text", None)
         weapon_skill_slugs = list(cleaned_data.get("simple_weapon_skills").values_list("slug", flat=True))
         if weapon_skill_slugs:
             metadata["target_weapon_skill"] = weapon_skill_slugs
@@ -4086,6 +4098,7 @@ class TraitSemanticEffectInline(admin.StackedInline):
                     "simple_scaling",
                     ("simple_scale_school", "simple_scale_skill", "simple_scale_divisor"),
                     ("applies_during_character_creation", "applies_in_combat", "applies_outside_combat"),
+                    "condition_text",
                     "notes",
                     "rules_text",
                     "active_flag",
@@ -4133,6 +4146,7 @@ class RaceSemanticEffectInline(admin.StackedInline):
                     "simple_scaling",
                     ("simple_scale_school", "simple_scale_skill", "simple_scale_divisor"),
                     ("applies_during_character_creation", "applies_in_combat", "applies_outside_combat"),
+                    "condition_text",
                     "notes",
                     "rules_text",
                     "active_flag",
@@ -4156,6 +4170,7 @@ RULE_SEMANTIC_EFFECT_FIELDSETS = (
                 "simple_scaling",
                 ("simple_scale_school", "simple_scale_skill", "simple_scale_divisor"),
                 ("applies_during_character_creation", "applies_in_combat", "applies_outside_combat"),
+                "condition_text",
                 "notes",
                 "rules_text",
                 "active_flag",
@@ -4916,6 +4931,7 @@ class ItemAdmin(admin.ModelAdmin):
 
     action_form = ItemBulkActionForm
     actions = ("change_item_type_action",)
+    change_form_template = "admin/charsheet/item/change_form.html"
     list_display = (
         "name",
         "item_type",
@@ -4940,7 +4956,6 @@ class ItemAdmin(admin.ModelAdmin):
         MagicItemStatsInline,
         ItemSemanticEffectInline,
         ItemRaceStartingInline,
-        ItemCharacterInline,
         CreatureCardItemBindingInline,
     )
 
@@ -4965,6 +4980,51 @@ class ItemAdmin(admin.ModelAdmin):
             for inline in inline_instances
             if not isinstance(inline, RangedWeaponStatsInline)
         ]
+
+    def render_change_form(self, request, context, add=False, change=False, form_url="", obj=None):
+        """Add a concrete error summary because Django's AdminErrorList drops field context."""
+        context["item_admin_error_details"] = self._item_admin_error_details(
+            context.get("adminform"),
+            context.get("inline_admin_formsets") or [],
+        )
+        return super().render_change_form(request, context, add=add, change=change, form_url=form_url, obj=obj)
+
+    @staticmethod
+    def _item_admin_error_details(adminform, inline_admin_formsets) -> list[str]:
+        details: list[str] = []
+        if adminform is not None:
+            form = adminform.form
+            for field_name, field_errors in form.errors.items():
+                if field_name == "__all__":
+                    label = "Item"
+                else:
+                    label = str(form.fields.get(field_name).label if field_name in form.fields else field_name)
+                for error in field_errors:
+                    details.append(f"{label}: {error}")
+
+        for inline_admin_formset in inline_admin_formsets:
+            formset = inline_admin_formset.formset
+            inline_label = str(inline_admin_formset.opts.verbose_name).strip() or "Inline"
+            inline_plural = str(inline_admin_formset.opts.verbose_name_plural).strip() or inline_label
+            for error in formset.non_form_errors():
+                details.append(f"{inline_plural}: {error}")
+            for index, form in enumerate(formset.forms, start=1):
+                if not form.errors:
+                    continue
+                instance_label = str(getattr(form, "instance", "") or "").strip()
+                row_label = f"{inline_label} #{index}"
+                if instance_label:
+                    row_label = f"{row_label} ({instance_label})"
+                for field_name, field_errors in form.errors.items():
+                    if field_name == "__all__":
+                        label = row_label
+                    else:
+                        field = form.fields.get(field_name)
+                        field_label = str(getattr(field, "label", "") or field_name)
+                        label = f"{row_label} / {field_label}"
+                    for error in field_errors:
+                        details.append(f"{label}: {error}")
+        return details
 
     def save_related(self, request, form, formsets, change):
         """Resynchronize generated armor pieces after item fields and runes changed."""

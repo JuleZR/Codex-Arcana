@@ -5,7 +5,7 @@
   <div class="core_item">
     <div class="core_main">
       <span class="core_name">Initiative</span>
-      <span class="core_value tooltip_target" data-tooltip-side="right" data-tooltip="{{ core_stats.initiative_tooltip }}">{{ core_stats.initiative_display }}</span>
+      <span class="core_value tooltip_target" data-tooltip-side="right" data-tooltip="{{ core_stats.initiative_tooltip }}">{{ core_stats.initiative_display }}{% if core_stats.initiative_condition_badge.visible %}<span class="core_condition_marker tooltip_target" data-tooltip-side="right" data-tooltip-variant="speech" data-tooltip-trigger="click" data-tooltip="{{ core_stats.initiative_condition_badge.tooltip }}" aria-label="Bedingter Bonus"></span>{% endif %}</span>
       <span
         class="core_value tooltip_target"
         data-tooltip-side="right"
@@ -15,37 +15,37 @@
         data-base-value="{{ core_stats.initiative_with_load_value }}"
         data-tooltip-off="{{ core_stats.initiative_with_load_tooltip }}"
         data-tooltip-on="{{ core_stats.initiative_with_load_tooltip_with_carry }}"
-      >{{ core_stats.initiative_with_load_display }}</span>
+      >{{ core_stats.initiative_with_load_display }}{% if core_stats.initiative_condition_badge.visible %}<span class="core_condition_marker tooltip_target" data-tooltip-side="right" data-tooltip-variant="speech" data-tooltip-trigger="click" data-tooltip="{{ core_stats.initiative_condition_badge.tooltip }}" aria-label="Bedingter Bonus"></span>{% endif %}</span>
     </div>
     <div class="core_formula">Wa-Bonus/Malus + Mod.</div>
   </div>
   <div class="core_item">
     <div class="core_main single">
-      <span class="core_name">Verteidigungswert (VW)</span><span class="core_value tooltip_target" data-tooltip-side="right" data-tooltip="{{ core_stats.vw_tooltip }}">{{ core_stats.vw }}</span>
+      <span class="core_name">Verteidigungswert (VW)</span><span class="core_value tooltip_target" data-tooltip-side="right" data-tooltip="{{ core_stats.vw_tooltip }}">{{ core_stats.vw }}{% if core_stats.vw_condition_badge.visible %}<span class="core_condition_marker tooltip_target" data-tooltip-side="right" data-tooltip-variant="speech" data-tooltip-trigger="click" data-tooltip="{{ core_stats.vw_condition_badge.tooltip }}" aria-label="Bedingter Bonus"></span>{% endif %}</span>
     </div>
     <div class="core_formula">14 + Ge-Bonus/Malus + Wa-Bonus/Malus + GK + Mod.</div>
   </div>
   <div class="core_item">
     <div class="core_main single">
-      <span class="core_name">Schockresistenz (SR)</span><span class="core_value tooltip_target" data-tooltip-side="right" data-tooltip="{{ core_stats.sr_tooltip }}">{{ core_stats.sr }}</span>
+      <span class="core_name">Schockresistenz (SR)</span><span class="core_value tooltip_target" data-tooltip-side="right" data-tooltip="{{ core_stats.sr_tooltip }}">{{ core_stats.sr }}{% if core_stats.sr_condition_badge.visible %}<span class="core_condition_marker tooltip_target" data-tooltip-side="right" data-tooltip-variant="speech" data-tooltip-trigger="click" data-tooltip="{{ core_stats.sr_condition_badge.tooltip }}" aria-label="Bedingter Bonus"></span>{% endif %}</span>
     </div>
     <div class="core_formula">14 + St-Bonus/Malus + Kon-Bonus/Malus + Mod.</div>
   </div>
   <div class="core_item">
     <div class="core_main single">
-      <span class="core_name">Geistiger Widerstand (GW)</span><span class="core_value tooltip_target" data-tooltip-side="right" data-tooltip="{{ core_stats.gw_tooltip }}">{{ core_stats.gw }}</span>
+      <span class="core_name">Geistiger Widerstand (GW)</span><span class="core_value tooltip_target" data-tooltip-side="right" data-tooltip="{{ core_stats.gw_tooltip }}">{{ core_stats.gw }}{% if core_stats.gw_condition_badge.visible %}<span class="core_condition_marker tooltip_target" data-tooltip-side="right" data-tooltip-variant="speech" data-tooltip-trigger="click" data-tooltip="{{ core_stats.gw_condition_badge.tooltip }}" aria-label="Bedingter Bonus"></span>{% endif %}</span>
     </div>
     <div class="core_formula">14 + Int-Bonus/Malus + Will-Bonus/Malus + Mod.</div>
   </div>
   <div class="core_item">
     <div class="core_main single">
-      <span class="core_name">{% if is_vampire %}Blutvorrat (BP){% else %}Arkane Macht (KP){% endif %}</span><span class="core_value tooltip_target" data-tooltip-side="right" data-tooltip="{{ core_stats.arcane_power_tooltip }}">{{ core_stats.arcane_power }}</span>
+      <span class="core_name">{% if is_vampire %}Blutvorrat (BP){% else %}Arkane Macht (KP){% endif %}</span><span class="core_value tooltip_target" data-tooltip-side="right" data-tooltip="{{ core_stats.arcane_power_tooltip }}">{{ core_stats.arcane_power }}{% if core_stats.arcane_power_condition_badge.visible %}<span class="core_condition_marker tooltip_target" data-tooltip-side="right" data-tooltip-variant="speech" data-tooltip-trigger="click" data-tooltip="{{ core_stats.arcane_power_condition_badge.tooltip }}" aria-label="Bedingter Bonus"></span>{% endif %}</span>
     </div>
     <div class="core_formula">Will + Stufen in Schulen + Mod.</div>
   </div>
   <div class="core_item">
     <div class="core_main single">
-      <span class="core_name">Potential</span><span class="core_value tooltip_target" data-tooltip-side="right" data-tooltip="{{ core_stats.potential_tooltip }}">{{ core_stats.potential }}</span>
+      <span class="core_name">Potential</span><span class="core_value tooltip_target" data-tooltip-side="right" data-tooltip="{{ core_stats.potential_tooltip }}">{{ core_stats.potential }}{% if core_stats.potential_condition_badge.visible %}<span class="core_condition_marker tooltip_target" data-tooltip-side="right" data-tooltip-variant="speech" data-tooltip-trigger="click" data-tooltip="{{ core_stats.potential_condition_badge.tooltip }}" aria-label="Bedingter Bonus"></span>{% endif %}</span>
     </div>
     <div class="core_formula">Will / 2</div>
   </div>
