@@ -1499,10 +1499,12 @@ def _serialize_item_semantic_effect_payload(
     target_domain = str(effect.target_domain or "")
     target_key = str(effect.target_key or "")
     if target_domain == "metadata" and target_key == "rules_text":
+        text = str(effect.rules_text or effect.notes or "")
         return {
             "target_kind": TEXT_TARGET_KIND,
             "value": 0,
-            "effect_description": str(effect.rules_text or effect.notes or ""),
+            "effect_description": "",
+            "rules_text": text,
             "target_display": "",
             "display_order": int(effect.sort_order or 0),
             "scale_source": "",
@@ -1732,7 +1734,7 @@ def _build_character_item_magic_tooltip_rows(*, effect_summary: str, modifier_pa
         if str(payload.get("target_kind") or "") == TEXT_TARGET_KIND:
             flush_numeric_effects()
             numeric_effects.clear()
-            effect_description = _single_line(str(payload.get("effect_description") or ""))
+            effect_description = _single_line(str(payload.get("rules_text") or payload.get("effect_description") or ""))
             if effect_description:
                 effect_lines.append(effect_description)
             continue

@@ -456,8 +456,8 @@ def _read_rune_payloads(post_data) -> list[dict[str, object]]:
 def _magic_payload_to_semantic_effect_kwargs(payload: dict[str, object]) -> dict[str, object] | None:
     """Map one existing magic-effect payload into the item semantic-effect schema."""
     if str(payload.get("target_kind") or "") == TEXT_TARGET_KIND:
-        effect_description = str(payload.get("effect_description") or "").strip()
-        if not effect_description:
+        rules_text = str(payload.get("rules_text") or payload.get("effect_description") or "").strip()
+        if not rules_text:
             return None
         return {
             "sort_order": int(payload.get("display_order") or 0),
@@ -466,8 +466,8 @@ def _magic_payload_to_semantic_effect_kwargs(payload: dict[str, object]) -> dict
             "operator": str(ModifierOperator.OVERRIDE.value),
             "mode": "flat",
             "value": "",
-            "notes": effect_description,
-            "rules_text": effect_description,
+            "notes": "",
+            "rules_text": rules_text,
             "metadata": {
                 "ui_target_kind": TEXT_TARGET_KIND,
                 "legacy_target_kind": TEXT_TARGET_KIND,
