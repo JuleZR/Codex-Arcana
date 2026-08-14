@@ -2250,7 +2250,45 @@ def _build_total_armor_tooltip(engine) -> str:
 
 
 def _build_armor_rs_piece_rows(engine) -> list[dict[str, object]]:
-    """Return the six effective main-zone values used by the GRS formula."""
+    """Return the effective armor protection basis for the GRS tooltip."""
+    armor_rows = engine.equipped_armor_rows()
+    shield_rows = engine.equipped_shield_rows()
+    complete_armor_rows = [
+        row
+        for row in armor_rows
+        if _is_complete_armor_row(row)
+    ]
+    if complete_armor_rows:
+        rows = [
+            {
+                "label": row["item_name"],
+                "value": int(row["rs"] or 0),
+                "source": "Rüstung",
+            }
+            for row in complete_armor_rows
+        ]
+        rows.extend(
+            {
+                "label": row["item_name"],
+                "value": int(row["rs"] or 0),
+                "source": "Schild-RS",
+            }
+            for row in shield_rows
+            if int(row["rs"] or 0)
+        )
+        covered_main_zone_average = _main_zone_armor_average(engine)
+        displayed_direct_rs = sum(int(row["value"] or 0) for row in rows)
+        additional_zone_rs = covered_main_zone_average - displayed_direct_rs
+        if additional_zone_rs:
+            rows.append(
+                {
+                    "label": "Weitere Rüstungszonen / 6",
+                    "value": additional_zone_rs,
+                    "source": "einmal abrunden",
+                }
+            )
+        return rows
+
     zone_values = engine.armor_zone_protection()
     labels = (
         ("head", "Kopf"),
@@ -2264,7 +2302,7 @@ def _build_armor_rs_piece_rows(engine) -> list[dict[str, object]]:
         {
             "label": label,
             "value": int(zone_values[zone]),
-            "source": "inkl. Qualität und Rüstungsrunen",
+            "source": "inkl. Qualität, Rüstungsrunen und Schild-RS",
         }
         for zone, label in labels
     ]
@@ -2276,6 +2314,24 @@ def _build_armor_rs_piece_rows(engine) -> list[dict[str, object]]:
         }
     )
     return rows
+
+
+def _is_complete_armor_row(row: dict[str, object]) -> bool:
+    """Return whether an equipped armor row represents one complete armor."""
+    item = row.get("item")
+    stats = getattr(item, "armorstats", None)
+    if stats is None or stats.parent_set_id:
+        return False
+    return all(getattr(stats, f"covers_{zone}", False) for zone in stats.MAIN_ZONE_FIELDS)
+
+
+def _main_zone_armor_average(engine) -> int:
+    """Return the rounded-down average of the six GRS body zones."""
+    zone_values = engine.armor_zone_protection()
+    return sum(
+        int(zone_values[zone])
+        for zone in ("head", "torso", "arm_left", "arm_right", "leg_left", "leg_right")
+    ) // 6
 
 
 def _build_load_tooltip(engine) -> str:

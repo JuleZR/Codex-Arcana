@@ -431,7 +431,7 @@ def equipped_shield_rows(engine) -> list[dict]:
 
 
 def armor_zone_protection(engine) -> dict[str, int]:
-    """Return zone protection including effective quality and item-rune bonuses."""
+    """Return zone protection including armor, shields, quality, and item-rune bonuses."""
     return _armor_zone_protection(engine, for_grs=False)
 
 
@@ -496,6 +496,10 @@ def _armor_zone_protection(engine, *, for_grs: bool = False) -> dict[str, int]:
                 if zone in group_zones
             )
             totals[target_zone] += target_sum - current_sum
+    shield_rs = shield_protection(engine)
+    if shield_rs:
+        for field_name in totals:
+            totals[field_name] += shield_rs
     return totals
 
 
