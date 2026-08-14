@@ -1500,11 +1500,13 @@ def _serialize_item_semantic_effect_payload(
     target_key = str(effect.target_key or "")
     if target_domain == "metadata" and target_key == "rules_text":
         text = str(effect.rules_text or effect.notes or "")
+        resolved_invested_cp = int((effect.item_invested_cp() if invested_cp is None else invested_cp) or 0)
         return {
             "target_kind": TEXT_TARGET_KIND,
             "value": 0,
             "effect_description": "",
             "rules_text": text,
+            "invested_cp": resolved_invested_cp,
             "target_display": "",
             "display_order": int(effect.sort_order or 0),
             "scale_source": "",
@@ -1684,6 +1686,28 @@ def _format_magic_rule_effect_line(
     return f"{text} · {value_display}"
 
 
+def _format_magic_text_effect_line(rules_text: str, *, invested_cp: object = "") -> str:
+    """Format text-only item rules_text with the same pipe-label marker."""
+    text = _single_line(rules_text)
+    if not text:
+        return ""
+    invested_cp_text = ""
+    try:
+        invested_cp_text = str(int(invested_cp))
+    except (TypeError, ValueError):
+        invested_cp_text = ""
+    if text.startswith("|"):
+        closing_index = text.find("|", 1)
+        if closing_index > 1:
+            label = text[1:closing_index].replace("@", invested_cp_text).strip()
+            suffix = text[closing_index + 1 :].strip()
+            if label and suffix:
+                return f"**{label}** · {suffix}"
+            if label:
+                return f"**{label}**"
+    return text
+
+
 def _build_character_item_magic_tooltip_rows(*, effect_summary: str, modifier_payloads: list[dict[str, object]]) -> list[tuple[str, object]]:
     """Return tooltip rows for magic effects stored on one owned item."""
     effect_lines: list[str] = []
@@ -1734,7 +1758,10 @@ def _build_character_item_magic_tooltip_rows(*, effect_summary: str, modifier_pa
         if str(payload.get("target_kind") or "") == TEXT_TARGET_KIND:
             flush_numeric_effects()
             numeric_effects.clear()
-            effect_description = _single_line(str(payload.get("rules_text") or payload.get("effect_description") or ""))
+            effect_description = _format_magic_text_effect_line(
+                str(payload.get("rules_text") or payload.get("effect_description") or ""),
+                invested_cp=payload.get("invested_cp", ""),
+            )
             if effect_description:
                 effect_lines.append(effect_description)
             continue
