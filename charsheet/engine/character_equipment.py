@@ -578,6 +578,16 @@ def load_penalty(engine) -> int:
     return bel_value if bel_value <= 0 else -bel_value
 
 
+def _semantic_rs_modifier(engine) -> int:
+    """Return RS granted by semantic modifiers rather than physical armor stats."""
+    total = 0
+    for entry in engine.explain_modifier_resolution(TargetDomain.DERIVED_STAT, DEFENSE_RS):
+        resolved_value = entry.get("resolved_value")
+        if isinstance(resolved_value, (int, float)):
+            total += int(resolved_value)
+    return total
+
+
 def get_ms(engine) -> int:
     """Return armor minimum strength using set MS or the loose-parts formula."""
     complete_armor_minimums = [
@@ -588,7 +598,7 @@ def get_ms(engine) -> int:
     if complete_armor_minimums:
         return max(complete_armor_minimums)
 
-    grs = max(0, int(engine.get_grs()))
+    grs = max(0, int(engine.get_grs()) - _semantic_rs_modifier(engine))
     return (grs + 1) // 2
 
 
