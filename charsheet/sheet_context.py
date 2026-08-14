@@ -49,6 +49,7 @@ from charsheet.constants import (
 )
 from charsheet.engine import BattleCalculatorEngine, CharacterEngine, ItemEngine
 from charsheet.engine.creature_engine import CreatureEngine, sync_character_creatures
+from charsheet.modifiers.targets import TargetResolver
 from charsheet.item_transfers import has_item_permission, item_is_pending, pending_transfer_for_item
 from charsheet.forms import (
     CharacterInfoInlineForm,
@@ -112,7 +113,6 @@ from charsheet.models import (
     Language,
     Lesson,
     LessonCost,
-    Modifier,
     Quality,
     RaceTechnique,
     Rune,
@@ -129,6 +129,9 @@ from charsheet.models import (
     WeaponType,
 )
 from charsheet.view_utils import format_compact_number, format_modifier, format_thousands, quality_payload
+
+
+LOCAL_WEAPON_DAMAGE_SOURCE_TYPES = {"item", "characteritem", SOURCE_ITEM_RUNE}
 
 
 def _vampire_learning_payload(character, vampire_rules):
@@ -1486,65 +1489,6 @@ def _rune_card_description(rune: Rune) -> str:
     return str(rune.description or "").strip()
 
 
-def _serialize_modifier_payload(modifier: Modifier) -> dict[str, object]:
-    """Return one frontend-friendly magic modifier payload."""
-    target_display = ""
-    rule_flag_labels = dict(RULE_FLAG_CHOICES)
-    if modifier.target_kind == Modifier.TargetKind.STAT and str(modifier.target_slug or "") in rule_flag_labels:
-        target_display = rule_flag_labels[str(modifier.target_slug or "")]
-    elif modifier.target_kind == Modifier.TargetKind.ATTRIBUTE:
-        target_display = dict(ATTRIBUTE_ORDER).get(str(modifier.target_slug or ""), str(modifier.target_slug or ""))
-    elif modifier.target_kind == Modifier.TargetKind.STAT:
-        if (
-            str(modifier.target_slug or "") == MELEE_MANEUVERS
-            and getattr(getattr(modifier, "source_content_type", None), "model", "") == "characteritem"
-        ):
-            target_display = "Manöver mit dieser Waffe"
-        elif str(modifier.target_slug or "") == WEAPON_DAMAGE_DICE:
-            target_display = "+ X W10"
-        else:
-            target_display = dict(STAT_SLUG_CHOICES).get(str(modifier.target_slug or ""), str(modifier.target_slug or ""))
-    elif modifier.target_kind == Modifier.TargetKind.SKILL and modifier.target_skill_id:
-        target_display = modifier.target_skill.name
-    elif modifier.target_kind == Modifier.TargetKind.CATEGORY and modifier.target_skill_category_id:
-        target_display = modifier.target_skill_category.name
-    elif modifier.target_kind == Modifier.TargetKind.ITEM_CATEGORY:
-        target_display = dict(Item.ItemType.choices).get(str(modifier.target_slug or ""), str(modifier.target_slug or ""))
-    elif modifier.target_kind == Modifier.TargetKind.SPECIALIZATION and modifier.target_specialization_id:
-        target_display = modifier.target_specialization.name
-    payload: dict[str, object] = {
-        "target_kind": str(modifier.target_kind),
-        "value": int(modifier.value),
-        "effect_description": str(modifier.effect_description or ""),
-        "target_display": target_display,
-        "display_order": int(getattr(modifier, "display_order", 0) or 0),
-    }
-    if modifier.target_kind == Modifier.TargetKind.STAT and str(modifier.target_slug or "") in rule_flag_labels:
-        payload["target_kind"] = RULE_FLAG_TARGET_KIND
-        payload["target_rule_flag"] = str(modifier.target_slug or "")
-    elif modifier.target_kind == Modifier.TargetKind.ATTRIBUTE:
-        payload["target_attribute"] = str(modifier.target_slug or "")
-    elif modifier.target_kind == Modifier.TargetKind.STAT:
-        if (
-            str(modifier.target_slug or "") == MELEE_MANEUVERS
-            and getattr(getattr(modifier, "source_content_type", None), "model", "") == "characteritem"
-        ):
-            payload["target_kind"] = "weapon_maneuver"
-        elif str(modifier.target_slug or "") == WEAPON_DAMAGE_DICE:
-            payload["target_kind"] = "weapon_damage_dice"
-        else:
-            payload["target_stat"] = str(modifier.target_slug or "")
-    elif modifier.target_kind == Modifier.TargetKind.SKILL and modifier.target_skill_id:
-        payload["target_skill"] = str(modifier.target_skill_id)
-    elif modifier.target_kind == Modifier.TargetKind.CATEGORY and modifier.target_skill_category_id:
-        payload["target_skill_category"] = str(modifier.target_skill_category_id)
-    elif modifier.target_kind == Modifier.TargetKind.ITEM_CATEGORY:
-        payload["target_item_category"] = str(modifier.target_slug or "")
-    elif modifier.target_kind == Modifier.TargetKind.SPECIALIZATION and modifier.target_specialization_id:
-        payload["target_specialization"] = str(modifier.target_specialization_id)
-    return payload
-
-
 def _serialize_item_semantic_effect_payload(
     effect: ItemSemanticEffect | CharacterItemSemanticEffect,
     *,
@@ -1994,7 +1938,9 @@ def _build_weapon_calculation_tooltip(
     extra_load_label: str = "Traglast",
 ) -> str:
     """Return a detailed damage-modifier ledger for one equipped weapon row."""
-    damage_source_slug = ItemEngine(row["character_item"]).get_weapon_damage_source_slug()
+    character_item = row["character_item"]
+    weapon_context = _character_item_weapon_target_context(character_item)
+    damage_source_slug = ItemEngine(character_item).get_weapon_damage_source_slug()
     strength_mod = int(row.get("damage_attribute_modifier", engine.attribute_modifier(ATTR_ST)) or 0)
     mastery_bonus = int(row.get("weapon_mastery_damage_bonus", 0) or 0)
     mastery_source = "Schule: Waffenmeister"
@@ -2006,15 +1952,24 @@ def _build_weapon_calculation_tooltip(
             engine,
             damage_source_slug,
             target_domain=_modifier_target_domain_for_stat_key(damage_source_slug),
+            context=weapon_context,
         )
         if damage_source_slug
         else []
     )
-    item_damage_rows = _build_character_item_stat_modifier_rows(engine, row["character_item"], WEAPON_DAMAGE)
+    weapon_damage_rows = _build_modifier_breakdown_rows(
+        engine,
+        WEAPON_DAMAGE,
+        target_domain="combat",
+        context=weapon_context,
+        excluded_source_types=LOCAL_WEAPON_DAMAGE_SOURCE_TYPES,
+    )
+    item_damage_rows = _build_character_item_stat_modifier_rows(engine, character_item, WEAPON_DAMAGE)
     rows = []
     if str(row.get("maneuver_attribute_mode") or "") != "none":
         rows.append({"label": "ST-Bonus/Malus", "value": format_modifier(strength_mod), "source": "ST"})
     rows.extend(damage_modifier_rows)
+    rows.extend(weapon_damage_rows)
     if mastery_bonus:
         rows.append(
             {
@@ -2348,12 +2303,18 @@ def _build_modifier_breakdown_rows(
     stat_key: str,
     *,
     target_domain: str = "derived_stat",
+    context: dict[str, object] | None = None,
     excluded_sources: set[tuple[str, str]] | None = None,
+    excluded_source_types: set[str] | None = None,
 ) -> list[dict[str, object]]:
     """Return ledger rows for each contributing modifier source."""
-    explanation = engine.explain_modifier_resolution(target_domain, stat_key)
-    if not explanation and target_domain == "derived_stat":
-        explanation = _build_legacy_stat_modifier_explanation(engine, stat_key)
+    explanation = engine.explain_modifier_resolution(target_domain, stat_key, context=context)
+    if excluded_source_types:
+        explanation = [
+            entry
+            for entry in explanation
+            if str(entry.get("source_type") or "") not in excluded_source_types
+        ]
     if excluded_sources:
         explanation = [
             entry
@@ -2370,6 +2331,28 @@ def _build_modifier_breakdown_rows(
 def _modifier_target_domain_for_stat_key(stat_key: str) -> str:
     """Return the modifier domain used by CharacterEngine for a stat-like key."""
     return "combat" if str(stat_key or "").startswith("dmg_") else "derived_stat"
+
+
+def _character_item_weapon_target_context(character_item: CharacterItem) -> dict[str, tuple[str, ...]]:
+    """Return weapon target context for one equipped item row."""
+    item = character_item.item
+    weapon_skill_slugs: set[str] = set()
+    weapon_type_slugs: set[str] = set()
+    for stats_name in ("weaponstats", "rangedweaponstats", "shieldstats"):
+        stats = getattr(item, stats_name, None)
+        if not stats:
+            continue
+        weapon_type = getattr(stats, "weapon_type", None)
+        if weapon_type and getattr(weapon_type, "slug", ""):
+            weapon_type_slugs.add(str(weapon_type.slug))
+        skill_manager = getattr(stats, "skills", None)
+        if skill_manager is not None:
+            weapon_skill_slugs.update(str(slug) for slug in skill_manager.all().values_list("slug", flat=True))
+    return {
+        "weapon_ids": (str(item.id), str(character_item.id)),
+        "weapon_types": tuple(sorted(weapon_type_slugs)),
+        "weapon_skill_slugs": tuple(sorted(weapon_skill_slugs)),
+    }
 
 
 def _build_rule_flag_tooltip_row(engine, flag_key: str, value: object) -> dict[str, object]:
@@ -2464,65 +2447,22 @@ def _build_grouped_explanation_rows(engine, explanation: list[dict[str, object]]
     return rows
 
 
-def _build_legacy_stat_modifier_explanation(engine, stat_key: str) -> list[dict[str, object]]:
-    """Return a fallback breakdown from active legacy stat modifiers when new explanations are empty."""
-    modifiers = engine._modifiers_by_target.get((Modifier.TargetKind.STAT, stat_key), [])
-    if not modifiers:
-        return []
-
-    learned_stack: set[int] = set()
-    available_stack: set[int] = set()
-    rows: list[dict[str, object]] = []
-    for modifier in modifiers:
-        resolved_value = engine._modifier_value(modifier, learned_stack, available_stack)
-        if not isinstance(resolved_value, (int, float)) or int(resolved_value) == 0:
-            continue
-        rows.append(
-            {
-                "source_type": getattr(modifier.source_content_type, "model", ""),
-                "source_id": modifier.source_object_id,
-                "resolved_value": resolved_value,
-                "notes": getattr(modifier, "effect_description", ""),
-            }
-        )
-    return rows
-
-
 def _build_character_item_stat_modifier_rows(engine, character_item: CharacterItem, stat_key: str) -> list[dict[str, object]]:
     """Return grouped breakdown rows for one item-bound stat modifier source."""
-    modifiers = [
-        modifier
-        for modifier in engine._modifiers_by_target.get((Modifier.TargetKind.STAT, stat_key), [])
-        if getattr(getattr(modifier, "source_content_type", None), "model", "") == "characteritem"
-        and int(modifier.source_object_id or 0) == int(character_item.id)
-    ]
-    if not modifiers:
-        explanation = []
-    else:
-        learned_stack: set[int] = set()
-        available_stack: set[int] = set()
-        explanation: list[dict[str, object]] = []
-        for modifier in modifiers:
-            resolved_value = engine._modifier_value(modifier, learned_stack, available_stack)
-            if not isinstance(resolved_value, (int, float)) or int(resolved_value) == 0:
-                continue
-            explanation.append(
-                {
-                    "source_type": getattr(modifier.source_content_type, "model", ""),
-                    "source_id": modifier.source_object_id,
-                    "resolved_value": resolved_value,
-                    "notes": getattr(modifier, "effect_description", ""),
-                }
-            )
+    explanation: list[dict[str, object]] = []
+    target_context = _character_item_weapon_target_context(character_item)
 
     for modifier in engine.modifier_engine._active_item_semantic_modifiers:
         if str(getattr(modifier, "source_type", "") or "") != "characteritem":
             continue
         if str(getattr(modifier, "source_id", "") or "") != str(character_item.id):
             continue
-        if str(getattr(modifier, "target_domain", "") or "") != "combat":
+        target_domain = getattr(getattr(modifier, "target_domain", ""), "value", getattr(modifier, "target_domain", ""))
+        if str(target_domain or "") != "combat":
             continue
         if str(getattr(modifier, "target_key", "") or "") != stat_key:
+            continue
+        if not TargetResolver.matches_context(modifier, target_context):
             continue
         resolved_value = engine.modifier_engine._resolve_numeric_modifier(modifier)
         if not isinstance(resolved_value, (int, float)) or int(resolved_value) == 0:
@@ -2551,6 +2491,8 @@ def _build_character_item_stat_modifier_rows(engine, character_item: CharacterIt
             except (TypeError, ValueError):
                 continue
             if source_id not in equipped_item_rune_ids:
+                continue
+            if not TargetResolver.matches_context(modifier, target_context):
                 continue
             resolved_value = engine.modifier_engine._resolve_numeric_modifier(modifier)
             if not isinstance(resolved_value, (int, float)) or int(resolved_value) == 0:

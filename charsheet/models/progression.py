@@ -5,6 +5,7 @@ from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
 from ..constants import SCHOOL_ARCANE, SCHOOL_TYPE_CHOICES
+from .semantic_effects import SemanticEffectFields
 
 
 class SchoolType(models.Model):
@@ -69,6 +70,30 @@ class School(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class SchoolSemanticEffect(SemanticEffectFields):
+    """Persisted semantic effect attached directly to one school."""
+
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="semantic_effects")
+
+    class Meta:
+        ordering = ["school", "sort_order", "id"]
+
+    def __str__(self):
+        return f"{self.school.name}: {self.target_domain}/{self.target_key} ({self.operator})"
+
+    def semantic_source_type(self) -> str:
+        return "school"
+
+    def semantic_source_id(self) -> str:
+        return str(self.school_id)
+
+    def semantic_source_label(self) -> str:
+        return str(self.school)
+
+    def semantic_effect_key_prefix(self) -> str:
+        return "school_effect"
 
 
 class CharacterSchool(models.Model):

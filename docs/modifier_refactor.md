@@ -82,9 +82,8 @@ The productive rule system now lives in `charsheet/modifiers/`.
 ### Supporting Services
 
 - `ModifierEngine`
-- `LegacyModifierMigrationService`
 - `CharacterBuildValidator`
-- `TraitSemanticEffect` for admin-managed trait semantics
+- SemanticEffect models for admin-managed rule semantics
 - trait semantic registry in `registry.py` as fallback for complex hard-coded cases
 
 ## Productive State After Cutover
@@ -99,28 +98,27 @@ That means:
 - no productive derived stat total falls back to legacy arithmetic
 - no productive combat damage modifier falls back to legacy arithmetic
 
-Persisted legacy rows are still loaded as source data, but only after translation into typed modifiers.
+Persisted legacy rows are migrated to SemanticEffects before the legacy model is removed.
 
 ## Internal Debugging
 
-`ModifierResolutionMode.COMPARE` still exists as an internal debug aid.
+`ModifierResolutionMode.COMPARE` remains accepted for caller compatibility.
 
 Important constraints:
 
 - productive values still come from the typed modifier layer
-- legacy arithmetic is evaluated only as a comparison baseline
-- comparison data is written to `NumericResolutionComparison`
+- legacy arithmetic is not evaluated at runtime
 - there is no mode that makes legacy arithmetic authoritative again
 
 ## Current Inventory Snapshot
 
-The migration report in [modifier_migration_report.md](/e:/Developement/GitHub/Codex_Arcana/docs/modifier_migration_report.md) currently shows:
+The historical migration inventory was used to validate the cutover:
 
 - 39 persisted legacy modifier rows
 - sources: `race` 24, `technique` 13, `trait` 2
 - target kinds: `skill` 23, `stat` 15, `category` 1
 
-All currently observed productive legacy combinations now map into typed productive domains.
+All observed productive legacy combinations map into persistent SemanticEffect rows.
 
 The previously suspicious `target_kind=skill` plus `dmg_slash` row is now treated as a backward-compatible `CombatModifier`, so the current live inventory no longer blocks productive new-engine resolution.
 

@@ -7,7 +7,6 @@ import logging
 import re
 from decimal import Decimal, InvalidOperation
 
-from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError
 from django.db import transaction
 
@@ -40,7 +39,6 @@ from charsheet.models import (
     Item,
     ItemSemanticEffect,
     MagicItemStats,
-    Modifier,
     Rune,
     ShieldStats,
     Skill,
@@ -51,6 +49,15 @@ from charsheet.models import (
 )
 from charsheet.item_transfers import has_item_permission, item_is_pending, record_item_destruction
 from charsheet.models import ItemPermissionGrant
+
+
+TARGET_KIND_ATTRIBUTE = "attribute"
+TARGET_KIND_STAT = "stat"
+TARGET_KIND_SKILL = "skill"
+TARGET_KIND_CATEGORY = "category"
+TARGET_KIND_ITEM = "item"
+TARGET_KIND_ITEM_CATEGORY = "item_category"
+TARGET_KIND_SPECIALIZATION = "specialization"
 
 
 def _read_weapon_type(raw_value) -> WeaponType | None:
@@ -229,51 +236,51 @@ def _build_magic_modifier_payload(target_kind: str, raw_value, row_data) -> dict
         target_slug = str(row_data.get("target_rule_flag") or "").strip()
         if target_slug not in rule_flag_keys:
             return None
-        payload["target_kind"] = Modifier.TargetKind.STAT
+        payload["target_kind"] = TARGET_KIND_STAT
         payload["target_slug"] = target_slug
         payload["value"] = 1
-    elif target_kind == Modifier.TargetKind.ATTRIBUTE:
+    elif target_kind == TARGET_KIND_ATTRIBUTE:
         target_slug = str(row_data.get("target_attribute") or "").strip()
         if not target_slug:
             return None
         payload["target_slug"] = target_slug
-    elif target_kind == Modifier.TargetKind.STAT:
+    elif target_kind == TARGET_KIND_STAT:
         target_slug = str(row_data.get("target_stat") or "").strip()
         if not target_slug:
             return None
         payload["target_slug"] = target_slug
     elif target_kind == "weapon_maneuver":
-        payload["target_kind"] = Modifier.TargetKind.STAT
+        payload["target_kind"] = TARGET_KIND_STAT
         payload["target_slug"] = MELEE_MANEUVERS
     elif target_kind == "weapon_damage":
-        payload["target_kind"] = Modifier.TargetKind.STAT
+        payload["target_kind"] = TARGET_KIND_STAT
         payload["target_slug"] = WEAPON_DAMAGE
     elif target_kind == "weapon_damage_dice":
-        payload["target_kind"] = Modifier.TargetKind.STAT
+        payload["target_kind"] = TARGET_KIND_STAT
         payload["target_slug"] = WEAPON_DAMAGE_DICE
     elif target_kind == WEAPON_MANEUVER_DAMAGE:
         payload["target_kind"] = WEAPON_MANEUVER_DAMAGE
     elif target_kind == WEAPON_MASTERY_BONUS:
         payload["target_kind"] = WEAPON_MASTERY_BONUS
         payload["effect_description"] = payload["effect_description"] or WEAPON_MASTERY_EFFECT_DESCRIPTION
-    elif target_kind == Modifier.TargetKind.SKILL:
+    elif target_kind == TARGET_KIND_SKILL:
         skill_id = int(row_data.get("target_skill") or 0)
         if skill_id <= 0:
             return None
         payload["target_skill"] = Skill.objects.get(pk=skill_id)
         # target_slug must stay empty when target_skill FK is set (only one selector allowed)
-    elif target_kind == Modifier.TargetKind.CATEGORY:
+    elif target_kind == TARGET_KIND_CATEGORY:
         category_id = int(row_data.get("target_skill_category") or 0)
         if category_id <= 0:
             return None
         payload["target_skill_category"] = SkillCategory.objects.get(pk=category_id)
         # target_slug must stay empty when target_skill_category FK is set (only one selector allowed)
-    elif target_kind == Modifier.TargetKind.ITEM_CATEGORY:
+    elif target_kind == TARGET_KIND_ITEM_CATEGORY:
         target_slug = str(row_data.get("target_item_category") or "").strip()
         if not target_slug:
             return None
         payload["target_slug"] = target_slug
-    elif target_kind == Modifier.TargetKind.SPECIALIZATION:
+    elif target_kind == TARGET_KIND_SPECIALIZATION:
         specialization_id = int(row_data.get("target_specialization") or 0)
         if specialization_id <= 0:
             return None
@@ -342,7 +349,7 @@ def _read_magic_modifier_payloads(post_data) -> list[dict[str, object]]:
                 payloads.extend(
                     [
                         {
-                            "target_kind": Modifier.TargetKind.STAT,
+                            "target_kind": TARGET_KIND_STAT,
                             "value": value,
                             "effect_description": effect_description,
                             "display_order": index,
@@ -354,7 +361,7 @@ def _read_magic_modifier_payloads(post_data) -> list[dict[str, object]]:
                             "target_specialization": None,
                         },
                         {
-                            "target_kind": Modifier.TargetKind.STAT,
+                            "target_kind": TARGET_KIND_STAT,
                             "value": value,
                             "effect_description": effect_description,
                             "display_order": index,
@@ -453,9 +460,9 @@ def _magic_payload_to_semantic_effect_kwargs(payload: dict[str, object]) -> dict
     operator = ModifierOperator.FLAT_SUB if int(payload.get("value") or 0) < 0 else ModifierOperator.FLAT_ADD
     value = abs(int(payload.get("value") or 0))
 
-    if target_kind == Modifier.TargetKind.ATTRIBUTE:
+    if target_kind == TARGET_KIND_ATTRIBUTE:
         target_domain = TargetDomain.ATTRIBUTE
-    elif target_kind == Modifier.TargetKind.STAT:
+    elif target_kind == TARGET_KIND_STAT:
         if target_slug in {value for value, _label in RULE_FLAG_CHOICES}:
             target_domain = TargetDomain.RULE_FLAG
             operator = ModifierOperator.SET_FLAG if int(payload.get("value") or 0) else ModifierOperator.UNSET_FLAG
@@ -464,21 +471,21 @@ def _magic_payload_to_semantic_effect_kwargs(payload: dict[str, object]) -> dict
             target_domain = TargetDomain.COMBAT
         else:
             target_domain = TargetDomain.DERIVED_STAT
-    elif target_kind == Modifier.TargetKind.SKILL:
+    elif target_kind == TARGET_KIND_SKILL:
         target_domain = TargetDomain.SKILL
         target_skill = payload.get("target_skill")
         target_key = str(getattr(target_skill, "slug", "") or target_slug)
-    elif target_kind == Modifier.TargetKind.CATEGORY:
+    elif target_kind == TARGET_KIND_CATEGORY:
         target_domain = TargetDomain.SKILL_CATEGORY
         target_category = payload.get("target_skill_category")
         target_key = str(getattr(target_category, "slug", "") or target_slug)
-    elif target_kind == Modifier.TargetKind.ITEM_CATEGORY:
+    elif target_kind == TARGET_KIND_ITEM_CATEGORY:
         target_domain = TargetDomain.ITEM_CATEGORY
-    elif target_kind == Modifier.TargetKind.SPECIALIZATION:
+    elif target_kind == TARGET_KIND_SPECIALIZATION:
         target_domain = TargetDomain.SPECIALIZATION
         target_specialization = payload.get("target_specialization")
         target_key = str(getattr(target_specialization, "id", "") or target_slug)
-    elif target_kind == Modifier.TargetKind.ITEM:
+    elif target_kind == TARGET_KIND_ITEM:
         target_domain = TargetDomain.ITEM
         target_item = payload.get("target_item")
         target_key = str(getattr(target_item, "id", "") or target_slug)
@@ -512,11 +519,6 @@ def _save_magic_modifiers(*, source_model, source_id: int, magic_modifier_payloa
     The public helper name stays for compatibility with older call sites, but
     new item rules are persisted as ItemSemanticEffect rows.
     """
-    source_content_type = ContentType.objects.get_for_model(source_model, for_concrete_model=False)
-    Modifier.objects.filter(
-        source_content_type=source_content_type,
-        source_object_id=source_id,
-    ).delete()
     if source_model is Item:
         effect_model = ItemSemanticEffect
         effect_filter = {"item_id": source_id}

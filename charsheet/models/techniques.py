@@ -592,6 +592,7 @@ class TechniqueSemanticEffect(models.Model):
             SocialModifier,
             TraitModifier,
         )
+        from ..modifiers.targets import TargetResolver
 
         modifier_map = {
             "skill": SkillModifier,
@@ -613,7 +614,6 @@ class TechniqueSemanticEffect(models.Model):
             "social": SocialModifier,
             "rule_flag": RuleFlagModifier,
         }
-        modifier_cls = modifier_map.get(self.target_domain, BaseModifier)
         metadata = dict(self.metadata or {})
         if self.pk:
             metadata["semantic_effect_key"] = f"technique_effect:{self.pk}"
@@ -629,11 +629,22 @@ class TechniqueSemanticEffect(models.Model):
                 metadata["target_skill_slugs"] = selected_skill_slugs
         if self.technique.has_specification and "skill_specification_source" not in metadata:
             metadata["skill_specification_source"] = "technique_specification"
+        resolved_target = TargetResolver.resolve(self.target_domain, self.target_key, metadata)
+        for key, values in resolved_target.context_requirements.items():
+            if key == "weapon_types":
+                metadata.setdefault("target_weapon_type", list(values))
+            elif key == "weapon_skill_slugs":
+                metadata.setdefault("target_weapon_skill", list(values))
+            elif key == "weapon_categories":
+                metadata.setdefault("target_weapon_category", list(values))
+            elif key == "weapon_ids":
+                metadata.setdefault("target_weapon_id", list(values))
+        modifier_cls = modifier_map.get(resolved_target.domain, BaseModifier)
         return modifier_cls(
             source_type="technique",
             source_id=str(self.technique_id),
-            target_domain=self.target_domain,
-            target_key=self.target_key,
+            target_domain=resolved_target.domain,
+            target_key=resolved_target.key,
             mode=self.mode,
             value=self._coerce_scalar(self.value),
             value_min=self.value_min,

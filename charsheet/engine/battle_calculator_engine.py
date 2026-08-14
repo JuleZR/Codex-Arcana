@@ -16,7 +16,8 @@ from charsheet.constants import (
     WEAPON_DAMAGE_DICE,
 )
 from charsheet.engine.item_engine import ItemEngine
-from charsheet.models import CharacterItem, Item, ItemRune, Modifier, Race, School, Technique, Trait
+from charsheet.modifiers.targets import TargetResolver
+from charsheet.models import CharacterItem, Item, ItemRune, Race, School, Technique, Trait
 
 
 MODIFIER_SOURCE_LABELS = {
@@ -28,6 +29,9 @@ MODIFIER_SOURCE_LABELS = {
     "characteritem": "Ausrüstung",
     SOURCE_ITEM_RUNE: "Rune",
 }
+
+LOCAL_WEAPON_DAMAGE_SOURCE_TYPES = {"item", "characteritem", SOURCE_ITEM_RUNE}
+
 @dataclass(slots=True)
 class AttackCalculationInput:
     """Normalized input for one to-hit calculation."""
@@ -210,70 +214,64 @@ class BattleCalculatorEngine:
         ]
 
     @classmethod
-    def _build_modifier_breakdown_rows(cls, engine, stat_key: str, *, target_domain: str = "derived_stat") -> list[dict[str, str]]:
-        explanation = engine.explain_modifier_resolution(target_domain, stat_key)
-        if not explanation and target_domain == "derived_stat":
-            explanation = cls._build_legacy_stat_modifier_explanation(engine, stat_key)
+    def _build_modifier_breakdown_rows(
+        cls,
+        engine,
+        stat_key: str,
+        *,
+        target_domain: str = "derived_stat",
+        context: dict[str, object] | None = None,
+        excluded_source_types: set[str] | None = None,
+    ) -> list[dict[str, str]]:
+        explanation = engine.explain_modifier_resolution(target_domain, stat_key, context=context)
+        if excluded_source_types:
+            explanation = [
+                entry
+                for entry in explanation
+                if str(entry.get("source_type") or "") not in excluded_source_types
+            ]
         return cls._build_grouped_explanation_rows(engine, explanation or [])
 
     @staticmethod
     def _modifier_target_domain_for_stat_key(stat_key: str) -> str:
         return "combat" if str(stat_key or "").startswith("dmg_") else "derived_stat"
 
-    @classmethod
-    def _build_legacy_stat_modifier_explanation(cls, engine, stat_key: str) -> list[dict[str, object]]:
-        modifiers = engine._modifiers_by_target.get((Modifier.TargetKind.STAT, stat_key), [])
-        if not modifiers:
-            return []
-
-        learned_stack: set[int] = set()
-        available_stack: set[int] = set()
-        rows: list[dict[str, object]] = []
-        for modifier in modifiers:
-            resolved_value = engine._modifier_value(modifier, learned_stack, available_stack)
-            if not isinstance(resolved_value, (int, float)) or int(resolved_value) == 0:
+    @staticmethod
+    def _character_item_weapon_target_context(character_item) -> dict[str, tuple[str, ...]]:
+        item = character_item.item
+        weapon_skill_slugs: set[str] = set()
+        weapon_type_slugs: set[str] = set()
+        for stats_name in ("weaponstats", "rangedweaponstats", "shieldstats"):
+            stats = getattr(item, stats_name, None)
+            if not stats:
                 continue
-            rows.append(
-                {
-                    "source_type": getattr(modifier.source_content_type, "model", ""),
-                    "source_id": modifier.source_object_id,
-                    "resolved_value": resolved_value,
-                    "notes": getattr(modifier, "effect_description", ""),
-                }
-            )
-        return rows
+            weapon_type = getattr(stats, "weapon_type", None)
+            if weapon_type and getattr(weapon_type, "slug", ""):
+                weapon_type_slugs.add(str(weapon_type.slug))
+            skill_manager = getattr(stats, "skills", None)
+            if skill_manager is not None:
+                weapon_skill_slugs.update(str(slug) for slug in skill_manager.all().values_list("slug", flat=True))
+        return {
+            "weapon_ids": (str(item.id), str(character_item.id)),
+            "weapon_types": tuple(sorted(weapon_type_slugs)),
+            "weapon_skill_slugs": tuple(sorted(weapon_skill_slugs)),
+        }
 
     @classmethod
     def _build_character_item_stat_modifier_rows(cls, engine, character_item, stat_key: str) -> list[dict[str, str]]:
-        modifiers = [
-            modifier
-            for modifier in engine._modifiers_by_target.get(("stat", stat_key), [])
-            if getattr(getattr(modifier, "source_content_type", None), "model", "") == "characteritem"
-            and int(modifier.source_object_id or 0) == int(character_item.id)
-        ]
         explanation: list[dict[str, object]] = []
-        learned_stack: set[int] = set()
-        available_stack: set[int] = set()
-        for modifier in modifiers:
-            resolved_value = engine._modifier_value(modifier, learned_stack, available_stack)
-            if not isinstance(resolved_value, (int, float)) or int(resolved_value) == 0:
-                continue
-            explanation.append(
-                {
-                    "source_type": getattr(modifier.source_content_type, "model", ""),
-                    "source_id": modifier.source_object_id,
-                    "resolved_value": resolved_value,
-                    "notes": getattr(modifier, "effect_description", ""),
-                }
-            )
+        target_context = cls._character_item_weapon_target_context(character_item)
         for modifier in engine.modifier_engine._active_item_semantic_modifiers:
             if str(getattr(modifier, "source_type", "") or "") != "characteritem":
                 continue
             if str(getattr(modifier, "source_id", "") or "") != str(character_item.id):
                 continue
-            if str(getattr(modifier, "target_domain", "") or "") != "combat":
+            target_domain = getattr(getattr(modifier, "target_domain", ""), "value", getattr(modifier, "target_domain", ""))
+            if str(target_domain or "") != "combat":
                 continue
             if str(getattr(modifier, "target_key", "") or "") != stat_key:
+                continue
+            if not TargetResolver.matches_context(modifier, target_context):
                 continue
             resolved_value = engine.modifier_engine._resolve_numeric_modifier(modifier)
             if not isinstance(resolved_value, (int, float)) or int(resolved_value) == 0:
@@ -302,6 +300,8 @@ class BattleCalculatorEngine:
                 except (TypeError, ValueError):
                     continue
                 if source_id not in equipped_item_rune_ids:
+                    continue
+                if not TargetResolver.matches_context(modifier, target_context):
                     continue
                 resolved_value = engine.modifier_engine._resolve_numeric_modifier(modifier)
                 if not isinstance(resolved_value, (int, float)) or int(resolved_value) == 0:
@@ -342,6 +342,7 @@ class BattleCalculatorEngine:
     @classmethod
     def _build_weapon_damage_modifiers(cls, engine, row: dict[str, object]) -> list[dict[str, str]]:
         entries: list[dict[str, str]] = []
+        weapon_context = cls._character_item_weapon_target_context(row["character_item"])
         strength_mod = cls._safe_int(row.get("damage_attribute_modifier"), cls._safe_int(engine.attribute_modifier(ATTR_ST)))
         if strength_mod and str(row.get("maneuver_attribute_mode") or "") != "none":
             entries.append(cls._modifier_entry("Stärke", cls._format_modifier(strength_mod), source="ST"))
@@ -352,8 +353,18 @@ class BattleCalculatorEngine:
                     engine,
                     damage_source_slug,
                     target_domain=cls._modifier_target_domain_for_stat_key(damage_source_slug),
+                    context=weapon_context,
                 )
             )
+        entries.extend(
+            cls._build_modifier_breakdown_rows(
+                engine,
+                WEAPON_DAMAGE,
+                target_domain="combat",
+                context=weapon_context,
+                excluded_source_types=LOCAL_WEAPON_DAMAGE_SOURCE_TYPES,
+            )
+        )
         mastery_bonus = cls._safe_int(row.get("weapon_mastery_damage_bonus"))
         if mastery_bonus:
             mastery_source = "Schule: Waffenmeister"

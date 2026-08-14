@@ -18,9 +18,13 @@ from charsheet.constants import (
     WEAPON_MANEUVER_ATTRIBUTE_NONE,
 )
 from charsheet.modifiers.definitions import TargetDomain
-from charsheet.models import CharacterItem, Item, Modifier
+from charsheet.modifiers.targets import TargetResolver
+from charsheet.models import CharacterItem, Item
 
 from .item_engine import ItemEngine
+
+
+LOCAL_WEAPON_DAMAGE_SOURCE_TYPES = {"item", "characteritem", SOURCE_ITEM_RUNE}
 
 
 def equipped_weapon_items(engine) -> QuerySet:
@@ -124,102 +128,52 @@ def weapon_quality_skill_modifier(engine) -> int:
 
 def _character_item_specific_maneuver_modifier(engine, character_item: CharacterItem) -> int:
     """Return item-bound maneuver modifiers that should only affect this equipped weapon."""
-    total = 0
-    learned_stack: set[int] = set()
-    available_stack: set[int] = set()
-    for modifier in engine._all_modifiers:
-        if modifier.target_kind != Modifier.TargetKind.STAT:
-            continue
-        if str(modifier.target_slug or "") != MELEE_MANEUVERS:
-            continue
-        if getattr(getattr(modifier, "source_content_type", None), "model", "") != "characteritem":
-            continue
-        if int(modifier.source_object_id or 0) != int(character_item.id):
-            continue
-        total += int(engine._modifier_value(modifier, learned_stack, available_stack) or 0)
-    total += _character_item_specific_semantic_modifier(engine, character_item, MELEE_MANEUVERS)
-    return total
+    return _character_item_specific_semantic_modifier(engine, character_item, MELEE_MANEUVERS)
 
 
 def _character_item_specific_damage_modifier(engine, character_item: CharacterItem) -> int:
     """Return item-bound damage modifiers that should only affect this equipped weapon."""
-    total = 0
-    learned_stack: set[int] = set()
-    available_stack: set[int] = set()
-    for modifier in engine._all_modifiers:
-        if modifier.target_kind != Modifier.TargetKind.STAT:
-            continue
-        if str(modifier.target_slug or "") != WEAPON_DAMAGE:
-            continue
-        if getattr(getattr(modifier, "source_content_type", None), "model", "") != "characteritem":
-            continue
-        if int(modifier.source_object_id or 0) != int(character_item.id):
-            continue
-        total += int(engine._modifier_value(modifier, learned_stack, available_stack) or 0)
-    total += _character_item_specific_semantic_modifier(engine, character_item, WEAPON_DAMAGE)
-    equipped_item_rune_ids = {
-        int(item_rune.id)
-        for item_rune in engine._equipped_item_runes
-        if int(item_rune.item_id) == int(character_item.id)
-    }
-    if not equipped_item_rune_ids:
-        return total
-    for modifier in engine.modifier_engine._active_item_rune_modifiers:
-        if modifier.source_type != SOURCE_ITEM_RUNE:
-            continue
-        if str(modifier.target_key or "") != WEAPON_DAMAGE:
-            continue
-        try:
-            source_id = int(modifier.source_id)
-        except (TypeError, ValueError):
-            continue
-        if source_id not in equipped_item_rune_ids:
-            continue
-        total += int(engine.modifier_engine._resolve_numeric_modifier(modifier) or 0)
-    return total
+    return (
+        _character_item_specific_semantic_modifier(engine, character_item, WEAPON_DAMAGE)
+        + _character_item_specific_rune_modifier(engine, character_item, WEAPON_DAMAGE)
+    )
 
 
 def _character_item_specific_damage_dice_modifier(engine, character_item: CharacterItem) -> int:
     """Return item-bound modifiers that increase this weapon's damage dice count."""
-    total = 0
-    learned_stack: set[int] = set()
-    available_stack: set[int] = set()
-    for modifier in engine._all_modifiers:
-        if modifier.target_kind != Modifier.TargetKind.STAT:
+    return (
+        _character_item_specific_semantic_modifier(engine, character_item, WEAPON_DAMAGE_DICE)
+        + _character_item_specific_rune_modifier(engine, character_item, WEAPON_DAMAGE_DICE)
+    )
+
+
+def _character_item_target_context(character_item: CharacterItem) -> dict[str, tuple[str, ...]]:
+    """Return target context for effects bound to this concrete equipped item."""
+    item = character_item.item
+    weapon_ids = (str(item.id), str(character_item.id))
+    weapon_skill_slugs: set[str] = set()
+    weapon_type_slugs: set[str] = set()
+    for stats_name in ("weaponstats", "rangedweaponstats", "shieldstats"):
+        stats = getattr(item, stats_name, None)
+        if not stats:
             continue
-        if str(modifier.target_slug or "") != WEAPON_DAMAGE_DICE:
-            continue
-        if getattr(getattr(modifier, "source_content_type", None), "model", "") != "characteritem":
-            continue
-        if int(modifier.source_object_id or 0) != int(character_item.id):
-            continue
-        total += int(engine._modifier_value(modifier, learned_stack, available_stack) or 0)
-    total += _character_item_specific_semantic_modifier(engine, character_item, WEAPON_DAMAGE_DICE)
-    equipped_item_rune_ids = {
-        int(item_rune.id)
-        for item_rune in engine._equipped_item_runes
-        if int(item_rune.item_id) == int(character_item.id)
+        weapon_type = getattr(stats, "weapon_type", None)
+        if weapon_type and getattr(weapon_type, "slug", ""):
+            weapon_type_slugs.add(str(weapon_type.slug))
+        skill_manager = getattr(stats, "skills", None)
+        if skill_manager is not None:
+            weapon_skill_slugs.update(str(slug) for slug in skill_manager.all().values_list("slug", flat=True))
+    return {
+        "weapon_ids": weapon_ids,
+        "weapon_types": tuple(sorted(weapon_type_slugs)),
+        "weapon_skill_slugs": tuple(sorted(weapon_skill_slugs)),
     }
-    if not equipped_item_rune_ids:
-        return total
-    for modifier in engine.modifier_engine._active_item_rune_modifiers:
-        if modifier.source_type != SOURCE_ITEM_RUNE:
-            continue
-        if str(modifier.target_key or "") != WEAPON_DAMAGE_DICE:
-            continue
-        try:
-            source_id = int(modifier.source_id)
-        except (TypeError, ValueError):
-            continue
-        if source_id not in equipped_item_rune_ids:
-            continue
-        total += int(engine.modifier_engine._resolve_numeric_modifier(modifier) or 0)
-    return total
 
 
 def _character_item_specific_semantic_modifier(engine, character_item: CharacterItem, target_key: str) -> int:
     """Return concrete CharacterItem semantic effects for one item-bound combat target."""
     total = 0
+    target_context = _character_item_target_context(character_item)
     for modifier in engine.modifier_engine._active_item_semantic_modifiers:
         if str(modifier.source_type or "") != "characteritem":
             continue
@@ -228,6 +182,8 @@ def _character_item_specific_semantic_modifier(engine, character_item: Character
         if modifier.target_domain != TargetDomain.COMBAT:
             continue
         if str(modifier.target_key or "") != target_key:
+            continue
+        if not TargetResolver.matches_context(modifier, target_context):
             continue
         total += int(engine.modifier_engine._resolve_numeric_modifier(modifier) or 0)
     return total
@@ -244,16 +200,33 @@ def _character_item_specific_rune_modifier(engine, character_item: CharacterItem
         return 0
 
     total = 0
+    target_context = _character_item_target_context(character_item)
     for modifier in engine.modifier_engine._active_item_rune_modifiers:
         if modifier.source_type != SOURCE_ITEM_RUNE:
             continue
         if str(modifier.target_key or "") != target_key:
+            continue
+        if not TargetResolver.matches_context(modifier, target_context):
             continue
         try:
             source_id = int(modifier.source_id)
         except (TypeError, ValueError):
             continue
         if source_id not in equipped_item_rune_ids:
+            continue
+        total += int(engine.modifier_engine._resolve_numeric_modifier(modifier) or 0)
+    return total
+
+
+def _global_weapon_context_combat_modifier(engine, target_key: str, context: dict[str, tuple[str, ...]]) -> int:
+    """Return non-item-bound combat modifiers for one concrete weapon context."""
+    total = 0
+    for modifier in engine.modifier_engine.collect_active_modifiers(context=context):
+        if str(getattr(modifier, "source_type", "") or "") in LOCAL_WEAPON_DAMAGE_SOURCE_TYPES:
+            continue
+        if modifier.target_domain != TargetDomain.COMBAT:
+            continue
+        if str(modifier.target_key or "") != target_key:
             continue
         total += int(engine.modifier_engine._resolve_numeric_modifier(modifier) or 0)
     return total
@@ -288,10 +261,11 @@ def equipped_weapon_rows(engine) -> list[dict]:
     """Return character-sheet-ready weapon rows with one prepared row per display profile."""
     rows: list[dict] = []
     bel_malus = engine.load_penalty()
-    maneuver_modifier = engine.resolve_combat_value("melee_maneuvers")
     strength = int(engine.attributes().get(ATTR_ST, 0) or 0)
     for character_item in engine.equipped_weapon_items():
         item_engine = ItemEngine(character_item)
+        weapon_context = _character_item_target_context(character_item)
+        maneuver_modifier = engine.resolve_combat_value("melee_maneuvers", context=weapon_context)
         mastery_maneuver_bonus, mastery_damage_bonus = engine.weapon_mastery_bonus_for_item(character_item)
         item_specific_maneuver_modifier = _character_item_specific_maneuver_modifier(engine, character_item)
         item_specific_damage_modifier = _character_item_specific_damage_modifier(engine, character_item)
@@ -341,9 +315,16 @@ def equipped_weapon_rows(engine) -> list[dict]:
             if item_engine.get_weapon_maneuver_attribute_mode() == WEAPON_MANEUVER_ATTRIBUTE_NONE
             else engine.attribute_modifier(ATTR_ST)
         )
-        damage_stat_modifier = engine._resolve_stat_modifiers(damage_stat_slug) if damage_stat_slug else 0
+        damage_stat_modifier = (
+            engine.modifier_engine.resolve_numeric_total(TargetDomain.COMBAT, damage_stat_slug, context=weapon_context)
+            if damage_stat_slug and str(damage_stat_slug).startswith("dmg_")
+            else engine._resolve_stat_modifiers(damage_stat_slug)
+            if damage_stat_slug
+            else 0
+        )
+        weapon_damage_modifier = _global_weapon_context_combat_modifier(engine, WEAPON_DAMAGE, weapon_context)
         dmg_mod = damage_stat_modifier + damage_attribute_modifier
-        total_damage_modifier = dmg_mod + mastery_damage_bonus + item_specific_damage_modifier
+        total_damage_modifier = dmg_mod + mastery_damage_bonus + weapon_damage_modifier + item_specific_damage_modifier
         for profile_index, profile in enumerate(
             item_engine.weapon_profiles(dice_amount_bonus=item_specific_damage_dice_modifier)
         ):
@@ -366,6 +347,7 @@ def equipped_weapon_rows(engine) -> list[dict]:
                     "base_dmg_mod_display": f"{dmg_mod:+d}" if dmg_mod else "0",
                     "damage_attribute_modifier": damage_attribute_modifier,
                     "damage_stat_modifier": damage_stat_modifier,
+                    "weapon_damage_modifier": weapon_damage_modifier,
                     "bel_malus": bel_malus,
                     "bel_malus_display": f"{bel_malus:+d}" if bel_malus else "0",
                     "with_bel": total_damage_modifier + bel_malus,

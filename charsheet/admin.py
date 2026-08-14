@@ -7,7 +7,6 @@ from django.contrib import admin, messages
 from django.contrib.admin.views.main import ChangeList
 from django.contrib.admin.helpers import ACTION_CHECKBOX_NAME, ActionForm
 from django.contrib.admin.widgets import FilteredSelectMultiple
-from django.contrib.contenttypes.admin import GenericStackedInline
 from django import forms
 from django.core.exceptions import NON_FIELD_ERRORS, ValidationError
 from django.forms.models import BaseInlineFormSet
@@ -41,13 +40,13 @@ from .constants import (
     VERSATILE,
     WEAPON_DAMAGE,
     WEAPON_DAMAGE_DICE,
+    WEAPON_MANEUVER_DAMAGE,
+    WEAPON_MASTERY_BONUS,
 )
 from .admin_help import (
     ATTRIBUTE_CHOICE_HELP,
     CHARACTER_CHOICE_HELP,
     ITEM_CHOICE_HELP,
-    MODIFIER_CHOICE_HELP,
-    MODIFIER_LABELS,
     PROGRESSION_RULE_CHOICE_HELP,
     RACE_ADMIN_LABELS,
     RACE_CHOICE_DEFINITION_HELP,
@@ -69,7 +68,6 @@ from .admin_help import (
 )
 from .engine.item_engine import ItemEngine
 from .engine.creature_engine import CreatureEngine
-from .modifiers.legacy import LegacyModifierAdapter
 from .modifiers.registry import build_trait_semantic_modifiers
 from .models import (
     ArmorStats,
@@ -165,16 +163,17 @@ from .models import (
     LessonRequirement,
     LessonRequirementGroup,
     MagicItemStats,
-    Modifier,
     ProgressionRule,
     Quality,
     Race,
     RaceAttributeLimit,
+    RaceSemanticEffect,
     RaceChoiceDefinition,
     RaceStartingItem,
     RangedWeaponStats,
     RaceTechnique,
     School,
+    SchoolSemanticEffect,
     SchoolPath,
     SchoolType,
     ShieldStats,
@@ -200,6 +199,7 @@ from .models import (
     WeaponStats,
 )
 from .models.items import Rune, WeaponFlag
+from .models import RuneSemanticEffect
 from .models.user import UserSettings
 
 ArmorStats._meta.verbose_name = "Armor Stats"
@@ -367,7 +367,6 @@ ADMIN_MODEL_ORDER = {
     "Trait": 60,
     "TraitExclusion": 61,
     "TraitChoiceDefinition": 62,
-    "Modifier": 70,
     "SchoolType": 80,
     "School": 81,
     "SchoolPath": 82,
@@ -436,7 +435,6 @@ ADMIN_MODEL_SECTIONS = {
     "Trait": (60, "Regelwerk: Traits"),
     "TraitExclusion": (61, "Regelwerk: Traits"),
     "TraitChoiceDefinition": (62, "Regelwerk: Traits"),
-    "Modifier": (70, "Regelwerk: Engine"),
     "SchoolType": (80, "Regelwerk: Schulen"),
     "School": (81, "Regelwerk: Schulen"),
     "SchoolPath": (82, "Regelwerk: Schulen"),
@@ -1254,77 +1252,6 @@ class TechniqueRaceInline(admin.TabularInline):
     extra = 0
     show_change_link = True
     autocomplete_fields = ("race",)
-
-
-class ModifierInline(GenericStackedInline):
-    """Generic inline editor for modifiers attached to source models."""
-
-    model = Modifier
-    verbose_name_plural = "Rule Modifiers"
-    ct_field = "source_content_type"
-    ct_fk_field = "source_object_id"
-    extra = 0
-    show_change_link = True
-    classes = ("collapse",)
-    readonly_fields = ("resolved_target_domain", "resolved_target_key", "central_engine_summary")
-    fieldsets = (
-        (
-            "Target",
-            {
-                "fields": (
-                    ("target_kind", "target_slug"),
-                    ("target_skill", "target_skill_category"),
-                    ("target_item", "target_specialization"),
-                    ("target_choice_definition", "target_race_choice_definition"),
-                    ("target_content_type", "target_object_id"),
-                )
-            },
-        ),
-        ("Value", {"fields": (("mode", "value"), "effect_description")}),
-        ("Scaling", {"fields": (("scale_source", "scale_school", "scale_skill"), ("mul", "div", "round_mode"))}),
-        ("Cap", {"fields": (("cap_mode", "cap_source"), "min_school_level")}),
-        (
-            "Central Engine Mapping",
-            {
-                "fields": (("resolved_target_domain", "resolved_target_key"), "central_engine_summary"),
-                "description": (
-                    "This editor still manages the legacy numeric modifier rows. "
-                    "The central ModifierEngine adapts them at runtime into the new target domains."
-                ),
-            },
-        ),
-    )
-    autocomplete_fields = (
-        "scale_school",
-        "scale_skill",
-        "target_skill",
-        "target_skill_category",
-        "target_item",
-        "target_specialization",
-        "target_choice_definition",
-        "target_race_choice_definition",
-    )
-
-    @admin.display(description="Central Domain")
-    def resolved_target_domain(self, obj):
-        """Show which new target domain the legacy row maps to."""
-        if not obj or not getattr(obj, "pk", None):
-            return "-"
-        return LegacyModifierAdapter.adapt(obj).target_domain
-
-    @admin.display(description="Central Key")
-    def resolved_target_key(self, obj):
-        """Show the central-engine target key produced by the legacy adapter."""
-        if not obj or not getattr(obj, "pk", None):
-            return "-"
-        return LegacyModifierAdapter.adapt(obj).target_key
-
-    @admin.display(description="Engine Summary")
-    def central_engine_summary(self, obj):
-        """Show how the central engine interprets the legacy row."""
-        if not obj or not getattr(obj, "pk", None):
-            return format_html('<span style="color:#666;">{}</span>', "Saved rows get central-engine details here.")
-        return _render_readonly_lines((_modifier_preview_line(LegacyModifierAdapter.adapt(obj)),))
 
 
 class CharacterAttributeInline(admin.TabularInline):
@@ -2719,56 +2646,358 @@ class SemanticCreatureCardGrantFormMixin(forms.Form):
         return cleaned_data
 
 
-class TraitSemanticEffectInlineForm(SemanticCreatureCardGrantFormMixin, forms.ModelForm):
-    """Admin form that allows choice-bound semantic effects without a fixed target key."""
+class RuleSemanticEffectAdminForm(SemanticCreatureCardGrantFormMixin, forms.ModelForm):
+    """Click-first editor for rule SemanticEffects.
 
+    The persisted fields remain technical because the engine needs stable keys.
+    Admin users edit them through dropdowns, checkboxes, and number fields.
+    """
+
+    class CommaFloatField(forms.FloatField):
+        widget = forms.TextInput
+
+        def to_python(self, value):
+            if isinstance(value, str):
+                value = value.strip().replace(",", ".")
+            return super().to_python(value)
+
+    EFFECT_AREA_CHOICES = (
+        ("attribute", "Eigenschaft"),
+        ("derived_stat", "Abgeleiteter Wert"),
+        ("combat", "Kampfwert / Schadenswert"),
+        ("damage_source", "Schadensart"),
+        ("weapon_skill", "Waffen nach Fertigkeit"),
+        ("weapon", "Konkrete Waffe"),
+        ("skill", "Fertigkeit"),
+        ("skill_category", "Fertigkeitskategorie"),
+        ("item", "Item"),
+        ("item_category", "Item-Kategorie"),
+        ("specialization", "Spezialisierung"),
+        ("rule_flag", "Regelflag"),
+    )
+    COMBAT_TARGET_CHOICES = (
+        (MELEE_MANEUVERS, "Manoever mit dieser Waffe"),
+        (WEAPON_DAMAGE, "Waffenschaden"),
+        (WEAPON_DAMAGE_DICE, "+ X W10"),
+        (WEAPON_MANEUVER_DAMAGE, "Manoever und Schaden"),
+        (WEAPON_MASTERY_BONUS, "Waffenmeister-Bonus"),
+    )
+    OPERATION_CHOICES = (
+        ("flat_add", "+ addieren"),
+        ("flat_sub", "- abziehen"),
+        ("multiply", "* multiplizieren"),
+        ("floor_divide", "// teilen abrunden"),
+        ("override", "auf Wert setzen"),
+        ("min_value", "mindestens"),
+        ("max_value", "hoechstens"),
+        ("set_flag", "Flag setzen"),
+        ("unset_flag", "Flag entfernen"),
+    )
+    SCALING_CHOICES = (
+        ("", "Keine Skalierung"),
+        ("school_level", "pro Schulstufe"),
+        ("skill_level", "pro Fertigkeitsrang"),
+        ("skill_total", "pro Fertigkeitsgesamtwert"),
+        ("trait_level", "pro Trait-Level"),
+        ("fame_total", "pro Ruhm"),
+        ("rune_crafter_level", "pro Runenmeister-Stufe"),
+    )
+
+    effect_area = forms.ChoiceField(label="Was soll geaendert werden?", choices=EFFECT_AREA_CHOICES, required=False)
+    simple_target = forms.ChoiceField(label="Was genau?", choices=(), required=False)
+    simple_operator = forms.ChoiceField(label="Rechenart", choices=OPERATION_CHOICES, required=False)
+    simple_value = CommaFloatField(label="Zahl", required=False)
+    simple_scaling = forms.ChoiceField(label="Skalierung", choices=SCALING_CHOICES, required=False)
+    simple_scale_school = forms.ModelChoiceField(
+        label="Schule fuer Skalierung",
+        queryset=School.objects.none(),
+        required=False,
+    )
+    simple_scale_skill = forms.ModelChoiceField(
+        label="Fertigkeit fuer Skalierung",
+        queryset=Skill.objects.none(),
+        required=False,
+    )
+    simple_scale_divisor = forms.IntegerField(label="pro", min_value=1, required=False)
+    simple_weapon_skills = forms.ModelMultipleChoiceField(
+        label="Nur fuer Waffen-Fertigkeiten",
+        queryset=Skill.objects.none(),
+        required=False,
+        widget=FilteredSelectMultiple("Waffen-Fertigkeiten", is_stacked=False),
+    )
+    applies_during_character_creation = forms.BooleanField(label="Gilt bei Charaktererschaffung", required=False)
+    applies_in_combat = forms.BooleanField(label="Gilt im Kampf", required=False)
+    applies_outside_combat = forms.BooleanField(label="Gilt ausserhalb des Kampfes", required=False)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["simple_target"].choices = self._simple_target_choices()
+        self.fields["simple_scale_school"].queryset = School.objects.order_by("name")
+        self.fields["simple_scale_skill"].queryset = Skill.objects.order_by("name")
+        self.fields["simple_weapon_skills"].queryset = Skill.objects.filter(
+            Q(weapon_stats__isnull=False) | Q(ranged_weapon_stats__isnull=False) | Q(shield_stats__isnull=False)
+        ).distinct().order_by("name")
+        if "sort_order" in self.fields:
+            self.fields["sort_order"].label = "Reihenfolge"
+        if "active_flag" in self.fields:
+            self.fields["active_flag"].label = "Aktiv"
+        if "target_choice_definition" in self.fields:
+            self.fields["target_choice_definition"].label = "Auswahlbindung"
+        if "target_race_choice_definition" in self.fields:
+            self.fields["target_race_choice_definition"].label = "Auswahlbindung"
+        if "target_skills" in self.fields:
+            self.fields["target_skills"].label = "Mehrere Fertigkeiten"
+        self._apply_initial_simple_values()
+        self._hide_technical_fields()
+
+    def _simple_target_choices(self):
+        choices = [("", "-")]
+        choices.extend((f"attribute:{value}", label) for value, label in ATTRIBUTE_CODE_CHOICES)
+        choices.extend((f"derived_stat:{value}", label) for value, label in STAT_SLUG_CHOICES)
+        choices.extend((f"combat:{value}", label) for value, label in self.COMBAT_TARGET_CHOICES)
+        choices.extend(
+            (f"damage_source:dmg_{source.slug}", f"Schaden: {source.name}")
+            for source in DamageSource.objects.order_by("name", "slug")
+        )
+        weapon_items = Item.objects.filter(
+            Q(weaponstats__isnull=False) | Q(rangedweaponstats__isnull=False) | Q(shieldstats__isnull=False)
+        ).distinct().order_by("name", "id")
+        choices.extend((f"weapon:{item.pk}", item.name) for item in weapon_items)
+        choices.extend((f"skill:{skill.slug}", skill.name) for skill in Skill.objects.order_by("name"))
+        choices.extend((f"skill_category:{category.slug}", category.name) for category in SkillCategory.objects.order_by("name"))
+        choices.extend((f"item:{item.pk}", item.name) for item in Item.objects.order_by("name", "id"))
+        choices.extend((f"item_category:{value}", label) for value, label in Item.ItemType.choices)
+        choices.extend((f"specialization:{specialization.pk}", specialization.name) for specialization in Specialization.objects.order_by("name", "id"))
+        choices.extend((f"rule_flag:{value}", label) for value, label in RULE_FLAG_CHOICES)
+        return choices
+
+    def _apply_initial_simple_values(self):
+        target_domain = str(self.initial.get("target_domain") or getattr(self.instance, "target_domain", "") or "")
+        target_key = str(self.initial.get("target_key") or getattr(self.instance, "target_key", "") or "")
+        area = {
+            "attribute": "attribute",
+            "derived_stat": "derived_stat",
+            "combat": "combat",
+            "damage": "combat",
+            "weapon_category": "item_category",
+            "weapon": "weapon",
+            "skill": "skill",
+            "skill_category": "skill_category",
+            "item": "item",
+            "item_category": "item_category",
+            "specialization": "specialization",
+            "rule_flag": "rule_flag",
+        }.get(target_domain)
+        if area:
+            if target_key.startswith("dmg_"):
+                self.initial.setdefault("effect_area", "damage_source")
+                self.initial.setdefault("simple_target", f"damage_source:{target_key}")
+            else:
+                self.initial.setdefault("effect_area", area)
+                self.initial.setdefault("simple_target", f"{area}:{target_key}")
+        self.initial.setdefault("simple_operator", self.initial.get("operator") or getattr(self.instance, "operator", "flat_add"))
+        value = self.initial.get("value", getattr(self.instance, "value", ""))
+        if self._is_numberish(value):
+            self.initial.setdefault("simple_value", self._format_simple_number(value))
+        scaling = dict(self.initial.get("scaling", getattr(self.instance, "scaling", {}) or {}) or {})
+        self.initial.setdefault("simple_scaling", scaling.get("scale_source", ""))
+        self.initial.setdefault("simple_scale_school", scaling.get("scale_school_id"))
+        self.initial.setdefault("simple_scale_skill", scaling.get("scale_skill_id"))
+        self.initial.setdefault("simple_scale_divisor", scaling.get("div", 1))
+        condition_set = dict(self.initial.get("condition_set", getattr(self.instance, "condition_set", {}) or {}) or {})
+        self.initial.setdefault("applies_during_character_creation", bool(condition_set.get("applies_during_character_creation")))
+        self.initial.setdefault("applies_in_combat", bool(condition_set.get("applies_in_combat")))
+        self.initial.setdefault("applies_outside_combat", bool(condition_set.get("applies_outside_combat")))
+        metadata = dict(self.initial.get("metadata", getattr(self.instance, "metadata", {}) or {}) or {})
+        selected_weapon_skills = metadata.get("target_weapon_skill") or []
+        if isinstance(selected_weapon_skills, str):
+            selected_weapon_skills = [selected_weapon_skills]
+        if selected_weapon_skills:
+            self.initial.setdefault(
+                "simple_weapon_skills",
+                list(Skill.objects.filter(slug__in=selected_weapon_skills).values_list("pk", flat=True)),
+            )
+            self.initial["effect_area"] = "weapon_skill"
+
+    def _hide_technical_fields(self):
+        for field_name in (
+            "target_domain",
+            "target_key",
+            "operator",
+            "mode",
+            "value",
+            "value_min",
+            "value_max",
+            "formula",
+            "scaling",
+            "condition_set",
+            "metadata",
+            "priority",
+            "stack_behavior",
+            "visibility",
+            "hidden",
+            "sheet_relevant",
+        ):
+            if field_name in self.fields:
+                self.fields[field_name].required = False
+                self.fields[field_name].widget = forms.HiddenInput()
+
+    def clean(self):
+        cleaned_data = super().clean()
+        target_domain, target_key = self._simple_target(
+            cleaned_data.get("effect_area"),
+            cleaned_data.get("simple_target"),
+        )
+        if cleaned_data.get("effect_area") == "weapon_skill":
+            weapon_skill_slugs = list(cleaned_data.get("simple_weapon_skills").values_list("slug", flat=True))
+            if not weapon_skill_slugs:
+                self.add_error("simple_weapon_skills", "Bitte mindestens eine Waffen-Fertigkeit auswaehlen.")
+        has_choice_binding = bool(
+            cleaned_data.get("target_choice_definition")
+            or cleaned_data.get("target_race_choice_definition")
+        )
+        target_skills = cleaned_data.get("target_skills")
+        has_target_skills = bool(target_skills)
+        if target_domain and target_key:
+            cleaned_data["target_domain"] = target_domain
+            cleaned_data["target_key"] = target_key
+        elif has_choice_binding or has_target_skills:
+            cleaned_data["target_domain"] = cleaned_data.get("target_domain") or "skill"
+            cleaned_data["target_key"] = ""
+        else:
+            self.add_error("effect_area", "Bitte auswaehlen, welcher Wert geaendert werden soll.")
+
+        operator = cleaned_data.get("simple_operator") or "flat_add"
+        if target_domain == "rule_flag" and operator in {"flat_add", "flat_sub"}:
+            operator = "set_flag"
+        if operator in {"set_flag", "unset_flag"}:
+            cleaned_data["operator"] = operator
+            cleaned_data["value"] = "true" if operator == "set_flag" else "false"
+        else:
+            value = cleaned_data.get("simple_value")
+            if value is None:
+                self.add_error("simple_value", "Bitte eine Zahl eintragen.")
+            else:
+                cleaned_data["operator"] = operator
+                cleaned_data["value"] = self._format_simple_number(value)
+
+        scale_source = cleaned_data.get("simple_scaling") or ""
+        if scale_source:
+            divisor = cleaned_data.get("simple_scale_divisor") or 1
+            cleaned_data["mode"] = "scaled"
+            scaling = {
+                "scale_source": scale_source,
+                "mul": 1,
+                "div": int(divisor),
+                "round_mode": "floor",
+            }
+            if cleaned_data.get("simple_scale_school"):
+                scaling["scale_school_id"] = cleaned_data["simple_scale_school"].pk
+            if cleaned_data.get("simple_scale_skill"):
+                scaling["scale_skill_id"] = cleaned_data["simple_scale_skill"].pk
+            cleaned_data["scaling"] = scaling
+        else:
+            cleaned_data["mode"] = "flat"
+            cleaned_data["scaling"] = {}
+
+        condition_set = {}
+        for field_name in (
+            "applies_during_character_creation",
+            "applies_in_combat",
+            "applies_outside_combat",
+        ):
+            if cleaned_data.get(field_name):
+                condition_set[field_name] = True
+        cleaned_data["condition_set"] = condition_set
+        metadata = dict(cleaned_data.get("metadata") or {})
+        weapon_skill_slugs = list(cleaned_data.get("simple_weapon_skills").values_list("slug", flat=True))
+        if weapon_skill_slugs:
+            metadata["target_weapon_skill"] = weapon_skill_slugs
+            metadata.pop("target_weapon_type", None)
+        else:
+            metadata.pop("target_weapon_skill", None)
+            metadata.pop("target_weapon_type", None)
+        cleaned_data["metadata"] = metadata
+        return cleaned_data
+
+    def _simple_target(self, area, simple_target) -> tuple[str, str]:
+        prefix, separator, target_key = str(simple_target or "").partition(":")
+        if not separator:
+            return "", ""
+        if area == "weapon_skill":
+            if prefix == "combat":
+                return "combat", target_key
+            if prefix == "damage_source":
+                return "damage", target_key
+            return "", ""
+        if prefix != area:
+            return "", ""
+        mapping = {
+            "attribute": "attribute",
+            "derived_stat": "derived_stat",
+            "combat": "combat",
+            "damage_source": "damage",
+            "weapon": "weapon",
+            "skill": "skill",
+            "skill_category": "skill_category",
+            "item": "item",
+            "item_category": "item_category",
+            "specialization": "specialization",
+            "rule_flag": "rule_flag",
+        }
+        return mapping.get(area, ""), target_key
+
+    @staticmethod
+    def _is_numberish(value) -> bool:
+        try:
+            float(str(value).replace(",", "."))
+        except (TypeError, ValueError):
+            return False
+        return str(value).strip() != ""
+
+    @staticmethod
+    def _format_simple_number(value) -> str:
+        number = float(str(value).replace(",", "."))
+        return str(int(number)) if number.is_integer() else str(number)
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        for field_name in ("target_domain", "target_key", "operator", "value", "mode", "scaling", "condition_set", "metadata"):
+            setattr(instance, field_name, self.cleaned_data[field_name])
+        if commit:
+            instance.save()
+            self.save_m2m()
+        return instance
+
+
+class TraitSemanticEffectInlineForm(RuleSemanticEffectAdminForm):
     class Meta:
         model = TraitSemanticEffect
         fields = "__all__"
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.fields["target_key"].required = False
 
-    def clean(self):
-        """Mirror the model rule in admin form validation with clearer field behavior."""
-        cleaned_data = super().clean()
-        target_key = str(cleaned_data.get("target_key") or "").strip()
-        target_choice_definition = cleaned_data.get("target_choice_definition")
-        target_skills = cleaned_data.get("target_skills")
-        has_target_skills = bool(target_skills)
-        if not target_choice_definition and not target_key and not has_target_skills:
-            self.add_error(
-                "target_key",
-                "Set a target key, choose target skills, or bind the effect to a trait choice definition.",
-            )
-        return cleaned_data
-
-
-class TechniqueSemanticEffectInlineForm(SemanticCreatureCardGrantFormMixin, forms.ModelForm):
-    """Admin form that allows choice-bound technique effects without a fixed target key."""
-
+class TechniqueSemanticEffectInlineForm(RuleSemanticEffectAdminForm):
     class Meta:
         model = TechniqueSemanticEffect
         fields = "__all__"
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.fields["target_key"].required = False
 
-    def clean(self):
-        """Mirror the model rule in admin form validation with clearer field behavior."""
-        cleaned_data = super().clean()
-        target_key = str(cleaned_data.get("target_key") or "").strip()
-        target_choice_definition = cleaned_data.get("target_choice_definition")
-        target_skills = cleaned_data.get("target_skills")
-        has_target_skills = bool(target_skills)
-        if not target_choice_definition and not target_key and not has_target_skills:
-            self.add_error(
-                "target_key",
-                "Set a target key, choose target skills, or bind the effect to a technique choice definition.",
-            )
-        return cleaned_data
+class RaceSemanticEffectInlineForm(RuleSemanticEffectAdminForm):
+    class Meta:
+        model = RaceSemanticEffect
+        fields = "__all__"
+
+
+class SchoolSemanticEffectInlineForm(RuleSemanticEffectAdminForm):
+    class Meta:
+        model = SchoolSemanticEffect
+        fields = "__all__"
+
+
+class RuneSemanticEffectInlineForm(RuleSemanticEffectAdminForm):
+    class Meta:
+        model = RuneSemanticEffect
+        fields = "__all__"
 
 
 class CreatureTraitSemanticEffectAdminForm(forms.ModelForm):
@@ -3846,42 +4075,27 @@ class TraitSemanticEffectInline(admin.StackedInline):
     filter_horizontal = ("target_skills",)
     fieldsets = (
         (
-            "Target",
+            "Effekt",
             {
                 "fields": (
-                    ("sort_order", "active_flag", "priority"),
-                    ("target_domain", "target_key", "operator"),
-                    ("granted_creature_card", "grant_dummy_creature_card"),
+                    ("effect_area", "simple_target"),
+                    "simple_weapon_skills",
+                    ("simple_operator", "simple_value"),
                     "target_choice_definition",
                     "target_skills",
-                    ("mode", "stack_behavior", "visibility"),
-                    ("hidden", "sheet_relevant"),
-                )
-            },
-        ),
-        (
-            "Values",
-            {
-                "fields": (
-                    ("value", "value_min", "value_max"),
-                    "formula",
+                    "simple_scaling",
+                    ("simple_scale_school", "simple_scale_skill", "simple_scale_divisor"),
+                    ("applies_during_character_creation", "applies_in_combat", "applies_outside_combat"),
                     "notes",
                     "rules_text",
+                    "active_flag",
                 )
-            },
-        ),
-        (
-            "Conditions And Metadata",
-            {
-                "fields": ("condition_set", "scaling", "metadata"),
-                "description": (
-                    "Use JSON objects for condition_set, scaling, and metadata. "
-                    "Example condition_set: {\"applies_during_character_creation\": true}. "
-                    "For choice-bound trait effects, select a trait choice definition and leave target_key empty."
-                ),
             },
         ),
     )
+
+    class Media:
+        js = ("charsheet/js/rule_semantic_effect_admin_v2.js",)
 
 
 class TechniqueSemanticEffectInline(admin.StackedInline):
@@ -3894,6 +4108,87 @@ class TechniqueSemanticEffectInline(admin.StackedInline):
     autocomplete_fields = ("target_choice_definition",)
     filter_horizontal = ("target_skills",)
     fieldsets = TraitSemanticEffectInline.fieldsets
+
+    class Media:
+        js = ("charsheet/js/rule_semantic_effect_admin_v2.js",)
+
+
+class RaceSemanticEffectInline(admin.StackedInline):
+    """Inline editor for persisted race semantic effects."""
+
+    model = RaceSemanticEffect
+    form = RaceSemanticEffectInlineForm
+    extra = 0
+    show_change_link = True
+    autocomplete_fields = ("target_race_choice_definition",)
+    fieldsets = (
+        (
+            "Effekt",
+            {
+                "fields": (
+                    ("effect_area", "simple_target"),
+                    "simple_weapon_skills",
+                    ("simple_operator", "simple_value"),
+                    "target_race_choice_definition",
+                    "simple_scaling",
+                    ("simple_scale_school", "simple_scale_skill", "simple_scale_divisor"),
+                    ("applies_during_character_creation", "applies_in_combat", "applies_outside_combat"),
+                    "notes",
+                    "rules_text",
+                    "active_flag",
+                )
+            },
+        ),
+    )
+
+    class Media:
+        js = ("charsheet/js/rule_semantic_effect_admin_v2.js",)
+
+
+RULE_SEMANTIC_EFFECT_FIELDSETS = (
+    (
+        "Effekt",
+        {
+            "fields": (
+                ("effect_area", "simple_target"),
+                "simple_weapon_skills",
+                ("simple_operator", "simple_value"),
+                "simple_scaling",
+                ("simple_scale_school", "simple_scale_skill", "simple_scale_divisor"),
+                ("applies_during_character_creation", "applies_in_combat", "applies_outside_combat"),
+                "notes",
+                "rules_text",
+                "active_flag",
+            )
+        },
+    ),
+)
+
+
+class SchoolSemanticEffectInline(admin.StackedInline):
+    """Inline editor for persisted school semantic effects."""
+
+    model = SchoolSemanticEffect
+    form = SchoolSemanticEffectInlineForm
+    extra = 0
+    show_change_link = True
+    fieldsets = RULE_SEMANTIC_EFFECT_FIELDSETS
+
+    class Media:
+        js = ("charsheet/js/rule_semantic_effect_admin_v2.js",)
+
+
+class RuneSemanticEffectInline(admin.StackedInline):
+    """Inline editor for persisted rune semantic effects."""
+
+    model = RuneSemanticEffect
+    form = RuneSemanticEffectInlineForm
+    extra = 0
+    show_change_link = True
+    fieldsets = RULE_SEMANTIC_EFFECT_FIELDSETS
+
+    class Media:
+        js = ("charsheet/js/rule_semantic_effect_admin_v2.js",)
 
 
 class RaceAttributeLimitByAttributeInline(admin.TabularInline):
@@ -3993,7 +4288,7 @@ class RaceAdmin(admin.ModelAdmin):
         RaceChoiceDefinitionInline,
         RaceTechniqueInline,
         RaceStartingItemInline,
-        ModifierInline,
+        RaceSemanticEffectInline,
     )
     fieldsets = (
         (
@@ -4275,7 +4570,7 @@ class SchoolAdmin(admin.ModelAdmin):
         TechniqueInline,
         SpecializationInline,
         SchoolCharacterInline,
-        ModifierInline,
+        SchoolSemanticEffectInline,
     )
     autocomplete_fields = ("type", "opposite")
     list_select_related = ("type", "opposite")
@@ -4398,127 +4693,6 @@ class ProgressionRuleAdmin(admin.ModelAdmin):
     list_select_related = ("school_type",)
 
 
-@admin.register(Modifier)
-class ModifierAdmin(admin.ModelAdmin):
-    """Admin configuration for generic modifiers."""
-
-    list_display = (
-        "display_source",
-        "mode",
-        "target_kind",
-        "resolved_target_domain",
-        "resolved_target_key",
-        "target_display_value",
-        "target_choice_definition",
-        "target_race_choice_definition",
-        "value",
-        "scale_source",
-        "scale_school",
-        "scale_skill",
-        "mul",
-        "div",
-        "round_mode",
-        "cap_mode",
-        "cap_source",
-        "min_school_level",
-    )
-    list_filter = ("source_content_type", "mode", "target_kind", "scale_source", "cap_mode")
-    search_fields = (
-        "target_slug",
-        "scale_skill__name",
-        "target_skill__name",
-        "target_skill_category__name",
-        "target_item__name",
-        "target_specialization__name",
-        "target_choice_definition__name",
-        "target_race_choice_definition__name",
-    )
-    ordering = ("source_content_type", "source_object_id", "target_kind", "target_slug")
-    autocomplete_fields = (
-        "scale_school",
-        "scale_skill",
-        "target_skill",
-        "target_skill_category",
-        "target_item",
-        "target_specialization",
-        "target_choice_definition",
-        "target_race_choice_definition",
-    )
-    list_select_related = (
-        "scale_school",
-        "scale_skill",
-        "target_skill",
-        "target_skill_category",
-        "target_item",
-        "target_specialization",
-        "target_choice_definition",
-        "target_race_choice_definition",
-    )
-    readonly_fields = ("resolved_target_domain", "resolved_target_key", "central_engine_summary")
-    fieldsets = (
-        (
-            "Source",
-            {
-                "fields": (
-                    ("source_content_type", "source_object_id"),
-                )
-            },
-        ),
-        (
-            "Target",
-            {
-                "fields": (
-                    ("target_kind", "target_slug"),
-                    ("target_skill", "target_skill_category"),
-                    ("target_item", "target_specialization"),
-                    ("target_choice_definition", "target_race_choice_definition"),
-                    ("target_content_type", "target_object_id"),
-                )
-            },
-        ),
-        ("Value", {"fields": (("mode", "value"),)}),
-        ("Scaling", {"fields": (("scale_source", "scale_school", "scale_skill"), ("mul", "div", "round_mode"))}),
-        ("Limits", {"fields": (("cap_mode", "cap_source"), "min_school_level")}),
-        (
-            "Central Engine Mapping",
-            {
-                "fields": (("resolved_target_domain", "resolved_target_key"), "central_engine_summary"),
-                "description": (
-                    "Legacy numeric modifiers remain supported for backward compatibility. "
-                    "The central ModifierEngine adapts them into the newer modifier domains at runtime."
-                ),
-            },
-        ),
-    )
-
-    @admin.display(description="Source")
-    def display_source(self, obj):
-        """Render a readable source label and detect broken generic relations."""
-        if obj.source is None:
-            return f"{obj.source_content_type} #{obj.source_object_id} (missing)"
-        return str(obj.source)
-
-    @admin.display(description="Target")
-    def target_display_value(self, obj):
-        """Render the configured target in a rulebook-friendly way."""
-        return obj.target_display()
-
-    @admin.display(description="Central Domain")
-    def resolved_target_domain(self, obj):
-        """Show which new target domain the legacy row maps to."""
-        return LegacyModifierAdapter.adapt(obj).target_domain
-
-    @admin.display(description="Central Key")
-    def resolved_target_key(self, obj):
-        """Show the central-engine target key produced by the legacy adapter."""
-        return LegacyModifierAdapter.adapt(obj).target_key
-
-    @admin.display(description="Engine Summary")
-    def central_engine_summary(self, obj):
-        """Show how the central engine interprets the legacy row."""
-        return _render_readonly_lines((_modifier_preview_line(LegacyModifierAdapter.adapt(obj)),))
-
-
 @admin.register(Technique)
 class TechniqueAdmin(admin.ModelAdmin):
     """Admin configuration for techniques, including support and choice metadata."""
@@ -4586,7 +4760,6 @@ class TechniqueAdmin(admin.ModelAdmin):
         TechniqueChoiceDefinitionInline,
         TechniqueRaceInline,
         TechniqueSemanticEffectInline,
-        ModifierInline,
         CreatureCardTechniqueBindingInline,
     )
     fieldsets = (
@@ -4766,7 +4939,6 @@ class ItemAdmin(admin.ModelAdmin):
         RangedWeaponStatsInline,
         MagicItemStatsInline,
         ItemSemanticEffectInline,
-        ModifierInline,
         ItemRaceStartingInline,
         ItemCharacterInline,
         CreatureCardItemBindingInline,
@@ -5132,6 +5304,7 @@ class TechniqueChoiceDefinitionAdmin(admin.ModelAdmin):
         "technique_school",
         "target_kind",
         "targeting_technique_count",
+        "semantic_effect_count",
         "min_choices",
         "max_choices",
         "is_required",
@@ -5143,17 +5316,15 @@ class TechniqueChoiceDefinitionAdmin(admin.ModelAdmin):
         "technique__name",
         "technique__school__name",
         "targeting_techniques__name",
-        "targeting_modifiers__target_slug",
-        "targeting_modifiers__target_skill__name",
-        "targeting_modifiers__target_skill_category__name",
-        "targeting_modifiers__target_item__name",
-        "targeting_modifiers__target_specialization__name",
+        "semantic_effects__target_key",
+        "semantic_effects__notes",
+        "semantic_effects__rules_text",
     )
     list_filter = ("technique__school__type", "technique__school", "target_kind", "is_required", "is_active")
     ordering = ("technique__school", "technique__level", "technique__name", "sort_order", "name")
     autocomplete_fields = ("technique",)
     list_select_related = ("technique", "technique__school", "technique__school__type")
-    readonly_fields = ("targeting_techniques", "targeting_modifiers")
+    readonly_fields = ("targeting_techniques", "linked_semantic_effects")
     fieldsets = (
         (
             "Choice Definition",
@@ -5172,8 +5343,8 @@ class TechniqueChoiceDefinitionAdmin(admin.ModelAdmin):
         (
             "Links",
             {
-                "fields": ("targeting_techniques", "targeting_modifiers"),
-                "description": "Shows techniques and modifiers that explicitly point to this choice definition.",
+                "fields": ("targeting_techniques", "linked_semantic_effects"),
+                "description": "Shows techniques and semantic effects that explicitly point to this choice definition.",
             },
         ),
     )
@@ -5197,18 +5368,24 @@ class TechniqueChoiceDefinitionAdmin(admin.ModelAdmin):
         """Return how many techniques point to this choice definition."""
         return obj.targeting_techniques.count()
 
-    @admin.display(description="Linked Modifiers")
-    def targeting_modifiers(self, obj):
-        """Show modifiers that explicitly reference this choice definition."""
+    @admin.display(description="Linked Semantic Effects")
+    def linked_semantic_effects(self, obj):
+        """Show semantic effects that explicitly reference this choice definition."""
         if not obj or not obj.pk:
             return "-"
-        modifiers = obj.targeting_modifiers.select_related(
-            "target_skill",
-            "target_skill_category",
-            "target_item",
-            "target_specialization",
-        ).order_by("target_kind", "target_slug", "id")
-        return ", ".join(f"{modifier.target_kind}: {modifier.target_display()}" for modifier in modifiers) or "None"
+        effects = obj.semantic_effects.select_related("technique").order_by(
+            "technique__school__name",
+            "technique__level",
+            "technique__name",
+            "sort_order",
+            "id",
+        )
+        return ", ".join(f"{effect.technique.name}: {effect.target_domain}/{effect.target_key}" for effect in effects) or "None"
+
+    @admin.display(description="Semantic Effects")
+    def semantic_effect_count(self, obj):
+        """Return how many semantic effects point to this choice definition."""
+        return obj.semantic_effects.count()
 
 
 @admin.register(RaceChoiceDefinition)
@@ -5219,7 +5396,7 @@ class RaceChoiceDefinitionAdmin(admin.ModelAdmin):
         "name",
         "race",
         "target_kind",
-        "targeting_modifier_count",
+        "semantic_effect_count",
         "min_choices",
         "max_choices",
         "is_required",
@@ -5229,17 +5406,15 @@ class RaceChoiceDefinitionAdmin(admin.ModelAdmin):
         "name",
         "description",
         "race__name",
-        "targeting_modifiers__target_slug",
-        "targeting_modifiers__target_skill__name",
-        "targeting_modifiers__target_skill_category__name",
-        "targeting_modifiers__target_item__name",
-        "targeting_modifiers__target_specialization__name",
+        "semantic_effects__target_key",
+        "semantic_effects__notes",
+        "semantic_effects__rules_text",
     )
     list_filter = ("race", "target_kind", "is_required", "is_active")
     ordering = ("race__name", "sort_order", "name")
     autocomplete_fields = ("race",)
     list_select_related = ("race",)
-    readonly_fields = ("targeting_modifiers",)
+    readonly_fields = ("linked_semantic_effects",)
     fieldsets = (
         (
             "Choice Definition",
@@ -5258,29 +5433,24 @@ class RaceChoiceDefinitionAdmin(admin.ModelAdmin):
         (
             "Links",
             {
-                "fields": ("targeting_modifiers",),
-                "description": "Shows modifiers that explicitly point to this race choice definition.",
+                "fields": ("linked_semantic_effects",),
+                "description": "Shows semantic effects that explicitly point to this race choice definition.",
             },
         ),
     )
 
-    @admin.display(description="Linked Modifiers")
-    def targeting_modifiers(self, obj):
-        """Show modifiers that explicitly reference this race choice definition."""
+    @admin.display(description="Linked Semantic Effects")
+    def linked_semantic_effects(self, obj):
+        """Show semantic effects that explicitly reference this race choice definition."""
         if not obj or not obj.pk:
             return "-"
-        modifiers = obj.targeting_modifiers.select_related(
-            "target_skill",
-            "target_skill_category",
-            "target_item",
-            "target_specialization",
-        ).order_by("target_kind", "target_slug", "id")
-        return ", ".join(f"{modifier.target_kind}: {modifier.target_display()}" for modifier in modifiers) or "None"
+        effects = obj.semantic_effects.select_related("race").order_by("race__name", "sort_order", "id")
+        return ", ".join(f"{effect.race.name}: {effect.target_domain}/{effect.target_key}" for effect in effects) or "None"
 
-    @admin.display(description="Modifiers")
-    def targeting_modifier_count(self, obj):
-        """Return how many modifiers point to this race choice definition."""
-        return obj.targeting_modifiers.count()
+    @admin.display(description="Semantic Effects")
+    def semantic_effect_count(self, obj):
+        """Return how many semantic effects point to this race choice definition."""
+        return obj.semantic_effects.count()
 
 
 @admin.register(TraitChoiceDefinition)
@@ -6089,7 +6259,7 @@ class RuneAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
     search_fields = ("name", "slug", "short_description", "description", "image")
     list_filter = ("is_level_scaled", "allow_multiple")
     ordering = ("name",)
-    inlines = (ModifierInline,)
+    inlines = (RuneSemanticEffectInline,)
 
     def get_form(self, request, obj=None, change=False, **kwargs):
         """Render the short description as a larger textarea in the admin form."""
@@ -8571,7 +8741,6 @@ class UserSettingsAdmin(admin.ModelAdmin):
     list_select_related = ("user",)
 
 
-_install_inline_help(ModifierInline, help_texts=MODIFIER_CHOICE_HELP, labels=MODIFIER_LABELS)
 _install_inline_help(ProgressionRuleInline, help_texts=PROGRESSION_RULE_CHOICE_HELP)
 _install_inline_help(TechniqueInline, help_texts=TECHNIQUE_CHOICE_HELP, labels=TECHNIQUE_LABELS)
 _install_inline_help(
@@ -8592,7 +8761,6 @@ _install_admin_help(RaceAdmin, help_texts=SIZE_CLASS_HELP, labels=RACE_ADMIN_LAB
 _install_admin_help(CharacterAdmin, help_texts=CHARACTER_CHOICE_HELP)
 _install_admin_help(SchoolTypeAdmin, help_texts=SCHOOL_TYPE_CHOICE_HELP)
 _install_admin_help(ProgressionRuleAdmin, help_texts=PROGRESSION_RULE_CHOICE_HELP)
-_install_admin_help(ModifierAdmin, help_texts=MODIFIER_CHOICE_HELP, labels=MODIFIER_LABELS)
 _install_admin_help(SchoolAdmin, labels=SCHOOL_ADMIN_LABELS)
 _install_admin_help(TechniqueAdmin, help_texts=TECHNIQUE_CHOICE_HELP, labels=TECHNIQUE_LABELS)
 _install_admin_help(

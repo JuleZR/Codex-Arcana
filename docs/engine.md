@@ -59,7 +59,7 @@ There is no productive `legacy_only` mode anymore.
 
 ### Internal Debugging
 
-`CharacterEngine` still exposes `debug_legacy_*` helpers for migration diagnostics and report generation. These methods are intentionally non-productive and exist only to compare the new engine against historic legacy arithmetic.
+`CharacterEngine` resolves productive values through SemanticEffects and typed modifier domain objects. The former legacy comparison helpers have been removed.
 
 ## ModifierEngine
 
@@ -70,7 +70,7 @@ There is no productive `legacy_only` mode anymore.
 It:
 
 - collects active typed modifiers
-- translates persisted legacy `Modifier` rows into typed modifiers via `LegacyModifierMigrationService`
+- loads persisted SemanticEffects from race, school, trait, technique, item, rune, and creature-related sources
 - loads persisted `TraitSemanticEffect` rows from traits
 - uses the trait registry only as a fallback for complex hard-coded cases
 - evaluates conditions
@@ -83,12 +83,11 @@ It:
 
 The productive engine works with typed modifiers only:
 
-- migrated legacy rows from `LegacyModifierMigrationService`
-- persisted `TraitSemanticEffect` rows maintained in the admin
+- persisted SemanticEffect rows maintained in the admin
 - fallback semantic trait modifiers from `charsheet/modifiers/registry.py`
 - optionally injected modifiers for tests or future structured sources
 
-Persisted legacy rows still exist as source data, but productive resolution uses their migrated typed representation and copied scaling metadata.
+Legacy `Modifier` rows are migrated into persistent SemanticEffects before the legacy model is removed.
 
 ### Target Domains
 

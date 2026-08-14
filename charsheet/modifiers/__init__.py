@@ -27,12 +27,6 @@ from .definitions import (
 )
 from .engine import CombatProfile, ModifierEngine, MovementProfile, ResistanceProfile, SocialProfile
 from .migration import (
-    LegacyModifierInventoryRow,
-    LegacyModifierMigrationRecord,
-    LegacyModifierMigrationService,
-    LegacyModifierRelation,
-    MigrationConfidence,
-    MigrationStrategy,
     ModifierResolutionMode,
     NumericResolutionComparison,
 )
@@ -51,12 +45,6 @@ __all__ = [
     "EconomyModifier",
     "EntityModifier",
     "ItemModifier",
-    "LegacyModifierInventoryRow",
-    "LegacyModifierMigrationRecord",
-    "LegacyModifierMigrationService",
-    "LegacyModifierRelation",
-    "MigrationConfidence",
-    "MigrationStrategy",
     "ModifierEngine",
     "ModifierOperator",
     "ModifierResolutionMode",

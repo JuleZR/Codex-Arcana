@@ -69,7 +69,6 @@ from charsheet.models import (
     Item,
     ItemOwnershipEvent,
     ItemTransfer,
-    Modifier,
     Rune,
     Quality,
     Skill,
@@ -3002,11 +3001,6 @@ def delete_group_inventory_item(request, group_id: int, item_id: int):
                 },
             },
         )
-        source_type = ContentType.objects.get_for_model(CharacterItem, for_concrete_model=False)
-        Modifier.objects.filter(
-            source_content_type=source_type,
-            source_object_id=instance.id,
-        ).delete()
         instance.delete()
     messages.success(request, "Gegenstand aus dem Gruppeninventar gelöscht.")
     return redirect(f"{reverse('game_master_screen', args=[group_id])}#sl-inventar")

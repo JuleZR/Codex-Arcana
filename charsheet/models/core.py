@@ -1,5 +1,6 @@
 """Reference models shared across the character sheet domain."""
 
+from dataclasses import replace
 import json
 
 from django.core.exceptions import ValidationError
@@ -16,6 +17,7 @@ from ..constants import (
     STACK_BEHAVIOR_CHOICES,
     TARGET_DOMAIN_CHOICES,
 )
+from .semantic_effects import SemanticEffectFields
 
 
 class Attribute(models.Model):
@@ -81,6 +83,65 @@ class Race(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class RaceSemanticEffect(SemanticEffectFields):
+    """Persisted semantic effect attached directly to one race."""
+
+    race = models.ForeignKey(Race, on_delete=models.CASCADE, related_name="semantic_effects")
+    target_race_choice_definition = models.ForeignKey(
+        "RaceChoiceDefinition",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="semantic_effects",
+    )
+
+    class Meta:
+        ordering = ["race", "sort_order", "id"]
+
+    def __str__(self):
+        return f"{self.race.name}: {self.target_domain}/{self.target_key} ({self.operator})"
+
+    def semantic_source_type(self) -> str:
+        return "race"
+
+    def semantic_source_id(self) -> str:
+        return str(self.race_id)
+
+    def semantic_source_label(self) -> str:
+        return str(self.race)
+
+    def semantic_effect_key_prefix(self) -> str:
+        return "race_effect"
+
+    def clean(self):
+        super().clean()
+        if (
+            self.target_race_choice_definition_id
+            and self.race_id
+            and self.target_race_choice_definition.race_id != self.race_id
+        ):
+            raise ValidationError(
+                {
+                    "target_race_choice_definition": (
+                        "Choice definition must belong to the same race as the semantic effect."
+                    )
+                }
+            )
+
+    def to_modifier(self):
+        modifier = super().to_modifier()
+        if not self.target_race_choice_definition_id:
+            return modifier
+        metadata = {
+            **modifier.metadata,
+            "choice_binding": {
+                "kind": "race_choice_definition",
+                "id": int(self.target_race_choice_definition_id),
+            },
+        }
+        return replace(modifier, metadata=metadata)
 
 
 class RaceAttributeLimit(models.Model):
@@ -370,6 +431,7 @@ class TraitSemanticEffect(models.Model):
             ProficiencyGroupModifier,
             TraitModifier,
         )
+        from ..modifiers.targets import TargetResolver
 
         modifier_map = {
             "skill": SkillModifier,
@@ -390,7 +452,6 @@ class TraitSemanticEffect(models.Model):
             "social": SocialModifier,
             "rule_flag": RuleFlagModifier,
         }
-        modifier_cls = modifier_map.get(self.target_domain, BaseModifier)
         metadata = dict(self.metadata or {})
         if self.pk:
             metadata["semantic_effect_key"] = f"trait_effect:{self.pk}"
@@ -404,11 +465,22 @@ class TraitSemanticEffect(models.Model):
             selected_skill_slugs = list(self.target_skills.order_by("slug").values_list("slug", flat=True))
             if selected_skill_slugs:
                 metadata["target_skill_slugs"] = selected_skill_slugs
+        resolved_target = TargetResolver.resolve(self.target_domain, self.target_key, metadata)
+        for key, values in resolved_target.context_requirements.items():
+            if key == "weapon_types":
+                metadata.setdefault("target_weapon_type", list(values))
+            elif key == "weapon_skill_slugs":
+                metadata.setdefault("target_weapon_skill", list(values))
+            elif key == "weapon_categories":
+                metadata.setdefault("target_weapon_category", list(values))
+            elif key == "weapon_ids":
+                metadata.setdefault("target_weapon_id", list(values))
+        modifier_cls = modifier_map.get(resolved_target.domain, BaseModifier)
         return modifier_cls(
             source_type="trait",
             source_id=self.trait.slug,
-            target_domain=self.target_domain,
-            target_key=self.target_key,
+            target_domain=resolved_target.domain,
+            target_key=resolved_target.key,
             mode=self.mode,
             value=self._coerce_scalar(self.value),
             value_min=self.value_min,

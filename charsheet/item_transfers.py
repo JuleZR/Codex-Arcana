@@ -5,7 +5,6 @@ from __future__ import annotations
 from datetime import timedelta
 import json
 
-from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes.fields import GenericRelation
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import transaction
@@ -18,13 +17,13 @@ from .models import (
     CharacterCreatureTrait,
     CharacterCreatureTraitChoice,
     CharacterItem,
+    CharacterItemSemanticEffect,
     CharacterItemRuneSpec,
     ItemOwnershipEvent,
     ItemPermissionGrant,
     ItemRune,
     ItemTransfer,
     ItemTransferNotification,
-    Modifier,
 )
 
 
@@ -194,11 +193,10 @@ def _clone_related_rows(source: CharacterItem, target: CharacterItem):
             specification=row.specification,
             slot=row.slot,
         )
-    content_type = ContentType.objects.get_for_model(CharacterItem)
-    for modifier in Modifier.objects.filter(source_content_type=content_type, source_object_id=source.pk):
-        modifier.pk = None
-        modifier.source_object_id = target.pk
-        modifier.save()
+    for effect in source.semantic_effects.all():
+        effect.pk = None
+        effect.character_item = target
+        effect.save()
     for grant in source.permission_grants.filter(
         permission=ItemPermissionGrant.Permission.CONSUME_FINAL,
         revoked_at__isnull=True,
@@ -313,7 +311,6 @@ def _related_stack_signature(item: CharacterItem):
     merge. Unknown related state is included by default, so future instance
     fields cannot silently disappear from merge comparison.
     """
-    content_type = ContentType.objects.get_for_model(CharacterItem)
     components = []
 
     try:
@@ -396,21 +393,17 @@ def _related_stack_signature(item: CharacterItem):
                 )
             )
 
-        modifier_rows = Modifier.objects.filter(
-            source_content_type=content_type,
-            source_object_id=item.pk,
-        )
         components.append(
             (
-                "generic:modifiers",
+                "related:semantic_effects",
                 tuple(
                     sorted(
                         (
                             _row_signature(
                                 row,
-                                excluded_fields={"source_content_type", "source_object_id"},
+                                excluded_fields={"character_item"},
                             )
-                            for row in modifier_rows
+                            for row in item.semantic_effects.all()
                         ),
                         key=repr,
                     )
@@ -484,11 +477,7 @@ def _merge_compatible_stack(item: CharacterItem) -> CharacterItem:
     target.save(update_fields=["amount"])
     ItemTransfer.objects.filter(item=item).update(item=target)
     ItemOwnershipEvent.objects.filter(item=item).update(item=target)
-    content_type = ContentType.objects.get_for_model(CharacterItem)
-    Modifier.objects.filter(
-        source_content_type=content_type,
-        source_object_id=item.pk,
-    ).delete()
+    CharacterItemSemanticEffect.objects.filter(character_item=item).delete()
     item.delete()
     return target
 

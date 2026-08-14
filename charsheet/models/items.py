@@ -2,7 +2,6 @@
 
 from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator, RegexValidator
-from django.contrib.contenttypes.fields import GenericRelation
 from django.db import models, transaction
 from django.utils.text import slugify
 
@@ -32,6 +31,7 @@ from .core import (
     STACK_BEHAVIOR_CHOICES,
     TARGET_DOMAIN_CHOICES,
 )
+from .semantic_effects import SemanticEffectFields
 
 
 class Quality(models.Model):
@@ -75,13 +75,6 @@ class Rune(models.Model):
         default=False,
         help_text="Wenn aktiv, darf diese Rune mehrfach auf demselben Gegenstand angebracht werden.",
     )
-    modifier_templates = GenericRelation(
-        "Modifier",
-        content_type_field="source_content_type",
-        object_id_field="source_object_id",
-        related_query_name="rune_template",
-    )
-
     def __str__(self):
         return self.name
 
@@ -98,6 +91,30 @@ class Rune(models.Model):
                 suffix += 1
             self.slug = slug
         super().save(*args, **kwargs)
+
+
+class RuneSemanticEffect(SemanticEffectFields):
+    """Persisted semantic effect attached directly to one reusable rune."""
+
+    rune = models.ForeignKey(Rune, on_delete=models.CASCADE, related_name="semantic_effects")
+
+    class Meta:
+        ordering = ["rune", "sort_order", "id"]
+
+    def __str__(self):
+        return f"{self.rune.name}: {self.target_domain}/{self.target_key} ({self.operator})"
+
+    def semantic_source_type(self) -> str:
+        return "rune"
+
+    def semantic_source_id(self) -> str:
+        return str(self.rune_id)
+
+    def semantic_source_label(self) -> str:
+        return str(self.rune)
+
+    def semantic_effect_key_prefix(self) -> str:
+        return "rune_effect"
 
 
 class Item(models.Model):
@@ -617,6 +634,7 @@ class ItemSemanticEffectFields(models.Model):
             SpecializationModifier,
             TraitModifier,
         )
+        from ..modifiers.targets import TargetResolver
 
         modifier_map = {
             "skill": SkillModifier,
@@ -641,7 +659,6 @@ class ItemSemanticEffectFields(models.Model):
             "item_category": ItemModifier,
             "specialization": SpecializationModifier,
         }
-        modifier_cls = modifier_map.get(self.target_domain, BaseModifier)
         metadata = dict(self.metadata or {})
         if self.pk:
             metadata["semantic_effect_key"] = f"item_effect:{self.pk}"
@@ -661,11 +678,22 @@ class ItemSemanticEffectFields(models.Model):
                     "round_mode": "floor",
                 }
             )
+        resolved_target = TargetResolver.resolve(self.target_domain, self.target_key, metadata)
+        for key, values in resolved_target.context_requirements.items():
+            if key == "weapon_types":
+                metadata.setdefault("target_weapon_type", list(values))
+            elif key == "weapon_skill_slugs":
+                metadata.setdefault("target_weapon_skill", list(values))
+            elif key == "weapon_categories":
+                metadata.setdefault("target_weapon_category", list(values))
+            elif key == "weapon_ids":
+                metadata.setdefault("target_weapon_id", list(values))
+        modifier_cls = modifier_map.get(resolved_target.domain, BaseModifier)
         return modifier_cls(
             source_type=self.semantic_source_type(),
             source_id=self.semantic_source_id(),
-            target_domain=self.target_domain,
-            target_key=self.target_key,
+            target_domain=resolved_target.domain,
+            target_key=resolved_target.key,
             mode=mode,
             value=self._coerce_scalar(self.value),
             value_min=self.value_min,

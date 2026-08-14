@@ -10,19 +10,17 @@ from typing import Any
 
 from charsheet.modifiers.definitions import AttributeCapModifier, BaseModifier, ModifierOperator, RuleFlagModifier, StackBehavior, TargetDomain
 from charsheet.constants import PROFICIENCY_GROUP_FOREIGN_LANGUAGES, RUNE_CRAFTER_LEVEL, SOURCE_ITEM_RUNE
-from charsheet.modifiers.legacy import LegacyModifierAdapter
-from charsheet.modifiers.migration import (
-    LegacyModifierMigrationService,
-    ModifierResolutionMode,
-    NumericResolutionComparison,
-)
+from charsheet.modifiers.migration import ModifierResolutionMode, NumericResolutionComparison
 from charsheet.modifiers.registry import build_trait_semantic_modifiers
+from charsheet.modifiers.targets import TargetResolver
 from charsheet.models import (
     CharacterDaemonicPower,
     CharacterItemSemanticEffect,
     DaemonicPowerSemanticEffect,
     ItemSemanticEffect,
-    Modifier,
+    RaceSemanticEffect,
+    RuneSemanticEffect,
+    SchoolSemanticEffect,
     Skill,
     TechniqueSemanticEffect,
     VampireTraitSemanticEffect,
@@ -84,6 +82,39 @@ class ModifierEngine:
         self._active_modifiers_cache: list[BaseModifier] | None = None
 
     @cached_property
+    def _active_race_semantic_modifiers(self) -> list[BaseModifier]:
+        """Build semantic modifiers from the character's race."""
+        if self.character_engine is None or not self.character_engine.character.race_id:
+            return []
+        effects = (
+            RaceSemanticEffect.objects.filter(
+                race_id=self.character_engine.character.race_id,
+                active_flag=True,
+            )
+            .select_related("race")
+            .order_by("race_id", "sort_order", "id")
+        )
+        return [effect.to_modifier() for effect in effects]
+
+    @cached_property
+    def _active_school_semantic_modifiers(self) -> list[BaseModifier]:
+        """Build semantic modifiers from learned schools."""
+        if self.character_engine is None:
+            return []
+        school_ids = list(self.character_engine._school_entries.keys())
+        if not school_ids:
+            return []
+        effects = (
+            SchoolSemanticEffect.objects.filter(
+                school_id__in=school_ids,
+                active_flag=True,
+            )
+            .select_related("school")
+            .order_by("school_id", "sort_order", "id")
+        )
+        return [effect.to_modifier() for effect in effects]
+
+    @cached_property
     def _active_trait_modifiers(self) -> list[BaseModifier]:
         """Build semantic trait modifiers from purchased character traits."""
         if self.character_engine is None:
@@ -105,7 +136,7 @@ class ModifierEngine:
 
     @cached_property
     def _active_item_rune_modifiers(self) -> list[BaseModifier]:
-        """Resolve active equipped ItemRune assignments into concrete modifiers."""
+        """Resolve active equipped ItemRune assignments into semantic modifiers."""
         if self.character_engine is None:
             return []
         modifiers: list[BaseModifier] = []
@@ -117,8 +148,8 @@ class ModifierEngine:
                 first_item_id_by_rune_id[rune.id] = item_rune.item_id
             elif first_item_id != item_rune.item_id:
                 continue
-            for template in rune.modifier_templates.all():
-                modifier = LegacyModifierAdapter.adapt(template)
+            for effect in rune.semantic_effects.filter(active_flag=True).order_by("sort_order", "id"):
+                modifier = effect.to_modifier()
                 scaling = dict(modifier.scaling)
                 mode = modifier.mode
                 if rune.is_level_scaled and str(mode or "flat") == "scaled":
@@ -338,29 +369,6 @@ class ModifierEngine:
                     modifiers.append(effect.to_modifier(rank=effect_rank, age_cycle=age_cycle))
         return modifiers
 
-    @cached_property
-    def migration_service(self) -> LegacyModifierMigrationService:
-        """Return the legacy inventory and migration service for this engine."""
-        if self.character_engine is None:
-            return LegacyModifierMigrationService()
-        return LegacyModifierMigrationService(self.character_engine._all_modifiers)
-
-    @cached_property
-    def _migrated_legacy_records(self):
-        """Return all migrated legacy records that expose a typed modifier."""
-        return [
-            record
-            for record in self.migration_service.migration_records()
-            if record.primary_modifier() is not None
-        ]
-
-    @cached_property
-    def _review_required_records(self):
-        """Return migrated records that still require manual semantic review."""
-        if self.character_engine is None:
-            return []
-        return [record for record in self.migration_service.migration_records() if record.requires_manual_review]
-
     def collect_active_modifiers(self, character=None, context: dict[str, Any] | None = None) -> list[BaseModifier]:
         """Collect all active typed modifiers for the current character and context."""
         if not context:
@@ -369,17 +377,8 @@ class ModifierEngine:
         context = context or {}
         collected = list(self._injected_modifiers)
         if self.character_engine is not None:
-            learned_stack: set[int] = set()
-            available_stack: set[int] = set()
-            for record in self._migrated_legacy_records:
-                modifier = record.primary_modifier()
-                if modifier is None:
-                    continue
-                if not self._modifier_source_is_active(modifier, learned_stack, available_stack):
-                    continue
-                if not self._modifier_school_gate_is_open(modifier):
-                    continue
-                collected.append(modifier)
+            collected.extend(self._active_race_semantic_modifiers)
+            collected.extend(self._active_school_semantic_modifiers)
             collected.extend(self._active_trait_modifiers)
             collected.extend(self._active_technique_semantic_modifiers)
             collected.extend(self._active_daemonic_power_modifiers)
@@ -387,25 +386,14 @@ class ModifierEngine:
             collected.extend(self._active_item_semantic_modifiers)
             collected.extend(self._active_item_rune_modifiers)
         expanded = self._expand_choice_bound_modifiers(collected)
-        result = [modifier for modifier in expanded if modifier is not None and modifier.applies(context)]
+        result = [
+            modifier
+            for modifier in expanded
+            if modifier is not None and modifier.applies(context) and TargetResolver.matches_context(modifier, context)
+        ]
         if not context:
             self._active_modifiers_cache = result
         return result
-
-    def collect_legacy_modifiers(self, context: dict[str, Any] | None = None) -> list[BaseModifier]:
-        """Return active legacy modifiers adapted for debug inspection only."""
-        context = context or {}
-        collected = list(self._injected_modifiers)
-        if self.character_engine is not None:
-            learned_stack: set[int] = set()
-            available_stack: set[int] = set()
-            for legacy_modifier in self.character_engine._all_modifiers:
-                if not self.character_engine._modifier_source_is_active(legacy_modifier, learned_stack, available_stack):
-                    continue
-                if not self.character_engine._modifier_school_gate_is_open(legacy_modifier):
-                    continue
-                collected.append(LegacyModifierAdapter.adapt(legacy_modifier))
-        return [modifier for modifier in collected if modifier.applies(context)]
 
     def resolve_numeric_total(
         self,
@@ -422,14 +410,6 @@ class ModifierEngine:
             context=context,
             specification=specification,
         )
-        if self.resolution_mode == ModifierResolutionMode.COMPARE:
-            legacy_value = self._legacy_numeric_total(target_domain, target_key, context=context)
-            self._append_comparison(
-                target_domain=target_domain,
-                target_key=target_key,
-                legacy_value=legacy_value,
-                new_value=new_value,
-            )
         return new_value
 
     def resolve_choice_skill_modifier_total(
@@ -441,14 +421,6 @@ class ModifierEngine:
     ) -> int:
         """Resolve choice-bound skill modifiers according to the active debug mode."""
         new_value = self._migrated_choice_skill_modifier_total(skill_id, context=context, specification=specification)
-        if self.resolution_mode == ModifierResolutionMode.COMPARE:
-            legacy_value = self._legacy_choice_skill_modifier_total(skill_id)
-            self._append_comparison(
-                target_domain=TargetDomain.SKILL,
-                target_key=f"selected_skill:{skill_id}",
-                legacy_value=legacy_value,
-                new_value=new_value,
-            )
         return new_value
 
     def resolve_skill_rank_cap(
@@ -688,8 +660,6 @@ class ModifierEngine:
         target_domain, target_key = target
         rows: list[dict[str, Any]] = []
         layer_entries = [("new", self.collect_active_modifiers(context=context))]
-        if self.resolution_mode == ModifierResolutionMode.COMPARE:
-            layer_entries.append(("legacy_debug", self.collect_legacy_modifiers(context=context)))
 
         for layer_name, modifiers in layer_entries:
             for modifier in modifiers:
@@ -707,7 +677,11 @@ class ModifierEngine:
                     specification=specification,
                 ):
                     continue
+                if not self._modifier_matches_item_context(modifier, target_domain=target_domain, context=context):
+                    continue
                 if not self._modifier_matches_condition_text(modifier, context):
+                    continue
+                if not TargetResolver.matches_context(modifier, context):
                     continue
                 rows.append(
                     {
@@ -731,22 +705,6 @@ class ModifierEngine:
     def reset_comparison_log(self) -> None:
         """Clear accumulated compare-mode rows."""
         self._comparison_log.clear()
-
-    def migration_records(self):
-        """Return migration records for the bound legacy modifier inventory."""
-        return list(self.migration_service.migration_records())
-
-    def review_required_records(self):
-        """Return migration records that still require manual review."""
-        return list(self._review_required_records)
-
-    def debug_legacy_numeric_total(self, target_domain: str, target_key: str, context: dict[str, Any] | None = None) -> int:
-        """Return the legacy numeric result for one target for internal diagnostics."""
-        return self._legacy_numeric_total(target_domain, target_key, context=context)
-
-    def debug_legacy_choice_skill_modifier_total(self, skill_id: int) -> int:
-        """Return the legacy choice-bound modifier total for one skill for diagnostics."""
-        return self._legacy_choice_skill_modifier_total(skill_id)
 
     def _resolve_numeric_modifier(self, modifier: BaseModifier) -> int | float | None:
         """Resolve the numeric contribution of one modifier from typed metadata only."""
@@ -833,6 +791,7 @@ class ModifierEngine:
             )
             and self._modifier_matches_item_context(modifier, target_domain=target_domain, context=context)
             and self._modifier_matches_condition_text(modifier, context)
+            and TargetResolver.matches_context(modifier, context)
         ]
 
         resolved_total = 0
@@ -1208,70 +1167,3 @@ class ModifierEngine:
         except (TypeError, ValueError):
             return None
 
-    def _legacy_numeric_total(self, target_domain: str, target_key: str, context: dict[str, Any] | None = None) -> int:
-        """Resolve one numeric target directly from the legacy modifier rows for debug use."""
-        if self.character_engine is None:
-            return 0
-        if target_domain == TargetDomain.SKILL:
-            return self.character_engine._resolve_target_modifiers(Modifier.TargetKind.SKILL, target_key)
-        if target_domain == TargetDomain.SKILL_CATEGORY:
-            return self.character_engine._resolve_target_modifiers(Modifier.TargetKind.CATEGORY, target_key)
-        if target_domain == TargetDomain.ATTRIBUTE:
-            return (
-                self.character_engine._resolve_target_modifiers(Modifier.TargetKind.ATTRIBUTE, target_key)
-                + self.character_engine._resolve_target_modifiers(Modifier.TargetKind.STAT, target_key)
-            )
-        if target_domain in {TargetDomain.DERIVED_STAT, TargetDomain.RULE_FLAG}:
-            return self.character_engine._resolve_target_modifiers(Modifier.TargetKind.STAT, target_key)
-        if target_domain == TargetDomain.COMBAT:
-            total = self.character_engine._resolve_target_modifiers(Modifier.TargetKind.STAT, target_key)
-            total += self.character_engine._resolve_target_modifiers(Modifier.TargetKind.SKILL, target_key)
-            return total
-        if target_domain == TargetDomain.ITEM:
-            return self.character_engine._resolve_target_modifiers(Modifier.TargetKind.ITEM, target_key)
-        if target_domain == TargetDomain.ITEM_CATEGORY:
-            return self.character_engine._resolve_target_modifiers(Modifier.TargetKind.ITEM_CATEGORY, target_key)
-        if target_domain == TargetDomain.SPECIALIZATION:
-            return self.character_engine._resolve_target_modifiers(Modifier.TargetKind.SPECIALIZATION, target_key)
-        if target_domain == TargetDomain.ENTITY:
-            return self.character_engine._resolve_target_modifiers(Modifier.TargetKind.ENTITY, target_key)
-        return 0
-
-    def _legacy_choice_skill_modifier_total(self, skill_id: int) -> int:
-        """Resolve choice-bound skill modifiers directly from legacy rows for debug use."""
-        if self.character_engine is None:
-            return 0
-        return self.character_engine._legacy_choice_skill_modifier_total(skill_id)
-
-    def _append_comparison(self, *, target_domain: str, target_key: str, legacy_value: int, new_value: int) -> None:
-        """Append one comparison row without influencing production results."""
-        matching_review_records = [
-            record
-            for record in self._review_required_records
-            if (
-                record.new_target_domain == target_domain
-                and record.primary_modifier() is not None
-                and (
-                    record.primary_modifier().target_key == target_key
-                    or record.primary_modifier().metadata.get("legacy_target_identifier") == target_key
-                )
-            )
-        ]
-        if legacy_value == new_value:
-            classification = "match"
-        elif matching_review_records:
-            classification = "review_required"
-        else:
-            classification = "difference"
-        notes = tuple(record.migration_note for record in matching_review_records)
-        self._comparison_log.append(
-            NumericResolutionComparison(
-                target_domain=target_domain,
-                target_key=target_key,
-                legacy_value=int(legacy_value),
-                new_value=int(new_value),
-                matches=legacy_value == new_value,
-                classification=classification,
-                notes=notes,
-            )
-        )

@@ -88,21 +88,9 @@ This file is intentionally separate from `techniques.py` because `Modifier` is a
 
 ## Persisted Legacy Modifier Rows
 
-The Django model `Modifier` lives in `charsheet/models/modifier.py`.
+The former Django model `Modifier` has been removed from the runtime model layer. Existing rows are migrated into persistent SemanticEffects before the legacy table is dropped.
 
-It remains important because it stores existing rule content from:
-
-- races
-- traits
-- schools
-- techniques
-- choice definitions
-
-However, `Modifier` is no longer the productive semantic model.
-
-It is now treated as persisted source data that is translated into typed modifiers by `LegacyModifierMigrationService`.
-
-New rule effects should use `TraitSemanticEffect` instead of adding rows to `Modifier`.
+Rule effects should be stored on the SemanticEffect model that owns their source, such as `RaceSemanticEffect`, `SchoolSemanticEffect`, `TraitSemanticEffect`, `TechniqueSemanticEffect`, `ItemSemanticEffect`, or `RuneSemanticEffect`.
 
 ## Typed Modifier Domain
 

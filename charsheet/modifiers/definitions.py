@@ -58,6 +58,11 @@ class TargetDomain(StringEnum):
     RESISTANCE = "resistance"
     MOVEMENT = "movement"
     COMBAT = "combat"
+    DAMAGE = "damage"
+    WEAPON_SKILL = "weapon_skill"
+    WEAPON_TYPE = "weapon_type"
+    WEAPON_CATEGORY = "weapon_category"
+    WEAPON = "weapon"
     PERCEPTION = "perception"
     ECONOMY = "economy"
     SOCIAL = "social"
@@ -100,6 +105,9 @@ class ConditionSet:
     applies_outside_combat: bool | None = None
     applies_against_target_tag: tuple[str, ...] = ()
     applies_with_weapon_type: tuple[str, ...] = ()
+    applies_with_weapon_skill: tuple[str, ...] = ()
+    applies_with_weapon_category: tuple[str, ...] = ()
+    applies_with_weapon: tuple[str, ...] = ()
     applies_with_skill: tuple[str, ...] = ()
     applies_when_wounded: bool | None = None
     applies_when_unarmored: bool | None = None
@@ -141,6 +149,9 @@ class ConditionSet:
         tuple_checks = {
             "target_tags": self.applies_against_target_tag,
             "weapon_types": self.applies_with_weapon_type,
+            "weapon_skill_slugs": self.applies_with_weapon_skill,
+            "weapon_categories": self.applies_with_weapon_category,
+            "weapon_ids": self.applies_with_weapon,
             "skill_slugs": self.applies_with_skill,
             "school_slugs": self.applies_against_school,
         }

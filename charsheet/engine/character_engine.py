@@ -3,9 +3,8 @@
 from __future__ import annotations
 
 from collections import defaultdict
-import math
 from functools import cached_property
-from typing import DefaultDict, Mapping, TypeAlias, TypedDict
+from typing import DefaultDict, Mapping, TypedDict
 
 from django.contrib.contenttypes.models import ContentType
 from django.db.models import Model, Prefetch, Q
@@ -29,7 +28,6 @@ from charsheet.models import (
     CharacterTechniqueChoice,
     CharacterTraitChoice,
     Item,
-    Modifier,
     ProgressionRule,
     Race,
     RaceChoiceDefinition,
@@ -46,10 +44,6 @@ from charsheet.models import (
     TechniqueRequirement,
     Trait,
 )
-
-
-ModifierTargetKey: TypeAlias = tuple[str, str]
-ModifierSourceKey: TypeAlias = tuple[int, int]
 
 
 class SkillInfo(TypedDict):
@@ -502,7 +496,7 @@ class CharacterEngine:
         return (
             ItemRune.objects.filter(item__owner=self.character, item__equipped=True, is_active=True)
             .select_related("item", "item__item", "rune")
-            .prefetch_related("rune__modifier_templates")
+            .prefetch_related("rune__semantic_effects")
         )
 
     @cached_property
@@ -525,84 +519,6 @@ class CharacterEngine:
         """Return whether this rune is attached to any currently equipped owned item."""
         rune_id = rune.id if isinstance(rune, Rune) else int(rune)
         return rune_id in self._equipped_rune_ids
-
-    @cached_property
-    def _all_modifiers(self) -> list[Modifier]:
-        """Load only modifiers whose sources are relevant for this character."""
-        source_ids_by_model: dict[type[Model], set[int]] = {
-            Race: {self.character.race_id},
-            School: set(self._school_entries.keys()),
-            Trait: set(self._trait_levels.keys()),
-            Technique: set(self._computed_technique_ids),
-        }
-        source_ids_by_model = {
-            model_class: source_ids
-            for model_class, source_ids in source_ids_by_model.items()
-            if source_ids
-        }
-        if not source_ids_by_model:
-            return []
-
-        content_types = ContentType.objects.get_for_models(
-            *source_ids_by_model.keys(),
-            for_concrete_models=False,
-        )
-        source_filter = Q()
-        for model_class, source_ids in source_ids_by_model.items():
-            source_filter |= Q(
-                source_content_type=content_types[model_class],
-                source_object_id__in=source_ids,
-            )
-
-        return list(
-            Modifier.objects.filter(source_filter)
-            .select_related(
-                "scale_school",
-                "scale_skill",
-                "source_content_type",
-                "target_skill",
-                "target_skill_category",
-                "target_item",
-                "target_specialization",
-                "target_choice_definition",
-                "target_race_choice_definition",
-                "target_content_type",
-            )
-        )
-
-    @cached_property
-    def _modifiers_by_target(self) -> dict[ModifierTargetKey, list[Modifier]]:
-        """Group modifiers by canonical target identifiers for O(1) resolver access."""
-        grouped: DefaultDict[ModifierTargetKey, list[Modifier]] = defaultdict(list)
-        for modifier in self._all_modifiers:
-            grouped[(modifier.target_kind, modifier.target_identifier())].append(modifier)
-        return dict(grouped)
-
-    @cached_property
-    def _modifier_sources(self) -> dict[ModifierSourceKey, Model]:
-        """Preload GenericForeignKey sources used by modifiers to avoid N+1 lookups."""
-        source_ids_by_ct: DefaultDict[int, set[int]] = defaultdict(set)
-        content_types: dict[int, object] = {}
-        for modifier in self._all_modifiers:
-            source_ids_by_ct[modifier.source_content_type_id].add(modifier.source_object_id)
-            content_types[modifier.source_content_type_id] = modifier.source_content_type
-
-        loaded_sources: dict[ModifierSourceKey, Model] = {}
-        for content_type_id, object_ids in source_ids_by_ct.items():
-            content_type = content_types[content_type_id]
-            model_class = content_type.model_class()
-            if model_class is None:
-                continue
-
-            queryset = model_class._default_manager.filter(pk__in=object_ids)
-            if model_class is Technique:
-                queryset = queryset.select_related("school", "path")
-            elif model_class is School:
-                queryset = queryset.select_related("type")
-
-            for source in queryset:
-                loaded_sources[(content_type_id, source.pk)] = source
-        return loaded_sources
 
     @cached_property
     def _character_school_technique_list(self) -> list[Technique]:
@@ -914,25 +830,15 @@ class CharacterEngine:
 
     def modifier_total_for_skill(self, skill_slug: str, *, specification: str | None = None) -> int:
         """Return all direct skill modifiers for one exact skill slug."""
-        value = self.modifier_engine.resolve_numeric_total(
+        return self.modifier_engine.resolve_numeric_total(
             TargetDomain.SKILL,
             skill_slug,
             specification=specification,
         )
-        if value == 0:
-            legacy_value = self.debug_legacy_modifier_total_for_skill(skill_slug)
-            if legacy_value != 0:
-                return legacy_value
-        return value
 
     def modifier_total_for_skill_category(self, category_slug: str) -> int:
         """Return all modifiers that target one whole skill category."""
-        value = self.modifier_engine.resolve_numeric_total(TargetDomain.SKILL_CATEGORY, category_slug)
-        if value == 0:
-            legacy_value = self.debug_legacy_modifier_total_for_skill_category(category_slug)
-            if legacy_value != 0:
-                return legacy_value
-        return value
+        return self.modifier_engine.resolve_numeric_total(TargetDomain.SKILL_CATEGORY, category_slug)
 
     def modifier_skill_specifications(self, skill_id: int, skill_slug: str) -> list[str]:
         """Return skill specifications that are made visible by active modifiers."""
@@ -987,29 +893,6 @@ class CharacterEngine:
         """Return all modifiers that target one arbitrary persisted game entity."""
         content_type = ContentType.objects.get_for_model(entity, for_concrete_model=False)
         return self.modifier_engine.resolve_numeric_total(TargetDomain.ENTITY, f"{content_type.id}:{entity.pk}")
-
-    def debug_legacy_modifier_total_for_skill(self, skill_slug: str) -> int:
-        """Return the legacy numeric result for one direct skill target for diagnostics."""
-        return self.modifier_engine.debug_legacy_numeric_total(TargetDomain.SKILL, skill_slug)
-
-    def debug_legacy_modifier_total_for_skill_category(self, category_slug: str) -> int:
-        """Return the legacy numeric result for one skill-category target for diagnostics."""
-        return self.modifier_engine.debug_legacy_numeric_total(TargetDomain.SKILL_CATEGORY, category_slug)
-
-    def debug_legacy_modifier_total_for_stat(self, slug: str) -> int:
-        """Return the legacy numeric result for one stat-like target for diagnostics."""
-        if slug in {
-            "wound_penalty_ignore",
-            "can_act_while_out_of_action",
-            "armor_penalty_ignore",
-            "shield_penalty_ignore",
-        }:
-            target_domain = TargetDomain.RULE_FLAG
-        elif str(slug).startswith("dmg_"):
-            target_domain = TargetDomain.COMBAT
-        else:
-            target_domain = TargetDomain.DERIVED_STAT
-        return self.modifier_engine.debug_legacy_numeric_total(target_domain, slug)
 
     @cached_property
     def modifier_engine(self) -> ModifierEngine:
@@ -1179,44 +1062,6 @@ class CharacterEngine:
             if entry.kind == CharacterWeaponMasteryArcana.ArcanaKind.RUNE and entry.rune_id
         ]
 
-    def debug_legacy_skill_total(self, skill_slug: str) -> int:
-        """Return the legacy skill total for one skill for migration diagnostics."""
-        return int(self._skill_base(skill_slug)) + int(self._legacy_skill_modifiers(skill_slug))
-
-    def debug_legacy_calculate_initiative(self) -> int:
-        """Return the legacy initiative result for migration diagnostics."""
-        return (
-            self.attribute_modifier("WA")
-            + self._debug_legacy_current_wound_penalty()
-            + self.debug_legacy_modifier_total_for_stat("initiative")
-        )
-
-    def debug_legacy_calculate_arcane_power(self) -> int:
-        """Return the legacy arcane power result for migration diagnostics."""
-        willpower = self.attributes().get("WILL", 0)
-        school_levels = sum(entry.level for entry in self._school_entries.values())
-        return willpower + school_levels + self.debug_legacy_modifier_total_for_stat("arcane_power")
-
-    def debug_legacy_vw(self) -> int:
-        """Return the legacy VW result for migration diagnostics."""
-        return 14 + self.attribute_modifier("GE") + self.attribute_modifier("WA") + self.debug_legacy_modifier_total_for_stat("vw")
-
-    def debug_legacy_gw(self) -> int:
-        """Return the legacy GW result for migration diagnostics."""
-        return 14 + self.attribute_modifier("INT") + self.attribute_modifier("WILL") + self.debug_legacy_modifier_total_for_stat("gw")
-
-    def debug_legacy_sr(self) -> int:
-        """Return the legacy SR result for migration diagnostics."""
-        return 14 + self.attribute_modifier("ST") + self.attribute_modifier("KON") + self.debug_legacy_modifier_total_for_stat("sr")
-
-    def debug_legacy_get_grs(self) -> int:
-        """Return the legacy armor rating result for migration diagnostics."""
-        total = sum(
-            ItemEngine(armor).get_armor_rs_raw() or 0
-            for armor in self.equipped_armor_items()
-        )
-        return total + self.debug_legacy_modifier_total_for_stat("rs")
-
     def skill_breakdown(self, skill_slug: str) -> SkillBreakdown | SkillError:
         """Return a detailed breakdown of a skill calculation."""
         skill_definition = self._skill_definitions_by_slug.get(skill_slug)
@@ -1259,57 +1104,6 @@ class CharacterEngine:
         if skill_definition is None:
             return 0
         return int(self.attribute_modifier(skill_definition.attribute.short_name))
-
-    def _legacy_skill_modifiers(self, skill_slug: str) -> int:
-        """Resolve skill modifiers through the legacy numeric path for diagnostics only."""
-        info = self.skills().get(skill_slug)
-        category_slug = info["category"] if info else None
-        skill_id = info["skill_id"] if info else None
-
-        modifier_parts = [
-            self._debug_legacy_current_wound_penalty(),
-            self._debug_legacy_load_penalty(),
-            self.debug_legacy_modifier_total_for_skill(skill_slug),
-        ]
-        if category_slug:
-            modifier_parts.append(self.debug_legacy_modifier_total_for_skill_category(category_slug))
-        if skill_id is not None:
-            modifier_parts.append(self._resolve_choice_skill_bonus(skill_id))
-            modifier_parts.append(self._legacy_choice_skill_modifier_total(skill_id))
-        return sum(modifier_parts)
-
-    def _debug_legacy_is_wound_penalty_ignored(self) -> bool:
-        """Return the legacy rule-flag state for wound penalty ignore."""
-        return bool(self.debug_legacy_modifier_total_for_stat("wound_penalty_ignore"))
-
-    def _debug_legacy_current_wound_penalty(self) -> int:
-        """Return the effective legacy wound penalty for diagnostics."""
-        penalty = self.current_wound_stage()[1]
-        if penalty is None:
-            return 0
-        if self._debug_legacy_is_wound_penalty_ignored():
-            return 0
-        return penalty
-
-    def _debug_legacy_get_bel(self) -> int:
-        """Return the legacy armor encumbrance result for diagnostics."""
-        if self.debug_legacy_modifier_total_for_stat("armor_penalty_ignore"):
-            return 0
-
-        armor_bel = 0
-        for armor in self.equipped_armor_items():
-            armor_bel += ItemEngine(armor).get_armor_encumbrance() or 0
-
-        shield_bel = 0
-        for shield in self.equipped_shield_items():
-            shield_bel += ItemEngine(shield).get_shield_encumbrance() or 0
-
-        return armor_bel + shield_bel
-
-    def _debug_legacy_load_penalty(self) -> int:
-        """Return the legacy load penalty for diagnostics."""
-        bel_value = int(self._debug_legacy_get_bel())
-        return bel_value if bel_value <= 0 else -bel_value
 
     def _build_technique_state(
         self,
@@ -1437,146 +1231,13 @@ class CharacterEngine:
         """Resolve all stat-targeting modifiers for one stat slug."""
         return self.modifier_total_for_stat(slug)
 
-    def _resolve_target_modifiers(self, target_kind: str, target_slug: str) -> int:
-        """Sum all active modifiers for a concrete target kind and slug."""
-        total = 0
-        modifiers = self._modifiers_by_target.get((target_kind, target_slug), [])
-        learned_stack: set[int] = set()
-        available_stack: set[int] = set()
-
-        for modifier in modifiers:
-            total += self._modifier_value(modifier, learned_stack, available_stack)
-        return total
-
     def _resolve_choice_skill_modifiers(self, skill_id: int, *, specification: str | None = None) -> int:
         """Resolve choice-bound skill modifiers through the central modifier engine."""
-        value = self.modifier_engine.resolve_choice_skill_modifier_total(skill_id, specification=specification)
-        if value == 0:
-            legacy_value = self._legacy_choice_skill_modifier_total(skill_id)
-            if legacy_value != 0:
-                return legacy_value
-        return value
-
-    def _legacy_choice_skill_modifier_total(self, skill_id: int) -> int:
-        """
-        Resolve modifier rows that target a skill via persisted technique or
-        race choices.
-        """
-        learned_stack = set()
-        available_stack = set()
-
-        modifiers = [
-            modifier
-            for modifier in self._all_modifiers
-            if modifier.target_kind == Modifier.TargetKind.SKILL
-            and (
-                modifier.target_choice_definition_id
-                or modifier.target_race_choice_definition_id
-            )
-        ]
-
-        total = 0
-
-        for modifier in modifiers:
-            if modifier.target_choice_definition_id:
-                choices = self._technique_choices_by_definition_id.get(
-                    modifier.target_choice_definition_id, []
-                )
-            else:
-                choices = self._race_choices_by_definition_id.get(
-                    modifier.target_race_choice_definition_id, []
-                )
-            for choice in choices:
-                if choice.selected_skill_id != skill_id:
-                    continue
-                if not self._modifier_source_is_active(modifier, learned_stack, available_stack):
-                    continue
-                total += self._modifier_value(modifier, learned_stack, available_stack)
-                break
-
-        return total
+        return self.modifier_engine.resolve_choice_skill_modifier_total(skill_id, specification=specification)
 
     def _resolve_choice_skill_bonus(self, skill_id: int) -> int:
         """Resolve fixed computed bonuses granted by persistent technique choices."""
         return self._choice_skill_bonus_by_skill_id.get(skill_id, 0)
-
-    def _modifier_value(
-        self,
-        modifier: Modifier,
-        learned_stack: set[int],
-        available_stack: set[int],
-    ) -> int:
-        """Resolve the numeric value of one modifier if its source is active."""
-        if not self._modifier_source_is_active(modifier, learned_stack, available_stack):
-            return 0
-        if not self._modifier_school_gate_is_open(modifier):
-            return 0
-        if modifier.mode == Modifier.Mode.FLAT:
-            return modifier.value
-
-        scale_value = self._modifier_scale_value(modifier, modifier.scale_source)
-        if scale_value is None:
-            return 0
-
-        raw_value = (scale_value * modifier.value * modifier.mul) / modifier.div
-        if modifier.round_mode == Modifier.RoundMode.CEIL:
-            resolved_value = math.ceil(raw_value)
-        else:
-            resolved_value = math.floor(raw_value)
-
-        if modifier.cap_mode != Modifier.CapMode.NONE:
-            cap_value = self._modifier_scale_value(modifier, modifier.cap_source)
-            if cap_value is not None:
-                if modifier.cap_mode == Modifier.CapMode.MIN:
-                    resolved_value = max(resolved_value, cap_value)
-                elif modifier.cap_mode == Modifier.CapMode.MAX:
-                    resolved_value = min(resolved_value, cap_value)
-
-        return resolved_value
-
-    def _modifier_source_is_active(
-        self,
-        modifier: Modifier,
-        learned_stack: set[int],
-        available_stack: set[int],
-    ) -> bool:
-        """Check whether the modifier source currently contributes effects."""
-        source = self._modifier_source(modifier)
-        if source is None:
-            return False
-        if isinstance(source, Race):
-            return self.character.race_id == source.id
-        if isinstance(source, School):
-            return self.school_level(source) > 0
-        if isinstance(source, Trait):
-            return source.id in self._trait_levels
-        if isinstance(source, Rune):
-            return self.is_rune_equipped(source)
-        if isinstance(source, Technique):
-            if source.id in self._race_technique_ids:
-                return (
-                    self._technique_effect_is_computed(source)
-                    and self._is_technique_choice_complete(source)
-                    and source.technique_type == Technique.TechniqueType.PASSIVE
-                )
-            return (
-                self._technique_effect_is_computed(source)
-                and self._is_technique_choice_complete(source)
-                and source.technique_type == Technique.TechniqueType.PASSIVE
-                and self._has_technique_learned(source, learned_stack, available_stack)
-                and self._is_technique_available(source, learned_stack, available_stack)
-            )
-        if isinstance(source, Item):
-            return CharacterItem.objects.filter(
-                owner=self.character,
-                equipped=True,
-                item_id=source.id,
-            ).filter(
-                Q(item__is_magic=True) | Q(item__item_type__in=Item.magic_item_type_values())
-            ).exists()
-        if isinstance(source, CharacterItem):
-            return source.equipped and bool(source.is_magic)
-        return False
 
     def _technique_effect_is_computed(self, technique: Technique) -> bool:
         """Return whether the engine should resolve passive effects for this technique."""
@@ -1604,54 +1265,6 @@ class CharacterEngine:
     def _active_technique_choice_definitions(self, technique: Technique) -> list[TechniqueChoiceDefinition]:
         """Return active choice definitions for one technique."""
         return [definition for definition in technique.choice_definitions.all() if definition.is_active]
-
-    def _modifier_school_gate_is_open(self, modifier: Modifier) -> bool:
-        """Check optional minimum school-level gating for a modifier."""
-        if modifier.min_school_level is None:
-            return True
-        gate_school = self._modifier_gate_school(modifier)
-        if gate_school is None:
-            return False
-        return self.school_level(gate_school) >= modifier.min_school_level
-
-    def _modifier_gate_school(self, modifier: Modifier) -> School | None:
-        """Resolve which school drives school-level scaling or gating."""
-        if modifier.scale_school_id:
-            return modifier.scale_school
-        source = self._modifier_source(modifier)
-        if isinstance(source, School):
-            return source
-        if isinstance(source, Technique):
-            return source.school
-        return None
-
-    def _modifier_scale_value(self, modifier: Modifier, scale_source: str | None) -> int | None:
-        """Resolve the raw numeric input used for scaled modifier math."""
-        if not scale_source:
-            return None
-        if scale_source == Modifier.ScaleSource.SCHOOL_LEVEL:
-            gate_school = self._modifier_gate_school(modifier)
-            return self.school_level(gate_school) if gate_school else None
-        if scale_source == Modifier.ScaleSource.FAME_TOTAL:
-            return self.fame_total()
-        if scale_source == Modifier.ScaleSource.TRAIT_LVL:
-            source = self._modifier_source(modifier)
-            if isinstance(source, Trait):
-                return self._trait_levels.get(source.id)
-        if scale_source == Modifier.ScaleSource.SKILL_LEVEL:
-            if not modifier.scale_skill_id:
-                return None
-            skill_info = self.skills().get(modifier.scale_skill.slug)
-            return int(skill_info["level"]) if skill_info else 0
-        if scale_source == Modifier.ScaleSource.SKILL_TOTAL:
-            if not modifier.scale_skill_id:
-                return None
-            return self.skill_total(modifier.scale_skill.slug)
-        return None
-
-    def _modifier_source(self, modifier: Modifier) -> Model | None:
-        """Return a preloaded modifier source instead of resolving the GFK repeatedly."""
-        return self._modifier_sources.get((modifier.source_content_type_id, modifier.source_object_id))
 
     def _coerce_school_id(self, school: School | Technique | CharacterSchool | int | None) -> int:
         """Normalize supported school-like inputs to a school id."""
