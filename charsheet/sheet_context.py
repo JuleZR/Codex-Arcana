@@ -1578,7 +1578,7 @@ def _serialize_item_semantic_effect_payload(
     elif target_domain == "skill":
         payload["target_kind"] = "skill"
         payload["target_skill"] = str(metadata.get("target_skill_id") or "")
-        payload["target_display"] = target_key
+        payload["target_display"] = _item_skill_target_display(target_key, metadata)
     elif target_domain == "skill_category":
         payload["target_kind"] = "category"
         payload["target_skill_category"] = str(metadata.get("target_skill_category_id") or "")
@@ -1604,6 +1604,36 @@ def _serialize_item_semantic_effect_payload(
         payload["target_display"] = _movement_effect_target_display(target_key)
         payload["value_display"] = _movement_effect_value_display(raw_value, str(effect.operator or ""), target_key)
     return payload
+
+
+def _item_skill_target_display(target_key: str, metadata: dict[str, object] | None = None) -> str:
+    """Return the human-facing skill name for an item semantic-effect target."""
+    metadata = metadata or {}
+    target_skill_id = str(metadata.get("target_skill_id") or "").strip()
+    if target_skill_id.isdigit():
+        name = Skill.objects.filter(pk=int(target_skill_id)).values_list("name", flat=True).first()
+        if name:
+            return str(name)
+
+    raw_target = str(target_key or "").strip()
+    target_tail = raw_target.rsplit("/", 1)[-1].strip()
+    candidates = []
+    for candidate in (raw_target, target_tail):
+        if candidate and candidate not in candidates:
+            candidates.append(candidate)
+        if candidate.startswith("skill_"):
+            without_prefix = candidate.removeprefix("skill_")
+            if without_prefix and without_prefix not in candidates:
+                candidates.append(without_prefix)
+    if candidates:
+        skills_by_slug = {
+            slug: name
+            for slug, name in Skill.objects.filter(slug__in=candidates).values_list("slug", "name")
+        }
+        for candidate in candidates:
+            if candidate in skills_by_slug:
+                return str(skills_by_slug[candidate])
+    return target_tail or raw_target
 
 
 def _movement_effect_target_display(target_key: str) -> str:
