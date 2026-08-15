@@ -1599,7 +1599,98 @@ def _serialize_item_semantic_effect_payload(
             if payload["target_kind"] == WEAPON_MASTERY_BONUS
             else "Bonus/Malus auf Manöver und Schaden"
         )
+    if target_domain == "movement":
+        payload["target_kind"] = "movement"
+        payload["target_display"] = _movement_effect_target_display(target_key)
+        payload["value_display"] = _movement_effect_value_display(raw_value, str(effect.operator or ""), target_key)
     return payload
+
+
+def _movement_effect_target_display(target_key: str) -> str:
+    return {
+        "ground": "Laufen",
+        "ground_combat": "Laufen Kampf",
+        "ground_march": "Laufen Marsch",
+        "ground_sprint": "Laufen Sprint",
+        "swim": "Schwimmen",
+        "swim_all": "Schwimmen",
+        "swim_combat": "Schwimmen Kampf",
+        "swim_march": "Schwimmen Marsch",
+        "swim_sprint": "Schwimmen Sprint",
+        "fly": "Fliegen",
+        "fly_combat": "Fliegen Kampf",
+        "fly_march": "Fliegen Marsch",
+        "fly_sprint": "Fliegen Sprint",
+    }.get(str(target_key or ""), str(target_key or "Bewegung"))
+
+
+def _movement_effect_values(raw_value: object, target_key: str) -> list[object]:
+    raw_value = _coerce_movement_effect_value(raw_value)
+    if isinstance(raw_value, (list, tuple)):
+        return list(raw_value[:3])
+    if isinstance(raw_value, dict):
+        aliases = (
+            ("combat", ("combat", "ground_combat", "swim_combat", "fly_combat")),
+            ("march", ("march", "ground_march", "swim_march", "fly_march")),
+            ("sprint", ("sprint", "ground_sprint", "swim_sprint", "fly_sprint")),
+        )
+        values = []
+        for alias, keys in aliases:
+            value = raw_value.get(alias)
+            if value is None:
+                value = next((raw_value.get(key) for key in keys if raw_value.get(key) is not None), None)
+            if value is not None:
+                values.append(value)
+        return values
+    if target_key in {"ground", "swim", "swim_all", "fly"}:
+        return [raw_value, raw_value, raw_value]
+    return [raw_value]
+
+
+def _coerce_movement_effect_value(raw_value: object) -> object:
+    if not isinstance(raw_value, str):
+        return raw_value
+    text = raw_value.strip()
+    if not text:
+        return raw_value
+    try:
+        return json.loads(text)
+    except (TypeError, ValueError, json.JSONDecodeError):
+        pass
+    if text.startswith("[") and text.endswith("}"):
+        try:
+            return json.loads(f"{text[:-1]}]")
+        except (TypeError, ValueError, json.JSONDecodeError):
+            pass
+    if text.startswith("[") and text.endswith("]"):
+        parts = [part.strip() for part in text[1:-1].split(",")]
+        if len(parts) == 3:
+            try:
+                return [float(part.replace(",", ".")) for part in parts]
+            except (TypeError, ValueError):
+                pass
+    return raw_value
+
+
+def _movement_effect_value_display(raw_value: object, operator: str, target_key: str) -> str:
+    values = _movement_effect_values(raw_value, target_key)
+    if not values:
+        return _movement_effect_target_display(target_key)
+
+    def _format_value(value: object) -> str:
+        try:
+            number = float(value)
+        except (TypeError, ValueError):
+            return str(value)
+        if operator == "multiply":
+            return f"x{format_compact_number(number)}"
+        if operator == "override":
+            return format_compact_number(number)
+        signed = -abs(number) if operator == "flat_sub" else number
+        sign = "+" if signed >= 0 else "-"
+        return f"{sign}{format_compact_number(abs(signed))}"
+
+    return f"{_movement_effect_target_display(target_key)}: {' / '.join(_format_value(value) for value in values)}"
 
 
 def _collapse_weapon_mastery_bonus_payloads(modifier_payloads: list[dict[str, object]]) -> list[dict[str, object]]:
@@ -1818,6 +1909,25 @@ def _build_character_item_magic_tooltip_rows(*, effect_summary: str, modifier_pa
             )
             if effect_description:
                 effect_lines.append(f"{toggle_marker_for(payload)}{effect_description}")
+            continue
+        if str(payload.get("value_display") or "").strip():
+            flush_numeric_effects()
+            numeric_effects.clear()
+            value_display = _single_line(str(payload.get("value_display") or ""))
+            effect_description = _single_line(str(payload.get("effect_description") or ""))
+            rules_text = _single_line(str(payload.get("rules_text") or ""))
+            rule_line = _format_magic_rule_effect_line(
+                rules_text,
+                value_display,
+                value_display,
+                invested_cp=payload.get("invested_cp", ""),
+            )
+            if rule_line:
+                effect_lines.append(f"{toggle_marker_for(payload)}{rule_line}")
+            elif effect_description:
+                effect_lines.append(f"{toggle_marker_for(payload)}{effect_description} Â· {value_display}")
+            else:
+                effect_lines.append(f"{toggle_marker_for(payload)}{value_display}")
             continue
         target_display = _single_line(str(payload.get("target_display") or "")) or "Ziel"
         effect_description = _single_line(str(payload.get("effect_description") or ""))
@@ -5769,6 +5879,8 @@ def build_character_sheet_context(
     movement_profile = engine.resolve_movement()
 
     def _resolve_movement_value(base_value, target_key):
+        if target_key in movement_profile.overrides:
+            return max(0, int(movement_profile.overrides[target_key] or 0))
         base = int(base_value or 0)
         multiplier = float(movement_profile.multipliers.get(target_key, 1.0))
         additive = int(movement_profile.values.get(target_key, 0))
@@ -5780,16 +5892,30 @@ def build_character_sheet_context(
     ground_march = None if ground_blocked else _resolve_movement_value(race.march_speed, "ground_march")
     ground_sprint = None if ground_blocked else _resolve_movement_value(race.sprint_speed, "ground_sprint")
     swim_speed = None if swim_blocked else _resolve_movement_value(race.swimming_speed, "swim")
+    swim_triplet_keys = ("swim_combat", "swim_march", "swim_sprint")
+    has_swim_triplet = not swim_blocked and any(
+        key in movement_profile.values or key in movement_profile.multipliers or key in movement_profile.overrides
+        for key in swim_triplet_keys
+    )
+    swim_value = "-" if swim_speed is None else format_compact_number(swim_speed)
+    if has_swim_triplet:
+        swim_value = " / ".join(
+            (
+                format_compact_number(_resolve_movement_value(race.swimming_speed, "swim_combat")),
+                format_compact_number(_resolve_movement_value(race.swimming_speed, "swim_march")),
+                format_compact_number(_resolve_movement_value(race.swimming_speed, "swim_sprint")),
+            )
+        )
     fly_value = "-"
     has_flight = race.can_fly or any(
-        key in movement_profile.values
+        key in movement_profile.values or key in movement_profile.multipliers or key in movement_profile.overrides
         for key in ("fly_combat", "fly_march", "fly_sprint")
     )
     if has_flight and "fly" not in movement_profile.blocked_modes:
         combat_fly = _resolve_movement_value(race.combat_fly_speed, "fly_combat")
         march_fly = _resolve_movement_value(race.march_fly_speed, "fly_march")
         sprint_fly = _resolve_movement_value(race.sprint_fly_speed, "fly_sprint")
-        fly_value = " | ".join(
+        fly_value = " / ".join(
             (
                 format_compact_number(combat_fly),
                 format_compact_number(march_fly),
@@ -5800,7 +5926,7 @@ def build_character_sheet_context(
         "combat": "-" if ground_combat is None else format_compact_number(ground_combat),
         "march": "-" if ground_march is None else format_compact_number(ground_march),
         "sprint": "-" if ground_sprint is None else format_compact_number(ground_sprint),
-        "swim": "-" if swim_speed is None else format_compact_number(swim_speed),
+        "swim": swim_value,
         "fly": fly_value,
     }
 

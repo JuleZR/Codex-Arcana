@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import math
 import os
 from dataclasses import dataclass, field, replace
@@ -42,7 +43,30 @@ class MovementProfile:
 
     values: dict[str, int] = field(default_factory=dict)
     multipliers: dict[str, float] = field(default_factory=dict)
+    overrides: dict[str, int | float] = field(default_factory=dict)
     blocked_modes: set[str] = field(default_factory=set)
+
+
+MOVEMENT_TARGET_GROUPS = {
+    "ground": ("ground_combat", "ground_march", "ground_sprint"),
+    "swim": ("swim", "swim_combat", "swim_march", "swim_sprint"),
+    "swim_all": ("swim", "swim_combat", "swim_march", "swim_sprint"),
+    "fly": ("fly_combat", "fly_march", "fly_sprint"),
+}
+
+MOVEMENT_TRIPLET_TARGETS = {
+    "ground": ("ground_combat", "ground_march", "ground_sprint"),
+    "swim": ("swim_combat", "swim_march", "swim_sprint"),
+    "swim_all": ("swim_combat", "swim_march", "swim_sprint"),
+    "fly": ("fly_combat", "fly_march", "fly_sprint"),
+}
+
+MOVEMENT_VALUE_ALIASES = {
+    "combat": {"combat", "ground_combat", "swim_combat", "fly_combat"},
+    "march": {"march", "ground_march", "swim_march", "fly_march"},
+    "sprint": {"sprint", "ground_sprint", "swim_sprint", "fly_sprint"},
+    "simple": {"simple", "base", "swim"},
+}
 
 
 @dataclass(slots=True)
@@ -578,15 +602,79 @@ class ModifierEngine:
             if modifier.operator == ModifierOperator.UNSET_FLAG:
                 profile.blocked_modes.add(modifier.target_key)
                 continue
+            target_keys = MOVEMENT_TARGET_GROUPS.get(modifier.target_key, (modifier.target_key,))
             if modifier.operator == ModifierOperator.MULTIPLY:
-                profile.multipliers[modifier.target_key] = (
-                    profile.multipliers.get(modifier.target_key, 1.0) * float(self._resolve_numeric_modifier(modifier) or 1.0)
-                )
+                for target_key, resolved_value in self._resolve_movement_target_values(modifier, target_keys, default=1.0):
+                    profile.multipliers[target_key] = profile.multipliers.get(target_key, 1.0) * resolved_value
                 continue
-            profile.values[modifier.target_key] = (
-                profile.values.get(modifier.target_key, 0) + int(self._resolve_numeric_modifier(modifier) or 0)
-            )
+            if modifier.operator == ModifierOperator.OVERRIDE:
+                for target_key, resolved_value in self._resolve_movement_target_values(modifier, target_keys, default=0):
+                    profile.overrides[target_key] = resolved_value
+                continue
+            for target_key, resolved_value in self._resolve_movement_target_values(modifier, target_keys, default=0):
+                profile.values[target_key] = profile.values.get(target_key, 0) + resolved_value
         return profile
+
+    def _resolve_movement_target_values(
+        self,
+        modifier: BaseModifier,
+        target_keys: tuple[str, ...],
+        *,
+        default: int | float,
+    ) -> list[tuple[str, int | float]]:
+        raw_value = self._coerce_movement_value(modifier.value)
+        if isinstance(raw_value, (list, tuple)) and modifier.target_key in MOVEMENT_TRIPLET_TARGETS:
+            triplet_targets = MOVEMENT_TRIPLET_TARGETS[modifier.target_key]
+            return [
+                (target_key, self._resolve_numeric_modifier(replace(modifier, value=value)) or default)
+                for target_key, value in zip(triplet_targets, raw_value)
+            ]
+        if isinstance(raw_value, dict):
+            entries: list[tuple[str, int | float]] = []
+            for target_key in target_keys:
+                value = self._movement_value_for_target(raw_value, target_key)
+                if value is None:
+                    continue
+                entries.append((target_key, self._resolve_numeric_modifier(replace(modifier, value=value)) or default))
+            return entries
+        resolved_value = self._resolve_numeric_modifier(modifier)
+        if resolved_value is None:
+            return []
+        return [(target_key, resolved_value) for target_key in target_keys]
+
+    @staticmethod
+    def _movement_value_for_target(values: dict[str, Any], target_key: str) -> Any:
+        if target_key in values:
+            return values[target_key]
+        for alias, matching_keys in MOVEMENT_VALUE_ALIASES.items():
+            if target_key in matching_keys and alias in values:
+                return values[alias]
+        return None
+
+    @staticmethod
+    def _coerce_movement_value(value: Any) -> Any:
+        if not isinstance(value, str):
+            return value
+        text = value.strip()
+        if not text:
+            return value
+        try:
+            return json.loads(text)
+        except (TypeError, ValueError, json.JSONDecodeError):
+            pass
+        if text.startswith("[") and text.endswith("}"):
+            try:
+                return json.loads(f"{text[:-1]}]")
+            except (TypeError, ValueError, json.JSONDecodeError):
+                pass
+        if text.startswith("[") and text.endswith("]"):
+            parts = [part.strip() for part in text[1:-1].split(",")]
+            if len(parts) == 3:
+                try:
+                    return [float(part.replace(",", ".")) for part in parts]
+                except (TypeError, ValueError):
+                    pass
+        return value
 
     def resolve_combat_profile(self, context: dict[str, Any] | None = None) -> CombatProfile:
         """Resolve semantic combat effects."""

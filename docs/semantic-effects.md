@@ -15,7 +15,7 @@ Sie gilt fuer `TraitSemanticEffect` und `TechniqueSemanticEffect`.
 | "bekommt +2 Initiative" | `derived_stat` | Initiative +2 |
 | "ignoriert Belastung/Wunden/Regel X" | `rule_flag` | `armor_penalty_ignore` |
 | "bekommt Schaden/Parade/Kampfwert" | `combat` | Waffenschaden +1 |
-| "bekommt Bewegung" | `movement` | Sprint +2 |
+| "bekommt Bewegung" | `movement` | Laufgeschwindigkeit +2 |
 | "bekommt sozialen Status/Tag" | `social` | Adel, Gesucht, Patron |
 
 Wenn du unsicher bist, frage zuerst:
@@ -753,6 +753,73 @@ operator: flat_add
 mode: flat
 value: 2
 ```
+
+Wenn alle drei Laufgeschwindigkeiten mit demselben Wert betroffen sind:
+
+```text
+target_domain: movement
+target_key: ground
+operator: flat_add
+mode: flat
+value: 2
+```
+
+Das wirkt auf:
+
+```text
+ground_combat
+ground_march
+ground_sprint
+```
+
+Wenn die drei Werte unterschiedlich sein sollen, bleibt es trotzdem ein einziger
+Effect. Trage bei `value` ein JSON-Objekt ein:
+
+```text
+target_domain: movement
+target_key: ground
+operator: flat_add
+value: {"combat":1,"march":3,"sprint":6}
+```
+
+Kurzform:
+
+```text
+value: [1,3,6]
+```
+
+Die Reihenfolge ist immer Kampf, Marsch, Sprint.
+
+Fuer Schwimmen und Fliegen gibt es dieselbe Gruppensemantik:
+
+```text
+target_key: swim
+```
+
+wirkt auf:
+
+```text
+swim
+swim_combat
+swim_march
+swim_sprint
+```
+
+```text
+target_key: fly
+```
+
+wirkt auf:
+
+```text
+fly_combat
+fly_march
+fly_sprint
+```
+
+Einzelne Werte bleiben separat ansprechbar, z. B. `ground_combat`, `ground_march`,
+`ground_sprint`, `swim_combat`, `swim_march`, `swim_sprint`, `fly_combat`,
+`fly_march`, `fly_sprint`.
 
 ### 18. Widerstand / Resistenz
 

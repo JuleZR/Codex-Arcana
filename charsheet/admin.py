@@ -1987,6 +1987,7 @@ class ItemSemanticEffectAdminForm(forms.ModelForm):
         ("text", "Text"),
         ("attribute", "Eigenschaft"),
         ("derived_stat", "Abgeleiteter Wert"),
+        ("movement", "Bewegung"),
         ("combat", "Kampf / Waffe"),
         ("skill", "Fertigkeit"),
         ("skill_category", "Fertigkeitskategorie"),
@@ -2015,7 +2016,22 @@ class ItemSemanticEffectAdminForm(forms.ModelForm):
     effect_area = forms.ChoiceField(label="Was soll geändert werden?", choices=EFFECT_AREA_CHOICES, required=False)
     simple_target = forms.ChoiceField(label="Was genau?", choices=(), required=False)
     simple_operator = forms.ChoiceField(label="Rechenart", choices=OPERATION_CHOICES, required=False)
-    simple_value = CommaFloatField(label="Zahl", required=False)
+    simple_value = forms.CharField(label="Zahl", required=False)
+
+    MOVEMENT_TARGET_CHOICES = (
+        ("ground", "Laufen: Kampf, Marsch und Sprint"),
+        ("ground_combat", "Laufen Kampf"),
+        ("ground_march", "Laufen Marsch"),
+        ("ground_sprint", "Laufen Sprint"),
+        ("swim", "Schwimmen: alle Werte"),
+        ("swim_combat", "Schwimmen Kampf"),
+        ("swim_march", "Schwimmen Marsch"),
+        ("swim_sprint", "Schwimmen Sprint"),
+        ("fly", "Fliegen: Kampf, Marsch und Sprint"),
+        ("fly_combat", "Fliegen Kampf"),
+        ("fly_march", "Fliegen Marsch"),
+        ("fly_sprint", "Fliegen Sprint"),
+    )
 
     class Meta:
         model = ItemSemanticEffect
@@ -2027,6 +2043,7 @@ class ItemSemanticEffectAdminForm(forms.ModelForm):
         self.fields["sort_order"].label = "Reihenfolge"
         self.fields["active_flag"].label = "Aktiv"
         self.fields["toggleable"].label = "Auf Itemkarte umschaltbar"
+        self.fields["simple_value"].help_text = "Bei Bewegungsgruppen: eine Zahl fuer alle oder drei Werte als [Kampf,Marsch,Sprint]."
         self.fields["scale_source"].label = "Skaliert nach"
         self.fields["scale_divisor"].label = "pro"
         self.fields["scale_divisor"].help_text = "Optional. Beispiel: 2 bedeutet +Zahl pro 2 investierte CP."
@@ -2037,6 +2054,7 @@ class ItemSemanticEffectAdminForm(forms.ModelForm):
         choices = [("", "-")]
         choices.extend((f"attribute:{value}", label) for value, label in ATTRIBUTE_CODE_CHOICES)
         choices.extend((f"derived_stat:{value}", label) for value, label in STAT_SLUG_CHOICES)
+        choices.extend((f"movement:{value}", label) for value, label in self.MOVEMENT_TARGET_CHOICES)
         choices.extend((f"combat:{value}", label) for value, label in self.COMBAT_TARGET_CHOICES)
         choices.extend((f"skill:{skill.slug}", skill.name) for skill in Skill.objects.order_by("name"))
         choices.extend((f"skill_category:{category.slug}", category.name) for category in SkillCategory.objects.order_by("name"))
@@ -2056,6 +2074,7 @@ class ItemSemanticEffectAdminForm(forms.ModelForm):
         domain_to_area = {
             "attribute": "attribute",
             "derived_stat": "derived_stat",
+            "movement": "movement",
             "combat": "combat",
             "skill": "skill",
             "skill_category": "skill_category",
@@ -2072,6 +2091,8 @@ class ItemSemanticEffectAdminForm(forms.ModelForm):
         value = self.initial.get("value", getattr(self.instance, "value", ""))
         if self._is_numberish(value):
             self.initial.setdefault("simple_value", self._format_simple_number(value))
+        elif target_domain == "movement" and target_key in {"ground", "swim", "swim_all", "fly"} and str(value or "").strip():
+            self.initial.setdefault("simple_value", str(value).strip())
 
     def _polish_technical_fields(self):
         for field_name in (
@@ -2129,13 +2150,16 @@ class ItemSemanticEffectAdminForm(forms.ModelForm):
             cleaned_data["value"] = "true" if operator == "set_flag" else "false"
         else:
             value = cleaned_data.get("simple_value")
-            if value is None and cleaned_data.get("value") not in (None, ""):
+            if value in (None, "") and cleaned_data.get("value") not in (None, ""):
                 cleaned_data["operator"] = operator
-            elif value is None:
+            elif value in (None, ""):
                 self.add_error("simple_value", "Bitte eine Zahl eintragen.")
             else:
                 cleaned_data["operator"] = operator
-                cleaned_data["value"] = self._format_simple_number(value)
+                try:
+                    cleaned_data["value"] = self._format_simple_value(target_domain, target_key, value)
+                except ValueError:
+                    self.add_error("simple_value", "Bitte eine Zahl oder fuer Bewegungsgruppen drei Werte eintragen.")
 
         scale_source = cleaned_data.get("scale_source") or ""
         if scale_source:
@@ -2154,6 +2178,7 @@ class ItemSemanticEffectAdminForm(forms.ModelForm):
         return {
             "attribute": "attribute",
             "derived_stat": "derived_stat",
+            "movement": "movement",
             "combat": "combat",
             "skill": "skill",
             "skill_category": "skill_category",
@@ -2175,6 +2200,18 @@ class ItemSemanticEffectAdminForm(forms.ModelForm):
     def _format_simple_number(value) -> str:
         number = float(str(value).replace(",", "."))
         return str(int(number)) if number.is_integer() else str(number)
+
+    @classmethod
+    def _format_simple_value(cls, target_domain: str, target_key: str, value) -> str:
+        text = str(value or "").strip()
+        if target_domain == "movement" and target_key in {"ground", "swim", "swim_all", "fly"}:
+            if text.startswith(("[", "{")):
+                import json
+
+                normalized_text = f"{text[:-1]}]" if text.startswith("[") and text.endswith("}") else text
+                parsed = json.loads(normalized_text)
+                return json.dumps(parsed, separators=(",", ":"))
+        return cls._format_simple_number(text)
 
     def save(self, commit=True):
         instance = super().save(commit=False)
@@ -2807,6 +2844,8 @@ class RuleSemanticEffectAdminForm(SemanticCreatureCardGrantFormMixin, forms.Mode
         value = self.initial.get("value", getattr(self.instance, "value", ""))
         if self._is_numberish(value):
             self.initial.setdefault("simple_value", self._format_simple_number(value))
+        elif target_domain == "movement" and target_key in {"ground", "swim", "swim_all", "fly"} and str(value or "").strip():
+            self.initial.setdefault("simple_value", str(value).strip())
         scaling = dict(self.initial.get("scaling", getattr(self.instance, "scaling", {}) or {}) or {})
         self.initial.setdefault("simple_scaling", scaling.get("scale_source", ""))
         self.initial.setdefault("simple_scale_school", scaling.get("scale_school_id"))
