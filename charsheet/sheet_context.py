@@ -2534,7 +2534,7 @@ def _build_minimum_strength_tooltip(engine) -> str:
     complete_armor_rows = [
         row
         for row in engine.equipped_armor_rows()
-        if row["item"].armorstats.parent_set_id is None
+        if row.get("armor_stats") is not None and row["armor_stats"].parent_set_id is None
     ]
     if complete_armor_rows:
         return _build_core_stat_tooltip(
@@ -5929,12 +5929,16 @@ def build_character_sheet_context(
     )
     swim_value = "-" if swim_speed is None else format_compact_number(swim_speed)
     if has_swim_triplet:
-        swim_value = " / ".join(
-            (
-                format_compact_number(_resolve_movement_value(race.swimming_speed, "swim_combat")),
-                format_compact_number(_resolve_movement_value(race.swimming_speed, "swim_march")),
-                format_compact_number(_resolve_movement_value(race.swimming_speed, "swim_sprint")),
-            )
+        swim_values = (
+            _resolve_movement_value(race.swimming_speed, "swim_combat"),
+            _resolve_movement_value(race.swimming_speed, "swim_march"),
+            _resolve_movement_value(race.swimming_speed, "swim_sprint"),
+        )
+        formatted_swim_values = tuple(format_compact_number(value) for value in swim_values)
+        swim_value = (
+            formatted_swim_values[0]
+            if len(set(formatted_swim_values)) == 1
+            else " / ".join(formatted_swim_values)
         )
     fly_value = "-"
     has_flight = race.can_fly or any(

@@ -392,10 +392,12 @@ def equipped_armor_rows(engine) -> list[dict]:
     rows: list[dict] = []
     for character_item in engine.equipped_armor_items():
         item_engine = ItemEngine(character_item)
+        armor_stats = item_engine._get_armor_stats()
         rows.append(
             {
                 "character_item": character_item,
                 "item": character_item.item,
+                "armor_stats": armor_stats,
                 "item_name": item_engine.get_name(),
                 "quality": item_engine.get_effective_quality(),
                 "quality_color": item_engine.get_quality_color(),
@@ -467,7 +469,7 @@ def _armor_zone_protection(engine, *, for_grs: bool = False) -> dict[str, int]:
                 continue
             adjusted_zone_values[field_name] = max(0, int(zone_values[field_name] or 0) + rune_bonus)
             totals[field_name] += adjusted_zone_values[field_name]
-        armor_stats = getattr(character_item.item, "armorstats", None)
+        armor_stats = item_engine._get_armor_stats()
         if for_grs and armor_stats is not None and armor_stats.parent_set_id:
             group = component_groups.setdefault(
                 armor_stats.parent_set_id,
@@ -594,11 +596,13 @@ def _semantic_rs_modifier(engine) -> int:
 
 def get_ms(engine) -> int:
     """Return armor minimum strength using set MS or the loose-parts formula."""
-    complete_armor_minimums = [
-        int(ItemEngine(character_item).get_armor_min_st() or 0)
-        for character_item in engine.equipped_armor_items()
-        if character_item.item.armorstats.parent_set_id is None
-    ]
+    complete_armor_minimums = []
+    for character_item in engine.equipped_armor_items():
+        item_engine = ItemEngine(character_item)
+        armor_stats = item_engine._get_armor_stats()
+        if armor_stats is None or armor_stats.parent_set_id is not None:
+            continue
+        complete_armor_minimums.append(int(item_engine.get_armor_min_st() or 0))
     if complete_armor_minimums:
         return max(complete_armor_minimums)
 

@@ -212,7 +212,7 @@ RangedWeaponStats._meta.verbose_name = "Ranged Weapon Stats"
 RangedWeaponStats._meta.verbose_name_plural = "Ranged Weapon Stats"
 
 
-def _copied_unique_text_value(model, field, original_value):
+def _copied_unique_text_value(model, field, original_value, extra_lookup=None, extra_filter=None):
     """Return an unused copy label for one unique text field."""
 
     original = str(original_value or "")
@@ -222,12 +222,63 @@ def _copied_unique_text_value(model, field, original_value):
     stem = original[: max_length - len(suffix)]
     candidate = f"{stem}{suffix}"
     number = 2
-    while model._default_manager.filter(**{field.name: candidate}).exists():
+    lookup = dict(extra_lookup or {})
+    queryset = model._default_manager.all()
+    if extra_filter is not None:
+        queryset = queryset.filter(extra_filter)
+    while queryset.filter(**lookup, **{field.name: candidate}).exists():
         numbered_suffix = f"-kopie-{number}" if is_slug else f" (Kopie {number})"
         stem = original[: max_length - len(numbered_suffix)]
         candidate = f"{stem}{numbered_suffix}"
         number += 1
     return candidate
+
+
+def _apply_unique_constraint_copy_values(source, duplicate):
+    """Adjust editable text fields that participate in model UniqueConstraints."""
+
+    model = type(source)
+    for constraint in source._meta.constraints:
+        if constraint.__class__.__name__ != "UniqueConstraint" or not constraint.fields:
+            continue
+        fields = [source._meta.get_field(field_name) for field_name in constraint.fields]
+        if any(getattr(field, "many_to_many", False) for field in fields):
+            continue
+        try:
+            constraint.validate(model, duplicate)
+        except ValidationError:
+            pass
+        else:
+            continue
+        text_field = next(
+            (
+                field
+                for field in fields
+                if field.get_internal_type() in {"CharField", "SlugField", "TextField"}
+            ),
+            None,
+        )
+        if text_field is None:
+            raise ValidationError(
+                f"{source._meta.verbose_name} kann wegen des eindeutigen Constraints "
+                f"\u201e{constraint.name}\u201c nicht automatisch kopiert werden."
+            )
+        extra_lookup = {
+            field.name: field.value_from_object(duplicate)
+            for field in fields
+            if field.name != text_field.name
+        }
+        setattr(
+            duplicate,
+            text_field.attname,
+            _copied_unique_text_value(
+                model,
+                text_field,
+                text_field.value_from_object(source),
+                extra_lookup=extra_lookup,
+                extra_filter=constraint.condition,
+            ),
+        )
 
 
 def _copy_model_for_admin(source):
@@ -256,6 +307,7 @@ def _copy_model_for_admin(source):
             _copied_unique_text_value(model, field, value),
         )
 
+    _apply_unique_constraint_copy_values(source, duplicate)
     duplicate.save()
     for field in source._meta.many_to_many:
         if field.remote_field.through._meta.auto_created:

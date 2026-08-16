@@ -2,6 +2,8 @@
 
 from decimal import Decimal, ROUND_HALF_UP
 
+from django.core.exceptions import ObjectDoesNotExist
+
 from charsheet.constants import (
     ATTR_GE,
     ATTR_ST,
@@ -126,13 +128,22 @@ class ItemEngine:
         return override_value
 
     def _get_weapon_stats(self) -> WeaponStats | None:
-        return getattr(self._get_item(), "weaponstats", None)
+        try:
+            return getattr(self._get_item(), "weaponstats", None)
+        except ObjectDoesNotExist:
+            return None
 
     def _get_ranged_weapon_stats(self) -> RangedWeaponStats | None:
-        return getattr(self._get_item(), "rangedweaponstats", None)
+        try:
+            return getattr(self._get_item(), "rangedweaponstats", None)
+        except ObjectDoesNotExist:
+            return None
 
     def _get_armor_stats(self) -> ArmorStats | None:
-        return getattr(self._get_item(), "armorstats", None)
+        try:
+            return getattr(self._get_item(), "armorstats", None)
+        except ObjectDoesNotExist:
+            return None
 
     def _get_offensive_stats(self) -> WeaponStats | RangedWeaponStats | ShieldStats | None:
         ranged_stats = self._get_ranged_weapon_stats()
@@ -147,7 +158,10 @@ class ItemEngine:
         return None
 
     def _get_shield_stats(self) -> ShieldStats | None:
-        return getattr(self._get_item(), "shieldstats", None)
+        try:
+            return getattr(self._get_item(), "shieldstats", None)
+        except ObjectDoesNotExist:
+            return None
 
     def get_effective_quality(self) -> str:
         """Return the quality used for calculations and display."""
