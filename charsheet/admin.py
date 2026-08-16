@@ -8,7 +8,7 @@ from django.contrib.admin.views.main import ChangeList
 from django.contrib.admin.helpers import ACTION_CHECKBOX_NAME, ActionForm
 from django.contrib.admin.widgets import FilteredSelectMultiple
 from django import forms
-from django.core.exceptions import NON_FIELD_ERRORS, ValidationError
+from django.core.exceptions import NON_FIELD_ERRORS, ObjectDoesNotExist, ValidationError
 from django.forms.models import BaseInlineFormSet
 from django.http import HttpResponseRedirect, JsonResponse
 from django.template.response import TemplateResponse
@@ -1701,6 +1701,13 @@ class ArmorStatsAdminForm(forms.ModelForm):
         model = ArmorStats
         fields = "__all__"
 
+    def _restore_original_value(self, field_name, value):
+        if value is None and field_name in self.instance._state.fields_cache:
+            del self.instance._state.fields_cache[field_name]
+            setattr(self.instance, f"{field_name}_id", None)
+            return
+        setattr(self.instance, field_name, value)
+
     def clean(self):
         cleaned_data = super().clean()
         if self.errors:
@@ -1715,7 +1722,10 @@ class ArmorStatsAdminForm(forms.ModelForm):
         for field_name, value in cleaned_data.items():
             if field_name not in model_field_names:
                 continue
-            original_values[field_name] = getattr(self.instance, field_name)
+            try:
+                original_values[field_name] = getattr(self.instance, field_name)
+            except ObjectDoesNotExist:
+                original_values[field_name] = None
             setattr(self.instance, field_name, value)
 
         try:
@@ -1726,7 +1736,7 @@ class ArmorStatsAdminForm(forms.ModelForm):
             self.add_error(None, error)
         finally:
             for field_name, value in original_values.items():
-                setattr(self.instance, field_name, value)
+                self._restore_original_value(field_name, value)
 
         return cleaned_data
 
