@@ -2208,7 +2208,12 @@ class ItemSemanticEffectAdminForm(forms.ModelForm):
 
     @staticmethod
     def _format_simple_number(value) -> str:
-        number = float(str(value).replace(",", "."))
+        text = str(value).strip().replace(",", ".")
+        for prefix in ("//", "*", "/"):
+            if text.startswith(prefix):
+                text = text[len(prefix):].strip()
+                break
+        number = float(text)
         return str(int(number)) if number.is_integer() else str(number)
 
     @classmethod
