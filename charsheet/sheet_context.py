@@ -3084,65 +3084,11 @@ def _build_skill_modifier_rows(
     return rows
 
 
-def _sync_modifier_granted_skill_specifications(character: Character, engine) -> None:
-    """Persist missing level-0 skill rows for active specification-bound skill modifiers."""
-    active_by_skill_id: dict[int, dict[str, str]] = defaultdict(dict)
-    for skill in Skill.objects.filter(requires_specification=True).only("id", "slug"):
-        for specification in engine.modifier_skill_specifications(skill.id, skill.slug):
-            normalized_specification = " ".join(str(specification or "").strip().split())
-            if not normalized_specification or normalized_specification == "*":
-                continue
-            active_by_skill_id[skill.id][normalized_specification.casefold()] = normalized_specification
-
-    existing_by_skill_id: dict[int, set[str]] = defaultdict(set)
-    stale_row_ids: list[int] = []
-    for row in (
-        CharacterSkill.objects
-        .filter(character=character, skill__requires_specification=True)
-        .select_related("skill")
-        .only("id", "skill_id", "skill__requires_specification", "level", "specification")
-    ):
-        normalized = " ".join(str(row.specification or "").strip().split()).casefold()
-        existing_by_skill_id[row.skill_id].add(normalized)
-        if not normalized or normalized == "*" or int(row.level) > 0:
-            continue
-        if normalized not in active_by_skill_id.get(row.skill_id, {}):
-            stale_row_ids.append(row.id)
-
-    changed_any = False
-    if stale_row_ids:
-        CharacterSkill.objects.filter(id__in=stale_row_ids, character=character, level=0).delete()
-        changed_any = True
-        stale_row_id_set = set(stale_row_ids)
-        existing_by_skill_id.clear()
-        for row in CharacterSkill.objects.filter(character=character).exclude(id__in=stale_row_id_set).only("skill_id", "specification"):
-            normalized = " ".join(str(row.specification or "").strip().split()).casefold()
-            existing_by_skill_id[row.skill_id].add(normalized)
-
-    for skill_id, specifications in active_by_skill_id.items():
-        for normalized_key, normalized_specification in specifications.items():
-            if normalized_key in existing_by_skill_id.get(skill_id, set()):
-                continue
-            CharacterSkill.objects.create(
-                character=character,
-                skill_id=skill_id,
-                level=0,
-                specification=normalized_specification,
-            )
-            existing_by_skill_id.setdefault(skill_id, set()).add(normalized_key)
-            changed_any = True
-
-    if changed_any:
-        engine.__dict__.pop("_skills_map", None)
-        engine.__dict__.pop("_skill_levels_by_id", None)
-
-
 def _build_skill_rows(
     character: Character,
     engine,
     *,
     load_penalty: int,
-    synchronize: bool = True,
 ) -> tuple[list[dict], list[object], list[dict]]:
     """Build visible skill rows plus skill-manager state for the sheet."""
 
@@ -3223,14 +3169,6 @@ def _build_skill_rows(
         if has_specification:
             return f"{display_name} {normalized_spec}"
         return display_name
-
-    def _external_skill_bonus(skill: Skill, specification: str | None = None) -> int:
-        return (
-            int(engine.modifier_total_for_skill(skill.slug, specification=specification))
-            + int(engine.modifier_total_for_skill_category(skill.category.slug))
-            + int(engine._resolve_choice_skill_bonus(skill.id))
-            + int(engine._resolve_choice_skill_modifiers(skill.id, specification=specification))
-        )
 
     def _skill_size_modifier(skill: Skill) -> int:
         if skill.category.slug == SKILL_COMBAT:
@@ -3619,8 +3557,6 @@ def _build_skill_rows(
         return context_rows
 
     skill_rows: list[dict] = []
-    if synchronize:
-        _sync_modifier_granted_skill_specifications(character, engine)
     character_skills = list(
         character.characterskill_set
         .select_related("skill", "skill__attribute", "skill__category")
@@ -3633,30 +3569,35 @@ def _build_skill_rows(
     character_skills_by_skill_id: dict[int, list[object]] = {}
     for character_skill in character_skills:
         character_skills_by_skill_id.setdefault(character_skill.skill_id, []).append(character_skill)
+    modifier_specifications_by_skill_id: dict[int, set[str]] = {}
 
-    weapon_skill_ids_with_bonus: set[int] = set()
-    shield_skill_ids_with_bonus: set[int] = set()
+    def _modifier_skill_specification_keys(skill: Skill) -> set[str]:
+        if skill.id not in modifier_specifications_by_skill_id:
+            modifier_specifications_by_skill_id[skill.id] = {
+                " ".join(str(specification or "").strip().split()).casefold()
+                for specification in engine.modifier_skill_specifications(skill.id, skill.slug)
+                if " ".join(str(specification or "").strip().split())
+            }
+        return modifier_specifications_by_skill_id[skill.id]
+
+    def _is_modifier_only_skill_row(character_skill) -> bool:
+        if int(character_skill.level) > 0 or not character_skill.skill.requires_specification:
+            return False
+        specification = " ".join(str(character_skill.specification or "").strip().split())
+        if not specification or specification == "*":
+            return False
+        return specification.casefold() in _modifier_skill_specification_keys(character_skill.skill)
+
     equipped_weapon_rows = engine.equipped_weapon_rows()
     equipped_shield_rows = engine.equipped_shield_rows()
-    for weapon_row in equipped_weapon_rows:
-        if not weapon_row.get("is_primary_profile", False):
-            continue
-        weapon_stats = getattr(weapon_row["item"], "weaponstats", None)
-        ranged_stats = getattr(weapon_row["item"], "rangedweaponstats", None)
-        offensive_stats = ranged_stats or weapon_stats
-        if offensive_stats is None:
-            continue
-        if not any(int(option.get("total_modifier") or 0) != 0 for option in (weapon_row.get("maneuver_options") or [])):
-            continue
-        for skill in offensive_stats.skills.all():
-            weapon_skill_ids_with_bonus.add(skill.id)
-    if any(int(row.get("parade_bonus") or 0) != 0 for row in equipped_shield_rows):
-        for skill in skills_by_id.values():
-            if _is_shield_skill(skill):
-                shield_skill_ids_with_bonus.add(skill.id)
 
     for skill in skills_by_id.values():
         rows_for_skill = character_skills_by_skill_id.get(skill.id, [])
+        rows_for_skill = [
+            character_skill
+            for character_skill in rows_for_skill
+            if not _is_modifier_only_skill_row(character_skill)
+        ]
         if rows_for_skill:
             visible_rows = []
             for character_skill in rows_for_skill:
@@ -3664,21 +3605,6 @@ def _build_skill_rows(
                 visible_rows.append(row)
             _append_skill_rows(skill, visible_rows)
             continue
-        if skill.requires_specification:
-            visible_rows = []
-            for specification in engine.modifier_skill_specifications(skill.id, skill.slug):
-                if not specification:
-                    continue
-                row = _build_row(skill, specification_override=specification)
-                context_rows = _build_display_context_rows(row, skill)
-                if int(row["misc_mod_value"]) != 0 or context_rows:
-                    visible_rows.append(row)
-            _append_skill_rows(skill, visible_rows)
-            continue
-        has_conditional_effect = bool(_conditional_daemonic_effects(skill))
-        if _external_skill_bonus(skill) != 0 or has_conditional_effect or skill.id in shield_skill_ids_with_bonus:
-            row = _build_row(skill)
-            _append_skill_rows(skill, [row])
 
     skill_manager_rows: list[dict] = []
     for skill in skills_by_id.values():
@@ -3690,20 +3616,15 @@ def _build_skill_rows(
         if has_skilled_row:
             continue
         generic_row = next((row for row in rows_for_skill if (row.specification or "*") == "*"), None)
-        auto_visible = (not has_skill_row) and (
-            _external_skill_bonus(skill) != 0
-            or bool(_conditional_daemonic_effects(skill))
-        )
-        can_add = (not has_skill_row) and (not auto_visible)
+        auto_visible = False
+        can_add = not has_skill_row
         can_remove = (
             generic_row is not None
             and int(generic_row.level) == 0
             and not has_skilled_row
             and not auto_visible
         )
-        if auto_visible:
-            status_label = "Durch Bonus sichtbar"
-        elif has_skill_row:
+        if has_skill_row:
             status_label = "Eingeblendet"
         else:
             status_label = "Ausgeblendet"
@@ -5513,7 +5434,6 @@ def build_temporary_attribute_context(
         character,
         engine,
         load_penalty=load_penalty,
-        synchronize=False,
     )
     for row in skill_rows:
         if "with_load_total_value" not in row:
@@ -5808,7 +5728,6 @@ def build_character_sheet_context(
         character,
         engine,
         load_penalty=load_penalty,
-        synchronize=not read_only,
     )
     for row in skill_rows:
         if "with_load_total_value" not in row:
