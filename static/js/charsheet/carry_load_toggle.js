@@ -84,19 +84,7 @@ function applyValueAndTooltip(element, enabled, carryPenalty) {
   const tooltipOff = String(element.dataset.tooltipOff || element.dataset.carryTooltipOff || element.dataset.tooltip || "");
   const tooltipOn = String(element.dataset.tooltipOn || element.dataset.carryTooltipOn || tooltipOff);
   const format = String(element.dataset.format || "").trim().toLowerCase();
-  const baseDisplay = element.querySelector("[data-carry-skill-base-display]");
-  if (baseDisplay instanceof HTMLElement) {
-    baseDisplay.textContent = String(resolvedValue);
-    element.querySelectorAll("[data-carry-skill-conditional-display]").forEach((variant) => {
-      if (!(variant instanceof HTMLElement)) {
-        return;
-      }
-      const valueDelta = readInteger(variant.dataset.valueDelta, 0);
-      variant.textContent = String(resolvedValue + valueDelta);
-    });
-  } else {
-    element.textContent = format === "modifier" ? formatModifier(resolvedValue) : String(resolvedValue);
-  }
+  element.textContent = format === "modifier" ? formatModifier(resolvedValue) : String(resolvedValue);
   element.dataset.tooltip = enabled ? tooltipOn : tooltipOff;
 }
 

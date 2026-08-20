@@ -1492,6 +1492,13 @@ button.skill_manager_action {
   margin-top: 0;
 }
 
+.bel_dot.has_conditional_modifiers {
+  border-color: #9d332a;
+  box-shadow:
+    0 0 0 1px rgba(157, 51, 42, 0.32),
+    inset 0 0 0 1px rgba(255, 244, 232, 0.72);
+}
+
 .traits_wrapper {
   display: flex;
   flex: 0 0 170px;

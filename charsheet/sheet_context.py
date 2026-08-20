@@ -2142,7 +2142,11 @@ def _build_tooltip_table(rows: list[tuple[str, object]]) -> str:
     return "\n".join(lines)
 
 
-def _build_core_stat_tooltip(rows: list[dict[str, object]]) -> str:
+def _build_core_stat_tooltip(
+    rows: list[dict[str, object]],
+    *,
+    conditional_modifiers: list[str] | None = None,
+) -> str:
     """Return one compact two-column table for a derived combat stat."""
     lines = [
         "| Grundlage | Wert |",
@@ -2162,6 +2166,12 @@ def _build_core_stat_tooltip(rows: list[dict[str, object]]) -> str:
         lines.append(
             f"| {_escape_tooltip_table_cell(label)} | {_escape_tooltip_table_cell(f'`{value}`')} |"
         )
+    if conditional_modifiers:
+        lines.append("")
+        lines.append("| Bedingte Modifikatoren |")
+        lines.append("| --- |")
+        for entry in conditional_modifiers:
+            lines.append(f"| {_escape_tooltip_table_cell(entry)} |")
     return "\n".join(lines)
 
 
@@ -2753,55 +2763,64 @@ CORE_STAT_CONDITION_TARGETS = {
 }
 
 
-def _conditional_core_stat_modifiers(engine, stat_key: str) -> list[dict[str, object]]:
-    """Return situational core-stat modifiers that should be shown as edge markers."""
-    if stat_key not in CORE_STAT_CONDITION_TARGETS:
-        return []
+def _conditional_modifier_lines(
+    engine,
+    target_domain: str,
+    target_key: str,
+    *,
+    specification: str | None = None,
+) -> list[str]:
+    """Return informational conditional modifier lines for a target."""
     modifier_engine = engine.modifier_engine
-    rows: list[dict[str, object]] = []
+    totals: OrderedDict[str, dict[str, object]] = OrderedDict()
     for modifier in modifier_engine.collect_active_modifiers():
-        if modifier.target_domain != "derived_stat":
+        if str(modifier.target_domain or "") != target_domain:
             continue
         if not modifier_engine._modifier_matches_target_key(
             modifier,
-            target_domain="derived_stat",
-            target_key=stat_key,
+            target_domain=target_domain,
+            target_key=target_key,
+        ):
+            continue
+        if not modifier_engine._modifier_matches_skill_specification(
+            modifier,
+            target_domain=target_domain,
+            specification=specification,
         ):
             continue
         if not TargetResolver.matches_context(modifier):
             continue
         condition_text = " ".join(str(modifier.metadata.get("condition_text") or "").split())
-        if not condition_text:
+        condition_key = modifier_engine._normalize_condition_text(condition_text)
+        if not condition_key:
             continue
         resolved_value = modifier_engine._resolve_numeric_modifier(modifier)
         if not isinstance(resolved_value, (int, float)) or int(resolved_value) == 0:
             continue
-        rows.append(
-            {
-                "condition_text": condition_text,
-                "resolved_value": int(resolved_value),
-            }
-        )
-    return rows
-
-
-def _build_core_stat_condition_badge(engine, stat_key: str) -> dict[str, object]:
-    """Return marker payload for situational core-stat bonuses."""
-    totals: OrderedDict[str, dict[str, object]] = OrderedDict()
-    for row in _conditional_core_stat_modifiers(engine, stat_key):
-        condition_text = str(row["condition_text"])
-        condition_key = " ".join(condition_text.lower().split())
         if condition_key not in totals:
             totals[condition_key] = {"condition_text": condition_text, "value": 0}
-        totals[condition_key]["value"] = int(totals[condition_key]["value"]) + int(row["resolved_value"])
-    entries = [
+        totals[condition_key]["value"] = int(totals[condition_key]["value"]) + int(resolved_value)
+    return [
         f"{format_modifier(int(row['value']))} {row['condition_text']}"
         for row in totals.values()
         if int(row["value"])
     ]
+
+
+def _conditional_core_stat_modifiers(engine, stat_key: str) -> list[str]:
+    """Return situational core-stat modifiers for the calculation tooltip."""
+    if stat_key not in CORE_STAT_CONDITION_TARGETS:
+        return []
+    return _conditional_modifier_lines(engine, "derived_stat", stat_key)
+
+
+def _build_core_stat_condition_badge(engine, stat_key: str) -> dict[str, object]:
+    """Return marker payload for situational core-stat bonuses."""
+    entries = _conditional_core_stat_modifiers(engine, stat_key)
     return {
         "visible": bool(entries),
         "tooltip": "\n".join(entries),
+        "entries": entries,
     }
 
 
@@ -3178,6 +3197,23 @@ def _build_skill_rows(
 
     conditional_encumbrance_variants = _conditional_encumbrance_variants()
 
+    def _skill_conditional_modifier_lines(skill: Skill, specification: str | None) -> list[str]:
+        entries = [
+            *_conditional_modifier_lines(
+                engine,
+                "skill",
+                skill.slug,
+                specification=specification,
+            ),
+            *_conditional_modifier_lines(engine, "skill_category", skill.category.slug),
+        ]
+        seen: OrderedDict[str, str] = OrderedDict()
+        for entry in entries:
+            normalized = " ".join(entry.casefold().split())
+            if normalized:
+                seen.setdefault(normalized, entry)
+        return list(seen.values())
+
     def _build_display_name(skill: Skill, specification: str) -> str:
         normalized_spec = (specification or "").strip()
         has_specification = skill.requires_specification and normalized_spec and normalized_spec != "*"
@@ -3217,6 +3253,11 @@ def _build_skill_rows(
         rank = base_rank + rank_bonus
         size_modifier = _skill_size_modifier(skill)
         total_with_load = rank + attribute_modifier + raw_modifiers + size_modifier
+        conditional_modifiers = _skill_conditional_modifier_lines(skill, specification)
+        for variant in conditional_encumbrance_variants:
+            conditional_modifiers.append(
+                f"{format_modifier(int(variant['value_delta']))} {_condition_tooltip(str(variant['condition_text']))}"
+            )
         origin = " ".join(str(character.country_of_origin or "").split())
         is_origin_local_knowledge = (
             bool(origin)
@@ -3277,8 +3318,10 @@ def _build_skill_rows(
                     ),
                     {"label": "Belastung", "value": format_modifier(load_penalty)},
                     {"label": "= Gesamt", "value": total_with_load, "tone": "total"},
-                ]
+                ],
+                conditional_modifiers=conditional_modifiers,
             ),
+            "has_conditional_modifiers": bool(conditional_modifiers),
             "can_edit_specification": (
                 skill.requires_specification
                 and character_skill is not None
@@ -3307,6 +3350,7 @@ def _build_skill_rows(
             "total": "",
             "with_load_total": "",
             "calculation_tooltip": "",
+            "has_conditional_modifiers": False,
             "can_edit_specification": False,
             "specification": "",
             "is_auto_visible": False,
@@ -3547,7 +3591,7 @@ def _build_skill_rows(
 
     def _build_display_context_rows(base_row: dict, skill: Skill) -> list[dict]:
         """Return conditional power rows followed by applicable weapon rows."""
-        context_rows = _build_conditional_daemonic_context_rows(base_row, skill)
+        context_rows: list[dict] = []
         if skill.requires_specification:
             return context_rows
         context_rows.extend(_build_shield_context_rows(base_row, skill))
@@ -3674,20 +3718,6 @@ def _build_skill_rows(
                 "status_label": status_label,
             }
         )
-
-    if conditional_encumbrance_variants:
-        for row in skill_rows:
-            if "with_load_total_value" not in row:
-                continue
-            base_value = int(row["with_load_total_value"])
-            row["conditional_load_variants"] = [
-                {
-                    **variant,
-                    "value": base_value + int(variant["value_delta"]),
-                }
-                for variant in conditional_encumbrance_variants
-                if int(variant["value_delta"]) != 0
-            ]
 
     return skill_rows, character_skills, skill_manager_rows
 
@@ -5644,7 +5674,8 @@ def build_temporary_attribute_context(
                     {"label": "Wundmalus", "value": format_modifier(initiative_wound_penalty)},
                     *_build_modifier_breakdown_rows(engine, INITIATIVE),
                     {"label": "= Gesamt", "value": format_modifier(initiative_value), "tone": "total"},
-                ]
+                ],
+                conditional_modifiers=_conditional_core_stat_modifiers(engine, INITIATIVE),
             ),
             "initiative_with_load_tooltip": _build_core_stat_tooltip(
                 [
@@ -5653,7 +5684,8 @@ def build_temporary_attribute_context(
                     *_build_modifier_breakdown_rows(engine, INITIATIVE),
                     {"label": "Belastung", "value": format_modifier(load_penalty)},
                     {"label": "= Gesamt", "value": format_modifier(initiative_value + load_penalty), "tone": "total"},
-                ]
+                ],
+                conditional_modifiers=_conditional_core_stat_modifiers(engine, INITIATIVE),
             ),
             "initiative_with_load_tooltip_with_carry": _build_core_stat_tooltip(
                 [
@@ -5663,7 +5695,8 @@ def build_temporary_attribute_context(
                     {"label": "Rüstungsbelastung", "value": format_modifier(load_penalty)},
                     {"label": "Traglast", "value": format_modifier(carry_penalty), "source": str(carry_state["state_label"])},
                     {"label": "= Gesamt", "value": format_modifier(initiative_value + load_penalty + carry_penalty), "tone": "total"},
-                ]
+                ],
+                conditional_modifiers=_conditional_core_stat_modifiers(engine, INITIATIVE),
             ),
             "vw": vw_value,
             "vw_condition_badge": _build_core_stat_condition_badge(engine, DEFENSE_VW),
@@ -5674,7 +5707,8 @@ def build_temporary_attribute_context(
                     {"label": "WA-Bonus/Malus", "value": format_modifier(vw_wa_mod)},
                     *_build_modifier_breakdown_rows(engine, DEFENSE_VW),
                     {"label": "= Gesamt", "value": vw_value, "tone": "total"},
-                ]
+                ],
+                conditional_modifiers=_conditional_core_stat_modifiers(engine, DEFENSE_VW),
             ),
             "sr": sr_value,
             "sr_condition_badge": _build_core_stat_condition_badge(engine, DEFENSE_SR),
@@ -5685,7 +5719,8 @@ def build_temporary_attribute_context(
                     {"label": "KON-Bonus/Malus", "value": format_modifier(sr_kon_mod)},
                     *_build_modifier_breakdown_rows(engine, DEFENSE_SR),
                     {"label": "= Gesamt", "value": sr_value, "tone": "total"},
-                ]
+                ],
+                conditional_modifiers=_conditional_core_stat_modifiers(engine, DEFENSE_SR),
             ),
             "gw": gw_value,
             "gw_condition_badge": _build_core_stat_condition_badge(engine, DEFENSE_GW),
@@ -5696,11 +5731,15 @@ def build_temporary_attribute_context(
                     {"label": "WILL-Bonus/Malus", "value": format_modifier(gw_will_mod)},
                     *_build_modifier_breakdown_rows(engine, DEFENSE_GW),
                     {"label": "= Gesamt", "value": gw_value, "tone": "total"},
-                ]
+                ],
+                conditional_modifiers=_conditional_core_stat_modifiers(engine, DEFENSE_GW),
             ),
             "arcane_power": arcane_power_value,
             "arcane_power_condition_badge": _build_core_stat_condition_badge(engine, ARCANE_POWER),
-            "arcane_power_tooltip": _build_core_stat_tooltip(resource_tooltip_rows),
+            "arcane_power_tooltip": _build_core_stat_tooltip(
+                resource_tooltip_rows,
+                conditional_modifiers=_conditional_core_stat_modifiers(engine, ARCANE_POWER),
+            ),
             "potential": potential_value,
             "potential_condition_badge": _build_core_stat_condition_badge(engine, POTENTIAL),
             "potential_tooltip": _build_core_stat_tooltip(
@@ -5708,7 +5747,8 @@ def build_temporary_attribute_context(
                     {"label": "Will / 2", "value": willpower // 2},
                     *_build_modifier_breakdown_rows(engine, POTENTIAL),
                     {"label": "= Gesamt", "value": potential_value, "tone": "total"},
-                ]
+                ],
+                conditional_modifiers=_conditional_core_stat_modifiers(engine, POTENTIAL),
             ),
         },
         "current_wound_stage": current_wound_stage,
@@ -6474,7 +6514,8 @@ def build_character_sheet_context(
                     {"label": "Wundmalus", "value": format_modifier(initiative_wound_penalty)},
                     *_build_modifier_breakdown_rows(engine, INITIATIVE),
                     {"label": "= Gesamt", "value": format_modifier(initiative_value), "tone": "total"},
-                ]
+                ],
+                conditional_modifiers=_conditional_core_stat_modifiers(engine, INITIATIVE),
             ),
             "initiative_with_load_tooltip": _build_core_stat_tooltip(
                 [
@@ -6483,7 +6524,8 @@ def build_character_sheet_context(
                     *_build_modifier_breakdown_rows(engine, INITIATIVE),
                     {"label": "Belastung", "value": format_modifier(load_penalty)},
                     {"label": "= Gesamt", "value": format_modifier(initiative_value + load_penalty), "tone": "total"},
-                ]
+                ],
+                conditional_modifiers=_conditional_core_stat_modifiers(engine, INITIATIVE),
             ),
             "initiative_with_load_tooltip_with_carry": _build_core_stat_tooltip(
                 [
@@ -6497,7 +6539,8 @@ def build_character_sheet_context(
                         "value": format_modifier(initiative_value + load_penalty + carry_penalty),
                         "tone": "total",
                     },
-                ]
+                ],
+                conditional_modifiers=_conditional_core_stat_modifiers(engine, INITIATIVE),
             ),
             "vw": vw_value,
             "vw_condition_badge": _build_core_stat_condition_badge(engine, DEFENSE_VW),
@@ -6508,7 +6551,8 @@ def build_character_sheet_context(
                     {"label": "WA-Bonus/Malus", "value": format_modifier(vw_wa_mod)},
                     *_build_modifier_breakdown_rows(engine, DEFENSE_VW),
                     {"label": "= Gesamt", "value": vw_value, "tone": "total"},
-                ]
+                ],
+                conditional_modifiers=_conditional_core_stat_modifiers(engine, DEFENSE_VW),
             ),
             "sr": sr_value,
             "sr_condition_badge": _build_core_stat_condition_badge(engine, DEFENSE_SR),
@@ -6519,7 +6563,8 @@ def build_character_sheet_context(
                     {"label": "KON-Bonus/Malus", "value": format_modifier(sr_kon_mod)},
                     *_build_modifier_breakdown_rows(engine, DEFENSE_SR),
                     {"label": "= Gesamt", "value": sr_value, "tone": "total"},
-                ]
+                ],
+                conditional_modifiers=_conditional_core_stat_modifiers(engine, DEFENSE_SR),
             ),
             "gw": gw_value,
             "gw_condition_badge": _build_core_stat_condition_badge(engine, DEFENSE_GW),
@@ -6530,7 +6575,8 @@ def build_character_sheet_context(
                     {"label": "WILL-Bonus/Malus", "value": format_modifier(gw_will_mod)},
                     *_build_modifier_breakdown_rows(engine, DEFENSE_GW),
                     {"label": "= Gesamt", "value": gw_value, "tone": "total"},
-                ]
+                ],
+                conditional_modifiers=_conditional_core_stat_modifiers(engine, DEFENSE_GW),
             ),
             "arcane_power": arcane_power_value,
             "arcane_power_condition_badge": _build_core_stat_condition_badge(engine, ARCANE_POWER),
@@ -6551,7 +6597,8 @@ def build_character_sheet_context(
                     {"label": "Bonus-Aspektstufen", "value": aspect_level_total},
                     *_build_modifier_breakdown_rows(engine, ARCANE_POWER),
                     {"label": "= Gesamt", "value": arcane_power_value, "tone": "total"},
-                ]
+                ],
+                conditional_modifiers=_conditional_core_stat_modifiers(engine, ARCANE_POWER),
             ),
             "potential": potential_value,
             "potential_condition_badge": _build_core_stat_condition_badge(engine, POTENTIAL),
@@ -6560,7 +6607,8 @@ def build_character_sheet_context(
                     {"label": "Will / 2", "value": willpower // 2},
                     *_build_modifier_breakdown_rows(engine, POTENTIAL),
                     {"label": "= Gesamt", "value": potential_value, "tone": "total"},
-                ]
+                ],
+                conditional_modifiers=_conditional_core_stat_modifiers(engine, POTENTIAL),
             ),
         },
         "armor_summary": {

@@ -667,9 +667,12 @@ class ItemSemanticEffectFields(models.Model):
         }
         metadata = dict(self.metadata or {})
         core_stat_targets = {"initiative", "vw", "sr", "gw", "arcane_power", "potential"}
+        note_implies_condition = (
+            (self.target_domain == "derived_stat" and self.target_key in core_stat_targets)
+            or self.target_domain in {"skill", "skill_category"}
+        )
         if (
-            self.target_domain == "derived_stat"
-            and self.target_key in core_stat_targets
+            note_implies_condition
             and not str(metadata.get("condition_text") or "").strip()
             and str(self.notes or "").strip()
         ):
