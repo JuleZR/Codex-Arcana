@@ -2731,74 +2731,174 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
 }
 
 .armor_scroll {
-  height: 48px;
+  --equipped-tile-size: 42px;
+  height: 53px;
   margin: 0;
-  overflow-x: hidden;
-  overflow-y: auto;
-}
-
-.armor_scroll_indicator {
-  position: absolute;
-  right: 4px;
-  bottom: 3px;
-  padding: 1px 6px;
-  border: 1px solid rgba(114, 80, 46, 0.38);
-  border-radius: 999px;
-  background: rgba(244, 234, 213, 0.92);
-  box-shadow: 0 1px 3px rgba(44, 27, 14, 0.12);
-  font-size: 0.62rem;
-  line-height: 1.1;
-  color: rgba(74, 55, 38, 0.88);
-  pointer-events: none;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scroll-behavior: smooth;
 }
 
 .armor_worn {
   list-style: none;
   margin: 0;
-  padding: 0;
+  min-width: max-content;
+  height: 100%;
+  box-sizing: border-box;
+  padding: 3px 6px 8px;
   display: flex;
-  flex-wrap: wrap;
-  gap: 4px 10px;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 5px;
 }
 
 .armor_worn li {
-  min-height: 22px;
-  border-bottom: 1px solid rgba(74, 55, 38, 0.26);
+  border-bottom: 0;
   font-size: 1.05rem;
   font-family: "Cormorant Garamond", Georgia, serif;
-  padding: 0 2px;
+  padding: 0;
   white-space: nowrap;
 }
 
 .armor_worn li.armor_row {
   position: relative;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 2px;
-  min-width: 0;
+  display: inline-grid;
+  place-items: center;
+  width: var(--equipped-tile-size);
+  min-width: var(--equipped-tile-size);
+  height: var(--equipped-tile-size);
+  min-height: var(--equipped-tile-size);
+  border: 1px solid color-mix(in srgb, var(--row-quality-color, #39d84a) 68%, rgba(28, 22, 16, 0.82) 32%);
   border-radius: 6px;
+  background-color: color-mix(in srgb, var(--row-quality-color, #39d84a) 76%, #d9c27f 24%);
+  background:
+    linear-gradient(
+      145deg,
+      rgba(255, 255, 255, 0.44) 0%,
+      rgba(255, 255, 255, 0.22) 34%,
+      rgba(255, 255, 255, 0.06) 56%,
+      rgba(40, 28, 13, 0.14) 100%
+    ),
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--row-quality-color, #39d84a) 78%, #fff0b7 22%) 0%,
+      color-mix(in srgb, var(--row-quality-color, #39d84a) 88%, #ceb46d 12%) 54%,
+      color-mix(in srgb, var(--row-quality-color, #39d84a) 72%, #4f3c25 28%) 100%
+    );
   overflow: hidden;
+  cursor: pointer;
+  touch-action: pan-x;
+  box-shadow:
+    inset 1px 1px 0 rgba(255, 255, 255, 0.34),
+    inset -1px -1px 0 rgba(0, 0, 0, 0.15),
+    inset 0 -7px 10px rgba(44, 30, 14, 0.08),
+    0 0 0 0.5px rgba(255, 247, 219, 0.08),
+    0 1px 2px rgba(69, 50, 27, 0.14);
 }
 
 .armor_worn li.armor_row.quality_tinted_row {
-  background: transparent;
+  background-color: color-mix(in srgb, var(--row-quality-color, #39d84a) 76%, #d9c27f 24%);
+  background:
+    linear-gradient(
+      145deg,
+      rgba(255, 255, 255, 0.44) 0%,
+      rgba(255, 255, 255, 0.22) 34%,
+      rgba(255, 255, 255, 0.06) 56%,
+      rgba(40, 28, 13, 0.14) 100%
+    ),
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--row-quality-color, #39d84a) 78%, #fff0b7 22%) 0%,
+      color-mix(in srgb, var(--row-quality-color, #39d84a) 88%, #ceb46d 12%) 54%,
+      color-mix(in srgb, var(--row-quality-color, #39d84a) 72%, #4f3c25 28%) 100%
+    );
 }
 
 .armor_worn li.armor_row.quality_tinted_row::before {
+  content: none;
+}
+
+.armor_worn li.armor_row.equipped_item_tile--magic {
+  --card-holo-bg-x: 0%;
+  --card-holo-bg-y: 0%;
+  isolation: isolate;
+  border-color: rgba(18, 15, 12, 0.62);
+  box-shadow:
+    inset 1px 1px 0 rgba(255, 255, 255, 0.3),
+    inset -1px -1px 0 rgba(0, 0, 0, 0.1),
+    0 0 0 0.5px rgba(255, 247, 219, 0.06),
+    0 0 8px rgba(135, 210, 255, 0.24),
+    0 1px 2px rgba(69, 50, 27, 0.11);
+}
+
+.armor_worn li.armor_row.equipped_item_tile--magic::before {
   content: "";
   position: absolute;
-  inset: 1px 1px 1px 1px;
-  border-radius: 6px;
-  background:
-    linear-gradient(
-      90deg,
-      color-mix(in srgb, var(--row-quality-color, rgba(0, 0, 0, 0)) 24%, rgba(255, 248, 235, 0.98) 76%) 0%,
-      color-mix(in srgb, var(--row-quality-color, rgba(0, 0, 0, 0)) 14%, rgba(255, 249, 238, 0.86) 86%) 58%,
-      rgba(255, 250, 240, 0) 100%
-    );
-  pointer-events: none;
+  inset: 0;
   z-index: 0;
+  border-radius: inherit;
+  border: 0;
+  pointer-events: none;
+  background-image: linear-gradient(
+    115deg,
+    transparent 0%,
+    rgba(255, 35, 35, 0.58) 18%,
+    rgba(255, 167, 24, 0.62) 30%,
+    rgba(255, 244, 54, 0.62) 41%,
+    rgba(58, 236, 84, 0.58) 52%,
+    rgba(0, 231, 255, 0.62) 64%,
+    rgba(82, 88, 255, 0.58) 76%,
+    rgba(255, 0, 231, 0.62) 88%,
+    transparent 100%
+  );
+  background-position: var(--card-holo-bg-x) var(--card-holo-bg-y);
+  background-repeat: no-repeat;
+  background-size: 300% 300%;
+  box-shadow: none;
+  mix-blend-mode: color-dodge;
+  opacity: 0.08;
+}
+
+.armor_worn li.armor_row.equipped_item_tile--magic::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background-image: url("/static/img/card_holo/sparkles.gif");
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 180%;
+  mix-blend-mode: color-dodge;
+  opacity: 0.26;
+}
+
+.armor_worn li.armor_row.equipped_item_tile--magic.active::before,
+.armor_worn li.armor_row.equipped_item_tile--magic:hover::before {
+  background-image: linear-gradient(
+    115deg,
+    transparent 0%,
+    transparent 14%,
+    rgba(255, 35, 35, 0.72) 23%,
+    rgba(255, 167, 24, 0.76) 34%,
+    rgba(255, 244, 54, 0.78) 45%,
+    rgba(58, 236, 84, 0.72) 54%,
+    rgba(0, 231, 255, 0.76) 64%,
+    rgba(82, 88, 255, 0.72) 74%,
+    rgba(255, 0, 231, 0.76) 84%,
+    transparent 94%,
+    transparent 100%
+  );
+  opacity: 0.36;
+}
+
+.armor_worn li.armor_row.equipped_item_tile--magic.active::after,
+.armor_worn li.armor_row.equipped_item_tile--magic:hover::after {
+  opacity: 0.48;
 }
 
 .armor_worn li.armor_row > * {
@@ -2806,10 +2906,101 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
   z-index: 1;
 }
 
-.armor_row_label {
-  display: inline-flex;
-  align-items: center;
-  min-width: 0;
+.armor_worn li.armor_row:hover {
+  filter: brightness(1.03);
+}
+
+.armor_worn li.armor_row:active {
+  cursor: grabbing;
+}
+
+.armor_worn li.armor_row:focus-visible {
+  outline: 2px solid rgba(30, 30, 30, 0.9);
+  outline-offset: 2px;
+}
+
+.equipped_item_tile__icon {
+  width: 35px;
+  height: 35px;
+  fill: none;
+  stroke: #161615;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 1px 0 rgba(255, 255, 255, 0.12));
+}
+
+.equipped_item_tile__icon--ring,
+.equipped_item_tile__icon--amulet,
+.equipped_item_tile__icon--magic_item {
+  stroke-width: 2.25;
+}
+
+.equipped_item_tile__icon--chest_armor {
+  width: 38px;
+  height: 38px;
+}
+
+.equipped_item_tile__icon--full_armor {
+  width: 37px;
+  height: 37px;
+}
+
+.equipped_item_tile__icon_img {
+  display: block;
+  object-fit: contain;
+  stroke: none;
+  image-rendering: auto;
+  opacity: 1;
+  mix-blend-mode: normal;
+  filter:
+    grayscale(1)
+    saturate(0)
+    contrast(1.25)
+    brightness(0.28)
+    drop-shadow(0 1px 0 rgba(255, 244, 205, 0.32))
+    drop-shadow(0 -1px 0 rgba(22, 18, 12, 0.22));
+}
+
+.equipped_item_tile__icon--shield,
+.equipped_item_tile__icon--helmet {
+  width: 32px;
+  height: 32px;
+}
+
+.equipped_item_tile__icon--gloves,
+.equipped_item_tile__icon--boots {
+  width: 32px;
+  height: 32px;
+}
+
+.equipped_item_tile__icon--ring {
+  width: 31px;
+  height: 31px;
+}
+
+.equipped_item_tile__icon--amulet,
+.equipped_item_tile__icon--clothing {
+  width: 32px;
+  height: 32px;
+}
+
+.equipped_item_tile__sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.armor_empty_slot {
+  width: var(--equipped-tile-size);
+  min-width: var(--equipped-tile-size);
+  height: var(--equipped-tile-size);
 }
 
 .armor_stats {

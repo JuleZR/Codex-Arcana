@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" fill="none">
+  <!-- 六角形護符プレート：紐通し穴 + 六芒星文様 を evenodd でカット -->
+  <path fill-rule="evenodd" fill="white"
+    d="M64 14 L106 38 L106 86 L64 110 L22 86 L22 38 Z
+       M58 26 A6 6 0 1 0 70 26 A6 6 0 1 0 58 26 Z
+       M64 46 L86 60 L86 80 L64 94 L42 80 L42 60 Z
+       M64 56 L76 62 L76 78 L64 86 L52 78 L52 62 Z"
+  />
+</svg>

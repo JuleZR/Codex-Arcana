@@ -1,45 +1,61 @@
+{% load static %}
 <div class="p2_panel" id="sheetArmorPanel">
   <h2>R&uuml;stung</h2>
   <div class="armor_scroll_wrap">
     <div class="panel_scroll armor_scroll inventory_drop_target" data-armor-scroll data-preserve-scroll-id="armor-worn-scroll" data-inventory-zone="equip-armor">
-      <ul class="armor_worn">
+      <ul class="armor_worn" aria-label="Angelegte Ausr&uuml;stung">
         {% for row in armor_rows %}
-          <li class="armor_row{% if row.quality_color %} quality_tinted_row{% endif %}{% if row.tooltip_text %} tooltip_target{% endif %}"
+          <li class="armor_row equipped_item_tile{% if row.quality_color %} quality_tinted_row{% endif %}{% if row.is_magic %} equipped_item_tile--magic{% endif %}{% if row.tooltip_text %} tooltip_target{% endif %}"
               data-equipped-row
               data-character-item-id="{{ row.character_item.pk }}"
               data-equipped="1"
               data-equip-drop-zone="armor"
+              data-drag-handle
+              draggable="{% if row.can_unequip %}true{% else %}false{% endif %}"
+              tabindex="0"
+              role="button"
+              aria-label="{{ row.summary|escape }}"
+              title="{{ row.summary|escape }}"
               {% if row.quality_color %} style="--row-quality-color: {{ row.quality_color }};"{% endif %}
               {% if row.tooltip_text %} data-tooltip-side="left" data-tooltip-mode="card" data-tooltip-card-key="item:{{ row.character_item.pk }}" data-tooltip-title="{{ row.item_name|escape }}" data-tooltip-subtitle="{{ row.tooltip_subtitle|escape }}"{% if row.item_image_url %} data-tooltip-image="{{ row.item_image_url }}"{% endif %} data-tooltip-accent="{{ row.quality_color }}" data-tooltip="{{ row.tooltip_text }}"{% endif %}>
-            <span class="armor_row_label">
-              {% if row.can_unequip %}
-                <form method="post" action="{% url 'toggle_equip' row.character_item.pk %}" class="equip_form equip_form--inline" data-sheet-action data-equip-form>
-                  {% csrf_token %}
-                  <span
-                    class="equip_handle_anchor inv_drag_handle"
-                    tabindex="0"
-                    data-equip-handle-submit
-                    data-drag-handle
-                    draggable="true"
-                    aria-label="Ablegen"
-                    title="Ablegen"
-                  >
-                    <span class="inv_drag_handle_dots" aria-hidden="true"></span>
-                  </span>
-                </form>
-              {% endif %}
-              {{ row.summary }}
-            </span>
-            <span class="armor_row_actions">
-            </span>
+            {% if row.can_unequip %}
+              <form method="post" action="{% url 'toggle_equip' row.character_item.pk %}" class="equip_form equip_form--inline" data-sheet-action data-equip-form hidden>
+                {% csrf_token %}
+              </form>
+            {% endif %}
+            {% if row.equipment_icon_key == "shield" %}
+              <img class="equipped_item_tile__icon equipped_item_tile__icon_img equipped_item_tile__icon--shield" src="{% static 'img/equipment_icons/shield.svg' %}?v=20260820d" alt="" aria-hidden="true">
+            {% elif row.equipment_icon_key == "helmet" %}
+              <img class="equipped_item_tile__icon equipped_item_tile__icon_img equipped_item_tile__icon--helmet" src="{% static 'img/equipment_icons/helmet.svg' %}?v=20260820d" alt="" aria-hidden="true">
+            {% elif row.equipment_icon_key == "full_armor" %}
+              <img class="equipped_item_tile__icon equipped_item_tile__icon_img equipped_item_tile__icon--full_armor" src="{% static 'img/equipment_icons/full_armor.svg' %}?v=20260820f" alt="" aria-hidden="true">
+            {% elif row.equipment_icon_key == "chest_armor" %}
+              <img class="equipped_item_tile__icon equipped_item_tile__icon_img equipped_item_tile__icon--chest_armor" src="{% static 'img/equipment_icons/body_armor.svg' %}?v=20260820d" alt="" aria-hidden="true">
+            {% elif row.equipment_icon_key == "armor" %}
+              <img class="equipped_item_tile__icon equipped_item_tile__icon_img equipped_item_tile__icon--armor" src="{% static 'img/equipment_icons/armor.svg' %}?v=20260820d" alt="" aria-hidden="true">
+            {% elif row.equipment_icon_key == "gloves" %}
+              <img class="equipped_item_tile__icon equipped_item_tile__icon_img equipped_item_tile__icon--gloves" src="{% static 'img/equipment_icons/gauntlet.svg' %}?v=20260820c" alt="" aria-hidden="true">
+            {% elif row.equipment_icon_key == "boots" %}
+              <img class="equipped_item_tile__icon equipped_item_tile__icon_img equipped_item_tile__icon--boots" src="{% static 'img/equipment_icons/armored_boots.svg' %}?v=20260820c" alt="" aria-hidden="true">
+            {% elif row.equipment_icon_key == "ring" %}
+              <img class="equipped_item_tile__icon equipped_item_tile__icon_img equipped_item_tile__icon--ring" src="{% static 'img/equipment_icons/ring.svg' %}?v=20260820d" alt="" aria-hidden="true">
+            {% elif row.equipment_icon_key == "amulet" %}
+              <img class="equipped_item_tile__icon equipped_item_tile__icon_img equipped_item_tile__icon--amulet" src="{% static 'img/equipment_icons/amulet.svg' %}?v=20260820d" alt="" aria-hidden="true">
+            {% elif row.equipment_icon_key == "clothing" %}
+              <img class="equipped_item_tile__icon equipped_item_tile__icon_img equipped_item_tile__icon--clothing" src="{% static 'img/equipment_icons/clothing.svg' %}?v=20260820f" alt="" aria-hidden="true">
+            {% elif row.equipment_icon_key == "magic_item" %}
+              <img class="equipped_item_tile__icon equipped_item_tile__icon_img equipped_item_tile__icon--magic_item" src="{% static 'img/equipment_icons/magic_item.svg' %}?v=20260820c" alt="" aria-hidden="true">
+            {% else %}
+              <img class="equipped_item_tile__icon equipped_item_tile__icon_img equipped_item_tile__icon--item" src="{% static 'img/equipment_icons/item.svg' %}?v=20260820c" alt="" aria-hidden="true">
+            {% endif %}
+            <span class="equipped_item_tile__sr">{{ row.summary }}</span>
           </li>
         {% endfor %}
         {% if not armor_rows %}
-          <li></li>
+          <li class="armor_empty_slot" aria-hidden="true"></li>
         {% endif %}
       </ul>
     </div>
-    <span class="armor_scroll_indicator" data-armor-scroll-indicator hidden aria-hidden="true">&#x2304;</span>
   </div>
   <ul class="armor_stats">
     <li><span>Gesamtr&uuml;stungsschutz</span><span class="pill tooltip_target" data-tooltip-side="cursor-right" data-tooltip="{{ armor_summary.total_rs_tooltip }}">{{ armor_summary.total_rs }}</span></li>

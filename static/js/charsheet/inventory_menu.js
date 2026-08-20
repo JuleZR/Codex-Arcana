@@ -286,6 +286,25 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
 
   let pendingRuneSubmit = false;
   let draggedInventoryItemId = "";
+  const cleanupInventoryDragState = () => {
+    draggedInventoryItemId = "";
+    document.body.classList.remove("inventory-dragging");
+    delete document.body.dataset.dragEquipDropZone;
+    clearAllowedDropZoneState();
+    document
+      .querySelectorAll("[data-inventory-row].is-dragging, [data-equipped-row].is-dragging")
+      .forEach((row) => row.classList.remove("is-dragging"));
+    document.querySelectorAll("[data-inventory-zone].is-drag-over").forEach((zone) => zone.classList.remove("is-drag-over"));
+    const storage = document.querySelector("[data-inventory-storage]");
+    if (
+      storage instanceof HTMLElement &&
+      storage.classList.contains("inventory_storage--drag-preview") &&
+      !storage.querySelector("[data-inventory-row]")
+    ) {
+      storage.hidden = true;
+      storage.classList.remove("inventory_storage--drag-preview");
+    }
+  };
   const floatingController = modifyWindowController || createFloatingWindowController({
     windowEl: runeWindow,
     closeButton: runeCloseButton,
@@ -1427,26 +1446,10 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
 
   document.addEventListener("dragend", (event) => {
     const handle = event.target instanceof Element ? event.target.closest("[data-drag-handle]") : null;
-    if (!(handle instanceof HTMLElement)) {
+    if (!(handle instanceof HTMLElement) && !draggedInventoryItemId && !document.body.classList.contains("inventory-dragging")) {
       return;
     }
-    draggedInventoryItemId = "";
-    document.body.classList.remove("inventory-dragging");
-    delete document.body.dataset.dragEquipDropZone;
-    clearAllowedDropZoneState();
-    document
-      .querySelectorAll("[data-inventory-row].is-dragging, [data-equipped-row].is-dragging")
-      .forEach((row) => row.classList.remove("is-dragging"));
-    document.querySelectorAll("[data-inventory-zone].is-drag-over").forEach((zone) => zone.classList.remove("is-drag-over"));
-    const storage = document.querySelector("[data-inventory-storage]");
-    if (
-      storage instanceof HTMLElement &&
-      storage.classList.contains("inventory_storage--drag-preview") &&
-      !storage.querySelector("[data-inventory-row]")
-    ) {
-      storage.hidden = true;
-      storage.classList.remove("inventory_storage--drag-preview");
-    }
+    cleanupInventoryDragState();
   });
 
   document.addEventListener("dragover", (event) => {
@@ -1490,6 +1493,7 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
   document.addEventListener("drop", async (event) => {
     const zone = event.target instanceof Element ? event.target.closest("[data-inventory-zone]") : null;
     if (!(zone instanceof HTMLElement) || !draggedInventoryItemId) {
+      cleanupInventoryDragState();
       return;
     }
     event.preventDefault();
@@ -1498,17 +1502,36 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
       `[data-inventory-row][data-character-item-id="${draggedInventoryItemId}"], [data-equipped-row][data-character-item-id="${draggedInventoryItemId}"]`,
     );
     if (!(row instanceof HTMLElement)) {
+      cleanupInventoryDragState();
       return;
     }
     const dropAction = resolveInventoryDropAction(zone, row);
     if (!dropAction) {
+      cleanupInventoryDragState();
       return;
     }
+    cleanupInventoryDragState();
     try {
       await submitInventoryDropForm(dropAction.form);
     } catch (_error) {
       dropAction.form.requestSubmit();
     }
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      cleanupInventoryDragState();
+    }
+  });
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) {
+      cleanupInventoryDragState();
+    }
+  });
+
+  window.addEventListener("blur", () => {
+    cleanupInventoryDragState();
   });
   runeDropdownTrigger?.addEventListener("click", () => {
     toggleRuneDropdown();

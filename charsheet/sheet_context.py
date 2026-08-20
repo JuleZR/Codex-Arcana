@@ -4036,6 +4036,40 @@ def _build_weapon_rows(engine) -> list[dict]:
     return sorted_weapon_rows
 
 
+def _equipment_icon_key(row: dict) -> str:
+    item = row["item"]
+    item_type = item.item_type
+    if item_type == Item.ItemType.RING:
+        return "ring"
+    if item_type == Item.ItemType.AMULET:
+        return "amulet"
+    if item_type == Item.ItemType.SHIELD:
+        return "shield"
+    if item_type == Item.ItemType.CLOTHING:
+        return "clothing"
+    if item_type in Item.weapon_item_type_values():
+        return "weapon"
+    armor_stats = row.get("armor_stats") or getattr(item, "armorstats", None)
+    if armor_stats is not None:
+        covered_zones = set(armor_stats.covered_zones())
+        if all(zone in covered_zones for zone in armor_stats.MAIN_ZONE_FIELDS):
+            return "full_armor"
+        if covered_zones & {"head", "face", "eyes", "neck"}:
+            return "helmet"
+        if covered_zones & {"torso", "organs", "soft_tissue"}:
+            return "chest_armor"
+        if covered_zones & {"hand_left", "hand_right", "arm_left", "arm_right"}:
+            return "gloves"
+        if covered_zones & {"foot_left", "foot_right", "leg_left", "leg_right"}:
+            return "boots"
+        return "armor"
+    if item_type in Item.armor_item_type_values():
+        return "armor"
+    if item.is_magic_effective:
+        return "magic_item"
+    return "item"
+
+
 def _build_armor_rows(engine) -> list[dict]:
     """Build prepared armor, clothing, and shield rows for the equipment panel."""
     armor_rows: list[dict] = []
@@ -4058,6 +4092,8 @@ def _build_armor_rows(engine) -> list[dict]:
             {
                 **row,
                 "kind": "armor",
+                "equipment_icon_key": _equipment_icon_key(row),
+                "is_magic": bool(row["item"].is_magic or row["character_item"].is_magic),
                 "quality_label": "" if is_race_item else quality["label"],
                 "quality_color": "" if is_race_item else quality["color"],
                 "tooltip_subtitle": " - ".join(
@@ -4103,6 +4139,8 @@ def _build_armor_rows(engine) -> list[dict]:
             {
                 **row,
                 "kind": "clothing",
+                "equipment_icon_key": _equipment_icon_key(row),
+                "is_magic": bool(row["item"].is_magic or row["character_item"].is_magic),
                 "quality_label": "" if is_race_item else quality["label"],
                 "quality_color": "" if is_race_item else quality["color"],
                 "tooltip_subtitle": " - ".join(
@@ -4139,6 +4177,8 @@ def _build_armor_rows(engine) -> list[dict]:
             {
                 **row,
                 "kind": "magic_item",
+                "equipment_icon_key": _equipment_icon_key(row),
+                "is_magic": bool(row["item"].is_magic or row["character_item"].is_magic),
                 "quality_label": "" if is_race_item else quality["label"],
                 "quality_color": "" if is_race_item else quality["color"],
                 "tooltip_subtitle": " - ".join(
@@ -4175,6 +4215,8 @@ def _build_armor_rows(engine) -> list[dict]:
             {
                 **row,
                 "kind": "shield",
+                "equipment_icon_key": _equipment_icon_key(row),
+                "is_magic": bool(row["item"].is_magic or row["character_item"].is_magic),
                 "quality_label": "" if is_race_item else quality["label"],
                 "quality_color": "" if is_race_item else quality["color"],
                 "tooltip_subtitle": " - ".join(
