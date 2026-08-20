@@ -190,6 +190,31 @@ def _character_item_specific_semantic_modifier(engine, character_item: Character
     return total
 
 
+def _character_item_specific_armor_semantic_modifier(engine, character_item: CharacterItem, target_key: str) -> int:
+    """Return item-bound semantic effects that affect this equipped armor item."""
+    total = 0
+    for modifier in engine.modifier_engine._active_item_semantic_modifiers:
+        source_type = str(modifier.source_type or "")
+        source_id = str(modifier.source_id or "")
+        if source_type == "characteritem":
+            if source_id != str(character_item.id):
+                continue
+        elif source_type == "item":
+            if source_id != str(character_item.item_id):
+                continue
+            modifier_character_item_id = (modifier.metadata or {}).get("character_item_id")
+            if modifier_character_item_id is not None and str(modifier_character_item_id) != str(character_item.id):
+                continue
+        else:
+            continue
+        if modifier.target_domain != TargetDomain.DERIVED_STAT:
+            continue
+        if str(modifier.target_key or "") != target_key:
+            continue
+        total += int(engine.modifier_engine._resolve_numeric_modifier(modifier) or 0)
+    return total
+
+
 def _character_item_specific_rune_modifier(engine, character_item: CharacterItem, target_key: str) -> int:
     """Return rune modifiers that affect only the item they are socketed into."""
     equipped_item_rune_ids = {
@@ -237,6 +262,7 @@ def _effective_armor_encumbrance(engine, character_item: CharacterItem) -> int:
     return max(
         0,
         int(ItemEngine(character_item).get_armor_encumbrance() or 0)
+        + _character_item_specific_armor_semantic_modifier(engine, character_item, ARMOR_ENCUMBRANCE)
         + _character_item_specific_rune_modifier(engine, character_item, ARMOR_ENCUMBRANCE),
     )
 

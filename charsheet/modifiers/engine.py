@@ -239,7 +239,16 @@ class ModifierEngine:
             if int(character_item.id) in character_item_ids_with_instance_effects:
                 continue
             for effect in base_effects_by_item_id.get(int(character_item.item_id), []):
-                base_modifiers.append(effect.to_modifier(invested_cp=character_item.invested_cp))
+                modifier = effect.to_modifier(invested_cp=character_item.invested_cp)
+                base_modifiers.append(
+                    replace(
+                        modifier,
+                        metadata={
+                            **modifier.metadata,
+                            "character_item_id": int(character_item.id),
+                        },
+                    )
+                )
         return [
             *base_modifiers,
             *(effect.to_modifier() for effect in instance_effects if effect.active_flag),
