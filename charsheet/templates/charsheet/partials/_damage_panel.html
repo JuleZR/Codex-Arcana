@@ -9,6 +9,7 @@
       data-aggravated-damage="{{ current_aggravated_damage }}"
       data-damage-max="{{ current_damage_max }}"
       data-character-id="{{ character.id }}"
+      data-can-act-while-out-of-action="{% if can_act_while_out_of_action %}1{% else %}0{% endif %}"
       style="--stun-needle-angle: {{ damage_gauge_stun_needle_angle }}deg; --lethal-needle-angle: {{ damage_gauge_lethal_needle_angle }}deg; --total-needle-angle: {{ damage_gauge_total_needle_angle }}deg;"
       aria-label="Schaden: {{ character.current_stun_damage }} Betäubung, {{ character.current_lethal_damage }} tödlich, {{ character.current_damage }} wirksam"
     >
@@ -61,7 +62,7 @@
         <button type="button" class="damage_step_btn damage_step_btn--increase" data-action="damage" data-amount="1" aria-label="Betäubungsschaden erhöhen">+</button>
       </div>
       <div class="damage_stage_row">
-        <span class="damage_state_value damage_stage_value{% if is_wound_penalty_ignored and current_wound_stage != 'Ausser Gefecht' and current_wound_stage != 'Außer Gefecht' and current_wound_stage != 'Koma' and current_wound_stage != 'Tod' %} is-disabled{% endif %}" data-stage="{{ current_wound_stage }}">
+        <span class="damage_state_value damage_stage_value{% if is_wound_stage_disabled %} is-disabled{% endif %}" data-stage="{{ current_wound_stage }}">
           {% if current_wound_stage != "-" %}
             {{ current_wound_stage }}
           {% endif %}

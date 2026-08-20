@@ -61,6 +61,7 @@ export function initDamagePanel() {
   let animalBloodRequestInFlight = false;
   let animalBloodRequestQueue = Promise.resolve();
   let woundPenaltyIgnored = woundStageEl.classList.contains("is-disabled") || woundPenaltyEl.classList.contains("is-disabled");
+  let canActWhileOutOfAction = gauge.dataset.canActWhileOutOfAction === "1";
 
   window.__charsheetDamagePanel = {
     flushPendingDamageRequests: () => {
@@ -111,17 +112,17 @@ export function initDamagePanel() {
 
   function computeWoundInfo(damage) {
     if (!thresholdRows.length) {
-      return { stage: "-", penaltyDisplay: "-", isIgnored: woundPenaltyIgnored };
+      return { stage: "-", penaltyDisplay: "-", isIgnored: woundPenaltyIgnored, canActWhileOutOfAction };
     }
     const sorted = [...thresholdRows].sort((a, b) => a.threshold - b.threshold);
     const first = Number(sorted[0].threshold || 0);
     const last = Number(sorted[sorted.length - 1].threshold || 0);
 
     if (damage < first) {
-      return { stage: "-", penaltyDisplay: "-", isIgnored: woundPenaltyIgnored };
+      return { stage: "-", penaltyDisplay: "-", isIgnored: woundPenaltyIgnored, canActWhileOutOfAction };
     }
     if (damage > last) {
-      return { stage: "Tod", penaltyDisplay: "0", isIgnored: woundPenaltyIgnored };
+      return { stage: "Tod", penaltyDisplay: "0", isIgnored: woundPenaltyIgnored, canActWhileOutOfAction };
     }
 
     let current = sorted[0];
@@ -137,17 +138,21 @@ export function initDamagePanel() {
       stage: String(current.stage || "-"),
       penaltyDisplay: formatModifier(readInt(current.penalty, 0)),
       isIgnored: woundPenaltyIgnored,
+      canActWhileOutOfAction,
     };
   }
 
-  function applyWoundState(stage, penaltyDisplay, isIgnored = false) {
+  function applyWoundState(stage, penaltyDisplay, isIgnored = false, canActOutOfAction = canActWhileOutOfAction) {
     const normalizedStage = String(stage || "-").trim() || "-";
     const isTerminalStage = new Set(["Außer Gefecht", "Ausser Gefecht", "Koma", "Tod"]).has(normalizedStage);
+    const isOutOfActionStage = new Set(["Außer Gefecht", "Ausser Gefecht"]).has(normalizedStage);
     woundPenaltyIgnored = Boolean(isIgnored);
+    canActWhileOutOfAction = Boolean(canActOutOfAction);
+    gauge.dataset.canActWhileOutOfAction = canActWhileOutOfAction ? "1" : "0";
     woundStageEl.textContent = composeStageLabel(stage, penaltyDisplay, isIgnored);
     woundStageEl.dataset.stage = normalizedStage;
     woundPenaltyEl.textContent = penaltyDisplay;
-    woundStageEl.classList.toggle("is-disabled", woundPenaltyIgnored && !isTerminalStage);
+    woundStageEl.classList.toggle("is-disabled", (woundPenaltyIgnored && !isTerminalStage) || (canActWhileOutOfAction && isOutOfActionStage));
     woundPenaltyEl.classList.toggle("is-disabled", woundPenaltyIgnored);
   }
 
@@ -302,7 +307,12 @@ export function initDamagePanel() {
     }
     gauge.setAttribute("aria-label", `Schaden: ${localStunDamage} Betäubung, ${localLethalDamage} tödlich, ${localDamage} wirksam`);
     const optimisticWound = computeWoundInfo(localDamage);
-    applyWoundState(optimisticWound.stage, optimisticWound.penaltyDisplay, optimisticWound.isIgnored);
+    applyWoundState(
+      optimisticWound.stage,
+      optimisticWound.penaltyDisplay,
+      optimisticWound.isIgnored,
+      optimisticWound.canActWhileOutOfAction,
+    );
     renderNeedles(localStunDamage, localLethalDamage, { animate });
     window.sessionStorage.setItem(storageKey, String(localDamage));
   }
@@ -394,6 +404,7 @@ export function initDamagePanel() {
         String(payload.current_wound_stage ?? "-"),
         String(payload.current_wound_penalty ?? "-"),
         Boolean(payload.is_wound_penalty_ignored),
+        Boolean(payload.can_act_while_out_of_action),
       );
       if (Array.isArray(payload.partials) && payload.partials.length) {
         applySheetPartials(payload);
@@ -461,6 +472,7 @@ export function initDamagePanel() {
             String(lastPayload.current_wound_stage ?? "-"),
             String(lastPayload.current_wound_penalty ?? "-"),
             Boolean(lastPayload.is_wound_penalty_ignored),
+            Boolean(lastPayload.can_act_while_out_of_action),
           );
         }
       }

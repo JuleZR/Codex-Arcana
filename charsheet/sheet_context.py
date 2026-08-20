@@ -5511,6 +5511,14 @@ def build_temporary_attribute_context(
     current_wound_penalty_display = (
         "-" if current_wound_stage == "-" else format_modifier(current_wound_penalty)
     )
+    can_act_while_out_of_action = engine.can_act_while_out_of_action()
+    is_wound_stage_disabled = (
+        engine.is_wound_penalty_ignored()
+        and current_wound_stage not in {"Ausser Gefecht", "Außer Gefecht", "Koma", "Tod"}
+    ) or (
+        can_act_while_out_of_action
+        and current_wound_stage in {"Ausser Gefecht", "Außer Gefecht"}
+    )
     wound_threshold_data = engine.wound_thresholds()
     wound_threshold_rows = [
         {"threshold": threshold, "stage": stage, "penalty": penalty}
@@ -5706,6 +5714,8 @@ def build_temporary_attribute_context(
         "current_wound_stage": current_wound_stage,
         "current_wound_penalty": current_wound_penalty_display,
         "is_wound_penalty_ignored": engine.is_wound_penalty_ignored(),
+        "can_act_while_out_of_action": can_act_while_out_of_action,
+        "is_wound_stage_disabled": is_wound_stage_disabled,
         "current_damage_max": current_damage_max,
         "current_stun_damage": character.current_stun_damage,
         "current_lethal_damage": character.current_lethal_damage,
@@ -5808,6 +5818,14 @@ def build_character_sheet_context(
         "-"
         if current_wound_stage == "-"
         else format_modifier(current_wound_penalty)
+    )
+    can_act_while_out_of_action = engine.can_act_while_out_of_action()
+    is_wound_stage_disabled = (
+        engine.is_wound_penalty_ignored()
+        and current_wound_stage not in {"Ausser Gefecht", "Außer Gefecht", "Koma", "Tod"}
+    ) or (
+        can_act_while_out_of_action
+        and current_wound_stage in {"Ausser Gefecht", "Außer Gefecht"}
     )
 
     wound_threshold_data = engine.wound_thresholds()
@@ -6557,6 +6575,8 @@ def build_character_sheet_context(
         "current_wound_stage": current_wound_stage,
         "current_wound_penalty": current_wound_penalty_display,
         "is_wound_penalty_ignored": engine.is_wound_penalty_ignored(),
+        "can_act_while_out_of_action": can_act_while_out_of_action,
+        "is_wound_stage_disabled": is_wound_stage_disabled,
         "current_damage_max": current_damage_max,
         "current_stun_damage": character.current_stun_damage,
         "current_lethal_damage": character.current_lethal_damage,

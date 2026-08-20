@@ -3224,6 +3224,7 @@ def adjust_current_damage(request, character_id: int):
         engine = character.get_engine(refresh=True)
         current_stage, _raw_penalty = engine.current_wound_stage()
         is_penalty_ignored = engine.is_wound_penalty_ignored()
+        can_act_while_out_of_action = engine.can_act_while_out_of_action()
         effective_penalty = engine.current_wound_penalty()
         partials = []
         if request.POST.get("partials") != "0":
@@ -3240,6 +3241,7 @@ def adjust_current_damage(request, character_id: int):
                 "current_wound_stage": current_stage,
                 "current_wound_penalty": format_modifier(effective_penalty),
                 "is_wound_penalty_ignored": is_penalty_ignored,
+                "can_act_while_out_of_action": can_act_while_out_of_action,
                 "partials": partials,
             }
         )
