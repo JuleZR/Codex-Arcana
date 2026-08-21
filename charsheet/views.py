@@ -185,6 +185,154 @@ SHEET_INVENTORY_PARTIAL_KEYS = SHEET_MAIN_PARTIAL_KEYS
 SHEET_LEARNING_PARTIAL_KEYS = SHEET_MAIN_PARTIAL_KEYS + (
     "learning_budget",
 )
+ITEM_SEMANTIC_EFFECT_FALLBACK_PARTIAL_KEYS = (
+    "attribute_panel",
+    "skills_panel",
+    "load_panel",
+    "core_stats_panel",
+    "damage_panel",
+    "wallet_panel",
+    "inventory_panel",
+    "armor_panel",
+    "weapon_panel",
+    "spell_panel",
+    "lesson_panel",
+    "battle_calculator",
+)
+ITEM_SEMANTIC_EFFECT_PARTIAL_KEYS_BY_DOMAIN = {
+    "attribute": (
+        "attribute_panel",
+        "skills_panel",
+        "load_panel",
+        "core_stats_panel",
+        "damage_panel",
+        "armor_panel",
+        "weapon_panel",
+        "spell_panel",
+        "lesson_panel",
+        "battle_calculator",
+    ),
+    "attribute_cap": (
+        "attribute_panel",
+        "learning_budget",
+    ),
+    "skill": (
+        "skills_panel",
+        "weapon_panel",
+        "spell_panel",
+        "lesson_panel",
+        "battle_calculator",
+    ),
+    "skill_category": (
+        "skills_panel",
+        "weapon_panel",
+        "spell_panel",
+        "lesson_panel",
+        "battle_calculator",
+    ),
+    "skill_rank": ("learning_budget",),
+    "skill_rank_cap": ("learning_budget",),
+    "language": (
+        "skills_panel",
+        "lesson_panel",
+    ),
+    "proficiency_group": (
+        "skills_panel",
+        "weapon_panel",
+        "battle_calculator",
+    ),
+    "derived_stat": (
+        "load_panel",
+        "core_stats_panel",
+        "damage_panel",
+        "armor_panel",
+        "weapon_panel",
+        "spell_panel",
+        "battle_calculator",
+    ),
+    "resource": (
+        "core_stats_panel",
+        "spell_panel",
+        "lesson_panel",
+    ),
+    "resistance": (
+        "core_stats_panel",
+        "damage_panel",
+    ),
+    "movement": ("core_stats_panel",),
+    "combat": (
+        "armor_panel",
+        "weapon_panel",
+        "battle_calculator",
+    ),
+    "damage": (
+        "weapon_panel",
+        "battle_calculator",
+    ),
+    "weapon_skill": (
+        "weapon_panel",
+        "battle_calculator",
+    ),
+    "weapon_type": (
+        "weapon_panel",
+        "battle_calculator",
+    ),
+    "weapon_category": (
+        "weapon_panel",
+        "battle_calculator",
+    ),
+    "weapon": (
+        "weapon_panel",
+        "battle_calculator",
+    ),
+    "perception": (
+        "skills_panel",
+        "core_stats_panel",
+    ),
+    "economy": ("wallet_panel",),
+    "social": ("fame_panel",),
+    "rule_flag": (
+        "attribute_panel",
+        "skills_panel",
+        "load_panel",
+        "core_stats_panel",
+        "damage_panel",
+        "armor_panel",
+        "weapon_panel",
+        "spell_panel",
+        "lesson_panel",
+        "battle_calculator",
+    ),
+    "capability": (
+        "skills_panel",
+        "spell_panel",
+        "lesson_panel",
+    ),
+    "behavior": (
+        "core_stats_panel",
+        "damage_panel",
+        "armor_panel",
+        "weapon_panel",
+        "spell_panel",
+        "battle_calculator",
+    ),
+    "metadata": ("inventory_panel",),
+    "item": (
+        "inventory_panel",
+        "load_panel",
+    ),
+    "item_category": (
+        "inventory_panel",
+        "load_panel",
+        "armor_panel",
+        "weapon_panel",
+    ),
+    "specialization": (
+        "skills_panel",
+        "lesson_panel",
+    ),
+    "entity": ("card_hand",),
+}
 
 
 def _temporary_attribute_adjustments(request, character_id: int) -> dict[str, int]:
@@ -732,6 +880,29 @@ def _sheet_partials_response(request, character: Character, *partial_keys: str) 
             "openItemTransferCount": context.get("open_item_transfer_count", 0),
         }
     )
+
+
+def _item_semantic_effect_toggle_partial_keys(effects) -> tuple[str, ...]:
+    """Return the narrow sheet fragments whose displayed values can depend on these effects."""
+    selected_keys: list[str] = ["inventory_panel"]
+    selected_set = set(selected_keys)
+
+    for effect in effects:
+        domain = str(getattr(effect, "target_domain", "") or "")
+        try:
+            modifier = effect.to_modifier()
+            domain = str(getattr(modifier, "target_domain", domain) or domain)
+        except Exception:
+            domain = domain or "__fallback__"
+        keys = ITEM_SEMANTIC_EFFECT_PARTIAL_KEYS_BY_DOMAIN.get(
+            domain,
+            ITEM_SEMANTIC_EFFECT_FALLBACK_PARTIAL_KEYS,
+        )
+        for key in keys:
+            if key not in selected_set:
+                selected_set.add(key)
+                selected_keys.append(key)
+    return tuple(selected_keys)
 
 
 def _render_sheet_partials(request, context: dict[str, object], partial_keys) -> list[dict[str, str]]:
@@ -3057,7 +3228,29 @@ def toggle_character_item_semantic_effects(request, pk):
         effect.save(update_fields=["active_flag"])
 
     if _is_partial_request(request):
-        return _sheet_partials_response(request, ci.owner, *SHEET_INVENTORY_PARTIAL_KEYS)
+        partial_keys = _item_semantic_effect_toggle_partial_keys(effects)
+        context = _build_sheet_context_for_request(request, ci.owner, skip_magic_sync=True)
+        return JsonResponse(
+            {
+                "ok": True,
+                "partials": _render_sheet_partials(request, context, partial_keys),
+                "openItemTransferCount": context.get("open_item_transfer_count", 0),
+                "semanticEffectToggles": [
+                    {
+                        "id": int(effect.id),
+                        "sourceType": "character_item",
+                        "baseItemEffectId": dict(effect.metadata or {}).get("base_item_effect_id"),
+                        "active": bool(effect.active_flag),
+                        "displayActive": (
+                            not bool(effect.active_flag)
+                            if bool(effect.toggle_state_inverted)
+                            else bool(effect.active_flag)
+                        ),
+                    }
+                    for effect in effects
+                ],
+            }
+        )
     return redirect("character_sheet", character_id=ci.owner_id)
 
 
