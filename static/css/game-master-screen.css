@@ -775,13 +775,15 @@
   width: 100%;
   min-width: 0;
   grid-template-columns: minmax(0, 1fr);
-  gap: 10px;
+  align-content: start;
+  gap: 12px;
 }
 
 .sl-inventory-send-form__top {
   display: grid;
   min-width: 0;
-  grid-template-columns: minmax(0, 1fr) 92px;
+  width: 100%;
+  grid-template-columns: minmax(0, 1fr) clamp(92px, 18%, 128px);
   align-items: start;
   gap: 8px;
 }
@@ -797,22 +799,49 @@
   min-width: 0;
 }
 
+.sl-inventory-send-form [data-group-character-picker],
+.sl-inventory-send-form [data-group-character-query] {
+  display: block;
+  inline-size: 100%;
+  max-width: none;
+  width: 100%;
+}
+
+.sl-inventory-send-form__top--bulk [data-group-character-picker],
+.sl-inventory-send-form__top--bulk [data-group-character-query] {
+  grid-column: 1 / -1;
+}
+
 .sl-inventory-send-form__message {
   width: 100%;
-  min-height: 132px;
-  max-height: min(240px, 34vh);
+  min-height: clamp(150px, 30vh, 260px);
+  max-height: min(360px, 45vh);
   resize: vertical;
 }
 
 .sl-inventory-send-form__actions {
   display: flex;
   min-width: 0;
-  justify-content: flex-end;
+  justify-content: flex-start;
 }
 
 .sl-inventory-send-form__actions .dashboard_button {
   max-width: 100%;
   white-space: normal;
+}
+
+.sl-item-action-window__body .sl-inventory-send-form {
+  width: 100%;
+  padding-top: 18px;
+}
+
+.sl-item-action-window__body .sl-inventory-send-form__top {
+  grid-template-columns: minmax(0, 1fr) clamp(92px, 18%, 128px);
+}
+
+.sl-item-action-window__body .sl-inventory-send-form__message {
+  display: block;
+  width: 100%;
 }
 
 [data-sl-bulk-send-items] {

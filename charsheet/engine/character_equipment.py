@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from django.db.models import QuerySet
 from django.db.models import Q
 
 from charsheet.constants import (
@@ -28,102 +27,141 @@ from .item_engine import ItemEngine
 LOCAL_WEAPON_DAMAGE_SOURCE_TYPES = {"item", "characteritem", SOURCE_ITEM_RUNE}
 
 
-def equipped_weapon_items(engine) -> QuerySet:
+def _cached_equipment_list(engine, cache_key, queryset_factory):
+    """Evaluate one equipment queryset once per CharacterEngine instance."""
+    cache = engine.__dict__.setdefault("_equipment_cache", {})
+    if cache_key not in cache:
+        cache[cache_key] = list(queryset_factory())
+    return cache[cache_key]
+
+
+def _cached_equipment_value(engine, cache_key, factory):
+    """Cache derived equipment calculations for the current CharacterEngine."""
+    cache = engine.__dict__.setdefault("_equipment_cache", {})
+    if cache_key not in cache:
+        cache[cache_key] = factory()
+    return cache[cache_key]
+
+
+def equipped_weapon_items(engine) -> list[CharacterItem]:
     """Return all currently equipped weapons with required relations loaded."""
-    return (
-        CharacterItem.objects.filter(
-            owner=engine.character,
-            equipped=True,
-        )
-        .filter(
-            Q(item__item_type__in=Item.weapon_item_type_values())
-            | Q(item__item_type=Item.ItemType.SHIELD, item__shieldstats__isnull=False)
-        )
-        .select_related("item", "item__weaponstats", "item__weaponstats__damage_source")
-        .select_related("item__rangedweaponstats")
-        .select_related("item__shieldstats", "item__shieldstats__damage_source")
-        .prefetch_related(
-            "item__runes",
-            "runes",
-            "item_runes__rune",
-            "item__weaponstats__skills",
-            "item__weaponstats__flags",
-            "item__rangedweaponstats__skills",
-            "item__rangedweaponstats__flags",
-            "item__shieldstats__skills",
-        )
-    )
-
-
-def equipped_armor_items(engine) -> QuerySet:
-    """Return all currently equipped armor items of the character."""
-    return (
-        CharacterItem.objects.filter(
-            owner=engine.character,
-            equipped=True,
-        )
-        .filter(Q(item__item_type__in=Item.armor_item_type_values()) | Q(item__armorstats__isnull=False))
-        .select_related("item", "item__armorstats")
-        .prefetch_related("item__runes", "runes", "item_runes__rune")
-    )
-
-
-def equipped_clothing_items(engine) -> QuerySet:
-    """Return all currently equipped clothing items of the character."""
-    return (
-        CharacterItem.objects.filter(
-            owner=engine.character,
-            equipped=True,
-            item__item_type=Item.ItemType.CLOTHING,
-        )
-        .select_related("item")
-        .prefetch_related("item__runes", "runes", "item_runes__rune")
-    )
-
-
-def equipped_magic_item_items(engine) -> QuerySet:
-    """Return all currently equipped magic items of the character."""
-    return (
-        CharacterItem.objects.filter(
-            owner=engine.character,
-            equipped=True,
-        )
-        .filter(
-            Q(item__is_magic=True)
-            | Q(item__item_type__in=Item.magic_item_type_values())
-            | Q(is_magic=True)
-            | Q(item__magicitemstats__isnull=False)
-        )
-        .exclude(
-            item__item_type__in=(
-                Item.ItemType.SHIELD,
-                Item.ItemType.CLOTHING,
-                *Item.armor_item_type_values(),
-                *Item.weapon_item_type_values(),
+    return _cached_equipment_list(
+        engine,
+        "weapon_items",
+        lambda: (
+            CharacterItem.objects.filter(
+                owner=engine.character,
+                equipped=True,
+            )
+            .filter(
+                Q(item__item_type__in=Item.weapon_item_type_values())
+                | Q(item__item_type=Item.ItemType.SHIELD, item__shieldstats__isnull=False)
+            )
+            .select_related("item", "item__weaponstats", "item__weaponstats__damage_source")
+            .select_related("item__weaponstats__weapon_type")
+            .select_related("item__rangedweaponstats")
+            .select_related("item__rangedweaponstats__weapon_type")
+            .select_related("item__shieldstats", "item__shieldstats__damage_source")
+            .select_related("item__shieldstats__weapon_type")
+            .prefetch_related(
+                "item__runes",
+                "runes",
+                "item_runes__rune",
+                "item__weaponstats__skills",
+                "item__weaponstats__flags",
+                "item__rangedweaponstats__skills",
+                "item__rangedweaponstats__flags",
+                "item__shieldstats__skills",
             )
         )
-        .exclude(item__armorstats__isnull=False)
-        .select_related("item", "item__magicitemstats")
-        .prefetch_related("item__runes", "runes", "item_runes__rune")
     )
 
 
-def equipped_shield_items(engine) -> QuerySet:
-    """Return all currently equipped shields of the character."""
-    return (
-        CharacterItem.objects.filter(
-            owner=engine.character,
-            equipped=True,
-            item__item_type=Item.ItemType.SHIELD,
+def equipped_armor_items(engine) -> list[CharacterItem]:
+    """Return all currently equipped armor items of the character."""
+    return _cached_equipment_list(
+        engine,
+        "armor_items",
+        lambda: (
+            CharacterItem.objects.filter(
+                owner=engine.character,
+                equipped=True,
+            )
+            .filter(Q(item__item_type__in=Item.armor_item_type_values()) | Q(item__armorstats__isnull=False))
+            .select_related("item", "item__armorstats")
+            .prefetch_related("item__runes", "runes", "item_runes__rune")
         )
-        .select_related("item", "item__shieldstats")
-        .prefetch_related("item__runes", "runes", "item_runes__rune")
+    )
+
+
+def equipped_clothing_items(engine) -> list[CharacterItem]:
+    """Return all currently equipped clothing items of the character."""
+    return _cached_equipment_list(
+        engine,
+        "clothing_items",
+        lambda: (
+            CharacterItem.objects.filter(
+                owner=engine.character,
+                equipped=True,
+                item__item_type=Item.ItemType.CLOTHING,
+            )
+            .select_related("item")
+            .prefetch_related("item__runes", "runes", "item_runes__rune")
+        )
+    )
+
+
+def equipped_magic_item_items(engine) -> list[CharacterItem]:
+    """Return all currently equipped magic items of the character."""
+    return _cached_equipment_list(
+        engine,
+        "magic_items",
+        lambda: (
+            CharacterItem.objects.filter(
+                owner=engine.character,
+                equipped=True,
+            )
+            .filter(
+                Q(item__is_magic=True)
+                | Q(item__item_type__in=Item.magic_item_type_values())
+                | Q(is_magic=True)
+                | Q(item__magicitemstats__isnull=False)
+            )
+            .exclude(
+                item__item_type__in=(
+                    Item.ItemType.SHIELD,
+                    Item.ItemType.CLOTHING,
+                    *Item.armor_item_type_values(),
+                    *Item.weapon_item_type_values(),
+                )
+            )
+            .exclude(item__armorstats__isnull=False)
+            .select_related("item", "item__magicitemstats")
+            .prefetch_related("item__runes", "runes", "item_runes__rune")
+        )
+    )
+
+
+def equipped_shield_items(engine) -> list[CharacterItem]:
+    """Return all currently equipped shields of the character."""
+    return _cached_equipment_list(
+        engine,
+        "shield_items",
+        lambda: (
+            CharacterItem.objects.filter(
+                owner=engine.character,
+                equipped=True,
+                item__item_type=Item.ItemType.SHIELD,
+            )
+            .select_related("item", "item__shieldstats", "item__shieldstats__weapon_type")
+            .prefetch_related("item__runes", "runes", "item_runes__rune")
+        )
     )
 
 
 def weapon_quality_skill_modifier(engine) -> int:
     """Return the maneuver quality modifier of the first equipped weapon."""
-    weapon = engine.equipped_weapon_items().first()
+    weapon = next(iter(engine.equipped_weapon_items()), None)
     quality_bonus = ItemEngine(weapon).get_weapon_maneuver_quality_bonus() if weapon else 0
     return quality_bonus + engine.resolve_combat_value("melee_maneuvers")
 
@@ -149,133 +187,154 @@ def _character_item_specific_damage_dice_modifier(engine, character_item: Charac
     )
 
 
-def _character_item_target_context(character_item: CharacterItem) -> dict[str, tuple[str, ...]]:
+def _character_item_target_context(engine, character_item: CharacterItem) -> dict[str, tuple[str, ...]]:
     """Return target context for effects bound to this concrete equipped item."""
-    item = character_item.item
-    weapon_ids = (str(item.id), str(character_item.id))
-    weapon_skill_slugs: set[str] = set()
-    weapon_type_slugs: set[str] = set()
-    for stats_name in ("weaponstats", "rangedweaponstats", "shieldstats"):
-        stats = getattr(item, stats_name, None)
-        if not stats:
-            continue
-        weapon_type = getattr(stats, "weapon_type", None)
-        if weapon_type and getattr(weapon_type, "slug", ""):
-            weapon_type_slugs.add(str(weapon_type.slug))
-        skill_manager = getattr(stats, "skills", None)
-        if skill_manager is not None:
-            weapon_skill_slugs.update(str(slug) for slug in skill_manager.all().values_list("slug", flat=True))
-    return {
-        "character_item_id": str(character_item.id),
-        "weapon_ids": weapon_ids,
-        "weapon_types": tuple(sorted(weapon_type_slugs)),
-        "weapon_skill_slugs": tuple(sorted(weapon_skill_slugs)),
-    }
+    cache_key = ("target_context", int(character_item.id))
 
+    def build_context() -> dict[str, tuple[str, ...]]:
+        item = character_item.item
+        weapon_ids = (str(item.id), str(character_item.id))
+        weapon_skill_slugs: set[str] = set()
+        weapon_type_slugs: set[str] = set()
+        for stats_name in ("weaponstats", "rangedweaponstats", "shieldstats"):
+            stats = getattr(item, stats_name, None)
+            if not stats:
+                continue
+            weapon_type = getattr(stats, "weapon_type", None)
+            if weapon_type and getattr(weapon_type, "slug", ""):
+                weapon_type_slugs.add(str(weapon_type.slug))
+            skill_manager = getattr(stats, "skills", None)
+            if skill_manager is not None:
+                weapon_skill_slugs.update(str(skill.slug) for skill in skill_manager.all())
+        return {
+            "character_item_id": str(character_item.id),
+            "weapon_ids": weapon_ids,
+            "weapon_types": tuple(sorted(weapon_type_slugs)),
+            "weapon_skill_slugs": tuple(sorted(weapon_skill_slugs)),
+        }
+
+    return _cached_equipment_value(engine, cache_key, build_context)
 
 def _character_item_specific_semantic_modifier(engine, character_item: CharacterItem, target_key: str) -> int:
     """Return concrete CharacterItem semantic effects for one item-bound combat target."""
-    total = 0
-    target_context = _character_item_target_context(character_item)
-    for modifier in engine.modifier_engine._active_item_semantic_modifiers:
-        source_type = str(modifier.source_type or "")
-        source_id = str(modifier.source_id or "")
-        if source_type == "characteritem":
-            if source_id != str(character_item.id):
-                continue
-        elif source_type == "item":
-            if source_id != str(character_item.item_id):
-                continue
-            modifier_character_item_id = (modifier.metadata or {}).get("character_item_id")
-            if modifier_character_item_id is not None and str(modifier_character_item_id) != str(character_item.id):
-                continue
-        else:
-            continue
-        if not engine.modifier_engine._modifier_matches_race_condition(modifier):
-            continue
-        if modifier.target_domain != TargetDomain.COMBAT:
-            continue
-        modifier_target_key = str(modifier.target_key or "")
-        if modifier_target_key != target_key and not (
-            modifier_target_key == WEAPON_MANEUVER_DAMAGE
-            and target_key in {MELEE_MANEUVERS, WEAPON_DAMAGE}
-        ):
-            continue
-        if not TargetResolver.matches_context(modifier, target_context):
-            continue
-        total += int(engine.modifier_engine._resolve_numeric_modifier(modifier) or 0)
-    return total
+    cache_key = ("semantic_modifier", int(character_item.id), str(target_key))
 
+    def resolve_modifier() -> int:
+        total = 0
+        target_context = _character_item_target_context(engine, character_item)
+        for modifier in engine.modifier_engine._active_item_semantic_modifiers:
+            source_type = str(modifier.source_type or "")
+            source_id = str(modifier.source_id or "")
+            if source_type == "characteritem":
+                if source_id != str(character_item.id):
+                    continue
+            elif source_type == "item":
+                if source_id != str(character_item.item_id):
+                    continue
+                modifier_character_item_id = (modifier.metadata or {}).get("character_item_id")
+                if modifier_character_item_id is not None and str(modifier_character_item_id) != str(character_item.id):
+                    continue
+            else:
+                continue
+            if not engine.modifier_engine._modifier_matches_race_condition(modifier):
+                continue
+            if modifier.target_domain != TargetDomain.COMBAT:
+                continue
+            modifier_target_key = str(modifier.target_key or "")
+            if modifier_target_key != target_key and not (
+                modifier_target_key == WEAPON_MANEUVER_DAMAGE
+                and target_key in {MELEE_MANEUVERS, WEAPON_DAMAGE}
+            ):
+                continue
+            if not TargetResolver.matches_context(modifier, target_context):
+                continue
+            total += int(engine.modifier_engine._resolve_numeric_modifier(modifier) or 0)
+        return total
+
+    return _cached_equipment_value(engine, cache_key, resolve_modifier)
 
 def _character_item_specific_armor_semantic_modifiers(engine, character_item: CharacterItem, target_key: str) -> list:
     """Return item-bound semantic effects that affect this equipped armor or shield item."""
-    modifiers = []
-    for modifier in engine.modifier_engine._active_item_semantic_modifiers:
-        source_type = str(modifier.source_type or "")
-        source_id = str(modifier.source_id or "")
-        if source_type == "characteritem":
-            if source_id != str(character_item.id):
-                continue
-        elif source_type == "item":
-            if source_id != str(character_item.item_id):
-                continue
-            modifier_character_item_id = (modifier.metadata or {}).get("character_item_id")
-            if modifier_character_item_id is not None and str(modifier_character_item_id) != str(character_item.id):
-                continue
-        else:
-            continue
-        if not engine.modifier_engine._modifier_matches_race_condition(modifier):
-            continue
-        if modifier.target_domain != TargetDomain.DERIVED_STAT:
-            continue
-        if str(modifier.target_key or "") != target_key:
-            continue
-        modifiers.append(modifier)
-    return modifiers
+    cache_key = ("armor_semantic_modifiers", int(character_item.id), str(target_key))
 
+    def collect_modifiers() -> list:
+        modifiers = []
+        for modifier in engine.modifier_engine._active_item_semantic_modifiers:
+            source_type = str(modifier.source_type or "")
+            source_id = str(modifier.source_id or "")
+            if source_type == "characteritem":
+                if source_id != str(character_item.id):
+                    continue
+            elif source_type == "item":
+                if source_id != str(character_item.item_id):
+                    continue
+                modifier_character_item_id = (modifier.metadata or {}).get("character_item_id")
+                if modifier_character_item_id is not None and str(modifier_character_item_id) != str(character_item.id):
+                    continue
+            else:
+                continue
+            if not engine.modifier_engine._modifier_matches_race_condition(modifier):
+                continue
+            if modifier.target_domain != TargetDomain.DERIVED_STAT:
+                continue
+            if str(modifier.target_key or "") != target_key:
+                continue
+            modifiers.append(modifier)
+        return modifiers
+
+    return _cached_equipment_value(engine, cache_key, collect_modifiers)
 
 def _character_item_specific_rune_modifier(engine, character_item: CharacterItem, target_key: str) -> int:
     """Return rune modifiers that affect only the item they are socketed into."""
-    total = 0
-    for modifier in _character_item_specific_rune_modifiers(engine, character_item, target_key):
-        total += int(engine.modifier_engine._resolve_numeric_modifier(modifier) or 0)
-    return total
+    cache_key = ("rune_modifier", int(character_item.id), str(target_key))
+    return _cached_equipment_value(
+        engine,
+        cache_key,
+        lambda: sum(
+            int(engine.modifier_engine._resolve_numeric_modifier(modifier) or 0)
+            for modifier in _character_item_specific_rune_modifiers(engine, character_item, target_key)
+        ),
+    )
 
 
 def _character_item_specific_rune_modifiers(engine, character_item: CharacterItem, target_key: str) -> list:
     """Return rune modifier rows that affect only the item they are socketed into."""
-    equipped_item_rune_ids = {
-        int(item_rune.id)
-        for item_rune in engine._equipped_item_runes
-        if int(item_rune.item_id) == int(character_item.id)
-    }
-    if not equipped_item_rune_ids:
-        return []
+    cache_key = ("rune_modifiers", int(character_item.id), str(target_key))
 
-    modifiers = []
-    target_context = _character_item_target_context(character_item)
-    for modifier in engine.modifier_engine._active_item_rune_modifiers:
-        if modifier.source_type != SOURCE_ITEM_RUNE:
-            continue
-        if not engine.modifier_engine._modifier_matches_race_condition(modifier):
-            continue
-        modifier_target_key = str(modifier.target_key or "")
-        if modifier_target_key != target_key and not (
-            modifier_target_key == WEAPON_MANEUVER_DAMAGE
-            and target_key in {MELEE_MANEUVERS, WEAPON_DAMAGE}
-        ):
-            continue
-        if not TargetResolver.matches_context(modifier, target_context):
-            continue
-        try:
-            source_id = int(modifier.source_id)
-        except (TypeError, ValueError):
-            continue
-        if source_id not in equipped_item_rune_ids:
-            continue
-        modifiers.append(modifier)
-    return modifiers
+    def collect_modifiers() -> list:
+        equipped_item_rune_ids = {
+            int(item_rune.id)
+            for item_rune in engine._equipped_item_runes
+            if int(item_rune.item_id) == int(character_item.id)
+        }
+        if not equipped_item_rune_ids:
+            return []
 
+        modifiers = []
+        target_context = _character_item_target_context(engine, character_item)
+        for modifier in engine.modifier_engine._active_item_rune_modifiers:
+            if modifier.source_type != SOURCE_ITEM_RUNE:
+                continue
+            if not engine.modifier_engine._modifier_matches_race_condition(modifier):
+                continue
+            modifier_target_key = str(modifier.target_key or "")
+            if modifier_target_key != target_key and not (
+                modifier_target_key == WEAPON_MANEUVER_DAMAGE
+                and target_key in {MELEE_MANEUVERS, WEAPON_DAMAGE}
+            ):
+                continue
+            if not TargetResolver.matches_context(modifier, target_context):
+                continue
+            try:
+                source_id = int(modifier.source_id)
+            except (TypeError, ValueError):
+                continue
+            if source_id not in equipped_item_rune_ids:
+                continue
+            modifiers.append(modifier)
+        return modifiers
+
+    return _cached_equipment_value(engine, cache_key, collect_modifiers)
 
 def _resolve_item_bound_numeric_modifiers(engine, base_value: int, modifiers: list) -> int:
     """Apply local item/rune numeric operators to an item base value."""
@@ -365,12 +424,16 @@ def _effective_shield_encumbrance(engine, character_item: CharacterItem) -> int:
 
 def equipped_weapon_rows(engine) -> list[dict]:
     """Return character-sheet-ready weapon rows with one prepared row per display profile."""
+    return _cached_equipment_value(engine, "weapon_rows", lambda: _build_equipped_weapon_rows(engine))
+
+
+def _build_equipped_weapon_rows(engine) -> list[dict]:
     rows: list[dict] = []
     bel_malus = engine.load_penalty()
     strength = int(engine.attributes().get(ATTR_ST, 0) or 0)
     for character_item in engine.equipped_weapon_items():
         item_engine = ItemEngine(character_item)
-        weapon_context = _character_item_target_context(character_item)
+        weapon_context = _character_item_target_context(engine, character_item)
         maneuver_modifier = _global_weapon_context_combat_modifier(engine, MELEE_MANEUVERS, weapon_context)
         mastery_maneuver_bonus, mastery_damage_bonus = engine.weapon_mastery_bonus_for_item(character_item)
         item_specific_maneuver_modifier = _character_item_specific_maneuver_modifier(engine, character_item)
@@ -494,6 +557,10 @@ def equipped_weapon_rows(engine) -> list[dict]:
 
 def equipped_armor_rows(engine) -> list[dict]:
     """Return equipped armor rows resolved through ItemEngine."""
+    return _cached_equipment_value(engine, "armor_rows", lambda: _build_equipped_armor_rows(engine))
+
+
+def _build_equipped_armor_rows(engine) -> list[dict]:
     rows: list[dict] = []
     for character_item in engine.equipped_armor_items():
         item_engine = ItemEngine(character_item)
@@ -517,6 +584,10 @@ def equipped_armor_rows(engine) -> list[dict]:
 
 def equipped_shield_rows(engine) -> list[dict]:
     """Return equipped shield rows resolved through ItemEngine."""
+    return _cached_equipment_value(engine, "shield_rows", lambda: _build_equipped_shield_rows(engine))
+
+
+def _build_equipped_shield_rows(engine) -> list[dict]:
     rows: list[dict] = []
     for character_item in engine.equipped_shield_items():
         item_engine = ItemEngine(character_item)
@@ -539,7 +610,7 @@ def equipped_shield_rows(engine) -> list[dict]:
 
 def armor_zone_protection(engine) -> dict[str, int]:
     """Return zone protection including armor, shields, quality, and item-rune bonuses."""
-    return _armor_zone_protection(engine, for_grs=False)
+    return _cached_equipment_value(engine, "armor_zone_protection", lambda: _armor_zone_protection(engine, for_grs=False))
 
 
 def _armor_zone_protection(engine, *, for_grs: bool = False) -> dict[str, int]:
@@ -612,14 +683,22 @@ def _armor_zone_protection(engine, *, for_grs: bool = False) -> dict[str, int]:
 
 def shield_protection(engine) -> int:
     """Return summed protection from equipped shields."""
-    return sum(
-        int(ItemEngine(character_item).get_effective_shield_rs() or 0)
-        for character_item in engine.equipped_shield_items()
+    return _cached_equipment_value(
+        engine,
+        "shield_protection",
+        lambda: sum(
+            int(ItemEngine(character_item).get_effective_shield_rs() or 0)
+            for character_item in engine.equipped_shield_items()
+        ),
     )
 
 
 def equipped_clothing_rows(engine) -> list[dict]:
     """Return equipped clothing rows for the armor panel without combat stats."""
+    return _cached_equipment_value(engine, "clothing_rows", lambda: _build_equipped_clothing_rows(engine))
+
+
+def _build_equipped_clothing_rows(engine) -> list[dict]:
     rows: list[dict] = []
     for character_item in engine.equipped_clothing_items():
         item_engine = ItemEngine(character_item)
@@ -637,6 +716,10 @@ def equipped_clothing_rows(engine) -> list[dict]:
 
 def equipped_magic_item_rows(engine) -> list[dict]:
     """Return equipped magic item rows for the armor panel without combat stats."""
+    return _cached_equipment_value(engine, "magic_item_rows", lambda: _build_equipped_magic_item_rows(engine))
+
+
+def _build_equipped_magic_item_rows(engine) -> list[dict]:
     rows: list[dict] = []
     for character_item in engine.equipped_magic_item_items():
         item_engine = ItemEngine(character_item)
@@ -655,7 +738,15 @@ def equipped_magic_item_rows(engine) -> list[dict]:
 
 def get_grs(engine) -> int:
     """Calculate GRS from the six main hit zones, rounding only once."""
-    zone_totals = _armor_zone_protection(engine, for_grs=True)
+    return _cached_equipment_value(engine, "grs", lambda: _calculate_grs(engine))
+
+
+def _calculate_grs(engine) -> int:
+    zone_totals = _cached_equipment_value(
+        engine,
+        "armor_zone_protection_grs",
+        lambda: _armor_zone_protection(engine, for_grs=True),
+    )
     main_zone_sum = sum(
         int(zone_totals[zone])
         for zone in ("head", "torso", "arm_left", "arm_right", "leg_left", "leg_right")
@@ -670,6 +761,10 @@ def get_grs(engine) -> int:
 
 def get_bel(engine) -> int:
     """Calculate the armor encumbrance value."""
+    return _cached_equipment_value(engine, "bel", lambda: _calculate_bel(engine))
+
+
+def _calculate_bel(engine) -> int:
     if engine.resolve_flags().get(ARMOR_PENALTY_IGNORE, False):
         return 0
     armor_bel = 0
@@ -701,6 +796,10 @@ def _semantic_rs_modifier(engine) -> int:
 
 def get_ms(engine) -> int:
     """Return armor minimum strength using set MS or the loose-parts formula."""
+    return _cached_equipment_value(engine, "ms", lambda: _calculate_ms(engine))
+
+
+def _calculate_ms(engine) -> int:
     complete_armor_minimums = []
     for character_item in engine.equipped_armor_items():
         item_engine = ItemEngine(character_item)
