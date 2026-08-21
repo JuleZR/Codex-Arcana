@@ -36,33 +36,6 @@ function parseTableRow(line) {
   return cells;
 }
 
-async function refreshSemanticEffectPartials(refreshPayload) {
-  const url = String(refreshPayload?.url || "").trim();
-  if (!url) {
-    return;
-  }
-  const formData = new FormData();
-  formData.set("source_type", String(refreshPayload?.sourceType || ""));
-  formData.set("effect_ids", String(refreshPayload?.effectIds || ""));
-  const response = await fetch(url, {
-    method: "POST",
-    body: formData,
-    headers: {
-      "X-CSRFToken": getCsrfToken(),
-      "X-Requested-With": "XMLHttpRequest",
-      Accept: "application/json",
-    },
-    credentials: "same-origin",
-  });
-  if (!response.ok) {
-    return;
-  }
-  const payload = await response.json();
-  if (payload?.ok) {
-    applySheetPartials(payload);
-  }
-}
-
 function isTableDividerRow(row) {
   return row.length > 0 && row.every((cell) => /^:?-{2,}:?$/.test(cell));
 }
@@ -1101,9 +1074,6 @@ export function initTooltips() {
         activeCardTarget = nextTarget;
         saveCardState(nextTarget);
       }
-      if (payload?.semanticEffectRefresh) {
-        refreshSemanticEffectPartials(payload.semanticEffectRefresh).catch(() => {});
-      }
     } catch (_error) {
       button.disabled = false;
     }
@@ -1134,7 +1104,11 @@ export function initTooltips() {
     if (!(target instanceof HTMLElement)) {
       return "";
     }
-    const explicitId = String(target.getAttribute("data-tooltip-persist-id") || "").trim();
+    const explicitId = String(
+      target.getAttribute("data-tooltip-persist-id")
+      || target.getAttribute("data-tooltip-card-key")
+      || "",
+    ).trim();
     if (explicitId) {
       return explicitId;
     }

@@ -117,6 +117,8 @@ from .sheet_context import (
     _divine_entity_card_kind_label,
     build_character_sheet_context,
     build_creature_card_training_context,
+    build_inventory_partial_context,
+    build_item_semantic_effect_partial_context,
     build_temporary_attribute_context,
 )
 from .shop import (
@@ -880,6 +882,47 @@ def _sheet_partials_response(request, character: Character, *partial_keys: str) 
             "openItemTransferCount": context.get("open_item_transfer_count", 0),
         }
     )
+
+
+def _inventory_panel_response(request, character: Character) -> JsonResponse:
+    """Render only the inventory panel after local inventory-list mutations."""
+    context = build_inventory_partial_context(character)
+    context["request"] = request
+    open_item_transfer_count = ItemTransfer.objects.filter(
+        recipient=character,
+        status=ItemTransfer.Status.PENDING,
+    ).count()
+    return JsonResponse(
+        {
+            "ok": True,
+            "partials": _render_sheet_partials(request, context, ("inventory_panel",)),
+            "openItemTransferCount": open_item_transfer_count,
+        }
+    )
+
+
+def _build_item_semantic_effect_partial_context_for_request(
+    request,
+    character: Character,
+    partial_keys,
+) -> dict[str, object]:
+    """Build a narrow request-aware context for item semantic-effect refreshes."""
+    magic_engine = character.get_magic_engine(refresh=True)
+    magic_engine.normalize_current_arcane_power(persist=True)
+    runtime_attribute_adjustments = _temporary_attribute_adjustments(request, character.pk)
+    character.get_engine(
+        refresh=True,
+        runtime_attribute_adjustments=runtime_attribute_adjustments,
+    )
+    context = build_item_semantic_effect_partial_context(character, partial_keys)
+    context["request"] = request
+    context["temporary_attribute_adjustments"] = runtime_attribute_adjustments
+    context["temporary_attribute_update_url"] = reverse("update_temporary_attribute", args=[character.pk])
+    context["open_item_transfer_count"] = ItemTransfer.objects.filter(
+        recipient=character,
+        status=ItemTransfer.Status.PENDING,
+    ).count()
+    return context
 
 
 def _item_semantic_effect_toggle_partial_keys(effects) -> tuple[str, ...]:
@@ -3294,14 +3337,12 @@ def toggle_character_item_semantic_effects(request, pk):
         effect.save(update_fields=["active_flag"])
 
     if _is_partial_request(request):
+        partial_keys = _item_semantic_effect_toggle_partial_keys(effects)
+        context = _build_item_semantic_effect_partial_context_for_request(request, ci.owner, partial_keys)
         payload = {
             "ok": True,
-            "partials": [],
-            "semanticEffectRefresh": {
-                "url": reverse("character_item_semantic_effect_partials", args=[ci.pk]),
-                "sourceType": source_type,
-                "effectIds": ",".join(str(value) for value in effect_ids),
-            },
+            "partials": _render_sheet_partials(request, context, partial_keys),
+            "openItemTransferCount": context.get("open_item_transfer_count", 0),
             "semanticEffectToggles": [
                 {
                     "id": int(effect.id),
@@ -3317,11 +3358,6 @@ def toggle_character_item_semantic_effects(request, pk):
                 for effect in effects
             ],
         }
-        if str(request.POST.get("partials") or "").lower() in {"1", "true", "on", "yes"}:
-            partial_keys = _item_semantic_effect_toggle_partial_keys(effects)
-            context = _build_sheet_context_for_request(request, ci.owner, skip_magic_sync=True)
-            payload["partials"] = _render_sheet_partials(request, context, partial_keys)
-            payload["openItemTransferCount"] = context.get("open_item_transfer_count", 0)
         return JsonResponse(payload)
     return redirect("character_sheet", character_id=ci.owner_id)
 
@@ -3355,7 +3391,7 @@ def character_item_semantic_effect_partials(request, pk):
         return JsonResponse({"ok": False, "error": "effect_not_toggleable"}, status=404)
 
     partial_keys = _item_semantic_effect_toggle_partial_keys(effects)
-    context = _build_sheet_context_for_request(request, ci.owner, skip_magic_sync=True)
+    context = _build_item_semantic_effect_partial_context_for_request(request, ci.owner, partial_keys)
     return JsonResponse(
         {
             "ok": True,
@@ -3439,6 +3475,7 @@ def consume_item(request, pk):
     ci = CharacterItem.objects.select_for_update(of=("self",)).select_related("item", "owner", "original_owner_character").get(pk=ci.pk)
 
     owner_id = ci.owner_id
+    was_equipped = bool(ci.equipped)
     if item_is_pending(ci):
         return _transfer_response_error(request, TransferError("item_pending", "Unterwegs befindliche Items können nicht verbraucht werden.", status=409), character_id=owner_id)
     if not ci.item.stackable or ci.item.item_type != Item.ItemType.CONSUM:
@@ -3454,6 +3491,8 @@ def consume_item(request, pk):
         ci.delete()
     if _is_partial_request(request):
         character = _owned_character_or_404(request, owner_id)
+        if not was_equipped:
+            return _inventory_panel_response(request, character)
         return _sheet_partials_response(
             request,
             character,
@@ -3472,6 +3511,7 @@ def remove_item(request, pk):
     ci = CharacterItem.objects.select_for_update(of=("self",)).select_related("item", "owner", "original_owner_character").get(pk=ci.pk)
 
     owner_id = ci.owner_id
+    was_equipped = bool(ci.equipped)
     if item_is_pending(ci):
         return _transfer_response_error(request, TransferError("item_pending", "Unterwegs befindliche Items können nicht entfernt werden.", status=409), character_id=owner_id)
     if not has_item_permission(ci, ItemPermissionGrant.Permission.DESTROY):
@@ -3488,6 +3528,8 @@ def remove_item(request, pk):
         ci.delete()
     if _is_partial_request(request):
         character = _owned_character_or_404(request, owner_id)
+        if not was_equipped:
+            return _inventory_panel_response(request, character)
         return _sheet_partials_response(
             request,
             character,

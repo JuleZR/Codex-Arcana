@@ -18,7 +18,7 @@ from charsheet.constants import (
     WEAPON_MANEUVER_ATTRIBUTE_NONE,
     WEAPON_MANEUVER_DAMAGE,
 )
-from charsheet.modifiers.definitions import TargetDomain
+from charsheet.modifiers.definitions import ModifierOperator, StackBehavior, TargetDomain
 from charsheet.modifiers.targets import TargetResolver
 from charsheet.models import CharacterItem, Item
 
@@ -207,9 +207,9 @@ def _character_item_specific_semantic_modifier(engine, character_item: Character
     return total
 
 
-def _character_item_specific_armor_semantic_modifier(engine, character_item: CharacterItem, target_key: str) -> int:
-    """Return item-bound semantic effects that affect this equipped armor item."""
-    total = 0
+def _character_item_specific_armor_semantic_modifiers(engine, character_item: CharacterItem, target_key: str) -> list:
+    """Return item-bound semantic effects that affect this equipped armor or shield item."""
+    modifiers = []
     for modifier in engine.modifier_engine._active_item_semantic_modifiers:
         source_type = str(modifier.source_type or "")
         source_id = str(modifier.source_id or "")
@@ -230,21 +230,29 @@ def _character_item_specific_armor_semantic_modifier(engine, character_item: Cha
             continue
         if str(modifier.target_key or "") != target_key:
             continue
-        total += int(engine.modifier_engine._resolve_numeric_modifier(modifier) or 0)
-    return total
+        modifiers.append(modifier)
+    return modifiers
 
 
 def _character_item_specific_rune_modifier(engine, character_item: CharacterItem, target_key: str) -> int:
     """Return rune modifiers that affect only the item they are socketed into."""
+    total = 0
+    for modifier in _character_item_specific_rune_modifiers(engine, character_item, target_key):
+        total += int(engine.modifier_engine._resolve_numeric_modifier(modifier) or 0)
+    return total
+
+
+def _character_item_specific_rune_modifiers(engine, character_item: CharacterItem, target_key: str) -> list:
+    """Return rune modifier rows that affect only the item they are socketed into."""
     equipped_item_rune_ids = {
         int(item_rune.id)
         for item_rune in engine._equipped_item_runes
         if int(item_rune.item_id) == int(character_item.id)
     }
     if not equipped_item_rune_ids:
-        return 0
+        return []
 
-    total = 0
+    modifiers = []
     target_context = _character_item_target_context(character_item)
     for modifier in engine.modifier_engine._active_item_rune_modifiers:
         if modifier.source_type != SOURCE_ITEM_RUNE:
@@ -265,8 +273,39 @@ def _character_item_specific_rune_modifier(engine, character_item: CharacterItem
             continue
         if source_id not in equipped_item_rune_ids:
             continue
-        total += int(engine.modifier_engine._resolve_numeric_modifier(modifier) or 0)
-    return total
+        modifiers.append(modifier)
+    return modifiers
+
+
+def _resolve_item_bound_numeric_modifiers(engine, base_value: int, modifiers: list) -> int:
+    """Apply local item/rune numeric operators to an item base value."""
+    resolved_total = int(base_value or 0)
+    seen_unique_sources: set[tuple[str, str, str, str]] = set()
+    for modifier in sorted(modifiers, key=lambda entry: (entry.priority, entry.source_type, entry.source_id)):
+        if modifier.stack_behavior == StackBehavior.UNIQUE_BY_SOURCE:
+            dedupe_key = (modifier.source_type, modifier.source_id, modifier.target_domain, modifier.target_key)
+            if dedupe_key in seen_unique_sources:
+                continue
+            seen_unique_sources.add(dedupe_key)
+
+        resolved_value = engine.modifier_engine._resolve_numeric_modifier(modifier)
+        if resolved_value is None:
+            continue
+
+        if modifier.operator == ModifierOperator.OVERRIDE:
+            resolved_total = int(resolved_value)
+        elif modifier.operator == ModifierOperator.MULTIPLY:
+            resolved_total = int(resolved_total * resolved_value)
+        elif modifier.operator == ModifierOperator.FLOOR_DIVIDE:
+            if resolved_value:
+                resolved_total = int(resolved_total // resolved_value)
+        elif modifier.operator == ModifierOperator.MIN_VALUE:
+            resolved_total = max(resolved_total, int(resolved_value))
+        elif modifier.operator == ModifierOperator.MAX_VALUE:
+            resolved_total = min(resolved_total, int(resolved_value))
+        else:
+            resolved_total += int(resolved_value)
+    return int(resolved_total)
 
 
 def _global_weapon_context_combat_modifier(engine, target_key: str, context: dict[str, tuple[str, ...]]) -> int:
@@ -290,9 +329,14 @@ def _global_weapon_context_combat_modifier(engine, target_key: str, context: dic
 def _effective_armor_encumbrance(engine, character_item: CharacterItem) -> int:
     return max(
         0,
-        int(ItemEngine(character_item).get_armor_encumbrance() or 0)
-        + _character_item_specific_armor_semantic_modifier(engine, character_item, ARMOR_ENCUMBRANCE)
-        + _character_item_specific_rune_modifier(engine, character_item, ARMOR_ENCUMBRANCE),
+        _resolve_item_bound_numeric_modifiers(
+            engine,
+            int(ItemEngine(character_item).get_armor_encumbrance() or 0),
+            [
+                *_character_item_specific_armor_semantic_modifiers(engine, character_item, ARMOR_ENCUMBRANCE),
+                *_character_item_specific_rune_modifiers(engine, character_item, ARMOR_ENCUMBRANCE),
+            ],
+        ),
     )
 
 
@@ -308,8 +352,14 @@ def _effective_armor_rs(engine, character_item: CharacterItem) -> int:
 def _effective_shield_encumbrance(engine, character_item: CharacterItem) -> int:
     return max(
         0,
-        int(ItemEngine(character_item).get_shield_encumbrance() or 0)
-        + _character_item_specific_rune_modifier(engine, character_item, SHIELD_ENCUMBRANCE),
+        _resolve_item_bound_numeric_modifiers(
+            engine,
+            int(ItemEngine(character_item).get_shield_encumbrance() or 0),
+            [
+                *_character_item_specific_armor_semantic_modifiers(engine, character_item, SHIELD_ENCUMBRANCE),
+                *_character_item_specific_rune_modifiers(engine, character_item, SHIELD_ENCUMBRANCE),
+            ],
+        ),
     )
 
 
