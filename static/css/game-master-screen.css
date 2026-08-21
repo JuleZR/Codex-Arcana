@@ -772,13 +772,47 @@
 
 .sl-inventory-send-form {
   display: grid;
-  grid-template-columns: minmax(220px, 1fr) 90px minmax(180px, 1fr) auto;
+  width: 100%;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+}
+
+.sl-inventory-send-form__top {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr) 92px;
   align-items: start;
   gap: 8px;
 }
 
-.sl-inventory-send-form--bulk {
-  grid-template-columns: minmax(220px, 1fr) minmax(180px, 1fr) auto;
+.sl-inventory-send-form__top--bulk {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.sl-inventory-send-form__top > *,
+.sl-inventory-send-form__top .dashboard_input,
+.sl-inventory-send-form__message {
+  box-sizing: border-box;
+  min-width: 0;
+}
+
+.sl-inventory-send-form__message {
+  width: 100%;
+  min-height: 132px;
+  max-height: min(240px, 34vh);
+  resize: vertical;
+}
+
+.sl-inventory-send-form__actions {
+  display: flex;
+  min-width: 0;
+  justify-content: flex-end;
+}
+
+.sl-inventory-send-form__actions .dashboard_button {
+  max-width: 100%;
+  white-space: normal;
 }
 
 [data-sl-bulk-send-items] {

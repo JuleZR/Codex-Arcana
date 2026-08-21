@@ -194,14 +194,16 @@
                 <td colspan="5">
                   <form class="sl-inventory-send-form" method="post" action="{% url 'send_group_inventory_item' group_row.group.id instance.id %}">
                     {% csrf_token %}<input type="hidden" name="_sl_screen" value="1">
+                    <div class="sl-inventory-send-form__top">
                     <div data-group-character-picker data-search-url="{% url 'group_character_search' group_row.group.id %}" data-search-mode="recipient">
                       <input type="hidden" name="recipient_id" data-group-character-id>
                       <input class="dashboard_input" type="search" data-group-character-query autocomplete="off" minlength="2" required placeholder="Empfängername">
                       <div class="dashboard_group_character_results" data-group-character-results role="listbox"></div>
                     </div>
                     <input class="dashboard_input" name="quantity" type="number" min="1" max="{{ instance.amount }}" value="1" aria-label="Menge">
-                    <input class="dashboard_input" name="message" maxlength="1000" placeholder="Nachricht">
-                    <button class="dashboard_button dashboard_button--primary">Senden</button>
+                    </div>
+                    <textarea class="dashboard_input sl-inventory-send-form__message" name="message" maxlength="1000" rows="5" placeholder="Optionale Nachricht"></textarea>
+                    <div class="sl-inventory-send-form__actions"><button class="dashboard_button dashboard_button--primary">Senden</button></div>
                   </form>
                 </td>
               </tr>
@@ -216,13 +218,15 @@
         <form class="sl-inventory-send-form sl-inventory-send-form--bulk" method="post" action="{% url 'send_group_inventory_items' group_row.group.id %}">
           {% csrf_token %}<input type="hidden" name="_sl_screen" value="1">
           <div data-sl-bulk-send-items></div>
+          <div class="sl-inventory-send-form__top sl-inventory-send-form__top--bulk">
           <div data-group-character-picker data-search-url="{% url 'group_character_search' group_row.group.id %}" data-search-mode="recipient">
             <input type="hidden" name="recipient_id" data-group-character-id>
             <input class="dashboard_input" type="search" data-group-character-query autocomplete="off" minlength="2" required placeholder="Empfängername">
             <div class="dashboard_group_character_results" data-group-character-results role="listbox"></div>
           </div>
-          <input class="dashboard_input" name="message" maxlength="1000" placeholder="Nachricht">
-          <button class="dashboard_button dashboard_button--primary">Auswahl senden</button>
+          </div>
+          <textarea class="dashboard_input sl-inventory-send-form__message" name="message" maxlength="1000" rows="5" placeholder="Optionale Nachricht"></textarea>
+          <div class="sl-inventory-send-form__actions"><button class="dashboard_button dashboard_button--primary">Auswahl senden</button></div>
         </form>
       </div>
     {% endif %}
