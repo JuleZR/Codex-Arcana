@@ -237,6 +237,8 @@ def _build_magic_modifier_payload(target_kind: str, raw_value, row_data) -> dict
         payload["active_flag"] = False
     if str(row_data.get("toggleable") or "").lower() in {"1", "true", "on", "yes"}:
         payload["toggleable"] = True
+    if str(row_data.get("toggle_state_inverted") or "").lower() in {"1", "true", "on", "yes"}:
+        payload["toggle_state_inverted"] = True
     scale_source = str(row_data.get("scale_source") or "").strip()
     if scale_source == "item_invested_cp":
         try:
@@ -385,6 +387,7 @@ def _read_magic_modifier_payloads(post_data) -> list[dict[str, object]]:
                             "target_specialization": None,
                             **({"active_flag": bool(payload.get("active_flag", True))} if "active_flag" in payload else {}),
                             **({"toggleable": bool(payload.get("toggleable", False))} if "toggleable" in payload else {}),
+                            **({"toggle_state_inverted": bool(payload.get("toggle_state_inverted", False))} if "toggle_state_inverted" in payload else {}),
                             **({"rules_text": rules_text} if rules_text else {}),
                         },
                         {
@@ -400,6 +403,7 @@ def _read_magic_modifier_payloads(post_data) -> list[dict[str, object]]:
                             "target_specialization": None,
                             **({"active_flag": bool(payload.get("active_flag", True))} if "active_flag" in payload else {}),
                             **({"toggleable": bool(payload.get("toggleable", False))} if "toggleable" in payload else {}),
+                            **({"toggle_state_inverted": bool(payload.get("toggle_state_inverted", False))} if "toggle_state_inverted" in payload else {}),
                             **({"rules_text": rules_text} if rules_text else {}),
                         },
                     ]
@@ -479,6 +483,7 @@ def _magic_payload_to_semantic_effect_kwargs(payload: dict[str, object]) -> dict
             "rules_text": rules_text,
             "active_flag": bool(payload.get("active_flag", True)),
             "toggleable": bool(payload.get("toggleable", False)),
+            "toggle_state_inverted": bool(payload.get("toggle_state_inverted", False)),
             "metadata": {
                 "ui_target_kind": TEXT_TARGET_KIND,
                 "legacy_target_kind": TEXT_TARGET_KIND,
@@ -548,6 +553,7 @@ def _magic_payload_to_semantic_effect_kwargs(payload: dict[str, object]) -> dict
         "rules_text": rules_text,
         "active_flag": bool(payload.get("active_flag", True)),
         "toggleable": bool(payload.get("toggleable", False)),
+        "toggle_state_inverted": bool(payload.get("toggle_state_inverted", False)),
         "metadata": {key: value for key, value in metadata.items() if value not in (None, "")},
     }
 

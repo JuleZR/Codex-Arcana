@@ -1519,6 +1519,7 @@ def _serialize_item_semantic_effect_payload(
             "scale_divisor": "",
             "active_flag": bool(effect.active_flag),
             "toggleable": bool(getattr(effect, "toggleable", False)),
+            "toggle_state_inverted": bool(getattr(effect, "toggle_state_inverted", False)),
             "semantic_effect_source": "character_item" if isinstance(effect, CharacterItemSemanticEffect) else "item",
             "semantic_effect_ids": [int(effect.pk)] if effect.pk else [],
             "race_condition_matches": race_condition_matches,
@@ -1551,6 +1552,7 @@ def _serialize_item_semantic_effect_payload(
         "scale_divisor": int(effect.scale_divisor or 0) if effect.scale_divisor else "",
         "active_flag": bool(effect.active_flag),
         "toggleable": bool(getattr(effect, "toggleable", False)),
+        "toggle_state_inverted": bool(getattr(effect, "toggle_state_inverted", False)),
         "semantic_effect_source": "character_item" if isinstance(effect, CharacterItemSemanticEffect) else "item",
         "semantic_effect_ids": [int(effect.pk)] if effect.pk else [],
         "race_condition_matches": race_condition_matches,
@@ -1754,6 +1756,7 @@ def _collapse_weapon_mastery_bonus_payloads(modifier_payloads: list[dict[str, ob
         payload_scale_divisor = payload.get("scale_divisor") or ""
         payload_active_flag = bool(payload.get("active_flag", True))
         payload_toggleable = bool(payload.get("toggleable", False))
+        payload_toggle_state_inverted = bool(payload.get("toggle_state_inverted", False))
         payload_inactive_due_to_race = bool(payload.get("inactive_due_to_race", False))
         matching_index = None
         for candidate_index in range(index + 1, len(modifier_payloads)):
@@ -1779,6 +1782,8 @@ def _collapse_weapon_mastery_bonus_payloads(modifier_payloads: list[dict[str, ob
             if bool(candidate.get("active_flag", True)) != payload_active_flag:
                 continue
             if bool(candidate.get("toggleable", False)) != payload_toggleable:
+                continue
+            if bool(candidate.get("toggle_state_inverted", False)) != payload_toggle_state_inverted:
                 continue
             if bool(candidate.get("inactive_due_to_race", False)) != payload_inactive_due_to_race:
                 continue
@@ -1811,6 +1816,7 @@ def _collapse_weapon_mastery_bonus_payloads(modifier_payloads: list[dict[str, ob
                 "scale_divisor": payload_scale_divisor,
                 "active_flag": payload_active_flag,
                 "toggleable": payload_toggleable,
+                "toggle_state_inverted": payload_toggle_state_inverted,
                 "inactive_due_to_race": payload_inactive_due_to_race,
                 "semantic_effect_source": str(payload.get("semantic_effect_source") or ""),
                 "semantic_effect_ids": [
@@ -1909,8 +1915,10 @@ def _build_character_item_magic_tooltip_rows(*, effect_summary: str, modifier_pa
         if not character_item_id or source not in {"item", "character_item"} or not ids:
             return ""
         url = reverse("toggle_character_item_semantic_effects", args=[int(character_item_id)])
-        active = "1" if bool(entry.get("active_flag", True)) else "0"
-        return f"[[EFFECTTOGGLE:{url};{source};{ids};{active}]] "
+        active = bool(entry.get("active_flag", True))
+        inverted = bool(entry.get("toggle_state_inverted", False))
+        display_active = inverted != active
+        return f"[[EFFECTTOGGLE:{url};{source};{ids};{'1' if display_active else '0'};{'1' if inverted else '0'}]] "
 
     def display_line_for(entry: dict[str, object], line: str) -> str:
         if entry.get("inactive_due_to_race"):
@@ -1998,6 +2006,9 @@ def _build_character_item_magic_tooltip_rows(*, effect_summary: str, modifier_pa
             " ".join(rules_text.replace("@", str(invested_cp)).lower().split()),
             " ".join(effect_description.lower().split()),
             "inactive_due_to_race" if payload.get("inactive_due_to_race") else "active_for_race",
+            "toggleable" if payload.get("toggleable") else "fixed",
+            "toggle_inverted" if payload.get("toggle_state_inverted") else "toggle_normal",
+            "active_flag" if payload.get("active_flag", True) else "inactive_flag",
         )
         if key not in numeric_effects:
             numeric_effects[key] = {
@@ -2009,6 +2020,7 @@ def _build_character_item_magic_tooltip_rows(*, effect_summary: str, modifier_pa
                 "value": 0,
                 "active_flag": bool(payload.get("active_flag", True)),
                 "toggleable": bool(payload.get("toggleable", False)),
+                "toggle_state_inverted": bool(payload.get("toggle_state_inverted", False)),
                 "semantic_effect_source": str(payload.get("semantic_effect_source") or ""),
                 "semantic_effect_ids": list(payload.get("semantic_effect_ids") or []),
                 "character_item_id": payload.get("character_item_id"),

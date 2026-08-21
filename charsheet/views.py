@@ -2980,6 +2980,7 @@ ITEM_SEMANTIC_EFFECT_COPY_FIELDS = (
     "condition_set",
     "active_flag",
     "toggleable",
+    "toggle_state_inverted",
     "priority",
     "notes",
     "rules_text",

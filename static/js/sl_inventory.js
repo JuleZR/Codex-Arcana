@@ -188,6 +188,7 @@ document.addEventListener("DOMContentLoaded", () => {
           rules_text: row.querySelector("[data-effect-rules-text]")?.value?.trim() || "",
           active_flag: row.dataset.effectActiveFlag !== "0",
           toggleable: Boolean(row.querySelector("[data-effect-toggleable]")?.checked),
+          toggle_state_inverted: Boolean(row.querySelector("[data-effect-toggle-inverted]")?.checked),
         };
         const scaleSource = row.querySelector("[data-effect-scale-source]")?.value || "";
         if (!["text", "rule_flag"].includes(targetKind) && scaleSource) {
@@ -353,6 +354,7 @@ document.addEventListener("DOMContentLoaded", () => {
           rules_text: row.querySelector("[data-effect-rules-text]")?.value?.trim() || "",
           active_flag: row.dataset.effectActiveFlag !== "0",
           toggleable: Boolean(row.querySelector("[data-effect-toggleable]")?.checked),
+          toggle_state_inverted: Boolean(row.querySelector("[data-effect-toggle-inverted]")?.checked),
         };
         const scaleSource = row.querySelector("[data-effect-scale-source]")?.value || "";
         if (!["text", "rule_flag"].includes(kind) && scaleSource) {
@@ -415,12 +417,14 @@ document.addEventListener("DOMContentLoaded", () => {
       const description = row.querySelector("[data-effect-description]");
       const rulesText = row.querySelector("[data-effect-rules-text]");
       const toggleable = row.querySelector("[data-effect-toggleable]");
+      const toggleInverted = row.querySelector("[data-effect-toggle-inverted]");
       row.dataset.effectActiveFlag = payload.active_flag === false ? "0" : "1";
       if (kind && payload.target_kind) kind.value = payload.target_kind;
       if (value) value.value = String(payload.value ?? 0);
       if (description) description.value = payload.effect_description || "";
       if (rulesText) rulesText.value = payload.rules_text || "";
       if (toggleable) toggleable.checked = Boolean(payload.toggleable);
+      if (toggleInverted) toggleInverted.checked = Boolean(payload.toggle_state_inverted);
       const scaleSource = row.querySelector("[data-effect-scale-source]");
       const scaleDivisor = row.querySelector("[data-effect-scale-divisor]");
       if (scaleSource) scaleSource.value = payload.scale_source || "";

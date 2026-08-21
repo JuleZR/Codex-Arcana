@@ -565,6 +565,7 @@ class ItemSemanticEffectFields(models.Model):
     )
     active_flag = models.BooleanField(default=True)
     toggleable = models.BooleanField(default=False)
+    toggle_state_inverted = models.BooleanField(default=False)
     priority = models.IntegerField(default=0)
     notes = models.TextField(blank=True, default="")
     rules_text = models.TextField(blank=True, default="")

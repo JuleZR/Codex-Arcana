@@ -622,6 +622,7 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
         rules_text: String(row.querySelector("[data-magic-rules-text]")?.value || "").trim(),
         active_flag: row.dataset.magicActiveFlag !== "0",
         toggleable: Boolean(row.querySelector("[data-magic-toggleable]")?.checked),
+        toggle_state_inverted: Boolean(row.querySelector("[data-magic-toggle-inverted]")?.checked),
       };
       const scaleSource = String(row.querySelector("[data-magic-scale-source]")?.value || "").trim();
       if (!isTextOnly && !isRuleFlag && scaleSource) {
@@ -765,6 +766,7 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
       const descriptionInput = row.querySelector("[data-magic-effect-description]");
       const rulesTextInput = row.querySelector("[data-magic-rules-text]");
       const toggleableInput = row.querySelector("[data-magic-toggleable]");
+      const toggleInvertedInput = row.querySelector("[data-magic-toggle-inverted]");
       row.dataset.magicActiveFlag = initialPayload.active_flag === false ? "0" : "1";
       if (targetKindSelect instanceof HTMLSelectElement) {
         targetKindSelect.value = String(initialPayload.target_kind || "");
@@ -783,6 +785,9 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
       }
       if (toggleableInput instanceof HTMLInputElement) {
         toggleableInput.checked = Boolean(initialPayload.toggleable);
+      }
+      if (toggleInvertedInput instanceof HTMLInputElement) {
+        toggleInvertedInput.checked = Boolean(initialPayload.toggle_state_inverted);
       }
       const scaleSource = row.querySelector("[data-magic-scale-source]");
       const scaleDivisor = row.querySelector("[data-magic-scale-divisor]");
@@ -814,6 +819,7 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
     row.querySelector("[data-magic-effect-description]")?.addEventListener("input", serializeMagicEffects);
     row.querySelector("[data-magic-rules-text]")?.addEventListener("input", serializeMagicEffects);
     row.querySelector("[data-magic-toggleable]")?.addEventListener("change", serializeMagicEffects);
+    row.querySelector("[data-magic-toggle-inverted]")?.addEventListener("change", serializeMagicEffects);
     row.querySelector("[data-magic-scale-source]")?.addEventListener("change", () => {
       syncMagicEffectRow(row);
       serializeMagicEffects();

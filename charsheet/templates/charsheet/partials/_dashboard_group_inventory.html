@@ -130,6 +130,7 @@
                           <label class="sl-editor-field"><span>Beschreibung</span><input type="text" maxlength="255" placeholder="Was bewirkt der Effekt?" data-effect-description></label>
                           <label class="sl-editor-field"><span>Regeltext</span><input type="text" maxlength="255" placeholder="z. B. |Passiv| gegen Gift" data-effect-rules-text></label>
                           <label class="sl-editor-field sl-editor-field--check"><span>Itemkarte</span><input type="checkbox" value="1" data-effect-toggleable> <em>umschaltbar</em></label>
+                          <label class="sl-editor-field sl-editor-field--check"><span>Itemkarte</span><input type="checkbox" value="1" data-effect-toggle-inverted> <em>invertiert</em></label>
                           <label class="sl-editor-field" data-effect-target="attribute" hidden><span>Attribut</span><select>{% for value,label in group_inventory_effect_attributes %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></label>
                           <label class="sl-editor-field" data-effect-target="stat" hidden><span>Wert</span><select>{% for value,label in group_inventory_effect_stats %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></label>
                           <label class="sl-editor-field" data-effect-target="rule_flag" hidden><span>Regel</span><select>{% for value,label in group_inventory_effect_rules %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></label>
@@ -434,6 +435,7 @@
                       <label class="sl-editor-field"><span>Beschreibung</span><input type="text" maxlength="255" placeholder="Was bewirkt der Effekt?" data-effect-description></label>
                       <label class="sl-editor-field"><span>Regeltext</span><input type="text" maxlength="255" placeholder="z. B. |Passiv| gegen Gift" data-effect-rules-text></label>
                       <label class="sl-editor-field sl-editor-field--check"><span>Itemkarte</span><input type="checkbox" value="1" data-effect-toggleable> <em>umschaltbar</em></label>
+                      <label class="sl-editor-field sl-editor-field--check"><span>Itemkarte</span><input type="checkbox" value="1" data-effect-toggle-inverted> <em>invertiert</em></label>
                       <label class="sl-editor-field" data-effect-target="attribute" hidden><span>Attribut</span><select>{% for value,label in group_inventory_effect_attributes %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></label>
                       <label class="sl-editor-field" data-effect-target="stat" hidden><span>Wert</span><select>{% for value,label in group_inventory_effect_stats %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></label>
                       <label class="sl-editor-field" data-effect-target="rule_flag" hidden><span>Regel</span><select>{% for value,label in group_inventory_effect_rules %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></label>

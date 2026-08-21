@@ -207,6 +207,7 @@ export function initItemForm() {
         rules_text: rulesText,
         active_flag: row.dataset.magicActiveFlag !== "0",
         toggleable: Boolean(row.querySelector("[data-magic-toggleable]")?.checked),
+        toggle_state_inverted: Boolean(row.querySelector("[data-magic-toggle-inverted]")?.checked),
       };
       const attributeSelect = row.querySelector("[data-magic-target-select='attribute']");
       const statSelect = row.querySelector("[data-magic-target-select='stat']");

@@ -225,14 +225,15 @@ function normalizeUnicodeFraction(value) {
 function renderInlineMarkdown(text) {
   let html = escapeHtml(String(text || ""));
   html = html.replace(
-    /\[\[EFFECTTOGGLE:([^;\]]+);([^;\]]+);([0-9,]+);([01])\]\]/g,
-    (_match, url, source, ids, active) => {
+    /\[\[EFFECTTOGGLE:([^;\]]+);([^;\]]+);([0-9,]+);([01])(?:;([01]))?\]\]/g,
+    (_match, url, source, ids, active, inverted = "0") => {
       const isActive = active === "1";
       const label = isActive ? "Effekt deaktivieren" : "Effekt aktivieren";
       return (
         `<button type="button" class="tooltip_effect_toggle${isActive ? " is-active" : ""}" `
         + `data-item-effect-toggle data-effect-toggle-url="${escapeHtml(url)}" `
         + `data-effect-source="${escapeHtml(source)}" data-effect-ids="${escapeHtml(ids)}" `
+        + `data-effect-toggle-inverted="${inverted === "1" ? "1" : "0"}" `
         + `data-effect-active="${isActive ? "1" : "0"}" aria-pressed="${isActive ? "true" : "false"}" `
         + `aria-label="${label}" title="${label}"><span aria-hidden="true"></span></button>`
       );
@@ -1023,11 +1024,15 @@ export function initTooltips() {
     const targetSignature = activeCardTarget instanceof HTMLElement
       ? buildCardTargetSignature(activeCardTarget)
       : "";
-    const nextActive = button.dataset.effectActive === "1" ? "0" : "1";
+    const currentDisplayActive = button.dataset.effectActive === "1";
+    const nextUnderlyingActive = button.dataset.effectToggleInverted === "1"
+      ? currentDisplayActive
+      : !currentDisplayActive;
+    const nextDisplayActive = !currentDisplayActive;
     const formData = new FormData();
     formData.set("source_type", String(button.dataset.effectSource || ""));
     formData.set("effect_ids", String(button.dataset.effectIds || ""));
-    formData.set("active", nextActive);
+    formData.set("active", nextUnderlyingActive ? "1" : "0");
     try {
       const response = await fetch(String(button.dataset.effectToggleUrl || ""), {
         method: "POST",
@@ -1049,10 +1054,10 @@ export function initTooltips() {
       applySheetPartials(payload);
       tooltip.classList.remove("is-visible");
       activeTarget = null;
-      button.dataset.effectActive = nextActive;
-      button.classList.toggle("is-active", nextActive === "1");
-      button.setAttribute("aria-pressed", nextActive === "1" ? "true" : "false");
-      const label = nextActive === "1" ? "Effekt deaktivieren" : "Effekt aktivieren";
+      button.dataset.effectActive = nextDisplayActive ? "1" : "0";
+      button.classList.toggle("is-active", nextDisplayActive);
+      button.setAttribute("aria-pressed", nextDisplayActive ? "true" : "false");
+      const label = nextDisplayActive ? "Effekt deaktivieren" : "Effekt aktivieren";
       button.setAttribute("aria-label", label);
       button.setAttribute("title", label);
       button.disabled = false;
