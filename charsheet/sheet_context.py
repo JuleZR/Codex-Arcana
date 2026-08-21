@@ -2038,6 +2038,13 @@ def _build_character_item_magic_tooltip_rows(*, effect_summary: str, modifier_pa
             unique_values.append(text)
         return unique_values
 
+    def entry_duplicate_signature(entry: dict[str, object]) -> tuple[str, str]:
+        effect = " ".join(_single_line(str(entry.get("group_effect") or "")).lower().split())
+        suffix = " ".join(_single_line(str(entry.get("group_suffix") or "")).lower().split())
+        if not effect:
+            return "", ""
+        return effect, suffix
+
     def grouped_line_for(group_entries: list[dict[str, object]], main_entry: dict[str, object]) -> str:
         titles = _unique_text([entry.get("group_title") for entry in group_entries])
         effects = _unique_text([entry.get("group_effect") for entry in group_entries])
@@ -2064,12 +2071,16 @@ def _build_character_item_magic_tooltip_rows(*, effect_summary: str, modifier_pa
         grouped_entries: OrderedDict[object, list[dict[str, object]]] = OrderedDict()
         consumed_indexes: set[int] = set()
         rendered_groups: set[object] = set()
+        grouped_signatures: set[tuple[str, str]] = set()
         for index, entry in enumerate(display_entries):
             payload = dict(entry.get("payload") or {})
             group = payload.get("display_group")
             if group in (None, ""):
                 continue
             grouped_entries.setdefault(group, []).append({"index": index, **entry})
+            signature = entry_duplicate_signature(entry)
+            if signature != ("", ""):
+                grouped_signatures.add(signature)
 
         for index, entry in enumerate(display_entries):
             if index in consumed_indexes:
@@ -2077,6 +2088,9 @@ def _build_character_item_magic_tooltip_rows(*, effect_summary: str, modifier_pa
             payload = dict(entry.get("payload") or {})
             group = payload.get("display_group")
             if group in (None, ""):
+                signature = entry_duplicate_signature(entry)
+                if signature in grouped_signatures:
+                    continue
                 lines.append(f"{toggle_marker_for(payload)}{entry['line']}")
                 continue
             if group in rendered_groups:
@@ -2122,6 +2136,8 @@ def _build_character_item_magic_tooltip_rows(*, effect_summary: str, modifier_pa
             invested_cp = entry.get("invested_cp", "")
             value_display, value_only_display = numeric_value_display(entry, value)
             group_title, group_suffix = _magic_pipe_parts(rules_text, invested_cp=invested_cp)
+            if not group_title and not group_suffix:
+                group_suffix = _single_line(rules_text)
             rule_line = _format_magic_rule_effect_line(
                 rules_text,
                 value_display,
@@ -2169,6 +2185,8 @@ def _build_character_item_magic_tooltip_rows(*, effect_summary: str, modifier_pa
             effect_description = _single_line(str(payload.get("effect_description") or ""))
             rules_text = _single_line(str(payload.get("rules_text") or ""))
             group_title, group_suffix = _magic_pipe_parts(rules_text, invested_cp=payload.get("invested_cp", ""))
+            if not group_title and not group_suffix:
+                group_suffix = _single_line(rules_text)
             rule_line = _format_magic_rule_effect_line(
                 rules_text,
                 value_display,
