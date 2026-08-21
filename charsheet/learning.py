@@ -1126,6 +1126,8 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
             candidate_entity = unique_divine_entity_for_school(school_id)
             if candidate_entity is None:
                 entity_count = divine_entity_count_for_school(school_id)
+                if entity_count > 1 and is_cult_school(school):
+                    continue
                 if entity_count > 1:
                     return "error", (
                         f"{school.name}: Mehrere goettliche Wesen nutzen diese klerikale Schule. "
