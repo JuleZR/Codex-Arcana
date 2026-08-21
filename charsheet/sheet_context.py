@@ -1968,6 +1968,7 @@ def _build_character_item_magic_tooltip_rows(*, effect_summary: str, modifier_pa
         group_title: str = "",
         group_effect: str = "",
         group_suffix: str = "",
+        group_condition: str = "",
     ) -> None:
         display_entries.append(
             {
@@ -1976,6 +1977,7 @@ def _build_character_item_magic_tooltip_rows(*, effect_summary: str, modifier_pa
                 "group_title": group_title,
                 "group_effect": group_effect,
                 "group_suffix": group_suffix,
+                "group_condition": group_condition,
             }
         )
 
@@ -2038,17 +2040,30 @@ def _build_character_item_magic_tooltip_rows(*, effect_summary: str, modifier_pa
             unique_values.append(text)
         return unique_values
 
-    def entry_duplicate_signature(entry: dict[str, object]) -> tuple[str, str]:
+    def _append_unique_tail(line: str, extra: str) -> str:
+        normalized_line = " ".join(_single_line(line).lower().split())
+        normalized_extra = " ".join(_single_line(extra).lower().split())
+        if not normalized_extra or normalized_extra in normalized_line:
+            return line
+        return f"{line} - {extra}"
+
+    def entry_duplicate_signature(entry: dict[str, object]) -> tuple[str, str, str]:
         effect = " ".join(_single_line(str(entry.get("group_effect") or "")).lower().split())
         suffix = " ".join(_single_line(str(entry.get("group_suffix") or "")).lower().split())
+        condition = " ".join(_single_line(str(entry.get("group_condition") or "")).lower().split())
         if not effect:
-            return "", ""
-        return effect, suffix
+            return "", "", ""
+        return effect, suffix, condition
 
     def grouped_line_for(group_entries: list[dict[str, object]], main_entry: dict[str, object]) -> str:
         titles = _unique_text([entry.get("group_title") for entry in group_entries])
         effects = _unique_text([entry.get("group_effect") for entry in group_entries])
-        suffixes = _unique_text([entry.get("group_suffix") for entry in group_entries])
+        suffixes = _unique_text(
+            [
+                *[entry.get("group_suffix") for entry in group_entries],
+                *[entry.get("group_condition") for entry in group_entries],
+            ]
+        )
         if titles or effects or suffixes:
             sections: list[str] = []
             sections.extend(f"**{title}**" for title in titles)
@@ -2071,7 +2086,7 @@ def _build_character_item_magic_tooltip_rows(*, effect_summary: str, modifier_pa
         grouped_entries: OrderedDict[object, list[dict[str, object]]] = OrderedDict()
         consumed_indexes: set[int] = set()
         rendered_groups: set[object] = set()
-        grouped_signatures: set[tuple[str, str]] = set()
+        grouped_signatures: set[tuple[str, str, str]] = set()
         for index, entry in enumerate(display_entries):
             payload = dict(entry.get("payload") or {})
             group = payload.get("display_group")
@@ -2079,7 +2094,7 @@ def _build_character_item_magic_tooltip_rows(*, effect_summary: str, modifier_pa
                 continue
             grouped_entries.setdefault(group, []).append({"index": index, **entry})
             signature = entry_duplicate_signature(entry)
-            if signature != ("", ""):
+            if signature != ("", "", ""):
                 grouped_signatures.add(signature)
 
         for index, entry in enumerate(display_entries):
@@ -2138,6 +2153,7 @@ def _build_character_item_magic_tooltip_rows(*, effect_summary: str, modifier_pa
             group_title, group_suffix = _magic_pipe_parts(rules_text, invested_cp=invested_cp)
             if not group_title and not group_suffix:
                 group_suffix = _single_line(rules_text)
+            group_condition = _single_line(effect_description)
             rule_line = _format_magic_rule_effect_line(
                 rules_text,
                 value_display,
@@ -2145,16 +2161,18 @@ def _build_character_item_magic_tooltip_rows(*, effect_summary: str, modifier_pa
                 invested_cp=invested_cp,
             )
             if rule_line:
+                rule_line = _append_unique_tail(rule_line, group_condition)
                 add_display_entry(
                     entry,
                     rule_line,
                     group_title=group_title,
                     group_effect=value_display,
                     group_suffix=group_suffix,
+                    group_condition=group_condition,
                 )
             elif effect_description:
                 line = f"{effect_description} - {value_display}"
-                add_display_entry(entry, line, group_effect=line)
+                add_display_entry(entry, line, group_effect=line, group_condition=group_condition)
             else:
                 add_display_entry(entry, value_display, group_effect=value_display)
 
@@ -2187,6 +2205,7 @@ def _build_character_item_magic_tooltip_rows(*, effect_summary: str, modifier_pa
             group_title, group_suffix = _magic_pipe_parts(rules_text, invested_cp=payload.get("invested_cp", ""))
             if not group_title and not group_suffix:
                 group_suffix = _single_line(rules_text)
+            group_condition = _single_line(effect_description)
             rule_line = _format_magic_rule_effect_line(
                 rules_text,
                 value_display,
@@ -2194,16 +2213,18 @@ def _build_character_item_magic_tooltip_rows(*, effect_summary: str, modifier_pa
                 invested_cp=payload.get("invested_cp", ""),
             )
             if rule_line:
+                rule_line = _append_unique_tail(rule_line, group_condition)
                 add_display_entry(
                     payload,
                     rule_line,
                     group_title=group_title,
                     group_effect=value_display,
                     group_suffix=group_suffix,
+                    group_condition=group_condition,
                 )
             elif effect_description:
                 line = f"{effect_description} - {value_display}"
-                add_display_entry(payload, line, group_effect=line)
+                add_display_entry(payload, line, group_effect=line, group_condition=group_condition)
             else:
                 add_display_entry(payload, value_display, group_effect=value_display)
             continue
