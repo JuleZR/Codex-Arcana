@@ -544,12 +544,16 @@ function renderTooltipMarkup(rawText) {
         if (bodyRows.length) {
           tableHtml += "<tbody>";
           bodyRows.forEach((row) => {
-            const rowClass = isEffectTableRow(row)
-              ? "tooltip_effect_row"
-              : isRuneTableRow(row)
-                ? "tooltip_rune_comment_row"
-                : "";
-            tableHtml += rowClass ? `<tr class="${rowClass}">` : "<tr>";
+            const rowClasses = [];
+            if (isEffectTableRow(row)) {
+              rowClasses.push("tooltip_effect_row");
+            } else if (isRuneTableRow(row)) {
+              rowClasses.push("tooltip_rune_comment_row");
+            }
+            if (row.some((cell) => String(cell || "").includes("[[INACTIVERACE:"))) {
+              rowClasses.push("has-inactive-race-effect");
+            }
+            tableHtml += rowClasses.length ? `<tr class="${rowClasses.join(" ")}">` : "<tr>";
             row.forEach((cell) => {
               tableHtml += `<td>${renderInlineMarkdown(cell)}</td>`;
             });
@@ -638,6 +642,10 @@ function createTooltipCardTableMarkup(table, rows, { includeHead = true } = {}) 
 function normalizeTooltipSectionRows(rows, sectionLabel) {
   return rows.map((row, index) => {
     const clone = row.cloneNode(true);
+    const hasInactiveRaceEffect = Boolean(clone.querySelector(".tooltip_effect_inactive_race"));
+    if (hasInactiveRaceEffect) {
+      clone.classList.add("has-inactive-race-effect");
+    }
     const firstCell = clone.cells[0];
     const firstCellText = normalizeInlineText(firstCell?.textContent || "");
     const toggle = clone.querySelector("[data-item-effect-toggle]");
