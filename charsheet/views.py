@@ -3152,6 +3152,8 @@ ITEM_SEMANTIC_EFFECT_COPY_FIELDS = (
     "active_flag",
     "toggleable",
     "toggle_state_inverted",
+    "display_group",
+    "display_group_append",
     "priority",
     "notes",
     "rules_text",
@@ -3161,18 +3163,30 @@ ITEM_SEMANTIC_EFFECT_COPY_FIELDS = (
 )
 
 
-def _ensure_character_item_effect_copies(character_item: CharacterItem) -> dict[int, CharacterItemSemanticEffect]:
-    """Create per-instance copies for base item effects so toggles never mutate master data."""
+def _ensure_character_item_effect_copies(
+    character_item: CharacterItem,
+    *,
+    base_effect_ids: set[int] | None = None,
+) -> dict[int, CharacterItemSemanticEffect]:
+    """Create requested per-instance copies for base item effects so toggles never mutate master data."""
     existing_by_base_id: dict[int, CharacterItemSemanticEffect] = {}
-    for effect in CharacterItemSemanticEffect.objects.select_for_update().filter(character_item=character_item):
+    existing_query = CharacterItemSemanticEffect.objects.select_for_update().filter(character_item=character_item)
+    if base_effect_ids is not None:
+        existing_query = existing_query.filter(metadata__base_item_effect_id__in=list(base_effect_ids))
+    for effect in existing_query:
         base_id = dict(effect.metadata or {}).get("base_item_effect_id")
         try:
             base_id = int(base_id)
         except (TypeError, ValueError):
             continue
+        if base_effect_ids is not None and base_id not in base_effect_ids:
+            continue
         existing_by_base_id[base_id] = effect
 
-    for base_effect in ItemSemanticEffect.objects.filter(item=character_item.item).order_by("sort_order", "id"):
+    base_effect_query = ItemSemanticEffect.objects.filter(item=character_item.item)
+    if base_effect_ids is not None:
+        base_effect_query = base_effect_query.filter(id__in=list(base_effect_ids))
+    for base_effect in base_effect_query.order_by("sort_order", "id"):
         if int(base_effect.id) in existing_by_base_id:
             continue
         values = {field_name: getattr(base_effect, field_name) for field_name in ITEM_SEMANTIC_EFFECT_COPY_FIELDS}
@@ -3184,6 +3198,63 @@ def _ensure_character_item_effect_copies(character_item: CharacterItem) -> dict[
         effect.condition_races.set(base_effect.condition_races.all())
         existing_by_base_id[int(base_effect.id)] = effect
     return existing_by_base_id
+
+
+def _character_item_effects_for_request(
+    character_item: CharacterItem,
+    *,
+    source_type: str,
+    effect_ids: list[int],
+    create_item_copies: bool = False,
+    lock_effects: bool = False,
+) -> list[CharacterItemSemanticEffect | ItemSemanticEffect]:
+    """Return the concrete effects addressed by an item-card effect request."""
+    if source_type == "item":
+        requested_base_effect_ids = set(effect_ids)
+        if create_item_copies:
+            copies_by_base_id = _ensure_character_item_effect_copies(
+                character_item,
+                base_effect_ids=requested_base_effect_ids,
+            )
+            return [
+                effect
+                for base_id, effect in copies_by_base_id.items()
+                if base_id in requested_base_effect_ids and effect.toggleable
+            ]
+        instance_query = CharacterItemSemanticEffect.objects
+        if lock_effects:
+            instance_query = instance_query.select_for_update()
+        instance_effects = list(
+            instance_query
+            .filter(
+                character_item=character_item,
+                metadata__base_item_effect_id__in=list(requested_base_effect_ids),
+                toggleable=True,
+            )
+            .order_by("sort_order", "id")
+        )
+        found_base_ids = {
+            int(dict(effect.metadata or {}).get("base_item_effect_id"))
+            for effect in instance_effects
+            if str(dict(effect.metadata or {}).get("base_item_effect_id") or "").isdigit()
+        }
+        missing_base_ids = requested_base_effect_ids - found_base_ids
+        if not missing_base_ids:
+            return instance_effects
+        base_effects = list(
+            ItemSemanticEffect.objects
+            .filter(item=character_item.item, id__in=list(missing_base_ids), toggleable=True)
+            .order_by("sort_order", "id")
+        )
+        return [*instance_effects, *base_effects]
+    effect_query = CharacterItemSemanticEffect.objects
+    if lock_effects:
+        effect_query = effect_query.select_for_update()
+    return list(
+        effect_query
+        .filter(character_item=character_item, id__in=effect_ids, toggleable=True)
+        .order_by("sort_order", "id")
+    )
 
 
 @login_required
@@ -3208,18 +3279,13 @@ def toggle_character_item_semantic_effects(request, pk):
     if source_type not in {"item", "character_item"} or not effect_ids:
         return JsonResponse({"ok": False, "error": "invalid_effect"}, status=400)
 
-    if source_type == "item":
-        copies_by_base_id = _ensure_character_item_effect_copies(ci)
-        effects = [
-            effect
-            for base_id, effect in copies_by_base_id.items()
-            if base_id in effect_ids and effect.toggleable
-        ]
-    else:
-        effects = list(
-            CharacterItemSemanticEffect.objects.select_for_update()
-            .filter(character_item=ci, id__in=effect_ids, toggleable=True)
-        )
+    effects = _character_item_effects_for_request(
+        ci,
+        source_type=source_type,
+        effect_ids=effect_ids,
+        create_item_copies=source_type == "item",
+        lock_effects=True,
+    )
     if not effects:
         return JsonResponse({"ok": False, "error": "effect_not_toggleable"}, status=404)
 
@@ -3228,30 +3294,75 @@ def toggle_character_item_semantic_effects(request, pk):
         effect.save(update_fields=["active_flag"])
 
     if _is_partial_request(request):
-        partial_keys = _item_semantic_effect_toggle_partial_keys(effects)
-        context = _build_sheet_context_for_request(request, ci.owner, skip_magic_sync=True)
-        return JsonResponse(
-            {
-                "ok": True,
-                "partials": _render_sheet_partials(request, context, partial_keys),
-                "openItemTransferCount": context.get("open_item_transfer_count", 0),
-                "semanticEffectToggles": [
-                    {
-                        "id": int(effect.id),
-                        "sourceType": "character_item",
-                        "baseItemEffectId": dict(effect.metadata or {}).get("base_item_effect_id"),
-                        "active": bool(effect.active_flag),
-                        "displayActive": (
-                            not bool(effect.active_flag)
-                            if bool(effect.toggle_state_inverted)
-                            else bool(effect.active_flag)
-                        ),
-                    }
-                    for effect in effects
-                ],
-            }
-        )
+        payload = {
+            "ok": True,
+            "partials": [],
+            "semanticEffectRefresh": {
+                "url": reverse("character_item_semantic_effect_partials", args=[ci.pk]),
+                "sourceType": source_type,
+                "effectIds": ",".join(str(value) for value in effect_ids),
+            },
+            "semanticEffectToggles": [
+                {
+                    "id": int(effect.id),
+                    "sourceType": "character_item",
+                    "baseItemEffectId": dict(effect.metadata or {}).get("base_item_effect_id"),
+                    "active": bool(effect.active_flag),
+                    "displayActive": (
+                        not bool(effect.active_flag)
+                        if bool(effect.toggle_state_inverted)
+                        else bool(effect.active_flag)
+                    ),
+                }
+                for effect in effects
+            ],
+        }
+        if str(request.POST.get("partials") or "").lower() in {"1", "true", "on", "yes"}:
+            partial_keys = _item_semantic_effect_toggle_partial_keys(effects)
+            context = _build_sheet_context_for_request(request, ci.owner, skip_magic_sync=True)
+            payload["partials"] = _render_sheet_partials(request, context, partial_keys)
+            payload["openItemTransferCount"] = context.get("open_item_transfer_count", 0)
+        return JsonResponse(payload)
     return redirect("character_sheet", character_id=ci.owner_id)
+
+
+@login_required
+@require_POST
+def character_item_semantic_effect_partials(request, pk):
+    """Render the sheet fragments affected by one or more item-card semantic effects."""
+    ci = _owned_character_item_or_404(request, pk)
+    ci = (
+        CharacterItem.objects
+        .select_related("item", "owner", "original_owner_character")
+        .get(pk=ci.pk)
+    )
+    source_type = str(request.POST.get("source_type") or "").strip()
+    raw_ids = str(request.POST.get("effect_ids") or "")
+    effect_ids = [
+        int(value)
+        for value in raw_ids.split(",")
+        if value.strip().isdigit()
+    ]
+    if source_type not in {"item", "character_item"} or not effect_ids:
+        return JsonResponse({"ok": False, "error": "invalid_effect"}, status=400)
+
+    effects = _character_item_effects_for_request(
+        ci,
+        source_type=source_type,
+        effect_ids=effect_ids,
+    )
+    if not effects:
+        return JsonResponse({"ok": False, "error": "effect_not_toggleable"}, status=404)
+
+    partial_keys = _item_semantic_effect_toggle_partial_keys(effects)
+    context = _build_sheet_context_for_request(request, ci.owner, skip_magic_sync=True)
+    return JsonResponse(
+        {
+            "ok": True,
+            "partials": _render_sheet_partials(request, context, partial_keys),
+            "openItemTransferCount": context.get("open_item_transfer_count", 0),
+        }
+    )
 
 
 @login_required

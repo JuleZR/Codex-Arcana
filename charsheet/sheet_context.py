@@ -1520,6 +1520,8 @@ def _serialize_item_semantic_effect_payload(
             "active_flag": bool(effect.active_flag),
             "toggleable": bool(getattr(effect, "toggleable", False)),
             "toggle_state_inverted": bool(getattr(effect, "toggle_state_inverted", False)),
+            "display_group": int(effect.display_group) if effect.display_group is not None else None,
+            "display_group_append": bool(getattr(effect, "display_group_append", False)),
             "semantic_effect_source": "character_item" if isinstance(effect, CharacterItemSemanticEffect) else "item",
             "semantic_effect_ids": [int(effect.pk)] if effect.pk else [],
             "race_condition_matches": race_condition_matches,
@@ -1553,6 +1555,8 @@ def _serialize_item_semantic_effect_payload(
         "active_flag": bool(effect.active_flag),
         "toggleable": bool(getattr(effect, "toggleable", False)),
         "toggle_state_inverted": bool(getattr(effect, "toggle_state_inverted", False)),
+        "display_group": int(effect.display_group) if effect.display_group is not None else None,
+        "display_group_append": bool(getattr(effect, "display_group_append", False)),
         "semantic_effect_source": "character_item" if isinstance(effect, CharacterItemSemanticEffect) else "item",
         "semantic_effect_ids": [int(effect.pk)] if effect.pk else [],
         "race_condition_matches": race_condition_matches,
@@ -1818,6 +1822,8 @@ def _collapse_weapon_mastery_bonus_payloads(modifier_payloads: list[dict[str, ob
                 "toggleable": payload_toggleable,
                 "toggle_state_inverted": payload_toggle_state_inverted,
                 "inactive_due_to_race": payload_inactive_due_to_race,
+                "display_group": payload.get("display_group"),
+                "display_group_append": bool(payload.get("display_group_append", False)),
                 "semantic_effect_source": str(payload.get("semantic_effect_source") or ""),
                 "semantic_effect_ids": [
                     int(value)
@@ -1896,7 +1902,7 @@ def _format_magic_text_effect_line(rules_text: str, *, invested_cp: object = "")
 
 def _build_character_item_magic_tooltip_rows(*, effect_summary: str, modifier_payloads: list[dict[str, object]]) -> list[tuple[str, object]]:
     """Return tooltip rows for magic effects stored on one owned item."""
-    effect_lines: list[str] = []
+    display_entries: list[dict[str, object]] = []
     numeric_effects: OrderedDict[tuple[str, str, str, str, str], dict[str, object]] = OrderedDict()
     summary_line, merged_payloads = _merge_magic_effect_payloads(
         effect_summary=effect_summary,
@@ -1904,7 +1910,7 @@ def _build_character_item_magic_tooltip_rows(*, effect_summary: str, modifier_pa
     )
     summary_line = _single_line(summary_line)
     if summary_line:
-        effect_lines.append(summary_line)
+        display_entries.append({"line": summary_line, "payload": {}})
 
     def toggle_marker_for(entry: dict[str, object]) -> str:
         if not entry.get("toggleable"):
@@ -1924,6 +1930,89 @@ def _build_character_item_magic_tooltip_rows(*, effect_summary: str, modifier_pa
         if entry.get("inactive_due_to_race"):
             return f"[[INACTIVERACE:{line}]]"
         return line
+
+    def add_display_entry(entry: dict[str, object], line: str) -> None:
+        display_entries.append(
+            {
+                "line": display_line_for(entry, line),
+                "payload": dict(entry),
+            }
+        )
+
+    def grouped_toggle_payload(entry: dict[str, object], associated_entries: list[dict[str, object]]) -> dict[str, object]:
+        payload = dict(entry.get("payload") or {})
+        if not payload.get("toggleable"):
+            return payload
+        source = str(payload.get("semantic_effect_source") or "")
+        ids: list[int] = []
+        for candidate in [entry, *associated_entries]:
+            candidate_payload = dict(candidate.get("payload") or {})
+            if not candidate_payload.get("toggleable"):
+                continue
+            if str(candidate_payload.get("semantic_effect_source") or "") != source:
+                continue
+            for raw_id in candidate_payload.get("semantic_effect_ids") or []:
+                if str(raw_id).isdigit() and int(raw_id) not in ids:
+                    ids.append(int(raw_id))
+        if ids:
+            payload["semantic_effect_ids"] = ids
+        return payload
+
+    def grouped_effect_lines() -> list[str]:
+        lines: list[str] = []
+        grouped_entries: OrderedDict[object, list[dict[str, object]]] = OrderedDict()
+        consumed_indexes: set[int] = set()
+        for index, entry in enumerate(display_entries):
+            payload = dict(entry.get("payload") or {})
+            group = payload.get("display_group")
+            if group in (None, ""):
+                continue
+            grouped_entries.setdefault(group, []).append({"index": index, **entry})
+
+        for index, entry in enumerate(display_entries):
+            if index in consumed_indexes:
+                continue
+            payload = dict(entry.get("payload") or {})
+            group = payload.get("display_group")
+            if group in (None, ""):
+                lines.append(f"{toggle_marker_for(payload)}{entry['line']}")
+                continue
+            group_entries = grouped_entries.get(group, [])
+            main_entries = [
+                candidate
+                for candidate in group_entries
+                if not dict(candidate.get("payload") or {}).get("display_group_append")
+            ]
+            if len(main_entries) != 1:
+                lines.append(f"{toggle_marker_for(payload)}{entry['line']}")
+                consumed_indexes.add(index)
+                continue
+            main_entry = main_entries[0]
+            associated_entries = [
+                candidate
+                for candidate in group_entries
+                if candidate is not main_entry and dict(candidate.get("payload") or {}).get("display_group_append")
+            ]
+            duplicate_main_entries = [
+                candidate
+                for candidate in group_entries
+                if candidate is not main_entry and not dict(candidate.get("payload") or {}).get("display_group_append")
+            ]
+            if int(main_entry["index"]) != index:
+                continue
+            for candidate in group_entries:
+                consumed_indexes.add(int(candidate["index"]))
+            if associated_entries:
+                line = f"{main_entry['line']}: {', '.join(str(candidate['line']) for candidate in associated_entries)}"
+                marker_payload = grouped_toggle_payload(main_entry, associated_entries)
+                lines.append(f"{toggle_marker_for(marker_payload)}{line}")
+            else:
+                main_payload = dict(main_entry.get("payload") or {})
+                lines.append(f"{toggle_marker_for(main_payload)}{main_entry['line']}")
+            for duplicate_entry in duplicate_main_entries:
+                duplicate_payload = dict(duplicate_entry.get("payload") or {})
+                lines.append(f"{toggle_marker_for(duplicate_payload)}{duplicate_entry['line']}")
+        return lines
 
     def flush_numeric_effects() -> None:
         for entry in numeric_effects.values():
@@ -1953,12 +2042,12 @@ def _build_character_item_magic_tooltip_rows(*, effect_summary: str, modifier_pa
                 invested_cp=invested_cp,
             )
             if rule_line:
-                effect_lines.append(f"{toggle_marker_for(entry)}{display_line_for(entry, rule_line)}")
+                add_display_entry(entry, rule_line)
             elif effect_description:
                 line = f"{effect_description} · {value_display}"
-                effect_lines.append(f"{toggle_marker_for(entry)}{display_line_for(entry, line)}")
+                add_display_entry(entry, line)
             else:
-                effect_lines.append(f"{toggle_marker_for(entry)}{display_line_for(entry, value_display)}")
+                add_display_entry(entry, value_display)
 
     for payload in merged_payloads:
         if str(payload.get("target_kind") or "") == TEXT_TARGET_KIND:
@@ -1969,7 +2058,7 @@ def _build_character_item_magic_tooltip_rows(*, effect_summary: str, modifier_pa
                 invested_cp=payload.get("invested_cp", ""),
             )
             if effect_description:
-                effect_lines.append(f"{toggle_marker_for(payload)}{display_line_for(payload, effect_description)}")
+                add_display_entry(payload, effect_description)
             continue
         if str(payload.get("value_display") or "").strip():
             flush_numeric_effects()
@@ -1984,12 +2073,12 @@ def _build_character_item_magic_tooltip_rows(*, effect_summary: str, modifier_pa
                 invested_cp=payload.get("invested_cp", ""),
             )
             if rule_line:
-                effect_lines.append(f"{toggle_marker_for(payload)}{display_line_for(payload, rule_line)}")
+                add_display_entry(payload, rule_line)
             elif effect_description:
                 line = f"{effect_description} Â· {value_display}"
-                effect_lines.append(f"{toggle_marker_for(payload)}{display_line_for(payload, line)}")
+                add_display_entry(payload, line)
             else:
-                effect_lines.append(f"{toggle_marker_for(payload)}{display_line_for(payload, value_display)}")
+                add_display_entry(payload, value_display)
             continue
         target_display = _single_line(str(payload.get("target_display") or "")) or "Ziel"
         effect_description = _single_line(str(payload.get("effect_description") or ""))
@@ -2009,6 +2098,8 @@ def _build_character_item_magic_tooltip_rows(*, effect_summary: str, modifier_pa
             "toggleable" if payload.get("toggleable") else "fixed",
             "toggle_inverted" if payload.get("toggle_state_inverted") else "toggle_normal",
             "active_flag" if payload.get("active_flag", True) else "inactive_flag",
+            f"display_group:{payload.get('display_group') or ''}",
+            "display_group_append" if payload.get("display_group_append") else "display_group_main",
         )
         if key not in numeric_effects:
             numeric_effects[key] = {
@@ -2021,6 +2112,8 @@ def _build_character_item_magic_tooltip_rows(*, effect_summary: str, modifier_pa
                 "active_flag": bool(payload.get("active_flag", True)),
                 "toggleable": bool(payload.get("toggleable", False)),
                 "toggle_state_inverted": bool(payload.get("toggle_state_inverted", False)),
+                "display_group": payload.get("display_group"),
+                "display_group_append": bool(payload.get("display_group_append", False)),
                 "semantic_effect_source": str(payload.get("semantic_effect_source") or ""),
                 "semantic_effect_ids": list(payload.get("semantic_effect_ids") or []),
                 "character_item_id": payload.get("character_item_id"),
@@ -2049,6 +2142,7 @@ def _build_character_item_magic_tooltip_rows(*, effect_summary: str, modifier_pa
         else:
             effect_lines.append(value_display)
     flush_numeric_effects()
+    effect_lines = grouped_effect_lines()
     if not effect_lines:
         return []
     effect_label = "Effekte" if len(effect_lines) > 1 else "Effekt"

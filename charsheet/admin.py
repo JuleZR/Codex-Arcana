@@ -2107,6 +2107,10 @@ class ItemSemanticEffectAdminForm(forms.ModelForm):
         self.fields["active_flag"].label = "Aktiv"
         self.fields["toggleable"].label = "Auf Itemkarte umschaltbar"
         self.fields["toggle_state_inverted"].label = "Schaltzustand invertieren"
+        self.fields["display_group"].label = "Anzeigegruppe"
+        self.fields["display_group"].help_text = "Optional. Gleiche Nummern werden auf der Itemkarte als ein Effekt angezeigt."
+        self.fields["display_group_append"].label = "An Anzeigegruppe anhaengen"
+        self.fields["display_group_append"].help_text = "Aktivieren fuer automatische Nebeneffekte; ein Effekt pro Gruppe bleibt Hauptlabel."
         self.fields["simple_value"].help_text = "Bei Bewegungsgruppen: eine Zahl fuer alle oder drei Werte als [Kampf,Marsch,Sprint]."
         self.fields["scale_source"].label = "Skaliert nach"
         self.fields["scale_divisor"].label = "pro"
@@ -2327,6 +2331,7 @@ class ItemSemanticEffectInline(admin.StackedInline):
                     "active_flag",
                     "toggleable",
                     "toggle_state_inverted",
+                    ("display_group", "display_group_append"),
                 )
             },
         ),

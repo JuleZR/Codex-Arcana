@@ -154,6 +154,7 @@ urlpatterns = [
     path("character/<int:character_id>/shop/trade/", views.trade_shop_cart, name="trade_shop_cart"),
     path("character-item/<int:pk>/toggle-equip/", views.toggle_equip, name="toggle_equip"),
     path("character-item/<int:pk>/semantic-effects/toggle/", views.toggle_character_item_semantic_effects, name="toggle_character_item_semantic_effects"),
+    path("character-item/<int:pk>/semantic-effects/partials/", views.character_item_semantic_effect_partials, name="character_item_semantic_effect_partials"),
     path("character-item/<int:pk>/storage/", views.set_item_storage, name="set_item_storage"),
     path("character-item/<int:character_item_id>/rune/<int:rune_id>/specification/update/", views.update_rune_specification, name="update_rune_specification"),
     path("character-item/<int:pk>/runes/update/", views.update_character_item_runes, name="update_character_item_runes"),
