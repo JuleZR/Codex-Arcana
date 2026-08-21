@@ -337,6 +337,69 @@ ITEM_SEMANTIC_EFFECT_PARTIAL_KEYS_BY_DOMAIN = {
 }
 
 
+def _append_partial_key(keys: list[str], key: str) -> None:
+    if key not in keys:
+        keys.append(key)
+
+
+def _equipment_action_partial_keys(
+    character_item: CharacterItem,
+    *,
+    effects: list[ItemSemanticEffect | CharacterItemSemanticEffect] | None = None,
+) -> tuple[str, ...]:
+    """Return narrow sheet fragments affected by equipping or unequipping one item."""
+    item = character_item.item
+    item_type = str(item.item_type)
+    keys = ["inventory_panel"]
+
+    if effects is None:
+        effects = [
+            *ItemSemanticEffect.objects.filter(item=item),
+            *CharacterItemSemanticEffect.objects.filter(character_item=character_item),
+        ]
+    if effects:
+        for key in _item_semantic_effect_toggle_partial_keys(effects):
+            _append_partial_key(keys, key)
+
+    if item_type in Item.weapon_item_type_values():
+        for key in ("weapon_panel", "battle_calculator"):
+            _append_partial_key(keys, key)
+
+    if item_type in Item.armor_item_type_values() or item_type == Item.ItemType.SHIELD:
+        for key in (
+            "load_panel",
+            "skills_panel",
+            "core_stats_panel",
+            "armor_panel",
+            "weapon_panel",
+            "battle_calculator",
+        ):
+            _append_partial_key(keys, key)
+    elif (
+        item_type in {Item.ItemType.CLOTHING, Item.ItemType.RING, Item.ItemType.AMULET}
+        or item.is_magic_effective
+    ):
+        _append_partial_key(keys, "armor_panel")
+
+    return tuple(keys)
+
+
+def _equipment_action_partials_response(
+    request,
+    character: Character,
+    partial_keys: tuple[str, ...],
+) -> JsonResponse:
+    """Render targeted equipment-action partials with the lightweight sheet context."""
+    context = _build_item_semantic_effect_partial_context_for_request(request, character, partial_keys)
+    return JsonResponse(
+        {
+            "ok": True,
+            "partials": _render_sheet_partials(request, context, partial_keys),
+            "openItemTransferCount": context.get("open_item_transfer_count", 0),
+        }
+    )
+
+
 def _temporary_attribute_adjustments(request, character_id: int) -> dict[str, int]:
     """Return normalized per-viewer runtime attribute adjustments from the session."""
     raw_state = request.session.get(TEMPORARY_ATTRIBUTE_SESSION_KEY, {})
@@ -3433,10 +3496,10 @@ def toggle_equip(request, pk):
             update_fields.append("stored")
         ci.save(update_fields=update_fields)
     if _is_partial_request(request):
-        return _sheet_partials_response(
+        return _equipment_action_partials_response(
             request,
             ci.owner,
-            *SHEET_INVENTORY_PARTIAL_KEYS,
+            _equipment_action_partial_keys(ci),
         )
 
     return redirect("character_sheet", character_id=ci.owner_id)
@@ -3457,11 +3520,7 @@ def set_item_storage(request, pk):
     ci.stored = str(request.POST.get("stored", "0")).lower() in {"1", "true", "on", "yes"}
     ci.save(update_fields=["stored"])
     if _is_partial_request(request):
-        return _sheet_partials_response(
-            request,
-            ci.owner,
-            *SHEET_INVENTORY_PARTIAL_KEYS,
-        )
+        return _inventory_panel_response(request, ci.owner)
 
     return redirect("character_sheet", character_id=ci.owner_id)
 
@@ -3476,6 +3535,7 @@ def consume_item(request, pk):
 
     owner_id = ci.owner_id
     was_equipped = bool(ci.equipped)
+    partial_keys = _equipment_action_partial_keys(ci) if was_equipped else ("inventory_panel",)
     if item_is_pending(ci):
         return _transfer_response_error(request, TransferError("item_pending", "Unterwegs befindliche Items können nicht verbraucht werden.", status=409), character_id=owner_id)
     if not ci.item.stackable or ci.item.item_type != Item.ItemType.CONSUM:
@@ -3493,10 +3553,10 @@ def consume_item(request, pk):
         character = _owned_character_or_404(request, owner_id)
         if not was_equipped:
             return _inventory_panel_response(request, character)
-        return _sheet_partials_response(
+        return _equipment_action_partials_response(
             request,
             character,
-            *SHEET_INVENTORY_PARTIAL_KEYS,
+            partial_keys,
         )
 
     return redirect("character_sheet", character_id=owner_id)
@@ -3512,6 +3572,7 @@ def remove_item(request, pk):
 
     owner_id = ci.owner_id
     was_equipped = bool(ci.equipped)
+    partial_keys = _equipment_action_partial_keys(ci) if was_equipped else ("inventory_panel",)
     if item_is_pending(ci):
         return _transfer_response_error(request, TransferError("item_pending", "Unterwegs befindliche Items können nicht entfernt werden.", status=409), character_id=owner_id)
     if not has_item_permission(ci, ItemPermissionGrant.Permission.DESTROY):
@@ -3530,10 +3591,10 @@ def remove_item(request, pk):
         character = _owned_character_or_404(request, owner_id)
         if not was_equipped:
             return _inventory_panel_response(request, character)
-        return _sheet_partials_response(
+        return _equipment_action_partials_response(
             request,
             character,
-            *SHEET_INVENTORY_PARTIAL_KEYS,
+            partial_keys,
         )
 
     return redirect("character_sheet", character_id=owner_id)
