@@ -1886,7 +1886,7 @@ def _format_magic_rule_effect_line(
                 effect_text = value_display
                 if suffix:
                     effect_text = f"{effect_text} {suffix}"
-                return f"**{label}** - {effect_text}"
+                return f"**{label}** · {effect_text}"
     return f"{text} - {value_display}"
 
 
@@ -1924,7 +1924,7 @@ def _format_magic_text_effect_line(rules_text: str, *, invested_cp: object = "")
             label = text[1:closing_index].replace("@", invested_cp_text).strip()
             suffix = text[closing_index + 1 :].strip()
             if label and suffix:
-                return f"**{label}** - {suffix}"
+                return f"**{label}** · {suffix}"
             if label:
                 return f"**{label}**"
     return text
@@ -2065,13 +2065,17 @@ def _build_character_item_magic_tooltip_rows(*, effect_summary: str, modifier_pa
             ]
         )
         if titles or effects or suffixes:
-            sections: list[str] = []
-            sections.extend(f"**{title}**" for title in titles)
+            title_section = ", ".join(f"**{title}**" for title in titles)
+            detail_sections: list[str] = []
             if effects:
-                sections.append(", ".join(effects))
+                detail_sections.append(", ".join(effects))
             if suffixes:
-                sections.append(" ".join(suffixes))
-            return " - ".join(sections)
+                detail_sections.append(" ".join(suffixes))
+            if title_section and detail_sections:
+                return f"{title_section} · {' '.join(detail_sections)}"
+            if title_section:
+                return title_section
+            return " ".join(detail_sections)
         associated_lines = [
             str(entry["line"])
             for entry in group_entries
@@ -2339,14 +2343,74 @@ def _load_character_item_modifier_payloads(
             standalone_instance_effects_by_character_item_id.setdefault(character_item_id, []).append(effect)
             continue
         instance_effects_by_base[(character_item_id, base_id)] = effect
+
+    def effects_match_for_display_override(
+        base_effect: ItemSemanticEffect,
+        instance_effect: CharacterItemSemanticEffect,
+    ) -> bool:
+        """Treat unlinked instance rows as overrides when they mirror a base row."""
+        comparable_fields = (
+            "target_domain",
+            "target_key",
+            "operator",
+            "mode",
+            "value",
+            "scale_source",
+            "scale_divisor",
+            "value_min",
+            "value_max",
+            "formula",
+            "stack_behavior",
+            "rules_text",
+            "visibility",
+            "hidden",
+            "sheet_relevant",
+            "toggleable",
+            "toggle_state_inverted",
+            "display_group",
+            "display_group_append",
+            "priority",
+        )
+        for field_name in comparable_fields:
+            if getattr(base_effect, field_name) != getattr(instance_effect, field_name):
+                return False
+        return (
+            dict(base_effect.scaling or {}) == dict(instance_effect.scaling or {})
+            and dict(base_effect.condition_set or {}) == dict(instance_effect.condition_set or {})
+            and dict(base_effect.metadata or {}) == dict(instance_effect.metadata or {})
+            and list(base_effect.condition_races.order_by("id").values_list("id", flat=True))
+            == list(instance_effect.condition_races.order_by("id").values_list("id", flat=True))
+        )
+
     for character_item in character_items:
         character_item_id = int(character_item.id)
         base_effects = base_effects_by_item_id.get(int(character_item.item_id), [])
         merged_effects: list[ItemSemanticEffect | CharacterItemSemanticEffect] = []
+        standalone_effects = list(standalone_instance_effects_by_character_item_id.get(character_item_id, []))
+        consumed_standalone_effect_ids: set[int] = set()
         if base_effects:
             for effect in base_effects:
-                merged_effects.append(instance_effects_by_base.get((character_item_id, int(effect.id)), effect))
-        merged_effects.extend(standalone_instance_effects_by_character_item_id.get(character_item_id, []))
+                linked_override = instance_effects_by_base.get((character_item_id, int(effect.id)))
+                if linked_override is not None:
+                    merged_effects.append(linked_override)
+                    continue
+                display_override = next(
+                    (
+                        candidate
+                        for candidate in standalone_effects
+                        if int(candidate.id) not in consumed_standalone_effect_ids
+                        and effects_match_for_display_override(effect, candidate)
+                    ),
+                    None,
+                )
+                if display_override is not None:
+                    consumed_standalone_effect_ids.add(int(display_override.id))
+                    merged_effects.append(display_override)
+                    continue
+                merged_effects.append(effect)
+        merged_effects.extend(
+            effect for effect in standalone_effects if int(effect.id) not in consumed_standalone_effect_ids
+        )
         if not merged_effects:
             continue
         character_race_id = character_item.owner.race_id if character_item.owner_id else None
