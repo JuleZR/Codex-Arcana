@@ -2133,6 +2133,12 @@ def _build_character_item_magic_tooltip_rows(*, effect_summary: str, modifier_pa
     def numeric_value_display(entry: dict[str, object], value: int) -> tuple[str, str]:
         target_kind = str(entry["target_kind"])
         target_display = str(entry["target_display"])
+        if (
+            str(entry.get("operator") or "") == "override"
+            and str(entry.get("target_stat") or "") == DEFENSE_RS
+            and int(value or 0) == 0
+        ):
+            return "", ""
         if target_kind == RULE_FLAG_TARGET_KIND:
             return target_display, target_display
         if target_kind in {WEAPON_MANEUVER_DAMAGE, WEAPON_MASTERY_BONUS}:
@@ -2164,7 +2170,9 @@ def _build_character_item_magic_tooltip_rows(*, effect_summary: str, modifier_pa
                 value_only_display,
                 invested_cp=invested_cp,
             )
-            if rule_line:
+            if not value_display and effect_description:
+                add_display_entry(entry, effect_description, group_condition=group_condition)
+            elif rule_line:
                 rule_line = _append_unique_tail(rule_line, group_condition)
                 add_display_entry(
                     entry,
