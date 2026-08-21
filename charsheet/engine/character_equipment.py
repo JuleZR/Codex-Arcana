@@ -25,8 +25,6 @@ from .item_engine import ItemEngine
 
 
 LOCAL_WEAPON_DAMAGE_SOURCE_TYPES = {"item", "characteritem", SOURCE_ITEM_RUNE}
-
-
 def _cached_equipment_list(engine, cache_key, queryset_factory):
     """Evaluate one equipment queryset once per CharacterEngine instance."""
     cache = engine.__dict__.setdefault("_equipment_cache", {})
@@ -400,12 +398,24 @@ def _effective_armor_encumbrance(engine, character_item: CharacterItem) -> int:
 
 
 def _effective_armor_rs(engine, character_item: CharacterItem) -> int:
-    """Return local armor RS including quality and item-bound rune effects."""
+    """Return local armor RS including quality and item-bound semantic effects."""
     return max(
         0,
-        int(ItemEngine(character_item).get_armor_rs_raw() or 0)
-        + _character_item_specific_rune_modifier(engine, character_item, DEFENSE_RS),
+        _resolve_item_bound_numeric_modifiers(
+            engine,
+            int(ItemEngine(character_item).get_armor_rs_raw() or 0),
+            [
+                *_character_item_specific_armor_semantic_modifiers(engine, character_item, DEFENSE_RS),
+                *_character_item_specific_rune_modifiers(engine, character_item, DEFENSE_RS),
+            ],
+        ),
     )
+
+
+def _effective_armor_rs_delta(engine, character_item: CharacterItem) -> int:
+    """Return the local RS change compared to this armor's physical base value."""
+    raw_rs = int(ItemEngine(character_item).get_armor_rs_raw() or 0)
+    return _effective_armor_rs(engine, character_item) - raw_rs
 
 
 def _effective_shield_encumbrance(engine, character_item: CharacterItem) -> int:
@@ -638,12 +648,17 @@ def _armor_zone_protection(engine, *, for_grs: bool = False) -> dict[str, int]:
         zone_values = item_engine.get_armor_grs_zone_rs() if for_grs else item_engine.get_armor_zone_rs()
         if not zone_values:
             continue
-        rune_bonus = _character_item_specific_rune_modifier(engine, character_item, DEFENSE_RS)
+        effective_rs = _effective_armor_rs(engine, character_item)
+        rs_delta = _effective_armor_rs_delta(engine, character_item)
         adjusted_zone_values: dict[str, int] = {}
         for field_name in totals:
             if field_name not in zone_values:
                 continue
-            adjusted_zone_values[field_name] = max(0, int(zone_values[field_name] or 0) + rune_bonus)
+            adjusted_zone_values[field_name] = (
+                0
+                if effective_rs <= 0
+                else max(0, int(zone_values[field_name] or 0) + rs_delta)
+            )
             totals[field_name] += adjusted_zone_values[field_name]
         armor_stats = item_engine._get_armor_stats()
         if for_grs and armor_stats is not None and armor_stats.parent_set_id:
@@ -751,12 +766,60 @@ def _calculate_grs(engine) -> int:
         int(zone_totals[zone])
         for zone in ("head", "torso", "arm_left", "arm_right", "leg_left", "leg_right")
     )
-    armor_rune_modifiers = sum(
-        _character_item_specific_rune_modifier(engine, armor, DEFENSE_RS)
-        for armor in engine.equipped_armor_items()
-    )
-    global_modifiers = engine._resolve_stat_modifiers(DEFENSE_RS) - armor_rune_modifiers
+    global_modifiers = _non_local_rs_modifier(engine)
     return (main_zone_sum // 6) + global_modifiers
+
+
+def _non_local_rs_modifier(engine) -> int:
+    """Return RS modifiers that are not bound to a concrete armor item."""
+    modifiers = [
+        modifier
+        for modifier in engine.modifier_engine.collect_active_modifiers()
+        if modifier.target_domain == TargetDomain.DERIVED_STAT
+        and str(modifier.target_key or "") == DEFENSE_RS
+        and not _is_local_armor_rs_source(engine, modifier)
+    ]
+    return _resolve_item_bound_numeric_modifiers(engine, 0, modifiers)
+
+
+def _is_local_armor_rs_source(engine, modifier) -> bool:
+    """Return whether a modifier belongs to an equipped armor item's own RS."""
+    armor_character_item_ids = {int(item.id) for item in engine.equipped_armor_items()}
+    if not armor_character_item_ids:
+        return False
+
+    source_type = str(modifier.source_type or "")
+    if source_type == "characteritem":
+        try:
+            return int(modifier.source_id) in armor_character_item_ids
+        except (TypeError, ValueError):
+            return False
+
+    if source_type == "item":
+        metadata_character_item_id = (modifier.metadata or {}).get("character_item_id")
+        if metadata_character_item_id is not None:
+            try:
+                return int(metadata_character_item_id) in armor_character_item_ids
+            except (TypeError, ValueError):
+                return False
+        armor_item_ids = {int(item.item_id) for item in engine.equipped_armor_items()}
+        try:
+            return int(modifier.source_id) in armor_item_ids
+        except (TypeError, ValueError):
+            return False
+
+    if source_type == SOURCE_ITEM_RUNE:
+        armor_item_rune_ids = {
+            int(item_rune.id)
+            for item_rune in engine._equipped_item_runes
+            if int(item_rune.item_id) in armor_character_item_ids
+        }
+        try:
+            return int(modifier.source_id) in armor_item_rune_ids
+        except (TypeError, ValueError):
+            return False
+
+    return False
 
 
 def get_bel(engine) -> int:
