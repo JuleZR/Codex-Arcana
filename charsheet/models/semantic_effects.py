@@ -57,6 +57,12 @@ class SemanticEffectFields(models.Model):
     scaling = models.JSONField(default=dict, blank=True)
     stack_behavior = models.CharField(max_length=40, choices=STACK_BEHAVIOR_CHOICES, default="stack")
     condition_set = models.JSONField(default=dict, blank=True)
+    condition_races = models.ManyToManyField(
+        "charsheet.Race",
+        blank=True,
+        related_name="%(app_label)s_%(class)s_conditioned_effects",
+        help_text="Optional race condition. Leave empty to apply to every race.",
+    )
     active_flag = models.BooleanField(default=True)
     priority = models.IntegerField(default=0)
     notes = models.TextField(blank=True, default="")
@@ -97,6 +103,9 @@ class SemanticEffectFields(models.Model):
         if self.pk:
             metadata["semantic_effect_key"] = f"{self.semantic_effect_key_prefix()}:{self.pk}"
             metadata["semantic_effect_label"] = self.semantic_source_label()
+            condition_race_ids = list(self.condition_races.order_by("id").values_list("id", flat=True))
+            if condition_race_ids:
+                metadata["condition_race_ids"] = condition_race_ids
         resolved_target = TargetResolver.resolve(self.target_domain, self.target_key, metadata)
         for key, values in resolved_target.context_requirements.items():
             if key == "weapon_types":

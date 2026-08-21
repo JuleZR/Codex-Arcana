@@ -16,6 +16,7 @@ from charsheet.constants import (
     WEAPON_DAMAGE,
     WEAPON_DAMAGE_DICE,
     WEAPON_MANEUVER_ATTRIBUTE_NONE,
+    WEAPON_MANEUVER_DAMAGE,
 )
 from charsheet.modifiers.definitions import TargetDomain
 from charsheet.modifiers.targets import TargetResolver
@@ -165,6 +166,7 @@ def _character_item_target_context(character_item: CharacterItem) -> dict[str, t
         if skill_manager is not None:
             weapon_skill_slugs.update(str(slug) for slug in skill_manager.all().values_list("slug", flat=True))
     return {
+        "character_item_id": str(character_item.id),
         "weapon_ids": weapon_ids,
         "weapon_types": tuple(sorted(weapon_type_slugs)),
         "weapon_skill_slugs": tuple(sorted(weapon_skill_slugs)),
@@ -176,13 +178,28 @@ def _character_item_specific_semantic_modifier(engine, character_item: Character
     total = 0
     target_context = _character_item_target_context(character_item)
     for modifier in engine.modifier_engine._active_item_semantic_modifiers:
-        if str(modifier.source_type or "") != "characteritem":
+        source_type = str(modifier.source_type or "")
+        source_id = str(modifier.source_id or "")
+        if source_type == "characteritem":
+            if source_id != str(character_item.id):
+                continue
+        elif source_type == "item":
+            if source_id != str(character_item.item_id):
+                continue
+            modifier_character_item_id = (modifier.metadata or {}).get("character_item_id")
+            if modifier_character_item_id is not None and str(modifier_character_item_id) != str(character_item.id):
+                continue
+        else:
             continue
-        if str(modifier.source_id or "") != str(character_item.id):
+        if not engine.modifier_engine._modifier_matches_race_condition(modifier):
             continue
         if modifier.target_domain != TargetDomain.COMBAT:
             continue
-        if str(modifier.target_key or "") != target_key:
+        modifier_target_key = str(modifier.target_key or "")
+        if modifier_target_key != target_key and not (
+            modifier_target_key == WEAPON_MANEUVER_DAMAGE
+            and target_key in {MELEE_MANEUVERS, WEAPON_DAMAGE}
+        ):
             continue
         if not TargetResolver.matches_context(modifier, target_context):
             continue
@@ -207,6 +224,8 @@ def _character_item_specific_armor_semantic_modifier(engine, character_item: Cha
                 continue
         else:
             continue
+        if not engine.modifier_engine._modifier_matches_race_condition(modifier):
+            continue
         if modifier.target_domain != TargetDomain.DERIVED_STAT:
             continue
         if str(modifier.target_key or "") != target_key:
@@ -230,7 +249,13 @@ def _character_item_specific_rune_modifier(engine, character_item: CharacterItem
     for modifier in engine.modifier_engine._active_item_rune_modifiers:
         if modifier.source_type != SOURCE_ITEM_RUNE:
             continue
-        if str(modifier.target_key or "") != target_key:
+        if not engine.modifier_engine._modifier_matches_race_condition(modifier):
+            continue
+        modifier_target_key = str(modifier.target_key or "")
+        if modifier_target_key != target_key and not (
+            modifier_target_key == WEAPON_MANEUVER_DAMAGE
+            and target_key in {MELEE_MANEUVERS, WEAPON_DAMAGE}
+        ):
             continue
         if not TargetResolver.matches_context(modifier, target_context):
             continue
@@ -252,7 +277,11 @@ def _global_weapon_context_combat_modifier(engine, target_key: str, context: dic
             continue
         if modifier.target_domain != TargetDomain.COMBAT:
             continue
-        if str(modifier.target_key or "") != target_key:
+        modifier_target_key = str(modifier.target_key or "")
+        if modifier_target_key != target_key and not (
+            modifier_target_key == WEAPON_MANEUVER_DAMAGE
+            and target_key in {MELEE_MANEUVERS, WEAPON_DAMAGE}
+        ):
             continue
         total += int(engine.modifier_engine._resolve_numeric_modifier(modifier) or 0)
     return total
@@ -292,7 +321,7 @@ def equipped_weapon_rows(engine) -> list[dict]:
     for character_item in engine.equipped_weapon_items():
         item_engine = ItemEngine(character_item)
         weapon_context = _character_item_target_context(character_item)
-        maneuver_modifier = engine.resolve_combat_value("melee_maneuvers", context=weapon_context)
+        maneuver_modifier = _global_weapon_context_combat_modifier(engine, MELEE_MANEUVERS, weapon_context)
         mastery_maneuver_bonus, mastery_damage_bonus = engine.weapon_mastery_bonus_for_item(character_item)
         item_specific_maneuver_modifier = _character_item_specific_maneuver_modifier(engine, character_item)
         item_specific_damage_modifier = _character_item_specific_damage_modifier(engine, character_item)

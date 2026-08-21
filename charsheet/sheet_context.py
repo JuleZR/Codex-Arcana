@@ -1493,9 +1493,15 @@ def _serialize_item_semantic_effect_payload(
     effect: ItemSemanticEffect | CharacterItemSemanticEffect,
     *,
     invested_cp: int | None = None,
+    character_race_id: int | None = None,
 ) -> dict[str, object]:
     """Return one frontend-friendly payload for an item semantic effect."""
     metadata = dict(effect.metadata or {})
+    condition_race_ids = [int(race_id) for race_id in effect.condition_races.values_list("id", flat=True)]
+    race_condition_matches = (
+        not condition_race_ids
+        or (character_race_id is not None and int(character_race_id) in condition_race_ids)
+    )
     target_domain = str(effect.target_domain or "")
     target_key = str(effect.target_key or "")
     if target_domain == "metadata" and target_key == "rules_text":
@@ -1515,6 +1521,8 @@ def _serialize_item_semantic_effect_payload(
             "toggleable": bool(getattr(effect, "toggleable", False)),
             "semantic_effect_source": "character_item" if isinstance(effect, CharacterItemSemanticEffect) else "item",
             "semantic_effect_ids": [int(effect.pk)] if effect.pk else [],
+            "race_condition_matches": race_condition_matches,
+            "inactive_due_to_race": bool(condition_race_ids and not race_condition_matches),
         }
     try:
         raw_value = effect._coerce_scalar(effect.value)
@@ -1545,6 +1553,8 @@ def _serialize_item_semantic_effect_payload(
         "toggleable": bool(getattr(effect, "toggleable", False)),
         "semantic_effect_source": "character_item" if isinstance(effect, CharacterItemSemanticEffect) else "item",
         "semantic_effect_ids": [int(effect.pk)] if effect.pk else [],
+        "race_condition_matches": race_condition_matches,
+        "inactive_due_to_race": bool(condition_race_ids and not race_condition_matches),
     }
 
     if target_domain == "rule_flag":
@@ -1563,14 +1573,17 @@ def _serialize_item_semantic_effect_payload(
     elif target_domain == "combat":
         if target_key == MELEE_MANEUVERS:
             payload["target_kind"] = "weapon_maneuver"
-            payload["target_display"] = "Manöver mit dieser Waffe" if isinstance(effect, CharacterItemSemanticEffect) else "Manöver"
+            payload["target_display"] = "(Mit der Waffe verknüpfter Skill)"
         elif target_key == WEAPON_DAMAGE:
             payload["target_kind"] = "stat"
             payload["target_stat"] = WEAPON_DAMAGE
-            payload["target_display"] = dict(STAT_SLUG_CHOICES).get(WEAPON_DAMAGE, WEAPON_DAMAGE)
+            payload["target_display"] = "Schaden"
         elif target_key == WEAPON_DAMAGE_DICE:
             payload["target_kind"] = "weapon_damage_dice"
-            payload["target_display"] = "+ X W10"
+            payload["target_display"] = "Würfelanzahl"
+        elif target_key == WEAPON_MANEUVER_DAMAGE:
+            payload["target_kind"] = WEAPON_MANEUVER_DAMAGE
+            payload["target_display"] = "Manöver und Schaden"
         else:
             payload["target_kind"] = "stat"
             payload["target_stat"] = target_key
@@ -1741,6 +1754,7 @@ def _collapse_weapon_mastery_bonus_payloads(modifier_payloads: list[dict[str, ob
         payload_scale_divisor = payload.get("scale_divisor") or ""
         payload_active_flag = bool(payload.get("active_flag", True))
         payload_toggleable = bool(payload.get("toggleable", False))
+        payload_inactive_due_to_race = bool(payload.get("inactive_due_to_race", False))
         matching_index = None
         for candidate_index in range(index + 1, len(modifier_payloads)):
             if candidate_index in consumed_indices:
@@ -1765,6 +1779,8 @@ def _collapse_weapon_mastery_bonus_payloads(modifier_payloads: list[dict[str, ob
             if bool(candidate.get("active_flag", True)) != payload_active_flag:
                 continue
             if bool(candidate.get("toggleable", False)) != payload_toggleable:
+                continue
+            if bool(candidate.get("inactive_due_to_race", False)) != payload_inactive_due_to_race:
                 continue
             matching_index = candidate_index
             break
@@ -1795,6 +1811,7 @@ def _collapse_weapon_mastery_bonus_payloads(modifier_payloads: list[dict[str, ob
                 "scale_divisor": payload_scale_divisor,
                 "active_flag": payload_active_flag,
                 "toggleable": payload_toggleable,
+                "inactive_due_to_race": payload_inactive_due_to_race,
                 "semantic_effect_source": str(payload.get("semantic_effect_source") or ""),
                 "semantic_effect_ids": [
                     int(value)
@@ -1874,7 +1891,7 @@ def _format_magic_text_effect_line(rules_text: str, *, invested_cp: object = "")
 def _build_character_item_magic_tooltip_rows(*, effect_summary: str, modifier_payloads: list[dict[str, object]]) -> list[tuple[str, object]]:
     """Return tooltip rows for magic effects stored on one owned item."""
     effect_lines: list[str] = []
-    numeric_effects: OrderedDict[tuple[str, str, str, str], dict[str, object]] = OrderedDict()
+    numeric_effects: OrderedDict[tuple[str, str, str, str, str], dict[str, object]] = OrderedDict()
     summary_line, merged_payloads = _merge_magic_effect_payloads(
         effect_summary=effect_summary,
         modifier_payloads=modifier_payloads,
@@ -1894,6 +1911,11 @@ def _build_character_item_magic_tooltip_rows(*, effect_summary: str, modifier_pa
         url = reverse("toggle_character_item_semantic_effects", args=[int(character_item_id)])
         active = "1" if bool(entry.get("active_flag", True)) else "0"
         return f"[[EFFECTTOGGLE:{url};{source};{ids};{active}]] "
+
+    def display_line_for(entry: dict[str, object], line: str) -> str:
+        if entry.get("inactive_due_to_race"):
+            return f"[[INACTIVERACE:{line}]]"
+        return line
 
     def flush_numeric_effects() -> None:
         for entry in numeric_effects.values():
@@ -1923,11 +1945,12 @@ def _build_character_item_magic_tooltip_rows(*, effect_summary: str, modifier_pa
                 invested_cp=invested_cp,
             )
             if rule_line:
-                effect_lines.append(f"{toggle_marker_for(entry)}{rule_line}")
+                effect_lines.append(f"{toggle_marker_for(entry)}{display_line_for(entry, rule_line)}")
             elif effect_description:
-                effect_lines.append(f"{toggle_marker_for(entry)}{effect_description} · {value_display}")
+                line = f"{effect_description} · {value_display}"
+                effect_lines.append(f"{toggle_marker_for(entry)}{display_line_for(entry, line)}")
             else:
-                effect_lines.append(f"{toggle_marker_for(entry)}{value_display}")
+                effect_lines.append(f"{toggle_marker_for(entry)}{display_line_for(entry, value_display)}")
 
     for payload in merged_payloads:
         if str(payload.get("target_kind") or "") == TEXT_TARGET_KIND:
@@ -1938,7 +1961,7 @@ def _build_character_item_magic_tooltip_rows(*, effect_summary: str, modifier_pa
                 invested_cp=payload.get("invested_cp", ""),
             )
             if effect_description:
-                effect_lines.append(f"{toggle_marker_for(payload)}{effect_description}")
+                effect_lines.append(f"{toggle_marker_for(payload)}{display_line_for(payload, effect_description)}")
             continue
         if str(payload.get("value_display") or "").strip():
             flush_numeric_effects()
@@ -1953,11 +1976,12 @@ def _build_character_item_magic_tooltip_rows(*, effect_summary: str, modifier_pa
                 invested_cp=payload.get("invested_cp", ""),
             )
             if rule_line:
-                effect_lines.append(f"{toggle_marker_for(payload)}{rule_line}")
+                effect_lines.append(f"{toggle_marker_for(payload)}{display_line_for(payload, rule_line)}")
             elif effect_description:
-                effect_lines.append(f"{toggle_marker_for(payload)}{effect_description} Â· {value_display}")
+                line = f"{effect_description} Â· {value_display}"
+                effect_lines.append(f"{toggle_marker_for(payload)}{display_line_for(payload, line)}")
             else:
-                effect_lines.append(f"{toggle_marker_for(payload)}{value_display}")
+                effect_lines.append(f"{toggle_marker_for(payload)}{display_line_for(payload, value_display)}")
             continue
         target_display = _single_line(str(payload.get("target_display") or "")) or "Ziel"
         effect_description = _single_line(str(payload.get("effect_description") or ""))
@@ -1973,6 +1997,7 @@ def _build_character_item_magic_tooltip_rows(*, effect_summary: str, modifier_pa
             target_display,
             " ".join(rules_text.replace("@", str(invested_cp)).lower().split()),
             " ".join(effect_description.lower().split()),
+            "inactive_due_to_race" if payload.get("inactive_due_to_race") else "active_for_race",
         )
         if key not in numeric_effects:
             numeric_effects[key] = {
@@ -1987,6 +2012,7 @@ def _build_character_item_magic_tooltip_rows(*, effect_summary: str, modifier_pa
                 "semantic_effect_source": str(payload.get("semantic_effect_source") or ""),
                 "semantic_effect_ids": list(payload.get("semantic_effect_ids") or []),
                 "character_item_id": payload.get("character_item_id"),
+                "inactive_due_to_race": bool(payload.get("inactive_due_to_race")),
             }
         numeric_effects[key]["value"] = int(numeric_effects[key]["value"]) + value
         continue
@@ -2034,6 +2060,7 @@ def _load_character_item_modifier_payloads(
         .filter(item_id__in=item_ids)
         .filter(Q(active_flag=True) | Q(toggleable=True))
         .select_related("item")
+        .prefetch_related("condition_races")
         .order_by("item_id", "sort_order", "id")
     ):
         base_effects_by_item_id.setdefault(int(effect.item_id), []).append(effect)
@@ -2042,7 +2069,8 @@ def _load_character_item_modifier_payloads(
         CharacterItemSemanticEffect.objects
         .filter(character_item_id__in=[entry.id for entry in character_items])
         .filter(Q(active_flag=True) | Q(toggleable=True))
-        .select_related("character_item", "character_item__item")
+        .select_related("character_item", "character_item__item", "character_item__owner")
+        .prefetch_related("condition_races")
         .order_by("sort_order", "id")
     )
     for effect in instance_effects:
@@ -2054,11 +2082,18 @@ def _load_character_item_modifier_payloads(
         if base_effects:
             modifiers_by_character_item_id[int(character_item.id)] = []
             for effect in base_effects:
-                payload = _serialize_item_semantic_effect_payload(effect, invested_cp=character_item.invested_cp)
+                payload = _serialize_item_semantic_effect_payload(
+                    effect,
+                    invested_cp=character_item.invested_cp,
+                    character_race_id=character_item.owner.race_id,
+                )
                 payload["character_item_id"] = int(character_item.id)
                 modifiers_by_character_item_id[int(character_item.id)].append(payload)
     for effect in instance_effects:
-        payload = _serialize_item_semantic_effect_payload(effect)
+        payload = _serialize_item_semantic_effect_payload(
+            effect,
+            character_race_id=effect.character_item.owner.race_id,
+        )
         payload["character_item_id"] = int(effect.character_item_id)
         modifiers_by_character_item_id.setdefault(int(effect.character_item_id), []).append(payload)
     for character_item_id, payloads in list(modifiers_by_character_item_id.items()):
@@ -2845,6 +2880,7 @@ def _character_item_weapon_target_context(character_item: CharacterItem) -> dict
         if skill_manager is not None:
             weapon_skill_slugs.update(str(slug) for slug in skill_manager.all().values_list("slug", flat=True))
     return {
+        "character_item_id": str(character_item.id),
         "weapon_ids": (str(item.id), str(character_item.id)),
         "weapon_types": tuple(sorted(weapon_type_slugs)),
         "weapon_skill_slugs": tuple(sorted(weapon_skill_slugs)),
@@ -2956,6 +2992,8 @@ def _build_character_item_stat_modifier_rows(engine, character_item: CharacterIt
             continue
         if str(getattr(modifier, "source_id", "") or "") != str(character_item.id):
             continue
+        if not engine.modifier_engine._modifier_matches_race_condition(modifier):
+            continue
         target_domain = getattr(getattr(modifier, "target_domain", ""), "value", getattr(modifier, "target_domain", ""))
         if str(target_domain or "") != "combat":
             continue
@@ -2985,6 +3023,8 @@ def _build_character_item_stat_modifier_rows(engine, character_item: CharacterIt
         }
         for modifier in engine.modifier_engine._active_item_rune_modifiers:
             if str(getattr(modifier, "source_type", "") or "") != SOURCE_ITEM_RUNE:
+                continue
+            if not engine.modifier_engine._modifier_matches_race_condition(modifier):
                 continue
             if str(getattr(modifier, "target_key", "") or "") != stat_key:
                 continue

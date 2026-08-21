@@ -14,6 +14,7 @@ from charsheet.constants import (
     TWO_HANDED,
     WEAPON_DAMAGE,
     WEAPON_DAMAGE_DICE,
+    WEAPON_MANEUVER_DAMAGE,
 )
 from charsheet.engine.item_engine import ItemEngine
 from charsheet.modifiers.targets import TargetResolver
@@ -252,6 +253,7 @@ class BattleCalculatorEngine:
             if skill_manager is not None:
                 weapon_skill_slugs.update(str(slug) for slug in skill_manager.all().values_list("slug", flat=True))
         return {
+            "character_item_id": str(character_item.id),
             "weapon_ids": (str(item.id), str(character_item.id)),
             "weapon_types": tuple(sorted(weapon_type_slugs)),
             "weapon_skill_slugs": tuple(sorted(weapon_skill_slugs)),
@@ -262,14 +264,29 @@ class BattleCalculatorEngine:
         explanation: list[dict[str, object]] = []
         target_context = cls._character_item_weapon_target_context(character_item)
         for modifier in engine.modifier_engine._active_item_semantic_modifiers:
-            if str(getattr(modifier, "source_type", "") or "") != "characteritem":
+            source_type = str(getattr(modifier, "source_type", "") or "")
+            source_id = str(getattr(modifier, "source_id", "") or "")
+            if source_type == "characteritem":
+                if source_id != str(character_item.id):
+                    continue
+            elif source_type == "item":
+                if source_id != str(character_item.item_id):
+                    continue
+                modifier_character_item_id = (getattr(modifier, "metadata", {}) or {}).get("character_item_id")
+                if modifier_character_item_id is not None and str(modifier_character_item_id) != str(character_item.id):
+                    continue
+            else:
                 continue
-            if str(getattr(modifier, "source_id", "") or "") != str(character_item.id):
+            if not engine.modifier_engine._modifier_matches_race_condition(modifier):
                 continue
             target_domain = getattr(getattr(modifier, "target_domain", ""), "value", getattr(modifier, "target_domain", ""))
             if str(target_domain or "") != "combat":
                 continue
-            if str(getattr(modifier, "target_key", "") or "") != stat_key:
+            modifier_target_key = str(getattr(modifier, "target_key", "") or "")
+            if modifier_target_key != stat_key and not (
+                modifier_target_key == WEAPON_MANEUVER_DAMAGE
+                and stat_key in {MELEE_MANEUVERS, WEAPON_DAMAGE}
+            ):
                 continue
             if not TargetResolver.matches_context(modifier, target_context):
                 continue
@@ -293,7 +310,13 @@ class BattleCalculatorEngine:
             for modifier in engine.modifier_engine._active_item_rune_modifiers:
                 if str(getattr(modifier, "source_type", "") or "") != SOURCE_ITEM_RUNE:
                     continue
-                if str(getattr(modifier, "target_key", "") or "") != stat_key:
+                if not engine.modifier_engine._modifier_matches_race_condition(modifier):
+                    continue
+                modifier_target_key = str(getattr(modifier, "target_key", "") or "")
+                if modifier_target_key != stat_key and not (
+                    modifier_target_key == WEAPON_MANEUVER_DAMAGE
+                    and stat_key in {MELEE_MANEUVERS, WEAPON_DAMAGE}
+                ):
                     continue
                 try:
                     source_id = int(getattr(modifier, "source_id", ""))
@@ -322,7 +345,16 @@ class BattleCalculatorEngine:
         quality_bonus = cls._safe_int(row.get("quality_maneuver_bonus"))
         if quality_bonus:
             entries.append(cls._modifier_entry("Qualität", cls._format_modifier(quality_bonus), source=str(row["item"].name)))
-        entries.extend(cls._build_grouped_explanation_rows(engine, engine.explain_modifier_resolution("combat_value", MELEE_MANEUVERS) or []))
+        weapon_context = cls._character_item_weapon_target_context(row["character_item"])
+        entries.extend(
+            cls._build_modifier_breakdown_rows(
+                engine,
+                MELEE_MANEUVERS,
+                target_domain="combat",
+                context=weapon_context,
+                excluded_source_types=LOCAL_WEAPON_DAMAGE_SOURCE_TYPES,
+            )
+        )
         mastery_bonus = cls._safe_int(row.get("weapon_mastery_maneuver_bonus"))
         if mastery_bonus:
             mastery_source = "Schule: Waffenmeister"

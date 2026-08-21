@@ -348,6 +348,12 @@ class TraitSemanticEffect(models.Model):
         default="stack",
     )
     condition_set = models.JSONField(default=dict, blank=True)
+    condition_races = models.ManyToManyField(
+        Race,
+        blank=True,
+        related_name="trait_semantic_effect_conditions",
+        help_text="Optional race condition. Leave empty to apply to every race.",
+    )
 
     active_flag = models.BooleanField(default=True)
     priority = models.IntegerField(default=0)
@@ -456,6 +462,9 @@ class TraitSemanticEffect(models.Model):
         if self.pk:
             metadata["semantic_effect_key"] = f"trait_effect:{self.pk}"
             metadata["semantic_effect_label"] = self.trait.name
+            condition_race_ids = list(self.condition_races.order_by("id").values_list("id", flat=True))
+            if condition_race_ids:
+                metadata["condition_race_ids"] = condition_race_ids
         if self.target_choice_definition_id:
             metadata["choice_binding"] = {
                 "kind": "trait_choice_definition",

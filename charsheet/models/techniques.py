@@ -509,6 +509,12 @@ class TechniqueSemanticEffect(models.Model):
     scaling = models.JSONField(default=dict, blank=True)
     stack_behavior = models.CharField(max_length=40, choices=STACK_BEHAVIOR_CHOICES, default="stack")
     condition_set = models.JSONField(default=dict, blank=True)
+    condition_races = models.ManyToManyField(
+        Race,
+        blank=True,
+        related_name="technique_semantic_effect_conditions",
+        help_text="Optional race condition. Leave empty to apply to every race.",
+    )
 
     active_flag = models.BooleanField(default=True)
     priority = models.IntegerField(default=0)
@@ -618,6 +624,9 @@ class TechniqueSemanticEffect(models.Model):
         if self.pk:
             metadata["semantic_effect_key"] = f"technique_effect:{self.pk}"
             metadata["semantic_effect_label"] = self.technique.name
+            condition_race_ids = list(self.condition_races.order_by("id").values_list("id", flat=True))
+            if condition_race_ids:
+                metadata["condition_race_ids"] = condition_race_ids
         if self.target_choice_definition_id:
             metadata["choice_binding"] = {
                 "kind": "technique_choice_definition",

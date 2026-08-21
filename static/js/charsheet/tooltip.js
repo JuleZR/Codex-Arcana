@@ -238,6 +238,10 @@ function renderInlineMarkdown(text) {
       );
     },
   );
+  html = html.replace(
+    /\[\[INACTIVERACE:(.+?)\]\]/g,
+    '<span class="tooltip_effect_inactive_race">$1</span>',
+  );
   html = html.replace(/\[\[EMPTY\]\]/g, "&nbsp;");
   html = html.replace(/\[\[RUNEINLINE:(.+?)\|(.*?)\|(.*?)\]\]/g, (_match, name, description, image) => {
     const safeName = escapeHtml(String(name || "").trim() || "Rune");

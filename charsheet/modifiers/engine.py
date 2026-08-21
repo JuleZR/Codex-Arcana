@@ -10,7 +10,14 @@ from functools import cached_property
 from typing import Any
 
 from charsheet.modifiers.definitions import AttributeCapModifier, BaseModifier, ModifierOperator, RuleFlagModifier, StackBehavior, TargetDomain
-from charsheet.constants import PROFICIENCY_GROUP_FOREIGN_LANGUAGES, RUNE_CRAFTER_LEVEL, SOURCE_ITEM_RUNE
+from charsheet.constants import (
+    MELEE_MANEUVERS,
+    PROFICIENCY_GROUP_FOREIGN_LANGUAGES,
+    RUNE_CRAFTER_LEVEL,
+    SOURCE_ITEM_RUNE,
+    WEAPON_DAMAGE,
+    WEAPON_MANEUVER_DAMAGE,
+)
 from charsheet.modifiers.migration import ModifierResolutionMode, NumericResolutionComparison
 from charsheet.modifiers.registry import build_trait_semantic_modifiers
 from charsheet.modifiers.targets import TargetResolver
@@ -116,6 +123,7 @@ class ModifierEngine:
                 active_flag=True,
             )
             .select_related("race")
+            .prefetch_related("condition_races")
             .order_by("race_id", "sort_order", "id")
         )
         return [effect.to_modifier() for effect in effects]
@@ -134,6 +142,7 @@ class ModifierEngine:
                 active_flag=True,
             )
             .select_related("school")
+            .prefetch_related("condition_races")
             .order_by("school_id", "sort_order", "id")
         )
         return [effect.to_modifier() for effect in effects]
@@ -146,6 +155,7 @@ class ModifierEngine:
         modifiers: list[BaseModifier] = []
         trait_entries = (
             self.character_engine.character.charactertrait_set.select_related("trait")
+            .prefetch_related("trait__semantic_effects", "trait__semantic_effects__condition_races")
             .order_by("trait__slug")
         )
         for entry in trait_entries:
@@ -172,7 +182,7 @@ class ModifierEngine:
                 first_item_id_by_rune_id[rune.id] = item_rune.item_id
             elif first_item_id != item_rune.item_id:
                 continue
-            for effect in rune.semantic_effects.filter(active_flag=True).order_by("sort_order", "id"):
+            for effect in rune.semantic_effects.filter(active_flag=True).prefetch_related("condition_races").order_by("sort_order", "id"):
                 modifier = effect.to_modifier()
                 scaling = dict(modifier.scaling)
                 mode = modifier.mode
@@ -218,6 +228,7 @@ class ModifierEngine:
                 active_flag=True,
             )
             .select_related("item")
+            .prefetch_related("condition_races")
             .order_by("item_id", "sort_order", "id")
         )
         instance_effects = (
@@ -225,6 +236,7 @@ class ModifierEngine:
                 character_item_id__in=character_item_ids,
             )
             .select_related("character_item", "character_item__item")
+            .prefetch_related("condition_races")
             .order_by("character_item_id", "sort_order", "id")
         )
         character_item_ids_with_instance_effects = {
@@ -295,7 +307,7 @@ class ModifierEngine:
                 active_flag=True,
             )
             .select_related("technique", "target_choice_definition")
-            .prefetch_related("target_skills")
+            .prefetch_related("target_skills", "condition_races")
             .order_by("technique_id", "sort_order", "id")
         )
         return [effect.to_modifier() for effect in effects]
@@ -332,7 +344,7 @@ class ModifierEngine:
                 ),
             )
             .select_related("power")
-            .prefetch_related("target_skills")
+            .prefetch_related("target_skills", "condition_races")
             .order_by("power_id", "sort_order", "id")
         )
         return [effect.to_modifier() for effect in effects]
@@ -422,6 +434,7 @@ class ModifierEngine:
             modifier
             for modifier in expanded
             if modifier is not None and modifier.applies(context) and TargetResolver.matches_context(modifier, context)
+            and self._modifier_matches_race_condition(modifier)
         ]
         if not context:
             self._active_modifiers_cache = result
@@ -765,6 +778,7 @@ class ModifierEngine:
                     modifier,
                     target_domain=target_domain,
                     target_key=target_key,
+                    context=context,
                 ):
                     continue
                 if not self._modifier_matches_skill_specification(
@@ -879,7 +893,12 @@ class ModifierEngine:
             modifier
             for modifier in self.collect_active_modifiers(context=context)
             if modifier.target_domain == target_domain
-            and self._modifier_matches_target_key(modifier, target_domain=target_domain, target_key=target_key)
+            and self._modifier_matches_target_key(
+                modifier,
+                target_domain=target_domain,
+                target_key=target_key,
+                context=context,
+            )
             and self._modifier_matches_skill_specification(
                 modifier,
                 target_domain=target_domain,
@@ -924,15 +943,52 @@ class ModifierEngine:
             resolved_total += int(resolved_value)
         return int(resolved_total)
 
-    @staticmethod
-    def _modifier_matches_target_key(modifier: BaseModifier, *, target_domain: str, target_key: str) -> bool:
+    @classmethod
+    def _modifier_matches_target_key(
+        cls,
+        modifier: BaseModifier,
+        *,
+        target_domain: str,
+        target_key: str,
+        context: dict[str, Any] | None = None,
+    ) -> bool:
         """Match direct target_key or concrete skill selections stored in metadata."""
         if modifier.target_key == target_key:
+            return True
+        if cls._modifier_matches_weapon_maneuver_damage_alias(
+            modifier,
+            target_domain=target_domain,
+            target_key=target_key,
+            context=context,
+        ):
             return True
         if target_domain not in {TargetDomain.SKILL, TargetDomain.SKILL_RANK, TargetDomain.SKILL_RANK_CAP}:
             return False
         selected_skill_slugs = modifier.metadata.get("target_skill_slugs") or []
         return target_key in selected_skill_slugs
+
+    @staticmethod
+    def _modifier_matches_weapon_maneuver_damage_alias(
+        modifier: BaseModifier,
+        *,
+        target_domain: str,
+        target_key: str,
+        context: dict[str, Any] | None = None,
+    ) -> bool:
+        """Expand +X/+X only for non-local weapon-context effects."""
+        if target_domain != TargetDomain.COMBAT:
+            return False
+        if modifier.target_key != WEAPON_MANEUVER_DAMAGE or target_key not in {MELEE_MANEUVERS, WEAPON_DAMAGE}:
+            return False
+        if str(modifier.source_type or "") in {SOURCE_ITEM_RUNE, "item", "characteritem"}:
+            return False
+        context = context or {}
+        return bool(
+            context.get("weapon_ids")
+            or context.get("weapon_types")
+            or context.get("weapon_skill_slugs")
+            or context.get("weapon_categories")
+        )
 
     def _modifier_matches_item_context(
         self,
@@ -942,9 +998,16 @@ class ModifierEngine:
         context: dict[str, Any] | None,
     ) -> bool:
         """Keep concrete item combat effects out of global combat totals."""
-        if target_domain != TargetDomain.COMBAT or str(modifier.source_type or "") != "characteritem":
+        source_type = str(modifier.source_type or "")
+        if target_domain != TargetDomain.COMBAT or source_type not in {"characteritem", "item"}:
             return True
-        expected_item_id = self._coerce_source_id(modifier.source_id)
+        if source_type == "item":
+            metadata_character_item_id = (modifier.metadata or {}).get("character_item_id")
+            if metadata_character_item_id is None:
+                return True
+            expected_item_id = self._coerce_source_id(metadata_character_item_id)
+        else:
+            expected_item_id = self._coerce_source_id(modifier.source_id)
         if expected_item_id is None:
             return False
         actual_item_id = self._coerce_source_id((context or {}).get("character_item_id"))
@@ -966,6 +1029,18 @@ class ModifierEngine:
             return True
         actual = self._normalize_condition_text((context or {}).get("condition_text"))
         return bool(actual) and actual == expected
+
+    def _modifier_matches_race_condition(self, modifier: BaseModifier) -> bool:
+        """Return whether the current character satisfies an optional race condition."""
+        expected_race_ids = modifier.metadata.get("condition_race_ids") or ()
+        if not expected_race_ids:
+            return True
+        if self.character_engine is None:
+            return False
+        character_race_id = self.character_engine.character.race_id
+        if character_race_id is None:
+            return False
+        return int(character_race_id) in {int(race_id) for race_id in expected_race_ids}
 
     def _migrated_choice_skill_modifier_total(
         self,

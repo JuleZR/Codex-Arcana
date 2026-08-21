@@ -14,6 +14,7 @@ from ..constants import (
     MODIFIER_VISIBILITY_CHOICES,
     STACK_BEHAVIOR_CHOICES,
 )
+from .core import Race
 from .creatures import CREATURE_TARGET_DOMAIN_CHOICES
 
 
@@ -146,6 +147,12 @@ class DaemonicPowerSemanticEffect(models.Model):
         default="stack",
     )
     condition_set = models.JSONField(default=dict, blank=True)
+    condition_races = models.ManyToManyField(
+        Race,
+        blank=True,
+        related_name="daemonic_power_semantic_effect_conditions",
+        help_text="Optional race condition. Leave empty to apply to every race.",
+    )
     active_flag = models.BooleanField(default=True)
     priority = models.IntegerField(default=0)
     condition_text = models.TextField(blank=True, default="")
@@ -274,6 +281,9 @@ class DaemonicPowerSemanticEffect(models.Model):
         if self.pk:
             metadata["semantic_effect_key"] = f"daemonic_power_effect:{self.pk}"
             metadata["semantic_effect_label"] = self.power.name
+            condition_race_ids = list(self.condition_races.order_by("id").values_list("id", flat=True))
+            if condition_race_ids:
+                metadata["condition_race_ids"] = condition_race_ids
         condition_text = " ".join(str(self.condition_text or "").split())
         if condition_text:
             metadata["condition_text"] = condition_text

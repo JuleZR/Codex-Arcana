@@ -3009,6 +3009,7 @@ def _ensure_character_item_effect_copies(character_item: CharacterItem) -> dict[
         effect = CharacterItemSemanticEffect(character_item=character_item, **values, metadata=metadata)
         effect.full_clean()
         effect.save()
+        effect.condition_races.set(base_effect.condition_races.all())
         existing_by_base_id[int(base_effect.id)] = effect
     return existing_by_base_id
 

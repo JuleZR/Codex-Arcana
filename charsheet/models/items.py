@@ -24,7 +24,7 @@ from ..constants import (
     WEAPON_MANEUVER_ATTRIBUTE_ST,
     WIELD_MODES,
 )
-from .core import DamageSource
+from .core import DamageSource, Race
 from .core import (
     MODIFIER_OPERATOR_CHOICES,
     MODIFIER_VISIBILITY_CHOICES,
@@ -557,6 +557,12 @@ class ItemSemanticEffectFields(models.Model):
     scaling = models.JSONField(default=dict, blank=True)
     stack_behavior = models.CharField(max_length=40, choices=STACK_BEHAVIOR_CHOICES, default="stack")
     condition_set = models.JSONField(default=dict, blank=True)
+    condition_races = models.ManyToManyField(
+        Race,
+        blank=True,
+        related_name="%(class)s_conditions",
+        help_text="Optional race condition. Leave empty to apply to every race.",
+    )
     active_flag = models.BooleanField(default=True)
     toggleable = models.BooleanField(default=False)
     priority = models.IntegerField(default=0)
@@ -680,6 +686,9 @@ class ItemSemanticEffectFields(models.Model):
         if self.pk:
             metadata["semantic_effect_key"] = f"item_effect:{self.pk}"
             metadata["semantic_effect_label"] = self.semantic_source_label()
+            condition_race_ids = list(self.condition_races.order_by("id").values_list("id", flat=True))
+            if condition_race_ids:
+                metadata["condition_race_ids"] = condition_race_ids
         resolved_invested_cp = self.item_invested_cp() if invested_cp is None else invested_cp
         if resolved_invested_cp is not None:
             metadata["item_invested_cp"] = resolved_invested_cp

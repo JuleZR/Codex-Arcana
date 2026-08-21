@@ -4388,6 +4388,13 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
   opacity: 0.72;
 }
 
+.floating-tooltip-card__section_body .tooltip_effect_inactive_race,
+.floating-tooltip .tooltip_effect_inactive_race {
+  color: rgba(96, 91, 84, 0.62);
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+}
+
 .floating-tooltip-card__section_body td:nth-child(2) {
   text-align: left;
   white-space: normal;

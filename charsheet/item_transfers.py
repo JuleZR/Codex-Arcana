@@ -193,10 +193,12 @@ def _clone_related_rows(source: CharacterItem, target: CharacterItem):
             specification=row.specification,
             slot=row.slot,
         )
-    for effect in source.semantic_effects.all():
+    for effect in source.semantic_effects.prefetch_related("condition_races").all():
+        condition_races = list(effect.condition_races.all())
         effect.pk = None
         effect.character_item = target
         effect.save()
+        effect.condition_races.set(condition_races)
     for grant in source.permission_grants.filter(
         permission=ItemPermissionGrant.Permission.CONSUME_FINAL,
         revoked_at__isnull=True,
