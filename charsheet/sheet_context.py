@@ -1613,7 +1613,7 @@ def _serialize_item_semantic_effect_payload(
     elif target_domain == "skill_category":
         payload["target_kind"] = "category"
         payload["target_skill_category"] = str(metadata.get("target_skill_category_id") or "")
-        payload["target_display"] = target_key
+        payload["target_display"] = _item_skill_category_target_display(target_key, metadata)
     elif target_domain == "item_category":
         payload["target_kind"] = "item_category"
         payload["target_item_category"] = target_key
@@ -1665,6 +1665,31 @@ def _item_skill_target_display(target_key: str, metadata: dict[str, object] | No
             if candidate in skills_by_slug:
                 return str(skills_by_slug[candidate])
     return target_tail or raw_target
+
+
+def _item_skill_category_target_display(target_key: str, metadata: dict[str, object] | None = None) -> str:
+    """Return the human-facing skill category name for an item semantic-effect target."""
+    metadata = metadata or {}
+    target_category_id = str(metadata.get("target_skill_category_id") or "").strip()
+    if target_category_id.isdigit():
+        name = SkillCategory.objects.filter(pk=int(target_category_id)).values_list("name", flat=True).first()
+        if name:
+            return str(name)
+
+    raw_target = str(target_key or "").strip()
+    candidates = []
+    for candidate in (raw_target, raw_target.rsplit("/", 1)[-1].strip()):
+        if candidate and candidate not in candidates:
+            candidates.append(candidate)
+    if candidates:
+        categories_by_slug = {
+            slug: name
+            for slug, name in SkillCategory.objects.filter(slug__in=candidates).values_list("slug", "name")
+        }
+        for candidate in candidates:
+            if candidate in categories_by_slug:
+                return str(categories_by_slug[candidate])
+    return raw_target.rsplit("/", 1)[-1].strip() or raw_target
 
 
 def _movement_effect_target_display(target_key: str) -> str:
@@ -2357,6 +2382,25 @@ def _load_character_item_modifier_payloads(
         instance_effect: CharacterItemSemanticEffect,
     ) -> bool:
         """Treat unlinked instance rows as overrides when they mirror a base row."""
+        def comparable_metadata(effect: ItemSemanticEffect | CharacterItemSemanticEffect) -> dict[str, object]:
+            ignored_keys = {
+                "base_item_effect_id",
+                "legacy_target_kind",
+                "legacy_target_slug",
+                "semantic_effect_key",
+                "semantic_effect_label",
+                "target_item_id",
+                "target_skill_category_id",
+                "target_skill_id",
+                "target_specialization_id",
+                "ui_target_kind",
+            }
+            return {
+                key: value
+                for key, value in dict(effect.metadata or {}).items()
+                if key not in ignored_keys
+            }
+
         comparable_fields = (
             "target_domain",
             "target_key",
@@ -2385,7 +2429,7 @@ def _load_character_item_modifier_payloads(
         return (
             dict(base_effect.scaling or {}) == dict(instance_effect.scaling or {})
             and dict(base_effect.condition_set or {}) == dict(instance_effect.condition_set or {})
-            and dict(base_effect.metadata or {}) == dict(instance_effect.metadata or {})
+            and comparable_metadata(base_effect) == comparable_metadata(instance_effect)
             and list(base_effect.condition_races.order_by("id").values_list("id", flat=True))
             == list(instance_effect.condition_races.order_by("id").values_list("id", flat=True))
         )
@@ -2396,7 +2440,7 @@ def _load_character_item_modifier_payloads(
         merged_effects: list[ItemSemanticEffect | CharacterItemSemanticEffect] = []
         standalone_effects = list(standalone_instance_effects_by_character_item_id.get(character_item_id, []))
         consumed_standalone_effect_ids: set[int] = set()
-        if base_effects:
+        if base_effects and not standalone_effects:
             for effect in base_effects:
                 linked_override = instance_effects_by_base.get((character_item_id, int(effect.id)))
                 if linked_override is not None:

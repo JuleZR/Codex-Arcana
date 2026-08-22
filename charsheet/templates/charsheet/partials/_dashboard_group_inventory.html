@@ -129,6 +129,10 @@
                           </div>
                           <label class="sl-editor-field"><span>Beschreibung</span><input type="text" maxlength="255" placeholder="Was bewirkt der Effekt?" data-effect-description></label>
                           <label class="sl-editor-field"><span>Regeltext</span><input type="text" maxlength="255" placeholder="z. B. |Passiv| gegen Gift" data-effect-rules-text></label>
+                          <div class="sl-editor-row sl-editor-row--effect">
+                            <label><span>Anzeigegruppe</span><input type="number" min="1" step="1" placeholder="z. B. 1" data-effect-display-group></label>
+                            <label class="sl-editor-field sl-editor-field--check"><span>Gruppe</span><input type="checkbox" value="1" data-effect-display-group-append> <em>anh&auml;ngen</em></label>
+                          </div>
                           <label class="sl-editor-field sl-editor-field--check"><span>Itemkarte</span><input type="checkbox" value="1" data-effect-toggleable> <em>umschaltbar</em></label>
                           <label class="sl-editor-field sl-editor-field--check"><span>Itemkarte</span><input type="checkbox" value="1" data-effect-toggle-inverted> <em>invertiert</em></label>
                           <label class="sl-editor-field" data-effect-target="attribute" hidden><span>Attribut</span><select>{% for value,label in group_inventory_effect_attributes %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></label>

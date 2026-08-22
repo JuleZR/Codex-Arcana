@@ -209,6 +209,19 @@ export function initItemForm() {
         toggleable: Boolean(row.querySelector("[data-magic-toggleable]")?.checked),
         toggle_state_inverted: Boolean(row.querySelector("[data-magic-toggle-inverted]")?.checked),
       };
+      if (row.dataset.displayGroup) {
+        payload.display_group = Number.parseInt(row.dataset.displayGroup, 10) || row.dataset.displayGroup;
+      }
+      if (row.dataset.displayGroupAppend === "1") {
+        payload.display_group_append = true;
+      }
+      const displayGroupValue = String(row.querySelector("[data-magic-display-group]")?.value || "").trim();
+      if (displayGroupValue) {
+        payload.display_group = Number.parseInt(displayGroupValue, 10) || displayGroupValue;
+      }
+      if (row.querySelector("[data-magic-display-group-append]")?.checked) {
+        payload.display_group_append = true;
+      }
       const attributeSelect = row.querySelector("[data-magic-target-select='attribute']");
       const statSelect = row.querySelector("[data-magic-target-select='stat']");
       const ruleFlagSelect = row.querySelector("[data-magic-target-select='rule_flag']");
@@ -366,6 +379,8 @@ export function initItemForm() {
     row.querySelector("[data-magic-value-input]")?.addEventListener("input", serializeMagicEffects);
     row.querySelector("[data-magic-effect-description]")?.addEventListener("input", serializeMagicEffects);
     row.querySelector("[data-magic-rules-text]")?.addEventListener("input", serializeMagicEffects);
+    row.querySelector("[data-magic-display-group]")?.addEventListener("input", serializeMagicEffects);
+    row.querySelector("[data-magic-display-group-append]")?.addEventListener("change", serializeMagicEffects);
     row.querySelector("[data-magic-toggleable]")?.addEventListener("change", serializeMagicEffects);
     row.querySelectorAll("[data-magic-target-select]").forEach((select) => {
       select.addEventListener("change", serializeMagicEffects);

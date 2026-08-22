@@ -624,6 +624,20 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
         toggleable: Boolean(row.querySelector("[data-magic-toggleable]")?.checked),
         toggle_state_inverted: Boolean(row.querySelector("[data-magic-toggle-inverted]")?.checked),
       };
+      if (row.dataset.displayGroup) {
+        payload.display_group = Number.parseInt(row.dataset.displayGroup, 10) || row.dataset.displayGroup;
+      }
+      if (row.dataset.displayGroupAppend === "1") {
+        payload.display_group_append = true;
+      }
+      const displayGroupInput = row.querySelector("[data-magic-display-group]");
+      const displayGroupValue = String(displayGroupInput?.value || "").trim();
+      if (displayGroupValue) {
+        payload.display_group = Number.parseInt(displayGroupValue, 10) || displayGroupValue;
+      }
+      if (row.querySelector("[data-magic-display-group-append]")?.checked) {
+        payload.display_group_append = true;
+      }
       const scaleSource = String(row.querySelector("[data-magic-scale-source]")?.value || "").trim();
       if (!isTextOnly && !isRuleFlag && scaleSource) {
         payload.scale_source = scaleSource;
@@ -765,9 +779,13 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
       const valueInput = row.querySelector("[data-magic-value-input]");
       const descriptionInput = row.querySelector("[data-magic-effect-description]");
       const rulesTextInput = row.querySelector("[data-magic-rules-text]");
+      const displayGroupInput = row.querySelector("[data-magic-display-group]");
+      const displayGroupAppendInput = row.querySelector("[data-magic-display-group-append]");
       const toggleableInput = row.querySelector("[data-magic-toggleable]");
       const toggleInvertedInput = row.querySelector("[data-magic-toggle-inverted]");
       row.dataset.magicActiveFlag = initialPayload.active_flag === false ? "0" : "1";
+      row.dataset.displayGroup = initialPayload.display_group == null ? "" : String(initialPayload.display_group);
+      row.dataset.displayGroupAppend = initialPayload.display_group_append ? "1" : "0";
       if (targetKindSelect instanceof HTMLSelectElement) {
         targetKindSelect.value = String(initialPayload.target_kind || "");
         if (retrofitItemType !== "weapon" && WEAPON_ONLY_MAGIC_TARGET_KINDS.includes(targetKindSelect.value)) {
@@ -782,6 +800,12 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
       }
       if (rulesTextInput instanceof HTMLInputElement) {
         rulesTextInput.value = String(initialPayload.rules_text || "");
+      }
+      if (displayGroupInput instanceof HTMLInputElement) {
+        displayGroupInput.value = initialPayload.display_group == null ? "" : String(initialPayload.display_group);
+      }
+      if (displayGroupAppendInput instanceof HTMLInputElement) {
+        displayGroupAppendInput.checked = Boolean(initialPayload.display_group_append);
       }
       if (toggleableInput instanceof HTMLInputElement) {
         toggleableInput.checked = Boolean(initialPayload.toggleable);
@@ -818,6 +842,8 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
     row.querySelector("[data-magic-value-input]")?.addEventListener("input", serializeMagicEffects);
     row.querySelector("[data-magic-effect-description]")?.addEventListener("input", serializeMagicEffects);
     row.querySelector("[data-magic-rules-text]")?.addEventListener("input", serializeMagicEffects);
+    row.querySelector("[data-magic-display-group]")?.addEventListener("input", serializeMagicEffects);
+    row.querySelector("[data-magic-display-group-append]")?.addEventListener("change", serializeMagicEffects);
     row.querySelector("[data-magic-toggleable]")?.addEventListener("change", serializeMagicEffects);
     row.querySelector("[data-magic-toggle-inverted]")?.addEventListener("change", serializeMagicEffects);
     row.querySelector("[data-magic-scale-source]")?.addEventListener("change", () => {

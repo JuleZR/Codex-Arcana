@@ -190,6 +190,19 @@ document.addEventListener("DOMContentLoaded", () => {
           toggleable: Boolean(row.querySelector("[data-effect-toggleable]")?.checked),
           toggle_state_inverted: Boolean(row.querySelector("[data-effect-toggle-inverted]")?.checked),
         };
+        if (row.dataset.displayGroup) {
+          payload.display_group = Number.parseInt(row.dataset.displayGroup, 10) || row.dataset.displayGroup;
+        }
+        if (row.dataset.displayGroupAppend === "1") {
+          payload.display_group_append = true;
+        }
+        const displayGroupValue = String(row.querySelector("[data-effect-display-group]")?.value || "").trim();
+        if (displayGroupValue) {
+          payload.display_group = Number.parseInt(displayGroupValue, 10) || displayGroupValue;
+        }
+        if (row.querySelector("[data-effect-display-group-append]")?.checked) {
+          payload.display_group_append = true;
+        }
         const scaleSource = row.querySelector("[data-effect-scale-source]")?.value || "";
         if (!["text", "rule_flag"].includes(targetKind) && scaleSource) {
           payload.scale_source = scaleSource;
@@ -356,6 +369,19 @@ document.addEventListener("DOMContentLoaded", () => {
           toggleable: Boolean(row.querySelector("[data-effect-toggleable]")?.checked),
           toggle_state_inverted: Boolean(row.querySelector("[data-effect-toggle-inverted]")?.checked),
         };
+        if (row.dataset.displayGroup) {
+          payload.display_group = Number.parseInt(row.dataset.displayGroup, 10) || row.dataset.displayGroup;
+        }
+        if (row.dataset.displayGroupAppend === "1") {
+          payload.display_group_append = true;
+        }
+        const displayGroupValue = String(row.querySelector("[data-effect-display-group]")?.value || "").trim();
+        if (displayGroupValue) {
+          payload.display_group = Number.parseInt(displayGroupValue, 10) || displayGroupValue;
+        }
+        if (row.querySelector("[data-effect-display-group-append]")?.checked) {
+          payload.display_group_append = true;
+        }
         const scaleSource = row.querySelector("[data-effect-scale-source]")?.value || "";
         if (!["text", "rule_flag"].includes(kind) && scaleSource) {
           payload.scale_source = scaleSource;
@@ -416,13 +442,19 @@ document.addEventListener("DOMContentLoaded", () => {
       const value = row.querySelector("[data-effect-value]");
       const description = row.querySelector("[data-effect-description]");
       const rulesText = row.querySelector("[data-effect-rules-text]");
+      const displayGroup = row.querySelector("[data-effect-display-group]");
+      const displayGroupAppend = row.querySelector("[data-effect-display-group-append]");
       const toggleable = row.querySelector("[data-effect-toggleable]");
       const toggleInverted = row.querySelector("[data-effect-toggle-inverted]");
       row.dataset.effectActiveFlag = payload.active_flag === false ? "0" : "1";
+      row.dataset.displayGroup = payload.display_group == null ? "" : String(payload.display_group);
+      row.dataset.displayGroupAppend = payload.display_group_append ? "1" : "0";
       if (kind && payload.target_kind) kind.value = payload.target_kind;
       if (value) value.value = String(payload.value ?? 0);
       if (description) description.value = payload.effect_description || "";
       if (rulesText) rulesText.value = payload.rules_text || "";
+      if (displayGroup) displayGroup.value = payload.display_group == null ? "" : String(payload.display_group);
+      if (displayGroupAppend) displayGroupAppend.checked = Boolean(payload.display_group_append);
       if (toggleable) toggleable.checked = Boolean(payload.toggleable);
       if (toggleInverted) toggleInverted.checked = Boolean(payload.toggle_state_inverted);
       const scaleSource = row.querySelector("[data-effect-scale-source]");

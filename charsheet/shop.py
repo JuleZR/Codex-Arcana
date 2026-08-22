@@ -230,6 +230,14 @@ def _build_magic_modifier_payload(target_kind: str, raw_value, row_data) -> dict
         "target_item": None,
         "target_specialization": None,
     }
+    try:
+        display_group = int(row_data.get("display_group"))
+    except (TypeError, ValueError):
+        display_group = None
+    if display_group is not None:
+        payload["display_group"] = display_group
+    if str(row_data.get("display_group_append") or "").lower() in {"1", "true", "on", "yes"}:
+        payload["display_group_append"] = True
     rules_text = str(row_data.get("rules_text") or "").strip()
     if rules_text:
         payload["rules_text"] = rules_text
@@ -367,6 +375,11 @@ def _read_magic_modifier_payloads(post_data) -> list[dict[str, object]]:
                 rules_text = str(payload.get("rules_text") or "").strip()
                 scale_source = str(payload.get("scale_source") or "")
                 scale_divisor = payload.get("scale_divisor")
+                grouping_payload = {
+                    key: payload[key]
+                    for key in ("display_group", "display_group_append")
+                    if key in payload
+                }
                 scale_payload = (
                     {"scale_source": scale_source, "scale_divisor": scale_divisor}
                     if scale_source and scale_divisor
@@ -385,6 +398,7 @@ def _read_magic_modifier_payloads(post_data) -> list[dict[str, object]]:
                             "target_skill_category": None,
                             "target_item": None,
                             "target_specialization": None,
+                            **grouping_payload,
                             **({"active_flag": bool(payload.get("active_flag", True))} if "active_flag" in payload else {}),
                             **({"toggleable": bool(payload.get("toggleable", False))} if "toggleable" in payload else {}),
                             **({"toggle_state_inverted": bool(payload.get("toggle_state_inverted", False))} if "toggle_state_inverted" in payload else {}),
@@ -401,6 +415,7 @@ def _read_magic_modifier_payloads(post_data) -> list[dict[str, object]]:
                             "target_skill_category": None,
                             "target_item": None,
                             "target_specialization": None,
+                            **grouping_payload,
                             **({"active_flag": bool(payload.get("active_flag", True))} if "active_flag" in payload else {}),
                             **({"toggleable": bool(payload.get("toggleable", False))} if "toggleable" in payload else {}),
                             **({"toggle_state_inverted": bool(payload.get("toggle_state_inverted", False))} if "toggle_state_inverted" in payload else {}),
@@ -468,6 +483,16 @@ def _read_rune_payloads(post_data) -> list[dict[str, object]]:
 
 def _magic_payload_to_semantic_effect_kwargs(payload: dict[str, object]) -> dict[str, object] | None:
     """Map one existing magic-effect payload into the item semantic-effect schema."""
+    grouping_kwargs: dict[str, object] = {}
+    try:
+        display_group = int(payload.get("display_group"))
+    except (TypeError, ValueError):
+        display_group = None
+    if display_group is not None:
+        grouping_kwargs["display_group"] = display_group
+    if bool(payload.get("display_group_append", False)):
+        grouping_kwargs["display_group_append"] = True
+
     if str(payload.get("target_kind") or "") == TEXT_TARGET_KIND:
         rules_text = str(payload.get("rules_text") or payload.get("effect_description") or "").strip()
         if not rules_text:
@@ -484,6 +509,7 @@ def _magic_payload_to_semantic_effect_kwargs(payload: dict[str, object]) -> dict
             "active_flag": bool(payload.get("active_flag", True)),
             "toggleable": bool(payload.get("toggleable", False)),
             "toggle_state_inverted": bool(payload.get("toggle_state_inverted", False)),
+            **grouping_kwargs,
             "metadata": {
                 "ui_target_kind": TEXT_TARGET_KIND,
                 "legacy_target_kind": TEXT_TARGET_KIND,
@@ -554,8 +580,19 @@ def _magic_payload_to_semantic_effect_kwargs(payload: dict[str, object]) -> dict
         "active_flag": bool(payload.get("active_flag", True)),
         "toggleable": bool(payload.get("toggleable", False)),
         "toggle_state_inverted": bool(payload.get("toggle_state_inverted", False)),
+        **grouping_kwargs,
         "metadata": {key: value for key, value in metadata.items() if value not in (None, "")},
     }
+
+
+def _magic_effect_kwargs_signature(kwargs: dict[str, object]) -> str:
+    """Return a semantic duplicate key for persisted magic effect rows."""
+    comparable = {
+        key: value
+        for key, value in kwargs.items()
+        if key not in {"sort_order"}
+    }
+    return json.dumps(comparable, sort_keys=True, default=str)
 
 
 def _save_magic_modifiers(*, source_model, source_id: int, magic_modifier_payloads: list[dict[str, object]]) -> None:
@@ -571,10 +608,15 @@ def _save_magic_modifiers(*, source_model, source_id: int, magic_modifier_payloa
         effect_model = CharacterItemSemanticEffect
         effect_filter = {"character_item_id": source_id}
     effect_model.objects.filter(**effect_filter).delete()
+    seen_signatures: set[str] = set()
     for payload in magic_modifier_payloads:
         kwargs = _magic_payload_to_semantic_effect_kwargs(payload)
         if kwargs is None:
             continue
+        signature = _magic_effect_kwargs_signature(kwargs)
+        if signature in seen_signatures:
+            continue
+        seen_signatures.add(signature)
         effect = effect_model(**effect_filter, **kwargs)
         effect.full_clean()
         effect.save()
