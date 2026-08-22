@@ -1,6 +1,6 @@
 {
   "name": "codex_arcana",
-  "version": "1.0.0",
+  "version": "0.8.0-beta",
   "description": "<p align=\"center\">   <img src=\"static/img/codexarcana.png\" alt=\"Codex Arcana Logo\" width=\"560\"> </p>",
   "main": "index.js",
   "directories": {
