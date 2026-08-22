@@ -46,9 +46,6 @@ class GameGroup(models.Model):
             models.UniqueConstraint(Lower("name"), name="uniq_game_group_name_ci")
         ]
 
-    def delete(self, *args, **kwargs):
-        raise ValidationError("Spielgruppen können nicht gelöscht, sondern nur archiviert werden.")
-
     def save(self, *args, **kwargs):
         creating = self._state.adding
         with transaction.atomic():
@@ -127,7 +124,6 @@ class GameGroupRole(models.Model):
     def __str__(self):
         return f"{self.group}: {self.user} ({self.get_role_display()})"
 
-
     def delete(self, *args, **kwargs):
         raise ValidationError("Gruppenrollen werden widerrufen und nicht physisch gelöscht.")
 
@@ -147,7 +143,7 @@ class GameGroupInvitation(models.Model):
     )
     character = models.ForeignKey(
         "charsheet.Character",
-        on_delete=models.PROTECT,
+        on_delete=models.CASCADE,
         related_name="game_group_invitations",
     )
     invited_by = models.ForeignKey(
@@ -188,12 +184,12 @@ class GameGroupMembership(models.Model):
     )
     character = models.ForeignKey(
         "charsheet.Character",
-        on_delete=models.PROTECT,
+        on_delete=models.CASCADE,
         related_name="game_group_memberships",
     )
     invitation = models.ForeignKey(
         GameGroupInvitation,
-        on_delete=models.PROTECT,
+        on_delete=models.SET_NULL,
         null=True,
         blank=True,
         related_name="memberships",

@@ -327,7 +327,7 @@ class CharacterItem(models.Model):
     )
     original_owner_character = models.ForeignKey(
         Character,
-        on_delete=models.PROTECT,
+        on_delete=models.SET_NULL,
         null=True,
         blank=True,
         related_name="originally_owned_items",

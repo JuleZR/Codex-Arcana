@@ -2163,8 +2163,7 @@ def delete_character(request, character_id: int):
     character = _owned_character_or_404(request, character_id)
     name = character.name
     if (
-        character.originally_owned_items.exists()
-        or character.sent_item_transfers.filter(status=ItemTransfer.Status.PENDING).exists()
+        character.sent_item_transfers.filter(status=ItemTransfer.Status.PENDING).exists()
         or character.received_item_transfers.filter(status=ItemTransfer.Status.PENDING).exists()
     ):
         messages.error(request, f"{name} kann wegen bestehender Ursprungsrechte oder offener Übergaben nicht gelöscht werden.")
@@ -2173,9 +2172,14 @@ def delete_character(request, character_id: int):
         with transaction.atomic():
             # CharacterLanguage uses PROTECT on owner; delete dependent entries first.
             CharacterLanguage.objects.filter(owner=character).delete()
+            CharacterItem.objects.filter(owner=character).delete()
             character.delete()
-    except ProtectedError:
-        messages.error(request, f"{name} konnte nicht geloescht werden (geschuetzte Verknuepfungen).")
+    except ProtectedError as exc:
+        messages.error(
+            request,
+            f"{name} konnte nicht gelöscht werden: "
+            f"{', '.join(str(obj) for obj in exc.protected_objects)}"
+        )
         return redirect("dashboard")
     messages.info(request, f"{name} wurde gelöscht.")
     return redirect("dashboard")
@@ -3472,7 +3476,10 @@ def toggle_equip(request, pk):
     ci = _owned_character_item_or_404(request, pk)
     ci = CharacterItem.objects.select_for_update(of=("self",)).select_related("item", "owner", "original_owner_character").get(pk=ci.pk)
     if item_is_pending(ci):
-        return _transfer_response_error(request, TransferError("item_pending", "Unterwegs befindliche Items können nicht ausgerüstet werden.", status=409), character_id=ci.owner_id)
+        return _transfer_response_error(request, TransferError(
+            "item_pending", "Unterwegs befindliche Items können nicht ausgerüstet werden.",
+            status=409
+            ), character_id=ci.owner_id)
 
     if ci.item.item_type not in (
         Item.ItemType.ARMOR,
@@ -3513,7 +3520,10 @@ def set_item_storage(request, pk):
     ci = _owned_character_item_or_404(request, pk)
     ci = CharacterItem.objects.select_for_update(of=("self",)).select_related("item", "owner", "original_owner_character").get(pk=ci.pk)
     if item_is_pending(ci):
-        return _transfer_response_error(request, TransferError("item_pending", "Unterwegs befindliche Items können nicht bewegt werden.", status=409), character_id=ci.owner_id)
+        return _transfer_response_error(request, TransferError(
+            "item_pending", "Unterwegs befindliche Items können nicht bewegt werden.",
+            status=409
+            ), character_id=ci.owner_id)
     if ci.equipped or ci.equip_locked:
         return redirect("character_sheet", character_id=ci.owner_id)
 
@@ -3537,7 +3547,10 @@ def consume_item(request, pk):
     was_equipped = bool(ci.equipped)
     partial_keys = _equipment_action_partial_keys(ci) if was_equipped else ("inventory_panel",)
     if item_is_pending(ci):
-        return _transfer_response_error(request, TransferError("item_pending", "Unterwegs befindliche Items können nicht verbraucht werden.", status=409), character_id=owner_id)
+        return _transfer_response_error(request, TransferError(
+            "item_pending", "Unterwegs befindliche Items können nicht verbraucht werden.",
+            status=409
+            ), character_id=owner_id)
     if not ci.item.stackable or ci.item.item_type != Item.ItemType.CONSUM:
         return redirect("character_sheet", character_id=owner_id)
 
@@ -3546,7 +3559,9 @@ def consume_item(request, pk):
         ci.save(update_fields=["amount"])
     else:
         if not has_item_permission(ci, ItemPermissionGrant.Permission.CONSUME_FINAL):
-            return _transfer_response_error(request, TransferError("consume_permission_required", "Für die letzte Einheit fehlt die Freigabe des Ursprungsbesitzers.", status=403), character_id=owner_id)
+            return _transfer_response_error(request, TransferError(
+                "consume_permission_required", "Für die letzte Einheit fehlt die Freigabe des Ursprungsbesitzers.",
+                status=403), character_id=owner_id)
         record_item_destruction(ci, ci.owner, "consume_final")
         ci.delete()
     if _is_partial_request(request):
@@ -3574,9 +3589,13 @@ def remove_item(request, pk):
     was_equipped = bool(ci.equipped)
     partial_keys = _equipment_action_partial_keys(ci) if was_equipped else ("inventory_panel",)
     if item_is_pending(ci):
-        return _transfer_response_error(request, TransferError("item_pending", "Unterwegs befindliche Items können nicht entfernt werden.", status=409), character_id=owner_id)
+        return _transfer_response_error(request, TransferError(
+            "item_pending", "Unterwegs befindliche Items können nicht entfernt werden.", status=409
+            ), character_id=owner_id)
     if not has_item_permission(ci, ItemPermissionGrant.Permission.DESTROY):
-        return _transfer_response_error(request, TransferError("destroy_permission_required", "Für diese Aktion fehlt die Zerstörungsfreigabe des Ursprungsbesitzers.", status=403), character_id=owner_id)
+        return _transfer_response_error(request, TransferError(
+            "destroy_permission_required", "Für diese Aktion fehlt die Zerstörungsfreigabe des Ursprungsbesitzers.", status=403
+            ), character_id=owner_id)
     remove_all = str(request.POST.get("all", "0")).lower() in {"1", "true", "on", "yes"}
     if remove_all:
         record_item_destruction(ci, ci.owner, "remove")
@@ -4091,7 +4110,9 @@ def update_creature_card_training(request, pk: int):
         ("march_swimming_speed", "march_swimming_speed_override", "swim_march"),
         ("sprint_swimming_speed", "sprint_swimming_speed_override", "swim_sprint"),
     )
-    can_swim = request.POST.get("can_swim") == "1" or any(post_name in request.POST for post_name, _field_name, _movement_key in swim_movement_fields)
+    can_swim = request.POST.get("can_swim") == "1" or any(
+        post_name in request.POST for post_name,
+        _field_name, _movement_key in swim_movement_fields)
     for post_name, field_name, movement_key in swim_movement_fields:
         if can_swim:
             desired_value = _parse_optional_nonnegative_float(request.POST.get(post_name))
@@ -4159,7 +4180,8 @@ def update_creature_card_training(request, pk: int):
         card_update_fields.append("wound_thresholds_override")
     selected_command_ids = {_parse_positive_int(raw_id) for raw_id in request.POST.getlist("commands") if _parse_positive_int(raw_id)}
     selected_advantage_ids = {_parse_positive_int(raw_id) for raw_id in request.POST.getlist("advantages") if _parse_positive_int(raw_id)}
-    selected_disadvantage_ids = {_parse_positive_int(raw_id) for raw_id in request.POST.getlist("disadvantages") if _parse_positive_int(raw_id)}
+    selected_disadvantage_ids = {
+        _parse_positive_int(raw_id) for raw_id in request.POST.getlist("disadvantages") if _parse_positive_int(raw_id)}
     update_daemonic_powers = "daemonic_powers_present" in request.POST
     selected_daemonic_power_ids = {
         _parse_positive_int(raw_id)
@@ -5179,9 +5201,11 @@ def create_shop_item(request, character_id: int):
 def update_character_item_runes(request, pk: int):
     """Persist one owned-item modification dialog for a supported inventory entry."""
     character_item = _owned_character_item_or_404(request, pk)
-    character_item = CharacterItem.objects.select_for_update(of=("self",)).select_related("item", "owner", "original_owner_character").get(pk=character_item.pk)
+    character_item = CharacterItem.objects.select_for_update(
+        of=("self",)).select_related("item", "owner", "original_owner_character").get(pk=character_item.pk)
     if item_is_pending(character_item):
-        return JsonResponse({"ok": False, "error": "item_pending"}, status=409) if _is_partial_request(request) else redirect("character_sheet", character_id=character_item.owner_id)
+        return JsonResponse({"ok": False, "error": "item_pending"}, status=409) \
+            if _is_partial_request(request) else redirect("character_sheet", character_id=character_item.owner_id)
     if character_item.owner_id != character_item.original_owner_character_id:
         if _is_partial_request(request):
             return JsonResponse(

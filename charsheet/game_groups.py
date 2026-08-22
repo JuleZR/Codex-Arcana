@@ -6,7 +6,6 @@ from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import IntegrityError, transaction
 from django.db.models import Q
 from django.db.models.deletion import ProtectedError
-from django.shortcuts import get_object_or_404
 from django.utils import timezone
 
 from charsheet.models import (
@@ -129,7 +128,8 @@ def delete_group(*, group_id: int, actor) -> str:
     ).exists():
         raise GroupError(
             "group_catalog_item_in_character_inventory",
-            "Mindestens ein gruppeneigenes Basisitem befindet sich in einem Charakterinventar. Diese Gegenstände müssen zuerst geklärt werden.",
+            "Mindestens ein gruppeneigenes Basisitem befindet sich in einem Charakterinventar."
+            "Diese Gegenstände müssen zuerst geklärt werden.",
             status=409,
         )
     name = group.name
@@ -363,16 +363,23 @@ def end_membership(*, membership_id: int, actor=None, owner=None) -> GameGroupMe
     if owner is not None:
         if membership.character.owner_id != owner.pk:
             raise PermissionDenied
-        next_status = GameGroupMembership.Status.LEFT
         if membership.group.is_archived:
-            raise GroupError("group_archived", "Archivierte Gruppen können nicht verändert werden.", status=409)
+            raise GroupError(
+                "group_archived",
+                "Archivierte Gruppen können nicht verändert werden.",
+                status=409,
+            )
     else:
         require_game_master(actor, membership.group, write=True)
-        next_status = GameGroupMembership.Status.REMOVED
+
     _recall_character_group_offers_locked(membership.character)
-    membership.status = next_status
-    membership.ended_at = timezone.now()
-    membership.save(update_fields=["status", "ended_at"])
+    invitation_id = membership.invitation_id
+
+    membership.delete()
+
+    if invitation_id:
+        GameGroupInvitation.objects.filter(pk=invitation_id).delete()
+
     return membership
 
 
