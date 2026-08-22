@@ -18,9 +18,13 @@
   <a href="https://discord.gg/mRKwGSsPEG">
     <img src="https://img.shields.io/badge/Discord-Join%20the%20Community-5865F2?logo=discord&logoColor=white" alt="Discord">
   </a>
-  <img src="https://img.shields.io/badge/Status-Early%20Alpha-orange" alt="Early Alpha">
+  <img src="https://img.shields.io/badge/Status-Beta-purple" alt="Beta" />
+  <img src="https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white" alt="Python 3.12">
   <img src="https://img.shields.io/badge/Django-6.0-092E20?logo=django&logoColor=white" alt="Django">
   <img src="https://img.shields.io/badge/License-GPLv3-blue" alt="GPLv3">
+  <a href="https://www.codexarcana.de">
+  <img src="https://img.shields.io/badge/Website-Codex%20Arcana-gold" alt="Codex Arcana Website">
+</a>
 </p>
 
 ---
@@ -77,7 +81,7 @@ That is the central idea behind Codex Arcana.
 
 ## ✦ Current State
 
-> **Codex Arcana is currently in Early Alpha.**
+> **Codex Arcana is currently in Beta.**
 
 The project is actively developed and already covers a considerable part of character management and gameplay, but it is not feature-complete.
 
