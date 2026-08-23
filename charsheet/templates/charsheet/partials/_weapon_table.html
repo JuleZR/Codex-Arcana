@@ -66,7 +66,7 @@
             <td title="Schadensmodifikator: {{ row.dmg_mod_display|default:'0' }}">{{ row.dmg_mod_display|default:"-" }}</td>
             <td>
               <span
-                class="pill tooltip_target"
+                class="pill tooltip_target{% if row.has_conditional_modifiers %} has_conditional_modifiers{% endif %}"
                 data-tooltip-side="left"
                 data-tooltip="{{ row.calculation_tooltip }}"
                 data-carry-weapon-loaded-total

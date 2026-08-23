@@ -700,7 +700,8 @@
 }
 
 .core_value.has_conditional_modifiers,
-.bel_dot.has_conditional_modifiers {
+.bel_dot.has_conditional_modifiers,
+.pill.has_conditional_modifiers {
   border-color: #9d332a;
   box-shadow:
     0 0 0 1px rgba(157, 51, 42, 0.32),

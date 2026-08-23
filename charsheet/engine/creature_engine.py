@@ -43,9 +43,6 @@ from charsheet.constants import (
 from charsheet.models.creatures import (
     ATTRIBUTE_FIELD_MAP,
     CharacterCreature,
-    CharacterCreatureAttributeIncrease,
-    CharacterCreatureCommand,
-    CharacterCreatureCommandPrerequisite,
     CharacterCreatureItem,
     Creature,
     CreatureAttack,
@@ -531,7 +528,13 @@ class CreatureEngine:
                 "kind": "creature_trait_choice_definition",
                 "id": int(effect_row.target_choice_definition_id),
             }
-        source_id = getattr(getattr(effect_row, "trait", None), "slug", "") or getattr(getattr(effect_row, "special_skill", None), "slug", "")
+        source_id = getattr(getattr(effect_row, "trait", None), "slug", "") or getattr(
+            getattr(
+                effect_row,
+                "special_skill",
+                None
+                ),
+            "slug", "")
         condition_text = str(getattr(effect_row, "condition_text", "") or "").strip()
         base_effect = CreatureSemanticEffect(
             source_id=source_id,
@@ -1083,7 +1086,8 @@ class CreatureEngine:
             base = int(self.creature.wound_step_override)
         else:
             base = 5 + int(self.attribute_mod(ATTR_KON) or 0)
-        return max(1, base + int(self._instance_numeric_adjustment("wound_step_override")) + self._modifier_total(TargetDomain.DERIVED_STAT, "wound_step"))
+        return max(1, base + int(self._instance_numeric_adjustment("wound_step_override"))
+                   + self._modifier_total(TargetDomain.DERIVED_STAT, "wound_step"))
 
     def wound_penalty_reduction(self) -> int:
         return max(0, int(self._modifier_total(TargetDomain.DERIVED_STAT, "wound_penalty_reduction") or 0))
@@ -1504,15 +1508,15 @@ class CreatureEngine:
                         effective_value,
                     ),
                     "deviation": deviation,
-                        "attribute": row.skill.attribute.short_name,
-                        "attribute_modifier": attribute_modifier,
-                        "effect_note": self._join_effect_notes_for_targets(
+                    "attribute": row.skill.attribute.short_name,
+                    "attribute_modifier": attribute_modifier,
+                    "effect_note": self._join_effect_notes_for_targets(
                             [
                                 (TargetDomain.SKILL_CATEGORY, category_slug),
                                 (TargetDomain.SKILL, row.skill.slug),
                             ]
                         ),
-                        "notes": override.notes if override and override.notes else row.notes or row.skill.description,
+                    "notes": override.notes if override and override.notes else row.notes or row.skill.description,
                 }
             )
         for skill_id, override in overrides.items():
@@ -1672,7 +1676,9 @@ class CreatureEngine:
         ]
         if self.instance:
             base_command_ids = {reference.command_id for reference in self.creature.commands.all()}
-            for command_row in self.instance.commands.select_related("command").prefetch_related("prerequisite_links__prerequisite__command"):
+            for command_row in self.instance.commands.select_related("command").prefetch_related(
+                "prerequisite_links__prerequisite__command"
+            ):
                 if command_row.command_id in base_command_ids:
                     continue
                 rows.append(
@@ -1843,7 +1849,9 @@ class CreatureEngine:
             "rs_natural": armor.natural_rs,
             "rs_armor": armor.armor_rs,
             "rs_total": armor.total_rs,
-            "rs_note": self._join_effect_notes(TargetDomain.DERIVED_STAT, "rs") or self._join_effect_notes(TargetDomain.DERIVED_STAT, "natural_rs"),
+            "rs_note": self._join_effect_notes(TargetDomain.DERIVED_STAT, "rs") or self._join_effect_notes(
+                TargetDomain.DERIVED_STAT, "natural_rs"
+                ),
             "rs_variants": (
                 self._conditional_value_variants(TargetDomain.DERIVED_STAT, "rs", armor.total_rs)
                 + self._conditional_value_variants(TargetDomain.DERIVED_STAT, "natural_rs", armor.total_rs)
@@ -1867,7 +1875,9 @@ class CreatureEngine:
             "movement_mana_cost": (
                 None
                 if self.creature.movement_mana_cost is None and not self._instance_numeric_adjustment("movement_mana_cost_override")
-                else max(0, int(self.creature.movement_mana_cost or 0) + int(self._instance_numeric_adjustment("movement_mana_cost_override")))
+                else max(0, int(self.creature.movement_mana_cost or 0) + int(self._instance_numeric_adjustment(
+                    "movement_mana_cost_override"
+                    )))
             ),
             "movement_note": self._value("movement_note", ""),
             "has_ground_movement": has_ground,

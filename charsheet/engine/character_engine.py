@@ -258,8 +258,21 @@ class CharacterEngine:
             return {}
         queryset = (
             self.character.weapon_masteries.filter(school=school)
-            .select_related("weapon_item", "school", "weapon_type", "weapon_item__weaponstats__weapon_type")
-            .order_by("pick_order", "weapon_type__name", "weapon_item__name", "id")
+            .select_related(
+                "weapon_item",
+                "school",
+                "weapon_type",
+            )
+            .prefetch_related(
+                "weapon_item__weapon_stats",
+                "weapon_item__weapon_stats__weapon_type",
+            )
+            .order_by(
+                "pick_order",
+                "weapon_type__name",
+                "weapon_item__name",
+                "id",
+            )
         )
         return {
             entry.effective_weapon_type(): entry

@@ -7,7 +7,6 @@ from decimal import Decimal, InvalidOperation
 import json
 import math
 
-from django.contrib.contenttypes.models import ContentType
 from django.db.models import Q
 from django.urls import reverse
 
@@ -71,7 +70,7 @@ from charsheet.lesson_rules import (
     format_lesson_requirements,
     lesson_requirements_met,
 )
-from charsheet.religion_rules import is_clerical_school, is_divine_entity_school, selected_divine_entity
+from charsheet.religion_rules import is_clerical_school, selected_divine_entity
 from charsheet.models import (
     Aspect,
     Character,
@@ -80,13 +79,11 @@ from charsheet.models import (
     CharacterDruidCult,
     CharacterShamanPatron,
     CharacterItem,
-    CharacterSkill,
     CharacterWeaponMasteryArcana,
     CharacterCreature,
     CharacterDaemonicPower,
     Creature,
     CreatureSourceBinding,
-    CharacterCreatureTrait,
     DivineEntityAspect,
     DivineEntity,
     DruidCult,
@@ -102,7 +99,6 @@ from charsheet.models import (
     CharacterTechnique,
     CharacterTrait,
     CharacterVampirePower,
-    CharacterVampireTrait,
     CreatureCommand,
     CreatureSpecialSkill,
     CreatureTrait,
@@ -120,7 +116,6 @@ from charsheet.models import (
     RaceTechnique,
     Rune,
     School,
-    ShamanPatron,
     Skill,
     SkillCategory,
     Spell,
@@ -341,14 +336,17 @@ def build_creature_card_training_context(card):
     base_creature = engine.creature
     traits = list(card.trait_overrides.select_related("trait").all())
     base_trait_rows = list(base_creature.traits.select_related("trait").prefetch_related("choices").all())
-    base_traits_by_trait_id = {row.trait_id: row for row in base_trait_rows}
     base_trait_levels = {
         row.trait_id: int(row.trait_level or 0)
         for row in base_trait_rows
         if row.trait_id
     }
     commands = list(card.commands.select_related("command").prefetch_related("prerequisite_links__prerequisite__command").all())
-    skill_overrides = {row.skill_id: row for row in card.skill_overrides.select_related("skill", "skill__attribute", "skill__category").all()}
+    skill_overrides = {row.skill_id: row for row in card.skill_overrides.select_related(
+        "skill",
+        "skill__attribute",
+        "skill__category"
+        ).all()}
     special_skill_overrides = {
         row.skill_id: row
         for row in card.special_skill_overrides.select_related("skill").all()
@@ -401,7 +399,18 @@ def build_creature_card_training_context(card):
         ).values_list("skill_id", flat=True)
     )
     seen_special_skill_ids = set()
-    def normal_skill_training_row(*, row_id: str, remove_id: str, name: str, value: int, deviation: int, notes: str, can_remove: bool, skill: Skill) -> dict:
+
+    def normal_skill_training_row(
+        *,
+        row_id: str,
+        remove_id: str,
+        name: str,
+        value: int,
+        deviation: int,
+        notes: str,
+        can_remove: bool,
+        skill: Skill,
+    ) -> dict:
         attribute_modifier = engine._skill_attribute_modifier(skill)
         gk_multiplier = 2 if skill.slug == "skill_hide" else 1 if skill.slug == "skill_evasion" or skill.category.slug == SKILL_COMBAT else 0
         gk_modifier = gk_multiplier * engine.size_modifier()
@@ -573,6 +582,7 @@ def build_creature_card_training_context(card):
                 "known": command.slug in known_command_slugs,
             }
         )
+
     def skill_choice_options(definition):
         skills = Skill.objects.select_related("category").order_by("name")
         if definition.pk:
@@ -1906,7 +1916,7 @@ def _format_magic_rule_effect_line(
         closing_index = text.find("|", 1)
         if closing_index > 1:
             label = text[1:closing_index].replace("@", invested_cp_text).strip()
-            suffix = text[closing_index + 1 :].strip()
+            suffix = text[closing_index + 1:].strip()
             if label:
                 effect_text = value_display
                 if suffix:
@@ -1929,7 +1939,7 @@ def _magic_pipe_parts(rules_text: str, *, invested_cp: object = "") -> tuple[str
     except (TypeError, ValueError):
         invested_cp_text = ""
     label = text[1:closing_index].replace("@", invested_cp_text).strip()
-    suffix = text[closing_index + 1 :].strip()
+    suffix = text[closing_index + 1:].strip()
     return label, suffix
 
 
@@ -1947,7 +1957,7 @@ def _format_magic_text_effect_line(rules_text: str, *, invested_cp: object = "")
         closing_index = text.find("|", 1)
         if closing_index > 1:
             label = text[1:closing_index].replace("@", invested_cp_text).strip()
-            suffix = text[closing_index + 1 :].strip()
+            suffix = text[closing_index + 1:].strip()
             if label and suffix:
                 return f"**{label}** · {suffix}"
             if label:
@@ -1955,7 +1965,12 @@ def _format_magic_text_effect_line(rules_text: str, *, invested_cp: object = "")
     return text
 
 
-def _build_character_item_magic_tooltip_rows(*, effect_summary: str, modifier_payloads: list[dict[str, object]]) -> list[tuple[str, object]]:
+def _build_character_item_magic_tooltip_rows(
+    *,
+    effect_summary: str,
+    modifier_payloads:
+        list[dict[str, object]]
+) -> list[tuple[str, object]]:
     """Return tooltip rows for magic effects stored on one owned item."""
     display_entries: list[dict[str, object]] = []
     numeric_effects: OrderedDict[tuple[object, ...], dict[str, object]] = OrderedDict()
@@ -2308,26 +2323,6 @@ def _build_character_item_magic_tooltip_rows(*, effect_summary: str, modifier_pa
             }
         numeric_effects[key]["value"] = int(numeric_effects[key]["value"]) + value
         continue
-        value_only_display = format_modifier(value)
-        if str(payload.get("target_kind") or "") == RULE_FLAG_TARGET_KIND:
-            value_display = target_display
-            value_only_display = target_display
-        elif str(payload.get("target_kind") or "") in {WEAPON_MANEUVER_DAMAGE, WEAPON_MASTERY_BONUS}:
-            formatted_value = format_modifier(value)
-            value_display = f"{formatted_value}/{formatted_value}"
-            value_only_display = value_display
-        elif str(payload.get("target_kind") or "") == "weapon_damage_dice":
-            value_display = f"{value:+d} W10"
-            value_only_display = value_display
-        else:
-            value_display = f"{value:+d} {target_display}"
-        rule_line = _format_magic_rule_effect_line(rules_text, value_display, value_only_display)
-        if rule_line:
-            effect_lines.append(rule_line)
-        elif effect_description:
-            effect_lines.append(f"{effect_description} - {value_display}")
-        else:
-            effect_lines.append(value_display)
     flush_numeric_effects()
     effect_lines = grouped_effect_lines()
     if not effect_lines:
@@ -2713,7 +2708,17 @@ def _build_weapon_calculation_tooltip(
     character_item = row["character_item"]
     weapon_context = _character_item_weapon_target_context(character_item)
     damage_source_slug = ItemEngine(character_item).get_weapon_damage_source_slug()
-    strength_mod = int(row.get("damage_attribute_modifier", engine.attribute_modifier(ATTR_ST)) or 0)
+    damage_attribute_code = str(
+        row.get("damage_attribute_code") or ATTR_ST
+    )
+
+    damage_attribute_modifier = int(
+        row.get(
+            "damage_attribute_modifier",
+            engine.attribute_modifier(damage_attribute_code),
+        )
+        or 0
+    )
     mastery_bonus = int(row.get("weapon_mastery_damage_bonus", 0) or 0)
     mastery_source = "Schule: Waffenmeister"
     weapon_master_school_entry = getattr(engine, "_weapon_master_school_entry", None)
@@ -2739,7 +2744,13 @@ def _build_weapon_calculation_tooltip(
     item_damage_rows = _build_character_item_stat_modifier_rows(engine, character_item, WEAPON_DAMAGE)
     rows = []
     if str(row.get("maneuver_attribute_mode") or "") != "none":
-        rows.append({"label": "ST-Bonus/Malus", "value": format_modifier(strength_mod), "source": "ST"})
+        rows.append(
+            {
+                "label": f"{damage_attribute_code}-Bonus/Malus",
+                "value": format_modifier(damage_attribute_modifier),
+                "source": damage_attribute_code,
+            }
+        )
     rows.extend(damage_modifier_rows)
     rows.extend(weapon_damage_rows)
     if mastery_bonus:
@@ -2757,7 +2768,14 @@ def _build_weapon_calculation_tooltip(
         rows.append({"label": extra_load_label, "value": format_modifier(extra_load_penalty)})
     total_value = int(row.get("with_bel_value", row.get("with_bel", 0)) or 0) + int(extra_load_penalty or 0)
     rows.append({"label": "= Gesamt", "value": format_modifier(total_value), "tone": "total"})
-    return _build_core_stat_tooltip(rows)
+    conditional_modifiers = _conditional_weapon_modifier_lines(
+        engine,
+        row,
+    )
+    return _build_core_stat_tooltip(
+        rows,
+        conditional_modifiers=conditional_modifiers,
+    )
 
 
 def _build_weapon_maneuver_breakdown_rows(engine, weapon_row: dict[str, object]) -> list[dict[str, object]]:
@@ -3132,7 +3150,7 @@ def _clean_modifier_note_text(note_text: object, *, invested_cp: object = "") ->
         closing_index = text.find("|", 1)
         if closing_index > 1:
             label = text[1:closing_index].replace("@", invested_cp_text).strip()
-            suffix = text[closing_index + 1 :].strip().replace("@", invested_cp_text)
+            suffix = text[closing_index + 1:].strip().replace("@", invested_cp_text)
             text = " ".join(part for part in (label, suffix) if part)
     elif invested_cp_text:
         text = text.replace("@", invested_cp_text)
@@ -3263,27 +3281,145 @@ def _modifier_target_domain_for_stat_key(stat_key: str) -> str:
     return "combat" if str(stat_key or "").startswith("dmg_") else "derived_stat"
 
 
-def _character_item_weapon_target_context(character_item: CharacterItem) -> dict[str, tuple[str, ...]]:
+def _character_item_weapon_target_context(
+    character_item: CharacterItem,
+    weapon_stats=None,
+) -> dict[str, tuple[str, ...]]:
     """Return weapon target context for one equipped item row."""
     item = character_item.item
     weapon_skill_slugs: set[str] = set()
     weapon_type_slugs: set[str] = set()
-    for stats_name in ("weaponstats", "rangedweaponstats", "shieldstats"):
-        stats = getattr(item, stats_name, None)
-        if not stats:
-            continue
+
+    if weapon_stats is not None:
+        weapon_stats_entries = [weapon_stats]
+    else:
+        weapon_stats_entries = list(item.weapon_stats.all())
+
+    for stats in weapon_stats_entries:
         weapon_type = getattr(stats, "weapon_type", None)
         if weapon_type and getattr(weapon_type, "slug", ""):
             weapon_type_slugs.add(str(weapon_type.slug))
+
         skill_manager = getattr(stats, "skills", None)
         if skill_manager is not None:
-            weapon_skill_slugs.update(str(slug) for slug in skill_manager.all().values_list("slug", flat=True))
+            weapon_skill_slugs.update(
+                str(skill.slug)
+                for skill in skill_manager.all()
+            )
+
+    for stats_name in ("rangedweaponstats", "shieldstats"):
+        stats = getattr(item, stats_name, None)
+        if not stats:
+            continue
+
+        weapon_type = getattr(stats, "weapon_type", None)
+        if weapon_type and getattr(weapon_type, "slug", ""):
+            weapon_type_slugs.add(str(weapon_type.slug))
+
+        skill_manager = getattr(stats, "skills", None)
+        if skill_manager is not None:
+            weapon_skill_slugs.update(
+                str(skill.slug)
+                for skill in skill_manager.all()
+            )
+
     return {
         "character_item_id": str(character_item.id),
-        "weapon_ids": (str(item.id), str(character_item.id)),
+        "weapon_ids": (
+            str(item.id),
+            str(character_item.id),
+        ),
         "weapon_types": tuple(sorted(weapon_type_slugs)),
         "weapon_skill_slugs": tuple(sorted(weapon_skill_slugs)),
     }
+
+
+def _conditional_weapon_modifier_lines(
+    engine,
+    weapon_row: dict[str, object],
+) -> list[str]:
+    """Return conditional combat modifiers for one concrete weapon profile."""
+    character_item = weapon_row["character_item"]
+    weapon_stats = weapon_row.get("weapon_stats")
+
+    weapon_context = _character_item_weapon_target_context(
+        character_item,
+        weapon_stats=weapon_stats,
+    )
+
+    relevant_target_keys = {
+        WEAPON_DAMAGE,
+        WEAPON_DAMAGE_DICE,
+        WEAPON_MANEUVER_DAMAGE,
+        MELEE_MANEUVERS,
+    }
+
+    effects = list(
+        ItemSemanticEffect.objects.filter(
+            item_id=character_item.item_id,
+            active_flag=True,
+        )
+        .exclude(notes="")
+        .order_by("sort_order", "id")
+    )
+
+    effects.extend(
+        CharacterItemSemanticEffect.objects.filter(
+            character_item_id=character_item.id,
+            active_flag=True,
+        )
+        .exclude(notes="")
+        .order_by("sort_order", "id")
+    )
+
+    lines: list[str] = []
+
+    for effect in effects:
+        if effect.target_domain != "combat":
+            continue
+
+        if str(effect.target_key or "") not in relevant_target_keys:
+            continue
+
+        modifier = effect.to_modifier(
+            invested_cp=character_item.invested_cp,
+        )
+
+        if not engine.modifier_engine._modifier_matches_race_condition(
+            modifier
+        ):
+            continue
+
+        if not TargetResolver.matches_context(
+            modifier,
+            weapon_context,
+        ):
+            continue
+
+        resolved_value = int(
+            engine.modifier_engine._resolve_numeric_modifier(
+                modifier
+            )
+            or 0
+        )
+
+        if not resolved_value:
+            continue
+
+        condition_text = " ".join(
+            str(effect.notes or "").split()
+        )
+
+        if str(effect.target_key or "") == WEAPON_DAMAGE_DICE:
+            value_label = f"{resolved_value:+d}w10"
+        else:
+            value_label = format_modifier(resolved_value)
+        
+        lines.append(
+            f"{value_label} {condition_text}"
+        )
+
+    return lines
 
 
 def _build_rule_flag_tooltip_row(engine, flag_key: str, value: object) -> dict[str, object]:
@@ -3387,16 +3523,34 @@ def _build_character_item_stat_modifier_rows(engine, character_item: CharacterIt
     target_context = _character_item_weapon_target_context(character_item)
 
     for modifier in engine.modifier_engine._active_item_semantic_modifiers:
-        if str(getattr(modifier, "source_type", "") or "") != "characteritem":
-            continue
-        if str(getattr(modifier, "source_id", "") or "") != str(character_item.id):
+        source_type = str(
+            getattr(modifier, "source_type", "") or ""
+        )
+        source_id = str(
+            getattr(modifier, "source_id", "") or ""
+        )
+
+        if source_type == "characteritem":
+            if source_id != str(character_item.id):
+                continue
+        elif source_type == "item":
+            if source_id != str(character_item.item_id):
+                continue
+        else:
             continue
         if not engine.modifier_engine._modifier_matches_race_condition(modifier):
             continue
         target_domain = getattr(getattr(modifier, "target_domain", ""), "value", getattr(modifier, "target_domain", ""))
         if str(target_domain or "") != "combat":
             continue
-        if str(getattr(modifier, "target_key", "") or "") != stat_key:
+        modifier_target_key = str(
+            getattr(modifier, "target_key", "") or ""
+        )
+
+        if modifier_target_key != stat_key and not (
+            modifier_target_key == WEAPON_MANEUVER_DAMAGE
+            and stat_key in {MELEE_MANEUVERS, WEAPON_DAMAGE}
+        ):
             continue
         if not TargetResolver.matches_context(modifier, target_context):
             continue
@@ -3405,12 +3559,16 @@ def _build_character_item_stat_modifier_rows(engine, character_item: CharacterIt
             continue
         explanation.append(
             {
-                "source_type": "characteritem",
-                "source_id": character_item.id,
+                "source_type": source_type,
+                "source_id": source_id,
                 "resolved_value": resolved_value,
                 "notes": _clean_modifier_note_text(
-                    getattr(modifier, "notes", "") or getattr(modifier, "rules_text", ""),
-                    invested_cp=character_item.invested_cp if character_item.invested_cp is not None else character_item.item.invested_cp,
+                    getattr(modifier, "notes", "")
+                    or getattr(modifier, "rules_text", ""),
+                    invested_cp=_item_source_invested_cp(
+                        source_type,
+                        source_id,
+                    ),
                 ),
             }
         )
@@ -3748,7 +3906,7 @@ def _build_skill_rows(
         for weapon_row in equipped_weapon_rows:
             if not weapon_row.get("is_primary_profile", False):
                 continue
-            weapon_stats = getattr(weapon_row["item"], "weaponstats", None)
+            weapon_stats = weapon_row.get("weapon_stats")
             ranged_stats = getattr(weapon_row["item"], "rangedweaponstats", None)
             offensive_stats = ranged_stats or weapon_stats
             if offensive_stats is None:
@@ -4131,92 +4289,197 @@ def _build_inventory_rows(character: Character) -> list[dict]:
     inventory_rows: list[dict] = []
     race_item_ids = _race_item_ids()
     strength = int(character.get_engine().attributes().get(ATTR_ST, 0) or 0)
+
     inventory_items = list(
         CharacterItem.objects
         .filter(
             Q(owner=character, equipped=False)
             | (Q(original_owner_character=character) & ~Q(owner=character))
         )
-        .select_related("item", "original_owner_character", "item__weaponstats", "item__weaponstats__damage_source", "item__rangedweaponstats", "item__armorstats", "item__shieldstats")
-        .prefetch_related("item__runes", "runes", "rune_specs__rune", "item_runes__rune", "transfers__recipient", "permission_grants")
+        .select_related(
+            "item",
+            "original_owner_character",
+            "item__rangedweaponstats",
+            "item__armorstats",
+            "item__shieldstats",
+        )
+        .prefetch_related(
+            "item__runes",
+            "item__weapon_stats",
+            "item__weapon_stats__damage_source",
+            "runes",
+            "rune_specs__rune",
+            "item_runes__rune",
+            "transfers__recipient",
+            "permission_grants",
+        )
     )
-    inventory_items.sort(key=lambda entry: ItemEngine(entry).get_name().lower())
-    modifiers_by_character_item_id = _load_character_item_modifier_payloads(inventory_items)
+
+    inventory_items.sort(
+        key=lambda entry: ItemEngine(entry).get_name().lower()
+    )
+
+    modifiers_by_character_item_id = _load_character_item_modifier_payloads(
+        inventory_items
+    )
+
     for character_item in inventory_items:
         item = character_item.item
         pending_transfer = pending_transfer_for_item(character_item)
+
         is_gm_edit_pending = bool(
             pending_transfer
             and pending_transfer.transfer_kind == ItemTransfer.TransferKind.GM_EDIT
         )
+
         is_current_holder = character_item.owner_id == character.id
-        is_original_owner = character_item.original_owner_character_id == character.id
+        is_original_owner = (
+            character_item.original_owner_character_id == character.id
+        )
         is_foreign_held = is_original_owner and not is_current_holder
         is_borrowed = is_current_holder and not is_original_owner
         can_use_item = is_current_holder and pending_transfer is None
+
         active_grants = {}
+
         for grant in character_item.permission_grants.all():
             if not grant.active:
                 continue
+
             if grant.permission == "consume_final":
                 if grant.grantee_id is None:
-                    active_grants.setdefault(grant.permission, grant)
+                    active_grants.setdefault(
+                        grant.permission,
+                        grant,
+                    )
+
             elif (
                 grant.grantee_id == character_item.owner_id
                 and grant.ownership_version == character_item.ownership_version
             ):
-                active_grants.setdefault(grant.permission, grant)
-        can_destroy = has_item_permission(character_item, "destroy", character)
-        can_consume_final = has_item_permission(character_item, "consume_final", character)
+                active_grants.setdefault(
+                    grant.permission,
+                    grant,
+                )
+
+        can_destroy = has_item_permission(
+            character_item,
+            "destroy",
+            character,
+        )
+
+        can_consume_final = has_item_permission(
+            character_item,
+            "consume_final",
+            character,
+        )
+
         is_race_item = item.id in race_item_ids
+
         item_engine = ItemEngine(character_item)
+        weapon_stats = item_engine._get_weapon_stats()
+
         item_name = item_engine.get_name()
-        quality = quality_payload(item_engine.get_effective_quality())
-        stored_modifier_payloads = modifiers_by_character_item_id.get(character_item.id, [])
-        visible_magic_effect_summary, magic_modifier_payloads = _merge_magic_effect_payloads(
+        quality = quality_payload(
+            item_engine.get_effective_quality()
+        )
+
+        stored_modifier_payloads = modifiers_by_character_item_id.get(
+            character_item.id,
+            [],
+        )
+
+        (
+            visible_magic_effect_summary,
+            magic_modifier_payloads,
+        ) = _merge_magic_effect_payloads(
             effect_summary=character_item.magic_effect_summary or "",
             modifier_payloads=stored_modifier_payloads,
         )
+
         tooltip_text = ""
-        item_description = character_item.description or item.description or ""
-        if not is_race_item and item.item_type in QUALITY_TOOLTIP_TYPES:
+        item_description = (
+            character_item.description
+            or item.description
+            or ""
+        )
+
+        if (
+            not is_race_item
+            and item.item_type in QUALITY_TOOLTIP_TYPES
+        ):
             tooltip_text = _format_item_tooltip(
                 description=item_description,
                 quality_label=quality["label"],
                 quality_color=quality["color"],
                 detail_rows=(
-                    _build_item_tooltip_rows(item_engine, item, strength=strength)
-                    + _build_weapon_symbol_tooltip_rows(item_engine)
+                    _build_item_tooltip_rows(
+                        item_engine,
+                        item,
+                        strength=strength,
+                    )
+                    + _build_weapon_symbol_tooltip_rows(
+                        item_engine
+                    )
                     + _build_character_item_magic_tooltip_rows(
                         effect_summary=visible_magic_effect_summary,
                         modifier_payloads=magic_modifier_payloads,
                     )
-                    + _build_character_item_rune_tooltip_rows(item=item, character_item=character_item)
+                    + _build_character_item_rune_tooltip_rows(
+                        item=item,
+                        character_item=character_item,
+                    )
                 ),
             )
+
         elif item_description:
             tooltip_text = _format_item_tooltip(
                 description=item_description,
                 detail_rows=(
-                    _build_item_tooltip_rows(item_engine, item, strength=strength)
-                    + _build_weapon_symbol_tooltip_rows(item_engine)
+                    _build_item_tooltip_rows(
+                        item_engine,
+                        item,
+                        strength=strength,
+                    )
+                    + _build_weapon_symbol_tooltip_rows(
+                        item_engine
+                    )
                     + _build_character_item_magic_tooltip_rows(
                         effect_summary=visible_magic_effect_summary,
                         modifier_payloads=magic_modifier_payloads,
                     )
-                    + _build_character_item_rune_tooltip_rows(item=item, character_item=character_item)
+                    + _build_character_item_rune_tooltip_rows(
+                        item=item,
+                        character_item=character_item,
+                    )
                 ),
             )
+
         active_rune_ids = [
             item_rune.rune_id
             for item_rune in character_item.item_runes.all()
             if item_rune.is_active
-        ] or [rune.id for rune in character_item.runes.all()]
-        item_image_url = _character_item_image_url(character_item)
+        ] or [
+            rune.id
+            for rune in character_item.runes.all()
+        ]
+
+        item_image_url = _character_item_image_url(
+            character_item
+        )
+
         equip_drop_zones = []
-        if item.item_type in Item.weapon_item_type_values() or item.item_type == Item.ItemType.SHIELD:
+
+        if (
+            item.item_type in Item.weapon_item_type_values()
+            or item.item_type == Item.ItemType.SHIELD
+        ):
             equip_drop_zones.append("weapon")
-        elif item.item_type in EQUIPPABLE_ITEM_TYPES or character_item.is_magic_effective:
+
+        elif (
+            item.item_type in EQUIPPABLE_ITEM_TYPES
+            or character_item.is_magic_effective
+        ):
             equip_drop_zones.append("armor")
 
         inventory_rows.append(
@@ -4224,25 +4487,64 @@ def _build_inventory_rows(character: Character) -> list[dict]:
                 "character_item": character_item,
                 "item": item,
                 "item_name": item_name,
-                "has_runes": _character_item_has_visible_runes(item=item, character_item=character_item),
-                "rune_rows": _collect_rune_rows(item=item, character_item=character_item),
+                "has_runes": _character_item_has_visible_runes(
+                    item=item,
+                    character_item=character_item,
+                ),
+                "rune_rows": _collect_rune_rows(
+                    item=item,
+                    character_item=character_item,
+                ),
                 "display_name": (
                     f"{character_item.amount}x {item_name}"
                     if item.stackable
                     else item_name
                 ),
-                "quality": "" if is_race_item else quality["value"],
-                "quality_label": "" if is_race_item else quality["label"],
-                "quality_color": "" if is_race_item else quality["color"],
+                "quality": (
+                    ""
+                    if is_race_item
+                    else quality["value"]
+                ),
+                "quality_label": (
+                    ""
+                    if is_race_item
+                    else quality["label"]
+                ),
+                "quality_color": (
+                    ""
+                    if is_race_item
+                    else quality["color"]
+                ),
                 "tooltip_subtitle": " - ".join(
-                    part for part in [item.get_item_type_display(), "" if is_race_item else quality["label"]] if part
+                    part
+                    for part in [
+                        item.get_item_type_display(),
+                        (
+                            ""
+                            if is_race_item
+                            else quality["label"]
+                        ),
+                    ]
+                    if part
                 ),
                 "item_image_url": item_image_url,
-                "tooltip_text": "" if is_gm_edit_pending else tooltip_text,
-                "is_stored": bool(character_item.stored) if is_current_holder else False,
+                "tooltip_text": (
+                    ""
+                    if is_gm_edit_pending
+                    else tooltip_text
+                ),
+                "is_stored": (
+                    bool(character_item.stored)
+                    if is_current_holder
+                    else False
+                ),
                 "is_foreign_held": is_foreign_held,
                 "is_borrowed": is_borrowed,
-                "foreign_holder_name": character_item.owner.name if is_foreign_held else "",
+                "foreign_holder_name": (
+                    character_item.owner.name
+                    if is_foreign_held
+                    else ""
+                ),
                 "pending_transfer": pending_transfer,
                 "is_transfer_pending": pending_transfer is not None,
                 "is_gm_edit_pending": is_gm_edit_pending,
@@ -4253,94 +4555,236 @@ def _build_inventory_rows(character: Character) -> list[dict]:
                     and not is_gm_edit_pending
                 ),
                 "can_manage_storage": can_use_item,
-                "can_transfer": can_use_item and not character_item.equip_locked,
-                "can_grant_transfer_permissions": is_current_holder and is_original_owner,
-                "can_consume": can_use_item and item.stackable and item.item_type == Item.ItemType.CONSUM and (character_item.amount > 1 or can_consume_final),
-                "can_destroy": can_use_item and can_destroy,
-                "can_enforce_original_ownership": is_original_owner and is_foreign_held,
+                "can_transfer": (
+                    can_use_item
+                    and not character_item.equip_locked
+                ),
+                "can_grant_transfer_permissions": (
+                    is_current_holder
+                    and is_original_owner
+                ),
+                "can_consume": (
+                    can_use_item
+                    and item.stackable
+                    and item.item_type == Item.ItemType.CONSUM
+                    and (
+                        character_item.amount > 1
+                        or can_consume_final
+                    )
+                ),
+                "can_destroy": (
+                    can_use_item
+                    and can_destroy
+                ),
+                "can_enforce_original_ownership": (
+                    is_original_owner
+                    and is_foreign_held
+                ),
                 "can_manage_permissions": is_foreign_held,
-                "can_return_to_original_owner": is_borrowed and can_use_item and not character_item.equip_locked,
-                "consume_grant": active_grants.get("consume_final"),
-                "sell_grant": active_grants.get("sell"),
-                "destroy_grant": active_grants.get("destroy"),
-                "can_equip": can_use_item and (item.item_type in EQUIPPABLE_ITEM_TYPES or character_item.is_magic_effective),
-                "equip_drop_zone": equip_drop_zones[0] if equip_drop_zones else "",
-                "equip_drop_zones": ",".join(equip_drop_zones),
+                "can_return_to_original_owner": (
+                    is_borrowed
+                    and can_use_item
+                    and not character_item.equip_locked
+                ),
+                "consume_grant": active_grants.get(
+                    "consume_final"
+                ),
+                "sell_grant": active_grants.get(
+                    "sell"
+                ),
+                "destroy_grant": active_grants.get(
+                    "destroy"
+                ),
+                "can_equip": (
+                    can_use_item
+                    and (
+                        item.item_type in EQUIPPABLE_ITEM_TYPES
+                        or character_item.is_magic_effective
+                    )
+                ),
+                "equip_drop_zone": (
+                    equip_drop_zones[0]
+                    if equip_drop_zones
+                    else ""
+                ),
+                "equip_drop_zones": ",".join(
+                    equip_drop_zones
+                ),
                 "can_socket_runes": (
                     can_use_item
                     and is_original_owner
                 ),
                 "equip_label": "Anlegen",
                 "extra_rune_ids": active_rune_ids,
-                "rune_specs_json": json.dumps(_serialize_character_item_rune_specs(character_item)),
-                "description": character_item.description or item.description or "",
-                "is_character_item_magic": bool(character_item.is_magic),
+                "rune_specs_json": json.dumps(
+                    _serialize_character_item_rune_specs(
+                        character_item
+                    )
+                ),
+                "description": (
+                    character_item.description
+                    or item.description
+                    or ""
+                ),
+                "is_character_item_magic": bool(
+                    character_item.is_magic
+                ),
                 "magic_effect_summary": visible_magic_effect_summary,
                 "magic_modifier_payloads": magic_modifier_payloads,
-                "magic_modifier_payloads_json": json.dumps(magic_modifier_payloads),
+                "magic_modifier_payloads_json": json.dumps(
+                    magic_modifier_payloads
+                ),
                 "modify_payload_json": json.dumps(
                     {
                         "name": item_name,
                         "price": item_engine.get_base_price(),
-                        "weight": str(item_engine._get_override_value("weight_override", item.weight)),
-                        "invested_cp": character_item.invested_cp or item.invested_cp or "",
-                        "invested_cp_steps": item.invested_cp_steps or "",
+                        "weight": str(
+                            item_engine._get_override_value(
+                                "weight_override",
+                                item.weight,
+                            )
+                        ),
+                        "invested_cp": (
+                            character_item.invested_cp
+                            or item.invested_cp
+                            or ""
+                        ),
+                        "invested_cp_steps": (
+                            item.invested_cp_steps
+                            or ""
+                        ),
                         "size_class": item_engine.get_size_class(),
                         "not_buyable": bool(item.not_buyable),
                         "not_sellable": bool(item.not_sellable),
                         "weapon_type": item_engine.get_weapon_type(),
                         "weapon_min_st": item_engine.get_weapon_min_st(),
-                        "weapon_maneuver_attribute": item_engine.get_weapon_maneuver_attribute_mode(),
+                        "weapon_maneuver_attribute": (
+                            item_engine.get_weapon_maneuver_attribute_mode()
+                        ),
                         "weapon_damage_source": getattr(
                             item_engine._get_override_value(
                                 "weapon_damage_source_override",
-                                getattr(getattr(item, "weaponstats", None), "damage_source", None),
+                                getattr(
+                                    weapon_stats,
+                                    "damage_source",
+                                    None,
+                                ),
                             ),
                             "id",
                             "",
                         ),
-                        "weapon_damage_dice_amount": item_engine._get_override_value(
-                            "weapon_damage_dice_amount_override",
-                            getattr(getattr(item, "weaponstats", None), "damage_dice_amount", ""),
+                        "weapon_damage_dice_amount": (
+                            item_engine._get_override_value(
+                                "weapon_damage_dice_amount_override",
+                                getattr(
+                                    weapon_stats,
+                                    "damage_dice_amount",
+                                    "",
+                                ),
+                            )
                         ),
-                        "weapon_damage_dice_faces": item_engine._get_override_value(
-                            "weapon_damage_dice_faces_override",
-                            getattr(getattr(item, "weaponstats", None), "damage_dice_faces", ""),
+                        "weapon_damage_dice_faces": (
+                            item_engine._get_override_value(
+                                "weapon_damage_dice_faces_override",
+                                getattr(
+                                    weapon_stats,
+                                    "damage_dice_faces",
+                                    "",
+                                ),
+                            )
                         ),
-                        "weapon_damage_flat_operator": item_engine._get_override_value(
-                            "weapon_damage_flat_operator_override",
-                            getattr(getattr(item, "weaponstats", None), "damage_flat_operator", ""),
+                        "weapon_damage_flat_operator": (
+                            item_engine._get_override_value(
+                                "weapon_damage_flat_operator_override",
+                                getattr(
+                                    weapon_stats,
+                                    "damage_flat_operator",
+                                    "",
+                                ),
+                            )
                         ),
-                        "weapon_damage_flat_bonus": item_engine._get_override_value(
-                            "weapon_damage_flat_bonus_override",
-                            getattr(getattr(item, "weaponstats", None), "damage_flat_bonus", ""),
+                        "weapon_damage_flat_bonus": (
+                            item_engine._get_override_value(
+                                "weapon_damage_flat_bonus_override",
+                                getattr(
+                                    weapon_stats,
+                                    "damage_flat_bonus",
+                                    "",
+                                ),
+                            )
                         ),
                         "weapon_wield_mode": item_engine.get_weapon_wield_mode(),
                         "weapon_damage_type": item_engine.get_weapon_damage_type(),
-                        "weapon_h2_dice_amount": item_engine._get_override_value(
-                            "weapon_h2_dice_amount_override",
-                            getattr(getattr(item, "weaponstats", None), "h2_dice_amount", ""),
+                        "weapon_h2_dice_amount": (
+                            item_engine._get_override_value(
+                                "weapon_h2_dice_amount_override",
+                                getattr(
+                                    weapon_stats,
+                                    "h2_dice_amount",
+                                    "",
+                                ),
+                            )
                         ),
-                        "weapon_h2_dice_faces": item_engine._get_override_value(
-                            "weapon_h2_dice_faces_override",
-                            getattr(getattr(item, "weaponstats", None), "h2_dice_faces", ""),
+                        "weapon_h2_dice_faces": (
+                            item_engine._get_override_value(
+                                "weapon_h2_dice_faces_override",
+                                getattr(
+                                    weapon_stats,
+                                    "h2_dice_faces",
+                                    "",
+                                ),
+                            )
                         ),
-                        "weapon_h2_flat_operator": item_engine._get_override_value(
-                            "weapon_h2_flat_operator_override",
-                            getattr(getattr(item, "weaponstats", None), "h2_flat_operator", ""),
+                        "weapon_h2_flat_operator": (
+                            item_engine._get_override_value(
+                                "weapon_h2_flat_operator_override",
+                                getattr(
+                                    weapon_stats,
+                                    "h2_flat_operator",
+                                    "",
+                                ),
+                            )
                         ),
-                        "weapon_h2_flat_bonus": item_engine._get_override_value(
-                            "weapon_h2_flat_bonus_override",
-                            getattr(getattr(item, "weaponstats", None), "h2_flat_bonus", ""),
+                        "weapon_h2_flat_bonus": (
+                            item_engine._get_override_value(
+                                "weapon_h2_flat_bonus_override",
+                                getattr(
+                                    weapon_stats,
+                                    "h2_flat_bonus",
+                                    "",
+                                ),
+                            )
                         ),
-                        "weapon_h2_damage_type": item_engine.get_weapon_h2_damage_type(),
-                        "armor_rs_total": item_engine._get_override_value(
-                            "armor_rs_total_override",
-                            getattr(getattr(item, "armorstats", None), "rs_total", ""),
+                        "weapon_h2_damage_type": (
+                            item_engine.get_weapon_h2_damage_type()
                         ),
-                        "armor_encumbrance": item_engine._get_override_value(
-                            "armor_encumbrance_override",
-                            getattr(getattr(item, "armorstats", None), "encumbrance", ""),
+                        "armor_rs_total": (
+                            item_engine._get_override_value(
+                                "armor_rs_total_override",
+                                getattr(
+                                    getattr(
+                                        item,
+                                        "armorstats",
+                                        None,
+                                    ),
+                                    "rs_total",
+                                    "",
+                                ),
+                            )
+                        ),
+                        "armor_encumbrance": (
+                            item_engine._get_override_value(
+                                "armor_encumbrance_override",
+                                getattr(
+                                    getattr(
+                                        item,
+                                        "armorstats",
+                                        None,
+                                    ),
+                                    "encumbrance",
+                                    "",
+                                ),
+                            )
                         ),
                         "armor_min_st": item_engine.get_armor_min_st(),
                         "shield_rs": item_engine.get_effective_shield_rs(),
@@ -4350,6 +4794,7 @@ def _build_inventory_rows(character: Character) -> list[dict]:
                 ),
             }
         )
+
     return inventory_rows
 
 
@@ -4451,7 +4896,19 @@ def _build_weapon_rows(engine) -> list[dict]:
                 "calculation_tooltip": "",
                 "can_unequip": not row["character_item"].equip_locked,
             }
-            display_row["calculation_tooltip"] = _build_weapon_calculation_tooltip(engine, display_row)
+            conditional_modifiers = _conditional_weapon_modifier_lines(
+                engine,
+                display_row,
+            )
+
+            display_row["has_conditional_modifiers"] = bool(
+                conditional_modifiers
+            )
+
+            display_row["calculation_tooltip"] = _build_weapon_calculation_tooltip(
+                engine,
+                display_row,
+            )
             weapon_rows.append(display_row)
         rendered_rows_by_item[character_item_id] = total_rendered_rows + len(display_options)
     attribute_sort_order = {"ST": 0, "GE": 1}
@@ -5189,8 +5646,19 @@ def _build_shop_item_groups() -> list[dict]:
     buyable_items = (
         Item.objects
         .filter(catalog_group__isnull=True)
-        .select_related("weaponstats", "armorstats", "shieldstats", "magicitemstats")
-        .prefetch_related("runes")
+        .select_related(
+            "armorstats",
+            "shieldstats",
+            "magicitemstats",
+        )
+        .prefetch_related(
+            "runes",
+            "weapon_stats",
+            "weapon_stats__damage_source",
+            "weapon_stats__weapon_type",
+            "weapon_stats__skills",
+            "weapon_stats__flags",
+        )
         .order_by("item_type", "name")
     )
     for item in buyable_items:
@@ -5204,7 +5672,24 @@ def _build_shop_item_groups() -> list[dict]:
             "weight": str(item.weight),
             "min_st": None,
         }
-        weapon_stats = getattr(item, "weaponstats", None)
+        weapon_stats = (
+            item.weapon_stats
+            .order_by("id")
+            .first()
+        )
+
+        if weapon_stats is not None:
+            stats_payload.update(
+                {
+                    "damage_dice_amount": weapon_stats.damage_dice_amount,
+                    "damage_dice_faces": weapon_stats.damage_dice_faces,
+                    "damage_flat_bonus": weapon_stats.damage_flat_bonus,
+                    "damage_flat_operator": weapon_stats.damage_flat_operator,
+                    "h2_dice_amount": weapon_stats.h2_dice_amount,
+                    "h2_dice_faces": weapon_stats.h2_dice_faces,
+                    # Rest unverändert
+                }
+            )
         if weapon_stats is not None:
             stats_payload.update(
                 {

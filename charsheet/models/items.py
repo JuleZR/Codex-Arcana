@@ -75,6 +75,7 @@ class Rune(models.Model):
         default=False,
         help_text="Wenn aktiv, darf diese Rune mehrfach auf demselben Gegenstand angebracht werden.",
     )
+
     def __str__(self):
         return self.name
 
@@ -821,7 +822,17 @@ class WeaponStats(models.Model):
         SUBTRACT = "-", "-"
         DIVIDE = "/", "/"
 
-    item = models.OneToOneField(Item, on_delete=models.CASCADE)
+    item = models.ForeignKey(
+        Item,
+        on_delete=models.CASCADE,
+        related_name="weapon_stats"
+    )
+    profile_name = models.CharField(
+        max_length=100,
+        blank=True,
+        default="",
+        help_text="Optionaler Name dieses Waffenprofils, z. B. Rapier oder Main-Gauche."
+    )
     min_st = models.PositiveIntegerField(default=1, validators=[MinValueValidator(1)])
     min_st_1h = models.PositiveIntegerField(null=True, blank=True, validators=[MinValueValidator(1)])
     min_st_2h = models.PositiveIntegerField(null=True, blank=True, validators=[MinValueValidator(1)])

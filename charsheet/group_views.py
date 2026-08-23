@@ -733,12 +733,17 @@ def game_master_screen(request, group_id: int):
         .select_related(
             "item",
             "quality",
-            "item__weaponstats__weapon_type",
-            "item__weaponstats__damage_source",
             "item__armorstats",
             "item__shieldstats",
         )
-        .prefetch_related("runes", "item_runes", "rune_specs")
+        .prefetch_related(
+            "runes",
+            "item_runes",
+            "rune_specs",
+            "item__weapon_stats",
+            "item__weapon_stats__weapon_type",
+            "item__weapon_stats__damage_source",
+        )
         .order_by("item__name", "id")
     )
     shared_edit_transfers = list(
@@ -754,13 +759,17 @@ def game_master_screen(request, group_id: int):
             "item__owner",
             "item__item",
             "item__quality",
-            "item__item__weaponstats__weapon_type",
-            "item__item__weaponstats__damage_source",
             "item__item__armorstats",
             "item__item__shieldstats",
         )
-        .prefetch_related("item__runes", "item__item_runes", "item__rune_specs")
-        .order_by("item__item__name", "item_id")
+        .prefetch_related(
+            "item__runes",
+            "item__item_runes",
+            "item__rune_specs",
+            "item__item__weapon_stats",
+            "item__item__weapon_stats__weapon_type",
+            "item__item__weapon_stats__damage_source",
+        )
     )
     known_item_ids = {row.id for row in inventory_items}
     for edit_transfer in shared_edit_transfers:

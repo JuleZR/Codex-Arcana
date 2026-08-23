@@ -1968,13 +1968,13 @@ class WeaponStatsAdminForm(forms.ModelForm):
 
 
 class WeaponStatsInline(admin.StackedInline):
-    """Inline editor for one-to-one weapon stats on an item."""
+    """Inline editor for weapon stat profiles on an item."""
 
     model = WeaponStats
     form = WeaponStatsAdminForm
+    verbose_name = "Weapon Stats"
     verbose_name_plural = "Weapon Stats"
     extra = 0
-    max_num = 1
     can_delete = True
     autocomplete_fields = ("damage_source",)
     filter_horizontal = ("flags", "skills")
@@ -2131,7 +2131,8 @@ class ItemSemanticEffectAdminForm(forms.ModelForm):
         choices.extend((f"skill_category:{category.slug}", category.name) for category in SkillCategory.objects.order_by("name"))
         choices.extend((f"item:{item.pk}", item.name) for item in Item.objects.order_by("name", "id"))
         choices.extend((f"item_category:{value}", label) for value, label in Item.ItemType.choices)
-        choices.extend((f"specialization:{specialization.pk}", specialization.name) for specialization in Specialization.objects.order_by("name", "id"))
+        choices.extend((f"specialization:{specialization.pk}", specialization.name) for specialization
+                       in Specialization.objects.order_by("name", "id"))
         choices.extend((f"rule_flag:{value}", label) for value, label in RULE_FLAG_CHOICES)
         return choices
 
@@ -2313,6 +2314,7 @@ class ItemSemanticEffectInline(admin.StackedInline):
     verbose_name_plural = "Item Semantic Effects"
     extra = 0
     filter_horizontal = ("condition_races",)
+
     class Media:
         js = ("charsheet/js/item_semantic_effect_admin_v3.js",)
 
@@ -2896,7 +2898,8 @@ class RuleSemanticEffectAdminForm(SemanticCreatureCardGrantFormMixin, forms.Mode
         choices.extend((f"skill_category:{category.slug}", category.name) for category in SkillCategory.objects.order_by("name"))
         choices.extend((f"item:{item.pk}", item.name) for item in Item.objects.order_by("name", "id"))
         choices.extend((f"item_category:{value}", label) for value, label in Item.ItemType.choices)
-        choices.extend((f"specialization:{specialization.pk}", specialization.name) for specialization in Specialization.objects.order_by("name", "id"))
+        choices.extend((f"specialization:{specialization.pk}", specialization.name) for specialization
+                       in Specialization.objects.order_by("name", "id"))
         choices.extend((f"rule_flag:{value}", label) for value, label in RULE_FLAG_CHOICES)
         return choices
 
@@ -3204,7 +3207,6 @@ class CreatureTraitSemanticEffectAdminForm(forms.ModelForm):
         ("min_value", "mindestens"),
         ("max_value", "hoechstens"),
     )
-
 
     effect_area = forms.ChoiceField(label="Was soll geaendert werden?", choices=EFFECT_AREA_CHOICES, required=False)
     simple_target = forms.ChoiceField(label="Was genau?", choices=(), required=False)
@@ -3941,7 +3943,14 @@ class VampireTraitSemanticEffectAdminForm(CreatureTraitSemanticEffectAdminForm):
         ("set_flag", "set flag"),
         ("unset_flag", "unset flag"),
     )
-    ATTRIBUTE_TARGET_CHOICES = (("GE", "Dexterity"), ("WA", "Perception"), ("INT", "Intelligence"), ("WILL", "Willpower"), ("ST", "Strength"), ("KON", "Constitution"), ("CHA", "Charisma"))
+    ATTRIBUTE_TARGET_CHOICES = (
+        ("GE", "Dexterity"),
+        ("WA", "Perception"),
+        ("INT", "Intelligence"),
+        ("WILL", "Willpower"),
+        ("ST", "Strength"),
+        ("KON", "Constitution"),
+        ("CHA", "Charisma"))
     VAMPIRE_RULE_FLAG_CHOICES = (
         ("wound_penalty_ignore", "Ignore wound penalties"),
         ("can_act_while_out_of_action", "Can act while out of action"),
@@ -4526,7 +4535,12 @@ class CharacterAdmin(admin.ModelAdmin):
             {"fields": ("height", "weight", "skin_color", "hair_color", "eye_color", "country_of_origin")},
         ),
         ("Additional Details", {"fields": ("religion", "appearance")}),
-        ("Status", {"fields": (("current_stun_damage", "current_lethal_damage", "current_aggravated_damage"), "money", "overall_experience", "current_experience")}),
+        ("Status", {"fields": (
+            ("current_stun_damage",
+             "current_lethal_damage",
+             "current_aggravated_damage"),
+            "money", "overall_experience",
+            "current_experience")}),
         (
             "Vampirism",
             {
@@ -4748,7 +4762,8 @@ class SchoolAdmin(admin.ModelAdmin):
         if obj is None or not obj.symbol_image:
             return "-"
         return format_html(
-            '<img src="{}" alt="{}" style="max-width:64px; max-height:64px; border-radius:6px; border:1px solid #ccc; background:#fff; padding:3px;" />',
+            '<img src="{}" alt="{}" style="max-width:64px; max-height:64px; border-radius:6px;'
+            + 'border:1px solid #ccc; background:#fff; padding:3px;" />',
             obj.symbol_image.url,
             obj.name,
         )
@@ -5207,7 +5222,16 @@ class CharacterItemSemanticEffectAdmin(admin.ModelAdmin):
     """Admin configuration for concrete item instance semantic effects."""
 
     form = CharacterItemSemanticEffectAdminForm
-    list_display = ("character_item", "target_domain", "target_key", "operator", "value", "active_flag", "toggleable", "toggle_state_inverted")
+    list_display = (
+        "character_item",
+        "target_domain",
+        "target_key",
+        "operator",
+        "value",
+        "active_flag",
+        "toggleable",
+        "toggle_state_inverted"
+        )
     list_filter = ("target_domain", "operator", "active_flag", "toggleable", "toggle_state_inverted", "sheet_relevant")
     search_fields = ("character_item__item__name", "target_key", "notes", "rules_text")
     autocomplete_fields = ("character_item",)
@@ -6489,7 +6513,15 @@ class WeaponStatsAdmin(admin.ModelAdmin):
         "range_summary",
         "size_class",
     )
-    search_fields = ("item__name", "weapon_type__name", "weapon_type__slug", "damage_source__name", "flags__key", "skills__name", "skills__slug")
+    search_fields = (
+        "item__name",
+        "weapon_type__name",
+        "weapon_type__slug",
+        "damage_source__name",
+        "flags__key",
+        "skills__name",
+        "skills__slug"
+        )
     list_filter = ("weapon_type", "wield_mode", "damage_source", "damage_type", "flags", "item__default_quality", "item__size_class")
     ordering = ("item__name",)
     autocomplete_fields = ("item", "weapon_type", "damage_source")
@@ -6877,7 +6909,9 @@ class CharacterShamanPatronAdminForm(forms.ModelForm):
 
         selected_count = core_aspects.count()
         if patron.aspect_selection_mode == DivineEntity.AspectSelectionMode.FIXED and selected_count:
-            raise forms.ValidationError("Dieses Totem oder dieser Ahnengeist nutzt feste Aspekte; bitte keine Kernaspekte am Charakter waehlen.")
+            raise forms.ValidationError(
+                "Dieses Totem oder dieser Ahnengeist nutzt feste Aspekte; bitte keine Kernaspekte am Charakter wählen."
+                )
 
         allowed_count = int(patron.starting_aspect_count or 0)
         if allowed_count > 0 and selected_count > allowed_count:
@@ -6938,7 +6972,8 @@ class AspectAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
             return format_html('<span style="color:#666;">{}</span>', "-")
 
         return format_html(
-            '<img src="{}" alt="{}" style="max-width:96px; max-height:96px; border-radius:8px; border:1px solid #ccc; background:#fff; padding:4px;" />',
+            '<img src="{}" alt="{}" style="max-width:96px; max-height:96px;'
+            + 'border-radius:8px; border:1px solid #ccc; background:#fff; padding:4px;" />',
             obj.aspect_image.url,
             obj.name,
         )
@@ -7100,7 +7135,8 @@ class DivineEntityAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
             return format_html('<span style="color:#666;">{}</span>', "-")
 
         return format_html(
-            '<img src="{}" alt="{}" style="max-width:96px; max-height:96px; border-radius:8px; border:1px solid #ccc; background:#fff; padding:4px;" />',
+            '<img src="{}" alt="{}" style="max-width:96px; max-height:96px;'
+            + 'border-radius:8px; border:1px solid #ccc; background:#fff; padding:4px;" />',
             obj.symbol_image.url,
             obj.name,
         )
@@ -7111,7 +7147,8 @@ class DivineEntityAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
             return format_html('<span style="color:#666;">{}</span>', "-")
 
         return format_html(
-            '<img src="{}" alt="{}" style="max-width:160px; max-height:220px; border-radius:8px; border:1px solid #ccc; background:#fff; padding:4px;" />',
+            '<img src="{}" alt="{}" style="max-width:160px; max-height:220px;'
+            + 'border-radius:8px; border:1px solid #ccc; background:#fff; padding:4px;" />',
             obj.god_image.url,
             obj.name,
         )
@@ -7178,7 +7215,8 @@ class DruidCultAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
         if obj is None or not obj.symbol_image:
             return format_html('<span style="color:#666;">{}</span>', "-")
         return format_html(
-            '<img src="{}" alt="{}" style="max-width:96px; max-height:96px; border-radius:8px; border:1px solid #ccc; background:#fff; padding:4px;" />',
+            '<img src="{}" alt="{}" style="max-width:96px; max-height:96px;'
+            + 'border-radius:8px; border:1px solid #ccc; background:#fff; padding:4px;" />',
             obj.symbol_image.url,
             obj.name,
         )
@@ -7188,7 +7226,8 @@ class DruidCultAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
         if obj is None or not obj.god_image:
             return format_html('<span style="color:#666;">{}</span>', "-")
         return format_html(
-            '<img src="{}" alt="{}" style="max-width:160px; max-height:220px; border-radius:8px; border:1px solid #ccc; background:#fff; padding:4px;" />',
+            '<img src="{}" alt="{}" style="max-width:160px; max-height:220px;'
+            + 'border-radius:8px; border:1px solid #ccc; background:#fff; padding:4px;" />',
             obj.god_image.url,
             obj.name,
         )
@@ -7257,7 +7296,8 @@ class ShamanPatronAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
         if obj is None or not obj.symbol_image:
             return format_html('<span style="color:#666;">{}</span>', "-")
         return format_html(
-            '<img src="{}" alt="{}" style="max-width:96px; max-height:96px; border-radius:8px; border:1px solid #ccc; background:#fff; padding:4px;" />',
+            '<img src="{}" alt="{}" style="max-width:96px; max-height:96px;'
+            + 'border-radius:8px; border:1px solid #ccc; background:#fff; padding:4px;" />',
             obj.symbol_image.url,
             obj.name,
         )
@@ -7267,7 +7307,8 @@ class ShamanPatronAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
         if obj is None or not obj.god_image:
             return format_html('<span style="color:#666;">{}</span>', "-")
         return format_html(
-            '<img src="{}" alt="{}" style="max-width:160px; max-height:220px; border-radius:8px; border:1px solid #ccc; background:#fff; padding:4px;" />',
+            '<img src="{}" alt="{}" style="max-width:160px; max-height:220px; border-radius:8px;'
+            + ' border:1px solid #ccc; background:#fff; padding:4px;" />',
             obj.god_image.url,
             obj.name,
         )
@@ -7389,7 +7430,8 @@ class CharacterDivineEntityAdmin(admin.ModelAdmin):
             return format_html('<span style="color:#666;">{}</span>', "-")
 
         return format_html(
-            '<img src="{}" alt="{}" style="max-width:160px; max-height:220px; border-radius:8px; border:1px solid #ccc; background:#fff; padding:4px;" />',
+            '<img src="{}" alt="{}" style="max-width:160px; max-height:220px;'
+            + ' border-radius:8px; border:1px solid #ccc; background:#fff; padding:4px;" />',
             obj.custom_god_image.url,
             obj.custom_name or obj.entity.name,
         )
@@ -8426,7 +8468,16 @@ class CreatureAdmin(admin.ModelAdmin):
 class CharacterCreatureItemInline(admin.TabularInline):
     model = CharacterCreatureItem
     extra = 0
-    fields = ("item", "amount", "equipped", "quality", "armor_rs_total_override", "armor_encumbrance_override", "armor_min_st_override", "notes")
+    fields = (
+        "item",
+        "amount",
+        "equipped",
+        "quality",
+        "armor_rs_total_override",
+        "armor_encumbrance_override",
+        "armor_min_st_override",
+        "notes"
+        )
     autocomplete_fields = ("item",)
 
 
@@ -8484,7 +8535,18 @@ class CharacterCreatureVampirePowerInline(admin.TabularInline):
 class CharacterCreatureTraitInline(admin.TabularInline):
     model = CharacterCreatureTrait
     extra = 0
-    fields = ("order", "base_trait", "trait", "trait_level", "active", "training_trait_type", "point_source", "point_cost_override", "trait_points", "trait_semantic_effects")
+    fields = (
+        "order",
+        "base_trait",
+        "trait",
+        "trait_level",
+        "active",
+        "training_trait_type",
+        "point_source",
+        "point_cost_override",
+        "trait_points",
+        "trait_semantic_effects"
+        )
     readonly_fields = ("trait_points", "trait_semantic_effects")
     autocomplete_fields = ("base_trait", "trait")
 
@@ -8524,7 +8586,14 @@ class CharacterCreatureAttributeIncreaseInline(admin.TabularInline):
 @admin.register(CharacterCreature)
 class CharacterCreatureAdmin(admin.ModelAdmin):
     list_display = ("display_name", "owner", "creature", "trigger_label", "quality", "active", "current_damage")
-    search_fields = ("name_override", "owner__name", "creature__name", "creature__slug", "source_binding__item_trigger__name", "source_binding__technique_trigger__name")
+    search_fields = (
+        "name_override",
+        "owner__name",
+        "creature__name",
+        "creature__slug",
+        "source_binding__item_trigger__name",
+        "source_binding__technique_trigger__name"
+        )
     list_filter = ("active", "quality", "creature__size_class", "source_binding__trigger_type")
     autocomplete_fields = ("owner", "creature", "source_binding", "source_character_item", "source_character_technique")
     list_select_related = ("owner", "creature", "source_binding", "quality")
@@ -8540,7 +8609,14 @@ class CharacterCreatureAdmin(admin.ModelAdmin):
         CharacterCreatureAttributeIncreaseInline,
     )
     fieldsets = (
-        ("Zuordnung", {"fields": ("owner", "creature", "source_binding", ("source_character_item", "source_character_technique"), "active")}),
+        ("Zuordnung", {"fields": (
+            "owner",
+            "creature",
+            "source_binding", (
+                "source_character_item",
+                "source_character_technique"
+                ),
+            "active")}),
         ("Basis", {"fields": ("name_override", "image_override", "quality", ("current_damage", "current_aggravated_damage"), "notes")}),
         (
             "Vampire runtime and overrides",
@@ -8571,8 +8647,39 @@ class CharacterCreatureAdmin(admin.ModelAdmin):
                 )
             },
         ),
-        ("Werte-Overrides", {"fields": ("initiative_override", "vw_override", "sr_override", "gw_override", ("fear_resistance_bonus_override", "defense_extra_label_override"), "natural_rs_override", "wound_step_override", "wound_thresholds_override")}),
-        ("Bewegungs-Overrides", {"fields": ("combat_speed_override", "march_speed_override", "sprint_speed_override", "swimming_speed_override", ("combat_swimming_speed_override", "march_swimming_speed_override", "sprint_swimming_speed_override"), "combat_fly_speed_override", "march_fly_speed_override", "sprint_fly_speed_override", ("movement_mana_cost_override", "movement_note_override"))}),
+        ("Werte-Overrides", {
+            "fields":
+                (
+                    "initiative_override",
+                    "vw_override",
+                    "sr_override",
+                    "gw_override",
+                    (
+                        "fear_resistance_bonus_override",
+                        "defense_extra_label_override"
+                        ),
+                    "natural_rs_override",
+                    "wound_step_override",
+                    "wound_thresholds_override"
+                    )}),
+        ("Bewegungs-Overrides", {
+            "fields":
+                (
+                    "combat_speed_override",
+                    "march_speed_override",
+                    "sprint_speed_override",
+                    "swimming_speed_override",
+                    (
+                        "combat_swimming_speed_override",
+                        "march_swimming_speed_override",
+                        "sprint_swimming_speed_override"
+                        ), "combat_fly_speed_override",
+                    "march_fly_speed_override",
+                    "sprint_fly_speed_override",
+                    (
+                        "movement_mana_cost_override",
+                        "movement_note_override"
+                        ))}),
     )
 
 
@@ -8619,7 +8726,17 @@ class CharacterCreatureItemAdmin(admin.ModelAdmin):
 
 @admin.register(CreatureAttack)
 class CreatureAttackAdmin(admin.ModelAdmin):
-    list_display = ("creature", "name", "attack_type", "attack_value", "damage_dice_amount", "damage_dice_faces", "damage_flat_operator", "damage_flat_bonus", "damage_type")
+    list_display = (
+        "creature",
+        "name",
+        "attack_type",
+        "attack_value",
+        "damage_dice_amount",
+        "damage_dice_faces",
+        "damage_flat_operator",
+        "damage_flat_bonus",
+        "damage_type"
+        )
     search_fields = ("creature__name", "name")
     list_filter = ("attack_type",)
     autocomplete_fields = ("creature", "attack_type")

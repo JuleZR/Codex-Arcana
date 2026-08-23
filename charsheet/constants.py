@@ -369,7 +369,19 @@ def infer_weapon_type(name: str) -> str:
         return "lance"
     if "dreizack" in normalized or "speer" in normalized or "wurfspiess" in normalized or "wurfspie" in normalized:
         return "spear"
-    if any(token in normalized for token in ("hellebarde", "glefe", "pike", "berdyche", "kriegsgabel", "gaffel", "haken", "stangenaxt", "sense")):
+    if any(
+        token in normalized for token
+        in (
+            "hellebarde",
+            "glefe",
+            "pike",
+            "berdyche",
+            "kriegsgabel",
+            "gaffel",
+            "haken",
+            "stangenaxt",
+            "sense"
+            )):
         return "polearm"
     if "sichel" in normalized:
         return "curved_sword"
@@ -423,17 +435,25 @@ WEAPON_SYMBOL_CHOICES = (
 
 WEAPON_SYMBOL_DESCRIPTIONS = {
     MOUNTED_TWO_HANDED: "Obwohl sie zweihändig geführt wird, kann diese Waffe selbst vom galoppierenden Reittier aus eingesetzt werden.",
-    MOUNTED_TWO_HANDED_PENALTY: "Zweihändig geführte Waffe, die daher nicht für den Gebrauch vom Reittier aus gedacht ist. Malus von -5, wenn sie dennoch zweihändig vom Pferd aus geführt wird.",
+    MOUNTED_TWO_HANDED_PENALTY: "Zweihändig geführte Waffe, die daher nicht für den Gebrauch vom Reittier aus gedacht ist. Malus von -5,"
+    + " wenn sie dennoch zweihändig vom Pferd aus geführt wird.",
     FIRST_ROUND_INIT: "In der ersten Runde eines Kampfes verleiht diese Waffe dem Anwender einen Initiativebonus von +6.",
-    CHAIN_FUMBLE: "Mit Kettenwaffen verlaufen Kritische Fehlschläge besonders unangenehm: Der Charakter erhält den vollen Schaden selbst und bei ausreichender Länge der Kette wickelt diese sich um ihn. Es dauert zwei Aktionen, sich zu befreien.",
+    CHAIN_FUMBLE: "Mit Kettenwaffen verlaufen Kritische Fehlschläge besonders unangenehm: Der Charakter erhält den vollen Schaden selbst"
+    + " und bei ausreichender Länge der Kette wickelt diese sich um ihn. Es dauert zwei Aktionen, sich zu befreien.",
     REQUIRES_DEX: "Zur erfolgreichen Anwendung dieser Waffe wird der angegebene Wert in Geschick benötigt.",
-    CAN_ENTANGLE: "Mit dieser Waffe kann man versuchen, den Gegner zu umschlingen. Dieser kann bei Erfolg nur versuchen, sich mit einer Probe auf Entfesseln gegen den Wurf des Angreifers als MW zu befreien oder sich mit Kraftakt loszureißen.",
-    DRAG_TARGET: "Bewegt sich der Angreifer schneller als der Gefangene, oder holt er das Lasso ein, so bekommt der Gefangene den Schaden, bis er sich befreit oder stirbt. Der Gefangene kann sich dagegen mit einer entgegengesetzten Kraftaktprobe als Aktion wehren. Gewinnt er, so hat er den Angreifer zu Boden gerissen.",
+    CAN_ENTANGLE: "Mit dieser Waffe kann man versuchen, den Gegner zu umschlingen. Dieser kann bei Erfolg nur versuchen, sich mit einer"
+    + " Probe auf Entfesseln gegen den Wurf des Angreifers als MW zu befreien oder sich mit Kraftakt loszureißen.",
+    DRAG_TARGET: "Bewegt sich der Angreifer schneller als der Gefangene, oder holt er das Lasso ein, so bekommt der Gefangene den Schaden,"
+    + " bis er sich befreit oder stirbt. Der Gefangene kann sich dagegen mit einer entgegengesetzten Kraftaktprobe als Aktion wehren."
+    + " Gewinnt er, so hat er den Angreifer zu Boden gerissen.",
     CALTROP_EFFECT: "Erleidet der Gegner Schaden durch Fußangeln, so wird seine Bewegungsweite für den Rest der Szene halbiert.",
-    EXPLODE_ON_FUMBLE: "Ein Kritischer Fehlschlag mit dieser Waffe lässt sie dem Schützen in der Hand explodieren. Er erhält 2w10 T Schaden.",
-    SET_AGAINST_CHARGE: "Waffen mit diesem Zeichen verursachen doppelten Schaden, wenn sie gegen den Sturmangriff eines Reiters aufgesetzt werden.",
+    EXPLODE_ON_FUMBLE: "Ein Kritischer Fehlschlag mit dieser Waffe lässt sie dem Schützen in der Hand explodieren. Er erhält 2w10 T"
+    + " Schaden.",
+    SET_AGAINST_CHARGE: "Waffen mit diesem Zeichen verursachen doppelten Schaden, wenn sie gegen den Sturmangriff eines Reiters aufgesetzt"
+    + " werden.",
     PARRY_BONUS: "Bonus von +2 auf Parade.",
-    UNARMED_DAMAGE: "Der Grundschaden von 1w10/2 B gilt bei Faustangriffen und Tritten ohne Klauen, Aufsätze oder Ähnliches für alle Spielerrassen. Die Größe variiert mit der Rasse.",
+    UNARMED_DAMAGE: "Der Grundschaden von 1w10/2 B gilt bei Faustangriffen und Tritten ohne Klauen, Aufsätze oder Ähnliches für alle"
+    + " Spielerrassen. Die Größe variiert mit der Rasse.",
 }
 
 # Canonical attribute display order shared across context builders and views

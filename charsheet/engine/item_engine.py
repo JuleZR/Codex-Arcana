@@ -57,8 +57,13 @@ ARMOR_RS_QUALITY_BONUSES = {
 class ItemEngine:
     """Resolve derived item values for base items and owned inventory rows."""
 
-    def __init__(self, obj: Item | CharacterItem):
+    def __init__(
+        self,
+        obj: Item | CharacterItem,
+        weapon_stats: WeaponStats | None = None,
+    ):
         self.obj = obj
+        self.weapon_stats = weapon_stats
 
     @staticmethod
     def normalize_quality(quality: str | None) -> str:
@@ -128,10 +133,21 @@ class ItemEngine:
         return override_value
 
     def _get_weapon_stats(self) -> WeaponStats | None:
-        try:
-            return getattr(self._get_item(), "weaponstats", None)
-        except ObjectDoesNotExist:
-            return None
+        if self.weapon_stats is not None:
+            return self.weapon_stats
+        return (
+            self._get_item()
+            .weapon_stats
+            .order_by("id")
+            .first()
+        )
+
+    def get_weapon_stats_profiles(self) -> list[WeaponStats]:
+        return list(
+            self._get_item()
+            .weapon_stats
+            .order_by("id")
+        )
 
     def _get_ranged_weapon_stats(self) -> RangedWeaponStats | None:
         try:
@@ -297,13 +313,27 @@ class ItemEngine:
 
     def get_weapon_maneuver_attribute_mode(self) -> str:
         """Return the active attribute mode for this weapon's maneuvers."""
+
+        # Bei einem konkret ausgewählten WeaponStats-Profil gilt dessen
+        # Attributseinstellung und nicht der globale CharacterItem-Override.
+        if self.weapon_stats is not None:
+            return str(
+                self.weapon_stats.maneuver_attribute_mode
+                or WEAPON_MANEUVER_ATTRIBUTE_ST
+            )
+
         stats = self._get_offensive_stats()
         if not stats:
             return WEAPON_MANEUVER_ATTRIBUTE_ST
+
         return str(
             self._get_override_value(
                 "weapon_maneuver_attribute_override",
-                getattr(stats, "maneuver_attribute_mode", WEAPON_MANEUVER_ATTRIBUTE_ST),
+                getattr(
+                    stats,
+                    "maneuver_attribute_mode",
+                    WEAPON_MANEUVER_ATTRIBUTE_ST,
+                ),
             )
             or WEAPON_MANEUVER_ATTRIBUTE_ST
         )

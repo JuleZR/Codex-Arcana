@@ -22,9 +22,6 @@
   <img src="https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white" alt="Python 3.12">
   <img src="https://img.shields.io/badge/Django-6.0-092E20?logo=django&logoColor=white" alt="Django">
   <img src="https://img.shields.io/badge/License-GPLv3-blue" alt="GPLv3">
-  <a href="https://www.codexarcana.de">
-  <img src="https://img.shields.io/badge/Website-Codex%20Arcana-gold" alt="Codex Arcana Website">
-</a>
 </p>
 
 ---
