@@ -2181,13 +2181,26 @@ def _build_character_item_magic_tooltip_rows(
             return "", ""
         if target_kind == RULE_FLAG_TARGET_KIND:
             return target_display, target_display
+        if target_kind == "weapon_maneuver":
+            formatted_value = format_modifier(value)
+            return f"{formatted_value} Manöver", f"{formatted_value} Manöver"
+        
+        if (
+            target_kind == "stat"
+            and str(entry.get("target_stat") or "") == WEAPON_DAMAGE
+        ):
+            formatted_value = format_modifier(value)
+            return f"{formatted_value} Schaden", f"{formatted_value} Schaden"
+        
         if target_kind in {
-            "weapon_maneuver",
             WEAPON_MANEUVER_DAMAGE,
             WEAPON_MASTERY_BONUS,
         }:
             formatted_value = format_modifier(value)
-            return f"{formatted_value}/{formatted_value}", f"{formatted_value}/{formatted_value}"
+            return (
+                f"{formatted_value} / {formatted_value}",
+                f"{formatted_value} / {formatted_value}",
+            )
         if target_kind == "weapon_damage_dice":
             return f"{value:+d} W10", f"{value:+d} W10"
         if (
