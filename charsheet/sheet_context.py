@@ -2181,7 +2181,11 @@ def _build_character_item_magic_tooltip_rows(
             return "", ""
         if target_kind == RULE_FLAG_TARGET_KIND:
             return target_display, target_display
-        if target_kind in {WEAPON_MANEUVER_DAMAGE, WEAPON_MASTERY_BONUS}:
+        if target_kind in {
+            "weapon_maneuver",
+            WEAPON_MANEUVER_DAMAGE,
+            WEAPON_MASTERY_BONUS,
+        }:
             formatted_value = format_modifier(value)
             return f"{formatted_value}/{formatted_value}", f"{formatted_value}/{formatted_value}"
         if target_kind == "weapon_damage_dice":
