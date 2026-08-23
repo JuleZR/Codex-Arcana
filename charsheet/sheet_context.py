@@ -3613,6 +3613,8 @@ def _build_character_item_stat_modifier_rows(engine, character_item: CharacterIt
             continue
         if not engine.modifier_engine._modifier_matches_race_condition(modifier):
             continue
+        if not engine.modifier_engine._modifier_matches_school_condition(modifier):
+            continue
         target_domain = getattr(getattr(modifier, "target_domain", ""), "value", getattr(modifier, "target_domain", ""))
         if str(target_domain or "") != "combat":
             continue
@@ -3655,6 +3657,8 @@ def _build_character_item_stat_modifier_rows(engine, character_item: CharacterIt
             if str(getattr(modifier, "source_type", "") or "") != SOURCE_ITEM_RUNE:
                 continue
             if not engine.modifier_engine._modifier_matches_race_condition(modifier):
+                continue
+            if not engine.modifier_engine._modifier_matches_school_condition(modifier):
                 continue
             if str(getattr(modifier, "target_key", "") or "") != stat_key:
                 continue

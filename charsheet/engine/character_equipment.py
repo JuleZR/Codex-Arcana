@@ -262,6 +262,8 @@ def _character_item_specific_semantic_modifier(engine, character_item: Character
                 continue
             if not engine.modifier_engine._modifier_matches_race_condition(modifier):
                 continue
+            if not engine.modifier_engine._modifier_matches_school_condition(modifier):
+                continue
             if modifier.target_domain != TargetDomain.COMBAT:
                 continue
             modifier_target_key = str(modifier.target_key or "")
@@ -315,6 +317,8 @@ def _character_item_specific_armor_semantic_modifiers(engine, character_item: Ch
                 continue
             if not engine.modifier_engine._modifier_matches_race_condition(modifier):
                 continue
+            if not engine.modifier_engine._modifier_matches_school_condition(modifier):
+                continue
             if modifier.target_domain != TargetDomain.DERIVED_STAT:
                 continue
             if str(modifier.target_key or "") != target_key:
@@ -357,6 +361,8 @@ def _character_item_specific_rune_modifiers(engine, character_item: CharacterIte
             if modifier.source_type != SOURCE_ITEM_RUNE:
                 continue
             if not engine.modifier_engine._modifier_matches_race_condition(modifier):
+                continue
+            if not engine.modifier_engine._modifier_matches_school_condition(modifier):
                 continue
             modifier_target_key = str(modifier.target_key or "")
             if modifier_target_key != target_key and not (

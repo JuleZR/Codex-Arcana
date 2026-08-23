@@ -429,6 +429,7 @@ class ModifierEngine:
             for modifier in expanded
             if modifier is not None and modifier.applies(context) and TargetResolver.matches_context(modifier, context)
             and self._modifier_matches_race_condition(modifier)
+            and self._modifier_matches_school_condition(modifier)
         ]
         if not context:
             self._active_modifiers_cache = result
@@ -1036,6 +1037,28 @@ class ModifierEngine:
             return False
         return int(character_race_id) in {int(race_id) for race_id in expected_race_ids}
 
+    def _modifier_matches_school_condition(self, modifier: BaseModifier) -> bool:
+        """Return whether the current character satisfies an optional school condition."""
+        expected_school_ids = modifier.metadata.get("condition_school_ids") or ()
+
+        if not expected_school_ids:
+            return True
+
+        if self.character_engine is None:
+            return False
+
+        character_school_ids = {
+            int(school_id)
+            for school_id in self.character_engine._school_entries.keys()
+        }
+
+        expected_school_ids = {
+            int(school_id)
+            for school_id in expected_school_ids
+        }
+
+        return bool(character_school_ids.intersection(expected_school_ids))
+
     def _migrated_choice_skill_modifier_total(
         self,
         skill_id: int,
@@ -1331,4 +1354,3 @@ class ModifierEngine:
             return int(value)
         except (TypeError, ValueError):
             return None
-

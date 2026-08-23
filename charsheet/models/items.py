@@ -699,6 +699,11 @@ class ItemSemanticEffectFields(models.Model):
             condition_race_ids = list(self.condition_races.order_by("id").values_list("id", flat=True))
             if condition_race_ids:
                 metadata["condition_race_ids"] = condition_race_ids
+            condition_school_ids = list(
+                self.condition_schools.order_by("id").values_list("id", flat=True)
+            )
+            if condition_school_ids:
+                metadata["condition_school_ids"] = condition_school_ids
         resolved_invested_cp = self.item_invested_cp() if invested_cp is None else invested_cp
         if resolved_invested_cp is not None:
             metadata["item_invested_cp"] = resolved_invested_cp
