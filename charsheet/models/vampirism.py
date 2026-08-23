@@ -148,6 +148,12 @@ class VampireTraitSemanticEffect(models.Model):
         related_name="vampire_trait_semantic_effect_conditions",
         help_text="Optional race condition. Leave empty to apply to every race.",
     )
+    condition_schools = models.ManyToManyField(
+        "charsheet.School",
+        blank=True,
+        related_name="+",
+        help_text="Optional school condition. Leave empty to apply to every school.",
+    )
     active_flag = models.BooleanField(default=True)
     priority = models.IntegerField(default=0)
     condition_text = models.TextField(blank=True, default="")
@@ -278,6 +284,11 @@ class VampireTraitSemanticEffect(models.Model):
             condition_race_ids = list(self.condition_races.order_by("id").values_list("id", flat=True))
             if condition_race_ids:
                 metadata["condition_race_ids"] = condition_race_ids
+            condition_school_ids = list(
+                self.condition_schools.order_by("id").values_list("id", flat=True)
+            )
+            if condition_school_ids:
+                metadata["condition_school_ids"] = condition_school_ids
         condition_text = " ".join(str(self.condition_text or "").split())
         if condition_text:
             metadata["condition_text"] = condition_text
@@ -394,6 +405,7 @@ class CreatureVampireTrait(models.Model):
         on_delete=models.PROTECT,
         related_name="creature_defaults",
     )
+
     class Meta:
         ordering = ["creature", "trait__sort_order", "trait__name", "id"]
         verbose_name = "Creature vampire trait"

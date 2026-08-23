@@ -355,6 +355,13 @@ class TraitSemanticEffect(models.Model):
         help_text="Optional race condition. Leave empty to apply to every race.",
     )
 
+    condition_schools = models.ManyToManyField(
+        "charsheet.School",
+        blank=True,
+        related_name="+",
+        help_text="Optional school condition. Leave empty to apply to every school.",
+    )
+
     active_flag = models.BooleanField(default=True)
     priority = models.IntegerField(default=0)
     notes = models.TextField(blank=True, default="")

@@ -1507,6 +1507,7 @@ def _serialize_item_semantic_effect_payload(
     *,
     invested_cp: int | None = None,
     character_race_id: int | None = None,
+    character_school_ids: set[int] | None = None,
 ) -> dict[str, object]:
     """Return one frontend-friendly payload for an item semantic effect."""
     metadata = dict(effect.metadata or {})
@@ -1514,6 +1515,21 @@ def _serialize_item_semantic_effect_payload(
     race_condition_matches = (
         not condition_race_ids
         or (character_race_id is not None and int(character_race_id) in condition_race_ids)
+    )
+    condition_school_ids = [
+        int(school_id)
+        for school_id in effect.condition_schools.values_list("id", flat=True)
+    ]
+
+    school_condition_matches = (
+        not condition_school_ids
+        or bool(
+            set(character_school_ids or set()).intersection(condition_school_ids)
+        )
+    )
+    condition_matches = (
+        race_condition_matches
+        and school_condition_matches
     )
     target_domain = str(effect.target_domain or "")
     target_key = str(effect.target_key or "")
@@ -1545,7 +1561,13 @@ def _serialize_item_semantic_effect_payload(
             "semantic_effect_ids": [int(effect.pk)] if effect.pk else [],
             "base_item_effect_id": base_item_effect_id,
             "race_condition_matches": race_condition_matches,
-            "inactive_due_to_race": bool(condition_race_ids and not race_condition_matches),
+            "race_condition_matches": race_condition_matches,
+            "inactive_due_to_race": bool(
+                condition_race_ids and not race_condition_matches
+            ),
+            "inactive_due_to_school": bool(
+                condition_school_ids and not school_condition_matches
+            ),
         }
     try:
         raw_value = effect._coerce_scalar(effect.value)
@@ -1583,6 +1605,7 @@ def _serialize_item_semantic_effect_payload(
         "base_item_effect_id": base_item_effect_id,
         "race_condition_matches": race_condition_matches,
         "inactive_due_to_race": bool(condition_race_ids and not race_condition_matches),
+        "inactive_due_to_school": bool(condition_school_ids and not school_condition_matches),
     }
 
     if target_domain == "rule_flag":
@@ -1809,6 +1832,7 @@ def _collapse_weapon_mastery_bonus_payloads(modifier_payloads: list[dict[str, ob
         payload_toggleable = bool(payload.get("toggleable", False))
         payload_toggle_state_inverted = bool(payload.get("toggle_state_inverted", False))
         payload_inactive_due_to_race = bool(payload.get("inactive_due_to_race", False))
+        payload_inactive_due_to_school = bool(payload.get("inactive_due_to_school", False))
         matching_index = None
         for candidate_index in range(index + 1, len(modifier_payloads)):
             if candidate_index in consumed_indices:
@@ -1837,6 +1861,8 @@ def _collapse_weapon_mastery_bonus_payloads(modifier_payloads: list[dict[str, ob
             if bool(candidate.get("toggle_state_inverted", False)) != payload_toggle_state_inverted:
                 continue
             if bool(candidate.get("inactive_due_to_race", False)) != payload_inactive_due_to_race:
+                continue
+            if bool(candidate.get("inactive_due_to_school", False)) != payload_inactive_due_to_school:
                 continue
             matching_index = candidate_index
             break
@@ -1869,6 +1895,7 @@ def _collapse_weapon_mastery_bonus_payloads(modifier_payloads: list[dict[str, ob
                 "toggleable": payload_toggleable,
                 "toggle_state_inverted": payload_toggle_state_inverted,
                 "inactive_due_to_race": payload_inactive_due_to_race,
+                "inactive_due_to_school": payload_inactive_due_to_school,
                 "display_group": payload.get("display_group"),
                 "display_group_append": bool(payload.get("display_group_append", False)),
                 "semantic_effect_source": str(payload.get("semantic_effect_source") or ""),
@@ -1997,7 +2024,7 @@ def _build_character_item_magic_tooltip_rows(
         return f"[[EFFECTTOGGLE:{url};{source};{ids};{'1' if display_active else '0'};{'1' if inverted else '0'}]] "
 
     def display_line_for(entry: dict[str, object], line: str) -> str:
-        if entry.get("inactive_due_to_race"):
+        if entry.get("inactive_due_to_race") or entry.get("inactive_due_to_school"):
             return f"[[INACTIVERACE:{line}]]"
         return line
 
@@ -2166,6 +2193,16 @@ def _build_character_item_magic_tooltip_rows(
                 consumed_indexes.add(int(candidate["index"]))
             rendered_groups.add(group)
             line = grouped_line_for(group_entries, main_entry)
+
+            group_inactive = any(
+                dict(candidate.get("payload") or {}).get("inactive_due_to_race")
+                or dict(candidate.get("payload") or {}).get("inactive_due_to_school")
+                for candidate in group_entries
+            )
+
+            if group_inactive:
+                line = f"[[INACTIVERACE:{line}]]"
+
             marker_payload = grouped_toggle_payload(main_entry, associated_entries)
             lines.append(f"{toggle_marker_for(marker_payload)}{line}")
         return lines
@@ -2312,6 +2349,7 @@ def _build_character_item_magic_tooltip_rows(
             " ".join(rules_text.replace("@", str(invested_cp)).lower().split()),
             " ".join(effect_description.lower().split()),
             "inactive_due_to_race" if payload.get("inactive_due_to_race") else "active_for_race",
+            "inactive_due_to_school" if payload.get("inactive_due_to_school") else "active_for_school",
             "toggleable" if payload.get("toggleable") else "fixed",
             "toggle_inverted" if payload.get("toggle_state_inverted") else "toggle_normal",
             "active_flag" if payload.get("active_flag", True) else "inactive_flag",
@@ -2337,6 +2375,7 @@ def _build_character_item_magic_tooltip_rows(
                 "semantic_effect_ids": list(payload.get("semantic_effect_ids") or []),
                 "character_item_id": payload.get("character_item_id"),
                 "inactive_due_to_race": bool(payload.get("inactive_due_to_race")),
+                "inactive_due_to_school": bool(payload.get("inactive_due_to_school")),
             }
         numeric_effects[key]["value"] = int(numeric_effects[key]["value"]) + value
         continue
@@ -2365,7 +2404,10 @@ def _load_character_item_modifier_payloads(
         .filter(item_id__in=item_ids)
         .filter(Q(active_flag=True) | Q(toggleable=True))
         .select_related("item")
-        .prefetch_related("condition_races")
+        .prefetch_related(
+            "condition_races",
+            "condition_schools",
+        )
         .order_by("item_id", "sort_order", "id")
     ):
         base_effects_by_item_id.setdefault(int(effect.item_id), []).append(effect)
@@ -2374,7 +2416,10 @@ def _load_character_item_modifier_payloads(
         .filter(character_item_id__in=[entry.id for entry in character_items])
         .filter(Q(active_flag=True) | Q(toggleable=True))
         .select_related("character_item", "character_item__item", "character_item__owner")
-        .prefetch_related("condition_races")
+        .prefetch_related(
+            "condition_races",
+            "condition_schools",
+        )
         .order_by("sort_order", "id")
     )
     instance_effects_by_base: dict[tuple[int, int], CharacterItemSemanticEffect] = {}
@@ -2478,12 +2523,24 @@ def _load_character_item_modifier_payloads(
         if not merged_effects:
             continue
         character_race_id = character_item.owner.race_id if character_item.owner_id else None
+
+        character_school_ids = (
+            set(
+                character_item.owner.schools.values_list(
+                    "school_id",
+                    flat=True,
+                )
+            )
+            if character_item.owner_id
+            else set()
+        )
         modifiers_by_character_item_id[character_item_id] = []
         for effect in sorted(merged_effects, key=lambda entry: (int(entry.sort_order or 0), int(entry.id or 0))):
             payload = _serialize_item_semantic_effect_payload(
                 effect,
                 invested_cp=character_item.invested_cp,
                 character_race_id=character_race_id,
+                character_school_ids=character_school_ids,
             )
             payload["character_item_id"] = character_item_id
             modifiers_by_character_item_id[character_item_id].append(payload)

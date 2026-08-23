@@ -564,6 +564,12 @@ class ItemSemanticEffectFields(models.Model):
         related_name="%(class)s_conditions",
         help_text="Optional race condition. Leave empty to apply to every race.",
     )
+    condition_schools = models.ManyToManyField(
+       "charsheet.School",
+       blank=True,
+       related_name="%(class)s_school_conditions",
+       help_text="Optional school condition. Leave empty to apply to every school.",
+    )
     active_flag = models.BooleanField(default=True)
     toggleable = models.BooleanField(default=False)
     toggle_state_inverted = models.BooleanField(default=False)

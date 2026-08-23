@@ -2118,6 +2118,9 @@ class ItemSemanticEffectAdminForm(forms.ModelForm):
         if "condition_races" in self.fields:
             self.fields["condition_races"].label = "Nur fuer Rassen"
             self.fields["condition_races"].queryset = Race.objects.order_by("name")
+        if "condition_schools" in self.fields:
+            self.fields["condition_schools"].label = "Nur fuer Schulen"
+            self.fields["condition_schools"].queryset = School.objects.order_by("name")
         self._apply_initial_simple_values()
         self._polish_technical_fields()
 
@@ -2313,7 +2316,7 @@ class ItemSemanticEffectInline(admin.StackedInline):
     form = ItemSemanticEffectAdminForm
     verbose_name_plural = "Item Semantic Effects"
     extra = 0
-    filter_horizontal = ("condition_races",)
+    filter_horizontal = ("condition_races", "condition_schools")
 
     class Media:
         js = ("charsheet/js/item_semantic_effect_admin_v3.js",)
@@ -2330,6 +2333,7 @@ class ItemSemanticEffectInline(admin.StackedInline):
                     "scale_source",
                     "scale_divisor",
                     "condition_races",
+                    "condition_schools",
                     "active_flag",
                     "toggleable",
                     "toggle_state_inverted",
@@ -2365,7 +2369,7 @@ class CharacterItemSemanticEffectInline(admin.StackedInline):
     form = CharacterItemSemanticEffectAdminForm
     verbose_name_plural = "Character Item Semantic Effects"
     extra = 0
-    filter_horizontal = ("condition_races",)
+    filter_horizontal = ("condition_races", "condition_schools")
     fieldsets = ItemSemanticEffectInline.fieldsets
 
 
@@ -2878,6 +2882,9 @@ class RuleSemanticEffectAdminForm(SemanticCreatureCardGrantFormMixin, forms.Mode
         if "condition_races" in self.fields:
             self.fields["condition_races"].label = "Nur fuer Rassen"
             self.fields["condition_races"].queryset = Race.objects.order_by("name")
+        if "condition_schools" in self.fields:
+            self.fields["condition_schools"].label = "Nur fuer Schulen"
+            self.fields["condition_schools"].queryset = School.objects.order_by("name")
         self._apply_initial_simple_values()
         self._hide_technical_fields()
 
@@ -4269,7 +4276,7 @@ class RaceSemanticEffectInline(admin.StackedInline):
     extra = 0
     show_change_link = True
     autocomplete_fields = ("target_race_choice_definition",)
-    filter_horizontal = ("condition_races",)
+    filter_horizontal = ("condition_races", "condition_schools")
     fieldsets = (
         (
             "Effekt",
@@ -4283,6 +4290,7 @@ class RaceSemanticEffectInline(admin.StackedInline):
                     ("simple_scale_school", "simple_scale_skill", "simple_scale_divisor"),
                     ("applies_during_character_creation", "applies_in_combat", "applies_outside_combat"),
                     "condition_races",
+                    "condition_schools"
                     "condition_text",
                     "notes",
                     "rules_text",
@@ -4308,6 +4316,7 @@ RULE_SEMANTIC_EFFECT_FIELDSETS = (
                 ("simple_scale_school", "simple_scale_skill", "simple_scale_divisor"),
                 ("applies_during_character_creation", "applies_in_combat", "applies_outside_combat"),
                 "condition_races",
+                "condition_schools",
                 "condition_text",
                 "notes",
                 "rules_text",
@@ -4325,7 +4334,7 @@ class SchoolSemanticEffectInline(admin.StackedInline):
     form = SchoolSemanticEffectInlineForm
     extra = 0
     show_change_link = True
-    filter_horizontal = ("condition_races",)
+    filter_horizontal = ("condition_races", "condition_schools")
     fieldsets = RULE_SEMANTIC_EFFECT_FIELDSETS
 
     class Media:
@@ -4339,7 +4348,7 @@ class RuneSemanticEffectInline(admin.StackedInline):
     form = RuneSemanticEffectInlineForm
     extra = 0
     show_change_link = True
-    filter_horizontal = ("condition_races",)
+    filter_horizontal = ("condition_races", "condition_schools")
     fieldsets = RULE_SEMANTIC_EFFECT_FIELDSETS
 
     class Media:
@@ -5212,7 +5221,7 @@ class ItemSemanticEffectAdmin(admin.ModelAdmin):
     list_filter = ("target_domain", "operator", "active_flag", "toggleable", "toggle_state_inverted", "sheet_relevant")
     search_fields = ("item__name", "target_key", "notes", "rules_text")
     autocomplete_fields = ("item",)
-    filter_horizontal = ("condition_races",)
+    filter_horizontal = ("condition_races", "condition_schools")
     ordering = ("item", "sort_order", "id")
     fieldsets = (("Source", {"fields": ("item",)}),) + ItemSemanticEffectInline.fieldsets
 
@@ -5235,7 +5244,7 @@ class CharacterItemSemanticEffectAdmin(admin.ModelAdmin):
     list_filter = ("target_domain", "operator", "active_flag", "toggleable", "toggle_state_inverted", "sheet_relevant")
     search_fields = ("character_item__item__name", "target_key", "notes", "rules_text")
     autocomplete_fields = ("character_item",)
-    filter_horizontal = ("condition_races",)
+    filter_horizontal = ("condition_races", "condition_schools")
     ordering = ("character_item", "sort_order", "id")
     fieldsets = (("Source", {"fields": ("character_item",)}),) + CharacterItemSemanticEffectInline.fieldsets
 
@@ -7930,6 +7939,7 @@ class DaemonicPowerSemanticEffectInline(admin.StackedInline):
                     ("simple_operator", "simple_value"),
                     "scale_by_trait_level",
                     "condition_races",
+                    "condition_schools",
                     "condition_text",
                 ),
                 "description": (
@@ -7940,7 +7950,7 @@ class DaemonicPowerSemanticEffectInline(admin.StackedInline):
         ),
     )
     autocomplete_fields = ("target_skills",)
-    filter_horizontal = ("condition_races",)
+    filter_horizontal = ("condition_races", "condition_schools")
 
 
 class VampireTraitSemanticEffectInline(admin.StackedInline):
@@ -7959,6 +7969,7 @@ class VampireTraitSemanticEffectInline(admin.StackedInline):
                     ("simple_operator", "simple_value"),
                     "vampire_scaling",
                     "condition_races",
+                    "condition_schools",
                     "condition_text",
                 ),
                 "description": (
@@ -7969,7 +7980,7 @@ class VampireTraitSemanticEffectInline(admin.StackedInline):
         ),
     )
     autocomplete_fields = ("target_skills",)
-    filter_horizontal = ("condition_races",)
+    filter_horizontal = ("condition_races", "condition_schools")
 
 
 class VampirePowerSemanticEffectInline(VampireTraitSemanticEffectInline):
@@ -8117,7 +8128,7 @@ class VampireTraitSemanticEffectAdmin(admin.ModelAdmin):
     list_filter = ("application_scope", "target_domain", "operator", "active_flag")
     search_fields = ("trait__name", "trait__slug", "power__name", "power__slug", "target_key", "condition_text")
     autocomplete_fields = ("trait", "power", "target_skills")
-    filter_horizontal = ("condition_races",)
+    filter_horizontal = ("condition_races", "condition_schools")
     list_select_related = ("trait", "power")
     fieldsets = (("Source", {"fields": ("trait", "power")}),) + VampireTraitSemanticEffectInline.fieldsets
 
@@ -8185,7 +8196,7 @@ class DaemonicPowerSemanticEffectAdmin(admin.ModelAdmin):
     list_filter = ("application_scope", "target_domain", "operator", "active_flag")
     search_fields = ("power__name", "power__slug", "target_key", "condition_text")
     autocomplete_fields = ("power", "target_skills")
-    filter_horizontal = ("condition_races",)
+    filter_horizontal = ("condition_races", "condition_schools")
     list_select_related = ("power", "power__tier")
     fieldsets = DaemonicPowerSemanticEffectInline.fieldsets
 

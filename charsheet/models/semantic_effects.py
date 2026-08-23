@@ -63,6 +63,12 @@ class SemanticEffectFields(models.Model):
         related_name="%(app_label)s_%(class)s_conditioned_effects",
         help_text="Optional race condition. Leave empty to apply to every race.",
     )
+    condition_schools = models.ManyToManyField(
+        "charsheet.School",
+        blank=True,
+        related_name="%(app_label)s_%(class)s_school_conditioned_effects",
+        help_text="Optional school condition. Leave empty to apply to every school.",
+    )
     active_flag = models.BooleanField(default=True)
     priority = models.IntegerField(default=0)
     notes = models.TextField(blank=True, default="")
@@ -106,6 +112,11 @@ class SemanticEffectFields(models.Model):
             condition_race_ids = list(self.condition_races.order_by("id").values_list("id", flat=True))
             if condition_race_ids:
                 metadata["condition_race_ids"] = condition_race_ids
+            condition_school_ids = list(
+                self.condition_schools.order_by("id").values_list("id", flat=True)
+            )
+            if condition_school_ids:
+                metadata["condition_school_ids"] = condition_school_ids
         resolved_target = TargetResolver.resolve(self.target_domain, self.target_key, metadata)
         for key, values in resolved_target.context_requirements.items():
             if key == "weapon_types":

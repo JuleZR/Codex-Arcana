@@ -123,7 +123,7 @@ class ModifierEngine:
                 active_flag=True,
             )
             .select_related("race")
-            .prefetch_related("condition_races")
+            .prefetch_related("condition_races", "condition_schools")
             .order_by("race_id", "sort_order", "id")
         )
         return [effect.to_modifier() for effect in effects]
@@ -142,7 +142,7 @@ class ModifierEngine:
                 active_flag=True,
             )
             .select_related("school")
-            .prefetch_related("condition_races")
+            .prefetch_related("condition_races", "condition_schools")
             .order_by("school_id", "sort_order", "id")
         )
         return [effect.to_modifier() for effect in effects]
@@ -155,7 +155,7 @@ class ModifierEngine:
         modifiers: list[BaseModifier] = []
         trait_entries = (
             self.character_engine.character.charactertrait_set.select_related("trait")
-            .prefetch_related("trait__semantic_effects", "trait__semantic_effects__condition_races")
+            .prefetch_related("trait__semantic_effects", "trait__semantic_effects__condition_races","trait__semantic_effects__condition_schools",)
             .order_by("trait__slug")
         )
         for entry in trait_entries:
@@ -182,7 +182,7 @@ class ModifierEngine:
                 first_item_id_by_rune_id[rune.id] = item_rune.item_id
             elif first_item_id != item_rune.item_id:
                 continue
-            for effect in rune.semantic_effects.filter(active_flag=True).prefetch_related("condition_races").order_by("sort_order", "id"):
+            for effect in rune.semantic_effects.filter(active_flag=True).prefetch_related("condition_races", "condition_schools").order_by("sort_order", "id"):
                 modifier = effect.to_modifier()
                 scaling = dict(modifier.scaling)
                 mode = modifier.mode
@@ -228,7 +228,7 @@ class ModifierEngine:
                 active_flag=True,
             )
             .select_related("item")
-            .prefetch_related("condition_races")
+            .prefetch_related("condition_races", "condition_schools")
             .order_by("item_id", "sort_order", "id")
         )
         instance_effects = (
@@ -236,7 +236,7 @@ class ModifierEngine:
                 character_item_id__in=character_item_ids,
             )
             .select_related("character_item", "character_item__item")
-            .prefetch_related("condition_races")
+            .prefetch_related("condition_races", "condition_schools")
             .order_by("character_item_id", "sort_order", "id")
         )
         base_effects_by_item_id: dict[int, list[ItemSemanticEffect]] = {}
@@ -301,7 +301,7 @@ class ModifierEngine:
                 active_flag=True,
             )
             .select_related("technique", "target_choice_definition")
-            .prefetch_related("target_skills", "condition_races")
+            .prefetch_related("target_skills", "condition_races", "condition_schools")
             .order_by("technique_id", "sort_order", "id")
         )
         return [effect.to_modifier() for effect in effects]
@@ -338,7 +338,7 @@ class ModifierEngine:
                 ),
             )
             .select_related("power")
-            .prefetch_related("target_skills", "condition_races")
+            .prefetch_related("target_skills", "condition_races", "condition_schools")
             .order_by("power_id", "sort_order", "id")
         )
         return [effect.to_modifier() for effect in effects]
