@@ -2005,6 +2005,12 @@ def _build_character_item_magic_tooltip_rows(
         effect_summary=effect_summary,
         modifier_payloads=modifier_payloads,
     )
+    merged_payloads = [
+        payload
+        for payload in merged_payloads
+        if not payload.get("inactive_due_to_race")
+        and not payload.get("inactive_due_to_school")
+    ]
     summary_line = _single_line(summary_line)
     if summary_line:
         display_entries.append({"line": summary_line, "payload": {}})
@@ -2221,14 +2227,14 @@ def _build_character_item_magic_tooltip_rows(
         if target_kind == "weapon_maneuver":
             formatted_value = format_modifier(value)
             return f"{formatted_value} Manöver", f"{formatted_value} Manöver"
-        
+
         if (
             target_kind == "stat"
             and str(entry.get("target_stat") or "") == WEAPON_DAMAGE
         ):
             formatted_value = format_modifier(value)
             return f"{formatted_value} Schaden", f"{formatted_value} Schaden"
-        
+
         if target_kind in {
             WEAPON_MANEUVER_DAMAGE,
             WEAPON_MASTERY_BONUS,
@@ -2379,15 +2385,68 @@ def _build_character_item_magic_tooltip_rows(
             }
         numeric_effects[key]["value"] = int(numeric_effects[key]["value"]) + value
         continue
+
+    def split_effect_column(line: str) -> tuple[str, str]:
+        """Move a leading pipe-derived bold label into the left tooltip column."""
+        marker = ""
+        visible_line = str(line)
+
+        if visible_line.startswith("[[EFFECTTOGGLE:"):
+            marker_end = visible_line.find("]]")
+            if marker_end != -1:
+                marker = visible_line[:marker_end + 2]
+                visible_line = visible_line[marker_end + 2:].lstrip()
+
+        if visible_line.startswith("**"):
+            if " · " in visible_line:
+                title_section, detail = visible_line.split(" · ", 1)
+
+                if title_section.endswith("**"):
+                    label = title_section.replace("**", "").strip()
+                    detail = f"{marker} {detail}".strip() if marker else detail
+                    return label, detail
+
+            elif visible_line.endswith("**"):
+                label = visible_line.replace("**", "").strip()
+                return label, marker
+
+        if marker:
+            visible_line = f"{marker} {visible_line}".strip()
+
+        return "", visible_line
+
     flush_numeric_effects()
     effect_lines = grouped_effect_lines()
-    if not effect_lines:
-        return []
-    effect_label = "Effekte" if len(effect_lines) > 1 else "Effekt"
-    return [
-        (effect_label if index == 0 else "[[EMPTY]]", line)
-        for index, line in enumerate(effect_lines)
+
+    effect_rows = [
+        split_effect_column(line)
+        for line in effect_lines
     ]
+
+    effect_label = "Effekte" if len(effect_rows) > 1 else "Effekt"
+    rows: list[tuple[str, object]] = []
+
+    for index, (pipe_label, detail) in enumerate(effect_rows):
+        if index == 0:
+            if pipe_label:
+                rows.append((effect_label, "[[EMPTY]]"))
+                rows.append((
+                    f"**{pipe_label}**",
+                    detail or "[[EMPTY]]",
+                ))
+            else:
+                rows.append((
+                    effect_label,
+                    detail or "[[EMPTY]]",
+                ))
+            continue
+
+        rows.append((
+            f"**{pipe_label}**" if pipe_label else "[[EMPTY]]",
+            detail or "[[EMPTY]]",
+        ))
+
+    return rows
 
 
 def _load_character_item_modifier_payloads(

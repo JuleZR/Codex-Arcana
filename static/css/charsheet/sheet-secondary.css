@@ -4345,7 +4345,7 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
 }
 
 .floating-tooltip-card__section_body td:first-child {
-  width: 128px;
+  width: 150px;
   color: rgba(97, 68, 37, 0.88);
 }
 
@@ -4414,6 +4414,11 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
 .floating-tooltip-card__section_body td:nth-child(2) {
   text-align: left;
   white-space: normal;
+}
+
+.floating-tooltip-card__section_body td:nth-child(2) .tooltip_effect_toggle {
+  float: right;
+  margin-left: 10px;
 }
 
 .floating-tooltip-card tbody td strong {

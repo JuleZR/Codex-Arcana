@@ -647,6 +647,7 @@ function normalizeTooltipSectionRows(rows, sectionLabel) {
       clone.classList.add("has-inactive-race-effect");
     }
     const firstCell = clone.cells[0];
+    const secondCell = clone.cells[1];
     const firstCellText = normalizeInlineText(firstCell?.textContent || "");
     const toggle = clone.querySelector("[data-item-effect-toggle]");
     if (
@@ -660,10 +661,9 @@ function normalizeTooltipSectionRows(rows, sectionLabel) {
     ) {
       firstCell.innerHTML = "&nbsp;";
     }
-    if (firstCell && toggle instanceof HTMLElement) {
+    if (secondCell && toggle instanceof HTMLElement) {
       toggle.remove();
-      firstCell.innerHTML = "";
-      firstCell.append(toggle);
+      secondCell.append(toggle);
     }
     return clone;
   });
@@ -691,16 +691,37 @@ function buildTooltipCardSections(markup, { includeExtraSections = true } = {}) 
     }
     if (label === "Effekt" || label === "Effekte") {
       activeSection = "effects";
-      effectRows.push(row.cloneNode(true));
+    
+      // Eine reine Effekt-Markerzeile nicht selbst anzeigen.
+      // Enthält sie bereits einen Effekt, bleibt sie erhalten.
+      const detail = normalizeInlineText(row.cells[1]?.textContent || "");
+    
+      if (detail) {
+        const effectRow = row.cloneNode(true);
+        effectRow.classList.add("tooltip_effect_row");
+        effectRows.push(effectRow);
+      }
+    
       return;
     }
+    
     if (label === "Rune" || label === "Runen") {
       activeSection = "runes";
       runeRows.push(row.cloneNode(true));
       return;
     }
-    if (!label && activeSection === "effects") {
-      effectRows.push(row.cloneNode(true));
+    
+    // Sobald der Effektbereich begonnen hat, gehören auch Zeilen
+    // mit einem Pipe-Label in der linken Spalte weiterhin dorthin.
+    if (activeSection === "effects") {
+      const effectRow = row.cloneNode(true);
+      effectRow.classList.add("tooltip_effect_row");
+      effectRows.push(effectRow);
+      return;
+    }
+    
+    if (!label && activeSection === "runes") {
+      runeRows.push(row.cloneNode(true));
       return;
     }
     if (!label && activeSection === "runes") {
