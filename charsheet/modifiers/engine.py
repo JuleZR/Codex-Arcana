@@ -239,17 +239,11 @@ class ModifierEngine:
             .prefetch_related("condition_races")
             .order_by("character_item_id", "sort_order", "id")
         )
-        character_item_ids_with_instance_effects = {
-            int(effect.character_item_id)
-            for effect in instance_effects
-        }
         base_effects_by_item_id: dict[int, list[ItemSemanticEffect]] = {}
         for effect in base_effects:
             base_effects_by_item_id.setdefault(int(effect.item_id), []).append(effect)
         base_modifiers = []
         for character_item in equipped_items:
-            if int(character_item.id) in character_item_ids_with_instance_effects:
-                continue
             for effect in base_effects_by_item_id.get(int(character_item.item_id), []):
                 modifier = effect.to_modifier(invested_cp=character_item.invested_cp)
                 base_modifiers.append(
