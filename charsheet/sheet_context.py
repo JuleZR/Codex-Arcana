@@ -3368,7 +3368,6 @@ def _conditional_weapon_modifier_lines(
         WEAPON_DAMAGE,
         WEAPON_DAMAGE_DICE,
         WEAPON_MANEUVER_DAMAGE,
-        MELEE_MANEUVERS,
     }
 
     effects = list(
@@ -3767,6 +3766,76 @@ def _build_skill_rows(
             ),
             *_conditional_modifier_lines(engine, "skill_category", skill.category.slug),
         ]
+        for weapon_row in equipped_weapon_rows:
+            weapon_stats = weapon_row.get("weapon_stats")
+            if weapon_stats is None:
+                continue
+
+            weapon_skill_slugs = {
+                str(weapon_skill.slug)
+                for weapon_skill in weapon_stats.skills.all()
+            }
+
+            if skill.slug not in weapon_skill_slugs:
+                continue
+
+            character_item = weapon_row["character_item"]
+
+            weapon_context = _character_item_weapon_target_context(
+                character_item,
+                weapon_stats=weapon_stats,
+            )
+
+            effects = list(
+                ItemSemanticEffect.objects.filter(
+                    item_id=character_item.item_id,
+                    active_flag=True,
+                    target_domain="combat",
+                    target_key=MELEE_MANEUVERS,
+                )
+                .exclude(notes="")
+                .order_by("sort_order", "id")
+            )
+
+            effects.extend(
+                CharacterItemSemanticEffect.objects.filter(
+                    character_item_id=character_item.id,
+                    active_flag=True,
+                    target_domain="combat",
+                    target_key=MELEE_MANEUVERS,
+                )
+                .exclude(notes="")
+                .order_by("sort_order", "id")
+            )
+
+            for effect in effects:
+                modifier = effect.to_modifier(
+                    invested_cp=character_item.invested_cp,
+                )
+
+                if not TargetResolver.matches_context(
+                    modifier,
+                    weapon_context,
+                ):
+                    continue
+
+                value = int(
+                    engine.modifier_engine._resolve_numeric_modifier(
+                        modifier
+                    )
+                    or 0
+                )
+
+                if not value:
+                    continue
+
+                condition_text = " ".join(
+                    str(effect.notes or "").split()
+                )
+
+                entries.append(
+                    f"{format_modifier(value)} {condition_text}"
+                )
         seen: OrderedDict[str, str] = OrderedDict()
         for entry in entries:
             normalized = " ".join(entry.casefold().split())
