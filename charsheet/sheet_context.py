@@ -2761,10 +2761,19 @@ def _build_item_tooltip_rows(
         rows.append(("GK", size_class))
 
     if item.item_type in Item.weapon_item_type_values():
-        rows.append(("Schaden", item_engine.get_one_handed_damage_label()))
-        two_handed_damage = item_engine.get_two_handed_damage_label()
-        if two_handed_damage:
-            rows.append(("2H Schaden", two_handed_damage))
+        weapon_stats = item_engine._get_weapon_stats()
+
+        if weapon_stats and weapon_stats.wield_mode == TWO_HANDED:
+            two_handed_damage = item_engine.get_two_handed_damage_label()
+            if two_handed_damage:
+                rows.append(("Schaden", two_handed_damage))
+        else:
+            rows.append(("Schaden", item_engine.get_one_handed_damage_label()))
+
+            two_handed_damage = item_engine.get_two_handed_damage_label()
+            if two_handed_damage:
+                rows.append(("2H Schaden", two_handed_damage))
+
         base_range_label = item_engine.get_weapon_range_label()
         range_label = item_engine.get_weapon_range_label(strength=strength)
         if range_label:
