@@ -21,7 +21,7 @@
   <img src="https://img.shields.io/badge/Version-0.9.0--beta-purple" alt="Version 0.9.0-beta" />
   <img src="https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white" alt="Python 3.12">
   <img src="https://img.shields.io/badge/Django-6.0-092E20?logo=django&logoColor=white" alt="Django">
-  <img src="https://img.shields.io/badge/License-GPLv3-blue" alt="GPLv3">
+  <img src="https://img.shields.io/badge/License-PolyForm%20Noncommercial%201.0.0-blue" alt="PolyForm Noncommercial 1.0.0">
 </p>
 
 ---
@@ -582,20 +582,21 @@ or source publications.
 ## Source Code
 
 The original **Codex Arcana application source code** is licensed under the
-**GNU General Public License v3.0**.
+**PolyForm Noncommercial License 1.0.0**.
 
-See [`LICENSE`](LICENSE) for details.
+The source code may be used, studied, modified and shared for private,
+personal, educational, hobbyist and other noncommercial purposes in accordance
+with the terms of that license.
 
-The GPL license applies to the original Codex Arcana software source code and
-does **not** grant rights to third-party intellectual property, Arcane Codex
-material, trademarks, artwork, characters, settings or other protected content
-referenced or represented by the project.
+**Commercial use is not permitted under the PolyForm Noncommercial License.**
 
-## Trademarks and Attribution
+Companies, organizations or individuals wishing to use Codex Arcana for
+commercial purposes may contact the copyright holder to negotiate a separate
+commercial license.
 
-All product names, trademarks and registered trademarks remain the property of
-their respective owners.
+See [`LICENSE`](LICENSE) for the complete license terms.
 
-Their use within Codex Arcana is solely intended to identify and provide
-compatibility with the tabletop role-playing game for which this fan project
-was created.
+This license applies exclusively to the original Codex Arcana software source
+code and does **not** grant rights to third-party intellectual property,
+including Arcane Codex material, trademarks, artwork, characters, settings,
+game rules or other protected content referenced or represented by the project.

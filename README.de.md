@@ -21,7 +21,7 @@
   <img src="https://img.shields.io/badge/Version-0.9.0--beta-purple" alt="Version 0.9.0-beta" />
   <img src="https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white" alt="Python 3.12">
   <img src="https://img.shields.io/badge/Django-6.0-092E20?logo=django&logoColor=white" alt="Django">
-  <img src="https://img.shields.io/badge/License-GPLv3-blue" alt="GPLv3">
+  <img src="https://img.shields.io/badge/License-PolyForm%20Noncommercial%201.0.0-blue" alt="PolyForm Noncommercial 1.0.0">
 </p>
 
 ---
@@ -577,11 +577,26 @@ Codex Arcana verbreitet keine digitalen Kopien der Arcane-Codex-Regelbücher ode
 
 ## Quellcode
 
-Der eigenständig entwickelte **Quellcode der Anwendung Codex Arcana** steht unter der **GNU General Public License v3.0**.
+Der eigenständig entwickelte **Quellcode der Anwendung Codex Arcana** steht
+unter der **PolyForm Noncommercial License 1.0.0**.
 
-Weitere Informationen befinden sich in [`LICENSE`](LICENSE).
+Der Quellcode darf im Rahmen dieser Lizenz für private, persönliche,
+schulische, wissenschaftliche, hobbymäßige und sonstige nichtkommerzielle
+Zwecke verwendet, untersucht, verändert und weitergegeben werden.
 
-Die GPLv3 gilt ausschließlich für den originären Quellcode von Codex Arcana und gewährt **keine Rechte an geistigem Eigentum Dritter**, insbesondere nicht an Arcane-Codex-Inhalten, Marken, Illustrationen, Charakteren, Spielwelten oder anderen geschützten Bestandteilen, die innerhalb des Projekts erwähnt, dargestellt oder referenziert werden.
+**Eine kommerzielle Nutzung ist unter der PolyForm Noncommercial License nicht gestattet.**
+
+Unternehmen, Organisationen oder Einzelpersonen, die Codex Arcana kommerziell
+nutzen möchten, können mit dem Rechteinhaber eine separate kommerzielle Lizenz
+vereinbaren.
+
+Die vollständigen Lizenzbedingungen befinden sich in [`LICENSE`](LICENSE).
+
+Diese Lizenz gilt ausschließlich für den originären Quellcode von Codex Arcana
+und gewährt **keine Rechte an geistigem Eigentum Dritter**, insbesondere nicht
+an Arcane-Codex-Inhalten, Marken, Illustrationen, Charakteren, Spielwelten,
+Regeltexten oder anderen geschützten Bestandteilen, die innerhalb des Projekts
+erwähnt, dargestellt oder referenziert werden.
 
 ## Marken & Namensnennung
 
