@@ -2134,7 +2134,6 @@ def _build_character_item_magic_tooltip_rows(
         suffixes = _unique_text(
             [
                 *[entry.get("group_suffix") for entry in group_entries],
-                *[entry.get("group_condition") for entry in group_entries],
             ]
         )
         if titles or effects or suffixes:
@@ -2273,7 +2272,6 @@ def _build_character_item_magic_tooltip_rows(
             if not value_display and effect_description:
                 add_display_entry(entry, effect_description, group_condition=group_condition)
             elif rule_line:
-                rule_line = _append_unique_tail(rule_line, group_condition)
                 add_display_entry(
                     entry,
                     rule_line,
@@ -2293,12 +2291,12 @@ def _build_character_item_magic_tooltip_rows(
             flush_numeric_effects()
             numeric_effects.clear()
             effect_description = _format_magic_text_effect_line(
-                str(payload.get("rules_text") or payload.get("effect_description") or ""),
+                str(payload.get("rules_text") or ""),
                 invested_cp=payload.get("invested_cp", ""),
             )
             if effect_description:
                 group_title, group_suffix = _magic_pipe_parts(
-                    str(payload.get("rules_text") or payload.get("effect_description") or ""),
+                    str(payload.get("rules_text") or ""),
                     invested_cp=payload.get("invested_cp", ""),
                 )
                 add_display_entry(
@@ -2325,7 +2323,6 @@ def _build_character_item_magic_tooltip_rows(
                 invested_cp=payload.get("invested_cp", ""),
             )
             if rule_line:
-                rule_line = _append_unique_tail(rule_line, group_condition)
                 add_display_entry(
                     payload,
                     rule_line,
