@@ -281,7 +281,7 @@ class ItemEngine:
         stats = self._get_weapon_stats()
         if not stats:
             return ""
-        return stats.range_label
+        return stats.effective_range_label(strength)
 
     def get_weapon_reload_time(self) -> int | None:
         """Return the weapon reload time if configured."""
@@ -423,7 +423,9 @@ class ItemEngine:
             quality_bonus,
         )
         base = (
-            max(1, int(self._get_override_value("weapon_damage_dice_amount_override", stats.damage_dice_amount)) + int(dice_amount_bonus or 0)),
+            max(1, int(self._get_override_value(
+                "weapon_damage_dice_amount_override",
+                stats.damage_dice_amount)) + int(dice_amount_bonus or 0)),
             int(self._get_override_value("weapon_damage_dice_faces_override", stats.damage_dice_faces)),
             base_adjusted_bonus,
             base_adjusted_operator,

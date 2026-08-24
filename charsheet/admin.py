@@ -1988,7 +1988,7 @@ class WeaponStatsInline(admin.StackedInline):
         "skills",
         ("damage_dice_amount", "damage_dice_faces", "damage_flat_operator", "damage_flat_bonus", "damage_type"),
         ("h2_dice_amount", "h2_dice_faces", "h2_flat_operator", "h2_flat_bonus", "h2_damage_type"),
-        ("range_short", "range_medium", "range_long", "reload_time", "shot_count"),
+        ("range_short", "range_medium", "range_long", "range_strength_multiplier", "reload_time", "shot_count"),
         "flags",
     )
 
@@ -6531,7 +6531,16 @@ class WeaponStatsAdmin(admin.ModelAdmin):
         "skills__name",
         "skills__slug"
         )
-    list_filter = ("weapon_type", "wield_mode", "damage_source", "damage_type", "flags", "item__default_quality", "item__size_class")
+    list_filter = (
+        "weapon_type",
+        "wield_mode",
+        "damage_source",
+        "damage_type",
+        "flags",
+        "range_strength_multiplier",
+        "item__default_quality",
+        "item__size_class"
+        )
     ordering = ("item__name",)
     autocomplete_fields = ("item", "weapon_type", "damage_source")
     list_select_related = ("item", "weapon_type", "damage_source")

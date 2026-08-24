@@ -852,6 +852,7 @@ class WeaponStats(models.Model):
     range_short = models.PositiveIntegerField(null=True, blank=True, validators=[MinValueValidator(1)])
     range_medium = models.PositiveIntegerField(null=True, blank=True, validators=[MinValueValidator(1)])
     range_long = models.PositiveIntegerField(null=True, blank=True, validators=[MinValueValidator(1)])
+    range_strength_multiplier = models.BooleanField(default=False)
     reload_time = models.PositiveIntegerField(null=True, blank=True, validators=[MinValueValidator(0)])
     shot_count = models.PositiveIntegerField(null=True, blank=True, validators=[MinValueValidator(0)])
     damage_source = models.ForeignKey(DamageSource, on_delete=models.PROTECT)
@@ -935,7 +936,32 @@ class WeaponStats(models.Model):
         values = [self.range_short, self.range_medium, self.range_long]
         if not any(value is not None for value in values):
             return ""
-        return " / ".join(str(value) if value is not None else "-" for value in values)
+
+        label = " / ".join(
+            str(value) if value is not None else "-"
+            for value in values
+        )
+
+        return f"St x {label}" if self.range_strength_multiplier else label
+
+    def effective_range_label(self, strength: int | None = None) -> str:
+        """Return range values after applying the optional strength multiplier."""
+        if not self.range_strength_multiplier:
+            return self.range_label
+
+        if strength is None:
+            return self.range_label
+
+        values = [self.range_short, self.range_medium, self.range_long]
+        if not any(value is not None for value in values):
+            return ""
+
+        multiplier = max(0, int(strength or 0))
+
+        return " / ".join(
+            str(int(value) * multiplier) if value is not None else "-"
+            for value in values
+        )
 
     @property
     def damage(self) -> str:
