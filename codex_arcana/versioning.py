@@ -1,12 +1,29 @@
-"""Calculate the visible Codex Arcana version from the declared release version
-and Conventional Commits made since that version was set.
+"""Semantic Versioning for Codex Arcana.
+
+VERSION is the canonical application version.
+
+The next version is calculated from Conventional Commits made since the
+most recent commit that changed VERSION.
+
+Rules:
+
+- BREAKING CHANGE:
+    - before 1.0.0 -> next minor version
+    - from 1.0.0 onward -> next major version
+- feat -> next minor version
+- fix -> next patch version
+- all other commit types -> no automatic version change
+
+Commit scopes are supported, e.g.:
+
+    fix(items): ...
+    feat(magic): ...
+    feat(api)!: ...
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from functools import lru_cache
-import os
 from pathlib import Path
 import re
 import subprocess
@@ -15,8 +32,6 @@ import subprocess
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 VERSION_FILE = PROJECT_ROOT / "VERSION"
-
-DEPLOYED_VERSION_FILE = PROJECT_ROOT / ".codex-arcana-version"
 
 FALLBACK_VERSION = "0.8.0-beta"
 
@@ -38,10 +53,12 @@ _SEMVER_PATTERN = re.compile(
     re.VERBOSE,
 )
 
+
 _COMMIT_TYPE_PATTERN = re.compile(
     r"^(?P<type>[a-z]+)(?:\([^)]*\))?(?P<breaking>!)?:",
     re.IGNORECASE,
 )
+
 
 _BREAKING_CHANGE_PATTERN = re.compile(
     r"(?:^|\n)BREAKING(?: |-)?CHANGE\s*:",
@@ -51,7 +68,7 @@ _BREAKING_CHANGE_PATTERN = re.compile(
 
 @dataclass(frozen=True, slots=True)
 class CommitDescription:
-    """The subject and body needed to classify one commit."""
+    """Commit information required for version classification."""
 
     subject: str
     body: str = ""
@@ -59,7 +76,7 @@ class CommitDescription:
 
 @dataclass(frozen=True, slots=True)
 class Version:
-    """A Semantic Versioning version."""
+    """Semantic Versioning version."""
 
     major: int
     minor: int
@@ -95,21 +112,33 @@ class Version:
         )
 
 
-def _commit_is_breaking(commit: CommitDescription) -> bool:
+def _commit_is_breaking(
+    commit: CommitDescription,
+) -> bool:
     """Return whether a Conventional Commit declares a breaking change."""
 
-    match = _COMMIT_TYPE_PATTERN.match(commit.subject.strip())
+    match = _COMMIT_TYPE_PATTERN.match(
+        commit.subject.strip()
+    )
 
     if match and match.group("breaking"):
         return True
 
-    return bool(_BREAKING_CHANGE_PATTERN.search(commit.body))
+    return bool(
+        _BREAKING_CHANGE_PATTERN.search(
+            commit.body
+        )
+    )
 
 
-def _commit_type(commit: CommitDescription) -> str:
-    """Return the Conventional Commit type, if present."""
+def _commit_type(
+    commit: CommitDescription,
+) -> str:
+    """Return the Conventional Commit type."""
 
-    match = _COMMIT_TYPE_PATTERN.match(commit.subject.strip())
+    match = _COMMIT_TYPE_PATTERN.match(
+        commit.subject.strip()
+    )
 
     if not match:
         return ""
@@ -124,20 +153,15 @@ def calculate_version(
 ) -> Version:
     """Calculate the next semantic version candidate.
 
-    Version changes are aggregated across all commits since the declared
-    VERSION baseline.
+    All commits since the most recent VERSION update are evaluated
+    together.
 
-    Multiple commits of the same class therefore do not repeatedly increase
-    the version.
+    Multiple commits of the same class therefore only increase the
+    version once.
 
-    Rules:
+    Priority:
 
-    - BREAKING CHANGE:
-        - before 1.0.0 -> next minor version
-        - from 1.0.0 onward -> next major version
-    - feat -> next minor version
-    - fix -> next patch version
-    - all other commit types -> no automatic version change
+        BREAKING CHANGE > feat > fix
     """
 
     has_breaking_change = any(
@@ -191,7 +215,7 @@ def calculate_version(
 
 
 def _run_git(*arguments: str) -> str:
-    """Run a read-only Git command in the project repository."""
+    """Run a read-only Git command."""
 
     result = subprocess.run(
         [
@@ -206,34 +230,26 @@ def _run_git(*arguments: str) -> str:
         text=True,
         encoding="utf-8",
         errors="replace",
-        timeout=5,
+        timeout=10,
     )
 
     return result.stdout
 
 
-def _git_head() -> str:
-    """Return the current Git HEAD."""
-
-    return _run_git(
-        "rev-parse",
-        "--verify",
-        "HEAD",
-    ).strip()
-
-
 def _version_file_repository_path() -> str:
-    """Return VERSION as a repository-relative path."""
+    """Return VERSION as repository-relative path."""
 
     return str(
-        VERSION_FILE.relative_to(PROJECT_ROOT)
+        VERSION_FILE.relative_to(
+            PROJECT_ROOT
+        )
     )
 
 
 def _version_anchor(
     revision: str = "HEAD",
 ) -> str:
-    """Return the most recent commit that changed VERSION."""
+    """Return the latest commit that changed VERSION."""
 
     return _run_git(
         "log",
@@ -249,7 +265,7 @@ def _git_commits_since(
     anchor: str,
     revision: str = "HEAD",
 ) -> list[CommitDescription]:
-    """Read commits after the VERSION anchor, oldest first."""
+    """Read commits after VERSION anchor, oldest first."""
 
     if not anchor:
         return []
@@ -265,7 +281,11 @@ def _git_commits_since(
 
     commits: list[CommitDescription] = []
 
-    for index in range(0, len(fields) - 1, 2):
+    for index in range(
+        0,
+        len(fields) - 1,
+        2,
+    ):
         subject = fields[index].strip()
         body = fields[index + 1].strip()
 
@@ -283,7 +303,7 @@ def _git_commits_since(
 
 
 def _read_declared_version() -> str:
-    """Read the release baseline from VERSION."""
+    """Read VERSION."""
 
     try:
         value = VERSION_FILE.read_text(
@@ -298,23 +318,27 @@ def _read_declared_version() -> str:
     return value
 
 
-@lru_cache(maxsize=8)
-def _version_for_git_head(
-    head: str,
-    declared_version: str,
+def calculate_repository_version(
+    revision: str = "HEAD",
 ) -> str:
-    """Calculate once per HEAD and declared VERSION combination."""
+    """Calculate the version from VERSION and Git history."""
 
-    base = Version.parse(declared_version)
+    declared_version = _read_declared_version()
 
-    anchor = _version_anchor(head)
+    base = Version.parse(
+        declared_version
+    )
+
+    anchor = _version_anchor(
+        revision
+    )
 
     if not anchor:
         return str(base)
 
     commits = _git_commits_since(
         anchor,
-        head,
+        revision,
     )
 
     return str(
@@ -325,74 +349,79 @@ def _version_for_git_head(
     )
 
 
-def get_git_version() -> str:
-    """Calculate the application version from VERSION and Git history."""
+def write_calculated_version() -> tuple[str, bool]:
+    """Calculate the repository version and persist it in VERSION.
 
-    declared_version = _read_declared_version()
+    Returns:
 
-    Version.parse(declared_version)
+        (version, changed)
+    """
 
-    head = _git_head()
+    current_version = _read_declared_version()
 
-    return _version_for_git_head(
-        head,
-        declared_version,
+    calculated_version = (
+        calculate_repository_version()
     )
 
+    Version.parse(
+        calculated_version
+    )
 
-def _read_deployed_version() -> str:
-    """Read the deployment snapshot created by the deployment script."""
+    if calculated_version == current_version:
+        return calculated_version, False
 
-    try:
-        return DEPLOYED_VERSION_FILE.read_text(
-            encoding="utf-8"
-        ).strip()
-    except OSError:
-        return ""
-
-
-def write_deployed_version() -> str:
-    """Atomically store the current Git-derived application version."""
-
-    version = get_git_version()
-
-    temporary_file = DEPLOYED_VERSION_FILE.with_name(
-        f"{DEPLOYED_VERSION_FILE.name}.tmp"
+    temporary_file = VERSION_FILE.with_name(
+        "VERSION.tmp"
     )
 
     temporary_file.write_text(
-        f"{version}\n",
+        f"{calculated_version}\n",
         encoding="utf-8",
     )
 
     temporary_file.replace(
-        DEPLOYED_VERSION_FILE
+        VERSION_FILE
     )
+
+    return calculated_version, True
+
+
+def get_application_version() -> str:
+    """Return the persisted application version.
+
+    VERSION is the single source of truth.
+    """
+
+    version = _read_declared_version()
+
+    try:
+        Version.parse(version)
+    except ValueError:
+        return FALLBACK_VERSION
 
     return version
 
 
-def get_application_version() -> str:
-    """Return the deployment override or calculated application version."""
+def main() -> int:
+    """Update VERSION from Git history."""
 
-    override = os.getenv(
-        "CODEX_ARCANA_VERSION",
-        "",
-    ).strip()
+    version, changed = (
+        write_calculated_version()
+    )
 
-    if override:
-        return override
+    if changed:
+        print(
+            f"VERSION updated to {version}"
+        )
+    else:
+        print(
+            f"VERSION unchanged: {version}"
+        )
 
-    deployed_version = _read_deployed_version()
+    return 0
 
-    if deployed_version:
-        return deployed_version
 
-    try:
-        return get_git_version()
-    except (
-        OSError,
-        ValueError,
-        subprocess.SubprocessError,
-    ):
-        return FALLBACK_VERSION
+if __name__ == "__main__":
+    raise SystemExit(
+        main()
+    )

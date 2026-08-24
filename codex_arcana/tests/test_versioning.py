@@ -1,17 +1,18 @@
 """Tests for Codex Arcana Semantic Versioning."""
 
-import os
-from unittest.mock import MagicMock, patch
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
 from django.test import SimpleTestCase
 
 from codex_arcana.versioning import (
     CommitDescription,
     Version,
-    _version_for_git_head,
+    calculate_repository_version,
     calculate_version,
     get_application_version,
-    write_deployed_version,
+    write_calculated_version,
 )
 
 
@@ -76,6 +77,18 @@ class VersionParsingTests(SimpleTestCase):
                 "v.0.8.0-b123"
             )
 
+    def test_rejects_incomplete_version(self):
+        with self.assertRaises(ValueError):
+            Version.parse(
+                "0.8"
+            )
+
+    def test_rejects_leading_zero(self):
+        with self.assertRaises(ValueError):
+            Version.parse(
+                "0.08.0-beta"
+            )
+
 
 class VersionCalculationTests(SimpleTestCase):
     def setUp(self):
@@ -119,7 +132,7 @@ class VersionCalculationTests(SimpleTestCase):
             text=True,
             encoding="utf-8",
             errors="replace",
-            timeout=5,
+            timeout=10,
         )
 
     def test_no_release_relevant_commit_keeps_version(
@@ -167,6 +180,23 @@ class VersionCalculationTests(SimpleTestCase):
             "0.8.1-beta",
         )
 
+    def test_fix_with_scope_increases_patch(self):
+        commits = [
+            CommitDescription(
+                "fix(items): correct weapon display"
+            ),
+        ]
+
+        version = calculate_version(
+            commits,
+            base=self.beta,
+        )
+
+        self.assertEqual(
+            str(version),
+            "0.8.1-beta",
+        )
+
     def test_multiple_fixes_only_increase_patch_once(
         self,
     ):
@@ -192,10 +222,77 @@ class VersionCalculationTests(SimpleTestCase):
             "0.8.1-beta",
         )
 
+    def test_multiple_scoped_fixes_only_increase_patch_once(
+        self,
+    ):
+        commits = [
+            CommitDescription(
+                "fix(items): correct item display"
+            ),
+            CommitDescription(
+                "fix(sheet): correct sheet display"
+            ),
+            CommitDescription(
+                "fix(magic): correct magic display"
+            ),
+        ]
+
+        version = calculate_version(
+            commits,
+            base=self.beta,
+        )
+
+        self.assertEqual(
+            str(version),
+            "0.8.1-beta",
+        )
+
     def test_feature_increases_minor(self):
         commits = [
             CommitDescription(
                 "feat: add flexible magic"
+            ),
+        ]
+
+        version = calculate_version(
+            commits,
+            base=self.beta,
+        )
+
+        self.assertEqual(
+            str(version),
+            "0.9.0-beta",
+        )
+
+    def test_feature_with_scope_increases_minor(self):
+        commits = [
+            CommitDescription(
+                "feat(magic): add spell filtering"
+            ),
+        ]
+
+        version = calculate_version(
+            commits,
+            base=self.beta,
+        )
+
+        self.assertEqual(
+            str(version),
+            "0.9.0-beta",
+        )
+
+    def test_multiple_features_only_increase_minor_once(
+        self,
+    ):
+        commits = [
+            CommitDescription(
+                "feat(items): add item feature"
+            ),
+            CommitDescription(
+                "feat(magic): add magic feature"
+            ),
+            CommitDescription(
+                "feat(sheet): add sheet feature"
             ),
         ]
 
@@ -234,6 +331,31 @@ class VersionCalculationTests(SimpleTestCase):
             "0.9.0-beta",
         )
 
+    def test_scoped_feature_has_priority_over_scoped_fixes(
+        self,
+    ):
+        commits = [
+            CommitDescription(
+                "fix(items): correct item display"
+            ),
+            CommitDescription(
+                "feat(magic): add spell filtering"
+            ),
+            CommitDescription(
+                "fix(sheet): correct tooltip"
+            ),
+        ]
+
+        version = calculate_version(
+            commits,
+            base=self.beta,
+        )
+
+        self.assertEqual(
+            str(version),
+            "0.9.0-beta",
+        )
+
     def test_breaking_change_before_one_increases_minor(
         self,
     ):
@@ -253,13 +375,102 @@ class VersionCalculationTests(SimpleTestCase):
             "0.9.0-beta",
         )
 
+    def test_breaking_feature_with_scope_before_one_increases_minor(
+        self,
+    ):
+        commits = [
+            CommitDescription(
+                "feat(api)!: replace spell API"
+            ),
+        ]
+
+        version = calculate_version(
+            commits,
+            base=self.beta,
+        )
+
+        self.assertEqual(
+            str(version),
+            "0.9.0-beta",
+        )
+
+    def test_breaking_fix_with_scope_before_one_increases_minor(
+        self,
+    ):
+        commits = [
+            CommitDescription(
+                "fix(api)!: replace old API"
+            ),
+        ]
+
+        version = calculate_version(
+            commits,
+            base=self.beta,
+        )
+
+        self.assertEqual(
+            str(version),
+            "0.9.0-beta",
+        )
+
     def test_breaking_change_body_before_one_increases_minor(
         self,
     ):
         commits = [
             CommitDescription(
                 "refactor: replace spell API",
-                "BREAKING CHANGE: old spell API removed",
+                (
+                    "BREAKING CHANGE: "
+                    "old spell API removed"
+                ),
+            ),
+        ]
+
+        version = calculate_version(
+            commits,
+            base=self.beta,
+        )
+
+        self.assertEqual(
+            str(version),
+            "0.9.0-beta",
+        )
+
+    def test_breaking_change_hyphen_body_is_supported(
+        self,
+    ):
+        commits = [
+            CommitDescription(
+                "refactor(api): replace spell API",
+                (
+                    "BREAKING-CHANGE: "
+                    "old spell API removed"
+                ),
+            ),
+        ]
+
+        version = calculate_version(
+            commits,
+            base=self.beta,
+        )
+
+        self.assertEqual(
+            str(version),
+            "0.9.0-beta",
+        )
+
+    def test_breaking_change_has_priority_over_feature_and_fix(
+        self,
+    ):
+        commits = [
+            CommitDescription(
+                "fix(items): correct item display"
+            ),
+            CommitDescription(
+                "feat(magic): add spell filtering"
+            ),
+            CommitDescription(
+                "refactor(api)!: replace API"
             ),
         ]
 
@@ -296,6 +507,29 @@ class VersionCalculationTests(SimpleTestCase):
             "2.0.0",
         )
 
+    def test_breaking_feature_with_scope_after_one_increases_major(
+        self,
+    ):
+        base = Version.parse(
+            "1.4.2"
+        )
+
+        commits = [
+            CommitDescription(
+                "feat(api)!: replace public API"
+            ),
+        ]
+
+        version = calculate_version(
+            commits,
+            base=base,
+        )
+
+        self.assertEqual(
+            str(version),
+            "2.0.0",
+        )
+
     def test_feature_after_one_increases_minor(
         self,
     ):
@@ -306,7 +540,7 @@ class VersionCalculationTests(SimpleTestCase):
         version = calculate_version(
             [
                 CommitDescription(
-                    "feat: add new sheet panel"
+                    "feat(sheet): add new sheet panel"
                 ),
             ],
             base=base,
@@ -327,7 +561,7 @@ class VersionCalculationTests(SimpleTestCase):
         version = calculate_version(
             [
                 CommitDescription(
-                    "fix: correct sheet rendering"
+                    "fix(sheet): correct sheet rendering"
                 ),
             ],
             base=base,
@@ -355,156 +589,299 @@ class VersionCalculationTests(SimpleTestCase):
             "0.8.0-beta",
         )
 
-
-class ApplicationVersionTests(SimpleTestCase):
-    def tearDown(self):
-        _version_for_git_head.cache_clear()
-
-    def test_application_version_refreshes_when_head_changes(
+    def test_commit_type_matching_is_case_insensitive(
         self,
     ):
-        commits_by_head = {
-            "old-head": [],
-            "new-head": [
+        version = calculate_version(
+            [
                 CommitDescription(
-                    "fix: refresh version"
+                    "FIX(items): correct item display"
                 ),
             ],
-        }
+            base=self.beta,
+        )
 
+        self.assertEqual(
+            str(version),
+            "0.8.1-beta",
+        )
+
+
+class RepositoryVersionTests(SimpleTestCase):
+    def test_repository_version_uses_commits_since_version_anchor(
+        self,
+    ):
         with (
-            patch.dict(
-                os.environ,
-                {
-                    "CODEX_ARCANA_VERSION": "",
-                },
-            ),
-            patch(
-                "codex_arcana.versioning._read_deployed_version",
-                return_value="",
-            ),
             patch(
                 "codex_arcana.versioning._read_declared_version",
                 return_value="0.8.0-beta",
             ),
             patch(
-                "codex_arcana.versioning._git_head",
-                side_effect=[
-                    "old-head",
-                    "new-head",
-                    "new-head",
+                "codex_arcana.versioning._version_anchor",
+                return_value="version-anchor",
+            ) as version_anchor,
+            patch(
+                "codex_arcana.versioning._git_commits_since",
+                return_value=[
+                    CommitDescription(
+                        "feat(magic): add spell filtering"
+                    ),
                 ],
+            ) as git_commits,
+        ):
+            version = (
+                calculate_repository_version()
+            )
+
+        self.assertEqual(
+            version,
+            "0.9.0-beta",
+        )
+
+        version_anchor.assert_called_once_with(
+            "HEAD"
+        )
+
+        git_commits.assert_called_once_with(
+            "version-anchor",
+            "HEAD",
+        )
+
+    def test_repository_version_without_anchor_returns_base(
+        self,
+    ):
+        with (
+            patch(
+                "codex_arcana.versioning._read_declared_version",
+                return_value="0.8.0-beta",
+            ),
+            patch(
+                "codex_arcana.versioning._version_anchor",
+                return_value="",
+            ),
+            patch(
+                "codex_arcana.versioning._git_commits_since",
+            ) as git_commits,
+        ):
+            version = (
+                calculate_repository_version()
+            )
+
+        self.assertEqual(
+            version,
+            "0.8.0-beta",
+        )
+
+        git_commits.assert_not_called()
+
+    def test_repository_version_respects_custom_revision(
+        self,
+    ):
+        with (
+            patch(
+                "codex_arcana.versioning._read_declared_version",
+                return_value="0.8.0-beta",
             ),
             patch(
                 "codex_arcana.versioning._version_anchor",
                 return_value="version-anchor",
-            ),
+            ) as version_anchor,
             patch(
                 "codex_arcana.versioning._git_commits_since",
-                side_effect=lambda _anchor, head: commits_by_head[head],
+                return_value=[
+                    CommitDescription(
+                        "fix(items): correct item display"
+                    ),
+                ],
             ) as git_commits,
         ):
-            self.assertEqual(
-                get_application_version(),
-                "0.8.0-beta",
-            )
-
-            self.assertEqual(
-                get_application_version(),
-                "0.8.1-beta",
-            )
-
-            self.assertEqual(
-                get_application_version(),
-                "0.8.1-beta",
+            version = (
+                calculate_repository_version(
+                    "test-revision"
+                )
             )
 
         self.assertEqual(
-            git_commits.call_count,
-            2,
+            version,
+            "0.8.1-beta",
         )
 
-    @patch(
-        "codex_arcana.versioning._git_head"
-    )
-    @patch(
-        "codex_arcana.versioning._read_deployed_version",
-        return_value="0.8.1-beta",
-    )
-    def test_application_uses_deployment_file_without_git(
+        version_anchor.assert_called_once_with(
+            "test-revision"
+        )
+
+        git_commits.assert_called_once_with(
+            "version-anchor",
+            "test-revision",
+        )
+
+
+class VersionPersistenceTests(SimpleTestCase):
+    def test_write_calculated_version_updates_version_file(
         self,
-        _read_deployed_version,
-        git_head,
     ):
-        with patch.dict(
-            os.environ,
-            {
-                "CODEX_ARCANA_VERSION": "",
-            },
-        ):
+        with TemporaryDirectory() as temp_dir:
+            version_file = (
+                Path(temp_dir) / "VERSION"
+            )
+
+            version_file.write_text(
+                "0.8.0-beta\n",
+                encoding="utf-8",
+            )
+
+            with (
+                patch(
+                    "codex_arcana.versioning.VERSION_FILE",
+                    version_file,
+                ),
+                patch(
+                    "codex_arcana.versioning.calculate_repository_version",
+                    return_value="0.8.1-beta",
+                ),
+            ):
+                version, changed = (
+                    write_calculated_version()
+                )
+
             self.assertEqual(
-                get_application_version(),
+                version,
                 "0.8.1-beta",
             )
 
-        git_head.assert_not_called()
-
-    @patch(
-        "codex_arcana.versioning._read_deployed_version",
-        return_value="",
-    )
-    def test_environment_override_has_priority(
-        self,
-        _read_deployed_version,
-    ):
-        with patch.dict(
-            os.environ,
-            {
-                "CODEX_ARCANA_VERSION": "0.9.0-beta",
-            },
-        ):
-            self.assertEqual(
-                get_application_version(),
-                "0.9.0-beta",
+            self.assertTrue(
+                changed
             )
 
-    def test_writes_deployment_version_atomically(
+            self.assertEqual(
+                version_file.read_text(
+                    encoding="utf-8"
+                ),
+                "0.8.1-beta\n",
+            )
+
+            self.assertFalse(
+                (
+                    Path(temp_dir)
+                    / "VERSION.tmp"
+                ).exists()
+            )
+
+    def test_write_calculated_version_does_not_rewrite_unchanged_version(
         self,
     ):
-        version_file = MagicMock()
+        with TemporaryDirectory() as temp_dir:
+            version_file = (
+                Path(temp_dir) / "VERSION"
+            )
 
-        version_file.name = (
-            ".codex-arcana-version"
-        )
+            version_file.write_text(
+                "0.8.1-beta\n",
+                encoding="utf-8",
+            )
 
-        temporary_file = (
-            version_file.with_name.return_value
-        )
+            with (
+                patch(
+                    "codex_arcana.versioning.VERSION_FILE",
+                    version_file,
+                ),
+                patch(
+                    "codex_arcana.versioning.calculate_repository_version",
+                    return_value="0.8.1-beta",
+                ),
+            ):
+                version, changed = (
+                    write_calculated_version()
+                )
 
-        with (
-            patch(
-                "codex_arcana.versioning.DEPLOYED_VERSION_FILE",
-                version_file,
-            ),
-            patch(
-                "codex_arcana.versioning.get_git_version",
-                return_value="0.8.1-beta",
-            ),
-        ):
             self.assertEqual(
-                write_deployed_version(),
+                version,
                 "0.8.1-beta",
             )
 
-        version_file.with_name.assert_called_once_with(
-            ".codex-arcana-version.tmp"
+            self.assertFalse(
+                changed
+            )
+
+            self.assertEqual(
+                version_file.read_text(
+                    encoding="utf-8"
+                ),
+                "0.8.1-beta\n",
+            )
+
+    def test_invalid_calculated_version_is_not_written(
+        self,
+    ):
+        with TemporaryDirectory() as temp_dir:
+            version_file = (
+                Path(temp_dir) / "VERSION"
+            )
+
+            version_file.write_text(
+                "0.8.0-beta\n",
+                encoding="utf-8",
+            )
+
+            with (
+                patch(
+                    "codex_arcana.versioning.VERSION_FILE",
+                    version_file,
+                ),
+                patch(
+                    "codex_arcana.versioning.calculate_repository_version",
+                    return_value="invalid",
+                ),
+            ):
+                with self.assertRaises(
+                    ValueError
+                ):
+                    write_calculated_version()
+
+            self.assertEqual(
+                version_file.read_text(
+                    encoding="utf-8"
+                ),
+                "0.8.0-beta\n",
+            )
+
+
+class ApplicationVersionTests(SimpleTestCase):
+    @patch(
+        "codex_arcana.versioning._read_declared_version",
+        return_value="0.8.4-beta",
+    )
+    def test_application_version_reads_version_file(
+        self,
+        _read_declared_version,
+    ):
+        self.assertEqual(
+            get_application_version(),
+            "0.8.4-beta",
         )
 
-        temporary_file.write_text.assert_called_once_with(
-            "0.8.1-beta\n",
-            encoding="utf-8",
+    @patch(
+        "codex_arcana.versioning._read_declared_version",
+        return_value="1.3.7",
+    )
+    def test_application_version_reads_stable_version(
+        self,
+        _read_declared_version,
+    ):
+        self.assertEqual(
+            get_application_version(),
+            "1.3.7",
         )
 
-        temporary_file.replace.assert_called_once_with(
-            version_file
+    @patch(
+        "codex_arcana.versioning._read_declared_version",
+        return_value="invalid",
+    )
+    def test_application_version_uses_fallback_for_invalid_version(
+        self,
+        _read_declared_version,
+    ):
+        self.assertEqual(
+            get_application_version(),
+            "0.8.0-beta",
         )

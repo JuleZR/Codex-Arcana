@@ -1,0 +1,56 @@
+name: Update project version
+
+on:
+  push:
+    branches:
+      - main
+
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: codex-arcana-version-main
+  cancel-in-progress: false
+
+jobs:
+  version:
+    if: github.actor != 'github-actions[bot]'
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Calculate version
+        run: python -m codex_arcana.versioning
+
+      - name: Commit VERSION
+        shell: bash
+        run: |
+          if git diff --quiet -- VERSION; then
+            echo "VERSION unchanged: $(cat VERSION)"
+            exit 0
+          fi
+
+          VERSION_NUMBER="$(tr -d '\r\n' < VERSION)"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add VERSION
+
+          git commit \
+            -m "chore(version): bump to ${VERSION_NUMBER}"
+
+          git push origin main

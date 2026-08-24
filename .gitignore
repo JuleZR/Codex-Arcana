@@ -205,6 +205,5 @@ _old
 # Runtime uploads aus Djangos MEDIA_ROOT niemals ins Repository aufnehmen.
 /media/
 backups
-.codex-arcana-version
-.codex-arcana-version.tmp
 AGENTS.md
+VERSION.tmp
