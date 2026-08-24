@@ -556,20 +556,14 @@ def _build_equipped_weapon_rows(engine) -> list[dict]:
             primary_maneuver_option = maneuver_options[0]
             damage_source_slug = item_engine.get_weapon_damage_source_slug()
             damage_stat_slug = damage_source_slug or item_engine.get_weapon_damage_type()
-            damage_attribute_code = ATTR_ST
+            maneuver_attribute_mode = item_engine.get_weapon_maneuver_attribute_mode()
 
-            if weapon_stats is not None:
-                maneuver_attribute_mode = str(
-                    weapon_stats.maneuver_attribute_mode
-                    or WEAPON_MANEUVER_ATTRIBUTE_ST
-                )
-
-                if maneuver_attribute_mode == WEAPON_MANEUVER_ATTRIBUTE_GE:
-                    damage_attribute_code = ATTR_GE
-                elif maneuver_attribute_mode == WEAPON_MANEUVER_ATTRIBUTE_NONE:
-                    damage_attribute_code = ""
-
-            damage_attribute_code = ATTR_ST
+            if maneuver_attribute_mode == WEAPON_MANEUVER_ATTRIBUTE_GE:
+                damage_attribute_code = ATTR_GE
+            elif maneuver_attribute_mode == WEAPON_MANEUVER_ATTRIBUTE_NONE:
+                damage_attribute_code = ""
+            else:
+                damage_attribute_code = ATTR_ST
 
             if weapon_stats is not None:
                 maneuver_attribute_mode = str(
