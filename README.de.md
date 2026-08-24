@@ -18,7 +18,7 @@
   <a href="https://discord.gg/mRKwGSsPEG">
     <img src="https://img.shields.io/badge/Discord-Community%20beitreten-5865F2?logo=discord&logoColor=white" alt="Discord">
   </a>
-  <img src="https://img.shields.io/badge/Version-0.9.0--beta-purple" alt="Version 0.9.0-beta" />
+  <img src="https://img.shields.io/badge/Version-0.10.0--beta-purple" alt="Version 0.10.0-beta" />
   <img src="https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white" alt="Python 3.12">
   <img src="https://img.shields.io/badge/Django-6.0-092E20?logo=django&logoColor=white" alt="Django">
   <img src="https://img.shields.io/badge/License-PolyForm%20Noncommercial%201.0.0-blue" alt="PolyForm Noncommercial 1.0.0">
