@@ -505,22 +505,33 @@ class ItemEngine:
 
     def weapon_profiles(self, *, dice_amount_bonus: int = 0) -> list[dict[str, str]]:
         """Return prepared weapon display profiles for table rendering."""
-        profiles = [
-            {
-                "mode": ONE_HANDED,
-                "mode_label": "1 H",
-                "damage": self.get_one_handed_damage_label(dice_amount_bonus=dice_amount_bonus),
-            }
-        ]
-        two_handed_damage = self.get_two_handed_damage_label(dice_amount_bonus=dice_amount_bonus)
-        if two_handed_damage:
+        wield_mode = self.get_weapon_wield_mode()
+        profiles = []
+
+        if wield_mode != TWO_HANDED:
             profiles.append(
                 {
-                    "mode": TWO_HANDED,
-                    "mode_label": "2 H",
-                    "damage": two_handed_damage,
+                    "mode": ONE_HANDED,
+                    "mode_label": "1 H",
+                    "damage": self.get_one_handed_damage_label(
+                        dice_amount_bonus=dice_amount_bonus
+                    ),
                 }
             )
+
+        if wield_mode in {TWO_HANDED, VERSATILE}:
+            two_handed_damage = self.get_two_handed_damage_label(
+                dice_amount_bonus=dice_amount_bonus
+            )
+            if two_handed_damage:
+                profiles.append(
+                    {
+                        "mode": TWO_HANDED,
+                        "mode_label": "2 H",
+                        "damage": two_handed_damage,
+                    }
+                )
+
         return profiles
 
     def get_armor_rs_raw(self) -> int | None:
