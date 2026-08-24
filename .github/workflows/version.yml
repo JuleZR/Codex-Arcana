@@ -35,10 +35,66 @@ jobs:
       - name: Calculate version
         run: python -m codex_arcana.versioning
 
+      - name: Update README version badges
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+
+          version = Path("VERSION").read_text(
+              encoding="utf-8"
+          ).strip()
+
+          # Shields.io escapes a literal "-" as "--".
+          badge_version = version.replace("-", "--")
+
+          replacement = (
+              f'<img src="https://img.shields.io/badge/'
+              f'Version-{badge_version}-purple" '
+              f'alt="Version {version}" />'
+          )
+
+          pattern = re.compile(
+              r'<img src="https://img\.shields\.io/badge/'
+              r'(?:Status-Beta-purple|Version-[^"]+-purple)" '
+              r'alt="(?:Beta|Version [^"]+)" ?/>'
+          )
+
+          for filename in (
+              "README.md",
+              "README.de.md",
+          ):
+              path = Path(filename)
+
+              content = path.read_text(
+                  encoding="utf-8"
+              )
+
+              updated, count = pattern.subn(
+                  replacement,
+                  content,
+                  count=1,
+              )
+
+              if count != 1:
+                  raise RuntimeError(
+                      f"Could not find version badge "
+                      f"in {filename}"
+                  )
+
+              path.write_text(
+                  updated,
+                  encoding="utf-8",
+              )
+
+              print(
+                  f"{filename}: Version {version}"
+              )
+
       - name: Commit VERSION
         shell: bash
         run: |
-          if git diff --quiet -- VERSION; then
+          if git diff --quiet -- VERSION README.md README.de.md; then
             echo "VERSION unchanged: $(cat VERSION)"
             exit 0
           fi
@@ -48,7 +104,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          git add VERSION
+          git add VERSION README.md README.de.md
 
           git commit \
             -m "chore(version): bump to ${VERSION_NUMBER}"
