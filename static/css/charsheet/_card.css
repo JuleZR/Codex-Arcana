@@ -261,7 +261,7 @@
     opacity: 0.48;
 }
 
-.card[data-card-holo="true"][data-card-holo-kind="creature-legendary"]::before {
+.card[data-card-holo="true"][data-card-holo-kind="gold"]::before {
     background-image: linear-gradient(
         115deg,
         transparent 0%,
@@ -280,7 +280,7 @@
     mix-blend-mode: color-dodge;
 }
 
-.card[data-card-holo="true"][data-card-holo-kind="creature-legendary"]::after {
+.card[data-card-holo="true"][data-card-holo-kind="gold"]::after {
     background-image: url("/static/img/card_holo/sparkles.gif");
     background-position: center;
     background-size: 180%;
@@ -289,7 +289,7 @@
     mix-blend-mode: color-dodge;
 }
 
-.card[data-card-holo="true"][data-card-holo-kind="creature-legendary"].active::before {
+.card[data-card-holo="true"][data-card-holo-kind="gold"].active::before {
     background-image: linear-gradient(
         115deg,
         transparent 0%,
@@ -307,7 +307,7 @@
     filter: brightness(0.95) contrast(1.16) saturate(1.18);
 }
 
-.card[data-card-holo="true"][data-card-holo-kind="creature-legendary"].active::after {
+.card[data-card-holo="true"][data-card-holo-kind="gold"].active::after {
     opacity: 0.42;
 }
 

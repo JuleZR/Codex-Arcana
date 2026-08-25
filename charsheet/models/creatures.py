@@ -26,14 +26,6 @@ from ..constants import (
     MODIFIER_OPERATOR_CHOICES,
     MODIFIER_VISIBILITY_CHOICES,
     PROFICIENCY_GROUP_CHOICES,
-    QUALITY_COMMON,
-    QUALITY_EXCELLENT,
-    QUALITY_FINE,
-    QUALITY_LEGENDARY,
-    QUALITY_POOR,
-    QUALITY_UNIQUE,
-    QUALITY_VERY_POOR,
-    QUALITY_WRETCHED,
     RESOURCE_KEY_CHOICES,
     STACK_BEHAVIOR_CHOICES,
     STAT_SLUG_CHOICES,
@@ -44,7 +36,7 @@ from ..constants import (
     VAMPIRE_STATE_CHOICES,
 )
 from .core import Attribute, Language, Skill, SkillCategory
-from .items import Item
+from .items import Item, Quality, default_quality_pk
 from .progression import Specialization
 
 
@@ -66,18 +58,6 @@ ATTRIBUTE_PROPERTY_CODES = {
     "perception_mod": ATTR_WA,
     "willpower_mod": ATTR_WILL,
     "charisma_mod": ATTR_CHA,
-}
-
-
-CREATURE_CARD_QUALITY_TRAINING_BUDGETS = {
-    QUALITY_WRETCHED: (0, 3),
-    QUALITY_VERY_POOR: (0, 2),
-    QUALITY_POOR: (0, 1),
-    QUALITY_COMMON: (0, 0),
-    QUALITY_FINE: (4, 0),
-    QUALITY_EXCELLENT: (8, 0),
-    QUALITY_LEGENDARY: (12, 0),
-    QUALITY_UNIQUE: (12, 0),
 }
 
 CREATURE_TARGET_DOMAIN_CHOICES = TARGET_DOMAIN_CHOICES + (
@@ -132,7 +112,7 @@ class Creature(models.Model):
         db_column="quality",
         on_delete=models.PROTECT,
         related_name="creatures",
-        default=QUALITY_COMMON,
+        default=default_quality_pk,
     )
     size_class = models.CharField(max_length=5, choices=GK_CHOICES, default=GK_AVERAGE)
     size_modifier = models.IntegerField(default=0)
@@ -1104,7 +1084,7 @@ class CreatureSourceBinding(models.Model):
         db_column="quality",
         on_delete=models.PROTECT,
         related_name="creature_source_bindings",
-        default=QUALITY_COMMON,
+        default=default_quality_pk,
         help_text="Quality used when this binding is triggered by a technique. Item-triggered creatures use the owned item's quality.",
     )
     active = models.BooleanField(default=True)
@@ -1190,7 +1170,7 @@ class CharacterCreature(models.Model):
         db_column="quality",
         on_delete=models.PROTECT,
         related_name="character_creatures",
-        default=QUALITY_COMMON,
+        default=default_quality_pk,
     )
     name_override = models.CharField(max_length=100, blank=True, default="")
     image_override = models.ImageField(upload_to="character_creatures/", blank=True, null=True)
@@ -1287,7 +1267,11 @@ class CharacterCreature(models.Model):
         constraints = [
             models.UniqueConstraint(
                 fields=["owner", "source_binding"],
-                condition=models.Q(source_binding__isnull=False, source_character_item__isnull=True, source_character_technique__isnull=True),
+                condition=models.Q(
+                    source_binding__isnull=False,
+                    source_character_item__isnull=True,
+                    source_character_technique__isnull=True,
+                    ),
                 name="uniq_character_creature_source_binding_legacy",
             ),
             models.UniqueConstraint(
@@ -1350,14 +1334,14 @@ class CharacterCreature(models.Model):
 
     @classmethod
     def training_budget_defaults(cls, quality):
-        quality_code = getattr(quality, "code", quality) or QUALITY_COMMON
-        advantage_points, disadvantage_points = CREATURE_CARD_QUALITY_TRAINING_BUDGETS.get(
-            quality_code,
-            CREATURE_CARD_QUALITY_TRAINING_BUDGETS[QUALITY_COMMON],
+        quality_obj = Quality.resolve(
+            quality,
+            use_default=True,
         )
+
         return {
-            "max_base_advantage_points": advantage_points,
-            "max_base_disadvantage_points": disadvantage_points,
+            "max_base_advantage_points": quality_obj.creature_training_advantage_points,
+            "max_base_disadvantage_points": quality_obj.creature_training_disadvantage_points,
         }
 
     @property
@@ -1395,7 +1379,7 @@ class CharacterCreatureItem(models.Model):
         db_column="quality",
         on_delete=models.PROTECT,
         related_name="creature_items",
-        default=QUALITY_COMMON,
+        default=default_quality_pk,
     )
     notes = models.TextField(blank=True, default="")
     armor_rs_total_override = models.PositiveIntegerField(blank=True, null=True)
@@ -2061,4 +2045,3 @@ class CharacterCreatureTraitChoice(CreatureTraitChoiceSelection):
 
     def __str__(self) -> str:
         return f"{self.character_creature_trait.creature.display_name} -> {self.definition.name}: {self.selected_target_display()}"
-

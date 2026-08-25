@@ -29,7 +29,6 @@ from charsheet.models import (
     CharacterTraitChoice,
     Item,
     ProgressionRule,
-    Race,
     RaceChoiceDefinition,
     RaceTechnique,
     Rune,
@@ -42,7 +41,6 @@ from charsheet.models import (
     TechniqueChoiceDefinition,
     TechniqueExclusion,
     TechniqueRequirement,
-    Trait,
 )
 
 

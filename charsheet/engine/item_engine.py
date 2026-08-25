@@ -8,17 +8,6 @@ from charsheet.constants import (
     ATTR_GE,
     ATTR_ST,
     ONE_HANDED,
-    QUALITY_BEL_MODS,
-    QUALITY_CHOICES,
-    QUALITY_COLOR_MAP,
-    QUALITY_COMMON,
-    QUALITY_EXCELLENT,
-    QUALITY_LEGENDARY,
-    QUALITY_POOR,
-    QUALITY_PRICE_MODS,
-    QUALITY_UNIQUE,
-    QUALITY_VERY_POOR,
-    QUALITY_WRETCHED,
     TWO_HANDED,
     VERSATILE,
     WEAPON_MANEUVER_ATTRIBUTE_BOTH,
@@ -28,30 +17,6 @@ from charsheet.constants import (
     WEAPON_SYMBOL_DESCRIPTIONS,
 )
 from charsheet.models import ArmorStats, CharacterItem, Item, Quality, RangedWeaponStats, ShieldStats, WeaponStats
-
-
-WEAPON_DAMAGE_QUALITY_BONUSES = {
-    QUALITY_POOR: -1,
-    QUALITY_VERY_POOR: -2,
-    QUALITY_WRETCHED: -3,
-    QUALITY_EXCELLENT: 1,
-    QUALITY_LEGENDARY: 1,
-}
-
-WEAPON_MANEUVER_QUALITY_BONUSES = {
-    QUALITY_POOR: -1,
-    QUALITY_VERY_POOR: -2,
-    QUALITY_WRETCHED: -3,
-    QUALITY_LEGENDARY: 1,
-}
-
-ARMOR_RS_QUALITY_BONUSES = {
-    QUALITY_POOR: -1,
-    QUALITY_VERY_POOR: -2,
-    QUALITY_WRETCHED: -3,
-    QUALITY_EXCELLENT: 1,
-    QUALITY_LEGENDARY: 1,
-}
 
 
 class ItemEngine:
@@ -66,49 +31,47 @@ class ItemEngine:
         self.weapon_stats = weapon_stats
 
     @staticmethod
-    def normalize_quality(quality: str | None) -> str:
-        """Return a valid quality key, falling back to common quality."""
-        if hasattr(quality, "code"):
-            quality = getattr(quality, "code")
-        quality = str(quality or "")
-        valid_quality_values = {value for value, _label in QUALITY_CHOICES}
-        if quality in valid_quality_values:
-            return str(quality)
-        try:
-            if Quality.objects.filter(pk=quality).exists():
-                return quality
-        except Exception:
-            pass
-        return QUALITY_COMMON
+    def normalize_quality(quality) -> str:
+        """Return the persisted quality code, falling back to the DB default."""
+        return Quality.resolve(
+            quality,
+            use_default=True,
+        ).code
+
+    @staticmethod
+    def quality_color(quality) -> str:
+        """Return the persisted UI color for one quality tier."""
+        return Quality.resolve(
+            quality,
+            use_default=True,
+        ).hex_color
 
     @classmethod
-    def quality_color(cls, quality: str | None) -> str:
-        """Return the configured UI color for one quality tier."""
-        if hasattr(quality, "hex_color"):
-            return str(getattr(quality, "hex_color") or QUALITY_COLOR_MAP[QUALITY_COMMON])
-        resolved_quality = cls.normalize_quality(quality)
-        try:
-            quality_obj = Quality.objects.filter(pk=resolved_quality).only("hex_color").first()
-            if quality_obj:
-                return quality_obj.hex_color
-        except Exception:
-            pass
-        return QUALITY_COLOR_MAP.get(resolved_quality, QUALITY_COLOR_MAP[QUALITY_COMMON])
+    def price_for_item_and_quality(
+        cls,
+        item: Item,
+        quality,
+    ) -> int:
+        """Return the effective price for an item at one quality."""
+        return cls(item).get_price_for_quality(quality)
 
-    @classmethod
-    def price_for_item_and_quality(cls, item: Item, quality: str | None) -> int:
-        """Return one item price adjusted relative to the item's default quality."""
-        resolved_quality = cls.normalize_quality(quality)
-        return int(item.price * cls._quality_price_multiplier(item.default_quality, resolved_quality))
+    @staticmethod
+    def _quality_price_multiplier(
+        base_quality,
+        effective_quality,
+    ) -> Decimal:
+        """Return the DB-defined price ratio between two qualities."""
+        base_quality_obj = Quality.resolve(base_quality)
+        effective_quality_obj = Quality.resolve(effective_quality)
 
-    @classmethod
-    def _quality_price_multiplier(cls, base_quality: str | None, effective_quality: str | None) -> float:
-        """Return the price factor from the stored base quality to another quality."""
-        base_mod = QUALITY_PRICE_MODS.get(cls.normalize_quality(base_quality), 1)
-        effective_mod = QUALITY_PRICE_MODS.get(cls.normalize_quality(effective_quality), 1)
-        if not base_mod:
-            return float(effective_mod)
-        return float(effective_mod) / float(base_mod)
+        base_multiplier = Decimal(
+            base_quality_obj.price_multiplier
+        )
+        effective_multiplier = Decimal(
+            effective_quality_obj.price_multiplier
+        )
+
+        return effective_multiplier / base_multiplier
 
     def _get_item(self) -> Item:
         """Return the underlying base item regardless of wrapper type."""
@@ -122,6 +85,32 @@ class ItemEngine:
         if isinstance(self.obj, CharacterItem):
             return self.obj
         return None
+
+    def _get_metal(self):
+        """Return the item's configured metal, if any."""
+        return getattr(
+            self._get_item(),
+            "metal",
+            None,
+        )
+
+    def _apply_metal_ms_modifier(
+        self,
+        minimum_strength: int | None,
+    ) -> int | None:
+        """Apply the configured metal modifier to minimum strength."""
+        if minimum_strength is None:
+            return None
+        metal = self._get_metal()
+        modifier = (
+            int(metal.ms_modifier or 0)
+            if metal is not None
+            else 0
+        )
+        return max(
+            1,
+            int(minimum_strength) + modifier,
+        )
 
     def _get_override_value(self, override_field: str, fallback):
         character_item = self._get_character_item()
@@ -179,28 +168,51 @@ class ItemEngine:
         except ObjectDoesNotExist:
             return None
 
-    def get_effective_quality(self) -> str:
-        """Return the quality used for calculations and display."""
-        if isinstance(self.obj, CharacterItem):
-            return self.normalize_quality(self.obj.quality)
-        return self.normalize_quality(self._get_item().default_quality)
+    def get_base_quality_obj(self) -> Quality:
+        """Return the quality already represented by the stored base item."""
+        return self._get_item().default_quality
+
+    def get_effective_quality_obj(self) -> Quality:
+        """Return the quality governing the effective item."""
+        metal = self._get_metal()
+
+        if metal is not None and metal.quality_overwrite_id:
+            return metal.quality_overwrite
+
+        character_item = self._get_character_item()
+        if character_item is not None:
+            return character_item.quality
+
+        return self._get_item().default_quality
 
     def get_base_quality(self) -> str:
-        """Return the quality already baked into the stored item stats."""
-        return self.normalize_quality(self._get_item().default_quality)
+        """Return the persisted base-quality code."""
+        return self.get_base_quality_obj().code
+
+    def get_effective_quality(self) -> str:
+        """Return the persisted effective-quality code."""
+        return self.get_effective_quality_obj().code
 
     def get_quality_color(self) -> str:
-        """Return the UI color for the effective quality."""
-        if isinstance(self.obj, CharacterItem):
-            return self.quality_color(self.obj.quality)
-        return self.quality_color(self._get_item().default_quality)
+        """Return the UI color of the effective quality."""
+        return self.get_effective_quality_obj().hex_color
 
     def get_weight(self) -> Decimal:
-        """Return base or stacked item weight."""
+        """Return effective item weight including metal and stack amount."""
         item = self._get_item()
-        weight = self._get_override_value("weight_override", item.weight)
+        weight = Decimal(
+            self._get_override_value(
+                "weight_override",
+                item.weight,
+            )
+        )
+        metal = self._get_metal()
+        if metal is not None:
+            weight *= Decimal(
+                metal.weight_multiplier or 1
+            )
         if isinstance(self.obj, CharacterItem):
-            return weight * self.obj.amount
+            weight *= self.obj.amount
         return weight
 
     def get_base_price(self) -> int:
@@ -208,13 +220,33 @@ class ItemEngine:
         return int(self._get_override_value("price_override", self._get_item().price))
 
     def get_price(self) -> int:
-        """Return the price for the effective quality."""
-        return self.get_price_for_quality(self.get_effective_quality())
+        """Return the effective item price."""
+        return self.get_price_for_quality(
+            self.get_effective_quality_obj()
+        )
 
-    def get_price_for_quality(self, quality: str) -> int:
-        """Return price for an arbitrary quality without mutating object state."""
-        resolved_quality = self.normalize_quality(quality)
-        return int(self.get_base_price() * self._quality_price_multiplier(self.get_base_quality(), resolved_quality))
+    def get_price_for_quality(self, quality) -> int:
+        """Return the effective price for an arbitrary quality."""
+        effective_quality = Quality.resolve(quality)
+        metal = self._get_metal()
+        price = Decimal(self.get_base_price())
+        # A metal quality overwrite replaces the item's regular quality.
+        # Its price multiplier already represents that material's price rule.
+        if metal is None or not metal.quality_overwrite_id:
+            price *= self._quality_price_multiplier(
+                self.get_base_quality_obj(),
+                effective_quality,
+            )
+        if metal is not None:
+            price *= Decimal(
+                metal.price_multiplier or 1
+            )
+        return int(
+            price.quantize(
+                Decimal("1"),
+                rounding=ROUND_HALF_UP,
+            )
+        )
 
     def get_name(self) -> str:
         """Return the effective display name."""
@@ -234,25 +266,55 @@ class ItemEngine:
         """Return the stored item size class."""
         return str(self._get_override_value("size_class_override", self._get_item().size_class))
 
-    def get_weapon_min_st(self, wield_mode: str | None = None) -> int | None:
-        """Return the minimum strength needed for this weapon profile."""
+    def get_weapon_min_st(
+        self,
+        wield_mode: str | None = None,
+    ) -> int | None:
+        """Return minimum strength including metal modifiers."""
         ranged_stats = self._get_ranged_weapon_stats()
+
         if ranged_stats is not None:
-            if ranged_stats.minimum_strength is None:
-                return None
-            return int(ranged_stats.minimum_strength)
+            return self._apply_metal_ms_modifier(
+                ranged_stats.minimum_strength
+            )
+
         stats = self._get_weapon_stats()
+
         if not stats:
             shield_stats = self._get_shield_stats()
-            if shield_stats is not None and shield_stats.has_damage_profile:
-                return int(self._get_override_value("shield_min_st_override", shield_stats.min_st))
+
+            if (
+                shield_stats is not None
+                and shield_stats.has_damage_profile
+            ):
+                minimum_strength = self._get_override_value(
+                    "shield_min_st_override",
+                    shield_stats.min_st,
+                )
+                return self._apply_metal_ms_modifier(
+                    minimum_strength
+                )
+
             return None
-        override = self._get_override_value("weapon_min_st_override", None)
-        # Legacy owned-item overrides are single-value only. When they merely
-        # mirror the old base value, keep the newer profile-specific stats.
-        if override is not None and int(override) != int(stats.min_st or 1):
-            return int(override)
-        return stats.effective_min_st(wield_mode)
+
+        override = self._get_override_value(
+            "weapon_min_st_override",
+            None,
+        )
+
+        if (
+            override is not None
+            and int(override) != int(stats.min_st or 1)
+        ):
+            minimum_strength = int(override)
+        else:
+            minimum_strength = stats.effective_min_st(
+                wield_mode
+            )
+
+        return self._apply_metal_ms_modifier(
+            minimum_strength
+        )
 
     def get_weapon_min_ge(self, wield_mode: str | None = None) -> int | None:
         """Return the optional minimum agility needed for this weapon profile."""
@@ -372,20 +434,36 @@ class ItemEngine:
         return str(self._get_override_value("weapon_wield_mode_override", stats.wield_mode))
 
     def get_weapon_damage_quality_bonus(self) -> int:
-        """Return the flat quality bonus applied to weapon damage."""
-        return self._quality_bonus_delta(WEAPON_DAMAGE_QUALITY_BONUSES)
+        """Return the effective quality modifier to weapon damage."""
+        return self._quality_modifier_delta(
+            "weapon_damage_modifier"
+        )
 
     def get_weapon_maneuver_quality_bonus(self) -> int:
-        """Return the quality bonus or penalty applied to maneuver values."""
-        return self._quality_bonus_delta(WEAPON_MANEUVER_QUALITY_BONUSES)
+        """Return the effective quality modifier to weapon maneuvers."""
+        return self._quality_modifier_delta(
+            "weapon_maneuver_modifier"
+        )
 
-    def _quality_bonus_delta(self, bonus_map: dict[str, int]) -> int:
-        """Return only the quality bonus not already included in base item stats."""
-        if self.get_effective_quality() == QUALITY_UNIQUE:
+    def _quality_modifier_delta(self, field_name: str) -> int:
+        """Return the quality modifier not already represented by base stats."""
+        metal = self._get_metal()
+
+        if (
+            metal is not None
+            and metal.quality_overwrite_id
+            and not metal.apply_quality_effects
+        ):
             return 0
-        effective_bonus = int(bonus_map.get(self.get_effective_quality(), 0) or 0)
-        base_bonus = int(bonus_map.get(self.get_base_quality(), 0) or 0)
-        return effective_bonus - base_bonus
+        effective_quality = self.get_effective_quality_obj()
+        base_quality = self.get_base_quality_obj()
+        effective_modifier = int(
+            getattr(effective_quality, field_name, 0) or 0
+        )
+        base_modifier = int(
+            getattr(base_quality, field_name, 0) or 0
+        )
+        return effective_modifier - base_modifier
 
     @staticmethod
     def _apply_quality_to_damage_bonus(base_bonus: int, operator: str, quality_bonus: int) -> tuple[int, str]:
@@ -545,8 +623,10 @@ class ItemEngine:
         return max(0, rs_value + self.get_armor_rs_quality_bonus())
 
     def get_armor_rs_quality_bonus(self) -> int:
-        """Return the effective RS change caused by character-item quality."""
-        return self._quality_bonus_delta(ARMOR_RS_QUALITY_BONUSES)
+        """Return the effective quality modifier to armor RS."""
+        return self._quality_modifier_delta(
+            "armor_rs_modifier"
+        )
 
     def get_armor_zone_rs(self) -> dict[str, int] | None:
         """Return this physical armor item's RS for every covered hit zone."""
@@ -618,11 +698,26 @@ class ItemEngine:
         return adjusted
 
     def get_armor_min_st(self) -> int | None:
-        """Return minimum strength for this armor."""
+        """Return minimum strength including quality and metal modifiers."""
         stats = self._get_armor_stats()
+
         if not stats:
             return None
-        return int(self._get_override_value("armor_min_st_override", stats.min_st))
+
+        minimum_strength = int(
+            self._get_override_value(
+                "armor_min_st_override",
+                stats.min_st,
+            )
+        )
+
+        minimum_strength += self._quality_modifier_delta(
+            "armor_min_st_modifier"
+        )
+
+        return self._apply_metal_ms_modifier(
+            minimum_strength
+        )
 
     def get_armor_bel_raw(self) -> int | None:
         """Return armor encumbrance without quality adjustments."""
@@ -632,19 +727,35 @@ class ItemEngine:
         return int(self._get_override_value("armor_encumbrance_override", stats.encumbrance))
 
     def get_armor_encumbrance(self) -> int:
-        """Return armor encumbrance with quality adjustments."""
+        """Return armor encumbrance including quality modifiers."""
         stats = self._get_armor_stats()
         if not stats:
             return 0
-        encumbrance = int(self._get_override_value("armor_encumbrance_override", stats.encumbrance))
-        return max(0, encumbrance + self._quality_bonus_delta(QUALITY_BEL_MODS))
+        encumbrance = int(
+            self._get_override_value(
+                "armor_encumbrance_override",
+                stats.encumbrance,
+            )
+        )
+        encumbrance += self._quality_modifier_delta(
+            "armor_encumbrance_modifier"
+        )
+        return max(0, encumbrance)
 
     def get_shield_min_st(self) -> int | None:
-        """Return minimum strength for this shield."""
+        """Return shield minimum strength including metal modifiers."""
         stats = self._get_shield_stats()
         if not stats:
             return None
-        return int(self._get_override_value("shield_min_st_override", stats.min_st))
+
+        minimum_strength = self._get_override_value(
+            "shield_min_st_override",
+            stats.min_st,
+        )
+
+        return self._apply_metal_ms_modifier(
+            minimum_strength
+        )
 
     def get_shield_bel_raw(self) -> int | None:
         """Return shield encumbrance without extra modifiers."""

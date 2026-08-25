@@ -87,6 +87,7 @@ from .items import (
     ItemSemanticEffect,
     MagicItemStats,
     Quality,
+    Metal,
     RaceStartingItem,
     RangedWeaponStats,
     Rune,
@@ -291,4 +292,5 @@ __all__ = [
     "WeaponType",
     "WeaponStats",
     "RaceStartingItem",
+    "Metal",
 ]

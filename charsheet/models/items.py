@@ -13,7 +13,6 @@ from ..constants import (
     GK_AVERAGE,
     GK_CHOICES,
     ONE_HANDED,
-    QUALITY_COMMON,
     TWO_HANDED,
     VERSATILE,
     WEAPON_SYMBOL_CHOICES,
@@ -32,26 +31,181 @@ from .core import (
     TARGET_DOMAIN_CHOICES,
 )
 from .semantic_effects import SemanticEffectFields
+from decimal import Decimal
 
 
 class Quality(models.Model):
-    """Shared quality tier for items, creatures, and display coloring."""
+    """Shared quality tier and its rule-relevant configuration."""
 
     code = models.CharField(max_length=30, primary_key=True)
     name = models.CharField(max_length=100, unique=True)
+    description = models.TextField(blank=True)
+
     hex_color = models.CharField(
         max_length=7,
         default="#33CC33",
-        validators=[RegexValidator(r"^#[0-9A-Fa-f]{6}$", "Enter a hex color like #33CC33.")],
+        validators=[
+            RegexValidator(
+                r"^#[0-9A-Fa-f]{6}$",
+                "Enter a hex color like #33CC33.",
+            )
+        ],
     )
     sort_order = models.SmallIntegerField(default=0)
+
+    is_default = models.BooleanField(
+        default=False,
+        editable=False,
+    )
+
+    # Preis
+    price_multiplier = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        default=Decimal("1.00"),
+        validators=[MinValueValidator(Decimal("0.01"))],
+    )
+
+    # Waffen
+    weapon_damage_modifier = models.SmallIntegerField(default=0)
+    weapon_maneuver_modifier = models.SmallIntegerField(default=0)
+
+    # Rüstungen
+    armor_rs_modifier = models.SmallIntegerField(default=0)
+    armor_min_st_modifier = models.SmallIntegerField(default=0)
+    armor_encumbrance_modifier = models.SmallIntegerField(default=0)
+
+    # Werkzeuge / Instrumente / Utensilien
+    skill_modifier = models.SmallIntegerField(default=0)
+
+    # Haltbarkeit
+    structure_multiplier = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(Decimal("0"))],
+    )
+    hardness_multiplier = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(Decimal("0"))],
+    )
+    lifespan_multiplier = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(Decimal("0"))],
+    )
+
+    # Kreaturendarstellung / Kreaturentraining
+    creature_kind_label = models.CharField(
+        max_length=100,
+        blank=True,
+        default="",
+    )
+    creature_training_advantage_points = models.PositiveSmallIntegerField(
+        default=0,
+    )
+    creature_training_disadvantage_points = models.PositiveSmallIntegerField(
+        default=0,
+    )
+
+    class HolographicStyle(models.TextChoices):
+        NONE = "", "Kein Holo"
+        GOLD = "gold", "Gold"
+        RAINBOW = "rainbow", "Rainbow"
+
+    holographic_style = models.CharField(
+        max_length=20,
+        choices=HolographicStyle.choices,
+        blank=True,
+        default="",
+    )
 
     class Meta:
         ordering = ["sort_order", "name"]
         verbose_name_plural = "qualities"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["is_default"],
+                condition=models.Q(is_default=True),
+                name="unique_default_quality",
+            ),
+        ]
 
     def __str__(self):
         return self.name
+
+    @classmethod
+    def get_default(cls):
+        return cls.objects.get(is_default=True)
+
+    @classmethod
+    def resolve(cls, value, *, use_default=False):
+        if isinstance(value, cls):
+            return value
+
+        code = str(value or "").strip()
+        if code:
+            quality = cls.objects.filter(pk=code).first()
+            if quality is not None:
+                return quality
+
+        if use_default:
+            return cls.get_default()
+
+        raise cls.DoesNotExist(f"Unknown quality: {value!r}")
+
+
+class Metal(models.Model):
+    """Special metal with rule-relevant item modifiers."""
+
+    name = models.CharField(max_length=100, unique=True)
+    slug = models.SlugField(max_length=120, unique=True)
+
+    descirption = models.TextField(blank=True)
+
+    price_multiplier = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        default=1,
+    )
+    ms_modifier = models.IntegerField(default=0)
+    weight_multiplier = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        default=1,
+    )
+
+    quality_overwrite = models.ForeignKey(
+        "charsheet.Quality",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="metal_overwrites",
+    )
+
+    apply_quality_effects = models.BooleanField(
+        default=True,
+        help_text=(
+            "Wenn deaktiviert, überschreibt das Metall die angezeigte Qualität, "
+            "ohne deren regeltechnische Qualitätsboni anzuwenden."
+        ),
+    )
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
+def default_quality_pk():
+    return Quality.get_default().pk
 
 
 class Rune(models.Model):
@@ -168,8 +322,17 @@ class Item(models.Model):
         db_column="default_quality",
         on_delete=models.PROTECT,
         related_name="default_items",
-        default=QUALITY_COMMON,
+        default=default_quality_pk,
     )
+
+    metal = models.ForeignKey(
+        "charsheet.Metal",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="items",
+    )
+
     weight = models.DecimalField(max_digits=7, decimal_places=3, default=0)
     size_class = models.CharField(max_length=5, choices=GK_CHOICES, default=GK_AVERAGE)
 

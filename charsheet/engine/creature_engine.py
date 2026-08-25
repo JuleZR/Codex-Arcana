@@ -25,15 +25,6 @@ from charsheet.constants import (
     DEFENSE_RS,
     GK_AVERAGE,
     GK_MODS,
-    QUALITY_BEL_MODS,
-    QUALITY_COMMON,
-    QUALITY_EXCELLENT,
-    QUALITY_FINE,
-    QUALITY_LEGENDARY,
-    QUALITY_POOR,
-    QUALITY_UNIQUE,
-    QUALITY_VERY_POOR,
-    QUALITY_WRETCHED,
     SKILL_COMBAT,
     POTENTIAL,
     RULE_FLAG_CHOICES,
@@ -53,23 +44,10 @@ from charsheet.models.vampirism import VampireTraitSemanticEffect
 from charsheet.models.character import CharacterItem
 from charsheet.models.techniques import CharacterTechnique
 from charsheet.modifiers.definitions import ModifierOperator, StackBehavior, TargetDomain
-from charsheet.models.creatures import CREATURE_CARD_QUALITY_TRAINING_BUDGETS
 from charsheet.models.items import Quality
-from .item_engine import ItemEngine
 
 
 WOUND_STAGE_LABELS = ("0", "-2", "-4", "-6", "Ausser Gefecht", "Koma")
-
-CREATURE_KIND_LABELS = {
-    QUALITY_WRETCHED: "Schwächliche Kreatur",
-    QUALITY_VERY_POOR: "Einfache Kreatur",
-    QUALITY_POOR: "Minderwertige Kreatur",
-    QUALITY_COMMON: "Kreatur",
-    QUALITY_FINE: "Besondere Kreatur",
-    QUALITY_EXCELLENT: "Mächtige Kreatur",
-    QUALITY_LEGENDARY: "Legendäre Kreatur",
-    QUALITY_UNIQUE: "Einzigartige Kreatur",
-}
 
 
 class _EmptyRelatedRows:
@@ -1319,9 +1297,18 @@ class CreatureEngine:
             if creature_item.armor_encumbrance_override is not None
             else stats.encumbrance
         )
-        effective_quality = ItemEngine.normalize_quality(creature_item.quality)
-        base_quality = ItemEngine.normalize_quality(creature_item.item.default_quality)
-        encumbrance += int(QUALITY_BEL_MODS.get(effective_quality, 0) or 0) - int(QUALITY_BEL_MODS.get(base_quality, 0) or 0)
+        effective_quality = Quality.resolve(
+            creature_item.quality,
+            use_default=True,
+        )
+        base_quality = Quality.resolve(
+            creature_item.item.default_quality,
+            use_default=True,
+        )
+        encumbrance += (
+            int(effective_quality.armor_encumbrance_modifier or 0)
+            - int(base_quality.armor_encumbrance_modifier or 0)
+        )
         return max(0, int(encumbrance))
 
     def armor_totals(self) -> CreatureArmorTotals:
@@ -1747,9 +1734,11 @@ class CreatureEngine:
             wound_state = "incapacitated"
         else:
             wound_state = "active"
-        quality = self.instance.quality if self.instance else self.creature.quality
-        normalized_quality = ItemEngine.normalize_quality(quality)
-        holo_kind = "creature-legendary" if normalized_quality == "legendary" else "creature"
+        quality = Quality.resolve(
+            self.instance.quality if self.instance else self.creature.quality,
+            use_default=True,
+        )
+        normalized_quality = quality.code
         movement = self.movement()
         movement_notes = self.movement_notes()
         kp = vampire_resource.intelligent if vampire_resource else self.kp()
@@ -1784,8 +1773,8 @@ class CreatureEngine:
                 "label": row.name,
                 "color": row.hex_color,
                 "selected": row.code == normalized_quality,
-                "advantage_points": CREATURE_CARD_QUALITY_TRAINING_BUDGETS.get(row.code, (0, 0))[0],
-                "disadvantage_points": CREATURE_CARD_QUALITY_TRAINING_BUDGETS.get(row.code, (0, 0))[1],
+                "advantage_points": row.creature_training_advantage_points,
+                "disadvantage_points": row.creature_training_disadvantage_points,
             }
             for row in Quality.objects.all()
         ]
@@ -1801,12 +1790,12 @@ class CreatureEngine:
             "default_image": self.creature.image,
             "has_custom_image": bool(self.instance and self.instance.image_override),
             "quality": normalized_quality,
-            "quality_label": getattr(quality, "name", normalized_quality),
-            "quality_color": ItemEngine.quality_color(quality),
+            "quality_label": quality.name,
+            "quality_color": quality.hex_color,
             "quality_choices": quality_choices,
-            "holo": normalized_quality in {QUALITY_LEGENDARY, QUALITY_UNIQUE},
-            "holo_kind": holo_kind,
-            "creature_kind_label": creature_kind_label(quality),
+            "holo": bool(quality.holographic_style),
+            "holo_kind": quality.holographic_style,
+            "creature_kind_label": quality.creature_kind_label or "Kreatur",
             "size_class": self.size_class(),
             "size_modifier": self.size_modifier(),
             "initiative": self.initiative(),
@@ -1902,10 +1891,6 @@ class CreatureEngine:
                     "capacity": vampire_resource.maximum,
                     "potential": vampire_resource.potential,
                     "state": getattr(self.instance, "vampire_state", "active"),
-                    "state_label": VAMPIRE_STATE_UI_LABELS.get(
-                        getattr(self.instance, "vampire_state", "active"),
-                        getattr(self.instance, "vampire_state", "active"),
-                    ),
                     "state_label": VAMPIRE_STATE_UI_LABELS.get(
                         getattr(self.instance, "vampire_state", "active"),
                         getattr(self.instance, "vampire_state", "active"),
@@ -2060,8 +2045,12 @@ class CreatureEngine:
 
 
 def creature_kind_label(quality: Any) -> str:
-    """Return the creature-card rank label for one quality tier."""
-    return CREATURE_KIND_LABELS.get(ItemEngine.normalize_quality(quality), "Kreatur")
+    """Return the creature-card rank label configured on the quality."""
+    quality_obj = Quality.resolve(
+        quality,
+        use_default=True,
+    )
+    return quality_obj.creature_kind_label or "Kreatur"
 
 
 def _creature_card_snapshot_values(creature: Creature, *, quality: Any | None = None) -> dict[str, Any]:
@@ -2285,14 +2274,14 @@ def sync_character_creatures(character) -> list[CharacterCreature]:
         if grant["target"].isdecimal()
     }
     fixed_creatures = Creature.objects.select_related("quality").in_bulk(fixed_creature_ids)
-    common_quality = Quality.objects.get(pk=QUALITY_COMMON) if card_grants else None
+    default_quality = Quality.get_default() if card_grants else None
     active_semantic_keys = set()
     for effect_key, grant in card_grants.items():
         is_choice = grant["target"] == "choice"
         source_creature = None if is_choice else fixed_creatures.get(int(grant["target"])) if grant["target"].isdecimal() else None
         if not is_choice and source_creature is None:
             continue
-        quality = source_creature.quality if source_creature is not None else common_quality
+        quality = source_creature.quality if source_creature is not None else default_quality
         budgets = CharacterCreature.training_budget_defaults(quality)
         instance, created = CharacterCreature.objects.get_or_create(
             owner=character,

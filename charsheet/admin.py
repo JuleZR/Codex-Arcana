@@ -165,6 +165,7 @@ from .models import (
     MagicItemStats,
     ProgressionRule,
     Quality,
+    Metal,
     Race,
     RaceAttributeLimit,
     RaceSemanticEffect,
@@ -9075,6 +9076,21 @@ class UserSettingsAdmin(admin.ModelAdmin):
     )
     autocomplete_fields = ("user",)
     list_select_related = ("user",)
+
+
+@admin.register(Metal)
+class MetalAdmin(admin.ModelAdmin):
+    list_display = (
+        "name",
+        "slug",
+        "price_multiplier",
+        "ms_modifier",
+        "weight_multiplier",
+        "quality_overwrite",
+        "apply_quality_effects",
+    )
+    search_fields = ("name", "slug")
+    prepopulated_fields = {"slug": ("name",)}
 
 
 _install_inline_help(ProgressionRuleInline, help_texts=PROGRESSION_RULE_CHOICE_HELP)

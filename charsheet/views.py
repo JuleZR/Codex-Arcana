@@ -110,7 +110,6 @@ from .constants import (
     VAMPIRE_STRENGTH_OVER_RACE_MAXIMUM,
     is_allowed_trait_attribute_choice,
 )
-from .models.creatures import CREATURE_CARD_QUALITY_TRAINING_BUDGETS
 from .learning import process_learning_submission
 from .lesson_rules import LessonRuleError, activate_lesson, format_lesson_costs, format_lesson_requirements
 from .sheet_context import (
@@ -4066,14 +4065,24 @@ def update_creature_card_training(request, pk: int):
         card.image_override = request.FILES["custom_creature_image"]
         card_update_fields.append("image_override")
     if "quality" in request.POST:
-        selected_quality = Quality.objects.filter(code=str(request.POST.get("quality") or "")).first()
+        selected_quality = Quality.objects.filter(
+            code=str(request.POST.get("quality") or "")
+        ).first()
         if selected_quality is not None:
             card.quality = selected_quality
             card_update_fields.append("quality")
-            quality_budget = CREATURE_CARD_QUALITY_TRAINING_BUDGETS.get(selected_quality.code, (0, 0))
-            card.max_base_advantage_points = int(quality_budget[0])
-            card.max_base_disadvantage_points = int(quality_budget[1])
-            card_update_fields.extend(["max_base_advantage_points", "max_base_disadvantage_points"])
+            card.max_base_advantage_points = int(
+                selected_quality.creature_training_advantage_points or 0
+            )
+            card.max_base_disadvantage_points = int(
+                selected_quality.creature_training_disadvantage_points or 0
+            )
+            card_update_fields.extend(
+                [
+                    "max_base_advantage_points",
+                    "max_base_disadvantage_points",
+                ]
+            )
     if "size_class" in request.POST:
         selected_size_class = str(request.POST.get("size_class") or "").strip()
         if selected_size_class in GK_MODS:

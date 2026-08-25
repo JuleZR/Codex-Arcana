@@ -6,13 +6,13 @@ from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from uuid import uuid4
+from .items import Item, Rune, default_quality_pk
 
 from ..constants import (
     DAMAGE_TYPE_CHOICES,
     GK_CHOICES,
     LANGUAGE_LITERACY_MIN_LEVEL,
     PROFICIENCY_GROUP_CHOICES,
-    QUALITY_COMMON,
     RESOURCE_KEY_CHOICES,
     STAT_SLUG_CHOICES,
     VAMPIRE_STATE_ACTIVE,
@@ -351,7 +351,7 @@ class CharacterItem(models.Model):
         db_column="quality",
         on_delete=models.PROTECT,
         related_name="character_items",
-        default=QUALITY_COMMON,
+        default=default_quality_pk,
     )
     runes = models.ManyToManyField("Rune", blank=True, related_name="character_items")
     description = models.TextField(blank=True, default="")
