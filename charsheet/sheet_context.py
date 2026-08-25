@@ -2215,14 +2215,18 @@ def _build_character_item_magic_tooltip_rows(
     def numeric_value_display(entry: dict[str, object], value: int) -> tuple[str, str]:
         target_kind = str(entry["target_kind"])
         target_display = str(entry["target_display"])
+        operator = str(entry.get("operator") or "")
+
         if (
-            str(entry.get("operator") or "") == "override"
+            operator == "override"
             and str(entry.get("target_stat") or "") == DEFENSE_RS
             and int(value or 0) == 0
         ):
             return "", ""
+
         if target_kind == RULE_FLAG_TARGET_KIND:
             return target_display, target_display
+
         if target_kind == "weapon_maneuver":
             formatted_value = format_modifier(value)
             return f"{formatted_value} Manöver", f"{formatted_value} Manöver"
@@ -2243,13 +2247,31 @@ def _build_character_item_magic_tooltip_rows(
                 f"{formatted_value} / {formatted_value}",
                 f"{formatted_value} / {formatted_value}",
             )
+
         if target_kind == "weapon_damage_dice":
             return f"{value:+d} W10", f"{value:+d} W10"
+
         if (
-            str(entry.get("operator") or "") == "override"
-            and str(entry.get("target_stat") or "") in {ARMOR_ENCUMBRANCE, SHIELD_ENCUMBRANCE}
+            operator == "override"
+            and str(entry.get("target_stat") or "") in {
+                ARMOR_ENCUMBRANCE,
+                SHIELD_ENCUMBRANCE,
+            }
         ):
             return f"Belastung {value}", str(value)
+
+        if operator == "multiply":
+            return (
+                f"{target_display} × {value}",
+                f"× {value}",
+            )
+
+        if operator == "floor_divide":
+            return (
+                f"{target_display} ÷ {value}",
+                f"÷ {value}",
+            )
+
         return f"{value:+d} {target_display}", format_modifier(value)
 
     def flush_numeric_effects() -> None:
@@ -2349,6 +2371,7 @@ def _build_character_item_magic_tooltip_rows(
         key = (
             target_kind,
             target_display,
+            str(payload.get("operator") or ""),
             " ".join(rules_text.replace("@", str(invested_cp)).lower().split()),
             " ".join(effect_description.lower().split()),
             "inactive_due_to_race" if payload.get("inactive_due_to_race") else "active_for_race",
@@ -2739,6 +2762,64 @@ def _has_visible_item_weight(value: object) -> bool:
     except (InvalidOperation, ValueError):
         return True
 
+def _apply_item_semantic_stat_effects(
+    base_value: int,
+    modifier_payloads: list[dict[str, object]] | None,
+    target_stat: str,
+) -> int:
+    """Apply active item-local semantic effects to a displayed item stat."""
+    value = int(base_value)
+
+    for payload in modifier_payloads or []:
+        if not payload.get("active_flag", True):
+            continue
+
+        if payload.get("inactive_due_to_race"):
+            continue
+
+        if payload.get("inactive_due_to_school"):
+            continue
+
+        if str(payload.get("target_stat") or "") != target_stat:
+            continue
+
+        operator = str(payload.get("operator") or "")
+
+        try:
+            effect_value = int(
+                payload.get(
+                    "effective_value",
+                    payload.get("value"),
+                )
+                or 0
+            )
+        except (TypeError, ValueError):
+            continue
+
+        if operator == "flat_add":
+            value += effect_value
+
+        elif operator == "flat_sub":
+            value -= effect_value
+
+        elif operator == "multiply":
+            value *= effect_value
+
+        elif operator == "floor_divide":
+            if effect_value:
+                value //= effect_value
+
+        elif operator == "override":
+            value = effect_value
+
+        elif operator == "min_value":
+            value = max(value, effect_value)
+
+        elif operator == "max_value":
+            value = min(value, effect_value)
+
+    return value
+
 
 def _build_item_tooltip_rows(
     item_engine: ItemEngine,
@@ -2748,6 +2829,7 @@ def _build_item_tooltip_rows(
     armor_rs: int | None = None,
     armor_encumbrance: int | None = None,
     shield_encumbrance: int | None = None,
+    modifier_payloads: list[dict[str, object]] | None = None,
 ) -> list[tuple[str, object]]:
     """Return structured item values for inventory-like tooltips."""
     rows: list[tuple[str, object]] = [("Kaufpreis", f"{format_thousands(item_engine.get_price())} KM")]
@@ -2798,14 +2880,31 @@ def _build_item_tooltip_rows(
             rows.append(("Min-GE", f"1H {min_ge_1h} / 2H {min_ge_2h}"))
         elif min_ge_1h is not None:
             rows.append(("Min-GE", min_ge_1h))
+
     elif getattr(item, "armorstats", None) is not None:
         rs = item_engine.get_armor_rs_raw() if armor_rs is None else armor_rs
+
+        if rs is not None and armor_rs is None:
+            rs = _apply_item_semantic_stat_effects(
+                rs,
+                modifier_payloads,
+                DEFENSE_RS,
+            )
+
         if rs is not None:
             rows.append(("RS", rs))
-        rows.append(("Bel", item_engine.get_armor_encumbrance() if armor_encumbrance is None else armor_encumbrance))
+
+        rows.append((
+            "Bel",
+            item_engine.get_armor_encumbrance()
+            if armor_encumbrance is None
+            else armor_encumbrance,
+        ))
+
         min_st = item_engine.get_armor_min_st()
         if min_st is not None:
             rows.append(("Min-ST", min_st))
+
     elif item.item_type == Item.ItemType.SHIELD:
         rs = item_engine.get_effective_shield_rs()
         if rs is not None:
@@ -4629,6 +4728,7 @@ def _build_inventory_rows(character: Character) -> list[dict]:
                         item_engine,
                         item,
                         strength=strength,
+                        modifier_payloads=magic_modifier_payloads,
                     )
                     + _build_weapon_symbol_tooltip_rows(
                         item_engine
@@ -4652,6 +4752,7 @@ def _build_inventory_rows(character: Character) -> list[dict]:
                         item_engine,
                         item,
                         strength=strength,
+                        modifier_payloads=magic_modifier_payloads,
                     )
                     + _build_weapon_symbol_tooltip_rows(
                         item_engine
