@@ -125,6 +125,7 @@ from charsheet.models import (
     VampirePower,
     VampireTrait,
     WeaponType,
+    Race,
 )
 from charsheet.view_utils import format_compact_number, format_modifier, format_thousands, quality_payload
 
