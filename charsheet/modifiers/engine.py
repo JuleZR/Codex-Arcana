@@ -30,6 +30,7 @@ from charsheet.modifiers.registry import build_trait_semantic_modifiers
 from charsheet.modifiers.targets import TargetResolver
 from charsheet.models import (
     CharacterDaemonicPower,
+    CharacterItem,
     CharacterItemSemanticEffect,
     DaemonicPowerSemanticEffect,
     ItemSemanticEffect,
@@ -753,17 +754,71 @@ class ModifierEngine:
         """Resolve one numeric perception-related modifier value."""
         return self.resolve_numeric_total(TargetDomain.PERCEPTION, target_key, context=context)
 
-    def resolve_flags(self, context: dict[str, Any] | None = None) -> dict[str, bool]:
+    def _item_modifier_source_is_equipped(
+        self,
+        modifier: BaseModifier,
+    ) -> bool:
+        """Return whether an item-bound modifier belongs to currently equipped gear."""
+        if self.character_engine is None:
+            return True
+
+        source_type = str(modifier.source_type or "").lower()
+
+        if source_type == "characteritem":
+            try:
+                character_item_id = int(modifier.source_id)
+            except (TypeError, ValueError):
+                return False
+
+            return CharacterItem.objects.filter(
+                pk=character_item_id,
+                owner=self.character_engine.character,
+                equipped=True,
+            ).exists()
+
+        if source_type == "item":
+            character_item_id = (modifier.metadata or {}).get(
+                "character_item_id"
+            )
+
+            try:
+                character_item_id = int(character_item_id)
+            except (TypeError, ValueError):
+                return False
+
+            return CharacterItem.objects.filter(
+                pk=character_item_id,
+                owner=self.character_engine.character,
+                equipped=True,
+            ).exists()
+
+        return True
+
+    def resolve_flags(
+        self,
+        context: dict[str, Any] | None = None,
+    ) -> dict[str, bool]:
         """Resolve boolean rule flags."""
         flags: dict[str, bool] = {}
+
         for modifier in self.collect_active_modifiers(context=context):
             if modifier.target_domain != TargetDomain.RULE_FLAG:
                 continue
-            resolved_value = self._resolve_numeric_modifier(modifier)
-            if modifier.operator == ModifierOperator.UNSET_FLAG or not resolved_value:
-                flags[modifier.target_key] = False
-            else:
+
+            if not self._item_modifier_source_is_equipped(modifier):
+                continue
+
+            if modifier.operator == ModifierOperator.SET_FLAG:
                 flags[modifier.target_key] = True
+                continue
+
+            if modifier.operator == ModifierOperator.UNSET_FLAG:
+                flags[modifier.target_key] = False
+                continue
+
+            resolved_value = self._resolve_numeric_modifier(modifier)
+            flags[modifier.target_key] = bool(resolved_value)
+
         return flags
 
     def resolve_capabilities(self, context: dict[str, Any] | None = None) -> dict[str, bool]:
