@@ -279,6 +279,7 @@ class Item(models.Model):
     WEAPON_ITEM_TYPES = frozenset({"weapon", "magical_weapon"})
     ARMOR_ITEM_TYPES = frozenset({"armor", "magical_armor"})
     ARMOR_STATS_ITEM_TYPES = frozenset({"armor", "magical_armor", "ring", "amulet"})
+    SHIELD_STATS_ITEM_TYPES = frozenset({"shield", "magical_armor"})
 
     class ItemType(models.TextChoices):
         ARMOR = "armor", "Rüstung"
@@ -394,6 +395,10 @@ class Item(models.Model):
     @classmethod
     def armor_stats_item_type_values(cls) -> frozenset[str]:
         return cls.ARMOR_STATS_ITEM_TYPES
+
+    @classmethod
+    def shield_stats_item_type_values(cls) -> frozenset[str]:
+        return cls.SHIELD_STATS_ITEM_TYPES
 
 
 class ArmorStats(models.Model):
@@ -664,8 +669,10 @@ class ShieldStats(models.Model):
 
     def clean(self):
         super().clean()
-        if self.item.item_type != Item.ItemType.SHIELD:
-            raise ValidationError("Shield must be type SHIELD")
+        if self.item.item_type not in Item.shield_stats_item_type_values():
+            raise ValidationError(
+                {"item": "Only shields and magical armor can have ShieldStats."}
+            )
         if self.has_damage_profile:
             errors = {}
             if self.damage_source_id is None:
