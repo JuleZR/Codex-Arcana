@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections import OrderedDict, defaultdict
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal, InvalidOperation, ROUND_CEILING, ROUND_FLOOR
 import json
 import math
 
@@ -1312,6 +1312,28 @@ def _single_line(value: str) -> str:
     return " ".join(str(value or "").replace("\r", "\n").split())
 
 
+def _semantic_rounding_mode(rules_text: str) -> str:
+    text = str(rules_text or "").lower()
+
+    if "[[auf]]" in text:
+        return "ceil"
+
+    if "[[ab]]" in text:
+        return "floor"
+
+    return ""
+
+
+def _strip_semantic_rule_markers(text: str) -> str:
+    return (
+        str(text or "")
+        .replace("[[prozent]]", "")
+        .replace("[[auf]]", "")
+        .replace("[[ab]]", "")
+        .strip()
+    )
+
+
 def _to_roman(value: int | None) -> str:
     """Convert positive integers into Roman numerals for school level labels."""
     number = int(value or 0)
@@ -1572,9 +1594,9 @@ def _serialize_item_semantic_effect_payload(
         }
     try:
         raw_value = effect._coerce_scalar(effect.value)
-        value = int(raw_value or 0)
-    except (TypeError, ValueError):
-        value = 0
+        value = Decimal(str(raw_value or 0))
+    except (InvalidOperation, TypeError, ValueError):
+        value = Decimal("0")
     if str(effect.operator or "") == "flat_sub":
         value *= -1
 
@@ -1586,8 +1608,8 @@ def _serialize_item_semantic_effect_payload(
 
     payload: dict[str, object] = {
         "target_kind": metadata.get("ui_target_kind") or metadata.get("legacy_target_kind") or target_domain,
-        "value": value,
-        "effective_value": effective_value,
+        "value": format(value, "f"),
+        "effective_value": format(effective_value, "f"),
         "effect_description": str(metadata.get("condition_text") or effect.notes or ""),
         "rules_text": str(effect.rules_text or ""),
         "invested_cp": resolved_invested_cp,
@@ -1930,26 +1952,60 @@ def _format_magic_rule_effect_line(
     value_only_display: str,
     *,
     invested_cp: object = "",
+    operator: str = "",
+    raw_value: object = None,
 ) -> str:
     """Format item rules_text as an inline prefix around the calculated effect."""
     text = _single_line(rules_text)
+
+    if "[[prozent]]" in text and operator == "multiply":
+        try:
+            decimal_value = Decimal(str(raw_value))
+            percent_value = (decimal_value - Decimal("1")) * Decimal("100")
+            formatted_percent = format_compact_number(percent_value).replace(".", ",")
+
+            if percent_value > 0:
+                formatted_percent = f"+{formatted_percent}"
+
+            value_display = (
+                f"{str(value_display).split(' × ', 1)[0]} "
+                f"{formatted_percent} %"
+            )
+            value_only_display = f"{formatted_percent} %"
+
+        except (InvalidOperation, TypeError, ValueError):
+            pass
+
+    text = _strip_semantic_rule_markers(text)
+
     if not text:
         return ""
+
     invested_cp_text = ""
     try:
         invested_cp_text = str(int(invested_cp))
     except (TypeError, ValueError):
         invested_cp_text = ""
+
     if text.startswith("|"):
         closing_index = text.find("|", 1)
+
         if closing_index > 1:
-            label = text[1:closing_index].replace("@", invested_cp_text).strip()
+            label = (
+                text[1:closing_index]
+                .replace("@", invested_cp_text)
+                .strip()
+            )
             suffix = text[closing_index + 1:].strip()
+
             if label:
                 effect_text = value_display
+
                 if suffix:
                     effect_text = f"{effect_text} {suffix}"
+
                 return f"**{label}** · {effect_text}"
+
     return f"{text} - {value_display}"
 
 
@@ -2213,15 +2269,25 @@ def _build_character_item_magic_tooltip_rows(
             lines.append(f"{toggle_marker_for(marker_payload)}{line}")
         return lines
 
-    def numeric_value_display(entry: dict[str, object], value: int) -> tuple[str, str]:
+    def numeric_value_display(
+        entry: dict[str, object],
+        value: Decimal,
+    ) -> tuple[str, str]:
         target_kind = str(entry["target_kind"])
         target_display = str(entry["target_display"])
         operator = str(entry.get("operator") or "")
 
+        formatted_value = format_compact_number(value).replace(".", ",")
+        signed_value = (
+            formatted_value
+            if formatted_value.startswith("-")
+            else f"+{formatted_value}"
+        )
+
         if (
             operator == "override"
             and str(entry.get("target_stat") or "") == DEFENSE_RS
-            and int(value or 0) == 0
+            and value == 0
         ):
             return "", ""
 
@@ -2229,28 +2295,35 @@ def _build_character_item_magic_tooltip_rows(
             return target_display, target_display
 
         if target_kind == "weapon_maneuver":
-            formatted_value = format_modifier(value)
-            return f"{formatted_value} Manöver", f"{formatted_value} Manöver"
+            return (
+                f"{signed_value} Manöver",
+                f"{signed_value} Manöver",
+            )
 
         if (
             target_kind == "stat"
             and str(entry.get("target_stat") or "") == WEAPON_DAMAGE
         ):
-            formatted_value = format_modifier(value)
-            return f"{formatted_value} Schaden", f"{formatted_value} Schaden"
+            return (
+                f"{signed_value} Schaden",
+                f"{signed_value} Schaden",
+            )
 
         if target_kind in {
             WEAPON_MANEUVER_DAMAGE,
             WEAPON_MASTERY_BONUS,
         }:
-            formatted_value = format_modifier(value)
             return (
-                f"{formatted_value} / {formatted_value}",
-                f"{formatted_value} / {formatted_value}",
+                f"{signed_value} / {signed_value}",
+                f"{signed_value} / {signed_value}",
             )
 
         if target_kind == "weapon_damage_dice":
-            return f"{value:+d} W10", f"{value:+d} W10"
+            dice_value = int(value)
+            return (
+                f"{dice_value:+d} W10",
+                f"{dice_value:+d} W10",
+            )
 
         if (
             operator == "override"
@@ -2259,25 +2332,28 @@ def _build_character_item_magic_tooltip_rows(
                 SHIELD_ENCUMBRANCE,
             }
         ):
-            return f"Belastung {value}", str(value)
+            return f"Belastung {formatted_value}", formatted_value
 
         if operator == "multiply":
             return (
-                f"{target_display} × {value}",
-                f"× {value}",
+                f"{target_display} × {formatted_value}",
+                f"× {formatted_value}",
             )
 
         if operator == "floor_divide":
             return (
-                f"{target_display} ÷ {value}",
-                f"÷ {value}",
+                f"{target_display} ÷ {formatted_value}",
+                f"÷ {formatted_value}",
             )
 
-        return f"{value:+d} {target_display}", format_modifier(value)
+        return (
+            f"{signed_value} {target_display}",
+            signed_value,
+        )
 
     def flush_numeric_effects() -> None:
         for entry in numeric_effects.values():
-            value = int(entry["value"])
+            value = Decimal(entry["value"])
             effect_description = str(entry["effect_description"])
             rules_text = str(entry["rules_text"])
             invested_cp = entry.get("invested_cp", "")
@@ -2291,6 +2367,8 @@ def _build_character_item_magic_tooltip_rows(
                 value_display,
                 value_only_display,
                 invested_cp=invested_cp,
+                operator=str(entry.get("operator") or ""),
+                raw_value=value,
             )
             if not value_display and effect_description:
                 add_display_entry(entry, effect_description, group_condition=group_condition)
@@ -2365,9 +2443,11 @@ def _build_character_item_magic_tooltip_rows(
         rules_text = _single_line(str(payload.get("rules_text") or ""))
         invested_cp = payload.get("invested_cp", "")
         try:
-            value = int(payload.get("effective_value", payload.get("value")) or 0)
-        except (TypeError, ValueError):
-            value = 0
+            value = Decimal(
+                str(payload.get("effective_value", payload.get("value")) or 0)
+            )
+        except (InvalidOperation, TypeError, ValueError):
+            value = Decimal("0")
         target_kind = str(payload.get("target_kind") or "")
         key = (
             target_kind,
@@ -2404,7 +2484,9 @@ def _build_character_item_magic_tooltip_rows(
                 "inactive_due_to_race": bool(payload.get("inactive_due_to_race")),
                 "inactive_due_to_school": bool(payload.get("inactive_due_to_school")),
             }
-        numeric_effects[key]["value"] = int(numeric_effects[key]["value"]) + value
+        numeric_effects[key]["value"] = (
+            Decimal(str(numeric_effects[key]["value"])) + value
+        )
         continue
 
     def split_effect_column(line: str) -> tuple[str, str]:
@@ -2769,7 +2851,7 @@ def _apply_item_semantic_stat_effects(
     target_stat: str,
 ) -> int:
     """Apply active item-local semantic effects to a displayed item stat."""
-    value = int(base_value)
+    value = Decimal(base_value)
 
     for payload in modifier_payloads or []:
         if not payload.get("active_flag", True):
@@ -2787,14 +2869,16 @@ def _apply_item_semantic_stat_effects(
         operator = str(payload.get("operator") or "")
 
         try:
-            effect_value = int(
-                payload.get(
-                    "effective_value",
-                    payload.get("value"),
+            effect_value = Decimal(
+                str(
+                    payload.get(
+                        "effective_value",
+                        payload.get("value"),
+                    )
+                    or 0
                 )
-                or 0
             )
-        except (TypeError, ValueError):
+        except (InvalidOperation, TypeError, ValueError):
             continue
 
         if operator == "flat_add":
@@ -2805,6 +2889,20 @@ def _apply_item_semantic_stat_effects(
 
         elif operator == "multiply":
             value *= effect_value
+
+            rounding_mode = _semantic_rounding_mode(
+                str(payload.get("rules_text") or "")
+            )
+
+            if rounding_mode == "ceil":
+                value = value.to_integral_value(
+                    rounding=ROUND_CEILING
+                )
+
+            elif rounding_mode == "floor":
+                value = value.to_integral_value(
+                    rounding=ROUND_FLOOR
+                )
 
         elif operator == "floor_divide":
             if effect_value:
