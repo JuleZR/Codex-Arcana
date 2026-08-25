@@ -213,10 +213,14 @@ body {
   min-height: 0;
 }
 
-.is-read-only [data-drag-handle] {
+.is-read-only [data-drag-handle]:not(.equipped_item_tile) {
   display: none !important;
   cursor: default !important;
   pointer-events: none !important;
+}
+
+.is-read-only .equipped_item_tile[data-drag-handle] {
+  cursor: default;
 }
 
 .is-read-only [data-inventory-zone] {

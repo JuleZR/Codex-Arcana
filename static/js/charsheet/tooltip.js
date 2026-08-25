@@ -663,7 +663,7 @@ function normalizeTooltipSectionRows(rows, sectionLabel) {
     }
     if (secondCell && toggle instanceof HTMLElement) {
       toggle.remove();
-      secondCell.append(toggle);
+      secondCell.prepend(toggle);
     }
     return clone;
   });

@@ -9,7 +9,14 @@ from dataclasses import dataclass, field, replace
 from functools import cached_property
 from typing import Any
 
-from charsheet.modifiers.definitions import AttributeCapModifier, BaseModifier, ModifierOperator, RuleFlagModifier, StackBehavior, TargetDomain
+from charsheet.modifiers.definitions import (
+    AttributeCapModifier,
+    BaseModifier,
+    ModifierOperator,
+    RuleFlagModifier,
+    StackBehavior,
+    TargetDomain,
+)
 from charsheet.constants import (
     MELEE_MANEUVERS,
     PROFICIENCY_GROUP_FOREIGN_LANGUAGES,
@@ -155,7 +162,11 @@ class ModifierEngine:
         modifiers: list[BaseModifier] = []
         trait_entries = (
             self.character_engine.character.charactertrait_set.select_related("trait")
-            .prefetch_related("trait__semantic_effects", "trait__semantic_effects__condition_races","trait__semantic_effects__condition_schools",)
+            .prefetch_related(
+                "trait__semantic_effects",
+                "trait__semantic_effects__condition_races",
+                "trait__semantic_effects__condition_schools",
+                )
             .order_by("trait__slug")
         )
         for entry in trait_entries:
@@ -182,7 +193,10 @@ class ModifierEngine:
                 first_item_id_by_rune_id[rune.id] = item_rune.item_id
             elif first_item_id != item_rune.item_id:
                 continue
-            for effect in rune.semantic_effects.filter(active_flag=True).prefetch_related("condition_races", "condition_schools").order_by("sort_order", "id"):
+            for effect in rune.semantic_effects.filter(active_flag=True).prefetch_related(
+                "condition_races",
+                "condition_schools",
+            ).order_by("sort_order", "id"):
                 modifier = effect.to_modifier()
                 scaling = dict(modifier.scaling)
                 mode = modifier.mode
@@ -239,13 +253,36 @@ class ModifierEngine:
             .prefetch_related("condition_races", "condition_schools")
             .order_by("character_item_id", "sort_order", "id")
         )
+
+        instance_base_effect_ids: set[tuple[int, int]] = set()
+
+        for effect in instance_effects:
+            base_effect_id = dict(effect.metadata or {}).get("base_item_effect_id")
+            try:
+                base_effect_id = int(base_effect_id)
+            except (TypeError, ValueError):
+                continue
+
+            instance_base_effect_ids.add(
+                (int(effect.character_item_id), base_effect_id)
+            )
+
         base_effects_by_item_id: dict[int, list[ItemSemanticEffect]] = {}
+
         for effect in base_effects:
             base_effects_by_item_id.setdefault(int(effect.item_id), []).append(effect)
+
         base_modifiers = []
+
         for character_item in equipped_items:
             for effect in base_effects_by_item_id.get(int(character_item.item_id), []):
-                modifier = effect.to_modifier(invested_cp=character_item.invested_cp)
+                if (int(character_item.id), int(effect.id)) in instance_base_effect_ids:
+                    continue
+
+                modifier = effect.to_modifier(
+                    invested_cp=character_item.invested_cp
+                )
+
                 base_modifiers.append(
                     replace(
                         modifier,
@@ -255,6 +292,7 @@ class ModifierEngine:
                         },
                     )
                 )
+
         return [
             *base_modifiers,
             *(effect.to_modifier() for effect in instance_effects if effect.active_flag),
