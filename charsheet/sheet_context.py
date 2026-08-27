@@ -7094,6 +7094,9 @@ def build_item_semantic_effect_partial_context(
     carry_penalty = int(carry_state["penalty"])
     load_penalty = engine.load_penalty()
 
+    if "movement_panel" in partial_key_set:
+        context["movement_ground"] = _build_movement_ground(engine, character.race)
+
     if "inventory_panel" in partial_key_set:
         inventory_rows = _build_inventory_rows(character)
         inventory_total_weight_display = _build_inventory_total_weight_display(character)
@@ -7201,6 +7204,66 @@ def build_item_semantic_effect_partial_context(
         context["learn_magic_slot_summary"] = character.get_magic_engine().get_spell_learning_slot_summary()
 
     return context
+
+
+def _build_movement_ground(engine, race) -> dict[str, str]:
+    movement_profile = engine.resolve_movement()
+
+    def _resolve_movement_value(base_value, target_key):
+        if target_key in movement_profile.overrides:
+            return max(0, int(movement_profile.overrides[target_key] or 0))
+        base = int(base_value or 0)
+        multiplier = float(movement_profile.multipliers.get(target_key, 1.0))
+        additive = int(movement_profile.values.get(target_key, 0))
+        return max(0, int(base * multiplier) + additive)
+
+    ground_blocked = "ground" in movement_profile.blocked_modes
+    swim_blocked = "swim" in movement_profile.blocked_modes
+    ground_combat = None if ground_blocked else _resolve_movement_value(race.combat_speed, "ground_combat")
+    ground_march = None if ground_blocked else _resolve_movement_value(race.march_speed, "ground_march")
+    ground_sprint = None if ground_blocked else _resolve_movement_value(race.sprint_speed, "ground_sprint")
+    swim_speed = None if swim_blocked else _resolve_movement_value(race.swimming_speed, "swim")
+    swim_triplet_keys = ("swim_combat", "swim_march", "swim_sprint")
+    has_swim_triplet = not swim_blocked and any(
+        key in movement_profile.values or key in movement_profile.multipliers or key in movement_profile.overrides
+        for key in swim_triplet_keys
+    )
+    swim_value = "-" if swim_speed is None else format_compact_number(swim_speed)
+    if has_swim_triplet:
+        swim_values = (
+            _resolve_movement_value(race.swimming_speed, "swim_combat"),
+            _resolve_movement_value(race.swimming_speed, "swim_march"),
+            _resolve_movement_value(race.swimming_speed, "swim_sprint"),
+        )
+        formatted_swim_values = tuple(format_compact_number(value) for value in swim_values)
+        swim_value = (
+            formatted_swim_values[0]
+            if len(set(formatted_swim_values)) == 1
+            else " / ".join(formatted_swim_values)
+        )
+    fly_value = "-"
+    has_flight = race.can_fly or any(
+        key in movement_profile.values or key in movement_profile.multipliers or key in movement_profile.overrides
+        for key in ("fly_combat", "fly_march", "fly_sprint")
+    )
+    if has_flight and "fly" not in movement_profile.blocked_modes:
+        combat_fly = _resolve_movement_value(race.combat_fly_speed, "fly_combat")
+        march_fly = _resolve_movement_value(race.march_fly_speed, "fly_march")
+        sprint_fly = _resolve_movement_value(race.sprint_fly_speed, "fly_sprint")
+        fly_value = " / ".join(
+            (
+                format_compact_number(combat_fly),
+                format_compact_number(march_fly),
+                format_compact_number(sprint_fly),
+            )
+        )
+    return {
+        "combat": "-" if ground_combat is None else format_compact_number(ground_combat),
+        "march": "-" if ground_march is None else format_compact_number(ground_march),
+        "sprint": "-" if ground_sprint is None else format_compact_number(ground_sprint),
+        "swim": swim_value,
+        "fly": fly_value,
+    }
 
 
 def build_inventory_partial_context(character: Character) -> dict[str, object]:
@@ -7411,63 +7474,7 @@ def build_character_sheet_context(
         if size_class in GK_MODS
         else "-"
     )
-    movement_profile = engine.resolve_movement()
-
-    def _resolve_movement_value(base_value, target_key):
-        if target_key in movement_profile.overrides:
-            return max(0, int(movement_profile.overrides[target_key] or 0))
-        base = int(base_value or 0)
-        multiplier = float(movement_profile.multipliers.get(target_key, 1.0))
-        additive = int(movement_profile.values.get(target_key, 0))
-        return max(0, int(base * multiplier) + additive)
-
-    ground_blocked = "ground" in movement_profile.blocked_modes
-    swim_blocked = "swim" in movement_profile.blocked_modes
-    ground_combat = None if ground_blocked else _resolve_movement_value(race.combat_speed, "ground_combat")
-    ground_march = None if ground_blocked else _resolve_movement_value(race.march_speed, "ground_march")
-    ground_sprint = None if ground_blocked else _resolve_movement_value(race.sprint_speed, "ground_sprint")
-    swim_speed = None if swim_blocked else _resolve_movement_value(race.swimming_speed, "swim")
-    swim_triplet_keys = ("swim_combat", "swim_march", "swim_sprint")
-    has_swim_triplet = not swim_blocked and any(
-        key in movement_profile.values or key in movement_profile.multipliers or key in movement_profile.overrides
-        for key in swim_triplet_keys
-    )
-    swim_value = "-" if swim_speed is None else format_compact_number(swim_speed)
-    if has_swim_triplet:
-        swim_values = (
-            _resolve_movement_value(race.swimming_speed, "swim_combat"),
-            _resolve_movement_value(race.swimming_speed, "swim_march"),
-            _resolve_movement_value(race.swimming_speed, "swim_sprint"),
-        )
-        formatted_swim_values = tuple(format_compact_number(value) for value in swim_values)
-        swim_value = (
-            formatted_swim_values[0]
-            if len(set(formatted_swim_values)) == 1
-            else " / ".join(formatted_swim_values)
-        )
-    fly_value = "-"
-    has_flight = race.can_fly or any(
-        key in movement_profile.values or key in movement_profile.multipliers or key in movement_profile.overrides
-        for key in ("fly_combat", "fly_march", "fly_sprint")
-    )
-    if has_flight and "fly" not in movement_profile.blocked_modes:
-        combat_fly = _resolve_movement_value(race.combat_fly_speed, "fly_combat")
-        march_fly = _resolve_movement_value(race.march_fly_speed, "fly_march")
-        sprint_fly = _resolve_movement_value(race.sprint_fly_speed, "fly_sprint")
-        fly_value = " / ".join(
-            (
-                format_compact_number(combat_fly),
-                format_compact_number(march_fly),
-                format_compact_number(sprint_fly),
-            )
-        )
-    movement_ground = {
-        "combat": "-" if ground_combat is None else format_compact_number(ground_combat),
-        "march": "-" if ground_march is None else format_compact_number(ground_march),
-        "sprint": "-" if ground_sprint is None else format_compact_number(ground_sprint),
-        "swim": swim_value,
-        "fly": fly_value,
-    }
+    movement_ground = _build_movement_ground(engine, race)
 
     learning_context = _build_learning_rows(
         character,

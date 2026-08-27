@@ -154,6 +154,7 @@ SHEET_PARTIAL_TEMPLATES = {
     "secondary_page": ("sheetSecondaryPage", "charsheet/partials/_sheet_secondary_page.html"),
     "card_hand": ("sheetCardHand", "charsheet/partials/_card_hand_host.html"),
     "load_panel": ("sheetLoadPanel", "charsheet/partials/_load_panel.html"),
+    "movement_panel": ("sheetMovementPanel", "charsheet/partials/_movement_panel.html"),
     "core_stats_panel": ("sheetCoreStatsPanel", "charsheet/partials/_core_stats_panel.html"),
     "damage_panel": ("sheetDamagePanel", "charsheet/partials/_damage_panel.html"),
     "wallet_panel": ("sheetWalletPanel", "charsheet/partials/_wallet_panel.html"),
@@ -260,7 +261,7 @@ ITEM_SEMANTIC_EFFECT_PARTIAL_KEYS_BY_DOMAIN = {
         "core_stats_panel",
         "damage_panel",
     ),
-    "movement": ("core_stats_panel",),
+    "movement": ("movement_panel",),
     "combat": (
         "armor_panel",
         "weapon_panel",
