@@ -37,12 +37,40 @@ const initEmbeddedItemTransferCenter = () => {
   };
   showNextToast();
 
-  document.addEventListener("submit", async (event) => {
-    const form = event.target;
-    if (!(form instanceof HTMLFormElement) || !form.hasAttribute("data-transfer-accept")) {
-      return;
+  const checkboxes = Array.from(document.querySelectorAll("[data-transfer-checkbox]"));
+  const acceptSelectedButton = document.querySelector("[data-transfer-accept-selected]");
+  const selectAllCheckbox = document.querySelector("[data-transfer-select-all]");
+  const updateBulkState = () => {
+    const selectedCount = checkboxes.filter((checkbox) => checkbox.checked).length;
+    if (selectAllCheckbox) {
+      selectAllCheckbox.checked = checkboxes.length > 0 && selectedCount === checkboxes.length;
+      selectAllCheckbox.indeterminate = selectedCount > 0 && selectedCount < checkboxes.length;
     }
-    event.preventDefault();
+    if (acceptSelectedButton) {
+      acceptSelectedButton.disabled = selectedCount === 0;
+      acceptSelectedButton.textContent = selectedCount > 0
+        ? `${selectedCount} annehmen`
+        : "Auswahl annehmen";
+    }
+  };
+  checkboxes.forEach((checkbox) => {
+    checkbox.addEventListener("change", updateBulkState);
+  });
+  selectAllCheckbox?.addEventListener("change", () => {
+    checkboxes.forEach((checkbox) => {
+      checkbox.checked = selectAllCheckbox.checked;
+    });
+    updateBulkState();
+  });
+  document.querySelector("[data-transfer-clear-selection]")?.addEventListener("click", () => {
+    checkboxes.forEach((checkbox) => {
+      checkbox.checked = false;
+    });
+    updateBulkState();
+  });
+  updateBulkState();
+
+  const submitAcceptance = async (form) => {
     const buttons = Array.from(form.querySelectorAll("button"));
     buttons.forEach((button) => {
       button.disabled = true;
@@ -71,9 +99,25 @@ const initEmbeddedItemTransferCenter = () => {
       buttons.forEach((button) => {
         button.disabled = false;
       });
+      updateBulkState();
       const message = error instanceof Error ? error.message : "Gegenstand konnte nicht angenommen werden.";
       window.alert(message);
     }
+  };
+
+  document.addEventListener("submit", async (event) => {
+    const form = event.target;
+    if (
+      !(form instanceof HTMLFormElement)
+      || (
+        !form.hasAttribute("data-transfer-accept")
+        && !form.hasAttribute("data-transfer-bulk-accept")
+      )
+    ) {
+      return;
+    }
+    event.preventDefault();
+    await submitAcceptance(form);
   });
 };
 

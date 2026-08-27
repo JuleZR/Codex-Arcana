@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Übergaben | Codex Arcana</title>
   <link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
-  <link rel="stylesheet" href="{% static 'css/item-transfer-center.css' %}?v=20260721c">
+  <link rel="stylesheet" href="{% static 'css/item-transfer-center.css' %}?v=20260827a">
 </head>
 <body class="transfer-center-page{% if embedded %} transfer-center-page--embedded{% endif %}">
 <main class="transfer-center">
@@ -25,19 +25,44 @@
     </div>
   {% endif %}
 
-  <section class="transfer-panel">
-    <h2>Eingegangene Sendungen <span class="transfer-count">{{ incoming|length }}</span></h2>
+  <section class="transfer-panel" data-transfer-panel>
+    <div class="transfer-panel__bar">
+      <h2><span>Post</span><small>Eingegangene Sendungen</small><span class="transfer-count">{{ incoming|length }}</span></h2>
+      {% if incoming %}
+        <form id="transfer-bulk-form-{{ selected_character.id|default:'all' }}" class="transfer-bulk-form" method="post" action="{% url 'accept_item_transfers' %}"{% if embedded %} data-transfer-bulk-accept{% endif %}>
+          {% csrf_token %}
+          {% if selected_character %}<input type="hidden" name="context_character_id" value="{{ selected_character.id }}">{% endif %}
+          {% if embedded %}<input type="hidden" name="embedded" value="1">{% endif %}
+          <label class="transfer-select-all">
+            <input type="checkbox" data-transfer-select-all>
+            <span>Alle auswaehlen</span>
+          </label>
+          <button type="button" class="transfer-button transfer-button--secondary" data-transfer-clear-selection>Leeren</button>
+          <button type="submit" data-transfer-accept-selected disabled>Auswahl annehmen</button>
+        </form>
+      {% endif %}
+    </div>
     {% for transfer in incoming %}
-      <article class="transfer-offer">
+      <article class="transfer-offer" data-transfer-offer>
+        <label class="transfer-offer__select" aria-label="{{ transfer.item_snapshot.name }} auswaehlen">
+          <input type="checkbox" name="transfer_ids" value="{{ transfer.id }}" form="transfer-bulk-form-{{ selected_character.id|default:'all' }}" data-transfer-checkbox>
+        </label>
         <div>{% if transfer.item_snapshot.image %}<img src="{{ transfer.item_snapshot.image }}" alt="">{% endif %}</div>
-        <div>
+        <div class="transfer-offer__body">
           <h3>{{ transfer.item_snapshot.name }}</h3>
+          <small>Antwort bis {{ transfer.expires_at|date:"d.m.Y H:i" }}</small>
           <p>Von {{ transfer.sender_snapshot.name }} · {{ transfer.sender_snapshot.username }}</p>
+        </div>
+        <div class="transfer-offer__meta">
           {% if transfer.item_snapshot.transfer_original_ownership %}
             <p class="transfer-offer__ownership"><strong>Geht vollständig in dein Eigentum über</strong><span>Du erhältst damit dauerhaft Rückhol- und Verwaltungsrecht.</span></p>
           {% elif transfer.item_snapshot.requested_permissions %}
             <div class="transfer-offer__permissions"><strong>Zusätzliche Freigaben:</strong><ul>{% for permission in transfer.item_snapshot.requested_permissions %}<li>{{ permission.label }}{% if permission.irrevocable %} · dauerhaft und unwiderruflich{% endif %}</li>{% endfor %}</ul></div>
+          {% else %}
+            <span class="transfer-offer__plain">Normale Uebergabe</span>
           {% endif %}
+        </div>
+        <div class="transfer-offer__details">
           {% if transfer.message %}<blockquote>{{ transfer.message }}</blockquote>{% endif %}
           <small>Antwort möglich bis {{ transfer.expires_at|date:"d.m.Y H:i" }}</small>
         </div>
@@ -64,6 +89,6 @@
     {% endfor %}
   </section>
 </main>
-{% if embedded %}<script type="module" src="{% static 'js/charsheet/item_transfer_center.js' %}?v=20260721d"></script>{% endif %}
+{% if embedded %}<script type="module" src="{% static 'js/charsheet/item_transfer_center.js' %}?v=20260827a"></script>{% endif %}
 </body>
 </html>

@@ -164,6 +164,7 @@ urlpatterns = [
     path("item-transfers/", views.item_transfer_center, name="item_transfer_center"),
     path("api/characters/search/", views.character_recipient_search, name="character_recipient_search"),
     path("character-item/<int:pk>/transfer/", views.create_item_transfer, name="create_item_transfer"),
+    path("item-transfers/accept/", views.accept_item_transfers_view, name="accept_item_transfers"),
     path("item-transfer/<int:transfer_id>/accept/", views.accept_item_transfer_view, name="accept_item_transfer"),
     path("item-transfer/<int:transfer_id>/decline/", views.decline_item_transfer_view, name="decline_item_transfer"),
     path("item-transfer/<int:transfer_id>/recall/", views.recall_item_transfer_view, name="recall_item_transfer"),

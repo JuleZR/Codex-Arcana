@@ -893,8 +893,18 @@ def accept_transfer(*, transfer_id: int, recipient: Character):
         )
     else:
         _notify(previous.owner, item, "accepted", f"{recipient.name} hat {item.effective_name} angenommen.", transfer)
-    _merge_compatible_stack(item)
+    item = _merge_compatible_stack(item)
+    transfer.item = item
+    transfer.item_id = item.pk
     return transfer
+
+
+@transaction.atomic
+def accept_transfers(*, transfer_ids: list[int], recipient: Character) -> list[ItemTransfer]:
+    accepted: list[ItemTransfer] = []
+    for transfer_id in transfer_ids:
+        accepted.append(accept_transfer(transfer_id=transfer_id, recipient=recipient))
+    return accepted
 
 
 @transaction.atomic

@@ -11,8 +11,10 @@
   z-index: 9000;
   left: 50%;
   top: 50%;
-  width: min(430px, calc(100vw - 28px));
-  height: min(480px, calc(100vh - 28px));
+  width: min(1060px, calc(100vw - 28px), calc((100vh - 28px) * 1.414));
+  aspect-ratio: 297 / 210;
+  max-height: calc(100vh - 28px);
+  height: auto;
   transform: translate(-50%, -50%);
   display: grid;
   grid-template-rows: 1fr;
@@ -57,5 +59,6 @@
   .item-transfer-window.sheet-window.payday-window {
     width: calc(100vw - 16px);
     height: calc(100vh - 16px);
+    aspect-ratio: auto;
   }
 }

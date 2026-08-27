@@ -41,7 +41,6 @@ export function initItemTransferWindow() {
   };
   const open = (url) => {
     windowElement.classList.add("is-measuring");
-    windowElement.style.removeProperty("height");
     frame.src = url;
     resetPosition();
     backdrop.hidden = false;
@@ -117,10 +116,6 @@ export function initItemTransferWindow() {
   window.addEventListener("message", (event) => {
     if (event.origin !== window.location.origin || event.source !== frame.contentWindow) return;
     if (event.data?.type === "codex:item-transfer-size") {
-      const headerHeight = handle.getBoundingClientRect().height;
-      const desiredHeight = headerHeight + 14 + Math.max(180, Number(event.data.height) || 0);
-      const availableHeight = Math.max(240, window.innerHeight - 28);
-      windowElement.style.height = `${Math.min(desiredHeight, availableHeight)}px`;
       if (measurementFallback) window.clearTimeout(measurementFallback);
       measurementFallback = null;
       void windowElement.offsetHeight;

@@ -131,6 +131,7 @@ from .view_utils import format_modifier, format_thousands
 from .item_transfers import (
     TransferError,
     accept_transfer as accept_item_transfer,
+    accept_transfers as accept_item_transfers,
     create_gm_edit_transfer,
     create_transfer as create_item_transfer_service,
     decline_transfer as decline_item_transfer,
@@ -960,6 +961,43 @@ def _inventory_panel_response(request, character: Character) -> JsonResponse:
             "ok": True,
             "partials": _render_sheet_partials(request, context, ("inventory_panel",)),
             "openItemTransferCount": open_item_transfer_count,
+        }
+    )
+
+
+def _accepted_item_partial_keys(transfers: list[ItemTransfer]) -> tuple[str, ...]:
+    keys: list[str] = ["inventory_panel"]
+    item_ids = {int(transfer.item_id) for transfer in transfers if transfer.item_id}
+    if not item_ids:
+        return tuple(keys)
+    base_item_ids = CharacterItem.objects.filter(pk__in=item_ids).values("item_id")
+    effects = [
+        *ItemSemanticEffect.objects.filter(item_id__in=base_item_ids),
+        *CharacterItemSemanticEffect.objects.filter(character_item_id__in=item_ids),
+    ]
+    if effects:
+        for key in _item_semantic_effect_toggle_partial_keys(effects):
+            _append_partial_key(keys, key)
+    return tuple(keys)
+
+
+def _accepted_transfer_partials_response(
+    request,
+    character: Character,
+    transfers: list[ItemTransfer],
+) -> JsonResponse:
+    partial_keys = _accepted_item_partial_keys(transfers)
+    context = _build_item_semantic_effect_partial_context_for_request(
+        request,
+        character,
+        partial_keys,
+    )
+    return JsonResponse(
+        {
+            "ok": True,
+            "accepted": [transfer.pk for transfer in transfers],
+            "partials": _render_sheet_partials(request, context, partial_keys),
+            "openItemTransferCount": context.get("open_item_transfer_count", 0),
         }
     )
 
@@ -3100,21 +3138,75 @@ def _owned_transfer_recipient(request, transfer_id):
     return transfer.recipient
 
 
+def _parse_transfer_ids(request) -> list[int]:
+    raw_ids = request.POST.getlist("transfer_ids")
+    if not raw_ids:
+        payload = _read_json_payload(request)
+        payload_ids = payload.get("transfer_ids", [])
+        raw_ids = payload_ids if isinstance(payload_ids, list) else []
+    transfer_ids: list[int] = []
+    seen: set[int] = set()
+    for raw_id in raw_ids:
+        try:
+            transfer_id = int(raw_id)
+        except (TypeError, ValueError):
+            raise TransferError("invalid_payload", "Ungueltige Uebergabedaten.", status=400)
+        if transfer_id <= 0 or transfer_id in seen:
+            continue
+        seen.add(transfer_id)
+        transfer_ids.append(transfer_id)
+    if not transfer_ids:
+        raise TransferError("empty_selection", "Bitte waehle mindestens eine Uebergabe aus.", status=400)
+    return transfer_ids
+
+
+def _owned_bulk_transfer_recipient(request, transfer_ids: list[int]) -> Character:
+    owned_rows = list(
+        ItemTransfer.objects.filter(pk__in=transfer_ids, recipient__owner=request.user)
+        .values_list("pk", "recipient_id")
+    )
+    if len(owned_rows) != len(transfer_ids):
+        raise TransferError("not_recipient", "Nur der Empfaenger kann diese Uebergabe annehmen.", status=403)
+    recipient_ids = {recipient_id for _transfer_id, recipient_id in owned_rows}
+    if len(recipient_ids) != 1:
+        raise TransferError(
+            "mixed_recipients",
+            "Bitte nimm nur Uebergaben fuer denselben Charakter zusammen an.",
+            status=400,
+        )
+    return get_object_or_404(
+        Character.objects.select_related("owner"),
+        pk=next(iter(recipient_ids)),
+        owner=request.user,
+    )
+
+
 @login_required
 @require_POST
 def accept_item_transfer_view(request, transfer_id):
     recipient = _owned_transfer_recipient(request, transfer_id)
     try:
-        accept_item_transfer(transfer_id=transfer_id, recipient=recipient)
+        transfers = [accept_item_transfer(transfer_id=transfer_id, recipient=recipient)]
     except TransferError as error:
         return _transfer_response_error(request, error)
     if _is_partial_request(request):
-        return _sheet_partials_response(
-            request,
-            recipient,
-            *SHEET_INVENTORY_PARTIAL_KEYS,
-        )
+        return _accepted_transfer_partials_response(request, recipient, transfers)
     messages.success(request, "Gegenstand angenommen.")
+    return _item_transfer_center_redirect(request)
+
+
+@login_required
+@require_POST
+def accept_item_transfers_view(request):
+    try:
+        transfer_ids = _parse_transfer_ids(request)
+        recipient = _owned_bulk_transfer_recipient(request, transfer_ids)
+        transfers = accept_item_transfers(transfer_ids=transfer_ids, recipient=recipient)
+    except TransferError as error:
+        return _transfer_response_error(request, error)
+    if _is_partial_request(request):
+        return _accepted_transfer_partials_response(request, recipient, transfers)
+    messages.success(request, f"{len(transfers)} Gegenstaende angenommen.")
     return _item_transfer_center_redirect(request)
 
 
