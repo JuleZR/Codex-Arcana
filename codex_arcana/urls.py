@@ -76,6 +76,7 @@ urlpatterns = [
     path("groups/<int:group_id>/screen/transfer-state/", group_views.group_inventory_transfer_state, name="group_inventory_transfer_state"),
     path("groups/<int:group_id>/screen/transfer-state/", group_views.group_inventory_transfer_state, name="group_inventory_transfer_state"),
     path("groups/<int:group_id>/characters/<int:character_id>/", group_views.game_master_character_sheet, name="game_master_character_sheet"),
+    path("groups/<int:group_id>/characters/<int:character_id>/carry-load/", group_views.update_game_master_carry_load_state, name="update_game_master_carry_load_state"),
     path("groups/<int:group_id>/characters/<int:character_id>/temporary-attributes/", group_views.update_game_master_temporary_attribute, name="update_game_master_temporary_attribute"),
     path("groups/<int:group_id>/characters/<int:character_id>/diary/", group_views.game_master_character_diary, name="game_master_character_diary"),
     path("groups/<int:group_id>/inventory/add/", group_views.add_group_inventory_item, name="add_group_inventory_item"),

@@ -149,7 +149,7 @@
       </div>
     </div>
 
-    <script type="module" src="{% static 'js/charsheet/bootstrap.js' %}?v=20260820e"></script>
+    <script type="module" src="{% static 'js/charsheet/bootstrap.js' %}?v=20260827a"></script>
     <script src="{% static 'js/charsheet_diary.js' %}?v=20260315a"></script>
     {% if read_only %}
     <script>
@@ -158,6 +158,7 @@
           !control.closest("[data-card-hand]")
           && !control.matches("[data-school-group-toggle]")
           && !control.matches("[data-temporary-attribute-control]")
+          && !control.matches("[data-carry-load-toggle]")
         ) {
           control.disabled = true;
         }
@@ -167,7 +168,8 @@
           !control.closest("[data-card-hand]") &&
           control.getAttribute("role") !== "tab" &&
           !control.matches("[data-school-group-toggle]") &&
-          !control.matches("[data-temporary-attribute-control]")
+          !control.matches("[data-temporary-attribute-control]") &&
+          !control.matches("[data-carry-load-toggle]")
         ) {
           control.disabled = true;
           control.setAttribute("aria-disabled", "true");

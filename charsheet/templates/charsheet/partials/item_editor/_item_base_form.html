@@ -1,0 +1,100 @@
+<section class="shop_item_form_main shop_item_form_panel shop_panel sl-editor-card">
+  <div class="shop_item_form_panel_header shop_panel_header">
+    <h2>Grunddaten</h2>
+  </div>
+  <div class="shop_item_form_panel_body">
+    {% if item_editor_show_amount %}
+      <label class="shop_item_form_row"><span>Instanzmenge</span><input name="amount" type="number" min="1" value="1"></label>
+    {% endif %}
+    <label class="shop_item_form_row sl-editor-grid__wide"><span>Name</span><input type="text" name="name" required maxlength="200"></label>
+    <div class="shop_item_form_grid shop_item_form_grid--equal">
+      <label class="shop_item_form_row"><span>Preis (KS)</span><input type="number" name="price" min="0" step="1" value="0" required></label>
+      <label class="shop_item_form_row">
+        <span>Kategorie</span>
+        <select name="item_type" id="shopItemTypeSelect" data-sl-item-type required>
+          {% for value, label in item_editor_type_choices %}
+            <option value="{{ value }}"{% if value == item_editor_default_type %} selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+    </div>
+    <label class="shop_item_form_row">
+      <span>Qualit&auml;t (Standard)</span>
+      <select name="default_quality" id="shopItemQualitySelect" required>
+        {% for quality in item_editor_quality_choices %}
+          {% if quality.value %}
+            <option value="{{ quality.value }}"{% if quality.color %} style="color: {{ quality.color }};"{% endif %}{% if quality.value == item_editor_default_quality %} selected{% endif %}>{{ quality.label }}</option>
+          {% else %}
+            <option value="{{ quality.pk }}"{% if quality.pk == item_editor_default_quality %} selected{% endif %}>{{ quality.name }}</option>
+          {% endif %}
+        {% endfor %}
+      </select>
+    </label>
+    <label class="shop_item_form_check" id="shopItemMagicRow">
+      <input type="checkbox" name="is_magic" id="shopItemMagicInput" data-sl-is-magic>
+      <input type="hidden" name="is_magic" id="shopItemMagicForcedInput" value="1" disabled data-sl-forced-magic>
+      <span>Magischer Gegenstand</span>
+    </label>
+    <label class="shop_item_form_check" id="shopItemStackableRow" data-sl-stackable>
+      <input type="checkbox" name="stackable" id="shopItemStackableInput" checked>
+      <span>Stapelbar</span>
+    </label>
+    <div class="shop_item_form_grid shop_item_form_grid--equal">
+      <label class="shop_item_form_check">
+        <input type="checkbox" name="not_buyable" value="1">
+        <span>Nicht kaufbar</span>
+      </label>
+      <label class="shop_item_form_check">
+        <input type="checkbox" name="not_sellable" value="1">
+        <span>Nicht verkaufbar</span>
+      </label>
+    </div>
+    <div class="shop_item_form_grid">
+      <label class="shop_item_form_row"><span>Gewicht</span><input type="number" name="weight" min="0" step="0.01" value="0"></label>
+      <label class="shop_item_form_row">
+        <span>Gr&ouml;&szlig;enklasse</span>
+        <select name="size_class">
+          {% for option in item_editor_size_choices %}
+            <option value="{{ option.value }}"{% if option.value == item_editor_default_size %} selected{% endif %}>{% if option.display_label %}{{ option.display_label }}{% else %}{{ option.label }}{% endif %}</option>
+          {% endfor %}
+        </select>
+      </label>
+    </div>
+    <label class="shop_item_form_row shop_item_form_row--image">
+      <span>Bild</span>
+      <input type="file" name="image" accept="image/*">
+      <small class="shop_item_form_meta">Optional. Wird in der Detailkarte links als Motiv angezeigt.</small>
+    </label>
+    {% if item_editor_runes %}
+      <div class="shop_item_form_conditional shop_item_form_fieldset">
+        <div class="shop_item_form_fieldset_title">Runen</div>
+        <div class="rune_dropdown shop_item_rune_dropdown sl-rune-picker" id="shopItemRuneDropdown" data-sl-rune-picker>
+          <button type="button" class="rune_dropdown_trigger shop_item_multi_select_trigger sl-rune-picker__trigger" id="shopItemRuneDropdownTrigger" aria-expanded="false" aria-controls="shopItemRuneDropdownPanel" data-sl-rune-trigger>
+            <span class="shop_item_multi_select_value" id="shopItemRuneTriggerLabel" data-sl-rune-label>Keine Runen ausgew&auml;hlt</span>
+            <span class="shop_item_multi_select_meta">
+              <span class="rune_dropdown_trigger_count" id="shopItemRuneSelectionCount" data-sl-rune-count>0</span>
+              <span class="shop_item_multi_select_chevron" aria-hidden="true">&#9662;</span>
+            </span>
+          </button>
+          <div class="rune_dropdown_panel shop_item_multi_select_panel sl-rune-picker__panel" id="shopItemRuneDropdownPanel" data-sl-rune-panel hidden>
+            <div class="rune_window_search_row">
+              <input type="search" id="shopItemRuneSearch" class="sheet-window__field rune_window_search_input" placeholder="Runen suchen..." aria-label="Runen filtern" data-sl-rune-search>
+            </div>
+            <div class="shop_item_form_checklist rune_window_options sl-rune-picker__list" id="shopItemRuneOptions" data-sl-rune-list>
+              {% for rune in item_editor_runes %}
+                <label class="shop_item_form_checklist_item rune_option" data-rune-search="{{ rune.name|lower }} {{ rune.description|default:''|lower }}">
+                  <input type="checkbox" name="runes" value="{% if rune.id %}{{ rune.id }}{% else %}{{ rune.pk }}{% endif %}">
+                  <span class="rune_option_copy">
+                    <span class="rune_option_name">{{ rune.name }}</span>
+                    <span class="rune_option_body">{{ rune.description|default:"Keine Beschreibung vorhanden." }}</span>
+                  </span>
+                </label>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+      </div>
+    {% endif %}
+    <label class="shop_item_form_row shop_item_form_row--description sl-editor-grid__wide"><span>Beschreibung</span><textarea name="description" rows="4" maxlength="1000"></textarea></label>
+  </div>
+</section>

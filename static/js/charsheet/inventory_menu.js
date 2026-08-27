@@ -653,6 +653,14 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
         payload.target_skill = String(row.querySelector("[data-magic-target-select='skill']")?.value || "").trim();
       } else if (targetKind === "category") {
         payload.target_skill_category = String(row.querySelector("[data-magic-target-select='category']")?.value || "").trim();
+      } else if (targetKind === "movement") {
+        payload.target_movement = String(row.querySelector("[data-magic-target-select='movement']")?.value || "").trim();
+      } else if (targetKind === "item") {
+        payload.target_item = String(row.querySelector("[data-magic-target-select='item']")?.value || "").trim();
+      } else if (targetKind === "item_category") {
+        payload.target_item_category = String(row.querySelector("[data-magic-target-select='item_category']")?.value || "").trim();
+      } else if (targetKind === "specialization") {
+        payload.target_specialization = String(row.querySelector("[data-magic-target-select='specialization']")?.value || "").trim();
       }
       payloads.push(payload);
     });
@@ -827,6 +835,10 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
         rule_flag: "target_rule_flag",
         skill: "target_skill",
         category: "target_skill_category",
+        movement: "target_movement",
+        item: "target_item",
+        item_category: "target_item_category",
+        specialization: "target_specialization",
       };
       Object.entries(targetFieldMap).forEach(([kind, fieldName]) => {
         const select = row.querySelector(`[data-magic-target-select='${kind}']`);

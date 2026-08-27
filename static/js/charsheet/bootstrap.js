@@ -22,7 +22,7 @@ import { initMobileHud } from "./mobile_hud.js";
 import { initSkillManager } from "./skill_manager.js";
 import { initArmorPanel } from "./armor_panel.js?v=20260820d";
 import { initBattleCalculator } from "./battle_calculator.js?v=20260731a";
-import { initCarryLoadToggle } from "./carry_load_toggle.js?v=20260723b";
+import { initCarryLoadToggle } from "./carry_load_toggle.js?v=20260827a";
 import { initContextRadialMenu } from "./context_radial_menu.js";
 import { initRadialMenuGem } from "./radial_menu_gem.js";
 import { initCharacterAppearanceModal } from "./character_appearance_modal.js";

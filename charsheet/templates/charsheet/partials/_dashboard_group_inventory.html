@@ -113,38 +113,9 @@
                         </div>
                       </div>
                     </section>
-                    <section class="sl-editor-card" data-sl-instance-magic-editor>
-                      <header><span>Instanz</span><h4>Magische Effekte</h4></header>
-                      <input type="hidden" name="magic_modifier_payloads" value="{{ instance.magic_modifier_payloads_json }}" data-sl-magic-payloads>
-                      <div class="sl-magic-effects" data-sl-magic-effects></div>
-                      <div class="sl-magic-effects__actions"><button type="button" class="dashboard_button dashboard_button--small" data-add-sl-magic-effect>+ Effekt hinzufügen</button></div>
-                      <template data-sl-magic-effect-template>
-                        <article class="sl-magic-effect" data-sl-magic-effect>
-                          <header><strong data-sl-effect-title>Effekt</strong><button type="button" data-remove-sl-magic-effect aria-label="Effekt entfernen">×</button></header>
-                          <div class="sl-editor-row sl-editor-row--effect">
-                            <label><span>Wirkung</span><select data-effect-kind>{% for value,label in group_inventory_effect_kinds %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></label>
-                            <label data-effect-value-row><span>Bonus / Malus</span><input type="number" step="1" value="0" data-effect-value></label>
-                            <label data-effect-scale-source-row><span>Skaliert nach</span><select data-effect-scale-source><option value="">Nicht skaliert</option><option value="item_invested_cp">Investierte CP des Items</option></select></label>
-                            <label data-effect-scale-divisor-row hidden><span>CP pro +1/-1</span><input type="number" min="1" step="1" value="2" data-effect-scale-divisor></label>
-                          </div>
-                          <label class="sl-editor-field"><span>Beschreibung</span><input type="text" maxlength="255" placeholder="Was bewirkt der Effekt?" data-effect-description></label>
-                          <label class="sl-editor-field"><span>Regeltext</span><input type="text" maxlength="255" placeholder="z. B. |Passiv| gegen Gift" data-effect-rules-text></label>
-                          <div class="sl-editor-row sl-editor-row--effect">
-                            <label><span>Anzeigegruppe</span><input type="number" min="1" step="1" placeholder="z. B. 1" data-effect-display-group></label>
-                            <label class="sl-editor-field sl-editor-field--check"><span>Gruppe</span><input type="checkbox" value="1" data-effect-display-group-append> <em>anh&auml;ngen</em></label>
-                          </div>
-                          <label class="sl-editor-field sl-editor-field--check"><span>Itemkarte</span><input type="checkbox" value="1" data-effect-toggleable> <em>umschaltbar</em></label>
-                          <label class="sl-editor-field sl-editor-field--check"><span>Itemkarte</span><input type="checkbox" value="1" data-effect-toggle-inverted> <em>invertiert</em></label>
-                          <label class="sl-editor-field" data-effect-target="attribute" hidden><span>Attribut</span><select>{% for value,label in group_inventory_effect_attributes %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></label>
-                          <label class="sl-editor-field" data-effect-target="stat" hidden><span>Wert</span><select>{% for value,label in group_inventory_effect_stats %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></label>
-                          <label class="sl-editor-field" data-effect-target="rule_flag" hidden><span>Regel</span><select>{% for value,label in group_inventory_effect_rules %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></label>
-                          <label class="sl-editor-field" data-effect-target="skill" hidden><span>Fertigkeit</span><select>{% for skill in group_inventory_weapon_skills %}<option value="{{ skill.pk }}">{{ skill.name }}</option>{% endfor %}</select></label>
-                          <label class="sl-editor-field" data-effect-target="category" hidden><span>Fertigkeitskategorie</span><select>{% for category in group_inventory_skill_categories %}<option value="{{ category.pk }}">{{ category.name }}</option>{% endfor %}</select></label>
-                          <label class="sl-editor-field" data-effect-target="item_category" hidden><span>Gegenstandstyp</span><select>{% for value,label in group_inventory_item_types %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></label>
-                          <label class="sl-editor-field" data-effect-target="specialization" hidden><span>Spezialisierung</span><select>{% for specialization in group_inventory_specializations %}<option value="{{ specialization.pk }}">{{ specialization.name }}</option>{% endfor %}</select></label>
-                        </article>
-                      </template>
-                    </section>
+                    <div data-sl-instance-magic-editor>
+                      {% include "charsheet/partials/item_editor/_item_magic_effect_editor.html" with magic_editor_eyebrow="Instanz" magic_editor_payloads=instance.magic_modifier_payloads_json magic_editor_effect_kinds=group_inventory_effect_kinds magic_editor_attribute_choices=group_inventory_effect_attributes magic_editor_stat_choices=group_inventory_effect_stats magic_editor_movement_choices=group_inventory_effect_movements magic_editor_rule_choices=group_inventory_effect_rules magic_editor_skill_choices=group_inventory_weapon_skills magic_editor_category_choices=group_inventory_skill_categories magic_editor_item_choices=group_inventory_effect_items magic_editor_item_category_choices=group_inventory_item_types magic_editor_specialization_choices=group_inventory_specializations %}
+                    </div>
                     <section class="sl-editor-card" data-item-fields="weapon" hidden>
                       <header><span>Typwerte</span><h4>Waffe</h4></header>
                       <div class="sl-editor-fields">
@@ -271,6 +242,7 @@
                     <label><input name="is_magic" type="checkbox"{% if item.is_magic %} checked{% endif %}> Magisch</label>
                     <label><input name="not_buyable" type="checkbox"{% if item.not_buyable %} checked{% endif %}> Nicht kaufbar</label>
                     <label><input name="not_sellable" type="checkbox"{% if item.not_sellable %} checked{% endif %}> Nicht verkaufbar</label>
+                    <label><input name="remove_catalog_group" type="checkbox" value="1"> Aus Gruppenkatalog l&ouml;sen</label>
                   </div>
                 </section>
                 <section class="sl-editor-card">
@@ -284,6 +256,9 @@
                     </div>
                   </div>
                 </section>
+                <div data-sl-catalog-magic-editor>
+                  {% include "charsheet/partials/item_editor/_item_magic_effect_editor.html" with magic_editor_eyebrow="Basisitem" magic_editor_payloads=item.magic_modifier_payloads_json magic_editor_effect_kinds=group_inventory_effect_kinds magic_editor_attribute_choices=group_inventory_effect_attributes magic_editor_stat_choices=group_inventory_effect_stats magic_editor_movement_choices=group_inventory_effect_movements magic_editor_rule_choices=group_inventory_effect_rules magic_editor_skill_choices=group_inventory_weapon_skills magic_editor_category_choices=group_inventory_skill_categories magic_editor_item_choices=group_inventory_effect_items magic_editor_item_category_choices=group_inventory_item_types magic_editor_specialization_choices=group_inventory_specializations %}
+                </div>
                 {% if not group_row.group.is_archived %}<footer class="sl-editor-actions"><p>Änderungen gelten für das Basisitem im Gruppenkatalog.</p><button class="dashboard_button dashboard_button--primary">Basisitem speichern</button></footer>{% endif %}
               </form>
             </div>
@@ -342,119 +317,9 @@
               <button type="button" class="dashboard_button" data-close-sl-item-create>Abbrechen</button>
               <button class="dashboard_button dashboard_button--primary">Basisitem und Instanz anlegen</button>
             </div>
-            <div class="sl-editor-columns">
-              <section class="sl-editor-card">
-                <header class="sl-editor-card__header-with-field"><div><span>Basisitem</span><h4>Grunddaten</h4></div><label><span>Instanzmenge</span><input name="amount" type="number" min="1" value="1"></label></header>
-                <div class="sl-editor-grid">
-                  <label class="sl-editor-grid__wide"><span>Name</span><input name="name" required maxlength="200"></label>
-                  <label><span>Typ</span><select name="item_type" data-sl-item-type>{% for value,label in group_inventory_item_types %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></label>
-                  <label><span>Standardqualität</span><select name="default_quality">{% for quality in group_inventory_qualities %}<option value="{{ quality.pk }}"{% if quality.pk == "common" %} selected{% endif %}>{{ quality.name }}</option>{% endfor %}</select></label>
-                  <label><span>Preis (KS)</span><input name="price" type="number" min="0" value="0"></label>
-                  <label><span>Gewicht</span><input name="weight" type="number" min="0" step=".01" value="0"></label>
-                  <label><span>Größenklasse</span><select name="size_class">{% for value,label in group_inventory_size_classes %}<option value="{{ value }}"{% if value == "M" %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
-                  <label><span>Bild</span><input name="image" type="file" accept="image/*"></label>
-                  <label class="sl-editor-grid__wide"><span>Beschreibung</span><textarea name="description" rows="4" maxlength="1000"></textarea></label>
-                </div>
-                <div class="sl-editor-checks">
-                  <label data-sl-stackable><input name="stackable" type="checkbox" checked> Stapelbar</label>
-                  <label><input name="is_magic" type="checkbox" data-sl-is-magic><input name="is_magic" type="hidden" value="1" disabled data-sl-forced-magic> Magisch</label>
-                  <label><input name="not_buyable" type="checkbox"> Nicht kaufbar</label>
-                  <label><input name="not_sellable" type="checkbox"> Nicht verkaufbar</label>
-                </div>
-                <div class="sl-rune-picker" data-sl-rune-picker>
-                  <button type="button" class="sl-rune-picker__trigger" data-sl-rune-trigger aria-expanded="false"><span data-sl-rune-label>Keine Runen ausgewählt</span><strong data-sl-rune-count>0</strong></button>
-                  <div class="sl-rune-picker__panel" data-sl-rune-panel hidden>
-                    <input type="search" placeholder="Runen durchsuchen …" aria-label="Runen durchsuchen" data-sl-rune-search>
-                    <div class="sl-rune-picker__list" data-sl-rune-list>{% for rune in group_inventory_runes %}<label data-rune-search="{{ rune.name|lower }} {{ rune.description|default:''|lower }}"><input type="checkbox" name="runes" value="{{ rune.pk }}"> <span><strong>{{ rune.name }}</strong><small>{{ rune.description|default:"Keine Beschreibung vorhanden." }}</small></span></label>{% empty %}<p>Keine Runen verfügbar.</p>{% endfor %}</div>
-                  </div>
-                </div>
-              </section>
-              <div class="sl-editor-details">
-                <section class="sl-editor-card" data-item-fields="weapon" hidden>
-                  <header><span>Typwerte</span><h4>Waffe</h4></header>
-                  <div class="sl-editor-fields">
-                    <div class="sl-editor-row sl-editor-row--identity">
-                      <label><span>Waffentyp</span><select name="weapon_type"><option value="">Nicht festgelegt</option>{% for option in group_inventory_weapon_types %}<option value="{{ option.slug }}">{{ option.name }}</option>{% endfor %}</select></label>
-                      <label><span>Schadensquelle</span><select name="weapon_damage_source">{% for option in group_inventory_damage_sources %}<option value="{{ option.pk }}">{{ option.name }}</option>{% endfor %}</select></label>
-                    </div>
-                    <div class="sl-editor-row sl-editor-row--handling">
-                      <label><span>Waffenwurf</span><select name="weapon_maneuver_attribute">{% for value,label in group_inventory_maneuver_attributes %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></label>
-                      <label><span>Waffengriff</span><select name="weapon_wield_mode" data-sl-wield-mode><option value="1h">Einhändig</option><option value="2h">Zweihändig</option><option value="vh">Ein- und zweihändig</option></select></label>
-                      <label><span>Min-ST</span><input name="weapon_min_st" type="number" min="1" value="1"></label>
-                    </div>
-                    <div class="sl-editor-row sl-editor-row--damage">
-                      <label><span>Würfelanzahl</span><input name="weapon_damage_dice_amount" type="number" min="1" value="1"></label>
-                      <label><span>Würfelseiten</span><input name="weapon_damage_dice_faces" type="number" min="2" value="10"></label>
-                      <label><span>Operator</span><select name="weapon_damage_flat_operator"><option value="">---</option><option value="+">+</option><option value="-">−</option><option value="/">÷</option></select></label>
-                      <label><span>Festwert</span><input name="weapon_damage_flat_bonus" type="number" min="0" value="0"></label>
-                      <label><span>Schadenstyp</span><select name="weapon_damage_type">{% for value,label in group_inventory_damage_types %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></label>
-                    </div>
-                  </div>
-                  <div class="sl-editor-fields" data-sl-two-hand hidden>
-                    <div class="sl-editor-row sl-editor-row--damage">
-                      <label><span>2H Würfel</span><input name="weapon_h2_dice_amount" type="number" min="1" value="1"></label>
-                      <label><span>2H Seiten</span><input name="weapon_h2_dice_faces" type="number" min="2" value="10"></label>
-                      <label><span>2H Operator</span><select name="weapon_h2_flat_operator"><option value="">---</option><option value="+">+</option><option value="-">−</option><option value="/">÷</option></select></label>
-                      <label><span>2H Festwert</span><input name="weapon_h2_flat_bonus" type="number" min="0" value="0"></label>
-                      <label><span>2H Schadenstyp</span><select name="weapon_h2_damage_type">{% for value,label in group_inventory_damage_types %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></label>
-                    </div>
-                  </div>
-                  <div class="sl-rune-picker sl-skill-picker" data-sl-rune-picker>
-                    <button type="button" class="sl-rune-picker__trigger" data-sl-rune-trigger aria-expanded="false"><span data-sl-rune-label>Keine Fertigkeiten ausgewählt</span><strong data-sl-rune-count>0</strong></button>
-                    <div class="sl-rune-picker__panel" data-sl-rune-panel hidden>
-                      <input type="search" placeholder="Fertigkeiten durchsuchen ..." aria-label="Fertigkeiten durchsuchen" data-sl-rune-search>
-                      <div class="sl-rune-picker__list" data-sl-rune-list>{% for skill in group_inventory_weapon_skills %}<label data-rune-search="{{ skill.name|lower }} {{ skill.category.name|default:''|lower }}"><input type="checkbox" name="weapon_skills" value="{{ skill.pk }}"> <span><strong>{{ skill.name }}</strong>{% if skill.category %}<small>{{ skill.category.name }}</small>{% endif %}</span></label>{% empty %}<p>Keine Fertigkeiten verfügbar.</p>{% endfor %}</div>
-                    </div>
-                  </div>
-                </section>
-                <section class="sl-editor-card" data-item-fields="armor" hidden>
-                  <header><span>Typwerte</span><h4>Rüstung</h4></header>
-                  <input type="hidden" name="armor_mode" value="total">
-                  <div class="sl-editor-grid" data-armor-mode="total"><label><span>RS</span><input name="armor_rs_total" type="number" min="1" value="1"></label><label><span>Keine Einzelteile erzeugen</span><input name="armor_suppress_components" type="checkbox" value="1"></label></div>
-                  <input type="hidden" name="armor_coverage_present" value="1">
-                  <div class="sl-editor-grid">
-                    <label><span>Kopf</span><input name="armor_covers_head" type="checkbox" value="1"></label><label><span>Gesicht</span><input name="armor_covers_face" type="checkbox" value="1"></label><label><span>Augen</span><input name="armor_covers_eyes" type="checkbox" value="1"></label><label><span>Hals</span><input name="armor_covers_neck" type="checkbox" value="1"></label>
-                    <label><span>Torso</span><input name="armor_covers_torso" type="checkbox" value="1"></label><label><span>Organe</span><input name="armor_covers_organs" type="checkbox" value="1"></label><label><span>Weichteile</span><input name="armor_covers_soft_tissue" type="checkbox" value="1"></label>
-                    <label><span>Arm links</span><input name="armor_covers_arm_left" type="checkbox" value="1"></label><label><span>Hand links</span><input name="armor_covers_hand_left" type="checkbox" value="1"></label><label><span>Bein links</span><input name="armor_covers_leg_left" type="checkbox" value="1"></label><label><span>Fuß links</span><input name="armor_covers_foot_left" type="checkbox" value="1"></label>
-                    <label><span>Arm rechts</span><input name="armor_covers_arm_right" type="checkbox" value="1"></label><label><span>Hand rechts</span><input name="armor_covers_hand_right" type="checkbox" value="1"></label><label><span>Bein rechts</span><input name="armor_covers_leg_right" type="checkbox" value="1"></label><label><span>Fuß rechts</span><input name="armor_covers_foot_right" type="checkbox" value="1"></label>
-                  </div>
-                  <div class="sl-editor-grid"><label><span>Belastung</span><input name="armor_encumbrance" type="number" min="0" value="0"></label><label><span>Mindeststärke</span><input name="armor_min_st" type="number" min="1" value="1"></label></div>
-                </section>
-                <section class="sl-editor-card" data-item-fields="shield" hidden>
-                  <header><span>Typwerte</span><h4>Schild</h4></header>
-                  <div class="sl-editor-grid"><label><span>Schild-RS</span><input name="shield_rs" type="number" min="0" value="0"></label><label><span>Belastung</span><input name="shield_encumbrance" type="number" min="0" value="0"></label><label><span>Mindeststärke</span><input name="shield_min_st" type="number" min="1" value="1"></label><label><span>PB</span><input name="shield_parade_bonus" type="number" value="0"></label></div>
-                </section>
-                <section class="sl-editor-card" data-sl-magic-fields hidden>
-                  <header><span>Optional</span><h4>Magische Effekte</h4></header>
-                  <label class="sl-editor-field"><span>Investierte CP</span><input name="invested_cp" type="number" min="0" step="1"></label>
-                  <label class="sl-editor-field"><span>CP-Schritte</span><input name="invested_cp_steps" type="text" maxlength="200" placeholder="z. B. 2/4/6/8/10"></label>
-                  <input type="hidden" name="magic_modifier_payloads" value="[]" data-sl-magic-payloads>
-                  <div class="sl-magic-effects" data-sl-magic-effects></div>
-                  <div class="sl-magic-effects__actions"><button type="button" class="dashboard_button dashboard_button--small" data-add-sl-magic-effect>+ Effekt hinzufügen</button></div>
-                  <template data-sl-magic-effect-template>
-                    <article class="sl-magic-effect" data-sl-magic-effect>
-                      <header><strong data-sl-effect-title>Effekt</strong><button type="button" data-remove-sl-magic-effect aria-label="Effekt entfernen">×</button></header>
-                      <div class="sl-editor-row sl-editor-row--effect">
-                        <label><span>Wirkung</span><select data-effect-kind>{% for value,label in group_inventory_effect_kinds %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></label>
-                        <label data-effect-value-row><span>Bonus / Malus</span><input type="number" step="1" value="0" data-effect-value></label>
-                        <label data-effect-scale-source-row><span>Skaliert nach</span><select data-effect-scale-source><option value="">Nicht skaliert</option><option value="item_invested_cp">Investierte CP des Items</option></select></label>
-                        <label data-effect-scale-divisor-row hidden><span>CP pro +1/-1</span><input type="number" min="1" step="1" value="2" data-effect-scale-divisor></label>
-                      </div>
-                      <label class="sl-editor-field"><span>Beschreibung</span><input type="text" maxlength="255" placeholder="Was bewirkt der Effekt?" data-effect-description></label>
-                      <label class="sl-editor-field"><span>Regeltext</span><input type="text" maxlength="255" placeholder="z. B. |Passiv| gegen Gift" data-effect-rules-text></label>
-                      <label class="sl-editor-field sl-editor-field--check"><span>Itemkarte</span><input type="checkbox" value="1" data-effect-toggleable> <em>umschaltbar</em></label>
-                      <label class="sl-editor-field sl-editor-field--check"><span>Itemkarte</span><input type="checkbox" value="1" data-effect-toggle-inverted> <em>invertiert</em></label>
-                      <label class="sl-editor-field" data-effect-target="attribute" hidden><span>Attribut</span><select>{% for value,label in group_inventory_effect_attributes %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></label>
-                      <label class="sl-editor-field" data-effect-target="stat" hidden><span>Wert</span><select>{% for value,label in group_inventory_effect_stats %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></label>
-                      <label class="sl-editor-field" data-effect-target="rule_flag" hidden><span>Regel</span><select>{% for value,label in group_inventory_effect_rules %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></label>
-                      <label class="sl-editor-field" data-effect-target="skill" hidden><span>Fertigkeit</span><select>{% for skill in group_inventory_weapon_skills %}<option value="{{ skill.pk }}">{{ skill.name }}</option>{% endfor %}</select></label>
-                      <label class="sl-editor-field" data-effect-target="category" hidden><span>Fertigkeitskategorie</span><select>{% for category in group_inventory_skill_categories %}<option value="{{ category.pk }}">{{ category.name }}</option>{% endfor %}</select></label>
-                      <label class="sl-editor-field" data-effect-target="item_category" hidden><span>Gegenstandstyp</span><select>{% for value,label in group_inventory_item_types %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></label>
-                      <label class="sl-editor-field" data-effect-target="specialization" hidden><span>Spezialisierung</span><select>{% for specialization in group_inventory_specializations %}<option value="{{ specialization.pk }}">{{ specialization.name }}</option>{% endfor %}</select></label>
-                    </article>
-                  </template>
-                </section>
-              </div>
+            <div class="sl-editor-columns shop_item_form_layout">
+              {% include "charsheet/partials/item_editor/_item_base_form.html" with item_editor_show_amount=True item_editor_type_choices=group_inventory_item_types item_editor_default_type="misc" item_editor_quality_choices=group_inventory_qualities item_editor_default_quality="common" item_editor_size_choices=group_inventory_size_class_options item_editor_default_size="M" item_editor_runes=group_inventory_runes %}
+              {% include "charsheet/partials/item_editor/_item_modifications.html" with item_editor_damage_sources=group_inventory_damage_sources item_editor_damage_type_choices=group_inventory_damage_types item_editor_maneuver_attribute_choices=group_inventory_maneuver_attributes item_editor_effect_kinds=group_inventory_effect_kinds item_editor_attribute_choices=group_inventory_effect_attributes item_editor_stat_choices=group_inventory_effect_stats item_editor_movement_choices=group_inventory_effect_movements item_editor_rule_choices=group_inventory_effect_rules item_editor_skill_choices=group_inventory_weapon_skills item_editor_category_choices=group_inventory_skill_categories item_editor_item_choices=group_inventory_effect_items item_editor_item_category_choices=group_inventory_item_types item_editor_specialization_choices=group_inventory_specializations %}
             </div>
           </form>
         </div>

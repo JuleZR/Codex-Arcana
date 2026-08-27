@@ -132,6 +132,21 @@ from charsheet.view_utils import format_compact_number, format_modifier, format_
 
 LOCAL_WEAPON_DAMAGE_SOURCE_TYPES = {"item", "characteritem", SOURCE_ITEM_RUNE}
 
+SHOP_MODIFIER_MOVEMENT_TARGET_CHOICES = (
+    ("ground", "Laufen: Kampf, Marsch und Sprint"),
+    ("ground_combat", "Laufen Kampf"),
+    ("ground_march", "Laufen Marsch"),
+    ("ground_sprint", "Laufen Sprint"),
+    ("swim", "Schwimmen: alle Werte"),
+    ("swim_combat", "Schwimmen Kampf"),
+    ("swim_march", "Schwimmen Marsch"),
+    ("swim_sprint", "Schwimmen Sprint"),
+    ("fly", "Fliegen: Kampf, Marsch und Sprint"),
+    ("fly_combat", "Fliegen Kampf"),
+    ("fly_march", "Fliegen Marsch"),
+    ("fly_sprint", "Fliegen Sprint"),
+)
+
 
 def _vampire_learning_payload(character, vampire_rules):
     owned_powers = list(
@@ -1644,6 +1659,11 @@ def _serialize_item_semantic_effect_payload(
         payload["target_kind"] = "stat"
         payload["target_stat"] = target_key
         payload["target_display"] = dict(STAT_SLUG_CHOICES).get(target_key, target_key)
+    elif target_domain == "movement":
+        payload["target_kind"] = "movement"
+        payload["target_movement"] = target_key
+        payload["target_display"] = _movement_effect_target_display(target_key)
+        payload["value_display"] = _movement_effect_value_display(raw_value, str(effect.operator or ""), target_key)
     elif target_domain == "combat":
         if target_key == MELEE_MANEUVERS:
             payload["target_kind"] = "weapon_maneuver"
@@ -1674,6 +1694,10 @@ def _serialize_item_semantic_effect_payload(
         payload["target_kind"] = "item_category"
         payload["target_item_category"] = target_key
         payload["target_display"] = dict(Item.ItemType.choices).get(target_key, target_key)
+    elif target_domain == "item":
+        payload["target_kind"] = "item"
+        payload["target_item"] = str(metadata.get("target_item_id") or target_key)
+        payload["target_display"] = target_key
     elif target_domain == "specialization":
         payload["target_kind"] = "specialization"
         payload["target_specialization"] = str(metadata.get("target_specialization_id") or target_key)
@@ -7107,6 +7131,7 @@ def build_item_semantic_effect_partial_context(
                 "inventory_total_weight_display": inventory_total_weight_display,
                 "carry_load": {
                     "enabled": bool(character.carry_load_enabled),
+                    "update_url": reverse("update_carry_load_state", args=[character.pk]),
                     "weight": str(carry_state["weight"]),
                     "weight_display": inventory_total_weight_display,
                     "penalty": carry_penalty,
@@ -7278,6 +7303,7 @@ def build_inventory_partial_context(character: Character) -> dict[str, object]:
         "inventory_total_weight_display": inventory_total_weight_display,
         "carry_load": {
             "enabled": bool(character.carry_load_enabled),
+            "update_url": reverse("update_carry_load_state", args=[character.pk]),
             "weight": str(carry_state["weight"]),
             "weight_display": inventory_total_weight_display,
             "penalty": int(carry_state["penalty"]),
@@ -7978,6 +8004,7 @@ def build_character_sheet_context(
         "inventory_total_weight_display": inventory_total_weight_display,
         "carry_load": {
             "enabled": bool(character.carry_load_enabled),
+            "update_url": reverse("update_carry_load_state", args=[character.pk]),
             "weight": str(carry_state["weight"]),
             "weight_display": inventory_total_weight_display,
             "penalty": carry_penalty,
@@ -8159,32 +8186,6 @@ def build_character_sheet_context(
         "shop_size_class_options": _size_class_options(),
         "shop_damage_source_choices": DamageSource.objects.order_by("name"),
         "shop_weapon_maneuver_attribute_choices": WEAPON_MANEUVER_ATTRIBUTE_CHOICES,
-        "shop_modifier_target_kind_choices": [
-            (TEXT_TARGET_KIND, "Text"),
-            (RULE_FLAG_TARGET_KIND, "Regel aktivieren"),
-            ("attribute", "Attribut"),
-            ("stat", "Wert auf dem Bogen"),
-            ("skill", "Einzelne Fertigkeit"),
-            ("category", "Fertigkeitskategorie"),
-            ("weapon_maneuver", "Bonus/Malus auf Manöver"),
-            ("weapon_damage", "Bonus/Malus auf Schaden"),
-            ("weapon_damage_dice", "+ X W10"),
-            (WEAPON_MANEUVER_DAMAGE, "Bonus/Malus auf Manöver und Schaden"),
-            (WEAPON_MASTERY_BONUS, WEAPON_MASTERY_EFFECT_DESCRIPTION),
-            ("item_category", "Alle Gegenstände eines Typs"),
-            ("specialization", "Spezialisierung"),
-        ],
-        "item_modifier_target_kind_choices": [
-            (TEXT_TARGET_KIND, "Text"),
-            (RULE_FLAG_TARGET_KIND, "Regel aktivieren"),
-            ("attribute", "Attribut"),
-            ("stat", "Wert auf dem Bogen"),
-            ("skill", "Einzelne Fertigkeit"),
-            ("category", "Fertigkeitskategorie"),
-            ("weapon_maneuver", "Bonus/Malus auf Manöver mit dieser Waffe"),
-            ("weapon_damage", "Bonus/Malus auf Schaden mit dieser Waffe"),
-            (WEAPON_MANEUVER_DAMAGE, "Bonus/Malus auf Manöver und Schaden mit dieser Waffe"),
-        ],
         "shop_weapon_type_choices": [
             ("", "Nicht festgelegt"),
             *[(weapon_type.slug, weapon_type.name) for weapon_type in WeaponType.objects.order_by("sort_order", "name")],
@@ -8194,8 +8195,10 @@ def build_character_sheet_context(
             (RULE_FLAG_TARGET_KIND, "Regel aktivieren"),
             ("attribute", "Attribut"),
             ("stat", "Wert auf dem Bogen"),
+            ("movement", "Bewegung"),
             ("skill", "Einzelne Fertigkeit"),
             ("category", "Fertigkeitskategorie"),
+            ("item", "Konkreter Gegenstand"),
             ("item_category", "Alle Gegenst\u00e4nde eines Typs"),
             ("specialization", "Spezialisierung"),
         ],
@@ -8204,40 +8207,25 @@ def build_character_sheet_context(
             (RULE_FLAG_TARGET_KIND, "Regel aktivieren"),
             ("attribute", "Attribut"),
             ("stat", "Wert auf dem Bogen"),
-            ("skill", "Einzelne Fertigkeit"),
-            ("category", "Fertigkeitskategorie"),
-            ("weapon_maneuver", "Bonus/Malus auf Manöver mit dieser Waffe"),
-            ("weapon_damage", "Bonus/Malus auf Schaden mit dieser Waffe"),
-            (WEAPON_MANEUVER_DAMAGE, "Bonus/Malus auf Manöver und Schaden mit dieser Waffe"),
-        ],
-        "shop_modifier_target_kind_choices": [
-            (TEXT_TARGET_KIND, "Text"),
-            (RULE_FLAG_TARGET_KIND, "Regel aktivieren"),
-            ("attribute", "Attribut"),
-            ("stat", "Wert auf dem Bogen"),
-            ("skill", "Einzelne Fertigkeit"),
-            ("category", "Fertigkeitskategorie"),
-            ("item_category", "Alle Gegenstände eines Typs"),
-            ("specialization", "Spezialisierung"),
-        ],
-        "item_modifier_target_kind_choices": [
-            (TEXT_TARGET_KIND, "Text"),
-            (RULE_FLAG_TARGET_KIND, "Regel aktivieren"),
-            ("attribute", "Attribut"),
-            ("stat", "Wert auf dem Bogen"),
+            ("movement", "Bewegung"),
             ("skill", "Einzelne Fertigkeit"),
             ("category", "Fertigkeitskategorie"),
             ("weapon_maneuver", "Bonus/Malus auf Man\u00f6ver"),
             ("weapon_damage", "Bonus/Malus auf Schaden"),
             ("weapon_damage_dice", "+ X W10"),
-            (WEAPON_MANEUVER_DAMAGE, "Bonus/Malus auf Manöver und Schaden"),
+            (WEAPON_MANEUVER_DAMAGE, "Bonus/Malus auf Man\u00f6ver und Schaden"),
             (WEAPON_MASTERY_BONUS, WEAPON_MASTERY_EFFECT_DESCRIPTION),
+            ("item", "Konkreter Gegenstand"),
+            ("item_category", "Alle Gegenst\u00e4nde eines Typs"),
+            ("specialization", "Spezialisierung"),
         ],
         "shop_modifier_attribute_choices": ATTRIBUTE_ORDER,
         "shop_modifier_stat_choices": STAT_SLUG_CHOICES,
+        "shop_modifier_movement_choices": SHOP_MODIFIER_MOVEMENT_TARGET_CHOICES,
         "shop_modifier_rule_flag_choices": RULE_FLAG_CHOICES,
         "shop_modifier_skill_choices": Skill.objects.select_related("category").order_by("name"),
         "shop_modifier_skill_category_choices": SkillCategory.objects.order_by("name"),
+        "shop_modifier_item_choices": Item.objects.order_by("name"),
         "shop_modifier_item_category_choices": [
             (value, label) for value, label in Item.ItemType.choices
         ],

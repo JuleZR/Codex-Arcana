@@ -64,6 +64,7 @@ TARGET_KIND_CATEGORY = "category"
 TARGET_KIND_ITEM = "item"
 TARGET_KIND_ITEM_CATEGORY = "item_category"
 TARGET_KIND_SPECIALIZATION = "specialization"
+TARGET_KIND_MOVEMENT = "movement"
 CONDITIONAL_CORE_STAT_TARGETS = {
     INITIATIVE,
     DEFENSE_VW,
@@ -280,6 +281,11 @@ def _build_magic_modifier_payload(target_kind: str, raw_value, row_data) -> dict
         if not target_slug:
             return None
         payload["target_slug"] = target_slug
+    elif target_kind == TARGET_KIND_MOVEMENT:
+        target_slug = str(row_data.get("target_movement") or "").strip()
+        if not target_slug:
+            return None
+        payload["target_slug"] = target_slug
     elif target_kind == "weapon_maneuver":
         payload["target_kind"] = TARGET_KIND_STAT
         payload["target_slug"] = MELEE_MANEUVERS
@@ -306,6 +312,11 @@ def _build_magic_modifier_payload(target_kind: str, raw_value, row_data) -> dict
             return None
         payload["target_skill_category"] = SkillCategory.objects.get(pk=category_id)
         # target_slug must stay empty when target_skill_category FK is set (only one selector allowed)
+    elif target_kind == TARGET_KIND_ITEM:
+        item_id = int(row_data.get("target_item") or 0)
+        if item_id <= 0:
+            return None
+        payload["target_item"] = Item.objects.get(pk=item_id)
     elif target_kind == TARGET_KIND_ITEM_CATEGORY:
         target_slug = str(row_data.get("target_item_category") or "").strip()
         if not target_slug:
@@ -329,10 +340,12 @@ def _read_magic_modifier_payload(post_data) -> dict[str, object] | None:
         post_data.get("magic_modifier_value", 0),
         {
             "target_stat": post_data.get("magic_modifier_target_stat"),
+            "target_movement": post_data.get("magic_modifier_target_movement"),
             "target_rule_flag": post_data.get("magic_modifier_target_rule_flag"),
             "target_attribute": post_data.get("magic_modifier_target_attribute"),
             "target_skill": post_data.get("magic_modifier_target_skill"),
             "target_skill_category": post_data.get("magic_modifier_target_skill_category"),
+            "target_item": post_data.get("magic_modifier_target_item"),
             "target_item_category": post_data.get("magic_modifier_target_item_category"),
             "target_specialization": post_data.get("magic_modifier_target_specialization"),
             "effect_description": post_data.get("magic_modifier_effect_description"),
@@ -534,6 +547,8 @@ def _magic_payload_to_semantic_effect_kwargs(payload: dict[str, object]) -> dict
             target_domain = TargetDomain.COMBAT
         else:
             target_domain = TargetDomain.DERIVED_STAT
+    elif target_kind == TARGET_KIND_MOVEMENT:
+        target_domain = TargetDomain.MOVEMENT
     elif target_kind == TARGET_KIND_SKILL:
         target_domain = TargetDomain.SKILL
         target_skill = payload.get("target_skill")

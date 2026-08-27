@@ -144,6 +144,10 @@ export function initItemForm() {
     const valueInput = row.querySelector("[data-magic-value-input]");
     const valueRow = row.querySelector("[data-magic-value-row]") || valueInput?.closest(".shop_item_form_row");
     const descriptionInput = row.querySelector("[data-magic-effect-description]");
+    const scaleSource = row.querySelector("[data-magic-scale-source]");
+    const scaleSourceRow = row.querySelector("[data-magic-scale-source-row]");
+    const scaleDivisor = row.querySelector("[data-magic-scale-divisor]");
+    const scaleDivisorRow = row.querySelector("[data-magic-scale-divisor-row]");
     const selectedKind = String(targetKindSelect?.value || "");
     const isTextOnly = selectedKind === "text";
     const isRuleFlag = selectedKind === "rule_flag";
@@ -179,6 +183,22 @@ export function initItemForm() {
       if (!currentValue || currentValue === WEAPON_MASTERY_BONUS_DESCRIPTION) {
         descriptionInput.value = WEAPON_MASTERY_BONUS_DESCRIPTION;
       }
+    }
+    const canScale = !isTextOnly && !isRuleFlag;
+    if (scaleSourceRow instanceof HTMLElement) {
+      scaleSourceRow.hidden = !canScale;
+    }
+    if (scaleSource instanceof HTMLSelectElement) {
+      scaleSource.disabled = !canScale;
+      if (!canScale) {
+        scaleSource.value = "";
+      }
+    }
+    if (scaleDivisorRow instanceof HTMLElement) {
+      scaleDivisorRow.hidden = !canScale || !(scaleSource instanceof HTMLSelectElement) || !scaleSource.value;
+    }
+    if (scaleDivisor instanceof HTMLInputElement) {
+      scaleDivisor.disabled = !canScale || !(scaleSource instanceof HTMLSelectElement) || !scaleSource.value;
     }
   };
 
@@ -227,8 +247,15 @@ export function initItemForm() {
       const ruleFlagSelect = row.querySelector("[data-magic-target-select='rule_flag']");
       const skillSelect = row.querySelector("[data-magic-target-select='skill']");
       const categorySelect = row.querySelector("[data-magic-target-select='category']");
+      const movementSelect = row.querySelector("[data-magic-target-select='movement']");
+      const itemSelect = row.querySelector("[data-magic-target-select='item']");
       const itemCategorySelect = row.querySelector("[data-magic-target-select='item_category']");
       const specializationSelect = row.querySelector("[data-magic-target-select='specialization']");
+      const scaleSource = String(row.querySelector("[data-magic-scale-source]")?.value || "").trim();
+      if (!isTextOnly && !isRuleFlag && scaleSource) {
+        payload.scale_source = scaleSource;
+        payload.scale_divisor = Number.parseInt(row.querySelector("[data-magic-scale-divisor]")?.value || "0", 10) || 0;
+      }
 
       if (targetKind === "attribute") {
         payload.target_attribute = String(attributeSelect?.value || "").trim();
@@ -240,6 +267,10 @@ export function initItemForm() {
         payload.target_skill = String(skillSelect?.value || "").trim();
       } else if (targetKind === "category") {
         payload.target_skill_category = String(categorySelect?.value || "").trim();
+      } else if (targetKind === "movement") {
+        payload.target_movement = String(movementSelect?.value || "").trim();
+      } else if (targetKind === "item") {
+        payload.target_item = String(itemSelect?.value || "").trim();
       } else if (targetKind === "item_category") {
         payload.target_item_category = String(itemCategorySelect?.value || "").trim();
       } else if (targetKind === "specialization") {
@@ -373,6 +404,10 @@ export function initItemForm() {
     }
 
     row.querySelector("[data-magic-target-kind]")?.addEventListener("change", () => {
+      syncMagicEffectRow(row);
+      serializeMagicEffects();
+    });
+    row.querySelector("[data-magic-scale-source]")?.addEventListener("change", () => {
       syncMagicEffectRow(row);
       serializeMagicEffects();
     });

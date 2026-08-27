@@ -67,6 +67,7 @@ from charsheet.models import (
     GameGroupTableColumn,
     GameGroupTableRow,
     Item,
+    ItemSemanticEffect,
     ItemOwnershipEvent,
     ItemTransfer,
     Rune,
@@ -97,6 +98,7 @@ from charsheet.shop import (
 from charsheet.sheet_context import (
     _load_character_item_modifier_payloads,
     _merge_magic_effect_payloads,
+    _serialize_item_semantic_effect_payload,
 )
 from charsheet.views import (
     _build_sheet_context_for_request,
@@ -105,6 +107,22 @@ from charsheet.views import (
     _temporary_attribute_response,
 )
 from charsheet.view_utils import format_modifier
+
+
+GROUP_INVENTORY_MOVEMENT_TARGET_CHOICES = (
+    ("ground", "Laufen: Kampf, Marsch und Sprint"),
+    ("ground_combat", "Laufen Kampf"),
+    ("ground_march", "Laufen Marsch"),
+    ("ground_sprint", "Laufen Sprint"),
+    ("swim", "Schwimmen: alle Werte"),
+    ("swim_combat", "Schwimmen Kampf"),
+    ("swim_march", "Schwimmen Marsch"),
+    ("swim_sprint", "Schwimmen Sprint"),
+    ("fly", "Fliegen: Kampf, Marsch und Sprint"),
+    ("fly_combat", "Fliegen Kampf"),
+    ("fly_march", "Fliegen Marsch"),
+    ("fly_sprint", "Fliegen Sprint"),
+)
 
 
 def _request_wants_json(request) -> bool:
@@ -118,10 +136,6 @@ def _request_wants_json(request) -> bool:
 def _group_action(view):
     """Convert domain errors into user-facing messages without weakening services."""
     def wrapped(request, *args, **kwargs):
-        has_armor_stats_payload = any(
-            bool(request.POST.get(f"armor_covers_{zone}"))
-            for zone in ArmorStats.ZONE_FIELDS
-        )
         try:
             return view(request, *args, **kwargs)
         except (GroupError, TransferError) as exc:
@@ -865,11 +879,29 @@ def game_master_screen(request, group_id: int):
             ),
         ]
     )
+    catalog_items = list(Item.objects.filter(catalog_group=group).order_by("name"))
+    catalog_effects = (
+        ItemSemanticEffect.objects.filter(item__in=catalog_items)
+        .prefetch_related("condition_races", "condition_schools")
+        .order_by("item_id", "sort_order", "id")
+    )
+    catalog_payloads_by_item: dict[int, list[dict[str, object]]] = {
+        item.id: []
+        for item in catalog_items
+    }
+    for effect in catalog_effects:
+        catalog_payloads_by_item.setdefault(effect.item_id, []).append(
+            _serialize_item_semantic_effect_payload(effect, invested_cp=effect.item.invested_cp)
+        )
+    for catalog_item in catalog_items:
+        catalog_item.magic_modifier_payloads_json = json.dumps(
+            catalog_payloads_by_item.get(catalog_item.id, [])
+        )
     inventory_row = {
         "group": group,
         "memberships": list(memberships),
         "inventory_items": inventory_items,
-        "catalog_items": list(Item.objects.filter(catalog_group=group).order_by("name")),
+        "catalog_items": catalog_items,
         "pending_transfers": pending_transfers,
         "screen_state_signature": screen_state_signature,
     }
@@ -962,6 +994,13 @@ def game_master_screen(request, group_id: int):
             "group_inventory_qualities": Quality.objects.all(),
             "group_inventory_item_types": Item.ItemType.choices,
             "group_inventory_size_classes": GK_CHOICES,
+            "group_inventory_size_class_options": [
+                {
+                    "value": value,
+                    "display_label": label,
+                }
+                for value, label in GK_CHOICES
+            ],
             "group_inventory_damage_types": DAMAGE_TYPE_CHOICES,
             "group_inventory_maneuver_attributes": WEAPON_MANEUVER_ATTRIBUTE_CHOICES,
             "group_inventory_damage_sources": DamageSource.objects.order_by("name"),
@@ -980,12 +1019,18 @@ def game_master_screen(request, group_id: int):
                 ("weapon_damage_dice", "Zusätzliche Schadenswürfel"),
                 (WEAPON_MANEUVER_DAMAGE, "Bonus/Malus auf Manöver und Schaden"),
                 (WEAPON_MASTERY_BONUS, WEAPON_MASTERY_EFFECT_DESCRIPTION),
+                ("movement", "Bewegung"),
+                ("item", "Konkreter Gegenstand"),
                 ("item_category", "Alle Gegenstände eines Typs"),
                 ("specialization", "Spezialisierung"),
             ],
             "group_inventory_effect_attributes": ATTRIBUTE_CODE_CHOICES,
             "group_inventory_effect_stats": STAT_SLUG_CHOICES,
+            "group_inventory_effect_movements": GROUP_INVENTORY_MOVEMENT_TARGET_CHOICES,
             "group_inventory_effect_rules": RULE_FLAG_CHOICES,
+            "group_inventory_effect_items": Item.objects.filter(
+                Q(catalog_group__isnull=True) | Q(catalog_group=group)
+            ).order_by("name"),
             "group_inventory_skill_categories": SkillCategory.objects.order_by("name"),
             "group_inventory_specializations": Specialization.objects.order_by("name"),
         },
@@ -2667,6 +2712,10 @@ def game_master_character_sheet(request, group_id: int, character_id: int):
     character = get_object_or_404(Character, pk=character_id)
     require_sl_character_access(request.user, group, character)
     context = _build_sheet_context_for_request(request, character, read_only=True)
+    context["carry_load"]["update_url"] = reverse(
+        "update_game_master_carry_load_state",
+        args=[group.pk, character.pk],
+    )
     context["temporary_attribute_update_url"] = reverse(
         "update_game_master_temporary_attribute",
         args=[group.pk, character.pk],
@@ -2675,6 +2724,22 @@ def game_master_character_sheet(request, group_id: int, character_id: int):
         "game_master_character_diary", args=[group.pk, character.pk]
     )
     return render(request, "charsheet/charsheet.html", context)
+
+
+@login_required
+@require_POST
+def update_game_master_carry_load_state(request, group_id: int, character_id: int):
+    """Persist carried-weight load state from an authorized SL sheet view."""
+    group = get_object_or_404(GameGroup, pk=group_id)
+    character = get_object_or_404(Character, pk=character_id)
+    require_sl_character_access(request.user, group, character)
+    try:
+        payload = json.loads(request.body or b"{}")
+    except (TypeError, ValueError, json.JSONDecodeError):
+        payload = {}
+    character.carry_load_enabled = bool(payload.get("enabled", False))
+    character.save(update_fields=["carry_load_enabled"])
+    return JsonResponse({"ok": True, "enabled": character.carry_load_enabled})
 
 
 @login_required
@@ -2787,6 +2852,7 @@ def create_group_catalog_item(request, group_id: int):
             magic_effects = json.loads(request.POST.get("magic_modifier_payloads") or "[]")
         except json.JSONDecodeError as exc:
             raise GroupError("invalid_item", "Die magischen Effekte sind ungültig.") from exc
+        has_armor_stats_payload = request.POST.get("armor_coverage_present") or request.POST.get("armor_rs_total")
         if is_magic and (not isinstance(magic_effects, list) or (not magic_effects and not has_armor_stats_payload)):
             raise GroupError(
                 "missing_magic_effect",
@@ -2860,6 +2926,15 @@ def edit_group_catalog_item(request, group_id: int, catalog_item_id: int):
         item.save()
         if request.POST.get("rune_ids_present"):
             item.runes.set(Rune.objects.filter(pk__in=request.POST.getlist("rune_ids")))
+        if request.POST.get("remove_catalog_group"):
+            if Item.objects.filter(catalog_group__isnull=True, name=item.name).exclude(pk=item.pk).exists():
+                raise GroupError(
+                    "duplicate_global_item_name",
+                    "Die Bibliothekszuordnung kann nicht entfernt werden, weil es bereits ein globales Item mit diesem Namen gibt.",
+                )
+            item.catalog_group = None
+            item.full_clean()
+            item.save(update_fields=["catalog_group"])
         detail = (
             getattr(item, "weaponstats", None)
             or getattr(item, "armorstats", None)
@@ -2898,6 +2973,13 @@ def edit_group_catalog_item(request, group_id: int, catalog_item_id: int):
             magic_stats.effect_summary = str(request.POST.get("magic_effect_summary") or "").strip()
             magic_stats.full_clean()
             magic_stats.save(update_fields=["effect_summary"])
+        if "magic_modifier_payloads" in request.POST:
+            magic_modifier_payloads = _read_magic_modifier_payloads(request.POST) if item.is_magic_effective else []
+            _save_magic_modifiers(
+                source_model=Item,
+                source_id=item.id,
+                magic_modifier_payloads=magic_modifier_payloads,
+            )
     messages.success(request, "Basisitem-Stammdaten gespeichert.")
     return redirect(f"{reverse('game_master_screen', args=[group_id])}#sl-inventar")
 

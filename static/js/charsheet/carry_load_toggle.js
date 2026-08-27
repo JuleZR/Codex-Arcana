@@ -88,8 +88,12 @@ function applyValueAndTooltip(element, enabled, carryPenalty) {
   element.dataset.tooltip = enabled ? tooltipOn : tooltipOff;
 }
 
+function isCarryLoadToggle(element) {
+  return element instanceof HTMLElement && element.matches("[data-carry-load-toggle]");
+}
+
 function applyToggleButton(button, enabled) {
-  if (!(button instanceof HTMLButtonElement)) {
+  if (!isCarryLoadToggle(button)) {
     return;
   }
   button.setAttribute("aria-pressed", enabled ? "true" : "false");
@@ -97,7 +101,7 @@ function applyToggleButton(button, enabled) {
 }
 
 function applyPenaltyBadge(button, enabled, carryPenalty) {
-  if (!(button instanceof HTMLButtonElement)) {
+  if (!isCarryLoadToggle(button)) {
     return;
   }
   const badge = button.querySelector("[data-carry-load-penalty]");
@@ -121,7 +125,7 @@ function applyPenaltyBadge(button, enabled, carryPenalty) {
 }
 
 function applyCarrySeverity(button, enabled, carryPenalty) {
-  if (!(button instanceof HTMLButtonElement)) {
+  if (!isCarryLoadToggle(button)) {
     return;
   }
   button.classList.remove(
@@ -180,7 +184,7 @@ export function initCarryLoadToggle() {
         return;
       }
       const button = target.closest("[data-carry-load-toggle]");
-      if (!(button instanceof HTMLButtonElement)) {
+      if (!isCarryLoadToggle(button)) {
         return;
       }
       event.preventDefault();

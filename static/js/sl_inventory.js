@@ -106,6 +106,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const magicInput = baseItemForm.querySelector("[data-sl-is-magic]");
     const forcedMagicInput = baseItemForm.querySelector("[data-sl-forced-magic]");
     const magicFields = baseItemForm.querySelector("[data-sl-magic-fields]");
+    const detailPlaceholder = baseItemForm.querySelector("[data-sl-detail-placeholder]");
     const stackableRow = baseItemForm.querySelector("[data-sl-stackable]");
     const stackableInput = stackableRow?.querySelector("input");
     const wieldMode = baseItemForm.querySelector("[data-sl-wield-mode]");
@@ -214,6 +215,8 @@ document.addEventListener("DOMContentLoaded", () => {
         if (targetKind === "rule_flag") payload.target_rule_flag = target?.value || "";
         if (targetKind === "skill") payload.target_skill = target?.value || "";
         if (targetKind === "category") payload.target_skill_category = target?.value || "";
+        if (targetKind === "movement") payload.target_movement = target?.value || "";
+        if (targetKind === "item") payload.target_item = target?.value || "";
         if (targetKind === "item_category") payload.target_item_category = target?.value || "";
         if (targetKind === "specialization") payload.target_specialization = target?.value || "";
         return payload;
@@ -304,6 +307,7 @@ document.addEventListener("DOMContentLoaded", () => {
     };
     const syncBaseForm = () => {
       const type = typeSelect?.value || "misc";
+      const detailType = detailTypeFor(type);
       const isMagicType = MAGIC_ITEM_TYPES.has(type);
       const isForcedMagicType = FORCED_MAGIC_ITEM_TYPES.has(type);
       if (magicInput instanceof HTMLInputElement) {
@@ -315,6 +319,10 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       const isMagic = Boolean(magicInput?.checked) || isForcedMagicType;
       syncTypeSections(baseItemForm, type);
+      if (detailPlaceholder) {
+        const hasTypeFields = Boolean(baseItemForm.querySelector(`[data-item-fields='${detailType}']`));
+        detailPlaceholder.hidden = hasTypeFields || isMagic;
+      }
       if (magicFields) {
         magicFields.hidden = !isMagic;
         magicFields.querySelectorAll("input, select, textarea").forEach((field) => {
@@ -351,6 +359,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   const setupInstanceMagicEditor = (editor) => {
+    if (editor.closest("[data-sl-base-item-form]")) return;
     const list = editor.querySelector("[data-sl-magic-effects]");
     const template = editor.querySelector("[data-sl-magic-effect-template]");
     const payloadInput = editor.querySelector("[data-sl-magic-payloads]");
@@ -393,6 +402,8 @@ document.addEventListener("DOMContentLoaded", () => {
         if (kind === "rule_flag") payload.target_rule_flag = target;
         if (kind === "skill") payload.target_skill = target;
         if (kind === "category") payload.target_skill_category = target;
+        if (kind === "movement") payload.target_movement = target;
+        if (kind === "item") payload.target_item = target;
         if (kind === "item_category") payload.target_item_category = target;
         if (kind === "specialization") payload.target_specialization = target;
         return payload;
@@ -468,6 +479,8 @@ document.addEventListener("DOMContentLoaded", () => {
         rule_flag: payload.target_rule_flag,
         skill: payload.target_skill,
         category: payload.target_skill_category,
+        movement: payload.target_movement,
+        item: payload.target_item,
         item_category: payload.target_item_category,
         specialization: payload.target_specialization,
       };
@@ -501,7 +514,7 @@ document.addEventListener("DOMContentLoaded", () => {
     editor.closest("form")?.addEventListener("submit", serialize);
   };
 
-  document.querySelectorAll("[data-sl-instance-magic-editor]").forEach(setupInstanceMagicEditor);
+  document.querySelectorAll("[data-sl-magic-effect-editor]").forEach(setupInstanceMagicEditor);
 
   document.querySelectorAll("[data-sl-rune-picker]").forEach((picker) => {
     const trigger = picker.querySelector("[data-sl-rune-trigger]");

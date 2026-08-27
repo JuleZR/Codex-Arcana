@@ -3076,6 +3076,16 @@
   min-height: 0;
 }
 
+#shopItemWindow,
+#runeRetrofitWindow {
+  width: min(1180px, calc(100vw - 28px));
+}
+
+#shopItemWindow .payday-window__body,
+#runeRetrofitWindow .payday-window__body {
+  height: min(820px, calc(100vh - 42px));
+}
+
 #runeRetrofitWindow .shop_item_form_layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.18fr);
@@ -3092,12 +3102,15 @@
   flex-direction: column;
   height: 100%;
   min-height: 0;
-  overflow: visible;
+  overflow: hidden;
 }
 
 #runeRetrofitWindow .shop_item_form_panel_body {
   flex: 1 1 auto;
   min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
 }
 
 #runeRetrofitWindow .rune_window_magic_effects_shell {
@@ -3115,6 +3128,9 @@
 #runeRetrofitWindow .rune_window_magic_effects_scroll {
   flex: 1 1 auto;
   min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
 }
 
 #runeRetrofitWindow .shop_magic_effect_actions {
@@ -3125,6 +3141,13 @@
   position: absolute;
   right: 10px;
   bottom: 10px;
+  width: 70px;
+  min-width: 70px;
+  height: 70px;
+  min-height: 70px;
+  padding: 0;
+  border: 0;
+  border-radius: 1.6rem 2.1rem 1.9rem 2.1rem;
   margin: 0;
   transform: translate(0, 0);
   z-index: 28;
@@ -3132,14 +3155,16 @@
 
 #shopItemWindow .rune_window_magic_effects_shell {
   position: relative;
-  overflow: visible;
+  overflow: hidden;
 }
 
 #shopItemWindow .shop_item_form_panel_body {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
 }
 
 #shopItemWindow #shopItemMagicFields {
@@ -3147,6 +3172,14 @@
   flex: 1 1 auto;
   flex-direction: column;
   min-height: 0;
+}
+
+#shopItemWindow .shop_magic_effect_list,
+#runeRetrofitWindow .shop_magic_effect_list {
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
 }
 
 #shopItemWindow .shop_magic_effect_actions {
@@ -3157,6 +3190,13 @@
   position: absolute;
   right: 10px;
   bottom: 10px;
+  width: 70px;
+  min-width: 70px;
+  height: 70px;
+  min-height: 70px;
+  padding: 0;
+  border: 0;
+  border-radius: 1.6rem 2.1rem 1.9rem 2.1rem;
   margin: 0;
   transform: translate(0, 0);
   z-index: 28;

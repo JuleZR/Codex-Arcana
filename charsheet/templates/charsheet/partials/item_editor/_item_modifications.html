@@ -1,0 +1,144 @@
+<section class="shop_item_form_details shop_item_form_panel shop_panel rune_window_magic_effects_shell sl-editor-details">
+  <div class="shop_item_form_panel_header shop_panel_header">
+    <h2>Details</h2>
+  </div>
+  <div class="shop_item_form_panel_body">
+    <div class="shop_item_form_placeholder sl-editor-card" id="shopItemDetailPlaceholder" data-sl-detail-placeholder>
+      W&auml;hle links eine passende Kategorie, um die zus&auml;tzlichen Detailfelder anzuzeigen.
+    </div>
+    <div class="shop_item_form_conditional sl-editor-card" id="shopItemArmorFields" data-item-fields="armor" hidden>
+      <input type="hidden" name="armor_mode" value="total">
+      <div id="shopArmorTotalFields" data-armor-mode="total">
+        <label class="shop_item_form_row"><span>R&uuml;stungsschutz (RS)</span><input type="number" name="armor_rs_total" min="1" step="1" value="1"></label>
+      </div>
+      <div id="shopArmorZoneFields" hidden></div>
+      <input type="hidden" name="armor_coverage_present" value="1">
+      <label class="shop_item_form_row"><span>Keine Einzelteile erzeugen</span><input type="checkbox" name="armor_suppress_components" value="1"></label>
+      <div class="shop_item_form_fieldset">
+        <div class="shop_item_form_fieldset_title">Gesch&uuml;tzte Trefferzonen</div>
+        <div class="shop_item_form_grid">
+          <label class="shop_item_form_row"><span>Kopf</span><input type="checkbox" name="armor_covers_head" value="1"></label>
+          <label class="shop_item_form_row"><span>Gesicht</span><input type="checkbox" name="armor_covers_face" value="1"></label>
+          <label class="shop_item_form_row"><span>Augen</span><input type="checkbox" name="armor_covers_eyes" value="1"></label>
+          <label class="shop_item_form_row"><span>Hals</span><input type="checkbox" name="armor_covers_neck" value="1"></label>
+          <label class="shop_item_form_row"><span>Torso</span><input type="checkbox" name="armor_covers_torso" value="1"></label>
+          <label class="shop_item_form_row"><span>Organe</span><input type="checkbox" name="armor_covers_organs" value="1"></label>
+          <label class="shop_item_form_row"><span>Weichteile</span><input type="checkbox" name="armor_covers_soft_tissue" value="1"></label>
+          <label class="shop_item_form_row"><span>Arm links</span><input type="checkbox" name="armor_covers_arm_left" value="1"></label>
+          <label class="shop_item_form_row"><span>Hand links</span><input type="checkbox" name="armor_covers_hand_left" value="1"></label>
+          <label class="shop_item_form_row"><span>Bein links</span><input type="checkbox" name="armor_covers_leg_left" value="1"></label>
+          <label class="shop_item_form_row"><span>Fu&szlig; links</span><input type="checkbox" name="armor_covers_foot_left" value="1"></label>
+          <label class="shop_item_form_row"><span>Arm rechts</span><input type="checkbox" name="armor_covers_arm_right" value="1"></label>
+          <label class="shop_item_form_row"><span>Hand rechts</span><input type="checkbox" name="armor_covers_hand_right" value="1"></label>
+          <label class="shop_item_form_row"><span>Bein rechts</span><input type="checkbox" name="armor_covers_leg_right" value="1"></label>
+          <label class="shop_item_form_row"><span>Fu&szlig; rechts</span><input type="checkbox" name="armor_covers_foot_right" value="1"></label>
+        </div>
+      </div>
+      <div class="shop_item_form_grid">
+        <label class="shop_item_form_row"><span>Belastung</span><input type="number" name="armor_encumbrance" min="0" step="1" value="0"></label>
+        <label class="shop_item_form_row"><span>Min. St&auml;rke</span><input type="number" name="armor_min_st" min="1" step="1" value="1"></label>
+      </div>
+    </div>
+    <div class="shop_item_form_conditional sl-editor-card" id="shopItemWeaponFields" data-item-fields="weapon" hidden>
+      <div class="shop_item_form_grid">
+        <label class="shop_item_form_row"><span>Basis-Schaden W&uuml;rfelanzahl</span><input type="number" name="weapon_damage_dice_amount" min="1" step="1" value="1"></label>
+        <label class="shop_item_form_row"><span>Basis-Schaden W&uuml;rfelseiten</span><input type="number" name="weapon_damage_dice_faces" min="2" step="1" value="10"></label>
+        <label class="shop_item_form_row">
+          <span>Schaden Operator</span>
+          <select name="weapon_damage_flat_operator">
+            <option value="">Keiner</option>
+            <option value="+">+</option>
+            <option value="-">-</option>
+            <option value="/">/</option>
+          </select>
+        </label>
+        <label class="shop_item_form_row"><span>Basis-Schaden Wert</span><input type="number" name="weapon_damage_flat_bonus" min="0" step="1" value="0"></label>
+        <label class="shop_item_form_row">
+          <span>Waffengriff</span>
+          <select name="weapon_wield_mode" id="shopWeaponWieldMode" data-sl-wield-mode>
+            <option value="1h">Einh&auml;ndig</option>
+            <option value="2h">Zweih&auml;ndig</option>
+            <option value="vh">Ein- und Zweih&auml;ndig</option>
+          </select>
+        </label>
+        <label class="shop_item_form_row">
+          <span>Schadensquelle</span>
+          <select name="weapon_damage_source" id="shopWeaponDamageSource">
+            {% for damage_source in item_editor_damage_sources %}
+              <option value="{% if damage_source.id %}{{ damage_source.id }}{% else %}{{ damage_source.pk }}{% endif %}">{{ damage_source.name }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label class="shop_item_form_row">
+          <span>Waffenwurf</span>
+          <select name="weapon_maneuver_attribute">
+            {% for value, label in item_editor_maneuver_attribute_choices %}
+              <option value="{{ value }}">{{ label }}</option>
+            {% endfor %}
+          </select>
+        </label>
+      </div>
+      <div class="shop_item_form_fieldset">
+        <div class="shop_item_form_fieldset_title">Fertigkeiten</div>
+        <div class="shop_item_form_checklist rune_window_options">
+          {% for skill in item_editor_skill_choices %}
+            <label class="shop_item_form_checklist_item">
+              <input type="checkbox" name="weapon_skills" value="{% if skill.id %}{{ skill.id }}{% else %}{{ skill.pk }}{% endif %}">
+              <span class="rune_option_copy">
+                <span class="rune_option_name">{{ skill.name }}</span>
+                {% if skill.category %}<span class="rune_option_body">{{ skill.category.name }}</span>{% endif %}
+              </span>
+            </label>
+          {% endfor %}
+        </div>
+      </div>
+      <div id="shopWeaponTwoHandFields" data-sl-two-hand hidden>
+        <div class="shop_item_form_grid">
+          <div class="shop_item_form_row"><span>Zusatzprofil nur f&uuml;r EH/ZH-Waffen</span></div>
+          <label class="shop_item_form_row"><span>2H W&uuml;rfelanzahl</span><input type="number" name="weapon_h2_dice_amount" min="1" step="1" value="1"></label>
+          <label class="shop_item_form_row"><span>2H W&uuml;rfelseiten</span><input type="number" name="weapon_h2_dice_faces" min="2" step="1" value="10"></label>
+          <label class="shop_item_form_row">
+            <span>2H Operator</span>
+            <select name="weapon_h2_flat_operator">
+              <option value="">Keiner</option>
+              <option value="+">+</option>
+              <option value="-">-</option>
+              <option value="/">/</option>
+            </select>
+          </label>
+          <label class="shop_item_form_row"><span>2H Wert</span><input type="number" name="weapon_h2_flat_bonus" min="0" step="1" value="0"></label>
+          <label class="shop_item_form_row">
+            <span>2H Schadenstyp</span>
+            <select name="weapon_h2_damage_type">
+              {% for value, label in item_editor_damage_type_choices %}
+                <option value="{{ value }}">{{ label }}</option>
+              {% endfor %}
+            </select>
+          </label>
+        </div>
+      </div>
+      <label class="shop_item_form_row">
+        <span>Schadenstyp</span>
+        <select name="weapon_damage_type">
+          {% for value, label in item_editor_damage_type_choices %}
+            <option value="{{ value }}">{{ label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label class="shop_item_form_row"><span>Min. St&auml;rke</span><input type="number" name="weapon_min_st" min="1" step="1" value="1"></label>
+    </div>
+    <div class="shop_item_form_conditional sl-editor-card" id="shopItemShieldFields" data-item-fields="shield" hidden>
+      <div class="shop_item_form_grid">
+        <label class="shop_item_form_row"><span>Schild-RS</span><input type="number" name="shield_rs" min="0" step="1" value="0"></label>
+        <label class="shop_item_form_row"><span>Belastung</span><input type="number" name="shield_encumbrance" min="0" step="1" value="0"></label>
+        <label class="shop_item_form_row"><span>Min. St&auml;rke</span><input type="number" name="shield_min_st" min="1" step="1" value="1"></label>
+        <label class="shop_item_form_row"><span>PB</span><input type="number" name="shield_parade_bonus" step="1" value="0"></label>
+      </div>
+    </div>
+    <div class="shop_item_form_conditional sl-editor-card" id="shopItemMagicFields" data-sl-magic-fields hidden>
+      <p class="shop_item_form_hint">Wirkt, solange der magische Gegenstand ausger&uuml;stet ist.</p>
+      {% include "charsheet/partials/item_editor/_item_magic_effect_editor.html" with magic_editor_eyebrow="Optional" magic_editor_show_cp=True magic_editor_payload_input_id="shopMagicModifierPayloads" magic_editor_list_id="shopMagicEffectsList" magic_editor_add_button_id="shopMagicAddEffectBtn" magic_editor_template_id="shopMagicEffectTemplate" magic_editor_effect_kinds=item_editor_effect_kinds magic_editor_attribute_choices=item_editor_attribute_choices magic_editor_stat_choices=item_editor_stat_choices magic_editor_movement_choices=item_editor_movement_choices magic_editor_rule_choices=item_editor_rule_choices magic_editor_skill_choices=item_editor_skill_choices magic_editor_category_choices=item_editor_category_choices magic_editor_item_choices=item_editor_item_choices magic_editor_item_category_choices=item_editor_item_category_choices magic_editor_specialization_choices=item_editor_specialization_choices %}
+    </div>
+  </div>
+  <button type="submit" class="wax_seal_btn rune_window_save_seal" aria-label="Speichern" title="Speichern"><span class="wax_seal_btn__embossed" aria-hidden="true">&#10003;</span></button>
+</section>
