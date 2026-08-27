@@ -103,7 +103,12 @@ def _effective_spell_level(
     return 0
 
 
-def _build_spell_tooltip(entry: CharacterSpell, *, school_levels: dict[int, int] | None = None, aspect_levels: dict[int, int] | None = None) -> str:
+def _build_spell_tooltip(
+    entry: CharacterSpell,
+    *,
+    school_levels: dict[int, int] | None = None,
+    aspect_levels: dict[int, int] | None = None
+) -> str:
     """Return a structured tooltip with spell facts followed by the description."""
     spell = entry.spell
     attribute_label = "-"
@@ -200,6 +205,7 @@ def _build_spell_tooltip(entry: CharacterSpell, *, school_levels: dict[int, int]
         rows.append(("Reichweite", label))
     elif range_text:
         rows.append(("Reichweite", range_text))
+
     def _duration_label(number, unit_key, per_grade) -> str | None:
         if unit_key in ("sofort", "permanent", "Szene", "Konzentration"):
             from django.apps import apps
@@ -616,7 +622,8 @@ class MagicEngine:
                         "grade": int(spell.grade),
                         "grade_label": f"{int(spell.grade)} + Stufe" if spell.grade_adds_level else str(int(spell.grade)),
                         "description": (spell.description or "").replace("\r\n", "\n").replace("\r", "\n"),
-                        "search_tokens": f"{spell.name.lower()} {school_entry.school.name.lower()} grad {int(spell.grade)} zauber arkane magie",
+                        "search_tokens": f"{spell.name.lower()}"
+                        f"{school_entry.school.name.lower()} grad {int(spell.grade)} zauber arkane magie",
                     }
                 )
             if rows:
@@ -1192,6 +1199,9 @@ class MagicEngine:
                         if entry.source_binding_id
                         else ""
                     ),
+                    "image_url": self._image_url(
+                        getattr(entry.aspect, "aspect_image", None)
+                    ),
                 }
             )
         return {
@@ -1201,6 +1211,7 @@ class MagicEngine:
             "entity_kind": "Gottheit" if binding else "",
             "tradition_name": binding.tradition_name if binding else "",
             "custom_description": binding.custom_description if binding else "",
+            "school_id": binding.entity.school_id if binding else None,
             "school_name": binding.entity.school.name if binding else "",
             "school_level": self.character.engine.school_level(binding.entity.school_id) if binding else 0,
             "school_level_label": _to_roman(self.character.engine.school_level(binding.entity.school_id)) if binding else "",

@@ -3750,7 +3750,7 @@ def _conditional_weapon_modifier_lines(
             value_label = f"{resolved_value:+d}w10"
         else:
             value_label = format_modifier(resolved_value)
-        
+
         lines.append(
             f"{value_label} {condition_text}"
         )
@@ -7484,13 +7484,52 @@ def build_character_sheet_context(
         engine=base_engine,
         synchronize=not read_only,
     )
+
     spell_panel_data = magic_engine.get_spell_panel_data()
     spell_panel_divine_summary = dict(spell_panel_data["divine_summary"])
-    spell_panel_divine_summary["show_in_school_list"] = not any(
-        group.get("daemonic_patron_options")
-        and group.get("school_name") == spell_panel_divine_summary.get("school_name")
-        for group in school_technique_groups
-    )
+
+    divine_binding = magic_engine._divine_binding()
+
+    if (
+        divine_binding is not None
+        and is_clerical_school(divine_binding.entity.school)
+    ):
+        divine_school_id = int(divine_binding.entity.school_id)
+        priest_aspects = list(
+            spell_panel_divine_summary.get("aspects", [])
+        )
+
+        tooltip_lines = []
+
+        entity_name = str(
+            spell_panel_divine_summary.get("entity_name") or ""
+        ).strip()
+        entity_kind = str(
+            spell_panel_divine_summary.get("entity_kind") or ""
+        ).strip()
+
+        if entity_name:
+            tooltip_lines.append(
+                " | ".join(
+                    value
+                    for value in (entity_name, entity_kind)
+                    if value
+                )
+            )
+
+        if priest_aspects:
+            tooltip_lines.extend(["", "Aspekte:"])
+            tooltip_lines.extend(
+                f"- {aspect['name']} {aspect['level']}"
+                for aspect in priest_aspects
+            )
+
+        for group in school_technique_groups:
+            if int(group.get("school_id") or 0) == divine_school_id:
+                group["priest_aspects"] = priest_aspects
+                group["priest_tooltip"] = "\n".join(tooltip_lines)
+                break
+
     visible_school_group_ids = {
         int(group["school_id"])
         for group in school_technique_groups

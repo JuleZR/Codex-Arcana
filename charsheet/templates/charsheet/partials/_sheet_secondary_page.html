@@ -635,7 +635,13 @@
             {% comment %}── Kampfschulen (gruppiert & ausklappbar) ──────────────────────────{% endcomment %}
             {% for group in school_technique_groups %}
             <li class="school_group" data-school-group data-school-group-key="group:{{ group.school_name|slugify }}">
-              <div class="school_group_header school_row_with_tooltip{% if group.druid_cult_options or group.daemonic_patron_options %} school_group_header--with-binding{% endif %}">
+              <div
+                class="school_group_header school_row_with_tooltip{% if group.priest_tooltip %} tooltip_target{% endif %}{% if group.druid_cult_options or group.daemonic_patron_options %} school_group_header--with-binding{% endif %}"
+                {% if group.priest_tooltip %}
+                  data-tooltip-side="left"
+                  data-tooltip="{{ group.priest_tooltip }}"
+                {% endif %}
+              >
                 <button
                   type="button"
                   class="school_group_toggle_btn"
@@ -652,6 +658,21 @@
                       <span class="school_group_symbol" aria-hidden="true">{{ group.symbol }}</span>
                     {% endif %}
                     {{ group.school_name }}{% if group.max_level_label %} {{ group.max_level_label }}{% endif %}
+                    {% if group.priest_aspects %}
+                    <span class="school_group_aspects" aria-label="Aspekte">
+                      {% for aspect in group.priest_aspects %}
+                        {% if aspect.image_url %}
+                          <img
+                            class="school_group_aspect_icon"
+                            src="{{ aspect.image_url }}"
+                            alt="{{ aspect.name }}"
+                            width="18"
+                            height="18"
+                          >
+                        {% endif %}
+                      {% endfor %}
+                    </span>
+                  {% endif %}
                   </span>
                 </button>
                 {% if group.druid_cult_options %}

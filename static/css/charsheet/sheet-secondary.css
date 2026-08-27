@@ -4799,6 +4799,27 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
   padding: 0 1.4rem 0 0.25rem;
 }
 
+.school_group_aspects {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  margin-left: 0.35rem;
+  vertical-align: middle;
+}
+
+.school_group_aspect_icon {
+  display: block;
+  width: 1.1rem !important;
+  min-width: 1.1rem !important;
+  max-width: 1.1rem !important;
+  height: 1.1rem !important;
+  min-height: 1.1rem !important;
+  max-height: 1.1rem !important;
+  flex: 0 0 1.1rem;
+  object-fit: contain;
+}
+
+
 .school_group_binding_form:not(.is-edit-unlocked) .school_group_binding_select,
 .school_group_binding_form:not(.is-edit-unlocked) .school_group_binding_save {
   display: none;

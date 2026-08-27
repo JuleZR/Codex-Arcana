@@ -46,6 +46,13 @@ function applySchoolsFilter(input, rows, groups, pinnedGroupKeys) {
     row.hidden = needle ? !haystack.includes(needle) : false;
   });
 
+  const groupHaystack = normalizeText(
+    group.getAttribute("data-school-group-search")
+  );
+  const groupMatches = needle
+    ? groupHaystack.includes(needle)
+    : false;
+
   groups.forEach((group) => {
     const btn = group.querySelector("[data-school-group-toggle]");
     const rowList = group.querySelector(".school_group_rows");
@@ -68,6 +75,21 @@ function applySchoolsFilter(input, rows, groups, pinnedGroupKeys) {
 
     const subRows = Array.from(rowList.querySelectorAll("[data-school-search]"));
     const anyVisible = subRows.some((row) => !row.hidden);
+
+    if (groupMatches) {
+      group.hidden = false;
+    
+      if (btn instanceof HTMLElement) {
+        btn.hidden = false;
+        btn.setAttribute(
+          "aria-expanded",
+          keepOpen ? "true" : "false",
+        );
+      }
+    
+      rowList.hidden = !keepOpen;
+      return;
+    }
 
     if (anyVisible) {
       group.hidden = false;
