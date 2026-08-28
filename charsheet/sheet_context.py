@@ -53,6 +53,12 @@ from charsheet.engine import BattleCalculatorEngine, CharacterEngine, ItemEngine
 from charsheet.engine.creature_engine import CreatureEngine, sync_character_creatures
 from charsheet.modifiers.targets import TargetResolver
 from charsheet.item_transfers import has_item_permission, item_is_pending, pending_transfer_for_item
+from charsheet.item_disclosure import (
+    identified_effect_id_sets,
+    item_identification_initialized,
+    is_character_item_effect_identified,
+    resolve_character_item_display,
+)
 from charsheet.forms import (
     CharacterInfoInlineForm,
     CharacterSkillSpecificationForm,
@@ -1549,14 +1555,19 @@ def _serialize_item_semantic_effect_payload(
 ) -> dict[str, object]:
     """Return one frontend-friendly payload for an item semantic effect."""
     metadata = dict(effect.metadata or {})
-    condition_race_ids = [int(race_id) for race_id in effect.condition_races.values_list("id", flat=True)]
+    condition_races = list(effect.condition_races.all())
+    condition_race_ids = [int(race.id) for race in condition_races]
+    condition_race_labels = [str(race.name) for race in condition_races if str(race.name).strip()]
     race_condition_matches = (
         not condition_race_ids
         or (character_race_id is not None and int(character_race_id) in condition_race_ids)
     )
-    condition_school_ids = [
-        int(school_id)
-        for school_id in effect.condition_schools.values_list("id", flat=True)
+    condition_schools = list(effect.condition_schools.all())
+    condition_school_ids = [int(school.id) for school in condition_schools]
+    condition_school_labels = [
+        str(school.name)
+        for school in condition_schools
+        if str(school.name).strip()
     ]
 
     school_condition_matches = (
@@ -1599,7 +1610,8 @@ def _serialize_item_semantic_effect_payload(
             "semantic_effect_ids": [int(effect.pk)] if effect.pk else [],
             "base_item_effect_id": base_item_effect_id,
             "race_condition_matches": race_condition_matches,
-            "race_condition_matches": race_condition_matches,
+            "condition_race_labels": condition_race_labels,
+            "condition_school_labels": condition_school_labels,
             "inactive_due_to_race": bool(
                 condition_race_ids and not race_condition_matches
             ),
@@ -1642,6 +1654,8 @@ def _serialize_item_semantic_effect_payload(
         "semantic_effect_ids": [int(effect.pk)] if effect.pk else [],
         "base_item_effect_id": base_item_effect_id,
         "race_condition_matches": race_condition_matches,
+        "condition_race_labels": condition_race_labels,
+        "condition_school_labels": condition_school_labels,
         "inactive_due_to_race": bool(condition_race_ids and not race_condition_matches),
         "inactive_due_to_school": bool(condition_school_ids and not school_condition_matches),
     }
@@ -1943,6 +1957,22 @@ def _collapse_weapon_mastery_bonus_payloads(modifier_payloads: list[dict[str, ob
                 "toggle_state_inverted": payload_toggle_state_inverted,
                 "inactive_due_to_race": payload_inactive_due_to_race,
                 "inactive_due_to_school": payload_inactive_due_to_school,
+                "condition_race_labels": list(
+                    dict.fromkeys(
+                        [
+                            *(payload.get("condition_race_labels") or []),
+                            *(modifier_payloads[matching_index].get("condition_race_labels") or []),
+                        ]
+                    )
+                ),
+                "condition_school_labels": list(
+                    dict.fromkeys(
+                        [
+                            *(payload.get("condition_school_labels") or []),
+                            *(modifier_payloads[matching_index].get("condition_school_labels") or []),
+                        ]
+                    )
+                ),
                 "display_group": payload.get("display_group"),
                 "display_group_append": bool(payload.get("display_group_append", False)),
                 "semantic_effect_source": str(payload.get("semantic_effect_source") or ""),
@@ -1968,6 +1998,30 @@ def _merge_magic_effect_payloads(
     merged_payloads = [*modifier_payloads, *text_payloads]
     merged_payloads.sort(key=lambda payload: (int(payload.get("display_order") or 0), str(payload.get("target_kind") or "")))
     return visible_summary, merged_payloads
+
+
+def _character_item_effect_summary_for_view(
+    character_item: CharacterItem,
+    *,
+    include_controls: bool = False,
+    sl_effect_group_id: int | None = None,
+) -> str:
+    """Return legacy effect summary only where it is allowed for this viewer path."""
+    if (
+        (
+            item_identification_initialized(character_item)
+            or character_item.effect_identifications.exists()
+        )
+        and not include_controls
+        and sl_effect_group_id is None
+    ):
+        return ""
+    return character_item.magic_effect_summary or ""
+
+
+def _tooltip_hidden_fields(character_item: CharacterItem) -> str:
+    display = resolve_character_item_display(character_item, None, preview_player=True)
+    return ",".join(sorted(display.hidden_field_keys))
 
 
 def _format_magic_rule_effect_line(
@@ -2077,7 +2131,8 @@ def _build_character_item_magic_tooltip_rows(
     *,
     effect_summary: str,
     modifier_payloads:
-        list[dict[str, object]]
+        list[dict[str, object]],
+    include_condition_blocked: bool = False,
 ) -> list[tuple[str, object]]:
     """Return tooltip rows for magic effects stored on one owned item."""
     display_entries: list[dict[str, object]] = []
@@ -2086,12 +2141,13 @@ def _build_character_item_magic_tooltip_rows(
         effect_summary=effect_summary,
         modifier_payloads=modifier_payloads,
     )
-    merged_payloads = [
-        payload
-        for payload in merged_payloads
-        if not payload.get("inactive_due_to_race")
-        and not payload.get("inactive_due_to_school")
-    ]
+    if not include_condition_blocked:
+        merged_payloads = [
+            payload
+            for payload in merged_payloads
+            if not payload.get("inactive_due_to_race")
+            and not payload.get("inactive_due_to_school")
+        ]
     summary_line = _single_line(summary_line)
     if summary_line:
         display_entries.append({"line": summary_line, "payload": {}})
@@ -2109,6 +2165,15 @@ def _build_character_item_magic_tooltip_rows(
         inverted = bool(entry.get("toggle_state_inverted", False))
         display_active = inverted != active
         return f"[[EFFECTTOGGLE:{url};{source};{ids};{'1' if display_active else '0'};{'1' if inverted else '0'}]] "
+
+    def identification_marker_for(entry: dict[str, object]) -> str:
+        url = str(entry.get("effect_identification_url") or "")
+        source = str(entry.get("semantic_effect_source") or "")
+        ids = ",".join(str(value) for value in (entry.get("semantic_effect_ids") or []) if str(value).isdigit())
+        if not url or source not in {"item", "character_item"} or not ids:
+            return ""
+        identified = bool(entry.get("identified_for_players", True))
+        return f"[[EFFECTIDENTIFY:{url};{source};{ids};{'1' if identified else '0'}]] "
 
     def display_line_for(entry: dict[str, object], line: str) -> str:
         if entry.get("inactive_due_to_race") or entry.get("inactive_due_to_school"):
@@ -2179,6 +2244,22 @@ def _build_character_item_magic_tooltip_rows(
         if ids:
             payload["semantic_effect_ids"] = ids
         return payload
+
+    def leading_effect_markers(line: str) -> tuple[str, str]:
+        markers: list[str] = []
+        visible_line = str(line)
+        while True:
+            if not (
+                visible_line.startswith("[[EFFECTTOGGLE:")
+                or visible_line.startswith("[[EFFECTIDENTIFY:")
+            ):
+                break
+            marker_end = visible_line.find("]]")
+            if marker_end == -1:
+                break
+            markers.append(visible_line[:marker_end + 2])
+            visible_line = visible_line[marker_end + 2:].lstrip()
+        return " ".join(markers), visible_line
 
     def _unique_text(values: list[object]) -> list[str]:
         seen: set[str] = set()
@@ -2263,7 +2344,7 @@ def _build_character_item_magic_tooltip_rows(
                 signature = entry_duplicate_signature(entry)
                 if signature in grouped_signatures:
                     continue
-                lines.append(f"{toggle_marker_for(payload)}{entry['line']}")
+                lines.append(f"{toggle_marker_for(payload)}{identification_marker_for(payload)}{entry['line']}")
                 continue
             if group in rendered_groups:
                 continue
@@ -2290,7 +2371,7 @@ def _build_character_item_magic_tooltip_rows(
                 line = f"[[INACTIVERACE:{line}]]"
 
             marker_payload = grouped_toggle_payload(main_entry, associated_entries)
-            lines.append(f"{toggle_marker_for(marker_payload)}{line}")
+            lines.append(f"{toggle_marker_for(marker_payload)}{identification_marker_for(marker_payload)}{line}")
         return lines
 
     def numeric_value_display(
@@ -2505,8 +2586,12 @@ def _build_character_item_magic_tooltip_rows(
                 "semantic_effect_source": str(payload.get("semantic_effect_source") or ""),
                 "semantic_effect_ids": list(payload.get("semantic_effect_ids") or []),
                 "character_item_id": payload.get("character_item_id"),
+                "effect_identification_url": str(payload.get("effect_identification_url") or ""),
+                "identified_for_players": bool(payload.get("identified_for_players", True)),
                 "inactive_due_to_race": bool(payload.get("inactive_due_to_race")),
                 "inactive_due_to_school": bool(payload.get("inactive_due_to_school")),
+                "condition_race_labels": list(payload.get("condition_race_labels") or []),
+                "condition_school_labels": list(payload.get("condition_school_labels") or []),
             }
         numeric_effects[key]["value"] = (
             Decimal(str(numeric_effects[key]["value"])) + value
@@ -2515,14 +2600,7 @@ def _build_character_item_magic_tooltip_rows(
 
     def split_effect_column(line: str) -> tuple[str, str]:
         """Move a leading pipe-derived bold label into the left tooltip column."""
-        marker = ""
-        visible_line = str(line)
-
-        if visible_line.startswith("[[EFFECTTOGGLE:"):
-            marker_end = visible_line.find("]]")
-            if marker_end != -1:
-                marker = visible_line[:marker_end + 2]
-                visible_line = visible_line[marker_end + 2:].lstrip()
+        marker, visible_line = leading_effect_markers(str(line))
 
         if visible_line.startswith("**"):
             if " · " in visible_line:
@@ -2578,6 +2656,8 @@ def _build_character_item_magic_tooltip_rows(
 
 def _load_character_item_modifier_payloads(
     character_items: list[CharacterItem],
+    *,
+    include_unidentified: bool = False,
 ) -> dict[int, list[dict[str, object]]]:
     """Return serialized effective magic-modifier payloads keyed by owned item id."""
     if not character_items:
@@ -2722,6 +2802,8 @@ def _load_character_item_modifier_payloads(
         )
         modifiers_by_character_item_id[character_item_id] = []
         for effect in sorted(merged_effects, key=lambda entry: (int(entry.sort_order or 0), int(entry.id or 0))):
+            if not include_unidentified and not is_character_item_effect_identified(character_item, effect):
+                continue
             payload = _serialize_item_semantic_effect_payload(
                 effect,
                 invested_cp=character_item.invested_cp,
@@ -2868,6 +2950,194 @@ def _has_visible_item_weight(value: object) -> bool:
         return Decimal(str(value)) != 0
     except (InvalidOperation, ValueError):
         return True
+
+
+def _strip_item_card_effect_markers(value: object) -> tuple[str, bool]:
+    """Return display text and whether the tooltip row was condition-blocked."""
+    text = str(value).replace("[[EMPTY]]", "").strip()
+    while text.startswith("[[EFFECTTOGGLE:") or text.startswith("[[EFFECTIDENTIFY:"):
+        marker_end = text.find("]]")
+        if marker_end == -1:
+            break
+        text = text[marker_end + 2:].lstrip()
+
+    inactive = False
+    if text.startswith("[[INACTIVERACE:") and text.endswith("]]"):
+        inactive = True
+        text = text[len("[[INACTIVERACE:"):-2].strip()
+
+    return text, inactive
+
+
+def _item_card_condition_notes(
+    modifier_payloads: list[dict[str, object]],
+) -> list[str]:
+    """Return readable condition notes for condition-blocked effect rows."""
+    notes: list[str] = []
+    for payload in modifier_payloads:
+        labels: list[str] = []
+        if payload.get("inactive_due_to_race"):
+            labels.extend(str(value) for value in payload.get("condition_race_labels") or [])
+        if payload.get("inactive_due_to_school"):
+            labels.extend(str(value) for value in payload.get("condition_school_labels") or [])
+        labels = [label.strip() for label in labels if label.strip()]
+        if labels:
+            notes.append("Bedingung: " + ", ".join(dict.fromkeys(labels)))
+    return notes
+
+
+def _shared_item_card_effect_rows(
+    effect_rows: list[tuple[str, object]],
+    *,
+    condition_notes: list[str] | None = None,
+) -> list[dict[str, object]]:
+    """Translate tooltip-internal effect rows into safe shared-card rows."""
+    safe_rows: list[dict[str, object]] = []
+    remaining_condition_notes = list(condition_notes or [])
+    for label, value in effect_rows:
+        if (
+            str(label) in {"Effekt", "Effekte", "[[EMPTY]]"}
+            and str(value).strip() in {"", "[[EMPTY]]"}
+        ):
+            continue
+
+        label_text = "" if str(label) in {"Effekt", "Effekte", "[[EMPTY]]"} else str(label)
+        value_text, inactive = _strip_item_card_effect_markers(value)
+        label_text, label_inactive = _strip_item_card_effect_markers(label_text)
+        inactive = inactive or label_inactive
+
+        if not label_text and value_text.startswith("**"):
+            for separator in (" · ", " Â· "):
+                if separator in value_text:
+                    title, detail = value_text.split(separator, 1)
+                    if title.endswith("**"):
+                        label_text = title
+                        value_text = detail
+                    break
+
+        safe_rows.append(
+            {
+                "label": label_text.replace("**", "").strip(),
+                "value": value_text.strip(),
+                "inactive": inactive,
+                "condition_note": remaining_condition_notes.pop(0) if inactive and remaining_condition_notes else "",
+            }
+        )
+    return safe_rows
+
+
+def build_character_item_card_context(
+    character_item: CharacterItem,
+    viewer=None,
+    *,
+    preview_player: bool = True,
+    include_controls: bool = False,
+    strength: int | None = None,
+    modifier_payloads: list[dict[str, object]] | None = None,
+) -> dict[str, object]:
+    """Return the shared resolved item-card context for sheet and GM preview."""
+    item = character_item.item
+    item_engine = ItemEngine(character_item)
+    player_display = resolve_character_item_display(
+        character_item,
+        viewer,
+        preview_player=True,
+    )
+    display = resolve_character_item_display(
+        character_item,
+        viewer,
+        preview_player=False if include_controls else preview_player,
+    )
+    quality = quality_payload(item_engine.get_effective_quality())
+    stored_modifier_payloads = (
+        modifier_payloads
+        if modifier_payloads is not None
+        else _load_character_item_modifier_payloads(
+            [character_item],
+            include_unidentified=include_controls,
+        ).get(character_item.id, [])
+    )
+    visible_magic_effect_summary, magic_modifier_payloads = _merge_magic_effect_payloads(
+        effect_summary=_character_item_effect_summary_for_view(
+            character_item,
+            include_controls=include_controls,
+        ),
+        modifier_payloads=stored_modifier_payloads,
+    )
+    hidden_field_keys = player_display.hidden_field_keys if include_controls else display.hidden_field_keys
+    quality_label = "" if "quality" in hidden_field_keys and not include_controls else display.quality_label
+    quality_color = "" if "quality" in hidden_field_keys and not include_controls else quality["color"]
+    detail_rows = _build_item_tooltip_rows(
+        item_engine,
+        item,
+        strength=strength,
+        modifier_payloads=magic_modifier_payloads,
+    )
+    if "price" in hidden_field_keys and not include_controls:
+        detail_rows = [row for row in detail_rows if row[0] != "Kaufpreis"]
+    if "weight" in hidden_field_keys and not include_controls:
+        detail_rows = [row for row in detail_rows if row[0] != "Gewicht"]
+    if "size_class" in hidden_field_keys and not include_controls:
+        detail_rows = [row for row in detail_rows if row[0] != "GK"]
+    detail_field_keys = {
+        "Kaufpreis": "price",
+        "Gewicht": "weight",
+        "GK": "size_class",
+    }
+    safe_detail_rows = []
+    for label, value in detail_rows:
+        label_text = str(label).replace("**", "")
+        field_key = detail_field_keys.get(str(label), "")
+        value_text = str(value).replace("**", "")
+        safe_detail_rows.append(
+            {
+                "label": label_text,
+                "value": value_text,
+                "field_key": field_key,
+            }
+        )
+    return {
+        "display": display,
+        "title": display.name,
+        "item_type_label": display.item_type,
+        "quality_label": quality_label,
+        "subtitle": " - ".join(part for part in [display.item_type, quality_label] if part),
+        "image_url": player_display.image_url if include_controls else display.image_url,
+        "actual_image_url": display.image_url,
+        "accent": quality_color,
+        "detail_rows": safe_detail_rows,
+        "weapon_symbol_rows": [
+            {"label": "", "value": str(value).replace("**", "")}
+            for _label, value in _build_weapon_symbol_tooltip_rows(item_engine)
+        ],
+        "effect_rows": _shared_item_card_effect_rows(
+            _build_character_item_magic_tooltip_rows(
+                effect_summary=visible_magic_effect_summary,
+                modifier_payloads=magic_modifier_payloads,
+                include_condition_blocked=include_controls,
+            ),
+            condition_notes=_item_card_condition_notes(magic_modifier_payloads),
+        ),
+        "rune_rows": [
+            {
+                "label": "" if str(label) in {"Rune", "Runen", "[[EMPTY]]"} else str(label).replace("**", ""),
+                "value": str(value).replace("[[EMPTY]]", "").strip(),
+            }
+            for label, value in _build_character_item_rune_tooltip_rows(
+                item=item,
+                character_item=character_item,
+            )
+            if not (
+                str(label) in {"Rune", "Runen", "[[EMPTY]]"}
+                and str(value).strip() in {"", "[[EMPTY]]"}
+            )
+        ],
+        "description": display.description,
+        "controls": include_controls,
+        "disclosure_rows": [],
+        "effect_identification_rows": [],
+    }
+
 
 def _apply_item_semantic_stat_effects(
     base_value: int,
@@ -3058,6 +3328,26 @@ def _build_item_tooltip_rows(
     return rows
 
 
+def _filter_item_tooltip_rows_for_display(
+    rows: list[tuple[str, object]],
+    hidden_field_keys: frozenset[str] | set[str],
+    *,
+    include_hidden_values: bool = False,
+) -> list[tuple[str, object]]:
+    if include_hidden_values:
+        return rows
+    label_field_keys = {
+        "Kaufpreis": "price",
+        "Gewicht": "weight",
+        "GK": "size_class",
+    }
+    return [
+        row
+        for row in rows
+        if label_field_keys.get(str(row[0])) not in hidden_field_keys
+    ]
+
+
 def _build_weapon_calculation_tooltip(
     engine,
     row: dict[str, object],
@@ -3148,7 +3438,7 @@ def _build_weapon_maneuver_breakdown_rows(engine, weapon_row: dict[str, object])
         rows.append({
             "label": "Qualität",
             "value": format_modifier(quality_bonus),
-            "source": weapon_row["item"].name,
+            "source": str(weapon_row.get("item_name") or weapon_row["item"].name),
         })
 
     combat_bonus = int(weapon_row.get("trait_maneuver_modifier", 0) or 0)
@@ -3184,7 +3474,7 @@ def _build_weapon_maneuver_breakdown_rows(engine, weapon_row: dict[str, object])
         rows.append({
             "label": "Waffeneffekt",
             "value": format_modifier(item_bonus),
-            "source": weapon_row["item"].name,
+            "source": str(weapon_row.get("item_name") or weapon_row["item"].name),
         })
 
     return rows
@@ -3735,6 +4025,8 @@ def _conditional_weapon_modifier_lines(
     lines: list[str] = []
 
     for effect in effects:
+        if not is_character_item_effect_identified(character_item, effect):
+            continue
         if effect.target_domain != "combat":
             continue
 
@@ -4157,6 +4449,8 @@ def _build_skill_rows(
             )
 
             for effect in effects:
+                if not is_character_item_effect_identified(character_item, effect):
+                    continue
                 modifier = effect.to_modifier(
                     invested_cp=character_item.invested_cp,
                 )
@@ -4334,6 +4628,18 @@ def _build_skill_rows(
             skill_rows.append(row)
             skill_rows.extend(_build_display_context_rows(row, skill))
 
+    resolved_equipment_names_by_character_item_id: dict[int, str] = {}
+
+    def _resolved_equipment_name(character_item: CharacterItem) -> str:
+        character_item_id = int(character_item.pk)
+        if character_item_id not in resolved_equipment_names_by_character_item_id:
+            resolved_equipment_names_by_character_item_id[character_item_id] = resolve_character_item_display(
+                character_item,
+                getattr(character, "owner", None),
+                preview_player=True,
+            ).name
+        return resolved_equipment_names_by_character_item_id[character_item_id]
+
     def _build_weapon_context_rows(base_row: dict) -> list[dict]:
         skill_id = int(base_row["skill_id"])
         rows: list[dict] = []
@@ -4348,6 +4654,8 @@ def _build_skill_rows(
             linked_skill_ids = {entry.id for entry in offensive_stats.skills.all()}
             if skill_id not in linked_skill_ids:
                 continue
+            item_name = _resolved_equipment_name(weapon_row["character_item"])
+            weapon_row = {**weapon_row, "item_name": item_name}
             maneuver_breakdown_rows = _build_weapon_maneuver_breakdown_rows(engine, weapon_row)
             for option in weapon_row.get("maneuver_options") or []:
                 maneuver_bonus = int(option.get("total_modifier") or 0) - int(option.get("attribute_modifier") or 0)
@@ -4357,9 +4665,9 @@ def _build_skill_rows(
                         "is_context_row": True,
                         "skill_id": skill_id,
                         "name": base_row["name"],
-                        "display_name": f"mit {weapon_row['item_name']} ({option['attribute_code']})",
-                        "weapon_base_name": weapon_row["item_name"],
-                        "description": f"Manöverbonus mit {weapon_row['item_name']} über {option['attribute_code']}",
+                        "display_name": f"mit {item_name} ({option['attribute_code']})",
+                        "weapon_base_name": item_name,
+                        "description": f"Manöverbonus mit {item_name} über {option['attribute_code']}",
                         "weapon_attribute_code": option["attribute_code"],
                         "attribute": base_row["attribute"],
                         "attribute_mod": base_row["attribute_mod"],
@@ -4400,6 +4708,7 @@ def _build_skill_rows(
             parade_bonus = int(shield_row.get("parade_bonus") or 0)
             if parade_bonus == 0:
                 continue
+            item_name = _resolved_equipment_name(shield_row["character_item"])
             with_load_total = int(base_row["with_load_total_value"]) + parade_bonus
             total = int(base_row["total_value"]) + parade_bonus
             rows.append(
@@ -4408,8 +4717,8 @@ def _build_skill_rows(
                     "is_context_row": True,
                     "skill_id": int(base_row["skill_id"]),
                     "name": base_row["name"],
-                    "display_name": f"mit {shield_row['item_name']}",
-                    "description": f"Paradebonus bei Verteidigung mit {shield_row['item_name']}",
+                    "display_name": f"mit {item_name}",
+                    "description": f"Paradebonus bei Verteidigung mit {item_name}",
                     "attribute": base_row["attribute"],
                     "attribute_mod": base_row["attribute_mod"],
                     "attribute_mod_value": int(base_row["attribute_mod_value"]),
@@ -4424,7 +4733,7 @@ def _build_skill_rows(
                     "calculation_tooltip": _build_core_stat_tooltip(
                         [
                             {"label": "Grundwert", "value": int(base_row["with_load_total_value"]), "source": base_row["display_name"]},
-                            {"label": "PB", "value": format_modifier(parade_bonus), "source": shield_row["item_name"]},
+                            {"label": "PB", "value": format_modifier(parade_bonus), "source": item_name},
                             {"label": "= Gesamt", "value": with_load_total, "tone": "total"},
                         ]
                     ),
@@ -4718,7 +5027,48 @@ def _character_item_image_url(character_item: CharacterItem) -> str:
     return str(getattr(character_item, "effective_image_url", "") or "")
 
 
-def _build_inventory_rows(character: Character) -> list[dict]:
+def _annotate_item_effect_identification_payloads(
+    character_item: CharacterItem,
+    payloads: list[dict[str, object]],
+    *,
+    group_id: int | None,
+) -> None:
+    """Add SL effect-identification controls to already serialized item payloads."""
+    if group_id is None:
+        return
+    identification_initialized = item_identification_initialized(character_item)
+    identified_item_ids, identified_character_item_ids = identified_effect_id_sets(character_item)
+    effect_identification_url = reverse(
+        "update_group_item_effect_identification",
+        args=[group_id, character_item.id],
+    )
+    for payload in payloads:
+        source = str(payload.get("semantic_effect_source") or "")
+        raw_ids = [
+            int(value)
+            for value in payload.get("semantic_effect_ids") or []
+            if str(value).isdigit()
+        ]
+        if not raw_ids or source not in {"item", "character_item"}:
+            continue
+        identified_ids = (
+            identified_item_ids
+            if source == "item"
+            else identified_character_item_ids
+        )
+        payload["effect_identification_url"] = effect_identification_url
+        payload["identified_for_players"] = (
+            all(effect_id in identified_ids for effect_id in raw_ids)
+            if identification_initialized
+            else True
+        )
+
+
+def _build_inventory_rows(
+    character: Character,
+    *,
+    sl_effect_group_id: int | None = None,
+) -> list[dict]:
     """Build prepared inventory rows for the unequipped inventory list."""
     inventory_rows: list[dict] = []
     race_item_ids = _race_item_ids()
@@ -4754,7 +5104,8 @@ def _build_inventory_rows(character: Character) -> list[dict]:
     )
 
     modifiers_by_character_item_id = _load_character_item_modifier_payloads(
-        inventory_items
+        inventory_items,
+        include_unidentified=sl_effect_group_id is not None,
     )
 
     for character_item in inventory_items:
@@ -4812,8 +5163,13 @@ def _build_inventory_rows(character: Character) -> list[dict]:
 
         item_engine = ItemEngine(character_item)
         weapon_stats = item_engine._get_weapon_stats()
+        display = resolve_character_item_display(
+            character_item,
+            getattr(character, "owner", None),
+            preview_player=True,
+        )
 
-        item_name = item_engine.get_name()
+        item_name = display.name
         quality = quality_payload(
             item_engine.get_effective_quality()
         )
@@ -4822,20 +5178,44 @@ def _build_inventory_rows(character: Character) -> list[dict]:
             character_item.id,
             [],
         )
+        _annotate_item_effect_identification_payloads(
+            character_item,
+            stored_modifier_payloads,
+            group_id=sl_effect_group_id,
+        )
+        sl_reveal_url = (
+            reverse("reveal_group_item", args=[sl_effect_group_id, character_item.id])
+            if sl_effect_group_id is not None
+            else ""
+        )
+        sl_hide_url = (
+            reverse("hide_group_item", args=[sl_effect_group_id, character_item.id])
+            if sl_effect_group_id is not None
+            else ""
+        )
 
         (
             visible_magic_effect_summary,
             magic_modifier_payloads,
         ) = _merge_magic_effect_payloads(
-            effect_summary=character_item.magic_effect_summary or "",
+            effect_summary=_character_item_effect_summary_for_view(
+                character_item,
+                sl_effect_group_id=sl_effect_group_id,
+            ),
             modifier_payloads=stored_modifier_payloads,
         )
 
         tooltip_text = ""
-        item_description = (
-            character_item.description
-            or item.description
-            or ""
+        item_description = display.description
+        item_tooltip_rows = _filter_item_tooltip_rows_for_display(
+            _build_item_tooltip_rows(
+                item_engine,
+                item,
+                strength=strength,
+                modifier_payloads=magic_modifier_payloads,
+            ),
+            display.hidden_field_keys,
+            include_hidden_values=sl_effect_group_id is not None,
         )
 
         if (
@@ -4847,18 +5227,14 @@ def _build_inventory_rows(character: Character) -> list[dict]:
                 quality_label=quality["label"],
                 quality_color=quality["color"],
                 detail_rows=(
-                    _build_item_tooltip_rows(
-                        item_engine,
-                        item,
-                        strength=strength,
-                        modifier_payloads=magic_modifier_payloads,
-                    )
+                    item_tooltip_rows
                     + _build_weapon_symbol_tooltip_rows(
                         item_engine
                     )
                     + _build_character_item_magic_tooltip_rows(
                         effect_summary=visible_magic_effect_summary,
                         modifier_payloads=magic_modifier_payloads,
+                        include_condition_blocked=sl_effect_group_id is not None,
                     )
                     + _build_character_item_rune_tooltip_rows(
                         item=item,
@@ -4871,18 +5247,14 @@ def _build_inventory_rows(character: Character) -> list[dict]:
             tooltip_text = _format_item_tooltip(
                 description=item_description,
                 detail_rows=(
-                    _build_item_tooltip_rows(
-                        item_engine,
-                        item,
-                        strength=strength,
-                        modifier_payloads=magic_modifier_payloads,
-                    )
+                    item_tooltip_rows
                     + _build_weapon_symbol_tooltip_rows(
                         item_engine
                     )
                     + _build_character_item_magic_tooltip_rows(
                         effect_summary=visible_magic_effect_summary,
                         modifier_payloads=magic_modifier_payloads,
+                        include_condition_blocked=sl_effect_group_id is not None,
                     )
                     + _build_character_item_rune_tooltip_rows(
                         item=item,
@@ -4900,9 +5272,7 @@ def _build_inventory_rows(character: Character) -> list[dict]:
             for rune in character_item.runes.all()
         ]
 
-        item_image_url = _character_item_image_url(
-            character_item
-        )
+        item_image_url = display.image_url
 
         equip_drop_zones = []
 
@@ -4922,6 +5292,17 @@ def _build_inventory_rows(character: Character) -> list[dict]:
             {
                 "character_item": character_item,
                 "item": item,
+                "item_display": display,
+                "item_card": build_character_item_card_context(
+                    character_item,
+                    getattr(character, "owner", None),
+                    preview_player=True,
+                    strength=strength,
+                    modifier_payloads=stored_modifier_payloads,
+                ),
+                "sl_reveal_url": sl_reveal_url,
+                "sl_hide_url": sl_hide_url,
+                "tooltip_hidden_fields": ",".join(sorted(display.hidden_field_keys)),
                 "item_name": item_name,
                 "has_runes": _character_item_has_visible_runes(
                     item=item,
@@ -4938,27 +5319,27 @@ def _build_inventory_rows(character: Character) -> list[dict]:
                 ),
                 "quality": (
                     ""
-                    if is_race_item
+                    if is_race_item or "quality" in display.hidden_field_keys
                     else quality["value"]
                 ),
                 "quality_label": (
                     ""
-                    if is_race_item
-                    else quality["label"]
+                    if is_race_item or "quality" in display.hidden_field_keys
+                    else display.quality_label
                 ),
                 "quality_color": (
                     ""
-                    if is_race_item
+                    if is_race_item or "quality" in display.hidden_field_keys
                     else quality["color"]
                 ),
                 "tooltip_subtitle": " - ".join(
                     part
                     for part in [
-                        item.get_item_type_display(),
+                        display.item_type,
                         (
                             ""
                             if is_race_item
-                            else quality["label"]
+                            else display.quality_label
                         ),
                     ]
                     if part
@@ -5058,9 +5439,7 @@ def _build_inventory_rows(character: Character) -> list[dict]:
                     )
                 ),
                 "description": (
-                    character_item.description
-                    or item.description
-                    or ""
+                    display.description
                 ),
                 "is_character_item_magic": bool(
                     character_item.is_magic
@@ -5240,13 +5619,16 @@ def _build_inventory_total_weight_display(character: Character) -> str:
     return format_compact_number(total_weight)
 
 
-def _build_weapon_rows(engine) -> list[dict]:
+def _build_weapon_rows(engine, *, sl_effect_group_id: int | None = None) -> list[dict]:
     """Build prepared weapon rows with flattened display profiles."""
     weapon_rows: list[dict] = []
     race_item_ids = _race_item_ids()
     raw_rows = engine.equipped_weapon_rows()
     character_items = [row["character_item"] for row in raw_rows]
-    modifiers_by_character_item_id = _load_character_item_modifier_payloads(character_items)
+    modifiers_by_character_item_id = _load_character_item_modifier_payloads(
+        character_items,
+        include_unidentified=sl_effect_group_id is not None,
+    )
     profile_rows_by_item: OrderedDict[int, list[dict]] = OrderedDict()
     for row in raw_rows:
         character_item = row["character_item"]
@@ -5261,12 +5643,33 @@ def _build_weapon_rows(engine) -> list[dict]:
 
     rendered_rows_by_item: dict[int, int] = {}
     for row in raw_rows:
+        display = resolve_character_item_display(
+            row["character_item"],
+            getattr(engine.character, "owner", None),
+            preview_player=True,
+        )
         is_race_item = row["item"].id in race_item_ids
         quality = quality_payload(row["quality"])
         character_item_id = row["character_item"].pk
         total_rendered_rows = rendered_rows_by_item.get(character_item_id, 0)
         magic_modifier_payloads = modifiers_by_character_item_id.get(row["character_item"].id, [])
-        item_image_url = _character_item_image_url(row["character_item"])
+        _annotate_item_effect_identification_payloads(
+            row["character_item"],
+            magic_modifier_payloads,
+            group_id=sl_effect_group_id,
+        )
+        sl_reveal_url = (
+            reverse("reveal_group_item", args=[sl_effect_group_id, row["character_item"].id])
+            if sl_effect_group_id is not None
+            else ""
+        )
+        sl_hide_url = (
+            reverse("hide_group_item", args=[sl_effect_group_id, row["character_item"].id])
+            if sl_effect_group_id is not None
+            else ""
+        )
+        item_image_url = display.image_url
+        item_name = display.name
         display_options = list(row.get("maneuver_options") or [])
         if not display_options:
             display_options = [
@@ -5289,28 +5692,40 @@ def _build_weapon_rows(engine) -> list[dict]:
                 "is_primary_profile": rendered_row_index == 0,
                 "is_last_profile": rendered_row_index == (expanded_row_count_by_item.get(character_item_id, 1) - 1),
                 "show_weapon_name": rendered_row_index == 0,
-                "weapon_display_name": row["item_name"],
+                "item_name": item_name,
+                "weapon_display_name": item_name,
                 "show_maneuver_badge": len(display_options) > 1,
                 "quality_label": "" if is_race_item else quality["label"],
                 "quality_color": "" if is_race_item else quality["color"],
                 "tooltip_subtitle": " - ".join(
-                    part for part in [row["item"].get_item_type_display(), "" if is_race_item else quality["label"]] if part
+                    part for part in [display.item_type, "" if is_race_item else display.quality_label] if part
                 ),
                 "item_image_url": item_image_url,
+                "sl_reveal_url": sl_reveal_url,
+                "sl_hide_url": sl_hide_url,
+                "tooltip_hidden_fields": _tooltip_hidden_fields(row["character_item"]),
                 "tooltip_text": _format_item_tooltip(
-                    description=row["character_item"].description or row["item"].description or "",
-                    quality_label="" if is_race_item else quality["label"],
-                    quality_color="" if is_race_item else quality["color"],
+                    description=display.description,
+                    quality_label="" if is_race_item else display.quality_label,
+                    quality_color="" if is_race_item else display.quality_color,
                     detail_rows=(
-                        _build_item_tooltip_rows(
-                            ItemEngine(row["character_item"]),
-                            row["item"],
-                            strength=int(engine.attributes().get(ATTR_ST, 0) or 0),
+                        _filter_item_tooltip_rows_for_display(
+                            _build_item_tooltip_rows(
+                                ItemEngine(row["character_item"]),
+                                row["item"],
+                                strength=int(engine.attributes().get(ATTR_ST, 0) or 0),
+                            ),
+                            set(_tooltip_hidden_fields(row["character_item"]).split(",")),
+                            include_hidden_values=sl_effect_group_id is not None,
                         )
                         + _build_weapon_symbol_tooltip_rows(ItemEngine(row["character_item"]))
                         + _build_character_item_magic_tooltip_rows(
-                            effect_summary=row["character_item"].magic_effect_summary or "",
+                            effect_summary=_character_item_effect_summary_for_view(
+                                row["character_item"],
+                                sl_effect_group_id=sl_effect_group_id,
+                            ),
                             modifier_payloads=magic_modifier_payloads,
+                            include_condition_blocked=sl_effect_group_id is not None,
                         )
                         + _build_character_item_rune_tooltip_rows(
                             item=row["item"],
@@ -5402,7 +5817,7 @@ def _equipment_icon_key(row: dict) -> str:
     return "item"
 
 
-def _build_armor_rows(engine) -> list[dict]:
+def _build_armor_rows(engine, *, sl_effect_group_id: int | None = None) -> list[dict]:
     """Build prepared armor, clothing, and shield rows for the equipment panel."""
     armor_rows: list[dict] = []
     race_item_ids = _race_item_ids()
@@ -5414,44 +5829,80 @@ def _build_armor_rows(engine) -> list[dict]:
         row["character_item"]
         for row in (*armor_equipped_rows, *clothing_equipped_rows, *magic_equipped_rows, *shield_equipped_rows)
     ]
-    modifiers_by_character_item_id = _load_character_item_modifier_payloads(all_character_items)
+    modifiers_by_character_item_id = _load_character_item_modifier_payloads(
+        all_character_items,
+        include_unidentified=sl_effect_group_id is not None,
+    )
     for row in armor_equipped_rows:
+        display = resolve_character_item_display(
+            row["character_item"],
+            getattr(engine.character, "owner", None),
+            preview_player=True,
+        )
         is_race_item = row["item"].id in race_item_ids
         quality = quality_payload(row["quality"])
         magic_modifier_payloads = modifiers_by_character_item_id.get(row["character_item"].id, [])
-        item_image_url = _character_item_image_url(row["character_item"])
+        _annotate_item_effect_identification_payloads(
+            row["character_item"],
+            magic_modifier_payloads,
+            group_id=sl_effect_group_id,
+        )
+        sl_reveal_url = (
+            reverse("reveal_group_item", args=[sl_effect_group_id, row["character_item"].id])
+            if sl_effect_group_id is not None
+            else ""
+        )
+        sl_hide_url = (
+            reverse("hide_group_item", args=[sl_effect_group_id, row["character_item"].id])
+            if sl_effect_group_id is not None
+            else ""
+        )
+        item_image_url = display.image_url
+        item_name = display.name
         armor_rows.append(
             {
                 **row,
+                "item_name": item_name,
                 "kind": "armor",
                 "equipment_icon_key": _equipment_icon_key(row),
                 "is_magic": bool(row["item"].is_magic or row["character_item"].is_magic),
                 "quality_label": "" if is_race_item else quality["label"],
                 "quality_color": "" if is_race_item else quality["color"],
                 "tooltip_subtitle": " - ".join(
-                    part for part in [row["item"].get_item_type_display(), "" if is_race_item else quality["label"]] if part
+                    part for part in [display.item_type, "" if is_race_item else display.quality_label] if part
                 ),
                 "item_image_url": item_image_url,
+                "sl_reveal_url": sl_reveal_url,
+                "sl_hide_url": sl_hide_url,
+                "tooltip_hidden_fields": _tooltip_hidden_fields(row["character_item"]),
                 "summary": (
-                    f"{row['item_name']} "
+                    f"{item_name} "
                     f"(RS {row['rs']} | Bel {row['bel_effective']} | "
                     f"Min-St {row['min_st'] if row['min_st'] is not None else '-'})"
                 ),
                 "tooltip_text": _format_item_tooltip(
-                    description=row["character_item"].description or row["item"].description or "",
-                    quality_label="" if is_race_item else quality["label"],
-                    quality_color="" if is_race_item else quality["color"],
+                    description=display.description,
+                    quality_label="" if is_race_item else display.quality_label,
+                    quality_color="" if is_race_item else display.quality_color,
                     detail_rows=(
-                        _build_item_tooltip_rows(
-                            ItemEngine(row["character_item"]),
-                            row["item"],
-                            armor_rs=int(row["rs"] or 0),
-                            armor_encumbrance=int(row["bel_effective"] or 0),
+                        _filter_item_tooltip_rows_for_display(
+                            _build_item_tooltip_rows(
+                                ItemEngine(row["character_item"]),
+                                row["item"],
+                                armor_rs=int(row["rs"] or 0),
+                                armor_encumbrance=int(row["bel_effective"] or 0),
+                            ),
+                            set(_tooltip_hidden_fields(row["character_item"]).split(",")),
+                            include_hidden_values=sl_effect_group_id is not None,
                         )
                         + _build_weapon_symbol_tooltip_rows(ItemEngine(row["character_item"]))
                         + _build_character_item_magic_tooltip_rows(
-                            effect_summary=row["character_item"].magic_effect_summary or "",
+                            effect_summary=_character_item_effect_summary_for_view(
+                                row["character_item"],
+                                sl_effect_group_id=sl_effect_group_id,
+                            ),
                             modifier_payloads=magic_modifier_payloads,
+                            include_condition_blocked=sl_effect_group_id is not None,
                         )
                         + _build_character_item_rune_tooltip_rows(
                             item=row["item"],
@@ -5463,33 +5914,66 @@ def _build_armor_rows(engine) -> list[dict]:
             }
         )
     for row in clothing_equipped_rows:
+        display = resolve_character_item_display(
+            row["character_item"],
+            getattr(engine.character, "owner", None),
+            preview_player=True,
+        )
         is_race_item = row["item"].id in race_item_ids
         quality = quality_payload(row["quality"])
         magic_modifier_payloads = modifiers_by_character_item_id.get(row["character_item"].id, [])
-        item_image_url = _character_item_image_url(row["character_item"])
+        _annotate_item_effect_identification_payloads(
+            row["character_item"],
+            magic_modifier_payloads,
+            group_id=sl_effect_group_id,
+        )
+        sl_reveal_url = (
+            reverse("reveal_group_item", args=[sl_effect_group_id, row["character_item"].id])
+            if sl_effect_group_id is not None
+            else ""
+        )
+        sl_hide_url = (
+            reverse("hide_group_item", args=[sl_effect_group_id, row["character_item"].id])
+            if sl_effect_group_id is not None
+            else ""
+        )
+        item_image_url = display.image_url
+        item_name = display.name
         armor_rows.append(
             {
                 **row,
+                "item_name": item_name,
                 "kind": "clothing",
                 "equipment_icon_key": _equipment_icon_key(row),
                 "is_magic": bool(row["item"].is_magic or row["character_item"].is_magic),
                 "quality_label": "" if is_race_item else quality["label"],
                 "quality_color": "" if is_race_item else quality["color"],
                 "tooltip_subtitle": " - ".join(
-                    part for part in [row["item"].get_item_type_display(), "" if is_race_item else quality["label"]] if part
+                    part for part in [display.item_type, "" if is_race_item else display.quality_label] if part
                 ),
                 "item_image_url": item_image_url,
-                "summary": f"{row['item_name']} (Kleidung)",
+                "sl_reveal_url": sl_reveal_url,
+                "sl_hide_url": sl_hide_url,
+                "tooltip_hidden_fields": _tooltip_hidden_fields(row["character_item"]),
+                "summary": f"{item_name} (Kleidung)",
                 "tooltip_text": _format_item_tooltip(
-                    description=row["character_item"].description or row["item"].description or "",
-                    quality_label="" if is_race_item else quality["label"],
-                    quality_color="" if is_race_item else quality["color"],
+                    description=display.description,
+                    quality_label="" if is_race_item else display.quality_label,
+                    quality_color="" if is_race_item else display.quality_color,
                     detail_rows=(
-                        _build_item_tooltip_rows(ItemEngine(row["character_item"]), row["item"])
+                        _filter_item_tooltip_rows_for_display(
+                            _build_item_tooltip_rows(ItemEngine(row["character_item"]), row["item"]),
+                            set(_tooltip_hidden_fields(row["character_item"]).split(",")),
+                            include_hidden_values=sl_effect_group_id is not None,
+                        )
                         + _build_weapon_symbol_tooltip_rows(ItemEngine(row["character_item"]))
                         + _build_character_item_magic_tooltip_rows(
-                            effect_summary=row["character_item"].magic_effect_summary or "",
+                            effect_summary=_character_item_effect_summary_for_view(
+                                row["character_item"],
+                                sl_effect_group_id=sl_effect_group_id,
+                            ),
                             modifier_payloads=magic_modifier_payloads,
+                            include_condition_blocked=sl_effect_group_id is not None,
                         )
                         + _build_character_item_rune_tooltip_rows(
                             item=row["item"],
@@ -5501,33 +5985,66 @@ def _build_armor_rows(engine) -> list[dict]:
             }
         )
     for row in magic_equipped_rows:
+        display = resolve_character_item_display(
+            row["character_item"],
+            getattr(engine.character, "owner", None),
+            preview_player=True,
+        )
         is_race_item = row["item"].id in race_item_ids
         quality = quality_payload(row["quality"])
         magic_modifier_payloads = modifiers_by_character_item_id.get(row["character_item"].id, [])
-        item_image_url = _character_item_image_url(row["character_item"])
+        _annotate_item_effect_identification_payloads(
+            row["character_item"],
+            magic_modifier_payloads,
+            group_id=sl_effect_group_id,
+        )
+        sl_reveal_url = (
+            reverse("reveal_group_item", args=[sl_effect_group_id, row["character_item"].id])
+            if sl_effect_group_id is not None
+            else ""
+        )
+        sl_hide_url = (
+            reverse("hide_group_item", args=[sl_effect_group_id, row["character_item"].id])
+            if sl_effect_group_id is not None
+            else ""
+        )
+        item_image_url = display.image_url
+        item_name = display.name
         armor_rows.append(
             {
                 **row,
+                "item_name": item_name,
                 "kind": "magic_item",
                 "equipment_icon_key": _equipment_icon_key(row),
                 "is_magic": bool(row["item"].is_magic or row["character_item"].is_magic),
                 "quality_label": "" if is_race_item else quality["label"],
                 "quality_color": "" if is_race_item else quality["color"],
                 "tooltip_subtitle": " - ".join(
-                    part for part in [row["item"].get_item_type_display(), "" if is_race_item else quality["label"]] if part
+                    part for part in [display.item_type, "" if is_race_item else display.quality_label] if part
                 ),
                 "item_image_url": item_image_url,
-                "summary": f"{row['item_name']} (Magischer Gegenstand)",
+                "sl_reveal_url": sl_reveal_url,
+                "sl_hide_url": sl_hide_url,
+                "tooltip_hidden_fields": _tooltip_hidden_fields(row["character_item"]),
+                "summary": f"{item_name} (Magischer Gegenstand)",
                 "tooltip_text": _format_item_tooltip(
-                    description=row["character_item"].description or row["item"].description or "",
-                    quality_label="" if is_race_item else quality["label"],
-                    quality_color="" if is_race_item else quality["color"],
+                    description=display.description,
+                    quality_label="" if is_race_item else display.quality_label,
+                    quality_color="" if is_race_item else display.quality_color,
                     detail_rows=(
-                        _build_item_tooltip_rows(ItemEngine(row["character_item"]), row["item"])
+                        _filter_item_tooltip_rows_for_display(
+                            _build_item_tooltip_rows(ItemEngine(row["character_item"]), row["item"]),
+                            set(_tooltip_hidden_fields(row["character_item"]).split(",")),
+                            include_hidden_values=sl_effect_group_id is not None,
+                        )
                         + _build_weapon_symbol_tooltip_rows(ItemEngine(row["character_item"]))
                         + _build_character_item_magic_tooltip_rows(
-                            effect_summary=row["character_item"].magic_effect_summary or "",
+                            effect_summary=_character_item_effect_summary_for_view(
+                                row["character_item"],
+                                sl_effect_group_id=sl_effect_group_id,
+                            ),
                             modifier_payloads=magic_modifier_payloads,
+                            include_condition_blocked=sl_effect_group_id is not None,
                         )
                         + _build_character_item_rune_tooltip_rows(
                             item=row["item"],
@@ -5539,37 +6056,70 @@ def _build_armor_rows(engine) -> list[dict]:
             }
         )
     for row in shield_equipped_rows:
+        display = resolve_character_item_display(
+            row["character_item"],
+            getattr(engine.character, "owner", None),
+            preview_player=True,
+        )
         is_race_item = row["item"].id in race_item_ids
         quality = quality_payload(row["quality"])
         magic_modifier_payloads = modifiers_by_character_item_id.get(row["character_item"].id, [])
-        item_image_url = _character_item_image_url(row["character_item"])
+        _annotate_item_effect_identification_payloads(
+            row["character_item"],
+            magic_modifier_payloads,
+            group_id=sl_effect_group_id,
+        )
+        sl_reveal_url = (
+            reverse("reveal_group_item", args=[sl_effect_group_id, row["character_item"].id])
+            if sl_effect_group_id is not None
+            else ""
+        )
+        sl_hide_url = (
+            reverse("hide_group_item", args=[sl_effect_group_id, row["character_item"].id])
+            if sl_effect_group_id is not None
+            else ""
+        )
+        item_image_url = display.image_url
+        item_name = display.name
         armor_rows.append(
             {
                 **row,
+                "item_name": item_name,
                 "kind": "shield",
                 "equipment_icon_key": _equipment_icon_key(row),
                 "is_magic": bool(row["item"].is_magic or row["character_item"].is_magic),
                 "quality_label": "" if is_race_item else quality["label"],
                 "quality_color": "" if is_race_item else quality["color"],
                 "tooltip_subtitle": " - ".join(
-                    part for part in [row["item"].get_item_type_display(), "" if is_race_item else quality["label"]] if part
+                    part for part in [display.item_type, "" if is_race_item else display.quality_label] if part
                 ),
                 "item_image_url": item_image_url,
-                "summary": f"{row['item_name']} (Schild-RS {row['rs']} | Bel {row['bel_effective']} | Min-St {row['min_st'] or '-'})",
+                "sl_reveal_url": sl_reveal_url,
+                "sl_hide_url": sl_hide_url,
+                "tooltip_hidden_fields": _tooltip_hidden_fields(row["character_item"]),
+                "summary": f"{item_name} (Schild-RS {row['rs']} | Bel {row['bel_effective']} | Min-St {row['min_st'] or '-'})",
                 "tooltip_text": _format_item_tooltip(
-                    description=row["character_item"].description or row["item"].description or "",
-                    quality_label="" if is_race_item else quality["label"],
-                    quality_color="" if is_race_item else quality["color"],
+                    description=display.description,
+                    quality_label="" if is_race_item else display.quality_label,
+                    quality_color="" if is_race_item else display.quality_color,
                     detail_rows=(
-                        _build_item_tooltip_rows(
-                            ItemEngine(row["character_item"]),
-                            row["item"],
-                            shield_encumbrance=int(row["bel_effective"] or 0),
+                        _filter_item_tooltip_rows_for_display(
+                            _build_item_tooltip_rows(
+                                ItemEngine(row["character_item"]),
+                                row["item"],
+                                shield_encumbrance=int(row["bel_effective"] or 0),
+                            ),
+                            set(_tooltip_hidden_fields(row["character_item"]).split(",")),
+                            include_hidden_values=sl_effect_group_id is not None,
                         )
                         + _build_weapon_symbol_tooltip_rows(ItemEngine(row["character_item"]))
                         + _build_character_item_magic_tooltip_rows(
-                            effect_summary=row["character_item"].magic_effect_summary or "",
+                            effect_summary=_character_item_effect_summary_for_view(
+                                row["character_item"],
+                                sl_effect_group_id=sl_effect_group_id,
+                            ),
                             modifier_payloads=magic_modifier_payloads,
+                            include_condition_blocked=sl_effect_group_id is not None,
                         )
                         + _build_character_item_rune_tooltip_rows(
                             item=row["item"],
@@ -7319,6 +7869,7 @@ def build_character_sheet_context(
     *,
     close_learn_window_once: bool = False,
     read_only: bool = False,
+    sl_effect_group_id: int | None = None,
 ) -> dict[str, object]:
     """Build the full character-sheet context without direct template calculations."""
     engine = character.engine
@@ -7353,11 +7904,11 @@ def build_character_sheet_context(
         row["carry_with_load_total_value"] = base_with_load_total + carry_penalty
         row["carry_with_load_total"] = base_with_load_total + carry_penalty
     advantage_rows, disadvantage_rows = _build_trait_rows(character)
-    inventory_rows = _build_inventory_rows(character)
+    inventory_rows = _build_inventory_rows(character, sl_effect_group_id=sl_effect_group_id)
     carried_inventory_rows = [row for row in inventory_rows if not row.get("is_stored")]
     stored_inventory_rows = [row for row in inventory_rows if row.get("is_stored")]
     inventory_total_weight_display = _build_inventory_total_weight_display(character)
-    weapon_rows = _build_weapon_rows(engine)
+    weapon_rows = _build_weapon_rows(engine, sl_effect_group_id=sl_effect_group_id)
     for row in weapon_rows:
         row["carry_with_bel_value"] = int(row.get("with_bel_value", 0) or 0) + carry_penalty
         row["carry_with_bel_display"] = format_modifier(int(row["carry_with_bel_value"]))
@@ -7367,7 +7918,7 @@ def build_character_sheet_context(
             extra_load_penalty=carry_penalty,
         )
     battle_calculator_payload = BattleCalculatorEngine.build_payload(engine, skill_rows, weapon_rows)
-    armor_rows = _build_armor_rows(engine)
+    armor_rows = _build_armor_rows(engine, sl_effect_group_id=sl_effect_group_id)
     armor_zone_protection = engine.armor_zone_protection()
     body_armor = {
         "shield": engine.shield_protection(),

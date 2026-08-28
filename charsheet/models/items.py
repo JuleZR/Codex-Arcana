@@ -973,6 +973,129 @@ class CharacterItemSemanticEffect(ItemSemanticEffectFields):
         return self.character_item.invested_cp if self.character_item.invested_cp is not None else self.character_item.item.invested_cp
 
 
+class CharacterItemDisclosure(models.Model):
+    """Player-facing disclosure state for one concrete item field."""
+
+    character_item = models.ForeignKey(
+        "CharacterItem",
+        on_delete=models.CASCADE,
+        related_name="disclosures",
+    )
+    field_key = models.CharField(max_length=80)
+    revealed = models.BooleanField(default=True)
+    alternative_text = models.TextField(blank=True, default="")
+    alternative_image = models.ImageField(
+        upload_to="character_item_disclosures/",
+        blank=True,
+        null=True,
+    )
+
+    class Meta:
+        ordering = ["character_item", "field_key"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["character_item", "field_key"],
+                name="uniq_character_item_disclosure_field",
+            ),
+        ]
+
+    def __str__(self):
+        state = "visible" if self.revealed else "hidden"
+        return f"{self.character_item}: {self.field_key} ({state})"
+
+
+class CharacterItemIdentificationState(models.Model):
+    """Marks that a concrete item uses explicit effect identification rules."""
+
+    character_item = models.OneToOneField(
+        "CharacterItem",
+        on_delete=models.CASCADE,
+        related_name="identification_state",
+    )
+    initialized = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["character_item"]
+
+    def __str__(self):
+        state = "initialized" if self.initialized else "legacy"
+        return f"{self.character_item}: {state}"
+
+
+class CharacterItemEffectIdentification(models.Model):
+    """Identification state for one concrete item effect source."""
+
+    character_item = models.ForeignKey(
+        "CharacterItem",
+        on_delete=models.CASCADE,
+        related_name="effect_identifications",
+    )
+    item_effect = models.ForeignKey(
+        "ItemSemanticEffect",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="character_item_identifications",
+    )
+    character_item_effect = models.ForeignKey(
+        "CharacterItemSemanticEffect",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="identifications",
+    )
+    identified = models.BooleanField(default=False)
+    alternative_text = models.TextField(blank=True, default="")
+
+    class Meta:
+        ordering = ["character_item", "item_effect", "character_item_effect"]
+        constraints = [
+            models.CheckConstraint(
+                condition=(
+                    (
+                        models.Q(item_effect__isnull=False)
+                        & models.Q(character_item_effect__isnull=True)
+                    )
+                    | (
+                        models.Q(item_effect__isnull=True)
+                        & models.Q(character_item_effect__isnull=False)
+                    )
+                ),
+                name="character_item_identification_exactly_one_effect",
+            ),
+            models.UniqueConstraint(
+                fields=["character_item", "item_effect"],
+                condition=models.Q(item_effect__isnull=False),
+                name="uniq_character_item_item_effect_identification",
+            ),
+            models.UniqueConstraint(
+                fields=["character_item", "character_item_effect"],
+                condition=models.Q(character_item_effect__isnull=False),
+                name="uniq_character_item_instance_effect_identification",
+            ),
+        ]
+
+    def clean(self):
+        super().clean()
+        if bool(self.item_effect_id) == bool(self.character_item_effect_id):
+            raise ValidationError("Exactly one effect source is required.")
+        if self.character_item_effect_id and self.character_item_id:
+            if self.character_item_effect.character_item_id != self.character_item_id:
+                raise ValidationError(
+                    {"character_item_effect": "Effect must belong to this character item."}
+                )
+        if self.item_effect_id and self.character_item_id:
+            if self.item_effect.item_id != self.character_item.item_id:
+                raise ValidationError(
+                    {"item_effect": "Effect must belong to this character item's base item."}
+                )
+
+    def __str__(self):
+        effect = self.character_item_effect or self.item_effect
+        state = "identified" if self.identified else "unknown"
+        return f"{self.character_item}: {effect} ({state})"
+
+
 class WeaponFlag(models.Model):
     key = models.CharField(max_length=50, choices=WEAPON_SYMBOL_CHOICES, unique=True)
 

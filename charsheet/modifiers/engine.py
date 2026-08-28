@@ -28,6 +28,7 @@ from charsheet.constants import (
 from charsheet.modifiers.migration import ModifierResolutionMode, NumericResolutionComparison
 from charsheet.modifiers.registry import build_trait_semantic_modifiers
 from charsheet.modifiers.targets import TargetResolver
+from charsheet.item_disclosure import is_character_item_effect_identified
 from charsheet.models import (
     CharacterDaemonicPower,
     CharacterItem,
@@ -279,6 +280,8 @@ class ModifierEngine:
             for effect in base_effects_by_item_id.get(int(character_item.item_id), []):
                 if (int(character_item.id), int(effect.id)) in instance_base_effect_ids:
                     continue
+                if not is_character_item_effect_identified(character_item, effect):
+                    continue
 
                 modifier = effect.to_modifier(
                     invested_cp=character_item.invested_cp
@@ -296,7 +299,12 @@ class ModifierEngine:
 
         return [
             *base_modifiers,
-            *(effect.to_modifier() for effect in instance_effects if effect.active_flag),
+            *(
+                effect.to_modifier()
+                for effect in instance_effects
+                if effect.active_flag
+                and is_character_item_effect_identified(effect.character_item, effect)
+            ),
         ]
 
     @cached_property

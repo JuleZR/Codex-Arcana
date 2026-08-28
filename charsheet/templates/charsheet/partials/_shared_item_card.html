@@ -1,0 +1,173 @@
+{% load card_markdown %}
+<article class="floating-tooltip-card floating-tooltip-card--embedded is-visible{% if item_card.controls %} floating-tooltip-card--sl-controls{% endif %}" data-shared-item-card>
+  <div class="floating-tooltip-card__frame"{% if item_card.accent %} style="--tooltip-card-accent: {{ item_card.accent }};"{% endif %}>
+    <div class="floating-tooltip-card__header">
+      <div class="floating-tooltip-card__heading">
+        <h3 class="floating-tooltip-card__title">
+          <span class="sl-card-disclosure-slot">
+          <span data-sl-disclosure-target="name" data-actual="{{ item_card.title|default:'Unbekannter Gegenstand' }}" data-hidden="Verborgen">{{ item_card.title|default:"Unbekannter Gegenstand" }}</span>
+          {% if item_card.controls and item_card.field_controls.name %}
+            <span class="sl-card-lock-control sl-card-lock-control--title">
+              <input type="hidden" name="disclosure_present_name" value="1" form="{{ disclosure_form_id }}">
+              <input type="hidden" name="revealed_name" value="1" form="{{ disclosure_form_id }}">
+              <input id="{{ disclosure_form_id }}-name-lock" class="sl-card-lock-checkbox" type="checkbox" name="revealed_name" value="0" form="{{ disclosure_form_id }}"{% if not item_card.field_controls.name.revealed %} checked{% endif %}>
+              <label class="sl-card-lock-button" for="{{ disclosure_form_id }}-name-lock" aria-label="Name sperren"></label>
+              <input class="sl-card-alt-field" name="alternative_name" value="{{ item_card.field_controls.name.alternative_text }}" placeholder="Temporärer Name" form="{{ disclosure_form_id }}">
+            </span>
+          {% endif %}
+          </span>
+        </h3>
+        {% if item_card.subtitle or item_card.controls %}
+          <p class="floating-tooltip-card__subtitle">
+            {% if item_card.item_type_label %}<span data-sl-disclosure-target="item_type" data-actual="{{ item_card.item_type_label }}" data-hidden="Verborgen">{{ item_card.item_type_label }}</span>{% endif %}{% if item_card.item_type_label and item_card.quality_label %} - {% endif %}{% if item_card.quality_label %}<span data-sl-disclosure-target="quality" data-actual="{{ item_card.quality_label }}" data-hidden="Verborgen">{{ item_card.quality_label }}</span>{% endif %}
+            {% if item_card.controls and item_card.field_controls.item_type %}
+              <span class="sl-card-lock-control sl-card-lock-control--meta">
+                <input type="hidden" name="disclosure_present_item_type" value="1" form="{{ disclosure_form_id }}">
+                <input type="hidden" name="revealed_item_type" value="1" form="{{ disclosure_form_id }}">
+                <input id="{{ disclosure_form_id }}-item-type-lock" class="sl-card-lock-checkbox" type="checkbox" name="revealed_item_type" value="0" form="{{ disclosure_form_id }}"{% if not item_card.field_controls.item_type.revealed %} checked{% endif %}>
+                <label class="sl-card-lock-button" for="{{ disclosure_form_id }}-item-type-lock" aria-label="Typ sperren"></label>
+                <input class="sl-card-alt-field" name="alternative_item_type" value="{{ item_card.field_controls.item_type.alternative_text }}" placeholder="Alternativer Typ" form="{{ disclosure_form_id }}">
+              </span>
+            {% endif %}
+            {% if item_card.controls and item_card.field_controls.quality %}
+              <span class="sl-card-lock-control sl-card-lock-control--meta">
+                <input type="hidden" name="disclosure_present_quality" value="1" form="{{ disclosure_form_id }}">
+                <input type="hidden" name="revealed_quality" value="1" form="{{ disclosure_form_id }}">
+                <input id="{{ disclosure_form_id }}-quality-lock" class="sl-card-lock-checkbox" type="checkbox" name="revealed_quality" value="0" form="{{ disclosure_form_id }}"{% if not item_card.field_controls.quality.revealed %} checked{% endif %}>
+                <label class="sl-card-lock-button" for="{{ disclosure_form_id }}-quality-lock" aria-label="Qualität sperren"></label>
+                <select class="sl-card-alt-field" name="alternative_quality" form="{{ disclosure_form_id }}" aria-label="Alternative Qualität">
+                  {% for quality in group_inventory_qualities %}
+                    <option value="{{ quality.name }}"{% if quality.name == item_card.field_controls.quality.alternative_text %} selected{% endif %}>{{ quality.name }}</option>
+                  {% endfor %}
+                </select>
+              </span>
+            {% endif %}
+          </p>
+        {% endif %}
+      </div>
+      <button type="button" class="floating-tooltip-card__close" aria-label="Details schliessen" tabindex="-1">x</button>
+    </div>
+    <div class="floating-tooltip-card__content{% if item_card.image_url or item_card.controls and item_card.field_controls.image %} has-media{% endif %}">
+      {% if item_card.image_url or item_card.controls and item_card.field_controls.image %}
+        <div class="floating-tooltip-card__media">
+          <img class="floating-tooltip-card__image" src="{{ item_card.image_url }}" alt="" data-sl-disclosure-target="image" data-actual="{{ item_card.actual_image_url|default:item_card.image_url }}"{% if not item_card.image_url %} hidden{% endif %}>
+          {% if item_card.controls and item_card.field_controls.image %}
+            <span class="sl-card-lock-control sl-card-lock-control--media">
+              <input type="hidden" name="disclosure_present_image" value="1" form="{{ disclosure_form_id }}">
+              <input type="hidden" name="revealed_image" value="1" form="{{ disclosure_form_id }}">
+              <input id="{{ disclosure_form_id }}-image-lock" class="sl-card-lock-checkbox" type="checkbox" name="revealed_image" value="0" form="{{ disclosure_form_id }}"{% if not item_card.field_controls.image.revealed %} checked{% endif %}>
+              <label class="sl-card-lock-button" for="{{ disclosure_form_id }}-image-lock" aria-label="Bild sperren"></label>
+              <label class="sl-card-image-picker" title="Alternatives Bild wählen">
+                {% if item_card.field_controls.image.alternative_image_url %}
+                  <img src="{{ item_card.field_controls.image.alternative_image_url }}" alt="">
+                {% else %}
+                  <span>Bild wählen</span>
+                {% endif %}
+                <input type="file" name="alternative_image_image" accept="image/*" form="{{ disclosure_form_id }}">
+              </label>
+              {% if item_card.field_controls.image.alternative_image_url %}
+                <input id="{{ disclosure_form_id }}-image-clear" class="sl-card-image-clear-checkbox" type="checkbox" name="clear_alternative_image_image" value="1" form="{{ disclosure_form_id }}">
+                <label class="sl-card-image-clear" for="{{ disclosure_form_id }}-image-clear">Entfernen</label>
+              {% endif %}
+            </span>
+          {% endif %}
+        </div>
+      {% endif %}
+      {% if item_card.detail_rows %}
+        <div class="floating-tooltip-card__details">
+          <table>
+            <thead><tr><th>Wert</th><th>Details</th></tr></thead>
+            <tbody>
+              {% for row in item_card.detail_rows %}
+                <tr>
+                  <td>{{ row.label }}</td>
+                  <td>
+                    <span class="sl-card-disclosure-slot sl-card-disclosure-slot--value">
+                    <span data-sl-disclosure-target="{{ row.field_key }}" data-actual="{{ row.value }}" data-hidden="Verborgen">{{ row.value }}</span>
+                    {% if item_card.controls and row.disclosure %}
+                      <span class="sl-card-lock-control sl-card-lock-control--value">
+                        <input type="hidden" name="disclosure_present_{{ row.field_key }}" value="1" form="{{ disclosure_form_id }}">
+                        <input type="hidden" name="revealed_{{ row.field_key }}" value="1" form="{{ disclosure_form_id }}">
+                        <input id="{{ disclosure_form_id }}-{{ row.field_key }}-lock" class="sl-card-lock-checkbox" type="checkbox" name="revealed_{{ row.field_key }}" value="0" form="{{ disclosure_form_id }}"{% if not row.disclosure.revealed %} checked{% endif %}>
+                        <label class="sl-card-lock-button" for="{{ disclosure_form_id }}-{{ row.field_key }}-lock" aria-label="{{ row.label }} sperren"></label>
+                        <input class="sl-card-alt-field" name="alternative_{{ row.field_key }}" value="{{ row.disclosure.alternative_text }}" placeholder="Alternativ" form="{{ disclosure_form_id }}">
+                      </span>
+                    {% endif %}
+                    </span>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% endif %}
+    </div>
+    {% if item_card.weapon_symbol_rows or item_card.effect_rows or item_card.rune_rows or item_card.description or item_card.controls and item_card.field_controls.description %}
+      <section class="floating-tooltip-card__lore">
+        {% if item_card.weapon_symbol_rows %}
+          <section class="floating-tooltip-card__section">
+            <div class="floating-tooltip-card__section_body">
+              <table><tbody>{% for row in item_card.weapon_symbol_rows %}<tr><td>&nbsp;</td><td>{{ row.value|card_markdown }}</td></tr>{% endfor %}</tbody></table>
+            </div>
+          </section>
+        {% endif %}
+        {% if item_card.effect_rows %}
+          <section class="floating-tooltip-card__section">
+            <h4 class="floating-tooltip-card__section_title">Effekte</h4>
+            <div class="floating-tooltip-card__section_body">
+              <table class="shared-item-card-effect-table"><tbody>
+                {% for row in item_card.effect_rows %}
+                  <tr class="tooltip_effect_row{% if row.inactive %} has-inactive-race-effect{% endif %}">
+                    <td>
+                      {% if row.label %}{{ row.label }}{% else %}&nbsp;{% endif %}
+                      {% if row.condition_note %}
+                        <span class="sl-card-condition-note">{{ row.condition_note }}</span>
+                      {% endif %}
+                    </td>
+                    <td>
+                      <span data-sl-effect-display data-actual="{{ row.value }}">{{ row.value|card_markdown }}</span>
+                      {% if item_card.controls and row.control %}
+                        <span class="sl-card-lock-control sl-card-lock-control--effect">
+                          <input type="hidden" name="effect" value="{{ row.control.source }}:{{ row.control.effect_id }}:{% if row.control.identified %}1{% else %}0{% endif %}" form="{{ effect_form_id }}" data-sl-effect-status-input>
+                          <input id="{{ effect_form_id }}-{{ row.control.source }}-{{ row.control.effect_id }}-lock" class="sl-card-lock-checkbox" type="checkbox" value="0"{% if not row.control.identified %} checked{% endif %}>
+                          <label class="sl-card-lock-button" for="{{ effect_form_id }}-{{ row.control.source }}-{{ row.control.effect_id }}-lock" aria-label="Effekt sperren"></label>
+                          <input class="sl-card-alt-field" name="alternative_{{ row.control.source }}_{{ row.control.effect_id }}" value="{{ row.control.alternative_text }}" placeholder="Alternativer Effekt" form="{{ effect_form_id }}">
+                        </span>
+                      {% endif %}
+                    </td>
+                  </tr>
+                {% empty %}
+                  {% if item_card.controls %}
+                    <tr><td>&nbsp;</td><td>Keine mechanischen Effekte vorhanden.</td></tr>
+                  {% endif %}
+                {% endfor %}
+              </tbody></table>
+            </div>
+          </section>
+        {% endif %}
+        {% if item_card.rune_rows %}
+          <section class="floating-tooltip-card__section">
+            <h4 class="floating-tooltip-card__section_title">Runen</h4>
+            <div class="floating-tooltip-card__section_body">
+              <table><tbody>{% for row in item_card.rune_rows %}<tr class="tooltip_rune_comment_row"><td>{% if row.label %}{{ row.label|card_markdown }}{% else %}&nbsp;{% endif %}</td><td>{{ row.value|card_markdown }}</td></tr>{% endfor %}</tbody></table>
+            </div>
+          </section>
+        {% endif %}
+        {% if item_card.description or item_card.controls and item_card.field_controls.description %}
+          <div class="sl-card-description-block">
+            {% if item_card.controls and item_card.field_controls.description %}
+              <span class="sl-card-lock-control sl-card-lock-control--description">
+                <input type="hidden" name="disclosure_present_description" value="1" form="{{ disclosure_form_id }}">
+                <input type="hidden" name="revealed_description" value="1" form="{{ disclosure_form_id }}">
+                <input id="{{ disclosure_form_id }}-description-lock" class="sl-card-lock-checkbox" type="checkbox" name="revealed_description" value="0" form="{{ disclosure_form_id }}"{% if not item_card.field_controls.description.revealed %} checked{% endif %}>
+                <label class="sl-card-lock-button" for="{{ disclosure_form_id }}-description-lock" aria-label="Beschreibung sperren"></label>
+                <textarea class="sl-card-alt-field sl-card-alt-field--textarea" name="alternative_description" placeholder="Alternative Beschreibung" form="{{ disclosure_form_id }}">{{ item_card.field_controls.description.alternative_text }}</textarea>
+              </span>
+            {% endif %}
+            <div data-sl-disclosure-target="description" data-actual="{{ item_card.description }}" data-hidden="Verborgen">{{ item_card.description|card_markdown }}</div>
+          </div>
+        {% endif %}
+      </section>
+    {% endif %}
+  </div>
+</article>

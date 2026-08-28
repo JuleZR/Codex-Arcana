@@ -7,7 +7,14 @@ document.addEventListener("DOMContentLoaded", () => {
     // context and the backdrop can cover the actual window.
     document.body.append(backdrop, win);
 
+    const constrainDisclosureWindow = () => {
+      if (!win.classList.contains("is-disclosure-card")) return;
+      const height = Math.max(320, Math.min(1074, window.innerHeight - 28));
+      win.style.height = `${height}px`;
+      win.style.maxHeight = `${height}px`;
+    };
     const center = () => {
+      constrainDisclosureWindow();
       const rect = win.getBoundingClientRect();
       win.style.left = Math.max(12, (window.innerWidth - rect.width) / 2) + "px";
       win.style.top = Math.max(12, Math.min(62, window.innerHeight - rect.height - 12)) + "px";
@@ -47,9 +54,10 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     handle.addEventListener("pointermove", (event) => {
       if (event.pointerId !== pointerId) return;
+      constrainDisclosureWindow();
       const rect = win.getBoundingClientRect();
       win.style.left = Math.min(window.innerWidth - rect.width - 12, Math.max(12, event.clientX - offsetX)) + "px";
-      win.style.top = Math.min(window.innerHeight - rect.height - 12, Math.max(12, event.clientY - offsetY)) + "px";
+      win.style.top = Math.max(12, Math.min(window.innerHeight - rect.height - 12, Math.max(12, event.clientY - offsetY))) + "px";
     });
     const stop = (event) => {
       if (event.pointerId !== pointerId) return;
@@ -574,40 +582,187 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   const actionBody = document.querySelector("[data-sl-item-action-body]");
+  const actionWindow = document.querySelector("[data-sl-item-action-window]");
   const actionTitle = document.getElementById("slItemActionTitle");
   let sourceCell = null;
   let activeForm = null;
+  let movedNodes = [];
   const actionFrame = floating({
-    win: document.querySelector("[data-sl-item-action-window]"),
+    win: actionWindow,
     backdrop: document.querySelector("[data-sl-item-action-backdrop]"),
     handle: document.querySelector("[data-sl-item-action-handle]"),
     closeButtons: Array.from(document.querySelectorAll("[data-close-sl-item-action]")),
     beforeOpen: (button) => {
       const row = document.getElementById(button.dataset.toggleSlInventoryPanel || "");
-      const form = row?.querySelector("form");
-      if (!form || !actionBody) return false;
+      const panelId = String(button.dataset.toggleSlInventoryPanel || "");
+      if (!row || !actionBody) return false;
       sourceCell = row.querySelector("td") || row;
-      activeForm = form;
-      actionBody.append(form);
+      if (panelId.startsWith("disclosure-")) {
+        actionWindow?.classList.add("is-disclosure-card");
+        movedNodes = Array.from(sourceCell.childNodes);
+        if (!movedNodes.length) return false;
+        actionBody.append(...movedNodes);
+      } else {
+        const form = row.querySelector("form");
+        if (!form) return false;
+        activeForm = form;
+        actionBody.append(form);
+      }
       if (actionTitle) {
-        const panelId = String(button.dataset.toggleSlInventoryPanel || "");
         actionTitle.textContent = panelId.startsWith("bulk-send-")
           ? "Auswahl senden"
           : panelId.startsWith("catalog-edit-")
           ? "Basisitem bearbeiten"
+          : panelId.startsWith("disclosure-")
+          ? "Sichtbarkeit verwalten"
           : panelId.startsWith("send-")
           ? "Gegenstand senden"
           : "Instanz anpassen";
       }
     },
     afterClose: () => {
+      if (sourceCell && movedNodes.length) sourceCell.append(...movedNodes);
       if (sourceCell && activeForm) sourceCell.append(activeForm);
       sourceCell = null;
       activeForm = null;
+      movedNodes = [];
+      actionWindow?.classList.remove("is-disclosure-card");
     },
   });
   document.querySelectorAll("[data-toggle-sl-inventory-panel]").forEach((button) => {
     button.addEventListener("click", () => actionFrame?.show(button));
+  });
+
+  const disclosureValueFor = (control) => {
+    const checkbox = control?.querySelector(".sl-card-lock-checkbox");
+    const alternate = control?.querySelector(".sl-card-alt-field");
+    if (!checkbox?.checked) return null;
+    const value = String(alternate?.value || "").trim();
+    return value || "Verborgen";
+  };
+
+  const syncDisclosureControl = (control) => {
+    if (!(control instanceof HTMLElement)) return;
+    const checkbox = control.querySelector(".sl-card-lock-checkbox");
+    if (!(checkbox instanceof HTMLInputElement)) return;
+    const rawName = String(checkbox.name || "");
+    const fieldKey = rawName.startsWith("revealed_") ? rawName.slice("revealed_".length) : "";
+    const card = control.closest("[data-shared-item-card]");
+    if (!fieldKey || !(card instanceof HTMLElement)) return;
+
+    if (fieldKey === "image") {
+      const image = card.querySelector("[data-sl-disclosure-target='image']");
+      if (!(image instanceof HTMLImageElement)) return;
+      if (!checkbox.checked) {
+        image.src = image.dataset.actual || "";
+        image.hidden = !image.src;
+        return;
+      }
+      const clearInput = control.querySelector(".sl-card-image-clear-checkbox");
+      if (clearInput instanceof HTMLInputElement && clearInput.checked) {
+        image.hidden = true;
+        return;
+      }
+      const fileInput = control.querySelector("input[type='file']");
+      if (fileInput instanceof HTMLInputElement && fileInput.files?.[0]) {
+        image.src = URL.createObjectURL(fileInput.files[0]);
+        image.hidden = false;
+        return;
+      }
+      const pickerImage = control.querySelector(".sl-card-image-picker img");
+      if (pickerImage instanceof HTMLImageElement && pickerImage.src) {
+        image.src = pickerImage.src;
+        image.hidden = false;
+        return;
+      }
+      image.hidden = true;
+      return;
+    }
+
+    const target = card.querySelector(`[data-sl-disclosure-target='${CSS.escape(fieldKey)}']`);
+    if (!(target instanceof HTMLElement)) return;
+    if (!target.dataset.actualHtml) target.dataset.actualHtml = target.innerHTML;
+    const lockedValue = disclosureValueFor(control);
+    if (lockedValue === null) {
+      target.innerHTML = target.dataset.actualHtml || "";
+      return;
+    }
+    target.textContent = lockedValue;
+  };
+
+  const syncEffectControl = (control) => {
+    if (!(control instanceof HTMLElement)) return;
+    const checkbox = control.querySelector(".sl-card-lock-checkbox");
+    const display = control.closest("td")?.querySelector("[data-sl-effect-display]");
+    if (!(checkbox instanceof HTMLInputElement) || !(display instanceof HTMLElement)) return;
+    const statusInput = control.querySelector("[data-sl-effect-status-input]");
+    if (statusInput instanceof HTMLInputElement) {
+      statusInput.value = statusInput.value.replace(/:[01]$/, checkbox.checked ? ":0" : ":1");
+    }
+    if (!display.dataset.actual) display.dataset.actual = display.textContent || "";
+    if (!display.dataset.actualHtml) display.dataset.actualHtml = display.innerHTML;
+    display.innerHTML = display.dataset.actualHtml || "";
+    display.classList.toggle("is-player-hidden", checkbox.checked);
+  };
+
+  document.querySelectorAll(".sl-card-lock-control").forEach((control) => {
+    control.addEventListener("change", (event) => {
+      if (
+        event.target instanceof HTMLInputElement
+        && event.target.type === "file"
+        && event.target.files?.[0]
+      ) {
+        const preview = control.querySelector(".sl-card-image-picker img") || document.createElement("img");
+        preview.src = URL.createObjectURL(event.target.files[0]);
+        if (!preview.parentElement) {
+          const picker = control.querySelector(".sl-card-image-picker");
+          picker?.prepend(preview);
+        }
+      }
+      syncDisclosureControl(control);
+      syncEffectControl(control);
+    });
+    control.addEventListener("input", () => {
+      syncDisclosureControl(control);
+      syncEffectControl(control);
+    });
+    syncDisclosureControl(control);
+    syncEffectControl(control);
+  });
+
+  document.querySelectorAll("[data-sl-disclosure-save]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const disclosureForm = document.getElementById(button.dataset.disclosureForm || "");
+      const effectForm = document.getElementById(button.dataset.effectForm || "");
+      if (!(disclosureForm instanceof HTMLFormElement) || !(effectForm instanceof HTMLFormElement)) return;
+      button.disabled = true;
+      const originalText = button.textContent;
+      button.textContent = "Speichert...";
+      try {
+        for (const form of [disclosureForm, effectForm]) {
+          const data = new FormData(form);
+          data.set("_response_format", "json");
+          const response = await fetch(form.action, {
+            method: "POST",
+            body: data,
+            headers: {
+              "X-Requested-With": "XMLHttpRequest",
+              "Accept": "application/json",
+            },
+          });
+          if (!response.ok) {
+            const detail = await response.text();
+            throw new Error(`Save failed: ${response.status} ${detail.slice(0, 300)}`);
+          }
+        }
+        window.location.reload();
+      } catch (error) {
+        console.error(error);
+        button.disabled = false;
+        button.textContent = originalText || "Speichern";
+        window.alert("Speichern fehlgeschlagen.");
+      }
+    });
   });
 
   document.querySelectorAll(".sl-inventory").forEach((panel) => {

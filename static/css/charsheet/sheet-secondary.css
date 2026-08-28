@@ -3581,6 +3581,26 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
   transform: translateY(0) scale(1);
 }
 
+.floating-tooltip-card--embedded {
+  position: relative;
+  left: auto;
+  top: auto;
+  width: min(760px, 100%);
+  max-height: none;
+  opacity: 1;
+  pointer-events: auto;
+  transform: none;
+  z-index: auto;
+}
+
+.floating-tooltip-card--embedded .floating-tooltip-card__frame {
+  max-height: none;
+}
+
+.floating-tooltip-card--embedded .floating-tooltip-card__header {
+  cursor: default;
+}
+
 .floating-tooltip-card.is-dragging {
   transition: none;
 }
@@ -4083,6 +4103,69 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
   font-size: 0.94rem;
 }
 
+.floating-tooltip-card__sl-actions {
+  display: none;
+}
+
+.floating-tooltip-card__sl-action {
+  display: none;
+}
+
+.has-tooltip-disclosure-lock {
+  position: relative;
+}
+
+.floating-tooltip-card .tooltip_disclosure_toggle {
+  display: inline-grid;
+  place-items: center;
+  box-sizing: border-box;
+  width: 30px;
+  height: 30px;
+  margin-left: 7px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  vertical-align: -8px;
+  cursor: pointer;
+  pointer-events: auto;
+  filter: drop-shadow(0 1px 2px rgba(42, 24, 9, 0.45));
+}
+
+.floating-tooltip-card .tooltip_disclosure_toggle::before {
+  content: "";
+  display: block;
+  width: 18px;
+  height: 18px;
+  background: url("/static/img/lock_closed.png") center / contain no-repeat;
+}
+
+.floating-tooltip-card .tooltip_disclosure_toggle.is-revealed {
+  background-image: none;
+}
+
+.floating-tooltip-card .tooltip_disclosure_toggle.is-revealed::before {
+  background-image: url("/static/img/lock_open.png");
+}
+
+.floating-tooltip-card .tooltip_disclosure_toggle:hover,
+.floating-tooltip-card .tooltip_disclosure_toggle:focus-visible {
+  transform: translateY(-1px);
+  filter: drop-shadow(0 2px 3px rgba(42, 24, 9, 0.55)) brightness(1.08);
+}
+
+.floating-tooltip-card .tooltip_disclosure_toggle:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.floating-tooltip-card__media.has-tooltip-disclosure-lock .tooltip_disclosure_toggle {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  z-index: 3;
+  margin: 0;
+}
+
 .floating-tooltip .tooltip_quality_line {
   margin: 0 0 8px;
   padding: 0 2px;
@@ -4387,6 +4470,61 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
 .floating-tooltip-card__section_body .tooltip_effect_toggle:disabled {
   cursor: wait;
   opacity: 0.72;
+}
+
+.floating-tooltip-card__section_body .tooltip_effect_identify,
+.floating-tooltip .tooltip_effect_identify {
+  float: right;
+  display: inline-grid;
+  place-items: center;
+  box-sizing: border-box;
+  width: 30px;
+  height: 30px;
+  margin: -2px 0 4px 10px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  pointer-events: auto;
+  filter:
+    drop-shadow(0 1px 1px rgba(45, 24, 8, 0.45))
+    drop-shadow(0 0 4px rgba(239, 203, 132, 0.22));
+}
+
+.floating-tooltip-card__section_body .tooltip_effect_identify::before,
+.floating-tooltip .tooltip_effect_identify::before {
+  content: "";
+  display: block;
+  width: 20px;
+  height: 20px;
+  background: url("/static/img/lock_closed.png") center / contain no-repeat;
+}
+
+.floating-tooltip-card__section_body .tooltip_effect_identify.is-identified,
+.floating-tooltip .tooltip_effect_identify.is-identified {
+  background-image: none;
+}
+
+.floating-tooltip-card__section_body .tooltip_effect_identify.is-identified::before,
+.floating-tooltip .tooltip_effect_identify.is-identified::before {
+  background-image: url("/static/img/lock_open.png");
+}
+
+.floating-tooltip-card__section_body .tooltip_effect_identify:hover,
+.floating-tooltip .tooltip_effect_identify:hover,
+.floating-tooltip-card__section_body .tooltip_effect_identify:focus-visible,
+.floating-tooltip .tooltip_effect_identify:focus-visible {
+  transform: translateY(-1px);
+  filter:
+    brightness(1.1)
+    drop-shadow(0 1px 1px rgba(45, 24, 8, 0.45))
+    drop-shadow(0 0 5px rgba(239, 203, 132, 0.28));
+}
+
+.floating-tooltip-card__section_body .tooltip_effect_identify:disabled,
+.floating-tooltip .tooltip_effect_identify:disabled {
+  cursor: wait;
+  opacity: 0.68;
 }
 
 .floating-tooltip-card__section_body .tooltip_effect_inactive_race,

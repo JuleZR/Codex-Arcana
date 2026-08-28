@@ -1,6 +1,7 @@
 from __future__ import annotations
 import base64
 import binascii
+import hashlib
 import json
 import random
 from urllib.parse import urlencode
@@ -20,7 +21,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LogoutView
 from django.views.decorators.http import require_POST
 from django.db import transaction
-from django.db.models import F, Sum
+from django.db.models import F, Q, Sum
 from django.db.models.deletion import ProtectedError
 from django.utils import timezone
 from django.template.loader import render_to_string
@@ -37,6 +38,9 @@ from .models import (
     CharacterDruidCult,
     CharacterShamanPatron,
     CharacterItem,
+    CharacterItemDisclosure,
+    CharacterItemEffectIdentification,
+    CharacterItemIdentificationState,
     CharacterItemSemanticEffect,
     CharacterItemRuneSpec,
     CharacterLanguage,
@@ -825,6 +829,7 @@ def _build_sheet_context_for_request(
     close_learn_window_once: bool = False,
     skip_magic_sync: bool = False,
     read_only: bool = False,
+    sl_effect_group_id: int | None = None,
 ) -> dict[str, object]:
     """Build the full sheet context including request-specific dice settings."""
     if not read_only:
@@ -843,6 +848,7 @@ def _build_sheet_context_for_request(
         character,
         close_learn_window_once=close_learn_window_once,
         read_only=read_only,
+        sl_effect_group_id=sl_effect_group_id,
     )
     if read_only:
         user_settings = UserSettings.objects.filter(user=request.user).first() or UserSettings(user=request.user)
@@ -1061,6 +1067,61 @@ def _render_sheet_partials(request, context: dict[str, object], partial_keys) ->
             }
         )
     return partials
+
+
+def _character_external_sheet_signature(character: Character) -> str:
+    """Return a cheap signature for GM-controlled item visibility state."""
+    item_ids = list(
+        CharacterItem.objects.filter(
+            Q(owner=character)
+            | Q(original_owner_character=character)
+        )
+        .order_by("id")
+        .values_list("id", flat=True)
+    )
+    if not item_ids:
+        return "empty"
+    disclosure_rows = list(
+        CharacterItemDisclosure.objects
+        .filter(character_item_id__in=item_ids)
+        .order_by("character_item_id", "field_key")
+        .values_list(
+            "character_item_id",
+            "field_key",
+            "revealed",
+            "alternative_text",
+            "alternative_image",
+        )
+    )
+    identification_state_rows = list(
+        CharacterItemIdentificationState.objects
+        .filter(character_item_id__in=item_ids)
+        .order_by("character_item_id")
+        .values_list("character_item_id", "initialized")
+    )
+    identification_rows = list(
+        CharacterItemEffectIdentification.objects
+        .filter(character_item_id__in=item_ids)
+        .order_by("character_item_id", "item_effect_id", "character_item_effect_id")
+        .values_list(
+            "character_item_id",
+            "item_effect_id",
+            "character_item_effect_id",
+            "identified",
+            "alternative_text",
+        )
+    )
+    payload = json.dumps(
+        {
+            "items": item_ids,
+            "disclosures": disclosure_rows,
+            "identification_state": identification_state_rows,
+            "identifications": identification_rows,
+        },
+        default=str,
+        separators=(",", ":"),
+    )
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
 def _character_dashboard_state(character: Character) -> dict[str, str]:
@@ -1409,8 +1470,27 @@ def character_sheet(request, character_id: int):
         character,
         close_learn_window_once=bool(request.session.pop("close_learn_window_once", False)),
     )
+    context["sheet_external_refresh_signature"] = _character_external_sheet_signature(character)
 
     return render(request, "charsheet/charsheet.html", context)
+
+
+@login_required
+def character_sheet_external_refresh(request, character_id: int):
+    """Refresh the player sheet after GM-side item disclosure changes."""
+    character = _owned_character_or_404(request, character_id)
+    signature = _character_external_sheet_signature(character)
+    if str(request.GET.get("signature") or "") == signature:
+        return JsonResponse({"ok": True, "changed": False, "signature": signature})
+    context = _build_sheet_context_for_request(request, character)
+    return JsonResponse(
+        {
+            "ok": True,
+            "changed": True,
+            "signature": signature,
+            "partials": _render_sheet_partials(request, context, SHEET_MAIN_PARTIAL_KEYS),
+        }
+    )
 
 
 @login_required

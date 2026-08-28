@@ -1,0 +1,170 @@
+{% include "charsheet/partials/_shared_item_card.html" %}
+{% comment %}
+<article class="floating-tooltip-card floating-tooltip-card--embedded is-visible" data-shared-item-card>
+  <div class="floating-tooltip-card__frame"{% if item_card.accent %} style="--tooltip-card-accent: {{ item_card.accent }};"{% endif %}>
+    <div class="floating-tooltip-card__header">
+      <div class="floating-tooltip-card__heading">
+        <h3 class="floating-tooltip-card__title">
+          {{ item_card.title|default:"Unbekannter Gegenstand" }}
+          {% if item_card.controls and item_card.field_controls.name %}
+            <span class="sl-card-lock-control">
+              <input type="hidden" name="disclosure_present_name" value="1" form="{{ disclosure_form_id }}">
+              <select name="revealed_name" form="{{ disclosure_form_id }}" aria-label="Name sichtbar">
+                <option value="1"{% if item_card.field_controls.name.revealed %} selected{% endif %}>Offen</option>
+                <option value="0"{% if not item_card.field_controls.name.revealed %} selected{% endif %}>Zu</option>
+              </select>
+              <input name="alternative_name" value="{{ item_card.field_controls.name.alternative_text }}" placeholder="Temporärer Name" form="{{ disclosure_form_id }}">
+            </span>
+          {% endif %}
+        </h3>
+        {% if item_card.subtitle or item_card.controls %}
+          <p class="floating-tooltip-card__subtitle">
+            {{ item_card.subtitle }}
+            {% if item_card.controls %}
+              {% if item_card.field_controls.item_type %}
+                <span class="sl-card-lock-control">
+                  <input type="hidden" name="disclosure_present_item_type" value="1" form="{{ disclosure_form_id }}">
+                  <select name="revealed_item_type" form="{{ disclosure_form_id }}" aria-label="Typ sichtbar">
+                    <option value="1"{% if item_card.field_controls.item_type.revealed %} selected{% endif %}>Typ offen</option>
+                    <option value="0"{% if not item_card.field_controls.item_type.revealed %} selected{% endif %}>Typ zu</option>
+                  </select>
+                  <input name="alternative_item_type" value="{{ item_card.field_controls.item_type.alternative_text }}" placeholder="Alternativer Typ" form="{{ disclosure_form_id }}">
+                </span>
+              {% endif %}
+              {% if item_card.field_controls.quality %}
+                <span class="sl-card-lock-control">
+                  <input type="hidden" name="disclosure_present_quality" value="1" form="{{ disclosure_form_id }}">
+                  <select name="revealed_quality" form="{{ disclosure_form_id }}" aria-label="Qualität sichtbar">
+                    <option value="1"{% if item_card.field_controls.quality.revealed %} selected{% endif %}>Qualität offen</option>
+                    <option value="0"{% if not item_card.field_controls.quality.revealed %} selected{% endif %}>Qualität zu</option>
+                  </select>
+                  <input name="alternative_quality" value="{{ item_card.field_controls.quality.alternative_text }}" placeholder="Alternative Qualität" form="{{ disclosure_form_id }}">
+                </span>
+              {% endif %}
+            {% endif %}
+          </p>
+        {% endif %}
+      </div>
+      <button type="button" class="floating-tooltip-card__close" aria-label="Details schliessen" tabindex="-1">x</button>
+    </div>
+    <div class="floating-tooltip-card__content{% if item_card.image_url or item_card.controls and item_card.field_controls.image %} has-media{% endif %}">
+      {% if item_card.image_url or item_card.controls and item_card.field_controls.image %}
+        <div class="floating-tooltip-card__media">
+          {% if item_card.image_url %}<img class="floating-tooltip-card__image" src="{{ item_card.image_url }}" alt="">{% endif %}
+          {% if item_card.controls and item_card.field_controls.image %}
+            <span class="sl-card-lock-control sl-card-lock-control--media">
+              <input type="hidden" name="disclosure_present_image" value="1" form="{{ disclosure_form_id }}">
+              <select name="revealed_image" form="{{ disclosure_form_id }}" aria-label="Bild sichtbar">
+                <option value="1"{% if item_card.field_controls.image.revealed %} selected{% endif %}>Bild offen</option>
+                <option value="0"{% if not item_card.field_controls.image.revealed %} selected{% endif %}>Bild zu</option>
+              </select>
+              <input name="alternative_image" value="{{ item_card.field_controls.image.alternative_text }}" placeholder="Alternative Bild-URL" form="{{ disclosure_form_id }}">
+            </span>
+          {% endif %}
+        </div>
+      {% endif %}
+      {% if item_card.detail_rows %}
+        <div class="floating-tooltip-card__details">
+          <table>
+            <thead><tr><th>Wert</th><th>Details</th></tr></thead>
+            <tbody>
+              {% for row in item_card.detail_rows %}
+                <tr>
+                  <td>{{ row.label }}</td>
+                  <td>
+                    {{ row.value }}
+                    {% if item_card.controls and row.disclosure %}
+                      <span class="sl-card-lock-control">
+                        <input type="hidden" name="disclosure_present_{{ row.field_key }}" value="1" form="{{ disclosure_form_id }}">
+                        <select name="revealed_{{ row.field_key }}" form="{{ disclosure_form_id }}" aria-label="{{ row.label }} sichtbar">
+                          <option value="1"{% if row.disclosure.revealed %} selected{% endif %}>Offen</option>
+                          <option value="0"{% if not row.disclosure.revealed %} selected{% endif %}>Zu</option>
+                        </select>
+                        <input name="alternative_{{ row.field_key }}" value="{{ row.disclosure.alternative_text }}" placeholder="Alternativ" form="{{ disclosure_form_id }}">
+                      </span>
+                    {% endif %}
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% endif %}
+    </div>
+    {% if item_card.weapon_symbol_rows or item_card.effect_rows or item_card.effect_identification_rows or item_card.rune_rows or item_card.description or item_card.controls and item_card.field_controls.description %}
+      <section class="floating-tooltip-card__lore">
+        {% if item_card.weapon_symbol_rows %}
+          <section class="floating-tooltip-card__section">
+            <div class="floating-tooltip-card__section_body">
+              <table><tbody>
+                {% for label, value in item_card.weapon_symbol_rows %}
+                  <tr><td>&nbsp;</td><td>{{ value }}</td></tr>
+                {% endfor %}
+              </tbody></table>
+            </div>
+          </section>
+        {% endif %}
+        {% if item_card.effect_rows or item_card.effect_identification_rows %}
+          <section class="floating-tooltip-card__section">
+            <h4 class="floating-tooltip-card__section_title">Effekte</h4>
+            <div class="floating-tooltip-card__section_body">
+              <table><tbody>
+                {% if item_card.controls %}
+                  {% for row in item_card.effect_identification_rows %}
+                    <tr class="tooltip_effect_row">
+                      <td>&nbsp;</td>
+                      <td>
+                        {{ row.label }}
+                        <span class="sl-card-lock-control">
+                          <select name="effect" form="{{ effect_form_id }}" aria-label="{{ row.label }} identifiziert">
+                            <option value="{{ row.source }}:{{ row.effect_id }}:1"{% if row.identified %} selected{% endif %}>Identifiziert</option>
+                            <option value="{{ row.source }}:{{ row.effect_id }}:0"{% if not row.identified %} selected{% endif %}>Nicht identifiziert</option>
+                          </select>
+                          <input name="alternative_{{ row.source }}_{{ row.effect_id }}" value="{{ row.alternative_text }}" placeholder="Alternativer Effekttext" form="{{ effect_form_id }}">
+                        </span>
+                      </td>
+                    </tr>
+                  {% empty %}
+                    <tr><td>&nbsp;</td><td>Keine mechanischen Effekte vorhanden.</td></tr>
+                  {% endfor %}
+                {% else %}
+                  {% for row in item_card.effect_rows %}
+                    <tr class="tooltip_effect_row"><td>{% if row.label %}{{ row.label }}{% else %}&nbsp;{% endif %}</td><td>{{ row.value }}</td></tr>
+                  {% endfor %}
+                {% endif %}
+              </tbody></table>
+            </div>
+          </section>
+        {% endif %}
+        {% if item_card.rune_rows %}
+          <section class="floating-tooltip-card__section">
+            <h4 class="floating-tooltip-card__section_title">Runen</h4>
+            <div class="floating-tooltip-card__section_body">
+              <table><tbody>
+                {% for row in item_card.rune_rows %}
+                  <tr class="tooltip_rune_comment_row"><td>{% if row.label %}{{ row.label }}{% else %}&nbsp;{% endif %}</td><td>{{ row.value }}</td></tr>
+                {% endfor %}
+              </tbody></table>
+            </div>
+          </section>
+        {% endif %}
+        {% if item_card.description or item_card.controls and item_card.field_controls.description %}
+          <p>
+            {{ item_card.description|linebreaksbr }}
+            {% if item_card.controls and item_card.field_controls.description %}
+              <span class="sl-card-lock-control sl-card-lock-control--block">
+                <input type="hidden" name="disclosure_present_description" value="1" form="{{ disclosure_form_id }}">
+                <select name="revealed_description" form="{{ disclosure_form_id }}" aria-label="Beschreibung sichtbar">
+                  <option value="1"{% if item_card.field_controls.description.revealed %} selected{% endif %}>Beschreibung offen</option>
+                  <option value="0"{% if not item_card.field_controls.description.revealed %} selected{% endif %}>Beschreibung zu</option>
+                </select>
+                <input name="alternative_description" value="{{ item_card.field_controls.description.alternative_text }}" placeholder="Alternative Beschreibung" form="{{ disclosure_form_id }}">
+              </span>
+            {% endif %}
+          </p>
+        {% endif %}
+      </section>
+    {% endif %}
+  </div>
+</article>
+{% endcomment %}

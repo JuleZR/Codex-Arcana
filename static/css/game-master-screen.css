@@ -894,6 +894,16 @@
   max-height: calc(100vh - 28px);
 }
 
+.sl-item-action-window.is-disclosure-card {
+  width: min(784px, calc(100vw - 28px));
+  height: min(1074px, calc(100dvh - 28px));
+  aspect-ratio: auto;
+  max-height: min(1074px, calc(100dvh - 28px));
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+
 .sl-item-create-window__body,
 .sl-item-action-window__body {
   flex: 1 1 auto;
@@ -906,6 +916,500 @@
   overscroll-behavior: contain;
   scroll-padding-bottom: 28px;
   scrollbar-gutter: stable;
+}
+
+.sl-item-action-window.is-disclosure-card .sl-item-action-window__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-height: none;
+  overflow: hidden;
+  scrollbar-gutter: stable;
+}
+
+.sl-item-action-window.is-disclosure-card .sl-item-action-window__body > form {
+  display: none;
+  padding: 0;
+}
+
+.sl-item-action-window.is-disclosure-card .floating-tooltip-card--embedded {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.sl-item-action-window.is-disclosure-card .floating-tooltip-card__frame {
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.sl-item-action-window.is-disclosure-card .floating-tooltip-card__content {
+  flex: 0 0 auto;
+}
+
+.sl-item-action-window.is-disclosure-card .floating-tooltip-card__lore {
+  flex: 1 1 auto;
+  min-height: 170px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.sl-disclosure-card-actions {
+  position: relative;
+  z-index: 2;
+  flex: 0 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+  box-sizing: border-box;
+  width: min(760px, 100%);
+  margin-top: 12px;
+  padding: 8px 12px;
+  border: 1px solid rgba(190, 151, 92, 0.22);
+  border-radius: 10px;
+  background: rgba(30, 21, 14, 0.46);
+  backdrop-filter: blur(4px);
+}
+
+.sl-disclosure-card-actions .dashboard_button {
+  min-width: 128px;
+}
+
+.sl-card-lock-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-left: 7px;
+  vertical-align: middle;
+}
+
+.sl-card-disclosure-slot {
+  position: relative;
+  display: inline-grid;
+  grid-template-columns: minmax(0, auto) 22px;
+  grid-template-areas: "text lock";
+  align-items: center;
+  column-gap: 5px;
+  min-width: 0;
+  max-width: 100%;
+  vertical-align: baseline;
+}
+
+.floating-tooltip-card--sl-controls .sl-card-disclosure-slot > [data-sl-disclosure-target] {
+  grid-area: text;
+  min-width: 0;
+}
+
+.floating-tooltip-card--sl-controls .sl-card-disclosure-slot:has(.sl-card-lock-checkbox:checked) > [data-sl-disclosure-target] {
+  visibility: hidden;
+}
+
+.sl-card-lock-control--title,
+.sl-card-lock-control--meta {
+  transform: translateY(-1px);
+}
+
+.floating-tooltip-card--sl-controls .sl-card-disclosure-slot .sl-card-lock-control--title,
+.floating-tooltip-card--sl-controls .sl-card-disclosure-slot .sl-card-lock-control--value {
+  display: contents;
+  float: none;
+  margin-left: 0;
+  transform: none;
+}
+
+.floating-tooltip-card--sl-controls .sl-card-lock-control--meta {
+  position: relative;
+}
+
+.sl-card-lock-control--value {
+  float: right;
+  margin-left: 12px;
+  transform: translateY(-3px);
+}
+
+.sl-card-lock-control--effect {
+  float: right;
+  margin: 0 0 4px 12px;
+}
+
+.floating-tooltip-card--sl-controls .shared-item-card-effect-table {
+  table-layout: fixed;
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.floating-tooltip-card--sl-controls .shared-item-card-effect-table tr {
+  border-bottom: 1px solid rgba(112, 83, 48, 0.22);
+}
+
+.floating-tooltip-card--sl-controls .shared-item-card-effect-table tr:last-child {
+  border-bottom: 0;
+}
+
+.floating-tooltip-card--sl-controls .shared-item-card-effect-table td {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  border-bottom: 0;
+  vertical-align: top !important;
+}
+
+.floating-tooltip-card--sl-controls .shared-item-card-effect-table td:first-child {
+  width: 132px;
+  line-height: 1.2;
+}
+
+.floating-tooltip-card--sl-controls .shared-item-card-effect-table td:nth-child(2) {
+  position: relative;
+  min-height: 31px;
+  padding-right: 36px;
+  vertical-align: top !important;
+}
+
+.floating-tooltip-card--sl-controls .shared-item-card-effect-table [data-sl-effect-display] {
+  display: block;
+  min-width: 0;
+  line-height: 1.35;
+}
+
+.floating-tooltip-card--sl-controls .shared-item-card-effect-table [data-sl-effect-display] > :first-child {
+  margin-top: 0;
+}
+
+.floating-tooltip-card--sl-controls .shared-item-card-effect-table [data-sl-effect-display] > :last-child {
+  margin-bottom: 0;
+}
+
+.floating-tooltip-card--sl-controls .shared-item-card-effect-table td:has(.sl-card-lock-checkbox:checked) [data-sl-effect-display] {
+  visibility: hidden;
+  text-decoration: none;
+  text-shadow: none;
+}
+
+.floating-tooltip-card--sl-controls .shared-item-card-effect-table td:has(.sl-card-lock-checkbox:checked) [data-sl-effect-display] * {
+  visibility: hidden;
+  text-decoration: none;
+  text-shadow: none;
+}
+
+.floating-tooltip-card--sl-controls .sl-card-lock-control--effect {
+  position: absolute;
+  top: 6px;
+  right: 0;
+  z-index: 8;
+  display: block;
+  width: calc(100% - 4px);
+  height: 30px;
+  margin: 0;
+  pointer-events: none;
+}
+
+.floating-tooltip-card--sl-controls .sl-card-lock-control--effect .sl-card-lock-button {
+  position: absolute;
+  top: 1px;
+  right: 0;
+  z-index: 10;
+  pointer-events: auto;
+}
+
+.floating-tooltip-card--sl-controls .sl-card-lock-control--effect .sl-card-alt-field {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 9;
+  width: min(360px, calc(100% - 34px));
+  pointer-events: auto;
+}
+
+.floating-tooltip-card--sl-controls tr.has-inactive-race-effect td:first-child {
+  text-decoration: none;
+}
+
+.sl-card-condition-note {
+  display: block;
+  margin-top: 2px;
+  color: rgba(76, 72, 66, 0.62);
+  font-size: 0.68rem;
+  font-style: italic;
+  line-height: 1.15;
+}
+
+.sl-card-lock-control--description {
+  position: absolute;
+  top: -4px;
+  right: 0;
+  z-index: 8;
+  display: block;
+  width: 100%;
+  height: 32px;
+  margin: 0;
+  pointer-events: none;
+}
+
+.sl-card-lock-control--description .sl-card-lock-button {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 10;
+  pointer-events: auto;
+}
+
+.sl-card-description-block {
+  position: relative;
+  display: block;
+  min-height: 90px;
+  padding-right: 30px;
+}
+
+.sl-card-description-block > [data-sl-disclosure-target] {
+  display: block;
+}
+
+.sl-card-description-block:has(.sl-card-lock-checkbox:checked) > [data-sl-disclosure-target] {
+  visibility: hidden;
+  text-decoration: none;
+  text-shadow: none;
+}
+
+.sl-card-description-block:has(.sl-card-lock-checkbox:checked) > [data-sl-disclosure-target] * {
+  visibility: hidden;
+  text-decoration: none;
+  text-shadow: none;
+}
+
+.sl-card-description-block .sl-card-alt-field--textarea {
+  position: absolute;
+  top: 28px;
+  left: 0;
+  z-index: 9;
+  width: min(520px, calc(100% - 34px));
+  pointer-events: auto;
+}
+
+.sl-card-lock-checkbox {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.sl-card-lock-button {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  cursor: pointer;
+  transition: transform 140ms ease, filter 140ms ease, box-shadow 140ms ease;
+}
+
+.sl-card-lock-button::before {
+  content: "";
+  width: 20px;
+  height: 20px;
+  background: url("/static/img/lock_open.png") center / contain no-repeat;
+  filter:
+    drop-shadow(0 1px 1px rgba(45, 24, 8, 0.45))
+    drop-shadow(0 0 4px rgba(239, 203, 132, 0.22));
+}
+
+.sl-card-lock-checkbox:checked + .sl-card-lock-button {
+  box-shadow:
+    0 0 0 1px rgba(236, 196, 116, 0.18);
+}
+
+.sl-card-lock-checkbox:checked + .sl-card-lock-button::before {
+  background-image: url("/static/img/lock_closed.png");
+}
+
+.sl-card-lock-button:hover,
+.sl-card-lock-checkbox:focus-visible + .sl-card-lock-button {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+}
+
+.sl-card-alt-field,
+.sl-card-image-picker,
+.sl-card-image-clear {
+  display: none;
+}
+
+.sl-card-lock-checkbox:checked ~ .sl-card-alt-field,
+.sl-card-lock-checkbox:checked ~ .sl-card-image-picker,
+.sl-card-lock-checkbox:checked ~ .sl-card-image-clear {
+  display: inline-flex;
+}
+
+.floating-tooltip-card--sl-controls .sl-card-disclosure-slot .sl-card-alt-field {
+  grid-area: text;
+  position: relative;
+  z-index: 5;
+  min-width: 0;
+  width: 100%;
+  transform: none;
+}
+
+.floating-tooltip-card--sl-controls .sl-card-disclosure-slot .sl-card-lock-button {
+  grid-area: lock;
+  position: relative;
+  z-index: 6;
+}
+
+.sl-card-alt-field {
+  width: min(230px, 30vw);
+  min-height: 30px;
+  padding: 5px 9px;
+  border: 1px solid rgba(120, 88, 49, 0.34);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(255, 249, 228, 0.96), rgba(238, 220, 181, 0.94));
+  color: #3b2716;
+  font: 600 0.8rem Georgia, "Times New Roman", serif;
+  box-shadow:
+    inset 0 1px 2px rgba(68, 40, 16, 0.12),
+    0 1px 4px rgba(28, 17, 8, 0.12);
+}
+
+.sl-card-lock-control--title .sl-card-alt-field {
+  width: min(250px, 32vw);
+}
+
+.sl-card-lock-control--meta .sl-card-alt-field {
+  width: min(180px, 24vw);
+}
+
+.sl-card-lock-control--value .sl-card-alt-field {
+  width: min(190px, 24vw);
+}
+
+.sl-card-lock-control--effect .sl-card-alt-field {
+  width: min(210px, 26vw);
+}
+
+[data-sl-effect-display].is-player-hidden {
+  visibility: hidden;
+  text-decoration: none;
+  text-shadow: none;
+}
+
+.sl-card-alt-field--textarea {
+  width: min(520px, 100%);
+  min-height: 72px;
+  resize: vertical;
+}
+
+.sl-card-image-picker {
+  align-items: center;
+  justify-content: center;
+  width: 104px;
+  min-height: 28px;
+  height: auto;
+  overflow: hidden;
+  border: 1px solid rgba(123, 88, 45, 0.48);
+  border-radius: 999px;
+  background:
+    linear-gradient(180deg, rgba(255, 249, 228, 0.96), rgba(226, 203, 160, 0.94));
+  color: #4e3219;
+  font: 700 0.72rem Georgia, "Times New Roman", serif;
+  text-align: center;
+  cursor: pointer;
+  box-shadow:
+    0 2px 8px rgba(30, 16, 6, 0.2),
+    inset 0 1px 0 rgba(255, 249, 226, 0.6);
+}
+
+.sl-card-image-picker img {
+  width: 100%;
+  height: 26px;
+  object-fit: contain;
+}
+
+.sl-card-image-picker input {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.sl-card-image-clear-checkbox {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.sl-card-image-clear {
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  padding: 4px 10px;
+  border: 1px solid rgba(116, 58, 42, 0.42);
+  border-radius: 999px;
+  background:
+    linear-gradient(180deg, rgba(255, 246, 220, 0.94), rgba(218, 190, 143, 0.92));
+  color: #51311f;
+  font: 700 0.72rem Georgia, "Times New Roman", serif;
+  cursor: pointer;
+  box-shadow:
+    0 2px 8px rgba(30, 16, 6, 0.16),
+    inset 0 1px 0 rgba(255, 249, 226, 0.55);
+}
+
+.sl-card-image-clear-checkbox:checked + .sl-card-image-clear {
+  background: rgba(121, 54, 36, 0.78);
+  color: #fff2d6;
+}
+
+.sl-card-lock-control--media {
+  position: absolute;
+  left: 50%;
+  right: auto;
+  bottom: 9px;
+  transform: translateX(-50%);
+  z-index: 12;
+  margin: 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 0;
+}
+
+.sl-card-lock-control--media .sl-card-lock-button {
+  order: 1;
+  width: 24px;
+  height: 24px;
+}
+
+.sl-card-lock-control--media .sl-card-image-picker {
+  order: 2;
+}
+
+.sl-card-lock-control--media .sl-card-image-clear {
+  order: 3;
+  margin-top: 4px;
+}
+
+.sl-card-lock-control--media input:not(.sl-card-lock-checkbox):not(.sl-card-image-clear-checkbox) {
+  width: min(170px, 100%);
+}
+
+.sl-card-lock-control--block {
+  display: flex;
+  margin: 10px 0 0;
 }
 
 .sl-item-create-window.payday-window--large .sl-item-create-window__body {

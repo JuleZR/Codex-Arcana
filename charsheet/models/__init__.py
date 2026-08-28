@@ -82,6 +82,9 @@ from .vampirism import (
 )
 from .items import (
     ArmorStats,
+    CharacterItemDisclosure,
+    CharacterItemEffectIdentification,
+    CharacterItemIdentificationState,
     CharacterItemSemanticEffect,
     Item,
     ItemSemanticEffect,
@@ -184,6 +187,9 @@ __all__ = [
     "CharacterVampirePower",
     "CharacterVampireTrait",
     "CharacterItem",
+    "CharacterItemDisclosure",
+    "CharacterItemEffectIdentification",
+    "CharacterItemIdentificationState",
     "ItemRune",
     "CharacterItemRuneSpec",
     "CharacterLanguage",

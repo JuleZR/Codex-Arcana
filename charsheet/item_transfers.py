@@ -11,11 +11,16 @@ from django.db import transaction
 from django.db.models import F
 from django.utils import timezone
 
+from charsheet.item_disclosure import resolve_character_item_display
+
 from .models import (
     Character,
     CharacterCreature,
     CharacterCreatureTrait,
     CharacterCreatureTraitChoice,
+    CharacterItemDisclosure,
+    CharacterItemEffectIdentification,
+    CharacterItemIdentificationState,
     CharacterItem,
     CharacterItemSemanticEffect,
     CharacterItemRuneSpec,
@@ -57,16 +62,17 @@ def _character_snapshot(character: Character) -> dict:
     }
 
 
-def _item_snapshot(item: CharacterItem) -> dict:
+def _item_snapshot(item: CharacterItem, *, player_safe: bool = False) -> dict:
+    display = resolve_character_item_display(item, None, preview_player=True) if player_safe else None
     return {
         "id": item.pk,
         "provenance_id": str(item.provenance_id),
-        "name": item.effective_name,
+        "name": display.name if display is not None else item.effective_name,
         "base_name": item.item.name,
         "quantity": item.amount,
         "quality": item.quality_id,
         "item_type": item.item.item_type,
-        "image": item.effective_image_url,
+        "image": display.image_url if display is not None else item.effective_image_url,
     }
 
 
@@ -193,12 +199,48 @@ def _clone_related_rows(source: CharacterItem, target: CharacterItem):
             specification=row.specification,
             slot=row.slot,
         )
-    for effect in source.semantic_effects.prefetch_related("condition_races").all():
+    cloned_effect_by_source_id = {}
+    for effect in source.semantic_effects.prefetch_related("condition_races", "condition_schools").all():
         condition_races = list(effect.condition_races.all())
+        condition_schools = list(effect.condition_schools.all())
+        source_effect_id = effect.pk
         effect.pk = None
         effect.character_item = target
         effect.save()
         effect.condition_races.set(condition_races)
+        effect.condition_schools.set(condition_schools)
+        cloned_effect_by_source_id[source_effect_id] = effect
+    for disclosure in source.disclosures.all():
+        CharacterItemDisclosure.objects.create(
+            character_item=target,
+            field_key=disclosure.field_key,
+            revealed=disclosure.revealed,
+            alternative_text=disclosure.alternative_text,
+        )
+    try:
+        state = source.identification_state
+    except CharacterItemIdentificationState.DoesNotExist:
+        state = None
+    if state is not None:
+        CharacterItemIdentificationState.objects.create(
+            character_item=target,
+            initialized=state.initialized,
+        )
+    for identification in source.effect_identifications.all():
+        character_item_effect = None
+        if identification.character_item_effect_id:
+            character_item_effect = cloned_effect_by_source_id.get(
+                identification.character_item_effect_id
+            )
+            if character_item_effect is None:
+                continue
+        CharacterItemEffectIdentification.objects.create(
+            character_item=target,
+            item_effect=identification.item_effect,
+            character_item_effect=character_item_effect,
+            identified=identification.identified,
+            alternative_text=identification.alternative_text,
+        )
     for grant in source.permission_grants.filter(
         permission=ItemPermissionGrant.Permission.CONSUME_FINAL,
         revoked_at__isnull=True,
@@ -557,7 +599,7 @@ def create_transfer(
             "Bei einer Eigentumsübertragung sind einzelne Freigaben nicht erforderlich.",
         )
     now = timezone.now()
-    item_snapshot = _item_snapshot(item)
+    item_snapshot = _item_snapshot(item, player_safe=True)
     item_snapshot["creature_choices"] = _creature_choice_snapshot(item)
     item_snapshot["requested_permissions"] = requested_permissions
     item_snapshot["transfer_original_ownership"] = transfer_original_ownership
@@ -575,7 +617,7 @@ def create_transfer(
     )
     CharacterCreature.objects.filter(source_character_item=item).update(active=False)
     _event(item, ItemOwnershipEvent.EventType.CREATED, transfer=transfer, actor=sender, from_character=sender, to_character=recipient, details={"message": message})
-    _notify(recipient.owner, item, "offer", f"{sender.name} möchte dir {item.effective_name} übergeben.", transfer)
+    _notify(recipient.owner, item, "offer", f"{sender.name} möchte dir {item_snapshot['name']} übergeben.", transfer)
     return transfer
 
 
@@ -750,7 +792,7 @@ def create_group_transfer(
     if quantity < item.amount:
         item = _split_item(item, quantity)
     now = timezone.now()
-    item_snapshot = _item_snapshot(item)
+    item_snapshot = _item_snapshot(item, player_safe=True)
     item_snapshot["creature_choices"] = _creature_choice_snapshot(item)
     item_snapshot["requested_permissions"] = []
     item_snapshot["transfer_original_ownership"] = True
@@ -781,7 +823,7 @@ def create_group_transfer(
         recipient.owner,
         item,
         "offer",
-        f"{locked_group.name} möchte dir {item.effective_name} übergeben.",
+        f"{locked_group.name} möchte dir {item_snapshot['name']} übergeben.",
         transfer,
     )
     return transfer

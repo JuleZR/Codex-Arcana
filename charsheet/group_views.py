@@ -47,6 +47,17 @@ from charsheet.item_transfers import (
     create_group_transfer,
     recall_group_transfer,
 )
+from charsheet.item_disclosure import (
+    DISCLOSURE_FIELD_KEYS,
+    hide_all_character_item,
+    initialize_item_identification,
+    item_identification_initialized,
+    relevant_item_effects,
+    reveal_all_character_item,
+    resolve_character_item_display,
+    set_effect_identifications,
+    set_item_disclosures,
+)
 from charsheet.engine import ItemEngine
 from charsheet.engine.creature_engine import CreatureEngine
 from charsheet.models import (
@@ -54,6 +65,8 @@ from charsheet.models import (
     Character,
     CharacterCreature,
     CharacterDiaryEntry,
+    CharacterItemDisclosure,
+    CharacterItemEffectIdentification,
     CharacterItem,
     DamageSource,
     Creature,
@@ -99,14 +112,18 @@ from charsheet.sheet_context import (
     _load_character_item_modifier_payloads,
     _merge_magic_effect_payloads,
     _serialize_item_semantic_effect_payload,
+    build_character_item_card_context,
 )
 from charsheet.views import (
+    ITEM_SEMANTIC_EFFECT_FALLBACK_PARTIAL_KEYS,
+    SHEET_MAIN_PARTIAL_KEYS,
     _build_sheet_context_for_request,
+    _render_sheet_partials,
     _serialize_diary_entry,
     _temporary_attribute_adjustments,
     _temporary_attribute_response,
 )
-from charsheet.view_utils import format_modifier
+from charsheet.view_utils import format_modifier, format_thousands
 
 
 GROUP_INVENTORY_MOVEMENT_TARGET_CHOICES = (
@@ -131,6 +148,50 @@ def _request_wants_json(request) -> bool:
         or request.headers.get("x-requested-with") == "XMLHttpRequest"
         or "application/json" in request.headers.get("accept", "")
     )
+
+
+def _group_character_item_or_404(group, character_item_id: int):
+    """Return a CharacterItem the group GM is allowed to inspect or configure."""
+    item = get_object_or_404(
+        CharacterItem.objects.select_related("item", "owner", "group_owner"),
+        pk=character_item_id,
+    )
+    if item.group_owner_id == group.id:
+        return item
+    if item.owner_id and GameGroupMembership.objects.filter(
+        group=group,
+        character_id=item.owner_id,
+        status=GameGroupMembership.Status.ACTIVE,
+    ).exists():
+        return item
+    if item.owner_id and ItemTransfer.objects.filter(
+        item=item,
+        sender_id=item.owner_id,
+        recipient_group=group,
+        transfer_kind=ItemTransfer.TransferKind.GM_EDIT,
+        status=ItemTransfer.Status.PENDING,
+    ).exists():
+        return item
+    raise PermissionDenied
+
+
+def _group_character_item_sheet_partials(request, group, character_item, partial_keys):
+    character = getattr(character_item, "owner", None)
+    if character is None:
+        return []
+    if not GameGroupMembership.objects.filter(
+        group=group,
+        character=character,
+        status=GameGroupMembership.Status.ACTIVE,
+    ).exists():
+        return []
+    context = _build_sheet_context_for_request(
+        request,
+        character,
+        read_only=True,
+        sl_effect_group_id=group.pk,
+    )
+    return _render_sheet_partials(request, context, partial_keys)
 
 
 def _group_action(view):
@@ -842,6 +903,105 @@ def game_master_screen(request, group_id: int):
             modifier_payloads=modifier_payloads_by_item.get(inventory_item.id, []),
         )
         inventory_item.magic_modifier_payloads_json = json.dumps(magic_payloads)
+        inventory_item.sl_player_preview = resolve_character_item_display(
+            inventory_item,
+            request.user,
+            preview_player=True,
+        )
+        inventory_item.sl_player_item_card = build_character_item_card_context(
+            inventory_item,
+            request.user,
+            preview_player=True,
+            include_controls=True,
+        )
+        inventory_item.sl_disclosure_form_id = f"disclosure-fields-{inventory_item.id}"
+        inventory_item.sl_effect_form_id = f"disclosure-effects-{inventory_item.id}"
+        disclosures_by_key = {
+            disclosure.field_key: disclosure
+            for disclosure in CharacterItemDisclosure.objects.filter(character_item=inventory_item)
+        }
+        inventory_item.sl_disclosure_rows = [
+            {
+                "field_key": field_key,
+                "label": field_key.replace("_", " ").title(),
+                "revealed": disclosures_by_key.get(field_key).revealed if field_key in disclosures_by_key else True,
+                "alternative_text": disclosures_by_key.get(field_key).alternative_text if field_key in disclosures_by_key else "",
+                "alternative_image_url": (
+                    disclosures_by_key.get(field_key).alternative_image.url
+                    if (
+                        field_key in disclosures_by_key
+                        and disclosures_by_key.get(field_key).alternative_image
+                    )
+                    else ""
+                ),
+            }
+            for field_key in DISCLOSURE_FIELD_KEYS
+        ]
+        item_effects, character_item_effects = relevant_item_effects(inventory_item)
+        identifications = {
+            ("item", row.item_effect_id): row
+            for row in CharacterItemEffectIdentification.objects.filter(
+                character_item=inventory_item,
+                item_effect_id__isnull=False,
+            )
+        }
+        identifications.update(
+            {
+                ("character_item", row.character_item_effect_id): row
+                for row in CharacterItemEffectIdentification.objects.filter(
+                    character_item=inventory_item,
+                    character_item_effect_id__isnull=False,
+                )
+            }
+        )
+        identification_initialized = item_identification_initialized(inventory_item)
+        inventory_item.sl_effect_identification_rows = [
+            {
+                "source": "item",
+                "effect_id": effect.id,
+                "label": str(effect.notes or effect.rules_text or effect),
+                "identified": (
+                    identifications[("item", effect.id)].identified
+                    if ("item", effect.id) in identifications
+                    else not identification_initialized
+                ),
+                "alternative_text": identifications[("item", effect.id)].alternative_text if ("item", effect.id) in identifications else "",
+            }
+            for effect in item_effects
+        ] + [
+            {
+                "source": "character_item",
+                "effect_id": effect.id,
+                "label": str(effect.notes or effect.rules_text or effect),
+                "identified": (
+                    identifications[("character_item", effect.id)].identified
+                    if ("character_item", effect.id) in identifications
+                    else not identification_initialized
+                ),
+                "alternative_text": identifications[("character_item", effect.id)].alternative_text if ("character_item", effect.id) in identifications else "",
+            }
+            for effect in character_item_effects
+        ]
+        disclosure_by_key = {
+            row["field_key"]: row
+            for row in inventory_item.sl_disclosure_rows
+        }
+        for card_row in inventory_item.sl_player_item_card.get("detail_rows", []):
+            field_key = card_row.get("field_key")
+            if field_key:
+                card_row["disclosure"] = disclosure_by_key.get(field_key)
+        card_effect_rows = inventory_item.sl_player_item_card.get("effect_rows", [])
+        for index, control_row in enumerate(inventory_item.sl_effect_identification_rows):
+            if index < len(card_effect_rows):
+                card_effect_rows[index]["control"] = control_row
+        inventory_item.sl_player_item_card.update(
+            {
+                "controls": True,
+                "disclosure_rows": inventory_item.sl_disclosure_rows,
+                "field_controls": disclosure_by_key,
+                "effect_identification_rows": inventory_item.sl_effect_identification_rows,
+            }
+        )
     pending_transfers = list(
         ItemTransfer.objects.filter(
             sender_group=group,
@@ -2711,7 +2871,12 @@ def game_master_character_sheet(request, group_id: int, character_id: int):
     group = get_object_or_404(GameGroup, pk=group_id)
     character = get_object_or_404(Character, pk=character_id)
     require_sl_character_access(request.user, group, character)
-    context = _build_sheet_context_for_request(request, character, read_only=True)
+    context = _build_sheet_context_for_request(
+        request,
+        character,
+        read_only=True,
+        sl_effect_group_id=group.pk,
+    )
     context["carry_load"]["update_url"] = reverse(
         "update_game_master_carry_load_state",
         args=[group.pk, character.pk],
@@ -3129,6 +3294,155 @@ def edit_group_inventory_item(request, group_id: int, item_id: int):
             magic_modifier_payloads=magic_modifier_payloads,
         )
     messages.success(request, "Instanzanpassung gespeichert.")
+    return redirect(f"{reverse('game_master_screen', args=[group_id])}#sl-inventar")
+
+
+@login_required
+@require_POST
+@_group_action
+def update_group_item_disclosure(request, group_id: int, character_item_id: int):
+    group = GameGroup.objects.get(pk=group_id)
+    require_game_master(request.user, group, write=True)
+    character_item = _group_character_item_or_404(group, character_item_id)
+    updates = []
+    for field_key in DISCLOSURE_FIELD_KEYS:
+        marker = f"disclosure_present_{field_key}"
+        if marker not in request.POST:
+            continue
+        updates.append(
+            {
+                "field_key": field_key,
+                "revealed": request.POST.get(f"revealed_{field_key}") == "1",
+                "alternative_text": request.POST.get(f"alternative_{field_key}", ""),
+                "alternative_image": request.FILES.get(f"alternative_image_{field_key}"),
+                "clear_alternative_image": request.POST.get(f"clear_alternative_image_{field_key}") == "1",
+            }
+        )
+    if not updates:
+        field_key = str(request.POST.get("field_key") or "").strip()
+        if field_key:
+            updates.append(
+                {
+                    "field_key": field_key,
+                    "revealed": request.POST.get("revealed") == "1",
+                    "alternative_image": request.FILES.get("alternative_image"),
+                    "clear_alternative_image": request.POST.get("clear_alternative_image") == "1",
+                }
+            )
+            if "alternative_text" in request.POST:
+                updates[-1]["alternative_text"] = request.POST.get("alternative_text", "")
+    set_item_disclosures(character_item, updates)
+    if _request_wants_json(request):
+        display = resolve_character_item_display(character_item, request.user, preview_player=True)
+        price_display = "" if display.price is None else f"{format_thousands(display.price)} KM"
+        partials = _group_character_item_sheet_partials(
+            request,
+            group,
+            character_item,
+            SHEET_MAIN_PARTIAL_KEYS,
+        )
+        return JsonResponse(
+            {
+                "ok": True,
+                "mechanicsChanged": False,
+                "partials": partials,
+                "display": {
+                    "name": display.name,
+                    "description": display.description,
+                    "image": display.image_url,
+                    "item_type": display.item_type,
+                    "quality": display.quality_label,
+                    "price": price_display,
+                    "weight": display.weight,
+                    "size_class": display.size_class,
+                    "hiddenFields": sorted(display.hidden_field_keys),
+                },
+            }
+        )
+    messages.success(request, "Sichtbarkeit gespeichert.")
+    return redirect(f"{reverse('game_master_screen', args=[group_id])}#sl-inventar")
+
+
+@login_required
+@require_POST
+@_group_action
+def update_group_item_effect_identification(request, group_id: int, character_item_id: int):
+    group = GameGroup.objects.get(pk=group_id)
+    require_game_master(request.user, group, write=True)
+    character_item = _group_character_item_or_404(group, character_item_id)
+    initialize_item_identification(character_item)
+    updates = []
+    raw_rows = request.POST.getlist("effect")
+    for raw_row in raw_rows:
+        try:
+            source, raw_effect_id, raw_identified = str(raw_row).split(":", 2)
+        except ValueError:
+            continue
+        updates.append(
+            {
+                "source": source,
+                "effect_id": raw_effect_id,
+                "identified": raw_identified == "1",
+                "alternative_text": request.POST.get(f"alternative_{source}_{raw_effect_id}", ""),
+            }
+        )
+    if not updates:
+        updates.append(
+            {
+                "source": request.POST.get("source"),
+                "effect_id": request.POST.get("effect_id"),
+                "identified": request.POST.get("identified") == "1",
+                "alternative_text": request.POST.get("alternative_text", ""),
+            }
+        )
+    mechanics_changed = set_effect_identifications(character_item, updates)
+    if _request_wants_json(request):
+        partial_keys = (
+            ITEM_SEMANTIC_EFFECT_FALLBACK_PARTIAL_KEYS
+            if mechanics_changed
+            else SHEET_MAIN_PARTIAL_KEYS
+        )
+        return JsonResponse(
+            {
+                "ok": True,
+                "mechanicsChanged": mechanics_changed,
+                "partials": _group_character_item_sheet_partials(
+                    request,
+                    group,
+                    character_item,
+                    partial_keys,
+                ),
+            }
+        )
+    messages.success(request, "Identifikation gespeichert.")
+    return redirect(f"{reverse('game_master_screen', args=[group_id])}#sl-inventar")
+
+
+@login_required
+@require_POST
+@_group_action
+def reveal_group_item(request, group_id: int, character_item_id: int):
+    group = GameGroup.objects.get(pk=group_id)
+    require_game_master(request.user, group, write=True)
+    character_item = _group_character_item_or_404(group, character_item_id)
+    mechanics_changed = reveal_all_character_item(character_item)
+    if _request_wants_json(request):
+        return JsonResponse({"ok": True, "mechanicsChanged": mechanics_changed})
+    messages.success(request, "Gegenstand vollständig aufgedeckt.")
+    return redirect(f"{reverse('game_master_screen', args=[group_id])}#sl-inventar")
+
+
+@login_required
+@require_POST
+@_group_action
+def hide_group_item(request, group_id: int, character_item_id: int):
+    group = GameGroup.objects.get(pk=group_id)
+    require_game_master(request.user, group, write=True)
+    character_item = _group_character_item_or_404(group, character_item_id)
+    mechanics_changed = hide_all_character_item(character_item)
+    if _request_wants_json(request):
+        return JsonResponse({"ok": True, "mechanicsChanged": mechanics_changed})
+    messages.success(request, "Gegenstand verborgen.")
     return redirect(f"{reverse('game_master_screen', args=[group_id])}#sl-inventar")
 
 

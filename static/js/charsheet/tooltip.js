@@ -240,6 +240,20 @@ function renderInlineMarkdown(text) {
     },
   );
   html = html.replace(
+    /\[\[EFFECTIDENTIFY:([^;\]]+);([^;\]]+);([0-9,]+);([01])\]\]/g,
+    (_match, url, source, ids, identified) => {
+      const isIdentified = identified === "1";
+      const label = isIdentified ? "Effekt vor Spielern verbergen" : "Effekt für Spieler freigeben";
+      return (
+        `<button type="button" class="tooltip_effect_identify${isIdentified ? " is-identified" : ""}" `
+        + `data-item-effect-identification data-effect-identification-url="${escapeHtml(url)}" `
+        + `data-effect-source="${escapeHtml(source)}" data-effect-ids="${escapeHtml(ids)}" `
+        + `data-effect-identified="${isIdentified ? "1" : "0"}" aria-pressed="${isIdentified ? "true" : "false"}" `
+        + `aria-label="${label}" title="${label}"></button>`
+      );
+    },
+  );
+  html = html.replace(
     /\[\[INACTIVERACE:(.+?)\]\]/g,
     '<span class="tooltip_effect_inactive_race">$1</span>',
   );
@@ -793,6 +807,7 @@ function buildTooltipCardMarkup({
   effectMarkup = "",
   weaknessMarkup = "",
   includeExtraSections = true,
+  disclosureControls = false,
 }) {
   let { leadHtml, extraHtml } = buildTooltipCardSections(bodyMarkup, { includeExtraSections });
   const hasExplicitPowerSections = Boolean(effectMarkup || weaknessMarkup);
@@ -829,9 +844,9 @@ function buildTooltipCardMarkup({
   const headerMediaHtml = hasSpellImage
     ? `<div class="floating-tooltip-card__media floating-tooltip-card__media--header"><img class="floating-tooltip-card__image" src="${safeImage}" alt=""></div>`
     : "";
-  const mediaHtml = safeImage
+  const mediaHtml = (safeImage || disclosureControls)
     && !isSpellCard
-    ? `<div class="floating-tooltip-card__media"><img class="floating-tooltip-card__image" src="${safeImage}" alt=""></div>`
+    ? `<div class="floating-tooltip-card__media">${safeImage ? `<img class="floating-tooltip-card__image" src="${safeImage}" alt="">` : ""}</div>`
     : "";
   const detailsMarkup = hasExplicitPowerSections ? "" : (leadHtml || bodyMarkup);
   const contentHtml = mediaHtml || detailsMarkup
@@ -856,6 +871,253 @@ function buildTooltipCardMarkup({
       ${extraHtml ? `<section class="floating-tooltip-card__lore">${extraHtml}</section>` : ""}
     </div>
   `;
+}
+
+function itemDisclosureUrlFromTarget(target) {
+  const explicitUrl = String(target.getAttribute("data-tooltip-disclosure-url") || "").trim();
+  if (explicitUrl) {
+    return explicitUrl;
+  }
+  const revealUrl = String(target.getAttribute("data-tooltip-reveal-url") || "").trim();
+  if (revealUrl) {
+    return revealUrl.replace(/\/reveal-all\/?$/, "/disclosure/");
+  }
+  const hideUrl = String(target.getAttribute("data-tooltip-hide-url") || "").trim();
+  if (hideUrl) {
+    return hideUrl.replace(/\/hide-all\/?$/, "/disclosure/");
+  }
+  return "";
+}
+
+function fieldIsRevealedForTooltip(target, fieldKey) {
+  const hiddenFields = String(target.getAttribute("data-tooltip-hidden-fields") || "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+  return !hiddenFields.includes(fieldKey);
+}
+
+function createDisclosureLockButton({ url, fieldKey, revealed }) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = `tooltip_disclosure_toggle${revealed ? " is-revealed" : ""}`;
+  button.dataset.itemDisclosureToggle = "1";
+  button.dataset.disclosureUrl = url;
+  button.dataset.disclosureField = fieldKey;
+  button.dataset.disclosureRevealed = revealed ? "1" : "0";
+  button.setAttribute("aria-pressed", revealed ? "true" : "false");
+  const label = revealed ? "Feld vor Spielern verbergen" : "Feld fuer Spieler freigeben";
+  button.setAttribute("aria-label", label);
+  button.setAttribute("title", label);
+  return button;
+}
+
+function setDisclosureLockState(button, revealed) {
+  if (!(button instanceof HTMLButtonElement)) {
+    return;
+  }
+  button.dataset.disclosureRevealed = revealed ? "1" : "0";
+  button.classList.toggle("is-revealed", revealed);
+  button.setAttribute("aria-pressed", revealed ? "true" : "false");
+  const label = revealed ? "Feld vor Spielern verbergen" : "Feld fuer Spieler freigeben";
+  button.setAttribute("aria-label", label);
+  button.setAttribute("title", label);
+}
+
+function syncDisclosureLocksFromHiddenFields(card, hiddenFields) {
+  if (!(card instanceof HTMLElement) || !Array.isArray(hiddenFields)) {
+    return;
+  }
+  const hidden = new Set(hiddenFields.map((field) => String(field || "").trim()).filter(Boolean));
+  card.querySelectorAll("[data-item-disclosure-toggle]").forEach((button) => {
+    if (!(button instanceof HTMLButtonElement)) {
+      return;
+    }
+    const fieldKey = String(button.dataset.disclosureField || "");
+    if (!fieldKey) {
+      return;
+    }
+    setDisclosureLockState(button, !hidden.has(fieldKey));
+  });
+}
+
+function appendTooltipDisclosureLock(card, target, fieldKey, host) {
+  const url = itemDisclosureUrlFromTarget(target);
+  if (!url || !(host instanceof HTMLElement)) {
+    return;
+  }
+  host.classList.add("has-tooltip-disclosure-lock");
+  host.append(
+    createDisclosureLockButton({
+      url,
+      fieldKey,
+      revealed: fieldIsRevealedForTooltip(target, fieldKey),
+    }),
+  );
+}
+
+function addDisclosureLocksToTooltipCard(card, target) {
+  if (!(card instanceof HTMLElement) || !(target instanceof HTMLElement)) {
+    return;
+  }
+  if (!itemDisclosureUrlFromTarget(target)) {
+    return;
+  }
+  const title = card.querySelector(".floating-tooltip-card__title");
+  appendTooltipDisclosureLock(card, target, "name", title);
+
+  const media = card.querySelector(".floating-tooltip-card__media");
+  appendTooltipDisclosureLock(card, target, "image", media);
+
+  const subtitle = card.querySelector(".floating-tooltip-card__subtitle");
+  if (subtitle instanceof HTMLElement) {
+    const text = String(subtitle.textContent || "").trim();
+    const parts = text.split(/\s+-\s+/);
+    subtitle.innerHTML = "";
+    if (parts[0]) {
+      const typeSpan = document.createElement("span");
+      typeSpan.textContent = parts[0];
+      subtitle.append(typeSpan);
+      appendTooltipDisclosureLock(card, target, "item_type", typeSpan);
+    }
+    if (parts[1]) {
+      subtitle.append(document.createTextNode(" - "));
+      const qualitySpan = document.createElement("span");
+      qualitySpan.textContent = parts.slice(1).join(" - ");
+      subtitle.append(qualitySpan);
+      appendTooltipDisclosureLock(card, target, "quality", qualitySpan);
+    }
+  }
+
+  const detailFieldByLabel = new Map([
+    ["Kaufpreis", "price"],
+    ["Gewicht", "weight"],
+    ["GK", "size_class"],
+  ]);
+  card.querySelectorAll(".floating-tooltip-card__details tbody tr").forEach((row) => {
+    if (!(row instanceof HTMLTableRowElement)) {
+      return;
+    }
+    const label = normalizeInlineText(row.cells[0]?.textContent || "");
+    const fieldKey = detailFieldByLabel.get(label);
+    if (fieldKey && row.cells[1] instanceof HTMLElement) {
+      appendTooltipDisclosureLock(card, target, fieldKey, row.cells[1]);
+    }
+  });
+
+  const lore = card.querySelector(".floating-tooltip-card__lore");
+  const description = lore instanceof HTMLElement
+    ? Array.from(lore.children).find((node) => node instanceof HTMLParagraphElement)
+    : null;
+  if (description instanceof HTMLElement) {
+    appendTooltipDisclosureLock(card, target, "description", description);
+  }
+}
+
+function applyDisclosureDisplayPayload(card, target, display) {
+  if (!(card instanceof HTMLElement) || !display || typeof display !== "object") {
+    return;
+  }
+  const hiddenFields = new Set(
+    Array.isArray(display.hiddenFields)
+      ? display.hiddenFields.map((field) => String(field || "").trim()).filter(Boolean)
+      : [],
+  );
+  const textValue = (key) => String(display[key] ?? "");
+  const visibleTextValue = (key) => {
+    const value = textValue(key);
+    return value || (hiddenFields.has(key) ? "Verborgen" : "");
+  };
+  const title = card.querySelector(".floating-tooltip-card__title");
+  if (title instanceof HTMLElement) {
+    const lock = title.querySelector(".tooltip_disclosure_toggle");
+    title.textContent = visibleTextValue("name") || "Details";
+    if (lock) {
+      title.append(lock);
+    }
+  }
+  if (target instanceof HTMLElement && visibleTextValue("name")) {
+    target.setAttribute("data-tooltip-title", visibleTextValue("name"));
+  }
+
+  const subtitle = card.querySelector(".floating-tooltip-card__subtitle");
+  if (subtitle instanceof HTMLElement) {
+    const itemTypeLock = subtitle.querySelector("[data-disclosure-field='item_type']");
+    const qualityLock = subtitle.querySelector("[data-disclosure-field='quality']");
+    const itemTypeText = visibleTextValue("item_type");
+    const qualityText = visibleTextValue("quality");
+    subtitle.innerHTML = "";
+    if (itemTypeText || itemTypeLock) {
+      const typeSpan = document.createElement("span");
+      typeSpan.textContent = itemTypeText;
+      if (itemTypeLock) {
+        typeSpan.append(itemTypeLock);
+      }
+      subtitle.append(typeSpan);
+    }
+    if (qualityText || qualityLock) {
+      if (subtitle.childNodes.length) {
+        subtitle.append(document.createTextNode(" - "));
+      }
+      const qualitySpan = document.createElement("span");
+      qualitySpan.textContent = qualityText;
+      if (qualityLock) {
+        qualitySpan.append(qualityLock);
+      }
+      subtitle.append(qualitySpan);
+    }
+    if (target instanceof HTMLElement) {
+      target.setAttribute("data-tooltip-subtitle", subtitle.textContent || "");
+    }
+  }
+
+  const detailFieldByLabel = new Map([
+    ["Kaufpreis", "price"],
+    ["Gewicht", "weight"],
+    ["GK", "size_class"],
+  ]);
+  card.querySelectorAll(".floating-tooltip-card__details tbody tr").forEach((row) => {
+    if (!(row instanceof HTMLTableRowElement) || !(row.cells[1] instanceof HTMLElement)) {
+      return;
+    }
+    const fieldKey = detailFieldByLabel.get(normalizeInlineText(row.cells[0]?.textContent || ""));
+    if (!fieldKey || !(fieldKey in display)) {
+      return;
+    }
+    const lock = row.cells[1].querySelector(".tooltip_disclosure_toggle");
+    row.cells[1].textContent = visibleTextValue(fieldKey);
+    if (lock) {
+      row.cells[1].append(lock);
+    }
+  });
+
+  const description = card.querySelector(".floating-tooltip-card__lore > p, .floating-tooltip-card__lore > div:last-child");
+  if (description instanceof HTMLElement && "description" in display) {
+    const lock = description.querySelector(".tooltip_disclosure_toggle");
+    description.innerHTML = renderTooltipMarkup(visibleTextValue("description"));
+    if (lock) {
+      description.append(lock);
+    }
+  }
+
+  const media = card.querySelector(".floating-tooltip-card__media");
+  let image = card.querySelector(".floating-tooltip-card__image");
+  if (!(image instanceof HTMLImageElement) && media instanceof HTMLElement && textValue("image")) {
+    image = document.createElement("img");
+    image.className = "floating-tooltip-card__image";
+    image.alt = "";
+    media.prepend(image);
+  }
+  if (image instanceof HTMLImageElement && "image" in display) {
+    image.src = textValue("image");
+    image.hidden = !textValue("image");
+    if (target instanceof HTMLElement) {
+      target.setAttribute("data-tooltip-image", textValue("image"));
+    }
+  }
+  if (target instanceof HTMLElement && Array.isArray(display.hiddenFields)) {
+    target.setAttribute("data-tooltip-hidden-fields", display.hiddenFields.join(","));
+  }
 }
 
 function syncTooltipCardMediaHeight(card) {
@@ -953,6 +1215,12 @@ function bindFloatingCardInteractions(card, { onClose } = {}) {
     if (closeButton) {
       return;
     }
+    const nestedInteractive = event.target instanceof Element
+      ? event.target.closest("button, a, input, select, textarea, label, form, details")
+      : null;
+    if (nestedInteractive) {
+      return;
+    }
     const handle = event.target instanceof Element
       ? event.target.closest("[data-tooltip-card-drag-handle]")
       : null;
@@ -1037,6 +1305,192 @@ export function initTooltips() {
   let dragOffsetY = 0;
 
   document.addEventListener("click", async (event) => {
+    const disclosureButton = event.target instanceof Element ? event.target.closest("[data-item-disclosure-toggle]") : null;
+    if (disclosureButton instanceof HTMLButtonElement) {
+      event.preventDefault();
+      event.stopPropagation();
+      if (disclosureButton.disabled) {
+        return;
+      }
+      const url = String(disclosureButton.dataset.disclosureUrl || "");
+      const fieldKey = String(disclosureButton.dataset.disclosureField || "");
+      if (!url || !fieldKey) {
+        return;
+      }
+      disclosureButton.disabled = true;
+      const currentlyRevealed = disclosureButton.dataset.disclosureRevealed !== "0";
+      const revealed = !currentlyRevealed;
+      try {
+        const data = new FormData();
+        data.set("_response_format", "json");
+        data.set("field_key", fieldKey);
+        data.set("revealed", revealed ? "1" : "0");
+        const response = await fetch(url, {
+          method: "POST",
+          headers: {
+            "X-CSRFToken": getCsrfToken(),
+            "X-Requested-With": "XMLHttpRequest",
+            Accept: "application/json",
+          },
+          credentials: "same-origin",
+          body: data,
+        });
+        if (!response.ok) {
+          throw new Error("item disclosure failed");
+        }
+        const payload = await response.json();
+        if (!payload?.ok) {
+          throw new Error("item disclosure invalid");
+        }
+        applyDisclosureDisplayPayload(card, activeCardTarget, payload.display);
+        if (Array.isArray(payload.display?.hiddenFields)) {
+          syncDisclosureLocksFromHiddenFields(card, payload.display.hiddenFields);
+        } else {
+          setDisclosureLockState(disclosureButton, revealed);
+        }
+        if (activeCardTarget instanceof HTMLElement) {
+          const hiddenFields = new Set(String(activeCardTarget.getAttribute("data-tooltip-hidden-fields") || "")
+            .split(",")
+            .map((value) => value.trim())
+            .filter(Boolean));
+          if (revealed) {
+            hiddenFields.delete(fieldKey);
+          } else {
+            hiddenFields.add(fieldKey);
+          }
+          activeCardTarget.setAttribute("data-tooltip-hidden-fields", Array.from(hiddenFields).sort().join(","));
+        }
+        applySheetPartials(payload);
+      } catch (_error) {
+        window.alert("Sichtbarkeit konnte nicht gespeichert werden.");
+      } finally {
+        disclosureButton.disabled = false;
+      }
+      return;
+    }
+
+    const visibilityButton = event.target instanceof Element ? event.target.closest("[data-item-reveal-all], [data-item-hide-all]") : null;
+    if (visibilityButton instanceof HTMLButtonElement) {
+      event.preventDefault();
+      event.stopPropagation();
+      if (visibilityButton.disabled) {
+        return;
+      }
+      visibilityButton.disabled = true;
+      try {
+        const response = await fetch(String(visibilityButton.dataset.itemVisibilityUrl || ""), {
+          method: "POST",
+          headers: {
+            "X-CSRFToken": getCsrfToken(),
+            "X-Requested-With": "XMLHttpRequest",
+            Accept: "application/json",
+          },
+          credentials: "same-origin",
+        });
+        if (!response.ok) {
+          throw new Error("item visibility failed");
+        }
+        const payload = await response.json();
+        if (!payload?.ok) {
+          throw new Error("item visibility invalid");
+        }
+        const revealed = visibilityButton.hasAttribute("data-item-reveal-all");
+        card.querySelectorAll("[data-item-effect-identification]").forEach((button) => {
+          if (!(button instanceof HTMLButtonElement)) {
+            return;
+          }
+          button.dataset.effectIdentified = revealed ? "1" : "0";
+          button.classList.toggle("is-identified", revealed);
+          button.setAttribute("aria-pressed", revealed ? "true" : "false");
+          const label = revealed ? "Effekt vor Spielern verbergen" : "Effekt für Spieler freigeben";
+          button.setAttribute("aria-label", label);
+          button.setAttribute("title", label);
+        });
+      } catch (_error) {
+        window.alert("Sichtbarkeit konnte nicht gespeichert werden.");
+      } finally {
+        visibilityButton.disabled = false;
+      }
+      return;
+    }
+
+    const identifyButton = event.target instanceof Element ? event.target.closest("[data-item-effect-identification]") : null;
+    if (identifyButton instanceof HTMLButtonElement) {
+      event.preventDefault();
+      event.stopPropagation();
+      if (identifyButton.disabled) {
+        return;
+      }
+      identifyButton.disabled = true;
+      const targetKey = activeCardTarget instanceof HTMLElement
+        ? String(activeCardTarget.getAttribute("data-tooltip-card-key") || "").trim()
+        : "";
+      const targetSignature = activeCardTarget instanceof HTMLElement
+        ? buildCardTargetSignature(activeCardTarget)
+        : "";
+      const previousLeft = card.style.left;
+      const previousTop = card.style.top;
+      const source = String(identifyButton.dataset.effectSource || "");
+      const ids = String(identifyButton.dataset.effectIds || "")
+        .split(",")
+        .map((value) => value.trim())
+        .filter(Boolean);
+      const nextIdentified = identifyButton.dataset.effectIdentified !== "1";
+      const formData = new FormData();
+      ids.forEach((id) => {
+        formData.append("effect", `${source}:${id}:${nextIdentified ? "1" : "0"}`);
+      });
+      try {
+        const response = await fetch(String(identifyButton.dataset.effectIdentificationUrl || ""), {
+          method: "POST",
+          body: formData,
+          headers: {
+            "X-CSRFToken": getCsrfToken(),
+            "X-Requested-With": "XMLHttpRequest",
+            Accept: "application/json",
+          },
+          credentials: "same-origin",
+        });
+        if (!response.ok) {
+          throw new Error("effect identification failed");
+        }
+        const payload = await response.json();
+        if (!payload?.ok) {
+          throw new Error("effect identification invalid");
+        }
+        applySheetPartials(payload);
+        const nextTarget = Array.from(document.querySelectorAll(".tooltip_target[data-tooltip][data-tooltip-mode='card']")).find((target) => {
+          if (!(target instanceof HTMLElement)) {
+            return false;
+          }
+          if (targetKey && String(target.getAttribute("data-tooltip-card-key") || "").trim() === targetKey) {
+            return true;
+          }
+          return !targetKey && targetSignature && buildCardTargetSignature(target) === targetSignature;
+        });
+        if (nextTarget instanceof HTMLElement) {
+          activeCardTarget = nextTarget;
+          saveCardState(nextTarget);
+          openCard(nextTarget, {
+            preservePosition: true,
+            previousLeft,
+            previousTop,
+          });
+        }
+        identifyButton.dataset.effectIdentified = nextIdentified ? "1" : "0";
+        identifyButton.classList.toggle("is-identified", nextIdentified);
+        identifyButton.setAttribute("aria-pressed", nextIdentified ? "true" : "false");
+        const label = nextIdentified ? "Effekt vor Spielern verbergen" : "Effekt für Spieler freigeben";
+        identifyButton.setAttribute("aria-label", label);
+        identifyButton.setAttribute("title", label);
+      } catch (_error) {
+        window.alert("Effektfreigabe fehlgeschlagen.");
+      } finally {
+        identifyButton.disabled = false;
+      }
+      return;
+    }
+
     const button = event.target instanceof Element ? event.target.closest("[data-item-effect-toggle]") : null;
     if (!(button instanceof HTMLButtonElement)) {
       return;
@@ -1296,7 +1750,9 @@ export function initTooltips() {
       effectMarkup: renderTooltipMarkup(target.getAttribute("data-tooltip-effect") || ""),
       weaknessMarkup: renderTooltipMarkup(target.getAttribute("data-tooltip-weakness") || ""),
       includeExtraSections: String(target.getAttribute("data-tooltip-card-extra-sections") || "").trim() !== "none",
+      disclosureControls: Boolean(itemDisclosureUrlFromTarget(target)),
     });
+    addDisclosureLocksToTooltipCard(card, target);
     card.classList.add("is-visible");
     activeCardTarget = target;
     saveCardState(target);
@@ -1424,13 +1880,19 @@ export function initTooltips() {
       return;
     }
     event.stopPropagation();
-  });
+  }, true);
 
   card.addEventListener("pointerdown", (event) => {
     const closeButton = event.target instanceof Element
       ? event.target.closest("[data-tooltip-card-close]")
       : null;
     if (closeButton) {
+      return;
+    }
+    const nestedInteractive = event.target instanceof Element
+      ? event.target.closest("button, a, input, select, textarea, label, form, details")
+      : null;
+    if (nestedInteractive) {
       return;
     }
     const handle = event.target instanceof Element

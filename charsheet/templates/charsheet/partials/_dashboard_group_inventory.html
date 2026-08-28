@@ -64,6 +64,9 @@
                     <button type="button" class="sl-inventory-icon-button" data-toggle-sl-inventory-panel="edit-{{ instance.id }}" aria-label="Gegenstand anpassen" title="Gegenstand anpassen">
                       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4l11-11-4-4L4 16v4Zm12.5-16.5 4 4 1-1a1.4 1.4 0 0 0 0-2l-2-2a1.4 1.4 0 0 0-2 0l-1 1Z"/></svg>
                     </button>
+                    <button type="button" class="sl-inventory-icon-button" data-toggle-sl-inventory-panel="disclosure-{{ instance.id }}" aria-label="Sichtbarkeit verwalten" title="Sichtbarkeit verwalten">
+                      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12s3.5-6 9-6 9 6 9 6-3.5 6-9 6-9-6-9-6Z"/><circle cx="12" cy="12" r="2.5"/></svg>
+                    </button>
                     {% if not instance.sl_edit_access %}
                     <button type="button" class="sl-inventory-icon-button" data-toggle-sl-inventory-panel="send-{{ instance.id }}" aria-label="Gegenstand senden" title="Gegenstand senden">
                       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 3 19 9-19 9 3-7 9-2-9-2-3-7Z"/></svg>
@@ -87,6 +90,21 @@
               </td>
             </tr>
             {% if not group_row.group.is_archived and not instance.sl_pending_transfer %}
+              <tr class="sl-inventory-action-row" id="disclosure-{{ instance.id }}" hidden>
+                <td colspan="5">
+                  <form id="{{ instance.sl_disclosure_form_id }}" method="post" enctype="multipart/form-data" action="{% url 'update_group_item_disclosure' group_row.group.id instance.id %}">
+                    {% csrf_token %}<input type="hidden" name="_sl_screen" value="1">
+                  </form>
+                  <form id="{{ instance.sl_effect_form_id }}" method="post" action="{% url 'update_group_item_effect_identification' group_row.group.id instance.id %}">
+                    {% csrf_token %}<input type="hidden" name="_sl_screen" value="1">
+                  </form>
+                  {% include "charsheet/partials/_shared_item_card.html" with item_card=instance.sl_player_item_card disclosure_form_id=instance.sl_disclosure_form_id effect_form_id=instance.sl_effect_form_id %}
+                  <div class="sl-editor-actions sl-disclosure-card-actions">
+                    <button type="button" class="dashboard_button dashboard_button--primary" data-sl-disclosure-save data-disclosure-form="{{ instance.sl_disclosure_form_id }}" data-effect-form="{{ instance.sl_effect_form_id }}">Speichern</button>
+                    <button type="button" class="dashboard_button" data-close-sl-item-action>Abbrechen</button>
+                  </div>
+                </td>
+              </tr>
               <tr class="sl-inventory-action-row" id="edit-{{ instance.id }}" hidden>
                 <td colspan="5">
                   <form class="sl-inventory-edit-form sl-editor-form" method="post" enctype="multipart/form-data" action="{% url 'edit_group_inventory_item' group_row.group.id instance.id %}" data-sl-instance-form data-item-type="{{ instance.item.item_type }}">
