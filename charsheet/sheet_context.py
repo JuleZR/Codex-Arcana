@@ -3148,12 +3148,10 @@ def _build_alchemical_brew_requirement_line(
             continue
 
         parts.append(
-            "("
-            + " ODER ".join(
+            " oder ".join(
                 requirement_text(entry)
                 for entry in alternatives
             )
-            + ")"
         )
 
     additional_requirements = str(
@@ -3175,7 +3173,7 @@ def _build_alchemical_brew_requirement_line(
         return ""
 
     return (
-        "`**Voraussetzung:** "
+        "`**Voraussetzungen:** "
         + ", ".join(parts)
         + "`"
     )
