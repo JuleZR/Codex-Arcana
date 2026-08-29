@@ -70,6 +70,7 @@ from .engine.item_engine import ItemEngine
 from .engine.creature_engine import CreatureEngine
 from .modifiers.registry import build_trait_semantic_modifiers
 from .models import (
+    AlchemicalBrewStats,
     ArmorStats,
     Aspect,
     Attribute,
@@ -2035,6 +2036,74 @@ class MagicItemStatsInline(admin.StackedInline):
     fields = ("effect_summary",)
 
 
+class AlchemicalBrewStatsInline(admin.StackedInline):
+    """Inline editor for alchemical brew rule data."""
+
+    model = AlchemicalBrewStats
+    verbose_name_plural = "Alchemical Brew Stats"
+    extra = 0
+    max_num = 1
+    can_delete = True
+
+    fieldsets = (
+        (
+            "Gebräu",
+            {
+                "fields": (
+                    "brew_type",
+                ),
+            },
+        ),
+        (
+            "Herstellung",
+            {
+                "fields": (
+                    (
+                        "ingredient_cost_gm",
+                        "craft_ep_cost",
+                    ),
+                    (
+                        "craft_time_amount",
+                        "craft_time_unit",
+                    ),
+                    (
+                        "alchemy_required",
+                        "craft_mw",
+                    ),
+                    "additional_requirements",
+                ),
+            },
+        ),
+        (
+            "Regelwerksdaten",
+            {
+                "fields": (
+                    "duration",
+                    "application",
+                    "storage",
+                    "dosage",
+                ),
+            },
+        ),
+        (
+            "Automatische Sofortwirkungen",
+            {
+                "description": (
+                    "Nur unmittelbar beim Verbrauch anwendbare "
+                    "Effekte. 0 bedeutet: kein entsprechender Effekt."
+                ),
+                "fields": (
+                    (
+                        "heal_lp",
+                        "restore_kp",
+                        "heal_wound_grades",
+                    ),
+                ),
+            },
+        ),
+    )
+
+
 class ItemSemanticEffectAdminForm(forms.ModelForm):
     """User-friendly item effect editor that maps dropdowns to semantic fields."""
 
@@ -2111,7 +2180,8 @@ class ItemSemanticEffectAdminForm(forms.ModelForm):
         self.fields["display_group"].label = "Anzeigegruppe"
         self.fields["display_group"].help_text = "Optional. Gleiche Nummern werden auf der Itemkarte als ein Effekt angezeigt."
         self.fields["display_group_append"].label = "An Anzeigegruppe anhaengen"
-        self.fields["display_group_append"].help_text = "Aktivieren fuer automatische Nebeneffekte; ein Effekt pro Gruppe bleibt Hauptlabel."
+        self.fields["display_group_append"] \
+            .help_text = "Aktivieren fuer automatische Nebeneffekte; ein Effekt pro Gruppe bleibt Hauptlabel."
         self.fields["simple_value"].help_text = "Bei Bewegungsgruppen: eine Zahl fuer alle oder drei Werte als [Kampf,Marsch,Sprint]."
         self.fields["scale_source"].label = "Skaliert nach"
         self.fields["scale_divisor"].label = "pro"
@@ -5109,7 +5179,7 @@ class ItemAdmin(admin.ModelAdmin):
         ShieldStatsInline,
         WeaponStatsInline,
         RangedWeaponStatsInline,
-        MagicItemStatsInline,
+        AlchemicalBrewStatsInline,
         ItemSemanticEffectInline,
         ItemRaceStartingInline,
         CreatureCardItemBindingInline,

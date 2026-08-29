@@ -434,7 +434,13 @@ def build_creature_card_training_context(card):
         skill: Skill,
     ) -> dict:
         attribute_modifier = engine._skill_attribute_modifier(skill)
-        gk_multiplier = 2 if skill.slug == "skill_hide" else 1 if skill.slug == "skill_evasion" or skill.category.slug == SKILL_COMBAT else 0
+        gk_multiplier = (
+            2
+            if skill.slug == "skill_hide"
+            else 1
+            if skill.slug == "skill_evasion" or skill.category.slug == SKILL_COMBAT
+            else 0
+        )
         gk_modifier = gk_multiplier * engine.size_modifier()
         skill_modifier = engine._modifier_total("skill", skill.slug)
         wound_penalty = engine.current_wound_penalty()
@@ -1269,6 +1275,8 @@ SHOP_GROUP_LABELS = {
     Item.ItemType.MAGICAL_WEAPON: "Magische Waffen",
     Item.ItemType.MAGICAL_ARMOR: "Magische Rüstungen",
     Item.ItemType.AMMO: "Munition",
+    Item.ItemType.ALCHEMICAL_BREW: "Alchemistische Gebräue",
+    Item.ItemType.EQUIPMENT: "Ausrüstung",
     Item.ItemType.CONSUM: "Verbrauchsgegenstände",
     Item.ItemType.CREATURE: "Tiere & Kreaturen",
     Item.ItemType.MISC: "Sonstiges",
@@ -1285,7 +1293,9 @@ SHOP_GROUP_ORDER = [
     Item.ItemType.MAGICAL_ARMOR,
     Item.ItemType.AMMO,
     Item.ItemType.CONSUM,
+    Item.ItemType.ALCHEMICAL_BREW,
     Item.ItemType.CREATURE,
+    Item.ItemType.EQUIPMENT,
     Item.ItemType.MISC,
 ]
 SHOP_FORM_ORDER = [
@@ -4269,7 +4279,8 @@ def _build_skill_modifier_rows(
     skill_name: str,
     category_slug: str | None,
     skill_id: int | None,
-    specification: str | None = None) -> list[dict[str, object]]:
+    specification: str | None = None
+) -> list[dict[str, object]]:
     """Return modifier rows for one skill calculation tooltip."""
     rows: list[dict[str, object]] = []
     for entry in engine.explain_modifier_resolution("skill", skill_slug, specification=specification):
@@ -5383,7 +5394,7 @@ def _build_inventory_rows(
                 "can_consume": (
                     can_use_item
                     and item.stackable
-                    and item.item_type == Item.ItemType.CONSUM
+                    and item.is_consumable
                     and (
                         character_item.amount > 1
                         or can_consume_final
@@ -7004,6 +7015,7 @@ def _build_learning_rows(
         )
 
     skill_groups: OrderedDict[str, list[dict]] = OrderedDict()
+
     def _skill_rank_learning_payload(skill: Skill, specification: str | None = None) -> dict[str, int]:
         max_level = int(engine.skill_rank_max(skill.slug, specification=specification))
         metadata = engine.skill_rank_cap_metadata(skill.slug, specification=specification)

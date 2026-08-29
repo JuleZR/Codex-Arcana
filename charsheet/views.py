@@ -31,6 +31,7 @@ from .engine.creature_engine import CreatureEngine, sync_character_creatures
 from .engine.dice_engine import DiceEngine
 from .engine.item_engine import ItemEngine
 from .learning_progression import weapon_mastery_weapon_type_definitions
+from .consumables import apply_consumable_effects
 from .models import (
     Character,
     CharacterDiaryEntry,
@@ -3710,43 +3711,112 @@ def set_item_storage(request, pk):
 @login_required
 @require_POST
 @transaction.atomic
+@login_required
+@require_POST
+@transaction.atomic
 def consume_item(request, pk):
-    """Consume one unit from a stackable inventory item."""
+    """Consume one inventory item and apply immediate effects."""
     ci = _owned_character_item_or_404(request, pk)
-    ci = CharacterItem.objects.select_for_update(of=("self",)).select_related("item", "owner", "original_owner_character").get(pk=ci.pk)
+
+    ci = (
+        CharacterItem.objects
+        .select_for_update(of=("self",))
+        .select_related(
+            "item",
+            "owner",
+            "original_owner_character",
+        )
+        .get(pk=ci.pk)
+    )
 
     owner_id = ci.owner_id
-    was_equipped = bool(ci.equipped)
-    partial_keys = _equipment_action_partial_keys(ci) if was_equipped else ("inventory_panel",)
-    if item_is_pending(ci):
-        return _transfer_response_error(request, TransferError(
-            "item_pending", "Unterwegs befindliche Items können nicht verbraucht werden.",
-            status=409
-            ), character_id=owner_id)
-    if not ci.item.stackable or ci.item.item_type != Item.ItemType.CONSUM:
-        return redirect("character_sheet", character_id=owner_id)
 
-    if ci.amount > 1:
-        ci.amount -= 1
-        ci.save(update_fields=["amount"])
-    else:
-        if not has_item_permission(ci, ItemPermissionGrant.Permission.CONSUME_FINAL):
-            return _transfer_response_error(request, TransferError(
-                "consume_permission_required", "Für die letzte Einheit fehlt die Freigabe des Ursprungsbesitzers.",
-                status=403), character_id=owner_id)
-        record_item_destruction(ci, ci.owner, "consume_final")
-        ci.delete()
-    if _is_partial_request(request):
-        character = _owned_character_or_404(request, owner_id)
-        if not was_equipped:
-            return _inventory_panel_response(request, character)
-        return _equipment_action_partials_response(
+    if item_is_pending(ci):
+        return _transfer_response_error(
             request,
-            character,
-            partial_keys,
+            TransferError(
+                "item_pending",
+                "Unterwegs befindliche Items können nicht verbraucht werden.",
+                status=409,
+            ),
+            character_id=owner_id,
         )
 
-    return redirect("character_sheet", character_id=owner_id)
+    if (
+        not ci.item.stackable
+        or ci.item.item_type
+        not in Item.consumable_item_type_values()
+    ):
+        return redirect(
+            "character_sheet",
+            character_id=owner_id,
+        )
+
+    is_final_unit = ci.amount <= 1
+
+    # Important: validate permission BEFORE applying the effect.
+    if (
+        is_final_unit
+        and not has_item_permission(
+            ci,
+            ItemPermissionGrant.Permission.CONSUME_FINAL,
+        )
+    ):
+        return _transfer_response_error(
+            request,
+            TransferError(
+                "consume_permission_required",
+                (
+                    "Für die letzte Einheit fehlt die "
+                    "Freigabe des Ursprungsbesitzers."
+                ),
+                status=403,
+            ),
+            character_id=owner_id,
+        )
+
+    character = Character.objects.select_for_update().get(
+        pk=owner_id
+    )
+
+    result = apply_consumable_effects(
+        character,
+        ci.item,
+    )
+
+    if is_final_unit:
+        record_item_destruction(
+            ci,
+            ci.owner,
+            "consume_final",
+        )
+        ci.delete()
+    else:
+        ci.amount -= 1
+        ci.save(update_fields=["amount"])
+
+    if _is_partial_request(request):
+        partial_keys = ["inventory_panel"]
+
+        if (
+            result["healed_lp"]
+            or result["restored_kp"]
+        ):
+            partial_keys.append("damage_panel")
+
+        if result["restored_kp"]:
+            partial_keys.append("spell_panel")
+
+        return _sheet_partials_response(
+            request,
+            character,
+            *partial_keys,
+        )
+
+    return redirect(
+        "character_sheet",
+        character_id=owner_id,
+    )
 
 
 @login_required

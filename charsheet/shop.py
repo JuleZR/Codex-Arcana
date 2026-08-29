@@ -414,7 +414,9 @@ def _read_magic_modifier_payloads(post_data) -> list[dict[str, object]]:
                             **grouping_payload,
                             **({"active_flag": bool(payload.get("active_flag", True))} if "active_flag" in payload else {}),
                             **({"toggleable": bool(payload.get("toggleable", False))} if "toggleable" in payload else {}),
-                            **({"toggle_state_inverted": bool(payload.get("toggle_state_inverted", False))} if "toggle_state_inverted" in payload else {}),
+                            **({"toggle_state_inverted": bool(
+                                payload.get("toggle_state_inverted", False)
+                                )} if "toggle_state_inverted" in payload else {}),
                             **({"rules_text": rules_text} if rules_text else {}),
                         },
                         {
@@ -431,7 +433,9 @@ def _read_magic_modifier_payloads(post_data) -> list[dict[str, object]]:
                             **grouping_payload,
                             **({"active_flag": bool(payload.get("active_flag", True))} if "active_flag" in payload else {}),
                             **({"toggleable": bool(payload.get("toggleable", False))} if "toggleable" in payload else {}),
-                            **({"toggle_state_inverted": bool(payload.get("toggle_state_inverted", False))} if "toggle_state_inverted" in payload else {}),
+                            **({"toggle_state_inverted": bool(
+                                payload.get("toggle_state_inverted", False)
+                                )} if "toggle_state_inverted" in payload else {}),
                             **({"rules_text": rules_text} if rules_text else {}),
                         },
                     ]
@@ -930,7 +934,7 @@ def create_custom_shop_item(post_data, files_data=None, *, catalog_group=None):
     if not _cp_matches_steps(invested_cp, invested_cp_steps):
         return False
     size_class = str(post_data.get("size_class") or "M")
-    is_consumable = item_type == Item.ItemType.CONSUM
+    is_consumable = (item_type in Item.consumable_item_type_values())
     image = None if files_data is None else files_data.get("image")
     rune_payloads = _read_rune_payloads(post_data)
     selected_rune_ids = sorted({int(payload["rune_id"]) for payload in rune_payloads if int(payload["rune_id"]) > 0})
@@ -1125,20 +1129,37 @@ def buy_shop_cart(character: Character, payload: dict[str, object]) -> tuple[dic
         character.save(update_fields=["money"])
         for item, qty, quality in normalized:
             if item.stackable:
-                existing = CharacterItem.objects.filter(owner=character, original_owner_character=character, item=item, quality_id=quality).exclude(transfers__status="pending").first()
+                existing = CharacterItem.objects.filter(
+                    owner=character,
+                    original_owner_character=character,
+                    item=item, quality_id=quality
+                    ).exclude(transfers__status="pending").first()
                 if existing:
                     existing.amount += qty
                     existing.full_clean()
                     existing.save(update_fields=["amount"])
                 else:
-                    created = CharacterItem(owner=character, original_owner_character=character, item=item, amount=qty, equipped=False, quality_id=quality)
+                    created = CharacterItem(
+                        owner=character,
+                        original_owner_character=character,
+                        item=item,
+                        amount=qty,
+                        equipped=False,
+                        quality_id=quality
+                        )
                     created.full_clean()
                     created.save()
                     for rune in item.runes.all():
                         apply_rune_to_item(item=created, rune=rune, crafter_level=0)
             else:
                 for _index in range(qty):
-                    created = CharacterItem(owner=character, original_owner_character=character, item=item, amount=1, equipped=False, quality_id=quality)
+                    created = CharacterItem(
+                        owner=character,
+                        original_owner_character=character,
+                        item=item, amount=1,
+                        equipped=False,
+                        quality_id=quality
+                        )
                     created.full_clean()
                     created.save()
                     for rune in item.runes.all():
@@ -1167,7 +1188,9 @@ def sell_shop_cart(character: Character, payload: dict[str, object]) -> tuple[di
 
     character_items = {
         item.id: item
-        for item in CharacterItem.objects.select_for_update(of=("self",)).select_related("item", "owner", "original_owner_character").filter(
+        for item in CharacterItem.objects.select_for_update(
+            of=("self",)).select_related("item", "owner", "original_owner_character"
+                                         ).filter(
             owner=character,
             pk__in=requested_quantities.keys(),
         )
@@ -1256,7 +1279,9 @@ def trade_shop_cart(character: Character, payload: dict[str, object]) -> tuple[d
 
     character_items = {
         item.id: item
-        for item in CharacterItem.objects.select_for_update(of=("self",)).select_related("item", "owner", "original_owner_character").filter(
+        for item in CharacterItem.objects.select_for_update(
+            of=("self",)).select_related("item", "owner", "original_owner_character"
+                                         ).filter(
             owner=character,
             pk__in=requested_sell_quantities.keys(),
         )
@@ -1300,20 +1325,39 @@ def trade_shop_cart(character: Character, payload: dict[str, object]) -> tuple[d
 
         for item, qty, quality in normalized_buys:
             if item.stackable:
-                existing = CharacterItem.objects.filter(owner=character, original_owner_character=character, item=item, quality_id=quality).exclude(transfers__status="pending").first()
+                existing = CharacterItem.objects.filter(
+                    owner=character,
+                    original_owner_character=character,
+                    item=item,
+                    quality_id=quality
+                    ).exclude(transfers__status="pending").first()
                 if existing:
                     existing.amount += qty
                     existing.full_clean()
                     existing.save(update_fields=["amount"])
                 else:
-                    created = CharacterItem(owner=character, original_owner_character=character, item=item, amount=qty, equipped=False, quality_id=quality)
+                    created = CharacterItem(
+                        owner=character,
+                        original_owner_character=character,
+                        item=item,
+                        amount=qty,
+                        equipped=False,
+                        quality_id=quality
+                        )
                     created.full_clean()
                     created.save()
                     for rune in item.runes.all():
                         apply_rune_to_item(item=created, rune=rune, crafter_level=0)
             else:
                 for _index in range(qty):
-                    created = CharacterItem(owner=character, original_owner_character=character, item=item, amount=1, equipped=False, quality_id=quality)
+                    created = CharacterItem(
+                        owner=character,
+                        original_owner_character=character,
+                        item=item,
+                        amount=1,
+                        equipped=False,
+                        quality_id=quality
+                        )
                     created.full_clean()
                     created.save()
                     for rune in item.runes.all():

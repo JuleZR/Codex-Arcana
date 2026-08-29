@@ -22,7 +22,6 @@ from ..constants import (
     WIELD_MODES,
 )
 from .core import Attribute, DamageSource, Language, Race, Skill, SkillCategory, Trait
-from .items import Item, Rune
 from .progression import Specialization
 
 
@@ -181,6 +180,66 @@ class Character(models.Model):
         converted = min(overflow_steps, self.current_stun_damage)
         self.current_stun_damage -= converted
         self.current_lethal_damage += overflow_steps
+
+    def wound_grade_life_points(self) -> int:
+        """Return the current LP width of one wound grade."""
+        thresholds = sorted(
+            self.get_engine(refresh=True).wound_thresholds()
+        )
+        return max(1, int(thresholds[0])) if thresholds else 1
+
+    def heal_life_points(self, amount: int) -> int:
+        """Heal ordinary damage and return the actually healed LP."""
+        amount = max(0, int(amount or 0))
+
+        if amount == 0:
+            return 0
+
+        before = self.current_damage
+
+        # Heal stun damage first.
+        stun_healed = min(
+            amount,
+            int(self.current_stun_damage or 0),
+        )
+
+        self.current_stun_damage = max(
+            0,
+            int(self.current_stun_damage or 0) - stun_healed,
+        )
+
+        remaining = amount - stun_healed
+
+        # Then heal normal lethal damage.
+        # Aggravated damage is not healed by ordinary healing.
+        normal_lethal = max(
+            0,
+            int(self.current_lethal_damage or 0)
+            - int(self.current_aggravated_damage or 0),
+        )
+
+        lethal_healed = min(
+            remaining,
+            normal_lethal,
+        )
+
+        self.current_lethal_damage = max(
+            0,
+            int(self.current_lethal_damage or 0) - lethal_healed,
+        )
+
+        return before - self.current_damage
+
+    def heal_wound_grades(self, wound_grades: int) -> int:
+        """Heal a fixed number of complete wound grades."""
+        wound_grades = max(0, int(wound_grades or 0))
+
+        if wound_grades == 0:
+            return 0
+
+        return self.heal_life_points(
+            self.wound_grade_life_points() * wound_grades
+        )
 
     @property
     def engine(self):

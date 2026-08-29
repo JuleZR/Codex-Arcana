@@ -675,18 +675,6 @@ class VampireRules:
         return self.resource_state()
 
     @transaction.atomic
-    def adjust_animal_blood(self, delta: int) -> VampireResourceState:
-        """Manually adjust animal/creature blood while preserving the shared capacity."""
-        self._require_runtime()
-        delta = int(delta or 0)
-        if delta >= 0:
-            return self.gain_blood(delta, intelligent=False)
-        state = self.resource_state()
-        self.actor.vampire_animal_blood = max(0, state.animal + delta)
-        self._save("vampire_animal_blood")
-        return self.resource_state()
-
-    @transaction.atomic
     def spend_intelligent_blood(self, amount: int, *, enforce_potential: bool = True) -> VampireResourceState:
         self._require_runtime()
         amount = max(0, int(amount or 0))
@@ -805,7 +793,8 @@ class VampireRules:
         state = self.resource_state()
         if state.intelligent < remaining:
             raise VampireRuleError(
-                f"Für {wound_grades} Wundgrad{'e' if wound_grades != 1 else ''} werden {remaining} BP benötigt; verfügbar sind {state.intelligent}."
+                f"Für {wound_grades} Wundgrad{'e' if wound_grades != 1 else ''} werden {remaining} BP benötigt;"
+                f"verfügbar sind {state.intelligent}."
             )
         if state.potential < remaining:
             raise VampireRuleError(
@@ -846,8 +835,7 @@ class VampireRules:
         """Return the actor-local LP width of one wound grade."""
         actor = self.actor
         if isinstance(actor, Character):
-            thresholds = sorted(actor.get_engine(refresh=True).wound_thresholds())
-            return max(1, int(thresholds[0])) if thresholds else 1
+            return actor.wound_grade_life_points()
         source = actor.character_creature or actor.creature if isinstance(actor, GameGroupCreature) else actor
         if source is not None:
             from charsheet.engine.creature_engine import CreatureEngine

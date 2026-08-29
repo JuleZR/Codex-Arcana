@@ -98,6 +98,7 @@ from .items import (
     ShieldStats,
     WeaponType,
     WeaponStats,
+    AlchemicalBrewStats,
 )
 from .lessons import (
     CharacterLesson,
@@ -299,4 +300,5 @@ __all__ = [
     "WeaponStats",
     "RaceStartingItem",
     "Metal",
+    "AlchemicalBrewStats",
 ]

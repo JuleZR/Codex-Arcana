@@ -280,16 +280,19 @@ class Item(models.Model):
     ARMOR_ITEM_TYPES = frozenset({"armor", "magical_armor"})
     ARMOR_STATS_ITEM_TYPES = frozenset({"armor", "magical_armor", "ring", "amulet"})
     SHIELD_STATS_ITEM_TYPES = frozenset({"shield", "magical_armor"})
+    CONSUMABLE_ITEM_TYPES = frozenset({"consumable", "alchemical_brew"})
 
     class ItemType(models.TextChoices):
         ARMOR = "armor", "Rüstung"
         WEAPON = "weapon", "Waffe"
         SHIELD = "shield", "Schild"
         CLOTHING = "clothing", "Kleidung"
+        EQUIPMENT = "equipment", "Ausrüstung"
         RING = "ring", "Ring"
         AMULET = "amulet", "Amulett"
         MAGICAL_WEAPON = "magical_weapon", "Magische Waffe"
         MAGICAL_ARMOR = "magical_armor", "Magisches Rüstzeug"
+        ALCHEMICAL_BREW = "alchemical_brew", "Alchemistische Gebräue"
         CONSUM = "consumable", "Verbrauchsgegenstand"
         AMMO = "ammo", "Monition"
         CREATURE = "creature", "Tiere & Kreaturen"
@@ -363,6 +366,8 @@ class Item(models.Model):
     def clean(self):
         """Prevent invalid stackable armor definitions."""
         super().clean()
+        if self.item_type in self.consumable_item_type_values():
+            self.is_consumable = True
         if self.item_type in {
             self.ItemType.SHIELD,
             self.ItemType.CLOTHING,
@@ -399,6 +404,153 @@ class Item(models.Model):
     @classmethod
     def shield_stats_item_type_values(cls) -> frozenset[str]:
         return cls.SHIELD_STATS_ITEM_TYPES
+
+    @classmethod
+    def consumable_item_type_values(cls) -> frozenset[str]:
+        return cls.CONSUMABLE_ITEM_TYPES
+
+
+class AlchemicalBrewStats(models.Model):
+    """Rulebook and immediate-effect data for alchemical brews."""
+
+    class BrewType(models.TextChoices):
+        POTION = "potion", "Trank"
+        SALVE = "salve", "Salbe"
+        OIL = "oil", "Öl"
+        POWDER = "powder", "Pulver"
+        OTHER = "other", "Sonstiges"
+
+    class CraftTimeUnit(models.TextChoices):
+        HOURS = "hours", "Stunde(n)"
+        DAYS = "days", "Tag(e)"
+        WEEKS = "weeks", "Woche(n)"
+        MONTHS = "months", "Monat(e)"
+
+    item = models.OneToOneField(
+        Item,
+        on_delete=models.CASCADE,
+    )
+
+    brew_type = models.CharField(
+        max_length=20,
+        choices=BrewType.choices,
+    )
+
+    ingredient_cost_gm = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        verbose_name="Zutatenkosten (GM)",
+    )
+
+    craft_time_amount = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        verbose_name="Herstellungszeit",
+    )
+
+    craft_time_unit = models.CharField(
+        max_length=10,
+        choices=CraftTimeUnit.choices,
+        blank=True,
+        default="",
+        verbose_name="Zeiteinheit",
+    )
+
+    alchemy_required = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        verbose_name="Wissen: Alchemie",
+    )
+
+    craft_mw = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        verbose_name="Herstellungs-MW",
+    )
+
+    craft_ep_cost = models.PositiveSmallIntegerField(
+        default=0,
+        verbose_name="EP-Kosten",
+    )
+
+    additional_requirements = models.TextField(
+        blank=True,
+        default="",
+        verbose_name="Weitere Voraussetzungen",
+    )
+
+    duration = models.TextField(
+        blank=True,
+        default="",
+        verbose_name="Wirkungsdauer",
+    )
+
+    application = models.TextField(
+        blank=True,
+        default="",
+        verbose_name="Anwendung",
+    )
+
+    storage = models.TextField(
+        blank=True,
+        default="",
+        verbose_name="Aufbewahrung",
+    )
+
+    dosage = models.TextField(
+        blank=True,
+        default="",
+        verbose_name="Dosierung / Portionen",
+    )
+
+    # Automatically executable immediate effects
+    heal_lp = models.PositiveSmallIntegerField(
+        default=0,
+        verbose_name="LP heilen",
+    )
+
+    restore_kp = models.PositiveSmallIntegerField(
+        default=0,
+        verbose_name="KP regenerieren",
+    )
+
+    heal_wound_grades = models.PositiveSmallIntegerField(
+        default=0,
+        verbose_name="Wundgrade heilen",
+    )
+
+    def clean(self):
+        super().clean()
+
+        if (
+            self.item_id
+            and self.item.item_type != Item.ItemType.ALCHEMICAL_BREW
+        ):
+            raise ValidationError({
+                "item": (
+                    "AlchemicalBrewStats may only be attached "
+                    "to alchemical brew items."
+                )
+            })
+
+        if self.craft_time_amount and not self.craft_time_unit:
+            raise ValidationError({
+                "craft_time_unit": (
+                    "A crafting time unit is required when "
+                    "a crafting time is configured."
+                )
+            })
+
+        if self.craft_time_unit and self.craft_time_amount is None:
+            raise ValidationError({
+                "craft_time_amount": (
+                    "A crafting time is required when "
+                    "a crafting time unit is configured."
+                )
+            })
+
+    def __str__(self):
+        return f"{self.item}: {self.get_brew_type_display()}"
 
 
 class ArmorStats(models.Model):
