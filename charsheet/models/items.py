@@ -456,12 +456,6 @@ class AlchemicalBrewStats(models.Model):
         verbose_name="Zeiteinheit",
     )
 
-    alchemy_required = models.PositiveSmallIntegerField(
-        null=True,
-        blank=True,
-        verbose_name="Wissen: Alchemie",
-    )
-
     craft_mw = models.PositiveSmallIntegerField(
         null=True,
         blank=True,
@@ -477,30 +471,6 @@ class AlchemicalBrewStats(models.Model):
         blank=True,
         default="",
         verbose_name="Weitere Voraussetzungen",
-    )
-
-    duration = models.TextField(
-        blank=True,
-        default="",
-        verbose_name="Wirkungsdauer",
-    )
-
-    application = models.TextField(
-        blank=True,
-        default="",
-        verbose_name="Anwendung",
-    )
-
-    storage = models.TextField(
-        blank=True,
-        default="",
-        verbose_name="Aufbewahrung",
-    )
-
-    dosage = models.TextField(
-        blank=True,
-        default="",
-        verbose_name="Dosierung / Portionen",
     )
 
     # Automatically executable immediate effects
@@ -551,6 +521,94 @@ class AlchemicalBrewStats(models.Model):
 
     def __str__(self):
         return f"{self.item}: {self.get_brew_type_display()}"
+
+
+class AlchemicalBrewRequirement(models.Model):
+    """One skill or school requirement attached to alchemical brew stats."""
+
+    brew_stats = models.ForeignKey(
+        AlchemicalBrewStats,
+        on_delete=models.CASCADE,
+        related_name="requirements",
+    )
+
+    skill = models.ForeignKey(
+        "Skill",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="alchemical_brew_requirements",
+    )
+
+    school = models.ForeignKey(
+        "School",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="alchemical_brew_requirements",
+    )
+
+    required_level = models.PositiveSmallIntegerField(
+        validators=[MinValueValidator(1)],
+        verbose_name="Stufe",
+    )
+
+    sort_order = models.PositiveSmallIntegerField(
+        default=0,
+        editable=False,
+    )
+
+    class Meta:
+        ordering = (
+            "sort_order",
+            "id",
+        )
+        constraints = [
+            models.CheckConstraint(
+                condition=(
+                    (
+                        models.Q(skill__isnull=False)
+                        & models.Q(school__isnull=True)
+                    )
+                    | (
+                        models.Q(skill__isnull=True)
+                        & models.Q(school__isnull=False)
+                    )
+                ),
+                name="alchemical_requirement_exactly_one_target",
+            ),
+            models.UniqueConstraint(
+                fields=(
+                    "brew_stats",
+                    "skill",
+                ),
+                condition=models.Q(skill__isnull=False),
+                name="unique_alchemical_brew_skill_requirement",
+            ),
+            models.UniqueConstraint(
+                fields=(
+                    "brew_stats",
+                    "school",
+                ),
+                condition=models.Q(school__isnull=False),
+                name="unique_alchemical_brew_school_requirement",
+            ),
+        ]
+
+    def clean(self):
+        super().clean()
+
+        has_skill = self.skill_id is not None
+        has_school = self.school_id is not None
+
+        if has_skill == has_school:
+            raise ValidationError(
+                "Exactly one skill or school must be selected."
+            )
+
+    def __str__(self):
+        target = self.skill or self.school
+        return f"{target} {self.required_level}"
 
 
 class ArmorStats(models.Model):

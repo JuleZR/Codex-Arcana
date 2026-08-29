@@ -1,5 +1,6 @@
 """Django admin configuration for character sheet domain models."""
 
+import json
 from collections import defaultdict
 from copy import copy, deepcopy
 
@@ -71,6 +72,7 @@ from .engine.creature_engine import CreatureEngine
 from .modifiers.registry import build_trait_semantic_modifiers
 from .models import (
     AlchemicalBrewStats,
+    AlchemicalBrewRequirement,
     ArmorStats,
     Aspect,
     Attribute,
@@ -2036,10 +2038,250 @@ class MagicItemStatsInline(admin.StackedInline):
     fields = ("effect_summary",)
 
 
+class AlchemicalBrewStatsAdminForm(InlineValidationSafeModelForm):
+    """Admin editor including structured brew requirements."""
+
+    requirements_data = forms.CharField(
+        label="Voraussetzungen",
+        required=False,
+        widget=forms.TextInput(
+            attrs={
+                "class": "alchemical-brew-requirements-data",
+                "style": "display: none;",
+            }
+        ),
+    )
+
+    class Media:
+        js = (
+            "js/alchemical_brew_requirements_admin.js",
+        )
+
+    class Meta:
+        model = AlchemicalBrewStats
+        fields = "__all__"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        skill_options = [
+            {
+                "value": f"skill:{skill.pk}",
+                "label": skill.name,
+            }
+            for skill in Skill.objects.order_by("name")
+        ]
+
+        school_options = [
+            {
+                "value": f"school:{school.pk}",
+                "label": school.name,
+            }
+            for school in School.objects.order_by("name")
+        ]
+
+        widget = self.fields["requirements_data"].widget
+
+        widget.attrs["data-skills"] = json.dumps(
+            skill_options,
+            ensure_ascii=False,
+        )
+        widget.attrs["data-schools"] = json.dumps(
+            school_options,
+            ensure_ascii=False,
+        )
+
+        if self.instance and self.instance.pk and not self.is_bound:
+            requirements = []
+
+            for requirement in (
+                self.instance.requirements
+                .select_related(
+                    "skill",
+                    "school",
+                )
+                .order_by(
+                    "sort_order",
+                    "id",
+                )
+            ):
+                if requirement.skill_id:
+                    target = f"skill:{requirement.skill_id}"
+                else:
+                    target = f"school:{requirement.school_id}"
+
+                requirements.append(
+                    {
+                        "target": target,
+                        "level": requirement.required_level,
+                    }
+                )
+
+            self.initial["requirements_data"] = json.dumps(
+                requirements,
+                ensure_ascii=False,
+            )
+
+    def clean_requirements_data(self):
+        raw_value = self.cleaned_data.get("requirements_data") or "[]"
+        try:
+            requirements = json.loads(raw_value)
+        except (TypeError, ValueError) as error:
+            raise ValidationError(
+                "Ungültige Voraussetzungen."
+            ) from error
+
+        if not isinstance(requirements, list):
+            raise ValidationError(
+                "Voraussetzungen müssen eine Liste sein."
+            )
+
+        normalized = []
+        seen_targets = set()
+
+        for index, requirement in enumerate(requirements):
+            target = str(
+                requirement.get("target") or ""
+            ).strip()
+
+            # Eine komplett leere neue Zeile ignorieren.
+            if not target:
+                continue
+
+            target_type, separator, target_id = (
+                target.partition(":")
+            )
+
+            if not separator or target_type not in {"skill", "school"}:
+                raise ValidationError(
+                    "Als Voraussetzung muss eine "
+                    "Fertigkeit oder Schule gewählt werden."
+                )
+
+            try:
+                target_id = int(target_id)
+                level = int(requirement.get("level"))
+            except (TypeError, ValueError) as error:
+                raise ValidationError(
+                    "Die benötigte Stufe muss eine "
+                    "ganze Zahl sein."
+                ) from error
+
+            if level < 1:
+                raise ValidationError(
+                    "Die benötigte Stufe muss "
+                    "mindestens 1 betragen."
+                )
+
+            target_key = (
+                target_type,
+                target_id,
+            )
+
+            if target_key in seen_targets:
+                raise ValidationError(
+                    "Dieselbe Voraussetzung darf "
+                    "nicht mehrfach eingetragen werden."
+                )
+
+            seen_targets.add(target_key)
+
+            if target_type == "skill":
+                if not Skill.objects.filter(
+                    pk=target_id
+                ).exists():
+                    raise ValidationError(
+                        "Die gewählte Fertigkeit existiert nicht."
+                    )
+            else:
+                if not School.objects.filter(
+                    pk=target_id
+                ).exists():
+                    raise ValidationError(
+                        "Die gewählte Schule existiert nicht."
+                    )
+
+            normalized.append(
+                {
+                    "target_type": target_type,
+                    "target_id": target_id,
+                    "level": level,
+                    "sort_order": index,
+                }
+            )
+
+        return normalized
+
+    def save_requirements(self, brew_stats):
+        requirements = self.cleaned_data.get(
+            "requirements_data",
+            [],
+        )
+
+        brew_stats.requirements.all().delete()
+
+        rows = []
+
+        for requirement in requirements:
+            kwargs = {
+                "brew_stats": brew_stats,
+                "required_level": requirement["level"],
+                "sort_order": requirement["sort_order"],
+            }
+
+            if requirement["target_type"] == "skill":
+                kwargs["skill_id"] = requirement["target_id"]
+            else:
+                kwargs["school_id"] = requirement["target_id"]
+
+            rows.append(
+                AlchemicalBrewRequirement(
+                    **kwargs
+                )
+            )
+
+        AlchemicalBrewRequirement.objects.bulk_create(rows)
+
+
+class AlchemicalBrewStatsInlineFormSet(BaseInlineFormSet):
+    """Persist structured requirements after BrewStats was saved."""
+
+    def save_new(self, form, commit=True):
+        instance = super().save_new(
+            form,
+            commit=commit,
+        )
+
+        if commit:
+            form.save_requirements(instance)
+
+        return instance
+
+    def save_existing(
+        self,
+        form,
+        instance,
+        commit=True,
+    ):
+        instance = super().save_existing(
+            form,
+            instance,
+            commit=commit,
+        )
+
+        if commit:
+            form.save_requirements(instance)
+
+        return instance
+
+
 class AlchemicalBrewStatsInline(admin.StackedInline):
     """Inline editor for alchemical brew rule data."""
 
     model = AlchemicalBrewStats
+    form = AlchemicalBrewStatsAdminForm
+    formset = AlchemicalBrewStatsInlineFormSet
+
     verbose_name_plural = "Alchemical Brew Stats"
     extra = 0
     max_num = 1
@@ -2066,22 +2308,9 @@ class AlchemicalBrewStatsInline(admin.StackedInline):
                         "craft_time_amount",
                         "craft_time_unit",
                     ),
-                    (
-                        "alchemy_required",
-                        "craft_mw",
-                    ),
+                    "craft_mw",
+                    "requirements_data",
                     "additional_requirements",
-                ),
-            },
-        ),
-        (
-            "Regelwerksdaten",
-            {
-                "fields": (
-                    "duration",
-                    "application",
-                    "storage",
-                    "dosage",
                 ),
             },
         ),
@@ -2089,8 +2318,9 @@ class AlchemicalBrewStatsInline(admin.StackedInline):
             "Automatische Sofortwirkungen",
             {
                 "description": (
-                    "Nur unmittelbar beim Verbrauch anwendbare "
-                    "Effekte. 0 bedeutet: kein entsprechender Effekt."
+                    "Nur unmittelbar beim Verbrauch "
+                    "anwendbare Effekte. "
+                    "0 bedeutet: kein entsprechender Effekt."
                 ),
                 "fields": (
                     (
@@ -2357,7 +2587,6 @@ class ItemSemanticEffectAdminForm(forms.ModelForm):
         text = str(value or "").strip()
         if target_domain == "movement" and target_key in {"ground", "swim", "swim_all", "fly"}:
             if text.startswith(("[", "{")):
-                import json
 
                 normalized_text = f"{text[:-1]}]" if text.startswith("[") and text.endswith("}") else text
                 parsed = json.loads(normalized_text)

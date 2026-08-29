@@ -99,6 +99,7 @@ from .items import (
     WeaponType,
     WeaponStats,
     AlchemicalBrewStats,
+    AlchemicalBrewRequirement,
 )
 from .lessons import (
     CharacterLesson,
@@ -301,4 +302,5 @@ __all__ = [
     "RaceStartingItem",
     "Metal",
     "AlchemicalBrewStats",
+    "AlchemicalBrewRequirement",
 ]
