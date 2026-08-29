@@ -4,7 +4,9 @@
   const parseJson = (value, fallback = []) => {
     try {
       const parsed = JSON.parse(value || "[]");
-      return Array.isArray(parsed) ? parsed : fallback;
+      return Array.isArray(parsed)
+        ? parsed
+        : fallback;
     } catch (_error) {
       return fallback;
     }
@@ -34,7 +36,9 @@
   };
 
   const initializeEditor = (input) => {
-    if (input.dataset.requirementsInitialized === "1") {
+    if (
+      input.dataset.requirementsInitialized === "1"
+    ) {
       return;
     }
 
@@ -43,29 +47,35 @@
     const skills = parseJson(
       input.dataset.skills,
     );
+
     const schools = parseJson(
       input.dataset.schools,
     );
+
+    const aspects = parseJson(
+      input.dataset.aspects,
+    );
+
     const initialRequirements = parseJson(
       input.value,
     );
 
     const editor = document.createElement("div");
-    editor.className = "alchemical-brew-requirements-editor";
+    editor.className =
+      "alchemical-brew-requirements-editor";
 
     editor.style.marginTop = "8px";
 
-    const heading = document.createElement("div");
-    heading.textContent = "Voraussetzungen";
-    heading.style.fontWeight = "600";
-    heading.style.marginBottom = "8px";
-
     const list = document.createElement("div");
 
-    const addButton = document.createElement("button");
+    const addButton = document.createElement(
+      "button",
+    );
+
     addButton.type = "button";
     addButton.className = "button";
-    addButton.textContent = "+ Voraussetzung hinzufügen";
+    addButton.textContent =
+      "+ Voraussetzung hinzufügen";
     addButton.style.marginTop = "6px";
 
     editor.appendChild(list);
@@ -82,23 +92,32 @@
         const target = row.querySelector(
           "[data-brew-requirement-target]",
         );
+
         const level = row.querySelector(
           "[data-brew-requirement-level]",
         );
 
         return {
-          target: target ? target.value : "",
+          target: target
+            ? target.value
+            : "",
           level: level
-            ? Number.parseInt(level.value || "0", 10)
+            ? Number.parseInt(
+                level.value || "0",
+                10,
+              )
             : 0,
         };
       });
 
-      input.value = JSON.stringify(requirements);
+      input.value = JSON.stringify(
+        requirements,
+      );
     };
 
     const addRow = (requirement = null) => {
       const row = document.createElement("div");
+
       row.dataset.brewRequirementRow = "1";
 
       row.style.display = "flex";
@@ -106,8 +125,12 @@
       row.style.alignItems = "center";
       row.style.marginBottom = "8px";
 
-      const targetSelect = document.createElement("select");
-      targetSelect.dataset.brewRequirementTarget = "1";
+      const targetSelect =
+        document.createElement("select");
+
+      targetSelect.dataset.brewRequirementTarget =
+        "1";
+
       targetSelect.style.minWidth = "300px";
 
       targetSelect.appendChild(
@@ -126,28 +149,44 @@
 
       targetSelect.appendChild(
         createOptGroup(
-          "Schulen",
+          "Arkane Schulen",
           schools,
         ),
       );
 
-      const levelInput = document.createElement("input");
+      targetSelect.appendChild(
+        createOptGroup(
+          "Aspekte",
+          aspects,
+        ),
+      );
+
+      const levelInput =
+        document.createElement("input");
+
       levelInput.type = "number";
       levelInput.min = "1";
       levelInput.step = "1";
-      levelInput.dataset.brewRequirementLevel = "1";
+
+      levelInput.dataset.brewRequirementLevel =
+        "1";
+
       levelInput.style.width = "90px";
 
-      const removeButton = document.createElement("button");
+      const removeButton =
+        document.createElement("button");
+
       removeButton.type = "button";
       removeButton.className = "button";
       removeButton.textContent = "Entfernen";
 
       if (requirement) {
-        targetSelect.value = requirement.target || "";
+        targetSelect.value =
+          requirement.target || "";
 
         if (requirement.level) {
-          levelInput.value = requirement.level;
+          levelInput.value =
+            requirement.level;
         }
       }
 

@@ -524,7 +524,7 @@ class AlchemicalBrewStats(models.Model):
 
 
 class AlchemicalBrewRequirement(models.Model):
-    """One skill or school requirement attached to alchemical brew stats."""
+    """One skill, arcane school, or aspect required to craft a brew."""
 
     brew_stats = models.ForeignKey(
         AlchemicalBrewStats,
@@ -548,6 +548,14 @@ class AlchemicalBrewRequirement(models.Model):
         related_name="alchemical_brew_requirements",
     )
 
+    aspect = models.ForeignKey(
+        "Aspect",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="alchemical_brew_requirements",
+    )
+
     required_level = models.PositiveSmallIntegerField(
         validators=[MinValueValidator(1)],
         verbose_name="Stufe",
@@ -563,19 +571,28 @@ class AlchemicalBrewRequirement(models.Model):
             "sort_order",
             "id",
         )
-        constraints = [
+        constraints = (
             models.CheckConstraint(
                 condition=(
                     (
                         models.Q(skill__isnull=False)
                         & models.Q(school__isnull=True)
+                        & models.Q(aspect__isnull=True)
                     )
-                    | (
+                    |
+                    (
                         models.Q(skill__isnull=True)
                         & models.Q(school__isnull=False)
+                        & models.Q(aspect__isnull=True)
+                    )
+                    |
+                    (
+                        models.Q(skill__isnull=True)
+                        & models.Q(school__isnull=True)
+                        & models.Q(aspect__isnull=False)
                     )
                 ),
-                name="alchemical_requirement_exactly_one_target",
+                name="brew_requirement_exactly_one_target",
             ),
             models.UniqueConstraint(
                 fields=(
@@ -583,7 +600,7 @@ class AlchemicalBrewRequirement(models.Model):
                     "skill",
                 ),
                 condition=models.Q(skill__isnull=False),
-                name="unique_alchemical_brew_skill_requirement",
+                name="unique_brew_skill_requirement",
             ),
             models.UniqueConstraint(
                 fields=(
@@ -591,23 +608,44 @@ class AlchemicalBrewRequirement(models.Model):
                     "school",
                 ),
                 condition=models.Q(school__isnull=False),
-                name="unique_alchemical_brew_school_requirement",
+                name="unique_brew_school_requirement",
             ),
-        ]
+            models.UniqueConstraint(
+                fields=(
+                    "brew_stats",
+                    "aspect",
+                ),
+                condition=models.Q(aspect__isnull=False),
+                name="unique_brew_aspect_requirement",
+            ),
+        )
 
     def clean(self):
         super().clean()
 
-        has_skill = self.skill_id is not None
-        has_school = self.school_id is not None
+        selected_targets = sum(
+            target_id is not None
+            for target_id in (
+                self.skill_id,
+                self.school_id,
+                self.aspect_id,
+            )
+        )
 
-        if has_skill == has_school:
+        if selected_targets != 1:
             raise ValidationError(
-                "Exactly one skill or school must be selected."
+                "Exactly one skill, school, or aspect "
+                "must be selected."
             )
 
     def __str__(self):
-        target = self.skill or self.school
+        if self.skill_id:
+            target = self.skill
+        elif self.school_id:
+            target = self.school
+        else:
+            target = self.aspect
+
         return f"{target} {self.required_level}"
 
 

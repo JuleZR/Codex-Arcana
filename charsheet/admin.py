@@ -2038,7 +2038,9 @@ class MagicItemStatsInline(admin.StackedInline):
     fields = ("effect_summary",)
 
 
-class AlchemicalBrewStatsAdminForm(InlineValidationSafeModelForm):
+class AlchemicalBrewStatsAdminForm(
+    InlineValidationSafeModelForm
+):
     """Admin editor including structured brew requirements."""
 
     requirements_data = forms.CharField(
@@ -2077,7 +2079,17 @@ class AlchemicalBrewStatsAdminForm(InlineValidationSafeModelForm):
                 "value": f"school:{school.pk}",
                 "label": school.name,
             }
-            for school in School.objects.order_by("name")
+            for school in School.objects.filter(
+                type__slug=SCHOOL_ARCANE,
+            ).order_by("name")
+        ]
+
+        aspect_options = [
+            {
+                "value": f"aspect:{aspect.pk}",
+                "label": aspect.name,
+            }
+            for aspect in Aspect.objects.order_by("name")
         ]
 
         widget = self.fields["requirements_data"].widget
@@ -2086,8 +2098,14 @@ class AlchemicalBrewStatsAdminForm(InlineValidationSafeModelForm):
             skill_options,
             ensure_ascii=False,
         )
+
         widget.attrs["data-schools"] = json.dumps(
             school_options,
+            ensure_ascii=False,
+        )
+
+        widget.attrs["data-aspects"] = json.dumps(
+            aspect_options,
             ensure_ascii=False,
         )
 
@@ -2099,6 +2117,7 @@ class AlchemicalBrewStatsAdminForm(InlineValidationSafeModelForm):
                 .select_related(
                     "skill",
                     "school",
+                    "aspect",
                 )
                 .order_by(
                     "sort_order",
@@ -2106,9 +2125,17 @@ class AlchemicalBrewStatsAdminForm(InlineValidationSafeModelForm):
                 )
             ):
                 if requirement.skill_id:
-                    target = f"skill:{requirement.skill_id}"
+                    target = (
+                        f"skill:{requirement.skill_id}"
+                    )
+                elif requirement.school_id:
+                    target = (
+                        f"school:{requirement.school_id}"
+                    )
                 else:
-                    target = f"school:{requirement.school_id}"
+                    target = (
+                        f"aspect:{requirement.aspect_id}"
+                    )
 
                 requirements.append(
                     {
@@ -2123,7 +2150,11 @@ class AlchemicalBrewStatsAdminForm(InlineValidationSafeModelForm):
             )
 
     def clean_requirements_data(self):
-        raw_value = self.cleaned_data.get("requirements_data") or "[]"
+        raw_value = (
+            self.cleaned_data.get("requirements_data")
+            or "[]"
+        )
+
         try:
             requirements = json.loads(raw_value)
         except (TypeError, ValueError) as error:
@@ -2144,7 +2175,6 @@ class AlchemicalBrewStatsAdminForm(InlineValidationSafeModelForm):
                 requirement.get("target") or ""
             ).strip()
 
-            # Eine komplett leere neue Zeile ignorieren.
             if not target:
                 continue
 
@@ -2152,15 +2182,25 @@ class AlchemicalBrewStatsAdminForm(InlineValidationSafeModelForm):
                 target.partition(":")
             )
 
-            if not separator or target_type not in {"skill", "school"}:
+            if (
+                not separator
+                or target_type not in {
+                    "skill",
+                    "school",
+                    "aspect",
+                }
+            ):
                 raise ValidationError(
                     "Als Voraussetzung muss eine "
-                    "Fertigkeit oder Schule gewählt werden."
+                    "Fertigkeit, arkane Schule oder "
+                    "ein Aspekt gewählt werden."
                 )
 
             try:
                 target_id = int(target_id)
-                level = int(requirement.get("level"))
+                level = int(
+                    requirement.get("level")
+                )
             except (TypeError, ValueError) as error:
                 raise ValidationError(
                     "Die benötigte Stufe muss eine "
@@ -2187,18 +2227,37 @@ class AlchemicalBrewStatsAdminForm(InlineValidationSafeModelForm):
             seen_targets.add(target_key)
 
             if target_type == "skill":
-                if not Skill.objects.filter(
-                    pk=target_id
-                ).exists():
+                exists = Skill.objects.filter(
+                    pk=target_id,
+                ).exists()
+
+                if not exists:
                     raise ValidationError(
-                        "Die gewählte Fertigkeit existiert nicht."
+                        "Die gewählte Fertigkeit "
+                        "existiert nicht."
                     )
-            else:
-                if not School.objects.filter(
-                    pk=target_id
-                ).exists():
+
+            elif target_type == "school":
+                exists = School.objects.filter(
+                    pk=target_id,
+                    type__slug=SCHOOL_ARCANE,
+                ).exists()
+
+                if not exists:
                     raise ValidationError(
-                        "Die gewählte Schule existiert nicht."
+                        "Als Voraussetzung sind nur "
+                        "arkane Schulen erlaubt."
+                    )
+
+            else:
+                exists = Aspect.objects.filter(
+                    pk=target_id,
+                ).exists()
+
+                if not exists:
+                    raise ValidationError(
+                        "Der gewählte Aspekt "
+                        "existiert nicht."
                     )
 
             normalized.append(
@@ -2225,14 +2284,28 @@ class AlchemicalBrewStatsAdminForm(InlineValidationSafeModelForm):
         for requirement in requirements:
             kwargs = {
                 "brew_stats": brew_stats,
-                "required_level": requirement["level"],
-                "sort_order": requirement["sort_order"],
+                "required_level": (
+                    requirement["level"]
+                ),
+                "sort_order": (
+                    requirement["sort_order"]
+                ),
             }
 
             if requirement["target_type"] == "skill":
-                kwargs["skill_id"] = requirement["target_id"]
+                kwargs["skill_id"] = (
+                    requirement["target_id"]
+                )
+
+            elif requirement["target_type"] == "school":
+                kwargs["school_id"] = (
+                    requirement["target_id"]
+                )
+
             else:
-                kwargs["school_id"] = requirement["target_id"]
+                kwargs["aspect_id"] = (
+                    requirement["target_id"]
+                )
 
             rows.append(
                 AlchemicalBrewRequirement(
@@ -2240,7 +2313,9 @@ class AlchemicalBrewStatsAdminForm(InlineValidationSafeModelForm):
                 )
             )
 
-        AlchemicalBrewRequirement.objects.bulk_create(rows)
+        AlchemicalBrewRequirement.objects.bulk_create(
+            rows
+        )
 
 
 class AlchemicalBrewStatsInlineFormSet(BaseInlineFormSet):
