@@ -20,16 +20,16 @@
     <ul class="p2_lines inventory_list inventory_list--dropzone" data-inventory-zone="carried">
       {% include "charsheet/partials/_inventory_row_list.html" with rows=inventory_rows %}
     </ul>
-    <section class="inventory_storage{% if not stored_inventory_rows %} inventory_storage--empty{% endif %}"
-              data-inventory-storage
-              data-inventory-zone="stored"
-              {% if not stored_inventory_rows %}hidden{% endif %}>
-      <div class="inventory_storage_header">
-        <h3>Karren / Lager / Pferd</h3>
-      </div>
-      <ul class="p2_lines inventory_list inventory_list--storage">
-        {% include "charsheet/partials/_inventory_row_list.html" with rows=stored_inventory_rows %}
-      </ul>
-    </section>
   </div>
+  <section class="inventory_storage{% if not stored_inventory_rows %} inventory_storage--empty{% endif %}"
+            data-inventory-storage
+            data-inventory-zone="stored"
+            {% if not stored_inventory_rows %}hidden{% endif %}>
+    <div class="inventory_storage_header">
+      <h3>Karren / Lager / Pferd</h3>
+    </div>
+    <ul class="p2_lines inventory_list inventory_list--storage">
+      {% include "charsheet/partials/_inventory_row_list.html" with rows=stored_inventory_rows %}
+    </ul>
+  </section>
 </div>

@@ -2226,7 +2226,8 @@
 }
 
 .inventory_scroll > .inventory_list {
-  flex: 1 0 auto;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .inventory_list--dropzone {
@@ -2271,11 +2272,9 @@
 }
 
 .inventory_storage {
-  position: sticky;
-  bottom: 0;
+  flex: 0 0 auto;
   z-index: 4;
-  margin: 12px 4px 2px;
-  margin-top: auto;
+  margin: 8px 8px 6px;
   padding: 7px 7px 4px;
   border: 1px dashed rgba(120, 86, 47, 0.5);
   border-radius: 9px;
@@ -2307,6 +2306,13 @@
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: rgba(90, 64, 39, 0.84);
+}
+
+.inventory_list--storage {
+  max-height: 120px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
 }
 
 .inventory_list--storage .inv_row {

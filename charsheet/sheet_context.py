@@ -7866,6 +7866,109 @@ def build_item_semantic_effect_partial_context(
     if "movement_panel" in partial_key_set:
         context["movement_ground"] = _build_movement_ground(engine, character.race)
 
+    if "damage_panel" in partial_key_set:
+        current_wound_stage, _current_wound_penalty_stage = engine.current_wound_stage()
+        current_wound_penalty = engine.current_wound_penalty_raw()
+        current_wound_penalty_display = (
+            "-"
+            if current_wound_stage == "-"
+            else format_modifier(current_wound_penalty)
+        )
+        can_act_while_out_of_action = engine.can_act_while_out_of_action()
+        is_wound_stage_disabled = (
+            engine.is_wound_penalty_ignored()
+            and current_wound_stage not in {"Ausser Gefecht", "Außer Gefecht", "Koma", "Tod"}
+        ) or (
+            can_act_while_out_of_action
+            and current_wound_stage in {"Ausser Gefecht", "Außer Gefecht"}
+        )
+        wound_threshold_data = engine.wound_thresholds()
+        wound_threshold_rows = [
+            {"threshold": threshold, "stage": stage, "penalty": penalty}
+            for threshold, (stage, penalty) in sorted(wound_threshold_data.items())
+        ]
+        current_damage_max = max(wound_threshold_data.keys()) if wound_threshold_data else 0
+        damage_gauge = _build_damage_gauge_data(
+            current_damage=character.current_damage,
+            threshold_rows=wound_threshold_rows,
+            damage_max=current_damage_max,
+            stun_damage=character.current_stun_damage,
+            lethal_damage=character.current_lethal_damage,
+        )
+
+        from charsheet.engine.vampire_engine import VampireRules
+
+        vampire_rules = VampireRules(character)
+        is_vampire = vampire_rules.is_vampire()
+        if is_vampire:
+            vampire_resource = vampire_rules.resource_state()
+            arcane_power_value = vampire_resource.maximum
+            current_arcane_power = vampire_resource.intelligent
+            resource_label = "Blut intelligenter Wesen"
+            intelligent_meter_percent = (
+                0
+                if vampire_resource.maximum <= 0
+                else vampire_resource.intelligent / vampire_resource.maximum * 100
+            )
+            animal_meter_percent = (
+                0
+                if vampire_resource.maximum <= 0
+                else vampire_resource.animal / vampire_resource.maximum * 100
+            )
+            vampire_panel = {
+                "intelligent_blood": vampire_resource.intelligent,
+                "animal_blood": vampire_resource.animal,
+                "total_blood": vampire_resource.total,
+                "intelligent_meter_percent": f"{intelligent_meter_percent:.2f}",
+                "animal_meter_percent": f"{animal_meter_percent:.2f}",
+                "capacity": vampire_resource.maximum,
+            }
+        else:
+            arcane_power_value = engine.calculate_arcane_power()
+            current_arcane_power = character.current_arcane_power
+            if current_arcane_power is None:
+                current_arcane_power = arcane_power_value
+            current_arcane_power = min(
+                max(0, int(current_arcane_power)),
+                int(arcane_power_value),
+            )
+            resource_label = "Arkane Macht"
+            vampire_panel = None
+        arcane_meter_percent = (
+            0
+            if arcane_power_value <= 0
+            else (current_arcane_power / int(arcane_power_value)) * 100.0
+        )
+        context.update(
+            {
+                "character": character,
+                "read_only": read_only,
+                "current_wound_stage": current_wound_stage,
+                "current_wound_penalty": current_wound_penalty_display,
+                "is_wound_penalty_ignored": engine.is_wound_penalty_ignored(),
+                "can_act_while_out_of_action": can_act_while_out_of_action,
+                "is_wound_stage_disabled": is_wound_stage_disabled,
+                "current_damage_max": current_damage_max,
+                "current_stun_damage": character.current_stun_damage,
+                "current_lethal_damage": character.current_lethal_damage,
+                "current_aggravated_damage": character.current_aggravated_damage,
+                "damage_gauge_needle_angle": damage_gauge["needle_angle"],
+                "damage_gauge_stun_needle_angle": damage_gauge["stun_needle_angle"],
+                "damage_gauge_lethal_needle_angle": damage_gauge["lethal_needle_angle"],
+                "damage_gauge_total_needle_angle": damage_gauge["total_needle_angle"],
+                "damage_gauge_segments": damage_gauge["segments"],
+                "damage_gauge_gradient_stops": damage_gauge["gradient_stops"],
+                "wound_threshold_rows": wound_threshold_rows,
+                "current_arcane_power": current_arcane_power,
+                "current_arcane_power_max": int(arcane_power_value),
+                "arcane_meter_percent": f"{arcane_meter_percent:.2f}",
+                "resource_label": resource_label,
+                "resource_type": "blood" if is_vampire else "arcane_power",
+                "is_vampire": is_vampire,
+                "vampire_panel": vampire_panel,
+            }
+        )
+
     if "inventory_panel" in partial_key_set:
         inventory_rows = _build_inventory_rows(character)
         inventory_total_weight_display = _build_inventory_total_weight_display(character)

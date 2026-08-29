@@ -3804,13 +3804,20 @@ def consume_item(request, pk):
         ):
             partial_keys.append("damage_panel")
 
-        if result["restored_kp"]:
-            partial_keys.append("spell_panel")
+        if partial_keys == ["inventory_panel"]:
+            return _inventory_panel_response(request, character)
 
-        return _sheet_partials_response(
+        context = _build_item_semantic_effect_partial_context_for_request(
             request,
             character,
-            *partial_keys,
+            partial_keys,
+        )
+        return JsonResponse(
+            {
+                "ok": True,
+                "partials": _render_sheet_partials(request, context, partial_keys),
+                "openItemTransferCount": context.get("open_item_transfer_count", 0),
+            }
         )
 
     return redirect(
