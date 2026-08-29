@@ -2141,6 +2141,12 @@ class AlchemicalBrewStatsAdminForm(
                     {
                         "target": target,
                         "level": requirement.required_level,
+                        "is_alternative": (
+                            requirement.alternative_group is not None
+                        ),
+                        "alternative_group": (
+                            requirement.alternative_group
+                        ),
                     }
                 )
 
@@ -2169,6 +2175,7 @@ class AlchemicalBrewStatsAdminForm(
 
         normalized = []
         seen_targets = set()
+        alternative_group_counts = defaultdict(int)
 
         for index, requirement in enumerate(requirements):
             target = str(
@@ -2260,13 +2267,63 @@ class AlchemicalBrewStatsAdminForm(
                         "existiert nicht."
                     )
 
+            is_alternative = (
+                requirement.get("is_alternative") is True
+            )
+
+            alternative_group = None
+
+            if is_alternative:
+                try:
+                    alternative_group = int(
+                        requirement.get(
+                            "alternative_group"
+                        )
+                    )
+                except (TypeError, ValueError) as error:
+                    raise ValidationError(
+                        "Für eine ODER-Voraussetzung "
+                        "muss eine Gruppennummer "
+                        "angegeben werden."
+                    ) from error
+
+                if alternative_group < 1:
+                    raise ValidationError(
+                        "Die ODER-Gruppennummer muss "
+                        "mindestens 1 betragen."
+                    )
+
+                alternative_group_counts[
+                    alternative_group
+                ] += 1
+
             normalized.append(
                 {
                     "target_type": target_type,
                     "target_id": target_id,
                     "level": level,
+                    "alternative_group": (
+                        alternative_group
+                    ),
                     "sort_order": index,
                 }
+            )
+
+        invalid_groups = sorted(
+            group_number
+            for group_number, count
+            in alternative_group_counts.items()
+            if count < 2
+        )
+
+        if invalid_groups:
+            raise ValidationError(
+                "ODER-Gruppen benötigen mindestens "
+                "zwei Voraussetzungen. Betroffen: "
+                + ", ".join(
+                    str(group_number)
+                    for group_number in invalid_groups
+                )
             )
 
         return normalized
@@ -2286,6 +2343,9 @@ class AlchemicalBrewStatsAdminForm(
                 "brew_stats": brew_stats,
                 "required_level": (
                     requirement["level"]
+                ),
+                "alternative_group": (
+                    requirement["alternative_group"]
                 ),
                 "sort_order": (
                     requirement["sort_order"]

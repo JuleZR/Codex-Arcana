@@ -561,6 +561,13 @@ class AlchemicalBrewRequirement(models.Model):
         verbose_name="Stufe",
     )
 
+    alternative_group = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(1)],
+        verbose_name="ODER-Gruppe",
+    )
+
     sort_order = models.PositiveSmallIntegerField(
         default=0,
         editable=False,

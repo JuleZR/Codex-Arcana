@@ -4,7 +4,9 @@
   const parseJson = (value, fallback = []) => {
     try {
       const parsed = JSON.parse(value || "[]");
-      return Array.isArray(parsed) ? parsed : fallback;
+      return Array.isArray(parsed)
+        ? parsed
+        : fallback;
     } catch (_error) {
       return fallback;
     }
@@ -50,6 +52,25 @@
     );
   };
 
+  const updateAlternativeUi = (row) => {
+    const alternative = row.querySelector(
+      "[data-brew-requirement-alternative]",
+    );
+
+    const group = row.querySelector(
+      "[data-brew-requirement-group]",
+    );
+
+    if (!alternative || !group) {
+      return;
+    }
+
+    group.disabled = !alternative.checked;
+    group.style.display = alternative.checked
+      ? ""
+      : "none";
+  };
+
   const syncEditor = (editor) => {
     const input = getEditorInput(editor);
 
@@ -72,15 +93,48 @@
         "[data-brew-requirement-level]",
       );
 
+      const alternative = row.querySelector(
+        "[data-brew-requirement-alternative]",
+      );
+
+      const group = row.querySelector(
+        "[data-brew-requirement-group]",
+      );
+
+      const isAlternative = Boolean(
+        alternative && alternative.checked,
+      );
+
       return {
-        target: target ? target.value : "",
+        target: target
+          ? target.value
+          : "",
+
         level: level
-          ? Number.parseInt(level.value || "0", 10)
+          ? Number.parseInt(
+              level.value || "0",
+              10,
+            )
           : 0,
+
+        is_alternative: isAlternative,
+
+        alternative_group: (
+          isAlternative
+          && group
+          && group.value
+        )
+          ? Number.parseInt(
+              group.value,
+              10,
+            )
+          : null,
       };
     });
 
-    input.value = JSON.stringify(requirements);
+    input.value = JSON.stringify(
+      requirements,
+    );
   };
 
   const addRow = (
@@ -125,7 +179,9 @@
     const targetSelect =
       document.createElement("select");
 
-    targetSelect.dataset.brewRequirementTarget = "1";
+    targetSelect.dataset.brewRequirementTarget =
+      "1";
+
     targetSelect.style.minWidth = "300px";
 
     targetSelect.appendChild(
@@ -162,8 +218,53 @@
     levelInput.type = "number";
     levelInput.min = "1";
     levelInput.step = "1";
-    levelInput.dataset.brewRequirementLevel = "1";
+
+    levelInput.dataset.brewRequirementLevel =
+      "1";
+
     levelInput.style.width = "90px";
+
+    const alternativeLabel =
+      document.createElement("label");
+
+    alternativeLabel.style.display = "flex";
+    alternativeLabel.style.alignItems = "center";
+    alternativeLabel.style.gap = "4px";
+    alternativeLabel.style.whiteSpace = "nowrap";
+
+    const alternativeInput =
+      document.createElement("input");
+
+    alternativeInput.type = "checkbox";
+
+    alternativeInput.dataset
+      .brewRequirementAlternative = "1";
+
+    const alternativeText =
+      document.createElement("span");
+
+    alternativeText.textContent = "ODER";
+
+    alternativeLabel.appendChild(
+      alternativeInput,
+    );
+
+    alternativeLabel.appendChild(
+      alternativeText,
+    );
+
+    const groupInput =
+      document.createElement("input");
+
+    groupInput.type = "number";
+    groupInput.min = "1";
+    groupInput.step = "1";
+    groupInput.placeholder = "Gruppe";
+
+    groupInput.dataset.brewRequirementGroup =
+      "1";
+
+    groupInput.style.width = "90px";
 
     const removeButton =
       document.createElement("button");
@@ -171,7 +272,9 @@
     removeButton.type = "button";
     removeButton.className = "button";
     removeButton.textContent = "Entfernen";
-    removeButton.dataset.brewRequirementRemove = "1";
+
+    removeButton.dataset.brewRequirementRemove =
+      "1";
 
     if (requirement) {
       targetSelect.value =
@@ -181,14 +284,32 @@
         levelInput.value =
           requirement.level;
       }
+
+      alternativeInput.checked = Boolean(
+        requirement.is_alternative
+        || (
+          requirement.alternative_group
+          !== null
+          && requirement.alternative_group
+          !== undefined
+        )
+      );
+
+      if (requirement.alternative_group) {
+        groupInput.value =
+          requirement.alternative_group;
+      }
     }
 
     row.appendChild(targetSelect);
     row.appendChild(levelInput);
+    row.appendChild(alternativeLabel);
+    row.appendChild(groupInput);
     row.appendChild(removeButton);
 
     list.appendChild(row);
 
+    updateAlternativeUi(row);
     syncEditor(editor);
   };
 
@@ -199,10 +320,6 @@
       return;
     }
 
-    /*
-     * Nicht nur auf ein data-initialized-Flag verlassen.
-     * Django kann Inline-DOM klonen.
-     */
     if (
       container.querySelector(
         ".alchemical-brew-requirements-editor",
@@ -230,6 +347,7 @@
 
     addButton.type = "button";
     addButton.className = "button";
+
     addButton.textContent =
       "+ Voraussetzung hinzufügen";
 
@@ -259,11 +377,6 @@
       .forEach(initializeEditor);
   };
 
-  /*
-   * Event Delegation:
-   * Die Listener sitzen am document und nicht an den
-   * von Django möglicherweise geklonten Buttons.
-   */
   document.addEventListener(
     "click",
     (event) => {
@@ -316,12 +429,24 @@
   document.addEventListener(
     "change",
     (event) => {
-      if (
-        !event.target.matches(
-          "[data-brew-requirement-target]",
-        )
-      ) {
+      const isTarget = event.target.matches(
+        "[data-brew-requirement-target]",
+      );
+
+      const isAlternative = event.target.matches(
+        "[data-brew-requirement-alternative]",
+      );
+
+      if (!isTarget && !isAlternative) {
         return;
+      }
+
+      const row = event.target.closest(
+        "[data-brew-requirement-row]",
+      );
+
+      if (row && isAlternative) {
+        updateAlternativeUi(row);
       }
 
       const editor = event.target.closest(
@@ -337,11 +462,15 @@
   document.addEventListener(
     "input",
     (event) => {
-      if (
-        !event.target.matches(
-          "[data-brew-requirement-level]",
-        )
-      ) {
+      const isLevel = event.target.matches(
+        "[data-brew-requirement-level]",
+      );
+
+      const isGroup = event.target.matches(
+        "[data-brew-requirement-group]",
+      );
+
+      if (!isLevel && !isGroup) {
         return;
       }
 

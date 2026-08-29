@@ -79,6 +79,7 @@ from charsheet.lesson_rules import (
 from charsheet.religion_rules import is_clerical_school, selected_divine_entity
 from charsheet.models import (
     Aspect,
+    AlchemicalBrewStats,
     Character,
     CharacterAspect,
     CharacterDivineEntity,
@@ -3036,6 +3037,150 @@ def _shared_item_card_effect_rows(
     return safe_rows
 
 
+def _build_alchemical_brew_requirement_line(
+    item: Item,
+) -> str:
+    """Return the generated crafting line for an alchemical brew."""
+    brew = (
+        AlchemicalBrewStats.objects
+        .filter(item_id=item.pk)
+        .first()
+    )
+
+    if brew is None:
+        return ""
+
+    parts: list[str] = []
+
+    if brew.ingredient_cost_gm is not None:
+        parts.append(
+            f"{brew.ingredient_cost_gm} GM"
+        )
+
+    if (
+        brew.craft_time_amount is not None
+        and brew.craft_time_unit
+    ):
+        time_units = {
+            "hours": ("Stunde", "Stunden"),
+            "days": ("Tag", "Tage"),
+            "weeks": ("Woche", "Wochen"),
+            "months": ("Monat", "Monate"),
+        }
+
+        singular, plural = time_units.get(
+            brew.craft_time_unit,
+            (
+                brew.get_craft_time_unit_display(),
+                brew.get_craft_time_unit_display(),
+            ),
+        )
+
+        unit = (
+            singular
+            if brew.craft_time_amount == 1
+            else plural
+        )
+
+        parts.append(
+            f"Zeitaufwand: "
+            f"{brew.craft_time_amount} {unit}"
+        )
+
+    requirements = list(
+        brew.requirements
+        .select_related(
+            "skill",
+            "school",
+            "aspect",
+        )
+        .order_by(
+            "sort_order",
+            "id",
+        )
+    )
+
+    def requirement_text(requirement) -> str:
+        if requirement.skill_id:
+            name = requirement.skill.name
+        elif requirement.school_id:
+            name = requirement.school.name
+        else:
+            name = requirement.aspect.name
+
+        return (
+            f"{name} "
+            f"{requirement.required_level}"
+        )
+
+    alternative_groups = defaultdict(list)
+
+    for requirement in requirements:
+        if requirement.alternative_group is not None:
+            alternative_groups[
+                requirement.alternative_group
+            ].append(requirement)
+
+    rendered_groups = set()
+
+    for requirement in requirements:
+        group = requirement.alternative_group
+
+        if group is None:
+            parts.append(
+                requirement_text(requirement)
+            )
+            continue
+
+        if group in rendered_groups:
+            continue
+
+        rendered_groups.add(group)
+
+        alternatives = alternative_groups[group]
+
+        if len(alternatives) == 1:
+            parts.append(
+                requirement_text(
+                    alternatives[0]
+                )
+            )
+            continue
+
+        parts.append(
+            "("
+            + " ODER ".join(
+                requirement_text(entry)
+                for entry in alternatives
+            )
+            + ")"
+        )
+
+    additional_requirements = str(
+        brew.additional_requirements or ""
+    ).strip()
+
+    if additional_requirements:
+        parts.append(
+            additional_requirements
+        )
+
+    # MW bewusst ganz am Ende.
+    if brew.craft_mw is not None:
+        parts.append(
+            f"MW: {brew.craft_mw}"
+        )
+
+    if not parts:
+        return ""
+
+    return (
+        "`**Voraussetzung:** "
+        + ", ".join(parts)
+        + "`"
+    )
+
+
 def build_character_item_card_context(
     character_item: CharacterItem,
     viewer=None,
@@ -3075,6 +3220,27 @@ def build_character_item_card_context(
         modifier_payloads=stored_modifier_payloads,
     )
     hidden_field_keys = player_display.hidden_field_keys if include_controls else display.hidden_field_keys
+
+    card_description = str(
+        display.description or ""
+    ).strip()
+
+    brew_requirement_line = (
+        _build_alchemical_brew_requirement_line(
+            item
+        )
+    )
+
+    if brew_requirement_line:
+        card_description = "\n\n".join(
+            part
+            for part in (
+                card_description,
+                brew_requirement_line,
+            )
+            if part
+        )
+
     quality_label = "" if "quality" in hidden_field_keys and not include_controls else display.quality_label
     quality_color = "" if "quality" in hidden_field_keys and not include_controls else quality["color"]
     detail_rows = _build_item_tooltip_rows(
@@ -3142,7 +3308,7 @@ def build_character_item_card_context(
                 and str(value).strip() in {"", "[[EMPTY]]"}
             )
         ],
-        "description": display.description,
+        "description": card_description,
         "controls": include_controls,
         "disclosure_rows": [],
         "effect_identification_rows": [],
@@ -5217,7 +5383,26 @@ def _build_inventory_rows(
         )
 
         tooltip_text = ""
-        item_description = display.description
+
+        item_description = str(
+            display.description or ""
+        ).strip()
+
+        brew_requirement_line = (
+            _build_alchemical_brew_requirement_line(
+                item
+            )
+        )
+
+        if brew_requirement_line:
+            item_description = "\n\n".join(
+                part
+                for part in (
+                    item_description,
+                    brew_requirement_line,
+                )
+                if part
+            )
         item_tooltip_rows = _filter_item_tooltip_rows_for_display(
             _build_item_tooltip_rows(
                 item_engine,
