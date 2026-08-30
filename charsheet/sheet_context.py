@@ -8023,40 +8023,7 @@ def build_item_semantic_effect_partial_context(
         )
 
     if "fame_panel" in partial_key_set:
-        manual_personal_fame_point = max(
-            0,
-            int(character.personal_fame_point) + int(engine.resolve_resource("personal_fame_point")),
-        )
-        manual_personal_fame_total = max(
-            0,
-            (int(character.personal_fame_rank) * 10) + int(character.personal_fame_point),
-        )
-        base_personal_fame_rank = max(
-            0,
-            int(character.personal_fame_rank) + int(engine.resolve_resource("personal_fame_rank")),
-        )
-        effective_artefact_rank = max(
-            0,
-            int(character.artefact_rank) + int(engine.resolve_resource("artefact_rank")),
-        )
-        auto_school_fame_point = engine.auto_school_fame_points()
-        auto_lesson_fame_point = engine.auto_lesson_fame_points()
-        auto_progression_fame_point = auto_school_fame_point + auto_lesson_fame_point
-        total_personal_fame_point = manual_personal_fame_point + auto_progression_fame_point
-        effective_personal_fame_point = total_personal_fame_point % 10
-        effective_personal_fame_rank = base_personal_fame_rank + (total_personal_fame_point // 10)
-        context.update(
-            {
-                "effective_personal_fame_point": effective_personal_fame_point,
-                "effective_personal_fame_rank": effective_personal_fame_rank,
-                "effective_artefact_rank": effective_artefact_rank,
-                "auto_school_fame_point": auto_school_fame_point,
-                "manual_personal_fame_total": manual_personal_fame_total,
-                "auto_lesson_fame_point": auto_lesson_fame_point,
-                "auto_progression_fame_point": auto_progression_fame_point,
-                "fame_total_rank": effective_personal_fame_rank + int(character.sacrifice_rank) + effective_artefact_rank,
-            }
-        )
+        context.update(build_fame_partial_context(character))
 
     if "spell_panel" in partial_key_set:
         spell_panel_data = character.get_magic_engine().get_spell_panel_data()
@@ -8159,6 +8126,61 @@ def build_inventory_partial_context(character: Character) -> dict[str, object]:
             "tooltip": _build_carry_load_tooltip(carry_state, active=False),
             "tooltip_active": _build_carry_load_tooltip(carry_state, active=True),
         },
+    }
+
+
+def build_fame_partial_context(character: Character) -> dict[str, object]:
+    """Build the minimal context needed to redraw the fame panel."""
+    engine = character.engine
+    manual_personal_fame_point = max(
+        0,
+        int(character.personal_fame_point)
+        + int(engine.resolve_resource("personal_fame_point")),
+    )
+    manual_personal_fame_total = max(
+        0,
+        (int(character.personal_fame_rank) * 10)
+        + int(character.personal_fame_point),
+    )
+    base_personal_fame_rank = max(
+        0,
+        int(character.personal_fame_rank)
+        + int(engine.resolve_resource("personal_fame_rank")),
+    )
+    effective_artefact_rank = max(
+        0,
+        int(character.artefact_rank)
+        + int(engine.resolve_resource("artefact_rank")),
+    )
+    auto_school_fame_point = engine.auto_school_fame_points()
+    auto_lesson_fame_point = engine.auto_lesson_fame_points()
+    auto_progression_fame_point = auto_school_fame_point + auto_lesson_fame_point
+    total_personal_fame_point = (
+        manual_personal_fame_point
+        + auto_progression_fame_point
+    )
+    effective_personal_fame_point = total_personal_fame_point % 10
+    effective_personal_fame_rank = (
+        base_personal_fame_rank
+        + (total_personal_fame_point // 10)
+    )
+    fame_total_rank = (
+        effective_personal_fame_rank
+        + int(character.sacrifice_rank)
+        + effective_artefact_rank
+    )
+
+    return {
+        "character": character,
+        "effective_personal_fame_point": effective_personal_fame_point,
+        "effective_personal_fame_rank": effective_personal_fame_rank,
+        "effective_artefact_rank": effective_artefact_rank,
+        "auto_school_fame_point": auto_school_fame_point,
+        "manual_personal_fame_point": manual_personal_fame_point,
+        "manual_personal_fame_total": manual_personal_fame_total,
+        "auto_lesson_fame_point": auto_lesson_fame_point,
+        "auto_progression_fame_point": auto_progression_fame_point,
+        "fame_total_rank": fame_total_rank,
     }
 
 

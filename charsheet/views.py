@@ -121,6 +121,7 @@ from .sheet_context import (
     _divine_entity_card_kind_label,
     build_character_sheet_context,
     build_creature_card_training_context,
+    build_fame_partial_context,
     build_inventory_partial_context,
     build_item_semantic_effect_partial_context,
     build_temporary_attribute_context,
@@ -972,6 +973,23 @@ def _inventory_panel_response(request, character: Character) -> JsonResponse:
     )
 
 
+def _fame_panel_response(request, character: Character) -> JsonResponse:
+    """Render only the fame panel after local fame-point mutations."""
+    context = build_fame_partial_context(character)
+    context["request"] = request
+    open_item_transfer_count = ItemTransfer.objects.filter(
+        recipient=character,
+        status=ItemTransfer.Status.PENDING,
+    ).count()
+    return JsonResponse(
+        {
+            "ok": True,
+            "partials": _render_sheet_partials(request, context, ("fame_panel",)),
+            "openItemTransferCount": open_item_transfer_count,
+        }
+    )
+
+
 def _accepted_item_partial_keys(transfers: list[ItemTransfer]) -> tuple[str, ...]:
     keys: list[str] = ["inventory_panel"]
     item_ids = {int(transfer.item_id) for transfer in transfers if transfer.item_id}
@@ -1662,7 +1680,7 @@ def adjust_personal_fame_point(request, character_id: int):
 
     character.save(update_fields=["personal_fame_point", "personal_fame_rank"])
     if _is_partial_request(request):
-        return _sheet_partials_response(request, character, "fame_panel")
+        return _fame_panel_response(request, character)
     return redirect("character_sheet", character_id=character.id)
 
 
