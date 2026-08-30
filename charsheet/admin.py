@@ -4953,7 +4953,7 @@ class RaceSemanticEffectInline(admin.StackedInline):
                     ("simple_scale_school", "simple_scale_skill", "simple_scale_divisor"),
                     ("applies_during_character_creation", "applies_in_combat", "applies_outside_combat"),
                     "condition_races",
-                    "condition_schools"
+                    "condition_schools",
                     "condition_text",
                     "notes",
                     "rules_text",
