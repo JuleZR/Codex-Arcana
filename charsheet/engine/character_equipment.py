@@ -431,21 +431,47 @@ def _resolve_item_bound_numeric_modifiers(engine, base_value: int, modifiers: li
     return int(resolved_total)
 
 
-def _global_weapon_context_combat_modifier(engine, target_key: str, context: dict[str, tuple[str, ...]]) -> int:
-    """Return non-item-bound combat modifiers for one concrete weapon context."""
+def _global_weapon_context_combat_modifier(
+    engine,
+    target_key: str,
+    context: dict[str, tuple[str, ...]],
+) -> int:
+    """Return non-item-bound unconditional combat modifiers for one concrete weapon context."""
     total = 0
-    for modifier in engine.modifier_engine.collect_active_modifiers(context=context):
-        if str(getattr(modifier, "source_type", "") or "") in LOCAL_WEAPON_DAMAGE_SOURCE_TYPES:
+    modifier_engine = engine.modifier_engine
+
+    for modifier in modifier_engine.collect_active_modifiers(
+        context=context,
+    ):
+        if (
+            str(getattr(modifier, "source_type", "") or "")
+            in LOCAL_WEAPON_DAMAGE_SOURCE_TYPES
+        ):
             continue
+
         if modifier.target_domain != TargetDomain.COMBAT:
             continue
+
         modifier_target_key = str(modifier.target_key or "")
+
         if modifier_target_key != target_key and not (
             modifier_target_key == WEAPON_MANEUVER_DAMAGE
             and target_key in {MELEE_MANEUVERS, WEAPON_DAMAGE}
         ):
             continue
-        total += int(engine.modifier_engine._resolve_numeric_modifier(modifier) or 0)
+
+        # Bedingte Effekte gehören NICHT in den normalen Waffenwert.
+        if not modifier_engine._modifier_matches_condition_text(
+            modifier,
+            context,
+        ):
+            continue
+
+        total += int(
+            modifier_engine._resolve_numeric_modifier(modifier)
+            or 0
+        )
+
     return total
 
 

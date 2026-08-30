@@ -3679,13 +3679,22 @@ def _build_weapon_maneuver_breakdown_rows(engine, weapon_row: dict[str, object])
             "source": str(weapon_row.get("item_name") or weapon_row["item"].name),
         })
 
-    combat_bonus = int(weapon_row.get("trait_maneuver_modifier", 0) or 0)
-    if combat_bonus:
-        rows.append({
-            "label": "Manoevermodifikatoren",
-            "value": format_modifier(combat_bonus),
-            "source": "Allgemein",
-        })
+    weapon_context = _character_item_weapon_target_context(
+        weapon_row["character_item"],
+        weapon_stats=weapon_row.get("weapon_stats"),
+    )
+
+    rows.extend(
+        _build_modifier_breakdown_rows(
+            engine,
+            MELEE_MANEUVERS,
+            target_domain="combat",
+            context=weapon_context,
+            excluded_source_types=(
+                LOCAL_WEAPON_DAMAGE_SOURCE_TYPES
+            ),
+        )
+    )
 
     mastery_bonus = int(weapon_row.get("weapon_mastery_maneuver_bonus", 0) or 0)
     if mastery_bonus:
@@ -4258,6 +4267,12 @@ def _conditional_weapon_modifier_lines(
         WEAPON_MANEUVER_DAMAGE,
     }
 
+    lines: list[str] = []
+
+    # ---------------------------------------------------------
+    # Item- und CharacterItem-Effekte
+    # ---------------------------------------------------------
+
     effects = list(
         ItemSemanticEffect.objects.filter(
             item_id=character_item.item_id,
@@ -4276,15 +4291,19 @@ def _conditional_weapon_modifier_lines(
         .order_by("sort_order", "id")
     )
 
-    lines: list[str] = []
-
     for effect in effects:
-        if not is_character_item_effect_identified(character_item, effect):
+        if not is_character_item_effect_identified(
+            character_item,
+            effect,
+        ):
             continue
+
         if effect.target_domain != "combat":
             continue
 
-        if str(effect.target_key or "") not in relevant_target_keys:
+        effect_target_key = str(effect.target_key or "")
+
+        if effect_target_key not in relevant_target_keys:
             continue
 
         modifier = effect.to_modifier(
@@ -4296,18 +4315,27 @@ def _conditional_weapon_modifier_lines(
         ):
             continue
 
+        if not engine.modifier_engine._modifier_matches_school_condition(
+            modifier
+        ):
+            continue
+
         if not TargetResolver.matches_context(
             modifier,
             weapon_context,
         ):
             continue
 
-        resolved_value = int(
+        resolved_value = (
             engine.modifier_engine._resolve_numeric_modifier(
                 modifier
             )
-            or 0
         )
+
+        if not isinstance(resolved_value, (int, float)):
+            continue
+
+        resolved_value = int(resolved_value)
 
         if not resolved_value:
             continue
@@ -4316,14 +4344,143 @@ def _conditional_weapon_modifier_lines(
             str(effect.notes or "").split()
         )
 
-        if str(effect.target_key or "") == WEAPON_DAMAGE_DICE:
+        if not condition_text:
+            continue
+
+        if effect_target_key == WEAPON_DAMAGE_DICE:
             value_label = f"{resolved_value:+d}w10"
         else:
             value_label = format_modifier(resolved_value)
 
-        lines.append(
-            f"{value_label} {condition_text}"
+        source_name = _resolve_modifier_source_name(
+            engine,
+            modifier.source_type,
+            modifier.source_id,
         )
+
+        source_detail = _resolve_modifier_source_detail(
+            engine,
+            modifier.source_type,
+            modifier.source_id,
+        )
+
+        source_parts = [
+            part
+            for part in (
+                source_name,
+                source_detail,
+            )
+            if part
+        ]
+
+        source_label = " · ".join(source_parts)
+
+        line = f"{value_label} {condition_text}"
+
+        if source_label:
+            line = f"{line} — {source_label}"
+
+        lines.append(line)
+
+    # ---------------------------------------------------------
+    # TechniqueSemanticEffects
+    # ---------------------------------------------------------
+
+    modifier_engine = engine.modifier_engine
+
+    for modifier in modifier_engine.collect_active_modifiers(
+        context=weapon_context,
+    ):
+        if str(modifier.source_type or "") != "technique":
+            continue
+
+        if modifier.target_domain != "combat":
+            continue
+
+        modifier_target_key = str(
+            modifier.target_key or ""
+        )
+
+        if modifier_target_key not in relevant_target_keys:
+            continue
+
+        if not modifier_engine._modifier_matches_race_condition(
+            modifier
+        ):
+            continue
+
+        if not modifier_engine._modifier_matches_school_condition(
+            modifier
+        ):
+            continue
+
+        if not TargetResolver.matches_context(
+            modifier,
+            weapon_context,
+        ):
+            continue
+
+        condition_text = " ".join(
+            str(
+                (modifier.metadata or {}).get(
+                    "condition_text"
+                )
+                or ""
+            ).split()
+        )
+
+        # Nur wirklich bedingte Techniques hier anzeigen.
+        if not condition_text:
+            continue
+
+        resolved_value = (
+            modifier_engine._resolve_numeric_modifier(
+                modifier
+            )
+        )
+
+        if not isinstance(resolved_value, (int, float)):
+            continue
+
+        resolved_value = int(resolved_value)
+
+        if not resolved_value:
+            continue
+
+        if modifier_target_key == WEAPON_DAMAGE_DICE:
+            value_label = f"{resolved_value:+d}w10"
+        else:
+            value_label = format_modifier(resolved_value)
+
+        source_name = _resolve_modifier_source_name(
+            engine,
+            modifier.source_type,
+            modifier.source_id,
+        )
+
+        source_detail = _resolve_modifier_source_detail(
+            engine,
+            modifier.source_type,
+            modifier.source_id,
+        )
+
+        source_parts = [
+            part
+            for part in (
+                source_name,
+                source_detail,
+            )
+            if part
+        ]
+
+        source_label = " · ".join(source_parts)
+
+        line = f"{value_label} {condition_text}"
+
+        if source_label:
+            line = f"{line} — {source_label}"
+
+        lines.append(line)
 
     return lines
 
@@ -4912,6 +5069,10 @@ def _build_skill_rows(
             item_name = _resolved_equipment_name(weapon_row["character_item"])
             weapon_row = {**weapon_row, "item_name": item_name}
             maneuver_breakdown_rows = _build_weapon_maneuver_breakdown_rows(engine, weapon_row)
+            conditional_modifiers = _conditional_weapon_modifier_lines(
+                engine,
+                weapon_row,
+                )
             for option in weapon_row.get("maneuver_options") or []:
                 maneuver_bonus = int(option.get("total_modifier") or 0) - int(option.get("attribute_modifier") or 0)
                 rows.append(
@@ -4937,10 +5098,26 @@ def _build_skill_rows(
                         "with_load_total_value": int(base_row["with_load_total_value"]) + maneuver_bonus,
                         "calculation_tooltip": _build_core_stat_tooltip(
                             [
-                                {"label": "Grundwert", "value": int(base_row["with_load_total_value"]), "source": base_row["display_name"]},
+                                {
+                                    "label": "Grundwert",
+                                    "value": int(
+                                        base_row["with_load_total_value"]
+                                    ),
+                                    "source": base_row["display_name"],
+                                },
                                 *maneuver_breakdown_rows,
-                                {"label": "= Gesamt", "value": int(base_row["with_load_total_value"]) + maneuver_bonus, "tone": "total"},
-                            ]
+                                {
+                                    "label": "= Gesamt",
+                                    "value": int(
+                                        base_row["with_load_total_value"]
+                                    ) + maneuver_bonus,
+                                    "tone": "total",
+                                },
+                            ],
+                            conditional_modifiers=conditional_modifiers,
+                        ),
+                        "has_conditional_modifiers": bool(
+                            conditional_modifiers
                         ),
                         "can_edit_specification": False,
                         "specification": "",
