@@ -971,6 +971,10 @@ export function initLearningMenu({ choiceWindowController = null } = {}) {
   if (!form || !cartBody || !budgetEl || !spentEl || !remainingEl || !applyBtn || !hiddenInputContainer) {
     return null;
   }
+  if (form.dataset.learningMenuBound === "1") {
+    return null;
+  }
+  form.dataset.learningMenuBound = "1";
 
   const groupDisclosureState = initPersistentDetails(
     "#learnWindow [data-learn-group]",

@@ -24,12 +24,16 @@ function saveActiveTabId(tabRoot, targetId) {
 export function initTabs(root = document) {
   const tabRoots = Array.from(root.querySelectorAll("[data-tabs]"));
   tabRoots.forEach((tabRoot) => {
+    if (!(tabRoot instanceof HTMLElement) || tabRoot.dataset.tabsBound === "1") {
+      return;
+    }
     const tabs = Array.from(tabRoot.querySelectorAll("[role='tab'][data-tab-target]"));
     const panels = Array.from(tabRoot.querySelectorAll("[data-tab-panel]"));
     const tabList = tabRoot.querySelector("[role='tablist']");
     if (!tabs.length || !panels.length) {
       return;
     }
+    tabRoot.dataset.tabsBound = "1";
 
     const shouldRememberTab = tabs.length > 1;
 

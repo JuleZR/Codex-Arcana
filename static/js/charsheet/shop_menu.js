@@ -1,6 +1,10 @@
 import { escapeHtml, getCsrfToken, initPersistentDetails, readInt, saveJsonStorage } from "./utils.js?v=20260622a";
 
 export function initShopMenu() {
+  const shopWindow = document.getElementById("shopWindow");
+  if (shopWindow instanceof HTMLElement && shopWindow.dataset.shopMenuBound === "1") {
+    return;
+  }
   const filterInput = document.getElementById("shopFilterInput");
   const shopList = document.querySelector(".shop_list_scroll");
   const cartWrapper = document.querySelector(".shop_cart_wrapper");
@@ -40,6 +44,9 @@ export function initShopMenu() {
     || !modePanels.length
   ) {
     return;
+  }
+  if (shopWindow instanceof HTMLElement) {
+    shopWindow.dataset.shopMenuBound = "1";
   }
 
   const FALLBACK_QUALITY_ORDER = ["wretched", "very_poor", "poor", "common", "fine", "excellent", "legendary"];

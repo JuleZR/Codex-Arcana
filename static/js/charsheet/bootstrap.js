@@ -8,8 +8,8 @@ import { initItemForm } from "./item_form.js?v=20260814a";
 import { initSkillSpecModal } from "./skill_spec_modal.js";
 import { initTechniqueSpecModal } from "./technique_spec_modal.js";
 import { initTraitSpecModal } from "./trait_spec_modal.js";
-import { initShopMenu } from "./shop_menu.js?v=20260622a";
-import { initLearningMenu } from "./learning_menu.js?v=20260802b";
+import { initShopMenu } from "./shop_menu.js?v=20260830a";
+import { initLearningMenu } from "./learning_menu.js?v=20260830a";
 import { initTooltips } from "./tooltip.js?v=20260828g";
 import { initInventoryMenu } from "./inventory_menu.js?v=20260820a";
 import { initDamagePanel } from "./damage_panel.js?v=20260801b";
@@ -49,75 +49,70 @@ function initCharacterImageEditorSafely() {
     });
 }
 
+function runInit(callback) {
+  try {
+    return callback();
+  } catch (_error) {
+    return null;
+  }
+}
+
+function initRadialMenusSafely() {
+  if (!isRadialMenuEnabled()) {
+    return;
+  }
+  runInit(initRadialMenuGem);
+  runInit(initContextRadialMenu);
+}
+
+function initDynamicSheetModules(windowControllers) {
+  runInit(initTabs);
+  runInit(initCardHand);
+  runInit(initShopMenu);
+  runInit(initDamagePanel);
+  runInit(initTraitSpecModal);
+  runInit(() => initLearningMenu({ choiceWindowController: windowControllers?.learnChoice || null }));
+  runInit(initSpellPanel);
+  runInit(initLessonPanel);
+  runInit(initCharInfoCounter);
+  runInit(initSchoolsPanel);
+  runInit(initWmArcanaFilter);
+  runInit(initArmorPanel);
+  runInit(initBattleCalculator);
+  runInit(initCarryLoadToggle);
+  runInit(initCharacterAppearanceModal);
+  runInit(initGodCards);
+  runInit(initCreatureCards);
+  runInit(() => initItemTransfers({ windowController: windowControllers?.itemTransfer || null }));
+  runInit(initItemTransferWindow);
+  runInit(initVampirePanel);
+  runInit(initCharacterImageEditorSafely);
+}
+
 onReady(() => {
-  initTabs();
-  const windowControllers = initStandardFloatingWindows();
-  initLeftTools();
-  initReputationPanel();
-  initSkillSpecModal();
-  initTechniqueSpecModal();
-  initTraitSpecModal();
-  initFireflies();
-  initItemForm();
-  initShopMenu();
-  initLearningMenu({ choiceWindowController: windowControllers?.learnChoice || null });
-  initTooltips();
-  initInventoryMenu({
+  let windowControllers = runInit(initStandardFloatingWindows);
+  initDynamicSheetModules(windowControllers);
+  runInit(initLeftTools);
+  runInit(initReputationPanel);
+  runInit(initSkillSpecModal);
+  runInit(initTechniqueSpecModal);
+  runInit(initFireflies);
+  runInit(initItemForm);
+  runInit(initTooltips);
+  runInit(() => initInventoryMenu({
     warningWindowController: windowControllers?.inventoryDeleteWarning || null,
     modifyWindowController: windowControllers?.runeRetrofit || null,
-  });
-  initSheetActions();
-  initSkillManager();
-  initDamagePanel();
-  initSpellPanel();
-  initLessonPanel();
-  initCharInfoCounter();
-  initSchoolsPanel();
-  initWmArcanaFilter();
-  initArmorPanel();
-  initBattleCalculator();
-  initCarryLoadToggle();
-  initCharacterAppearanceModal();
-  initCardHand();
-  initGodCards();
-  initCreatureCards();
-  initItemTransfers({ windowController: windowControllers?.itemTransfer || null });
-  initItemTransferWindow();
-  initMobileHud();
-  initTemporaryAttributes();
-  initVampirePanel();
-  initExternalSheetRefresh();
-  initCharacterImageEditorSafely();
-  if (isRadialMenuEnabled()) {
-    try {
-      initRadialMenuGem();
-    } catch (_error) {
-      // Keep the rest of the sheet interactive if the decorative gem fails.
-    }
-    initContextRadialMenu();
-  }
+  }));
+  runInit(initSheetActions);
+  runInit(initSkillManager);
+  runInit(initMobileHud);
+  runInit(initTemporaryAttributes);
+  runInit(initExternalSheetRefresh);
+  initRadialMenusSafely();
 
   document.addEventListener("charsheet:partials-applied", () => {
-    initTabs();
-    initStandardFloatingWindows();
-    initDamagePanel();
-    initTraitSpecModal();
-    initLearningMenu({ choiceWindowController: windowControllers?.learnChoice || null });
-    initSpellPanel();
-    initLessonPanel();
-    initCharInfoCounter();
-    initSchoolsPanel();
-    initWmArcanaFilter();
-    initArmorPanel();
-    initBattleCalculator();
-    initCarryLoadToggle();
-    initCharacterAppearanceModal();
-    initCardHand();
-    initGodCards();
-    initCreatureCards();
-    initItemTransfers({ windowController: windowControllers?.itemTransfer || null });
-    initVampirePanel();
+    windowControllers = runInit(initStandardFloatingWindows);
+    initDynamicSheetModules(windowControllers);
     document.dispatchEvent(new Event("learn:refresh-totals"));
-    initCharacterImageEditorSafely();
   });
 });
