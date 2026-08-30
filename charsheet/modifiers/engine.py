@@ -41,6 +41,7 @@ from charsheet.models import (
     Skill,
     TechniqueSemanticEffect,
     VampireTraitSemanticEffect,
+    SpecializationSemanticEffect,
 )
 
 
@@ -154,6 +155,34 @@ class ModifierEngine:
             .prefetch_related("condition_races", "condition_schools")
             .order_by("school_id", "sort_order", "id")
         )
+        return [effect.to_modifier() for effect in effects]
+
+    @cached_property
+    def _active_specialization_semantic_modifiers(self) -> list[BaseModifier]:
+        """Build semantic modifiers from learned specializations."""
+        if self.character_engine is None:
+            return []
+
+        specialization_ids = {
+            entry.specialization_id
+            for entries in self.character_engine._specialization_entries_by_school_id.values()
+            for entry in entries
+            if entry.specialization.is_active
+        }
+
+        if not specialization_ids:
+            return []
+
+        effects = (
+            SpecializationSemanticEffect.objects.filter(
+                specialization_id__in=specialization_ids,
+                active_flag=True,
+            )
+            .select_related("specialization")
+            .prefetch_related("condition_races", "condition_schools")
+            .order_by("specialization_id", "sort_order", "id")
+        )
+
         return [effect.to_modifier() for effect in effects]
 
     @cached_property
@@ -503,6 +532,7 @@ class ModifierEngine:
         if self.character_engine is not None:
             collected.extend(self._active_race_semantic_modifiers)
             collected.extend(self._active_school_semantic_modifiers)
+            collected.extend(self._active_specialization_semantic_modifiers)
             collected.extend(self._active_trait_modifiers)
             collected.extend(self._active_technique_semantic_modifiers)
             collected.extend(self._active_daemonic_power_modifiers)
@@ -1544,7 +1574,11 @@ class ModifierEngine:
             exact_level = self.character_engine.school_level(gate_school_id)
             if exact_level:
                 return exact_level
-            gate_school = getattr(self.character_engine._coerce_technique(modifier.source_id), "school", None) if str(modifier.source_type or "").lower() == "technique" else None
+            gate_school = getattr(
+                self.character_engine._coerce_technique(modifier.source_id),
+                "school",
+                None
+                ) if str(modifier.source_type or "").lower() == "technique" else None
             if gate_school is None and gate_school_id:
                 from charsheet.models import School
 

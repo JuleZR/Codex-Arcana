@@ -132,6 +132,7 @@ from .progression import (
     SchoolPath,
     SchoolType,
     Specialization,
+    SpecializationSemanticEffect,
 )
 from .techniques import (
     Aspect,
@@ -303,4 +304,5 @@ __all__ = [
     "Metal",
     "AlchemicalBrewStats",
     "AlchemicalBrewRequirement",
+    "SpecializationSemanticEffect",
 ]

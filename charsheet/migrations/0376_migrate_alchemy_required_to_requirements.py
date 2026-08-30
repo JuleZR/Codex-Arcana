@@ -1,4 +1,4 @@
-from django.db import migrations
+﻿from django.db import migrations
 
 
 def migrate_alchemy_requirements(apps, schema_editor):
@@ -15,9 +15,15 @@ def migrate_alchemy_requirements(apps, schema_editor):
         "Skill",
     )
 
-    alchemy_skill = Skill.objects.get(
+    alchemy_skill = Skill.objects.filter(
         slug="knw_alchemy"
-    )
+    ).first()
+
+    if alchemy_skill is None:
+        return
+
+    if alchemy_skill is None:
+        return
 
     brews = (
         AlchemicalBrewStats.objects
@@ -50,9 +56,15 @@ def reverse_migration(apps, schema_editor):
         "Skill",
     )
 
-    alchemy_skill = Skill.objects.get(
+    alchemy_skill = Skill.objects.filter(
         slug="knw_alchemy"
-    )
+    ).first()
+
+    if alchemy_skill is None:
+        return
+
+    if alchemy_skill is None:
+        return
 
     for requirement in AlchemicalBrewRequirement.objects.filter(
         skill_id=alchemy_skill.pk
@@ -79,3 +91,6 @@ class Migration(migrations.Migration):
             reverse_migration,
         ),
     ]
+
+
+

@@ -183,6 +183,7 @@ from .models import (
     ShieldStats,
     ShamanPatron,
     Specialization,
+    SpecializationSemanticEffect,
     Spell,
     Skill,
     SkillCategory,
@@ -6417,6 +6418,24 @@ class TraitChoiceDefinitionAdmin(admin.ModelAdmin):
         return obj.semantic_effects.count()
 
 
+class SpecializationSemanticEffectInlineForm(RuleSemanticEffectAdminForm):
+    class Meta:
+        model = SpecializationSemanticEffect
+        fields = "__all__"
+
+
+class SpecializationSemanticEffectInline(admin.StackedInline):
+    model = SpecializationSemanticEffect
+    form = SpecializationSemanticEffectInlineForm
+    extra = 0
+    show_change_link = True
+    filter_horizontal = ("condition_races", "condition_schools")
+    fieldsets = RULE_SEMANTIC_EFFECT_FIELDSETS
+
+    class Media:
+        js = ("charsheet/js/rule_semantic_effect_admin_v2.js",)
+
+
 @admin.register(Specialization)
 class SpecializationAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
     """Admin configuration for school-bound specializations."""
@@ -6425,6 +6444,7 @@ class SpecializationAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
     search_fields = ("name", "slug", "school__name")
     list_filter = ("school", "support_level", "is_active")
     ordering = ("school", "sort_order", "name")
+    inlines = (SpecializationSemanticEffectInline,)
     autocomplete_fields = ("school",)
     list_select_related = ("school", "school__type")
     fieldsets = (

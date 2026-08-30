@@ -191,6 +191,37 @@ class Specialization(models.Model):
         return f"{self.school.name}: {self.name}"
 
 
+class SpecializationSemanticEffect(SemanticEffectFields):
+    """Persisted semantic effect attached directly to one specialization."""
+
+    specialization = models.ForeignKey(
+        Specialization,
+        on_delete=models.CASCADE,
+        related_name="semantic_effects",
+    )
+
+    class Meta:
+        ordering = ["specialization", "sort_order", "id"]
+
+    def __str__(self) -> str:
+        return (
+            f"{self.specialization}: "
+            f"{self.target_domain}/{self.target_key} ({self.operator})"
+        )
+
+    def semantic_source_type(self) -> str:
+        return "specialization"
+
+    def semantic_source_id(self) -> str:
+        return str(self.specialization_id)
+
+    def semantic_source_label(self) -> str:
+        return str(self.specialization)
+
+    def semantic_effect_key_prefix(self) -> str:
+        return "specialization_effect"
+
+
 class CharacterSpecialization(models.Model):
     """A specialization selected by a character for one learned school."""
 
