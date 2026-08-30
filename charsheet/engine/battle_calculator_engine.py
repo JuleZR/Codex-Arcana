@@ -240,22 +240,38 @@ class BattleCalculatorEngine:
     @staticmethod
     def _character_item_weapon_target_context(character_item) -> dict[str, tuple[str, ...]]:
         item = character_item.item
+        weapon_categories: set[str] = {"weapon"}
         weapon_skill_slugs: set[str] = set()
         weapon_type_slugs: set[str] = set()
+        weapon_type_names: set[str] = set()
         for stats_name in ("weaponstats", "rangedweaponstats", "shieldstats"):
             stats = getattr(item, stats_name, None)
             if not stats:
                 continue
+            if stats_name == "rangedweaponstats":
+                weapon_categories.add("ranged")
+            elif stats_name == "shieldstats":
+                weapon_categories.add("shield")
+            else:
+                weapon_categories.add("melee")
+                if any(
+                    getattr(stats, field_name, None) is not None
+                    for field_name in ("range_short", "range_medium", "range_long")
+                ):
+                    weapon_categories.add("ranged")
             weapon_type = getattr(stats, "weapon_type", None)
             if weapon_type and getattr(weapon_type, "slug", ""):
                 weapon_type_slugs.add(str(weapon_type.slug))
+                weapon_type_names.add(str(getattr(weapon_type, "name", "") or weapon_type.slug))
             skill_manager = getattr(stats, "skills", None)
             if skill_manager is not None:
                 weapon_skill_slugs.update(str(slug) for slug in skill_manager.all().values_list("slug", flat=True))
         return {
             "character_item_id": str(character_item.id),
             "weapon_ids": (str(item.id), str(character_item.id)),
+            "weapon_categories": tuple(sorted(weapon_categories)),
             "weapon_types": tuple(sorted(weapon_type_slugs)),
+            "weapon_type_names": tuple(sorted(weapon_type_names)),
             "weapon_skill_slugs": tuple(sorted(weapon_skill_slugs)),
         }
 

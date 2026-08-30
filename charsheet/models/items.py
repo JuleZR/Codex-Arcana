@@ -1066,6 +1066,7 @@ class ItemSemanticEffectFields(models.Model):
             BaseModifier,
             CombatModifier,
             ConditionSet,
+            CreatureMovementModifier,
             DerivedStatModifier,
             EconomyModifier,
             ItemModifier,
@@ -1080,6 +1081,7 @@ class ItemSemanticEffectFields(models.Model):
             SocialModifier,
             SpecializationModifier,
             TraitModifier,
+            WeaponRangeModifier,
         )
         from ..modifiers.targets import TargetResolver
 
@@ -1097,7 +1099,9 @@ class ItemSemanticEffectFields(models.Model):
             "resource": ResourceModifier,
             "resistance": ResistanceModifier,
             "movement": MovementModifier,
+            "creature_movement": CreatureMovementModifier,
             "combat": CombatModifier,
+            "weapon_range": WeaponRangeModifier,
             "perception": PerceptionModifier,
             "economy": EconomyModifier,
             "social": SocialModifier,

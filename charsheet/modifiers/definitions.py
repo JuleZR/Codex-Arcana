@@ -57,8 +57,10 @@ class TargetDomain(StringEnum):
     RESOURCE = "resource"
     RESISTANCE = "resistance"
     MOVEMENT = "movement"
+    CREATURE_MOVEMENT = "creature_movement"
     COMBAT = "combat"
     DAMAGE = "damage"
+    WEAPON_RANGE = "weapon_range"
     WEAPON_SKILL = "weapon_skill"
     WEAPON_TYPE = "weapon_type"
     WEAPON_CATEGORY = "weapon_category"
@@ -281,11 +283,27 @@ class MovementModifier(BaseModifier):
         super().__init__(*args, **kwargs)
 
 
+class CreatureMovementModifier(BaseModifier):
+    """Modifier targeting movement speeds of creatures owned by a character."""
+
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault("target_domain", TargetDomain.CREATURE_MOVEMENT)
+        super().__init__(*args, **kwargs)
+
+
 class CombatModifier(BaseModifier):
     """Modifier targeting attacks, damage, actions, or defensive combat hooks."""
 
     def __init__(self, *args, **kwargs):
         kwargs.setdefault("target_domain", TargetDomain.COMBAT)
+        super().__init__(*args, **kwargs)
+
+
+class WeaponRangeModifier(BaseModifier):
+    """Modifier targeting a weapon's short, medium, or long range."""
+
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault("target_domain", TargetDomain.WEAPON_RANGE)
         super().__init__(*args, **kwargs)
 
 

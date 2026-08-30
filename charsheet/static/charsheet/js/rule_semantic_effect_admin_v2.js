@@ -181,6 +181,7 @@
 
     var isRuleFlag = area.value === "rule_flag";
     var isWeaponSkill = area.value === "weapon_skill";
+    var isWeaponRange = area.value === "weapon_range";
     var scaling = field(root, "simple_scaling");
     var hasScaling = scaling && scaling.value !== "";
     var needsSchool = scaling && scaling.value === "school_level";
@@ -194,6 +195,10 @@
 
     setRowVisible(root, "simple_target", true);
     setFilteredSelectRowVisible(root, "simple_weapon_skills", isWeaponSkill);
+    setRowVisible(root, "simple_weapon_category_filter", isWeaponRange);
+    setRowVisible(root, "simple_weapon_type_filter", isWeaponRange);
+    setRowVisible(root, "simple_weapon_type_contains_filter", isWeaponRange);
+    setRowVisible(root, "simple_weapon_item_filter", isWeaponRange);
     setRowVisible(root, "simple_operator", true);
     setRowVisible(root, "simple_value", !isRuleFlag);
     setRowVisible(root, "target_choice_definition", hasChoiceBinding);

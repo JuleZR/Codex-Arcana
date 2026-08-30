@@ -68,6 +68,7 @@
       rule_flag: ["set_flag", "unset_flag"]
     };
     var isTextOnly = area.value === "text";
+    var isWeaponRange = area.value === "weapon_range";
     var operator = root.querySelector('[name$="simple_operator"]');
     var scaleSource = root.querySelector('[name$="scale_source"]');
     if (operator) {
@@ -87,6 +88,10 @@
 
     setRowVisible(root, "simple_target", !isTextOnly);
     setRowVisible(root, "simple_operator", !isTextOnly);
+    setRowVisible(root, "simple_weapon_category_filter", isWeaponRange);
+    setRowVisible(root, "simple_weapon_type_filter", isWeaponRange);
+    setRowVisible(root, "simple_weapon_type_contains_filter", isWeaponRange);
+    setRowVisible(root, "simple_weapon_item_filter", isWeaponRange);
     setRowVisible(root, "rules_text", true);
     setRowVisible(root, "simple_value", !isTextOnly && !semanticOperators[area.value]);
     setRowVisible(root, "scale_divisor", !isTextOnly && scaleSource && scaleSource.value !== "");

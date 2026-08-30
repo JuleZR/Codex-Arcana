@@ -103,13 +103,6 @@ class Technique(models.Model):
         PER_COMBAT = "per_combat", "Per Combat"
         PER_DAY = "per_day", "Per Day"
 
-    class SupportLevel(models.TextChoices):
-        """Describe how fully the engine can resolve a technique's rules."""
-
-        COMPUTED = "computed", "Automated"
-        STRUCTURED = "structured", "Partially Automated"
-        DESCRIPTIVE = "descriptive", "Manual (Rule Text Only)"
-
     class ChoiceTargetKind(models.TextChoices):
         """Describe which persistent build choice, if any, a technique requires."""
 
@@ -136,12 +129,6 @@ class Technique(models.Model):
     )
     technique_type = models.CharField(max_length=20, choices=TechniqueType.choices, default=TechniqueType.PASSIVE)
     acquisition_type = models.CharField(max_length=20, choices=AcquisitionType.choices, default=AcquisitionType.AUTOMATIC)
-    support_level = models.CharField(
-        max_length=20,
-        choices=SupportLevel.choices,
-        default=SupportLevel.COMPUTED,
-        help_text="How far the engine can resolve this technique beyond status and requirements.",
-    )
     is_choice_placeholder = models.BooleanField(
         default=False,
         help_text="Mark placeholder rows such as 'choose one technique' or 'pick a skill'.",
@@ -210,7 +197,7 @@ class Technique(models.Model):
         ]
 
     def clean(self):
-        """Validate path ownership, support semantics, and activation consistency."""
+        """Validate path ownership, choice metadata, and activation consistency."""
         super().clean()
         if self.path_id and self.school_id and self.path.school_id != self.school_id:
             raise ValidationError({"path": "The selected path must belong to the technique school."})
@@ -219,10 +206,6 @@ class Technique(models.Model):
                 raise ValidationError({"choice_block": "A path-bound choice block must match the technique path."})
         if self.choice_target_kind == self.ChoiceTargetKind.NONE and self.choice_limit != 1:
             raise ValidationError({"choice_limit": "Non-choice techniques must keep the default choice limit of 1."})
-        if self.is_choice_placeholder and self.support_level == self.SupportLevel.COMPUTED:
-            raise ValidationError(
-                {"support_level": "Choice placeholder techniques cannot be marked as fully computed."}
-            )
         if self.is_choice_placeholder and not (self.choice_group or self.selection_notes):
             raise ValidationError(
                 {
@@ -245,8 +228,6 @@ class Technique(models.Model):
             )
         if self.choice_bonus_value and self.choice_target_kind == self.ChoiceTargetKind.NONE:
             raise ValidationError({"choice_bonus_value": "Choice bonuses require an explicit choice target kind."})
-        if self.choice_bonus_value and self.support_level != self.SupportLevel.COMPUTED:
-            raise ValidationError({"choice_bonus_value": "Choice bonuses are only supported for computed techniques."})
         if self.choice_bonus_value and self.technique_type != self.TechniqueType.PASSIVE:
             raise ValidationError({"choice_bonus_value": "Fixed choice bonuses are only supported on passive techniques."})
         if self.technique_type == self.TechniqueType.PASSIVE:
@@ -590,6 +571,7 @@ class TechniqueSemanticEffect(models.Model):
             BaseModifier,
             CombatModifier,
             ConditionSet,
+            CreatureMovementModifier,
             DerivedStatModifier,
             EconomyModifier,
             LanguageModifier,
@@ -602,6 +584,7 @@ class TechniqueSemanticEffect(models.Model):
             SkillModifier,
             SocialModifier,
             TraitModifier,
+            WeaponRangeModifier,
         )
         from ..modifiers.targets import TargetResolver
 
@@ -619,7 +602,9 @@ class TechniqueSemanticEffect(models.Model):
             "resource": ResourceModifier,
             "resistance": ResistanceModifier,
             "movement": MovementModifier,
+            "creature_movement": CreatureMovementModifier,
             "combat": CombatModifier,
+            "weapon_range": WeaponRangeModifier,
             "perception": PerceptionModifier,
             "economy": EconomyModifier,
             "social": SocialModifier,

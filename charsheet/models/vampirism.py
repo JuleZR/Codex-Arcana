@@ -233,6 +233,7 @@ class VampireTraitSemanticEffect(models.Model):
             BaseModifier,
             CombatModifier,
             ConditionSet,
+            CreatureMovementModifier,
             DerivedStatModifier,
             EconomyModifier,
             LanguageModifier,
@@ -245,6 +246,7 @@ class VampireTraitSemanticEffect(models.Model):
             SkillModifier,
             SocialModifier,
             TraitModifier,
+            WeaponRangeModifier,
         )
 
         modifier_map = {
@@ -261,7 +263,9 @@ class VampireTraitSemanticEffect(models.Model):
             "resource": ResourceModifier,
             "resistance": ResistanceModifier,
             "movement": MovementModifier,
+            "creature_movement": CreatureMovementModifier,
             "combat": CombatModifier,
+            "weapon_range": WeaponRangeModifier,
             "perception": PerceptionModifier,
             "economy": EconomyModifier,
             "social": SocialModifier,

@@ -431,6 +431,7 @@ class TraitSemanticEffect(models.Model):
             BaseModifier,
             CombatModifier,
             ConditionSet,
+            CreatureMovementModifier,
             DerivedStatModifier,
             EconomyModifier,
             LanguageModifier,
@@ -443,6 +444,7 @@ class TraitSemanticEffect(models.Model):
             SocialModifier,
             ProficiencyGroupModifier,
             TraitModifier,
+            WeaponRangeModifier,
         )
         from ..modifiers.targets import TargetResolver
 
@@ -459,7 +461,9 @@ class TraitSemanticEffect(models.Model):
             "resource": ResourceModifier,
             "resistance": ResistanceModifier,
             "movement": MovementModifier,
+            "creature_movement": CreatureMovementModifier,
             "combat": CombatModifier,
+            "weapon_range": WeaponRangeModifier,
             "perception": PerceptionModifier,
             "economy": EconomyModifier,
             "social": SocialModifier,

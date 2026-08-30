@@ -899,6 +899,7 @@ class CreatureSemanticEffectFields(models.Model):
             BaseModifier,
             CombatModifier,
             ConditionSet,
+            CreatureMovementModifier,
             DerivedStatModifier,
             EconomyModifier,
             LanguageModifier,
@@ -911,6 +912,7 @@ class CreatureSemanticEffectFields(models.Model):
             SkillModifier,
             SocialModifier,
             TraitModifier,
+            WeaponRangeModifier,
         )
 
         modifier_map = {
@@ -926,7 +928,9 @@ class CreatureSemanticEffectFields(models.Model):
             "resource": ResourceModifier,
             "resistance": ResistanceModifier,
             "movement": MovementModifier,
+            "creature_movement": CreatureMovementModifier,
             "combat": CombatModifier,
+            "weapon_range": WeaponRangeModifier,
             "perception": PerceptionModifier,
             "economy": EconomyModifier,
             "social": SocialModifier,

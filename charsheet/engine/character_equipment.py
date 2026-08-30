@@ -200,12 +200,21 @@ def _character_item_target_context(engine, character_item: CharacterItem) -> dic
     def build_context() -> dict[str, tuple[str, ...]]:
         item = character_item.item
         weapon_ids = (str(item.id), str(character_item.id))
+        weapon_categories: set[str] = {"weapon"}
         weapon_skill_slugs: set[str] = set()
         weapon_type_slugs: set[str] = set()
+        weapon_type_names: set[str] = set()
         for stats in item.weapon_stats.all():
+            weapon_categories.add("melee")
+            if any(
+                getattr(stats, field_name, None) is not None
+                for field_name in ("range_short", "range_medium", "range_long")
+            ):
+                weapon_categories.add("ranged")
             weapon_type = getattr(stats, "weapon_type", None)
             if weapon_type and getattr(weapon_type, "slug", ""):
                 weapon_type_slugs.add(str(weapon_type.slug))
+                weapon_type_names.add(str(getattr(weapon_type, "name", "") or weapon_type.slug))
 
             skill_manager = getattr(stats, "skills", None)
             if skill_manager is not None:
@@ -218,10 +227,15 @@ def _character_item_target_context(engine, character_item: CharacterItem) -> dic
             stats = getattr(item, stats_name, None)
             if not stats:
                 continue
+            if stats_name == "rangedweaponstats":
+                weapon_categories.add("ranged")
+            elif stats_name == "shieldstats":
+                weapon_categories.add("shield")
 
             weapon_type = getattr(stats, "weapon_type", None)
             if weapon_type and getattr(weapon_type, "slug", ""):
                 weapon_type_slugs.add(str(weapon_type.slug))
+                weapon_type_names.add(str(getattr(weapon_type, "name", "") or weapon_type.slug))
 
             skill_manager = getattr(stats, "skills", None)
             if skill_manager is not None:
@@ -232,7 +246,9 @@ def _character_item_target_context(engine, character_item: CharacterItem) -> dic
         return {
             "character_item_id": str(character_item.id),
             "weapon_ids": weapon_ids,
+            "weapon_categories": tuple(sorted(weapon_categories)),
             "weapon_types": tuple(sorted(weapon_type_slugs)),
+            "weapon_type_names": tuple(sorted(weapon_type_names)),
             "weapon_skill_slugs": tuple(sorted(weapon_skill_slugs)),
         }
 
@@ -640,7 +656,11 @@ def _build_equipped_weapon_rows(engine) -> list[dict]:
                         "min_attribute_label": min_attribute_label,
                         "min_attribute_compact": "Ge" in min_attribute_label,
                         "reload_time": item_engine.get_weapon_reload_time(),
-                        "range_label": item_engine.get_weapon_range_label(strength=strength),
+                        "range_label": item_engine.get_weapon_range_label(
+                            strength=strength,
+                            modifier_engine=engine.modifier_engine,
+                            context=weapon_context,
+                        ),
                         "maneuver_attribute_mode": item_engine.get_weapon_maneuver_attribute_mode(),
                         "maneuver_attribute_label": item_engine.get_weapon_maneuver_attribute_label(),
                         "maneuver_attribute_modifier": primary_maneuver_option["attribute_modifier"],

@@ -149,7 +149,6 @@ class TechniqueState(TypedDict):
     learned: bool
     acquisition_type: str
     technique_type: str
-    support_level: str
     specialization_slot_grants: int
     engine_resolves_effects: bool
     is_choice_placeholder: bool
@@ -440,7 +439,7 @@ class CharacterEngine:
 
     @cached_property
     def _choice_bonus_techniques(self) -> list[Technique]:
-        """Cache computed passive techniques with explicit choice bonuses; choice_group is ignored here."""
+        """Cache passive techniques with explicit choice bonuses; choice_group is ignored here."""
         return [
             technique
             for technique in self._character_school_technique_list
@@ -537,6 +536,11 @@ class CharacterEngine:
         school_ids = list(self._school_entries.keys())
         if not school_ids:
             return []
+        school_names = [
+            entry.school.name
+            for entry in self._school_entries.values()
+            if entry.school_id and entry.school.name
+        ]
 
         requirement_queryset = TechniqueRequirement.objects.select_related(
             "required_technique__school",
@@ -556,7 +560,7 @@ class CharacterEngine:
         choice_definition_queryset = TechniqueChoiceDefinition.objects.order_by("sort_order", "name", "id")
 
         return list(
-            Technique.objects.filter(school_id__in=school_ids)
+            Technique.objects.filter(Q(school_id__in=school_ids) | Q(school__name__in=school_names))
             .select_related(
                 "school",
                 "path",
@@ -1198,7 +1202,6 @@ class CharacterEngine:
             "learned": learned,
             "acquisition_type": technique.acquisition_type,
             "technique_type": technique.technique_type,
-            "support_level": technique.support_level,
             "specialization_slot_grants": technique.specialization_slot_grants,
             "engine_resolves_effects": engine_resolves_effects,
             "is_choice_placeholder": technique.is_choice_placeholder,
@@ -1252,7 +1255,10 @@ class CharacterEngine:
 
     def _technique_effect_is_computed(self, technique: Technique) -> bool:
         """Return whether the engine should resolve passive effects for this technique."""
-        return technique.support_level == Technique.SupportLevel.COMPUTED
+        if technique.choice_bonus_value:
+            return True
+        semantic_effects = getattr(technique, "semantic_effects", None)
+        return bool(semantic_effects and semantic_effects.filter(active_flag=True).exists())
 
     def _is_technique_choice_complete(self, technique: Technique) -> bool:
         """Check whether the configured persistent technique choices are fully stored."""

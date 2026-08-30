@@ -19,6 +19,9 @@ from charsheet.constants import (
 from charsheet.models import ArmorStats, CharacterItem, Item, Quality, RangedWeaponStats, ShieldStats, WeaponStats
 
 
+WEAPON_RANGE_KEYS = ("short", "medium", "long")
+
+
 class ItemEngine:
     """Resolve derived item values for base items and owned inventory rows."""
 
@@ -335,15 +338,86 @@ class ItemEngine:
             return f"Ge {min_ge}"
         return f"{min_st} (Ge {min_ge})"
 
-    def get_weapon_range_label(self, *, strength: int | None = None) -> str:
+    def get_weapon_range_label(
+        self,
+        *,
+        strength: int | None = None,
+        modifier_engine=None,
+        context: dict | None = None,
+    ) -> str:
         """Return the compact short/medium/long weapon range label."""
+        values = self.get_weapon_range_values(
+            strength=strength,
+            modifier_engine=modifier_engine,
+            context=context,
+        )
+        if values is not None:
+            return self.format_weapon_range_label(values)
+        return ""
+
+    def get_weapon_range_values(
+        self,
+        *,
+        strength: int | None = None,
+        modifier_engine=None,
+        context: dict | None = None,
+    ) -> tuple[int | None, int | None, int | None] | None:
+        """Return short/medium/long range values, optionally resolved through modifiers."""
         ranged_stats = self._get_ranged_weapon_stats()
         if ranged_stats is not None:
-            return ranged_stats.effective_range_label(strength)
+            values = self._effective_range_values_for_stats(ranged_stats, strength=strength)
+            return self._apply_weapon_range_modifiers(values, modifier_engine=modifier_engine, context=context)
         stats = self._get_weapon_stats()
         if not stats:
+            return None
+        values = self._effective_range_values_for_stats(stats, strength=strength)
+        if values is None:
+            return None
+        return self._apply_weapon_range_modifiers(values, modifier_engine=modifier_engine, context=context)
+
+    @staticmethod
+    def format_weapon_range_label(values: tuple[int | None, int | None, int | None] | None) -> str:
+        """Return compact short/medium/long range text from resolved values."""
+        if values is None:
             return ""
-        return stats.effective_range_label(strength)
+        if not any(value is not None for value in values):
+            return ""
+        return " / ".join(str(value) if value is not None else "-" for value in values)
+
+    @staticmethod
+    def _effective_range_values_for_stats(
+        stats: WeaponStats | RangedWeaponStats,
+        *,
+        strength: int | None = None,
+    ) -> tuple[int | None, int | None, int | None] | None:
+        values = (
+            getattr(stats, "range_short", None),
+            getattr(stats, "range_medium", None),
+            getattr(stats, "range_long", None),
+        )
+        if not any(value is not None for value in values):
+            return None
+        if not getattr(stats, "range_strength_multiplier", False) or strength is None:
+            return values
+        multiplier = max(0, int(strength or 0))
+        return tuple(
+            int(value or 0) * multiplier if value is not None else None
+            for value in values
+        )
+
+    @staticmethod
+    def _apply_weapon_range_modifiers(
+        values: tuple[int | None, int | None, int | None],
+        *,
+        modifier_engine=None,
+        context: dict | None = None,
+    ) -> tuple[int | None, int | None, int | None]:
+        if modifier_engine is None:
+            return values
+        return tuple(
+            modifier_engine.resolve_weapon_range_value(range_key, value, context=context)
+            for range_key, value in zip(WEAPON_RANGE_KEYS, values)
+        )
 
     def get_weapon_reload_time(self) -> int | None:
         """Return the weapon reload time if configured."""

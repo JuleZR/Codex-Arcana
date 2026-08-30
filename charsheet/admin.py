@@ -1012,6 +1012,8 @@ def _technique_source_label(technique, *, character=None):
         return technique.school.name
     if character is not None and getattr(character, "race_id", None):
         return f"Race: {character.race.name}"
+    if not getattr(technique, "pk", None):
+        return "Race Technique"
     race_names = sorted(technique.race_links.values_list("race__name", flat=True).distinct())
     if race_names:
         return "Race: " + ", ".join(race_names)
@@ -1034,7 +1036,6 @@ def _format_technique_rule_context_html(technique):
         ("Level", technique.level),
         ("Path", technique.path.name if technique.path_id else "All Paths"),
         ("Acquisition", technique.get_acquisition_type_display()),
-        ("Support", technique.get_support_level_display()),
         ("Requirements", ", ".join(_format_technique_requirements(technique))),
         ("Exclusions", ", ".join(_format_technique_exclusions(technique))),
         ("Choice Definitions", ", ".join(_format_technique_choice_definitions(technique))),
@@ -1177,7 +1178,6 @@ def _format_school_technique_overview_html(school):
                     ", ".join(_format_technique_exclusions(technique)),
                     ", ".join(_format_technique_choice_definitions(technique)),
                     technique.specialization_slot_grants or 0,
-                    technique.get_support_level_display(),
                 )
             )
 
@@ -1190,7 +1190,7 @@ def _format_school_technique_overview_html(school):
                     (
                         "<div style='margin-left:1rem;'><strong>{}</strong>: Path {} | Acquisition {} | "
                         "Choice Block {} | Requirements {} | Exclusions {} | Choices {} | "
-                        "Slots {} | Support {}</div>"
+                        "Slots {}</div>"
                     ),
                     rows,
                 ),
@@ -1379,7 +1379,6 @@ class CharacterTechniqueInline(admin.TabularInline):
         "technique",
         "technique_school",
         "technique_level",
-        "technique_support_level",
         "technique_has_specification",
         "technique_choice_context",
         "learned_at",
@@ -1389,7 +1388,6 @@ class CharacterTechniqueInline(admin.TabularInline):
     readonly_fields = (
         "technique_school",
         "technique_level",
-        "technique_support_level",
         "technique_has_specification",
         "technique_choice_context",
     )
@@ -1407,13 +1405,6 @@ class CharacterTechniqueInline(admin.TabularInline):
         if not obj or not obj.technique_id:
             return "-"
         return obj.technique.level
-
-    @admin.display(description="Support")
-    def technique_support_level(self, obj):
-        """Show how fully the engine supports the linked technique."""
-        if not obj or not obj.technique_id:
-            return "-"
-        return obj.technique.get_support_level_display()
 
     @admin.display(boolean=True, description="Spec?")
     def technique_has_specification(self, obj):
@@ -1649,7 +1640,6 @@ class TechniqueInline(admin.TabularInline):
         "choice_block",
         "target_choice_definition",
         "specialization_slot_grants",
-        "support_level",
         "inline_rule_hint",
     )
     readonly_fields = ("inline_rule_hint",)
@@ -2485,7 +2475,9 @@ class ItemSemanticEffectAdminForm(forms.ModelForm):
         ("attribute", "Eigenschaft"),
         ("derived_stat", "Abgeleiteter Wert"),
         ("movement", "Bewegung"),
+        ("creature_movement", "Kreaturenbewegung"),
         ("combat", "Kampf / Waffe"),
+        ("weapon_range", "Waffenreichweite"),
         ("skill", "Fertigkeit"),
         ("skill_category", "Fertigkeitskategorie"),
         ("item", "Item"),
@@ -2498,6 +2490,31 @@ class ItemSemanticEffectAdminForm(forms.ModelForm):
         (WEAPON_DAMAGE, "Waffenschaden"),
         (WEAPON_MANEUVER_DAMAGE, "Manöver und Schaden"),
         (WEAPON_DAMAGE_DICE, "Würfelanzahl"),
+    )
+    MOVEMENT_TARGET_CHOICES = (
+        ("ground", "Laufen: Kampf, Marsch und Sprint"),
+        ("ground_combat", "Laufen Kampf"),
+        ("ground_march", "Laufen Marsch"),
+        ("ground_sprint", "Laufen Sprint"),
+        ("swim", "Schwimmen: alle Werte"),
+        ("swim_combat", "Schwimmen Kampf"),
+        ("swim_march", "Schwimmen Marsch"),
+        ("swim_sprint", "Schwimmen Sprint"),
+        ("fly", "Fliegen: Kampf, Marsch und Sprint"),
+        ("fly_combat", "Fliegen Kampf"),
+        ("fly_march", "Fliegen Marsch"),
+        ("fly_sprint", "Fliegen Sprint"),
+    )
+    WEAPON_RANGE_TARGET_CHOICES = (
+        ("short", "Kurze Reichweite"),
+        ("medium", "Mittlere Reichweite"),
+        ("long", "Weite Reichweite"),
+    )
+    WEAPON_CATEGORY_FILTER_CHOICES = (
+        ("", "Alle Waffen mit Reichweite"),
+        ("ranged", "Alle Fernkampfwaffen"),
+        ("melee", "Alle Nahkampfwaffen mit Reichweite"),
+        ("shield", "Schilde"),
     )
     OPERATION_CHOICES = (
         ("flat_add", "+ addieren"),
@@ -2515,20 +2532,26 @@ class ItemSemanticEffectAdminForm(forms.ModelForm):
     simple_target = forms.ChoiceField(label="Was genau?", choices=(), required=False)
     simple_operator = forms.ChoiceField(label="Rechenart", choices=OPERATION_CHOICES, required=False)
     simple_value = forms.CharField(label="Zahl", required=False)
-
-    MOVEMENT_TARGET_CHOICES = (
-        ("ground", "Laufen: Kampf, Marsch und Sprint"),
-        ("ground_combat", "Laufen Kampf"),
-        ("ground_march", "Laufen Marsch"),
-        ("ground_sprint", "Laufen Sprint"),
-        ("swim", "Schwimmen: alle Werte"),
-        ("swim_combat", "Schwimmen Kampf"),
-        ("swim_march", "Schwimmen Marsch"),
-        ("swim_sprint", "Schwimmen Sprint"),
-        ("fly", "Fliegen: Kampf, Marsch und Sprint"),
-        ("fly_combat", "Fliegen Kampf"),
-        ("fly_march", "Fliegen Marsch"),
-        ("fly_sprint", "Fliegen Sprint"),
+    simple_weapon_category_filter = forms.ChoiceField(
+        label="Waffenfilter",
+        choices=WEAPON_CATEGORY_FILTER_CHOICES,
+        required=False,
+    )
+    simple_weapon_type_filter = forms.ModelMultipleChoiceField(
+        label="Nur Waffentyp",
+        queryset=WeaponType.objects.none(),
+        required=False,
+        widget=FilteredSelectMultiple("Waffentypen", is_stacked=False),
+    )
+    simple_weapon_type_contains_filter = forms.CharField(
+        label="Waffentyp enthaelt",
+        required=False,
+        help_text='Optional. Beispiel: "bogen" trifft alle Waffentypen, deren Name oder Slug bogen enthaelt.',
+    )
+    simple_weapon_item_filter = forms.ModelChoiceField(
+        label="Nur Basiswaffe",
+        queryset=Item.objects.none(),
+        required=False,
     )
 
     class Meta:
@@ -2538,6 +2561,13 @@ class ItemSemanticEffectAdminForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["simple_target"].choices = self._simple_target_choices()
+        self.fields["simple_weapon_type_filter"].queryset = WeaponType.objects.order_by(
+            "sort_order",
+            "name",
+        )
+        self.fields["simple_weapon_item_filter"].queryset = Item.objects.filter(
+            Q(weapon_stats__isnull=False) | Q(rangedweaponstats__isnull=False) | Q(shieldstats__isnull=False)
+        ).distinct().order_by("name", "id")
         self.fields["sort_order"].label = "Reihenfolge"
         self.fields["active_flag"].label = "Aktiv"
         self.fields["toggleable"].label = "Auf Itemkarte umschaltbar"
@@ -2565,7 +2595,9 @@ class ItemSemanticEffectAdminForm(forms.ModelForm):
         choices.extend((f"attribute:{value}", label) for value, label in ATTRIBUTE_CODE_CHOICES)
         choices.extend((f"derived_stat:{value}", label) for value, label in STAT_SLUG_CHOICES)
         choices.extend((f"movement:{value}", label) for value, label in self.MOVEMENT_TARGET_CHOICES)
+        choices.extend((f"creature_movement:{value}", label) for value, label in self.MOVEMENT_TARGET_CHOICES)
         choices.extend((f"combat:{value}", label) for value, label in self.COMBAT_TARGET_CHOICES)
+        choices.extend((f"weapon_range:{value}", label) for value, label in self.WEAPON_RANGE_TARGET_CHOICES)
         choices.extend((f"skill:{skill.slug}", skill.name) for skill in Skill.objects.order_by("name"))
         choices.extend((f"skill_category:{category.slug}", category.name) for category in SkillCategory.objects.order_by("name"))
         choices.extend((f"item:{item.pk}", item.name) for item in Item.objects.order_by("name", "id"))
@@ -2586,7 +2618,9 @@ class ItemSemanticEffectAdminForm(forms.ModelForm):
             "attribute": "attribute",
             "derived_stat": "derived_stat",
             "movement": "movement",
+            "creature_movement": "creature_movement",
             "combat": "combat",
+            "weapon_range": "weapon_range",
             "skill": "skill",
             "skill_category": "skill_category",
             "item": "item",
@@ -2602,8 +2636,38 @@ class ItemSemanticEffectAdminForm(forms.ModelForm):
         value = self.initial.get("value", getattr(self.instance, "value", ""))
         if self._is_numberish(value):
             self.initial.setdefault("simple_value", self._format_simple_number(value))
-        elif target_domain == "movement" and target_key in {"ground", "swim", "swim_all", "fly"} and str(value or "").strip():
+        elif (
+            target_domain in {"movement", "creature_movement"}
+            and target_key in {"ground", "swim", "swim_all", "fly"}
+            and str(value or "").strip()
+        ):
             self.initial.setdefault("simple_value", str(value).strip())
+        metadata = dict(self.initial.get("metadata", getattr(self.instance, "metadata", {}) or {}) or {})
+        category_filter = metadata.get("target_weapon_category") or ""
+        if isinstance(category_filter, list):
+            category_filter = category_filter[0] if category_filter else ""
+        self.initial.setdefault("simple_weapon_category_filter", category_filter)
+        weapon_type_filter = metadata.get("target_weapon_type") or []
+        if isinstance(weapon_type_filter, str):
+            weapon_type_filter = [weapon_type_filter]
+        if weapon_type_filter:
+            self.initial.setdefault(
+                "simple_weapon_type_filter",
+                list(WeaponType.objects.filter(slug__in=weapon_type_filter).values_list("pk", flat=True)),
+            )
+        weapon_type_contains_filter = metadata.get("target_weapon_type_contains") or []
+        if isinstance(weapon_type_contains_filter, str):
+            weapon_type_contains_filter = [weapon_type_contains_filter]
+        if weapon_type_contains_filter:
+            self.initial.setdefault(
+                "simple_weapon_type_contains_filter",
+                ", ".join(str(value) for value in weapon_type_contains_filter if value not in (None, "")),
+            )
+        weapon_item_filter = metadata.get("target_weapon_id") or ""
+        if isinstance(weapon_item_filter, list):
+            weapon_item_filter = weapon_item_filter[0] if weapon_item_filter else ""
+        if weapon_item_filter:
+            self.initial.setdefault("simple_weapon_item_filter", weapon_item_filter)
 
     def _polish_technical_fields(self):
         for field_name in (
@@ -2680,6 +2744,32 @@ class ItemSemanticEffectAdminForm(forms.ModelForm):
         else:
             cleaned_data["mode"] = cleaned_data.get("mode") or "flat"
             cleaned_data["scale_divisor"] = None
+        metadata = dict(cleaned_data.get("metadata") or {})
+        for key in (
+            "target_weapon_category",
+            "target_weapon_type",
+            "target_weapon_type_contains",
+            "target_weapon_id",
+        ):
+            metadata.pop(key, None)
+        if target_domain == "weapon_range":
+            category_filter = str(cleaned_data.get("simple_weapon_category_filter") or "").strip()
+            type_filter = cleaned_data.get("simple_weapon_type_filter")
+            type_contains_filter = str(cleaned_data.get("simple_weapon_type_contains_filter") or "").strip()
+            item_filter = cleaned_data.get("simple_weapon_item_filter")
+            if category_filter:
+                metadata["target_weapon_category"] = [category_filter]
+            if type_filter:
+                metadata["target_weapon_type"] = list(type_filter.values_list("slug", flat=True))
+            if type_contains_filter:
+                metadata["target_weapon_type_contains"] = [
+                    part.strip()
+                    for part in type_contains_filter.split(",")
+                    if part.strip()
+                ]
+            if item_filter is not None:
+                metadata["target_weapon_id"] = [str(item_filter.pk)]
+        cleaned_data["metadata"] = metadata
         return cleaned_data
 
     def _simple_target(self, area, simple_target) -> tuple[str, str]:
@@ -2690,7 +2780,9 @@ class ItemSemanticEffectAdminForm(forms.ModelForm):
             "attribute": "attribute",
             "derived_stat": "derived_stat",
             "movement": "movement",
+            "creature_movement": "creature_movement",
             "combat": "combat",
+            "weapon_range": "weapon_range",
             "skill": "skill",
             "skill_category": "skill_category",
             "item": "item",
@@ -2720,7 +2812,7 @@ class ItemSemanticEffectAdminForm(forms.ModelForm):
     @classmethod
     def _format_simple_value(cls, target_domain: str, target_key: str, value) -> str:
         text = str(value or "").strip()
-        if target_domain == "movement" and target_key in {"ground", "swim", "swim_all", "fly"}:
+        if target_domain in {"movement", "creature_movement"} and target_key in {"ground", "swim", "swim_all", "fly"}:
             if text.startswith(("[", "{")):
 
                 normalized_text = f"{text[:-1]}]" if text.startswith("[") and text.endswith("}") else text
@@ -2730,7 +2822,16 @@ class ItemSemanticEffectAdminForm(forms.ModelForm):
 
     def save(self, commit=True):
         instance = super().save(commit=False)
-        for field_name in ("target_domain", "target_key", "operator", "value", "mode", "scale_source", "scale_divisor"):
+        for field_name in (
+            "target_domain",
+            "target_key",
+            "operator",
+            "value",
+            "mode",
+            "scale_source",
+            "scale_divisor",
+            "metadata",
+        ):
             setattr(instance, field_name, self.cleaned_data[field_name])
         if commit:
             instance.save()
@@ -2764,6 +2865,8 @@ class ItemSemanticEffectInline(admin.StackedInline):
                     "sort_order",
                     "effect_area",
                     "simple_target",
+                    ("simple_weapon_category_filter", "simple_weapon_type_filter", "simple_weapon_item_filter"),
+                    "simple_weapon_type_contains_filter",
                     ("simple_operator", "simple_value"),
                     "scale_source",
                     "scale_divisor",
@@ -3226,7 +3329,9 @@ class RuleSemanticEffectAdminForm(SemanticCreatureCardGrantFormMixin, forms.Mode
         ("attribute", "Eigenschaft"),
         ("derived_stat", "Abgeleiteter Wert"),
         ("combat", "Kampfwert / Schadenswert"),
+        ("creature_movement", "Kreaturenbewegung"),
         ("damage_source", "Schadensart"),
+        ("weapon_range", "Waffenreichweite"),
         ("weapon_skill", "Waffen nach Fertigkeit"),
         ("weapon", "Konkrete Waffe"),
         ("skill", "Fertigkeit"),
@@ -3243,6 +3348,17 @@ class RuleSemanticEffectAdminForm(SemanticCreatureCardGrantFormMixin, forms.Mode
         (WEAPON_DAMAGE_DICE, "Würfelanzahl"),
         (WEAPON_MASTERY_BONUS, "Waffenmeister-Bonus"),
     )
+    WEAPON_RANGE_TARGET_CHOICES = (
+        ("short", "Kurze Reichweite"),
+        ("medium", "Mittlere Reichweite"),
+        ("long", "Weite Reichweite"),
+    )
+    WEAPON_CATEGORY_FILTER_CHOICES = (
+        ("", "Alle Waffen mit Reichweite"),
+        ("ranged", "Alle Fernkampfwaffen"),
+        ("melee", "Alle Nahkampfwaffen mit Reichweite"),
+        ("shield", "Schilde"),
+    )
     OPERATION_CHOICES = (
         ("flat_add", "+ addieren"),
         ("flat_sub", "- abziehen"),
@@ -3253,6 +3369,20 @@ class RuleSemanticEffectAdminForm(SemanticCreatureCardGrantFormMixin, forms.Mode
         ("max_value", "hoechstens"),
         ("set_flag", "Flag setzen"),
         ("unset_flag", "Flag entfernen"),
+    )
+    MOVEMENT_TARGET_CHOICES = (
+        ("ground", "Laufen: Kampf, Marsch und Sprint"),
+        ("ground_combat", "Laufen Kampf"),
+        ("ground_march", "Laufen Marsch"),
+        ("ground_sprint", "Laufen Sprint"),
+        ("swim", "Schwimmen: alle Werte"),
+        ("swim_combat", "Schwimmen Kampf"),
+        ("swim_march", "Schwimmen Marsch"),
+        ("swim_sprint", "Schwimmen Sprint"),
+        ("fly", "Fliegen: Kampf, Marsch und Sprint"),
+        ("fly_combat", "Fliegen Kampf"),
+        ("fly_march", "Fliegen Marsch"),
+        ("fly_sprint", "Fliegen Sprint"),
     )
     SCALING_CHOICES = (
         ("", "Keine Skalierung"),
@@ -3268,6 +3398,27 @@ class RuleSemanticEffectAdminForm(SemanticCreatureCardGrantFormMixin, forms.Mode
     simple_target = forms.ChoiceField(label="Was genau?", choices=(), required=False)
     simple_operator = forms.ChoiceField(label="Rechenart", choices=OPERATION_CHOICES, required=False)
     simple_value = CommaFloatField(label="Zahl", required=False)
+    simple_weapon_category_filter = forms.ChoiceField(
+        label="Waffenfilter",
+        choices=WEAPON_CATEGORY_FILTER_CHOICES,
+        required=False,
+    )
+    simple_weapon_type_filter = forms.ModelMultipleChoiceField(
+        label="Nur Waffentyp",
+        queryset=WeaponType.objects.none(),
+        required=False,
+        widget=FilteredSelectMultiple("Waffentypen", is_stacked=False),
+    )
+    simple_weapon_type_contains_filter = forms.CharField(
+        label="Waffentyp enthaelt",
+        required=False,
+        help_text='Optional. Beispiel: "bogen" trifft alle Waffentypen, deren Name oder Slug bogen enthaelt.',
+    )
+    simple_weapon_item_filter = forms.ModelChoiceField(
+        label="Nur Basiswaffe",
+        queryset=Item.objects.none(),
+        required=False,
+    )
     simple_scaling = forms.ChoiceField(label="Skalierung", choices=SCALING_CHOICES, required=False)
     simple_scale_school = forms.ModelChoiceField(
         label="Schule fuer Skalierung",
@@ -3301,6 +3452,13 @@ class RuleSemanticEffectAdminForm(SemanticCreatureCardGrantFormMixin, forms.Mode
         self.fields["simple_target"].choices = self._simple_target_choices()
         self.fields["simple_scale_school"].queryset = School.objects.order_by("name")
         self.fields["simple_scale_skill"].queryset = Skill.objects.order_by("name")
+        self.fields["simple_weapon_type_filter"].queryset = WeaponType.objects.order_by(
+            "sort_order",
+            "name",
+        )
+        self.fields["simple_weapon_item_filter"].queryset = Item.objects.filter(
+            Q(weapon_stats__isnull=False) | Q(rangedweaponstats__isnull=False) | Q(shieldstats__isnull=False)
+        ).distinct().order_by("name", "id")
         self.fields["simple_weapon_skills"].queryset = Skill.objects.filter(
             Q(weapon_stats__isnull=False) | Q(ranged_weapon_stats__isnull=False) | Q(shield_stats__isnull=False)
         ).distinct().order_by("name")
@@ -3328,12 +3486,14 @@ class RuleSemanticEffectAdminForm(SemanticCreatureCardGrantFormMixin, forms.Mode
         choices.extend((f"attribute:{value}", label) for value, label in ATTRIBUTE_CODE_CHOICES)
         choices.extend((f"derived_stat:{value}", label) for value, label in STAT_SLUG_CHOICES)
         choices.extend((f"combat:{value}", label) for value, label in self.COMBAT_TARGET_CHOICES)
+        choices.extend((f"creature_movement:{value}", label) for value, label in self.MOVEMENT_TARGET_CHOICES)
+        choices.extend((f"weapon_range:{value}", label) for value, label in self.WEAPON_RANGE_TARGET_CHOICES)
         choices.extend(
             (f"damage_source:dmg_{source.slug}", f"Schaden: {source.name}")
             for source in DamageSource.objects.order_by("name", "slug")
         )
         weapon_items = Item.objects.filter(
-            Q(weaponstats__isnull=False) | Q(rangedweaponstats__isnull=False) | Q(shieldstats__isnull=False)
+            Q(weapon_stats__isnull=False) | Q(rangedweaponstats__isnull=False) | Q(shieldstats__isnull=False)
         ).distinct().order_by("name", "id")
         choices.extend((f"weapon:{item.pk}", item.name) for item in weapon_items)
         choices.extend((f"skill:{skill.slug}", skill.name) for skill in Skill.objects.order_by("name"))
@@ -3353,6 +3513,8 @@ class RuleSemanticEffectAdminForm(SemanticCreatureCardGrantFormMixin, forms.Mode
             "derived_stat": "derived_stat",
             "combat": "combat",
             "damage": "combat",
+            "creature_movement": "creature_movement",
+            "weapon_range": "weapon_range",
             "weapon_category": "item_category",
             "weapon": "weapon",
             "skill": "skill",
@@ -3373,7 +3535,11 @@ class RuleSemanticEffectAdminForm(SemanticCreatureCardGrantFormMixin, forms.Mode
         value = self.initial.get("value", getattr(self.instance, "value", ""))
         if self._is_numberish(value):
             self.initial.setdefault("simple_value", self._format_simple_number(value))
-        elif target_domain == "movement" and target_key in {"ground", "swim", "swim_all", "fly"} and str(value or "").strip():
+        elif (
+            target_domain in {"movement", "creature_movement"}
+            and target_key in {"ground", "swim", "swim_all", "fly"}
+            and str(value or "").strip()
+        ):
             self.initial.setdefault("simple_value", str(value).strip())
         scaling = dict(self.initial.get("scaling", getattr(self.instance, "scaling", {}) or {}) or {})
         self.initial.setdefault("simple_scaling", scaling.get("scale_source", ""))
@@ -3395,6 +3561,31 @@ class RuleSemanticEffectAdminForm(SemanticCreatureCardGrantFormMixin, forms.Mode
                 list(Skill.objects.filter(slug__in=selected_weapon_skills).values_list("pk", flat=True)),
             )
             self.initial["effect_area"] = "weapon_skill"
+        category_filter = metadata.get("target_weapon_category") or ""
+        if isinstance(category_filter, list):
+            category_filter = category_filter[0] if category_filter else ""
+        self.initial.setdefault("simple_weapon_category_filter", category_filter)
+        weapon_type_filter = metadata.get("target_weapon_type") or []
+        if isinstance(weapon_type_filter, str):
+            weapon_type_filter = [weapon_type_filter]
+        if weapon_type_filter:
+            self.initial.setdefault(
+                "simple_weapon_type_filter",
+                list(WeaponType.objects.filter(slug__in=weapon_type_filter).values_list("pk", flat=True)),
+            )
+        weapon_type_contains_filter = metadata.get("target_weapon_type_contains") or []
+        if isinstance(weapon_type_contains_filter, str):
+            weapon_type_contains_filter = [weapon_type_contains_filter]
+        if weapon_type_contains_filter:
+            self.initial.setdefault(
+                "simple_weapon_type_contains_filter",
+                ", ".join(str(value) for value in weapon_type_contains_filter if value not in (None, "")),
+            )
+        weapon_item_filter = metadata.get("target_weapon_id") or ""
+        if isinstance(weapon_item_filter, list):
+            weapon_item_filter = weapon_item_filter[0] if weapon_item_filter else ""
+        if weapon_item_filter:
+            self.initial.setdefault("simple_weapon_item_filter", weapon_item_filter)
 
     def _hide_technical_fields(self):
         for field_name in (
@@ -3496,9 +3687,40 @@ class RuleSemanticEffectAdminForm(SemanticCreatureCardGrantFormMixin, forms.Mode
         if weapon_skill_slugs:
             metadata["target_weapon_skill"] = weapon_skill_slugs
             metadata.pop("target_weapon_type", None)
-        else:
+            metadata.pop("target_weapon_type_contains", None)
+        elif target_domain != "weapon_range":
             metadata.pop("target_weapon_skill", None)
             metadata.pop("target_weapon_type", None)
+            metadata.pop("target_weapon_type_contains", None)
+        else:
+            metadata.pop("target_weapon_skill", None)
+        if target_domain == "weapon_range":
+            for key in (
+                "target_weapon_category",
+                "target_weapon_type",
+                "target_weapon_type_contains",
+                "target_weapon_id",
+            ):
+                metadata.pop(key, None)
+            category_filter = str(cleaned_data.get("simple_weapon_category_filter") or "").strip()
+            type_filter = cleaned_data.get("simple_weapon_type_filter")
+            type_contains_filter = str(cleaned_data.get("simple_weapon_type_contains_filter") or "").strip()
+            item_filter = cleaned_data.get("simple_weapon_item_filter")
+            if category_filter:
+                metadata["target_weapon_category"] = [category_filter]
+            if type_filter:
+                metadata["target_weapon_type"] = list(type_filter.values_list("slug", flat=True))
+            if type_contains_filter:
+                metadata["target_weapon_type_contains"] = [
+                    part.strip()
+                    for part in type_contains_filter.split(",")
+                    if part.strip()
+                ]
+            if item_filter is not None:
+                metadata["target_weapon_id"] = [str(item_filter.pk)]
+        else:
+            metadata.pop("target_weapon_category", None)
+            metadata.pop("target_weapon_id", None)
         cleaned_data["metadata"] = metadata
         return cleaned_data
 
@@ -3519,6 +3741,8 @@ class RuleSemanticEffectAdminForm(SemanticCreatureCardGrantFormMixin, forms.Mode
             "derived_stat": "derived_stat",
             "combat": "combat",
             "damage_source": "damage",
+            "creature_movement": "creature_movement",
+            "weapon_range": "weapon_range",
             "weapon": "weapon",
             "skill": "skill",
             "skill_category": "skill_category",
@@ -4668,6 +4892,8 @@ class TraitSemanticEffectInline(admin.StackedInline):
                 "fields": (
                     ("effect_area", "simple_target"),
                     "simple_weapon_skills",
+                    ("simple_weapon_category_filter", "simple_weapon_type_filter", "simple_weapon_item_filter"),
+                    "simple_weapon_type_contains_filter",
                     ("simple_operator", "simple_value"),
                     "target_choice_definition",
                     "target_skills",
@@ -4719,6 +4945,8 @@ class RaceSemanticEffectInline(admin.StackedInline):
                 "fields": (
                     ("effect_area", "simple_target"),
                     "simple_weapon_skills",
+                    ("simple_weapon_category_filter", "simple_weapon_type_filter", "simple_weapon_item_filter"),
+                    "simple_weapon_type_contains_filter",
                     ("simple_operator", "simple_value"),
                     "target_race_choice_definition",
                     "simple_scaling",
@@ -4746,6 +4974,8 @@ RULE_SEMANTIC_EFFECT_FIELDSETS = (
             "fields": (
                 ("effect_area", "simple_target"),
                 "simple_weapon_skills",
+                ("simple_weapon_category_filter", "simple_weapon_type_filter", "simple_weapon_item_filter"),
+                "simple_weapon_type_contains_filter",
                 ("simple_operator", "simple_value"),
                 "simple_scaling",
                 ("simple_scale_school", "simple_scale_skill", "simple_scale_divisor"),
@@ -5300,7 +5530,7 @@ class ProgressionRuleAdmin(admin.ModelAdmin):
 
 @admin.register(Technique)
 class TechniqueAdmin(admin.ModelAdmin):
-    """Admin configuration for techniques, including support and choice metadata."""
+    """Admin configuration for techniques and choice metadata."""
 
     list_display = (
         "name",
@@ -5313,7 +5543,6 @@ class TechniqueAdmin(admin.ModelAdmin):
         "target_choice_definition",
         "specialization_slot_grants",
         "granted_daemonic_power_tier",
-        "support_level",
         "choice_marker",
     )
     search_fields = (
@@ -5334,7 +5563,6 @@ class TechniqueAdmin(admin.ModelAdmin):
         "level",
         "technique_type",
         "acquisition_type",
-        "support_level",
         "is_choice_placeholder",
         "has_specification",
         "choice_target_kind",
@@ -5387,9 +5615,8 @@ class TechniqueAdmin(admin.ModelAdmin):
                 "fields": (
                     ("technique_type", "acquisition_type"),
                     "has_specification",
-                    "support_level",
                 ),
-                "description": "These fields classify the technique for rulebook, admin, and engine use.",
+                "description": "These fields classify the technique for rulebook, admin, and learning use.",
             },
         ),
         (
@@ -5457,13 +5684,19 @@ class TechniqueAdmin(admin.ModelAdmin):
     @admin.display(ordering="school__type__name", description="School Type")
     def school_type(self, obj):
         """Return the related school type for list display."""
+        if not obj or not obj.school_id:
+            return "-"
         return obj.school.type
 
     @admin.display(ordering="level", description="Rulebook")
     def rulebook_position(self, obj):
         """Render the rulebook position in school -> level -> path order."""
+        if not obj:
+            return "-"
+        source_name = _technique_source_label(obj)
+        level = obj.level if obj.level is not None else "-"
         path_name = obj.path.name if obj.path_id else "All Paths"
-        return f"{obj.school.name} -> {obj.level} -> {path_name}"
+        return f"{source_name} -> {level} -> {path_name}"
 
     @admin.display(boolean=True, description="Choice?")
     def choice_marker(self, obj):
@@ -6254,7 +6487,6 @@ class CharacterTechniqueAdmin(admin.ModelAdmin):
         "technique_school",
         "technique_path",
         "technique_level",
-        "technique_support_level",
         "specification_value",
         "learned_at",
     )
@@ -6272,7 +6504,6 @@ class CharacterTechniqueAdmin(admin.ModelAdmin):
         "technique__school",
         "technique__path",
         "technique__level",
-        "technique__support_level",
         "technique__is_choice_placeholder",
         "technique__has_specification",
     )
@@ -6294,11 +6525,6 @@ class CharacterTechniqueAdmin(admin.ModelAdmin):
     def technique_level(self, obj):
         """Return the technique's minimum school level."""
         return obj.technique.level
-
-    @admin.display(ordering="technique__support_level", description="Support")
-    def technique_support_level(self, obj):
-        """Return how strongly the engine supports the chosen technique."""
-        return obj.technique.get_support_level_display()
 
 
 @admin.register(RaceTechnique)

@@ -160,6 +160,7 @@ def semantic_modifier_class(target_domain):
         AttributeModifier,
         BaseModifier,
         CombatModifier,
+        CreatureMovementModifier,
         DerivedStatModifier,
         EconomyModifier,
         EntityModifier,
@@ -175,6 +176,7 @@ def semantic_modifier_class(target_domain):
         SocialModifier,
         SpecializationModifier,
         TraitModifier,
+        WeaponRangeModifier,
     )
 
     return {
@@ -191,8 +193,10 @@ def semantic_modifier_class(target_domain):
         "resource": ResourceModifier,
         "resistance": ResistanceModifier,
         "movement": MovementModifier,
+        "creature_movement": CreatureMovementModifier,
         "combat": CombatModifier,
         "damage": CombatModifier,
+        "weapon_range": WeaponRangeModifier,
         "perception": PerceptionModifier,
         "economy": EconomyModifier,
         "social": SocialModifier,

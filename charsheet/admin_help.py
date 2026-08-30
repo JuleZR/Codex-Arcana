@@ -69,11 +69,6 @@ MODIFIER_CHOICE_HELP = {
 TECHNIQUE_CHOICE_HELP = {
     "technique_type": "Passive = persistent effect, Active = technique used actively, Situational = only relevant in specific situations.",
     "acquisition_type": "Automatic = learned directly, Choice = selected from multiple options.",
-    "support_level": (
-        "Automated = the engine evaluates the rule fully, Partially Automated = "
-        "parts are structured and evaluable, Manual (Rule Text Only) = rule text "
-        "only with no automatic calculation."
-    ),
     "choice_target_kind": (
         "Simple mode for a single persistent choice. For multiple separate "
         "decisions, use the inline choice definitions instead."
@@ -153,7 +148,6 @@ TECHNIQUE_LABELS = {
     "choice_block": "Choice Block",
     "technique_type": "Technique Type",
     "acquisition_type": "Acquisition Type",
-    "support_level": "Rule Support",
     "is_choice_placeholder": "Choice Placeholder",
     "choice_group": "Organization Group",
     "selection_notes": "Selection Notes",

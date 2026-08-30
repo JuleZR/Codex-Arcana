@@ -62,7 +62,10 @@
             </td>
             <td class="weapon_mode_col">{{ row.mode_label }}</td>
             <td class="weapon_reload_col">{{ row.reload_time|default_if_none:"-" }}</td>
-            <td class="weapon_range_col">{{ row.range_label|default:"-" }}</td>
+            <td
+              class="weapon_range_col{% if row.range_calculation_tooltip %} tooltip_target{% endif %}"
+              {% if row.range_calculation_tooltip %}data-tooltip-side="left" data-tooltip="{{ row.range_calculation_tooltip }}"{% endif %}
+            >{{ row.range_label|default:"-" }}</td>
             <td title="Schadensmodifikator: {{ row.dmg_mod_display|default:'0' }}">{{ row.dmg_mod_display|default:"-" }}</td>
             <td>
               <span

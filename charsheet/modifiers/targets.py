@@ -45,6 +45,7 @@ class ResolvedTarget:
 class TargetResolver:
     """Normalize rule targets and evaluate target-specific context gates."""
 
+    WEAPON_RANGE = "weapon_range"
     WEAPON_TYPE = "weapon_type"
     WEAPON_SKILL = "weapon_skill"
     WEAPON_CATEGORY = "weapon_category"
@@ -60,6 +61,21 @@ class TargetResolver:
 
         if raw_domain == cls.DAMAGE_VALUE or cls.is_damage_key(raw_key):
             return ResolvedTarget(TargetDomain.COMBAT, raw_key)
+        if raw_domain == cls.WEAPON_RANGE:
+            range_key = {
+                "range_short": "short",
+                "short_range": "short",
+                "kurz": "short",
+                "range_medium": "medium",
+                "medium_range": "medium",
+                "mittel": "medium",
+                "range_long": "long",
+                "long_range": "long",
+                "weit": "long",
+            }.get(raw_key, raw_key)
+            return ResolvedTarget(TargetDomain.WEAPON_RANGE, range_key, cls._metadata_context_requirements(metadata))
+        if raw_domain == TargetDomain.CREATURE_MOVEMENT:
+            return ResolvedTarget(TargetDomain.CREATURE_MOVEMENT, raw_key, cls._metadata_context_requirements(metadata))
         if raw_domain == "stat":
             if raw_key in RULE_FLAG_KEYS:
                 return ResolvedTarget(TargetDomain.RULE_FLAG, raw_key)
@@ -107,15 +123,16 @@ class TargetResolver:
     @classmethod
     def matches_context(cls, modifier, context: dict[str, Any] | None = None) -> bool:
         """Return whether target metadata requirements match the evaluation context."""
-        requirements = cls._metadata_context_requirements(getattr(modifier, "metadata", {}) or {})
+        metadata = getattr(modifier, "metadata", {}) or {}
+        requirements = cls._metadata_context_requirements(metadata)
         if not requirements:
-            return True
+            return cls._matches_contains_requirements(metadata, context)
         context = context or {}
         for context_key, expected_values in requirements.items():
             actual_values = cls._context_values(context.get(context_key))
             if not actual_values.intersection(expected_values):
                 return False
-        return True
+        return cls._matches_contains_requirements(metadata, context)
 
     @classmethod
     def _metadata_context_requirements(cls, metadata: dict[str, Any]) -> dict[str, tuple[str, ...]]:
@@ -125,12 +142,34 @@ class TargetResolver:
             "target_weapon_skill": "weapon_skill_slugs",
             "target_weapon_category": "weapon_categories",
             "target_weapon_id": "weapon_ids",
+            "target_character_creature_id": "creature_ids",
+            "target_creature_id": "creature_template_ids",
+            "target_creature_type": "creature_types",
         }
         for metadata_key, context_key in mapping.items():
             values = cls._tuple_values(metadata.get(metadata_key))
             if values:
                 requirements[context_key] = values
         return requirements
+
+    @classmethod
+    def _matches_contains_requirements(
+        cls,
+        metadata: dict[str, Any],
+        context: dict[str, Any] | None = None,
+    ) -> bool:
+        weapon_type_terms = cls._tuple_values(metadata.get("target_weapon_type_contains"))
+        if not weapon_type_terms:
+            return True
+        context = context or {}
+        actual_values = cls._context_values(context.get("weapon_types"))
+        actual_values.update(cls._context_values(context.get("weapon_type_names")))
+        normalized_actuals = [value.casefold() for value in actual_values]
+        for term in weapon_type_terms:
+            normalized_term = str(term).strip().casefold()
+            if normalized_term and any(normalized_term in actual for actual in normalized_actuals):
+                return True
+        return False
 
     @staticmethod
     def _tuple_values(value: Any) -> tuple[str, ...]:

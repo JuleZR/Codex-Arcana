@@ -55,7 +55,6 @@ class Command(BaseCommand):
                         "school": technique.school.name if technique.school_id else "",
                         "level": technique.level,
                         "technique_type": technique.technique_type,
-                        "support_level": technique.support_level,
                         "action_type": technique.action_type,
                         "usage_type": technique.usage_type,
                         "activation_cost": technique.activation_cost,

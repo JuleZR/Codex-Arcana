@@ -340,6 +340,7 @@ class CreatureEngine:
     @cached_property
     def _semantic_effects(self) -> list[CreatureSemanticEffect]:
         effects: list[CreatureSemanticEffect] = []
+        effects.extend(self._owner_creature_movement_effects)
         for row in self._effective_trait_rows:
             for effect_row in row.trait.semantic_effects.all():
                 if not effect_row.active_flag:
@@ -418,6 +419,65 @@ class CreatureEngine:
                     )
                 )
         return self._expand_choice_bound_effects(effects)
+
+    @cached_property
+    def _owner_creature_movement_effects(self) -> list[CreatureSemanticEffect]:
+        """Return owner semantic effects that target this character-owned creature's movement."""
+        if self.instance is None or not self.instance.owner_id:
+            return []
+        owner_engine = self.instance.owner.get_engine()
+        modifier_engine = owner_engine.modifier_engine
+        effects: list[CreatureSemanticEffect] = []
+        for modifier in modifier_engine.collect_active_modifiers(context=self._owner_creature_modifier_context):
+            if modifier.target_domain != TargetDomain.CREATURE_MOVEMENT:
+                continue
+            resolved_value = modifier_engine._resolve_numeric_modifier(modifier)
+            if resolved_value is None:
+                continue
+            metadata = dict(modifier.metadata or {})
+            metadata.setdefault(
+                "semantic_effect_label",
+                str(modifier.source_id or modifier.source_type or "SemanticEffect"),
+            )
+            effects.append(
+                CreatureSemanticEffect(
+                    source_id=f"{modifier.source_type}:{modifier.source_id}",
+                    target_domain=TargetDomain.MOVEMENT,
+                    target_key=modifier.target_key,
+                    operator=modifier.operator,
+                    mode="flat",
+                    value=resolved_value,
+                    value_min=modifier.value_min,
+                    value_max=modifier.value_max,
+                    stack_behavior=modifier.stack_behavior,
+                    priority=int(modifier.priority),
+                    condition_text=str(metadata.get("condition_text") or ""),
+                    rules_text=modifier.rules_text,
+                    notes=modifier.notes,
+                    metadata=metadata,
+                )
+            )
+        return effects
+
+    @cached_property
+    def _owner_creature_modifier_context(self) -> dict[str, tuple[str, ...] | str]:
+        """Return context values for owner-side effects targeting creatures."""
+        if self.instance is None:
+            return {}
+        creature_ids = [str(self.instance.id)]
+        creature_template_ids = []
+        creature_types = []
+        if self.instance.creature_id:
+            creature_template_ids.append(str(self.instance.creature_id))
+        creature_type = getattr(self.creature, "creature_type", None)
+        if creature_type and getattr(creature_type, "slug", ""):
+            creature_types.append(str(creature_type.slug))
+        return {
+            "character_creature_id": str(self.instance.id),
+            "creature_ids": tuple(creature_ids),
+            "creature_template_ids": tuple(creature_template_ids),
+            "creature_types": tuple(creature_types),
+        }
 
     @staticmethod
     def _daemonic_effect_row_to_creature_effects(effect_row) -> list[CreatureSemanticEffect]:

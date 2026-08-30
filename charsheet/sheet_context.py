@@ -3191,6 +3191,7 @@ def build_character_item_card_context(
     """Return the shared resolved item-card context for sheet and GM preview."""
     item = character_item.item
     item_engine = ItemEngine(character_item)
+    character_engine = character_item.owner.get_engine() if character_item.owner_id else None
     player_display = resolve_character_item_display(
         character_item,
         viewer,
@@ -3245,6 +3246,7 @@ def build_character_item_card_context(
         item_engine,
         item,
         strength=strength,
+        character_engine=character_engine,
         modifier_payloads=magic_modifier_payloads,
     )
     if "price" in hidden_field_keys and not include_controls:
@@ -3393,6 +3395,7 @@ def _build_item_tooltip_rows(
     item: Item,
     *,
     strength: int | None = None,
+    character_engine=None,
     armor_rs: int | None = None,
     armor_encumbrance: int | None = None,
     shield_encumbrance: int | None = None,
@@ -3423,8 +3426,17 @@ def _build_item_tooltip_rows(
             if two_handed_damage:
                 rows.append(("2H Schaden", two_handed_damage))
 
+        range_context = (
+            _character_item_weapon_target_context(item_engine.obj)
+            if character_engine is not None and isinstance(item_engine.obj, CharacterItem)
+            else None
+        )
         base_range_label = item_engine.get_weapon_range_label()
-        range_label = item_engine.get_weapon_range_label(strength=strength)
+        range_label = item_engine.get_weapon_range_label(
+            strength=strength,
+            modifier_engine=character_engine.modifier_engine if character_engine is not None else None,
+            context=range_context,
+        )
         if range_label:
             if strength is not None and base_range_label and base_range_label != range_label:
                 range_label = f"{range_label} [[SUB:{base_range_label}]]"
@@ -3601,6 +3613,58 @@ def _build_weapon_calculation_tooltip(
         rows,
         conditional_modifiers=conditional_modifiers,
     )
+
+
+WEAPON_RANGE_LABELS = {
+    "short": "Kurz",
+    "medium": "Mittel",
+    "long": "Weit",
+}
+
+
+def _build_weapon_range_tooltip(engine, row: dict[str, object]) -> str:
+    """Return a breakdown tooltip for one weapon's effective ranges."""
+    character_item = row["character_item"]
+    item_engine = ItemEngine(character_item, weapon_stats=row.get("weapon_stats"))
+    strength = int(engine.attributes().get(ATTR_ST, 0) or 0)
+    base_values = item_engine.get_weapon_range_values(strength=strength)
+    if base_values is None:
+        return ""
+
+    weapon_context = _character_item_weapon_target_context(
+        character_item,
+        weapon_stats=row.get("weapon_stats"),
+    )
+    effective_values = item_engine.get_weapon_range_values(
+        strength=strength,
+        modifier_engine=engine.modifier_engine,
+        context=weapon_context,
+    )
+    rows: list[dict[str, object]] = [
+        {
+            "label": "Basis",
+            "value": item_engine.format_weapon_range_label(base_values),
+            "source": str(row.get("item_name") or character_item.item.name),
+        }
+    ]
+    for range_key in ("short", "medium", "long"):
+        range_rows = _build_modifier_breakdown_rows(
+            engine,
+            range_key,
+            target_domain="weapon_range",
+            context=weapon_context,
+        )
+        for range_row in range_rows:
+            range_row["label"] = f"{WEAPON_RANGE_LABELS[range_key]}: {range_row['label']}"
+            rows.append(range_row)
+    rows.append(
+        {
+            "label": "= Reichweite",
+            "value": item_engine.format_weapon_range_label(effective_values),
+            "tone": "total",
+        }
+    )
+    return _build_core_stat_tooltip(rows)
 
 
 def _build_weapon_maneuver_breakdown_rows(engine, weapon_row: dict[str, object]) -> list[dict[str, object]]:
@@ -4112,8 +4176,10 @@ def _character_item_weapon_target_context(
 ) -> dict[str, tuple[str, ...]]:
     """Return weapon target context for one equipped item row."""
     item = character_item.item
+    weapon_categories: set[str] = {"weapon"}
     weapon_skill_slugs: set[str] = set()
     weapon_type_slugs: set[str] = set()
+    weapon_type_names: set[str] = set()
 
     if weapon_stats is not None:
         weapon_stats_entries = [weapon_stats]
@@ -4121,9 +4187,16 @@ def _character_item_weapon_target_context(
         weapon_stats_entries = list(item.weapon_stats.all())
 
     for stats in weapon_stats_entries:
+        weapon_categories.add("melee")
+        if any(
+            getattr(stats, field_name, None) is not None
+            for field_name in ("range_short", "range_medium", "range_long")
+        ):
+            weapon_categories.add("ranged")
         weapon_type = getattr(stats, "weapon_type", None)
         if weapon_type and getattr(weapon_type, "slug", ""):
             weapon_type_slugs.add(str(weapon_type.slug))
+            weapon_type_names.add(str(getattr(weapon_type, "name", "") or weapon_type.slug))
 
         skill_manager = getattr(stats, "skills", None)
         if skill_manager is not None:
@@ -4136,10 +4209,15 @@ def _character_item_weapon_target_context(
         stats = getattr(item, stats_name, None)
         if not stats:
             continue
+        if stats_name == "rangedweaponstats":
+            weapon_categories.add("ranged")
+        elif stats_name == "shieldstats":
+            weapon_categories.add("shield")
 
         weapon_type = getattr(stats, "weapon_type", None)
         if weapon_type and getattr(weapon_type, "slug", ""):
             weapon_type_slugs.add(str(weapon_type.slug))
+            weapon_type_names.add(str(getattr(weapon_type, "name", "") or weapon_type.slug))
 
         skill_manager = getattr(stats, "skills", None)
         if skill_manager is not None:
@@ -4154,7 +4232,9 @@ def _character_item_weapon_target_context(
             str(item.id),
             str(character_item.id),
         ),
+        "weapon_categories": tuple(sorted(weapon_categories)),
         "weapon_types": tuple(sorted(weapon_type_slugs)),
+        "weapon_type_names": tuple(sorted(weapon_type_names)),
         "weapon_skill_slugs": tuple(sorted(weapon_skill_slugs)),
     }
 
@@ -5247,7 +5327,8 @@ def _build_inventory_rows(
     """Build prepared inventory rows for the unequipped inventory list."""
     inventory_rows: list[dict] = []
     race_item_ids = _race_item_ids()
-    strength = int(character.get_engine().attributes().get(ATTR_ST, 0) or 0)
+    engine = character.get_engine()
+    strength = int(engine.attributes().get(ATTR_ST, 0) or 0)
 
     inventory_items = list(
         CharacterItem.objects
@@ -5406,6 +5487,7 @@ def _build_inventory_rows(
                 item_engine,
                 item,
                 strength=strength,
+                character_engine=engine,
                 modifier_payloads=magic_modifier_payloads,
             ),
             display.hidden_field_keys,
@@ -5908,6 +5990,7 @@ def _build_weapon_rows(engine, *, sl_effect_group_id: int | None = None) -> list
                                 ItemEngine(row["character_item"]),
                                 row["item"],
                                 strength=int(engine.attributes().get(ATTR_ST, 0) or 0),
+                                character_engine=engine,
                             ),
                             set(_tooltip_hidden_fields(row["character_item"]).split(",")),
                             include_hidden_values=sl_effect_group_id is not None,
@@ -5939,6 +6022,7 @@ def _build_weapon_rows(engine, *, sl_effect_group_id: int | None = None) -> list
                 "maneuver_attribute_modifier": int(maneuver_option.get("attribute_modifier", 0) or 0),
                 "total_maneuver_modifier": int(maneuver_option.get("total_modifier", 0) or 0),
                 "calculation_tooltip": "",
+                "range_calculation_tooltip": "",
                 "can_unequip": not row["character_item"].equip_locked,
             }
             conditional_modifiers = _conditional_weapon_modifier_lines(
@@ -5951,6 +6035,10 @@ def _build_weapon_rows(engine, *, sl_effect_group_id: int | None = None) -> list
             )
 
             display_row["calculation_tooltip"] = _build_weapon_calculation_tooltip(
+                engine,
+                display_row,
+            )
+            display_row["range_calculation_tooltip"] = _build_weapon_range_tooltip(
                 engine,
                 display_row,
             )
@@ -6340,14 +6428,6 @@ _SUPPORT_TOOLTIP_DESCRIPTIVE = (
 )
 
 
-def _support_icon(support_level: str) -> tuple[str, str]:
-    """Return (icon, tooltip) for a technique's support_level value."""
-    from charsheet.models.techniques import Technique
-    if support_level == Technique.SupportLevel.DESCRIPTIVE:
-        return _SUPPORT_ICON_DESCRIPTIVE, _SUPPORT_TOOLTIP_DESCRIPTIVE
-    return _SUPPORT_ICON_COMPUTED, _SUPPORT_TOOLTIP_COMPUTED
-
-
 def _build_school_technique_rows(character: Character, engine) -> tuple[list[dict], dict[int, int]]:
     """Build visible learned technique rows for the school panel."""
     schools = list(
@@ -6401,7 +6481,6 @@ def _build_school_technique_rows(character: Character, engine) -> tuple[list[dic
         entry_name = technique.name
         if technique.has_specification:
             entry_name = f"{technique.name}: {specification_value or '*'}"
-        icon, icon_tooltip = _support_icon(technique.support_level)
         school_technique_rows.append(
             {
                 "kind": "race_technique",
@@ -6412,8 +6491,6 @@ def _build_school_technique_rows(character: Character, engine) -> tuple[list[dic
                 "can_edit_specification": bool(technique.has_specification),
                 "specification_value": specification_value,
                 "technique_id": technique.id,
-                "support_level_icon": icon,
-                "support_level_tooltip": icon_tooltip,
             }
         )
     race_row_count = len(school_technique_rows)
@@ -6466,7 +6543,6 @@ def _build_school_technique_rows(character: Character, engine) -> tuple[list[dic
                         )
                     tooltip_text = "\n\n".join(tooltip_parts)
                     tooltip_card_key = f"daemonic-power:{daemonic_power.id}"
-                icon, icon_tooltip = _support_icon(technique.support_level)
                 school_technique_rows.append(
                     {
                         "kind": "technique",
@@ -6485,8 +6561,6 @@ def _build_school_technique_rows(character: Character, engine) -> tuple[list[dic
                         "can_edit_specification": bool(technique.has_specification),
                         "specification_value": specification_value,
                         "technique_id": technique.id,
-                        "support_level_icon": icon,
-                        "support_level_tooltip": icon_tooltip,
                     }
                 )
     if race_row_count and len(school_technique_rows) > race_row_count:
@@ -6744,7 +6818,7 @@ def _build_daemonic_power_panel(character: Character, engine) -> list[dict]:
                     ownership.power.slug,
                 ),
                 "granting_technique": technique.name,
-                "granting_school": technique.school.name,
+                "granting_school": technique.school.name if technique.school_id else "Technik",
             }
         )
         group["powers"][-1]["modifier_display"] = (

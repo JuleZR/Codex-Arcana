@@ -7,7 +7,24 @@ def school_level(engine, school) -> int:
     """Return the learned level for a school-like input."""
     school_id = engine._coerce_school_id(school)
     entry = engine._school_entries.get(school_id)
-    return entry.level if entry else 0
+    if entry:
+        return entry.level
+    school_name = str(getattr(school, "name", "") or "").casefold()
+    if not school_name:
+        from charsheet.models import School
+
+        school_obj = School.objects.filter(pk=school_id).first()
+        school_name = str(getattr(school_obj, "name", "") or "").casefold()
+    if not school_name:
+        return 0
+    return max(
+        (
+            int(known_entry.level or 0)
+            for known_entry in engine._school_entries.values()
+            if str(known_entry.school.name or "").casefold() == school_name
+        ),
+        default=0,
+    )
 
 
 def selected_school_path(engine, school):

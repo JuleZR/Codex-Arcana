@@ -309,7 +309,7 @@ class ModifierEngine:
 
     @cached_property
     def _active_technique_semantic_modifiers(self) -> list[BaseModifier]:
-        """Build semantic modifiers from learned, available computed techniques."""
+        """Build semantic modifiers from learned, available passive techniques."""
         if self.character_engine is None:
             return []
 
@@ -758,6 +758,93 @@ class ModifierEngine:
         """Resolve one numeric combat-profile value."""
         return int(self.resolve_combat_profile(context=context).values.get(target_key, 0))
 
+    def resolve_weapon_range_value(
+        self,
+        range_key: str,
+        base_value: int | float | None,
+        context: dict[str, Any] | None = None,
+    ) -> int | None:
+        """Resolve one effective weapon range band from a base value and range modifiers."""
+        normalized_key = self._normalize_weapon_range_key(range_key)
+        if normalized_key not in {"short", "medium", "long"}:
+            return int(base_value) if base_value is not None else None
+
+        total = int(base_value or 0)
+        matched = False
+        seen_unique_sources: set[tuple[str, str, str, str]] = set()
+        relevant_modifiers = [
+            modifier
+            for modifier in self.collect_active_modifiers(context=context)
+            if modifier.target_domain == TargetDomain.WEAPON_RANGE
+            and self._modifier_matches_target_key(
+                modifier,
+                target_domain=TargetDomain.WEAPON_RANGE,
+                target_key=normalized_key,
+                context=context,
+            )
+            and self._modifier_matches_item_context(
+                modifier,
+                target_domain=TargetDomain.WEAPON_RANGE,
+                context=context,
+            )
+            and self._modifier_matches_condition_text(modifier, context)
+            and TargetResolver.matches_context(modifier, context)
+        ]
+        for modifier in sorted(
+            relevant_modifiers,
+            key=lambda entry: (entry.priority, entry.source_type, entry.source_id),
+        ):
+            if modifier.stack_behavior == StackBehavior.UNIQUE_BY_SOURCE:
+                dedupe_key = (modifier.source_type, modifier.source_id, modifier.target_domain, modifier.target_key)
+                if dedupe_key in seen_unique_sources:
+                    continue
+                seen_unique_sources.add(dedupe_key)
+
+            resolved_value = self._resolve_numeric_modifier(modifier)
+            if resolved_value is None:
+                continue
+
+            matched = True
+            if modifier.operator == ModifierOperator.OVERRIDE:
+                total = int(resolved_value)
+                continue
+            if modifier.operator == ModifierOperator.MULTIPLY:
+                total = int(total * resolved_value)
+                continue
+            if modifier.operator == ModifierOperator.FLOOR_DIVIDE:
+                if not resolved_value:
+                    continue
+                total = int(total // resolved_value)
+                continue
+            if modifier.operator == ModifierOperator.MIN_VALUE:
+                total = max(total, int(resolved_value))
+                continue
+            if modifier.operator == ModifierOperator.MAX_VALUE:
+                total = min(total, int(resolved_value))
+                continue
+
+            total += int(resolved_value)
+
+        if base_value is None and not matched:
+            return None
+        return max(0, int(total))
+
+    @staticmethod
+    def _normalize_weapon_range_key(range_key: object) -> str:
+        """Normalize persisted and German range keys to the engine keys."""
+        key = str(range_key or "").strip()
+        return {
+            "range_short": "short",
+            "short_range": "short",
+            "kurz": "short",
+            "range_medium": "medium",
+            "medium_range": "medium",
+            "mittel": "medium",
+            "range_long": "long",
+            "long_range": "long",
+            "weit": "long",
+        }.get(key, key)
+
     def resolve_perception_value(self, target_key: str, context: dict[str, Any] | None = None) -> int:
         """Resolve one numeric perception-related modifier value."""
         return self.resolve_numeric_total(TargetDomain.PERCEPTION, target_key, context=context)
@@ -1095,7 +1182,12 @@ class ModifierEngine:
     ) -> bool:
         """Keep concrete item combat effects out of global combat totals."""
         source_type = str(modifier.source_type or "")
-        if target_domain != TargetDomain.COMBAT or source_type not in {"characteritem", "item"}:
+        if target_domain == TargetDomain.WEAPON_RANGE and source_type == "item":
+            return True
+        if (
+            target_domain not in {TargetDomain.COMBAT, TargetDomain.WEAPON_RANGE}
+            or source_type not in {"characteritem", "item"}
+        ):
             return True
         if source_type == "item":
             metadata_character_item_id = (modifier.metadata or {}).get("character_item_id")
@@ -1298,12 +1390,22 @@ class ModifierEngine:
                 and technique.technique_type == technique.TechniqueType.PASSIVE
             )
 
-        return (
-            self.character_engine._technique_effect_is_computed(technique)
-            and self.character_engine._is_technique_choice_complete(technique)
-            and technique.technique_type == technique.TechniqueType.PASSIVE
-            and self.character_engine._has_technique_learned(technique, learned_stack, available_stack)
-            and self.character_engine._is_technique_available(technique, learned_stack, available_stack)
+        if (
+            not self.character_engine._technique_effect_is_computed(technique)
+            or not self.character_engine._is_technique_choice_complete(technique)
+            or technique.technique_type != technique.TechniqueType.PASSIVE
+        ):
+            return False
+        available = self.character_engine._is_technique_available(technique, learned_stack, available_stack)
+        if not available:
+            return False
+        if self.character_engine._is_technique_explicitly_learned(technique):
+            return True
+        return self.character_engine._is_automatic_technique_learned(
+            technique,
+            learned_stack,
+            available_stack,
+            available=available,
         )
 
     def _modifier_school_gate_is_open(self, modifier: BaseModifier) -> bool:
@@ -1398,7 +1500,25 @@ class ModifierEngine:
             return None
         if scale_source == "school_level":
             gate_school_id = self._modifier_gate_school_id(modifier)
-            return self.character_engine.school_level(gate_school_id) if gate_school_id else None
+            if not gate_school_id:
+                return None
+            exact_level = self.character_engine.school_level(gate_school_id)
+            if exact_level:
+                return exact_level
+            gate_school = getattr(self.character_engine._coerce_technique(modifier.source_id), "school", None) if str(modifier.source_type or "").lower() == "technique" else None
+            if gate_school is None and gate_school_id:
+                from charsheet.models import School
+
+                gate_school = School.objects.filter(pk=gate_school_id).first()
+            gate_school_name = str(getattr(gate_school, "name", "") or "").casefold()
+            if not gate_school_name:
+                return exact_level
+            matching_levels = [
+                int(entry.level or 0)
+                for entry in self.character_engine._school_entries.values()
+                if str(entry.school.name or "").casefold() == gate_school_name
+            ]
+            return max(matching_levels, default=exact_level)
         if scale_source == "fame_total":
             return self.character_engine.fame_total()
         if scale_source == "trait_level":

@@ -616,7 +616,6 @@ def build_learning_progression_context(character, *, engine, synchronize: bool =
                 "path_name": state["path_name"],
                 "choice_block_name": state["choice_block_name"],
                 "selection_notes": state["selection_notes"] or "",
-                "support_level": state["support_level"],
             }
         )
 
