@@ -351,7 +351,46 @@ class ModifierEngine:
             .prefetch_related("target_skills", "condition_races", "condition_schools")
             .order_by("technique_id", "sort_order", "id")
         )
-        return [effect.to_modifier() for effect in effects]
+        return [
+            self._materialize_technique_modifier(effect)
+            for effect in effects
+        ]
+
+    def _materialize_technique_modifier(
+        self,
+        effect: TechniqueSemanticEffect,
+    ) -> BaseModifier:
+        """Build a technique modifier with character-specific spec metadata."""
+        modifier = effect.to_modifier()
+        if self.character_engine is None:
+            return modifier
+
+        learned_technique = (
+            self.character_engine._learned_techniques_by_id.get(
+                effect.technique_id
+            )
+        )
+        if learned_technique is None:
+            return modifier
+
+        specification = " ".join(
+            str(learned_technique.specification_value or "").split()
+        )
+        if not specification or specification == "*":
+            return modifier
+
+        metadata = dict(modifier.metadata or {})
+        metadata["technique_specification"] = specification
+        condition_text = " ".join(
+            str(metadata.get("condition_text") or "").split()
+        )
+        if "@" in condition_text:
+            metadata["condition_text"] = condition_text.replace(
+                "@",
+                specification,
+            )
+
+        return replace(modifier, metadata=metadata)
 
     @cached_property
     def _active_daemonic_power_modifiers(self) -> list[BaseModifier]:

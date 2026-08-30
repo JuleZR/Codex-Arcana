@@ -3434,7 +3434,13 @@ class RuleSemanticEffectAdminForm(SemanticCreatureCardGrantFormMixin, forms.Mode
     condition_text = forms.CharField(
         label="Bedingung",
         required=False,
-        widget=forms.TextInput(attrs={"placeholder": "z. B. gegen Gift"}),
+        widget=forms.TextInput(
+            attrs={
+                "placeholder": "z. B. gegen Gift oder gegen @",
+                "size": "48",
+                "style": "min-width: 32em;",
+            }
+        ),
         help_text="Optional. Wird als bedingter Effekt behandelt und z. B. in Varianten/Markern angezeigt.",
     )
     simple_weapon_skills = forms.ModelMultipleChoiceField(
