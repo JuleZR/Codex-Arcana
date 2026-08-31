@@ -1068,6 +1068,13 @@ class CreatureSourceBinding(models.Model):
         default="Tiergestalt",
         help_text="Wording auf der Auswahlkarte, z. B. Tiergestalt oder Tiergefährte.",
     )
+    creature_name_filter = models.CharField(
+        "Kreaturen-Wortfilter",
+        max_length=255,
+        blank=True,
+        default="",
+        help_text='Optionale Begriffe fuer die Vorlagenliste. "hund" verlangt Hund im Namen, "-hoelle" schliesst Treffer aus.',
+    )
     trigger_type = models.CharField(max_length=20, choices=TriggerType.choices)
     item_trigger = models.ForeignKey(
         "charsheet.Item",
@@ -1112,6 +1119,38 @@ class CreatureSourceBinding(models.Model):
     def __str__(self):
         return f"{self.creature} via {self.trigger_label}"
 
+    @staticmethod
+    def _parse_creature_name_filter(value):
+        include_terms = []
+        exclude_terms = []
+        for token in str(value or "").split():
+            token = token.strip()
+            if not token:
+                continue
+            if token.startswith("-") and token[1:].strip():
+                exclude_terms.append(token[1:].strip())
+            else:
+                include_terms.append(token)
+        return include_terms, exclude_terms
+
+    def creature_template_queryset(self):
+        queryset = Creature.objects.order_by("name", "id")
+        include_terms, exclude_terms = self._parse_creature_name_filter(self.creature_name_filter)
+        for term in include_terms:
+            queryset = queryset.filter(name__icontains=term)
+        for term in exclude_terms:
+            queryset = queryset.exclude(name__icontains=term)
+        return queryset
+
+    def allows_creature_template(self, creature):
+        if creature is None:
+            return False
+        include_terms, exclude_terms = self._parse_creature_name_filter(self.creature_name_filter)
+        name = str(creature.display_name or "").casefold()
+        return all(term.casefold() in name for term in include_terms) and not any(
+            term.casefold() in name for term in exclude_terms
+        )
+
     @property
     def trigger_label(self):
         if self.trigger_type == self.TriggerType.ITEM and self.item_trigger_id:
@@ -1134,8 +1173,6 @@ class CreatureSourceBinding(models.Model):
                 raise ValidationError({"item_trigger": "Bei Technik-Trigger leer lassen."})
         if self.selection_mode == self.SelectionMode.FIXED and not self.creature_id:
             raise ValidationError({"creature": "Für eine feste Bindung ist eine Kreatur erforderlich."})
-        if self.selection_mode == self.SelectionMode.CHARACTER_CHOICE and self.trigger_type != self.TriggerType.TECHNIQUE:
-            raise ValidationError({"selection_mode": "Die freie Kreaturenwahl ist nur für Technik-Trigger verfügbar."})
 
 
 class CharacterCreature(models.Model):

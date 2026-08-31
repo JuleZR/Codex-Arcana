@@ -4010,15 +4010,27 @@ def adjust_creature_damage(request, pk: int):
 @login_required
 @require_POST
 def choose_technique_creature(request, character_id: int, binding_id: int):
-    """Materialize the one character-owned creature chosen by a special technique binding."""
+    """Materialize the one character-owned creature chosen by a creature source binding."""
     character = _owned_character_or_404(request, character_id)
     binding = get_object_or_404(
-        CreatureSourceBinding.objects.select_related("technique_trigger", "creature", "quality"),
+        CreatureSourceBinding.objects.select_related("item_trigger", "technique_trigger", "creature", "quality"),
         pk=binding_id,
         active=True,
-        trigger_type=CreatureSourceBinding.TriggerType.TECHNIQUE,
         selection_mode=CreatureSourceBinding.SelectionMode.CHARACTER_CHOICE,
     )
+    source_item = None
+    source_technique = None
+    source_quality = binding.quality
+    if binding.trigger_type == CreatureSourceBinding.TriggerType.ITEM:
+        source_item = get_object_or_404(
+            CharacterItem.objects.select_related("quality"),
+            pk=request.POST.get("source_character_item_id"),
+            owner=character,
+            item_id=binding.item_trigger_id,
+            amount__gt=0,
+            stored=False,
+        )
+        source_quality = source_item.quality
     technique_state = next(
         (
             state
@@ -4027,19 +4039,26 @@ def choose_technique_creature(request, character_id: int, binding_id: int):
         ),
         None,
     )
-    if not technique_state or not technique_state["learned"] or not technique_state["available"]:
+    if (
+        binding.trigger_type == CreatureSourceBinding.TriggerType.TECHNIQUE
+        and (not technique_state or not technique_state["learned"] or not technique_state["available"])
+    ):
         messages.error(request, "Diese Kreaturenwahl ist für den Charakter derzeit nicht verfügbar.")
         return redirect("character_sheet", character_id=character.pk)
 
-    source_technique = CharacterTechnique.objects.filter(
-        character=character,
-        technique_id=binding.technique_trigger_id,
-    ).first()
+    if binding.trigger_type == CreatureSourceBinding.TriggerType.TECHNIQUE:
+        source_technique = CharacterTechnique.objects.filter(
+            character=character,
+            technique_id=binding.technique_trigger_id,
+        ).first()
     mode = str(request.POST.get("mode") or "template")
     selected_creature = None
     custom_name = ""
     if mode == "template":
         selected_creature = get_object_or_404(Creature, pk=request.POST.get("creature_id"))
+        if not binding.allows_creature_template(selected_creature):
+            messages.error(request, "Diese Kreatur passt nicht zum Filter dieser Kreaturenwahl.")
+            return redirect("character_sheet", character_id=character.pk)
     elif mode == "free":
         custom_name = str(request.POST.get("custom_name") or "").strip()[:100]
         if not custom_name:
@@ -4050,14 +4069,15 @@ def choose_technique_creature(request, character_id: int, binding_id: int):
         messages.error(request, "Unbekannte Art der Kreaturenwahl.")
         return redirect("character_sheet", character_id=character.pk)
 
-    budgets = CharacterCreature.training_budget_defaults(binding.quality)
+    budgets = CharacterCreature.training_budget_defaults(source_quality)
     card, _created = CharacterCreature.objects.update_or_create(
         owner=character,
         source_binding=binding,
+        source_character_item=source_item,
         source_character_technique=source_technique,
         defaults={
             "creature": selected_creature,
-            "quality": binding.quality,
+            "quality": source_quality,
             "name_override": custom_name,
             "active": True,
             "source_selection_completed": True,

@@ -9006,7 +9006,12 @@ def build_character_sheet_context(
                         kwargs={"character_id": character.pk, "binding_id": card.source_binding_id},
                     )
                 ),
-                "templates": list(Creature.objects.order_by("name", "id")),
+                "source_character_item_id": card.source_character_item_id,
+                "templates": list(
+                    Creature.objects.order_by("name", "id")
+                    if card.semantic_effect_is_choice
+                    else card.source_binding.creature_template_queryset()
+                ),
             }
         mini_context = {**card_context, "adjust_damage_url": "", "damage_controls_disabled": True}
         mini_context.pop("training_update_url", None)

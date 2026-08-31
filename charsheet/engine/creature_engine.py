@@ -2202,14 +2202,32 @@ def sync_character_creatures(character) -> list[CharacterCreature]:
     for binding in bindings:
         source_rows = []
         if binding.trigger_type == CreatureSourceBinding.TriggerType.ITEM:
-            source_rows = [
-                {
-                    "source_character_item": character_item,
-                    "source_character_technique": None,
-                    "quality": character_item.quality,
-                }
-                for character_item in items_by_item_id.get(binding.item_trigger_id, [])
-            ]
+            for character_item in items_by_item_id.get(binding.item_trigger_id, []):
+                if binding.selection_mode == CreatureSourceBinding.SelectionMode.CHARACTER_CHOICE:
+                    existing = CharacterCreature.objects.filter(
+                        owner=character,
+                        source_binding=binding,
+                        source_character_item=character_item,
+                    ).first()
+                    if existing is not None:
+                        active_creature_ids.add(existing.pk)
+                        if not existing.active:
+                            existing.active = True
+                            existing.save(update_fields=["active"])
+                        continue
+                    source_rows.append({
+                        "source_character_item": character_item,
+                        "source_character_technique": None,
+                        "quality": character_item.quality,
+                        "creature": None,
+                    })
+                else:
+                    source_rows.append({
+                        "source_character_item": character_item,
+                        "source_character_technique": None,
+                        "quality": character_item.quality,
+                        "creature": binding.creature,
+                    })
         elif binding.trigger_type == CreatureSourceBinding.TriggerType.TECHNIQUE:
             if binding.technique_trigger_id in active_technique_ids:
                 source_technique = techniques_by_technique_id.get(binding.technique_trigger_id)
