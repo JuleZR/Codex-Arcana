@@ -51,6 +51,7 @@ from .models import (
     CharacterTrait,
     CharacterCreationDraft,
     CharacterCreature,
+    CharacterCreatureAttack,
     CharacterCreatureAttributeIncrease,
     CharacterCreatureDaemonicPower,
     CharacterCreatureCommand,
@@ -61,6 +62,8 @@ from .models import (
     CharacterCreatureTrait,
     CharacterCreatureTraitChoice,
     Creature,
+    CreatureAttack,
+    CreatureAttackType,
     DaemonicPower,
     CreatureSourceBinding,
     CreatureCommand,
@@ -92,6 +95,7 @@ from .models import (
     GameGroupMembership,
     GameGroupRole,
 )
+from .models.creatures import ATTRIBUTE_FIELD_MAP
 from .models.user import UserSettings
 from .forms import (
     AccountSettingsForm,
@@ -108,6 +112,7 @@ from .constants import (
     ATTRIBUTE_CODE_CHOICES,
     ATTRIBUTE_ORDER,
     ATTR_ST,
+    DAMAGE_TYPE_CHOICES,
     GK_MODS,
     RESOURCE_KEY_CHOICES,
     SCHOOL_ARCANE,
@@ -2159,7 +2164,6 @@ def dashboard(request):
                 "members": member_rows,
             }
         )
-    draft_count = CharacterCreationDraft.objects.filter(owner=request.user).count()
     draft_rows = []
     for draft in CharacterCreationDraft.objects.filter(owner=request.user).select_related("race").order_by("-id"):
         meta = draft.state if isinstance(draft.state, dict) else {}
@@ -4460,20 +4464,57 @@ def update_creature_card_training(request, pk: int):
         card.movement_note_override = str(request.POST.get("movement_note") or "")[:200].strip() if can_mana else ""
         card_update_fields.append("movement_note_override")
     core_value_fields = (
-        ("initiative", "initiative_override", None, lambda engine: engine.initiative()),
+        (
+            "initiative",
+            "initiative_override",
+            None,
+            lambda engine: engine.initiative(),
+        ),
         ("vw", "vw_override", None, lambda engine: engine.vw()),
         ("sr", "sr_override", None, lambda engine: engine.sr()),
         ("gw", "gw_override", None, lambda engine: engine.gw()),
-        ("natural_rs", "natural_rs_override", 0, lambda engine: engine.armor_totals().natural_rs),
-        ("wound_step", "wound_step_override", 1, lambda engine: engine.wound_step()),
+        (
+            "natural_rs",
+            "natural_rs_override",
+            0,
+            lambda engine: engine.armor_totals().natural_rs,
+        ),
+        (
+            "wound_step",
+            "wound_step_override",
+            1,
+            lambda engine: engine.wound_step(),
+        ),
     )
+    update_core_values = "core_values_present" in request.POST
     for post_name, field_name, minimum, getter in core_value_fields:
-        if post_name in request.POST:
-            desired_value = _parse_optional_int(request.POST.get(post_name), minimum=minimum)
-            setattr(card, field_name, _numeric_adjustment_for_desired_value(card, field_name, desired_value, getter))
+        if update_core_values or post_name in request.POST:
+            if request.POST.get(f"lock_{post_name}") != "1":
+                setattr(card, field_name, None)
+                card_update_fields.append(field_name)
+                continue
+            desired_value = _parse_optional_int(
+                request.POST.get(post_name),
+                minimum=minimum,
+            )
+            setattr(
+                card,
+                field_name,
+                _numeric_adjustment_for_desired_value(
+                    card,
+                    field_name,
+                    desired_value,
+                    getter,
+                ),
+            )
             card_update_fields.append(field_name)
-    if "wound_thresholds" in request.POST:
-        card.wound_thresholds_override = str(request.POST.get("wound_thresholds") or "")[:100].strip()
+    if update_core_values or "wound_thresholds" in request.POST:
+        if request.POST.get("lock_wound_thresholds") == "1":
+            card.wound_thresholds_override = str(
+                request.POST.get("wound_thresholds") or ""
+            )[:100].strip()
+        else:
+            card.wound_thresholds_override = ""
         card_update_fields.append("wound_thresholds_override")
     selected_command_ids = {_parse_positive_int(raw_id) for raw_id in request.POST.getlist("commands") if _parse_positive_int(raw_id)}
     selected_advantage_ids = {_parse_positive_int(raw_id) for raw_id in request.POST.getlist("advantages") if _parse_positive_int(raw_id)}
@@ -4494,7 +4535,6 @@ def update_creature_card_training(request, pk: int):
             pk__in=selected_daemonic_power_ids
         ).values_list("id", flat=True)
     )
-    existing_trait_rows = list(card.trait_overrides.select_related("trait").prefetch_related("choices").all())
     base_trait_rows = list(base_creature.traits.select_related("trait").all())
     base_traits_by_trait_id = {row.trait_id: row for row in base_trait_rows if row.trait_id}
     base_trait_levels = {row.trait_id: int(row.trait_level or 0) for row in base_trait_rows if row.trait_id}
@@ -4595,7 +4635,6 @@ def update_creature_card_training(request, pk: int):
         )
         order += 1
 
-    attribute_codes = {code for code, _label in ATTRIBUTE_CODE_CHOICES}
     engine = CreatureEngine(card)
     card_attribute_values = {
         "ST": engine.attribute_base_mod("ST"),
@@ -4607,15 +4646,39 @@ def update_creature_card_training(request, pk: int):
         "CHA": engine.attribute_base_mod("CHA"),
     }
     attribute_rows = []
-    for code in attribute_codes:
-        target_value = _parse_positive_int(request.POST.get(f"attribute_{code}"), 0)
+    for code, _label in ATTRIBUTE_CODE_CHOICES:
+        field_name = f"attribute_{code}"
+        if field_name not in request.POST:
+            continue
+        override_field_name = f"{ATTRIBUTE_FIELD_MAP.get(code, '')}_override"
+        if override_field_name == "_override":
+            continue
+        raw_target_value = str(request.POST.get(field_name) or "").strip()
+        if raw_target_value == "":
+            if not card.creature_id or card_attribute_values.get(code) is None:
+                setattr(card, override_field_name, None)
+                card_update_fields.append(override_field_name)
+            continue
+        target_value = _parse_positive_int(raw_target_value, 0)
+        if not card.creature_id:
+            setattr(card, override_field_name, target_value)
+            card_update_fields.append(override_field_name)
+            continue
         base_modifier = card_attribute_values.get(code)
         if base_modifier is None:
+            setattr(card, override_field_name, target_value)
+            card_update_fields.append(override_field_name)
             continue
         base_attribute_value = int(base_modifier) + 5
         amount = max(0, target_value - base_attribute_value)
         if amount:
-            attribute_rows.append(CharacterCreatureAttributeIncrease(creature=card, attribute=code, amount=amount))
+            attribute_rows.append(
+                CharacterCreatureAttributeIncrease(
+                    creature=card,
+                    attribute=code,
+                    amount=amount,
+                )
+            )
 
     remove_normal_skill_ids = set()
     remove_special_skill_ids = set()
@@ -4796,6 +4859,235 @@ def update_creature_card_training(request, pk: int):
                 )
             )
 
+    update_attacks = "attacks_present" in request.POST
+    valid_damage_operators = {
+        value
+        for value, _label in CreatureAttack.DamageOperator.choices
+    }
+    valid_damage_types = {value for value, _label in DAMAGE_TYPE_CHOICES} | {""}
+    valid_attack_type_ids = {
+        attack_type.pk
+        for attack_type in CreatureAttackType.objects.all()
+    }
+    removed_base_attack_ids = set()
+    removed_custom_attack_ids = set()
+    for raw_id in request.POST.getlist("remove_attack_ids"):
+        raw_id = str(raw_id or "")
+        if raw_id.startswith("base:"):
+            attack_id = _parse_positive_int(raw_id.split(":", 1)[1], 0)
+            if attack_id:
+                removed_base_attack_ids.add(attack_id)
+        elif raw_id.startswith("custom:"):
+            attack_id = _parse_positive_int(raw_id.split(":", 1)[1], 0)
+            if attack_id:
+                removed_custom_attack_ids.add(attack_id)
+    restored_base_attack_ids = set()
+    for raw_id in request.POST.getlist("restore_attack_ids"):
+        raw_id = str(raw_id or "")
+        if raw_id.startswith("base:"):
+            attack_id = _parse_positive_int(raw_id.split(":", 1)[1], 0)
+            if attack_id:
+                restored_base_attack_ids.add(attack_id)
+    removed_base_attack_ids -= restored_base_attack_ids
+    posted_base_attack_ids = []
+    posted_custom_attack_ids = []
+    for field_name in request.POST:
+        if field_name.startswith("attack_name_base_"):
+            attack_id = _parse_positive_int(field_name.rsplit("_", 1)[-1], 0)
+            if attack_id and attack_id not in removed_base_attack_ids:
+                posted_base_attack_ids.append(attack_id)
+        elif field_name.startswith("attack_name_custom_"):
+            attack_id = _parse_positive_int(field_name.rsplit("_", 1)[-1], 0)
+            if attack_id and attack_id not in removed_custom_attack_ids:
+                posted_custom_attack_ids.append(attack_id)
+    base_attacks_by_id = {
+        attack.pk: attack
+        for attack in base_creature.attacks.filter(pk__in=posted_base_attack_ids)
+    }
+    existing_attack_overrides_by_id = {
+        attack.pk: attack
+        for attack in card.attack_overrides.all()
+    }
+    existing_attack_overrides_by_base_id = {
+        attack.base_attack_id: attack
+        for attack in existing_attack_overrides_by_id.values()
+        if attack.base_attack_id
+    }
+    attack_rows_to_save = []
+
+    def attack_payload(row_id: str, fallback_name: str = "") -> dict:
+        attack_type_id = _parse_positive_int(
+            request.POST.get(f"attack_type_{row_id}"),
+            0,
+        )
+        damage_operator = str(
+            request.POST.get(f"attack_flat_operator_{row_id}") or ""
+        )
+        damage_type = str(request.POST.get(f"attack_damage_type_{row_id}") or "")
+        return {
+            "name": _fit_model_char_field(
+                request.POST.get(f"attack_name_{row_id}") or fallback_name,
+                CharacterCreatureAttack,
+                "name",
+            ).strip(),
+            "attack_type_id": (
+                attack_type_id if attack_type_id in valid_attack_type_ids else None
+            ),
+            "attack_value": _parse_int(
+                request.POST.get(f"attack_value_{row_id}"),
+                0,
+            ),
+            "damage_dice_amount": _parse_positive_int(
+                request.POST.get(f"attack_dice_amount_{row_id}"),
+                0,
+            ),
+            "damage_dice_faces": _parse_positive_int(
+                request.POST.get(f"attack_dice_faces_{row_id}"),
+                0,
+            ),
+            "damage_flat_operator": (
+                damage_operator if damage_operator in valid_damage_operators else ""
+            ),
+            "damage_flat_bonus": _parse_int(
+                request.POST.get(f"attack_flat_bonus_{row_id}"),
+                0,
+            ),
+            "damage_type": damage_type if damage_type in valid_damage_types else "",
+            "notes": _fit_model_char_field(
+                request.POST.get(f"attack_notes_{row_id}") or "",
+                CharacterCreatureAttack,
+                "notes",
+            ).strip(),
+            "show_notes_as_damage": (
+                request.POST.get(f"attack_show_notes_{row_id}") == "1"
+            ),
+            "append_notes_to_damage": (
+                request.POST.get(f"attack_append_notes_{row_id}") == "1"
+            ),
+            "active": True,
+        }
+
+    def attack_update_fields(defaults: dict) -> list[str]:
+        return [
+            "attack_type" if field_name == "attack_type_id" else field_name
+            for field_name in defaults
+        ]
+
+    for base_attack_id in posted_base_attack_ids:
+        base_attack = base_attacks_by_id.get(base_attack_id)
+        if base_attack is None:
+            continue
+        row = existing_attack_overrides_by_base_id.get(base_attack_id)
+        defaults = attack_payload(
+            f"base_{base_attack_id}",
+            fallback_name=base_attack.name,
+        )
+        attack_rows_to_save.append((base_attack, row, defaults))
+
+    custom_attack_updates = []
+    for attack_id in posted_custom_attack_ids:
+        row = existing_attack_overrides_by_id.get(attack_id)
+        if row is None or row.base_attack_id:
+            continue
+        defaults = attack_payload(
+            f"custom_{attack_id}",
+            fallback_name=row.name,
+        )
+        if defaults["name"]:
+            custom_attack_updates.append((row, defaults))
+
+    new_attack_rows = []
+    new_attack_names = request.POST.getlist("new_attack_name")
+    new_attack_keys = request.POST.getlist("new_attack_key")
+    raw_new_attack_values = request.POST.getlist("new_attack_value")
+    raw_new_attack_dice_amounts = request.POST.getlist("new_attack_dice_amount")
+    raw_new_attack_dice_faces = request.POST.getlist("new_attack_dice_faces")
+    raw_new_attack_flat_bonuses = request.POST.getlist("new_attack_flat_bonus")
+    raw_new_attack_notes = request.POST.getlist("new_attack_notes")
+    raw_new_attack_type_ids = request.POST.getlist("new_attack_type")
+    raw_new_attack_operators = request.POST.getlist("new_attack_flat_operator")
+    raw_new_attack_damage_types = request.POST.getlist("new_attack_damage_type")
+    for index, raw_name in enumerate(new_attack_names):
+        name = str(raw_name or "").strip()
+        if not name:
+            continue
+        row_key = str(
+            new_attack_keys[index]
+            if index < len(new_attack_keys)
+            else index
+        )
+        defaults = {
+            "name": _fit_model_char_field(
+                name,
+                CharacterCreatureAttack,
+                "name",
+            ).strip(),
+            "attack_type_id": None,
+            "attack_value": _parse_int(
+                raw_new_attack_values[index]
+                if index < len(raw_new_attack_values)
+                else 0,
+                0,
+            ),
+            "damage_dice_amount": _parse_positive_int(
+                raw_new_attack_dice_amounts[index]
+                if index < len(raw_new_attack_dice_amounts)
+                else 0,
+                0,
+            ),
+            "damage_dice_faces": _parse_positive_int(
+                raw_new_attack_dice_faces[index]
+                if index < len(raw_new_attack_dice_faces)
+                else 0,
+                0,
+            ),
+            "damage_flat_operator": "",
+            "damage_flat_bonus": _parse_int(
+                raw_new_attack_flat_bonuses[index]
+                if index < len(raw_new_attack_flat_bonuses)
+                else 0,
+                0,
+            ),
+            "damage_type": "",
+            "notes": _fit_model_char_field(
+                raw_new_attack_notes[index]
+                if index < len(raw_new_attack_notes)
+                else "",
+                CharacterCreatureAttack,
+                "notes",
+            ).strip(),
+            "show_notes_as_damage": False,
+            "append_notes_to_damage": False,
+            "active": True,
+        }
+        attack_type_id = _parse_positive_int(
+            raw_new_attack_type_ids[index]
+            if index < len(raw_new_attack_type_ids)
+            else 0,
+            0,
+        )
+        if attack_type_id in valid_attack_type_ids:
+            defaults["attack_type_id"] = attack_type_id
+        damage_operator = str(
+            raw_new_attack_operators[index]
+            if index < len(raw_new_attack_operators)
+            else ""
+        )
+        if damage_operator in valid_damage_operators:
+            defaults["damage_flat_operator"] = damage_operator
+        damage_type = str(
+            raw_new_attack_damage_types[index]
+            if index < len(raw_new_attack_damage_types)
+            else ""
+        )
+        if damage_type in valid_damage_types:
+            defaults["damage_type"] = damage_type
+        show_notes_keys = set(request.POST.getlist("new_attack_show_notes"))
+        append_notes_keys = set(request.POST.getlist("new_attack_append_notes"))
+        defaults["show_notes_as_damage"] = row_key in show_notes_keys
+        defaults["append_notes_to_damage"] = row_key in append_notes_keys
+        new_attack_rows.append(CharacterCreatureAttack(creature=card, **defaults))
+
     update_languages = "languages_present" in request.POST
     language_write_ids = {
         _parse_positive_int(raw_id, 0)
@@ -4861,6 +5153,65 @@ def update_creature_card_training(request, pk: int):
                 [row for row in new_skill_rows if isinstance(row, CharacterCreatureSpecialSkill)],
                 ignore_conflicts=True,
             )
+        if update_attacks:
+            if restored_base_attack_ids:
+                card.attack_overrides.filter(
+                    base_attack_id__in=restored_base_attack_ids,
+                ).delete()
+            if removed_custom_attack_ids:
+                card.attack_overrides.filter(
+                    pk__in=removed_custom_attack_ids,
+                    base_attack__isnull=True,
+                ).delete()
+            for base_attack_id in removed_base_attack_ids:
+                base_attack = base_creature.attacks.filter(
+                    pk=base_attack_id,
+                ).first()
+                if base_attack is None:
+                    continue
+                CharacterCreatureAttack.objects.update_or_create(
+                    creature=card,
+                    base_attack=base_attack,
+                    defaults={
+                        "name": base_attack.name,
+                        "attack_type": base_attack.attack_type,
+                        "attack_value": base_attack.attack_value,
+                        "damage_dice_amount": base_attack.damage_dice_amount,
+                        "damage_dice_faces": base_attack.damage_dice_faces,
+                        "damage_flat_operator": base_attack.damage_flat_operator,
+                        "damage_flat_bonus": base_attack.damage_flat_bonus,
+                        "damage_type": base_attack.damage_type,
+                        "notes": base_attack.notes,
+                        "show_notes_as_damage": base_attack.show_notes_as_damage,
+                        "append_notes_to_damage": base_attack.append_notes_to_damage,
+                        "active": False,
+                        "order": base_attack.order,
+                    },
+                )
+            for base_attack, row, defaults in attack_rows_to_save:
+                defaults["order"] = base_attack.order
+                if row is None:
+                    CharacterCreatureAttack.objects.create(
+                        creature=card,
+                        base_attack=base_attack,
+                        **defaults,
+                    )
+                else:
+                    for field_name, value in defaults.items():
+                        setattr(row, field_name, value)
+                    row.base_attack = base_attack
+                    row.save(
+                        update_fields=[
+                            *attack_update_fields(defaults),
+                            "base_attack",
+                        ]
+                    )
+            for row, defaults in custom_attack_updates:
+                for field_name, value in defaults.items():
+                    setattr(row, field_name, value)
+                row.save(update_fields=attack_update_fields(defaults))
+            if new_attack_rows:
+                CharacterCreatureAttack.objects.bulk_create(new_attack_rows)
         if update_note_visibility:
             card.hidden_skill_notes.set(hidden_skill_note_rows)
         if update_languages:
@@ -5015,6 +5366,8 @@ def update_creature_card_training(request, pk: int):
 
     card = CharacterCreature.objects.select_related("owner", "owner__owner", "creature", "source_binding", "quality").prefetch_related(
         "skill_overrides__skill",
+        "attack_overrides__attack_type",
+        "attack_overrides__base_attack",
         "trait_overrides__trait",
         "commands__command",
         "commands__prerequisite_links__prerequisite__command",

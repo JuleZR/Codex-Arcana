@@ -797,7 +797,7 @@
 
 .creature-training-card-values label {
   display: grid;
-  grid-template-columns: minmax(58px, 1fr) 58px;
+  grid-template-columns: minmax(58px, 1fr) 58px 16px;
   align-items: center;
   gap: 5px;
   min-height: 25px;
@@ -808,7 +808,7 @@
 
 .creature-training-card-values label.creature-training-card-values__wide {
   grid-column: 1 / -1;
-  grid-template-columns: minmax(92px, 0.42fr) minmax(0, 1fr);
+  grid-template-columns: minmax(92px, 0.42fr) minmax(0, 1fr) 16px;
 }
 
 .creature-training-card-values span {
@@ -822,9 +822,128 @@
   width: 100%;
 }
 
+.creature-training-card-values input:disabled {
+  background: rgba(223, 215, 194, 0.58);
+  color: rgba(33, 23, 14, 0.52);
+  cursor: not-allowed;
+}
+
+.creature-training-card-values input[type="checkbox"] {
+  width: 13px;
+  height: 13px;
+  margin: 0;
+}
+
 .creature-training-card-values input::placeholder {
   color: rgba(33, 23, 14, 0.45);
   opacity: 1;
+}
+
+.creature-training-attack-list {
+  display: grid;
+  gap: 5px;
+  margin-top: 6px;
+}
+
+.creature-training-empty--attacks {
+  margin: 0 0 2px 23px;
+  color: rgba(33, 23, 14, 0.55);
+  font-size: 0.84rem;
+}
+
+.creature-training-attack {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) 70px;
+  grid-template-areas:
+    "remove name type"
+    ". value value"
+    ". damage damage"
+    ". notes notes"
+    ". flags flags";
+  align-items: center;
+  gap: 4px 5px;
+  min-height: 28px;
+  padding: 5px 4px;
+  border-radius: 4px;
+  background: rgba(255, 252, 242, 0.18);
+}
+
+.creature-training-attack input,
+.creature-training-attack select,
+.creature-training-attack button {
+  width: 100%;
+  min-width: 0;
+}
+
+.creature-training-attack > .creature-training-skill__remove {
+  grid-area: remove;
+  align-self: start;
+}
+
+.creature-training-attack > .creature-training-skill__remove--placeholder {
+  grid-area: remove;
+}
+
+.creature-training-attack__name {
+  grid-area: name;
+}
+
+.creature-training-attack__type {
+  grid-area: type;
+}
+
+.creature-training-attack__value {
+  grid-area: value;
+  justify-self: start;
+  max-width: 62px;
+}
+
+.creature-training-attack__damage {
+  grid-area: damage;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 34px minmax(0, 1fr) 42px;
+  gap: 4px;
+  min-width: 0;
+}
+
+.creature-training-attack__notes {
+  grid-area: notes;
+}
+
+.creature-training-attack__flags {
+  grid-area: flags;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  min-width: 0;
+}
+
+.creature-training-attack__flag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 18px;
+  min-width: 0;
+  padding: 0;
+  background: transparent;
+}
+
+.creature-training-attack__flag span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.creature-training-attack__flag input {
+  width: auto;
+  flex: 0 0 auto;
+}
+
+.creature-training-attack--removed {
+  grid-template-columns: minmax(0, 1fr) 96px;
+  grid-template-areas: none;
+  color: rgba(33, 23, 14, 0.58);
+  text-decoration: line-through;
 }
 
 .creature-training-attributes {

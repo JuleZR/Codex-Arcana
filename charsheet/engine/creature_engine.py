@@ -1402,13 +1402,53 @@ class CreatureEngine:
             int(self.attribute_increase_totals.get(ATTR_ST, 0) or 0)
             + self._modifier_total(TargetDomain.COMBAT, "damage")
         )
+        override_rows = []
+        if self.instance:
+            override_rows = list(
+                self.instance.attack_overrides.select_related(
+                    "attack_type",
+                    "base_attack",
+                )
+            )
+        overrides_by_base_id = {
+            row.base_attack_id: row
+            for row in override_rows
+            if row.base_attack_id
+        }
+        attack_rows = []
+        for attack in self.creature.attacks.select_related("attack_type").all():
+            override = overrides_by_base_id.get(attack.pk)
+            if override is not None and not override.active:
+                continue
+            attack_rows.append(
+                (
+                    override or attack,
+                    str(attack.pk),
+                )
+            )
+        attack_rows.extend(
+            (override, f"character:{override.pk}")
+            for override in override_rows
+            if not override.base_attack_id and override.active
+        )
         return [
-            self._attack_context(attack, attack_value_bonus, damage_bonus)
-            for attack in self.creature.attacks.select_related("attack_type").all()
+            self._attack_context(
+                attack,
+                attack_value_bonus,
+                damage_bonus,
+                attack_target_key=attack_target_key,
+            )
+            for attack, attack_target_key in attack_rows
         ]
 
-    def _attack_context(self, attack, attack_value_bonus: int, damage_bonus: int) -> dict[str, Any]:
-        attack_target_key = str(attack.pk)
+    def _attack_context(
+        self,
+        attack,
+        attack_value_bonus: int,
+        damage_bonus: int,
+        attack_target_key: str | None = None,
+    ) -> dict[str, Any]:
+        attack_target_key = attack_target_key or str(attack.pk)
         attack_specific_bonus = self._modifier_total("creature_attack", attack_target_key)
         attack_value = attack.attack_value + attack_value_bonus + attack_specific_bonus
         attack_specific_damage_bonus = self._modifier_total("creature_attack_damage", attack_target_key)

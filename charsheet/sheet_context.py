@@ -90,6 +90,8 @@ from charsheet.models import (
     CharacterCreature,
     CharacterDaemonicPower,
     Creature,
+    CreatureAttack,
+    CreatureAttackType,
     CreatureSourceBinding,
     DivineEntityAspect,
     DivineEntity,
@@ -374,6 +376,19 @@ def build_creature_card_training_context(card):
         row.skill_id: row
         for row in card.special_skill_overrides.select_related("skill").all()
     }
+    attack_overrides = {
+        row.base_attack_id: row
+        for row in card.attack_overrides.select_related(
+            "attack_type",
+            "base_attack",
+        )
+        if row.base_attack_id
+    }
+    added_attack_overrides = [
+        row
+        for row in card.attack_overrides.select_related("attack_type").all()
+        if not row.base_attack_id and row.active
+    ]
     language_overrides = {
         row.language_id: row
         for row in card.language_overrides.select_related("language").all()
@@ -544,6 +559,76 @@ def build_creature_card_training_context(card):
                 "is_normal_skill": False,
             }
         )
+
+    def attack_training_row(
+        *,
+        row_id: str,
+        remove_id: str,
+        attack,
+        can_remove: bool,
+        removed: bool = False,
+    ) -> dict:
+        return {
+            "id": row_id,
+            "remove_id": remove_id,
+            "name": attack.name,
+            "attack_type_id": attack.attack_type_id or "",
+            "attack_value": attack.attack_value,
+            "damage_dice_amount": attack.damage_dice_amount,
+            "damage_dice_faces": attack.damage_dice_faces,
+            "damage_flat_operator": attack.damage_flat_operator,
+            "damage_flat_bonus": attack.damage_flat_bonus,
+            "damage_type": attack.damage_type,
+            "notes": attack.notes,
+            "show_notes_as_damage": attack.show_notes_as_damage,
+            "append_notes_to_damage": attack.append_notes_to_damage,
+            "can_remove": can_remove,
+            "removed": removed,
+        }
+
+    attack_rows = []
+    for base_attack in base_creature.attacks.select_related("attack_type").all():
+        override = attack_overrides.get(base_attack.pk)
+        if override is not None and not override.active:
+            attack_rows.append(
+                attack_training_row(
+                    row_id=f"base_{base_attack.pk}",
+                    remove_id=f"base:{base_attack.pk}",
+                    attack=base_attack,
+                    can_remove=False,
+                    removed=True,
+                )
+            )
+            continue
+        attack_rows.append(
+            attack_training_row(
+                row_id=f"base_{base_attack.pk}",
+                remove_id=f"base:{base_attack.pk}",
+                attack=override or base_attack,
+                can_remove=True,
+            )
+        )
+    for override in added_attack_overrides:
+        attack_rows.append(
+            attack_training_row(
+                row_id=f"custom_{override.pk}",
+                remove_id=f"custom:{override.pk}",
+                attack=override,
+                can_remove=True,
+            )
+        )
+    attack_type_choices = [
+        {"value": attack_type.pk, "label": attack_type.name}
+        for attack_type in CreatureAttackType.objects.order_by("name")
+    ]
+    damage_operator_choices = [
+        {"value": value, "label": label}
+        for value, label in CreatureAttack.DamageOperator.choices
+    ]
+    damage_type_choices = [
+        {"value": value, "label": label}
+        for value, label in DAMAGE_TYPE_CHOICES
+    ]
     attribute_increases = {
         row.attribute: row.amount
         for row in card.attribute_increases.all()
@@ -725,7 +810,11 @@ def build_creature_card_training_context(card):
                 "amount": increase,
                 "current": current_modifier,
                 "current_value": current_attribute_value,
-                "input_value": 0 if current_attribute_value is None else current_attribute_value,
+                "input_value": (
+                    ""
+                    if current_attribute_value is None
+                    else current_attribute_value
+                ),
                 "current_value_display": "-" if current_attribute_value is None else str(current_attribute_value),
                 "current_display": "-" if current_modifier is None else f"{current_modifier:+d}",
             }
@@ -793,14 +882,78 @@ def build_creature_card_training_context(card):
     current_size_class = engine.size_class()
     size_options = _size_class_options(selected=current_size_class)
     armor = engine.armor_totals()
+
+    def calculated_core_value(field_name, getter):
+        current_value = getattr(card, field_name)
+        setattr(card, field_name, None)
+        try:
+            return getter(CreatureEngine(card))
+        finally:
+            setattr(card, field_name, current_value)
+
+    calculated_core_values = {
+        "initiative": calculated_core_value(
+            "initiative_override",
+            lambda calculated_engine: calculated_engine.initiative(),
+        ),
+        "vw": calculated_core_value(
+            "vw_override",
+            lambda calculated_engine: calculated_engine.vw(),
+        ),
+        "sr": calculated_core_value(
+            "sr_override",
+            lambda calculated_engine: calculated_engine.sr(),
+        ),
+        "gw": calculated_core_value(
+            "gw_override",
+            lambda calculated_engine: calculated_engine.gw(),
+        ),
+        "natural_rs": calculated_core_value(
+            "natural_rs_override",
+            lambda calculated_engine: (
+                calculated_engine.armor_totals().natural_rs
+            ),
+        ),
+        "wound_step": calculated_core_value(
+            "wound_step_override",
+            lambda calculated_engine: calculated_engine.wound_step(),
+        ),
+    }
     core_value_options = {
         "initiative": engine.initiative(),
+        "initiative_calculated": calculated_core_values["initiative"],
+        "initiative_override_enabled": (
+            card.initiative_override is not None
+        ),
         "vw": engine.vw(),
+        "vw_calculated": calculated_core_values["vw"],
+        "vw_override_enabled": card.vw_override is not None,
         "sr": engine.sr(),
+        "sr_calculated": calculated_core_values["sr"],
+        "sr_override_enabled": card.sr_override is not None,
         "gw": engine.gw(),
+        "gw_calculated": calculated_core_values["gw"],
+        "gw_override_enabled": card.gw_override is not None,
         "natural_rs": armor.natural_rs,
+        "natural_rs_calculated": calculated_core_values["natural_rs"],
+        "natural_rs_override_enabled": (
+            card.natural_rs_override is not None
+        ),
         "wound_step": engine.wound_step(),
-        "wound_thresholds": card.wound_thresholds_override or base_creature.wound_thresholds_override,
+        "wound_step_calculated": calculated_core_values["wound_step"],
+        "wound_step_override_enabled": (
+            card.wound_step_override is not None
+        ),
+        "wound_thresholds": (
+            card.wound_thresholds_override
+            or base_creature.wound_thresholds_override
+        ),
+        "wound_thresholds_calculated": (
+            base_creature.wound_thresholds_override
+        ),
+        "wound_thresholds_override_enabled": bool(
+            card.wound_thresholds_override
+        ),
     }
     base_daemonic_power_ids = set(
         base_creature.daemonic_powers.values_list("id", flat=True)
@@ -845,6 +998,10 @@ def build_creature_card_training_context(card):
         "current_quality": quality_payload(card.quality),
         "commands": commands,
         "skill_rows": skill_rows,
+        "attack_rows": attack_rows,
+        "attack_type_choices": attack_type_choices,
+        "damage_operator_choices": damage_operator_choices,
+        "damage_type_choices": damage_type_choices,
         "skill_catalog": skill_catalog,
         "special_skill_catalog": special_skill_catalog,
         "language_rows": language_rows,
@@ -1587,10 +1744,6 @@ def _serialize_item_semantic_effect_payload(
             set(character_school_ids or set()).intersection(condition_school_ids)
         )
     )
-    condition_matches = (
-        race_condition_matches
-        and school_condition_matches
-    )
     target_domain = str(effect.target_domain or "")
     target_key = str(effect.target_key or "")
     base_item_effect_id = None
@@ -2060,8 +2213,6 @@ def _format_magic_rule_effect_line(
                 f"{str(value_display).split(' × ', 1)[0]} "
                 f"{formatted_percent} %"
             )
-            value_only_display = f"{formatted_percent} %"
-
         except (InvalidOperation, TypeError, ValueError):
             pass
 
@@ -7707,8 +7858,6 @@ def _build_learning_rows(
     for source in magic_slot_summary.get("sources", {}).values():
         source_key = str(source.get("key", "") or "")
         source_kind = str(source.get("kind", "") or "")
-        source_level = max(0, int(source.get("level", 0) or 0))
-        slots_per_level = max(0, int(source.get("slots_per_level", 0) or 0))
         if source_kind in {"school", "divine_arcane"}:
             remaining_total = max(0, int(source.get("remaining", 0) or 0))
             if remaining_total > 0:
@@ -8507,7 +8656,6 @@ def build_character_sheet_context(
     daemonic_power_panel = _build_daemonic_power_panel(character, engine)
 
     initiative_value = engine.calculate_initiative()
-    initiative_stat_mod = engine._resolve_stat_modifiers(INITIATIVE)
     initiative_wa_mod = engine.attribute_modifier(ATTR_WA)
     initiative_wound_penalty = engine.current_wound_penalty()
     current_wound_stage, _current_wound_penalty_stage = engine.current_wound_stage()
@@ -8545,14 +8693,11 @@ def build_character_sheet_context(
     if engine.resolve_flags().get("suppress_positive_vw_attribute_bonuses", False):
         vw_ge_mod = min(0, vw_ge_mod)
         vw_wa_mod = min(0, vw_wa_mod)
-    vw_stat_mod = engine._resolve_stat_modifiers(DEFENSE_VW)
     sr_st_mod = engine.attribute_modifier(ATTR_ST)
     sr_kon_mod = engine.attribute_modifier(ATTR_KON)
-    sr_stat_mod = engine._resolve_stat_modifiers(DEFENSE_SR)
     sr_value = engine.sr()
     gw_int_mod = engine.attribute_modifier(ATTR_INT)
     gw_will_mod = engine.attribute_modifier(ATTR_WILL)
-    gw_stat_mod = engine._resolve_stat_modifiers(DEFENSE_GW)
     gw_value = engine.gw()
     willpower = attributes.get(ATTR_WILL, 0)
     school_level_total = sum(school_levels.values())

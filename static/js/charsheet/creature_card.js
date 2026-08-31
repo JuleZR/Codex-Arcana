@@ -427,6 +427,24 @@ export function initCreatureCards() {
         modifierCell.textContent = formatAttributeModifier(input.value);
       }
     };
+    const refreshCoreOverrideInput = (toggleInput) => {
+      if (!(toggleInput instanceof HTMLInputElement)) {
+        return;
+      }
+      const row = toggleInput.closest("label");
+      const valueInput = row?.querySelector("[data-creature-core-value]");
+      if (
+        !(valueInput instanceof HTMLInputElement)
+        && !(valueInput instanceof HTMLTextAreaElement)
+      ) {
+        return;
+      }
+      const overrideEnabled = toggleInput.checked;
+      valueInput.disabled = !overrideEnabled;
+      if (!overrideEnabled) {
+        valueInput.value = valueInput.dataset.calculatedValue || "";
+      }
+    };
     const readInteger = (value, fallback = 0) => {
       const parsed = Number.parseInt(String(value ?? "").trim(), 10);
       return Number.isNaN(parsed) ? fallback : parsed;
@@ -692,9 +710,34 @@ export function initCreatureCards() {
       input.value = String(languageId);
       panel.appendChild(input);
     };
+    const registerRemovedAttack = (attackId) => {
+      if (!(panel instanceof HTMLElement) || !attackId) {
+        return;
+      }
+      const input = document.createElement("input");
+      input.type = "hidden";
+      input.name = "remove_attack_ids";
+      input.value = String(attackId);
+      panel.appendChild(input);
+    };
+    const registerRestoredAttack = (attackId) => {
+      if (!(panel instanceof HTMLElement) || !attackId) {
+        return;
+      }
+      const input = document.createElement("input");
+      input.type = "hidden";
+      input.name = "restore_attack_ids";
+      input.value = String(attackId);
+      panel.appendChild(input);
+    };
     let nextLanguageKey = Math.max(
       0,
       ...Array.from(panel?.querySelectorAll("[data-creature-training-language-key]") || [])
+        .map((field) => readInteger(field.getAttribute("value"), 0)),
+    ) + 1;
+    let nextAttackKey = Math.max(
+      0,
+      ...Array.from(panel?.querySelectorAll("[data-creature-training-attack-key]") || [])
         .map((field) => readInteger(field.getAttribute("value"), 0)),
     ) + 1;
     const addSkillRow = () => {
@@ -748,6 +791,47 @@ export function initCreatureCards() {
       if (writeInput instanceof HTMLInputElement) {
         writeInput.checked = false;
         writeInput.value = key;
+      }
+      list.insertBefore(clone, addButton instanceof HTMLElement ? addButton : null);
+    };
+    const addAttackRow = () => {
+      if (!(panel instanceof HTMLElement)) {
+        return;
+      }
+      const list = panel.querySelector(".creature-training-attack-list");
+      const template = panel.querySelector("[data-creature-training-new-attack-row]");
+      const addButton = panel.querySelector("[data-creature-training-add-attack]");
+      if (!(list instanceof HTMLElement) || !(template instanceof HTMLElement)) {
+        return;
+      }
+      const clone = template.cloneNode(true);
+      if (!(clone instanceof HTMLElement)) {
+        return;
+      }
+      const key = String(nextAttackKey);
+      nextAttackKey += 1;
+      clone.querySelectorAll("select, input").forEach((field) => {
+        if (field instanceof HTMLSelectElement) {
+          field.selectedIndex = 0;
+        } else if (field instanceof HTMLInputElement) {
+          if (field.type === "checkbox") {
+            field.checked = false;
+          } else {
+            field.value = field.type === "number" ? "0" : "";
+          }
+        }
+      });
+      const keyInput = clone.querySelector("[data-creature-training-attack-key]");
+      if (keyInput instanceof HTMLInputElement) {
+        keyInput.value = key;
+      }
+      const showNotesInput = clone.querySelector("[data-creature-training-attack-show-key]");
+      if (showNotesInput instanceof HTMLInputElement) {
+        showNotesInput.value = key;
+      }
+      const appendNotesInput = clone.querySelector("[data-creature-training-attack-append-key]");
+      if (appendNotesInput instanceof HTMLInputElement) {
+        appendNotesInput.value = key;
       }
       list.insertBefore(clone, addButton instanceof HTMLElement ? addButton : null);
     };
@@ -828,6 +912,9 @@ export function initCreatureCards() {
       refreshSkillEffectiveValues();
       panel.addEventListener("change", (event) => {
         const target = event.target instanceof Element ? event.target : null;
+        if (target?.matches("[data-creature-core-override-toggle]")) {
+          refreshCoreOverrideInput(target);
+        }
         if (target?.matches("[data-creature-command-input]")) {
           refreshCommandPrerequisites();
         }
@@ -860,6 +947,13 @@ export function initCreatureCards() {
           addLanguageRow();
           return;
         }
+        const addAttackButton = target?.closest("[data-creature-training-add-attack]");
+        if (addAttackButton instanceof HTMLButtonElement) {
+          event.preventDefault();
+          event.stopPropagation();
+          addAttackRow();
+          return;
+        }
         const removeExisting = target?.closest("[data-creature-training-remove-skill]");
         if (removeExisting instanceof HTMLButtonElement) {
           event.preventDefault();
@@ -874,6 +968,28 @@ export function initCreatureCards() {
           event.stopPropagation();
           registerRemovedLanguage(removeExistingLanguage.getAttribute("data-language-id") || "");
           removeExistingLanguage.closest("[data-creature-training-language-row]")?.remove();
+          return;
+        }
+        const removeExistingAttack = target?.closest("[data-creature-training-remove-attack]");
+        if (removeExistingAttack instanceof HTMLButtonElement) {
+          event.preventDefault();
+          event.stopPropagation();
+          registerRemovedAttack(removeExistingAttack.getAttribute("data-attack-id") || "");
+          removeExistingAttack.closest("[data-creature-training-attack-row]")?.remove();
+          return;
+        }
+        const restoreAttack = target?.closest("[data-creature-training-restore-attack]");
+        if (restoreAttack instanceof HTMLButtonElement) {
+          event.preventDefault();
+          event.stopPropagation();
+          const attackId = restoreAttack.getAttribute("data-attack-id") || "";
+          panel.querySelectorAll('input[name="remove_attack_ids"]').forEach((input) => {
+            if (input instanceof HTMLInputElement && input.value === attackId) {
+              input.remove();
+            }
+          });
+          registerRestoredAttack(attackId);
+          restoreAttack.closest("[data-creature-training-attack-row]")?.remove();
           return;
         }
         const removeNew = target?.closest("[data-creature-training-remove-new-skill]");
@@ -913,6 +1029,45 @@ export function initCreatureCards() {
               writeInput.checked = false;
             }
           }
+        }
+        const removeNewAttack = target?.closest("[data-creature-training-remove-new-attack]");
+        if (removeNewAttack instanceof HTMLButtonElement) {
+          event.preventDefault();
+          event.stopPropagation();
+          const row = removeNewAttack.closest("[data-creature-training-new-attack-row]");
+          const rows = panel.querySelectorAll("[data-creature-training-new-attack-row]");
+          if (row instanceof HTMLElement && rows.length > 1) {
+            row.remove();
+          } else if (row instanceof HTMLElement) {
+            row.querySelectorAll("select, input").forEach((field) => {
+              if (field instanceof HTMLSelectElement) {
+                field.selectedIndex = 0;
+              } else if (field instanceof HTMLInputElement) {
+                if (field.type === "checkbox") {
+                  field.checked = false;
+                } else {
+                  field.value = field.type === "number" ? "0" : "";
+                }
+              }
+            });
+            const keyInput = row.querySelector("[data-creature-training-attack-key]");
+            if (keyInput instanceof HTMLInputElement) {
+              keyInput.value = "0";
+            }
+            const showNotesInput = row.querySelector("[data-creature-training-attack-show-key]");
+            if (showNotesInput instanceof HTMLInputElement) {
+              showNotesInput.value = "0";
+            }
+            const appendNotesInput = row.querySelector("[data-creature-training-attack-append-key]");
+            if (appendNotesInput instanceof HTMLInputElement) {
+              appendNotesInput.value = "0";
+            }
+          }
+        }
+      });
+      panel.querySelectorAll("[data-creature-core-override-toggle]").forEach((toggleInput) => {
+        if (toggleInput instanceof HTMLInputElement) {
+          refreshCoreOverrideInput(toggleInput);
         }
       });
       refreshCommandPrerequisites();

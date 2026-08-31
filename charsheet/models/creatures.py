@@ -1484,6 +1484,63 @@ class CharacterCreatureSpecialSkill(models.Model):
         return f"{self.creature}: {self.skill} {self.value_override:+d}"
 
 
+class CharacterCreatureAttack(models.Model):
+    creature = models.ForeignKey(
+        CharacterCreature,
+        on_delete=models.CASCADE,
+        related_name="attack_overrides",
+    )
+    base_attack = models.ForeignKey(
+        CreatureAttack,
+        on_delete=models.PROTECT,
+        blank=True,
+        null=True,
+        related_name="character_overrides",
+    )
+    name = models.CharField(max_length=100)
+    attack_type = models.ForeignKey(
+        CreatureAttackType,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="character_creature_attacks",
+    )
+    attack_value = models.IntegerField(default=0)
+    damage_dice_amount = models.PositiveIntegerField(default=0)
+    damage_dice_faces = models.PositiveIntegerField(default=0)
+    damage_flat_operator = models.CharField(
+        max_length=1,
+        choices=CreatureAttack.DamageOperator.choices,
+        default=CreatureAttack.DamageOperator.NONE,
+        blank=True,
+    )
+    damage_flat_bonus = models.IntegerField(default=0)
+    damage_type = models.CharField(
+        max_length=1,
+        choices=DAMAGE_TYPE_CHOICES,
+        blank=True,
+        default="",
+    )
+    notes = models.CharField(max_length=200, blank=True, default="")
+    show_notes_as_damage = models.BooleanField(default=False)
+    append_notes_to_damage = models.BooleanField(default=False)
+    active = models.BooleanField(default=True)
+    order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ["order", "name", "id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["creature", "base_attack"],
+                name="uniq_character_creature_base_attack_override",
+            ),
+        ]
+
+    def __str__(self):
+        suffix = " ausgeblendet" if not self.active else ""
+        return f"{self.creature}: {self.name}{suffix}"
+
+
 class CharacterCreatureLanguage(models.Model):
     """Language added to a creature or L&S override for a base language."""
 

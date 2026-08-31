@@ -112,13 +112,14 @@
       <h3 class="creature-training-section-heading">Kartenwerte</h3>
       <div class="creature-training-section-body">
         <div class="creature-training-card-values">
-          <label><span>Initiative</span><input type="number" name="initiative" value="{{ training.core_value_options.initiative }}" aria-label="Initiative"></label>
-          <label><span>VW</span><input type="number" name="vw" value="{{ training.core_value_options.vw }}" aria-label="VW"></label>
-          <label><span>SR</span><input type="number" name="sr" value="{{ training.core_value_options.sr }}" aria-label="SR"></label>
-          <label><span>GW</span><input type="number" name="gw" value="{{ training.core_value_options.gw }}" aria-label="GW"></label>
-          <label><span>RS</span><input type="number" name="natural_rs" value="{{ training.core_value_options.natural_rs }}" min="0" aria-label="Natuerlicher RS"></label>
-          <label><span>Wunde</span><input type="number" name="wound_step" value="{{ training.core_value_options.wound_step }}" min="1" aria-label="Wundschwelle"></label>
-          <label class="creature-training-card-values__wide"><span>Wundschwellen</span><input type="text" name="wound_thresholds" value="{{ training.core_value_options.wound_thresholds }}" maxlength="100" placeholder="Bsp.: 3,6,9,12,15,18" aria-label="Wundschwellen als Kommaliste"></label>
+          <input type="hidden" name="core_values_present" value="1">
+          <label><span>Initiative</span><input type="number" name="initiative" value="{{ training.core_value_options.initiative }}" data-creature-core-value data-calculated-value="{{ training.core_value_options.initiative_calculated }}" aria-label="Initiative"{% if not training.core_value_options.initiative_override_enabled %} disabled{% endif %}><input type="checkbox" name="lock_initiative" value="1"{% if training.core_value_options.initiative_override_enabled %} checked{% endif %} data-creature-core-override-toggle aria-label="Initiative Override" title="Initiative Override"></label>
+          <label><span>VW</span><input type="number" name="vw" value="{{ training.core_value_options.vw }}" data-creature-core-value data-calculated-value="{{ training.core_value_options.vw_calculated }}" aria-label="VW"{% if not training.core_value_options.vw_override_enabled %} disabled{% endif %}><input type="checkbox" name="lock_vw" value="1"{% if training.core_value_options.vw_override_enabled %} checked{% endif %} data-creature-core-override-toggle aria-label="VW Override" title="VW Override"></label>
+          <label><span>SR</span><input type="number" name="sr" value="{{ training.core_value_options.sr }}" data-creature-core-value data-calculated-value="{{ training.core_value_options.sr_calculated }}" aria-label="SR"{% if not training.core_value_options.sr_override_enabled %} disabled{% endif %}><input type="checkbox" name="lock_sr" value="1"{% if training.core_value_options.sr_override_enabled %} checked{% endif %} data-creature-core-override-toggle aria-label="SR Override" title="SR Override"></label>
+          <label><span>GW</span><input type="number" name="gw" value="{{ training.core_value_options.gw }}" data-creature-core-value data-calculated-value="{{ training.core_value_options.gw_calculated }}" aria-label="GW"{% if not training.core_value_options.gw_override_enabled %} disabled{% endif %}><input type="checkbox" name="lock_gw" value="1"{% if training.core_value_options.gw_override_enabled %} checked{% endif %} data-creature-core-override-toggle aria-label="GW Override" title="GW Override"></label>
+          <label><span>RS</span><input type="number" name="natural_rs" value="{{ training.core_value_options.natural_rs }}" min="0" data-creature-core-value data-calculated-value="{{ training.core_value_options.natural_rs_calculated }}" aria-label="Natuerlicher RS"{% if not training.core_value_options.natural_rs_override_enabled %} disabled{% endif %}><input type="checkbox" name="lock_natural_rs" value="1"{% if training.core_value_options.natural_rs_override_enabled %} checked{% endif %} data-creature-core-override-toggle aria-label="RS Override" title="RS Override"></label>
+          <label><span>Wunde</span><input type="number" name="wound_step" value="{{ training.core_value_options.wound_step }}" min="1" data-creature-core-value data-calculated-value="{{ training.core_value_options.wound_step_calculated }}" aria-label="Wundschwelle"{% if not training.core_value_options.wound_step_override_enabled %} disabled{% endif %}><input type="checkbox" name="lock_wound_step" value="1"{% if training.core_value_options.wound_step_override_enabled %} checked{% endif %} data-creature-core-override-toggle aria-label="Wunde Override" title="Wunde Override"></label>
+          <label class="creature-training-card-values__wide"><span>Wundschwellen</span><input type="text" name="wound_thresholds" value="{{ training.core_value_options.wound_thresholds }}" maxlength="100" placeholder="Bsp.: 3,6,9,12,15,18" data-creature-core-value data-calculated-value="{{ training.core_value_options.wound_thresholds_calculated }}" aria-label="Wundschwellen als Kommaliste"{% if not training.core_value_options.wound_thresholds_override_enabled %} disabled{% endif %}><input type="checkbox" name="lock_wound_thresholds" value="1"{% if training.core_value_options.wound_thresholds_override_enabled %} checked{% endif %} data-creature-core-override-toggle aria-label="Wundschwellen Override" title="Wundschwellen Override"></label>
         </div>
       </div>
     </section>
@@ -267,6 +268,100 @@
         {% empty %}
           <p class="creature-training-empty">Keine Kommandos im Katalog.</p>
         {% endfor %}
+        </div>
+      </div>
+    </section>
+
+    <section class="creature-training-drawer__section is-collapsed" aria-label="Attacken" data-creature-training-section>
+      <button class="creature-training-section-toggle" type="button" data-creature-training-section-toggle aria-expanded="false">
+        <span>Attacken</span>
+        <span class="creature-training-section-toggle__icon" aria-hidden="true"></span>
+      </button>
+      <div class="creature-training-section-body" data-creature-training-section-body hidden>
+        <input type="hidden" name="attacks_present" value="1">
+        <div class="creature-training-attack-list">
+        {% for attack in training.attack_rows %}
+          {% if attack.removed %}
+            <div class="creature-training-attack creature-training-attack--removed" data-creature-training-attack-row>
+              <span>{{ attack.name }}</span>
+              <input type="hidden" name="remove_attack_ids" value="{{ attack.remove_id }}">
+              <button type="button" data-creature-training-restore-attack data-attack-id="{{ attack.remove_id }}">Wiederherstellen</button>
+            </div>
+          {% else %}
+            <div class="creature-training-attack" data-creature-training-attack-row>
+              {% if attack.can_remove %}
+                <button class="creature-training-skill__remove" type="button" data-creature-training-remove-attack data-attack-id="{{ attack.remove_id }}" aria-label="{{ attack.name }} entfernen">&times;</button>
+              {% else %}
+                <span class="creature-training-skill__remove creature-training-skill__remove--placeholder" aria-hidden="true"></span>
+              {% endif %}
+              <input class="creature-training-attack__name" type="text" name="attack_name_{{ attack.id }}" value="{{ attack.name }}" maxlength="100" aria-label="Attackenname">
+              <select class="creature-training-attack__type" name="attack_type_{{ attack.id }}" aria-label="Angriffsart">
+                <option value="">Art</option>
+                {% for attack_type in training.attack_type_choices %}
+                  <option value="{{ attack_type.value }}"{% if attack.attack_type_id == attack_type.value %} selected{% endif %}>{{ attack_type.label }}</option>
+                {% endfor %}
+              </select>
+              <input class="creature-training-attack__value" type="number" name="attack_value_{{ attack.id }}" value="{{ attack.attack_value }}" aria-label="Angriffswert">
+              <div class="creature-training-attack__damage">
+                <input type="number" name="attack_dice_amount_{{ attack.id }}" value="{{ attack.damage_dice_amount }}" min="0" aria-label="Schadenswuerfel Anzahl">
+                <input type="number" name="attack_dice_faces_{{ attack.id }}" value="{{ attack.damage_dice_faces }}" min="0" aria-label="Schadenswuerfel Seiten">
+                <select name="attack_flat_operator_{{ attack.id }}" aria-label="Schadensoperator">
+                  {% for operator in training.damage_operator_choices %}
+                    <option value="{{ operator.value }}"{% if attack.damage_flat_operator == operator.value %} selected{% endif %}>{{ operator.label }}</option>
+                  {% endfor %}
+                </select>
+                <input type="number" name="attack_flat_bonus_{{ attack.id }}" value="{{ attack.damage_flat_bonus }}" aria-label="Schadensbonus">
+                <select name="attack_damage_type_{{ attack.id }}" aria-label="Schadensart">
+                  <option value="">-</option>
+                  {% for damage_type in training.damage_type_choices %}
+                    <option value="{{ damage_type.value }}"{% if attack.damage_type == damage_type.value %} selected{% endif %}>{{ damage_type.label }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <input class="creature-training-attack__notes" type="text" name="attack_notes_{{ attack.id }}" value="{{ attack.notes }}" maxlength="200" aria-label="Attackennotiz">
+              <div class="creature-training-attack__flags">
+                <label class="creature-training-attack__flag"><input type="checkbox" name="attack_show_notes_{{ attack.id }}" value="1"{% if attack.show_notes_as_damage %} checked{% endif %}><span>Notiz=Schaden</span></label>
+                <label class="creature-training-attack__flag"><input type="checkbox" name="attack_append_notes_{{ attack.id }}" value="1"{% if attack.append_notes_to_damage %} checked{% endif %}><span>Notiz anh&auml;ngen</span></label>
+              </div>
+            </div>
+          {% endif %}
+        {% empty %}
+          <p class="creature-training-empty creature-training-empty--attacks">Keine Attacken eingetragen.</p>
+        {% endfor %}
+          <div class="creature-training-attack creature-training-attack--new" data-creature-training-new-attack-row>
+            <button class="creature-training-skill__remove" type="button" data-creature-training-remove-new-attack aria-label="Neue Attacke entfernen">&times;</button>
+            <input type="hidden" name="new_attack_key" value="0" data-creature-training-attack-key>
+            <input class="creature-training-attack__name" type="text" name="new_attack_name" value="" maxlength="100" placeholder="Attacke hinzuf&uuml;gen" aria-label="Neue Attacke">
+            <select class="creature-training-attack__type" name="new_attack_type" aria-label="Neue Angriffsart">
+              <option value="">Art</option>
+              {% for attack_type in training.attack_type_choices %}
+                <option value="{{ attack_type.value }}">{{ attack_type.label }}</option>
+              {% endfor %}
+            </select>
+            <input class="creature-training-attack__value" type="number" name="new_attack_value" value="0" aria-label="Neuer Angriffswert">
+            <div class="creature-training-attack__damage">
+              <input type="number" name="new_attack_dice_amount" value="0" min="0" aria-label="Neue Schadenswuerfel Anzahl">
+              <input type="number" name="new_attack_dice_faces" value="0" min="0" aria-label="Neue Schadenswuerfel Seiten">
+              <select name="new_attack_flat_operator" aria-label="Neuer Schadensoperator">
+                {% for operator in training.damage_operator_choices %}
+                  <option value="{{ operator.value }}">{{ operator.label }}</option>
+                {% endfor %}
+              </select>
+              <input type="number" name="new_attack_flat_bonus" value="0" aria-label="Neuer Schadensbonus">
+              <select name="new_attack_damage_type" aria-label="Neue Schadensart">
+                <option value="">-</option>
+                {% for damage_type in training.damage_type_choices %}
+                  <option value="{{ damage_type.value }}">{{ damage_type.label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <input class="creature-training-attack__notes" type="text" name="new_attack_notes" value="" maxlength="200" aria-label="Neue Attackennotiz">
+            <div class="creature-training-attack__flags">
+              <label class="creature-training-attack__flag"><input type="checkbox" name="new_attack_show_notes" value="0" data-creature-training-attack-show-key><span>Notiz=Schaden</span></label>
+              <label class="creature-training-attack__flag"><input type="checkbox" name="new_attack_append_notes" value="0" data-creature-training-attack-append-key><span>Notiz anh&auml;ngen</span></label>
+            </div>
+          </div>
+          <button class="creature-training-add-skill" type="button" data-creature-training-add-attack>Attacke hinzuf&uuml;gen</button>
         </div>
       </div>
     </section>

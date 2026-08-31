@@ -29,6 +29,7 @@ from .core import (
 )
 from .creatures import (
     CharacterCreature,
+    CharacterCreatureAttack,
     CharacterCreatureAttributeIncrease,
     CharacterCreatureCommand,
     CharacterCreatureCommandPrerequisite,
@@ -174,6 +175,7 @@ __all__ = [
     "CharacterShamanPatron",
     "CharacterDiaryEntry",
     "CharacterCreature",
+    "CharacterCreatureAttack",
     "CharacterCreatureAttributeIncrease",
     "CharacterCreatureCommand",
     "CharacterCreatureCommandPrerequisite",
