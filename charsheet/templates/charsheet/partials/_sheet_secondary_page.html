@@ -574,8 +574,8 @@
                 <li
                   class="school_row_with_tooltip tooltip_target school_row_with_tooltip--race{% if row.show_group_separator %} school_row_with_tooltip--separator{% endif %}"
                   data-tooltip-side="left"
-                  data-tooltip-mode="skill-card"
-                  data-tooltip-card-variant="skill"
+                  data-tooltip-mode="card"
+                  data-tooltip-card-variant="technique"
                   data-tooltip-title="{{ row.entry_name }}"
                   data-tooltip-subtitle="{{ row.school_name }}"
                   data-tooltip-card-key="race:{{ row.technique_id|default:row.entry_name|slugify }}"
@@ -713,8 +713,8 @@
                 <li
                   class="school_row_with_tooltip tooltip_target"
                   data-tooltip-side="left"
-                  data-tooltip-mode="skill-card"
-                  data-tooltip-card-variant="skill"
+                  data-tooltip-mode="card"
+                  data-tooltip-card-variant="technique"
                   data-tooltip-title="{{ row.tooltip_title|default:row.entry_name }}"
                   data-tooltip-subtitle="{% if row.tooltip_subtitle %}{{ row.tooltip_subtitle }}{% else %}{{ row.school_name }}{% if row.level_label %} {{ row.level_label }}{% endif %}{% endif %}"
                   data-tooltip-card-key="{% if row.tooltip_card_key %}{{ row.tooltip_card_key }}{% else %}technique:{{ row.technique_id|default:row.entry_name|slugify }}{% endif %}"
