@@ -1504,14 +1504,25 @@ def character_sheet_external_refresh(request, character_id: int):
     """Refresh the player sheet after GM-side item disclosure changes."""
     character = _owned_character_or_404(request, character_id)
     signature = _character_external_sheet_signature(character)
-    if str(request.GET.get("signature") or "") == signature:
+    force_refresh = str(request.GET.get("force") or "") == "1"
+    include_learning = str(request.GET.get("learning") or "") == "1"
+    if not force_refresh and str(request.GET.get("signature") or "") == signature:
         return JsonResponse({"ok": True, "changed": False, "signature": signature})
     context = _build_sheet_context_for_request(request, character)
+    learning_panel_html = ""
+    if include_learning:
+        learning_panel_html = render_to_string(
+            "charsheet/partials/_learning_panel.html",
+            context,
+            request=request,
+        )
     return JsonResponse(
         {
             "ok": True,
             "changed": True,
             "signature": signature,
+            "cultistCorruptionLevel": context["cultist_corruption_level"],
+            "learningPanelHtml": learning_panel_html,
             "partials": _render_sheet_partials(request, context, SHEET_MAIN_PARTIAL_KEYS),
         }
     )
@@ -5809,21 +5820,21 @@ def apply_learning(request, character_id: int):
 
     level, message = process_learning_submission(character, request.POST)
     if _is_partial_request(request):
-        context = _build_sheet_context_for_request(request, character, skip_magic_sync=True)
-        partials = _render_sheet_partials(request, context, SHEET_LEARNING_PARTIAL_KEYS)
+        character.refresh_from_db()
         return JsonResponse(
             {
                 "ok": True,
                 "level": level,
                 "message": message,
                 "learningFeedback": {"level": level, "message": message},
-                "cultistCorruptionLevel": context["cultist_corruption_level"],
-                "learningPanelHtml": (
-                    render_to_string("charsheet/partials/_learning_panel.html", context, request=request)
+                "currentExperience": int(character.current_experience),
+                "deferredPartialsUrl": (
+                    f"{reverse('character_sheet_external_refresh', args=[character.id])}?force=1&learning=1"
                     if level != "error"
                     else ""
                 ),
-                "partials": partials,
+                "learningPanelHtml": "",
+                "partials": [],
             }
         )
     request.session["skip_magic_sync_once"] = True

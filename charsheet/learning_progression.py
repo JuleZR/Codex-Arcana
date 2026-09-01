@@ -403,10 +403,9 @@ def build_learning_progression_context(character, *, engine, synchronize: bool =
     base_spell_rows: list[dict[str, object]] = []
     divine_entity_rows: list[dict[str, object]] = []
     pending_decisions: list[dict[str, object]] = []
-    magic_engine = character.get_magic_engine(refresh=True)
+    magic_engine = character.get_magic_engine(refresh=synchronize)
     if synchronize:
         magic_engine.sync_character_magic()
-
 
     learned_school_entries = list(
         character.schools.select_related("school", "school__type").order_by("school__type__name", "school__name")
@@ -465,15 +464,6 @@ def build_learning_progression_context(character, *, engine, synchronize: bool =
                     ],
                 )
             )
-
-    arcane_school_levels = {
-        entry.school_id: int(entry.level)
-        for entry in magic_engine._arcane_school_entries()
-    }
-    aspect_levels = {
-        entry.aspect_id: int(entry.level)
-        for entry in magic_engine.get_character_aspects()
-    }
 
     weapon_master_school = engine._weapon_master_school
     for entry in learned_school_entries:

@@ -32,6 +32,45 @@ function updateLearningFormFromPayload(payload) {
   return true;
 }
 
+function updateLearningBudgetFromPayload(payload) {
+  if (Object.prototype.hasOwnProperty.call(payload || {}, "currentExperience")) {
+    const currentExperience = Number.parseInt(String(payload.currentExperience), 10);
+    if (Number.isFinite(currentExperience)) {
+      const budgetPanel = document.getElementById("learnBudgetPanel");
+      const budgetValue = document.getElementById("learnBudgetValue");
+      const remainingValue = document.getElementById("learnRemainingValue");
+      if (budgetPanel instanceof HTMLElement) {
+        budgetPanel.dataset.learnBudget = String(currentExperience);
+      }
+      if (budgetValue) {
+        budgetValue.textContent = `${currentExperience} EP`;
+      }
+      if (remainingValue) {
+        remainingValue.textContent = `${currentExperience} EP`;
+        remainingValue.classList.remove("is-negative");
+      }
+    }
+  }
+
+  const html = String(payload?.learningBudgetHtml || "").trim();
+  if (!html) {
+    return false;
+  }
+  const currentBudget = document.getElementById("learnBudgetPanel");
+  if (!(currentBudget instanceof HTMLElement)) {
+    return false;
+  }
+  const template = document.createElement("template");
+  template.innerHTML = html;
+  const nextBudget = template.content.querySelector("#learnBudgetPanel");
+  if (!(nextBudget instanceof HTMLElement)) {
+    return false;
+  }
+  currentBudget.replaceWith(nextBudget);
+  document.dispatchEvent(new Event("learn:refresh-totals"));
+  return true;
+}
+
 function updateCultistCorruptionFromPayload(payload) {
   if (!Object.prototype.hasOwnProperty.call(payload || {}, "cultistCorruptionLevel")) {
     return;
@@ -48,6 +87,39 @@ function updateCultistCorruptionFromPayload(payload) {
     document.body.classList.add(`cultist-corruption--level-${level}`);
   }
   document.body.dataset.cultistCorruptionLevel = String(level);
+}
+
+async function refreshDeferredSheetPartials(payload) {
+  const url = String(payload?.deferredPartialsUrl || "").trim();
+  if (!url) {
+    return;
+  }
+  try {
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        "X-Requested-With": "XMLHttpRequest",
+        Accept: "application/json",
+      },
+      credentials: "same-origin",
+    });
+    if (!response.ok) {
+      return;
+    }
+    const refreshPayload = await response.json();
+    if (!refreshPayload?.ok || !refreshPayload.changed) {
+      return;
+    }
+    applySheetPartials(refreshPayload);
+    updateCultistCorruptionFromPayload(refreshPayload);
+    updateLearningFormFromPayload(refreshPayload);
+    const signature = String(refreshPayload.signature || "").trim();
+    if (signature && document.body) {
+      document.body.dataset.externalRefreshSignature = signature;
+    }
+  } catch (_error) {
+    // The regular external-refresh poll will recover if this one-off pass fails.
+  }
 }
 
 function waitForPrintAssets() {
@@ -150,12 +222,19 @@ export function initSheetActions() {
         }
         throw new Error("sheet action invalid");
       }
-      applySheetPartials(payload);
+      if (Array.isArray(payload.partials) && payload.partials.length) {
+        applySheetPartials(payload);
+      }
+      updateLearningBudgetFromPayload(payload);
       updateCultistCorruptionFromPayload(payload);
       updateLearningFormFromPayload(payload);
       if (payload?.learningFeedback?.level) {
+        form.dispatchEvent(new CustomEvent("learn:applied", {
+          detail: payload.learningFeedback,
+        }));
         flashSheetFeedback(String(payload.learningFeedback.level));
       }
+      refreshDeferredSheetPartials(payload);
       if (form.hasAttribute("data-ajax-only")) {
         form.dispatchEvent(new CustomEvent("sheet:action-success", { bubbles: true, detail: payload }));
       }

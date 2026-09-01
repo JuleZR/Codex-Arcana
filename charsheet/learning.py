@@ -1142,27 +1142,46 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
 
     magic_spell_selection: set[int] = set()
     divine_arcane_spell_selection: dict[int, int] = {}
-    legal_bonus_aspect_map = {
-        row["aspect_id"]: {
-            "base": int(row.get("base_level", 0) or 0),
-            "max": int(row.get("max_level", 0) or 0),
+    magic_input_keys = [
+        str(key)
+        for key in post_data.keys()
+        if str(key).startswith(
+            (
+                "learn_magic_spell_",
+                "learn_arcane_free_spell_",
+                "learn_bonus_spell_",
+                "learn_divine_arcane_spell_",
+                "learn_magic_aspect_",
+            )
+        )
+    ]
+    has_magic_aspect_inputs = any(
+        key.startswith("learn_magic_aspect_")
+        for key in magic_input_keys
+    )
+    legal_bonus_aspect_map = {}
+    if has_magic_aspect_inputs:
+        legal_bonus_aspect_map = {
+            row["aspect_id"]: {
+                "base": int(row.get("base_level", 0) or 0),
+                "max": int(row.get("max_level", 0) or 0),
+            }
+            for group in _build_learning_magic_groups(character)
+            for row in group["rows"]
+            if row["kind"] == "magic_aspect"
         }
-        for group in _build_learning_magic_groups(character)
-        for row in group["rows"]
-        if row["kind"] == "magic_aspect"
-    }
-    for key in post_data.keys():
-        if str(key).startswith("learn_magic_spell_"):
-            spell_id = int(str(key).split("_")[-1])
+    for key in magic_input_keys:
+        if key.startswith("learn_magic_spell_"):
+            spell_id = int(key.split("_")[-1])
             selected = _read_int(post_data, key, 0)
             if selected <= 0:
                 continue
             magic_spell_selection.add(spell_id)
-        elif str(key).startswith("learn_arcane_free_spell_") or str(key).startswith("learn_bonus_spell_"):
+        elif key.startswith("learn_arcane_free_spell_") or key.startswith("learn_bonus_spell_"):
             if _read_int(post_data, key, 0) > 0:
                 return "error", "Freizauber und Zusatzzauber werden nicht mehr separat gelernt."
-        elif str(key).startswith("learn_divine_arcane_spell_"):
-            match = re.match(r"^learn_divine_arcane_spell_(\d+)_(\d+)$", str(key))
+        elif key.startswith("learn_divine_arcane_spell_"):
+            match = re.match(r"^learn_divine_arcane_spell_(\d+)_(\d+)$", key)
             if not match or _read_int(post_data, key, 0) <= 0:
                 continue
             granted_level = int(match.group(1))
@@ -1170,8 +1189,8 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
             if granted_level in divine_arcane_spell_selection and divine_arcane_spell_selection[granted_level] != spell_id:
                 return "error", f"Arkane Gabe Grad {granted_level}: Es kann nur ein Zauber gewaehlt werden."
             divine_arcane_spell_selection[granted_level] = spell_id
-        elif str(key).startswith("learn_magic_aspect_"):
-            aspect_id = int(str(key).split("_")[-1])
+        elif key.startswith("learn_magic_aspect_"):
+            aspect_id = int(key.split("_")[-1])
             add = _read_int(post_data, key, 0)
             if add == 0:
                 continue
