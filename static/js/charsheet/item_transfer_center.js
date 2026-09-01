@@ -112,6 +112,7 @@ const initEmbeddedItemTransferCenter = () => {
       || (
         !form.hasAttribute("data-transfer-accept")
         && !form.hasAttribute("data-transfer-bulk-accept")
+        && !form.hasAttribute("data-transfer-decline")
       )
     ) {
       return;

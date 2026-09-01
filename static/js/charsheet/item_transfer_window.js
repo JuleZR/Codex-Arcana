@@ -129,6 +129,9 @@ export function initItemTransferWindow() {
     if (event.data?.type !== "codex:item-transfer-accepted") return;
     applySheetPartials(event.data.payload);
     updateTransferBadge(event.data.payload?.openItemTransferCount);
+    document.dispatchEvent(new CustomEvent("charsheet:item-transfer-count-updated", {
+      detail: { count: event.data.payload?.openItemTransferCount },
+    }));
   });
 }
 

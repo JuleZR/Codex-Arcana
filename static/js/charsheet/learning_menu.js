@@ -1,4 +1,4 @@
-import { createChoiceModalController } from "./choice_modal.js";
+import { createChoiceModalController } from "./choice_modal.js?v=20260901a";
 import { clamp, escapeHtml, initPersistentDetails, readInt } from "./utils.js?v=20260622a";
 
 const LANGUAGE_LITERACY_MIN_LEVEL = 3;

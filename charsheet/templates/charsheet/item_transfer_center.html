@@ -73,7 +73,7 @@
             {% if embedded %}<input type="hidden" name="embedded" value="1">{% endif %}
             <button>Entgegennehmen</button>
           </form>
-          <form method="post" action="{% url 'decline_item_transfer' transfer.id %}">
+          <form method="post" action="{% url 'decline_item_transfer' transfer.id %}"{% if embedded %} data-transfer-decline{% endif %}>
             {% csrf_token %}
             {% if selected_character %}<input type="hidden" name="context_character_id" value="{{ selected_character.id }}">{% endif %}
             {% if embedded %}<input type="hidden" name="embedded" value="1">{% endif %}
@@ -89,6 +89,6 @@
     {% endfor %}
   </section>
 </main>
-{% if embedded %}<script type="module" src="{% static 'js/charsheet/item_transfer_center.js' %}?v=20260827a"></script>{% endif %}
+{% if embedded %}<script type="module" src="{% static 'js/charsheet/item_transfer_center.js' %}?v=20260901a"></script>{% endif %}
 </body>
 </html>

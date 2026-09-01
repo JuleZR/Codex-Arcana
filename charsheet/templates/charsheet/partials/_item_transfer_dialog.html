@@ -4,7 +4,7 @@
     <button type="button" class="payday-window__close" id="itemTransferDialogClose" data-close-item-transfer aria-label="Fenster schließen">x</button>
   </div>
   <div class="payday-window__body sheet-window__body"><div class="sheet-window__editor-shell"><div class="sheet-window__editor-pane">
-  <form method="post" id="itemTransferForm" class="sheet-window__editor-form item-transfer-form">
+  <form method="post" id="itemTransferForm" class="sheet-window__editor-form item-transfer-form" data-sheet-action data-ajax-only>
     {% csrf_token %}
     <input type="hidden" name="sender_id" id="itemTransferSenderId">
     <input type="hidden" name="recipient_id" id="itemTransferRecipientId">

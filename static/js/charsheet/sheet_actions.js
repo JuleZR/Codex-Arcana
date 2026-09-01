@@ -26,8 +26,19 @@ function updateLearningFormFromPayload(payload) {
     return false;
   }
   currentForm.replaceWith(nextForm);
+  const currentChoiceWindow = document.getElementById("learnChoiceWindow");
+  const nextChoiceWindow = template.content.querySelector("#learnChoiceWindow");
+  if (
+    currentChoiceWindow instanceof HTMLElement
+    && nextChoiceWindow instanceof HTMLElement
+  ) {
+    if (typeof currentChoiceWindow.__floatingWindowController?.destroy === "function") {
+      currentChoiceWindow.__floatingWindowController.destroy();
+    }
+    currentChoiceWindow.replaceWith(nextChoiceWindow);
+  }
   document.dispatchEvent(new CustomEvent("charsheet:partials-applied", {
-    detail: { targets: ["learnForm"] },
+    detail: { targets: ["learnForm", "learnChoiceWindow"] },
   }));
   return true;
 }
@@ -89,37 +100,14 @@ function updateCultistCorruptionFromPayload(payload) {
   document.body.dataset.cultistCorruptionLevel = String(level);
 }
 
-async function refreshDeferredSheetPartials(payload) {
+function refreshDeferredSheetPartials(payload) {
   const url = String(payload?.deferredPartialsUrl || "").trim();
   if (!url) {
     return;
   }
-  try {
-    const response = await fetch(url, {
-      method: "GET",
-      headers: {
-        "X-Requested-With": "XMLHttpRequest",
-        Accept: "application/json",
-      },
-      credentials: "same-origin",
-    });
-    if (!response.ok) {
-      return;
-    }
-    const refreshPayload = await response.json();
-    if (!refreshPayload?.ok || !refreshPayload.changed) {
-      return;
-    }
-    applySheetPartials(refreshPayload);
-    updateCultistCorruptionFromPayload(refreshPayload);
-    updateLearningFormFromPayload(refreshPayload);
-    const signature = String(refreshPayload.signature || "").trim();
-    if (signature && document.body) {
-      document.body.dataset.externalRefreshSignature = signature;
-    }
-  } catch (_error) {
-    // The regular external-refresh poll will recover if this one-off pass fails.
-  }
+  document.dispatchEvent(new CustomEvent("charsheet:external-refresh-requested", {
+    detail: { force: true, learning: true },
+  }));
 }
 
 function waitForPrintAssets() {
@@ -171,6 +159,10 @@ export function initSheetActions() {
   document.addEventListener("submit", async (event) => {
     const form = event.target;
     if (!(form instanceof HTMLFormElement) || !form.hasAttribute("data-sheet-action")) {
+      return;
+    }
+
+    if (event.defaultPrevented) {
       return;
     }
 
@@ -233,6 +225,11 @@ export function initSheetActions() {
           detail: payload.learningFeedback,
         }));
         flashSheetFeedback(String(payload.learningFeedback.level));
+      }
+      if (Object.prototype.hasOwnProperty.call(payload, "openItemTransferCount")) {
+        document.dispatchEvent(new CustomEvent("charsheet:item-transfer-count-updated", {
+          detail: { count: payload.openItemTransferCount },
+        }));
       }
       refreshDeferredSheetPartials(payload);
       if (form.hasAttribute("data-ajax-only")) {

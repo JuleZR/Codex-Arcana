@@ -97,4 +97,11 @@ export function initItemTransfers({ windowController = null } = {}) {
       search.reportValidity();
     }
   });
+
+  form.addEventListener("sheet:action-success", () => {
+    windowController?.close();
+    form.reset();
+    results.replaceChildren();
+    syncPermissionControls();
+  });
 }

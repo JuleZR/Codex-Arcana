@@ -343,6 +343,8 @@ export function createChoiceModalController({ hiddenInputContainer, windowContro
     tempForm.method = "post";
     tempForm.action = learningForm.action;
     tempForm.hidden = true;
+    tempForm.setAttribute("data-sheet-action", "");
+    tempForm.setAttribute("data-ajax-only", "");
 
     const csrfClone = document.createElement("input");
     csrfClone.type = "hidden";
@@ -362,7 +364,22 @@ export function createChoiceModalController({ hiddenInputContainer, windowContro
     });
 
     document.body.appendChild(tempForm);
-    tempForm.submit();
+    tempForm.addEventListener("sheet:action-success", () => {
+      tempForm.remove();
+    }, { once: true });
+    tempForm.addEventListener("sheet:action-failed", () => {
+      tempForm.remove();
+    }, { once: true });
+    const submitEvent = typeof SubmitEvent === "function"
+      ? new SubmitEvent("submit", {
+          bubbles: true,
+          cancelable: true,
+        })
+      : new Event("submit", {
+          bubbles: true,
+          cancelable: true,
+        });
+    tempForm.dispatchEvent(submitEvent);
     return true;
   };
 

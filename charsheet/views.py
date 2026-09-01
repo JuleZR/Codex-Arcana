@@ -179,6 +179,7 @@ SHEET_PARTIAL_TEMPLATES = {
     "lesson_panel": ("sheetLessonPanel", "charsheet/partials/_lesson_panel.html"),
     "battle_calculator": ("battleCalculatorWindow", "charsheet/partials/_battle_calculator_window.html"),
     "learning_budget": ("learnBudgetPanel", "charsheet/partials/_learning_budget.html"),
+    "left_tools": ("leftToolsStack", "charsheet/partials/_left_tools.html"),
 }
 
 TEMPORARY_ATTRIBUTE_SESSION_KEY = "charsheet.temporary_attribute_adjustments"
@@ -191,6 +192,7 @@ TEMPORARY_ATTRIBUTE_PARTIAL_KEYS = (
     "weapon_panel",
 )
 SHEET_MAIN_PARTIAL_KEYS = (
+    "left_tools",
     "character_header",
     "secondary_page",
     "card_hand",
@@ -1135,12 +1137,19 @@ def _character_external_sheet_signature(character: Character) -> str:
             "alternative_text",
         )
     )
+    transfer_rows = list(
+        ItemTransfer.objects
+        .filter(recipient=character, status=ItemTransfer.Status.PENDING)
+        .order_by("id")
+        .values_list("id", "sender_id", "item_id", "quantity", "created_at", "expires_at")
+    )
     payload = json.dumps(
         {
             "items": item_ids,
             "disclosures": disclosure_rows,
             "identification_state": identification_state_rows,
             "identifications": identification_rows,
+            "transfers": transfer_rows,
         },
         default=str,
         separators=(",", ":"),
@@ -1523,6 +1532,7 @@ def character_sheet_external_refresh(request, character_id: int):
             "signature": signature,
             "cultistCorruptionLevel": context["cultist_corruption_level"],
             "learningPanelHtml": learning_panel_html,
+            "openItemTransferCount": context.get("open_item_transfer_count", 0),
             "partials": _render_sheet_partials(request, context, SHEET_MAIN_PARTIAL_KEYS),
         }
     )
@@ -3215,7 +3225,7 @@ def create_item_transfer(request, pk):
                 message=request.POST.get("message", ""),
             )
             if _is_partial_request(request):
-                return JsonResponse({"ok": True, "transferId": transfer.pk, "reload": True})
+                return _sheet_partials_response(request, sender, *SHEET_INVENTORY_PARTIAL_KEYS)
             messages.success(request, f"Zur Bearbeitung an SL @ {group.name} gesendet.")
             return redirect("character_sheet", character_id=sender.pk)
         if recipient is None:
@@ -3242,7 +3252,7 @@ def create_item_transfer(request, pk):
     except TransferError as error:
         return _transfer_response_error(request, error, character_id=item.owner_id)
     if _is_partial_request(request):
-        return JsonResponse({"ok": True, "transferId": transfer.pk, "reload": True})
+        return _sheet_partials_response(request, sender, *SHEET_INVENTORY_PARTIAL_KEYS)
     messages.success(request, "Übergabe wurde erstellt.")
     return redirect("character_sheet", character_id=sender.pk)
 
@@ -3332,6 +3342,8 @@ def decline_item_transfer_view(request, transfer_id):
         decline_item_transfer(transfer_id=transfer_id, recipient=recipient)
     except TransferError as error:
         return _transfer_response_error(request, error)
+    if _is_partial_request(request):
+        return _sheet_partials_response(request, recipient, "left_tools")
     messages.info(request, "Übergabe abgelehnt.")
     return _item_transfer_center_redirect(request)
 
@@ -3353,6 +3365,8 @@ def recall_item_transfer_view(request, transfer_id):
             error,
             character_id=transfer.sender_id if return_to_character else None,
         )
+    if _is_partial_request(request) and return_to_character:
+        return _sheet_partials_response(request, transfer.sender, *SHEET_INVENTORY_PARTIAL_KEYS)
     messages.success(request, "Übergabe zurückgezogen.")
     if return_to_character:
         return redirect("character_sheet", character_id=transfer.sender_id)
