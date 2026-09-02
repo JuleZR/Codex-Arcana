@@ -2594,7 +2594,10 @@ class ItemSemanticEffectAdminForm(forms.ModelForm):
     def _simple_target_choices(self):
         choices = [("", "-")]
         choices.extend((f"attribute:{value}", label) for value, label in ATTRIBUTE_CODE_CHOICES)
-        choices.extend((f"derived_stat:{value}", label) for value, label in STAT_SLUG_CHOICES)
+        choices.extend(
+            (f"derived_stat:{value}", label)
+            for value, label in _semantic_derived_stat_choices()
+        )
         choices.extend((f"movement:{value}", label) for value, label in self.MOVEMENT_TARGET_CHOICES)
         choices.extend((f"creature_movement:{value}", label) for value, label in self.MOVEMENT_TARGET_CHOICES)
         choices.extend((f"combat:{value}", label) for value, label in self.COMBAT_TARGET_CHOICES)
@@ -2606,7 +2609,7 @@ class ItemSemanticEffectAdminForm(forms.ModelForm):
         choices.extend((f"specialization:{specialization.pk}", specialization.name) for specialization
                        in Specialization.objects.order_by("name", "id"))
         choices.extend((f"rule_flag:{value}", label) for value, label in RULE_FLAG_CHOICES)
-        return choices
+        return _ordered_unique_semantic_choices(choices, self.EFFECT_AREA_CHOICES)
 
     def _apply_initial_simple_values(self):
         target_domain = str(self.initial.get("target_domain") or getattr(self.instance, "target_domain", "") or "")
@@ -2853,6 +2856,7 @@ class ItemSemanticEffectInline(admin.StackedInline):
     form = ItemSemanticEffectAdminForm
     verbose_name_plural = "Item Semantic Effects"
     extra = 0
+    ordering = ("sort_order", "id")
     filter_horizontal = ("condition_races", "condition_schools")
 
     class Media:
@@ -2908,6 +2912,7 @@ class CharacterItemSemanticEffectInline(admin.StackedInline):
     form = CharacterItemSemanticEffectAdminForm
     verbose_name_plural = "Character Item Semantic Effects"
     extra = 0
+    ordering = ("sort_order", "id")
     filter_horizontal = ("condition_races", "condition_schools")
     fieldsets = ItemSemanticEffectInline.fieldsets
 
@@ -3315,6 +3320,52 @@ class SemanticCreatureCardGrantFormMixin(forms.Form):
         return cleaned_data
 
 
+def _ordered_unique_semantic_choices(choices, area_choices):
+    """Return semantic target choices grouped by effect area without duplicates."""
+    area_order = {
+        value: index
+        for index, (value, _label) in enumerate(area_choices)
+    }
+    blank_choices = []
+    unique_choices = {}
+    for position, (value, label) in enumerate(choices):
+        value = str(value)
+        if value == "":
+            if not blank_choices:
+                blank_choices.append((value, label))
+            continue
+        unique_choices.setdefault(value, (value, label, position))
+
+    def sort_key(choice):
+        value, _label, position = choice
+        prefix = value.partition(":")[0]
+        return (
+            area_order.get(prefix, len(area_order)),
+            position,
+        )
+
+    ordered_choices = [
+        (value, label)
+        for value, label, _position in sorted(unique_choices.values(), key=sort_key)
+    ]
+    return blank_choices + ordered_choices
+
+
+def _semantic_derived_stat_choices():
+    weapon_stat_keys = {
+        MELEE_MANEUVERS,
+        WEAPON_DAMAGE,
+        WEAPON_DAMAGE_DICE,
+        WEAPON_MANEUVER_DAMAGE,
+        WEAPON_MASTERY_BONUS,
+    }
+    return [
+        (value, label)
+        for value, label in STAT_SLUG_CHOICES
+        if value not in weapon_stat_keys
+    ]
+
+
 class RuleSemanticEffectAdminForm(SemanticCreatureCardGrantFormMixin, forms.ModelForm):
     """Click-first editor for rule SemanticEffects.
 
@@ -3337,9 +3388,10 @@ class RuleSemanticEffectAdminForm(SemanticCreatureCardGrantFormMixin, forms.Mode
         ("creature_movement", "Kreaturenbewegung"),
         ("damage_source", "Schadensart"),
         ("weapon_range", "Waffenreichweite"),
-        ("weapon_skill", "Waffen nach Fertigkeit"),
         ("weapon", "Konkrete Waffe"),
         ("skill", "Fertigkeit"),
+        ("choice_binding", "Auswahlbindung"),
+        ("multi_skill", "Mehrere Fertigkeiten"),
         ("skill_category", "Fertigkeitskategorie"),
         ("item", "Item"),
         ("item_category", "Item-Kategorie"),
@@ -3495,7 +3547,10 @@ class RuleSemanticEffectAdminForm(SemanticCreatureCardGrantFormMixin, forms.Mode
     def _simple_target_choices(self):
         choices = [("", "-")]
         choices.extend((f"attribute:{value}", label) for value, label in ATTRIBUTE_CODE_CHOICES)
-        choices.extend((f"derived_stat:{value}", label) for value, label in STAT_SLUG_CHOICES)
+        choices.extend(
+            (f"derived_stat:{value}", label)
+            for value, label in _semantic_derived_stat_choices()
+        )
         choices.extend((f"combat:{value}", label) for value, label in self.COMBAT_TARGET_CHOICES)
         choices.extend((f"creature_movement:{value}", label) for value, label in self.MOVEMENT_TARGET_CHOICES)
         choices.extend((f"weapon_range:{value}", label) for value, label in self.WEAPON_RANGE_TARGET_CHOICES)
@@ -3514,7 +3569,7 @@ class RuleSemanticEffectAdminForm(SemanticCreatureCardGrantFormMixin, forms.Mode
         choices.extend((f"specialization:{specialization.pk}", specialization.name) for specialization
                        in Specialization.objects.order_by("name", "id"))
         choices.extend((f"rule_flag:{value}", label) for value, label in RULE_FLAG_CHOICES)
-        return choices
+        return _ordered_unique_semantic_choices(choices, self.EFFECT_AREA_CHOICES)
 
     def _apply_initial_simple_values(self):
         target_domain = str(self.initial.get("target_domain") or getattr(self.instance, "target_domain", "") or "")
@@ -3535,7 +3590,20 @@ class RuleSemanticEffectAdminForm(SemanticCreatureCardGrantFormMixin, forms.Mode
             "specialization": "specialization",
             "rule_flag": "rule_flag",
         }.get(target_domain)
-        if area:
+        if has_choice_binding := bool(
+            getattr(self.instance, "target_choice_definition_id", None)
+            or getattr(self.instance, "target_race_choice_definition_id", None)
+        ):
+            self.initial.setdefault("effect_area", "choice_binding")
+            self.initial.setdefault("simple_target", "")
+        elif (
+            self.instance.pk
+            and "target_skills" in self.fields
+            and self.instance.target_skills.exists()
+        ):
+            self.initial.setdefault("effect_area", "multi_skill")
+            self.initial.setdefault("simple_target", "")
+        elif area:
             if target_key.startswith("dmg_"):
                 self.initial.setdefault("effect_area", "damage_source")
                 self.initial.setdefault("simple_target", f"damage_source:{target_key}")
@@ -3571,7 +3639,6 @@ class RuleSemanticEffectAdminForm(SemanticCreatureCardGrantFormMixin, forms.Mode
                 "simple_weapon_skills",
                 list(Skill.objects.filter(slug__in=selected_weapon_skills).values_list("pk", flat=True)),
             )
-            self.initial["effect_area"] = "weapon_skill"
         category_filter = metadata.get("target_weapon_category") or ""
         if isinstance(category_filter, list):
             category_filter = category_filter[0] if category_filter else ""
@@ -3627,10 +3694,7 @@ class RuleSemanticEffectAdminForm(SemanticCreatureCardGrantFormMixin, forms.Mode
             cleaned_data.get("effect_area"),
             cleaned_data.get("simple_target"),
         )
-        if cleaned_data.get("effect_area") == "weapon_skill":
-            weapon_skill_slugs = list(cleaned_data.get("simple_weapon_skills").values_list("slug", flat=True))
-            if not weapon_skill_slugs:
-                self.add_error("simple_weapon_skills", "Bitte mindestens eine Waffen-Fertigkeit auswaehlen.")
+        area = cleaned_data.get("effect_area")
         has_choice_binding = bool(
             cleaned_data.get("target_choice_definition")
             or cleaned_data.get("target_race_choice_definition")
@@ -3640,9 +3704,20 @@ class RuleSemanticEffectAdminForm(SemanticCreatureCardGrantFormMixin, forms.Mode
         if target_domain and target_key:
             cleaned_data["target_domain"] = target_domain
             cleaned_data["target_key"] = target_key
-        elif has_choice_binding or has_target_skills:
+        elif area == "choice_binding" and has_choice_binding:
             cleaned_data["target_domain"] = cleaned_data.get("target_domain") or "skill"
             cleaned_data["target_key"] = ""
+            target_domain = cleaned_data["target_domain"]
+            target_key = ""
+        elif area == "multi_skill" and has_target_skills:
+            cleaned_data["target_domain"] = cleaned_data.get("target_domain") or "skill"
+            cleaned_data["target_key"] = ""
+            target_domain = cleaned_data["target_domain"]
+            target_key = ""
+        elif has_choice_binding:
+            self.add_error("effect_area", "Auswahlbindungen bitte als Auswahlbindung einordnen.")
+        elif has_target_skills:
+            self.add_error("effect_area", "Mehrfach-Fertigkeiten bitte als mehrere Fertigkeiten einordnen.")
         else:
             self.add_error("effect_area", "Bitte auswaehlen, welcher Wert geaendert werden soll.")
 
@@ -3755,6 +3830,7 @@ class RuleSemanticEffectAdminForm(SemanticCreatureCardGrantFormMixin, forms.Mode
             "creature_movement": "creature_movement",
             "weapon_range": "weapon_range",
             "weapon": "weapon",
+            "multi_skill": "skill",
             "skill": "skill",
             "skill_category": "skill_category",
             "item": "item",
@@ -3985,7 +4061,7 @@ class CreatureTraitSemanticEffectAdminForm(forms.ModelForm):
             (f"creature_card:{creature.pk}", creature.display_name)
             for creature in Creature.objects.order_by("name", "id")
         )
-        return choices
+        return _ordered_unique_semantic_choices(choices, self.EFFECT_AREA_CHOICES)
 
     @staticmethod
     def _is_numberish(value) -> bool:
@@ -4546,7 +4622,7 @@ class DaemonicPowerSemanticEffectAdminForm(CreatureTraitSemanticEffectAdminForm)
         self.fields["scale_by_trait_level"].initial = False
 
     def _simple_target_choices(self):
-        choices = super()._simple_target_choices()
+        choices = list(super()._simple_target_choices())
         choices.extend(
             (
                 f"daemonic_power:{power.slug}",
@@ -4559,7 +4635,7 @@ class DaemonicPowerSemanticEffectAdminForm(CreatureTraitSemanticEffectAdminForm)
                 "id",
             )
         )
-        return choices
+        return _ordered_unique_semantic_choices(choices, self.EFFECT_AREA_CHOICES)
 
     def _apply_initial_simple_values(self):
         super()._apply_initial_simple_values()
@@ -4698,10 +4774,7 @@ class VampireTraitSemanticEffectAdminForm(CreatureTraitSemanticEffectAdminForm):
         current_value = f"{current_domain}:{current_key}"
         if current_domain and current_key and not any(value == current_value for value, _label in choices):
             choices.append((current_value, current_key.replace("_", " ").title()))
-        unique_choices = {}
-        for value, label in choices:
-            unique_choices.setdefault(value, label)
-        return tuple(unique_choices.items())
+        return _ordered_unique_semantic_choices(choices, self.EFFECT_AREA_CHOICES)
 
     def _apply_initial_simple_values(self):
         super()._apply_initial_simple_values()
@@ -4893,6 +4966,7 @@ class TraitSemanticEffectInline(admin.StackedInline):
     model = TraitSemanticEffect
     form = TraitSemanticEffectInlineForm
     extra = 0
+    ordering = ("sort_order", "id")
     show_change_link = True
     autocomplete_fields = ("target_choice_definition",)
     filter_horizontal = ("target_skills", "condition_races")
@@ -4901,21 +4975,34 @@ class TraitSemanticEffectInline(admin.StackedInline):
             "Effekt",
             {
                 "fields": (
+                    "sort_order",
+                    "active_flag",
                     ("effect_area", "simple_target"),
                     "simple_weapon_skills",
-                    ("simple_weapon_category_filter", "simple_weapon_type_filter", "simple_weapon_item_filter"),
+                    (
+                        "simple_weapon_category_filter",
+                        "simple_weapon_type_filter",
+                        "simple_weapon_item_filter",
+                    ),
                     "simple_weapon_type_contains_filter",
                     ("simple_operator", "simple_value"),
                     "target_choice_definition",
                     "target_skills",
                     "simple_scaling",
-                    ("simple_scale_school", "simple_scale_skill", "simple_scale_divisor"),
-                    ("applies_during_character_creation", "applies_in_combat", "applies_outside_combat"),
+                    (
+                        "simple_scale_school",
+                        "simple_scale_skill",
+                        "simple_scale_divisor",
+                    ),
+                    (
+                        "applies_during_character_creation",
+                        "applies_in_combat",
+                        "applies_outside_combat",
+                    ),
                     "condition_races",
                     "condition_text",
                     "notes",
                     "rules_text",
-                    "active_flag",
                 )
             },
         ),
@@ -4931,6 +5018,7 @@ class TechniqueSemanticEffectInline(admin.StackedInline):
     model = TechniqueSemanticEffect
     form = TechniqueSemanticEffectInlineForm
     extra = 0
+    ordering = ("sort_order", "id")
     show_change_link = True
     autocomplete_fields = ("target_choice_definition",)
     filter_horizontal = ("target_skills", "condition_races")
@@ -4946,6 +5034,7 @@ class RaceSemanticEffectInline(admin.StackedInline):
     model = RaceSemanticEffect
     form = RaceSemanticEffectInlineForm
     extra = 0
+    ordering = ("sort_order", "id")
     show_change_link = True
     autocomplete_fields = ("target_race_choice_definition",)
     filter_horizontal = ("condition_races", "condition_schools")
@@ -4954,21 +5043,34 @@ class RaceSemanticEffectInline(admin.StackedInline):
             "Effekt",
             {
                 "fields": (
+                    "sort_order",
+                    "active_flag",
                     ("effect_area", "simple_target"),
                     "simple_weapon_skills",
-                    ("simple_weapon_category_filter", "simple_weapon_type_filter", "simple_weapon_item_filter"),
+                    (
+                        "simple_weapon_category_filter",
+                        "simple_weapon_type_filter",
+                        "simple_weapon_item_filter",
+                    ),
                     "simple_weapon_type_contains_filter",
                     ("simple_operator", "simple_value"),
                     "target_race_choice_definition",
                     "simple_scaling",
-                    ("simple_scale_school", "simple_scale_skill", "simple_scale_divisor"),
-                    ("applies_during_character_creation", "applies_in_combat", "applies_outside_combat"),
+                    (
+                        "simple_scale_school",
+                        "simple_scale_skill",
+                        "simple_scale_divisor",
+                    ),
+                    (
+                        "applies_during_character_creation",
+                        "applies_in_combat",
+                        "applies_outside_combat",
+                    ),
                     "condition_races",
                     "condition_schools",
                     "condition_text",
                     "notes",
                     "rules_text",
-                    "active_flag",
                 )
             },
         ),
@@ -4983,20 +5085,33 @@ RULE_SEMANTIC_EFFECT_FIELDSETS = (
         "Effekt",
         {
             "fields": (
+                "sort_order",
+                "active_flag",
                 ("effect_area", "simple_target"),
                 "simple_weapon_skills",
-                ("simple_weapon_category_filter", "simple_weapon_type_filter", "simple_weapon_item_filter"),
+                (
+                    "simple_weapon_category_filter",
+                    "simple_weapon_type_filter",
+                    "simple_weapon_item_filter",
+                ),
                 "simple_weapon_type_contains_filter",
                 ("simple_operator", "simple_value"),
                 "simple_scaling",
-                ("simple_scale_school", "simple_scale_skill", "simple_scale_divisor"),
-                ("applies_during_character_creation", "applies_in_combat", "applies_outside_combat"),
+                (
+                    "simple_scale_school",
+                    "simple_scale_skill",
+                    "simple_scale_divisor",
+                ),
+                (
+                    "applies_during_character_creation",
+                    "applies_in_combat",
+                    "applies_outside_combat",
+                ),
                 "condition_races",
                 "condition_schools",
                 "condition_text",
                 "notes",
                 "rules_text",
-                "active_flag",
             )
         },
     ),
@@ -5009,6 +5124,7 @@ class SchoolSemanticEffectInline(admin.StackedInline):
     model = SchoolSemanticEffect
     form = SchoolSemanticEffectInlineForm
     extra = 0
+    ordering = ("sort_order", "id")
     show_change_link = True
     filter_horizontal = ("condition_races", "condition_schools")
     fieldsets = RULE_SEMANTIC_EFFECT_FIELDSETS
@@ -5023,6 +5139,7 @@ class RuneSemanticEffectInline(admin.StackedInline):
     model = RuneSemanticEffect
     form = RuneSemanticEffectInlineForm
     extra = 0
+    ordering = ("sort_order", "id")
     show_change_link = True
     filter_horizontal = ("condition_races", "condition_schools")
     fieldsets = RULE_SEMANTIC_EFFECT_FIELDSETS
@@ -6432,6 +6549,7 @@ class SpecializationSemanticEffectInline(admin.StackedInline):
     model = SpecializationSemanticEffect
     form = SpecializationSemanticEffectInlineForm
     extra = 0
+    ordering = ("sort_order", "id")
     show_change_link = True
     filter_horizontal = ("condition_races", "condition_schools")
     fieldsets = RULE_SEMANTIC_EFFECT_FIELDSETS
@@ -8573,6 +8691,7 @@ class CreatureTraitSemanticEffectInline(admin.StackedInline):
     model = CreatureTraitSemanticEffect
     form = CreatureTraitSemanticEffectAdminForm
     extra = 0
+    ordering = ("sort_order", "id")
 
     class Media:
         js = ("charsheet/js/creature_trait_semantic_effect_admin_v9.js",)
@@ -8601,6 +8720,7 @@ class CreatureSpecialSkillSemanticEffectInline(admin.StackedInline):
     model = CreatureSpecialSkillSemanticEffect
     form = CreatureSpecialSkillSemanticEffectAdminForm
     extra = 0
+    ordering = ("sort_order", "id")
 
     class Media:
         js = ("charsheet/js/creature_trait_semantic_effect_admin_v9.js",)
@@ -8628,6 +8748,7 @@ class DaemonicPowerSemanticEffectInline(admin.StackedInline):
     model = DaemonicPowerSemanticEffect
     form = DaemonicPowerSemanticEffectAdminForm
     extra = 0
+    ordering = ("sort_order", "id")
     fieldsets = (
         (
             "Build effect",
@@ -8657,6 +8778,7 @@ class VampireTraitSemanticEffectInline(admin.StackedInline):
     model = VampireTraitSemanticEffect
     form = VampireTraitSemanticEffectAdminForm
     extra = 0
+    ordering = ("sort_order", "id")
     fieldsets = (
         (
             "Build effect",

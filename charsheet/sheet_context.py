@@ -3058,7 +3058,7 @@ def _build_tooltip_table(rows: list[tuple[str, object]]) -> str:
 def _build_core_stat_tooltip(
     rows: list[dict[str, object]],
     *,
-    conditional_modifiers: list[str] | None = None,
+    conditional_modifiers: list[str | dict[str, object]] | None = None,
 ) -> str:
     """Return one compact two-column table for a derived combat stat."""
     lines = [
@@ -3081,11 +3081,29 @@ def _build_core_stat_tooltip(
         )
     if conditional_modifiers:
         lines.append("")
-        lines.append("| Bedingte Modifikatoren |")
-        lines.append("| --- |")
+        lines.append("| Mod. | Bedingung |")
+        lines.append("| ---: | --- |")
         for entry in conditional_modifiers:
-            lines.append(f"| {_escape_tooltip_table_cell(entry)} |")
+            value, condition = _split_conditional_modifier_entry(entry)
+            lines.append(
+                "| "
+                f"{_escape_tooltip_table_cell(value)} | "
+                f"{_escape_tooltip_table_cell(condition)} |"
+            )
     return "\n".join(lines)
+
+
+def _split_conditional_modifier_entry(entry: str | dict[str, object]) -> tuple[str, str]:
+    """Return a value/condition pair for the conditional modifier table."""
+    if isinstance(entry, dict):
+        return (
+            str(entry.get("value", "") or ""),
+            str(entry.get("condition", "") or entry.get("condition_text", "") or ""),
+        )
+    value, separator, condition = str(entry or "").partition(" ")
+    if not separator:
+        return value, ""
+    return value, condition
 
 
 def _is_zeroish_tooltip_value(value: object) -> bool:
@@ -4402,6 +4420,8 @@ def _character_item_weapon_target_context(
 def _conditional_weapon_modifier_lines(
     engine,
     weapon_row: dict[str, object],
+    *,
+    target_keys: set[str] | None = None,
 ) -> list[str]:
     """Return conditional combat modifiers for one concrete weapon profile."""
     character_item = weapon_row["character_item"]
@@ -4412,7 +4432,7 @@ def _conditional_weapon_modifier_lines(
         weapon_stats=weapon_stats,
     )
 
-    relevant_target_keys = {
+    relevant_target_keys = target_keys or {
         WEAPON_DAMAGE,
         WEAPON_DAMAGE_DICE,
         WEAPON_MANEUVER_DAMAGE,
@@ -4503,33 +4523,7 @@ def _conditional_weapon_modifier_lines(
         else:
             value_label = format_modifier(resolved_value)
 
-        source_name = _resolve_modifier_source_name(
-            engine,
-            modifier.source_type,
-            modifier.source_id,
-        )
-
-        source_detail = _resolve_modifier_source_detail(
-            engine,
-            modifier.source_type,
-            modifier.source_id,
-        )
-
-        source_parts = [
-            part
-            for part in (
-                source_name,
-                source_detail,
-            )
-            if part
-        ]
-
-        source_label = " · ".join(source_parts)
-
         line = f"{value_label} {condition_text}"
-
-        if source_label:
-            line = f"{line} — {source_label}"
 
         lines.append(line)
 
@@ -4603,33 +4597,7 @@ def _conditional_weapon_modifier_lines(
         else:
             value_label = format_modifier(resolved_value)
 
-        source_name = _resolve_modifier_source_name(
-            engine,
-            modifier.source_type,
-            modifier.source_id,
-        )
-
-        source_detail = _resolve_modifier_source_detail(
-            engine,
-            modifier.source_type,
-            modifier.source_id,
-        )
-
-        source_parts = [
-            part
-            for part in (
-                source_name,
-                source_detail,
-            )
-            if part
-        ]
-
-        source_label = " · ".join(source_parts)
-
         line = f"{value_label} {condition_text}"
-
-        if source_label:
-            line = f"{line} — {source_label}"
 
         lines.append(line)
 
@@ -5223,7 +5191,8 @@ def _build_skill_rows(
             conditional_modifiers = _conditional_weapon_modifier_lines(
                 engine,
                 weapon_row,
-                )
+                target_keys={MELEE_MANEUVERS, WEAPON_MANEUVER_DAMAGE},
+            )
             for option in weapon_row.get("maneuver_options") or []:
                 maneuver_bonus = int(option.get("total_modifier") or 0) - int(option.get("attribute_modifier") or 0)
                 rows.append(

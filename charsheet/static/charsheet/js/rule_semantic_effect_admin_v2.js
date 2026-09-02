@@ -1,4 +1,9 @@
 (function () {
+  if (window.__ruleSemanticEffectAdminV2Loaded) {
+    return;
+  }
+  window.__ruleSemanticEffectAdminV2Loaded = true;
+
   function isEmptyTemplate(root) {
     return root && root.classList && root.classList.contains("empty-form");
   }
@@ -99,9 +104,7 @@
     if (!area || !target) {
       return;
     }
-    var prefixes = area.value === "weapon_skill"
-      ? ["combat:", "damage_source:"]
-      : [area.value + ":"];
+    var prefixes = [area.value + ":"];
     rebuildOptions(
       target,
       readAllOptions(target).filter(function (option) {
@@ -180,8 +183,10 @@
     syncScaling(root);
 
     var isRuleFlag = area.value === "rule_flag";
-    var isWeaponSkill = area.value === "weapon_skill";
+    var hasWeaponSkillFilter = area.value === "combat" || area.value === "damage_source";
     var isWeaponRange = area.value === "weapon_range";
+    var isChoiceBinding = area.value === "choice_binding";
+    var isMultiSkill = area.value === "multi_skill";
     var scaling = field(root, "simple_scaling");
     var hasScaling = scaling && scaling.value !== "";
     var needsSchool = scaling && scaling.value === "school_level";
@@ -193,17 +198,17 @@
       || fieldHasValue(root, "applies_outside_combat");
     var hasText = fieldHasValue(root, "notes") || fieldHasValue(root, "rules_text");
 
-    setRowVisible(root, "simple_target", true);
-    setFilteredSelectRowVisible(root, "simple_weapon_skills", isWeaponSkill);
+    setRowVisible(root, "simple_target", !isChoiceBinding && !isMultiSkill);
+    setFilteredSelectRowVisible(root, "simple_weapon_skills", hasWeaponSkillFilter);
     setRowVisible(root, "simple_weapon_category_filter", isWeaponRange);
     setRowVisible(root, "simple_weapon_type_filter", isWeaponRange);
     setRowVisible(root, "simple_weapon_type_contains_filter", isWeaponRange);
     setRowVisible(root, "simple_weapon_item_filter", isWeaponRange);
     setRowVisible(root, "simple_operator", true);
     setRowVisible(root, "simple_value", !isRuleFlag);
-    setRowVisible(root, "target_choice_definition", hasChoiceBinding);
-    setRowVisible(root, "target_race_choice_definition", hasChoiceBinding);
-    setRowVisible(root, "target_skills", hasMultiSkill);
+    setRowVisible(root, "target_choice_definition", isChoiceBinding || hasChoiceBinding);
+    setRowVisible(root, "target_race_choice_definition", isChoiceBinding || hasChoiceBinding);
+    setRowVisible(root, "target_skills", isMultiSkill || hasMultiSkill);
     setRowVisible(root, "simple_scaling", hasScaling || hasSelectableScaling(root));
     setRowVisible(root, "simple_scale_school", needsSchool);
     setRowVisible(root, "simple_scale_skill", needsSkill);

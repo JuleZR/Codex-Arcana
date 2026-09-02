@@ -3076,6 +3076,28 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
   stroke: rgba(55, 49, 42, 0.94);
 }
 
+.armor_map_inkscape .armor_map_zone {
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.armor_map_inkscape_face .armor_map_zone[data-body-zone="face"],
+.armor_map_inkscape_face .armor_map_zone[data-body-zone="face"].is-protected {
+  fill: url("#armorMetal");
+  stroke: rgba(37, 38, 35, 0.96);
+  stroke-dasharray: none;
+  opacity: 1;
+}
+
+.armor_map_detail_line {
+  fill: none;
+  stroke: rgba(25, 24, 22, 0.72);
+  stroke-width: 0.78;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
 .armor_map_plate_edges .armor_map_zone {
   stroke-width: 0.65;
 }
@@ -4348,6 +4370,28 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
   max-width: 160px;
   white-space: nowrap;
   text-align: right;
+}
+
+.floating-tooltip table.tooltip_conditional_modifiers {
+  table-layout: fixed;
+  width: min(100%, 420px);
+}
+
+.floating-tooltip table.tooltip_conditional_modifiers th:first-child,
+.floating-tooltip table.tooltip_conditional_modifiers td:first-child {
+  width: 42px;
+  white-space: nowrap;
+  text-align: right;
+}
+
+.floating-tooltip table.tooltip_conditional_modifiers th:nth-child(2),
+.floating-tooltip table.tooltip_conditional_modifiers td:nth-child(2) {
+  min-width: 0;
+  max-width: none;
+  white-space: normal;
+  text-align: left;
+  overflow-wrap: anywhere;
+  word-break: normal;
 }
 
 .floating-tooltip .tooltip_fraction,

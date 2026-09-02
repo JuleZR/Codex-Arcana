@@ -1,4 +1,9 @@
 (function () {
+  if (window.__itemSemanticEffectAdminV3Loaded) {
+    return;
+  }
+  window.__itemSemanticEffectAdminV3Loaded = true;
+
   function isEmptyTemplate(root) {
     return root && root.classList && root.classList.contains("empty-form");
   }

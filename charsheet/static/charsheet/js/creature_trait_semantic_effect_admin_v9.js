@@ -1,4 +1,9 @@
 (function () {
+  if (window.__creatureTraitSemanticEffectAdminV9Loaded) {
+    return;
+  }
+  window.__creatureTraitSemanticEffectAdminV9Loaded = true;
+
   function isEmptyTemplate(root) {
     return root && root.classList && root.classList.contains("empty-form");
   }

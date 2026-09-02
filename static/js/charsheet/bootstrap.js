@@ -10,7 +10,7 @@ import { initTechniqueSpecModal } from "./technique_spec_modal.js";
 import { initTraitSpecModal } from "./trait_spec_modal.js";
 import { initShopMenu } from "./shop_menu.js?v=20260830a";
 import { initLearningMenu } from "./learning_menu.js?v=20260901b";
-import { initTooltips } from "./tooltip.js?v=20260828g";
+import { initTooltips } from "./tooltip.js?v=20260902a";
 import { initInventoryMenu } from "./inventory_menu.js?v=20260820a";
 import { initDamagePanel } from "./damage_panel.js?v=20260801b";
 import { initSpellPanel } from "./spell_panel.js";

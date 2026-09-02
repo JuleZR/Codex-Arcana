@@ -550,7 +550,17 @@ function renderTooltipMarkup(rawText) {
         rowIndex += 1;
       }
 
-      let tableHtml = "<table><thead><tr>";
+      const tableClasses = [];
+      if (
+        header.length === 2
+        && String(header[0] || "").trim() === "Mod."
+        && String(header[1] || "").trim() === "Bedingung"
+      ) {
+        tableClasses.push("tooltip_conditional_modifiers");
+      }
+      let tableHtml = tableClasses.length
+        ? `<table class="${tableClasses.join(" ")}"><thead><tr>`
+        : "<table><thead><tr>";
       header.forEach((cell) => {
         tableHtml += `<th>${escapeHtml(cell)}</th>`;
       });
