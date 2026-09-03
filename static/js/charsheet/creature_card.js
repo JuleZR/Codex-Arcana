@@ -1149,7 +1149,8 @@ export function initCreatureCards() {
 
   const replaceCreatureCardFragments = (drawer, payload) => {
     const floating = drawer.closest("[data-card-hand-floating]");
-    const hand = floating?.closest("[data-card-hand]");
+    const hand = floating?.closest("[data-card-hand]")
+      || document.querySelector("[data-card-hand]");
     const nextCardKey = String(payload.cardKey || floating?.getAttribute("data-card-key") || "");
     const cardKey = String(payload.replaceCardKey || nextCardKey || "");
     const sourceCharacterItemId = String(payload.sourceCharacterItemId || "");
