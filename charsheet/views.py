@@ -4100,22 +4100,13 @@ def choose_technique_creature(request, character_id: int, binding_id: int):
             stored=False,
         )
         source_quality = source_item.quality
-    technique_state = next(
-        (
-            state
-            for state in character.get_engine(refresh=True).technique_states()
-            if int(state["technique_id"]) == binding.technique_trigger_id
-        ),
-        None,
-    )
-    if (
-        binding.trigger_type == CreatureSourceBinding.TriggerType.TECHNIQUE
-        and (not technique_state or not technique_state["learned"] or not technique_state["available"])
-    ):
-        messages.error(request, "Diese Kreaturenwahl ist für den Charakter derzeit nicht verfügbar.")
-        return redirect("character_sheet", character_id=character.pk)
-
     if binding.trigger_type == CreatureSourceBinding.TriggerType.TECHNIQUE:
+        technique_state = character.get_engine(refresh=True).technique_state(
+            binding.technique_trigger
+        )
+        if not technique_state["learned"] or not technique_state["available"]:
+            messages.error(request, "Diese Kreaturenwahl ist für den Charakter derzeit nicht verfügbar.")
+            return redirect("character_sheet", character_id=character.pk)
         source_technique = CharacterTechnique.objects.filter(
             character=character,
             technique_id=binding.technique_trigger_id,
@@ -4154,6 +4145,8 @@ def choose_technique_creature(request, character_id: int, binding_id: int):
         },
     )
     messages.success(request, f"Tierform „{card.display_name}“ wurde angelegt.")
+    if _is_partial_request(request):
+        return JsonResponse(_render_creature_training_payload(request, card))
     return redirect("character_sheet", character_id=character.pk)
 
 
@@ -4189,6 +4182,8 @@ def choose_semantic_effect_creature(request, pk: int):
         card.quality = selected_creature.quality
     card.save(update_fields=["creature", "name_override", "source_selection_completed", "quality"])
     messages.success(request, f"Kreatur „{card.display_name}“ wurde angelegt.")
+    if _is_partial_request(request):
+        return JsonResponse(_render_creature_training_payload(request, card))
     return redirect("character_sheet", character_id=card.owner_id)
 
 
@@ -4365,6 +4360,65 @@ def _render_creature_training_payload(request, card: CharacterCreature) -> dict:
     }
 
 
+def _render_pending_creature_choice_payload(
+    request,
+    card: CharacterCreature,
+    *,
+    replace_card_key: str = "",
+) -> dict:
+    choice_label = (
+        "Kreatur"
+        if card.semantic_effect_is_choice
+        else (card.source_binding.choice_label or "Tiergestalt").strip()
+    )
+    template_queryset = (
+        Creature.objects.order_by("name", "id")
+        if card.semantic_effect_is_choice
+        else card.source_binding.creature_template_queryset()
+    ).only("id", "name")
+    card_context = {
+        "id": card.pk,
+        "name": card.display_name,
+        "is_creation_placeholder": True,
+        "creation_title": choice_label,
+        "creation_choice": {
+            "label": choice_label,
+            "create_url": (
+                reverse("choose_semantic_effect_creature", kwargs={"pk": card.pk})
+                if card.semantic_effect_is_choice
+                else reverse(
+                    "choose_technique_creature",
+                    kwargs={
+                        "character_id": card.owner_id,
+                        "binding_id": card.source_binding_id,
+                    },
+                )
+            ),
+            "source_character_item_id": card.source_character_item_id,
+            "templates": list(template_queryset),
+        },
+    }
+    mini_context = {**card_context}
+    mini_context.pop("creation_choice", None)
+    return {
+        "ok": True,
+        "cardKey": f"creature-{card.pk}",
+        "replaceCardKey": replace_card_key,
+        "cardTitle": card_context["creation_title"],
+        "cardHtml": render_to_string(
+            "charsheet/partials/_creature_card.html",
+            {"creature_card": card_context},
+            request=request,
+        ),
+        "miniCardHtml": render_to_string(
+            "charsheet/partials/_creature_card.html",
+            {"creature_card": mini_context},
+            request=request,
+        ),
+        "drawerHtml": "",
+    }
+
+
 @login_required
 @require_POST
 def reset_technique_creature_choice(request, pk: int):
@@ -4386,16 +4440,38 @@ def reset_technique_creature_choice(request, pk: int):
         )
 
     character_id = card.owner_id
+    replace_card_key = f"creature-{card.pk}"
     image_name = card.image_override.name if card.image_override else ""
     image_storage = card.image_override.storage if image_name else None
+    if _is_partial_request(request):
+        card.creature = None
+        card.name_override = ""
+        card.image_override = None
+        card.source_selection_completed = False
+        card.save(
+            update_fields=[
+                "creature",
+                "name_override",
+                "image_override",
+                "source_selection_completed",
+            ]
+        )
+        if image_storage is not None:
+            transaction.on_commit(lambda: image_storage.delete(image_name))
+        return JsonResponse(
+            _render_pending_creature_choice_payload(
+                request,
+                card,
+                replace_card_key=replace_card_key,
+            )
+        )
+
     with transaction.atomic():
         card.delete()
         if image_storage is not None:
             transaction.on_commit(lambda: image_storage.delete(image_name))
 
     redirect_url = reverse("character_sheet", kwargs={"character_id": character_id})
-    if _is_partial_request(request):
-        return JsonResponse({"ok": True, "redirectUrl": redirect_url})
     return redirect(redirect_url)
 
 

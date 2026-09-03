@@ -266,7 +266,11 @@ export function initCreatureCards() {
           if (!response.ok || !payload?.ok) {
             throw new Error(payload?.message || `Auswahl konnte nicht zurückgesetzt werden (${response.status}).`);
           }
-          window.location.assign(String(payload.redirectUrl || window.location.href));
+          if (payload.cardHtml || payload.miniCardHtml) {
+            replaceCreatureCardFragments(resetChoiceButton, payload);
+          } else {
+            window.location.assign(String(payload.redirectUrl || window.location.href));
+          }
         } catch (error) {
           resetChoiceButton.disabled = false;
           showResetToast(
@@ -1146,7 +1150,8 @@ export function initCreatureCards() {
   const replaceCreatureCardFragments = (drawer, payload) => {
     const floating = drawer.closest("[data-card-hand-floating]");
     const hand = floating?.closest("[data-card-hand]");
-    const cardKey = String(payload.cardKey || floating?.getAttribute("data-card-key") || "");
+    const nextCardKey = String(payload.cardKey || floating?.getAttribute("data-card-key") || "");
+    const cardKey = String(payload.replaceCardKey || nextCardKey || "");
     const sourceCharacterItemId = String(payload.sourceCharacterItemId || "");
     if (sourceCharacterItemId) {
       document
@@ -1188,6 +1193,9 @@ export function initCreatureCards() {
         if (payload.cardTitle) {
           mini.title = String(payload.cardTitle);
         }
+        if (nextCardKey) {
+          mini.setAttribute("data-card-key", nextCardKey);
+        }
       }
     }
     const containers = [floating].filter(Boolean);
@@ -1197,6 +1205,9 @@ export function initCreatureCards() {
       }
       const previousCard = container.querySelector(".creature-card");
       const wasUnlocked = previousCard instanceof HTMLElement && previousCard.classList.contains("is-edit-unlocked");
+      if (nextCardKey) {
+        container.setAttribute("data-card-key", nextCardKey);
+      }
       if (payload.cardHtml) {
         const wrapper = document.createElement("div");
         wrapper.innerHTML = payload.cardHtml;
@@ -1207,34 +1218,42 @@ export function initCreatureCards() {
           fitCreatureRuleText(nextCard);
         }
       }
-      if (payload.drawerHtml) {
+      if (Object.prototype.hasOwnProperty.call(payload, "drawerHtml")) {
         const wrapper = document.createElement("div");
-        wrapper.innerHTML = payload.drawerHtml;
+        wrapper.innerHTML = String(payload.drawerHtml || "");
         const nextDrawer = wrapper.querySelector("[data-creature-training-drawer]");
         const currentDrawer = container.querySelector("[data-creature-training-drawer]");
-        if (nextDrawer instanceof HTMLElement && currentDrawer instanceof HTMLElement) {
-          const wasOpen = currentDrawer.classList.contains("is-open");
-          currentDrawer.replaceWith(nextDrawer);
-          if (wasOpen) {
-            nextDrawer.classList.add("is-open");
-            const panel = nextDrawer.querySelector("[data-creature-training-form]");
-            const toggle = nextDrawer.querySelector("[data-creature-training-toggle]");
-            if (panel instanceof HTMLElement) {
-              panel.hidden = false;
-            }
-            if (toggle instanceof HTMLButtonElement) {
-              toggle.setAttribute("aria-expanded", "true");
-            }
-          }
-          bindTrainingDrawer(nextDrawer);
-          const nextCard = container.querySelector(".creature-card");
-          if (nextCard instanceof HTMLElement && (wasOpen || wasUnlocked)) {
-            setCreatureCardUnlocked(nextCard, true);
-          }
-          bindCreatureCardEditor(nextCard);
-          fitCreatureRuleText(nextCard);
-          initGodCards(container);
+        const drawerHost = container.querySelector(".card-hand__floating-card") || container;
+        if (!(nextDrawer instanceof HTMLElement)) {
+          currentDrawer?.remove();
+          return;
         }
+        const wasOpen = currentDrawer instanceof HTMLElement
+          && currentDrawer.classList.contains("is-open");
+        if (currentDrawer instanceof HTMLElement) {
+          currentDrawer.replaceWith(nextDrawer);
+        } else {
+          drawerHost.append(nextDrawer);
+        }
+        if (wasOpen) {
+          nextDrawer.classList.add("is-open");
+          const panel = nextDrawer.querySelector("[data-creature-training-form]");
+          const toggle = nextDrawer.querySelector("[data-creature-training-toggle]");
+          if (panel instanceof HTMLElement) {
+            panel.hidden = false;
+          }
+          if (toggle instanceof HTMLButtonElement) {
+            toggle.setAttribute("aria-expanded", "true");
+          }
+        }
+        bindTrainingDrawer(nextDrawer);
+        const nextCard = container.querySelector(".creature-card");
+        if (nextCard instanceof HTMLElement && (wasOpen || wasUnlocked)) {
+          setCreatureCardUnlocked(nextCard, true);
+        }
+        bindCreatureCardEditor(nextCard);
+        fitCreatureRuleText(nextCard);
+        initGodCards(container);
       }
     });
   };
@@ -1247,6 +1266,16 @@ export function initCreatureCards() {
     return;
   }
   document.documentElement.dataset.creatureCardsBound = "1";
+
+  document.addEventListener("sheet:action-success", (event) => {
+    const form = event.target instanceof HTMLElement
+      ? event.target.closest(".creature-creation-card__form")
+      : null;
+    if (!(form instanceof HTMLFormElement)) {
+      return;
+    }
+    replaceCreatureCardFragments(form, event.detail || {});
+  });
 
   let creatureRuleFitTimer = 0;
   window.addEventListener("resize", () => {

@@ -9125,6 +9125,70 @@ def build_character_sheet_context(
     creature_card_contexts = []
     character_creature_card_rows = []
     for card in active_creature_cards:
+        is_pending_creature_choice = (
+            (
+                card.semantic_effect_is_choice
+                or (
+                    card.source_binding_id
+                    and card.source_binding.selection_mode
+                    == CreatureSourceBinding.SelectionMode.CHARACTER_CHOICE
+                )
+            )
+            and not card.source_selection_completed
+        )
+        if is_pending_creature_choice:
+            choice_label = (
+                "Kreatur"
+                if card.semantic_effect_is_choice
+                else (card.source_binding.choice_label or "Tiergestalt").strip()
+            )
+            template_queryset = (
+                Creature.objects.order_by("name", "id")
+                if card.semantic_effect_is_choice
+                else card.source_binding.creature_template_queryset()
+            ).only("id", "name")
+            card_context = {
+                "id": card.pk,
+                "name": card.display_name,
+                "is_creation_placeholder": True,
+                "creation_title": choice_label,
+                "creation_choice": {
+                    "label": choice_label,
+                    "create_url": (
+                        reverse("choose_semantic_effect_creature", kwargs={"pk": card.pk})
+                        if card.semantic_effect_is_choice
+                        else reverse(
+                            "choose_technique_creature",
+                            kwargs={
+                                "character_id": character.pk,
+                                "binding_id": card.source_binding_id,
+                            },
+                        )
+                    ),
+                    "source_character_item_id": card.source_character_item_id,
+                    "templates": list(template_queryset),
+                },
+            }
+            mini_context = {**card_context}
+            mini_context.pop("creation_choice", None)
+            creature_card_contexts.append(
+                {
+                    "card": card,
+                    "context": card_context,
+                    "mini_context": mini_context,
+                    "training_context": None,
+                }
+            )
+            character_creature_card_rows.append(
+                {
+                    "name": card.display_name,
+                    "source": card.original_card_name,
+                    "trigger": card.trigger_label,
+                    "active": card.active,
+                    "has_source_deviations": bool(card.name_override or card.image_override),
+                }
+            )
+            continue
         card_context = CreatureEngine(card).card_context()
         card_context["adjust_damage_url"] = reverse("adjust_creature_damage", kwargs={"pk": card.pk})
         card_context["training_update_url"] = reverse("update_character_creature_training", kwargs={"pk": card.pk})
@@ -9146,40 +9210,6 @@ def build_character_sheet_context(
             card_context["adjust_damage_url"] = ""
             card_context.pop("training_update_url", None)
             card_context.pop("reset_choice_url", None)
-        if (
-            (
-                card.semantic_effect_is_choice
-                or (
-                    card.source_binding_id
-                    and card.source_binding.selection_mode == CreatureSourceBinding.SelectionMode.CHARACTER_CHOICE
-                )
-            )
-            and not card.source_selection_completed
-        ):
-            choice_label = (
-                "Kreatur"
-                if card.semantic_effect_is_choice
-                else (card.source_binding.choice_label or "Tiergestalt").strip()
-            )
-            card_context["is_creation_placeholder"] = True
-            card_context["creation_title"] = choice_label
-            card_context["creation_choice"] = {
-                "label": choice_label,
-                "create_url": (
-                    reverse("choose_semantic_effect_creature", kwargs={"pk": card.pk})
-                    if card.semantic_effect_is_choice
-                    else reverse(
-                        "choose_technique_creature",
-                        kwargs={"character_id": character.pk, "binding_id": card.source_binding_id},
-                    )
-                ),
-                "source_character_item_id": card.source_character_item_id,
-                "templates": list(
-                    Creature.objects.order_by("name", "id")
-                    if card.semantic_effect_is_choice
-                    else card.source_binding.creature_template_queryset()
-                ),
-            }
         mini_context = {**card_context, "adjust_damage_url": "", "damage_controls_disabled": True}
         mini_context.pop("training_update_url", None)
         mini_context.pop("reset_choice_url", None)
