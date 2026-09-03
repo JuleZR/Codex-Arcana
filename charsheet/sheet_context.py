@@ -3886,7 +3886,15 @@ def _build_weapon_maneuver_breakdown_rows(engine, weapon_row: dict[str, object])
         })
 
     item_bonus = int(weapon_row.get("item_maneuver_modifier", 0) or 0)
-    if item_bonus:
+    item_effect_rows = _build_character_item_stat_modifier_rows(
+        engine,
+        weapon_row["character_item"],
+        MELEE_MANEUVERS,
+        pipe_label_only=True,
+    )
+    if item_effect_rows:
+        rows.extend(item_effect_rows)
+    elif item_bonus:
         rows.append({
             "label": "Waffeneffekt",
             "value": format_modifier(item_bonus),
@@ -4438,6 +4446,17 @@ def _conditional_weapon_modifier_lines(
         WEAPON_MANEUVER_DAMAGE,
     }
 
+    def target_matches(modifier) -> bool:
+        return any(
+            engine.modifier_engine._modifier_matches_target_key(
+                modifier,
+                target_domain="combat",
+                target_key=target_key,
+                context=weapon_context,
+            )
+            for target_key in relevant_target_keys
+        )
+
     lines: list[str] = []
 
     # ---------------------------------------------------------
@@ -4474,12 +4493,12 @@ def _conditional_weapon_modifier_lines(
 
         effect_target_key = str(effect.target_key or "")
 
-        if effect_target_key not in relevant_target_keys:
-            continue
-
         modifier = effect.to_modifier(
             invested_cp=character_item.invested_cp,
         )
+
+        if not target_matches(modifier):
+            continue
 
         if not engine.modifier_engine._modifier_matches_race_condition(
             modifier
@@ -4546,7 +4565,7 @@ def _conditional_weapon_modifier_lines(
             modifier.target_key or ""
         )
 
-        if modifier_target_key not in relevant_target_keys:
+        if not target_matches(modifier):
             continue
 
         if not modifier_engine._modifier_matches_race_condition(
@@ -4570,6 +4589,8 @@ def _conditional_weapon_modifier_lines(
                 (modifier.metadata or {}).get(
                     "condition_text"
                 )
+                or modifier.notes
+                or modifier.rules_text
                 or ""
             ).split()
         )
@@ -4663,7 +4684,10 @@ def _build_grouped_explanation_rows(engine, explanation: list[dict[str, object]]
             entry.get("notes"),
             invested_cp=_item_source_invested_cp(source_type, entry.get("source_id")),
         )
-        row_label = note_text or source_name or "Unbekannt"
+        if source_type == SOURCE_ITEM_RUNE:
+            row_label = source_name or note_text or "Rune"
+        else:
+            row_label = note_text or source_name or "Unbekannt"
         if source_display.strip().casefold() == row_label.strip().casefold():
             source_display = ""
         if source_detail:
@@ -4699,7 +4723,13 @@ def _build_grouped_explanation_rows(engine, explanation: list[dict[str, object]]
     return rows
 
 
-def _build_character_item_stat_modifier_rows(engine, character_item: CharacterItem, stat_key: str) -> list[dict[str, object]]:
+def _build_character_item_stat_modifier_rows(
+    engine,
+    character_item: CharacterItem,
+    stat_key: str,
+    *,
+    pipe_label_only: bool = False,
+) -> list[dict[str, object]]:
     """Return grouped breakdown rows for one item-bound stat modifier source."""
     explanation: list[dict[str, object]] = []
     target_context = _character_item_weapon_target_context(character_item)
@@ -4738,22 +4768,39 @@ def _build_character_item_stat_modifier_rows(engine, character_item: CharacterIt
             continue
         if not TargetResolver.matches_context(modifier, target_context):
             continue
+        condition_text = " ".join(
+            str(
+                (getattr(modifier, "metadata", {}) or {}).get("condition_text")
+                or getattr(modifier, "notes", "")
+                or ""
+            ).split()
+        )
+        if condition_text:
+            continue
         resolved_value = engine.modifier_engine._resolve_numeric_modifier(modifier)
         if not isinstance(resolved_value, (int, float)) or int(resolved_value) == 0:
             continue
+        invested_cp = _item_source_invested_cp(source_type, source_id)
+        raw_note = (
+            getattr(modifier, "notes", "")
+            or getattr(modifier, "rules_text", "")
+        )
+        note_text = _clean_modifier_note_text(
+            raw_note,
+            invested_cp=invested_cp,
+        )
+        if pipe_label_only:
+            pipe_label, _suffix = _magic_pipe_parts(
+                raw_note,
+                invested_cp=invested_cp,
+            )
+            note_text = pipe_label or note_text
         explanation.append(
             {
                 "source_type": source_type,
                 "source_id": source_id,
                 "resolved_value": resolved_value,
-                "notes": _clean_modifier_note_text(
-                    getattr(modifier, "notes", "")
-                    or getattr(modifier, "rules_text", ""),
-                    invested_cp=_item_source_invested_cp(
-                        source_type,
-                        source_id,
-                    ),
-                ),
+                "notes": note_text,
             }
         )
     if stat_key == WEAPON_DAMAGE:

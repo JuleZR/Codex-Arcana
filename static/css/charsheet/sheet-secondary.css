@@ -4400,6 +4400,16 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
   box-shadow: inset 0 0 0 1px rgba(132, 105, 74, 0.08);
 }
 
+.floating-tooltip table.tooltip_markdown_table {
+  table-layout: fixed;
+  width: 100%;
+}
+
+.floating-tooltip.has-markdown-table {
+  box-sizing: border-box;
+  width: min(420px, calc(100vw - 24px));
+}
+
 .floating-tooltip th,
 .floating-tooltip td {
   padding: 5px 7px;
@@ -4422,11 +4432,6 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
   max-width: 160px;
   white-space: nowrap;
   text-align: right;
-}
-
-.floating-tooltip table.tooltip_conditional_modifiers {
-  table-layout: fixed;
-  width: min(100%, 420px);
 }
 
 .floating-tooltip table.tooltip_conditional_modifiers th:first-child,

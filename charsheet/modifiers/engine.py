@@ -39,6 +39,7 @@ from charsheet.models import (
     RuneSemanticEffect,
     SchoolSemanticEffect,
     Skill,
+    Technique,
     TechniqueSemanticEffect,
     VampireTraitSemanticEffect,
     SpecializationSemanticEffect,
@@ -354,36 +355,98 @@ class ModifierEngine:
 
         learned_stack: set[int] = set()
         available_stack: set[int] = set()
-        active_technique_ids = {
-            technique_id
-            for technique_id in technique_ids
-            if self._modifier_source_is_active(
-                BaseModifier(
-                    source_type="technique",
-                    source_id=str(technique_id),
-                    target_domain=TargetDomain.METADATA,
-                    target_key="active",
-                ),
-                learned_stack,
-                available_stack,
-            )
-        }
-        if not active_technique_ids:
-            return []
-
         effects = (
             TechniqueSemanticEffect.objects.filter(
-                technique_id__in=active_technique_ids,
+                technique_id__in=technique_ids,
                 active_flag=True,
             )
             .select_related("technique", "target_choice_definition")
             .prefetch_related("target_skills", "condition_races", "condition_schools")
             .order_by("technique_id", "sort_order", "id")
         )
-        return [
-            self._materialize_technique_modifier(effect)
-            for effect in effects
-        ]
+        modifiers = []
+        for effect in effects:
+            if not self._technique_semantic_effect_source_is_active(
+                effect,
+                learned_stack,
+                available_stack,
+            ):
+                continue
+            modifiers.append(self._materialize_technique_modifier(effect))
+        return modifiers
+
+    def _technique_semantic_effect_source_is_active(
+        self,
+        effect: TechniqueSemanticEffect,
+        learned_stack: set[int],
+        available_stack: set[int],
+    ) -> bool:
+        """Return whether a technique semantic effect may be exposed."""
+        if self.character_engine is None:
+            return True
+        technique = effect.technique
+        if self._modifier_source_is_active(
+            BaseModifier(
+                source_type="technique",
+                source_id=str(effect.technique_id),
+                target_domain=TargetDomain.METADATA,
+                target_key="active",
+            ),
+            learned_stack,
+            available_stack,
+        ):
+            return True
+        if not self._technique_is_learned_and_available(
+            technique,
+            learned_stack,
+            available_stack,
+        ):
+            return False
+        if technique.technique_type == technique.TechniqueType.PASSIVE:
+            return False
+        return bool(self._semantic_effect_condition_text(effect))
+
+    def _technique_is_learned_and_available(
+        self,
+        technique: Technique,
+        learned_stack: set[int],
+        available_stack: set[int],
+    ) -> bool:
+        """Return whether the character has access to a technique source."""
+        if self.character_engine is None:
+            return True
+        if not self.character_engine._technique_effect_is_computed(technique):
+            return False
+        if not self.character_engine._is_technique_choice_complete(technique):
+            return False
+        available = self.character_engine._is_technique_available(
+            technique,
+            learned_stack,
+            available_stack,
+        )
+        if not available:
+            return False
+        if technique.id in self.character_engine._race_technique_ids:
+            return True
+        if self.character_engine._is_technique_explicitly_learned(technique):
+            return True
+        return self.character_engine._is_automatic_technique_learned(
+            technique,
+            learned_stack,
+            available_stack,
+            available=available,
+        )
+
+    @staticmethod
+    def _semantic_effect_condition_text(effect: TechniqueSemanticEffect) -> str:
+        """Return player-facing condition text from a persisted effect."""
+        metadata = dict(getattr(effect, "metadata", None) or {})
+        return " ".join(
+            str(
+                metadata.get("condition_text")
+                or ""
+            ).split()
+        )
 
     def _materialize_technique_modifier(
         self,

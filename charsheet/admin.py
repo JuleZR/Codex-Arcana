@@ -3487,7 +3487,7 @@ class RuleSemanticEffectAdminForm(SemanticCreatureCardGrantFormMixin, forms.Mode
         queryset=Skill.objects.none(),
         required=False,
     )
-    simple_scale_divisor = forms.IntegerField(label="pro", min_value=1, required=False)
+    simple_scale_divisor = CommaFloatField(label="pro", min_value=0.000001, required=False)
     condition_text = forms.CharField(
         label="Bedingung",
         required=False,
@@ -3742,7 +3742,7 @@ class RuleSemanticEffectAdminForm(SemanticCreatureCardGrantFormMixin, forms.Mode
             scaling = {
                 "scale_source": scale_source,
                 "mul": 1,
-                "div": int(divisor),
+                "div": self._number_for_scaling_json(divisor),
                 "round_mode": "floor",
             }
             if cleaned_data.get("simple_scale_school"):
@@ -3852,6 +3852,11 @@ class RuleSemanticEffectAdminForm(SemanticCreatureCardGrantFormMixin, forms.Mode
     def _format_simple_number(value) -> str:
         number = float(str(value).replace(",", "."))
         return str(int(number)) if number.is_integer() else str(number)
+
+    @staticmethod
+    def _number_for_scaling_json(value) -> int | float:
+        number = float(str(value).replace(",", "."))
+        return int(number) if number.is_integer() else number
 
     def save(self, commit=True):
         instance = super().save(commit=False)

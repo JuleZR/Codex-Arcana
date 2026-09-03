@@ -557,7 +557,7 @@ function renderTooltipMarkup(rawText) {
         rowIndex += 1;
       }
 
-      const tableClasses = [];
+      const tableClasses = ["tooltip_markdown_table"];
       if (
         header.length === 2
         && String(header[0] || "").trim() === "Mod."
@@ -1701,6 +1701,7 @@ export function initTooltips() {
       ? `floating-tooltip floating-tooltip--${variant}`
       : "floating-tooltip";
     tooltip.innerHTML = renderTooltipMarkup(text);
+    tooltip.classList.toggle("has-markdown-table", Boolean(tooltip.querySelector(".tooltip_markdown_table")));
     activeTarget = target;
     tooltip.classList.add("is-visible");
     positionTooltip(target);
