@@ -3385,6 +3385,7 @@ class RuleSemanticEffectAdminForm(SemanticCreatureCardGrantFormMixin, forms.Mode
         ("attribute", "Eigenschaft"),
         ("derived_stat", "Abgeleiteter Wert"),
         ("combat", "Kampfwert / Schadenswert"),
+        ("movement", "Bewegung"),
         ("creature_movement", "Kreaturenbewegung"),
         ("damage_source", "Schadensart"),
         ("weapon_range", "Waffenreichweite"),
@@ -3552,6 +3553,7 @@ class RuleSemanticEffectAdminForm(SemanticCreatureCardGrantFormMixin, forms.Mode
             for value, label in _semantic_derived_stat_choices()
         )
         choices.extend((f"combat:{value}", label) for value, label in self.COMBAT_TARGET_CHOICES)
+        choices.extend((f"movement:{value}", label) for value, label in self.MOVEMENT_TARGET_CHOICES)
         choices.extend((f"creature_movement:{value}", label) for value, label in self.MOVEMENT_TARGET_CHOICES)
         choices.extend((f"weapon_range:{value}", label) for value, label in self.WEAPON_RANGE_TARGET_CHOICES)
         choices.extend(
@@ -3579,6 +3581,7 @@ class RuleSemanticEffectAdminForm(SemanticCreatureCardGrantFormMixin, forms.Mode
             "derived_stat": "derived_stat",
             "combat": "combat",
             "damage": "combat",
+            "movement": "movement",
             "creature_movement": "creature_movement",
             "weapon_range": "weapon_range",
             "weapon_category": "item_category",
@@ -3827,6 +3830,7 @@ class RuleSemanticEffectAdminForm(SemanticCreatureCardGrantFormMixin, forms.Mode
             "derived_stat": "derived_stat",
             "combat": "combat",
             "damage_source": "damage",
+            "movement": "movement",
             "creature_movement": "creature_movement",
             "weapon_range": "weapon_range",
             "weapon": "weapon",
