@@ -8513,12 +8513,11 @@ def _build_movement_ground(engine, race) -> dict[str, str]:
         combat_fly = _resolve_movement_value(race.combat_fly_speed, "fly_combat")
         march_fly = _resolve_movement_value(race.march_fly_speed, "fly_march")
         sprint_fly = _resolve_movement_value(race.sprint_fly_speed, "fly_sprint")
-        fly_value = " / ".join(
-            (
-                format_compact_number(combat_fly),
-                format_compact_number(march_fly),
-                format_compact_number(sprint_fly),
-            )
+        fly_values = (combat_fly, march_fly, sprint_fly)
+        fly_value = (
+            "-"
+            if all(value == 0 for value in fly_values)
+            else " / ".join(format_compact_number(value) for value in fly_values)
         )
     return {
         "combat": "-" if ground_combat is None else format_compact_number(ground_combat),
