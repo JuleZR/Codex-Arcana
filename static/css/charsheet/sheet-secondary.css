@@ -3638,6 +3638,8 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
   display: flex;
   flex-direction: column;
   gap: 14px;
+  width: 100%;
+  min-height: 0;
   max-height: var(--tooltip-card-max-height);
   padding: 16px 16px 18px;
   box-sizing: border-box;
@@ -3782,6 +3784,8 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
 
 .floating-tooltip-card__details,
 .floating-tooltip-card__lore {
+  box-sizing: border-box;
+  max-width: 100%;
   border: 1px solid rgba(145, 111, 67, 0.72);
   border-radius: 8px;
   background:
@@ -3903,6 +3907,26 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
   filter: none;
 }
 
+.floating-tooltip-card--technique {
+  height: auto;
+  max-height: min(calc(760px * 1.4142), calc(100vh - 24px));
+}
+
+.floating-tooltip-card--technique .floating-tooltip-card__frame {
+  height: auto;
+  max-height: min(calc(760px * 1.4142), calc(100vh - 24px));
+}
+
+.floating-tooltip-card--technique .floating-tooltip-card__content {
+  flex: 0 0 auto;
+}
+
+.floating-tooltip-card--technique .floating-tooltip-card__lore {
+  flex: 0 1 auto;
+  max-height: calc(100vh - 116px);
+  overflow-y: auto;
+}
+
 .floating-tooltip-card__details {
   min-height: 0;
   overflow: visible;
@@ -3929,13 +3953,17 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
   display: flex;
   flex-direction: column;
   flex: 1 1 auto;
-  gap: 14px;
+  gap: 12px;
   min-height: 0;
+  max-height: calc(100vh - 110px);
+  overscroll-behavior: contain;
+  touch-action: pan-y;
   overflow-y: auto;
   padding: 18px 22px;
 }
 
 .floating-tooltip-card__lore p {
+  margin: 0;
   font-family: Georgia, "Times New Roman", serif;
   font-size: 1rem;
   line-height: 1.5;
@@ -3943,6 +3971,30 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
   text-transform: none;
   font-variant: normal;
   font-variant-caps: normal;
+}
+
+.floating-tooltip-card .tooltip_decorative_rule {
+  position: relative;
+  width: min(78%, 420px);
+  height: 12px;
+  flex: 0 0 auto;
+  margin: 0 auto;
+  border: 0;
+  background:
+    linear-gradient(90deg, transparent, rgba(111, 78, 46, 0.42), transparent)
+      center / 100% 1px no-repeat;
+}
+
+.floating-tooltip-card .tooltip_decorative_rule::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 7px;
+  height: 7px;
+  border: 1px solid rgba(111, 78, 46, 0.52);
+  background: rgba(224, 199, 151, 0.72);
+  transform: translate(-50%, -50%) rotate(45deg);
 }
 
 .floating-tooltip-card--skill {

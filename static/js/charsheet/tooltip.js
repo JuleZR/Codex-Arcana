@@ -40,6 +40,10 @@ function isTableDividerRow(row) {
   return row.length > 0 && row.every((cell) => /^:?-{2,}:?$/.test(cell));
 }
 
+function isHorizontalRuleLine(line) {
+  return /^\s*-{3,}\s*$/.test(String(line || ""));
+}
+
 function parseQualityLine(line) {
   const match = String(line || "").trim().match(/^\[\[QUALITY:(.+?)\|(.+?)\]\]$/);
   if (!match) {
@@ -439,6 +443,9 @@ function startsStructuredBlock(line, nextLine = "") {
   if (/^\s*[-*]\s+/.test(trimmed)) {
     return true;
   }
+  if (isHorizontalRuleLine(trimmed)) {
+    return true;
+  }
   const header = parseTableRow(trimmed);
   const divider = parseTableRow(nextLine);
   return header.length > 0 && header.length === divider.length && isTableDividerRow(divider);
@@ -591,6 +598,12 @@ function renderTooltipMarkup(rawText) {
       continue;
     }
 
+    if (isHorizontalRuleLine(line)) {
+      chunks.push('<hr class="tooltip_decorative_rule">');
+      index += 1;
+      continue;
+    }
+
     if (/^\s*[-*]\s+/.test(line)) {
       const listItems = [];
       let listIndex = index;
@@ -636,7 +649,7 @@ function splitTooltipMarkup(markup) {
   ));
   const firstTableIndex = children.findIndex((node) => node instanceof HTMLElement && node.tagName === "TABLE");
   if (firstTableIndex === -1) {
-    return { leadHtml: "", loreHtml: markup };
+    return { leadHtml: "", extraHtml: markup };
   }
   const toHtml = (nodes) => nodes.map((node) => {
     if (node instanceof HTMLElement) {
@@ -646,7 +659,7 @@ function splitTooltipMarkup(markup) {
   }).join("");
   return {
     leadHtml: toHtml(children.slice(0, firstTableIndex + 1)),
-    loreHtml: toHtml(children.slice(firstTableIndex + 1)),
+    extraHtml: toHtml(children.slice(firstTableIndex + 1)),
   };
 }
 
@@ -858,7 +871,7 @@ function buildTooltipCardMarkup({
     && !isSpellCard
     ? `<div class="floating-tooltip-card__media">${safeImage ? `<img class="floating-tooltip-card__image" src="${safeImage}" alt="">` : ""}</div>`
     : "";
-  const detailsMarkup = hasExplicitPowerSections ? "" : (leadHtml || bodyMarkup);
+  const detailsMarkup = hasExplicitPowerSections ? "" : leadHtml;
   const contentHtml = mediaHtml || detailsMarkup
     ? `
       <div class="floating-tooltip-card__content${mediaHtml ? " has-media" : ""}">
@@ -1172,6 +1185,8 @@ function syncTooltipCardLayout(card) {
   }
 
   frame.style.height = "";
+  frame.style.maxHeight = "";
+  lore.style.height = "";
   lore.style.maxHeight = "";
 
   const maxFrameHeight = Math.min(760 * 1.4142, window.innerHeight - 24);
@@ -1180,9 +1195,27 @@ function syncTooltipCardLayout(card) {
     return;
   }
 
+  const frameStyle = window.getComputedStyle(frame);
+  const framePaddingY = (
+    Number.parseFloat(frameStyle.paddingTop || "0")
+    + Number.parseFloat(frameStyle.paddingBottom || "0")
+  );
+  const visibleChildren = Array.from(frame.children).filter((child) => (
+    child instanceof HTMLElement
+    && child !== lore
+    && window.getComputedStyle(child).display !== "none"
+  ));
+  const siblingHeight = visibleChildren.reduce((total, child) => total + child.offsetHeight, 0);
+  const gap = Number.parseFloat(frameStyle.rowGap || frameStyle.gap || "0") || 0;
+  const totalGapHeight = gap * visibleChildren.length;
+  const availableLoreHeight = Math.max(
+    120,
+    Math.floor(maxFrameHeight - framePaddingY - siblingHeight - totalGapHeight),
+  );
+
   frame.style.height = `${Math.floor(maxFrameHeight)}px`;
-  const nonLoreHeight = naturalFrameHeight - lore.scrollHeight;
-  const availableLoreHeight = Math.max(0, Math.floor(maxFrameHeight - nonLoreHeight));
+  frame.style.maxHeight = `${Math.floor(maxFrameHeight)}px`;
+  lore.style.height = `${availableLoreHeight}px`;
   lore.style.maxHeight = `${availableLoreHeight}px`;
 }
 
@@ -1891,6 +1924,22 @@ export function initTooltips() {
     }
     event.stopPropagation();
   }, true);
+
+  card.addEventListener("wheel", (event) => {
+    if (!card.classList.contains("floating-tooltip-card--technique")) {
+      return;
+    }
+    const lore = card.querySelector(".floating-tooltip-card__lore");
+    if (!(lore instanceof HTMLElement)) {
+      return;
+    }
+    const previousScrollTop = lore.scrollTop;
+    lore.scrollTop += event.deltaY;
+    if (lore.scrollTop !== previousScrollTop) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  }, { passive: false });
 
   card.addEventListener("pointerdown", (event) => {
     const closeButton = event.target instanceof Element

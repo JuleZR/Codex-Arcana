@@ -7,7 +7,7 @@ from decimal import Decimal, InvalidOperation, ROUND_CEILING, ROUND_FLOOR
 import json
 import math
 
-from django.db.models import Q
+from django.db.models import F, Q
 from django.urls import reverse
 
 from charsheet.constants import (
@@ -6796,13 +6796,15 @@ def _build_school_technique_rows(character: Character, engine) -> tuple[list[dic
             Technique.objects
             .filter(school_id__in=school_levels.keys())
             .select_related("school")
-            .order_by("school__name", "level", "name")
+            .order_by("school__name", F("level").asc(nulls_first=True), "name")
         )
         for technique in techniques:
-            if technique.level <= school_levels.get(technique.school_id, 0):
+            technique_level = technique.level
+            school_level = school_levels.get(technique.school_id, 0)
+            if technique_level is None or technique_level <= school_level:
                 if (
                     technique.school.name == "Bardenschule"
-                    and technique.level == 10
+                    and technique_level == 10
                     and technique.name == "Erwachte Begabung"
                 ):
                     continue
@@ -6823,7 +6825,12 @@ def _build_school_technique_rows(character: Character, engine) -> tuple[list[dic
                         description_text = "\n\n".join(selected_specialization_descriptions)
                 daemonic_power = daemonic_powers_by_technique_id.get(technique.id)
                 tooltip_title = entry_name
-                tooltip_subtitle = f"{technique.school.name} {_to_roman(technique.level)}"
+                tooltip_level_label = _to_roman(technique_level)
+                tooltip_subtitle = " ".join(
+                    value
+                    for value in (technique.school.name, tooltip_level_label)
+                    if value
+                )
                 tooltip_text = description_text
                 tooltip_card_key = f"technique:{technique.id}"
                 if daemonic_power is not None:
@@ -6843,8 +6850,8 @@ def _build_school_technique_rows(character: Character, engine) -> tuple[list[dic
                 school_technique_rows.append(
                     {
                         "kind": "technique",
-                        "level": technique.level,
-                        "level_label": _to_roman(technique.level),
+                        "level": technique_level or "",
+                        "level_label": tooltip_level_label,
                         "school_name": technique.school.name,
                         "school_id": technique.school_id,
                         "school_symbol": str(getattr(technique.school, "panel_symbol", "") or "").strip(),

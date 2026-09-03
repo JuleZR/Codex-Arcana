@@ -1,6 +1,61 @@
+const BODY_ARMOR_ZONES = [
+  "shield",
+  "head",
+  "face",
+  "eyes",
+  "neck",
+  "torso",
+  "organs",
+  "soft_tissue",
+  "arm_left",
+  "hand_left",
+  "leg_left",
+  "foot_left",
+  "arm_right",
+  "hand_right",
+  "leg_right",
+  "foot_right",
+];
+
+function applyBodyArmorUpdate(payload) {
+  const bodyArmor = payload?.bodyArmor;
+  if (!bodyArmor || typeof bodyArmor !== "object") {
+    return [];
+  }
+
+  const bodyPanel = document.getElementById("lowerPanelBody");
+  if (!(bodyPanel instanceof HTMLElement)) {
+    return [];
+  }
+
+  BODY_ARMOR_ZONES.forEach((zone) => {
+    const value = Number(bodyArmor[zone] || 0);
+    const protectedZone = value > 0;
+
+    bodyPanel.querySelectorAll(`.armor_callout_row[data-body-zone="${zone}"]`).forEach((row) => {
+      row.querySelectorAll(".armor_callout_value").forEach((entry) => {
+        entry.textContent = protectedZone ? String(value) : "";
+      });
+      row.querySelectorAll(".armor_callout_pill").forEach((entry) => {
+        entry.classList.toggle("is-empty", !protectedZone);
+      });
+    });
+
+    bodyPanel.querySelectorAll(`.armor_map_zone[data-body-zone="${zone}"]`).forEach((entry) => {
+      entry.classList.toggle("is-protected", protectedZone);
+    });
+
+    bodyPanel.querySelectorAll(`.armor_callout_lines [data-body-zone="${zone}"]`).forEach((entry) => {
+      entry.toggleAttribute("hidden", !protectedZone);
+    });
+  });
+
+  return ["lowerPanelBody"];
+}
+
 export function applySheetPartials(payload) {
   const partials = Array.isArray(payload?.partials) ? payload.partials : [];
-  const updatedTargets = [];
+  const updatedTargets = applyBodyArmorUpdate(payload);
 
   partials.forEach((partial) => {
     const targetId = String(partial?.target || "").trim();

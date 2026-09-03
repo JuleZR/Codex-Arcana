@@ -793,16 +793,14 @@ def _armor_zone_protection(engine, *, for_grs: bool = False) -> dict[str, int]:
         zone_values = item_engine.get_armor_grs_zone_rs() if for_grs else item_engine.get_armor_zone_rs()
         if not zone_values:
             continue
-        effective_rs = _effective_armor_rs(engine, character_item)
         rs_delta = _effective_armor_rs_delta(engine, character_item)
         adjusted_zone_values: dict[str, int] = {}
         for field_name in totals:
             if field_name not in zone_values:
                 continue
-            adjusted_zone_values[field_name] = (
-                0
-                if effective_rs <= 0
-                else max(0, int(zone_values[field_name] or 0) + rs_delta)
+            adjusted_zone_values[field_name] = max(
+                0,
+                int(zone_values[field_name] or 0) + rs_delta,
             )
             totals[field_name] += adjusted_zone_values[field_name]
         armor_stats = item_engine._get_armor_stats()

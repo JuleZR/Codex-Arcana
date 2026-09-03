@@ -113,6 +113,7 @@ from .constants import (
     ATTRIBUTE_ORDER,
     ATTR_ST,
     DAMAGE_TYPE_CHOICES,
+    DEFENSE_RS,
     GK_MODS,
     RESOURCE_KEY_CHOICES,
     SCHOOL_ARCANE,
@@ -402,16 +403,19 @@ def _equipment_action_partials_response(
     request,
     character: Character,
     partial_keys: tuple[str, ...],
+    *,
+    include_body_armor: bool = False,
 ) -> JsonResponse:
     """Render targeted equipment-action partials with the lightweight sheet context."""
     context = _build_item_semantic_effect_partial_context_for_request(request, character, partial_keys)
-    return JsonResponse(
-        {
-            "ok": True,
-            "partials": _render_sheet_partials(request, context, partial_keys),
-            "openItemTransferCount": context.get("open_item_transfer_count", 0),
-        }
-    )
+    payload = {
+        "ok": True,
+        "partials": _render_sheet_partials(request, context, partial_keys),
+        "openItemTransferCount": context.get("open_item_transfer_count", 0),
+    }
+    if include_body_armor:
+        payload["bodyArmor"] = _body_armor_payload(character)
+    return JsonResponse(payload)
 
 
 def _temporary_attribute_adjustments(request, character_id: int) -> dict[str, int]:
@@ -1079,6 +1083,34 @@ def _item_semantic_effect_toggle_partial_keys(effects) -> tuple[str, ...]:
                 selected_set.add(key)
                 selected_keys.append(key)
     return tuple(selected_keys)
+
+
+def _effects_affect_body_armor(effects) -> bool:
+    """Return whether toggled item effects can change the body-zone map."""
+    for effect in effects:
+        domain = str(getattr(effect, "target_domain", "") or "")
+        target_key = str(getattr(effect, "target_key", "") or "")
+        try:
+            modifier = effect.to_modifier()
+            domain = str(getattr(modifier, "target_domain", domain) or domain)
+            target_key = str(
+                getattr(modifier, "target_key", target_key)
+                or target_key
+            )
+        except Exception:
+            pass
+        if domain == "derived_stat" and target_key == DEFENSE_RS:
+            return True
+    return False
+
+
+def _body_armor_payload(character: Character) -> dict[str, int]:
+    """Return current body-zone armor values for lightweight client updates."""
+    engine = character.engine
+    return {
+        "shield": engine.shield_protection(),
+        **engine.armor_zone_protection(),
+    }
 
 
 def _render_sheet_partials(request, context: dict[str, object], partial_keys) -> list[dict[str, str]]:
@@ -3218,7 +3250,7 @@ def create_item_transfer(request, pk):
                     memberships__status=GameGroupMembership.Status.ACTIVE,
                 ).first()
         if group is not None:
-            transfer = create_gm_edit_transfer(
+            create_gm_edit_transfer(
                 item_id=item.pk,
                 sender=sender,
                 group=group,
@@ -3236,7 +3268,7 @@ def create_item_transfer(request, pk):
             if str(request.POST.get(f"permission_{permission}", "")).lower()
             in {"1", "true", "on", "yes"}
         }
-        transfer = create_item_transfer_service(
+        create_item_transfer_service(
             item_id=item.pk,
             sender=sender,
             recipient=recipient,
@@ -3645,6 +3677,8 @@ def toggle_character_item_semantic_effects(request, pk):
                 for effect in effects
             ],
         }
+        if _effects_affect_body_armor(effects):
+            payload["bodyArmor"] = _body_armor_payload(ci.owner)
         return JsonResponse(payload)
     return redirect("character_sheet", character_id=ci.owner_id)
 
@@ -3679,13 +3713,14 @@ def character_item_semantic_effect_partials(request, pk):
 
     partial_keys = _item_semantic_effect_toggle_partial_keys(effects)
     context = _build_item_semantic_effect_partial_context_for_request(request, ci.owner, partial_keys)
-    return JsonResponse(
-        {
-            "ok": True,
-            "partials": _render_sheet_partials(request, context, partial_keys),
-            "openItemTransferCount": context.get("open_item_transfer_count", 0),
-        }
-    )
+    payload = {
+        "ok": True,
+        "partials": _render_sheet_partials(request, context, partial_keys),
+        "openItemTransferCount": context.get("open_item_transfer_count", 0),
+    }
+    if _effects_affect_body_armor(effects):
+        payload["bodyArmor"] = _body_armor_payload(ci.owner)
+    return JsonResponse(payload)
 
 
 @login_required
@@ -3727,6 +3762,11 @@ def toggle_equip(request, pk):
             request,
             ci.owner,
             _equipment_action_partial_keys(ci),
+            include_body_armor=(
+                ci.item.item_type in Item.armor_item_type_values()
+                or ci.item.item_type == Item.ItemType.SHIELD
+                or getattr(ci.item, "armorstats", None) is not None
+            ),
         )
 
     return redirect("character_sheet", character_id=ci.owner_id)

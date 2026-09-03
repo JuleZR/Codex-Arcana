@@ -1130,10 +1130,11 @@ class CharacterEngine:
         learned_stack = set() if learned_stack is None else learned_stack
         available_stack = set() if available_stack is None else available_stack
 
+        required_level = int(technique.level or 0)
         school_level = self.school_level(technique.school_id)
         selected_path = self.selected_school_path(technique.school_id)
         school_known = school_level > 0
-        required_level_met = school_level >= technique.level
+        required_level_met = school_level >= required_level
         path_allowed = self._is_path_allowed(technique, selected_path=selected_path)
         requirements_met = False
         if school_known and required_level_met and path_allowed:
@@ -1180,7 +1181,7 @@ class CharacterEngine:
             "school_name": technique.school.name,
             "school_known": school_known,
             "school_level": school_level,
-            "required_level": technique.level,
+            "required_level": required_level,
             "required_level_met": required_level_met,
             "path_id": technique.path_id,
             "path_name": technique.path.name if technique.path_id else None,
@@ -1378,7 +1379,7 @@ class CharacterEngine:
             if school_level <= 0:
                 self._technique_available_cache[technique.id] = False
                 return False
-            if school_level < technique.level:
+            if school_level < int(technique.level or 0):
                 self._technique_available_cache[technique.id] = False
                 return False
             if not self._is_path_allowed(technique, selected_path=selected_path):
