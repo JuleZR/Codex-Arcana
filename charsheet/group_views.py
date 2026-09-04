@@ -896,13 +896,35 @@ def game_master_screen(request, group_id: int):
             "invested_cp": item.invested_cp or "",
             "invested_cp_steps": item.invested_cp_steps or "",
         }
-    modifier_payloads_by_item = _load_character_item_modifier_payloads(inventory_items)
+    modifier_payloads_by_item = _load_character_item_modifier_payloads(
+        inventory_items,
+        include_unidentified=True,
+    )
+    editor_modifier_payloads_by_item = _load_character_item_modifier_payloads(
+        inventory_items,
+        include_unidentified=True,
+        include_inactive=True,
+        include_base_with_standalone=True,
+    )
     for inventory_item in inventory_items:
         _visible_summary, magic_payloads = _merge_magic_effect_payloads(
             effect_summary=inventory_item.magic_effect_summary or "",
             modifier_payloads=modifier_payloads_by_item.get(inventory_item.id, []),
         )
+        (
+            _editor_visible_summary,
+            editor_magic_payloads,
+        ) = _merge_magic_effect_payloads(
+            effect_summary=inventory_item.magic_effect_summary or "",
+            modifier_payloads=editor_modifier_payloads_by_item.get(
+                inventory_item.id,
+                [],
+            ),
+        )
         inventory_item.magic_modifier_payloads_json = json.dumps(magic_payloads)
+        inventory_item.editor_magic_modifier_payloads_json = json.dumps(
+            editor_magic_payloads
+        )
         inventory_item.sl_player_preview = resolve_character_item_display(
             inventory_item,
             request.user,

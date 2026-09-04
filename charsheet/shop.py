@@ -231,6 +231,25 @@ def _build_magic_modifier_payload(target_kind: str, raw_value, row_data) -> dict
         "target_item": None,
         "target_specialization": None,
     }
+    raw_semantic_effect_ids = row_data.get("semantic_effect_ids") or []
+    if not isinstance(raw_semantic_effect_ids, (list, tuple)):
+        raw_semantic_effect_ids = []
+    semantic_effect_ids = []
+    for raw_id in raw_semantic_effect_ids:
+        try:
+            effect_id = int(raw_id)
+        except (TypeError, ValueError):
+            continue
+        if effect_id > 0 and effect_id not in semantic_effect_ids:
+            semantic_effect_ids.append(effect_id)
+    if semantic_effect_ids:
+        payload["semantic_effect_ids"] = semantic_effect_ids
+    try:
+        base_item_effect_id = int(row_data.get("base_item_effect_id") or 0)
+    except (TypeError, ValueError):
+        base_item_effect_id = 0
+    if base_item_effect_id > 0:
+        payload["base_item_effect_id"] = base_item_effect_id
     try:
         display_group = int(row_data.get("display_group"))
     except (TypeError, ValueError):
@@ -261,8 +280,11 @@ def _build_magic_modifier_payload(target_kind: str, raw_value, row_data) -> dict
     rule_flag_keys = {value for value, _label in RULE_FLAG_CHOICES}
 
     if target_kind == TEXT_TARGET_KIND:
-        if not payload["effect_description"]:
+        rules_text = str(row_data.get("rules_text") or "").strip()
+        if not payload["effect_description"] and not rules_text:
             return None
+        if rules_text:
+            payload["rules_text"] = rules_text
         payload["value"] = 0
     elif target_kind == RULE_FLAG_TARGET_KIND:
         target_slug = str(row_data.get("target_rule_flag") or "").strip()
@@ -398,6 +420,23 @@ def _read_magic_modifier_payloads(post_data) -> list[dict[str, object]]:
                     if scale_source and scale_divisor
                     else {}
                 )
+                semantic_effect_ids = [
+                    int(value)
+                    for value in payload.get("semantic_effect_ids", [])
+                    if str(value).isdigit()
+                ]
+                first_effect_id = semantic_effect_ids[:1]
+                second_effect_id = semantic_effect_ids[1:2]
+                first_effect_payload = (
+                    {"semantic_effect_ids": first_effect_id}
+                    if first_effect_id
+                    else {}
+                )
+                second_effect_payload = (
+                    {"semantic_effect_ids": second_effect_id}
+                    if second_effect_id
+                    else {}
+                )
                 payloads.extend(
                     [
                         {
@@ -418,6 +457,7 @@ def _read_magic_modifier_payloads(post_data) -> list[dict[str, object]]:
                                 payload.get("toggle_state_inverted", False)
                                 )} if "toggle_state_inverted" in payload else {}),
                             **({"rules_text": rules_text} if rules_text else {}),
+                            **first_effect_payload,
                         },
                         {
                             "target_kind": TARGET_KIND_STAT,
@@ -437,6 +477,7 @@ def _read_magic_modifier_payloads(post_data) -> list[dict[str, object]]:
                                 payload.get("toggle_state_inverted", False)
                                 )} if "toggle_state_inverted" in payload else {}),
                             **({"rules_text": rules_text} if rules_text else {}),
+                            **second_effect_payload,
                         },
                     ]
                 )
@@ -530,6 +571,11 @@ def _magic_payload_to_semantic_effect_kwargs(payload: dict[str, object]) -> dict
             "metadata": {
                 "ui_target_kind": TEXT_TARGET_KIND,
                 "legacy_target_kind": TEXT_TARGET_KIND,
+                **(
+                    {"base_item_effect_id": int(payload["base_item_effect_id"])}
+                    if payload.get("base_item_effect_id")
+                    else {}
+                ),
             },
         }
 
@@ -580,6 +626,7 @@ def _magic_payload_to_semantic_effect_kwargs(payload: dict[str, object]) -> dict
         "target_specialization_id": getattr(payload.get("target_specialization"), "id", None),
         "legacy_target_kind": target_kind,
         "legacy_target_slug": target_slug,
+        "base_item_effect_id": payload.get("base_item_effect_id"),
     }
     effect_description = str(payload.get("effect_description") or "").strip()
     rules_text = str(payload.get("rules_text") or "").strip()
@@ -615,7 +662,7 @@ def _magic_effect_kwargs_signature(kwargs: dict[str, object]) -> str:
 
 
 def _save_magic_modifiers(*, source_model, source_id: int, magic_modifier_payloads: list[dict[str, object]]) -> None:
-    """Replace magic item semantic effects for one item source.
+    """Persist magic item semantic effects for one item source.
 
     The public helper name stays for compatibility with older call sites, but
     new item rules are persisted as ItemSemanticEffect rows.
@@ -626,19 +673,50 @@ def _save_magic_modifiers(*, source_model, source_id: int, magic_modifier_payloa
     else:
         effect_model = CharacterItemSemanticEffect
         effect_filter = {"character_item_id": source_id}
-    effect_model.objects.filter(**effect_filter).delete()
+    existing_effects = {
+        int(effect.pk): effect
+        for effect in effect_model.objects.filter(**effect_filter)
+    }
+    kept_effect_ids: set[int] = set()
     seen_signatures: set[str] = set()
     for payload in magic_modifier_payloads:
         kwargs = _magic_payload_to_semantic_effect_kwargs(payload)
         if kwargs is None:
             continue
         signature = _magic_effect_kwargs_signature(kwargs)
-        if signature in seen_signatures:
+        payload_effect_ids = [
+            int(value)
+            for value in payload.get("semantic_effect_ids", [])
+            if str(value).isdigit()
+        ]
+        existing_effect = next(
+            (
+                existing_effects[effect_id]
+                for effect_id in payload_effect_ids
+                if effect_id in existing_effects
+                and effect_id not in kept_effect_ids
+            ),
+            None,
+        )
+        if existing_effect is None and signature in seen_signatures:
             continue
         seen_signatures.add(signature)
-        effect = effect_model(**effect_filter, **kwargs)
+        if existing_effect is None:
+            effect = effect_model(**effect_filter, **kwargs)
+        else:
+            effect = existing_effect
+            for field_name, value in kwargs.items():
+                setattr(effect, field_name, value)
         effect.full_clean()
         effect.save()
+        kept_effect_ids.add(int(effect.pk))
+    stale_ids = [
+        effect_id
+        for effect_id in existing_effects
+        if effect_id not in kept_effect_ids
+    ]
+    if stale_ids:
+        effect_model.objects.filter(**effect_filter, pk__in=stale_ids).delete()
 
 
 def _normalize_redundant_character_item_overrides(character_item: CharacterItem) -> None:

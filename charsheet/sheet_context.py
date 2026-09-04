@@ -1847,8 +1847,7 @@ def _serialize_item_semantic_effect_payload(
             payload["target_kind"] = "weapon_maneuver"
             payload["target_display"] = "(Mit der Waffe verknüpfter Skill)"
         elif target_key == WEAPON_DAMAGE:
-            payload["target_kind"] = "stat"
-            payload["target_stat"] = WEAPON_DAMAGE
+            payload["target_kind"] = "weapon_damage"
             payload["target_display"] = "Schaden"
         elif target_key == WEAPON_DAMAGE_DICE:
             payload["target_kind"] = "weapon_damage_dice"
@@ -2063,9 +2062,13 @@ def _collapse_weapon_mastery_bonus_payloads(modifier_payloads: list[dict[str, ob
             if candidate_index in consumed_indices:
                 continue
             candidate = modifier_payloads[candidate_index]
-            if str(candidate.get("target_kind") or "") != "stat":
+            candidate_kind = str(candidate.get("target_kind") or "")
+            if (
+                candidate_kind == "stat"
+                and str(candidate.get("target_stat") or "") != WEAPON_DAMAGE
+            ):
                 continue
-            if str(candidate.get("target_stat") or "") != WEAPON_DAMAGE:
+            if candidate_kind not in {"stat", "weapon_damage"}:
                 continue
             if int(candidate.get("value", 0) or 0) != payload_value:
                 continue
@@ -2568,8 +2571,11 @@ def _build_character_item_magic_tooltip_rows(
             )
 
         if (
-            target_kind == "stat"
-            and str(entry.get("target_stat") or "") == WEAPON_DAMAGE
+            target_kind == "weapon_damage"
+            or (
+                target_kind == "stat"
+                and str(entry.get("target_stat") or "") == WEAPON_DAMAGE
+            )
         ):
             return (
                 f"{signed_value} Schaden",
@@ -2820,6 +2826,8 @@ def _load_character_item_modifier_payloads(
     character_items: list[CharacterItem],
     *,
     include_unidentified: bool = False,
+    include_inactive: bool = False,
+    include_base_with_standalone: bool = False,
 ) -> dict[int, list[dict[str, object]]]:
     """Return serialized effective magic-modifier payloads keyed by owned item id."""
     if not character_items:
@@ -2827,22 +2835,25 @@ def _load_character_item_modifier_payloads(
     modifiers_by_character_item_id: dict[int, list[dict[str, object]]] = {}
     item_ids = {int(entry.item_id) for entry in character_items if entry.item_id}
     base_effects_by_item_id: dict[int, list[ItemSemanticEffect]] = {}
-    for effect in (
+    base_effect_query = (
         ItemSemanticEffect.objects
         .filter(item_id__in=item_ids)
-        .filter(Q(active_flag=True) | Q(toggleable=True))
         .select_related("item")
         .prefetch_related(
             "condition_races",
             "condition_schools",
         )
         .order_by("item_id", "sort_order", "id")
-    ):
+    )
+    if not include_inactive:
+        base_effect_query = base_effect_query.filter(
+            Q(active_flag=True) | Q(toggleable=True)
+        )
+    for effect in base_effect_query:
         base_effects_by_item_id.setdefault(int(effect.item_id), []).append(effect)
-    instance_effects = list(
+    instance_effect_query = (
         CharacterItemSemanticEffect.objects
         .filter(character_item_id__in=[entry.id for entry in character_items])
-        .filter(Q(active_flag=True) | Q(toggleable=True))
         .select_related("character_item", "character_item__item", "character_item__owner")
         .prefetch_related(
             "condition_races",
@@ -2850,6 +2861,11 @@ def _load_character_item_modifier_payloads(
         )
         .order_by("sort_order", "id")
     )
+    if not include_inactive:
+        instance_effect_query = instance_effect_query.filter(
+            Q(active_flag=True) | Q(toggleable=True)
+        )
+    instance_effects = list(instance_effect_query)
     instance_effects_by_base: dict[tuple[int, int], CharacterItemSemanticEffect] = {}
     standalone_instance_effects_by_character_item_id: dict[int, list[CharacterItemSemanticEffect]] = {}
     for effect in instance_effects:
@@ -2925,7 +2941,7 @@ def _load_character_item_modifier_payloads(
         merged_effects: list[ItemSemanticEffect | CharacterItemSemanticEffect] = []
         standalone_effects = list(standalone_instance_effects_by_character_item_id.get(character_item_id, []))
         consumed_standalone_effect_ids: set[int] = set()
-        if base_effects and not standalone_effects:
+        if base_effects and (include_base_with_standalone or not standalone_effects):
             for effect in base_effects:
                 linked_override = instance_effects_by_base.get((character_item_id, int(effect.id)))
                 if linked_override is not None:
@@ -5707,6 +5723,12 @@ def _build_inventory_rows(
         inventory_items,
         include_unidentified=sl_effect_group_id is not None,
     )
+    editor_modifiers_by_character_item_id = _load_character_item_modifier_payloads(
+        inventory_items,
+        include_unidentified=True,
+        include_inactive=True,
+        include_base_with_standalone=True,
+    )
 
     for character_item in inventory_items:
         item = character_item.item
@@ -5777,6 +5799,16 @@ def _build_inventory_rows(
         stored_modifier_payloads = modifiers_by_character_item_id.get(
             character_item.id,
             [],
+        )
+        _editor_visible_summary, editor_modifier_payloads = _merge_magic_effect_payloads(
+            effect_summary=_character_item_effect_summary_for_view(
+                character_item,
+                sl_effect_group_id=sl_effect_group_id,
+            ),
+            modifier_payloads=editor_modifiers_by_character_item_id.get(
+                character_item.id,
+                [],
+            ),
         )
         _annotate_item_effect_identification_payloads(
             character_item,
@@ -6067,7 +6099,7 @@ def _build_inventory_rows(
                 "magic_effect_summary": visible_magic_effect_summary,
                 "magic_modifier_payloads": magic_modifier_payloads,
                 "magic_modifier_payloads_json": json.dumps(
-                    magic_modifier_payloads
+                    editor_modifier_payloads
                 ),
                 "modify_payload_json": json.dumps(
                     {

@@ -624,6 +624,10 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
         toggleable: Boolean(row.querySelector("[data-magic-toggleable]")?.checked),
         toggle_state_inverted: Boolean(row.querySelector("[data-magic-toggle-inverted]")?.checked),
       };
+      const semanticEffectIds = parseIdList(row.dataset.semanticEffectIds || "");
+      if (semanticEffectIds.length) {
+        payload.semantic_effect_ids = semanticEffectIds;
+      }
       if (row.dataset.displayGroup) {
         payload.display_group = Number.parseInt(row.dataset.displayGroup, 10) || row.dataset.displayGroup;
       }
@@ -792,6 +796,9 @@ export function initInventoryMenu({ warningWindowController = null, modifyWindow
       const toggleableInput = row.querySelector("[data-magic-toggleable]");
       const toggleInvertedInput = row.querySelector("[data-magic-toggle-inverted]");
       row.dataset.magicActiveFlag = initialPayload.active_flag === false ? "0" : "1";
+      row.dataset.semanticEffectIds = parseIdList(
+        initialPayload.semantic_effect_ids || [],
+      ).join(",");
       row.dataset.displayGroup = initialPayload.display_group == null ? "" : String(initialPayload.display_group);
       row.dataset.displayGroupAppend = initialPayload.display_group_append ? "1" : "0";
       if (targetKindSelect instanceof HTMLSelectElement) {

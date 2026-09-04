@@ -199,6 +199,13 @@ document.addEventListener("DOMContentLoaded", () => {
           toggleable: Boolean(row.querySelector("[data-effect-toggleable]")?.checked),
           toggle_state_inverted: Boolean(row.querySelector("[data-effect-toggle-inverted]")?.checked),
         };
+        const semanticEffectIds = String(row.dataset.semanticEffectIds || "")
+          .split(",")
+          .map((value) => Number.parseInt(value.trim(), 10))
+          .filter((value) => Number.isInteger(value) && value > 0);
+        if (semanticEffectIds.length) {
+          payload.semantic_effect_ids = semanticEffectIds;
+        }
         if (row.dataset.displayGroup) {
           payload.display_group = Number.parseInt(row.dataset.displayGroup, 10) || row.dataset.displayGroup;
         }
@@ -386,6 +393,13 @@ document.addEventListener("DOMContentLoaded", () => {
           toggleable: Boolean(row.querySelector("[data-effect-toggleable]")?.checked),
           toggle_state_inverted: Boolean(row.querySelector("[data-effect-toggle-inverted]")?.checked),
         };
+        const semanticEffectIds = String(row.dataset.semanticEffectIds || "")
+          .split(",")
+          .map((value) => Number.parseInt(value.trim(), 10))
+          .filter((value) => Number.isInteger(value) && value > 0);
+        if (semanticEffectIds.length) {
+          payload.semantic_effect_ids = semanticEffectIds;
+        }
         if (row.dataset.displayGroup) {
           payload.display_group = Number.parseInt(row.dataset.displayGroup, 10) || row.dataset.displayGroup;
         }
@@ -466,6 +480,9 @@ document.addEventListener("DOMContentLoaded", () => {
       const toggleable = row.querySelector("[data-effect-toggleable]");
       const toggleInverted = row.querySelector("[data-effect-toggle-inverted]");
       row.dataset.effectActiveFlag = payload.active_flag === false ? "0" : "1";
+      row.dataset.semanticEffectIds = Array.isArray(payload.semantic_effect_ids)
+        ? payload.semantic_effect_ids.join(",")
+        : "";
       row.dataset.displayGroup = payload.display_group == null ? "" : String(payload.display_group);
       row.dataset.displayGroupAppend = payload.display_group_append ? "1" : "0";
       if (kind && payload.target_kind) kind.value = payload.target_kind;
