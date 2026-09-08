@@ -687,6 +687,16 @@ function normalizeTooltipSectionRows(rows, sectionLabel) {
     const secondCell = clone.cells[1];
     const firstCellText = normalizeInlineText(firstCell?.textContent || "");
     const toggle = clone.querySelector("[data-item-effect-toggle]");
+    if (firstCellText === "[[WEAPON_SYMBOL]]" && secondCell) {
+      const detail = normalizeInlineText(secondCell.textContent);
+      const separator = detail.indexOf(" ");
+      if (separator > 0) {
+        firstCell.innerHTML = `<strong>${escapeHtml(detail.slice(0, separator))}</strong>`;
+        secondCell.innerHTML = renderInlineMarkdown(detail.slice(separator + 1));
+        clone.classList.add("tooltip_effect_row");
+        return clone;
+      }
+    }
     if (
       firstCell
       && (
