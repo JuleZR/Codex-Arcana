@@ -304,6 +304,13 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
       if (hidden instanceof HTMLInputElement) {
         hidden.value = String(value);
       }
+    } else if (kind === "brew") {
+      const hidden = row.querySelector("[data-learn-hidden]");
+      value = clamp(value, 0, 1);
+      cost = value * readInt(row.getAttribute("data-unit-cost"), 0);
+      if (hidden instanceof HTMLInputElement) {
+        hidden.value = String(value);
+      }
     } else if (kind === "magic-aspect") {
       const base = readInt(row.getAttribute("data-base"), 0);
       const minAdd = -base;
@@ -343,12 +350,14 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
       spellSlotSourceRemaining: kind === "magic-spell"
         ? readInt(row.getAttribute("data-slot-source-remaining"), Number.MAX_SAFE_INTEGER)
         : Number.MAX_SAFE_INTEGER,
+      brewSlots: kind === "brew" ? value : 0,
     };
   };
 
   const refreshTotals = () => {
     let spent = 0;
     let spentSpellSlots = 0;
+    let spentBrewSlots = 0;
     let invalidWrite = false;
     const spentSpellSlotsBySource = new Map();
     const spellSlotSourceLimits = new Map();
@@ -356,6 +365,7 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
       const result = syncRow(row);
       spent += result.cost;
       spentSpellSlots += result.spellSlots;
+      spentBrewSlots += result.brewSlots || 0;
       invalidWrite = invalidWrite || result.invalidWrite;
       if (result.spellSlotSourceCost > 0 && result.spellSlotSourceKey) {
         spentSpellSlotsBySource.set(
@@ -387,6 +397,10 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
     const liveSpellSlotSpentEl = document.getElementById("learnSpellSlotSpentValue");
     const liveSpellSlotRemainingEl = document.getElementById("learnSpellSlotRemainingValue");
     const liveValidationHint = document.getElementById("learnValidationHint");
+    const brewBudgetPanel = document.querySelector("[data-learn-brew-budget]");
+    const brewSlotRemainingEl = document.querySelector("[data-learn-brew-slot-remaining]");
+    const brewSlotBudget = readInt(brewBudgetPanel?.getAttribute("data-brew-slot-remaining") || "0", 0);
+    const brewSlotRemaining = brewSlotBudget - spentBrewSlots;
     if (liveBudgetEl) {
       liveBudgetEl.textContent = `${budget} EP`;
     }
@@ -407,6 +421,10 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
     if (liveSpellSlotRemainingEl) {
       liveSpellSlotRemainingEl.textContent = `${spellSlotRemaining}`;
       liveSpellSlotRemainingEl.classList.toggle("is-negative", spellSlotRemaining < 0);
+    }
+    if (brewSlotRemainingEl) {
+      brewSlotRemainingEl.textContent = String(brewSlotRemaining);
+      brewSlotRemainingEl.classList.toggle("is-negative", brewSlotRemaining < 0);
     }
     Array.from(document.querySelectorAll("[data-learn-slot-source-chip]")).forEach((chip) => {
       if (!(chip instanceof HTMLElement)) {
@@ -434,6 +452,9 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
       if (spellSlotRemaining < 0) {
         messages.push("Zu viele Zauber-Slots ausgewaehlt.");
       }
+      if (brewSlotRemaining < 0) {
+        messages.push("Zu viele Gebraeue fuer die freien Almanach-Slots ausgewaehlt.");
+      }
       Array.from(spentSpellSlotsBySource.entries()).forEach(([sourceKey, selected]) => {
         const limit = spellSlotSourceLimits.get(sourceKey);
         if (limit && selected > limit.remaining) {
@@ -446,6 +467,16 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
       liveValidationHint.hidden = messages.length === 0;
       liveValidationHint.textContent = messages.join(" ");
     }
+    applyBtn.disabled = (
+      remaining < 0
+      || invalidWrite
+      || spellSlotRemaining < 0
+      || brewSlotRemaining < 0
+      || Array.from(spentSpellSlotsBySource.entries()).some(([sourceKey, selected]) => {
+        const limit = spellSlotSourceLimits.get(sourceKey);
+        return Boolean(limit) && selected > limit.remaining;
+      })
+    );
   };
 
   const bindRow = (row) => {
@@ -861,6 +892,23 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
           </div>
         </td>
         <td data-learn-cost>${escapeHtml(costLabel)}</td>
+        <td><button type="button" class="shop_cart_remove_btn" data-learn-remove aria-label="Eintrag entfernen">x</button></td>
+      `;
+      return row;
+    }
+
+    if (kind === "brew") {
+      const itemId = source.getAttribute("data-id") || "";
+      const unitCost = readInt(source.getAttribute("data-unit-cost"), 0);
+      row.setAttribute("data-unit-cost", String(unitCost));
+      row.innerHTML = `
+        <td><span>${safeName}</span><input type="hidden" name="learn_brew_${itemId}" value="1" data-learn-hidden></td>
+        <td>
+          <div class="shop_qty_stepper">
+            <input class="shop_cart_qty_input" type="number" min="0" max="1" value="1" data-learn-value readonly>
+          </div>
+        </td>
+        <td data-learn-cost>${unitCost} EP</td>
         <td><button type="button" class="shop_cart_remove_btn" data-learn-remove aria-label="Eintrag entfernen">x</button></td>
       `;
       return row;

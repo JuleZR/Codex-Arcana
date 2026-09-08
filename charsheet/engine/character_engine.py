@@ -976,6 +976,10 @@ class CharacterEngine:
         """Resolve boolean rule flags through the central modifier engine."""
         return self.modifier_engine.resolve_flags(context=context)
 
+    def resolve_learning_slots(self, target_key: str, context: dict | None = None) -> int:
+        """Resolve restricted learning-slot grants through the central modifier engine."""
+        return self.modifier_engine.resolve_learning_slots(target_key, context=context)
+
     def resolve_capabilities(self, context: dict | None = None) -> dict[str, bool]:
         """Resolve capabilities through the central modifier engine."""
         return self.modifier_engine.resolve_capabilities(context=context)

@@ -1,0 +1,493 @@
+.almanac_school_button {
+  -webkit-appearance: none;
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  min-width: 4.9rem;
+  height: 1.15rem;
+  margin-left: auto;
+  padding: 0 0.55rem;
+  border: 1px solid rgba(134, 82, 31, 0.45);
+  border-radius: 4px;
+  background: linear-gradient(
+    180deg,
+    rgba(249, 236, 205, 0.86) 0%,
+    rgba(219, 183, 126, 0.62) 100%
+  );
+  color: #4b2f17;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 249, 224, 0.34),
+    0 1px 2px rgba(78, 47, 18, 0.12);
+  cursor: pointer;
+  font: 700 0.72rem/1 "Trebuchet MS", "Segoe UI", Tahoma, sans-serif;
+  white-space: nowrap;
+  transition: background 140ms ease, border-color 140ms ease, transform 140ms ease;
+}
+
+.almanac_school_button:hover,
+.almanac_school_button:focus-visible {
+  border-color: rgba(134, 82, 31, 0.72);
+  background: linear-gradient(
+    180deg,
+    rgba(255, 244, 212, 0.94) 0%,
+    rgba(226, 190, 132, 0.76) 100%
+  );
+  outline: none;
+  transform: translateY(-1px);
+}
+
+.book_viewer_overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  display: grid;
+  place-items: center;
+  padding: clamp(18px, 4vw, 48px);
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 220ms ease, visibility 220ms ease;
+}
+
+.book_viewer_overlay.is-open,
+.book_viewer_overlay.is-closing {
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.book_viewer_overlay.is-open {
+  opacity: 1;
+}
+
+.book_viewer_scrim {
+  position: absolute;
+  inset: 0;
+  background: rgba(17, 12, 9, 0.52);
+  backdrop-filter: blur(2px);
+}
+
+.book_viewer_stage {
+  position: relative;
+  width: min(86vw, 1120px);
+  height: min(82vh, 760px);
+  perspective: 1800px;
+}
+
+.book_viewer_close {
+  position: absolute;
+  top: -14px;
+  right: -14px;
+  z-index: 8;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid rgba(92, 55, 20, 0.62);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 42% 34%, rgba(255, 241, 183, 0.96), rgba(215, 179, 100, 0.88) 72%, rgba(135, 88, 36, 0.86));
+  color: #2a1609;
+  font: 900 0.9rem/1 Arial, sans-serif;
+  cursor: pointer;
+  opacity: 0.88;
+  box-shadow:
+    0 2px 7px rgba(20, 12, 7, 0.38),
+    inset 0 1px 0 rgba(255, 251, 213, 0.76);
+  text-shadow:
+    0 1px 0 rgba(255, 242, 173, 0.65),
+    0 0 2px rgba(255, 230, 139, 0.55);
+  transition:
+    opacity 140ms ease,
+    transform 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.book_viewer_close:hover,
+.book_viewer_close:focus-visible {
+  opacity: 1;
+  transform: translateY(-1px);
+  box-shadow:
+    0 3px 10px rgba(20, 12, 7, 0.48),
+    0 0 0 2px rgba(255, 231, 141, 0.38),
+    inset 0 1px 0 rgba(255, 251, 213, 0.9);
+}
+
+.book_viewer_shell {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform: translateY(20px) scale(0.68);
+  transform-origin: center;
+  transition: transform 420ms cubic-bezier(0.2, 0.82, 0.2, 1);
+}
+
+.book_viewer_overlay.is-open .book_viewer_shell {
+  transform: translateY(0) scale(1);
+}
+
+.book_viewer_pages,
+.stf__parent {
+  width: 100%;
+  height: 100%;
+}
+
+.book_viewer_pages {
+  display: flex;
+  gap: 0;
+  overflow: hidden;
+  scroll-snap-type: x mandatory;
+  border-radius: 8px;
+  box-shadow: 0 20px 40px rgba(20, 13, 8, 0.36);
+}
+
+.book_viewer_pages.is-pageflip {
+  display: block;
+  overflow: visible;
+  box-shadow: none;
+}
+
+.book_page {
+  position: relative;
+  box-sizing: border-box;
+  flex: 0 0 50%;
+  scroll-snap-align: start;
+  min-height: 100%;
+  padding:
+    clamp(20px, 2.5vw, 34px)
+    clamp(24px, 3vw, 42px)
+    clamp(40px, 3.2vw, 52px);
+  overflow: hidden auto;
+  color: #3e2a1b;
+  background:
+    radial-gradient(circle at 22% 15%, rgba(255, 250, 220, 0.45), transparent 28%),
+    linear-gradient(90deg, rgba(96, 64, 34, 0.14), transparent 10%, transparent 90%, rgba(96, 64, 34, 0.12)),
+    #d7c49a;
+  box-shadow: inset 0 0 24px rgba(80, 55, 30, 0.18);
+  font-family: "Cormorant Garamond", Georgia, serif;
+  hyphens: auto;
+  overflow-wrap: break-word;
+}
+
+.book_page:nth-child(odd) {
+  border-left: 1px solid rgba(78, 50, 27, 0.22);
+}
+
+.book_page__number {
+  position: absolute;
+  bottom: 14px;
+  min-width: 1.4rem;
+  color: rgba(76, 48, 25, 0.62);
+  font: 700 0.78rem/1 Cinzel, "Times New Roman", serif;
+  text-align: center;
+  pointer-events: none;
+  user-select: none;
+}
+
+.book_page:nth-child(even) .book_page__number {
+  left: 18px;
+}
+
+.book_page:nth-child(odd) .book_page__number {
+  right: 18px;
+}
+
+.alchemist_almanac_page__toc_return {
+  -webkit-appearance: none;
+  appearance: none;
+  position: absolute;
+  top: 13px;
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(71, 45, 23, 0.08);
+  color: rgba(69, 43, 22, 0.56);
+  cursor: pointer;
+  font: 800 1.25rem/1 Georgia, serif;
+  transition:
+    background 140ms ease,
+    color 140ms ease,
+    transform 140ms ease;
+}
+
+.book_page:nth-child(even) .alchemist_almanac_page__toc_return {
+  left: 13px;
+}
+
+.book_page:nth-child(odd) .alchemist_almanac_page__toc_return {
+  right: 13px;
+}
+
+.alchemist_almanac_page__toc_return:hover,
+.alchemist_almanac_page__toc_return:focus-visible {
+  background: rgba(122, 77, 31, 0.16);
+  color: rgba(69, 43, 22, 0.82);
+  outline: none;
+  transform: translateX(-1px);
+}
+
+.alchemist_almanac_cover {
+  position: relative;
+  padding: 0;
+  overflow: hidden;
+  background: #2c1d15;
+}
+
+.alchemist_almanac_cover__image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.alchemist_almanac_cover__title {
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  bottom: 15.2%;
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  color: #ffe680 !important;
+  text-align: center;
+  text-shadow:
+    0 1px 1px rgba(23, 10, 3, 0.98),
+    0 0 4px rgba(0, 0, 0, 0.82),
+    0 0 10px rgba(255, 218, 103, 0.52);
+}
+
+.alchemist_almanac_cover__title h2 {
+  margin: 0;
+  color: #ffe680 !important;
+  font-size: clamp(1rem, 2.15vw, 1.72rem);
+  line-height: 1;
+  letter-spacing: 0;
+  max-width: 96%;
+}
+
+.alchemist_almanac_cover__title p {
+  margin: 0;
+  color: #fff0a6 !important;
+  font: 800 0.78rem/1 Cinzel, "Times New Roman", serif;
+  text-transform: uppercase;
+}
+
+.alchemist_almanac_toc .book_page__center {
+  justify-items: stretch;
+  align-content: start;
+  padding-top: clamp(8px, 4vh, 38px);
+}
+
+.alchemist_almanac_toc h3 {
+  text-align: center;
+}
+
+.alchemist_almanac_toc__list {
+  display: grid;
+  gap: 6px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.alchemist_almanac_toc__list button {
+  -webkit-appearance: none;
+  appearance: none;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 10px;
+  width: 100%;
+  padding: 5px 0;
+  border: 0;
+  border-bottom: 1px solid rgba(72, 48, 28, 0.24);
+  background: transparent;
+  color: #3e2a1b;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.alchemist_almanac_toc__list button:hover,
+.alchemist_almanac_toc__list button:focus-visible {
+  color: #7a4d1f;
+  outline: none;
+}
+
+.alchemist_almanac_toc__list span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.alchemist_almanac_toc__list small {
+  color: rgba(62, 42, 27, 0.66);
+  font: 700 0.68rem/1.1 "Trebuchet MS", sans-serif;
+  white-space: nowrap;
+}
+
+.book_page__center {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  min-height: 100%;
+  text-align: center;
+}
+
+.book_page h2,
+.book_page h3 {
+  margin: 0 0 8px;
+  font-family: Cinzel, "Times New Roman", serif;
+  color: #372214;
+}
+
+.alchemist_almanac_page__header span {
+  display: block;
+  margin-bottom: 5px;
+  color: rgba(94, 58, 22, 0.78);
+  font: 800 0.68rem/1.2 "Trebuchet MS", sans-serif;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.alchemist_almanac_page__header h2 {
+  font-size: clamp(1.32rem, 2.35vw, 2rem);
+  line-height: 1.02;
+}
+
+.alchemist_almanac_page__description {
+  margin: 12px 0 13px;
+  color: #3a2516;
+  font-size: 1.02rem;
+  line-height: 1.31;
+  text-wrap: pretty;
+}
+
+.alchemist_almanac_page__figure {
+  position: relative;
+  float: right;
+  width: min(39%, 190px);
+  margin: 0 0 14px 23px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+
+.alchemist_almanac_page__figure img {
+  width: 100%;
+  height: auto;
+  display: block;
+  object-fit: contain;
+}
+
+.alchemist_almanac_page__facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin: 0;
+  padding: 0 0 6px;
+  border-top: 0;
+  border-bottom: 1px solid rgba(91, 57, 28, 0.18);
+  background: transparent;
+}
+
+.alchemist_almanac_page__facts--requirements {
+  gap: 4px 18px;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 0;
+}
+
+.alchemist_almanac_page__facts div {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  border-bottom: 0;
+}
+
+.alchemist_almanac_page__facts dt {
+  color: rgba(77, 47, 22, 0.72);
+  font: 800 0.62rem/1.1 "Trebuchet MS", sans-serif;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.alchemist_almanac_page__facts dt::after {
+  content: ":";
+}
+
+.alchemist_almanac_page__facts dd {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.1;
+}
+
+.alchemist_almanac_page__section {
+  margin-top: 12px;
+  padding-top: 7px;
+  border-top: 1px solid rgba(75, 47, 24, 0.16);
+}
+
+.alchemist_almanac_page__requirements {
+  margin-top: 13px;
+}
+
+.alchemist_almanac_page__section h3 {
+  margin-bottom: 6px;
+  font-size: clamp(1.08rem, 1.7vw, 1.3rem);
+  line-height: 1;
+}
+
+.alchemist_almanac_page__requirements h3 {
+  font-size: 1.08rem;
+}
+
+.alchemist_almanac_page__section ul {
+  display: grid;
+  gap: 3px;
+  margin: 5px 0 0 18px;
+  padding: 0;
+  font-size: 1.03rem;
+}
+
+.alchemist_almanac_page__section p {
+  margin: 5px 0 0;
+  font-size: 1.01rem;
+  line-height: 1.3;
+  text-wrap: pretty;
+}
+
+@media (max-width: 760px) {
+  .book_viewer_stage {
+    width: 94vw;
+    height: 82vh;
+  }
+
+  .book_viewer_pages {
+    overflow-x: hidden;
+  }
+
+  .book_page {
+    flex-basis: 100%;
+    min-height: 72vh;
+  }
+
+  .alchemist_almanac_page__figure {
+    float: none;
+    width: min(62%, 180px);
+    margin: 10px auto 16px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .book_viewer_overlay,
+  .book_viewer_shell {
+    transition-duration: 1ms;
+  }
+}

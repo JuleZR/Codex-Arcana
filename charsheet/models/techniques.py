@@ -575,6 +575,7 @@ class TechniqueSemanticEffect(models.Model):
             DerivedStatModifier,
             EconomyModifier,
             LanguageModifier,
+            LearningSlotModifier,
             MovementModifier,
             PerceptionModifier,
             ProficiencyGroupModifier,
@@ -609,6 +610,7 @@ class TechniqueSemanticEffect(models.Model):
             "economy": EconomyModifier,
             "social": SocialModifier,
             "rule_flag": RuleFlagModifier,
+            "learning_slot": LearningSlotModifier,
         }
         metadata = dict(self.metadata or {})
         if self.pk:

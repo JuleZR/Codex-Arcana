@@ -98,6 +98,7 @@
     }
     var allowedByArea = {
       rule_flag: [""],
+      learning_slot: ["", "school_level"],
       item: ["", "fame_total", "rune_crafter_level"],
       item_category: ["", "fame_total", "rune_crafter_level"],
       specialization: ["", "school_level", "skill_level", "skill_total"],

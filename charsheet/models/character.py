@@ -334,6 +334,30 @@ class CharacterDiaryEntry(models.Model):
         return not (self.text or "").strip()
 
 
+class CharacterAlmanacBrew(models.Model):
+    """Alchemical brew knowledge recorded in a character's almanac."""
+
+    character = models.ForeignKey(Character, on_delete=models.CASCADE, related_name="almanac_brews")
+    item = models.ForeignKey(Item, on_delete=models.PROTECT, related_name="known_in_almanacs")
+    learned_at = models.DateTimeField(auto_now_add=True)
+    notes = models.TextField(blank=True, default="")
+
+    class Meta:
+        ordering = ["item__name", "id"]
+        constraints = [
+            models.UniqueConstraint(fields=["character", "item"], name="uniq_character_almanac_brew")
+        ]
+
+    def clean(self):
+        """Only alchemical brew items may be stored as almanac knowledge."""
+        super().clean()
+        if self.item_id and self.item.item_type != Item.ItemType.ALCHEMICAL_BREW:
+            raise ValidationError({"item": "Almanac knowledge is restricted to alchemical brews."})
+
+    def __str__(self):
+        return f"{self.character.name}: {self.item.name}"
+
+
 class CharacterAttribute(models.Model):
     """Stores the purchased base value of one attribute for a character."""
 

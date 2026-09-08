@@ -11,6 +11,8 @@ from django.db.models import F, Q
 from django.urls import reverse
 
 from charsheet.constants import (
+    ALCHEMICAL_BREW_LEARNING_SLOT,
+    ALCHEMIST_ALMANAC,
     ARMOR_ENCUMBRANCE,
     ARMOR_PENALTY_IGNORE,
     ARCANE_POWER,
@@ -81,6 +83,7 @@ from charsheet.models import (
     Aspect,
     AlchemicalBrewStats,
     Character,
+    CharacterAlmanacBrew,
     CharacterAspect,
     CharacterDivineEntity,
     CharacterDruidCult,
@@ -3362,6 +3365,97 @@ def _build_alchemical_brew_requirement_line(
         + ", ".join(parts)
         + "`"
     )
+
+
+def _almanac_item_image_url(item: Item) -> str:
+    """Return a safe image URL for one alchemical brew item."""
+    image = getattr(item, "image", None)
+    if not image:
+        return ""
+    try:
+        return _single_line(image.url)
+    except (ValueError, OSError):
+        return ""
+
+
+def _brew_craft_time_label(brew: AlchemicalBrewStats) -> str:
+    if brew.craft_time_amount is None or not brew.craft_time_unit:
+        return ""
+    units = {
+        "hours": ("Stunde", "Stunden"),
+        "days": ("Tag", "Tage"),
+        "weeks": ("Woche", "Wochen"),
+        "months": ("Monat", "Monate"),
+    }
+    singular, plural = units.get(
+        brew.craft_time_unit,
+        (brew.get_craft_time_unit_display(), brew.get_craft_time_unit_display()),
+    )
+    unit = singular if int(brew.craft_time_amount) == 1 else plural
+    return f"{brew.craft_time_amount} {unit}"
+
+
+def _build_alchemist_almanac_context(character: Character, engine: CharacterEngine) -> dict[str, object]:
+    """Build display-only data for the alchemist almanac book."""
+    flags = engine.resolve_flags()
+    enabled = bool(flags.get(ALCHEMIST_ALMANAC, False))
+    slot_total = engine.resolve_learning_slots(ALCHEMICAL_BREW_LEARNING_SLOT)
+    entries = (
+        CharacterAlmanacBrew.objects
+        .filter(character=character)
+        .select_related("item")
+        .order_by("item__name", "id")
+    )
+    item_ids = [entry.item_id for entry in entries]
+    brew_stats_by_item_id = {
+        stats.item_id: stats
+        for stats in AlchemicalBrewStats.objects
+        .filter(item_id__in=item_ids)
+        .prefetch_related("requirements", "requirements__skill", "requirements__school", "requirements__aspect")
+    }
+    pages: list[dict[str, object]] = []
+    for entry in entries:
+        item = entry.item
+        brew = brew_stats_by_item_id.get(item.id)
+        page = {
+            "name": item.name,
+            "description": item.description or "",
+            "image_url": _almanac_item_image_url(item),
+            "notes": entry.notes,
+            "brew_type": brew.get_brew_type_display() if brew else "",
+            "ingredient_cost_gm": brew.ingredient_cost_gm if brew else None,
+            "craft_time": _brew_craft_time_label(brew) if brew else "",
+            "craft_mw": brew.craft_mw if brew else None,
+            "craft_ep_cost": brew.craft_ep_cost if brew else 0,
+            "additional_requirements": brew.additional_requirements if brew else "",
+            "heal_lp": brew.heal_lp if brew else 0,
+            "restore_kp": brew.restore_kp if brew else 0,
+            "heal_wound_grades": brew.heal_wound_grades if brew else 0,
+            "requirements": [],
+        }
+        if brew:
+            page["requirements"] = [
+                {
+                    "name": (
+                        requirement.skill.name
+                        if requirement.skill_id
+                        else requirement.school.name
+                        if requirement.school_id
+                        else requirement.aspect.name
+                    ),
+                    "level": requirement.required_level,
+                    "alternative_group": requirement.alternative_group,
+                }
+                for requirement in brew.requirements.all()
+            ]
+        pages.append(page)
+    return {
+        "enabled": enabled,
+        "slot_total": slot_total,
+        "learned_count": len(pages),
+        "remaining_slots": max(0, slot_total - len(pages)),
+        "pages": pages,
+    }
 
 
 def build_character_item_card_context(
@@ -6996,6 +7090,7 @@ def _group_school_technique_rows(
     school_technique_rows: list[dict],
     school_levels: dict[int, int],
     character: Character,
+    alchemist_almanac_enabled: bool = False,
 ) -> tuple[list[dict], list[dict]]:
     """Split rows into race rows (flat) and school groups (collapsible).
 
@@ -7004,6 +7099,14 @@ def _group_school_technique_rows(
     """
     race_rows: list[dict] = []
     groups: OrderedDict[str, dict] = OrderedDict()
+
+    def has_alchemist_almanac(school_name: str) -> bool:
+        normalized_school_name = str(school_name or "").strip().casefold()
+        return bool(alchemist_almanac_enabled) and (
+            normalized_school_name in {"alchemist", "alchemie"}
+            or normalized_school_name.startswith(("alchemist ", "alchemie "))
+        )
+
     druid_options_by_school_id: dict[int, list[DruidCult]] = {}
     daemonic_patron_options_by_school_id: dict[int, list[DivineEntity]] = {}
     if school_levels:
@@ -7070,6 +7173,7 @@ def _group_school_technique_rows(
             groups[school_name] = {
                 "school_id": school_id,
                 "school_name": school_name,
+                "has_alchemist_almanac": has_alchemist_almanac(school_name),
                 "symbol": str(row.get("school_symbol") or "").strip(),
                 "symbol_image_url": str(row.get("school_symbol_image_url") or "").strip(),
                 "max_level": current_level,
@@ -7110,6 +7214,7 @@ def _group_school_technique_rows(
             groups[school.name] = {
                 "school_id": school.id,
                 "school_name": school.name,
+                "has_alchemist_almanac": has_alchemist_almanac(school.name),
                 "symbol": str(getattr(school, "panel_symbol", "") or "").strip(),
                 "symbol_image_url": _school_symbol_image_url(school),
                 "max_level": current_level,
@@ -7979,6 +8084,44 @@ def _build_learning_rows(
             int(magic_slot_summary.get("total", 0) or 0) > 0,
         )
     )
+    almanac_enabled = bool(engine.resolve_flags().get(ALCHEMIST_ALMANAC, False))
+    almanac_slot_total = engine.resolve_learning_slots(ALCHEMICAL_BREW_LEARNING_SLOT)
+    learned_brew_ids = set(
+        CharacterAlmanacBrew.objects
+        .filter(character=character)
+        .values_list("item_id", flat=True)
+    )
+    available_brew_slots = max(0, int(almanac_slot_total) - len(learned_brew_ids))
+    brew_groups: OrderedDict[str, list[dict]] = OrderedDict()
+    if almanac_enabled:
+        for brew in (
+            AlchemicalBrewStats.objects
+            .select_related("item")
+            .order_by("brew_type", "item__name", "id")
+        ):
+            if brew.item_id in learned_brew_ids:
+                continue
+            brew_groups.setdefault(brew.get_brew_type_display(), []).append(
+                {
+                    "item_id": brew.item_id,
+                    "name": brew.item.name,
+                    "description": (brew.item.description or "").replace("\r\n", "\n").replace("\r", "\n"),
+                    "brew_type": brew.get_brew_type_display(),
+                    "craft_ep_cost": int(brew.craft_ep_cost or 0),
+                    "craft_mw": brew.craft_mw,
+                    "craft_time": _brew_craft_time_label(brew),
+                    "search_tokens": " ".join(
+                        str(token or "").lower()
+                        for token in (
+                            brew.item.name,
+                            brew.get_brew_type_display(),
+                            brew.item.description,
+                            brew.additional_requirements,
+                            "almanach gebräu alchemie",
+                        )
+                    ),
+                }
+            )
 
     return {
         "learn_attr_rows": learn_attr_rows,
@@ -7999,6 +8142,13 @@ def _build_learning_rows(
             {"name": group_name, "rows": rows}
             for group_name, rows in magic_groups.items()
         ],
+        "learn_brew_groups": [
+            {"name": group_name, "rows": rows}
+            for group_name, rows in brew_groups.items()
+        ],
+        "learn_brew_tab_visible": almanac_enabled,
+        "learn_brew_slot_total": almanac_slot_total,
+        "learn_brew_slot_remaining": available_brew_slots,
         "learn_magic_tab_visible": has_magic_schools,
         "learn_magic_slot_summary": magic_slot_summary,
         "learn_magic_grade_filters": learn_magic_grade_filters,
@@ -8700,10 +8850,12 @@ def build_character_sheet_context(
     }
     school_technique_rows, school_levels = _build_school_technique_rows(character, engine)
     cultist_corruption_level = _cultist_corruption_level(engine)
+    alchemist_almanac = _build_alchemist_almanac_context(character, engine)
     school_race_rows, school_technique_groups = _group_school_technique_rows(
         school_technique_rows,
         school_levels,
         character,
+        alchemist_almanac_enabled=bool(alchemist_almanac.get("enabled")),
     )
     language_rows, language_entries = _build_language_rows(character)
     weapon_mastery_arcana_panel = _build_weapon_mastery_arcana_panel(engine)
@@ -9374,6 +9526,7 @@ def build_character_sheet_context(
         "school_technique_rows": school_technique_rows,
         "school_race_rows": school_race_rows,
         "school_technique_groups": school_technique_groups,
+        "alchemist_almanac": alchemist_almanac,
         "core_stats": {
             "load_value": load_penalty,
             "load_tooltip": load_tooltip,

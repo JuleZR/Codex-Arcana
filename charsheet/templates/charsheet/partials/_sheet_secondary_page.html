@@ -707,6 +707,9 @@
                   <button type="submit" class="school_group_binding_save" aria-label="Dämonenfürsten speichern" title="Dämonenfürsten speichern" hidden>&#10003;</button>
                 </form>
                 {% endif %}
+                {% if group.has_alchemist_almanac %}
+                  {% include "charsheet/partials/_alchemist_almanac_trigger.html" %}
+                {% endif %}
                 <button
                   type="button"
                   class="school_pin_btn school_pin_btn--group"

@@ -2,6 +2,7 @@
 
 from .character import (
     Character,
+    CharacterAlmanacBrew,
     CharacterAttribute,
     CharacterCreationDraft,
     CharacterDiaryEntry,
@@ -168,6 +169,7 @@ __all__ = [
     "Attribute",
     "CharacterAspect",
     "Character",
+    "CharacterAlmanacBrew",
     "CharacterAttribute",
     "CharacterCreationDraft",
     "CharacterDruidCult",

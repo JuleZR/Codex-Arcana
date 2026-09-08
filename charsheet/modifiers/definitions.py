@@ -69,6 +69,7 @@ class TargetDomain(StringEnum):
     ECONOMY = "economy"
     SOCIAL = "social"
     RULE_FLAG = "rule_flag"
+    LEARNING_SLOT = "learning_slot"
     CAPABILITY = "capability"
     BEHAVIOR = "behavior"
     TAG = "tag"
@@ -360,6 +361,14 @@ class RuleFlagModifier(BaseModifier):
 
     def __init__(self, *args, **kwargs):
         kwargs.setdefault("target_domain", TargetDomain.RULE_FLAG)
+        super().__init__(*args, **kwargs)
+
+
+class LearningSlotModifier(BaseModifier):
+    """Modifier granting restricted non-EP learning slots."""
+
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault("target_domain", TargetDomain.LEARNING_SLOT)
         super().__init__(*args, **kwargs)
 
 

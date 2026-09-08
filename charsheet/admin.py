@@ -21,6 +21,7 @@ from django.utils.html import format_html, format_html_join
 from django.utils.safestring import mark_safe
 
 from .constants import (
+    ALCHEMICAL_BREW_LEARNING_SLOT,
     ATTRIBUTE_CODE_CHOICES,
     COMA_IGNORE,
     MELEE_MANEUVERS,
@@ -77,6 +78,7 @@ from .models import (
     Aspect,
     Attribute,
     Character,
+    CharacterAlmanacBrew,
     CharacterAspect,
     CharacterAttribute,
     CharacterCreature,
@@ -3398,6 +3400,10 @@ class RuleSemanticEffectAdminForm(SemanticCreatureCardGrantFormMixin, forms.Mode
         ("item_category", "Item-Kategorie"),
         ("specialization", "Spezialisierung"),
         ("rule_flag", "Regelflag"),
+        ("learning_slot", "Lernslot"),
+    )
+    LEARNING_SLOT_TARGET_CHOICES = (
+        (ALCHEMICAL_BREW_LEARNING_SLOT, "Alchemistische Gebraeue"),
     )
     COMBAT_TARGET_CHOICES = (
         (MELEE_MANEUVERS, "Manoever mit dieser Waffe"),
@@ -3571,6 +3577,7 @@ class RuleSemanticEffectAdminForm(SemanticCreatureCardGrantFormMixin, forms.Mode
         choices.extend((f"specialization:{specialization.pk}", specialization.name) for specialization
                        in Specialization.objects.order_by("name", "id"))
         choices.extend((f"rule_flag:{value}", label) for value, label in RULE_FLAG_CHOICES)
+        choices.extend((f"learning_slot:{value}", label) for value, label in self.LEARNING_SLOT_TARGET_CHOICES)
         return _ordered_unique_semantic_choices(choices, self.EFFECT_AREA_CHOICES)
 
     def _apply_initial_simple_values(self):
@@ -3592,6 +3599,7 @@ class RuleSemanticEffectAdminForm(SemanticCreatureCardGrantFormMixin, forms.Mode
             "item_category": "item_category",
             "specialization": "specialization",
             "rule_flag": "rule_flag",
+            "learning_slot": "learning_slot",
         }.get(target_domain)
         if has_choice_binding := bool(
             getattr(self.instance, "target_choice_definition_id", None)
@@ -3841,6 +3849,7 @@ class RuleSemanticEffectAdminForm(SemanticCreatureCardGrantFormMixin, forms.Mode
             "item_category": "item_category",
             "specialization": "specialization",
             "rule_flag": "rule_flag",
+            "learning_slot": "learning_slot",
         }
         return mapping.get(area, ""), target_key
 
@@ -8388,6 +8397,25 @@ class CharacterDiaryEntryAdmin(admin.ModelAdmin):
     ordering = ("character", "order_index", "id")
     autocomplete_fields = ("character",)
     list_select_related = ("character",)
+
+
+@admin.register(CharacterAlmanacBrew)
+class CharacterAlmanacBrewAdmin(admin.ModelAdmin):
+    """Admin configuration for display-only almanac knowledge."""
+
+    list_display = ("character", "item", "learned_at")
+    search_fields = ("character__name", "item__name", "notes")
+    list_filter = ("item__item_type",)
+    ordering = ("character__name", "item__name")
+    autocomplete_fields = ("character",)
+    list_select_related = ("character", "item")
+
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        if db_field.name == "item":
+            kwargs["queryset"] = Item.objects.filter(
+                item_type=Item.ItemType.ALCHEMICAL_BREW,
+            ).order_by("name")
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
 
 class CreatureAttackInline(admin.TabularInline):

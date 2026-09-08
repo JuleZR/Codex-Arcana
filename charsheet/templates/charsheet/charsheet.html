@@ -98,6 +98,7 @@
       {% endif %}
       {% include "charsheet/partials/_diary_panel.html" %}
       {% include "charsheet/partials/_battle_calculator_window.html" %}
+      {% include "charsheet/partials/_alchemist_almanac.html" %}
       {% if not read_only %}
       {% include "charsheet/partials/_item_transfer_dialog.html" %}
       {% include "charsheet/partials/_item_transfer_window.html" %}
@@ -149,7 +150,7 @@
       </div>
     </div>
 
-    <script type="module" src="{% static 'js/charsheet/bootstrap.js' %}?v=20260902d"></script>
+    <script type="module" src="{% static 'js/charsheet/bootstrap.js' %}?v=20260908e"></script>
     <script src="{% static 'js/charsheet_diary.js' %}?v=20260315a"></script>
     {% if read_only %}
     <script>

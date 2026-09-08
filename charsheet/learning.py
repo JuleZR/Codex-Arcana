@@ -17,9 +17,11 @@ from charsheet.learning_rules import (
     school_max_levels,
 )
 from charsheet.models import (
+    AlchemicalBrewStats,
     Aspect,
     Attribute,
     Character,
+    CharacterAlmanacBrew,
     CharacterAttribute,
     CharacterAspect,
     CharacterDivineEntity,
@@ -65,7 +67,14 @@ from charsheet.models import (
     VampireTrait,
 )
 from charsheet.lesson_rules import lesson_requirements_met, missing_requirement_labels
-from charsheet.constants import ATTR_ST, LANGUAGE_LITERACY_MIN_LEVEL, VAMPIRE_ANCHOR_TRAIT_SLUG, is_allowed_trait_attribute_choice
+from charsheet.constants import (
+    ALCHEMICAL_BREW_LEARNING_SLOT,
+    ALCHEMIST_ALMANAC,
+    ATTR_ST,
+    LANGUAGE_LITERACY_MIN_LEVEL,
+    VAMPIRE_ANCHOR_TRAIT_SLUG,
+    is_allowed_trait_attribute_choice,
+)
 from charsheet.religion_rules import (
     divine_entity_count_for_school,
     is_clerical_school,
@@ -702,6 +711,7 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
     skill_plan: dict[str, int] = {}
     language_plan: dict[str, dict[str, object]] = {}
     school_plan: dict[str, int] = {}
+    brew_plan: dict[int, int] = {}
     magic_aspect_plan: dict[int, int] = {}
     vampire_age_add = 0
     vampire_capacity_add = 0
@@ -1078,6 +1088,44 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
             total_cost -= int(existing.paid_ep)
         lesson_plan[lesson_id] = delta
 
+    brew_input_keys = [
+        str(key)
+        for key in post_data.keys()
+        if str(key).startswith("learn_brew_")
+    ]
+    if brew_input_keys:
+        if not bool(engine.resolve_flags().get(ALCHEMIST_ALMANAC, False)):
+            return "error", "Der Alchemistenalmanach ist nicht freigeschaltet."
+        known_brew_ids = set(
+            CharacterAlmanacBrew.objects
+            .filter(character=character)
+            .values_list("item_id", flat=True)
+        )
+        legal_brews = {
+            int(stats.item_id): stats
+            for stats in AlchemicalBrewStats.objects.select_related("item")
+            if int(stats.item_id) not in known_brew_ids
+        }
+        for key in brew_input_keys:
+            try:
+                item_id = int(key.rsplit("_", 1)[-1])
+            except ValueError:
+                continue
+            selected = _read_int(post_data, key, 0)
+            if selected <= 0:
+                continue
+            if selected > 1:
+                return "error", "Gebräue können nur einmal in den Almanach eingetragen werden."
+            brew = legal_brews.get(item_id)
+            if brew is None:
+                return "error", "Ungültige oder bereits bekannte Gebräu-Auswahl."
+            brew_plan[item_id] = int(brew.craft_ep_cost or 0)
+            total_cost += int(brew.craft_ep_cost or 0)
+        slot_total = int(engine.resolve_learning_slots(ALCHEMICAL_BREW_LEARNING_SLOT))
+        remaining_slots = max(0, slot_total - len(known_brew_ids))
+        if len(brew_plan) > remaining_slots:
+            return "error", "Nicht genug freie Almanach-Slots für diese Gebräue."
+
     planned_school_levels = {
         school_id: int(row.level)
         for school_id, row in school_rows.items()
@@ -1207,7 +1255,7 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
 
     has_ep_changes = any((
         attr_plan, trait_plan, skill_plan, cs_skill_plan, new_spec_plan,
-        language_plan, school_plan, magic_aspect_plan, lesson_plan,
+        language_plan, school_plan, brew_plan, magic_aspect_plan, lesson_plan,
         vampire_age_add, vampire_capacity_add, vampire_power_plan,
         vampire_power_remove_plan, vampire_buyoff_plan,
     ))
@@ -1445,6 +1493,14 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
                     aspect_entry.full_clean()
                     aspect_entry.save(update_fields=["level"])
 
+            for item_id in brew_plan:
+                brew_entry = CharacterAlmanacBrew(
+                    character=character,
+                    item_id=item_id,
+                )
+                brew_entry.full_clean()
+                brew_entry.save()
+
             character.get_engine(refresh=True)
             magic_engine = character.get_magic_engine(refresh=True)
             magic_engine.sync_character_magic()
@@ -1653,6 +1709,8 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
         )
     if magic_aspect_plan:
         parts.append(f"{sum(magic_aspect_plan.values())} Aspektstufe(n) gelernt")
+    if brew_plan:
+        parts.append(f"{len(brew_plan)} Gebräu(e) gelernt")
     learned_spell_count = (
         len(magic_spell_selection)
         + len(divine_arcane_spell_selection)

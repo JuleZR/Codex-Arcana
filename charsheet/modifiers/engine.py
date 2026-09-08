@@ -1048,6 +1048,10 @@ class ModifierEngine:
 
         return flags
 
+    def resolve_learning_slots(self, target_key: str, context: dict[str, Any] | None = None) -> int:
+        """Resolve restricted learning-slot grants for one slot bucket."""
+        return max(0, int(self.resolve_numeric_total(TargetDomain.LEARNING_SLOT, target_key, context=context)))
+
     def resolve_capabilities(self, context: dict[str, Any] | None = None) -> dict[str, bool]:
         """Resolve capability grants and removals."""
         capabilities: dict[str, bool] = {}

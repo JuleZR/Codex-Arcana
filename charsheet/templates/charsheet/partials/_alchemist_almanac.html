@@ -1,0 +1,129 @@
+{% load static %}
+{% if alchemist_almanac.enabled %}
+<div
+  class="book_viewer_overlay alchemist_almanac_overlay"
+  id="alchemistAlmanacOverlay"
+  data-alchemist-almanac-root
+  data-book-overlay
+  aria-hidden="true"
+  lang="de"
+>
+    <div class="book_viewer_scrim" data-book-close></div>
+    <section class="book_viewer_stage" role="dialog" aria-modal="true" aria-label="Alchemistenalmanach">
+      <button
+        type="button"
+        class="book_viewer_close"
+        data-book-close
+        aria-label="Alchemistenalmanach schließen"
+        title="Schließen"
+      >x</button>
+      <div class="book_viewer_shell" data-book-shell>
+        <div class="book_viewer_pages" data-book-pages>
+          <article class="book_page book_page--cover alchemist_almanac_cover" data-density="hard" data-book-page-index="0">
+            <img class="alchemist_almanac_cover__image" src="{% static 'img/almanc.png' %}" alt="" loading="lazy">
+            <div class="alchemist_almanac_cover__title">
+              <h2>Alchemistenalmanach</h2>
+              <p>{{ character.name }}</p>
+            </div>
+          </article>
+          <article class="book_page book_page--inside-cover alchemist_almanac_toc" data-density="hard" data-book-page-index="1">
+            <div class="book_page__center">
+              <h3>Inhaltsverzeichnis</h3>
+              {% if alchemist_almanac.pages %}
+              <ol class="alchemist_almanac_toc__list">
+                {% for brew in alchemist_almanac.pages %}
+                <li>
+                  <button type="button" data-book-page-target="{{ forloop.counter0|add:'2' }}">
+                    <span>{{ brew.name }}</span>
+                    <small>S. {{ forloop.counter|add:'1' }}</small>
+                  </button>
+                </li>
+                {% endfor %}
+              </ol>
+              {% else %}
+              <p>Noch keine Einträge.</p>
+              {% endif %}
+            </div>
+            <span class="book_page__number" aria-hidden="true">1</span>
+          </article>
+          {% for brew in alchemist_almanac.pages %}
+          <article class="book_page alchemist_almanac_page" data-book-page-index="{{ forloop.counter0|add:'2' }}">
+            {% if not forloop.first %}
+            <button
+              type="button"
+              class="alchemist_almanac_page__toc_return"
+              data-book-page-target="1"
+              aria-label="Zurück zum Inhaltsverzeichnis"
+              title="Zurück zum Inhaltsverzeichnis"
+            >‹</button>
+            {% endif %}
+            <header class="alchemist_almanac_page__header">
+              <span>{{ brew.brew_type|default:"Gebräu" }}</span>
+              <h2>{{ brew.name }}</h2>
+            </header>
+            {% if brew.image_url %}
+            <figure class="alchemist_almanac_page__figure">
+              <img src="{{ brew.image_url }}" alt="" loading="lazy" data-watercolor-image>
+            </figure>
+            {% endif %}
+            {% if brew.description %}
+            <p class="alchemist_almanac_page__description">{{ brew.description }}</p>
+            {% endif %}
+            {% if brew.ingredient_cost_gm is not None or brew.craft_time or brew.craft_mw is not None or brew.craft_ep_cost or brew.requirements or brew.additional_requirements %}
+            <section class="alchemist_almanac_page__section alchemist_almanac_page__requirements">
+              <h3>Voraussetzungen</h3>
+              <dl class="alchemist_almanac_page__facts">
+                {% if brew.ingredient_cost_gm is not None %}<div><dt>Kosten</dt><dd>{{ brew.ingredient_cost_gm }} GM</dd></div>{% endif %}
+                {% if brew.craft_time %}<div><dt>Zeit</dt><dd>{{ brew.craft_time }}</dd></div>{% endif %}
+                {% if brew.craft_mw is not None %}<div><dt>MW</dt><dd>{{ brew.craft_mw }}</dd></div>{% endif %}
+                {% if brew.craft_ep_cost %}<div><dt>EP</dt><dd>{{ brew.craft_ep_cost }}</dd></div>{% endif %}
+              </dl>
+              {% if brew.requirements %}
+              <dl class="alchemist_almanac_page__facts alchemist_almanac_page__facts--requirements">
+                {% for requirement in brew.requirements %}
+                <div><dt>{{ requirement.name }}</dt><dd>{{ requirement.level }}{% if requirement.alternative_group %} oder{% endif %}</dd></div>
+                {% endfor %}
+              </dl>
+              {% endif %}
+              {% if brew.additional_requirements %}
+              <p>{{ brew.additional_requirements }}</p>
+              {% endif %}
+            </section>
+            {% endif %}
+            {% if brew.heal_lp or brew.restore_kp or brew.heal_wound_grades %}
+            <section class="alchemist_almanac_page__section">
+              <h3>Wirkung</h3>
+              <ul>
+                {% if brew.heal_lp %}<li>{{ brew.heal_lp }} LP heilen</li>{% endif %}
+                {% if brew.restore_kp %}<li>{{ brew.restore_kp }} KP regenerieren</li>{% endif %}
+                {% if brew.heal_wound_grades %}<li>{{ brew.heal_wound_grades }} Wundgrad{% if brew.heal_wound_grades != 1 %}e{% endif %} heilen</li>{% endif %}
+              </ul>
+            </section>
+            {% endif %}
+            {% if brew.notes %}
+            <section class="alchemist_almanac_page__section">
+              <h3>Randnotiz</h3>
+              <p>{{ brew.notes }}</p>
+            </section>
+            {% endif %}
+            <span class="book_page__number" aria-hidden="true">{{ forloop.counter|add:'1' }}</span>
+          </article>
+          {% empty %}
+          <article class="book_page alchemist_almanac_page" data-book-page-index="2">
+            <div class="book_page__center">
+              <h2>Noch keine Einträge</h2>
+              <p>Der Almanach ist bereit, aber noch leer.</p>
+            </div>
+            <span class="book_page__number" aria-hidden="true">2</span>
+          </article>
+          {% endfor %}
+          <article class="book_page book_page--back" data-density="hard">
+            <div class="book_page__center">
+              <h2>Ende</h2>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+</div>
+{% endif %}

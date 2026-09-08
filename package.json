@@ -24,6 +24,7 @@
   "dependencies": {
     "cropperjs": "^2.1.1",
     "dddice-js": "^0.19.34-974",
+    "page-flip": "2.0.7",
     "three": "^0.124.0"
   }
 }

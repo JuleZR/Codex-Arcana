@@ -9,7 +9,7 @@ import { initSkillSpecModal } from "./skill_spec_modal.js";
 import { initTechniqueSpecModal } from "./technique_spec_modal.js";
 import { initTraitSpecModal } from "./trait_spec_modal.js";
 import { initShopMenu } from "./shop_menu.js?v=20260830a";
-import { initLearningMenu } from "./learning_menu.js?v=20260901b";
+import { initLearningMenu } from "./learning_menu.js?v=20260904a";
 import { initTooltips } from "./tooltip.js?v=20260902d";
 import { initInventoryMenu } from "./inventory_menu.js?v=20260820a";
 import { initDamagePanel } from "./damage_panel.js?v=20260801b";
@@ -34,6 +34,7 @@ import { initItemTransferWindow } from "./item_transfer_window.js?v=20260901a";
 import { initTemporaryAttributes } from "./temporary_attributes.js?v=20260731c";
 import { initVampirePanel } from "./vampire_panel.js?v=20260802a";
 import { initExternalSheetRefresh } from "./external_refresh.js?v=20260901b";
+import { initAlchemistAlmanac } from "./alchemist_almanac.js?v=20260908e";
 
 function isRadialMenuEnabled() {
   return document.body?.dataset.radialMenuEnabled === "1";
@@ -108,11 +109,13 @@ onReady(() => {
   runInit(initMobileHud);
   runInit(initTemporaryAttributes);
   runInit(initExternalSheetRefresh);
+  runInit(initAlchemistAlmanac);
   initRadialMenusSafely();
 
   document.addEventListener("charsheet:partials-applied", () => {
     windowControllers = runInit(initStandardFloatingWindows);
     initDynamicSheetModules(windowControllers);
+    runInit(initAlchemistAlmanac);
     document.dispatchEvent(new Event("learn:refresh-totals"));
   });
 });

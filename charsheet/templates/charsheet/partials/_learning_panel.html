@@ -94,6 +94,21 @@
                         <span class="learn_tabs__label">Lektionen</span>
                       </button>
                     {% endif %}
+                    {% if learn_brew_tab_visible %}
+                      <button
+                        type="button"
+                        class="learn_tabs__tab"
+                        id="learn-tab-brews"
+                        role="tab"
+                        aria-selected="false"
+                        aria-controls="learn-panel-brews"
+                        data-tab-target="learn-panel-brews"
+                        tabindex="-1"
+                      >
+                        <span class="learn_tabs__icon_frame" aria-hidden="true"><span class="learn_tabs__icon">A</span></span>
+                        <span class="learn_tabs__label">Gebräue</span>
+                      </button>
+                    {% endif %}
                     {% if learn_magic_tab_visible %}
                       <button
                         type="button"
@@ -467,6 +482,69 @@
                         </tbody>
                       </table>
                     </details>
+                  {% endfor %}
+                </section>
+              {% endif %}
+              {% if learn_brew_tab_visible %}
+                <section
+                  class="learn_tabs__panel"
+                  id="learn-panel-brews"
+                  role="tabpanel"
+                  aria-labelledby="learn-tab-brews"
+                  data-tab-panel
+                  hidden
+                >
+                  <div
+                    class="learn_magic_budget learn_brew_budget"
+                    data-learn-brew-budget
+                    data-brew-slot-total="{{ learn_brew_slot_total }}"
+                    data-brew-slot-remaining="{{ learn_brew_slot_remaining }}"
+                  >
+                    <span>Almanach-Slots</span>
+                    <strong><span data-learn-brew-slot-remaining>{{ learn_brew_slot_remaining }}</span> / {{ learn_brew_slot_total }}</strong>
+                  </div>
+                  {% for group in learn_brew_groups %}
+                    <details class="shop_group learn_subgroup" data-learn-group data-collapse-key="brews:{{ group.name|slugify }}">
+                      <summary><span>{{ group.name }}</span><span class="shop_group_count">{{ group.rows|length }}</span></summary>
+                      <table class="shop_table">
+                        <tbody>
+                          {% for row in group.rows %}
+                            <tr
+                              data-learn-source
+                              data-kind="brew"
+                              data-key="brew:{{ row.item_id }}"
+                              data-id="{{ row.item_id }}"
+                              data-name="{{ row.name }}"
+                              data-unit-cost="{{ row.craft_ep_cost }}"
+                              data-learn-search="{{ row.search_tokens }}"
+                              tabindex="0"
+                              role="button"
+                              aria-label="{{ row.name }} lernen"
+                              {% if row.description %}class="tooltip_target" data-tooltip-side="left" data-tooltip="{{ row.description }}"{% endif %}
+                            >
+                              <td class="shop_item_name">{{ row.name }}</td>
+                              <td class="shop_item_price shop_item_price--meta">
+                                <span class="learn_meta_inline" aria-label="{{ row.brew_type }}, {{ row.craft_ep_cost }} EP{% if row.craft_mw is not None %}, MW {{ row.craft_mw }}{% endif %}">
+                                  <span class="learn_meta_inline__row">
+                                    <span class="learn_meta_inline__item"><span class="learn_meta_label">EP</span><span class="learn_meta_value">{{ row.craft_ep_cost }}</span></span>
+                                    {% if row.craft_mw is not None %}
+                                      <span class="learn_meta_inline__item"><span class="learn_meta_label">MW</span><span class="learn_meta_value">{{ row.craft_mw }}</span></span>
+                                    {% endif %}
+                                  </span>
+                                  {% if row.craft_time %}
+                                    <span class="learn_meta_inline__row">
+                                      <span class="learn_meta_inline__item"><span class="learn_meta_label">Zeit</span><span class="learn_meta_value">{{ row.craft_time }}</span></span>
+                                    </span>
+                                  {% endif %}
+                                </span>
+                              </td>
+                            </tr>
+                          {% endfor %}
+                        </tbody>
+                      </table>
+                    </details>
+                  {% empty %}
+                    <p class="shop_empty">Keine weiteren Gebräue verfügbar.</p>
                   {% endfor %}
                 </section>
               {% endif %}
