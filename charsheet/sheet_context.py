@@ -6965,6 +6965,12 @@ def _build_school_technique_rows(character: Character, engine) -> tuple[list[dic
         )
     race_row_count = len(school_technique_rows)
     if school_levels:
+        learned_path_levels = {
+            (state["school_id"], state["required_level"])
+            for state in engine.technique_states()
+            if state["path_id"] and state["learned"] and state["available"]
+            and not state["is_choice_placeholder"]
+        }
         techniques = (
             Technique.objects
             .filter(school_id__in=school_levels.keys())
@@ -6972,6 +6978,16 @@ def _build_school_technique_rows(character: Character, engine) -> tuple[list[dic
             .order_by("school__name", F("level").asc(nulls_first=True), "name")
         )
         for technique in techniques:
+            if (
+                technique.is_choice_placeholder
+                and technique.path_id is None
+                and (technique.school_id, technique.level)
+                in learned_path_levels
+            ):
+                continue
+            state = engine.technique_state(technique)
+            if not state["learned"] or not state["available"]:
+                continue
             technique_level = technique.level
             school_level = school_levels.get(technique.school_id, 0)
             if technique_level is None or technique_level <= school_level:
