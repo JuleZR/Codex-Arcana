@@ -108,7 +108,6 @@ from .lessons import (
     Lesson,
     LessonCost,
     LessonRequirement,
-    LessonRequirementGroup,
 )
 from .groups import (
     GameGroup,
@@ -266,7 +265,6 @@ __all__ = [
     "Lesson",
     "LessonCost",
     "LessonRequirement",
-    "LessonRequirementGroup",
     "MagicItemStats",
     "Quality",
     "ProgressionRule",

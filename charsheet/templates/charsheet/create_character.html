@@ -480,13 +480,13 @@
                                     data-id="{{ row.id }}"
                                     data-name="{{ row.name }}"
                                     data-cost="{{ row.purchase_cost }}"
-                                    data-phase4-search="{{ row.name|lower }} {{ row.school_name|lower }} lektion {{ row.requirements_display|lower }} {{ row.costs_display|lower }}"
+                                    data-phase4-search="{{ row.name|lower }} lektion {{ row.requirements_display|lower }} {{ row.costs_display|lower }}"
                                     tabindex="0"
                                     role="button"
                                     aria-label="{{ row.name }} hinzufügen"
                                   >
                                     <td class="db_tooltip_anchor" data-db-tooltip="{{ row.description }}{% if row.requirements_display %}&#10;Voraussetzungen: {{ row.requirements_display }}{% endif %}{% if row.costs_display %}&#10;Anwendung: {{ row.costs_display }}{% endif %}">{{ row.name }}</td>
-                                    <td class="phase2_lang_meta">{{ row.school_name }} | {{ row.purchase_cost }} CP</td>
+                                    <td class="phase2_lang_meta">{{ row.purchase_cost }} CP</td>
                                   </tr>
                                 {% endfor %}
                               </tbody>
@@ -650,7 +650,7 @@
                                 {% if row.selected %}
                                   <tr data-phase4-cart-item data-key="lesson:{{ row.id }}" data-kind="lesson" data-cost="{{ row.purchase_cost }}">
                                     <td>{{ row.name }} <input type="hidden" name="lesson_{{ row.id }}" value="1" data-phase4-hidden></td>
-                                    <td><span class="phase4_locked_marker">{{ row.school_name }}</span><input type="hidden" value="1" data-phase4-value></td>
+                                    <td><span class="phase4_locked_marker">{{ row.requirements_display }}</span><input type="hidden" value="1" data-phase4-value></td>
                                     <td data-phase4-cost>{{ row.purchase_cost }}</td>
                                     <td><button type="button" class="phase2_remove_x" data-phase4-remove aria-label="Eintrag entfernen" title="Entfernen">X</button></td>
                                   </tr>

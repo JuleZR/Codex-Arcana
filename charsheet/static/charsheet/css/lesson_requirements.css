@@ -1,0 +1,46 @@
+.lesson-requirements [hidden] { display: none !important; }
+.lesson-requirements .wrapper { overflow-x: auto; }
+.lesson-requirements table { min-width: 64rem; }
+.lesson-requirements th,
+.lesson-requirements td {
+  box-sizing: border-box;
+  vertical-align: middle;
+}
+.lesson-requirements tbody td { padding: .45rem .5rem; }
+.lesson-requirements th.original,
+.lesson-requirements td.original {
+  width: 0;
+  padding: 0;
+}
+.lesson-requirements .requirement-type-column { width: 18rem; }
+.lesson-requirements .requirement-value-column { width: auto; }
+.lesson-requirements .requirement-level-column { width: 7rem; }
+.lesson-requirements .requirement-order-column { width: 8rem; }
+.lesson-requirements .requirement-delete-column {
+  width: 5rem;
+  text-align: center;
+}
+.lesson-requirements .requirement-fields {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: .8rem;
+}
+.lesson-requirements .requirement-fields > div {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: .35rem;
+}
+.lesson-requirements .related-widget-wrapper { white-space: nowrap; }
+.lesson-requirements .requirement-targets label {
+  margin: 0;
+  white-space: nowrap;
+}
+.lesson-requirements select { max-width: 18rem; }
+.lesson-requirements input[type="number"] { width: 5rem; }
+.lesson-requirements [data-requirement-message] {
+  display: block;
+  margin-top: .25rem;
+  color: var(--error-fg);
+}

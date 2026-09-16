@@ -122,7 +122,10 @@ from .constants import (
     is_allowed_trait_attribute_choice,
 )
 from .learning import process_learning_submission
-from .lesson_rules import LessonRuleError, activate_lesson, format_lesson_costs, format_lesson_requirements
+from .lesson_rules import (
+    LessonRuleError, activate_lesson, format_lesson_costs,
+    format_lesson_requirements, lesson_queryset,
+)
 from .sheet_context import (
     _divine_entity_card_kind_label,
     build_character_sheet_context,
@@ -3001,18 +3004,8 @@ def create_character(request):
             }
         )
     phase_4_lesson_rows = []
-    lessons_queryset = (
-        Lesson.objects.select_related("school", "technique")
-        .prefetch_related(
-            "costs",
-            "requirements__group",
-            "requirements__required_school",
-            "requirements__required_skill",
-            "requirements__required_technique",
-            "requirements__required_lesson",
-        )
-        .order_by("school__name", "name")
-    )
+    lessons_queryset = lesson_queryset()
+    lesson_context = engine.lesson_requirement_context()
     phase_4_vampire_trait_rows = []
     for trait in VampireTrait.objects.filter(
         is_active=True,
@@ -3062,6 +3055,8 @@ def create_character(request):
             }
         )
     for lesson in lessons_queryset:
+        if not lesson.requirements_satisfied_by(None, context=lesson_context):
+            continue
         try:
             costs_display = format_lesson_costs(lesson)
         except LessonRuleError as exc:
@@ -3070,7 +3065,6 @@ def create_character(request):
             {
                 "id": lesson.id,
                 "name": lesson.name,
-                "school_name": lesson.school.name,
                 "purchase_cost": int(lesson.purchase_cost),
                 "description": lesson.description,
                 "costs_display": costs_display,
@@ -5828,16 +5822,18 @@ def vampire_character_creature_action(request, pk: int, action: str):
 def activate_character_lesson(request, character_id: int, lesson_id: int):
     """Activate an owned lesson and apply all technically supported costs atomically."""
     character = _owned_character_or_404(request, character_id)
-    selected_cost_ids: dict[int, int] = {}
-    for key, value in request.POST.items():
-        if not key.startswith("cost_choice_"):
-            continue
+    selected_cost_group = None
+    raw_cost_group = request.POST.get("cost_group")
+    if raw_cost_group not in {None, ""}:
         try:
-            group_number = int(key.removeprefix("cost_choice_"))
-            selected_cost_ids[group_number] = int(value)
+            selected_cost_group = int(raw_cost_group)
         except (TypeError, ValueError):
             return JsonResponse(
-                {"ok": False, "error": "invalid_cost_selection", "message": "Ungültige Kostenauswahl."},
+                {
+                    "ok": False,
+                    "error": "invalid_cost_selection",
+                    "message": "Ungültige Kostengruppe.",
+                },
                 status=400,
             )
 
@@ -5850,7 +5846,7 @@ def activate_character_lesson(request, character_id: int, lesson_id: int):
     result = activate_lesson(
         character,
         lesson_id,
-        selected_cost_ids,
+        selected_cost_group,
         manual_costs_confirmed=manual_costs_confirmed,
     )
     if not result.get("ok"):

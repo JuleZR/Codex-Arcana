@@ -40,72 +40,39 @@ function rollbackOptimisticArcaneMeter(previous) {
   }
 }
 
-function parseAlternativeGroups(button) {
+function parseCostGroups(button) {
   try {
-    const parsed = JSON.parse(button.getAttribute("data-lesson-alternatives") || "[]");
+    const parsed = JSON.parse(button.getAttribute("data-lesson-cost-groups") || "[]");
     return Array.isArray(parsed) ? parsed : [];
   } catch (_error) {
     return [];
   }
 }
 
-function parseManualCosts(button) {
-  try {
-    const parsed = JSON.parse(button.getAttribute("data-lesson-manual-costs") || "[]");
-    return Array.isArray(parsed) ? parsed.map((value) => String(value)) : [];
-  } catch (_error) {
-    return [];
+function chooseCostGroup(groups) {
+  if (!groups.length) {
+    return Promise.resolve({ number: null, kp_cost: 0, manual_costs: [] });
   }
-}
-
-function lessonOpenStateKey() {
-  return `charsheet.lessonPanel.openSchools:${window.location.pathname}`;
-}
-
-function readOpenSchools() {
-  try {
-    const parsed = JSON.parse(window.localStorage.getItem(lessonOpenStateKey()) || "[]");
-    return new Set(Array.isArray(parsed) ? parsed.map((value) => String(value)) : []);
-  } catch (_error) {
-    return new Set();
-  }
-}
-
-function writeOpenSchools(openSchools) {
-  try {
-    window.localStorage.setItem(lessonOpenStateKey(), JSON.stringify(Array.from(openSchools)));
-  } catch (_error) {
-    // Non-critical preference storage; the panel remains usable without it.
-  }
-}
-
-function chooseCosts(groups, ungroupedManualCosts) {
-  if (!groups.length && !ungroupedManualCosts.length) {
-    return Promise.resolve({});
+  if (
+    groups.length === 1
+    && (!Array.isArray(groups[0].manual_costs) || !groups[0].manual_costs.length)
+  ) {
+    return Promise.resolve(groups[0]);
   }
   if (typeof HTMLDialogElement === "undefined") {
-    const choices = {};
-    for (const group of groups) {
-      const options = Array.isArray(group.options) ? group.options : [];
+    let selected = groups[0];
+    if (groups.length > 1) {
       const answer = window.prompt(
-        `Kostenoption wählen:\n${options.map((option, index) => `${index + 1}. ${option.label}`).join("\n")}`,
+        `Kostengruppe wählen:\n${groups.map((group, index) => `${index + 1}. ${group.label}`).join("\n")}`,
         "1",
       );
-      const selected = options[Number.parseInt(answer || "", 10) - 1];
+      selected = groups[Number.parseInt(answer || "", 10) - 1];
       if (!selected) {
         return Promise.resolve(null);
       }
-      choices[group.number] = selected.id;
     }
-    const selectedManualCosts = [
-      ...ungroupedManualCosts,
-      ...groups.flatMap((group) => {
-        const selectedId = choices[group.number];
-        const selected = (Array.isArray(group.options) ? group.options : [])
-          .find((option) => Number(option.id) === Number(selectedId));
-        return selected?.manual ? [selected.label] : [];
-      }),
-    ];
+    const selectedManualCosts = Array.isArray(selected.manual_costs)
+      ? selected.manual_costs : [];
     if (selectedManualCosts.length) {
       const message = [
         "Diese Kosten werden nur bestaetigt und nicht automatisch verrechnet:",
@@ -117,7 +84,7 @@ function chooseCosts(groups, ungroupedManualCosts) {
         return Promise.resolve(null);
       }
     }
-    return Promise.resolve(choices);
+    return Promise.resolve(selected);
   }
 
   return new Promise((resolve) => {
@@ -126,24 +93,16 @@ function chooseCosts(groups, ungroupedManualCosts) {
     dialog.innerHTML = `
       <form method="dialog" class="lesson_cost_dialog__form">
         <h3>Anwendungskosten wählen</h3>
-        ${ungroupedManualCosts.length ? `
-          <p class="lesson_cost_dialog__manual">
-            Diese Kosten werden bestätigt, aber nicht automatisch verrechnet:
-            <strong>${ungroupedManualCosts.map(escapeHtml).join(", ")}</strong>
-          </p>
-        ` : ""}
-        ${groups.map((group) => `
-          <fieldset>
-            <legend>Alternative ${escapeHtml(group.number)}</legend>
-            ${(Array.isArray(group.options) ? group.options : []).map((option, index) => `
-              <label>
-                <input type="radio" name="lesson_cost_${escapeHtml(group.number)}" value="${escapeHtml(option.id)}" ${index === 0 ? "checked" : ""}>
-                <span>${escapeHtml(option.label)}</span>
-                ${option.description || option.manual ? `<small>${option.manual ? "Manuell zu behandeln. " : ""}${escapeHtml(option.description || "")}</small>` : ""}
-              </label>
-            `).join("")}
-          </fieldset>
+        <fieldset>
+          <legend>${groups.length > 1 ? "Alternative Kostengruppe" : "Kosten"}</legend>
+        ${groups.map((group, index) => `
+          <label>
+            <input type="radio" name="lesson_cost_group" value="${escapeHtml(group.number)}" ${index === 0 ? "checked" : ""}>
+            <span>${escapeHtml(group.label)}</span>
+            ${(Array.isArray(group.manual_costs) && group.manual_costs.length) ? `<small>Manuell zu behandeln: ${group.manual_costs.map(escapeHtml).join(", ")}</small>` : ""}
+          </label>
         `).join("")}
+        </fieldset>
         <div class="lesson_cost_dialog__actions">
           <button type="submit" value="cancel">Abbrechen</button>
           <button type="submit" value="activate" class="lesson_cost_dialog__confirm">Kosten zahlen</button>
@@ -157,15 +116,12 @@ function chooseCosts(groups, ungroupedManualCosts) {
         resolve(null);
         return;
       }
-      const choices = {};
-      groups.forEach((group) => {
-        const selected = dialog.querySelector(`input[name="lesson_cost_${String(group.number)}"]:checked`);
-        if (selected instanceof HTMLInputElement) {
-          choices[group.number] = Number.parseInt(selected.value, 10);
-        }
-      });
+      const input = dialog.querySelector('input[name="lesson_cost_group"]:checked');
+      const selected = groups.find(
+        (group) => Number(group.number) === Number(input?.value),
+      );
       dialog.remove();
-      resolve(choices);
+      resolve(selected || null);
     }, { once: true });
     dialog.showModal();
   });
@@ -176,17 +132,12 @@ async function activateLesson(button) {
   if (!url || button.dataset.lessonPending === "1") {
     return;
   }
-  const groups = parseAlternativeGroups(button);
-  const choices = await chooseCosts(groups, parseManualCosts(button));
-  if (choices === null) {
+  const groups = parseCostGroups(button);
+  const selectedGroup = await chooseCostGroup(groups);
+  if (selectedGroup === null) {
     return;
   }
-  const selectedKpCost = groups.reduce((sum, group) => {
-    const selectedId = choices[group.number];
-    const selected = (Array.isArray(group.options) ? group.options : [])
-      .find((option) => Number(option.id) === Number(selectedId));
-    return sum + (selected?.cost_type === "kp" ? readInt(selected.value, 0) : 0);
-  }, readInt(button.getAttribute("data-lesson-base-kp-cost"), 0));
+  const selectedKpCost = readInt(selectedGroup.kp_cost, 0);
   const arcaneMeter = document.querySelector("#sheetDamagePanel .arcane_meter");
   const currentArcanePower = readInt(
     arcaneMeter?.dataset.arcaneCurrent,
@@ -199,9 +150,9 @@ async function activateLesson(button) {
   button.disabled = true;
   try {
     const body = new URLSearchParams();
-    Object.entries(choices).forEach(([group, costId]) => {
-      body.set(`cost_choice_${group}`, String(costId));
-    });
+    if (selectedGroup.number !== null) {
+      body.set("cost_group", String(selectedGroup.number));
+    }
     body.set("confirm_manual_costs", "1");
     const response = await fetch(url, {
       method: "POST",
@@ -240,17 +191,14 @@ export function initLessonPanel() {
   const filterInput = panel.querySelector("#lessonFilterInput");
   const rows = Array.from(panel.querySelectorAll("[data-lesson-search]"));
   const groups = Array.from(panel.querySelectorAll("[data-lesson-group]"));
-  const openSchools = readOpenSchools();
-  let activeSchool = "all";
 
   const applyFilter = () => {
     const needle = filterInput instanceof HTMLInputElement ? filterInput.value.trim().toLowerCase() : "";
     groups.forEach((group) => {
-      const schoolMatches = activeSchool === "all" || group.getAttribute("data-lesson-school-id") === activeSchool;
       let visibleRows = 0;
       group.querySelectorAll("[data-lesson-search]").forEach((row) => {
         const textMatches = !needle || String(row.getAttribute("data-lesson-search") || "").includes(needle);
-        row.hidden = !(schoolMatches && textMatches);
+        row.hidden = !textMatches;
         if (!row.hidden) {
           visibleRows += 1;
         }
@@ -262,41 +210,6 @@ export function initLessonPanel() {
   if (filterInput instanceof HTMLInputElement) {
     filterInput.addEventListener("input", applyFilter);
   }
-  panel.querySelectorAll("[data-lesson-school-filter]").forEach((button) => {
-    button.addEventListener("click", () => {
-      activeSchool = button.getAttribute("data-lesson-school-filter") || "all";
-      panel.querySelectorAll("[data-lesson-school-filter]").forEach((candidate) => {
-        const active = candidate === button;
-        candidate.classList.toggle("is-active", active);
-        candidate.setAttribute("aria-pressed", active ? "true" : "false");
-      });
-      applyFilter();
-    });
-  });
-  groups.forEach((group) => {
-    const toggle = group.querySelector("[data-lesson-group-toggle]");
-    const list = group.querySelector(".lesson_group_rows");
-    const schoolId = String(group.getAttribute("data-lesson-school-id") || "");
-    if (list instanceof HTMLElement && toggle instanceof HTMLElement && openSchools.has(schoolId)) {
-      list.hidden = false;
-      toggle.setAttribute("aria-expanded", "true");
-    }
-    toggle?.addEventListener("click", () => {
-      if (!(list instanceof HTMLElement)) {
-        return;
-      }
-      list.hidden = !list.hidden;
-      toggle.setAttribute("aria-expanded", list.hidden ? "false" : "true");
-      if (schoolId) {
-        if (list.hidden) {
-          openSchools.delete(schoolId);
-        } else {
-          openSchools.add(schoolId);
-        }
-        writeOpenSchools(openSchools);
-      }
-    });
-  });
   panel.querySelectorAll("[data-lesson-card-trigger]").forEach((entry) => {
     entry.addEventListener("keydown", (event) => {
       if (event.key !== "Enter" && event.key !== " ") {

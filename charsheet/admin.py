@@ -166,7 +166,6 @@ from .models import (
     Lesson,
     LessonCost,
     LessonRequirement,
-    LessonRequirementGroup,
     MagicItemStats,
     ProgressionRule,
     Quality,
@@ -3601,7 +3600,7 @@ class RuleSemanticEffectAdminForm(SemanticCreatureCardGrantFormMixin, forms.Mode
             "rule_flag": "rule_flag",
             "learning_slot": "learning_slot",
         }.get(target_domain)
-        if has_choice_binding := bool(
+        if bool(
             getattr(self.instance, "target_choice_definition_id", None)
             or getattr(self.instance, "target_race_choice_definition_id", None)
         ):
@@ -4217,74 +4216,28 @@ class CreatureTraitSemanticEffectAdminForm(forms.ModelForm):
         return instance
 
 
-class LessonCostInlineFormSet(BaseInlineFormSet):
-    """Reject malformed one-entry alternative groups in the lesson editor."""
-
-    def clean(self):
-        super().clean()
-        if any(self.errors):
-            return
-        counts: dict[int, int] = defaultdict(int)
-        for form in self.forms:
-            if not hasattr(form, "cleaned_data") or form.cleaned_data.get("DELETE"):
-                continue
-            group = form.cleaned_data.get("alternative_group")
-            if group is not None:
-                counts[int(group)] += 1
-        invalid = [number for number, count in counts.items() if count < 2]
-        if invalid:
-            raise ValidationError(
-                "Alternativgruppen benötigen mindestens zwei Kosten: "
-                + ", ".join(str(number) for number in sorted(invalid))
-            )
-
-
 class LessonCostInlineForm(forms.ModelForm):
     class Meta:
         model = LessonCost
         fields = "__all__"
-        labels = {"operator": "UND/ODER", "alternative_group": "ODER-Gruppe"}
+        labels = {"cost_group": "Kostengruppe"}
         help_texts = {
-            "operator": "UND = immer gemeinsam zahlen. ODER = eine Option aus der ODER-Gruppe wählen.",
-            "alternative_group": (
-                "Leer = gemeinsame UND-Kosten. Gleiche Nummer = genau eine Option aus dieser ODER-Gruppe."
+            "cost_group": (
+                "Gleiche Nummer = UND. Verschiedene Nummern = ODER."
             ),
         }
-
-    def clean(self):
-        cleaned_data = super().clean()
-        operator = cleaned_data.get("operator")
-        if operator == LessonCost.Operator.AND:
-            cleaned_data["alternative_group"] = None
-        elif operator == LessonCost.Operator.OR and cleaned_data.get("alternative_group") is None:
-            cleaned_data["alternative_group"] = 1
-        return cleaned_data
-
-    def save(self, commit=True):
-        instance = super().save(commit=False)
-        operator = self.cleaned_data.get("operator")
-        if operator == LessonCost.Operator.AND:
-            instance.alternative_group = None
-        elif operator == LessonCost.Operator.OR and instance.alternative_group is None:
-            instance.alternative_group = 1
-        if commit:
-            instance.save()
-            self.save_m2m()
-        return instance
 
 
 class LessonCostInline(admin.TabularInline):
     model = LessonCost
     form = LessonCostInlineForm
-    formset = LessonCostInlineFormSet
     extra = 0
     fields = (
         "cost_type",
         "value",
-        "operator",
+        "cost_group",
         "custom_label",
         "description",
-        "alternative_group",
         "sort_order",
     )
 
@@ -4325,226 +4278,86 @@ def _lesson_technique_label(technique: Technique) -> str:
 
 
 class LessonRequirementInlineForm(forms.ModelForm):
-    group_number = forms.IntegerField(
-        required=False,
-        min_value=1,
-        label="Bedingungsgruppe",
-        help_text="Leer = ungruppierte UND-Bedingung.",
-    )
-    group_operator = forms.ChoiceField(
-        required=False,
-        choices=(("", "---------"),) + tuple(LessonRequirementGroup.Operator.choices),
-        label="Gruppenoperator",
-        help_text="Muss nur einmal pro Gruppe gewählt werden.",
-    )
-
     class Meta:
         model = LessonRequirement
         fields = "__all__"
+        labels = {
+            "required_school": "School", "required_technique": "Technique",
+            "specialisation": "Specialisation", "magic_school": "Magic School",
+            "druid_circle": "Druid Circle", "creature": "Creature",
+            "sort_order": "Reihenfolge",
+        }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        for field_name in (
-            "required_school",
-            "required_skill",
-            "required_technique",
-            "required_lesson",
-            "minimum_value",
+        from charsheet.models.lessons import is_arcane_lesson_school
+
+        combat = School.objects.filter(
+            Q(type__slug__in=(SCHOOL_COMBAT, "school_combat"))
+            | Q(type__name__iexact="Kampfschule")
+        ).select_related("type").order_by("name")
+        self.fields["required_school"].queryset = combat
+        schools = School.objects.select_related("type").prefetch_related(
+            "druid_cults", "shaman_patrons",
+        )
+        self.fields["magic_school"].queryset = School.objects.filter(
+            pk__in=[
+                school.pk for school in schools
+                if is_arcane_lesson_school(school)
+            ],
+        ).order_by("name")
+        self.fields["druid_circle"].queryset = DruidCult.objects.filter(
+            school__isnull=False,
+        ).order_by("name")
+        school_id = (
+            self.data.get(self.add_prefix("required_school")) if self.is_bound
+            else self.initial.get(
+                "required_school", self.instance.required_school_id,
+            )
+        )
+        try:
+            school_id = int(school_id or 0)
+        except (TypeError, ValueError):
+            school_id = 0
+        for field_name, model, route in (
+            ("required_technique", Technique, "techniques"),
+            ("specialisation", Specialization, "specialisations"),
         ):
-            self.fields[field_name].required = False
-        self.fields["required_school"].queryset = School.objects.order_by("type__name", "name")
-        self.fields["required_skill"].queryset = Skill.objects.select_related("category").order_by(
-            "category__name",
-            "name",
-        )
-        self.fields["required_technique"].queryset = Technique.objects.select_related("school").order_by(
-            "school__name",
-            "level",
-            "name",
-        )
-        self.fields["required_lesson"].queryset = Lesson.objects.select_related("school").order_by(
-            "school__name",
-            "name",
-        )
-        if self.instance and self.instance.group_id:
-            self.fields["group_number"].initial = self.instance.group.number
-            first_requirement_id = (
-                self.instance.group.requirements.order_by("sort_order", "id")
-                .values_list("id", flat=True)
-                .first()
+            self.fields[field_name].queryset = model.objects.filter(
+                school_id=school_id, school__in=combat,
+            ).select_related("school").order_by("name")
+            widget = self.fields[field_name].widget
+            # RelatedFieldWidgetWrapper copies its inner widget separately.
+            # Set attributes on the select that actually renders this row.
+            widget = getattr(widget, "widget", widget)
+            widget.attrs["data-options-url"] = reverse(
+                f"admin:charsheet_lesson_{route}",
             )
-            if first_requirement_id == self.instance.id:
-                self.fields["group_operator"].initial = self.instance.group.operator
-
-    def save(self, commit=True):
-        instance = super().save(commit=False)
-        number = self.cleaned_data.get("group_number")
-        operator = self.cleaned_data.get("group_operator")
-        if (
-            not operator
-            and instance.group_id
-            and instance.group.lesson_id == instance.lesson_id
-            and int(instance.group.number) == int(number or 0)
-        ):
-            operator = instance.group.operator
-        operator = operator or LessonRequirementGroup.Operator.AND
-        if number and instance.lesson_id:
-            group, _created = LessonRequirementGroup.objects.update_or_create(
-                lesson_id=instance.lesson_id,
-                number=int(number),
-                defaults={"operator": operator},
-            )
-            instance.group = group
-        else:
-            instance.group = None
-        if commit:
-            instance.save()
-            self.save_m2m()
-        return instance
-
-
-class LessonRequirementInlineFormSet(BaseInlineFormSet):
-    """Normalize one operator declaration per inline group."""
-
-    def clean(self):
-        super().clean()
-        if any(self.errors):
-            return
-        operators_by_group: dict[int, set[str]] = defaultdict(set)
-        forms_by_group: dict[int, list[forms.ModelForm]] = defaultdict(list)
-        for form in self.forms:
-            if not hasattr(form, "cleaned_data") or form.cleaned_data.get("DELETE"):
-                continue
-            number = form.cleaned_data.get("group_number")
-            if number is None:
-                continue
-            number = int(number)
-            forms_by_group[number].append(form)
-            operator = str(form.cleaned_data.get("group_operator") or "").strip()
-            if operator:
-                operators_by_group[number].add(operator)
-        for number, operators in operators_by_group.items():
-            if len(operators) > 1:
-                raise ValidationError(f"Bedingungsgruppe {number} besitzt widersprüchliche Operatoren.")
-        for number, group_forms in forms_by_group.items():
-            existing_group = (
-                LessonRequirementGroup.objects.filter(lesson=self.instance, number=number).first()
-                if self.instance.pk
-                else None
-            )
-            operator = next(
-                iter(operators_by_group[number]),
-                existing_group.operator if existing_group else LessonRequirementGroup.Operator.AND,
-            )
-            for form in group_forms:
-                form.cleaned_data["group_operator"] = operator
-
-    def save(self, commit=True):
-        result = super().save(commit=commit)
-        if commit and self.instance.pk:
-            LessonRequirementGroup.objects.filter(
-                lesson=self.instance,
-                requirements__isnull=True,
-            ).delete()
-        return result
-
-
-class SimpleLessonRequirementInlineForm(forms.ModelForm):
-    class Meta:
-        model = LessonRequirement
-        fields = "__all__"
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        for field_name in (
-            "required_school",
-            "required_skill",
-            "required_technique",
-            "required_lesson",
-            "minimum_value",
-        ):
-            self.fields[field_name].required = False
-        self.fields["requirement_type"].choices = (
-            (LessonRequirement.RequirementType.SCHOOL, "Schule"),
-            (LessonRequirement.RequirementType.TECHNIQUE, "Technik"),
+        self.fields["required_technique"].label_from_instance = (
+            _lesson_technique_label
         )
-        self.fields["required_school"].queryset = School.objects.order_by("type__name", "name")
-        self.fields["required_skill"].queryset = Skill.objects.select_related("category").order_by(
-            "category__name",
-            "name",
-        )
-        self.fields["required_technique"].queryset = Technique.objects.select_related("school").order_by(
-            "school__name",
-            "level",
-            "name",
-        )
-        self.fields["required_lesson"].queryset = Lesson.objects.select_related("school").order_by(
-            "school__name",
-            "name",
-        )
-
-    def clean(self):
-        cleaned_data = super().clean()
-        requirement_type = cleaned_data.get("requirement_type")
-        if requirement_type == LessonRequirement.RequirementType.SCHOOL:
-            cleaned_data["required_technique"] = None
-            cleaned_data["required_skill"] = None
-            cleaned_data["required_lesson"] = None
-        elif requirement_type == LessonRequirement.RequirementType.TECHNIQUE:
-            cleaned_data["required_school"] = None
-            cleaned_data["required_skill"] = None
-            cleaned_data["required_lesson"] = None
-            cleaned_data["minimum_value"] = None
-        return cleaned_data
-
-
-class SimpleLessonRequirementInlineFormSet(BaseInlineFormSet):
-    def _construct_form(self, i, **kwargs):
-        form = super()._construct_form(i, **kwargs)
-        lesson = self.instance
-        if lesson and lesson.pk and lesson.school_id and "required_technique" in form.fields:
-            form.fields["required_technique"].queryset = Technique.objects.filter(
-                school_id=lesson.school_id,
-            ).select_related("school").order_by("level", "name")
-        return form
 
 
 class LessonRequirementInline(admin.TabularInline):
     model = LessonRequirement
-    fk_name = "lesson"
-    form = SimpleLessonRequirementInlineForm
-    formset = SimpleLessonRequirementInlineFormSet
+    form = LessonRequirementInlineForm
     extra = 0
-    exclude = ("group",)
+    template = "admin/charsheet/lesson/requirements.html"
     fields = (
-        "requirement_type",
-        "required_school",
-        "required_technique",
-        "minimum_value",
+        "requirement_type", "required_school", "required_technique",
+        "specialisation", "magic_school", "druid_circle", "creature",
+        "minimum_value", "sort_order",
     )
+
+    class Media:
+        js = ("charsheet/js/lesson_requirements.js",)
+        css = {"all": ("charsheet/css/lesson_requirements.css",)}
 
 
 class LessonAdminForm(forms.ModelForm):
-    class Media:
-        js = ("charsheet/js/lesson_admin_v4.js",)
-
     class Meta:
         model = Lesson
         fields = "__all__"
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.fields["school"].queryset = School.objects.filter(
-            Q(type__slug__in=(SCHOOL_COMBAT, "school_combat")) | Q(type__name__iexact="Kampfschule")
-        ).select_related("type").order_by("name")
-        school_id = self.data.get("school") or getattr(self.instance, "school_id", None)
-        queryset = Technique.objects.select_related("school").order_by("school__name", "level", "name")
-        if school_id:
-            queryset = queryset.filter(school_id=school_id)
-        else:
-            queryset = queryset.none()
-        self.fields["technique"].queryset = queryset
-        self.fields["technique"].label_from_instance = _lesson_technique_label
 
 
 class CharacterLessonInline(admin.TabularInline):
@@ -7136,27 +6949,29 @@ class LessonAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
     list_display = (
         "name",
         "slug",
-        "school",
-        "technique",
         "activation_type",
         "purchase_cost",
         "cost_preview",
         "requirement_preview",
     )
-    search_fields = ("name", "slug", "school__name", "technique__name", "description", "source_reference")
-    list_filter = ("school", "school__type", "technique", "activation_type", "purchase_cost")
-    ordering = ("school__name", "name")
-    list_select_related = ("school", "school__type", "technique")
+    search_fields = (
+        "name", "slug", "description", "source_reference",
+        "requirements__required_school__name",
+        "requirements__required_technique__name",
+    )
+    list_filter = (
+        "requirements__requirement_type",
+        "activation_type",
+        "purchase_cost")
+    ordering = ("name", "id")
     readonly_fields = ("cost_preview", "requirement_preview")
-    inlines = (LessonCostInline,)
+    inlines = (LessonRequirementInline, LessonCostInline)
     fieldsets = (
         (
             "Lektion",
             {
                 "fields": (
                     ("name", "slug"),
-                    "school",
-                    "technique",
                     ("activation_type", "purchase_cost"),
                     "source_reference",
                     "description",
@@ -7174,6 +6989,11 @@ class LessonAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
     def get_urls(self):
         custom_urls = [
             path(
+                "specialisations/",
+                self.admin_site.admin_view(self.specialisations_view),
+                name="charsheet_lesson_specialisations",
+            ),
+            path(
                 "techniques/",
                 self.admin_site.admin_view(self.techniques_view),
                 name="charsheet_lesson_techniques",
@@ -7188,7 +7008,10 @@ class LessonAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
             school_id = 0
         techniques = Technique.objects.none()
         if school_id > 0:
-            techniques = Technique.objects.filter(school_id=school_id).select_related("school").order_by(
+            techniques = Technique.objects.filter(school_id=school_id).filter(
+                Q(school__type__slug__in=(SCHOOL_COMBAT, "school_combat"))
+                | Q(school__type__name__iexact="Kampfschule")
+            ).select_related("school").order_by(
                 "level",
                 "name",
             )
@@ -7200,6 +7023,23 @@ class LessonAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
                 ]
             }
         )
+
+    def specialisations_view(self, request):
+        try:
+            school_id = int(request.GET.get("school") or 0)
+        except (TypeError, ValueError):
+            school_id = 0
+        rows = Specialization.objects.filter(school_id=school_id).filter(
+            Q(school__type__slug__in=(SCHOOL_COMBAT, "school_combat"))
+            | Q(school__type__name__iexact="Kampfschule")
+        ).order_by("name")
+        return JsonResponse(
+            {"results": [{"id": row.pk, "label": row.name} for row in rows]})
+
+    def get_queryset(self, request):
+        from charsheet.lesson_rules import lesson_queryset
+
+        return lesson_queryset()
 
     @admin.display(description="Kosten")
     def cost_preview(self, obj):
@@ -7224,11 +7064,11 @@ class LessonAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
 @admin.register(CharacterLesson)
 class CharacterLessonAdmin(admin.ModelAdmin):
     list_display = ("character", "lesson", "acquisition_type", "paid_ep", "learned_at")
-    search_fields = ("character__name", "lesson__name", "lesson__slug", "lesson__school__name")
-    list_filter = ("acquisition_type", "lesson__school")
-    ordering = ("character__name", "lesson__school__name", "lesson__name")
+    search_fields = ("character__name", "lesson__name", "lesson__slug")
+    list_filter = ("acquisition_type",)
+    ordering = ("character__name", "lesson__name")
     autocomplete_fields = ("character", "lesson")
-    list_select_related = ("character", "lesson", "lesson__school")
+    list_select_related = ("character", "lesson")
 
 
 @admin.register(TechniqueExclusion)

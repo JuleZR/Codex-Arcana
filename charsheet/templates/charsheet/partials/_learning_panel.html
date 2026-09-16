@@ -460,7 +460,7 @@
                               data-paid-ep="{{ row.paid_ep }}"
                               data-can-unlearn="{% if row.can_unlearn %}1{% else %}0{% endif %}"
                               data-requirements-met="{% if row.requirements_met %}1{% else %}0{% endif %}"
-                              data-learn-search="{{ row.name|lower }} {{ row.school_name|lower }} {{ row.description|lower }} {{ row.fluff_quote|lower }} {{ row.fluff_quote_speaker|lower }} {{ row.requirements_display|lower }} {{ row.costs_display|lower }} lektion"
+                              data-learn-search="{{ row.name|lower }} {{ row.description|lower }} {{ row.fluff_quote|lower }} {{ row.fluff_quote_speaker|lower }} {{ row.requirements_display|lower }} {{ row.costs_display|lower }} lektion"
                               {% if not row.base_value or row.can_unlearn %}tabindex="0" role="button"{% else %}aria-disabled="true"{% endif %}
                               class="tooltip_target{% if row.base_value %} is-learned{% endif %}{% if not row.requirements_met %} is-unavailable{% endif %}"
                               data-tooltip-side="left"

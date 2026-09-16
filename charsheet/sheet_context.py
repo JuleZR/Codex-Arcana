@@ -76,7 +76,8 @@ from charsheet.lesson_rules import (
     format_cost,
     format_lesson_costs,
     format_lesson_requirements,
-    lesson_requirements_met,
+    LessonRequirementContext,
+    lesson_queryset,
 )
 from charsheet.religion_rules import is_clerical_school, selected_divine_entity
 from charsheet.models import (
@@ -122,7 +123,6 @@ from charsheet.models import (
     ItemSemanticEffect,
     ItemTransfer,
     Language,
-    Lesson,
     LessonCost,
     Quality,
     RaceTechnique,
@@ -7585,35 +7585,22 @@ def _build_lesson_context(
     entries = {
         int(entry.lesson_id): entry
         for entry in CharacterLesson.objects.filter(character=character)
-        .select_related("lesson", "lesson__school", "lesson__technique")
+        .select_related("lesson")
     }
-    learned_ids = set(entries)
-    lesson_queryset = (
-        Lesson.objects.select_related("school", "technique")
-        .prefetch_related(
-            "costs",
-            "requirements__group",
-            "requirements__required_school",
-            "requirements__required_skill",
-            "requirements__required_technique",
-            "requirements__required_lesson",
-        )
-        .order_by("school__name", "name")
-    )
+    lessons = lesson_queryset()
+    lesson_context = LessonRequirementContext.from_character(
+        character, engine=engine)
     learning_groups: OrderedDict[str, list[dict[str, object]]] = OrderedDict()
     panel_groups: OrderedDict[int, dict[str, object]] = OrderedDict()
-    for lesson in lesson_queryset:
+    for lesson in lessons:
         entry = entries.get(int(lesson.id))
         requirements_display = format_lesson_requirements(lesson)
         try:
             costs_display = format_lesson_costs(lesson)
         except LessonRuleError as exc:
             costs_display = f"Ungültige Kosten: {exc}"
-        requirements_ok = lesson_requirements_met(
-            lesson,
-            character=character,
-            learned_lesson_ids=learned_ids,
-            engine=engine,
+        requirements_ok = bool(entry) or lesson.requirements_satisfied_by(
+            character, context=lesson_context,
         )
         quote_parts = []
         if lesson.fluff_quote:
@@ -7624,7 +7611,6 @@ def _build_lesson_context(
         learning_row = {
             "id": int(lesson.id),
             "name": lesson.name,
-            "school_name": lesson.school.name,
             "purchase_cost": int(lesson.purchase_cost),
             "paid_ep": int(entry.paid_ep) if entry else 0,
             "base_value": 1 if entry else 0,
@@ -7639,60 +7625,51 @@ def _build_lesson_context(
             "activation_label": lesson.get_activation_type_display(),
         }
         if entry is not None or requirements_ok:
-            learning_groups.setdefault(lesson.school.name, []).append(learning_row)
+            learning_groups.setdefault("Lektionen", []).append(learning_row)
         if entry is None:
             continue
         group = panel_groups.setdefault(
-            int(lesson.school_id),
+            "lessons",
             {
-                "school_id": int(lesson.school_id),
-                "name": lesson.school.name,
-                "symbol": str(lesson.school.panel_symbol or ""),
-                "symbol_image_url": _school_symbol_image_url(lesson.school),
+                "name": "Lektionen",
                 "rows": [],
             },
         )
-        alternative_groups: dict[int, list[dict[str, object]]] = defaultdict(list)
-        manual_ungrouped_costs = []
-        base_kp_cost = 0
+        costs_by_group: dict[int, list[LessonCost]] = defaultdict(list)
         for cost in lesson.costs.all():
-            if cost.operator == LessonCost.Operator.OR and cost.alternative_group is not None:
-                alternative_groups[int(cost.alternative_group)].append(
-                    {
-                        "id": int(cost.id),
-                        "label": f"{int(cost.value)} {cost.type_label}",
-                        "description": cost.description,
-                        "manual": str(cost.cost_type) not in LESSON_COST_HANDLERS,
-                        "cost_type": str(cost.cost_type),
-                        "value": int(cost.value),
-                    }
-                )
-            elif str(cost.cost_type) not in LESSON_COST_HANDLERS:
-                manual_ungrouped_costs.append(format_cost(cost))
-            elif cost.cost_type == LessonCost.CostType.ARCANE_POWER:
-                base_kp_cost += int(cost.value)
+            costs_by_group[int(cost.cost_group)].append(cost)
+        cost_groups = []
+        for number, group_costs in sorted(costs_by_group.items()):
+            cost_groups.append(
+                {
+                    "number": number,
+                    "label": " UND ".join(
+                        format_cost(cost) for cost in group_costs
+                    ),
+                    "kp_cost": sum(
+                        int(cost.value)
+                        for cost in group_costs
+                        if cost.cost_type == LessonCost.CostType.ARCANE_POWER
+                    ),
+                    "manual_costs": [
+                        format_cost(cost)
+                        for cost in group_costs
+                        if str(cost.cost_type) not in LESSON_COST_HANDLERS
+                    ],
+                }
+            )
         group["rows"].append(
             {
                 **learning_row,
                 "lesson_id": int(lesson.id),
                 "activation_url": reverse("activate_lesson", args=[character.id, lesson.id]),
                 "activation_enabled": not read_only,
-                "alternative_groups": [
-                    {"number": number, "options": options}
-                    for number, options in sorted(alternative_groups.items())
-                ],
-                "alternative_groups_json": json.dumps(
-                    [
-                        {"number": number, "options": options}
-                        for number, options in sorted(alternative_groups.items())
-                    ],
+                "cost_groups_json": json.dumps(
+                    cost_groups,
                     ensure_ascii=False,
                 ),
-                "manual_costs_json": json.dumps(manual_ungrouped_costs, ensure_ascii=False),
-                "base_kp_cost": base_kp_cost,
-                "has_alternatives": bool(alternative_groups),
                 "search_tokens": (
-                    f"{lesson.name} {lesson.school.name} {lesson.description} "
+                    f"{lesson.name} {lesson.description} "
                     f"{lesson.fluff_quote} {lesson.fluff_quote_speaker} "
                     f"{requirements_display} {costs_display} {lesson.get_activation_type_display()}"
                 ).lower(),
@@ -7707,7 +7684,6 @@ def _build_lesson_context(
         ],
         "lesson_panel_enabled": bool(panel_group_list),
         "lesson_panel_groups": panel_group_list,
-        "lesson_panel_filter_groups": panel_group_list if len(panel_group_list) > 1 else [],
     }
 
 

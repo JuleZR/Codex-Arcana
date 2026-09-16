@@ -14,6 +14,8 @@ def is_druid_school(school_or_entry) -> bool:
 
     from charsheet.models import DruidCult
 
+    if hasattr(school, "druid_cults"):
+        return school.druid_cults.exists()
     return DruidCult.objects.filter(school_id=school_id).exists()
 
 
@@ -37,6 +39,8 @@ def is_shaman_school(school_or_entry) -> bool:
 
     from charsheet.models import ShamanPatron
 
+    if hasattr(school, "shaman_patrons"):
+        return school.shaman_patrons.exists()
     return ShamanPatron.objects.filter(school_id=school_id).exists()
 
 

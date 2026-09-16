@@ -51,7 +51,6 @@ from charsheet.models import (
     DaemonicPower,
     DruidCultAspect,
     Language,
-    Lesson,
     School,
     ShamanPatron,
     Spell,
@@ -66,7 +65,9 @@ from charsheet.models import (
     VampirePower,
     VampireTrait,
 )
-from charsheet.lesson_rules import lesson_requirements_met, missing_requirement_labels
+from charsheet.lesson_rules import (
+    LessonRequirementContext, lesson_queryset, missing_requirement_labels,
+)
 from charsheet.constants import (
     ALCHEMICAL_BREW_LEARNING_SLOT,
     ALCHEMIST_ALMANAC,
@@ -1058,7 +1059,7 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
     }
     lesson_defs = {
         int(lesson.id): lesson
-        for lesson in Lesson.objects.select_related("school").all()
+        for lesson in lesson_queryset()
     }
     for key in post_data.keys():
         if not str(key).startswith("learn_lesson_add_"):
@@ -1271,7 +1272,7 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
     if total_cost > int(character.current_experience):
         return "error", "Nicht genug aktuelle EP fuer diese Lernkosten."
 
-    lesson_summary = {"learned": 0, "unlearned": 0, "cascaded": 0}
+    lesson_summary = {"learned": 0, "unlearned": 0}
 
     try:
         with transaction.atomic():
@@ -1592,11 +1593,10 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
                     spell_entry.save()
 
             _reset_invalid_school_progression(character)
+            progression_summary = _apply_progression_choices(
+                character, post_data, magic_engine=magic_engine,
+            )
 
-            current_lesson_entries = {
-                int(entry.lesson_id): entry
-                for entry in CharacterLesson.objects.filter(character=character).select_related("lesson")
-            }
             direct_removals = {
                 lesson_id for lesson_id, delta in lesson_plan.items() if delta < 0
             }
@@ -1604,46 +1604,20 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
                 lesson_id for lesson_id, delta in lesson_plan.items() if delta > 0
             }
             removal_ids = set(direct_removals)
-            target_lesson_ids = (set(current_lesson_entries) - removal_ids) | addition_ids
-            lesson_engine = character.get_engine(refresh=True)
-
-            changed = True
-            while changed:
-                changed = False
-                for lesson_id, entry in current_lesson_entries.items():
-                    if lesson_id in removal_ids:
-                        continue
-                    if lesson_requirements_met(
-                        entry.lesson,
-                        character=character,
-                        learned_lesson_ids=target_lesson_ids,
-                        engine=lesson_engine,
-                    ):
-                        continue
-                    if not entry.can_unlearn:
-                        raise LearningSubmissionError(
-                            f"{entry.lesson.name}: Eine geschützte Lektion würde ihre Voraussetzungen verlieren."
-                        )
-                    removal_ids.add(lesson_id)
-                    target_lesson_ids.discard(lesson_id)
-                    total_cost -= int(entry.paid_ep)
-                    lesson_summary["cascaded"] += 1
-                    changed = True
+            lesson_defs.update({
+                lesson.pk: lesson
+                for lesson in lesson_queryset().filter(pk__in=addition_ids)
+            })
+            lesson_context = LessonRequirementContext.from_character(character)
 
             for lesson_id in addition_ids:
                 lesson = lesson_defs[lesson_id]
-                if not lesson_requirements_met(
-                    lesson,
-                    character=character,
-                    learned_lesson_ids=target_lesson_ids,
-                    engine=lesson_engine,
-                ):
+                if not lesson.requirements_satisfied_by(
+                        character, context=lesson_context):
                     missing = ", ".join(
                         missing_requirement_labels(
                             lesson,
-                            character=character,
-                            learned_lesson_ids=target_lesson_ids,
-                            engine=lesson_engine,
+                            context=lesson_context,
                         )
                     )
                     raise LearningSubmissionError(
@@ -1668,7 +1642,6 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
 
             character.current_experience = max(0, int(character.current_experience) - total_cost)
             character.save(update_fields=["current_experience"])
-            progression_summary = _apply_progression_choices(character, post_data, magic_engine=magic_engine)
             refreshed_magic_engine = character.get_magic_engine(refresh=True)
             refreshed_magic_engine.sync_character_magic()
             refreshed_magic_engine.normalize_current_arcane_power(
@@ -1691,8 +1664,6 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
         parts.append(f"{lesson_summary['learned']} Lektion(en) gelernt")
     if lesson_summary["unlearned"]:
         parts.append(f"{lesson_summary['unlearned']} Lektion(en) verlernt")
-    if lesson_summary["cascaded"]:
-        parts.append(f"{lesson_summary['cascaded']} abhängige Lektion(en) verlernt")
     elif total_cost < 0:
         parts.append(f"{abs(total_cost)} EP erhalten")
     if progression_summary["paths"]:

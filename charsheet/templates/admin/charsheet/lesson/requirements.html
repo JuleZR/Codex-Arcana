@@ -1,0 +1,42 @@
+{% load i18n %}
+<div class="js-inline-admin-formset inline-group lesson-requirements" id="{{ inline_admin_formset.formset.prefix }}-group"
+     data-inline-type="tabular" data-inline-formset="{{ inline_admin_formset.inline_formset_data }}">
+  <div class="tabular inline-related">
+    {{ inline_admin_formset.formset.management_form }}
+    <fieldset class="module">
+      <h2>Requirements</h2>
+      {{ inline_admin_formset.formset.non_form_errors }}
+      <div class="wrapper"><table>
+        <thead><tr><th class="original"></th><th class="requirement-type-column">Type</th><th class="requirement-value-column">Requirement</th><th class="requirement-level-column">Level</th><th class="requirement-order-column">Reihenfolge</th><th class="requirement-delete-column">{% translate "Delete?" %}</th></tr></thead>
+        <tbody>
+        {% for inline_admin_form in inline_admin_formset %}
+          {% with form=inline_admin_form.form %}
+          {% if form.non_field_errors %}<tr class="row-form-errors"><td colspan="6">{{ form.non_field_errors }}</td></tr>{% endif %}
+          <tr class="form-row{% if inline_admin_form.original %} has_original{% endif %}{% if forloop.last and inline_admin_formset.has_add_permission %} empty-form{% endif %}"
+              id="{{ inline_admin_formset.formset.prefix }}-{% if forloop.last and inline_admin_formset.has_add_permission %}empty{% else %}{{ forloop.counter0 }}{% endif %}">
+            <td class="original">
+              {% if inline_admin_form.needs_explicit_pk_field %}{{ inline_admin_form.pk_field.field }}{% endif %}
+              {% if inline_admin_form.fk_field %}{{ inline_admin_form.fk_field.field }}{% endif %}
+            </td>
+            <td class="requirement-type-column">{{ form.requirement_type.errors }}{{ form.requirement_type }}</td>
+            <td class="requirement-targets requirement-value-column">
+              <div class="requirement-fields">
+              {% for field in form %}
+                {% if field.name != 'requirement_type' and field.name != 'minimum_value' and field.name != 'sort_order' and field.name != 'id' and field.name != 'lesson' and field.name != 'DELETE' %}
+                  <div data-requirement-field="{{ field.name }}">{{ field.errors }}{{ field.label_tag }}{{ field }}</div>
+                {% endif %}
+              {% endfor %}
+              </div>
+              <span data-requirement-message role="status"></span>
+            </td>
+            <td class="requirement-level-column"><div data-requirement-field="minimum_value">{{ form.minimum_value.errors }}{{ form.minimum_value }}</div></td>
+            <td class="requirement-order-column">{{ form.sort_order.errors }}{{ form.sort_order }}</td>
+            <td class="delete requirement-delete-column">{% if inline_admin_formset.formset.can_delete and inline_admin_formset.has_delete_permission and inline_admin_form.original %}{{ inline_admin_form.deletion_field.field }}{% endif %}</td>
+          </tr>
+          {% endwith %}
+        {% endfor %}
+        </tbody>
+      </table></div>
+    </fieldset>
+  </div>
+</div>

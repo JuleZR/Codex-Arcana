@@ -43,7 +43,8 @@ from charsheet.models import (
     WeaponType,
 )
 from charsheet.lesson_rules import (
-    lesson_requirements_met,
+    LessonRequirementContext,
+    lesson_queryset,
     missing_requirement_labels,
 )
 from charsheet.constants import (
@@ -1196,14 +1197,17 @@ class CharacterCreationEngine:
             != Lesson.objects.filter(pk__in=selected_ids).count()
         ):
             return False
+        context = self.lesson_requirement_context()
+        return all(
+            lesson.requirements_satisfied_by(None, context=context)
+            for lesson in lesson_queryset().filter(pk__in=selected_ids)
+        )
+
+    def lesson_requirement_context(self):
+        """Resolve lesson prerequisites from the current creation draft."""
         school_levels = {
             int(school_id): int(level)
             for school_id, level in self.phase_4_schools().items()
-        }
-        skill_levels = {
-            int(skill.id): int(self.phase_2_skills().get(skill.slug, 0))
-            + int(self.phase_4_skill_adds().get(skill.slug, 0))
-            for skill in Skill.objects.all()
         }
         learned_technique_ids = {
             int(technique.id)
@@ -1218,16 +1222,8 @@ class CharacterCreationEngine:
                 and technique.path_id is None
             )
         }
-        return all(
-            lesson_requirements_met(
-                lesson,
-                learned_lesson_ids=selected_ids,
-                school_levels=school_levels,
-                skill_levels=skill_levels,
-                learned_technique_ids=learned_technique_ids,
-            )
-            for lesson in Lesson.objects.filter(pk__in=selected_ids)
-        )
+        return LessonRequirementContext.from_state(
+            school_levels, learned_technique_ids)
 
     def phase_4_aspects(self) -> dict[str, int]:
         aspects = self.get_phase("phase_4").get("aspects", {}) or {}
@@ -1723,24 +1719,16 @@ class CharacterCreationEngine:
 
             selected_lesson_ids = self.phase_4_lessons()
             selected_lessons = list(
-                Lesson.objects.filter(pk__in=selected_lesson_ids)
-                .select_related("school", "technique")
-                .prefetch_related("requirements__group")
+                lesson_queryset().filter(pk__in=selected_lesson_ids)
             )
-            engine = character.get_engine(refresh=True)
+            lesson_context = LessonRequirementContext.from_character(character)
             for lesson in selected_lessons:
-                if not lesson_requirements_met(
-                    lesson,
-                    character=character,
-                    learned_lesson_ids=selected_lesson_ids,
-                    engine=engine,
-                ):
+                if not lesson.requirements_satisfied_by(
+                        character, context=lesson_context):
                     missing = ", ".join(
                         missing_requirement_labels(
                             lesson,
-                            character=character,
-                            learned_lesson_ids=selected_lesson_ids,
-                            engine=engine,
+                            context=lesson_context,
                         )
                     )
                     raise ValueError(
