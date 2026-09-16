@@ -34,7 +34,7 @@ import { initItemTransferWindow } from "./item_transfer_window.js?v=20260901a";
 import { initTemporaryAttributes } from "./temporary_attributes.js?v=20260731c";
 import { initVampirePanel } from "./vampire_panel.js?v=20260802a";
 import { initExternalSheetRefresh } from "./external_refresh.js?v=20260901b";
-import { initAlchemistAlmanac } from "./alchemist_almanac.js?v=20260908e";
+import { initAlchemistAlmanac } from "./alchemist_almanac.js?v=20260916a";
 
 function isRadialMenuEnabled() {
   return document.body?.dataset.radialMenuEnabled === "1";

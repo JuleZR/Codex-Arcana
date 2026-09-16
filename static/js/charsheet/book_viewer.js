@@ -65,12 +65,16 @@ export function initBookViewer(root) {
         useMouseEvents: true,
         flippingTime: prefersReducedMotion() ? 120 : 640,
       });
+      const ready = new Promise((resolve) => pageFlip.on("init", resolve));
       const pageNodes = Array.from(pages.querySelectorAll(".book_page"));
       if (typeof pageFlip.loadFromHTML === "function") {
         pageFlip.loadFromHTML(pageNodes);
       } else {
         pageFlip.loadFromHtml(pageNodes);
       }
+      await ready;
+      // PageFlip positions the cover in its render loop, after its init event.
+      await new Promise((resolve) => window.requestAnimationFrame(resolve));
     } catch (_error) {
       pageFlip = null;
       setFallbackMode();
@@ -85,14 +89,15 @@ export function initBookViewer(root) {
       lastTrigger = trigger;
     }
     isBusy = true;
+    // Keep the overlay hidden until the cover has its final initial position.
+    await initPageFlip();
     isOpen = true;
     overlay.classList.remove("is-closing");
     overlay.classList.add("is-open");
     overlay.setAttribute("aria-hidden", "false");
     pages.scrollTo({ left: 0, top: 0, behavior: "auto" });
     document.body.classList.add("book-viewer-active");
-    window.setTimeout(async () => {
-      await initPageFlip();
+    window.setTimeout(() => {
       isBusy = false;
     }, prefersReducedMotion() ? 1 : 520);
   };
