@@ -375,7 +375,7 @@ class CharacterTraitSpecificationForm(forms.ModelForm):
 
     class Meta:
         model = CharacterTrait
-        fields = ["specification"]
+        fields = ["specification", "specification_option"]
         widgets = {
             "specification": forms.TextInput(
                 attrs={
@@ -387,6 +387,16 @@ class CharacterTraitSpecificationForm(forms.ModelForm):
                 }
             ),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        trait = getattr(self.instance, "trait", None)
+        options = (
+            trait.specification_options.order_by("sort_order", "name", "id")
+            if trait is not None
+            else self.fields["specification_option"].queryset.none()
+        )
+        self.fields["specification_option"].queryset = options
 
     def clean_specification(self):
         specification = (self.cleaned_data.get("specification") or "").strip()

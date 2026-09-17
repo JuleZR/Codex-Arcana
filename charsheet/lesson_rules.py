@@ -108,16 +108,38 @@ def format_requirement(requirement: LessonRequirement) -> str:
         return f"{requirement.druid_circle.name} {requirement.minimum_value}"
     if kind == types.SPECIFIC_CREATURE:
         return requirement.creature.name
+    if kind == types.SCHOOL_LEVEL:
+        return f"{requirement.required_school.name} {requirement.minimum_value}"
+    if kind == types.SKILL_LEVEL:
+        return f"{requirement.required_skill.name} {requirement.minimum_value}"
+    if kind == types.LESSON:
+        return requirement.required_lesson.name
+    if kind == types.ASPECT_LEVEL:
+        return f"{requirement.aspect.name} {requirement.minimum_value}"
+    if kind == types.TRAIT_LEVEL:
+        specification = (
+            f": {requirement.required_trait_specification.name}"
+            if requirement.required_trait_specification_id
+            else ""
+        )
+        return (
+            f"{requirement.required_trait.name}{specification} "
+            f"{requirement.minimum_value}"
+        )
     return "Ungültige Voraussetzung"
 
 
 def format_lesson_requirements(lesson: Lesson) -> str:
-    return (
-        " UND ".join(
-            format_requirement(row) for row in lesson.requirements.all()
-        )
-        or "Keine"
-    )
+    grouped = _group_requirements(lesson.requirements.all())
+    if not grouped:
+        return "Keine"
+    packages = [
+        " UND ".join(format_requirement(row) for row in grouped[number])
+        for number in sorted(grouped)
+    ]
+    if len(packages) == 1:
+        return packages[0]
+    return " ODER ".join(f"({package})" for package in packages)
 
 
 def lesson_queryset():
@@ -129,6 +151,11 @@ def lesson_queryset():
         "magic_school__type",
         "druid_circle__school",
         "creature",
+        "required_skill",
+        "required_lesson",
+        "aspect",
+        "required_trait",
+        "required_trait_specification",
     )
     return Lesson.objects.prefetch_related(
         "costs",
@@ -183,9 +210,24 @@ class LessonRequirementContext:
     creature_ids: set[int] = field(default_factory=set)
     druid_cult_id: int | None = None
     clerical_level: int = 0
+    skill_levels: Mapping[int, int] = field(default_factory=dict)
+    learned_lesson_ids: set[int] = field(default_factory=set)
+    aspect_levels: Mapping[int, int] = field(default_factory=dict)
+    trait_states: Mapping[int, tuple[int, int | None, str]] = field(
+        default_factory=dict
+    )
 
     @classmethod
-    def from_state(cls, school_levels, learned_technique_ids):
+    def from_state(
+        cls,
+        school_levels,
+        learned_technique_ids,
+        *,
+        skill_levels=None,
+        learned_lesson_ids=None,
+        aspect_levels=None,
+        trait_states=None,
+    ):
         from charsheet.models import School
         from charsheet.religion_rules import is_clerical_school
 
@@ -200,6 +242,10 @@ class LessonRequirementContext:
         return cls(
             school_levels=school_levels,
             learned_technique_ids=learned_technique_ids,
+            skill_levels=skill_levels or {},
+            learned_lesson_ids=learned_lesson_ids or set(),
+            aspect_levels=aspect_levels or {},
+            trait_states=trait_states or {},
             clerical_level=max(
                 (
                     school_levels[school.pk]
@@ -232,6 +278,33 @@ class LessonRequirementContext:
                 "creature_id", flat=True
             )
         )
+        skill_levels: dict[int, int] = {}
+        for skill_id, level in character.characterskill_set.values_list(
+            "skill_id", "level"
+        ):
+            skill_levels[int(skill_id)] = max(
+                skill_levels.get(int(skill_id), 0), int(level)
+            )
+        context.skill_levels = skill_levels
+        context.learned_lesson_ids = set(
+            character.learned_lessons.values_list("lesson_id", flat=True)
+        )
+        context.aspect_levels = dict(
+            character.aspect_entries.values_list("aspect_id", "level")
+        )
+        context.trait_states = {
+            int(entry.trait_id): (
+                int(entry.trait_level),
+                entry.specification_option_id,
+                str(entry.specification or "").strip().casefold(),
+            )
+            for entry in character.charactertrait_set.only(
+                "trait_id",
+                "trait_level",
+                "specification_option_id",
+                "specification",
+            )
+        }
         from charsheet.models import CharacterDruidCult
 
         context.druid_cult_id = (
@@ -311,6 +384,36 @@ def requirement_met(
         )
     if kind == types.SPECIFIC_CREATURE:
         return requirement.creature_id in state.creature_ids
+    if kind == types.SCHOOL_LEVEL:
+        return (
+            state.school_levels.get(requirement.required_school_id, 0)
+            >= requirement.minimum_value
+        )
+    if kind == types.SKILL_LEVEL:
+        return (
+            state.skill_levels.get(requirement.required_skill_id, 0)
+            >= requirement.minimum_value
+        )
+    if kind == types.LESSON:
+        return requirement.required_lesson_id in state.learned_lesson_ids
+    if kind == types.ASPECT_LEVEL:
+        return (
+            state.aspect_levels.get(requirement.aspect_id, 0)
+            >= requirement.minimum_value
+        )
+    if kind == types.TRAIT_LEVEL:
+        level, option_id, legacy_value = state.trait_states.get(
+            requirement.required_trait_id, (0, None, "")
+        )
+        if level < requirement.minimum_value:
+            return False
+        if requirement.required_trait_specification_id is None:
+            return True
+        if option_id is not None:
+            return option_id == requirement.required_trait_specification_id
+        return legacy_value == str(
+            requirement.required_trait_specification.normalized_name
+        )
     return False
 
 
@@ -330,19 +433,42 @@ def lesson_requirements_met(
         school_levels,
         learned_technique_ids,
     )
-    return all(
-        requirement_met(row, context=state)
-        for row in lesson.requirements.all()
+    grouped = _group_requirements(lesson.requirements.all())
+    return not grouped or any(
+        all(requirement_met(row, context=state) for row in rows)
+        for rows in grouped.values()
     )
 
 
 def missing_requirement_labels(lesson: Lesson, **state) -> list[str]:
     context = _requirement_context(**state)
+    grouped = _group_requirements(lesson.requirements.all())
+    missing = {
+        number: [
+            format_requirement(row)
+            for row in rows
+            if not requirement_met(row, context=context)
+        ]
+        for number, rows in grouped.items()
+    }
+    if not missing or any(not rows for rows in missing.values()):
+        return []
+    if len(missing) == 1:
+        return next(iter(missing.values()))
     return [
-        format_requirement(row)
-        for row in lesson.requirements.all()
-        if not requirement_met(row, context=context)
+        " ODER ".join(
+            f"({' UND '.join(missing[number])})" for number in sorted(missing)
+        )
     ]
+
+
+def _group_requirements(
+    requirements: Iterable[LessonRequirement],
+) -> dict[int, list[LessonRequirement]]:
+    grouped: dict[int, list[LessonRequirement]] = defaultdict(list)
+    for requirement in requirements:
+        grouped[int(requirement.requirement_group)].append(requirement)
+    return grouped
 
 
 def potential_budget_guard(character, kp_cost: int) -> dict[str, object]:

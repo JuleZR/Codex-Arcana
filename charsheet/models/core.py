@@ -270,6 +270,78 @@ class Trait(models.Model):
         return self.name
 
 
+class TraitSpecificationOption(models.Model):
+    """One controlled specification value available for a trait."""
+
+    trait = models.ForeignKey(
+        Trait,
+        on_delete=models.CASCADE,
+        related_name="specification_options",
+    )
+    name = models.CharField(max_length=100)
+    normalized_name = models.CharField(max_length=100, editable=False)
+    sort_order = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        ordering = ["trait__name", "sort_order", "name", "id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["trait", "normalized_name"],
+                name="uniq_trait_specification_option_normalized",
+            ),
+        ]
+
+    @staticmethod
+    def normalize(value) -> str:
+        return str(value or "").strip().casefold()
+
+    def clean(self):
+        super().clean()
+        self.name = str(self.name or "").strip()
+        self.normalized_name = self.normalize(self.name)
+        if not self.name:
+            raise ValidationError({"name": "A specification name is required."})
+        if self.trait_id and not self.trait.has_specification:
+            raise ValidationError(
+                {"trait": "Controlled options require a trait with specifications."}
+            )
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        if kwargs.get("update_fields") and "name" in kwargs["update_fields"]:
+            kwargs["update_fields"] = set(kwargs["update_fields"]) | {
+                "normalized_name"
+            }
+        result = super().save(*args, **kwargs)
+        from charsheet.models.character import CharacterTrait
+
+        CharacterTrait.objects.filter(specification_option=self).exclude(
+            specification=self.name
+        ).update(specification=self.name)
+        legacy = list(
+            CharacterTrait.objects.filter(
+                trait_id=self.trait_id,
+                specification_option__isnull=True,
+            )
+        )
+        matched = [
+            entry
+            for entry in legacy
+            if self.normalize(entry.specification) == self.normalized_name
+        ]
+        for entry in matched:
+            entry.specification_option_id = self.pk
+            entry.specification = self.name
+        if matched:
+            CharacterTrait.objects.bulk_update(
+                matched, ["specification_option", "specification"]
+            )
+        return result
+
+    def __str__(self) -> str:
+        return f"{self.trait.name}: {self.name}"
+
+
 class TraitExclusion(models.Model):
     """A symmetric exclusion relation between two traits."""
 

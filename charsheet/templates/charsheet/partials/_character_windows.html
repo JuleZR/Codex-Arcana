@@ -164,9 +164,13 @@
         <form method="post" action="" id="traitSpecForm" class="shop_item_form sheet-window__editor-form">
           {% csrf_token %}
           <div class="sheet-window__surface sheet-window__surface--editor sheet-window__surface--form">
-            <label class="shop_item_form_row skill_spec_form_row">
+            <label class="shop_item_form_row skill_spec_form_row" data-trait-free-specification>
               <span>Spezifikation</span>
               {{ trait_specification_form.specification }}
+            </label>
+            <label class="shop_item_form_row skill_spec_form_row" data-trait-controlled-specification hidden>
+              <span>Spezifikation</span>
+              {{ trait_specification_form.specification_option }}
             </label>
             <p class="skill_spec_hint">Die Spezifikation wird direkt im Trait-Tooltip angezeigt.</p>
           </div>

@@ -680,6 +680,13 @@ class CharacterTrait(models.Model):
     owner = models.ForeignKey(Character, on_delete=models.CASCADE)
     trait_level = models.PositiveIntegerField(default=1)
     specification = models.CharField(max_length=100, blank=True, default="")
+    specification_option = models.ForeignKey(
+        "charsheet.TraitSpecificationOption",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="character_traits",
+    )
 
     class Meta:
         constraints = [
@@ -695,6 +702,41 @@ class CharacterTrait(models.Model):
             raise ValidationError({"trait_level": f"Level must be at least {self.trait.min_level}."})
         if self.specification and not self.trait.has_specification:
             raise ValidationError({"specification": "This trait does not support a specification."})
+        options = list(self.trait.specification_options.all())
+        if options:
+            if self.specification_option_id is None:
+                normalized = self.trait.specification_options.model.normalize(
+                    self.specification
+                )
+                matches = [
+                    option
+                    for option in options
+                    if option.normalized_name == normalized
+                ]
+                if len(matches) == 1:
+                    self.specification_option = matches[0]
+            if self.specification_option_id is None:
+                raise ValidationError(
+                    {"specification_option": "Choose a controlled specification."}
+                )
+            if self.specification_option.trait_id != self.trait_id:
+                raise ValidationError(
+                    {"specification_option": "The option must belong to this trait."}
+                )
+            self.specification = self.specification_option.name
+        elif self.specification_option_id is not None:
+            raise ValidationError(
+                {"specification_option": "This trait has no controlled options."}
+            )
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        if kwargs.get("update_fields"):
+            kwargs["update_fields"] = set(kwargs["update_fields"]) | {
+                "specification",
+                "specification_option",
+            }
+        return super().save(*args, **kwargs)
 
     def __str__(self):
         suffix = f": {self.specification}" if self.specification else ""

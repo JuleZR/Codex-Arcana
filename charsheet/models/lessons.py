@@ -153,6 +153,64 @@ class LessonCost(models.Model):
         return f"{self.lesson.name}: {self.value} {self.type_label}"
 
 
+LESSON_REQUIREMENT_TARGET_FIELDS = (
+    "required_school",
+    "required_technique",
+    "specialisation",
+    "magic_school",
+    "druid_circle",
+    "creature",
+    "required_skill",
+    "required_lesson",
+    "aspect",
+    "required_trait",
+    "required_trait_specification",
+    "minimum_value",
+)
+
+
+def _requirement_shape(kind, required, optional=()):
+    condition = models.Q(requirement_type=kind)
+    allowed = set(required) | set(optional)
+    for field in LESSON_REQUIREMENT_TARGET_FIELDS:
+        if field == "minimum_value":
+            if field in required:
+                condition &= (
+                    models.Q(minimum_value__isnull=False)
+                    & models.Q(minimum_value__gte=1)
+                )
+            elif field not in optional:
+                condition &= models.Q(minimum_value__isnull=True)
+        elif field in required:
+            condition &= models.Q(**{f"{field}__isnull": False})
+        elif field not in allowed:
+            condition &= models.Q(**{f"{field}__isnull": True})
+    return condition
+
+
+LESSON_REQUIREMENT_VALID_FIELDS = (
+    _requirement_shape(
+        "school_technique", ("required_school", "required_technique")
+    )
+    | _requirement_shape(
+        "school_specialisation", ("required_school", "specialisation")
+    )
+    | _requirement_shape("magic_school_level", ("magic_school", "minimum_value"))
+    | _requirement_shape("clerical_magic_level", ("minimum_value",))
+    | _requirement_shape("druid_circle_level", ("druid_circle", "minimum_value"))
+    | _requirement_shape("specific_creature", ("creature",))
+    | _requirement_shape("school_level", ("required_school", "minimum_value"))
+    | _requirement_shape("skill_level", ("required_skill", "minimum_value"))
+    | _requirement_shape("lesson", ("required_lesson",))
+    | _requirement_shape("aspect_level", ("aspect", "minimum_value"))
+    | _requirement_shape(
+        "trait_level",
+        ("required_trait", "minimum_value"),
+        ("required_trait_specification",),
+    )
+)
+
+
 class LessonRequirement(models.Model):
     """One mandatory prerequisite for acquiring a lesson."""
 
@@ -166,6 +224,11 @@ class LessonRequirement(models.Model):
         CLERICAL_MAGIC_LEVEL = "clerical_magic_level", "Clerical Magic"
         DRUID_CIRCLE_LEVEL = "druid_circle_level", "Druid Circle"
         SPECIFIC_CREATURE = "specific_creature", "Creature"
+        SCHOOL_LEVEL = "school_level", "School Level"
+        SKILL_LEVEL = "skill_level", "Skill Level"
+        LESSON = "lesson", "Lesson"
+        ASPECT_LEVEL = "aspect_level", "Aspect Level"
+        TRAIT_LEVEL = "trait_level", "Trait Level"
 
     TYPE_FIELDS = {
         RequirementType.SCHOOL_TECHNIQUE: (
@@ -180,16 +243,16 @@ class LessonRequirement(models.Model):
         RequirementType.CLERICAL_MAGIC_LEVEL: ("minimum_value",),
         RequirementType.DRUID_CIRCLE_LEVEL: ("druid_circle", "minimum_value"),
         RequirementType.SPECIFIC_CREATURE: ("creature",),
+        RequirementType.SCHOOL_LEVEL: ("required_school", "minimum_value"),
+        RequirementType.SKILL_LEVEL: ("required_skill", "minimum_value"),
+        RequirementType.LESSON: ("required_lesson",),
+        RequirementType.ASPECT_LEVEL: ("aspect", "minimum_value"),
+        RequirementType.TRAIT_LEVEL: ("required_trait", "minimum_value"),
     }
-    TARGET_FIELDS = (
-        "required_school",
-        "required_technique",
-        "specialisation",
-        "magic_school",
-        "druid_circle",
-        "creature",
-        "minimum_value",
-    )
+    OPTIONAL_FIELDS = {
+        RequirementType.TRAIT_LEVEL: ("required_trait_specification",),
+    }
+    TARGET_FIELDS = LESSON_REQUIREMENT_TARGET_FIELDS
 
     lesson = models.ForeignKey(
         Lesson, on_delete=models.CASCADE, related_name="requirements"
@@ -239,6 +302,41 @@ class LessonRequirement(models.Model):
         blank=True,
         related_name="lesson_requirements",
     )
+    required_skill = models.ForeignKey(
+        "charsheet.Skill",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="lesson_requirements",
+    )
+    required_lesson = models.ForeignKey(
+        Lesson,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="required_by_lessons",
+    )
+    aspect = models.ForeignKey(
+        "charsheet.Aspect",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="lesson_requirements",
+    )
+    required_trait = models.ForeignKey(
+        "charsheet.Trait",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="lesson_requirements",
+    )
+    required_trait_specification = models.ForeignKey(
+        "charsheet.TraitSpecificationOption",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="lesson_requirements",
+    )
     minimum_value = models.PositiveSmallIntegerField(
         null=True,
         blank=True,
@@ -246,77 +344,32 @@ class LessonRequirement(models.Model):
         verbose_name="Level",
     )
     sort_order = models.PositiveSmallIntegerField(default=0)
+    requirement_group = models.PositiveSmallIntegerField(
+        default=1,
+        validators=[MinValueValidator(1)],
+        help_text=(
+            "Voraussetzungen derselben Gruppe gelten gemeinsam (UND); "
+            "verschiedene Gruppen sind Alternativen (ODER)."
+        ),
+    )
 
     class Meta:
         ordering = ["sort_order", "id"]
         constraints = [
             models.CheckConstraint(
-                condition=(
-                    models.Q(
-                        requirement_type="school_technique",
-                        required_school__isnull=False,
-                        required_technique__isnull=False,
-                        specialisation__isnull=True,
-                        magic_school__isnull=True,
-                        druid_circle__isnull=True,
-                        creature__isnull=True,
-                        minimum_value__isnull=True,
-                    )
-                    | models.Q(
-                        requirement_type="school_specialisation",
-                        required_school__isnull=False,
-                        required_technique__isnull=True,
-                        specialisation__isnull=False,
-                        magic_school__isnull=True,
-                        druid_circle__isnull=True,
-                        creature__isnull=True,
-                        minimum_value__isnull=True,
-                    )
-                    | models.Q(
-                        requirement_type="magic_school_level",
-                        required_school__isnull=True,
-                        required_technique__isnull=True,
-                        specialisation__isnull=True,
-                        magic_school__isnull=False,
-                        druid_circle__isnull=True,
-                        creature__isnull=True,
-                        minimum_value__isnull=False,
-                        minimum_value__gte=1,
-                    )
-                    | models.Q(
-                        requirement_type="clerical_magic_level",
-                        required_school__isnull=True,
-                        required_technique__isnull=True,
-                        specialisation__isnull=True,
-                        magic_school__isnull=True,
-                        druid_circle__isnull=True,
-                        creature__isnull=True,
-                        minimum_value__isnull=False,
-                        minimum_value__gte=1,
-                    )
-                    | models.Q(
-                        requirement_type="druid_circle_level",
-                        required_school__isnull=True,
-                        required_technique__isnull=True,
-                        specialisation__isnull=True,
-                        magic_school__isnull=True,
-                        druid_circle__isnull=False,
-                        creature__isnull=True,
-                        minimum_value__isnull=False,
-                        minimum_value__gte=1,
-                    )
-                    | models.Q(
-                        requirement_type="specific_creature",
-                        required_school__isnull=True,
-                        required_technique__isnull=True,
-                        specialisation__isnull=True,
-                        magic_school__isnull=True,
-                        druid_circle__isnull=True,
-                        creature__isnull=False,
-                        minimum_value__isnull=True,
-                    )
-                ),
+                condition=LESSON_REQUIREMENT_VALID_FIELDS,
                 name="lesson_requirement_valid_fields",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(requirement_group__gte=1),
+                name="lesson_requirement_group_gte_1",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(required_lesson__isnull=True)
+                    | ~models.Q(lesson=models.F("required_lesson"))
+                ),
+                name="lesson_requirement_no_self_reference",
             ),
         ]
 
@@ -328,6 +381,7 @@ class LessonRequirement(models.Model):
                 {"requirement_type": "Unbekannter Voraussetzungstyp."}
             )
         errors = {}
+        optional = self.OPTIONAL_FIELDS.get(self.requirement_type, ())
         for field in self.TARGET_FIELDS:
             value = getattr(
                 self, field if field == "minimum_value" else f"{field}_id"
@@ -336,12 +390,17 @@ class LessonRequirement(models.Model):
                 errors[field] = (
                     "Dieses Feld ist für den gewählten Typ erforderlich."
                 )
-            elif field not in required and value is not None:
+            elif field not in required and field not in optional and value is not None:
                 errors[field] = (
                     "Dieses Feld ist für den gewählten Typ nicht erlaubt."
                 )
-        if self.required_school_id and not _is_combat_school(
-            self.required_school
+        if (
+            self.requirement_type in {
+                self.RequirementType.SCHOOL_TECHNIQUE,
+                self.RequirementType.SCHOOL_SPECIALISATION,
+            }
+            and self.required_school_id
+            and not _is_combat_school(self.required_school)
         ):
             errors["required_school"] = "Eine Kampfschule ist erforderlich."
         if (
@@ -367,6 +426,22 @@ class LessonRequirement(models.Model):
         if self.druid_circle_id and not self.druid_circle.school_id:
             errors["druid_circle"] = (
                 "Der Druidenzirkel benötigt eine Schulzuordnung."
+            )
+        if (
+            self.required_lesson_id
+            and self.lesson_id
+            and self.required_lesson_id == self.lesson_id
+        ):
+            errors["required_lesson"] = (
+                "Eine Lektion darf sich nicht selbst voraussetzen."
+            )
+        if (
+            self.required_trait_specification_id
+            and self.required_trait_specification.trait_id
+            != self.required_trait_id
+        ):
+            errors["required_trait_specification"] = (
+                "Die Spezifikation muss zum gewählten Trait gehören."
             )
         if errors:
             raise ValidationError(errors)

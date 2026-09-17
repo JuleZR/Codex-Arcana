@@ -2313,6 +2313,102 @@
   border-bottom-color: rgba(149, 114, 75, 0.12);
 }
 
+.learn-window__body .learn_trait_cart_row > td {
+  vertical-align: middle;
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
+.learn_cart_entry {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+}
+
+.learn_cart_entry_title {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0 4px;
+  min-width: 0;
+  line-height: 1.05;
+}
+
+.learn_cart_entry_level {
+  color: rgba(119, 79, 43, 0.78);
+  font-size: 0.84em;
+  white-space: nowrap;
+}
+
+.learn_trait_spec_control {
+  display: grid;
+  gap: 2px;
+  width: min(100%, 168px);
+  margin: 0;
+}
+
+.learn_trait_spec_label {
+  color: rgba(126, 88, 49, 0.82);
+  font-family: "Cinzel", Georgia, serif;
+  font-size: 0.56rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.learn_trait_spec_field {
+  position: relative;
+  display: block;
+}
+
+.learn_trait_spec_field::after {
+  content: "\2304";
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  color: rgba(103, 69, 36, 0.82);
+  font-size: 0.72rem;
+  line-height: 1;
+  pointer-events: none;
+  transform: translateY(-58%);
+}
+
+.learn_trait_spec_select,
+.learn_trait_spec_input {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  height: 25px;
+  border: 1px solid rgba(123, 87, 49, 0.38);
+  border-radius: 5px;
+  background: linear-gradient(180deg, rgba(255, 253, 247, 0.96), rgba(242, 233, 213, 0.92));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+  color: rgba(67, 45, 24, 0.98);
+  font: 600 0.84rem/1 "Cormorant Garamond", Georgia, serif;
+}
+
+.learn_trait_spec_select {
+  appearance: none;
+  padding: 2px 24px 2px 8px;
+  cursor: pointer;
+}
+
+.learn_trait_spec_input {
+  padding: 2px 8px;
+}
+
+.learn_trait_spec_select:hover,
+.learn_trait_spec_input:hover,
+.learn_trait_spec_select:focus,
+.learn_trait_spec_input:focus {
+  border-color: rgba(123, 80, 38, 0.68);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.8),
+    0 0 0 2px rgba(187, 145, 88, 0.14);
+  outline: none;
+}
+
 .learn-window__body .shop_cart_wrapper {
   position: relative;
 }

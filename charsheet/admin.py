@@ -197,6 +197,7 @@ from .models import (
     Trait,
     TraitChoiceDefinition,
     TraitExclusion,
+    TraitSpecificationOption,
     TraitSemanticEffect,
     VampirePower,
     VampireTrait,
@@ -3269,6 +3270,13 @@ class CharacterDiaryEntryInline(admin.TabularInline):
     ordering = ("order_index", "id")
 
 
+class TraitSpecificationOptionInline(admin.TabularInline):
+    model = TraitSpecificationOption
+    extra = 0
+    fields = ("name", "sort_order")
+    ordering = ("sort_order", "name", "id")
+
+
 class TraitCharacterInline(admin.TabularInline):
     """Inline editor for trait ownership from the trait side."""
 
@@ -4285,18 +4293,25 @@ class LessonRequirementInlineForm(forms.ModelForm):
             "required_school": "School", "required_technique": "Technique",
             "specialisation": "Specialisation", "magic_school": "Magic School",
             "druid_circle": "Druid Circle", "creature": "Creature",
+            "required_skill": "Skill", "required_lesson": "Lesson",
+            "aspect": "Aspect", "required_trait": "Trait",
+            "required_trait_specification": "Trait-Spezifikation",
+            "requirement_group": "Gruppe",
             "sort_order": "Reihenfolge",
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields["requirement_group"].required = False
         from charsheet.models.lessons import is_arcane_lesson_school
 
         combat = School.objects.filter(
             Q(type__slug__in=(SCHOOL_COMBAT, "school_combat"))
             | Q(type__name__iexact="Kampfschule")
         ).select_related("type").order_by("name")
-        self.fields["required_school"].queryset = combat
+        self.fields["required_school"].queryset = School.objects.order_by(
+            "name"
+        )
         schools = School.objects.select_related("type").prefetch_related(
             "druid_cults", "shaman_patrons",
         )
@@ -4309,6 +4324,25 @@ class LessonRequirementInlineForm(forms.ModelForm):
         self.fields["druid_circle"].queryset = DruidCult.objects.filter(
             school__isnull=False,
         ).order_by("name")
+        trait_id = (
+            self.data.get(self.add_prefix("required_trait")) if self.is_bound
+            else self.initial.get(
+                "required_trait", self.instance.required_trait_id,
+            )
+        )
+        try:
+            trait_id = int(trait_id or 0)
+        except (TypeError, ValueError):
+            trait_id = 0
+        self.fields["required_trait_specification"].queryset = (
+            TraitSpecificationOption.objects.filter(trait_id=trait_id)
+            .order_by("sort_order", "name", "id")
+        )
+        widget = self.fields["required_trait_specification"].widget
+        widget = getattr(widget, "widget", widget)
+        widget.attrs["data-options-url"] = reverse(
+            "admin:charsheet_lesson_trait_specifications",
+        )
         school_id = (
             self.data.get(self.add_prefix("required_school")) if self.is_bound
             else self.initial.get(
@@ -4337,16 +4371,22 @@ class LessonRequirementInlineForm(forms.ModelForm):
             _lesson_technique_label
         )
 
+    def clean_requirement_group(self):
+        return self.cleaned_data.get("requirement_group") or 1
+
 
 class LessonRequirementInline(admin.TabularInline):
     model = LessonRequirement
+    fk_name = "lesson"
     form = LessonRequirementInlineForm
     extra = 0
     template = "admin/charsheet/lesson/requirements.html"
     fields = (
         "requirement_type", "required_school", "required_technique",
         "specialisation", "magic_school", "druid_circle", "creature",
-        "minimum_value", "sort_order",
+        "required_skill", "required_lesson", "aspect", "required_trait",
+        "required_trait_specification", "minimum_value",
+        "requirement_group", "sort_order",
     )
 
     class Media:
@@ -6998,6 +7038,11 @@ class LessonAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
                 self.admin_site.admin_view(self.techniques_view),
                 name="charsheet_lesson_techniques",
             ),
+            path(
+                "trait-specifications/",
+                self.admin_site.admin_view(self.trait_specifications_view),
+                name="charsheet_lesson_trait_specifications",
+            ),
         ]
         return custom_urls + super().get_urls()
 
@@ -7035,6 +7080,18 @@ class LessonAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
         ).order_by("name")
         return JsonResponse(
             {"results": [{"id": row.pk, "label": row.name} for row in rows]})
+
+    def trait_specifications_view(self, request):
+        try:
+            trait_id = int(request.GET.get("trait") or 0)
+        except (TypeError, ValueError):
+            trait_id = 0
+        rows = TraitSpecificationOption.objects.filter(
+            trait_id=trait_id
+        ).order_by("sort_order", "name", "id")
+        return JsonResponse(
+            {"results": [{"id": row.pk, "label": row.name} for row in rows]}
+        )
 
     def get_queryset(self, request):
         from charsheet.lesson_rules import lesson_queryset
@@ -7357,6 +7414,7 @@ class TraitAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
     list_filter = ("trait_type", "has_specification")
     ordering = ("trait_type", "name")
     inlines = (
+        TraitSpecificationOptionInline,
         TraitExclusionInline,
         TraitExcludedByInline,
         TraitChoiceDefinitionInline,
@@ -7420,9 +7478,42 @@ class TraitAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
         return _trait_build_rule_preview(obj)
 
 
+class CharacterTraitAdminForm(forms.ModelForm):
+    class Meta:
+        model = CharacterTrait
+        fields = "__all__"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        trait_id = (
+            self.data.get("trait")
+            if self.is_bound
+            else self.initial.get("trait", self.instance.trait_id)
+        )
+        try:
+            trait_id = int(trait_id or 0)
+        except (TypeError, ValueError):
+            trait_id = 0
+        options = TraitSpecificationOption.objects.filter(
+            trait_id=trait_id
+        ).order_by("sort_order", "name", "id")
+        self.fields["specification_option"].queryset = options
+        option_widget = self.fields["specification_option"].widget
+        option_widget = getattr(option_widget, "widget", option_widget)
+        option_widget.attrs["data-options-url"] = reverse(
+            "admin:charsheet_charactertrait_specifications"
+        )
+        if options.exists():
+            self.fields["specification"].disabled = True
+            self.fields["specification"].help_text = (
+                "Wird automatisch aus der gewählten Option gespiegelt."
+            )
+
+
 @admin.register(CharacterTrait)
 class CharacterTraitAdmin(admin.ModelAdmin):
     """Admin configuration for character-owned trait levels."""
+    form = CharacterTraitAdminForm
     list_display = ("owner", "trait", "trait_type", "trait_level", "specification", "rule_support_level")
     list_filter = ("trait__trait_type", "trait__has_specification")
     search_fields = ("owner__name", "trait__name", "trait__slug", "specification")
@@ -7439,6 +7530,7 @@ class CharacterTraitAdmin(admin.ModelAdmin):
         "owner",
         "trait",
         "trait_level",
+        "specification_option",
         "specification",
         "trait_type",
         "rule_support_level",
@@ -7446,6 +7538,31 @@ class CharacterTraitAdmin(admin.ModelAdmin):
         "trait_semantic_editing_path",
         "trait_build_rule_preview",
     )
+
+    class Media:
+        js = ("charsheet/js/character_trait_specifications.js",)
+
+    def get_urls(self):
+        custom_urls = [
+            path(
+                "specifications/",
+                self.admin_site.admin_view(self.specifications_view),
+                name="charsheet_charactertrait_specifications",
+            ),
+        ]
+        return custom_urls + super().get_urls()
+
+    def specifications_view(self, request):
+        try:
+            trait_id = int(request.GET.get("trait") or 0)
+        except (TypeError, ValueError):
+            trait_id = 0
+        rows = TraitSpecificationOption.objects.filter(
+            trait_id=trait_id
+        ).order_by("sort_order", "name", "id")
+        return JsonResponse(
+            {"results": [{"id": row.pk, "label": row.name} for row in rows]}
+        )
 
     @admin.display(ordering="trait__trait_type", description="Trait Type")
     def trait_type(self, obj):

@@ -688,12 +688,51 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
         return null;
       }
       const startAdd = maxAdd > 0 ? 1 : 0;
+      let specificationOptions = [];
+      try {
+        specificationOptions = JSON.parse(
+          source.getAttribute("data-specification-options") || "[]"
+        );
+      } catch (_error) {
+        specificationOptions = [];
+      }
+      const currentOption = source.getAttribute("data-specification-option") || "";
+      const currentSpecification = source.getAttribute("data-specification") || "";
+      let specificationInput = "";
+      if (Array.isArray(specificationOptions) && specificationOptions.length) {
+        const optionMarkup = ['<option value="">Bitte wählen</option>'].concat(
+          specificationOptions.map((entry) => {
+            const selected = String(entry.id) === currentOption ? " selected" : "";
+            return `<option value="${entry.id}"${selected}>${escapeHtml(entry.name)}</option>`;
+          })
+        ).join("");
+        specificationInput = `
+          <label class="learn_trait_spec_control">
+            <span class="learn_trait_spec_label">Spezifikation</span>
+            <span class="learn_trait_spec_field">
+              <select class="learn_trait_spec_select" name="learn_trait_spec_option_${slug}" required aria-label="Spezifikation für ${safeName}">${optionMarkup}</select>
+            </span>
+          </label>`;
+      } else if (source.getAttribute("data-has-specification") === "1") {
+        specificationInput = `
+          <label class="learn_trait_spec_control">
+            <span class="learn_trait_spec_label">Spezifikation</span>
+            <input class="learn_trait_spec_input" name="learn_trait_spec_text_${slug}" value="${escapeHtml(currentSpecification)}" aria-label="Spezifikation für ${safeName}">
+          </label>`;
+      }
+      row.classList.add("learn_trait_cart_row");
       row.setAttribute("data-base", String(base));
       row.setAttribute("data-max", String(max));
       row.setAttribute("data-ppl", String(pointsPerLevel));
       row.setAttribute("data-trait-type", traitType);
       row.innerHTML = `
-        <td><span>${safeName}</span> <span data-learn-level-info>(${base + startAdd})</span><input type="hidden" name="learn_trait_add_${slug}" value="${startAdd}" data-learn-hidden></td>
+        <td>
+          <div class="learn_cart_entry">
+            <div class="learn_cart_entry_title"><span>${safeName}</span><span class="learn_cart_entry_level" data-learn-level-info>(${base + startAdd})</span></div>
+            <input type="hidden" name="learn_trait_add_${slug}" value="${startAdd}" data-learn-hidden>
+            ${specificationInput}
+          </div>
+        </td>
         <td>
           <div class="shop_qty_stepper">
             <button type="button" class="shop_step_btn" data-learn-step-dec aria-label="Wert verringern">-</button>

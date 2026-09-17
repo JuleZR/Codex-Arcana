@@ -8,6 +8,9 @@ export function initTraitSpecModal() {
   const traitSpecCancelBtn = document.getElementById("traitSpecCancelBtn");
   const traitSpecForm = document.getElementById("traitSpecForm");
   const traitSpecInput = document.getElementById("id_trait_specification");
+  const traitSpecOption = document.getElementById("id_specification_option");
+  const freeRow = traitSpecForm?.querySelector("[data-trait-free-specification]");
+  const controlledRow = traitSpecForm?.querySelector("[data-trait-controlled-specification]");
   if (
     !traitSpecWindow
     || !traitSpecWindowClose
@@ -15,6 +18,9 @@ export function initTraitSpecModal() {
     || !traitSpecWindowTitle
     || !traitSpecForm
     || !traitSpecInput
+    || !traitSpecOption
+    || !freeRow
+    || !controlledRow
   ) {
     return;
   }
@@ -43,11 +49,28 @@ export function initTraitSpecModal() {
     }
     traitSpecWindowTitle.textContent = `${trigger.dataset.traitName || "Trait"} bearbeiten`;
     traitSpecForm.action = trigger.dataset.action || "";
-    traitSpecInput.value = trigger.dataset.specification || "";
+    let options = [];
+    try {
+      options = JSON.parse(trigger.dataset.specificationOptions || "[]");
+    } catch (_error) {
+      options = [];
+    }
+    const controlled = options.length > 0;
+    freeRow.hidden = controlled;
+    controlledRow.hidden = !controlled;
+    traitSpecInput.disabled = controlled;
+    traitSpecOption.disabled = !controlled;
+    traitSpecInput.value = controlled ? "" : (trigger.dataset.specification || "");
+    traitSpecOption.replaceChildren(new Option("---------", ""));
+    options.forEach((option) => {
+      traitSpecOption.add(new Option(option.name, String(option.id)));
+    });
+    traitSpecOption.value = trigger.dataset.specificationOption || "";
     controller.open();
     window.setTimeout(() => {
-      traitSpecInput.focus();
-      traitSpecInput.select();
+      const target = controlled ? traitSpecOption : traitSpecInput;
+      target.focus();
+      if (!controlled) target.select();
     }, 0);
   });
 

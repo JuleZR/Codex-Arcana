@@ -5692,29 +5692,57 @@ def _build_skill_rows(
     return skill_rows, character_skills, skill_manager_rows
 
 
+def _trait_display_name(trait: Trait, specification: str) -> str:
+    """Return the character-sheet label for a specified trait."""
+    if trait.slug == "adv_guild_membership" and specification:
+        return f"Mitglied der {specification}"
+    return trait.name
+
+
 def _build_trait_rows(character: Character) -> tuple[list[dict], list[dict]]:
     """Build prepared rows for advantages and disadvantages."""
     traits_qs = (
         CharacterTrait.objects
         .filter(owner=character)
-        .select_related("trait")
+        .select_related("trait", "specification_option")
+        .prefetch_related("trait__specification_options")
         .order_by("trait__trait_type", "trait__name")
     )
     advantage_rows: list[dict] = []
     disadvantage_rows: list[dict] = []
     for entry in traits_qs:
+        specification = (
+            entry.specification_option.name
+            if entry.specification_option_id
+            else (entry.specification or "").strip()
+        )
+        display_name = _trait_display_name(entry.trait, specification)
         row = {
             "id": entry.id,
             "name": entry.trait.name,
             "description": entry.trait.description,
             "points": entry.trait.cost_for_level(entry.trait_level),
             "can_edit_specification": bool(entry.trait.has_specification),
-            "specification": (entry.specification or "").strip(),
+            "specification": specification,
+            "specification_option_id": entry.specification_option_id,
+            "specification_options_json": json.dumps(
+                [
+                    {"id": option.id, "name": option.name}
+                    for option in entry.trait.specification_options.all()
+                ]
+            ),
         }
         if row["can_edit_specification"]:
-            row["display_name"] = entry.trait.name
+            row["display_name"] = display_name
+            tooltip_title = (
+                display_name
+                if display_name != entry.trait.name
+                else f"{entry.trait.name}: {specification or '*'}"
+            )
             row["tooltip"] = "\n\n".join(
-                part for part in (f"**{entry.trait.name}: {row['specification'] or '*'}**", row["description"]) if part
+                part
+                for part in (f"**{tooltip_title}**", row["description"])
+                if part
             )
         else:
             row["display_name"] = entry.trait.name
@@ -7726,9 +7754,15 @@ def _build_learning_rows(
         }
         for entry in language_entries
     }
+    character_trait_entries = {
+        entry.trait_id: entry
+        for entry in CharacterTrait.objects.filter(owner=character).select_related(
+            "trait", "specification_option"
+        )
+    }
     trait_levels = {
-        entry.trait_id: int(entry.trait_level)
-        for entry in CharacterTrait.objects.filter(owner=character).select_related("trait")
+        trait_id: int(entry.trait_level)
+        for trait_id, entry in character_trait_entries.items()
     }
     magic_engine = character.get_magic_engine()
     base_attributes = engine._attributes_map
@@ -7906,7 +7940,9 @@ def _build_learning_rows(
         )
 
     trait_groups: OrderedDict[str, list[dict]] = OrderedDict()
-    for trait in Trait.objects.order_by("trait_type", "name"):
+    for trait in Trait.objects.prefetch_related("specification_options").order_by(
+        "trait_type", "name"
+    ):
         base_level = int(trait_levels.get(trait.id, 0))
         if (
             trait.slug == VAMPIRE_ANCHOR_TRAIT_SLUG
@@ -7929,6 +7965,23 @@ def _build_learning_rows(
                 "points_per_level": int(trait.points_per_level),
                 "points_display": trait.cost_display(),
                 "points_by_level": list(trait.cost_curve()),
+                "has_specification": trait.has_specification,
+                "specification_options_json": json.dumps(
+                    [
+                        {"id": option.id, "name": option.name}
+                        for option in trait.specification_options.all()
+                    ]
+                ),
+                "specification_option_id": getattr(
+                    character_trait_entries.get(trait.id),
+                    "specification_option_id",
+                    None,
+                ),
+                "specification": getattr(
+                    character_trait_entries.get(trait.id),
+                    "specification",
+                    "",
+                ),
             }
         )
 

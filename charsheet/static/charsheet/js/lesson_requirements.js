@@ -7,6 +7,11 @@
     clerical_magic_level: ["minimum_value"],
     druid_circle_level: ["druid_circle", "minimum_value"],
     specific_creature: ["creature"],
+    school_level: ["required_school", "minimum_value"],
+    skill_level: ["required_skill", "minimum_value"],
+    lesson: ["required_lesson"],
+    aspect_level: ["aspect", "minimum_value"],
+    trait_level: ["required_trait", "required_trait_specification", "minimum_value"],
   };
 
   function initialize(row) {
@@ -15,8 +20,10 @@
     const input = (name) => row.querySelector(`[name$="-${name}"]`);
     const type = input("requirement_type");
     const school = input("required_school");
+    const trait = input("required_trait");
     const message = row.querySelector("[data-requirement-message]");
     let revision = 0;
+    let traitRevision = 0;
     let previousSchool = school.value;
 
     function replaceOptions(select, options, selected) {
@@ -55,6 +62,30 @@
       }
     }
 
+    async function refreshTraitOptions(reset) {
+      const currentRevision = ++traitRevision;
+      const select = input("required_trait_specification");
+      if (!select) return;
+      const selected = reset ? "" : select.value;
+      replaceOptions(select, [], "");
+      select.disabled = true;
+      if (!trait?.value || type.value !== "trait_level") return;
+      try {
+        const url = new URL(select.dataset.optionsUrl, window.location.origin);
+        url.searchParams.set("trait", trait.value);
+        const response = await fetch(url, { credentials: "same-origin" });
+        if (!response.ok) throw new Error("Optionen konnten nicht geladen werden.");
+        const payload = await response.json();
+        if (currentRevision !== traitRevision) return;
+        replaceOptions(select, payload.results, selected);
+        select.disabled = false;
+      } catch (error) {
+        if (currentRevision === traitRevision) {
+          message.textContent = "Trait-Spezifikationen konnten nicht geladen werden.";
+        }
+      }
+    }
+
     function updateType(reset) {
       const fields = typeFields[type.value] || [];
       row.querySelectorAll("[data-requirement-field]").forEach((container) => {
@@ -67,6 +98,7 @@
       });
       previousSchool = school.value;
       refresh(reset);
+      refreshTraitOptions(reset);
     }
 
     function schoolChanged() {
@@ -79,6 +111,7 @@
 
     type.addEventListener("change", () => updateType(true));
     school.addEventListener("change", schoolChanged);
+    trait?.addEventListener("change", () => refreshTraitOptions(true));
     if (window.django?.jQuery) {
       // Django's related-object popups emit a jQuery-only change event.
       window.django.jQuery(school).on("change.lessonRequirement", (event) => {

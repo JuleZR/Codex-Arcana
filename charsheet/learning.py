@@ -709,6 +709,7 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
     total_cost = 0
     attr_plan: dict[str, int] = {}
     trait_plan: dict[str, int] = {}
+    trait_spec_plan: dict[str, tuple[int | None, str]] = {}
     skill_plan: dict[str, int] = {}
     language_plan: dict[str, dict[str, object]] = {}
     school_plan: dict[str, int] = {}
@@ -904,8 +905,26 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
             return "error", error
         if add == 0:
             continue
+        option_id = _read_int(
+            post_data, f"learn_trait_spec_option_{slug}", 0
+        ) or None
+        specification = " ".join(
+            str(post_data.get(f"learn_trait_spec_text_{slug}", "") or "").split()
+        )
+        has_options = trait.specification_options.exists()
+        if target_level > 0 and has_options:
+            if option_id is None or not trait.specification_options.filter(
+                pk=option_id
+            ).exists():
+                return "error", f"{trait.name}: Ungültige Spezifikation."
+            specification = ""
+        elif option_id is not None:
+            return "error", f"{trait.name}: Ungültige Spezifikation."
+        elif specification and not trait.has_specification:
+            return "error", f"{trait.name}: Spezifikation nicht erlaubt."
         total_cost += engine.trait_learning_delta_cost(trait, base_level, target_level)
         trait_plan[slug] = target_level
+        trait_spec_plan[slug] = (option_id, specification)
         target_map = planned_advantages if trait.trait_type == Trait.TraitType.ADV else planned_disadvantages
         if target_level > 0:
             target_map[slug] = target_level
@@ -1286,10 +1305,19 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
             for slug, target_level in trait_plan.items():
                 trait = trait_defs[slug]
                 trait_row = trait_rows.get(slug)
+                option_id, specification = trait_spec_plan.get(
+                    slug, (None, "")
+                )
                 if trait_row is None:
                     if target_level <= 0:
                         continue
-                    trait_row = CharacterTrait.objects.create(owner=character, trait=trait, trait_level=target_level)
+                    trait_row = CharacterTrait.objects.create(
+                        owner=character,
+                        trait=trait,
+                        trait_level=target_level,
+                        specification_option_id=option_id,
+                        specification=specification,
+                    )
                     trait_rows[slug] = trait_row
                     if slug == VAMPIRE_ANCHOR_TRAIT_SLUG:
                         character.__dict__.pop("_is_vampire_cache", None)
@@ -1307,7 +1335,15 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
                     trait_rows.pop(slug, None)
                 else:
                     trait_row.trait_level = target_level
-                    trait_row.save(update_fields=["trait_level"])
+                    trait_row.specification_option_id = option_id
+                    trait_row.specification = specification
+                    trait_row.save(
+                        update_fields=[
+                            "trait_level",
+                            "specification_option",
+                            "specification",
+                        ]
+                    )
 
             for slug, add in skill_plan.items():
                 skill = skill_defs[slug]

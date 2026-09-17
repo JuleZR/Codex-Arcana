@@ -26,6 +26,7 @@ from .core import (
     SkillCategory,
     Trait,
     TraitExclusion,
+    TraitSpecificationOption,
     TraitSemanticEffect,
 )
 from .creatures import (
@@ -295,6 +296,7 @@ __all__ = [
     "Trait",
     "TraitChoiceDefinition",
     "TraitExclusion",
+    "TraitSpecificationOption",
     "TraitSemanticEffect",
     "VampirePower",
     "VampireTrait",

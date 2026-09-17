@@ -159,7 +159,7 @@
             <span class="trait_line{% if trait.tooltip %} tooltip_target{% endif %}"{% if trait.tooltip %} data-tooltip-side="left" data-tooltip="{{ trait.tooltip }}"{% endif %}>
               <span class="trait_line_text">{{ trait.display_name }} ({{ trait.points }})</span>
               {% if trait.can_edit_specification %}
-                <button type="button" class="skill_spec_edit_btn trait_spec_edit_btn" data-trait-spec-trigger data-trait-name="{{ trait.name }}" data-specification="{{ trait.specification }}" data-action="{% url 'update_trait_specification' character.id trait.id %}" aria-label="Spezifikation f&uuml;r {{ trait.name }} bearbeiten" title="Spezifikation bearbeiten"><span class="skill_spec_edit_emoji" aria-hidden="true">&#8943;</span></button>
+                <button type="button" class="skill_spec_edit_btn trait_spec_edit_btn" data-trait-spec-trigger data-trait-name="{{ trait.name }}" data-specification="{{ trait.specification }}" data-specification-option="{{ trait.specification_option_id|default:'' }}" data-specification-options="{{ trait.specification_options_json|escape }}" data-action="{% url 'update_trait_specification' character.id trait.id %}" aria-label="Spezifikation f&uuml;r {{ trait.name }} bearbeiten" title="Spezifikation bearbeiten"><span class="skill_spec_edit_emoji" aria-hidden="true">&#8943;</span></button>
               {% endif %}
             </span>
           {% empty %}
@@ -172,7 +172,7 @@
             <span class="trait_line{% if trait.tooltip %} tooltip_target{% endif %}"{% if trait.tooltip %} data-tooltip-side="left" data-tooltip="{{ trait.tooltip }}"{% endif %}>
               <span class="trait_line_text">{{ trait.display_name }} ({{ trait.points }})</span>
               {% if trait.can_edit_specification %}
-                <button type="button" class="skill_spec_edit_btn trait_spec_edit_btn" data-trait-spec-trigger data-trait-name="{{ trait.name }}" data-specification="{{ trait.specification }}" data-action="{% url 'update_trait_specification' character.id trait.id %}" aria-label="Spezifikation f&uuml;r {{ trait.name }} bearbeiten" title="Spezifikation bearbeiten"><span class="skill_spec_edit_emoji" aria-hidden="true">&#8943;</span></button>
+                <button type="button" class="skill_spec_edit_btn trait_spec_edit_btn" data-trait-spec-trigger data-trait-name="{{ trait.name }}" data-specification="{{ trait.specification }}" data-specification-option="{{ trait.specification_option_id|default:'' }}" data-specification-options="{{ trait.specification_options_json|escape }}" data-action="{% url 'update_trait_specification' character.id trait.id %}" aria-label="Spezifikation f&uuml;r {{ trait.name }} bearbeiten" title="Spezifikation bearbeiten"><span class="skill_spec_edit_emoji" aria-hidden="true">&#8943;</span></button>
               {% endif %}
             </span>
           {% empty %}

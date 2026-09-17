@@ -2522,10 +2522,25 @@ def create_character(request):
         elif phase == 3:
             disadvantages: dict[str, int] = {}
             trait_choices: dict[str, dict[str, list[str]]] = {}
+            trait_specifications: dict[str, dict[str, object]] = {}
             for trait in Trait.objects.filter(trait_type=Trait.TraitType.DIS).order_by("name"):
                 level = int(request.POST.get(f"dis_{trait.slug}", "0") or 0)
                 if level > 0:
                     disadvantages[trait.slug] = level
+                    option_id = _parse_positive_int(
+                        request.POST.get(f"dis_spec_option_{trait.slug}", "0")
+                    )
+                    text = " ".join(
+                        str(
+                            request.POST.get(f"dis_spec_text_{trait.slug}", "")
+                            or ""
+                        ).split()
+                    )
+                    if option_id or text:
+                        trait_specifications[trait.slug] = {
+                            "option_id": option_id,
+                            "text": text,
+                        }
                     choice_payload: dict[str, list[str]] = {}
                     for definition in trait.choice_definitions.filter(target_kind="attribute").order_by("sort_order", "id"):
                         selected = (request.POST.get(f"dis_choice_{trait.slug}_{definition.id}") or "").strip()
@@ -2533,14 +2548,33 @@ def create_character(request):
                             choice_payload[str(definition.id)] = [selected]
                     if choice_payload:
                         trait_choices[trait.slug] = choice_payload
-            state["phase_3"] = {"disadvantages": disadvantages, "trait_choices": trait_choices}
+            state["phase_3"] = {
+                "disadvantages": disadvantages,
+                "trait_choices": trait_choices,
+                "trait_specifications": trait_specifications,
+            }
         elif phase == 4:
             advantages: dict[str, int] = {}
             trait_choices: dict[str, dict[str, list[str]]] = {}
+            trait_specifications: dict[str, dict[str, object]] = {}
             for trait in Trait.objects.filter(trait_type=Trait.TraitType.ADV).order_by("name"):
                 level = int(request.POST.get(f"adv_{trait.slug}", "0") or 0)
                 if level > 0:
                     advantages[trait.slug] = level
+                    option_id = _parse_positive_int(
+                        request.POST.get(f"adv_spec_option_{trait.slug}", "0")
+                    )
+                    text = " ".join(
+                        str(
+                            request.POST.get(f"adv_spec_text_{trait.slug}", "")
+                            or ""
+                        ).split()
+                    )
+                    if option_id or text:
+                        trait_specifications[trait.slug] = {
+                            "option_id": option_id,
+                            "text": text,
+                        }
                     choice_payload: dict[str, list[str]] = {}
                     for definition in trait.choice_definitions.filter(target_kind="attribute").order_by("sort_order", "id"):
                         selected = (request.POST.get(f"adv_choice_{trait.slug}_{definition.id}") or "").strip()
@@ -2682,6 +2716,7 @@ def create_character(request):
             state["phase_4"] = {
                 "advantages": advantages,
                 "trait_choices": trait_choices,
+                "trait_specifications": trait_specifications,
                 "attribute_adds": attribute_adds,
                 "skill_adds": skill_adds,
                 "language_adds": language_adds,
@@ -2795,9 +2830,17 @@ def create_character(request):
 
     phase_3_values = engine.phase_3_disadvantages()
     phase_3_trait_choices = engine.phase_3_trait_choices()
+    phase_3_trait_specs = engine.phase_3_trait_specifications()
     phase_3_rows = []
-    for trait in Trait.objects.filter(trait_type=Trait.TraitType.DIS).order_by("name"):
+    disadvantage_traits = Trait.objects.filter(
+        trait_type=Trait.TraitType.DIS
+    ).prefetch_related("specification_options").order_by("name")
+    for trait in disadvantage_traits:
         description = (trait.description or "").replace("\r\n", "\n").replace("\r", "\n")
+        specification_options = sorted(
+            trait.specification_options.all(),
+            key=lambda option: (option.sort_order, option.name, option.id),
+        )
         attribute_choice_definitions = [
             {
                 "id": definition.id,
@@ -2824,11 +2867,21 @@ def create_character(request):
                 "value": phase_3_values.get(trait.slug, 0),
                 "attribute_choice_definitions": attribute_choice_definitions,
                 "attribute_choice_definitions_json": json.dumps(attribute_choice_definitions),
+                "has_specification": trait.has_specification,
+                "specification_options": specification_options,
+                "specification_options_json": json.dumps(
+                    [
+                        {"id": option.id, "name": option.name}
+                        for option in specification_options
+                    ]
+                ),
+                "specification": phase_3_trait_specs.get(trait.slug, {}),
             }
         )
 
     phase_4_values = engine.phase_4_advantages()
     phase_4_trait_choices = engine.phase_4_trait_choices()
+    phase_4_trait_specs = engine.phase_4_trait_specifications()
     phase_4_attr_adds = engine.phase_4_attribute_adds()
     phase_4_skill_adds = engine.phase_4_skill_adds()
     phase_4_skill_add_entries_by_slug: dict[str, list[dict[str, object]]] = {}
@@ -2845,8 +2898,15 @@ def create_character(request):
     phase_2_language_values = engine.phase_2_languages()
 
     phase_4_adv_rows = []
-    for trait in Trait.objects.filter(trait_type=Trait.TraitType.ADV).order_by("name"):
+    advantage_traits = Trait.objects.filter(
+        trait_type=Trait.TraitType.ADV
+    ).prefetch_related("specification_options").order_by("name")
+    for trait in advantage_traits:
         description = (trait.description or "").replace("\r\n", "\n").replace("\r", "\n")
+        specification_options = sorted(
+            trait.specification_options.all(),
+            key=lambda option: (option.sort_order, option.name, option.id),
+        )
         attribute_choice_definitions = [
             {
                 "id": definition.id,
@@ -2891,6 +2951,15 @@ def create_character(request):
                 "attribute_choice_definitions_json": json.dumps(attribute_choice_definitions),
                 "resource_choice_definitions": resource_choice_definitions,
                 "resource_choice_definitions_json": json.dumps(resource_choice_definitions),
+                "has_specification": trait.has_specification,
+                "specification_options": specification_options,
+                "specification_options_json": json.dumps(
+                    [
+                        {"id": option.id, "name": option.name}
+                        for option in specification_options
+                    ]
+                ),
+                "specification": phase_4_trait_specs.get(trait.slug, {}),
                 "description": description,
                 "value": phase_4_values.get(trait.slug, 0),
             }

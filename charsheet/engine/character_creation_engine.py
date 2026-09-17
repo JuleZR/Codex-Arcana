@@ -747,6 +747,9 @@ class CharacterCreationEngine:
             for k, v in disadvantages.items()
         }
 
+    def phase_3_trait_specifications(self) -> dict[str, dict[str, object]]:
+        return self.get_phase("phase_3").get("trait_specifications", {}) or {}
+
     def calc_disadvantage_cost(self, slug: str, level: int) -> int:
         trait = Trait.objects.filter(
             slug=slug, trait_type=Trait.TraitType.DIS
@@ -777,6 +780,9 @@ class CharacterCreationEngine:
         )
         return (
             self.sum_phase_3_disadvantage_cost() <= self.race.phase_3_points
+            and self._trait_specifications_are_valid(
+                "phase_3", Trait.TraitType.DIS
+            )
             and self._phase_3_trait_choices_are_valid()
             and self._pitiful_attribute_choices_are_valid()
             and not validator.validate(self.phase_3_disadvantages())
@@ -788,6 +794,45 @@ class CharacterCreationEngine:
         return {
             str(k): max(0, self._to_int(v, 0)) for k, v in advantages.items()
         }
+
+    def phase_4_trait_specifications(self) -> dict[str, dict[str, object]]:
+        return self.get_phase("phase_4").get("trait_specifications", {}) or {}
+
+    def _trait_specifications_are_valid(self, phase_key, trait_type) -> bool:
+        selected = (
+            self.phase_3_disadvantages()
+            if phase_key == "phase_3"
+            else self.phase_4_advantages()
+        )
+        specifications = (
+            self.phase_3_trait_specifications()
+            if phase_key == "phase_3"
+            else self.phase_4_trait_specifications()
+        )
+        from charsheet.models import TraitSpecificationOption
+
+        for slug, level in selected.items():
+            if level <= 0:
+                continue
+            trait = Trait.objects.filter(slug=slug, trait_type=trait_type).first()
+            if trait is None:
+                return False
+            has_options = trait.specification_options.exists()
+            payload = specifications.get(slug, {}) or {}
+            option_id = self._to_int(payload.get("option_id"), 0)
+            text = " ".join(str(payload.get("text") or "").split())
+            if has_options:
+                if not TraitSpecificationOption.objects.filter(
+                    pk=option_id, trait=trait
+                ).exists():
+                    return False
+                if text:
+                    return False
+            elif option_id:
+                return False
+            elif text and not trait.has_specification:
+                return False
+        return True
 
     def phase_4_vampire(self) -> dict[str, object]:
         """
@@ -1222,8 +1267,62 @@ class CharacterCreationEngine:
                 and technique.path_id is None
             )
         }
+        skill_ids = dict(Skill.objects.values_list("slug", "id"))
+        skill_values: dict[tuple[str, str], int] = {}
+        for entry in self.phase_2_skill_entries():
+            key = (
+                str(entry["slug"]),
+                str(entry.get("specification") or ""),
+            )
+            skill_values[key] = max(
+                skill_values.get(key, 0), int(entry["level"])
+            )
+        for entry in self.phase_4_skill_add_entries():
+            key = (
+                str(entry["slug"]),
+                str(entry.get("specification") or ""),
+            )
+            skill_values[key] = skill_values.get(key, 0) + int(entry["add"])
+        skill_levels: dict[int, int] = {}
+        for (slug, _specification), level in skill_values.items():
+            skill_id = skill_ids.get(slug)
+            if skill_id:
+                skill_levels[skill_id] = max(
+                    skill_levels.get(skill_id, 0), level
+                )
+        trait_states: dict[int, tuple[int, int | None, str]] = {}
+        for values, specs, trait_type in (
+            (
+                self.phase_3_disadvantages(),
+                self.phase_3_trait_specifications(),
+                Trait.TraitType.DIS,
+            ),
+            (
+                self.phase_4_advantages(),
+                self.phase_4_trait_specifications(),
+                Trait.TraitType.ADV,
+            ),
+        ):
+            traits = Trait.objects.filter(
+                slug__in=values, trait_type=trait_type
+            )
+            for trait in traits:
+                payload = specs.get(trait.slug, {}) or {}
+                trait_states[trait.id] = (
+                    int(values[trait.slug]),
+                    self._to_int(payload.get("option_id"), 0) or None,
+                    str(payload.get("text") or "").strip().casefold(),
+                )
         return LessonRequirementContext.from_state(
-            school_levels, learned_technique_ids)
+            school_levels,
+            learned_technique_ids,
+            skill_levels=skill_levels,
+            aspect_levels={
+                self._to_int(aspect_id, 0): int(level)
+                for aspect_id, level in self.phase_4_aspects().items()
+            },
+            trait_states=trait_states,
+        )
 
     def phase_4_aspects(self) -> dict[str, int]:
         aspects = self.get_phase("phase_4").get("aspects", {}) or {}
@@ -1336,6 +1435,10 @@ class CharacterCreationEngine:
             return False
         validator = self._build_trait_validator(Trait.TraitType.ADV)
         if validator.validate(self.phase_4_advantages()):
+            return False
+        if not self._trait_specifications_are_valid(
+            "phase_4", Trait.TraitType.ADV
+        ):
             return False
         if not self._phase_4_trait_choices_are_valid():
             return False
@@ -1597,8 +1700,15 @@ class CharacterCreationEngine:
                     slug=slug, trait_type=Trait.TraitType.DIS
                 ).first()
                 if trait and level > 0:
+                    spec = self.phase_3_trait_specifications().get(slug, {}) or {}
                     character_trait = CharacterTrait.objects.create(
-                        owner=character, trait=trait, trait_level=level
+                        owner=character,
+                        trait=trait,
+                        trait_level=level,
+                        specification_option_id=(
+                            self._to_int(spec.get("option_id"), 0) or None
+                        ),
+                        specification=str(spec.get("text") or ""),
                     )
                     draft_choice_map = self.phase_3_trait_choices().get(
                         slug, {}
@@ -1655,8 +1765,15 @@ class CharacterCreationEngine:
                     slug=slug, trait_type=Trait.TraitType.ADV
                 ).first()
                 if trait and level > 0:
+                    spec = self.phase_4_trait_specifications().get(slug, {}) or {}
                     character_trait = CharacterTrait.objects.create(
-                        owner=character, trait=trait, trait_level=level
+                        owner=character,
+                        trait=trait,
+                        trait_level=level,
+                        specification_option_id=(
+                            self._to_int(spec.get("option_id"), 0) or None
+                        ),
+                        specification=str(spec.get("text") or ""),
                     )
                     draft_choice_map = self.phase_4_trait_choices().get(
                         slug, {}
