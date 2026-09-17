@@ -172,14 +172,6 @@ export function initStandardFloatingWindows() {
       startTop: 138,
       storageKey: "charsheet.learnWindow",
     }),
-    diary: createFloatingWindowController({
-      trigger: document.getElementById("diaryTrigger"),
-      windowEl: document.getElementById("diaryWindow"),
-      closeButton: document.getElementById("diaryWindowClose"),
-      handle: document.getElementById("diaryWindowHandle"),
-      startTop: 86,
-      storageKey: "charsheet.diaryWindow",
-    }),
     battleCalculator: createFloatingWindowController({
       trigger: document.getElementById("battleCalculatorTrigger"),
       windowEl: document.getElementById("battleCalculatorWindow"),

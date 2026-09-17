@@ -1,6 +1,7 @@
 import { initWatercolorImages } from "./watercolor_image.js?v=20260908d";
 
 const PAGE_FLIP_MODULE_URL = "../vendor/page-flip.module.js";
+let activeBook = null;
 
 function prefersReducedMotion() {
   return window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches === true;
@@ -14,7 +15,7 @@ function readStageSize(stage) {
   return { width, height, singlePage };
 }
 
-export function initBookViewer(root) {
+export function initBookViewer(root, options = {}) {
   if (!(root instanceof HTMLElement) || root.dataset.bookViewerBound === "1") {
     return null;
   }
@@ -63,6 +64,7 @@ export function initBookViewer(root) {
         showCover: true,
         mobileScrollSupport: false,
         useMouseEvents: true,
+        clickEventForward: true,
         flippingTime: prefersReducedMotion() ? 120 : 640,
       });
       const ready = new Promise((resolve) => pageFlip.on("init", resolve));
@@ -90,20 +92,27 @@ export function initBookViewer(root) {
     }
     isBusy = true;
     // Keep the overlay hidden until the cover has its final initial position.
+    await options.beforeOpen?.();
     await initPageFlip();
+    if (options.startClosed && pageFlip) pageFlip.turnToPage(0);
     isOpen = true;
     overlay.classList.remove("is-closing");
     overlay.classList.add("is-open");
     overlay.setAttribute("aria-hidden", "false");
     pages.scrollTo({ left: 0, top: 0, behavior: "auto" });
     document.body.classList.add("book-viewer-active");
+    activeBook = root;
+    root.querySelector("button[data-book-close]")?.focus({ preventScroll: true });
     window.setTimeout(() => {
       isBusy = false;
     }, prefersReducedMotion() ? 1 : 520);
   };
 
-  const close = () => {
+  const close = async () => {
     if (!isOpen || isBusy) {
+      return;
+    }
+    if (options.beforeClose && await options.beforeClose() === false) {
       return;
     }
     isBusy = true;
@@ -111,7 +120,10 @@ export function initBookViewer(root) {
     overlay.classList.add("is-closing");
     overlay.classList.remove("is-open");
     overlay.setAttribute("aria-hidden", "true");
-    document.body.classList.remove("book-viewer-active");
+    if (activeBook === root) activeBook = document.querySelector(".book_viewer_overlay.is-open");
+    if (!document.querySelector(".book_viewer_overlay.is-open")) {
+      document.body.classList.remove("book-viewer-active");
+    }
     window.setTimeout(() => {
       overlay.classList.remove("is-closing");
       isBusy = false;
@@ -160,14 +172,31 @@ export function initBookViewer(root) {
   };
 
   const handleKeydown = (event) => {
-    if (!isOpen) {
+    if (!isOpen || activeBook !== root) {
       return;
+    }
+    if (event.key === "Tab") {
+      const controls = Array.from(root.querySelectorAll("button, input, textarea, select, [tabindex]"))
+        .filter((control) => !control.disabled && control.tabIndex >= 0 && control.getClientRects().length);
+      const first = controls[0];
+      const last = controls[controls.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last?.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first?.focus();
+      }
     }
     if (event.key === "Escape") {
       event.preventDefault();
       close();
       return;
     }
+    if (event.target instanceof Element && event.target.closest("input, textarea, select, [contenteditable]")) {
+      return;
+    }
+    if (event.target instanceof Element && event.target.closest("[data-book-editor]")) return;
     if (event.key === "ArrowRight") {
       event.preventDefault();
       if (pageFlip) {
@@ -200,5 +229,15 @@ export function initBookViewer(root) {
     pages.style.setProperty("--book-page-width", `${size.width}px`);
   });
 
-  return { open, close };
+  const updatePages = (nodes) => {
+    if (pageFlip) {
+      const current = pageFlip.getCurrentPageIndex();
+      if (current >= nodes.length) pageFlip.turnToPage(nodes.length - 1);
+      pageFlip.updateFromHtml(nodes);
+    } else {
+      pages.replaceChildren(...nodes);
+    }
+  };
+
+  return { open, close, updatePages };
 }

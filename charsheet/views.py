@@ -1616,11 +1616,10 @@ def save_character_diary_entry(request, character_id: int, entry_id: int):
 
     update_fields = ["text", "updated_at"]
     entry.text = text
-    if entry.entry_date is None:
-        requested_date = _parse_iso_date(payload.get("entry_date"))
-        if requested_date is not None:
-            entry.entry_date = requested_date
-            update_fields.append("entry_date")
+    requested_date = _parse_iso_date(payload.get("entry_date"))
+    if requested_date is not None and requested_date != entry.entry_date:
+        entry.entry_date = requested_date
+        update_fields.append("entry_date")
     entry.save(update_fields=update_fields)
     return JsonResponse(_diary_payload(character, current_entry_id=entry.id))
 
@@ -1639,11 +1638,12 @@ def fix_character_diary_entry(request, character_id: int, entry_id: int):
 
     entry.text = text
     entry.is_fixed = True
-    if entry.entry_date is None:
-        entry.entry_date = _parse_iso_date(payload.get("entry_date")) or timezone.localdate()
-        entry.save(update_fields=["text", "is_fixed", "entry_date", "updated_at"])
-    else:
-        entry.save(update_fields=["text", "is_fixed", "updated_at"])
+    requested_date = _parse_iso_date(payload.get("entry_date"))
+    if requested_date is not None:
+        entry.entry_date = requested_date
+    elif entry.entry_date is None:
+        entry.entry_date = timezone.localdate()
+    entry.save(update_fields=["text", "is_fixed", "entry_date", "updated_at"])
     return JsonResponse(_diary_payload(character, current_entry_id=entry.id))
 
 

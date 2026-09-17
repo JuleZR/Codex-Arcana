@@ -1,82 +1,68 @@
-<section class="payday-window payday-window--a4 sheet-window" id="diaryWindow" aria-hidden="true">
-  <div class="payday-window__titlebar sheet-window__header" id="diaryWindowHandle">
-    <div class="sheet-window__heading">
-      <h3 class="payday-window__title sheet-window__title">Tagebuch</h3>
-    </div>
-    <div class="sheet-window__actions">
-      <button type="button" class="payday-window__close sheet-window__close" id="diaryWindowClose" aria-label="Tagebuch schließen">x</button>
-    </div>
-  </div>
-  <div
-    class="payday-window__body sheet-window__body diary-window__body"
-    data-character-id="{{ character.id }}"
-    data-character-name="{{ character.name|escape }}"
-    data-read-only="{% if read_only %}1{% else %}0{% endif %}"
-    data-diary-list-url="{% if read_only %}{{ read_only_diary_url }}{% else %}{% url 'character_diary_entries_api' character.id %}{% endif %}"
-    data-diary-import-url="{% if not read_only %}{% url 'import_legacy_character_diary' character.id %}{% endif %}"
-  >
-    <section class="sheet-window__section sheet-window__section--editor diary-roll" id="diaryRoll" aria-label="Pergamentrolle">
-      <div class="sheet-window__surface sheet-window__surface--editor diary-roll__viewport" id="diaryRollViewport">
-        <article class="sheet-window__editor diary-roll__entry" id="diaryRollEntry" data-entry-id="">
-          <div class="diary-roll__crest" aria-hidden="true"></div>
-          <div class="sheet-window__section-head sheet-window__section-head--status diary-roll__statusbar">
-            <span class="diary-roll__counter" id="diaryRollCounter">Eintrag 1 / 1</span>
-            <span class="diary-roll__hint" id="diaryRollHint">Lade Rolle...</span>
-          </div>
-
-          <div class="sheet-window__toolbar diary-roll__toolbar">
-            <button type="button" class="sheet-window__control diary-roll__nav" id="diaryRollPrevBtn" aria-label="Vorherigen Eintrag anzeigen" title="Vorheriger Eintrag">
-              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                <path d="M7 14l5-5 5 5"></path>
-              </svg>
-            </button>
-
-            <div class="sheet-window__actions diary-roll__actions">
-              <button type="button" class="sheet-window__control diary-roll__icon-btn" id="diaryRollModeBtn" aria-label="Eintrag bearbeiten">
-                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                  <path d="M4 20h4l10-10-4-4L4 16v4z"></path>
-                  <path d="M13.8 6.2l4 4"></path>
-                </svg>
-              </button>
-              <button type="button" class="sheet-window__control diary-roll__icon-btn diary-roll__icon-btn--danger" id="diaryRollDeleteBtn" aria-label="Eintrag löschen" title="Eintrag löschen">
-                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                  <path d="M5 7h14"></path>
-                  <path d="M9 7V5h6v2"></path>
-                  <path d="M8 7l1 12h6l1-12"></path>
-                </svg>
-              </button>
-            </div>
-
-            <button type="button" class="sheet-window__control diary-roll__nav" id="diaryRollNextBtn" aria-label="Nächsten Eintrag anzeigen" title="Nächster Eintrag">
-              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                <path d="M7 10l5 5 5-5"></path>
-              </svg>
-            </button>
-          </div>
-
-          <div class="sheet-window__surface-body diary-roll__segment" id="diaryRollSegment">
-            <div class="diary-roll__entry-head">
-              <div class="diary-roll__entry-meta">
-                <p class="diary-roll__entry-title" id="diaryRollEntryTitle">Neuer Eintrag</p>
-                <div class="diary-roll__date-wrap">
-                  <label for="diaryRollDateInput" class="diary-roll__label">Datum</label>
-                  <span id="diaryRollDateDisplay" class="diary-roll__date-display" aria-live="polite"></span>
-                  <input type="date" id="diaryRollDateInput" class="sheet-window__field diary-roll__date-input" aria-label="Eintragsdatum">
-                </div>
-              </div>
-              <p class="diary-roll__entry-state" id="diaryRollEntryState">Entwurf</p>
-            </div>
-
-            <textarea
-              id="diaryRollInput"
-              class="diary-roll__input"
-              maxlength="2200"
-              placeholder="Die Tinte wartet auf den nächsten Abschnitt..."
-              aria-label="Tagebucheintrag"
-            ></textarea>
+{% load static %}
+<section class="book_viewer_overlay journal-book" id="diaryWindow" data-book-overlay aria-hidden="true" lang="de">
+  <div class="book_viewer_scrim" data-book-close></div>
+  <section class="book_viewer_stage" role="dialog" aria-modal="true" aria-label="Tagebuch">
+    <button type="button" class="book_viewer_close" data-book-close id="diaryWindowClose" aria-label="Tagebuch schließen">×</button>
+    <div class="book_viewer_shell"
+      data-character-id="{{ character.id }}"
+      data-read-only="{% if read_only %}1{% else %}0{% endif %}"
+      data-diary-list-url="{% if read_only %}{{ read_only_diary_url }}{% else %}{% url 'character_diary_entries_api' character.id %}{% endif %}"
+      data-diary-import-url="{% if not read_only %}{% url 'import_legacy_character_diary' character.id %}{% endif %}">
+      <div class="book_viewer_pages" data-book-pages>
+        <article class="book_page book_page--cover alchemist_almanac_cover" id="diaryCover" data-density="hard" data-book-page-index="0">
+          <img class="alchemist_almanac_cover__image" src="{% static 'img/almanc.png' %}" alt="" loading="lazy">
+          <div class="alchemist_almanac_cover__title">
+            <h2>Tagebuch</h2>
+            <p>{{ character.name }}</p>
           </div>
         </article>
+        <article class="book_page book_page--inside-cover alchemist_almanac_toc" id="diaryIndex" data-density="hard" data-book-page-index="1">
+          <h3>Inhaltsverzeichnis</h3>
+          <ol id="diaryContents" class="alchemist_almanac_toc__list"></ol>
+        </article>
+        <article class="book_page book_page--back" id="diaryBackCover" data-density="hard">
+          <div class="book_page__center"><h2>Ende</h2></div>
+        </article>
       </div>
-    </section>
-  </div>
+      <div id="diaryEditorHost" hidden>
+        <article class="journal-book__entry journal-book__editor" id="diaryRollEntry" data-entry-id="" data-book-editor hidden>
+          <div id="diaryRollSegment" class="journal-book__writing">
+            <h3 id="diaryRollEntryTitle">Neuer Eintrag</h3>
+            <div class="journal-book__date">
+              <label for="diaryRollDateInput">Datum</label>
+              <span id="diaryRollDateDisplay" hidden></span>
+              <input type="date" id="diaryRollDateInput" aria-label="Eintragsdatum">
+            </div>
+            <textarea id="diaryRollInput" maxlength="2200" placeholder="Die Tinte wartet auf den nächsten Abschnitt..." aria-label="Tagebucheintrag"></textarea>
+            <div id="diaryMarkdownPreview" class="journal-book__markdown" tabindex="0" aria-label="Formatierter Tagebucheintrag" hidden></div>
+          </div>
+          <aside class="journal-book__markdown-help" id="diaryMarkdownHelp" aria-labelledby="diaryMarkdownHelpTitle" hidden>
+            <div class="journal-book__markdown-help-header">
+              <h4 id="diaryMarkdownHelpTitle">Markdown-Kurzhilfe</h4>
+              <button type="button" id="diaryMarkdownHelpClose" aria-label="Markdown-Hilfe schließen" title="Hilfe schließen">×</button>
+            </div>
+            <dl>
+              <div><dt><code># Titel</code></dt><dd>Überschrift</dd></div>
+              <div><dt><code>**fett**</code></dt><dd>Fettschrift</dd></div>
+              <div><dt><code>*kursiv*</code></dt><dd>Kursivschrift</dd></div>
+              <div><dt><code>- Punkt</code></dt><dd>Aufzählung</dd></div>
+              <div><dt><code>1. Punkt</code></dt><dd>Nummerierte Liste</dd></div>
+              <div><dt><code>&gt; Zitat</code></dt><dd>Zitat</dd></div>
+              <div><dt><code>[Text](https://…)</code></dt><dd>Link</dd></div>
+              <div><dt><code>`Code`</code></dt><dd>Code im Text</dd></div>
+              <div><dt><code>---</code></dt><dd>Trennlinie</dd></div>
+            </dl>
+          </aside>
+          <div class="journal-book__actions">
+            <button type="button" id="diaryMarkdownHelpBtn" aria-controls="diaryMarkdownHelp" aria-expanded="false" aria-label="Markdown-Hilfe anzeigen" title="Markdown-Hilfe"></button>
+            <button type="button" id="diaryPreviewBtn" aria-controls="diaryMarkdownPreview" aria-pressed="false" aria-label="Vorschau anzeigen" title="Vorschau anzeigen"></button>
+            <button type="button" id="diaryEditorDone" aria-label="Zur Leseansicht" title="Zur Leseansicht"></button>
+            <button type="button" id="diaryRollModeBtn" aria-label="Eintrag bearbeiten" title="Eintrag bearbeiten">Bearbeiten</button>
+            <button type="button" id="diaryRollDeleteBtn" aria-label="Eintrag löschen" title="Eintrag löschen"></button>
+          </div>
+          <p id="diaryRollHint" role="status">Lade Tagebuch...</p>
+        </article>
+      </div>
+    </div>
+  </section>
 </section>

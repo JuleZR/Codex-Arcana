@@ -1,7 +1,9 @@
+import { initBookViewer } from "./charsheet/book_viewer.js?v=20260917e";
+import { journalTitle, renderJournalMarkdown } from "./charsheet/journal_markdown.js?v=20260917a";
+
 document.addEventListener("DOMContentLoaded", () => {
   const diaryWindow = document.getElementById("diaryWindow");
   const diaryMeta = diaryWindow?.querySelector("[data-diary-list-url]");
-  const counterEl = document.getElementById("diaryRollCounter");
   const hintEl = document.getElementById("diaryRollHint");
   const entryEl = document.getElementById("diaryRollEntry");
   const segmentEl = document.getElementById("diaryRollSegment");
@@ -9,16 +11,23 @@ document.addEventListener("DOMContentLoaded", () => {
   const dateInputEl = document.getElementById("diaryRollDateInput");
   const dateDisplayEl = document.getElementById("diaryRollDateDisplay");
   const titleEl = document.getElementById("diaryRollEntryTitle");
-  const stateEl = document.getElementById("diaryRollEntryState");
-  const prevBtn = document.getElementById("diaryRollPrevBtn");
-  const nextBtn = document.getElementById("diaryRollNextBtn");
   const modeBtn = document.getElementById("diaryRollModeBtn");
   const deleteBtn = document.getElementById("diaryRollDeleteBtn");
+  const contentsEl = document.getElementById("diaryContents");
+  const previewEl = document.getElementById("diaryMarkdownPreview");
+  const previewBtn = document.getElementById("diaryPreviewBtn");
+  const markdownHelpEl = document.getElementById("diaryMarkdownHelp");
+  const markdownHelpBtn = document.getElementById("diaryMarkdownHelpBtn");
+  const markdownHelpClose = document.getElementById("diaryMarkdownHelpClose");
+  const coverEl = document.getElementById("diaryCover");
+  const indexEl = document.getElementById("diaryIndex");
+  const backEl = document.getElementById("diaryBackCover");
+  const editorHost = document.getElementById("diaryEditorHost");
+  const editorDone = document.getElementById("diaryEditorDone");
 
   if (
     !diaryWindow
     || !diaryMeta
-    || !counterEl
     || !hintEl
     || !entryEl
     || !segmentEl
@@ -26,11 +35,19 @@ document.addEventListener("DOMContentLoaded", () => {
     || !dateInputEl
     || !dateDisplayEl
     || !titleEl
-    || !stateEl
-    || !prevBtn
-    || !nextBtn
     || !modeBtn
     || !deleteBtn
+    || !contentsEl
+    || !previewEl
+    || !previewBtn
+    || !markdownHelpEl
+    || !markdownHelpBtn
+    || !markdownHelpClose
+    || !coverEl
+    || !indexEl
+    || !backEl
+    || !editorHost
+    || !editorDone
   ) {
     return;
   }
@@ -54,14 +71,80 @@ document.addEventListener("DOMContentLoaded", () => {
       <path d="M13.8 6.2l4 4"></path>
     </svg>
   `;
+  const contentsIcon = `
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M5 5.5h5.5A2.5 2.5 0 0 1 13 8v11a2.5 2.5 0 0 0-2.5-2.5H5z"></path>
+      <path d="M19 5.5h-3"></path>
+      <path d="M19 9.5h-3"></path>
+      <path d="M19 13.5h-3"></path>
+    </svg>
+  `;
+  const previewIcon = `
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6z"></path>
+      <circle cx="12" cy="12" r="2.5"></circle>
+    </svg>
+  `;
+  const readIcon = `
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M4 5.5h6A2.5 2.5 0 0 1 12.5 8v11A2.5 2.5 0 0 0 10 16.5H4z"></path>
+      <path d="M20 5.5h-5A2.5 2.5 0 0 0 12.5 8v11a2.5 2.5 0 0 1 2.5-2.5h5z"></path>
+    </svg>
+  `;
+  const deleteIcon = `
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M5 7h14"></path>
+      <path d="M9 7V4h6v3"></path>
+      <path d="M7 7l1 13h8l1-13"></path>
+      <path d="M10 11v5M14 11v5"></path>
+    </svg>
+  `;
+  const infoIcon = `
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <circle cx="12" cy="12" r="9"></circle>
+      <path d="M12 10.5v6"></path>
+      <path d="M12 7.5h.01"></path>
+    </svg>
+  `;
+
+  markdownHelpBtn.innerHTML = infoIcon;
+  editorDone.innerHTML = readIcon;
+  editorDone.title = "Zur Leseansicht";
+  editorDone.setAttribute("aria-label", editorDone.title);
+  deleteBtn.innerHTML = deleteIcon;
 
   let entries = [];
   let currentIndex = 0;
   let lastRequestedIndex = 0;
   let saveTimer = null;
   let pendingSavePayload = null;
+  let activeSave = null;
   let isLoading = false;
   let isProgrammaticUpdate = false;
+  let previewMode = false;
+  let isTurning = false;
+  let editingIndex = null;
+  let renderedPages = [];
+
+  const closeMarkdownHelp = () => {
+    markdownHelpEl.hidden = true;
+    markdownHelpBtn.setAttribute("aria-expanded", "false");
+    markdownHelpBtn.title = "Markdown-Hilfe";
+    markdownHelpBtn.setAttribute("aria-label", "Markdown-Hilfe anzeigen");
+  };
+  closeMarkdownHelp();
+
+  const renderPreview = () => {
+    const showPreview = previewMode || inputEl.readOnly;
+    previewEl.innerHTML = renderJournalMarkdown(inputEl.value);
+    previewEl.hidden = !showPreview;
+    inputEl.hidden = showPreview;
+    previewBtn.hidden = inputEl.readOnly;
+    previewBtn.innerHTML = showPreview ? editIcon : previewIcon;
+    previewBtn.title = showPreview ? "Weiterschreiben" : "Vorschau anzeigen";
+    previewBtn.setAttribute("aria-label", previewBtn.title);
+    previewBtn.setAttribute("aria-pressed", String(showPreview));
+  };
 
   const getCsrfToken = () => {
     return document.cookie
@@ -100,35 +183,42 @@ document.addEventListener("DOMContentLoaded", () => {
   const setLoading = (loading) => {
     isLoading = loading;
     entryEl.classList.toggle("is-loading", loading);
-    prevBtn.disabled = loading || currentIndex <= 0;
-    nextBtn.disabled = loading || currentIndex >= entries.length - 1;
     deleteBtn.disabled = readOnlyMode || loading || !currentEntry();
     modeBtn.disabled = readOnlyMode || loading || !currentEntry();
   };
 
-  const animateRoll = (direction) => {
-    segmentEl.animate(
-      [
-        { opacity: 0.92, transform: "translateY(0) scale(1)" },
-        { opacity: 0.26, transform: `translateY(${direction > 0 ? "-18%" : "18%"}) scale(0.985)` },
-        { opacity: 1, transform: "translateY(0) scale(1)" },
-      ],
-      {
-        duration: 320,
-        easing: "cubic-bezier(0.33, 1, 0.68, 1)",
-      },
-    );
+  const resetPage = () => {
+    closeMarkdownHelp();
+    inputEl.scrollTop = 0;
+    previewEl.scrollTop = 0;
+    previewMode = false;
   };
 
   const renderEntry = () => {
     const entry = currentEntry();
+    contentsEl.replaceChildren();
+    entries.forEach((item, index) => {
+      const heading = journalTitle(item.text);
+      const label = `${index + 1}. ${item.entry_date || "Neuer Eintrag"}${heading ? ` – ${heading}` : ""}`;
+      const row = document.createElement("li");
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = label;
+      button.setAttribute("aria-current", index === currentIndex ? "page" : "false");
+      button.setAttribute("data-book-page-target", String(index + 2));
+      row.append(button);
+      contentsEl.append(row);
+    });
     if (!entry) {
       entryEl.dataset.entryId = "";
       inputEl.value = "";
-      counterEl.textContent = "Eintrag 0 / 0";
-      titleEl.textContent = "Leere Rolle";
-      stateEl.textContent = readOnlyMode ? "Leseansicht" : "Keine Einträge";
-      setHint("Noch keine Rolle geladen.");
+      inputEl.readOnly = true;
+      renderPreview();
+      dateInputEl.disabled = true;
+      dateInputEl.value = "";
+      dateDisplayEl.textContent = "";
+      titleEl.textContent = "Leeres Tagebuch";
+      setHint("Noch keine Einträge.");
       setLoading(false);
       return;
     }
@@ -136,8 +226,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const placeholder = isPlaceholderEntry(entry);
     const editable = !readOnlyMode && !entry.is_fixed;
     const entryNumber = Number(entry.order_index || 0) + 1;
-    const totalEntries = entries.length;
-
     isProgrammaticUpdate = true;
     entryEl.dataset.entryId = String(entry.id);
     entryEl.classList.toggle("is-fixed", Boolean(entry.is_fixed));
@@ -145,26 +233,22 @@ document.addEventListener("DOMContentLoaded", () => {
     entryEl.classList.toggle("is-placeholder", placeholder);
     inputEl.value = entry.text || "";
     inputEl.readOnly = !editable;
+    renderPreview();
     dateInputEl.value = entry.entry_date || (placeholder ? new Date().toISOString().slice(0, 10) : "");
-    dateInputEl.disabled = readOnlyMode || Boolean(entry.entry_date) || entry.is_fixed || (!placeholder && !editable);
+    dateInputEl.disabled = readOnlyMode || !editable;
     dateDisplayEl.textContent = entry.is_fixed ? formatHandwrittenDate(entry.entry_date) : "";
     dateDisplayEl.hidden = !entry.is_fixed;
     dateInputEl.hidden = Boolean(entry.is_fixed);
-    titleEl.textContent = placeholder ? "Neuer Eintrag" : `Eintrag ${entryNumber}`;
-    stateEl.textContent = entry.is_fixed ? "Fixiert" : (placeholder ? "Neue Schreib\u00e4che" : "Bearbeitungsmodus");
-    counterEl.textContent = `Eintrag ${entryNumber} / ${totalEntries}`;
+    titleEl.textContent = journalTitle(entry.text) || (placeholder ? "Neuer Eintrag" : `Eintrag ${entryNumber}`);
     modeBtn.innerHTML = entry.is_fixed ? editIcon : fixIcon;
     modeBtn.title = readOnlyMode ? "Leseansicht" : (entry.is_fixed ? "Eintrag bewusst bearbeiten" : "Eintrag fixieren");
     modeBtn.setAttribute("aria-label", modeBtn.title);
-    setHint(
-      placeholder ? "" : (entry.is_fixed ? "" : "Bearbeitungsmodus aktiv."),
-      entry.is_fixed ? "fixed" : (placeholder ? "draft" : "editing"),
-    );
+    setHint("", entry.is_fixed ? "fixed" : (placeholder ? "draft" : "editing"));
     isProgrammaticUpdate = false;
     setLoading(false);
   };
 
-  const applyPayload = (payload, preferredEntryId = null) => {
+  const applyPayload = (payload, preferredEntryId = null, updateBook = true) => {
     if (!payload || !Array.isArray(payload.entries)) {
       return;
     }
@@ -173,6 +257,73 @@ document.addEventListener("DOMContentLoaded", () => {
     const nextIndex = entries.findIndex((entry) => entry.id === desiredId);
     currentIndex = nextIndex >= 0 ? nextIndex : Math.min(lastRequestedIndex, Math.max(0, entries.length - 1));
     renderEntry();
+    if (updateBook) renderBookPages();
+  };
+
+  const attachEditor = () => {
+    const page = renderedPages[editingIndex];
+    if (!page) return;
+    renderedPages.forEach((renderedPage) => renderedPage.classList.remove("is-editing-page"));
+    page.classList.add("is-editing-page");
+    page.append(entryEl);
+    entryEl.hidden = false;
+  };
+
+  const renderBookPages = () => {
+    const pages = entries.map((entry, index) => {
+      const page = document.createElement("article");
+      page.className = "book_page journal-book__page";
+      page.setAttribute("data-book-page-index", String(index + 2));
+      const layout = document.createElement("div");
+      layout.className = "journal-book__page-layout";
+      const toc = document.createElement("button");
+      toc.type = "button";
+      toc.className = "journal-book__page-action journal-book__page-action--contents";
+      toc.innerHTML = contentsIcon;
+      toc.title = "Zurück zum Inhaltsverzeichnis";
+      toc.setAttribute("aria-label", toc.title);
+      toc.setAttribute("data-book-page-target", "1");
+      const date = document.createElement("p");
+      date.className = "journal-book__entry-date";
+      date.textContent = entry.entry_date || "Neuer Eintrag";
+      const content = document.createElement("div");
+      content.className = "journal-book__markdown";
+      content.innerHTML = renderJournalMarkdown(entry.text);
+      layout.append(toc, date, content);
+      if (!readOnlyMode) {
+        const edit = document.createElement("button");
+        edit.type = "button";
+        edit.className = "journal-book__page-action journal-book__page-action--edit";
+        edit.innerHTML = editIcon;
+        edit.title = entry.text ? "Eintrag bearbeiten" : "Eintrag schreiben";
+        edit.setAttribute("aria-label", edit.title);
+        edit.addEventListener("click", async (event) => {
+          event.stopPropagation();
+          await showEntryAt(index);
+          if (currentIndex !== index) return;
+          if (currentEntry()?.is_fixed) await beginEditing();
+          if (currentEntry()?.is_fixed) return;
+          editingIndex = index;
+          attachEditor();
+          inputEl.focus();
+        });
+        layout.append(edit);
+      }
+      const number = document.createElement("span");
+      number.className = "book_page__number";
+      number.textContent = String(index + 2);
+      page.append(layout, number);
+      return page;
+    });
+    if (!pages.length) {
+      const emptyPage = document.createElement("article");
+      emptyPage.className = "book_page";
+      emptyPage.textContent = "Noch keine Einträge.";
+      pages.push(emptyPage);
+    }
+    renderedPages = pages;
+    bookViewer.updatePages([coverEl, indexEl, ...pages, backEl]);
+    if (editingIndex !== null) attachEditor();
   };
 
   const request = async (url, options = {}) => {
@@ -267,7 +418,7 @@ document.addEventListener("DOMContentLoaded", () => {
       payload = await maybeImportLegacyEntries(payload);
       applyPayload(payload, preferredEntryId);
     } catch (_error) {
-      setHint("Die Pergamentrolle konnte nicht geladen werden.", "error");
+      setHint("Das Tagebuch konnte nicht geladen werden.", "error");
       setLoading(false);
     }
   };
@@ -283,17 +434,28 @@ document.addEventListener("DOMContentLoaded", () => {
         entry_date: payloadToSave.entryDate,
       }),
     });
-    applyPayload(payload, payloadToSave.entryId);
+    // Do not replace text typed while this request was in flight.
+    if (!pendingSavePayload) applyPayload(payload, payloadToSave.entryId, editingIndex === null);
   };
 
   const flushPendingSave = async () => {
+    if (activeSave) await activeSave;
     if (!pendingSavePayload) {
       return;
     }
     window.clearTimeout(saveTimer);
     const payloadToSave = pendingSavePayload;
     pendingSavePayload = null;
-    await saveDraft(payloadToSave);
+    activeSave = saveDraft(payloadToSave);
+    try {
+      await activeSave;
+    } catch (error) {
+      pendingSavePayload ||= payloadToSave;
+      throw error;
+    } finally {
+      activeSave = null;
+    }
+    if (pendingSavePayload) await flushPendingSave();
   };
 
   const queueSave = () => {
@@ -318,20 +480,21 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const showEntryAt = async (targetIndex) => {
-    if (targetIndex < 0 || targetIndex >= entries.length || targetIndex === currentIndex || isLoading) {
+    if (targetIndex < 0 || targetIndex >= entries.length || targetIndex === currentIndex || isLoading || isTurning) {
       return;
     }
+    isTurning = true;
     try {
       await flushPendingSave();
+      lastRequestedIndex = targetIndex;
+      currentIndex = targetIndex;
+      resetPage();
+      renderEntry();
     } catch (_error) {
       setHint("Der aktuelle Entwurf konnte nicht gesichert werden.", "error");
-      return;
+    } finally {
+      isTurning = false;
     }
-    const direction = targetIndex > currentIndex ? 1 : -1;
-    lastRequestedIndex = targetIndex;
-    currentIndex = targetIndex;
-    animateRoll(direction);
-    renderEntry();
   };
 
   const beginEditing = async () => {
@@ -342,6 +505,7 @@ document.addEventListener("DOMContentLoaded", () => {
     setLoading(true);
     try {
       const payload = await request(entryUrl(entry.id, "edit"), { method: "POST", body: "{}" });
+      previewMode = false;
       applyPayload(payload, entry.id);
       inputEl.focus();
     } catch (_error) {
@@ -361,6 +525,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     setLoading(true);
     try {
+      await flushPendingSave();
       const payload = await request(entryUrl(entry.id, "fix"), {
         method: "POST",
         body: JSON.stringify({
@@ -368,6 +533,9 @@ document.addEventListener("DOMContentLoaded", () => {
           entry_date: dateInputEl.value || "",
         }),
       });
+      editingIndex = null;
+      entryEl.hidden = true;
+      editorHost.append(entryEl);
       applyPayload(payload, entry.id);
     } catch (_error) {
       setHint("Der Eintrag konnte nicht fixiert werden.", "error");
@@ -382,21 +550,17 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     setLoading(true);
     try {
+      await flushPendingSave();
       const payload = await request(entryUrl(entry.id, "delete"), { method: "POST", body: "{}" });
+      editingIndex = null;
+      entryEl.hidden = true;
+      editorHost.append(entryEl);
       applyPayload(payload);
     } catch (_error) {
       setHint("Der Eintrag konnte nicht gel\u00f6scht werden.", "error");
       setLoading(false);
     }
   };
-
-  prevBtn.addEventListener("click", async () => {
-    await showEntryAt(currentIndex - 1);
-  });
-
-  nextBtn.addEventListener("click", async () => {
-    await showEntryAt(currentIndex + 1);
-  });
 
   modeBtn.addEventListener("click", () => {
     if (readOnlyMode) {
@@ -434,5 +598,48 @@ document.addEventListener("DOMContentLoaded", () => {
     queueSave();
   });
 
-  loadEntries();
+  previewBtn.addEventListener("click", () => {
+    previewMode = !previewMode;
+    renderPreview();
+    if (!previewMode) inputEl.focus();
+  });
+  markdownHelpBtn.addEventListener("click", () => {
+    const willOpen = markdownHelpEl.hidden;
+    markdownHelpEl.hidden = !willOpen;
+    markdownHelpBtn.setAttribute("aria-expanded", String(willOpen));
+    markdownHelpBtn.title = willOpen ? "Markdown-Hilfe schließen" : "Markdown-Hilfe";
+    markdownHelpBtn.setAttribute(
+      "aria-label",
+      willOpen ? "Markdown-Hilfe schließen" : "Markdown-Hilfe anzeigen",
+    );
+  });
+  markdownHelpClose.addEventListener("click", () => {
+    closeMarkdownHelp();
+    markdownHelpBtn.focus();
+  });
+  const finishEditing = async () => {
+    if (isTurning) return false;
+    try {
+      await flushPendingSave();
+      closeMarkdownHelp();
+      editingIndex = null;
+      entryEl.hidden = true;
+      editorHost.append(entryEl);
+      renderBookPages();
+      return true;
+    } catch (_error) {
+      setHint("Der Entwurf konnte nicht gespeichert werden. Bitte erneut versuchen.", "error");
+      return false;
+    }
+  };
+  editorDone.addEventListener("click", finishEditing);
+  ["mousedown", "touchstart", "touchmove"].forEach((eventName) => {
+    entryEl.addEventListener(eventName, (event) => event.stopPropagation());
+  });
+  const bookViewer = initBookViewer(diaryWindow, {
+    startClosed: true,
+    beforeOpen: () => initialLoad,
+    beforeClose: finishEditing,
+  });
+  const initialLoad = loadEntries();
 });
