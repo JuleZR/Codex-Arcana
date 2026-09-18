@@ -14,7 +14,7 @@ import { initTooltips } from "./tooltip.js?v=20260902d";
 import { initInventoryMenu } from "./inventory_menu.js?v=20260820a";
 import { initDamagePanel } from "./damage_panel.js?v=20260801b";
 import { initSpellPanel } from "./spell_panel.js";
-import { initLessonPanel } from "./lesson_panel.js?v=20260724a";
+import { initLessonPanel } from "./lesson_panel.js?v=20260918a";
 import { initCharInfoCounter } from "./char_info_counter.js";
 import { initSheetActions } from "./sheet_actions.js?v=20260901d";
 import { initSchoolsPanel, initWmArcanaFilter } from "./schools_panel.js";

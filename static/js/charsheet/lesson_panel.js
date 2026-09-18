@@ -1,15 +1,6 @@
 import { applySheetPartials } from "./partial_updates.js";
 import { getCsrfToken } from "./utils.js";
 
-function escapeHtml(value) {
-  return String(value || "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
-
 function readInt(value, fallback = 0) {
   const parsed = Number.parseInt(String(value ?? "").trim(), 10);
   return Number.isNaN(parsed) ? fallback : parsed;
@@ -40,91 +31,18 @@ function rollbackOptimisticArcaneMeter(previous) {
   }
 }
 
-function parseCostGroups(button) {
-  try {
-    const parsed = JSON.parse(button.getAttribute("data-lesson-cost-groups") || "[]");
-    return Array.isArray(parsed) ? parsed : [];
-  } catch (_error) {
-    return [];
+function renderOptimisticExperience(cost) {
+  const valueNode = document.querySelector("#sheetExperiencePanel [data-current-experience]");
+  if (!valueNode || cost <= 0) {
+    return null;
   }
-}
-
-function chooseCostGroup(groups) {
-  if (!groups.length) {
-    return Promise.resolve({ number: null, kp_cost: 0, manual_costs: [] });
+  const previous = valueNode.textContent;
+  const current = readInt(previous, 0);
+  if (current < cost) {
+    return null;
   }
-  if (
-    groups.length === 1
-    && (!Array.isArray(groups[0].manual_costs) || !groups[0].manual_costs.length)
-  ) {
-    return Promise.resolve(groups[0]);
-  }
-  if (typeof HTMLDialogElement === "undefined") {
-    let selected = groups[0];
-    if (groups.length > 1) {
-      const answer = window.prompt(
-        `Kostengruppe wählen:\n${groups.map((group, index) => `${index + 1}. ${group.label}`).join("\n")}`,
-        "1",
-      );
-      selected = groups[Number.parseInt(answer || "", 10) - 1];
-      if (!selected) {
-        return Promise.resolve(null);
-      }
-    }
-    const selectedManualCosts = Array.isArray(selected.manual_costs)
-      ? selected.manual_costs : [];
-    if (selectedManualCosts.length) {
-      const message = [
-        "Diese Kosten werden nur bestaetigt und nicht automatisch verrechnet:",
-        selectedManualCosts.join("\n"),
-        "",
-        "Kosten anwenden?",
-      ].join("\n");
-      if (!window.confirm(message)) {
-        return Promise.resolve(null);
-      }
-    }
-    return Promise.resolve(selected);
-  }
-
-  return new Promise((resolve) => {
-    const dialog = document.createElement("dialog");
-    dialog.className = "lesson_cost_dialog";
-    dialog.innerHTML = `
-      <form method="dialog" class="lesson_cost_dialog__form">
-        <h3>Anwendungskosten wählen</h3>
-        <fieldset>
-          <legend>${groups.length > 1 ? "Alternative Kostengruppe" : "Kosten"}</legend>
-        ${groups.map((group, index) => `
-          <label>
-            <input type="radio" name="lesson_cost_group" value="${escapeHtml(group.number)}" ${index === 0 ? "checked" : ""}>
-            <span>${escapeHtml(group.label)}</span>
-            ${(Array.isArray(group.manual_costs) && group.manual_costs.length) ? `<small>Manuell zu behandeln: ${group.manual_costs.map(escapeHtml).join(", ")}</small>` : ""}
-          </label>
-        `).join("")}
-        </fieldset>
-        <div class="lesson_cost_dialog__actions">
-          <button type="submit" value="cancel">Abbrechen</button>
-          <button type="submit" value="activate" class="lesson_cost_dialog__confirm">Kosten zahlen</button>
-        </div>
-      </form>
-    `;
-    document.body.appendChild(dialog);
-    dialog.addEventListener("close", () => {
-      if (dialog.returnValue !== "activate") {
-        dialog.remove();
-        resolve(null);
-        return;
-      }
-      const input = dialog.querySelector('input[name="lesson_cost_group"]:checked');
-      const selected = groups.find(
-        (group) => Number(group.number) === Number(input?.value),
-      );
-      dialog.remove();
-      resolve(selected || null);
-    }, { once: true });
-    dialog.showModal();
-  });
+  valueNode.textContent = String(current - cost);
+  return { valueNode, previous };
 }
 
 async function activateLesson(button) {
@@ -132,12 +50,8 @@ async function activateLesson(button) {
   if (!url || button.dataset.lessonPending === "1") {
     return;
   }
-  const groups = parseCostGroups(button);
-  const selectedGroup = await chooseCostGroup(groups);
-  if (selectedGroup === null) {
-    return;
-  }
-  const selectedKpCost = readInt(selectedGroup.kp_cost, 0);
+  const selectedGroup = button.dataset.lessonCostGroup;
+  const selectedKpCost = readInt(button.dataset.lessonKpCost, 0);
   const arcaneMeter = document.querySelector("#sheetDamagePanel .arcane_meter");
   const currentArcanePower = readInt(
     arcaneMeter?.dataset.arcaneCurrent,
@@ -146,12 +60,18 @@ async function activateLesson(button) {
   const optimisticArcaneSnapshot = selectedKpCost > 0
     ? renderOptimisticArcaneMeter(currentArcanePower - selectedKpCost)
     : null;
-  button.dataset.lessonPending = "1";
-  button.disabled = true;
+  const optimisticExperienceSnapshot = renderOptimisticExperience(
+    readInt(button.dataset.lessonEpCost, 0),
+  );
+  const buttons = document.querySelectorAll("[data-activate-lesson]");
+  buttons.forEach((entry) => {
+    entry.dataset.lessonPending = "1";
+    entry.disabled = true;
+  });
   try {
     const body = new URLSearchParams();
-    if (selectedGroup.number !== null) {
-      body.set("cost_group", String(selectedGroup.number));
+    if (selectedGroup) {
+      body.set("cost_group", selectedGroup);
     }
     body.set("confirm_manual_costs", "1");
     const response = await fetch(url, {
@@ -175,10 +95,16 @@ async function activateLesson(button) {
     }
   } catch (error) {
     rollbackOptimisticArcaneMeter(optimisticArcaneSnapshot);
+    if (optimisticExperienceSnapshot) {
+      const { valueNode, previous } = optimisticExperienceSnapshot;
+      valueNode.textContent = previous;
+    }
     window.alert(error instanceof Error ? error.message : "Lektion konnte nicht angewendet werden.");
   } finally {
-    button.dataset.lessonPending = "0";
-    button.disabled = false;
+    buttons.forEach((entry) => {
+      entry.dataset.lessonPending = "0";
+      entry.disabled = false;
+    });
   }
 }
 
@@ -189,7 +115,6 @@ export function initLessonPanel() {
   }
   panel.dataset.lessonBound = "1";
   const filterInput = panel.querySelector("#lessonFilterInput");
-  const rows = Array.from(panel.querySelectorAll("[data-lesson-search]"));
   const groups = Array.from(panel.querySelectorAll("[data-lesson-group]"));
 
   const applyFilter = () => {
@@ -225,9 +150,8 @@ export function initLessonPanel() {
       entry.click();
     });
   });
-  rows.forEach((row) => {
-    const button = row.querySelector("[data-activate-lesson]");
-    button?.addEventListener("click", (event) => {
+  panel.querySelectorAll("[data-activate-lesson]").forEach((button) => {
+    button.addEventListener("click", (event) => {
       event.preventDefault();
       event.stopPropagation();
       activateLesson(button);

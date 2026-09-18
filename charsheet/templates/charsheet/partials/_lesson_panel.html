@@ -29,20 +29,35 @@
                 >
                   <span class="spell_cast_name">{{ row.name }}</span>
                   <span class="spell_cast_meta">{{ row.activation_label }}</span>
+                  <span class="lesson_cost_options">
+                  {% for cost_group in row.cost_groups %}
+                  {% if not forloop.first %}<span class="lesson_cost_separator">oder</span>{% endif %}
                   {% if row.activation_enabled %}
                     <button
                       type="button"
                       class="spell_cast_cost lesson_cost_button"
                       data-activate-lesson
                       data-activate-url="{{ row.activation_url }}"
-                      data-lesson-cost-groups="{{ row.cost_groups_json|escape }}"
-                      aria-label="{{ row.name }} anwenden: {{ row.costs_display }}"
+                      data-lesson-cost-group="{{ cost_group.number }}"
+                      data-lesson-kp-cost="{{ cost_group.kp_cost }}"
+                      data-lesson-ep-cost="{{ cost_group.ep_cost }}"
+                      aria-label="{{ row.name }} anwenden: {{ cost_group.label }}"
                     >
-                      {{ row.costs_display }}
+                      {{ cost_group.label }}
                     </button>
                   {% else %}
-                    <span class="spell_cast_cost lesson_cost_readonly" aria-label="Anwendungskosten">{{ row.costs_display }}</span>
+                    <span class="spell_cast_cost lesson_cost_readonly" aria-label="Anwendungskosten">{{ cost_group.label }}</span>
                   {% endif %}
+                  {% empty %}
+                    {% if row.activation_enabled %}
+                      <button type="button" class="spell_cast_cost lesson_cost_button"
+                        data-activate-lesson data-activate-url="{{ row.activation_url }}"
+                        aria-label="{{ row.name }} anwenden: Keine Kosten">Keine</button>
+                    {% else %}
+                      <span class="spell_cast_cost lesson_cost_readonly">Keine</span>
+                    {% endif %}
+                  {% endfor %}
+                  </span>
                 </div>
               </li>
             {% endfor %}

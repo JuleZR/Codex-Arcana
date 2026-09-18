@@ -74,6 +74,47 @@ class ArcanePowerLessonCostHandler(LessonCostHandler):
             )
 
 
+class ExperienceLessonCostHandler(LessonCostHandler):
+    cost_type = LessonCost.CostType.EXPERIENCE
+
+    def is_available(self, character, costs, context):
+        amount = sum(int(cost.value) for cost in costs)
+        return (
+            character.current_experience >= amount,
+            "Nicht genug EP für diese Lektion.",
+        )
+
+    def deduct(self, character, costs, context):
+        character.current_experience -= sum(int(cost.value) for cost in costs)
+        character.save(update_fields=["current_experience"])
+
+
+class FameLessonCostHandler(LessonCostHandler):
+    cost_type = LessonCost.CostType.FAME
+
+    def display(self, cost: LessonCost) -> str:
+        return f"{int(cost.value)} RP"
+
+    def is_available(self, character, costs, context):
+        amount = sum(int(cost.value) for cost in costs)
+        available = (
+            character.personal_fame_rank * 10 + character.personal_fame_point
+        )
+        return available >= amount, "Nicht genug RP für diese Lektion."
+
+    def deduct(self, character, costs, context):
+        remaining = (
+            character.personal_fame_rank * 10 + character.personal_fame_point
+            - sum(int(cost.value) for cost in costs)
+        )
+        character.personal_fame_rank, character.personal_fame_point = divmod(
+            remaining, 10
+        )
+        character.save(
+            update_fields=["personal_fame_rank", "personal_fame_point"]
+        )
+
+
 LESSON_COST_HANDLERS: dict[str, LessonCostHandler] = {}
 
 
@@ -85,6 +126,8 @@ def register_lesson_cost_handler(handler: LessonCostHandler) -> None:
 
 
 register_lesson_cost_handler(ArcanePowerLessonCostHandler())
+register_lesson_cost_handler(ExperienceLessonCostHandler())
+register_lesson_cost_handler(FameLessonCostHandler())
 
 
 def format_requirement(requirement: LessonRequirement) -> str:
@@ -109,7 +152,9 @@ def format_requirement(requirement: LessonRequirement) -> str:
     if kind == types.SPECIFIC_CREATURE:
         return requirement.creature.name
     if kind == types.SCHOOL_LEVEL:
-        return f"{requirement.required_school.name} {requirement.minimum_value}"
+        return (
+            f"{requirement.required_school.name} {requirement.minimum_value}"
+        )
     if kind == types.SKILL_LEVEL:
         return f"{requirement.required_skill.name} {requirement.minimum_value}"
     if kind == types.LESSON:
@@ -192,12 +237,12 @@ def format_lesson_costs(lesson: Lesson) -> str:
         return "Keine"
     grouped = validate_cost_groups(costs)
     packages = [
-        " UND ".join(format_cost(cost) for cost in grouped[number])
+        " & ".join(format_cost(cost) for cost in grouped[number])
         for number in sorted(grouped)
     ]
     if len(packages) == 1:
         return packages[0]
-    return " ODER ".join(f"({package})" for package in packages)
+    return " oder ".join(packages)
 
 
 @dataclass

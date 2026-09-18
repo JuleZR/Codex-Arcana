@@ -7671,13 +7671,23 @@ def _build_lesson_context(
             cost_groups.append(
                 {
                     "number": number,
-                    "label": " UND ".join(
+                    "label": " & ".join(
                         format_cost(cost) for cost in group_costs
                     ),
                     "kp_cost": sum(
                         int(cost.value)
                         for cost in group_costs
                         if cost.cost_type == LessonCost.CostType.ARCANE_POWER
+                    ),
+                    "ep_cost": sum(
+                        int(cost.value)
+                        for cost in group_costs
+                        if cost.cost_type == LessonCost.CostType.EXPERIENCE
+                    ),
+                    "ep_cost": sum(
+                        int(cost.value)
+                        for cost in group_costs
+                        if cost.cost_type == LessonCost.CostType.EXPERIENCE
                     ),
                     "manual_costs": [
                         format_cost(cost)
@@ -7692,10 +7702,7 @@ def _build_lesson_context(
                 "lesson_id": int(lesson.id),
                 "activation_url": reverse("activate_lesson", args=[character.id, lesson.id]),
                 "activation_enabled": not read_only,
-                "cost_groups_json": json.dumps(
-                    cost_groups,
-                    ensure_ascii=False,
-                ),
+                "cost_groups": cost_groups,
                 "search_tokens": (
                     f"{lesson.name} {lesson.description} "
                     f"{lesson.fluff_quote} {lesson.fluff_quote_speaker} "

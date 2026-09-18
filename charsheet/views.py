@@ -5936,7 +5936,10 @@ def activate_character_lesson(request, character_id: int, lesson_id: int):
         character.refresh_from_db()
         context = _build_sheet_context_for_request(request, character)
         partials = []
-        for key in ("damage_panel", "lesson_panel"):
+        for key in (
+            "damage_panel", "lesson_panel", "experience_panel",
+            "fame_panel", "learning_budget",
+        ):
             target_id, template_name = SHEET_PARTIAL_TEMPLATES[key]
             partials.append(
                 {
