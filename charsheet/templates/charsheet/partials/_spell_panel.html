@@ -84,8 +84,10 @@
           <ul class="spell_group_rows" hidden>
             {% for row in group.rows %}
               <li data-spell-search="{{ row.name|lower }} {{ group.name|lower }} {{ row.source_label|lower }} grad {{ row.level }} {{ row.kp_cost }} kp {{ row.cost_display|lower }}">
-                <button
-                  type="button"
+                <div
+                  role="button"
+                  tabindex="0"
+                  data-spell-card-trigger
                   class="spell_cast_button tooltip_target"
                   data-tooltip-side="cursor-right"
                   data-tooltip-mode="card"
@@ -97,17 +99,27 @@
                   data-tooltip-accent="{{ row.owner_accent|default:'#b98f56' }}"
                   data-tooltip-persist-id="spell:{{ row.spell_id }}"
                   data-tooltip="{{ row.tooltip_text|default:row.description|default:'Keine Beschreibung' }}"
-                  data-cast-spell-trigger
-                  data-cast-url="{% url 'cast_spell' character.id row.spell_id %}"
-                  data-spell-kp-cost="{{ row.kp_cost }}"
-                  data-spell-name="{{ row.name }}"
                   aria-label="Details zu {{ row.name }} anzeigen"
                 >
                   <span class="spell_cast_name">{{ row.name }}</span>
                   <span class="spell_cast_meta">Grad {{ row.grade_label|default:row.level }}</span>
-                  <span class="spell_cast_cost">{{ row.cost_display }}</span>
+                  <span class="lesson_cost_options">
+                  {% for cost_group in row.cost_groups %}
+                  {% if not forloop.first %}<span class="lesson_cost_separator">oder</span>{% endif %}
+                  <button
+                    type="button"
+                    class="spell_cast_cost lesson_cost_button"
+                    data-cast-spell-trigger
+                    data-cast-url="{% url 'cast_spell' character.id row.spell_id %}"
+                    data-spell-cost-type="{{ cost_group.type }}"
+                    data-spell-kp-cost="{{ cost_group.kp_cost }}"
+                    aria-label="{{ row.name }} wirken: {{ cost_group.label }}"
+                  >{{ cost_group.label }}</button>
+                  {% endfor %}
+                  {% if row.extra_cost_display %}<span class="spell_cast_cost">+ {{ row.extra_cost_display }}</span>{% endif %}
+                  </span>
                   <span class="spell_cast_source{% if row.is_bonus_spell %} spell_cast_source--bonus{% elif row.is_base_spell %} spell_cast_source--base{% endif %}{% if not row.badge_label %} spell_cast_source--hidden{% endif %}">{{ row.badge_label }}</span>
-                </button>
+                </div>
               </li>
             {% endfor %}
           </ul>

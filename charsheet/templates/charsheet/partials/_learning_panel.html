@@ -675,12 +675,13 @@
                                 data-input-name="{{ row.input_name|default:'' }}"
                                 data-level="{{ row.grade }}"
                                 data-grade-label="{{ row.grade_label|default:row.grade }}"
-                                data-slot-cost="{{ row.slot_cost|default:1 }}"
+                                data-slot-cost="{{ row.slot_cost|default_if_none:1 }}"
+                                data-unit-cost="{{ row.learning_cost|default:0 }}"
                                 data-cost-label="{{ row.cost_label|default:'1 Slot' }}"
                                 data-slot-source-key="{{ row.slot_source_key|default:'' }}"
                                 data-slot-source-name="{{ row.slot_source_name|default:row.owner_name }}"
                                 data-slot-source-remaining="{{ row.slot_source_remaining|default:0 }}"
-                                data-slot-source-cost="{{ row.slot_source_cost|default:row.slot_cost|default:1 }}"
+                                data-slot-source-cost="{{ row.slot_source_cost|default:row.slot_cost|default_if_none:1 }}"
                                 data-filter-source-key="{{ row.filter_source_key|default:row.slot_source_key|default:'' }}"
                                 data-learn-search="{{ row.search_tokens }}"
                                 tabindex="0"
@@ -699,6 +700,7 @@
                                       {% endif %}
                                     </span>
                                     <span class="learn_spell_grade">Grad {{ row.grade_label|default:row.grade }}</span>
+                                    {% if row.learning_cost %}<span>{{ row.cost_label }}</span>{% endif %}
                                   </span>
                                 </td>
                               </tr>

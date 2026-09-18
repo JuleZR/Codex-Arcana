@@ -300,7 +300,7 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
     } else if (kind === "magic-spell") {
       const hidden = row.querySelector("[data-learn-hidden]");
       value = clamp(value, 0, 1);
-      cost = 0;
+      cost = value * readInt(row.getAttribute("data-unit-cost"), 0);
       if (hidden instanceof HTMLInputElement) {
         hidden.value = String(value);
       }
@@ -901,6 +901,7 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
       const level = readInt(source.getAttribute("data-level"), 1);
       const gradeLabel = source.getAttribute("data-grade-label") || String(level);
       const slotCost = readInt(source.getAttribute("data-slot-cost"), 1);
+      row.setAttribute("data-unit-cost", source.getAttribute("data-unit-cost") || "0");
       const costLabel = source.getAttribute("data-cost-label") || `${slotCost} Slot${slotCost === 1 ? "" : "s"}`;
       const slotSourceKey = source.getAttribute("data-slot-source-key") || "";
       const slotSourceName = source.getAttribute("data-slot-source-name") || ownerName;

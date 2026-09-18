@@ -6,6 +6,7 @@ import re
 
 from django.core.exceptions import ValidationError
 from django.db import transaction
+from django.utils import timezone
 
 from charsheet.learning_progression import build_learning_progression_context
 from charsheet.learning_progression import build_learning_magic_groups
@@ -584,18 +585,21 @@ def _reset_invalid_school_progression(character: Character) -> None:
         DruidCultAspect.objects.filter(cult_id__in=invalid_druid_cult_ids).values_list("aspect_id", flat=True)
     )
     if invalid_druid_aspect_ids:
-        deleted_spell_count, _ = CharacterSpell.objects.filter(
+        invalid_spells = CharacterSpell.objects.filter(
             character=character,
             source_kind__in=(
                 CharacterSpell.SourceKind.DIVINE_EXTRA,
                 CharacterSpell.SourceKind.DIVINE_BONUS,
             ),
             spell__aspect_id__in=invalid_druid_aspect_ids,
-        ).delete()
-        if deleted_spell_count:
+        )
+        released_slots = invalid_spells.filter(
+            source_kind=CharacterSpell.SourceKind.DIVINE_BONUS).count()
+        invalid_spells.delete()
+        if released_slots:
             character.spent_spell_learning_slots = max(
                 0,
-                int(character.spent_spell_learning_slots or 0) - deleted_spell_count,
+                int(character.spent_spell_learning_slots or 0) - released_slots,
             )
             character.save(update_fields=["spent_spell_learning_slots"])
     invalid_druid_bindings.delete()
@@ -637,6 +641,7 @@ def _reset_invalid_school_progression(character: Character) -> None:
             character=character,
             spell__school__isnull=True,
             spell__aspect__isnull=True,
+            spell__is_divine_extra=False,
         ).delete()
 
     engine = character.get_engine(refresh=True)
@@ -668,6 +673,16 @@ def _reset_invalid_school_progression(character: Character) -> None:
 
 def process_learning_submission(character: Character, post_data) -> tuple[str, str]:
     """Apply one learning-menu submission and return message level plus text."""
+    with transaction.atomic():
+        locked_character = Character.objects.select_for_update().get(pk=character.pk)
+        result = _process_locked_learning_submission(
+            locked_character, post_data)
+        character.refresh_from_db()
+        return result
+
+
+def _process_locked_learning_submission(character: Character, post_data) -> tuple[str, str]:
+    """All planning and validation reads run under the character row lock."""
     magic_engine = character.get_magic_engine(refresh=True)
     magic_engine.sync_character_magic()
     engine = character.get_engine(refresh=True)
@@ -1244,7 +1259,12 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
             selected = _read_int(post_data, key, 0)
             if selected <= 0:
                 continue
+            if spell_id in magic_spell_selection:
+                continue
             magic_spell_selection.add(spell_id)
+            spell = Spell.objects.filter(pk=spell_id).first()
+            if spell is not None and spell.is_divine_extra:
+                total_cost += int(spell.grade)
         elif key.startswith("learn_arcane_free_spell_") or key.startswith("learn_bonus_spell_"):
             if _read_int(post_data, key, 0) > 0:
                 return "error", "Freizauber und Zusatzzauber werden nicht mehr separat gelernt."
@@ -1547,7 +1567,8 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
                     int(row["spell_id"]): row
                     for group in _build_learning_magic_groups(character, magic_engine=magic_engine)
                     for row in group["rows"]
-                    if row["kind"] == "magic_spell" and int(row.get("slot_cost", 1) or 0) > 0
+                    if row["kind"] == "magic_spell"
+                    and row.get("cart_key") == f"paid:{row['spell_id']}"
                 }
                 known_spell_ids = set(CharacterSpell.objects.filter(character=character).values_list("spell_id", flat=True))
                 if any(spell_id in known_spell_ids or spell_id not in legal_paid_spell_rows for spell_id in magic_spell_selection):
@@ -1557,6 +1578,8 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
                 source_limits: dict[str, tuple[str, int]] = {}
                 for spell_id in magic_spell_selection:
                     row = legal_paid_spell_rows[int(spell_id)]
+                    if int(row.get("slot_cost", 1)) == 0:
+                        continue
                     source_key = str(row.get("slot_source_key") or "")
                     if not source_key:
                         raise LearningSubmissionError("Ungueltige Zauber-Slot-Quelle.")
@@ -1588,12 +1611,15 @@ def process_learning_submission(character: Character, post_data) -> tuple[str, s
                         character=character,
                         spell=spell,
                         source_kind=source_kind,
+                        learned_at=timezone.now(),
+                        notes=f"Für {spell.grade} EP gelernt." if spell.is_divine_extra else "",
                     )
                     spell_entry.full_clean()
                     spell_entry.save()
 
-                character.spent_spell_learning_slots = int(character.spent_spell_learning_slots or 0) + len(
-                    magic_spell_selection
+                character.spent_spell_learning_slots = int(character.spent_spell_learning_slots or 0) + sum(
+                    int(legal_paid_spell_rows[spell_id].get("slot_cost", 1))
+                    for spell_id in magic_spell_selection
                 )
                 character.save(update_fields=["spent_spell_learning_slots"])
 

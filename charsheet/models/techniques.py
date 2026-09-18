@@ -2004,6 +2004,10 @@ class Spell(models.Model):
         ),
     )
     is_base_spell = models.BooleanField(default=False)
+    is_divine_extra = models.BooleanField(default=False)
+    divine_entities = models.ManyToManyField(
+        DivineEntity, blank=True, related_name="restricted_spells",
+    )
 
     description = models.TextField(blank=True, default="")
     panel_badge_label = models.CharField(max_length=30, blank=True, default="Zauber")
@@ -2107,7 +2111,9 @@ class Spell(models.Model):
 
     def clean(self):
         super().clean()
-        if not self.is_base_spell:
+        if self.is_divine_extra and self.school_id:
+            raise ValidationError({"school": "Göttliche Zusatzzauber haben keine arkane Schule."})
+        if not self.is_base_spell and not self.is_divine_extra:
             if not self.school_id and not self.aspect_id:
                 raise ValidationError("A spell must belong to either a school or an aspect.")
             if self.school_id and self.aspect_id:

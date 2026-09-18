@@ -9,6 +9,7 @@ import math
 
 from django.db.models import F, Q
 from django.urls import reverse
+from django.utils.functional import SimpleLazyObject
 
 from charsheet.constants import (
     ALCHEMICAL_BREW_LEARNING_SLOT,
@@ -7684,11 +7685,6 @@ def _build_lesson_context(
                         for cost in group_costs
                         if cost.cost_type == LessonCost.CostType.EXPERIENCE
                     ),
-                    "ep_cost": sum(
-                        int(cost.value)
-                        for cost in group_costs
-                        if cost.cost_type == LessonCost.CostType.EXPERIENCE
-                    ),
                     "manual_costs": [
                         format_cost(cost)
                         for cost in group_costs
@@ -8033,7 +8029,6 @@ def _build_learning_rows(
             CharacterSpell.SourceKind.ARCANE_FREE,
             CharacterSpell.SourceKind.ARCANE_EXTRA,
             CharacterSpell.SourceKind.ARCANE_BONUS,
-            CharacterSpell.SourceKind.DIVINE_EXTRA,
             CharacterSpell.SourceKind.DIVINE_BONUS,
             CharacterSpell.SourceKind.DIVINE_ARCANE_GRANTED,
         ),
@@ -8201,7 +8196,7 @@ def _build_learning_rows(
         "learn_brew_tab_visible": almanac_enabled,
         "learn_brew_slot_total": almanac_slot_total,
         "learn_brew_slot_remaining": available_brew_slots,
-        "learn_magic_tab_visible": has_magic_schools,
+        "learn_magic_tab_visible": has_magic_schools or bool(magic_groups),
         "learn_magic_slot_summary": magic_slot_summary,
         "learn_magic_grade_filters": learn_magic_grade_filters,
         "learn_magic_source_filters": list(learn_magic_source_filter_map.values()),
@@ -9735,8 +9730,12 @@ def build_character_sheet_context(
         "size_class_mod": size_class_mod,
         "movement_ground": movement_ground,
         "language_rows": language_rows,
-        "shop_item_groups": _build_shop_item_groups(),
-        "shop_sell_item_groups": _build_shop_sell_item_groups(character),
+        # Sheet refreshes do not render the shop. Build its catalogs only when
+        # a template actually uses them, and keep the result for this context.
+        "shop_item_groups": SimpleLazyObject(_build_shop_item_groups),
+        "shop_sell_item_groups": SimpleLazyObject(
+            lambda: _build_shop_sell_item_groups(character)
+        ),
         "shop_quality_choices": shop_quality_choices,
         "shop_item_form_type_choices": [
             (item_type, dict(Item.ItemType.choices)[item_type])

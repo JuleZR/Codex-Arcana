@@ -278,19 +278,27 @@ export function initSpellPanel() {
     saveSpellPanelState({ filterInput, schoolFilters: activeSchoolFilters, groups });
   }
 
+  panel.querySelectorAll("[data-spell-card-trigger]").forEach((entry) => {
+    entry.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" && event.key !== " ") {
+        return;
+      }
+      const nestedInteractive = event.target instanceof Element
+        ? event.target.closest("button, a, input, select, textarea")
+        : null;
+      if (nestedInteractive && nestedInteractive !== entry) {
+        return;
+      }
+      event.preventDefault();
+      entry.click();
+    });
+  });
+
   panel.querySelectorAll("[data-cast-spell-trigger]").forEach((button) => {
     if (!(button instanceof HTMLButtonElement)) {
       return;
     }
-    button.addEventListener("pointerdown", (event) => {
-      if (event.button === 1) {
-        event.preventDefault();
-      }
-    });
-    button.addEventListener("auxclick", async (event) => {
-      if (event.button !== 1) {
-        return;
-      }
+    button.addEventListener("click", async (event) => {
       event.preventDefault();
       event.stopPropagation();
       const url = button.getAttribute("data-cast-url") || "";
@@ -304,11 +312,14 @@ export function initSpellPanel() {
         readInt(document.querySelector("#sheetDamagePanel .arcane_meter_current")?.textContent, 0),
       );
       saveSpellPanelState({ filterInput, schoolFilters: activeSchoolFilters, groups });
-      button.disabled = true;
+      const costButtons = panel.querySelectorAll("[data-cast-spell-trigger]");
+      costButtons.forEach((entry) => { entry.disabled = true; });
       const optimisticArcaneSnapshot = kpCost > 0
         ? renderOptimisticArcaneMeter(currentArcanePower - kpCost)
         : null;
       try {
+        const body = new URLSearchParams();
+        body.set("cost_type", button.dataset.spellCostType || "kp");
         const response = await fetch(url, {
           method: "POST",
           headers: {
@@ -317,6 +328,7 @@ export function initSpellPanel() {
             Accept: "application/json",
           },
           credentials: "same-origin",
+          body,
         });
         const payload = await response.json();
         if (!response.ok || !payload?.ok) {
@@ -331,7 +343,7 @@ export function initSpellPanel() {
         rollbackOptimisticArcaneMeter(optimisticArcaneSnapshot);
         window.alert("Zauber konnte nicht gewirkt werden.");
       } finally {
-        button.disabled = false;
+        costButtons.forEach((entry) => { entry.disabled = false; });
       }
     });
   });

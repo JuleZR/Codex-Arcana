@@ -4784,6 +4784,10 @@ class SpellAdminForm(forms.ModelForm):
 
     def clean(self):
         cleaned_data = super().clean()
+        if (cleaned_data.get("is_divine_extra")
+                and not cleaned_data.get("aspect")
+                and not cleaned_data.get("divine_entities")):
+            self.add_error("divine_entities", "Aspekt oder Glaubensbindung erforderlich.")
         kp_cost = cleaned_data.get("kp_cost")
         ep_cost = cleaned_data.get("ep_cost")
         kp_cost_label = str(cleaned_data.get("kp_cost_label") or "").strip()
@@ -7786,9 +7790,9 @@ class SpellAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
     form = SpellAdminForm
     list_display = ("name", "spell_owner", "spell_family", "grade", "panel_badge_label", "spell_attribute", "is_base_spell", "kp_cost")
     search_fields = ("name", "slug")
-    list_filter = ("school", "aspect", "grade", "is_base_spell", "spell_attribute")
+    list_filter = ("school", "aspect", "grade", "is_base_spell", "is_divine_extra", "spell_attribute")
     ordering = ("school__name", "aspect__name", "grade", "name")
-    autocomplete_fields = ("aspect", "spell_attribute")
+    autocomplete_fields = ("aspect", "spell_attribute", "divine_entities")
     list_select_related = ("school", "school__type", "aspect", "spell_attribute")
     exclude = ("attribute",)
     fieldsets = (
@@ -7797,6 +7801,7 @@ class SpellAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
             {
                 "fields": (
                     ("school", "aspect", "is_base_spell"),
+                    ("is_divine_extra", "divine_entities"),
                 ),
             },
         ),

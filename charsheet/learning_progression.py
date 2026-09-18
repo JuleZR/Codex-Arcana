@@ -305,9 +305,9 @@ def build_learning_magic_groups(
                     "kind": "magic_spell",
                     "cart_key": f"paid:{spell_id}",
                     "input_name": f"learn_magic_spell_{spell_id}",
-                    "source_label": "Zauber-Slot",
-                    "slot_cost": 1,
-                    "cost_label": "1 Slot",
+                    "source_label": "Göttlicher Zusatzzauber" if "learning_cost" in row else "Zauber-Slot",
+                    "slot_cost": row.get("slot_cost", 1),
+                    "cost_label": f"{row['learning_cost']} EP" if "learning_cost" in row else "1 Slot",
                 }
             )
         if group_rows:

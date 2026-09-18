@@ -1980,23 +1980,25 @@ def _reset_druid_cult_slot_progress(character: Character, cult_ids: list[int]) -
     aspect_ids.update(bonus_aspect_ids)
     if not aspect_ids:
         return 0
-    deleted_count, _ = CharacterSpell.objects.filter(
+    invalid_spells = CharacterSpell.objects.filter(
         character=character,
         source_kind__in=(
             CharacterSpell.SourceKind.DIVINE_EXTRA,
             CharacterSpell.SourceKind.DIVINE_BONUS,
         ),
         spell__aspect_id__in=list(aspect_ids),
-    ).delete()
+    )
+    released_slots = invalid_spells.filter(source_kind=CharacterSpell.SourceKind.DIVINE_BONUS).count()
+    deleted_count, _ = invalid_spells.delete()
     CharacterAspect.objects.filter(
         character=character,
         is_bonus_aspect=True,
         aspect_id__in=list(bonus_aspect_ids),
     ).delete()
-    if deleted_count:
+    if released_slots:
         character.spent_spell_learning_slots = max(
             0,
-            int(character.spent_spell_learning_slots or 0) - deleted_count,
+            int(character.spent_spell_learning_slots or 0) - released_slots,
         )
         character.save(update_fields=["spent_spell_learning_slots"])
     return int(deleted_count)
@@ -5639,16 +5641,24 @@ def adjust_current_arcane_power(request, character_id: int):
 @login_required
 @require_POST
 def cast_spell(request, character_id: int, spell_id: int):
-    """Cast one known spell and spend KP atomically via the magic engine."""
+    """Cast a known spell and atomically spend the selected KP or EP cost."""
     character = _owned_character_or_404(request, character_id)
     known_spell = get_object_or_404(
         CharacterSpell.objects.select_related("spell"),
         character=character,
         spell_id=spell_id,
     )
-    result = character.get_magic_engine(refresh=True).cast_spell(known_spell.spell_id)
+    result = character.get_magic_engine(refresh=True).cast_spell(
+        known_spell.spell_id, cost_type=request.POST.get("cost_type", "kp"),
+    )
     if not result.get("ok"):
-        status_code = 400 if result.get("error") in {"unknown_spell", "not_enough_kp", "spell_not_found"} else 409
+        invalid_request_errors = {
+            "unknown_spell", "not_enough_kp", "not_enough_ep",
+            "spell_not_found", "invalid_cost_selection",
+        }
+        status_code = (
+            400 if result.get("error") in invalid_request_errors else 409
+        )
         if _is_partial_request(request):
             return JsonResponse(result, status=status_code)
         messages.error(request, str(result.get("message") or "Zauber konnte nicht gewirkt werden."))
@@ -5658,7 +5668,7 @@ def cast_spell(request, character_id: int, spell_id: int):
         character.refresh_from_db()
         context = _build_sheet_context_for_request(request, character)
         partials = []
-        for key in ("damage_panel", "spell_panel"):
+        for key in ("damage_panel", "spell_panel", "experience_panel"):
             target_id, template_name = SHEET_PARTIAL_TEMPLATES[key]
             partials.append(
                 {
@@ -5668,7 +5678,13 @@ def cast_spell(request, character_id: int, spell_id: int):
             )
         return JsonResponse({**result, "partials": partials})
 
-    messages.success(request, f"{result['spell_name']} gewirkt ({result['spent_kp']} KP).")
+    cost_label = (
+        f"{result['spent_ep']} EP" if result.get("spent_ep")
+        else f"{result['spent_kp']} KP"
+    )
+    messages.success(
+        request, f"{result['spell_name']} gewirkt ({cost_label}).",
+    )
     return redirect("character_sheet", character_id=character_id)
 
 
