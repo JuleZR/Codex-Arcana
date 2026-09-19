@@ -53,6 +53,7 @@ from charsheet.constants import (
     WEAPON_MASTERY_EFFECT_DESCRIPTION,
 )
 from charsheet.engine import BattleCalculatorEngine, CharacterEngine, ItemEngine
+from charsheet.engine.character_carry import CARRY_ATTRIBUTES
 from charsheet.engine.creature_engine import CreatureEngine, sync_character_creatures
 from charsheet.modifiers.targets import TargetResolver
 from charsheet.item_transfers import has_item_permission, item_is_pending, pending_transfer_for_item
@@ -4163,12 +4164,12 @@ def _build_combined_load_tooltip(engine, carry_state: dict[str, object], *, carr
     armor_load = sum(int(row["bel_effective"] or 0) for row in engine.equipped_armor_rows())
     shield_load = sum(int(row["bel_effective"] or 0) for row in engine.equipped_shield_rows())
     total_raw_load = armor_load + shield_load
-    carry_penalty = int(carry_state["penalty"]) if carry_enabled else 0
+    carry_penalty = engine.carry_penalty("load") if carry_enabled else 0
     total_penalty = int(engine.load_penalty()) + carry_penalty
     rows: list[dict[str, object]] = [
         {"label": "Rüstungen", "value": armor_load},
         {"label": "Schilde", "value": shield_load},
-        {"label": "Traglast", "value": format_modifier(carry_penalty), "source": str(carry_state["state_label"])},
+        *([{"label": "Traglast", "value": format_modifier(carry_penalty), "source": str(carry_state["state_label"])}] if carry_penalty else []),
     ]
     if engine.resolve_flags().get(ARMOR_PENALTY_IGNORE, False) and total_raw_load:
         rows.append(_build_rule_flag_tooltip_row(engine, ARMOR_PENALTY_IGNORE, format_modifier(-total_raw_load)))
@@ -5200,6 +5201,7 @@ def _build_skill_rows(
         else:
             specification = ((character_skill.specification if character_skill is not None else "*") or "").strip()
         raw_modifiers = int(engine._skill_modifiers(skill.slug, specification=specification))
+        skill_carry_penalty = engine.skill_carry_penalty(skill.slug)
         base_rank = int(character_skill.level) if character_skill is not None else 0
         rank_bonus = int(engine.skill_rank_bonus(skill.slug, specification=specification))
         rank = base_rank + rank_bonus
@@ -5235,11 +5237,11 @@ def _build_skill_rows(
             "rank_value": rank,
             "base_rank_value": base_rank,
             "rank_bonus_value": rank_bonus,
-            "misc_mod": format_modifier(raw_modifiers - load_penalty),
-            "misc_mod_value": raw_modifiers - load_penalty,
+            "misc_mod": format_modifier(raw_modifiers - load_penalty - skill_carry_penalty),
+            "misc_mod_value": raw_modifiers - load_penalty - skill_carry_penalty,
             "size_mod_value": size_modifier,
-            "total": total_with_load - load_penalty,
-            "total_value": total_with_load - load_penalty,
+            "total": total_with_load - load_penalty - skill_carry_penalty,
+            "total_value": total_with_load - load_penalty - skill_carry_penalty,
             "with_load_total": total_with_load,
             "with_load_total_value": total_with_load,
             "calculation_tooltip": _build_core_stat_tooltip(
@@ -5269,6 +5271,10 @@ def _build_skill_rows(
                         specification=specification,
                     ),
                     {"label": "Belastung", "value": format_modifier(load_penalty)},
+                    *(
+                        [{"label": "Traglast", "value": format_modifier(skill_carry_penalty)}]
+                        if skill_carry_penalty else []
+                    ),
                     {"label": "= Gesamt", "value": total_with_load, "tone": "total"},
                 ],
                 conditional_modifiers=conditional_modifiers,
@@ -5690,6 +5696,13 @@ def _build_skill_rows(
             }
         )
 
+    for row in skill_rows:
+        if "with_load_total_value" not in row:
+            continue
+        row["carry_affected"] = row.get("attribute") in CARRY_ATTRIBUTES
+        row["carry_base_value"] = int(row["with_load_total_value"]) - (
+            engine.carry_penalty("skill", attribute=row.get("attribute"))
+        )
     return skill_rows, character_skills, skill_manager_rows
 
 
@@ -8228,28 +8241,14 @@ def build_temporary_attribute_context(
 
     load_penalty = engine.load_penalty()
     carry_state = ItemEngine.carry_state_for_character(character)
-    carry_penalty = int(carry_state["penalty"])
+    carry_penalty = engine.carry_penalty("load")
     skill_rows, _character_skills, skill_manager_rows = _build_skill_rows(
         character,
         engine,
         load_penalty=load_penalty,
     )
-    for row in skill_rows:
-        if "with_load_total_value" not in row:
-            continue
-        base_with_load_total = int(row.get("with_load_total_value", 0) or 0)
-        row["carry_with_load_total_value"] = base_with_load_total + carry_penalty
-        row["carry_with_load_total"] = base_with_load_total + carry_penalty
 
     weapon_rows = _build_weapon_rows(engine)
-    for row in weapon_rows:
-        row["carry_with_bel_value"] = int(row.get("with_bel_value", 0) or 0) + carry_penalty
-        row["carry_with_bel_display"] = format_modifier(int(row["carry_with_bel_value"]))
-        row["carry_calculation_tooltip"] = _build_weapon_calculation_tooltip(
-            engine,
-            row,
-            extra_load_penalty=carry_penalty,
-        )
     battle_calculator_payload = BattleCalculatorEngine.build_payload(engine, skill_rows, weapon_rows)
 
     initiative_value = engine.calculate_initiative()
@@ -8384,20 +8383,24 @@ def build_temporary_attribute_context(
         "weapon_rows": weapon_rows,
         "battle_calculator_payload": battle_calculator_payload,
         "core_stats": {
-            "load_value": load_penalty,
-            "load_tooltip": _build_load_tooltip(engine),
+            "load_value": load_penalty + engine.carry_penalty("load"),
+            "load_carry_base": load_penalty,
+            "load_tooltip": _build_combined_load_tooltip(engine, carry_state, carry_enabled=character.carry_load_enabled),
             "load_value_with_carry": load_penalty + carry_penalty,
             "load_tooltip_with_carry": _build_combined_load_tooltip(engine, carry_state, carry_enabled=True),
-            "initiative_display": format_modifier(initiative_value),
+            "initiative_display": format_modifier(initiative_value - carry_penalty),
             "initiative_with_load_display": format_modifier(initiative_value + load_penalty),
             "initiative_with_load_value": initiative_value + load_penalty,
+            "initiative_carry_base": (
+                initiative_value + load_penalty - carry_penalty
+            ),
             "initiative_condition_badge": _build_core_stat_condition_badge(engine, INITIATIVE),
             "initiative_tooltip": _build_core_stat_tooltip(
                 [
                     {"label": "WA-Bonus/Malus", "value": format_modifier(initiative_wa_mod)},
                     {"label": "Wundmalus", "value": format_modifier(initiative_wound_penalty)},
                     *_build_modifier_breakdown_rows(engine, INITIATIVE),
-                    {"label": "= Gesamt", "value": format_modifier(initiative_value), "tone": "total"},
+                    {"label": "= Gesamt", "value": format_modifier(initiative_value - carry_penalty), "tone": "total"},
                 ],
                 conditional_modifiers=_conditional_core_stat_modifiers(engine, INITIATIVE),
             ),
@@ -8406,6 +8409,7 @@ def build_temporary_attribute_context(
                     {"label": "WA-Bonus/Malus", "value": format_modifier(initiative_wa_mod)},
                     {"label": "Wundmalus", "value": format_modifier(initiative_wound_penalty)},
                     *_build_modifier_breakdown_rows(engine, INITIATIVE),
+                    *([{"label": "Traglast", "value": format_modifier(carry_penalty)}] if carry_penalty else []),
                     {"label": "Belastung", "value": format_modifier(load_penalty)},
                     {"label": "= Gesamt", "value": format_modifier(initiative_value + load_penalty), "tone": "total"},
                 ],
@@ -8417,8 +8421,8 @@ def build_temporary_attribute_context(
                     {"label": "Wundmalus", "value": format_modifier(initiative_wound_penalty)},
                     *_build_modifier_breakdown_rows(engine, INITIATIVE),
                     {"label": "Rüstungsbelastung", "value": format_modifier(load_penalty)},
-                    {"label": "Traglast", "value": format_modifier(carry_penalty), "source": str(carry_state["state_label"])},
-                    {"label": "= Gesamt", "value": format_modifier(initiative_value + load_penalty + carry_penalty), "tone": "total"},
+                    *([{"label": "Traglast", "value": format_modifier(carry_penalty), "source": str(carry_state["state_label"])}] if carry_penalty else []),
+                    {"label": "= Gesamt", "value": format_modifier(initiative_value + load_penalty), "tone": "total"},
                 ],
                 conditional_modifiers=_conditional_core_stat_modifiers(engine, INITIATIVE),
             ),
@@ -8512,7 +8516,7 @@ def build_item_semantic_effect_partial_context(
     context = build_temporary_attribute_context(character, read_only=read_only)
     engine = character.engine
     carry_state = ItemEngine.carry_state_for_character(character)
-    carry_penalty = int(carry_state["penalty"])
+    carry_penalty = engine.carry_penalty("load")
     load_penalty = engine.load_penalty()
 
     if "movement_panel" in partial_key_set:
@@ -8644,14 +8648,15 @@ def build_item_semantic_effect_partial_context(
 
     if "armor_panel" in partial_key_set:
         armor_zone_protection = engine.armor_zone_protection()
-        load_tooltip = _build_load_tooltip(engine)
+        load_tooltip = _build_combined_load_tooltip(engine, carry_state, carry_enabled=character.carry_load_enabled)
         context.update(
             {
                 "armor_rows": _build_armor_rows(engine),
                 "armor_summary": {
                     "total_rs": engine.get_grs(),
                     "total_rs_tooltip": _build_total_armor_tooltip(engine),
-                    "load_value": load_penalty,
+                    "load_value": load_penalty + engine.carry_penalty("load"),
+                    "load_carry_base": load_penalty,
                     "load_tooltip": load_tooltip,
                     "minimum_strength": engine.get_ms(),
                     "minimum_strength_tooltip": _build_minimum_strength_tooltip(engine),
@@ -8699,7 +8704,7 @@ def build_item_semantic_effect_partial_context(
 
 
 def _build_movement_ground(engine, race) -> dict[str, str]:
-    movement_profile = engine.resolve_movement()
+    movement_profile = engine.resolve_movement(include_carry=False)
 
     def _resolve_movement_value(base_value, target_key):
         if target_key in movement_profile.overrides:
@@ -8753,7 +8758,19 @@ def _build_movement_ground(engine, race) -> dict[str, str]:
         "march": "-" if ground_march is None else format_compact_number(ground_march),
         "sprint": "-" if ground_sprint is None else format_compact_number(ground_sprint),
         "swim": swim_value,
-        "fly": fly_value,
+        "fly": (
+            "-" if race.can_fly and engine.natural_flight_blocked_by_load()
+            else fly_value
+        ),
+        "fly_base": fly_value,
+        "natural_flight": bool(race.can_fly),
+        "armor_penalty": engine.load_penalty(),
+        "fly_tooltip": (
+            "Natürlicher Flug nicht verfügbar: Rüstungs-/Schildbehinderung "
+            f"{engine.load_penalty():+d}, Traglast {engine.carry_penalty("load"):+d} "
+            "(Gesamtbelastung mindestens -4)."
+            if race.can_fly and engine.natural_flight_blocked_by_load() else ""
+        ),
     }
 
 
@@ -8862,32 +8879,18 @@ def build_character_sheet_context(
     ]
     load_penalty = engine.load_penalty()
     carry_state = ItemEngine.carry_state_for_character(character)
-    carry_penalty = int(carry_state["penalty"])
+    carry_penalty = engine.carry_penalty("load")
     skill_rows, character_skills, skill_manager_rows = _build_skill_rows(
         character,
         engine,
         load_penalty=load_penalty,
     )
-    for row in skill_rows:
-        if "with_load_total_value" not in row:
-            continue
-        base_with_load_total = int(row.get("with_load_total_value", 0) or 0)
-        row["carry_with_load_total_value"] = base_with_load_total + carry_penalty
-        row["carry_with_load_total"] = base_with_load_total + carry_penalty
     advantage_rows, disadvantage_rows = _build_trait_rows(character)
     inventory_rows = _build_inventory_rows(character, sl_effect_group_id=sl_effect_group_id)
     carried_inventory_rows = [row for row in inventory_rows if not row.get("is_stored")]
     stored_inventory_rows = [row for row in inventory_rows if row.get("is_stored")]
     inventory_total_weight_display = _build_inventory_total_weight_display(character)
     weapon_rows = _build_weapon_rows(engine, sl_effect_group_id=sl_effect_group_id)
-    for row in weapon_rows:
-        row["carry_with_bel_value"] = int(row.get("with_bel_value", 0) or 0) + carry_penalty
-        row["carry_with_bel_display"] = format_modifier(int(row["carry_with_bel_value"]))
-        row["carry_calculation_tooltip"] = _build_weapon_calculation_tooltip(
-            engine,
-            row,
-            extra_load_penalty=carry_penalty,
-        )
     battle_calculator_payload = BattleCalculatorEngine.build_payload(engine, skill_rows, weapon_rows)
     armor_rows = _build_armor_rows(engine, sl_effect_group_id=sl_effect_group_id)
     armor_zone_protection = engine.armor_zone_protection()
@@ -9299,7 +9302,7 @@ def build_character_sheet_context(
             shaman_card_aspect_options = list(shaman_patron.aspects.all().order_by("name", "id"))
         elif shaman_card_editable and shaman_patron.aspect_selection_mode == "free":
             shaman_card_aspect_options = list(Aspect.objects.all().order_by("name", "id"))
-    load_tooltip = _build_load_tooltip(engine)
+    load_tooltip = _build_combined_load_tooltip(engine, carry_state, carry_enabled=character.carry_load_enabled)
     load_tooltip_with_carry = _build_combined_load_tooltip(engine, carry_state, carry_enabled=True)
     total_armor_tooltip = _build_total_armor_tooltip(engine)
     minimum_strength_tooltip = _build_minimum_strength_tooltip(engine)
@@ -9575,21 +9578,25 @@ def build_character_sheet_context(
         "school_technique_groups": school_technique_groups,
         "alchemist_almanac": alchemist_almanac,
         "core_stats": {
-            "load_value": load_penalty,
+            "load_value": load_penalty + engine.carry_penalty("load"),
+            "load_carry_base": load_penalty,
             "load_tooltip": load_tooltip,
             "load_value_with_carry": load_penalty + carry_penalty,
             "load_tooltip_with_carry": load_tooltip_with_carry,
-            "initiative_display": format_modifier(initiative_value),
+            "initiative_display": format_modifier(initiative_value - carry_penalty),
             "initiative_with_load_display": format_modifier(initiative_value + load_penalty),
             "initiative_with_load_value": initiative_value + load_penalty,
-            "initiative_with_load_display_with_carry": format_modifier(initiative_value + load_penalty + carry_penalty),
+            "initiative_carry_base": (
+                initiative_value + load_penalty - carry_penalty
+            ),
+            "initiative_with_load_display_with_carry": format_modifier(initiative_value + load_penalty),
             "initiative_condition_badge": _build_core_stat_condition_badge(engine, INITIATIVE),
             "initiative_tooltip": _build_core_stat_tooltip(
                 [
                     {"label": "WA-Bonus/Malus", "value": format_modifier(initiative_wa_mod)},
                     {"label": "Wundmalus", "value": format_modifier(initiative_wound_penalty)},
                     *_build_modifier_breakdown_rows(engine, INITIATIVE),
-                    {"label": "= Gesamt", "value": format_modifier(initiative_value), "tone": "total"},
+                    {"label": "= Gesamt", "value": format_modifier(initiative_value - carry_penalty), "tone": "total"},
                 ],
                 conditional_modifiers=_conditional_core_stat_modifiers(engine, INITIATIVE),
             ),
@@ -9598,6 +9605,7 @@ def build_character_sheet_context(
                     {"label": "WA-Bonus/Malus", "value": format_modifier(initiative_wa_mod)},
                     {"label": "Wundmalus", "value": format_modifier(initiative_wound_penalty)},
                     *_build_modifier_breakdown_rows(engine, INITIATIVE),
+                    *([{"label": "Traglast", "value": format_modifier(carry_penalty)}] if carry_penalty else []),
                     {"label": "Belastung", "value": format_modifier(load_penalty)},
                     {"label": "= Gesamt", "value": format_modifier(initiative_value + load_penalty), "tone": "total"},
                 ],
@@ -9609,10 +9617,10 @@ def build_character_sheet_context(
                     {"label": "Wundmalus", "value": format_modifier(initiative_wound_penalty)},
                     *_build_modifier_breakdown_rows(engine, INITIATIVE),
                     {"label": "Rüstungsbelastung", "value": format_modifier(load_penalty)},
-                    {"label": "Traglast", "value": format_modifier(carry_penalty), "source": str(carry_state["state_label"])},
+                    *([{"label": "Traglast", "value": format_modifier(carry_penalty), "source": str(carry_state["state_label"])}] if carry_penalty else []),
                     {
                         "label": "= Gesamt",
-                        "value": format_modifier(initiative_value + load_penalty + carry_penalty),
+                        "value": format_modifier(initiative_value + load_penalty),
                         "tone": "total",
                     },
                 ],
@@ -9690,7 +9698,7 @@ def build_character_sheet_context(
         "armor_summary": {
             "total_rs": engine.get_grs(),
             "total_rs_tooltip": total_armor_tooltip,
-            "load_value": load_penalty,
+            "load_value": load_penalty + engine.carry_penalty("load"),
             "load_tooltip": load_tooltip,
             "minimum_strength": engine.get_ms(),
             "minimum_strength_tooltip": minimum_strength_tooltip,

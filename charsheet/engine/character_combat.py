@@ -47,7 +47,12 @@ def auto_lesson_fame_points(engine) -> int:
 
 def calculate_initiative(engine) -> int:
     """Calculate the character's initiative value."""
-    return engine.attribute_modifier(ATTR_WA) + engine.current_wound_penalty() + engine._resolve_stat_modifiers(INITIATIVE)
+    return (
+        engine.attribute_modifier(ATTR_WA)
+        + engine.current_wound_penalty()
+        + engine._resolve_stat_modifiers(INITIATIVE)
+        + engine.carry_penalty("initiative")
+    )
 
 
 def calculate_arcane_power(engine) -> int:

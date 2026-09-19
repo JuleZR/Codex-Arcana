@@ -5,7 +5,7 @@
     <span>{{ movement_ground.march }}</span>
     <span>{{ movement_ground.sprint }}</span>
     <span>{{ movement_ground.swim }}</span>
-    <span>{{ movement_ground.fly }}</span>
+    <span class="tooltip_target" data-tooltip="{{ movement_ground.fly_tooltip }}" data-carry-flight data-base-flight="{{ movement_ground.fly_base }}" data-natural-flight="{% if movement_ground.natural_flight %}1{% else %}0{% endif %}" data-armor-penalty="{{ movement_ground.armor_penalty }}">{{ movement_ground.fly }}</span>
   </div>
   <div class="move_labels">
     <span class="move_spacer" aria-hidden="true"></span>

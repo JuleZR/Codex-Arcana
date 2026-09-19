@@ -1396,6 +1396,7 @@ class MagicEngine:
             if not result["ok"]:
                 return result
             spell_obj = result["spell"]
+            roll_load_penalty = engine.spell_roll_load_penalty()
             if cost_type == "ep":
                 spent_ep = int(spell_obj.ep_cost)
                 character.current_experience -= spent_ep
@@ -1404,6 +1405,7 @@ class MagicEngine:
                     "ok": True,
                     "spell_id": spell_obj.id,
                     "spell_name": spell_obj.name,
+                    "roll_load_penalty": roll_load_penalty,
                     "spent_kp": 0,
                     "spent_ep": spent_ep,
                 }
@@ -1432,6 +1434,7 @@ class MagicEngine:
                 "ok": True,
                 "spell_id": spell_obj.id,
                 "spell_name": spell_obj.name,
+                "roll_load_penalty": roll_load_penalty,
                 "current_arcane_power": current_arcane_power,
                 "current_arcane_power_max": display_arcane_power_max,
                 "spent_kp": spent_kp,
@@ -1439,7 +1442,15 @@ class MagicEngine:
                 "resource_type": normalized_arcane_power.get("resource_type", "arcane_power"),
             }
 
+    def spell_roll_load_penalty(self) -> int:
+        """Return armor and optional carrying penalties for all spells."""
+        engine = self.character.get_engine()
+        return engine.load_penalty() + engine.carry_penalty("spell")
+
     def get_spell_panel_data(self) -> dict[str, object]:
+        character_engine = self.character.get_engine()
+        armor_penalty = character_engine.load_penalty()
+        carry_penalty = character_engine.carry_penalty("spell")
         known_entries = self.get_known_spells()
         school_entries = self._school_entries()
         arcane_school_levels = {
@@ -1525,6 +1536,19 @@ class MagicEngine:
         for rows in grouped_rows.values():
             for row in rows:
                 spell = row["_spell_obj"]
+                row["roll_load_penalty"] = armor_penalty + carry_penalty
+                row["roll_load_base"] = armor_penalty
+                load_rows = [
+                    "", "### Belastung auf Zauberwürfe",
+                    "| Quelle | Malus |", "| --- | --- |",
+                    f"| Rüstung/Schild | {armor_penalty:+d} |",
+                ]
+                if carry_penalty:
+                    load_rows.append(f"| Traglast | {carry_penalty:+d} |")
+                load_rows.append(
+                    f"| **= Gesamt** | `**{row['roll_load_penalty']:+d}**` |"
+                )
+                row["tooltip_text"] += "\n".join(load_rows)
                 row["cost_groups"] = [
                     {
                         "type": "kp",

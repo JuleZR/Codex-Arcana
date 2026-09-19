@@ -10,8 +10,9 @@
         class="core_value tooltip_target{% if core_stats.initiative_condition_badge.visible %} has_conditional_modifiers{% endif %}"
         data-tooltip-side="right"
         data-tooltip="{{ core_stats.initiative_with_load_tooltip }}"
-        data-carry-initiative-display
         data-format="modifier"
+        data-carry-value
+        data-carry-base="{{ core_stats.initiative_carry_base }}"
         data-base-value="{{ core_stats.initiative_with_load_value }}"
         data-tooltip-off="{{ core_stats.initiative_with_load_tooltip }}"
         data-tooltip-on="{{ core_stats.initiative_with_load_tooltip_with_carry }}"

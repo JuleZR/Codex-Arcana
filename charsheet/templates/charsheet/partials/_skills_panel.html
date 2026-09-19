@@ -45,9 +45,9 @@
                 class="bel_dot tooltip_target{% if row.has_conditional_modifiers %} has_conditional_modifiers{% endif %}"
                 data-tooltip-side="left"
                 data-tooltip="{{ row.calculation_tooltip }}"
-                data-carry-skill-loaded-total
-                data-base-value="{{ row.with_load_total }}"
-                data-carry-value="{{ row.carry_with_load_total }}"
+                data-carry-value
+                data-carry-base="{{ row.carry_base_value }}"
+                data-carry-affected="{% if row.carry_affected %}1{% else %}0{% endif %}"
               >{{ row.with_load_total }}</span>
             {% else %}
               {{ row.with_load_total }}

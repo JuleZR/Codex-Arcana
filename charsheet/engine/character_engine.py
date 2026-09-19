@@ -11,6 +11,7 @@ from django.db.models import Model, Prefetch, Q
 
 from . import character_combat, character_equipment, character_learning, character_progression
 from .item_engine import ItemEngine
+from . import character_carry
 from charsheet.constants import ATTR_SPEC, GK_AVERAGE, GK_MODS, infer_weapon_type
 from charsheet.modifiers import ModifierEngine, ModifierResolutionMode, TargetDomain
 from charsheet.models import (
@@ -758,6 +759,11 @@ class CharacterEngine:
     get_grs = character_equipment.get_grs
     get_bel = character_equipment.get_bel
     load_penalty = character_equipment.load_penalty
+    carry_penalty = character_carry.carry_penalty
+    skill_carry_penalty = character_carry.skill_carry_penalty
+    natural_flight_blocked_by_load = (
+        character_carry.natural_flight_blocked_by_load
+    )
     get_ms = character_equipment.get_ms
     get_dmg_modifier_sum = character_equipment.get_dmg_modifier_sum
     km_to_coins = character_equipment.km_to_coins
@@ -956,9 +962,18 @@ class CharacterEngine:
         """Resolve resistance and immunity state through the central modifier engine."""
         return self.modifier_engine.resolve_resistances(context=context)
 
-    def resolve_movement(self, context: dict | None = None):
+    def resolve_movement(
+        self, context: dict | None = None, *, include_carry=True,
+    ):
         """Resolve movement profile through the central modifier engine."""
-        return self.modifier_engine.resolve_movement(context=context)
+        profile = self.modifier_engine.resolve_movement(context=context)
+        if (
+            include_carry
+            and self.character.race.can_fly
+            and self.natural_flight_blocked_by_load()
+        ):
+            profile.blocked_modes.add("fly")
+        return profile
 
     def resolve_combat_profile(self, context: dict | None = None):
         """Resolve combat profile through the central modifier engine."""
@@ -1221,7 +1236,9 @@ class CharacterEngine:
             "activation": activation,
         }
 
-    def _skill_modifiers(self, skill_slug: str, *, specification: str | None = None) -> int:
+    def _skill_modifiers(
+        self, skill_slug: str, *, specification: str | None = None,
+    ) -> int:
         """Resolve wound, armor, direct skill, and category modifiers."""
         info = self.skills().get(skill_slug)
         skill_definition = self._skill_definitions_by_slug.get(skill_slug)
@@ -1235,6 +1252,7 @@ class CharacterEngine:
         modifier_parts = [
             self.current_wound_penalty(),
             self.load_penalty(),
+            self.skill_carry_penalty(skill_slug),
             self.modifier_total_for_skill(skill_slug, specification=specification),
         ]
         if category_slug:

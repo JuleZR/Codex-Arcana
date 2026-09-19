@@ -99,6 +99,9 @@
                   data-tooltip-accent="{{ row.owner_accent|default:'#b98f56' }}"
                   data-tooltip-persist-id="spell:{{ row.spell_id }}"
                   data-tooltip="{{ row.tooltip_text|default:row.description|default:'Keine Beschreibung' }}"
+                  data-carry-value
+                  data-carry-tooltip-only
+                  data-carry-base="{{ row.roll_load_base }}"
                   aria-label="Details zu {{ row.name }} anzeigen"
                 >
                   <span class="spell_cast_name">{{ row.name }}</span>

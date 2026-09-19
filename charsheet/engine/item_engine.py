@@ -3,6 +3,7 @@
 from decimal import Decimal, ROUND_HALF_UP
 
 from django.core.exceptions import ObjectDoesNotExist
+from django.db.models import Q
 
 from charsheet.constants import (
     ATTR_GE,
@@ -255,7 +256,8 @@ class ItemEngine:
         """Return the effective display name."""
         item = self._get_item()
         original_name = str(item.name)
-        custom_name = str(self._get_override_value("name_override", original_name)).strip()
+        custom_name = str(self._get_override_value(
+            "name_override", original_name)).strip()
         if (
             isinstance(self.obj, CharacterItem)
             and item.item_type == Item.ItemType.CREATURE
@@ -365,12 +367,14 @@ class ItemEngine:
         """Return short/medium/long range values, optionally resolved through modifiers."""
         ranged_stats = self._get_ranged_weapon_stats()
         if ranged_stats is not None:
-            values = self._effective_range_values_for_stats(ranged_stats, strength=strength)
+            values = self._effective_range_values_for_stats(
+                ranged_stats, strength=strength)
             return self._apply_weapon_range_modifiers(values, modifier_engine=modifier_engine, context=context)
         stats = self._get_weapon_stats()
         if not stats:
             return None
-        values = self._effective_range_values_for_stats(stats, strength=strength)
+        values = self._effective_range_values_for_stats(
+            stats, strength=strength)
         if values is None:
             return None
         return self._apply_weapon_range_modifiers(values, modifier_engine=modifier_engine, context=context)
@@ -415,7 +419,8 @@ class ItemEngine:
         if modifier_engine is None:
             return values
         return tuple(
-            modifier_engine.resolve_weapon_range_value(range_key, value, context=context)
+            modifier_engine.resolve_weapon_range_value(
+                range_key, value, context=context)
             for range_key, value in zip(WEAPON_RANGE_KEYS, values)
         )
 
@@ -444,7 +449,8 @@ class ItemEngine:
         stats = self._get_offensive_stats()
         if not stats:
             return ""
-        weapon_type = self._get_override_value("weapon_type_override", getattr(stats, "weapon_type", None))
+        weapon_type = self._get_override_value(
+            "weapon_type_override", getattr(stats, "weapon_type", None))
         return str(getattr(weapon_type, "slug", "") or "")
 
     def get_weapon_maneuver_attribute_mode(self) -> str:
@@ -568,17 +574,20 @@ class ItemEngine:
             raise ValueError("Invalid wield_mode")
 
         quality_bonus = self.get_weapon_damage_quality_bonus()
-        base_bonus = int(self._get_override_value("weapon_damage_flat_bonus_override", stats.damage_flat_bonus or 0))
+        base_bonus = int(self._get_override_value(
+            "weapon_damage_flat_bonus_override", stats.damage_flat_bonus or 0))
         base_adjusted_bonus, base_adjusted_operator = self._apply_quality_to_damage_bonus(
             base_bonus,
-            str(self._get_override_value("weapon_damage_flat_operator_override", stats.damage_flat_operator)),
+            str(self._get_override_value(
+                "weapon_damage_flat_operator_override", stats.damage_flat_operator)),
             quality_bonus,
         )
         base = (
             max(1, int(self._get_override_value(
                 "weapon_damage_dice_amount_override",
                 stats.damage_dice_amount)) + int(dice_amount_bonus or 0)),
-            int(self._get_override_value("weapon_damage_dice_faces_override", stats.damage_dice_faces)),
+            int(self._get_override_value(
+                "weapon_damage_dice_faces_override", stats.damage_dice_faces)),
             base_adjusted_bonus,
             base_adjusted_operator,
             self.get_weapon_damage_type(),
@@ -591,19 +600,23 @@ class ItemEngine:
                 return None
             raise ValueError("Invalid wield_mode")
 
-        h2_bonus = int(self._get_override_value("weapon_h2_flat_bonus_override", stats.h2_flat_bonus or 0))
+        h2_bonus = int(self._get_override_value(
+            "weapon_h2_flat_bonus_override", stats.h2_flat_bonus or 0))
         h2_adjusted_bonus, h2_adjusted_operator = self._apply_quality_to_damage_bonus(
             h2_bonus,
-            str(self._get_override_value("weapon_h2_flat_operator_override", stats.h2_flat_operator)),
+            str(self._get_override_value(
+                "weapon_h2_flat_operator_override", stats.h2_flat_operator)),
             quality_bonus,
         )
         two_handed = (
             (
-                max(1, int(self._get_override_value("weapon_h2_dice_amount_override", stats.h2_dice_amount)) + int(dice_amount_bonus or 0))
+                max(1, int(self._get_override_value("weapon_h2_dice_amount_override",
+                    stats.h2_dice_amount)) + int(dice_amount_bonus or 0))
                 if self._get_override_value("weapon_h2_dice_amount_override", stats.h2_dice_amount) is not None
                 else None
             ),
-            self._get_override_value("weapon_h2_dice_faces_override", stats.h2_dice_faces),
+            self._get_override_value(
+                "weapon_h2_dice_faces_override", stats.h2_dice_faces),
             h2_adjusted_bonus,
             h2_adjusted_operator,
             self.get_weapon_h2_damage_type(),
@@ -641,7 +654,8 @@ class ItemEngine:
             elif upper:
                 label = str(upper)
         else:
-            label = WeaponStats.format_damage_label(dice_amount, dice_faces, flat_bonus, operator)
+            label = WeaponStats.format_damage_label(
+                dice_amount, dice_faces, flat_bonus, operator)
         if damage_label:
             label = f"{damage_label} {label}"
         return f"{label} {damage_type}".strip()
@@ -652,7 +666,8 @@ class ItemEngine:
 
     def get_two_handed_damage_label(self, *, dice_amount_bonus: int = 0) -> str | None:
         """Return two-handed damage label including quality modifier."""
-        two_handed = self.get_weapon_damage(TWO_HANDED, dice_amount_bonus=dice_amount_bonus)
+        two_handed = self.get_weapon_damage(
+            TWO_HANDED, dice_amount_bonus=dice_amount_bonus)
         if not two_handed:
             return None
         return self.format_damage(two_handed)
@@ -693,7 +708,8 @@ class ItemEngine:
         stats = self._get_armor_stats()
         if not stats:
             return None
-        rs_value = int(self._get_override_value("armor_rs_total_override", stats.rs))
+        rs_value = int(self._get_override_value(
+            "armor_rs_total_override", stats.rs))
         return max(0, rs_value + self.get_armor_rs_quality_bonus())
 
     def get_armor_rs_quality_bonus(self) -> int:
@@ -708,7 +724,8 @@ class ItemEngine:
         if not stats:
             return None
 
-        rs_value = int(self._get_override_value("armor_rs_total_override", stats.rs))
+        rs_value = int(self._get_override_value(
+            "armor_rs_total_override", stats.rs))
         quality_bonus = self.get_armor_rs_quality_bonus()
         base_zone_overrides = dict(stats.zone_rs_overrides or {})
         character_item = self._get_character_item()
@@ -762,13 +779,16 @@ class ItemEngine:
         if len(main_zones) <= 1:
             return zone_values
 
-        target_sum = int(self._get_override_value("armor_rs_total_override", stats.rs)) * len(stats.MAIN_ZONE_FIELDS)
-        current_sum = sum(int(zone_values.get(zone, 0) or 0) for zone in main_zones)
+        target_sum = int(self._get_override_value(
+            "armor_rs_total_override", stats.rs)) * len(stats.MAIN_ZONE_FIELDS)
+        current_sum = sum(int(zone_values.get(zone, 0) or 0)
+                          for zone in main_zones)
         if current_sum >= target_sum:
             return zone_values
 
         adjusted = dict(zone_values)
-        adjusted[main_zones[-1]] = int(adjusted.get(main_zones[-1], 0) or 0) + (target_sum - current_sum)
+        adjusted[main_zones[-1]] = int(adjusted.get(main_zones[-1], 0)
+                                       or 0) + (target_sum - current_sum)
         return adjusted
 
     def get_armor_min_st(self) -> int | None:
@@ -859,7 +879,8 @@ class ItemEngine:
             return ""
         if isinstance(stats, RangedWeaponStats):
             return ""
-        damage_source = self._get_override_value("weapon_damage_source_override", getattr(stats, "damage_source", None))
+        damage_source = self._get_override_value(
+            "weapon_damage_source_override", getattr(stats, "damage_source", None))
         return str(getattr(damage_source, "slug", "") or "")
 
     def get_weapon_damage_type(self) -> str:
@@ -917,40 +938,43 @@ class ItemEngine:
 
     @classmethod
     def active_inventory_weight_for_character(cls, character) -> Decimal:
-        """Return the weight of all non-stored items, including equipped ones."""
-        return cls.total_weight_for_character(
-            character,
-            include_stored=False,
-            include_equipped=True,
+        """Return carried weight excluding worn armor, shields and clothing."""
+        worn_equipment = Q(
+            item__item_type__in=(
+                *Item.armor_item_type_values(),
+                Item.ItemType.SHIELD,
+                Item.ItemType.CLOTHING,
+            )
+        ) | Q(item__armorstats__isnull=False)
+        character_items = (
+            CharacterItem.objects.filter(owner=character, stored=False)
+            .exclude(transfers__status="pending")
+            .exclude(Q(equipped=True) & worn_equipment)
+            .select_related("item")
+            .distinct()
+        )
+        return sum(
+            (cls(character_item).get_weight()
+             for character_item in character_items),
+            Decimal("0"),
         )
 
     @classmethod
     def carry_penalty_for_character(cls, character) -> int:
-        """Return the signed carrying penalty derived from active inventory weight."""
-        strength = int(character.get_engine().attributes().get(ATTR_ST, 0) or 0)
-        carried_weight = cls.active_inventory_weight_for_character(character)
-        if strength <= 0:
-            return -8 if carried_weight > 0 else 0
-
-        threshold_light = Decimal(strength * 2)
-        threshold_medium = Decimal(strength * 3)
-        threshold_heavy = Decimal(strength * 6)
-        threshold_overloaded = Decimal(strength * 8)
-
-        if carried_weight >= threshold_overloaded:
-            return -8
-        if carried_weight >= threshold_heavy:
-            return -4
-        if carried_weight >= threshold_medium:
-            return -2
-        if carried_weight >= threshold_light:
-            return -1
-        return 0
+        """Return the optional signed carrying penalty."""
+        if not character.carry_load_enabled:
+            return 0
+        return int(cls.carry_state_for_character(character)["penalty"])
 
     @classmethod
-    def carry_state_for_character(cls, character) -> dict[str, object]:
+    def carry_state_for_character(
+        cls, character, *, strength=None,
+    ) -> dict[str, object]:
         """Return carrying state data for all non-stored inventory weight."""
-        strength = int(character.get_engine().attributes().get(ATTR_ST, 0) or 0)
+        if strength is None:
+            strength = int(
+                character.get_engine().attributes().get(ATTR_ST, 0) or 0
+            )
         carried_weight = cls.active_inventory_weight_for_character(character)
         threshold_light = Decimal(strength * 2)
         threshold_medium = Decimal(strength * 3)

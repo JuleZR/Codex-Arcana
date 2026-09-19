@@ -517,7 +517,10 @@ def game_master_screen(request, group_id: int):
             if character_blood
             else min(max_kp, max(0, int(character.current_arcane_power or 0)))
         )
-        initiative = int(engine.calculate_initiative())
+        initiative = (
+            int(engine.calculate_initiative())
+            - engine.carry_penalty("initiative")
+        )
         armor_load_penalty = int(engine.load_penalty())
         carry_state = ItemEngine.carry_state_for_character(character)
         carry_penalty = int(carry_state["penalty"]) if character.carry_load_enabled else 0

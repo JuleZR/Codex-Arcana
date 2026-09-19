@@ -14,15 +14,6 @@ function setCarryLoadEnabled(enabled) {
   });
 }
 
-function readDecimal(value, fallback = 0) {
-  const normalized = String(value ?? "")
-    .trim()
-    .replace(/\s+/g, "")
-    .replace(",", ".");
-  const parsed = Number.parseFloat(normalized);
-  return Number.isFinite(parsed) ? parsed : fallback;
-}
-
 function readInteger(value, fallback = 0) {
   const parsed = Number.parseInt(String(value ?? "").trim(), 10);
   return Number.isInteger(parsed) ? parsed : fallback;
@@ -36,60 +27,38 @@ function formatModifier(value) {
   return String(numericValue);
 }
 
-function getCarryWeight() {
+function isCarryLoadToggle(element) {
+  return element instanceof HTMLElement && element.matches("[data-carry-load-toggle]");
+}
+
+function calculateCarryPenalty() {
   const button = document.querySelector("[data-carry-load-toggle]");
-  if (!(button instanceof HTMLElement)) {
-    return 0;
-  }
-  return readDecimal(button.dataset.carryWeight, 0);
-}
-
-function getStrengthValue() {
-  const row = document.querySelector('[data-attribute-short-name="ST"]');
-  if (!(row instanceof HTMLElement)) {
-    return 0;
-  }
-  const valueCell = row.querySelector("[data-attribute-value]");
-  if (!(valueCell instanceof HTMLElement)) {
-    return 0;
-  }
-  return readInteger(valueCell.textContent, 0);
-}
-
-function calculateCarryPenalty(weight, strength) {
-  if (strength <= 0) {
-    return weight > 0 ? -8 : 0;
-  }
-  if (weight >= strength * 8) {
-    return -8;
-  }
-  if (weight >= strength * 6) {
-    return -4;
-  }
-  if (weight >= strength * 3) {
-    return -2;
-  }
-  if (weight >= strength * 2) {
-    return -1;
-  }
+  const weight = Number.parseFloat(String(button?.dataset.carryWeight || "0").replace(",", "."));
+  const strength = readInteger(document.querySelector('[data-attribute-short-name="ST"] [data-attribute-value]')?.textContent);
+  if (strength <= 0) return weight > 0 ? -8 : 0;
+  if (weight >= strength * 8) return -8;
+  if (weight >= strength * 6) return -4;
+  if (weight >= strength * 3) return -2;
+  if (weight >= strength * 2) return -1;
   return 0;
 }
 
-function applyValueAndTooltip(element, enabled, carryPenalty) {
-  if (!(element instanceof HTMLElement)) {
-    return;
+function applyValueAndTooltip(element, penalty) {
+  const base = readInteger(element.dataset.carryBase);
+  const applied = element.dataset.carryAffected === "0" ? 0 : penalty;
+  const total = base + applied;
+  if (!element.hasAttribute("data-carry-tooltip-only")) {
+    element.textContent = element.dataset.format === "modifier" ? formatModifier(total) : String(total);
   }
-  const baseValue = readInteger(element.dataset.baseValue, 0);
-  const resolvedValue = enabled ? baseValue + carryPenalty : baseValue;
-  const tooltipOff = String(element.dataset.tooltipOff || element.dataset.carryTooltipOff || element.dataset.tooltip || "");
-  const tooltipOn = String(element.dataset.tooltipOn || element.dataset.carryTooltipOn || tooltipOff);
-  const format = String(element.dataset.format || "").trim().toLowerCase();
-  element.textContent = format === "modifier" ? formatModifier(resolvedValue) : String(resolvedValue);
-  element.dataset.tooltip = enabled ? tooltipOn : tooltipOff;
-}
-
-function isCarryLoadToggle(element) {
-  return element instanceof HTMLElement && element.matches("[data-carry-load-toggle]");
+  element.dataset.carryOriginalTooltip ??= element.dataset.tooltip || "";
+  const lines = element.dataset.carryOriginalTooltip.split("\n")
+    .filter((line) => !/^\| Traglast(?: |\[)/.test(line));
+  const totalIndex = lines.findIndex((line) => line.startsWith("| **= Gesamt** |"));
+  if (totalIndex !== -1) {
+    lines[totalIndex] = `| **= Gesamt** | \`**${formatModifier(total)}**\` |`;
+    if (applied) lines.splice(totalIndex, 0, `| Traglast | \`${formatModifier(applied)}\` |`);
+  }
+  element.dataset.tooltip = lines.join("\n");
 }
 
 function applyToggleButton(button, enabled) {
@@ -155,23 +124,23 @@ function applyCarrySeverity(button, enabled, carryPenalty) {
 }
 
 function applyCarryLoadState(enabled) {
-  const carryPenalty = calculateCarryPenalty(getCarryWeight(), getStrengthValue());
+  const carryPenalty = calculateCarryPenalty();
   document.querySelectorAll("[data-carry-load-toggle]").forEach((button) => {
     applyToggleButton(button, enabled);
     applyPenaltyBadge(button, enabled, carryPenalty);
     applyCarrySeverity(button, enabled, carryPenalty);
   });
-  document.querySelectorAll("[data-carry-load-display]").forEach((element) => {
-    applyValueAndTooltip(element, enabled, carryPenalty);
+  const penalty = enabled ? carryPenalty : 0;
+  document.querySelectorAll("[data-carry-value]").forEach((element) => {
+    applyValueAndTooltip(element, penalty);
   });
-  document.querySelectorAll("[data-carry-initiative-display]").forEach((element) => {
-    applyValueAndTooltip(element, enabled, carryPenalty);
-  });
-  document.querySelectorAll("[data-carry-skill-loaded-total]").forEach((element) => {
-    applyValueAndTooltip(element, enabled, carryPenalty);
-  });
-  document.querySelectorAll("[data-carry-weapon-loaded-total]").forEach((element) => {
-    applyValueAndTooltip(element, enabled, carryPenalty);
+  document.querySelectorAll("[data-carry-flight]").forEach((element) => {
+    const armor = readInteger(element.dataset.armorPenalty);
+    const blocked = enabled && element.dataset.naturalFlight === "1" && armor + penalty <= -4;
+    element.textContent = blocked ? "-" : element.dataset.baseFlight;
+    element.dataset.tooltip = blocked
+      ? `Natürlicher Flug nicht verfügbar: Rüstung/Schild ${formatModifier(armor)}, Traglast ${formatModifier(penalty)} (Gesamtbelastung mindestens -4).`
+      : "";
   });
 }
 
