@@ -1348,19 +1348,26 @@ def _build_damage_gauge_data(
     if sorted_rows and sorted_rows[-1]["threshold"] >= damage_max:
         terminal_stage = sorted_rows[-1]["stage"]
         terminal_penalty = sorted_rows[-1]["penalty"]
-        previous_threshold = sorted_rows[-2]["threshold"] if len(sorted_rows) > 1 else 0
-        terminal_visual_width = max(1.0, (damage_max - previous_threshold) * 0.28)
-        terminal_start = max(float(previous_threshold), float(damage_max) - terminal_visual_width)
-        if interval_segments:
-            interval_segments[-1]["end_value"] = terminal_start
-        interval_segments.append(
-            {
-                "start_value": terminal_start,
-                "end_value": float(damage_max),
-                "stage": terminal_stage,
-                "penalty": terminal_penalty,
-            }
+        previous_row = sorted_rows[-2] if len(sorted_rows) > 1 else None
+        terminal_already_has_interval = bool(
+            previous_row
+            and previous_row["stage"] == terminal_stage
+            and previous_row["penalty"] == terminal_penalty
         )
+        if not terminal_already_has_interval:
+            previous_threshold = previous_row["threshold"] if previous_row else 0
+            terminal_visual_width = max(1.0, (damage_max - previous_threshold) * 0.28)
+            terminal_start = max(float(previous_threshold), float(damage_max) - terminal_visual_width)
+            if interval_segments:
+                interval_segments[-1]["end_value"] = terminal_start
+            interval_segments.append(
+                {
+                    "start_value": terminal_start,
+                    "end_value": float(damage_max),
+                    "stage": terminal_stage,
+                    "penalty": terminal_penalty,
+                }
+            )
 
     first_danger_index = next(
         (index for index, segment in enumerate(interval_segments) if int(segment["penalty"]) < 0),

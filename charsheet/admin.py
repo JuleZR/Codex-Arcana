@@ -2634,7 +2634,7 @@ class ItemSemanticEffectAdminForm(forms.ModelForm):
         wound_stage_position = str(
             encoded_wound_stage_position
             or metadata.get(WOUND_STAGE_POSITION_METADATA_KEY)
-            or ""
+            or ("unverletzt" if target_domain == "derived_stat" and target_key == WOUND_STAGE else "")
         ).strip()
         if (
             target_domain == "derived_stat"
@@ -3410,6 +3410,7 @@ def _semantic_derived_stat_choices():
         WEAPON_DAMAGE_DICE,
         WEAPON_MANEUVER_DAMAGE,
         WEAPON_MASTERY_BONUS,
+        WOUND_STAGE,
     }
     return [
         (value, label)
@@ -3647,7 +3648,7 @@ class RuleSemanticEffectAdminForm(SemanticCreatureCardGrantFormMixin, forms.Mode
         wound_stage_position = str(
             encoded_wound_stage_position
             or metadata.get(WOUND_STAGE_POSITION_METADATA_KEY)
-            or ""
+            or ("unverletzt" if target_domain == "derived_stat" and target_key == WOUND_STAGE else "")
         ).strip()
         positional_wound_stage = (
             target_domain == "derived_stat"

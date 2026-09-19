@@ -76,43 +76,44 @@ def calculate_potential(engine) -> int:
 
 
 def wound_thresholds(engine) -> dict[int, tuple[str, int]]:
-    """Build the wound-stage threshold table for the current character."""
+    """Build the ordered wound-stage threshold table for the current character."""
     constitution = engine.attributes().get(ATTR_KON, 0)
     wound_effects = engine.modifier_engine.resolve_wound_stage_effects()
-    legacy_additional_stages = int(wound_effects["legacy"])
+    legacy_stages = int(wound_effects["legacy"])
     positional_additions = dict(wound_effects["positions"])
 
     base_stages = [
         (key, label, penalty)
         for key, label, penalty in WOUND_STAGE_DEFINITIONS
     ]
-    amount_threshold = len(base_stages) + legacy_additional_stages
-    if amount_threshold <= 0:
-        return {}
 
-    if amount_threshold > len(base_stages):
-        stage_sequence = [
-            (None, "-", 0)
-            for _index in range(amount_threshold - len(base_stages))
-        ] + base_stages
-    else:
-        # Preserve the legacy wound_stage behavior for non-positional effects:
-        # negative values shorten the track from the end.
-        stage_sequence = base_stages[:amount_threshold]
+    # Legacy +Wundstufe always meant an extra neutral stage before Angeschlagen.
+    # Keep negative legacy values compatible by shortening the base track from the end.
+    if legacy_stages < 0:
+        base_stages = base_stages[: max(0, len(base_stages) + legacy_stages)]
 
-    expanded_sequence = []
-    for stage_key, stage_name, penalty in stage_sequence:
+    pre_angeschlagen_count = max(0, legacy_stages) + max(
+        0,
+        int(positional_additions.get("unverletzt", 0) or 0),
+    )
+
+    expanded_sequence: list[tuple[str, int]] = [
+        ("Unverletzt", 0)
+        for _index in range(pre_angeschlagen_count)
+    ]
+
+    for stage_key, stage_name, penalty in base_stages:
         expanded_sequence.append((stage_name, penalty))
-        if stage_key is None:
-            continue
         extra_count = max(0, int(positional_additions.get(stage_key, 0) or 0))
-        expanded_sequence.extend((stage_name, penalty) for _index in range(extra_count))
+        expanded_sequence.extend(
+            (stage_name, penalty)
+            for _index in range(extra_count)
+        )
 
     return {
         index * constitution: (stage_name, penalty)
         for index, (stage_name, penalty) in enumerate(expanded_sequence, start=1)
     }
-
 
 def calculate_defense(engine, mod1: str, mod2: str, slug: str) -> int:
     """Resolve one defense value from two attributes and stat modifiers."""

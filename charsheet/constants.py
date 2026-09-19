@@ -13,8 +13,9 @@ WOUND_STAGE_DEFINITIONS = (
     ("ausser_gefecht", "Ausser Gefecht", 0),
     ("koma", "Koma", 0),
 )
-WOUND_STAGE_POSITION_CHOICES = tuple(
-    (key, label) for key, label, _penalty in WOUND_STAGE_DEFINITIONS
+WOUND_STAGE_POSITION_CHOICES = (
+    ("unverletzt", "Unverletzt"),
+    *((key, label) for key, label, _penalty in WOUND_STAGE_DEFINITIONS),
 )
 WOUND_PENALTY_IGNORE = "wound_penalty_ignore"
 CAN_ACT_WHILE_OUT_OF_ACTION = "can_act_while_out_of_action"

@@ -705,6 +705,9 @@ Intern wird die Position direkt im Ziel gespeichert, z. B. als
 Zusatzinformation erhalten. Die zusätzliche Stufe übernimmt
 Name und Wundmalus der gewählten Stufe; nachfolgende Schwellen verschieben sich entsprechend.
 Mehrere Effekte und Werte > 1 stapeln zusätzliche Stufen an derselben Position.
+`Unverletzt` ist dabei die Position vor `Angeschlagen`; sie erzeugt eine zusätzliche
+neutrale Wundstufe ohne Malus. Ein alter unpositionierter positiver `wound_stage`-Effekt
+wird aus Kompatibilitätsgründen ebenfalls als zusätzliche `Unverletzt`-Stufe behandelt.
 
 ### 15. Wunden ignorieren
 

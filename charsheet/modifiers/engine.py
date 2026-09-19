@@ -24,7 +24,6 @@ from charsheet.constants import (
     SOURCE_ITEM_RUNE,
     WOUND_STAGE,
     WOUND_STAGE_POSITION_CHOICES,
-    WOUND_STAGE_POSITION_METADATA_KEY,
     WOUND_STAGE_TARGET_PREFIX,
     WEAPON_DAMAGE,
     WEAPON_MANEUVER_DAMAGE,
@@ -637,79 +636,22 @@ class ModifierEngine:
 
     def resolve_wound_stage_effects(self) -> dict[str, object]:
         """Resolve legacy and position-specific additions to the wound track."""
-        valid_positions = {key for key, _label in WOUND_STAGE_POSITION_CHOICES}
-        relevant_modifiers = [
-            modifier
-            for modifier in self.collect_active_modifiers()
-            if modifier.target_domain == TargetDomain.DERIVED_STAT
-            and (
-                modifier.target_key == WOUND_STAGE
-                or str(modifier.target_key or "").startswith(WOUND_STAGE_TARGET_PREFIX)
+        legacy_total = self.resolve_numeric_total(
+            TargetDomain.DERIVED_STAT,
+            WOUND_STAGE,
+        )
+        positions: dict[str, int] = {}
+        for position, _label in WOUND_STAGE_POSITION_CHOICES:
+            value = self.resolve_numeric_total(
+                TargetDomain.DERIVED_STAT,
+                f"{WOUND_STAGE_TARGET_PREFIX}{position}",
             )
-            and self._modifier_matches_condition_text(modifier, None)
-            and TargetResolver.matches_context(modifier, None)
-        ]
-
-        totals: dict[str, int] = {"": 0}
-        totals.update({position: 0 for position in valid_positions})
-        seen_unique_sources: set[tuple[str, str, str, str, str]] = set()
-
-        for modifier in sorted(
-            relevant_modifiers,
-            key=lambda entry: (entry.priority, entry.source_type, entry.source_id),
-        ):
-            target_key = str(modifier.target_key or "").strip()
-            encoded_position = (
-                target_key[len(WOUND_STAGE_TARGET_PREFIX):]
-                if target_key.startswith(WOUND_STAGE_TARGET_PREFIX)
-                else ""
-            )
-            position = str(
-                encoded_position
-                or (modifier.metadata or {}).get(WOUND_STAGE_POSITION_METADATA_KEY)
-                or ""
-            ).strip()
-            if position and position not in valid_positions:
-                continue
-
-            if modifier.stack_behavior == StackBehavior.UNIQUE_BY_SOURCE:
-                dedupe_key = (
-                    modifier.source_type,
-                    modifier.source_id,
-                    modifier.target_domain,
-                    modifier.target_key,
-                    position,
-                )
-                if dedupe_key in seen_unique_sources:
-                    continue
-                seen_unique_sources.add(dedupe_key)
-
-            resolved_value = self._resolve_numeric_modifier(modifier)
-            if resolved_value is None:
-                continue
-
-            current = totals[position]
-            if modifier.operator == ModifierOperator.OVERRIDE:
-                totals[position] = int(resolved_value)
-            elif modifier.operator == ModifierOperator.MULTIPLY:
-                totals[position] = int(current * resolved_value)
-            elif modifier.operator == ModifierOperator.FLOOR_DIVIDE:
-                if resolved_value:
-                    totals[position] = int(current // resolved_value)
-            elif modifier.operator == ModifierOperator.MIN_VALUE:
-                totals[position] = max(current, int(resolved_value))
-            elif modifier.operator == ModifierOperator.MAX_VALUE:
-                totals[position] = min(current, int(resolved_value))
-            else:
-                totals[position] = current + int(resolved_value)
+            if value:
+                positions[position] = max(0, int(value))
 
         return {
-            "legacy": int(totals.pop("")),
-            "positions": {
-                position: max(0, int(value))
-                for position, value in totals.items()
-                if int(value) != 0
-            },
+            "legacy": int(legacy_total),
+            "positions": positions,
         }
 
     def resolve_choice_skill_modifier_total(
