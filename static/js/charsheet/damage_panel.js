@@ -33,7 +33,8 @@ export function initDamagePanel() {
   const animalBloodForm = document.querySelector(".animal_blood_actions");
   const animalBloodRequestUrl = animalBloodForm?.getAttribute("action") || window.location.href;
   const storageKey = "charsheet.damageGauge.value";
-  const thresholdsScript = document.getElementById("wound-thresholds-data");
+  const thresholdsScript = gauge.closest("#sheetDamagePanel")?.querySelector("#damage-wound-thresholds-data")
+    || document.getElementById("wound-thresholds-data");
   let thresholdRows = [];
   let requestQueue = Promise.resolve();
   let arcaneRequestVersion = 0;

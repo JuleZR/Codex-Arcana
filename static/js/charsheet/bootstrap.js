@@ -12,7 +12,7 @@ import { initShopMenu } from "./shop_menu.js?v=20260830a";
 import { initLearningMenu } from "./learning_menu.js?v=20260918a";
 import { initTooltips } from "./tooltip.js?v=20260902d";
 import { initInventoryMenu } from "./inventory_menu.js?v=20260820a";
-import { initDamagePanel } from "./damage_panel.js?v=20260801b";
+import { initDamagePanel } from "./damage_panel.js?v=20260919a";
 import { initSpellPanel } from "./spell_panel.js";
 import { initLessonPanel } from "./lesson_panel.js?v=20260918a";
 import { initCharInfoCounter } from "./char_info_counter.js";

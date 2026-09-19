@@ -1,5 +1,6 @@
 <div class="p2_panel p2_damage" id="sheetDamagePanel">
   <h2>Schaden</h2>
+  {{ wound_threshold_rows|json_script:"damage-wound-thresholds-data" }}
   <div class="damage_display">
     <div
       class="damage_gauge"
