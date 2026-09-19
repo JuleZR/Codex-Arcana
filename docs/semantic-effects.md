@@ -13,6 +13,7 @@ Sie gilt fuer `TraitSemanticEffect` und `TechniqueSemanticEffect`.
 | "bekommt +1 auf eine Eigenschaft" | `attribute` | ST +1 |
 | "darf eine Eigenschaft hoeher steigern" | `attribute_cap` | GE-Max +1 |
 | "bekommt +2 Initiative" | `derived_stat` | Initiative +2 |
+| "bekommt eine zusätzliche Wundstufe an einer bestimmten Stelle" | `derived_stat` + Positionsmetadaten | zusätzliche Stufe z. B. bei `Verwundet` |
 | "ignoriert Belastung/Wunden/Regel X" | `rule_flag` | `armor_penalty_ignore` |
 | "bekommt Schaden/Parade/Kampfwert" | `combat` | Waffenschaden +1 |
 | "bekommt Bewegung" | `movement` | Laufgeschwindigkeit +2 |
@@ -682,7 +683,29 @@ mode: flat
 value: 2
 ```
 
-### 14. Wunden ignorieren
+### 14. Wundstufe gezielt einfügen
+
+Regeltext:
+
+```text
+Der Charakter erhält eine zusätzliche Wundstufe Verwundet.
+```
+
+Im einfachen Semantic-Effects-Editor:
+
+```text
+Was soll geändert werden?: Wundstufe einfügen
+Was genau?: Verwundet
+Rechenart: + addieren
+Zahl: 1
+```
+
+Intern bleibt der Effekt ein `derived_stat/wound_stage`-Modifier. Die Position wird als
+`metadata.wound_stage_position = "verwundet"` gespeichert. Die zusätzliche Stufe übernimmt
+Name und Wundmalus der gewählten Stufe; nachfolgende Schwellen verschieben sich entsprechend.
+Mehrere Effekte und Werte > 1 stapeln zusätzliche Stufen an derselben Position.
+
+### 15. Wunden ignorieren
 
 Regeltext:
 
@@ -700,7 +723,7 @@ mode: flat
 value: true
 ```
 
-### 15. Ruestungsbelastung ignorieren
+### 16. Ruestungsbelastung ignorieren
 
 Regeltext:
 

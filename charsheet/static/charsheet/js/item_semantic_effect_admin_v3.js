@@ -78,6 +78,9 @@
     var scaleSource = root.querySelector('[name$="scale_source"]');
     if (operator) {
       var allowed = semanticOperators[area.value];
+      if (area.value === "wound_stage") {
+        allowed = ["flat_add"];
+      }
       var operatorOptions = readAllOptions(operator);
       if (allowed) {
         operatorOptions = operatorOptions.filter(function (option) {

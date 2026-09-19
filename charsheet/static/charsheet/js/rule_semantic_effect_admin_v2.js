@@ -124,7 +124,9 @@
     }
     var allowed = area.value === "rule_flag"
       ? ["", "set_flag", "unset_flag"]
-      : ["", "flat_add", "flat_sub", "multiply", "floor_divide", "override", "min_value", "max_value"];
+      : area.value === "wound_stage"
+        ? ["", "flat_add"]
+        : ["", "flat_add", "flat_sub", "multiply", "floor_divide", "override", "min_value", "max_value"];
     rebuildOptions(
       operator,
       readAllOptions(operator).filter(function (option) {

@@ -3,6 +3,18 @@ INITIATIVE = "initiative"
 ARCANE_POWER = "arcane_power"
 POTENTIAL = "potential"
 WOUND_STAGE = "wound_stage"
+WOUND_STAGE_POSITION_METADATA_KEY = "wound_stage_position"
+WOUND_STAGE_DEFINITIONS = (
+    ("angeschlagen", "Angeschlagen", 0),
+    ("verletzt", "Verletzt", -2),
+    ("verwundet", "Verwundet", -4),
+    ("schwer_verwundet", "Schwer verwundet", -6),
+    ("ausser_gefecht", "Ausser Gefecht", 0),
+    ("koma", "Koma", 0),
+)
+WOUND_STAGE_POSITION_CHOICES = tuple(
+    (key, label) for key, label, _penalty in WOUND_STAGE_DEFINITIONS
+)
 WOUND_PENALTY_IGNORE = "wound_penalty_ignore"
 CAN_ACT_WHILE_OUT_OF_ACTION = "can_act_while_out_of_action"
 COMA_IGNORE = "coma_ignore"

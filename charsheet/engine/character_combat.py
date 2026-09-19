@@ -20,6 +20,7 @@ from charsheet.constants import (
     WOUND_PENALTY_MOD,
     WOUND_PENALTY_IGNORE,
     WOUND_STAGE,
+    WOUND_STAGE_DEFINITIONS,
 )
 
 
@@ -77,27 +78,39 @@ def calculate_potential(engine) -> int:
 def wound_thresholds(engine) -> dict[int, tuple[str, int]]:
     """Build the wound-stage threshold table for the current character."""
     constitution = engine.attributes().get(ATTR_KON, 0)
-    additional_stages = engine._resolve_stat_modifiers(WOUND_STAGE)
-    amount_threshold = 6 + additional_stages
+    wound_effects = engine.modifier_engine.resolve_wound_stage_effects()
+    legacy_additional_stages = int(wound_effects["legacy"])
+    positional_additions = dict(wound_effects["positions"])
 
-    stage_numbers = [number * constitution for number in range(1, amount_threshold + 1)]
-    stage_names = [
-        "Angeschlagen",
-        "Verletzt",
-        "Verwundet",
-        "Schwer verwundet",
-        "Ausser Gefecht",
-        "Koma",
+    base_stages = [
+        (key, label, penalty)
+        for key, label, penalty in WOUND_STAGE_DEFINITIONS
     ]
-    stage_penalties = [0, -2, -4, -6, 0, 0]
+    amount_threshold = len(base_stages) + legacy_additional_stages
+    if amount_threshold <= 0:
+        return {}
 
-    missing = max(0, len(stage_numbers) - len(stage_names))
-    stages = ["-"] * missing + stage_names
-    penalties = [0] * missing + stage_penalties
+    if amount_threshold > len(base_stages):
+        stage_sequence = [
+            (None, "-", 0)
+            for _index in range(amount_threshold - len(base_stages))
+        ] + base_stages
+    else:
+        # Preserve the legacy wound_stage behavior for non-positional effects:
+        # negative values shorten the track from the end.
+        stage_sequence = base_stages[:amount_threshold]
+
+    expanded_sequence = []
+    for stage_key, stage_name, penalty in stage_sequence:
+        expanded_sequence.append((stage_name, penalty))
+        if stage_key is None:
+            continue
+        extra_count = max(0, int(positional_additions.get(stage_key, 0) or 0))
+        expanded_sequence.extend((stage_name, penalty) for _index in range(extra_count))
 
     return {
-        threshold: (stage, penalty)
-        for threshold, stage, penalty in zip(stage_numbers, stages, penalties)
+        index * constitution: (stage_name, penalty)
+        for index, (stage_name, penalty) in enumerate(expanded_sequence, start=1)
     }
 
 

@@ -44,6 +44,9 @@ from .constants import (
     WEAPON_DAMAGE_DICE,
     WEAPON_MANEUVER_DAMAGE,
     WEAPON_MASTERY_BONUS,
+    WOUND_STAGE,
+    WOUND_STAGE_POSITION_CHOICES,
+    WOUND_STAGE_POSITION_METADATA_KEY,
 )
 from .admin_help import (
     ATTRIBUTE_CHOICE_HELP,
@@ -2477,6 +2480,7 @@ class ItemSemanticEffectAdminForm(forms.ModelForm):
         ("text", "Text"),
         ("attribute", "Eigenschaft"),
         ("derived_stat", "Abgeleiteter Wert"),
+        ("wound_stage", "Wundstufe einfügen"),
         ("movement", "Bewegung"),
         ("creature_movement", "Kreaturenbewegung"),
         ("combat", "Kampf / Waffe"),
@@ -2600,6 +2604,10 @@ class ItemSemanticEffectAdminForm(forms.ModelForm):
             (f"derived_stat:{value}", label)
             for value, label in _semantic_derived_stat_choices()
         )
+        choices.extend(
+            (f"wound_stage:{value}", label)
+            for value, label in WOUND_STAGE_POSITION_CHOICES
+        )
         choices.extend((f"movement:{value}", label) for value, label in self.MOVEMENT_TARGET_CHOICES)
         choices.extend((f"creature_movement:{value}", label) for value, label in self.MOVEMENT_TARGET_CHOICES)
         choices.extend((f"combat:{value}", label) for value, label in self.COMBAT_TARGET_CHOICES)
@@ -2616,7 +2624,16 @@ class ItemSemanticEffectAdminForm(forms.ModelForm):
     def _apply_initial_simple_values(self):
         target_domain = str(self.initial.get("target_domain") or getattr(self.instance, "target_domain", "") or "")
         target_key = str(self.initial.get("target_key") or getattr(self.instance, "target_key", "") or "")
-        if target_domain == "metadata" and target_key == "rules_text":
+        metadata = dict(self.initial.get("metadata", getattr(self.instance, "metadata", {}) or {}) or {})
+        wound_stage_position = str(metadata.get(WOUND_STAGE_POSITION_METADATA_KEY) or "").strip()
+        if (
+            target_domain == "derived_stat"
+            and target_key == WOUND_STAGE
+            and wound_stage_position in {key for key, _label in WOUND_STAGE_POSITION_CHOICES}
+        ):
+            self.initial.setdefault("effect_area", "wound_stage")
+            self.initial.setdefault("simple_target", f"wound_stage:{wound_stage_position}")
+        elif target_domain == "metadata" and target_key == "rules_text":
             self.initial.setdefault("effect_area", "text")
             self.initial.setdefault("simple_operator", self.initial.get("operator") or getattr(self.instance, "operator", "override"))
             return
@@ -2635,7 +2652,7 @@ class ItemSemanticEffectAdminForm(forms.ModelForm):
             "rule_flag": "rule_flag",
         }
         area = domain_to_area.get(target_domain)
-        if area:
+        if area and not self.initial.get("effect_area"):
             self.initial.setdefault("effect_area", area)
             self.initial.setdefault("simple_target", f"{area}:{target_key}")
         self.initial.setdefault("simple_operator", self.initial.get("operator") or getattr(self.instance, "operator", "flat_add"))
@@ -2648,7 +2665,6 @@ class ItemSemanticEffectAdminForm(forms.ModelForm):
             and str(value or "").strip()
         ):
             self.initial.setdefault("simple_value", str(value).strip())
-        metadata = dict(self.initial.get("metadata", getattr(self.instance, "metadata", {}) or {}) or {})
         category_filter = metadata.get("target_weapon_category") or ""
         if isinstance(category_filter, list):
             category_filter = category_filter[0] if category_filter else ""
@@ -2724,6 +2740,8 @@ class ItemSemanticEffectAdminForm(forms.ModelForm):
             self.add_error("effect_area", "Bitte auswählen, welcher Wert geändert werden soll.")
 
         operator = cleaned_data.get("simple_operator") or cleaned_data.get("operator") or "flat_add"
+        if area == "wound_stage":
+            operator = "flat_add"
         if target_domain == "rule_flag" and operator in {"flat_add", "flat_sub"}:
             operator = "set_flag"
         if operator in {"set_flag", "unset_flag"}:
@@ -2739,6 +2757,10 @@ class ItemSemanticEffectAdminForm(forms.ModelForm):
                 cleaned_data["operator"] = operator
                 try:
                     cleaned_data["value"] = self._format_simple_value(target_domain, target_key, value)
+                    if area == "wound_stage":
+                        numeric_value = float(str(cleaned_data["value"]).replace(",", "."))
+                        if numeric_value < 1 or not numeric_value.is_integer():
+                            self.add_error("simple_value", "Zusätzliche Wundstufen müssen eine positive ganze Zahl sein.")
                 except ValueError:
                     self.add_error("simple_value", "Bitte eine Zahl oder fuer Bewegungsgruppen drei Werte eintragen.")
 
@@ -2758,6 +2780,15 @@ class ItemSemanticEffectAdminForm(forms.ModelForm):
             "target_weapon_id",
         ):
             metadata.pop(key, None)
+        if area == "wound_stage":
+            prefix, separator, position = str(cleaned_data.get("simple_target") or "").partition(":")
+            valid_positions = {key for key, _label in WOUND_STAGE_POSITION_CHOICES}
+            if not separator or prefix != "wound_stage" or position not in valid_positions:
+                self.add_error("simple_target", "Bitte die Wundstufe auswählen, an der eingefügt werden soll.")
+            else:
+                metadata[WOUND_STAGE_POSITION_METADATA_KEY] = position
+        else:
+            metadata.pop(WOUND_STAGE_POSITION_METADATA_KEY, None)
         if target_domain == "weapon_range":
             category_filter = str(cleaned_data.get("simple_weapon_category_filter") or "").strip()
             type_filter = cleaned_data.get("simple_weapon_type_filter")
@@ -2782,6 +2813,8 @@ class ItemSemanticEffectAdminForm(forms.ModelForm):
         prefix, separator, target_key = str(simple_target or "").partition(":")
         if not separator or prefix != area:
             return "", ""
+        if area == "wound_stage":
+            return "derived_stat", WOUND_STAGE
         return {
             "attribute": "attribute",
             "derived_stat": "derived_stat",
@@ -3393,6 +3426,7 @@ class RuleSemanticEffectAdminForm(SemanticCreatureCardGrantFormMixin, forms.Mode
     EFFECT_AREA_CHOICES = (
         ("attribute", "Eigenschaft"),
         ("derived_stat", "Abgeleiteter Wert"),
+        ("wound_stage", "Wundstufe einfügen"),
         ("combat", "Kampfwert / Schadenswert"),
         ("movement", "Bewegung"),
         ("creature_movement", "Kreaturenbewegung"),
@@ -3565,6 +3599,10 @@ class RuleSemanticEffectAdminForm(SemanticCreatureCardGrantFormMixin, forms.Mode
             (f"derived_stat:{value}", label)
             for value, label in _semantic_derived_stat_choices()
         )
+        choices.extend(
+            (f"wound_stage:{value}", label)
+            for value, label in WOUND_STAGE_POSITION_CHOICES
+        )
         choices.extend((f"combat:{value}", label) for value, label in self.COMBAT_TARGET_CHOICES)
         choices.extend((f"movement:{value}", label) for value, label in self.MOVEMENT_TARGET_CHOICES)
         choices.extend((f"creature_movement:{value}", label) for value, label in self.MOVEMENT_TARGET_CHOICES)
@@ -3590,6 +3628,13 @@ class RuleSemanticEffectAdminForm(SemanticCreatureCardGrantFormMixin, forms.Mode
     def _apply_initial_simple_values(self):
         target_domain = str(self.initial.get("target_domain") or getattr(self.instance, "target_domain", "") or "")
         target_key = str(self.initial.get("target_key") or getattr(self.instance, "target_key", "") or "")
+        metadata = dict(self.initial.get("metadata", getattr(self.instance, "metadata", {}) or {}) or {})
+        wound_stage_position = str(metadata.get(WOUND_STAGE_POSITION_METADATA_KEY) or "").strip()
+        positional_wound_stage = (
+            target_domain == "derived_stat"
+            and target_key == WOUND_STAGE
+            and wound_stage_position in {key for key, _label in WOUND_STAGE_POSITION_CHOICES}
+        )
         area = {
             "attribute": "attribute",
             "derived_stat": "derived_stat",
@@ -3608,7 +3653,10 @@ class RuleSemanticEffectAdminForm(SemanticCreatureCardGrantFormMixin, forms.Mode
             "rule_flag": "rule_flag",
             "learning_slot": "learning_slot",
         }.get(target_domain)
-        if bool(
+        if positional_wound_stage:
+            self.initial.setdefault("effect_area", "wound_stage")
+            self.initial.setdefault("simple_target", f"wound_stage:{wound_stage_position}")
+        elif bool(
             getattr(self.instance, "target_choice_definition_id", None)
             or getattr(self.instance, "target_race_choice_definition_id", None)
         ):
@@ -3647,7 +3695,6 @@ class RuleSemanticEffectAdminForm(SemanticCreatureCardGrantFormMixin, forms.Mode
         self.initial.setdefault("applies_during_character_creation", bool(condition_set.get("applies_during_character_creation")))
         self.initial.setdefault("applies_in_combat", bool(condition_set.get("applies_in_combat")))
         self.initial.setdefault("applies_outside_combat", bool(condition_set.get("applies_outside_combat")))
-        metadata = dict(self.initial.get("metadata", getattr(self.instance, "metadata", {}) or {}) or {})
         self.initial.setdefault("condition_text", " ".join(str(metadata.get("condition_text") or "").split()))
         selected_weapon_skills = metadata.get("target_weapon_skill") or []
         if isinstance(selected_weapon_skills, str):
@@ -3740,6 +3787,8 @@ class RuleSemanticEffectAdminForm(SemanticCreatureCardGrantFormMixin, forms.Mode
             self.add_error("effect_area", "Bitte auswaehlen, welcher Wert geaendert werden soll.")
 
         operator = cleaned_data.get("simple_operator") or "flat_add"
+        if area == "wound_stage":
+            operator = "flat_add"
         if target_domain == "rule_flag" and operator in {"flat_add", "flat_sub"}:
             operator = "set_flag"
         if operator in {"set_flag", "unset_flag"}:
@@ -3752,6 +3801,10 @@ class RuleSemanticEffectAdminForm(SemanticCreatureCardGrantFormMixin, forms.Mode
             else:
                 cleaned_data["operator"] = operator
                 cleaned_data["value"] = self._format_simple_number(value)
+                if area == "wound_stage":
+                    numeric_value = float(str(value).replace(",", "."))
+                    if numeric_value < 1 or not numeric_value.is_integer():
+                        self.add_error("simple_value", "Zusätzliche Wundstufen müssen eine positive ganze Zahl sein.")
 
         scale_source = cleaned_data.get("simple_scaling") or ""
         if scale_source:
@@ -3782,6 +3835,15 @@ class RuleSemanticEffectAdminForm(SemanticCreatureCardGrantFormMixin, forms.Mode
                 condition_set[field_name] = True
         cleaned_data["condition_set"] = condition_set
         metadata = dict(cleaned_data.get("metadata") or {})
+        if area == "wound_stage":
+            prefix, separator, position = str(cleaned_data.get("simple_target") or "").partition(":")
+            valid_positions = {key for key, _label in WOUND_STAGE_POSITION_CHOICES}
+            if not separator or prefix != "wound_stage" or position not in valid_positions:
+                self.add_error("simple_target", "Bitte die Wundstufe auswählen, an der eingefügt werden soll.")
+            else:
+                metadata[WOUND_STAGE_POSITION_METADATA_KEY] = position
+        else:
+            metadata.pop(WOUND_STAGE_POSITION_METADATA_KEY, None)
         condition_text = " ".join(str(cleaned_data.get("condition_text") or "").split())
         if condition_text:
             metadata["condition_text"] = condition_text
@@ -3832,6 +3894,8 @@ class RuleSemanticEffectAdminForm(SemanticCreatureCardGrantFormMixin, forms.Mode
         prefix, separator, target_key = str(simple_target or "").partition(":")
         if not separator:
             return "", ""
+        if area == "wound_stage" and prefix == "wound_stage":
+            return "derived_stat", WOUND_STAGE
         if area == "weapon_skill":
             if prefix == "combat":
                 return "combat", target_key
