@@ -741,7 +741,7 @@ mode: flat
 value: true
 ```
 
-### 16. Schildmalus ignorieren
+### 17. Schildmalus ignorieren
 
 Regeltext:
 
@@ -759,7 +759,7 @@ mode: flat
 value: true
 ```
 
-### 17. Bewegungswert erhoehen
+### 18. Bewegungswert erhoehen
 
 Regeltext:
 
@@ -844,7 +844,7 @@ Einzelne Werte bleiben separat ansprechbar, z. B. `ground_combat`, `ground_march
 `ground_sprint`, `swim_combat`, `swim_march`, `swim_sprint`, `fly_combat`,
 `fly_march`, `fly_sprint`.
 
-### 18. Widerstand / Resistenz
+### 19. Widerstand / Resistenz
 
 Regeltext:
 
@@ -862,7 +862,7 @@ mode: flat
 value: 3
 ```
 
-### 19. Immunitaet
+### 20. Immunitaet
 
 Regeltext:
 
@@ -880,7 +880,7 @@ mode: flat
 value: true
 ```
 
-### 20. Verwundbarkeit
+### 21. Verwundbarkeit
 
 Regeltext:
 
@@ -898,7 +898,7 @@ mode: flat
 value: 2
 ```
 
-### 21. Soziales Tag
+### 22. Soziales Tag
 
 Regeltext:
 
@@ -916,7 +916,7 @@ mode: flat
 value: noble
 ```
 
-### 22. Capability
+### 23. Capability
 
 Regeltext:
 
@@ -934,7 +934,7 @@ mode: flat
 value: true
 ```
 
-### 23. Oekonomie / Startgeld
+### 24. Oekonomie / Startgeld
 
 Regeltext:
 
@@ -952,7 +952,7 @@ mode: flat
 value: 50
 ```
 
-### 24. Resource-Cap
+### 25. Resource-Cap
 
 Regeltext:
 
@@ -972,7 +972,7 @@ value: 2
 
 Hinweis: Nicht jeder Resource-Effect ist schon in jeder UI gleich sichtbar. Wenn ein Resource-Wert nicht reagiert, muss die konkrete Anzeige/Engine-Stelle noch angebunden werden.
 
-### 25. Bedingter Effect
+### 26. Bedingter Effect
 
 Regeltext:
 
