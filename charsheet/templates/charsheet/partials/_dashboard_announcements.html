@@ -1,0 +1,46 @@
+<section class="dashboard_announcements" aria-label="Nachrichten">
+  <div class="dashboard_announcements_scroll" tabindex="0" aria-label="Nachrichten durchblättern">
+    {% for announcement in announcements %}
+      <article class="announcement announcement--{{ announcement.kind }}" data-announcement {% if announcement.expires_at %}data-expires="{{ announcement.expires_at|date:'c' }}"{% endif %}>
+        <header class="announcement_header">
+          <span class="announcement_kind" role="img" aria-label="{{ announcement.get_kind_display }}" title="{{ announcement.get_kind_display }}">{% if announcement.kind == 'update' %}🆕{% elif announcement.kind == 'warning' %}⚠️{% else %}🚨{% endif %}</span>
+          {% if can_manage %}
+            <form action="{% url 'delete_announcement' announcement.pk %}" method="post" data-delete-announcement>
+              {% csrf_token %}
+              <button type="submit" class="announcement_icon" aria-label="Nachricht für alle löschen" title="Nachricht für alle löschen"><span aria-hidden="true">&times;</span></button>
+            </form>
+          {% endif %}
+        </header>
+        <div class="announcement_preview" data-announcement-preview>{{ announcement.text|truncatechars:300 }}</div>
+        <div class="announcement_body" id="announcement-{{ announcement.pk }}" data-announcement-body hidden></div>
+        <div hidden data-announcement-source>{{ announcement.text }}</div>
+        <button type="button" class="announcement_more" data-announcement-toggle aria-expanded="false" aria-controls="announcement-{{ announcement.pk }}">Mehr anzeigen</button>
+      </article>
+    {% endfor %}
+  </div>
+  {% if can_manage %}
+    <button type="button" class="announcement_add announcement_icon" data-announcement-open title="Nachricht erstellen" aria-label="Nachricht erstellen">{% include "charsheet/partials/_dashboard_icon.html" with icon="add" %}</button>
+    <dialog class="announcement_editor" aria-labelledby="announcement-editor-title">
+      <form action="{% url 'create_announcement' %}" method="post" data-announcement-form>
+        {% csrf_token %}
+        <header class="announcement_header">
+          <h2 id="announcement-editor-title">Nachricht erstellen</h2>
+          <button type="button" class="announcement_icon" data-announcement-close aria-label="Schließen" title="Schließen">{% include "charsheet/partials/_dashboard_icon.html" with icon="close" %}</button>
+        </header>
+        <label>Typ
+          <select name="kind"><option value="update">🆕 Update</option><option value="warning">⚠️ Warnung</option><option value="critical">🚨 Kritisch</option></select>
+        </label>
+        <label>Nachricht (Markdown)
+          <textarea name="text" rows="7" maxlength="20000" required placeholder="**Fett**, *kursiv*, Listen und Links …"></textarea>
+        </label>
+        <label>Ablaufdatum und Uhrzeit (optional, lokale Zeitzone)
+          <input type="datetime-local" name="expires_at">
+        </label>
+        <p class="announcement_hint">Ohne Ablaufdatum bleibt die Nachricht bis zum Löschen sichtbar.</p>
+        <div><strong>Live-Vorschau</strong><article class="announcement announcement--update announcement_live" data-announcement-live aria-label="Live-Vorschau"></article></div>
+        <p data-announcement-error role="alert" hidden></p>
+        <button class="dashboard_button" type="submit">Für alle veröffentlichen</button>
+      </form>
+    </dialog>
+  {% endif %}
+</section>

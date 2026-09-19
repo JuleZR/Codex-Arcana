@@ -1,0 +1,83 @@
+/* Soft liquid-glass surfaces, scoped to the dashboard and its dialogs. */
+body[class*="dashboard-theme--"] :is(button, .dashboard_button, .dashboard_account_link_button):not(:where(.dashboard_announcements *)) {
+  --glass-tint: 194, 180, 156;
+  border: 1px solid rgba(105, 80, 43, 0.25);
+  border-radius: 5px;
+  background: linear-gradient(180deg,
+    rgba(var(--glass-tint), 0.12), rgba(var(--glass-tint), 0.18));
+  -webkit-backdrop-filter: blur(18px) saturate(110%);
+  backdrop-filter: blur(18px) saturate(110%);
+  box-shadow: 0 1px 3px rgba(74, 55, 38, 0.12);
+  color: #493a29;
+  font-family: Arial, Helvetica, sans-serif;
+  font-variant: normal;
+  text-transform: none;
+  letter-spacing: normal;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.65);
+  filter: none;
+  transition: box-shadow 160ms ease, border-color 160ms ease;
+}
+
+body[class*="dashboard-theme--"] :is(button, .dashboard_button, .dashboard_account_link_button):hover:not(:disabled):not(:where(.dashboard_announcements *)) {
+  border-color: rgba(105, 80, 43, 0.3);
+  filter: none;
+  background: linear-gradient(180deg,
+    rgba(var(--glass-tint), 0.16), rgba(var(--glass-tint), 0.22));
+  box-shadow: 0 2px 5px rgba(74, 55, 38, 0.14);
+}
+
+body[class*="dashboard-theme--"] :is(button, .dashboard_button, .dashboard_account_link_button):active:not(:disabled):not(:where(.dashboard_announcements *)) {
+  box-shadow: inset 0 2px 5px rgba(92, 68, 37, 0.3), inset 0 0 0 1px rgba(255, 255, 255, 0.4);
+}
+
+body[class*="dashboard-theme--"] :is(button, .dashboard_button, .dashboard_account_link_button):focus-visible:not(:where(.dashboard_announcements *)) {
+  outline: 2px solid #80613a;
+  outline-offset: 2px;
+}
+
+body[class*="dashboard-theme--"] .dashboard_button--primary:not(:where(.dashboard_announcements *)) {
+  --glass-tint: 184, 168, 142;
+  color: #493a29;
+}
+
+body[class*="dashboard-theme--"] :is(.dashboard_button--danger, .dashboard_button--logout, [data-delete-announcement] button):not(:where(.dashboard_announcements *)) {
+  --glass-tint: 192, 105, 100;
+  color: #79332e;
+  border-color: rgba(164, 80, 73, 0.48);
+}
+
+body[class*="dashboard-theme--"] .dashboard_button--icon:not(:where(.dashboard_announcements *)) {
+  border-radius: 5px;
+}
+
+body[class*="dashboard-theme--"] button:disabled:not(:where(.dashboard_announcements *)) {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+body.dashboard-theme--high_contrast :is(button, .dashboard_button, .dashboard_account_link_button):not(:where(.dashboard_announcements *)) {
+  background-color: #fff8e8;
+  border-color: #493b2a;
+  color: #241b12;
+  text-shadow: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body[class*="dashboard-theme--"] :is(button, .dashboard_button, .dashboard_account_link_button):not(:where(.dashboard_announcements *)) {
+    transition: none;
+  }
+}
+
+/* Keep Logout visibly red within the shared glass treatment. */
+body[class*="dashboard-theme--"] .dashboard_panel--sidebar .dashboard_button--logout {
+  --glass-tint: 190, 76, 66;
+  color: #782b25;
+  border-color: rgba(164, 65, 55, 0.55);
+  background: linear-gradient(180deg,
+    rgba(var(--glass-tint), 0.2), rgba(var(--glass-tint), 0.24));
+}
+
+body[class*="dashboard-theme--"] .dashboard_panel--sidebar .dashboard_button--logout:hover {
+  border-color: rgba(164, 65, 55, 0.85);
+}

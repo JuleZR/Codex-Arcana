@@ -1,6 +1,6 @@
 /* Dashboard stylesheet entry point.
    Keep thematic rules in ./dashboard/*.css modules instead of growing this file again. */
-@import url("./dashboard/base.css?v=20260806a");
+@import url("./dashboard/base.css?v=20260919g");
 @import url("./dashboard/forms.css");
 @import url("./dashboard/creation.css?v=20260801b");
 @import url("./dashboard/responsive.css");
@@ -59,10 +59,11 @@
   display: inline-block;
   margin-left: 0.35rem;
   padding: 0.1rem 0.35rem;
-  border: 1px solid rgba(95, 65, 38, 0.4);
+  border: 1px solid rgba(164, 65, 55, 0.5);
   border-radius: 999px;
   font-size: 0.72rem;
-  opacity: 0.75;
+  color: #8a3029;
+  background: rgba(205, 99, 86, 0.14);
 }
 
 .dashboard_group_window {

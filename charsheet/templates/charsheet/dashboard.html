@@ -1,4 +1,4 @@
-{% load static %}
+{% load static dashboard_announcements %}
 <!DOCTYPE html>
 <html lang="de">
   <head>
@@ -7,8 +7,12 @@
     <link rel="icon" type="image/x-icon" href="{% static 'img/favicon.ico' %}">
     <title>Dashboard | {{ request.user.get_username }}</title>
     <link rel="stylesheet" href="{% static 'css/charsheet.css' %}">
-    <link rel="stylesheet" href="{% static 'css/dashboard.css' %}?v=20260806a">
+    <link rel="stylesheet" href="{% static 'css/dashboard.css' %}?v=20260919g">
     <script defer src="{% static 'js/game_groups.js' %}?v=20260726a"></script>
+    <link rel="stylesheet" href="{% static 'css/dashboard/announcements.css' %}?v=2">
+    <script type="module" src="{% static 'js/dashboard_announcements.js' %}?v=2"></script>
+    <link rel="stylesheet" href="{% static 'css/dashboard/glass-buttons.css' %}?v=16">
+    <link rel="stylesheet" href="{% static 'css/dashboard/glass-table.css' %}?v=8">
     {% if request.user.settings.dddice_enabled %}
     <script type="module" src="{% static 'js/dddice.js' %}?v=1"></script>
     {% endif %}
@@ -24,16 +28,19 @@
               <p class="dashboard_version" aria-label="Anwendungsversion">{{ app_version }}</p>
             </div>
             <div class="dashboard_title_wrap">
-              <h1>Willkommen,<br>{{ request.user.get_username }}.</h1>
+              <h1>Willkommen, {{ request.user.get_username }}.</h1>
             </div>
 
-            <div class="dashboard_side_group" aria-label="Benutzeraktionen">
+            <div class="dashboard_side_group dashboard_user_actions" aria-label="Benutzeraktionen">
               <div class="dashboard_side_title">Benutzer</div>
               <button type="button" class="dashboard_button dashboard_button--sidebar" id="openAccountSettings">Kontoeinstellungen</button>
-              <form method="post" action="{% url 'app_logout' %}" class="dashboard_logout_link">
-                {% csrf_token %}
-                <button type="submit" class="dashboard_button dashboard_button--sidebar">Logout</button>
-              </form>
+              <div class="dashboard_user_actions_row">
+                <a href="https://github.com/JuleZR/Codex-Arcana/issues" class="dashboard_button dashboard_button--sidebar" target="_blank" rel="noopener noreferrer" aria-label="Fehler melden (öffnet GitHub in einem neuen Tab)">Fehler melden</a>
+                <form method="post" action="{% url 'app_logout' %}" class="dashboard_logout_link">
+                  {% csrf_token %}
+                  <button type="submit" class="dashboard_button dashboard_button--sidebar dashboard_button--logout">Logout</button>
+                </form>
+              </div>
             </div>
 
             <div id="dashboardDraftRegion">
@@ -58,23 +65,7 @@
               {% endif %}
             </div>
 
-            <div class="dashboard_side_group" id="uebersicht" aria-label="Charakterübersicht">
-              <div class="dashboard_side_title">Übersicht</div>
-              <dl class="dashboard_stats dashboard_stats--stack">
-                <div>
-                  <dt>Gesamtgeld (KS)</dt>
-                  <dd>{{ total_money_display }}</dd>
-                </div>
-                <div>
-                  <dt>Ausgerüstete Items</dt>
-                  <dd>{{ equipped_item_count_display }}</dd>
-                </div>
-                <div>
-                  <dt>Charaktere</dt>
-                  <dd>{{ character_count_display }}</dd>
-                </div>
-              </dl>
-            </div>
+            {% dashboard_announcements %}
           </aside>
 
           <section class="dashboard_panel dashboard_panel--main" aria-label="Charakterübersicht und Schnellaktionen">
@@ -135,13 +126,13 @@
                               <td class="dashboard_action_cell">
                                 {% if row.is_own %}
                                   <div class="dashboard_actions_inline">
-                                    <a class="dashboard_button dashboard_button--small dashboard_button--icon" href="{% url 'character_sheet' row.character.id %}" aria-label="Charakter öffnen" title="Charakter öffnen"><span aria-hidden="true">&#10138;</span></a>
-                                    <button type="button" class="dashboard_button dashboard_button--small dashboard_button--icon" data-print-url="{% url 'character_sheet' row.character.id %}" data-print-include-inventory="{{ request.user.settings.print_include_inventory|yesno:'1,0' }}" data-print-include-notes="{{ request.user.settings.print_include_notes|yesno:'1,0' }}" data-print-compact="{{ request.user.settings.print_compact|yesno:'1,0' }}" aria-label="Charakter drucken" title="Charakter drucken"><span aria-hidden="true">&#9113;</span></button>
-                                    <form method="post" action="{% url 'archive_character' row.character.id %}">{% csrf_token %}<button type="submit" class="dashboard_button dashboard_button--small dashboard_button--icon" aria-label="Charakter archivieren" title="Charakter archivieren"><span aria-hidden="true">&#9638;</span></button></form>
-                                    <form method="post" action="{% url 'delete_character' row.character.id %}" onsubmit="return confirm('Charakter wirklich löschen?');">{% csrf_token %}<button type="submit" class="dashboard_button dashboard_button--small dashboard_button--icon dashboard_button--danger" aria-label="Charakter löschen" title="Charakter löschen"><span aria-hidden="true">&#10005;</span></button></form>
+                                    <a class="dashboard_button dashboard_button--small dashboard_button--icon" href="{% url 'character_sheet' row.character.id %}" aria-label="Charakter öffnen" title="Charakter öffnen">{% include "charsheet/partials/_dashboard_icon.html" with icon="open" %}</a>
+                                    <button type="button" class="dashboard_button dashboard_button--small dashboard_button--icon" data-print-url="{% url 'character_sheet' row.character.id %}" data-print-include-inventory="{{ request.user.settings.print_include_inventory|yesno:'1,0' }}" data-print-include-notes="{{ request.user.settings.print_include_notes|yesno:'1,0' }}" data-print-compact="{{ request.user.settings.print_compact|yesno:'1,0' }}" aria-label="Charakter drucken" title="Charakter drucken">{% include "charsheet/partials/_dashboard_icon.html" with icon="print" %}</button>
+                                    <form method="post" action="{% url 'archive_character' row.character.id %}">{% csrf_token %}<button type="submit" class="dashboard_button dashboard_button--small dashboard_button--icon" aria-label="Charakter archivieren" title="Charakter archivieren">{% include "charsheet/partials/_dashboard_icon.html" with icon="archive" %}</button></form>
+                                    <form method="post" action="{% url 'delete_character' row.character.id %}" onsubmit="return confirm('Charakter wirklich löschen?');">{% csrf_token %}<button type="submit" class="dashboard_button dashboard_button--small dashboard_button--icon dashboard_button--danger" aria-label="Charakter löschen" title="Charakter löschen">{% include "charsheet/partials/_dashboard_icon.html" with icon="delete" %}</button></form>
                                   </div>
                                 {% elif section.is_gm %}
-                                  <a class="dashboard_button dashboard_button--small dashboard_button--icon" target="_blank" rel="noopener" href="{% url 'game_master_character_sheet' section.group.id row.character.id %}" aria-label="Bogen lesen" title="Bogen lesen"><span aria-hidden="true">&#9776;</span></a>
+                                  <a class="dashboard_button dashboard_button--small dashboard_button--icon" target="_blank" rel="noopener" href="{% url 'game_master_character_sheet' section.group.id row.character.id %}" aria-label="Bogen lesen" title="Bogen lesen">{% include "charsheet/partials/_dashboard_icon.html" with icon="view" %}</a>
                                 {% endif %}
                               </td>
                             </tr>
@@ -159,10 +150,10 @@
                               <td>{{ row.status.condition }}</td>
                               <td class="dashboard_action_cell">
                                 <div class="dashboard_actions_inline">
-                                  <a class="dashboard_button dashboard_button--small dashboard_button--icon" href="{% url 'character_sheet' row.character.id %}" aria-label="Charakter öffnen" title="Charakter öffnen"><span aria-hidden="true">&#10138;</span></a>
-                                  <button type="button" class="dashboard_button dashboard_button--small dashboard_button--icon" data-print-url="{% url 'character_sheet' row.character.id %}" data-print-include-inventory="{{ request.user.settings.print_include_inventory|yesno:'1,0' }}" data-print-include-notes="{{ request.user.settings.print_include_notes|yesno:'1,0' }}" data-print-compact="{{ request.user.settings.print_compact|yesno:'1,0' }}" aria-label="Charakter drucken" title="Charakter drucken"><span aria-hidden="true">&#9113;</span></button>
-                                  <form method="post" action="{% url 'archive_character' row.character.id %}">{% csrf_token %}<button type="submit" class="dashboard_button dashboard_button--small dashboard_button--icon" aria-label="Charakter archivieren" title="Charakter archivieren"><span aria-hidden="true">&#9638;</span></button></form>
-                                  <form method="post" action="{% url 'delete_character' row.character.id %}" onsubmit="return confirm('Charakter wirklich löschen?');">{% csrf_token %}<button type="submit" class="dashboard_button dashboard_button--small dashboard_button--icon dashboard_button--danger" aria-label="Charakter löschen" title="Charakter löschen"><span aria-hidden="true">&#10005;</span></button></form>
+                                  <a class="dashboard_button dashboard_button--small dashboard_button--icon" href="{% url 'character_sheet' row.character.id %}" aria-label="Charakter öffnen" title="Charakter öffnen">{% include "charsheet/partials/_dashboard_icon.html" with icon="open" %}</a>
+                                  <button type="button" class="dashboard_button dashboard_button--small dashboard_button--icon" data-print-url="{% url 'character_sheet' row.character.id %}" data-print-include-inventory="{{ request.user.settings.print_include_inventory|yesno:'1,0' }}" data-print-include-notes="{{ request.user.settings.print_include_notes|yesno:'1,0' }}" data-print-compact="{{ request.user.settings.print_compact|yesno:'1,0' }}" aria-label="Charakter drucken" title="Charakter drucken">{% include "charsheet/partials/_dashboard_icon.html" with icon="print" %}</button>
+                                  <form method="post" action="{% url 'archive_character' row.character.id %}">{% csrf_token %}<button type="submit" class="dashboard_button dashboard_button--small dashboard_button--icon" aria-label="Charakter archivieren" title="Charakter archivieren">{% include "charsheet/partials/_dashboard_icon.html" with icon="archive" %}</button></form>
+                                  <form method="post" action="{% url 'delete_character' row.character.id %}" onsubmit="return confirm('Charakter wirklich löschen?');">{% csrf_token %}<button type="submit" class="dashboard_button dashboard_button--small dashboard_button--icon dashboard_button--danger" aria-label="Charakter löschen" title="Charakter löschen">{% include "charsheet/partials/_dashboard_icon.html" with icon="delete" %}</button></form>
                                 </div>
                               </td>
                             </tr>
@@ -230,7 +221,7 @@
     <section class="payday-window payday-window--large creation_wizard_window dashboard_creation_window" id="dashboardCreationWindow" aria-hidden="true">
       <div class="payday-window__titlebar" id="dashboardCreationHandle">
         <h3 class="payday-window__title">Charakter erstellen</h3>
-        <button type="button" id="dashboardCreationClose" class="payday-window__close" aria-label="Fenster schließen">x</button>
+        <button type="button" id="dashboardCreationClose" class="payday-window__close" aria-label="Fenster schließen" title="Fenster schließen">{% include "charsheet/partials/_dashboard_icon.html" with icon="close" %}</button>
       </div>
       <div class="payday-window__body creation_window_body dashboard_creation_body">
         <iframe id="dashboardCreationFrame" class="dashboard_creation_iframe" data-src="{% url 'create_character' %}" title="Charaktererstellung"></iframe>
@@ -241,7 +232,7 @@
     <section class="payday-window payday-window--large dashboard_account_window" id="dashboardAccountWindow" aria-hidden="true">
       <div class="payday-window__titlebar" id="dashboardAccountHandle">
         <h3 class="payday-window__title">Kontoeinstellungen</h3>
-        <button type="button" id="dashboardAccountClose" class="payday-window__close" aria-label="Fenster schließen">x</button>
+        <button type="button" id="dashboardAccountClose" class="payday-window__close" aria-label="Fenster schließen" title="Fenster schließen">{% include "charsheet/partials/_dashboard_icon.html" with icon="close" %}</button>
       </div>
       <div class="payday-window__body dashboard_account_body">
         <form method="post" action="{% url 'update_account_settings' %}" class="dashboard_account_form">
@@ -458,7 +449,7 @@
     <section class="payday-window payday-window--large dashboard_group_window" id="dashboardGroupWindow" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="dashboardGroupWindowTitle">
       <div class="payday-window__titlebar" id="dashboardGroupHandle">
         <h3 class="payday-window__title" id="dashboardGroupWindowTitle">Spielgruppe</h3>
-        <button type="button" id="dashboardGroupClose" class="payday-window__close" aria-label="Fenster schließen">x</button>
+        <button type="button" id="dashboardGroupClose" class="payday-window__close" aria-label="Fenster schließen" title="Fenster schließen">{% include "charsheet/partials/_dashboard_icon.html" with icon="close" %}</button>
       </div>
       <div class="payday-window__body dashboard_group_window_body">
         <iframe id="dashboardGroupFrame" class="dashboard_group_iframe" title="Gruppenverwaltung"></iframe>

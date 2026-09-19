@@ -1,5 +1,6 @@
 """Domain models grouped by concern for the charsheet app."""
 
+from .announcement import DashboardAnnouncement
 from .character import (
     Character,
     CharacterAlmanacBrew,
@@ -121,7 +122,12 @@ from .groups import (
     GameGroupTableColumn,
     GameGroupTableRow,
 )
-from .transfers import ItemOwnershipEvent, ItemPermissionGrant, ItemTransfer, ItemTransferNotification
+from .transfers import (
+    ItemOwnershipEvent,
+    ItemPermissionGrant,
+    ItemTransfer,
+    ItemTransferNotification,
+)
 from .progression import (
     CharacterSchool,
     CharacterSchoolPath,
@@ -292,6 +298,7 @@ __all__ = [
     "TechniqueChoiceDefinition",
     "TechniqueExclusion",
     "TechniqueRequirement",
+    "DashboardAnnouncement",
     "TechniqueSemanticEffect",
     "Trait",
     "TraitChoiceDefinition",

@@ -27,12 +27,14 @@
   z-index: auto;
 }
 
-.dashboard_title_wrap h1 {
+.dashboard_panel--sidebar .dashboard_title_wrap h1 {
   margin: 0;
-  font-family: "Cormorant Garamond", Georgia, serif;
-  font-size: clamp(1.6rem, 2.5vw, 2.2rem);
-  line-height: 1.04;
-  color: var(--line);
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 1.05rem;
+  font-weight: 500;
+  line-height: 1.35;
+  color: rgba(63, 45, 31, 0.75);
+  overflow-wrap: anywhere;
 }
 
 .dashboard_version {
@@ -246,6 +248,35 @@
   font-weight: 700;
 }
 
+.dashboard_stats--compact {
+  grid-template-columns: repeat(3, auto);
+  gap: 4px;
+}
+
+.dashboard_stats--compact div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 3px;
+  padding: 4px;
+}
+
+.dashboard_stats--compact dt {
+  margin: 0;
+  font-size: 0.65rem;
+  white-space: nowrap;
+  font-family: Arial, Helvetica, sans-serif;
+  font-variant: normal;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.dashboard_stats--compact dd {
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
 .dashboard_messages {
   position: absolute;
   top: 10px;
@@ -355,6 +386,57 @@
 
 .dashboard_button--sidebar {
   width: 100%;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 13.3333px;
+  font-variant: normal;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+/* Subtle glass treatment for the sidebar actions. */
+.dashboard_panel--sidebar .dashboard_button--sidebar {
+  position: relative;
+  min-height: 36px;
+  margin-block: 2px;
+  border: 1px solid rgba(255, 255, 255, 0.68);
+  border-radius: 12px;
+  background: linear-gradient(155deg,
+    rgba(255, 255, 255, 0.58),
+    rgba(255, 250, 234, 0.2) 48%,
+    rgba(234, 221, 196, 0.28));
+  -webkit-backdrop-filter: blur(10px) saturate(125%);
+  backdrop-filter: blur(10px) saturate(125%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.85),
+    inset 0 -1px 0 rgba(120, 95, 60, 0.12),
+    0 2px 5px rgba(74, 55, 38, 0.1);
+  color: #493a29;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.45);
+  transition: background 160ms ease, box-shadow 160ms ease;
+}
+
+.dashboard_panel--sidebar .dashboard_button--sidebar:hover {
+  filter: none;
+  background: linear-gradient(180deg,
+    rgba(194, 180, 156, 0.16), rgba(194, 180, 156, 0.22));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    0 3px 8px rgba(74, 55, 38, 0.15);
+}
+
+.dashboard_panel--sidebar .dashboard_button--sidebar:active {
+  box-shadow: inset 0 1px 4px rgba(74, 55, 38, 0.18);
+}
+
+.dashboard_panel--sidebar .dashboard_button--sidebar:focus-visible {
+  outline: 2px solid #80613a;
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dashboard_panel--sidebar .dashboard_button--sidebar {
+    transition: none;
+  }
 }
 
 .dashboard-theme--compact .dashboard_panel,
@@ -536,3 +618,32 @@
 }
 
 
+
+/* Secondary account actions share one compact row. */
+.dashboard_panel--sidebar .dashboard_user_actions {
+  background: rgba(255, 250, 238, 0.08);
+}
+
+.dashboard_user_actions_row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 6px;
+}
+
+.dashboard_user_actions_row form {
+  margin: 0;
+  min-width: 0;
+}
+
+.dashboard_panel--sidebar .dashboard_button--logout {
+  color: #833b38;
+  border-color: rgba(179, 96, 90, 0.3);
+  background: linear-gradient(155deg,
+    rgba(255, 239, 236, 0.6), rgba(211, 124, 117, 0.16));
+}
+
+.dashboard_panel--sidebar .dashboard_button--logout:hover {
+  background: linear-gradient(180deg,
+    rgba(190, 76, 66, 0.2), rgba(190, 76, 66, 0.24));
+}

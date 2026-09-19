@@ -1,0 +1,61 @@
+/* Readable glass table: translucent surfaces, opaque black text. */
+.dashboard_panel--main .dashboard_table_wrap {
+  border: 1px solid rgba(90, 72, 45, 0.24);
+  border-radius: 7px;
+  background:
+    radial-gradient(ellipse at 25% 0%, rgba(255, 255, 255, 0.14), transparent 70%),
+    linear-gradient(145deg, rgba(255, 252, 246, 0.18), rgba(234, 225, 206, 0.1));
+  -webkit-backdrop-filter: blur(12px) saturate(110%);
+  backdrop-filter: blur(12px) saturate(110%);
+  box-shadow: 0 2px 6px rgba(74, 55, 38, 0.08);
+}
+
+.dashboard_panel--main .dashboard_table {
+  color: #000;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 0.875rem;
+  font-variant: normal;
+  line-height: 1.45;
+}
+
+.dashboard_panel--main .dashboard_table thead th {
+  background: linear-gradient(180deg, rgba(255, 252, 246, 0.66), rgba(234, 225, 206, 0.52));
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(90, 72, 45, 0.3);
+  color: #000;
+  font-weight: 700;
+  font-variant: normal;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.dashboard_panel--main .dashboard_table_group_heading th {
+  background: rgba(234, 225, 206, 0.24);
+  border-top: 1px solid rgba(90, 72, 45, 0.24);
+  border-bottom: 1px solid rgba(90, 72, 45, 0.14);
+  color: #000;
+  font-weight: 700;
+}
+
+.dashboard_panel--main .dashboard_table td {
+  border-bottom-color: rgba(90, 72, 45, 0.2);
+  color: #000;
+}
+
+.dashboard_panel--main .dashboard_table tbody tr:nth-child(even) td {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.dashboard_panel--main .dashboard_table tbody tr:hover td,
+.dashboard_panel--main .dashboard_table tbody tr:focus-within td {
+  background: rgba(255, 252, 246, 0.3);
+}
+
+.dashboard-theme--high_contrast .dashboard_panel--main .dashboard_table_wrap,
+.dashboard-theme--high_contrast .dashboard_panel--main .dashboard_table thead th,
+.dashboard-theme--high_contrast .dashboard_panel--main .dashboard_table_group_heading th {
+  background: #fff8e8;
+  border-color: #766044;
+  color: #000;
+}

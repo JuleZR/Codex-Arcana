@@ -1,0 +1,93 @@
+/* Content is absolutely contained so messages cannot resize the sidebar. */
+.dashboard_announcements,
+.dashboard_announcements * {
+  font-family: Arial, Helvetica, sans-serif;
+  font-variant: normal;
+  font-variant-caps: normal;
+  text-transform: none;
+  letter-spacing: normal;
+}
+.dashboard_announcements {
+  position: relative;
+  flex: 1 0 0;
+  min-height: 0;
+  min-width: 0;
+}
+.dashboard_announcements_scroll {
+  position: absolute;
+  inset: 0 0 30px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+.announcement {
+  position: relative;
+  padding: 9px;
+  margin-bottom: 8px;
+  border: 1px solid;
+  border-radius: 7px;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.announcement--update { background: #e0eef9; border-color: #6799c0; color: #193d5b; }
+.announcement--warning { background: #fff2bf; border-color: #c7a13c; color: #624900; }
+.announcement--critical { background: #f9dede; border-color: #c56a6a; color: #772424; }
+.announcement_header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.announcement_header form { margin: 0; }
+[data-announcement] > .announcement_header { display: contents; }
+.announcement_kind { float: left; margin-right: 0.35em; }
+[data-announcement] > .announcement_header form { position: absolute; top: 5px; right: 5px; }
+[data-announcement]:has([data-delete-announcement]) { padding-right: 28px; }
+.announcement_preview > * { margin: 0; }
+.announcement_preview :is(h1, h2, h3, h4, h5, h6) {
+  font-size: 1em;
+  line-height: inherit;
+  font-weight: 700;
+}
+.announcement_icon, .announcement_more {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  padding: 2px 5px;
+}
+.announcement_icon { font-size: 1.15rem; opacity: 0.7; }
+.announcement_icon:hover, .announcement_icon:focus-visible { opacity: 1; }
+.announcement_more { font: inherit; font-size: 0.78rem; text-decoration: underline; margin-top: 4px; }
+.announcement_preview:not([hidden]) {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  max-height: 4.2em;
+}
+.announcement_body > :first-child, .announcement_live > :first-child { margin-top: 0; }
+.announcement_body > :last-child, .announcement_live > :last-child { margin-bottom: 0; }
+.announcement pre { white-space: pre-wrap; }
+.announcement a { color: inherit; text-decoration: underline; }
+.announcement_add { position: absolute; left: 0; bottom: 0; }
+.announcement_editor {
+  width: min(520px, calc(100vw - 32px));
+  max-height: calc(100dvh - 40px);
+  overflow: auto;
+  box-sizing: border-box;
+  padding: 18px;
+  border: 1px solid #8d775a;
+  border-radius: 8px;
+  color: #493b2a;
+  background: #f7edd7 url('/static/img/pergamentbg.jpg') center / cover;
+}
+.announcement_editor::backdrop { background: rgb(0 0 0 / 35%); }
+.announcement_editor form, .announcement_editor label { display: grid; gap: 8px; }
+.announcement_editor form { gap: 12px; }
+.announcement_editor h2 { margin: 0; font-size: 1.3rem; }
+.announcement_editor textarea, .announcement_editor select, .announcement_editor input {
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  padding: 6px;
+}
+.announcement_editor textarea { resize: vertical; }
+.announcement_hint { font-size: 0.8rem; margin: 0; }
+.announcement_live { max-height: 220px; overflow: auto; min-height: 36px; margin: 6px 0 0; }
