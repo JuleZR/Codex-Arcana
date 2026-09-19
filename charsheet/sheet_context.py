@@ -1281,21 +1281,9 @@ def _build_damage_gauge_data(
     if damage_max <= 0:
         damage_max = 1
 
-    sorted_threshold_values = sorted(
-        int(row["threshold"])
-        for row in threshold_rows
-        if row.get("threshold") is not None
-    )
-
     def value_to_rotation(value: float) -> float:
         clamped = max(0.0, min(float(damage_max), float(value)))
-        adjusted = clamped
-        if clamped in sorted_threshold_values and clamped < float(damage_max):
-            adjusted = clamped + 1.0
-        elif 0.0 < clamped < float(damage_max):
-            adjusted = clamped + 0.5
-        adjusted = max(0.0, min(float(damage_max), adjusted))
-        return _DAMAGE_GAUGE_NEEDLE_MIN + (adjusted / float(damage_max)) * _DAMAGE_GAUGE_NEEDLE_SWEEP
+        return _DAMAGE_GAUGE_NEEDLE_MIN + (clamped / float(damage_max)) * _DAMAGE_GAUGE_NEEDLE_SWEEP
 
     sorted_rows = sorted(
         (
@@ -1311,63 +1299,46 @@ def _build_damage_gauge_data(
     )
 
     interval_segments: list[dict[str, object]] = []
-    current_stage = "-"
-    current_penalty = 0
-    segment_start = 0
+    segment_start = 0.0
 
     for row in sorted_rows:
-        threshold = max(0, min(int(row["threshold"]), int(damage_max)))
-        if row["stage"] == current_stage and row["penalty"] == current_penalty:
+        segment_end = max(
+            segment_start,
+            min(float(row["threshold"]), float(damage_max)),
+        )
+        if segment_end <= segment_start:
             continue
-        if threshold > segment_start:
+
+        stage = row["stage"]
+        penalty = row["penalty"]
+        if (
+            interval_segments
+            and interval_segments[-1]["stage"] == stage
+            and interval_segments[-1]["penalty"] == penalty
+        ):
+            interval_segments[-1]["end_value"] = segment_end
+        else:
             interval_segments.append(
                 {
                     "start_value": segment_start,
-                    "end_value": threshold,
-                    "stage": current_stage,
-                    "penalty": current_penalty,
+                    "end_value": segment_end,
+                    "stage": stage,
+                    "penalty": penalty,
                 }
             )
-        current_stage = row["stage"]
-        current_penalty = row["penalty"]
-        segment_start = threshold
-
-    if segment_start < damage_max:
-        interval_segments.append(
-            {
-                "start_value": segment_start,
-                "end_value": damage_max,
-                "stage": current_stage,
-                "penalty": current_penalty,
-            }
-        )
+        segment_start = segment_end
 
     if not interval_segments:
-        interval_segments = [{"start_value": 0, "end_value": damage_max, "stage": "-", "penalty": 0}]
-
-    if sorted_rows and sorted_rows[-1]["threshold"] >= damage_max:
-        terminal_stage = sorted_rows[-1]["stage"]
-        terminal_penalty = sorted_rows[-1]["penalty"]
-        previous_row = sorted_rows[-2] if len(sorted_rows) > 1 else None
-        terminal_already_has_interval = bool(
-            previous_row
-            and previous_row["stage"] == terminal_stage
-            and previous_row["penalty"] == terminal_penalty
-        )
-        if not terminal_already_has_interval:
-            previous_threshold = previous_row["threshold"] if previous_row else 0
-            terminal_visual_width = max(1.0, (damage_max - previous_threshold) * 0.28)
-            terminal_start = max(float(previous_threshold), float(damage_max) - terminal_visual_width)
-            if interval_segments:
-                interval_segments[-1]["end_value"] = terminal_start
-            interval_segments.append(
-                {
-                    "start_value": terminal_start,
-                    "end_value": float(damage_max),
-                    "stage": terminal_stage,
-                    "penalty": terminal_penalty,
-                }
-            )
+        interval_segments = [
+            {
+                "start_value": 0.0,
+                "end_value": float(damage_max),
+                "stage": "-",
+                "penalty": 0,
+            }
+        ]
+    elif segment_start < float(damage_max):
+        interval_segments[-1]["end_value"] = float(damage_max)
 
     first_danger_index = next(
         (index for index, segment in enumerate(interval_segments) if int(segment["penalty"]) < 0),

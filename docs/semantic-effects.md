@@ -709,6 +709,10 @@ Mehrere Effekte und Werte > 1 stapeln zusätzliche Stufen an derselben Position.
 neutrale Wundstufe ohne Malus. Ein alter unpositionierter positiver `wound_stage`-Effekt
 wird aus Kompatibilitätsgründen ebenfalls als zusätzliche `Unverletzt`-Stufe behandelt.
 
+Die gespeicherten Wundschwellen sind inklusive Obergrenzen: Ein Wundgrad gilt bis
+einschließlich seiner Schwelle; erst beim Überschreiten beginnt der nächste Wundgrad.
+Bei KON 7 und zwei Koma-Wundgraden gilt Koma daher bis 63 bzw. 70, Tod beginnt bei 71.
+
 ### 15. Wunden ignorieren
 
 Regeltext:

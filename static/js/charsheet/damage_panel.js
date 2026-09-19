@@ -112,29 +112,17 @@ export function initDamagePanel() {
   }
 
   function computeWoundInfo(damage) {
-    if (!thresholdRows.length) {
+    if (!thresholdRows.length || damage <= 0) {
       return { stage: "-", penaltyDisplay: "-", isIgnored: woundPenaltyIgnored, canActWhileOutOfAction };
     }
     const sorted = [...thresholdRows].sort((a, b) => a.threshold - b.threshold);
-    const first = Number(sorted[0].threshold || 0);
     const last = Number(sorted[sorted.length - 1].threshold || 0);
 
-    if (damage < first) {
-      return { stage: "-", penaltyDisplay: "-", isIgnored: woundPenaltyIgnored, canActWhileOutOfAction };
-    }
     if (damage > last) {
       return { stage: "Tod", penaltyDisplay: "0", isIgnored: woundPenaltyIgnored, canActWhileOutOfAction };
     }
 
-    let current = sorted[0];
-    for (const row of sorted) {
-      if (damage >= Number(row.threshold || 0)) {
-        current = row;
-      } else {
-        break;
-      }
-    }
-
+    const current = sorted.find((row) => damage <= Number(row.threshold || 0)) || sorted[sorted.length - 1];
     return {
       stage: String(current.stage || "-"),
       penaltyDisplay: formatModifier(readInt(current.penalty, 0)),
@@ -160,20 +148,7 @@ export function initDamagePanel() {
   function computeRotation(value, maxValue) {
     const safeMax = Math.max(1, maxValue);
     const clamped = Math.max(0, Math.min(value, safeMax));
-    const sortedThresholds = thresholdRows
-      .map((row) => Number(row.threshold || 0))
-      .filter((entry) => Number.isFinite(entry))
-      .sort((a, b) => a - b);
-
-    let adjusted = clamped;
-    if (sortedThresholds.includes(clamped) && clamped < safeMax) {
-      adjusted = clamped + 1;
-    } else if (clamped > 0 && clamped < safeMax) {
-      adjusted = clamped + 0.5;
-    }
-
-    adjusted = Math.max(0, Math.min(adjusted, safeMax));
-    return 6 + (adjusted / safeMax) * 168;
+    return 6 + (clamped / safeMax) * 168;
   }
 
   function renderNeedles(stunDamage, lethalDamage, options = {}) {

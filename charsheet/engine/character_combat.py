@@ -146,26 +146,28 @@ def sr(engine) -> int:
 
 
 def current_wound_stage(engine) -> tuple[str, int | None]:
-    """Return the current wound stage and its raw penalty."""
+    """Return the current wound stage and its raw penalty.
+
+    Wound thresholds are inclusive upper bounds. A character enters the next
+    wound stage only after exceeding the current stage's threshold.
+    """
     wound_dict = engine.wound_thresholds()
     threshold_numbers = sorted(wound_dict.keys())
     if not threshold_numbers:
         return ("-", None)
 
-    damage = engine.character.current_damage
-    if damage < threshold_numbers[0]:
+    damage = int(engine.character.current_damage or 0)
+    if damage <= 0:
         return ("-", None)
     if damage > threshold_numbers[-1]:
         return ("Tod", 0)
 
-    current_stage: tuple[str, int | None] = ("-", None)
     for threshold in threshold_numbers:
-        if damage >= threshold:
+        if damage <= threshold:
             stage_name, penalty = wound_dict[threshold]
-            current_stage = (stage_name, penalty)
-        else:
-            break
-    return current_stage
+            return (stage_name, penalty)
+
+    return ("Tod", 0)
 
 
 def current_wound_penalty(engine) -> int:
