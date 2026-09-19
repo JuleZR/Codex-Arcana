@@ -7,6 +7,10 @@ most recent commit that changed VERSION.
 
 Rules:
 
+- [v:X.Y.Z] or [v:X.Y.Z-prerelease]:
+    - manually sets the exact version at that commit
+    - commits before the marker are ignored for the next calculation
+    - commits after the marker are evaluated normally
 - BREAKING CHANGE:
     - before 1.0.0 -> next minor version
     - from 1.0.0 onward -> next major version
@@ -62,6 +66,12 @@ _COMMIT_TYPE_PATTERN = re.compile(
 
 _BREAKING_CHANGE_PATTERN = re.compile(
     r"(?:^|\n)BREAKING(?: |-)?CHANGE\s*:",
+    re.IGNORECASE,
+)
+
+
+_MANUAL_VERSION_PATTERN = re.compile(
+    r"\[v:(?P<version>[0-9A-Za-z.-]+)\]",
     re.IGNORECASE,
 )
 
@@ -146,6 +156,25 @@ def _commit_type(
     return match.group("type").lower()
 
 
+def _manual_version(
+    commit: CommitDescription,
+) -> Version | None:
+    """Return an exact version declared by a [v:...] commit marker."""
+
+    text = f"{commit.subject}\n{commit.body}"
+
+    matches = list(
+        _MANUAL_VERSION_PATTERN.finditer(text)
+    )
+
+    if not matches:
+        return None
+
+    return Version.parse(
+        matches[-1].group("version")
+    )
+
+
 def calculate_version(
     commits: list[CommitDescription],
     *,
@@ -159,10 +188,31 @@ def calculate_version(
     Multiple commits of the same class therefore only increase the
     version once.
 
-    Priority:
+    A manual [v:...] marker establishes an exact new base version.
+    The newest marker wins. Its own commit and all earlier commits are
+    excluded from automatic bump classification; only later commits are
+    evaluated.
+
+    Priority after the manual anchor:
 
         BREAKING CHANGE > feat > fix
     """
+
+    for index in range(
+        len(commits) - 1,
+        -1,
+        -1,
+    ):
+        manual_version = _manual_version(
+            commits[index]
+        )
+
+        if manual_version is None:
+            continue
+
+        base = manual_version
+        commits = commits[index + 1:]
+        break
 
     has_breaking_change = any(
         _commit_is_breaking(commit)
