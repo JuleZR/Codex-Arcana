@@ -139,9 +139,12 @@ def _build_spell_tooltip(
         extra_cost = spell.ExtraCostType.SPECIAL.label
     kp_cost_label = str(spell.kp_cost_label or "").strip()
     ep_cost_label = str(spell.ep_cost_label or "").strip()
-    cost_label = f"{int(spell.kp_cost)} KP{kp_cost_label}"
+    cost_parts = []
+    if int(spell.kp_cost) > 0:
+        cost_parts.append(f"{int(spell.kp_cost)} KP{kp_cost_label}")
     if spell.ep_cost:
-        cost_label += f" [[SUB:oder {int(spell.ep_cost)} EP{ep_cost_label}]]"
+        cost_parts.append(f"{int(spell.ep_cost)} EP{ep_cost_label}")
+    cost_label = " [[SUB:oder ]]".join(cost_parts)
     if extra_cost:
         cost_label += f" [[SUB:und {extra_cost}]]"
     rows: list[tuple[str, object]] = [
@@ -1357,6 +1360,8 @@ class MagicEngine:
         if not CharacterSpell.objects.filter(character=self.character, spell=spell_obj).exists():
             return {"ok": False, "error": "unknown_spell", "message": "Der Charakter kennt diesen Zauber nicht."}
         if cost_type not in {"kp", "ep"} or (
+            cost_type == "kp" and int(spell_obj.kp_cost) <= 0
+        ) or (
             cost_type == "ep" and not spell_obj.ep_cost
         ):
             return {
@@ -1500,11 +1505,23 @@ class MagicEngine:
                     ),
                     "kp_cost": int(spell.kp_cost),
                     "cost_display": (
-                        f"{int(spell.kp_cost)} KP{str(spell.kp_cost_label or '').strip()}"
-                        + (
-                            f" oder {int(spell.ep_cost)} EP{str(spell.ep_cost_label or '').strip()}"
-                            if spell.ep_cost
-                            else ""
+                        " oder ".join(
+                            part
+                            for part in (
+                                (
+                                    f"{int(spell.kp_cost)} KP"
+                                    f"{str(spell.kp_cost_label or '').strip()}"
+                                    if int(spell.kp_cost) > 0
+                                    else ""
+                                ),
+                                (
+                                    f"{int(spell.ep_cost)} EP"
+                                    f"{str(spell.ep_cost_label or '').strip()}"
+                                    if spell.ep_cost
+                                    else ""
+                                ),
+                            )
+                            if part
                         )
                         + (
                             f" + {int(spell.extra_cost_value)} "
@@ -1549,16 +1566,16 @@ class MagicEngine:
                     f"| **= Gesamt** | `**{row['roll_load_penalty']:+d}**` |"
                 )
                 row["tooltip_text"] += "\n".join(load_rows)
-                row["cost_groups"] = [
-                    {
+                row["cost_groups"] = []
+                if int(spell.kp_cost) > 0:
+                    row["cost_groups"].append({
                         "type": "kp",
                         "kp_cost": int(spell.kp_cost),
                         "label": (
                             f"{int(spell.kp_cost)} KP"
                             f"{str(spell.kp_cost_label or '').strip()}"
                         ),
-                    },
-                ]
+                    })
                 if spell.ep_cost:
                     row["cost_groups"].append({
                         "type": "ep",
