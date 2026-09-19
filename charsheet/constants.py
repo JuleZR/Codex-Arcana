@@ -3,6 +3,7 @@ INITIATIVE = "initiative"
 ARCANE_POWER = "arcane_power"
 POTENTIAL = "potential"
 WOUND_STAGE = "wound_stage"
+WOUND_STAGE_TARGET_PREFIX = f"{WOUND_STAGE}:"
 WOUND_STAGE_POSITION_METADATA_KEY = "wound_stage_position"
 WOUND_STAGE_DEFINITIONS = (
     ("angeschlagen", "Angeschlagen", 0),

@@ -47,6 +47,7 @@ from .constants import (
     WOUND_STAGE,
     WOUND_STAGE_POSITION_CHOICES,
     WOUND_STAGE_POSITION_METADATA_KEY,
+    WOUND_STAGE_TARGET_PREFIX,
 )
 from .admin_help import (
     ATTRIBUTE_CHOICE_HELP,
@@ -2625,11 +2626,20 @@ class ItemSemanticEffectAdminForm(forms.ModelForm):
         target_domain = str(self.initial.get("target_domain") or getattr(self.instance, "target_domain", "") or "")
         target_key = str(self.initial.get("target_key") or getattr(self.instance, "target_key", "") or "")
         metadata = dict(self.initial.get("metadata", getattr(self.instance, "metadata", {}) or {}) or {})
-        wound_stage_position = str(metadata.get(WOUND_STAGE_POSITION_METADATA_KEY) or "").strip()
+        encoded_wound_stage_position = (
+            target_key[len(WOUND_STAGE_TARGET_PREFIX):]
+            if target_key.startswith(WOUND_STAGE_TARGET_PREFIX)
+            else ""
+        )
+        wound_stage_position = str(
+            encoded_wound_stage_position
+            or metadata.get(WOUND_STAGE_POSITION_METADATA_KEY)
+            or ""
+        ).strip()
         if (
             target_domain == "derived_stat"
-            and target_key == WOUND_STAGE
             and wound_stage_position in {key for key, _label in WOUND_STAGE_POSITION_CHOICES}
+            and (target_key == WOUND_STAGE or target_key.startswith(WOUND_STAGE_TARGET_PREFIX))
         ):
             self.initial.setdefault("effect_area", "wound_stage")
             self.initial.setdefault("simple_target", f"wound_stage:{wound_stage_position}")
@@ -2814,7 +2824,7 @@ class ItemSemanticEffectAdminForm(forms.ModelForm):
         if not separator or prefix != area:
             return "", ""
         if area == "wound_stage":
-            return "derived_stat", WOUND_STAGE
+            return "derived_stat", f"{WOUND_STAGE_TARGET_PREFIX}{target_key}"
         return {
             "attribute": "attribute",
             "derived_stat": "derived_stat",
@@ -3629,11 +3639,20 @@ class RuleSemanticEffectAdminForm(SemanticCreatureCardGrantFormMixin, forms.Mode
         target_domain = str(self.initial.get("target_domain") or getattr(self.instance, "target_domain", "") or "")
         target_key = str(self.initial.get("target_key") or getattr(self.instance, "target_key", "") or "")
         metadata = dict(self.initial.get("metadata", getattr(self.instance, "metadata", {}) or {}) or {})
-        wound_stage_position = str(metadata.get(WOUND_STAGE_POSITION_METADATA_KEY) or "").strip()
+        encoded_wound_stage_position = (
+            target_key[len(WOUND_STAGE_TARGET_PREFIX):]
+            if target_key.startswith(WOUND_STAGE_TARGET_PREFIX)
+            else ""
+        )
+        wound_stage_position = str(
+            encoded_wound_stage_position
+            or metadata.get(WOUND_STAGE_POSITION_METADATA_KEY)
+            or ""
+        ).strip()
         positional_wound_stage = (
             target_domain == "derived_stat"
-            and target_key == WOUND_STAGE
             and wound_stage_position in {key for key, _label in WOUND_STAGE_POSITION_CHOICES}
+            and (target_key == WOUND_STAGE or target_key.startswith(WOUND_STAGE_TARGET_PREFIX))
         )
         area = {
             "attribute": "attribute",
@@ -3895,7 +3914,7 @@ class RuleSemanticEffectAdminForm(SemanticCreatureCardGrantFormMixin, forms.Mode
         if not separator:
             return "", ""
         if area == "wound_stage" and prefix == "wound_stage":
-            return "derived_stat", WOUND_STAGE
+            return "derived_stat", f"{WOUND_STAGE_TARGET_PREFIX}{target_key}"
         if area == "weapon_skill":
             if prefix == "combat":
                 return "combat", target_key

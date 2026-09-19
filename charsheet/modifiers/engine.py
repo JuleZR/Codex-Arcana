@@ -25,6 +25,7 @@ from charsheet.constants import (
     WOUND_STAGE,
     WOUND_STAGE_POSITION_CHOICES,
     WOUND_STAGE_POSITION_METADATA_KEY,
+    WOUND_STAGE_TARGET_PREFIX,
     WEAPON_DAMAGE,
     WEAPON_MANEUVER_DAMAGE,
 )
@@ -641,7 +642,10 @@ class ModifierEngine:
             modifier
             for modifier in self.collect_active_modifiers()
             if modifier.target_domain == TargetDomain.DERIVED_STAT
-            and modifier.target_key == WOUND_STAGE
+            and (
+                modifier.target_key == WOUND_STAGE
+                or str(modifier.target_key or "").startswith(WOUND_STAGE_TARGET_PREFIX)
+            )
             and self._modifier_matches_condition_text(modifier, None)
             and TargetResolver.matches_context(modifier, None)
         ]
@@ -654,8 +658,16 @@ class ModifierEngine:
             relevant_modifiers,
             key=lambda entry: (entry.priority, entry.source_type, entry.source_id),
         ):
+            target_key = str(modifier.target_key or "").strip()
+            encoded_position = (
+                target_key[len(WOUND_STAGE_TARGET_PREFIX):]
+                if target_key.startswith(WOUND_STAGE_TARGET_PREFIX)
+                else ""
+            )
             position = str(
-                (modifier.metadata or {}).get(WOUND_STAGE_POSITION_METADATA_KEY) or ""
+                encoded_position
+                or (modifier.metadata or {}).get(WOUND_STAGE_POSITION_METADATA_KEY)
+                or ""
             ).strip()
             if position and position not in valid_positions:
                 continue

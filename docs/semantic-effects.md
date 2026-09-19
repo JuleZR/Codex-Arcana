@@ -700,8 +700,9 @@ Rechenart: + addieren
 Zahl: 1
 ```
 
-Intern bleibt der Effekt ein `derived_stat/wound_stage`-Modifier. Die Position wird als
-`metadata.wound_stage_position = "verwundet"` gespeichert. Die zusätzliche Stufe übernimmt
+Intern wird die Position direkt im Ziel gespeichert, z. B. als
+`derived_stat/wound_stage:verwundet`. `metadata.wound_stage_position` bleibt als kompatible
+Zusatzinformation erhalten. Die zusätzliche Stufe übernimmt
 Name und Wundmalus der gewählten Stufe; nachfolgende Schwellen verschieben sich entsprechend.
 Mehrere Effekte und Werte > 1 stapeln zusätzliche Stufen an derselben Position.
 
