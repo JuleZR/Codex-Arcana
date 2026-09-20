@@ -339,6 +339,13 @@ class Item(models.Model):
 
     weight = models.DecimalField(max_digits=7, decimal_places=3, default=0)
     size_class = models.CharField(max_length=5, choices=GK_CHOICES, default=GK_AVERAGE)
+    base_values_are_size_adjusted = models.BooleanField(
+        default=False,
+        help_text=(
+            "Aktivieren, wenn Gewicht und Preis bereits fuer die konfigurierte "
+            "Groessenklasse angegeben sind."
+        ),
+    )
 
     runes = models.ManyToManyField("Rune", blank=True, related_name="items")
     catalog_group = models.ForeignKey(

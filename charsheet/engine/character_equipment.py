@@ -10,9 +10,13 @@ from charsheet.constants import (
     ATTR_GE,
     ATTR_ST,
     DEFENSE_RS,
+    GK_CHOICES,
     MELEE_MANEUVERS,
+    ONE_HANDED,
     SHIELD_ENCUMBRANCE,
     SOURCE_ITEM_RUNE,
+    TWO_HANDED,
+    VERSATILE,
     WEAPON_DAMAGE,
     WEAPON_DAMAGE_DICE,
     WEAPON_MANEUVER_ATTRIBUTE_GE,
@@ -29,6 +33,67 @@ from .item_engine import ItemEngine
 
 
 LOCAL_WEAPON_DAMAGE_SOURCE_TYPES = {"item", "characteritem", SOURCE_ITEM_RUNE}
+
+
+def _weapon_profiles_for_character_size(engine, item_engine: ItemEngine, *, dice_amount_bonus: int = 0) -> list[dict]:
+    """Return only the one- and two-handed profiles permitted by relative GK."""
+    size_classes = [value for value, _label in GK_CHOICES]
+    character_size = engine.size_class()
+    weapon_size = item_engine.get_size_class()
+    if character_size not in size_classes or weapon_size not in size_classes:
+        return item_engine.weapon_profiles(dice_amount_bonus=dice_amount_bonus)
+
+    character_index = size_classes.index(character_size)
+    weapon_index = size_classes.index(weapon_size)
+    one_handed_allowed = weapon_index <= character_index
+    two_handed_allowed = character_index <= weapon_index <= character_index + 1
+    is_bow = item_engine.get_weapon_type() == "bow"
+    one_handed_damage = item_engine.get_weapon_damage(
+        ONE_HANDED,
+        dice_amount_bonus=dice_amount_bonus,
+    )
+    two_handed_damage = item_engine.get_weapon_damage(
+        TWO_HANDED,
+        dice_amount_bonus=dice_amount_bonus,
+    )
+    wield_mode = item_engine.get_weapon_wield_mode()
+    profiles = []
+    if item_engine._get_item().item_type == Item.ItemType.SHIELD:
+        if one_handed_allowed:
+            profiles.append(
+                {
+                    "mode": ONE_HANDED,
+                    "mode_label": "1 H",
+                    "damage": item_engine.format_damage(one_handed_damage),
+                    "damage_data": one_handed_damage,
+                }
+            )
+        return profiles
+    if one_handed_allowed and not is_bow:
+        profiles.append(
+            {
+                "mode": ONE_HANDED,
+                "mode_label": "1 H",
+                "damage": item_engine.format_damage(one_handed_damage),
+                "damage_data": one_handed_damage,
+            }
+        )
+    supports_two_handed_grip = (
+        wield_mode in {TWO_HANDED, VERSATILE}
+        or weapon_index > character_index
+        or is_bow
+    )
+    if two_handed_allowed and supports_two_handed_grip:
+        damage_data = two_handed_damage or one_handed_damage
+        profiles.append(
+            {
+                "mode": TWO_HANDED,
+                "mode_label": "2 H",
+                "damage": item_engine.format_damage(damage_data),
+                "damage_data": damage_data,
+            }
+        )
+    return profiles
 
 
 def _cached_equipment_list(engine, cache_key, queryset_factory):
@@ -529,6 +594,16 @@ def equipped_weapon_rows(engine) -> list[dict]:
     return _cached_equipment_value(engine, "weapon_rows", lambda: _build_equipped_weapon_rows(engine))
 
 
+def unwieldable_equipped_weapon_ids(engine) -> set[int]:
+    """Return equipped weapon item ids with no profile allowed by effective GK."""
+    equipped_ids = {int(item.pk) for item in engine.equipped_weapon_items()}
+    wieldable_ids = {
+        int(row["character_item"].pk)
+        for row in engine.equipped_weapon_rows()
+    }
+    return equipped_ids - wieldable_ids
+
+
 def _build_equipped_weapon_rows(engine) -> list[dict]:
     rows: list[dict] = []
     bel_malus = engine.load_penalty()
@@ -559,13 +634,11 @@ def _build_equipped_weapon_rows(engine) -> list[dict]:
             item_specific_damage_modifier = _character_item_specific_damage_modifier(engine, character_item)
             item_specific_damage_dice_modifier = _character_item_specific_damage_dice_modifier(engine, character_item)
             maneuver_attribute_codes = item_engine.get_weapon_maneuver_attribute_codes()
-            size_modifier = engine.size_modifier()
             common_maneuver_bonus = (
                 item_engine.get_weapon_maneuver_quality_bonus()
                 + maneuver_modifier
                 + mastery_maneuver_bonus
                 + item_specific_maneuver_modifier
-                + size_modifier
             )
             maneuver_options = []
             for attribute_code in maneuver_attribute_codes:
@@ -633,9 +706,12 @@ def _build_equipped_weapon_rows(engine) -> list[dict]:
             weapon_damage_modifier = _global_weapon_context_combat_modifier(engine, WEAPON_DAMAGE, weapon_context)
             dmg_mod = damage_stat_modifier + damage_attribute_modifier
             total_damage_modifier = dmg_mod + mastery_damage_bonus + weapon_damage_modifier + item_specific_damage_modifier
-            for profile_index, profile in enumerate(
-                item_engine.weapon_profiles(dice_amount_bonus=item_specific_damage_dice_modifier)
-            ):
+            profiles = _weapon_profiles_for_character_size(
+                engine,
+                item_engine,
+                dice_amount_bonus=item_specific_damage_dice_modifier,
+            )
+            for profile_index, profile in enumerate(profiles):
                 min_attribute_label = item_engine.get_weapon_min_attribute_label(profile["mode"])
                 rows.append(
                     {
@@ -692,13 +768,15 @@ def _build_equipped_weapon_rows(engine) -> list[dict]:
                         "maneuver_attribute_modifier": primary_maneuver_option["attribute_modifier"],
                         "mode": profile["mode"],
                         "damage": profile["damage"],
+                        "damage_data": profile["damage_data"],
                         "mode_label": profile["mode_label"],
                         "is_primary_profile": profile_index == 0,
                         "quality_damage_bonus": item_engine.get_weapon_damage_quality_bonus(),
                         "quality_maneuver_bonus": item_engine.get_weapon_maneuver_quality_bonus(),
                         "weapon_mastery_damage_bonus": mastery_damage_bonus,
                         "weapon_mastery_maneuver_bonus": mastery_maneuver_bonus,
-                        "size_modifier": size_modifier,
+                        # Combat-skill rows already contain GK exactly once.
+                        "size_modifier": 0,
                         "weapon_mastery_quality_bonus": engine.weapon_mastery_quality_bonus_for_item(character_item.item),
                         "trait_maneuver_modifier": maneuver_modifier,
                         "item_maneuver_modifier": item_specific_maneuver_modifier,

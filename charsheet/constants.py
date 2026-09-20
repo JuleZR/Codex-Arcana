@@ -2,6 +2,7 @@
 INITIATIVE = "initiative"
 ARCANE_POWER = "arcane_power"
 POTENTIAL = "potential"
+CHARACTER_SIZE_CLASS = "size_class"
 WOUND_STAGE = "wound_stage"
 WOUND_STAGE_TARGET_PREFIX = f"{WOUND_STAGE}:"
 WOUND_STAGE_POSITION_METADATA_KEY = "wound_stage_position"
@@ -49,6 +50,7 @@ STAT_SLUG_CHOICES = [
     (INITIATIVE, "Initiative"),
     (ARCANE_POWER, "Arkane Macht"),
     (POTENTIAL, "Potenzial"),
+    (CHARACTER_SIZE_CLASS, "Charakter-Größenklasse"),
     (WOUND_STAGE, "Wundstufe"),
     (WOUND_PENALTY_MOD, "Wundmalus ver\u00e4ndern"),
     (DEFENSE_VW, "VW"),
@@ -81,6 +83,7 @@ VALID_STAT_SLUGS = {
     INITIATIVE,
     ARCANE_POWER,
     POTENTIAL,
+    CHARACTER_SIZE_CLASS,
     WOUND_STAGE,
     WOUND_PENALTY_IGNORE,
     CAN_ACT_WHILE_OUT_OF_ACTION,

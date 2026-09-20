@@ -5166,13 +5166,7 @@ def _build_skill_rows(
         return display_name
 
     def _skill_size_modifier(skill: Skill) -> int:
-        if skill.category.slug == SKILL_COMBAT:
-            return int(engine.size_modifier())
-        if skill.slug == "skill_evasion":
-            return int(engine.size_modifier())
-        if skill.slug == "skill_hide":
-            return int(engine.size_modifier()) * 2
-        return 0
+        return int(engine._skill_size_modifier(skill))
 
     def _build_row(skill: Skill, character_skill=None, *, specification_override: str | None = None) -> dict:
         attribute_modifier = int(engine.attribute_modifier(skill.attribute.short_name))
@@ -8204,6 +8198,8 @@ def build_temporary_attribute_context(
     """Build only the sheet data affected by runtime attribute adjustments."""
     engine = character.engine
     attributes = engine.attributes()
+    size_class = engine.size_class()
+    size_class_mod = format_modifier(engine.size_modifier())
     attr_mods = {
         short_name: format_modifier(engine.attribute_modifier(short_name))
         for short_name, _label in ATTRIBUTE_ORDER
@@ -8413,6 +8409,7 @@ def build_temporary_attribute_context(
                     {"label": "Basis", "value": 14},
                     {"label": "GE-Bonus/Malus", "value": format_modifier(vw_ge_mod)},
                     {"label": "WA-Bonus/Malus", "value": format_modifier(vw_wa_mod)},
+                    {"label": "GK", "value": size_class_mod, "source": size_class},
                     *_build_modifier_breakdown_rows(engine, DEFENSE_VW),
                     {"label": "= Gesamt", "value": vw_value, "tone": "total"},
                 ],
@@ -8482,6 +8479,11 @@ def build_temporary_attribute_context(
         "resource_type": "blood" if is_vampire else "arcane_power",
         "is_vampire": is_vampire,
         "vampire_panel": vampire_panel,
+        "size_class": size_class,
+        "size_class_mod": size_class_mod,
+        "base_size_class": engine.base_size_class(),
+        "size_class_delta": engine.effective_size_class_delta(),
+        "size_class_adjustment": int(engine.runtime_attribute_adjustments.get("GK", 0)),
     }
 
 
@@ -8997,12 +8999,8 @@ def build_character_sheet_context(
     vw_value = engine.vw()
 
     race = character.race
-    size_class = getattr(race, "size_class", None) or getattr(race, "height_class", "-") or "-"
-    size_class_mod = (
-        format_modifier(int(GK_MODS[size_class]))
-        if size_class in GK_MODS
-        else "-"
-    )
+    size_class = engine.size_class()
+    size_class_mod = format_modifier(engine.size_modifier())
     movement_ground = _build_movement_ground(engine, race)
 
     learning_context = _build_learning_rows(
@@ -9629,6 +9627,7 @@ def build_character_sheet_context(
                     {"label": "Basis", "value": 14},
                     {"label": "GE-Bonus/Malus", "value": format_modifier(vw_ge_mod)},
                     {"label": "WA-Bonus/Malus", "value": format_modifier(vw_wa_mod)},
+                    {"label": "GK", "value": size_class_mod, "source": size_class},
                     *_build_modifier_breakdown_rows(engine, DEFENSE_VW),
                     {"label": "= Gesamt", "value": vw_value, "tone": "total"},
                 ],
@@ -9732,6 +9731,9 @@ def build_character_sheet_context(
         "wallet_total_ks": format_thousands(character.money),
         "size_class": size_class,
         "size_class_mod": size_class_mod,
+        "base_size_class": engine.base_size_class(),
+        "size_class_delta": engine.effective_size_class_delta(),
+        "size_class_adjustment": int(engine.runtime_attribute_adjustments.get("GK", 0)),
         "movement_ground": movement_ground,
         "language_rows": language_rows,
         # Sheet refreshes do not render the shop. Build its catalogs only when

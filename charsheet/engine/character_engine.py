@@ -12,7 +12,15 @@ from django.db.models import Model, Prefetch, Q
 from . import character_combat, character_equipment, character_learning, character_progression
 from .item_engine import ItemEngine
 from . import character_carry
-from charsheet.constants import ATTR_SPEC, GK_AVERAGE, GK_MODS, infer_weapon_type
+from charsheet.constants import (
+    ATTR_SPEC,
+    CHARACTER_SIZE_CLASS,
+    GK_AVERAGE,
+    GK_CHOICES,
+    GK_MODS,
+    SKILL_COMBAT,
+    infer_weapon_type,
+)
 from charsheet.modifiers import ModifierEngine, ModifierResolutionMode, TargetDomain
 from charsheet.models import (
     Character,
@@ -692,13 +700,53 @@ class CharacterEngine:
             for short_name, base_value in self._attributes_map.items()
         }
 
-    def size_class(self) -> str:
-        """Return the character's effective size class from their race."""
+    def base_size_class(self) -> str:
+        """Return the character's unmodified racial size class."""
         return getattr(self.character.race, "size_class", GK_AVERAGE) or GK_AVERAGE
+
+    def size_class_adjustment(self) -> int:
+        """Return the combined persistent and temporary size-category shift."""
+        return (
+            int(self.modifier_total_for_stat(CHARACTER_SIZE_CLASS))
+            + int(self.runtime_attribute_adjustments.get("GK", 0))
+        )
+
+    def size_class(self) -> str:
+        """Return the effective size class without changing the character's race."""
+        size_classes = [value for value, _label in GK_CHOICES]
+        base_size_class = self.base_size_class()
+        if base_size_class not in size_classes:
+            base_size_class = GK_AVERAGE
+        effective_index = max(
+            0,
+            min(
+                len(size_classes) - 1,
+                size_classes.index(base_size_class) + self.size_class_adjustment(),
+            ),
+        )
+        return size_classes[effective_index]
 
     def size_modifier(self) -> int:
         """Return the rules modifier derived from the character's size class."""
         return int(GK_MODS.get(self.size_class(), 0))
+
+    def effective_size_class_delta(self) -> int:
+        """Return the clamped category difference from the racial size class."""
+        size_classes = [value for value, _label in GK_CHOICES]
+        base_size_class = self.base_size_class()
+        if base_size_class not in size_classes:
+            base_size_class = GK_AVERAGE
+        return size_classes.index(self.size_class()) - size_classes.index(base_size_class)
+
+    def _skill_size_modifier(self, skill: Skill) -> int:
+        """Return the GRW size modifier for one skill definition."""
+        if skill.category.slug == SKILL_COMBAT:
+            return self.size_modifier()
+        if skill.slug in {"skill_evasion", "skill_sneak"}:
+            return self.size_modifier()
+        if skill.slug == "skill_hide":
+            return self.size_modifier() * 2
+        return 0
 
     def skills(self) -> dict[str, SkillInfo]:
         """Return the character's learned skills and their metadata."""
@@ -750,6 +798,7 @@ class CharacterEngine:
     equipped_shield_items = character_equipment.equipped_shield_items
     weapon_quality_skill_modifier = character_equipment.weapon_quality_skill_modifier
     equipped_weapon_rows = character_equipment.equipped_weapon_rows
+    unwieldable_equipped_weapon_ids = character_equipment.unwieldable_equipped_weapon_ids
     equipped_armor_rows = character_equipment.equipped_armor_rows
     equipped_clothing_rows = character_equipment.equipped_clothing_rows
     equipped_magic_item_rows = character_equipment.equipped_magic_item_rows
@@ -1113,7 +1162,7 @@ class CharacterEngine:
         attr_mod = int(self.attribute_modifier(attr_short))
 
         base = int(self._skill_base(skill_slug))
-        mods = int(self._skill_modifiers(skill_slug))
+        mods = int(self._skill_modifiers(skill_slug)) + self._skill_size_modifier(skill_definition)
         total = base + mods
 
         return {

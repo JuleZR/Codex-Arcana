@@ -38,13 +38,28 @@
                 <td class="label">Alter</td>
                 <td class="value">{{ character.age|default:"-" }}</td>
               </tr>
-              <tr>
+              <tr{% if size_class_delta > 0 %} class="is-size-above-base"{% elif size_class_delta < 0 %} class="is-size-below-base"{% endif %}>
                 <td class="label">Gr&ouml;&szlig;e</td>
                 <td class="value">{% if character.height %}{{ character.height }} cm{% else %}-{% endif %}</td>
-                <td class="label">Gr&ouml;&szlig;enklasse (GK)</td>
-                <td class="value">{{ size_class }}</td>
+                <td class="label">{% if character.char_picture %}GK{% else %}Gr&ouml;&szlig;enklasse (GK){% endif %}</td>
+                <td class="value">
+                  <div
+                    class="char_info_size_controls"
+                    data-temporary-attribute-panel
+                    data-update-url="{{ temporary_attribute_update_url }}"
+                    data-base-size-class="{{ base_size_class }}"
+                    data-size-classes='["S","F","W","K","M","G","R","Gi","Kol"]'
+                    data-size-modifiers='{"S":8,"F":4,"W":2,"K":1,"M":0,"G":-1,"R":-2,"Gi":-4,"Kol":-8}'
+                  >
+                    <span data-attribute-short-name="GK" data-temporary-adjustment="{{ size_class_adjustment|default:0 }}">
+                      <button type="button" class="attribute_step_control attribute_step_control--decrease" data-temporary-attribute-control data-operation="decrement" aria-label="GK tempor&auml;r um eine Kategorie verringern" title="Tempor&auml;r um eine Kategorie verringern">&minus;</button>
+                      <button type="button" class="char_info_size_reset" data-temporary-attribute-control data-operation="reset" aria-label="Tempor&auml;re GK-&Auml;nderung zur&uuml;cksetzen" title="Tempor&auml;re GK-&Auml;nderung zur&uuml;cksetzen"><span data-size-class-value aria-live="polite">{{ size_class }}</span></button>
+                      <button type="button" class="attribute_step_control attribute_step_control--increase" data-temporary-attribute-control data-operation="increment" aria-label="GK tempor&auml;r um eine Kategorie erh&ouml;hen" title="Tempor&auml;r um eine Kategorie erh&ouml;hen">+</button>
+                    </span>
+                  </div>
+                </td>
                 <td class="label">GK-Mod.</td>
-                <td class="value">{{ size_class_mod }}</td>
+                <td class="value" data-size-class-modifier>{{ size_class_mod }}</td>
               </tr>
               <tr>
                 <td class="label">Hautfarbe</td>

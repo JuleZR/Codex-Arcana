@@ -1361,6 +1361,50 @@ button.skill_manager_action {
   text-overflow: ellipsis;
 }
 
+.char_info_size_controls,
+.char_info_size_controls > span {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.char_info_size_controls > span {
+  position: relative;
+}
+
+.char_info_size_reset {
+  width: 100%;
+  height: 100%;
+  padding: 0 1.4rem;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.char_info_size_controls:hover .attribute_step_control,
+.char_info_size_controls:focus-within .attribute_step_control {
+  opacity: 0.82;
+  pointer-events: auto;
+  border-color: rgba(126, 151, 172, 0.42);
+  background: linear-gradient(180deg, rgba(244, 252, 255, 0.7), rgba(177, 211, 232, 0.46));
+}
+
+.char_info_table tr.is-size-above-base [data-size-class-value],
+.char_info_table tr.is-size-above-base [data-size-class-modifier] {
+  color: #175f9b;
+}
+
+.char_info_table tr.is-size-below-base [data-size-class-value],
+.char_info_table tr.is-size-below-base [data-size-class-modifier] {
+  color: #a12626;
+}
+
+.char_info_size_controls .is-temporary-pending {
+  opacity: 0.55;
+}
+
 .char_info_table .value--appearance {
   padding-inline: 0;
 }

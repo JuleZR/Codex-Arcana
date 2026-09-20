@@ -33,6 +33,7 @@ MODIFIER_SOURCE_LABELS = {
 
 LOCAL_WEAPON_DAMAGE_SOURCE_TYPES = {"item", "characteritem", SOURCE_ITEM_RUNE}
 
+
 @dataclass(slots=True)
 class AttackCalculationInput:
     """Normalized input for one to-hit calculation."""
@@ -571,7 +572,7 @@ class BattleCalculatorEngine:
             if option_id in seen_weapon_keys:
                 continue
             seen_weapon_keys.add(option_id)
-            damage_tuple = item_engine.get_weapon_damage(
+            damage_tuple = row.get("damage_data") or item_engine.get_weapon_damage(
                 mode,
                 dice_amount_bonus=cls._safe_int(row.get("item_damage_dice_modifier")),
             )

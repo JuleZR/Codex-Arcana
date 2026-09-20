@@ -113,8 +113,11 @@ from .constants import (
     ATTRIBUTE_CODE_CHOICES,
     ATTRIBUTE_ORDER,
     ATTR_ST,
+    CHARACTER_SIZE_CLASS,
     DAMAGE_TYPE_CHOICES,
     DEFENSE_RS,
+    GK_AVERAGE,
+    GK_CHOICES,
     GK_MODS,
     RESOURCE_KEY_CHOICES,
     SCHOOL_ARCANE,
@@ -188,8 +191,12 @@ SHEET_PARTIAL_TEMPLATES = {
 }
 
 TEMPORARY_ATTRIBUTE_SESSION_KEY = "charsheet.temporary_attribute_adjustments"
-TEMPORARY_ATTRIBUTE_CODES = {short_name for short_name, _label in ATTRIBUTE_ORDER}
+TEMPORARY_ATTRIBUTE_CODES = {
+    *(short_name for short_name, _label in ATTRIBUTE_ORDER),
+    "GK",
+}
 TEMPORARY_ATTRIBUTE_PARTIAL_KEYS = (
+    "character_header",
     "attribute_panel",
     "skills_panel",
     "core_stats_panel",
@@ -464,6 +471,31 @@ def _store_temporary_attribute_adjustments(
     else:
         request.session.pop(TEMPORARY_ATTRIBUTE_SESSION_KEY, None)
     request.session.modified = True
+
+
+def _engine_after_unwieldable_weapon_cleanup(
+    character: Character,
+    runtime_attribute_adjustments: dict[str, int],
+):
+    """Unequip weapons forbidden by effective GK and return a fresh engine."""
+    engine = character.get_engine(
+        refresh=True,
+        runtime_attribute_adjustments=runtime_attribute_adjustments,
+    )
+    for _iteration in range(10):
+        unwieldable_ids = engine.unwieldable_equipped_weapon_ids()
+        if not unwieldable_ids:
+            break
+        CharacterItem.objects.filter(
+            owner=character,
+            pk__in=unwieldable_ids,
+            equipped=True,
+        ).update(equipped=False)
+        engine = character.get_engine(
+            refresh=True,
+            runtime_attribute_adjustments=runtime_attribute_adjustments,
+        )
+    return engine
 
 
 @login_required
@@ -857,10 +889,16 @@ def _build_sheet_context_for_request(
         magic_engine.sync_character_magic()
     magic_engine.normalize_current_arcane_power(persist=not read_only)
     runtime_attribute_adjustments = _temporary_attribute_adjustments(request, character.pk)
-    character.get_engine(
-        refresh=True,
-        runtime_attribute_adjustments=runtime_attribute_adjustments,
-    )
+    if read_only:
+        character.get_engine(
+            refresh=True,
+            runtime_attribute_adjustments=runtime_attribute_adjustments,
+        )
+    else:
+        _engine_after_unwieldable_weapon_cleanup(
+            character,
+            runtime_attribute_adjustments,
+        )
     context = build_character_sheet_context(
         character,
         close_learn_window_once=close_learn_window_once,
@@ -927,13 +965,40 @@ def _temporary_attribute_response(
         adjustments.pop(short_name, None)
     if adjustments.get(short_name) == 0:
         adjustments.pop(short_name, None)
+    if short_name == "GK" and short_name in adjustments:
+        size_classes = [value for value, _label in GK_CHOICES]
+        base_size_class = getattr(character.race, "size_class", GK_AVERAGE) or GK_AVERAGE
+        base_index = size_classes.index(base_size_class) if base_size_class in size_classes else size_classes.index(GK_AVERAGE)
+        adjustments_without_size = dict(adjustments)
+        adjustments_without_size.pop("GK", None)
+        persistent_engine = character.get_engine(
+            refresh=True,
+            runtime_attribute_adjustments=adjustments_without_size,
+        )
+        persistent_adjustment = persistent_engine.size_class_adjustment()
+        adjustments["GK"] = max(
+            -base_index - persistent_adjustment,
+            min(
+                len(size_classes) - 1 - base_index - persistent_adjustment,
+                int(adjustments["GK"]),
+            ),
+        )
+        if adjustments["GK"] == 0:
+            adjustments.pop("GK", None)
     _store_temporary_attribute_adjustments(request, character.pk, adjustments)
 
-    character.get_engine(
-        refresh=True,
-        runtime_attribute_adjustments=adjustments,
-    )
+    if short_name == "GK":
+        _engine_after_unwieldable_weapon_cleanup(character, adjustments)
+    else:
+        character.get_engine(
+            refresh=True,
+            runtime_attribute_adjustments=adjustments,
+        )
     context = build_temporary_attribute_context(character, read_only=read_only)
+    partial_keys = TEMPORARY_ATTRIBUTE_PARTIAL_KEYS
+    if short_name == "GK":
+        context.update(build_inventory_partial_context(character))
+        partial_keys = (*partial_keys, "inventory_panel")
     context["request"] = request
     context["temporary_attribute_adjustments"] = adjustments
     context["temporary_attribute_update_url"] = (
@@ -945,7 +1010,7 @@ def _temporary_attribute_response(
             "target": SHEET_PARTIAL_TEMPLATES[key][0],
             "html": render_to_string(SHEET_PARTIAL_TEMPLATES[key][1], context, request=request),
         }
-        for key in TEMPORARY_ATTRIBUTE_PARTIAL_KEYS
+        for key in partial_keys
     ]
     return JsonResponse(
         {
@@ -1051,9 +1116,9 @@ def _build_item_semantic_effect_partial_context_for_request(
     magic_engine = character.get_magic_engine(refresh=True)
     magic_engine.normalize_current_arcane_power(persist=True)
     runtime_attribute_adjustments = _temporary_attribute_adjustments(request, character.pk)
-    character.get_engine(
-        refresh=True,
-        runtime_attribute_adjustments=runtime_attribute_adjustments,
+    _engine_after_unwieldable_weapon_cleanup(
+        character,
+        runtime_attribute_adjustments,
     )
     context = build_item_semantic_effect_partial_context(character, partial_keys)
     context["request"] = request
@@ -1073,9 +1138,11 @@ def _item_semantic_effect_toggle_partial_keys(effects) -> tuple[str, ...]:
 
     for effect in effects:
         domain = str(getattr(effect, "target_domain", "") or "")
+        target_key = str(getattr(effect, "target_key", "") or "")
         try:
             modifier = effect.to_modifier()
             domain = str(getattr(modifier, "target_domain", domain) or domain)
+            target_key = str(getattr(modifier, "target_key", target_key) or target_key)
         except Exception:
             domain = domain or "__fallback__"
         keys = ITEM_SEMANTIC_EFFECT_PARTIAL_KEYS_BY_DOMAIN.get(
@@ -1086,6 +1153,11 @@ def _item_semantic_effect_toggle_partial_keys(effects) -> tuple[str, ...]:
             if key not in selected_set:
                 selected_set.add(key)
                 selected_keys.append(key)
+        if domain == "derived_stat" and target_key == CHARACTER_SIZE_CLASS:
+            for key in ("character_header", "skills_panel"):
+                if key not in selected_set:
+                    selected_set.add(key)
+                    selected_keys.append(key)
     return tuple(selected_keys)
 
 

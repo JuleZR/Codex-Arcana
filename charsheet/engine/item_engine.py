@@ -8,6 +8,12 @@ from django.db.models import Q
 from charsheet.constants import (
     ATTR_GE,
     ATTR_ST,
+    GK_AVERAGE,
+    GK_FINE,
+    GK_LARGE,
+    GK_SMALL,
+    GK_TINY,
+    GK_VERYFINE,
     ONE_HANDED,
     TWO_HANDED,
     VERSATILE,
@@ -21,6 +27,24 @@ from charsheet.models import ArmorStats, CharacterItem, Item, Quality, RangedWea
 
 
 WEAPON_RANGE_KEYS = ("short", "medium", "long")
+
+SIZE_CLASS_PRICE_MULTIPLIERS = {
+    GK_VERYFINE: Decimal("1"),
+    GK_FINE: Decimal("1"),
+    GK_TINY: Decimal("1"),
+    GK_SMALL: Decimal("1"),
+    GK_AVERAGE: Decimal("1"),
+    GK_LARGE: Decimal("2"),
+}
+
+SIZE_CLASS_WEIGHT_MULTIPLIERS = {
+    GK_VERYFINE: Decimal("0.2"),
+    GK_FINE: Decimal("0.2"),
+    GK_TINY: Decimal("0.2"),
+    GK_SMALL: Decimal("0.5"),
+    GK_AVERAGE: Decimal("1"),
+    GK_LARGE: Decimal("1.5"),
+}
 
 
 class ItemEngine:
@@ -125,6 +149,19 @@ class ItemEngine:
             return fallback
         return override_value
 
+    def _get_size_class_multiplier(
+        self,
+        multipliers: dict[str, Decimal],
+    ) -> Decimal:
+        """Return the GRW equipment multiplier for the effective size."""
+        item = self._get_item()
+        if item.base_values_are_size_adjusted:
+            return Decimal("1")
+        return multipliers.get(
+            self.get_size_class(),
+            Decimal("1"),
+        )
+
     def _get_weapon_stats(self) -> WeaponStats | None:
         if self.weapon_stats is not None:
             return self.weapon_stats
@@ -202,13 +239,16 @@ class ItemEngine:
         return self.get_effective_quality_obj().hex_color
 
     def get_weight(self) -> Decimal:
-        """Return effective item weight including metal and stack amount."""
+        """Return effective item weight including size, metal and amount."""
         item = self._get_item()
         weight = Decimal(
             self._get_override_value(
                 "weight_override",
                 item.weight,
             )
+        )
+        weight *= self._get_size_class_multiplier(
+            SIZE_CLASS_WEIGHT_MULTIPLIERS
         )
         metal = self._get_metal()
         if metal is not None:
@@ -234,6 +274,9 @@ class ItemEngine:
         effective_quality = Quality.resolve(quality)
         metal = self._get_metal()
         price = Decimal(self.get_base_price())
+        price *= self._get_size_class_multiplier(
+            SIZE_CLASS_PRICE_MULTIPLIERS
+        )
         # A metal quality overwrite replaces the item's regular quality.
         # Its price multiplier already represents that material's price rule.
         if metal is None or not metal.quality_overwrite_id:

@@ -49,6 +49,39 @@ function formatModifier(value) {
 
 function applyOptimisticAttributeAdjustment(row, nextAdjustment) {
   const previousAdjustment = Number.parseInt(row.dataset.temporaryAdjustment || "0", 10) || 0;
+  const sizeClassValue = row.querySelector("[data-size-class-value]");
+  if (sizeClassValue instanceof HTMLElement) {
+    const panel = row.closest("[data-temporary-attribute-panel]");
+    const sizeModifierCell = panel?.closest("tr")?.querySelector("[data-size-class-modifier]");
+    let sizeClasses = [];
+    let sizeModifiers = {};
+    try {
+      sizeClasses = JSON.parse(panel?.dataset.sizeClasses || "[]");
+      sizeModifiers = JSON.parse(panel?.dataset.sizeModifiers || "{}");
+    } catch (_error) {
+      return previousAdjustment;
+    }
+    const currentIndex = sizeClasses.indexOf(String(sizeClassValue.textContent || "").trim());
+    if (currentIndex < 0) {
+      return previousAdjustment;
+    }
+    const adjustmentDelta = nextAdjustment - previousAdjustment;
+    const nextIndex = Math.max(0, Math.min(sizeClasses.length - 1, currentIndex + adjustmentDelta));
+    const appliedAdjustment = previousAdjustment + nextIndex - currentIndex;
+    const nextSizeClass = sizeClasses[nextIndex];
+    const baseIndex = sizeClasses.indexOf(String(panel?.dataset.baseSizeClass || "").trim());
+    sizeClassValue.textContent = nextSizeClass;
+    if (sizeModifierCell instanceof HTMLElement) {
+      sizeModifierCell.textContent = formatModifier(Number(sizeModifiers[nextSizeClass]) || 0);
+    }
+    row.dataset.temporaryAdjustment = String(appliedAdjustment);
+    row.classList.toggle("is-temporary-positive", appliedAdjustment > 0);
+    row.classList.toggle("is-temporary-negative", appliedAdjustment < 0);
+    const tableRow = panel?.closest("tr");
+    tableRow?.classList.toggle("is-size-above-base", baseIndex >= 0 && nextIndex > baseIndex);
+    tableRow?.classList.toggle("is-size-below-base", baseIndex >= 0 && nextIndex < baseIndex);
+    return appliedAdjustment;
+  }
   const valueCell = row.querySelector("[data-attribute-value]");
   const modifierCell = row.querySelector(".mod-badge");
   if (valueCell instanceof HTMLElement) {
@@ -62,6 +95,7 @@ function applyOptimisticAttributeAdjustment(row, nextAdjustment) {
   row.dataset.temporaryAdjustment = String(nextAdjustment);
   row.classList.toggle("is-temporary-positive", nextAdjustment > 0);
   row.classList.toggle("is-temporary-negative", nextAdjustment < 0);
+  return nextAdjustment;
 }
 
 async function submitTemporaryAttributeOperation(
@@ -202,10 +236,10 @@ export function initTemporaryAttributes() {
     } else {
       pending.targetAdjustment = 0;
     }
+    pending.targetAdjustment = applyOptimisticAttributeAdjustment(row, pending.targetAdjustment);
     pending.row = row;
     pendingOperations.set(key, pending);
     latestDesiredAdjustments.set(key, pending.targetAdjustment);
-    applyOptimisticAttributeAdjustment(row, pending.targetAdjustment);
     row.classList.add("is-temporary-pending");
     pending.timer = window.setTimeout(() => flushPendingOperation(key), 90);
   });
