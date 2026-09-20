@@ -12,6 +12,7 @@ from types import SimpleNamespace
 from typing import Any
 
 from django.db.models import Q
+from django.core.exceptions import ObjectDoesNotExist
 
 from charsheet.constants import (
     ARCANE_POWER,
@@ -40,6 +41,7 @@ from charsheet.models.creatures import (
     CharacterCreatureItem,
     Creature,
     CreatureAttack,
+    CreatureSwarmProfile,
     CreatureSourceBinding,
     CreatureTraitDefinition,
 )
@@ -324,10 +326,46 @@ class CreatureEngine:
             if self.instance
             else creature
         )
+        self._swarm_template = self.creature
         self._kraftbestie_base_creature = None
         if self._uses_kraftbestie_rules():
             self._kraftbestie_base_creature = self.creature
             self.creature = self._build_kraftbestie_profile()
+
+    @cached_property
+    def swarm_profile(self) -> CreatureSwarmProfile | None:
+        if not bool(getattr(self._swarm_template, "is_swarm_creature", False)):
+            return None
+        try:
+            return self._swarm_template.swarm_profile
+        except (AttributeError, ObjectDoesNotExist):
+            return None
+
+    def swarm_mode(self) -> str | None:
+        profile = self.swarm_profile
+        if profile is None:
+            return None
+        requested = str(getattr(self.instance, "swarm_mode", "") or "")
+        available = {
+            CreatureSwarmProfile.DisplayMode.INDIVIDUAL: profile.individual_mode_available,
+            CreatureSwarmProfile.DisplayMode.SWARM: profile.swarm_mode_available,
+        }
+        if requested and available.get(requested):
+            return requested
+        if available.get(profile.default_display_mode):
+            return profile.default_display_mode
+        if profile.swarm_mode_available:
+            return CreatureSwarmProfile.DisplayMode.SWARM
+        return CreatureSwarmProfile.DisplayMode.INDIVIDUAL
+
+    def _swarm_profile_value(self, field_name: str, default: Any = None) -> Any:
+        profile = self.swarm_profile
+        mode = self.swarm_mode()
+        if profile is None or mode is None:
+            return default
+        overrides = profile.swarm_overrides if mode == CreatureSwarmProfile.DisplayMode.SWARM else profile.individual_overrides
+        value = (overrides or {}).get(field_name)
+        return default if value is None or value == "" else value
 
     def _uses_kraftbestie_rules(self) -> bool:
         binding = getattr(self.instance, "source_binding", None) if self.instance else None
@@ -1391,13 +1429,41 @@ class CreatureEngine:
         return self.creature.display_name
 
     def image(self):
+        default_image = self.default_image()
         if self.instance:
-            return self.instance.image
+            if self.swarm_mode() == CreatureSwarmProfile.DisplayMode.SWARM:
+                return self.instance.swarm_image_override or default_image
+            return self.instance.image_override or default_image
+        return default_image
+
+    def default_image(self):
+        if (
+            self.swarm_profile is not None
+            and self.swarm_mode() == CreatureSwarmProfile.DisplayMode.SWARM
+            and self.swarm_profile.image
+        ):
+            return self.swarm_profile.image
         return self.creature.image
+
+    def has_custom_image(self) -> bool:
+        if self.instance is None:
+            return False
+        if self.swarm_mode() == CreatureSwarmProfile.DisplayMode.SWARM:
+            return bool(self.instance.swarm_image_override)
+        return bool(self.instance.image_override)
 
     def size_class(self) -> str:
         if self.instance and self.instance.size_class_override:
             return self.instance.size_class_override
+        profile = self.swarm_profile
+        if profile is not None:
+            profile_value = (
+                profile.swarm_size_class
+                if self.swarm_mode() == CreatureSwarmProfile.DisplayMode.SWARM
+                else profile.individual_size_class
+            )
+            if profile_value:
+                return profile_value
         return self.creature.size_class
 
     def size_modifier(self) -> int:
@@ -1435,7 +1501,7 @@ class CreatureEngine:
         return int(value or 0) - 5
 
     def initiative(self) -> int:
-        base = self.creature.initiative_override
+        base = self._swarm_profile_value("initiative_override", self.creature.initiative_override)
         if base is None:
             base = int(self.attribute_mod(ATTR_WA) or 0)
         return (
@@ -1446,22 +1512,25 @@ class CreatureEngine:
         )
 
     def vw(self) -> int:
-        if self.creature.vw_override is not None:
-            base = int(self.creature.vw_override)
+        profile_override = self._swarm_profile_value("vw_override", self.creature.vw_override)
+        if profile_override is not None:
+            base = int(profile_override)
         else:
             base = 14 + int(self.attribute_mod(ATTR_GE) or 0) + int(self.attribute_mod(ATTR_WA) or 0) + self.size_modifier()
         return base + int(self._instance_numeric_adjustment("vw_override")) + self._modifier_total(TargetDomain.DERIVED_STAT, "vw")
 
     def sr(self) -> int:
-        if self.creature.sr_override is not None:
-            base = int(self.creature.sr_override)
+        profile_override = self._swarm_profile_value("sr_override", self.creature.sr_override)
+        if profile_override is not None:
+            base = int(profile_override)
         else:
             base = 14 + int(self.attribute_mod(ATTR_ST) or 0) + int(self.attribute_mod(ATTR_KON) or 0)
         return base + int(self._instance_numeric_adjustment("sr_override")) + self._modifier_total(TargetDomain.DERIVED_STAT, "sr")
 
     def gw(self) -> int:
-        if self.creature.gw_override is not None:
-            base = int(self.creature.gw_override)
+        profile_override = self._swarm_profile_value("gw_override", self.creature.gw_override)
+        if profile_override is not None:
+            base = int(profile_override)
         else:
             base = 14 + int(self.attribute_mod(ATTR_INT) or 0) + int(self.attribute_mod(ATTR_WILL) or 0)
         return base + int(self._instance_numeric_adjustment("gw_override")) + self._modifier_total(TargetDomain.DERIVED_STAT, "gw")
@@ -1590,6 +1659,30 @@ class CreatureEngine:
         return False
 
     def wound_rows(self) -> list[dict[str, Any]]:
+        instance_thresholds = ""
+        if self.instance is not None:
+            instance_thresholds = getattr(self.instance, "wound_thresholds_override", "") or ""
+        if instance_thresholds:
+            thresholds = self._parse_wound_thresholds(instance_thresholds)
+            if thresholds:
+                return [
+                    {"label": label, "threshold": threshold, "penalty": self._wound_penalty_for_label(label)}
+                    for label, threshold in zip(WOUND_STAGE_LABELS, thresholds)
+                ]
+        profile = self.swarm_profile
+        if profile is not None:
+            is_swarm = self.swarm_mode() == CreatureSwarmProfile.DisplayMode.SWARM
+            life_points = profile.swarm_life_points if is_swarm else profile.individual_life_points
+            profile_thresholds = profile.swarm_wound_thresholds if is_swarm else profile.individual_wound_thresholds
+            if life_points is not None:
+                return [{"label": "LP", "threshold": int(life_points), "penalty": 0}]
+            if profile_thresholds:
+                thresholds = self._parse_wound_thresholds(profile_thresholds)
+                if thresholds:
+                    return [
+                        {"label": label, "threshold": threshold, "penalty": self._wound_penalty_for_label(label)}
+                        for label, threshold in zip(WOUND_STAGE_LABELS, thresholds)
+                    ]
         explicit_thresholds = self._wound_thresholds_override()
         if explicit_thresholds:
             return [
@@ -1608,7 +1701,11 @@ class CreatureEngine:
             raw_value = getattr(self.instance, "wound_thresholds_override", "") or ""
         if not raw_value:
             raw_value = getattr(self.creature, "wound_thresholds_override", "") or ""
-        raw = str(raw_value).strip()
+        return self._parse_wound_thresholds(raw_value)
+
+    @staticmethod
+    def _parse_wound_thresholds(raw_value) -> list[int]:
+        raw = str(raw_value or "").strip()
         if not raw:
             return []
         thresholds: list[int] = []
@@ -1678,7 +1775,7 @@ class CreatureEngine:
         return movement
 
     def _movement_value(self, field_name: str, target_key: str, default: Any) -> Any:
-        value = getattr(self.creature, field_name, default)
+        value = self._swarm_profile_value(field_name, getattr(self.creature, field_name, default))
         adjustment = self._instance_numeric_adjustment(f"{field_name}_override")
         if value is None and adjustment:
             value = 0
@@ -1789,7 +1886,7 @@ class CreatureEngine:
 
     def armor_totals(self) -> CreatureArmorTotals:
         natural_rs = (
-            int(self.creature.natural_rs or 0)
+            int(self._swarm_profile_value("natural_rs", self.creature.natural_rs) or 0)
             + int(self._instance_numeric_adjustment("natural_rs_override"))
             + self._modifier_total(TargetDomain.DERIVED_STAT, DEFENSE_RS)
             + self._modifier_total(TargetDomain.DERIVED_STAT, "natural_rs")
@@ -1832,7 +1929,16 @@ class CreatureEngine:
             if row.base_attack_id
         }
         attack_rows = []
+        swarm_attack_overrides = {}
+        if self.swarm_profile is not None and self.swarm_mode() == CreatureSwarmProfile.DisplayMode.SWARM:
+            swarm_attack_overrides = {
+                row.base_attack_id: row
+                for row in self.swarm_profile.attack_overrides.select_related("base_attack", "base_attack__attack_type")
+            }
         for attack in self.creature.attacks.select_related("attack_type").all():
+            swarm_override = swarm_attack_overrides.get(attack.pk)
+            if swarm_override is not None:
+                attack = self._resolved_swarm_attack(attack, swarm_override)
             override = overrides_by_base_id.get(attack.pk)
             if override is not None and not override.active:
                 continue
@@ -1856,6 +1962,51 @@ class CreatureEngine:
             )
             for attack, attack_target_key in attack_rows
         ]
+
+    @staticmethod
+    def _resolved_swarm_attack(attack, override):
+        resolved = copy.copy(attack)
+        field_map = {
+            "name": "name_override",
+            "attack_value": "attack_value_override",
+            "damage_dice_amount": "damage_dice_amount_override",
+            "damage_dice_faces": "damage_dice_faces_override",
+            "damage_flat_operator": "damage_flat_operator_override",
+            "damage_flat_bonus": "damage_flat_bonus_override",
+            "damage_type": "damage_type_override",
+        }
+        for target, source in field_map.items():
+            value = getattr(override, source)
+            if value is not None and (source != "name_override" or value != ""):
+                setattr(resolved, target, value)
+        if override.notes:
+            resolved.notes = override.notes
+        return resolved
+
+    def swarm_count_effects(self) -> list[dict[str, Any]]:
+        profile = self.swarm_profile
+        if profile is None or self.swarm_mode() != CreatureSwarmProfile.DisplayMode.SWARM:
+            return []
+        count = getattr(self.instance, "current_swarm_count", None) if self.instance else None
+        rows = []
+        for effect in profile.count_effects.all():
+            bonus = None if count is None else (int(count) // int(effect.interval)) * int(effect.value_per_interval)
+            rows.append({
+                "label": effect.label,
+                "target_key": effect.target_key,
+                "interval": effect.interval,
+                "value_per_interval": effect.value_per_interval,
+                "unit": effect.unit,
+                "notes": effect.notes,
+                "bonus": bonus,
+            })
+        return rows
+
+    def normal_weapon_damage_divisor(self) -> int | None:
+        profile = self.swarm_profile
+        if profile is None or not profile.individual_size_class:
+            return None
+        return {"W": 2, "F": 4, "S": 8}.get(profile.individual_size_class)
 
     def _attack_context(
         self,
@@ -2287,6 +2438,9 @@ class CreatureEngine:
         has_single_swim = movement.get("swim") not in (None, "", 0, 0.0)
         has_swim = all(movement.get(key) is not None for key in ("swim_combat", "swim_march", "swim_sprint"))
         has_flight = any(movement.get(key) is not None for key in ("fly_combat", "fly_march", "fly_sprint"))
+        swarm_profile = self.swarm_profile
+        swarm_mode = self.swarm_mode()
+        swarm_count = getattr(self.instance, "current_swarm_count", None) if self.instance else None
         quality_choices = [
             {
                 "value": row.code,
@@ -2307,8 +2461,16 @@ class CreatureEngine:
             "creature_type": creature_type,
             "typebar_label": f"Kreatur - {creature_type}" if creature_type else "Kreatur",
             "image": self.image(),
-            "default_image": self.creature.image,
-            "has_custom_image": bool(self.instance and self.instance.image_override),
+            "default_image": self.default_image(),
+            "has_custom_image": self.has_custom_image(),
+            "image_mode": swarm_mode or CreatureSwarmProfile.DisplayMode.INDIVIDUAL,
+            "image_mode_label": (
+                "Schwarmbild"
+                if swarm_mode == CreatureSwarmProfile.DisplayMode.SWARM
+                else "Einzeltierbild"
+                if swarm_profile is not None
+                else "Bild"
+            ),
             "quality": normalized_quality,
             "quality_label": quality.name,
             "quality_color": quality.hex_color,
@@ -2432,6 +2594,24 @@ class CreatureEngine:
             "effect_conditions": self.effect_condition_summary(),
             "climate_and_occurrence": self.creature.climate_and_occurrence,
             "organization": self.instance.trigger_label if self.instance and self.instance.trigger_label else self.creature.organization,
+            "is_swarm_creature": swarm_profile is not None,
+            "swarm_mode": swarm_mode,
+            "swarm_mode_label": dict(CreatureSwarmProfile.DisplayMode.choices).get(swarm_mode, ""),
+            "swarm_individual_available": bool(swarm_profile and swarm_profile.individual_mode_available),
+            "swarm_available": bool(swarm_profile and swarm_profile.swarm_mode_available),
+            "swarm_has_mode_switch": bool(
+                swarm_profile
+                and swarm_profile.individual_mode_available
+                and swarm_profile.swarm_mode_available
+            ),
+            "individual_size_class": swarm_profile.individual_size_class if swarm_profile else "",
+            "swarm_size_class": swarm_profile.swarm_size_class if swarm_profile else "",
+            "min_swarm_count": swarm_profile.min_swarm_count if swarm_profile else None,
+            "max_swarm_count": swarm_profile.max_swarm_count if swarm_profile else None,
+            "current_swarm_count": swarm_count,
+            "normal_weapon_damage_divisor": self.normal_weapon_damage_divisor(),
+            "swarm_notes": swarm_profile.notes if swarm_profile else "",
+            "swarm_count_effects": self.swarm_count_effects(),
         }
         if getattr(self.creature, "_kraftbestie", False):
             base_name = getattr(self.creature, "_kraftbestie_base_display_name", self.creature.display_name)

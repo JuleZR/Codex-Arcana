@@ -9408,13 +9408,16 @@ def build_character_sheet_context(
                     "source": card.original_card_name,
                     "trigger": card.trigger_label,
                     "active": card.active,
-                    "has_source_deviations": bool(card.name_override or card.image_override),
+                    "has_source_deviations": bool(
+                        card.name_override or card.image_override or card.swarm_image_override
+                    ),
                 }
             )
             continue
         card_context = CreatureEngine(card).card_context()
         card_context["adjust_damage_url"] = reverse("adjust_creature_damage", kwargs={"pk": card.pk})
         card_context["training_update_url"] = reverse("update_character_creature_training", kwargs={"pk": card.pk})
+        card_context["swarm_update_url"] = reverse("update_character_creature_swarm", kwargs={"pk": card.pk})
         if (
             card.source_selection_completed
             and (
@@ -9433,9 +9436,11 @@ def build_character_sheet_context(
             card_context["adjust_damage_url"] = ""
             card_context.pop("training_update_url", None)
             card_context.pop("reset_choice_url", None)
+            card_context.pop("swarm_update_url", None)
         mini_context = {**card_context, "adjust_damage_url": "", "damage_controls_disabled": True}
         mini_context.pop("training_update_url", None)
         mini_context.pop("reset_choice_url", None)
+        mini_context.pop("swarm_update_url", None)
         mini_context.pop("creation_choice", None)
         training_context = build_creature_card_training_context(card)
         creature_card_contexts.append({"card": card, "context": card_context, "mini_context": mini_context, "training_context": training_context})
@@ -9445,7 +9450,9 @@ def build_character_sheet_context(
                 "source": card.original_card_name,
                 "trigger": card.trigger_label,
                 "active": card.active,
-                "has_source_deviations": bool(card.name_override or card.image_override),
+                "has_source_deviations": bool(
+                    card.name_override or card.image_override or card.swarm_image_override
+                ),
             }
         )
     creature_choice_context = build_creature_choice_progression_context(active_creature_cards)

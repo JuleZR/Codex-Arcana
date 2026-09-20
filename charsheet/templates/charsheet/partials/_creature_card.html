@@ -32,9 +32,10 @@
         {% if creature_card.training_update_url %}
             <div class="card-art-edit">
                 <label class="card-art-edit__upload" data-creature-card-image-trigger>
-                    <span>Bild</span>
+                    <span>{{ creature_card.image_mode_label|default:"Bild" }}</span>
                     <input name="custom_creature_image" type="file" accept="image/*" data-creature-card-field>
                     <input name="custom_creature_image_cropped_data" type="hidden" value="" data-creature-card-field data-card-cropped-image-field>
+                    <input name="custom_creature_image_mode" type="hidden" value="{{ creature_card.image_mode|default:'individual' }}" data-creature-card-field>
                 </label>
                 {% if creature_card.has_custom_image %}
                     <button class="card-art-edit__remove" type="button" data-creature-card-remove-image>Löschen</button>
@@ -56,7 +57,7 @@
                     </svg>
                 </button>
             {% endif %}
-            <h1 class="card-title card-display-field">{{ creature_card.name }}{% if creature_card.name_suffix %} {{ creature_card.name_suffix }}{% endif %}</h1>
+            <h1 class="card-title card-display-field">{{ creature_card.name }}{% if creature_card.name_suffix %} {{ creature_card.name_suffix }}{% endif %}{% if creature_card.swarm_mode_label %} · {{ creature_card.swarm_mode_label }}{% endif %}</h1>
             {% if creature_card.training_update_url %}
                 <input class="card-title card-title-input card-edit-field" name="custom_name" value="{{ creature_card.custom_name|default:'' }}" placeholder="{{ creature_card.original_card_name|default:'' }}" maxlength="100" data-creature-card-field>
             {% endif %}
@@ -185,6 +186,73 @@
         <section class="card-rules creature-card__rules" aria-label="Kreaturenwerte">
             {% if creature_card.creation_choice %}
                 {% include "charsheet/partials/_creature_creation_controls.html" with choice=creature_card.creation_choice %}
+            {% endif %}
+            {% if creature_card.is_swarm_creature %}
+                <div class="creature-card__swarm-summary">
+                  <div class="creature-card__swarm-panel">
+                    {% if creature_card.swarm_update_url %}
+                        <form class="creature-card__swarm-toolbar" method="post" action="{{ creature_card.swarm_update_url }}" data-creature-swarm-form>
+                            {% csrf_token %}
+                            {% if creature_card.swarm_has_mode_switch %}
+                                <span class="creature-card__swarm-modes" role="group" aria-label="Schwarmdarstellung">
+                                    {% if creature_card.swarm_mode == "swarm" %}
+                                        <button class="creature-card__swarm-toggle is-swarm" type="submit" name="mode" value="individual" aria-pressed="true" aria-label="Schwarmdarstellung aktiv; zur Einzeltierdarstellung wechseln">
+                                            <span class="creature-card__swarm-switch" aria-hidden="true"><span></span></span>
+                                            <span class="creature-card__swarm-toggle-label">Schwarm</span>
+                                        </button>
+                                    {% else %}
+                                        <button class="creature-card__swarm-toggle" type="submit" name="mode" value="swarm" aria-pressed="false" aria-label="Einzeltierdarstellung aktiv; zur Schwarmdarstellung wechseln">
+                                            <span class="creature-card__swarm-switch" aria-hidden="true"><span></span></span>
+                                            <span class="creature-card__swarm-toggle-label">Einzeltier</span>
+                                        </button>
+                                    {% endif %}
+                                </span>
+                            {% else %}
+                                <input type="hidden" name="mode" value="{{ creature_card.swarm_mode }}">
+                                <span class="creature-card__swarm-mode creature-card__swarm-mode--fixed">{{ creature_card.swarm_mode_label }}</span>
+                            {% endif %}
+                            {% if creature_card.swarm_mode == "swarm" and creature_card.current_swarm_count != None %}
+                                <span class="creature-card__swarm-count" aria-label="Aktuelle Schwarmgröße">
+                                    <span class="creature-card__swarm-count-label">Anzahl</span>
+                                    <button type="button" data-swarm-count-adjust="-1" aria-label="Schwarmgröße um eins verringern">−</button>
+                                    <input type="number" name="current_swarm_count" min="1" value="{{ creature_card.current_swarm_count|default_if_none:'' }}" placeholder="–" inputmode="numeric" aria-label="Aktuelle Schwarmgröße" data-swarm-count-input>
+                                    <button type="button" data-swarm-count-adjust="1" aria-label="Schwarmgröße um eins erhöhen">+</button>
+                                </span>
+                            {% endif %}
+                        </form>
+                    {% else %}
+                        <span class="creature-card__swarm-mode creature-card__swarm-mode--fixed">{{ creature_card.swarm_mode_label }}</span>
+                    {% endif %}
+                  </div>
+                  {% if creature_card.swarm_mode == "swarm" %}
+                    <p class="creature-card__oracle-line creature-card__oracle-line--conditions creature-card__swarm-facts">
+                        {% if creature_card.min_swarm_count and creature_card.max_swarm_count %}
+                            <span class="creature-card__swarm-fact creature-card__swarm-fact--composition"><b>Schwarm:</b> {{ creature_card.min_swarm_count }}–{{ creature_card.max_swarm_count }} Tiere{% if creature_card.individual_size_class %} der GK {{ creature_card.individual_size_class }}{% endif %}</span>
+                        {% elif creature_card.max_swarm_count %}
+                            <span class="creature-card__swarm-fact creature-card__swarm-fact--composition"><b>Schwarm:</b> bis {{ creature_card.max_swarm_count }} Tiere{% if creature_card.individual_size_class %} der GK {{ creature_card.individual_size_class }}{% endif %}</span>
+                        {% elif creature_card.min_swarm_count %}
+                            <span class="creature-card__swarm-fact creature-card__swarm-fact--composition"><b>Schwarm:</b> ab {{ creature_card.min_swarm_count }} Tiere{% if creature_card.individual_size_class %} der GK {{ creature_card.individual_size_class }}{% endif %}</span>
+                        {% elif creature_card.individual_size_class %}
+                            <span class="creature-card__swarm-fact creature-card__swarm-fact--composition"><b>Einzeltiere:</b> GK {{ creature_card.individual_size_class }}</span>
+                        {% endif %}
+                        {% if creature_card.normal_weapon_damage_divisor %}
+                            <span class="creature-card__swarm-fact"><b>Normale Waffen:</b> nur 1/{{ creature_card.normal_weapon_damage_divisor }} Schaden</span>
+                            <span class="creature-card__swarm-fact"><b>Flächenangriffe:</b> voller Schaden</span>
+                        {% endif %}
+                        {% if creature_card.swarm_notes %}<span class="creature-card__swarm-note">{{ creature_card.swarm_notes }}</span>{% endif %}
+                    </p>
+                  {% endif %}
+                </div>
+                {% if creature_card.swarm_mode == "swarm" %}
+                    {% if creature_card.swarm_count_effects %}
+                        <p class="creature-card__oracle-line creature-card__oracle-line--conditions">
+                            <strong>Anzahlregeln</strong>
+                            {% for effect in creature_card.swarm_count_effects %}
+                                <span class="creature-card__rule-entry">{{ effect.label }}: je {{ effect.interval }} {% if effect.value_per_interval > 0 %}+{% endif %}{{ effect.value_per_interval }}{% if effect.unit %} {{ effect.unit }}{% endif %}{% if effect.bonus != None %} (aktuell {% if effect.bonus > 0 %}+{% endif %}{{ effect.bonus }}){% endif %}{% if effect.notes %} – {{ effect.notes }}{% endif %}</span>{% if not forloop.last %}; {% endif %}
+                            {% endfor %}
+                        </p>
+                    {% endif %}
+                {% endif %}
             {% endif %}
             <div class="creature-card__oracle-line creature-card__oracle-line--core creature-card__core-grid{% if creature_card.has_resources %} creature-card__core-grid--two-rows{% endif %}">
                 {% if creature_card.has_resources %}

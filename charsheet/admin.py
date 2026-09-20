@@ -133,6 +133,9 @@ from .models import (
     Creature,
     CreatureAttack,
     CreatureAttackType,
+    CreatureSwarmAttackOverride,
+    CreatureSwarmCountEffect,
+    CreatureSwarmProfile,
     CreatureAttribute,
     CreatureType,
     CreatureSourceBinding,
@@ -8524,6 +8527,50 @@ class CreatureAttackInline(admin.TabularInline):
     autocomplete_fields = ("attack_type",)
 
 
+_SWARM_JSON_HELP = mark_safe(
+    '<details><summary style="cursor:pointer">(?) Verwendung und erlaubte Felder</summary>'
+    '<div style="margin-top:6px;max-width:58rem">Nur Werte eintragen, die in diesem Modus abweichen. '
+    'Leeres Objekt <code>{}</code> bedeutet: Basiswert der Kreatur verwenden.<br>'
+    '<strong>Beispiel:</strong> <code>{"initiative_override": 0, "vw_override": 15, "combat_speed": 4}</code><br>'
+    '<strong>Werte:</strong> <code>initiative_override</code>, <code>vw_override</code>, '
+    '<code>sr_override</code>, <code>gw_override</code>, <code>natural_rs</code>.<br>'
+    '<strong>Bewegung:</strong> <code>combat_speed</code>, <code>march_speed</code>, '
+    '<code>sprint_speed</code>, <code>swimming_speed</code>, <code>combat_swimming_speed</code>, '
+    '<code>march_swimming_speed</code>, <code>sprint_swimming_speed</code>, '
+    '<code>combat_fly_speed</code>, <code>march_fly_speed</code>, <code>sprint_fly_speed</code>.<br>'
+    'JSON-Schlüssel und Textwerte müssen in doppelten Anführungszeichen stehen.'
+    '</div></details>'
+)
+
+
+class CreatureSwarmProfileAdminForm(forms.ModelForm):
+    class Meta:
+        model = CreatureSwarmProfile
+        fields = "__all__"
+        help_texts = {
+            "individual_overrides": _SWARM_JSON_HELP,
+            "swarm_overrides": _SWARM_JSON_HELP,
+        }
+
+
+class CreatureSwarmProfileInline(admin.StackedInline):
+    model = CreatureSwarmProfile
+    form = CreatureSwarmProfileAdminForm
+    extra = 0
+    max_num = 1
+    fields = (
+        ("individual_mode_available", "swarm_mode_available", "default_display_mode"),
+        ("individual_size_class", "swarm_size_class"),
+        "image",
+        ("individual_life_points", "individual_wound_thresholds"),
+        ("swarm_life_points", "swarm_wound_thresholds"),
+        ("min_swarm_count", "max_swarm_count"),
+        "individual_overrides",
+        "swarm_overrides",
+        "notes",
+    )
+
+
 class CreatureSkillInline(admin.TabularInline):
     model = CreatureSkill
     extra = 0
@@ -9208,6 +9255,60 @@ class CreatureChangeList(ChangeList):
         return [*group_fields, *secondary_ordering]
 
 
+class CreatureSwarmAttackOverrideInline(admin.TabularInline):
+    model = CreatureSwarmAttackOverride
+    extra = 0
+    autocomplete_fields = ("base_attack",)
+    fields = (
+        "base_attack",
+        "name_override",
+        "attack_value_override",
+        "damage_dice_amount_override",
+        "damage_dice_faces_override",
+        "damage_flat_operator_override",
+        "damage_flat_bonus_override",
+        "damage_type_override",
+        "notes",
+    )
+
+
+class CreatureSwarmCountEffectInline(admin.TabularInline):
+    model = CreatureSwarmCountEffect
+    extra = 0
+    fields = ("order", "label", "target_key", "interval", "value_per_interval", "unit", "notes")
+
+
+@admin.register(CreatureSwarmProfile)
+class CreatureSwarmProfileAdmin(admin.ModelAdmin):
+    form = CreatureSwarmProfileAdminForm
+    list_display = (
+        "creature",
+        "default_display_mode",
+        "individual_mode_available",
+        "swarm_mode_available",
+        "min_swarm_count",
+        "max_swarm_count",
+    )
+    search_fields = ("creature__name", "notes")
+    list_filter = ("individual_mode_available", "swarm_mode_available", "default_display_mode")
+    autocomplete_fields = ("creature",)
+    inlines = (CreatureSwarmAttackOverrideInline, CreatureSwarmCountEffectInline)
+
+
+@admin.register(CreatureSwarmAttackOverride)
+class CreatureSwarmAttackOverrideAdmin(admin.ModelAdmin):
+    list_display = ("profile", "base_attack", "attack_value_override", "damage_flat_bonus_override")
+    search_fields = ("profile__creature__name", "base_attack__name", "notes")
+    autocomplete_fields = ("profile", "base_attack")
+
+
+@admin.register(CreatureSwarmCountEffect)
+class CreatureSwarmCountEffectAdmin(admin.ModelAdmin):
+    list_display = ("profile", "label", "target_key", "interval", "value_per_interval")
+    search_fields = ("profile__creature__name", "label", "target_key", "notes")
+    autocomplete_fields = ("profile",)
+
+
 class AssignCreatureTypeForm(forms.Form):
     """Choose the creature type applied by the creature bulk action."""
 
@@ -9224,12 +9325,13 @@ class CreatureAdmin(admin.ModelAdmin):
     form = CreatureAdminForm
     change_form_template = "admin/charsheet/creature/change_form.html"
     change_list_template = "admin/charsheet/creature/change_list.html"
-    list_display = ("name", "size_class", "initiative_override", "natural_rs", "organization")
+    list_display = ("name", "is_swarm_creature", "size_class", "initiative_override", "natural_rs", "organization")
     search_fields = ("name", "slug", "climate_and_occurrence", "organization")
-    list_filter = ("size_class",)
+    list_filter = ("is_swarm_creature", "size_class")
     prepopulated_fields = {"slug": ("name",)}
     actions = ("assign_creature_type",)
     inlines = (
+        CreatureSwarmProfileInline,
         CreatureAttackInline,
         CreatureSkillInline,
         CreatureLanguageInline,
@@ -9241,7 +9343,7 @@ class CreatureAdmin(admin.ModelAdmin):
         CreatureTraitInline,
     )
     fieldsets = (
-        ("Basis", {"fields": ("name", "slug", "creature_type", "image", "description")}),
+        ("Basis", {"fields": ("name", "slug", "creature_type", "image", "description", "is_swarm_creature")}),
         (
             "Kampfwerte",
             {
@@ -9586,7 +9688,8 @@ class CharacterCreatureAdmin(admin.ModelAdmin):
                 "source_character_technique"
                 ),
             "active")}),
-        ("Basis", {"fields": ("name_override", "image_override", "quality", ("current_damage", "current_aggravated_damage"), "notes")}),
+        ("Basis", {"fields": ("name_override", ("image_override", "swarm_image_override"), "quality", ("current_damage", "current_aggravated_damage"), "notes")}),
+        ("Schwarm", {"fields": (("swarm_mode", "current_swarm_count"),)}),
         (
             "Vampire runtime and overrides",
             {

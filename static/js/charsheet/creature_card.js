@@ -1302,6 +1302,67 @@ export function initCreatureCards() {
     replaceCreatureCardFragments(form, event.detail || {});
   });
 
+  document.addEventListener("submit", async (event) => {
+    const form = event.target instanceof HTMLFormElement
+      ? event.target.closest("[data-creature-swarm-form]")
+      : null;
+    if (!(form instanceof HTMLFormElement)) {
+      return;
+    }
+    event.preventDefault();
+    const submitter = event.submitter instanceof HTMLElement ? event.submitter : null;
+    const buttons = Array.from(form.querySelectorAll("button"));
+    buttons.forEach((button) => { button.disabled = true; });
+    try {
+      const data = new FormData(form);
+      if (submitter instanceof HTMLButtonElement && submitter.name) {
+        data.set(submitter.name, submitter.value);
+      }
+      const response = await fetch(form.action, {
+        method: "POST",
+        body: data,
+        headers: { "X-Requested-With": "XMLHttpRequest" },
+      });
+      const payload = await response.json();
+      if (!response.ok || !payload.ok) {
+        throw new Error(payload.message || "Schwarmdarstellung konnte nicht gespeichert werden.");
+      }
+      replaceCreatureCardFragments(form, payload);
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "Schwarmdarstellung konnte nicht gespeichert werden.");
+      buttons.forEach((button) => { button.disabled = false; });
+    }
+  });
+
+  document.addEventListener("click", (event) => {
+    const button = event.target instanceof Element
+      ? event.target.closest("[data-swarm-count-adjust]")
+      : null;
+    if (!(button instanceof HTMLButtonElement)) {
+      return;
+    }
+    const form = button.closest("[data-creature-swarm-form]");
+    const input = form?.querySelector("[data-swarm-count-input]");
+    if (!(form instanceof HTMLFormElement) || !(input instanceof HTMLInputElement)) {
+      return;
+    }
+    const delta = Number.parseInt(button.dataset.swarmCountAdjust || "0", 10) || 0;
+    const current = Number.parseInt(input.value || "1", 10) || 1;
+    input.value = String(Math.max(1, current + delta));
+    form.requestSubmit();
+  });
+
+  document.addEventListener("change", (event) => {
+    const input = event.target instanceof HTMLInputElement
+      && event.target.matches("[data-swarm-count-input]")
+      ? event.target
+      : null;
+    const form = input?.closest("[data-creature-swarm-form]");
+    if (input instanceof HTMLInputElement && form instanceof HTMLFormElement) {
+      form.requestSubmit();
+    }
+  });
+
   let creatureRuleFitTimer = 0;
   window.addEventListener("resize", () => {
     window.clearTimeout(creatureRuleFitTimer);

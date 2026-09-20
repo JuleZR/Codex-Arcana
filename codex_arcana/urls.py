@@ -350,6 +350,11 @@ urlpatterns = [
         name="update_character_creature_training",
     ),
     path(
+        "character-creature/<int:pk>/swarm/update/",
+        views.update_character_creature_swarm,
+        name="update_character_creature_swarm",
+    ),
+    path(
         "character-creature/<int:pk>/choice/reset/",
         views.reset_technique_creature_choice,
         name="reset_technique_creature_choice",

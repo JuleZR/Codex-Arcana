@@ -1656,6 +1656,190 @@ span.card-aspect-placeholder {
     overflow-wrap: break-word;
 }
 
+.creature-card__swarm-summary {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 3px 8px;
+}
+
+.creature-card__swarm-panel {
+    display: flex;
+    grid-column: 2;
+    grid-row: 1;
+    justify-content: flex-end;
+    min-height: 24px;
+    margin: 0;
+    font-size: calc(11px * var(--creature-rules-font-scale));
+}
+
+.creature-card__swarm-toolbar,
+.creature-card__swarm-modes {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 5px;
+}
+
+.creature-card__swarm-mode--fixed,
+.creature-card__swarm-count button {
+    appearance: none;
+    border: 1px solid rgba(33, 28, 23, 0.42);
+    color: #211c17;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.44), rgba(42, 36, 29, 0.08));
+    box-shadow: inset 0 1px rgba(255, 255, 255, 0.42);
+    font: inherit;
+}
+
+.creature-card__swarm-mode--fixed {
+    min-height: 22px;
+    border-radius: 999px;
+    padding: 2px 9px;
+    font-weight: 750;
+    letter-spacing: 0.015em;
+}
+
+.creature-card__swarm-toggle {
+    appearance: none;
+    display: inline-flex;
+    min-height: 22px;
+    align-items: center;
+    gap: 5px;
+    border: 0;
+    padding: 1px 2px;
+    color: #211c17;
+    background: transparent;
+    font: inherit;
+    font-weight: 750;
+    letter-spacing: 0.015em;
+    cursor: pointer;
+}
+
+.creature-card__swarm-toggle:hover,
+.creature-card__swarm-toggle:focus-visible {
+    outline: 1px solid rgba(33, 28, 23, 0.3);
+    outline-offset: 1px;
+}
+
+.creature-card__swarm-switch {
+    position: relative;
+    display: inline-block;
+    width: 30px;
+    height: 17px;
+    flex: 0 0 30px;
+    border: 1px solid rgba(33, 28, 23, 0.36);
+    border-radius: 999px;
+    background: rgba(33, 28, 23, 0.24);
+    box-shadow: inset 0 1px 2px rgba(33, 28, 23, 0.18);
+    transition: background 140ms ease;
+}
+
+.creature-card__swarm-switch > span {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    background: #f4f1e8;
+    box-shadow: 0 1px 2px rgba(20, 17, 14, 0.42);
+    transition: transform 140ms ease;
+}
+
+.creature-card__swarm-toggle.is-swarm .creature-card__swarm-switch {
+    background: rgba(48, 62, 58, 0.78);
+}
+
+.creature-card__swarm-toggle.is-swarm .creature-card__swarm-switch > span {
+    transform: translateX(13px);
+}
+
+.creature-card__swarm-toggle-label {
+    line-height: 1;
+}
+
+.creature-card__swarm-mode--fixed {
+    display: inline-flex;
+    align-items: center;
+}
+
+.creature-card__swarm-count {
+    display: inline-flex;
+    height: 22px;
+    align-items: stretch;
+    overflow: hidden;
+    border: 1px solid rgba(33, 28, 23, 0.38);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.creature-card__swarm-count-label {
+    display: inline-flex;
+    align-items: center;
+    padding-left: 7px;
+    color: rgba(33, 28, 23, 0.78);
+    font-weight: 700;
+}
+
+.creature-card__swarm-count button {
+    width: 20px;
+    border-width: 0 0 0 1px;
+    border-radius: 0;
+    padding: 0;
+    cursor: pointer;
+    font-weight: 800;
+}
+
+.creature-card__swarm-count input[type="number"] {
+    appearance: textfield;
+    width: 31px;
+    border: 0;
+    padding: 0 2px;
+    color: #17120d;
+    background: transparent;
+    font: inherit;
+    font-weight: 800;
+    text-align: center;
+    outline: none;
+}
+
+.creature-card__swarm-count input::-webkit-inner-spin-button,
+.creature-card__swarm-count input::-webkit-outer-spin-button {
+    appearance: none;
+    margin: 0;
+}
+
+.creature-card__swarm-facts {
+    display: grid;
+    grid-column: 1;
+    grid-row: 1;
+    grid-template-columns: 1fr;
+    gap: 3px;
+    padding-top: 1px;
+    font-weight: 560;
+}
+
+.creature-card__swarm-fact {
+    display: block;
+    padding-left: 8px;
+    border-left: 2px solid rgba(39, 49, 43, 0.35);
+}
+
+.creature-card__swarm-facts b {
+    display: inline-block;
+    margin-right: 3px;
+    font-variant: small-caps;
+    font-weight: 820;
+    letter-spacing: 0.025em;
+}
+
+.creature-card__swarm-note {
+    display: block;
+    margin-top: 2px;
+    font-style: italic;
+}
+
 .creature-card__oracle-line + .creature-card__oracle-line::before {
     content: "";
     position: absolute;

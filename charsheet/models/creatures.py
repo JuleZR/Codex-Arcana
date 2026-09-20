@@ -156,6 +156,11 @@ class Creature(models.Model):
     movement_note = models.CharField("Bewegungshinweis", max_length=200, blank=True, default="")
     climate_and_occurrence = models.TextField(blank=True, default="")
     organization = models.CharField(max_length=100, blank=True, default="")
+    is_swarm_creature = models.BooleanField(
+        "Ist Schwarmkreatur",
+        default=False,
+        help_text="Kennzeichnet eine Kreatur ausdruecklich als schwarmfaehig.",
+    )
 
     class Meta:
         ordering = ["name"]
@@ -345,6 +350,153 @@ class CreatureAttack(models.Model):
 
     def __str__(self):
         return f"{self.creature}: {self.name}"
+
+
+class CreatureSwarmProfile(models.Model):
+    """Sparse individual/swarm representations for one creature template."""
+
+    class DisplayMode(models.TextChoices):
+        INDIVIDUAL = "individual", "Einzeltier"
+        SWARM = "swarm", "Schwarm"
+
+    creature = models.OneToOneField(
+        Creature,
+        on_delete=models.CASCADE,
+        related_name="swarm_profile",
+    )
+    individual_mode_available = models.BooleanField("Einzeltier verfuegbar", default=True)
+    swarm_mode_available = models.BooleanField("Schwarm verfuegbar", default=True)
+    default_display_mode = models.CharField(
+        "Standarddarstellung",
+        max_length=12,
+        choices=DisplayMode.choices,
+        default=DisplayMode.SWARM,
+    )
+    individual_size_class = models.CharField(
+        "Einzeltier-GK", max_length=5, choices=GK_CHOICES, blank=True, default=""
+    )
+    swarm_size_class = models.CharField(
+        "Schwarm-GK", max_length=5, choices=GK_CHOICES, blank=True, default=""
+    )
+    image = models.ImageField(
+        "Schwarmbild",
+        upload_to="creatures/swarms/",
+        blank=True,
+        null=True,
+        help_text="Alternatives Vorlagenbild, das in der Schwarmdarstellung verwendet wird.",
+    )
+    individual_life_points = models.PositiveIntegerField("Einzeltier-LP", blank=True, null=True)
+    individual_wound_thresholds = models.CharField(
+        "Einzeltier-Wundschwellen", max_length=100, blank=True, default=""
+    )
+    swarm_life_points = models.PositiveIntegerField("Schwarm-LP", blank=True, null=True)
+    swarm_wound_thresholds = models.CharField(
+        "Schwarm-Wundschwellen", max_length=100, blank=True, default=""
+    )
+    min_swarm_count = models.PositiveIntegerField("Minimale Schwarmgroesse", blank=True, null=True)
+    max_swarm_count = models.PositiveIntegerField("Maximale Schwarmgroesse", blank=True, null=True)
+    individual_overrides = models.JSONField(
+        "Weitere Einzeltier-Overrides", blank=True, default=dict,
+        help_text="Nur abweichende Basisfelder als JSON-Objekt eintragen.",
+    )
+    swarm_overrides = models.JSONField(
+        "Weitere Schwarm-Overrides", blank=True, default=dict,
+        help_text="Nur abweichende Basisfelder als JSON-Objekt eintragen.",
+    )
+    notes = models.TextField("Schwarm-Notes", blank=True, default="")
+
+    class Meta:
+        verbose_name = "Schwarmprofil"
+        verbose_name_plural = "Schwarmprofile"
+
+    def __str__(self):
+        return f"{self.creature}: Schwarmprofil"
+
+    def clean(self):
+        super().clean()
+        errors = {}
+        if not self.individual_mode_available and not self.swarm_mode_available:
+            errors[NON_FIELD_ERRORS] = "Mindestens eine Darstellung muss verfuegbar sein."
+        if self.default_display_mode == self.DisplayMode.INDIVIDUAL and not self.individual_mode_available:
+            errors["default_display_mode"] = "Die Standarddarstellung Einzeltier ist nicht verfuegbar."
+        if self.default_display_mode == self.DisplayMode.SWARM and not self.swarm_mode_available:
+            errors["default_display_mode"] = "Die Standarddarstellung Schwarm ist nicht verfuegbar."
+        if (
+            self.min_swarm_count is not None
+            and self.max_swarm_count is not None
+            and self.min_swarm_count > self.max_swarm_count
+        ):
+            errors["max_swarm_count"] = "Das Maximum muss mindestens so gross wie das Minimum sein."
+        if errors:
+            raise ValidationError(errors)
+
+
+class CreatureSwarmAttackOverride(models.Model):
+    """Sparse swarm-only changes to an existing creature attack."""
+
+    profile = models.ForeignKey(
+        CreatureSwarmProfile,
+        on_delete=models.CASCADE,
+        related_name="attack_overrides",
+    )
+    base_attack = models.OneToOneField(
+        CreatureAttack,
+        on_delete=models.CASCADE,
+        related_name="swarm_override",
+    )
+    name_override = models.CharField(max_length=100, blank=True, default="")
+    attack_value_override = models.IntegerField(blank=True, null=True)
+    damage_dice_amount_override = models.PositiveIntegerField(blank=True, null=True)
+    damage_dice_faces_override = models.PositiveIntegerField(blank=True, null=True)
+    damage_flat_operator_override = models.CharField(
+        max_length=1,
+        choices=CreatureAttack.DamageOperator.choices,
+        null=True,
+        blank=True,
+        default=None,
+    )
+    damage_flat_bonus_override = models.IntegerField(blank=True, null=True)
+    damage_type_override = models.CharField(
+        max_length=1, choices=DAMAGE_TYPE_CHOICES, null=True, blank=True, default=None
+    )
+    notes = models.CharField(max_length=200, blank=True, default="")
+
+    class Meta:
+        ordering = ["base_attack__order", "base_attack__name"]
+
+    def __str__(self):
+        return f"{self.profile}: {self.base_attack.name}"
+
+    def clean(self):
+        super().clean()
+        if self.profile_id and self.base_attack_id and self.profile.creature_id != self.base_attack.creature_id:
+            raise ValidationError({"base_attack": "Der Angriff muss zur Kreatur des Schwarmprofils gehoeren."})
+
+
+class CreatureSwarmCountEffect(models.Model):
+    """Source-defined interval rule evaluated from a concrete swarm count."""
+
+    profile = models.ForeignKey(
+        CreatureSwarmProfile,
+        on_delete=models.CASCADE,
+        related_name="count_effects",
+    )
+    label = models.CharField(max_length=100)
+    target_key = models.SlugField(
+        max_length=80,
+        help_text="Semantisches Ziel, z. B. poison-strength oder poison-damage.",
+    )
+    interval = models.PositiveIntegerField(validators=[MinValueValidator(1)])
+    value_per_interval = models.IntegerField(default=1)
+    unit = models.CharField(max_length=40, blank=True, default="")
+    notes = models.CharField(max_length=200, blank=True, default="")
+    order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ["order", "label", "id"]
+
+    def __str__(self):
+        return f"{self.profile}: {self.label}"
 
 
 class CreatureSkill(models.Model):
@@ -1247,6 +1399,12 @@ class CharacterCreature(models.Model):
     )
     name_override = models.CharField(max_length=100, blank=True, default="")
     image_override = models.ImageField(upload_to="character_creatures/", blank=True, null=True)
+    swarm_image_override = models.ImageField(
+        "Eigenes Schwarmbild",
+        upload_to="character_creatures/swarms/",
+        blank=True,
+        null=True,
+    )
     notes = models.TextField(blank=True, default="")
     active = models.BooleanField(default=True)
     source_selection_completed = models.BooleanField(
@@ -1267,6 +1425,15 @@ class CharacterCreature(models.Model):
     semantic_effect_label = models.CharField(max_length=160, blank=True, default="")
     semantic_effect_is_choice = models.BooleanField(default=False)
     current_damage = models.PositiveIntegerField(default=0)
+    swarm_mode = models.CharField(
+        "Schwarmdarstellung",
+        max_length=12,
+        choices=CreatureSwarmProfile.DisplayMode.choices,
+        blank=True,
+        default="",
+        help_text="Leer verwendet die Standarddarstellung des Schwarmprofils.",
+    )
+    current_swarm_count = models.PositiveIntegerField("Aktuelle Schwarmgroesse", blank=True, null=True)
     current_aggravated_damage = models.PositiveIntegerField(
         default=0,
         help_text="Bereits im Gesamtschaden enthaltener schwer heilbarer Anteil.",

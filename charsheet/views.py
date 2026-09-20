@@ -4395,6 +4395,7 @@ def _render_creature_training_payload(request, card: CharacterCreature) -> dict:
         inventory_item_name = ItemEngine(source_item).get_name()
     card_context["adjust_damage_url"] = reverse_lazy("adjust_creature_damage", kwargs={"pk": card.pk})
     card_context["training_update_url"] = reverse_lazy("update_character_creature_training", kwargs={"pk": card.pk})
+    card_context["swarm_update_url"] = reverse_lazy("update_character_creature_swarm", kwargs={"pk": card.pk})
     if (
         card.source_selection_completed
         and (
@@ -4412,6 +4413,7 @@ def _render_creature_training_payload(request, card: CharacterCreature) -> dict:
     mini_context = {**card_context, "adjust_damage_url": "", "damage_controls_disabled": True}
     mini_context.pop("training_update_url", None)
     mini_context.pop("reset_choice_url", None)
+    mini_context.pop("swarm_update_url", None)
     return {
         "ok": True,
         "cardKey": f"creature-{card.pk}",
@@ -4529,8 +4531,11 @@ def reset_technique_creature_choice(request, pk: int):
 
     character_id = card.owner_id
     replace_card_key = f"creature-{card.pk}"
-    image_name = card.image_override.name if card.image_override else ""
-    image_storage = card.image_override.storage if image_name else None
+    image_files = [
+        (image.storage, image.name)
+        for image in (card.image_override, card.swarm_image_override)
+        if image and image.name
+    ]
     if _is_partial_request(request):
         old_creature_id = card.creature_id
         if old_creature_id:
@@ -4542,6 +4547,7 @@ def reset_technique_creature_choice(request, pk: int):
         card.creature = None
         card.name_override = ""
         card.image_override = None
+        card.swarm_image_override = None
         card.is_kraftbestie = False
         card.source_selection_completed = False
         card.save(
@@ -4549,12 +4555,15 @@ def reset_technique_creature_choice(request, pk: int):
                 "creature",
                 "name_override",
                 "image_override",
+                "swarm_image_override",
                 "is_kraftbestie",
                 "source_selection_completed",
             ]
         )
-        if image_storage is not None:
-            transaction.on_commit(lambda: image_storage.delete(image_name))
+        for image_storage, image_name in image_files:
+            transaction.on_commit(
+                lambda storage=image_storage, name=image_name: storage.delete(name)
+            )
         return JsonResponse(
             _render_pending_creature_choice_payload(
                 request,
@@ -4565,8 +4574,10 @@ def reset_technique_creature_choice(request, pk: int):
 
     with transaction.atomic():
         card.delete()
-        if image_storage is not None:
-            transaction.on_commit(lambda: image_storage.delete(image_name))
+        for image_storage, image_name in image_files:
+            transaction.on_commit(
+                lambda storage=image_storage, name=image_name: storage.delete(name)
+            )
 
     redirect_url = reverse("character_sheet", kwargs={"character_id": character_id})
     return redirect(redirect_url)
@@ -4574,9 +4585,46 @@ def reset_technique_creature_choice(request, pk: int):
 
 @login_required
 @require_POST
+def update_character_creature_swarm(request, pk: int):
+    card = _owned_character_creature_or_404(request, pk)
+    profile = CreatureEngine(card).swarm_profile
+    if profile is None:
+        return JsonResponse({"ok": False, "message": "Diese Kreatur besitzt kein Schwarmprofil."}, status=400)
+
+    mode = str(request.POST.get("mode", card.swarm_mode or profile.default_display_mode)).strip()
+    available = {
+        profile.DisplayMode.INDIVIDUAL: profile.individual_mode_available,
+        profile.DisplayMode.SWARM: profile.swarm_mode_available,
+    }
+    if mode not in available or not available[mode]:
+        return JsonResponse({"ok": False, "message": "Diese Schwarmdarstellung ist nicht verfuegbar."}, status=400)
+
+    update_fields = []
+    if card.swarm_mode != mode:
+        card.swarm_mode = mode
+        update_fields.append("swarm_mode")
+    if "current_swarm_count" in request.POST:
+        raw_count = str(request.POST.get("current_swarm_count") or "").strip()
+        try:
+            count = None if not raw_count else int(raw_count)
+        except ValueError:
+            return JsonResponse({"ok": False, "message": "Die Schwarmgroesse muss eine ganze Zahl sein."}, status=400)
+        if count is not None and count < 1:
+            return JsonResponse({"ok": False, "message": "Die Schwarmgroesse muss positiv sein."}, status=400)
+        if card.current_swarm_count != count:
+            card.current_swarm_count = count
+            update_fields.append("current_swarm_count")
+    if update_fields:
+        card.save(update_fields=update_fields)
+    return JsonResponse(_render_creature_training_payload(request, card))
+
+
+@login_required
+@require_POST
 def update_creature_card_training(request, pk: int):
     card = _owned_character_creature_or_404(request, pk)
-    base_creature = CreatureEngine(card).creature
+    engine = CreatureEngine(card)
+    base_creature = engine.creature
     card_update_fields = []
     if "custom_name" in request.POST:
         default_name = card.original_card_name
@@ -4584,16 +4632,23 @@ def update_creature_card_training(request, pk: int):
         card.name_override = custom_name if custom_name and custom_name != default_name else ""
         card_update_fields.append("name_override")
     cropped_image = request.POST.get("custom_creature_image_cropped_data", "")
+    requested_image_mode = str(request.POST.get("custom_creature_image_mode", "") or "").strip()
+    image_field = (
+        "swarm_image_override"
+        if requested_image_mode == "swarm" and engine.swarm_profile is not None
+        else "image_override"
+    )
     if request.POST.get("remove_custom_creature_image") == "1":
-        if card.image_override:
-            card.image_override.delete(save=False)
-        card.image_override = None
-        card_update_fields.append("image_override")
-    elif _save_cropped_card_image(card, "image_override", cropped_image, card.name_override or base_creature.name):
-        card_update_fields.append("image_override")
+        current_image = getattr(card, image_field)
+        if current_image:
+            current_image.delete(save=False)
+        setattr(card, image_field, None)
+        card_update_fields.append(image_field)
+    elif _save_cropped_card_image(card, image_field, cropped_image, card.name_override or base_creature.name):
+        card_update_fields.append(image_field)
     elif request.FILES.get("custom_creature_image"):
-        card.image_override = request.FILES["custom_creature_image"]
-        card_update_fields.append("image_override")
+        setattr(card, image_field, request.FILES["custom_creature_image"])
+        card_update_fields.append(image_field)
     if "quality" in request.POST:
         selected_quality = Quality.objects.filter(
             code=str(request.POST.get("quality") or "")
