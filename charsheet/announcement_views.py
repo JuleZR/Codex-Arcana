@@ -41,3 +41,16 @@ def delete_announcement(request, pk):
         return HttpResponseForbidden()
     get_object_or_404(DashboardAnnouncement, pk=pk).delete()
     return JsonResponse({"ok": True})
+
+
+@login_required
+@require_POST
+def update_announcement(request, pk):
+    if not (request.user.is_staff or request.user.is_superuser):
+        return HttpResponseForbidden()
+    announcement = get_object_or_404(DashboardAnnouncement, pk=pk)
+    form = AnnouncementForm(request.POST, instance=announcement)
+    if not form.is_valid():
+        return JsonResponse({"errors": form.errors}, status=400)
+    form.save()
+    return JsonResponse({"ok": True})

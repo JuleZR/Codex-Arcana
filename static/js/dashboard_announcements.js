@@ -3,6 +3,7 @@ import { renderJournalMarkdown } from './charsheet/journal_markdown.js';
 const region = document.querySelector('.dashboard_announcements');
 const editor = region?.querySelector('.announcement_editor');
 const form = editor?.querySelector('[data-announcement-form]');
+const createUrl = form?.action;
 
 region?.querySelectorAll('[data-announcement]').forEach((toast) => {
   const body = toast.querySelector('[data-announcement-body]');
@@ -37,7 +38,32 @@ document.addEventListener('visibilitychange', () => {
   if (!document.hidden) expireAnnouncements();
 });
 
-region?.querySelector('[data-announcement-open]')?.addEventListener('click', () => editor.showModal());
+function openAnnouncementEditor(editButton = null) {
+  form.reset();
+  form.action = editButton ? editButton.dataset.editAnnouncement : createUrl;
+  editor.querySelector('[data-announcement-error]').hidden = true;
+  editor.querySelector('#announcement-editor-title').textContent = editButton
+    ? 'Nachricht bearbeiten' : 'Nachricht erstellen';
+  form.querySelector('[type="submit"]').textContent = editButton
+    ? 'Speichern' : 'Für alle veröffentlichen';
+  if (editButton) {
+    const toast = editButton.closest('[data-announcement]');
+    form.elements.kind.value = editButton.dataset.kind;
+    form.elements.text.value = toast.querySelector('[data-announcement-source]').textContent;
+    if (toast.dataset.expires) {
+      const expiry = new Date(toast.dataset.expires);
+      const localTime = new Date(expiry.getTime() - expiry.getTimezoneOffset() * 60000);
+      form.elements.expires_at.value = localTime.toISOString().slice(0, 19);
+    }
+  }
+  updatePreview();
+  editor.showModal();
+}
+
+region?.querySelector('[data-announcement-open]')?.addEventListener('click', () => openAnnouncementEditor());
+region?.querySelectorAll('[data-edit-announcement]').forEach((button) => {
+  button.addEventListener('click', () => openAnnouncementEditor(button));
+});
 editor?.querySelector('[data-announcement-close]')?.addEventListener('click', () => editor.close());
 
 function updatePreview() {
@@ -84,7 +110,7 @@ form?.addEventListener('submit', async (event) => {
 region?.querySelectorAll('[data-delete-announcement]').forEach((deleteForm) => {
   deleteForm.addEventListener('submit', async (event) => {
     event.preventDefault();
-    const button = deleteForm.querySelector('button');
+    const button = deleteForm.querySelector('[type="submit"]');
     button.disabled = true;
     try {
       await submitForm(deleteForm, new FormData(deleteForm));

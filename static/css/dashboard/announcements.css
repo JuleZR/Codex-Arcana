@@ -37,8 +37,8 @@
 .announcement_header form { margin: 0; }
 [data-announcement] > .announcement_header { display: contents; }
 .announcement_kind { float: left; margin-right: 0.35em; }
-[data-announcement] > .announcement_header form { position: absolute; top: 5px; right: 5px; }
-[data-announcement]:has([data-delete-announcement]) { padding-right: 28px; }
+[data-announcement] > .announcement_header form { position: absolute; top: 5px; right: 5px; display: flex; align-items: center; }
+[data-announcement]:has([data-delete-announcement]) { padding-right: 54px; }
 .announcement_preview > * { margin: 0; }
 .announcement_preview :is(h1, h2, h3, h4, h5, h6) {
   font-size: 1em;

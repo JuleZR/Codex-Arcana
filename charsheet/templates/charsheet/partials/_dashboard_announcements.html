@@ -7,6 +7,7 @@
           {% if can_manage %}
             <form action="{% url 'delete_announcement' announcement.pk %}" method="post" data-delete-announcement>
               {% csrf_token %}
+              <button type="button" class="announcement_icon" data-edit-announcement="{% url 'update_announcement' announcement.pk %}" data-kind="{{ announcement.kind }}" aria-label="Nachricht bearbeiten" title="Nachricht bearbeiten"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m16 3 5 5L8 21H3v-5Z M14 5l5 5"/></svg></button>
               <button type="submit" class="announcement_icon" aria-label="Nachricht für alle löschen" title="Nachricht für alle löschen"><span aria-hidden="true">&times;</span></button>
             </form>
           {% endif %}
@@ -34,7 +35,7 @@
           <textarea name="text" rows="7" maxlength="20000" required placeholder="**Fett**, *kursiv*, Listen und Links …"></textarea>
         </label>
         <label>Ablaufdatum und Uhrzeit (optional, lokale Zeitzone)
-          <input type="datetime-local" name="expires_at">
+          <input type="datetime-local" name="expires_at" step="1">
         </label>
         <p class="announcement_hint">Ohne Ablaufdatum bleibt die Nachricht bis zum Löschen sichtbar.</p>
         <div><strong>Live-Vorschau</strong><article class="announcement announcement--update announcement_live" data-announcement-live aria-label="Live-Vorschau"></article></div>
