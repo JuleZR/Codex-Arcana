@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import copy
 from dataclasses import dataclass, replace
 from fractions import Fraction
 from functools import cached_property
 import math
 import re
+from types import SimpleNamespace
 from typing import Any
 
 from django.db.models import Q
@@ -24,6 +26,7 @@ from charsheet.constants import (
     ATTR_WILL,
     DEFENSE_RS,
     GK_AVERAGE,
+    GK_CHOICES,
     GK_MODS,
     SKILL_COMBAT,
     POTENTIAL,
@@ -38,7 +41,9 @@ from charsheet.models.creatures import (
     Creature,
     CreatureAttack,
     CreatureSourceBinding,
+    CreatureTraitDefinition,
 )
+from charsheet.models.core import Skill
 from charsheet.models.daemonic_powers import DaemonicPowerSemanticEffect
 from charsheet.models.vampirism import VampireTraitSemanticEffect
 from charsheet.models.character import CharacterItem
@@ -141,6 +146,138 @@ class _EmptyCreature:
 EMPTY_CREATURE = _EmptyCreature()
 
 
+class _ResolvedRelatedRows:
+    """Small queryset-like relation for resolved, non-persisted creature rows."""
+
+    def __init__(self, rows=()):
+        self._rows = list(rows)
+
+    def all(self):
+        return self
+
+    def select_related(self, *args):
+        return self
+
+    def prefetch_related(self, *args):
+        return self
+
+    def order_by(self, *args):
+        rows = list(self._rows)
+        for field in reversed(args):
+            reverse = str(field).startswith("-")
+            key = str(field)[1:] if reverse else str(field)
+            rows.sort(key=lambda row: self._resolve_attr(row, key) or "", reverse=reverse)
+        return _ResolvedRelatedRows(rows)
+
+    def filter(self, *args, **kwargs):
+        rows = [row for row in self._rows if self._matches(row, kwargs)]
+        return _ResolvedRelatedRows(rows)
+
+    def exclude(self, *args, **kwargs):
+        rows = [row for row in self._rows if not self._matches(row, kwargs)]
+        return _ResolvedRelatedRows(rows)
+
+    def values_list(self, field_name, flat=False):
+        values = [self._resolve_attr(row, field_name) for row in self._rows]
+        if flat:
+            return values
+        return [(value,) for value in values]
+
+    def first(self):
+        return self._rows[0] if self._rows else None
+
+    def exists(self):
+        return bool(self._rows)
+
+    def count(self):
+        return len(self._rows)
+
+    def __iter__(self):
+        return iter(self._rows)
+
+    def __len__(self):
+        return len(self._rows)
+
+    def __getitem__(self, index):
+        return self._rows[index]
+
+    @classmethod
+    def _matches(cls, row, lookups):
+        for key, expected in lookups.items():
+            parts = key.split("__")
+            operator = "exact"
+            if parts[-1] in {"isnull", "in"}:
+                operator = parts.pop()
+            value = cls._resolve_attr(row, "__".join(parts))
+            if operator == "isnull":
+                if (value is None) != bool(expected):
+                    return False
+            elif operator == "in":
+                if value not in expected:
+                    return False
+            elif value != expected:
+                return False
+        return True
+
+    @staticmethod
+    def _resolve_attr(row, path):
+        value = row
+        for part in str(path).split("__"):
+            if part == "pk":
+                part = "id"
+            if value is None:
+                return None
+            value = getattr(value, part, None)
+        return value
+
+
+class _VirtualChoices:
+    def all(self):
+        return ()
+
+
+class _VirtualCreatureSkill:
+    def __init__(self, *, skill, level=0, deviation=0, notes="", pk=None, hide_from_creature_training=False):
+        self.pk = pk
+        self.id = pk
+        self.skill = skill
+        self.skill_id = getattr(skill, "pk", None)
+        self.level = int(level or 0)
+        self.deviation = int(deviation or 0)
+        self.notes = notes
+        self.hide_from_creature_training = hide_from_creature_training
+
+    @property
+    def value(self):
+        return self.level
+
+
+class _VirtualCreatureTrait:
+    def __init__(self, trait, *, level=1, source="kraftbestie"):
+        self.pk = f"{source}:{trait.slug}"
+        self.id = self.pk
+        self.trait = trait
+        self.trait_id = trait.pk
+        self.trait_level = int(level or 1)
+        self.choices = _VirtualChoices()
+
+    @property
+    def display_name(self):
+        return self.trait.name
+
+    @property
+    def level(self):
+        return self.trait_level
+
+    @property
+    def description(self):
+        return self.trait.description
+
+    @property
+    def order(self):
+        return 0
+
+
 @dataclass(frozen=True)
 class CreatureArmorTotals:
     natural_rs: int
@@ -187,6 +324,260 @@ class CreatureEngine:
             if self.instance
             else creature
         )
+        self._kraftbestie_base_creature = None
+        if self._uses_kraftbestie_rules():
+            self._kraftbestie_base_creature = self.creature
+            self.creature = self._build_kraftbestie_profile()
+
+    def _uses_kraftbestie_rules(self) -> bool:
+        binding = getattr(self.instance, "source_binding", None) if self.instance else None
+        return bool(
+            self.instance
+            and self.instance.creature_id
+            and bool(getattr(self.instance, "is_kraftbestie", False))
+            and (
+                not binding
+                or binding.selection_mode
+                == CreatureSourceBinding.SelectionMode.CHARACTER_CHOICE
+            )
+        )
+
+    def _uses_creature_overlay(self) -> bool:
+        binding = getattr(self.instance, "source_binding", None) if self.instance else None
+        return bool(
+            self.instance
+            and binding
+            and binding.selection_mode == CreatureSourceBinding.SelectionMode.CHARACTER_CHOICE
+            and binding.use_creature_overlay
+            and binding.creature_id
+        )
+
+    def _build_kraftbestie_profile(self):
+        base_creature = self._kraftbestie_base_creature or self.creature
+        base_engine = CreatureEngine(base_creature)
+        profile = SimpleNamespace()
+        for field in base_creature._meta.fields:
+            setattr(profile, field.attname, getattr(base_creature, field.attname))
+        profile.pk = base_creature.pk
+        profile.id = base_creature.pk
+        profile.name = base_creature.name
+        profile.display_name = base_creature.display_name
+        profile.creature_type = base_creature.creature_type
+        profile.quality = base_creature.quality
+        profile.image = base_creature.image
+        profile.commands = base_creature.commands
+        profile.daemonic_powers = base_creature.daemonic_powers
+        profile.daemonic_power_values = base_creature.daemonic_power_values
+        profile.vampire_trait_defaults = base_creature.vampire_trait_defaults
+        profile.vampire_power_defaults = base_creature.vampire_power_defaults
+        profile._kraftbestie_base_display_name = base_creature.display_name
+        profile._kraftbestie = True
+
+        attribute_deltas = {
+            ATTR_ST: 4,
+            ATTR_KON: 4,
+            ATTR_GE: 2,
+            ATTR_INT: 6,
+            ATTR_WA: 2,
+            ATTR_WILL: 4,
+            ATTR_CHA: 3,
+        }
+        attribute_rows = []
+        for row in base_creature.attributes.select_related("attribute"):
+            resolved = copy.copy(row)
+            delta = attribute_deltas.get(row.attribute.short_name, 0)
+            if row.base_value is not None:
+                resolved.base_value = int(row.base_value or 0) + delta
+            attribute_rows.append(resolved)
+        profile.attributes = _ResolvedRelatedRows(attribute_rows)
+
+        old_size_modifier = int(GK_MODS.get(base_engine.size_class(), 0))
+        profile.size_class = self._shift_kraftbestie_size_class(base_engine.size_class())
+        new_size_modifier = int(GK_MODS.get(profile.size_class, 0))
+        profile.size_modifier = getattr(base_creature, "size_modifier", 0)
+
+        profile.initiative_override = int(base_engine.initiative()) + 2
+        profile.vw_override = int(base_engine.vw()) + 3
+        profile.sr_override = int(base_engine.sr()) + 8
+        profile.gw_override = int(base_engine.gw()) + 10
+        profile.natural_rs = int(base_engine.armor_totals().natural_rs or 0) + 4
+        profile.has_kp = True
+        profile.kp_override = int(base_engine.kp() or 0) + 100
+        profile.potential_override = int(base_engine.potential() or 0) + 10
+        profile.wound_thresholds_override = ",".join(
+            str(int(row["threshold"]) + 4)
+            for row in base_engine.wound_rows()
+        )
+        profile.wound_step_override = None
+
+        for field_name in (
+            "combat_speed",
+            "march_speed",
+            "sprint_speed",
+            "swimming_speed",
+            "combat_swimming_speed",
+            "march_swimming_speed",
+            "sprint_swimming_speed",
+            "combat_fly_speed",
+            "march_fly_speed",
+            "sprint_fly_speed",
+        ):
+            value = getattr(base_creature, field_name, None)
+            setattr(profile, field_name, None if value is None else value * 2)
+
+        overlay = self.instance.source_binding.creature if self._uses_creature_overlay() else None
+        self._pending_kraft_profile = profile
+        profile.skills = _ResolvedRelatedRows(self._resolved_kraftbestie_skills(base_creature, overlay))
+        del self._pending_kraft_profile
+        profile.special_skills = _ResolvedRelatedRows(
+            self._merge_overlay_rows(
+                base_creature.special_skills.select_related("skill").all(),
+                overlay.special_skills.select_related("skill").all() if overlay else (),
+                key_func=lambda row: row.skill_id,
+            )
+        )
+        profile.traits = _ResolvedRelatedRows(self._resolved_kraftbestie_traits(base_creature, overlay))
+        profile.languages = _ResolvedRelatedRows(
+            self._merge_overlay_rows(
+                base_creature.languages.select_related("language").all(),
+                overlay.languages.select_related("language").all() if overlay else (),
+                key_func=lambda row: row.language_id,
+            )
+        )
+        profile.attacks = _ResolvedRelatedRows(
+            self._resolved_kraftbestie_attacks(base_creature, old_size_modifier, new_size_modifier)
+        )
+        profile.description = self._join_overlay_text(
+            getattr(base_creature, "description", ""),
+            getattr(overlay, "description", "") if overlay else "",
+        )
+        return profile
+
+    @staticmethod
+    def _shift_kraftbestie_size_class(size_class: str) -> str:
+        values = [value for value, _label in GK_CHOICES]
+        if size_class not in values:
+            return size_class
+        return values[min(values.index(size_class) + 1, len(values) - 1)]
+
+    @staticmethod
+    def _merge_overlay_rows(base_rows, overlay_rows, *, key_func):
+        rows = []
+        seen = set()
+        for row in base_rows:
+            key = key_func(row)
+            seen.add(key)
+            rows.append(copy.copy(row))
+        for row in overlay_rows:
+            key = key_func(row)
+            if key in seen:
+                continue
+            seen.add(key)
+            rows.append(copy.copy(row))
+        return rows
+
+    def _resolved_kraftbestie_skills(self, base_creature, overlay):
+        rows = self._merge_overlay_rows(
+            base_creature.skills.select_related("skill", "skill__attribute", "skill__category").all(),
+            overlay.skills.select_related("skill", "skill__attribute", "skill__category").all() if overlay else (),
+            key_func=lambda row: ("skill", row.skill_id) if row.skill_id else ("note", str(row.notes or "").casefold()),
+        )
+        by_slug = {row.skill.slug: row for row in rows if row.skill_id}
+        bonuses = {
+            "skill_attention": 2,
+            "skill_stamina": 4,
+            "skill_empathy": 9,
+            "skill_running": 4,
+            "skill_fly": 4,
+            "skill_swimming": 4,
+            "skill_rhetoric": 5,
+            "skill_tracking": 5,
+        }
+        base_values = {row["name"]: row["value"] for row in CreatureEngine(base_creature).skills() if row.get("value") is not None}
+        skills_by_slug = {skill.slug: skill for skill in Skill.objects.filter(slug__in=bonuses)}
+        for slug, bonus in bonuses.items():
+            skill = skills_by_slug.get(slug)
+            if skill is None:
+                continue
+            effective_target = int(base_values.get(skill.name, 0) or 0) + bonus
+            raw_level = effective_target - self._skill_attribute_modifier_for_profile(skill) - self._skill_size_modifier_for_profile(skill)
+            if slug in by_slug:
+                row = copy.copy(by_slug[slug])
+                row.level = raw_level
+                index = rows.index(by_slug[slug])
+                rows[index] = row
+                by_slug[slug] = row
+            else:
+                row = _VirtualCreatureSkill(skill=skill, level=raw_level)
+                rows.append(row)
+                by_slug[slug] = row
+        return rows
+
+    def _skill_attribute_modifier_for_profile(self, skill) -> int:
+        attribute = getattr(skill, "attribute", None)
+        short_name = getattr(attribute, "short_name", "")
+        if not short_name:
+            return 0
+        profile = getattr(self, "_pending_kraft_profile", None)
+        if profile is None:
+            return 0
+        for row in profile.attributes.select_related("attribute"):
+            if row.attribute.short_name == short_name and row.base_value is not None:
+                return self._attribute_modifier(row.base_value)
+        return 0
+
+    def _skill_size_modifier_for_profile(self, skill) -> int:
+        profile = getattr(self, "_pending_kraft_profile", None)
+        if profile is None:
+            return 0
+        size_modifier = int(GK_MODS.get(profile.size_class, 0))
+        category = getattr(skill, "category", None)
+        category_slug = getattr(category, "slug", "")
+        if category_slug == SKILL_COMBAT:
+            return size_modifier
+        if getattr(skill, "slug", "") == "skill_evasion":
+            return size_modifier
+        if getattr(skill, "slug", "") == "skill_hide":
+            return size_modifier * 2
+        return 0
+
+    def _resolved_kraftbestie_traits(self, base_creature, overlay):
+        rows = self._merge_overlay_rows(
+            base_creature.traits.select_related("trait").prefetch_related("choices").all(),
+            overlay.traits.select_related("trait").prefetch_related("choices").all() if overlay else (),
+            key_func=lambda row: row.trait.slug,
+        )
+        seen = {row.trait.slug for row in rows}
+        definitions = {
+            row.slug: row
+            for row in CreatureTraitDefinition.objects.filter(
+                slug__in=["aura_der_alten_goetter", "eisenallergie", "magieresistenz"]
+            )
+        }
+        for slug in ("aura_der_alten_goetter", "eisenallergie", "magieresistenz"):
+            definition = definitions.get(slug)
+            if definition is not None and slug not in seen:
+                rows.append(_VirtualCreatureTrait(definition, level=6 if slug == "magieresistenz" else 1))
+                seen.add(slug)
+        return rows
+
+    @staticmethod
+    def _resolved_kraftbestie_attacks(base_creature, old_size_modifier, new_size_modifier):
+        rows = []
+        for row in base_creature.attacks.select_related("attack_type").all():
+            resolved = copy.copy(row)
+            resolved.attack_value = int(row.attack_value or 0) + 3 + old_size_modifier - new_size_modifier
+            resolved._kraftbestie_damage_multiplier = 2
+            rows.append(resolved)
+        return rows
+
+    @staticmethod
+    def _join_overlay_text(base_text, overlay_text):
+        base_text = str(base_text or "").strip()
+        overlay_text = str(overlay_text or "").strip()
+        if not overlay_text or overlay_text == base_text:
+            return base_text
+        return "\n\n".join(part for part in (base_text, overlay_text) if part)
 
     def _override(self, field_name: str) -> Any:
         if self.instance is None:
@@ -342,10 +733,13 @@ class CreatureEngine:
         effects: list[CreatureSemanticEffect] = []
         effects.extend(self._owner_creature_movement_effects)
         for row in self._effective_trait_rows:
+            if getattr(getattr(row, "trait", None), "slug", "") == "magieresistenz" and str(getattr(row, "id", "")).startswith("kraftbestie:"):
+                continue
             for effect_row in row.trait.semantic_effects.all():
                 if not effect_row.active_flag:
                     continue
                 effects.extend(self._effect_row_to_creature_effects(effect_row, level=int(row.trait_level or 0)))
+        effects.extend(self._kraftbestie_magieresistenz_effects())
         for special_skill_row in self._effective_special_skill_rows:
             skill_value = self._effective_special_skill_row_value(special_skill_row)
             for effect_row in special_skill_row.skill.semantic_effects.all():
@@ -419,6 +813,28 @@ class CreatureEngine:
                     )
                 )
         return self._expand_choice_bound_effects(effects)
+
+    def _kraftbestie_magieresistenz_effects(self) -> list[CreatureSemanticEffect]:
+        if not getattr(self.creature, "_kraftbestie", False):
+            return []
+        has_trait = any(
+            getattr(getattr(row, "trait", None), "slug", "") == "magieresistenz"
+            for row in self._effective_trait_rows
+        )
+        if not has_trait:
+            return []
+        return [
+            CreatureSemanticEffect(
+                source_id="kraftbestie:magieresistenz",
+                target_domain=TargetDomain.DERIVED_STAT,
+                target_key=target_key,
+                operator=ModifierOperator.CONDITIONAL_BONUS,
+                value=6,
+                condition_text="gegen Magie",
+                stack_behavior=StackBehavior.UNIQUE_BY_SOURCE,
+            )
+            for target_key in ("vw", "sr", "gw")
+        ]
 
     @cached_property
     def _owner_creature_movement_effects(self) -> list[CreatureSemanticEffect]:
@@ -1459,7 +1875,11 @@ class CreatureEngine:
             else 0
         )
         total_damage_bonus = damage_bonus + attack_specific_damage_bonus + attack_type_damage_bonus
-        damage = self._apply_damage_bonus(self._format_damage(attack), total_damage_bonus)
+        damage = self._format_damage(attack)
+        damage_multiplier = int(getattr(attack, "_kraftbestie_damage_multiplier", 1) or 1)
+        if damage_multiplier != 1:
+            damage = self._multiply_damage_expression(damage, damage_multiplier)
+        damage = self._apply_damage_bonus(damage, total_damage_bonus)
         notes = str(attack.notes or "")
         show_notes_as_damage = bool(getattr(attack, "show_notes_as_damage", False) and notes)
         append_notes_to_damage = bool(getattr(attack, "append_notes_to_damage", False) and notes and not show_notes_as_damage)
@@ -2013,6 +2433,12 @@ class CreatureEngine:
             "climate_and_occurrence": self.creature.climate_and_occurrence,
             "organization": self.instance.trigger_label if self.instance and self.instance.trigger_label else self.creature.organization,
         }
+        if getattr(self.creature, "_kraftbestie", False):
+            base_name = getattr(self.creature, "_kraftbestie_base_display_name", self.creature.display_name)
+            context["is_kraftbestie"] = True
+            context["kraftbestie_base_name"] = base_name
+            if not (self.instance and self.instance.name_override):
+                context["name"] = self._kraftbestie_display_name(base_name)
         if (
             self.instance
             and self.instance.source_binding_id
@@ -2023,7 +2449,20 @@ class CreatureEngine:
             context["typebar_label"] = f"{choice_label} - {self.creature.display_name}"
             if choice_label.casefold() == "tiergestalt":
                 context["name_suffix"] = "Tiergestalt"
+            if getattr(self.creature, "_kraftbestie", False):
+                context["creature_kind_label"] = "Kraftbestie"
+                context["typebar_label"] = f"Kraftbestie - {context['kraftbestie_base_name']}"
+                context["name_suffix"] = ""
         return context
+
+    @staticmethod
+    def _kraftbestie_display_name(base_name: str) -> str:
+        base_name = str(base_name or "").strip()
+        if not base_name:
+            return "Kraftbestie"
+        if base_name.casefold().startswith("kraft"):
+            return base_name
+        return f"Kraft{base_name[:1].casefold()}{base_name[1:]}"
 
     def attribute_rows(self) -> list[dict[str, Any]]:
         labels = (
@@ -2078,12 +2517,32 @@ class CreatureEngine:
         return f"{attack.damage_dice_amount}w{attack.damage_dice_faces}{bonus}{damage_type}"
 
     @staticmethod
+    def _multiply_damage_expression(damage: str, multiplier: int | float) -> str:
+        damage = str(damage or "").strip()
+        if not damage:
+            return damage
+        multiplier = CreatureEngine._normalize_numeric_display_value(multiplier)
+        match = re.match(r"^(?P<body>.*?)(?P<tail>\s+\S+)?$", damage)
+        if not match:
+            return f"({damage})*{multiplier}"
+        body = str(match.group("body") or "").strip()
+        tail = str(match.group("tail") or "")
+        if not body:
+            return damage
+        return f"({body})*{multiplier}{tail}"
+
+    @staticmethod
     def _apply_damage_bonus(damage: str, bonus: int | float) -> str:
         if not damage or not bonus:
             return damage
         match = re.match(r"^(?P<head>\s*\d+w\d+)(?P<flat>[+-]\d+)?(?P<tail>.*)$", str(damage))
         if not match:
-            return damage
+            wrapped = re.match(r"^(?P<body>.*\*\s*\d+(?:\.\d+)?)(?P<tail>\s+\S+)?$", str(damage))
+            if not wrapped:
+                return damage
+            bonus = CreatureEngine._normalize_numeric_display_value(bonus)
+            bonus_display = CreatureEngine._format_variant_value(bonus, signed=True) if bonus else ""
+            return f"{wrapped.group('body')}{bonus_display}{wrapped.group('tail') or ''}"
         flat = int(match.group("flat") or 0) + bonus
         flat = CreatureEngine._normalize_numeric_display_value(flat)
         flat_display = CreatureEngine._format_variant_value(flat, signed=True) if flat else ""

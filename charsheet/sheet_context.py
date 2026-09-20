@@ -120,6 +120,7 @@ from charsheet.models import (
     CreatureTraitChoice,
     CreatureTraitChoiceDefinition,
     CreatureTraitDefinition,
+    CreatureType,
     DamageSource,
     Item,
     ItemSemanticEffect,
@@ -366,6 +367,7 @@ def build_creature_card_training_context(card):
     base_creature = engine.creature
     traits = list(card.trait_overrides.select_related("trait").all())
     base_trait_rows = list(base_creature.traits.select_related("trait").prefetch_related("choices").all())
+    persisted_base_trait_rows = [row for row in base_trait_rows if isinstance(getattr(row, "pk", None), int)]
     base_trait_levels = {
         row.trait_id: int(row.trait_level or 0)
         for row in base_trait_rows
@@ -673,7 +675,7 @@ def build_creature_card_training_context(card):
     }
     base_trait_choices = {
         (choice.creature_trait.trait_id, choice.definition_id): choice
-        for choice in CreatureTraitChoice.objects.filter(creature_trait__in=base_trait_rows)
+        for choice in CreatureTraitChoice.objects.filter(creature_trait__in=persisted_base_trait_rows)
         .select_related("creature_trait", "selected_skill")
     }
     command_catalog = []
@@ -9358,7 +9360,11 @@ def build_character_sheet_context(
                 Creature.objects.order_by("name", "id")
                 if card.semantic_effect_is_choice
                 else card.source_binding.creature_template_queryset()
-            ).only("id", "name")
+            ).only("id", "name", "creature_type_id")
+            tier_type_id = None
+            if not card.semantic_effect_is_choice:
+                tier_type = CreatureType.objects.filter(slug="tier").only("id").first()
+                tier_type_id = tier_type.pk if tier_type else None
             card_context = {
                 "id": card.pk,
                 "name": card.display_name,
@@ -9379,6 +9385,11 @@ def build_character_sheet_context(
                     ),
                     "source_character_item_id": card.source_character_item_id,
                     "templates": list(template_queryset),
+                    "supports_kraftbestie": bool(
+                        not card.semantic_effect_is_choice
+                        and card.source_binding_id
+                    ),
+                    "tier_type_id": tier_type_id,
                 },
             }
             mini_context = {**card_context}

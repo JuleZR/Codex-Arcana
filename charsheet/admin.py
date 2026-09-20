@@ -3142,7 +3142,17 @@ class CreatureCardItemBindingInlineForm(forms.ModelForm):
 
     class Meta:
         model = CreatureSourceBinding
-        fields = ("active", "selection_mode", "choice_label", "creature_name_filter", "creature", "quality", "note")
+        fields = (
+            "active",
+            "selection_mode",
+            "creature_type_filter",
+            "choice_label",
+            "creature_name_filter",
+            "use_creature_overlay",
+            "creature",
+            "quality",
+            "note",
+        )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -3177,7 +3187,17 @@ class CreatureCardTechniqueBindingInlineForm(forms.ModelForm):
 
     class Meta:
         model = CreatureSourceBinding
-        fields = ("active", "selection_mode", "choice_label", "creature_name_filter", "creature", "quality", "note")
+        fields = (
+            "active",
+            "selection_mode",
+            "creature_type_filter",
+            "choice_label",
+            "creature_name_filter",
+            "use_creature_overlay",
+            "creature",
+            "quality",
+            "note",
+        )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -3197,8 +3217,18 @@ class CreatureCardItemBindingInline(admin.TabularInline):
     form = CreatureCardItemBindingInlineForm
     formset = CreatureCardItemBindingInlineFormSet
     extra = 0
-    fields = ("active", "selection_mode", "choice_label", "creature_name_filter", "creature", "quality", "note")
-    autocomplete_fields = ("creature",)
+    fields = (
+        "active",
+        "selection_mode",
+        "creature_type_filter",
+        "choice_label",
+        "creature_name_filter",
+        "use_creature_overlay",
+        "creature",
+        "quality",
+        "note",
+    )
+    autocomplete_fields = ("creature", "creature_type_filter")
     verbose_name = "Creature Source Binding"
     verbose_name_plural = "Creature Source Bindings"
 
@@ -3211,8 +3241,18 @@ class CreatureCardTechniqueBindingInline(admin.TabularInline):
     form = CreatureCardTechniqueBindingInlineForm
     formset = CreatureCardTechniqueBindingInlineFormSet
     extra = 0
-    fields = ("active", "selection_mode", "choice_label", "creature_name_filter", "creature", "quality", "note")
-    autocomplete_fields = ("creature",)
+    fields = (
+        "active",
+        "selection_mode",
+        "creature_type_filter",
+        "choice_label",
+        "creature_name_filter",
+        "use_creature_overlay",
+        "creature",
+        "quality",
+        "note",
+    )
+    autocomplete_fields = ("creature", "creature_type_filter")
     verbose_name = "Creature Source Binding"
     verbose_name_plural = "Creature Source Bindings"
 
@@ -8984,10 +9024,23 @@ class CreatureAdminForm(forms.ModelForm):
 
 @admin.register(CreatureSourceBinding)
 class CreatureSourceBindingAdmin(admin.ModelAdmin):
-    list_display = ("creature", "trigger_type", "trigger_label", "quality", "active")
+    list_display = (
+        "creature",
+        "trigger_type",
+        "trigger_label",
+        "quality",
+        "use_creature_overlay",
+        "active",
+    )
     search_fields = ("creature__name", "item_trigger__name", "technique_trigger__name", "note")
-    list_filter = ("trigger_type", "quality", "active")
-    autocomplete_fields = ("creature", "item_trigger", "technique_trigger")
+    list_filter = (
+        "trigger_type",
+        "quality",
+        "active",
+        "use_creature_overlay",
+        "creature_type_filter",
+    )
+    autocomplete_fields = ("creature", "creature_type_filter", "item_trigger", "technique_trigger")
 
 
 @admin.register(CreatureType)

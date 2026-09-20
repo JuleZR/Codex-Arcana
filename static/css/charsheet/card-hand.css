@@ -1157,6 +1157,27 @@
     0 0 28px rgba(237, 201, 113, .22);
 }
 .creature-creation-card__form select, .creature-creation-card__form input, .creature-creation-card__form button { box-sizing: border-box; width: 100%; font: inherit; }
+.creature-creation-card__kraft-option {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  width: auto;
+  margin: -5px 0 -2px;
+  color: rgba(62, 42, 24, .68);
+  font-size: .82rem;
+  line-height: 1.2;
+  user-select: none;
+}
+.creature-creation-card__kraft-option input {
+  width: auto;
+  margin: 0;
+  accent-color: #7d5527;
+  cursor: pointer;
+}
+.creature-creation-card__kraft-option span {
+  display: inline-block;
+}
 .creature-creation-card__divider { display: flex; align-items: center; gap: 8px; color: rgba(62, 42, 24, 0.72); font-size: .78rem; text-transform: uppercase; }
 .creature-creation-card__divider::before, .creature-creation-card__divider::after { content: ""; flex: 1 1 auto; height: 1px; background: currentColor; opacity: .4; }
 

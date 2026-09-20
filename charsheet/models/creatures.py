@@ -1055,6 +1055,19 @@ class CreatureSourceBinding(models.Model):
         CHARACTER_CHOICE = "character_choice", "Charakter wählt oder erstellt eine Kreatur"
 
     creature = models.ForeignKey(Creature, on_delete=models.CASCADE, related_name="source_bindings", null=True)
+    use_creature_overlay = models.BooleanField(
+        "Binding-Kreatur als Overlay nutzen",
+        default=False,
+        help_text="Nur im Auswahlmodus mit Binding-Kreatur: Note-Skills, Traits, besondere Fertigkeiten und Sprachen werden ergaenzt.",
+    )
+    creature_type_filter = models.ForeignKey(
+        CreatureType,
+        on_delete=models.PROTECT,
+        related_name="source_bindings",
+        blank=True,
+        null=True,
+        help_text="Optionale Vorlagenbeschraenkung im Auswahlmodus.",
+    )
     selection_mode = models.CharField(
         max_length=24,
         choices=SelectionMode.choices,
@@ -1135,6 +1148,9 @@ class CreatureSourceBinding(models.Model):
 
     def creature_template_queryset(self):
         queryset = Creature.objects.order_by("name", "id")
+        type_filter = self._effective_creature_type_filter()
+        if type_filter is not None:
+            queryset = queryset.filter(creature_type=type_filter)
         include_terms, exclude_terms = self._parse_creature_name_filter(self.creature_name_filter)
         for term in include_terms:
             queryset = queryset.filter(name__icontains=term)
@@ -1145,11 +1161,17 @@ class CreatureSourceBinding(models.Model):
     def allows_creature_template(self, creature):
         if creature is None:
             return False
+        type_filter = self._effective_creature_type_filter()
+        if type_filter is not None and creature.creature_type_id != type_filter.pk:
+            return False
         include_terms, exclude_terms = self._parse_creature_name_filter(self.creature_name_filter)
         name = str(creature.display_name or "").casefold()
         return all(term.casefold() in name for term in include_terms) and not any(
             term.casefold() in name for term in exclude_terms
         )
+
+    def _effective_creature_type_filter(self):
+        return self.creature_type_filter
 
     @property
     def trigger_label(self):
@@ -1173,6 +1195,16 @@ class CreatureSourceBinding(models.Model):
                 raise ValidationError({"item_trigger": "Bei Technik-Trigger leer lassen."})
         if self.selection_mode == self.SelectionMode.FIXED and not self.creature_id:
             raise ValidationError({"creature": "Für eine feste Bindung ist eine Kreatur erforderlich."})
+        if self.selection_mode != self.SelectionMode.CHARACTER_CHOICE:
+            errors = {}
+            if self.use_creature_overlay:
+                errors["use_creature_overlay"] = "Overlays sind nur im Auswahlmodus zulaessig."
+            if self.creature_type_filter_id:
+                errors["creature_type_filter"] = "Typfilter sind nur im Auswahlmodus zulaessig."
+            if errors:
+                raise ValidationError(errors)
+        if self.use_creature_overlay and not self.creature_id:
+            raise ValidationError({"creature": "Ein aktiviertes Overlay benoetigt eine Binding-Kreatur."})
 
 
 class CharacterCreature(models.Model):
@@ -1220,6 +1252,11 @@ class CharacterCreature(models.Model):
     source_selection_completed = models.BooleanField(
         default=False,
         help_text="Nur für frei wählbare Technik-Bindungen: Die Vorlagen- oder Freikartenwahl wurde abgeschlossen.",
+    )
+    is_kraftbestie = models.BooleanField(
+        "Kraftbestie",
+        default=False,
+        help_text="Diese gewaehlte Tier-Vorlage wird als Kraftbestie berechnet.",
     )
     semantic_effect_key = models.CharField(
         max_length=160,

@@ -125,6 +125,30 @@ export function initCreatureCards() {
     return match ? decodeURIComponent(match[1]) : "";
   };
 
+  const syncKraftbestieTemplateChoice = (form) => {
+    if (!(form instanceof HTMLFormElement)) return;
+    const checkbox = form.querySelector("input[name='is_kraftbestie']");
+    const select = form.querySelector("select[name='creature_id']");
+    if (!(checkbox instanceof HTMLInputElement) || !(select instanceof HTMLSelectElement)) return;
+    const tierTypeId = checkbox.dataset.kraftbestieTierTypeId || "";
+    const restrictToTier = checkbox.checked && tierTypeId;
+    let firstAllowedOption = null;
+    Array.from(select.options).forEach((option) => {
+      const isAllowed = !restrictToTier || option.dataset.creatureTypeId === tierTypeId;
+      option.disabled = !isAllowed;
+      if (isAllowed && firstAllowedOption === null) {
+        firstAllowedOption = option;
+      }
+    });
+    if (select.selectedOptions[0]?.disabled && firstAllowedOption) {
+      select.value = firstAllowedOption.value;
+    }
+    const submitButton = form.querySelector("button[type='submit']");
+    if (submitButton instanceof HTMLButtonElement) {
+      submitButton.disabled = Boolean(restrictToTier && !firstAllowedOption);
+    }
+  };
+
   const fitCreatureRuleText = (card) => {
     if (!(card instanceof HTMLElement)) {
       return;
@@ -1512,6 +1536,22 @@ export function initCreatureCards() {
     event.stopPropagation();
     submitCreatureDamageForm(form);
   }, true);
+
+  document.addEventListener("change", (event) => {
+    const target = event.target instanceof Element ? event.target : null;
+    if (!target?.matches("input[name='is_kraftbestie'], select[name='creature_id']")) {
+      return;
+    }
+    syncKraftbestieTemplateChoice(target.closest("form"));
+  });
+
+  const syncAllKraftbestieTemplateChoices = () => {
+    document.querySelectorAll(".creature-creation-card__form").forEach((form) => {
+      syncKraftbestieTemplateChoice(form);
+    });
+  };
+  syncAllKraftbestieTemplateChoices();
+  document.addEventListener("charsheet:partials-applied", syncAllKraftbestieTemplateChoices);
 }
 
 if (document.readyState === "loading") {

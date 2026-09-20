@@ -4,9 +4,16 @@
     {% csrf_token %}<input type="hidden" name="mode" value="template">
     {% if choice.source_character_item_id %}<input type="hidden" name="source_character_item_id" value="{{ choice.source_character_item_id }}">{% endif %}
     <label>Vorlage aus der Kreaturendatenbank</label>
-    <select name="creature_id" required>{% for creature in choice.templates %}<option value="{{ creature.pk }}">{{ creature.display_name }}</option>{% endfor %}</select>
+    <select name="creature_id" required>{% for creature in choice.templates %}<option value="{{ creature.pk }}" data-creature-type-id="{{ creature.creature_type_id|default:'' }}">{{ creature.display_name }}</option>{% endfor %}</select>
+    {% if choice.supports_kraftbestie %}
+      <label class="creature-creation-card__kraft-option">
+        <input type="checkbox" name="is_kraftbestie" value="1" data-kraftbestie-tier-type-id="{{ choice.tier_type_id|default:'' }}">
+        <span>als Kraftbestie</span>
+      </label>
+    {% endif %}
     <button type="submit">Vorlage verwenden</button>
   </form>
+  {% if not choice.requires_template %}
   <div class="creature-creation-card__divider">oder</div>
   <form method="post" action="{{ choice.create_url }}" class="creature-creation-card__form" data-sheet-action data-ajax-only>
     {% csrf_token %}<input type="hidden" name="mode" value="free">
@@ -15,4 +22,5 @@
     <input type="text" name="custom_name" maxlength="100" required placeholder="z. B. Silberfuchs">
     <button type="submit">Leere Karte erstellen</button>
   </form>
+  {% endif %}
 </div>

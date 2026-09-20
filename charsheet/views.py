@@ -66,6 +66,7 @@ from .models import (
     CreatureAttackType,
     DaemonicPower,
     CreatureSourceBinding,
+    CreatureType,
     CreatureCommand,
     CreatureSpecialSkill,
     CreatureTraitChoiceDefinition,
@@ -4177,6 +4178,12 @@ def choose_technique_creature(request, character_id: int, binding_id: int):
             technique_id=binding.technique_trigger_id,
         ).first()
     mode = str(request.POST.get("mode") or "template")
+    is_kraftbestie = str(request.POST.get("is_kraftbestie") or "").lower() in {
+        "1",
+        "true",
+        "on",
+        "yes",
+    }
     selected_creature = None
     custom_name = ""
     if mode == "template":
@@ -4184,7 +4191,13 @@ def choose_technique_creature(request, character_id: int, binding_id: int):
         if not binding.allows_creature_template(selected_creature):
             messages.error(request, "Diese Kreatur passt nicht zum Filter dieser Kreaturenwahl.")
             return redirect("character_sheet", character_id=character.pk)
+        if is_kraftbestie and getattr(getattr(selected_creature, "creature_type", None), "slug", "") != "tier":
+            messages.error(request, "Kraftbestien benoetigen eine Tier-Vorlage.")
+            return redirect("character_sheet", character_id=character.pk)
     elif mode == "free":
+        if is_kraftbestie:
+            messages.error(request, "Kraftbestien benoetigen eine vorhandene Tier-Vorlage.")
+            return redirect("character_sheet", character_id=character.pk)
         custom_name = str(request.POST.get("custom_name") or "").strip()[:100]
         if not custom_name:
             messages.error(request, "Bitte gib deiner freien Tierform einen Namen.")
@@ -4204,6 +4217,7 @@ def choose_technique_creature(request, character_id: int, binding_id: int):
             "creature": selected_creature,
             "quality": source_quality,
             "name_override": custom_name,
+            "is_kraftbestie": is_kraftbestie,
             "active": True,
             "source_selection_completed": True,
             **budgets,
@@ -4440,7 +4454,11 @@ def _render_pending_creature_choice_payload(
         Creature.objects.order_by("name", "id")
         if card.semantic_effect_is_choice
         else card.source_binding.creature_template_queryset()
-    ).only("id", "name")
+    ).only("id", "name", "creature_type_id")
+    tier_type_id = None
+    if not card.semantic_effect_is_choice:
+        tier_type = CreatureType.objects.filter(slug="tier").only("id").first()
+        tier_type_id = tier_type.pk if tier_type else None
     card_context = {
         "id": card.pk,
         "name": card.display_name,
@@ -4461,6 +4479,11 @@ def _render_pending_creature_choice_payload(
             ),
             "source_character_item_id": card.source_character_item_id,
             "templates": list(template_queryset),
+            "supports_kraftbestie": bool(
+                not card.semantic_effect_is_choice
+                and card.source_binding_id
+            ),
+            "tier_type_id": tier_type_id,
         },
     }
     mini_context = {**card_context}
@@ -4509,15 +4532,24 @@ def reset_technique_creature_choice(request, pk: int):
     image_name = card.image_override.name if card.image_override else ""
     image_storage = card.image_override.storage if image_name else None
     if _is_partial_request(request):
+        old_creature_id = card.creature_id
+        if old_creature_id:
+            card.attack_overrides.filter(base_attack__creature_id=old_creature_id).delete()
+            card.trait_overrides.filter(base_trait__creature_id=old_creature_id).delete()
+            card.hidden_skill_notes.remove(
+                *card.hidden_skill_notes.filter(creature_id=old_creature_id)
+            )
         card.creature = None
         card.name_override = ""
         card.image_override = None
+        card.is_kraftbestie = False
         card.source_selection_completed = False
         card.save(
             update_fields=[
                 "creature",
                 "name_override",
                 "image_override",
+                "is_kraftbestie",
                 "source_selection_completed",
             ]
         )
@@ -4742,7 +4774,11 @@ def update_creature_card_training(request, pk: int):
         ).values_list("id", flat=True)
     )
     base_trait_rows = list(base_creature.traits.select_related("trait").all())
-    base_traits_by_trait_id = {row.trait_id: row for row in base_trait_rows if row.trait_id}
+    base_traits_by_trait_id = {
+        row.trait_id: row
+        for row in base_trait_rows
+        if row.trait_id and isinstance(getattr(row, "pk", None), int)
+    }
     base_trait_levels = {row.trait_id: int(row.trait_level or 0) for row in base_trait_rows if row.trait_id}
     training_trait_types = {
         CharacterCreatureTrait.TrainingTraitType.ADVANTAGE,
