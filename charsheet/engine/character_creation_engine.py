@@ -29,6 +29,7 @@ from charsheet.models import (
     CharacterVampireTrait,
     CharacterWeaponMastery,
     CharacterWeaponMasteryArcana,
+    Country,
     Language,
     Lesson,
     Rune,
@@ -65,6 +66,13 @@ class CharacterCreationEngine:
     FREE_LOCAL_KNOWLEDGE_SKILL_SLUG = "knw_local_knowledge"
     FREE_LOCAL_KNOWLEDGE_LEVEL = 5
     BASE_STARTING_FUNDS = 2000  # KM, the wallet's internal unit.
+    STARTING_EXPERIENCE_LEVELS = (
+        (0, "Angehender Held"),
+        (25, "Weitgereist"),
+        (50, "Erfahrener Held"),
+        (75, "Berühmter Held"),
+        (150, "Legende"),
+    )
 
     def __init__(self, draft: CharacterCreationDraft):
         self.draft = draft
@@ -74,6 +82,21 @@ class CharacterCreationEngine:
     def get_phase(self, phase: str) -> dict:
         """Return one phase payload from the persisted draft state."""
         return self.state.get(phase, {}) or {}
+
+    @classmethod
+    def resolve_starting_experience(cls, value: object) -> int:
+        """Return a supported GRW starting EP value, otherwise zero."""
+        resolved = cls._to_int(value, 0)
+        valid_values = {
+            points for points, _label in cls.STARTING_EXPERIENCE_LEVELS
+        }
+        return resolved if resolved in valid_values else 0
+
+    def starting_experience(self) -> int:
+        meta = self.state.get("meta", {}) or {}
+        return self.resolve_starting_experience(
+            meta.get("starting_experience")
+        )
 
     @staticmethod
     def _to_int(value: object, default: int = 0) -> int:
@@ -596,12 +619,12 @@ class CharacterCreationEngine:
                     )
 
         if include_free:
-            country_of_origin = " ".join(
-                str(
-                    (self.state.get("meta", {}) or {}).get("country_of_origin")
-                    or ""
-                ).split()
+            country_id = self._to_int(
+                (self.state.get("meta", {}) or {}).get("country_of_origin"),
+                0,
             )
+            country = Country.objects.filter(pk=country_id).first()
+            country_of_origin = country.name if country else ""
             existing_keys = {
                 (str(entry["slug"]), str(entry.get("specification") or ""))
                 for entry in entries
@@ -1598,9 +1621,9 @@ class CharacterCreationEngine:
         if not name:
             raise ValueError("Character name is required")
         gender = (meta.get("gender") or "").strip() or None
-        country_of_origin = (
-            " ".join(str(meta.get("country_of_origin") or "").split()) or None
-        )
+        country_of_origin = Country.objects.filter(
+            pk=self._to_int(meta.get("country_of_origin"), 0)
+        ).first()
 
         with transaction.atomic():
             character = Character.objects.create(
@@ -1609,6 +1632,10 @@ class CharacterCreationEngine:
                 race=self.race,
                 gender=gender,
                 country_of_origin=country_of_origin,
+                is_npc=self.draft.is_npc,
+                current_experience=(
+                    0 if self.draft.is_npc else self.starting_experience()
+                ),
             )
 
             limits = self.attribute_min_max_limits()

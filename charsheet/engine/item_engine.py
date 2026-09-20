@@ -50,6 +50,8 @@ SIZE_CLASS_WEIGHT_MULTIPLIERS = {
 class ItemEngine:
     """Resolve derived item values for base items and owned inventory rows."""
 
+    DEFAULT_RESALE_PERCENT = 50
+
     def __init__(
         self,
         obj: Item | CharacterItem,
@@ -82,6 +84,20 @@ class ItemEngine:
     ) -> int:
         """Return the effective price for an item at one quality."""
         return cls(item).get_price_for_quality(quality)
+
+    @staticmethod
+    def resale_price(
+        effective_price: int,
+        percent: int = DEFAULT_RESALE_PERCENT,
+    ) -> int:
+        """Return the resale share of an already resolved effective price."""
+        resale_percent = max(0, min(100, int(percent)))
+        return int(
+            (Decimal(effective_price) * resale_percent / 100).quantize(
+                Decimal("1"),
+                rounding=ROUND_HALF_UP,
+            )
+        )
 
     @staticmethod
     def _quality_price_multiplier(

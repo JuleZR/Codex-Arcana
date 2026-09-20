@@ -87,6 +87,18 @@
                 <input type="hidden" name="draft_id" value="{{ draft.id }}">
                 <input type="hidden" name="phase" value="{{ draft_phase }}">
 
+                {% if not draft.is_npc %}
+                  <div class="form_row">
+                    <label for="startingExperience">Erfahrungsstufe</label>
+                    <select class="dashboard_input" id="startingExperience" name="starting_experience">
+                      {% for points, label in starting_experience_levels %}
+                        <option value="{{ points }}"{% if points == starting_experience %} selected{% endif %}>{{ label }} — +{{ points }} EP</option>
+                      {% endfor %}
+                    </select>
+                    <small>Die Start-EP stehen nach der Erstellung zur Verfügung und zählen nicht zu den Gesamt-EP.</small>
+                  </div>
+                {% endif %}
+
                 {% if draft_phase == 1 %}
                   <h2>Phase 1: Attribute (Budget: <span id="phase1BudgetValue">{{ race.phase_1_points }}</span>)</h2>
                   <div class="phase_points_grid phase_points_grid--phase1">
@@ -122,6 +134,15 @@
                     </table>
                   </div>
                 {% elif draft_phase == 2 %}
+                  <div class="form_row">
+                    <label for="creationCountryOfOrigin">Herkunftsland</label>
+                    <select class="dashboard_input" id="creationCountryOfOrigin" name="country_of_origin" required>
+                      {% for country in countries %}
+                        <option value="{{ country.id }}"{% if country.id == meta.country_of_origin %} selected{% endif %}>{{ country.name }}</option>
+                      {% endfor %}
+                    </select>
+                  </div>
+                  {{ country_language_config|json_script:"countryLanguageConfig" }}
                   <h2>Phase 2: Skills & Sprachen (Budget: <span id="phase2BudgetValue">{{ race.phase_2_points }}</span>)</h2>
                   <div class="phase_points_grid phase_points_grid--phase2">
                     <article class="phase_points_card phase2_points_budget">
@@ -734,6 +755,14 @@
                 <input type="hidden" name="start_creation" value="1">
 
                 <div class="form_row">
+                  <label for="characterType">Charaktertyp</label>
+                  <select class="dashboard_input" id="characterType" name="character_type">
+                    <option value="player"{% if not is_npc %} selected{% endif %}>Spielercharakter</option>
+                    <option value="npc"{% if is_npc %} selected{% endif %}>NPC</option>
+                  </select>
+                </div>
+
+                <div class="form_row">
                   <label for="{{ form.name.id_for_label }}">Name</label>
                   {{ form.name }}
                   {% if form.name.errors %}<div class="form_error">{{ form.name.errors|striptags }}</div>{% endif %}
@@ -752,6 +781,15 @@
                   <label for="{{ form.country_of_origin.id_for_label }}">Herkunftsland</label>
                   {{ form.country_of_origin }}
                   {% if form.country_of_origin.errors %}<div class="form_error">{{ form.country_of_origin.errors|striptags }}</div>{% endif %}
+                </div>
+                <div class="form_row" data-starting-experience-row>
+                  <label for="startingExperience">Erfahrungsstufe</label>
+                  <select class="dashboard_input" id="startingExperience" name="starting_experience">
+                    {% for points, label in starting_experience_levels %}
+                      <option value="{{ points }}"{% if points == starting_experience %} selected{% endif %}>{{ label }} — +{{ points }} EP</option>
+                    {% endfor %}
+                  </select>
+                  <small>Die Start-EP stehen nach der Erstellung zur Verfügung und zählen nicht zu den Gesamt-EP.</small>
                 </div>
 
                 {% if form.non_field_errors %}<div class="form_error">{{ form.non_field_errors|striptags }}</div>{% endif %}
@@ -773,6 +811,16 @@
     <script src="{% static 'js/charsheet_tooltips.js' %}"></script>
     <script>
       document.addEventListener("DOMContentLoaded", function () {
+        const characterType = document.getElementById("characterType");
+        const startingExperienceRow = document.querySelector("[data-starting-experience-row]");
+        if (characterType && startingExperienceRow) {
+          const syncCharacterType = function () {
+            startingExperienceRow.hidden = characterType.value === "npc";
+          };
+          characterType.addEventListener("change", syncCharacterType);
+          syncCharacterType();
+        }
+
         const isEmbedded = window.self !== window.top;
         if (isEmbedded) {
           document.body.classList.add("embedded-creation");
@@ -980,6 +1028,16 @@
         const phase2BudgetValue = document.getElementById("phase2BudgetValue");
         const phase2RemainingValue = document.getElementById("phase2RemainingValue");
         const phase2ValidationHint = document.getElementById("phase2ValidationHint");
+        const countryOfOriginSelect = document.getElementById("creationCountryOfOrigin");
+        const countryLanguageConfigElement = document.getElementById("countryLanguageConfig");
+        let countryLanguageConfig = {};
+        if (countryLanguageConfigElement) {
+          try {
+            countryLanguageConfig = JSON.parse(countryLanguageConfigElement.textContent || "{}");
+          } catch (_error) {
+            countryLanguageConfig = {};
+          }
+        }
         const phase2NextButton = document.querySelector('button[name="action"][value="next"]');
         if (phase2SkillCartBody && phase2LanguageCartBody && phase2SkillSpentValue && phase2LanguageSpentValue && phase2TotalSpentValue && phase2BudgetValue && phase2RemainingValue) {
           const toInt = function (value, fallback) {
@@ -1314,6 +1372,59 @@
               ensureEmptyRows();
               refreshPhase2Totals();
           };
+
+          const applyCountryLanguageDefault = function () {
+            if (!countryOfOriginSelect) {
+              return;
+            }
+            const config = countryLanguageConfig[countryOfOriginSelect.value] || {};
+            const defaultSlug = config.default_native_language || "";
+            getLanguageRows().forEach(function (row) {
+              const motherInput = row.querySelector("[data-phase2-lang-mother]");
+              const writeInput = row.querySelector("[data-phase2-lang-write]");
+              const levelInput = row.querySelector("[data-phase2-lang-level]");
+              const maxLevel = toInt(row.dataset.max || "0", 0);
+              if (!motherInput || !motherInput.checked) {
+                return;
+              }
+              if (
+                row.dataset.slug !== defaultSlug
+                && writeInput
+                && !writeInput.checked
+                && levelInput
+                && toInt(levelInput.value, 0) === Math.min(3, maxLevel)
+              ) {
+                row.remove();
+                return;
+              }
+              motherInput.checked = false;
+            });
+            if (defaultSlug) {
+              const source = document.querySelector(
+                `[data-phase2-lang-source][data-slug="${defaultSlug}"]`
+              );
+              addLanguageFromSource(source);
+              const row = phase2LanguageCartBody.querySelector(
+                `[data-phase2-lang-cart-item][data-slug="${defaultSlug}"]`
+              );
+              if (row) {
+                const levelInput = row.querySelector("[data-phase2-lang-level]");
+                const motherInput = row.querySelector("[data-phase2-lang-mother]");
+                if (levelInput) {
+                  levelInput.value = String(Math.min(3, toInt(row.dataset.max, 0)));
+                }
+                if (motherInput) {
+                  motherInput.checked = true;
+                }
+              }
+            }
+            ensureEmptyRows();
+            refreshPhase2Totals();
+          };
+
+          if (countryOfOriginSelect) {
+            countryOfOriginSelect.addEventListener("change", applyCountryLanguageDefault);
+          }
 
           Array.from(document.querySelectorAll("[data-phase2-lang-source]")).forEach(function (source) {
             source.addEventListener("click", function () {

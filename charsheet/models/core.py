@@ -602,3 +602,53 @@ class Language(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class Country(models.Model):
+    """Country of origin with its commonly spoken languages."""
+
+    name = models.CharField(max_length=100, unique=True)
+    description = models.TextField(blank=True)
+    spoken_languages = models.ManyToManyField(
+        Language,
+        blank=True,
+        related_name="countries",
+    )
+    default_native_language = models.ForeignKey(
+        Language,
+        blank=True,
+        null=True,
+        on_delete=models.PROTECT,
+        related_name="default_for_countries",
+    )
+
+    class Meta:
+        ordering = ["name"]
+        verbose_name_plural = "countries"
+
+    def clean(self):
+        """Keep the default native language within the spoken-language set."""
+        super().clean()
+        if not self.default_native_language_id:
+            return
+        pending_ids = getattr(self, "_pending_spoken_language_ids", None)
+        if pending_ids is not None:
+            contains_default = self.default_native_language_id in pending_ids
+        elif self.pk:
+            contains_default = self.spoken_languages.filter(
+                pk=self.default_native_language_id
+            ).exists()
+        else:
+            contains_default = False
+        if not contains_default:
+            raise ValidationError(
+                {
+                    "default_native_language": (
+                        "The default native language must be one of the "
+                        "country's spoken languages."
+                    )
+                }
+            )
+
+    def __str__(self):
+        return self.name

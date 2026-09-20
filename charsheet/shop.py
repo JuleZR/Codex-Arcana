@@ -859,7 +859,10 @@ def apply_character_item_modifications(
         money_cost = 0
     if charge_character_costs and (
         character_item.owner is None
-        or experience_cost > int(character_item.owner.current_experience)
+        or (
+            not character_item.owner.is_npc
+            and experience_cost > int(character_item.owner.current_experience)
+        )
         or money_cost > int(character_item.owner.money)
     ):
         return False
@@ -971,9 +974,17 @@ def apply_character_item_modifications(
             )
             if charge_character_costs and (experience_cost or money_cost):
                 character = character_item.owner
-                character.current_experience = max(0, int(character.current_experience) - experience_cost)
+                if character.is_npc:
+                    character.used_experience += experience_cost
+                    experience_field = "used_experience"
+                else:
+                    character.current_experience = max(
+                        0,
+                        int(character.current_experience) - experience_cost,
+                    )
+                    experience_field = "current_experience"
                 character.money = max(0, int(character.money) - money_cost)
-                character.save(update_fields=["current_experience", "money"])
+                character.save(update_fields=[experience_field, "money"])
     except (
         ValidationError,
         ValueError,
@@ -1246,10 +1257,22 @@ def buy_shop_cart(character: Character, payload: dict[str, object]) -> tuple[dic
     return {"ok": True, "new_money": character.money, "spent": final_price}, 200
 
 
+def _read_resale_percent(payload: dict[str, object]) -> int:
+    """Read the adjustable resale share, defaulting to the GRW value."""
+    try:
+        return max(0, min(100, int(payload.get(
+            "resale_percent",
+            ItemEngine.DEFAULT_RESALE_PERCENT,
+        ))))
+    except (TypeError, ValueError):
+        return ItemEngine.DEFAULT_RESALE_PERCENT
+
+
 @transaction.atomic
 def sell_shop_cart(character: Character, payload: dict[str, object]) -> tuple[dict[str, object], int]:
     """Sell cart entries atomically and return JSON payload plus status code."""
     cart_items = payload.get("items") or []
+    resale_percent = _read_resale_percent(payload)
     if not isinstance(cart_items, list) or not cart_items:
         return {"ok": False, "error": "empty_cart"}, 400
 
@@ -1288,7 +1311,8 @@ def sell_shop_cart(character: Character, payload: dict[str, object]) -> tuple[di
             return {"ok": False, "error": "sell_permission_required"}, 403
         if qty > character_item.amount:
             return {"ok": False, "error": "invalid_qty"}, 400
-        unit_price = ItemEngine(character_item).get_price()
+        effective_price = ItemEngine(character_item).get_price()
+        unit_price = ItemEngine.resale_price(effective_price, resale_percent)
         normalized.append((character_item, qty, unit_price))
         payout += unit_price * qty
 
@@ -1313,6 +1337,7 @@ def trade_shop_cart(character: Character, payload: dict[str, object]) -> tuple[d
     buy_items = payload.get("buy_items") or []
     sell_items = payload.get("sell_items") or []
     discount = payload.get("discount") or 0
+    resale_percent = _read_resale_percent(payload)
 
     if not isinstance(buy_items, list) or not isinstance(sell_items, list) or (not buy_items and not sell_items):
         return {"ok": False, "error": "empty_cart"}, 400
@@ -1379,7 +1404,8 @@ def trade_shop_cart(character: Character, payload: dict[str, object]) -> tuple[d
             return {"ok": False, "error": "sell_permission_required"}, 403
         if qty > character_item.amount:
             return {"ok": False, "error": "invalid_qty"}, 400
-        unit_price = ItemEngine(character_item).get_price()
+        effective_price = ItemEngine(character_item).get_price()
+        unit_price = ItemEngine.resale_price(effective_price, resale_percent)
         normalized_sells.append((character_item, qty, unit_price))
         sell_total += unit_price * qty
 

@@ -1,13 +1,20 @@
 <div class="exp_wrapper" id="sheetExperiencePanel">
   <h2>Erfahrung</h2>
   <div class="exp_rows" aria-label="Erfahrungspunkte">
-    <div class="exp_row">
-      <span class="exp_label">Gesamt</span>
-      <span class="exp_value">{{ character.overall_experience }}</span>
-    </div>
-    <div class="exp_row">
-      <span class="exp_label">Aktuell</span>
-      <span class="exp_value" data-current-experience>{{ character.current_experience }}</span>
-    </div>
+    {% if character.is_npc %}
+      <div class="exp_row">
+        <span class="exp_label">Verwendet</span>
+        <span class="exp_value" data-used-experience>{{ character.used_experience }} EP</span>
+      </div>
+    {% else %}
+      <div class="exp_row">
+        <span class="exp_label">Gesamt</span>
+        <span class="exp_value">{{ character.overall_experience }}</span>
+      </div>
+      <div class="exp_row">
+        <span class="exp_label">Aktuell</span>
+        <span class="exp_value" data-current-experience>{{ character.current_experience }}</span>
+      </div>
+    {% endif %}
   </div>
 </div>

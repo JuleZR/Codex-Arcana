@@ -63,7 +63,7 @@
       </div>
     </details>
     <details class="vampire_sheet_disclosure">
-      <summary>Vampirwerte lernen ({{ character.current_experience }} EP)</summary>
+      <summary>Vampirwerte lernen ({% if character.is_npc %}{{ character.used_experience }} EP verwendet{% else %}{{ character.current_experience }} EP{% endif %})</summary>
       <form method="post" action="{% url 'vampire_character_action' character.id 'purchase-age' %}">
         {% csrf_token %}<button type="submit">Alterszyklus für 10 EP erhöhen</button>
       </form>

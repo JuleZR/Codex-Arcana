@@ -17,6 +17,10 @@ export function initShopMenu() {
   const discountInput = document.getElementById("shopDiscountInput");
   const discountDecBtn = document.getElementById("shopDiscountDec");
   const discountIncBtn = document.getElementById("shopDiscountInc");
+  const resaleRow = document.querySelector(".shop_cart_resale_row");
+  const resaleInput = document.getElementById("shopResaleInput");
+  const resaleDecBtn = document.getElementById("shopResaleDec");
+  const resaleIncBtn = document.getElementById("shopResaleInc");
   const actionBtn = document.getElementById("shopActionBtn");
   const addItemBtn = document.getElementById("shopAddItemBtn");
   const buyModeBtn = document.getElementById("shop-tab-buy");
@@ -36,6 +40,9 @@ export function initShopMenu() {
     || !discountInput
     || !discountDecBtn
     || !discountIncBtn
+    || !resaleInput
+    || !resaleDecBtn
+    || !resaleIncBtn
     || !actionBtn
     || !buyModeBtn
     || !sellModeBtn
@@ -164,15 +171,19 @@ export function initShopMenu() {
     if (discountRow instanceof HTMLElement) {
       discountRow.hidden = !cartHasBuyEntries();
     }
+    if (resaleRow instanceof HTMLElement) {
+      resaleRow.hidden = !cartHasSellEntries();
+    }
     listTitle.textContent = isSellMode ? "Verkaufbare Gegenstaende" : "Kaufbare Gegenstaende";
     cartTitle.textContent = "Handelskorb";
     finalLabelEl.textContent = "Saldo";
     syncActionSeal();
   };
   syncActionSeal();
+  const readResalePercent = () => Math.min(100, Math.max(0, readInt(resaleInput.value, 50)));
   const unitPriceForEntry = (entry) => {
     if (entry.mode === "sell") {
-      return Math.max(0, readInt(entry.unitPrice, 0));
+      return Math.max(0, Math.round(readInt(entry.unitPrice, 0) * readResalePercent() / 100));
     }
     const mod = QUALITY_PRICE_MODS[normalizeQuality(entry.quality)] ?? 1;
     return Math.max(0, Math.round(entry.basePrice * mod));
@@ -235,6 +246,12 @@ export function initShopMenu() {
     });
   };
   const render = () => {
+    if (discountRow instanceof HTMLElement) {
+      discountRow.hidden = !cartHasBuyEntries();
+    }
+    if (resaleRow instanceof HTMLElement) {
+      resaleRow.hidden = !cartHasSellEntries();
+    }
     let subtotal = 0;
     const rows = [];
     cart.forEach((entry, cartKey) => {
@@ -284,6 +301,17 @@ export function initShopMenu() {
     if (cartHasBuyEntries() && readInt(discountInput.value, 0) !== discountPercent) {
       discountInput.value = String(discountPercent);
     }
+    const resalePercent = readResalePercent();
+    if (readInt(resaleInput.value, 50) !== resalePercent) {
+      resaleInput.value = String(resalePercent);
+    }
+    document.querySelectorAll('[data-shop-item][data-shop-mode="sell"]').forEach((row) => {
+      const priceCell = row.querySelector(".shop_item_price");
+      if (priceCell) {
+        const effectivePrice = readInt(row.getAttribute("data-shop-unit-price"), 0);
+        priceCell.textContent = fmtKs(Math.round(effectivePrice * resalePercent / 100));
+      }
+    });
     const buySubtotal = Array.from(cart.values())
       .filter((entry) => entry.mode === "buy")
       .reduce((sum, entry) => sum + (unitPriceForEntry(entry) * entry.qty), 0);
@@ -469,6 +497,15 @@ export function initShopMenu() {
     discountInput.value = String(Math.min(100, readInt(discountInput.value, 0) + 5));
     render();
   });
+  resaleInput.addEventListener("input", render);
+  resaleDecBtn.addEventListener("click", () => {
+    resaleInput.value = String(Math.max(0, readInt(resaleInput.value, 50) - 5));
+    render();
+  });
+  resaleIncBtn.addEventListener("click", () => {
+    resaleInput.value = String(Math.min(100, readInt(resaleInput.value, 50) + 5));
+    render();
+  });
 
   actionBtn.addEventListener("click", async () => {
     const url = tradeUrl || (cartHasSellEntries() && !cartHasBuyEntries() ? sellUrl : buyUrl);
@@ -491,6 +528,7 @@ export function initShopMenu() {
           qty: entry.stackable ? entry.qty : 1,
         })),
       discount: readInt(discountInput.value, 0),
+      resale_percent: readResalePercent(),
     };
 
     try {

@@ -2,20 +2,22 @@
   class="sheet-window__metrics learn_budget_panel"
   id="learnBudgetPanel"
   data-learn-budget="{{ character.current_experience }}"
+  data-is-npc="{% if character.is_npc %}1{% else %}0{% endif %}"
+  data-used-experience="{{ character.used_experience }}"
   data-learn-spell-slot-budget="{{ learn_magic_slot_summary.total|default:0 }}"
 >
   <div class="learn_budget_grid">
     <div class="shop_cart_total_row">
-      <span>EP Budget</span>
-      <span id="learnBudgetValue">{{ character.current_experience }} EP</span>
+      <span>{% if character.is_npc %}Bisher verwendet{% else %}EP Budget{% endif %}</span>
+      <span id="learnBudgetValue">{% if character.is_npc %}{{ character.used_experience }} EP{% else %}{{ character.current_experience }} EP{% endif %}</span>
     </div>
     <div class="shop_cart_total_row">
       <span>Verbrauch</span>
       <span id="learnSpentValue">0 EP</span>
     </div>
     <div class="shop_cart_total_row">
-      <span>Rest</span>
-      <span id="learnRemainingValue">{{ character.current_experience }} EP</span>
+      <span>{% if character.is_npc %}Nach Kauf{% else %}Rest{% endif %}</span>
+      <span id="learnRemainingValue">{% if character.is_npc %}{{ character.used_experience }} EP{% else %}{{ character.current_experience }} EP{% endif %}</span>
     </div>
   </div>
   <p id="learnValidationHint" class="form_error learn_validation_hint" hidden></p>

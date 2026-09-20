@@ -80,13 +80,18 @@ class ExperienceLessonCostHandler(LessonCostHandler):
     def is_available(self, character, costs, context):
         amount = sum(int(cost.value) for cost in costs)
         return (
-            character.current_experience >= amount,
+            character.is_npc or character.current_experience >= amount,
             "Nicht genug EP für diese Lektion.",
         )
 
     def deduct(self, character, costs, context):
-        character.current_experience -= sum(int(cost.value) for cost in costs)
-        character.save(update_fields=["current_experience"])
+        amount = sum(int(cost.value) for cost in costs)
+        if character.is_npc:
+            character.used_experience += amount
+            character.save(update_fields=["used_experience"])
+        else:
+            character.current_experience -= amount
+            character.save(update_fields=["current_experience"])
 
 
 class FameLessonCostHandler(LessonCostHandler):

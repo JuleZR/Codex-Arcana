@@ -7558,6 +7558,7 @@ def _build_shop_sell_item_groups(character: Character) -> list[dict]:
         item = character_item.item
         item_engine = ItemEngine(character_item)
         quality = quality_payload(item_engine.get_effective_quality())
+        effective_unit_price = item_engine.get_price()
         armor_stats = getattr(item, "armorstats", None)
         group_key = (
             SHOP_ARMOR_COMPONENT_GROUP
@@ -7576,7 +7577,8 @@ def _build_shop_sell_item_groups(character: Character) -> list[dict]:
                 "quality": quality["value"],
                 "quality_label": quality["label"],
                 "quality_color": quality["color"],
-                "unit_price": item_engine.get_price(),
+                "effective_unit_price": effective_unit_price,
+                "unit_price": ItemEngine.resale_price(effective_unit_price),
             }
         )
 

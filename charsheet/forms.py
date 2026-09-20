@@ -11,7 +11,16 @@ from django.contrib.auth.password_validation import validate_password
 from django.core.files.base import ContentFile
 from PIL import Image, ImageOps
 
-from .models import Character, CharacterDivineEntity, CharacterItemRuneSpec, CharacterSkill, CharacterTechnique, CharacterTrait, DivineEntity
+from .models import (
+    Character,
+    CharacterDivineEntity,
+    CharacterItemRuneSpec,
+    CharacterSkill,
+    CharacterTechnique,
+    CharacterTrait,
+    Country,
+    DivineEntity,
+)
 from .models.user import UserSettings
 from .religion_rules import active_clerical_school_entries, locked_religion_entity, unique_divine_entity_for_school
 
@@ -55,11 +64,11 @@ class UserSettingsForm(forms.ModelForm):
 class CharacterCreateForm(forms.ModelForm):
     """Minimal character creation form for dashboard usage."""
 
-    def clean_country_of_origin(self):
-        country_of_origin = " ".join(str(self.cleaned_data.get("country_of_origin") or "").split())
-        if not country_of_origin:
-            raise forms.ValidationError("Bitte ein Herkunftsland angeben.")
-        return country_of_origin
+    country_of_origin = forms.ModelChoiceField(
+        queryset=Country.objects.order_by("name"),
+        empty_label="Herkunftsland wählen",
+        widget=forms.Select(attrs={"class": "dashboard_input"}),
+    )
 
     class Meta:
         model = Character
@@ -74,18 +83,15 @@ class CharacterCreateForm(forms.ModelForm):
             ),
             "race": forms.Select(attrs={"class": "dashboard_input"}),
             "gender": forms.Select(attrs={"class": "dashboard_input"}),
-            "country_of_origin": forms.TextInput(
-                attrs={
-                    "class": "dashboard_input",
-                    "maxlength": 25,
-                    "autocomplete": "off",
-                }
-            ),
         }
 
 
 class CharacterUpdateForm(CharacterCreateForm):
     """Character update form with same fields/widgets as create form."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["country_of_origin"].required = False
 
 
 class CharacterInfoInlineForm(forms.ModelForm):
@@ -139,7 +145,7 @@ class CharacterInfoInlineForm(forms.ModelForm):
             "skin_color": forms.TextInput(attrs={"class": "dashboard_input", "maxlength": 25}),
             "hair_color": forms.TextInput(attrs={"class": "dashboard_input", "maxlength": 25}),
             "eye_color": forms.TextInput(attrs={"class": "dashboard_input", "maxlength": 25}),
-            "country_of_origin": forms.TextInput(attrs={"class": "dashboard_input", "maxlength": 25}),
+            "country_of_origin": forms.Select(attrs={"class": "dashboard_input"}),
             "weight": forms.NumberInput(attrs={"class": "dashboard_input", "min": 0, "step": 1}),
             "appearance": forms.Textarea(attrs={"class": "dashboard_input", "maxlength": 300, "rows": 3, "style": "resize: none;"}),
         }

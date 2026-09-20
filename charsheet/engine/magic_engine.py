@@ -703,7 +703,7 @@ class MagicEngine:
         ).exists():
             return result("wrong_faith", "Erforderliche Glaubensbindung fehlt.")
         ep = self.character.current_experience if available_ep is None else available_ep
-        if int(ep) < cost:
+        if not self.character.is_npc and int(ep) < cost:
             return result("insufficient_ep", "Nicht genügend EP.")
         return result()
 
@@ -1370,7 +1370,10 @@ class MagicEngine:
                 "message": "Ungültige Kostenauswahl für diesen Zauber.",
             }
         if cost_type == "ep":
-            if self.character.current_experience < int(spell_obj.ep_cost):
+            if (
+                not self.character.is_npc
+                and self.character.current_experience < int(spell_obj.ep_cost)
+            ):
                 return {
                     "ok": False,
                     "error": "not_enough_ep",
@@ -1404,8 +1407,12 @@ class MagicEngine:
             roll_load_penalty = engine.spell_roll_load_penalty()
             if cost_type == "ep":
                 spent_ep = int(spell_obj.ep_cost)
-                character.current_experience -= spent_ep
-                character.save(update_fields=["current_experience"])
+                if character.is_npc:
+                    character.used_experience += spent_ep
+                    character.save(update_fields=["used_experience"])
+                else:
+                    character.current_experience -= spent_ep
+                    character.save(update_fields=["current_experience"])
                 return {
                     "ok": True,
                     "spell_id": spell_obj.id,

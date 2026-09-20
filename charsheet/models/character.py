@@ -21,7 +21,16 @@ from ..constants import (
     WEAPON_MANEUVER_ATTRIBUTE_CHOICES,
     WIELD_MODES,
 )
-from .core import Attribute, DamageSource, Language, Race, Skill, SkillCategory, Trait
+from .core import (
+    Attribute,
+    Country,
+    DamageSource,
+    Language,
+    Race,
+    Skill,
+    SkillCategory,
+    Trait,
+)
 from .progression import Specialization
 
 
@@ -42,14 +51,22 @@ class Character(models.Model):
     skin_color = models.CharField(max_length=25, null=True, blank=True)
     hair_color = models.CharField(max_length=25, null=True, blank=True)
     eye_color = models.CharField(max_length=25, null=True, blank=True)
-    country_of_origin = models.CharField(max_length=25, null=True, blank=True)
+    country_of_origin = models.ForeignKey(
+        Country,
+        blank=True,
+        null=True,
+        on_delete=models.SET_NULL,
+        related_name="characters",
+    )
     weight = models.IntegerField(default=60, null=True, blank=True)
     religion = models.CharField(max_length=25, null=True, blank=True)
     appearance = models.TextField(max_length=300, null=True, blank=True)
 
     money = models.IntegerField(default=0, validators=[MinValueValidator(0)])
+    is_npc = models.BooleanField(default=False)
     overall_experience = models.PositiveIntegerField(default=0)
     current_experience = models.PositiveIntegerField(default=0)
+    used_experience = models.PositiveIntegerField(default=0)
 
     current_stun_damage = models.PositiveIntegerField(default=0)
     current_lethal_damage = models.PositiveIntegerField(default=0)
@@ -1190,5 +1207,6 @@ class CharacterCreationDraft(models.Model):
         related_name="character_drafts",
     )
     race = models.ForeignKey(Race, on_delete=models.CASCADE)
+    is_npc = models.BooleanField(default=False)
     current_phase = models.PositiveIntegerField(default=1, validators=[MaxValueValidator(4)])
     state = models.JSONField(default=dict, blank=True)

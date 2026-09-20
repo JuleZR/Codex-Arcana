@@ -128,6 +128,7 @@ from .models import (
     CharacterTraitChoice,
     CharacterVampirePower,
     CharacterVampireTrait,
+    Country,
     CharacterWeaponMastery,
     CharacterWeaponMasteryArcana,
     Creature,
@@ -7735,6 +7736,34 @@ class LanguageAdmin(AutoSlugAdminMixin, admin.ModelAdmin):
     search_fields = ("name", "slug")
     ordering = ("name",)
     inlines = (LanguageCharacterInline,)
+
+
+class CountryAdminForm(forms.ModelForm):
+    """Validate the default language against the submitted spoken languages."""
+
+    class Meta:
+        model = Country
+        fields = "__all__"
+
+    def clean(self):
+        cleaned_data = super().clean()
+        spoken_languages = cleaned_data.get("spoken_languages")
+        self.instance._pending_spoken_language_ids = {
+            language.pk for language in spoken_languages or ()
+        }
+        return cleaned_data
+
+
+@admin.register(Country)
+class CountryAdmin(admin.ModelAdmin):
+    """Admin configuration for countries and their language assignments."""
+
+    form = CountryAdminForm
+    list_display = ("name", "default_native_language")
+    search_fields = ("name", "description")
+    ordering = ("name",)
+    autocomplete_fields = ("default_native_language",)
+    filter_horizontal = ("spoken_languages",)
 
 
 @admin.register(CharacterLanguage)

@@ -66,6 +66,17 @@
   background: rgba(205, 99, 86, 0.14);
 }
 
+.dashboard_npc_badge {
+  display: inline-block;
+  margin-left: 0.35rem;
+  padding: 0.1rem 0.35rem;
+  border: 1px solid rgba(45, 111, 184, 0.55);
+  border-radius: 999px;
+  font-size: 0.72rem;
+  color: #205f9f;
+  background: rgba(70, 139, 214, 0.14);
+}
+
 .dashboard_group_window {
   width: min(1240px, calc(100vw - 32px));
   height: min(760px, calc(100vh - 32px));

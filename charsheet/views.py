@@ -78,6 +78,7 @@ from .models import (
     DruidCultAspect,
     Item,
     ItemSemanticEffect,
+    Country,
     Language,
     Lesson,
     Rune,
@@ -569,8 +570,10 @@ def export_account_data(request):
                 "gender": character.gender,
                 "is_archived": character.is_archived,
                 "money": character.money,
+                "is_npc": character.is_npc,
                 "overall_experience": character.overall_experience,
                 "current_experience": character.current_experience,
+                "used_experience": character.used_experience,
                 "current_damage": character.current_damage,
                 "created_at": character.created_at.isoformat() if getattr(character, "created_at", None) else None,
                 "items": list(
@@ -1272,8 +1275,13 @@ def _character_dashboard_state(character: Character) -> dict[str, str]:
         condition = "Unverletzt"
     else:
         condition = f"Wundstufe: {wound_stage}"
+    experience = (
+        f"{character.used_experience} EP verwendet"
+        if character.is_npc
+        else f"{character.current_experience} / {character.overall_experience} EP"
+    )
     return {
-        "experience": f"{character.current_experience} / {character.overall_experience} EP",
+        "experience": experience,
         "condition": condition,
     }
 
@@ -2216,7 +2224,10 @@ def dashboard(request):
     )
     totals = characters_qs.aggregate(
         total_money=Sum("money"),
-        total_current_experience=Sum("current_experience"),
+        total_current_experience=Sum(
+            "current_experience",
+            filter=Q(is_npc=False),
+        ),
     )
     character_rows = [
         {
@@ -2505,18 +2516,40 @@ def create_character(request):
             if Character.objects.filter(owner=request.user, name=name).exists():
                 form.add_error("name", "Du hast bereits einen Charakter mit diesem Namen.")
             else:
+                country = form.cleaned_data["country_of_origin"]
+                default_language = country.default_native_language
+                has_valid_default = False
+                if default_language:
+                    has_valid_default = country.spoken_languages.filter(
+                        pk=default_language.pk
+                    ).exists()
+                language_data = {}
+                if has_valid_default:
+                    language_data[default_language.slug] = {
+                        "level": min(3, default_language.max_level),
+                        "write": False,
+                        "mother": True,
+                    }
                 draft = CharacterCreationDraft.objects.create(
                     owner=request.user,
                     race=form.cleaned_data["race"],
+                    is_npc=request.POST.get("character_type") == "npc",
                     current_phase=1,
                     state={
                         "meta": {
                             "name": name,
                             "gender": form.cleaned_data.get("gender") or "",
-                            "country_of_origin": " ".join(
-                                str(form.cleaned_data.get("country_of_origin") or "").split()
+                            "country_of_origin": country.pk,
+                            "country_default_native_language": (
+                                default_language.slug if has_valid_default else ""
                             ),
-                        }
+                            "starting_experience": (
+                                CharacterCreationEngine.resolve_starting_experience(
+                                    request.POST.get("starting_experience")
+                                )
+                            ),
+                        },
+                        "phase_2": {"skills": [], "languages": language_data},
                     },
                 )
                 return redirect(f"{reverse_lazy('create_character')}?draft={draft.id}")
@@ -2524,6 +2557,15 @@ def create_character(request):
         state = dict(draft.state or {})
         phase = int(draft.current_phase)
         action = (request.POST.get("action") or "next").strip()
+
+        if "starting_experience" in request.POST:
+            meta = dict(state.get("meta", {}) or {})
+            meta["starting_experience"] = (
+                CharacterCreationEngine.resolve_starting_experience(
+                    request.POST.get("starting_experience")
+                )
+            )
+            state["meta"] = meta
 
         if phase == 1:
             limits = draft.race.raceattributelimit_set.select_related("attribute")
@@ -2534,6 +2576,20 @@ def create_character(request):
                 attrs[key] = max(0, int(posted or 0))
             state["phase_1"] = {"attributes": attrs}
         elif phase == 2:
+            meta = dict(state.get("meta", {}) or {})
+            previous_country_id = _parse_positive_int(
+                meta.get("country_of_origin")
+            )
+            previous_default_slug = str(
+                meta.get("country_default_native_language") or ""
+            )
+            selected_country = Country.objects.filter(
+                pk=_parse_positive_int(request.POST.get("country_of_origin"))
+            ).first()
+            if selected_country is not None:
+                meta["country_of_origin"] = selected_country.pk
+                state["meta"] = meta
+
             skills_data: list[dict[str, object]] = []
             for skill in Skill.objects.order_by("name"):
                 if skill.requires_specification:
@@ -2593,6 +2649,41 @@ def create_character(request):
                         "write": write,
                         "mother": mother,
                     }
+            if selected_country and selected_country.pk != previous_country_id:
+                previous_default = language_data.get(previous_default_slug)
+                previous_language = Language.objects.filter(
+                    slug=previous_default_slug
+                ).first()
+                if previous_default and previous_language:
+                    was_only_automatic_default = all(
+                        (
+                            previous_default.get("mother"),
+                            previous_default.get("level")
+                            == min(3, previous_language.max_level),
+                            not previous_default.get("write"),
+                        )
+                    )
+                    if was_only_automatic_default:
+                        language_data.pop(previous_default_slug, None)
+                    elif previous_default.get("mother"):
+                        previous_default["mother"] = False
+
+                new_default = selected_country.default_native_language
+                if new_default and selected_country.spoken_languages.filter(
+                    pk=new_default.pk
+                ).exists():
+                    language_data[new_default.slug] = {
+                        "level": min(3, new_default.max_level),
+                        "write": False,
+                        "mother": True,
+                    }
+                    meta["country_default_native_language"] = new_default.slug
+                else:
+                    meta["country_default_native_language"] = ""
+            elif previous_default_slug and not language_data.get(
+                previous_default_slug, {}
+            ).get("mother"):
+                meta["country_default_native_language"] = ""
             state["phase_2"] = {"skills": skills_data, "languages": language_data}
         elif phase == 3:
             disadvantages: dict[str, int] = {}
@@ -2840,7 +2931,22 @@ def create_character(request):
 
     form = CharacterCreateForm()
     if not draft:
-        return render(request, "charsheet/create_character.html", {"form": form})
+        return render(
+            request,
+            "charsheet/create_character.html",
+            {
+                "form": form,
+                "starting_experience_levels": (
+                    CharacterCreationEngine.STARTING_EXPERIENCE_LEVELS
+                ),
+                "starting_experience": (
+                    CharacterCreationEngine.resolve_starting_experience(
+                        request.POST.get("starting_experience")
+                    )
+                ),
+                "is_npc": request.POST.get("character_type") == "npc",
+            },
+        )
 
     engine = CharacterCreationEngine(draft)
     limits = engine.attribute_min_max_limits()
@@ -2902,6 +3008,25 @@ def create_character(request):
                 "cost": engine.calc_language_cost(entry.get("level", 0), entry.get("write", False), entry.get("mother", False)),
             }
         )
+
+    countries = list(
+        Country.objects.select_related("default_native_language")
+        .prefetch_related("spoken_languages")
+        .order_by("name")
+    )
+    country_language_config = {
+        str(country.pk): {
+            "spoken_languages": [
+                language.slug for language in country.spoken_languages.all()
+            ],
+            "default_native_language": (
+                country.default_native_language.slug
+                if country.default_native_language
+                else ""
+            ),
+        }
+        for country in countries
+    }
 
     phase_3_values = engine.phase_3_disadvantages()
     phase_3_trait_choices = engine.phase_3_trait_choices()
@@ -3263,10 +3388,16 @@ def create_character(request):
             "draft": draft,
             "draft_phase": draft.current_phase,
             "meta": draft.state.get("meta", {}),
+            "starting_experience_levels": (
+                CharacterCreationEngine.STARTING_EXPERIENCE_LEVELS
+            ),
+            "starting_experience": engine.starting_experience(),
             "phase_1_rows": phase_1_rows,
             "phase_1_spent": engine.sum_phase_1_attribute_costs(),
             "phase_2_skill_rows": phase_2_skill_rows,
             "phase_2_language_rows": phase_2_language_rows,
+            "countries": countries,
+            "country_language_config": country_language_config,
             "phase_2_skill_spent": engine.sum_phase_2_skill_cost(),
             "phase_2_language_spent": engine.sum_phase_2_language_cost(),
             "phase_3_rows": phase_3_rows,
@@ -6161,6 +6292,16 @@ def adjust_money(request, character_id: int):
 def adjust_experience(request, character_id: int):
     """Apply an experience delta, optionally only to current experience."""
     character = _owned_character_or_404(request, character_id)
+    if character.is_npc:
+        if _is_partial_request(request):
+            return _sheet_partials_response(
+                request,
+                character,
+                "experience_panel",
+                "learning_budget",
+            )
+        messages.info(request, "NPCs besitzen keinen verfügbaren EP-Vorrat.")
+        return redirect("character_sheet", character_id=character_id)
     raw_delta = str(request.POST.get("delta", "0") or "0").strip()
     current_only = raw_delta.startswith("*") or raw_delta.endswith("*")
     if current_only:
@@ -6205,6 +6346,7 @@ def apply_learning(request, character_id: int):
                 "message": message,
                 "learningFeedback": {"level": level, "message": message},
                 "currentExperience": int(character.current_experience),
+                "usedExperience": int(character.used_experience),
                 "deferredPartialsUrl": (
                     f"{reverse('character_sheet_external_refresh', args=[character.id])}?force=1&learning=1"
                     if level != "error"

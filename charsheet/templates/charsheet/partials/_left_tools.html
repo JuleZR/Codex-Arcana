@@ -55,7 +55,7 @@
           </form>
         </section>
 
-        <section class="left-tools__group left-tools__group--resource" aria-label="Erfahrung">
+        {% if not character.is_npc %}<section class="left-tools__group left-tools__group--resource" aria-label="Erfahrung">
           <h3>Erfahrung</h3>
           <form method="post" action="{% url 'adjust_experience' character.id %}" class="left-tools__form" data-sheet-action data-reset-after-success>
             {% csrf_token %}
@@ -76,7 +76,7 @@
             </label>
             <button type="submit" class="wallet_apply_btn left-tools__apply" aria-label="Erfahrungsaenderung bestaetigen" title="Bestaetigen">&#x2713;</button>
           </form>
-        </section>
+        </section>{% endif %}
       </div>
 
       <section

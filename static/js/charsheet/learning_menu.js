@@ -13,6 +13,8 @@ const renderOpenSpellSlotMarkup = (remaining) => {
 
 function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, validationHint, applyBtn) {
   const getBudget = () => readInt(document.getElementById("learnBudgetPanel")?.getAttribute("data-learn-budget") || "0", 0);
+  const isNpc = () => document.getElementById("learnBudgetPanel")?.getAttribute("data-is-npc") === "1";
+  const getUsedExperience = () => readInt(document.getElementById("learnBudgetPanel")?.getAttribute("data-used-experience") || "0", 0);
   let newSpecCounter = 0;
   const getRows = () => Array.from(cartBody.querySelectorAll("[data-learn-cart-item]"));
   const ensureEmptyRow = () => {
@@ -379,7 +381,8 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
       }
     });
     const budget = getBudget();
-    const remaining = budget - spent;
+    const npc = isNpc();
+    const remaining = npc ? getUsedExperience() + spent : budget - spent;
     const spellSlotBudget = readInt(document.getElementById("learnBudgetPanel")?.getAttribute("data-learn-spell-slot-budget") || "0", 0);
     const magicBudgetPanel = document.querySelector("[data-learn-magic-budget]");
     const spellSlotSpentBase = readInt(
@@ -402,7 +405,7 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
     const brewSlotBudget = readInt(brewBudgetPanel?.getAttribute("data-brew-slot-remaining") || "0", 0);
     const brewSlotRemaining = brewSlotBudget - spentBrewSlots;
     if (liveBudgetEl) {
-      liveBudgetEl.textContent = `${budget} EP`;
+      liveBudgetEl.textContent = `${npc ? getUsedExperience() : budget} EP`;
     }
     if (liveSpentEl) {
       liveSpentEl.textContent = `${spent} EP`;
@@ -446,7 +449,7 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
     syncSpellSlotCards(spentSpellSlotsBySource);
     if (liveValidationHint) {
       const messages = [];
-      if (remaining < 0) {
+      if (!npc && remaining < 0) {
         messages.push("Zu wenig EP fuer die ausgewaehlten Lernschritte.");
       }
       if (spellSlotRemaining < 0) {
@@ -468,7 +471,7 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
       liveValidationHint.textContent = messages.join(" ");
     }
     applyBtn.disabled = (
-      remaining < 0
+      (!npc && remaining < 0)
       || invalidWrite
       || spellSlotRemaining < 0
       || brewSlotRemaining < 0

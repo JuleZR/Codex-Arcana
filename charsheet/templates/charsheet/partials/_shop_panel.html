@@ -151,7 +151,7 @@
                             data-shop-item-type="{{ item.item_type }}"
                             data-shop-stackable="{% if item.stackable %}1{% else %}0{% endif %}"
                             data-shop-available-qty="{{ item.amount }}"
-                            data-shop-unit-price="{{ item.unit_price }}"
+                            data-shop-unit-price="{{ item.effective_unit_price }}"
                             data-shop-quality="{{ item.quality }}"
                           >
                             <td class="shop_item_name">
@@ -200,11 +200,20 @@
                 <span id="shopCartSubtotal">0 KS</span>
               </div>
               <div class="shop_cart_total_row shop_cart_discount_row">
-                <label for="shopDiscountInput">Rabatt</label>
+                <label for="shopDiscountInput">Kaufrabatt</label>
                 <div class="shop_discount_input_wrap">
                   <button type="button" class="shop_step_btn" id="shopDiscountDec" aria-label="Rabatt verringern">-</button>
                   <input type="text" id="shopDiscountInput" inputmode="numeric" value="0" aria-label="Rabatt in Prozent">
                   <button type="button" class="shop_step_btn" id="shopDiscountInc" aria-label="Rabatt erh&ouml;hen">+</button>
+                  <span>%</span>
+                </div>
+              </div>
+              <div class="shop_cart_total_row shop_cart_resale_row">
+                <label for="shopResaleInput">Verkaufswert</label>
+                <div class="shop_discount_input_wrap">
+                  <button type="button" class="shop_step_btn" id="shopResaleDec" aria-label="Verkaufswert verringern">-</button>
+                  <input type="text" id="shopResaleInput" inputmode="numeric" value="50" aria-label="Verkaufswert in Prozent">
+                  <button type="button" class="shop_step_btn" id="shopResaleInc" aria-label="Verkaufswert erh&ouml;hen">+</button>
                   <span>%</span>
                 </div>
               </div>

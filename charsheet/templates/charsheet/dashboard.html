@@ -7,7 +7,7 @@
     <link rel="icon" type="image/x-icon" href="{% static 'img/favicon.ico' %}">
     <title>Dashboard | {{ request.user.get_username }}</title>
     <link rel="stylesheet" href="{% static 'css/charsheet.css' %}">
-    <link rel="stylesheet" href="{% static 'css/dashboard.css' %}?v=20260919g">
+    <link rel="stylesheet" href="{% static 'css/dashboard.css' %}?v=20260920a">
     <script defer src="{% static 'js/game_groups.js' %}?v=20260726a"></script>
     <link rel="stylesheet" href="{% static 'css/dashboard/announcements.css' %}?v=3">
     <script type="module" src="{% static 'js/dashboard_announcements.js' %}?v=3"></script>
@@ -119,7 +119,7 @@
                           </tr>
                           {% for row in section.members %}
                             <tr>
-                              <td>{{ row.character.name }}{% if row.is_foreign %}<span class="dashboard_foreign_badge">Fremdcharakter</span>{% endif %}</td>
+                              <td>{{ row.character.name }}{% if row.is_foreign %}<span class="dashboard_foreign_badge">Fremdcharakter</span>{% endif %}{% if row.character.is_npc %}<span class="dashboard_npc_badge">NPC</span>{% endif %}</td>
                               <td>{% if row.is_own %}{{ row.character.race.name }}{% else %}–{% endif %}</td>
                               <td>{% if row.is_own %}{{ row.status.experience }}{% else %}–{% endif %}</td>
                               <td>{% if row.is_own %}{{ row.status.condition }}{% else %}–{% endif %}</td>
@@ -144,7 +144,7 @@
                           <tr class="dashboard_table_group_heading"><th colspan="5">Ohne aktive Gruppe</th></tr>
                           {% for row in ungrouped_character_rows %}
                             <tr>
-                              <td>{{ row.character.name }}</td>
+                              <td>{{ row.character.name }}{% if row.character.is_npc %}<span class="dashboard_npc_badge">NPC</span>{% endif %}</td>
                               <td>{{ row.character.race.name }}</td>
                               <td>{{ row.status.experience }}</td>
                               <td>{{ row.status.condition }}</td>

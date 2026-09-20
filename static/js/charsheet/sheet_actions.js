@@ -44,10 +44,29 @@ function updateLearningFormFromPayload(payload) {
 }
 
 function updateLearningBudgetFromPayload(payload) {
+  const budgetPanel = document.getElementById("learnBudgetPanel");
+  if (
+    budgetPanel?.dataset.isNpc === "1"
+    && Object.prototype.hasOwnProperty.call(payload || {}, "usedExperience")
+  ) {
+    const usedExperience = Number.parseInt(String(payload.usedExperience), 10);
+    if (Number.isFinite(usedExperience)) {
+      budgetPanel.dataset.usedExperience = String(usedExperience);
+      const budgetValue = document.getElementById("learnBudgetValue");
+      const remainingValue = document.getElementById("learnRemainingValue");
+      if (budgetValue) {
+        budgetValue.textContent = `${usedExperience} EP`;
+      }
+      if (remainingValue) {
+        remainingValue.textContent = `${usedExperience} EP`;
+        remainingValue.classList.remove("is-negative");
+      }
+    }
+    return;
+  }
   if (Object.prototype.hasOwnProperty.call(payload || {}, "currentExperience")) {
     const currentExperience = Number.parseInt(String(payload.currentExperience), 10);
     if (Number.isFinite(currentExperience)) {
-      const budgetPanel = document.getElementById("learnBudgetPanel");
       const budgetValue = document.getElementById("learnBudgetValue");
       const remainingValue = document.getElementById("learnRemainingValue");
       if (budgetPanel instanceof HTMLElement) {

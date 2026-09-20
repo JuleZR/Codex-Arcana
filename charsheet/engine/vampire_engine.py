@@ -519,6 +519,19 @@ class VampireRules:
             raise VampireRuleError("Zuerst muss der Erwerbsanker Vampirismus erlernt werden.")
         return self.actor
 
+    @staticmethod
+    def _can_afford_experience(character: Character, cost: int) -> bool:
+        return character.is_npc or cost <= int(character.current_experience or 0)
+
+    @staticmethod
+    def _spend_experience(character: Character, cost: int) -> None:
+        if character.is_npc:
+            character.used_experience += cost
+            character.save(update_fields=["used_experience"])
+        else:
+            character.current_experience -= cost
+            character.save(update_fields=["current_experience"])
+
     @transaction.atomic
     def learn_power(
         self,
@@ -542,13 +555,12 @@ class VampireRules:
             raise VampireRuleError("Die Schwäche einer bereits erworbenen Kraft kann nur einmal freigekauft werden.")
         if existing is not None:
             cost = self.power_cost(without_weakness=False)
-            if cost > int(character.current_experience or 0):
+            if not self._can_afford_experience(character, cost):
                 raise VampireRuleError(f"Für diesen weiteren Rang werden {cost} EP benötigt.")
             existing.level = max(1, int(existing.level or 1)) + 1
             existing.full_clean()
             existing.save(update_fields=["level"])
-            character.current_experience -= cost
-            character.save(update_fields=["current_experience"])
+            self._spend_experience(character, cost)
             return existing
         ownership = CharacterVampirePower(
             character=character,
@@ -557,11 +569,10 @@ class VampireRules:
         )
         ownership.full_clean()
         cost = self.power_cost(without_weakness=ownership.purchased_without_weakness)
-        if cost > int(character.current_experience or 0):
+        if not self._can_afford_experience(character, cost):
             raise VampireRuleError(f"Für diese Vampirkraft werden {cost} EP benötigt.")
         ownership.save()
-        character.current_experience -= cost
-        character.save(update_fields=["current_experience"])
+        self._spend_experience(character, cost)
         return ownership
 
     @transaction.atomic
@@ -591,23 +602,27 @@ class VampireRules:
         if ownership.weakness_bought_off:
             raise VampireRuleError("Die zugeordnete Schwäche wurde bereits freigekauft.")
         cost = VAMPIRE_WEAKNESS_REMOVAL_COST
-        if cost > int(character.current_experience or 0):
+        if not self._can_afford_experience(character, cost):
             raise VampireRuleError(f"Für den Schwächenfreikauf werden {cost} EP benötigt.")
         ownership.weakness_bought_off = True
         ownership.full_clean()
         ownership.save(update_fields=["weakness_bought_off"])
-        character.current_experience -= cost
-        character.save(update_fields=["current_experience"])
+        self._spend_experience(character, cost)
         return ownership
 
     @transaction.atomic
     def purchase_age_cycle(self) -> int:
         character = self._require_character_learning()
-        if AGE_CYCLE_COST > int(character.current_experience or 0):
+        if not self._can_afford_experience(character, AGE_CYCLE_COST):
             raise VampireRuleError(f"Ein weiterer Alterszyklus kostet {AGE_CYCLE_COST} EP.")
         character.vampire_age_cycle = max(1, int(character.vampire_age_cycle or 1)) + 1
-        character.current_experience -= AGE_CYCLE_COST
-        character.save(update_fields=["vampire_age_cycle", "current_experience"])
+        if character.is_npc:
+            character.used_experience += AGE_CYCLE_COST
+            experience_field = "used_experience"
+        else:
+            character.current_experience -= AGE_CYCLE_COST
+            experience_field = "current_experience"
+        character.save(update_fields=["vampire_age_cycle", experience_field])
         return character.vampire_age_cycle
 
     @transaction.atomic
@@ -615,11 +630,18 @@ class VampireRules:
         character = self._require_character_learning()
         amount = max(1, int(amount or 1))
         cost = self.capacity_bonus_cost(amount)
-        if cost > int(character.current_experience or 0):
+        if not self._can_afford_experience(character, cost):
             raise VampireRuleError(f"Die zusätzliche Blutkapazität kostet {cost} EP.")
         character.vampire_blood_capacity_bonus += amount
-        character.current_experience -= cost
-        character.save(update_fields=["vampire_blood_capacity_bonus", "current_experience"])
+        if character.is_npc:
+            character.used_experience += cost
+            experience_field = "used_experience"
+        else:
+            character.current_experience -= cost
+            experience_field = "current_experience"
+        character.save(
+            update_fields=["vampire_blood_capacity_bonus", experience_field]
+        )
         return character.vampire_blood_capacity_bonus
 
     @transaction.atomic

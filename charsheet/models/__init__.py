@@ -18,6 +18,7 @@ from .character import (
 )
 from .core import (
     Attribute,
+    Country,
     DamageSource,
     Language,
     Race,
@@ -256,6 +257,7 @@ __all__ = [
     "CreatureTraitChoiceDefinition",
     "CreatureTraitDefinition",
     "CreatureTraitSemanticEffect",
+    "Country",
     "CharacterItemSemanticEffect",
     "Item",
     "ItemSemanticEffect",

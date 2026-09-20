@@ -1308,7 +1308,7 @@ def _process_locked_learning_submission(character: Character, post_data) -> tupl
     if total_cost == 0 and not has_ep_changes and not has_progression_inputs and not has_magic_selections:
         return "info", "Keine Lernkosten erkannt."
 
-    if total_cost > int(character.current_experience):
+    if not character.is_npc and total_cost > int(character.current_experience):
         return "error", "Nicht genug aktuelle EP fuer diese Lernkosten."
 
     lesson_summary = {"learned": 0, "unlearned": 0}
@@ -1702,8 +1702,18 @@ def _process_locked_learning_submission(character: Character, post_data) -> tupl
                 )
                 lesson_summary["learned"] += 1
 
-            character.current_experience = max(0, int(character.current_experience) - total_cost)
-            character.save(update_fields=["current_experience"])
+            if character.is_npc:
+                character.used_experience = max(
+                    0,
+                    int(character.used_experience) + total_cost,
+                )
+                character.save(update_fields=["used_experience"])
+            else:
+                character.current_experience = max(
+                    0,
+                    int(character.current_experience) - total_cost,
+                )
+                character.save(update_fields=["current_experience"])
             refreshed_magic_engine = character.get_magic_engine(refresh=True)
             refreshed_magic_engine.sync_character_magic()
             refreshed_magic_engine.normalize_current_arcane_power(
