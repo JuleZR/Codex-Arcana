@@ -763,6 +763,22 @@
   gap: 8px;
 }
 
+.learn_choice_side_options {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.learn_choice_side_options legend {
+  margin-bottom: 8px;
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-size: 0.96rem;
+}
+
 .learn_choice_search_input {
   margin-bottom: 2px;
 }

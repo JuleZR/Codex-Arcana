@@ -69,6 +69,28 @@
                   {% if decision.description and decision.kind != "base_spell" and decision.kind != "arcane_free_spell" and decision.kind != "bonus_spell" %}
                     <p class="learn_choice_decision_description">{{ decision.description }}</p>
                   {% endif %}
+                  {% if decision.side_options %}
+                    <fieldset class="learn_choice_side_options">
+                      <legend>Startbonus w&auml;hlen</legend>
+                      {% for option in decision.side_options %}
+                        <label class="learn_choice_option">
+                          <input
+                            type="radio"
+                            name="learnChoiceSide-{{ decision.decision_id }}"
+                            value="{{ option.id }}"
+                            data-choice-side-option
+                            data-choice-option-id="{{ option.id }}"
+                            data-choice-submit-name="{{ option.submit_name }}"
+                            data-choice-submit-value="{{ option.submit_value }}"
+                            {% if option.id == "maneuver" %}checked{% endif %}
+                          >
+                          <span class="learn_choice_option_text">
+                            <span class="learn_choice_option_title">{{ option.label }}</span>
+                          </span>
+                        </label>
+                      {% endfor %}
+                    </fieldset>
+                  {% endif %}
                   {% if decision.kind != "base_spell" and decision.kind != "arcane_free_spell" and decision.kind != "bonus_spell" %}
                     <p class="learn_choice_decision_prompt">{{ decision.prompt|default:"Auswahl treffen" }}</p>
                   {% endif %}

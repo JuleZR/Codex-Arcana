@@ -219,7 +219,6 @@ def _apply_progression_choices(character: Character, post_data, *, magic_engine)
     engine, progression_context = _rebuild_if(summary["specializations"] > 0)
 
     weapon_decisions_by_slot: dict[tuple[int, int], dict[str, object]] = {}
-    side_decisions_by_slot: dict[tuple[int, int], dict[str, object]] = {}
     for decision in progression_context["learn_pending_decisions"]:
         kind = decision.get("kind")
         parts = str(decision.get("decision_id") or "").split("-")
@@ -227,26 +226,21 @@ def _apply_progression_choices(character: Character, post_data, *, magic_engine)
             school_id = int(parts[3])
             pick_order = int(parts[4])
             weapon_decisions_by_slot[(school_id, pick_order)] = decision
-        elif kind == "weapon_mastery_side" and len(parts) >= 5:
-            school_id = int(parts[3])
-            pick_order = int(parts[4])
-            side_decisions_by_slot[(school_id, pick_order)] = decision
-
     for slot_key, weapon_decision in weapon_decisions_by_slot.items():
         school_id, pick_order = slot_key
-        side_decision = side_decisions_by_slot.get(slot_key)
-        if not weapon_decision.get("options") or side_decision is None or not side_decision.get("options"):
+        side_options = weapon_decision.get("side_options") or []
+        if not weapon_decision.get("options") or not side_options:
             continue
         raw_item_value = str(post_data.get(weapon_decision["options"][0]["submit_name"], "")).strip()
-        raw_side_value = str(post_data.get(side_decision["options"][0]["submit_name"], "")).strip()
+        raw_side_value = str(post_data.get(side_options[0]["submit_name"], "")).strip()
         if not raw_item_value and not raw_side_value:
             continue
         weapon_allowed_values = {str(option["submit_value"]) for option in weapon_decision["options"]}
-        side_allowed_values = {str(option["submit_value"]) for option in side_decision["options"]}
+        side_allowed_values = {str(option["submit_value"]) for option in side_options}
         if raw_item_value not in weapon_allowed_values:
             raise LearningSubmissionError(f"{weapon_decision['title']}: Ungueltige Waffenwahl.")
         if raw_side_value not in side_allowed_values:
-            raise LearningSubmissionError(f"{side_decision['title']}: Ungueltige Bonuswahl.")
+            raise LearningSubmissionError(f"{weapon_decision['title']}: Ungueltige Bonuswahl.")
         weapon_type = WeaponType.objects.filter(slug=raw_item_value).first()
         if weapon_type is None:
             raise LearningSubmissionError(f"{weapon_decision['title']}: Unbekannter Waffentyp.")

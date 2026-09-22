@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from collections import OrderedDict
 
+from django.db.models import Q
+
 from charsheet.constants import (
     RESOURCE_KEY_CHOICES,
     is_allowed_trait_attribute_choice,
@@ -34,7 +36,13 @@ def weapon_mastery_weapon_type_definitions() -> list[dict[str, str]]:
     """Return weapon-type options that exist on real weapon definitions."""
     weapon_types = (
         WeaponType.objects.filter(
-            weapon_stats__item__item_type__in=Item.weapon_item_type_values(),
+            Q(
+                weapon_stats__item__item_type__in=Item.weapon_item_type_values(),
+            ) | Q(
+                ranged_weapon_stats__item__item_type__in=(
+                    Item.weapon_item_type_values()
+                ),
+            ),
         )
         .exclude(weapon_stats__item__name__in=WEAPON_MASTERY_EXCLUDED_ITEM_NAMES)
         .distinct()
@@ -495,47 +503,35 @@ def build_learning_progression_context(character, *, engine, synchronize: bool =
                         submit_value=weapon_type,
                     )
                 )
-            pending_decisions.append(
-                _build_pending_decision(
-                    decision_id=f"weapon-mastery-weapon-{school.id}-{pick_order}",
-                    kind="weapon_mastery_weapon",
-                    title=f"Waffenmeister: Waffentyp {pick_order}",
-                    summary=f"{school.name} | Typwahl {pick_order} von {required_mastery_count}",
-                    description="Waehle den Waffentyp fuer diesen Meisterschaftsplatz.",
-                    prompt="Waffentyp waehlen",
-                    selection_group_id=f"weapon-mastery-weapon:{school.id}",
-                    options=weapon_options,
-                )
+            decision = _build_pending_decision(
+                decision_id=f"weapon-mastery-weapon-{school.id}-{pick_order}",
+                kind="weapon_mastery_weapon",
+                title=f"Waffenmeister: Waffentyp {pick_order}",
+                summary=f"{school.name} | Typwahl {pick_order} von {required_mastery_count}",
+                description="Waehle zuerst den Startbonus und dann den Waffentyp.",
+                prompt="Waffentyp waehlen",
+                selection_group_id=f"weapon-mastery-weapon:{school.id}",
+                options=weapon_options,
             )
-            pending_decisions.append(
-                _build_pending_decision(
-                    decision_id=f"weapon-mastery-side-{school.id}-{pick_order}",
-                    kind="weapon_mastery_side",
-                    title=f"Waffenmeister: Bonusseite {pick_order}",
-                    summary=f"{school.name} | Startbonus {pick_order} von {required_mastery_count}",
-                    description="Lege fest, ob der erste Punkt dieser Waffe auf Manoever oder Schaden geht.",
-                    prompt="Startbonus waehlen",
-                    selection_group_id=f"weapon-mastery-side:{school.id}:{pick_order}",
-                    options=[
-                        _build_decision_option(
-                            option_id="maneuver",
-                            label="Manoever zuerst",
-                            meta="Startbonus",
-                            description="Der erste Punkt geht auf den Manoeverbonus.",
-                            submit_name=side_field_name,
-                            submit_value="maneuver",
-                        ),
-                        _build_decision_option(
-                            option_id="damage",
-                            label="Schaden zuerst",
-                            meta="Startbonus",
-                            description="Der erste Punkt geht auf den Schadensbonus.",
-                            submit_name=side_field_name,
-                            submit_value="damage",
-                        ),
-                    ],
-                )
-            )
+            decision["side_options"] = [
+                _build_decision_option(
+                    option_id="maneuver",
+                    label="Manöver zuerst",
+                    meta="Startbonus",
+                    description="Der erste Punkt geht auf den Manoeverbonus.",
+                    submit_name=side_field_name,
+                    submit_value="maneuver",
+                ),
+                _build_decision_option(
+                    option_id="damage",
+                    label="Schaden zuerst",
+                    meta="Startbonus",
+                    description="Der erste Punkt geht auf den Schadensbonus.",
+                    submit_name=side_field_name,
+                    submit_value="damage",
+                ),
+            ]
+            pending_decisions.append(decision)
 
         required_arcana_count = min(int(entry.level), 10)
         existing_arcana_entries = list(engine._weapon_mastery_arcana_entries)

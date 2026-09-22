@@ -55,7 +55,7 @@ export function createChoiceModalController({ hiddenInputContainer, windowContro
   const allowsDuplicateSelections = (section) => section.dataset.choiceAllowDuplicates === "1";
   const getInputType = (section) => section.dataset.choiceInputType || "options";
   const getDecisionTitle = (section) => section.dataset.choiceTitle || "Offene Wahl";
-  const getSectionOptionInputs = (section) => Array.from(section.querySelectorAll("input[type='radio']"));
+  const getSectionOptionInputs = (section) => Array.from(section.querySelectorAll("input[type='radio']:not([data-choice-side-option])"));
   const getNavItemByDecisionId = (decisionId) => navListEl.querySelector(`[data-choice-nav-id="${decisionId}"]`);
   const getPanelSummaryEl = (section) => section.querySelector("[data-choice-panel-summary]");
   const getPanelStateEl = (section) => section.querySelector("[data-choice-panel-state]");
@@ -77,7 +77,8 @@ export function createChoiceModalController({ hiddenInputContainer, windowContro
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "");
 
-  const getSelectedRadio = (section) => section.querySelector("input[type='radio']:checked");
+  const getSelectedRadio = (section) => section.querySelector("input[type='radio']:checked:not([data-choice-side-option])");
+  const getSelectedSideRadio = (section) => section.querySelector("input[data-choice-side-option]:checked");
   const getSelectedOptionId = (section) => {
     const selected = getSelectedRadio(section);
     if (!(selected instanceof HTMLInputElement)) {
@@ -95,7 +96,9 @@ export function createChoiceModalController({ hiddenInputContainer, windowContro
     if (getInputType(section) === "text") {
       return Boolean(String(inputs[0].value || "").trim());
     }
-    return true;
+    return !section.querySelector("[data-choice-side-option]")
+      || (inputs.some((input) => input.dataset.choiceSideOption === "1")
+        && inputs.some((input) => input.dataset.choiceSideOption !== "1"));
   };
 
   const isSectionResolved = (section) => {
@@ -108,6 +111,10 @@ export function createChoiceModalController({ hiddenInputContainer, windowContro
       return input instanceof HTMLInputElement
         ? Boolean(String(input.value || "").trim())
         : isSectionResolvedByHidden(section);
+    }
+    if (section.querySelector("[data-choice-side-option]")) {
+      return Boolean(getSelectedRadio(section) && getSelectedSideRadio(section))
+        || isSectionResolvedByHidden(section);
     }
     return Boolean(getSelectedRadio(section)) || isSectionResolvedByHidden(section);
   };
@@ -124,7 +131,13 @@ export function createChoiceModalController({ hiddenInputContainer, windowContro
     }
     const option = selected.closest(".learn_choice_option");
     const title = option?.querySelector(".learn_choice_option_title");
-    return title?.textContent?.trim() || selected.value || "";
+    const weaponLabel = title?.textContent?.trim() || selected.value || "";
+    const side = getSelectedSideRadio(section);
+    if (!side) {
+      return weaponLabel;
+    }
+    const sideLabel = side.closest(".learn_choice_option")?.querySelector(".learn_choice_option_title")?.textContent?.trim();
+    return sideLabel ? `${sideLabel}, ${weaponLabel}` : weaponLabel;
   };
 
   const updateDecisionResolvedState = (section) => {
@@ -173,6 +186,7 @@ export function createChoiceModalController({ hiddenInputContainer, windowContro
     decisionId,
     selectionGroupId = "",
     optionId = "",
+    sideOption = false,
     submitName,
     submitValue,
   }) => {
@@ -184,6 +198,9 @@ export function createChoiceModalController({ hiddenInputContainer, windowContro
     input.dataset.choiceSelectionGroup = selectionGroupId;
     if (optionId) {
       input.dataset.choiceOptionId = optionId;
+    }
+    if (sideOption) {
+      input.dataset.choiceSideOption = "1";
     }
     hiddenInputContainer.appendChild(input);
   };
@@ -209,12 +226,23 @@ export function createChoiceModalController({ hiddenInputContainer, windowContro
     let restoredOptionId = "";
     inputs.forEach((hiddenInput) => {
       const optionId = hiddenInput.dataset.choiceOptionId || "";
-      const match = section.querySelector(`input[type='radio'][data-choice-option-id="${optionId}"]`);
+      const selector = hiddenInput.dataset.choiceSideOption === "1"
+        ? `input[data-choice-side-option][data-choice-option-id="${optionId}"]`
+        : `input[type='radio']:not([data-choice-side-option])[data-choice-option-id="${optionId}"]`;
+      const match = section.querySelector(selector);
       if (match instanceof HTMLInputElement) {
         match.checked = true;
-        restoredOptionId = optionId;
+        if (hiddenInput.dataset.choiceSideOption !== "1") {
+          restoredOptionId = optionId;
+        }
       }
     });
+    if (!getSelectedSideRadio(section)) {
+      const defaultSide = section.querySelector('input[data-choice-side-option][value="maneuver"]');
+      if (defaultSide instanceof HTMLInputElement) {
+        defaultSide.checked = true;
+      }
+    }
     if (restoredOptionId) {
       selectionTracker.set(decisionId, restoredOptionId);
     } else {
@@ -449,6 +477,13 @@ export function createChoiceModalController({ hiddenInputContainer, windowContro
       }
 
       const selectedInput = getSelectedRadio(section);
+      const sideInput = section.querySelector("[data-choice-side-option]")
+        ? getSelectedSideRadio(section)
+        : null;
+      if ((selectedInput && !sideInput && section.querySelector("[data-choice-side-option]"))
+        || (sideInput && !selectedInput)) {
+        return { ok: false, hint: "Bitte Startbonus und Waffentyp zusammen auswaehlen." };
+      }
       if (!(selectedInput instanceof HTMLInputElement)) {
         continue;
       }
@@ -473,6 +508,16 @@ export function createChoiceModalController({ hiddenInputContainer, windowContro
         submitName: selectedInput.dataset.choiceSubmitName || "",
         submitValue: selectedInput.dataset.choiceSubmitValue || selectedInput.value,
       });
+      if (sideInput instanceof HTMLInputElement) {
+        results.push({
+          decisionId,
+          selectionGroupId: "",
+          optionId: sideInput.dataset.choiceOptionId || sideInput.value,
+          sideOption: true,
+          submitName: sideInput.dataset.choiceSubmitName || "",
+          submitValue: sideInput.dataset.choiceSubmitValue || sideInput.value,
+        });
+      }
     }
 
     if (!results.length) {
@@ -505,6 +550,7 @@ export function createChoiceModalController({ hiddenInputContainer, windowContro
         decisionId: entry.decisionId,
         selectionGroupId: entry.selectionGroupId,
         optionId: entry.optionId || "",
+        sideOption: entry.sideOption || false,
         submitName: entry.submitName,
         submitValue: entry.submitValue,
       });
@@ -533,7 +579,7 @@ export function createChoiceModalController({ hiddenInputContainer, windowContro
   const bindSearchFilter = (section) => {
     const searchInput = section.querySelector("[data-choice-search-input]");
     const gradeFilter = section.querySelector("[data-choice-grade-filter]");
-    const options = Array.from(section.querySelectorAll(".learn_choice_option"));
+    const options = Array.from(section.querySelectorAll(".learn_choice_options .learn_choice_option"));
     const emptyState = section.querySelector("[data-choice-empty-state]");
     if (!options.length || !(emptyState instanceof HTMLElement)) {
       return;
@@ -595,9 +641,9 @@ export function createChoiceModalController({ hiddenInputContainer, windowContro
         // updateGroupedOptionAvailability works even after section is hidden.
         const decisionId = getDecisionId(section);
         const optionId = input.dataset.choiceOptionId || input.value || "";
-        if (optionId) {
+        if (optionId && !input.hasAttribute("data-choice-side-option")) {
           selectionTracker.set(decisionId, optionId);
-        } else {
+        } else if (!input.hasAttribute("data-choice-side-option")) {
           selectionTracker.delete(decisionId);
         }
         updateDecisionResolvedState(section);
