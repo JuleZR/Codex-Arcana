@@ -33,7 +33,7 @@ WEAPON_MASTERY_EXCLUDED_ITEM_NAMES = {
 
 
 def weapon_mastery_weapon_type_definitions() -> list[dict[str, str]]:
-    """Return weapon-type options that exist on real weapon definitions."""
+    """Return weapon types used by weapon and shield definitions."""
     weapon_types = (
         WeaponType.objects.filter(
             Q(
@@ -41,6 +41,10 @@ def weapon_mastery_weapon_type_definitions() -> list[dict[str, str]]:
             ) | Q(
                 ranged_weapon_stats__item__item_type__in=(
                     Item.weapon_item_type_values()
+                ),
+            ) | Q(
+                shield_stats__item__item_type__in=(
+                    Item.shield_stats_item_type_values()
                 ),
             ),
         )
