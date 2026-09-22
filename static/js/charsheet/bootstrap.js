@@ -16,8 +16,9 @@ import { initDamagePanel } from "./damage_panel.js?v=20260919b";
 import { initSpellPanel } from "./spell_panel.js";
 import { initLessonPanel } from "./lesson_panel.js?v=20260918a";
 import { initCharInfoCounter } from "./char_info_counter.js";
+import { initCharacterInfoForm } from "./character_info_form.js?v=20260922a";
 import { initSheetActions } from "./sheet_actions.js?v=20260920a";
-import { initSchoolsPanel, initWmArcanaFilter } from "./schools_panel.js";
+import { initSchoolsPanel, initWmArcanaFilter } from "./schools_panel.js?v=20260922a";
 import { initMobileHud } from "./mobile_hud.js";
 import { initSkillManager } from "./skill_manager.js";
 import { initArmorPanel } from "./armor_panel.js?v=20260820d";
@@ -33,7 +34,7 @@ import { initItemTransfers } from "./item_transfers.js?v=20260901a";
 import { initItemTransferWindow } from "./item_transfer_window.js?v=20260901a";
 import { initTemporaryAttributes } from "./temporary_attributes.js?v=20260920d";
 import { initVampirePanel } from "./vampire_panel.js?v=20260802a";
-import { initExternalSheetRefresh } from "./external_refresh.js?v=20260901b";
+import { initExternalSheetRefresh } from "./external_refresh.js?v=20260922a";
 import { initAlchemistAlmanac } from "./alchemist_almanac.js?v=20260917e";
 
 function isRadialMenuEnabled() {
@@ -76,6 +77,7 @@ function initDynamicSheetModules(windowControllers) {
   runInit(initSpellPanel);
   runInit(initLessonPanel);
   runInit(initCharInfoCounter);
+  runInit(initCharacterInfoForm);
   runInit(initSchoolsPanel);
   runInit(initWmArcanaFilter);
   runInit(initArmorPanel);

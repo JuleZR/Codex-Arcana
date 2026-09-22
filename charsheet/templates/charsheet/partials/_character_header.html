@@ -75,7 +75,7 @@
                 <td class="label">Gewicht</td>
                 <td class="value">{% if character.weight %}{{ character.weight }} kg{% else %}-{% endif %}</td>
                 <td class="label">Religion</td>
-                <td class="value">{{ character.religion|default:"-" }}</td>
+                <td class="value" data-character-religion-value>{{ character.religion|default:"-" }}</td>
               </tr>
               <tr>
                 <td class="label">Aussehen</td>

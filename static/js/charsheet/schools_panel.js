@@ -1,3 +1,5 @@
+import { initGodCards } from "./god_card.js?v=20260702a";
+
 function normalizeText(value) {
   return String(value || "").trim().toLowerCase();
 }
@@ -290,6 +292,43 @@ export function initSchoolsPanel() {
     }
   };
 
+  const replaceDruidCards = (payload) => {
+    const containers = Array.from(document.querySelectorAll('[data-card-key="druid"]'));
+    if (!payload.cardHtml) {
+      containers.forEach((container) => container.remove());
+      return;
+    }
+
+    const wrapper = document.createElement("div");
+    wrapper.innerHTML = payload.cardHtml;
+    const nextCard = wrapper.querySelector(".card");
+    if (!(nextCard instanceof HTMLElement)) {
+      throw new Error("Die neue Druidenkarte fehlt in der Serverantwort.");
+    }
+
+    containers.forEach((container, index) => {
+      if (!(container instanceof HTMLElement)) {
+        return;
+      }
+      const currentCard = container.querySelector(".card");
+      if (!(currentCard instanceof HTMLElement)) {
+        return;
+      }
+      const replacement = index === 0 ? nextCard : nextCard.cloneNode(true);
+      currentCard.replaceWith(replacement);
+      if (payload.druidCardTitle) {
+        container.setAttribute("title", String(payload.druidCardTitle));
+      }
+      if (container.matches("[data-card-hand-floating]") && payload.druidCardStorageKey) {
+        container.setAttribute(
+          "data-card-hand-storage-key",
+          `codexArcana.cardHand.${characterId}.${payload.druidCardStorageKey}`,
+        );
+      }
+      initGodCards(container);
+    });
+  };
+
   list.querySelectorAll("[data-school-group-binding]").forEach((form) => {
     form.addEventListener("click", (event) => {
       const bindingToggle = event.target instanceof Element ? event.target.closest("[data-school-binding-edit-toggle]") : null;
@@ -302,23 +341,70 @@ export function initSchoolsPanel() {
     form.addEventListener("pointerdown", (event) => {
       event.stopPropagation();
     });
-    form.addEventListener("submit", (event) => {
+    form.addEventListener("submit", async (event) => {
       if (!(form instanceof HTMLFormElement)) {
         return;
       }
       const resetWarning = String(form.getAttribute("data-binding-reset-warning") || "");
-      if (!resetWarning) {
-        return;
-      }
       const select = form.querySelector(".school_group_binding_select");
       const currentBindingId = String(form.getAttribute("data-current-binding-id") || "");
       const nextBindingId = select instanceof HTMLSelectElement ? String(select.value || "") : "";
       if (nextBindingId === currentBindingId) {
         return;
       }
-      const confirmed = window.confirm(resetWarning);
-      if (!confirmed) {
+      if (resetWarning && !window.confirm(resetWarning)) {
         event.preventDefault();
+        return;
+      }
+      if (
+        !(select instanceof HTMLSelectElement)
+        || select.name !== "druid_cult"
+        || !document.querySelector('[data-card-key="druid"]')
+      ) {
+        return;
+      }
+
+      event.preventDefault();
+      const bindingToggle = form.querySelector("[data-school-binding-edit-toggle]");
+      const saveButton = form.querySelector(".school_group_binding_save");
+      if (saveButton instanceof HTMLButtonElement) {
+        saveButton.disabled = true;
+      }
+      try {
+        const response = await fetch(form.action, {
+          method: "POST",
+          body: new FormData(form),
+          credentials: "same-origin",
+          headers: {
+            Accept: "application/json",
+            "X-Requested-With": "XMLHttpRequest",
+          },
+        });
+        const payload = await response.json();
+        if (!response.ok || !payload?.ok) {
+          throw new Error(payload?.message || "Druidenzirkel konnte nicht gespeichert werden.");
+        }
+
+        replaceDruidCards(payload);
+        const display = form.querySelector(".school_group_binding_display");
+        if (display instanceof HTMLElement) {
+          display.textContent = String(payload.druidCultDisplayName || "Druidenzirkel wählen");
+          display.classList.toggle("school_group_binding_display--missing", !payload.druidCultId);
+        }
+        form.setAttribute("data-current-binding-id", String(payload.druidCultId || ""));
+        if (bindingToggle instanceof HTMLButtonElement) {
+          setBindingUnlocked(form, bindingToggle, false);
+        }
+        document.dispatchEvent(new CustomEvent("charsheet:external-refresh-requested", {
+          detail: { force: true, learning: true, scope: "magic" },
+        }));
+      } catch (error) {
+        select.value = currentBindingId;
+        window.alert(error instanceof Error ? error.message : "Druidenzirkel konnte nicht gespeichert werden.");
+      } finally {
+        if (saveButton instanceof HTMLButtonElement && saveButton.isConnected) {
+          saveButton.disabled = false;
+        }
       }
     });
   });

@@ -162,12 +162,13 @@ export function initExternalSheetRefresh() {
     );
   };
 
-  const poll = async ({ force = false, learning = false } = {}) => {
+  const poll = async ({ force = false, learning = false, scope = "" } = {}) => {
     if (inFlight) {
-      if (force || learning) {
+      if (force || learning || scope) {
         queuedRefresh = {
           force: Boolean(force || queuedRefresh?.force),
           learning: Boolean(learning || queuedRefresh?.learning),
+          scope: String(scope || queuedRefresh?.scope || ""),
         };
       }
       schedule();
@@ -184,6 +185,9 @@ export function initExternalSheetRefresh() {
       }
       if (learning) {
         refreshUrl.searchParams.set("learning", "1");
+      }
+      if (scope) {
+        refreshUrl.searchParams.set("scope", scope);
       }
       const response = await fetch(refreshUrl.toString(), {
         method: "GET",
@@ -227,6 +231,7 @@ export function initExternalSheetRefresh() {
     poll({
       force: Boolean(detail?.force),
       learning: Boolean(detail?.learning),
+      scope: String(detail?.scope || ""),
     });
   });
   document.addEventListener("charsheet:item-transfer-count-updated", (event) => {

@@ -1631,6 +1631,7 @@ def character_sheet_external_refresh(request, character_id: int):
     signature = _character_external_sheet_signature(character)
     force_refresh = str(request.GET.get("force") or "") == "1"
     include_learning = str(request.GET.get("learning") or "") == "1"
+    refresh_scope = str(request.GET.get("scope") or "")
     if not force_refresh and str(request.GET.get("signature") or "") == signature:
         return JsonResponse({"ok": True, "changed": False, "signature": signature})
     context = _build_sheet_context_for_request(request, character)
@@ -1649,7 +1650,13 @@ def character_sheet_external_refresh(request, character_id: int):
             "cultistCorruptionLevel": context["cultist_corruption_level"],
             "learningPanelHtml": learning_panel_html,
             "openItemTransferCount": context.get("open_item_transfer_count", 0),
-            "partials": _render_sheet_partials(request, context, SHEET_MAIN_PARTIAL_KEYS),
+            "partials": _render_sheet_partials(
+                request,
+                context,
+                ("secondary_page",)
+                if refresh_scope == "magic"
+                else SHEET_MAIN_PARTIAL_KEYS,
+            ),
         }
     )
 
@@ -1881,22 +1888,147 @@ def _sync_origin_local_knowledge(character: Character, previous_country_of_origi
     origin_row.save(update_fields=["specification"])
 
 
+def _render_religion_card_payload(request, character: Character) -> dict[str, object]:
+    """Render the active religion card without building the complete sheet."""
+    binding = (
+        CharacterDivineEntity.objects.filter(character=character)
+        .select_related("entity", "entity__school")
+        .prefetch_related("entity__aspects__aspect", "core_aspects")
+        .first()
+    )
+    if binding is None or not character.schools.filter(
+        school_id=binding.entity.school_id,
+        level__gt=0,
+    ).exists():
+        return {
+            "ok": True,
+            "cardHtml": "",
+            "religionName": character.religion or "-",
+            "religionEntityId": "",
+            "religionCardStorageKey": "",
+        }
+
+    entity = binding.entity
+    card_aspects = [
+        entry.aspect
+        for entry in entity.aspects.all()
+        if entry.aspect_id and entry.is_starting_aspect
+    ]
+    aspect_placeholders = []
+    if entity.aspect_selection_mode != DivineEntity.AspectSelectionMode.FIXED:
+        card_aspects = list(binding.core_aspects.all().order_by("name", "id"))
+        aspect_placeholders = list(
+            range(max(0, int(entity.starting_aspect_count) - len(card_aspects)))
+        )
+
+    card_editable = bool(entity.is_customizable)
+    aspect_options = []
+    if (
+        card_editable
+        and entity.aspect_selection_mode
+        == DivineEntity.AspectSelectionMode.CHOOSE_FROM_ENTITY
+    ):
+        aspect_options = [
+            entry.aspect for entry in entity.aspects.all() if entry.aspect_id
+        ]
+    elif (
+        card_editable
+        and entity.aspect_selection_mode == DivineEntity.AspectSelectionMode.FREE
+    ):
+        aspect_options = list(Aspect.objects.all().order_by("name", "id"))
+
+    image_url = ""
+    if binding.custom_god_image:
+        image_url = binding.custom_god_image.url
+    elif entity.god_image:
+        image_url = entity.god_image.url
+    title = binding.custom_name or entity.card_name or entity.name
+    context = {
+        "divine_entity": entity,
+        "card_aspects": card_aspects,
+        "selected_divine_card_aspects": card_aspects,
+        "selected_divine_card_image_url": image_url,
+        "selected_divine_card_title": title,
+        "selected_divine_card_kind_label": _divine_entity_card_kind_label(entity),
+        "selected_divine_card_typebar": binding.tradition_name or entity.pantheon,
+        "selected_divine_card_ability": binding.custom_g_ability or entity.g_ability,
+        "selected_divine_card_fluff": binding.custom_fluff or entity.fluff,
+        "selected_divine_card_editable": card_editable,
+        "selected_divine_card_update_url": reverse(
+            "update_divine_card",
+            args=[character.pk],
+        ),
+        "selected_divine_card_show_aspect_placeholder": bool(aspect_placeholders),
+        "selected_divine_card_aspect_placeholders": aspect_placeholders,
+        "selected_divine_card_aspect_options": aspect_options,
+        "selected_divine_binding": binding,
+        "selected_divine_card_holo": True,
+        "selected_divine_card_holo_kind": "god",
+    }
+    return {
+        "ok": True,
+        "cardHtml": render_to_string(
+            "charsheet/partials/_god_card.html",
+            context,
+            request=request,
+        ),
+        "religionName": character.religion or "-",
+        "religionEntityId": str(entity.pk),
+        "religionCardStorageKey": f"god.{entity.pk}",
+        "religionCardTitle": title,
+    }
+
+
 @login_required
 @require_POST
 def update_character_info(request, character_id: int):
     """Update character info fields directly from the character-sheet inline form."""
     character = _owned_character_or_404(request, character_id)
     previous_country_of_origin = " ".join(str(character.country_of_origin or "").split())
+    previous_binding_id = (
+        CharacterDivineEntity.objects.filter(character=character)
+        .values_list("entity_id", flat=True)
+        .first()
+    )
     form = CharacterInfoInlineForm(request.POST, request.FILES, instance=character)
     if form.is_valid():
         name = (form.cleaned_data.get("name") or "").strip()
         if Character.objects.filter(owner=request.user, name=name).exclude(pk=character.pk).exists():
+            if _is_partial_request(request):
+                return JsonResponse(
+                    {
+                        "ok": False,
+                        "message": "Du hast bereits einen Charakter mit diesem Namen.",
+                    },
+                    status=400,
+                )
             messages.error(request, "Du hast bereits einen Charakter mit diesem Namen.")
         else:
             character = form.save()
             _sync_origin_local_knowledge(character, previous_country_of_origin)
+            current_binding_id = (
+                CharacterDivineEntity.objects.filter(character=character)
+                .values_list("entity_id", flat=True)
+                .first()
+            )
+            binding_changed = previous_binding_id != current_binding_id
+            if binding_changed:
+                character.get_magic_engine(refresh=True).sync_character_magic()
+            if _is_partial_request(request):
+                payload = _render_religion_card_payload(request, character)
+                payload["requiresMagicRefresh"] = binding_changed
+                return JsonResponse(payload)
             messages.success(request, "Charakterinformation aktualisiert.")
     else:
+        if _is_partial_request(request):
+            return JsonResponse(
+                {
+                    "ok": False,
+                    "message": "Charakterinformation konnte nicht gespeichert werden.",
+                    "errors": form.errors.get_json_data(),
+                },
+                status=400,
+            )
         messages.error(request, "Charakterinformation konnte nicht gespeichert werden.")
     return redirect("character_sheet", character_id=character.id)
 
@@ -2085,6 +2217,83 @@ def _reset_druid_cult_slot_progress(character: Character, cult_ids: list[int]) -
     return int(deleted_count)
 
 
+def _render_druid_cult_card_payload(request, character: Character) -> dict[str, object]:
+    """Render only the druid card needed after an asynchronous circle change."""
+    binding = (
+        CharacterDruidCult.objects.filter(character=character)
+        .select_related("cult", "cult__school")
+        .prefetch_related("cult__aspects__aspect", "core_aspects")
+        .first()
+    )
+    if binding is None:
+        return {
+            "ok": True,
+            "cardHtml": "",
+            "druidCultDisplayName": "Druidenzirkel wählen",
+            "druidCultId": "",
+            "druidCardStorageKey": "",
+        }
+
+    cult = binding.cult
+    card_aspects = [
+        entry.aspect
+        for entry in cult.aspects.all()
+        if entry.aspect_id and entry.is_starting_aspect
+    ]
+    aspect_placeholders = []
+    if cult.aspect_selection_mode != DivineEntity.AspectSelectionMode.FIXED:
+        card_aspects = list(binding.core_aspects.all().order_by("name", "id"))
+        aspect_placeholders = list(
+            range(max(0, int(cult.starting_aspect_count) - len(card_aspects)))
+        )
+
+    card_editable = bool(cult.is_customizable)
+    aspect_options = []
+    if card_editable and cult.aspect_selection_mode == DivineEntity.AspectSelectionMode.CHOOSE_FROM_ENTITY:
+        aspect_options = [entry.aspect for entry in cult.aspects.all() if entry.aspect_id]
+    elif card_editable and cult.aspect_selection_mode == DivineEntity.AspectSelectionMode.FREE:
+        aspect_options = list(Aspect.objects.all().order_by("name", "id"))
+
+    image_url = ""
+    if binding.custom_god_image:
+        image_url = binding.custom_god_image.url
+    elif cult.god_image:
+        image_url = cult.god_image.url
+    title = binding.custom_name or cult.card_name or cult.name
+    display_name = binding.tradition_name or cult.name
+    context = {
+        "divine_entity": cult,
+        "card_aspects": card_aspects,
+        "selected_divine_card_aspects": card_aspects,
+        "selected_divine_card_image_url": image_url,
+        "selected_divine_card_title": title,
+        "selected_divine_card_kind_label": "Krafttier",
+        "selected_divine_card_typebar": display_name,
+        "selected_divine_card_ability": binding.custom_g_ability or cult.g_ability or cult.description,
+        "selected_divine_card_fluff": binding.custom_fluff or cult.fluff,
+        "selected_divine_card_editable": card_editable,
+        "selected_divine_card_update_url": reverse("update_druid_card", args=[character.pk]),
+        "selected_divine_card_show_aspect_placeholder": bool(aspect_placeholders),
+        "selected_divine_card_aspect_placeholders": aspect_placeholders,
+        "selected_divine_card_aspect_options": aspect_options,
+        "selected_divine_binding": binding,
+        "selected_divine_card_holo": True,
+        "selected_divine_card_holo_kind": "power-animal",
+    }
+    return {
+        "ok": True,
+        "cardHtml": render_to_string(
+            "charsheet/partials/_god_card.html",
+            context,
+            request=request,
+        ),
+        "druidCultDisplayName": display_name,
+        "druidCultId": str(cult.pk),
+        "druidCardStorageKey": f"druid.{cult.pk}",
+        "druidCardTitle": title,
+    }
+
+
 @login_required
 @require_POST
 def update_druid_cult(request, character_id: int):
@@ -2095,6 +2304,11 @@ def update_druid_cult(request, character_id: int):
     except (TypeError, ValueError):
         school_id = 0
     if school_id <= 0 or not character.schools.filter(school_id=school_id, level__gt=0).exists():
+        if _is_partial_request(request):
+            return JsonResponse(
+                {"ok": False, "message": "Druidenzirkel konnte nicht gespeichert werden."},
+                status=400,
+            )
         messages.error(request, "Druidenzirkel konnte nicht gespeichert werden.")
         return redirect("character_sheet", character_id=character.id)
 
@@ -2105,13 +2319,22 @@ def update_druid_cult(request, character_id: int):
             _reset_druid_cult_slot_progress(character, [current_binding.cult_id])
             current_binding.delete()
             character.get_magic_engine(refresh=True).sync_character_magic()
+            if _is_partial_request(request):
+                return JsonResponse(_render_druid_cult_card_payload(request, character))
             messages.success(request, "Druidenzirkel entfernt.")
         else:
+            if _is_partial_request(request):
+                return JsonResponse(_render_druid_cult_card_payload(request, character))
             messages.info(request, "Keine Aenderung erkannt.")
         return redirect("character_sheet", character_id=character.id)
 
     cult = DruidCult.objects.filter(pk=raw_cult_id, school_id=school_id).first()
     if cult is None:
+        if _is_partial_request(request):
+            return JsonResponse(
+                {"ok": False, "message": "Druidenzirkel passt nicht zu dieser Schule."},
+                status=400,
+            )
         messages.error(request, "Druidenzirkel passt nicht zu dieser Schule.")
         return redirect("character_sheet", character_id=character.id)
 
@@ -2133,7 +2356,10 @@ def update_druid_cult(request, character_id: int):
             }
         )
     CharacterDruidCult.objects.update_or_create(character=character, defaults=defaults)
-    character.get_magic_engine(refresh=True).sync_character_magic()
+    if cult_changed:
+        character.get_magic_engine(refresh=True).sync_character_magic()
+    if _is_partial_request(request):
+        return JsonResponse(_render_druid_cult_card_payload(request, character))
     messages.success(request, "Druidenzirkel gespeichert.")
     return redirect("character_sheet", character_id=character.id)
 
