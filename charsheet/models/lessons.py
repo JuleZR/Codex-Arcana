@@ -195,9 +195,13 @@ LESSON_REQUIREMENT_VALID_FIELDS = (
     | _requirement_shape(
         "school_specialisation", ("required_school", "specialisation")
     )
-    | _requirement_shape("magic_school_level", ("magic_school", "minimum_value"))
+    | _requirement_shape(
+        "magic_school_level", ("minimum_value",), ("magic_school",)
+    )
     | _requirement_shape("clerical_magic_level", ("minimum_value",))
-    | _requirement_shape("druid_circle_level", ("druid_circle", "minimum_value"))
+    | _requirement_shape(
+        "druid_circle_level", ("druid_circle", "minimum_value")
+    )
     | _requirement_shape("specific_creature", ("creature",))
     | _requirement_shape("school_level", ("required_school", "minimum_value"))
     | _requirement_shape("skill_level", ("required_skill", "minimum_value"))
@@ -239,7 +243,7 @@ class LessonRequirement(models.Model):
             "required_school",
             "specialisation",
         ),
-        RequirementType.MAGIC_SCHOOL_LEVEL: ("magic_school", "minimum_value"),
+        RequirementType.MAGIC_SCHOOL_LEVEL: ("minimum_value",),
         RequirementType.CLERICAL_MAGIC_LEVEL: ("minimum_value",),
         RequirementType.DRUID_CIRCLE_LEVEL: ("druid_circle", "minimum_value"),
         RequirementType.SPECIFIC_CREATURE: ("creature",),
@@ -250,6 +254,7 @@ class LessonRequirement(models.Model):
         RequirementType.TRAIT_LEVEL: ("required_trait", "minimum_value"),
     }
     OPTIONAL_FIELDS = {
+        RequirementType.MAGIC_SCHOOL_LEVEL: ("magic_school",),
         RequirementType.TRAIT_LEVEL: ("required_trait_specification",),
     }
     TARGET_FIELDS = LESSON_REQUIREMENT_TARGET_FIELDS
@@ -390,7 +395,11 @@ class LessonRequirement(models.Model):
                 errors[field] = (
                     "Dieses Feld ist für den gewählten Typ erforderlich."
                 )
-            elif field not in required and field not in optional and value is not None:
+            elif (
+                field not in required
+                and field not in optional
+                and value is not None
+            ):
                 errors[field] = (
                     "Dieses Feld ist für den gewählten Typ nicht erlaubt."
                 )

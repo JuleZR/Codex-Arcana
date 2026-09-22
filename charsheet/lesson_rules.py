@@ -14,6 +14,7 @@ from charsheet.models.lessons import (
     Lesson,
     LessonCost,
     LessonRequirement,
+    is_arcane_lesson_school,
 )
 
 
@@ -149,7 +150,12 @@ def format_requirement(requirement: LessonRequirement) -> str:
             f"{requirement.specialisation.name}"
         )
     if kind == types.MAGIC_SCHOOL_LEVEL:
-        return f"{requirement.magic_school.name} {requirement.minimum_value}"
+        school = (
+            requirement.magic_school.name
+            if requirement.magic_school_id
+            else "Magieschule"
+        )
+        return f"{school} {requirement.minimum_value}"
     if kind == types.CLERICAL_MAGIC_LEVEL:
         return f"Klerikale Magie {requirement.minimum_value}"
     if kind == types.DRUID_CIRCLE_LEVEL:
@@ -184,12 +190,12 @@ def format_lesson_requirements(lesson: Lesson) -> str:
     if not grouped:
         return "Keine"
     packages = [
-        " UND ".join(format_requirement(row) for row in grouped[number])
+        " und ".join(format_requirement(row) for row in grouped[number])
         for number in sorted(grouped)
     ]
     if len(packages) == 1:
         return packages[0]
-    return " ODER ".join(f"({package})" for package in packages)
+    return " oder ".join(packages)
 
 
 def lesson_queryset():
@@ -259,6 +265,7 @@ class LessonRequirementContext:
     specialization_ids: set[int] = field(default_factory=set)
     creature_ids: set[int] = field(default_factory=set)
     druid_cult_id: int | None = None
+    arcane_level: int = 0
     clerical_level: int = 0
     skill_levels: Mapping[int, int] = field(default_factory=dict)
     learned_lesson_ids: set[int] = field(default_factory=set)
@@ -296,6 +303,14 @@ class LessonRequirementContext:
             learned_lesson_ids=learned_lesson_ids or set(),
             aspect_levels=aspect_levels or {},
             trait_states=trait_states or {},
+            arcane_level=max(
+                (
+                    school_levels[school.pk]
+                    for school in schools
+                    if is_arcane_lesson_school(school)
+                ),
+                default=0,
+            ),
             clerical_level=max(
                 (
                     school_levels[school.pk]
@@ -420,6 +435,8 @@ def requirement_met(
             and requirement.specialisation_id in state.specialization_ids
         )
     if kind == types.MAGIC_SCHOOL_LEVEL:
+        if requirement.magic_school_id is None:
+            return state.arcane_level >= requirement.minimum_value
         return (
             state.school_levels.get(requirement.magic_school_id, 0)
             >= requirement.minimum_value
