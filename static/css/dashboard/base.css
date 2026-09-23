@@ -517,6 +517,17 @@
   flex-direction: column;
 }
 
+.dashboard_draft_item > span {
+  display: grid;
+  gap: 2px;
+}
+
+.dashboard_draft_item > span small {
+  color: rgba(63, 45, 31, 0.68);
+  font-family: Georgia, serif;
+  font-size: 0.72rem;
+}
+
 .dashboard_draft_actions {
   display: inline-flex;
   gap: 6px;

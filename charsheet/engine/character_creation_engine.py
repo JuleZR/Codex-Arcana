@@ -972,7 +972,7 @@ class CharacterCreationEngine:
         return self.race.phase_4_points + self.sum_phase_3_disadvantage_cost()
 
     def calculate_phase_4_advantages_budget(self) -> int:
-        return self.calculate_phase_4_budget()
+        return self.sum_phase_3_disadvantage_cost()
 
     def calculate_phase_4_rest_budget(self) -> int:
         return (

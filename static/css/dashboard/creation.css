@@ -55,10 +55,9 @@
 }
 
 .phase_points_grid--phase4 {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   grid-template-areas:
-    "adv_budget adv_spent adv_remaining"
-    "rest_budget rest_spent rest_remaining";
+    "rest_budget adv_budget adv_remaining rest_remaining";
 }
 
 .vampire_creation_panel {
@@ -594,71 +593,999 @@
   outline: none;
 }
 
-/* Embedded inside dashboard iframe: keep it flat and parchment-only. */
-body.embedded-creation {
-  background: url("/static/img/pergamentbg.jpg") center / cover no-repeat fixed !important;
-}
-
-body.embedded-creation .firefly-layer,
-body.embedded-creation .dashboard_top,
-body.embedded-creation .creation_window_backdrop,
-body.embedded-creation .creation_wizard_window .payday-window__titlebar {
+.creation_phase2_legacy_hooks {
   display: none !important;
 }
 
-body.embedded-creation .book-spread.dashboard_spread {
-  width: 100%;
-  min-height: 100vh;
-  padding: 0;
+.creation_phase3_legacy_hooks {
+  display: none !important;
 }
 
-body.embedded-creation .page.dashboard_page,
-body.embedded-creation .page.dashboard_page--form {
+.creation_phase4_legacy_shop {
+  display: none !important;
+}
+
+.creation_phase2_sheet_fields {
+  display: grid;
+  grid-template-rows: minmax(270px, 1.45fr) minmax(190px, 1fr);
+  gap: 7px;
+  min-height: 520px;
+  margin-top: 7px;
+}
+
+.creation_phase2_fieldset {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+  border-top: 1px solid rgba(74, 55, 38, 0.42);
+}
+
+.creation_phase2_fieldset_header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 29px;
+  border-bottom: 1px solid rgba(74, 55, 38, 0.34);
+}
+
+.creation_phase2_fieldset_header h3 {
+  margin: 0;
+  color: var(--line);
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-size: 1rem;
+  text-transform: none;
+}
+
+.creation_sheet_search {
+  width: min(190px, 55%);
+  border: 0;
+  border-bottom: 1px solid rgba(74, 55, 38, 0.32);
+  padding: 3px 4px;
+  background: rgba(255, 250, 236, 0.2);
+  color: var(--ink);
+  font: 0.72rem/1.2 "Cormorant Garamond", Georgia, serif;
+}
+
+.creation_phase2_field_scroll {
+  min-height: 0;
+  overflow: auto;
+  scrollbar-width: thin;
+}
+
+.creation_phase2_sheet_fields .skills_table {
+  width: 100%;
+  table-layout: fixed;
+}
+
+.creation_phase2_sheet_fields .skills_table th,
+.creation_phase2_sheet_fields .skills_table td {
+  padding: 3px 5px;
+  border-bottom: 1px solid rgba(74, 55, 38, 0.2);
+  font-size: 0.72rem;
+}
+
+.creation_phase2_sheet_fields .skills_table tr[hidden] {
+  display: none !important;
+}
+
+.creation_phase2_sheet_fields .skills_table th:not(:first-child),
+.creation_phase2_sheet_fields .skills_table td:not(:first-child) {
+  width: 54px;
+  text-align: center;
+}
+
+.creation_phase2_languages_table th:nth-child(3),
+.creation_phase2_languages_table td:nth-child(3),
+.creation_phase2_languages_table th:nth-child(4),
+.creation_phase2_languages_table td:nth-child(4) {
+  width: 68px !important;
+}
+
+.creation_phase2_category th {
+  width: auto !important;
+  background: rgba(222, 203, 166, 0.35);
+  color: var(--ink-soft);
+  font-size: 0.62rem !important;
+  letter-spacing: 0.05em;
+  text-align: left !important;
+  text-transform: uppercase;
+}
+
+.creation_phase2_category--selected th {
+  background: rgba(193, 166, 111, 0.5);
+  color: var(--line);
+  font-weight: 700;
+}
+
+.creation_sheet_value_input {
+  width: 42px;
+  min-height: 24px;
+  box-sizing: border-box;
+  border: 1px solid rgba(74, 55, 38, 0.3);
+  border-radius: 4px;
+  padding: 1px 2px;
+  background: rgba(255, 250, 236, 0.52);
+  color: var(--ink);
+  font: 700 0.78rem/1 "Cinzel", Georgia, serif;
+  text-align: center;
+}
+
+.creation_phase2_add_spec {
+  cursor: pointer;
+  color: var(--ink-soft);
+}
+
+.creation_phase2_add_spec span {
+  float: right;
+  font-size: 0.65rem;
+}
+
+.character_creation_page [data-creation-section="languages-summary"] {
+  grid-column: 1;
+  grid-row: 2;
+  align-self: end;
+  height: 29%;
+  min-height: 0;
+  overflow: auto;
+}
+
+.character_creation_page:has([data-creation-section="languages-summary"]) [data-creation-section="properties"].creation_sheet_section--complete {
+  align-self: start;
+  height: 69%;
+  padding-bottom: 8px;
+}
+
+.creation_language_summary.creation_sheet_section {
+  margin: 0;
+}
+
+.creation_phase3_sheet_fields {
+  display: flex;
+  min-height: 0;
+  height: calc(100% - 104px);
+  margin-top: 7px;
+  flex-direction: column;
+  overflow: hidden;
+  border-top: 1px solid rgba(74, 55, 38, 0.42);
+}
+
+.creation_phase3_field_scroll {
+  min-height: 0;
+  overflow: auto;
+  scrollbar-width: thin;
+}
+
+.creation_phase3_traits_table {
+  width: 100%;
+  table-layout: fixed;
+}
+
+.creation_phase3_traits_table tr[hidden] {
+  display: none !important;
+}
+
+.creation_phase3_traits_table th,
+.creation_phase3_traits_table td {
+  padding: 4px 5px;
+  border-bottom: 1px solid rgba(74, 55, 38, 0.2);
+  font-size: 0.72rem;
+  vertical-align: top;
+}
+
+.creation_phase3_traits_table th:not(:first-child),
+.creation_phase3_traits_table td:not(:first-child) {
+  width: 64px;
+  text-align: center;
+}
+
+.creation_phase3_traits_table tr.is-selected td {
+  background: rgba(224, 201, 153, 0.3);
+}
+
+.creation_phase3_traits_table tr.is-selected td:first-child {
+  font-weight: 700;
+}
+
+.creation_sheet_choice {
+  display: grid;
+  gap: 2px;
+  margin-top: 4px;
+  text-align: left;
+}
+
+.creation_sheet_choice span {
+  color: var(--ink-soft);
+  font-size: 0.58rem;
+}
+
+.creation_sheet_choice select,
+.creation_sheet_choice input {
+  width: 100%;
+  min-height: 24px;
+  box-sizing: border-box;
+  border: 0;
+  border-bottom: 1px solid rgba(74, 55, 38, 0.32);
+  background: rgba(255, 250, 236, 0.28);
+  color: var(--ink);
+  font: 0.68rem/1.2 "Cormorant Garamond", Georgia, serif;
+}
+
+.creation_trait_input_line {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 5px;
+}
+
+.creation_phase4_inline_choices {
+  display: grid;
+  grid-column: 1 / -1;
+  gap: 3px;
+  width: 100%;
+}
+
+.creation_phase4_inline_choices .phase4_choice_block {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(70px, 1fr);
+  align-items: center;
+  gap: 4px;
+  font-size: 0.62rem;
+}
+
+.creation_phase4_inline_choices .dashboard_input {
+  min-height: 24px;
+  padding: 2px 4px;
+  font-size: 0.65rem;
+}
+
+.creation_language_summary .language_list li[data-phase4-direct-row] {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto 38px 27px;
+  align-items: center;
+  gap: 4px;
+  min-height: 30px;
+}
+
+.creation_language_summary .language_name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.creation_language_summary .language_dots {
+  display: inline-flex;
+  gap: 3px;
+  white-space: nowrap;
+}
+
+.creation_language_summary .creation_sheet_value_input {
+  width: 38px;
+  min-height: 22px;
+}
+
+.creation_language_level {
+  display: inline-flex;
+  width: 38px;
+}
+
+.creation_language_write {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+  color: var(--ink-soft);
+  font-size: 0.6rem;
+}
+
+.creation_language_write input {
+  margin: 0;
+}
+
+.creation_phase4_direct_fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+.creation_phase4_direct_group {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid rgba(74, 55, 38, 0.24);
+  border-radius: 5px;
+  padding: 5px;
+}
+
+.creation_phase4_search {
   width: 100%;
   max-width: none;
-  min-height: 100vh;
-  height: auto;
-  max-height: none;
-  aspect-ratio: auto;
-  border: 0;
-  border-radius: 0;
-  box-shadow: none;
-  background: transparent;
-  padding: 10px 12px;
-  overflow: visible;
+  margin: 2px 0 5px;
 }
 
-body.embedded-creation .creation_wizard_window {
-  position: static;
-  width: 100%;
-  height: auto;
-  max-height: none;
-  aspect-ratio: auto;
-  left: auto;
-  top: auto;
-  border: 0;
-  border-radius: 0;
-  box-shadow: none;
-  background: transparent;
-  opacity: 1;
-  visibility: visible;
+.character_creation_page [data-phase4-direct-row][hidden] {
+  display: none !important;
+}
+
+.character_creation_page [data-phase4-direct-row].is-selected {
+  background: rgba(224, 201, 153, 0.3);
+  font-weight: 700;
+}
+
+.creation_phase4_direct_list {
+  min-height: 0;
+  overflow: auto;
+  scrollbar-width: thin;
+}
+
+.creation_phase4_direct_row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  border-bottom: 1px solid rgba(74, 55, 38, 0.2);
+  color: var(--ink);
+  font: 0.7rem/1.2 "Cormorant Garamond", Georgia, serif;
+}
+
+.creation_phase4_direct_row small {
+  color: var(--ink-soft);
+  font-size: 0.58rem;
+}
+
+/* Creation fills the same two fixed pages used by the finished character. */
+.creation_book_form {
+  display: contents;
+}
+
+.character_creation_page .creation_book_spread {
+  align-items: center;
+}
+
+.character_creation_page .creation_page.page:first-child {
+  display: grid;
+  width: min(var(--page-width), 46vw);
+  height: var(--page-height);
+  overflow: hidden;
+}
+
+.character_creation_page .dashboard_top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: var(--card-gap);
+  border: 1px solid rgba(74, 55, 38, 0.28);
+  border-radius: 6px;
+  padding: 6px 8px;
+  background: linear-gradient(180deg, rgba(247, 243, 232, 0.62), rgba(236, 230, 216, 0.54));
+}
+
+.character_creation_page .dashboard_top h1 {
+  margin: 0;
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-size: 1.35rem;
+  color: var(--line);
+}
+
+.character_creation_page .dashboard_subtitle {
+  margin: 1px 0 0;
+  font-family: "Cormorant Garamond", Georgia, serif;
+  color: var(--ink-soft);
+}
+
+.character_creation_page .creation_sheet,
+.character_creation_page .creation_sheet_body,
+.character_creation_page .character_form {
+  display: contents;
+}
+
+.character_creation_page .creation_identity {
+  grid-column: 1 / -1;
+}
+
+.character_creation_page [data-creation-section="properties"] {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+.character_creation_page [data-creation-section="skills-languages"],
+.character_creation_page [data-creation-section="traits"] {
+  grid-column: 2;
+  grid-row: 2;
+  min-height: 0;
+  overflow: auto;
+}
+
+.character_creation_page [data-creation-section="properties"] {
+  min-height: 0;
+  overflow: auto;
+  padding-bottom: 48px;
+}
+
+.character_creation_page [data-creation-section="skills-languages"].creation_sheet_section--active:has(~ [data-creation-section="traits"].creation_sheet_section--locked) {
+  align-self: start;
+  height: calc(100% - 38px);
+}
+
+.character_creation_page [data-creation-section="skills-languages"].creation_sheet_section--complete {
+  align-self: start;
+  height: 48%;
+}
+
+.character_creation_page [data-creation-section="traits"].creation_sheet_section--active,
+.character_creation_page [data-creation-section="traits"].creation_sheet_section--complete {
+  align-self: end;
+  height: 50%;
+  padding-bottom: 48px;
+}
+
+.character_creation_page [data-creation-section="traits"].creation_sheet_section--locked {
+  align-self: end;
+}
+
+.character_creation_page [data-creation-section="skills-languages"].creation_sheet_section--locked {
+  align-self: start;
+}
+
+.creation_locked_sections {
+  display: contents;
+}
+
+.character_creation_page .creation_page > .form_error {
+  position: absolute;
+  z-index: 20;
+  top: 8px;
+  right: 8px;
+  max-width: 48%;
+}
+
+.creation_toast_stack {
+  position: fixed;
+  z-index: 1000;
+  top: 18px;
+  left: 16px;
+  display: grid;
+  width: min(300px, calc(100vw - 32px));
+  gap: 8px;
+  pointer-events: none;
+}
+
+.creation_toast {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  overflow: hidden;
+  border: 1px solid rgba(117, 67, 48, 0.58);
+  border-radius: 6px;
+  padding: 10px 34px 12px 12px;
+  background:
+    linear-gradient(180deg, rgba(251, 241, 219, 0.98), rgba(232, 211, 177, 0.98)),
+    url("/static/img/pergamentbg.jpg") center / cover;
+  box-shadow: 0 8px 22px rgba(24, 15, 10, 0.32);
+  color: #6c2d27;
+  font: 700 0.78rem/1.35 "Cormorant Garamond", Georgia, serif;
   pointer-events: auto;
-  transform: none;
+  transition: opacity 220ms ease, transform 220ms ease;
 }
 
-body.embedded-creation .creation_wizard_window .creation_window_body {
-  height: auto;
-  max-height: none;
-  overflow: visible;
+.creation_toast.is-leaving {
+  opacity: 0;
+  transform: translateX(-18px);
+}
+
+.creation_toast_close {
+  position: absolute;
+  top: 5px;
+  right: 6px;
+  width: 24px;
+  height: 24px;
+  border: 0;
   padding: 0;
   background: transparent;
-  backdrop-filter: none;
+  color: inherit;
+  font: 700 1.15rem/1 Georgia, serif;
+  cursor: pointer;
 }
 
-body.embedded-creation .character_form {
-  max-width: none;
+.creation_toast_timer {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  background: rgba(117, 67, 48, 0.58);
+  transform-origin: left center;
+  animation: creation-toast-timer 15s linear forwards;
+}
+
+.creation_budget_rail {
+  position: fixed;
+  z-index: 60;
+  top: 18px;
+  left: 12px;
+  display: flex;
+  width: clamp(220px, 16vw, 260px);
+  max-height: calc(100vh - 36px);
+  box-sizing: border-box;
+  flex-direction: column;
+  overflow: auto;
+  border: 1px solid rgba(74, 55, 38, 0.42);
+  border-radius: 7px;
+  padding: 8px;
+  background:
+    linear-gradient(180deg, rgba(246, 236, 215, 0.97), rgba(222, 202, 170, 0.97)),
+    url("/static/img/pergamentbg.jpg") center / cover;
+  box-shadow: 0 8px 24px rgba(25, 16, 10, 0.32);
+}
+
+.creation_budget_rail > h2 {
+  margin: 0 0 6px;
+  border-bottom: 1px solid rgba(74, 55, 38, 0.35);
+  padding-bottom: 4px;
+  color: var(--line);
+  font: 700 0.88rem/1.15 "Cormorant Garamond", Georgia, serif;
+  overflow-wrap: anywhere;
+}
+
+.creation_budget_rail_body {
+  display: flex;
+  gap: 7px;
+  min-height: 0;
+  flex-direction: column;
+}
+
+.character_creation_page:has(.creation_budget_rail) .creation_book_spread {
+  padding-left: clamp(252px, 19vw, 292px);
+}
+
+.character_creation_page:has(.creation_budget_rail) .creation_section_budget {
+  display: none;
+}
+
+.character_creation_page .creation_budget_rail .phase_points_grid,
+.character_creation_page .creation_budget_rail .phase_points_grid--phase1,
+.character_creation_page .creation_budget_rail .phase_points_grid--phase2,
+.character_creation_page .creation_budget_rail .phase_points_grid--phase4 {
+  display: flex;
   width: 100%;
-  grid-template-columns: 1fr;
+  margin: 0;
+  flex-direction: column;
+  gap: 0;
+  border-radius: 5px;
+  flex: 0 1 auto;
+  overflow: auto;
+}
+
+.character_creation_page .creation_budget_rail .phase_points_card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  min-height: 27px;
+  border-right: 0;
+  border-bottom: 1px solid rgba(74, 55, 38, 0.24);
+  padding: 3px 6px;
+}
+
+.character_creation_page .creation_budget_rail .phase_points_card:last-child {
+  border-bottom: 0;
+}
+
+.character_creation_page .creation_budget_rail .phase_points_value {
+  margin: 0;
+  font-size: 0.88rem;
+}
+
+.character_creation_page .creation_budget_rail .phase_points_card h4 {
+  min-width: 0;
+  font-size: 0.58rem;
+  line-height: 1.05;
+  overflow-wrap: anywhere;
+}
+
+.character_creation_page .creation_budget_rail .phase_points_card h4 small {
+  display: block;
+  margin-top: 1px;
+  color: rgba(74, 55, 38, 0.68);
+  font-size: 0.5rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.character_creation_page .creation_budget_rail .form_actions {
+  position: static;
+  display: grid;
+  gap: 5px;
+  margin: 0;
+  flex: 0 0 auto;
+  border-top: 1px solid rgba(74, 55, 38, 0.36);
+  padding: 7px 0 0;
+  background: transparent;
+  right: auto;
+  bottom: auto;
+  left: auto;
+}
+
+.character_creation_page .creation_budget_rail .form_actions .dashboard_button {
+  width: 100%;
+  min-width: 0;
+  min-height: 30px;
+  box-sizing: border-box;
+  justify-content: center;
+  padding: 5px 7px;
+  font-size: 0.7rem;
+  line-height: 1.15;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: normal;
+  text-align: center;
+}
+
+@keyframes creation-toast-timer {
+  to {
+    transform: scaleX(0);
+  }
+}
+
+.character_creation_page .form_actions {
+  position: absolute;
+  z-index: 18;
+  right: 12px;
+  bottom: 10px;
+  left: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  border-top: 1px solid rgba(74, 55, 38, 0.36);
+  padding-top: 7px;
+  background: linear-gradient(180deg, rgba(236, 226, 207, 0), rgba(236, 226, 207, 0.94) 35%);
+}
+
+.creation_secondary_page .p2_left_col,
+.creation_secondary_page .p2_right_col {
+  min-height: 0;
+}
+
+.creation_sheet_preview_panel {
+  min-height: 82px;
+}
+
+.creation_sheet_preview_panel--armor {
+  min-height: 150px;
+}
+
+.creation_sheet_lines {
+  display: grid;
+  gap: 9px;
+  margin-top: 7px;
+}
+
+.creation_sheet_lines--fill {
+  flex: 1 1 auto;
+  align-content: space-evenly;
+}
+
+.creation_sheet_lines span {
+  display: block;
+  min-height: 13px;
+  border-bottom: 1px solid rgba(74, 55, 38, 0.3);
+}
+
+.creation_advancement_panel {
+  flex: 1 1 auto;
+  height: auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.creation_advancement_panel > .p2_panel_header {
+  flex: 0 0 auto;
+}
+
+.creation_secondary_status {
+  color: var(--ink-soft);
+  font-size: 0.68rem;
+}
+
+.creation_advancement_mount {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  flex-direction: column;
+  overflow: auto;
+}
+
+.creation_advancement_mount .creation_sheet_section {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+}
+
+.creation_advancement_mount .creation_section_heading {
+  display: none;
+}
+
+.creation_advancement_mount .creation_sheet_section--locked {
+  height: 31px;
+  min-height: 31px;
+  margin-top: 4px;
+  padding: 4px 7px;
+  border: 1px solid rgba(74, 55, 38, 0.24);
+}
+
+.creation_advancement_mount .creation_sheet_section--locked::before {
+  content: "Dieser Bereich wird nach den vorherigen Angaben freigeschaltet.";
+  color: var(--ink-soft);
+  font-size: 0.72rem;
+}
+
+.creation_advancement_mount .creation_sheet_section--active {
+  flex: 1 1 auto;
+  overflow: auto;
+}
+
+.creation_advancement_mount .form_actions {
+  position: sticky;
+  right: auto;
+  bottom: 0;
+  left: auto;
+  flex: 0 0 auto;
+  margin-top: 8px;
+}
+
+.character_creation_page .char_info_table .value .dashboard_input {
+  min-height: 24px;
+  border: 0;
+  border-bottom: 1px solid rgba(74, 55, 38, 0.35);
+  border-radius: 0;
+  padding: 1px 3px;
+  background: rgba(255, 250, 236, 0.18);
+  font: inherit;
+}
+
+.creation_identity_note {
+  white-space: normal;
+  font-size: 0.72rem !important;
+  color: var(--ink-soft);
+}
+
+.creation_sheet_section {
+  width: 100%;
+  height: auto;
+  min-height: 0;
+  flex: none;
+  margin: 0;
+  overflow: visible;
+  padding: 7px 8px 8px;
+  border: 1px solid rgba(74, 55, 38, 0.34);
+  border-radius: 6px;
+  background: linear-gradient(180deg, rgba(247, 243, 232, 0.62), rgba(236, 230, 216, 0.54));
+}
+
+.creation_section_heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid rgba(74, 55, 38, 0.36);
+  padding-bottom: 3px;
+}
+
+.creation_section_heading h2,
+.creation_sheet_section.traits_wrapper .creation_section_heading h2 {
+  margin: 0;
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-size: 1.12rem;
+  font-weight: 700;
+  color: var(--line);
+}
+
+.creation_section_heading span {
+  font-size: 0.68rem;
+  color: var(--ink-soft);
+}
+
+.creation_sheet_section--active {
+  border-color: rgba(74, 55, 38, 0.58);
+  box-shadow: inset 0 0 0 1px rgba(255, 248, 228, 0.5);
+}
+
+.creation_sheet_section--complete {
+  background: linear-gradient(180deg, rgba(247, 243, 232, 0.5), rgba(236, 230, 216, 0.42));
+}
+
+.creation_sheet_section--locked,
+.creation_locked_sections .creation_sheet_section--locked {
+  display: block;
+  height: 31px;
+  min-height: 31px;
+  overflow: hidden;
+  padding: 4px 8px;
+  opacity: 0.68;
+  background: rgba(247, 243, 232, 0.38);
+}
+
+.creation_sheet_section--locked .creation_section_heading {
+  height: 22px;
+  padding: 0;
+  border-bottom: 0;
+}
+
+.creation_sheet_section--locked .creation_section_heading h2 {
+  font-size: 0.98rem;
+}
+
+.creation_section_budget {
+  margin: 5px 0 0;
+  text-align: right;
+  font-size: 0.74rem;
+  color: var(--ink-soft);
+}
+
+.creation_attribute_editor {
+  margin-top: 5px;
+}
+
+.creation_attribute_editor .attribute_table .attribute small {
+  display: block;
+  color: var(--ink-soft);
+  font-size: 0.7rem;
+  line-height: 1.15;
+  font-weight: 400;
+}
+
+.creation_attribute_input.dashboard_input {
+  width: 44px;
+  min-height: 26px;
+  margin: 0 auto;
+  border: 1px solid rgba(74, 55, 38, 0.32);
+  border-radius: 4px;
+  padding: 2px;
+  text-align: center;
+  background: rgba(247, 236, 208, 0.52);
+  font-family: "Cinzel", Georgia, serif;
+  font-weight: 700;
+}
+
+.creation_summary_grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 3px 10px;
+  margin: 6px 0 0;
+}
+
+.creation_summary_grid div,
+.creation_summary_list li {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 22px;
+  border-bottom: 1px solid rgba(74, 55, 38, 0.42);
+}
+
+.creation_summary_grid dt,
+.creation_summary_grid dd {
+  margin: 0;
+  font-size: 0.75rem;
+}
+
+.creation_summary_columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-top: 6px;
+}
+
+.creation_summary_columns h3 {
+  margin: 0;
+  font-size: 0.72rem;
+  color: var(--ink-soft);
+}
+
+.creation_language_summary.language_wrapper {
+  margin-top: 0;
+}
+
+.creation_summary_list {
+  margin: 2px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.74rem;
+}
+
+.character_creation_page .phase_points_grid {
+  gap: 0;
+  border: 1px solid rgba(74, 55, 38, 0.28);
+  border-radius: 4px;
+}
+
+.character_creation_page .phase_points_card {
+  border: 0;
+  border-right: 1px solid rgba(74, 55, 38, 0.26);
+  border-radius: 0;
+  padding: 5px 8px;
+  background: rgba(255, 248, 228, 0.28);
+  box-shadow: none;
+}
+
+.character_creation_page .phase_points_card h4 {
+  font-size: 0.64rem;
+  line-height: 1.1;
+  letter-spacing: 0.025em;
+  white-space: nowrap;
+}
+
+.character_creation_page .phase_points_value {
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-size: 1.2rem;
+}
+
+.character_creation_page .phase2_section_card,
+.character_creation_page .phase2_shop_panel {
+  border-radius: 5px;
+  background: rgba(255, 248, 230, 0.24);
+  box-shadow: none;
+}
+
+@media (max-width: 760px) {
+  .character_creation_page .creation_book_spread {
+    padding: 8px;
+  }
+
+  .character_creation_page .creation_page.page:first-child {
+    width: 100%;
+    height: var(--page-height);
+  }
+
+  .character_creation_page .dashboard_top,
+  .creation_summary_columns {
+    grid-template-columns: 1fr;
+  }
+
+  .character_creation_page .dashboard_top {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .creation_summary_grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .creation_sheet_section--locked .creation_section_heading span {
+    font-size: 0.6rem;
+  }
+}
+
+.character_edit_page .creation_book_spread {
+  align-items: flex-start;
+  padding: 24px;
+}
+
+.character_edit_page .creation_page.page:first-child {
+  display: flex;
+  flex-direction: column;
+  width: min(760px, calc(100vw - 32px));
+  height: auto;
+  min-height: 620px;
+  overflow: visible;
+  padding: 18px;
+}
+
+.character_edit_page .creation_sheet,
+.character_edit_page .character_form {
+  width: 100%;
 }
 
 .phase_counter_value {

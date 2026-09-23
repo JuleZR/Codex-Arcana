@@ -7,7 +7,7 @@
     <link rel="icon" type="image/x-icon" href="{% static 'img/favicon.ico' %}">
     <title>Dashboard | {{ request.user.get_username }}</title>
     <link rel="stylesheet" href="{% static 'css/charsheet.css' %}">
-    <link rel="stylesheet" href="{% static 'css/dashboard.css' %}?v=20260920a">
+    <link rel="stylesheet" href="{% static 'css/dashboard.css' %}?v=20260923q">
     <script defer src="{% static 'js/game_groups.js' %}?v=20260726a"></script>
     <link rel="stylesheet" href="{% static 'css/dashboard/announcements.css' %}?v=3">
     <script type="module" src="{% static 'js/dashboard_announcements.js' %}?v=3"></script>
@@ -45,14 +45,14 @@
 
             <div id="dashboardDraftRegion">
               {% if draft_rows %}
-              <div class="dashboard_side_group" id="entwuerfe" aria-label="Offene Charakterentwürfe">
-                <div class="dashboard_side_title">Offene Entwürfe</div>
+              <div class="dashboard_side_group" id="entwuerfe" aria-label="Offene Charaktererschaffungen">
+                <div class="dashboard_side_title">Offene Charaktererschaffungen</div>
                 <ul class="dashboard_list">
                   {% for draft in draft_rows %}
                     <li class="dashboard_draft_item">
-                      <span>{{ draft.name }} ({{ draft.race_name }}) | Phase {{ draft.phase }}/4</span>
+                      <span>{{ draft.name }} ({{ draft.race_name }})<small>Aktueller Bereich: {{ draft.section_label }}</small></span>
                       <div class="dashboard_draft_actions">
-                        <button type="button" class="dashboard_button dashboard_button--small" data-open-creation-window data-create-url="{% url 'create_character' %}?draft={{ draft.id }}">Fortsetzen</button>
+                        <a class="dashboard_button dashboard_button--small" href="{% url 'create_character' %}?draft={{ draft.id }}">Charaktererschaffung fortsetzen</a>
                         <form method="post" action="{% url 'delete_creation_draft' draft.id %}">
                           {% csrf_token %}
                           <button type="submit" class="dashboard_button dashboard_button--small">Verwerfen</button>
@@ -86,10 +86,7 @@
                       {% csrf_token %}
                       <button class="dashboard_button dashboard_button--small">Neue Spielgruppe</button>
                     </form>
-                    <button type="button" id="openCreationWindow" data-open-creation-window data-create-url="{% url 'create_character' %}" class="dashboard_button dashboard_button--small dashboard_button--primary">Neuer Charakter</button>
-                    <noscript>
-                      <a href="{% url 'create_character' %}" class="dashboard_button dashboard_button--small dashboard_button--primary">Neuer Charakter</a>
-                    </noscript>
+                    <a href="{% url 'create_character' %}" class="dashboard_button dashboard_button--small dashboard_button--primary">Charaktererschaffung beginnen</a>
                   </div>
                 </div>
 
@@ -216,17 +213,6 @@
       </article>
     </main>
 
-
-    <div id="dashboardCreationBackdrop" class="dashboard_creation_backdrop" aria-hidden="true"></div>
-    <section class="payday-window payday-window--large creation_wizard_window dashboard_creation_window" id="dashboardCreationWindow" aria-hidden="true">
-      <div class="payday-window__titlebar" id="dashboardCreationHandle">
-        <h3 class="payday-window__title">Charakter erstellen</h3>
-        <button type="button" id="dashboardCreationClose" class="payday-window__close" aria-label="Fenster schließen" title="Fenster schließen">{% include "charsheet/partials/_dashboard_icon.html" with icon="close" %}</button>
-      </div>
-      <div class="payday-window__body creation_window_body dashboard_creation_body">
-        <iframe id="dashboardCreationFrame" class="dashboard_creation_iframe" data-src="{% url 'create_character' %}" title="Charaktererstellung"></iframe>
-      </div>
-    </section>
 
     <div id="dashboardAccountBackdrop" class="dashboard_creation_backdrop dashboard_account_backdrop" aria-hidden="true"></div>
     <section class="payday-window payday-window--large dashboard_account_window" id="dashboardAccountWindow" aria-hidden="true">
@@ -1217,176 +1203,14 @@ if (dddiceCheckbox) {
           }
         });
 
-        const openButtons = Array.from(document.querySelectorAll("[data-open-creation-window]"));
-        const win = document.getElementById("dashboardCreationWindow");
-        const handle = document.getElementById("dashboardCreationHandle");
-        const closeBtn = document.getElementById("dashboardCreationClose");
-        const backdrop = document.getElementById("dashboardCreationBackdrop");
-        const frame = document.getElementById("dashboardCreationFrame");
         const openAccountBtn = document.getElementById("openAccountSettings");
         const accountWin = document.getElementById("dashboardAccountWindow");
         const accountHandle = document.getElementById("dashboardAccountHandle");
         const accountCloseBtn = document.getElementById("dashboardAccountClose");
         const accountCancelBtn = document.getElementById("dashboardAccountCancel");
         const accountBackdrop = document.getElementById("dashboardAccountBackdrop");
-        if (!openButtons.length || !win || !handle || !closeBtn || !backdrop || !frame) {
-          return;
-        }
-
-        const placeCentered = function () {
-          const rect = win.getBoundingClientRect();
-          const maxLeft = Math.max(12, window.innerWidth - rect.width - 12);
-          const maxTop = Math.max(12, window.innerHeight - rect.height - 12);
-          const left = Math.min(maxLeft, Math.max(12, (window.innerWidth - rect.width) / 2));
-          const top = Math.min(maxTop, 72);
-          win.style.left = left + "px";
-          win.style.top = top + "px";
-        };
-
-        const openWindow = function (url) {
-          const targetUrl = url || frame.dataset.src || "";
-          frame.setAttribute("src", targetUrl);
-          backdrop.classList.add("is-open");
-          win.classList.add("is-open");
-          win.setAttribute("aria-hidden", "false");
-          placeCentered();
-        };
-
-        const refreshDraftRegion = async function () {
-          const currentRegion = document.getElementById("dashboardDraftRegion");
-          if (!currentRegion) {
-            return;
-          }
-          try {
-            const response = await fetch("{% url 'dashboard' %}", {
-              credentials: "same-origin",
-              headers: { Accept: "text/html" },
-              cache: "no-store",
-            });
-            if (!response.ok) {
-              return;
-            }
-            const parsed = new DOMParser().parseFromString(await response.text(), "text/html");
-            const nextRegion = parsed.getElementById("dashboardDraftRegion");
-            if (nextRegion) {
-              currentRegion.replaceWith(nextRegion);
-            }
-          } catch (_error) {
-          }
-        };
-
-        const creationFrameHasDraft = function () {
-          try {
-            const href = frame.contentWindow.location.href;
-            const url = new URL(href, window.location.origin);
-            const path = url.pathname.toLowerCase();
-            return (path === "/character/new" || path === "/character/new/") && Boolean(url.searchParams.get("draft"));
-          } catch (_error) {
-            return false;
-          }
-        };
-
-        const closeWindow = function () {
-          const shouldReloadDrafts = creationFrameHasDraft();
-          win.classList.remove("is-open");
-          win.setAttribute("aria-hidden", "true");
-          backdrop.classList.remove("is-open");
-          if (shouldReloadDrafts) {
-            window.location.reload();
-          }
-        };
-
-        let dragPointerId = null;
-        let dragOffsetX = 0;
-        let dragOffsetY = 0;
-        const isInteractiveTarget = function (target) {
-          return Boolean(target && target.closest("button, a, input, select, textarea, label"));
-        };
-
-        handle.addEventListener("pointerdown", function (event) {
-          const isPrimaryPointer = event.pointerType !== "mouse" || event.button === 0;
-          if (!isPrimaryPointer || !win.classList.contains("is-open") || isInteractiveTarget(event.target)) {
-            return;
-          }
-          const rect = win.getBoundingClientRect();
-          dragPointerId = event.pointerId;
-          dragOffsetX = event.clientX - rect.left;
-          dragOffsetY = event.clientY - rect.top;
-          handle.setPointerCapture(event.pointerId);
-          win.classList.add("is-dragging");
-        });
-
-        handle.addEventListener("pointermove", function (event) {
-          if (dragPointerId !== event.pointerId) {
-            return;
-          }
-          const rect = win.getBoundingClientRect();
-          const maxLeft = Math.max(12, window.innerWidth - rect.width - 12);
-          const maxTop = Math.max(12, window.innerHeight - rect.height - 12);
-          const left = Math.min(maxLeft, Math.max(12, event.clientX - dragOffsetX));
-          const top = Math.min(maxTop, Math.max(12, event.clientY - dragOffsetY));
-          win.style.left = left + "px";
-          win.style.top = top + "px";
-        });
-
-        const stopDragging = function (event) {
-          if (dragPointerId !== event.pointerId) {
-            return;
-          }
-          win.classList.remove("is-dragging");
-          try {
-            handle.releasePointerCapture(event.pointerId);
-          } catch (_error) {
-          }
-          dragPointerId = null;
-        };
-
-        handle.addEventListener("pointerup", stopDragging);
-        handle.addEventListener("pointercancel", stopDragging);
-
-        document.addEventListener("click", function (event) {
-          const button = event.target.closest("[data-open-creation-window]");
-          if (!button) {
-            return;
-          }
-          openWindow(button.dataset.createUrl || frame.dataset.src || "");
-        });
-        closeBtn.addEventListener("click", closeWindow);
-        backdrop.addEventListener("click", closeWindow);
-        window.addEventListener("keydown", function (event) {
-          if (event.key === "Escape") {
-            closeWindow();
-          }
-        });
-
-        frame.addEventListener("load", function () {
-          try {
-            const href = frame.contentWindow.location.href;
-            const path = frame.contentWindow.location.pathname.toLowerCase();
-            if (!(path === "/character/new" || path === "/character/new/")) {
-              window.location.href = href;
-            } else if (creationFrameHasDraft()) {
-              refreshDraftRegion();
-            }
-          } catch (_error) {
-          }
-        });
 
         window.addEventListener("resize", function () {
-          if (!win.classList.contains("is-open")) {
-            if (!accountWin || !accountWin.classList.contains("is-open")) {
-              return;
-            }
-          }
-          if (win.classList.contains("is-open")) {
-            const rect = win.getBoundingClientRect();
-            const maxLeft = Math.max(12, window.innerWidth - rect.width - 12);
-            const maxTop = Math.max(12, window.innerHeight - rect.height - 12);
-            const left = Math.min(maxLeft, Math.max(12, rect.left));
-            const top = Math.min(maxTop, Math.max(12, rect.top));
-            win.style.left = left + "px";
-            win.style.top = top + "px";
-          }
           if (accountWin && accountWin.classList.contains("is-open")) {
             const rect = accountWin.getBoundingClientRect();
             const maxLeft = Math.max(12, window.innerWidth - rect.width - 12);

@@ -5,52 +5,35 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" type="image/x-icon" href="{% static 'img/favicon.ico' %}">
-    <title>{% if edit_mode %}Charakter bearbeiten{% elif draft %}Charakter erstellen (Phasen){% else %}Neuer Charakter{% endif %}</title>
+    <title>{% if edit_mode %}Charakter bearbeiten{% else %}Geburt einer Legende – Charaktererschaffung{% endif %}</title>
     <link rel="stylesheet" href="{% static 'css/charsheet.css' %}">
-    <link rel="stylesheet" href="{% static 'css/dashboard.css' %}?v=20260801c">
+    <link rel="stylesheet" href="{% static 'css/dashboard.css' %}?v=20260923q">
   </head>
-  <body>
-    <main class="book-spread dashboard_spread">
-      <article class="page dashboard_page dashboard_page--form" aria-label="Charaktererstellung">
-        <header class="dashboard_top">
-          <div class="dashboard_title_wrap">
-            {% if edit_mode %}
-              <h1>Charakter bearbeiten</h1>
-              <p class="dashboard_subtitle">Passe die Stammdaten von {{ character.name }} an.</p>
-            {% elif draft %}
-              <h1>Charaktererstellung nach Phasenmodell</h1>
-              <p class="dashboard_subtitle">{{ meta.name }} | {{ race.name }} | Phase {{ draft_phase }} von 4</p>
-            {% else %}
-              <h1>Neuer Charakter</h1>
-              <p class="dashboard_subtitle">Starte einen neuen Entwurf im Phasenmodell.</p>
-            {% endif %}
+  <body class="charsheet-page {% if edit_mode %}character_edit_page{% else %}character_creation_page{% endif %}">
+    {% if messages %}
+      <aside class="creation_toast_stack" aria-label="Hinweise">
+        {% for message in messages %}
+          <div class="creation_toast{% if message.tags %} creation_toast--{{ message.tags }}{% endif %}" role="alert" data-creation-toast>
+            <span>{{ message }}</span>
+            <button type="button" class="creation_toast_close" data-creation-toast-close aria-label="Hinweis schließen">&times;</button>
+            <span class="creation_toast_timer" aria-hidden="true"></span>
           </div>
-          <div class="dashboard_actions">
-            <a href="{% if draft %}{% url 'create_character' %}?draft={{ draft.id }}&cancel_draft=1{% else %}{% url 'dashboard' %}{% endif %}" class="dashboard_button">Zurück</a>
-          </div>
-        </header>
-
-        <div class="creation_window_backdrop" aria-hidden="true"></div>
-        <section class="payday-window payday-window--large is-open creation_wizard_window" id="creationWindow" aria-hidden="false">
-          <div class="payday-window__titlebar" id="creationWindowHandle">
-            <h3 class="payday-window__title">
-              {% if edit_mode %}
-                Charakter bearbeiten
-              {% elif draft %}
-                Charakter erstellen: Phase {{ draft_phase }}
-              {% else %}
-                Neuer Charakter
-              {% endif %}
-            </h3>
-            <a href="{% if draft %}{% url 'create_character' %}?draft={{ draft.id }}&cancel_draft=1{% else %}{% url 'dashboard' %}{% endif %}" class="payday-window__close" aria-label="Fenster schließen">x</a>
-          </div>
-          <div class="payday-window__body creation_window_body">
-            {% if messages %}
-              {% for message in messages %}
-                <div class="form_error">{{ message }}</div>
-              {% endfor %}
-            {% endif %}
-
+        {% endfor %}
+      </aside>
+    {% endif %}
+    {% if draft and not edit_mode and not edit_creation_basics %}
+      <aside class="creation_budget_rail" id="creationBudgetRail" aria-label="Punkteabrechnung">
+        <h2>{{ creation_section_label }}</h2>
+        <div class="creation_budget_rail_body" id="creationBudgetRailBody"></div>
+      </aside>
+    {% endif %}
+    {% if draft and not edit_mode and not edit_creation_basics %}
+      <form method="post" id="creationDraftForm" class="creation_book_form">
+    {% endif %}
+    <main class="book-spread creation_book_spread">
+      <article class="page creation_page" id="sheetCharacterHeader" aria-label="Erste Seite des Charakterbogens">
+        <section class="creation_sheet{% if edit_mode %} creation_sheet--edit{% endif %}" aria-label="Interaktiver Charakterbogen">
+          <div class="creation_sheet_body">
             {% if edit_mode %}
               <form method="post" class="character_form character_form--wizard{% if draft_phase == 2 or draft_phase == 3 %} character_form--phase2{% endif %}">
                 {% csrf_token %}
@@ -81,26 +64,63 @@
                 </div>
               </form>
 
-            {% elif draft %}
-              <form method="post" class="character_form character_form--wizard{% if draft_phase >= 2 %} character_form--phase2{% endif %}">
+            {% elif draft and not edit_creation_basics %}
+              <div class="character_form character_form--wizard{% if draft_phase >= 2 %} character_form--phase2{% endif %}">
                 {% csrf_token %}
                 <input type="hidden" name="draft_id" value="{{ draft.id }}">
                 <input type="hidden" name="phase" value="{{ draft_phase }}">
 
-                {% if not draft.is_npc %}
-                  <div class="form_row">
-                    <label for="startingExperience">Erfahrungsstufe</label>
-                    <select class="dashboard_input" id="startingExperience" name="starting_experience">
-                      {% for points, label in starting_experience_levels %}
-                        <option value="{{ points }}"{% if points == starting_experience %} selected{% endif %}>{{ label }} — +{{ points }} EP</option>
-                      {% endfor %}
-                    </select>
-                    <small>Die Start-EP stehen nach der Erstellung zur Verfügung und zählen nicht zu den Gesamt-EP.</small>
-                  </div>
+                <section class="p1_top creation_identity" aria-labelledby="creationIdentityTitle">
+                  <div class="char_info_wrapper"><div class="char_info_box"><div class="char_info_content">
+                    <table class="char_info_table" aria-label="Charakterinformation"><tbody>
+                      <tr class="char_info_row_title"><td class="char_title" colspan="6"><div class="char_info_title_wrap"><h1 id="creationIdentityTitle">Geburt einer Legende – Charaktererschaffung</h1><span>Charakterinformation</span></div></td></tr>
+                      <tr><td class="label">Name</td><td class="value" colspan="5">{{ meta.name }}</td></tr>
+                      <tr><td class="label">Charaktertyp</td><td class="value">{{ character_type_label }}</td><td class="label">Rasse</td><td class="value">{{ race.name }}</td><td class="label">Geschlecht</td><td class="value">{{ gender_label }}</td></tr>
+                      <tr>
+                        <td class="label"><label for="creationCountryOfOrigin">Herkunftsland</label></td>
+                        <td class="value" colspan="2">{% if draft_phase == 2 %}<select class="dashboard_input creation_sheet_control" id="creationCountryOfOrigin" name="country_of_origin" required>{% for country in countries %}<option value="{{ country.id }}"{% if country.id == meta.country_of_origin %} selected{% endif %}>{{ country.name }}</option>{% endfor %}</select>{% else %}{{ country_name }}{% endif %}</td>
+                        <td class="label">Muttersprache</td><td class="value" colspan="2" id="creationNativeLanguage">{{ native_language_display }}</td>
+                      </tr>
+                      {% if not draft.is_npc %}<tr><td class="label"><label for="startingExperience">Erfahrungsstufe</label></td><td class="value" colspan="2"><select class="dashboard_input creation_sheet_control" id="startingExperience" name="starting_experience">{% for points, label in starting_experience_levels %}<option value="{{ points }}"{% if points == starting_experience %} selected{% endif %}>{{ label }} — +{{ points }} EP</option>{% endfor %}</select></td><td class="value creation_identity_note" colspan="3">Start-EP stehen nach der Erschaffung zur Verfügung.</td></tr>{% endif %}
+                    </tbody></table>
+                  </div></div></div>
+                </section>
+
+                {{ country_language_config|json_script:"countryLanguageConfig" }}
+
+                {% if draft_phase > 1 %}
+                  <section class="attribute_wrapper creation_sheet_section creation_sheet_section--complete" data-creation-section="properties" data-section-status="complete"{% if draft_phase == 4 %} data-phase4-filter-scope{% endif %}>
+                    {% if draft_phase == 4 %}<input type="search" class="creation_sheet_search creation_phase4_search" placeholder="Eigenschaft suchen" aria-label="Eigenschaft suchen" data-phase4-direct-filter>{% endif %}
+                    <table class="attribute_table" aria-label="Eigenschaften"><thead><tr><th class="a_header">Eigenschaften</th><th class="a_h_value">Wert</th>{% if draft_phase == 4 %}<th class="a_h_value">Ausbau</th>{% else %}<th class="a_h_value bm">Status</th>{% endif %}</tr></thead><tbody>{% if draft_phase == 4 %}{% for row in phase_4_attr_rows %}<tr data-phase4-direct-row data-search="{{ row.label|lower }}"><td class="attribute">{{ row.label }}</td><td class="value">{{ row.base_value }}</td><td class="mod"><input class="creation_sheet_value_input" type="number" min="0" max="{{ row.max_value }}" value="{{ row.value }}" data-phase4-sheet-value data-kind="attr" data-key="attr:{{ row.short_name }}"></td></tr>{% endfor %}{% else %}{% for row in phase_1_rows %}<tr><td class="attribute">{{ row.label }}</td><td class="value">{{ row.value }}</td><td class="mod"><span class="mod-badge">&#10003;</span></td></tr>{% endfor %}{% endif %}</tbody></table>
+                  </section>
                 {% endif %}
 
+                {% if draft_phase > 2 %}
+                  <section class="skills_wrapper creation_sheet_section creation_sheet_section--complete" data-creation-section="skills-languages" data-section-status="complete"{% if draft_phase == 4 %} data-phase4-filter-scope{% endif %}>
+                    <div class="creation_section_heading"><h2>Fertigkeiten &amp; Sprachen</h2><span>Ausgefüllt</span></div>
+                    {% if draft_phase == 4 %}<input type="search" class="creation_sheet_search creation_phase4_search" placeholder="Fertigkeit suchen" aria-label="Fertigkeit suchen" data-phase4-direct-filter>{% endif %}
+                    <table class="skills_table" aria-label="Gewählte Fertigkeiten"><thead><tr class="skills_title_row"><th class="skills_title">Fertigkeiten</th><th>Rang</th>{% if draft_phase == 4 %}<th>Ausbau</th>{% endif %}</tr></thead><tbody>{% if draft_phase == 4 %}{% for row in phase_4_skill_rows %}{% for entry in row.entries %}<tr data-phase4-direct-row data-search="{{ row.name|lower }} {{ entry.specification|lower }}"{% if entry.base_level > 0 %} data-phase4-base-selected="1"{% endif %}><td class="skill_name">{{ row.name }}{% if entry.specification %}: {{ entry.specification }}{% endif %}</td><td>{{ entry.base_level }}</td><td><input class="creation_sheet_value_input" type="number" min="0" max="10" value="{{ entry.value }}" data-phase4-sheet-value data-kind="skill" data-key="skill:{{ row.slug }}:{{ entry.specification }}"></td></tr>{% endfor %}{% endfor %}{% else %}{% for row in phase_2_skill_rows %}{% for entry in row.entries %}{% if entry.level > 0 %}<tr><td class="skill_name">{{ row.name }}{% if entry.specification %}: {{ entry.specification }}{% endif %}</td><td>{{ entry.level }}</td></tr>{% endif %}{% endfor %}{% endfor %}{% endif %}</tbody></table>
+                  </section>
+                  <section class="language_wrapper creation_language_summary creation_sheet_section creation_sheet_section--complete" data-creation-section="languages-summary"{% if draft_phase == 4 %} data-phase4-filter-scope{% endif %}>
+                    <h2>Sprachen</h2>{% if draft_phase == 4 %}<input type="search" class="creation_sheet_search creation_phase4_search" placeholder="Sprache suchen" aria-label="Sprache suchen" data-phase4-direct-filter>{% endif %}<ul class="language_list" aria-label="Gewählte Sprachen">{% if draft_phase == 4 %}{% for row in phase_4_language_rows %}<li data-phase4-direct-row data-search="{{ row.name|lower }}"{% if row.base_level > 0 or row.base_write or row.base_mother %} data-phase4-base-selected="1"{% endif %}><span class="language_name" title="{{ row.name }}">{{ row.name }}</span><span class="language_dots" aria-hidden="true"><span class="dot{% if row.current_level >= 1 %} is-filled{% endif %}"></span><span class="dot{% if row.current_level >= 2 %} is-filled{% endif %}"></span><span class="dot{% if row.current_level >= 3 %} is-filled{% endif %}"></span><span class="dot literacy_dot{% if row.base_write or row.write_add %} is-filled{% endif %}"></span></span><label class="creation_language_level" title="Stufe"><input class="creation_sheet_value_input" type="number" min="{{ row.base_level }}" max="{{ row.max_level }}" value="{{ row.current_level }}" data-phase4-sheet-value data-phase4-language-level data-base="{{ row.base_level }}" data-kind="lang" data-key="lang:{{ row.slug }}" aria-label="{{ row.name }} Stufe"></label><label class="creation_language_write" title="Schrift"><input type="checkbox" data-phase4-sheet-write data-key="lang:{{ row.slug }}"{% if row.base_write or row.write_add %} checked{% endif %}{% if row.base_write %} disabled{% endif %}><span>S</span></label></li>{% endfor %}{% else %}{% for row in phase_2_language_rows %}{% if row.level > 0 or row.write or row.mother %}<li><span class="language_name">{{ row.name }}</span><span class="language_dots" aria-hidden="true"><span class="dot{% if row.level >= 1 %} is-filled{% endif %}"></span><span class="dot{% if row.level >= 2 %} is-filled{% endif %}"></span><span class="dot{% if row.level >= 3 %} is-filled{% endif %}"></span><span class="dot literacy_dot{% if row.write %} is-filled{% endif %}"></span></span></li>{% endif %}{% endfor %}{% endif %}</ul>
+                  </section>
+                {% endif %}
+
+                {% if draft_phase > 3 %}
+                  <section class="traits_wrapper creation_sheet_section creation_sheet_section--complete" data-creation-section="traits" data-section-status="complete"{% if draft_phase == 4 %} data-phase4-filter-scope{% endif %}>
+                    <div class="creation_section_heading"><h2>Vorzüge &amp; Schwächen</h2><span>Ausgefüllt</span></div>
+                    {% if draft_phase == 4 %}<input type="search" class="creation_sheet_search creation_phase4_search" placeholder="Vorzug suchen" aria-label="Vorzug suchen" data-phase4-direct-filter>{% endif %}<div class="traits_columns"><div class="trait_col"><h3>Vorzüge</h3>{% if draft_phase == 4 %}{% for row in phase_4_adv_rows %}<span class="trait_line creation_trait_input_line" data-phase4-direct-row data-search="{{ row.name|lower }}"><span class="trait_line_text" data-phase4-effective-label data-name="{{ row.name }}">{{ row.name }}{% if row.value > 0 %} ({{ row.effective_value }}){% endif %}</span><input class="creation_sheet_value_input" type="number" min="0" max="{{ row.max_level }}" value="{{ row.value }}" data-phase4-sheet-value data-kind="adv" data-min="{{ row.min_level }}" data-ppl="{{ row.points_per_level }}" data-point-curve="{% if row.points_by_level %}{{ row.points_by_level|join:',' }}{% endif %}" data-key="adv:{{ row.slug }}"></span>{% endfor %}{% else %}<span class="trait_line"></span>{% endif %}</div><div class="trait_col"><h3>Schwächen</h3>{% for row in phase_3_rows %}{% if row.value > 0 %}<span class="trait_line"><span class="trait_line_text">{{ row.name }} ({{ row.value }})</span></span>{% endif %}{% endfor %}</div></div>
+                  </section>
+                {% endif %}
+
+                <section class="{% if draft_phase == 1 %}attribute_wrapper{% elif draft_phase == 2 %}skills_wrapper{% elif draft_phase == 3 %}traits_wrapper{% else %}p1_bottom_right{% endif %} creation_sheet_section creation_sheet_section--active" data-creation-section="{% if draft_phase == 1 %}properties{% elif draft_phase == 2 %}skills-languages{% elif draft_phase == 3 %}traits{% else %}advancement{% endif %}" data-section-status="active">
+                  <div class="creation_section_heading creation_section_heading--active">
+                    <h2>{% if draft_phase == 1 %}Eigenschaften{% elif draft_phase == 2 %}Fertigkeiten &amp; Sprachen{% elif draft_phase == 3 %}Vorzüge &amp; Schwächen{% else %}Charakterausbau{% endif %}</h2>
+                    <span>In Bearbeitung</span>
+                  </div>
+
                 {% if draft_phase == 1 %}
-                  <h2>Phase 1: Attribute (Budget: <span id="phase1BudgetValue">{{ race.phase_1_points }}</span>)</h2>
+                  <p class="creation_section_budget">Budget: <strong id="phase1BudgetValue">{{ race.phase_1_points }}</strong></p>
                   <div class="phase_points_grid phase_points_grid--phase1">
                     <article class="phase_points_card">
                       <h4>Budget</h4>
@@ -115,42 +135,29 @@
                       <p id="phase1RemainingValue" class="phase_points_value">-</p>
                     </article>
                   </div>
-                  <div class="dashboard_table_wrap">
-                    <table class="dashboard_table">
-                      <thead><tr><th>Attribut</th><th>Min</th><th>Max</th><th>Wert</th><th>Kosten</th></tr></thead>
+                  <div class="creation_attribute_editor">
+                    <table class="attribute_table" aria-label="Eigenschaften festlegen">
+                      <thead><tr><th class="a_header">Eigenschaften</th><th class="a_h_value">Wert</th><th class="a_h_value bm">Kosten</th></tr></thead>
                       <tbody>
                         {% for row in phase_1_rows %}
                           <tr>
-                            <td>{{ row.label }}</td>
-                            <td>{{ row.min }}</td>
-                            <td>{{ row.max }}</td>
-                            <td>
-                              <input class="dashboard_input" type="number" name="attr_{{ row.short_name }}" min="{{ row.min }}" max="{{ row.max }}" value="{{ row.value }}" data-phase1-input data-min="{{ row.min }}" data-max="{{ row.max }}">
-                            </td>
-                            <td data-phase1-cost>{{ row.cost }}</td>
+                            <td class="attribute">{{ row.label }} <small>{{ row.min }}–{{ row.max }}</small></td>
+                            <td class="value"><input class="dashboard_input creation_attribute_input" type="number" name="attr_{{ row.short_name }}" min="{{ row.min }}" max="{{ row.max }}" value="{{ row.value }}" data-phase1-input data-min="{{ row.min }}" data-max="{{ row.max }}"></td>
+                            <td class="mod"><span class="mod-badge" data-phase1-cost>{{ row.cost }}</span></td>
                           </tr>
                         {% endfor %}
                       </tbody>
                     </table>
                   </div>
                 {% elif draft_phase == 2 %}
-                  <div class="form_row">
-                    <label for="creationCountryOfOrigin">Herkunftsland</label>
-                    <select class="dashboard_input" id="creationCountryOfOrigin" name="country_of_origin" required>
-                      {% for country in countries %}
-                        <option value="{{ country.id }}"{% if country.id == meta.country_of_origin %} selected{% endif %}>{{ country.name }}</option>
-                      {% endfor %}
-                    </select>
-                  </div>
-                  {{ country_language_config|json_script:"countryLanguageConfig" }}
-                  <h2>Phase 2: Skills & Sprachen (Budget: <span id="phase2BudgetValue">{{ race.phase_2_points }}</span>)</h2>
+                  <p class="creation_section_budget">Budget: <strong id="phase2BudgetValue">{{ race.phase_2_points }}</strong></p>
                   <div class="phase_points_grid phase_points_grid--phase2">
                     <article class="phase_points_card phase2_points_budget">
                       <h4>Budget</h4>
                       <p id="phase2BudgetCardValue" class="phase_points_value">{{ race.phase_2_points }}</p>
                     </article>
                     <article class="phase_points_card phase2_points_skills">
-                      <h4>Skills</h4>
+                      <h4>Fertigkeiten</h4>
                       <p id="phase2SkillSpentValue" class="phase_points_value">{{ phase_2_skill_spent }}</p>
                     </article>
                     <article class="phase_points_card phase2_points_languages">
@@ -167,7 +174,65 @@
                     </article>
                   </div>
                   <p id="phase2ValidationHint" class="form_error" hidden></p>
-                  <section class="phase2_section_card">
+                  <div class="creation_phase2_sheet_fields">
+                    <section class="creation_phase2_fieldset">
+                      <div class="creation_phase2_fieldset_header">
+                        <h3>Fertigkeiten</h3>
+                        <input type="search" id="creationPhase2SheetFilter" class="creation_sheet_search" placeholder="Fertigkeit suchen" aria-label="Fertigkeit suchen">
+                      </div>
+                      <div class="creation_phase2_field_scroll">
+                        <table class="skills_table creation_phase2_skills_table">
+                          <thead><tr><th>Fertigkeit</th><th>Wert</th></tr></thead>
+                          <tbody>
+                            {% regroup phase_2_skill_rows by category_name as sheet_skill_groups %}
+                            {% for group in sheet_skill_groups %}
+                              <tr class="creation_phase2_category" data-skill-category="{{ group.grouper }}"><th colspan="2">{{ group.grouper }}</th></tr>
+                              {% for row in group.list %}
+                                {% if row.requires_specification %}
+                                  {% for entry in row.entries %}
+                                    <tr data-creation-phase2-skill-row data-skill-category="{{ group.grouper }}" data-slug="{{ row.slug }}" data-specification="{{ entry.specification }}" data-search="{{ row.name|lower }} {{ entry.specification|lower }} {{ group.grouper|lower }}">
+                                      <td>{{ row.name }}: {{ entry.specification }}</td>
+                                      <td><input class="creation_sheet_value_input" type="number" min="{{ row.min_value }}" max="10" value="{{ entry.level }}" data-creation-phase2-skill-value></td>
+                                    </tr>
+                                  {% endfor %}
+                                  <tr class="creation_phase2_add_spec" data-creation-phase2-add-spec data-skill-category="{{ group.grouper }}" data-slug="{{ row.slug }}" data-search="{{ row.name|lower }} {{ group.grouper|lower }}" tabindex="0"><td colspan="2">{{ row.name }} <span>+ Spezifikation eintragen</span></td></tr>
+                                {% else %}
+                                  <tr data-creation-phase2-skill-row data-skill-category="{{ group.grouper }}" data-slug="{{ row.slug }}" data-search="{{ row.name|lower }} {{ group.grouper|lower }}">
+                                    <td class="db_tooltip_anchor"{% if row.description %} data-db-tooltip="{{ row.description }}"{% endif %}>{{ row.name }}</td>
+                                    <td><input class="creation_sheet_value_input" type="number" min="{{ row.min_value }}" max="10" value="{{ row.value }}" data-creation-phase2-skill-value></td>
+                                  </tr>
+                                {% endif %}
+                              {% endfor %}
+                            {% endfor %}
+                          </tbody>
+                        </table>
+                      </div>
+                    </section>
+
+                    <section class="creation_phase2_fieldset">
+                      <div class="creation_phase2_fieldset_header">
+                        <h3>Sprachen</h3>
+                        <input type="search" id="creationPhase2LanguageFilter" class="creation_sheet_search" placeholder="Sprache suchen" aria-label="Sprache suchen">
+                      </div>
+                      <div class="creation_phase2_field_scroll">
+                        <table class="skills_table creation_phase2_languages_table">
+                          <thead><tr><th>Sprache</th><th>Wert</th><th>Schrift</th><th>Muttersprache</th></tr></thead>
+                          <tbody>
+                            {% for row in phase_2_language_rows %}
+                              <tr data-creation-phase2-language-row data-slug="{{ row.slug }}" data-search="{{ row.name|lower }}">
+                                <td>{{ row.name }}</td>
+                                <td><input class="creation_sheet_value_input" type="number" min="0" max="{{ row.max_level }}" value="{{ row.level }}" data-creation-phase2-language-level></td>
+                                <td><input type="checkbox" {% if row.write %}checked{% endif %} data-creation-phase2-language-write></td>
+                                <td><input type="checkbox" {% if row.mother %}checked{% endif %} data-creation-phase2-language-mother></td>
+                              </tr>
+                            {% endfor %}
+                          </tbody>
+                        </table>
+                      </div>
+                    </section>
+                  </div>
+
+                  <section class="phase2_section_card creation_phase2_legacy_hooks" aria-hidden="true">
                     <h3>Fertigkeiten & Sprachen</h3>
                     <div class="phase2_shop_layout">
                       <section class="phase2_shop_panel">
@@ -176,8 +241,8 @@
                             type="search"
                             id="phase2MainFilterInput"
                             class="dashboard_input phase2_filter_input"
-                            placeholder="Skills und Sprachen suchen..."
-                            aria-label="Skills und Sprachen suchen"
+                            placeholder="Fertigkeiten und Sprachen suchen..."
+                            aria-label="Fertigkeiten und Sprachen suchen"
                           >
                         </div>
                         <div class="phase2_shop_scroll" aria-label="Verfuegbare Eintraege">
@@ -185,7 +250,7 @@
                           {% for group in skill_groups %}
                             <details class="phase2_shop_group" data-phase2-skill-group open>
                               <summary>
-                                <span>Skill: {{ group.grouper }}</span>
+                                <span>Fertigkeit: {{ group.grouper }}</span>
                                 <span class="phase2_group_count">{{ group.list|length }}</span>
                               </summary>
                               <table class="dashboard_table phase2_shop_table">
@@ -222,9 +287,9 @@
                       <section class="phase2_shop_panel">
                         <h4>Warenkorb</h4>
                         <div class="phase2_shop_scroll">
-                          <h5 class="phase2_cart_title">Skills</h5>
+                          <h5 class="phase2_cart_title">Fertigkeiten</h5>
                           <table class="dashboard_table phase2_cart_table phase4_cart_table">
-                            <thead><tr><th>Skill</th><th>Level</th><th>Kosten</th><th></th></tr></thead>
+                            <thead><tr><th>Fertigkeit</th><th>Level</th><th>Kosten</th><th></th></tr></thead>
                             <tbody id="phase2SkillCartBody">
                               {% for row in phase_2_skill_rows %}
                                 {% for entry in row.entries %}
@@ -242,12 +307,12 @@
                                     </td>
                                     <td><input class="dashboard_input phase2_level_input" type="number" min="{{ row.min_value }}" max="10" value="{{ entry.level }}" data-phase2-skill-level></td>
                                     <td data-phase2-skill-cost>{{ row.cost }}</td>
-                                    <td>{% if row.locked and entry.specification == "*" %}<span class="phase4_locked_marker" title="Kostenloser Grundwert">*</span>{% else %}<button type="button" class="phase2_remove_x" data-phase2-skill-remove aria-label="Skill entfernen" title="Entfernen">X</button>{% endif %}</td>
+                                    <td>{% if row.locked and entry.specification == "*" %}<span class="phase4_locked_marker" title="Kostenloser Grundwert">*</span>{% else %}<button type="button" class="phase2_remove_x" data-phase2-skill-remove aria-label="Fertigkeit entfernen" title="Entfernen">X</button>{% endif %}</td>
                                   </tr>
                                 {% endfor %}
                               {% endfor %}
                               <tr data-phase2-skill-cart-empty {% for row in phase_2_skill_rows %}{% if row.value > 0 %}hidden{% endif %}{% endfor %}>
-                                <td colspan="4" class="dashboard_hint">Keine Skills ausgewählt.</td>
+                                <td colspan="4" class="dashboard_hint">Keine Fertigkeiten ausgewählt.</td>
                               </tr>
                             </tbody>
                           </table>
@@ -258,7 +323,7 @@
                             <tbody id="phase2LanguageCartBody">
                               {% for row in phase_2_language_rows %}
                                 {% if row.level > 0 or row.write or row.mother %}
-                                  <tr data-phase2-lang-cart-item data-slug="{{ row.slug }}" data-max="{{ row.max_level }}">
+                                  <tr data-phase2-lang-cart-item data-slug="{{ row.slug }}" data-name="{{ row.name }}" data-max="{{ row.max_level }}">
                                     <td>{{ row.name }}</td>
                                     <td><input class="dashboard_input phase2_level_input" type="number" min="0" max="{{ row.max_level }}" value="{{ row.level }}" name="lang_{{ row.slug }}_level" data-phase2-lang-level></td>
                                     <td><input type="checkbox" name="lang_{{ row.slug }}_write" {% if row.write %}checked{% endif %} data-phase2-lang-write></td>
@@ -278,7 +343,7 @@
                     </div>
                   </section>
                 {% elif draft_phase == 3 %}
-                  <h2>Phase 3: Nachteile (Limit: <span id="phase3BudgetValue">{{ race.phase_3_points }}</span>)</h2>
+                  <p class="creation_section_budget">Grenze: <strong id="phase3BudgetValue">{{ race.phase_3_points }}</strong></p>
                   <div class="phase_points_grid phase_points_grid--phase1">
                     <article class="phase_points_card">
                       <h4>Limit</h4>
@@ -294,23 +359,23 @@
                     </article>
                   </div>
                   <p id="phase3ValidationHint" class="form_error" hidden></p>
-                  <section class="phase2_section_card">
-                    <h3>Nachteile</h3>
+                  <section class="phase2_section_card creation_phase3_legacy_hooks" aria-hidden="true">
+                    <h3>Schwächen</h3>
                     <div class="phase2_shop_layout">
                       <section class="phase2_shop_panel">
                         <div class="phase2_shop_toolbar">
                           <input
                             type="search"
-                            id="phase3MainFilterInput"
+                            id="phase3LegacyFilterInput"
                             class="dashboard_input phase2_filter_input"
-                            placeholder="Nachteile suchen..."
-                            aria-label="Nachteile suchen"
+                            placeholder="Schwächen suchen..."
+                            aria-label="Schwächen suchen"
                           >
                         </div>
-                        <div class="phase2_shop_scroll" aria-label="Verfuegbare Nachteile">
+                        <div class="phase2_shop_scroll" aria-label="Verfügbare Schwächen">
                           <details class="phase2_shop_group" data-phase3-dis-group open>
                             <summary>
-                              <span>Alle Nachteile</span>
+                              <span>Alle Schwächen</span>
                               <span class="phase2_group_count">{{ phase_3_rows|length }}</span>
                             </summary>
                             <table class="dashboard_table phase2_shop_table">
@@ -331,20 +396,20 @@
                         <h4>Warenkorb</h4>
                         <div class="phase2_shop_scroll">
                           <table class="dashboard_table phase2_cart_table">
-                            <thead><tr><th>Nachteil</th><th>Level</th><th>Kosten</th><th></th></tr></thead>
-                            <tbody id="phase3DisCartBody">
+                            <thead><tr><th>Schwäche</th><th>Level</th><th>Kosten</th><th></th></tr></thead>
+                            <tbody id="phase3LegacyDisCartBody">
                               {% for row in phase_3_rows %}
                                 {% if row.value > 0 %}
                                   <tr data-phase3-dis-cart-item data-slug="{{ row.slug }}" data-max="{{ row.max_level }}" data-ppl="{{ row.points_per_level }}" data-point-curve="{% if row.points_by_level %}{{ row.points_by_level|join:',' }}{% endif %}" data-attribute-choice-defs="{{ row.attribute_choice_definitions_json|escape }}" data-has-specification="{% if row.has_specification %}1{% else %}0{% endif %}" data-specification-options="{{ row.specification_options_json|escape }}">
                                     <td><span data-phase3-dis-label-base="{{ row.name }}">{{ row.name }}</span> <span data-phase3-dis-formula>({{ row.value|default:0 }})</span></td>
                                      <td><input class="dashboard_input phase2_level_input" type="number" min="0" max="{{ row.max_level }}" value="{{ row.value }}" name="dis_{{ row.slug }}" data-phase3-dis-level>{% for choice in row.attribute_choice_definitions %}<label class="phase4_choice_block"><span>{{ choice.name }}</span><select class="dashboard_input" name="dis_choice_{{ row.slug }}_{{ choice.id }}" data-phase3-dis-choice><option value=""></option>{% for option in choice.options %}<option value="{{ option.value }}"{% if choice.selected == option.value %} selected{% endif %}>{{ option.label }}</option>{% endfor %}</select></label>{% endfor %}{% if row.specification_options %}<label class="phase4_choice_block"><span>Spezifikation</span><select class="dashboard_input" name="dis_spec_option_{{ row.slug }}" required><option value=""></option>{% for option in row.specification_options %}<option value="{{ option.id }}"{% if row.specification.option_id == option.id %} selected{% endif %}>{{ option.name }}</option>{% endfor %}</select></label>{% elif row.has_specification %}<label class="phase4_choice_block"><span>Spezifikation</span><input class="dashboard_input" name="dis_spec_text_{{ row.slug }}" value="{{ row.specification.text|default:'' }}"></label>{% endif %}</td>
                                     <td data-phase3-dis-cost>0</td>
-                                    <td><button type="button" class="phase2_remove_x" data-phase3-dis-remove aria-label="Nachteil entfernen" title="Entfernen">X</button></td>
+                                    <td><button type="button" class="phase2_remove_x" data-phase3-dis-remove aria-label="Schwäche entfernen" title="Entfernen">X</button></td>
                                   </tr>
                                 {% endif %}
                               {% endfor %}
                               <tr data-phase3-dis-cart-empty {% for row in phase_3_rows %}{% if row.value > 0 %}hidden{% endif %}{% endfor %}>
-                                <td colspan="4" class="dashboard_hint">Keine Nachteile ausgewählt.</td>
+                                <td colspan="4" class="dashboard_hint">Keine Schwächen ausgewählt.</td>
                               </tr>
                             </tbody>
                           </table>
@@ -352,31 +417,47 @@
                       </section>
                     </div>
                   </section>
+                  <section class="creation_phase3_sheet_fields">
+                    <div class="creation_phase2_fieldset_header">
+                      <h3>Schwächen</h3>
+                      <input type="search" id="phase3MainFilterInput" class="creation_sheet_search" placeholder="Schwäche suchen" aria-label="Schwäche suchen">
+                    </div>
+                    <div class="creation_phase3_field_scroll">
+                      <table class="skills_table creation_phase3_traits_table">
+                        <thead><tr><th>Schwäche</th><th>Wert</th><th>Kosten</th></tr></thead>
+                        <tbody id="phase3DisCartBody">
+                          {% for row in phase_3_rows %}
+                            <tr data-phase3-dis-cart-item data-phase3-sheet-row data-phase3-search="{{ row.name|lower }} schwäche" data-slug="{{ row.slug }}" data-max="{{ row.max_level }}" data-ppl="{{ row.points_per_level }}" data-point-curve="{% if row.points_by_level %}{{ row.points_by_level|join:',' }}{% endif %}" data-attribute-choice-defs="{{ row.attribute_choice_definitions_json|escape }}" data-has-specification="{% if row.has_specification %}1{% else %}0{% endif %}" data-specification-options="{{ row.specification_options_json|escape }}">
+                              <td class="db_tooltip_anchor"{% if row.description %} data-db-tooltip="{{ row.description }}"{% endif %}><span data-phase3-dis-label-base="{{ row.name }}">{{ row.name }}</span> <span data-phase3-dis-formula>({{ row.value|default:0 }})</span></td>
+                              <td>
+                                <input class="creation_sheet_value_input" type="number" min="0" max="{{ row.max_level }}" value="{{ row.value }}" name="dis_{{ row.slug }}" data-phase3-dis-level>
+                                {% for choice in row.attribute_choice_definitions %}<label class="creation_sheet_choice"><span>{{ choice.name }}</span><select name="dis_choice_{{ row.slug }}_{{ choice.id }}" data-phase3-dis-choice><option value=""></option>{% for option in choice.options %}<option value="{{ option.value }}"{% if choice.selected == option.value %} selected{% endif %}>{{ option.label }}</option>{% endfor %}</select></label>{% endfor %}
+                                {% if row.specification_options %}<label class="creation_sheet_choice"><span>Spezifikation</span><select name="dis_spec_option_{{ row.slug }}"><option value=""></option>{% for option in row.specification_options %}<option value="{{ option.id }}"{% if row.specification.option_id == option.id %} selected{% endif %}>{{ option.name }}</option>{% endfor %}</select></label>{% elif row.has_specification %}<label class="creation_sheet_choice"><span>Spezifikation</span><input name="dis_spec_text_{{ row.slug }}" value="{{ row.specification.text|default:'' }}"></label>{% endif %}
+                              </td>
+                              <td data-phase3-dis-cost>0</td>
+                            </tr>
+                          {% endfor %}
+                          <tr data-phase3-dis-cart-empty hidden><td colspan="3"></td></tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </section>
                 {% elif draft_phase == 4 %}
-                  <h2>Phase 4: Ausbau</h2>
-                  <div class="phase_points_grid phase_points_grid--phase4">
+                  <div class="phase_points_grid phase_points_grid--phase4" data-total-budget="{{ phase_4_budget }}">
+                    <article class="phase_points_card phase4_points_rest_budget">
+                      <h4>Ausbau-Budget</h4>
+                      <p id="phase4RestBudgetValue" class="phase_points_value">{{ phase_4_base_budget }}</p>
+                    </article>
                     <article class="phase_points_card phase4_points_adv_budget">
-                      <h4>Vorteile Budget</h4>
+                      <h4>Vorzüge-Budget <small>aus Schwächen</small></h4>
                       <p id="phase4AdvBudgetValue" class="phase_points_value">{{ phase_4_adv_budget }}</p>
                     </article>
-                    <article class="phase_points_card phase4_points_adv_spent">
-                      <h4>Vorteile Verbrauch</h4>
-                      <p id="phase4AdvSpentValue" class="phase_points_value phase_counter_value">{{ phase_4_adv_spent }}</p>
-                    </article>
                     <article class="phase_points_card phase4_points_adv_remaining">
-                      <h4>Vorteile Rest</h4>
+                      <h4>Vorzüge-Rest</h4>
                       <p id="phase4AdvRemainingValue" class="phase_points_value">-</p>
                     </article>
-                    <article class="phase_points_card phase4_points_rest_budget">
-                      <h4>Ausbau Budget</h4>
-                      <p id="phase4RestBudgetValue" class="phase_points_value">{{ phase_4_rest_budget }}</p>
-                    </article>
-                    <article class="phase_points_card phase4_points_rest_spent">
-                      <h4>Ausbau Verbrauch</h4>
-                      <p id="phase4RestSpentValue" class="phase_points_value phase_counter_value">{{ phase_4_rest_spent }}</p>
-                    </article>
                     <article class="phase_points_card phase4_points_rest_remaining">
-                      <h4>Ausbau Rest</h4>
+                      <h4>Gesamtbudget-Rest</h4>
                       <p id="phase4RestRemainingValue" class="phase_points_value">-</p>
                     </article>
                   </div>
@@ -386,7 +467,7 @@
                       <h3>Vampirsystem</h3>
                       <p class="vampire_creation_cost"><span>Zusatzkosten</span><strong><span id="phase4VampireCostValue">{{ phase_4_vampire_cost }}</span> CP</strong></p>
                     </div>
-                    <p class="vampire_creation_intro">Lege hier Alter, Blutkapazität und Startvorrat fest. Die Zusatzkosten sind bereits oben in „Vorteile Verbrauch“ enthalten. Intelligentes und tierisches Blut teilen sich dieselbe maximale Kapazität.</p>
+                    <p class="vampire_creation_intro">Lege hier Alter, Blutkapazität und Startvorrat fest. Die Zusatzkosten werden bereits vom Vorzüge-Budget abgezogen. Intelligentes und tierisches Blut teilen sich dieselbe maximale Kapazität.</p>
                     <div class="vampire_capacity_summary" id="vampireCapacitySummary">
                       <div class="vampire_capacity_summary__values">
                         <span>Voraussichtliche Kapazität <strong><span id="vampireCapacityValue">0</span> BP</strong></span>
@@ -432,8 +513,12 @@
                       </div>
                     </div>
                   </section>
-                  <section class="phase2_section_card">
-                    <h3>Ausbau-Shop</h3>
+                  <section class="creation_phase4_direct_fields">
+                    <section class="creation_phase4_direct_group" data-phase4-filter-scope><div class="creation_phase2_fieldset_header"><h3>Schulen</h3></div><input type="search" class="creation_sheet_search creation_phase4_search" placeholder="Schule suchen" aria-label="Schule suchen" data-phase4-direct-filter><div class="creation_phase4_direct_list">{% for row in phase_4_school_rows %}<label class="creation_phase4_direct_row" data-phase4-direct-row data-search="{{ row.name|lower }}"><span>{{ row.name }}</span><input class="creation_sheet_value_input" type="number" min="0" value="{{ row.value }}" data-phase4-sheet-value data-kind="school" data-key="school:{{ row.id }}"></label>{% endfor %}</div></section>
+                    <section class="creation_phase4_direct_group" data-phase4-filter-scope><div class="creation_phase2_fieldset_header"><h3>Lektionen</h3></div><input type="search" class="creation_sheet_search creation_phase4_search" placeholder="Lektion suchen" aria-label="Lektion suchen" data-phase4-direct-filter><div class="creation_phase4_direct_list">{% for row in phase_4_lesson_rows %}<label class="creation_phase4_direct_row" data-phase4-direct-row data-phase4-lesson-row data-lesson-id="{{ row.id }}" data-phase4-available="{% if row.available %}1{% else %}0{% endif %}" data-search="{{ row.name|lower }} {{ row.requirements_display|lower }}"{% if not row.available %} hidden{% endif %}><span>{{ row.name }} <small>{{ row.purchase_cost }} CP</small></span><input type="checkbox" {% if row.selected %}checked{% endif %}{% if not row.available %} disabled{% endif %} data-phase4-sheet-toggle data-kind="lesson" data-key="lesson:{{ row.id }}"></label>{% endfor %}</div></section>
+                  </section>
+                  <section class="phase2_section_card creation_phase4_legacy_shop" aria-hidden="true">
+                    <h3>Technische Ausbauauswahl</h3>
                     <div class="phase2_shop_layout">
                       <section class="phase2_shop_panel">
                         <div class="phase2_shop_toolbar">
@@ -501,6 +586,7 @@
                                     data-id="{{ row.id }}"
                                     data-name="{{ row.name }}"
                                     data-cost="{{ row.purchase_cost }}"
+                                    data-phase4-available="{% if row.available %}1{% else %}0{% endif %}"
                                     data-phase4-search="{{ row.name|lower }} lektion {{ row.requirements_display|lower }} {{ row.costs_display|lower }}"
                                     tabindex="0"
                                     role="button"
@@ -635,7 +721,7 @@
                                     <td><span data-phase4-skill-label-base="{{ row.name }}{% if row.requires_specification %}: {{ entry.specification }}{% endif %}">{{ row.name }}{% if row.requires_specification %}: {{ entry.specification }}{% endif %}</span> <span data-phase4-skill-level-info>({{ entry.base_level|add:entry.value }})</span>{% if row.requires_specification %}<input type="hidden" name="creation_phase4_skill_{{ row.slug }}_slug_{{ forloop.counter0 }}" value="{{ row.slug }}"><input type="hidden" name="creation_phase4_skill_{{ row.slug }}_spec_{{ forloop.counter0 }}" value="{{ entry.specification }}" data-phase4-skill-spec><input type="hidden" name="creation_phase4_skill_{{ row.slug }}_add_{{ forloop.counter0 }}" value="{{ entry.value }}" data-phase4-hidden>{% else %}<input type="hidden" name="skill_add_{{ row.slug }}" value="{{ entry.value }}" data-phase4-hidden>{% endif %}</td>
                                     <td><input class="dashboard_input phase2_level_input" type="number" min="0" max="10" value="{{ entry.value }}" data-phase4-value><div class="phase4_target_hint" data-phase4-target></div></td>
                                     <td data-phase4-cost>0</td>
-                                    <td>{% if entry.base_level > 0 %}<span class="phase4_locked_marker" title="Aus Phase 2 übernommen">*</span>{% else %}<button type="button" class="phase2_remove_x" data-phase4-remove aria-label="Eintrag entfernen" title="Entfernen">X</button>{% endif %}</td>
+                                    <td>{% if entry.base_level > 0 %}<span class="phase4_locked_marker" title="Aus Fertigkeiten &amp; Sprachen übernommen">*</span>{% else %}<button type="button" class="phase2_remove_x" data-phase4-remove aria-label="Eintrag entfernen" title="Entfernen">X</button>{% endif %}</td>
                                   </tr>
                                 {% endif %}
                                 {% endfor %}
@@ -653,7 +739,7 @@
                                       <div class="phase4_target_hint" data-phase4-target></div>
                                     </td>
                                     <td data-phase4-cost>0</td>
-                                    <td>{% if row.base_level > 0 or row.base_write or row.base_mother %}<span class="phase4_locked_marker" title="Aus Phase 2 übernommen">*</span>{% else %}<button type="button" class="phase2_remove_x" data-phase4-remove aria-label="Eintrag entfernen" title="Entfernen">X</button>{% endif %}</td>
+                                    <td>{% if row.base_level > 0 or row.base_write or row.base_mother %}<span class="phase4_locked_marker" title="Aus Fertigkeiten &amp; Sprachen übernommen">*</span>{% else %}<button type="button" class="phase2_remove_x" data-phase4-remove aria-label="Eintrag entfernen" title="Entfernen">X</button>{% endif %}</td>
                                   </tr>
                                 {% endif %}
                               {% endfor %}
@@ -735,74 +821,120 @@
 
                   </section>
                 {% endif %}
+                </section>
+
+                {% if draft_phase < 2 %}
+                  <section class="trait_line creation_sheet_section creation_sheet_section--locked" data-creation-section="skills-languages" data-section-status="locked"><div class="creation_section_heading"><h2>Fertigkeiten &amp; Sprachen</h2><span>Noch nicht bearbeitbar</span></div></section>
+                {% endif %}
+                {% if draft_phase < 3 %}
+                  <section class="trait_line creation_sheet_section creation_sheet_section--locked" data-creation-section="traits" data-section-status="locked"><div class="creation_section_heading"><h2>Vorzüge &amp; Schwächen</h2><span>Noch nicht bearbeitbar</span></div></section>
+                {% endif %}
+                {% if draft_phase < 4 %}
+                  <section class="trait_line creation_sheet_section creation_sheet_section--locked" data-creation-section="advancement" data-section-status="locked"><div class="creation_section_heading"><h2>Charakterausbau</h2><span>Noch nicht bearbeitbar</span></div></section>
+                {% endif %}
 
                 <div class="form_actions">
-                  {% if draft_phase > 1 %}
-                    <button type="submit" name="action" value="back" class="dashboard_button">Zurück</button>
-                  {% endif %}
+                  <button type="submit" name="action" value="back" class="dashboard_button">Zurück</button>
                   {% if draft_phase < 4 %}
-                    <button type="submit" name="action" value="next" class="dashboard_button dashboard_button--primary">Phase speichern & weiter</button>
+                    <button type="submit" name="action" value="next" class="dashboard_button dashboard_button--primary">Speichern &amp; weiter</button>
                   {% else %}
-                    <button type="submit" name="action" value="finalize" class="dashboard_button dashboard_button--primary">Charakter finalisieren</button>
+                    <button type="submit" name="action" value="finalize" class="dashboard_button dashboard_button--primary">Finalisieren</button>
                   {% endif %}
-                  <a href="{% url 'create_character' %}?draft={{ draft.id }}&cancel_draft=1" class="dashboard_button">Abbrechen</a>
+                  <a href="{% url 'dashboard' %}" class="dashboard_button">Später fortsetzen</a>
+                  <a href="{% url 'create_character' %}?draft={{ draft.id }}&cancel_draft=1" class="dashboard_button dashboard_button--danger" aria-label="Charaktererschaffung verwerfen">Verwerfen</a>
                 </div>
-              </form>
+              </div>
 
             {% else %}
               <form method="post" class="character_form">
                 {% csrf_token %}
-                <input type="hidden" name="start_creation" value="1">
+                {% if edit_creation_basics %}
+                  <input type="hidden" name="draft_id" value="{{ draft.id }}">
+                  <input type="hidden" name="action" value="save_basics">
+                {% else %}
+                  <input type="hidden" name="start_creation" value="1">
+                {% endif %}
+                {{ country_language_config|json_script:"countryLanguageConfig" }}
 
-                <div class="form_row">
-                  <label for="characterType">Charaktertyp</label>
-                  <select class="dashboard_input" id="characterType" name="character_type">
-                    <option value="player"{% if not is_npc %} selected{% endif %}>Spielercharakter</option>
-                    <option value="npc"{% if is_npc %} selected{% endif %}>NPC</option>
-                  </select>
-                </div>
+                <section class="p1_top creation_identity creation_identity--editable" aria-labelledby="creationIdentityTitle">
+                  <div class="char_info_wrapper"><div class="char_info_box"><div class="char_info_content">
+                    <table class="char_info_table" aria-label="Charakterinformation"><tbody>
+                      <tr class="char_info_row_title"><td class="char_title" colspan="6"><div class="char_info_title_wrap"><h1 id="creationIdentityTitle">Geburt einer Legende – Charaktererschaffung</h1><span>Charakterinformation</span></div></td></tr>
+                      <tr><td class="label"><label for="{{ form.name.id_for_label }}">Name</label></td><td class="value" colspan="5">{{ form.name }}{% if form.name.errors %}<span class="form_error">{{ form.name.errors|striptags }}</span>{% endif %}</td></tr>
+                      <tr>
+                        <td class="label"><label for="characterType">Charaktertyp</label></td><td class="value"><select class="dashboard_input" id="characterType" name="character_type"><option value="player"{% if not is_npc %} selected{% endif %}>Spielercharakter</option><option value="npc"{% if is_npc %} selected{% endif %}>NPC</option></select></td>
+                        <td class="label"><label for="{{ form.race.id_for_label }}">Rasse</label></td><td class="value">{{ form.race }}{% if form.race.errors %}<span class="form_error">{{ form.race.errors|striptags }}</span>{% endif %}</td>
+                        <td class="label"><label for="{{ form.gender.id_for_label }}">Geschlecht</label></td><td class="value">{{ form.gender }}{% if form.gender.errors %}<span class="form_error">{{ form.gender.errors|striptags }}</span>{% endif %}</td>
+                      </tr>
+                      <tr>
+                        <td class="label"><label for="{{ form.country_of_origin.id_for_label }}">Herkunftsland</label></td><td class="value" colspan="2">{{ form.country_of_origin }}{% if form.country_of_origin.errors %}<span class="form_error">{{ form.country_of_origin.errors|striptags }}</span>{% endif %}</td>
+                        <td class="label">Muttersprache</td><td class="value" colspan="2" id="creationNativeLanguage">Wird aus der Herkunft bestimmt</td>
+                      </tr>
+                      <tr data-starting-experience-row><td class="label"><label for="startingExperience">Erfahrungsstufe</label></td><td class="value" colspan="2"><select class="dashboard_input" id="startingExperience" name="starting_experience">{% for points, label in starting_experience_levels %}<option value="{{ points }}"{% if points == starting_experience %} selected{% endif %}>{{ label }} — +{{ points }} EP</option>{% endfor %}</select></td><td class="value creation_identity_note" colspan="3">Start-EP stehen nach der Erschaffung zur Verfügung.</td></tr>
+                    </tbody></table>
+                  </div></div></div>
+                </section>
 
-                <div class="form_row">
-                  <label for="{{ form.name.id_for_label }}">Name</label>
-                  {{ form.name }}
-                  {% if form.name.errors %}<div class="form_error">{{ form.name.errors|striptags }}</div>{% endif %}
-                </div>
-                <div class="form_row">
-                  <label for="{{ form.race.id_for_label }}">Rasse</label>
-                  {{ form.race }}
-                  {% if form.race.errors %}<div class="form_error">{{ form.race.errors|striptags }}</div>{% endif %}
-                </div>
-                <div class="form_row">
-                  <label for="{{ form.gender.id_for_label }}">Geschlecht</label>
-                  {{ form.gender }}
-                  {% if form.gender.errors %}<div class="form_error">{{ form.gender.errors|striptags }}</div>{% endif %}
-                </div>
-                <div class="form_row">
-                  <label for="{{ form.country_of_origin.id_for_label }}">Herkunftsland</label>
-                  {{ form.country_of_origin }}
-                  {% if form.country_of_origin.errors %}<div class="form_error">{{ form.country_of_origin.errors|striptags }}</div>{% endif %}
-                </div>
-                <div class="form_row" data-starting-experience-row>
-                  <label for="startingExperience">Erfahrungsstufe</label>
-                  <select class="dashboard_input" id="startingExperience" name="starting_experience">
-                    {% for points, label in starting_experience_levels %}
-                      <option value="{{ points }}"{% if points == starting_experience %} selected{% endif %}>{{ label }} — +{{ points }} EP</option>
-                    {% endfor %}
-                  </select>
-                  <small>Die Start-EP stehen nach der Erstellung zur Verfügung und zählen nicht zu den Gesamt-EP.</small>
+                <div class="creation_locked_sections" aria-label="Spätere Bereiche">
+                  <section class="trait_line creation_sheet_section creation_sheet_section--locked" data-creation-section="properties" data-section-status="locked"><div class="creation_section_heading"><h2>Eigenschaften</h2><span>Noch nicht bearbeitbar</span></div></section>
+                  <section class="trait_line creation_sheet_section creation_sheet_section--locked" data-creation-section="skills-languages" data-section-status="locked"><div class="creation_section_heading"><h2>Fertigkeiten &amp; Sprachen</h2><span>Noch nicht bearbeitbar</span></div></section>
+                  <section class="trait_line creation_sheet_section creation_sheet_section--locked" data-creation-section="traits" data-section-status="locked"><div class="creation_section_heading"><h2>Vorzüge &amp; Schwächen</h2><span>Noch nicht bearbeitbar</span></div></section>
+                  <section class="trait_line creation_sheet_section creation_sheet_section--locked" data-creation-section="advancement" data-section-status="locked"><div class="creation_section_heading"><h2>Charakterausbau</h2><span>Noch nicht bearbeitbar</span></div></section>
                 </div>
 
                 {% if form.non_field_errors %}<div class="form_error">{{ form.non_field_errors|striptags }}</div>{% endif %}
                 <div class="form_actions">
-                  <button type="submit" class="dashboard_button dashboard_button--primary">Phasenentwurf starten</button>
-                  <a href="{% url 'dashboard' %}" class="dashboard_button">Abbrechen</a>
+                  <button type="submit" class="dashboard_button dashboard_button--primary">{% if edit_creation_basics %}Stammdaten übernehmen{% else %}Charaktererschaffung beginnen{% endif %}</button>
+                  <a href="{% if edit_creation_basics %}{% url 'create_character' %}?draft={{ draft.id }}{% else %}{% url 'dashboard' %}{% endif %}" class="dashboard_button">Zurück</a>
                 </div>
               </form>
             {% endif %}
           </div>
         </section>
       </article>
+
+      {% if not edit_mode %}
+      <article class="page page--secondary creation_secondary_page" id="sheetSecondaryPage" aria-label="Zweite Seite des Charakterbogens">
+        <section class="p2_layout">
+          <aside class="p2_left_col">
+            <section class="p2_panel p2_core_stats">
+              <div class="p2_panel_header"><h2>Basiswerte</h2></div>
+              <ul class="p2_stats" aria-label="Basiswerte des Charakters">
+                <li><span>Lebenspunkte</span><span class="pill empty">&nbsp;</span></li>
+                <li><span>Kraftpunkte</span><span class="pill empty">&nbsp;</span></li>
+                <li><span>Initiative</span><span class="pill empty">&nbsp;</span></li>
+              </ul>
+            </section>
+            <section class="p2_panel p2_damage creation_sheet_preview_panel">
+              <div class="p2_panel_header"><h2>Gesundheit</h2></div>
+              <div class="creation_sheet_lines" aria-hidden="true"><span></span><span></span><span></span></div>
+            </section>
+            <section class="p2_panel creation_sheet_preview_panel">
+              <div class="p2_panel_header"><h2>Vermögen</h2></div>
+              <div class="creation_sheet_lines" aria-hidden="true"><span></span><span></span></div>
+            </section>
+            <section class="p2_panel p2_fill creation_sheet_preview_panel">
+              <div class="p2_panel_header"><h2>Inventar</h2></div>
+              <div class="creation_sheet_lines creation_sheet_lines--fill" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>
+            </section>
+          </aside>
+          <section class="p2_right_col">
+            <section class="p2_panel creation_sheet_preview_panel creation_sheet_preview_panel--armor">
+              <div class="p2_panel_header"><h2>Rüstung &amp; Schutz</h2></div>
+              <div class="creation_sheet_lines" aria-hidden="true"><span></span><span></span></div>
+            </section>
+            <section class="p2_panel p2_lower_panel p2_lower_panel--tabbed creation_advancement_panel">
+              <div class="p2_panel_header"><h2>Charakterausbau</h2><span class="creation_secondary_status">{% if draft_phase == 4 %}In Bearbeitung{% else %}Noch nicht bearbeitbar{% endif %}</span></div>
+              <div id="creationAdvancementMount" class="creation_advancement_mount"></div>
+            </section>
+          </section>
+        </section>
+      </article>
+      {% endif %}
     </main>
+    {% if draft and not edit_mode and not edit_creation_basics %}
+      </form>
+    {% endif %}
 
     <div aria-hidden="true" class="firefly-layer">
       {% for _ in '123456789012345' %}<div class="firefly"></div>{% endfor %}
@@ -811,97 +943,52 @@
     <script src="{% static 'js/charsheet_tooltips.js' %}"></script>
     <script>
       document.addEventListener("DOMContentLoaded", function () {
+        document.querySelectorAll("[data-creation-toast]").forEach(function (toast) {
+          const dismiss = function () {
+            if (toast.classList.contains("is-leaving")) {
+              return;
+            }
+            toast.classList.add("is-leaving");
+            window.setTimeout(function () { toast.remove(); }, 220);
+          };
+          const closeButton = toast.querySelector("[data-creation-toast-close]");
+          if (closeButton) {
+            closeButton.addEventListener("click", dismiss);
+          }
+          window.setTimeout(dismiss, 15000);
+        });
+
+        const creationBudgetRailBody = document.getElementById("creationBudgetRailBody");
+        const activeBudgetGrid = document.querySelector(
+          ".creation_sheet_section--active > .phase_points_grid",
+        );
+        if (creationBudgetRailBody && activeBudgetGrid) {
+          creationBudgetRailBody.appendChild(activeBudgetGrid);
+        }
+        const creationDraftActions = document.querySelector("#creationDraftForm .form_actions");
+        if (creationBudgetRailBody && creationDraftActions) {
+          creationDraftActions.querySelectorAll('button[type="submit"]').forEach(function (button) {
+            button.setAttribute("form", "creationDraftForm");
+          });
+          creationBudgetRailBody.appendChild(creationDraftActions);
+        }
+
+        const advancementMount = document.getElementById("creationAdvancementMount");
+        const advancementSection = document.querySelector('[data-creation-section="advancement"]');
+        if (advancementMount && advancementSection) {
+          advancementMount.appendChild(advancementSection);
+        }
+
         const characterType = document.getElementById("characterType");
-        const startingExperienceRow = document.querySelector("[data-starting-experience-row]");
-        if (characterType && startingExperienceRow) {
+        const startingExperienceRows = Array.from(document.querySelectorAll("[data-starting-experience-row]"));
+        if (characterType && startingExperienceRows.length) {
           const syncCharacterType = function () {
-            startingExperienceRow.hidden = characterType.value === "npc";
+            startingExperienceRows.forEach(function (row) {
+              row.hidden = characterType.value === "npc";
+            });
           };
           characterType.addEventListener("change", syncCharacterType);
           syncCharacterType();
-        }
-
-        const isEmbedded = window.self !== window.top;
-        if (isEmbedded) {
-          document.body.classList.add("embedded-creation");
-        }
-
-        const win = document.getElementById("creationWindow");
-        const handle = document.getElementById("creationWindowHandle");
-        if (!win || !handle) {
-          return;
-        }
-
-        if (!isEmbedded) {
-          const placeCentered = function () {
-            const rect = win.getBoundingClientRect();
-            const maxLeft = Math.max(12, window.innerWidth - rect.width - 12);
-            const maxTop = Math.max(12, window.innerHeight - rect.height - 12);
-            const left = Math.min(maxLeft, Math.max(12, (window.innerWidth - rect.width) / 2));
-            const top = Math.min(maxTop, 72);
-            win.style.left = left + "px";
-            win.style.top = top + "px";
-          };
-
-          placeCentered();
-
-          let dragPointerId = null;
-          let dragOffsetX = 0;
-          let dragOffsetY = 0;
-          const isInteractiveTarget = function (target) {
-            return Boolean(target && target.closest("button, a, input, select, textarea, label"));
-          };
-
-          handle.addEventListener("pointerdown", function (event) {
-            const isPrimaryPointer = event.pointerType !== "mouse" || event.button === 0;
-            if (!isPrimaryPointer || isInteractiveTarget(event.target)) {
-              return;
-            }
-            const rect = win.getBoundingClientRect();
-            dragPointerId = event.pointerId;
-            dragOffsetX = event.clientX - rect.left;
-            dragOffsetY = event.clientY - rect.top;
-            handle.setPointerCapture(event.pointerId);
-            win.classList.add("is-dragging");
-          });
-
-          handle.addEventListener("pointermove", function (event) {
-            if (dragPointerId !== event.pointerId) {
-              return;
-            }
-            const rect = win.getBoundingClientRect();
-            const maxLeft = Math.max(12, window.innerWidth - rect.width - 12);
-            const maxTop = Math.max(12, window.innerHeight - rect.height - 12);
-            const left = Math.min(maxLeft, Math.max(12, event.clientX - dragOffsetX));
-            const top = Math.min(maxTop, Math.max(12, event.clientY - dragOffsetY));
-            win.style.left = left + "px";
-            win.style.top = top + "px";
-          });
-
-          const stopDragging = function (event) {
-            if (dragPointerId !== event.pointerId) {
-              return;
-            }
-            win.classList.remove("is-dragging");
-            try {
-              handle.releasePointerCapture(event.pointerId);
-            } catch (_error) {
-            }
-            dragPointerId = null;
-          };
-
-          handle.addEventListener("pointerup", stopDragging);
-          handle.addEventListener("pointercancel", stopDragging);
-
-          window.addEventListener("resize", function () {
-            const rect = win.getBoundingClientRect();
-            const maxLeft = Math.max(12, window.innerWidth - rect.width - 12);
-            const maxTop = Math.max(12, window.innerHeight - rect.height - 12);
-            const left = Math.min(maxLeft, Math.max(12, rect.left));
-            const top = Math.min(maxTop, Math.max(12, rect.top));
-            win.style.left = left + "px";
-            win.style.top = top + "px";
-          });
         }
 
         const phase1Inputs = Array.from(document.querySelectorAll("[data-phase1-input]"));
@@ -1028,7 +1115,8 @@
         const phase2BudgetValue = document.getElementById("phase2BudgetValue");
         const phase2RemainingValue = document.getElementById("phase2RemainingValue");
         const phase2ValidationHint = document.getElementById("phase2ValidationHint");
-        const countryOfOriginSelect = document.getElementById("creationCountryOfOrigin");
+        const countryOfOriginSelect = document.getElementById("creationCountryOfOrigin") || document.getElementById("id_country_of_origin");
+        const nativeLanguageDisplay = document.getElementById("creationNativeLanguage");
         const countryLanguageConfigElement = document.getElementById("countryLanguageConfig");
         let countryLanguageConfig = {};
         if (countryLanguageConfigElement) {
@@ -1036,6 +1124,19 @@
             countryLanguageConfig = JSON.parse(countryLanguageConfigElement.textContent || "{}");
           } catch (_error) {
             countryLanguageConfig = {};
+          }
+        }
+        const syncNativeLanguageDisplay = function () {
+          if (!countryOfOriginSelect || !nativeLanguageDisplay) {
+            return;
+          }
+          const config = countryLanguageConfig[countryOfOriginSelect.value] || {};
+          nativeLanguageDisplay.textContent = config.default_native_language_name || "Keine automatische Muttersprache";
+        };
+        if (countryOfOriginSelect) {
+          countryOfOriginSelect.addEventListener("change", syncNativeLanguageDisplay);
+          if (countryOfOriginSelect.id === "id_country_of_origin") {
+            syncNativeLanguageDisplay();
           }
         }
         const phase2NextButton = document.querySelector('button[name="action"][value="next"]');
@@ -1141,6 +1242,7 @@
 
             let langSpent = 0;
             let hasMotherTongue = false;
+            const motherTongueNames = [];
             let invalidLangWrite = false;
             getLanguageRows().forEach(function (row) {
               langSpent += syncLanguageRow(row);
@@ -1152,8 +1254,14 @@
               const motherInput = row.querySelector("[data-phase2-lang-mother]");
               if (motherInput && motherInput.checked) {
                 hasMotherTongue = true;
+                motherTongueNames.push(row.dataset.name || row.dataset.slug || "");
               }
             });
+            if (nativeLanguageDisplay) {
+              nativeLanguageDisplay.textContent = motherTongueNames.length
+                ? motherTongueNames.filter(Boolean).join(", ")
+                : "Keine Muttersprache gewählt";
+            }
 
             const total = skillSpent + langSpent;
             const budget = toInt(phase2BudgetValue.textContent, 0);
@@ -1283,7 +1391,7 @@
               <td><span>${displayName}</span>${hiddenFields}</td>
               <td><input class="dashboard_input phase2_level_input" type="number" min="${minLevel}" max="10" value="${level}" data-phase2-skill-level></td>
               <td data-phase2-skill-cost>0</td>
-              <td>${freeBase > 0 && !requiresSpecification ? '<span class="phase4_locked_marker" title="Kostenloser Grundwert">*</span>' : '<button type="button" class="phase2_remove_x" data-phase2-skill-remove aria-label="Skill entfernen" title="Entfernen">X</button>'}</td>
+              <td>${freeBase > 0 && !requiresSpecification ? '<span class="phase4_locked_marker" title="Kostenloser Grundwert">*</span>' : '<button type="button" class="phase2_remove_x" data-phase2-skill-remove aria-label="Fertigkeit entfernen" title="Entfernen">X</button>'}</td>
             `;
             return row;
           };
@@ -1293,6 +1401,7 @@
             const row = document.createElement("tr");
             row.setAttribute("data-phase2-lang-cart-item", "");
             row.dataset.slug = slug;
+            row.dataset.name = name;
             row.dataset.max = String(maxLevel);
             row.innerHTML = `
               <td>${safeName}</td>
@@ -1590,7 +1699,7 @@
               <td><span data-phase3-dis-label-base="${safeName}">${safeName}</span> <span data-phase3-dis-formula>(0)</span></td>
               <td><input class="dashboard_input phase2_level_input" type="number" min="0" max="${maxLevel}" value="1" name="dis_${slug}" data-phase3-dis-level>${renderAttributeChoiceInputs('dis', 'data-phase3-dis-choice', slug, attributeChoiceDefs)}${renderTraitSpecificationInput('dis', slug, hasSpecification, specificationOptions)}</td>
               <td data-phase3-dis-cost>0</td>
-              <td><button type="button" class="phase2_remove_x" data-phase3-dis-remove aria-label="Nachteil entfernen" title="Entfernen">X</button></td>
+              <td><button type="button" class="phase2_remove_x" data-phase3-dis-remove aria-label="Schwäche entfernen" title="Entfernen">X</button></td>
             `;
             return row;
           };
@@ -1643,34 +1752,61 @@
           if (phase3FilterInput) {
             phase3FilterInput.addEventListener("input", function () {
               const needle = (phase3FilterInput.value || "").trim().toLowerCase();
-              const rows = Array.from(document.querySelectorAll("[data-phase3-dis-source]"));
+              const rows = Array.from(document.querySelectorAll("[data-phase3-sheet-row]"));
               rows.forEach(function (row) {
                 const haystack = (row.dataset.phase3Search || "").toLowerCase();
                 row.hidden = needle.length > 0 && !haystack.includes(needle);
               });
-              Array.from(document.querySelectorAll("[data-phase3-dis-group]")).forEach(function (group) {
-                const visible = Array.from(group.querySelectorAll("tr")).some(function (row) {
-                  return !row.hidden;
-                });
-                group.hidden = !visible;
-              });
             });
           }
 
+          const arrangeSelectedWeaknesses = function () {
+            const rows = Array.from(phase3DisCartBody.querySelectorAll("[data-phase3-sheet-row]"));
+            rows.forEach(function (row, index) {
+              if (!row.dataset.originalWeaknessOrder) {
+                row.dataset.originalWeaknessOrder = String(index + 1);
+              }
+              const input = row.querySelector("[data-phase3-dis-level]");
+              row.classList.toggle(
+                "is-selected",
+                Boolean(input && toInt(input.value, 0) > 0),
+              );
+            });
+            rows.sort(function (left, right) {
+              const leftInput = left.querySelector("[data-phase3-dis-level]");
+              const rightInput = right.querySelector("[data-phase3-dis-level]");
+              const leftSelected = leftInput && toInt(leftInput.value, 0) > 0 ? 1 : 0;
+              const rightSelected = rightInput && toInt(rightInput.value, 0) > 0 ? 1 : 0;
+              if (leftSelected !== rightSelected) {
+                return rightSelected - leftSelected;
+              }
+              return Number(left.dataset.originalWeaknessOrder) - Number(right.dataset.originalWeaknessOrder);
+            });
+            const emptyRow = phase3DisCartBody.querySelector("[data-phase3-dis-cart-empty]");
+            rows.forEach(function (row) {
+              phase3DisCartBody.insertBefore(row, emptyRow);
+            });
+          };
+
+          phase3DisCartBody.addEventListener("input", function (event) {
+            if (event.target.matches("[data-phase3-dis-level]")) {
+              arrangeSelectedWeaknesses();
+            }
+          });
+
           ensurePhase3EmptyRow();
           refreshPhase3Totals();
+          arrangeSelectedWeaknesses();
         }
 
         const phase4CartBody = document.getElementById("phase4CartBody");
         const phase4AdvBudgetValue = document.getElementById("phase4AdvBudgetValue");
-        const phase4AdvSpentValue = document.getElementById("phase4AdvSpentValue");
         const phase4AdvRemainingValue = document.getElementById("phase4AdvRemainingValue");
         const phase4RestBudgetValue = document.getElementById("phase4RestBudgetValue");
-        const phase4RestSpentValue = document.getElementById("phase4RestSpentValue");
         const phase4RestRemainingValue = document.getElementById("phase4RestRemainingValue");
         const phase4ValidationHint = document.getElementById("phase4ValidationHint");
         const phase4FinalizeButton = document.querySelector('button[name="action"][value="finalize"]');
-        if (phase4CartBody && phase4AdvBudgetValue && phase4AdvSpentValue && phase4AdvRemainingValue && phase4RestBudgetValue && phase4RestSpentValue && phase4RestRemainingValue) {
+        if (phase4CartBody && phase4AdvBudgetValue && phase4AdvRemainingValue && phase4RestBudgetValue && phase4RestRemainingValue) {
           const toInt = function (value, fallback) {
             const parsed = Number.parseInt(value, 10);
             return Number.isNaN(parsed) ? fallback : parsed;
@@ -1692,9 +1828,11 @@
             return safeLevel * ppl;
           };
 
-          const initialRestBudget = toInt(phase4RestBudgetValue.textContent, 0);
-          const initialAdvSpent = toInt(phase4AdvSpentValue.textContent, 0);
-          const totalBudgetBase = initialRestBudget + initialAdvSpent;
+          const phase4PointsGrid = phase4AdvBudgetValue.closest(".phase_points_grid--phase4");
+          const totalBudgetBase = toInt(
+            phase4PointsGrid ? phase4PointsGrid.dataset.totalBudget : "0",
+            0,
+          );
 
           const clamp = function (value, min, max) {
             return Math.min(max, Math.max(min, value));
@@ -2117,20 +2255,11 @@
             const restBudget = totalBudgetBase - advSpent;
             const advRemaining = advBudget - advSpent;
             const restRemaining = restBudget - restSpent;
-            phase4RestBudgetValue.textContent = String(restBudget);
-            phase4AdvSpentValue.textContent = String(advSpent);
-            phase4RestSpentValue.textContent = String(restSpent);
             phase4AdvRemainingValue.textContent = String(advRemaining);
             phase4RestRemainingValue.textContent = String(restRemaining);
-            phase4AdvSpentValue.classList.toggle("is-under", advSpent < advBudget);
-            phase4AdvSpentValue.classList.toggle("is-over", advSpent > advBudget);
-            phase4AdvSpentValue.classList.toggle("is-equal", advSpent === advBudget);
             phase4AdvRemainingValue.classList.toggle("is-over", advRemaining < 0);
             phase4AdvRemainingValue.classList.toggle("is-equal", advRemaining === 0);
             phase4AdvRemainingValue.classList.toggle("is-under", advRemaining > 0);
-            phase4RestSpentValue.classList.toggle("is-under", restSpent < restBudget);
-            phase4RestSpentValue.classList.toggle("is-over", restSpent > restBudget);
-            phase4RestSpentValue.classList.toggle("is-equal", restSpent === restBudget);
             phase4RestRemainingValue.classList.toggle("is-over", restRemaining < 0);
             phase4RestRemainingValue.classList.toggle("is-equal", restRemaining === 0);
             phase4RestRemainingValue.classList.toggle("is-under", restRemaining > 0);
@@ -2346,7 +2475,7 @@
                 <td><span data-phase4-skill-label-base="${displayName}">${displayName}</span> <span data-phase4-skill-level-info>(${base + Math.min(1, maxAdd)})</span>${hiddenFields}</td>
                 <td><input class="dashboard_input phase2_level_input" type="number" min="0" max="${maxAdd}" value="${Math.min(1, maxAdd)}" data-phase4-value><div class="phase4_target_hint" data-phase4-target></div></td>
                 <td data-phase4-cost>0</td>
-                <td>${base > 0 && !requiresSpecification ? '<span class="phase4_locked_marker" title="Aus Phase 2 übernommen">*</span>' : '<button type="button" class="phase2_remove_x" data-phase4-remove aria-label="Eintrag entfernen" title="Entfernen">X</button>'}</td>
+                <td>${base > 0 && !requiresSpecification ? '<span class="phase4_locked_marker" title="Aus Fertigkeiten &amp; Sprachen übernommen">*</span>' : '<button type="button" class="phase2_remove_x" data-phase4-remove aria-label="Eintrag entfernen" title="Entfernen">X</button>'}</td>
               `;
               return row;
             }
@@ -2378,7 +2507,7 @@
                   <div class="phase4_target_hint" data-phase4-target></div>
                 </td>
                 <td data-phase4-cost>0</td>
-                <td>${isLocked ? '<span class="phase4_locked_marker" title="Aus Phase 2 übernommen">*</span>' : '<button type="button" class="phase2_remove_x" data-phase4-remove aria-label="Eintrag entfernen" title="Entfernen">X</button>'}</td>
+                <td>${isLocked ? '<span class="phase4_locked_marker" title="Aus Fertigkeiten &amp; Sprachen übernommen">*</span>' : '<button type="button" class="phase2_remove_x" data-phase4-remove aria-label="Eintrag entfernen" title="Entfernen">X</button>'}</td>
               `;
               return row;
             }
@@ -2413,6 +2542,9 @@
 
           const addFromSource = function (source) {
             if (!source) {
+              return;
+            }
+            if (source.dataset.kind === "lesson" && source.dataset.phase4Available === "0") {
               return;
             }
             const key = source.dataset.key || "";
@@ -2476,9 +2608,518 @@
             });
           }
 
+          const findPhase4SheetCartRow = function (kind, key) {
+            const rows = getRows();
+            return rows.find(function (row) {
+              if (row.dataset.key === key) {
+                return true;
+              }
+              if (kind === "skill") {
+                const slug = key.split(":")[1] || "";
+                return row.dataset.kind === "skill" && row.dataset.slug === slug;
+              }
+              return false;
+            }) || null;
+          };
+
+          const findPhase4SheetSource = function (kind, key) {
+            return Array.from(document.querySelectorAll("[data-phase4-source]")).find(function (source) {
+              if (source.dataset.key === key) {
+                return true;
+              }
+              if (kind === "skill") {
+                return key.startsWith(`${source.dataset.key || ""}:`);
+              }
+              return false;
+            }) || null;
+          };
+
+          const exposePhase4SheetChoices = function (control, cartRow) {
+            const choices = Array.from(cartRow.querySelectorAll(".phase4_choice_block"));
+            if (!choices.length) {
+              return;
+            }
+            const host = control.closest("tr, li, .trait_line, .creation_phase4_direct_row");
+            if (!host) {
+              return;
+            }
+            let choiceHost = host.querySelector(".creation_phase4_inline_choices");
+            if (!choiceHost) {
+              choiceHost = document.createElement("span");
+              choiceHost.className = "creation_phase4_inline_choices";
+              host.appendChild(choiceHost);
+            }
+            choices.forEach(function (choice) {
+              choiceHost.appendChild(choice);
+            });
+          };
+
+          const phase4DirectScopes = Array.from(document.querySelectorAll("[data-phase4-filter-scope]"));
+          const phase4DirectRowSelected = function (row) {
+            if (row.dataset.phase4BaseSelected === "1") {
+              return true;
+            }
+            return Array.from(row.querySelectorAll("[data-phase4-sheet-value], [data-phase4-sheet-write], [data-phase4-sheet-toggle]")).some(function (control) {
+              if (control.matches('[type="checkbox"]')) {
+                return control.checked;
+              }
+              return toInt(control.value, 0) > 0;
+            });
+          };
+
+          const refreshPhase4DirectScope = function (scope) {
+            if (!scope) {
+              return;
+            }
+            const filter = scope.querySelector("[data-phase4-direct-filter]");
+            const needle = ((filter && filter.value) || "").trim().toLowerCase();
+            const rows = Array.from(scope.querySelectorAll("[data-phase4-direct-row]"));
+            const parents = [];
+            rows.forEach(function (row, index) {
+              if (!row.dataset.phase4OriginalOrder) {
+                row.dataset.phase4OriginalOrder = String(index + 1);
+              }
+              const selected = phase4DirectRowSelected(row);
+              row.classList.toggle("is-selected", selected);
+              const available = row.dataset.phase4Available !== "0";
+              row.hidden = !available || (needle.length > 0 && !(row.dataset.search || "").toLowerCase().includes(needle));
+              row.setAttribute("aria-hidden", row.hidden ? "true" : "false");
+              if (!parents.includes(row.parentElement)) {
+                parents.push(row.parentElement);
+              }
+            });
+            parents.forEach(function (parent) {
+              rows.filter(function (row) {
+                return row.parentElement === parent;
+              }).sort(function (left, right) {
+                const selectedDifference = Number(phase4DirectRowSelected(right)) - Number(phase4DirectRowSelected(left));
+                if (selectedDifference) {
+                  return selectedDifference;
+                }
+                return toInt(left.dataset.phase4OriginalOrder, 0) - toInt(right.dataset.phase4OriginalOrder, 0);
+              }).forEach(function (row) {
+                parent.appendChild(row);
+              });
+            });
+          };
+
+          const refreshPhase4DirectControl = function (control) {
+            refreshPhase4DirectScope(control.closest("[data-phase4-filter-scope]"));
+          };
+
+          phase4DirectScopes.forEach(function (scope) {
+            const filter = scope.querySelector("[data-phase4-direct-filter]");
+            if (filter) {
+              filter.addEventListener("input", function () {
+                refreshPhase4DirectScope(scope);
+              });
+            }
+            refreshPhase4DirectScope(scope);
+          });
+
+          const syncPhase4SheetValue = function (control) {
+            const kind = control.dataset.kind || "";
+            const key = control.dataset.key || "";
+            let purchaseValue = toInt(control.value, 0);
+            if (kind === "adv") {
+              const minValue = toInt(control.dataset.min, 0);
+              const maxValue = toInt(control.max, 0);
+              purchaseValue = Math.min(maxValue, Math.max(0, purchaseValue));
+              if (purchaseValue > 0 && purchaseValue < minValue) {
+                purchaseValue = minValue;
+              }
+              control.value = String(purchaseValue);
+              const effectiveLabel = control.closest(".trait_line")?.querySelector("[data-phase4-effective-label]");
+              if (effectiveLabel) {
+                const name = effectiveLabel.dataset.name || "";
+                const effectiveValue = traitCostForLevel(
+                  purchaseValue,
+                  toInt(control.dataset.ppl, 0),
+                  control.dataset.pointCurve || "",
+                );
+                effectiveLabel.textContent = purchaseValue > 0
+                  ? `${name} (${effectiveValue})`
+                  : name;
+              }
+            } else if (kind === "lang") {
+              const baseValue = toInt(control.dataset.base, 0);
+              const maxValue = toInt(control.max, baseValue);
+              const displayedValue = Math.min(
+                maxValue,
+                Math.max(baseValue, purchaseValue),
+              );
+              control.value = String(displayedValue);
+              purchaseValue = displayedValue - baseValue;
+              const dots = Array.from(
+                control.closest("li")?.querySelectorAll(".language_dots .dot:not(.literacy_dot)") || [],
+              );
+              dots.forEach(function (dot, index) {
+                dot.classList.toggle("is-filled", displayedValue >= index + 1);
+              });
+            }
+            let cartRow = findPhase4SheetCartRow(kind, key);
+            if (!cartRow && purchaseValue > 0) {
+              const source = findPhase4SheetSource(kind, key);
+              if (source) {
+                source.click();
+                cartRow = findPhase4SheetCartRow(kind, key);
+              }
+            }
+            if (!cartRow) {
+              return;
+            }
+            const cartInput = cartRow.querySelector("[data-phase4-value]");
+            if (cartInput) {
+              cartInput.value = String(purchaseValue);
+              cartInput.dispatchEvent(new Event("input", { bubbles: true }));
+            }
+            exposePhase4SheetChoices(control, cartRow);
+          };
+
+          Array.from(document.querySelectorAll("[data-phase4-sheet-value]")).forEach(function (control) {
+            control.addEventListener("input", function () {
+              syncPhase4SheetValue(control);
+              refreshPhase4DirectControl(control);
+            });
+            control.addEventListener("change", function () {
+              syncPhase4SheetValue(control);
+              refreshPhase4DirectControl(control);
+            });
+            const cartRow = findPhase4SheetCartRow(control.dataset.kind || "", control.dataset.key || "");
+            if (cartRow) {
+              exposePhase4SheetChoices(control, cartRow);
+            }
+          });
+
+          Array.from(document.querySelectorAll("[data-phase4-sheet-write]")).forEach(function (control) {
+            control.addEventListener("change", function () {
+              const key = control.dataset.key || "";
+              let cartRow = findPhase4SheetCartRow("lang", key);
+              if (!cartRow && control.checked) {
+                const source = findPhase4SheetSource("lang", key);
+                if (source) {
+                  source.click();
+                  cartRow = findPhase4SheetCartRow("lang", key);
+                }
+              }
+              const cartWrite = cartRow ? cartRow.querySelector("[data-phase4-lang-write]") : null;
+              if (cartWrite) {
+                cartWrite.checked = control.checked;
+                cartWrite.dispatchEvent(new Event("change", { bubbles: true }));
+              }
+              const literacyDot = control.closest("li")?.querySelector(".literacy_dot");
+              if (literacyDot) {
+                literacyDot.classList.toggle("is-filled", control.checked);
+              }
+              refreshPhase4DirectControl(control);
+            });
+          });
+
+          Array.from(document.querySelectorAll("[data-phase4-sheet-toggle]")).forEach(function (control) {
+            control.addEventListener("change", function () {
+              const kind = control.dataset.kind || "";
+              const key = control.dataset.key || "";
+              let cartRow = findPhase4SheetCartRow(kind, key);
+              if (control.checked && !cartRow) {
+                const source = findPhase4SheetSource(kind, key);
+                if (source) {
+                  source.click();
+                }
+                refreshPhase4DirectControl(control);
+                return;
+              }
+              if (!control.checked && cartRow) {
+                const removeButton = cartRow.querySelector("[data-phase4-remove]");
+                if (removeButton) {
+                  removeButton.click();
+                }
+              }
+              refreshPhase4DirectControl(control);
+            });
+          });
+
+          const phase4DraftForm = document.getElementById("creationDraftForm");
+          const phase4LessonScope = document.querySelector("[data-phase4-lesson-row]")?.closest("[data-phase4-filter-scope]");
+          let phase4LessonRefreshTimer = null;
+          let phase4LessonRefreshController = null;
+          const refreshPhase4LessonOptions = function () {
+            if (!phase4DraftForm || !phase4LessonScope) {
+              return;
+            }
+            if (phase4LessonRefreshController) {
+              phase4LessonRefreshController.abort();
+            }
+            phase4LessonRefreshController = new AbortController();
+            const payload = new FormData(phase4DraftForm);
+            payload.set("action", "lesson_options");
+            fetch(phase4DraftForm.action || window.location.href, {
+              method: "POST",
+              body: payload,
+              signal: phase4LessonRefreshController.signal,
+              headers: { "X-Requested-With": "XMLHttpRequest" },
+            }).then(function (response) {
+              if (!response.ok) {
+                throw new Error("lesson-options");
+              }
+              return response.json();
+            }).then(function (data) {
+              const availableIds = new Set((data.available_lesson_ids || []).map(String));
+              Array.from(document.querySelectorAll("[data-phase4-lesson-row]")).forEach(function (row) {
+                const available = availableIds.has(row.dataset.lessonId || "");
+                row.dataset.phase4Available = available ? "1" : "0";
+                const control = row.querySelector("[data-phase4-sheet-toggle]");
+                if (control) {
+                  control.disabled = !available;
+                  if (!available && control.checked) {
+                    control.checked = false;
+                    control.dispatchEvent(new Event("change", { bubbles: true }));
+                  }
+                }
+              });
+              Array.from(document.querySelectorAll('[data-phase4-source][data-kind="lesson"]')).forEach(function (source) {
+                source.dataset.phase4Available = availableIds.has(source.dataset.id || "") ? "1" : "0";
+              });
+              refreshPhase4DirectScope(phase4LessonScope);
+            }).catch(function (error) {
+              if (error.name !== "AbortError") {
+                phase4LessonRefreshController = null;
+              }
+            });
+          };
+
+          const schedulePhase4LessonRefresh = function () {
+            window.clearTimeout(phase4LessonRefreshTimer);
+            phase4LessonRefreshTimer = window.setTimeout(refreshPhase4LessonOptions, 180);
+          };
+
+          if (phase4DraftForm && phase4LessonScope) {
+            phase4DraftForm.addEventListener("input", function (event) {
+              if (event.target.matches("[data-phase4-sheet-value], [data-phase4-value], [data-phase4-adv-choice]")) {
+                schedulePhase4LessonRefresh();
+              }
+            });
+            phase4DraftForm.addEventListener("change", function (event) {
+              if (event.target.matches("[data-phase4-sheet-value], [data-phase4-sheet-write], [data-phase4-sheet-toggle], [data-phase4-value], [data-phase4-adv-choice], [name^='adv_spec_']")) {
+                schedulePhase4LessonRefresh();
+              }
+            });
+          }
+
           ensureEmptyRow();
           refreshTotals();
         }
+
+        const findPhase2SkillCartRow = function (slug, specification) {
+          return Array.from(document.querySelectorAll("[data-phase2-skill-cart-item]")).find(function (row) {
+            return row.dataset.slug === slug && (row.dataset.specification || "") === (specification || "");
+          }) || null;
+        };
+
+        const syncSheetSkillRow = function (sheetRow) {
+          const sheetInput = sheetRow.querySelector("[data-creation-phase2-skill-value]");
+          if (!sheetInput) {
+            return;
+          }
+          const slug = sheetRow.dataset.slug || "";
+          const specification = sheetRow.dataset.specification || "";
+          let cartRow = findPhase2SkillCartRow(slug, specification);
+          if (!cartRow && Number.parseInt(sheetInput.value || "0", 10) > 0) {
+            const source = Array.from(document.querySelectorAll("[data-phase2-skill-source]")).find(function (candidate) {
+              return candidate.dataset.slug === slug;
+            });
+            if (source) {
+              source.click();
+              cartRow = findPhase2SkillCartRow(slug, specification);
+            }
+          }
+          const cartInput = cartRow ? cartRow.querySelector("[data-phase2-skill-level]") : null;
+          if (cartInput) {
+            cartInput.value = sheetInput.value;
+            cartInput.dispatchEvent(new Event("input", { bubbles: true }));
+          }
+        };
+
+        Array.from(document.querySelectorAll("[data-creation-phase2-skill-row]")).forEach(function (row) {
+          const input = row.querySelector("[data-creation-phase2-skill-value]");
+          if (input) {
+            input.addEventListener("input", function () { syncSheetSkillRow(row); });
+            input.addEventListener("change", function () { syncSheetSkillRow(row); });
+          }
+        });
+
+        Array.from(document.querySelectorAll("[data-creation-phase2-add-spec]")).forEach(function (row) {
+          const addSpecification = function () {
+            const source = Array.from(document.querySelectorAll("[data-phase2-skill-source]")).find(function (candidate) {
+              return candidate.dataset.slug === row.dataset.slug;
+            });
+            if (source) {
+              source.click();
+              const existingSpecifications = Array.from(document.querySelectorAll("[data-creation-phase2-skill-row]")).map(function (candidate) {
+                return `${candidate.dataset.slug || ""}:${candidate.dataset.specification || ""}`;
+              });
+              Array.from(document.querySelectorAll("[data-phase2-skill-cart-item]")).forEach(function (cartRow) {
+                const specification = cartRow.dataset.specification || "";
+                const key = `${cartRow.dataset.slug || ""}:${specification}`;
+                if (cartRow.dataset.slug !== row.dataset.slug || !specification || existingSpecifications.includes(key)) {
+                  return;
+                }
+                const sheetRow = document.createElement("tr");
+                sheetRow.dataset.creationPhase2SkillRow = "";
+                sheetRow.dataset.skillCategory = row.dataset.skillCategory || "";
+                sheetRow.dataset.slug = cartRow.dataset.slug || "";
+                sheetRow.dataset.specification = specification;
+                const nameCell = cartRow.querySelector("td");
+                const cartInput = cartRow.querySelector("[data-phase2-skill-level]");
+                sheetRow.innerHTML = `<td>${escapeHtml(nameCell ? nameCell.textContent.trim() : specification)}</td><td><input class="creation_sheet_value_input" type="number" min="0" max="10" value="${escapeHtml(cartInput ? cartInput.value : "1")}" data-creation-phase2-skill-value></td>`;
+                const sheetInput = sheetRow.querySelector("[data-creation-phase2-skill-value]");
+                sheetInput.addEventListener("input", function () { syncSheetSkillRow(sheetRow); });
+                sheetInput.addEventListener("change", function () { syncSheetSkillRow(sheetRow); });
+                row.parentNode.insertBefore(sheetRow, row);
+              });
+            }
+          };
+          row.addEventListener("click", addSpecification);
+          row.addEventListener("keydown", function (event) {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              addSpecification();
+            }
+          });
+        });
+
+        const syncSheetLanguageRow = function (sheetRow) {
+          const slug = sheetRow.dataset.slug || "";
+          const sheetLevel = sheetRow.querySelector("[data-creation-phase2-language-level]");
+          const sheetWrite = sheetRow.querySelector("[data-creation-phase2-language-write]");
+          const sheetMother = sheetRow.querySelector("[data-creation-phase2-language-mother]");
+          let cartRow = Array.from(document.querySelectorAll("[data-phase2-lang-cart-item]")).find(function (row) {
+            return row.dataset.slug === slug;
+          }) || null;
+          const hasValue = Number.parseInt(sheetLevel ? sheetLevel.value : "0", 10) > 0
+            || Boolean(sheetWrite && sheetWrite.checked)
+            || Boolean(sheetMother && sheetMother.checked);
+          if (!cartRow && hasValue) {
+            const source = Array.from(document.querySelectorAll("[data-phase2-lang-source]")).find(function (candidate) {
+              return candidate.dataset.slug === slug;
+            });
+            if (source) {
+              source.click();
+              cartRow = Array.from(document.querySelectorAll("[data-phase2-lang-cart-item]")).find(function (row) {
+                return row.dataset.slug === slug;
+              }) || null;
+            }
+          }
+          if (!cartRow) {
+            return;
+          }
+          const cartLevel = cartRow.querySelector("[data-phase2-lang-level]");
+          const cartWrite = cartRow.querySelector("[data-phase2-lang-write]");
+          const cartMother = cartRow.querySelector("[data-phase2-lang-mother]");
+          if (cartLevel && sheetLevel) {
+            cartLevel.value = sheetLevel.value;
+            cartLevel.dispatchEvent(new Event("input", { bubbles: true }));
+          }
+          if (cartWrite && sheetWrite) {
+            cartWrite.checked = sheetWrite.checked;
+            cartWrite.dispatchEvent(new Event("change", { bubbles: true }));
+          }
+          if (cartMother && sheetMother) {
+            cartMother.checked = sheetMother.checked;
+            cartMother.dispatchEvent(new Event("change", { bubbles: true }));
+          }
+        };
+
+        Array.from(document.querySelectorAll("[data-creation-phase2-language-row]")).forEach(function (row) {
+          row.querySelectorAll("input").forEach(function (input) {
+            input.addEventListener("input", function () { syncSheetLanguageRow(row); });
+            input.addEventListener("change", function () { syncSheetLanguageRow(row); });
+          });
+        });
+
+        const phase2SkillSheetBody = document.querySelector(".creation_phase2_skills_table tbody");
+        const arrangeSelectedSkills = function () {
+          if (!phase2SkillSheetBody) {
+            return;
+          }
+          const previousSelectedHeader = phase2SkillSheetBody.querySelector("[data-selected-skills-heading]");
+          if (previousSelectedHeader) {
+            previousSelectedHeader.remove();
+          }
+          const categoryHeaders = Array.from(phase2SkillSheetBody.querySelectorAll(".creation_phase2_category[data-skill-category]"));
+          const skillRows = Array.from(phase2SkillSheetBody.querySelectorAll("[data-skill-category]:not(.creation_phase2_category)"));
+          skillRows.forEach(function (row, index) {
+            if (!row.dataset.originalSkillOrder) {
+              row.dataset.originalSkillOrder = String(index + 1);
+            }
+          });
+          categoryHeaders.forEach(function (header, categoryIndex) {
+            const nextHeader = categoryHeaders[categoryIndex + 1] || null;
+            skillRows
+              .filter(function (row) { return row.dataset.skillCategory === header.dataset.skillCategory; })
+              .sort(function (left, right) {
+                return Number(left.dataset.originalSkillOrder) - Number(right.dataset.originalSkillOrder);
+              })
+              .forEach(function (row) {
+                phase2SkillSheetBody.insertBefore(row, nextHeader);
+              });
+          });
+          const selectedRows = skillRows.filter(function (row) {
+            const input = row.querySelector("[data-creation-phase2-skill-value]");
+            return input && Number.parseInt(input.value || "0", 10) > 0;
+          });
+          if (!selectedRows.length) {
+            return;
+          }
+          const selectedHeader = document.createElement("tr");
+          selectedHeader.className = "creation_phase2_category creation_phase2_category--selected";
+          selectedHeader.dataset.selectedSkillsHeading = "";
+          selectedHeader.innerHTML = '<th colspan="2">Belegte Fertigkeiten</th>';
+          const firstCategory = categoryHeaders[0] || phase2SkillSheetBody.firstElementChild;
+          phase2SkillSheetBody.insertBefore(selectedHeader, firstCategory);
+          selectedRows.forEach(function (row) {
+            phase2SkillSheetBody.insertBefore(row, firstCategory);
+          });
+        };
+
+        if (phase2SkillSheetBody) {
+          phase2SkillSheetBody.addEventListener("input", function (event) {
+            if (event.target.matches("[data-creation-phase2-skill-value]")) {
+              arrangeSelectedSkills();
+            }
+          });
+          arrangeSelectedSkills();
+        }
+
+        const bindCreationSheetFilter = function (filter) {
+          if (!filter) {
+            return;
+          }
+          const fieldset = filter.closest(".creation_phase2_fieldset");
+          if (!fieldset) {
+            return;
+          }
+          filter.addEventListener("input", function () {
+            const needle = filter.value.trim().toLowerCase();
+            fieldset.querySelectorAll("[data-search]").forEach(function (row) {
+              row.hidden = needle.length > 0 && !(row.dataset.search || "").includes(needle);
+            });
+            fieldset.querySelectorAll(".creation_phase2_category").forEach(function (category) {
+              let next = category.nextElementSibling;
+              let hasVisibleRow = false;
+              while (next && !next.classList.contains("creation_phase2_category")) {
+                if (next.hasAttribute("data-search") && !next.hidden) {
+                  hasVisibleRow = true;
+                  break;
+                }
+                next = next.nextElementSibling;
+              }
+              category.hidden = needle.length > 0 && !hasVisibleRow;
+            });
+          });
+        };
+
+        bindCreationSheetFilter(document.getElementById("creationPhase2SheetFilter"));
+        bindCreationSheetFilter(document.getElementById("creationPhase2LanguageFilter"));
       });
     </script>
   </body>
