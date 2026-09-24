@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import timedelta
 import json
+from uuid import uuid4
 
 from django.contrib.contenttypes.fields import GenericRelation
 from django.core.exceptions import ObjectDoesNotExist
@@ -619,6 +620,69 @@ def create_transfer(
     _event(item, ItemOwnershipEvent.EventType.CREATED, transfer=transfer, actor=sender, from_character=sender, to_character=recipient, details={"message": message})
     _notify(recipient.owner, item, "offer", f"{sender.name} möchte dir {item_snapshot['name']} übergeben.", transfer)
     return transfer
+
+
+@transaction.atomic
+def create_transfers(
+    *,
+    items: list[dict],
+    sender: Character,
+    recipient: Character,
+    message: str = "",
+    money: int = 0,
+    permissions=None,
+    transfer_original_ownership: bool = False,
+):
+    """Create several item offers as one all-or-nothing operation."""
+    money = int(money)
+    if money < 0:
+        raise TransferError(
+            "invalid_money",
+            "Der Geldbetrag darf nicht negativ sein.",
+        )
+    if not items and not money:
+        raise TransferError(
+            "empty_transfer",
+            "Bitte wähle mindestens einen Gegenstand oder einen Geldbetrag.",
+        )
+    locked_characters = {
+        character.pk: character
+        for character in Character.objects.select_for_update()
+        .filter(pk__in=[sender.pk, recipient.pk])
+        .order_by("pk")
+    }
+    locked_sender = locked_characters[sender.pk]
+    locked_recipient = locked_characters[recipient.pk]
+    if money > locked_sender.money:
+        raise TransferError(
+            "insufficient_money",
+            "So viel Geld ist nicht verfügbar.",
+        )
+    transfers = []
+    for entry in items:
+        transfers.append(
+            create_transfer(
+                item_id=entry["item_id"],
+                sender=sender,
+                recipient=recipient,
+                quantity=entry["quantity"],
+                message=message,
+                permissions=permissions,
+                transfer_original_ownership=transfer_original_ownership,
+            )
+        )
+    if money:
+        locked_sender.money -= money
+        locked_recipient.money += money
+        locked_sender.save(update_fields=["money"])
+        locked_recipient.save(update_fields=["money"])
+        ItemTransferNotification.objects.create(
+            user=locked_recipient.owner,
+            item_provenance_id=uuid4(),
+            kind="money",
+            message=f"{locked_sender.name} hat dir {money} Geld gesendet.",
+        )
+    return transfers
 
 
 @transaction.atomic

@@ -222,10 +222,14 @@ export function initSheetActions() {
         },
         credentials: "same-origin",
       });
+      const payload = await response.json().catch(() => null);
       if (!response.ok) {
+        if (form.hasAttribute("data-ajax-only")) {
+          form.dispatchEvent(new CustomEvent("sheet:action-failed", { bubbles: true, detail: payload }));
+          return;
+        }
         throw new Error("sheet action failed");
       }
-      const payload = await response.json();
       if (!payload?.ok) {
         if (form.hasAttribute("data-ajax-only")) {
           form.dispatchEvent(new CustomEvent("sheet:action-failed", { bubbles: true, detail: payload }));

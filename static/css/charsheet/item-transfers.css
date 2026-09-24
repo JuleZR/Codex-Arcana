@@ -23,11 +23,12 @@
   display: none;
 }
 .inv_transfer_state { display: block; font-size: .72em; font-style: italic; }
-#itemTransferDialog { width:min(460px,calc(100vw - 28px)); color:#29180d; }
-#itemTransferDialog .sheet-window__body { padding:12px; }
+#itemTransferDialog { width:min(920px,calc(100vw - 24px))!important;max-height:min(720px,calc(100dvh - 24px));color:#29180d; }
+#itemTransferDialog .sheet-window__body { max-height:calc(min(720px,100dvh - 24px) - 34px);padding:12px;overflow:hidden; }
 #itemTransferDialog .sheet-window__editor-shell { padding:4px; background:linear-gradient(180deg,rgba(232,201,146,.96),rgba(150,104,54,.9)); box-shadow:inset 0 0 0 1px rgba(255,236,200,.26),0 8px 20px rgba(37,21,9,.12); }
-#itemTransferDialog .sheet-window__editor-pane { max-height:calc(100vh - 52px);overflow-y:auto;padding:16px;border:1px solid rgba(214,177,116,.42);background:linear-gradient(180deg,rgba(255,249,238,.18),rgba(227,206,170,.08)),url("/static/img/pergamentbg.jpg") center/cover no-repeat; }
+#itemTransferDialog .sheet-window__editor-pane { max-height:calc(min(720px,100dvh - 24px) - 66px);overflow-y:auto;padding:16px;border:1px solid rgba(214,177,116,.42);background:linear-gradient(180deg,rgba(255,249,238,.18),rgba(227,206,170,.08)),url("/static/img/pergamentbg.jpg") center/cover no-repeat; }
 .item-transfer-form,.item-transfer-form label{display:grid;gap:.4rem}.item-transfer-form{gap:.85rem}.item-transfer-form__heading{display:grid;gap:.2rem;padding-bottom:.55rem;border-bottom:1px solid rgba(118,88,57,.22);font-family:"Cinzel",Georgia,serif;text-transform:uppercase}.item-transfer-form__heading span{font-size:1rem;font-weight:700}.item-transfer-form__heading strong{font:600 .9rem "Cormorant Garamond",Georgia,serif;text-transform:none}.item-transfer-form__actions{display:flex;justify-content:flex-end;gap:.5rem}.item-transfer-results{display:grid;max-height:12rem;overflow:auto;gap:.25rem}.item-transfer-results:empty{display:none}.item-transfer-results button{text-align:left;padding:.5rem;border:1px solid rgba(126,98,63,.28);border-radius:8px;background:rgba(255,251,242,.72);color:#3f2b1d;cursor:pointer}
+.item-transfer-form__columns{display:grid;grid-template-columns:minmax(270px,1.12fr) minmax(220px,.88fr);gap:1rem;align-items:start}.item-transfer-form__details{display:grid;gap:.8rem;min-width:0}.item-transfer-selection{display:flex;flex-direction:column;min-width:0;max-height:min(480px,calc(100dvh - 190px));margin:0;padding:.7rem;border:1px solid rgba(111,73,38,.38);border-radius:8px;background:linear-gradient(155deg,rgba(255,252,243,.72),rgba(225,196,148,.28));box-shadow:inset 0 1px 0 rgba(255,255,255,.62),0 3px 10px rgba(71,43,20,.1)}.item-transfer-selection legend{padding:0 .42rem;color:#4f2e18;font:700 .84rem "Cinzel",Georgia,serif;letter-spacing:.05em;text-transform:uppercase}.item-transfer-selection__list{display:grid;gap:.38rem;min-height:0;overflow-x:hidden;overflow-y:auto;padding:.12rem .28rem .12rem 0;scrollbar-color:rgba(117,76,38,.48) transparent;scrollbar-width:thin}.item-transfer-selection__row{grid-template-columns:1.15rem minmax(0,1fr) 3.8rem!important;align-items:center;gap:.55rem!important;min-height:45px;padding:.48rem .5rem;border:1px solid rgba(126,98,63,.2);border-radius:7px;background:rgba(255,252,245,.55);box-shadow:0 1px 2px rgba(62,37,17,.06);cursor:pointer;transition:background .16s ease,border-color .16s ease,box-shadow .16s ease,transform .16s ease}.item-transfer-selection__row:hover{border-color:rgba(116,71,34,.42);background:rgba(255,250,237,.86);transform:translateY(-1px)}.item-transfer-selection__row.is-selected{border-color:rgba(128,51,35,.58);background:linear-gradient(90deg,rgba(238,210,177,.78),rgba(255,250,238,.88));box-shadow:inset 3px 0 0 #873b2d,0 2px 5px rgba(62,37,17,.1)}.item-transfer-selection__row>input[type="checkbox"]{width:1rem;height:1rem;margin:0;accent-color:#873b2d}.item-transfer-selection__row>span{min-width:0;font-weight:650;line-height:1.12;overflow-wrap:anywhere}.item-transfer-selection__row>input[type="number"]{min-width:0;width:100%;padding:.32rem .28rem;text-align:center}.item-transfer-selection__row>input[type="number"]:disabled{opacity:.45}.item-transfer-selection__row small{display:block;margin-top:.12rem;color:rgba(91,57,30,.72);font-size:.66rem;font-weight:600;letter-spacing:.04em;text-transform:uppercase}.item-transfer-form__error{margin:0;padding:.5rem .65rem;border:1px solid rgba(143,63,43,.48);border-radius:5px;background:rgba(246,224,205,.72);color:#711f18;font-weight:700}.item-transfer-form__error[hidden]{display:none}
 .transfer-nav-badge { position:absolute; top:-.35rem; right:-.35rem; display:grid; place-items:center; min-width:1.25rem; height:1.25rem; border-radius:50%; background:#8d241d; color:#fff; font-size:.68rem; }
 .inv_permission_details{min-width:210px}.inv_permission_details>summary{list-style:none}.inv_permission_details>summary::-webkit-details-marker{display:none}.inv_permission_details[open]>summary{border-color:rgba(116,82,46,.52);background:rgba(224,206,176,.88)}.inv_permission_panel{display:grid;gap:.3rem;max-height:min(260px,55vh);overflow:auto;padding:.35rem .1rem .05rem}.permission-form{display:grid;grid-template-columns:minmax(0,1fr) 2.25rem;align-items:center;gap:.55rem;min-height:2rem;padding:.28rem .42rem;border:1px solid rgba(126,98,63,.2);border-radius:6px;background:rgba(255,251,242,.58);font-size:.74rem;transition:border-color .18s ease,background .18s ease}.permission-form__label{min-width:0;font-weight:600;line-height:1.15}.permission-toggle{position:relative;width:2.25rem;height:1.28rem;min-width:2.25rem;min-height:1.28rem;margin:0;padding:0;border:1px solid rgba(91,68,44,.3);border-radius:999px;background:rgba(122,105,84,.3);box-shadow:inset 0 1px 2px rgba(48,30,16,.16),0 1px 0 rgba(255,255,255,.45);cursor:pointer;transition:background .24s ease,border-color .24s ease,filter .16s ease}.permission-toggle>span{position:absolute;top:2px;left:2px;width:.9rem;height:.9rem;border-radius:50%;background:#fffaf0;box-shadow:0 1px 3px rgba(44,27,14,.4);transform:translateX(0);transition:transform .28s cubic-bezier(.34,1.56,.64,1),background .2s ease}.permission-toggle.is-active{border-color:rgba(91,103,50,.72);background:linear-gradient(180deg,#929d58,#6f793e)}.permission-toggle.is-active>span{transform:translateX(.95rem)}.permission-toggle:hover:not(:disabled){filter:brightness(1.06)}.permission-toggle:focus-visible{outline:2px solid rgba(126,82,38,.62);outline-offset:2px}.permission-toggle.is-pending{filter:saturate(.55);cursor:wait}.permission-toggle:disabled{cursor:not-allowed;opacity:.62}.permission-toggle.is-pending:disabled{opacity:.82}.permission-form.has-error{border-color:rgba(145,48,39,.62);background:rgba(244,218,207,.7)}
 
@@ -41,10 +42,11 @@
   display: grid;
   gap: .35rem;
   margin: 0;
-  padding: .52rem .62rem .58rem;
+  padding: .62rem .7rem .68rem;
   border: 1px solid rgba(126, 98, 63, .3);
-  background: linear-gradient(180deg, rgba(255, 252, 244, .58), rgba(238, 222, 190, .25));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .42);
+  border-radius: 8px;
+  background: linear-gradient(180deg, rgba(255, 252, 244, .68), rgba(238, 222, 190, .32));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .52), 0 2px 7px rgba(71, 43, 20, .08);
 }
 .item-transfer-permissions[hidden] { display: none; }
 .item-transfer-permissions__title {
@@ -73,7 +75,7 @@
   gap: .48rem;
 }
 .item-transfer-permission-row {
-  min-height: 38px;
+  min-height: 34px;
   padding: .28rem .35rem;
   border-bottom: 1px solid rgba(126, 98, 63, .18);
   background: rgba(255, 252, 245, .28);
@@ -105,6 +107,17 @@
   opacity: .42;
 }
 .item-transfer-form__actions {
-  min-height: 76px;
+  min-height: 64px;
   align-items: flex-end;
+}
+@media (max-width: 600px) {
+  #itemTransferDialog .sheet-window__editor-pane { padding: 12px; }
+  .item-transfer-form__columns { grid-template-columns:minmax(245px,1.1fr) minmax(190px,.9fr);gap:.7rem; }
+  .item-transfer-selection { padding: .55rem; }
+  .item-transfer-selection__row { grid-template-columns:1rem minmax(0,1fr) 3.25rem!important;gap:.35rem!important;padding:.4rem .36rem; }
+  .item-transfer-selection { max-height: min(450px, calc(100dvh - 180px)); }
+}
+@media (max-width: 470px) {
+  .item-transfer-form__columns { grid-template-columns: 1fr; }
+  .item-transfer-selection__list { max-height: 240px; }
 }

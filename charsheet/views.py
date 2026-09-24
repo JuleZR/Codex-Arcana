@@ -153,7 +153,7 @@ from .item_transfers import (
     accept_transfer as accept_item_transfer,
     accept_transfers as accept_item_transfers,
     create_gm_edit_transfer,
-    create_transfer as create_item_transfer_service,
+    create_transfers as create_item_transfers_service,
     decline_transfer as decline_item_transfer,
     enforce_original_ownership,
     expire_due_transfers,
@@ -1214,7 +1214,7 @@ def _render_sheet_partials(request, context: dict[str, object], partial_keys) ->
 
 
 def _character_external_sheet_signature(character: Character) -> str:
-    """Return a cheap signature for GM-controlled item visibility state."""
+    """Return a cheap signature for externally changed sheet state."""
     item_ids = list(
         CharacterItem.objects.filter(
             Q(owner=character)
@@ -1223,8 +1223,6 @@ def _character_external_sheet_signature(character: Character) -> str:
         .order_by("id")
         .values_list("id", flat=True)
     )
-    if not item_ids:
-        return "empty"
     disclosure_rows = list(
         CharacterItemDisclosure.objects
         .filter(character_item_id__in=item_ids)
@@ -1263,6 +1261,7 @@ def _character_external_sheet_signature(character: Character) -> str:
     )
     payload = json.dumps(
         {
+            "money": character.money,
             "items": item_ids,
             "disclosures": disclosure_rows,
             "identification_state": identification_state_rows,
@@ -3949,7 +3948,29 @@ def character_recipient_search(request):
 def create_item_transfer(request, pk):
     item = _owned_character_item_or_404(request, pk)
     try:
-        sender = _owned_character_or_404(request, int(request.POST.get("sender_id") or item.owner_id))
+        sender = _owned_character_or_404(
+            request,
+            int(request.POST.get("sender_id") or item.owner_id),
+        )
+        selected_item_ids = []
+        raw_item_ids = request.POST.getlist("item_ids")
+        if request.POST.get("multi_transfer") != "1" and not raw_item_ids:
+            raw_item_ids = [item.pk]
+        for raw_item_id in raw_item_ids:
+            selected_item_id = int(raw_item_id)
+            if selected_item_id not in selected_item_ids:
+                selected_item_ids.append(selected_item_id)
+        selected_items = [
+            {
+                "item_id": selected_item_id,
+                "quantity": int(
+                    request.POST.get(f"quantity_{selected_item_id}")
+                    or request.POST.get("quantity")
+                    or 1
+                ),
+            }
+            for selected_item_id in selected_item_ids
+        ]
         recipient_type = str(request.POST.get("recipient_type") or "character")
         recipient_id = int(request.POST.get("recipient_id") or 0)
         recipient = None
@@ -3968,8 +3989,19 @@ def create_item_transfer(request, pk):
                     memberships__status=GameGroupMembership.Status.ACTIVE,
                 ).first()
         if group is not None:
+            if int(request.POST.get("money") or 0):
+                raise TransferError(
+                    "gm_edit_money",
+                    "Geld kann nicht zur SL-Bearbeitung gesendet werden.",
+                )
+            if len(selected_items) != 1:
+                raise TransferError(
+                    "gm_edit_single_item",
+                    "Zur SL-Bearbeitung kann nur ein Gegenstand gleichzeitig "
+                    "gesendet werden.",
+                )
             create_gm_edit_transfer(
-                item_id=item.pk,
+                item_id=selected_items[0]["item_id"],
                 sender=sender,
                 group=group,
                 message=request.POST.get("message", ""),
@@ -3986,12 +4018,12 @@ def create_item_transfer(request, pk):
             if str(request.POST.get(f"permission_{permission}", "")).lower()
             in {"1", "true", "on", "yes"}
         }
-        create_item_transfer_service(
-            item_id=item.pk,
+        create_item_transfers_service(
+            items=selected_items,
             sender=sender,
             recipient=recipient,
-            quantity=int(request.POST.get("quantity") or item.amount),
             message=request.POST.get("message", ""),
+            money=int(request.POST.get("money") or 0),
             permissions=requested_permissions,
             transfer_original_ownership=str(
                 request.POST.get("transfer_original_ownership", "")

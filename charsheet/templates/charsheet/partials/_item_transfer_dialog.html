@@ -6,27 +6,52 @@
   <div class="payday-window__body sheet-window__body"><div class="sheet-window__editor-shell"><div class="sheet-window__editor-pane">
   <form method="post" id="itemTransferForm" class="sheet-window__editor-form item-transfer-form" data-sheet-action data-ajax-only>
     {% csrf_token %}
+    <input type="hidden" name="multi_transfer" value="1">
     <input type="hidden" name="sender_id" id="itemTransferSenderId">
     <input type="hidden" name="recipient_id" id="itemTransferRecipientId">
     <input type="hidden" name="recipient_type" id="itemTransferRecipientType" value="character">
-    <header class="item-transfer-form__heading"><span>Gegenstand versenden</span><strong id="itemTransferName"></strong></header>
-    <label class="shop_item_form_row"><span>Empfänger</span><input type="search" id="itemTransferRecipientSearch" autocomplete="off" minlength="2" required placeholder="Charaktername"></label>
-    <div class="item-transfer-results" id="itemTransferResults" role="listbox"></div>
-    <label class="shop_item_form_row"><span>Menge</span><input type="number" name="quantity" id="itemTransferQuantity" min="1" value="1" required></label>
-    <label class="shop_item_form_row"><span>Nachricht</span><textarea name="message" maxlength="1000" rows="4"></textarea></label>
-    <fieldset class="item-transfer-permissions" id="itemTransferPermissions" aria-labelledby="itemTransferPermissionsTitle" hidden>
-      <h4 class="item-transfer-permissions__title" id="itemTransferPermissionsTitle">Besitz und Rechte</h4>
-      <p class="item-transfer-permissions__intro">Du bleibst Eigentümer. Gewährte Rechte kannst du später wieder entziehen.</p>
-      <div class="item-transfer-permission-list">
-        <label class="item-transfer-permission-row"><input type="checkbox" name="permission_consume_final"><span><strong>Vollständig verbrauchen</strong><small>einschließlich der letzten Einheit</small></span></label>
-        <label class="item-transfer-permission-row"><input type="checkbox" name="permission_sell"><span><strong>Verkaufen</strong><small>gegen Geld abgeben</small></span></label>
-        <label class="item-transfer-permission-row"><input type="checkbox" name="permission_destroy"><span><strong>Zerstören oder zerlegen</strong><small>endgültig vernichten</small></span></label>
+    <header class="item-transfer-form__heading"><span>Gegenstände versenden</span><strong id="itemTransferName"></strong></header>
+    <div class="item-transfer-form__columns">
+      <div class="item-transfer-form__details">
+        <label class="shop_item_form_row"><span>Empfänger</span><input type="search" id="itemTransferRecipientSearch" autocomplete="off" minlength="2" required placeholder="Charaktername"></label>
+        <div class="item-transfer-results" id="itemTransferResults" role="listbox"></div>
+        <label class="shop_item_form_row"><span>Geld mitgeben</span><input type="number" name="money" id="itemTransferMoney" min="0" max="{{ character.money }}" value="0"><small>Verfügbar: {{ character.money }}</small></label>
+        <label class="shop_item_form_row"><span>Nachricht</span><textarea name="message" maxlength="1000" rows="4"></textarea></label>
+        <p class="item-transfer-form__error" id="itemTransferError" role="alert" hidden></p>
+        <fieldset class="item-transfer-permissions" id="itemTransferPermissions" aria-labelledby="itemTransferPermissionsTitle" hidden>
+          <h4 class="item-transfer-permissions__title" id="itemTransferPermissionsTitle">Besitz und Rechte</h4>
+          <p class="item-transfer-permissions__intro">Du bleibst Eigentümer. Gewährte Rechte kannst du später wieder entziehen.</p>
+          <div class="item-transfer-permission-list">
+            <label class="item-transfer-permission-row"><input type="checkbox" name="permission_consume_final"><span><strong>Vollständig verbrauchen</strong><small>einschließlich der letzten Einheit</small></span></label>
+            <label class="item-transfer-permission-row"><input type="checkbox" name="permission_sell"><span><strong>Verkaufen</strong><small>gegen Geld abgeben</small></span></label>
+            <label class="item-transfer-permission-row"><input type="checkbox" name="permission_destroy"><span><strong>Zerstören oder zerlegen</strong><small>endgültig vernichten</small></span></label>
+          </div>
+          <label class="item-transfer-ownership-card">
+            <input type="checkbox" name="transfer_original_ownership" id="itemTransferOriginalOwnership">
+            <span><strong>Eigentum übertragen</strong><small>Endgültig: Der Empfänger erhält Rückholrecht und Rechteverwaltung.</small></span>
+          </label>
+        </fieldset>
       </div>
-      <label class="item-transfer-ownership-card">
-        <input type="checkbox" name="transfer_original_ownership" id="itemTransferOriginalOwnership">
-        <span><strong>Eigentum übertragen</strong><small>Endgültig: Der Empfänger erhält Rückholrecht und Rechteverwaltung.</small></span>
-      </label>
-    </fieldset>
+      <fieldset class="item-transfer-selection" id="itemTransferSelection">
+        <legend>Inventar</legend>
+        <div class="item-transfer-selection__list">
+          {% for row in inventory_rows %}{% if row.can_transfer %}
+            <label class="item-transfer-selection__row">
+              <input type="checkbox" name="item_ids" value="{{ row.character_item.pk }}" data-transfer-item data-item-name="{{ row.item_name|escape }}" data-can-grant-permissions="{% if row.can_grant_transfer_permissions %}1{% else %}0{% endif %}">
+              <span>{{ row.display_name }}</span>
+              <input type="number" name="quantity_{{ row.character_item.pk }}" min="1" max="{{ row.character_item.amount }}" value="1" aria-label="Menge für {{ row.item_name|escape }}" disabled>
+            </label>
+          {% endif %}{% endfor %}
+          {% for row in stored_inventory_rows %}{% if row.can_transfer %}
+            <label class="item-transfer-selection__row">
+              <input type="checkbox" name="item_ids" value="{{ row.character_item.pk }}" data-transfer-item data-item-name="{{ row.item_name|escape }}" data-can-grant-permissions="{% if row.can_grant_transfer_permissions %}1{% else %}0{% endif %}">
+              <span>{{ row.display_name }} <small>Karren</small></span>
+              <input type="number" name="quantity_{{ row.character_item.pk }}" min="1" max="{{ row.character_item.amount }}" value="1" aria-label="Menge für {{ row.item_name|escape }}" disabled>
+            </label>
+          {% endif %}{% endfor %}
+        </div>
+      </fieldset>
+    </div>
     <footer class="shop_item_form_actions item-transfer-form__actions"><button type="submit" class="wax_seal_btn" aria-label="Versenden" title="Versenden"><span class="wax_seal_btn__embossed" aria-hidden="true">&#10003;</span></button></footer>
   </form>
   </div></div></div>
