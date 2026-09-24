@@ -60,6 +60,42 @@ function parseStatusLine(line) {
   return { label: match[1].trim(), color: match[2].trim() };
 }
 
+function parseLanguageLine(line) {
+  const match = String(line || "").trim().match(/^\[\[LANGUAGE:(.*?)\|(\d+)\|([01])\]\]$/);
+  if (!match) {
+    return null;
+  }
+  return {
+    name: match[1].trim(),
+    level: Math.max(0, Math.min(3, Number.parseInt(match[2], 10) || 0)),
+    canWrite: match[3] === "1",
+  };
+}
+
+function renderLanguageMarkup(language) {
+  const labels = ["R", "G", "F", "L/S"];
+  const dots = [
+    language.level >= 1,
+    language.level >= 2,
+    language.level >= 3,
+    language.canWrite,
+  ];
+  const labelMarkup = labels
+    .map((label) => `<span>${label}</span>`)
+    .join("");
+  const dotMarkup = dots
+    .map((filled) => `<span class="tooltip_language_dot${filled ? " is-filled" : ""}"></span>`)
+    .join("");
+  return (
+    `<div class="tooltip_language" aria-label="${escapeHtml(language.name)}">`
+    + `<strong class="tooltip_language__name">${escapeHtml(language.name)}</strong>`
+    + '<span class="tooltip_language__scale" aria-hidden="true">'
+    + `<span class="tooltip_language__labels">${labelMarkup}</span>`
+    + `<span class="tooltip_language__dots">${dotMarkup}</span>`
+    + "</span></div>"
+  );
+}
+
 function parseLessonQuoteBlock(lines, startIndex) {
   if (String(lines[startIndex] || "").trim() !== "[[LESSONQUOTE]]") {
     return null;
@@ -481,6 +517,13 @@ function renderTooltipMarkup(rawText) {
       chunks.push(
         `<p class="tooltip_status_line"><span class="tooltip_status_badge" style="--tooltip-status-color: ${escapeHtml(statusMeta.color)};">${escapeHtml(statusMeta.label)}</span></p>`,
       );
+      index += 1;
+      continue;
+    }
+
+    const languageMeta = parseLanguageLine(line);
+    if (languageMeta) {
+      chunks.push(renderLanguageMarkup(languageMeta));
       index += 1;
       continue;
     }

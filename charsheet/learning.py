@@ -1306,6 +1306,7 @@ def _process_locked_learning_submission(character: Character, post_data) -> tupl
         return "error", "Nicht genug aktuelle EP fuer diese Lernkosten."
 
     lesson_summary = {"learned": 0, "unlearned": 0}
+    unlearned_brew_count = 0
 
     try:
         with transaction.atomic():
@@ -1556,6 +1557,35 @@ def _process_locked_learning_submission(character: Character, post_data) -> tupl
             magic_engine = character.get_magic_engine(refresh=True)
             magic_engine.sync_character_magic()
 
+            if any(int(add) < 0 for add in school_plan.values()):
+                almanac_slot_total = max(
+                    0,
+                    int(
+                        character
+                        .get_engine(refresh=True)
+                        .resolve_learning_slots(ALCHEMICAL_BREW_LEARNING_SLOT)
+                    ),
+                )
+                known_brews = list(
+                    CharacterAlmanacBrew.objects
+                    .filter(character=character)
+                    .order_by("learned_at", "id")
+                )
+                excess_brews = known_brews[almanac_slot_total:]
+                if excess_brews:
+                    excess_item_ids = [entry.item_id for entry in excess_brews]
+                    brew_refund = sum(
+                        int(cost or 0)
+                        for cost in AlchemicalBrewStats.objects
+                        .filter(item_id__in=excess_item_ids)
+                        .values_list("craft_ep_cost", flat=True)
+                    )
+                    CharacterAlmanacBrew.objects.filter(
+                        id__in=[entry.id for entry in excess_brews],
+                    ).delete()
+                    total_cost -= brew_refund
+                    unlearned_brew_count = len(excess_brews)
+
             if magic_spell_selection:
                 legal_paid_spell_rows = {
                     int(row["spell_id"]): row
@@ -1748,6 +1778,8 @@ def _process_locked_learning_submission(character: Character, post_data) -> tupl
         parts.append(f"{sum(magic_aspect_plan.values())} Aspektstufe(n) gelernt")
     if brew_plan:
         parts.append(f"{len(brew_plan)} Gebräu(e) gelernt")
+    if unlearned_brew_count:
+        parts.append(f"{unlearned_brew_count} Gebräu(e) verlernt")
     learned_spell_count = (
         len(magic_spell_selection)
         + len(divine_arcane_spell_selection)

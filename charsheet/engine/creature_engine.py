@@ -2110,6 +2110,11 @@ class CreatureEngine:
         return f"{damage} {notes}".strip()
 
     def skills(self) -> list[dict[str, Any]]:
+        def display_name(skill, specification=""):
+            if not skill.requires_specification:
+                return skill.name
+            return f"{skill.name}: {str(specification or '').strip() or '*'}"
+
         overrides = {}
         if self.instance:
             overrides = {
@@ -2156,7 +2161,10 @@ class CreatureEngine:
             )
             base_rows.append(
                 {
-                    "name": row.skill.name,
+                    "name": display_name(
+                        row.skill,
+                        override.specification if override else "",
+                    ),
                     "value": effective_value,
                     "value_parts": self._combined_value_display_parts(
                         [
@@ -2193,7 +2201,10 @@ class CreatureEngine:
                 )
                 base_rows.append(
                     {
-                        "name": override.skill.name,
+                        "name": display_name(
+                            override.skill,
+                            override.specification,
+                        ),
                         "value": effective_value,
                         "value_parts": self._combined_value_display_parts(
                             [
@@ -2220,24 +2231,43 @@ class CreatureEngine:
         rows_by_language_id = {
             row.language_id: {
                 "name": row.language.name,
+                "level": int(row.levels or 1),
                 "can_write": bool(row.can_write),
             }
             for row in self.creature.languages.select_related("language")
         }
         if self.instance:
-            for override in self.instance.language_overrides.select_related("language"):
+            language_overrides = (
+                self.instance.language_overrides.select_related("language")
+            )
+            for override in language_overrides:
+                language_row = rows_by_language_id.get(override.language_id)
+                if language_row is not None:
+                    language_row["can_write"] = bool(override.can_write)
+                    continue
                 rows_by_language_id[override.language_id] = {
                     "name": override.language.name,
+                    "level": min(3, int(override.language.max_level or 1)),
                     "can_write": bool(override.can_write),
                 }
         rows = []
-        for row in sorted(rows_by_language_id.values(), key=lambda value: value["name"].casefold()):
-            suffix = " (L&S)" if row["can_write"] else ""
+        sorted_rows = sorted(
+            rows_by_language_id.values(),
+            key=lambda value: value["name"].casefold(),
+        )
+        for row in sorted_rows:
+            level = int(row["level"])
             rows.append(
                 {
                     "name": row["name"],
+                    "level": level,
                     "can_write": row["can_write"],
-                    "display": f"Sprache: {row['name']}{suffix}",
+                    "display": row["name"],
+                    "tooltip": "[[LANGUAGE:{}|{}|{}]]".format(
+                        row["name"],
+                        level,
+                        int(row["can_write"]),
+                    ),
                 }
             )
         return rows

@@ -349,9 +349,9 @@
                     {% for trait in creature_card.traits %}
                         <span class="creature-card__rule-entry{% if trait.description or trait.choice_summary %} tooltip_target{% endif %}"{% if trait.description or trait.choice_summary %} data-tooltip="{% if trait.description %}{{ trait.description }}{% endif %}{% if trait.description and trait.choice_summary %}&#10;{% endif %}{% if trait.choice_summary %}Auswahl: {{ trait.choice_summary }}{% endif %}" data-tooltip-side="right"{% endif %}>{{ trait.name }}{% if trait.level %} {{ trait.level|stringformat:"+d" }}{% endif %}</span>{% if not forloop.last or creature_card.languages %}, {% endif %}
                     {% endfor %}
-                    {% for language in creature_card.languages %}
-                        <span class="creature-card__rule-entry">{{ language.display }}</span>{% if not forloop.last %}, {% endif %}
-                    {% endfor %}
+                    {% if creature_card.languages %}
+                        <span class="creature-card__rule-entry tooltip_target" data-tooltip="{% for language in creature_card.languages %}{{ language.tooltip }}{% if not forloop.last %}&#10;{% endif %}{% endfor %}" data-tooltip-side="right">Sprachen</span>
+                    {% endif %}
                 </p>
             {% endif %}
 

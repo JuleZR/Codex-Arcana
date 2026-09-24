@@ -1642,6 +1642,7 @@ class CharacterCreatureItem(models.Model):
 class CharacterCreatureSkill(models.Model):
     creature = models.ForeignKey(CharacterCreature, on_delete=models.CASCADE, related_name="skill_overrides")
     skill = models.ForeignKey(Skill, on_delete=models.PROTECT)
+    specification = models.CharField(max_length=25, blank=True, default="")
     level_override = models.IntegerField(validators=[MinValueValidator(0)])
     deviation = models.IntegerField("Abweichung", default=0)
     notes = models.CharField(max_length=200, blank=True, default="")
@@ -1657,7 +1658,11 @@ class CharacterCreatureSkill(models.Model):
 
     def __str__(self):
         deviation = f" {self.deviation:+d}" if self.deviation else ""
-        return f"{self.creature}: {self.skill} {self.level_override}{deviation}"
+        specification = f": {self.specification}" if self.specification else ""
+        return (
+            f"{self.creature}: {self.skill}{specification} "
+            f"{self.level_override}{deviation}"
+        )
 
     @property
     def value_override(self):

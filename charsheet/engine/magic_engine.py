@@ -1562,17 +1562,19 @@ class MagicEngine:
                 spell = row["_spell_obj"]
                 row["roll_load_penalty"] = armor_penalty + carry_penalty
                 row["roll_load_base"] = armor_penalty
-                load_rows = [
-                    "", "### Belastung auf Zauberwürfe",
-                    "| Quelle | Malus |", "| --- | --- |",
-                    f"| Rüstung/Schild | {armor_penalty:+d} |",
-                ]
-                if carry_penalty:
-                    load_rows.append(f"| Traglast | {carry_penalty:+d} |")
-                load_rows.append(
-                    f"| **= Gesamt** | `**{row['roll_load_penalty']:+d}**` |"
-                )
-                row["tooltip_text"] += "\n".join(load_rows)
+                if row["roll_load_penalty"]:
+                    load_rows = [
+                        "", "**Belastung auf Zauberwürfe**",
+                        "| Quelle | Malus |", "| --- | --- |",
+                        f"| Rüstung/Schild | {armor_penalty:+d} |",
+                    ]
+                    if carry_penalty:
+                        load_rows.append(f"| Traglast | {carry_penalty:+d} |")
+                    load_rows.append(
+                        "| **= Gesamt** | "
+                        f"`**{row['roll_load_penalty']:+d}**` |"
+                    )
+                    row["tooltip_text"] += "\n".join(load_rows)
                 row["cost_groups"] = []
                 if int(spell.kp_cost) > 0:
                     row["cost_groups"].append({

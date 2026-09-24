@@ -9,7 +9,7 @@ from uuid import uuid4
 from datetime import date as date_cls
 from django.core.files.base import ContentFile
 from django.conf import settings
-from django.http import JsonResponse
+from django.http import Http404, JsonResponse
 from django.http import HttpResponse
 from django.http import HttpResponseRedirect
 from django.shortcuts import get_object_or_404, redirect, render
@@ -5213,6 +5213,7 @@ def reset_technique_creature_choice(request, pk: int):
             status=400,
         )
 
+    character = card.owner
     character_id = card.owner_id
     replace_card_key = f"creature-{card.pk}"
     image_files = [
@@ -5220,34 +5221,45 @@ def reset_technique_creature_choice(request, pk: int):
         for image in (card.image_override, card.swarm_image_override)
         if image and image.name
     ]
-    if _is_partial_request(request):
-        old_creature_id = card.creature_id
-        if old_creature_id:
-            card.attack_overrides.filter(base_attack__creature_id=old_creature_id).delete()
-            card.trait_overrides.filter(base_trait__creature_id=old_creature_id).delete()
-            card.hidden_skill_notes.remove(
-                *card.hidden_skill_notes.filter(creature_id=old_creature_id)
-            )
-        card.creature = None
-        card.name_override = ""
-        card.image_override = None
-        card.swarm_image_override = None
-        card.is_kraftbestie = False
-        card.source_selection_completed = False
-        card.save(
-            update_fields=[
-                "creature",
-                "name_override",
-                "image_override",
-                "swarm_image_override",
-                "is_kraftbestie",
-                "source_selection_completed",
-            ]
-        )
+
+    def schedule_image_deletions():
         for image_storage, image_name in image_files:
-            transaction.on_commit(
-                lambda storage=image_storage, name=image_name: storage.delete(name)
+            def delete_image(storage=image_storage, name=image_name):
+                storage.delete(name)
+
+            transaction.on_commit(delete_image)
+
+    if _is_partial_request(request):
+        semantic_effect_key = card.semantic_effect_key
+        source_binding_id = card.source_binding_id
+        source_character_item_id = card.source_character_item_id
+        source_character_technique_id = card.source_character_technique_id
+
+        def matches_source(candidate):
+            if semantic_effect_key:
+                return candidate.semantic_effect_key == semantic_effect_key
+            return (
+                candidate.source_binding_id == source_binding_id
+                and candidate.source_character_item_id
+                == source_character_item_id
+                and candidate.source_character_technique_id
+                == source_character_technique_id
             )
+
+        with transaction.atomic():
+            card.delete()
+            recreated_cards = sync_character_creatures(character)
+            card = next(
+                (
+                    candidate
+                    for candidate in recreated_cards
+                    if matches_source(candidate)
+                ),
+                None,
+            )
+            if card is None:
+                raise Http404("Die Kreaturenwahl ist nicht mehr verfuegbar.")
+            schedule_image_deletions()
         return JsonResponse(
             _render_pending_creature_choice_payload(
                 request,
@@ -5258,10 +5270,7 @@ def reset_technique_creature_choice(request, pk: int):
 
     with transaction.atomic():
         card.delete()
-        for image_storage, image_name in image_files:
-            transaction.on_commit(
-                lambda storage=image_storage, name=image_name: storage.delete(name)
-            )
+        schedule_image_deletions()
 
     redirect_url = reverse("character_sheet", kwargs={"character_id": character_id})
     return redirect(redirect_url)
@@ -5718,6 +5727,10 @@ def update_creature_card_training(request, pk: int):
             skill_id = _parse_positive_int(field_name.rsplit("_", 1)[-1], 0)
             if skill_id and skill_id not in remove_special_skill_ids:
                 posted_special_skill_ids.append(skill_id)
+    posted_normal_skills = {
+        skill.pk: skill
+        for skill in Skill.objects.filter(pk__in=posted_normal_skill_ids)
+    }
     normal_skill_notes = {
         row.skill_id: _fit_model_char_field(
             row.notes or row.skill.description,
@@ -5736,15 +5749,28 @@ def update_creature_card_training(request, pk: int):
     }
     for skill_id in posted_normal_skill_ids:
         value = _parse_int(request.POST.get(f"skill_value_normal_{skill_id}"), base_skill_values.get(skill_id, 0))
+        skill = posted_normal_skills.get(skill_id)
+        specification = ""
+        if skill and skill.requires_specification:
+            raw_specification = request.POST.get(
+                f"skill_specification_normal_{skill_id}"
+            )
+            specification = _fit_model_char_field(
+                " ".join(str(raw_specification or "").split()),
+                CharacterCreatureSkill,
+                "specification",
+            )
         override = existing_skill_overrides.get(skill_id)
         if override:
             override.level_override = value
+            override.specification = specification
             skill_updates.append(override)
-        elif value != base_skill_values.get(skill_id):
+        elif value != base_skill_values.get(skill_id) or specification:
             new_existing_skill_rows.append(
                 CharacterCreatureSkill(
                     creature=card,
                     skill_id=skill_id,
+                    specification=specification,
                     level_override=value,
                     notes=normal_skill_notes.get(skill_id, ""),
                 )
@@ -5782,6 +5808,7 @@ def update_creature_card_training(request, pk: int):
         for row in card.special_skill_overrides.exclude(skill_id__in=remove_special_skill_ids).select_related("skill")
     }
     new_skill_ids = request.POST.getlist("new_skill_id")
+    new_skill_specifications = request.POST.getlist("new_skill_specification")
     new_skill_values = request.POST.getlist("new_skill_value")
     normal_skill_ids = [
         _parse_positive_int(str(raw_id).split(":", 1)[1], 0)
@@ -5827,10 +5854,23 @@ def update_creature_card_training(request, pk: int):
                 )
             )
         else:
+            specification = ""
+            if selected_skill.requires_specification:
+                raw_specification = (
+                    new_skill_specifications[index]
+                    if index < len(new_skill_specifications)
+                    else ""
+                )
+                specification = _fit_model_char_field(
+                    " ".join(str(raw_specification or "").split()),
+                    CharacterCreatureSkill,
+                    "specification",
+                )
             new_skill_rows.append(
                 CharacterCreatureSkill(
                     creature=card,
                     skill=selected_skill,
+                    specification=specification,
                     level_override=value,
                     notes=_fit_model_char_field(
                         getattr(selected_skill, "description", ""),
@@ -6118,7 +6158,10 @@ def update_creature_card_training(request, pk: int):
         if remove_special_skill_ids:
             card.special_skill_overrides.filter(skill_id__in=remove_special_skill_ids).delete()
         if skill_updates:
-            CharacterCreatureSkill.objects.bulk_update(skill_updates, ["level_override"])
+            CharacterCreatureSkill.objects.bulk_update(
+                skill_updates,
+                ["level_override", "specification"],
+            )
         if special_skill_updates:
             CharacterCreatureSpecialSkill.objects.bulk_update(special_skill_updates, ["value_override"])
         if new_existing_skill_rows:

@@ -494,6 +494,14 @@
   grid-template-columns: 16px minmax(0, 1fr) 42px;
 }
 
+.creature-training-skill--specified {
+  grid-template-columns: 16px minmax(0, 0.45fr) minmax(72px, 0.55fr) 42px minmax(132px, 1.38fr);
+}
+
+.creature-training-skill--new.creature-training-skill--specified {
+  grid-template-columns: 16px minmax(0, 1fr) minmax(72px, 0.55fr) 42px;
+}
+
 .creature-training-skill--note {
   grid-template-columns: 16px minmax(0, 1fr) auto;
 }
@@ -642,6 +650,11 @@
 }
 
 .creature-training-skill select {
+  width: 100%;
+  min-width: 0;
+}
+
+.creature-training-skill input.creature-training-skill__specification {
   width: 100%;
   min-width: 0;
 }

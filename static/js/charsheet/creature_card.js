@@ -768,6 +768,22 @@ export function initCreatureCards() {
       ...Array.from(panel?.querySelectorAll("[data-creature-training-attack-key]") || [])
         .map((field) => readInteger(field.getAttribute("value"), 0)),
     ) + 1;
+    const syncNewSkillSpecification = (select) => {
+      if (!(select instanceof HTMLSelectElement)) {
+        return;
+      }
+      const row = select.closest("[data-creature-training-new-skill-row]");
+      const input = row?.querySelector('[name="new_skill_specification"]');
+      if (!(row instanceof HTMLElement) || !(input instanceof HTMLInputElement)) {
+        return;
+      }
+      const requiresSpecification = select.selectedOptions[0]?.dataset.requiresSpecification === "true";
+      input.hidden = !requiresSpecification;
+      row.classList.toggle("creature-training-skill--specified", requiresSpecification);
+      if (!requiresSpecification) {
+        input.value = "";
+      }
+    };
     const addSkillRow = () => {
       if (!(panel instanceof HTMLElement)) {
         return;
@@ -786,9 +802,10 @@ export function initCreatureCards() {
         if (field instanceof HTMLSelectElement) {
           field.selectedIndex = 0;
         } else if (field instanceof HTMLInputElement) {
-          field.value = "0";
+          field.value = field.type === "number" ? "0" : "";
         }
       });
+      syncNewSkillSpecification(clone.querySelector('select[name="new_skill_id"]'));
       list.insertBefore(clone, addButton instanceof HTMLElement ? addButton : null);
     };
     const addLanguageRow = () => {
@@ -958,6 +975,9 @@ export function initCreatureCards() {
         if (target?.matches("[data-creature-size-class]")) {
           refreshSizeModifier();
         }
+        if (target?.matches('select[name="new_skill_id"]')) {
+          syncNewSkillSpecification(target);
+        }
       });
       panel.addEventListener("click", (event) => {
         const target = event.target instanceof Element ? event.target : null;
@@ -1033,9 +1053,10 @@ export function initCreatureCards() {
               if (field instanceof HTMLSelectElement) {
                 field.selectedIndex = 0;
               } else if (field instanceof HTMLInputElement) {
-                field.value = "0";
+                field.value = field.type === "number" ? "0" : "";
               }
             });
+            syncNewSkillSpecification(row.querySelector('select[name="new_skill_id"]'));
           }
           return;
         }

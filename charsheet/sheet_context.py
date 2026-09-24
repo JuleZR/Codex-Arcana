@@ -455,6 +455,7 @@ def build_creature_card_training_context(card):
         notes: str,
         can_remove: bool,
         skill: Skill,
+        specification: str = "",
     ) -> dict:
         attribute_modifier = engine._skill_attribute_modifier(skill)
         gk_multiplier = (
@@ -475,6 +476,8 @@ def build_creature_card_training_context(card):
             "notes": notes,
             "can_remove": can_remove,
             "is_normal_skill": True,
+            "requires_specification": skill.requires_specification,
+            "specification": specification,
             "attribute": skill.attribute.short_name,
             "deviation": deviation,
             "attribute_modifier": attribute_modifier,
@@ -519,6 +522,7 @@ def build_creature_card_training_context(card):
                 notes=(override.notes if override and override.notes else base_skill.notes or base_skill.skill.description),
                 can_remove=False,
                 skill=base_skill.skill,
+                specification=override.specification if override else "",
             )
         )
     for override in skill_overrides.values():
@@ -535,6 +539,7 @@ def build_creature_card_training_context(card):
                 notes=override.notes or override.skill.description,
                 can_remove=True,
                 skill=override.skill,
+                specification=override.specification,
             )
         )
     for base_skill in base_creature.special_skills.select_related("skill").all():
@@ -847,6 +852,7 @@ def build_creature_card_training_context(card):
         {
             "id": f"skill:{skill.pk}",
             "name": skill.name,
+            "requires_specification": skill.requires_specification,
         }
         for skill in Skill.objects.order_by("name")
         if skill.name.casefold() not in existing_skill_names

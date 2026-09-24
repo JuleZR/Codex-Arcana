@@ -155,13 +155,16 @@
         <div class="creature-training-skill-list">
         <input type="hidden" name="note_visibility_present" value="1">
         {% for skill in training.skill_rows %}
-          <div class="creature-training-skill{% if skill.is_note_only %} creature-training-skill--note{% endif %}" data-creature-training-skill-row data-filter-text="{{ skill.name }} {{ skill.value }} {{ skill.notes }}"{% if skill.is_normal_skill %} data-creature-skill-attribute="{{ skill.attribute }}" data-creature-skill-attribute-mod="{{ skill.attribute_modifier }}" data-creature-skill-deviation="{{ skill.deviation }}" data-creature-skill-gk-multiplier="{{ skill.gk_multiplier }}" data-creature-skill-modifier="{{ skill.skill_modifier }}" data-creature-skill-wound-penalty="{{ skill.wound_penalty }}"{% endif %}>
+          <div class="creature-training-skill{% if skill.is_note_only %} creature-training-skill--note{% endif %}{% if skill.requires_specification %} creature-training-skill--specified{% endif %}" data-creature-training-skill-row data-filter-text="{{ skill.name }} {{ skill.value }} {{ skill.notes }}"{% if skill.is_normal_skill %} data-creature-skill-attribute="{{ skill.attribute }}" data-creature-skill-attribute-mod="{{ skill.attribute_modifier }}" data-creature-skill-deviation="{{ skill.deviation }}" data-creature-skill-gk-multiplier="{{ skill.gk_multiplier }}" data-creature-skill-modifier="{{ skill.skill_modifier }}" data-creature-skill-wound-penalty="{{ skill.wound_penalty }}"{% endif %}>
             {% if skill.can_remove %}
               <button class="creature-training-skill__remove" type="button" data-creature-training-remove-skill data-skill-id="{{ skill.remove_id }}" aria-label="{{ skill.name }} entfernen">×</button>
             {% else %}
               <span class="creature-training-skill__remove creature-training-skill__remove--placeholder" aria-hidden="true"></span>
             {% endif %}
             <span>{{ skill.name }}</span>
+            {% if skill.requires_specification %}
+              <input class="creature-training-skill__specification" type="text" name="skill_specification_{{ skill.id }}" value="{{ skill.specification }}" maxlength="25" placeholder="*" aria-label="Spezifikation {{ skill.name }}">
+            {% endif %}
             {% if skill.is_note_only %}
               <label class="creature-training-skill__visibility">
                 <input type="checkbox" name="visible_note_skill_ids" value="{{ skill.note_id }}"{% if skill.visible_on_card %} checked{% endif %}>
@@ -184,7 +187,7 @@
               {% if training.skill_catalog %}
                 <optgroup label="Allgemeine F&auml;higkeiten">
                   {% for skill in training.skill_catalog %}
-                    <option value="{{ skill.id }}">{{ skill.name }}</option>
+                    <option value="{{ skill.id }}"{% if skill.requires_specification %} data-requires-specification="true"{% endif %}>{{ skill.name }}</option>
                   {% endfor %}
                 </optgroup>
               {% endif %}
@@ -196,6 +199,7 @@
                 </optgroup>
               {% endif %}
             </select>
+            <input class="creature-training-skill__specification" type="text" name="new_skill_specification" value="" maxlength="25" placeholder="Spezifikation" aria-label="Spezifikation neue Fertigkeit" hidden>
             <input type="number" name="new_skill_value" value="0" min="-20" max="50" aria-label="Wert neue Fertigkeit">
           </div>
           <button class="creature-training-add-skill" type="button" data-creature-training-add-skill>Fertigkeit hinzuf&uuml;gen</button>
