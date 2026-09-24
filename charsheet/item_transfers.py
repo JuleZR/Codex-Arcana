@@ -582,12 +582,6 @@ def create_transfer(
             status=403,
         )
     transfer_original_ownership = bool(transfer_original_ownership)
-    if transfer_original_ownership and item.group_origin_finalized:
-        raise TransferError(
-            "group_origin_locked",
-            "Der nach einer SL-Übergabe festgelegte Ursprungsbesitz ist dauerhaft.",
-            status=409,
-        )
     if transfer_original_ownership and item.original_owner_character_id != sender.pk:
         raise TransferError(
             "not_original_owner",
@@ -952,7 +946,9 @@ def accept_transfer(*, transfer_id: int, recipient: Character):
         CharacterItem.objects.filter(pk=item.pk).update(
             original_owner_character=recipient,
             original_owner_group=None,
-            group_origin_finalized=bool(previous_original_group),
+            group_origin_finalized=bool(
+                item.group_origin_finalized or previous_original_group
+            ),
         )
         item.original_owner_character = recipient
         item.original_owner_character_id = recipient.pk
