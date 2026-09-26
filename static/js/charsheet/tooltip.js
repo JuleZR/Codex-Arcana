@@ -429,6 +429,59 @@ function renderSpellAttributeChartMarkup(entries) {
   return `<div class="tooltip_spell_attr_chart" role="img" aria-label="Praegende Eigenschaften nach Haeufigkeit">${bars}</div>`;
 }
 
+function buildSpellAttributeRadarMarkup(target) {
+  const entries = parseSpellAttributeChartLine(
+    target.getAttribute("data-tooltip-spell-attribute-chart"),
+  );
+  if (!entries || entries.length < 3 || !entries.some((entry) => entry.count > 0)) {
+    return "";
+  }
+
+  const centerX = 180;
+  const centerY = 122;
+  const radius = 84;
+  const labelRadius = 108;
+  const maxCount = Math.max(1, ...entries.map((entry) => entry.count));
+  const coordinate = (index, distance) => {
+    const angle = (-Math.PI / 2) + ((Math.PI * 2 * index) / entries.length);
+    return {
+      x: centerX + (Math.cos(angle) * distance),
+      y: centerY + (Math.sin(angle) * distance),
+    };
+  };
+  const polygonPoints = (distanceForEntry) => entries
+    .map((entry, index) => {
+      const position = coordinate(index, distanceForEntry(entry));
+      return `${position.x.toFixed(1)},${position.y.toFixed(1)}`;
+    })
+    .join(" ");
+  const rings = [0.25, 0.5, 0.75, 1]
+    .map((share) => `<polygon class="tooltip-radar__grid" points="${polygonPoints(() => radius * share)}"></polygon>`)
+    .join("");
+  const axes = entries.map((_entry, index) => {
+    const outer = coordinate(index, radius);
+    return `<line class="tooltip-radar__axis" x1="${centerX}" y1="${centerY}" x2="${outer.x.toFixed(1)}" y2="${outer.y.toFixed(1)}"></line>`;
+  }).join("");
+  const values = polygonPoints((entry) => radius * (entry.count / maxCount));
+  const labels = entries.map((entry, index) => {
+    const position = coordinate(index, labelRadius);
+    const anchor = position.x < centerX - 8 ? "end" : (position.x > centerX + 8 ? "start" : "middle");
+    return `<text class="tooltip-radar__label" x="${position.x.toFixed(1)}" y="${position.y.toFixed(1)}" text-anchor="${anchor}">${escapeHtml(entry.label)} ${entry.count}</text>`;
+  }).join("");
+  const summary = entries.map((entry) => `${entry.label} ${entry.count}`).join(", ");
+
+  return `
+    <section class="floating-tooltip-card__section floating-tooltip-card__section--radar">
+      <h4 class="floating-tooltip-card__section_title">Verteilung der Zauberattribute</h4>
+      <svg class="tooltip-radar" viewBox="0 0 360 250" role="img" aria-label="${escapeHtml(summary)}">
+        ${rings}${axes}
+        <polygon class="tooltip-radar__values" points="${values}"></polygon>
+        ${labels}
+      </svg>
+    </section>
+  `;
+}
+
 function renderSourceSymbolMarkup(source) {
   const imageHtml = source.image
     ? `<img class="tooltip_source_symbol__image" src="${escapeHtml(source.image)}" alt="">`
@@ -884,6 +937,8 @@ function buildTooltipCardMarkup({
   weaknessMarkup = "",
   includeExtraSections = true,
   disclosureControls = false,
+  headerImage = false,
+  radarMarkup = "",
 }) {
   let { leadHtml, extraHtml } = buildTooltipCardSections(bodyMarkup, { includeExtraSections });
   const hasExplicitPowerSections = Boolean(effectMarkup || weaknessMarkup);
@@ -916,12 +971,12 @@ function buildTooltipCardMarkup({
   const safeSubtitle = escapeHtml(normalizedSubtitle);
   const safeImage = escapeHtml(image || "");
   const safeAccent = escapeHtml(accent || "");
-  const hasSpellImage = isSpellCard && safeImage;
-  const headerMediaHtml = hasSpellImage
+  const hasHeaderImage = (isSpellCard || headerImage) && safeImage;
+  const headerMediaHtml = hasHeaderImage
     ? `<div class="floating-tooltip-card__media floating-tooltip-card__media--header"><img class="floating-tooltip-card__image" src="${safeImage}" alt=""></div>`
     : "";
   const mediaHtml = (safeImage || disclosureControls)
-    && !isSpellCard
+    && !hasHeaderImage
     ? `<div class="floating-tooltip-card__media">${safeImage ? `<img class="floating-tooltip-card__image" src="${safeImage}" alt="">` : ""}</div>`
     : "";
   const detailsMarkup = hasExplicitPowerSections ? "" : leadHtml;
@@ -944,7 +999,7 @@ function buildTooltipCardMarkup({
         <button type="button" class="floating-tooltip-card__close" data-tooltip-card-close aria-label="Details schließen">x</button>
       </div>
       ${contentHtml}
-      ${extraHtml ? `<section class="floating-tooltip-card__lore">${extraHtml}</section>` : ""}
+      ${(extraHtml || radarMarkup) ? `<section class="floating-tooltip-card__lore">${extraHtml}${radarMarkup}</section>` : ""}
     </div>
   `;
 }
@@ -1848,6 +1903,8 @@ export function initTooltips() {
       weaknessMarkup: renderTooltipMarkup(target.getAttribute("data-tooltip-weakness") || ""),
       includeExtraSections: String(target.getAttribute("data-tooltip-card-extra-sections") || "").trim() !== "none",
       disclosureControls: Boolean(itemDisclosureUrlFromTarget(target)),
+      headerImage: target.getAttribute("data-tooltip-image-layout") === "header",
+      radarMarkup: buildSpellAttributeRadarMarkup(target),
     });
     addDisclosureLocksToTooltipCard(card, target);
     card.classList.add("is-visible");
@@ -1959,6 +2016,8 @@ export function initTooltips() {
       effectMarkup: renderTooltipMarkup(target.getAttribute("data-tooltip-effect") || ""),
       weaknessMarkup: renderTooltipMarkup(target.getAttribute("data-tooltip-weakness") || ""),
       includeExtraSections: String(target.getAttribute("data-tooltip-card-extra-sections") || "").trim() !== "none",
+      headerImage: target.getAttribute("data-tooltip-image-layout") === "header",
+      radarMarkup: buildSpellAttributeRadarMarkup(target),
     });
     cardEl.classList.add("is-visible");
     document.body.appendChild(cardEl);
@@ -2045,7 +2104,11 @@ export function initTooltips() {
 
   document.addEventListener("mouseover", (event) => {
     const target = event.target instanceof Element ? event.target.closest(".tooltip_target[data-tooltip]") : null;
-    if (!(target instanceof HTMLElement) || target.dataset.tooltipMode === "card") {
+    if (
+      !(target instanceof HTMLElement)
+      || target.dataset.tooltipMode === "card"
+      || target.dataset.tooltipInline === "off"
+    ) {
       return;
     }
     if (activeTarget?.getAttribute("data-tooltip-trigger") === "click") {
@@ -2086,7 +2149,11 @@ export function initTooltips() {
 
   document.addEventListener("mouseout", (event) => {
     const target = event.target instanceof Element ? event.target.closest(".tooltip_target[data-tooltip]") : null;
-    if (!(target instanceof HTMLElement) || target.dataset.tooltipMode === "card") {
+    if (
+      !(target instanceof HTMLElement)
+      || target.dataset.tooltipMode === "card"
+      || target.dataset.tooltipInline === "off"
+    ) {
       return;
     }
     if (activeTarget?.getAttribute("data-tooltip-trigger") === "click") {
@@ -2107,7 +2174,11 @@ export function initTooltips() {
 
   document.addEventListener("click", (event) => {
     const target = event.target instanceof Element ? event.target.closest(".tooltip_target[data-tooltip]") : null;
-    if (!(target instanceof HTMLElement) || target.dataset.tooltipMode === "card") {
+    if (
+      !(target instanceof HTMLElement)
+      || target.dataset.tooltipMode === "card"
+      || target.dataset.tooltipInline === "off"
+    ) {
       if (activeTarget?.getAttribute("data-tooltip-trigger") === "click") {
         tooltip.classList.remove("is-visible");
         activeTarget = null;

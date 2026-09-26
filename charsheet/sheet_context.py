@@ -55,6 +55,7 @@ from charsheet.constants import (
 from charsheet.engine import BattleCalculatorEngine, CharacterEngine, ItemEngine
 from charsheet.engine.character_carry import CARRY_ATTRIBUTES
 from charsheet.engine.creature_engine import CreatureEngine, sync_character_creatures
+from charsheet.engine.magic_engine import _spell_owner_accent
 from charsheet.modifiers.targets import TargetResolver
 from charsheet.item_transfers import has_item_permission, item_is_pending, pending_transfer_for_item
 from charsheet.item_disclosure import (
@@ -142,6 +143,7 @@ from charsheet.models import (
     WeaponType,
     Race,
 )
+from charsheet.models.lessons import is_arcane_lesson_school
 from charsheet.view_utils import format_compact_number, format_modifier, format_thousands, quality_payload
 
 
@@ -7067,6 +7069,9 @@ def _build_school_technique_rows(character: Character, engine) -> tuple[list[dic
                         "school_id": technique.school_id,
                         "school_symbol": str(getattr(technique.school, "panel_symbol", "") or "").strip(),
                         "school_symbol_image_url": _school_symbol_image_url(technique.school),
+                        "school_description": str(
+                            technique.school.description or ""
+                        ).strip(),
                         "entry_name": entry_name,
                         "description": description_text,
                         "tooltip_title": tooltip_title,
@@ -7092,6 +7097,9 @@ def _build_school_technique_rows(character: Character, engine) -> tuple[list[dic
                     "school_id": school_entry.school_id,
                     "school_symbol": str(getattr(school_entry.school, "panel_symbol", "") or "").strip(),
                     "school_symbol_image_url": _school_symbol_image_url(school_entry.school),
+                    "school_description": str(
+                        school_entry.school.description or ""
+                    ).strip(),
                     "entry_name": specialization.name,
                     "description": specialization.description,
                     "support_level_icon": _SUPPORT_ICON_DESCRIPTIVE,
@@ -7115,6 +7123,9 @@ def _build_school_technique_rows(character: Character, engine) -> tuple[list[dic
                     "school_id": weapon_master_school.id,
                     "school_symbol": str(getattr(weapon_master_school, "panel_symbol", "") or "").strip(),
                     "school_symbol_image_url": _school_symbol_image_url(weapon_master_school),
+                    "school_description": str(
+                        weapon_master_school.description or ""
+                    ).strip(),
                     "entry_name": f"{mastery.weapon_type_label()} ({maneuver_bonus} / {damage_bonus})",
                     "description": "",
                     "support_level_icon": _SUPPORT_ICON_COMPUTED,
@@ -7137,6 +7148,17 @@ def _group_school_technique_rows(
     """
     race_rows: list[dict] = []
     groups: OrderedDict[str, dict] = OrderedDict()
+    schools_by_id = {
+        int(school.id): school
+        for school in School.objects.filter(
+            pk__in=school_levels.keys(),
+        ).select_related("type")
+    }
+    arcane_school_ids = {
+        school_id
+        for school_id, school in schools_by_id.items()
+        if is_arcane_lesson_school(school)
+    }
 
     def has_alchemist_almanac(school_name: str) -> bool:
         normalized_school_name = str(school_name or "").strip().casefold()
@@ -7211,9 +7233,13 @@ def _group_school_technique_rows(
             groups[school_name] = {
                 "school_id": school_id,
                 "school_name": school_name,
+                "accent": _spell_owner_accent(school_name),
                 "has_alchemist_almanac": has_alchemist_almanac(school_name),
                 "symbol": str(row.get("school_symbol") or "").strip(),
                 "symbol_image_url": str(row.get("school_symbol_image_url") or "").strip(),
+                "description": str(
+                    row.get("school_description") or ""
+                ).strip(),
                 "max_level": current_level,
                 "max_level_label": _to_roman(current_level) if current_level else "",
                 "druid_cult_options": druid_options_by_school_id.get(int(school_id or 0), []),
@@ -7247,14 +7273,24 @@ def _group_school_technique_rows(
     }
     missing_school_ids = [school_id for school_id in school_levels if int(school_id) not in grouped_school_ids]
     if missing_school_ids:
-        for school in School.objects.filter(pk__in=missing_school_ids).order_by("type__name", "name"):
+        missing_schools = sorted(
+            (
+                schools_by_id[int(school_id)]
+                for school_id in missing_school_ids
+                if int(school_id) in schools_by_id
+            ),
+            key=lambda school: (school.type.name, school.name),
+        )
+        for school in missing_schools:
             current_level = int(school_levels.get(school.id, 0) or 0)
             groups[school.name] = {
                 "school_id": school.id,
                 "school_name": school.name,
+                "accent": _spell_owner_accent(school.name),
                 "has_alchemist_almanac": has_alchemist_almanac(school.name),
                 "symbol": str(getattr(school, "panel_symbol", "") or "").strip(),
                 "symbol_image_url": _school_symbol_image_url(school),
+                "description": str(school.description or "").strip(),
                 "max_level": current_level,
                 "max_level_label": _to_roman(current_level) if current_level else "",
                 "druid_cult_options": druid_options_by_school_id.get(int(school.id), []),
@@ -7292,6 +7328,19 @@ def _group_school_technique_rows(
                     group["symbol"] = ""
                     group["symbol_image_url"] = patron_symbol_image_url
                     break
+
+    spell_attribute_chart_by_school = {}
+    if arcane_school_ids:
+        spell_attribute_chart_by_school, _unused_aspect_charts = (
+            _spell_attribute_chart_maps()
+        )
+    for group in groups.values():
+        school_id = int(group.get("school_id") or 0)
+        group["spell_attribute_chart"] = (
+            spell_attribute_chart_by_school.get(school_id, "")
+            if school_id in arcane_school_ids
+            else ""
+        )
 
     return race_rows, list(groups.values())
 

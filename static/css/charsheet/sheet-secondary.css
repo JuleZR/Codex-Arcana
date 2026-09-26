@@ -3894,7 +3894,8 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
     0 8px 18px rgba(0, 0, 0, 0.16);
 }
 
-.floating-tooltip-card--spell .floating-tooltip-card__frame {
+.floating-tooltip-card--spell .floating-tooltip-card__frame,
+.floating-tooltip-card--technique .floating-tooltip-card__frame {
   border-color: color-mix(in srgb, var(--tooltip-card-accent) 58%, rgba(95, 69, 42, 0.92) 42%);
   background:
     radial-gradient(
@@ -3924,15 +3925,18 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
   grid-template-columns: 76px minmax(0, 1fr);
 }
 
-.floating-tooltip-card--spell .floating-tooltip-card__frame::before {
+.floating-tooltip-card--spell .floating-tooltip-card__frame::before,
+.floating-tooltip-card--technique .floating-tooltip-card__frame::before {
   border-color: color-mix(in srgb, var(--tooltip-card-accent) 42%, rgba(180, 143, 91, 0.3) 58%);
 }
 
-.floating-tooltip-card--spell .floating-tooltip-card__title {
+.floating-tooltip-card--spell .floating-tooltip-card__title,
+.floating-tooltip-card--technique .floating-tooltip-card__title {
   color: color-mix(in srgb, var(--tooltip-card-accent) 42%, #ead9b1 58%);
 }
 
-.floating-tooltip-card--spell .floating-tooltip-card__subtitle {
+.floating-tooltip-card--spell .floating-tooltip-card__subtitle,
+.floating-tooltip-card--technique .floating-tooltip-card__subtitle {
   color: color-mix(in srgb, var(--tooltip-card-accent) 74%, #f4dfac 26%);
 }
 
@@ -3977,6 +3981,68 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
   flex: 0 1 auto;
   max-height: calc(100vh - 116px);
   overflow-y: auto;
+}
+
+.floating-tooltip-card--technique .floating-tooltip-card__header.has-header-media {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+}
+
+.floating-tooltip-card--technique .floating-tooltip-card__media--header {
+  width: 72px !important;
+  height: 72px !important;
+  max-height: 72px;
+  margin: 0;
+  overflow: visible;
+  background: transparent;
+  clip-path: none;
+  isolation: auto;
+}
+
+.floating-tooltip-card--technique .floating-tooltip-card__media--header::before {
+  content: none;
+}
+
+.floating-tooltip-card--technique .floating-tooltip-card__media--header .floating-tooltip-card__image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.floating-tooltip-card__section--radar {
+  padding-top: 14px;
+  border-top: 1px solid rgba(96, 65, 34, 0.24);
+}
+
+.tooltip-radar {
+  display: block;
+  width: min(100%, 390px);
+  height: auto;
+  margin: 0 auto;
+  overflow: visible;
+}
+
+.tooltip-radar__grid,
+.tooltip-radar__axis {
+  fill: rgba(121, 80, 35, 0.035);
+  stroke: rgba(91, 59, 29, 0.28);
+  stroke-width: 1;
+}
+
+.tooltip-radar__values {
+  fill: rgba(146, 92, 31, 0.25);
+  stroke: rgba(105, 62, 20, 0.86);
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+
+.tooltip-radar__label {
+  fill: rgba(55, 36, 19, 0.94);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .floating-tooltip-card__details {
@@ -4072,13 +4138,13 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
 }
 
 .floating-tooltip-card--skill .floating-tooltip-card__title {
-  font-size: 1.1rem;
+  font-size: 16pt;
   line-height: 1.05;
 }
 
 .floating-tooltip-card--skill .floating-tooltip-card__subtitle {
   margin-top: 3px;
-  font-size: 0.8rem;
+  font-size: 12pt;
 }
 
 .floating-tooltip-card--skill .floating-tooltip-card__close {
@@ -4105,7 +4171,7 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
 .floating-tooltip-card--skill .floating-tooltip-card__details td,
 .floating-tooltip-card--skill .floating-tooltip-card__details code,
 .floating-tooltip-card--skill .floating-tooltip-card__details .tooltip_rune_inline_name {
-  font-size: 0.88rem;
+  font-size: 12pt;
   line-height: 1.35;
   text-align: justify;
   hyphens: auto;
@@ -4122,10 +4188,15 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
 }
 
 .floating-tooltip-card--skill .floating-tooltip-card__lore p,
+.floating-tooltip-card--skill .floating-tooltip-card__lore li,
 .floating-tooltip-card--skill .floating-tooltip-card__section_body,
 .floating-tooltip-card--skill .floating-tooltip-card__section_body td,
 .floating-tooltip-card--skill .floating-tooltip-card__section_body li {
-  font-size: 0.84rem;
+  font-family: Georgia, "Times New Roman", serif;
+  font-variant: normal;
+  font-variant-caps: normal;
+  text-transform: none;
+  font-size: 12pt;
   line-height: 1.35;
   text-align: justify;
   hyphens: auto;
@@ -4133,6 +4204,27 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
   -ms-hyphens: auto;
   overflow-wrap: break-word;
   word-break: normal;
+}
+
+.floating-tooltip-card--skill li {
+  font-family: Georgia, "Times New Roman", serif;
+  font-variant: normal;
+  font-variant-caps: normal;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.floating-tooltip-card--skill .floating-tooltip-card__section_title {
+  font-size: 13pt;
+}
+
+.floating-tooltip-card--skill li + li {
+  margin-top: 0;
+}
+
+.floating-tooltip-card--skill p + ul,
+.floating-tooltip-card--skill ul + p {
+  margin-top: 3px;
 }
 
 .floating-tooltip-card__section {
@@ -5043,6 +5135,11 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
   color: inherit;
 }
 
+.school_group_toggle_btn--static {
+  cursor: default;
+  opacity: 1;
+}
+
 .school_group_header--with-binding .school_group_toggle_btn {
   flex: 0 0 auto;
   max-width: 11rem;
@@ -5168,6 +5265,44 @@ body.inventory-dragging[data-drag-allow-equip-weapon="1"] [data-inventory-zone="
   vertical-align: middle;
   transition: transform 0.18s ease;
   color: rgba(122, 78, 24, 0.7);
+}
+
+.school_group_chevron--placeholder {
+  visibility: hidden;
+  transition: none;
+}
+
+.school_info_btn {
+  -webkit-appearance: none;
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 1.1rem;
+  width: 1.1rem;
+  height: 1.1rem;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 50%;
+  background: transparent;
+  color: rgba(122, 78, 24, 0.38);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 0.72rem;
+  font-style: italic;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.72;
+  transition: border-color 0.14s ease, color 0.14s ease, opacity 0.14s ease;
+}
+
+.school_info_btn:hover,
+.school_info_btn:focus-visible {
+  border-color: rgba(122, 78, 24, 0.34);
+  background: transparent;
+  color: rgba(122, 78, 24, 0.82);
+  opacity: 1;
+  outline: none;
 }
 
 .school_group_symbol {
