@@ -265,9 +265,9 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
       if (hidden instanceof HTMLInputElement) {
         hidden.value = String(value);
       }
-      if (infoEl) {
-        infoEl.textContent = base + value > 0 ? "(erlernt)" : "(verlernt)";
-      }
+      row.classList.add("learn_lesson_cart_row");
+      row.classList.toggle("learn_lesson_cart_row--learn", value > 0);
+      row.classList.toggle("learn_lesson_cart_row--unlearn", value < 0);
       valueInput.min = String(minAdd);
       valueInput.max = String(maxAdd);
     } else if (["vampire-age", "vampire-capacity", "vampire-power", "vampire-power-remove", "vampire-buyoff", "vampire-trait", "vampire-trait-remove"].includes(kind)) {
@@ -834,7 +834,7 @@ function initLearningCart(form, cartBody, budgetEl, spentEl, remainingEl, valida
       row.setAttribute("data-paid-ep", String(paidEp));
       row.setAttribute("data-can-unlearn", canUnlearn ? "1" : "0");
       row.innerHTML = `
-        <td><span>${safeName}</span> <span data-learn-level-info>${base + startAdd > 0 ? "(erlernt)" : "(verlernt)"}</span><input type="hidden" name="learn_lesson_add_${lessonId}" value="${startAdd}" data-learn-hidden></td>
+        <td><span>${safeName}</span><input type="hidden" name="learn_lesson_add_${lessonId}" value="${startAdd}" data-learn-hidden></td>
         <td>
           <div class="shop_qty_stepper">
             <input class="shop_cart_qty_input" type="number" min="${minAdd}" max="${maxAdd}" value="${startAdd}" data-learn-value readonly>

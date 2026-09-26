@@ -416,7 +416,20 @@
                         <tbody>
                           {% for row in group.rows %}
                             <tr data-learn-source data-kind="school" data-key="school:{{ row.id }}" data-id="{{ row.id }}" data-name="{{ row.name }}" data-base="{{ row.base_level }}" data-max="{{ row.max_level }}" data-learn-search="{{ row.name|lower }} {{ group.name|lower }} schule" tabindex="0" role="button" aria-label="{{ row.name }} steigern"{% if row.description %} class="tooltip_target" data-tooltip-side="left" data-tooltip="{{ row.description }}"{% endif %}>
-                              <td class="shop_item_name">{{ row.name }}</td>
+                              <td class="shop_item_name">
+                                <span class="learn_option_name">
+                                  <span class="learn_option_symbols" aria-hidden="true">
+                                    <span class="learn_option_symbol" title="{{ row.name }}">
+                                      {% if row.symbol_image_url %}
+                                        <img src="{{ row.symbol_image_url }}" alt="">
+                                      {% else %}
+                                        {{ row.symbol|default:"?" }}
+                                      {% endif %}
+                                    </span>
+                                  </span>
+                                  <span>{{ row.name }}</span>
+                                </span>
+                              </td>
                               <td class="shop_item_price shop_item_price--meta">
                                 <span class="learn_meta_inline" aria-label="Aktuelles Level {{ row.base_level }}, Maximum {{ row.max_level }}">
                                   <span class="learn_meta_inline__row">
@@ -467,8 +480,25 @@
                               data-tooltip="{% if row.fluff_quote %}[[LESSONQUOTE]]&#10;{{ row.fluff_quote }}&#10;{% if row.fluff_quote_speaker %}[[SPEAKER:{{ row.fluff_quote_speaker }}]]&#10;{% endif %}[[/LESSONQUOTE]]&#10;&#10;{% endif %}{{ row.description }}&#10;&#10;Voraussetzungen: {{ row.requirements_display }}"
                             >
                               <td class="shop_item_name">
-                                {{ row.name }}
-                                {% if row.base_value and not row.can_unlearn %}<small>(fest erworben)</small>{% endif %}
+                                <span class="learn_option_name">
+                                  {% if row.symbols %}
+                                    <span class="learn_option_symbols" aria-hidden="true">
+                                      {% for symbol in row.symbols %}
+                                        <span class="learn_option_symbol" title="{{ symbol.name }}">
+                                          {% if symbol.symbol_image_url %}
+                                            <img src="{{ symbol.symbol_image_url }}" alt="">
+                                          {% else %}
+                                            {{ symbol.symbol|default:"?" }}
+                                          {% endif %}
+                                        </span>
+                                      {% endfor %}
+                                    </span>
+                                  {% endif %}
+                                  <span>
+                                    {{ row.name }}
+                                    {% if row.base_value and not row.can_unlearn %}<small>(fest erworben)</small>{% endif %}
+                                  </span>
+                                </span>
                               </td>
                               <td class="shop_item_price shop_item_price--meta">
                                 {% if row.base_value %}

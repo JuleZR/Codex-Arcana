@@ -7667,6 +7667,37 @@ def _build_lesson_context(
     panel_groups: OrderedDict[int, dict[str, object]] = OrderedDict()
     for lesson in lessons:
         entry = entries.get(int(lesson.id))
+        lesson_symbols = []
+        seen_lesson_symbols = set()
+        for requirement in lesson.requirements.all():
+            symbol_source = (
+                requirement.required_school
+                or requirement.magic_school
+                or getattr(requirement.druid_circle, "school", None)
+                or requirement.aspect
+            )
+            if symbol_source is None:
+                continue
+            if requirement.aspect_id:
+                symbol_key = f"aspect:{symbol_source.id}"
+                symbol = str(symbol_source.name or "?").strip()[:1] or "?"
+                symbol_image_url = _aspect_image_url(symbol_source)
+            else:
+                symbol_key = f"school:{symbol_source.id}"
+                symbol = str(
+                    getattr(symbol_source, "panel_symbol", "") or "?"
+                ).strip()
+                symbol_image_url = _school_symbol_image_url(symbol_source)
+            if symbol_key in seen_lesson_symbols:
+                continue
+            seen_lesson_symbols.add(symbol_key)
+            lesson_symbols.append(
+                {
+                    "name": symbol_source.name,
+                    "symbol": symbol,
+                    "symbol_image_url": symbol_image_url,
+                }
+            )
         requirements_display = format_lesson_requirements(lesson)
         try:
             costs_display = format_lesson_costs(lesson)
@@ -7696,6 +7727,7 @@ def _build_lesson_context(
             "fluff_quote_speaker": lesson.fluff_quote_speaker,
             "quote_display": quote_display,
             "activation_label": lesson.get_activation_type_display(),
+            "symbols": lesson_symbols,
         }
         if entry is not None or requirements_ok:
             learning_groups.setdefault("Lektionen", []).append(learning_row)
@@ -7749,6 +7781,17 @@ def _build_lesson_context(
                     f"{requirements_display} {costs_display} {lesson.get_activation_type_display()}"
                 ).lower(),
             }
+        )
+    for rows in learning_groups.values():
+        rows.sort(
+            key=lambda row: (
+                not bool(row["symbols"]),
+                tuple(sorted(
+                    str(symbol["name"]).casefold()
+                    for symbol in row["symbols"]
+                )),
+                str(row["name"]).casefold(),
+            )
         )
     panel_group_list = list(panel_groups.values())
     return {
@@ -7983,6 +8026,8 @@ def _build_learning_rows(
                 "type_name": school.type.name,
                 "base_level": base_level,
                 "max_level": max_level,
+                "symbol": source_symbol,
+                "symbol_image_url": source_image_url,
             }
         )
 

@@ -289,6 +289,40 @@
   width: 72%;
 }
 
+.learn_option_name,
+.learn_option_symbols,
+.learn_option_symbol {
+  display: inline-flex;
+  align-items: center;
+}
+
+.learn_option_name {
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.learn_option_symbols {
+  flex: 0 0 auto;
+  gap: 0.18rem;
+}
+
+.learn_option_symbol {
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  overflow: hidden;
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.learn_option_symbol img {
+  display: block;
+  width: 1.25rem;
+  height: 1.25rem;
+  object-fit: contain;
+}
+
 .shop_item_price {
   width: 28%;
   text-align: right;
@@ -2327,6 +2361,26 @@
 
 .learn-window__body .shop_cart_table td {
   border-bottom-color: rgba(149, 114, 75, 0.12);
+}
+
+.learn-window__body .shop_cart_table .learn_lesson_cart_row--learn {
+  background: linear-gradient(
+    90deg,
+    rgba(194, 232, 202, 0.72),
+    rgba(224, 244, 225, 0.42)
+  ) !important;
+}
+
+.learn-window__body .shop_cart_table .learn_lesson_cart_row--unlearn {
+  background: linear-gradient(
+    90deg,
+    rgba(159, 72, 65, 0.16),
+    rgba(184, 111, 96, 0.08)
+  ) !important;
+}
+
+.learn-window__body .shop_cart_table .learn_lesson_cart_row > td {
+  background: transparent;
 }
 
 .learn-window__body .learn_trait_cart_row > td {
