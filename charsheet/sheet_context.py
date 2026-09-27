@@ -7168,6 +7168,7 @@ def _group_school_technique_rows(
         )
 
     druid_options_by_school_id: dict[int, list[DruidCult]] = {}
+    divine_entities_by_school_id: dict[int, list[DivineEntity]] = {}
     daemonic_patron_options_by_school_id: dict[int, list[DivineEntity]] = {}
     if school_levels:
         for cult in DruidCult.objects.filter(school_id__in=school_levels.keys()).order_by("name"):
@@ -7175,8 +7176,12 @@ def _group_school_technique_rows(
         for entity in (
             DivineEntity.objects.filter(school_id__in=school_levels.keys())
             .select_related("school", "school__type")
+            .prefetch_related("aspects__aspect")
             .order_by("name", "id")
         ):
+            divine_entities_by_school_id.setdefault(
+                int(entity.school_id), [],
+            ).append(entity)
             if _divine_entity_card_kind_label(entity) == "Dämon":
                 daemonic_patron_options_by_school_id.setdefault(
                     int(entity.school_id),
@@ -7329,16 +7334,53 @@ def _group_school_technique_rows(
                     group["symbol_image_url"] = patron_symbol_image_url
                     break
 
+    divine_entity_by_school_id = {}
+    for school_id, entities in divine_entities_by_school_id.items():
+        selected_entity = next(
+            (
+                entity for entity in entities
+                if daemonic_patron_binding is not None
+                and entity.pk == daemonic_patron_binding.entity_id
+            ),
+            entities[0] if len(entities) == 1 else None,
+        )
+        if selected_entity is not None:
+            divine_entity_by_school_id[school_id] = selected_entity
+
     spell_attribute_chart_by_school = {}
-    if arcane_school_ids:
+    if arcane_school_ids or divine_entity_by_school_id:
         spell_attribute_chart_by_school, _unused_aspect_charts = (
             _spell_attribute_chart_maps()
         )
     for group in groups.values():
         school_id = int(group.get("school_id") or 0)
+        entity = divine_entity_by_school_id.get(school_id)
+        if entity is not None:
+            sections = []
+            if entity.description:
+                sections.append(entity.description)
+            aspects = ", ".join(
+                link.aspect.name for link in entity.aspects.all()
+                if link.aspect_id
+            )
+            if aspects:
+                sections.append(f"**Aspekte**\n{aspects}")
+            for label, field in (
+                ("Göttliche Funktion", "divine_function"),
+                ("Eid", "vow"),
+                ("Ziele", "goals"),
+                ("Verbündete & Feinde", "allies_and_enemies"),
+                ("Gläubige", "worshippers"),
+                ("Doktrinen", "doctrines"),
+                ("Gewährte Fähigkeiten", "granted_abilities"),
+            ):
+                value = str(getattr(entity, field) or "").strip()
+                if value:
+                    sections.append(f"**{label}**\n{value}")
+            group["description"] = "\n\n".join(sections)
         group["spell_attribute_chart"] = (
             spell_attribute_chart_by_school.get(school_id, "")
-            if school_id in arcane_school_ids
+            if school_id in arcane_school_ids or entity is not None
             else ""
         )
 
