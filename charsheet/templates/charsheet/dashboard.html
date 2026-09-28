@@ -7,7 +7,7 @@
     <link rel="icon" type="image/x-icon" href="{% static 'img/favicon.ico' %}">
     <title>Dashboard | {{ request.user.get_username }}</title>
     <link rel="stylesheet" href="{% static 'css/charsheet.css' %}">
-    <link rel="stylesheet" href="{% static 'css/dashboard.css' %}?v=20260923q">
+    <link rel="stylesheet" href="{% static 'css/dashboard.css' %}?v=20260928d">
     <script defer src="{% static 'js/game_groups.js' %}?v=20260726a"></script>
     <link rel="stylesheet" href="{% static 'css/dashboard/announcements.css' %}?v=3">
     <script type="module" src="{% static 'js/dashboard_announcements.js' %}?v=3"></script>
@@ -247,6 +247,17 @@
                 <span>E-Mail</span>
                 <input class="dashboard_input" type="email" name="email" value="{{ request.user.email|default:'' }}" autocomplete="email" placeholder="Optional">
               </label>
+              <div class="form_row">
+                <span>Status</span>
+                {% if request.user.settings.email_verified %}
+                  <strong>E-Mail bestätigt</strong>
+                {% else %}
+                  <strong>E-Mail nicht bestätigt</strong>
+                  {% if request.user.email %}
+                    <button class="dashboard_button" type="submit" formaction="{% url 'resend_email_verification' %}" formmethod="post">Bestätigungslink erneut senden</button>
+                  {% endif %}
+                {% endif %}
+              </div>
             </div>
           </section>
 
@@ -305,6 +316,69 @@
               <span>Passwort zuletzt geändert</span>
               <strong>{% if request.user.settings.password_changed_at %}{{ request.user.settings.password_changed_at|date:"d.m.Y H:i" }}{% else %}Nicht erfasst{% endif %}</strong>
             </div>
+            <div class="dashboard_two_factor_status">
+              <div>
+                <h5>Zwei-Faktor-Authentifizierung: {% if request.user.settings.two_factor_enabled %}Aktiviert{% else %}Deaktiviert{% endif %}</h5>
+                {% if request.user.settings.two_factor_enabled %}
+                  <p>Noch {{ unused_recovery_code_count }} unbenutzte Wiederherstellungscodes.</p>
+                {% else %}
+                  <p>Schütze dein Konto zusätzlich mit einer Authenticator-App.</p>
+                {% endif %}
+              </div>
+              {% if not request.user.settings.two_factor_enabled %}
+                <button type="button" class="dashboard_account_link_button dashboard_two_factor_start" id="twoFactorSetupToggle" aria-controls="twoFactorEnrollment" aria-expanded="{% if show_two_factor_setup %}true{% else %}false{% endif %}"{% if show_two_factor_setup %} hidden{% endif %}>2FA einrichten</button>
+              {% endif %}
+            </div>
+            {% if not request.user.settings.two_factor_enabled %}
+              <fieldset class="dashboard_two_factor_enrollment" id="twoFactorEnrollment"{% if not show_two_factor_setup %} hidden{% endif %}>
+                <legend>Authenticator-App verbinden</legend>
+                <p class="dashboard_two_factor_intro">Scanne den QR-Code mit einer TOTP-kompatiblen Authenticator-App. Gib anschließend den dort angezeigten sechsstelligen Code ein.</p>
+                <div class="dashboard_two_factor_qr_container">
+                  <span class="dashboard_two_factor_qr_label">QR-Code scannen</span>
+                  <img class="dashboard_two_factor_qr"{% if two_factor_setup.qr_data_uri %} src="{{ two_factor_setup.qr_data_uri }}"{% endif %} alt="QR-Code für die Authenticator-App" width="220" height="220" id="twoFactorSetupQr">
+                </div>
+                <div class="dashboard_two_factor_manual_key">
+                  <span>Manueller Einrichtungsschlüssel</span>
+                  <code id="twoFactorSetupSecret">{{ two_factor_setup.secret }}</code>
+                </div>
+                <label class="form_row dashboard_two_factor_code_field">
+                  <span>Aktueller Authentifizierungscode</span>
+                  <input class="dashboard_input" type="text" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" form="twoFactorSetupForm" required id="twoFactorSetupCode">
+                </label>
+                <div class="dashboard_two_factor_actions">
+                  <button type="submit" class="dashboard_account_link_button dashboard_two_factor_primary_action" form="twoFactorSetupForm">2FA aktivieren</button>
+                  <button type="button" class="dashboard_account_link_button dashboard_two_factor_cancel_action" id="twoFactorSetupCancel">Einrichtung abbrechen</button>
+                </div>
+              </fieldset>
+            {% else %}
+              {% if two_factor_recovery_codes %}
+                <section class="dashboard_two_factor_recovery" aria-labelledby="twoFactorRecoveryTitle">
+                  <h5 id="twoFactorRecoveryTitle">Neue Wiederherstellungscodes</h5>
+                  <p><strong>Speichere diese Codes jetzt an einem sicheren Ort.</strong> Jeder Code kann nur einmal verwendet werden und wird später nicht erneut angezeigt.</p>
+                  <ul>
+                    {% for code in two_factor_recovery_codes %}
+                      <li><code>{{ code }}</code></li>
+                    {% endfor %}
+                  </ul>
+                </section>
+              {% endif %}
+              <div class="dashboard_account_grid dashboard_account_grid--security">
+                <label class="form_row dashboard_account_grid_full">
+                  <span>Passwort für neue Wiederherstellungscodes</span>
+                  <input class="dashboard_input" type="password" name="password" autocomplete="current-password" form="twoFactorRecoveryCodesForm">
+                </label>
+                <button type="submit" class="dashboard_account_link_button" form="twoFactorRecoveryCodesForm">Wiederherstellungscodes erneuern</button>
+                <label class="form_row">
+                  <span>Passwort zum Deaktivieren</span>
+                  <input class="dashboard_input" type="password" name="password" autocomplete="current-password" form="twoFactorDisableForm">
+                </label>
+                <label class="form_row">
+                  <span>Authenticator- oder Wiederherstellungscode</span>
+                  <input class="dashboard_input" type="text" name="code" autocomplete="one-time-code" form="twoFactorDisableForm">
+                </label>
+                <button type="submit" class="dashboard_account_link_button" form="twoFactorDisableForm">2FA deaktivieren</button>
+              </div>
+            {% endif %}
             <div class="dashboard_account_grid dashboard_account_grid--security">
               <label class="form_row dashboard_account_grid_full">
                 <span>Aktuelles Passwort</span>
@@ -327,7 +401,56 @@
                 <p>Neues Passwort eingeben.</p>
               </div>
             </div>
-            <button type="submit" class="dashboard_account_link_button" form="logoutOtherSessionsForm">Andere Sitzungen abmelden</button>
+            <div class="dashboard_session_header">
+              <div>
+                <h5>Aktive Sitzungen</h5>
+                <p>Angemeldete Codex-Arcana-Sitzungen dieses Kontos.</p>
+              </div>
+              <button type="submit" class="dashboard_account_link_button" form="logoutOtherSessionsForm">Andere Sitzungen abmelden</button>
+            </div>
+            <div class="dashboard_session_list">
+              {% for active_session in active_sessions %}
+                <article class="dashboard_session{% if active_session.is_current %} dashboard_session--current{% endif %}">
+                  <div class="dashboard_session_details">
+                    <div class="dashboard_session_title">
+                      <strong>Codex Arcana Sitzung</strong>
+                      {% if active_session.is_current %}<span>Aktuelle Sitzung</span>{% endif %}
+                    </div>
+                    <small>Gültig bis {{ active_session.expire_date|date:"d.m.Y H:i" }}</small>
+                  </div>
+                  {% if not active_session.is_current %}
+                    <button type="submit" class="dashboard_account_link_button" form="logoutSession{{ forloop.counter }}">Abmelden</button>
+                  {% endif %}
+                </article>
+              {% empty %}
+                <p class="dashboard_session_empty">Keine aktiven Sitzungen gefunden.</p>
+              {% endfor %}
+            </div>
+            <div class="dashboard_session_header dashboard_security_activity_header">
+              <div>
+                <h5>Security activity</h5>
+                <p>Letzte sicherheitsrelevante Änderungen und Anmeldeversuche.</p>
+              </div>
+            </div>
+            <div class="dashboard_security_activity_list">
+              {% for security_event in security_events %}
+                <article class="dashboard_security_activity">
+                  <div>
+                    <strong>{{ security_event.description }}</strong>
+                    <small>{{ security_event.created_at|date:"d.m.Y H:i" }}</small>
+                  </div>
+                  {% if security_event.device or security_event.source_ip %}
+                    <small class="dashboard_security_activity_source">
+                      {% if security_event.device %}{{ security_event.device }}{% endif %}
+                      {% if security_event.device and security_event.source_ip %} · {% endif %}
+                      {% if security_event.source_ip %}{{ security_event.source_ip }}{% endif %}
+                    </small>
+                  {% endif %}
+                </article>
+              {% empty %}
+                <p class="dashboard_session_empty">Noch keine Sicherheitsaktivität erfasst.</p>
+              {% endfor %}
+            </div>
           </section>
 
           <section class="dashboard_account_section" id="accountData">
@@ -428,6 +551,29 @@
         <form method="post" action="{% url 'logout_other_sessions' %}" id="logoutOtherSessionsForm">
           {% csrf_token %}
         </form>
+        <form method="post" action="{% url 'two_factor_recovery_codes' %}" id="twoFactorRecoveryCodesForm">
+          {% csrf_token %}
+        </form>
+        <form method="post" action="{% url 'two_factor_setup_start' %}" id="twoFactorSetupStartForm">
+          {% csrf_token %}
+        </form>
+        <form method="post" action="{% url 'two_factor_setup' %}" id="twoFactorSetupForm">
+          {% csrf_token %}
+        </form>
+        <form method="post" action="{% url 'two_factor_setup_cancel' %}" id="twoFactorSetupCancelForm">
+          {% csrf_token %}
+        </form>
+        <form method="post" action="{% url 'two_factor_disable' %}" id="twoFactorDisableForm">
+          {% csrf_token %}
+        </form>
+        {% for active_session in active_sessions %}
+          {% if not active_session.is_current %}
+            <form method="post" action="{% url 'logout_session' %}" id="logoutSession{{ forloop.counter }}">
+              {% csrf_token %}
+              <input type="hidden" name="session" value="{{ active_session.reference }}">
+            </form>
+          {% endif %}
+        {% endfor %}
       </div>
     </section>
 
@@ -1295,6 +1441,72 @@ if (dddiceCheckbox) {
           accountHandle.addEventListener("pointercancel", stopAccountDragging);
 
           openAccountBtn.addEventListener("click", openAccountWindow);
+          if ({% if open_account_security %}true{% else %}false{% endif %} || new URLSearchParams(window.location.search).get("account") === "security") {
+            openAccountWindow();
+          }
+          const twoFactorSetupToggle = document.getElementById("twoFactorSetupToggle");
+          const twoFactorEnrollment = document.getElementById("twoFactorEnrollment");
+          const twoFactorSetupQr = document.getElementById("twoFactorSetupQr");
+          const twoFactorSetupSecret = document.getElementById("twoFactorSetupSecret");
+          const twoFactorSetupCode = document.getElementById("twoFactorSetupCode");
+          const twoFactorSetupCancel = document.getElementById("twoFactorSetupCancel");
+          const twoFactorSetupStartForm = document.getElementById("twoFactorSetupStartForm");
+          const twoFactorSetupCancelForm = document.getElementById("twoFactorSetupCancelForm");
+
+          if (twoFactorSetupToggle && twoFactorEnrollment && twoFactorSetupStartForm) {
+            twoFactorSetupToggle.addEventListener("click", async function () {
+              twoFactorSetupToggle.disabled = true;
+              try {
+                const response = await fetch(twoFactorSetupStartForm.action, {
+                  method: "POST",
+                  body: new FormData(twoFactorSetupStartForm),
+                  credentials: "same-origin",
+                  headers: {"X-Requested-With": "XMLHttpRequest"},
+                });
+                if (!response.ok) {
+                  throw new Error("setup-start-failed");
+                }
+                const setup = await response.json();
+                twoFactorSetupQr.src = setup.qr_data_uri;
+                twoFactorSetupSecret.textContent = setup.secret;
+                twoFactorEnrollment.hidden = false;
+                twoFactorSetupToggle.hidden = true;
+                twoFactorSetupToggle.setAttribute("aria-expanded", "true");
+                twoFactorSetupCode.focus();
+              } catch (error) {
+                twoFactorSetupToggle.disabled = false;
+                window.alert("Die 2FA-Einrichtung konnte nicht gestartet werden.");
+              }
+            });
+          }
+
+          if (twoFactorSetupCancel && twoFactorSetupCancelForm) {
+            twoFactorSetupCancel.addEventListener("click", async function () {
+              twoFactorSetupCancel.disabled = true;
+              try {
+                const response = await fetch(twoFactorSetupCancelForm.action, {
+                  method: "POST",
+                  body: new FormData(twoFactorSetupCancelForm),
+                  credentials: "same-origin",
+                  headers: {"X-Requested-With": "XMLHttpRequest"},
+                });
+                if (!response.ok) {
+                  throw new Error("setup-cancel-failed");
+                }
+                twoFactorEnrollment.hidden = true;
+                twoFactorSetupQr.removeAttribute("src");
+                twoFactorSetupSecret.textContent = "";
+                twoFactorSetupCode.value = "";
+                twoFactorSetupToggle.hidden = false;
+                twoFactorSetupToggle.disabled = false;
+                twoFactorSetupToggle.setAttribute("aria-expanded", "false");
+              } catch (error) {
+                window.alert("Die 2FA-Einrichtung konnte nicht abgebrochen werden.");
+              } finally {
+                twoFactorSetupCancel.disabled = false;
+              }
+            });
+          }
           accountCloseBtn.addEventListener("click", closeAccountWindow);
           accountCancelBtn.addEventListener("click", closeAccountWindow);
           accountBackdrop.addEventListener("click", closeAccountWindow);

@@ -76,6 +76,7 @@ from .engine.item_engine import ItemEngine
 from .engine.creature_engine import CreatureEngine
 from .modifiers.registry import build_trait_semantic_modifiers
 from .models import (
+    AccountSecurityEvent,
     AlchemicalBrewStats,
     AlchemicalBrewRequirement,
     ArmorStats,
@@ -5169,6 +5170,42 @@ class LanguageCharacterInline(admin.TabularInline):
     extra = 0
     show_change_link = True
     autocomplete_fields = ("owner",)
+
+
+@admin.register(AccountSecurityEvent)
+class AccountSecurityEventAdmin(admin.ModelAdmin):
+    list_display = (
+        "created_at",
+        "user",
+        "event_type",
+        "device",
+        "source_ip",
+    )
+    list_filter = ("event_type", "created_at")
+    search_fields = ("user__username", "user__email", "device", "source_ip")
+    readonly_fields = (
+        "user",
+        "event_type",
+        "created_at",
+        "source_ip",
+        "device",
+        "metadata",
+    )
+    ordering = ("-created_at", "-id")
+
+    def has_view_permission(self, request, obj=None):
+        return request.user.has_perm(
+            "charsheet.inspect_accountsecurityevent"
+        )
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(Attribute)

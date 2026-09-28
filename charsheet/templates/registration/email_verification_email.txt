@@ -1,0 +1,10 @@
+Hallo,
+
+diese E-Mail-Adresse wurde für ein neues oder geändertes Codex-Arcana-Konto angegeben.
+
+Bitte bestätige die Adresse über diesen Link:
+{{ verification_url }}
+
+Der Link ist zeitlich begrenzt und kann nur einmal verwendet werden.
+
+Falls du diese Aktion nicht angestoßen hast, kannst du diese Nachricht ignorieren.

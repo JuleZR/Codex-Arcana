@@ -18,7 +18,6 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import include, path
 from charsheet import group_views, views
-from django.contrib.auth.views import LoginView
 from django.views.static import serve
 from django.conf import settings
 
@@ -251,6 +250,19 @@ urlpatterns = [
          name="update_account_settings"),
     path("dashboard/account/logout-other-sessions/",
          views.logout_other_sessions, name="logout_other_sessions"),
+    path("dashboard/account/logout-session/",
+         views.logout_session, name="logout_session"),
+    path("dashboard/account/two-factor/setup/",
+         views.two_factor_setup, name="two_factor_setup"),
+    path("dashboard/account/two-factor/setup/start/",
+         views.two_factor_setup_start, name="two_factor_setup_start"),
+    path("dashboard/account/two-factor/setup/cancel/",
+         views.two_factor_setup_cancel, name="two_factor_setup_cancel"),
+    path("dashboard/account/two-factor/recovery-codes/",
+         views.two_factor_recovery_codes,
+         name="two_factor_recovery_codes"),
+    path("dashboard/account/two-factor/disable/",
+         views.two_factor_disable, name="two_factor_disable"),
     path("dashboard/account/export/",
          views.export_account_data, name="export_account_data"),
     path("character/new/", views.create_character, name="create_character"),
@@ -458,8 +470,48 @@ urlpatterns = [
          views.enforce_item_ownership, name="enforce_item_ownership"),
     path("character-item/<int:pk>/permissions/",
          views.update_item_permission, name="update_item_permission"),
-    path("", LoginView.as_view(template_name="registration/login.html",
-         redirect_authenticated_user=True), name="login"),
+    path("", views.AppLoginView.as_view(), name="login"),
+    path(
+        "two-factor/challenge/",
+        views.two_factor_challenge,
+        name="two_factor_challenge",
+    ),
+    path("register/", views.register, name="register"),
+    path(
+        "email-verification/sent/",
+        views.email_verification_requested,
+        name="email_verification_requested",
+    ),
+    path(
+        "email-verification/resend/",
+        views.resend_email_verification,
+        name="resend_email_verification",
+    ),
+    path(
+        "email-verification/<str:token>/",
+        views.verify_email,
+        name="verify_email",
+    ),
+    path(
+        "password-reset/",
+        views.AppPasswordResetView.as_view(),
+        name="forgot_password",
+    ),
+    path(
+        "password-reset/sent/",
+        views.AppPasswordResetDoneView.as_view(),
+        name="forgot_password_done",
+    ),
+    path(
+        "password-reset/<uidb64>/<token>/",
+        views.AppPasswordResetConfirmView.as_view(),
+        name="forgot_password_confirm",
+    ),
+    path(
+        "register/password-policy/",
+        views.password_policy_status,
+        name="password_policy_status",
+    ),
     path("api/roll/", views.roll_dice_view, name="roll_dice"),
     path("debug/card/", views.debug_creature_card, name="debug_creature_card"),
     path("media/<path:path>", serve, {"document_root": settings.MEDIA_ROOT}),

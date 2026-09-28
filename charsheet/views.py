@@ -4,9 +4,10 @@ import binascii
 import hashlib
 import json
 import random
+from smtplib import SMTPException
 from urllib.parse import urlencode
 from uuid import uuid4
-from datetime import date as date_cls
+from datetime import date as date_cls, timedelta
 from django.core.files.base import ContentFile
 from django.conf import settings
 from django.http import Http404, JsonResponse
@@ -14,25 +15,59 @@ from django.http import HttpResponse
 from django.http import HttpResponseRedirect
 from django.shortcuts import get_object_or_404, redirect, render
 from django.contrib import messages
+from django.contrib.auth import get_user_model
+from django.contrib.auth import login as auth_login
 from django.contrib.auth import logout as auth_logout
 from django.contrib.auth import update_session_auth_hash
-from django.contrib.sessions.models import Session
+from django.contrib.auth.forms import AuthenticationForm
+from django.contrib.auth.password_validation import (
+    CommonPasswordValidator,
+    UserAttributeSimilarityValidator,
+)
+from django.core.exceptions import ValidationError
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.views import LogoutView
+from django.contrib.auth.views import (
+    LoginView,
+    LogoutView,
+    PasswordResetConfirmView,
+    PasswordResetDoneView,
+    PasswordResetView,
+)
 from django.views.decorators.http import require_POST
+from django.views.decorators.debug import (
+    sensitive_post_parameters,
+    sensitive_variables,
+)
 from django.db import transaction
 from django.db.models import F, Q, Sum
 from django.db.models.deletion import ProtectedError
 from django.utils import timezone
 from django.template.loader import render_to_string
 from django.urls import reverse, reverse_lazy
+from django.utils.http import url_has_allowed_host_and_scheme
 from .engine import CharacterCreationEngine
 from .engine.creature_engine import CreatureEngine, sync_character_creatures
 from .engine.dice_engine import DiceEngine
 from .engine.item_engine import ItemEngine
+from .email_verification import (
+    email_is_verified,
+    request_email_verification,
+    verify_email_token,
+)
+from .auth_security import (
+    clear_auth_rate_limit,
+    consume_auth_rate_limit,
+    record_security_event,
+    verify_turnstile,
+)
 from .learning_progression import weapon_mastery_weapon_type_definitions
 from .consumables import apply_consumable_effects
+from .session_management import (
+    active_sessions_for_user,
+    terminate_user_sessions,
+)
 from .models import (
+    AccountSecurityEvent,
     Character,
     CharacterDiaryEntry,
     CharacterAspect,
@@ -100,7 +135,10 @@ from .models import (
 from .models.creatures import ATTRIBUTE_FIELD_MAP
 from .models.user import UserSettings
 from .forms import (
+    AccountPasswordConfirmationForm,
     AccountSettingsForm,
+    AppPasswordResetForm,
+    AppSetPasswordForm,
     CharacterCreateForm,
     CharacterUpdateForm,
     CharacterInfoInlineForm,
@@ -108,7 +146,21 @@ from .forms import (
     CharacterSkillSpecificationForm,
     CharacterTechniqueSpecificationForm,
     CharacterTraitSpecificationForm,
+    RegistrationForm,
+    TwoFactorCodeForm,
+    TwoFactorDisableForm,
     UserSettingsForm
+)
+from .two_factor import (
+    consume_recovery_code,
+    decrypt_totp_secret,
+    encrypt_totp_secret,
+    generate_totp_secret,
+    provisioning_qr_data_uri,
+    provisioning_uri,
+    regenerate_recovery_codes,
+    unused_recovery_code_count,
+    verify_totp,
 )
 from .constants import (
     ATTRIBUTE_CODE_CHOICES,
@@ -527,13 +579,48 @@ def update_account_settings(request):
         return redirect("dashboard")
 
     changed, password_changed = account_form.save()
+    email_changed = account_form.email_changed
     settings_changed = settings_form.has_changed()
     if password_changed:
         user_settings.password_changed_at = timezone.now()
     settings_form.save()
 
+    if email_changed:
+        user_settings.email_verified = False
+        user_settings.verified_email = ""
+        user_settings.email_verification_address = ""
+        user_settings.email_verification_token = None
+        user_settings.email_verification_sent_at = None
+        user_settings.save(
+            update_fields=[
+                "email_verified",
+                "verified_email",
+                "email_verification_address",
+                "email_verification_token",
+                "email_verification_sent_at",
+            ]
+        )
+        if request.user.email:
+            request_email_verification(request, request.user)
+            messages.info(
+                request,
+                "Bitte bestätige deine neue E-Mail-Adresse über den zugesandten Link.",
+            )
+
     if password_changed:
         update_session_auth_hash(request, request.user)
+        record_security_event(
+            request.user,
+            AccountSecurityEvent.EventType.PASSWORD_CHANGED,
+            request=request,
+        )
+
+    if email_changed:
+        record_security_event(
+            request.user,
+            AccountSecurityEvent.EventType.EMAIL_CHANGED,
+            request=request,
+        )
 
     if changed or settings_changed:
         messages.success(request, "Kontoeinstellungen gespeichert.")
@@ -547,14 +634,313 @@ def update_account_settings(request):
 @require_POST
 def logout_other_sessions(request):
     current_session_key = request.session.session_key
-    for session in Session.objects.filter(expire_date__gte=timezone.now()).iterator():
-        if session.session_key == current_session_key:
-            continue
-        data = session.get_decoded()
-        if str(data.get("_auth_user_id")) == str(request.user.pk):
-            session.delete()
+    deleted_count = terminate_user_sessions(
+        request.user,
+        exclude_session_key=current_session_key,
+    )
+    if deleted_count:
+        record_security_event(
+            request.user,
+            AccountSecurityEvent.EventType.OTHER_SESSIONS_LOGGED_OUT,
+            request=request,
+            metadata={"session_count": deleted_count},
+        )
     messages.success(request, "Andere Sitzungen wurden abgemeldet.")
-    return redirect("dashboard")
+    return HttpResponseRedirect(
+        "%s?account=security#accountSecurity" % reverse("dashboard")
+    )
+
+
+@login_required
+@require_POST
+def logout_session(request):
+    deleted_count = terminate_user_sessions(
+        request.user,
+        reference=request.POST.get("session", ""),
+        exclude_session_key=request.session.session_key,
+    )
+    if deleted_count:
+        record_security_event(
+            request.user,
+            AccountSecurityEvent.EventType.SESSION_TERMINATED,
+            request=request,
+        )
+        messages.success(request, "Die Sitzung wurde abgemeldet.")
+    else:
+        messages.info(request, "Die Sitzung ist nicht mehr aktiv.")
+    return HttpResponseRedirect(
+        "%s?account=security#accountSecurity" % reverse("dashboard")
+    )
+
+
+TWO_FACTOR_SETUP_SECRET_SESSION_KEY = "two_factor_setup_secret"
+TWO_FACTOR_LOGIN_USER_SESSION_KEY = "two_factor_login_user_id"
+TWO_FACTOR_LOGIN_BACKEND_SESSION_KEY = "two_factor_login_backend"
+TWO_FACTOR_LOGIN_NEXT_SESSION_KEY = "two_factor_login_next"
+TWO_FACTOR_LOGIN_STARTED_SESSION_KEY = "two_factor_login_started_at"
+
+
+def _security_settings_redirect():
+    return HttpResponseRedirect(
+        "%s?account=security#accountSecurity" % reverse("dashboard")
+    )
+
+
+def _clear_pending_two_factor_login(request):
+    request.session.pop(TWO_FACTOR_LOGIN_USER_SESSION_KEY, None)
+    request.session.pop(TWO_FACTOR_LOGIN_BACKEND_SESSION_KEY, None)
+    request.session.pop(TWO_FACTOR_LOGIN_NEXT_SESSION_KEY, None)
+    request.session.pop(TWO_FACTOR_LOGIN_STARTED_SESSION_KEY, None)
+
+
+@sensitive_variables("secret", "encrypted_secret")
+@login_required
+@require_POST
+def two_factor_setup_start(request):
+    user_settings, _ = UserSettings.objects.get_or_create(user=request.user)
+    if user_settings.two_factor_enabled:
+        return JsonResponse({"error": "already_enabled"}, status=400)
+
+    encrypted_secret = request.session.get(
+        TWO_FACTOR_SETUP_SECRET_SESSION_KEY,
+        "",
+    )
+    secret = decrypt_totp_secret(encrypted_secret) if encrypted_secret else ""
+    if not secret:
+        secret = generate_totp_secret()
+        request.session[TWO_FACTOR_SETUP_SECRET_SESSION_KEY] = (
+            encrypt_totp_secret(secret)
+        )
+    return JsonResponse(
+        {
+            "secret": secret,
+            "qr_data_uri": provisioning_qr_data_uri(
+                provisioning_uri(secret, request.user)
+            ),
+        }
+    )
+
+
+@sensitive_post_parameters("code")
+@login_required
+@require_POST
+def two_factor_setup(request):
+    user_settings, _ = UserSettings.objects.get_or_create(user=request.user)
+    if user_settings.two_factor_enabled:
+        messages.info(
+            request,
+            "Zwei-Faktor-Authentifizierung ist bereits aktiv.",
+        )
+        return _security_settings_redirect()
+
+    encrypted_secret = request.session.get(
+        TWO_FACTOR_SETUP_SECRET_SESSION_KEY,
+        "",
+    )
+    secret = decrypt_totp_secret(encrypted_secret) if encrypted_secret else ""
+    if not secret:
+        messages.error(
+            request,
+            "Die Einrichtung ist abgelaufen. Bitte versuche es erneut.",
+        )
+        return dashboard(
+            request,
+            open_account_security=True,
+            show_two_factor_setup=True,
+        )
+
+    form = TwoFactorCodeForm(request.POST)
+    if form.is_valid():
+        rate_limit = consume_auth_rate_limit(
+            request,
+            "two_factor",
+            account_reference=str(request.user.pk),
+        )
+        if rate_limit.limited:
+            messages.error(
+                request,
+                "Zu viele Versuche. Bitte warte und versuche es später erneut.",
+            )
+            response = dashboard(
+                request,
+                open_account_security=True,
+                show_two_factor_setup=True,
+            )
+            response.status_code = 429
+            return response
+        if verify_totp(secret, form.cleaned_data["code"]):
+            with transaction.atomic():
+                locked_settings = UserSettings.objects.select_for_update().get(
+                    pk=user_settings.pk
+                )
+                locked_settings.two_factor_secret = encrypt_totp_secret(secret)
+                locked_settings.two_factor_enabled = True
+                locked_settings.two_factor_enabled_at = timezone.now()
+                locked_settings.save(
+                    update_fields=[
+                        "two_factor_secret",
+                        "two_factor_enabled",
+                        "two_factor_enabled_at",
+                    ]
+                )
+                recovery_codes = regenerate_recovery_codes(request.user)
+            request.session.pop(TWO_FACTOR_SETUP_SECRET_SESSION_KEY, None)
+            clear_auth_rate_limit(
+                request,
+                "two_factor",
+                account_reference=str(request.user.pk),
+            )
+            record_security_event(
+                request.user,
+                AccountSecurityEvent.EventType.TWO_FACTOR_ENABLED,
+                request=request,
+            )
+            messages.success(
+                request,
+                "Zwei-Faktor-Authentifizierung ist jetzt aktiv.",
+            )
+            return dashboard(
+                request,
+                recovery_codes=recovery_codes,
+                open_account_security=True,
+            )
+    messages.error(request, "Der Code ist ungültig oder abgelaufen.")
+    return dashboard(
+        request,
+        open_account_security=True,
+        show_two_factor_setup=True,
+    )
+
+
+@login_required
+@require_POST
+def two_factor_setup_cancel(request):
+    request.session.pop(TWO_FACTOR_SETUP_SECRET_SESSION_KEY, None)
+    if request.headers.get("x-requested-with") == "XMLHttpRequest":
+        return JsonResponse({"cancelled": True})
+    messages.info(request, "Die 2FA-Einrichtung wurde abgebrochen.")
+    return _security_settings_redirect()
+
+
+@sensitive_post_parameters("password")
+@login_required
+@require_POST
+def two_factor_recovery_codes(request):
+    user_settings, _ = UserSettings.objects.get_or_create(user=request.user)
+    if not user_settings.two_factor_enabled:
+        messages.error(
+            request,
+            "Zwei-Faktor-Authentifizierung ist nicht aktiv.",
+        )
+        return _security_settings_redirect()
+
+    rate_limit = consume_auth_rate_limit(
+        request,
+        "recovery_code",
+        account_reference=str(request.user.pk),
+    )
+    if rate_limit.limited:
+        messages.error(
+            request,
+            "Zu viele Versuche. Bitte warte und versuche es später erneut.",
+        )
+        return _security_settings_redirect()
+
+    form = AccountPasswordConfirmationForm(request.user, request.POST)
+    if not form.is_valid():
+        messages.error(request, "Das aktuelle Passwort ist nicht korrekt.")
+        return _security_settings_redirect()
+
+    recovery_codes = regenerate_recovery_codes(request.user)
+    clear_auth_rate_limit(
+        request,
+        "recovery_code",
+        account_reference=str(request.user.pk),
+    )
+    record_security_event(
+        request.user,
+        AccountSecurityEvent.EventType.RECOVERY_CODES_REGENERATED,
+        request=request,
+    )
+    messages.success(
+        request,
+        "Neue Wiederherstellungscodes wurden erzeugt.",
+    )
+    return dashboard(
+        request,
+        recovery_codes=recovery_codes,
+        open_account_security=True,
+    )
+
+
+@sensitive_post_parameters("password", "code")
+@login_required
+@require_POST
+def two_factor_disable(request):
+    user_settings, _ = UserSettings.objects.get_or_create(user=request.user)
+    if not user_settings.two_factor_enabled:
+        messages.info(
+            request,
+            "Zwei-Faktor-Authentifizierung ist bereits aus.",
+        )
+        return _security_settings_redirect()
+
+    rate_limit = consume_auth_rate_limit(
+        request,
+        "two_factor",
+        account_reference=str(request.user.pk),
+    )
+    if rate_limit.limited:
+        messages.error(
+            request,
+            "Zu viele Versuche. Bitte warte und versuche es später erneut.",
+        )
+        return _security_settings_redirect()
+
+    form = TwoFactorDisableForm(request.user, request.POST)
+    if not form.is_valid():
+        messages.error(request, "Passwort oder Sicherheitscode ist ungültig.")
+        return _security_settings_redirect()
+
+    secret = decrypt_totp_secret(user_settings.two_factor_secret)
+    code = form.cleaned_data["code"]
+    second_factor_valid = bool(secret and verify_totp(secret, code))
+    if not second_factor_valid:
+        second_factor_valid = consume_recovery_code(request.user, code)
+    if not second_factor_valid:
+        messages.error(request, "Passwort oder Sicherheitscode ist ungültig.")
+        return _security_settings_redirect()
+
+    with transaction.atomic():
+        locked_settings = UserSettings.objects.select_for_update().get(
+            pk=user_settings.pk
+        )
+        locked_settings.two_factor_enabled = False
+        locked_settings.two_factor_secret = ""
+        locked_settings.two_factor_enabled_at = None
+        locked_settings.save(
+            update_fields=[
+                "two_factor_enabled",
+                "two_factor_secret",
+                "two_factor_enabled_at",
+            ]
+        )
+        request.user.two_factor_recovery_codes.all().delete()
+    clear_auth_rate_limit(
+        request,
+        "two_factor",
+        account_reference=str(request.user.pk),
+    )
+    record_security_event(
+        request.user,
+        AccountSecurityEvent.EventType.TWO_FACTOR_DISABLED,
+        request=request,
+    )
+    messages.success(
+        request,
+        "Zwei-Faktor-Authentifizierung wurde deaktiviert.",
+    )
+    return _security_settings_redirect()
 
 
 @login_required
@@ -2440,10 +2826,41 @@ def sheet(request):
 
 
 @login_required
-def dashboard(request):
+def dashboard(
+    request,
+    recovery_codes=None,
+    open_account_security=False,
+    show_two_factor_setup=False,
+):
     """Render the user-specific dashboard with owned character overview."""
     expire_due_transfers()
-    UserSettings.objects.get_or_create(user=request.user)
+    user_settings, _ = UserSettings.objects.get_or_create(user=request.user)
+    two_factor_setup = {}
+    show_two_factor_setup = (
+        show_two_factor_setup
+        or request.GET.get("two_factor") == "setup"
+    )
+    if not user_settings.two_factor_enabled and show_two_factor_setup:
+        encrypted_secret = request.session.get(
+            TWO_FACTOR_SETUP_SECRET_SESSION_KEY,
+            "",
+        )
+        secret = (
+            decrypt_totp_secret(encrypted_secret)
+            if encrypted_secret
+            else ""
+        )
+        if not secret:
+            secret = generate_totp_secret()
+            request.session[TWO_FACTOR_SETUP_SECRET_SESSION_KEY] = (
+                encrypt_totp_secret(secret)
+            )
+        two_factor_setup = {
+            "secret": secret,
+            "qr_data_uri": provisioning_qr_data_uri(
+                provisioning_uri(secret, request.user)
+            ),
+        }
     characters_qs = Character.objects.filter(
         owner=request.user,
         is_archived=False,
@@ -2617,6 +3034,22 @@ def dashboard(request):
         "ungrouped_character_rows": [
             row for row in character_rows if row["character"].id not in active_group_character_ids
         ],
+        "active_sessions": active_sessions_for_user(
+            request.user,
+            request.session.session_key,
+        ),
+        "security_events": request.user.security_events.filter(
+            created_at__gte=timezone.now() - timedelta(
+                days=settings.ACCOUNT_SECURITY_ACTIVITY_RETENTION_DAYS
+            )
+        )[:50],
+        "unused_recovery_code_count": unused_recovery_code_count(
+            request.user
+        ),
+        "two_factor_setup": two_factor_setup,
+        "show_two_factor_setup": show_two_factor_setup,
+        "two_factor_recovery_codes": recovery_codes or [],
+        "open_account_security": open_account_security,
     }
     return render(request, "charsheet/dashboard.html", context)
 
@@ -2723,6 +3156,454 @@ def delete_creation_draft(request, draft_id: int):
     else:
         messages.info(request, "Charaktererschaffung wurde verworfen.")
     return redirect("dashboard")
+
+
+class AppLoginView(LoginView):
+    """Keep Django login behavior while sharing the page with registration."""
+
+    template_name = "registration/login.html"
+    redirect_authenticated_user = True
+
+    def post(self, request, *args, **kwargs):
+        if not verify_turnstile(request, "login"):
+            return self.render_to_response(
+                self.get_context_data(
+                    form=self.get_form(),
+                    auth_security_error=(
+                        "Die Sicherheitsprüfung ist fehlgeschlagen. Bitte "
+                        "versuche es erneut."
+                    ),
+                ),
+                status=400,
+            )
+        return super().post(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context.setdefault("registration_form", RegistrationForm())
+        context.setdefault("active_auth_panel", "login")
+        return context
+
+    def form_valid(self, form):
+        user = form.get_user()
+        if (
+            settings.EMAIL_VERIFICATION_REQUIRED_FOR_LOGIN
+            and (user.email or "").strip()
+            and not email_is_verified(user)
+        ):
+            form.add_error(
+                None,
+                "Bitte bestätige zuerst deine E-Mail-Adresse.",
+            )
+            return self.render_to_response(
+                self.get_context_data(
+                    form=form,
+                    email_verification_blocked=True,
+                )
+            )
+        user_settings, _ = UserSettings.objects.get_or_create(user=user)
+        if user_settings.two_factor_enabled:
+            self.request.session.cycle_key()
+            self.request.session[TWO_FACTOR_LOGIN_USER_SESSION_KEY] = user.pk
+            self.request.session[TWO_FACTOR_LOGIN_BACKEND_SESSION_KEY] = (
+                getattr(user, "backend", "")
+                or "django.contrib.auth.backends.ModelBackend"
+            )
+            self.request.session[TWO_FACTOR_LOGIN_NEXT_SESSION_KEY] = (
+                self.get_success_url()
+            )
+            self.request.session[TWO_FACTOR_LOGIN_STARTED_SESSION_KEY] = (
+                timezone.now().timestamp()
+            )
+            return redirect("two_factor_challenge")
+        return super().form_valid(form)
+
+
+@sensitive_post_parameters("code")
+def two_factor_challenge(request):
+    if request.user.is_authenticated:
+        return redirect("dashboard")
+
+    user_id = request.session.get(TWO_FACTOR_LOGIN_USER_SESSION_KEY)
+    backend = request.session.get(TWO_FACTOR_LOGIN_BACKEND_SESSION_KEY, "")
+    started_at = request.session.get(TWO_FACTOR_LOGIN_STARTED_SESSION_KEY)
+    try:
+        challenge_age = timezone.now().timestamp() - float(started_at)
+    except (TypeError, ValueError):
+        challenge_age = settings.TWO_FACTOR_LOGIN_TIMEOUT_SECONDS + 1
+    if (
+        not user_id
+        or not backend
+        or challenge_age > settings.TWO_FACTOR_LOGIN_TIMEOUT_SECONDS
+    ):
+        _clear_pending_two_factor_login(request)
+        return redirect("login")
+
+    User = get_user_model()
+    user = User.objects.filter(pk=user_id, is_active=True).first()
+    if user is None:
+        _clear_pending_two_factor_login(request)
+        return redirect("login")
+    user_settings = UserSettings.objects.filter(user=user).first()
+    if not user_settings or not user_settings.two_factor_enabled:
+        _clear_pending_two_factor_login(request)
+        return redirect("login")
+
+    form = TwoFactorCodeForm(request.POST or None)
+    use_recovery_code = request.POST.get("mode") == "recovery"
+    if request.method == "POST" and form.is_valid():
+        rate_limit_category = (
+            "recovery_code" if use_recovery_code else "two_factor"
+        )
+        rate_limit = consume_auth_rate_limit(
+            request,
+            rate_limit_category,
+            account_reference=str(user.pk),
+        )
+        if rate_limit.limited:
+            return render(
+                request,
+                "registration/two_factor_challenge.html",
+                {
+                    "form": form,
+                    "use_recovery_code": use_recovery_code,
+                    "auth_security_error": (
+                        "Zu viele Versuche. Bitte warte und versuche es "
+                        "später erneut."
+                    ),
+                },
+                status=429,
+            )
+
+        submitted_code = form.cleaned_data["code"]
+        if use_recovery_code:
+            valid = consume_recovery_code(user, submitted_code)
+        else:
+            secret = decrypt_totp_secret(user_settings.two_factor_secret)
+            valid = bool(secret and verify_totp(secret, submitted_code))
+        if valid:
+            redirect_to = request.session.get(
+                TWO_FACTOR_LOGIN_NEXT_SESSION_KEY,
+                reverse("dashboard"),
+            )
+            if not url_has_allowed_host_and_scheme(
+                redirect_to,
+                allowed_hosts={request.get_host()},
+                require_https=request.is_secure(),
+            ):
+                redirect_to = reverse("dashboard")
+            clear_auth_rate_limit(
+                request,
+                rate_limit_category,
+                account_reference=str(user.pk),
+            )
+            auth_login(request, user, backend=backend)
+            _clear_pending_two_factor_login(request)
+            return redirect(redirect_to)
+        form.add_error("code", "Der Code ist ungültig oder abgelaufen.")
+
+    return render(
+        request,
+        "registration/two_factor_challenge.html",
+        {"form": form, "use_recovery_code": use_recovery_code},
+    )
+
+
+PASSWORD_RESET_USER_SESSION_KEY = "password_reset_policy_user_id"
+
+
+class AppPasswordResetView(PasswordResetView):
+    """Send Django's time-limited reset token with a privacy-safe response."""
+
+    template_name = "registration/codex_password_reset_form.html"
+    form_class = AppPasswordResetForm
+    email_template_name = "registration/codex_password_reset_email.txt"
+    subject_template_name = "registration/codex_password_reset_subject.txt"
+    success_url = reverse_lazy("forgot_password_done")
+
+    def post(self, request, *args, **kwargs):
+        rate_limit = consume_auth_rate_limit(request, "password_reset")
+        if rate_limit.limited:
+            return self.render_to_response(
+                self.get_context_data(
+                    request_sent=True,
+                    auth_security_error=(
+                        "Zu viele Anfragen. Bitte warte, bevor du es erneut "
+                        "versuchst."
+                    ),
+                ),
+                status=429,
+                headers={"Retry-After": str(rate_limit.retry_after)},
+            )
+        if not verify_turnstile(request, "password_reset"):
+            return self.render_to_response(
+                self.get_context_data(
+                    form=self.get_form(),
+                    auth_security_error=(
+                        "Die Sicherheitsprüfung ist fehlgeschlagen. Bitte "
+                        "versuche es erneut."
+                    ),
+                ),
+                status=400,
+            )
+        return super().post(request, *args, **kwargs)
+
+    def form_valid(self, form):
+        self.request.session.pop(PASSWORD_RESET_USER_SESSION_KEY, None)
+        try:
+            return super().form_valid(form)
+        except (OSError, SMTPException):
+            return HttpResponseRedirect(self.get_success_url())
+
+
+class AppPasswordResetDoneView(PasswordResetDoneView):
+    """Show the same result for registered and unknown email addresses."""
+
+    template_name = "registration/codex_password_reset_form.html"
+    extra_context = {"request_sent": True}
+
+
+class AppPasswordResetConfirmView(PasswordResetConfirmView):
+    """Validate a reset token and apply the shared password policy."""
+
+    template_name = "registration/codex_password_reset_confirm.html"
+    form_class = AppSetPasswordForm
+    success_url = reverse_lazy("login")
+
+    def post(self, request, *args, **kwargs):
+        account_reference = kwargs.get("uidb64", "")
+        rate_limit = consume_auth_rate_limit(
+            request,
+            "password_reset_confirm",
+            account_reference=account_reference,
+        )
+        if rate_limit.limited:
+            return self.render_to_response(
+                self.get_context_data(
+                    form=self.get_form(),
+                    auth_security_error=(
+                        "Zu viele Versuche. Bitte warte, bevor du es erneut "
+                        "versuchst."
+                    ),
+                ),
+                status=429,
+                headers={"Retry-After": str(rate_limit.retry_after)},
+            )
+        if not verify_turnstile(request, "password_reset_confirm"):
+            return self.render_to_response(
+                self.get_context_data(
+                    form=self.get_form(),
+                    auth_security_error=(
+                        "Die Sicherheitsprüfung ist fehlgeschlagen. Bitte "
+                        "versuche es erneut."
+                    ),
+                ),
+                status=400,
+            )
+        return super().post(request, *args, **kwargs)
+
+    def dispatch(self, request, *args, **kwargs):
+        response = super().dispatch(request, *args, **kwargs)
+        if getattr(self, "validlink", False) and self.user is not None:
+            request.session[PASSWORD_RESET_USER_SESSION_KEY] = self.user.pk
+        return response
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        clear_auth_rate_limit(
+            self.request,
+            "password_reset_confirm",
+            account_reference=self.kwargs.get("uidb64", ""),
+        )
+        self.request.session.pop(PASSWORD_RESET_USER_SESSION_KEY, None)
+        record_security_event(
+            self.user,
+            AccountSecurityEvent.EventType.PASSWORD_RESET,
+            request=self.request,
+        )
+        messages.success(
+            self.request,
+            "Dein Passwort wurde geändert. Du kannst dich jetzt anmelden.",
+        )
+        return response
+
+
+def register(request):
+    """Create a normal user account and request email verification."""
+    if request.user.is_authenticated:
+        return redirect("dashboard")
+
+    auth_security_error = ""
+    response_status = 200
+    retry_after = 0
+    if request.method == "POST":
+        rate_limit = consume_auth_rate_limit(request, "registration")
+        if rate_limit.limited:
+            auth_security_error = (
+                "Zu viele Registrierungsversuche. Bitte warte, bevor du es "
+                "erneut versuchst."
+            )
+            response_status = 429
+            retry_after = rate_limit.retry_after
+        elif not verify_turnstile(request, "registration"):
+            auth_security_error = (
+                "Die Sicherheitsprüfung ist fehlgeschlagen. Bitte versuche "
+                "es erneut."
+            )
+            response_status = 400
+
+    registration_form = RegistrationForm(
+        request.POST if request.method == "POST" else None
+    )
+    if (
+        request.method == "POST"
+        and not auth_security_error
+        and registration_form.is_valid()
+    ):
+        user = registration_form.save()
+        request_email_verification(request, user)
+        if settings.EMAIL_VERIFICATION_REQUIRED_FOR_LOGIN:
+            return redirect("email_verification_requested")
+        auth_login(
+            request,
+            user,
+            backend="django.contrib.auth.backends.ModelBackend",
+        )
+        messages.success(
+            request,
+            "Dein Konto wurde erstellt. Bitte bestätige deine E-Mail-Adresse.",
+        )
+        return redirect("dashboard")
+
+    response = render(
+        request,
+        "registration/login.html",
+        {
+            "form": AuthenticationForm(request=request),
+            "registration_form": registration_form,
+            "active_auth_panel": "register",
+            "auth_security_error": auth_security_error,
+        },
+        status=response_status,
+    )
+    if retry_after:
+        response.headers["Retry-After"] = str(retry_after)
+    return response
+
+
+def verify_email(request, token):
+    status, user = verify_email_token(token)
+    if status == "verified":
+        record_security_event(
+            user,
+            AccountSecurityEvent.EventType.EMAIL_VERIFIED,
+            request=request,
+        )
+        messages.success(request, "Deine E-Mail-Adresse wurde bestätigt.")
+    return render(
+        request,
+        "registration/email_verification_result.html",
+        {"verification_status": status, "verified_user": user},
+    )
+
+
+def email_verification_requested(request):
+    return render(
+        request,
+        "registration/email_verification_result.html",
+        {"verification_status": "requested"},
+    )
+
+
+@require_POST
+def resend_email_verification(request):
+    account_reference = ""
+    if request.user.is_authenticated:
+        account_reference = str(request.user.pk)
+    rate_limit = consume_auth_rate_limit(
+        request,
+        "verification_resend",
+        account_reference=account_reference,
+    )
+    if rate_limit.limited:
+        response = render(
+            request,
+            "registration/email_verification_result.html",
+            {
+                "verification_status": "requested",
+                "auth_security_error": (
+                    "Zu viele Anfragen. Bitte warte, bevor du es erneut "
+                    "versuchst."
+                ),
+            },
+            status=429,
+        )
+        response.headers["Retry-After"] = str(rate_limit.retry_after)
+        return response
+    if not verify_turnstile(request, "verification_resend"):
+        return render(
+            request,
+            "registration/email_verification_result.html",
+            {
+                "verification_status": "requested",
+                "auth_security_error": (
+                    "Die Sicherheitsprüfung ist fehlgeschlagen. Bitte "
+                    "versuche es erneut."
+                ),
+            },
+            status=400,
+        )
+    if request.user.is_authenticated:
+        user = request.user
+    else:
+        email = (request.POST.get("email") or "").strip()
+        user = get_user_model().objects.filter(email__iexact=email).first()
+    if user is not None:
+        request_email_verification(request, user)
+    return render(
+        request,
+        "registration/email_verification_result.html",
+        {"verification_status": "requested"},
+    )
+
+
+@require_POST
+def password_policy_status(request):
+    """Return exact server-side status for non-local password checks."""
+    password = request.POST.get("password", "")
+    email = request.POST.get("email", "").strip()
+    candidate_user = None
+    if email:
+        candidate_user = get_user_model()(email=email)
+    else:
+        reset_user_id = request.session.get(PASSWORD_RESET_USER_SESSION_KEY)
+        if reset_user_id:
+            candidate_user = get_user_model().objects.filter(
+                pk=reset_user_id
+            ).first()
+    if candidate_user is None:
+        candidate_user = get_user_model()()
+
+    common_password_valid = True
+    try:
+        CommonPasswordValidator().validate(password, candidate_user)
+    except ValidationError:
+        common_password_valid = False
+
+    email_similarity_valid = True
+    try:
+        UserAttributeSimilarityValidator(
+            user_attributes=("email",)
+        ).validate(password, candidate_user)
+    except ValidationError:
+        email_similarity_valid = False
+
+    return JsonResponse(
+        {
+            "common_password": common_password_valid,
+            "email_similarity": email_similarity_valid,
+        }
+    )
 
 
 class AppLogoutView(LogoutView):

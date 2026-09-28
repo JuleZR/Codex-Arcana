@@ -248,6 +248,49 @@
    600px  LARGE PHONE
    ═══════════════════════════════════════════════════════════════════════ */
 @media (max-width: 600px) {
+  .dashboard_session_header,
+  .dashboard_session,
+  .dashboard_security_activity,
+  .dashboard_two_factor_status {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .dashboard_security_activity_source {
+    max-width: none;
+    text-align: left;
+  }
+
+  .dashboard_session_header .dashboard_account_link_button,
+  .dashboard_session .dashboard_account_link_button,
+  .dashboard_two_factor_status .dashboard_two_factor_start {
+    width: 100%;
+  }
+
+  .dashboard_two_factor_enrollment {
+    padding: 8px 10px 14px;
+  }
+
+  .dashboard_two_factor_enrollment legend {
+    max-width: calc(100% - 16px);
+    padding-right: 12px;
+    padding-left: 12px;
+    font-size: 0.92rem;
+  }
+
+  .dashboard_two_factor_qr_container {
+    padding-right: 10px;
+    padding-left: 10px;
+  }
+
+  .dashboard_two_factor_recovery ul {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard_two_factor_actions {
+    grid-template-columns: 1fr;
+  }
+
   .dashboard_spread {
     padding: 8px;
   }

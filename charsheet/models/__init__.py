@@ -1,6 +1,8 @@
 """Domain models grouped by concern for the charsheet app."""
 
 from .announcement import DashboardAnnouncement
+from .auth_security import AccountSecurityEvent, AuthenticationThrottle
+from .user import TwoFactorRecoveryCode, UserSettings
 from .character import (
     Character,
     CharacterAlmanacBrew,
@@ -175,6 +177,8 @@ from .techniques import (
 
 __all__ = [
     "ArmorStats",
+    "AccountSecurityEvent",
+    "AuthenticationThrottle",
     "Aspect",
     "Attribute",
     "CharacterAspect",
@@ -308,11 +312,13 @@ __all__ = [
     "TechniqueRequirement",
     "DashboardAnnouncement",
     "TechniqueSemanticEffect",
+    "TwoFactorRecoveryCode",
     "Trait",
     "TraitChoiceDefinition",
     "TraitExclusion",
     "TraitSpecificationOption",
     "TraitSemanticEffect",
+    "UserSettings",
     "VampirePower",
     "VampireTrait",
     "VampireTraitOverrideMode",

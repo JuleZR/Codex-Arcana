@@ -1,18 +1,24 @@
 {% load static %}
 <!DOCTYPE html>
-<html lang="de">
+<html lang="de"{% if active_auth_panel == 'register' %} class="registration_page_root"{% endif %}>
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" type="image/x-icon" href="{% static 'img/favicon.ico' %}">
-    <link rel="stylesheet" href="{% static 'css/login.css' %}">
-    <title>Codex Arcana - Login</title>
+    <link rel="stylesheet" href="{% static 'css/login.css' %}?v=20260927j">
+    {% if auth_turnstile_enabled %}
+      <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+    {% endif %}
+    <title>Codex Arcana - Anmeldung</title>
   </head>
-  <body>
-    <div class="login_scene">
+  <body{% if active_auth_panel == 'register' %} class="registration_page"{% endif %}>
+    <div class="login_scene{% if active_auth_panel == 'register' %} is-registering{% endif %}">
       <img class="login_graphic" src="{% static 'img/codexarcana.png' %}" alt="Codex Arcana">
-      <section class="login_box" aria-label="Login">
-        <h1>Anmeldung</h1>
+      <section class="login_box{% if active_auth_panel == 'register' %} is-registering{% endif %}" aria-label="Anmeldung">
+        <nav class="auth_switch" aria-label="Anmeldung oder Registrierung">
+          <a class="auth_switch_link{% if active_auth_panel != 'register' %} is-active{% endif %}" href="{% url 'login' %}">Login</a>
+          <a class="auth_switch_link{% if active_auth_panel == 'register' %} is-active{% endif %}" href="{% url 'register' %}">Konto erstellen</a>
+        </nav>
         {% if messages %}
           <div class="login_notice_stack">
             {% for message in messages %}
@@ -20,35 +26,84 @@
             {% endfor %}
           </div>
         {% endif %}
-        <form method="post" class="login_form">
-          {% csrf_token %}
-          {% if form.non_field_errors %}
-            <div class="login_errors">
-              Benutzername oder Passwort ist nicht korrekt. Bitte prüfe deine Eingabe.
-            </div>
-          {% endif %}
+        {% if active_auth_panel == 'register' %}
+          <section class="auth_panel" aria-labelledby="register-title">
+            <h1 id="register-title">Konto erstellen</h1>
+            <form method="post" action="{% url 'register' %}" class="login_form" data-password-policy-url="{% url 'password_policy_status' %}">
+              {% csrf_token %}
+              {% if registration_form.non_field_errors %}
+                <div class="login_errors">{{ registration_form.non_field_errors }}</div>
+              {% endif %}
+              {% if auth_security_error %}
+                <div class="login_errors" role="alert">{{ auth_security_error }}</div>
+              {% endif %}
 
-          <label class="login_label" for="id_username">Benutzername</label>
-          {{ form.username }}
-          {% if form.username.errors %}
-            <div class="field_error">{{ form.username.errors }}</div>
-          {% endif %}
+              {% for field in registration_form %}
+                <label class="login_label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                {{ field }}
+                {% if field.name == 'password1' %}
+                  {% include 'registration/_password_guidance.html' %}
+                {% endif %}
+                {% if field.errors %}
+                  <div class="field_error">{{ field.errors }}</div>
+                {% endif %}
+              {% endfor %}
 
-          <label class="login_label" for="id_password">Passwort</label>
-          {{ form.password }}
-          {% if form.password.errors %}
-            <div class="field_error">{{ form.password.errors }}</div>
-          {% endif %}
+              {% include 'registration/_turnstile.html' with turnstile_category='registration' %}
+              <button class="login_btn" type="submit">Registrieren</button>
+            </form>
+          </section>
+        {% else %}
+          <section class="auth_panel" aria-labelledby="login-title">
+            <h1 id="login-title">Anmeldung</h1>
+            <form method="post" action="{% url 'login' %}" class="login_form">
+              {% csrf_token %}
+              {% if form.non_field_errors or auth_security_error %}
+                <div class="login_errors">
+                  {% if auth_security_error %}
+                    {{ auth_security_error }}
+                  {% elif email_verification_blocked %}
+                    Bitte bestätige zuerst deine E-Mail-Adresse. Du kannst unten einen neuen Bestätigungslink anfordern.
+                  {% else %}
+                    Benutzername oder Passwort ist nicht korrekt. Bitte prüfe deine Eingabe.
+                  {% endif %}
+                </div>
+              {% endif %}
 
-          {% if next %}
-            <input type="hidden" name="next" value="{{ next }}">
-          {% endif %}
+              <label class="login_label" for="id_username">Benutzername</label>
+              {{ form.username }}
+              {% if form.username.errors %}
+                <div class="field_error">{{ form.username.errors }}</div>
+              {% endif %}
 
-          <button class="login_btn" type="submit">Login</button>
-        </form>
-        <section class="register">
-          Noch kein Konto? Bitte kontaktiere den Betreiber.
-        </section>
+              <label class="login_label" for="id_password">Passwort</label>
+              {{ form.password }}
+              {% if form.password.errors %}
+                <div class="field_error">{{ form.password.errors }}</div>
+              {% endif %}
+
+              <div class="forgot_password_link">
+                <a href="{% url 'forgot_password' %}">Passwort vergessen?</a>
+              </div>
+
+              {% if next %}
+                <input type="hidden" name="next" value="{{ next }}">
+              {% endif %}
+
+              {% include 'registration/_turnstile.html' with turnstile_category='login' %}
+              <button class="login_btn" type="submit">Login</button>
+            </form>
+            {% if email_verification_blocked %}
+              <form method="post" action="{% url 'resend_email_verification' %}" class="login_form">
+                {% csrf_token %}
+                <label class="login_label" for="resend-verification-email">E-Mail-Adresse</label>
+                <input class="l_field" id="resend-verification-email" type="email" name="email" autocomplete="email" required>
+                {% include 'registration/_turnstile.html' with turnstile_category='verification_resend' %}
+                <button class="login_btn" type="submit">Bestätigungslink erneut senden</button>
+              </form>
+            {% endif %}
+          </section>
+        {% endif %}
         <section class="legal_links" aria-label="Rechtliche Hinweise">
           <a href="{% url 'impressum' %}">Impressum</a>
           |
@@ -68,5 +123,6 @@
         }, 2000);
       });
     </script>
+    <script src="{% static 'js/password_policy.js' %}?v=20260927a"></script>
   </body>
 </html>

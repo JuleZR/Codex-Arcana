@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 import mimetypes
 import os
+from datetime import timedelta
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -52,6 +53,12 @@ def _env_bool(name: str, default: bool = False) -> bool:
     return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
+def _env_int(name: str, default: int) -> int:
+    """Read a positive integer from the environment."""
+
+    return max(1, int(os.getenv(name, str(default))))
+
+
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
@@ -76,6 +83,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "axes",
     "charsheet",
 ]
 
@@ -87,7 +95,108 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "axes.middleware.AxesMiddleware",
 ]
+
+AUTHENTICATION_BACKENDS = [
+    "charsheet.auth_security.RequestAwareAxesBackend",
+    "django.contrib.auth.backends.ModelBackend",
+]
+
+# Authentication abuse protection. Axes handles password-login failures; the
+# category map is consumed by the other public authentication endpoints.
+AUTH_LOGIN_MAX_FAILURES = _env_int("AUTH_LOGIN_MAX_FAILURES", 5)
+AUTH_LOGIN_COOLDOWN_SECONDS = _env_int(
+    "AUTH_LOGIN_COOLDOWN_SECONDS",
+    900,
+)
+AXES_FAILURE_LIMIT = AUTH_LOGIN_MAX_FAILURES
+AXES_COOLOFF_TIME = timedelta(seconds=AUTH_LOGIN_COOLDOWN_SECONDS)
+AXES_USE_ATTEMPT_EXPIRATION = True
+AXES_LOCKOUT_PARAMETERS = ["username", "ip_address"]
+AXES_RESET_ON_SUCCESS = True
+AXES_ENABLE_RETRY_AFTER_HEADER = True
+AXES_HTTP_RESPONSE_CODE = 429
+AXES_SENSITIVE_PARAMETERS = [
+    "username",
+    "password",
+    "code",
+    "recovery_code",
+    "token",
+    "cf-turnstile-response",
+]
+AXES_COOLOFF_MESSAGE = (
+    "Zu viele fehlgeschlagene Anmeldeversuche. Bitte warte und versuche es "
+    "später erneut."
+)
+
+AUTH_RATE_LIMITS = {
+    "registration": {
+        "limit": _env_int("AUTH_REGISTRATION_MAX_ATTEMPTS", 5),
+        "window": _env_int("AUTH_REGISTRATION_WINDOW_SECONDS", 3600),
+        "cooldown": _env_int("AUTH_REGISTRATION_COOLDOWN_SECONDS", 900),
+    },
+    "password_reset": {
+        "limit": _env_int("AUTH_RESET_MAX_REQUESTS", 5),
+        "window": _env_int("AUTH_RESET_WINDOW_SECONDS", 3600),
+        "cooldown": _env_int("AUTH_RESET_COOLDOWN_SECONDS", 900),
+    },
+    "password_reset_confirm": {
+        "limit": _env_int("AUTH_RESET_CONFIRM_MAX_ATTEMPTS", 10),
+        "window": _env_int("AUTH_RESET_CONFIRM_WINDOW_SECONDS", 900),
+        "cooldown": _env_int("AUTH_RESET_CONFIRM_COOLDOWN_SECONDS", 900),
+    },
+    "verification_resend": {
+        "limit": _env_int("AUTH_VERIFICATION_MAX_REQUESTS", 5),
+        "window": _env_int("AUTH_VERIFICATION_WINDOW_SECONDS", 3600),
+        "cooldown": _env_int("AUTH_VERIFICATION_COOLDOWN_SECONDS", 900),
+    },
+    "two_factor": {
+        "limit": _env_int("AUTH_2FA_MAX_ATTEMPTS", 5),
+        "window": _env_int("AUTH_2FA_WINDOW_SECONDS", 300),
+        "cooldown": _env_int("AUTH_2FA_COOLDOWN_SECONDS", 300),
+    },
+    "recovery_code": {
+        "limit": _env_int("AUTH_RECOVERY_MAX_ATTEMPTS", 5),
+        "window": _env_int("AUTH_RECOVERY_WINDOW_SECONDS", 900),
+        "cooldown": _env_int("AUTH_RECOVERY_COOLDOWN_SECONDS", 900),
+    },
+    "passkey": {
+        "limit": _env_int("AUTH_PASSKEY_MAX_ATTEMPTS", 20),
+        "window": _env_int("AUTH_PASSKEY_WINDOW_SECONDS", 300),
+        "cooldown": _env_int("AUTH_PASSKEY_COOLDOWN_SECONDS", 300),
+    },
+}
+
+# Security activity is deliberately separate from gameplay history. Entries
+# older than this are removed by the recorder and the cleanup command.
+ACCOUNT_SECURITY_ACTIVITY_RETENTION_DAYS = _env_int(
+    "ACCOUNT_SECURITY_ACTIVITY_RETENTION_DAYS",
+    365,
+)
+TWO_FACTOR_LOGIN_TIMEOUT_SECONDS = _env_int(
+    "TWO_FACTOR_LOGIN_TIMEOUT_SECONDS",
+    300,
+)
+
+AUTH_TURNSTILE_SITE_KEY = os.getenv("AUTH_TURNSTILE_SITE_KEY", "")
+AUTH_TURNSTILE_SECRET_KEY = os.getenv("AUTH_TURNSTILE_SECRET_KEY", "")
+AUTH_TURNSTILE_ENABLED = _env_bool("AUTH_TURNSTILE_ENABLED")
+AUTH_TURNSTILE_CATEGORIES = {
+    item.strip()
+    for item in os.getenv(
+        "AUTH_TURNSTILE_CATEGORIES",
+        "registration,password_reset,verification_resend",
+    ).split(",")
+    if item.strip()
+}
+AUTH_TURNSTILE_VERIFY_URL = (
+    "https://challenges.cloudflare.com/turnstile/v0/siteverify"
+)
+AUTH_TURNSTILE_TIMEOUT_SECONDS = _env_int(
+    "AUTH_TURNSTILE_TIMEOUT_SECONDS",
+    5,
+)
 
 ROOT_URLCONF = "codex_arcana.urls"
 
@@ -130,18 +239,60 @@ DATABASES = {
 
 AUTH_PASSWORD_VALIDATORS = [
     {
-        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
+        "NAME": (
+            "django.contrib.auth.password_validation."
+            "UserAttributeSimilarityValidator"
+        ),
+        "OPTIONS": {"user_attributes": ("email",)},
     },
     {
-        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
+        "NAME": (
+            "django.contrib.auth.password_validation.MinimumLengthValidator"
+        ),
+        "OPTIONS": {"min_length": 8},
     },
     {
-        "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",
+        "NAME": "charsheet.password_validation.MaximumLengthValidator",
+        "OPTIONS": {"max_length": 24},
     },
     {
-        "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
+        "NAME": "charsheet.password_validation.UppercaseValidator",
+    },
+    {
+        "NAME": "charsheet.password_validation.SpecialCharacterValidator",
+    },
+    {
+        "NAME": (
+            "django.contrib.auth.password_validation.CommonPasswordValidator"
+        ),
     },
 ]
+
+PASSWORD_RESET_TIMEOUT = int(os.getenv("PASSWORD_RESET_TIMEOUT", "86400"))
+EMAIL_VERIFICATION_TIMEOUT = int(
+    os.getenv("EMAIL_VERIFICATION_TIMEOUT", "86400")
+)
+EMAIL_VERIFICATION_REQUIRED_FOR_LOGIN = _env_bool(
+    "EMAIL_VERIFICATION_REQUIRED_FOR_LOGIN",
+    default=True,
+)
+EMAIL_VERIFICATION_RESEND_COOLDOWN = int(
+    os.getenv("EMAIL_VERIFICATION_RESEND_COOLDOWN", "60")
+)
+PASSWORD_RESET_REQUIRES_VERIFIED_EMAIL = _env_bool(
+    "PASSWORD_RESET_REQUIRES_VERIFIED_EMAIL",
+)
+DEFAULT_FROM_EMAIL = os.getenv(
+    "DJANGO_DEFAULT_FROM_EMAIL",
+    "Codex Arcana <noreply@localhost>",
+)
+EMAIL_HOST = os.getenv("DJANGO_EMAIL_HOST", "localhost")
+EMAIL_PORT = int(os.getenv("DJANGO_EMAIL_PORT", "25"))
+EMAIL_HOST_USER = os.getenv("DJANGO_EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.getenv("DJANGO_EMAIL_HOST_PASSWORD", "")
+EMAIL_USE_TLS = _env_bool("DJANGO_EMAIL_USE_TLS")
+EMAIL_USE_SSL = _env_bool("DJANGO_EMAIL_USE_SSL")
+EMAIL_TIMEOUT = int(os.getenv("DJANGO_EMAIL_TIMEOUT", "10"))
 
 
 # Internationalization

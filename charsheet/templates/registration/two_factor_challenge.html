@@ -1,0 +1,40 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/x-icon" href="{% static 'img/favicon.ico' %}">
+    <link rel="stylesheet" href="{% static 'css/login.css' %}?v=20260927j">
+    <title>Codex Arcana - Zwei-Faktor-Authentifizierung</title>
+  </head>
+  <body>
+    <div class="login_scene">
+      <img class="login_graphic" src="{% static 'img/codexarcana.png' %}" alt="Codex Arcana">
+      <section class="login_box" aria-labelledby="two-factor-title">
+        <section class="auth_panel">
+          <h1 id="two-factor-title">Zwei-Faktor-Authentifizierung</h1>
+          <p>Gib den aktuellen Code deiner Authenticator-App ein.</p>
+          <form method="post" class="login_form">
+            {% csrf_token %}
+            {% if auth_security_error %}
+              <div class="login_errors" role="alert">{{ auth_security_error }}</div>
+            {% endif %}
+            <label class="login_label" for="{{ form.code.id_for_label }}">
+              {% if use_recovery_code %}Wiederherstellungscode{% else %}Authentifizierungscode{% endif %}
+            </label>
+            {{ form.code }}
+            {% if form.code.errors %}
+              <div class="field_error">{{ form.code.errors }}</div>
+            {% endif %}
+            <button class="login_btn" type="submit" name="mode" value="totp">Code prüfen</button>
+            <button class="login_btn" type="submit" name="mode" value="recovery">Wiederherstellungscode verwenden</button>
+          </form>
+          <div class="forgot_password_link">
+            <a href="{% url 'login' %}">Zurück zur Anmeldung</a>
+          </div>
+        </section>
+      </section>
+    </div>
+  </body>
+</html>

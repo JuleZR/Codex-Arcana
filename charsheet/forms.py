@@ -6,7 +6,13 @@ from io import BytesIO
 from uuid import uuid4
 
 from django import forms
+from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.contrib.auth.forms import (
+    PasswordResetForm,
+    SetPasswordForm,
+    UserCreationForm,
+)
 from django.contrib.auth.password_validation import validate_password
 from django.core.files.base import ContentFile
 from PIL import Image, ImageOps
@@ -59,6 +65,152 @@ class UserSettingsForm(forms.ModelForm):
                 self.add_error("dddice_room_id", "Bitte eine Room ID hinterlegen.")
 
         return cleaned_data
+
+
+class RegistrationForm(UserCreationForm):
+    """Create a normal application user through Django's auth system."""
+
+    email = forms.EmailField(
+        required=True,
+        label="E-Mail-Adresse",
+        widget=forms.EmailInput(
+            attrs={"class": "l_field", "autocomplete": "email"}
+        ),
+    )
+
+    class Meta(UserCreationForm.Meta):
+        model = get_user_model()
+        fields = ("username", "email", "password1", "password2")
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["username"].label = "Benutzername"
+        self.fields["password1"].label = "Passwort"
+        self.fields["password2"].label = "Passwort bestätigen"
+        for field_name in ("username", "password1", "password2"):
+            self.fields[field_name].widget.attrs["class"] = "l_field"
+        self.fields["username"].widget.attrs["autocomplete"] = "username"
+        self.fields["password1"].widget.attrs["autocomplete"] = "new-password"
+        self.fields["password2"].widget.attrs["autocomplete"] = "new-password"
+        self.fields["password1"].widget.attrs["maxlength"] = 24
+        self.fields["password2"].widget.attrs["maxlength"] = 24
+
+    def clean_username(self):
+        username = self.cleaned_data.get("username", "").strip()
+        User = get_user_model()
+        if User.objects.filter(username__iexact=username).exists():
+            raise forms.ValidationError(
+                "Dieser Benutzername ist bereits vergeben."
+            )
+        return username
+
+    def clean_email(self):
+        email = self.cleaned_data.get("email", "").strip()
+        User = get_user_model()
+        if User.objects.filter(email__iexact=email).exists():
+            raise forms.ValidationError(
+                "Diese E-Mail-Adresse wird bereits verwendet."
+            )
+        return email
+
+
+class AppPasswordResetForm(PasswordResetForm):
+    """Collect a reset address without disclosing whether it is registered."""
+
+    email = forms.EmailField(
+        label="E-Mail-Adresse",
+        widget=forms.EmailInput(
+            attrs={"class": "l_field", "autocomplete": "email"}
+        ),
+    )
+
+    def get_users(self, email):
+        users = super().get_users(email)
+        if not settings.PASSWORD_RESET_REQUIRES_VERIFIED_EMAIL:
+            yield from users
+            return
+        for user in users:
+            if UserSettings.objects.filter(
+                user=user,
+                email_verified=True,
+                verified_email__iexact=user.email,
+            ).exists():
+                yield user
+
+
+class AppSetPasswordForm(SetPasswordForm):
+    """Apply the same Django password validators used during registration."""
+
+    error_messages = {
+        **SetPasswordForm.error_messages,
+        "password_mismatch": "Die beiden Passwörter stimmen nicht überein.",
+    }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["new_password1"].label = "Neues Passwort"
+        self.fields["new_password2"].label = "Passwort bestätigen"
+        for field_name in ("new_password1", "new_password2"):
+            self.fields[field_name].widget.attrs.update(
+                {
+                    "class": "l_field",
+                    "autocomplete": "new-password",
+                    "maxlength": 24,
+                }
+            )
+
+
+class TwoFactorCodeForm(forms.Form):
+    code = forms.CharField(
+        label="Authentifizierungscode",
+        max_length=32,
+        strip=True,
+        widget=forms.TextInput(
+            attrs={
+                "class": "l_field",
+                "autocomplete": "one-time-code",
+                "inputmode": "numeric",
+                "autofocus": True,
+            }
+        ),
+    )
+
+
+class AccountPasswordConfirmationForm(forms.Form):
+    password = forms.CharField(
+        label="Aktuelles Passwort",
+        strip=False,
+        widget=forms.PasswordInput(
+            attrs={
+                "class": "l_field",
+                "autocomplete": "current-password",
+            }
+        ),
+    )
+
+    def __init__(self, user, *args, **kwargs):
+        self.user = user
+        super().__init__(*args, **kwargs)
+
+    def clean_password(self):
+        password = self.cleaned_data["password"]
+        if not self.user.check_password(password):
+            raise forms.ValidationError("Aktuelles Passwort ist falsch.")
+        return password
+
+
+class TwoFactorDisableForm(AccountPasswordConfirmationForm):
+    code = forms.CharField(
+        label="Authentifizierungs- oder Wiederherstellungscode",
+        max_length=32,
+        strip=True,
+        widget=forms.TextInput(
+            attrs={
+                "class": "l_field",
+                "autocomplete": "one-time-code",
+            }
+        ),
+    )
 
 
 class CharacterCreateForm(forms.ModelForm):
@@ -499,6 +651,20 @@ class AccountSettingsForm(forms.Form):
             raise forms.ValidationError("Dieser Benutzername ist bereits vergeben.")
         return username
 
+    def clean_email(self):
+        email = (self.cleaned_data.get("email") or "").strip()
+        if not email:
+            return ""
+        User = get_user_model()
+        duplicate_qs = User.objects.filter(email__iexact=email).exclude(
+            pk=self.user.pk
+        )
+        if duplicate_qs.exists():
+            raise forms.ValidationError(
+                "Diese E-Mail-Adresse wird bereits verwendet."
+            )
+        return email
+
     def clean(self):
         cleaned = super().clean()
         current_password = cleaned.get("current_password") or ""
@@ -530,10 +696,11 @@ class AccountSettingsForm(forms.Form):
         password_changed = bool(self.cleaned_data.get("new_password1"))
 
         changed = False
+        self.email_changed = (self.user.email or "") != email
         if self.user.username != username:
             self.user.username = username
             changed = True
-        if (self.user.email or "") != email:
+        if self.email_changed:
             self.user.email = email
             changed = True
         if password_changed:

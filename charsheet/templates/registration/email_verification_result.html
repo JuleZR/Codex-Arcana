@@ -1,0 +1,61 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/x-icon" href="{% static 'img/favicon.ico' %}">
+    <link rel="stylesheet" href="{% static 'css/login.css' %}?v=20260927k">
+    {% if auth_turnstile_enabled %}
+      <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+    {% endif %}
+    <title>Codex Arcana - E-Mail-Bestätigung</title>
+  </head>
+  <body>
+    <div class="login_scene">
+      <img class="login_graphic" src="{% static 'img/codexarcana.png' %}" alt="Codex Arcana">
+      <section class="login_box" aria-labelledby="verification-title">
+        <section class="auth_panel">
+          <h1 id="verification-title">E-Mail-Bestätigung</h1>
+          {% if auth_security_error %}
+            <div class="login_errors" role="alert">{{ auth_security_error }}</div>
+          {% endif %}
+
+          {% if verification_status == 'verified' %}
+            <div class="login_notice">Deine E-Mail-Adresse wurde erfolgreich bestätigt.</div>
+          {% elif verification_status == 'already_verified' %}
+            <div class="login_notice">Diese E-Mail-Adresse wurde bereits bestätigt. Der Link kann nicht erneut verwendet werden.</div>
+          {% elif verification_status == 'requested' %}
+            <div class="login_notice">Falls ein unbestätigtes Konto für diese E-Mail-Adresse existiert, wurde eine neue Bestätigungs-E-Mail angefordert. Bitte prüfe auch deinen Spam-Ordner.</div>
+          {% elif verification_status == 'expired' %}
+            <div class="login_errors">Dieser Bestätigungslink ist abgelaufen. Fordere bitte einen neuen Link an.</div>
+          {% elif verification_status == 'changed' %}
+            <div class="login_errors">Die E-Mail-Adresse des Kontos wurde inzwischen geändert. Dieser Link ist nicht mehr gültig.</div>
+          {% else %}
+            <div class="login_errors">Dieser Bestätigungslink ist ungültig oder wurde bereits verwendet.</div>
+          {% endif %}
+
+          {% if verification_status == 'requested' or verification_status == 'expired' or verification_status == 'changed' or verification_status == 'invalid' %}
+            {% if verification_status != 'requested' or request.method == 'GET' %}
+              <form method="post" action="{% url 'resend_email_verification' %}" class="login_form">
+                {% csrf_token %}
+                <label class="login_label" for="verification-email">E-Mail-Adresse</label>
+                <input class="l_field" id="verification-email" type="email" name="email" autocomplete="email" required>
+                {% include 'registration/_turnstile.html' with turnstile_category='verification_resend' %}
+                <button class="login_btn" type="submit">Bestätigungslink erneut senden</button>
+              </form>
+            {% endif %}
+          {% endif %}
+
+          <div class="forgot_password_link">
+            {% if request.user.is_authenticated %}
+              <a href="{% url 'dashboard' %}">Weiter zum Dashboard</a>
+            {% else %}
+              <a href="{% url 'login' %}">Weiter zur Anmeldung</a>
+            {% endif %}
+          </div>
+        </section>
+      </section>
+    </div>
+  </body>
+</html>

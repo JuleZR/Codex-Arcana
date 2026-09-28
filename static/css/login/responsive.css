@@ -3,7 +3,7 @@
 /* ── 900px – large tablet ─────────────────────────────────────────────── */
 @media (max-width: 900px) {
   .login_scene {
-    transform: translateY(-80px);
+    transform: translateY(-25px);
   }
 }
 
@@ -31,6 +31,12 @@
     height: 100dvh;
   }
 
+  html.registration_page_root {
+    height: auto;
+    min-height: 100%;
+    overflow-y: auto;
+  }
+
   body {
     height: 100dvh;
     min-height: 0;
@@ -40,6 +46,14 @@
     background-position: center;
     place-items: center;
     padding: 12px;
+  }
+
+  body.registration_page {
+    height: auto;
+    min-height: 100dvh;
+    overflow-y: auto;
+    place-items: start center;
+    padding-bottom: 24px;
   }
 
   .login_scene {
@@ -52,10 +66,14 @@
     align-items: center;
   }
 
+  .login_scene.is-registering {
+    max-height: none;
+  }
+
   /* Logo: wider than container but capped at viewport width */
   .login_graphic {
-    width: 150%;
-    max-width: min(480px, 95vw);
+    width: 120%;
+    max-width: min(360px, 90vw);
     margin-bottom: 0;
     flex-shrink: 0;
   }
@@ -78,6 +96,7 @@
     font-size: 1.05rem;
   }
 
+  .l_field,
   .login_form input[type="text"],
   .login_form input[type="password"] {
     min-height: 44px;
@@ -94,6 +113,19 @@
     background-attachment: scroll;
     place-items: center;
     padding: 8px 16px;
+  }
+
+  html.registration_page_root {
+    height: auto;
+    min-height: 100%;
+    overflow-y: auto;
+  }
+
+  body.registration_page {
+    height: auto;
+    min-height: 100dvh;
+    overflow-y: auto;
+    place-items: start center;
   }
 
   .login_scene {
